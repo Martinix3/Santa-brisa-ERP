@@ -9,7 +9,7 @@ export * from "./ssot.marketing";
 export * from "./ssot.dataset";
 
 // Extend Account with new fields for enrichment
-import type { Account as BaseAccount } from './ssot.core';
+import type { Account as BaseAccount, Material as BaseMaterial } from './ssot.core';
 
 export interface Account extends BaseAccount {
     mainContactName?: string;
@@ -26,4 +26,9 @@ export interface Account extends BaseAccount {
     
     deliveryInstructions?: string;
     openingHours?: string;
+}
+
+export interface Material extends BaseMaterial {
+    standardCost?: number;
+    unit?: Uom;
 }

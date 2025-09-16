@@ -13,7 +13,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { AlertCircle, Check, Hourglass, X, Thermometer, FlaskConical, Beaker, TestTube2, Paperclip, Upload, Trash2, ChevronRight, ChevronDown, Save, Bug } from "lucide-react";
 import { SBCard, SBButton, SB_COLORS } from '@/components/ui/ui-primitives';
 import { useData } from "@/lib/dataprovider";
-import type { ProductionOrder as ProdOrder, Uom, Shortage, ActualConsumption, InventoryItem, Product, Material } from "@/domain/ssot";
+import type { ProductionOrder as ProdOrder, Uom, Material, Shortage, ActualConsumption, InventoryItem, Product, SantaData } from "@/domain/ssot";
 import type { RecipeBomExec as RecipeBom, ExecCheck } from '@/domain';
 import { availableForMaterial, fifoReserveLots, buildConsumptionMoves, consumeForOrder } from '@/domain/inventory.helpers';
 import { generateNextLot } from "@/lib/codes";
@@ -87,7 +87,7 @@ function computeCosting(recipe: RecipeBom, po: ProdOrder) {
 
 
 // ---------------------- UI auxiliares ----------------------
-function Pill({ children, tone = "zinc"|"green"|"red"|"blue"|"amber"|"slate" }: { children: React.ReactNode; tone?: "zinc"|"green"|"red"|"blue"|"amber"|"slate" }) {
+function Pill({ children, tone = "zinc" }: { children: React.ReactNode; tone?: "zinc"|"green"|"red"|"blue"|"amber"|"slate" }) {
   const map: any = {
     zinc: "bg-zinc-100 text-zinc-800 border border-zinc-200",
     green:"bg-green-100 text-green-800 border border-green-200",
@@ -125,7 +125,7 @@ export default function ProduccionPage() {
     useEffect(() => {
         if (!santaData) return;
         setLoading(true);
-        const recipeData = (santaData.billOfMaterials || []).map(b => ({
+        const recipeData = (santaData.billOfMaterials || []).map((b: any) => ({
             id: b.id || `bom_${b.sku}`,
             name: b.name,
             finishedSku: b.sku,
@@ -134,7 +134,7 @@ export default function ProduccionPage() {
             baseUnit: (b.baseUnit || 'L') as Uom,
             commercialSku: b.sku,
             bottlesPerLitre: b.sku.includes('700') ? 1.42 : 1.33,
-            lines: b.items.map(i => {
+            lines: b.items.map((i: any) => {
                 const mat = allMaterials.find(m => m.id === i.materialId);
                 return {
                     materialId: i.materialId,
@@ -216,7 +216,7 @@ export default function ProduccionPage() {
   const updateOrder = useCallback(async (id: string, patch: Partial<ProdOrder>) => {
     if (!santaData) return;
     
-    setData(prevData => {
+    setData((prevData: SantaData | null) => {
         if (!prevData) return prevData;
         const updatedOrders = prevData.productionOrders.map(o => {
             if (o.id === id) {
@@ -305,10 +305,10 @@ export default function ProduccionPage() {
         quality: { qcStatus: 'hold', results: {} },
     };
     
-    setData(prevData => {
+    setData((prevData: SantaData | null) => {
         if (!prevData) return prevData;
         const newLots = [...(prevData.lots || []), newLot];
-        const updatedOrders = prevData.productionOrders.map(po => 
+        const updatedOrders = prevData.productionOrders.map((po: any) => 
             po.id === o.id ? { ...po, status: "done" as const, execution: finalExecution, lotId: newLotId, costing: newLotCosting } : po
         );
         return { ...prevData, lots: newLots as any, productionOrders: updatedOrders };
@@ -526,7 +526,7 @@ function OrderDetail({ order, recipe, onClose, onStart, onFinish, onUpdate, inve
                 <p className="font-bold">Incidencias Registradas:</p>
                 {order.incidents?.length ? (
                     <ul className="list-disc list-inside text-xs">
-                        {order.incidents.map(i => <li key={i.id}>{i.text}</li>)}
+                        {order.incidents.map((i: any) => <li key={i.id}>{i.text}</li>)}
                     </ul>
                 ) : <p className="text-xs text-zinc-500">Ninguna.</p>}
               </div>
@@ -549,7 +549,7 @@ function OrderDetail({ order, recipe, onClose, onStart, onFinish, onUpdate, inve
                   <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-72 bg-zinc-800 text-white text-xs rounded-lg p-3 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
                       <p className="font-bold mb-1 border-b border-zinc-600 pb-1">⚠️ Alerta de falta de stock</p>
                       <ul className="mt-1 space-y-1">
-                          {order.shortages.map(s => (
+                          {order.shortages.map((s: any) => (
                             <li key={s.materialId} className="flex justify-between">
                               <span>{s.name}:</span>
                               <span className="font-mono">Req: {s.required.toFixed(2)} / Disp: {s.available.toFixed(2)} {s.uom}</span>
@@ -600,7 +600,7 @@ function OrderDetail({ order, recipe, onClose, onStart, onFinish, onUpdate, inve
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {inventory.map(item => (
+                                        {inventory.map((item: any) => (
                                             <tr key={item.id} className="border-t">
                                                 <td className="py-1 font-mono">{item.lotNumber?.substring(0, 12) || item.id.substring(0,12)}...</td>
                                                 <td>{item.sku}</td>
@@ -678,7 +678,7 @@ function ProtocolsBlock({ order, recipe, onToggle }: { order: ProdOrder; recipe:
     <div className="rounded-xl border border-[var(--line)]">
       <div className="px-4 py-3 border-b border-[var(--line)] text-sm text-zinc-500">Protocolos previos</div>
       <ul className="p-3 divide-y divide-[var(--line)]">
-        {(order.checks || []).map(c => (
+        {(order.checks || []).map((c: any) => (
           <li key={c.id} className="py-2 flex items-center justify-between text-sm">
             <div className="flex items-center gap-2">
               <button onClick={()=>onToggle(c.id)} className={`w-5 h-5 rounded border flex items-center justify-center ${c.done ? 'bg-green-500 border-green-600 text-white' : 'border-zinc-300'}`}>{c.done ? '✓' : ''}</button>
