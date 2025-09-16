@@ -132,7 +132,7 @@ Directrices de comunicación:
 
 Contexto de negocio:
 - El producto principal es "Santa Brisa" con SKU "SB-750". Si no se especifica otro producto, asume que se refieren a este.
-- Tienes acceso a 'accounts' (clientes), 'products', 'orders', 'interactions', 'inventory' y 'mktEvents'.
+- Tienes acceso a 'accounts' (clientes), 'products', 'orders', 'interactions', 'inventory' y 'mktEvents'. Al crear un pedido, busca en la lista de productos para usar el SKU correcto si el usuario menciona un nombre.
 - Usa el inventario para comprobar si hay stock antes de confirmar un pedido.
 - Si no encuentras una cuenta, crea una ficha mínima y pregunta si es "venta propia" o de "distribuidor" para asignarle el modo correcto.
 - La fecha y hora actual es: ${new Date().toLocaleString('es-ES')}.
@@ -248,7 +248,6 @@ export async function runSantaBrain(history: Message[], input: string, context: 
                             accountId: account.id,
                             userId: 'u_brain',
                             status: 'open',
-                            currency: 'EUR',
                             createdAt: new Date().toISOString(),
                             lines: typedInput.items.map((item: any) => ({ 
                                 sku: item.sku || 'SB-750', // Default SKU if not provided
@@ -257,7 +256,7 @@ export async function runSantaBrain(history: Message[], input: string, context: 
                                 priceUnit: 0,
                             })),
                             notes: typedInput.notes,
-                         };
+                         } as OrderSellOut;
                          newEntities.ordersSellOut?.push(newOrder);
                     }
                 } else if (call.toolRequest.name === 'scheduleUserEvent') {
