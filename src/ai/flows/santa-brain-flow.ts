@@ -10,8 +10,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import type { Interaction, OrderSellOut, EventMarketing, Product, Account, SantaData } from '@/domain/ssot';
-import { generateNextOrder } from '@/lib/codes';
+import type { Interaction, OrderSellOut, EventMarketing, Product, Account, SantaData, InventoryItem } from '@/domain/ssot';
 import { Message } from 'genkit';
 import { gemini } from '@genkit-ai/googleai';
 
@@ -29,9 +28,9 @@ const AddInteractionSchema = z.object({
 const CreateOrderSchema = z.object({
   accountName: z.string().describe('The exact name of the customer account.'),
   items: z.array(z.object({
-    sku: z.string().describe('The SKU of the product.'),
+    sku: z.string().optional().describe("The SKU of the product. If not specified, it will default to Santa Brisa's main product."),
     quantity: z.number().describe('The quantity of units or cases.'),
-    unit: z.enum(['ud', 'caja']).describe("The unit of measure ('ud' or 'caja')."),
+    unit: z.enum(['ud', 'caja']).describe("The unit of measure ('ud' for units/bottles or 'caja' for cases)."),
   })).describe('A list of products and quantities for the order.'),
   notes: z.string().optional().describe('Additional notes for the order.'),
 });
@@ -120,28 +119,44 @@ const upsertAccountTool = ai.defineTool(
 //      ASSISTANT PROMPT
 // =================================
 
-const santaBrainSystemPrompt = `Eres Santa Brain, el asistente de IA experto para el equipo de Santa Brisa.
-Tu objetivo es ayudarles a registrar información y realizar acciones de forma rápida y eficiente.
-Eres amable, proactivo y siempre buscas aclarar la información si es necesario.
-Cuando uses una herramienta, responde siempre con un mensaje de confirmación claro y conciso para el usuario.
-No inventes información, si no sabes algo o no puedes hacer algo, dilo claramente.
+const santaBrainSystemPrompt = `Eres Santa Brain, el asistente de IA para el equipo de Santa Brisa. Tu tono es cercano, servicial y proactivo, como una secretaria eficiente y de buen humor.
 
-El contexto de la aplicación incluye una lista de cuentas (clientes) y productos.
-- Cuando el usuario mencione un cliente, busca la coincidencia exacta en la lista de cuentas proporcionada. Si no la encuentras o hay ambigüedad, pregunta al usuario para aclarar.
+Tu objetivo principal es ayudar a registrar información y realizar acciones rápidamente. Evita ser robótico.
+
+Directrices de comunicación:
+- En lugar de preguntar para confirmar cada detalle, resume la acción que vas a tomar y pide una simple confirmación. Por ejemplo: "Ok, apunto 5 cajas de Santa Brisa (SB-750) para Bar Roma. ¿Correcto?".
+- Cuando creas una cuenta nueva, celébralo con entusiasmo. Ejemplo: "¡Bien! Parece que tenemos cliente nuevo. ¿Lo apunto a un distribuidor o es venta propia?".
+- Sé proactivo. Después de un pedido, pregunta por PLV. Ejemplo: "¿Necesitan vasos o algo más?".
+- Ofrece ayuda de forma casual. Ejemplo: "Ok, si necesitan cubiteras o quieres que busque algo sobre la cuenta, me dices.".
+- No inventes información. Si no sabes algo, dilo claramente.
+
+Contexto de negocio:
+- El producto principal es "Santa Brisa" con SKU "SB-750". Si no se especifica otro producto, asume que se refieren a este.
+- Tienes acceso a 'accounts' (clientes), 'products', 'orders', 'interactions', 'inventory' y 'mktEvents'. Al crear un pedido, busca en la lista de productos para usar el SKU correcto si el usuario menciona un nombre.
+- Usa el inventario para comprobar si hay stock antes de confirmar un pedido.
+- Si no encuentras una cuenta, crea una ficha mínima y pregunta si es "venta propia" o de "distribuidor" para asignarle el modo correcto.
 - La fecha y hora actual es: ${new Date().toLocaleString('es-ES')}.
 
 Capacidades:
-- Puedes registrar interacciones (visitas, llamadas...).
-- Puedes crear pedidos.
-- Puedes programar eventos de marketing.
-- Puedes crear y actualizar cuentas de clientes.`;
+- Registrar interacciones (visitas, llamadas...).
+- Crear pedidos y sugerir PLV.
+- Programar eventos de marketing.
+- Crear y actualizar cuentas de clientes.
+- Consultar inventario, historial de pedidos y agenda de eventos.`;
 
 
 // =================================
 //      MAIN RUNNER FUNCTION
 // =================================
 
-type ChatContext = { accounts: Account[], products: Product[] };
+export type ChatContext = { 
+    accounts: Account[], 
+    products: Product[],
+    orders: OrderSellOut[],
+    interactions: Interaction[],
+    inventory: InventoryItem[],
+    mktEvents: EventMarketing[],
+};
 
 export async function runSantaBrain(history: Message[], input: string, context: ChatContext): Promise<{ finalAnswer: string, newEntities: Partial<SantaData> }> {
     
@@ -162,81 +177,95 @@ export async function runSantaBrain(history: Message[], input: string, context: 
     const newEntities: Partial<SantaData> = { interactions: [], ordersSellOut: [], mktEvents: [], accounts: [] };
 
     if (toolRequests.length > 0) {
-        const toolResponses = [];
-        
-        for (const call of toolRequests) {
-            let result: any;
-            const toolToRun = tools.find(t => t.name === call.toolRequest.name);
-            
-            if (toolToRun) {
-                result = await toolToRun(call.toolRequest.input as any);
-            } else {
-                result = { success: false, error: `Tool ${call.toolRequest.name} not found.` };
+        const toolResponses: any[] = [];
+        const accountsCreatedInThisTurn: Account[] = [];
+
+        // Execute all tool calls
+        for (const toolRequest of toolRequests) {
+            const tool = tools.find(t => t.name === toolRequest.name);
+            if (!tool) {
+                toolResponses.push({ toolResponse: { name: toolRequest.name, output: { success: false, error: 'Tool not found' } } });
+                continue;
             }
 
-            toolResponses.push({ toolResponse: { name: call.toolRequest.name, output: result } });
-            
-            const typedInput = call.toolRequest.input as any;
+            try {
+                const output = await tool(toolRequest.input as any);
+                toolResponses.push({ toolResponse: { name: toolRequest.name, output } });
 
-            if (call.toolRequest.name === 'createInteraction' && result.success) {
-                const account = context.accounts.find(a => a.name === typedInput.accountName);
-                if (account) {
-                    const newInteraction: Interaction = {
-                        id: result.interactionId,
-                        accountId: account.id,
-                        userId: 'u_brain', // Hardcoded for now
-                        kind: typedInput.kind,
-                        note: typedInput.note,
-                        createdAt: new Date().toISOString(),
-                        dept: 'VENTAS'
-                    };
-                    newEntities.interactions?.push(newInteraction);
+                // If a tool call was successful, create the corresponding SSOT entity
+                if (output.success) {
+                    if (toolRequest.name === 'upsertAccount') {
+                        const typedInput = toolRequest.input as z.infer<typeof UpsertAccountSchema>;
+                        const newAccount: Account = {
+                            ...typedInput,
+                            id: output.accountId,
+                            createdAt: new Date().toISOString(),
+                            stage: typedInput.stage || 'POTENCIAL',
+                            type: typedInput.type || 'HORECA',
+                            mode: { mode: 'PROPIA_SB', ownerUserId: 'u_brain', biller: 'SB' },
+                        };
+                        newEntities.accounts?.push(newAccount);
+                        accountsCreatedInThisTurn.push(newAccount);
+                    } else {
+                        // For other tools, find the account (newly created or existing)
+                        const accountName = (toolRequest.input as any).accountName;
+                        const account = accountsCreatedInThisTurn.find(a => a.name === accountName) || context.accounts.find(a => a.name === accountName);
+                        
+                        if (account) {
+                            if (toolRequest.name === 'createInteraction') {
+                                const typedInput = toolRequest.input as z.infer<typeof AddInteractionSchema>;
+                                newEntities.interactions?.push({
+                                    id: output.interactionId,
+                                    accountId: account.id,
+                                    userId: 'u_brain',
+                                    kind: typedInput.kind,
+                                    note: typedInput.note,
+                                    createdAt: new Date().toISOString(),
+                                    dept: 'VENTAS'
+                                });
+                            } else if (toolRequest.name === 'createOrder') {
+                                const typedInput = toolRequest.input as z.infer<typeof CreateOrderSchema>;
+                                newEntities.ordersSellOut?.push({
+                                    id: output.orderId,
+                                    accountId: account.id,
+                                    userId: 'u_brain',
+                                    status: 'open',
+                                    createdAt: new Date().toISOString(),
+                                    lines: typedInput.items.map(item => ({ 
+                                        sku: item.sku || 'SB-750',
+                                        qty: item.quantity,
+                                        unit: item.unit || 'ud',
+                                        priceUnit: 0,
+                                    })),
+                                    biller: 'SB',
+                                } as OrderSellOut);
+                            }
+                        }
+                    }
+                    if (toolRequest.name === 'scheduleUserEvent') {
+                        const typedInput = toolRequest.input as z.infer<typeof ScheduleEventSchema>;
+                        newEntities.mktEvents?.push({
+                            id: output.eventId,
+                            title: typedInput.title,
+                            kind: typedInput.kind,
+                            status: 'planned',
+                            startAt: typedInput.startAt,
+                            city: typedInput.location,
+                        });
+                    }
                 }
-            } else if (call.toolRequest.name === 'createOrder' && result.success) {
-                const account = context.accounts.find(a => a.name === typedInput.accountName);
-                if (account) {
-                     const newOrder: OrderSellOut = {
-                        id: result.orderId,
-                        accountId: account.id,
-                        userId: 'u_brain',
-                        status: 'open',
-                        currency: 'EUR',
-                        createdAt: new Date().toISOString(),
-                        lines: typedInput.items.map((item: any) => ({ ...item, priceUnit: 0, unit: item.unit || 'ud' })),
-                        notes: typedInput.notes,
-                     };
-                     newEntities.ordersSellOut?.push(newOrder);
-                }
-            } else if (call.toolRequest.name === 'scheduleUserEvent' && result.success) {
-                const newEvent: EventMarketing = {
-                    id: result.eventId,
-                    title: typedInput.title,
-                    kind: typedInput.kind,
-                    status: 'planned',
-                    startAt: typedInput.startAt,
-                    city: typedInput.location,
-                };
-                newEntities.mktEvents?.push(newEvent);
-            } else if (call.toolRequest.name === 'upsertAccount' && result.success) {
-                const newAccount: Account = {
-                    ...typedInput,
-                    id: result.accountId,
-                    createdAt: new Date().toISOString(),
-                    // Fill in defaults for required fields if they are missing
-                    stage: typedInput.stage || 'POTENCIAL',
-                    type: typedInput.type || 'HORECA',
-                    mode: typedInput.mode || { mode: 'PROPIA_SB', ownerUserId: 'u_brain', biller: 'SB' },
-                };
-                newEntities.accounts?.push(newAccount);
+            } catch (e: any) {
+                toolResponses.push({ toolResponse: { name: toolRequest.name, output: { success: false, error: e.message } } });
             }
         }
         
+        // Generate the final response based on tool execution
         const finalResponse = await ai.generate({
             model: gemini('gemini-2.5-flash'),
             system: santaBrainSystemPrompt,
             messages: [
                 ...history,
-                llmResponse.output()!,
+                llmResponse.output(),
                 { role: 'user', content: toolResponses },
             ],
             context: [
@@ -246,5 +275,6 @@ export async function runSantaBrain(history: Message[], input: string, context: 
         return { finalAnswer: finalResponse.text, newEntities };
     }
 
+    // If no tools were called, just return the text response
     return { finalAnswer: llmResponse.text, newEntities };
 }
