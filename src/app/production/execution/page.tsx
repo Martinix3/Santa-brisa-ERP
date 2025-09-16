@@ -301,7 +301,7 @@ export default function ProduccionPage() {
         quality: { qcStatus: 'hold', results: {} },
     };
     
-    setData((prevData) => {
+    setData((prevData: SantaData | null) => {
         if (!prevData) return prevData;
         const newLots = [...(prevData.lots || []), newLot];
         const updatedOrders = prevData.productionOrders.map((po: any) => 

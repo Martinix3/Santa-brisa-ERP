@@ -1,3 +1,4 @@
+
 // src/domain/ssot.ts
 
 // ---- Primitivas / enums
@@ -414,6 +415,7 @@ export interface SantaData {
   trace: any[];
   qcTests: any[];
 }
+export type { RecipeBomExec } from './production.exec';
 
 // Helpers canónicos que ya usas
 export function inWindow(iso: string, start: number|Date, end: number|Date) {

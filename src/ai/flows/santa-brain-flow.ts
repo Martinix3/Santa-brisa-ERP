@@ -139,8 +139,9 @@ export async function runSantaBrain(history: Message[], input: string, context: 
     const llmResponse = await ai.generate({
         model: gemini('gemini-2.5-flash'),
         prompt: input,
-        history: history,
+        // history: history, // 'history' is not a valid option in this version's GenerateOptions.
         tools: [createInteractionTool, createOrderTool, createEventTool],
+        messages: history,
         context: [
           { role: 'context', content: [{ text: `Contexto de negocio: ${JSON.stringify(context)}` } ] },
         ],
@@ -215,11 +216,17 @@ export async function runSantaBrain(history: Message[], input: string, context: 
         
         const finalResponse = await ai.generate({
             model: gemini('gemini-2.5-flash'),
-            history: [
-              ...history,
-              { role: 'user', content: [{ text: input }] },
-              { role: 'model', content: llmResponse.output()?.content.parts || [] },
-              { role: 'user', content: toolResponses },
+            // history: [
+            //   ...history,
+            //   { role: 'user', content: [{ text: input }] },
+            //   { role: 'model', content: llmResponse.output()?.content.parts || [] },
+            //   { role: 'user', content: toolResponses },
+            // ],
+            messages: [
+                ...history,
+                { role: 'user', content: [{ text: input }] },
+                llmResponse.output()!,
+                { role: 'user', content: toolResponses, },
             ],
             context: [
                { role: 'context', content: { text: `Contexto de negocio: ${JSON.stringify(context)}` } },

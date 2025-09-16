@@ -14,8 +14,9 @@ export function selectTemplate(name: string, data: any, theme: any): React.React
   
   // Return a non-JSX object for server-side test environment (like Vitest)
   return {
-    type: { name: 'Document' },
+    type: 'Document' as any,
     props: {},
-    key: null
+    key: null,
+    ref: null,
   };
 }

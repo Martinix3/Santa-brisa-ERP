@@ -23,7 +23,7 @@ export const SBDialog = ({ open, onOpenChange, children }: { open: boolean, onOp
 );
 
 // --- Trigger ---
-export const SBDialogTrigger = React.forwardRef<HTMLButtonElement, { asChild?: boolean, children: React.ReactElement }>(
+export const SBDialogTrigger = React.forwardRef<HTMLButtonElement, { asChild?: boolean, children: React.ReactNode }>(
   ({ asChild = false, children, ...props }, ref: any) => {
     const context = React.useContext(DialogContext);
     if (!context) throw new Error("SBDialogTrigger must be used within a SBDialog");
@@ -34,14 +34,18 @@ export const SBDialogTrigger = React.forwardRef<HTMLButtonElement, { asChild?: b
       return null;
     }
 
-    return cloneElement(child as ReactElement<any>, {
-      ...props,
-      ref,
-      onClick: (e: React.MouseEvent<HTMLElement>) => {
-        context.onOpenChange(true);
-        if (child.props.onClick) child.props.onClick(e);
-      },
-    });
+    const childProps: any = {
+        ...props,
+        ref,
+        onClick: (e: React.MouseEvent<HTMLElement>) => {
+            context.onOpenChange(true);
+            if (child.props && typeof child.props.onClick === 'function') {
+                child.props.onClick(e);
+            }
+        },
+    };
+
+    return cloneElement(child, childProps);
   }
 );
 SBDialogTrigger.displayName = 'SBDialogTrigger';
