@@ -11,7 +11,7 @@ import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import type { Interaction, OrderSellOut, EventMarketing, Product, Account, SantaData } from '@/domain/schema';
 import { generateNextOrder } from '@/lib/codes';
-import { generate, Part, Message, ToolRequestPart } from 'genkit';
+import { Part, Message, ToolRequestPart } from 'genkit';
 import { gemini } from '@genkit-ai/googleai';
 
 // =================================
@@ -121,12 +121,12 @@ type ChatContext = { accounts: Account[], products: Product[] };
 
 export async function runSantaBrain(history: Message[], input: string, context: ChatContext): Promise<{ finalAnswer: string, newEntities: Partial<SantaData> }> {
     
-    const llmResponse = await generate({
+    const llmResponse = await ai.generate({
         model: gemini('gemini-2.5-flash'),
         history: history,
         prompt: input,
         context: [
-          { role: 'context', content: { accounts: context.accounts, products: context.products } },
+          { role: 'context', content: { accounts: context.accounts, products: context.products } as any },
         ],
         tools: [createInteractionTool, createOrderTool, createEventTool]
       });
@@ -187,7 +187,7 @@ export async function runSantaBrain(history: Message[], input: string, context: 
             }
         }
         
-        const finalResponse = await generate({
+        const finalResponse = await ai.generate({
             model: gemini('gemini-2.5-flash'),
             history: [
               ...history,
@@ -196,7 +196,7 @@ export async function runSantaBrain(history: Message[], input: string, context: 
               { role: 'user', content: toolResponses },
             ],
             context: [
-              { role: 'context', content: { accounts: context.accounts, products: context.products } },
+              { role: 'context', content: { accounts: context.accounts, products: context.products } as any },
             ],
           });
         return { finalAnswer: finalResponse.text, newEntities };
