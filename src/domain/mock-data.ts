@@ -144,7 +144,7 @@ export const TRACE_EVENTS: SantaData['traceEvents'] = [
 
 
 export const INVENTORY: SantaData['inventory'] = [
-    ...LOTS.filter(l => l.kind === 'RM').map(l => ({ id: `inv_${l.id}`, sku: l.sku, lotNumber: l.id, uom: 'L' as const, qty: l.quantity || 0, locationId: 'RM/MAIN', updatedAt: l.updatedAt || '' })),
+    ...LOTS.filter(l => l.kind === 'RM').map(l => ({ id: `inv_${l.id}`, sku: l.sku, lotNumber: l.id, uom: 'L' as const, qty: l.quantity || 0, locationId: 'RM/MAIN', updatedAt: l.updatedAt || '', expDate: l.expDate })),
 ];
 
 // --- Full SSOT Mock Object ---

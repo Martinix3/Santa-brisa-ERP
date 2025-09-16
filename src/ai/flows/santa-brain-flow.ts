@@ -8,7 +8,7 @@
  *   crear pedidos, interacciones o eventos.
  */
 import { ai } from '@/ai/genkit';
-import { z, type ZodTypeAny } from 'zod';
+import { z } from 'zod';
 import type { Interaction, OrderSellOut, EventMarketing, Product, Account, SantaData } from '@/domain/ssot';
 import { generateNextOrder } from '@/lib/codes';
 import { Part, Message } from 'genkit';
@@ -22,12 +22,12 @@ const AddInteractionInput = z.object({
   accountName: z.string().describe('El nombre exacto de la cuenta del cliente.'),
   kind: z.enum(['VISITA', 'LLAMADA', 'EMAIL', 'WHATSAPP', 'OTRO']).describe('El tipo de interacción.'),
   note: z.string().describe('Un resumen de lo que se habló o sucedió en la interacción.'),
-}) as ZodTypeAny;
+});
 
 const AddInteractionOutput = z.object({
   interactionId: z.string(),
   success: z.boolean(),
-}) as ZodTypeAny;
+});
 
 const CreateOrderInput = z.object({
   accountName: z.string().describe('El nombre exacto de la cuenta del cliente.'),
@@ -37,24 +37,24 @@ const CreateOrderInput = z.object({
     unit: z.enum(['ud', 'caja']).describe("La unidad de medida ('ud' o 'caja')."),
   })).describe('Una lista de los productos y cantidades del pedido.'),
   notes: z.string().optional().describe('Notas adicionales para el pedido.'),
-}) as ZodTypeAny;
+});
 
 const CreateOrderOutput = z.object({
   orderId: z.string(),
   success: z.boolean(),
-}) as ZodTypeAny;
+});
 
 const CreateEventInput = z.object({
   title: z.string().describe('El título del evento.'),
   kind: z.enum(['DEMO', 'FERIA', 'FORMACION', 'POPUP', 'OTRO']).describe('El tipo de evento.'),
   startAt: z.string().describe('La fecha y hora de inicio en formato ISO 8601.'),
   location: z.string().optional().describe('La ciudad o lugar del evento.'),
-}) as ZodTypeAny;
+});
 
 const CreateEventOutput = z.object({
   eventId: z.string(),
   success: z.boolean(),
-}) as ZodTypeAny;
+});
 
 
 // =================================
@@ -139,7 +139,7 @@ export async function runSantaBrain(history: Message[], input: string, context: 
     const llmResponse = await ai.generate({
         model: gemini('gemini-2.5-flash'),
         prompt: input,
-        history,
+        history: history,
         context: [
           { role: 'context', content: [{ text: `Contexto de negocio: ${JSON.stringify(context)}` } ] },
         ],
@@ -205,7 +205,7 @@ export async function runSantaBrain(history: Message[], input: string, context: 
             history: [
               ...history,
               { role: 'user', content: [{ text: input }] },
-              { role: 'model', content: llmResponse.candidates[0].content.parts },
+              { role: 'model', content: llmResponse.raw.candidates[0].content.parts },
               { role: 'user', content: toolResponses },
             ],
             context: [
