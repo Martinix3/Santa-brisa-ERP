@@ -12,10 +12,13 @@ import { Message } from 'genkit';
 async function persistNewEntities(payload: any) {
   const r = await fetch('/api/brain-persist', {
     method: 'POST',
-    headers: { 'Content-Type':'application/json' },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  if (!r.ok) throw new Error('Error guardando las entidades');
+  if (!r.ok) {
+    const errorBody = await r.json();
+    throw new Error(errorBody.error || 'Error guardando las entidades');
+  }
   return r.json();
 }
 
