@@ -1,3 +1,4 @@
+
 {
   "name": "santa-brisa-app",
   "version": "1.1.0",
@@ -34,9 +35,9 @@
     "papaparse": "^5.5.3",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
-    "recharts": "^3.2.1",
+    "recharts": "^2.12.7",
     "server-only": "^0.0.1",
-    "zod": "3.23.8"
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",

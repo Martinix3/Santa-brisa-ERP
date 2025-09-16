@@ -3,15 +3,14 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Send, User, Bot, Loader, CheckCircle, AlertTriangle } from 'lucide-react';
-import type { Account, Product, SantaData } from '@/domain/ssot';
+import type { Account, Product, SantaData, OrderSellOut, Interaction, InventoryItem, EventMarketing } from '@/domain/ssot';
 import { Message } from 'genkit';
+import type { ChatContext } from '@/ai/flows/santa-brain-flow';
+
 
 type ChatProps = {
     userId: string;
-    context: {
-        accounts: Account[];
-        products: Product[];
-    };
+    context: ChatContext;
     onNewData: (data: Partial<SantaData>) => void;
     runner: (history: Message[], input: string, context: ChatProps['context']) => Promise<{ finalAnswer: string; newEntities: Partial<SantaData> }>;
 };
@@ -46,7 +45,7 @@ export function Chat({ userId, context, onNewData, runner }: ChatProps) {
             const assistantMessage: Message = { role: 'model', content: [{text: finalAnswer}] } as Message;
             setMessages(prev => [...prev, assistantMessage]);
             
-            if (newEntities && (newEntities.interactions?.length || newEntities.ordersSellOut?.length || newEntities.mktEvents?.length)) {
+            if (newEntities && (newEntities.interactions?.length || newEntities.ordersSellOut?.length || newEntities.mktEvents?.length || newEntities.accounts?.length)) {
                 onNewData(newEntities);
             }
 
