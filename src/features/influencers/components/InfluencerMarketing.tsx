@@ -137,17 +137,17 @@ function CollabForm({
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3">
-        <div><label className="text-xs text-zinc-600">Creador/a</label><Input value={creatorName} onChange={e => setCreatorName(e.target.value)} placeholder="Ej. Marta Foodie" /></div>
-        <div><label className="text-xs text-zinc-600">Handle</label><Input value={handle} onChange={e => setHandle(e.target.value)} placeholder="@usuario" /></div>
+        <div><label className="text-xs text-zinc-600">Creador/a</label><Input value={creatorName} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCreatorName(e.target.value)} placeholder="Ej. Marta Foodie" /></div>
+        <div><label className="text-xs text-zinc-600">Handle</label><Input value={handle} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setHandle(e.target.value)} placeholder="@usuario" /></div>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div><label className="text-xs text-zinc-600">Plataforma</label>
-          <Select value={platform} onChange={e => setPlatform(e.target.value as Platform)}>
+          <Select value={platform} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setPlatform(e.target.value as Platform)}>
             <option>Instagram</option><option>TikTok</option><option>YouTube</option><option>Twitch</option><option>Blog</option><option>Otro</option>
           </Select>
         </div>
         <div><label className="text-xs text-zinc-600">Tier</label>
-          <Select value={tier} onChange={e => setTier(e.target.value as Tier)}>
+          <Select value={tier} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setTier(e.target.value as Tier)}>
             <option value="nano">nano (&lt;10k)</option>
             <option value="micro">micro (10–100k)</option>
             <option value="mid">mid (100–500k)</option>
@@ -158,7 +158,7 @@ function CollabForm({
 
       <div className="grid grid-cols-3 gap-3">
         <div><label className="text-xs text-zinc-600">Estado</label>
-          <Select value={status} onChange={e => setStatus(e.target.value as InfStatus)}>
+          <Select value={status} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setStatus(e.target.value as InfStatus)}>
             <option value="PROSPECT">Prospect</option>
             <option value="OUTREACH">Outreach</option>
             <option value="NEGOTIATING">Negotiating</option>
@@ -169,31 +169,31 @@ function CollabForm({
             <option value="DECLINED">Declined</option>
           </Select>
         </div>
-        <div><label className="text-xs text-zinc-600">Owner</label><Input value={owner} onChange={e => setOwner(e.target.value)} placeholder="Nico / Annso / …" /></div>
+        <div><label className="text-xs text-zinc-600">Owner</label><Input value={owner} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOwner(e.target.value)} placeholder="Nico / Annso / …" /></div>
         <div><label className="text-xs text-zinc-600">Compensación</label>
-          <Select value={compType} onChange={e => setCompType(e.target.value as CompType)}>
+          <Select value={compType} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setCompType(e.target.value as CompType)}>
             <option value="gift">Gift</option><option value="flat">Flat</option><option value="cpa">CPA</option><option value="cpc">CPC</option><option value="revshare">RevShare</option>
           </Select>
         </div>
       </div>
 
       <div className="grid grid-cols-3 gap-3">
-        <div><label className="text-xs text-zinc-600">Importe (€)</label><Input type="number" value={compAmount} onChange={e => setCompAmount(Number(e.target.value || 0))} placeholder="p.ej. 500" /></div>
-        <div><label className="text-xs text-zinc-600">Cupón</label><Input value={coupon} onChange={e => setCoupon(e.target.value)} placeholder="SB-MARTA10" /></div>
-        <div><label className="text-xs text-zinc-600">UTM</label><Input value={utm} onChange={e => setUtm(e.target.value)} placeholder="utm_campaign=SB_influencers_..." /></div>
+        <div><label className="text-xs text-zinc-600">Importe (€)</label><Input type="number" value={compAmount} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCompAmount(Number(e.target.value || 0))} placeholder="p.ej. 500" /></div>
+        <div><label className="text-xs text-zinc-600">Cupón</label><Input value={coupon} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCoupon(e.target.value)} placeholder="SB-MARTA10" /></div>
+        <div><label className="text-xs text-zinc-600">UTM</label><Input value={utm} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUtm(e.target.value)} placeholder="utm_campaign=SB_influencers_..." /></div>
       </div>
-      <div><label className="text-xs text-zinc-600">Landing</label><Input value={landingUrl} onChange={e => setLU(e.target.value)} placeholder="https://santabrisa.es/pack-marta?..." /></div>
+      <div><label className="text-xs text-zinc-600">Landing</label><Input value={landingUrl} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLU(e.target.value)} placeholder="https://santabrisa.es/pack-marta?..." /></div>
 
       <div className="rounded-xl border border-zinc-200 overflow-hidden">
         <div className="px-3 py-2 text-xs uppercase tracking-wide text-zinc-500 border-b bg-zinc-50">Entregables</div>
         {deliverables.map((d, i) => (
           <div key={i} className="grid grid-cols-[1.2fr_0.6fr_1fr_40px] gap-2 items-center px-3 py-2 border-b last:border-b-0">
-            <Select value={d.kind} onChange={e => setDeliv(i, { kind: e.target.value as Deliverable })}>
+            <Select value={d.kind} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setDeliv(i, { kind: e.target.value as Deliverable })}>
               <option value="post">Post</option><option value="story">Story</option><option value="reel">Reel</option>
               <option value="short">Short</option><option value="video_long">Video largo</option><option value="stream">Stream</option><option value="blogpost">Blogpost</option>
             </Select>
-            <Input type="number" min={1} value={d.qty} onChange={e => setDeliv(i, { qty: Number(e.target.value) })} />
-            <Input type="datetime-local" value={d.dueAt || ""} onChange={e => setDeliv(i, { dueAt: e.target.value })} />
+            <Input type="number" min={1} value={d.qty} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDeliv(i, { qty: Number(e.target.value) })} />
+            <Input type="datetime-local" value={d.dueAt || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDeliv(i, { dueAt: e.target.value })} />
             <button onClick={() => rmDeliv(i)} className="p-2 rounded-md hover:bg-zinc-100" aria-label="Eliminar"><X className="h-4 w-4" /></button>
           </div>
         ))}
@@ -204,7 +204,7 @@ function CollabForm({
         </div>
       </div>
 
-      <div><label className="text-xs text-zinc-600">Notas</label><Textarea rows={3} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Bajada creativa, referencias, aprobaciones…" /></div>
+      <div><label className="text-xs text-zinc-600">Notas</label><Textarea rows={3} value={notes} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNotes(e.target.value)} placeholder="Bajada creativa, referencias, aprobaciones…" /></div>
 
       <div className="flex justify-end gap-2">
         <button onClick={onCancel} className="px-3 py-2 text-sm rounded-lg border border-zinc-300 bg-white hover:bg-zinc-50">Cancelar</button>
@@ -255,25 +255,25 @@ function ResultsForm({
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-4 gap-3">
-        <div><label className="text-xs text-zinc-600">Clicks</label><Input type="number" value={clicks} onChange={e => setClicks(+e.target.value)} /></div>
-        <div><label className="text-xs text-zinc-600">Pedidos</label><Input type="number" value={orders} onChange={e => setOrders(+e.target.value)} /></div>
-        <div><label className="text-xs text-zinc-600">Ingresos (€)</label><Input type="number" value={revenue} onChange={e => setRevenue(+e.target.value)} /></div>
-        <div><label className="text-xs text-zinc-600">Views/Imp.</label><Input type="number" value={views} onChange={e => setViews(+e.target.value)} /></div>
+        <div><label className="text-xs text-zinc-600">Clicks</label><Input type="number" value={clicks} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setClicks(+e.target.value)} /></div>
+        <div><label className="text-xs text-zinc-600">Pedidos</label><Input type="number" value={orders} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOrders(+e.target.value)} /></div>
+        <div><label className="text-xs text-zinc-600">Ingresos (€)</label><Input type="number" value={revenue} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRevenue(+e.target.value)} /></div>
+        <div><label className="text-xs text-zinc-600">Views/Imp.</label><Input type="number" value={views} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setViews(+e.target.value)} /></div>
       </div>
       <div className="grid grid-cols-4 gap-3">
-        <div><label className="text-xs text-zinc-600">Likes</label><Input type="number" value={likes} onChange={e => setLikes(+e.target.value)} /></div>
-        <div><label className="text-xs text-zinc-600">Comentarios</label><Input type="number" value={comments} onChange={e => setComments(+e.target.value)} /></div>
-        <div><label className="text-xs text-zinc-600">Saves</label><Input type="number" value={saves} onChange={e => setSaves(+e.target.value)} /></div>
-        <div><label className="text-xs text-zinc-600">Shares</label><Input type="number" value={shares} onChange={e => setShares(+e.target.value)} /></div>
+        <div><label className="text-xs text-zinc-600">Likes</label><Input type="number" value={likes} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLikes(+e.target.value)} /></div>
+        <div><label className="text-xs text-zinc-600">Comentarios</label><Input type="number" value={comments} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setComments(+e.target.value)} /></div>
+        <div><label className="text-xs text-zinc-600">Saves</label><Input type="number" value={saves} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSaves(+e.target.value)} /></div>
+        <div><label className="text-xs text-zinc-600">Shares</label><Input type="number" value={shares} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setShares(+e.target.value)} /></div>
       </div>
 
       <div className="rounded-xl border border-zinc-200">
         <div className="px-3 py-2 text-xs uppercase tracking-wide text-zinc-500 border-b bg-zinc-50">Costes</div>
         <div className="grid grid-cols-4 gap-3 p-3">
-          <div><label className="text-xs text-zinc-600">Producto</label><Input type="number" value={productCost} onChange={e => setPC(+e.target.value)} /></div>
-          <div><label className="text-xs text-zinc-600">Envío</label><Input type="number" value={shippingCost} onChange={e => setSC(+e.target.value)} /></div>
-          <div><label className="text-xs text-zinc-600">Cash</label><Input type="number" value={cashPaid} onChange={e => setCash(+e.target.value)} /></div>
-          <div><label className="text-xs text-zinc-600">Otros</label><Input type="number" value={otherCost} onChange={e => setOC(+e.target.value)} /></div>
+          <div><label className="text-xs text-zinc-600">Producto</label><Input type="number" value={productCost} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPC(+e.target.value)} /></div>
+          <div><label className="text-xs text-zinc-600">Envío</label><Input type="number" value={shippingCost} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSC(+e.target.value)} /></div>
+          <div><label className="text-xs text-zinc-600">Cash</label><Input type="number" value={cashPaid} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCash(+e.target.value)} /></div>
+          <div><label className="text-xs text-zinc-600">Otros</label><Input type="number" value={otherCost} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOC(+e.target.value)} /></div>
         </div>
       </div>
 
@@ -301,7 +301,7 @@ function CollabRow({ c, onEdit, onResults, onStatus, components }: {
       <td className="px-2 py-2 pr-3 capitalize">{c.platform}</td>
       <td className="px-2 py-2 pr-3 capitalize">{c.tier}</td>
       <td className="px-2 py-2 pr-3">
-        <Select value={c.status} onChange={(e) => onStatus(c.id, e.target.value as InfStatus)} className="h-8 text-xs">
+        <Select value={c.status} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => onStatus(c.id, e.target.value as InfStatus)} className="h-8 text-xs">
           <option value="PROSPECT">Prospect</option><option value="OUTREACH">Outreach</option>
           <option value="NEGOTIATING">Negotiating</option><option value="AGREED">Agreed</option>
           <option value="LIVE">Live</option><option value="COMPLETED">Completed</option>
@@ -419,10 +419,10 @@ export default function InfluencerMarketing({ components }: { components: any })
         </div>
         <div className="flex items-center gap-2">
           <FilterPill label="Plataforma">
-            <Select value={platform} onChange={e => setPlatform(e.target.value as any)}><option value="all">Todas</option><option>Instagram</option><option>TikTok</option><option>YouTube</option><option>Twitch</option><option>Blog</option><option>Otro</option></Select>
+            <Select value={platform} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setPlatform(e.target.value as any)}><option value="all">Todas</option><option>Instagram</option><option>TikTok</option><option>YouTube</option><option>Twitch</option><option>Blog</option><option>Otro</option></Select>
           </FilterPill>
           <FilterPill label="Estado">
-            <Select value={status} onChange={e => setStatus(e.target.value as any)}>
+            <Select value={status} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setStatus(e.target.value as any)}>
               <option value="all">Todos</option>
               <option value="PROSPECT">Prospect</option><option value="OUTREACH">Outreach</option>
               <option value="NEGOTIATING">Negotiating</option><option value="AGREED">Agreed</option>
@@ -431,7 +431,7 @@ export default function InfluencerMarketing({ components }: { components: any })
             </Select>
           </FilterPill>
           <FilterPill label="Tier">
-            <Select value={tier} onChange={e => setTier(e.target.value as any)}><option value="all">Todos</option><option value="nano">nano</option><option value="micro">micro</option><option value="mid">mid</option><option value="macro">macro</option></Select>
+            <Select value={tier} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setTier(e.target.value as any)}><option value="all">Todos</option><option value="nano">nano</option><option value="micro">micro</option><option value="mid">mid</option><option value="macro">macro</option></Select>
           </FilterPill>
         </div>
       </div>

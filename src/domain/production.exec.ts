@@ -26,3 +26,5 @@ export type RecipeBomExec = {
   stdLaborCostPerHour?: number;
   stdLaborHoursPerBatch?: number;
 };
+
+export type ExecCheck = { id:string; done:boolean; checkedBy?:string; checkedAt?:string };

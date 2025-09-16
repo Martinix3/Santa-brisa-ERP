@@ -5,7 +5,7 @@ import React, { useMemo, useState, useEffect } from "react";
 import { Printer, PackageCheck, Truck, CheckCircle2, Search, Plus, FileText, ClipboardList, Boxes, PackageOpen, BadgeCheck, AlertTriangle, Settings, Clipboard, Ruler, Weight, MoreHorizontal, Check as CheckIcon, FileDown, Package } from "lucide-react";
 import { SBButton, SBCard, DataTableSB, Col as SBCol, STATUS_STYLES } from "@/components/ui/ui-primitives";
 import { useData } from "@/lib/dataprovider";
-import type { Shipment, OrderSellOut, Account } from "@/domain/ssot";
+import type { Shipment, OrderSellOut, Account, ShipmentStatus } from "@/domain/ssot";
 
 
 // ===============================
@@ -147,7 +147,7 @@ const ValidateDialog: React.FC<{ open: boolean; onOpenChange: (v: boolean) => vo
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="text-xs text-zinc-500">Servicio de envío</label>
-            <Select value={carrier || ""} onChange={e => setCarrier(e.target.value)}>
+            <Select value={carrier || ""} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setCarrier(e.target.value)}>
                 <option value="" disabled>Elige servicio</option>
                 <option value="seur">SEUR Frío</option>
                 <option value="correos_express">Correos Express</option>
@@ -157,19 +157,19 @@ const ValidateDialog: React.FC<{ open: boolean; onOpenChange: (v: boolean) => vo
           <div className="grid grid-cols-3 gap-2">
             <div>
               <label className="text-xs text-zinc-500">Peso (kg)</label>
-              <Input type="number" value={weight as any} onChange={(e:any) => setWeight(e.target.value ? Number(e.target.value) : "")} />
+              <Input type="number" value={weight as any} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setWeight(e.target.value ? Number(e.target.value) : "")} />
             </div>
             <div>
               <label className="text-xs text-zinc-500">Largo (cm)</label>
-              <Input type="number" value={(dims.l as any) ?? ""} onChange={(e:any) => setDims({ ...dims, l: e.target.value ? Number(e.target.value) : "" })} />
+              <Input type="number" value={(dims.l as any) ?? ""} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDims({ ...dims, l: e.target.value ? Number(e.target.value) : "" })} />
             </div>
             <div>
               <label className="text-xs text-zinc-500">Ancho (cm)</label>
-              <Input type="number" value={(dims.w as any) ?? ""} onChange={(e:any) => setDims({ ...dims, w: e.target.value ? Number(e.target.value) : "" })} />
+              <Input type="number" value={(dims.w as any) ?? ""} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDims({ ...dims, w: e.target.value ? Number(e.target.value) : "" })} />
             </div>
             <div className="col-span-3">
               <label className="text-xs text-zinc-500">Alto (cm)</label>
-              <Input type="number" value={(dims.h as any) ?? ""} onChange={(e:any) => setDims({ ...dims, h: e.target.value ? Number(e.target.value) : "" })} />
+              <Input type="number" value={(dims.h as any) ?? ""} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDims({ ...dims, h: e.target.value ? Number(e.target.value) : "" })} />
             </div>
           </div>
         </div>
@@ -270,7 +270,7 @@ export default function LogisticsPage() {
     otif: 96, // mock
   }), [shipments]);
 
-  const bulkSetStatus = (next: Shipment['status']) => {
+  const bulkSetStatus = (next: ShipmentStatus) => {
     if (!santaData) return;
     const updatedShipments = santaData.shipments.map(s => selected.includes(s.id) ? { ...s, status: next } : s);
     setData({ ...santaData, shipments: updatedShipments });
@@ -281,7 +281,7 @@ export default function LogisticsPage() {
 
   const handleSaveValidation = (payload: any) => {
     if (!santaData || !currentOrder) return;
-    const updatedShipments = santaData.shipments.map(s => s.id === currentOrder.id ? { 
+    const updatedShipments: Shipment[] = santaData.shipments.map(s => s.id === currentOrder.id ? { 
         ...s, 
         status: "ready_to_ship",
         carrier: payload.carrier,
@@ -308,13 +308,13 @@ export default function LogisticsPage() {
     const order = orderMap.get(row.orderId);
     if (!order || !canGenerateLabel(row, order)) { alert("Para la etiqueta necesitas: Albarán + Servicio + Peso y Dimensiones."); return; }
     if(!santaData) return;
-    const updatedShipments = santaData.shipments.map(r => r.id === row.id ? { ...r, labelUrl: "https://label.example/mock.pdf", tracking: `SC-${Math.floor(Math.random()*900000)}` } : r);
+    const updatedShipments: Shipment[] = santaData.shipments.map(r => r.id === row.id ? { ...r, labelUrl: "https://label.example/mock.pdf", tracking: `SC-${Math.floor(Math.random()*900000)}` } : r);
     setData({ ...santaData, shipments: updatedShipments });
   };
 
   const markShipped = (row: Shipment) => {
     if(!santaData) return;
-    const updatedShipments = santaData.shipments.map(r => r.id === row.id ? { ...r, status: "shipped" } : r);
+    const updatedShipments: Shipment[] = santaData.shipments.map(r => r.id === row.id ? { ...r, status: "shipped" } : r);
     setData({ ...santaData, shipments: updatedShipments });
   };
 
@@ -359,7 +359,7 @@ export default function LogisticsPage() {
       { key: 'actions', header: 'Acciones', render: ({row}) => (
         <div className="relative group">
             <DropdownMenuTrigger>
-                <SBButton variant="secondary" size="sm"><MoreHorizontal className="w-4 h-4"/></SBButton>
+                <SBButton variant="secondary"><MoreHorizontal className="w-4 h-4"/></SBButton>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-64">
               <DropdownMenuLabel>Acciones</DropdownMenuLabel>

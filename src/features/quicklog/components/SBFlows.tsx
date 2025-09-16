@@ -5,7 +5,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Plus, CalendarDays, ClipboardList, UserPlus2, Briefcase, Search, Check, MapPin, Pencil, Save, MessageSquare, Zap, Mail, Phone, History, ShoppingCart } from "lucide-react";
 import { useData } from "@/lib/dataprovider";
 import { generateNextOrder, Channel } from "@/lib/codes";
-import { AccountType, AccountRef, SB_COLORS } from '@/domain/ssot';
+import { AccountType, AccountRef } from '@/domain/ssot';
+import { SB_COLORS } from "@/components/ui/ui-primitives";
 
 const hexToRgba = (hex: string, a: number) => { const h = hex.replace('#',''); const f = h.length===3? h.split('').map(c=>c+c).join(''):h; const n=parseInt(f,16); const r=(n>>16)&255, g=(n>>8)&255, b=n&255; return `rgba(${r},${g},${b},${a})`; };
 const waterHeader = (seed = "hdr", base = "#A7D8D9") => {

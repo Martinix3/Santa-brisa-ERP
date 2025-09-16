@@ -4,7 +4,7 @@
 import React, { useState, useCallback } from 'react';
 import { Plus, X } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
-import type { SantaData, Account, Product } from '@/domain/ssot';
+import type { SantaData, Account, Product, AccountRef } from '@/domain/ssot';
 import { Chat } from '@/features/chat/Chat';
 import { runSantaBrain } from '@/ai/flows/santa-brain-flow';
 import { Message } from 'genkit';

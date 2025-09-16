@@ -10,7 +10,6 @@ export type {
   Interaction,
   SantaData,
   AccountRef,
-  EventMarketing,
 } from './ssot';
 
 // Alias usado en un import: `SantaData as SantaDataType`
@@ -32,7 +31,7 @@ export type Department =
 
 // Metadatos de departamentos usados por la UI de Agenda
 export const DEPT_META: Record<
-  Department | 'GENERAL',
+  Department,
   { label: string; color: string; textColor: string }
 > = {
   VENTAS: { label: 'Ventas', color: '#D7713E', textColor: '#40210f' },
@@ -42,3 +41,16 @@ export const DEPT_META: Record<
   FINANZAS:   { label: 'Finanzas',   color: '#CCCCCC', textColor: '#333333' },
   GENERAL:    { label: 'General',    color: '#A7D8D9', textColor: '#17383a' },
 };
+
+// Evento de marketing mínimo que espera santa-brain-flow
+export interface EventMarketing {
+  id: string;
+  title: string;
+  kind: 'DEMO' | 'FERIA' | 'FORMACION' | 'POPUP' | 'OTRO';
+  status: 'planned' | 'active' | 'closed' | 'cancelled';
+  startAt: string;
+  city?: string;
+  goal?: { sampling: number; leads: number; salesBoxes: number; };
+  spend?: number;
+  plv?: Array<{ sku: string; qty: number; }>;
+}

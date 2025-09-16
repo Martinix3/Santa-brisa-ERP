@@ -123,8 +123,8 @@ export async function runSantaBrain(history: Message[], input: string, context: 
     
     const llmResponse = await ai.generate({
         model: gemini('gemini-2.5-flash'),
-        history: history,
         prompt: input,
+        history,
         context: [
           { role: 'context', content: { accounts: context.accounts, products: context.products } as any },
         ],
@@ -139,46 +139,48 @@ export async function runSantaBrain(history: Message[], input: string, context: 
 
         for (const call of toolRequests) {
             const result = await call.run();
-            toolResponses.push({ toolResponse: { name: call.name, output: result } });
+            toolResponses.push({ toolResponse: { name: call.toolRequest.name, output: result } });
             
+            const typedInput = call.toolRequest.input as any;
+
             // Basado en la herramienta llamada, crea la entidad correspondiente
-            if (call.name === 'createInteraction') {
-                const account = context.accounts.find(a => a.name === call.input.accountName);
+            if (call.toolRequest.name === 'createInteraction') {
+                const account = context.accounts.find(a => a.name === typedInput.accountName);
                 if (account) {
                     const newInteraction: Interaction = {
-                        id: result.interactionId,
+                        id: (result as any).interactionId,
                         accountId: account.id,
                         userId: 'u_brain', // Hardcoded for now
-                        kind: call.input.kind,
-                        note: call.input.note,
+                        kind: typedInput.kind,
+                        note: typedInput.note,
                         createdAt: new Date().toISOString(),
                         dept: 'VENTAS'
                     };
                     newEntities.interactions?.push(newInteraction);
                 }
-            } else if (call.name === 'createOrder') {
-                const account = context.accounts.find(a => a.name === call.input.accountName);
+            } else if (call.toolRequest.name === 'createOrder') {
+                const account = context.accounts.find(a => a.name === typedInput.accountName);
                 if (account) {
                      const newOrder: OrderSellOut = {
-                        id: result.orderId,
+                        id: (result as any).orderId,
                         accountId: account.id,
                         userId: 'u_brain',
                         status: 'open',
                         currency: 'EUR',
                         createdAt: new Date().toISOString(),
-                        lines: call.input.items.map((item: any) => ({ ...item, priceUnit: 0, unit: 'ud' })), // Price would be set later
-                        notes: call.input.notes,
+                        lines: typedInput.items.map((item: any) => ({ ...item, priceUnit: 0, unit: 'ud' })), // Price would be set later
+                        notes: typedInput.notes,
                      };
                      newEntities.ordersSellOut?.push(newOrder);
                 }
-            } else if (call.name === 'createEvent') {
+            } else if (call.toolRequest.name === 'createEvent') {
                 const newEvent: EventMarketing = {
-                    id: result.eventId,
-                    title: call.input.title,
-                    kind: call.input.kind,
+                    id: (result as any).eventId,
+                    title: typedInput.title,
+                    kind: typedInput.kind,
                     status: 'planned',
-                    startAt: call.input.startAt,
-                    city: call.input.location,
+                    startAt: typedInput.startAt,
+                    city: typedInput.location,
                     goal: { sampling: 0, leads: 0, salesBoxes: 0 },
                     spend: 0,
                     plv: []
@@ -191,8 +193,8 @@ export async function runSantaBrain(history: Message[], input: string, context: 
             model: gemini('gemini-2.5-flash'),
             history: [
               ...history,
-              { role: 'user', content: input },
-              { role: 'model', content: toolRequests as any },
+              { role: 'user', content: [{ text: input }] },
+              { role: 'model', content: toolRequests },
               { role: 'user', content: toolResponses },
             ],
             context: [

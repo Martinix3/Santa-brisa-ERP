@@ -13,8 +13,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { AlertCircle, Check, Hourglass, X, Thermometer, FlaskConical, Beaker, TestTube2, Paperclip, Upload, Trash2, ChevronRight, ChevronDown, Save, Bug } from "lucide-react";
 import { SBCard, SBButton, SB_COLORS } from '@/components/ui/ui-primitives';
 import { useData } from "@/lib/dataprovider";
-import type { ProductionOrder as ProdOrder, Uom, Material, Shortage, ActualConsumption, InventoryItem, Product, SantaData } from "@/domain/ssot";
-import type { RecipeBomExec as RecipeBom, ExecCheck } from '@/domain';
+import type { ProductionOrder as ProdOrder, Uom, Material, Shortage, ActualConsumption, InventoryItem, Product, SantaData } from '@/domain/ssot';
+import type { RecipeBomExec as RecipeBom, ExecCheck } from '@/domain/production.exec';
 import { availableForMaterial, fifoReserveLots, buildConsumptionMoves, consumeForOrder } from '@/domain/inventory.helpers';
 import { generateNextLot } from "@/lib/codes";
 
@@ -27,7 +27,7 @@ function planFromRecipe(recipe: RecipeBom, targetBatchSize: number, materials: M
     return { lines: [], plannedBottles: 0 };
   }
   const materialMap = new Map(materials.map(m => [m.id, m]));
-  const lines: ActualConsumption[] = recipe.lines.map(l => {
+  const lines: ActualConsumption[] = recipe.lines.map((l: any) => {
     const theoreticalQty = scaleQty(l.qtyPerBatch, recipe.baseBatchSize, targetBatchSize);
     const material = materialMap.get(l.materialId);
     return {
@@ -177,11 +177,11 @@ export default function ProduccionPage() {
           name: line.name,
           required: line.theoreticalQty,
           available: avail,
-          uom: line.uom
+          uom: line.uom,
         });
       } else {
         const picks = fifoReserveLots(line.materialId, line.theoreticalQty, warehouseInventory, allMaterials, "RM/");
-        picks.forEach(p => reservations.push({ materialId: line.materialId, ...p }));
+        picks.forEach(p => reservations.push({ materialId: line.materialId, fromLot: p.fromLot, reservedQty: p.reservedQty, uom: p.uom }));
       }
     }
   

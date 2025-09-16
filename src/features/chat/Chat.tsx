@@ -3,13 +3,13 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Send, User, Bot, Loader, CheckCircle, AlertTriangle } from 'lucide-react';
-import type { AccountRef, Product, SantaData } from '@/domain/ssot';
+import type { Account, Product, SantaData } from '@/domain/ssot';
 import { Message } from 'genkit';
 
 type ChatProps = {
     userId: string;
     context: {
-        accounts: AccountRef[];
+        accounts: Account[];
         products: Product[];
     };
     onNewData: (data: Partial<SantaData>) => void;
