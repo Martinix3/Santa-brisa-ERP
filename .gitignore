@@ -26,3 +26,7 @@ coverage/
 *.local
 *.swp
 *.swo
+
+# Backups
+backups/
+
