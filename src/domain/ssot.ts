@@ -10,11 +10,12 @@ export type OrderStatus = 'open' | 'confirmed' | 'shipped' | 'invoiced' | 'cance
 export type AccountType = 'HORECA' | 'RETAIL' | 'OTRO' | 'DISTRIBUIDOR' | 'IMPORTADOR' | 'PROVEEDOR';
 
 // ---- Cuentas / partners / usuarios
+export type UserRole = 'comercial' | 'admin' | 'ops' | 'owner';
 export interface User { 
   id: string; 
   name: string; 
   email?: string; 
-  role: 'comercial' | 'admin' | 'ops' | 'owner'; 
+  role: UserRole;
   active: boolean; 
   managerId?: string;
   kpiBaseline?: {
@@ -55,6 +56,7 @@ export interface Account {
   paymentTermsDays?: number;
   paymentMethod?: string;
   billingEmail?: string;
+  updatedAt?: string;
 }
 export type AccountRef = { id:string; name:string; city?:string; accountType?:AccountType };
 
@@ -97,7 +99,7 @@ export interface Lot {
   orderId?: string;
   receivedAt?: string;
   kind?: 'RM' | 'SFG' | 'FG';
-  status?: LotStatus;
+  status: LotStatus;
   qty?: { onHand: number; reserved: number; uom: Uom };
   dates?: { producedAt?: string; receivedAt?: string; approvedAt?: string; rejectedAt?: string; expDate?: string; };
   trace?: { parentBatchId?: string };
@@ -226,12 +228,12 @@ export interface QACheck {
 }
 
 export interface BillOfMaterialItem { materialId: string; quantity: number; unit?: string; }
-export interface BillOfMaterial { id?: string; sku: string; name: string; items: BillOfMaterialItem[]; batchSize: number; baseUnit?: string; productId?: string; }
+export interface BillOfMaterial { id: string; sku: string; name: string; items: BillOfMaterialItem[]; batchSize: number; baseUnit?: string; }
 
 export interface ProductionOrder {
   id: string;
   sku: string;
-  bomId?: string;
+  bomId: string;
   targetQuantity: number;
   status: 'pending' |'released'| 'wip' | 'done' | 'cancelled';
   createdAt: string;
@@ -311,9 +313,48 @@ export interface OnlineCampaign {
 }
 export interface Activation { id: string; }
 
-// ---- Influencers / marketing (stubs que pide el UI)
-export interface Creator { id: string; name: string; }
-export interface InfluencerCollab { id: string; creatorId: string; status: string; }
+// ---- Influencers / marketing
+export interface Creator {
+    id: string;
+    name: string;
+    handle?: string;
+    platform: 'Instagram'|'TikTok'|'YouTube'|'Twitch'|'Blog'|'Otro';
+    tier: 'nano'|'micro'|'mid'|'macro';
+    audience?: number;
+    country?: string; city?: string;
+    email?: string; phone?: string;
+    shippingAddress?: string;
+    tags?: string[];
+    createdAt: string; updatedAt: string;
+}
+
+export interface InfluencerCollab {
+    id: string;
+    creatorId: string;
+    creatorName: string;
+    handle?: string;
+    platform: 'Instagram'|'TikTok'|'YouTube'|'Twitch'|'Blog'|'Otro';
+    tier: 'nano'|'micro'|'mid'|'macro';
+    status: 'PROSPECT' | 'OUTREACH' | 'NEGOTIATING' | 'AGREED' | 'LIVE' | 'COMPLETED' | 'PAUSED' | 'DECLINED';
+    ownerUserId?: string;
+    couponCode?: string;
+    utmCampaign?: string;
+    landingUrl?: string;
+    deliverables: { kind: 'post' | 'story' | 'reel' | 'short' | 'video_long' | 'stream' | 'blogpost'; qty: number; dueAt?: string }[];
+    compensation: { type: 'gift' | 'flat' | 'cpa' | 'cpc' | 'revshare'; amount?: number; currency?: 'EUR'; notes?: string; };
+    costs?: { productCost?: number; shippingCost?: number; cashPaid?: number; otherCost?: number };
+    tracking?: {
+        clicks?: number; orders?: number; revenue?: number;
+        impressions?: number; views?: number;
+        likes?: number; comments?: number; saves?: number; shares?: number;
+        updatedAt?: string;
+    };
+    dates?: { outreachAt?: string; agreedAt?: string; goLiveAt?: string; deadlineAt?: string; completedAt?: string; };
+    sampleOrderId?: string;
+    eventIds?: string[];
+    notes?: string;
+    createdAt: string; updatedAt: string;
+}
 
 // ---- Recibos / compras mínimos
 export interface GoodsReceipt { id: string; supplierId: string; createdAt: string; expectedAt: string; receivedAt?: string; lines: any[]; externalRef?: string; }
@@ -389,3 +430,21 @@ export function isoDaysAgo(n: number) {
 }
 
 export const MATERIAL_CATEGORIES: Material['category'][] = ['raw', 'packaging', 'label', 'consumable', 'intermediate', 'finished_good', 'merchandising'];
+
+export const SB_COLORS = {
+  primary: "#F7D15F",
+  accent: "#618E8F",
+  sales: "#618E8F",
+  marketing: "#618E8F",
+  warehouse: "#618E8F",
+  production: "#618E8F",
+  finance: "#618E8F",
+  analytics: "#618E8F",
+  admin: "#618E8F",
+  quality: "#618E8F",
+  general: "#618E8F",
+  sun: "#F7D15F",
+  cobre: "#D7713E",
+  agua: "#A7D8D9",
+  verde_mar: "#618E8F",
+};

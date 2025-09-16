@@ -5,8 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Plus, CalendarDays, ClipboardList, UserPlus2, Briefcase, Search, Check, MapPin, Pencil, Save, MessageSquare, Zap, Mail, Phone, History, ShoppingCart } from "lucide-react";
 import { useData } from "@/lib/dataprovider";
 import { generateNextOrder, Channel } from "@/lib/codes";
-import { AccountType, AccountRef } from '@/domain/ssot';
-import { SB_COLORS } from "@/components/ui/ui-primitives";
+import { AccountType, AccountRef, SB_COLORS } from '@/domain/ssot';
 
 const hexToRgba = (hex: string, a: number) => { const h = hex.replace('#',''); const f = h.length===3? h.split('').map(c=>c+c).join(''):h; const n=parseInt(f,16); const r=(n>>16)&255, g=(n>>8)&255, b=n&255; return `rgba(${r},${g},${b},${a})`; };
 const waterHeader = (seed = "hdr", base = "#A7D8D9") => {
@@ -348,21 +347,23 @@ function CreateAccountForm({onSubmit, onCancel}:{ onSubmit:(p:CreateAccountPaylo
 }
 
 // ===== Create Order (full) =====
-function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, onSubmit, onCancel}:{
+function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, onSubmit, onCancel, defaults}: {
   accounts: AccountRef[];
   onSearchAccounts:(q:string)=>Promise<AccountRef[]>;
   onCreateAccount:(d:{name:string;city?:string;accountType?:AccountType})=>Promise<AccountRef>;
   onSubmit:(p:CreateOrderPayload)=>void;
   onCancel:()=>void;
+  defaults?: any;
 }){
   const { data: santaData } = useData();
-  const [account, setAccount] = useState("");
+  const [account, setAccount] = useState(defaults?.account || "");
+  const [note, setNote] = useState(defaults?.note || "");
   const [requestedDate, setRequestedDate] = useState(new Date().toISOString().slice(0,16));
   const [deliveryDate, setDeliveryDate] = useState("");
   const [channel, setChannel] = useState<CreateOrderPayload["channel"]>("propia");
   const [paymentTerms, setTerms] = useState("Contado");
   const [shipTo, setShipTo] = useState("");
-  const [items, setItems] = useState<CreateOrderPayload["items"]>([{sku:"SB-750", qty:1, unit:"ud", priceUnit: 12, lotNumber: ''}]);
+  const [items, setItems] = useState<CreateOrderPayload["items"]>(defaults?.items || [{sku:"SB-750", qty:1, unit:"ud", priceUnit: 12, lotNumber: ''}]);
   
   const availableInventory = useMemo(() => (santaData?.inventory || []).filter(i => i.locationId && i.locationId.startsWith('FG/')), [santaData]);
   const priceList = useMemo(() => (santaData as any)?.priceLists.find((pl: any) => pl.id === 'pl_prop'), [santaData]);
@@ -380,7 +381,7 @@ function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, onSubmit,
   function submit(){ 
       if(!account) return alert("Selecciona una cuenta"); 
       if(items.length===0 || items.some(it=>!it.sku || it.qty<=0)) return alert("Revisa las líneas"); 
-      onSubmit({account, requestedDate, deliveryDate: deliveryDate||undefined, channel, paymentTerms, shipTo: shipTo||undefined, items});
+      onSubmit({account, requestedDate, deliveryDate: deliveryDate||undefined, channel, paymentTerms, shipTo: shipTo||undefined, note, items});
   }
   
   const orderTotal = useMemo(() => items.reduce((total, item) => total + (item.qty * item.priceUnit), 0), [items]);
@@ -511,7 +512,7 @@ export function SBFlowModal({
   // createOrder (full)
   return (
     <BaseModal open title="Crear pedido" color={SB_COLORS.sales} icon={Briefcase} onClose={onClose}>
-      <CreateOrderForm accounts={accounts} onSearchAccounts={onSearchAccounts} onCreateAccount={onCreateAccount} onCancel={onClose} onSubmit={(p)=>{ onSubmit(p); }}/>
+      <CreateOrderForm accounts={accounts} onSearchAccounts={onSearchAccounts} onCreateAccount={onCreateAccount} onCancel={onClose} onSubmit={(p)=>{ onSubmit(p); }} defaults={defaults}/>
     </BaseModal>
   );
 }

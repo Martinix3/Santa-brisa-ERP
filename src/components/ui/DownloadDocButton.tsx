@@ -26,9 +26,11 @@ export function DownloadDocButton(props: DownloadDocButtonProps) {
     try {
       const payload = {
         kind: docType,
-        order,
-        account,
-        products,
+        data: {
+            order,
+            account,
+            products,
+        },
       };
       
       const res = await fetch('/api/docs', {

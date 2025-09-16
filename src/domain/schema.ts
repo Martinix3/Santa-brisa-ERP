@@ -9,16 +9,16 @@ export type {
   OrderSellOut,
   Interaction,
   SantaData,
-  AccountRef,
+  AccountType,
+  Stage,
+  AccountMode,
+  UserRole,
 } from './ssot';
 
 // Alias usado en un import: `SantaData as SantaDataType`
 export type { SantaData as SantaDataType } from './ssot';
 
 // ---- Stubs / extras que usa el UI en agenda & brain ----
-
-// Roles mínimos para users
-export type UserRole = 'admin' | 'comercial' | 'ops' | 'owner';
 
 // Departamentos mínimos para agenda
 export type Department =

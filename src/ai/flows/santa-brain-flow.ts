@@ -8,11 +8,54 @@
  *   crear pedidos, interacciones o eventos.
  */
 import { ai } from '@/ai/genkit';
-import { z } from 'zod';
-import type { Interaction, OrderSellOut, EventMarketing, Product, Account, SantaData } from '@/domain/schema';
+import { z, type ZodTypeAny } from 'zod';
+import type { Interaction, OrderSellOut, EventMarketing, Product, Account, SantaData } from '@/domain/ssot';
 import { generateNextOrder } from '@/lib/codes';
-import { Part, Message, ToolRequestPart } from 'genkit';
+import { Part, Message } from 'genkit';
 import { gemini } from '@genkit-ai/googleai';
+
+// =================================
+//      ESQUEMAS DE HERRAMIENTAS
+// =================================
+
+const AddInteractionInput = z.object({
+  accountName: z.string().describe('El nombre exacto de la cuenta del cliente.'),
+  kind: z.enum(['VISITA', 'LLAMADA', 'EMAIL', 'WHATSAPP', 'OTRO']).describe('El tipo de interacción.'),
+  note: z.string().describe('Un resumen de lo que se habló o sucedió en la interacción.'),
+}) as ZodTypeAny;
+
+const AddInteractionOutput = z.object({
+  interactionId: z.string(),
+  success: z.boolean(),
+}) as ZodTypeAny;
+
+const CreateOrderInput = z.object({
+  accountName: z.string().describe('El nombre exacto de la cuenta del cliente.'),
+  items: z.array(z.object({
+    sku: z.string().describe('El SKU del producto.'),
+    quantity: z.number().describe('La cantidad de unidades o cajas.'),
+    unit: z.enum(['ud', 'caja']).describe("La unidad de medida ('ud' o 'caja')."),
+  })).describe('Una lista de los productos y cantidades del pedido.'),
+  notes: z.string().optional().describe('Notas adicionales para el pedido.'),
+}) as ZodTypeAny;
+
+const CreateOrderOutput = z.object({
+  orderId: z.string(),
+  success: z.boolean(),
+}) as ZodTypeAny;
+
+const CreateEventInput = z.object({
+  title: z.string().describe('El título del evento.'),
+  kind: z.enum(['DEMO', 'FERIA', 'FORMACION', 'POPUP', 'OTRO']).describe('El tipo de evento.'),
+  startAt: z.string().describe('La fecha y hora de inicio en formato ISO 8601.'),
+  location: z.string().optional().describe('La ciudad o lugar del evento.'),
+}) as ZodTypeAny;
+
+const CreateEventOutput = z.object({
+  eventId: z.string(),
+  success: z.boolean(),
+}) as ZodTypeAny;
+
 
 // =================================
 //      HERRAMIENTAS (TOOLS)
@@ -22,19 +65,10 @@ const createInteractionTool = ai.defineTool(
     {
         name: 'createInteraction',
         description: 'Registra una interacción con un cliente (visita, llamada, email, etc.).',
-        inputSchema: z.object({
-            accountName: z.string().describe('El nombre exacto de la cuenta del cliente.'),
-            kind: z.enum(['VISITA', 'LLAMADA', 'EMAIL', 'WHATSAPP', 'OTRO']).describe('El tipo de interacción.'),
-            note: z.string().describe('Un resumen de lo que se habló o sucedió en la interacción.'),
-        }),
-        outputSchema: z.object({
-            interactionId: z.string(),
-            success: z.boolean(),
-        }),
+        inputSchema: AddInteractionInput,
+        outputSchema: AddInteractionOutput,
     },
-    async (input) => {
-        // En una app real, esto interactuaría con la base de datos.
-        // Aquí, simplemente devolvemos un ID de ejemplo.
+    async (input: any) => {
         console.log(`Tool "createInteraction" called with:`, input);
         const interactionId = `int_brain_${Date.now()}`;
         return { interactionId, success: true };
@@ -45,21 +79,10 @@ const createOrderTool = ai.defineTool(
     {
         name: 'createOrder',
         description: 'Crea un nuevo pedido para un cliente.',
-        inputSchema: z.object({
-            accountName: z.string().describe('El nombre exacto de la cuenta del cliente.'),
-            items: z.array(z.object({
-                sku: z.string().describe('El SKU del producto.'),
-                quantity: z.number().describe('La cantidad de unidades o cajas.'),
-                unit: z.enum(['ud', 'caja']).describe("La unidad de medida ('ud' o 'caja')."),
-            })).describe('Una lista de los productos y cantidades del pedido.'),
-            notes: z.string().optional().describe('Notas adicionales para el pedido.'),
-        }),
-        outputSchema: z.object({
-            orderId: z.string(),
-            success: z.boolean(),
-        }),
+        inputSchema: CreateOrderInput,
+        outputSchema: CreateOrderOutput,
     },
-    async (input) => {
+    async (input: any) => {
         console.log(`Tool "createOrder" called with:`, input);
         const orderId = `ord_brain_${Date.now()}`;
         return { orderId, success: true };
@@ -70,18 +93,10 @@ const createEventTool = ai.defineTool(
     {
         name: 'createEvent',
         description: 'Programa un nuevo evento de marketing (demo, feria, etc.).',
-        inputSchema: z.object({
-            title: z.string().describe('El título del evento.'),
-            kind: z.enum(['DEMO', 'FERIA', 'FORMACION', 'POPUP', 'OTRO']).describe('El tipo de evento.'),
-            startAt: z.string().describe('La fecha y hora de inicio en formato ISO 8601.'),
-            location: z.string().optional().describe('La ciudad o lugar del evento.'),
-        }),
-        outputSchema: z.object({
-            eventId: z.string(),
-            success: z.boolean(),
-        }),
+        inputSchema: CreateEventInput,
+        outputSchema: CreateEventOutput,
     },
-    async (input) => {
+    async (input: any) => {
         console.log(`Tool "createEvent" called with:`, input);
         const eventId = `evt_brain_${Date.now()}`;
         return { eventId, success: true };
@@ -93,8 +108,8 @@ const createEventTool = ai.defineTool(
 //      PROMPT DEL ASISTENTE
 // =================================
 
-const santaBrainFlow = ai.definePrompt({
-    name: 'santaBrainFlow',
+const santaBrainPrompt = ai.definePrompt({
+    name: 'santaBrainPrompt',
     system: `Eres Santa Brain, el asistente de IA experto para el equipo de Santa Brisa.
 Tu objetivo es ayudarles a registrar información y realizar acciones de forma rápida y eficiente.
 Eres amable, proactivo y siempre buscas aclarar la información si es necesario.
@@ -126,12 +141,12 @@ export async function runSantaBrain(history: Message[], input: string, context: 
         prompt: input,
         history,
         context: [
-          { role: 'context', content: { text: `Contexto de negocio: ${JSON.stringify(context)}` } },
+          { role: 'context', content: [{ text: `Contexto de negocio: ${JSON.stringify(context)}` } ] },
         ],
         tools: [createInteractionTool, createOrderTool, createEventTool]
-      });
+    });
 
-    const toolRequests = llmResponse.toolRequests();
+    const toolRequests = llmResponse.toolRequests;
     const newEntities: Partial<SantaData> = { interactions: [], ordersSellOut: [], mktEvents: [] };
 
     if (toolRequests.length > 0) {
@@ -139,12 +154,11 @@ export async function runSantaBrain(history: Message[], input: string, context: 
 
         for (const call of toolRequests) {
             const result = await call.run();
-            toolResponses.push({ toolResponse: { name: call.name, output: result } });
+            toolResponses.push({ toolResponse: { name: call.toolRequest.name, output: result } });
             
-            const typedInput = call.input as any;
+            const typedInput = call.toolRequest.input as any;
 
-            // Basado en la herramienta llamada, crea la entidad correspondiente
-            if (call.name === 'createInteraction') {
+            if (call.toolRequest.name === 'createInteraction') {
                 const account = context.accounts.find(a => a.name === typedInput.accountName);
                 if (account) {
                     const newInteraction: Interaction = {
@@ -158,7 +172,7 @@ export async function runSantaBrain(history: Message[], input: string, context: 
                     };
                     newEntities.interactions?.push(newInteraction);
                 }
-            } else if (call.name === 'createOrder') {
+            } else if (call.toolRequest.name === 'createOrder') {
                 const account = context.accounts.find(a => a.name === typedInput.accountName);
                 if (account) {
                      const newOrder: OrderSellOut = {
@@ -173,7 +187,7 @@ export async function runSantaBrain(history: Message[], input: string, context: 
                      };
                      newEntities.ordersSellOut?.push(newOrder);
                 }
-            } else if (call.name === 'createEvent') {
+            } else if (call.toolRequest.name === 'createEvent') {
                 const newEvent: EventMarketing = {
                     id: (result as any).eventId,
                     title: typedInput.title,
@@ -201,5 +215,5 @@ export async function runSantaBrain(history: Message[], input: string, context: 
         return { finalAnswer: finalResponse.text, newEntities };
     }
 
-    return { finalAnswer: llmResponse.text(), newEntities };
+    return { finalAnswer: llmResponse.text, newEntities };
 }
