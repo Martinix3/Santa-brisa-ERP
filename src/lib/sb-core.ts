@@ -11,6 +11,7 @@ export function accountOwnerDisplay(
   users: User[],
   distributors: Distributor[]
 ): string {
+  if (!acc.mode) return '—';
   const m = acc.mode;
   if (!m) return '—';
 

@@ -12,8 +12,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { AlertCircle, Check, Hourglass, X, Thermometer, FlaskConical, Beaker, TestTube2, Paperclip, Upload, Trash2, ChevronRight, ChevronDown, Save, Bug } from "lucide-react";
 import { SBCard, SBButton, SB_COLORS } from '@/components/ui/ui-primitives';
 import { useData } from "@/lib/dataprovider";
-import type { ProductionOrder as ProdOrder, Uom, Material, Shortage, ActualConsumption, InventoryItem, Product, SantaData, ExecCheck } from '@/domain/ssot';
-import type { RecipeBomExec as RecipeBom } from '@/domain/production.exec';
+import type { ProductionOrder as ProdOrder, Uom, Material, Shortage, ActualConsumption, InventoryItem, Product, SantaData, ExecCheck, RecipeBomExec as RecipeBom } from '@/domain/ssot';
 import { availableForMaterial, fifoReserveLots, buildConsumptionMoves, consumeForOrder } from '@/domain/inventory.helpers';
 import { generateNextLot } from "@/lib/codes";
 
@@ -26,7 +25,7 @@ function planFromRecipe(recipe: RecipeBom, targetBatchSize: number, materials: M
     return { lines: [], plannedBottles: 0 };
   }
   const materialMap = new Map(materials.map(m => [m.id, m]));
-  const lines: ActualConsumption[] = recipe.lines.map((l: any) => {
+  const lines: ActualConsumption[] = recipe.lines.map((l) => {
     const theoreticalQty = scaleQty(l.qtyPerBatch, recipe.baseBatchSize, targetBatchSize);
     const material = materialMap.get(l.materialId);
     return {
@@ -196,26 +195,24 @@ export default function ProduccionPage() {
       createdAt: now,
       scheduledFor: whenISO,
       responsibleId,
-      checks: recipe.protocolChecklist.map((p: {id: string}) => ({ id: p.id, done: false })),
+      checks: recipe.protocolChecklist.map((p) => ({ id: p.id, done: false })),
       shortages: shortages.length ? shortages : undefined,
       reservations: reservations.length ? reservations : undefined,
       actuals,
     };
   
-    setData({ ...santaData, productionOrders: [newOrder, ...santaData.productionOrders] });
+    setData(prev => prev ? ({ ...prev, productionOrders: [newOrder, ...prev.productionOrders] }) : prev);
   
     if (shortages.length) {
       showNotification(`Orden creada con faltantes: ${shortages.map(s => s.name).join(", ")}.`);
     } else {
       showNotification("Orden creada con stock reservado.");
     }
-  }, [warehouseInventory, santaData, setData, allMaterials]);
+  }, [warehouseInventory, setData, allMaterials]);
   
 
   const updateOrder = useCallback(async (id: string, patch: Partial<ProdOrder>) => {
-    if (!santaData) return;
-    
-    setData((prevData: SantaData | null) => {
+    setData((prevData) => {
         if (!prevData) return prevData;
         const updatedOrders = prevData.productionOrders.map((o: ProdOrder) => {
             if (o.id === id) {
@@ -233,7 +230,7 @@ export default function ProduccionPage() {
         });
         return { ...prevData, productionOrders: updatedOrders };
     });
-  }, [setData, recipes, santaData]);
+  }, [setData, recipes]);
 
   const startOrder = useCallback((orderId: string) => {
     if(!santaData) return;
@@ -254,14 +251,14 @@ export default function ProduccionPage() {
   
     const updatedInventory = consumeForOrder(warehouseInventory, products, moves);
   
-    setData({
-      ...santaData,
+    setData(prev => prev ? ({
+      ...prev,
       inventory: updatedInventory,
-      stockMoves: [...(santaData.stockMoves || []), ...moves],
-      productionOrders: santaData.productionOrders.map(o =>
+      stockMoves: [...(prev.stockMoves || []), ...moves],
+      productionOrders: prev.productionOrders.map(o =>
         o.id === orderId ? { ...o, status: "wip", execution: { ...(o.execution || {}), startedAt: new Date().toISOString() } } : o
       ),
-    });
+    }) : prev);
   
     showNotification("Orden iniciada y materias primas descontadas.");
   }, [santaData, setData, warehouseInventory, products, allMaterials]);
@@ -304,7 +301,7 @@ export default function ProduccionPage() {
         quality: { qcStatus: 'hold', results: {} },
     };
     
-    setData((prevData: SantaData | null) => {
+    setData((prevData) => {
         if (!prevData) return prevData;
         const newLots = [...(prevData.lots || []), newLot];
         const updatedOrders = prevData.productionOrders.map((po: any) => 
@@ -681,7 +678,7 @@ function ProtocolsBlock({ order, recipe, onToggle }: { order: ProdOrder; recipe:
           <li key={c.id} className="py-2 flex items-center justify-between text-sm">
             <div className="flex items-center gap-2">
               <button onClick={()=>onToggle(c.id)} className={`w-5 h-5 rounded border flex items-center justify-center ${c.done ? 'bg-green-500 border-green-600 text-white' : 'border-zinc-300'}`}>{c.done ? '✓' : ''}</button>
-              <span>{recipe.protocolChecklist.find((pc: {id: string}) => pc.id === c.id)?.text || c.id}</span>
+              <span>{recipe.protocolChecklist.find((pc) => pc.id === c.id)?.text || c.id}</span>
             </div>
             <div className="text-xs text-zinc-500">{c.checkedAt ? new Date(c.checkedAt).toLocaleString() : '—'}</div>
           </li>

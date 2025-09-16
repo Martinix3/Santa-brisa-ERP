@@ -13,7 +13,7 @@ interface DataContextProps {
   mode: DataMode;
   setMode: React.Dispatch<React.SetStateAction<DataMode>>;
   data: SantaData | null;
-  setData: (data: SantaData) => void;
+  setData: React.Dispatch<React.SetStateAction<SantaData | null>>;
   currentUser: User | null;
   login: (email: string, pass: string) => Promise<boolean>;
   logout: () => void;
@@ -24,7 +24,7 @@ const DataContext = createContext<DataContextProps | undefined>(undefined);
 
 export const DataProvider = ({ children }: { children: React.ReactNode }) => {
   const [mode, setMode] = useState<DataMode>('test');
-  const [data, setDataState] = useState<SantaData | null>(null);
+  const [data, setData] = useState<SantaData | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true); // For initial user/mode load
   const [isDataLoading, setIsDataLoading] = useState(true); // For async data fetching
@@ -53,19 +53,19 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
         try {
             if (mode === 'test') {
                 if (MockSantaData) {
-                    setDataState(MockSantaData);
+                    setData(MockSantaData);
                 } else {
                     const module = await import('@/domain/mock-data');
                     MockSantaData = module.mockSantaData;
-                    setDataState(MockSantaData);
+                    setData(MockSantaData);
                 }
             } else { // mode === 'real'
                 if (RealSantaData) {
-                    setDataState(RealSantaData);
+                    setData(RealSantaData);
                 } else {
                     const module = await import('@/domain/real-data');
                     RealSantaData = module.realSantaData;
-                    setDataState(RealSantaData);
+                    setData(RealSantaData);
                 }
             }
         } catch (err) {
@@ -75,7 +75,7 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
                  const module = await import('@/domain/mock-data');
                  MockSantaData = module.mockSantaData;
             }
-            setDataState(MockSantaData);
+            setData(MockSantaData);
         } finally {
             setIsDataLoading(false);
         }
@@ -88,17 +88,12 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     if (mode === 'real' && data) {
        localStorage.setItem('sb-real-data', JSON.stringify(data));
+       RealSantaData = data;
+    } else if (mode === 'test' && data) {
+       MockSantaData = data;
     }
   }, [data, mode]);
 
-  const setData = useCallback((newData: SantaData) => {
-    if (mode === 'real') {
-      RealSantaData = newData;
-    } else {
-      MockSantaData = newData;
-    }
-    setDataState(newData);
-  }, [mode]);
 
   const login = useCallback(async (email: string, pass: string): Promise<boolean> => {
       // Data for the current mode should already be loading/loaded via useEffect
