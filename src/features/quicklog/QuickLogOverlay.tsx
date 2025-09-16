@@ -1,0 +1,83 @@
+
+
+"use client";
+
+import React, { useState, useCallback } from 'react';
+import { Plus, X } from 'lucide-react';
+import { useData } from '@/lib/dataprovider';
+import type { SantaData, Interaction, OrderSellOut, EventMarketing, AccountRef } from '@/domain/schema';
+import { Chat } from '@/features/chat/Chat';
+import { runSantaBrain } from '@/ai/flows/santa-brain-flow';
+
+function FloatingButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="fixed bottom-6 right-6 z-40 h-14 w-14 rounded-full bg-sb-sun shadow-lg flex items-center justify-center text-zinc-900 hover:bg-yellow-500 transition-transform hover:scale-110"
+      aria-label="Abrir asistente Santa Brain"
+    >
+      <Plus size={24} strokeWidth={2.5} />
+    </button>
+  );
+}
+
+function ChatModal({ open, onClose, children }: { open: boolean, onClose: () => void, children: React.ReactNode }) {
+    if (!open) return null;
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={onClose}>
+            <div 
+                className="relative w-[95vw] max-w-2xl h-[85vh] bg-white rounded-2xl shadow-xl flex flex-col overflow-hidden"
+                onClick={e => e.stopPropagation()}
+            >
+                <div className="flex-shrink-0 p-4 border-b bg-zinc-50 flex justify-between items-center">
+                    <h2 className="text-lg font-semibold text-zinc-800">Santa Brain 🧠</h2>
+                    <button onClick={onClose} className="p-2 rounded-full hover:bg-zinc-200">
+                        <X size={20} />
+                    </button>
+                </div>
+                {children}
+            </div>
+        </div>
+    )
+}
+
+export default function QuickLogOverlay() {
+  const [open, setOpen] = useState(false);
+  const { data, setData, currentUser } = useData();
+
+  const handleNewData = useCallback((newData: Partial<SantaData>) => {
+    if (!data) return;
+    const updatedData = { ...data };
+
+    if (newData.interactions) {
+        updatedData.interactions = [...updatedData.interactions, ...newData.interactions];
+    }
+    if (newData.ordersSellOut) {
+        updatedData.ordersSellOut = [...updatedData.ordersSellOut, ...newData.ordersSellOut];
+    }
+    if (newData.mktEvents) {
+        updatedData.mktEvents = [...(updatedData.mktEvents || []), ...newData.mktEvents];
+    }
+
+    setData(updatedData);
+  }, [data, setData]);
+
+  if (!data || !currentUser) return null;
+
+  return (
+    <>
+      <FloatingButton onClick={() => setOpen(true)} />
+      <ChatModal open={open} onClose={() => setOpen(false)}>
+        <Chat
+          userId={currentUser.id}
+          context={{
+              accounts: data.accounts as AccountRef[],
+              products: data.products,
+          }}
+          onNewData={handleNewData}
+          runner={runSantaBrain}
+        />
+      </ChatModal>
+    </>
+  );
+}

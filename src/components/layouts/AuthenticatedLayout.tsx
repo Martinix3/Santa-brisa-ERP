@@ -1,0 +1,293 @@
+
+
+"use client";
+
+import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { 
+    Users, 
+    Calendar, 
+    ShoppingCart, 
+    BarChart3, 
+    Megaphone, 
+    Cpu, 
+    Warehouse, 
+    User, 
+    FileCog, 
+    TestTube2,
+    Factory,
+    Truck,
+    BookOpen,
+    Waypoints,
+    Zap,
+    FlaskConical,
+    LineChart,
+    ArrowDownCircle,
+    ArrowUpCircle,
+    PanelLeftClose,
+    PanelRightClose,
+    ClipboardCheck,
+    Tags,
+    ChevronDown,
+    Contact,
+    Briefcase,
+    SlidersHorizontal
+} from 'lucide-react';
+import { SB_COLORS, hexToRgba } from '@/components/ui/ui-primitives';
+import { AnimatePresence, motion } from 'framer-motion';
+
+
+const navSections = [
+    {
+        title: 'Dashboards',
+        module: 'sales',
+        items: [
+            { href: '/dashboard-ventas', label: 'Dashboards de Ventas', icon: BarChart3 },
+        ]
+    },
+    {
+        title: 'Agenda',
+        module: 'general',
+        items: [
+            { href: '/agenda', label: 'Agenda', icon: Calendar },
+        ]
+    },
+    {
+        title: 'Ventas',
+        module: 'sales',
+        items: [
+            { href: '/accounts', label: 'Cuentas', icon: Users },
+            { href: '/orders', label: 'Pedidos', icon: ShoppingCart },
+        ]
+    },
+    {
+        title: 'Marketing',
+        module: 'marketing',
+        items: [
+            { href: '/marketing/dashboard', label: 'Dashboard', icon: Megaphone },
+            { href: '/marketing/events', label: 'Eventos', icon: Calendar },
+            { href: '/marketing/online', label: 'Campañas Online', icon: Zap },
+            { href: '/marketing/influencers/dashboard', label: 'Influencers', icon: Contact },
+        ]
+    },
+    {
+        title: 'Producción',
+        module: 'production',
+        items: [
+            { href: '/production/dashboard', label: 'Dashboard', icon: Factory },
+            { href: '/production/bom', label: 'BOMs', icon: BookOpen },
+            { href: '/production/execution', label: 'Producción', icon: Cpu },
+            { href: '/production/traceability', label: 'Trazabilidad', icon: Waypoints },
+        ]
+    },
+    {
+        title: 'Calidad',
+        module: 'quality',
+        items: [
+            { href: '/quality/dashboard', label: 'Calidad (QC)', icon: ClipboardCheck },
+        ]
+    },
+    {
+        title: 'Almacén',
+        module: 'warehouse',
+        items: [
+            { href: '/warehouse/dashboard', label: 'Dashboard', icon: Warehouse },
+            { href: '/warehouse/inventory', label: 'Inventario', icon: Users },
+            { href: '/warehouse/logistics', label: 'Logística', icon: Truck },
+        ]
+    },
+    {
+        title: 'Financiera',
+        module: 'finance',
+        items: [
+            { href: '/cashflow/dashboard', label: 'Cashflow', icon: LineChart },
+            { href: '/cashflow/collections', label: 'Cobros', icon: ArrowDownCircle },
+            { href: '/cashflow/payments', label: 'Pagos', icon: ArrowUpCircle },
+        ]
+    },
+    {
+        title: 'Admin',
+        module: 'admin',
+        items: [
+            { href: '/users', label: 'Usuarios', icon: User },
+            { href: '/tools/ssot-accounts-editor', label: 'Editor de Cuentas', icon: FileCog },
+            { href: '/admin/sku-management', label: 'Gestión de SKUs', icon: Tags },
+            { href: '/admin/kpi-settings', label: 'Ajustes de KPIs', icon: SlidersHorizontal },
+        ]
+    },
+    {
+        title: 'Dev Tools',
+        module: 'admin',
+        items: [
+            { href: '/dev/ssot-tests', label: 'SSOT Tests', icon: TestTube2 },
+            { href: '/dev/integrations-panel', label: 'Integrations', icon: Zap },
+            { href: '/dev/qc-params', label: 'Parámetros QC', icon: FlaskConical },
+        ]
+    }
+];
+
+function NavLink({ 
+    href, 
+    label, 
+    icon: Icon, 
+    isCollapsed,
+    moduleColor
+}: { 
+    href: string; 
+    label: string; 
+    icon: React.ElementType, 
+    isCollapsed: boolean,
+    moduleColor: string,
+}) {
+    const pathname = usePathname();
+    const isActive = href === '/' ? pathname === href : pathname.startsWith(href) && href !== '/';
+
+    const activeStyle = {
+        backgroundColor: hexToRgba(moduleColor, 0.08),
+        color: moduleColor,
+    };
+    const inactiveStyle = {
+        color: 'hsl(var(--sb-neutral-700))',
+    };
+
+    return (
+        <Link 
+            href={href} 
+            className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                isCollapsed ? 'justify-center' : ''
+            } ${isActive ? '' : 'hover:bg-sb-neutral-100 hover:text-sb-neutral-900'}`}
+            style={isActive ? activeStyle : inactiveStyle}
+            title={isCollapsed ? label : undefined}
+        >
+            <Icon className="h-5 w-5 flex-shrink-0" />
+            {!isCollapsed && <span className="flex-1 truncate">{label}</span>}
+        </Link>
+    );
+}
+
+function NavSection({ 
+    section, 
+    isCollapsed,
+    isExpanded,
+    onToggle
+}: { 
+    section: typeof navSections[0], 
+    isCollapsed: boolean,
+    isExpanded: boolean,
+    onToggle: () => void,
+}) {
+    const pathname = usePathname();
+    const isSectionActive = section.items.some(item => pathname.startsWith(item.href) && (item.href !== '/' || pathname === '/'));
+    const colorKey = (section.module || 'primary') as keyof typeof SB_COLORS;
+    const moduleColor = SB_COLORS[colorKey] || SB_COLORS.primary;
+    const Icon = section.items[0].icon;
+
+    if (section.items.length === 1 && !isCollapsed) {
+        return <NavLink {...section.items[0]} isCollapsed={isCollapsed} moduleColor={moduleColor} />;
+    }
+
+    return (
+        <div className="py-1">
+            <button
+                onClick={onToggle}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-sm font-semibold transition-colors ${
+                    isCollapsed ? 'justify-center' : ''
+                } ${isSectionActive ? '' : 'text-sb-neutral-500 hover:bg-sb-neutral-100 hover:text-sb-neutral-900'}`}
+                style={isSectionActive ? { color: moduleColor } : {}}
+                title={isCollapsed ? section.title : undefined}
+            >
+                {!isCollapsed && <span className="uppercase tracking-wider text-xs">{section.title}</span>}
+                {isCollapsed && <div className="p-1"><Icon className="h-5 w-5"/></div>}
+                <ChevronDown 
+                    className={`h-4 w-4 transition-transform duration-200 ${isCollapsed ? 'hidden' : ''}`}
+                    style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                />
+            </button>
+            <AnimatePresence initial={false}>
+                {isExpanded && !isCollapsed && (
+                     <motion.div
+                        key="content"
+                        initial="collapsed"
+                        animate="open"
+                        exit="collapsed"
+                        variants={{
+                            open: { opacity: 1, height: "auto" },
+                            collapsed: { opacity: 0, height: 0 }
+                        }}
+                        transition={{ duration: 0.3, ease: [0.04, 0.62, 0.23, 0.98] }}
+                        className="pl-3 mt-1 space-y-1 overflow-hidden"
+                     >
+                        {section.items.map(item => (
+                            <NavLink key={item.href} {...item} isCollapsed={isCollapsed} moduleColor={moduleColor} />
+                        ))}
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    )
+}
+
+function AuthenticatedLayoutContent({ children }: { children: React.ReactNode }) {
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
+  const pathname = usePathname();
+
+  useEffect(() => {
+    const activeSection = navSections.find(section => section.items.some(item => pathname.startsWith(item.href) && item.href !== '/'));
+    if(pathname === '/') {
+        setExpandedSections(prev => ({...prev, 'Dashboards':true}));
+        return;
+    }
+    if (activeSection) {
+        setExpandedSections(prev => ({ ...prev, [activeSection.title]: true }));
+    }
+  }, [pathname]);
+
+  const toggleSection = (title: string) => {
+    setExpandedSections(prev => ({...prev, [title]: !prev[title]}));
+  };
+
+  return (
+    <div className="h-screen flex flex-col bg-white">
+      <div className={`flex-grow grid grid-cols-1 md:grid-cols-[auto_1fr] min-h-0 transition-all duration-300 ease-in-out`}>
+        <aside className={`bg-white border-r border-sb-neutral-200 transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'w-20' : 'w-64'}`}>
+          <nav className="h-full flex flex-col p-3">
+            <div className="p-3">
+                <img 
+                    src="https://santabrisa.es/cdn/shop/files/clavista_300x_36b708f6-4606-4a51-9f65-e4b379531ff8_300x.svg?v=1752413726" 
+                    alt="Santa Brisa" 
+                    className={`transition-all duration-300 ease-in-out h-8`} 
+                />
+            </div>
+            <div className="space-y-1 flex-grow overflow-y-auto">
+                {navSections.map(section => (
+                    <NavSection 
+                        key={section.title} 
+                        section={section}
+                        isCollapsed={isSidebarCollapsed}
+                        isExpanded={!!expandedSections[section.title]}
+                        onToggle={() => toggleSection(section.title)}
+                    />
+                ))}
+            </div>
+            <div className="mt-4 pt-4 border-t border-sb-neutral-200">
+                <button
+                    onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                    className="w-full flex items-center justify-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-sb-neutral-600 hover:bg-sb-neutral-100"
+                    title={isSidebarCollapsed ? 'Expandir menú' : 'Colapsar menú'}
+                >
+                    {isSidebarCollapsed ? <PanelRightClose className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
+                </button>
+            </div>
+          </nav>
+        </aside>
+        <main className="overflow-y-auto flex flex-col">{children}</main>
+      </div>
+    </div>
+  );
+}
+
+export default function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
+    return <AuthenticatedLayoutContent>{children}</AuthenticatedLayoutContent>
+}
