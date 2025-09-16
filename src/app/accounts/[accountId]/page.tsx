@@ -1,11 +1,9 @@
-
-
 "use client";
 
 import React, { useMemo, useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useData } from '@/lib/dataprovider';
-import type { SantaData, Interaction as InteractionType, OrderSellOut, User as UserType, Distributor, InteractionKind, Account, AccountRef, Variant } from '@/domain/ssot';
+import type { SantaData, Interaction as InteractionType, OrderSellOut, User as UserType, Distributor, InteractionKind, Account, AccountRef } from '@/domain/ssot';
 import { computeAccountKPIs, accountOwnerDisplay } from '@/lib/sb-core';
 import { orderTotal } from '@/domain/ssot';
 import { ArrowUpRight, ArrowDownRight, Phone, Mail, MapPin, User, Factory, Boxes, Megaphone, Briefcase, Banknote, Calendar, FileText, ShoppingCart, Star, Building2, CreditCard, ChevronRight, ChevronLeft, MessageSquare, Sparkles, Tag, Clock } from "lucide-react";
@@ -14,7 +12,7 @@ import { enrichAccount } from '@/ai/flows/enrich-account-flow';
 
 import AuthGuard from '@/components/auth/AuthGuard';
 import AuthenticatedLayout from '@/components/layouts/AuthenticatedLayout';
-import { SBFlowModal } from '@/features/quicklog/components/SBFlows';
+import { SBFlowModal, Variant } from '@/features/quicklog/components/SBFlows';
 import { SBButton, SBCard, SB_COLORS } from '@/components/ui/ui-primitives';
 
 
