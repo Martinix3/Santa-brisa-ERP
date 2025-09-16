@@ -1,7 +1,8 @@
+
 "use client";
 
 import React, { useMemo, useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, notFound } from 'next/navigation';
 import { useData } from '@/lib/dataprovider';
 import type { SantaData, Interaction as InteractionType, OrderSellOut, User as UserType, Distributor, InteractionKind, Account, AccountRef } from '@/domain/ssot';
 import { computeAccountKPIs, accountOwnerDisplay } from '@/lib/sb-core';
@@ -68,7 +69,12 @@ const formatDate = (iso: string) => new Date(iso).toLocaleDateString('es-ES', {d
 function AccountDetailPageContent(){
   const router = useRouter();
   const params = useParams();
+  
+  if (!params || !params.accountId) {
+    notFound();
+  }
   const accountId = params.accountId as string;
+
   const { data: santaData, setData, currentUser } = useData();
 
   const [modalVariant, setModalVariant] = useState<Variant | null>(null);

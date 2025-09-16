@@ -140,10 +140,10 @@ export async function runSantaBrain(history: Message[], input: string, context: 
         model: gemini('gemini-2.5-flash'),
         prompt: input,
         history: history,
+        tools: [createInteractionTool, createOrderTool, createEventTool],
         context: [
           { role: 'context', content: [{ text: `Contexto de negocio: ${JSON.stringify(context)}` } ] },
         ],
-        tools: [createInteractionTool, createOrderTool, createEventTool]
     });
 
     const toolRequests = llmResponse.toolRequests;
@@ -151,14 +151,27 @@ export async function runSantaBrain(history: Message[], input: string, context: 
 
     if (toolRequests.length > 0) {
         const toolResponses: Part[] = [];
+        
+        type ToolCall = { toolRequest: { name: string; input?: unknown; ref?: string; } };
 
         for (const call of toolRequests) {
-            const result = await call.run();
-            toolResponses.push({ toolResponse: { name: call.toolRequest.name, output: result } });
+            const toolCall = call as ToolCall;
+            let result: any;
             
-            const typedInput = call.toolRequest.input as any;
+            // Simular la ejecución de la herramienta
+            if (toolCall.toolRequest.name === 'createInteraction') {
+                result = await createInteractionTool(toolCall.toolRequest.input as any);
+            } else if (toolCall.toolRequest.name === 'createOrder') {
+                result = await createOrderTool(toolCall.toolRequest.input as any);
+            } else if (toolCall.toolRequest.name === 'createEvent') {
+                result = await createEventTool(toolCall.toolRequest.input as any);
+            }
 
-            if (call.toolRequest.name === 'createInteraction') {
+            toolResponses.push({ toolResponse: { name: toolCall.toolRequest.name, output: result } });
+            
+            const typedInput = toolCall.toolRequest.input as any;
+
+            if (toolCall.toolRequest.name === 'createInteraction') {
                 const account = context.accounts.find(a => a.name === typedInput.accountName);
                 if (account) {
                     const newInteraction: Interaction = {
@@ -172,7 +185,7 @@ export async function runSantaBrain(history: Message[], input: string, context: 
                     };
                     newEntities.interactions?.push(newInteraction);
                 }
-            } else if (call.toolRequest.name === 'createOrder') {
+            } else if (toolCall.toolRequest.name === 'createOrder') {
                 const account = context.accounts.find(a => a.name === typedInput.accountName);
                 if (account) {
                      const newOrder: OrderSellOut = {
@@ -187,7 +200,7 @@ export async function runSantaBrain(history: Message[], input: string, context: 
                      };
                      newEntities.ordersSellOut?.push(newOrder);
                 }
-            } else if (call.toolRequest.name === 'createEvent') {
+            } else if (toolCall.toolRequest.name === 'createEvent') {
                 const newEvent: EventMarketing = {
                     id: (result as any).eventId,
                     title: typedInput.title,
@@ -205,7 +218,7 @@ export async function runSantaBrain(history: Message[], input: string, context: 
             history: [
               ...history,
               { role: 'user', content: [{ text: input }] },
-              { role: 'model', content: llmResponse.raw.candidates[0].content.parts },
+              { role: 'model', content: llmResponse.output()?.content.parts || [] },
               { role: 'user', content: toolResponses },
             ],
             context: [

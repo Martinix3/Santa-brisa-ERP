@@ -296,14 +296,23 @@ function RaceToGoal({ current, goal, label }: { current: number; goal: number; l
     );
 }
 
+type ReportTotals = {
+    activeAccounts: number;
+    newAccounts: number;
+    newOrders: number;
+    totalEUR: number;
+};
+const EMPTY_TOTALS: ReportTotals = { activeAccounts: 0, newAccounts: 0, newOrders: 0, totalEUR: 0 };
+
+
 function SalesReportTable({ users, data }: { users: UserType[], data: any }) {
     const reportData = useMemo(() => {
-        if (!data || !users) return { totals: {}, byUser: [] };
+        if (!data || !users) return { totals: EMPTY_TOTALS, byUser: [] };
 
         const monthStart = new Date();
         monthStart.setDate(1);
 
-        const totals = {
+        const totals: ReportTotals = {
             activeAccounts: data.accounts.filter((a: Account) => a.stage === 'ACTIVA').length,
             newAccounts: data.accounts.filter((a: Account) => inWindow(a.createdAt, monthStart, new Date())).length,
             newOrders: data.ordersSellOut.filter((o: OrderSellOut) => inWindow(o.createdAt, monthStart, new Date())).length,
@@ -331,6 +340,7 @@ function SalesReportTable({ users, data }: { users: UserType[], data: any }) {
 
 
     const headers = ['Comercial', 'Cuentas Activas', 'Nuevas Cuentas', 'Nuevos Pedidos', 'Total €', 'Ticket Medio', 'Tasa Conversión'];
+    const tableTotals = { ...EMPTY_TOTALS, ...reportData.totals };
 
     return (
         <SBCard title="Informe de Rendimiento del Equipo (Mensual)">
@@ -357,10 +367,10 @@ function SalesReportTable({ users, data }: { users: UserType[], data: any }) {
                     <tfoot className="bg-zinc-100 font-bold">
                         <tr>
                             <td className="px-4 py-3">Total Equipo</td>
-                            <td className="px-4 py-3 text-center">{reportData.totals.activeAccounts}</td>
-                            <td className="px-4 py-3 text-center">{reportData.totals.newAccounts}</td>
-                            <td className="px-4 py-3 text-center">{reportData.totals.newOrders}</td>
-                            <td className="px-4 py-3 text-right">{formatEur(reportData.totals.totalEUR)}</td>
+                            <td className="px-4 py-3 text-center">{tableTotals.activeAccounts}</td>
+                            <td className="px-4 py-3 text-center">{tableTotals.newAccounts}</td>
+                            <td className="px-4 py-3 text-center">{tableTotals.newOrders}</td>
+                            <td className="px-4 py-3 text-right">{formatEur(tableTotals.totalEUR)}</td>
                             <td colSpan={2}></td>
                         </tr>
                     </tfoot>

@@ -2,6 +2,7 @@
 "use client";
 import * as React from 'react';
 import type { Account, Product, Shipment, OrderSellOut } from '@/domain/ssot';
+import { isValidElement, cloneElement, ReactElement } from 'react';
 
 type DocKind = 'sales_order' | 'delivery_note' | 'shipping_label';
 
@@ -70,9 +71,8 @@ export function DownloadDocButton(props: DownloadDocButtonProps) {
   const buttonContent = loading ? 'Generando…' : (children ?? label);
   const isSlot = !!children;
 
-  if (isSlot) {
-    const child = React.Children.only(children) as React.ReactElement;
-    return React.cloneElement(child, {
+  if (isSlot && isValidElement(children)) {
+    return cloneElement(children as ReactElement<any>, {
       onClick: onClick as any,
     });
   }

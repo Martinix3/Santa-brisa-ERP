@@ -3,6 +3,7 @@
 
 import * as React from "react";
 import { X } from "lucide-react";
+import { cloneElement, isValidElement, ReactElement } from 'react';
 
 // Simplified Dialog component inspired by ShadCN-UI Radix primitives
 // Radix not installed, so this is a lightweight, dependency-free implementation
@@ -29,12 +30,16 @@ export const SBDialogTrigger = React.forwardRef<HTMLButtonElement, { asChild?: b
     
     const child = React.Children.only(children);
     
-    return React.cloneElement(child, {
+    if (!isValidElement(child)) {
+      return null;
+    }
+
+    return cloneElement(child as ReactElement<any>, {
       ...props,
       ref,
       onClick: (e: React.MouseEvent<HTMLElement>) => {
         context.onOpenChange(true);
-        if ((child.props as any).onClick) (child.props as any).onClick(e);
+        if (child.props.onClick) child.props.onClick(e);
       },
     });
   }

@@ -12,6 +12,7 @@
     "test": "vitest",
     "test:exports": "vitest run tests/ssot-exports.test.ts",
     "clean": "rm -rf .next",
+    "clean:all": "rm -rf node_modules package-lock.json .next",
     "genkit:start": "genkit start",
     "genkit:run": "genkit run",
     "genkit:list": "genkit list"
@@ -25,6 +26,7 @@
     "@fullcalendar/react": "^6.1.19",
     "@fullcalendar/timegrid": "^6.1.19",
     "@genkit-ai/googleai": "^1.19.2",
+    "@tailwindcss/postcss": "^4.0.0-alpha.18",
     "firebase": "^12.2.1",
     "framer-motion": "^12.23.13",
     "genkit": "1.19.2",
@@ -36,15 +38,13 @@
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "recharts": "^3.2.1",
-    "zod": "^3.23.8"
+    "zod": "3.23.8"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
     "@genkit-ai/core": "1.19.2",
-    "@types/estree": "^1.0.8",
     "@types/json-schema": "^7.0.15",
     "@types/node": "^24.5.0",
-    "@types/papaparse": "^5.3.16",
     "@types/react": "^19.1.13",
     "@types/react-dom": "^19.1.9",
     "@typescript-eslint/eslint-plugin": "^8.44.0",
@@ -53,8 +53,6 @@
     "esbuild": "^0.25.9",
     "eslint": "^9.35.0",
     "eslint-config-next": "^15.5.3",
-    "i": "^0.3.7",
-    "npm": "^11.6.0",
     "postcss": "^8.5.6",
     "tailwindcss": "4.1.13",
     "tsx": "^4.20.5",
@@ -64,7 +62,8 @@
     "vitest": "^3.2.4"
   },
   "overrides": {
-    "debug": "4.4.1"
+    "debug": "4.4.1",
+    "zod": "3.23.8"
   },
   "engines": {
     "node": ">=18.18.0",

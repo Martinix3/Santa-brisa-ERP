@@ -12,7 +12,7 @@ import { SB_COLORS } from '@/components/ui/ui-primitives';
 const clsx = (...xs: Array<string | false | null | undefined>) => xs.filter(Boolean).join(" ");
 
 function MarketingNav() {
-    const pathname = usePathname();
+    const pathname = usePathname() ?? '';
     const navItems = [
         { href: '/marketing/dashboard', label: 'Dashboard' },
         { href: '/marketing/events', label: 'Eventos' },
