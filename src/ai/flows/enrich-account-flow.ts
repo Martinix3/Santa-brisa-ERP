@@ -30,15 +30,6 @@ export const EnrichAccountOutputSchema = z.object({
 export type EnrichAccountOutput = z.infer<typeof EnrichAccountOutputSchema>;
 
 
-/**
- * Función exportada que el UI puede llamar para enriquecer una cuenta.
- * @param input Los detalles básicos de la cuenta.
- * @returns Una promesa que se resuelve con los datos enriquecidos.
- */
-export async function enrichAccount(input: EnrichAccountInput): Promise<EnrichAccountOutput> {
-  return enrichAccountFlow(input);
-}
-
 // Define el prompt que se enviará al modelo de IA.
 const enrichAccountPrompt = ai.definePrompt({
   name: 'enrichAccountPrompt',
@@ -81,3 +72,13 @@ const enrichAccountFlow = ai.defineFlow(
     return output;
   }
 );
+
+
+/**
+ * Función exportada que el UI puede llamar para enriquecer una cuenta.
+ * @param input Los detalles básicos de la cuenta.
+ * @returns Una promesa que se resuelve con los datos enriquecidos.
+ */
+export async function enrichAccount(input: EnrichAccountInput): Promise<EnrichAccountOutput> {
+  return enrichAccountFlow(input);
+}
