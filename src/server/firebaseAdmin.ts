@@ -1,5 +1,8 @@
-// src/server/firebaseAdmin.ts
-import 'server-only';
+// ❗ NUNCA importes este archivo desde componentes con "use client"
+if (typeof window !== 'undefined') {
+  throw new Error('firebaseAdmin solo puede usarse en el servidor');
+}
+
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
