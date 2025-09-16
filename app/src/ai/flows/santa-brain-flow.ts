@@ -178,76 +178,99 @@ export async function runSantaBrain(history: Message[], input: string, context: 
 
     if (toolRequests.length > 0) {
         const toolResponses = [];
-        
+        const accountsInThisTurn: Account[] = [];
+
+        // First pass: Handle account creation/updates to have them available for other tools
         for (const call of toolRequests) {
+            if (call.toolRequest.name === 'upsertAccount') {
+                const result = await upsertAccountTool(call.toolRequest.input as any);
+                toolResponses.push({ toolResponse: { name: call.toolRequest.name, output: result } });
+                
+                if (result.success) {
+                    const typedInput = call.toolRequest.input as z.infer<typeof UpsertAccountSchema>;
+                    const newAccount: Account = {
+                        ...typedInput,
+                        id: result.accountId,
+                        createdAt: new Date().toISOString(),
+                        stage: typedInput.stage || 'POTENCIAL',
+                        type: typedInput.type || 'HORECA',
+                        mode: { mode: 'PROPIA_SB', ownerUserId: 'u_brain', biller: 'SB' }, // Simplified default
+                    };
+                    newEntities.accounts?.push(newAccount);
+                    accountsInThisTurn.push(newAccount);
+                }
+            }
+        }
+        
+        // Second pass: Handle other tools
+        for (const call of toolRequests) {
+            if (call.toolRequest.name === 'upsertAccount') continue; // Already processed
+            
             let result: any;
             const toolToRun = tools.find(t => t.name === call.toolRequest.name);
             
             if (toolToRun) {
                 result = await toolToRun(call.toolRequest.input as any);
+                toolResponses.push({ toolResponse: { name: call.toolRequest.name, output: result } });
             } else {
                 result = { success: false, error: `Tool ${call.toolRequest.name} not found.` };
+                 toolResponses.push({ toolResponse: { name: call.toolRequest.name, output: result } });
+                 continue;
             }
-
-            toolResponses.push({ toolResponse: { name: call.toolRequest.name, output: result } });
             
             const typedInput = call.toolRequest.input as any;
+            
+            // This is a helper function to find an account, prioritizing newly created ones.
+            const findAccount = (name: string) => {
+                return accountsInThisTurn.find(a => a.name === name) || context.accounts.find(a => a.name === name);
+            };
 
-            if (call.toolRequest.name === 'createInteraction' && result.success) {
-                const account = context.accounts.find(a => a.name === typedInput.accountName);
-                if (account) {
-                    const newInteraction: Interaction = {
-                        id: result.interactionId,
-                        accountId: account.id,
-                        userId: 'u_brain', // Hardcoded for now
+            if (result.success) {
+                if (call.toolRequest.name === 'createInteraction') {
+                    const account = findAccount(typedInput.accountName);
+                    if (account) {
+                        const newInteraction: Interaction = {
+                            id: result.interactionId,
+                            accountId: account.id,
+                            userId: 'u_brain', // Hardcoded for now
+                            kind: typedInput.kind,
+                            note: typedInput.note,
+                            createdAt: new Date().toISOString(),
+                            dept: 'VENTAS'
+                        };
+                        newEntities.interactions?.push(newInteraction);
+                    }
+                } else if (call.toolRequest.name === 'createOrder') {
+                    const account = findAccount(typedInput.accountName);
+                    if (account) {
+                         const newOrder: OrderSellOut = {
+                            id: result.orderId,
+                            accountId: account.id,
+                            userId: 'u_brain',
+                            status: 'open',
+                            currency: 'EUR',
+                            createdAt: new Date().toISOString(),
+                            lines: typedInput.items.map((item: any) => ({ 
+                                sku: item.sku || 'SB-750', // Default SKU if not provided
+                                qty: item.quantity,
+                                unit: item.unit || 'ud',
+                                priceUnit: 0,
+                            })),
+                            notes: typedInput.notes,
+                         };
+                         newEntities.ordersSellOut?.push(newOrder);
+                    }
+                } else if (call.toolRequest.name === 'scheduleUserEvent') {
+                    const newEvent: EventMarketing = {
+                        id: result.eventId,
+                        title: typedInput.title,
                         kind: typedInput.kind,
-                        note: typedInput.note,
-                        createdAt: new Date().toISOString(),
-                        dept: 'VENTAS'
+                        status: 'planned',
+                        startAt: typedInput.startAt,
+                        city: typedInput.location,
                     };
-                    newEntities.interactions?.push(newInteraction);
+                    newEntities.mktEvents?.push(newEvent);
                 }
-            } else if (call.toolRequest.name === 'createOrder' && result.success) {
-                const account = context.accounts.find(a => a.name === typedInput.accountName);
-                if (account) {
-                     const newOrder: OrderSellOut = {
-                        id: result.orderId,
-                        accountId: account.id,
-                        userId: 'u_brain',
-                        status: 'open',
-                        currency: 'EUR',
-                        createdAt: new Date().toISOString(),
-                        lines: typedInput.items.map((item: any) => ({ 
-                            ...item, 
-                            sku: item.sku || 'SB-750', // Default SKU if not provided
-                            priceUnit: 0, 
-                            unit: item.unit || 'ud' 
-                        })),
-                        notes: typedInput.notes,
-                     };
-                     newEntities.ordersSellOut?.push(newOrder);
-                }
-            } else if (call.toolRequest.name === 'scheduleUserEvent' && result.success) {
-                const newEvent: EventMarketing = {
-                    id: result.eventId,
-                    title: typedInput.title,
-                    kind: typedInput.kind,
-                    status: 'planned',
-                    startAt: typedInput.startAt,
-                    city: typedInput.location,
-                };
-                newEntities.mktEvents?.push(newEvent);
-            } else if (call.toolRequest.name === 'upsertAccount' && result.success) {
-                const newAccount: Account = {
-                    ...typedInput,
-                    id: result.accountId,
-                    createdAt: new Date().toISOString(),
-                    // Fill in defaults for required fields if they are missing
-                    stage: typedInput.stage || 'POTENCIAL',
-                    type: typedInput.type || 'HORECA',
-                    mode: typedInput.mode || { mode: 'PROPIA_SB', ownerUserId: 'u_brain', biller: 'SB' },
-                };
-                newEntities.accounts?.push(newAccount);
             }
         }
         
