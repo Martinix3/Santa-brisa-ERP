@@ -1,6 +1,6 @@
 // domain/production.qc.ts - QC specs + helpers
 import { FlaskConical, Thermometer, TestTube2, Beaker } from 'lucide-react';
-import type { QCResult } from './ssot.core';
+import type { QCResult } from './ssot';
 
 type QCParam = {
   label: string;
@@ -41,7 +41,7 @@ export function validateQC(results: Record<string, QCResult>, spec: QCSpec): { v
     let isValid = true;
 
     if ('min' in paramSpec && result?.value !== undefined) {
-      if (result.value < paramSpec.min || result.value > paramSpec.max) {
+      if (Number(result.value) < paramSpec.min || Number(result.value) > paramSpec.max) {
         isValid = false;
       }
     }

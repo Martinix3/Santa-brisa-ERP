@@ -2,11 +2,10 @@
 
 "use client";
 import React, { useMemo } from "react";
-import type { ProductionOrder, Lot, QCResult } from "@/domain/ssot";
+import type { ProductionOrder, Lot } from "@/domain/ssot";
 import { SBCard, SBButton, SB_COLORS } from "@/components/ui/ui-primitives";
 import { Factory, Cpu, BookOpen, Waypoints, AlertCircle, Hourglass, MoreVertical, Check, X, Thermometer, FlaskConical, Beaker, TestTube2, Paperclip, Upload, Trash2 } from "lucide-react";
 import Link from 'next/link';
-import { QC_PARAMS, QCKey } from "@/domain/production";
 
 function KPI({ icon: Icon, label, value, color }: { icon: React.ElementType, label: string, value: string | number, color: string }) {
     return (
@@ -38,7 +37,7 @@ export function ProductionDashboard({ orders, lots }: { orders: ProductionOrder[
 
     const kpis = useMemo(() => {
         const activeOrders = orders.filter(o => o.status === 'wip' || o.status === 'released');
-        const pendingQCLots = lots.filter(l => l.quality.qcStatus === 'hold');
+        const pendingQCLots = lots.filter(l => l.quality?.qcStatus === 'hold');
         const overdueOrders = orders.filter(o => {
             const isLate = new Date(o.createdAt) < new Date(Date.now() - 3 * 86400000); // >3 days old
             return (o.status === 'pending' || o.status === 'released') && isLate;
@@ -113,7 +112,7 @@ export function ProductionDashboard({ orders, lots }: { orders: ProductionOrder[
                                         <p className="font-mono text-sm font-semibold">{lot.id}</p>
                                         <p className="text-xs text-sb-neutral-500">{lot.quantity} uds · {new Date(lot.createdAt).toLocaleDateString()}</p>
                                     </div>
-                                    <LotQualityStatusPill status={lot.quality.qcStatus} />
+                                    <LotQualityStatusPill status={lot.quality?.qcStatus} />
                                 </div>
                             ))}
                         </div>

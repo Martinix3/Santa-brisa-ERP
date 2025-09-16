@@ -3,7 +3,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Send, User, Bot, Loader, CheckCircle, AlertTriangle } from 'lucide-react';
-import type { AccountRef, Product, SantaData, User as UserType } from '@/domain/ssot';
+import type { AccountRef, Product, SantaData } from '@/domain/ssot';
 import { Message } from 'genkit';
 
 type ChatProps = {
@@ -31,7 +31,7 @@ export function Chat({ userId, context, onNewData, runner }: ChatProps) {
     const handleSend = useCallback(async () => {
         if (!input.trim() || isLoading) return;
 
-        const userMessage: Message = { role: 'user', content: [{text: input}] };
+        const userMessage: Message = { role: 'user', content: [{text: input}] } as Message;
         setMessages(prev => [...prev, userMessage]);
         setInput('');
         setIsLoading(true);
@@ -43,7 +43,7 @@ export function Chat({ userId, context, onNewData, runner }: ChatProps) {
                 context
             );
 
-            const assistantMessage: Message = { role: 'model', content: [{text: finalAnswer}] };
+            const assistantMessage: Message = { role: 'model', content: [{text: finalAnswer}] } as Message;
             setMessages(prev => [...prev, assistantMessage]);
             
             if (newEntities && (newEntities.interactions?.length || newEntities.ordersSellOut?.length || newEntities.mktEvents?.length)) {
@@ -52,7 +52,7 @@ export function Chat({ userId, context, onNewData, runner }: ChatProps) {
 
         } catch (error) {
             console.error("Error running Santa Brain:", error);
-            const errorMessage: Message = { role: 'model', content: [{text: "Lo siento, ha ocurrido un error. Revisa la consola para más detalles."}] };
+            const errorMessage: Message = { role: 'model', content: [{text: "Lo siento, ha ocurrido un error. Revisa la consola para más detalles."}] } as Message;
             setMessages(prev => [...prev, errorMessage]);
         } finally {
             setIsLoading(false);

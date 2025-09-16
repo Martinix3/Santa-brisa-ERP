@@ -7,9 +7,11 @@ import type { Creator, InfluencerCollab } from '@/domain/influencers';
 const adapter = new MemoryAdapter();
 
 export async function listCreators(): Promise<Creator[]> {
-  return adapter.getCreators();
+  const data = await adapter.getCreators();
+  return data as Creator[];
 }
 
 export async function listCollabs(): Promise<InfluencerCollab[]> {
-  return adapter.getInfluencerCollabs();
+  const data = await adapter.getInfluencerCollabs();
+  return data as InfluencerCollab[];
 }

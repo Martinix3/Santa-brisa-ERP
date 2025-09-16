@@ -4,7 +4,7 @@
 import React, { useState, useCallback } from 'react';
 import { Plus, X } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
-import type { SantaData, Interaction, OrderSellOut, EventMarketing, AccountRef, Product } from '@/domain/ssot';
+import type { SantaData, Account, Product } from '@/domain/ssot';
 import { Chat } from '@/features/chat/Chat';
 import { runSantaBrain } from '@/ai/flows/santa-brain-flow';
 import { Message } from 'genkit';
@@ -42,6 +42,11 @@ function ChatModal({ open, onClose, children }: { open: boolean, onClose: () => 
     )
 }
 
+type ChatContext = {
+    accounts: Account[];
+    products: Product[];
+};
+
 export default function QuickLogOverlay() {
   const [open, setOpen] = useState(false);
   const { data, setData, currentUser } = useData();
@@ -65,7 +70,7 @@ export default function QuickLogOverlay() {
 
   if (!data || !currentUser) return null;
 
-  const chatRunner = (history: Message[], input: string, context: { accounts: AccountRef[]; products: Product[]; }) => {
+  const chatRunner = (history: Message[], input: string, context: ChatContext) => {
       return runSantaBrain(history, input, context);
   }
 
@@ -76,11 +81,11 @@ export default function QuickLogOverlay() {
         <Chat
           userId={currentUser.id}
           context={{
-              accounts: data.accounts as AccountRef[],
+              accounts: data.accounts,
               products: data.products,
           }}
           onNewData={handleNewData}
-          runner={chatRunner}
+          runner={chatRunner as any}
         />
       </ChatModal>
     </>

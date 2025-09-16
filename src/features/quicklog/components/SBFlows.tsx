@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Plus, CalendarDays, ClipboardList, UserPlus2, Briefcase, Search, Check, MapPin, Pencil, Save, MessageSquare, Zap, Mail, Phone, History, ShoppingCart } from "lucide-react";
 import { useData } from "@/lib/dataprovider";
 import { generateNextOrder, Channel } from "@/lib/codes";
-import { SB_COLORS, AccountType, AccountRef } from '@/domain/ssot';
+import { AccountType, AccountRef, SB_COLORS } from '@/domain/ssot';
 
 const hexToRgba = (hex: string, a: number) => { const h = hex.replace('#',''); const f = h.length===3? h.split('').map(c=>c+c).join(''):h; const n=parseInt(f,16); const r=(n>>16)&255, g=(n>>8)&255, b=n&255; return `rgba(${r},${g},${b},${a})`; };
 const waterHeader = (seed = "hdr", base = "#A7D8D9") => {
@@ -116,7 +116,7 @@ function AccountPicker({
     <div className="relative" ref={boxRef}>
       <div className="relative">
         <Search className="h-4 w-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2"/>
-        <input value={q} onChange={e=>{ setQ(e.target.value); onChange(""); setOpen(true); }} onFocus={()=>setOpen(true)} placeholder={placeholder}
+        <input value={q} onChange={(e)=>{ setQ(e.target.value); onChange(""); setOpen(true); }} onFocus={()=>setOpen(true)} placeholder={placeholder}
           className="w-full pl-9 pr-3 py-2 rounded-lg border border-zinc-300 bg-white text-sm outline-none focus:ring-2 focus:ring-[#F7D15F]"/>
       </div>
 
@@ -238,14 +238,14 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
             <div className="px-3 py-2 text-xs uppercase tracking-wide text-zinc-500 border-b bg-zinc-50">Líneas (rápido)</div>
             {items.map((it,i)=> (
                 <div key={i} className="grid grid-cols-[1.2fr_0.6fr_40px] gap-2 items-center px-3 py-2 border-b last:border-b-0">
-                <Input placeholder="SKU" value={it.sku} onChange={e=>setLine(i,{sku:e.target.value})}/>
-                <Input type="number" min={1} value={it.qty} onChange={e=>setLine(i,{qty: Number(e.target.value)})}/>
+                <Input placeholder="SKU" value={it.sku} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>setLine(i,{sku:e.target.value})}/>
+                <Input type="number" min={1} value={it.qty} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>setLine(i,{qty: Number(e.target.value)})}/>
                 <button onClick={()=>removeLine(i)} className="p-2 rounded-md hover:bg-zinc-100" aria-label="Eliminar"><X className="h-4 w-4"/></button>
                 </div>
             ))}
             <div className="px-3 py-2 flex justify-between items-center">
                 <button onClick={addLine} className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md border border-zinc-300 bg-white hover:bg-zinc-50"><Plus className="h-3.5 w-3.5"/>Añadir línea</button>
-                <div className="w-1/2"><Input placeholder="Nota opcional" value={orderNote} onChange={e=>setOrderNote(e.target.value)}/></div>
+                <div className="w-1/2"><Input placeholder="Nota opcional" value={orderNote} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>setOrderNote(e.target.value)}/></div>
             </div>
             </div>
             <div className="flex items-center gap-2">
@@ -256,7 +256,7 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
       ) : (
         <div className="space-y-3">
             <Row><Label>Tipo de Interacción</Label>
-                <Select value={interactionKind} onChange={(e) => setInteractionKind(e.target.value as InteractionKind)}>
+                <Select value={interactionKind} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setInteractionKind(e.target.value as InteractionKind)}>
                     <option value="VISITA">Visita</option>
                     <option value="LLAMADA">Llamada</option>
                     <option value="EMAIL">Email</option>
@@ -265,10 +265,10 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
                 </Select>
             </Row>
             <Row><Label>Resumen</Label>
-                <Textarea rows={3} placeholder="¿Qué ha pasado? ¿De qué se ha hablado?" value={interactionNote} onChange={e=>setInteractionNote(e.target.value)}/>
+                <Textarea rows={3} placeholder="¿Qué ha pasado? ¿De qué se ha hablado?" value={interactionNote} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>)=>setInteractionNote(e.target.value)}/>
             </Row>
              <Row><Label>Próxima Acción (opcional)</Label>
-                <Input placeholder="Ej. Enviar propuesta, volver a llamar en 7 días..." value={nextAction} onChange={e=>setNextAction(e.target.value)}/>
+                <Input placeholder="Ej. Enviar propuesta, volver a llamar en 7 días..." value={nextAction} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>setNextAction(e.target.value)}/>
             </Row>
         </div>
       )}
@@ -293,18 +293,18 @@ function EditAccountForm({defaults, onSubmit, onCancel}:{
   return (
     <div className="p-4 space-y-3">
       <div className="grid grid-cols-2 gap-3">
-        <Row><Label>Nombre</Label><Input value={form.name} onChange={e=>set("name", e.target.value)} /></Row>
-        <Row><Label>Ciudad</Label><Input value={form.city} onChange={e=>set("city", e.target.value)} /></Row>
+        <Row><Label>Nombre</Label><Input value={form.name} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>set("name", e.target.value)} /></Row>
+        <Row><Label>Ciudad</Label><Input value={form.city} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>set("city", e.target.value)} /></Row>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <Row><Label>Tipo</Label>
-          <Select value={form.accountType} onChange={e=>set("accountType", e.target.value as AccountType)}>
+          <Select value={form.accountType} onChange={(e: React.ChangeEvent<HTMLSelectElement>)=>set("accountType", e.target.value as AccountType)}>
             <option>HORECA</option><option>RETAIL</option><option>DISTRIBUIDOR</option><option>IMPORTADOR</option><option>OTRO</option>
           </Select>
         </Row>
-        <Row><Label>Contacto</Label><Input value={form.mainContactName||""} onChange={e=>set("mainContactName", e.target.value)} placeholder="Nombre"/></Row>
+        <Row><Label>Contacto</Label><Input value={form.mainContactName||""} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>set("mainContactName", e.target.value)} placeholder="Nombre"/></Row>
       </div>
-      <Row><Label>Email</Label><Input type="email" value={form.mainContactEmail||""} onChange={e=>set("mainContactEmail", e.target.value)} placeholder="email@dominio.com"/></Row>
+      <Row><Label>Email</Label><Input type="email" value={form.mainContactEmail||""} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>set("mainContactEmail", e.target.value)} placeholder="email@dominio.com"/></Row>
 
       <div className="flex justify-between items-center pt-1">
         <div className="text-[11px] text-zinc-500">ID: <code>{form.id}</code></div>
@@ -325,18 +325,18 @@ function CreateAccountForm({onSubmit, onCancel}:{ onSubmit:(p:CreateAccountPaylo
   return (
     <div className="p-4 space-y-3">
       <div className="grid grid-cols-2 gap-3">
-        <Row><Label>Nombre</Label><Input value={form.name} onChange={e=>set("name", e.target.value)} placeholder="Ej. Bar Pepe"/></Row>
-        <Row><Label>Ciudad</Label><Input value={form.city} onChange={e=>set("city", e.target.value)} placeholder="Ej. Barcelona"/></Row>
+        <Row><Label>Nombre</Label><Input value={form.name} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>set("name", e.target.value)} placeholder="Ej. Bar Pepe"/></Row>
+        <Row><Label>Ciudad</Label><Input value={form.city} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>set("city", e.target.value)} placeholder="Ej. Barcelona"/></Row>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <Row><Label>Tipo</Label>
-          <Select value={form.accountType} onChange={e=>set("accountType", e.target.value as AccountType)}>
+          <Select value={form.accountType} onChange={(e: React.ChangeEvent<HTMLSelectElement>)=>set("accountType", e.target.value as AccountType)}>
             <option>HORECA</option><option>RETAIL</option><option>DISTRIBUIDOR</option><option>IMPORTADOR</option><option>OTRO</option>
           </Select>
         </Row>
-        <Row><Label>Contacto principal</Label><Input value={form.mainContactName||""} onChange={e=>set("mainContactName", e.target.value)} /></Row>
+        <Row><Label>Contacto principal</Label><Input value={form.mainContactName||""} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>set("mainContactName", e.target.value)} /></Row>
       </div>
-      <Row><Label>Email contacto</Label><Input type="email" value={form.mainContactEmail||""} onChange={e=>set("mainContactEmail", e.target.value)} placeholder="ana@bar.com"/></Row>
+      <Row><Label>Email contacto</Label><Input type="email" value={form.mainContactEmail||""} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>set("mainContactEmail", e.target.value)} placeholder="ana@bar.com"/></Row>
 
       <div className="flex justify-end gap-2 pt-1">
         <button onClick={onCancel} className="px-3 py-2 text-sm rounded-lg border border-zinc-300 bg-white hover:bg-zinc-50">Cancelar</button>

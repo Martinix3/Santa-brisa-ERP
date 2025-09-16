@@ -1,21 +1,44 @@
-// domain/schema.ts
-import type { LucideIcon } from 'lucide-react';
-import { Factory, Boxes, Megaphone, Briefcase, Banknote, Calendar } from 'lucide-react';
-// Re-export all types from ssot.ts
-export * from './ssot';
-import type { Department as Dept } from './ssot';
+// src/domain/schema.ts
+// Puente de compatibilidad: reexporta desde ssot y aporta mínimos que el UI espera.
 
-// --- Mock Data & Placeholders ---
-export const DEPT_META: Record<Dept | 'GENERAL', { label: string; color: string; textColor: string; icon: LucideIcon }> = {
-  PRODUCCION: { label: 'Producción', color: '#618E8F', textColor: '#153235', icon: Factory },
-  ALMACEN:    { label: 'Almacén',    color: '#A7D8D9', textColor: '#17383a', icon: Boxes },
-  MARKETING:  { label: 'Marketing',  color: '#F7D15F', textColor: '#3f3414', icon: Megaphone },
-  VENTAS:     { label: 'Ventas',     color: '#D7713E', textColor: '#40210f', icon: Briefcase },
-  FINANZAS:   { label: 'Finanzas',   color: '#CCCCCC', textColor: '#333333', icon: Banknote },
-  GENERAL:    { label: 'General',    color: '#A7D8D9', textColor: '#17383a', icon: Calendar },
+// Reexporta tipos base del dominio consolidado:
+export type {
+  User,
+  Account,
+  Product,
+  OrderSellOut,
+  Interaction,
+  SantaData,
+  AccountRef,
+  EventMarketing,
+} from './ssot';
+
+// Alias usado en un import: `SantaData as SantaDataType`
+export type { SantaData as SantaDataType } from './ssot';
+
+// ---- Stubs / extras que usa el UI en agenda & brain ----
+
+// Roles mínimos para users
+export type UserRole = 'admin' | 'comercial' | 'ops' | 'owner';
+
+// Departamentos mínimos para agenda
+export type Department =
+  | 'VENTAS'
+  | 'PRODUCCION'
+  | 'ALMACEN'
+  | 'MARKETING'
+  | 'FINANZAS'
+  | 'GENERAL';
+
+// Metadatos de departamentos usados por la UI de Agenda
+export const DEPT_META: Record<
+  Department | 'GENERAL',
+  { label: string; color: string; textColor: string }
+> = {
+  VENTAS: { label: 'Ventas', color: '#D7713E', textColor: '#40210f' },
+  PRODUCCION: { label: 'Producción', color: '#618E8F', textColor: '#153235' },
+  ALMACEN:    { label: 'Almacén',    color: '#A7D8D9', textColor: '#17383a' },
+  MARKETING:  { label: 'Marketing',  color: '#F7D15F', textColor: '#3f3414' },
+  FINANZAS:   { label: 'Finanzas',   color: '#CCCCCC', textColor: '#333333' },
+  GENERAL:    { label: 'General',    color: '#A7D8D9', textColor: '#17383a' },
 };
-
-/** Devuelve la fecha de hace n días en formato ISO. */
-export function isoDaysAgo(n: number) {
-  const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString();
-}

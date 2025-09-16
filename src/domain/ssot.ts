@@ -1,4 +1,3 @@
-
 // src/domain/ssot.ts
 
 // ---- Primitivas / enums
@@ -227,7 +226,7 @@ export interface QACheck {
 }
 
 export interface BillOfMaterialItem { materialId: string; quantity: number; unit?: string; }
-export interface BillOfMaterial { id?: string; sku: string; name: string; items: BillOfMaterialItem[]; batchSize: number; baseUnit?: string;}
+export interface BillOfMaterial { id?: string; sku: string; name: string; items: BillOfMaterialItem[]; batchSize: number; baseUnit?: string; productId?: string; }
 
 export interface ProductionOrder {
   id: string;
@@ -249,11 +248,14 @@ export interface ProductionOrder {
   actuals?: ActualConsumption[];
   execution?: any;
   costing?: any;
+  productId?: string;
+  plannedQty?: number;
 }
 export interface Shortage { materialId: string; name: string; required: number; available: number; uom: Uom; }
 export interface Reservation { materialId: string; fromLot: string; reservedQty: number; uom: Uom }
 export interface ActualConsumption { materialId: string; name: string; fromLot?: string; theoreticalQty: number; actualQty: number; uom: Uom; costPerUom: number; }
 
+export type GenealogyLink = { fromLotId: string; toLotId: string };
 export type TraceEventPhase = 'SOURCE' | 'RECEIPT' | 'QC' | 'PRODUCTION' | 'PACK' | 'WAREHOUSE' | 'SALE' | 'DELIVERY';
 export type TraceEventKind =
   | 'FARM_DATA' | 'SUPPLIER_PO'
@@ -298,6 +300,14 @@ export interface OnlineCampaign {
   endAt?: string;
   budget: number;
   spend: number;
+  metrics?: {
+    impressions: number;
+    clicks: number;
+    ctr?: number;
+    conversions?: number;
+    cpa?: number;
+    roas?: number;
+  };
 }
 export interface Activation { id: string; }
 
@@ -308,6 +318,23 @@ export interface InfluencerCollab { id: string; creatorId: string; status: strin
 // ---- Recibos / compras mínimos
 export interface GoodsReceipt { id: string; supplierId: string; createdAt: string; expectedAt: string; receivedAt?: string; lines: any[]; externalRef?: string; }
 export interface Receipt { id: string; createdAt: string; }
+
+// ---- Finanzas
+export interface CashflowSettings {
+  currency: 'EUR';
+  openingBalance: number;
+  defaultTermsDays: number;
+  termsByChannel?: Partial<Record<Channel, number>>;
+  lagByPaymentMethod?: Partial<Record<'contado'|'transferencia'|'tarjeta'|'paypal'|'domiciliado', number>>;
+  includeConfidence: { high: boolean; medium: boolean; low: boolean };
+  vatMode: 'net'|'gross';
+  vatSettlementDay?: 20;
+  fxRates?: Record<string, number>;
+  payoutFeePctOnline?: number;
+  bankFeePct?: number;
+  agingLagDays?: number;
+  bucket: 'day'|'week'|'month';
+}
 
 // ---- Dataset canónico
 export interface SantaData {
@@ -360,3 +387,5 @@ export function orderTotal(o: { totalAmount?: number; lines: { priceUnit:number;
 export function isoDaysAgo(n: number) {
   const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString();
 }
+
+export const MATERIAL_CATEGORIES: Material['category'][] = ['raw', 'packaging', 'label', 'consumable', 'intermediate', 'finished_good', 'merchandising'];
