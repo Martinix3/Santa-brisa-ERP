@@ -50,7 +50,4 @@ export interface EventMarketing {
   status: 'planned' | 'active' | 'closed' | 'cancelled';
   startAt: string;
   city?: string;
-  goal?: { sampling: number; leads: number; salesBoxes: number; };
-  spend?: number;
-  plv?: Array<{ sku: string; qty: number; }>;
 }

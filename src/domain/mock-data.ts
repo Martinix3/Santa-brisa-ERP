@@ -57,12 +57,12 @@ export const MATERIALS: SantaData['materials'] = [
 ];
 
 export const BOMS: BillOfMaterial[] = [
-    { id: 'bom_marg_classic', productId: 'p_marg_classic', sku: 'SB-MARG-CL-700', name: 'Receta Margarita Clásica', batchSize: 100, baseUnit: 'L', items: [
+    { id: 'bom_marg_classic', sku: 'SB-MARG-CL-700', name: 'Receta Margarita Clásica', batchSize: 100, baseUnit: 'L', items: [
         { materialId: 'mat_teq_base', quantity: 45, unit: 'L' },
         { materialId: 'mat_lime_conc', quantity: 30, unit: 'L' },
         { materialId: 'mat_agave_syr', quantity: 25, unit: 'L' },
     ]},
-    { id: 'bom_sb_750', productId: 'p_santabrisa', sku: 'SB-750', name: 'Receta Santa Brisa 750ml', batchSize: 100, baseUnit: 'L', items: [] },
+    { id: 'bom_sb_750', sku: 'SB-750', name: 'Receta Santa Brisa 750ml', batchSize: 100, baseUnit: 'L', items: [] },
 ];
 
 // --- Ventas y Marketing ---
@@ -92,7 +92,7 @@ export const GOODS_RECEIPTS: GoodsReceipt[] = [
 ];
 
 export const PRODUCTION_ORDERS: SantaData['productionOrders'] = [
-  { id: 'MO-24-006', productId: 'p_marg_classic', sku: 'SB-MARG-CL-700', bomId: 'bom_marg_classic', targetQuantity: 100, status: 'done', createdAt: isoDaysAgo(5), lotId: 'MARG-CL-240925-001', plannedQty: 100,
+  { id: 'MO-24-006', sku: 'SB-MARG-CL-700', bomId: 'bom_marg_classic', targetQuantity: 100, status: 'done', createdAt: isoDaysAgo(5), lotId: 'MARG-CL-240925-001', plannedQty: 100,
     protocolChecks: [
       { id: 'temp_control', text: 'Control de Temperatura', done: true, checkedAt: isoDaysAgo(5), checkedBy: 'u_sofia' },
       { id: 'ph_check', text: 'Verificación de pH', done: true, checkedAt: isoDaysAgo(5), checkedBy: 'u_sofia' }
@@ -101,7 +101,7 @@ export const PRODUCTION_ORDERS: SantaData['productionOrders'] = [
       { id: 'inc_1', when: isoDaysAgo(5), severity: 'MINOR', text: 'Pequeña fuga en la válvula de mezcla, solucionada.' }
     ]
   },
-  { id: 'MO-24-007', productId: 'p_santabrisa', sku: 'SB-750', bomId: 'bom_sb_750', targetQuantity: 200, status: 'done', createdAt: isoDaysAgo(4), lotId: 'SB750-240926-001', plannedQty: 200 },
+  { id: 'MO-24-007', sku: 'SB-750', bomId: 'bom_sb_750', targetQuantity: 200, status: 'done', createdAt: isoDaysAgo(4), lotId: 'SB750-240926-001', plannedQty: 200 },
 ];
 
 export const LOTS: SantaData['lots'] = [
@@ -144,7 +144,7 @@ export const TRACE_EVENTS: SantaData['traceEvents'] = [
 
 
 export const INVENTORY: SantaData['inventory'] = [
-    ...LOTS.filter(l => l.kind === 'RM').map(l => ({ id: `inv_${l.id}`, sku: l.sku, lotNumber: l.id, uom: 'L', qty: l.quantity || 0, locationId: 'RM/MAIN', updatedAt: l.updatedAt || '', expDate: l.dates?.expDate })),
+    ...LOTS.filter(l => l.kind === 'RM').map(l => ({ id: `inv_${l.id}`, sku: l.sku, lotNumber: l.id, uom: 'L' as const, qty: l.quantity || 0, locationId: 'RM/MAIN', updatedAt: l.updatedAt || '', expDate: l.dates?.expDate })),
 ];
 
 // --- Full SSOT Mock Object ---

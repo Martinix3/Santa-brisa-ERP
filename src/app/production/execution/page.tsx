@@ -13,8 +13,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { AlertCircle, Check, Hourglass, X, Thermometer, FlaskConical, Beaker, TestTube2, Paperclip, Upload, Trash2, ChevronRight, ChevronDown, Save, Bug } from "lucide-react";
 import { SBCard, SBButton, SB_COLORS } from '@/components/ui/ui-primitives';
 import { useData } from "@/lib/dataprovider";
-import type { ProductionOrder as ProdOrder, Uom, Material, Shortage, ActualConsumption, InventoryItem, Product, SantaData } from '@/domain/ssot';
-import type { RecipeBomExec as RecipeBom, ExecCheck } from '@/domain/production.exec';
+import type { ProductionOrder as ProdOrder, Uom, Material, Shortage, ActualConsumption, InventoryItem, Product, SantaData, ExecCheck } from '@/domain/ssot';
+import type { RecipeBomExec as RecipeBom } from '@/domain/production.exec';
 import { availableForMaterial, fifoReserveLots, buildConsumptionMoves, consumeForOrder } from '@/domain/inventory.helpers';
 import { generateNextLot } from "@/lib/codes";
 
@@ -197,7 +197,7 @@ export default function ProduccionPage() {
       createdAt: now,
       scheduledFor: whenISO,
       responsibleId,
-      checks: recipe.protocolChecklist.map(p => ({ id: p.id, done: false })),
+      checks: recipe.protocolChecklist.map((p: any) => ({ id: p.id, done: false })),
       shortages: shortages.length ? shortages : undefined,
       reservations: reservations.length ? reservations : undefined,
       actuals,
@@ -216,7 +216,7 @@ export default function ProduccionPage() {
   const updateOrder = useCallback(async (id: string, patch: Partial<ProdOrder>) => {
     if (!santaData) return;
     
-    setData((prevData: SantaData | null) => {
+    setData((prevData) => {
         if (!prevData) return prevData;
         const updatedOrders = prevData.productionOrders.map(o => {
             if (o.id === id) {
@@ -619,7 +619,7 @@ function OrderDetail({ order, recipe, onClose, onStart, onFinish, onUpdate, inve
 
       <div className="grid md:grid-cols-2 gap-4">
         <ProtocolsBlock order={order} recipe={recipe} onToggle={async (id)=>{
-          const next = (order.checks || []).map(c => c.id===id ? { ...c, done: !c.done, checkedAt: new Date().toISOString() } : c);
+          const next = (order.checks || []).map((c: ExecCheck) => c.id===id ? { ...c, done: !c.done, checkedAt: new Date().toISOString() } : c);
           await onUpdate(order.id, { checks: next });
         }} />
         
@@ -682,7 +682,7 @@ function ProtocolsBlock({ order, recipe, onToggle }: { order: ProdOrder; recipe:
           <li key={c.id} className="py-2 flex items-center justify-between text-sm">
             <div className="flex items-center gap-2">
               <button onClick={()=>onToggle(c.id)} className={`w-5 h-5 rounded border flex items-center justify-center ${c.done ? 'bg-green-500 border-green-600 text-white' : 'border-zinc-300'}`}>{c.done ? '✓' : ''}</button>
-              <span>{recipe.protocolChecklist.find(pc => pc.id === c.id)?.text || c.id}</span>
+              <span>{recipe.protocolChecklist.find((pc: any) => pc.id === c.id)?.text || c.id}</span>
             </div>
             <div className="text-xs text-zinc-500">{c.checkedAt ? new Date(c.checkedAt).toLocaleString() : '—'}</div>
           </li>

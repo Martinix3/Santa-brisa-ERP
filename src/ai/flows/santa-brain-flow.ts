@@ -126,12 +126,12 @@ export async function runSantaBrain(history: Message[], input: string, context: 
         prompt: input,
         history,
         context: [
-          { role: 'context', content: { accounts: context.accounts, products: context.products } as any },
+          { role: 'context', content: { text: `Contexto de negocio: ${JSON.stringify(context)}` } },
         ],
         tools: [createInteractionTool, createOrderTool, createEventTool]
       });
 
-    const toolRequests = llmResponse.toolRequests;
+    const toolRequests = llmResponse.toolRequests();
     const newEntities: Partial<SantaData> = { interactions: [], ordersSellOut: [], mktEvents: [] };
 
     if (toolRequests.length > 0) {
@@ -139,12 +139,12 @@ export async function runSantaBrain(history: Message[], input: string, context: 
 
         for (const call of toolRequests) {
             const result = await call.run();
-            toolResponses.push({ toolResponse: { name: call.toolRequest.name, output: result } });
+            toolResponses.push({ toolResponse: { name: call.name, output: result } });
             
-            const typedInput = call.toolRequest.input as any;
+            const typedInput = call.input as any;
 
             // Basado en la herramienta llamada, crea la entidad correspondiente
-            if (call.toolRequest.name === 'createInteraction') {
+            if (call.name === 'createInteraction') {
                 const account = context.accounts.find(a => a.name === typedInput.accountName);
                 if (account) {
                     const newInteraction: Interaction = {
@@ -158,7 +158,7 @@ export async function runSantaBrain(history: Message[], input: string, context: 
                     };
                     newEntities.interactions?.push(newInteraction);
                 }
-            } else if (call.toolRequest.name === 'createOrder') {
+            } else if (call.name === 'createOrder') {
                 const account = context.accounts.find(a => a.name === typedInput.accountName);
                 if (account) {
                      const newOrder: OrderSellOut = {
@@ -173,7 +173,7 @@ export async function runSantaBrain(history: Message[], input: string, context: 
                      };
                      newEntities.ordersSellOut?.push(newOrder);
                 }
-            } else if (call.toolRequest.name === 'createEvent') {
+            } else if (call.name === 'createEvent') {
                 const newEvent: EventMarketing = {
                     id: (result as any).eventId,
                     title: typedInput.title,
@@ -181,9 +181,6 @@ export async function runSantaBrain(history: Message[], input: string, context: 
                     status: 'planned',
                     startAt: typedInput.startAt,
                     city: typedInput.location,
-                    goal: { sampling: 0, leads: 0, salesBoxes: 0 },
-                    spend: 0,
-                    plv: []
                 };
                 newEntities.mktEvents?.push(newEvent);
             }
@@ -194,15 +191,15 @@ export async function runSantaBrain(history: Message[], input: string, context: 
             history: [
               ...history,
               { role: 'user', content: [{ text: input }] },
-              { role: 'model', content: toolRequests },
+              { role: 'model', content: llmResponse.candidates[0].content.parts },
               { role: 'user', content: toolResponses },
             ],
             context: [
-              { role: 'context', content: { accounts: context.accounts, products: context.products } as any },
+               { role: 'context', content: { text: `Contexto de negocio: ${JSON.stringify(context)}` } },
             ],
           });
         return { finalAnswer: finalResponse.text, newEntities };
     }
 
-    return { finalAnswer: llmResponse.text, newEntities };
+    return { finalAnswer: llmResponse.text(), newEntities };
 }

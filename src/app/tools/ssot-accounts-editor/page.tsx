@@ -5,7 +5,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Papa from "papaparse";
 import { useData } from "@/lib/dataprovider";
 import { Check, ChevronDown, Database, Download, FileCog, FileText, Map as MapIcon, Trash2, Upload, X } from "lucide-react";
-import type { Account as AccountSchema, AccountType, AccountMode, Stage, Interaction, OrderSellOut } from "@/domain/schema";
+import type { Account as AccountSchema, AccountType, AccountMode, Stage, Interaction, OrderSellOut } from "@/domain/ssot";
 import AuthGuard from "@/components/auth/AuthGuard";
 import AuthenticatedLayout from "@/components/layouts/AuthenticatedLayout";
 import { generateNextOrder, Channel } from "@/lib/codes";
@@ -168,8 +168,6 @@ function coerceAccountFromMapped(row:any): Account|null {
     mainContactPhone: norm(row.mainContactPhone),
     tags: String(row.tags||"").split(",").map(t=>t.trim()).filter(Boolean),
     createdAt: new Date().toISOString(),
-    updatedAt: "",
-    lastInteractionAt: "",
     orderCount: row.orderCount ? Number(row.orderCount) : 0,
   };
 }
@@ -296,7 +294,7 @@ function EditableCell({ value, onBulkUpdate, numRows }: { value: string, onBulkU
 function OwnerSelector({row, idx, users, partners, onUpdate}:{
   row: Account; idx: number; users: RosterUser[]; partners: Partner[]; onUpdate: (idx:number, key:keyof Account, value:any)=>void;
 }){
-  const handleModeChange = (newModeType: AccountMode['mode']) => {
+    const handleModeChange = (newModeType: AccountMode['mode']) => {
     let newMode: AccountMode;
     switch(newModeType) {
       case 'PROPIA_SB': newMode = { mode: 'PROPIA_SB', ownerUserId: users[0]?.id || 'u_admin', biller: 'SB' }; break;
@@ -306,6 +304,11 @@ function OwnerSelector({row, idx, users, partners, onUpdate}:{
     onUpdate(idx, 'mode', newMode);
   };
   const handleIdChange = (key: 'ownerUserId' | 'ownerPartnerId' | 'billerPartnerId', value: string) => onUpdate(idx, 'mode', { ...row.mode, [key]: value });
+  
+  if (!row.mode) {
+      return <div>Modo no definido</div>;
+  }
+  
   return (
     <div className="flex items-center gap-2 min-w-[320px]">
       <select className="border rounded-md px-2 py-1 text-xs bg-white" value={row.mode.mode} onChange={e => handleModeChange(e.target.value as AccountMode['mode'])}>
@@ -462,7 +465,7 @@ function SSOTEditorContent(){
       // Merge por id -> cif -> (name|city)
       const base = accounts.length ? accounts : (SantaData?.accounts || []);
       const idxById = new Map(base.map(a => [a.id, a]));
-      const idxByCif = new Map(base.filter(a => a.cif).map(a => [normText(a.cif), a]));
+      const idxByCif = new Map(base.filter(a => a.cif).map(a => [normText(a.cif!), a]));
       const idxByNC = new Map(base.map(a => [keyNameCity(a), a]));
       const nextMap = new Map<string, Account>();
       base.forEach(a => nextMap.set(a.id, a));
@@ -543,6 +546,7 @@ function SSOTEditorContent(){
     setAccounts(prev => prev.map(row => {
       if (!selectedRows.has(row.id)) return row;
       if (bulkEditField === 'mode') {
+        if (!row.mode) return row;
         let newMode: AccountMode = row.mode;
         switch(bulkEditValue as AccountMode['mode']){
           case "PROPIA_SB": newMode = { mode:"PROPIA_SB", ownerUserId: (row.mode as any).ownerUserId || 'u_admin', biller:"SB" }; break;

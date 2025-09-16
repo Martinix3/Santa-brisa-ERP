@@ -3,7 +3,7 @@
 "use client";
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import type { Lot, QCResult } from '@/domain/ssot';
-import { QC_PARAMS, QCKey } from '@/domain/production.qc';
+import { QC_PARAMS } from '@/domain/production.qc';
 import { listLots } from '@/features/production/ssot-bridge';
 import { useData } from '@/lib/dataprovider';
 
@@ -250,25 +250,25 @@ function MeasurementsEditor({ spec, results, onChange }: { spec: QualitySpec; re
                 <td className="px-4 py-2">
                   <input
                     className="w-36 px-2 py-1.5 rounded-lg border border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-300"
-                    value={r.value ?? ""}
-                    onChange={(e) => {
+                    value={String(r.value ?? "")}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                       const val = e.target.value;
                       const parsed = val === '' ? undefined : (isNaN(Number(val)) ? val : Number(val));
-                       onChange({ ...results, [l.code]: { ...r, value: parsed as number }});
+                       onChange({ ...results, [l.code]: { ...r, value: parsed }});
                     }}
                     placeholder={l.type === "ANALITICO" ? "0.0" : "OK"}
                   />
                 </td>
                  <td className="px-4 py-2">
                   <span className={`font-bold ${r.status === 'ok' ? 'text-green-600' : 'text-red-600'}`}>
-                    {r.status.toUpperCase()}
+                    {(r.status || 'ko').toUpperCase()}
                   </span>
                 </td>
                 <td className="px-4 py-2">
                   <input
                     className="w-full max-w-xs px-2 py-1.5 rounded-lg border border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-300"
                     value={r.notes ?? ""}
-                    onChange={(e) => {
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                        onChange({ ...results, [l.code]: { ...r, notes: e.target.value }});
                     }}
                     placeholder="Comentario opcional"
@@ -297,13 +297,13 @@ function DecisionBar({ spec, results, onDecide }: { spec: QualitySpec; results: 
         <span className="ml-3">Sugerencia: <span className={classNames("px-2 py-0.5 rounded-full text-xs ml-1 font-semibold", statusPillColor(suggested))}>{suggested.toUpperCase()}</span></span>
       </div>
       <div className="flex items-center gap-2">
-        <select value={choice} onChange={(e) => setChoice(e.target.value as any)} className="px-2 py-1.5 rounded-lg border border-zinc-300 bg-white text-sm">
+        <select value={choice} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setChoice(e.target.value as any)} className="px-2 py-1.5 rounded-lg border border-zinc-300 bg-white text-sm">
           <option value="">Elegir…</option>
           <option value="release">APTO</option>
           <option value="reject">NO APTO</option>
           <option value="hold">BLOQUEADO</option>
         </select>
-        <input value={note} onChange={(e) => setNote(e.target.value)} className="w-64 px-2 py-1.5 rounded-lg border border-zinc-300" placeholder="Nota de decisión" />
+        <input value={note} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNote(e.target.value)} className="w-64 px-2 py-1.5 rounded-lg border border-zinc-300" placeholder="Nota de decisión" />
         <button onClick={() => onDecide(finalChoice, note)} className="px-3 py-1.5 rounded-lg bg-yellow-400 text-zinc-900 font-semibold hover:bg-yellow-500 text-sm">Registrar decisión</button>
       </div>
     </div>

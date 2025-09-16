@@ -2,7 +2,7 @@
 // app/cashflow/settings/page.tsx
 'use client';
 import { useEffect, useState } from 'react';
-import type { CashflowSettings } from '@/domain/ssot';
+import type { CashflowSettings, Channel } from '@/domain/ssot';
 import { SBCard, SBButton, Input, Select } from '@/components/ui/ui-primitives';
 import { Save } from 'lucide-react';
 
@@ -16,7 +16,7 @@ const DEFAULTS: CashflowSettings = {
   payoutFeePctOnline: 0.02,
   bankFeePct: 0.001,
   bucket: 'week',
-  termsByChannel: { sell_in: 45, sell_out: 30, direct: 2, online: 2 },
+  termsByChannel: { propia: 30, distribuidor: 45, importador: 60, online: 2 },
   lagByPaymentMethod: { tarjeta: 2, transferencia: 3, domiciliado: 5, paypal: 2, contado: 0 },
 };
 
@@ -58,7 +58,7 @@ export default function CashflowSettingsPage() {
   const setLag = (method: keyof NonNullable<CashflowSettings['lagByPaymentMethod']>, value: string) => {
       setS(prev => ({ ...prev, lagByPaymentMethod: { ...(prev.lagByPaymentMethod || {}), [method]: Number(value) } }));
   }
-  const setTerms = (channel: keyof NonNullable<CashflowSettings['termsByChannel']>, value: string) => {
+  const setTerms = (channel: Channel, value: string) => {
       setS(prev => ({ ...prev, termsByChannel: { ...(prev.termsByChannel || {}), [channel]: Number(value) } }));
   }
 
@@ -116,7 +116,7 @@ export default function CashflowSettingsPage() {
                 <SettingRow label="Términos por Defecto (días)">
                     <Input type="number" value={s.defaultTermsDays} onChange={e => set('defaultTermsDays', Number(e.target.value))} />
                 </SettingRow>
-                {(['sell_in', 'sell_out', 'direct', 'online'] as const).map(ch => (
+                {(['propia', 'distribuidor', 'importador', 'online'] as const).map(ch => (
                      <SettingRow key={ch} label={`Días ${ch}`}>
                         <Input type="number" value={s.termsByChannel?.[ch] ?? s.defaultTermsDays} onChange={e => setTerms(ch, e.target.value)} />
                     </SettingRow>

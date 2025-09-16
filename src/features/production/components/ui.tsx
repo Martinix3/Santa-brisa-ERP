@@ -2,7 +2,7 @@
 
 "use client";
 import React, { useMemo } from "react";
-import type { ProductionOrder, Lot } from "@/domain/ssot";
+import type { ProductionOrder, Lot, QCResult } from "@/domain/ssot";
 import { SBCard, SBButton, SB_COLORS } from "@/components/ui/ui-primitives";
 import { Factory, Cpu, BookOpen, Waypoints, AlertCircle, Hourglass, MoreVertical, Check, X, Thermometer, FlaskConical, Beaker, TestTube2, Paperclip, Upload, Trash2 } from "lucide-react";
 import Link from 'next/link';

@@ -362,7 +362,6 @@ function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, onSubmit,
   const [channel, setChannel] = useState<CreateOrderPayload["channel"]>("propia");
   const [paymentTerms, setTerms] = useState("Contado");
   const [shipTo, setShipTo] = useState("");
-  const [note, setNote] = useState("");
   const [items, setItems] = useState<CreateOrderPayload["items"]>([{sku:"SB-750", qty:1, unit:"ud", priceUnit: 12, lotNumber: ''}]);
   
   const availableInventory = useMemo(() => (santaData?.inventory || []).filter(i => i.locationId && i.locationId.startsWith('FG/')), [santaData]);
@@ -381,7 +380,7 @@ function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, onSubmit,
   function submit(){ 
       if(!account) return alert("Selecciona una cuenta"); 
       if(items.length===0 || items.some(it=>!it.sku || it.qty<=0)) return alert("Revisa las líneas"); 
-      onSubmit({account, requestedDate, deliveryDate: deliveryDate||undefined, channel, paymentTerms, shipTo: shipTo||undefined, note: note||undefined, items});
+      onSubmit({account, requestedDate, deliveryDate: deliveryDate||undefined, channel, paymentTerms, shipTo: shipTo||undefined, items});
   }
   
   const orderTotal = useMemo(() => items.reduce((total, item) => total + (item.qty * item.priceUnit), 0), [items]);

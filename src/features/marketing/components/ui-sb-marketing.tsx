@@ -137,8 +137,8 @@ export function OnlinePage() {
         { key: 'status', header: 'Estado', render: r => <StatusPill status={r.status} /> },
         { key: 'budget', header: 'Presupuesto', render: r => `€${r.budget}`},
         { key: 'spend', header: 'Gasto', render: r => `€${r.spend}` },
-        { key: 'metrics', header: 'Impresiones', render: r => r.metrics?.impressions.toLocaleString() || 'N/A'},
-        { key: 'metrics', header: 'ROAS', render: r => r.metrics?.roas?.toFixed(2) || 'N/A' },
+        { key: 'impressions', header: 'Impresiones', render: r => r.metrics?.impressions.toLocaleString() || 'N/A'},
+        { key: 'roas', header: 'ROAS', render: r => r.metrics?.roas?.toFixed(2) || 'N/A' },
     ];
     
     return (
