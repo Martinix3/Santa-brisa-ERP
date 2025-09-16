@@ -1,4 +1,5 @@
 
+
 "use client";
 import React, { useMemo, useState } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -30,12 +31,12 @@ export const SB_COLORS = {
 
 export const STATUS_STYLES: Record<OrderStatus | ShipmentStatus, { label: string, color: string, bg: string }> = {
   // Order Status
-  open: { label: 'Borrador', color: 'text-zinc-600', bg: 'bg-zinc-100' },
-  confirmed: { label: 'Confirmado', color: 'text-blue-700', bg: 'bg-blue-100' },
-  shipped: { label: 'Enviado', color: 'text-cyan-700', bg: 'bg-cyan-100' },
-  invoiced: { label: 'Facturado', color: 'text-emerald-700', bg: 'bg-emerald-100' },
-  cancelled: { label: 'Cancelado', color: 'text-red-700', bg: 'bg-red-100' },
-  lost: { label: 'Perdido', color: 'text-neutral-500', bg: 'bg-neutral-200' },
+  open: { label: 'Borrador', color: 'text-zinc-800', bg: 'bg-zinc-100' },
+  confirmed: { label: 'Confirmado', color: 'text-blue-800', bg: 'bg-blue-100' },
+  shipped: { label: 'Enviado', color: 'text-cyan-800', bg: 'bg-cyan-100' },
+  invoiced: { label: 'Facturado', color: 'text-emerald-800', bg: 'bg-emerald-100' },
+  cancelled: { label: 'Cancelado', color: 'text-red-800', bg: 'bg-red-100' },
+  lost: { label: 'Perdido', color: 'text-neutral-600', bg: 'bg-neutral-200' },
   // Shipment Status
   pending: { label: "Pendiente", color: "text-yellow-900", bg: "bg-yellow-100" },
   picking: { label: "Picking", color: "text-sky-900", bg: "bg-sky-100" },
