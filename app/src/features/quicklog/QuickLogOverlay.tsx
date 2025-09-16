@@ -115,7 +115,7 @@ export default function QuickLogOverlay() {
               mktEvents: data.mktEvents,
           }}
           onNewData={handleNewData}
-          runner={chatRunner}
+          runner={chatRunner as any}
         />
       </ChatModal>
     </>

@@ -180,7 +180,6 @@ export async function runSantaBrain(history: Message[], input: string, context: 
         const toolResponses: any[] = [];
         const accountsCreatedInThisTurn: Account[] = [];
 
-        // Execute all tool calls
         for (const toolRequest of toolRequests) {
             const tool = tools.find(t => t.name === toolRequest.name);
             if (!tool) {
@@ -192,7 +191,6 @@ export async function runSantaBrain(history: Message[], input: string, context: 
                 const output = await tool(toolRequest.input as any);
                 toolResponses.push({ toolResponse: { name: toolRequest.name, output } });
 
-                // If a tool call was successful, create the corresponding SSOT entity
                 if (output.success) {
                     if (toolRequest.name === 'upsertAccount') {
                         const typedInput = toolRequest.input as z.infer<typeof UpsertAccountSchema>;
@@ -207,7 +205,6 @@ export async function runSantaBrain(history: Message[], input: string, context: 
                         newEntities.accounts?.push(newAccount);
                         accountsCreatedInThisTurn.push(newAccount);
                     } else {
-                        // For other tools, find the account (newly created or existing)
                         const accountName = (toolRequest.input as any).accountName;
                         const account = accountsCreatedInThisTurn.find(a => a.name === accountName) || context.accounts.find(a => a.name === accountName);
                         
@@ -237,7 +234,7 @@ export async function runSantaBrain(history: Message[], input: string, context: 
                                         unit: item.unit || 'ud',
                                         priceUnit: 0,
                                     })),
-                                    notes: typedInput.notes,
+                                    biller: 'SB',
                                 } as OrderSellOut);
                             }
                         }
@@ -259,7 +256,6 @@ export async function runSantaBrain(history: Message[], input: string, context: 
             }
         }
         
-        // Generate the final response based on tool execution
         const finalResponse = await ai.generate({
             model: gemini('gemini-2.5-flash'),
             system: santaBrainSystemPrompt,
@@ -275,6 +271,5 @@ export async function runSantaBrain(history: Message[], input: string, context: 
         return { finalAnswer: finalResponse.text, newEntities };
     }
 
-    // If no tools were called, just return the text response
     return { finalAnswer: llmResponse.text, newEntities };
 }

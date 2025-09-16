@@ -65,7 +65,7 @@ export function Chat({ userId, context, onNewData, runner }: ChatProps) {
                     <div key={index} className={`flex items-start gap-3 ${msg.role === 'user' ? 'justify-end' : ''}`}>
                         {msg.role !== 'user' && <div className="flex-shrink-0 h-8 w-8 rounded-full bg-zinc-200 flex items-center justify-center"><Bot size={18} /></div>}
                         <div className={`max-w-md p-3 rounded-2xl ${msg.role === 'user' ? 'bg-yellow-400 text-black' : 'bg-white border'}`}>
-                            <p className="text-sm whitespace-pre-wrap">{msg.content[0].text}</p>
+                            <p className="text-sm whitespace-pre-wrap">{Array.isArray(msg.content) ? msg.content[0].text : ''}</p>
                         </div>
                         {msg.role === 'user' && <div className="flex-shrink-0 h-8 w-8 rounded-full bg-zinc-200 flex items-center justify-center"><User size={18} /></div>}
                     </div>
