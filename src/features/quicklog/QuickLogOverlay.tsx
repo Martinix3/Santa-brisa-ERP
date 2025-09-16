@@ -4,10 +4,11 @@
 import React, { useState, useCallback } from 'react';
 import { Plus, X } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
-import type { SantaData, Account, Product, AccountRef } from '@/domain/ssot';
+import type { SantaData, Account, Product } from '@/domain/ssot';
 import { Chat } from '@/features/chat/Chat';
 import { runSantaBrain } from '@/ai/flows/santa-brain-flow';
 import { Message } from 'genkit';
+import { saveNewEntities } from '@/services/server/brain-persist';
 
 
 function FloatingButton({ onClick }: { onClick: () => void }) {
@@ -51,21 +52,43 @@ export default function QuickLogOverlay() {
   const [open, setOpen] = useState(false);
   const { data, setData, currentUser } = useData();
 
-  const handleNewData = useCallback((newData: Partial<SantaData>) => {
+  const handleNewData = useCallback(async (newData: Partial<SantaData>) => {
     if (!data) return;
+    
+    // 1. Update local state immediately for snappy UI
     const updatedData = { ...data };
+    let hasNewData = false;
 
-    if (newData.interactions) {
+    if (newData.interactions && newData.interactions.length > 0) {
         updatedData.interactions = [...updatedData.interactions, ...newData.interactions];
+        hasNewData = true;
     }
-    if (newData.ordersSellOut) {
+    if (newData.ordersSellOut && newData.ordersSellOut.length > 0) {
         updatedData.ordersSellOut = [...updatedData.ordersSellOut, ...newData.ordersSellOut];
+        hasNewData = true;
     }
-    if (newData.mktEvents) {
+    if (newData.mktEvents && newData.mktEvents.length > 0) {
         updatedData.mktEvents = [...(updatedData.mktEvents || []), ...newData.mktEvents];
+        hasNewData = true;
+    }
+     if (newData.accounts && newData.accounts.length > 0) {
+        const accountMap = new Map(updatedData.accounts.map(a => [a.id, a]));
+        newData.accounts.forEach(acc => accountMap.set(acc.id, acc));
+        updatedData.accounts = Array.from(accountMap.values());
+        hasNewData = true;
     }
 
-    setData(updatedData);
+    if (hasNewData) {
+        setData(updatedData);
+        // 2. Persist changes to the backend
+        try {
+            await saveNewEntities(newData);
+            console.log("Entities successfully saved to Firestore.");
+        } catch (error) {
+            console.error("Failed to save entities to Firestore:", error);
+            // Optionally, show an error to the user
+        }
+    }
   }, [data, setData]);
 
   if (!data || !currentUser) return null;
@@ -85,7 +108,7 @@ export default function QuickLogOverlay() {
               products: data.products,
           }}
           onNewData={handleNewData}
-          runner={chatRunner as any}
+          runner={chatRunner}
         />
       </ChatModal>
     </>
