@@ -204,6 +204,8 @@ export type QCResult = {
   status: 'ok' | 'ko';
 };
 
+export type ExecCheck = { id:string; done:boolean; checkedBy?:string; checkedAt?:string };
+
 export type LotStatus = 'OPEN' | 'QUARANTINE' | 'APPROVED' | 'REJECTED' | 'CONSUMED' | 'CLOSED';
 export type CheckResult = 'PASS' | 'FAIL' | 'CONDITIONAL';
 
@@ -244,7 +246,7 @@ export interface ProductionOrder {
   incidents?: any[];
   inputs?: any[];
   outputs?: any[];
-  checks?: any[];
+  checks?: ExecCheck[];
   shortages?: Shortage[];
   reservations?: Reservation[];
   actuals?: ActualConsumption[];

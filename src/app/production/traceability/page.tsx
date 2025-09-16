@@ -41,7 +41,7 @@ namespace TraceUI {
       zinc: "bg-zinc-100 text-zinc-800 border border-zinc-200",
       green: "bg-green-100 text-green-800 border border-green-200",
       red: "bg-red-100 text-red-800 border border-red-200",
-      amber: "bg-amber-100 text-amber-800 border-amber-200 border",
+      amber: "bg-amber-100 text-amber-800 border border-amber-200 border",
       blue: "bg-blue-100 text-blue-800 border-blue-200 border",
     };
     return <span className={`px-2 py-0.5 rounded-full text-xs ${map[tone]}`}>{children}</span>;
@@ -57,7 +57,8 @@ namespace TraceUI {
 }
 const { Badge, Field } = TraceUI;
 
-function StatusPill({ s }: { s: LotStatus }) {
+function StatusPill({ s }: { s?: LotStatus }) {
+    if (!s) return null;
     const toneMap: Record<LotStatus, "green" | "red" | "amber" | "blue" | "zinc"> = {
         'APPROVED': 'green',
         'REJECTED': 'red',
@@ -231,8 +232,8 @@ export default function TraceabilityTimelinePage() {
       qaChecks: santaData?.qaChecks || [],
       users: santaData?.users || [],
       links: (santaData?.productionOrders || []).reduce((acc, b) => {
-          (b.inputs || []).forEach(i => {
-              (b.outputs || []).forEach(o => {
+          (b.inputs || []).forEach((i: any) => {
+              (b.outputs || []).forEach((o: any) => {
                   acc.push({ fromLotId: i.lotId, toLotId: o.lotId });
               });
           });
@@ -346,7 +347,7 @@ export default function TraceabilityTimelinePage() {
                   <div className="grid gap-2">
                     <Field label="ID Lote">{openLot.id}</Field>
                     <Field label="SKU">{openLot.sku}</Field>
-                    <Field label="Cantidad">{openLot.qty.onHand ?? "—"} {openLot.qty.uom}</Field>
+                    <Field label="Cantidad">{openLot.qty?.onHand ?? "—"} {openLot.qty?.uom}</Field>
                     <Field label="Creado">{new Date(openLot.createdAt).toLocaleString()}</Field>
                     <Field label="Orden Prod.">{openLot.trace?.parentBatchId || "—"}</Field>
                   </div>
@@ -441,7 +442,7 @@ function PhaseTimeline({ events }: { events: TraceEvent[] }) {
                     <div className="mt-1 flex flex-wrap gap-1">
                       <KindTag kind={e.kind} />
                       {e.links?.orderId && <Badge tone="blue">SO {e.links.orderId}</Badge>}
-                      {e.links?.batchId && <Badge tone="purple">B {e.links.batchId}</Badge>}
+                      {e.links?.batchId && <Badge tone="blue">B {e.links.batchId}</Badge>}
                       {e.links?.shipmentId && <Badge tone="blue">SHP {e.links.shipmentId}</Badge>}
                       {e.links?.receiptId && <Badge tone="zinc">RCPT {e.links.receiptId}</Badge>}
                       {e.links?.qaCheckId && <Badge tone="amber">QC {e.links.qaCheckId}</Badge>}

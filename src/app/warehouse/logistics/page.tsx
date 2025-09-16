@@ -5,7 +5,7 @@ import React, { useMemo, useState, useEffect } from "react";
 import { Printer, PackageCheck, Truck, CheckCircle2, Search, Plus, FileText, ClipboardList, Boxes, PackageOpen, BadgeCheck, AlertTriangle, Settings, Clipboard, Ruler, Weight, MoreHorizontal, Check as CheckIcon, FileDown, Package } from "lucide-react";
 import { SBButton, SBCard, DataTableSB, Col as SBCol, STATUS_STYLES } from "@/components/ui/ui-primitives";
 import { useData } from "@/lib/dataprovider";
-import type { Shipment, OrderSellOut, Account, ShipmentStatus } from "@/domain/ssot";
+import type { Shipment, OrderSellOut, Account, ShipmentStatus, ShipmentLine } from "@/domain/ssot";
 
 
 // ===============================
@@ -110,7 +110,7 @@ const ValidateDialog: React.FC<{ open: boolean; onOpenChange: (v: boolean) => vo
         setCarrier(order.carrier || "");
         // Simplified lotMap initialization
         const initialLotMap: Record<string, { lotId: string; qty: number }[]> = {};
-        order.lines.forEach(line => {
+        order.lines.forEach((line: ShipmentLine) => {
             if(!initialLotMap[line.sku]) initialLotMap[line.sku] = [];
             if (line.lotNumber) {
                 initialLotMap[line.sku].push({lotId: line.lotNumber, qty: line.qty});
@@ -157,7 +157,7 @@ const ValidateDialog: React.FC<{ open: boolean; onOpenChange: (v: boolean) => vo
           <div className="grid grid-cols-3 gap-2">
             <div>
               <label className="text-xs text-zinc-500">Peso (kg)</label>
-              <Input type="number" value={weight as any} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setWeight(e.target.value ? Number(e.target.value) : "")} />
+              <Input type="number" value={(weight as any) ?? ""} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setWeight(e.target.value ? Number(e.target.value) : "")} />
             </div>
             <div>
               <label className="text-xs text-zinc-500">Largo (cm)</label>
@@ -177,11 +177,11 @@ const ValidateDialog: React.FC<{ open: boolean; onOpenChange: (v: boolean) => vo
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
           <div>
             <label className="text-xs text-zinc-500">Picker</label>
-            <Input placeholder="Nombre de quien hace picking" value={picker ?? ""} onChange={(e) => setPicker(e.target.value)} />
+            <Input placeholder="Nombre de quien hace picking" value={picker ?? ""} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPicker(e.target.value)} />
           </div>
           <div>
             <label className="text-xs text-zinc-500">Packer</label>
-            <Input placeholder="Nombre de quien embala" value={packer ?? ""} onChange={(e) => setPacker(e.target.value)} />
+            <Input placeholder="Nombre de quien embala" value={packer ?? ""} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPacker(e.target.value)} />
           </div>
         </div>
 
@@ -201,10 +201,10 @@ const ValidateDialog: React.FC<{ open: boolean; onOpenChange: (v: boolean) => vo
                   {(lotMap[it.sku] ?? [{ lotId: "", qty: 0 }]).map((row, idx) => (
                     <div key={idx} className="grid grid-cols-5 gap-2 items-center">
                       <div className="col-span-3">
-                        <Input placeholder="ID Lote (escanea o escribe)" value={row.lotId} onChange={(e) => setLot(it.sku, idx, "lotId", e.target.value)} />
+                        <Input placeholder="ID Lote (escanea o escribe)" value={row.lotId} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLot(it.sku, idx, "lotId", e.target.value)} />
                       </div>
                       <div>
-                        <Input placeholder="Qty" type="number" value={row.qty || ""} onChange={(e) => setLot(it.sku, idx, "qty", e.target.value)} />
+                        <Input placeholder="Qty" type="number" value={row.qty || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLot(it.sku, idx, "qty", e.target.value)} />
                       </div>
                     </div>
                   ))}
@@ -264,7 +264,7 @@ export default function LogisticsPage() {
   }), [shipments, status, channel, q, orderMap, accountMap]);
 
   const kpis = useMemo(() => ({
-    pending: shipments.filter(r => ["pending", "picking"].includes(r.status)).length,
+    pending: shipments.filter(r => ["pending", "picking"].includes(r.status || '')).length,
     validated: shipments.filter(r => r.status === "ready_to_ship").length,
     shipped: shipments.filter(r => r.status === "shipped").length,
     otif: 96, // mock
@@ -308,7 +308,7 @@ export default function LogisticsPage() {
     const order = orderMap.get(row.orderId);
     if (!order || !canGenerateLabel(row, order)) { alert("Para la etiqueta necesitas: Albarán + Servicio + Peso y Dimensiones."); return; }
     if(!santaData) return;
-    const updatedShipments: Shipment[] = santaData.shipments.map(r => r.id === row.id ? { ...r, labelUrl: "https://label.example/mock.pdf", tracking: `SC-${Math.floor(Math.random()*900000)}` } : r);
+    const updatedShipments: Shipment[] = santaData.shipments.map(r => r.id === row.id ? { ...r, labelUrl: "https://label.example/mock.pdf", tracking: `SC-TRACK-9988` } : r);
     setData({ ...santaData, shipments: updatedShipments });
   };
 
@@ -380,8 +380,8 @@ export default function LogisticsPage() {
   const tableRows = useMemo(() => filtered.map(row => ({
       id: row.id,
       row,
-      order: orderMap.get(row.orderId),
-      account: accountMap.get(orderMap.get(row.orderId)?.accountId || '')
+      order: orderMap.get(row.orderId || ''),
+      account: accountMap.get(orderMap.get(row.orderId || '')?.accountId || '')
   })), [filtered, orderMap, accountMap]);
 
   return (
@@ -411,14 +411,14 @@ export default function LogisticsPage() {
                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"/>
                 <Input className="pl-9" placeholder="Buscar por ID o cliente" value={q} onChange={(e:any) => setQ(e.target.value)} />
               </div>
-              <Select value={status} onChange={(e:any) => setStatus(e.target.value)}>
+              <Select value={status} onChange={(e:React.ChangeEvent<HTMLSelectElement>) => setStatus(e.target.value)}>
                   <option value="all">Todos los estados</option>
                   <option value="pending">Pendiente</option>
                   <option value="picking">Picking</option>
                   <option value="ready_to_ship">Validado</option>
                   <option value="shipped">Enviado</option>
               </Select>
-               <Select value={channel} onChange={(e:any) => setChannel(e.target.value)}>
+               <Select value={channel} onChange={(e:React.ChangeEvent<HTMLSelectElement>) => setChannel(e.target.value)}>
                   <option value="all">Todos los canales</option>
                   <option value="shopify">Online (Shopify)</option>
                   <option value="muestra">Muestras (0€)</option>

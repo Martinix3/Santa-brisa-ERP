@@ -1,5 +1,4 @@
 
-
 "use client";
 import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -197,7 +196,7 @@ export default function ProduccionPage() {
       createdAt: now,
       scheduledFor: whenISO,
       responsibleId,
-      checks: recipe.protocolChecklist.map((p: any) => ({ id: p.id, done: false })),
+      checks: recipe.protocolChecklist.map((p: {id: string}) => ({ id: p.id, done: false })),
       shortages: shortages.length ? shortages : undefined,
       reservations: reservations.length ? reservations : undefined,
       actuals,
@@ -216,9 +215,9 @@ export default function ProduccionPage() {
   const updateOrder = useCallback(async (id: string, patch: Partial<ProdOrder>) => {
     if (!santaData) return;
     
-    setData((prevData) => {
+    setData((prevData: SantaData | null) => {
         if (!prevData) return prevData;
-        const updatedOrders = prevData.productionOrders.map(o => {
+        const updatedOrders = prevData.productionOrders.map((o: ProdOrder) => {
             if (o.id === id) {
                 const updatedOrder = { ...o, ...patch } as ProdOrder;
                 if (patch.execution && !patch.costing) {
@@ -682,7 +681,7 @@ function ProtocolsBlock({ order, recipe, onToggle }: { order: ProdOrder; recipe:
           <li key={c.id} className="py-2 flex items-center justify-between text-sm">
             <div className="flex items-center gap-2">
               <button onClick={()=>onToggle(c.id)} className={`w-5 h-5 rounded border flex items-center justify-center ${c.done ? 'bg-green-500 border-green-600 text-white' : 'border-zinc-300'}`}>{c.done ? '✓' : ''}</button>
-              <span>{recipe.protocolChecklist.find((pc: any) => pc.id === c.id)?.text || c.id}</span>
+              <span>{recipe.protocolChecklist.find((pc: {id: string}) => pc.id === c.id)?.text || c.id}</span>
             </div>
             <div className="text-xs text-zinc-500">{c.checkedAt ? new Date(c.checkedAt).toLocaleString() : '—'}</div>
           </li>

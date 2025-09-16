@@ -122,7 +122,7 @@ export function computeAccountKPIs(params: {
 
   // Find user to apply baseline
   const account = data.accounts.find(a => a.id === accountId);
-  const ownerId = account?.mode?.mode === 'PROPIA_SB' || account?.mode?.mode === 'COLOCACION' ? account.mode.ownerUserId : undefined;
+  const ownerId = account?.mode && (account.mode.mode === 'PROPIA_SB' || account.mode.mode === 'COLOCACION') ? account.mode.ownerUserId : undefined;
   const user = ownerId ? data.users.find(u => u.id === ownerId) : undefined;
   const baseline = user?.kpiBaseline;
 
@@ -152,9 +152,9 @@ export function computeAccountKPIs(params: {
     .filter(i => i.accountId === accountId && i.kind==='VISITA')
     .sort((a,b)=> +new Date(b.createdAt) - +new Date(a.createdAt))[0];
 
-  const now = end;
-  const daysSinceLastOrder = lastOrder ? Math.max(0, Math.round((now - +new Date(lastOrder.createdAt))/(1000*3600*24))) : undefined;
-  const daysSinceLastVisit = lastVisit ? Math.max(0, Math.round((now - +new Date(lastVisit.createdAt))/(1000*3600*24))) : undefined;
+  const now = new Date(end);
+  const daysSinceLastOrder = lastOrder ? Math.max(0, Math.round((now.getTime() - +new Date(lastOrder.createdAt))/(1000*3600*24))) : undefined;
+  const daysSinceLastVisit = lastVisit ? Math.max(0, Math.round((now.getTime() - +new Date(lastVisit.createdAt))/(1000*3600*24))) : undefined;
 
   return { accountId, unitsSold, orderCount, avgTicket, visitsCount, visitToOrderRate, daysSinceLastOrder, daysSinceLastVisit };
 }
