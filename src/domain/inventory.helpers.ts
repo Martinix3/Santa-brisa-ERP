@@ -1,3 +1,4 @@
+
 // domain/inventory.helpers.ts - Helpers de stock
 import type { InventoryItem, StockMove, Product, Uom, Material } from './ssot';
 
@@ -18,7 +19,7 @@ export function availableForMaterial(
       i.sku === sku &&
       (locationPrefix ? (i.locationId || "").startsWith(locationPrefix) : true)
     )
-    .reduce((s, i) => s + (typeof (i as any).qty === "number" ? (i as any).qty : (i as any).onHand || 0), 0);
+    .reduce((s, i) => s + (i.qty ?? 0), 0);
 }
 
 /** Elige lotes FIFO para cubrir una cantidad requerida. */
@@ -65,12 +66,13 @@ export function buildConsumptionMoves(args: {
   return reservations.map((r, idx) => ({
     id: `mv_cons_${orderId}_${idx}`,
     sku: skuOf(r.materialId),
-    lotNumber: r.fromLot,
+    lotId: r.fromLot,
     uom: r.uom,
     qty: r.reservedQty,
-    from: fromLocation,
+    fromLocation: fromLocation,
     reason: "production_out",
-    at,
+    occurredAt: at,
+    createdAt: at,
     ref: { prodOrderId: orderId },
   }));
 }
@@ -117,13 +119,13 @@ function findProduct(products: Product[], sku: string): Product | undefined {
 
 
 export function assertSufficientStock(state: InventoryState, move: StockMove, products: Product[]) {
-  if (!move.from) return;
+  if (!move.fromLocation) return;
   const p = findProduct(products, move.sku); // puede ser undefined para MP
   const baseQty = toBaseUnits(move.qty, move.uom, p);
-  const k = key(move.sku, move.lotNumber, move.from);
+  const k = key(move.sku, move.lotId, move.fromLocation);
   const curr = state.get(k)?.qty ?? 0;
   if (curr < baseQty) {
-    throw new Error(`Stock insuficiente: ${move.sku} lote ${move.lotNumber || '—'} en ${move.from}. Hay ${curr}, necesitas ${baseQty}.`);
+    throw new Error(`Stock insuficiente: ${move.sku} lote ${move.lotId || '—'} en ${move.fromLocation}. Hay ${curr}, necesitas ${baseQty}.`);
   }
 }
 
@@ -132,8 +134,8 @@ export function applyStockMove(state: InventoryState, move: StockMove, products:
   const p = findProduct(products, move.sku);
   const baseQty = toBaseUnits(move.qty, move.uom, p);
 
-  if (move.from) {
-    const kFrom = key(move.sku, move.lotNumber, move.from);
+  if (move.fromLocation) {
+    const kFrom = key(move.sku, move.lotId, move.fromLocation);
     const currentItem = newState.get(kFrom);
     const currentQty = currentItem?.qty ?? 0;
     const nextQty = currentQty - baseQty;
@@ -144,25 +146,25 @@ export function applyStockMove(state: InventoryState, move: StockMove, products:
       if (nextQty === 0) {
         newState.delete(kFrom);
       } else {
-        newState.set(kFrom, { ...currentItem, qty: Number(nextQty.toFixed(6)), updatedAt: move.at });
+        newState.set(kFrom, { ...currentItem, qty: Number(nextQty.toFixed(6)), updatedAt: move.occurredAt });
       }
     } else if (baseQty > 0) {
       throw new Error(`No existe inventario en ${kFrom} para restar.`);
     }
   }
 
-  if (move.to) {
-    const kTo = key(move.sku, move.lotNumber, move.to);
+  if (move.toLocation) {
+    const kTo = key(move.sku, move.lotId, move.toLocation);
     const currentItem = newState.get(kTo);
     const currentQty = currentItem?.qty ?? 0;
     const nextQty = currentQty + baseQty;
 
     const newItem: InventoryItem = currentItem ?? {
-      id: `inv_${kTo}`, sku: move.sku, lotNumber: move.lotNumber,
-      uom: 'bottle', qty: 0, locationId: move.to, updatedAt: move.at,
+      id: `inv_${kTo}`, sku: move.sku, lotNumber: move.lotId,
+      uom: 'bottle', qty: 0, locationId: move.toLocation, updatedAt: move.occurredAt,
     };
     
-    newState.set(kTo, { ...newItem, qty: Number(nextQty.toFixed(6)), updatedAt: move.at });
+    newState.set(kTo, { ...newItem, qty: Number(nextQty.toFixed(6)), updatedAt: move.occurredAt });
   }
 
   return newState;
@@ -172,7 +174,7 @@ export function applyStockMove(state: InventoryState, move: StockMove, products:
 export function applyStockMoves(items: InventoryItem[], moves: StockMove[], products: Product[]): InventoryItem[] {
   let state = indexInventory(items);
   for (const mv of moves) {
-    if (mv.from) assertSufficientStock(state, mv, products);
+    if (mv.fromLocation) assertSufficientStock(state, mv, products);
     state = applyStockMove(state, mv, products);
   }
   return stateToArray(state);

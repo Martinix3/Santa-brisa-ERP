@@ -1,14 +1,13 @@
 
-
 "use client";
 import * as React from 'react';
-import type { Account, Product, Shipment } from '@/domain/ssot';
+import type { Account, Product, Shipment, OrderSellOut } from '@/domain/ssot';
 
 type DocKind = 'sales_order' | 'delivery_note' | 'shipping_label';
 
 interface DownloadDocButtonProps {
   docType: DocKind;
-  order: Shipment;
+  order: OrderSellOut;
   account?: Account;
   products?: Product[];
   label: string;
@@ -70,16 +69,12 @@ export function DownloadDocButton(props: DownloadDocButtonProps) {
   const isSlot = !!children;
 
   if (isSlot) {
-    // Si se pasa un `children`, se asume que es un elemento que ya tiene su propio estilo y solo necesita el `onClick`.
-    // Clonamos el elemento para añadirle nuestra lógica.
     const child = React.Children.only(children) as React.ReactElement;
     return React.cloneElement(child, {
-      onClick: onClick,
-      // Podríamos añadir un estado de 'loading' si el children lo soporta
+      onClick: onClick as any,
     });
   }
 
-  // Comportamiento por defecto: renderiza nuestro propio botón
   return (
     <button onClick={onClick} disabled={loading} className="flex items-center gap-2 w-full text-left px-3 py-2 text-sm hover:bg-zinc-100">
       {buttonContent}

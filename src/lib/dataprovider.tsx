@@ -1,9 +1,8 @@
 
-
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
-import type { User, Account, OrderSellOut, Interaction, Stage, AccountType, SantaData } from '@/domain/schema';
+import type { User, Account, OrderSellOut, Interaction, Stage, AccountType, SantaData } from '@/domain/ssot';
 
 export type DataMode = 'test' | 'real';
 
@@ -65,7 +64,7 @@ function processRawData(data: any[]): SantaData {
         city: row.accountCity,
         stage: toValidStage(row.accountStage),
         type: toValidType(row.accountType),
-        mode: { mode: 'COLOCACION', ownerUserId: ownerId, biller: 'PARTNER' },
+        mode: { mode: 'COLOCACION', ownerUserId: ownerId, billerPartnerId: 'd_rivera' },
         salesRepId: ownerId,
         distributorId: row.distributorId || 'd_rivera',
         lastInteractionAt: row.lastInteractionAt || undefined,
@@ -146,7 +145,7 @@ function processRawData(data: any[]): SantaData {
     ordersSellOut: Array.from(ordersMap.values()),
     interactions: Array.from(interactionsMap.values()),
     // Populate other fields from a base mock if needed, or leave them empty
-    users: [], products: [], materials: [], distributors: [], billOfMaterials: [], productionOrders: [], lots: [], qaChecks: [], inventory: [], goodsReceipts: [], suppliers: [], traceEvents: [], priceLists: [], nonConformities: [], stockMoves: [], shipments: [], supplierBills: [], payments: [], mktEvents: [], onlineCampaigns: [], activations: [], creators: [], influencerCollabs: [], batches: [], packRuns: [], trace: [], qcTests: [], purchaseOrders: [],
+    users: [], products: [], materials: [], distributors: [], billOfMaterials: [], productionOrders: [], lots: [], qaChecks: [], inventory: [], goodsReceipts: [], suppliers: [], traceEvents: [], priceLists: [], nonConformities: [], stockMoves: [], shipments: [], supplierBills: [], payments: [], mktEvents: [], onlineCampaigns: [], activations: [], creators: [], influencerCollabs: [], batches: [], packRuns: [], trace: [], qcTests: [], purchaseOrders: [], receipts: [],
   };
 }
 
@@ -297,5 +296,3 @@ export const useData = () => {
   }
   return context;
 };
-
-    

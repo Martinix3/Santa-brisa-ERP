@@ -1,5 +1,4 @@
 
-
 "use client"
 import React, { useMemo, useState, useEffect } from 'react'
 import { ChevronDown, Search, Plus, Phone, Mail, MessageSquare, Calendar, History, ShoppingCart, Info, BarChart3, UserPlus, Users } from 'lucide-react'
@@ -245,7 +244,7 @@ export function AccountsPageContent() {
   const grouped = useMemo(()=>{
     const g: Record<string,AccountType[]> = { ACTIVA:[], SEGUIMIENTO:[], POTENCIAL:[], FALLIDA:[] };
     filtered.forEach(a=> {
-        if (g[a.stage]) {
+        if (a.stage && g[a.stage]) {
             (g[a.stage] as AccountType[]).push(a);
         }
     });

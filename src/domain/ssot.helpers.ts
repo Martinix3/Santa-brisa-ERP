@@ -29,7 +29,7 @@ export interface SSOTAdapter {
   getInfluencerCollabs: () => Promise<InfluencerCollab[]>;
 }
 
-export function traceBackFromLot(lotId: string, traceEvents: SantaData['trace']) {
+export function traceBackFromLot(lotId: string, traceEvents: any[]) { // Using any[] for traceEvents due to partial mock data
   const finalProductEvent = traceEvents.find(e => e.type === 'produce' && e.meta?.toLot === lotId);
   if (!finalProductEvent) return null;
 

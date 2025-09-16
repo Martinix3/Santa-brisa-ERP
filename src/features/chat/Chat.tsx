@@ -3,15 +3,8 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Send, User, Bot, Loader, CheckCircle, AlertTriangle } from 'lucide-react';
-import type { AccountRef, Product, SantaData } from '@/domain/schema';
-
-type Message = {
-    role: 'user' | 'assistant';
-    content: string;
-    tool?: { name: string; args: any; output?: any };
-    isToolCall?: boolean;
-    isToolResult?: boolean;
-};
+import type { AccountRef, Product, SantaData, User as UserType } from '@/domain/ssot';
+import { Message } from 'genkit';
 
 type ChatProps = {
     userId: string;
@@ -38,7 +31,7 @@ export function Chat({ userId, context, onNewData, runner }: ChatProps) {
     const handleSend = useCallback(async () => {
         if (!input.trim() || isLoading) return;
 
-        const userMessage: Message = { role: 'user', content: input };
+        const userMessage: Message = { role: 'user', content: [{text: input}] };
         setMessages(prev => [...prev, userMessage]);
         setInput('');
         setIsLoading(true);
@@ -50,7 +43,7 @@ export function Chat({ userId, context, onNewData, runner }: ChatProps) {
                 context
             );
 
-            const assistantMessage: Message = { role: 'assistant', content: finalAnswer };
+            const assistantMessage: Message = { role: 'model', content: [{text: finalAnswer}] };
             setMessages(prev => [...prev, assistantMessage]);
             
             if (newEntities && (newEntities.interactions?.length || newEntities.ordersSellOut?.length || newEntities.mktEvents?.length)) {
@@ -59,7 +52,7 @@ export function Chat({ userId, context, onNewData, runner }: ChatProps) {
 
         } catch (error) {
             console.error("Error running Santa Brain:", error);
-            const errorMessage: Message = { role: 'assistant', content: "Lo siento, ha ocurrido un error. Revisa la consola para más detalles." };
+            const errorMessage: Message = { role: 'model', content: [{text: "Lo siento, ha ocurrido un error. Revisa la consola para más detalles."}] };
             setMessages(prev => [...prev, errorMessage]);
         } finally {
             setIsLoading(false);
@@ -71,9 +64,9 @@ export function Chat({ userId, context, onNewData, runner }: ChatProps) {
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
                 {messages.map((msg, index) => (
                     <div key={index} className={`flex items-start gap-3 ${msg.role === 'user' ? 'justify-end' : ''}`}>
-                        {msg.role === 'assistant' && <div className="flex-shrink-0 h-8 w-8 rounded-full bg-zinc-200 flex items-center justify-center"><Bot size={18} /></div>}
+                        {msg.role !== 'user' && <div className="flex-shrink-0 h-8 w-8 rounded-full bg-zinc-200 flex items-center justify-center"><Bot size={18} /></div>}
                         <div className={`max-w-md p-3 rounded-2xl ${msg.role === 'user' ? 'bg-yellow-400 text-black' : 'bg-white border'}`}>
-                            <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                            <p className="text-sm whitespace-pre-wrap">{msg.content[0].text}</p>
                         </div>
                         {msg.role === 'user' && <div className="flex-shrink-0 h-8 w-8 rounded-full bg-zinc-200 flex items-center justify-center"><User size={18} /></div>}
                     </div>

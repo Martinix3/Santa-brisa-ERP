@@ -1,12 +1,11 @@
 
-
 "use client";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Plus, CalendarDays, ClipboardList, UserPlus2, Briefcase, Search, Check, MapPin, Pencil, Save, MessageSquare, Zap, Mail, Phone, History, ShoppingCart } from "lucide-react";
 import { useData } from "@/lib/dataprovider";
 import { generateNextOrder, Channel } from "@/lib/codes";
-import { SB_COLORS } from '@/components/ui/ui-primitives';
+import { SB_COLORS, AccountType, AccountRef } from '@/domain/ssot';
 
 const hexToRgba = (hex: string, a: number) => { const h = hex.replace('#',''); const f = h.length===3? h.split('').map(c=>c+c).join(''):h; const n=parseInt(f,16); const r=(n>>16)&255, g=(n>>8)&255, b=n&255; return `rgba(${r},${g},${b},${a})`; };
 const waterHeader = (seed = "hdr", base = "#A7D8D9") => {
@@ -26,8 +25,6 @@ function AgaveEdge(){
 
 // ===== Tipos =====
 export type Variant = "quick" | "editAccount" | "createAccount" | "createOrder";
-export type AccountType = "HORECA"|"RETAIL"|"DISTRIBUIDOR"|"IMPORTADOR"|"ONLINE";
-export type AccountRef = { id:string; name:string; city?:string; accountType?:AccountType };
 export type InteractionKind = 'VISITA' | 'LLAMADA' | 'EMAIL' | 'WHATSAPP' | 'OTRO';
 
 type QuickMode = "order" | "interaction";
@@ -42,7 +39,7 @@ type CreateAccountPayload = { name:string; city:string; accountType:AccountType;
 type CreateOrderPayload = { account:string; requestedDate?:string; deliveryDate?:string; channel:"propia"|"distribuidor"|"importador"|"online"; paymentTerms?:string; shipTo?:string; note?:string; items:{ sku:string; qty:number; unit:"ud"|"caja", priceUnit: number, lotNumber?: string }[] };
 
 // ===== UI Primitives =====
-function Row({children}:{children:React.ReactNode}){ return <div className="flex flex-col gap-1">{children}</div>; }
+function Row({children, className}:{children:React.ReactNode, className?: string}){ return <div className={`flex flex-col gap-1 ${className || ''}`}>{children}</div>; }
 function Label({children}:{children:React.ReactNode}){ return <label className="text-xs text-zinc-600">{children}</label>; }
 function Input(props:React.InputHTMLAttributes<HTMLInputElement>){ return <input {...props} className={`w-full px-3 py-2 rounded-lg border border-zinc-300 bg-white text-sm outline-none focus:ring-2 focus:ring-[#F7D15F] ${props.className||""}`}/>; }
 function Select(props:React.SelectHTMLAttributes<HTMLSelectElement>){ return <select {...props} className={`w-full px-3 py-2 rounded-lg border border-zinc-300 bg-white text-sm outline-none focus:ring-2 focus:ring-[#F7D15F] ${props.className||""}`}/>; }
@@ -172,7 +169,7 @@ function AccountPicker({
                     <Row><Label>Ciudad</Label><Input value={newCity} onChange={e=>setNewCity(e.target.value)} /></Row>
                     <Row><Label>Tipo</Label>
                       <Select value={newType} onChange={e=>setNewType(e.target.value as AccountType)}>
-                        <option>HORECA</option><option>RETAIL</option><option>DISTRIBUIDOR</option><option>IMPORTADOR</option><option>ONLINE</option>
+                        <option>HORECA</option><option>RETAIL</option><option>DISTRIBUIDOR</option><option>IMPORTADOR</option><option>OTRO</option>
                       </Select>
                     </Row>
                   </div>
@@ -230,8 +227,7 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
         <button onClick={()=>setMode("order")} className={`px-3 py-1.5 rounded-lg border ${mode==="order"?"bg-white border-zinc-300":"border-zinc-200 hover:bg-zinc-50"}`}><Zap className="h-4 w-4 inline mr-1"/> Pedido rápido</button>
       </div>
 
-      <Row>
-        <Label>Cuenta</Label>
+      <Row><Label>Cuenta</Label>
         <AccountPicker value={account} onChange={setAccount} accounts={accounts} onSearchAccounts={onSearchAccounts} onCreateAccount={onCreateAccount} allowDefer/>
         <div className="text-[11px] text-zinc-500">Puedes seleccionar una cuenta existente, <em>crear una nueva</em> o pulsar "Dejarlo para más tarde" y seguir sin cuenta.</div>
       </Row>
@@ -259,8 +255,7 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
         </>
       ) : (
         <div className="space-y-3">
-            <Row>
-                <Label>Tipo de Interacción</Label>
+            <Row><Label>Tipo de Interacción</Label>
                 <Select value={interactionKind} onChange={(e) => setInteractionKind(e.target.value as InteractionKind)}>
                     <option value="VISITA">Visita</option>
                     <option value="LLAMADA">Llamada</option>
@@ -269,12 +264,10 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
                     <option value="OTRO">Otro</option>
                 </Select>
             </Row>
-            <Row>
-                <Label>Resumen</Label>
+            <Row><Label>Resumen</Label>
                 <Textarea rows={3} placeholder="¿Qué ha pasado? ¿De qué se ha hablado?" value={interactionNote} onChange={e=>setInteractionNote(e.target.value)}/>
             </Row>
-             <Row>
-                <Label>Próxima Acción (opcional)</Label>
+             <Row><Label>Próxima Acción (opcional)</Label>
                 <Input placeholder="Ej. Enviar propuesta, volver a llamar en 7 días..." value={nextAction} onChange={e=>setNextAction(e.target.value)}/>
             </Row>
         </div>
@@ -306,7 +299,7 @@ function EditAccountForm({defaults, onSubmit, onCancel}:{
       <div className="grid grid-cols-2 gap-3">
         <Row><Label>Tipo</Label>
           <Select value={form.accountType} onChange={e=>set("accountType", e.target.value as AccountType)}>
-            <option>HORECA</option><option>RETAIL</option><option>DISTRIBUIDOR</option><option>IMPORTADOR</option><option>ONLINE</option>
+            <option>HORECA</option><option>RETAIL</option><option>DISTRIBUIDOR</option><option>IMPORTADOR</option><option>OTRO</option>
           </Select>
         </Row>
         <Row><Label>Contacto</Label><Input value={form.mainContactName||""} onChange={e=>set("mainContactName", e.target.value)} placeholder="Nombre"/></Row>
@@ -338,7 +331,7 @@ function CreateAccountForm({onSubmit, onCancel}:{ onSubmit:(p:CreateAccountPaylo
       <div className="grid grid-cols-2 gap-3">
         <Row><Label>Tipo</Label>
           <Select value={form.accountType} onChange={e=>set("accountType", e.target.value as AccountType)}>
-            <option>HORECA</option><option>RETAIL</option><option>DISTRIBUIDOR</option><option>IMPORTADOR</option><option>ONLINE</option>
+            <option>HORECA</option><option>RETAIL</option><option>DISTRIBUIDOR</option><option>IMPORTADOR</option><option>OTRO</option>
           </Select>
         </Row>
         <Row><Label>Contacto principal</Label><Input value={form.mainContactName||""} onChange={e=>set("mainContactName", e.target.value)} /></Row>
@@ -372,13 +365,13 @@ function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, onSubmit,
   const [items, setItems] = useState<CreateOrderPayload["items"]>([{sku:"SB-750", qty:1, unit:"ud", priceUnit: 12, lotNumber: ''}]);
   
   const availableInventory = useMemo(() => (santaData?.inventory || []).filter(i => i.locationId && i.locationId.startsWith('FG/')), [santaData]);
-  const priceList = useMemo(() => santaData?.priceLists.find(pl => pl.id === 'pl_prop'), [santaData]);
+  const priceList = useMemo(() => (santaData as any)?.priceLists.find((pl: any) => pl.id === 'pl_prop'), [santaData]);
 
   function addLine(){ setItems(v=>[...v,{sku:"", qty:1, unit:"ud", priceUnit: 0}]); }
   function setLine(i:number, patch:Partial<CreateOrderPayload["items"][number]>){
     const newItems = items.map((it,idx)=> idx===i? {...it,...patch}: it);
-    if(patch.sku) {
-        const price = priceList?.lines.find(l => santaData?.products.find(p => p.id === l.productId)?.sku === patch.sku)?.price || 0;
+    if(patch.sku && priceList) {
+        const price = priceList?.lines.find((l: any) => santaData?.products.find(p => p.id === l.productId)?.sku === patch.sku)?.price || 0;
         newItems[i].priceUnit = price;
     }
     setItems(newItems);
@@ -394,8 +387,7 @@ function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, onSubmit,
 
   return (
     <div className="p-4 space-y-3">
-      <Row>
-        <Label>Cuenta</Label>
+      <Row><Label>Cuenta</Label>
         <AccountPicker value={account} onChange={setAccount} accounts={accounts} onSearchAccounts={onSearchAccounts} onCreateAccount={onCreateAccount}/>
       </Row>
       <div className="grid grid-cols-2 gap-3">

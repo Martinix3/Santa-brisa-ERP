@@ -1,13 +1,14 @@
 
-
 "use client";
 
 import React, { useState, useCallback } from 'react';
 import { Plus, X } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
-import type { SantaData, Interaction, OrderSellOut, EventMarketing, AccountRef } from '@/domain/schema';
+import type { SantaData, Interaction, OrderSellOut, EventMarketing, AccountRef, Product } from '@/domain/ssot';
 import { Chat } from '@/features/chat/Chat';
 import { runSantaBrain } from '@/ai/flows/santa-brain-flow';
+import { Message } from 'genkit';
+
 
 function FloatingButton({ onClick }: { onClick: () => void }) {
   return (
@@ -64,6 +65,10 @@ export default function QuickLogOverlay() {
 
   if (!data || !currentUser) return null;
 
+  const chatRunner = (history: Message[], input: string, context: { accounts: AccountRef[]; products: Product[]; }) => {
+      return runSantaBrain(history, input, context);
+  }
+
   return (
     <>
       <FloatingButton onClick={() => setOpen(true)} />
@@ -75,7 +80,7 @@ export default function QuickLogOverlay() {
               products: data.products,
           }}
           onNewData={handleNewData}
-          runner={runSantaBrain}
+          runner={chatRunner}
         />
       </ChatModal>
     </>

@@ -1,34 +1,362 @@
-// domain/ssot.ts - Barrel ÚNICO del SSOT
-// Re-exporta SOLO tipos canónicos desde los archivos ssot.* (no overlays)
-export * from "./ssot.core";
-export * from "./ssot.production";
-export * from "./ssot.inventory";
-export * from "./ssot.procurement";
-export * from "./ssot.sales";
-export * from "./ssot.marketing";
-export * from "./ssot.dataset";
 
-// Extend Account with new fields for enrichment
-import type { Account as BaseAccount, Material as BaseMaterial } from './ssot.core';
+// src/domain/ssot.ts
 
-export interface Account extends BaseAccount {
-    mainContactName?: string;
-    mainContactEmail?: string;
-    mainContactPhone?: string;
-    
-    paymentTermsDays?: number;
-    paymentMethod?: string;
-    billingEmail?: string;
+// ---- Primitivas / enums
+export type Uom = 'bottle' | 'case' | 'pallet' | 'ud' | 'kg' | 'g' | 'L' | 'mL';
+export type Channel = 'propia' | 'distribuidor' | 'importador' | 'online';
+export type Stage = 'POTENCIAL' | 'ACTIVA' | 'SEGUIMIENTO' | 'FALLIDA' | 'CERRADA' | 'BAJA';
+export type Department = 'VENTAS' | 'MARKETING' | 'PRODUCCION' | 'ALMACEN' | 'FINANZAS';
+export type InteractionKind = 'VISITA' | 'LLAMADA' | 'EMAIL' | 'WHATSAPP' | 'OTRO';
+export type OrderStatus = 'open' | 'confirmed' | 'shipped' | 'invoiced' | 'cancelled' | 'lost';
+export type AccountType = 'HORECA' | 'RETAIL' | 'OTRO' | 'DISTRIBUIDOR' | 'IMPORTADOR' | 'PROVEEDOR';
 
-    subType?: string;
-    tags?: string[];
-    notes?: string;
-    
-    deliveryInstructions?: string;
-    openingHours?: string;
+// ---- Cuentas / partners / usuarios
+export interface User { 
+  id: string; 
+  name: string; 
+  email?: string; 
+  role: 'comercial' | 'admin' | 'ops' | 'owner'; 
+  active: boolean; 
+  managerId?: string;
+  kpiBaseline?: {
+    revenue?: number;
+    unitsSold?: number;
+    visits?: number;
+  }
 }
 
-export interface Material extends BaseMaterial {
-    standardCost?: number;
-    unit?: Uom;
+export type AccountMode =
+  | { mode: 'PROPIA_SB'; ownerUserId: string; biller: 'SB' }
+  | { mode: 'COLOCACION'; ownerUserId: string; billerPartnerId: string }
+  | { mode: 'DISTRIB_PARTNER'; ownerPartnerId: string; billerPartnerId: string };
+
+export interface Account {
+  id: string;
+  name: string;
+  city?: string;
+  type: AccountType;
+  stage: Stage;
+  distributorId?: string;
+  salesRepId?: string;
+  mode: AccountMode;
+  address?: string;
+  phone?: string;
+  cif?: string;
+  mainContactName?: string;
+  mainContactPhone?: string;
+  mainContactEmail?: string;
+  createdAt: string;
+  lastInteractionAt?: string;
+  orderCount?: number;
+  subType?: string;
+  tags?: string[];
+  notes?: string;
+  openingHours?: string;
+  deliveryInstructions?: string;
+  paymentTermsDays?: number;
+  paymentMethod?: string;
+  billingEmail?: string;
+}
+export type AccountRef = { id:string; name:string; city?:string; accountType?:AccountType };
+
+
+export interface Distributor { id: string; name: string; city?: string; cif?: string; country?: string; }
+export interface Supplier { id: string; name: string; country: string; }
+
+
+// ---- Productos / materiales / inventario
+export interface Product {
+  id: string;
+  sku: string;
+  name: string;
+  kind?: 'FG' | 'RM' | 'MERCH';
+  uom?: Uom;
+  bottleMl?: number;
+  caseUnits?: number;
+  casesPerPallet?: number;
+  active: boolean;      
+  materialId?: string;
+  category?: string;
+}
+
+export interface Material {
+  id: string;
+  sku: string;
+  name: string;
+  unit?: Uom;
+  standardCost?: number;
+  category: 'raw' | 'packaging' | 'label' | 'consumable' | 'intermediate' | 'finished_good' | 'merchandising';
+}
+
+export interface Lot {
+  id: string;
+  sku: string;
+  createdAt: string;
+  expDate?: string;
+  quantity: number; 
+  quality: { qcStatus: 'hold' | 'release' | 'reject', results: Record<string, QCResult> };
+  orderId?: string;
+  receivedAt?: string;
+  kind?: 'RM' | 'SFG' | 'FG';
+  status?: LotStatus;
+  qty?: { onHand: number; reserved: number; uom: Uom };
+  dates?: { producedAt?: string; receivedAt?: string; approvedAt?: string; rejectedAt?: string; expDate?: string; };
+  trace?: { parentBatchId?: string };
+  updatedAt?: string;
+}
+
+export interface InventoryItem {
+  id: string;
+  sku: string;
+  lotNumber?: string;
+  uom: Uom;
+  qty: number;
+  locationId: string;
+  updatedAt: string;
+  expDate?: string;
+}
+
+export interface StockMove {
+  id: string;
+  sku: string;
+  uom: Uom;
+  qty: number;
+  reason: 'receipt' | 'production_in' | 'production_out' | 'sale' | 'transfer' | 'adjustment' | 'return_in' | 'return_out' | 'SHIP';
+  fromLocation?: string;
+  toLocation?: string;
+  lotId?: string;
+  occurredAt: string;
+  createdAt: string;
+  ref?: Record<string, any>;
+}
+
+// ---- Ventas / logística
+export interface OrderLine { 
+  sku: string; 
+  qty: number; 
+  unit: 'ud' | 'caja' | 'palet';
+  priceUnit: number;
+  discount?: number;
+  lotIds?: string[];
+  lotNumber?: string;
+}
+export interface OrderSellOut {
+  id: string; 
+  accountId: string; 
+  source?: 'SHOPIFY' | 'B2B' | 'Direct' | 'CRM' | 'MANUAL';
+  lines: OrderLine[]; 
+  createdAt: string;
+  userId?: string;
+  distributorId?: string;
+  status: OrderStatus;
+  currency: 'EUR';
+  closedAt?: string;
+  notes?: string;
+  totalAmount?: number;
+  biller?: 'SB' | 'PARTNER';
+  paymentMethod?: string;
+  paymentTermDays?: number;
+  invoiceId?: string;
+}
+export interface Interaction {
+  id: string;
+  accountId: string;
+  userId: string;
+  kind: InteractionKind;
+  note?: string;
+  plannedFor?: string;
+  createdAt: string;
+  durationMin?: number;
+  sentiment?: 'pos' | 'neu' | 'neg';
+  dept?: Department;
+}
+
+
+export interface ShipmentLine { sku: string; qty: number; lotNumber?: string; unit: 'caja' | 'ud' | 'palet'; name: string; }
+export type ShipmentStatus = 'pending' | 'picking' | 'ready_to_ship' | 'shipped' | 'delivered' | 'cancelled';
+
+export interface Shipment {
+  id: string;
+  orderId: string;
+  accountId: string;
+  createdAt: string;
+  status: ShipmentStatus;
+  lines: ShipmentLine[];
+  customerName: string;
+  city: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  postalCode?: string;
+  country?: string;
+  notes?: string;
+  carrier?: string;
+  labelUrl?: string;
+  tracking?: string;
+  packedById?: string;
+  checks?: { visualOk?: boolean };
+}
+
+// ---- Producción
+export type QCResult = {
+  value?: number | string | boolean;
+  notes?: string;
+  status: 'ok' | 'ko';
+};
+
+export type LotStatus = 'OPEN' | 'QUARANTINE' | 'APPROVED' | 'REJECTED' | 'CONSUMED' | 'CLOSED';
+export type CheckResult = 'PASS' | 'FAIL' | 'CONDITIONAL';
+
+export interface QACheck {
+    id: string;
+    lotId: string;
+    scope: 'INBOUND' | 'INPROCESS' | 'RELEASE' | 'RETEST';
+    checklist: {
+        code: string;
+        name: string;
+        type: 'NUM' | 'BOOL' | 'TEXT' | 'IMG';
+        uom?: string;
+        valueNum?: number;
+        valueBool?: boolean;
+        valueText?: string;
+        photoUrl?: string;
+    }[];
+    result: CheckResult;
+    reviewerId: string;
+    reviewedAt: string;
+    createdAt: string;
+}
+
+export interface BillOfMaterialItem { materialId: string; quantity: number; unit?: string; }
+export interface BillOfMaterial { id?: string; sku: string; name: string; items: BillOfMaterialItem[]; batchSize: number; baseUnit?: string;}
+
+export interface ProductionOrder {
+  id: string;
+  sku: string;
+  bomId?: string;
+  targetQuantity: number;
+  status: 'pending' |'released'| 'wip' | 'done' | 'cancelled';
+  createdAt: string;
+  lotId?: string;
+  scheduledFor?: string;
+  responsibleId?: string;
+  protocolChecks?: any[];
+  incidents?: any[];
+  inputs?: any[];
+  outputs?: any[];
+  checks?: any[];
+  shortages?: Shortage[];
+  reservations?: Reservation[];
+  actuals?: ActualConsumption[];
+  execution?: any;
+  costing?: any;
+}
+export interface Shortage { materialId: string; name: string; required: number; available: number; uom: Uom; }
+export interface Reservation { materialId: string; fromLot: string; reservedQty: number; uom: Uom }
+export interface ActualConsumption { materialId: string; name: string; fromLot?: string; theoreticalQty: number; actualQty: number; uom: Uom; costPerUom: number; }
+
+export type TraceEventPhase = 'SOURCE' | 'RECEIPT' | 'QC' | 'PRODUCTION' | 'PACK' | 'WAREHOUSE' | 'SALE' | 'DELIVERY';
+export type TraceEventKind =
+  | 'FARM_DATA' | 'SUPPLIER_PO'
+  | 'ARRIVED' | 'BOOKED'
+  | 'CHECK_PASS' | 'CHECK_FAIL' 
+  | 'BATCH_START' | 'CONSUME' | 'BATCH_END' | 'OUTPUT'
+  | 'PACK_START' | 'PACK_END'
+  | 'MOVE' | 'RESERVE'
+  | 'ORDER_ALLOC' | 'SHIPMENT_PICKED'
+  | 'SHIPPED' | 'DELIVERED';
+export interface TraceEvent {
+    id: string;
+    subject: { type: 'LOT' | 'BATCH' | 'ORDER' | 'SHIPMENT'; id: string; };
+    phase: TraceEventPhase;
+    kind: TraceEventKind;
+    occurredAt: string;
+    actorId?: string;
+    links?: { lotId?: string; batchId?: string; orderId?: string; shipmentId?: string; receiptId?: string; qaCheckId?: string; };
+    data?: any;
+}
+
+// ---- Marketing
+export interface EventMarketing {
+  id: string;
+  title: string;
+  kind: 'DEMO' | 'FERIA' | 'FORMACION' | 'POPUP' | 'OTRO';
+  status: 'planned' | 'active' | 'closed' | 'cancelled';
+  startAt: string;
+  endAt?: string;
+  city?: string;
+  venue?: string;
+  goal?: { sampling: number; leads: number; salesBoxes: number; };
+  spend?: number;
+  plv?: Array<{ sku: string; qty: number; }>;
+}
+export interface OnlineCampaign {
+  id: string;
+  title: string;
+  channel: 'IG' | 'FB' | 'TikTok' | 'Google' | 'YouTube' | 'Email' | 'Other';
+  status: 'planned' | 'active' | 'closed' | 'cancelled';
+  startAt: string;
+  endAt?: string;
+  budget: number;
+  spend: number;
+}
+export interface Activation { id: string; }
+
+// ---- Influencers / marketing (stubs que pide el UI)
+export interface Creator { id: string; name: string; }
+export interface InfluencerCollab { id: string; creatorId: string; status: string; }
+
+// ---- Recibos / compras mínimos
+export interface GoodsReceipt { id: string; supplierId: string; createdAt: string; expectedAt: string; receivedAt?: string; lines: any[]; externalRef?: string; }
+export interface Receipt { id: string; createdAt: string; }
+
+// ---- Dataset canónico
+export interface SantaData {
+  users: User[];
+  accounts: Account[];
+  products: Product[];
+  materials: Material[];
+  distributors: Distributor[];
+  interactions: Interaction[];
+  ordersSellOut: OrderSellOut[];
+  shipments: Shipment[];
+  lots: Lot[];
+  inventory: InventoryItem[];
+  stockMoves: StockMove[];
+  receipts: Receipt[];
+  purchaseOrders: any[];
+  billOfMaterials: BillOfMaterial[];
+  productionOrders: ProductionOrder[];
+  qaChecks: QACheck[];
+  suppliers: Supplier[];
+  traceEvents: TraceEvent[];
+  goodsReceipts: GoodsReceipt[];
+  mktEvents: EventMarketing[];
+  onlineCampaigns: OnlineCampaign[];
+  activations: Activation[];
+  creators: Creator[];
+  influencerCollabs: InfluencerCollab[];
+  priceLists: any[];
+  nonConformities: any[];
+  supplierBills: any[];
+  payments: any[];
+  batches: any[];
+  packRuns: any[];
+  trace: any[];
+  qcTests: any[];
+}
+
+// Helpers canónicos que ya usas
+export function inWindow(iso: string, start: number|Date, end: number|Date) {
+  const t = +new Date(iso);
+  const s = +new Date(start);
+  const e = +new Date(end);
+  return t >= s && t <= e;
+}
+export function orderTotal(o: { totalAmount?: number; lines: { priceUnit:number; qty:number; discount?:number }[] }) {
+  if (typeof o.totalAmount === 'number') return o.totalAmount;
+  if (!o || !o.lines) return 0;
+  return o.lines.reduce((s, l) => s + l.priceUnit * l.qty * (1 - (l.discount || 0)), 0);
+}
+export function isoDaysAgo(n: number) {
+  const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString();
 }

@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -140,7 +139,7 @@ function NavLink({
     isCollapsed: boolean,
     moduleColor: string,
 }) {
-    const pathname = usePathname();
+    const pathname = usePathname() ?? '/';
     const isActive = href === '/' ? pathname === href : pathname.startsWith(href) && href !== '/';
 
     const activeStyle = {
@@ -177,7 +176,7 @@ function NavSection({
     isExpanded: boolean,
     onToggle: () => void,
 }) {
-    const pathname = usePathname();
+    const pathname = usePathname() ?? '/';
     const isSectionActive = section.items.some(item => pathname.startsWith(item.href) && (item.href !== '/' || pathname === '/'));
     const colorKey = (section.module || 'primary') as keyof typeof SB_COLORS;
     const moduleColor = SB_COLORS[colorKey] || SB_COLORS.primary;
@@ -231,7 +230,7 @@ function NavSection({
 function AuthenticatedLayoutContent({ children }: { children: React.ReactNode }) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
-  const pathname = usePathname();
+  const pathname = usePathname() ?? '/';
 
   useEffect(() => {
     const activeSection = navSections.find(section => section.items.some(item => pathname.startsWith(item.href) && item.href !== '/'));

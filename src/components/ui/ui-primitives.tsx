@@ -73,22 +73,28 @@ export function AgaveEdge(){
 
 type ButtonProps = {
   variant?: "primary" | "secondary" | "subtle" | "destructive" | "ghost";
+  size?: "sm" | "md" | "lg";
   as?: React.ElementType;
 } & React.ButtonHTMLAttributes<HTMLButtonElement> & React.AnchorHTMLAttributes<HTMLAnchorElement>;
 
 
 export const Button = React.forwardRef<HTMLButtonElement | HTMLAnchorElement, ButtonProps>(
-    ({ variant = "primary", as: Component = "button", className, ...props }, ref) => {
-        const base = "inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed";
-        const map = {
+    ({ variant = "primary", size = "md", as: Component = "button", className, ...props }, ref) => {
+        const base = "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed";
+        const variantMap = {
             primary: "bg-sb-sun text-sb-neutral-900 hover:brightness-110",
             secondary: "border border-zinc-300 bg-white hover:bg-zinc-50",
-            subtle: "border border-zinc-200 bg-white hover:bg-zinc-50 text-xs px-2.5 py-1.5",
+            subtle: "border border-zinc-200 bg-white hover:bg-zinc-50",
             destructive: "bg-rose-600 text-white hover:bg-rose-700",
             ghost: "hover:bg-zinc-100",
         } as const;
+        const sizeMap = {
+            sm: "px-2.5 py-1.5 text-xs",
+            md: "px-4 py-2 text-sm",
+            lg: "px-5 py-2.5 text-base",
+        }
 
-        return <Component className={clsx(base, map[variant], className)} ref={ref as any} {...props} />;
+        return <Component className={clsx(base, variantMap[variant], sizeMap[size], className)} ref={ref as any} {...props} />;
     }
 );
 Button.displayName = "Button";
@@ -160,7 +166,7 @@ export const EmptyState = ({icon:Icon,title,desc,action}:{icon:any; title:string
   </div>
 );
 
-export type Col<T> = { key: keyof T | 'actions'; header: string; className?:string; render?: (row:T)=>React.ReactNode };
+export type Col<T> = { key: keyof T | 'actions' | string; header: string; className?:string; render?: (row:T)=>React.ReactNode };
 
 export function DataTableSB<T extends { id:string }>({ rows, cols }:{ rows:T[]; cols:Col<T>[] }){
   const [hoveredRow, setHoveredRow] = useState<string | null>(null);

@@ -1,3 +1,4 @@
+
 // --- Santa Brisa: lógica de negocio (sell-out a botellas, agregados y KPIs) ---
 import type {
   Account, Distributor, OrderSellOut, OrderLine, Product, User, Channel, SantaData
@@ -121,7 +122,7 @@ export function computeAccountKPIs(params: {
 
   // Find user to apply baseline
   const account = data.accounts.find(a => a.id === accountId);
-  const ownerId = (account?.mode as any)?.ownerUserId;
+  const ownerId = account?.mode?.mode === 'PROPIA_SB' || account?.mode?.mode === 'COLOCACION' ? account.mode.ownerUserId : undefined;
   const user = ownerId ? data.users.find(u => u.id === ownerId) : undefined;
   const baseline = user?.kpiBaseline;
 
