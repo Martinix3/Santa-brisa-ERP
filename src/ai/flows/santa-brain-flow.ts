@@ -158,7 +158,7 @@ export async function runSantaBrain(history: Message[], input: string, context: 
         ],
     });
 
-    const toolRequests = llmResponse.toolRequests();
+    const toolRequests = llmResponse.toolRequests;
     const newEntities: Partial<SantaData> = { interactions: [], ordersSellOut: [], mktEvents: [], accounts: [] };
 
     if (toolRequests.length > 0) {
