@@ -3,7 +3,7 @@ export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { generateDocumentHtml } from '@/ai/flows/generate-doc-html-flow';
-import pdf from 'html-pdf';
+import puppeteer from 'puppeteer';
 
 const validKinds = new Set(['sales_order', 'shipping_label', 'delivery_note']);
 
@@ -32,19 +32,28 @@ export async function POST(req: NextRequest) {
       data: { order, account, products },
     });
 
-    // 2. Convierte el HTML a PDF usando html-pdf
-    const buffer = await new Promise<Buffer>((resolve, reject) => {
-      const pdfOptions: pdf.CreateOptions = {
-        format: kind === 'shipping_label' ? 'A6' : 'A4',
-        orientation: kind === 'shipping_label' ? 'portrait' : 'portrait',
-        border: '1cm',
-      };
-      
-      pdf.create(htmlContent, pdfOptions).toBuffer((err, buffer) => {
-        if (err) return reject(err);
-        resolve(buffer);
-      });
+    // 2. Convierte el HTML a PDF usando Puppeteer
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'] 
     });
+    const page = await browser.newPage();
+    
+    await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+    
+    const pdfOptions: import('puppeteer').PDFOptions = {
+        format: kind === 'shipping_label' ? 'A6' : 'A4',
+        printBackground: true,
+        margin: {
+            top: '1cm',
+            right: '1cm',
+            bottom: '1cm',
+            left: '1cm',
+        }
+    };
+
+    const buffer = await page.pdf(pdfOptions);
+    await browser.close();
 
     // 3. Devuelve el buffer del PDF
     return new Response(buffer as BodyInit, {
