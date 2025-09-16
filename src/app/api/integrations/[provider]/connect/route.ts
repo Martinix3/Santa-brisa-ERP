@@ -7,9 +7,9 @@ mem._secrets ??= {};
 
 export async function POST(
   req: NextRequest,
-  context: { params: { provider: string } }
+  context: { params: Promise<{ provider: string }> }
 ) {
-  const { provider } = context.params;
+  const { provider } = await context.params;
   const body = await req.json().catch(()=> ({}));
 
   if (provider === "shopify") {

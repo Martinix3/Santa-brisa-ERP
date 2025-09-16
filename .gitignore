@@ -35,3 +35,7 @@ yarn-error.log*
 tsconfig.tsbuildinfo
 tsconfig.backup.*.json
 typecheck-errors.log
+
+# TS build cache/backups
+tsconfig.tsbuildinfo
+tsconfig.backup.*.json
