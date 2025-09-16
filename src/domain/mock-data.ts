@@ -28,13 +28,16 @@ export const DISTRIBUTORS: SantaData['distributors'] = [
 ];
 
 export const ACCOUNTS: SantaData['accounts'] = [
-  // Clientes HORECA, etc.
-  { id:'a1', name:'Bar Pepe', city:'Barcelona', type:'HORECA', stage:'ACTIVA', mode: { mode: 'DISTRIB_PARTNER', ownerPartnerId: 'd_rivera', billerPartnerId: 'd_rivera' }, distributorId:'d_rivera', salesRepId: 'u_ana', createdAt: isoDaysAgo(90), lastInteractionAt: isoDaysAgo(2) },
-  { id: 'acc_1', name: 'Bares Paco S.L.', city: 'Madrid', type: 'HORECA', stage: 'ACTIVA', mode: { mode: 'PROPIA_SB', ownerUserId: 'u_ana', biller: 'SB' }, distributorId: undefined, salesRepId: 'u_ana', createdAt: isoDaysAgo(180) },
-  { id:'a2', name:'Hotel Mar', city:'Valencia', type:'HORECA', stage:'POTENCIAL', mode: { mode: 'PROPIA_SB', ownerUserId: 'u_marcos', biller: 'SB' }, distributorId: undefined, salesRepId: 'u_marcos', createdAt: isoDaysAgo(30) },
-  { id:'a3', name:'Restaurante Roca', city:'Girona', type:'HORECA', stage:'ACTIVA', mode: { mode: 'COLOCACION', ownerUserId: 'u_alfonso', billerPartnerId: 'd_rivera' }, distributorId: 'd_rivera', salesRepId: 'u_alfonso', createdAt: isoDaysAgo(45) },
-  { id:'a4', name:'Coctelería Oasis', city:'Marbella', type:'HORECA', stage:'ACTIVA', mode: { mode: 'COLOCACION', ownerUserId: 'u_patxi', billerPartnerId: 'd_andes' }, distributorId: 'd_andes', salesRepId: 'u_patxi', createdAt: isoDaysAgo(60) },
-  { id:'a5', name:'Terraza del Mar', city:'Ibiza', type:'HORECA', stage:'SEGUIMIENTO', mode: { mode: 'COLOCACION', ownerUserId: 'u_nico', billerPartnerId: 'd_rivera' }, distributorId: 'd_rivera', salesRepId: 'u_nico', createdAt: isoDaysAgo(15) },
+  { id: 'acc_1', name: 'Bares Paco S.L.', city: 'Madrid', type: 'HORECA', stage: 'ACTIVA', mode: { mode: 'PROPIA_SB', ownerUserId: 'u_ana', biller: 'SB' }, salesRepId: 'u_ana', createdAt: isoDaysAgo(180) },
+  { id: 'acc_2', name: 'Hotel Marítimo', city: 'Valencia', type: 'HORECA', stage: 'POTENCIAL', mode: { mode: 'PROPIA_SB', ownerUserId: 'u_marcos', biller: 'SB' }, salesRepId: 'u_marcos', createdAt: isoDaysAgo(30) },
+  { id: 'acc_3', name: 'Restaurante Roca', city: 'Girona', type: 'HORECA', stage: 'ACTIVA', mode: { mode: 'COLOCACION', ownerUserId: 'u_alfonso', billerPartnerId: 'd_rivera' }, distributorId: 'd_rivera', salesRepId: 'u_alfonso', createdAt: isoDaysAgo(45) },
+  { id: 'acc_4', name: 'Coctelería Oasis', city: 'Marbella', type: 'HORECA', stage: 'ACTIVA', mode: { mode: 'COLOCACION', ownerUserId: 'u_patxi', billerPartnerId: 'd_andes' }, distributorId: 'd_andes', salesRepId: 'u_patxi', createdAt: isoDaysAgo(60) },
+  { id: 'acc_5', name: 'Terraza del Mar', city: 'Ibiza', type: 'HORECA', stage: 'SEGUIMIENTO', mode: { mode: 'PROPIA_SB', ownerUserId: 'u_nico', biller: 'SB' }, salesRepId: 'u_nico', createdAt: isoDaysAgo(15) },
+  { id: 'acc_6', name: 'Supermercado Sol', city: 'Madrid', type: 'RETAIL', stage: 'ACTIVA', mode: { mode: 'PROPIA_SB', ownerUserId: 'u_ana', biller: 'SB' }, salesRepId: 'u_ana', createdAt: isoDaysAgo(120) },
+  { id: 'acc_7', name: 'Club Nocturno Eclipse', city: 'Barcelona', type: 'HORECA', stage: 'ACTIVA', mode: { mode: 'COLOCACION', ownerUserId: 'u_marcos', billerPartnerId: 'd_rivera' }, distributorId: 'd_rivera', salesRepId: 'u_marcos', createdAt: isoDaysAgo(80) },
+  { id: 'acc_8', name: 'Tienda Gourmet Delicias', city: 'Bilbao', type: 'RETAIL', stage: 'SEGUIMIENTO', mode: { mode: 'PROPIA_SB', ownerUserId: 'u_alfonso', biller: 'SB' }, salesRepId: 'u_alfonso', createdAt: isoDaysAgo(25) },
+  { id: 'acc_9', name: 'Beach Club Arena', city: 'Formentera', type: 'HORECA', stage: 'FALLIDA', mode: { mode: 'PROPIA_SB', ownerUserId: 'u_nico', biller: 'SB' }, salesRepId: 'u_nico', createdAt: isoDaysAgo(50) },
+  { id: 'acc_10', name: 'Bar de Tapas El Rincón', city: 'Sevilla', type: 'HORECA', stage: 'ACTIVA', mode: { mode: 'PROPIA_SB', ownerUserId: 'u_patxi', biller: 'SB' }, salesRepId: 'u_patxi', createdAt: isoDaysAgo(200) },
 ];
 
 
@@ -43,17 +46,17 @@ export const PRODUCTS: SantaData['products'] = [
   { id:'p_santabrisa', sku:'SB-750', name:'Santa Brisa 750ml', kind: 'FG', uom: 'bottle', bottleMl: 750, caseUnits: 6, active:true, materialId: 'mat_sb_750' },
   { id:'p_marg_classic', sku:'SB-MARG-CL-700', name:'Margarita Clásica 700ml', kind: 'FG', uom: 'bottle', bottleMl: 700, caseUnits: 6, active:true, materialId: 'mat_marg_cl' },
   { id:'p_marg_spicy', sku:'SB-MARG-SP-700', name:'Margarita Picante 700ml', kind: 'FG', uom: 'bottle', bottleMl: 700, caseUnits: 6, active:true, materialId: 'mat_marg_sp' },
-  { id:'p_merch_vasos', sku:'MERCH-VAS', name:'Vasos Merchandising', kind: 'FG', uom: 'ud', active: true, materialId: 'mat_merch_vas' },
+  { id:'p_merch_vasos', sku:'MERCH-VAS', name:'Vasos Merchandising', kind: 'MERCH', uom: 'ud', active: true, materialId: 'mat_merch_vas' },
 ];
 
 export const MATERIALS: SantaData['materials'] = [
   { id: 'mat_teq_base', sku: 'MP-TEQ-BASE', name: 'Tequila base', category: 'raw', unit: 'L', standardCost: 20 },
   { id: 'mat_lime_conc', sku: 'MP-LIME-CONC', name: 'Concentrado lima', category: 'raw', unit: 'L', standardCost: 5 },
   { id: 'mat_agave_syr', sku: 'MP-AGAVE-SYR', name: 'Sirope de agave (cocktail)', category: 'raw', unit: 'L', standardCost: 8 },
-  { id: 'mat_sb_750', sku: 'SB-750', name: 'Santa Brisa 750ml', category: 'finished_good', unit: 'ud' },
-  { id: 'mat_marg_cl', sku: 'SB-MARG-CL-700', name: 'Margarita Clásica 700ml', category: 'finished_good', unit: 'ud' },
-  { id: 'mat_marg_sp', sku: 'SB-MARG-SP-700', name: 'Margarita Picante 700ml', category: 'finished_good', unit: 'ud' },
-  { id: 'mat_merch_vas', sku: 'MERCH-VAS', name: 'Vasos Merchandising', category: 'merchandising', unit: 'ud' },
+  { id: 'mat_sb_750', sku: 'SB-750', name: 'Santa Brisa 750ml', category: 'finished_good', unit: 'ud', standardCost: 8.5 },
+  { id: 'mat_marg_cl', sku: 'SB-MARG-CL-700', name: 'Margarita Clásica 700ml', category: 'finished_good', unit: 'ud', standardCost: 9.2 },
+  { id: 'mat_marg_sp', sku: 'SB-MARG-SP-700', name: 'Margarita Picante 700ml', category: 'finished_good', unit: 'ud', standardCost: 9.5 },
+  { id: 'mat_merch_vas', sku: 'MERCH-VAS', name: 'Vasos Merchandising', category: 'merchandising', unit: 'ud', standardCost: 1.5 },
 ];
 
 export const BOMS: BillOfMaterial[] = [
@@ -67,21 +70,26 @@ export const BOMS: BillOfMaterial[] = [
 
 // --- Ventas y Marketing ---
 export const ORDERS_SELL_OUT: SantaData['ordersSellOut'] = [
-  { id:'o1', accountId:'a1', distributorId:'d_rivera', status:'confirmed', currency:'EUR', createdAt: isoDaysAgo(2), lines:[{ sku:'SB-750', qty:10, unit:'caja', priceUnit:12.5, lotIds: ['SB750-240926-001'] }] },
-  { id:'o6', accountId:'acc_1', distributorId: 'd_rivera', status:'confirmed', currency:'EUR', createdAt: isoDaysAgo(1), lines:[{ sku:'SB-MARG-CL-700', qty:10, unit:'caja', priceUnit:14, lotIds: ['MARG-CL-240925-001'] }] },
-  { id:'o7', accountId:'a3', distributorId: 'd_rivera', userId: 'u_alfonso', status:'confirmed', currency:'EUR', createdAt: isoDaysAgo(10), lines:[{ sku:'SB-750', qty:5, unit:'caja', priceUnit:13.0 }] },
-  { id:'o8', accountId:'a4', distributorId: 'd_andes', userId: 'u_patxi', status:'confirmed', currency:'EUR', createdAt: isoDaysAgo(22), lines:[{ sku:'SB-MARG-CL-700', qty:8, unit:'caja', priceUnit:15.0 }] },
-  { id:'o9', accountId:'a5', distributorId: 'd_rivera', userId: 'u_nico', status:'open', currency:'EUR', createdAt: isoDaysAgo(5), lines:[{ sku:'SB-750', qty:12, unit:'caja', priceUnit:12.8 }] },
-  { id:'o10', accountId:'a3', distributorId: 'd_rivera', userId: 'u_alfonso', status:'confirmed', currency:'EUR', createdAt: isoDaysAgo(3), lines:[{ sku:'SB-750', qty:7, unit:'caja', priceUnit:13.0 }] },
-  { id:'o11', accountId:'a4', distributorId: 'd_andes', userId: 'u_patxi', status:'confirmed', currency:'EUR', createdAt: isoDaysAgo(15), lines:[{ sku:'SB-MARG-CL-700', qty:10, unit:'caja', priceUnit:15.0 }] },
-  { id:'o12', accountId:'a5', distributorId: 'd_rivera', userId: 'u_nico', status:'confirmed', currency:'EUR', createdAt: isoDaysAgo(2), lines:[{ sku:'SB-750', qty:15, unit:'caja', priceUnit:12.8 }] },
+  // Pedidos de venta directa (PROPIA_SB)
+  { id:'ORD-SB-240901-001', accountId:'acc_1', userId: 'u_ana', status:'confirmed', currency:'EUR', createdAt: isoDaysAgo(15), lines:[{ sku:'SB-750', qty:5, unit:'caja', priceUnit:90 }] },
+  { id:'ORD-SB-240910-002', accountId:'acc_6', userId: 'u_ana', status:'shipped', currency:'EUR', createdAt: isoDaysAgo(6), lines:[{ sku:'SB-750', qty:20, unit:'caja', priceUnit:88 }] },
+  { id:'ORD-SB-240912-003', accountId:'acc_10', userId: 'u_patxi', status:'confirmed', currency:'EUR', createdAt: isoDaysAgo(4), lines:[{ sku:'SB-MARG-CL-700', qty:3, unit:'caja', priceUnit:95 }] },
+  { id:'ORD-SB-240914-004', accountId:'acc_5', userId: 'u_nico', status:'open', currency:'EUR', createdAt: isoDaysAgo(2), lines:[{ sku:'SB-750', qty:8, unit:'caja', priceUnit:92 }] },
+
+  // Pedidos de colocación (COLOCACION)
+  { id:'ORD-DST-240820-001', accountId:'acc_3', distributorId:'d_rivera', userId: 'u_alfonso', status:'confirmed', currency:'EUR', createdAt: isoDaysAgo(26), lines:[{ sku:'SB-750', qty:10, unit:'caja', priceUnit:85 }] },
+  { id:'ORD-DST-240825-002', accountId:'acc_4', distributorId:'d_andes', userId: 'u_patxi', status:'shipped', currency:'EUR', createdAt: isoDaysAgo(21), lines:[{ sku:'SB-MARG-CL-700', qty:15, unit:'caja', priceUnit:90 }] },
+  { id:'ORD-DST-240905-003', accountId:'acc_7', distributorId:'d_rivera', userId: 'u_marcos', status:'confirmed', currency:'EUR', createdAt: isoDaysAgo(11), lines:[{ sku:'SB-750', qty:25, unit:'caja', priceUnit:84 }] },
+  { id:'ORD-DST-240913-004', accountId:'acc_3', distributorId:'d_rivera', userId: 'u_alfonso', status:'open', currency:'EUR', createdAt: isoDaysAgo(3), lines:[{ sku:'SB-MARG-SP-700', qty:5, unit:'caja', priceUnit:98 }] },
 ];
 
 export const INTERACTIONS: SantaData['interactions'] = [
-  { id:'i_a1_1', accountId:'a1', userId:'u_ana',   kind:'VISITA', note:'Resultado: OK', createdAt: isoDaysAgo(2), dept:'VENTAS' },
-  { id:'i_a3_1', accountId:'a3', userId:'u_alfonso', kind:'VISITA', note:'Cliente contento, posible aumento de pedido.', createdAt: isoDaysAgo(11), dept:'VENTAS' },
-  { id:'i_a4_1', accountId:'a4', userId:'u_patxi', kind:'VISITA', note:'Realizada demo de producto. Interesados en Margarita Picante.', createdAt: isoDaysAgo(16), dept:'VENTAS' },
-  { id:'i_a5_1', accountId:'a5', userId:'u_nico', kind:'LLAMADA', note:'Seguimiento del pedido. Todo correcto.', createdAt: isoDaysAgo(3), dept:'VENTAS' },
+  { id:'int_1', accountId:'acc_1', userId:'u_ana',   kind:'VISITA', note:'Cliente contento, stock bajo.', createdAt: isoDaysAgo(16), dept:'VENTAS' },
+  { id:'int_2', accountId:'acc_2', userId:'u_marcos', kind:'LLAMADA', note:'Llamada de seguimiento, agendada visita para la semana que viene.', createdAt: isoDaysAgo(4), dept:'VENTAS' },
+  { id:'int_3', accountId:'acc_3', userId:'u_alfonso', kind:'VISITA', note:'Revisión de stock con el distribuidor. Todo OK.', createdAt: isoDaysAgo(27), dept:'VENTAS' },
+  { id:'int_4', accountId:'acc_4', userId:'u_patxi', kind:'EMAIL', note:'Email confirmando recepción del último pedido.', createdAt: isoDaysAgo(20), dept:'VENTAS' },
+  { id:'int_5', accountId:'acc_5', userId:'u_nico', kind:'VISITA', note:'Presentación de nuevos cocktails. Interesados en el picante.', createdAt: isoDaysAgo(3), dept:'VENTAS' },
+  { id:'int_6', accountId:'acc_8', userId:'u_alfonso', kind:'VISITA', note:'Primera visita. Dejadas muestras. Potencial para entrar en 1 mes.', createdAt: isoDaysAgo(2), dept:'VENTAS' },
 ];
 
 // --- Cadena de Trazabilidad Completa ---
@@ -92,59 +100,33 @@ export const GOODS_RECEIPTS: GoodsReceipt[] = [
 ];
 
 export const PRODUCTION_ORDERS: SantaData['productionOrders'] = [
-  { id: 'MO-24-006', sku: 'SB-MARG-CL-700', bomId: 'bom_marg_classic', targetQuantity: 100, status: 'done', createdAt: isoDaysAgo(5), lotId: 'MARG-CL-240925-001', plannedQty: 100,
-    protocolChecks: [
-      { id: 'temp_control', text: 'Control de Temperatura', done: true, checkedAt: isoDaysAgo(5), checkedBy: 'u_sofia' },
-      { id: 'ph_check', text: 'Verificación de pH', done: true, checkedAt: isoDaysAgo(5), checkedBy: 'u_sofia' }
-    ],
-    incidents: [
-      { id: 'inc_1', when: isoDaysAgo(5), severity: 'MINOR', text: 'Pequeña fuga en la válvula de mezcla, solucionada.' }
-    ]
+  { id: 'MO-24-006', sku: 'SB-MARG-CL-700', bomId: 'bom_marg_classic', targetQuantity: 100, status: 'done', createdAt: isoDaysAgo(22), lotId: 'MARG-CL-240825-001', plannedQty: 100,
+    protocolChecks: [ { id: 'temp_control', text: 'Control de Temperatura', done: true, checkedAt: isoDaysAgo(22), checkedBy: 'u_sofia' } ],
+    incidents: [],
   },
-  { id: 'MO-24-007', sku: 'SB-750', bomId: 'bom_sb_750', targetQuantity: 200, status: 'done', createdAt: isoDaysAgo(4), lotId: 'SB750-240926-001', plannedQty: 200 },
+  { id: 'MO-24-007', sku: 'SB-750', bomId: 'bom_sb_750', targetQuantity: 200, status: 'done', createdAt: isoDaysAgo(18), lotId: 'SB750-240828-001', plannedQty: 200 },
+  { id: 'MO-24-008', sku: 'SB-MARG-SP-700', bomId: 'bom_marg_spicy', targetQuantity: 50, status: 'pending', createdAt: isoDaysAgo(1), plannedQty: 50 },
 ];
 
 export const LOTS: SantaData['lots'] = [
     { id: 'LOTE-TEQ-001', sku: 'MP-TEQ-BASE', kind: 'RM', quantity: 1000, status: 'APPROVED', dates: { receivedAt: isoDaysAgo(9) }, createdAt: isoDaysAgo(9), updatedAt: isoDaysAgo(9), quality: {qcStatus: 'release', results: {}} },
     { id: 'LOTE-TEQ-002', sku: 'MP-TEQ-BASE', kind: 'RM', quantity: 955, status: 'APPROVED', dates: { receivedAt: isoDaysAgo(11) }, createdAt: isoDaysAgo(11), updatedAt: isoDaysAgo(11), quality: {qcStatus: 'release', results: {}} },
     { id: 'LOTE-LIMA-001', sku: 'MP-LIME-CONC', kind: 'RM', quantity: 470, status: 'APPROVED', dates: { receivedAt: isoDaysAgo(14) }, createdAt: isoDaysAgo(14), updatedAt: isoDaysAgo(14), quality: {qcStatus: 'release', results: {}} },
-    { id: 'MARG-CL-240925-001', sku: 'SB-MARG-CL-700', kind: 'FG', quantity: 70, status: 'APPROVED', dates: { producedAt: isoDaysAgo(5) }, trace: { parentBatchId: 'MO-24-006' }, createdAt: isoDaysAgo(5), updatedAt: isoDaysAgo(5), quality: {qcStatus: 'release', results: {}} },
-    { id: 'SB750-240926-001', sku: 'SB-750', kind: 'FG', quantity: 440, status: 'QUARANTINE', dates: { producedAt: isoDaysAgo(4) }, trace: { parentBatchId: 'MO-24-007' }, createdAt: isoDaysAgo(4), updatedAt: isoDaysAgo(4), quality: {qcStatus: 'hold', results: {}} },
+    { id: 'MARG-CL-240825-001', sku: 'SB-MARG-CL-700', kind: 'FG', quantity: 140, status: 'APPROVED', dates: { producedAt: isoDaysAgo(22) }, trace: { parentBatchId: 'MO-24-006' }, createdAt: isoDaysAgo(22), updatedAt: isoDaysAgo(22), quality: {qcStatus: 'release', results: {ph: {value: 3.5, status: 'ok'}}} },
+    { id: 'SB750-240828-001', sku: 'SB-750', kind: 'FG', quantity: 280, status: 'APPROVED', dates: { producedAt: isoDaysAgo(18) }, trace: { parentBatchId: 'MO-24-007' }, createdAt: isoDaysAgo(18), updatedAt: isoDaysAgo(18), quality: {qcStatus: 'release', results: {ph: {value: 3.4, status: 'ok'}}} },
+    { id: 'SB750-240910-001', sku: 'SB-750', kind: 'FG', quantity: 150, status: 'QUARANTINE', dates: { producedAt: isoDaysAgo(6) }, trace: { parentBatchId: 'MO-24-009' }, createdAt: isoDaysAgo(6), updatedAt: isoDaysAgo(6), quality: {qcStatus: 'hold', results: {}} },
 ];
 
 export const QC_TESTS: SantaData['qaChecks'] = [
-  { id: 'qc1', lotId: 'MARG-CL-240925-001', scope: 'RELEASE', result: 'PASS', reviewerId: 'u_sofia', reviewedAt: isoDaysAgo(5), createdAt: isoDaysAgo(5), checklist: [
-    { code: 'ph', name: 'pH', type: 'NUM', valueNum: 3.5 },
-    { code: 'abv', name: 'Alcohol', type: 'NUM', valueNum: 14.9, uom: '%' },
-  ]},
-  { id: 'qc2', lotId: 'SB750-240926-001', scope: 'RELEASE', result: 'FAIL', reviewerId: 'u_sofia', reviewedAt: isoDaysAgo(3), createdAt: isoDaysAgo(3), checklist: []},
-  { id: 'qc3', lotId: 'MARG-CL-240925-001', scope: 'RETEST', result: 'PASS', reviewerId: 'u_sofia', reviewedAt: isoDaysAgo(4), createdAt: isoDaysAgo(4), checklist: [
-     { code: 'ph', name: 'pH', type: 'NUM', valueNum: 3.45 },
-  ]},
+  { id: 'qc1', lotId: 'MARG-CL-240825-001', scope: 'RELEASE', result: 'PASS', reviewerId: 'u_sofia', reviewedAt: isoDaysAgo(22), createdAt: isoDaysAgo(22), checklist: [ { code: 'ph', name: 'pH', type: 'NUM', valueNum: 3.5 } ]},
+  { id: 'qc2', lotId: 'SB750-240828-001', scope: 'RELEASE', result: 'PASS', reviewerId: 'u_sofia', reviewedAt: isoDaysAgo(18), createdAt: isoDaysAgo(18), checklist: [ { code: 'ph', name: 'pH', type: 'NUM', valueNum: 3.4 } ]},
 ];
 
-export const TRACE_EVENTS: SantaData['traceEvents'] = [
-  { id: 'evt1', subject: { type: 'LOT', id: 'LOTE-LIMA-001'}, phase: 'RECEIPT', kind: 'BOOKED', occurredAt: isoDaysAgo(14), links: { lotId: 'LOTE-LIMA-001', receiptId: 'GR-003'}, data: { qty: 500, uom: 'L', supplier: 'SUP-002'} },
-  { id: 'evt2', subject: { type: 'LOT', id: 'LOTE-LIMA-001'}, phase: 'QC', kind: 'CHECK_PASS', occurredAt: isoDaysAgo(13), links: { lotId: 'LOTE-LIMA-001'} },
-  { id: 'evt3', subject: { type: 'LOT', id: 'LOTE-TEQ-002'}, phase: 'RECEIPT', kind: 'BOOKED', occurredAt: isoDaysAgo(11), links: { lotId: 'LOTE-TEQ-002', receiptId: 'GR-002'}, data: { qty: 1000, uom: 'L', supplier: 'SUP-001'} },
-  { id: 'evt4', subject: { type: 'LOT', id: 'LOTE-TEQ-002'}, phase: 'QC', kind: 'CHECK_PASS', occurredAt: isoDaysAgo(10), links: { lotId: 'LOTE-TEQ-002'} },
-  { id: 'evt5', subject: { type: 'BATCH', id: 'MO-24-006'}, phase: 'PRODUCTION', kind: 'BATCH_START', occurredAt: isoDaysAgo(5), links: { batchId: 'MO-24-006'} },
-  { id: 'evt6', subject: { type: 'BATCH', id: 'MO-24-006'}, phase: 'PRODUCTION', kind: 'CONSUME', occurredAt: isoDaysAgo(5), links: { batchId: 'MO-24-006', lotId: 'LOTE-TEQ-002'}, data: { qty: 45, uom: 'L'} },
-  { id: 'evt7', subject: { type: 'BATCH', id: 'MO-24-006'}, phase: 'PRODUCTION', kind: 'CONSUME', occurredAt: isoDaysAgo(5), links: { batchId: 'MO-24-006', lotId: 'LOTE-LIMA-001'}, data: { qty: 30, uom: 'L'} },
-  { id: 'evt8', subject: { type: 'BATCH', id: 'MO-24-006'}, phase: 'PRODUCTION', kind: 'OUTPUT', occurredAt: isoDaysAgo(5), links: { batchId: 'MO-24-006', lotId: 'MARG-CL-240925-001'}, data: { qty: 140, uom: 'ud'} },
-  { id: 'evt9', subject: { type: 'BATCH', id: 'MO-24-006'}, phase: 'PRODUCTION', kind: 'BATCH_END', occurredAt: isoDaysAgo(5), links: { batchId: 'MO-24-006'} },
-  { id: 'evt10', subject: { type: 'LOT', id: 'MARG-CL-240925-001'}, phase: 'QC', kind: 'CHECK_PASS', occurredAt: isoDaysAgo(5), links: { lotId: 'MARG-CL-240925-001', qaCheckId: 'qc3'} },
-  { id: 'evt11', subject: { type: 'ORDER', id: 'o6'}, phase: 'SALE', kind: 'ORDER_ALLOC', occurredAt: isoDaysAgo(1), links: { orderId: 'o6', lotId: 'MARG-CL-240925-001'} },
-  { id: 'evt12', subject: { type: 'ORDER', id: 'o6'}, phase: 'DELIVERY', kind: 'SHIPPED', occurredAt: isoDaysAgo(1), links: { orderId: 'o6', lotId: 'MARG-CL-240925-001'} },
-  { id: 'evt13', subject: { type: 'BATCH', id: 'MO-24-007'}, phase: 'PRODUCTION', kind: 'BATCH_START', occurredAt: isoDaysAgo(4), links: { batchId: 'MO-24-007'} },
-  { id: 'evt14', subject: { type: 'BATCH', id: 'MO-24-007'}, phase: 'PRODUCTION', kind: 'OUTPUT', occurredAt: isoDaysAgo(4), links: { batchId: 'MO-24-007', lotId: 'SB750-240926-001'} },
-  { id: 'evt15', subject: { type: 'LOT', id: 'SB750-240926-001'}, phase: 'QC', kind: 'CHECK_FAIL', occurredAt: isoDaysAgo(3), links: { lotId: 'SB750-240926-001'} },
-  { id: 'evt16', subject: { type: 'ORDER', id: 'o1'}, phase: 'SALE', kind: 'ORDER_ALLOC', occurredAt: isoDaysAgo(2), links: { orderId: 'o1', lotId: 'SB750-240926-001'} },
-];
-
+export const TRACE_EVENTS: SantaData['traceEvents'] = [];
 
 export const INVENTORY: SantaData['inventory'] = [
     ...LOTS.filter(l => l.kind === 'RM').map(l => ({ id: `inv_${l.id}`, sku: l.sku, lotNumber: l.id, uom: 'L' as const, qty: l.quantity || 0, locationId: 'RM/MAIN', updatedAt: l.updatedAt || '', expDate: l.expDate })),
+    ...LOTS.filter(l => l.kind === 'FG').map(l => ({ id: `inv_${l.id}`, sku: l.sku, lotNumber: l.id, uom: 'ud' as const, qty: l.quantity || 0, locationId: 'FG/MAIN', updatedAt: l.updatedAt || '', expDate: l.expDate })),
 ];
 
 // --- Full SSOT Mock Object ---
@@ -171,7 +153,7 @@ export const mockSantaData: SantaData = {
   shipments: [],
   supplierBills: [],
   payments: [],
-mktEvents: [],
+  mktEvents: [],
   onlineCampaigns: [],
   activations: [],
   creators: [],
