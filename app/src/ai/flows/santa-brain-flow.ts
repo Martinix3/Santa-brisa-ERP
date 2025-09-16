@@ -28,9 +28,9 @@ const AddInteractionSchema = z.object({
 const CreateOrderSchema = z.object({
   accountName: z.string().describe('The exact name of the customer account.'),
   items: z.array(z.object({
-    sku: z.string().describe('The SKU of the product.'),
+    sku: z.string().optional().describe("The SKU of the product. If not specified, it will default to Santa Brisa's main product."),
     quantity: z.number().describe('The quantity of units or cases.'),
-    unit: z.enum(['ud', 'caja']).describe("The unit of measure ('ud' or 'caja')."),
+    unit: z.enum(['ud', 'caja']).describe("The unit of measure ('ud' for units/bottles or 'caja' for cases)."),
   })).describe('A list of products and quantities for the order.'),
   notes: z.string().optional().describe('Additional notes for the order.'),
 });
@@ -131,6 +131,7 @@ Directrices de comunicación:
 - No inventes información. Si no sabes algo, dilo claramente.
 
 Contexto de negocio:
+- El producto principal es "Santa Brisa" con SKU "SB-750". Si no se especifica otro producto, asume que se refieren a este.
 - Tienes acceso a 'accounts' (clientes), 'products', 'orders', 'interactions', 'inventory' y 'mktEvents'.
 - Usa el inventario para comprobar si hay stock antes de confirmar un pedido.
 - Si no encuentras una cuenta, crea una ficha mínima y pregunta si es "venta propia" o de "distribuidor" para asignarle el modo correcto.
@@ -216,7 +217,12 @@ export async function runSantaBrain(history: Message[], input: string, context: 
                         status: 'open',
                         currency: 'EUR',
                         createdAt: new Date().toISOString(),
-                        lines: typedInput.items.map((item: any) => ({ ...item, priceUnit: 0, unit: item.unit || 'ud' })),
+                        lines: typedInput.items.map((item: any) => ({ 
+                            ...item, 
+                            sku: item.sku || 'SB-750', // Default SKU if not provided
+                            priceUnit: 0, 
+                            unit: item.unit || 'ud' 
+                        })),
                         notes: typedInput.notes,
                      };
                      newEntities.ordersSellOut?.push(newOrder);
