@@ -32,17 +32,19 @@
     "lucide-react": "^0.544.0",
     "next": "^15.5.3",
     "papaparse": "^5.5.3",
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1",
+    "puppeteer": "^24.21.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "recharts": "^3.2.0",
     "zod": "^4.1.8"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
+    "@genkit-ai/core": "1.19.2",
     "@types/estree": "^1.0.8",
     "@types/html-pdf": "^3.0.3",
     "@types/json-schema": "^7.0.15",
-    "@types/node": "^24.5.0",
+    "@types/node": "^20.19.15",
     "@types/papaparse": "^5.3.16",
     "@types/react": "^19.1.13",
     "@types/react-dom": "^19.1.9",
@@ -60,8 +62,7 @@
     "typescript": "^5.9.2",
     "vite": "^7.1.5",
     "vite-node": "^3.2.4",
-    "vitest": "^3.2.4",
-    "@genkit-ai/core": "1.19.2"
+    "vitest": "^3.2.4"
   },
   "overrides": {
     "debug": "4.4.1"
