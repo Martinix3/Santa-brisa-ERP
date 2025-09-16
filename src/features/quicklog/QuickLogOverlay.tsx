@@ -8,8 +8,16 @@ import type { SantaData, Account, Product } from '@/domain/ssot';
 import { Chat } from '@/features/chat/Chat';
 import { runSantaBrain } from '@/ai/flows/santa-brain-flow';
 import { Message } from 'genkit';
-import { saveNewEntities } from '@/services/server/brain-persist';
 
+async function persistNewEntities(payload: any) {
+  const r = await fetch('/api/brain-persist', {
+    method: 'POST',
+    headers: { 'Content-Type':'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!r.ok) throw new Error('Error guardando las entidades');
+  return r.json();
+}
 
 function FloatingButton({ onClick }: { onClick: () => void }) {
   return (
@@ -80,12 +88,12 @@ export default function QuickLogOverlay() {
 
     if (hasNewData) {
         setData(updatedData);
-        // 2. Persist changes to the backend
+        // 2. Persist changes to the backend via API route
         try {
-            await saveNewEntities(newData);
-            console.log("Entities successfully saved to Firestore.");
+            await persistNewEntities(newData);
+            console.log("Entities successfully sent to persistence API.");
         } catch (error) {
-            console.error("Failed to save entities to Firestore:", error);
+            console.error("Failed to save entities via API:", error);
             // Optionally, show an error to the user
         }
     }
