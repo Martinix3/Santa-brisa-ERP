@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useMemo } from 'react';
 import { ProductionDashboard } from '@/features/production/components/ui';
@@ -17,6 +18,7 @@ function ProductionDashboardPage() {
         return <div className="p-6 text-center">Cargando datos de producción...</div>;
     }
 
+    // El AuthenticatedLayout ya se aplica en production/layout.tsx
     return <ProductionDashboard orders={orders} lots={lots} />;
 }
 

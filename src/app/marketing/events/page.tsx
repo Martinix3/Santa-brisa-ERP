@@ -1,8 +1,8 @@
-import React from 'react';
-import { MarketingEventsMVP } from '@/features/marketing/components/EventsMVP';
 
-// This page is now a placeholder, as event creation is handled by Santa Brain.
-// The EventsMVP component is kept for potential future use as a detailed list view.
+import React from 'react';
+
+// Este componente ya no es necesario, ya que la lógica se centraliza en el asistente de IA.
+// Mantenemos la página con un mensaje informativo.
 export default function Page(){
   return (
     <div className="p-6 text-center border-2 border-dashed rounded-xl">

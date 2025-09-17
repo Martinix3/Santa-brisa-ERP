@@ -1,3 +1,4 @@
+
 "use client";
 import { WarehouseDashboardPage } from '@/features/warehouse/components/ui-sb-warehouse';
 import { useData } from '@/lib/dataprovider';
@@ -16,6 +17,7 @@ export default function Dashboard() {
     if (!santaData) {
         return <div className="p-6 text-center">Cargando datos de almacén...</div>;
     }
-
+    
+    // El AuthenticatedLayout ya se aplica en warehouse/layout.tsx
     return <WarehouseDashboardPage inventory={inventory} shipments={shipments} />;
 }
