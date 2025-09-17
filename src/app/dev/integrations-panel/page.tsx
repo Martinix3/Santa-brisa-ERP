@@ -43,6 +43,14 @@ async function fetchIntegrations(user: User | null): Promise<Integration[]> {
         if ((provider === 'firebase' || provider === 'google') && user) {
             status = 'connected';
         }
+
+        // For holded, we check the .env variable on the server side, so we can't know from client.
+        // We will assume it's connected if we are in dev mode for UI purposes,
+        // the API will throw an error if the key is missing.
+        // A better approach would be an API route `/api/integrations/status`
+        if (provider === 'holded' && process.env.NODE_ENV === 'development') {
+            status = 'connected';
+        }
         
         return {
             id: provider,
@@ -72,6 +80,8 @@ function IntegrationCard({
     error:      <span className="px-2 py-0.5 rounded-full text-xs bg-red-100 text-red-700 flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Error</span>,
     syncing:    <span className="px-2 py-0.5 rounded-full text-xs bg-yellow-100 text-yellow-700 animate-pulse">Sincronizando…</span>,
   } as any)[data.status];
+  
+  const isHolded = data.provider === 'holded';
 
   return (
     <div className="rounded-2xl border p-4 bg-white shadow-sm relative overflow-hidden" style={{ borderColor:"#E9E5D7" }}>
@@ -91,27 +101,31 @@ function IntegrationCard({
       </div>
       <div className="mt-4 flex gap-2 flex-wrap">
         {data.status!=="connected" ? (
-          <button onClick={onConnect} className="px-3 py-1.5 text-sm rounded-xl bg-black text-white flex items-center gap-2">
+           <button onClick={onConnect} className="px-3 py-1.5 text-sm rounded-xl bg-black text-white flex items-center gap-2">
             <PlugZap className="h-4 w-4"/> Conectar
           </button>
         ) : (
           <>
-            <button onClick={onConfigure} className="px-3 py-1.5 text-sm rounded-xl border flex items-center gap-2">
+            {!isHolded && <button onClick={onConfigure} className="px-3 py-1.5 text-sm rounded-xl border flex items-center gap-2">
               <Settings className="h-4 w-4"/> Ajustes
-            </button>
-            <button disabled={running} onClick={onSyncNow}
-              className="px-3 py-1.5 text-sm rounded-xl bg-black text-white flex items-center gap-2 disabled:opacity-50">
-              <RefreshCw className={`h-4 w-4 ${running?'animate-spin':''}`}/> Sync Facturas
-            </button>
-            {onImportContacts && (
-                 <button disabled={running} onClick={onImportContacts}
-                    className="px-3 py-1.5 text-sm rounded-xl bg-black text-white flex items-center gap-2 disabled:opacity-50">
-                    <DownloadCloud className={`h-4 w-4 ${running?'animate-spin':''}`}/> Importar Contactos
-                </button>
+            </button>}
+            {isHolded && (
+                <>
+                    <button disabled={running} onClick={onSyncNow}
+                        className="px-3 py-1.5 text-sm rounded-xl bg-black text-white flex items-center gap-2 disabled:opacity-50">
+                        <RefreshCw className={`h-4 w-4 ${running?'animate-spin':''}`}/> Sync Facturas
+                    </button>
+                    {onImportContacts && (
+                         <button disabled={running} onClick={onImportContacts}
+                            className="px-3 py-1.5 text-sm rounded-xl bg-black text-white flex items-center gap-2 disabled:opacity-50">
+                            <DownloadCloud className={`h-4 w-4 ${running?'animate-spin':''}`}/> Importar Contactos
+                        </button>
+                    )}
+                </>
             )}
-            <button onClick={onDisconnect} className="px-3 py-1.5 text-sm rounded-xl border flex items-center gap-2">
+            {!isHolded && <button onClick={onDisconnect} className="px-3 py-1.5 text-sm rounded-xl border flex items-center gap-2">
               <LogOut className="h-4 w-4"/> Desconectar
-            </button>
+            </button>}
           </>
         )}
       </div>
@@ -187,7 +201,11 @@ export default function IntegrationsPanelPage() {
     };
 
     const onConnect = async (prov:Provider) => {
-        if (prov === "holded" || prov === "sendcloud") {
+        if (prov === "holded") {
+            setNotification({ message: "La API Key de Holded se configura en el archivo .env del servidor.", type: "success" });
+            return;
+        }
+        if (prov === "sendcloud") {
             setApiKeyModal({ open:true, provider:prov });
             return;
         }

@@ -11,11 +11,10 @@ export async function POST() {
   const db = adminDb();
 
   try {
-    const secretsSnap = await db.collection('dev-secrets').doc('holded').get();
-    const holdedApiKey = secretsSnap.data()?.apiKey;
+    const holdedApiKey = process.env.HOLDED_API_KEY;
 
     if (!holdedApiKey) {
-      return NextResponse.json({ error: 'Holded API key no está configurada.' }, { status: 400 });
+      return NextResponse.json({ error: 'La API Key de Holded no está configurada en el archivo .env (HOLDED_API_KEY).' }, { status: 400 });
     }
 
     const invoices = await fetchInvoices(holdedApiKey);
@@ -71,7 +70,11 @@ export async function POST() {
       await batch.commit();
     }
     
-    await db.collection('dev-secrets').doc('holded').set({ lastSyncAt: new Date().toISOString() }, { merge: true });
+    try {
+      await db.collection('dev-metadata').doc('integrations').set({ holded: { lastInvoiceSyncAt: new Date().toISOString() } }, { merge: true });
+    } catch(e) {
+        console.warn("Could not save last sync time for Holded invoices.", e);
+    }
 
     return NextResponse.json({ 
         ok: true, 

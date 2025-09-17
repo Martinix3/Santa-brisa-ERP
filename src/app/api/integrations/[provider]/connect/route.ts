@@ -1,4 +1,5 @@
 
+
 // app/api/integrations/[provider]/connect/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from '@/server/firebaseAdmin';
@@ -24,17 +25,12 @@ export async function POST(
   }
 
   if (provider === "holded") {
-    const { apiKey } = body || {};
-    if (!apiKey) return NextResponse.json({ ok:false, error:"Falta apiKey" }, { status:400 });
-    
-    try {
-        const db = adminDb();
-        await db.collection('dev-secrets').doc('holded').set({ apiKey });
-        return NextResponse.json({ ok:true });
-    } catch(e: any) {
-        console.error("Error saving Holded key to Firestore:", e);
-        return NextResponse.json({ ok: false, error: 'Failed to save API key to database.' }, { status: 500 });
+    // La API key ahora se gestiona vía .env, así que esta ruta ya no es necesaria para guardar la clave.
+    // Podríamos añadir una lógica para validar la clave si se pasa en el body, pero por ahora lo dejamos simple.
+    if (process.env.HOLDED_API_KEY) {
+        return NextResponse.json({ ok: true, message: 'Holded API Key ya está configurada en el servidor.' });
     }
+    return NextResponse.json({ ok: false, error: "La API Key de Holded debe configurarse en el archivo .env del servidor." }, { status: 400 });
   }
 
   if (provider === "sendcloud") {

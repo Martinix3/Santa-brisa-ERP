@@ -20,11 +20,10 @@ export async function POST(req: Request) {
   const db = adminDb();
   
   try {
-    const secretsSnap = await db.collection('dev-secrets').doc('holded').get();
-    const holdedApiKey = secretsSnap.data()?.apiKey;
+    const holdedApiKey = process.env.HOLDED_API_KEY;
 
     if (!holdedApiKey) {
-      return NextResponse.json({ error: 'La API Key de Holded no está configurada.' }, { status: 400 });
+      return NextResponse.json({ error: 'La API Key de Holded no está configurada en el archivo .env.' }, { status: 400 });
     }
 
     const holdedContacts = await fetchContacts(holdedApiKey);
@@ -92,7 +91,15 @@ export async function POST(req: Request) {
     }
 
     await importBatch.commit();
-    await db.collection('dev-secrets').doc('holded').set({ lastContactSyncAt: new Date().toISOString() }, { merge: true });
+    
+    // Opcional: guardar un registro de la última sincronización
+    try {
+      await db.collection('dev-metadata').doc('integrations').set({ holded: { lastContactSyncAt: new Date().toISOString() } }, { merge: true });
+    } catch (e) {
+      // No es crítico si esto falla
+      console.warn("Could not save last sync time for Holded contacts.", e);
+    }
+
 
     return NextResponse.json({
       ok: true,
