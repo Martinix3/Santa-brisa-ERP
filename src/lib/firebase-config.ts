@@ -5,7 +5,7 @@ import { getAuth, browserLocalPersistence, setPersistence } from "firebase/auth"
 // Your web app's Firebase configuration
 // Esta configuración es pública y segura.
 const firebaseConfig = {
-  apiKey: "AIzaSyB05_nEgoaTf6ANOaRYILECtUfO4pBK9hQ",
+  apiKey: "AIzaSyAbPqt51bslHSvs0LROCWt7WSQBrMNqKN0",
   // Este es el dominio que Firebase usa para sus páginas de gestión de autenticación. Es correcto y no debe cambiarse.
   authDomain: "santa-brisa-erp.firebaseapp.com",
   projectId: "santa-brisa-erp",
