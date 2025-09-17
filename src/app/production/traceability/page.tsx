@@ -3,7 +3,7 @@
 "use client";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useData } from "@/lib/dataprovider";
-import type { Lot, OrderSellOut as SaleDoc, QACheck, GenealogyLink, ProductionOrder, User, TraceEvent, LotStatus, Account } from "@/domain/ssot";
+import type { Lot, OrderSellOut as SaleDoc, QACheck, GenealogyLink, ProductionOrder, User, TraceEvent, LotStatus, Account, SantaData } from "@/domain/ssot";
 import {
     Archive, FileText, CheckCircle2, XCircle, FlaskConical, Recycle, PackagePlus, Flag,
     Package as PackageIcon, PackageCheck, Truck, Pin, Paperclip, Send, Download,
@@ -407,7 +407,7 @@ export default function TraceabilityTimelinePage() {
               <QCTable tests={lotTests} users={userIndex} />
 
               {/* Clientes/Ventas */}
-              <SalesByCustomer lot={openLot} groups={salesByCustomer} accountIndex={accountIndex} />
+              <SalesByCustomer lot={openLot} groups={salesByCustomer} accountIndex={accountIndex} santaData={santaData} />
             </div>
           )}
         </div>
@@ -537,7 +537,7 @@ function QCTable({ tests, users }: { tests: QACheck[]; users: Map<string, User> 
   );
 }
 
-function SalesByCustomer({ lot, groups, accountIndex }: { lot: Lot; groups: { customerId: string; customerName: string; total: number; docs: SaleDoc[] }[]; accountIndex: Map<string, Account> }) {
+function SalesByCustomer({ lot, groups, accountIndex, santaData }: { lot: Lot; groups: { customerId: string; customerName: string; total: number; docs: SaleDoc[] }[]; accountIndex: Map<string, Account>, santaData: SantaData }) {
   return (
     <div className="rounded-2xl border border-zinc-200 p-4">
       <div className="text-sm text-zinc-500 mb-2">Clientes a los que se ha vendido este lote</div>

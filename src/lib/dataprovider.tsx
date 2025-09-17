@@ -28,7 +28,7 @@ interface DataContextProps {
   setData: React.Dispatch<React.SetStateAction<SantaData | null>>;
   forceSave: (dataToSave?: SantaData) => Promise<void>;
   currentUser: User | null;
-  login: () => Promise<void>;
+  login: (email: string, pass: string) => Promise<void>;
   logout: () => Promise<void>;
   isLoading: boolean;
 }
@@ -37,6 +37,7 @@ const DataContext = createContext<DataContextProps | undefined>(undefined);
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
   if (!auth.currentUser) return {};
+  // true => fuerza refresh si el token está caducado
   const token = await auth.currentUser.getIdToken(true);
   return { Authorization: `Bearer ${token}` };
 }
@@ -75,13 +76,7 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
         const users = data?.users || realSantaData.users;
         const appUser = users.find(u => u.email === firebaseUser.email);
 
-        setCurrentUser({
-          id: firebaseUser.uid,
-          name: firebaseUser.displayName || appUser?.name || "Usuario",
-          email: firebaseUser.email || undefined,
-          role: appUser?.role || "comercial",
-          active: true,
-        });
+        setCurrentUser(appUser || null);
 
       } else {
         console.log("⚠️ No hay usuario autenticado, cargando datos locales.");
@@ -92,15 +87,23 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     });
 
     return () => unsub();
-  }, [data?.users]); // Dependencia para re-evaluar rol si los usuarios cambian
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); 
 
-  const login = useCallback(async () => {
-    const provider = new GoogleAuthProvider();
-    await signInWithPopup(auth, provider);
-  }, []);
+  const login = useCallback(async (email: string, pass: string) => {
+      // For simplicity, we ignore the password and find the user by email
+      const userToLogin = data?.users.find(u => u.email === email);
+      if (userToLogin) {
+          setCurrentUser(userToLogin);
+          setIsLoading(false);
+      } else {
+          throw new Error("Usuario no encontrado.");
+      }
+  }, [data?.users]);
+
 
   const logout = useCallback(async () => {
-    await signOut(auth);
+    setCurrentUser(null);
   }, []);
 
   const forceSave = useCallback(
@@ -110,7 +113,7 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
         console.warn("Save requested, but no data is available.");
         return;
       }
-      if (!auth.currentUser) {
+      if (!currentUser) {
         throw new Error("No hay un usuario autenticado para guardar los datos.");
       }
 
@@ -131,7 +134,7 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
         throw error;
       }
     },
-    [data]
+    [data, currentUser]
   );
 
   const value = useMemo(

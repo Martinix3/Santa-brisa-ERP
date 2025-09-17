@@ -77,7 +77,7 @@ export default function OrdersDashboard() {
         const matchesSearch =
           !searchTerm ||
           order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          account?.name.toLowerCase().includes(searchTerm.toLowerCase());
+          (account && account.name.toLowerCase().includes(searchTerm.toLowerCase()));
         
         const matchesStatus = !statusFilter || order.status === statusFilter;
 
