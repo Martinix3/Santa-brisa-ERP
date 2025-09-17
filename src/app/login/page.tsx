@@ -6,7 +6,7 @@ import { useData } from '@/lib/dataprovider';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/ui-primitives';
 import Image from 'next/image';
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword, GoogleAuthProvider, getAuth, signInWithRedirect } from "firebase/auth";
 import { auth } from '@/lib/firebase-config';
 
 
