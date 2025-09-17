@@ -1,5 +1,3 @@
-
-
 // src/features/integrations/holded/service.ts
 const HOLDED_API_URL = "https://api.holded.com/api";
 
@@ -8,7 +6,13 @@ type HoldedInvoice = {
   contactName: string;
   total: number;
   date: number; // timestamp
-  // ...y muchos otros campos
+  docNumber: string;
+  items: {
+      name: string;
+      sku?: string;
+      units: number;
+      price: number;
+  }[];
 };
 
 type HoldedContact = {

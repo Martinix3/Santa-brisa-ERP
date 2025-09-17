@@ -1,4 +1,3 @@
-
 // domain/ssot.sales.ts - Canónico de Ventas
 import type { Currency } from './ssot.core';
 
@@ -13,6 +12,7 @@ export interface OrderLine {
   priceUnit: number;
   discount?: number;
   lotIds?: string[];
+  description?: string;
 }
 
 export interface OrderSellOut {
@@ -29,6 +29,7 @@ export interface OrderSellOut {
   paymentMethod?: string;
   paymentTermDays?: number;
   invoiceId?: string;
+  externalRef?: string; // Para guardar el ID de la factura de Holded, etc.
 }
 
 export interface Interaction {
@@ -43,4 +44,3 @@ export interface Interaction {
   sentiment?: 'pos' | 'neu' | 'neg';
   dept?: Department;
 }
-

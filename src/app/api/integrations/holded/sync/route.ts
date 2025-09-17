@@ -1,35 +1,83 @@
 
 import { NextResponse } from 'next/server';
 import { fetchInvoices } from '@/features/integrations/holded/service';
+import { adminDb } from '@/server/firebaseAdmin';
+import type { Account, OrderSellOut } from '@/domain/ssot';
 
-const mem: any = globalThis as any;
-mem._secrets ??= {};
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
-/**
- * POST: Triggers a sync with Holded.
- */
 export async function POST() {
-  const holdedSecrets = mem._secrets?.holded;
-
-  if (!holdedSecrets || !holdedSecrets.apiKey) {
-    return NextResponse.json({ error: 'Holded API key no está configurada.' }, { status: 400 });
-  }
+  const db = adminDb();
 
   try {
-    const invoices = await fetchInvoices(holdedSecrets.apiKey);
-    
-    // Por ahora, solo mostramos los datos en la consola del servidor.
-    // El siguiente paso sería mapear estos datos a nuestro `OrderSellOut` y `Account`.
-    console.log(`[Holded Sync] Se han obtenido ${invoices.length} facturas.`);
-    console.log(JSON.stringify(invoices.slice(0, 2), null, 2)); // Muestra las 2 primeras para inspeccionar
+    const secretsSnap = await db.collection('dev-secrets').doc('holded').get();
+    const holdedApiKey = secretsSnap.data()?.apiKey;
 
-    // Actualizar la fecha del último sync
-    mem._secrets.holded.lastSyncAt = new Date().toISOString();
+    if (!holdedApiKey) {
+      return NextResponse.json({ error: 'Holded API key no está configurada.' }, { status: 400 });
+    }
+
+    const invoices = await fetchInvoices(holdedApiKey);
+    
+    const accountsSnapshot = await db.collection('accounts').get();
+    const accounts = accountsSnapshot.docs.map(doc => doc.data() as Account);
+    const accountMapByName = new Map(accounts.map(acc => [acc.name.toLowerCase(), acc]));
+
+    const existingOrdersSnapshot = await db.collection('ordersSellOut').get();
+    const existingOrderRefs = new Set(existingOrdersSnapshot.docs.map(doc => doc.data().externalRef));
+    
+    let createdCount = 0;
+    const batch = db.batch();
+
+    for (const invoice of invoices) {
+      const externalRef = `holded_${invoice.id}`;
+      if (existingOrderRefs.has(externalRef)) {
+        continue; // Skip already imported invoices
+      }
+
+      const account = accountMapByName.get(invoice.contactName.toLowerCase());
+      if (!account) {
+        console.log(`[Holded Sync] Skipping invoice ${invoice.id}: Account "${invoice.contactName}" not found.`);
+        continue;
+      }
+
+      const newOrderId = db.collection('ordersSellOut').doc().id;
+      const newOrder: OrderSellOut = {
+        id: newOrderId,
+        accountId: account.id,
+        status: 'paid', // Holded invoices are usually for completed sales
+        currency: 'EUR',
+        createdAt: new Date(invoice.date * 1000).toISOString(),
+        totalAmount: invoice.total,
+        source: 'HOLDED',
+        externalRef: externalRef,
+        lines: invoice.items.map(item => ({
+          sku: item.sku || 'UNKNOWN',
+          description: item.name,
+          qty: item.units,
+          priceUnit: item.price,
+          unit: 'uds',
+        })),
+        notes: `Importado de Holded. Factura: ${invoice.docNumber}`,
+      };
+
+      const orderRef = db.collection('ordersSellOut').doc(newOrderId);
+      batch.set(orderRef, newOrder);
+      createdCount++;
+    }
+
+    if (createdCount > 0) {
+      await batch.commit();
+    }
+    
+    await db.collection('dev-secrets').doc('holded').set({ lastSyncAt: new Date().toISOString() }, { merge: true });
 
     return NextResponse.json({ 
         ok: true, 
-        message: `Se han obtenido ${invoices.length} facturas de Holded.`,
+        message: `Sincronización completada. ${createdCount} nuevas facturas importadas como pedidos.`,
         invoiceCount: invoices.length,
+        created: createdCount,
     });
 
   } catch (error: any) {
