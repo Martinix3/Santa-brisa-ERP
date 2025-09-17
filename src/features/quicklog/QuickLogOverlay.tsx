@@ -88,8 +88,9 @@ export default function QuickLogOverlay() {
         setData(updatedData);
         // 2. Persist changes to the backend via API route
         try {
-            await persistNewEntities(newData);
-            console.log("Entities successfully sent to persistence API.");
+            console.log("Persistencia desactivada. Datos que se hubieran enviado:", newData);
+            // await persistNewEntities(newData);
+            // console.log("Entities successfully sent to persistence API.");
         } catch (error) {
             console.error("Failed to save entities via API:", error);
             // Optionally, show an error to the user
