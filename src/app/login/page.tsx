@@ -4,14 +4,14 @@
 import React, { useState, useEffect } from 'react';
 import { useData } from '@/lib/dataprovider';
 import { useRouter } from 'next/navigation';
-import { Button, Input } from '@/components/ui/ui-primitives';
+import { Button } from '@/components/ui/ui-primitives';
 import Image from 'next/image';
+import { auth } from '@/lib/firebase-config';
+import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 
 export default function LoginPage() {
-    const { login, currentUser, isLoading } = useData();
+    const { currentUser, isLoading, setData, data } = useData();
     const router = useRouter();
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
@@ -20,16 +20,24 @@ export default function LoginPage() {
         }
     }, [currentUser, isLoading, router]);
 
-    const handleLogin = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleGoogleLogin = async () => {
         setError(null);
+        const provider = new GoogleAuthProvider();
         try {
-            const success = await login(email, password);
-            if (!success) {
-                setError('Credenciales incorrectas. Inténtalo de nuevo.');
+            const result = await signInWithPopup(auth, provider);
+            const firebaseUser = result.user;
+            
+            // After successful sign-in, onAuthStateChanged in DataProvider will handle setting the user.
+            // We can optionally check if the user exists in our DB here.
+            if (data && !data.users.find(u => u.email === firebaseUser.email)) {
+                 setError('El usuario no está registrado en el sistema. Contacta a un administrador.');
+                 await auth.signOut();
+            } else {
+                 router.push('/');
             }
-        } catch (err) {
-            setError('Ha ocurrido un error inesperado.');
+        } catch (err: any) {
+            console.error("Error during Google sign-in:", err);
+            setError(err.message || 'Ha ocurrido un error durante el inicio de sesión.');
         }
     };
     
@@ -55,7 +63,7 @@ export default function LoginPage() {
                 />
                 <h1 className="text-xl font-semibold text-sb-neutral-800">Acceso al CRM</h1>
                 <p className="text-sb-neutral-600 mt-2 text-sm">
-                    Introduce tus credenciales para continuar.
+                    Inicia sesión para continuar.
                 </p>
                 
                 {error && (
@@ -64,36 +72,15 @@ export default function LoginPage() {
                     </div>
                 )}
 
-                <form onSubmit={handleLogin} className="mt-6 space-y-4 text-left">
-                    <div>
-                        <label className="text-sm font-medium text-sb-neutral-700">Email</label>
-                        <Input
-                            type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            className="mt-1"
-                            placeholder="tu@email.com"
-                            required
-                        />
-                    </div>
-                     <div>
-                        <label className="text-sm font-medium text-sb-neutral-700">Contraseña</label>
-                        <Input
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            className="mt-1"
-                            placeholder="••••••••"
-                            required
-                        />
-                    </div>
+                <div className="mt-8">
                     <Button
-                        type="submit"
+                        onClick={handleGoogleLogin}
                         className="w-full justify-center !py-2.5 !bg-sb-sun !text-sb-neutral-900"
                     >
-                        Acceder
+                         <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/><path d="M1 1h22v22H1z" fill="none"/></svg>
+                        Acceder con Google
                     </Button>
-                </form>
+                </div>
             </div>
         </div>
     );
