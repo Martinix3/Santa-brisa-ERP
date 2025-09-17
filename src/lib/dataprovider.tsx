@@ -43,34 +43,34 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     const loadInitialData = async () => {
         setIsLoading(true);
         try {
-            // Esta es la primera carga. Intentamos leer de Firestore.
-            // La autenticación se manejará en el listener de onAuthStateChanged.
             const headers = await getAuthHeaders();
             const response = await fetch('/api/brain-persist', { headers });
 
+            let firestoreData: SantaData | null = null;
             if (response.ok) {
-                 const firestoreData = await response.json();
+                 try {
+                    firestoreData = await response.json();
+                 } catch (e) {
+                    console.warn("Response from /api/brain-persist was not valid JSON. This might happen on the first run. Proceeding with seed data.");
+                    firestoreData = null;
+                 }
                  const isFirestoreEmpty = !firestoreData || Object.keys(firestoreData).length === 0 || Object.values(firestoreData).every(val => Array.isArray(val) && val.length === 0);
 
                  if (isFirestoreEmpty) {
                     console.log("Firestore is empty, initializing with real seed data.");
                     const initialData = JSON.parse(JSON.stringify(realSantaData));
                     setData(initialData);
-                    // No guardamos aquí, esperamos a que haya un usuario autenticado para hacerlo.
                  } else {
                     setData(firestoreData);
                  }
             } else {
                  console.warn("Could not fetch initial data, might be because user is not logged in yet. This is expected.");
-                 // Cargamos los datos de `real-data` para que el sistema tenga la lista de usuarios para el login.
                  setData(JSON.parse(JSON.stringify(realSantaData)));
             }
 
         } catch (e) {
             console.error("Failed to load initial data. Using fallback.", e);
             setData(JSON.parse(JSON.stringify(realSantaData)));
-        } finally {
-            // Dejamos isLoading en true hasta que onAuthStateChanged nos confirme el estado del usuario.
         }
     };
     loadInitialData();
@@ -86,14 +86,13 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
             if (localUser) {
                 setCurrentUser(localUser);
                 localStorage.setItem('sb-current-user', JSON.stringify(localUser));
-                 // Si los datos en memoria son los de real-data (porque firestore estaba vacío/inaccesible), los guardamos ahora.
                  if (data.accounts.length > 0 && !data.accounts.some(a => a.id.startsWith('acc_'))) {
                     console.log("Saving initial seed data to Firestore for the first time.");
                     await forceSave(data);
                  }
             } else {
                 console.warn("Firebase user is authenticated, but not found in the app's user list.");
-                await signOut(auth); // Log out if user is not in our system
+                await signOut(auth); 
                 setCurrentUser(null);
             }
         } else {
@@ -104,7 +103,7 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     });
 
     return () => unsubscribe();
-  }, [data]); // Depende de `data` para poder buscar el usuario local
+  }, [data]);
 
 
   const forceSave = useCallback(async (dataToSave?: SantaData) => {
@@ -132,7 +131,6 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [data]);
 
-  // login function is now a stub, real login is handled by Google Sign-In popup
   const login = async (email: string, pass: string): Promise<boolean> => {
       console.error("Email/password login is deprecated. Use Google Sign-In.");
       return false;

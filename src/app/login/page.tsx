@@ -10,7 +10,7 @@ import { auth } from '@/lib/firebase-config';
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 
 export default function LoginPage() {
-    const { currentUser, isLoading, setData, data } = useData();
+    const { currentUser, isLoading, data } = useData();
     const router = useRouter();
     const [error, setError] = useState<string | null>(null);
 
@@ -20,25 +20,30 @@ export default function LoginPage() {
         }
     }, [currentUser, isLoading, router]);
 
-    const handleGoogleLogin = async () => {
+    const handleGoogleLogin = () => {
         setError(null);
         const provider = new GoogleAuthProvider();
-        try {
-            const result = await signInWithPopup(auth, provider);
-            const firebaseUser = result.user;
-            
-            // After successful sign-in, onAuthStateChanged in DataProvider will handle setting the user.
-            // We can optionally check if the user exists in our DB here.
-            if (data && !data.users.find(u => u.email === firebaseUser.email)) {
-                 setError('El usuario no está registrado en el sistema. Contacta a un administrador.');
-                 await auth.signOut();
-            } else {
-                 router.push('/');
-            }
-        } catch (err: any) {
-            console.error("Error during Google sign-in:", err);
-            setError(err.message || 'Ha ocurrido un error durante el inicio de sesión.');
-        }
+        
+        signInWithPopup(auth, provider)
+            .then((result) => {
+                const firebaseUser = result.user;
+                // After successful sign-in, onAuthStateChanged in DataProvider will handle setting the user.
+                // We can optionally check if the user exists in our DB here.
+                if (data && !data.users.find(u => u.email === firebaseUser.email)) {
+                     setError('El usuario no está registrado en el sistema. Contacta a un administrador.');
+                     auth.signOut();
+                } else {
+                     // The onAuthStateChanged listener in DataProvider will handle the redirect.
+                }
+            })
+            .catch((err) => {
+                console.error("Error during Google sign-in:", err);
+                if (err.code === 'auth/popup-blocked') {
+                    setError('El navegador bloqueó la ventana emergente. Por favor, permite las ventanas emergentes para este sitio e inténtalo de nuevo.');
+                } else {
+                    setError(err.message || 'Ha ocurrido un error durante el inicio de sesión.');
+                }
+            });
     };
     
     if (isLoading || currentUser) {
