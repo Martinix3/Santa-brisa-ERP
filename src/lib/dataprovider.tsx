@@ -67,9 +67,9 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
       if (!data) return; // Wait until app data is loaded
 
-      const adminUser = data.users.find(u => u.email === 'admin@santabrisa.com');
-      if (adminUser) {
-          setCurrentUser(adminUser);
+      const user = data.users.find(u => u.email === 'mj@santabrisa.com');
+      if (user) {
+          setCurrentUser(user);
       } else {
           // Fallback to the first user if admin is not found
           setCurrentUser(data.users[0] || null);
