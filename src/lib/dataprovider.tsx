@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, {
@@ -11,14 +10,8 @@ import React, {
 } from "react";
 import type { User, SantaData } from "@/domain/ssot";
 import { realSantaData } from "@/domain/real-data";
-import { auth } from "./firebase-config";
-import {
-  GoogleAuthProvider,
-  signInWithPopup,
-  signOut,
-  onAuthStateChanged,
-  User as FirebaseUser,
-} from "firebase/auth";
+import { useRouter } from "next/navigation";
+
 
 export type DataMode = "test" | "real";
 
@@ -29,19 +22,12 @@ interface DataContextProps {
   setData: React.Dispatch<React.SetStateAction<SantaData | null>>;
   forceSave: (dataToSave?: SantaData) => Promise<void>;
   currentUser: User | null;
-  login: () => Promise<void>;
-  logout: () => Promise<void>;
+  login: (email: string, pass: string) => Promise<void>;
+  logout: () => void;
   isLoading: boolean;
 }
 
 const DataContext = createContext<DataContextProps | undefined>(undefined);
-
-async function getAuthHeaders(): Promise<Record<string, string>> {
-  if (!auth.currentUser) return {};
-
-  const token = await auth.currentUser.getIdToken(true);
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
 
 export const DataProvider = ({ children }: { children: React.ReactNode }) => {
   const [mode, setMode] = useState<DataMode>("real");
@@ -49,99 +35,43 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const findAndSetUser = useCallback((firebaseUser: FirebaseUser, usersList: User[]) => {
-      let user = usersList.find(u => u.email === firebaseUser.email);
-      if (!user && firebaseUser.email === 'mj@santabrisa.co') {
-          user = usersList.find(u => u.id === 'u_martin');
-      }
-      if (!user) {
-          user = usersList.find(u => u.email === 'admin@santabrisa.com') || null;
-      }
-      if (user) {
-          setCurrentUser(user);
-      } else {
-        // Fallback for any other logged-in user
-        setCurrentUser({
-            id: firebaseUser.uid,
-            name: firebaseUser.displayName || 'Usuario',
-            email: firebaseUser.email || undefined,
-            role: 'comercial',
-            active: true
-        });
-      }
-  }, []);
-
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (firebaseUser) => {
-      if (firebaseUser && data?.users) {
-        console.log("✅ Usuario autenticado:", firebaseUser.email);
-        findAndSetUser(firebaseUser, data.users);
-      } else if (!firebaseUser) {
-        console.log("⚠️ No hay usuario autenticado");
-        setCurrentUser(null);
-      }
-      setIsLoading(false);
-    });
-
-    return () => unsub();
-  }, [data?.users, findAndSetUser]);
-
   useEffect(() => {
     const loadInitialData = async () => {
       setIsLoading(true);
       try {
-        const headers = await getAuthHeaders();
-        const response = await fetch("/api/brain-persist", { headers });
-
-        if (!response.ok) {
-          const errorBody = await response.text();
-          console.warn(
-            `API fetch failed (${response.status}): ${errorBody}. Falling back to mock data.`
-          );
-          setData(JSON.parse(JSON.stringify(realSantaData)));
-        } else {
-          try {
-            const apiData = await response.json();
-            if (Object.keys(apiData).length === 0 || !apiData.users || apiData.users.length === 0) {
-                 console.warn("API returned empty data, falling back to mock data.");
-                 setData(JSON.parse(JSON.stringify(realSantaData)));
-            } else {
-                setData(apiData);
-            }
-          } catch (e) {
-            console.error(
-              "Failed to parse JSON from API, falling back to mock data.",
-              e
-            );
-            setData(JSON.parse(JSON.stringify(realSantaData)));
-          }
-        }
-      } catch (error) {
-        console.error(
-          "Could not fetch initial data, falling back to mock data:",
-          error
-        );
+        // En una app real, aquí se haría un fetch a una API.
+        // Por ahora, cargamos los datos de `real-data.ts`.
+        // Usamos JSON.parse/stringify para simular una carga de red y evitar mutaciones del objeto original.
         setData(JSON.parse(JSON.stringify(realSantaData)));
+      } catch (error) {
+        console.error("Could not load initial data:", error);
+        setData(null);
       } finally {
         setIsLoading(false);
       }
     };
 
-    if (auth.currentUser) {
-        loadInitialData();
-    } else {
-        setData(JSON.parse(JSON.stringify(realSantaData)));
-        setIsLoading(false);
-    }
+    loadInitialData();
   }, []);
 
-  const login = useCallback(async () => {
-    const provider = new GoogleAuthProvider();
-    await signInWithPopup(auth, provider);
-  }, []);
+  const login = useCallback(async (email: string, pass: string) => {
+      if (!data || !data.users) {
+          throw new Error("Los datos de usuario no están cargados.");
+      }
+      // Simulación de login: buscar por email, ignorar contraseña.
+      const user = data.users.find(u => u.email === email);
 
-  const logout = useCallback(async () => {
-    await signOut(auth);
+      if (user) {
+          setCurrentUser(user);
+          console.log(`Usuario '${user.name}' ha iniciado sesión.`);
+      } else {
+          throw new Error("Usuario no encontrado.");
+      }
+  }, [data]);
+
+  const logout = useCallback(() => {
+    setCurrentUser(null);
+    console.log("Usuario ha cerrado sesión.");
   }, []);
 
   const forceSave = useCallback(
@@ -151,27 +81,10 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
         console.warn("Save requested, but no data is available.");
         return;
       }
-      if (!auth.currentUser) {
-        alert("Debes iniciar sesión para guardar los datos.");
-        throw new Error("User not authenticated");
-      }
-
-      try {
-        const headers = await getAuthHeaders();
-        const response = await fetch("/api/brain-persist", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", ...headers },
-          body: JSON.stringify(payload),
-        });
-        if (!response.ok) {
-          const errorBody = await response.json();
-          throw new Error(errorBody.error || "Failed to save data to server.");
-        }
-        console.log("Data successfully persisted via API.");
-      } catch (error) {
-        console.error("Error in forceSave:", error);
-        throw error;
-      }
+      // Simulación de guardado. En una app real, aquí iría la llamada a la API.
+      console.log("Simulando guardado de datos:", payload);
+      await new Promise(res => setTimeout(res, 500));
+      console.log("Datos 'guardados' en memoria.");
     },
     [data]
   );
