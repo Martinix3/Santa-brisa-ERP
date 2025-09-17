@@ -11,6 +11,7 @@
     "smoke:run": "tsx src/smoke.ts",
     "test": "vitest",
     "test:exports": "vitest run tests/ssot-exports.test.ts",
+    "test:firebase": "dotenv -e .env -- tsx src/services/server/firebase-check.ts",
     "clean": "rm -rf .next",
     "genkit:start": "genkit start",
     "genkit:run": "genkit run",
