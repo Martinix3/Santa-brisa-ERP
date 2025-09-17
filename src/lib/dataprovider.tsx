@@ -3,6 +3,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import type { User, SantaData } from '@/domain/ssot';
+import { realSantaData } from '@/domain/real-data'; // Importar los datos reales
 
 export type DataMode = 'test' | 'real';
 
@@ -19,8 +20,6 @@ interface DataContextProps {
 }
 
 const DataContext = createContext<DataContextProps | undefined>(undefined);
-
-let MockSantaData: SantaData | null = null; // Cache for mock data
 
 export const DataProvider = ({ children }: { children: React.ReactNode }) => {
   const [mode, setMode] = useState<DataMode>('real'); // Default to 'real'
@@ -53,23 +52,25 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     const loadData = async () => {
         setIsLoading(true);
         try {
-            // Always try to load from Firestore first in 'real' mode
             const response = await fetch('/api/brain-persist');
             if (!response.ok) {
                 throw new Error('Failed to fetch data from Firestore');
             }
             const firestoreData = await response.json();
-            setData(firestoreData);
-        } catch (err) {
-            console.error(`Failed to load data from Firestore, falling back to mock data:`, err);
-            if (MockSantaData) {
-                setData(MockSantaData);
+            // Si no hay datos en Firestore, usamos los datos reales como base
+            if (Object.keys(firestoreData).every(k => Array.isArray(firestoreData[k]) && firestoreData[k].length === 0)) {
+                 console.log("Firestore is empty, initializing with real data.");
+                 setData(realSantaData);
+                 // Opcional: guardar los datos iniciales en Firestore
+                 await forceSave(realSantaData);
             } else {
-                import('@/domain/mock-data').then(loadedModule => {
-                    MockSantaData = loadedModule.mockSantaData;
-                    setData(MockSantaData);
-                });
+                 setData(firestoreData);
             }
+
+        } catch (err) {
+            console.error(`Failed to load or initialize data, showing error state:`, err);
+            // Ya no caemos a mock data, mantenemos el estado de carga o error.
+            setData(null);
         } finally {
             setIsLoading(false);
         }

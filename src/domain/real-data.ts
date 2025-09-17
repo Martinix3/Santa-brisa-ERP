@@ -1,43 +1,167 @@
-
 import type { SantaData } from './ssot';
-import { mockSantaData } from './mock-data';
 
-// This data is intentionally simple and clean, matching the SSOT types directly.
-// It avoids the need for complex data processing in the DataProvider.
-
-const realAccounts: Omit<SantaData['accounts'][0], 'salesRepId'>[] = [
-    { id: 'acc_real_1', name: 'Restaurante La Cuchara', city: 'Madrid', type: 'HORECA', stage: 'ACTIVA', ownerId: 'u_patxi', billerId: 'SB', createdAt: '2024-04-12T10:00:00Z' },
-    { id: 'acc_real_2', name: 'Bar El Trocadero', city: 'Barcelona', type: 'HORECA', stage: 'SEGUIMIENTO', ownerId: 'u_nico', billerId: 'SB', createdAt: '2024-04-15T10:00:00Z' },
-    { id: 'acc_real_3', name: 'Hotel Vista al Mar', city: 'Valencia', type: 'HORECA', stage: 'ACTIVA', ownerId: 'u_alfonso', billerId: 'SB', createdAt: '2024-04-18T10:00:00Z' },
-    { id: 'acc_real_4', name: 'Coctelería El Alquimista', city: 'Madrid', type: 'HORECA', stage: 'ACTIVA', ownerId: 'u_patxi', billerId: 'SB', createdAt: '2024-04-20T10:00:00Z' },
-    { id: 'acc_real_5', name: 'Terraza del Sol', city: 'Sevilla', type: 'HORECA', stage: 'ACTIVA', ownerId: 'u_nico', billerId: 'SB', createdAt: '2024-04-22T10:00:00Z' },
-    { id: 'acc_real_6', name: 'Gastrobar Fusión', city: 'Bilbao', type: 'HORECA', stage: 'SEGUIMIENTO', ownerId: 'u_alfonso', billerId: 'SB', createdAt: '2024-04-25T10:00:00Z' },
-    { id: 'acc_real_7', name: 'Chiringuito La Ola', city: 'Málaga', type: 'HORECA', stage: 'POTENCIAL', ownerId: 'u_nico', billerId: 'SB', createdAt: '2024-05-01T10:00:00Z' },
-    { id: 'acc_real_8', name: 'Taberna del Norte', city: 'Santander', type: 'HORECA', stage: 'SEGUIMIENTO', ownerId: 'u_patxi', billerId: 'SB', createdAt: '2024-05-05T10:00:00Z' },
-    { id: 'acc_real_9', name: 'Venta Directa Online', city: 'Web', type: 'OTRO', stage: 'ACTIVA', ownerId: 'u_martin', billerId: 'SB', createdAt: '2024-05-12T10:00:00Z' },
+const realAccounts: SantaData['accounts'] = [
+    {
+        "id": "acc_688b33996cfdb12dc002971d",
+        "name": "Ingo Gestion De Activos S.L.",
+        "cif": "B50831429",
+        "type": "HORECA",
+        "stage": "POTENCIAL",
+        "ownerId": "u_martin",
+        "billerId": "SB",
+        "address": "Paseo Idependencia 32 5ºC",
+        "city": "ZARAGOZA",
+        "country": "ES",
+        "phone": undefined,
+        "createdAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+        "id": "acc_688b34057632f67a690280cc",
+        "name": "Quirites Inmobiliaria S.L",
+        "cif": "B82383837",
+        "type": "HORECA",
+        "stage": "POTENCIAL",
+        "ownerId": "u_martin",
+        "billerId": "SB",
+        "address": "Calle Rafael Calvo 15.",
+        "city": "Madrid",
+        "country": "ES",
+        "phone": undefined,
+        "createdAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+        "id": "acc_68bb06b601e0f7c63106f9c0",
+        "name": "Holded",
+        "cif": undefined,
+        "type": "PROVEEDOR",
+        "stage": "CERRADA",
+        "ownerId": "u_admin",
+        "billerId": "SB",
+        "address": undefined,
+        "city": undefined,
+        "country": "ES",
+        "phone": undefined,
+        "createdAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+        "id": "acc_68c145450e154f31da0a635a",
+        "name": "Real Club de Golf Sotogrande",
+        "cif": "G11048212",
+        "type": "HORECA",
+        "stage": "POTENCIAL",
+        "ownerId": "u_martin",
+        "billerId": "SB",
+        "address": "Paseo del Parque s/n",
+        "city": "Sogrande",
+        "country": "ES",
+        "phone": undefined,
+        "createdAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+        "id": "acc_68c3a83f6fc6d205da090a1c",
+        "name": "Goya vinos y viñedos",
+        "cif": "B50934322",
+        "type": "HORECA",
+        "stage": "POTENCIAL",
+        "ownerId": "u_martin",
+        "billerId": "SB",
+        "address": "C/Taernto Nave 6 Poligo Plaza Parce Ali 4",
+        "city": "Zaraogza",
+        "country": "ES",
+        "phone": undefined,
+        "createdAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+        "id": "acc_68c3aacb908a3473690fb542",
+        "name": "Devins Menorca S.L.",
+        "cif": "B57075665",
+        "type": "HORECA",
+        "stage": "POTENCIAL",
+        "ownerId": "u_martin",
+        "billerId": "SB",
+        "address": "Cami de Ses Vinyes",
+        "city": "Maó-Mahón",
+        "country": "ES",
+        "phone": undefined,
+        "createdAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+        "id": "acc_68c3b1c18c6144516104fca0",
+        "name": "Importaciones Cuesta S.L.",
+        "cif": "B33015520",
+        "type": "DISTRIBUIDOR",
+        "stage": "POTENCIAL",
+        "ownerId": "u_martin",
+        "billerId": "SB",
+        "address": "Polígono Industrial: “Las Nieves” C/ Puerto de Guadarrama, 28",
+        "city": "Móstoles",
+        "country": "ES",
+        "phone": undefined,
+        "createdAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+        "id": "acc_68c7ec9926a04d5b3907d2ef",
+        "name": "Lucia Coldculture",
+        "cif": "17453120F",
+        "type": "HORECA",
+        "stage": "POTENCIAL",
+        "ownerId": "u_martin",
+        "billerId": "SB",
+        "address": undefined,
+        "city": undefined,
+        "country": "ES",
+        "phone": undefined,
+        "createdAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+        "id": "acc_68c82416918208024a0a5be9",
+        "name": "DE JUAN BOSCO CARDENAS CAMPS",
+        "cif": "49962131J",
+        "type": "PROVEEDOR",
+        "stage": "CERRADA",
+        "ownerId": "u_admin",
+        "billerId": "SB",
+        "address": undefined,
+        "city": "Madrid",
+        "country": "ES",
+        "phone": undefined,
+        "createdAt": "2024-01-01T00:00:00.000Z"
+    }
 ];
 
-const realOrders: SantaData['ordersSellOut'] = [
-    { id: 'ORD-001', accountId: 'acc_real_4', status: 'paid', currency: 'EUR', createdAt: '2024-04-20T11:00:00Z', lines: [{ sku: 'SB-750', qty: 5 * 6, priceUnit: 15, unit: 'uds' }] },
-    { id: 'ORD-002', accountId: 'acc_real_5', status: 'invoiced', currency: 'EUR', createdAt: '2024-04-22T11:00:00Z', lines: [{ sku: 'SB-750', qty: 10 * 6, priceUnit: 14.8, unit: 'uds' }] },
-    { id: 'ORD-003', accountId: 'acc_real_1', status: 'shipped', currency: 'EUR', createdAt: '2024-04-28T11:00:00Z', lines: [{ sku: 'SB-750', qty: 8 * 6, priceUnit: 15, unit: 'uds' }] },
-    { id: 'ORD-004', accountId: 'acc_real_3', status: 'confirmed', currency: 'EUR', createdAt: '2024-05-03T11:00:00Z', lines: [{ sku: 'SB-750', qty: 15 * 6, priceUnit: 14.5, unit: 'uds' }] },
-    { id: 'ORD-005', accountId: 'acc_real_5', status: 'confirmed', currency: 'EUR', createdAt: '2024-05-10T11:00:00Z', lines: [{ sku: 'SB-750', qty: 12 * 6, priceUnit: 14.8, unit: 'uds' }] },
-    { id: 'WEB-001', accountId: 'acc_real_9', status: 'paid', currency: 'EUR', createdAt: '2024-05-12T11:00:00Z', lines: [{ sku: 'SB-750', qty: 6, priceUnit: 18, unit: 'uds' }] },
-];
 
-const realInteractions: SantaData['interactions'] = [
-    { id: 'int_real_1', accountId: 'acc_real_1', userId: 'u_patxi', kind: 'LLAMADA', note: 'Llamada inicial, mostraram interés. Agendar visita.', createdAt: '2024-04-12T12:00:00Z', dept: 'VENTAS' },
-    { id: 'int_real_2', accountId: 'acc_real_2', userId: 'u_nico', kind: 'EMAIL', note: 'Enviado catálogo por email. Pendiente de respuesta.', createdAt: '2024-04-15T12:00:00Z', dept: 'VENTAS' },
-    { id: 'int_real_3', accountId: 'acc_real_3', userId: 'u_alfonso', kind: 'VISITA', note: 'Visita programada para el 25/04. Preparar muestras.', createdAt: '2024-04-18T12:00:00Z', dept: 'VENTAS' },
-    { id: 'int_real_6', accountId: 'acc_real_6', userId: 'u_alfonso', kind: 'VISITA', note: 'Interesados pero ya tienen proveedor. Volver a contactar en Septiembre.', createdAt: '2024-04-25T12:00:00Z', dept: 'VENTAS' },
-    { id: 'int_real_7', accountId: 'acc_real_7', userId: 'u_nico', kind: 'EMAIL', note: 'Primer contacto, enviado email con info.', createdAt: '2024-05-01T12:00:00Z', dept: 'VENTAS' },
-    { id: 'int_real_8', accountId: 'acc_real_8', userId: 'u_patxi', kind: 'LLAMADA', note: 'Solicitaron muestra, pendiente de envío.', createdAt: '2024-05-05T12:00:00Z', dept: 'VENTAS' },
-];
-
+// --- Full SSOT Mock Object ---
 export const realSantaData: SantaData = {
-    ...mockSantaData,
-    accounts: [...mockSantaData.accounts, ...realAccounts],
-    ordersSellOut: [...mockSantaData.ordersSellOut, ...realOrders],
-    interactions: [...mockSantaData.interactions, ...realInteractions],
+  users: [],
+  accounts: realAccounts,
+  products: [],
+  materials: [],
+  distributors: [],
+  interactions: [],
+  ordersSellOut: [],
+  shipments: [],
+  lots: [],
+  inventory: [],
+  stockMoves: [],
+  receipts: [],
+  purchaseOrders: [],
+  billOfMaterials: [],
+  productionOrders: [],
+  qaChecks: [],
+  suppliers: [],
+  traceEvents: [],
+  goodsReceipts: [],
+  mktEvents: [],
+  onlineCampaigns: [],
+  activations: [],
+  creators: [],
+  influencerCollabs: [],
+  priceLists: [],
+  nonConformities: [],
+  supplierBills: [],
+  payments: [],
+  batches: [],
+  packRuns: [],
+  trace: [],
+  qcTests: [],
 };

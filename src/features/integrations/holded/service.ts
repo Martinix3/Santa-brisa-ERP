@@ -39,7 +39,7 @@ type HoldedContact = {
 export async function fetchInvoices(apiKey: string): Promise<HoldedInvoice[]> {
   const headers = {
     "Accept": "application/json",
-    "Authorization": `Bearer ${apiKey}`,
+    "key": apiKey,
   };
 
   try {
@@ -71,7 +71,7 @@ export async function fetchInvoices(apiKey: string): Promise<HoldedInvoice[]> {
 export async function fetchContacts(apiKey: string): Promise<HoldedContact[]> {
   const headers = {
     "Accept": "application/json",
-    "Authorization": `Bearer ${apiKey}`,
+    "key": apiKey,
   };
 
   try {
