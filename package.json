@@ -28,7 +28,6 @@
     "@fullcalendar/react": "^6.1.19",
     "@fullcalendar/timegrid": "^6.1.19",
     "@genkit-ai/googleai": "^1.19.2",
-    "firebase": "^12.2.1",
     "firebase-admin": "^13.5.0",
     "framer-motion": "^12.23.12",
     "genkit": "^1.19.2",
