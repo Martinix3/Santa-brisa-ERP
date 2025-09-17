@@ -8,6 +8,7 @@ import { KeyRound, Trash2, Zap, RefreshCw, Settings, PlugZap, LogOut, ChevronRig
 import ApiKeyConnect from "@/components/integrations/ApiKeyConnect";
 import { auth } from '@/lib/firebase-config';
 import { signInWithPopup, GoogleAuthProvider, onAuthStateChanged, User } from 'firebase/auth';
+import { useRouter } from 'next/navigation';
 
 
 type Secrets = Record<string, any>;
@@ -121,6 +122,7 @@ export default function IntegrationsPanelPage() {
     const [secrets, setSecrets] = useState<Secrets | null>(null);
     const [loadingSecrets, setLoadingSecrets] = useState(true);
     const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
+    const router = useRouter();
 
     const [items, setItems] = useState<Integration[]>([]);
     const [loadingIntegrations, setLoadingIntegrations] = useState(true);
@@ -238,17 +240,18 @@ export default function IntegrationsPanelPage() {
     };
 
     const handleImportContacts = async () => {
-        alert("Iniciando importación de contactos de Holded. Esto puede tardar un momento...");
+        alert("Iniciando análisis de contactos de Holded. Esto puede tardar un momento...");
         setRunning('holded-contacts');
         try {
             const res = await fetch('/api/integrations/holded/import-contacts', { method: 'POST' });
             const result = await res.json();
             if (!res.ok) {
-                throw new Error(result.error || 'Error desconocido durante la importación');
+                throw new Error(result.error || 'Error desconocido durante el análisis');
             }
-            alert(`¡Importación completada! ${result.created} creados, ${result.updated} actualizados.`);
+            alert(`Análisis completado: ${result.toCreate} contactos para crear, ${result.toUpdate} para actualizar. Redirigiendo a la página de revisión.`);
+            router.push(`/admin/import-review?importId=${result.importId}`);
         } catch (e: any) {
-            alert(`Error al importar contactos: ${e.message}`);
+            alert(`Error al analizar contactos: ${e.message}`);
         } finally {
             setRunning(null);
         }
@@ -348,3 +351,4 @@ export default function IntegrationsPanelPage() {
         </div>
     );
 }
+
