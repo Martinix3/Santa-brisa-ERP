@@ -54,29 +54,35 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
         try {
             const response = await fetch('/api/brain-persist');
             if (!response.ok) {
+                const errorBody = await response.text();
+                console.error("Failed to fetch data from Firestore. Status:", response.status, "Body:", errorBody);
                 throw new Error('Failed to fetch data from Firestore');
             }
             const firestoreData = await response.json();
-            // Si no hay datos en Firestore, usamos los datos reales como base
-            if (Object.keys(firestoreData).every(k => Array.isArray(firestoreData[k]) && firestoreData[k].length === 0)) {
-                 console.log("Firestore is empty, initializing with real data.");
-                 setData(realSantaData);
-                 // Opcional: guardar los datos iniciales en Firestore
-                 await forceSave(realSantaData);
+            
+            const isFirestoreEmpty = !firestoreData || Object.keys(firestoreData).length === 0 || Object.values(firestoreData).every(val => Array.isArray(val) && val.length === 0);
+
+            if (isFirestoreEmpty) {
+                 console.log("Firestore is empty, initializing with real seed data.");
+                 // Usamos una copia profunda para evitar mutaciones no deseadas
+                 const initialData = JSON.parse(JSON.stringify(realSantaData));
+                 setData(initialData);
+                 // Guardar los datos iniciales en Firestore
+                 await forceSave(initialData);
             } else {
                  setData(firestoreData);
             }
 
-        } catch (err) {
+        } catch (err: any) {
             console.error(`Failed to load or initialize data, showing error state:`, err);
-            // Ya no caemos a mock data, mantenemos el estado de carga o error.
-            setData(null);
+            setData(null); // Establecer a null en caso de error
         } finally {
             setIsLoading(false);
         }
     };
     
     loadData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
 
   // Function to force save the current state to the backend
