@@ -1,0 +1,14 @@
+{
+  "hosting": {
+    "site": "santa-brisa-erp-v1",
+    "source": ".",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "frameworksBackend": {
+      "region": "us-central1"
+    }
+  }
+}
