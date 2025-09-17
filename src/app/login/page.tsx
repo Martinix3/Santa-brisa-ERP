@@ -62,6 +62,7 @@ export default function LoginPage() {
                     width={100}
                     height={64}
                     className="h-16 mx-auto mb-4"
+                    priority
                 />
                 <h1 className="text-xl font-semibold text-sb-neutral-800">Acceso al CRM</h1>
                 <p className="text-sb-neutral-600 mt-2 text-sm">
