@@ -1,13 +1,10 @@
 
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
 import { User, SantaData as SantaDataType, UserRole } from '@/domain/schema';
 import { Trash2, Lock, Unlock, Edit, Save, X, User as UserIcon } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
-import AuthGuard from '@/components/auth/AuthGuard';
-import AuthenticatedLayout from '@/components/layouts/AuthenticatedLayout';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
 import { SB_COLORS, SBButton } from '@/components/ui/ui-primitives';
 
@@ -229,11 +226,9 @@ function UsersPageContent() {
 
 export default function UsersPage() {
     return (
-        <AuthGuard>
-            <AuthenticatedLayout>
-                <ModuleHeader title="Gestión de Usuarios y Roles" icon={UserIcon}/>
-                <UsersPageContent />
-            </AuthenticatedLayout>
-        </AuthGuard>
+        <>
+            <ModuleHeader title="Gestión de Usuarios y Roles" icon={UserIcon}/>
+            <UsersPageContent />
+        </>
     )
 }

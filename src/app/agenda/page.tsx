@@ -1,5 +1,4 @@
 
-
 "use client";
 
 // === SB Agenda — Calendar + Task Board (repo version with aliases) ===
@@ -20,8 +19,6 @@ import { TaskBoard, Task, TaskStatus } from "@/features/agenda/TaskBoard";
 import { Department, DEPT_META } from "@/domain/schema";
 import { NewEventDialog } from "@/features/agenda/components/NewEventDialog";
 import { useData } from "@/lib/dataprovider";
-import AuthGuard from "@/components/auth/AuthGuard";
-import AuthenticatedLayout from "@/components/layouts/AuthenticatedLayout";
 import { ModuleHeader } from "@/components/ui/ModuleHeader";
 import { Calendar } from "lucide-react";
 import { SB_COLORS } from "@/components/ui/ui-primitives";
@@ -314,10 +311,6 @@ function CalendarPageContent() {
 
 export default function CalendarPage() {
   return (
-    <AuthGuard>
-      <AuthenticatedLayout>
-        <CalendarPageContent />
-      </AuthenticatedLayout>
-    </AuthGuard>
+      <CalendarPageContent />
   );
 }

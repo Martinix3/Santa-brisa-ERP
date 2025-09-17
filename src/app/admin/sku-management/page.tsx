@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -7,8 +6,6 @@ import { listLots, listMaterials, updateMaterial } from '@/features/production/s
 import type { Lot, Material } from '@/domain/ssot';
 import { MATERIAL_CATEGORIES } from '@/domain/ssot';
 import { SBCard, SBButton } from '@/components/ui/ui-primitives';
-import AuthenticatedLayout from '@/components/layouts/AuthenticatedLayout';
-import AuthGuard from '@/components/auth/AuthGuard';
 import { ChevronDown, Save, Tags } from 'lucide-react';
 import { LotQualityStatusPill } from '@/features/production/components/ui';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
@@ -153,15 +150,13 @@ function SkuManagementPageContent() {
 
 export default function SkuManagementPage() {
     return (
-        <AuthGuard>
-            <AuthenticatedLayout>
-                <ModuleHeader title="Gestión de SKUs y Lotes" icon={Tags}/>
-                <div className="bg-zinc-50 flex-grow">
-                    <div className="max-w-7xl mx-auto py-6 px-4">
-                        <SkuManagementPageContent />
-                    </div>
+        <>
+            <ModuleHeader title="Gestión de SKUs y Lotes" icon={Tags}/>
+            <div className="bg-zinc-50 flex-grow">
+                <div className="max-w-7xl mx-auto py-6 px-4">
+                    <SkuManagementPageContent />
                 </div>
-            </AuthenticatedLayout>
-        </AuthGuard>
+            </div>
+        </>
     )
 }

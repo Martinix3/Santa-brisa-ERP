@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useMemo, useState } from 'react';
@@ -8,8 +7,6 @@ import type { OrderSellOut, Account, User, Distributor, Stage, OrderLine, Produc
 import { orderTotal } from '@/domain/ssot';
 import { applyStockMoves } from '@/domain/inventory.helpers';
 import { Plus, Search, Filter, Calendar, DollarSign, User as UserIcon, Truck, BrainCircuit, X, MoreHorizontal, FileText, Copy, XCircle, Building2, Edit, Check, AlertTriangle, Download, ShoppingCart } from 'lucide-react';
-import AuthenticatedLayout from '@/components/layouts/AuthenticatedLayout';
-import AuthGuard from '@/components/auth/AuthGuard';
 import Link from 'next/link';
 import { DownloadDocButton } from '@/components/ui/DownloadDocButton';
 import { listLots } from '@/features/production/ssot-bridge';
@@ -541,10 +538,6 @@ function FilterSelect<T extends string>({ value, onChange, options, placeholder 
 
 export default function OrdersPage() {
     return (
-        <AuthGuard>
-            <AuthenticatedLayout>
-                <OrdersDashboard />
-            </AuthenticatedLayout>
-        </AuthGuard>
+        <OrdersDashboard />
     )
 }

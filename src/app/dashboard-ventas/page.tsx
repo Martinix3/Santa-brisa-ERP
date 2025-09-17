@@ -1,13 +1,10 @@
 
-
 "use client";
 import React, { useMemo, useState, useEffect } from "react";
 import { BarChart3, Clock, MapPin, Phone, Target, Users, Briefcase, ChevronDown, MessageSquare, Map as MapIcon, ShoppingCart, UserPlus, User, BrainCircuit } from "lucide-react";
 import { motion } from "framer-motion";
 import { ResponsiveContainer, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip, Line } from "recharts";
 import { useData } from "@/lib/dataprovider";
-import AuthGuard from "@/components/auth/AuthGuard";
-import AuthenticatedLayout from "@/components/layouts/AuthenticatedLayout";
 import { ModuleHeader } from "@/components/ui/ModuleHeader";
 import { SBCard, SBButton, SB_COLORS } from "@/components/ui/ui-primitives";
 import type { User as UserType, OrderSellOut, Interaction, Account } from '@/domain/ssot';
@@ -565,11 +562,9 @@ function SalesDashboardPageContent(){
 
 export default function SalesDashboardPage() {
     return (
-        <AuthGuard>
-            <AuthenticatedLayout>
-                <ModuleHeader title="Dashboards de Ventas" icon={BarChart3} />
-                <SalesDashboardPageContent />
-            </AuthenticatedLayout>
-        </AuthGuard>
+        <>
+            <ModuleHeader title="Dashboards de Ventas" icon={BarChart3} />
+            <SalesDashboardPageContent />
+        </>
     )
 }

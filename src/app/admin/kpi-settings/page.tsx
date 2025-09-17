@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -7,8 +6,6 @@ import type { User } from '@/domain/ssot';
 import { useData } from '@/lib/dataprovider';
 import { SBCard, SBButton, Input } from '@/components/ui/ui-primitives';
 import { Save, SlidersHorizontal } from 'lucide-react';
-import AuthGuard from '@/components/auth/AuthGuard';
-import AuthenticatedLayout from '@/components/layouts/AuthenticatedLayout';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
 
 function KPISettingsPageContent() {
@@ -110,13 +107,11 @@ function KPISettingsPageContent() {
 
 export default function KPISettingsPage() {
     return (
-        <AuthGuard>
-            <AuthenticatedLayout>
-                 <ModuleHeader title="Ajustes de KPIs" icon={SlidersHorizontal}/>
-                <div className="p-6">
-                    <KPISettingsPageContent />
-                </div>
-            </AuthenticatedLayout>
-        </AuthGuard>
+        <>
+            <ModuleHeader title="Ajustes de KPIs" icon={SlidersHorizontal}/>
+            <div className="p-6">
+                <KPISettingsPageContent />
+            </div>
+        </>
     );
 }

@@ -3,8 +3,6 @@
 
 import React, { useState, useMemo } from 'react';
 import { useData } from '@/lib/dataprovider';
-import AuthGuard from '@/components/auth/AuthGuard';
-import AuthenticatedLayout from '@/components/layouts/AuthenticatedLayout';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
 import { Database, Check, X, Link as LinkIcon, AlertTriangle } from 'lucide-react';
 import { SBCard } from '@/components/ui/ui-primitives';
@@ -192,13 +190,11 @@ function DataViewerPageContent() {
 
 export default function DataViewerPage() {
     return (
-        <AuthGuard>
-            <AuthenticatedLayout>
-                 <ModuleHeader title="Visor de Datos del SSOT" icon={Database}/>
-                <div className="p-6">
-                    <DataViewerPageContent />
-                </div>
-            </AuthenticatedLayout>
-        </AuthGuard>
+        <>
+            <ModuleHeader title="Visor de Datos del SSOT" icon={Database}/>
+            <div className="p-6">
+                <DataViewerPageContent />
+            </div>
+        </>
     );
 }

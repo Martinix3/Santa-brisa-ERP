@@ -11,8 +11,6 @@ import { ArrowUpRight, ArrowDownRight, Phone, Mail, MapPin, User, Factory, Boxes
 import Link from 'next/link';
 import { enrichAccount } from '@/ai/flows/enrich-account-flow';
 
-import AuthGuard from '@/components/auth/AuthGuard';
-import AuthenticatedLayout from '@/components/layouts/AuthenticatedLayout';
 import { SBFlowModal, Variant } from '@/features/quicklog/components/SBFlows';
 import { SBButton, SBCard, SB_COLORS } from '@/components/ui/ui-primitives';
 
@@ -66,7 +64,7 @@ const formatDate = (iso: string) => new Date(iso).toLocaleDateString('es-ES', {d
 
 
 // ====== PAGE ======
-function AccountDetailPageContent(){
+export default function AccountDetailPageContent(){
   const router = useRouter();
   const params = useParams();
   
@@ -330,14 +328,4 @@ function AccountDetailPageContent(){
       )}
     </div>
   );
-}
-
-export default function AccountDetailPage() {
-    return (
-      <AuthGuard>
-        <AuthenticatedLayout>
-          <AccountDetailPageContent />
-        </AuthenticatedLayout>
-      </AuthGuard>
-    )
 }

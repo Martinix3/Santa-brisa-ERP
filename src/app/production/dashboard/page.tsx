@@ -17,8 +17,7 @@ function ProductionDashboardPage() {
     if (!santaData) {
         return <div className="p-6 text-center">Cargando datos de producción...</div>;
     }
-
-    // El AuthenticatedLayout ya se aplica en production/layout.tsx
+    
     return <ProductionDashboard orders={orders} lots={lots} />;
 }
 
