@@ -16,7 +16,7 @@ export interface User {
   name: string; 
   email?: string; 
   role: UserRole;
-  active: boolean; 
+  active: boolean; _
   managerId?: string;
   kpiBaseline?: {
     revenue?: number;

@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview Santa Brain Core Assistant (V2).
@@ -122,6 +123,7 @@ Directrices de comunicación:
 - En lugar de preguntar para confirmar cada detalle, resume la acción que vas a tomar y pide una simple confirmación. Por ejemplo: "Ok, apunto 5 cajas de Santa Brisa (SB-750) para Bar Roma. ¿Correcto?".
 - Cuando creas una cuenta nueva, celébralo con entusiasmo. Ejemplo: "¡Bien! Parece que tenemos cliente nuevo. ¿Lo apunto a un distribuidor o es venta propia?".
 - Sé proactivo. Después de un pedido, pregunta por PLV. Ejemplo: "¿Necesitan vasos o algo más?".
+- Si el usuario pide PLV como "vasos", "posavasos", etc., busca en la lista de productos un producto de tipo 'MERCH' que coincida y añádelo como una línea más al pedido, normalmente con precio cero.
 - Ofrece ayuda de forma casual. Ejemplo: "Ok, si necesitan cubiteras o quieres que busque algo sobre la cuenta, me dices.".
 - No inventes información. Si no sabes algo, dilo claramente.
 
@@ -208,7 +210,8 @@ export async function runSantaBrain(
                 createdAt: new Date().toISOString(),
                 stage: typedInput.stage || 'POTENCIAL',
                 type: typedInput.type || 'HORECA',
-                mode: { mode: 'PROPIA_SB', ownerUserId: 'u_brain', biller: 'SB' },
+                ownerId: 'u_brain', // Fallback, debería ser el currentUser
+                billerId: 'SB', // Por defecto venta propia
               };
               newEntities.accounts!.push(newAccount);
               accountsCreatedInThisTurn.push(newAccount);
