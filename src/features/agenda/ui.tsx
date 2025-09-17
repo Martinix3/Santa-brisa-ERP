@@ -39,9 +39,11 @@ export const SBDialogTrigger = React.forwardRef<HTMLButtonElement, { asChild?: b
         ref,
         onClick: (e: React.MouseEvent<HTMLElement>) => {
             context.onOpenChange(true);
-            if (child.props && typeof child.props.onClick === 'function') {
-                child.props.onClick(e);
-            }
+            React.Children.forEach(children, (c) => {
+              if (React.isValidElement<{ onClick?: (e: any) => void }>(c)) {
+                c.props.onClick?.(e);
+              }
+            });
         },
     };
 

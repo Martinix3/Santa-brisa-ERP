@@ -17,6 +17,5 @@ export function selectTemplate(name: string, data: any, theme: any): React.React
     type: 'Document' as any,
     props: {},
     key: null,
-    ref: null,
   };
 }

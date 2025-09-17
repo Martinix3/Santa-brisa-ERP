@@ -13,45 +13,12 @@ import { z } from 'zod';
 import type { Interaction, OrderSellOut, EventMarketing, Product, Account, SantaData, InventoryItem } from '@/domain/ssot';
 import { Message } from 'genkit';
 import { gemini } from '@genkit-ai/googleai';
-
-// =================================
-//      TOOL SCHEMAS
-// =================================
-
-// Note: Schemas are defined inline with the tool definitions below.
-const AddInteractionSchema = z.object({
-  accountName: z.string().describe('The exact name of the customer account.'),
-  kind: z.enum(['VISITA', 'LLAMADA', 'EMAIL', 'WHATSAPP', 'OTRO']).describe('The type of interaction.'),
-  note: z.string().describe('A summary of what was discussed or what happened during the interaction.'),
-});
-
-const CreateOrderSchema = z.object({
-  accountName: z.string().describe('The exact name of the customer account.'),
-  items: z.array(z.object({
-    sku: z.string().optional().describe("The SKU of the product. If not specified, it will default to Santa Brisa's main product."),
-    quantity: z.number().describe('The quantity of units or cases.'),
-    unit: z.enum(['ud', 'caja']).describe("The unit of measure ('ud' for units/bottles or 'caja' for cases)."),
-  })).describe('A list of products and quantities for the order.'),
-  notes: z.string().optional().describe('Additional notes for the order.'),
-});
-
-const ScheduleEventSchema = z.object({
-  title: z.string().describe('The title of the event.'),
-  kind: z.enum(['DEMO', 'FERIA', 'FORMACION', 'POPUP', 'OTRO']).describe('The type of event.'),
-  startAt: z.string().describe('The start date and time in ISO 8601 format.'),
-  location: z.string().optional().describe('The city or venue of the event.'),
-});
-
-const UpsertAccountSchema = z.object({
-    id: z.string().optional().describe("The account's unique ID. If provided, the existing account will be updated. If not, a new one will be created."),
-    name: z.string().describe("The account's name."),
-    city: z.string().optional().describe("The city where the account is located."),
-    type: z.enum(['HORECA', 'RETAIL', 'DISTRIBUIDOR', 'OTRO']).optional().describe("The account type."),
-    stage: z.enum(['ACTIVA', 'SEGUIMIENTO', 'POTENCIAL', 'FALLIDA']).optional().describe("The current sales stage."),
-    mainContactName: z.string().optional().describe("Name of the main contact person."),
-    phone: z.string().optional().describe("The account's phone number."),
-    notes: z.string().optional().describe("Qualitative notes or observations about the account."),
-});
+import { 
+    AddInteractionSchema, 
+    CreateOrderSchema, 
+    ScheduleEventSchema, 
+    UpsertAccountSchema 
+} from './schemas';
 
 
 // =================================
@@ -173,14 +140,14 @@ export async function runSantaBrain(history: Message[], input: string, context: 
         ],
     });
 
-    const toolRequests = llmResponse.toolRequests;
     const newEntities: Partial<SantaData> = { interactions: [], ordersSellOut: [], mktEvents: [], accounts: [] };
+    const toolResponses: any[] = [];
+    
+    const toolRequests = llmResponse.toolRequests();
 
     if (toolRequests.length > 0) {
-        const toolResponses: any[] = [];
         const accountsCreatedInThisTurn: Account[] = [];
 
-        // Execute all tool calls
         for (const toolRequest of toolRequests) {
             const tool = tools.find(t => t.name === toolRequest.name);
             if (!tool) {
@@ -192,10 +159,9 @@ export async function runSantaBrain(history: Message[], input: string, context: 
                 const output = await tool(toolRequest.input as any);
                 toolResponses.push({ toolResponse: { name: toolRequest.name, output } });
 
-                // If a tool call was successful, create the corresponding SSOT entity
                 if (output.success) {
                     if (toolRequest.name === 'upsertAccount') {
-                        const typedInput = toolRequest.input as z.infer<typeof UpsertAccountSchema>;
+                        const typedInput = UpsertAccountSchema.parse(toolRequest.input);
                         const newAccount: Account = {
                             ...typedInput,
                             id: output.accountId,
@@ -207,13 +173,12 @@ export async function runSantaBrain(history: Message[], input: string, context: 
                         newEntities.accounts?.push(newAccount);
                         accountsCreatedInThisTurn.push(newAccount);
                     } else {
-                        // For other tools, find the account (newly created or existing)
                         const accountName = (toolRequest.input as any).accountName;
                         const account = accountsCreatedInThisTurn.find(a => a.name === accountName) || context.accounts.find(a => a.name === accountName);
                         
                         if (account) {
                             if (toolRequest.name === 'createInteraction') {
-                                const typedInput = toolRequest.input as z.infer<typeof AddInteractionSchema>;
+                                const typedInput = AddInteractionSchema.parse(toolRequest.input);
                                 newEntities.interactions?.push({
                                     id: output.interactionId,
                                     accountId: account.id,
@@ -224,7 +189,7 @@ export async function runSantaBrain(history: Message[], input: string, context: 
                                     dept: 'VENTAS'
                                 });
                             } else if (toolRequest.name === 'createOrder') {
-                                const typedInput = toolRequest.input as z.infer<typeof CreateOrderSchema>;
+                                const typedInput = CreateOrderSchema.parse(toolRequest.input);
                                 newEntities.ordersSellOut?.push({
                                     id: output.orderId,
                                     accountId: account.id,
@@ -243,7 +208,7 @@ export async function runSantaBrain(history: Message[], input: string, context: 
                         }
                     }
                     if (toolRequest.name === 'scheduleUserEvent') {
-                        const typedInput = toolRequest.input as z.infer<typeof ScheduleEventSchema>;
+                        const typedInput = ScheduleEventSchema.parse(toolRequest.input);
                         newEntities.mktEvents?.push({
                             id: output.eventId,
                             title: typedInput.title,
@@ -259,7 +224,6 @@ export async function runSantaBrain(history: Message[], input: string, context: 
             }
         }
         
-        // Generate the final response based on tool execution
         const finalResponse = await ai.generate({
             model: gemini('gemini-2.5-flash'),
             system: santaBrainSystemPrompt,
@@ -275,6 +239,5 @@ export async function runSantaBrain(history: Message[], input: string, context: 
         return { finalAnswer: finalResponse.text, newEntities };
     }
 
-    // If no tools were called, just return the text response
     return { finalAnswer: llmResponse.text, newEntities };
 }
