@@ -1,14 +1,18 @@
 // ❗ NUNCA importes este archivo desde componentes con "use client"
 import 'server-only';
 import * as admin from 'firebase-admin';
+import { applicationDefault } from 'firebase-admin/app';
 
 let firebaseAdminInitialized = false;
 
-// Implementación del patrón Singleton para la inicialización de Firebase Admin
-// Al no pasar credenciales, el SDK usará las Application Default Credentials (ADC) del entorno.
+// Implementación del patrón Singleton para la inicialización de Firebase Admin.
+// Usamos applicationDefault() para que el SDK use las credenciales del entorno
+// (Application Default Credentials - ADC), ideal para Workstations y Cloud Run.
 if (!admin.apps.length) {
   try {
-    admin.initializeApp();
+    admin.initializeApp({
+      credential: applicationDefault(),
+    });
     firebaseAdminInitialized = true;
     console.log('Firebase Admin SDK inicializado con éxito usando ADC.');
   } catch (error: any) {
