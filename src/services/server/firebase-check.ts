@@ -54,7 +54,6 @@ export async function checkFirebasePermissions(): Promise<boolean> {
         throw new Error("El documento de prueba no se pudo leer correctamente.");
     }
     
-    console.log("✅ FIREBASE OK. Conexión y permisos de lectura/escritura verificados.");
     return true;
   } catch (err: any) {
     console.error("❌ Error en permisos Firebase:", err.message);
@@ -68,6 +67,11 @@ export async function checkFirebasePermissions(): Promise<boolean> {
 // Si ejecutas directamente con ts-node
 if (require.main === module) {
   checkFirebasePermissions().then((ok) => {
+    if (ok) {
+        console.log("✅ FIREBASE OK. Conexión y permisos de lectura/escritura verificados.");
+    } else {
+        console.log("❌ FIREBASE FAIL. Revisa los errores anteriores.");
+    }
     process.exit(ok ? 0 : 1);
   });
 }
