@@ -1,4 +1,5 @@
 
+
 'use server';
 /**
  * @fileOverview Santa Brain Core Assistant (V2).
@@ -12,22 +13,22 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import type {
-  Interaction,
-  OrderSellOut,
-  EventMarketing,
-  Product,
   Account,
-  SantaData,
+  EventMarketing,
+  Interaction,
   InventoryItem,
+  OrderSellOut,
+  Product,
+  SantaData,
 } from '@/domain/ssot';
-import type { Message } from 'genkit';
-import { gemini } from '@genkit-ai/googleai';
 import {
   AddInteractionSchema,
   CreateOrderSchema,
   ScheduleEventSchema,
   UpsertAccountSchema,
 } from '@/ai/flows/schemas';
+import { gemini } from '@genkit-ai/googleai';
+import type { Message } from 'genkit';
 
 // ===============================
 // Helpers / Tipos
@@ -176,8 +177,6 @@ export async function runSantaBrain(
     accounts: [],
   };
 
-  const toolResponses: Array<{ toolResponse: { name: string; output: any } }> = [];
-
   // ✅ Convierte desde parts → ToolCall[], con guarda de tipo
   const toolRequests: ToolCall[] = (llmResponse.toolRequests ?? [])
     .filter(isToolRequestPart)
@@ -185,6 +184,7 @@ export async function runSantaBrain(
 
   if (toolRequests.length > 0) {
     const accountsCreatedInThisTurn: Account[] = [];
+    const toolResponses: Array<{ toolResponse: { name: string; output: any } }> = [];
 
     for (const toolRequest of toolRequests) {
       const tool = tools.find((t) => t.name === toolRequest.name);
@@ -246,16 +246,15 @@ export async function runSantaBrain(
                 newEntities.ordersSellOut!.push({
                   id: orderId,
                   accountId: account.id,
-                  userId: 'u_brain',
                   status: 'open',
+                  currency: 'EUR',
                   createdAt: new Date().toISOString(),
                   lines: typedInput.items.map((item) => ({
                     sku: item.sku || 'SB-750',
                     qty: item.quantity,
-                    unit: item.unit || 'ud',
+                    unit: 'uds',
                     priceUnit: 0,
                   })),
-                  biller: 'SB',
                 } as OrderSellOut);
               }
               break;
@@ -296,3 +295,4 @@ export async function runSantaBrain(
 
   return { finalAnswer: llmResponse.text, newEntities };
 }
+

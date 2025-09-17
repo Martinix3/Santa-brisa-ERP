@@ -1,11 +1,12 @@
 
+
 "use client";
 
 import React, { useMemo, useState, useEffect } from 'react';
 import { useParams, useRouter, notFound } from 'next/navigation';
 import { useData } from '@/lib/dataprovider';
 import type { SantaData, Interaction as InteractionType, OrderSellOut, User as UserType, Distributor, InteractionKind, Account, AccountRef } from '@/domain/ssot';
-import { computeAccountKPIs, accountOwnerDisplay } from '@/lib/sb-core';
+import { computeAccountKPIs, accountOwnerDisplay, computeAccountMode } from '@/lib/sb-core';
 import { orderTotal } from '@/domain/ssot';
 import { ArrowUpRight, ArrowDownRight, Phone, Mail, MapPin, User, Factory, Boxes, Megaphone, Briefcase, Banknote, Calendar, FileText, ShoppingCart, Star, Building2, CreditCard, ChevronRight, ChevronLeft, MessageSquare, Sparkles, Tag, Clock } from "lucide-react";
 import Link from 'next/link';
@@ -152,11 +153,10 @@ export default function AccountDetailPageContent(){
              const newOrder: OrderSellOut = {
                 id: `ord_local_${Date.now()}`,
                 accountId: targetAccount.id,
-                userId: currentUser.id,
                 createdAt: new Date().toISOString(),
                 status: 'open',
                 currency: 'EUR',
-                lines: payload.items.map((item: any) => ({ ...item, priceUnit: 0, unit: 'ud' })),
+                lines: payload.items.map((item: any) => ({ ...item, priceUnit: 0, unit: 'uds' })),
                 notes: payload.note,
             };
             setData({ ...santaData, ordersSellOut: [...santaData.ordersSellOut, newOrder] });
@@ -190,7 +190,7 @@ export default function AccountDetailPageContent(){
       id: account.id,
       name: account.name,
       city: account.city,
-      accountType: account.type,
+      type: account.type,
       mainContactName: account.mainContactName,
       mainContactEmail: account.mainContactEmail,
       phone: account.phone,
@@ -319,7 +319,7 @@ export default function AccountDetailPageContent(){
                  const newAccount: Account = { 
                      id: `acc_local_${Date.now()}`,
                      name: d.name, city: d.city, stage: 'POTENCIAL',
-                     type: d.accountType || 'HORECA',
+                     type: d.type || 'HORECA',
                      ownerId: currentUser!.id, 
                      billerId: 'SB',
                      createdAt: new Date().toISOString()
@@ -334,3 +334,4 @@ export default function AccountDetailPageContent(){
     </div>
   );
 }
+

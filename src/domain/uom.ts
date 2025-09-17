@@ -3,7 +3,7 @@ import type { Uom, Product } from './ssot';
 
 /** Convierte una cantidad de una UoM a la unidad base del producto (botella). */
 export function toBaseUnits(qty: number, uom: Uom, product: Product): number {
-  if (uom === 'bottle' || uom === 'ud') return qty;
+  if (uom === 'bottle' || uom === 'uds') return qty;
 
   const caseUnits = product.caseUnits ?? 0;
   if (uom === 'case') return qty * caseUnits;

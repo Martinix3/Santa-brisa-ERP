@@ -1,3 +1,4 @@
+
 // src/ai/flows/schemas.ts
 import { z } from 'zod';
 
@@ -11,8 +12,8 @@ export const CreateOrderSchema = z.object({
   accountName: z.string().describe('The exact name of the customer account.'),
   items: z.array(z.object({
     sku: z.string().optional().describe("The SKU of the product. If not specified, it will default to Santa Brisa's main product."),
-    quantity: z.number().describe('The quantity of units or cases.'),
-    unit: z.enum(['ud', 'caja']).describe("The unit of measure ('ud' for units/bottles or 'caja' for cases)."),
+    quantity: z.number().describe('The quantity of units.'),
+    unit: z.literal('uds').describe("The unit of measure, which is always 'uds' (units/bottles)."),
   })).describe('A list of products and quantities for the order.'),
   notes: z.string().optional().describe('Additional notes for the order.'),
 });
@@ -34,3 +35,4 @@ export const UpsertAccountSchema = z.object({
     phone: z.string().optional().describe("The account's phone number."),
     notes: z.string().optional().describe("Qualitative notes or observations about the account."),
 });
+

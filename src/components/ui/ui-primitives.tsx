@@ -35,6 +35,7 @@ export const STATUS_STYLES: Record<OrderStatus | ShipmentStatus, { label: string
   confirmed: { label: 'Confirmado', color: 'text-blue-800', bg: 'bg-blue-100' },
   shipped: { label: 'Enviado', color: 'text-cyan-800', bg: 'bg-cyan-100' },
   invoiced: { label: 'Facturado', color: 'text-emerald-800', bg: 'bg-emerald-100' },
+  paid: { label: 'Pagado', color: 'text-green-800', bg: 'bg-green-100' },
   cancelled: { label: 'Cancelado', color: 'text-red-800', bg: 'bg-red-100' },
   lost: { label: 'Perdido', color: 'text-neutral-600', bg: 'bg-neutral-200' },
   // Shipment Status
@@ -206,3 +207,4 @@ export function DataTableSB<T extends { id:string }>({ rows, cols }:{ rows:T[]; 
 
 export { Card as SBCard };
 export { Button as SBButton };
+

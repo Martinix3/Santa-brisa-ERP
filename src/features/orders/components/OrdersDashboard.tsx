@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useMemo, useState } from 'react';
@@ -43,7 +44,8 @@ function StatusPill({ status }: { status: OrderStatus }) {
         open: { label: 'Borrador', className: 'bg-zinc-100 text-zinc-700' },
         confirmed: { label: 'Confirmado', className: 'bg-blue-100 text-blue-700' },
         shipped: { label: 'Enviado', className: 'bg-cyan-100 text-cyan-700' },
-        invoiced: { label: 'Facturado', className: 'bg-green-100 text-green-700' },
+        invoiced: { label: 'Facturado', className: 'bg-emerald-100 text-emerald-700' },
+        paid: { label: 'Pagado', className: 'bg-green-100 text-green-700' },
         cancelled: { label: 'Cancelado', className: 'bg-red-100 text-red-700' },
         lost: { label: 'Perdido', className: 'bg-neutral-200 text-neutral-600' },
     };
@@ -64,17 +66,18 @@ export default function OrdersDashboard() {
 
   const { ordersSellOut, accounts, users } = data || { ordersSellOut: [], accounts: [], users: [] };
   
-  const accountMap = useMemo(() => new Map(accounts.map((acc: Account) => [acc.id, acc.name])), [accounts]);
+  const accountMap = useMemo(() => new Map(accounts.map((acc: Account) => [acc.id, acc])), [accounts]);
   const userMap = useMemo(() => new Map(users.map((user: User) => [user.id, user.name])), [users]);
 
   const filteredOrders = useMemo(() => {
     return (ordersSellOut as OrderSellOut[])
       .filter((order) => {
         if (!order) return false;
+        const account = accountMap.get(order.accountId);
         const matchesSearch =
           !searchTerm ||
           order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          accountMap.get(order.accountId)?.toLowerCase().includes(searchTerm.toLowerCase());
+          account?.name.toLowerCase().includes(searchTerm.toLowerCase());
         
         const matchesStatus = !statusFilter || order.status === statusFilter;
 
@@ -117,6 +120,7 @@ export default function OrdersDashboard() {
                     { value: 'confirmed', label: 'Confirmado' },
                     { value: 'shipped', label: 'Enviado' },
                     { value: 'invoiced', label: 'Facturado' },
+                    { value: 'paid', label: 'Pagado' },
                     { value: 'cancelled', label: 'Cancelado' },
                 ]}
             />
@@ -134,24 +138,28 @@ export default function OrdersDashboard() {
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
-              {filteredOrders.map((order) => (
-                <tr key={order.id} className="hover:bg-zinc-50">
-                  <td className="p-3 font-mono text-xs font-medium text-zinc-800">{order.id}</td>
-                  <td className="p-3">
-                    <Link href={`/accounts/${order.accountId}`} className="hover:underline">
-                      {accountMap.get(order.accountId) || 'N/A'}
-                    </Link>
-                  </td>
-                  <td className="p-3">{userMap.get(order.userId || '') || 'N/A'}</td>
-                  <td className="p-3">{new Date(order.createdAt).toLocaleDateString('es-ES')}</td>
-                  <td className="p-3 text-right font-semibold">
-                    {orderTotal(order).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
-                  </td>
-                  <td className="p-3">
-                    <StatusPill status={order.status} />
-                  </td>
-                </tr>
-              ))}
+              {filteredOrders.map((order) => {
+                const account = accountMap.get(order.accountId);
+                const owner = account ? userMap.get(account.ownerId) : 'N/A';
+                return (
+                  <tr key={order.id} className="hover:bg-zinc-50">
+                    <td className="p-3 font-mono text-xs font-medium text-zinc-800">{order.id}</td>
+                    <td className="p-3">
+                      <Link href={`/accounts/${order.accountId}`} className="hover:underline">
+                        {account?.name || 'N/A'}
+                      </Link>
+                    </td>
+                    <td className="p-3">{owner}</td>
+                    <td className="p-3">{new Date(order.createdAt).toLocaleDateString('es-ES')}</td>
+                    <td className="p-3 text-right font-semibold">
+                      {orderTotal(order).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
+                    </td>
+                    <td className="p-3">
+                      <StatusPill status={order.status} />
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
           {filteredOrders.length === 0 && (

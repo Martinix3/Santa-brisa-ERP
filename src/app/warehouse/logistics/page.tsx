@@ -250,19 +250,24 @@ export default function LogisticsPage() {
       accounts: santaData?.accounts || [],
   }), [santaData]);
 
-  const orderMap = useMemo(() => new Map(orders.map(o => [o.id, o])), [orders]);
+  const orderMap = useMemo(() => {
+    const map = new Map<string, OrderSellOut>();
+    orders.forEach(o => map.set(o.id, o));
+    return map;
+  }, [orders]);
+  
   const accountMap = useMemo(() => new Map(accounts.map(a => [a.id, a])), [accounts]);
 
   const filtered = useMemo(() => shipments.filter(s => {
-    const order = orderMap.get(s.orderId);
-    const account = order ? accountMap.get(order.accountId) : undefined;
+    const order = orders.find(o => o.id === s.orderId);
+    const account = order ? accounts.find(a => a.id === order.accountId) : undefined;
 
     const st = (status === "all" || s.status === status);
     const ch = (channel === "all" || account?.type.toLowerCase() === channel);
     const query = (q.trim() === "" || s.id.includes(q) || (account?.name || "").toLowerCase().includes(q.toLowerCase()));
     
     return st && ch && query;
-  }), [shipments, status, channel, q, orderMap, accountMap]);
+  }), [shipments, status, channel, q, orders, accounts]);
 
   const kpis = useMemo(() => ({
     pending: shipments.filter(r => ["pending", "picking"].includes(r.status || '')).length,
@@ -297,7 +302,7 @@ export default function LogisticsPage() {
   const generateDeliveryNote = (row: Shipment) => {
      if (!canGenerateDeliveryNote(row)) { alert("Primero marca Visual OK en Validar."); return; }
      if(!santaData) return;
-     const order = orderMap.get(row.orderId);
+     const order = orders.find(o => o.id === row.orderId);
      if(!order) return;
 
      const updatedOrders = santaData.ordersSellOut.map(o => o.id === order.id ? { ...o, invoiceId: o.invoiceId || `ALB-${Math.floor(Math.random()*90000+10000)}` } : o);
@@ -306,7 +311,7 @@ export default function LogisticsPage() {
   };
 
   const generateLabel = (row: Shipment) => {
-    const order = orderMap.get(row.orderId);
+    const order = orders.find(o => o.id === row.orderId);
     if (!order || !canGenerateLabel(row, order)) { alert("Para la etiqueta necesitas: Albarán + Servicio + Peso y Dimensiones."); return; }
     if(!santaData) return;
     const updatedShipments: Shipment[] = santaData.shipments.map(r => r.id === row.id ? { ...r, labelUrl: "https://label.example/mock.pdf", tracking: `SC-TRACK-9988` } : r);
@@ -321,7 +326,7 @@ export default function LogisticsPage() {
 
   type RowAction = { id: string; label: string; icon: React.ReactNode; onClick: () => void; available: boolean; pendingReason?: string };
   const buildRowActions = (row: Shipment): RowAction[] => {
-    const order = orderMap.get(row.orderId);
+    const order = orders.find(o => o.id === row.orderId);
     if(!order) return [];
     const actions: RowAction[] = [
       { id: "sheet", label: "Imprimir hoja de pedido", icon: <Printer className="w-4 h-4"/>, onClick: () => alert(`Imprimiendo hoja para ${row.id}`), available: true },
@@ -488,3 +493,4 @@ export default function LogisticsPage() {
     </div>
   );
 }
+

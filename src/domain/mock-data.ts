@@ -1,6 +1,7 @@
 
+
 // src/domain/mock-data.ts
-import type { SantaData, BillOfMaterial, GoodsReceipt, Shipment, ShipmentLine } from './ssot';
+import type { SantaData, BillOfMaterial, GoodsReceipt, Shipment, ShipmentLine, OrderSellOut } from './ssot';
 import { isoDaysAgo } from './ssot';
 
 // --- Users & Accounts (Proveedores, Clientes, Distribuidores) ---
@@ -45,17 +46,17 @@ export const PRODUCTS: SantaData['products'] = [
   { id:'p_santabrisa', sku:'SB-750', name:'Santa Brisa 750ml', kind: 'FG', uom: 'bottle', bottleMl: 750, caseUnits: 6, active:true, materialId: 'mat_sb_750' },
   { id:'p_marg_classic', sku:'SB-MARG-CL-700', name:'Margarita Clásica 700ml', kind: 'FG', uom: 'bottle', bottleMl: 700, caseUnits: 6, active:true, materialId: 'mat_marg_cl' },
   { id:'p_marg_spicy', sku:'SB-MARG-SP-700', name:'Margarita Picante 700ml', kind: 'FG', uom: 'bottle', bottleMl: 700, caseUnits: 6, active:true, materialId: 'mat_marg_sp' },
-  { id:'p_merch_vasos', sku:'MERCH-VAS', name:'Vasos Merchandising', kind: 'MERCH', uom: 'ud', active: true, materialId: 'mat_merch_vas' },
+  { id:'p_merch_vasos', sku:'MERCH-VAS', name:'Vasos Merchandising', kind: 'MERCH', uom: 'uds', active: true, materialId: 'mat_merch_vas' },
 ];
 
 export const MATERIALS: SantaData['materials'] = [
   { id: 'mat_teq_base', sku: 'MP-TEQ-BASE', name: 'Tequila base', category: 'raw', unit: 'L', standardCost: 20 },
   { id: 'mat_lime_conc', sku: 'MP-LIME-CONC', name: 'Concentrado lima', category: 'raw', unit: 'L', standardCost: 5 },
   { id: 'mat_agave_syr', sku: 'MP-AGAVE-SYR', name: 'Sirope de agave (cocktail)', category: 'raw', unit: 'L', standardCost: 8 },
-  { id: 'mat_sb_750', sku: 'SB-750', name: 'Santa Brisa 750ml', category: 'finished_good', unit: 'ud', standardCost: 8.5 },
-  { id: 'mat_marg_cl', sku: 'SB-MARG-CL-700', name: 'Margarita Clásica 700ml', category: 'finished_good', unit: 'ud', standardCost: 9.2 },
-  { id: 'mat_marg_sp', sku: 'SB-MARG-SP-700', name: 'Margarita Picante 700ml', category: 'finished_good', unit: 'ud', standardCost: 9.5 },
-  { id: 'mat_merch_vas', sku: 'MERCH-VAS', name: 'Vasos Merchandising', category: 'merchandising', unit: 'ud', standardCost: 1.5 },
+  { id: 'mat_sb_750', sku: 'SB-750', name: 'Santa Brisa 750ml', category: 'finished_good', unit: 'uds', standardCost: 8.5 },
+  { id: 'mat_marg_cl', sku: 'SB-MARG-CL-700', name: 'Margarita Clásica 700ml', category: 'finished_good', unit: 'uds', standardCost: 9.2 },
+  { id: 'mat_marg_sp', sku: 'SB-MARG-SP-700', name: 'Margarita Picante 700ml', category: 'finished_good', unit: 'uds', standardCost: 9.5 },
+  { id: 'mat_merch_vas', sku: 'MERCH-VAS', name: 'Vasos Merchandising', category: 'merchandising', unit: 'uds', standardCost: 1.5 },
 ];
 
 export const BOMS: BillOfMaterial[] = [
@@ -73,16 +74,16 @@ export const BOMS: BillOfMaterial[] = [
 ];
 
 // --- Ventas ---
-export const ORDERS_SELL_OUT: SantaData['ordersSellOut'] = [
-  { id:'ORD-SB-240901-001', accountId:'acc_1', userId: 'u_ana', status:'confirmed', currency:'EUR', createdAt: isoDaysAgo(15), lines:[{ sku:'SB-750', qty:5, unit:'caja', priceUnit:90 }] },
-  { id:'ORD-SB-240910-002', accountId:'acc_6', userId: 'u_ana', status:'shipped', currency:'EUR', createdAt: isoDaysAgo(6), lines:[{ sku:'SB-750', qty:20, unit:'caja', priceUnit:88 }] },
-  { id:'ORD-SB-240912-003', accountId:'acc_10', userId: 'u_patxi', status:'confirmed', currency:'EUR', createdAt: isoDaysAgo(4), lines:[{ sku:'SB-MARG-CL-700', qty:3, unit:'caja', priceUnit:95 }] },
-  { id:'ORD-SB-240914-004', accountId:'acc_5', userId: 'u_nico', status:'open', currency:'EUR', createdAt: isoDaysAgo(2), lines:[{ sku:'SB-750', qty:8, unit:'caja', priceUnit:92 }] },
+export const ORDERS_SELL_OUT: OrderSellOut[] = [
+  { id:'ORD-SB-240901-001', accountId:'acc_1', status:'confirmed', currency:'EUR', createdAt: isoDaysAgo(15), lines:[{ sku:'SB-750', qty:5, unit:'uds', priceUnit:90 }] },
+  { id:'ORD-SB-240910-002', accountId:'acc_6', status:'shipped', currency:'EUR', createdAt: isoDaysAgo(6), lines:[{ sku:'SB-750', qty:20, unit:'uds', priceUnit:88 }] },
+  { id:'ORD-SB-240912-003', accountId:'acc_10', status:'confirmed', currency:'EUR', createdAt: isoDaysAgo(4), lines:[{ sku:'SB-MARG-CL-700', qty:3, unit:'uds', priceUnit:95 }] },
+  { id:'ORD-SB-240914-004', accountId:'acc_5', status:'open', currency:'EUR', createdAt: isoDaysAgo(2), lines:[{ sku:'SB-750', qty:8, unit:'uds', priceUnit:92 }] },
   // Colocación
-  { id:'ORD-DST-240820-001', accountId:'acc_3', userId: 'u_alfonso', status:'confirmed', currency:'EUR', createdAt: isoDaysAgo(26), lines:[{ sku:'SB-750', qty:10, unit:'caja', priceUnit:85 }] },
-  { id:'ORD-DST-240825-002', accountId:'acc_4', userId: 'u_patxi', status:'shipped', currency:'EUR', createdAt: isoDaysAgo(21), lines:[{ sku:'SB-MARG-CL-700', qty:15, unit:'caja', priceUnit:90 }] },
-  { id:'ORD-DST-240905-003', accountId:'acc_7', userId: 'u_marcos', status:'confirmed', currency:'EUR', createdAt: isoDaysAgo(11), lines:[{ sku:'SB-750', qty:25, unit:'caja', priceUnit:84 }] },
-  { id:'ORD-DST-240913-004', accountId:'acc_3', userId: 'u_alfonso', status:'open', currency:'EUR', createdAt: isoDaysAgo(3), lines:[{ sku:'SB-MARG-SP-700', qty:5, unit:'caja', priceUnit:98 }] },
+  { id:'ORD-DST-240820-001', accountId:'acc_3', status:'confirmed', currency:'EUR', createdAt: isoDaysAgo(26), lines:[{ sku:'SB-750', qty:10, unit:'uds', priceUnit:85 }] },
+  { id:'ORD-DST-240825-002', accountId:'acc_4', status:'shipped', currency:'EUR', createdAt: isoDaysAgo(21), lines:[{ sku:'SB-MARG-CL-700', qty:15, unit:'uds', priceUnit:90 }] },
+  { id:'ORD-DST-240905-003', accountId:'acc_7', status:'confirmed', currency:'EUR', createdAt: isoDaysAgo(11), lines:[{ sku:'SB-750', qty:25, unit:'uds', priceUnit:84 }] },
+  { id:'ORD-DST-240913-004', accountId:'acc_3', status:'open', currency:'EUR', createdAt: isoDaysAgo(3), lines:[{ sku:'SB-MARG-SP-700', qty:5, unit:'uds', priceUnit:98 }] },
 ];
 
 export const INTERACTIONS: SantaData['interactions'] = [
@@ -128,12 +129,12 @@ export const INVENTORY: SantaData['inventory'] = [
   // RMs
   ...LOTS.filter(l => l.kind === 'RM').map(l => ({ id: `inv_${l.id}`, sku: l.sku, lotNumber: l.id, uom: 'L' as const, qty: l.quantity || 0, locationId: 'RM/MAIN', updatedAt: l.updatedAt || '', expDate: (l as any).expDate })),
   // FGs
-  ...LOTS.filter(l => l.kind === 'FG').map(l => ({ id: `inv_${l.id}`, sku: l.sku, lotNumber: l.id, uom: 'ud' as const, qty: l.quantity || 0, locationId: 'FG/MAIN', updatedAt: l.updatedAt || '', expDate: (l as any).expDate })),
+  ...LOTS.filter(l => l.kind === 'FG').map(l => ({ id: `inv_${l.id}`, sku: l.sku, lotNumber: l.id, uom: 'uds' as const, qty: l.quantity || 0, locationId: 'FG/MAIN', updatedAt: l.updatedAt || '', expDate: (l as any).expDate })),
 ];
 
 // --- Shipments (enlazados a orders y lotes correctos por SKU) ---
 const mkShipmentLines = (sku:string, lotNumber:string, cajas:number, name:string): ShipmentLine[] => [
-  { sku, lotNumber, qty: cajas, unit: 'caja', name },
+  { sku, lotNumber, qty: cajas, unit: 'uds', name },
 ];
 
 export const SHIPMENTS: Shipment[] = [
@@ -232,3 +233,4 @@ if (typeof window !== 'undefined') {
   // @ts-ignore
   (window as any).__SB_DATA = mockSantaData;
 }
+

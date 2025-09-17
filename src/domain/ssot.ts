@@ -2,11 +2,11 @@
 // src/domain/ssot.ts
 
 // ---- Primitivas / enums
-export type Uom = 'bottle' | 'case' | 'pallet' | 'ud' | 'kg' | 'g' | 'L' | 'mL';
+export type Uom = 'bottle' | 'case' | 'pallet' | 'uds' | 'kg' | 'g' | 'L' | 'mL';
 export type Stage = 'POTENCIAL' | 'ACTIVA' | 'SEGUIMIENTO' | 'FALLIDA' | 'CERRADA' | 'BAJA';
 export type Department = 'VENTAS' | 'MARKETING' | 'PRODUCCION' | 'ALMACEN' | 'FINANZAS';
 export type InteractionKind = 'VISITA' | 'LLAMADA' | 'EMAIL' | 'WHATSAPP' | 'OTRO';
-export type OrderStatus = 'open' | 'confirmed' | 'shipped' | 'invoiced' | 'cancelled' | 'lost';
+export type OrderStatus = 'open' | 'confirmed' | 'shipped' | 'invoiced' | 'paid' | 'cancelled' | 'lost';
 export type AccountType = 'HORECA' | 'RETAIL' | 'PRIVADA' | 'DISTRIBUIDOR' | 'IMPORTADOR' | 'PROVEEDOR' | 'ONLINE' | 'OTRO';
 
 // ---- Cuentas / partners / usuarios
@@ -16,7 +16,7 @@ export interface User {
   name: string; 
   email?: string; 
   role: UserRole;
-  active: boolean; _
+  active: boolean; 
   managerId?: string;
   kpiBaseline?: {
     revenue?: number;
@@ -31,9 +31,8 @@ export interface Account {
   city?: string;
   type: AccountType;
   stage: Stage;
-  // Nuevos campos para reemplazar 'mode'
-  ownerId: string; // Puede ser un userId ('u_...') o un partnerId ('d_...')
-  billerId: string; // Puede ser 'SB' o un partnerId ('d_...')
+  ownerId: string;
+  billerId: string; 
   
   address?: string;
   phone?: string;
@@ -54,7 +53,7 @@ export interface Account {
   billingEmail?: string;
   updatedAt?: string;
 }
-export type AccountRef = { id:string; name:string; city?:string; accountType?:AccountType };
+export type AccountRef = { id:string; name:string; city?:string; type?:AccountType };
 
 
 export interface Distributor { id: string; name: string; city?: string; cif?: string; country?: string; }
@@ -131,7 +130,7 @@ export interface StockMove {
 export interface OrderLine { 
   sku: string; 
   qty: number; 
-  unit: 'ud' | 'caja' | 'palet';
+  unit: 'uds';
   priceUnit: number;
   discount?: number;
   lotIds?: string[];
@@ -143,13 +142,11 @@ export interface OrderSellOut {
   source?: 'SHOPIFY' | 'B2B' | 'Direct' | 'CRM' | 'MANUAL';
   lines: OrderLine[]; 
   createdAt: string;
-  userId?: string;
   status: OrderStatus;
   currency: 'EUR';
   closedAt?: string;
   notes?: string;
   totalAmount?: number;
-  biller?: 'SB' | 'PARTNER';
   paymentMethod?: string;
   paymentTermDays?: number;
   invoiceId?: string;
@@ -168,7 +165,7 @@ export interface Interaction {
 }
 
 
-export interface ShipmentLine { sku: string; qty: number; lotNumber?: string; unit: 'caja' | 'ud' | 'palet'; name: string; }
+export interface ShipmentLine { sku: string; qty: number; lotNumber?: string; unit: 'uds'; name: string; }
 export type ShipmentStatus = 'pending' | 'picking' | 'ready_to_ship' | 'shipped' | 'delivered' | 'cancelled';
 
 export interface Shipment {
@@ -446,3 +443,4 @@ export const SB_COLORS = {
   agua: "#A7D8D9",
   verde_mar: "#618E8F",
 };
+

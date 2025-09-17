@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
@@ -104,3 +105,4 @@ export function Chat({ userId, context, onNewData, runner }: ChatProps) {
         </div>
     );
 }
+

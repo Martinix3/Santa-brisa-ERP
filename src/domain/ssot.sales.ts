@@ -2,14 +2,14 @@
 // domain/ssot.sales.ts - Canónico de Ventas
 import type { Currency } from './ssot.core';
 
-export type OrderStatus = 'open' | 'confirmed' | 'shipped' | 'invoiced' | 'cancelled' | 'lost';
+export type OrderStatus = 'open' | 'confirmed' | 'shipped' | 'invoiced' | 'paid' | 'cancelled' | 'lost';
 export type InteractionKind = 'VISITA' | 'LLAMADA' | 'EMAIL' | 'WHATSAPP' | 'OTRO';
 export type Department = 'PRODUCCION' | 'ALMACEN' | 'MARKETING' | 'VENTAS' | 'FINANZAS';
 
 export interface OrderLine {
   sku: string;
   qty: number;
-  unit: 'ud' | 'caja' | 'palet';
+  unit: 'uds';
   priceUnit: number;
   discount?: number;
   lotIds?: string[];
@@ -18,7 +18,6 @@ export interface OrderLine {
 export interface OrderSellOut {
   id: string;
   accountId: string;
-  userId?: string;
   status: OrderStatus;
   currency: Currency;
   createdAt: string;
@@ -27,7 +26,6 @@ export interface OrderSellOut {
   notes?: string;
   totalAmount?: number;
   source?: 'CRM' | 'SHOPIFY' | 'HOLDED' | 'MANUAL';
-  biller?: 'SB' | 'PARTNER';
   paymentMethod?: string;
   paymentTermDays?: number;
   invoiceId?: string;
@@ -45,3 +43,4 @@ export interface Interaction {
   sentiment?: 'pos' | 'neu' | 'neg';
   dept?: Department;
 }
+

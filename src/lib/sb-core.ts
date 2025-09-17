@@ -64,7 +64,7 @@ function lineToBottles(line: OrderLine, product: Product | undefined, opts: Bott
   if (!isBottleSku) return opts.countNonBottleSkusAsZero === false ? line.qty : 0;
 
   switch (line.unit) {
-    case 'ud':   return line.qty;
+    case 'uds':   return line.qty;
     case 'caja': return (product.caseUnits ?? 0) * line.qty;
     case 'palet': {
       const cpp = typeof opts.casesPerPallet === 'number'

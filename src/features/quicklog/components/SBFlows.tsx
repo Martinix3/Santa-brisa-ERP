@@ -1,4 +1,5 @@
 
+
 "use client";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -36,7 +37,7 @@ type EditAccountPayload = {
   id:string;
   name:string;
   city:string;
-  accountType:AccountType;
+  type:AccountType;
   mainContactName?:string;
   mainContactEmail?:string;
   phone?:string;
@@ -44,9 +45,9 @@ type EditAccountPayload = {
   billingEmail?:string;
 };
 
-type CreateAccountPayload = { name:string; city:string; accountType:AccountType; mainContactName?:string; mainContactEmail?:string };
+type CreateAccountPayload = { name:string; city:string; type:AccountType; mainContactName?:string; mainContactEmail?:string };
 
-type CreateOrderPayload = { account:string; requestedDate?:string; deliveryDate?:string; channel:AccountType; paymentTerms?:string; shipTo?:string; note?:string; items:{ sku:string; qty:number; unit:"ud"|"caja", priceUnit: number, lotNumber?: string }[] };
+type CreateOrderPayload = { account:string; requestedDate?:string; deliveryDate?:string; channel:AccountType; paymentTerms?:string; shipTo?:string; note?:string; items:{ sku:string; qty:number; unit:"uds", priceUnit: number, lotNumber?: string }[] };
 
 // ===== UI Primitives =====
 function Row({children, className}:{children:React.ReactNode, className?: string}){ return <div className={`flex flex-col gap-1 ${className || ''}`}>{children}</div>; }
@@ -81,7 +82,7 @@ function AccountPicker({
   onChange:(v:string)=>void;
   accounts?: AccountRef[];
   onSearchAccounts?: (q:string)=>Promise<AccountRef[]>;
-  onCreateAccount?: (data:{name:string; city?:string; accountType?:AccountType})=>Promise<AccountRef>;
+  onCreateAccount?: (data:{name:string; city?:string; type?:AccountType})=>Promise<AccountRef>;
   allowDefer?: boolean;
   placeholder?: string;
 }){
@@ -117,8 +118,8 @@ function AccountPicker({
 
   async function createInline(){
     const name = newName || q.trim(); if(!name) return alert("Pon un nombre");
-    let created: AccountRef = { id: "ACC_"+Math.random().toString(36).slice(2,9), name, city:newCity, accountType:newType };
-    if(onCreateAccount){ created = await onCreateAccount({name, city:newCity, accountType:newType}); }
+    let created: AccountRef = { id: "ACC_"+Math.random().toString(36).slice(2,9), name, city:newCity, type:newType };
+    if(onCreateAccount){ created = await onCreateAccount({name, city:newCity, type:newType}); }
     setMode("search"); setQ(created.name); onChange(created.name); setOpen(false);
   }
 
@@ -146,7 +147,7 @@ function AccountPicker({
                         <Check className="h-4 w-4 text-emerald-600 hidden"/>
                         <div className="flex-1">
                           <div className="font-medium text-zinc-800">{a.name}</div>
-                          <div className="text-[11px] text-zinc-500 flex items-center gap-1"><MapPin className="h-3 w-3"/>{a.city||"—"}· {a.accountType||""}</div>
+                          <div className="text-[11px] text-zinc-500 flex items-center gap-1"><MapPin className="h-3 w-3"/>{a.city||"—"}· {a.type||""}</div>
                         </div>
                       </li>
                     ))}
@@ -201,7 +202,7 @@ function AccountPicker({
 function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, onCancel}:{
   accounts: AccountRef[];
   onSearchAccounts:(q:string)=>Promise<AccountRef[]>;
-  onCreateAccount:(d:{name:string;city?:string;accountType?:AccountType})=>Promise<AccountRef>;
+  onCreateAccount:(d:{name:string;city?:string;type?:AccountType})=>Promise<AccountRef>;
   onSubmit:(p: QuickOrderPayload | QuickInteractionPayload)=>void;
   onCancel:()=>void;
 }){
@@ -309,7 +310,7 @@ function EditAccountForm({defaults, onSubmit, onCancel}:{
       <Row><Label>Dirección</Label><Input value={form.address||""} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>set("address", e.target.value)} placeholder="Calle, número, piso..."/></Row>
       <div className="grid grid-cols-2 gap-3">
         <Row><Label>Tipo</Label>
-          <Select value={form.accountType} onChange={(e: React.ChangeEvent<HTMLSelectElement>)=>set("accountType", e.target.value as AccountType)}>
+          <Select value={form.type} onChange={(e: React.ChangeEvent<HTMLSelectElement>)=>set("type", e.target.value as AccountType)}>
             <option>HORECA</option><option>RETAIL</option><option>DISTRIBUIDOR</option><option>IMPORTADOR</option><option>ONLINE</option><option>OTRO</option>
           </Select>
         </Row>
@@ -334,7 +335,7 @@ function EditAccountForm({defaults, onSubmit, onCancel}:{
 
 // ===== Create Account (full) =====
 function CreateAccountForm({onSubmit, onCancel}:{ onSubmit:(p:CreateAccountPayload)=>void; onCancel:()=>void; }){
-  const [form, setForm] = useState<CreateAccountPayload>({ name:"", city:"", accountType:"HORECA", mainContactName:"", mainContactEmail:"" });
+  const [form, setForm] = useState<CreateAccountPayload>({ name:"", city:"", type:"HORECA", mainContactName:"", mainContactEmail:"" });
   function set<K extends keyof CreateAccountPayload>(k:K, v:CreateAccountPayload[K]){ setForm(f=>({...f,[k]:v})); }
   function submit(){ if(!form.name) return alert("Falta el nombre"); if(!form.city) return alert("Falta la ciudad"); onSubmit(form); }
   return (
@@ -345,7 +346,7 @@ function CreateAccountForm({onSubmit, onCancel}:{ onSubmit:(p:CreateAccountPaylo
       </div>
       <div className="grid grid-cols-2 gap-3">
         <Row><Label>Tipo</Label>
-          <Select value={form.accountType} onChange={(e: React.ChangeEvent<HTMLSelectElement>)=>set("accountType", e.target.value as AccountType)}>
+          <Select value={form.type} onChange={(e: React.ChangeEvent<HTMLSelectElement>)=>set("type", e.target.value as AccountType)}>
             <option>HORECA</option><option>RETAIL</option><option>DISTRIBUIDOR</option><option>IMPORTADOR</option><option>ONLINE</option><option>OTRO</option>
           </Select>
         </Row>
@@ -365,7 +366,7 @@ function CreateAccountForm({onSubmit, onCancel}:{ onSubmit:(p:CreateAccountPaylo
 function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, onSubmit, onCancel, defaults}: {
   accounts: AccountRef[];
   onSearchAccounts:(q:string)=>Promise<AccountRef[]>;
-  onCreateAccount:(d:{name:string;city?:string;accountType?:AccountType})=>Promise<AccountRef>;
+  onCreateAccount:(d:{name:string;city?:string;type?:AccountType})=>Promise<AccountRef>;
   onSubmit:(p:CreateOrderPayload)=>void;
   onCancel:()=>void;
   defaults?: any;
@@ -378,12 +379,12 @@ function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, onSubmit,
   const [channel, setChannel] = useState<CreateOrderPayload["channel"]>("HORECA");
   const [paymentTerms, setTerms] = useState("Contado");
   const [shipTo, setShipTo] = useState("");
-  const [items, setItems] = useState<CreateOrderPayload["items"]>(defaults?.items || [{sku:"SB-750", qty:1, unit:"ud", priceUnit: 12, lotNumber: ''}]);
+  const [items, setItems] = useState<CreateOrderPayload["items"]>(defaults?.items || [{sku:"SB-750", qty:1, unit:"uds", priceUnit: 12, lotNumber: ''}]);
   
   const availableInventory = useMemo(() => (santaData?.inventory || []).filter(i => i.locationId && i.locationId.startsWith('FG/')), [santaData]);
   const priceList = useMemo(() => (santaData as any)?.priceLists.find((pl: any) => pl.id === 'pl_prop'), [santaData]);
 
-  function addLine(){ setItems(v=>[...v,{sku:"", qty:1, unit:"ud", priceUnit: 0}]); }
+  function addLine(){ setItems(v=>[...v,{sku:"", qty:1, unit:"uds", priceUnit: 0}]); }
   function setLine(i:number, patch:Partial<CreateOrderPayload["items"][number]>){
     const newItems = items.map((it,idx)=> idx===i? {...it,...patch}: it);
     if(patch.sku && priceList) {
@@ -422,7 +423,7 @@ function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, onSubmit,
         {items.map((it,i)=> {
             const lotsForSku = availableInventory.filter(inv => inv.sku === it.sku);
             return (
-              <div key={i} className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_40px] gap-2 items-center px-3 py-2 border-b last:border-b-0">
+              <div key={i} className="grid grid-cols-[2fr_1fr_1fr_0.5fr_1fr_1fr_40px] gap-2 items-center px-3 py-2 border-b last:border-b-0">
                 <Select value={it.sku} onChange={e => setLine(i, { sku: e.target.value })}>
                     <option value="">Seleccionar producto...</option>
                     {santaData?.products.filter(p=>p.kind === 'FG').map(p => (
@@ -439,7 +440,7 @@ function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, onSubmit,
                 </Select>
                 <Input type="number" min={1} value={it.qty} onChange={e=>setLine(i,{qty: Number(e.target.value)})}/>
                 <Select value={it.unit} onChange={e=>setLine(i,{unit:e.target.value as any})}>
-                  <option value="ud">ud</option><option value="caja">caja</option>
+                  <option value="uds">uds</option>
                 </Select>
                 <Input type="number" value={it.priceUnit} onChange={e=>setLine(i, {priceUnit: Number(e.target.value)})} placeholder="Precio Unit."/>
                 <div className="text-right font-medium pr-2">{(it.qty * it.priceUnit).toFixed(2)}€</div>
@@ -498,7 +499,7 @@ export function SBFlowModal({
   onClose:()=>void;
   accounts: AccountRef[];
   onSearchAccounts:(q:string)=>Promise<AccountRef[]>;
-  onCreateAccount:(d:{name:string;city?:string;accountType?:AccountType})=>Promise<AccountRef>;
+  onCreateAccount:(d:{name:string;city?:string;type?:AccountType})=>Promise<AccountRef>;
   defaults?: any;
   onSubmit:(payload:any)=>void; // (en real tipa por variante)
 }){
@@ -531,3 +532,4 @@ export function SBFlowModal({
     </BaseModal>
   );
 }
+
