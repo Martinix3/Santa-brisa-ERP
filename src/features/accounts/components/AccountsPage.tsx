@@ -97,6 +97,8 @@ function AccountBar({ a, santaData }:{ a: AccountType, santaData: SantaData }){
       WHATSAPP: MessageSquare,
   };
 
+  const distributor = santaData.distributors.find(d => d.id === a.billerId);
+
   return (
     <div className="overflow-hidden transition-all duration-200 hover:bg-black/5 rounded-lg border border-zinc-200/50">
       <div className="w-full grid grid-cols-[1.6fr_1.2fr_1fr_1.2fr_auto] items-center gap-3 px-4 py-1.5 cursor-pointer" onClick={()=>setOpen(v=>!v)}>
@@ -109,7 +111,7 @@ function AccountBar({ a, santaData }:{ a: AccountType, santaData: SantaData }){
         </div>
         <div className="flex items-center gap-2 min-w-0"><Avatar name={owner}/><span className="text-sm text-zinc-700 truncate">{owner}</span></div>
         <div className="text-sm text-zinc-700 truncate">{a.city||'—'}</div>
-        <div className="text-sm text-zinc-700 truncate">{a.distributorId? santaData.distributors.find((d: Distributor)=>d.id===a.distributorId)?.name : 'Propia'}</div>
+        <div className="text-sm text-zinc-700 truncate">{distributor?.name || 'Propia'}</div>
         <div className="text-right" onClick={(e) => { e.stopPropagation(); /* onAddActivityClick(); */ }}>
           <button className="p-1.5 rounded-md border border-zinc-200 bg-white/50 text-zinc-700 inline-flex items-center transition-all hover:bg-white/90 hover:border-zinc-300 hover:scale-105" title="Nueva actividad">
             <Plus className="h-3.5 w-3.5"/>
@@ -205,7 +207,7 @@ export function AccountsPageContent() {
     data.forEach(a => {
       if (a.ownerId) reps.add(a.ownerId);
       if (a.city) cities.add(a.city);
-      if (a.distributorId) dists.add(a.distributorId);
+      if (a.billerId && a.billerId !== 'SB') dists.add(a.billerId);
     });
     const userMap = santaData.users.reduce((acc, u) => ({ ...acc, [u.id]: u.name }), {} as Record<string, string>);
     const distMap = santaData.distributors.reduce((acc, d) => ({ ...acc, [d.id]: d.name }), {} as Record<string, string>);
@@ -222,13 +224,13 @@ export function AccountsPageContent() {
     const s = q.trim().toLowerCase();
     return data.filter(a => {
       const owner = accountOwnerDisplay(a, santaData.users, santaData.distributors);
-      const dist = santaData.distributors.find(d => d.id === a.distributorId);
-      const distName = dist?.name || (a.distributorId ? '' : 'Propia');
+      const dist = santaData.distributors.find(d => d.id === a.billerId);
+      const distName = dist?.name || (a.billerId === 'SB' ? 'Propia' : '');
       
       const matchesQuery = !s || [a.name,a.city,a.type,a.stage, owner, distName].some(v=> (v||'').toString().toLowerCase().includes(s));
       const matchesRep = !fltRep || a.ownerId === fltRep;
       const matchesCity = !fltCity || a.city === fltCity;
-      const matchesDist = !fltDist || a.distributorId === fltDist;
+      const matchesDist = !fltDist || a.billerId === fltDist;
 
       return matchesQuery && matchesRep && matchesCity && matchesDist;
     });

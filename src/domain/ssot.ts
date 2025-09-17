@@ -34,8 +34,7 @@ export interface Account {
   // Nuevos campos para reemplazar 'mode'
   ownerId: string; // Puede ser un userId ('u_...') o un partnerId ('d_...')
   billerId: string; // Puede ser 'SB' o un partnerId ('d_...')
-
-  distributorId?: string; // Mantenido por compatibilidad y acceso rápido
+  
   salesRepId?: string; // Mantenido por compatibilidad y acceso rápido
 
   address?: string;
@@ -147,7 +146,6 @@ export interface OrderSellOut {
   lines: OrderLine[]; 
   createdAt: string;
   userId?: string;
-  distributorId?: string;
   status: OrderStatus;
   currency: 'EUR';
   closedAt?: string;

@@ -30,11 +30,11 @@ export const DISTRIBUTORS: SantaData['distributors'] = [
 export const ACCOUNTS: SantaData['accounts'] = [
   { id: 'acc_1', name: 'Bares Paco S.L.', city: 'Madrid', type: 'HORECA', stage: 'ACTIVA', ownerId: 'u_ana', billerId: 'SB', salesRepId: 'u_ana', createdAt: isoDaysAgo(180) },
   { id: 'acc_2', name: 'Hotel Marítimo', city: 'Valencia', type: 'HORECA', stage: 'POTENCIAL', ownerId: 'u_marcos', billerId: 'SB', salesRepId: 'u_marcos', createdAt: isoDaysAgo(30) },
-  { id: 'acc_3', name: 'Restaurante Roca', city: 'Girona', type: 'HORECA', stage: 'ACTIVA', ownerId: 'u_alfonso', billerId: 'd_rivera', distributorId: 'd_rivera', salesRepId: 'u_alfonso', createdAt: isoDaysAgo(45) },
-  { id: 'acc_4', name: 'Coctelería Oasis', city: 'Marbella', type: 'HORECA', stage: 'ACTIVA', ownerId: 'u_patxi', billerId: 'd_andes', distributorId: 'd_andes', salesRepId: 'u_patxi', createdAt: isoDaysAgo(60) },
+  { id: 'acc_3', name: 'Restaurante Roca', city: 'Girona', type: 'HORECA', stage: 'ACTIVA', ownerId: 'u_alfonso', billerId: 'd_rivera', salesRepId: 'u_alfonso', createdAt: isoDaysAgo(45) },
+  { id: 'acc_4', name: 'Coctelería Oasis', city: 'Marbella', type: 'HORECA', stage: 'ACTIVA', ownerId: 'u_patxi', billerId: 'd_andes', salesRepId: 'u_patxi', createdAt: isoDaysAgo(60) },
   { id: 'acc_5', name: 'Terraza del Mar', city: 'Ibiza', type: 'HORECA', stage: 'SEGUIMIENTO', ownerId: 'u_nico', billerId: 'SB', salesRepId: 'u_nico', createdAt: isoDaysAgo(15) },
   { id: 'acc_6', name: 'Supermercado Sol', city: 'Madrid', type: 'RETAIL', stage: 'ACTIVA', ownerId: 'u_ana', billerId: 'SB', salesRepId: 'u_ana', createdAt: isoDaysAgo(120) },
-  { id: 'acc_7', name: 'Club Nocturno Eclipse', city: 'Barcelona', type: 'HORECA', stage: 'ACTIVA', ownerId: 'u_marcos', billerId: 'd_rivera', distributorId: 'd_rivera', salesRepId: 'u_marcos', createdAt: isoDaysAgo(80) },
+  { id: 'acc_7', name: 'Club Nocturno Eclipse', city: 'Barcelona', type: 'HORECA', stage: 'ACTIVA', ownerId: 'u_marcos', billerId: 'd_rivera', salesRepId: 'u_marcos', createdAt: isoDaysAgo(80) },
   { id: 'acc_8', name: 'Tienda Gourmet Delicias', city: 'Bilbao', type: 'RETAIL', stage: 'SEGUIMIENTO', ownerId: 'u_alfonso', billerId: 'SB', salesRepId: 'u_alfonso', createdAt: isoDaysAgo(25) },
   { id: 'acc_9', name: 'Beach Club Arena', city: 'Formentera', type: 'HORECA', stage: 'FALLIDA', ownerId: 'u_nico', billerId: 'SB', salesRepId: 'u_nico', createdAt: isoDaysAgo(50) },
   { id: 'acc_10', name: 'Bar de Tapas El Rincón', city: 'Sevilla', type: 'HORECA', stage: 'ACTIVA', ownerId: 'u_patxi', billerId: 'SB', salesRepId: 'u_patxi', createdAt: isoDaysAgo(200) },
@@ -79,10 +79,10 @@ export const ORDERS_SELL_OUT: SantaData['ordersSellOut'] = [
   { id:'ORD-SB-240912-003', accountId:'acc_10', userId: 'u_patxi', status:'confirmed', currency:'EUR', createdAt: isoDaysAgo(4), lines:[{ sku:'SB-MARG-CL-700', qty:3, unit:'caja', priceUnit:95 }] },
   { id:'ORD-SB-240914-004', accountId:'acc_5', userId: 'u_nico', status:'open', currency:'EUR', createdAt: isoDaysAgo(2), lines:[{ sku:'SB-750', qty:8, unit:'caja', priceUnit:92 }] },
   // Colocación
-  { id:'ORD-DST-240820-001', accountId:'acc_3', distributorId:'d_rivera', userId: 'u_alfonso', status:'confirmed', currency:'EUR', createdAt: isoDaysAgo(26), lines:[{ sku:'SB-750', qty:10, unit:'caja', priceUnit:85 }] },
-  { id:'ORD-DST-240825-002', accountId:'acc_4', distributorId:'d_andes', userId: 'u_patxi', status:'shipped', currency:'EUR', createdAt: isoDaysAgo(21), lines:[{ sku:'SB-MARG-CL-700', qty:15, unit:'caja', priceUnit:90 }] },
-  { id:'ORD-DST-240905-003', accountId:'acc_7', distributorId:'d_rivera', userId: 'u_marcos', status:'confirmed', currency:'EUR', createdAt: isoDaysAgo(11), lines:[{ sku:'SB-750', qty:25, unit:'caja', priceUnit:84 }] },
-  { id:'ORD-DST-240913-004', accountId:'acc_3', distributorId:'d_rivera', userId: 'u_alfonso', status:'open', currency:'EUR', createdAt: isoDaysAgo(3), lines:[{ sku:'SB-MARG-SP-700', qty:5, unit:'caja', priceUnit:98 }] },
+  { id:'ORD-DST-240820-001', accountId:'acc_3', userId: 'u_alfonso', status:'confirmed', currency:'EUR', createdAt: isoDaysAgo(26), lines:[{ sku:'SB-750', qty:10, unit:'caja', priceUnit:85 }] },
+  { id:'ORD-DST-240825-002', accountId:'acc_4', userId: 'u_patxi', status:'shipped', currency:'EUR', createdAt: isoDaysAgo(21), lines:[{ sku:'SB-MARG-CL-700', qty:15, unit:'caja', priceUnit:90 }] },
+  { id:'ORD-DST-240905-003', accountId:'acc_7', userId: 'u_marcos', status:'confirmed', currency:'EUR', createdAt: isoDaysAgo(11), lines:[{ sku:'SB-750', qty:25, unit:'caja', priceUnit:84 }] },
+  { id:'ORD-DST-240913-004', accountId:'acc_3', userId: 'u_alfonso', status:'open', currency:'EUR', createdAt: isoDaysAgo(3), lines:[{ sku:'SB-MARG-SP-700', qty:5, unit:'caja', priceUnit:98 }] },
 ];
 
 export const INTERACTIONS: SantaData['interactions'] = [
@@ -232,5 +232,3 @@ if (typeof window !== 'undefined') {
   // @ts-ignore
   (window as any).__SB_DATA = mockSantaData;
 }
-
-    

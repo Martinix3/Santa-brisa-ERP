@@ -106,7 +106,7 @@ export default function AccountDetailPageContent(){
 
     const own = accountOwnerDisplay(acc, santaData.users, santaData.distributors);
     
-    const dist = santaData.distributors.find(d => d.id === acc.distributorId);
+    const dist = santaData.distributors.find(d => d.id === acc.billerId);
 
     return { account: acc, unifiedActivity: unified, kpis: kpiData, owner: own, distributor: dist };
   }, [accountId, santaData]);
@@ -320,7 +320,8 @@ export default function AccountDetailPageContent(){
                      id: `acc_local_${Date.now()}`,
                      name: d.name, city: d.city, stage: 'POTENCIAL',
                      type: d.accountType || 'HORECA',
-                     mode: { mode: 'PROPIA_SB', ownerUserId: currentUser!.id, biller: 'SB' },
+                     ownerId: currentUser!.id, 
+                     billerId: 'SB',
                      createdAt: new Date().toISOString()
                  };
                  setData({...santaData, accounts: [...santaData.accounts, newAccount]});

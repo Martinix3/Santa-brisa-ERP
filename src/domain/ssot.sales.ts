@@ -1,3 +1,4 @@
+
 // domain/ssot.sales.ts - Canónico de Ventas
 import type { Currency } from './ssot.core';
 
@@ -17,7 +18,6 @@ export interface OrderLine {
 export interface OrderSellOut {
   id: string;
   accountId: string;
-  distributorId?: string;
   userId?: string;
   status: OrderStatus;
   currency: Currency;
