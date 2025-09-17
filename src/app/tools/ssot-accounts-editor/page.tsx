@@ -1,5 +1,4 @@
 
-
 "use client";
 import React, { useEffect, useMemo, useState } from "react";
 import Papa from "papaparse";
@@ -7,7 +6,6 @@ import { useData } from "@/lib/dataprovider";
 import { Check, ChevronDown, Database, Download, FileCog, FileText, Map as MapIcon, Trash2, Upload, X } from "lucide-react";
 import type { Account as AccountSchema, AccountType, AccountMode, Stage, Interaction, OrderSellOut } from "@/domain/ssot";
 import AuthGuard from "@/components/auth/AuthGuard";
-import AuthenticatedLayout from "@/components/layouts/AuthenticatedLayout";
 import { generateNextOrder, Channel } from "@/lib/codes";
 import { ModuleHeader } from "@/components/ui/ModuleHeader";
 import { SB_COLORS } from "@/components/ui/ui-primitives";
@@ -587,171 +585,164 @@ function SSOTEditorContent(){
 
   // ===== Render =====
   return (
-    <>
-      <ModuleHeader title="SSOT — Centro de Mando" icon={FileCog} color={SB_COLORS.admin}>
-        <div className="flex gap-2">
-          <ColumnPicker visibleColumns={visibleColumns} setVisibleColumns={setVisibleColumns} />
-          <button onClick={handleSaveChanges} className="flex items-center gap-2 rounded-xl px-4 py-2 bg-blue-600 text-white font-semibold hover:bg-blue-700">
-            <Database size={16}/> Guardar en DB
-          </button>
-        </div>
-      </ModuleHeader>
-      <div className="p-6 max-w-full mx-auto">
-        {notification && (
-          <div className={`fixed top-5 right-5 z-50 p-4 rounded-lg shadow-lg text-white ${notification.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}>
-            {notification.message}
-            <button onClick={() => setNotification(null)} className="ml-4 font-bold">X</button>
-          </div>
-        )}
-
-        {/* IMPORT WIZARD */}
-        <section className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div className="rounded-2xl border p-4 bg-white">
-            <h2 className="font-medium mb-2 flex items-center gap-2"><Upload size={16}/>1) Importar desde archivo</h2>
-            <div className="flex items-center gap-3 mb-3">
-              <label className="text-sm">Tipo de datos:</label>
-              <select className="border rounded-md px-2 py-1 text-sm" value={importKind} onChange={e=>setImportKind(e.target.value as DatasetKind)}>
-                <option value="accounts">Cuentas</option>
-                <option value="orders">Pedidos</option>
-              </select>
-            </div>
-            <input
-              type="file"
-              accept=".csv,text/csv"
-              className="text-sm"
-              onChange={e => handleFilePick(e.target.files?.[0] || null)}
-            />
-            <button className="mt-2 rounded-lg px-3 py-1.5 border text-sm w-full hover:bg-zinc-50" onClick={loadFromCurrentData}>
-              O cargar datos actuales de la app
+    <AuthGuard>
+        <ModuleHeader title="SSOT — Centro de Mando" icon={FileCog} color={SB_COLORS.admin}>
+            <div className="flex gap-2">
+            <ColumnPicker visibleColumns={visibleColumns} setVisibleColumns={setVisibleColumns} />
+            <button onClick={handleSaveChanges} className="flex items-center gap-2 rounded-xl px-4 py-2 bg-blue-600 text-white font-semibold hover:bg-blue-700">
+                <Database size={16}/> Guardar en DB
             </button>
-          </div>
-
-          <div className="rounded-2xl border p-4 bg-white">
-            <h2 className="font-medium mb-2 flex items-center gap-2"><Download size={16}/>2) Exportar</h2>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <button className="rounded-lg px-3 py-1.5 border hover:bg-zinc-50" onClick={()=>download("accounts.csv", toCSV(accounts, Array.from(visibleColumns)), "text/csv")}>Cuentas (CSV)</button>
-              <button className="rounded-lg px-3 py-1.5 border hover:bg-zinc-50" onClick={()=>download("orders.csv", toCSV(orders, ['id','accountId','userId','createdAt','status','notes']), "text/csv")}>Pedidos (CSV)</button>
-              <button className="rounded-lg px-3 py-1.5 border hover:bg-zinc-50" onClick={()=>download("interactions.jsonl", toJSONL(interactions), "application/jsonl")}>Interacciones (JSONL)</button>
-              <button className="rounded-lg px-3 py-1.5 border hover:bg-zinc-50" onClick={()=>download("full_export.json", JSON.stringify({accounts, orders, interactions}, null, 2), "application/json")}>Todo (JSON)</button>
             </div>
-          </div>
-        </section>
+        </ModuleHeader>
+        <div className="p-6 max-w-full mx-auto">
+            {notification && (
+            <div className={`fixed top-5 right-5 z-50 p-4 rounded-lg shadow-lg text-white ${notification.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}>
+                {notification.message}
+                <button onClick={() => setNotification(null)} className="ml-4 font-bold">X</button>
+            </div>
+            )}
 
-        {/* Mapper Drawer */}
-        {showMapper && (
-          <div className="rounded-2xl border p-4 bg-white mb-4">
-            <h3 className="font-medium mb-2 flex items-center gap-2"><MapIcon size={16}/> Mapeo de columnas — {fileName}</h3>
-            <p className="text-sm text-zinc-600 mb-3">Selecciona qué columna del archivo corresponde a cada campo del SSOT. Los no necesarios déjalos sin seleccionar.</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              { (importKind === "accounts" ? ACCOUNT_FIELDS : ORDER_FIELDS).map(f => (
-                <div key={f} className="flex items-center gap-2">
-                  <div className="w-48 text-sm font-medium">{f}</div>
-                  <select className="border rounded-md px-2 py-1 text-sm flex-1 bg-white"
-                          value={columnMap[f] || ""}
-                          onChange={e=>setColumnMap(prev => ({ ...prev, [f]: e.target.value }))}>
-                    <option value="">— (ignorar) —</option>
-                    {fileHeaders.map(h => <option key={h} value={h}>{h}</option>)}
-                  </select>
+            {/* IMPORT WIZARD */}
+            <section className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="rounded-2xl border p-4 bg-white">
+                <h2 className="font-medium mb-2 flex items-center gap-2"><Upload size={16}/>1) Importar desde archivo</h2>
+                <div className="flex items-center gap-3 mb-3">
+                <label className="text-sm">Tipo de datos:</label>
+                <select className="border rounded-md px-2 py-1 text-sm" value={importKind} onChange={e=>setImportKind(e.target.value as DatasetKind)}>
+                    <option value="accounts">Cuentas</option>
+                    <option value="orders">Pedidos</option>
+                </select>
                 </div>
-              ))}
+                <input
+                type="file"
+                accept=".csv,text/csv"
+                className="text-sm"
+                onChange={e => handleFilePick(e.target.files?.[0] || null)}
+                />
+                <button className="mt-2 rounded-lg px-3 py-1.5 border text-sm w-full hover:bg-zinc-50" onClick={loadFromCurrentData}>
+                O cargar datos actuales de la app
+                </button>
             </div>
-            <div className="mt-3 flex gap-2">
-              <button className="rounded-xl px-3 py-2 border bg-zinc-100 hover:bg-zinc-200" onClick={()=>setColumnMap(autoSuggestMap(fileHeaders, importKind))}>
-                Autocompletar
-              </button>
-              <button className="rounded-xl px-3 py-2 border bg-green-600 text-white hover:bg-green-700" onClick={applyMapping}>
-                Aplicar mapeo e importar
-              </button>
-              <button className="rounded-xl px-3 py-2 border" onClick={()=>{ setShowMapper(false); setRawRows([]); setColumnMap({}); }}>
-                Cancelar
-              </button>
+
+            <div className="rounded-2xl border p-4 bg-white">
+                <h2 className="font-medium mb-2 flex items-center gap-2"><Download size={16}/>2) Exportar</h2>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                <button className="rounded-lg px-3 py-1.5 border hover:bg-zinc-50" onClick={()=>download("accounts.csv", toCSV(accounts, Array.from(visibleColumns)), "text/csv")}>Cuentas (CSV)</button>
+                <button className="rounded-lg px-3 py-1.5 border hover:bg-zinc-50" onClick={()=>download("orders.csv", toCSV(orders, ['id','accountId','userId','createdAt','status','notes']), "text/csv")}>Pedidos (CSV)</button>
+                <button className="rounded-lg px-3 py-1.5 border hover:bg-zinc-50" onClick={()=>download("interactions.jsonl", toJSONL(interactions), "application/jsonl")}>Interacciones (JSONL)</button>
+                <button className="rounded-lg px-3 py-1.5 border hover:bg-zinc-50" onClick={()=>download("full_export.json", JSON.stringify({accounts, orders, interactions}, null, 2), "application/json")}>Todo (JSON)</button>
+                </div>
             </div>
-          </div>
-        )}
+            </section>
 
-        {/* Bulk ops */}
-        <section className="rounded-2xl border p-4 bg-white mb-4">
-          <h3 className="font-medium mb-2">Acciones masivas (sobre {selectedRows.size} seleccionadas)</h3>
-          <div className="flex flex-wrap gap-2 items-center">
-            <select className="border rounded-md px-2 py-1 text-sm bg-white" value={bulkEditField} onChange={e => {setBulkEditField(e.target.value as any); setBulkEditValue('');}}>
-              <option value="">Seleccionar campo...</option>
-              {BULK_EDITABLE_FIELDS.map(field => (<option key={field} value={field}>{field}</option>))}
-            </select>
-            {bulkEditField && renderBulkValueInput()}
-            <button className="rounded-xl px-3 py-2 border text-sm bg-zinc-100 hover:bg-zinc-200" onClick={applyBulkUpdate}>Aplicar Cambio</button>
-            <button onClick={handleBulkDelete} className="flex items-center gap-2 rounded-xl px-3 py-2 border border-red-200 text-red-700 bg-red-50 hover:bg-red-100">
-              <Trash2 size={14}/> Eliminar Selección
-            </button>
-          </div>
-        </section>
+            {/* Mapper Drawer */}
+            {showMapper && (
+            <div className="rounded-2xl border p-4 bg-white mb-4">
+                <h3 className="font-medium mb-2 flex items-center gap-2"><MapIcon size={16}/> Mapeo de columnas — {fileName}</h3>
+                <p className="text-sm text-zinc-600 mb-3">Selecciona qué columna del archivo corresponde a cada campo del SSOT. Los no necesarios déjalos sin seleccionar.</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                { (importKind === "accounts" ? ACCOUNT_FIELDS : ORDER_FIELDS).map(f => (
+                    <div key={f} className="flex items-center gap-2">
+                    <div className="w-48 text-sm font-medium">{f}</div>
+                    <select className="border rounded-md px-2 py-1 text-sm flex-1 bg-white"
+                            value={columnMap[f] || ""}
+                            onChange={e=>setColumnMap(prev => ({ ...prev, [f]: e.target.value }))}>
+                        <option value="">— (ignorar) —</option>
+                        {fileHeaders.map(h => <option key={h} value={h}>{h}</option>)}
+                    </select>
+                    </div>
+                ))}
+                </div>
+                <div className="mt-3 flex gap-2">
+                <button className="rounded-xl px-3 py-2 border bg-zinc-100 hover:bg-zinc-200" onClick={()=>setColumnMap(autoSuggestMap(fileHeaders, importKind))}>
+                    Autocompletar
+                </button>
+                <button className="rounded-xl px-3 py-2 border bg-green-600 text-white hover:bg-green-700" onClick={applyMapping}>
+                    Aplicar mapeo e importar
+                </button>
+                <button className="rounded-xl px-3 py-2 border" onClick={()=>{ setShowMapper(false); setRawRows([]); setColumnMap({}); }}>
+                    Cancelar
+                </button>
+                </div>
+            </div>
+            )}
 
-        {/* Tabla de cuentas */}
-        {accounts.length === 0 ? (
-          <div className="rounded-2xl border border-dashed p-8 text-center text-sm text-zinc-600 bg-white">
-            Carga un CSV de <b>{importKind === "accounts" ? "cuentas" : "pedidos"}</b> o usa los datos actuales para empezar.
-          </div>
-        ) : (
-          <div className="rounded-2xl border overflow-auto bg-white">
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-zinc-50/70 backdrop-blur-sm border-b z-[1]">
-                <tr>
-                  <th className="p-2 text-left whitespace-nowrap"><input type="checkbox" onChange={handleSelectAll} checked={selectedRows.size > 0 && selectedRows.size === filtered.length}/></th>
-                  {ALL_COLUMNS.map(h=> visibleColumns.has(h) && (<th key={h} className="p-2 text-left whitespace-nowrap capitalize">{h}</th>))}
-                </tr>
-                <tr>
-                  <th><button onClick={() => setSelectedRows(new Set())} title="Limpiar selección"><X size={14} className="mx-auto text-zinc-400 hover:text-red-500"/></button></th>
-                  {ALL_COLUMNS.map(h => visibleColumns.has(h) && (
-                    <th key={h} className="p-1 font-normal">
-                      { !['mode','type','stage'].includes(h) &&
-                        <input type="text" placeholder={`Filtrar...`} value={filters[h] || ''} onChange={e => setFilters(f => ({ ...f, [h]: e.target.value }))} className="w-full text-xs border-zinc-300 rounded-md px-2 py-1" />
-                      }
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {pageRows.map((r,i)=>{
-                  const globalIndex = accounts.findIndex(row => row.id === r.id);
-                  return (
-                    <tr key={r.id} className={`transition-colors ${selectedRows.has(r.id) ? 'bg-yellow-100/50' : (i % 2 ? 'bg-white' : 'bg-zinc-50/50')} hover:bg-yellow-100/70`}>
-                      <td className="p-2"><input type="checkbox" checked={selectedRows.has(r.id)} onChange={e => handleSelectRow(r.id, e.target.checked)} /></td>
-                      {ALL_COLUMNS.map(col => visibleColumns.has(col) && (
-                        <td key={col} className="p-0 relative">
-                          {col === 'mode' ? <div className="p-2"><OwnerSelector row={r} idx={globalIndex} users={users} partners={partners} onUpdate={update} /></div> :
-                           col === 'stage' ? <div className="p-2"><select className="border rounded-md px-2 py-1 bg-white w-full" value={r.stage} onChange={e=>update(globalIndex,'stage', e.target.value as Stage)}>{STAGES.map(t=> <option key={t} value={t}>{t}</option>)}</select></div> :
-                           col === 'type' ? <div className="p-2"><select className="border rounded-md px-2 py-1 bg-white w-full" value={r.type} onChange={e=>update(globalIndex,'type', e.target.value as AccountType)}>{CLIENT_TYPES.map(t=> <option key={t} value={t}>{t}</option>)}</select></div> :
-                           col === 'orderCount' ? <div className="p-2 text-center">{r.orderCount || 0}</div> :
-                           <EditableCell value={(r as any)[col] || ''} onBulkUpdate={(newValues) => handleBulkColumnUpdate(col, newValues)} numRows={pageRows.length} />
-                          }
-                        </td>
-                      ))}
+            {/* Bulk ops */}
+            <section className="rounded-2xl border p-4 bg-white mb-4">
+            <h3 className="font-medium mb-2">Acciones masivas (sobre {selectedRows.size} seleccionadas)</h3>
+            <div className="flex flex-wrap gap-2 items-center">
+                <select className="border rounded-md px-2 py-1 text-sm bg-white" value={bulkEditField} onChange={e => {setBulkEditField(e.target.value as any); setBulkEditValue('');}}>
+                <option value="">Seleccionar campo...</option>
+                {BULK_EDITABLE_FIELDS.map(field => (<option key={field} value={field}>{field}</option>))}
+                </select>
+                {bulkEditField && renderBulkValueInput()}
+                <button className="rounded-xl px-3 py-2 border text-sm bg-zinc-100 hover:bg-zinc-200" onClick={applyBulkUpdate}>Aplicar Cambio</button>
+                <button onClick={handleBulkDelete} className="flex items-center gap-2 rounded-xl px-3 py-2 border border-red-200 text-red-700 bg-red-50 hover:bg-red-100">
+                <Trash2 size={14}/> Eliminar Selección
+                </button>
+            </div>
+            </section>
+
+            {/* Tabla de cuentas */}
+            {accounts.length === 0 ? (
+            <div className="rounded-2xl border border-dashed p-8 text-center text-sm text-zinc-600 bg-white">
+                Carga un CSV de <b>{importKind === "accounts" ? "cuentas" : "pedidos"}</b> o usa los datos actuales para empezar.
+            </div>
+            ) : (
+            <div className="rounded-2xl border overflow-auto bg-white">
+                <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-zinc-50/70 backdrop-blur-sm border-b z-[1]">
+                    <tr>
+                    <th className="p-2 text-left whitespace-nowrap"><input type="checkbox" onChange={handleSelectAll} checked={selectedRows.size > 0 && selectedRows.size === filtered.length}/></th>
+                    {ALL_COLUMNS.map(h=> visibleColumns.has(h) && (<th key={h} className="p-2 text-left whitespace-nowrap capitalize">{h}</th>))}
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+                    <tr>
+                    <th><button onClick={() => setSelectedRows(new Set())} title="Limpiar selección"><X size={14} className="mx-auto text-zinc-400 hover:text-red-500"/></button></th>
+                    {ALL_COLUMNS.map(h => visibleColumns.has(h) && (
+                        <th key={h} className="p-1 font-normal">
+                        { !['mode','type','stage'].includes(h) &&
+                            <input type="text" placeholder={`Filtrar...`} value={filters[h] || ''} onChange={e => setFilters(f => ({ ...f, [h]: e.target.value }))} className="w-full text-xs border-zinc-300 rounded-md px-2 py-1" />
+                        }
+                        </th>
+                    ))}
+                    </tr>
+                </thead>
+                <tbody>
+                    {pageRows.map((r,i)=>{
+                    const globalIndex = accounts.findIndex(row => row.id === r.id);
+                    return (
+                        <tr key={r.id} className={`transition-colors ${selectedRows.has(r.id) ? 'bg-yellow-100/50' : (i % 2 ? 'bg-white' : 'bg-zinc-50/50')} hover:bg-yellow-100/70`}>
+                        <td className="p-2"><input type="checkbox" checked={selectedRows.has(r.id)} onChange={e => handleSelectRow(r.id, e.target.checked)} /></td>
+                        {ALL_COLUMNS.map(col => visibleColumns.has(col) && (
+                            <td key={col} className="p-0 relative">
+                            {col === 'mode' ? <div className="p-2"><OwnerSelector row={r} idx={globalIndex} users={users} partners={partners} onUpdate={update} /></div> :
+                            col === 'stage' ? <div className="p-2"><select className="border rounded-md px-2 py-1 bg-white w-full" value={r.stage} onChange={e=>update(globalIndex,'stage', e.target.value as Stage)}>{STAGES.map(t=> <option key={t} value={t}>{t}</option>)}</select></div> :
+                            col === 'type' ? <div className="p-2"><select className="border rounded-md px-2 py-1 bg-white w-full" value={r.type} onChange={e=>update(globalIndex,'type', e.target.value as AccountType)}>{CLIENT_TYPES.map(t=> <option key={t} value={t}>{t}</option>)}</select></div> :
+                            col === 'orderCount' ? <div className="p-2 text-center">{r.orderCount || 0}</div> :
+                            <EditableCell value={(r as any)[col] || ''} onBulkUpdate={(newValues) => handleBulkColumnUpdate(col, newValues)} numRows={pageRows.length} />
+                            }
+                            </td>
+                        ))}
+                        </tr>
+                    );
+                    })}
+                </tbody>
+                </table>
+            </div>
+            )}
 
-        <div className="mt-3 flex items-center justify-between">
-          <div className="text-sm text-zinc-600">{filtered.length} cuentas ({selectedRows.size} seleccionadas)</div>
-          <div className="flex gap-2">
-            <button className="rounded-xl px-3 py-2 border" disabled={page<=1} onClick={()=>setPage(p=>Math.max(1,p-1))}>Anterior</button>
-            <span className="self-center px-2">Página {page} de {Math.max(1, Math.ceil(filtered.length / pageSize))}</span>
-            <button className="rounded-xl px-3 py-2 border" disabled={page*pageSize >= filtered.length} onClick={()=>setPage(p=>p+1)}>Siguiente</button>
-          </div>
+            <div className="mt-3 flex items-center justify-between">
+            <div className="text-sm text-zinc-600">{filtered.length} cuentas ({selectedRows.size} seleccionadas)</div>
+            <div className="flex gap-2">
+                <button className="rounded-xl px-3 py-2 border" disabled={page<=1} onClick={()=>setPage(p=>Math.max(1,p-1))}>Anterior</button>
+                <span className="self-center px-2">Página {page} de {Math.max(1, Math.ceil(filtered.length / pageSize))}</span>
+                <button className="rounded-xl px-3 py-2 border" disabled={page*pageSize >= filtered.length} onClick={()=>setPage(p=>p+1)}>Siguiente</button>
+            </div>
         </div>
-      </div>
-    </>
+    </AuthGuard>
   );
 }
 
 export default function SSOTEditor() {
-  return (
-    <AuthGuard>
-      <AuthenticatedLayout>
-        <SSOTEditorContent />
-      </AuthenticatedLayout>
-    </AuthGuard>
-  );
+    return <SSOTEditorContent />;
 }

@@ -24,39 +24,70 @@ const FK_RELATIONS: Record<string, keyof SantaData> = {
     prodOrderId: 'productionOrders',
     lotId: 'lots',
     creatorId: 'creators',
-    supplierId: 'suppliers'
+    supplierId: 'suppliers',
+    'lines.sku': 'products',
+    'items.materialId': 'materials'
 };
 
-function RelationAnalysis({ collection, data }: { collection: any[], data: SantaData }) {
+const COLLECTION_SCHEMAS: Record<string, string[]> = {
+    users: ['id', 'name', 'email', 'role', 'active', 'managerId'],
+    accounts: ['id', 'name', 'city', 'stage', 'type', 'mode', 'distributorId', 'cif', 'address', 'phone', 'createdAt'],
+    products: ['id', 'sku', 'name', 'category', 'bottleMl', 'caseUnits', 'casesPerPallet', 'active', 'materialId'],
+    interactions: ['id', 'accountId', 'userId', 'kind', 'note', 'createdAt'],
+    ordersSellOut: ['id', 'accountId', 'userId', 'distributorId', 'status', 'createdAt', 'lines'],
+    materials: ['id', 'sku', 'name', 'category', 'unit', 'standardCost'],
+    lots: ['id', 'sku', 'quantity', 'createdAt', 'orderId', 'quality', 'expDate'],
+    shipments: ['id', 'status', 'createdAt', 'accountId', 'lines'],
+    productionOrders: ['id', 'sku', 'bomId', 'targetQuantity', 'status', 'createdAt', 'lotId'],
+    billOfMaterials: ['id', 'sku', 'name', 'items', 'batchSize', 'baseUnit'],
+    inventory: ['id', 'sku', 'lotNumber', 'uom', 'qty', 'locationId', 'expDate', 'updatedAt'],
+    stockMoves: ['id', 'sku', 'lotNumber', 'uom', 'qty', 'from', 'to', 'reason', 'at'],
+    creators: ['id', 'name', 'handle', 'platform', 'tier', 'audience'],
+    influencerCollabs: ['id', 'creatorId', 'creatorName', 'status', 'deliverables', 'compensation'],
+    mktEvents: ['id', 'title', 'kind', 'status', 'startAt'],
+};
+
+
+function RelationAnalysis({ collectionName, collection, data }: { collectionName: keyof SantaData; collection: any[], data: SantaData }) {
     const analysis = useMemo(() => {
-        if (!collection || collection.length === 0) return [];
+        const schema = COLLECTION_SCHEMAS[collectionName] || [];
+        const potentialRelations: Record<string, { total: number; valid: number; missing: string[] }> = {};
+
+        // Pre-fill relations from schema
+        for (const key of schema) {
+            if (FK_RELATIONS[key]) {
+                potentialRelations[key] = { total: 0, valid: 0, missing: [] };
+            }
+        }
         
-        const relations: Record<string, { total: number; valid: number; missing: string[] }> = {};
+        if (!collection || collection.length === 0) {
+            return Object.entries(potentialRelations);
+        }
         
         collection.forEach((item, rowIndex) => {
             for (const key in item) {
                 if (FK_RELATIONS[key]) {
-                    if (!relations[key]) relations[key] = { total: 0, valid: 0, missing: [] };
-                    relations[key].total++;
+                    if (!potentialRelations[key]) potentialRelations[key] = { total: 0, valid: 0, missing: [] };
+                    potentialRelations[key].total++;
                     
                     const foreignKey = item[key];
                     if (foreignKey) {
                         const targetCollection = data[FK_RELATIONS[key]] as any[];
                         if (targetCollection?.some(targetItem => targetItem.id === foreignKey)) {
-                            relations[key].valid++;
+                            potentialRelations[key].valid++;
                         } else {
-                            relations[key].missing.push(`Fila ${rowIndex} (${item.id || 'sin id'}): ${key} '${foreignKey}' no encontrado.`);
+                            potentialRelations[key].missing.push(`Fila ${rowIndex} (${item.id || 'sin id'}): ${key} '${foreignKey}' no encontrado.`);
                         }
                     }
                 }
             }
         });
-        return Object.entries(relations);
+        return Object.entries(potentialRelations);
 
-    }, [collection, data]);
+    }, [collectionName, collection, data]);
 
     if (analysis.length === 0) {
-        return <p className="text-sm text-zinc-500">No se detectaron relaciones de clave foránea en esta colección.</p>;
+        return <p className="text-sm text-zinc-500">No se detectaron relaciones de clave foránea para esta colección.</p>;
     }
 
     return (
@@ -65,10 +96,14 @@ function RelationAnalysis({ collection, data }: { collection: any[], data: Santa
                 <div key={key} className="p-3 rounded-lg border bg-zinc-50/50">
                     <div className="flex justify-between items-center text-sm">
                         <span className="font-semibold text-zinc-800">{key} → {FK_RELATIONS[key]}</span>
-                        {stats.total === stats.valid ? (
-                            <span className="flex items-center gap-1 font-bold text-green-600"><Check size={14}/> {stats.valid}/{stats.total} Válidas</span>
+                        {stats.total > 0 ? (
+                             stats.total === stats.valid ? (
+                                <span className="flex items-center gap-1 font-bold text-green-600"><Check size={14}/> {stats.valid}/{stats.total} Válidas</span>
+                            ) : (
+                                 <span className="flex items-center gap-1 font-bold text-red-600"><AlertTriangle size={14}/> {stats.valid}/{stats.total} Válidas</span>
+                            )
                         ) : (
-                             <span className="flex items-center gap-1 font-bold text-red-600"><AlertTriangle size={14}/> {stats.valid}/{stats.total} Válidas</span>
+                             <span className="text-xs text-zinc-400"> (No hay datos para analizar)</span>
                         )}
                     </div>
                     {stats.missing.length > 0 && (
@@ -85,17 +120,14 @@ function RelationAnalysis({ collection, data }: { collection: any[], data: Santa
     );
 }
 
-function TableViewer({ collection }: { collection: any[] }) {
+function TableViewer({ collection, collectionName }: { collection: any[], collectionName: string }) {
     const columns = useMemo(() => {
-        if (!collection || collection.length === 0) return [];
-        return Object.keys(collection[0]);
-    }, [collection]);
+        if (collection && collection.length > 0) return Object.keys(collection[0]);
+        return COLLECTION_SCHEMAS[collectionName] || [];
+    }, [collection, collectionName]);
     
     if (!collection) {
         return <p className="text-center text-zinc-500 py-8">Selecciona una colección para ver sus datos.</p>
-    }
-    if (collection.length === 0) {
-        return <p className="text-center text-zinc-500 py-8">La colección está vacía.</p>
     }
 
     return (
@@ -106,19 +138,29 @@ function TableViewer({ collection }: { collection: any[] }) {
                         {columns.map(col => <th key={col} className="p-2 font-semibold whitespace-nowrap">{col}</th>)}
                     </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-100">
-                    {collection.map((row, index) => (
-                        <tr key={row.id || index} className="hover:bg-zinc-50">
-                            {columns.map(col => (
-                                <td key={col} className="p-2 align-top whitespace-pre-wrap max-w-xs truncate">
-                                    {typeof row[col] === 'object' && row[col] !== null 
-                                        ? JSON.stringify(row[col]) 
-                                        : String(row[col] ?? 'null')}
-                                </td>
-                            ))}
+                {collection.length > 0 ? (
+                    <tbody className="divide-y divide-zinc-100">
+                        {collection.map((row, index) => (
+                            <tr key={row.id || index} className="hover:bg-zinc-50">
+                                {columns.map(col => (
+                                    <td key={col} className="p-2 align-top whitespace-pre-wrap max-w-xs truncate">
+                                        {typeof row[col] === 'object' && row[col] !== null 
+                                            ? JSON.stringify(row[col]) 
+                                            : String(row[col] ?? 'null')}
+                                    </td>
+                                ))}
+                            </tr>
+                        ))}
+                    </tbody>
+                ) : (
+                    <tbody>
+                        <tr>
+                            <td colSpan={columns.length} className="text-center text-zinc-500 py-8">
+                                La colección está vacía.
+                            </td>
                         </tr>
-                    ))}
-                </tbody>
+                    </tbody>
+                )}
             </table>
         </div>
     );
@@ -146,12 +188,12 @@ function DataViewerPageContent() {
     const selectedCollection = selectedKey ? (data as any)[selectedKey] : null;
 
     return (
-        <div className="max-w-7xl mx-auto space-y-6">
+        <div className="max-w-full mx-auto space-y-6">
             <p className="text-zinc-600 mt-1">
                 Inspecciona el contenido del proveedor de datos (`santaData`) en tiempo real. El modo actual es: <strong className="font-semibold text-zinc-800">{mode}</strong>.
             </p>
 
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_2fr] gap-6 items-start">
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_3fr] gap-6 items-start">
                 <div>
                     <SBCard title="Colecciones de Datos">
                         <div className="divide-y divide-zinc-100 max-h-[70vh] overflow-y-auto">
@@ -170,7 +212,7 @@ function DataViewerPageContent() {
                      <div className="mt-4">
                         <SBCard title="Análisis de Relaciones (FK)">
                            <div className="p-4">
-                             {selectedCollection && <RelationAnalysis collection={selectedCollection} data={data}/>}
+                             {selectedKey && <RelationAnalysis collectionName={selectedKey} collection={selectedCollection} data={data}/>}
                            </div>
                         </SBCard>
                     </div>
@@ -179,7 +221,7 @@ function DataViewerPageContent() {
                 <div>
                     <SBCard title={`Visor de Tabla: ${selectedKey || 'Selecciona una colección'}`}>
                         <div className="p-2 bg-white rounded-b-2xl">
-                           <TableViewer collection={selectedCollection}/>
+                           <TableViewer collection={selectedCollection} collectionName={selectedKey || ''} />
                         </div>
                     </SBCard>
                 </div>

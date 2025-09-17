@@ -107,11 +107,6 @@ function KPISettingsPageContent() {
 
 export default function KPISettingsPage() {
     return (
-        <>
-            <ModuleHeader title="Ajustes de KPIs" icon={SlidersHorizontal}/>
-            <div className="p-6">
-                <KPISettingsPageContent />
-            </div>
-        </>
+        <KPISettingsPageContent />
     );
 }

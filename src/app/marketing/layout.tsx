@@ -1,8 +1,6 @@
 
-
 "use client";
 import React from 'react';
-import AuthenticatedLayout from '@/components/layouts/AuthenticatedLayout';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
@@ -45,7 +43,7 @@ function MarketingNav() {
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
-    <AuthenticatedLayout>
+    <>
        <ModuleHeader title="Marketing" icon={Megaphone} />
        <div className="bg-white border-b border-sb-neutral-200">
             <MarketingNav />
@@ -55,6 +53,6 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             {children}
           </div>
       </div>
-    </AuthenticatedLayout>
+    </>
   );
 }

@@ -225,10 +225,5 @@ function UsersPageContent() {
 }
 
 export default function UsersPage() {
-    return (
-        <>
-            <ModuleHeader title="Gestión de Usuarios y Roles" icon={UserIcon}/>
-            <UsersPageContent />
-        </>
-    )
+    return <UsersPageContent />;
 }

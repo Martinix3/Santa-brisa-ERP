@@ -1,15 +1,13 @@
 
-
 "use client";
 import React from 'react';
-import AuthenticatedLayout from '@/components/layouts/AuthenticatedLayout';
 import { WarehouseNav } from '@/features/warehouse/components/ui-sb-warehouse';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
 import { Warehouse } from 'lucide-react';
 
 export default function WarehouseLayout({ children }: { children: React.ReactNode }) {
   return (
-    <AuthenticatedLayout>
+    <>
       <ModuleHeader title="Almacén" icon={Warehouse} />
       <WarehouseNav />
       <div className="flex-grow">
@@ -17,6 +15,6 @@ export default function WarehouseLayout({ children }: { children: React.ReactNod
             {children}
           </div>
       </div>
-    </AuthenticatedLayout>
+    </>
   );
 }

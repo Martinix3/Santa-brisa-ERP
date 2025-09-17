@@ -150,13 +150,10 @@ function SkuManagementPageContent() {
 
 export default function SkuManagementPage() {
     return (
-        <>
-            <ModuleHeader title="Gestión de SKUs y Lotes" icon={Tags}/>
-            <div className="bg-zinc-50 flex-grow">
-                <div className="max-w-7xl mx-auto py-6 px-4">
-                    <SkuManagementPageContent />
-                </div>
+        <div className="bg-zinc-50 flex-grow">
+            <div className="max-w-7xl mx-auto py-6 px-4">
+                <SkuManagementPageContent />
             </div>
-        </>
+        </div>
     )
 }
