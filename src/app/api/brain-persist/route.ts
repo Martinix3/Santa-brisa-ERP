@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
                 hasData = true;
             }
         } else {
-            fetchedData[collectionName as keyof SantaData] = [];
+            (fetchedData as any)[collectionName as keyof SantaData] = [];
         }
     }
 
@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
 
     const db = adminDb;
     const batch = db.batch();
-    let count = 0;
+    let operationsCount = 0;
 
     const userRootCol = db.collection('userData').doc(decodedToken.uid);
 
@@ -88,20 +88,20 @@ export async function POST(req: NextRequest) {
             if(Array.isArray(collectionData)) {
                 const docRef = userRootCol.collection(collectionName).doc('all');
                 batch.set(docRef, { data: collectionData }, { merge: false }); // Sobrescribir el documento completo
-                count += collectionData.length;
+                operationsCount++;
             }
         }
     }
     
-    if (batch.isEmpty) {
+    if (operationsCount === 0) {
         console.log('[api/brain-persist] No valid collections to commit.');
         return NextResponse.json({ ok: true, message: 'No valid data to save.' });
     }
     
     await batch.commit();
-    console.log(`[api/brain-persist] Successfully committed data for ${count} documents for user ${decodedToken.email}.`);
+    console.log(`[api/brain-persist] Successfully committed data for ${operationsCount} collections for user ${decodedToken.email}.`);
     
-    return NextResponse.json({ ok: true, message: `${count} documents from ${Object.keys(payload).length} collections saved.` });
+    return NextResponse.json({ ok: true, message: `${operationsCount} collections saved.` });
 
   } catch (e:any) {
     console.error('Auth error or Firestore write error in POST:', e);
