@@ -5,7 +5,7 @@ import React, { createContext, useContext, useState, useEffect, useMemo, useCall
 import type { User, SantaData } from '@/domain/ssot';
 import { realSantaData } from '@/domain/real-data'; // Importar los datos reales
 import { auth } from './firebase-config';
-import { onAuthStateChanged, getIdToken, signOut } from 'firebase/auth';
+import { onAuthStateChanged, getIdToken, signOut, signInWithEmailAndPassword } from 'firebase/auth';
 
 export type DataMode = 'test' | 'real';
 
@@ -16,7 +16,7 @@ interface DataContextProps {
   setData: React.Dispatch<React.SetStateAction<SantaData | null>>;
   forceSave: (dataToSave?: SantaData) => Promise<void>;
   currentUser: User | null;
-  login: (email: string, pass: string) => Promise<boolean>; // Mantengo por si se usa en otro lado, pero la lógica cambia
+  login: (email: string, pass: string) => Promise<boolean>;
   logout: () => void;
   isLoading: boolean;
 }
@@ -138,8 +138,14 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
   }, [data]);
 
   const login = async (email: string, pass: string): Promise<boolean> => {
-      console.error("Email/password login is deprecated. Use Google Sign-In.");
-      return false;
+      try {
+        await signInWithEmailAndPassword(auth, email, pass);
+        // onAuthStateChanged se encargará del resto
+        return true;
+      } catch (error) {
+        console.error("Login failed:", error);
+        return false;
+      }
   };
 
   const logout = useCallback(() => {
