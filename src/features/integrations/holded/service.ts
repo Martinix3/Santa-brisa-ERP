@@ -1,4 +1,5 @@
 
+
 // src/features/integrations/holded/service.ts
 const HOLDED_API_URL = "https://api.holded.com/api";
 
@@ -8,6 +9,21 @@ type HoldedInvoice = {
   total: number;
   date: number; // timestamp
   // ...y muchos otros campos
+};
+
+type HoldedContact = {
+  id: string;
+  name: string;
+  code?: string; // CIF/NIF
+  billAddress?: {
+    address: string;
+    city: string;
+    postalCode: string;
+    province: string;
+    country: string;
+  };
+  phone?: string;
+  // ... y más campos
 };
 
 /**
@@ -39,5 +55,36 @@ export async function fetchInvoices(apiKey: string): Promise<HoldedInvoice[]> {
   } catch (error: any) {
     console.error("Failed to fetch invoices from Holded:", error);
     throw new Error(`Failed to fetch from Holded: ${error.message}`);
+  }
+}
+
+/**
+ * Fetches all contacts from Holded.
+ * @param apiKey The Holded API key.
+ * @returns A promise that resolves to an array of contacts.
+ */
+export async function fetchContacts(apiKey: string): Promise<HoldedContact[]> {
+  const headers = {
+    "Accept": "application/json",
+    "key": apiKey,
+  };
+
+  try {
+    const response = await fetch(`${HOLDED_API_URL}/invoicing/v1/contacts`, {
+      method: 'GET',
+      headers: headers,
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      console.error("Holded API Error fetching contacts:", response.status, errorBody);
+      throw new Error(`Error ${response.status} from Holded API: ${errorBody}`);
+    }
+
+    const contacts = await response.json();
+    return contacts as HoldedContact[];
+  } catch (error: any) {
+    console.error("Failed to fetch contacts from Holded:", error);
+    throw new Error(`Failed to fetch contacts from Holded: ${error.message}`);
   }
 }

@@ -1,9 +1,10 @@
 
+
 "use client";
 
 import React, { useEffect, useState } from 'react';
 import { SBCard, SB_COLORS } from '@/components/ui/ui-primitives';
-import { KeyRound, Trash2, Zap, RefreshCw, Settings, PlugZap, LogOut, ChevronRight, Check, AlertTriangle } from 'lucide-react';
+import { KeyRound, Trash2, Zap, RefreshCw, Settings, PlugZap, LogOut, ChevronRight, Check, AlertTriangle, DownloadCloud } from 'lucide-react';
 import ApiKeyConnect from "@/components/integrations/ApiKeyConnect";
 import { auth } from '@/lib/firebase-config';
 import { signInWithPopup, GoogleAuthProvider, onAuthStateChanged, User } from 'firebase/auth';
@@ -56,10 +57,10 @@ async function fetchIntegrations(user: User | null): Promise<Integration[]> {
 
 // --- Integration SBCard Component (from settings page) ---
 function IntegrationCard({
-  data, running, onConnect, onDisconnect, onConfigure, onSyncNow
+  data, running, onConnect, onDisconnect, onConfigure, onSyncNow, onImportContacts
 }: {
   data:Integration; running:boolean;
-  onConnect:()=>void; onDisconnect:()=>void; onConfigure:()=>void; onSyncNow:()=>void;
+  onConnect:()=>void; onDisconnect:()=>void; onConfigure:()=>void; onSyncNow:()=>void; onImportContacts?: () => void;
 }) {
   const meta = PROVIDER_META[data.provider];
   const badge = ({
@@ -93,12 +94,18 @@ function IntegrationCard({
         ) : (
           <>
             <button onClick={onConfigure} className="px-3 py-1.5 text-sm rounded-xl border flex items-center gap-2">
-              <Settings className="h-4 w-4"/> Ajustes de {meta.label}
+              <Settings className="h-4 w-4"/> Ajustes
             </button>
             <button disabled={running} onClick={onSyncNow}
               className="px-3 py-1.5 text-sm rounded-xl bg-black text-white flex items-center gap-2 disabled:opacity-50">
-              <RefreshCw className={`h-4 w-4 ${running?'animate-spin':''}`}/> Sync ahora
+              <RefreshCw className={`h-4 w-4 ${running?'animate-spin':''}`}/> Sync Facturas
             </button>
+            {onImportContacts && (
+                 <button disabled={running} onClick={onImportContacts}
+                    className="px-3 py-1.5 text-sm rounded-xl bg-black text-white flex items-center gap-2 disabled:opacity-50">
+                    <DownloadCloud className={`h-4 w-4 ${running?'animate-spin':''}`}/> Importar Contactos
+                </button>
+            )}
             <button onClick={onDisconnect} className="px-3 py-1.5 text-sm rounded-xl border flex items-center gap-2">
               <LogOut className="h-4 w-4"/> Desconectar
             </button>
@@ -230,6 +237,24 @@ export default function IntegrationsPanelPage() {
         }
     };
 
+    const handleImportContacts = async () => {
+        alert("Iniciando importación de contactos de Holded. Esto puede tardar un momento...");
+        setRunning('holded-contacts');
+        try {
+            const res = await fetch('/api/integrations/holded/import-contacts', { method: 'POST' });
+            const result = await res.json();
+            if (!res.ok) {
+                throw new Error(result.error || 'Error desconocido durante la importación');
+            }
+            alert(`¡Importación completada! ${result.created} creados, ${result.updated} actualizados.`);
+        } catch (e: any) {
+            alert(`Error al importar contactos: ${e.message}`);
+        } finally {
+            setRunning(null);
+        }
+    };
+
+
     const handleDeleteSecrets = async (provider?: string) => {
         const url = provider ? `/api/dev/integrations?provider=${provider}` : '/api/dev/integrations';
         if (window.confirm(`¿Seguro que quieres eliminar ${provider || 'todas las'} credenciales en memoria?`)) {
@@ -266,11 +291,12 @@ export default function IntegrationsPanelPage() {
                      {loadingIntegrations ? <p>Cargando...</p> : (
                         <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
                             {items.map((it) => (
-                              <IntegrationCard key={it.id} data={it} running={running===it.id}
+                              <IntegrationCard key={it.id} data={it} running={running===it.id || running === `${it.id}-contacts`}
                                 onConnect={()=>onConnect(it.provider)}
                                 onDisconnect={()=>onDisconnect(it.provider)}
                                 onConfigure={()=>onConfigure(it.provider)}
                                 onSyncNow={()=>onSyncNow(it.provider)}
+                                onImportContacts={it.provider === 'holded' ? handleImportContacts : undefined}
                               />
                             ))}
                         </div>
