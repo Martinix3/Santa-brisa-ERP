@@ -10,7 +10,6 @@ import React, {
   useCallback,
 } from "react";
 import type { User, SantaData } from "@/domain/ssot";
-import { mockSantaData } from "@/domain/mock-data";
 import { auth } from "./firebase-config";
 import {
   GoogleAuthProvider,
@@ -81,28 +80,29 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
 
         if (!response.ok) {
           const errorBody = await response.text();
-          console.warn(
-            `API fetch failed (${response.status}): ${errorBody}. Falling back to mock data.`
+          console.error(
+            `API fetch failed (${response.status}): ${errorBody}.`
           );
-          setData(JSON.parse(JSON.stringify(mockSantaData)));
+          // No hay fallback a mock data, mantenemos data como null
+          setData(null);
         } else {
           try {
             const apiData = await response.json();
             setData(apiData);
           } catch (e) {
             console.error(
-              "Failed to parse JSON from API, falling back to mock data.",
+              "Failed to parse JSON from API.",
               e
             );
-            setData(JSON.parse(JSON.stringify(mockSantaData)));
+            setData(null);
           }
         }
       } catch (error) {
         console.error(
-          "Could not fetch initial data, falling back to mock data:",
+          "Could not fetch initial data:",
           error
         );
-        setData(JSON.parse(JSON.stringify(mockSantaData)));
+        setData(null);
       } finally {
         setIsLoading(false);
       }
@@ -111,9 +111,9 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     if(auth.currentUser) {
         loadInitialData();
     } else {
-        // Si no hay usuario, cargamos los mocks para que la app no esté vacía
-        // antes del login.
-        setData(JSON.parse(JSON.stringify(mockSantaData)));
+        // Si no hay usuario, la app esperará a que el usuario haga login.
+        // No cargamos datos mock.
+        setData(null);
         setIsLoading(false);
     }
   }, [auth.currentUser]);
