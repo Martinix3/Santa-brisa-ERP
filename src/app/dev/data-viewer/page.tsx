@@ -1,18 +1,27 @@
 
 "use client";
 
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useData } from '@/lib/dataprovider';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
-import { Database, Check, X, Link as LinkIcon, AlertTriangle, Upload, Download, Trash2, ChevronDown, Save } from 'lucide-react';
-import { SBCard } from '@/components/ui/ui-primitives';
-import type { SantaData, Account, OrderSellOut, Interaction, Stage, AccountType, User, Distributor } from '@/domain/ssot';
+import { Database, Check, X, Link as LinkIcon, AlertTriangle, Upload, Download, Trash2, ChevronDown, Save, PlusCircle, RefreshCw, FileCog, FileUp, Edit2 } from 'lucide-react';
+import { SBCard, SBButton } from '@/components/ui/ui-primitives';
+import type { SantaData } from '@/domain/ssot';
 import Papa from "papaparse";
 
 // ===== UTILS & HELPERS =====
 const normText = (s: any) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
 
 // ===== COMPONENTS =====
+type StagedItem = {
+    id: string;
+    type: 'create' | 'update';
+    proposedData: Record<string, any>;
+    existingAccountId?: string;
+    status: 'pending' | 'approved' | 'ignored';
+};
+
 
 function EditableCell({ value, onUpdate }: { value: any, onUpdate: (newValue: any) => void }) {
   const [isEditing, setIsEditing] = useState(false);
@@ -196,15 +205,133 @@ function RelationAnalysis({ collectionName, collection, data }: { collectionName
     );
 }
 
+// ===== Import Review Component =====
+function ImportReviewerView({ importId }: { importId: string }) {
+    const [stagedItems, setStagedItems] = useState<StagedItem[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const router = useRouter();
+
+    useEffect(() => {
+        async function fetchStagedItems() {
+            try {
+                const response = await fetch(`/api/admin/get-staged-import?importId=${importId}`);
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.error || "Error al cargar los datos pre-importados.");
+                }
+                const data = await response.json();
+                setStagedItems(data);
+            } catch (e: any) {
+                setError(e.message);
+            } finally {
+                setLoading(false);
+            }
+        }
+        fetchStagedItems();
+    }, [importId]);
+
+    const handleApprove = async () => {
+        try {
+            const response = await fetch('/api/admin/approve-import', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ importId }),
+            });
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.error || 'Error al aprobar la importación.');
+            }
+            alert('¡Importación completada con éxito!');
+            router.push('/dev/data-viewer'); // Vuelve al visor normal
+        } catch (e: any) {
+            alert(`Error: ${e.message}`);
+        }
+    };
+    
+    const handleDiscard = () => {
+        if(confirm('¿Seguro que quieres descartar esta importación? Los datos pre-cargados se perderán.')) {
+            router.push('/dev/data-viewer');
+        }
+    };
+
+
+    if (loading) return <div className="p-6 text-center">Cargando revisión de importación...</div>;
+    if (error) return <div className="p-6 text-center text-red-600">{error}</div>;
+
+    const toCreate = stagedItems.filter(item => item.type === 'create');
+    const toUpdate = stagedItems.filter(item => item.type === 'update');
+
+    return (
+        <div className="p-6 space-y-6">
+             <ModuleHeader title="Revisión de Importación de Holded" icon={FileUp} />
+            <p className="text-zinc-600">Revisa los contactos importados de Holded antes de guardarlos definitivamente en el sistema.</p>
+
+            <div className="flex justify-end gap-3">
+                <SBButton variant="secondary" onClick={handleDiscard}>Descartar Importación</SBButton>
+                <SBButton onClick={handleApprove}>
+                    <Check className="mr-2 h-4 w-4" /> Aprobar y Guardar ({stagedItems.length})
+                </SBButton>
+            </div>
+
+            <SBCard title={`Cuentas Nuevas a Crear (${toCreate.length})`}>
+                <div className="divide-y divide-zinc-100">
+                    <div className="grid grid-cols-4 gap-4 p-3 bg-zinc-50 text-xs font-semibold uppercase">
+                        <span>Nombre</span>
+                        <span>CIF</span>
+                        <span>Ciudad</span>
+                        <span>Teléfono</span>
+                    </div>
+                    {toCreate.map(item => (
+                        <div key={item.id} className="grid grid-cols-4 gap-4 p-3 hover:bg-green-50/50">
+                            <div className="font-medium flex items-center gap-2"><PlusCircle size={14} className="text-green-600"/>{item.proposedData.name}</div>
+                            <div>{item.proposedData.cif || '—'}</div>
+                            <div>{item.proposedData.city || '—'}</div>
+                            <div>{item.proposedData.phone || '—'}</div>
+                        </div>
+                    ))}
+                </div>
+            </SBCard>
+
+            <SBCard title={`Cuentas Existentes a Actualizar (${toUpdate.length})`}>
+                 <div className="divide-y divide-zinc-100">
+                    <div className="grid grid-cols-4 gap-4 p-3 bg-zinc-50 text-xs font-semibold uppercase">
+                        <span>Nombre</span>
+                        <span>CIF</span>
+                        <span>Ciudad</span>
+                        <span>Teléfono</span>
+                    </div>
+                    {toUpdate.map(item => (
+                        <div key={item.id} className="grid grid-cols-4 gap-4 p-3 hover:bg-yellow-50/50">
+                            <div className="font-medium flex items-center gap-2"><RefreshCw size={14} className="text-yellow-700"/>{item.proposedData.name}</div>
+                            <div>{item.proposedData.cif || '—'}</div>
+                            <div>{item.proposedData.city || '—'}</div>
+                            <div>{item.proposedData.phone || '—'}</div>
+                        </div>
+                    ))}
+                </div>
+            </SBCard>
+        </div>
+    );
+}
+
+
 // ===== MAIN PAGE COMPONENT =====
-export default function DataViewerPage() {
+function DataViewerContent() {
     const { data, mode, setData, forceSave } = useData();
+    const searchParams = useSearchParams();
+    const reviewImportId = searchParams.get('reviewImportId');
+    
     const [selectedKey, setSelectedKey] = useState<keyof SantaData>('accounts');
     const [selectedRows, setSelectedRows] = useState(new Set<string>());
     const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => { if (notification) { const timer = setTimeout(() => setNotification(null), 3000); return () => clearTimeout(timer); } }, [notification]);
+
+    if(reviewImportId){
+        return <ImportReviewerView importId={reviewImportId} />;
+    }
 
     if (!data) return <div className="p-6 text-center"><p className="text-lg font-semibold">Cargando datos...</p></div>;
 
@@ -243,7 +370,6 @@ export default function DataViewerPage() {
             setData(prev => {
                 if (!prev) return null;
                 const updatedData = { ...prev, [selectedKey]: newCollection };
-                // Immediately call forceSave after setting the new state
                 forceSave(updatedData).then(() => {
                     setNotification({ message: `${selectedRows.size} registros eliminados permanentemente.`, type: 'success' });
                 }).catch(err => {
@@ -326,21 +452,21 @@ export default function DataViewerPage() {
             <ModuleHeader title="Visor y Editor de Datos del SSOT" icon={Database}>
                  <div className="flex items-center gap-2">
                     <input type="file" ref={fileInputRef} onChange={handleFileChange} style={{ display: 'none' }} accept=".csv"/>
-                    <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 text-sm bg-white border border-zinc-200 rounded-md px-3 py-1.5 hover:bg-zinc-50">
+                    <SBButton variant="secondary" onClick={() => fileInputRef.current?.click()}>
                         <Upload size={14} /> Importar CSV
-                    </button>
-                    <button onClick={() => handleExport('csv')} className="flex items-center gap-2 text-sm bg-white border border-zinc-200 rounded-md px-3 py-1.5 hover:bg-zinc-50">
+                    </SBButton>
+                    <SBButton variant="secondary" onClick={() => handleExport('csv')}>
                         <Download size={14} /> Exportar CSV
-                    </button>
-                    <button onClick={() => handleExport('json')} className="flex items-center gap-2 text-sm bg-white border border-zinc-200 rounded-md px-3 py-1.5 hover:bg-zinc-50">
+                    </SBButton>
+                    <SBButton variant="secondary" onClick={() => handleExport('json')}>
                         <Download size={14} /> Exportar JSON
-                    </button>
-                    <button onClick={handleDeleteSelected} disabled={selectedRows.size === 0} className="flex items-center gap-2 text-sm bg-red-50 text-red-700 border border-red-200 rounded-md px-3 py-1.5 hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed">
+                    </SBButton>
+                    <SBButton variant="destructive" onClick={handleDeleteSelected} disabled={selectedRows.size === 0}>
                         <Trash2 size={14} /> Eliminar ({selectedRows.size})
-                    </button>
-                    <button onClick={handleSaveChanges} className="flex items-center gap-2 text-sm bg-blue-600 text-white rounded-md px-4 py-2 hover:bg-blue-700 font-semibold">
+                    </SBButton>
+                    <SBButton onClick={handleSaveChanges}>
                         <Save size={16}/> Guardar Cambios
-                    </button>
+                    </SBButton>
                 </div>
             </ModuleHeader>
             <div className="p-6">
@@ -387,5 +513,13 @@ export default function DataViewerPage() {
                 </div>
             </div>
         </>
+    );
+}
+
+export default function DataViewerPage() {
+    return (
+        <Suspense fallback={<div className="p-6 text-center">Cargando...</div>}>
+            <DataViewerContent />
+        </Suspense>
     );
 }

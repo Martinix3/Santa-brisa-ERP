@@ -249,7 +249,7 @@ export default function IntegrationsPanelPage() {
                 throw new Error(result.error || 'Error desconocido durante el análisis');
             }
             alert(`Análisis completado: ${result.toCreate} contactos para crear, ${result.toUpdate} para actualizar. Redirigiendo a la página de revisión.`);
-            router.push(`/admin/import-review?importId=${result.importId}`);
+            router.push(result.reviewUrl);
         } catch (e: any) {
             alert(`Error al analizar contactos: ${e.message}`);
         } finally {

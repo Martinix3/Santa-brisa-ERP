@@ -100,6 +100,8 @@ export async function POST(req: Request) {
       message: `Análisis completado. Listos para importar.`,
       toCreate: toCreateCount,
       toUpdate: toUpdateCount,
+      // Devuelve la URL de revisión para el DataViewer
+      reviewUrl: `/dev/data-viewer?reviewImportId=${importId}`
     });
 
   } catch (error: any) {
