@@ -1,14 +1,26 @@
 // src/app/api/brain-persist/route.ts
 import { NextResponse, NextRequest } from 'next/server';
-import { adminDb } from '@/server/firebaseAdmin';
+import { adminAuth, adminDb } from '@/server/firebaseAdmin';
 import { SANTA_DATA_COLLECTIONS } from '@/domain/ssot';
 
 // Forzar el runtime de Node.js, ya que firebase-admin no es compatible con el Edge Runtime.
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+async function verifyAuth(req: NextRequest) {
+    const authHeader = req.headers.get("authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      throw new Error("No token provided");
+    }
+    const idToken = authHeader.split(" ")[1];
+    return adminAuth.verifyIdToken(idToken);
+}
+
 export async function GET(req: NextRequest) {
   try {
+    const decodedToken = await verifyAuth(req);
+    console.log(`[API GET] Authenticated user: ${decodedToken.email}`);
+
     const db = adminDb();
     const santaData: any = {};
     
@@ -20,6 +32,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(santaData);
   } catch (e:any) {
     console.error('Error fetching all collections from Firestore:', e);
+    if (e.message === "No token provided") {
+        return NextResponse.json({ ok:false, error: e.message }, { status: 401 });
+    }
     return NextResponse.json({ ok:false, error: e?.message || 'Unknown server error fetching data.' }, { status: 500 });
   }
 }
@@ -27,7 +42,10 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const db = adminDb(); // Llama a adminDb() al principio para fallar rápido si no está inicializado.
+    const decodedToken = await verifyAuth(req);
+    console.log(`[API POST] Authenticated user: ${decodedToken.email}`);
+    
+    const db = adminDb();
     const payload = await req.json();
 
     if (!payload || typeof payload !== 'object') {
@@ -59,6 +77,9 @@ export async function POST(req: NextRequest) {
 
   } catch (e:any) {
     console.error('Error in /api/brain-persist POST:', e);
+    if (e.code === 'auth/id-token-expired' || e.message === 'No token provided') {
+      return NextResponse.json({ ok:false, error: 'Authentication token is invalid or expired.' }, { status: 401 });
+    }
     return NextResponse.json({ ok:false, error: e?.message || 'Unknown server error.' }, { status: 500 });
   }
 }
