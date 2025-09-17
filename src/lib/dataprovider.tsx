@@ -80,8 +80,14 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
   // Listen for auth state changes
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        if (!data) {
+          // Si los datos de la app no se han cargado, no podemos saber si el usuario de firebase es válido
+          // onAuthStateChanged se volverá a disparar cuando data cambie.
+          return;
+        }
+
         setIsLoading(true);
-        if (firebaseUser && data) {
+        if (firebaseUser) {
             const localUser = data.users.find(u => u.email === firebaseUser.email);
             if (localUser) {
                 setCurrentUser(localUser);

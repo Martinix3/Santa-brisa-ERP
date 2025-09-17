@@ -13,21 +13,22 @@ export default function LoginPage() {
     const { currentUser, isLoading, data } = useData();
     const router = useRouter();
     const [error, setError] = useState<string | null>(null);
-    const [isRedirecting, setIsRedirecting] = useState(false);
+    const [isRedirecting, setIsRedirecting] = useState(true); // Start as true
 
     // Check for redirect result on component mount
     useEffect(() => {
         const checkRedirect = async () => {
             try {
                 const result = await getRedirectResult(auth);
-                if (result) {
-                    // This means the user has just come back from the redirect.
-                    // The onAuthStateChanged listener in DataProvider will handle the rest.
-                    setIsRedirecting(true); // Show a loading state
-                }
+                // Si result no es null, el usuario acaba de volver.
+                // El listener onAuthStateChanged del DataProvider se encargará del resto.
+                // Si es null, el usuario simplemente ha cargado la página de login.
             } catch (err: any) {
                 console.error("Error after redirect sign-in:", err);
                 setError(err.message || 'Ha ocurrido un error durante el inicio de sesión.');
+            } finally {
+                // Una vez comprobado, ya no estamos en el proceso de redirección inicial.
+                setIsRedirecting(false);
             }
         };
         checkRedirect();
@@ -42,7 +43,7 @@ export default function LoginPage() {
     const handleGoogleLogin = () => {
         if (isRedirecting) return;
         setError(null);
-        setIsRedirecting(true);
+        setIsRedirecting(true); // Muestra estado de carga al hacer clic
         const provider = new GoogleAuthProvider();
         signInWithRedirect(auth, provider).catch((err) => {
             console.error("Error initiating Google sign-in redirect:", err);
@@ -51,7 +52,9 @@ export default function LoginPage() {
         });
     };
     
-    if (isLoading || currentUser || isRedirecting) {
+    // Mostramos estado de carga si la librería de auth está trabajando,
+    // si estamos esperando la redirección o si el DataProvider aún no ha cargado.
+    if (isLoading || isRedirecting) {
         return (
              <div className="h-screen w-screen flex items-center justify-center bg-white">
                 <div className="text-center">
@@ -60,6 +63,9 @@ export default function LoginPage() {
             </div>
         )
     }
+
+    // Si ya estamos logueados pero la redirección no ha ocurrido, no mostramos nada para evitar parpadeo.
+    if(currentUser) return null;
 
     return (
         <div className="h-screen w-screen flex items-center justify-center bg-sb-neutral-50">
