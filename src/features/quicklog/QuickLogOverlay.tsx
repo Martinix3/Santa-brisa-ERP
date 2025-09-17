@@ -4,18 +4,21 @@
 import React, { useState, useCallback } from 'react';
 import { Plus, X } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
-import type { SantaData, Account, Product } from '@/domain/ssot';
+import type { SantaData, Account, Product, OrderSellOut, Interaction, InventoryItem, EventMarketing } from '@/domain/ssot';
 import { Chat } from '@/features/chat/Chat';
-import { runSantaBrain } from '@/ai/flows/santa-brain-flow';
+import { runSantaBrain, ChatContext } from '@/ai/flows/santa-brain-flow';
 import { Message } from 'genkit';
 
 async function persistNewEntities(payload: any) {
   const r = await fetch('/api/brain-persist', {
     method: 'POST',
-    headers: { 'Content-Type':'application/json' },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  if (!r.ok) throw new Error('Error guardando las entidades');
+  if (!r.ok) {
+    const errorBody = await r.json();
+    throw new Error(errorBody.error || 'Error guardando las entidades');
+  }
   return r.json();
 }
 
@@ -50,11 +53,6 @@ function ChatModal({ open, onClose, children }: { open: boolean, onClose: () => 
         </div>
     )
 }
-
-type ChatContext = {
-    accounts: Account[];
-    products: Product[];
-};
 
 export default function QuickLogOverlay() {
   const [open, setOpen] = useState(false);
@@ -114,9 +112,13 @@ export default function QuickLogOverlay() {
           context={{
               accounts: data.accounts,
               products: data.products,
+              orders: data.ordersSellOut,
+              interactions: data.interactions,
+              inventory: data.inventory,
+              mktEvents: data.mktEvents,
           }}
           onNewData={handleNewData}
-          runner={chatRunner}
+          runner={chatRunner as any}
         />
       </ChatModal>
     </>

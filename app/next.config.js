@@ -16,7 +16,8 @@ const nextConfig = {
   },
   // Add 'allowedDevOrigins' at the top level
   allowedDevOrigins: [
-    'https://3000-firebase-studio-1757248254463.cluster-fbfjltn375c6wqxlhoehbz44sk.cloudworkstations.dev'
+    'https://3000-firebase-studio-1757248254463.cluster-fbfjltn375c6wqxlhoehbz44sk.cloudworkstations.dev',
+    'https://9000-firebase-studio-1757248254463.cluster-fbfjltn375c6wqxlhoehbz44sk.cloudworkstations.dev'
   ],
 };
 module.exports = nextConfig;
