@@ -1,3 +1,4 @@
+
 // src/app/api/brain-persist/route.ts
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/server/firebaseAdmin';
@@ -6,54 +7,65 @@ import { adminDb } from '@/server/firebaseAdmin';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+export async function GET() {
+  try {
+    const db = adminDb();
+    const collections = [
+        'users', 'accounts', 'products', 'materials', 'distributors', 'interactions', 'ordersSellOut', 
+        'shipments', 'lots', 'inventory', 'stockMoves', 'billOfMaterials', 'productionOrders', 
+        'qaChecks', 'suppliers', 'traceEvents', 'goodsReceipts', 'mktEvents', 'onlineCampaigns', 
+        'creators', 'influencerCollabs'
+    ];
+    
+    const santaData: any = {};
+    
+    for (const collectionName of collections) {
+      const snapshot = await db.collection(collectionName).get();
+      santaData[collectionName] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    }
+
+    return NextResponse.json(santaData);
+  } catch (e:any) {
+    console.error('Error fetching all collections from Firestore:', e);
+    return NextResponse.json({ ok:false, error: e?.message || 'Unknown server error fetching data.' }, { status: 500 });
+  }
+}
+
+
 export async function POST(req: Request) {
   try {
-    const newEntities = await req.json();
+    const payload = await req.json();
 
-    // Log para depuración, como sugeriste.
-    console.log('[brain-persist] Received entities to save:', Object.keys(newEntities));
+    if (!payload || typeof payload !== 'object') {
+        return NextResponse.json({ ok: false, error: 'Invalid payload. Expecting an object of collections.' }, { status: 400 });
+    }
 
     const db = adminDb();
     const batch = db.batch();
     let count = 0;
 
-    for (const it of newEntities?.interactions ?? []) {
-      if (!it.id) continue;
-      const ref = db.collection("interactions").doc(it.id);
-      batch.set(ref, it, { merge: true });
-      count++;
-    }
-    for (const o of newEntities?.ordersSellOut ?? []) {
-      if (!o.id) continue;
-      // Guardamos en 'orders' para ser consistentes.
-      const ref = db.collection("orders").doc(o.id);
-      batch.set(ref, o, { merge: true });
-      count++;
-    }
-    for (const e of newEntities?.mktEvents ?? []) {
-      if (!e.id) continue;
-      const ref = db.collection("events").doc(e.id);
-      batch.set(ref, e, { merge: true });
-      count++;
-    }
-    for (const acc of newEntities?.accounts ?? []) {
-      if (!acc.id) continue;
-      const ref = db.collection("accounts").doc(acc.id);
-      batch.set(ref, acc, { merge: true });
-      count++;
+    for (const collectionName in payload) {
+        if (Array.isArray(payload[collectionName])) {
+            for (const doc of payload[collectionName]) {
+                if (!doc.id) continue;
+                const ref = db.collection(collectionName).doc(doc.id);
+                batch.set(ref, doc, { merge: true });
+                count++;
+            }
+        }
     }
     
     if (count > 0) {
       await batch.commit();
-      console.log(`[brain-persist] Successfully committed ${count} entities to Firestore.`);
+      console.log(`[api/brain-persist] Successfully committed ${count} documents across collections to Firestore.`);
     } else {
-      console.log('[brain-persist] No valid entities to commit.');
+      console.log('[api/brain-persist] No valid documents to commit.');
     }
     
-    return NextResponse.json({ ok: true, message: `${count} entities saved.` });
+    return NextResponse.json({ ok: true, message: `${count} documents saved.` });
 
   } catch (e:any) {
-    console.error('Error in /api/brain-persist:', e);
+    console.error('Error in /api/brain-persist POST:', e);
     return NextResponse.json({ ok:false, error: e?.message || 'Unknown server error.' }, { status: 500 });
   }
 }

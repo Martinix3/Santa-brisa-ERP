@@ -6,15 +6,12 @@ import type { User, SantaData } from '@/domain/ssot';
 
 export type DataMode = 'test' | 'real';
 
-let RealSantaData: SantaData | null = null;
-let MockSantaData: SantaData | null = null;
-
 interface DataContextProps {
-  mode: DataMode;
+  mode: DataMode; // 'test' mode will still use local mock data
   setMode: React.Dispatch<React.SetStateAction<DataMode>>;
   data: SantaData | null;
   setData: React.Dispatch<React.SetStateAction<SantaData | null>>;
-  forceSave: () => void;
+  forceSave: () => Promise<void>;
   currentUser: User | null;
   login: (email: string, pass: string) => Promise<boolean>;
   logout: () => void;
@@ -23,13 +20,15 @@ interface DataContextProps {
 
 const DataContext = createContext<DataContextProps | undefined>(undefined);
 
+let MockSantaData: SantaData | null = null; // Cache for mock data
+
 export const DataProvider = ({ children }: { children: React.ReactNode }) => {
-  const [mode, setMode] = useState<DataMode>('test');
+  const [mode, setMode] = useState<DataMode>('real'); // Default to 'real' to use Firestore
   const [data, setData] = useState<SantaData | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true); // For initial user/mode load
-  const [isDataLoading, setIsDataLoading] = useState(true); // For async data fetching
+  const [isLoading, setIsLoading] = useState(true);
 
+  // Load user and mode from localStorage on initial mount
   useEffect(() => {
     const savedMode = localStorage.getItem('sb-data-mode') as DataMode;
     if (savedMode) setMode(savedMode);
@@ -46,47 +45,31 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     setIsLoading(false);
   }, []);
 
-  const forceSave = useCallback(() => {
-    if (mode === 'real' && data) {
-       localStorage.setItem('sb-real-data', JSON.stringify(data));
-       RealSantaData = data;
-    } else if (mode === 'test' && data) {
-       // Mock data is not persisted to localStorage to keep it stateless
-       MockSantaData = data;
-    }
-  }, [data, mode]);
-
-
+  // Save mode to localStorage whenever it changes
   useEffect(() => {
     localStorage.setItem('sb-data-mode', mode);
-    setIsDataLoading(true);
+  }, [mode]);
 
+  // Effect to load data based on the current mode (Firestore for 'real', local mock for 'test')
+  useEffect(() => {
     const loadData = async () => {
+        setIsLoading(true);
         try {
-            if (mode === 'test') {
+            if (mode === 'real') {
+                // Fetch all data from Firestore via our API route
+                const response = await fetch('/api/brain-persist');
+                if (!response.ok) {
+                    throw new Error('Failed to fetch data from Firestore');
+                }
+                const firestoreData = await response.json();
+                setData(firestoreData);
+            } else { // mode === 'test'
                 if (MockSantaData) {
                     setData(MockSantaData);
                 } else {
                     const module = await import('@/domain/mock-data');
                     MockSantaData = module.mockSantaData;
                     setData(MockSantaData);
-                }
-            } else { // mode === 'real'
-                const savedRealData = localStorage.getItem('sb-real-data');
-                if (savedRealData) {
-                    try {
-                        const parsedData = JSON.parse(savedRealData);
-                        RealSantaData = parsedData;
-                        setData(parsedData);
-                    } catch {
-                         const module = await import('@/domain/real-data');
-                         RealSantaData = module.realSantaData;
-                         setData(RealSantaData);
-                    }
-                } else {
-                    const module = await import('@/domain/real-data');
-                    RealSantaData = module.realSantaData;
-                    setData(RealSantaData);
                 }
             }
         } catch (err) {
@@ -98,13 +81,37 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
             }
             setData(MockSantaData);
         } finally {
-            setIsDataLoading(false);
+            setIsLoading(false);
         }
     };
     
     loadData();
-
   }, [mode]);
+
+  // Function to force save the current state to the backend (Firestore)
+  const forceSave = useCallback(async () => {
+    if (mode === 'real' && data) {
+       try {
+         const response = await fetch('/api/brain-persist', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+         });
+         if (!response.ok) {
+             const err = await response.json();
+             throw new Error(err.error || 'API save failed');
+         }
+         console.log("Data successfully saved to Firestore.");
+       } catch (error) {
+         console.error("Error saving data to Firestore:", error);
+         // Optionally, show an error to the user
+       }
+    } else if (mode === 'test' && data) {
+       // In 'test' mode, we just update the in-memory mock data cache
+       MockSantaData = data;
+       console.log("Mock data updated in memory (not persisted).");
+    }
+  }, [data, mode]);
 
 
   const login = useCallback(async (email: string, pass: string): Promise<boolean> => {
@@ -118,7 +125,6 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
           return true;
       }
       return false;
-
   }, [data]);
 
   const logout = useCallback(() => {
@@ -135,8 +141,8 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
       currentUser,
       login,
       logout,
-      isLoading: isLoading || isDataLoading
-  }), [mode, data, setData, forceSave, currentUser, login, logout, isLoading, isDataLoading]);
+      isLoading,
+  }), [mode, data, setData, forceSave, currentUser, login, logout, isLoading]);
 
   return (
     <DataContext.Provider value={value}>
