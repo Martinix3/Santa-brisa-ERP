@@ -238,14 +238,7 @@ function AuthenticatedLayoutContent({ children }: { children: React.ReactNode })
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
   const pathname = usePathname() ?? '/';
-  const { currentUser, logout, isLoading } = useData();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!isLoading && !currentUser) {
-        router.replace('/login');
-    }
-  }, [isLoading, currentUser, router]);
+  const { currentUser, isLoading } = useData();
 
   useEffect(() => {
     const activeSection = navSections.find(section => section.items.some(item => pathname.startsWith(item.href) && item.href !== '/'));
@@ -308,9 +301,6 @@ function AuthenticatedLayoutContent({ children }: { children: React.ReactNode })
                                 <p className="text-xs text-sb-neutral-500 truncate">{currentUser?.email}</p>
                             </div>
                         )}
-                         <button onClick={logout} title="Cerrar sesión" className={`p-2 rounded-md text-sb-neutral-500 hover:bg-sb-neutral-200 hover:text-sb-neutral-800 ${isSidebarCollapsed ? 'hidden' : ''}`}>
-                            <LogOut size={16} />
-                         </button>
                     </div>
                 </div>
 
