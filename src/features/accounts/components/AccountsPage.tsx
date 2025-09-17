@@ -203,17 +203,15 @@ export function AccountsPageContent() {
     const cities = new Set<string>();
     const dists = new Set<string>();
     data.forEach(a => {
-      if (a.mode && (a.mode.mode === 'PROPIA_SB' || a.mode.mode === 'COLOCACION')) {
-         if ('ownerUserId' in a.mode) reps.add(a.mode.ownerUserId);
-      }
+      if (a.ownerId) reps.add(a.ownerId);
       if (a.city) cities.add(a.city);
       if (a.distributorId) dists.add(a.distributorId);
     });
-    const repMap = santaData.users.reduce((acc, u) => ({ ...acc, [u.id]: u.name }), {} as Record<string, string>);
+    const userMap = santaData.users.reduce((acc, u) => ({ ...acc, [u.id]: u.name }), {} as Record<string, string>);
     const distMap = santaData.distributors.reduce((acc, d) => ({ ...acc, [d.id]: d.name }), {} as Record<string, string>);
 
     return {
-      repOptions: Array.from(reps).map(id => ({ value: id, label: repMap[id] || id })).sort((a,b) => a.label.localeCompare(b.label)),
+      repOptions: Array.from(reps).map(id => ({ value: id, label: userMap[id] || distMap[id] || id })).sort((a,b) => a.label.localeCompare(b.label)),
       cityOptions: Array.from(cities).map(c => ({ value: c, label: c })).sort((a,b) => a.label.localeCompare(b.label)),
       distOptions: Array.from(dists).map(id => ({ value: id, label: distMap[id] || id })).sort((a,b) => a.label.localeCompare(b.label)),
     };
@@ -228,12 +226,7 @@ export function AccountsPageContent() {
       const distName = dist?.name || (a.distributorId ? '' : 'Propia');
       
       const matchesQuery = !s || [a.name,a.city,a.type,a.stage, owner, distName].some(v=> (v||'').toString().toLowerCase().includes(s));
-      
-      let matchesRep = !fltRep;
-      if (fltRep && a.mode && (a.mode.mode === 'PROPIA_SB' || a.mode.mode === 'COLOCACION')) {
-        if ('ownerUserId' in a.mode) matchesRep = a.mode.ownerUserId === fltRep;
-      }
-      
+      const matchesRep = !fltRep || a.ownerId === fltRep;
       const matchesCity = !fltCity || a.city === fltCity;
       const matchesDist = !fltDist || a.distributorId === fltDist;
 

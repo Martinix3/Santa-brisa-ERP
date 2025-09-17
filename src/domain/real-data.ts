@@ -6,15 +6,15 @@ import { mockSantaData } from './mock-data';
 // It avoids the need for complex data processing in the DataProvider.
 
 const realAccounts: SantaData['accounts'] = [
-    { id: 'acc_real_1', name: 'Restaurante La Cuchara', city: 'Madrid', type: 'HORECA', stage: 'ACTIVA', mode: { mode: 'PROPIA_SB', ownerUserId: 'u_patxi', biller: 'SB' }, createdAt: '2024-04-12T10:00:00Z' },
-    { id: 'acc_real_2', name: 'Bar El Trocadero', city: 'Barcelona', type: 'HORECA', stage: 'SEGUIMIENTO', mode: { mode: 'PROPIA_SB', ownerUserId: 'u_nico', biller: 'SB' }, createdAt: '2024-04-15T10:00:00Z' },
-    { id: 'acc_real_3', name: 'Hotel Vista al Mar', city: 'Valencia', type: 'HORECA', stage: 'ACTIVA', mode: { mode: 'PROPIA_SB', ownerUserId: 'u_alfonso', biller: 'SB' }, createdAt: '2024-04-18T10:00:00Z' },
-    { id: 'acc_real_4', name: 'Coctelería El Alquimista', city: 'Madrid', type: 'HORECA', stage: 'ACTIVA', mode: { mode: 'PROPIA_SB', ownerUserId: 'u_patxi', biller: 'SB' }, createdAt: '2024-04-20T10:00:00Z' },
-    { id: 'acc_real_5', name: 'Terraza del Sol', city: 'Sevilla', type: 'HORECA', stage: 'ACTIVA', mode: { mode: 'PROPIA_SB', ownerUserId: 'u_nico', biller: 'SB' }, createdAt: '2024-04-22T10:00:00Z' },
-    { id: 'acc_real_6', name: 'Gastrobar Fusión', city: 'Bilbao', type: 'HORECA', stage: 'SEGUIMIENTO', mode: { mode: 'PROPIA_SB', ownerUserId: 'u_alfonso', biller: 'SB' }, createdAt: '2024-04-25T10:00:00Z' },
-    { id: 'acc_real_7', name: 'Chiringuito La Ola', city: 'Málaga', type: 'HORECA', stage: 'POTENCIAL', mode: { mode: 'PROPIA_SB', ownerUserId: 'u_nico', biller: 'SB' }, createdAt: '2024-05-01T10:00:00Z' },
-    { id: 'acc_real_8', name: 'Taberna del Norte', city: 'Santander', type: 'HORECA', stage: 'SEGUIMIENTO', mode: { mode: 'PROPIA_SB', ownerUserId: 'u_patxi', biller: 'SB' }, createdAt: '2024-05-05T10:00:00Z' },
-    { id: 'acc_real_9', name: 'Venta Directa Online', city: 'Web', type: 'OTRO', stage: 'ACTIVA', mode: { mode: 'PROPIA_SB', ownerUserId: 'u_martin', biller: 'SB' }, createdAt: '2024-05-12T10:00:00Z' },
+    { id: 'acc_real_1', name: 'Restaurante La Cuchara', city: 'Madrid', type: 'HORECA', stage: 'ACTIVA', ownerId: 'u_patxi', billerId: 'SB', createdAt: '2024-04-12T10:00:00Z' },
+    { id: 'acc_real_2', name: 'Bar El Trocadero', city: 'Barcelona', type: 'HORECA', stage: 'SEGUIMIENTO', ownerId: 'u_nico', billerId: 'SB', createdAt: '2024-04-15T10:00:00Z' },
+    { id: 'acc_real_3', name: 'Hotel Vista al Mar', city: 'Valencia', type: 'HORECA', stage: 'ACTIVA', ownerId: 'u_alfonso', billerId: 'SB', createdAt: '2024-04-18T10:00:00Z' },
+    { id: 'acc_real_4', name: 'Coctelería El Alquimista', city: 'Madrid', type: 'HORECA', stage: 'ACTIVA', ownerId: 'u_patxi', billerId: 'SB', createdAt: '2024-04-20T10:00:00Z' },
+    { id: 'acc_real_5', name: 'Terraza del Sol', city: 'Sevilla', type: 'HORECA', stage: 'ACTIVA', ownerId: 'u_nico', billerId: 'SB', createdAt: '2024-04-22T10:00:00Z' },
+    { id: 'acc_real_6', name: 'Gastrobar Fusión', city: 'Bilbao', type: 'HORECA', stage: 'SEGUIMIENTO', ownerId: 'u_alfonso', billerId: 'SB', createdAt: '2024-04-25T10:00:00Z' },
+    { id: 'acc_real_7', name: 'Chiringuito La Ola', city: 'Málaga', type: 'HORECA', stage: 'POTENCIAL', ownerId: 'u_nico', billerId: 'SB', createdAt: '2024-05-01T10:00:00Z' },
+    { id: 'acc_real_8', name: 'Taberna del Norte', city: 'Santander', type: 'HORECA', stage: 'SEGUIMIENTO', ownerId: 'u_patxi', billerId: 'SB', createdAt: '2024-05-05T10:00:00Z' },
+    { id: 'acc_real_9', name: 'Venta Directa Online', city: 'Web', type: 'OTRO', stage: 'ACTIVA', ownerId: 'u_martin', billerId: 'SB', createdAt: '2024-05-12T10:00:00Z' },
 ];
 
 const realOrders: SantaData['ordersSellOut'] = [

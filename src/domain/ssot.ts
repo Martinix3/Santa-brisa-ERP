@@ -26,10 +26,7 @@ export interface User {
   }
 }
 
-export type AccountMode =
-  | { mode: 'PROPIA_SB'; ownerUserId: string; biller: 'SB' }
-  | { mode: 'COLOCACION'; ownerUserId: string; billerPartnerId: string }
-  | { mode: 'DISTRIB_PARTNER'; ownerPartnerId: string; billerPartnerId: string };
+export type AccountMode = 'PROPIA_SB' | 'COLOCACION' | 'DISTRIB_PARTNER';
 
 export interface Account {
   id: string;
@@ -37,9 +34,13 @@ export interface Account {
   city?: string;
   type: AccountType;
   stage: Stage;
-  distributorId?: string;
-  salesRepId?: string;
-  mode: AccountMode;
+  // Nuevos campos para reemplazar 'mode'
+  ownerId: string; // Puede ser un userId ('u_...') o un partnerId ('d_...')
+  billerId: string; // Puede ser 'SB' o un partnerId ('d_...')
+
+  distributorId?: string; // Mantenido por compatibilidad y acceso rápido
+  salesRepId?: string; // Mantenido por compatibilidad y acceso rápido
+
   address?: string;
   phone?: string;
   cif?: string;

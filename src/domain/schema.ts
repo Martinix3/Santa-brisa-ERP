@@ -10,8 +10,8 @@ export type {
   Interaction,
   SantaData,
   AccountType,
-  Stage,
   AccountMode,
+  Stage,
   UserRole,
 } from './ssot';
 

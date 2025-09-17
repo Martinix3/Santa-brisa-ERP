@@ -62,7 +62,7 @@ function PersonalDashboardContent({ displayedUser, timePeriod, setTimePeriod }: 
 
     const userOrders = santaData.ordersSellOut.filter(o => o.userId === displayedUser.id && inWindow(o.createdAt, startDate, endDate));
     const userInteractions = santaData.interactions.filter(i => i.userId === displayedUser.id);
-    const userAccounts = santaData.accounts.filter(a => (a.mode as any)?.ownerUserId === displayedUser.id);
+    const userAccounts = santaData.accounts.filter(a => a.ownerId === displayedUser.id);
 
     const revenue = userOrders.filter(o => o.status === 'confirmed').reduce((sum, o) => sum + orderTotal(o), 0);
     const pipeline = userOrders.filter(o => o.status === 'open').reduce((sum, o) => sum + orderTotal(o), 0);
@@ -318,7 +318,7 @@ function SalesReportTable({ users, data }: { users: UserType[], data: any }) {
         };
 
         const byUser = users.map(user => {
-            const userAccounts = data.accounts.filter((a: Account) => (a.mode as any)?.ownerUserId === user.id);
+            const userAccounts = data.accounts.filter((a: Account) => a.ownerId === user.id);
             const userOrders = data.ordersSellOut.filter((o: OrderSellOut) => o.userId === user.id);
             const totalSales = userOrders.reduce((sum: number, o: OrderSellOut) => sum + orderTotal(o), 0);
             return {
@@ -390,7 +390,7 @@ function AIInsightsCard() {
         try {
             const relevantData = {
                 users: data.users.map(u => ({ id: u.id, name: u.name, role: u.role })),
-                accounts: data.accounts.map(a => ({ id: a.id, name: a.name, city: a.city, stage: a.stage, type: a.type, owner: (a.mode as any)?.ownerUserId })),
+                accounts: data.accounts.map(a => ({ id: a.id, name: a.name, city: a.city, stage: a.stage, type: a.type, owner: a.ownerId })),
                 orders: data.ordersSellOut.map(o => ({ id: o.id, accountId: o.accountId, userId: o.userId, status: o.status, total: orderTotal(o), date: o.createdAt })),
                 interactions: data.interactions.map(i => ({ id: i.id, accountId: i.accountId, userId: i.userId, kind: i.kind, date: i.createdAt })),
             };
@@ -438,7 +438,7 @@ function TeamDashboardContent() {
     const startOfYear = new Date(now.getFullYear(), 0, 1);
 
     const usersWithData = users.map(user => {
-      const newAccounts = data.accounts.filter(acc => (acc.mode as any)?.ownerUserId === user.id && new Date(acc.createdAt) >= oneWeekAgo);
+      const newAccounts = data.accounts.filter(acc => acc.ownerId === user.id && new Date(acc.createdAt) >= oneWeekAgo);
       return {
         ...user,
         newAccounts: newAccounts.length,

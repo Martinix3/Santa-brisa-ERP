@@ -1,9 +1,39 @@
 
 // --- Santa Brisa: lógica de negocio (sell-out a botellas, agregados y KPIs) ---
 import type {
-  Account, Distributor, OrderSellOut, OrderLine, Product, User, Channel, SantaData
+  Account, Distributor, OrderSellOut, OrderLine, Product, User, Channel, SantaData, AccountMode
 } from '@/domain/ssot';
 import { inWindow, orderTotal } from '@/domain/ssot';
+
+
+// ===== 0) Lógica de negocio sobre el modelo de cuenta =====
+
+/**
+ * Deriva el modo de operación de una cuenta ('PROPIA_SB', 'COLOCACION', 'DISTRIB_PARTNER')
+ * a partir de su `ownerId` y `billerId`. Esta es ahora la única fuente de verdad para el modo.
+ */
+export function computeAccountMode(account: Account): AccountMode {
+  // `ownerId` puede ser un `userId` (u_...) o `distributorId` (d_...)
+  // `billerId` puede ser 'SB' o `distributorId` (d_...)
+
+  const isOwnerUser = account.ownerId.startsWith('u_');
+  const isBillerSB = account.billerId === 'SB';
+
+  if (isOwnerUser && isBillerSB) {
+    return 'PROPIA_SB';
+  }
+  if (isOwnerUser && !isBillerSB) {
+    return 'COLOCACION';
+  }
+  if (!isOwnerUser && !isBillerSB) {
+    return 'DISTRIB_PARTNER';
+  }
+
+  // Fallback por si hay una combinación inesperada (p.ej. owner de distribuidor pero factura SB)
+  // Devolvemos el modo más restrictivo.
+  return 'PROPIA_SB';
+}
+
 
 // ===== 1) Display Helpers =====
 export function accountOwnerDisplay(
@@ -11,33 +41,15 @@ export function accountOwnerDisplay(
   users: User[],
   distributors: Distributor[]
 ): string {
-  if (!acc.mode) return '—';
-  const m = acc.mode;
-  if (!m) return '—';
+  if (!acc.ownerId) return '—';
 
-  switch (m.mode) {
-    case 'PROPIA_SB':
-    case 'COLOCACION': {
-      if ('ownerUserId' in m) {
-        return users.find(u => u.id === m.ownerUserId)?.name ?? '—';
-      }
-      return '—';
-    }
-    case 'DISTRIB_PARTNER': {
-      if ('ownerPartnerId' in m) {
-        return distributors.find(d => d.id === m.ownerPartnerId)?.name ?? '—';
-      }
-      return '—';
-    }
-    default: {
-      // fallback por si aparecen modos nuevos
-      const uid = (m as any)?.ownerUserId;
-      const pid = (m as any)?.ownerPartnerId;
-      const byUser = users.find(u => u.id === uid)?.name;
-      const byPartner = distributors.find(d => d.id === pid)?.name;
-      return byUser ?? byPartner ?? '—';
-    }
-  }
+  const user = users.find(u => u.id === acc.ownerId);
+  if (user) return user.name;
+
+  const dist = distributors.find(d => d.id === acc.ownerId);
+  if (dist) return dist.name;
+  
+  return acc.ownerId; // Fallback al ID si no se encuentra
 }
 
 // ===== 2) Conversion a botellas =====
@@ -74,8 +86,8 @@ export function orderToBottles(order: OrderSellOut, products: Product[], opts?: 
 }
 
 export function deriveChannel(a: Account): Channel {
-  if (!a.mode) return 'propia'; // Fallback
-  switch (a.mode.mode) {
+  const mode = computeAccountMode(a);
+  switch (mode) {
     case 'PROPIA_SB':
       if (a.type === 'OTRO') return 'online'; // Asumiendo que 'OTRO' puede ser venta online directa
       return 'propia';
@@ -123,7 +135,7 @@ export function computeAccountKPIs(params: {
 
   // Find user to apply baseline
   const account = data.accounts.find(a => a.id === accountId);
-  const ownerId = account?.mode && (account.mode.mode === 'PROPIA_SB' || account.mode.mode === 'COLOCACION') ? account.mode.ownerUserId : undefined;
+  const ownerId = account?.ownerId;
   const user = ownerId ? data.users.find(u => u.id === ownerId) : undefined;
   const baseline = user?.kpiBaseline;
 

@@ -28,16 +28,16 @@ export const DISTRIBUTORS: SantaData['distributors'] = [
 ];
 
 export const ACCOUNTS: SantaData['accounts'] = [
-  { id: 'acc_1', name: 'Bares Paco S.L.', city: 'Madrid', type: 'HORECA', stage: 'ACTIVA', mode: { mode: 'PROPIA_SB', ownerUserId: 'u_ana', biller: 'SB' }, salesRepId: 'u_ana', createdAt: isoDaysAgo(180) },
-  { id: 'acc_2', name: 'Hotel Marítimo', city: 'Valencia', type: 'HORECA', stage: 'POTENCIAL', mode: { mode: 'PROPIA_SB', ownerUserId: 'u_marcos', biller: 'SB' }, salesRepId: 'u_marcos', createdAt: isoDaysAgo(30) },
-  { id: 'acc_3', name: 'Restaurante Roca', city: 'Girona', type: 'HORECA', stage: 'ACTIVA', mode: { mode: 'COLOCACION', ownerUserId: 'u_alfonso', billerPartnerId: 'd_rivera' }, distributorId: 'd_rivera', salesRepId: 'u_alfonso', createdAt: isoDaysAgo(45) },
-  { id: 'acc_4', name: 'Coctelería Oasis', city: 'Marbella', type: 'HORECA', stage: 'ACTIVA', mode: { mode: 'COLOCACION', ownerUserId: 'u_patxi', billerPartnerId: 'd_andes' }, distributorId: 'd_andes', salesRepId: 'u_patxi', createdAt: isoDaysAgo(60) },
-  { id: 'acc_5', name: 'Terraza del Mar', city: 'Ibiza', type: 'HORECA', stage: 'SEGUIMIENTO', mode: { mode: 'PROPIA_SB', ownerUserId: 'u_nico', biller: 'SB' }, salesRepId: 'u_nico', createdAt: isoDaysAgo(15) },
-  { id: 'acc_6', name: 'Supermercado Sol', city: 'Madrid', type: 'RETAIL', stage: 'ACTIVA', mode: { mode: 'PROPIA_SB', ownerUserId: 'u_ana', biller: 'SB' }, salesRepId: 'u_ana', createdAt: isoDaysAgo(120) },
-  { id: 'acc_7', name: 'Club Nocturno Eclipse', city: 'Barcelona', type: 'HORECA', stage: 'ACTIVA', mode: { mode: 'COLOCACION', ownerUserId: 'u_marcos', billerPartnerId: 'd_rivera' }, distributorId: 'd_rivera', salesRepId: 'u_marcos', createdAt: isoDaysAgo(80) },
-  { id: 'acc_8', name: 'Tienda Gourmet Delicias', city: 'Bilbao', type: 'RETAIL', stage: 'SEGUIMIENTO', mode: { mode: 'PROPIA_SB', ownerUserId: 'u_alfonso', biller: 'SB' }, salesRepId: 'u_alfonso', createdAt: isoDaysAgo(25) },
-  { id: 'acc_9', name: 'Beach Club Arena', city: 'Formentera', type: 'HORECA', stage: 'FALLIDA', mode: { mode: 'PROPIA_SB', ownerUserId: 'u_nico', biller: 'SB' }, salesRepId: 'u_nico', createdAt: isoDaysAgo(50) },
-  { id: 'acc_10', name: 'Bar de Tapas El Rincón', city: 'Sevilla', type: 'HORECA', stage: 'ACTIVA', mode: { mode: 'PROPIA_SB', ownerUserId: 'u_patxi', biller: 'SB' }, salesRepId: 'u_patxi', createdAt: isoDaysAgo(200) },
+  { id: 'acc_1', name: 'Bares Paco S.L.', city: 'Madrid', type: 'HORECA', stage: 'ACTIVA', ownerId: 'u_ana', billerId: 'SB', salesRepId: 'u_ana', createdAt: isoDaysAgo(180) },
+  { id: 'acc_2', name: 'Hotel Marítimo', city: 'Valencia', type: 'HORECA', stage: 'POTENCIAL', ownerId: 'u_marcos', billerId: 'SB', salesRepId: 'u_marcos', createdAt: isoDaysAgo(30) },
+  { id: 'acc_3', name: 'Restaurante Roca', city: 'Girona', type: 'HORECA', stage: 'ACTIVA', ownerId: 'u_alfonso', billerId: 'd_rivera', distributorId: 'd_rivera', salesRepId: 'u_alfonso', createdAt: isoDaysAgo(45) },
+  { id: 'acc_4', name: 'Coctelería Oasis', city: 'Marbella', type: 'HORECA', stage: 'ACTIVA', ownerId: 'u_patxi', billerId: 'd_andes', distributorId: 'd_andes', salesRepId: 'u_patxi', createdAt: isoDaysAgo(60) },
+  { id: 'acc_5', name: 'Terraza del Mar', city: 'Ibiza', type: 'HORECA', stage: 'SEGUIMIENTO', ownerId: 'u_nico', billerId: 'SB', salesRepId: 'u_nico', createdAt: isoDaysAgo(15) },
+  { id: 'acc_6', name: 'Supermercado Sol', city: 'Madrid', type: 'RETAIL', stage: 'ACTIVA', ownerId: 'u_ana', billerId: 'SB', salesRepId: 'u_ana', createdAt: isoDaysAgo(120) },
+  { id: 'acc_7', name: 'Club Nocturno Eclipse', city: 'Barcelona', type: 'HORECA', stage: 'ACTIVA', ownerId: 'u_marcos', billerId: 'd_rivera', distributorId: 'd_rivera', salesRepId: 'u_marcos', createdAt: isoDaysAgo(80) },
+  { id: 'acc_8', name: 'Tienda Gourmet Delicias', city: 'Bilbao', type: 'RETAIL', stage: 'SEGUIMIENTO', ownerId: 'u_alfonso', billerId: 'SB', salesRepId: 'u_alfonso', createdAt: isoDaysAgo(25) },
+  { id: 'acc_9', name: 'Beach Club Arena', city: 'Formentera', type: 'HORECA', stage: 'FALLIDA', ownerId: 'u_nico', billerId: 'SB', salesRepId: 'u_nico', createdAt: isoDaysAgo(50) },
+  { id: 'acc_10', name: 'Bar de Tapas El Rincón', city: 'Sevilla', type: 'HORECA', stage: 'ACTIVA', ownerId: 'u_patxi', billerId: 'SB', salesRepId: 'u_patxi', createdAt: isoDaysAgo(200) },
 ];
 
 // --- Productos y Materiales ---
