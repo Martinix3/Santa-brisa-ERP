@@ -2,6 +2,12 @@
 // src/services/server/firebase-check.ts
 import { initializeApp, cert, getApps } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
+import * as dotenv from 'dotenv';
+import * as path from 'path';
+
+// Cargar variables de entorno desde el archivo .env en la raíz del proyecto
+dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+
 
 // Inicializa Firebase Admin solo si no está ya inicializado
 let firebaseAdminInitialized = false;
@@ -9,24 +15,17 @@ if (getApps().length === 0) {
   try {
     const projectId = process.env.FIREBASE_PROJECT_ID;
     const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-    let privateKey = process.env.FIREBASE_PRIVATE_KEY;
+    const privateKey = process.env.FIREBASE_PRIVATE_KEY;
 
     if (!projectId || !clientEmail || !privateKey) {
         throw new Error('Faltan variables de entorno de Firebase. Asegúrate de que FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL y FIREBASE_PRIVATE_KEY están definidas en tu archivo .env');
     }
     
-    // Depuración: Intentar quitar las cabeceras PEM para ver si el error cambia.
-    const processedKey = privateKey
-      .replace(/\\n/g, '\n')
-      .replace('-----BEGIN PRIVATE KEY-----', '')
-      .replace('-----END PRIVATE KEY-----', '')
-      .trim();
-      
     initializeApp({
       credential: cert({
         projectId,
         clientEmail,
-        privateKey: processedKey,
+        privateKey: privateKey.replace(/\\n/g, '\n'),
       }),
     });
     firebaseAdminInitialized = true;
