@@ -4,8 +4,6 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import type { User, SantaData } from '@/domain/ssot';
 import { mockSantaData } from '@/domain/mock-data';
-import { auth } from './firebase-config';
-import { onAuthStateChanged, signInWithRedirect, GoogleAuthProvider, signOut, getRedirectResult } from "firebase/auth";
 
 export type DataMode = 'test' | 'real';
 
@@ -24,10 +22,8 @@ interface DataContextProps {
 const DataContext = createContext<DataContextProps | undefined>(undefined);
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
-    const user = auth.currentUser;
-    if (!user) return {};
-    const token = await user.getIdToken();
-    return { 'Authorization': `Bearer ${token}` };
+    // Auth is disabled, no headers needed.
+    return {};
 }
 
 export const DataProvider = ({ children }: { children: React.ReactNode }) => {
@@ -41,8 +37,9 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     const loadInitialData = async () => {
         setIsLoading(true);
         try {
-            const headers = await getAuthHeaders();
-            const response = await fetch('/api/brain-persist', { headers });
+            // Since auth is disabled, we'll fetch data without auth headers.
+            // This might fail if the API requires auth, but it will fallback to mocks.
+            const response = await fetch('/api/brain-persist');
 
             if (!response.ok) {
                 const errorBody = await response.text();
@@ -66,41 +63,27 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     loadInitialData();
   }, []);
   
-   // Listen to auth state changes & handle redirect result
+   // Mock user login
   useEffect(() => {
       if (!data) return; // Wait until app data is loaded
 
-      const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-        if (firebaseUser) {
-            const appUser = data.users.find(u => u.email?.toLowerCase() === firebaseUser.email?.toLowerCase());
-            if (appUser) {
-                setCurrentUser(appUser);
-            } else {
-                 console.warn("Firebase user is authenticated, but not found in the app's user list.");
-                 setCurrentUser(null);
-            }
-        } else {
-            setCurrentUser(null);
-        }
-        setIsLoading(false);
-      });
-      
-      // Check for redirect result on initial load
-      getRedirectResult(auth).catch(error => {
-          console.error("Error getting redirect result:", error);
-      });
+      const adminUser = data.users.find(u => u.email === 'admin@santabrisa.com');
+      if (adminUser) {
+          setCurrentUser(adminUser);
+      } else {
+          // Fallback to the first user if admin is not found
+          setCurrentUser(data.users[0] || null);
+      }
+      setIsLoading(false);
 
-      return () => unsubscribe();
   }, [data]);
 
   const login = useCallback(async () => {
-      const provider = new GoogleAuthProvider();
-      await signInWithRedirect(auth, provider);
+      console.warn("Login functionality is disabled.");
   }, []);
 
   const logout = useCallback(async () => {
-      await signOut(auth);
-      // The onAuthStateChanged listener will handle setting currentUser to null
+      console.warn("Logout functionality is disabled.");
   }, []);
 
   const forceSave = useCallback(async (dataToSave?: SantaData) => {
@@ -111,7 +94,7 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     }
     
     try {
-        const headers = await getAuthHeaders();
+        const headers = await getAuthHeaders(); // Will be empty
         const response = await fetch('/api/brain-persist', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...headers },

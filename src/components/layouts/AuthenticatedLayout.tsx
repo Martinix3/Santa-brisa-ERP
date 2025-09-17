@@ -238,8 +238,7 @@ function AuthenticatedLayoutContent({ children }: { children: React.ReactNode })
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
   const pathname = usePathname() ?? '/';
-  const { currentUser, isLoading, logout } = useData();
-  const router = useRouter();
+  const { currentUser, isLoading } = useData();
 
   useEffect(() => {
     const activeSection = navSections.find(section => section.items.some(item => pathname.startsWith(item.href) && item.href !== '/'));
@@ -252,17 +251,6 @@ function AuthenticatedLayoutContent({ children }: { children: React.ReactNode })
     }
   }, [pathname]);
   
-  useEffect(() => {
-    if (!isLoading && !currentUser) {
-      router.replace('/login');
-    }
-  }, [isLoading, currentUser, router]);
-
-
-  const toggleSection = (title: string) => {
-    setExpandedSections(prev => ({...prev, [title]: !prev[title]}));
-  };
-
   if (isLoading || !currentUser) {
     return (
         <div className="h-screen w-screen flex items-center justify-center bg-white">
@@ -292,7 +280,7 @@ function AuthenticatedLayoutContent({ children }: { children: React.ReactNode })
                         section={section}
                         isCollapsed={isSidebarCollapsed}
                         isExpanded={!!expandedSections[section.title]}
-                        onToggle={() => toggleSection(section.title)}
+                        onToggle={() => setExpandedSections(prev => ({...prev, [section.title]: !prev[section.title]}))}
                     />
                 ))}
             </div>
@@ -307,11 +295,6 @@ function AuthenticatedLayoutContent({ children }: { children: React.ReactNode })
                             <p className="text-sm font-semibold truncate">{currentUser?.name}</p>
                             <p className="text-xs text-sb-neutral-500 truncate">{currentUser?.email}</p>
                         </div>
-                    )}
-                     {!isSidebarCollapsed && (
-                        <button onClick={logout} className="p-2 text-sb-neutral-500 hover:text-sb-neutral-800" title="Cerrar sesión">
-                            <LogOut size={16} />
-                        </button>
                     )}
                 </div>
 
