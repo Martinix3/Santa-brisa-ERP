@@ -226,12 +226,11 @@ export default function IntegrationsPanelPage() {
             setRunning(prov);
             try {
                 const res = await fetch('/api/integrations/holded/sync', { method: 'POST' });
+                const result = await res.json();
                 if (!res.ok) {
-                    const err = await res.text();
-                    throw new Error(`Error en la sincronización: ${err}`);
+                    throw new Error(result.error || `Error en la sincronización: ${res.statusText}`);
                 } else {
-                    const data = await res.json();
-                    setNotification({ message: `Sincronización completada: ${data.message}`, type: 'success' });
+                    setNotification({ message: `Sincronización completada: ${result.message}`, type: 'success' });
                 }
             } catch (e: any) {
                 setNotification({ message: `Fallo en la petición de sync: ${e.message}`, type: 'error' });
