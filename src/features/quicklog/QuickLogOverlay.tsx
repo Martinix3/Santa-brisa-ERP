@@ -88,9 +88,9 @@ export default function QuickLogOverlay() {
         setData(updatedData);
         // 2. Persist changes to the backend via API route
         try {
-            console.log("Persistencia desactivada temporalmente. Datos que se hubieran enviado a /api/brain-persist:", newData);
-            // await persistNewEntities(newData);
-            // console.log("Entities successfully sent to persistence API.");
+            console.log("Datos que se enviarían a la API de persistencia:", newData);
+            // await persistNewEntities(newData); // Desactivado temporalmente
+            console.log("Entities successfully sent to persistence API (simulated).");
         } catch (error) {
             console.error("Failed to save entities via API:", error);
             // Optionally, show an error to the user
