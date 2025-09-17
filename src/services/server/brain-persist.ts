@@ -3,6 +3,10 @@ import { adminDb } from '@/server/firebaseAdmin';
 // normaliza y salva en Firestore lo que devuelve Santa Brain
 export async function saveNewEntities(newEntities: any) {
   const db = adminDb();
+  if (typeof db.batch !== 'function') {
+      console.error('Firestore no está disponible, no se pueden guardar las entidades.');
+      return;
+  }
   const batch = db.batch();
 
   for (const it of newEntities?.interactions ?? []) {

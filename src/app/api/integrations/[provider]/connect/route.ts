@@ -4,10 +4,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from '@/server/firebaseAdmin';
 
-// ⚠️ Usamos Firestore para persistir secretos de desarrollo
-const mem:any = globalThis as any;
-mem._secrets ??= {};
-
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
@@ -36,8 +32,11 @@ export async function POST(
   if (provider === "sendcloud") {
     const { apiKey, apiSecret } = body || {};
     if (!apiKey || !apiSecret) return NextResponse.json({ ok:false, error:"Falta apiKey/apiSecret" }, { status:400 });
-    // Aquí también se guardaría en Firestore en una app real
-    mem._secrets.sendcloud = { apiKey, apiSecret };
+    
+    // Guardar secretos en Firestore para persistencia
+    const db = adminDb();
+    await db.collection('dev-secrets').doc('sendcloud').set({ apiKey, apiSecret });
+
     return NextResponse.json({ ok:true });
   }
   
