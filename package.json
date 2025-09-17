@@ -3,7 +3,7 @@
   "version": "1.1.0",
   "private": true,
   "scripts": {
-    "dev": "dotenv -e .env -- next dev -H 0.0.0.0 -p 3000",
+    "dev": "next dev -H 0.0.0.0 -p 3000",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
@@ -50,7 +50,6 @@
     "@typescript-eslint/eslint-plugin": "^8.43.0",
     "@typescript-eslint/parser": "^8.43.0",
     "autoprefixer": "10.4.21",
-    "dotenv-cli": "^7.4.2",
     "esbuild": "^0.25.9",
     "eslint": "^9.35.0",
     "eslint-config-next": "^15.5.3",
