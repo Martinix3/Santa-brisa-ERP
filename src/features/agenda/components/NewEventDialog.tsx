@@ -1,9 +1,21 @@
+
 // src/features/agenda/components/NewEventDialog.tsx
 "use client";
 import React, { useState } from 'react';
 import { SBDialog, SBDialogTrigger, SBDialogContent } from '@/features/agenda/ui';
 import { Plus } from 'lucide-react';
-import { Department, DEPT_META } from '@/domain/schema';
+import type { Department } from '@/domain/ssot';
+
+const DEPT_META: Record<
+  Department,
+  { label: string; color: string; textColor: string }
+> = {
+  VENTAS: { label: 'Ventas', color: '#D7713E', textColor: '#40210f' },
+  PRODUCCION: { label: 'Producción', color: '#618E8F', textColor: '#153235' },
+  ALMACEN:    { label: 'Almacén',    color: '#A7D8D9', textColor: '#17383a' },
+  MARKETING:  { label: 'Marketing',  color: '#F7D15F', textColor: '#3f3414' },
+  FINANZAS:   { label: 'Finanzas',   color: '#CCCCCC', textColor: '#333333' },
+};
 
 export function NewEventDialog({ onAddEvent, accentColor }: { onAddEvent: (event: { title: string, type: Department, date: string }) => void, accentColor: string }) {
     const [open, setOpen] = useState(false);

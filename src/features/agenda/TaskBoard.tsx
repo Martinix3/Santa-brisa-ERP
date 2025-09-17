@@ -1,8 +1,9 @@
+
 // src/features/agenda/TaskBoard.tsx
 "use client";
 import React from 'react';
 import { DndContext, useDraggable, useDroppable, closestCorners } from '@dnd-kit/core';
-import type { Department } from '@/domain/schema';
+import type { Department } from '@/domain/ssot';
 
 export type TaskStatus = 'PROGRAMADA' | 'EN_CURSO' | 'HECHA';
 export type Task = {

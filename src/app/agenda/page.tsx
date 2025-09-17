@@ -16,18 +16,28 @@ import type { EventContentArg } from "@fullcalendar/core";
 // ✅ Módulos de tu repo
 import { useFullCalendarStyles } from "@/features/agenda/useFullCalendarStyles";
 import { TaskBoard, Task, TaskStatus } from "@/features/agenda/TaskBoard";
-import { Department, DEPT_META } from "@/domain/schema";
 import { NewEventDialog } from "@/features/agenda/components/NewEventDialog";
 import { useData } from "@/lib/dataprovider";
 import { ModuleHeader } from "@/components/ui/ModuleHeader";
 import { Calendar } from "lucide-react";
 import { SB_COLORS } from "@/components/ui/ui-primitives";
 import AuthenticatedLayout from "@/components/layouts/AuthenticatedLayout";
-
+import type { Department } from '@/domain/ssot';
 
 // ⚠️ FullCalendar necesita desactivar SSR
 const FullCalendar = dynamic(() => import("@fullcalendar/react"), { ssr: false });
 
+// Metadatos de departamentos que antes estaban en `domain/schema.ts`
+const DEPT_META: Record<
+  Department,
+  { label: string; color: string; textColor: string }
+> = {
+  VENTAS: { label: 'Ventas', color: '#D7713E', textColor: '#40210f' },
+  PRODUCCION: { label: 'Producción', color: '#618E8F', textColor: '#153235' },
+  ALMACEN:    { label: 'Almacén',    color: '#A7D8D9', textColor: '#17383a' },
+  MARKETING:  { label: 'Marketing',  color: '#F7D15F', textColor: '#3f3414' },
+  FINANZAS:   { label: 'Finanzas',   color: '#CCCCCC', textColor: '#333333' },
+};
 // ---------------------------------------------
 // Helpers comunes
 // ---------------------------------------------
@@ -79,7 +89,7 @@ function mapDomainToTasks(
   return [...interactionTasks, ...orderTasks];
 }
 
-export function moveTaskStatus(tasks: Task[], id: string, newStatus: TaskStatus): Task[] {
+function moveTaskStatus(tasks: Task[], id: string, newStatus: TaskStatus): Task[] {
   const idx = tasks.findIndex((t) => t.id === id);
   if (idx === -1) return tasks;
   const next = [...tasks];
@@ -156,7 +166,7 @@ function CalendarPageContent() {
   const calendarEvents = useMemo(
     () =>
       tasks.map((task) => {
-        const style = DEPT_META[task.type] || DEPT_META.GENERAL;
+        const style = DEPT_META[task.type] || DEPT_META.VENTAS;
         return {
           id: task.id,
           title: task.title,
@@ -225,7 +235,7 @@ function CalendarPageContent() {
               events={calendarEvents as any}
               eventContent={(arg: EventContentArg) => {
                 const type = (arg.event.extendedProps as any).type as Department;
-                const dept = DEPT_META[type] || DEPT_META.GENERAL;
+                const dept = DEPT_META[type] || DEPT_META.VENTAS;
                 return (
                   <div className="flex items-center gap-1.5">
                     <span
