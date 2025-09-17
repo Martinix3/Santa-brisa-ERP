@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
@@ -54,9 +55,9 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
         try {
             const response = await fetch('/api/brain-persist');
             if (!response.ok) {
-                const errorBody = await response.text();
-                console.error("Failed to fetch data from Firestore. Status:", response.status, "Body:", errorBody);
-                throw new Error('Failed to fetch data from Firestore');
+                 const errorBody = await response.json();
+                 console.error("Failed to fetch data from Firestore. Status:", response.status, "Body:", errorBody);
+                 throw new Error(errorBody.error || 'Failed to fetch data from Firestore');
             }
             const firestoreData = await response.json();
             
