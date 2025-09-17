@@ -14,27 +14,30 @@ async function verifyAuth(req: NextRequest) {
       throw new Error("No token provided");
     }
     const idToken = authHeader.split(" ")[1];
-    return adminAuth.verifyIdToken(idToken);
+    try {
+        return await adminAuth.verifyIdToken(idToken);
+    } catch (error: any) {
+        console.error("Token verification failed:", error);
+        throw new Error("Authentication token is invalid or expired.");
+    }
 }
 
 export async function GET(req: NextRequest) {
   try {
     await verifyAuth(req);
-    // console.log(`[API GET] Authenticated user: ${decodedToken.email}`);
 
-    const db = adminDb;
     const santaData: any = {};
     
     for (const collectionName of SANTA_DATA_COLLECTIONS) {
-      const snapshot = await db.collection(collectionName).get();
-      santaData[collectionName] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const snapshot = await adminDb.collection(collectionName).get();
+      santaData[collectionName] = snapshot.docs.map(doc => ({ ...doc.data() }));
     }
 
     return NextResponse.json(santaData);
   } catch (e:any) {
     console.error('Auth error or Firestore fetch error in GET:', e);
-    if (e.code === 'auth/id-token-expired' || e.code === 'auth/argument-error') {
-      return NextResponse.json({ ok:false, error: 'Authentication token is invalid or expired.' }, { status: 401 });
+    if (e.message.includes("Authentication token is invalid or expired")) {
+      return NextResponse.json({ ok:false, error: e.message }, { status: 401 });
     }
     return NextResponse.json({ ok:false, error: e?.message || 'Unknown server error fetching data.' }, { status: 500 });
   }
@@ -44,23 +47,21 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const decodedToken = await verifyAuth(req);
-    // console.log(`[API POST] Authenticated user: ${decodedToken.email}`);
     
-    const db = adminDb;
     const payload = await req.json();
 
     if (!payload || typeof payload !== 'object') {
         return NextResponse.json({ ok: false, error: 'Invalid payload. Expecting an object of collections.' }, { status: 400 });
     }
 
-    const batch = db.batch();
+    const batch = adminDb.batch();
     let count = 0;
 
     for (const collectionName in payload) {
         if (Array.isArray(payload[collectionName]) && SANTA_DATA_COLLECTIONS.includes(collectionName as any)) {
             for (const doc of payload[collectionName]) {
                 if (!doc.id) continue;
-                const ref = db.collection(collectionName).doc(doc.id);
+                const ref = adminDb.collection(collectionName).doc(doc.id);
                 batch.set(ref, doc, { merge: true });
                 count++;
             }
@@ -69,17 +70,17 @@ export async function POST(req: NextRequest) {
     
     if (count > 0) {
       await batch.commit();
-      // console.log(`[api/brain-persist] Successfully committed ${count} documents for user ${decodedToken.email}.`);
+      console.log(`[api/brain-persist] Successfully committed ${count} documents for user ${decodedToken.email}.`);
     } else {
-      // console.log('[api/brain-persist] No valid documents to commit.');
+      console.log('[api/brain-persist] No valid documents to commit.');
     }
     
     return NextResponse.json({ ok: true, message: `${count} documents saved.` });
 
   } catch (e:any) {
     console.error('Auth error or Firestore write error in POST:', e);
-    if (e.code === 'auth/id-token-expired' || e.code === 'auth/argument-error' || e.message === "No token provided") {
-      return NextResponse.json({ ok:false, error: 'Authentication token is invalid or expired.' }, { status: 401 });
+     if (e.message.includes("Authentication token is invalid or expired")) {
+      return NextResponse.json({ ok:false, error: e.message }, { status: 401 });
     }
     return NextResponse.json({ ok:false, error: e?.message || 'Unknown server error.' }, { status: 500 });
   }

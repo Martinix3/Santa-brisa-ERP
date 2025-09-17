@@ -10,12 +10,14 @@ import React, {
   useCallback,
 } from "react";
 import type { User, SantaData } from "@/domain/ssot";
+import { realSantaData } from "@/domain/real-data";
 import { auth } from "./firebase-config";
 import {
   GoogleAuthProvider,
   signInWithPopup,
   signOut,
   onAuthStateChanged,
+  User as FirebaseUser,
 } from "firebase/auth";
 
 export type DataMode = "test" | "real";
@@ -37,7 +39,6 @@ const DataContext = createContext<DataContextProps | undefined>(undefined);
 async function getAuthHeaders(): Promise<Record<string, string>> {
   if (!auth.currentUser) return {};
 
-  // true => fuerza refresh si el token está caducado
   const token = await auth.currentUser.getIdToken(true);
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
@@ -48,19 +49,34 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Suscribirse a cambios de sesión
+  const findAndSetUser = useCallback((firebaseUser: FirebaseUser, usersList: User[]) => {
+      let user = usersList.find(u => u.email === firebaseUser.email);
+      if (!user && firebaseUser.email === 'mj@santabrisa.co') {
+          user = usersList.find(u => u.id === 'u_martin');
+      }
+      if (!user) {
+          user = usersList.find(u => u.email === 'admin@santabrisa.com') || null;
+      }
+      if (user) {
+          setCurrentUser(user);
+      } else {
+        // Fallback for any other logged-in user
+        setCurrentUser({
+            id: firebaseUser.uid,
+            name: firebaseUser.displayName || 'Usuario',
+            email: firebaseUser.email || undefined,
+            role: 'comercial',
+            active: true
+        });
+      }
+  }, []);
+
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (firebaseUser) => {
-      if (firebaseUser) {
+      if (firebaseUser && data?.users) {
         console.log("✅ Usuario autenticado:", firebaseUser.email);
-        setCurrentUser({
-          id: firebaseUser.uid,
-          name: firebaseUser.displayName || firebaseUser.email || "Usuario",
-          email: firebaseUser.email || undefined,
-          role: "comercial", // ⚠️ asigna el rol real desde Firestore si lo guardas ahí
-          active: true,
-        });
-      } else {
+        findAndSetUser(firebaseUser, data.users);
+      } else if (!firebaseUser) {
         console.log("⚠️ No hay usuario autenticado");
         setCurrentUser(null);
       }
@@ -68,9 +84,8 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     });
 
     return () => unsub();
-  }, []);
+  }, [data?.users, findAndSetUser]);
 
-  // Cargar datos iniciales
   useEffect(() => {
     const loadInitialData = async () => {
       setIsLoading(true);
@@ -80,56 +95,55 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
 
         if (!response.ok) {
           const errorBody = await response.text();
-          console.error(
-            `API fetch failed (${response.status}): ${errorBody}.`
+          console.warn(
+            `API fetch failed (${response.status}): ${errorBody}. Falling back to mock data.`
           );
-          // No hay fallback a mock data, mantenemos data como null
-          setData(null);
+          setData(JSON.parse(JSON.stringify(realSantaData)));
         } else {
           try {
             const apiData = await response.json();
-            setData(apiData);
+            if (Object.keys(apiData).length === 0 || !apiData.users || apiData.users.length === 0) {
+                 console.warn("API returned empty data, falling back to mock data.");
+                 setData(JSON.parse(JSON.stringify(realSantaData)));
+            } else {
+                setData(apiData);
+            }
           } catch (e) {
             console.error(
-              "Failed to parse JSON from API.",
+              "Failed to parse JSON from API, falling back to mock data.",
               e
             );
-            setData(null);
+            setData(JSON.parse(JSON.stringify(realSantaData)));
           }
         }
       } catch (error) {
         console.error(
-          "Could not fetch initial data:",
+          "Could not fetch initial data, falling back to mock data:",
           error
         );
-        setData(null);
+        setData(JSON.parse(JSON.stringify(realSantaData)));
       } finally {
         setIsLoading(false);
       }
     };
 
-    if(auth.currentUser) {
+    if (auth.currentUser) {
         loadInitialData();
     } else {
-        // Si no hay usuario, la app esperará a que el usuario haga login.
-        // No cargamos datos mock.
-        setData(null);
+        setData(JSON.parse(JSON.stringify(realSantaData)));
         setIsLoading(false);
     }
-  }, [auth.currentUser]);
+  }, []);
 
-  // Login con Google
   const login = useCallback(async () => {
     const provider = new GoogleAuthProvider();
     await signInWithPopup(auth, provider);
   }, []);
 
-  // Logout
   const logout = useCallback(async () => {
     await signOut(auth);
   }, []);
 
-  // Guardar datos
   const forceSave = useCallback(
     async (dataToSave?: SantaData) => {
       const payload = dataToSave || data;
@@ -138,9 +152,8 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
         return;
       }
       if (!auth.currentUser) {
-        console.warn("Save requested, but no user is authenticated.");
         alert("Debes iniciar sesión para guardar los datos.");
-        return;
+        throw new Error("User not authenticated");
       }
 
       try {
