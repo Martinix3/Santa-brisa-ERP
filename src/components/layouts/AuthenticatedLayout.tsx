@@ -34,10 +34,12 @@ import {
     SlidersHorizontal,
     Database,
     Map as MapIcon,
+    LogOut,
 } from 'lucide-react';
 import { SB_COLORS, hexToRgba } from '@/components/ui/ui-primitives';
 import { AnimatePresence, motion } from 'framer-motion';
 import Image from 'next/image';
+import { useData } from '@/lib/dataprovider';
 
 
 const navSections = [
@@ -236,6 +238,7 @@ function AuthenticatedLayoutContent({ children }: { children: React.ReactNode })
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
   const pathname = usePathname() ?? '/';
+  const { currentUser, logout } = useData();
 
   useEffect(() => {
     const activeSection = navSections.find(section => section.items.some(item => pathname.startsWith(item.href) && item.href !== '/'));
@@ -255,7 +258,7 @@ function AuthenticatedLayoutContent({ children }: { children: React.ReactNode })
   return (
     <div className="h-screen flex flex-col bg-white">
       <div className={`flex-grow grid grid-cols-1 md:grid-cols-[auto_1fr] min-h-0 transition-all duration-300 ease-in-out`}>
-        <aside className={`bg-white border-r border-sb-neutral-200 transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'w-20' : 'w-64'}`}>
+        <aside className={`bg-white border-r border-sb-neutral-200 transition-all duration-300 ease-in-out flex flex-col ${isSidebarCollapsed ? 'w-20' : 'w-64'}`}>
           <nav className="h-full flex flex-col p-3">
             <div className="p-3">
                 <Image 
@@ -277,10 +280,28 @@ function AuthenticatedLayoutContent({ children }: { children: React.ReactNode })
                     />
                 ))}
             </div>
+            
             <div className="mt-4 pt-4 border-t border-sb-neutral-200">
+                <div className={`p-2 rounded-lg ${isSidebarCollapsed ? '' : 'hover:bg-sb-neutral-50'}`}>
+                    <div className="flex items-center gap-3">
+                        <div className="h-8 w-8 rounded-full bg-sb-sun flex-shrink-0 flex items-center justify-center font-bold text-sb-neutral-800">
+                            {currentUser?.name.charAt(0)}
+                        </div>
+                        {!isSidebarCollapsed && (
+                            <div className="flex-1 overflow-hidden">
+                                <p className="text-sm font-semibold truncate">{currentUser?.name}</p>
+                                <p className="text-xs text-sb-neutral-500 truncate">{currentUser?.email}</p>
+                            </div>
+                        )}
+                         <button onClick={logout} title="Cerrar sesión" className={`p-2 rounded-md text-sb-neutral-500 hover:bg-sb-neutral-200 hover:text-sb-neutral-800 ${isSidebarCollapsed ? 'hidden' : ''}`}>
+                            <LogOut size={16} />
+                         </button>
+                    </div>
+                </div>
+
                 <button
                     onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                    className="w-full flex items-center justify-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-sb-neutral-600 hover:bg-sb-neutral-100"
+                    className="w-full flex items-center justify-center gap-3 px-3 py-2 mt-2 rounded-md text-sm font-medium text-sb-neutral-600 hover:bg-sb-neutral-100"
                     title={isSidebarCollapsed ? 'Expandir menú' : 'Colapsar menú'}
                 >
                     {isSidebarCollapsed ? <PanelRightClose className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
