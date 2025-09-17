@@ -43,9 +43,9 @@ export const ACCOUNTS: SantaData['accounts'] = [
 
 // --- Productos y Materiales ---
 export const PRODUCTS: SantaData['products'] = [
-  { id:'p_santabrisa', sku:'SB-750', name:'Santa Brisa 750ml', kind: 'FG', uom: 'bottle', bottleMl: 750, caseUnits: 6, active:true, materialId: 'mat_sb_750' },
-  { id:'p_marg_classic', sku:'SB-MARG-CL-700', name:'Margarita Clásica 700ml', kind: 'FG', uom: 'bottle', bottleMl: 700, caseUnits: 6, active:true, materialId: 'mat_marg_cl' },
-  { id:'p_marg_spicy', sku:'SB-MARG-SP-700', name:'Margarita Picante 700ml', kind: 'FG', uom: 'bottle', bottleMl: 700, caseUnits: 6, active:true, materialId: 'mat_marg_sp' },
+  { id:'p_santabrisa', sku:'SB-750', name:'Santa Brisa 750ml', kind: 'FG', uom: 'uds', bottleMl: 750, caseUnits: 6, active:true, materialId: 'mat_sb_750' },
+  { id:'p_marg_classic', sku:'SB-MARG-CL-700', name:'Margarita Clásica 700ml', kind: 'FG', uom: 'uds', bottleMl: 700, caseUnits: 6, active:true, materialId: 'mat_marg_cl' },
+  { id:'p_marg_spicy', sku:'SB-MARG-SP-700', name:'Margarita Picante 700ml', kind: 'FG', uom: 'uds', bottleMl: 700, caseUnits: 6, active:true, materialId: 'mat_marg_sp' },
   { id:'p_merch_vasos', sku:'MERCH-VAS', name:'Vasos Merchandising', kind: 'MERCH', uom: 'uds', active: true, materialId: 'mat_merch_vas' },
 ];
 
@@ -75,15 +75,15 @@ export const BOMS: BillOfMaterial[] = [
 
 // --- Ventas ---
 export const ORDERS_SELL_OUT: OrderSellOut[] = [
-  { id:'ORD-SB-240901-001', accountId:'acc_1', status:'confirmed', currency:'EUR', createdAt: isoDaysAgo(15), lines:[{ sku:'SB-750', qty:5, unit:'uds', priceUnit:90 }] },
-  { id:'ORD-SB-240910-002', accountId:'acc_6', status:'shipped', currency:'EUR', createdAt: isoDaysAgo(6), lines:[{ sku:'SB-750', qty:20, unit:'uds', priceUnit:88 }] },
-  { id:'ORD-SB-240912-003', accountId:'acc_10', status:'confirmed', currency:'EUR', createdAt: isoDaysAgo(4), lines:[{ sku:'SB-MARG-CL-700', qty:3, unit:'uds', priceUnit:95 }] },
-  { id:'ORD-SB-240914-004', accountId:'acc_5', status:'open', currency:'EUR', createdAt: isoDaysAgo(2), lines:[{ sku:'SB-750', qty:8, unit:'uds', priceUnit:92 }] },
+  { id:'ORD-SB-240901-001', accountId:'acc_1', status:'paid', currency:'EUR', createdAt: isoDaysAgo(15), lines:[{ sku:'SB-750', qty: 5 * 6, unit:'uds', priceUnit:15 }] },
+  { id:'ORD-SB-240910-002', accountId:'acc_6', status:'shipped', currency:'EUR', createdAt: isoDaysAgo(6), lines:[{ sku:'SB-750', qty: 20 * 6, unit:'uds', priceUnit:14.6 }] },
+  { id:'ORD-SB-240912-003', accountId:'acc_10', status:'invoiced', currency:'EUR', createdAt: isoDaysAgo(4), lines:[{ sku:'SB-MARG-CL-700', qty: 3 * 6, unit:'uds', priceUnit:15.8 }] },
+  { id:'ORD-SB-240914-004', accountId:'acc_5', status:'open', currency:'EUR', createdAt: isoDaysAgo(2), lines:[{ sku:'SB-750', qty: 8 * 6, unit:'uds', priceUnit:15.3 }] },
   // Colocación
-  { id:'ORD-DST-240820-001', accountId:'acc_3', status:'confirmed', currency:'EUR', createdAt: isoDaysAgo(26), lines:[{ sku:'SB-750', qty:10, unit:'uds', priceUnit:85 }] },
-  { id:'ORD-DST-240825-002', accountId:'acc_4', status:'shipped', currency:'EUR', createdAt: isoDaysAgo(21), lines:[{ sku:'SB-MARG-CL-700', qty:15, unit:'uds', priceUnit:90 }] },
-  { id:'ORD-DST-240905-003', accountId:'acc_7', status:'confirmed', currency:'EUR', createdAt: isoDaysAgo(11), lines:[{ sku:'SB-750', qty:25, unit:'uds', priceUnit:84 }] },
-  { id:'ORD-DST-240913-004', accountId:'acc_3', status:'open', currency:'EUR', createdAt: isoDaysAgo(3), lines:[{ sku:'SB-MARG-SP-700', qty:5, unit:'uds', priceUnit:98 }] },
+  { id:'ORD-DST-240820-001', accountId:'acc_3', status:'paid', currency:'EUR', createdAt: isoDaysAgo(26), lines:[{ sku:'SB-750', qty: 10 * 6, unit:'uds', priceUnit:14.1 }] },
+  { id:'ORD-DST-240825-002', accountId:'acc_4', status:'shipped', currency:'EUR', createdAt: isoDaysAgo(21), lines:[{ sku:'SB-MARG-CL-700', qty: 15 * 6, unit:'uds', priceUnit:15 }] },
+  { id:'ORD-DST-240905-003', accountId:'acc_7', status:'invoiced', currency:'EUR', createdAt: isoDaysAgo(11), lines:[{ sku:'SB-750', qty: 25 * 6, unit:'uds', priceUnit:14 }] },
+  { id:'ORD-DST-240913-004', accountId:'acc_3', status:'open', currency:'EUR', createdAt: isoDaysAgo(3), lines:[{ sku:'SB-MARG-SP-700', qty: 5 * 6, unit:'uds', priceUnit:16.3 }] },
 ];
 
 export const INTERACTIONS: SantaData['interactions'] = [
@@ -133,15 +133,15 @@ export const INVENTORY: SantaData['inventory'] = [
 ];
 
 // --- Shipments (enlazados a orders y lotes correctos por SKU) ---
-const mkShipmentLines = (sku:string, lotNumber:string, cajas:number, name:string): ShipmentLine[] => [
-  { sku, lotNumber, qty: cajas, unit: 'uds', name },
+const mkShipmentLines = (sku:string, lotNumber:string, unidades:number, name:string): ShipmentLine[] => [
+  { sku, lotNumber, qty: unidades, unit: 'uds', name },
 ];
 
 export const SHIPMENTS: Shipment[] = [
   { id: 'SHP-240825-AND-001', orderId: 'ORD-DST-240825-002', accountId: 'acc_4', createdAt: isoDaysAgo(20), status: 'shipped',
-    lines: mkShipmentLines('SB-MARG-CL-700', 'MARG-CL-240825-001', 15, 'Margarita Clásica 700ml'), customerName: "Coctelería Oasis", city: "Marbella" },
+    lines: mkShipmentLines('SB-MARG-CL-700', 'MARG-CL-240825-001', 15 * 6, 'Margarita Clásica 700ml'), customerName: "Coctelería Oasis", city: "Marbella" },
   { id: 'SHP-240910-SOL-001', orderId: 'ORD-SB-240910-002', accountId: 'acc_6', createdAt: isoDaysAgo(5), status: 'shipped',
-    lines: mkShipmentLines('SB-750', 'SB750-240828-001', 20, 'Santa Brisa 750ml'), customerName: "Supermercado Sol", city: "Madrid" },
+    lines: mkShipmentLines('SB-750', 'SB750-240828-001', 20 * 6, 'Santa Brisa 750ml'), customerName: "Supermercado Sol", city: "Madrid" },
 ];
 
 // --- Eventos de trazabilidad (ligeros, suficientes para que pase el checker) ---
@@ -233,4 +233,3 @@ if (typeof window !== 'undefined') {
   // @ts-ignore
   (window as any).__SB_DATA = mockSantaData;
 }
-

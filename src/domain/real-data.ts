@@ -18,12 +18,12 @@ const realAccounts: Omit<SantaData['accounts'][0], 'salesRepId'>[] = [
 ];
 
 const realOrders: SantaData['ordersSellOut'] = [
-    { id: 'ORD-001', accountId: 'acc_real_4', userId: 'u_patxi', status: 'confirmed', currency: 'EUR', createdAt: '2024-04-20T11:00:00Z', lines: [{ sku: 'SB-750', qty: 5, priceUnit: 51, unit: 'caja' }] },
-    { id: 'ORD-002', accountId: 'acc_real_5', userId: 'u_nico', status: 'confirmed', currency: 'EUR', createdAt: '2024-04-22T11:00:00Z', lines: [{ sku: 'SB-750', qty: 10, priceUnit: 50, unit: 'caja' }] },
-    { id: 'ORD-003', accountId: 'acc_real_1', userId: 'u_patxi', status: 'confirmed', currency: 'EUR', createdAt: '2024-04-28T11:00:00Z', lines: [{ sku: 'SB-750', qty: 8, priceUnit: 51, unit: 'caja' }] },
-    { id: 'ORD-004', accountId: 'acc_real_3', userId: 'u_alfonso', status: 'confirmed', currency: 'EUR', createdAt: '2024-05-03T11:00:00Z', lines: [{ sku: 'SB-750', qty: 15, priceUnit: 49, unit: 'caja' }] },
-    { id: 'ORD-005', accountId: 'acc_real_5', userId: 'u_nico', status: 'confirmed', currency: 'EUR', createdAt: '2024-05-10T11:00:00Z', lines: [{ sku: 'SB-750', qty: 12, priceUnit: 50, unit: 'caja' }] },
-    { id: 'WEB-001', accountId: 'acc_real_9', userId: 'u_martin', status: 'confirmed', currency: 'EUR', createdAt: '2024-05-12T11:00:00Z', lines: [{ sku: 'SB-750', qty: 6, priceUnit: 15, unit: 'ud' }] },
+    { id: 'ORD-001', accountId: 'acc_real_4', status: 'paid', currency: 'EUR', createdAt: '2024-04-20T11:00:00Z', lines: [{ sku: 'SB-750', qty: 5 * 6, priceUnit: 15, unit: 'uds' }] },
+    { id: 'ORD-002', accountId: 'acc_real_5', status: 'invoiced', currency: 'EUR', createdAt: '2024-04-22T11:00:00Z', lines: [{ sku: 'SB-750', qty: 10 * 6, priceUnit: 14.8, unit: 'uds' }] },
+    { id: 'ORD-003', accountId: 'acc_real_1', status: 'shipped', currency: 'EUR', createdAt: '2024-04-28T11:00:00Z', lines: [{ sku: 'SB-750', qty: 8 * 6, priceUnit: 15, unit: 'uds' }] },
+    { id: 'ORD-004', accountId: 'acc_real_3', status: 'confirmed', currency: 'EUR', createdAt: '2024-05-03T11:00:00Z', lines: [{ sku: 'SB-750', qty: 15 * 6, priceUnit: 14.5, unit: 'uds' }] },
+    { id: 'ORD-005', accountId: 'acc_real_5', status: 'confirmed', currency: 'EUR', createdAt: '2024-05-10T11:00:00Z', lines: [{ sku: 'SB-750', qty: 12 * 6, priceUnit: 14.8, unit: 'uds' }] },
+    { id: 'WEB-001', accountId: 'acc_real_9', status: 'paid', currency: 'EUR', createdAt: '2024-05-12T11:00:00Z', lines: [{ sku: 'SB-750', qty: 6, priceUnit: 18, unit: 'uds' }] },
 ];
 
 const realInteractions: SantaData['interactions'] = [
