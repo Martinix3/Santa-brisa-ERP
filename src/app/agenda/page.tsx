@@ -22,6 +22,7 @@ import { useData } from "@/lib/dataprovider";
 import { ModuleHeader } from "@/components/ui/ModuleHeader";
 import { Calendar } from "lucide-react";
 import { SB_COLORS } from "@/components/ui/ui-primitives";
+import AuthenticatedLayout from "@/components/layouts/AuthenticatedLayout";
 
 
 // ⚠️ FullCalendar necesita desactivar SSR
@@ -311,6 +312,8 @@ function CalendarPageContent() {
 
 export default function CalendarPage() {
   return (
+    <AuthenticatedLayout>
       <CalendarPageContent />
+    </AuthenticatedLayout>
   );
 }

@@ -7,6 +7,7 @@ import { Trash2, Lock, Unlock, Edit, Save, X, User as UserIcon } from 'lucide-re
 import { useData } from '@/lib/dataprovider';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
 import { SB_COLORS, SBButton } from '@/components/ui/ui-primitives';
+import AuthenticatedLayout from '@/components/layouts/AuthenticatedLayout';
 
 function UserRow({ 
     user, 
@@ -225,5 +226,10 @@ function UsersPageContent() {
 }
 
 export default function UsersPage() {
-    return <UsersPageContent />;
+    return (
+        <AuthenticatedLayout>
+            <ModuleHeader title="Gestión de Usuarios" icon={UserIcon} />
+            <UsersPageContent />
+        </AuthenticatedLayout>
+    );
 }

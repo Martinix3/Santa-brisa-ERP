@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
 import { Megaphone } from 'lucide-react';
 import { SB_COLORS } from '@/components/ui/ui-primitives';
+import AuthenticatedLayout from '@/components/layouts/AuthenticatedLayout';
 
 const clsx = (...xs: Array<string | false | null | undefined>) => xs.filter(Boolean).join(" ");
 
@@ -43,7 +44,7 @@ function MarketingNav() {
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
-    <>
+    <AuthenticatedLayout>
        <ModuleHeader title="Marketing" icon={Megaphone} />
        <div className="bg-white border-b border-sb-neutral-200">
             <MarketingNav />
@@ -53,6 +54,6 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             {children}
           </div>
       </div>
-    </>
+    </AuthenticatedLayout>
   );
 }

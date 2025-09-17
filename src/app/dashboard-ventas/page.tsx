@@ -10,6 +10,7 @@ import { SBCard, SBButton, SB_COLORS } from "@/components/ui/ui-primitives";
 import type { User as UserType, OrderSellOut, Interaction, Account } from '@/domain/ssot';
 import { orderTotal, inWindow } from '@/domain/ssot';
 import { generateInsights } from "@/ai/flows/generate-insights-flow";
+import AuthenticatedLayout from "@/components/layouts/AuthenticatedLayout";
 
 
 const formatEur = (n: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
@@ -562,9 +563,9 @@ function SalesDashboardPageContent(){
 
 export default function SalesDashboardPage() {
     return (
-        <>
+        <AuthenticatedLayout>
             <ModuleHeader title="Dashboards de Ventas" icon={BarChart3} />
             <SalesDashboardPageContent />
-        </>
+        </AuthenticatedLayout>
     )
 }
