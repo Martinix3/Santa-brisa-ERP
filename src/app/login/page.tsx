@@ -7,12 +7,31 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/ui-primitives';
 import Image from 'next/image';
 import { auth } from '@/lib/firebase-config';
-import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { signInWithRedirect, GoogleAuthProvider, getRedirectResult } from 'firebase/auth';
 
 export default function LoginPage() {
     const { currentUser, isLoading, data } = useData();
     const router = useRouter();
     const [error, setError] = useState<string | null>(null);
+    const [isRedirecting, setIsRedirecting] = useState(false);
+
+    // Check for redirect result on component mount
+    useEffect(() => {
+        const checkRedirect = async () => {
+            try {
+                const result = await getRedirectResult(auth);
+                if (result) {
+                    // This means the user has just come back from the redirect.
+                    // The onAuthStateChanged listener in DataProvider will handle the rest.
+                    setIsRedirecting(true); // Show a loading state
+                }
+            } catch (err: any) {
+                console.error("Error after redirect sign-in:", err);
+                setError(err.message || 'Ha ocurrido un error durante el inicio de sesión.');
+            }
+        };
+        checkRedirect();
+    }, []);
 
     useEffect(() => {
         if (!isLoading && currentUser) {
@@ -21,32 +40,18 @@ export default function LoginPage() {
     }, [currentUser, isLoading, router]);
 
     const handleGoogleLogin = () => {
+        if (isRedirecting) return;
         setError(null);
+        setIsRedirecting(true);
         const provider = new GoogleAuthProvider();
-        
-        signInWithPopup(auth, provider)
-            .then((result) => {
-                const firebaseUser = result.user;
-                // After successful sign-in, onAuthStateChanged in DataProvider will handle setting the user.
-                // We can optionally check if the user exists in our DB here.
-                if (data && !data.users.find(u => u.email === firebaseUser.email)) {
-                     setError('El usuario no está registrado en el sistema. Contacta a un administrador.');
-                     auth.signOut();
-                } else {
-                     // The onAuthStateChanged listener in DataProvider will handle the redirect.
-                }
-            })
-            .catch((err) => {
-                console.error("Error during Google sign-in:", err);
-                if (err.code === 'auth/popup-blocked') {
-                    setError('El navegador bloqueó la ventana emergente. Por favor, permite las ventanas emergentes para este sitio e inténtalo de nuevo.');
-                } else {
-                    setError(err.message || 'Ha ocurrido un error durante el inicio de sesión.');
-                }
-            });
+        signInWithRedirect(auth, provider).catch((err) => {
+            console.error("Error initiating Google sign-in redirect:", err);
+            setError(err.message || 'No se pudo iniciar el proceso de autenticación.');
+            setIsRedirecting(false);
+        });
     };
     
-    if (isLoading || currentUser) {
+    if (isLoading || currentUser || isRedirecting) {
         return (
              <div className="h-screen w-screen flex items-center justify-center bg-white">
                 <div className="text-center">
