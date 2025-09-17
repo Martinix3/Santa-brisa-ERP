@@ -5,7 +5,7 @@ import React, { useMemo, useState, useEffect } from "react";
 import { Printer, PackageCheck, Truck, CheckCircle2, Search, Plus, FileText, ClipboardList, Boxes, PackageOpen, BadgeCheck, AlertTriangle, Settings, Clipboard, Ruler, Weight, MoreHorizontal, Check as CheckIcon, FileDown, Package } from "lucide-react";
 import { SBButton, SBCard, DataTableSB, Col as SBCol, STATUS_STYLES } from "@/components/ui/ui-primitives";
 import { useData } from "@/lib/dataprovider";
-import type { Shipment, OrderSellOut, Account, ShipmentStatus, ShipmentLine } from "@/domain/ssot";
+import type { Shipment, OrderSellOut, Account, ShipmentStatus, ShipmentLine, AccountType } from "@/domain/ssot";
 
 
 // ===============================
@@ -61,10 +61,12 @@ function KPI({ icon: Icon, label, value, color }: { icon: React.ElementType, lab
 // ===============================
 
 const getChannelInfo = (order?: OrderSellOut, account?: Account) => {
-    if (order?.source === 'SHOPIFY') return { label: "Online (Shopify)", className: "bg-emerald-100 text-emerald-900 border-emerald-200" };
+    if (!account) return { label: "N/A", className: "bg-zinc-100 text-zinc-900 border-zinc-200" };
+    
+    if (account.type === 'ONLINE') return { label: "Online", className: "bg-emerald-100 text-emerald-900 border-emerald-200" };
     if (order?.totalAmount === 0) return { label: "Muestras (0€)", className: "bg-purple-100 text-purple-900 border-purple-200" };
-    if (account?.type === 'DISTRIBUIDOR') return { label: "Distribuidor", className: "bg-sky-100 text-sky-900 border-sky-200" };
-    return { label: "Venta Directa", className: "bg-zinc-100 text-zinc-900 border-zinc-200" };
+    if (account.type === 'DISTRIBUIDOR') return { label: "Distribuidor", className: "bg-sky-100 text-sky-900 border-sky-200" };
+    return { label: account.type, className: "bg-zinc-100 text-zinc-900 border-zinc-200" };
 }
 
 // ===============================
@@ -254,10 +256,9 @@ export default function LogisticsPage() {
   const filtered = useMemo(() => shipments.filter(s => {
     const order = orderMap.get(s.orderId);
     const account = order ? accountMap.get(order.accountId) : undefined;
-    const channelInfo = getChannelInfo(order, account);
 
     const st = (status === "all" || s.status === status);
-    const ch = (channel === "all" || (channel === 'shopify' && order?.source === 'SHOPIFY') || (channel === 'muestra' && order?.totalAmount === 0) || (channel === 'distribuidor' && account?.type === 'DISTRIBUIDOR'));
+    const ch = (channel === "all" || account?.type.toLowerCase() === channel);
     const query = (q.trim() === "" || s.id.includes(q) || (account?.name || "").toLowerCase().includes(q.toLowerCase()));
     
     return st && ch && query;
@@ -420,8 +421,8 @@ export default function LogisticsPage() {
               </Select>
                <Select value={channel} onChange={(e:React.ChangeEvent<HTMLSelectElement>) => setChannel(e.target.value)}>
                   <option value="all">Todos los canales</option>
-                  <option value="shopify">Online (Shopify)</option>
-                  <option value="muestra">Muestras (0€)</option>
+                  <option value="online">Online</option>
+                  <option value="horeca">HORECA</option>
                   <option value="distribuidor">Distribuidor</option>
               </Select>
             </div>

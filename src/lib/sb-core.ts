@@ -1,7 +1,7 @@
 
 // --- Santa Brisa: lógica de negocio (sell-out a botellas, agregados y KPIs) ---
 import type {
-  Account, Distributor, OrderSellOut, OrderLine, Product, User, Channel, SantaData, AccountMode
+  Account, Distributor, OrderSellOut, OrderLine, Product, User, SantaData, AccountMode as ResolvedAccountMode
 } from '@/domain/ssot';
 import { inWindow, orderTotal } from '@/domain/ssot';
 
@@ -12,9 +12,9 @@ import { inWindow, orderTotal } from '@/domain/ssot';
  * Deriva el modo de operación de una cuenta ('PROPIA_SB', 'COLOCACION', 'DISTRIB_PARTNER')
  * a partir de su `ownerId` y `billerId`. Esta es ahora la única fuente de verdad para el modo.
  */
-export function computeAccountMode(account: Account): AccountMode {
-  // `ownerId` puede ser un `userId` (u_...) o `distributorId` (d_...)
-  // `billerId` puede ser 'SB' o `distributorId` (d_...)
+export function computeAccountMode(account: Account): ResolvedAccountMode {
+  // `ownerId` puede ser un `userId` (u_...) o un `distributorId` (d_...)
+  // `billerId` puede ser 'SB' o un `distributorId` (d_...)
 
   const isOwnerUser = account.ownerId.startsWith('u_');
   const isBillerSB = account.billerId === 'SB';
@@ -83,28 +83,6 @@ export function orderToBottles(order: OrderSellOut, products: Product[], opts?: 
     const p = products.find(x => x.sku === l.sku);
     return s + lineToBottles(l, p, opts);
   }, 0);
-}
-
-export function deriveChannel(a: Account): Channel {
-  const mode = computeAccountMode(a);
-  switch (mode) {
-    case 'PROPIA_SB':
-      if (a.type === 'OTRO') return 'online'; // Asumiendo que 'OTRO' puede ser venta online directa
-      return 'propia';
-    case 'COLOCACION':
-      return 'distribuidor';
-    case 'DISTRIB_PARTNER':
-      if (a.type === 'IMPORTADOR') return 'importador';
-      return 'distribuidor';
-    default:
-      // Fallback a partir del tipo de cuenta si el modo no es concluyente
-      switch(a.type) {
-        case 'DISTRIBUIDOR': return 'distribuidor';
-        case 'IMPORTADOR': return 'importador';
-        case 'RETAIL': return 'online'; // Asumimos que retail online
-        default: return 'propia';
-      }
-  }
 }
 
 // ===== 3) KPIs (unitsSold = BOTELLAS) =====

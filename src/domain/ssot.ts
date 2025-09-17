@@ -3,12 +3,11 @@
 
 // ---- Primitivas / enums
 export type Uom = 'bottle' | 'case' | 'pallet' | 'ud' | 'kg' | 'g' | 'L' | 'mL';
-export type Channel = 'propia' | 'distribuidor' | 'importador' | 'online';
 export type Stage = 'POTENCIAL' | 'ACTIVA' | 'SEGUIMIENTO' | 'FALLIDA' | 'CERRADA' | 'BAJA';
 export type Department = 'VENTAS' | 'MARKETING' | 'PRODUCCION' | 'ALMACEN' | 'FINANZAS';
 export type InteractionKind = 'VISITA' | 'LLAMADA' | 'EMAIL' | 'WHATSAPP' | 'OTRO';
 export type OrderStatus = 'open' | 'confirmed' | 'shipped' | 'invoiced' | 'cancelled' | 'lost';
-export type AccountType = 'HORECA' | 'RETAIL' | 'OTRO' | 'DISTRIBUIDOR' | 'IMPORTADOR' | 'PROVEEDOR';
+export type AccountType = 'HORECA' | 'RETAIL' | 'PRIVADA' | 'DISTRIBUIDOR' | 'IMPORTADOR' | 'PROVEEDOR' | 'ONLINE' | 'OTRO';
 
 // ---- Cuentas / partners / usuarios
 export type UserRole = 'comercial' | 'admin' | 'ops' | 'owner';
@@ -25,8 +24,6 @@ export interface User {
     visits?: number;
   }
 }
-
-export type AccountMode = 'PROPIA_SB' | 'COLOCACION' | 'DISTRIB_PARTNER';
 
 export interface Account {
   id: string;
@@ -369,7 +366,7 @@ export interface CashflowSettings {
   currency: 'EUR';
   openingBalance: number;
   defaultTermsDays: number;
-  termsByChannel?: Partial<Record<Channel, number>>;
+  termsByChannel?: Partial<Record<AccountType, number>>;
   lagByPaymentMethod?: Partial<Record<'contado'|'transferencia'|'tarjeta'|'paypal'|'domiciliado', number>>;
   includeConfidence: { high: boolean; medium: boolean; low: boolean };
   vatMode: 'net'|'gross';

@@ -10,17 +10,17 @@
  *
  *  Todo en MAYÚSCULAS, separadores '-'; secuenciales con padding fijo.
  */
+import type { AccountType } from '@/domain/ssot';
 
 // =====================================================
 // Types
 // =====================================================
 export type Category = 'PT' | 'RM' | 'PLV';
-export type Channel = 'SB' | 'DIST' | 'IMP' | 'ONL';
 export type PlvType = 'GLASS' | 'POSTER' | 'KIT' | 'MUESTRA' | 'STAND' | 'ROLLUP' | 'OTRO';
 
 export type SkuParts = { category: Category; product: string; presentation?: string };
 export type LotParts = { date: Date; sku: string; seq: number };
-export type OrderParts = { channel: Channel; date: Date; seq: number };
+export type OrderParts = { channel: AccountType; date: Date; seq: number };
 export type PlvParts = { type: PlvType; year: number; seq: number };
 
 // =====================================================
@@ -105,26 +105,26 @@ export function nextLotSeqForDate(existingLotCodes: string[], date: Date, sku: s
 // =====================================================
 // Pedido (Order Code)
 // =====================================================
-export const ORDER_RE = /^ORD-(SB|DIST|IMP|ONL)-(\d{8})-(\d{4})$/;
+export const ORDER_RE = /^ORD-([A-Z]+)-(\d{8})-(\d{4})$/;
 
 export function makeOrderCode({ channel, date, seq }: OrderParts): string {
-  return `ORD-${channel}-${toYYYYMMDD(date)}-${pad(seq, 4)}`;
+  return `ORD-${channel.substring(0,4).toUpperCase()}-${toYYYYMMDD(date)}-${pad(seq, 4)}`;
 }
 
-export function parseOrderCode(code: string): { channel: Channel; date: Date; seq: number } | null {
+export function parseOrderCode(code: string): { channel: string; date: Date; seq: number } | null {
   const m = upper(code).match(ORDER_RE);
   if (!m) return null;
   const [, channel, yyyymmdd, seq] = m;
   const yyyy = parseInt(yyyymmdd.slice(0, 4), 10);
   const mm = parseInt(yyyymmdd.slice(4, 6), 10) - 1;
   const dd = parseInt(yyyymmdd.slice(6, 8), 10);
-  return { channel: channel as Channel, date: new Date(yyyy, mm, dd), seq: parseInt(seq, 10) };
+  return { channel: channel, date: new Date(yyyy, mm, dd), seq: parseInt(seq, 10) };
 }
 
 export const isValidOrderCode = (code: string) => ORDER_RE.test(upper(code));
 
-export function nextOrderSeqForDay(existingOrderCodes: string[], channel: Channel, date: Date): number {
-  const prefix = `ORD-${channel}-${toYYYYMMDD(date)}-`;
+export function nextOrderSeqForDay(existingOrderCodes: string[], channel: AccountType, date: Date): number {
+  const prefix = `ORD-${channel.substring(0,4).toUpperCase()}-${toYYYYMMDD(date)}-`;
   return nextSeq(existingOrderCodes, prefix, 4);
 }
 
@@ -159,7 +159,7 @@ export function generateNextLot(existingLots: string[], date: Date, sku: string)
   return makeLot({ date, sku, seq });
 }
 
-export function generateNextOrder(existingOrders: string[], channel: Channel, date: Date) {
+export function generateNextOrder(existingOrders: string[], channel: AccountType, date: Date) {
   const seq = nextOrderSeqForDay(existingOrders, channel, date);
   return makeOrderCode({ channel, date, seq });
 }
@@ -181,8 +181,8 @@ export function __selfTest() {
   if (lot !== '250915-PT-GIN-0700-01') throw new Error('LOT fail');
   if (!isValidLot(lot) || !parseLot(lot)) throw new Error('LOT parse fail');
 
-  const ord = makeOrderCode({ channel: 'SB', date: new Date(2025, 8, 15), seq: 42 });
-  if (ord !== 'ORD-SB-20250915-0042') throw new Error('ORDER fail');
+  const ord = makeOrderCode({ channel: 'HORECA', date: new Date(2025, 8, 15), seq: 42 });
+  if (ord !== 'ORD-HORE-20250915-0042') throw new Error('ORDER fail');
   if (!isValidOrderCode(ord) || !parseOrderCode(ord)) throw new Error('ORDER parse fail');
 
   const plv = makePlvCode({ type: 'KIT', year: 2025, seq: 31 });

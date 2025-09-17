@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Plus, CalendarDays, ClipboardList, UserPlus2, Briefcase, Search, Check, MapPin, Pencil, Save, MessageSquare, Zap, Mail, Phone, History, ShoppingCart, Building, CreditCard } from "lucide-react";
 import { useData } from "@/lib/dataprovider";
-import { generateNextOrder, Channel } from "@/lib/codes";
+import { generateNextOrder } from "@/lib/codes";
 import { AccountType, AccountRef, SB_COLORS } from '@/domain/ssot';
 
 const hexToRgba = (hex: string, a: number) => { const h = hex.replace('#',''); const f = h.length===3? h.split('').map(c=>c+c).join(''):h; const n=parseInt(f,16); const r=(n>>16)&255, g=(n>>8)&255, b=n&255; return `rgba(${r},${g},${b},${a})`; };
@@ -46,7 +46,7 @@ type EditAccountPayload = {
 
 type CreateAccountPayload = { name:string; city:string; accountType:AccountType; mainContactName?:string; mainContactEmail?:string };
 
-type CreateOrderPayload = { account:string; requestedDate?:string; deliveryDate?:string; channel:"propia"|"distribuidor"|"importador"|"online"; paymentTerms?:string; shipTo?:string; note?:string; items:{ sku:string; qty:number; unit:"ud"|"caja", priceUnit: number, lotNumber?: string }[] };
+type CreateOrderPayload = { account:string; requestedDate?:string; deliveryDate?:string; channel:AccountType; paymentTerms?:string; shipTo?:string; note?:string; items:{ sku:string; qty:number; unit:"ud"|"caja", priceUnit: number, lotNumber?: string }[] };
 
 // ===== UI Primitives =====
 function Row({children, className}:{children:React.ReactNode, className?: string}){ return <div className={`flex flex-col gap-1 ${className || ''}`}>{children}</div>; }
@@ -179,7 +179,7 @@ function AccountPicker({
                     <Row><Label>Ciudad</Label><Input value={newCity} onChange={e=>setNewCity(e.target.value)} /></Row>
                     <Row><Label>Tipo</Label>
                       <Select value={newType} onChange={e=>setNewType(e.target.value as AccountType)}>
-                        <option>HORECA</option><option>RETAIL</option><option>DISTRIBUIDOR</option><option>IMPORTADOR</option><option>OTRO</option>
+                        <option>HORECA</option><option>RETAIL</option><option>DISTRIBUIDOR</option><option>IMPORTADOR</option><option>ONLINE</option><option>OTRO</option>
                       </Select>
                     </Row>
                   </div>
@@ -310,7 +310,7 @@ function EditAccountForm({defaults, onSubmit, onCancel}:{
       <div className="grid grid-cols-2 gap-3">
         <Row><Label>Tipo</Label>
           <Select value={form.accountType} onChange={(e: React.ChangeEvent<HTMLSelectElement>)=>set("accountType", e.target.value as AccountType)}>
-            <option>HORECA</option><option>RETAIL</option><option>DISTRIBUIDOR</option><option>IMPORTADOR</option><option>OTRO</option>
+            <option>HORECA</option><option>RETAIL</option><option>DISTRIBUIDOR</option><option>IMPORTADOR</option><option>ONLINE</option><option>OTRO</option>
           </Select>
         </Row>
         <Row><Label>Teléfono</Label><Input value={form.phone||""} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>set("phone", e.target.value)} placeholder="+34..."/></Row>
@@ -346,7 +346,7 @@ function CreateAccountForm({onSubmit, onCancel}:{ onSubmit:(p:CreateAccountPaylo
       <div className="grid grid-cols-2 gap-3">
         <Row><Label>Tipo</Label>
           <Select value={form.accountType} onChange={(e: React.ChangeEvent<HTMLSelectElement>)=>set("accountType", e.target.value as AccountType)}>
-            <option>HORECA</option><option>RETAIL</option><option>DISTRIBUIDOR</option><option>IMPORTADOR</option><option>OTRO</option>
+            <option>HORECA</option><option>RETAIL</option><option>DISTRIBUIDOR</option><option>IMPORTADOR</option><option>ONLINE</option><option>OTRO</option>
           </Select>
         </Row>
         <Row><Label>Contacto principal</Label><Input value={form.mainContactName||""} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>set("mainContactName", e.target.value)} /></Row>
@@ -375,7 +375,7 @@ function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, onSubmit,
   const [note, setNote] = useState(defaults?.note || "");
   const [requestedDate, setRequestedDate] = useState(new Date().toISOString().slice(0,16));
   const [deliveryDate, setDeliveryDate] = useState("");
-  const [channel, setChannel] = useState<CreateOrderPayload["channel"]>("propia");
+  const [channel, setChannel] = useState<CreateOrderPayload["channel"]>("HORECA");
   const [paymentTerms, setTerms] = useState("Contado");
   const [shipTo, setShipTo] = useState("");
   const [items, setItems] = useState<CreateOrderPayload["items"]>(defaults?.items || [{sku:"SB-750", qty:1, unit:"ud", priceUnit: 12, lotNumber: ''}]);
@@ -409,9 +409,9 @@ function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, onSubmit,
       <div className="grid grid-cols-2 gap-3">
         <Row><Label>Fecha pedido</Label><Input type="datetime-local" value={requestedDate} onChange={e=>setRequestedDate(e.target.value)}/></Row>
         <Row><Label>Entrega deseada</Label><Input type="datetime-local" value={deliveryDate} onChange={e=>setDeliveryDate(e.target.value)}/></Row>
-        <Row><Label>Canal</Label>
+        <Row><Label>Tipo de Cuenta</Label>
           <Select value={channel} onChange={e=>setChannel(e.target.value as any)}>
-            <option value="propia">Propia_SB</option><option value="distribuidor">Distribuidor</option><option value="importador">Importador</option><option value="online">Online</option>
+            <option value="HORECA">HORECA</option><option value="RETAIL">RETAIL</option><option value="DISTRIBUIDOR">Distribuidor</option><option value="IMPORTADOR">Importador</option><option value="ONLINE">Online</option><option value="OTRO">Otro</option>
           </Select>
         </Row>
         <Row><Label>Condiciones pago</Label><Input value={paymentTerms} onChange={e=>setTerms(e.target.value)} placeholder="Contado / 30d / 60d"/></Row>
