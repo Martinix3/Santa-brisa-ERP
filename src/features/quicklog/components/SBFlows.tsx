@@ -2,7 +2,7 @@
 "use client";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Plus, CalendarDays, ClipboardList, UserPlus2, Briefcase, Search, Check, MapPin, Pencil, Save, MessageSquare, Zap, Mail, Phone, History, ShoppingCart } from "lucide-react";
+import { X, Plus, CalendarDays, ClipboardList, UserPlus2, Briefcase, Search, Check, MapPin, Pencil, Save, MessageSquare, Zap, Mail, Phone, History, ShoppingCart, Building, CreditCard } from "lucide-react";
 import { useData } from "@/lib/dataprovider";
 import { generateNextOrder, Channel } from "@/lib/codes";
 import { AccountType, AccountRef, SB_COLORS } from '@/domain/ssot';
@@ -32,7 +32,17 @@ type QuickMode = "order" | "interaction";
 type QuickOrderPayload = { mode:"order"; account?:string; items:{ sku:string; qty:number }[]; note?:string; isVentaPropia: boolean; };
 type QuickInteractionPayload = { mode:"interaction"; account?:string; kind:InteractionKind; note:string; nextAction?:string; };
 
-type EditAccountPayload = { id:string; name:string; city:string; accountType:AccountType; mainContactName?:string; mainContactEmail?:string };
+type EditAccountPayload = {
+  id:string;
+  name:string;
+  city:string;
+  accountType:AccountType;
+  mainContactName?:string;
+  mainContactEmail?:string;
+  phone?:string;
+  address?:string;
+  billingEmail?:string;
+};
 
 type CreateAccountPayload = { name:string; city:string; accountType:AccountType; mainContactName?:string; mainContactEmail?:string };
 
@@ -296,15 +306,20 @@ function EditAccountForm({defaults, onSubmit, onCancel}:{
         <Row><Label>Nombre</Label><Input value={form.name} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>set("name", e.target.value)} /></Row>
         <Row><Label>Ciudad</Label><Input value={form.city} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>set("city", e.target.value)} /></Row>
       </div>
+      <Row><Label>Dirección</Label><Input value={form.address||""} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>set("address", e.target.value)} placeholder="Calle, número, piso..."/></Row>
       <div className="grid grid-cols-2 gap-3">
         <Row><Label>Tipo</Label>
           <Select value={form.accountType} onChange={(e: React.ChangeEvent<HTMLSelectElement>)=>set("accountType", e.target.value as AccountType)}>
             <option>HORECA</option><option>RETAIL</option><option>DISTRIBUIDOR</option><option>IMPORTADOR</option><option>OTRO</option>
           </Select>
         </Row>
-        <Row><Label>Contacto</Label><Input value={form.mainContactName||""} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>set("mainContactName", e.target.value)} placeholder="Nombre"/></Row>
+        <Row><Label>Teléfono</Label><Input value={form.phone||""} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>set("phone", e.target.value)} placeholder="+34..."/></Row>
       </div>
-      <Row><Label>Email</Label><Input type="email" value={form.mainContactEmail||""} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>set("mainContactEmail", e.target.value)} placeholder="email@dominio.com"/></Row>
+      <div className="grid grid-cols-2 gap-3">
+        <Row><Label>Contacto Principal</Label><Input value={form.mainContactName||""} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>set("mainContactName", e.target.value)} placeholder="Nombre del contacto"/></Row>
+        <Row><Label>Email Contacto</Label><Input type="email" value={form.mainContactEmail||""} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>set("mainContactEmail", e.target.value)} placeholder="email@dominio.com"/></Row>
+      </div>
+       <Row><Label>Email Facturación</Label><Input type="email" value={form.billingEmail||""} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>set("billingEmail", e.target.value)} placeholder="facturacion@dominio.com"/></Row>
 
       <div className="flex justify-between items-center pt-1">
         <div className="text-[11px] text-zinc-500">ID: <code>{form.id}</code></div>

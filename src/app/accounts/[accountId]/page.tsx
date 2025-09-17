@@ -174,7 +174,7 @@ export default function AccountDetailPageContent(){
         }
     }
     // Edit Account
-    else if (payload.id && payload.accountType) {
+    else if (payload.id && payload.name) {
         const updatedAccounts = santaData.accounts.map(acc => acc.id === payload.id ? { ...acc, ...payload } : acc);
         setData({ ...santaData, accounts: updatedAccounts });
     }
@@ -193,6 +193,9 @@ export default function AccountDetailPageContent(){
       accountType: account.type,
       mainContactName: account.mainContactName,
       mainContactEmail: account.mainContactEmail,
+      phone: account.phone,
+      address: account.address,
+      billingEmail: account.billingEmail,
   };
 
   return (
@@ -279,6 +282,7 @@ export default function AccountDetailPageContent(){
                 <Row label="Contacto Principal" icon={User}>{account.mainContactName || '—'}<br/><span className="text-xs text-zinc-500">{account.mainContactEmail}</span></Row>
                 <Row label="Teléfono" icon={Phone}>{account.phone}</Row>
                 <Row label="Dirección" icon={MapPin}>{account.address}</Row>
+                <Row label="Email Facturación" icon={Mail}>{account.billingEmail}</Row>
                 <hr className="my-2"/>
                 {owner && <Row label="Comercial" icon={Briefcase}>{owner}</Row>}
                 {distributor && <Row label="Distribuidor" icon={Boxes}>{distributor.name}</Row>}
