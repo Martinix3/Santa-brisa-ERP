@@ -6,6 +6,7 @@ import { getAuth, browserLocalPersistence, setPersistence } from "firebase/auth"
 // Esta configuración es pública y segura.
 const firebaseConfig = {
   apiKey: "AIzaSyB05_nEgoaTf6ANOaRYILECtUfO4pBK9hQ",
+  // Este es el dominio que Firebase usa para sus páginas de gestión de autenticación. Es correcto y no debe cambiarse.
   authDomain: "santa-brisa-erp.firebaseapp.com",
   projectId: "santa-brisa-erp",
   storageBucket: "santa-brisa-erp.appspot.com",
@@ -20,6 +21,5 @@ const auth = getAuth(app);
 // Set persistence to 'local' to keep the user signed in across browser sessions.
 // Esto es importante para que la redirección funcione correctamente.
 setPersistence(auth, browserLocalPersistence);
-
 
 export { app, auth };
