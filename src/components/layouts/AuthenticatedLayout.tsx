@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { 
     Users, 
     Calendar, 
@@ -238,7 +238,14 @@ function AuthenticatedLayoutContent({ children }: { children: React.ReactNode })
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
   const pathname = usePathname() ?? '/';
-  const { currentUser, logout } = useData();
+  const { currentUser, logout, isLoading } = useData();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isLoading && !currentUser) {
+        router.replace('/login');
+    }
+  }, [isLoading, currentUser, router]);
 
   useEffect(() => {
     const activeSection = navSections.find(section => section.items.some(item => pathname.startsWith(item.href) && item.href !== '/'));
@@ -254,6 +261,14 @@ function AuthenticatedLayoutContent({ children }: { children: React.ReactNode })
   const toggleSection = (title: string) => {
     setExpandedSections(prev => ({...prev, [title]: !prev[title]}));
   };
+
+  if (isLoading || !currentUser) {
+    return (
+        <div className="h-screen w-screen flex items-center justify-center bg-white">
+            <p>Cargando...</p>
+        </div>
+    )
+  }
 
   return (
     <div className="h-screen flex flex-col bg-white">
