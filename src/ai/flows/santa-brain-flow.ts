@@ -18,7 +18,22 @@ import {
     CreateOrderSchema, 
     ScheduleEventSchema, 
     UpsertAccountSchema 
-} from './schemas';
+} from '@/ai/flows/schemas';
+
+// --- helpers ---
+type ToolOutput =
+  | { success: boolean; interactionId: string }
+  | { success: boolean; orderId: string }
+  | { success: boolean; eventId: string }
+  | { success: boolean; accountId: string };
+
+type ToolRequestPart = {
+  toolRequest: { name: string; input?: unknown; ref?: string };
+};
+
+function isToolRequestPart(part: any): part is ToolRequestPart {
+  return !!part && typeof part === "object" && "toolRequest" in part && !!(part as any).toolRequest?.name;
+}
 
 
 // =================================
@@ -141,8 +156,7 @@ export async function runSantaBrain(history: Message[], input: string, context: 
     });
 
     const newEntities: Partial<SantaData> = { interactions: [], ordersSellOut: [], mktEvents: [], accounts: [] };
-    const toolResponses: any[] = [];
-    
+    const toolResponses: Array<{ toolResponse: { name: string; output: any } }> = [];
     const toolRequests = llmResponse.toolRequests;
 
     if (toolRequests.length > 0) {
@@ -156,16 +170,17 @@ export async function runSantaBrain(history: Message[], input: string, context: 
             }
 
             try {
-                const output = await tool(toolRequest.input as any);
+                const output = await tool(toolRequest.input as any) as ToolOutput;
                 toolResponses.push({ toolResponse: { name: toolRequest.name, output } });
 
                 if (output.success) {
                     switch (toolRequest.name) {
                         case 'upsertAccount': {
                             const typedInput = UpsertAccountSchema.parse(toolRequest.input);
+                            const { accountId } = output as Extract<ToolOutput, { accountId: string }>;
                             const newAccount: Account = {
                                 ...typedInput,
-                                id: output.accountId,
+                                id: accountId,
                                 createdAt: new Date().toISOString(),
                                 stage: typedInput.stage || 'POTENCIAL',
                                 type: typedInput.type || 'HORECA',
@@ -177,10 +192,11 @@ export async function runSantaBrain(history: Message[], input: string, context: 
                         }
                         case 'createInteraction': {
                             const typedInput = AddInteractionSchema.parse(toolRequest.input);
+                            const { interactionId } = output as Extract<ToolOutput, { interactionId: string }>;
                             const account = accountsCreatedInThisTurn.find(a => a.name === typedInput.accountName) || context.accounts.find(a => a.name === typedInput.accountName);
                             if (account) {
                                 newEntities.interactions?.push({
-                                    id: output.interactionId,
+                                    id: interactionId,
                                     accountId: account.id,
                                     userId: 'u_brain',
                                     kind: typedInput.kind,
@@ -193,10 +209,11 @@ export async function runSantaBrain(history: Message[], input: string, context: 
                         }
                         case 'createOrder': {
                              const typedInput = CreateOrderSchema.parse(toolRequest.input);
+                             const { orderId } = output as Extract<ToolOutput, { orderId: string }>;
                              const account = accountsCreatedInThisTurn.find(a => a.name === typedInput.accountName) || context.accounts.find(a => a.name === typedInput.accountName);
                              if(account){
                                 newEntities.ordersSellOut?.push({
-                                    id: output.orderId,
+                                    id: orderId,
                                     accountId: account.id,
                                     userId: 'u_brain',
                                     status: 'open',
@@ -214,8 +231,9 @@ export async function runSantaBrain(history: Message[], input: string, context: 
                         }
                         case 'scheduleUserEvent': {
                              const typedInput = ScheduleEventSchema.parse(toolRequest.input);
+                             const { eventId } = output as Extract<ToolOutput, { eventId: string }>;
                              newEntities.mktEvents?.push({
-                                id: output.eventId,
+                                id: eventId,
                                 title: typedInput.title,
                                 kind: typedInput.kind,
                                 status: 'planned',
