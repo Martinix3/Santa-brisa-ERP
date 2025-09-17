@@ -1,11 +1,8 @@
-
 // ❗ NUNCA importes este archivo desde componentes con "use client"
 import 'server-only';
 import * as admin from 'firebase-admin';
 
-if (typeof window !== 'undefined') {
-  throw new Error('firebaseAdmin solo puede usarse en el servidor');
-}
+let firebaseAdminInitialized = false;
 
 // Implementación del patrón Singleton para la inicialización de Firebase Admin
 if (!admin.apps.length) {
@@ -24,27 +21,26 @@ if (!admin.apps.length) {
         privateKey: privateKey.replace(/\\n/g, '\n'),
       }),
     });
-     console.log('Firebase Admin SDK initialized successfully.');
+    firebaseAdminInitialized = true;
+    console.log('Firebase Admin SDK inicializado con éxito.');
   } catch (error: any) {
-    console.error('Firebase Admin initialization error:', error.message);
+    console.error('Error al inicializar Firebase Admin:', error.message);
     // No relanzar el error para no parar el servidor, pero dejarlo claro en los logs.
   }
+} else {
+    firebaseAdminInitialized = true;
 }
 
-export const adminDb = () => {
-    if (!admin.apps.length) {
-        console.error("Firebase Admin no está inicializado. No se puede acceder a la base de datos.");
-        // Devolver un objeto 'dummy' para evitar que la app crashee en el punto de llamada, aunque las operaciones fallarán.
-        // Lo ideal sería que las funciones que lo usan comprueben si la inicialización fue exitosa.
-        return {} as admin.firestore.Firestore;
+export const adminDb = (): admin.firestore.Firestore => {
+    if (!firebaseAdminInitialized) {
+        throw new Error("Firebase Admin no está inicializado. No se puede acceder a la base de datos.");
     }
     return admin.firestore();
 };
 
-export const adminAuth = () => {
-    if (!admin.apps.length) {
-        console.error("Firebase Admin no está inicializado. No se puede acceder a Auth.");
-        return {} as admin.auth.Auth;
+export const adminAuth = (): admin.auth.Auth => {
+    if (!firebaseAdminInitialized) {
+        throw new Error("Firebase Admin no está inicializado. No se puede acceder a Auth.");
     }
     return admin.auth();
 };
