@@ -1,37 +1,17 @@
-
-
 // src/app/api/brain-persist/route.ts
 import { NextResponse, NextRequest } from 'next/server';
-import { adminDb, adminAuth } from '@/server/firebaseAdmin';
+import { adminDb } from '@/server/firebaseAdmin';
 import { SANTA_DATA_COLLECTIONS } from '@/domain/ssot';
 
 // Forzar el runtime de Node.js, ya que firebase-admin no es compatible con el Edge Runtime.
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-async function verifyAuth(req: NextRequest) {
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-        return null;
-    }
-    const idToken = authHeader.split('Bearer ')[1];
-    try {
-        const decodedToken = await adminAuth().verifyIdToken(idToken);
-        return decodedToken;
-    } catch (error) {
-        console.error("Error verifying auth token:", error);
-        return null;
-    }
-}
+// Auth verification is removed for simplified development
+// async function verifyAuth(req: NextRequest) { ... }
 
 
 export async function GET(req: NextRequest) {
-  
-  const decodedToken = await verifyAuth(req);
-  if (!decodedToken) {
-    return NextResponse.json({ ok: false, error: 'Unauthorized. No valid token provided.' }, { status: 401 });
-  }
-
   try {
     const db = adminDb();
     // Comprobar si la inicialización de Firebase Admin falló y db no es funcional
@@ -55,12 +35,6 @@ export async function GET(req: NextRequest) {
 
 
 export async function POST(req: NextRequest) {
-
-  const decodedToken = await verifyAuth(req);
-  if (!decodedToken) {
-    return NextResponse.json({ ok: false, error: 'Unauthorized. No valid token provided.' }, { status: 401 });
-  }
-
   try {
     const payload = await req.json();
 
