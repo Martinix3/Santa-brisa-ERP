@@ -66,8 +66,16 @@ export default function OrdersDashboard() {
 
   const { ordersSellOut, accounts, users } = data || { ordersSellOut: [], accounts: [], users: [] };
   
-  const accountMap = useMemo(() => new Map<string, Account>(accounts.map((acc: Account) => [acc.id, acc])), [accounts]);
-  const userMap = useMemo(() => new Map<string, string>(users.map((user: User) => [user.id, user.name])), [users]);
+  const accountMap = useMemo(() => {
+    const accountEntries = (accounts || []).map((acc: Account): readonly [string, Account] => [acc.id, acc]);
+    return new Map<string, Account>(accountEntries);
+  }, [accounts]);
+
+  const userMap = useMemo(() => {
+    const userEntries = (users || []).map((user: User): readonly [string, string] => [user.id, user.name]);
+    return new Map<string, string>(userEntries);
+  }, [users]);
+
 
   const filteredOrders = useMemo(() => {
     return (ordersSellOut as OrderSellOut[])
