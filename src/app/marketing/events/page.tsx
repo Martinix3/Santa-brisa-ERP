@@ -8,7 +8,7 @@ export default function Page(){
     <div className="p-6 text-center border-2 border-dashed rounded-xl">
         <h1 className="text-xl font-semibold">Gestión de Eventos</h1>
         <p className="text-zinc-600 mt-2">
-            La creación de eventos ahora se gestiona a través del asistente de IA "Santa Brain".
+            La creación de eventos ahora se gestiona a través del asistente de IA &quot;Santa Brain&quot;.
             Usa el botón flotante `+` para iniciar el chat y pídele que programe un nuevo evento.
         </p>
     </div>

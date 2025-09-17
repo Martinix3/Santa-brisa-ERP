@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import { SB_COLORS, hexToRgba } from '@/components/ui/ui-primitives';
 import { AnimatePresence, motion } from 'framer-motion';
+import Image from 'next/image';
 
 
 const navSections = [
@@ -257,9 +258,11 @@ function AuthenticatedLayoutContent({ children }: { children: React.ReactNode })
         <aside className={`bg-white border-r border-sb-neutral-200 transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'w-20' : 'w-64'}`}>
           <nav className="h-full flex flex-col p-3">
             <div className="p-3">
-                <img 
+                <Image 
                     src="https://santabrisa.es/cdn/shop/files/clavista_300x_36b708f6-4606-4a51-9f65-e4b379531ff8_300x.svg?v=1752413726" 
-                    alt="Santa Brisa" 
+                    alt="Santa Brisa"
+                    width={100}
+                    height={32}
                     className={`transition-all duration-300 ease-in-out h-8`} 
                 />
             </div>

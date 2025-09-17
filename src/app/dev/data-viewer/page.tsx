@@ -150,7 +150,7 @@ const COLLECTION_SCHEMAS: Record<string, string[]> = {
     accounts: ['id', 'name', 'city', 'stage', 'type', 'ownerId', 'billerId', 'cif', 'address', 'phone', 'createdAt'],
     products: ['id', 'sku', 'name', 'category', 'bottleMl', 'caseUnits', 'casesPerPallet', 'active', 'materialId'],
     interactions: ['id', 'accountId', 'userId', 'kind', 'note', 'createdAt'],
-    ordersSellOut: ['id', 'accountId', 'userId', 'status', 'createdAt', 'lines'],
+    ordersSellOut: ['id', 'accountId', 'status', 'createdAt', 'lines'],
     materials: ['id', 'sku', 'name', 'category', 'unit', 'standardCost'],
     lots: ['id', 'sku', 'quantity', 'createdAt', 'orderId', 'quality', 'expDate'],
     shipments: ['id', 'status', 'createdAt', 'accountId', 'lines'],
@@ -472,7 +472,7 @@ function DataViewerContent() {
             <div className="p-6">
                 {notification && ( <div className={`fixed top-20 right-5 z-50 p-3 rounded-lg shadow-lg text-white text-sm ${notification.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}>{notification.message}</div> )}
                 <p className="text-zinc-600 mb-6">
-                    Inspecciona, edita, importa o exporta el contenido del `DataProvider`. Modo actual: <strong className="font-semibold text-zinc-800">{mode}</strong>. Los cambios se guardan al pulsar "Guardar", eliminar o importar.
+                    Inspecciona, edita, importa o exporta el contenido del `DataProvider`. Modo actual: <strong className="font-semibold text-zinc-800">{mode}</strong>. Los cambios se guardan al pulsar &quot;Guardar&quot;, eliminar o importar.
                 </p>
 
                 <div className="grid grid-cols-1 lg:grid-cols-[1fr_3fr] gap-6 items-start">

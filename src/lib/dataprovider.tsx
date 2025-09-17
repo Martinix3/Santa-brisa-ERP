@@ -65,9 +65,10 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
             if (MockSantaData) {
                 setData(MockSantaData);
             } else {
-                const module = await import('@/domain/mock-data');
-                MockSantaData = module.mockSantaData;
-                setData(MockSantaData);
+                import('@/domain/mock-data').then(loadedModule => {
+                    MockSantaData = loadedModule.mockSantaData;
+                    setData(MockSantaData);
+                });
             }
         } finally {
             setIsLoading(false);

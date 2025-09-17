@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { useData } from '@/lib/dataprovider';
 import { useRouter } from 'next/navigation';
 import { Button, Input } from '@/components/ui/ui-primitives';
+import Image from 'next/image';
 
 export default function LoginPage() {
     const { login, currentUser, isLoading } = useData();
@@ -45,9 +46,11 @@ export default function LoginPage() {
     return (
         <div className="h-screen w-screen flex items-center justify-center bg-sb-neutral-50">
             <div className="w-full max-w-sm mx-auto p-8 bg-white rounded-2xl shadow-xl border border-sb-neutral-200 text-center">
-                <img 
+                <Image 
                     src="https://santabrisa.es/cdn/shop/files/clavista_300x_36b708f6-4606-4a51-9f65-e4b379531ff8_300x.svg?v=1752413726" 
                     alt="Santa Brisa Logo" 
+                    width={100}
+                    height={64}
                     className="h-16 mx-auto mb-4"
                 />
                 <h1 className="text-xl font-semibold text-sb-neutral-800">Acceso al CRM</h1>

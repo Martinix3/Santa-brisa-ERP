@@ -62,7 +62,8 @@ function GroupBar({stage,count,onToggle,expanded}:{stage:keyof typeof STAGE; cou
 function AccountBar({ a, santaData }:{ a: AccountType, santaData: SantaData }){
   const [open, setOpen] = useState(false);
   const s = STAGE[a.stage as keyof typeof STAGE] ?? STAGE.ACTIVA;
-  const owner = accountOwnerDisplay(a, santaData.users, santaData.distributors);
+  
+  const owner = useMemo(() => accountOwnerDisplay(a, santaData.users, santaData.distributors), [a, santaData.users, santaData.distributors]);
   const orderAmount = useMemo(()=> (santaData.ordersSellOut || []).filter((o: OrderSellOut)=>o.accountId===a.id).reduce((n: number,o: OrderSellOut)=> n+orderTotal(o),0), [a.id, santaData.ordersSellOut]);
   
   const { unifiedActivity, kpis } = useMemo(() => {
@@ -97,7 +98,7 @@ function AccountBar({ a, santaData }:{ a: AccountType, santaData: SantaData }){
       WHATSAPP: MessageSquare,
   };
 
-  const distributor = santaData.distributors.find(d => d.id === a.billerId);
+  const distributor = useMemo(() => santaData.distributors.find(d => d.id === a.billerId), [a.billerId, santaData.distributors]);
 
   return (
     <div className="overflow-hidden transition-all duration-200 hover:bg-black/5 rounded-lg border border-zinc-200/50">
@@ -195,7 +196,7 @@ export function AccountsPageContent() {
   const [fltCity, setFltCity] = useState("");
   const [fltDist, setFltDist] = useState("");
   
-  const data = santaData?.accounts || [];
+  const data = useMemo(() => santaData?.accounts || [], [santaData]);
 
   const { repOptions, cityOptions, distOptions } = useMemo(() => {
     if (!santaData || !santaData.users || !santaData.distributors) {

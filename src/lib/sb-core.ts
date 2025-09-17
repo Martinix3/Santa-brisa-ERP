@@ -65,16 +65,6 @@ function lineToBottles(line: OrderLine, product: Product | undefined, opts: Bott
 
   switch (line.unit) {
     case 'uds':   return line.qty;
-    case 'caja': return (product.caseUnits ?? 0) * line.qty;
-    case 'palet': {
-      const cpp = typeof opts.casesPerPallet === 'number'
-        ? opts.casesPerPallet
-        : typeof opts.casesPerPallet === 'object'
-          ? (opts.casesPerPallet?.[product.id] ?? 0)
-          : 0;
-      const cu = product.caseUnits ?? 0;
-      return cpp > 0 && cu > 0 ? line.qty * cpp * cu : 0;
-    }
     default: return 0;
   }
 }

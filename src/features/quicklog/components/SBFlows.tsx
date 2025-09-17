@@ -159,7 +159,7 @@ function AccountPicker({
                 <div className="p-2 border-t bg-zinc-50 flex gap-2">
                   <button disabled={!canCreate} onClick={()=>{ setMode("create"); setNewName(q.trim()); }}
                     className={`flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm border ${canCreate?"bg-white hover:bg-zinc-50 border-zinc-300":"bg-white/60 border-zinc-200 text-zinc-400 cursor-not-allowed"}`}>
-                    <Plus className="h-4 w-4"/> Crear cuenta “{q || ""}”
+                    <Plus className="h-4 w-4"/> Crear cuenta &quot;{q || ""}&quot;
                   </button>
                   {allowDefer && (
                     <button onClick={()=>{ onChange(""); setOpen(false); }}
@@ -240,7 +240,7 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
 
       <Row><Label>Cuenta</Label>
         <AccountPicker value={account} onChange={setAccount} accounts={accounts} onSearchAccounts={onSearchAccounts} onCreateAccount={onCreateAccount} allowDefer/>
-        <div className="text-[11px] text-zinc-500">Puedes seleccionar una cuenta existente, <em>crear una nueva</em> o pulsar "Dejarlo para más tarde" y seguir sin cuenta.</div>
+        <div className="text-[11px] text-zinc-500">Puedes seleccionar una cuenta existente, <em>crear una nueva</em> o pulsar &quot;Dejarlo para más tarde&quot; y seguir sin cuenta.</div>
       </Row>
 
       {mode==="order" ? (
@@ -532,4 +532,3 @@ export function SBFlowModal({
     </BaseModal>
   );
 }
-

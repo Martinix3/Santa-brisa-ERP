@@ -28,8 +28,8 @@ function KPI({ label, value, icon: Icon }: { label: string; value: number; icon:
 export default function QualityDashboardPage() {
     const { data } = useData();
 
-    const lots = data?.lots || [];
-    const qaChecks = data?.qaChecks || [];
+    const lots = useMemo(() => data?.lots || [], [data]);
+    const qaChecks = useMemo(() => data?.qaChecks || [], [data]);
 
     const kpis = useMemo(() => {
         const pending = lots.filter(l => l.quality?.qcStatus === 'hold').length;

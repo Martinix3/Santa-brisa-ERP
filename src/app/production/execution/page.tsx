@@ -208,7 +208,7 @@ export default function ProduccionPage() {
     } else {
       showNotification("Orden creada con stock reservado.");
     }
-  }, [warehouseInventory, setData, allMaterials]);
+  }, [warehouseInventory, setData, allMaterials, santaData]);
   
 
   const updateOrder = useCallback(async (id: string, patch: Partial<ProdOrder>) => {

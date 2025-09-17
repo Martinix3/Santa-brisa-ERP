@@ -2,7 +2,7 @@
 
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { SBCard, SB_COLORS } from '@/components/ui/ui-primitives';
 import { KeyRound, Trash2, Zap, RefreshCw, Settings, PlugZap, LogOut, ChevronRight, Check, AlertTriangle, DownloadCloud } from 'lucide-react';
 import ApiKeyConnect from "@/components/integrations/ApiKeyConnect";
@@ -132,6 +132,29 @@ export default function IntegrationsPanelPage() {
     const [apiKeyModal, setApiKeyModal] = useState<{ open:boolean; provider?: "holded" | "sendcloud" }>({ open:false });
     const [notification, setNotification] = useState<Notification | null>(null);
 
+    const reloadAll = useCallback((user: User | null = firebaseUser) => {
+        const fetchSecrets = async () => {
+            setLoadingSecrets(true);
+            try {
+                const res = await fetch('/api/dev/integrations');
+                setSecrets(res.ok ? await res.json() : {});
+            } catch (error) {
+                console.error("Failed to fetch integration secrets:", error);
+                setSecrets({});
+            } finally {
+                setLoadingSecrets(false);
+            }
+        };
+
+        const fetchIntegrationsData = async (user: User | null) => {
+            setLoadingIntegrations(true);
+            setItems(await fetchIntegrations(user));
+            setLoadingIntegrations(false);
+        };
+        fetchSecrets();
+        fetchIntegrationsData(user);
+    }, [firebaseUser]);
+
     useEffect(() => {
         if (notification) {
           const timer = setTimeout(() => setNotification(null), 5000);
@@ -145,31 +168,7 @@ export default function IntegrationsPanelPage() {
             reloadAll(user);
         });
         return () => unsubscribe();
-    }, []);
-
-    const fetchSecrets = async () => {
-        setLoadingSecrets(true);
-        try {
-            const res = await fetch('/api/dev/integrations');
-            setSecrets(res.ok ? await res.json() : {});
-        } catch (error) {
-            console.error("Failed to fetch integration secrets:", error);
-            setSecrets({});
-        } finally {
-            setLoadingSecrets(false);
-        }
-    };
-    
-    const fetchIntegrationsData = async (user: User | null) => {
-        setLoadingIntegrations(true);
-        setItems(await fetchIntegrations(user));
-        setLoadingIntegrations(false);
-    };
-
-    const reloadAll = (user: User | null = firebaseUser) => {
-        fetchSecrets();
-        fetchIntegrationsData(user);
-    }
+    }, [reloadAll]);
 
     const handleGoogleConnect = async () => {
         if (firebaseUser) {
