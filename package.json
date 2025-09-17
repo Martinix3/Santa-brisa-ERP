@@ -3,10 +3,9 @@
   "version": "1.1.0",
   "private": true,
   "scripts": {
-    "auth-and-dev": "npm-run-all --serial auth:gcloud dev:next",
     "auth:gcloud": "gcloud auth application-default login --quiet",
-    "dev:next": "next dev -H 0.0.0.0 -p 3000",
-    "dev": "npm run auth-and-dev",
+    "dev:next": "next dev",
+    "dev": "npm-run-all --serial auth:gcloud dev:next",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
@@ -43,7 +42,6 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
     "@types/estree": "^1.0.8",
-    "@types/html-pdf": "^3.0.3",
     "@types/json-schema": "^7.0.15",
     "@types/node": "^24.5.0",
     "@types/papaparse": "^5.3.16",
