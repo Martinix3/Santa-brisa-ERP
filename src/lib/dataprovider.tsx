@@ -54,7 +54,6 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
       if (firebaseUser) {
         console.log("✅ Usuario autenticado:", firebaseUser.email);
         
-        // Cargar datos de la API solo si hay un usuario
         try {
           const headers = await getAuthHeaders();
           const response = await fetch("/api/brain-persist", { headers });
@@ -65,19 +64,18 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
             setData(JSON.parse(JSON.stringify(realSantaData)));
           } else {
             const apiData = await response.json();
-            setData(apiData);
+            // Merge con datos reales por si la DB está vacía o es la primera vez
+            const mergedData = {
+              ...JSON.parse(JSON.stringify(realSantaData)),
+              ...apiData,
+            };
+            setData(mergedData);
           }
         } catch (error) {
           console.error("Could not fetch initial data, falling back to local data:", error);
           setData(JSON.parse(JSON.stringify(realSantaData)));
         }
-
-        // Asignar el rol real desde los datos cargados
-        const users = data?.users || realSantaData.users;
-        const appUser = users.find(u => u.email === firebaseUser.email);
-
-        setCurrentUser(appUser || null);
-
+        
       } else {
         console.log("⚠️ No hay usuario autenticado, cargando datos locales.");
         setCurrentUser(null);
@@ -87,22 +85,40 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     });
 
     return () => unsub();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); 
+  }, []);
+
+  // Efecto para actualizar el usuario actual cuando los datos cambian
+  useEffect(() => {
+      if (auth.currentUser && data) {
+          const appUser = data.users.find(u => u.email === auth.currentUser?.email);
+          setCurrentUser(appUser || null);
+      }
+  }, [data]);
+
 
   const login = useCallback(async (email: string, pass: string) => {
-      // For simplicity, we ignore the password and find the user by email
-      const userToLogin = data?.users.find(u => u.email === email);
-      if (userToLogin) {
-          setCurrentUser(userToLogin);
-          setIsLoading(false);
-      } else {
-          throw new Error("Usuario no encontrado.");
+      // Usamos el proveedor de Google para el login
+      const provider = new GoogleAuthProvider();
+      try {
+        const result = await signInWithPopup(auth, provider);
+        const firebaseUser = result.user;
+        if(firebaseUser && data) {
+            const appUser = data.users.find(u => u.email === firebaseUser.email);
+            if(appUser) {
+                setCurrentUser(appUser);
+            } else {
+                throw new Error("El usuario de Google no se encuentra en la lista de usuarios de la aplicación.");
+            }
+        }
+      } catch (error) {
+          console.error("Error durante el inicio de sesión con Google:", error);
+          throw error;
       }
-  }, [data?.users]);
+  }, [data]);
 
 
   const logout = useCallback(async () => {
+    await signOut(auth);
     setCurrentUser(null);
   }, []);
 
@@ -113,7 +129,7 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
         console.warn("Save requested, but no data is available.");
         return;
       }
-      if (!currentUser) {
+      if (!auth.currentUser) {
         throw new Error("No hay un usuario autenticado para guardar los datos.");
       }
 
@@ -134,7 +150,7 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
         throw error;
       }
     },
-    [data, currentUser]
+    [data]
   );
 
   const value = useMemo(

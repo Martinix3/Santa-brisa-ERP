@@ -1,7 +1,9 @@
 
 import { NextResponse, NextRequest } from 'next/server';
 import { adminAuth, adminDb } from '@/server/firebaseAdmin';
-import { SANTA_DATA_COLLECTIONS } from '@/domain/ssot';
+import { SANTA_DATA_COLLECTIONS, SantaData } from '@/domain/ssot';
+import { realSantaData } from '@/domain/real-data';
+
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -25,16 +27,35 @@ export async function GET(req: NextRequest) {
     const decodedToken = await verifyAuth(req);
     const db = adminDb;
     
-    // Asumimos un único documento global por ahora
-    const docRef = db.collection('brainData').doc(decodedToken.uid);
-    const docSnap = await docRef.get();
+    const userRootCol = db.collection('userData').doc(decodedToken.uid);
 
-    if (!docSnap.exists) {
-        // Si no existe, podría ser la primera vez. Se podrían devolver datos por defecto.
-        return NextResponse.json({ message: "No data found for user." }, { status: 404 });
+    let hasData = false;
+    const fetchedData: Partial<SantaData> = {};
+
+    for (const collectionName of SANTA_DATA_COLLECTIONS) {
+        const docRef = userRootCol.collection(collectionName).doc('all');
+        const docSnap = await docRef.get();
+        if (docSnap.exists) {
+            fetchedData[collectionName as keyof SantaData] = docSnap.data()?.data || [];
+            if ((docSnap.data()?.data || []).length > 0) {
+                hasData = true;
+            }
+        } else {
+            fetchedData[collectionName as keyof SantaData] = [];
+        }
     }
 
-    return NextResponse.json(docSnap.data());
+    if (!hasData) {
+        // Si no hay absolutamente nada en Firestore para este usuario, devolvemos
+        // un objeto SantaData vacío pero bien formado. El frontend lo fusionará.
+        const emptyData: Partial<SantaData> = {};
+        SANTA_DATA_COLLECTIONS.forEach(key => {
+            (emptyData as any)[key] = [];
+        });
+        return NextResponse.json(emptyData);
+    }
+
+    return NextResponse.json(fetchedData);
 
   } catch (e:any) {
     console.error('Auth error or Firestore fetch error in GET:', e);
@@ -59,30 +80,28 @@ export async function POST(req: NextRequest) {
     const batch = db.batch();
     let count = 0;
 
-    // Guardar cada colección en su propio documento dentro de una colección padre por usuario
-    // Ejemplo: /users_data/{uid}/accounts, /users_data/{uid}/products
     const userRootCol = db.collection('userData').doc(decodedToken.uid);
 
     for (const collectionName in payload) {
-        if (Array.isArray(payload[collectionName])) {
+        if (Object.prototype.hasOwnProperty.call(payload, collectionName) && SANTA_DATA_COLLECTIONS.includes(collectionName as any)) {
             const collectionData = payload[collectionName];
-            // Guardar la colección completa como un campo de array en un documento
-            // Esto es simple pero no escala bien para colecciones grandes.
-            // Para una app de verdad, se guardarían documentos individuales.
-             const docRef = userRootCol.collection(collectionName).doc('all');
-             batch.set(docRef, { data: collectionData });
-             count += collectionData.length;
+            if(Array.isArray(collectionData)) {
+                const docRef = userRootCol.collection(collectionName).doc('all');
+                batch.set(docRef, { data: collectionData }, { merge: false }); // Sobrescribir el documento completo
+                count += collectionData.length;
+            }
         }
     }
     
-    if (count > 0) {
-      await batch.commit();
-      console.log(`[api/brain-persist] Successfully committed ${count} documents for user ${decodedToken.email}.`);
-    } else {
-      console.log('[api/brain-persist] No valid documents to commit.');
+    if (batch.isEmpty) {
+        console.log('[api/brain-persist] No valid collections to commit.');
+        return NextResponse.json({ ok: true, message: 'No valid data to save.' });
     }
     
-    return NextResponse.json({ ok: true, message: `${count} documents saved.` });
+    await batch.commit();
+    console.log(`[api/brain-persist] Successfully committed data for ${count} documents for user ${decodedToken.email}.`);
+    
+    return NextResponse.json({ ok: true, message: `${count} documents from ${Object.keys(payload).length} collections saved.` });
 
   } catch (e:any) {
     console.error('Auth error or Firestore write error in POST:', e);

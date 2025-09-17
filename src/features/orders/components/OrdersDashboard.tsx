@@ -66,8 +66,8 @@ export default function OrdersDashboard() {
 
   const { ordersSellOut, accounts, users } = data || { ordersSellOut: [], accounts: [], users: [] };
   
-  const accountMap = useMemo(() => new Map(accounts.map((acc: Account) => [acc.id, acc])), [accounts]);
-  const userMap = useMemo(() => new Map(users.map((user: User) => [user.id, user.name])), [users]);
+  const accountMap = useMemo(() => new Map<string, Account>(accounts.map((acc: Account) => [acc.id, acc])), [accounts]);
+  const userMap = useMemo(() => new Map<string, string>(users.map((user: User) => [user.id, user.name])), [users]);
 
   const filteredOrders = useMemo(() => {
     return (ordersSellOut as OrderSellOut[])
@@ -140,7 +140,7 @@ export default function OrdersDashboard() {
             <tbody className="divide-y divide-zinc-100">
               {filteredOrders.map((order) => {
                 const account = accountMap.get(order.accountId);
-                const ownerName = account ? userMap.get(account.ownerId) : 'N/A';
+                const ownerName = account ? userMap.get(account.ownerId) || 'N/A' : 'N/A';
                 return (
                   <tr key={order.id} className="hover:bg-zinc-50">
                     <td className="p-3 font-mono text-xs font-medium text-zinc-800">{order.id}</td>
