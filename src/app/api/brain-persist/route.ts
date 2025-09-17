@@ -1,7 +1,9 @@
 
+
 // src/app/api/brain-persist/route.ts
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/server/firebaseAdmin';
+import { SANTA_DATA_COLLECTIONS } from '@/domain/ssot';
 
 // Forzar el runtime de Node.js, ya que firebase-admin no es compatible con el Edge Runtime.
 export const runtime = 'nodejs';
@@ -10,16 +12,9 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     const db = adminDb();
-    const collections = [
-        'users', 'accounts', 'products', 'materials', 'distributors', 'interactions', 'ordersSellOut', 
-        'shipments', 'lots', 'inventory', 'stockMoves', 'billOfMaterials', 'productionOrders', 
-        'qaChecks', 'suppliers', 'traceEvents', 'goodsReceipts', 'mktEvents', 'onlineCampaigns', 
-        'creators', 'influencerCollabs'
-    ];
-    
     const santaData: any = {};
     
-    for (const collectionName of collections) {
+    for (const collectionName of SANTA_DATA_COLLECTIONS) {
       const snapshot = await db.collection(collectionName).get();
       santaData[collectionName] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     }
@@ -69,3 +64,4 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok:false, error: e?.message || 'Unknown server error.' }, { status: 500 });
   }
 }
+

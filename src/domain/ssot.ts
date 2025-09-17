@@ -1,4 +1,5 @@
 
+
 // src/domain/ssot.ts
 
 // ---- Primitivas / enums
@@ -150,7 +151,7 @@ export interface OrderSellOut {
   paymentMethod?: string;
   paymentTermDays?: number;
   invoiceId?: string;
-  externalRef?: string;
+  externalRef?: string; // Para guardar el ID de la factura de Holded, etc.
 }
 export interface Interaction {
   id: string;
@@ -409,6 +410,13 @@ export interface SantaData {
 }
 export type { RecipeBomExec } from './production.exec';
 
+export const SANTA_DATA_COLLECTIONS: (keyof SantaData)[] = [
+    'users', 'accounts', 'products', 'materials', 'distributors', 'interactions', 'ordersSellOut', 
+    'shipments', 'lots', 'inventory', 'stockMoves', 'billOfMaterials', 'productionOrders', 
+    'qaChecks', 'suppliers', 'traceEvents', 'goodsReceipts', 'mktEvents', 'onlineCampaigns', 
+    'creators', 'influencerCollabs'
+];
+
 // Helpers canónicos que ya usas
 export function inWindow(iso: string, start: number|Date, end: number|Date) {
   const t = +new Date(iso);
@@ -444,5 +452,6 @@ export const SB_COLORS = {
   agua: "#A7D8D9",
   verde_mar: "#618E8F",
 };
+
 
 
