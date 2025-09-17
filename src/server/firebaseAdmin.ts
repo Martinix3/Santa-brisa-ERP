@@ -1,3 +1,4 @@
+
 // ❗ NUNCA importes este archivo desde componentes con "use client"
 import 'server-only';
 import * as admin from 'firebase-admin';
@@ -9,16 +10,18 @@ if (typeof window !== 'undefined') {
 // Implementación del patrón Singleton para la inicialización de Firebase Admin
 if (!admin.apps.length) {
   try {
+    const privateKey = process.env.FIREBASE_PRIVATE_KEY;
+
     // Comprueba si las variables de entorno necesarias están presentes
-    if (!process.env.FIREBASE_PROJECT_ID || !process.env.FIREBASE_CLIENT_EMAIL || !process.env.FIREBASE_PRIVATE_KEY) {
+    if (!process.env.FIREBASE_PROJECT_ID || !process.env.FIREBASE_CLIENT_EMAIL || !privateKey) {
       throw new Error('Faltan variables de entorno de Firebase Admin. Asegúrate de que FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL y FIREBASE_PRIVATE_KEY están definidas.');
     }
     
     admin.initializeApp({
       credential: admin.credential.cert({
-        projectId: process.env.FIREBASE_PROJECT_ID!,
-        clientEmail: process.env.FIREBASE_CLIENT_EMAIL!,
-        privateKey: (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+        privateKey: privateKey.replace(/\\n/g, '\n'),
       }),
     });
      console.log('Firebase Admin SDK initialized successfully.');
