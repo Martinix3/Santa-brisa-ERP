@@ -31,7 +31,8 @@ import {
     ChevronDown,
     Contact,
     Briefcase,
-    SlidersHorizontal
+    SlidersHorizontal,
+    Database
 } from 'lucide-react';
 import { SB_COLORS, hexToRgba } from '@/components/ui/ui-primitives';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -119,6 +120,7 @@ const navSections = [
         title: 'Dev Tools',
         module: 'admin',
         items: [
+            { href: '/dev/data-viewer', label: 'Data Viewer', icon: Database },
             { href: '/dev/ssot-tests', label: 'SSOT Tests', icon: TestTube2 },
             { href: '/dev/integrations-panel', label: 'Integrations', icon: Zap },
             { href: '/dev/qc-params', label: 'Parámetros QC', icon: FlaskConical },
