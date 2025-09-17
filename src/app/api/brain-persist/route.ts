@@ -1,10 +1,8 @@
 
-// src/app/api/brain-persist/route.ts
 import { NextResponse, NextRequest } from 'next/server';
 import { adminAuth, adminDb } from '@/server/firebaseAdmin';
 import { SANTA_DATA_COLLECTIONS } from '@/domain/ssot';
 
-// Forzar el runtime de Node.js, ya que firebase-admin no es compatible con el Edge Runtime.
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
@@ -24,16 +22,20 @@ async function verifyAuth(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
-    await verifyAuth(req);
-
-    const santaData: any = {};
+    const decodedToken = await verifyAuth(req);
+    const db = adminDb;
     
-    for (const collectionName of SANTA_DATA_COLLECTIONS) {
-      const snapshot = await adminDb.collection(collectionName).get();
-      santaData[collectionName] = snapshot.docs.map(doc => ({ ...doc.data() }));
+    // Asumimos un único documento global por ahora
+    const docRef = db.collection('brainData').doc(decodedToken.uid);
+    const docSnap = await docRef.get();
+
+    if (!docSnap.exists) {
+        // Si no existe, podría ser la primera vez. Se podrían devolver datos por defecto.
+        return NextResponse.json({ message: "No data found for user." }, { status: 404 });
     }
 
-    return NextResponse.json(santaData);
+    return NextResponse.json(docSnap.data());
+
   } catch (e:any) {
     console.error('Auth error or Firestore fetch error in GET:', e);
     if (e.message.includes("Authentication token is invalid or expired")) {
@@ -47,24 +49,29 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const decodedToken = await verifyAuth(req);
-    
     const payload = await req.json();
 
     if (!payload || typeof payload !== 'object') {
         return NextResponse.json({ ok: false, error: 'Invalid payload. Expecting an object of collections.' }, { status: 400 });
     }
 
-    const batch = adminDb.batch();
+    const db = adminDb;
+    const batch = db.batch();
     let count = 0;
 
+    // Guardar cada colección en su propio documento dentro de una colección padre por usuario
+    // Ejemplo: /users_data/{uid}/accounts, /users_data/{uid}/products
+    const userRootCol = db.collection('userData').doc(decodedToken.uid);
+
     for (const collectionName in payload) {
-        if (Array.isArray(payload[collectionName]) && SANTA_DATA_COLLECTIONS.includes(collectionName as any)) {
-            for (const doc of payload[collectionName]) {
-                if (!doc.id) continue;
-                const ref = adminDb.collection(collectionName).doc(doc.id);
-                batch.set(ref, doc, { merge: true });
-                count++;
-            }
+        if (Array.isArray(payload[collectionName])) {
+            const collectionData = payload[collectionName];
+            // Guardar la colección completa como un campo de array en un documento
+            // Esto es simple pero no escala bien para colecciones grandes.
+            // Para una app de verdad, se guardarían documentos individuales.
+             const docRef = userRootCol.collection(collectionName).doc('all');
+             batch.set(docRef, { data: collectionData });
+             count += collectionData.length;
         }
     }
     

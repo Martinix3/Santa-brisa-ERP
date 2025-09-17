@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, {
@@ -10,8 +11,13 @@ import React, {
 } from "react";
 import type { User, SantaData } from "@/domain/ssot";
 import { realSantaData } from "@/domain/real-data";
-import { useRouter } from "next/navigation";
-
+import { auth } from "./firebase-config";
+import {
+  GoogleAuthProvider,
+  signInWithPopup,
+  signOut,
+  onAuthStateChanged,
+} from "firebase/auth";
 
 export type DataMode = "test" | "real";
 
@@ -22,12 +28,18 @@ interface DataContextProps {
   setData: React.Dispatch<React.SetStateAction<SantaData | null>>;
   forceSave: (dataToSave?: SantaData) => Promise<void>;
   currentUser: User | null;
-  login: (email: string, pass: string) => Promise<void>;
-  logout: () => void;
+  login: () => Promise<void>;
+  logout: () => Promise<void>;
   isLoading: boolean;
 }
 
 const DataContext = createContext<DataContextProps | undefined>(undefined);
+
+async function getAuthHeaders(): Promise<Record<string, string>> {
+  if (!auth.currentUser) return {};
+  const token = await auth.currentUser.getIdToken(true);
+  return { Authorization: `Bearer ${token}` };
+}
 
 export const DataProvider = ({ children }: { children: React.ReactNode }) => {
   const [mode, setMode] = useState<DataMode>("real");
@@ -36,42 +48,59 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const loadInitialData = async () => {
+    const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
       setIsLoading(true);
-      try {
-        // En una app real, aquí se haría un fetch a una API.
-        // Por ahora, cargamos los datos de `real-data.ts`.
-        // Usamos JSON.parse/stringify para simular una carga de red y evitar mutaciones del objeto original.
-        setData(JSON.parse(JSON.stringify(realSantaData)));
-      } catch (error) {
-        console.error("Could not load initial data:", error);
-        setData(null);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+      if (firebaseUser) {
+        console.log("✅ Usuario autenticado:", firebaseUser.email);
+        
+        // Cargar datos de la API solo si hay un usuario
+        try {
+          const headers = await getAuthHeaders();
+          const response = await fetch("/api/brain-persist", { headers });
 
-    loadInitialData();
+          if (!response.ok) {
+            const errorBody = await response.text();
+            console.warn(`API fetch failed (${response.status}): ${errorBody}. Falling back to local data.`);
+            setData(JSON.parse(JSON.stringify(realSantaData)));
+          } else {
+            const apiData = await response.json();
+            setData(apiData);
+          }
+        } catch (error) {
+          console.error("Could not fetch initial data, falling back to local data:", error);
+          setData(JSON.parse(JSON.stringify(realSantaData)));
+        }
+
+        // Asignar el rol real desde los datos cargados
+        const users = data?.users || realSantaData.users;
+        const appUser = users.find(u => u.email === firebaseUser.email);
+
+        setCurrentUser({
+          id: firebaseUser.uid,
+          name: firebaseUser.displayName || appUser?.name || "Usuario",
+          email: firebaseUser.email || undefined,
+          role: appUser?.role || "comercial",
+          active: true,
+        });
+
+      } else {
+        console.log("⚠️ No hay usuario autenticado, cargando datos locales.");
+        setCurrentUser(null);
+        setData(JSON.parse(JSON.stringify(realSantaData)));
+      }
+      setIsLoading(false);
+    });
+
+    return () => unsub();
+  }, [data?.users]); // Dependencia para re-evaluar rol si los usuarios cambian
+
+  const login = useCallback(async () => {
+    const provider = new GoogleAuthProvider();
+    await signInWithPopup(auth, provider);
   }, []);
 
-  const login = useCallback(async (email: string, pass: string) => {
-      if (!data || !data.users) {
-          throw new Error("Los datos de usuario no están cargados.");
-      }
-      // Simulación de login: buscar por email, ignorar contraseña.
-      const user = data.users.find(u => u.email === email);
-
-      if (user) {
-          setCurrentUser(user);
-          console.log(`Usuario '${user.name}' ha iniciado sesión.`);
-      } else {
-          throw new Error("Usuario no encontrado.");
-      }
-  }, [data]);
-
-  const logout = useCallback(() => {
-    setCurrentUser(null);
-    console.log("Usuario ha cerrado sesión.");
+  const logout = useCallback(async () => {
+    await signOut(auth);
   }, []);
 
   const forceSave = useCallback(
@@ -81,10 +110,26 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
         console.warn("Save requested, but no data is available.");
         return;
       }
-      // Simulación de guardado. En una app real, aquí iría la llamada a la API.
-      console.log("Simulando guardado de datos:", payload);
-      await new Promise(res => setTimeout(res, 500));
-      console.log("Datos 'guardados' en memoria.");
+      if (!auth.currentUser) {
+        throw new Error("No hay un usuario autenticado para guardar los datos.");
+      }
+
+      try {
+        const headers = await getAuthHeaders();
+        const response = await fetch("/api/brain-persist", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...headers },
+          body: JSON.stringify(payload),
+        });
+        if (!response.ok) {
+          const errorBody = await response.json();
+          throw new Error(errorBody.error || "Failed to save data to server.");
+        }
+        console.log("Data successfully persisted via API.");
+      } catch (error) {
+        console.error("Error in forceSave:", error);
+        throw error;
+      }
     },
     [data]
   );
