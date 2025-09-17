@@ -12,6 +12,8 @@ import { useRouter } from 'next/navigation';
 
 
 type Secrets = Record<string, any>;
+type Notification = { message: string; type: 'success' | 'error' };
+
 
 // Types from the settings page
 type Provider = "holded"|"shopify"|"sendcloud"|"firebase"|"google";
@@ -128,6 +130,14 @@ export default function IntegrationsPanelPage() {
     const [loadingIntegrations, setLoadingIntegrations] = useState(true);
     const [running, setRunning] = useState<string|null>(null);
     const [apiKeyModal, setApiKeyModal] = useState<{ open:boolean; provider?: "holded" | "sendcloud" }>({ open:false });
+    const [notification, setNotification] = useState<Notification | null>(null);
+
+    useEffect(() => {
+        if (notification) {
+          const timer = setTimeout(() => setNotification(null), 5000);
+          return () => clearTimeout(timer);
+        }
+    }, [notification]);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, user => {
@@ -163,16 +173,17 @@ export default function IntegrationsPanelPage() {
 
     const handleGoogleConnect = async () => {
         if (firebaseUser) {
-            alert('Ya estás conectado con Google.');
+            setNotification({ message: 'Ya estás conectado con Google.', type: 'success' });
             return;
         }
         const provider = new GoogleAuthProvider();
         try {
             await signInWithPopup(auth, provider);
+            setNotification({ message: 'Conectado con Google correctamente.', type: 'success' });
             reloadAll(auth.currentUser);
         } catch (error) {
             console.error("Error durante el inicio de sesión con Google:", error);
-            alert('Error al conectar con Google.');
+            setNotification({ message: 'Error al conectar con Google.', type: 'error' });
         }
     };
 
@@ -206,24 +217,24 @@ export default function IntegrationsPanelPage() {
     };
 
     const onConfigure = async (prov:Provider) => {
-        alert(`Aquí irían los ajustes de ${prov}, como el mapeo de impuestos, series de facturas, etc.`);
+        setNotification({ message: `Aquí irían los ajustes de ${prov}, como el mapeo de impuestos, series de facturas, etc.`, type: 'success'});
     };
 
     const onSyncNow = async (prov:Provider) => {
         if (prov === 'holded') {
-            alert("Iniciando sincronización con Holded. Revisa la consola del servidor para ver los resultados.");
+            setNotification({ message: "Iniciando sincronización con Holded...", type: 'success' });
             setRunning(prov);
             try {
                 const res = await fetch('/api/integrations/holded/sync', { method: 'POST' });
                 if (!res.ok) {
                     const err = await res.text();
-                    alert(`Error en la sincronización: ${err}`);
+                    throw new Error(`Error en la sincronización: ${err}`);
                 } else {
                     const data = await res.json();
-                    alert(`Sincronización completada: ${data.message}`);
+                    setNotification({ message: `Sincronización completada: ${data.message}`, type: 'success' });
                 }
             } catch (e: any) {
-                alert(`Fallo en la petición de sync: ${e.message}`);
+                setNotification({ message: `Fallo en la petición de sync: ${e.message}`, type: 'error' });
             } finally {
                 setRunning(null);
             }
@@ -231,7 +242,6 @@ export default function IntegrationsPanelPage() {
         }
         setRunning(prov);
         try {
-            // Placeholder for sync logic
             await new Promise(resolve => setTimeout(resolve, 2000));
         } finally {
             setRunning(null);
@@ -240,7 +250,7 @@ export default function IntegrationsPanelPage() {
     };
 
     const handleImportContacts = async () => {
-        alert("Iniciando análisis de contactos de Holded. Esto puede tardar un momento...");
+        setNotification({ message: "Iniciando análisis de contactos de Holded. Esto puede tardar un momento...", type: 'success' });
         setRunning('holded-contacts');
         try {
             const res = await fetch('/api/integrations/holded/import-contacts', { method: 'POST' });
@@ -248,10 +258,10 @@ export default function IntegrationsPanelPage() {
             if (!res.ok) {
                 throw new Error(result.error || 'Error desconocido durante el análisis');
             }
-            alert(`Análisis completado: ${result.toCreate} contactos para crear, ${result.toUpdate} para actualizar. Redirigiendo a la página de revisión.`);
+            setNotification({ message: `Análisis completado: ${result.toCreate} contactos para crear, ${result.toUpdate} para actualizar. Redirigiendo...`, type: 'success' });
             router.push(result.reviewUrl);
         } catch (e: any) {
-            alert(`Error al analizar contactos: ${e.message}`);
+            setNotification({ message: `Error al analizar contactos: ${e.message}`, type: 'error' });
         } finally {
             setRunning(null);
         }
@@ -282,6 +292,11 @@ export default function IntegrationsPanelPage() {
 
     return (
         <div className="space-y-6">
+            {notification && (
+                <div className={`fixed top-5 right-5 z-50 p-4 rounded-lg shadow-lg text-white ${notification.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}>
+                    {notification.message}
+                </div>
+            )}
             <div>
                 <h1 className="text-2xl font-semibold text-zinc-800">Panel de Control de Integraciones</h1>
                 <p className="text-zinc-600">
@@ -351,4 +366,3 @@ export default function IntegrationsPanelPage() {
         </div>
     );
 }
-
