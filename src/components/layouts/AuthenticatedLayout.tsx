@@ -251,7 +251,7 @@ function AuthenticatedLayoutContent({ children }: { children: React.ReactNode })
     }
   }, [pathname]);
   
-  if (isLoading || !currentUser) {
+  if (isLoading) {
     return (
         <div className="h-screen w-screen flex items-center justify-center bg-white">
             <p>Cargando...</p>
