@@ -1,15 +1,13 @@
 
 "use client";
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useData } from '@/lib/dataprovider';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
 import { Database, Check, X, Link as LinkIcon, AlertTriangle, Upload, Download, Trash2, ChevronDown, Save } from 'lucide-react';
 import { SBCard } from '@/components/ui/ui-primitives';
 import type { SantaData, Account, OrderSellOut, Interaction, Stage, AccountType, AccountMode, User, Distributor } from '@/domain/ssot';
-
-// NOTE: Most of the logic from the previous ssot-accounts-editor is moved here,
-// but adapted for the multi-collection nature of the Data Viewer.
+import Papa from "papaparse";
 
 // ===== UTILS & HELPERS =====
 const normText = (s: any) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
@@ -86,7 +84,6 @@ function TableViewer({
 }) {
     const columns = useMemo(() => {
         if (collection && collection.length > 0) return Object.keys(collection[0]);
-        // Fallback schema for empty collections
         if ((COLLECTION_SCHEMAS as any)[collectionName]) return (COLLECTION_SCHEMAS as any)[collectionName];
         return [];
     }, [collection, collectionName]);
@@ -137,7 +134,7 @@ function TableViewer({
     );
 }
 
-// ===== SCHEMAS & RELATIONS (from previous implementation) =====
+// ===== SCHEMAS & RELATIONS =====
 const FK_RELATIONS: Record<string, keyof SantaData> = { accountId: 'accounts', userId: 'users', managerId: 'users', distributorId: 'distributors', ownerUserId: 'users', billerPartnerId: 'distributors', ownerPartnerId: 'distributors', materialId: 'materials', bomId: 'billOfMaterials', orderId: 'ordersSellOut', shipmentId: 'shipments', prodOrderId: 'productionOrders', lotId: 'lots', creatorId: 'creators', 'lines.sku': 'products', 'items.materialId': 'materials' };
 const COLLECTION_SCHEMAS: Record<string, string[]> = {
     users: ['id', 'name', 'email', 'role', 'active', 'managerId'],
@@ -157,7 +154,6 @@ const COLLECTION_SCHEMAS: Record<string, string[]> = {
     mktEvents: ['id', 'title', 'kind', 'status', 'startAt'],
 };
 
-// ... (RelationAnalysis component remains the same)
 function RelationAnalysis({ collectionName, collection, data }: { collectionName: keyof SantaData; collection: any[], data: SantaData }) {
     const analysis = useMemo(() => {
         const schema = COLLECTION_SCHEMAS[collectionName] || [];
@@ -205,6 +201,7 @@ export default function DataViewerPage() {
     const [selectedKey, setSelectedKey] = useState<keyof SantaData>('accounts');
     const [selectedRows, setSelectedRows] = useState(new Set<string>());
     const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => { if (notification) { const timer = setTimeout(() => setNotification(null), 3000); return () => clearTimeout(timer); } }, [notification]);
 
@@ -247,11 +244,58 @@ export default function DataViewerPage() {
             setNotification({ message: `${selectedRows.size} registros eliminados.`, type: 'success' });
         }
     };
+
+    const handleExport = (format: 'csv' | 'json') => {
+        if (!selectedKey) return;
+        const collection = (data as any)[selectedKey] || [];
+        if (collection.length === 0) {
+            setNotification({ message: 'La colección está vacía, no se puede exportar.', type: 'error' });
+            return;
+        }
+
+        const filename = `${selectedKey}-${new Date().toISOString().slice(0, 10)}.${format}`;
+        let content = '';
+        let contentType = '';
+
+        if (format === 'json') {
+            content = JSON.stringify(collection, null, 2);
+            contentType = 'application/json';
+        } else { // csv
+            content = Papa.unparse(collection);
+            contentType = 'text/csv';
+        }
+
+        const blob = new Blob([content], { type: contentType });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        setNotification({ message: `Exportando ${filename}`, type: 'success' });
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !selectedKey) return;
+
+        Papa.parse(file, {
+            header: true,
+            skipEmptyLines: true,
+            complete: (results) => {
+                const newCollection = [...selectedCollection, ...results.data];
+                setData(prev => prev ? { ...prev, [selectedKey]: newCollection } : null);
+                setNotification({ message: `${results.data.length} filas importadas a '${selectedKey}'.`, type: 'success' });
+            },
+            error: (error) => {
+                setNotification({ message: `Error al importar: ${error.message}`, type: 'error' });
+            }
+        });
+    };
     
     const handleSaveChanges = () => {
-        // The data is already being updated in the state via setData,
-        // which triggers a save to localStorage in the DataProvider.
-        // This button provides explicit user feedback.
         setNotification({ message: 'Todos los cambios se han guardado en el estado local.', type: 'success' });
     };
 
@@ -259,8 +303,18 @@ export default function DataViewerPage() {
         <>
             <ModuleHeader title="Visor y Editor de Datos del SSOT" icon={Database}>
                  <div className="flex items-center gap-2">
+                    <input type="file" ref={fileInputRef} onChange={handleFileChange} style={{ display: 'none' }} accept=".csv"/>
+                    <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 text-sm bg-white border border-zinc-200 rounded-md px-3 py-1.5 hover:bg-zinc-50">
+                        <Upload size={14} /> Importar CSV
+                    </button>
+                    <button onClick={() => handleExport('csv')} className="flex items-center gap-2 text-sm bg-white border border-zinc-200 rounded-md px-3 py-1.5 hover:bg-zinc-50">
+                        <Download size={14} /> Exportar CSV
+                    </button>
+                    <button onClick={() => handleExport('json')} className="flex items-center gap-2 text-sm bg-white border border-zinc-200 rounded-md px-3 py-1.5 hover:bg-zinc-50">
+                        <Download size={14} /> Exportar JSON
+                    </button>
                     <button onClick={handleDeleteSelected} disabled={selectedRows.size === 0} className="flex items-center gap-2 text-sm bg-red-50 text-red-700 border border-red-200 rounded-md px-3 py-1.5 hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed">
-                        <Trash2 size={14} /> Eliminar Selección ({selectedRows.size})
+                        <Trash2 size={14} /> Eliminar ({selectedRows.size})
                     </button>
                     <button onClick={handleSaveChanges} className="flex items-center gap-2 text-sm bg-blue-600 text-white rounded-md px-4 py-2 hover:bg-blue-700 font-semibold">
                         <Save size={16}/> Guardar Cambios
