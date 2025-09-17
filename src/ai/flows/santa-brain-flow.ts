@@ -143,7 +143,7 @@ export async function runSantaBrain(history: Message[], input: string, context: 
     const newEntities: Partial<SantaData> = { interactions: [], ordersSellOut: [], mktEvents: [], accounts: [] };
     const toolResponses: any[] = [];
     
-    const toolRequests = llmResponse.toolRequests();
+    const toolRequests = llmResponse.toolRequests;
 
     if (toolRequests.length > 0) {
         const accountsCreatedInThisTurn: Account[] = [];
@@ -160,25 +160,25 @@ export async function runSantaBrain(history: Message[], input: string, context: 
                 toolResponses.push({ toolResponse: { name: toolRequest.name, output } });
 
                 if (output.success) {
-                    if (toolRequest.name === 'upsertAccount') {
-                        const typedInput = UpsertAccountSchema.parse(toolRequest.input);
-                        const newAccount: Account = {
-                            ...typedInput,
-                            id: output.accountId,
-                            createdAt: new Date().toISOString(),
-                            stage: typedInput.stage || 'POTENCIAL',
-                            type: typedInput.type || 'HORECA',
-                            mode: { mode: 'PROPIA_SB', ownerUserId: 'u_brain', biller: 'SB' },
-                        };
-                        newEntities.accounts?.push(newAccount);
-                        accountsCreatedInThisTurn.push(newAccount);
-                    } else {
-                        const accountName = (toolRequest.input as any).accountName;
-                        const account = accountsCreatedInThisTurn.find(a => a.name === accountName) || context.accounts.find(a => a.name === accountName);
-                        
-                        if (account) {
-                            if (toolRequest.name === 'createInteraction') {
-                                const typedInput = AddInteractionSchema.parse(toolRequest.input);
+                    switch (toolRequest.name) {
+                        case 'upsertAccount': {
+                            const typedInput = UpsertAccountSchema.parse(toolRequest.input);
+                            const newAccount: Account = {
+                                ...typedInput,
+                                id: output.accountId,
+                                createdAt: new Date().toISOString(),
+                                stage: typedInput.stage || 'POTENCIAL',
+                                type: typedInput.type || 'HORECA',
+                                mode: { mode: 'PROPIA_SB', ownerUserId: 'u_brain', biller: 'SB' },
+                            };
+                            newEntities.accounts?.push(newAccount);
+                            accountsCreatedInThisTurn.push(newAccount);
+                            break;
+                        }
+                        case 'createInteraction': {
+                            const typedInput = AddInteractionSchema.parse(toolRequest.input);
+                            const account = accountsCreatedInThisTurn.find(a => a.name === typedInput.accountName) || context.accounts.find(a => a.name === typedInput.accountName);
+                            if (account) {
                                 newEntities.interactions?.push({
                                     id: output.interactionId,
                                     accountId: account.id,
@@ -188,8 +188,13 @@ export async function runSantaBrain(history: Message[], input: string, context: 
                                     createdAt: new Date().toISOString(),
                                     dept: 'VENTAS'
                                 });
-                            } else if (toolRequest.name === 'createOrder') {
-                                const typedInput = CreateOrderSchema.parse(toolRequest.input);
+                            }
+                            break;
+                        }
+                        case 'createOrder': {
+                             const typedInput = CreateOrderSchema.parse(toolRequest.input);
+                             const account = accountsCreatedInThisTurn.find(a => a.name === typedInput.accountName) || context.accounts.find(a => a.name === typedInput.accountName);
+                             if(account){
                                 newEntities.ordersSellOut?.push({
                                     id: output.orderId,
                                     accountId: account.id,
@@ -204,19 +209,21 @@ export async function runSantaBrain(history: Message[], input: string, context: 
                                     })),
                                     biller: 'SB',
                                 } as OrderSellOut);
-                            }
+                             }
+                             break;
                         }
-                    }
-                    if (toolRequest.name === 'scheduleUserEvent') {
-                        const typedInput = ScheduleEventSchema.parse(toolRequest.input);
-                        newEntities.mktEvents?.push({
-                            id: output.eventId,
-                            title: typedInput.title,
-                            kind: typedInput.kind,
-                            status: 'planned',
-                            startAt: typedInput.startAt,
-                            city: typedInput.location,
-                        });
+                        case 'scheduleUserEvent': {
+                             const typedInput = ScheduleEventSchema.parse(toolRequest.input);
+                             newEntities.mktEvents?.push({
+                                id: output.eventId,
+                                title: typedInput.title,
+                                kind: typedInput.kind,
+                                status: 'planned',
+                                startAt: typedInput.startAt,
+                                city: typedInput.location,
+                            });
+                            break;
+                        }
                     }
                 }
             } catch (e: any) {
