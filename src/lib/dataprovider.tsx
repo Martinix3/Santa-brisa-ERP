@@ -67,7 +67,7 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
       if (!data) return; // Wait until app data is loaded
 
-      const user = data.users.find(u => u.email === 'mj@santabrisa.com');
+      const user = data.users.find(u => u.email === 'mj@santabrisa.co');
       if (user) {
           setCurrentUser(user);
       } else {
