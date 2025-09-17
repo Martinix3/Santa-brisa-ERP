@@ -6,7 +6,7 @@ import { useData } from '@/lib/dataprovider';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
 import { Database, Check, X, Link as LinkIcon, AlertTriangle, Upload, Download, Trash2, ChevronDown, Save } from 'lucide-react';
 import { SBCard } from '@/components/ui/ui-primitives';
-import type { SantaData, Account, OrderSellOut, Interaction, Stage, AccountType, AccountMode, User, Distributor } from '@/domain/ssot';
+import type { SantaData, Account, OrderSellOut, Interaction, Stage, AccountType, User, Distributor } from '@/domain/ssot';
 import Papa from "papaparse";
 
 // ===== UTILS & HELPERS =====
@@ -51,7 +51,7 @@ function EditableCell({ value, onUpdate }: { value: any, onUpdate: (newValue: an
         onChange={(e) => setCurrentValue(e.target.value)}
         onBlur={handleBlur}
         onKeyDown={handleKeyDown}
-        className="w-full h-full px-2 py-1 absolute inset-0 bg-white border-2 border-yellow-400 rounded outline-none"
+        className="w-full h-full px-2 py-1 absolute inset-0 bg-white border-2 border-yellow-400 rounded outline-none z-10"
       />
     );
   }
@@ -95,7 +95,7 @@ function TableViewer({
     return (
         <div className="overflow-auto max-h-[70vh] border rounded-lg">
             <table className="w-full text-xs text-left">
-                <thead className="bg-zinc-100 sticky top-0">
+                <thead className="bg-zinc-100 sticky top-0 z-20">
                     <tr>
                         <th className="p-2"><input type="checkbox" onChange={onSelectAll} checked={selectedRows.size > 0 && selectedRows.size === collection.length}/></th>
                         {columns.map(col => <th key={col} className="p-2 font-semibold whitespace-nowrap">{col}</th>)}
@@ -135,13 +135,13 @@ function TableViewer({
 }
 
 // ===== SCHEMAS & RELATIONS =====
-const FK_RELATIONS: Record<string, keyof SantaData> = { accountId: 'accounts', userId: 'users', managerId: 'users', distributorId: 'distributors', ownerUserId: 'users', billerPartnerId: 'distributors', ownerPartnerId: 'distributors', materialId: 'materials', bomId: 'billOfMaterials', orderId: 'ordersSellOut', shipmentId: 'shipments', prodOrderId: 'productionOrders', lotId: 'lots', creatorId: 'creators', 'lines.sku': 'products', 'items.materialId': 'materials' };
+const FK_RELATIONS: Record<string, keyof SantaData> = { accountId: 'accounts', userId: 'users', managerId: 'users', ownerId: 'users', billerId: 'distributors', materialId: 'materials', bomId: 'billOfMaterials', orderId: 'ordersSellOut', shipmentId: 'shipments', prodOrderId: 'productionOrders', lotId: 'lots', creatorId: 'creators', 'lines.sku': 'products', 'items.materialId': 'materials' };
 const COLLECTION_SCHEMAS: Record<string, string[]> = {
     users: ['id', 'name', 'email', 'role', 'active', 'managerId'],
-    accounts: ['id', 'name', 'city', 'stage', 'type', 'mode', 'distributorId', 'cif', 'address', 'phone', 'createdAt'],
+    accounts: ['id', 'name', 'city', 'stage', 'type', 'ownerId', 'billerId', 'cif', 'address', 'phone', 'createdAt'],
     products: ['id', 'sku', 'name', 'category', 'bottleMl', 'caseUnits', 'casesPerPallet', 'active', 'materialId'],
     interactions: ['id', 'accountId', 'userId', 'kind', 'note', 'createdAt'],
-    ordersSellOut: ['id', 'accountId', 'userId', 'distributorId', 'status', 'createdAt', 'lines'],
+    ordersSellOut: ['id', 'accountId', 'userId', 'status', 'createdAt', 'lines'],
     materials: ['id', 'sku', 'name', 'category', 'unit', 'standardCost'],
     lots: ['id', 'sku', 'quantity', 'createdAt', 'orderId', 'quality', 'expDate'],
     shipments: ['id', 'status', 'createdAt', 'accountId', 'lines'],
@@ -167,11 +167,12 @@ function RelationAnalysis({ collectionName, collection, data }: { collectionName
                     potentialRelations[key].total++;
                     const foreignKey = item[key];
                     if (foreignKey) {
-                        const targetCollection = data[FK_RELATIONS[key]] as any[];
+                        const targetCollectionName = FK_RELATIONS[key];
+                        const targetCollection = data[targetCollectionName] as any[];
                         if (targetCollection?.some(targetItem => targetItem.id === foreignKey)) {
                             potentialRelations[key].valid++;
                         } else {
-                            potentialRelations[key].missing.push(`Fila ${rowIndex} (${item.id || 'sin id'}): ${key} '${foreignKey}' no encontrado.`);
+                            potentialRelations[key].missing.push(`Fila ${rowIndex} (${item.id || 'sin id'}): ${key} '${foreignKey}' no encontrado en '${targetCollectionName}'.`);
                         }
                     }
                 }
@@ -237,11 +238,20 @@ export default function DataViewerPage() {
 
     const handleDeleteSelected = () => {
         if (selectedRows.size === 0 || !selectedKey) return;
-        if (window.confirm(`¿Seguro que quieres eliminar ${selectedRows.size} registros de "${selectedKey}"?`)) {
+        if (window.confirm(`¿Seguro que quieres eliminar ${selectedRows.size} registros de "${selectedKey}"? Esta acción guardará los cambios inmediatamente.`)) {
             const newCollection = selectedCollection.filter((row: any) => !selectedRows.has(row.id));
-            setData(prev => prev ? { ...prev, [selectedKey]: newCollection } : null);
+            setData(prev => {
+                if (!prev) return null;
+                const updatedData = { ...prev, [selectedKey]: newCollection };
+                // Immediately call forceSave after setting the new state
+                forceSave(updatedData).then(() => {
+                    setNotification({ message: `${selectedRows.size} registros eliminados permanentemente.`, type: 'success' });
+                }).catch(err => {
+                    setNotification({ message: `Error al eliminar: ${err.message}`, type: 'error' });
+                });
+                return updatedData;
+            });
             setSelectedRows(new Set());
-            setNotification({ message: `${selectedRows.size} registros eliminados localmente.`, type: 'success' });
         }
     };
 
@@ -286,8 +296,16 @@ export default function DataViewerPage() {
             skipEmptyLines: true,
             complete: (results) => {
                 const newCollection = [...selectedCollection, ...results.data];
-                setData(prev => prev ? { ...prev, [selectedKey]: newCollection } : null);
-                setNotification({ message: `${results.data.length} filas importadas a '${selectedKey}'.`, type: 'success' });
+                setData(prev => {
+                    if (!prev) return null;
+                    const updatedData = { ...prev, [selectedKey]: newCollection };
+                     forceSave(updatedData).then(() => {
+                        setNotification({ message: `${results.data.length} filas importadas y guardadas en '${selectedKey}'.`, type: 'success' });
+                    }).catch(err => {
+                        setNotification({ message: `Error al guardar importación: ${err.message}`, type: 'error' });
+                    });
+                    return updatedData;
+                });
             },
             error: (error) => {
                 setNotification({ message: `Error al importar: ${error.message}`, type: 'error' });
@@ -296,8 +314,11 @@ export default function DataViewerPage() {
     };
     
     const handleSaveChanges = () => {
-        forceSave();
-        setNotification({ message: '¡Datos guardados en el almacenamiento del navegador!', type: 'success' });
+        forceSave().then(() => {
+            setNotification({ message: `¡Datos guardados en ${mode === 'real' ? 'Firestore' : 'memoria'}!`, type: 'success' });
+        }).catch(err => {
+            setNotification({ message: `Error al guardar: ${err.message}`, type: 'error' });
+        });
     };
 
     return (
@@ -325,7 +346,7 @@ export default function DataViewerPage() {
             <div className="p-6">
                 {notification && ( <div className={`fixed top-20 right-5 z-50 p-3 rounded-lg shadow-lg text-white text-sm ${notification.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}>{notification.message}</div> )}
                 <p className="text-zinc-600 mb-6">
-                    Inspecciona, edita, importa o exporta el contenido del `DataProvider`. Modo actual: <strong className="font-semibold text-zinc-800">{mode}</strong>. Los cambios se guardan localmente al pulsar "Guardar Cambios".
+                    Inspecciona, edita, importa o exporta el contenido del `DataProvider`. Modo actual: <strong className="font-semibold text-zinc-800">{mode}</strong>. Los cambios se guardan al pulsar "Guardar", eliminar o importar.
                 </p>
 
                 <div className="grid grid-cols-1 lg:grid-cols-[1fr_3fr] gap-6 items-start">

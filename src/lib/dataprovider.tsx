@@ -7,11 +7,11 @@ import type { User, SantaData } from '@/domain/ssot';
 export type DataMode = 'test' | 'real';
 
 interface DataContextProps {
-  mode: DataMode; // 'test' mode will still use local mock data
+  mode: DataMode;
   setMode: React.Dispatch<React.SetStateAction<DataMode>>;
   data: SantaData | null;
   setData: React.Dispatch<React.SetStateAction<SantaData | null>>;
-  forceSave: () => Promise<void>;
+  forceSave: (dataToSave?: SantaData) => Promise<void>;
   currentUser: User | null;
   login: (email: string, pass: string) => Promise<boolean>;
   logout: () => void;
@@ -23,7 +23,7 @@ const DataContext = createContext<DataContextProps | undefined>(undefined);
 let MockSantaData: SantaData | null = null; // Cache for mock data
 
 export const DataProvider = ({ children }: { children: React.ReactNode }) => {
-  const [mode, setMode] = useState<DataMode>('real'); // Default to 'real' to use Firestore
+  const [mode, setMode] = useState<DataMode>('real'); // Default to 'real'
   const [data, setData] = useState<SantaData | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -41,8 +41,6 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     } catch(e) {
         console.error("Could not parse user from localStorage", e);
     }
-
-    setIsLoading(false);
   }, []);
 
   // Save mode to localStorage whenever it changes
@@ -50,36 +48,27 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     localStorage.setItem('sb-data-mode', mode);
   }, [mode]);
 
-  // Effect to load data based on the current mode (Firestore for 'real', local mock for 'test')
+  // Effect to load data based on the current mode
   useEffect(() => {
     const loadData = async () => {
         setIsLoading(true);
         try {
-            if (mode === 'real') {
-                // Fetch all data from Firestore via our API route
-                const response = await fetch('/api/brain-persist');
-                if (!response.ok) {
-                    throw new Error('Failed to fetch data from Firestore');
-                }
-                const firestoreData = await response.json();
-                setData(firestoreData);
-            } else { // mode === 'test'
-                if (MockSantaData) {
-                    setData(MockSantaData);
-                } else {
-                    const module = await import('@/domain/mock-data');
-                    MockSantaData = module.mockSantaData;
-                    setData(MockSantaData);
-                }
+            // Always try to load from Firestore first in 'real' mode
+            const response = await fetch('/api/brain-persist');
+            if (!response.ok) {
+                throw new Error('Failed to fetch data from Firestore');
             }
+            const firestoreData = await response.json();
+            setData(firestoreData);
         } catch (err) {
-            console.error(`Failed to load data for mode "${mode}":`, err);
-            // Fallback to mock data if real fails
-            if (!MockSantaData) {
-                 const module = await import('@/domain/mock-data');
-                 MockSantaData = module.mockSantaData;
+            console.error(`Failed to load data from Firestore, falling back to mock data:`, err);
+            if (MockSantaData) {
+                setData(MockSantaData);
+            } else {
+                const module = await import('@/domain/mock-data');
+                MockSantaData = module.mockSantaData;
+                setData(MockSantaData);
             }
-            setData(MockSantaData);
         } finally {
             setIsLoading(false);
         }
@@ -88,42 +77,45 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     loadData();
   }, [mode]);
 
-  // Function to force save the current state to the backend (Firestore)
-  const forceSave = useCallback(async () => {
-    if (mode === 'real' && data) {
-       try {
-         const response = await fetch('/api/brain-persist', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data),
-         });
-         if (!response.ok) {
-             const err = await response.json();
-             throw new Error(err.error || 'API save failed');
-         }
-         console.log("Data successfully saved to Firestore.");
-       } catch (error) {
-         console.error("Error saving data to Firestore:", error);
-         // Optionally, show an error to the user
-       }
-    } else if (mode === 'test' && data) {
-       // In 'test' mode, we just update the in-memory mock data cache
-       MockSantaData = data;
-       console.log("Mock data updated in memory (not persisted).");
+  // Function to force save the current state to the backend
+  const forceSave = useCallback(async (dataToSave?: SantaData) => {
+    const payload = dataToSave || data;
+    if (!payload) {
+      console.warn("Save requested, but no data is available.");
+      return;
     }
-  }, [data, mode]);
+
+    try {
+      const response = await fetch('/api/brain-persist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'API save failed');
+      }
+      console.log("Data successfully saved to Firestore.");
+    } catch (error) {
+      console.error("Error saving data to Firestore:", error);
+      throw error; // Re-throw to be caught by the caller
+    }
+  }, [data]);
 
 
   const login = useCallback(async (email: string, pass: string): Promise<boolean> => {
-      // Data for the current mode should already be loading/loaded via useEffect
-      const userSource = (data?.users) || [];
+      setIsLoading(true);
+      // Wait for data to be loaded before trying to find a user
+      const userSource = data?.users || [];
       const user = userSource.find(u => u.email === email);
       
       if (user) {
           setCurrentUser(user);
           localStorage.setItem('sb-current-user', JSON.stringify(user));
+          setIsLoading(false);
           return true;
       }
+      setIsLoading(false);
       return false;
   }, [data]);
 
