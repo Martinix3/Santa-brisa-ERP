@@ -1,3 +1,4 @@
+
 // domain/ssot.core.ts - Tipos canónicos compartidos
 
 // --- Tipos Primitivos y Enums Transversales ---
@@ -22,7 +23,7 @@ export interface User {
   }
 }
 
-export type AccountType = 'HORECA' | 'RETAIL' | 'DISTRIBUIDOR' | 'IMPORTADOR' | 'OTRO' | 'PROVEEDOR';
+export type AccountType = 'HORECA' | 'RETAIL' | 'DISTRIBUIDOR' | 'IMPORTADOR' | 'OTRO' | 'PROVEEDOR' | 'ONLINE' | 'PRIVADA';
 export interface Account {
   id: string;
   name: string;
@@ -35,8 +36,8 @@ export interface Account {
   updatedAt?: string;
   // Campos específicos de cliente
   stage?: 'ACTIVA' | 'SEGUIMIENTO' | 'POTENCIAL' | 'FALLIDA';
-  salesRepId?: string;
-  distributorId?: string;
+  ownerId?: string; // ID del comercial o distribuidor responsable
+  billerId?: string; // ID del que factura, 'SB' o un distribuidor
   lastInteractionAt?: string;
 }
 

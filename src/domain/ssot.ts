@@ -35,8 +35,6 @@ export interface Account {
   ownerId: string; // Puede ser un userId ('u_...') o un partnerId ('d_...')
   billerId: string; // Puede ser 'SB' o un partnerId ('d_...')
   
-  salesRepId?: string; // Mantenido por compatibilidad y acceso rápido
-
   address?: string;
   phone?: string;
   cif?: string;
