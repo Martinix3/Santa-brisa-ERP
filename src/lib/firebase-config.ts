@@ -8,6 +8,9 @@ const firebaseConfig = {
   "appId": "1:526543168723:web:af0088ec4aa1cfd1c9e026",
   "storageBucket": "santa-brisa-erp.appspot.com",
   "apiKey": "AIzaSyAhk1AS8UBdfYqE3GYtR4YiQJw3BY2MWTw",
+  // Este es el dominio de autenticación principal del proyecto de Firebase.
+  // Para que el login con Google funcione en desarrollo, DEBES añadir tu dominio
+  // de Cloud Workstation a la lista de "Dominios autorizados" en la consola de Firebase.
   "authDomain": "santa-brisa-erp.firebaseapp.com",
   "messagingSenderId": "526543168723"
 };
