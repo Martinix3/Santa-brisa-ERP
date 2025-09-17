@@ -139,7 +139,7 @@ export interface OrderLine {
 export interface OrderSellOut {
   id: string; 
   accountId: string; 
-  source?: 'SHOPIFY' | 'B2B' | 'Direct' | 'CRM' | 'MANUAL';
+  source?: 'SHOPIFY' | 'B2B' | 'Direct' | 'CRM' | 'MANUAL' | 'HOLDED';
   lines: OrderLine[]; 
   createdAt: string;
   status: OrderStatus;
@@ -150,6 +150,7 @@ export interface OrderSellOut {
   paymentMethod?: string;
   paymentTermDays?: number;
   invoiceId?: string;
+  externalRef?: string;
 }
 export interface Interaction {
   id: string;
@@ -443,4 +444,5 @@ export const SB_COLORS = {
   agua: "#A7D8D9",
   verde_mar: "#618E8F",
 };
+
 

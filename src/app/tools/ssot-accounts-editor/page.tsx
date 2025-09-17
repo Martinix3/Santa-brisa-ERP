@@ -4,9 +4,9 @@ import React, { useEffect, useMemo, useState } from "react";
 import Papa from "papaparse";
 import { useData } from "@/lib/dataprovider";
 import { Check, ChevronDown, Database, Download, FileCog, FileText, Map as MapIcon, Trash2, Upload, X } from "lucide-react";
-import type { Account as AccountSchema, AccountType, AccountMode, Stage, Interaction, OrderSellOut } from "@/domain/ssot";
+import type { Account as AccountSchema, AccountType, Stage, Interaction, OrderSellOut } from "@/domain/ssot";
 import AuthGuard from "@/components/auth/AuthGuard";
-import { generateNextOrder, Channel } from "@/lib/codes";
+import { generateNextOrder } from "@/lib/codes";
 import { ModuleHeader } from "@/components/ui/ModuleHeader";
 import { SB_COLORS } from "@/components/ui/ui-primitives";
 

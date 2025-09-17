@@ -140,7 +140,7 @@ export default function OrdersDashboard() {
             <tbody className="divide-y divide-zinc-100">
               {filteredOrders.map((order) => {
                 const account = accountMap.get(order.accountId);
-                const owner = account ? userMap.get(account.ownerId) : 'N/A';
+                const ownerName = account ? userMap.get(account.ownerId) : 'N/A';
                 return (
                   <tr key={order.id} className="hover:bg-zinc-50">
                     <td className="p-3 font-mono text-xs font-medium text-zinc-800">{order.id}</td>
@@ -149,7 +149,7 @@ export default function OrdersDashboard() {
                         {account?.name || 'N/A'}
                       </Link>
                     </td>
-                    <td className="p-3">{owner}</td>
+                    <td className="p-3">{ownerName}</td>
                     <td className="p-3">{new Date(order.createdAt).toLocaleDateString('es-ES')}</td>
                     <td className="p-3 text-right font-semibold">
                       {orderTotal(order).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}

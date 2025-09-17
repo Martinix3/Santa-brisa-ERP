@@ -102,7 +102,6 @@ export function runSmokeTests() {
   const fkErrors: string[] = [];
   data.ordersSellOut.forEach(o => {
     if (!data.accounts.some(a => a.id === o.accountId)) fkErrors.push(`Order ${o.id} -> Account ${o.accountId} not found`);
-    if (o.distributorId && !data.distributors.some(d => d.id === o.distributorId)) fkErrors.push(`Order ${o.id} -> Distributor ${o.distributorId} not found`);
     o.lines.forEach(l => {
       if (!data.products.some(p => p.sku === l.sku)) fkErrors.push(`Order ${o.id} -> Product SKU ${l.sku} not found`);
     });

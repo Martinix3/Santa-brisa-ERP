@@ -3,7 +3,7 @@
 "use client";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useData } from "@/lib/dataprovider";
-import type { Lot, OrderSellOut as SaleDoc, QACheck, GenealogyLink, ProductionOrder, User, TraceEvent, LotStatus } from "@/domain/ssot";
+import type { Lot, OrderSellOut as SaleDoc, QACheck, GenealogyLink, ProductionOrder, User, TraceEvent, LotStatus, Account } from "@/domain/ssot";
 import {
     Archive, FileText, CheckCircle2, XCircle, FlaskConical, Recycle, PackagePlus, Flag,
     Package as PackageIcon, PackageCheck, Truck, Pin, Paperclip, Send, Download,
@@ -407,7 +407,7 @@ export default function TraceabilityTimelinePage() {
               <QCTable tests={lotTests} users={userIndex} />
 
               {/* Clientes/Ventas */}
-              <SalesByCustomer lot={openLot} groups={salesByCustomer} users={userIndex} />
+              <SalesByCustomer lot={openLot} groups={salesByCustomer} accountIndex={accountIndex} />
             </div>
           )}
         </div>
@@ -467,7 +467,7 @@ function ProductionPanel({ prodOrder, users }: { prodOrder: ProductionOrder; use
     <div className="rounded-xl border border-zinc-200 p-4">
       <div className="text-sm text-zinc-500 mb-2">Protocolos e Incidencias de Producción</div>
       <ul className="divide-y divide-zinc-200">
-        {(prodOrder.protocolChecks || []).map((p) => (
+        {(prodOrder.protocolChecks || []).map((p: any) => (
           <li key={p.id} className="py-2 flex items-center justify-between text-sm">
             <div className="flex items-center gap-2">
               <span className={`w-2.5 h-2.5 rounded-full ${p.done ? "bg-green-500" : "bg-zinc-300"}`} />
@@ -479,7 +479,7 @@ function ProductionPanel({ prodOrder, users }: { prodOrder: ProductionOrder; use
             </div>
           </li>
         ))}
-        {(prodOrder.incidents || []).map((inc) => (
+        {(prodOrder.incidents || []).map((inc: any) => (
           <li key={inc.id} className="py-2 flex items-center justify-between text-sm">
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-red-400" />
@@ -537,7 +537,7 @@ function QCTable({ tests, users }: { tests: QACheck[]; users: Map<string, User> 
   );
 }
 
-function SalesByCustomer({ lot, groups, users }: { lot: Lot; groups: { customerId: string; customerName: string; total: number; docs: SaleDoc[] }[]; users: Map<string, User> }) {
+function SalesByCustomer({ lot, groups, accountIndex }: { lot: Lot; groups: { customerId: string; customerName: string; total: number; docs: SaleDoc[] }[]; accountIndex: Map<string, Account> }) {
   return (
     <div className="rounded-2xl border border-zinc-200 p-4">
       <div className="text-sm text-zinc-500 mb-2">Clientes a los que se ha vendido este lote</div>
@@ -552,17 +552,21 @@ function SalesByCustomer({ lot, groups, users }: { lot: Lot; groups: { customerI
                 </div>
               </div>
               <div className="divide-y divide-zinc-200">
-                {g.docs.map((d) => (
-                  <div key={d.id} className="px-3 py-2 text-sm flex items-center justify-between">
-                    <div>
-                      <span className="font-mono">{d.id}</span> · {d.status} · {new Date(d.createdAt).toLocaleString()} ·
-                      <span className="text-zinc-600"> {users.get(d.userId || "")?.name || "—"}</span>
+                {g.docs.map((d) => {
+                  const account = accountIndex.get(d.accountId);
+                  const user = account ? santaData?.users.find(u => u.id === account.ownerId) : undefined;
+                  return (
+                    <div key={d.id} className="px-3 py-2 text-sm flex items-center justify-between">
+                      <div>
+                        <span className="font-mono">{d.id}</span> · {d.status} · {new Date(d.createdAt).toLocaleString()} ·
+                        <span className="text-zinc-600"> {user?.name || "—"}</span>
+                      </div>
+                      <div>
+                        {d.lines.filter((l) => l.lotIds?.includes(lot.id)).reduce((a, b) => a + b.qty, 0)} {d.lines.find((l) => l.lotIds?.includes(lot.id))?.unit || "uds"}
+                      </div>
                     </div>
-                    <div>
-                      {d.lines.filter((l) => l.lotIds?.includes(lot.id)).reduce((a, b) => a + b.qty, 0)} {d.lines.find((l) => l.lotIds?.includes(lot.id))?.unit || "ud"}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           ))}

@@ -1,3 +1,4 @@
+
 // src/domain/schema.ts
 // Puente de compatibilidad: reexporta desde ssot y aporta mínimos que el UI espera.
 
@@ -10,7 +11,6 @@ export type {
   Interaction,
   SantaData,
   AccountType,
-  AccountMode,
   Stage,
   UserRole,
 } from './ssot';

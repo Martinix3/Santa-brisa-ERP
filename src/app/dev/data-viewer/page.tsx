@@ -320,7 +320,7 @@ function ImportReviewerView({ importId }: { importId: string }) {
 function DataViewerContent() {
     const { data, mode, setData, forceSave } = useData();
     const searchParams = useSearchParams();
-    const reviewImportId = searchParams.get('reviewImportId');
+    const reviewImportId = searchParams ? searchParams.get('reviewImportId') : null;
     
     const [selectedKey, setSelectedKey] = useState<keyof SantaData>('accounts');
     const [selectedRows, setSelectedRows] = useState(new Set<string>());

@@ -91,7 +91,7 @@ export function consumeForOrder(
 // Conversión de UoM (simplificado, se puede mover a uom.ts si crece)
 function toBaseUnits(qty: number, uom: Uom, product?: Product): number {
   // MP: L, kg, ud → ya están en base → retorno directo
-  if (uom === 'ud' || uom === 'L' || uom === 'kg' || uom === 'g' || uom === 'mL' || uom === 'bottle') return qty;
+  if (uom === 'uds' || uom === 'L' || uom === 'kg' || uom === 'g' || uom === 'mL' || uom === 'bottle') return qty;
   // Sólo necesitamos product para 'case' o 'pallet'
   if (!product) return qty; // fallback seguro
   if (uom === 'case')   return qty * (product.caseUnits ?? 1);

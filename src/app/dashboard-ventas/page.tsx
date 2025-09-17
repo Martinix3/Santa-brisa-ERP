@@ -60,8 +60,9 @@ function PersonalDashboardContent({ displayedUser, timePeriod, setTimePeriod }: 
     else if(timePeriod === 'month') startDate.setMonth(endDate.getMonth() - 1);
     else if(timePeriod === 'year') startDate.setFullYear(endDate.getFullYear() - 1);
 
-    const userOrders = santaData.ordersSellOut.filter(o => o.userId === displayedUser.id && inWindow(o.createdAt, startDate, endDate));
-    const userInteractions = santaData.interactions.filter(i => i.userId === displayedUser.id);
+    const userAccountIds = new Set(santaData.accounts.filter(a => a.ownerId === displayedUser.id).map(a => a.id));
+    const userOrders = santaData.ordersSellOut.filter(o => userAccountIds.has(o.accountId) && inWindow(o.createdAt, startDate, endDate));
+    const userInteractions = santaData.interactions.filter(i => userAccountIds.has(i.accountId));
     const userAccounts = santaData.accounts.filter(a => a.ownerId === displayedUser.id);
 
     const revenue = userOrders.filter(o => o.status === 'confirmed').reduce((sum, o) => sum + orderTotal(o), 0);
@@ -319,7 +320,8 @@ function SalesReportTable({ users, data }: { users: UserType[], data: any }) {
 
         const byUser = users.map(user => {
             const userAccounts = data.accounts.filter((a: Account) => a.ownerId === user.id);
-            const userOrders = data.ordersSellOut.filter((o: OrderSellOut) => o.userId === user.id);
+            const userAccountIds = new Set(userAccounts.map(a => a.id));
+            const userOrders = data.ordersSellOut.filter((o: OrderSellOut) => userAccountIds.has(o.accountId));
             const totalSales = userOrders.reduce((sum: number, o: OrderSellOut) => sum + orderTotal(o), 0);
             return {
                 id: user.id,
@@ -391,7 +393,7 @@ function AIInsightsCard() {
             const relevantData = {
                 users: data.users.map(u => ({ id: u.id, name: u.name, role: u.role })),
                 accounts: data.accounts.map(a => ({ id: a.id, name: a.name, city: a.city, stage: a.stage, type: a.type, owner: a.ownerId })),
-                orders: data.ordersSellOut.map(o => ({ id: o.id, accountId: o.accountId, userId: o.userId, status: o.status, total: orderTotal(o), date: o.createdAt })),
+                orders: data.ordersSellOut.map(o => ({ id: o.id, accountId: o.accountId, status: o.status, total: orderTotal(o), date: o.createdAt })),
                 interactions: data.interactions.map(i => ({ id: i.id, accountId: i.accountId, userId: i.userId, kind: i.kind, date: i.createdAt })),
             };
             const result = await generateInsights({ jsonData: JSON.stringify(relevantData) });
