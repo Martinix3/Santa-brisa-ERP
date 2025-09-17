@@ -13,7 +13,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'Falta el ID de importación.' }, { status: 400 });
     }
 
-    const db = adminDb();
+    const db = adminDb;
 
     try {
         const stagedItemsRef = db.collection('staged_imports');

@@ -17,7 +17,7 @@ const getContactUniqueKey = (contact: any): string => {
 };
 
 export async function POST(req: Request) {
-  const db = adminDb();
+  const db = adminDb;
   
   try {
     const holdedApiKey = process.env.HOLDED_API_KEY;

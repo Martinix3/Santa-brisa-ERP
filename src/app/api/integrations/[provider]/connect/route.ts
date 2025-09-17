@@ -34,7 +34,7 @@ export async function POST(
     if (!apiKey || !apiSecret) return NextResponse.json({ ok:false, error:"Falta apiKey/apiSecret" }, { status:400 });
     
     // Guardar secretos en Firestore para persistencia
-    const db = adminDb();
+    const db = adminDb;
     await db.collection('dev-secrets').doc('sendcloud').set({ apiKey, apiSecret });
 
     return NextResponse.json({ ok:true });

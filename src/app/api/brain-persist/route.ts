@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
     await verifyAuth(req);
     // console.log(`[API GET] Authenticated user: ${decodedToken.email}`);
 
-    const db = adminDb();
+    const db = adminDb;
     const santaData: any = {};
     
     for (const collectionName of SANTA_DATA_COLLECTIONS) {
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     const decodedToken = await verifyAuth(req);
     // console.log(`[API POST] Authenticated user: ${decodedToken.email}`);
     
-    const db = adminDb();
+    const db = adminDb;
     const payload = await req.json();
 
     if (!payload || typeof payload !== 'object') {
@@ -84,4 +84,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok:false, error: e?.message || 'Unknown server error.' }, { status: 500 });
   }
 }
-

@@ -8,7 +8,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST() {
-  const db = adminDb();
+  const db = adminDb;
 
   try {
     const holdedApiKey = process.env.HOLDED_API_KEY;

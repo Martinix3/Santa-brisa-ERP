@@ -15,7 +15,7 @@ export async function GET(req: Request) {
     }
 
     try {
-        const db = adminDb();
+        const db = adminDb;
         const stagedItemsRef = db.collection('staged_imports');
         const q = stagedItemsRef.where('importId', '==', importId);
         const snapshot = await q.get();
