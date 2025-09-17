@@ -124,7 +124,7 @@ function TableViewer({
                     <tbody>
                         <tr>
                             <td colSpan={columns.length + 1} className="text-center text-zinc-500 py-8">
-                                La colección está vacía.
+                                La colección está vacía. Las columnas esperadas son: {columns.join(', ')}
                             </td>
                         </tr>
                     </tbody>
@@ -197,7 +197,7 @@ function RelationAnalysis({ collectionName, collection, data }: { collectionName
 
 // ===== MAIN PAGE COMPONENT =====
 export default function DataViewerPage() {
-    const { data, mode, setData } = useData();
+    const { data, mode, setData, forceSave } = useData();
     const [selectedKey, setSelectedKey] = useState<keyof SantaData>('accounts');
     const [selectedRows, setSelectedRows] = useState(new Set<string>());
     const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
@@ -216,7 +216,7 @@ export default function DataViewerPage() {
         const newCollection = [...selectedCollection];
         newCollection[rowIndex] = newRowData;
         setData(prev => prev ? { ...prev, [selectedKey]: newCollection } : null);
-        setNotification({ message: 'Fila actualizada.', type: 'success' });
+        setNotification({ message: 'Fila actualizada localmente. Pulsa "Guardar Cambios" para persistir.', type: 'success' });
     };
     
     const handleSelectRow = (id: string, checked: boolean) => {
@@ -241,7 +241,7 @@ export default function DataViewerPage() {
             const newCollection = selectedCollection.filter((row: any) => !selectedRows.has(row.id));
             setData(prev => prev ? { ...prev, [selectedKey]: newCollection } : null);
             setSelectedRows(new Set());
-            setNotification({ message: `${selectedRows.size} registros eliminados.`, type: 'success' });
+            setNotification({ message: `${selectedRows.size} registros eliminados localmente.`, type: 'success' });
         }
     };
 
@@ -296,7 +296,8 @@ export default function DataViewerPage() {
     };
     
     const handleSaveChanges = () => {
-        setNotification({ message: 'Todos los cambios se han guardado en el estado local.', type: 'success' });
+        forceSave();
+        setNotification({ message: '¡Datos guardados en el almacenamiento del navegador!', type: 'success' });
     };
 
     return (
@@ -324,7 +325,7 @@ export default function DataViewerPage() {
             <div className="p-6">
                 {notification && ( <div className={`fixed top-20 right-5 z-50 p-3 rounded-lg shadow-lg text-white text-sm ${notification.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}>{notification.message}</div> )}
                 <p className="text-zinc-600 mb-6">
-                    Inspecciona, edita, importa o exporta el contenido del `DataProvider`. Modo actual: <strong className="font-semibold text-zinc-800">{mode}</strong>.
+                    Inspecciona, edita, importa o exporta el contenido del `DataProvider`. Modo actual: <strong className="font-semibold text-zinc-800">{mode}</strong>. Los cambios se guardan localmente al pulsar "Guardar Cambios".
                 </p>
 
                 <div className="grid grid-cols-1 lg:grid-cols-[1fr_3fr] gap-6 items-start">
@@ -367,5 +368,3 @@ export default function DataViewerPage() {
         </>
     );
 }
-
-    

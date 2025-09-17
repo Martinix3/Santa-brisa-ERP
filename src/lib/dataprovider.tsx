@@ -14,6 +14,7 @@ interface DataContextProps {
   setMode: React.Dispatch<React.SetStateAction<DataMode>>;
   data: SantaData | null;
   setData: React.Dispatch<React.SetStateAction<SantaData | null>>;
+  forceSave: () => void;
   currentUser: User | null;
   login: (email: string, pass: string) => Promise<boolean>;
   logout: () => void;
@@ -45,6 +46,17 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     setIsLoading(false);
   }, []);
 
+  const forceSave = useCallback(() => {
+    if (mode === 'real' && data) {
+       localStorage.setItem('sb-real-data', JSON.stringify(data));
+       RealSantaData = data;
+    } else if (mode === 'test' && data) {
+       // Mock data is not persisted to localStorage to keep it stateless
+       MockSantaData = data;
+    }
+  }, [data, mode]);
+
+
   useEffect(() => {
     localStorage.setItem('sb-data-mode', mode);
     setIsDataLoading(true);
@@ -60,8 +72,17 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
                     setData(MockSantaData);
                 }
             } else { // mode === 'real'
-                if (RealSantaData) {
-                    setData(RealSantaData);
+                const savedRealData = localStorage.getItem('sb-real-data');
+                if (savedRealData) {
+                    try {
+                        const parsedData = JSON.parse(savedRealData);
+                        RealSantaData = parsedData;
+                        setData(parsedData);
+                    } catch {
+                         const module = await import('@/domain/real-data');
+                         RealSantaData = module.realSantaData;
+                         setData(RealSantaData);
+                    }
                 } else {
                     const module = await import('@/domain/real-data');
                     RealSantaData = module.realSantaData;
@@ -84,15 +105,6 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     loadData();
 
   }, [mode]);
-  
-  useEffect(() => {
-    if (mode === 'real' && data) {
-       localStorage.setItem('sb-real-data', JSON.stringify(data));
-       RealSantaData = data;
-    } else if (mode === 'test' && data) {
-       MockSantaData = data;
-    }
-  }, [data, mode]);
 
 
   const login = useCallback(async (email: string, pass: string): Promise<boolean> => {
@@ -119,11 +131,12 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
       setMode, 
       data, 
       setData,
+      forceSave,
       currentUser,
       login,
       logout,
       isLoading: isLoading || isDataLoading
-  }), [mode, data, setData, currentUser, login, logout, isLoading, isDataLoading]);
+  }), [mode, data, setData, forceSave, currentUser, login, logout, isLoading, isDataLoading]);
 
   return (
     <DataContext.Provider value={value}>
