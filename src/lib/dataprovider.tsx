@@ -5,7 +5,7 @@ import React, { createContext, useContext, useState, useEffect, useMemo, useCall
 import type { User, SantaData } from '@/domain/ssot';
 import { mockSantaData } from '@/domain/mock-data';
 import { auth } from './firebase-config';
-import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from "firebase/auth";
+import { onAuthStateChanged, signInWithRedirect, GoogleAuthProvider, signOut, getRedirectResult } from "firebase/auth";
 
 export type DataMode = 'test' | 'real';
 
@@ -16,7 +16,7 @@ interface DataContextProps {
   setData: React.Dispatch<React.SetStateAction<SantaData | null>>;
   forceSave: (dataToSave?: SantaData) => Promise<void>;
   currentUser: User | null;
-  login: (email: string, pass: string) => Promise<boolean>;
+  login: () => Promise<void>;
   logout: () => void;
   isLoading: boolean;
 }
@@ -65,33 +65,37 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
 
     loadInitialData();
   }, []);
-
-  // Listen to auth state changes
+  
+   // Listen to auth state changes & handle redirect result
   useEffect(() => {
-      if (!data) return; // Wait until data is loaded before processing auth state
+      if (!data) return; // Wait until app data is loaded
 
-      const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
         if (firebaseUser) {
-            // Find the app user that corresponds to the Firebase user
             const appUser = data.users.find(u => u.email?.toLowerCase() === firebaseUser.email?.toLowerCase());
             if (appUser) {
                 setCurrentUser(appUser);
             } else {
-                console.warn("Firebase user is authenticated, but not found in the app's user list.");
-                setCurrentUser(null); // Or handle as an unprovisioned user
+                 console.warn("Firebase user is authenticated, but not found in the app's user list.");
+                 setCurrentUser(null);
             }
         } else {
             setCurrentUser(null);
         }
         setIsLoading(false);
       });
+      
+      // Check for redirect result on initial load
+      getRedirectResult(auth).catch(error => {
+          console.error("Error getting redirect result:", error);
+      });
 
       return () => unsubscribe();
-  }, [data]); // Rerun when data is loaded
+  }, [data]);
 
-  const login = useCallback(async (email: string, pass: string): Promise<boolean> => {
-      await signInWithEmailAndPassword(auth, email, pass);
-      return true;
+  const login = useCallback(async () => {
+      const provider = new GoogleAuthProvider();
+      await signInWithRedirect(auth, provider);
   }, []);
 
   const logout = useCallback(async () => {
