@@ -6,11 +6,10 @@ import { isoDaysAgo } from './ssot';
 
 // --- Users & Accounts (Proveedores, Clientes, Distribuidores) ---
 export const USERS: SantaData['users'] = [
-  { id: 'u_admin', name: 'Admin', email: 'admin@santabrisa.com', role: 'admin', active: true },
   { id: 'u_ana', name: 'Ana Ruiz', email: 'ana@santabrisa.com', role: 'comercial', active: true },
   { id: 'u_marcos', name: 'Marcos Gil', email: 'marcos@santabrisa.com', role: 'comercial', active: true },
   { id: 'u_sofia', name: 'Sofía Vega', email: 'ops@santabrisa.com', role: 'ops', active: true },
-  { id: 'u_martin', name: 'Martín', email: 'mj@santabrisa.com', role: 'owner', active: true },
+  { id: 'u_martin', name: 'Martín', email: 'mj@santabrisa.co', role: 'owner', active: true },
   { id: 'u_miguel', name: 'Miguel', email: 'mo@santabrisa.com', role: 'admin', active: true },
   { id: 'u_alfonso', name: 'Alfonso', email: 'alfonso@santabrisa.com', role: 'comercial', active: true },
   { id: 'u_patxi', name: 'Patxi', email: 'patxi@santabrisa.com', role: 'comercial', active: true },
