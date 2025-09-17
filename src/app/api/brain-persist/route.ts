@@ -27,13 +27,13 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const db = adminDb(); // Llama a adminDb() al principio para fallar rápido si no está inicializado.
     const payload = await req.json();
 
     if (!payload || typeof payload !== 'object') {
         return NextResponse.json({ ok: false, error: 'Invalid payload. Expecting an object of collections.' }, { status: 400 });
     }
 
-    const db = adminDb();
     const batch = db.batch();
     let count = 0;
 
