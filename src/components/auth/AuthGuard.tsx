@@ -7,8 +7,15 @@ import { useRouter } from 'next/navigation';
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const { currentUser, isLoading } = useData();
+  const router = useRouter();
 
-  if (isLoading) {
+  useEffect(() => {
+    if (!isLoading && !currentUser) {
+      router.replace('/login');
+    }
+  }, [isLoading, currentUser, router]);
+
+  if (isLoading || !currentUser) {
     return (
         <div className="h-screen w-screen flex items-center justify-center bg-zinc-50">
             <div className="text-zinc-600">Cargando...</div>
@@ -16,6 +23,5 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Si la autenticación está desactivada, simplemente renderizamos los hijos.
   return <>{children}</>;
 }

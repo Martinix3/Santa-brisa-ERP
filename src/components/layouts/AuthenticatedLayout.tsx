@@ -238,7 +238,8 @@ function AuthenticatedLayoutContent({ children }: { children: React.ReactNode })
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
   const pathname = usePathname() ?? '/';
-  const { currentUser, isLoading } = useData();
+  const { currentUser, isLoading, logout } = useData();
+  const router = useRouter();
 
   useEffect(() => {
     const activeSection = navSections.find(section => section.items.some(item => pathname.startsWith(item.href) && item.href !== '/'));
@@ -250,6 +251,13 @@ function AuthenticatedLayoutContent({ children }: { children: React.ReactNode })
         setExpandedSections(prev => ({ ...prev, [activeSection.title]: true }));
     }
   }, [pathname]);
+  
+  useEffect(() => {
+    if (!isLoading && !currentUser) {
+      router.replace('/login');
+    }
+  }, [isLoading, currentUser, router]);
+
 
   const toggleSection = (title: string) => {
     setExpandedSections(prev => ({...prev, [title]: !prev[title]}));
@@ -290,18 +298,21 @@ function AuthenticatedLayoutContent({ children }: { children: React.ReactNode })
             </div>
             
             <div className="mt-4 pt-4 border-t border-sb-neutral-200">
-                <div className={`p-2 rounded-lg ${isSidebarCollapsed ? '' : 'hover:bg-sb-neutral-50'}`}>
-                    <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-full bg-sb-sun flex-shrink-0 flex items-center justify-center font-bold text-sb-neutral-800">
-                            {currentUser?.name.charAt(0)}
-                        </div>
-                        {!isSidebarCollapsed && (
-                            <div className="flex-1 overflow-hidden">
-                                <p className="text-sm font-semibold truncate">{currentUser?.name}</p>
-                                <p className="text-xs text-sb-neutral-500 truncate">{currentUser?.email}</p>
-                            </div>
-                        )}
+                <div className={`p-2 rounded-lg flex items-center gap-3 ${isSidebarCollapsed ? '' : 'hover:bg-sb-neutral-50'}`}>
+                    <div className="h-8 w-8 rounded-full bg-sb-sun flex-shrink-0 flex items-center justify-center font-bold text-sb-neutral-800">
+                        {currentUser?.name.charAt(0)}
                     </div>
+                    {!isSidebarCollapsed && (
+                        <div className="flex-1 overflow-hidden">
+                            <p className="text-sm font-semibold truncate">{currentUser?.name}</p>
+                            <p className="text-xs text-sb-neutral-500 truncate">{currentUser?.email}</p>
+                        </div>
+                    )}
+                     {!isSidebarCollapsed && (
+                        <button onClick={logout} className="p-2 text-sb-neutral-500 hover:text-sb-neutral-800" title="Cerrar sesión">
+                            <LogOut size={16} />
+                        </button>
+                    )}
                 </div>
 
                 <button

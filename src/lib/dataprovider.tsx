@@ -3,8 +3,9 @@
 
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import type { User, SantaData } from '@/domain/ssot';
-import { realSantaData } from '@/domain/real-data'; // Importar los datos reales
 import { mockSantaData } from '@/domain/mock-data';
+import { auth } from './firebase-config';
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from "firebase/auth";
 
 export type DataMode = 'test' | 'real';
 
@@ -15,6 +16,7 @@ interface DataContextProps {
   setData: React.Dispatch<React.SetStateAction<SantaData | null>>;
   forceSave: (dataToSave?: SantaData) => Promise<void>;
   currentUser: User | null;
+  login: (email: string, pass: string) => Promise<boolean>;
   logout: () => void;
   isLoading: boolean;
 }
@@ -22,34 +24,79 @@ interface DataContextProps {
 const DataContext = createContext<DataContextProps | undefined>(undefined);
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
-    // Auth removido, no se necesitan cabeceras especiales.
-    return {};
+    const user = auth.currentUser;
+    if (!user) return {};
+    const token = await user.getIdToken();
+    return { 'Authorization': `Bearer ${token}` };
 }
 
 export const DataProvider = ({ children }: { children: React.ReactNode }) => {
-  const [mode, setMode] = useState<DataMode>('real'); // Default to 'real'
+  const [mode, setMode] = useState<DataMode>('real');
   const [data, setData] = useState<SantaData | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load data on initial mount
+  // Load initial data from API or fall back to mock
   useEffect(() => {
     const loadInitialData = async () => {
         setIsLoading(true);
-        // Dado que hemos quitado la autenticación, cargamos los datos de prueba directamente.
-        // En un futuro, esto podría leer de una API pública o de un archivo local.
-        const initialData = JSON.parse(JSON.stringify(mockSantaData));
-        setData(initialData);
+        try {
+            const headers = await getAuthHeaders();
+            const response = await fetch('/api/brain-persist', { headers });
 
-        // Simular que el usuario 'admin' siempre está conectado
-        const adminUser = initialData.users.find((u: User) => u.role === 'admin');
-        if (adminUser) {
-            setCurrentUser(adminUser);
+            if (!response.ok) {
+                const errorBody = await response.text();
+                console.warn(`API fetch failed (${response.status}): ${errorBody}. Falling back to mock data.`);
+                setData(JSON.parse(JSON.stringify(mockSantaData)));
+            } else {
+                 try {
+                    const apiData = await response.json();
+                    setData(apiData);
+                } catch (e) {
+                    console.error("Failed to parse JSON from API, falling back to mock data.", e);
+                    setData(JSON.parse(JSON.stringify(mockSantaData)));
+                }
+            }
+        } catch (error) {
+            console.error('Could not fetch initial data, falling back to mock data:', error);
+            setData(JSON.parse(JSON.stringify(mockSantaData)));
         }
-
-        setIsLoading(false);
     };
+
     loadInitialData();
+  }, []);
+
+  // Listen to auth state changes
+  useEffect(() => {
+      if (!data) return; // Wait until data is loaded before processing auth state
+
+      const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+        if (firebaseUser) {
+            // Find the app user that corresponds to the Firebase user
+            const appUser = data.users.find(u => u.email?.toLowerCase() === firebaseUser.email?.toLowerCase());
+            if (appUser) {
+                setCurrentUser(appUser);
+            } else {
+                console.warn("Firebase user is authenticated, but not found in the app's user list.");
+                setCurrentUser(null); // Or handle as an unprovisioned user
+            }
+        } else {
+            setCurrentUser(null);
+        }
+        setIsLoading(false);
+      });
+
+      return () => unsubscribe();
+  }, [data]); // Rerun when data is loaded
+
+  const login = useCallback(async (email: string, pass: string): Promise<boolean> => {
+      await signInWithEmailAndPassword(auth, email, pass);
+      return true;
+  }, []);
+
+  const logout = useCallback(async () => {
+      await signOut(auth);
+      // The onAuthStateChanged listener will handle setting currentUser to null
   }, []);
 
   const forceSave = useCallback(async (dataToSave?: SantaData) => {
@@ -58,16 +105,25 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
       console.warn("Save requested, but no data is available.");
       return;
     }
-    // La persistencia real está desactivada. Esto es solo una simulación.
-    console.log("Simulando guardado de datos (auth desactivada):", payload);
-    return Promise.resolve();
+    
+    try {
+        const headers = await getAuthHeaders();
+        const response = await fetch('/api/brain-persist', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...headers },
+            body: JSON.stringify(payload),
+        });
+        if (!response.ok) {
+            const errorBody = await response.json();
+            throw new Error(errorBody.error || 'Failed to save data to server.');
+        }
+        console.log("Data successfully persisted via API.");
+    } catch (error) {
+        console.error("Error in forceSave:", error);
+        throw error;
+    }
+
   }, [data]);
-
-
-  const logout = useCallback(() => {
-    // No hace nada, ya que no hay sesión.
-    console.log("Logout llamado, pero la autenticación está desactivada.");
-  }, []);
 
   const value = useMemo(() => ({ 
       mode, 
@@ -76,10 +132,10 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
       setData,
       forceSave,
       currentUser,
-      login: async () => true, // Función dummy
+      login,
       logout,
       isLoading,
-  }), [mode, data, setData, forceSave, currentUser, logout, isLoading]);
+  }), [mode, data, setData, forceSave, currentUser, login, logout, isLoading]);
 
   return (
     <DataContext.Provider value={value}>
