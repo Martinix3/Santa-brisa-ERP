@@ -12,6 +12,11 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     const db = adminDb();
+    // Comprobar si la inicialización de Firebase Admin falló y db no es funcional
+    if (typeof db.collection !== 'function') {
+        throw new Error('La conexión con Firestore no está disponible. Revisa la configuración de Firebase Admin en el servidor.');
+    }
+
     const santaData: any = {};
     
     for (const collectionName of SANTA_DATA_COLLECTIONS) {
@@ -36,11 +41,14 @@ export async function POST(req: Request) {
     }
 
     const db = adminDb();
+    if (typeof db.batch !== 'function') {
+        throw new Error('La conexión con Firestore no está disponible. No se pueden guardar los datos.');
+    }
     const batch = db.batch();
     let count = 0;
 
     for (const collectionName in payload) {
-        if (Array.isArray(payload[collectionName])) {
+        if (Array.isArray(payload[collectionName]) && SANTA_DATA_COLLECTIONS.includes(collectionName as any)) {
             for (const doc of payload[collectionName]) {
                 if (!doc.id) continue;
                 const ref = db.collection(collectionName).doc(doc.id);
@@ -64,4 +72,3 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok:false, error: e?.message || 'Unknown server error.' }, { status: 500 });
   }
 }
-
