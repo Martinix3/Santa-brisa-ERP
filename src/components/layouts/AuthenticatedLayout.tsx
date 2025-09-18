@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -75,7 +76,7 @@ const navSections = [
             { href: '/marketing/events', label: 'Eventos', icon: Calendar },
             { href: '/marketing/online', label: 'Adds', icon: Zap },
             { href: '/marketing/influencers/dashboard', label: 'Influencers', icon: Contact },
-            { href: '/marketing/dashboard', label: 'POS Marketing', icon: Home }, // Placeholder
+            { href: '/marketing/pos', label: 'POS Marketing', icon: Home }, // Placeholder
         ]
     },
     {
@@ -326,3 +327,5 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
     </div>
   );
 }
+
+    
