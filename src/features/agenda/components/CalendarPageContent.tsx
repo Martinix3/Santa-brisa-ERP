@@ -27,12 +27,18 @@ const asISO = (d: string | Date) => {
   return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString();
 };
 
+async function getAuthHeaders(): Promise<Record<string, string>> {
+  // This is a placeholder, in a real app this would get the token from an auth context.
+  // The DataProvider will handle the real implementation.
+  return {};
+}
+
 export async function saveCollection(collectionName: keyof SantaData, data: any[], persistenceEnabled: boolean) {
     if (!persistenceEnabled) return;
     try {
         const response = await fetch('/api/dev/save-data', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
             body: JSON.stringify({ collection: collectionName, data, persistenceEnabled }),
         });
         if (!response.ok) {
@@ -41,7 +47,9 @@ export async function saveCollection(collectionName: keyof SantaData, data: any[
         }
     } catch (e: any) {
         console.error(e);
-        alert(`Error al guardar: ${e.message}`);
+        // We are relying on the central notification system now.
+        // alert(`Error al guardar: ${e.message}`);
+        throw e; // Re-throw to allow caller to handle it
     }
 }
 

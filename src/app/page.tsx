@@ -3,17 +3,26 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
+import { useData } from '@/lib/dataprovider';
 
-// This is now a redirect page. The main dashboard is at /dashboard-personal
+// This page now handles redirection logic based on auth state.
 export default function Page(){
     const router = useRouter();
+    const { currentUser, isLoading } = useData();
+
     React.useEffect(() => {
-        router.replace('/dashboard-personal');
-    }, [router]);
+        if (!isLoading) {
+            if (currentUser) {
+                router.replace('/dashboard-personal');
+            } else {
+                router.replace('/login');
+            }
+        }
+    }, [isLoading, currentUser, router]);
 
     return (
         <div className="h-screen w-screen flex items-center justify-center bg-zinc-50">
-            <div className="text-zinc-600">Redirigiendo al dashboard...</div>
+            <div className="text-zinc-600">Cargando...</div>
         </div>
     );
 }

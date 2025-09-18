@@ -17,6 +17,7 @@ import {
   signInWithPopup,
   signOut,
   onAuthStateChanged,
+  User as FirebaseUser,
 } from "firebase/auth";
 
 export type DataMode = "test" | "real";
@@ -37,19 +38,19 @@ interface DataContextProps {
 
 const DataContext = createContext<DataContextProps | undefined>(undefined);
 
-// Hardcoded user ID for dev purposes now that login is removed
-const DEV_USER_ID = 'dev-user-fixed-id';
-
 async function getAuthHeaders(): Promise<Record<string, string>> {
-  // Auth is disabled, so we don't need real headers.
-  // The API will use a fixed user ID.
-  return {};
+  const user = auth.currentUser;
+  if (!user) return {};
+
+  const token = await user.getIdToken(true);
+  return { 'Authorization': `Bearer ${token}` };
 }
 
 export const DataProvider = ({ children }: { children: React.ReactNode }) => {
   const [mode, setMode] = useState<DataMode>("real");
   const [data, setData] = useState<SantaData | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isPersistenceEnabled, setIsPersistenceEnabled] = useState(true);
 
@@ -72,75 +73,75 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [data?.users]);
 
+  // Listen to Firebase auth state changes
   useEffect(() => {
-    const loadInitialData = async () => {
-        setIsLoading(true);
-        console.log("⚠️ No hay autenticación, cargando datos locales y de API para dev.");
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setIsLoading(true);
+      setFirebaseUser(user);
+      if (!user) {
+        // User is signed out
+        setData(null);
+        setCurrentUser(null);
+        setIsLoading(false);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
+  // Fetch data when a user signs in
+  useEffect(() => {
+    const loadDataForUser = async () => {
+      if (firebaseUser) {
         try {
-            const response = await fetch("/api/brain-persist", { headers: await getAuthHeaders() });
+          const headers = await getAuthHeaders();
+          const response = await fetch("/api/brain-persist", { headers });
 
-            let finalData: SantaData;
-            const localDataCopy = JSON.parse(JSON.stringify(realSantaData));
+          let finalData: SantaData;
+          if (!response.ok) {
+            console.warn(`API fetch failed (${response.status}). Falling back to local data structure for new user.`);
+            // For a new user, start with the base structure but empty collections
+            finalData = { ...realSantaData, accounts: [], ordersSellOut: [], interactions: [] };
+          } else {
+            const apiData = await response.json();
+            // Merge with local structure to ensure all collections are present
+            finalData = { ...realSantaData, ...apiData };
+            console.log("✅ Datos cargados desde la API para el usuario.");
+          }
+          setData(finalData);
 
-            if (!response.ok) {
-                const errorBody = await response.text();
-                console.warn(`API fetch failed (${response.status}): ${errorBody}. Falling back to local data.`);
-                finalData = localDataCopy;
-            } else {
-                const apiData = await response.json();
-                
-                // Deep merge: Prioritize API data but keep local data for collections not in API response.
-                const merged = { ...localDataCopy };
-
-                for (const key in apiData) {
-                    if (Object.prototype.hasOwnProperty.call(apiData, key) && Array.isArray(apiData[key])) {
-                         if (apiData[key].length > 0) {
-                            (merged as any)[key] = apiData[key];
-                        }
-                    }
-                }
-                finalData = merged;
-                console.log("✅ Datos cargados desde la API y fusionados con datos locales.");
-            }
-            setData(finalData);
+          // Find the corresponding app user
+          const appUser = finalData.users.find(u => u.email === firebaseUser.email);
+          setCurrentUser(appUser || null);
 
         } catch (error) {
-            console.error("Could not fetch initial data, falling back to local data:", error);
-            setData(JSON.parse(JSON.stringify(realSantaData)));
+          console.error("Could not fetch initial data, falling back to local structure:", error);
+          setData({ ...realSantaData, accounts: [], ordersSellOut: [], interactions: [] });
+          setCurrentUser(null);
+        } finally {
+          setIsLoading(false);
         }
-
-        setIsLoading(false);
+      }
     };
 
-    loadInitialData();
-  }, []);
-
-  // Efecto para actualizar el usuario actual cuando los datos cambian
-  useEffect(() => {
-      if (data && !currentUser) {
-          // Asigna un usuario por defecto ya que el login está deshabilitado
-          const defaultUser = data.users.find(u => u.id === 'u_nico');
-          setCurrentUser(defaultUser || data.users[0] || null);
-      }
-  }, [data, currentUser]);
-
+    loadDataForUser();
+  }, [firebaseUser]);
 
   const login = useCallback(async () => {
-      console.warn("Login function called, but authentication is disabled.");
-      // Simula un login exitoso asignando un usuario por defecto
-      if(data) {
-          const defaultUser = data.users.find(u => u.id === 'u_nico');
-          setCurrentUser(defaultUser || null);
-      }
-  }, [data]);
-
-
-  const logout = useCallback(async () => {
-    console.warn("Logout function called, but authentication is disabled.");
-    setCurrentUser(null);
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+    } catch (error) {
+      console.error("Error during sign-in:", error);
+    }
   }, []);
 
+  const logout = useCallback(async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error("Error during sign-out:", error);
+    }
+  }, []);
 
   const value = useMemo(
     () => ({
