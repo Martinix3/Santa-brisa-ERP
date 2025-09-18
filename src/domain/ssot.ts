@@ -435,28 +435,26 @@ export interface SantaData {
   influencerCollabs: InfluencerCollab[];
 
   // Antiguos o menos usados (revisar)
-  receipts: any[];
-  purchaseOrders: any[];
   suppliers: Supplier[];
   traceEvents: TraceEvent[];
+  
+  // Placeholder para colecciones futuras o no modeladas aun
+  receipts: any[];
+  purchaseOrders: any[];
   goodsReceipts: any[];
   priceLists: any[];
   nonConformities: any[];
   supplierBills: any[];
   payments: any[];
-  batches: any[];
-  packRuns: any[];
-  trace: any[];
-  qcTests: any[];
 }
 export type { RecipeBomExec } from './production.exec';
 
 // Lista de colecciones válidas para persistencia
 export const SANTA_DATA_COLLECTIONS: (keyof SantaData)[] = [
-    'users', 'accounts', 'products', 'materials', 'distributors', 'interactions', 'ordersSellOut', 
-    'shipments', 'lots', 'inventory', 'stockMoves', 'billOfMaterials', 'productionOrders', 
-    'qaChecks', 'suppliers', 'traceEvents', 'goodsReceipts', 'mktEvents', 'onlineCampaigns', 
-    'creators', 'influencerCollabs'
+    'users', 'accounts', 'distributors', 'products', 'materials', 'billOfMaterials',
+    'interactions', 'ordersSellOut', 'shipments', 'lots', 'inventory', 
+    'stockMoves', 'productionOrders', 'qaChecks', 'suppliers', 'traceEvents', 
+    'goodsReceipts', 'mktEvents', 'onlineCampaigns', 'creators', 'influencerCollabs'
 ];
 
 // -----------------------------------------------------------------
