@@ -13,8 +13,6 @@ import { DEPT_META } from '@/domain/ssot';
 import { TaskBoard, Task } from '@/features/agenda/TaskBoard';
 import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/TaskCompletionDialog';
 import { saveCollection } from '@/features/agenda/components/CalendarPageContent';
-import { runSantaBrain, ChatContext } from '@/ai/flows/santa-brain-flow';
-import { Message } from 'genkit';
 
 function KPI({label, value, icon: Icon}:{label:string; value:number|string; icon: React.ElementType}){
   return (
@@ -114,13 +112,14 @@ export default function PersonalDashboardPage() {
         const originalTask = data.interactions.find(i => i.id === taskId);
         if (!originalTask) return;
     
+        let finalData: SantaData = { ...data };
+
         // 1. Mark the original task as 'done' and add result note
-        const updatedInteractions = data.interactions.map(i =>
+        const updatedInteractions = finalData.interactions.map(i =>
             i.id === taskId ? { ...i, status: 'done' as InteractionStatus, resultNote: (payload as any).note } : i
         );
+        finalData.interactions = updatedInteractions;
         
-        let finalData: SantaData = { ...data, interactions: updatedInteractions };
-
         // 2. If there is a next action, create a new interaction for it
         if (payload.type === 'interaccion' && payload.nextActionDate) {
             const newFollowUp: Interaction = {
@@ -162,7 +161,7 @@ export default function PersonalDashboardPage() {
 
         if (isPersistenceEnabled) {
             await saveCollection('interactions', finalData.interactions, isPersistenceEnabled);
-            if (payload.type === 'venta') {
+            if (payload.type === 'venta' && finalData.ordersSellOut) {
                 await saveCollection('ordersSellOut', finalData.ordersSellOut, isPersistenceEnabled);
             }
         }
@@ -175,7 +174,7 @@ export default function PersonalDashboardPage() {
             <ModuleHeader title="Dashboard Personal" icon={User} />
             <div className="p-6 bg-zinc-50 flex-grow">
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-                    <KPI icon={AlertCircle} label="Tareas Pendientes" value={overdue.length} />
+                    <KPI icon={AlertTriangle} label="Tareas Pendientes" value={overdue.length} />
                     <KPI icon={Clock} label="Tareas Programadas" value={upcoming.length} />
                     <KPI icon={CheckCircle} label="Tareas Hechas (30d)" value={doneTasks.filter(t => t.date && new Date(t.date) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)).length} />
                     <KPI icon={User} label="Tareas en Revisión" value={processingTasks.length} />
