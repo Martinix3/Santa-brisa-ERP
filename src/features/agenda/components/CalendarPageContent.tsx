@@ -7,10 +7,11 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import listPlugin from "@fullcalendar/list";
-import type { EventContentArg } from "@fullcalendar/core";
+import type { EventContentArg, EventClickArg } from "@fullcalendar/core";
 import { useFullCalendarStyles } from "@/features/agenda/useFullCalendarStyles";
 import { TaskBoard, Task } from "@/features/agenda/TaskBoard";
 import { NewEventDialog } from "@/features/agenda/components/NewEventDialog";
+import { EventDetailDialog } from "@/features/agenda/components/EventDetailDialog";
 import { useData } from "@/lib/dataprovider";
 import { ModuleHeader } from "@/components/ui/ModuleHeader";
 import { Calendar } from "lucide-react";
@@ -60,7 +61,7 @@ function mapDomainToTasks(
 
       const type: Department = (i.dept as Department) || "VENTAS";
       return {
-        id: `int_${i.id}`,
+        id: i.id, // Usamos el ID de la interacción directamente
         title: title,
         type,
         status: i.status,
@@ -125,37 +126,28 @@ function Tabs({
 export function CalendarPageContent() {
   useFullCalendarStyles();
   const { data: SantaData, setData, currentUser } = useData();
-
-  const initialTasks = useMemo(() => {
-    if (!SantaData) return [] as Task[];
-    return mapDomainToTasks(
-      SantaData.interactions,
-      SantaData.accounts
-    );
-  }, [SantaData]);
-
-  const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [activeTab, setActiveTab] = useState<"agenda" | "tareas">("agenda");
+  const [selectedEvent, setSelectedEvent] = useState<Interaction | null>(null);
 
-  useEffect(() => { setTasks(initialTasks); }, [initialTasks]);
+  const allInteractions = useMemo(() => SantaData?.interactions || [], [SantaData]);
 
   const calendarEvents = useMemo(
     () =>
-      tasks.map((task) => {
-        const style = DEPT_META[task.type] || DEPT_META.VENTAS;
+      allInteractions.filter(i => i.plannedFor).map((task) => {
+        const style = DEPT_META[task.dept as Department] || DEPT_META.VENTAS;
         return {
           id: task.id,
-          title: task.title,
-          start: task.date,
-          allDay: task.type !== "ALMACEN",
-          extendedProps: { type: task.type },
+          title: task.note,
+          start: task.plannedFor,
+          allDay: task.dept !== "ALMACEN", // Example of allDay logic
+          extendedProps: { type: task.dept },
           backgroundColor: hexToRgba(style.color, 0.25),
           borderColor: hexToRgba(style.color, 0.45),
           textColor: style.textColor,
           className: ["sb-event"],
         };
       }),
-    [tasks]
+    [allInteractions]
   );
   
   const updateAndPersistInteractions = (updatedInteractions: Interaction[]) => {
@@ -166,15 +158,10 @@ export function CalendarPageContent() {
 
   const handleTaskStatusChange = (id: string, newStatus: InteractionStatus) => {
     if (!SantaData) return;
-    setTasks((prev) => moveTaskStatus(prev, id, newStatus));
-
-    if (id.startsWith('int_')) {
-        const interactionId = id.substring(4);
-        const updatedInteractions = SantaData.interactions.map(i => 
-            i.id === interactionId ? { ...i, status: newStatus } : i
-        ) as Interaction[];
-        updateAndPersistInteractions(updatedInteractions);
-    }
+    const updatedInteractions = SantaData.interactions.map(i => 
+        i.id === id ? { ...i, status: newStatus } : i
+    ) as Interaction[];
+    updateAndPersistInteractions(updatedInteractions);
   };
   
   const handleAddEvent = async (event: { title: string } & Omit<Interaction, 'id'|'createdAt'|'status'|'userId'>) => {
@@ -192,6 +179,16 @@ export function CalendarPageContent() {
     const updatedInteractions = [...(SantaData.interactions || []), newInteraction];
     updateAndPersistInteractions(updatedInteractions);
   };
+  
+  const handleEventClick = (clickInfo: EventClickArg) => {
+    const eventId = clickInfo.event.id;
+    const interaction = allInteractions.find(i => i.id === eventId);
+    if(interaction) {
+        setSelectedEvent(interaction);
+    }
+  };
+
+  const tasksForBoard = useMemo(() => mapDomainToTasks(SantaData?.interactions, SantaData?.accounts), [SantaData]);
 
   if (!SantaData) return <div className="p-6">Cargando datos…</div>;
 
@@ -225,6 +222,7 @@ export function CalendarPageContent() {
               initialView="timeGridWeek"
               headerToolbar={{ left: "prev,next today", center: "title", right: "dayGridMonth,timeGridWeek,timeGridDay,listYear" }}
               events={calendarEvents as any}
+              eventClick={handleEventClick}
               eventContent={(arg: EventContentArg) => {
                 const type = (arg.event.extendedProps as any).type as Department;
                 const dept = DEPT_META[type] || DEPT_META.VENTAS;
@@ -255,7 +253,7 @@ export function CalendarPageContent() {
         {activeTab === "tareas" && (
           <div className="h-full rounded-2xl bg-white border border-zinc-200 shadow-sm p-4">
             <TaskBoard
-              tasks={tasks}
+              tasks={tasksForBoard}
               onTaskStatusChange={handleTaskStatusChange}
               onCompleteTask={(id) => handleTaskStatusChange(id, 'done')}
               typeStyles={DEPT_META}
@@ -263,6 +261,24 @@ export function CalendarPageContent() {
           </div>
         )}
       </div>
+
+      {selectedEvent && (
+        <EventDetailDialog
+            event={selectedEvent}
+            open={!!selectedEvent}
+            onOpenChange={() => setSelectedEvent(null)}
+            onUpdate={(updatedEvent) => {
+                 const updatedInteractions = allInteractions.map(i => i.id === updatedEvent.id ? updatedEvent : i);
+                 updateAndPersistInteractions(updatedInteractions as Interaction[]);
+                 setSelectedEvent(null);
+            }}
+            onDelete={(id) => {
+                 const updatedInteractions = allInteractions.filter(i => i.id !== id);
+                 updateAndPersistInteractions(updatedInteractions);
+                 setSelectedEvent(null);
+            }}
+        />
+      )}
 
       <style jsx global>{`
         /* Toolbar */
@@ -314,3 +330,4 @@ export function CalendarPageContent() {
     </>
   );
 }
+
