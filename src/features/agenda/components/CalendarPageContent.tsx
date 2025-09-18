@@ -16,7 +16,7 @@ import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/Tas
 import { MarketingTaskCompletionDialog } from '@/features/marketing/components/MarketingTaskCompletionDialog';
 import { useData } from "@/lib/dataprovider";
 import { ModuleHeader } from "@/components/ui/ModuleHeader";
-import { Calendar } from "lucide-react";
+import { Calendar, Filter } from "lucide-react";
 import { SB_COLORS, DEPT_META } from "@/domain/ssot";
 import type { Department, Interaction, SantaData, OrderSellOut, InteractionStatus, InteractionKind, Account, EventMarketing } from '@/domain/ssot';
 
@@ -116,6 +116,23 @@ function Tabs({
   );
 }
 
+function FilterSelect({ value, onChange, options, placeholder, className }: { value: string, onChange: (v: string) => void, options: Array<{value: string, label: string}>, placeholder: string, className?: string }) {
+  return (
+    <div className={`relative ${className}`}>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="appearance-none w-full text-sm bg-white border border-zinc-200 rounded-md pl-3 pr-8 py-2 outline-none focus:ring-2 focus:ring-yellow-300"
+      >
+        <option value="">{placeholder}</option>
+        {options.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+      </select>
+      <Filter className="h-4 w-4 text-zinc-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+    </div>
+  )
+}
+
+
 export function CalendarPageContent() {
   useFullCalendarStyles();
   const { data: SantaData, setData, currentUser, isPersistenceEnabled } = useData();
@@ -126,8 +143,20 @@ export function CalendarPageContent() {
   const [completingTask, setCompletingTask] = useState<Interaction | null>(null);
   const [completingMarketingTask, setCompletingMarketingTask] = useState<Interaction | null>(null);
 
+  const [responsibleFilter, setResponsibleFilter] = useState('');
+  const [departmentFilter, setDepartmentFilter] = useState('');
 
-  const allInteractions = useMemo(() => SantaData?.interactions || [], [SantaData]);
+
+  const allInteractions = useMemo(() => {
+    if (!SantaData?.interactions) return [];
+    
+    return SantaData.interactions.filter(i => {
+        const matchesResponsible = !responsibleFilter || i.userId === responsibleFilter || (i.involvedUserIds || []).includes(responsibleFilter);
+        const matchesDepartment = !departmentFilter || i.dept === departmentFilter;
+        return matchesResponsible && matchesDepartment;
+    })
+
+  }, [SantaData?.interactions, responsibleFilter, departmentFilter]);
 
   const calendarEvents = useMemo(
     () =>
@@ -150,14 +179,18 @@ export function CalendarPageContent() {
   
   const updateAndPersistInteractions = (updatedInteractions: Interaction[]) => {
       if (!SantaData) return;
-      setData(prev => prev ? ({ ...prev, interactions: updatedInteractions }) : prev);
-      saveCollection('interactions', updatedInteractions, isPersistenceEnabled);
+      
+      const interactionMap = new Map(updatedInteractions.map(i => [i.id, i]));
+      const allInteractions = (SantaData.interactions || []).map(i => interactionMap.get(i.id) || i);
+      
+      setData(prev => prev ? ({ ...prev, interactions: allInteractions }) : prev);
+      saveCollection('interactions', allInteractions, isPersistenceEnabled);
   }
 
   const handleUpdateStatus = (id: string, newStatus: InteractionStatus) => {
     const taskToUpdate = allInteractions.find(i => i.id === id);
+    setSelectedEvent(null); 
      if (newStatus === 'done' && taskToUpdate) {
-        setSelectedEvent(null); // Cierra el diálogo de detalle antes de abrir el de completar
         if (taskToUpdate?.dept === 'VENTAS') {
             setCompletingTask(taskToUpdate);
         } else if (taskToUpdate?.dept === 'MARKETING') {
@@ -188,18 +221,17 @@ export function CalendarPageContent() {
               ...event,
           };
 
-          // Si es de marketing, crear también un EventMarketing
           if (newInteraction.dept === 'MARKETING' && newInteraction.note) {
               const newMktEvent: EventMarketing = {
                   id: `mkt_${Date.now()}`,
                   title: newInteraction.note,
-                  kind: 'OTRO', // Se podría inferir del título o añadir al diálogo
+                  kind: 'OTRO',
                   status: 'planned',
                   startAt: newInteraction.plannedFor || new Date().toISOString(),
                   city: newInteraction.location,
               };
               finalData.mktEvents = [...(finalData.mktEvents || []), newMktEvent];
-              newInteraction.linkedEntity = { type: 'Campaign', id: newMktEvent.id }; // Link it
+              newInteraction.linkedEntity = { type: 'Campaign', id: newMktEvent.id };
               await saveCollection('mktEvents', finalData.mktEvents, isPersistenceEnabled);
           }
 
@@ -245,7 +277,6 @@ export function CalendarPageContent() {
 
     let finalData: SantaData = { ...SantaData };
 
-    // Mark the original task as done and add the result note
     finalData.interactions = finalData.interactions.map(i =>
         i.id === taskId ? { ...i, status: 'done' as InteractionStatus, resultNote: payload.note } : i
     );
@@ -289,7 +320,7 @@ export function CalendarPageContent() {
 
     if (payload.type === 'marketing' && originalTask.linkedEntity?.id) {
         const mktEventId = originalTask.linkedEntity.id;
-        finalData.mktEvents = finalData.mktEvents.map(me => {
+        finalData.mktEvents = (finalData.mktEvents || []).map(me => {
             if (me.id === mktEventId) {
                 return {
                     ...me,
@@ -319,7 +350,10 @@ export function CalendarPageContent() {
   };
 
 
-  const tasksForBoard = useMemo(() => mapDomainToTasks(SantaData?.interactions, SantaData?.accounts), [SantaData]);
+  const tasksForBoard = useMemo(() => mapDomainToTasks(allInteractions, SantaData?.accounts), [allInteractions, SantaData?.accounts]);
+  
+  const userOptions = useMemo(() => (SantaData?.users || []).map(u => ({ value: u.id, label: u.name })), [SantaData?.users]);
+  const departmentOptions = useMemo(() => Object.entries(DEPT_META).map(([key, meta]) => ({ value: key, label: meta.label })), []);
 
   if (!SantaData) return <div className="p-6">Cargando datos…</div>;
 
@@ -332,7 +366,7 @@ export function CalendarPageContent() {
   };
   
   const handleEditRequest = (event: Interaction) => {
-      setSelectedEvent(null); // Cierra el diálogo de detalle
+      setSelectedEvent(null);
       setEditingEvent(event);
       setIsNewEventDialogOpen(true);
   }
@@ -350,6 +384,8 @@ export function CalendarPageContent() {
             ]}
             accentColor={ACCENT}
           />
+          <FilterSelect value={responsibleFilter} onChange={setResponsibleFilter} options={userOptions} placeholder="Responsable" />
+          <FilterSelect value={departmentFilter} onChange={setDepartmentFilter} options={departmentOptions} placeholder="Sector" />
           <button 
             onClick={() => { setEditingEvent(null); setIsNewEventDialogOpen(true); }}
             className="flex items-center gap-2 text-sm text-white rounded-lg px-4 py-2 font-semibold hover:brightness-110 transition-colors"
