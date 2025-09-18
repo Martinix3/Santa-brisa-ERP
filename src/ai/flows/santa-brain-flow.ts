@@ -20,6 +20,7 @@ import type {
   OrderSellOut,
   Product,
   SantaData,
+  User
 } from '@/domain/ssot';
 import {
   AddInteractionSchema,
@@ -71,7 +72,6 @@ const createInteractionTool = ai.defineTool(
     const newDocRef = collectionRef.doc();
     const interactionId = newDocRef.id;
 
-    // We don't have accountId here directly, will be enriched later in the flow
     await newDocRef.set({ 
         ...input, 
         id: interactionId, 
@@ -98,10 +98,9 @@ const createOrderTool = ai.defineTool(
     const newDocRef = collectionRef.doc();
     const orderId = newDocRef.id;
 
-    // We don't have accountId here directly, will be enriched later in the flow
     await newDocRef.set({
         id: orderId,
-        accountName: input.accountName, // Store name temporarily
+        accountName: input.accountName, 
         status: 'open',
         currency: 'EUR',
         createdAt: new Date().toISOString(),
@@ -166,7 +165,7 @@ const upsertAccountTool = ai.defineTool(
     } else {
         docRef = collectionRef.doc();
         accountId = docRef.id;
-        const newAccount: Account = {
+        const newAccount: Partial<Account> = {
             ...input,
             id: accountId,
             createdAt: new Date().toISOString(),
@@ -221,6 +220,7 @@ export type ChatContext = {
   interactions: Interaction[];
   inventory: InventoryItem[];
   mktEvents: EventMarketing[];
+  currentUser: User;
 };
 
 export async function runSantaBrain(
@@ -246,7 +246,6 @@ export async function runSantaBrain(
     accounts: [],
   };
 
-  // ✅ Convierte desde parts → ToolCall[], con guarda de tipo
   const toolRequests: ToolCall[] = (llmResponse.toolRequests ?? [])
     .filter(isToolRequestPart)
     .map((p) => p.toolRequest);
@@ -279,8 +278,8 @@ export async function runSantaBrain(
                 createdAt: new Date().toISOString(),
                 stage: typedInput.stage || 'POTENCIAL',
                 type: typedInput.type || 'HORECA',
-                ownerId: 'u_brain', // Fallback, debería ser el currentUser
-                billerId: 'SB', // Por defecto venta propia
+                ownerId: context.currentUser.id,
+                billerId: 'SB',
               };
               newEntities.accounts!.push(newAccount);
               accountsCreatedInThisTurn.push(newAccount);
@@ -293,15 +292,16 @@ export async function runSantaBrain(
                 accountsCreatedInThisTurn.find((a) => a.name === typedInput.accountName) ??
                 context.accounts.find((a) => a.name === typedInput.accountName);
               if (account) {
-                newEntities.interactions!.push({
+                const newInteraction: Interaction = {
                   id: interactionId,
                   accountId: account.id,
-                  userId: 'u_brain',
+                  userId: context.currentUser.id,
                   kind: typedInput.kind,
                   note: typedInput.note,
                   createdAt: new Date().toISOString(),
                   dept: 'VENTAS',
-                });
+                };
+                newEntities.interactions!.push(newInteraction);
               }
               break;
             }
