@@ -1,5 +1,4 @@
 
-
 "use client";
 import React, { useMemo, useState, useEffect } from "react";
 import dynamic from "next/dynamic";
@@ -212,7 +211,9 @@ export function CalendarPageContent() {
       if (!SantaData) return;
       const fullData = { ...SantaData, interactions: updatedInteractions };
       setData(fullData);
-      saveCollection('interactions', updatedInteractions, isPersistenceEnabled);
+      if (isPersistenceEnabled) {
+        saveCollection('interactions', updatedInteractions, isPersistenceEnabled);
+      }
   }
 
   const handleUpdateStatus = (id: string, newStatus: InteractionStatus) => {
@@ -408,7 +409,7 @@ export function CalendarPageContent() {
 
   return (
     <>
-    <ModuleHeader title="Agenda" icon={Calendar}>
+      <ModuleHeader title="Agenda" icon={Calendar}>
         <div className="flex items-center gap-3">
           <Tabs
             active={activeTab}
@@ -421,67 +422,67 @@ export function CalendarPageContent() {
           />
           <FilterSelect value={responsibleFilter} onChange={setResponsibleFilter} options={userOptions} placeholder="Responsable" />
           <FilterSelect value={departmentFilter} onChange={setDepartmentFilter} options={departmentOptions} placeholder="Sector" />
-          <button 
+          <button
             onClick={() => { setEditingEvent(null); setIsNewEventDialogOpen(true); }}
             className="flex items-center gap-2 text-sm text-white rounded-lg px-4 py-2 font-semibold hover:brightness-110 transition-colors"
-            style={{backgroundColor: ACCENT}}
+            style={{ backgroundColor: ACCENT }}
           >
-             Nueva Tarea
+            Nueva Tarea
           </button>
         </div>
-    </ModuleHeader>
-    <div className="h-full flex flex-col gap-6 p-4 md:p-6 bg-white">
-      <div className="flex-grow min-h-0">
-        {activeTab === "agenda" && (
-          <div className="h-full rounded-2xl bg-white border border-zinc-200 shadow-sm overflow-hidden">
-            <FullCalendar
-              plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
-              initialView="timeGridWeek"
-              headerToolbar={{ left: "prev,next today", center: "title", right: "dayGridMonth,timeGridWeek,timeGridDay,listYear" }}
-              events={calendarEvents as any}
-              eventClick={handleEventClick}
-              editable={true}
-              eventDrop={handleEventDrop}
-              eventContent={(arg: EventContentArg) => {
-                const { type, status } = (arg.event.extendedProps as any);
-                const dept = DEPT_META[type as Department] || DEPT_META.VENTAS;
-                return (
-                  <div className={`flex items-center gap-1.5 ${status === 'done' ? 'line-through' : ''}`}>
-                    <span
-                      className="inline-block h-2 w-2 rounded-full"
-                      style={{ backgroundColor: status === 'done' ? '#9ca3af' : (dept?.color || "#94a3b8") }}
-                    />
-                    {arg.timeText && <span className="text-[11px] text-zinc-600 mr-1">{arg.timeText}</span>}
-                    <span className="text-[12px] font-medium text-zinc-800">{arg.event.title}</span>
-                  </div>
-                );
-              }}
-              height="100%"
-              expandRows
-              nowIndicator
-              slotEventOverlap={false}
-              dayMaxEventRows
-              aspectRatio={1.45}
-              locale="es"
-              firstDay={1}
-              buttonText={{ today: "hoy", month: "mes", week: "semana", day: "día", list: "año" }}
-            />
-          </div>
-        )}
+      </ModuleHeader>
+      <div className="h-full flex flex-col gap-6 p-4 md:p-6 bg-white">
+        <div className="flex-grow min-h-0">
+          {activeTab === "agenda" && (
+            <div className="h-full rounded-2xl bg-white border border-zinc-200 shadow-sm overflow-hidden">
+              <FullCalendar
+                plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
+                initialView="timeGridWeek"
+                headerToolbar={{ left: "prev,next today", center: "title", right: "dayGridMonth,timeGridWeek,timeGridDay,listYear" }}
+                events={calendarEvents as any}
+                eventClick={handleEventClick}
+                editable={true}
+                eventDrop={handleEventDrop}
+                eventContent={(arg: EventContentArg) => {
+                  const { type, status } = (arg.event.extendedProps as any);
+                  const dept = DEPT_META[type as Department] || DEPT_META.VENTAS;
+                  return (
+                    <div className={`flex items-center gap-1.5 ${status === 'done' ? 'line-through' : ''}`}>
+                      <span
+                        className="inline-block h-2 w-2 rounded-full"
+                        style={{ backgroundColor: status === 'done' ? '#9ca3af' : (dept?.color || "#94a3b8") }}
+                      />
+                      {arg.timeText && <span className="text-[11px] text-zinc-600 mr-1">{arg.timeText}</span>}
+                      <span className="text-[12px] font-medium text-zinc-800">{arg.event.title}</span>
+                    </div>
+                  );
+                }}
+                height="100%"
+                expandRows
+                nowIndicator
+                slotEventOverlap={false}
+                dayMaxEventRows
+                aspectRatio={1.45}
+                locale="es"
+                firstDay={1}
+                buttonText={{ today: "hoy", month: "mes", week: "semana", day: "día", list: "año" }}
+              />
+            </div>
+          )}
 
-        {activeTab === "tareas" && (
-          <div className="h-full rounded-2xl bg-white border border-zinc-200 shadow-sm p-4">
-            <TaskBoard
-              tasks={tasksForBoard}
-              onTaskStatusChange={handleUpdateStatus}
-              onCompleteTask={(id) => handleUpdateStatus(id, 'done')}
-              typeStyles={DEPT_META}
-            />
-          </div>
-        )}
-      </div>
-        
-      {isNewEventDialogOpen && (
+          {activeTab === "tareas" && (
+            <div className="h-full rounded-2xl bg-white border border-zinc-200 shadow-sm p-4">
+              <TaskBoard
+                tasks={tasksForBoard}
+                onTaskStatusChange={handleUpdateStatus}
+                onCompleteTask={(id) => handleUpdateStatus(id, 'done')}
+                typeStyles={DEPT_META}
+              />
+            </div>
+          )}
+        </div>
+
+        {isNewEventDialogOpen && (
           <NewEventDialog
             open={isNewEventDialogOpen}
             onOpenChange={setIsNewEventDialogOpen}
@@ -489,84 +490,84 @@ export function CalendarPageContent() {
             accentColor={ACCENT}
             initialEventData={editingEvent}
           />
-      )}
+        )}
 
-      {selectedEvent && (
-        <EventDetailDialog
+        {selectedEvent && (
+          <EventDetailDialog
             event={selectedEvent}
             open={!!selectedEvent}
             onOpenChange={(open) => { if (!open) setSelectedEvent(null) }}
             onUpdateStatus={handleUpdateStatus}
             onEdit={handleEditRequest}
             onDelete={handleDeleteEvent}
-        />
-      )}
+          />
+        )}
 
-      {completingTask && (
-        <TaskCompletionDialog
+        {completingTask && (
+          <TaskCompletionDialog
             task={completingTask}
             open={!!completingTask}
             onClose={() => setCompletingTask(null)}
             onComplete={handleSaveCompletedTask}
-        />
-      )}
+          />
+        )}
 
-      {completingMarketingTask && (
-        <MarketingTaskCompletionDialog
+        {completingMarketingTask && (
+          <MarketingTaskCompletionDialog
             task={completingMarketingTask}
             open={!!completingMarketingTask}
             onClose={() => setCompletingMarketingTask(null)}
             onComplete={handleSaveCompletedTask}
-        />
-      )}
+          />
+        )}
 
-      <style jsx global>{\`
-        /* Toolbar */
-        .fc .fc-toolbar.fc-header-toolbar {
-                margin-bottom: 1.5rem;
-                font-size: 0.875rem;
-            }
-        .fc .fc-toolbar-title { font-weight: 600; color: \${SB_COLORS.accent}; }
-        .fc .fc-button {
-          background: #fff; color: #0f172a; border: 1px solid #e5e7eb;
-          border-radius: 10px; padding: 6px 10px; text-transform: capitalize;
-        }
-        .fc .fc-button:hover { background: #f8fafc; }
-        .fc .fc-button-primary { background: #fff; border-color: #e5e7eb; }
-        .fc .fc-button-primary:not(:disabled).fc-button-active,
-        .fc .fc-button-primary:not(:disabled):active {
-          background: hsl(var(--sb-sun)); 
-          border-color: hsl(var(--sb-sun));
-          color: hsl(var(--sb-neutral-900));
-          font-weight: 600;
-        }
-        .fc-theme-standard td, .fc-theme-standard th { border-color: #e5e7eb; }
-        .fc .fc-day-today { background: \${hexToRgba(SB_COLORS.sun || '#F7D15F', 0.12)} !important; }
-        .fc .fc-button-primary.fc-today-button {
-            background: #fff;
-            border: 1px solid #e5e7eb;
-            color: #0f172a;
-            font-weight: 500;
-        }
-        .fc .fc-button-primary.fc-today-button:disabled {
-            background: \${hexToRgba(ACCENT, 0.15)};
-            border: 1px solid \${hexToRgba(ACCENT, 0.3)};
-            color: \${ACCENT};
+        <style jsx global>{`
+          /* Toolbar */
+          .fc .fc-toolbar.fc-header-toolbar {
+                  margin-bottom: 1.5rem;
+                  font-size: 0.875rem;
+              }
+          .fc .fc-toolbar-title { font-weight: 600; color: ${SB_COLORS.accent}; }
+          .fc .fc-button {
+            background: #fff; color: #0f172a; border: 1px solid #e5e7eb;
+            border-radius: 10px; padding: 6px 10px; text-transform: capitalize;
+          }
+          .fc .fc-button:hover { background: #f8fafc; }
+          .fc .fc-button-primary { background: #fff; border-color: #e5e7eb; }
+          .fc .fc-button-primary:not(:disabled).fc-button-active,
+          .fc .fc-button-primary:not(:disabled):active {
+            background: hsl(var(--sb-sun)); 
+            border-color: hsl(var(--sb-sun));
+            color: hsl(var(--sb-neutral-900));
             font-weight: 600;
-        }
-        /* Eventos */
-        .fc .sb-event {
-          border-radius: 10px;
-          box-shadow: 0 1px 0 rgba(16,24,40,.04);
-          padding: 2px 4px;
-        }
-        .fc .fc-daygrid-event { margin: 2px 4px; }
-        .fc .fc-timegrid-event { margin: 2px 6px; }
-        /* Cabeceras */
-        .fc .fc-col-header-cell-cushion { padding: 8px 0; font-weight: 600; color: #334155; }
-        .fc .fc-timegrid-slot-label { color: #64748b; }
-      \`}</style>
-    </div>
+          }
+          .fc-theme-standard td, .fc-theme-standard th { border-color: #e5e7eb; }
+          .fc .fc-day-today { background: ${hexToRgba(SB_COLORS.sun || '#F7D15F', 0.12)} !important; }
+          .fc .fc-button-primary.fc-today-button {
+              background: #fff;
+              border: 1px solid #e5e7eb;
+              color: #0f172a;
+              font-weight: 500;
+          }
+          .fc .fc-button-primary.fc-today-button:disabled {
+              background: ${hexToRgba(ACCENT, 0.15)};
+              border: 1px solid ${hexToRgba(ACCENT, 0.3)};
+              color: ${ACCENT};
+              font-weight: 600;
+          }
+          /* Eventos */
+          .fc .sb-event {
+            border-radius: 10px;
+            box-shadow: 0 1px 0 rgba(16,24,40,.04);
+            padding: 2px 4px;
+          }
+          .fc .fc-daygrid-event { margin: 2px 4px; }
+          .fc .fc-timegrid-event { margin: 2px 6px; }
+          /* Cabeceras */
+          .fc .fc-col-header-cell-cushion { padding: 8px 0; font-weight: 600; color: #334155; }
+          .fc .fc-timegrid-slot-label { color: #64748b; }
+        `}</style>
+      </div>
     </>
   );
 }

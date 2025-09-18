@@ -612,7 +612,7 @@ function TeamDashboardContent() {
 
 
 // Main Page Component
-function SalesDashboardPageContent(){
+export function SalesDashboardPageContent(){
     const { currentUser, data } = useData();
     const [view, setView] = useState<'personal' | 'team'>('personal');
     const [timePeriod, setTimePeriod] = useState<'week' | 'month' | 'year'>('month');
@@ -689,4 +689,3 @@ export default function SalesDashboardPage() {
         </AuthenticatedLayout>
     )
 }
-
