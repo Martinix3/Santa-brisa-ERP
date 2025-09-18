@@ -1,95 +1,107 @@
 
 import { NextResponse, NextRequest } from 'next/server';
-import { adminDb } from '@/server/firebaseAdmin';
+import { adminAuth, adminDb } from '@/server/firebaseAdmin';
 import { SANTA_DATA_COLLECTIONS, SantaData } from '@/domain/ssot';
-import { realSantaData } from '@/domain/real-data';
-
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-// Hardcoded user ID for dev purposes now that login is removed
-const DEV_USER_ID = 'dev-user-fixed-id';
+async function getUserIdFromRequest(req: NextRequest): Promise<string | null> {
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
+    return null;
+  }
+  const token = authHeader.split('Bearer ')[1];
+  try {
+    const decodedToken = await adminAuth.verifyIdToken(token);
+    return decodedToken.uid;
+  } catch (error) {
+    console.error('Error verifying auth token:', error);
+    return null;
+  }
+}
 
 export async function GET(req: NextRequest) {
+  const userId = await getUserIdFromRequest(req);
+  if (!userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const db = adminDb;
-    
-    const userRootCol = db.collection('userData').doc(DEV_USER_ID);
-
-    let hasData = false;
+    const userRootRef = db.collection('userData').doc(userId);
     const fetchedData: Partial<SantaData> = {};
 
     for (const collectionName of SANTA_DATA_COLLECTIONS) {
-        const docRef = userRootCol.collection(collectionName).doc('all');
-        const docSnap = await docRef.get();
-        if (docSnap.exists) {
-            fetchedData[collectionName as keyof SantaData] = docSnap.data()?.data || [];
-            if ((docSnap.data()?.data || []).length > 0) {
-                hasData = true;
-            }
-        } else {
-            (fetchedData as any)[collectionName as keyof SantaData] = [];
-        }
-    }
-
-    if (!hasData) {
-        const emptyData: Partial<SantaData> = {};
-        SANTA_DATA_COLLECTIONS.forEach(key => {
-            (emptyData as any)[key] = [];
-        });
-        return NextResponse.json(emptyData);
+      const collectionRef = userRootRef.collection(collectionName);
+      const snapshot = await collectionRef.get();
+      
+      const items: any[] = [];
+      snapshot.forEach(doc => {
+        items.push({ id: doc.id, ...doc.data() });
+      });
+      
+      (fetchedData as any)[collectionName as keyof SantaData] = items;
     }
 
     return NextResponse.json(fetchedData);
 
-  } catch (e:any) {
-    console.error('Firestore fetch error in GET:', e);
-    return NextResponse.json({ ok:false, error: e?.message || 'Unknown server error fetching data.' }, { status: 500 });
+  } catch (e: any) {
+    console.error(`[API GET /brain-persist] Firestore fetch error for user ${userId}:`, e);
+    return NextResponse.json({ ok: false, error: e?.message || 'Unknown server error fetching data.' }, { status: 500 });
   }
 }
 
 
 export async function POST(req: NextRequest) {
+  const userId = await getUserIdFromRequest(req);
+  if (!userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const payload = await req.json();
 
     if (payload.persistenceEnabled === false) {
-      return NextResponse.json({ ok: true, message: 'Persistencia desactivada. No se guardaron datos.' });
+      return NextResponse.json({ ok: true, message: 'Persistence disabled. No data was saved.' });
     }
 
-    if (!payload || typeof payload !== 'object') {
-        return NextResponse.json({ ok: false, error: 'Invalid payload. Expecting an object of collections.' }, { status: 400 });
+    if (!payload || typeof payload !== 'object' || !payload.data) {
+        return NextResponse.json({ ok: false, error: 'Invalid payload. Expecting an object with a "data" property.' }, { status: 400 });
     }
 
     const db = adminDb;
     const batch = db.batch();
     let operationsCount = 0;
+    const userRootRef = db.collection('userData').doc(userId);
 
-    const userRootCol = db.collection('userData').doc(DEV_USER_ID);
+    const fullData = payload.data as SantaData;
 
-    for (const collectionName in payload) {
-        if (Object.prototype.hasOwnProperty.call(payload, collectionName) && SANTA_DATA_COLLECTIONS.includes(collectionName as any)) {
-            const collectionData = payload[collectionName];
-            if(Array.isArray(collectionData)) {
-                const docRef = userRootCol.collection(collectionName).doc('all');
-                batch.set(docRef, { data: collectionData }, { merge: true }); 
-                operationsCount++;
-            }
+    for (const collectionName of SANTA_DATA_COLLECTIONS) {
+        const collectionData = fullData[collectionName as keyof SantaData] as any[];
+        if (Array.isArray(collectionData)) {
+            const collectionRef = userRootRef.collection(collectionName);
+            collectionData.forEach(item => {
+                if (item && item.id) {
+                    const docRef = collectionRef.doc(item.id);
+                    batch.set(docRef, item, { merge: true });
+                    operationsCount++;
+                }
+            });
         }
     }
     
     if (operationsCount > 0) {
         await batch.commit();
-        console.log(`[api/brain-persist] Successfully committed data for ${operationsCount} collections for user ${DEV_USER_ID}.`);
+        console.log(`[API POST /brain-persist] Successfully committed ${operationsCount} documents for user ${userId}.`);
     } else {
-        console.log('[api/brain-persist] No valid collections to commit.');
+        console.log(`[API POST /brain-persist] No valid documents to commit for user ${userId}.`);
     }
     
-    return NextResponse.json({ ok: true, message: `${operationsCount} collections saved.` });
+    return NextResponse.json({ ok: true, message: `${operationsCount} documents saved.` });
 
-  } catch (e:any) {
-    console.error('Firestore write error in POST:', e);
+  } catch (e: any) {
+    console.error(`[API POST /brain-persist] Firestore write error for user ${userId}:`, e);
     return NextResponse.json({ ok:false, error: e?.message || 'Unknown server error.' }, { status: 500 });
   }
 }
