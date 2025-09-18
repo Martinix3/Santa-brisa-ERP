@@ -39,7 +39,7 @@ export interface Interaction {
   involvedUserIds?: string[]; // Usuarios adicionales implicados
   accountId?: string; // Cuenta de cliente asociada
   kind: InteractionKind;
-  note?: string;
+  note?: string; // Título o descripción inicial de la tarea
   plannedFor?: string;
   createdAt: string;
   durationMin?: number;
@@ -54,4 +54,11 @@ export interface Interaction {
     id: string;
   };
   tags?: string[];
+  
+  // Nuevos campos para el resultado
+  resultNote?: string; // Resumen de lo que pasó
+  nextAction?: {      // Siguiente paso planificado
+      date?: string;
+      note?: string;
+  };
 }
