@@ -1,8 +1,13 @@
-
-
 // src/domain/ssot.ts
 
-// ---- Primitivas / enums
+// =================================================================
+// == SINGLE SOURCE OF TRUTH (SSOT) - TIPOS DE DATOS CANÓNICOS
+// =================================================================
+
+// -----------------------------------------------------------------
+// 1. Tipos Primitivos y Enums Transversales
+// -----------------------------------------------------------------
+
 export type Uom = 'bottle' | 'case' | 'pallet' | 'uds' | 'kg' | 'g' | 'L' | 'mL';
 export type Stage = 'POTENCIAL' | 'ACTIVA' | 'SEGUIMIENTO' | 'FALLIDA' | 'CERRADA' | 'BAJA';
 export type Department = 'VENTAS' | 'MARKETING' | 'PRODUCCION' | 'ALMACEN' | 'FINANZAS';
@@ -10,8 +15,12 @@ export type InteractionKind = 'VISITA' | 'LLAMADA' | 'EMAIL' | 'WHATSAPP' | 'OTR
 export type InteractionStatus = 'open' | 'done' | 'processing';
 export type OrderStatus = 'open' | 'confirmed' | 'shipped' | 'invoiced' | 'paid' | 'cancelled' | 'lost';
 export type AccountType = 'HORECA' | 'RETAIL' | 'PRIVADA' | 'DISTRIBUIDOR' | 'IMPORTADOR' | 'PROVEEDOR' | 'ONLINE' | 'OTRO';
+export type Currency = 'EUR';
 
-// ---- Cuentas / partners / usuarios
+// -----------------------------------------------------------------
+// 2. Entidades Principales (Personas y Organizaciones)
+// -----------------------------------------------------------------
+
 export type UserRole = 'comercial' | 'admin' | 'ops' | 'owner';
 export interface User { 
   id: string; 
@@ -57,12 +66,13 @@ export interface Account {
 }
 export type AccountRef = { id:string; name:string; city?:string; type?:AccountType };
 
-
 export interface Distributor { id: string; name: string; city?: string; cif?: string; country?: string; }
 export interface Supplier { id: string; name: string; country: string; }
 
+// -----------------------------------------------------------------
+// 3. Productos, Materiales e Inventario
+// -----------------------------------------------------------------
 
-// ---- Productos / materiales / inventario
 export interface Product {
   id: string;
   sku: string;
@@ -128,7 +138,10 @@ export interface StockMove {
   ref?: Record<string, any>;
 }
 
-// ---- Ventas / logística
+// -----------------------------------------------------------------
+// 4. Ventas y Logística
+// -----------------------------------------------------------------
+
 export interface OrderLine { 
   sku: string; 
   qty: number; 
@@ -137,7 +150,9 @@ export interface OrderLine {
   discount?: number;
   lotIds?: string[];
   lotNumber?: string;
+  description?: string;
 }
+
 export interface OrderSellOut {
   id: string; 
   accountId: string; 
@@ -152,15 +167,16 @@ export interface OrderSellOut {
   paymentMethod?: string;
   paymentTermDays?: number;
   invoiceId?: string;
-  externalRef?: string; // Para guardar el ID de la factura de Holded, etc.
+  externalRef?: string;
 }
+
 export interface Interaction {
   id: string;
-  userId: string; // El "owner" o creador de la tarea
-  involvedUserIds?: string[]; // Usuarios adicionales implicados
-  accountId?: string; // Cuenta de cliente asociada
+  userId: string;
+  involvedUserIds?: string[];
+  accountId?: string;
   kind: InteractionKind;
-  note?: string; // Título o descripción inicial de la tarea
+  note?: string;
   plannedFor?: string;
   createdAt: string;
   durationMin?: number;
@@ -168,7 +184,6 @@ export interface Interaction {
   dept?: Department;
   status: InteractionStatus;
   
-  // Campos "vitaminados"
   location?: string;
   linkedEntity?: {
     type: 'Order' | 'Account' | 'Campaign' | 'Collab' | 'Shipment' | 'ProductionOrder' | 'Interaction';
@@ -176,14 +191,12 @@ export interface Interaction {
   };
   tags?: string[];
   
-  // Nuevos campos para el resultado
-  resultNote?: string; // Resumen de lo que pasó
-  nextAction?: {      // Siguiente paso planificado
+  resultNote?: string;
+  nextAction?: {
       date?: string;
       note?: string;
   };
 }
-
 
 export interface ShipmentLine { sku: string; qty: number; lotNumber?: string; unit: 'uds'; name: string; }
 export type ShipmentStatus = 'pending' | 'picking' | 'ready_to_ship' | 'shipped' | 'delivered' | 'cancelled';
@@ -209,7 +222,10 @@ export interface Shipment {
   checks?: { visualOk?: boolean };
 }
 
-// ---- Producción
+// -----------------------------------------------------------------
+// 5. Producción y Calidad
+// -----------------------------------------------------------------
+
 export type QCResult = {
   value?: number | string | boolean;
   notes?: string;
@@ -264,8 +280,6 @@ export interface ProductionOrder {
   actuals?: ActualConsumption[];
   execution?: any;
   costing?: any;
-  productId?: string;
-  plannedQty?: number;
 }
 export interface Shortage { materialId: string; name: string; required: number; available: number; uom: Uom; }
 export interface Reservation { materialId: string; fromLot: string; reservedQty: number; uom: Uom }
@@ -293,7 +307,10 @@ export interface TraceEvent {
     data?: any;
 }
 
-// ---- Marketing
+// -----------------------------------------------------------------
+// 6. Marketing
+// -----------------------------------------------------------------
+
 export interface EventMarketing {
   id: string;
   title: string;
@@ -327,7 +344,6 @@ export interface OnlineCampaign {
 }
 export interface Activation { id: string; }
 
-// ---- Influencers / marketing
 export interface Creator {
     id: string;
     name: string;
@@ -370,11 +386,10 @@ export interface InfluencerCollab {
     createdAt: string; updatedAt: string;
 }
 
-// ---- Recibos / compras mínimos
-export interface GoodsReceipt { id: string; supplierId: string; createdAt: string; expectedAt: string; receivedAt?: string; lines: any[]; externalRef?: string; }
-export interface Receipt { id: string; createdAt: string; }
+// -----------------------------------------------------------------
+// 7. Finanzas
+// -----------------------------------------------------------------
 
-// ---- Finanzas
 export interface CashflowSettings {
   currency: 'EUR';
   openingBalance: number;
@@ -391,32 +406,40 @@ export interface CashflowSettings {
   bucket: 'day'|'week'|'month';
 }
 
-// ---- Dataset canónico
+// -----------------------------------------------------------------
+// 8. Dataset Canónico (El gran objeto de datos)
+// -----------------------------------------------------------------
+
 export interface SantaData {
   users: User[];
   accounts: Account[];
+  distributors: Distributor[];
   products: Product[];
   materials: Material[];
-  distributors: Distributor[];
+  billOfMaterials: BillOfMaterial[];
+  
   interactions: Interaction[];
   ordersSellOut: OrderSellOut[];
   shipments: Shipment[];
+  
   lots: Lot[];
   inventory: InventoryItem[];
   stockMoves: StockMove[];
-  receipts: Receipt[];
-  purchaseOrders: any[];
-  billOfMaterials: BillOfMaterial[];
   productionOrders: ProductionOrder[];
   qaChecks: QACheck[];
-  suppliers: Supplier[];
-  traceEvents: TraceEvent[];
-  goodsReceipts: GoodsReceipt[];
+  
   mktEvents: EventMarketing[];
   onlineCampaigns: OnlineCampaign[];
   activations: Activation[];
   creators: Creator[];
   influencerCollabs: InfluencerCollab[];
+
+  // Antiguos o menos usados (revisar)
+  receipts: any[];
+  purchaseOrders: any[];
+  suppliers: Supplier[];
+  traceEvents: TraceEvent[];
+  goodsReceipts: any[];
   priceLists: any[];
   nonConformities: any[];
   supplierBills: any[];
@@ -428,6 +451,7 @@ export interface SantaData {
 }
 export type { RecipeBomExec } from './production.exec';
 
+// Lista de colecciones válidas para persistencia
 export const SANTA_DATA_COLLECTIONS: (keyof SantaData)[] = [
     'users', 'accounts', 'products', 'materials', 'distributors', 'interactions', 'ordersSellOut', 
     'shipments', 'lots', 'inventory', 'stockMoves', 'billOfMaterials', 'productionOrders', 
@@ -435,20 +459,21 @@ export const SANTA_DATA_COLLECTIONS: (keyof SantaData)[] = [
     'creators', 'influencerCollabs'
 ];
 
-// Helpers canónicos que ya usas
+// -----------------------------------------------------------------
+// 9. Helpers y Constantes Globales
+// -----------------------------------------------------------------
+
 export function inWindow(iso: string, start: number|Date, end: number|Date) {
   const t = +new Date(iso);
   const s = +new Date(start);
   const e = +new Date(end);
   return t >= s && t <= e;
 }
+
 export function orderTotal(o: { totalAmount?: number; lines: { priceUnit:number; qty:number; discount?:number }[] }) {
   if (typeof o.totalAmount === 'number') return o.totalAmount;
   if (!o || !o.lines) return 0;
   return o.lines.reduce((s, l) => s + l.priceUnit * l.qty * (1 - (l.discount || 0)), 0);
-}
-export function isoDaysAgo(n: number) {
-  const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString();
 }
 
 export const MATERIAL_CATEGORIES: Material['category'][] = ['raw', 'packaging', 'label', 'consumable', 'intermediate', 'finished_good', 'merchandising'];
