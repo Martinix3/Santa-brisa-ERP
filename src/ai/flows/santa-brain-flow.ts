@@ -48,9 +48,6 @@ type ToolRequestPart = {
   [k: string]: unknown;
 };
 
-// Hardcoded user ID for dev purposes now that login is removed
-const DEV_USER_ID = 'dev-user-fixed-id';
-
 function isToolRequestPart(part: any): part is ToolRequestPart {
   return !!part && typeof part === 'object' && 'toolRequest' in part && !!part.toolRequest?.name;
 }
@@ -66,9 +63,11 @@ const createInteractionTool = ai.defineTool(
     inputSchema: AddInteractionSchema,
     outputSchema: z.object({ success: z.boolean(), interactionId: z.string() }),
   },
-  async (input) => {
+  async (input, context) => {
+    const userId = context.auth?.uid;
+    if (!userId) throw new Error("Autenticación requerida.");
     console.log(`Tool "createInteraction" called with:`, input);
-    const collectionRef = adminDb.collection('userData').doc(DEV_USER_ID).collection('interactions');
+    const collectionRef = adminDb.collection('userData').doc(userId).collection('interactions');
     const newDocRef = collectionRef.doc();
     const interactionId = newDocRef.id;
 
@@ -76,7 +75,7 @@ const createInteractionTool = ai.defineTool(
         ...input, 
         id: interactionId, 
         createdAt: new Date().toISOString(),
-        userId: DEV_USER_ID,
+        userId: userId,
         dept: 'VENTAS'
     });
 
@@ -92,9 +91,11 @@ const createOrderTool = ai.defineTool(
     inputSchema: CreateOrderSchema,
     outputSchema: z.object({ success: z.boolean(), orderId: z.string() }),
   },
-  async (input) => {
+  async (input, context) => {
+    const userId = context.auth?.uid;
+    if (!userId) throw new Error("Autenticación requerida.");
     console.log(`Tool "createOrder" called with:`, input);
-    const collectionRef = adminDb.collection('userData').doc(DEV_USER_ID).collection('ordersSellOut');
+    const collectionRef = adminDb.collection('userData').doc(userId).collection('ordersSellOut');
     const newDocRef = collectionRef.doc();
     const orderId = newDocRef.id;
 
@@ -125,9 +126,11 @@ const scheduleEventTool = ai.defineTool(
     inputSchema: ScheduleEventSchema,
     outputSchema: z.object({ success: z.boolean(), eventId: z.string() }),
   },
-  async (input) => {
+  async (input, context) => {
+    const userId = context.auth?.uid;
+    if (!userId) throw new Error("Autenticación requerida.");
     console.log(`Tool "scheduleEvent" called with:`, input);
-    const collectionRef = adminDb.collection('userData').doc(DEV_USER_ID).collection('mktEvents');
+    const collectionRef = adminDb.collection('userData').doc(userId).collection('mktEvents');
     const newDocRef = collectionRef.doc();
     const eventId = newDocRef.id;
     
@@ -153,9 +156,11 @@ const upsertAccountTool = ai.defineTool(
     inputSchema: UpsertAccountSchema,
     outputSchema: z.object({ success: z.boolean(), accountId: z.string() }),
   },
-  async (input) => {
+  async (input, context) => {
+    const userId = context.auth?.uid;
+    if (!userId) throw new Error("Autenticación requerida.");
     console.log(`Tool "upsertAccount" called with:`, input);
-    const collectionRef = adminDb.collection('userData').doc(DEV_USER_ID).collection('accounts');
+    const collectionRef = adminDb.collection('userData').doc(userId).collection('accounts');
     let accountId = (input as any).id;
     let docRef;
 
@@ -171,7 +176,7 @@ const upsertAccountTool = ai.defineTool(
             createdAt: new Date().toISOString(),
             stage: input.stage || 'POTENCIAL',
             type: input.type || 'HORECA',
-            ownerId: DEV_USER_ID,
+            ownerId: userId,
             billerId: 'SB', // Por defecto venta propia
         };
         await docRef.set(newAccount);
@@ -237,6 +242,7 @@ export async function runSantaBrain(
     messages: history,
     tools,
     context: [{ role: 'context', content: [{ text: `Contexto de negocio: ${JSON.stringify(context)}` }] }],
+    auth: { uid: context.currentUser.id }
   });
 
   const newEntities: Partial<SantaData> = {
@@ -264,7 +270,7 @@ export async function runSantaBrain(
       }
 
       try {
-        const output = (await tool(toolRequest.input as any)) as ToolOutput;
+        const output = (await tool(toolRequest.input as any, { auth: { uid: context.currentUser.id }})) as ToolOutput;
         toolResponses.push({ toolResponse: { name: toolRequest.name, output } });
 
         if (output.success) {
@@ -300,6 +306,7 @@ export async function runSantaBrain(
                   note: typedInput.note,
                   createdAt: new Date().toISOString(),
                   dept: 'VENTAS',
+                  status: 'done'
                 };
                 newEntities.interactions!.push(newInteraction);
               }

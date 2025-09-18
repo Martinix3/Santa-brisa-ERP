@@ -2,9 +2,10 @@
 import type { SantaData } from './ssot';
 
 const realUsers: SantaData['users'] = [
-    { id: 'u_admin', name: 'Admin', email: 'admin@santabrisa.com', role: 'admin', active: true },
+    { id: 'bovV4Lq6kQX1dPaBflIU8N2Gt', name: 'MJ Santa Brisa', email: 'mj@santabrisa.com', role: 'admin', active: true },
+    { id: 'AAU0Hb1kv6c4gE9u9qihOD2', name: 'Martín', email: 'mj@santabrisa.co', role: 'owner', active: true },
+    { id: 'jUaWe426CGcsesJZ6gEzlmjjk', name: 'Jaime', email: 'martinjaime85@gmail.com', role: 'owner', active: true },
     { id: 'u_nico', name: 'Nico', email: 'nico@santabrisa.com', role: 'owner', active: true },
-    { id: 'u_martin', name: 'Martín', email: 'mj@santabrisa.co', role: 'owner', active: true },
     { id: 'u_patxi', name: 'Patxi', email: 'patxi@santabrisa.com', role: 'comercial', active: true },
     { id: 'u_alfonso', name: 'Alfonso', email: 'alfonso@santabrisa.com', role: 'comercial', active: true },
 ];
