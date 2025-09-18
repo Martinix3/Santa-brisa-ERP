@@ -9,7 +9,7 @@ export const clientApp = getApps().length ? getApp() : initializeApp(clientConfi
 
 export const auth = getAuth(clientApp);
 
-// Persistencia en navegador
+// Persistencia en navegador para mantener la sesión
 setPersistence(auth, browserLocalPersistence).catch((error) => {
   console.error("Error setting persistence:", error);
 });

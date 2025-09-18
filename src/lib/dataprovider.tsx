@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, {
@@ -20,7 +19,6 @@ import {
   User as FirebaseUser,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  getIdToken,
 } from "firebase/auth";
 
 export type DataMode = "test" | "real";
@@ -44,28 +42,14 @@ interface DataContextProps {
 
 const DataContext = createContext<DataContextProps | undefined>(undefined);
 
-
-const getEmptySantaData = (): SantaData => ({
-    users: [], accounts: [], distributors: [], products: [], materials: [],
-    billOfMaterials: [], interactions: [], ordersSellOut: [], shipments: [],
-    lots: [], inventory: [], stockMoves: [], productionOrders: [], qaChecks: [],
-    mktEvents: [], onlineCampaigns: [], creators: [], influencerCollabs: [],
-    // Deprecated or unused, keep empty
-    suppliers: [], traceEvents: [], goodsReceipts: [], activations: [],
-    receipts: [], purchaseOrders: [], priceLists: [], nonConformities: [],
-    supplierBills: [], payments: [],
-});
-
-
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const [mode, setMode] = useState<DataMode>("real");
   const [data, setData] = useState<SantaData | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isPersistenceEnabled, setIsPersistenceEnabled] = useState(true);
+  const [isPersistenceEnabled, setIsPersistenceEnabled] = useState(false); // Default to off
   const [notification, setNotification] = useState<{ id: number; message: string; type: 'success' | 'error' } | null>(null);
-
 
   const showNotification = useCallback((message: string, type: 'success' | 'error' = 'success') => {
     setNotification({ id: Date.now(), message, type });
@@ -74,20 +58,20 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const togglePersistence = useCallback(() => {
     setIsPersistenceEnabled(prev => {
         const newState = !prev;
-        showNotification(`La persistencia de datos ha sido ${newState ? 'ACTIVADA' : 'DESACTIVADA'}.`, 'success');
+        showNotification(`La persistencia está ${newState ? 'ACTIVADA' : 'DESACTIVADA'}.`, 'success');
         return newState;
     });
   }, [showNotification]);
 
   const setCurrentUserById = useCallback((userId: string) => {
     if (data?.users) {
-        const userToSet = data.users.find(u => u.id === userId);
-        if (userToSet) {
-            setCurrentUser(userToSet);
-            showNotification(`Cambiado al usuario: ${userToSet.name}`, 'success');
-        } else {
-            showNotification(`Usuario con ID ${userId} no encontrado.`, 'error');
-        }
+      const userToSet = data.users.find(u => u.id === userId);
+      if (userToSet) {
+        setCurrentUser(userToSet);
+        showNotification(`Cambiado al usuario: ${userToSet.name}`, 'success');
+      } else {
+        showNotification(`Usuario con ID ${userId} no encontrado.`, 'error');
+      }
     }
   }, [data?.users, showNotification]);
 
@@ -96,109 +80,33 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setIsLoading(true);
       setFirebaseUser(user);
-      if (!user) {
+      if (user) {
+        // User signed in. Load mock data.
+        setData(mockData);
+        // Find matching app user or create one
+        const appUser = mockData.users.find(u => u.email === user.email);
+        if (appUser) {
+          setCurrentUser(appUser);
+        } else {
+          // If user is not in mock data, use a default or create one dynamically
+           const newUser: User = {
+              id: user.uid,
+              name: user.displayName || user.email || 'Nuevo Usuario',
+              email: user.email!,
+              role: 'comercial', 
+              active: true,
+          };
+          setCurrentUser(newUser);
+        }
+      } else {
         // User is signed out
         setData(null);
         setCurrentUser(null);
-        setIsLoading(false);
       }
+      setIsLoading(false);
     });
     return () => unsubscribe();
   }, []);
-
-  // Fetch data when a user signs in
-  useEffect(() => {
-    const loadDataForUser = async () => {
-      if (firebaseUser) {
-        let token: string | null = null;
-        try {
-          // Force refresh the token to make sure it's valid
-          token = await getIdToken(firebaseUser, true);
-        } catch (error) {
-          console.error("Error getting auth token:", error);
-          showNotification('La sesión ha caducado. Por favor, inicia sesión de nuevo.', 'error');
-          setIsLoading(false);
-          await signOut(auth); // Log out the user if token is invalid
-          return;
-        }
-
-        if (!token) {
-          console.warn("Could not get auth token. Aborting data fetch.");
-          setIsLoading(false);
-          return;
-        }
-
-        try {
-          const headers = { 'Authorization': `Bearer ${token}` };
-          const response = await fetch("/api/brain-persist", { headers });
-
-          let finalData: SantaData = getEmptySantaData();
-          finalData.users = mockData.users; 
-          finalData.distributors = mockData.distributors;
-          
-          if (response.ok) {
-            const apiData = await response.json();
-            Object.keys(apiData).forEach(key => {
-                const collectionName = key as keyof SantaData;
-                if (Array.isArray(apiData[collectionName])) {
-                    (finalData as any)[collectionName] = apiData[collectionName];
-                }
-            });
-            console.log("✅ Datos cargados desde la API para el usuario.");
-          } else {
-            console.warn(`API fetch failed (${response.status}). Starting with an empty dataset for new user.`);
-          }
-          
-          let appUser = finalData.users.find(u => u.email === firebaseUser.email);
-
-          if (!appUser) {
-              console.log(`Usuario de Firebase '${firebaseUser.email}' no encontrado en la BD. Creando nuevo perfil...`);
-              const newUser: User = {
-                  id: firebaseUser.uid,
-                  name: firebaseUser.displayName || firebaseUser.email || 'Nuevo Usuario',
-                  email: firebaseUser.email!,
-                  role: 'comercial', 
-                  active: true,
-              };
-
-              finalData.users = [...finalData.users, newUser];
-              appUser = newUser;
-
-              if (isPersistenceEnabled) {
-                  try {
-                       const createToken = await getIdToken(firebaseUser, true);
-                       await fetch('/api/brain-persist', {
-                          method: 'POST',
-                          headers: { 'Authorization': `Bearer ${createToken}`, 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ 
-                            data: { users: [newUser] }, 
-                            persistenceEnabled: true,
-                            strategy: 'merge'
-                          }),
-                      });
-                      showNotification('Perfil de usuario creado con éxito.', 'success');
-                  } catch (e) {
-                      showNotification('Error al guardar el nuevo perfil de usuario.', 'error');
-                      console.error("Error saving new user:", e);
-                  }
-              }
-          }
-
-          setData(finalData);
-          setCurrentUser(appUser || null);
-
-        } catch (error) {
-          console.error("Could not fetch initial data, falling back to local structure:", error);
-          setData(getEmptySantaData());
-          setCurrentUser(null);
-        } finally {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    loadDataForUser();
-  }, [firebaseUser, isPersistenceEnabled, showNotification]);
 
   const login = useCallback(async () => {
     try {

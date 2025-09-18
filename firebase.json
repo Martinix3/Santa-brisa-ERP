@@ -1,20 +1,10 @@
 {
-  "hosting": {
-    "site": "santa-brisa-erp-v1",
-    "source": ".",
-    "ignore": [
-      "firebase.json",
-      "**/.*",
-      "**/node_modules/**"
-    ],
-    "frameworksBackend": {
-      "region": "us-central1"
-    }
-  },
   "client": {
-    "apiKey": "REEMPLAZA_CON_TU_API_KEY",
-    "authDomain": "REEMPLAZA_CON_TU_AUTH_DOMAIN",
-    "projectId": "REEMPLAZA_CON_TU_PROJECT_ID",
-    "appId": "REEMPLAZA_CON_TU_APP_ID"
+    "apiKey": "AIzaSyAbPqt51bslHSvs0LROCWt7WSQBrMNqKN0",
+    "authDomain": "your-project-id.firebaseapp.com",
+    "projectId": "your-project-id",
+    "storageBucket": "your-project-id.appspot.com",
+    "messagingSenderId": "123456789012",
+    "appId": "1:123456789012:web:a1b2c3d4e5f6a7b8c9d0"
   }
 }
