@@ -1,10 +1,9 @@
-
 // src/features/agenda/TaskBoard.tsx
 "use client";
 import React, { useMemo } from 'react';
 import { DndContext, useDraggable, useDroppable, closestCorners } from '@dnd-kit/core';
 import type { Department, InteractionStatus, User, Interaction } from '@/domain/ssot';
-import { Check, User as UserIcon, AlertCircle, Clock, Loader } from 'lucide-react';
+import { Check, User as UserIcon, AlertCircle, Clock } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
 
 export type Task = {
@@ -18,12 +17,11 @@ export type Task = {
   linkedEntity?: Interaction['linkedEntity'];
 };
 
-type ColumnId = 'overdue' | 'upcoming' | 'processing' | 'done';
+type ColumnId = 'overdue' | 'upcoming' | 'done';
 
 const KANBAN_COLS: { id: ColumnId, label: string, icon: React.ElementType, headerColor: string }[] = [
     { id: 'overdue', label: 'Pendientes', icon: AlertCircle, headerColor: 'text-rose-600' },
     { id: 'upcoming', label: 'Programadas', icon: Clock, headerColor: 'text-cyan-600' },
-    { id: 'processing', label: 'Pendiente de revisión', icon: Loader, headerColor: 'text-amber-600' },
     { id: 'done', label: 'Hechas', icon: Check, headerColor: 'text-emerald-600' },
 ];
 
@@ -52,8 +50,7 @@ function Avatar({ name }: { name?: string }) {
 }
 
 function TaskCard({ task, typeStyles, onComplete }: { task: Task; typeStyles: any, onComplete: (id: string) => void; }) {
-    const isProcessing = task.status === 'processing';
-    const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: task.id, disabled: isProcessing });
+    const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: task.id });
     const { data: santaData } = useData();
     const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined;
     const typeStyle = typeStyles[task.type] || {};
@@ -66,19 +63,18 @@ function TaskCard({ task, typeStyles, onComplete }: { task: Task; typeStyles: an
             style={style}
             {...listeners} 
             {...attributes}
-            onClick={() => onComplete(task.id)}
-            className={`p-3 bg-white rounded-lg border shadow-sm group ${isProcessing ? 'cursor-pointer' : 'cursor-grab'}`}
+            className="p-3 bg-white rounded-lg border shadow-sm group cursor-grab"
         >
-            <p className={`font-medium text-sm text-zinc-800 ${isProcessing ? 'opacity-60' : ''}`}>{task.title}</p>
-            {task.location && <p className={`text-xs text-zinc-500 mt-1 ${isProcessing ? 'opacity-60' : ''}`}>📍 {task.location}</p>}
+            <p className="font-medium text-sm text-zinc-800">{task.title}</p>
+            {task.location && <p className="text-xs text-zinc-500 mt-1">📍 {task.location}</p>}
             <div className="mt-2 flex justify-between items-center">
                 <span 
-                    className={`text-xs font-semibold px-2 py-0.5 rounded-full ${isProcessing ? 'opacity-60' : ''}`}
+                    className="text-xs font-semibold px-2 py-0.5 rounded-full"
                     style={{ backgroundColor: typeStyle.color, color: typeStyle.textColor }}
                 >
                     {typeStyle.label}
                 </span>
-                <div className={`flex items-center gap-2 ${isProcessing ? 'opacity-60' : ''}`}>
+                <div className="flex items-center gap-2">
                     <div className="flex -space-x-2">
                         {involvedUsers.map(user => <Avatar key={user.id} name={user.name} />)}
                     </div>
@@ -104,7 +100,7 @@ function StatusColumn({ col, tasks, typeStyles, onCompleteTask }: { col: typeof 
     return (
         <div ref={setNodeRef} className="bg-zinc-100/70 p-3 rounded-xl w-full">
             <h3 className={`flex items-center gap-2 font-semibold px-1 mb-3 ${col.headerColor}`}>
-                <col.icon size={18} className={col.id === 'processing' ? 'animate-spin' : ''} />
+                <col.icon size={18} />
                 {col.label}
                 <span className="text-sm font-normal text-zinc-500">{tasks.length}</span>
             </h3>
@@ -123,9 +119,8 @@ export function TaskBoard({ tasks, onTaskStatusChange, onCompleteTask, typeStyle
         const openTasks = tasks.filter(t => t.status === 'open');
         const upcoming = openTasks.filter(t => t.date && new Date(t.date) >= now);
         const overdue = openTasks.filter(t => !t.date || new Date(t.date) < now);
-        const processing = tasks.filter(t => t.status === 'processing');
         const done = tasks.filter(t => t.status === 'done');
-        return { upcoming, overdue, processing, done };
+        return { upcoming, overdue, done };
     }, [tasks]);
 
     function handleDragEnd(event: any) {
@@ -135,7 +130,7 @@ export function TaskBoard({ tasks, onTaskStatusChange, onCompleteTask, typeStyle
             const newColId = over.id as ColumnId;
             const task = tasks.find(t => t.id === taskId);
             
-            if (!task || task.status === 'processing') return; // Cannot drag processing tasks
+            if (!task) return;
 
             if (newColId === 'done' && task.status !== 'done') {
                 onCompleteTask(taskId);
@@ -145,7 +140,7 @@ export function TaskBoard({ tasks, onTaskStatusChange, onCompleteTask, typeStyle
 
     return (
         <DndContext onDragEnd={handleDragEnd} collisionDetection={closestCorners}>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <StatusColumn
                     col={KANBAN_COLS[0]}
                     tasks={categorizedTasks.overdue}
@@ -160,12 +155,6 @@ export function TaskBoard({ tasks, onTaskStatusChange, onCompleteTask, typeStyle
                 />
                  <StatusColumn
                     col={KANBAN_COLS[2]}
-                    tasks={categorizedTasks.processing}
-                    typeStyles={typeStyles}
-                    onCompleteTask={onCompleteTask}
-                />
-                 <StatusColumn
-                    col={KANBAN_COLS[3]}
                     tasks={categorizedTasks.done}
                     typeStyles={typeStyles}
                     onCompleteTask={onCompleteTask}

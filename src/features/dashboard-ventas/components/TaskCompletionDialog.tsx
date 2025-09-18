@@ -25,9 +25,9 @@ export function TaskCompletionDialog({ task, open, onClose, onComplete }: {
         <SBDialog open={open} onOpenChange={onClose}>
             <SBDialogContent
                 title={`Completar: ${task.note}`}
-                description="Escribe lo que ha pasado en la interacción. Santa Brain se encargará de crear los registros necesarios (pedidos, próximas visitas, etc.)"
+                description="Escribe lo que ha pasado. Santa Brain leerá tu nota para crear pedidos, próximas visitas, etc."
                 onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}
-                primaryAction={{ label: 'Guardar y Procesar', type: 'submit' }}
+                primaryAction={{ label: 'Guardar y Completar', type: 'submit' }}
                 secondaryAction={{ label: 'Cancelar', onClick: onClose }}
             >
                 <div className="space-y-4 pt-2">

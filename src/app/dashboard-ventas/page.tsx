@@ -213,8 +213,7 @@ function PersonalDashboardContent({ displayedUser, timePeriod, setTimePeriod }: 
 
     const handleCompleteTask = (
       taskId: string,
-      resultNote: string,
-      nextActionNote?: string
+      resultNote: string
     ) => {
         if (!santaData) return;
         const updatedInteractions = santaData.interactions.map((i) => {
@@ -222,8 +221,7 @@ function PersonalDashboardContent({ displayedUser, timePeriod, setTimePeriod }: 
                 return {
                     ...i,
                     status: 'done' as InteractionStatus,
-                    resultNote,
-                    nextAction: nextActionNote ? { note: nextActionNote } : i.nextAction,
+                    resultNote
                 };
             }
             return i;
