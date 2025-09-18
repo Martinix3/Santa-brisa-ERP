@@ -7,6 +7,7 @@ export type Uom = 'bottle' | 'case' | 'pallet' | 'uds' | 'kg' | 'g' | 'L' | 'mL'
 export type Stage = 'POTENCIAL' | 'ACTIVA' | 'SEGUIMIENTO' | 'FALLIDA' | 'CERRADA' | 'BAJA';
 export type Department = 'VENTAS' | 'MARKETING' | 'PRODUCCION' | 'ALMACEN' | 'FINANZAS';
 export type InteractionKind = 'VISITA' | 'LLAMADA' | 'EMAIL' | 'WHATSAPP' | 'OTRO';
+export type InteractionStatus = 'open' | 'done' | 'processing';
 export type OrderStatus = 'open' | 'confirmed' | 'shipped' | 'invoiced' | 'paid' | 'cancelled' | 'lost';
 export type AccountType = 'HORECA' | 'RETAIL' | 'PRIVADA' | 'DISTRIBUIDOR' | 'IMPORTADOR' | 'PROVEEDOR' | 'ONLINE' | 'OTRO';
 
@@ -155,15 +156,32 @@ export interface OrderSellOut {
 }
 export interface Interaction {
   id: string;
-  accountId: string;
-  userId: string;
+  userId: string; // El "owner" o creador de la tarea
+  involvedUserIds?: string[]; // Usuarios adicionales implicados
+  accountId?: string; // Cuenta de cliente asociada
   kind: InteractionKind;
-  note?: string;
+  note?: string; // Título o descripción inicial de la tarea
   plannedFor?: string;
   createdAt: string;
   durationMin?: number;
   sentiment?: 'pos' | 'neu' | 'neg';
   dept?: Department;
+  status: InteractionStatus;
+  
+  // Campos "vitaminados"
+  location?: string;
+  linkedEntity?: {
+    type: 'Order' | 'Account' | 'Campaign' | 'Collab' | 'Shipment' | 'ProductionOrder' | 'Interaction';
+    id: string;
+  };
+  tags?: string[];
+  
+  // Nuevos campos para el resultado
+  resultNote?: string; // Resumen de lo que pasó
+  nextAction?: {      // Siguiente paso planificado
+      date?: string;
+      note?: string;
+  };
 }
 
 

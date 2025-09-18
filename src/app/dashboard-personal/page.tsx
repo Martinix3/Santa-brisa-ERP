@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useMemo, useState } from 'react';
@@ -14,7 +15,9 @@ import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/Tas
 import { saveCollection } from '@/features/agenda/components/CalendarPageContent';
 import { runSantaBrain, ChatContext } from '@/ai/flows/santa-brain-flow';
 import { Message } from 'genkit';
-
+import { EventDetailDialog } from '@/features/agenda/components/EventDetailDialog';
+import { NewEventDialog } from '@/features/agenda/components/NewEventDialog';
+import { SB_COLORS } from '@/components/ui/ui-primitives';
 
 function KPI({label, value, icon: Icon}:{label:string; value:number|string; icon: React.ElementType}){
   return (
@@ -45,6 +48,7 @@ function mapInteractionsToTasks(interactions: Interaction[], accounts: any[]): T
       date: i.plannedFor,
       involvedUserIds: i.involvedUserIds || [i.userId],
       location: i.location || accountMap.get(i.accountId || ''),
+      linkedEntity: i.linkedEntity,
     }));
 }
 
@@ -52,6 +56,10 @@ function mapInteractionsToTasks(interactions: Interaction[], accounts: any[]): T
 export default function PersonalDashboardPage() {
     const { currentUser, data, setData, isPersistenceEnabled } = useData();
     const [completingTask, setCompletingTask] = useState<Interaction | null>(null);
+    const [selectedEvent, setSelectedEvent] = useState<Interaction | null>(null);
+    const [editingEvent, setEditingEvent] = useState<Interaction | null>(null);
+    const [isNewEventDialogOpen, setIsNewEventDialogOpen] = useState(false);
+
 
     const allMyInteractions = useMemo(() => {
         if (!data || !currentUser) return [];
@@ -81,10 +89,10 @@ export default function PersonalDashboardPage() {
     const handleTaskStatusChange = (taskId: string, newStatus: InteractionStatus) => {
         if (!data) return;
 
-        if (newStatus === 'done') {
-            const taskToComplete = allMyInteractions.find(i => i.id === taskId);
-            if(taskToComplete) {
-                setCompletingTask(taskToComplete);
+        const taskToUpdate = allMyInteractions.find(i => i.id === taskId);
+        if (newStatus === 'done' && taskToUpdate && taskToUpdate.dept === 'VENTAS') {
+             if(taskToUpdate) {
+                setCompletingTask(taskToUpdate);
             }
         } else {
             const updatedInteractions = data.interactions.map(i => 
@@ -100,7 +108,11 @@ export default function PersonalDashboardPage() {
     const handleCompleteTask = (taskId: string) => {
         const taskToComplete = allMyInteractions.find(i => i.id === taskId);
         if(taskToComplete) {
-            setCompletingTask(taskToComplete);
+            if (taskToComplete.status === 'processing') {
+                setSelectedEvent(taskToComplete);
+            } else {
+                setCompletingTask(taskToComplete);
+            }
         }
     }
 
@@ -135,12 +147,12 @@ export default function PersonalDashboardPage() {
     
         const { newEntities } = await runSantaBrain([], resultNote, chatContext);
     
-        // 3. Merge new entities. The task remains in 'processing' status.
+        // 3. Merge new entities and link them to the original task
         setData((prevData) => {
           if (!prevData) return null;
           let latestData = { ...prevData };
+          let linkedEntity: Interaction['linkedEntity'] | undefined = undefined;
     
-          // Merge new entities
           for (const key in newEntities) {
             const collectionName = key as keyof SantaData;
             if (newEntities[collectionName] && Array.isArray(newEntities[collectionName])) {
@@ -148,30 +160,76 @@ export default function PersonalDashboardPage() {
               if (newItems.length > 0) {
                 const existingItems = (latestData[collectionName] as any[]) || [];
                 latestData[collectionName] = [...existingItems, ...newItems] as any;
+                
+                // Link the first created entity to the task
+                if(!linkedEntity) {
+                    if (collectionName === 'ordersSellOut') linkedEntity = { type: 'Order', id: newItems[0].id };
+                    if (collectionName === 'interactions') linkedEntity = { type: 'Interaction', id: newItems[0].id };
+                    if (collectionName === 'accounts') linkedEntity = { type: 'Account', id: newItems[0].id };
+                }
               }
             }
           }
+
+          if (linkedEntity) {
+              latestData.interactions = latestData.interactions.map(i => i.id === taskId ? {...i, linkedEntity} : i);
+          }
           
-           // We could persist the new entities here, but for simplicity we'll rely on the global save.
-    
           return latestData;
         });
 
       } catch (error) {
         console.error("Error processing task completion with AI:", error);
-        // Optional: Revert task status to 'open' on error
         setData((prevData) => {
            if (!prevData) return null;
            const revertedInteractions = prevData.interactions.map((i) =>
              i.id === taskId ? { ...i, status: 'open' as InteractionStatus } : i
            );
-           // Also notify user about the error
             alert("Hubo un error al procesar la tarea con la IA. La tarea se ha vuelto a poner como pendiente.");
            return { ...prevData, interactions: revertedInteractions };
         });
       }
     };
     
+    const updateAndPersistInteractions = (updatedInteractions: Interaction[]) => {
+      if (!data) return;
+      setData(prev => prev ? ({ ...prev, interactions: updatedInteractions }) : null);
+      saveCollection('interactions', updatedInteractions, isPersistenceEnabled);
+    }
+  
+    const handleAddOrUpdateEvent = async (event: Omit<Interaction, 'createdAt' | 'status' | 'userId'> & { id?: string }) => {
+        if (!currentUser || !data) return;
+        if (event.id) { // Update existing
+            const updatedInteractions = data.interactions.map(i => i.id === event.id ? { ...i, ...event } : i);
+            updateAndPersistInteractions(updatedInteractions as Interaction[]);
+        } else { // Create new
+            const newInteraction: Interaction = {
+                id: `int_${Date.now()}`,
+                createdAt: new Date().toISOString(),
+                status: 'open',
+                userId: currentUser.id,
+                ...event,
+            };
+            const updatedInteractions = [...(data.interactions || []), newInteraction];
+            updateAndPersistInteractions(updatedInteractions);
+        }
+        setEditingEvent(null);
+        setIsNewEventDialogOpen(false);
+    };
+
+    const handleDeleteEvent = (id: string) => {
+        if (!data) return;
+        const updatedInteractions = data.interactions.filter(i => i.id !== id);
+        updateAndPersistInteractions(updatedInteractions);
+        setSelectedEvent(null);
+    };
+    
+    const handleEditRequest = (event: Interaction) => {
+        setSelectedEvent(null);
+        setEditingEvent(event);
+        setIsNewEventDialogOpen(true);
+    };
+
 
     return (
         <AuthenticatedLayout>
@@ -197,6 +255,27 @@ export default function PersonalDashboardPage() {
                     open={!!completingTask}
                     onClose={() => setCompletingTask(null)}
                     onComplete={handleSaveCompletedTask}
+                />
+            )}
+            
+            {selectedEvent && (
+                <EventDetailDialog
+                    event={selectedEvent}
+                    open={!!selectedEvent}
+                    onOpenChange={() => setSelectedEvent(null)}
+                    onUpdateStatus={handleTaskStatusChange}
+                    onEdit={handleEditRequest}
+                    onDelete={handleDeleteEvent}
+                />
+            )}
+
+            {isNewEventDialogOpen && data && (
+                <NewEventDialog
+                    open={isNewEventDialogOpen}
+                    onOpenChange={setIsNewEventDialogOpen}
+                    onSave={handleAddOrUpdateEvent as any}
+                    accentColor={SB_COLORS.accent}
+                    initialEventData={editingEvent}
                 />
             )}
         </AuthenticatedLayout>

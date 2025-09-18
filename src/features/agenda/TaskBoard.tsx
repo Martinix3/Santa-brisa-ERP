@@ -1,8 +1,9 @@
+
 // src/features/agenda/TaskBoard.tsx
 "use client";
 import React, { useMemo } from 'react';
 import { DndContext, useDraggable, useDroppable, closestCorners } from '@dnd-kit/core';
-import type { Department, InteractionStatus, User } from '@/domain/ssot';
+import type { Department, InteractionStatus, User, Interaction } from '@/domain/ssot';
 import { Check, User as UserIcon, AlertCircle, Clock, Loader } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
 
@@ -14,6 +15,7 @@ export type Task = {
   date?: string;
   involvedUserIds?: string[];
   location?: string;
+  linkedEntity?: Interaction['linkedEntity'];
 };
 
 type ColumnId = 'overdue' | 'upcoming' | 'processing' | 'done';
@@ -50,22 +52,22 @@ function Avatar({ name }: { name?: string }) {
 }
 
 function TaskCard({ task, typeStyles, onComplete }: { task: Task; typeStyles: any, onComplete: (id: string) => void; }) {
-    const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: task.id });
+    const isProcessing = task.status === 'processing';
+    const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: task.id, disabled: isProcessing });
     const { data: santaData } = useData();
     const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined;
     const typeStyle = typeStyles[task.type] || {};
 
     const involvedUsers = (task.involvedUserIds || []).map(id => santaData?.users.find(u => u.id === id)).filter(Boolean) as User[];
     
-    const isProcessing = task.status === 'processing';
-
     return (
         <div 
             ref={setNodeRef} 
             style={style}
             {...listeners} 
             {...attributes}
-            className={`p-3 bg-white rounded-lg border shadow-sm group ${isProcessing ? 'cursor-not-allowed' : 'cursor-grab'}`}
+            onClick={() => onComplete(task.id)}
+            className={`p-3 bg-white rounded-lg border shadow-sm group ${isProcessing ? 'cursor-pointer' : 'cursor-grab'}`}
         >
             <p className={`font-medium text-sm text-zinc-800 ${isProcessing ? 'opacity-60' : ''}`}>{task.title}</p>
             {task.location && <p className={`text-xs text-zinc-500 mt-1 ${isProcessing ? 'opacity-60' : ''}`}>📍 {task.location}</p>}
@@ -136,7 +138,7 @@ export function TaskBoard({ tasks, onTaskStatusChange, onCompleteTask, typeStyle
             if (!task || task.status === 'processing') return; // Cannot drag processing tasks
 
             if (newColId === 'done' && task.status !== 'done') {
-                onTaskStatusChange(taskId, 'done');
+                onCompleteTask(taskId);
             }
         }
     }
