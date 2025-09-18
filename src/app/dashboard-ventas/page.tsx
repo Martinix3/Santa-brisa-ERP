@@ -1,16 +1,20 @@
 
+
 "use client";
 import React, { useMemo, useState, useEffect } from "react";
-import { BarChart3, Clock, MapPin, Phone, Target, Users, Briefcase, ChevronDown, MessageSquare, Map as MapIcon, ShoppingCart, UserPlus, User, BrainCircuit } from "lucide-react";
+import { BarChart3, Clock, MapPin, Phone, Target, Users, Briefcase, ChevronDown, MessageSquare, Map as MapIcon, ShoppingCart, UserPlus, User, BrainCircuit, CheckCircle, Edit, Trash2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { ResponsiveContainer, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip, Line } from "recharts";
 import { useData } from "@/lib/dataprovider";
 import { ModuleHeader } from "@/components/ui/ModuleHeader";
 import { SBCard, SBButton, SB_COLORS } from "@/components/ui/ui-primitives";
-import type { User as UserType, OrderSellOut, Interaction, Account } from '@/domain/ssot';
+import type { User as UserType, OrderSellOut, Interaction, Account, InteractionStatus } from '@/domain/ssot';
 import { orderTotal, inWindow } from '@/domain/ssot';
 import { generateInsights } from "@/ai/flows/generate-insights-flow";
 import AuthenticatedLayout from "@/components/layouts/AuthenticatedLayout";
+import { EventDetailDialog } from "@/features/agenda/components/EventDetailDialog";
+import { NewEventDialog } from "@/features/agenda/components/NewEventDialog";
+import { saveCollection } from '@/features/agenda/components/CalendarPageContent';
 
 
 const formatEur = (n: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
@@ -39,8 +43,12 @@ function PersonalDashboardContent({ displayedUser, timePeriod, setTimePeriod }: 
     timePeriod: 'week' | 'month' | 'year',
     setTimePeriod: (p: 'week' | 'month' | 'year') => void,
 }){
-  const { data: santaData } = useData();
+  const { data: santaData, setData, currentUser } = useData();
   const accent = SB_COLORS.accent;
+
+  const [selectedEvent, setSelectedEvent] = useState<Interaction | null>(null);
+  const [editingEvent, setEditingEvent] = useState<Interaction | null>(null);
+  const [isNewEventDialogOpen, setIsNewEventDialogOpen] = useState(false);
 
   const userStats = useMemo(() => {
     if (!santaData || !displayedUser) {
@@ -104,10 +112,11 @@ function PersonalDashboardContent({ displayedUser, timePeriod, setTimePeriod }: 
 
     // Upcoming Interactions
     const upcomingInteractions = userInteractions
-        .filter(i => i.plannedFor && new Date(i.plannedFor) >= new Date())
+        .filter(i => i.plannedFor && new Date(i.plannedFor) >= new Date() && i.status === 'open')
         .sort((a,b) => new Date(a.plannedFor!).getTime() - new Date(b.plannedFor!).getTime())
         .slice(0, 5)
         .map(i => ({
+            ...i,
             title: i.note || `${i.kind} - ${santaData.accounts.find(a=>a.id===i.accountId)?.name}`,
             when: new Date(i.plannedFor!).toLocaleString('es-ES', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }),
             icon: i.kind === 'LLAMADA' ? Phone : MapPin
@@ -157,11 +166,58 @@ function PersonalDashboardContent({ displayedUser, timePeriod, setTimePeriod }: 
   const revVsTeamPct = Math.round(((userStats.revenue - userStats.teamAvg.revenue) / (userStats.teamAvg.revenue || 1)) * 1000) / 10;
   const visitsVsTeamPct = Math.round(((userStats.visits - userStats.teamAvg.visits) / (userStats.teamAvg.visits || 1)) * 1000) / 10;
   
+    const updateAndPersistInteractions = (updatedInteractions: Interaction[]) => {
+      if (!santaData) return;
+      setData(prev => prev ? ({ ...prev, interactions: updatedInteractions }) : null);
+      saveCollection('interactions', updatedInteractions);
+    }
+  
+    const handleUpdateStatus = (id: string, newStatus: InteractionStatus) => {
+        const updatedInteractions = santaData.interactions.map(i => 
+            i.id === id ? { ...i, status: newStatus } : i
+        ) as Interaction[];
+        updateAndPersistInteractions(updatedInteractions);
+    };
+
+    const handleAddOrUpdateEvent = async (event: Omit<Interaction, 'createdAt' | 'status' | 'userId'> & { id?: string }) => {
+        if (!currentUser) return;
+        if (event.id) { // Update existing
+            const updatedInteractions = santaData.interactions.map(i => i.id === event.id ? { ...i, ...event } : i);
+            updateAndPersistInteractions(updatedInteractions as Interaction[]);
+        } else { // Create new
+            const newInteraction: Interaction = {
+                id: `int_${Date.now()}`,
+                createdAt: new Date().toISOString(),
+                status: 'open',
+                userId: currentUser.id,
+                ...event,
+            };
+            const updatedInteractions = [...(santaData.interactions || []), newInteraction];
+            updateAndPersistInteractions(updatedInteractions);
+        }
+        setEditingEvent(null);
+        setIsNewEventDialogOpen(false);
+    };
+
+    const handleDeleteEvent = (id: string) => {
+        const updatedInteractions = santaData.interactions.filter(i => i.id !== id);
+        updateAndPersistInteractions(updatedInteractions);
+        setSelectedEvent(null);
+    };
+
+    const handleEditRequest = (event: Interaction) => {
+        setSelectedEvent(null);
+        setEditingEvent(event);
+        setIsNewEventDialogOpen(true);
+    };
+
+
   if (!displayedUser) {
       return <div className="p-6 text-center text-zinc-500">Selecciona un usuario para ver su dashboard.</div>
   }
 
   return (
+    <>
     <div className="space-y-6">
         {/* KPIs */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -211,19 +267,27 @@ function PersonalDashboardContent({ displayedUser, timePeriod, setTimePeriod }: 
             {/* Lower cards */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <SBCard title="Próximas actividades">
-                    <ul className="space-y-2 p-4">
+                    <ul className="space-y-1 p-2">
                     {userStats.upcomingInteractions.map((t,i)=>{
                         const Icon = t.icon;
                         return (
-                        <li key={i} className="flex items-center gap-3 p-2 rounded-xl border border-zinc-200 bg-zinc-50/50">
-                            <div className="p-2 rounded-lg" style={{backgroundColor: `${accent}20`, color: accent}}><Icon className="h-4 w-4"/></div>
-                            <div className="flex-1">
-                            <div className="text-sm text-zinc-800 font-medium">{t.title}</div>
-                            <div className="text-xs text-zinc-500">{t.when}</div>
+                        <li key={i} className="flex items-center gap-2 p-2 rounded-xl group hover:bg-zinc-50">
+                            <button onClick={() => setSelectedEvent(t)} className="flex-1 flex items-center gap-3 text-left">
+                                <div className="p-2 rounded-lg" style={{backgroundColor: `${accent}20`, color: accent}}><Icon className="h-4 w-4"/></div>
+                                <div className="flex-1">
+                                <div className="text-sm text-zinc-800 font-medium">{t.title}</div>
+                                <div className="text-xs text-zinc-500">{t.when}</div>
+                                </div>
+                            </button>
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <SBButton variant="ghost" size="sm" title="Completar" onClick={() => handleUpdateStatus(t.id, 'done')}><CheckCircle size={16} className="text-green-600"/></SBButton>
+                                <SBButton variant="ghost" size="sm" title="Editar" onClick={() => handleEditRequest(t)}><Edit size={16} /></SBButton>
+                                <SBButton variant="ghost" size="sm" title="Eliminar" onClick={() => handleDeleteEvent(t.id)}><Trash2 size={16} className="text-red-600"/></SBButton>
                             </div>
                         </li>
                         );
                     })}
+                     {userStats.upcomingInteractions.length === 0 && <p className="text-sm text-center text-zinc-400 py-4">No hay actividades próximas.</p>}
                     </ul>
                 </SBCard>
 
@@ -253,6 +317,28 @@ function PersonalDashboardContent({ displayedUser, timePeriod, setTimePeriod }: 
             </div>
       </div>
     </div>
+
+    {selectedEvent && (
+        <EventDetailDialog
+            event={selectedEvent}
+            open={!!selectedEvent}
+            onOpenChange={() => setSelectedEvent(null)}
+            onUpdateStatus={handleUpdateStatus}
+            onEdit={handleEditRequest}
+            onDelete={handleDeleteEvent}
+        />
+    )}
+
+    {isNewEventDialogOpen && (
+        <NewEventDialog
+            open={isNewEventDialogOpen}
+            onOpenChange={setIsNewEventDialogOpen}
+            onSave={handleAddOrUpdateEvent as any}
+            accentColor={SB_COLORS.accent}
+            initialEventData={editingEvent}
+        />
+    )}
+    </>
   );
 }
 
@@ -573,3 +659,4 @@ export default function SalesDashboardPage() {
         </AuthenticatedLayout>
     )
 }
+

@@ -16,7 +16,7 @@ import { useData } from "@/lib/dataprovider";
 import { ModuleHeader } from "@/components/ui/ModuleHeader";
 import { Calendar } from "lucide-react";
 import { SB_COLORS, DEPT_META } from "@/domain/ssot";
-import type { Department, Interaction, SantaData, OrderSellOut, InteractionStatus, InteractionKind } from '@/domain/ssot';
+import type { Department, Interaction, SantaData, OrderSellOut, InteractionStatus, InteractionKind, Account } from '@/domain/ssot';
 
 const FullCalendar = dynamic(() => import("@fullcalendar/react"), { ssr: false });
 
@@ -25,7 +25,7 @@ const asISO = (d: string | Date) => {
   return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString();
 };
 
-async function saveCollection(collectionName: keyof SantaData, data: any[]) {
+export async function saveCollection(collectionName: keyof SantaData, data: any[]) {
     try {
         const response = await fetch('/api/dev/save-data', {
             method: 'POST',
@@ -45,7 +45,7 @@ async function saveCollection(collectionName: keyof SantaData, data: any[]) {
 
 function mapDomainToTasks(
   interactions: Interaction[] | undefined,
-  accounts: any[] | undefined
+  accounts: Account[] | undefined
 ): Task[] {
   if (!interactions || !accounts) return [];
 
@@ -66,7 +66,7 @@ function mapDomainToTasks(
         status: i.status,
         date: plannedISO,
         involvedUserIds: i.involvedUserIds,
-        location: accountMap.get(i.accountId || '') || i.location,
+        location: i.location || accountMap.get(i.accountId || ''),
       };
     });
 
@@ -150,15 +150,14 @@ export function CalendarPageContent() {
   }
 
   const handleUpdateStatus = (id: string, newStatus: InteractionStatus) => {
-    if (!SantaData) return;
-    const updatedInteractions = SantaData.interactions.map(i => 
+    const updatedInteractions = allInteractions.map(i => 
         i.id === id ? { ...i, status: newStatus } : i
     ) as Interaction[];
     updateAndPersistInteractions(updatedInteractions);
   };
   
   const handleAddOrUpdateEvent = async (event: Omit<Interaction, 'createdAt' | 'status' | 'userId'> & { id?: string }) => {
-    if (!SantaData || !currentUser) return;
+    if (!currentUser) return;
     
     if (event.id) { // Update existing
         const updatedInteractions = allInteractions.map(i => i.id === event.id ? { ...i, ...event } : i);
@@ -175,6 +174,7 @@ export function CalendarPageContent() {
         updateAndPersistInteractions(updatedInteractions);
     }
     setEditingEvent(null);
+    setIsNewEventDialogOpen(false);
   };
   
   const handleEventClick = (clickInfo: EventClickArg) => {
@@ -360,3 +360,4 @@ export function CalendarPageContent() {
     </>
   );
 }
+
