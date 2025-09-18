@@ -216,11 +216,12 @@ export function CalendarPageContent() {
 
     let finalData: SantaData = { ...SantaData };
 
-    const updatedInteractions = finalData.interactions.map(i =>
-        i.id === taskId ? { ...i, status: 'done' as InteractionStatus, resultNote: (payload as any).note } : i
+    // 1. Mark the original task as 'done' and add result note
+    finalData.interactions = finalData.interactions.map(i =>
+        i.id === taskId ? { ...i, status: 'done' as InteractionStatus, resultNote: (payload as any).note || "Venta registrada" } : i
     );
-    finalData.interactions = updatedInteractions;
     
+    // 2. If there is a next action, create a new interaction for it
     if (payload.type === 'interaccion' && payload.nextActionDate) {
         const newFollowUp: Interaction = {
             id: `int_${Date.now()}`,
@@ -237,6 +238,7 @@ export function CalendarPageContent() {
         finalData.interactions.push(newFollowUp);
     }
     
+    // 3. If it's a sale, create a new order
     if (payload.type === 'venta' && originalTask.accountId) {
         const newOrder: OrderSellOut = {
             id: `ord_${Date.now()}`,
@@ -255,6 +257,7 @@ export function CalendarPageContent() {
         finalData.ordersSellOut = [...(finalData.ordersSellOut || []), newOrder];
     }
 
+    // 4. Update state and persist
     setData(finalData);
 
     if (isPersistenceEnabled) {
