@@ -48,7 +48,7 @@ const navSections = [
         title: 'Personal',
         module: 'sales',
         items: [
-            { href: '/dashboard-ventas', label: 'Dashboard Personal', icon: BarChart3 },
+            { href: '/dashboard-personal', label: 'Dashboard Personal', icon: BarChart3 },
         ]
     },
     {
@@ -327,5 +327,3 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
     </div>
   );
 }
-
-    

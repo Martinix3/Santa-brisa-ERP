@@ -4,11 +4,11 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 
-// This is now a redirect page. The main dashboard is at /dashboard-ventas
+// This is now a redirect page. The main dashboard is at /dashboard-personal
 export default function Page(){
     const router = useRouter();
     React.useEffect(() => {
-        router.replace('/dashboard-ventas');
+        router.replace('/dashboard-personal');
     }, [router]);
 
     return (
