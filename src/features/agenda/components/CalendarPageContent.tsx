@@ -14,7 +14,7 @@ import { useData } from "@/lib/dataprovider";
 import { ModuleHeader } from "@/components/ui/ModuleHeader";
 import { Calendar } from "lucide-react";
 import { SB_COLORS } from "@/components/ui/ui-primitives";
-import type { Department } from '@/domain/ssot';
+import type { Department, Interaction, SantaData } from '@/domain/ssot';
 
 const FullCalendar = dynamic(() => import("@fullcalendar/react"), { ssr: false });
 
@@ -33,6 +33,24 @@ const asISO = (d: string | Date) => {
   const date = typeof d === "string" ? new Date(d) : d;
   return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString();
 };
+
+async function saveCollection(collectionName: keyof SantaData, data: any[]) {
+    try {
+        const response = await fetch('/api/dev/save-data', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ collection: collectionName, data }),
+        });
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.error || `Error guardando la colección ${collectionName}`);
+        }
+    } catch (e: any) {
+        console.error(e);
+        alert(`Error al guardar: ${e.message}`);
+    }
+}
+
 
 function mapDomainToTasks(
   interactions: any[] | undefined,
@@ -127,7 +145,7 @@ function Tabs({
 
 export function CalendarPageContent() {
   useFullCalendarStyles();
-  const { data: SantaData } = useData();
+  const { data: SantaData, setData } = useData();
 
   const initialTasks = useMemo(() => {
     if (!SantaData) return [] as Task[];
@@ -165,9 +183,23 @@ export function CalendarPageContent() {
   const handleTaskStatusChange = (id: string, newStatus: TaskStatus) => {
     setTasks((prev) => moveTaskStatus(prev, id, newStatus));
   };
-  const handleAddEvent = (event: { title: string; type: Department; date: string | Date }) => {
-    const newEvent: Task = { id: `task_${Date.now()}`, title: event.title, type: event.type, date: asISO(event.date), status: "PROGRAMADA" };
-    setTasks((prev) => [...prev, newEvent]);
+  
+  const handleAddEvent = async (event: { title: string; type: Department; date: string | Date }) => {
+    if (!SantaData) return;
+    const newInteraction: Interaction = {
+        id: `int_${Date.now()}`,
+        accountId: 'acc_placeholder', // O requerir una cuenta en el formulario
+        userId: 'u_nico', // O el currentUser.id
+        kind: 'OTRO',
+        note: event.title,
+        plannedFor: asISO(event.date),
+        createdAt: new Date().toISOString(),
+        dept: event.type
+    };
+
+    const updatedInteractions = [...(SantaData.interactions || []), newInteraction];
+    setData(prev => prev ? ({ ...prev, interactions: updatedInteractions }) : null);
+    await saveCollection('interactions', updatedInteractions);
   };
 
   if (!SantaData) return <div className="p-6">Cargando datos…</div>;
@@ -242,6 +274,10 @@ export function CalendarPageContent() {
 
       <style jsx global>{`
         /* Toolbar */
+        .fc .fc-toolbar.fc-header-toolbar {
+                margin-bottom: 1.5rem;
+                font-size: 0.875rem;
+            }
         .fc .fc-toolbar-title { font-weight: 600; color: ${SB_COLORS.accent}; }
         .fc .fc-button {
           background: #fff; color: #0f172a; border: 1px solid #e5e7eb;
