@@ -21,7 +21,7 @@ type ColumnId = 'overdue' | 'upcoming' | 'processing' | 'done';
 const KANBAN_COLS: { id: ColumnId, label: string, icon: React.ElementType, headerColor: string }[] = [
     { id: 'overdue', label: 'Pendientes', icon: AlertCircle, headerColor: 'text-rose-600' },
     { id: 'upcoming', label: 'Programadas', icon: Clock, headerColor: 'text-cyan-600' },
-    { id: 'processing', label: 'Procesando', icon: Loader, headerColor: 'text-amber-600' },
+    { id: 'processing', label: 'Pendiente de revisión', icon: Loader, headerColor: 'text-amber-600' },
     { id: 'done', label: 'Hechas', icon: Check, headerColor: 'text-emerald-600' },
 ];
 

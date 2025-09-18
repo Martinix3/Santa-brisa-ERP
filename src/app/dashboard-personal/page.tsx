@@ -184,7 +184,7 @@ export default function PersonalDashboardPage() {
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
                     <KPI icon={AlertCircle} label="Tareas Pendientes" value={overdue.length} />
                     <KPI icon={Clock} label="Tareas Programadas" value={upcoming.length} />
-                    <KPI icon={Loader} label="Tareas Procesando" value={processingTasks.length} />
+                    <KPI icon={Loader} label="Pendiente de revisión" value={processingTasks.length} />
                     <KPI icon={CheckCircle} label="Tareas Completadas (30d)" value={doneTasks.filter(t => t.date && new Date(t.date) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)).length} />
                 </div>
                 
