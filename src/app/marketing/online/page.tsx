@@ -1,4 +1,5 @@
 
+"use client";
 import React from 'react';
 import { OnlinePage } from '@/features/marketing/components/ui-sb-marketing';
 

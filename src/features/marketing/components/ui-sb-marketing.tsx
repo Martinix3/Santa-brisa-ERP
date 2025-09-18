@@ -8,6 +8,7 @@ import { listEvents, listActivations, listOnlineCampaigns } from '@/app/marketin
 import type { EventMarketing, Activation, OnlineCampaign } from '@/domain/ssot';
 import { SBCard, SBButton, KPI, DataTableSB, Col, SB_COLORS } from '@/components/ui/ui-primitives';
 import { Megaphone, Calendar, Zap, Wifi, Target, BarChart, CheckCircle, PlayCircle, PauseCircle } from 'lucide-react';
+import { useData } from '@/lib/dataprovider';
 
 const clsx = (...xs: Array<string | false | null | undefined>) => xs.filter(Boolean).join(" ");
 
@@ -54,13 +55,9 @@ function StatusPill({ status }: { status: 'planned' | 'active' | 'closed' | 'can
 }
 
 export function MarketingDashboardPage() {
-    const [events, setEvents] = useState<EventMarketing[]>([]);
-    const [campaigns, setCampaigns] = useState<OnlineCampaign[]>([]);
-
-    useEffect(() => {
-        listEvents().then(setEvents);
-        listOnlineCampaigns().then(setCampaigns);
-    }, []);
+    const { data } = useData();
+    const events = data?.mktEvents || [];
+    const campaigns = data?.onlineCampaigns || [];
 
     const kpis = {
         activeEvents: events.filter(e => e.status === 'active').length,
@@ -105,8 +102,8 @@ export function MarketingDashboardPage() {
 }
 
 export function EventsPage() {
-    const [events, setEvents] = useState<EventMarketing[]>([]);
-    useEffect(() => { listEvents().then(setEvents); }, []);
+    const { data } = useData();
+    const events = data?.mktEvents || [];
     
     const cols: Col<EventMarketing>[] = [
         { key: 'title', header: 'Evento' },
@@ -121,15 +118,15 @@ export function EventsPage() {
         <div className="space-y-6">
             <h1 className="text-2xl font-semibold text-zinc-800">Eventos de Marketing</h1>
             <SBCard title="Listado de Eventos" accent={SB_COLORS.marketing}>
-                <DataTableSB rows={events} cols={cols} />
+                <DataTableSB rows={events} cols={cols as any} />
             </SBCard>
         </div>
     );
 }
 
 export function OnlinePage() {
-    const [campaigns, setCampaigns] = useState<OnlineCampaign[]>([]);
-    useEffect(() => { listOnlineCampaigns().then(setCampaigns); }, []);
+    const { data } = useData();
+    const campaigns = data?.onlineCampaigns || [];
 
     const cols: Col<OnlineCampaign>[] = [
         { key: 'title', header: 'Campaña' },
@@ -145,10 +142,8 @@ export function OnlinePage() {
         <div className="space-y-6">
             <h1 className="text-2xl font-semibold text-zinc-800">Campañas Online</h1>
             <SBCard title="Listado de Campañas" accent={SB_COLORS.marketing}>
-                 <DataTableSB rows={campaigns} cols={cols} />
+                 <DataTableSB rows={campaigns} cols={cols as any} />
             </SBCard>
         </div>
     );
 }
-
-    
