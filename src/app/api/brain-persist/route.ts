@@ -1,6 +1,6 @@
 
 import { NextResponse, NextRequest } from 'next/server';
-import { adminAuth, adminDb } from '@/server/firebaseAdmin';
+import { adminDb } from '@/server/firebaseAdmin';
 import { SANTA_DATA_COLLECTIONS, SantaData } from '@/domain/ssot';
 import { realSantaData } from '@/domain/real-data';
 
@@ -11,17 +11,11 @@ export const dynamic = 'force-dynamic';
 // Hardcoded user ID for dev purposes now that login is removed
 const DEV_USER_ID = 'dev-user-fixed-id';
 
-async function verifyAuth(req: NextRequest) {
-    // Auth is disabled, return a fixed user ID for persistence.
-    return { uid: DEV_USER_ID };
-}
-
 export async function GET(req: NextRequest) {
   try {
-    const decodedToken = await verifyAuth(req);
     const db = adminDb;
     
-    const userRootCol = db.collection('userData').doc(decodedToken.uid);
+    const userRootCol = db.collection('userData').doc(DEV_USER_ID);
 
     let hasData = false;
     const fetchedData: Partial<SantaData> = {};
@@ -40,8 +34,6 @@ export async function GET(req: NextRequest) {
     }
 
     if (!hasData) {
-        // If there is nothing in Firestore for this user, we return
-        // an empty but well-formed SantaData object. The frontend will merge it.
         const emptyData: Partial<SantaData> = {};
         SANTA_DATA_COLLECTIONS.forEach(key => {
             (emptyData as any)[key] = [];
@@ -60,7 +52,6 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const decodedToken = await verifyAuth(req);
     const payload = await req.json();
 
     if (payload.persistenceEnabled === false) {
@@ -75,14 +66,13 @@ export async function POST(req: NextRequest) {
     const batch = db.batch();
     let operationsCount = 0;
 
-    const userRootCol = db.collection('userData').doc(decodedToken.uid);
+    const userRootCol = db.collection('userData').doc(DEV_USER_ID);
 
     for (const collectionName in payload) {
         if (Object.prototype.hasOwnProperty.call(payload, collectionName) && SANTA_DATA_COLLECTIONS.includes(collectionName as any)) {
             const collectionData = payload[collectionName];
             if(Array.isArray(collectionData)) {
                 const docRef = userRootCol.collection(collectionName).doc('all');
-                // Use merge: true to avoid deleting other collections when persisting partial data
                 batch.set(docRef, { data: collectionData }, { merge: true }); 
                 operationsCount++;
             }
@@ -91,7 +81,7 @@ export async function POST(req: NextRequest) {
     
     if (operationsCount > 0) {
         await batch.commit();
-        console.log(`[api/brain-persist] Successfully committed data for ${operationsCount} collections for user ${decodedToken.uid}.`);
+        console.log(`[api/brain-persist] Successfully committed data for ${operationsCount} collections for user ${DEV_USER_ID}.`);
     } else {
         console.log('[api/brain-persist] No valid collections to commit.');
     }
