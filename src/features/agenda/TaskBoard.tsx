@@ -1,4 +1,3 @@
-
 // src/features/agenda/TaskBoard.tsx
 "use client";
 import React, { useMemo } from 'react';
@@ -20,9 +19,9 @@ export type Task = {
 type ColumnId = 'overdue' | 'upcoming' | 'done';
 
 const KANBAN_COLS: { id: ColumnId, label: string, icon: React.ElementType, headerColor: string }[] = [
-    { id: 'overdue', label: 'Caducadas', icon: AlertCircle, headerColor: 'text-red-600' },
-    { id: 'upcoming', label: 'Programadas', icon: Clock, headerColor: 'text-blue-600' },
-    { id: 'done', label: 'Hechas', icon: Check, headerColor: 'text-green-600' },
+    { id: 'overdue', label: 'Caducadas', icon: AlertCircle, headerColor: 'text-rose-600' },
+    { id: 'upcoming', label: 'Programadas', icon: Clock, headerColor: 'text-cyan-600' },
+    { id: 'done', label: 'Hechas', icon: Check, headerColor: 'text-emerald-600' },
 ];
 
 function Avatar({ name }: { name?: string }) {
