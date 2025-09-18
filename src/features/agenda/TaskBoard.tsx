@@ -19,7 +19,7 @@ export type Task = {
 type ColumnId = 'overdue' | 'upcoming' | 'done';
 
 const KANBAN_COLS: { id: ColumnId, label: string, icon: React.ElementType, headerColor: string }[] = [
-    { id: 'overdue', label: 'Caducadas', icon: AlertCircle, headerColor: 'text-rose-600' },
+    { id: 'overdue', label: 'Pendientes', icon: AlertCircle, headerColor: 'text-rose-600' },
     { id: 'upcoming', label: 'Programadas', icon: Clock, headerColor: 'text-cyan-600' },
     { id: 'done', label: 'Hechas', icon: Check, headerColor: 'text-emerald-600' },
 ];

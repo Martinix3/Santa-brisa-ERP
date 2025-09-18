@@ -58,17 +58,13 @@ export default function PersonalDashboardPage() {
         const now = new Date();
         
         const upcomingTasks = myInteractions
-            .filter(i => i.status === 'open' && i.plannedFor && new Date(i.plannedFor) >= now)
-            .sort((a, b) => new Date(a.plannedFor!).getTime() - new Date(b.plannedFor!).getTime());
+            .filter(i => i.status === 'open' && i.plannedFor && new Date(i.plannedFor) >= now);
             
         const overdueTasks = myInteractions
-            .filter(i => i.status === 'open' && i.plannedFor && new Date(i.plannedFor) < now)
-            .sort((a, b) => new Date(a.plannedFor!).getTime() - new Date(b.plannedFor!).getTime());
+            .filter(i => i.status === 'open' && i.plannedFor && new Date(i.plannedFor) < now);
 
         const completedTasks = myInteractions
-            .filter(i => i.status === 'done')
-            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-            .slice(0, 10);
+            .filter(i => i.status === 'done');
             
         const allOpenTasks = mapInteractionsToTasks([...overdueTasks, ...upcomingTasks], data.accounts || []);
         const allCompletedTasks = mapInteractionsToTasks(completedTasks, data.accounts || []);
@@ -106,8 +102,8 @@ export default function PersonalDashboardPage() {
             <div className="p-6 bg-zinc-50 flex-grow">
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
                     <KPI icon={Clock} label="Tareas Próximas" value={upcoming.length} />
-                    <KPI icon={AlertCircle} label="Tareas Caducadas" value={overdue.length} />
-                    <KPI icon={CheckCircle} label="Tareas Completadas (30d)" value={completed.length} />
+                    <KPI icon={AlertCircle} label="Tareas Pendientes" value={overdue.length} />
+                    <KPI icon={CheckCircle} label="Tareas Completadas (30d)" value={completed.filter(t => new Date(t.createdAt) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)).length} />
                     <KPI icon={Target} label="KPI Principal" value={"N/A"} />
                 </div>
                 
