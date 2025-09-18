@@ -46,13 +46,12 @@ export function NewEventDialog({ onAddEvent, accentColor }: { onAddEvent: (event
             return;
         }
 
-        let finalNote = notes;
+        let finalNote = notes ? `${title} - ${notes}` : title;
         if(type === 'MARKETING' && marketingSubtype) {
-            finalNote = `[${marketingSubtype}] ${notes}`;
+            finalNote = `[${marketingSubtype}] ${finalNote}`;
         }
         
         onAddEvent({ 
-            title, 
             dept: type, 
             kind: type === 'VENTAS' ? interactionKind : 'OTRO',
             plannedFor: date,

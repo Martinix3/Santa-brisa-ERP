@@ -54,14 +54,13 @@ function mapDomainToTasks(
   const interactionTasks: Task[] = interactions
     .filter((i) => i?.plannedFor)
     .map((i) => {
-      const accountName = i.accountId ? accountMap.get(i.accountId) || "" : "";
       const plannedISO = asISO(i.plannedFor!);
       
-      const title = i.note || `${i.kind} - ${accountName}`;
+      const title = i.note || `${i.kind}`;
 
       const type: Department = (i.dept as Department) || "VENTAS";
       return {
-        id: i.id, // Usamos el ID de la interacción directamente
+        id: i.id,
         title: title,
         type,
         status: i.status,
@@ -164,16 +163,14 @@ export function CalendarPageContent() {
     updateAndPersistInteractions(updatedInteractions);
   };
   
-  const handleAddEvent = async (event: { title: string } & Omit<Interaction, 'id'|'createdAt'|'status'|'userId'>) => {
+  const handleAddEvent = async (event: Omit<Interaction, 'id'|'createdAt'|'status'|'userId'>) => {
     if (!SantaData || !currentUser) return;
-    const { title, ...rest } = event;
     const newInteraction: Interaction = {
         id: `int_${Date.now()}`,
         createdAt: new Date().toISOString(),
         status: 'open',
         userId: currentUser.id,
-        note: title, // Use title as note
-        ...rest,
+        ...event,
     };
 
     const updatedInteractions = [...(SantaData.interactions || []), newInteraction];
@@ -330,4 +327,3 @@ export function CalendarPageContent() {
     </>
   );
 }
-

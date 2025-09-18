@@ -62,7 +62,9 @@ function PersonalDashboardContent({ displayedUser, timePeriod, setTimePeriod }: 
 
     const userAccountIds = new Set(santaData.accounts.filter(a => a.ownerId === displayedUser.id).map(a => a.id));
     const userOrders = santaData.ordersSellOut.filter(o => userAccountIds.has(o.accountId) && inWindow(o.createdAt, startDate, endDate));
-    const userInteractions = santaData.interactions.filter(i => userAccountIds.has(i.accountId));
+    
+    // Filtra las interacciones del usuario, no las de las cuentas del usuario
+    const userInteractions = santaData.interactions.filter(i => i.userId === displayedUser.id);
     const userAccounts = santaData.accounts.filter(a => a.ownerId === displayedUser.id);
 
     const revenue = userOrders.filter(o => o.status === 'confirmed').reduce((sum, o) => sum + orderTotal(o), 0);
