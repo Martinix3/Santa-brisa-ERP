@@ -295,11 +295,6 @@ function PersonalDashboardContent({ displayedUser, timePeriod, setTimePeriod }: 
                                 <div className="text-xs text-zinc-500">{t.when}</div>
                                 </div>
                             </button>
-                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <SBButton variant="ghost" size="sm" title="Completar" onClick={() => setCompletingTask(t)}><CheckCircle size={16} className="text-green-600"/></SBButton>
-                                <SBButton variant="ghost" size="sm" title="Editar" onClick={() => handleEditRequest(t)}><Edit size={16} /></SBButton>
-                                <SBButton variant="ghost" size="sm" title="Eliminar" onClick={() => handleDeleteEvent(t.id)}><Trash2 size={16} className="text-red-600"/></SBButton>
-                            </div>
                         </li>
                         );
                     })}

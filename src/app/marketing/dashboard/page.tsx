@@ -1,4 +1,5 @@
 
+
 "use client";
 import React, { useMemo } from 'react';
 import { MarketingDashboardPage as MarketingDashboardPageContent } from '@/features/marketing/components/ui-sb-marketing';
@@ -26,7 +27,7 @@ function UpcomingEvents() {
         <SBCard title="Próximos Eventos y Tareas de Marketing">
             <div className="p-4 space-y-3">
                 {upcomingMarketingEvents.map((event: Interaction) => (
-                    <div key={event.id} className="flex items-center gap-3 p-2 rounded-lg bg-zinc-50 border">
+                    <div key={event.id} className="flex items-center gap-3 p-2 rounded-lg bg-zinc-50 border hover:bg-zinc-100 cursor-pointer">
                         <div className="p-2 rounded-full" style={{ backgroundColor: DEPT_META.MARKETING.color, color: DEPT_META.MARKETING.textColor }}>
                             <Calendar size={16} />
                         </div>

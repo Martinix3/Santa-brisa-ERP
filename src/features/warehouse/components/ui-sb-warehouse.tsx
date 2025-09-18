@@ -1,4 +1,5 @@
 
+
 "use client";
 import React, { useMemo } from 'react';
 import Link from 'next/link';
@@ -94,7 +95,7 @@ function UpcomingEvents() {
         <Card title="Próximas Tareas de Almacén" accent={SB_COLORS.warehouse}>
             <div className="p-4 space-y-3">
                 {upcomingEvents.map((event: Interaction) => (
-                    <div key={event.id} className="flex items-center gap-3 p-2 rounded-lg bg-zinc-50 border">
+                    <div key={event.id} className="flex items-center gap-3 p-2 rounded-lg bg-zinc-50 border hover:bg-zinc-100 cursor-pointer">
                         <div className="p-2 rounded-full" style={{ backgroundColor: DEPT_META.ALMACEN.color, color: DEPT_META.ALMACEN.textColor }}>
                             <Calendar size={16} />
                         </div>
