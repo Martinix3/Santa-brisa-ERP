@@ -2,10 +2,10 @@
 "use client";
 import React, { useState, useMemo } from 'react';
 import { useData } from '@/lib/dataprovider';
-import { SBButton, SBCard, DataTableSB, Col, SB_COLORS, Input, Select, Textarea } from '@/components/ui/ui-primitives';
+import { SBButton, SBCard, Input, Select } from '@/components/ui/ui-primitives';
 import type { OnlineCampaign } from '@/domain/ssot';
 import { saveCollection } from '@/features/agenda/components/CalendarPageContent';
-import { Plus } from 'lucide-react';
+import { Plus, Edit, Save, X, Trash2 } from 'lucide-react';
 
 function StatusPill({ status }: { status: 'planned' | 'active' | 'closed' | 'cancelled' }) {
     const styles = {
@@ -39,7 +39,6 @@ function NewCampaignDialog({ open, onClose, onSave }: { open: boolean; onClose: 
         }
         onSave({ title, channel, budget, startAt, endAt: endAt || undefined });
         onClose();
-        // Reset form
         setTitle('');
         setChannel('IG');
         setBudget(0);
@@ -81,6 +80,75 @@ function NewCampaignDialog({ open, onClose, onSave }: { open: boolean; onClose: 
     );
 }
 
+function CampaignRow({ campaign, onUpdate }: { campaign: OnlineCampaign; onUpdate: (updatedCampaign: OnlineCampaign) => void; }) {
+    const [isEditing, setIsEditing] = useState(false);
+    const [editedCampaign, setEditedCampaign] = useState(campaign);
+
+    const handleSave = () => {
+        onUpdate(editedCampaign);
+        setIsEditing(false);
+    };
+    
+    const handleCancel = () => {
+        setEditedCampaign(campaign);
+        setIsEditing(false);
+    };
+
+    const handleChange = (field: keyof OnlineCampaign, value: any) => {
+        setEditedCampaign(prev => ({...prev, [field]: value}));
+    }
+    
+    const handleMetricsChange = (field: string, value: any) => {
+        setEditedCampaign(prev => ({ ...prev, metrics: { ...(prev.metrics || {}), [field]: value } }));
+    }
+
+    if (isEditing) {
+        return (
+            <tr className="bg-yellow-50/50">
+                <td className="px-2 py-2"><Input value={editedCampaign.title} onChange={e => handleChange('title', e.target.value)} /></td>
+                <td className="px-2 py-2">
+                    <Select value={editedCampaign.channel} onChange={e => handleChange('channel', e.target.value)}>
+                        <option value="IG">Instagram</option><option value="FB">Facebook</option><option value="TikTok">TikTok</option><option value="Google">Google</option>
+                        <option value="YouTube">YouTube</option><option value="Email">Email</option><option value="Other">Otro</option>
+                    </Select>
+                </td>
+                <td className="px-2 py-2">
+                    <Select value={editedCampaign.status} onChange={e => handleChange('status', e.target.value)}>
+                        <option value="planned">Planned</option><option value="active">Active</option><option value="closed">Closed</option><option value="cancelled">Cancelled</option>
+                    </Select>
+                </td>
+                <td className="px-2 py-2"><Input type="number" value={editedCampaign.budget} onChange={e => handleChange('budget', Number(e.target.value))} /></td>
+                <td className="px-2 py-2"><Input type="number" value={editedCampaign.spend} onChange={e => handleChange('spend', Number(e.target.value))} /></td>
+                <td className="px-2 py-2"><Input type="number" value={editedCampaign.metrics?.impressions || ''} onChange={e => handleMetricsChange('impressions', Number(e.target.value))} /></td>
+                <td className="px-2 py-2"><Input type="number" value={editedCampaign.metrics?.clicks || ''} onChange={e => handleMetricsChange('clicks', Number(e.target.value))} /></td>
+                <td className="px-2 py-2"><Input type="number" value={editedCampaign.metrics?.roas || ''} onChange={e => handleMetricsChange('roas', Number(e.target.value))} /></td>
+                <td className="px-2 py-2">
+                    <div className="flex items-center gap-1">
+                        <SBButton size="sm" onClick={handleSave}><Save size={14}/></SBButton>
+                        <SBButton size="sm" variant="secondary" onClick={handleCancel}><X size={14}/></SBButton>
+                    </div>
+                </td>
+            </tr>
+        )
+    }
+
+    return (
+        <tr className="hover:bg-zinc-50/50">
+            <td className="p-3 font-semibold">{campaign.title}</td>
+            <td className="p-3">{campaign.channel}</td>
+            <td className="p-3"><StatusPill status={campaign.status} /></td>
+            <td className="p-3 text-right">{formatCurrency(campaign.budget)}</td>
+            <td className="p-3 text-right">{formatCurrency(campaign.spend)}</td>
+            <td className="p-3 text-right">{formatNumber(campaign.metrics?.impressions)}</td>
+            <td className="p-3 text-right">{formatNumber(campaign.metrics?.clicks)}</td>
+            <td className="p-3 text-right font-semibold">{campaign.metrics?.roas ? `${campaign.metrics.roas.toFixed(2)}x` : 'N/A'}</td>
+            <td className="p-3 text-center">
+                 <SBButton size="sm" variant="ghost" onClick={() => setIsEditing(true)}><Edit size={14} /></SBButton>
+            </td>
+        </tr>
+    );
+}
+
 export default function OnlineCampaignsPage(){
   const { data: santaData, setData, isPersistenceEnabled } = useData();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -105,16 +173,16 @@ export default function OnlineCampaignsPage(){
     }
   };
 
-  const cols: Col<OnlineCampaign>[] = [
-    { key: 'title', header: 'Campaña', render: r => <div className="font-semibold">{r.title}</div> },
-    { key: 'channel', header: 'Canal', render: r => r.channel },
-    { key: 'status', header: 'Estado', render: r => <StatusPill status={r.status} /> },
-    { key: 'budget', header: 'Presupuesto', className: "justify-end", render: r => formatCurrency(r.budget) },
-    { key: 'spend', header: 'Gasto', className: "justify-end", render: r => formatCurrency(r.spend) },
-    { key: 'impressions', header: 'Impresiones', className: "justify-end", render: r => formatNumber(r.metrics?.impressions) },
-    { key: 'clicks', header: 'Clicks', className: "justify-end", render: r => formatNumber(r.metrics?.clicks) },
-    { key: 'roas', header: 'ROAS', className: "justify-end font-semibold", render: r => r.metrics?.roas ? `${r.metrics.roas.toFixed(2)}x` : 'N/A' },
-  ];
+  const handleUpdateCampaign = async (updatedCampaign: OnlineCampaign) => {
+    if (!santaData) return;
+
+    const updatedCampaigns = campaigns.map(c => c.id === updatedCampaign.id ? updatedCampaign : c);
+    setData(prevData => prevData ? { ...prevData, onlineCampaigns: updatedCampaigns } : null);
+
+    if (isPersistenceEnabled) {
+        await saveCollection('onlineCampaigns', updatedCampaigns, isPersistenceEnabled);
+    }
+  }
 
   return (
     <>
@@ -126,7 +194,26 @@ export default function OnlineCampaignsPage(){
                 </SBButton>
             </div>
             <SBCard title="Resultados de Campañas Online">
-                 <DataTableSB rows={campaigns} cols={cols as any} />
+                 <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                        <thead className="text-left bg-zinc-50">
+                            <tr>
+                                <th className="p-3 font-semibold text-zinc-600">Campaña</th>
+                                <th className="p-3 font-semibold text-zinc-600">Canal</th>
+                                <th className="p-3 font-semibold text-zinc-600">Estado</th>
+                                <th className="p-3 font-semibold text-zinc-600 text-right">Presupuesto</th>
+                                <th className="p-3 font-semibold text-zinc-600 text-right">Gasto</th>
+                                <th className="p-3 font-semibold text-zinc-600 text-right">Impresiones</th>
+                                <th className="p-3 font-semibold text-zinc-600 text-right">Clicks</th>
+                                <th className="p-3 font-semibold text-zinc-600 text-right">ROAS</th>
+                                <th className="p-3 font-semibold text-zinc-600 text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-zinc-100">
+                            {campaigns.map(c => <CampaignRow key={c.id} campaign={c} onUpdate={handleUpdateCampaign} />)}
+                        </tbody>
+                    </table>
+                 </div>
             </SBCard>
         </div>
         <NewCampaignDialog
