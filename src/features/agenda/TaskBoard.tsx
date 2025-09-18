@@ -1,10 +1,10 @@
 
 // src/features/agenda/TaskBoard.tsx
 "use client";
-import React from 'react';
+import React, { useMemo } from 'react';
 import { DndContext, useDraggable, useDroppable, closestCorners } from '@dnd-kit/core';
 import type { Department, InteractionStatus, User } from '@/domain/ssot';
-import { Check, User as UserIcon } from 'lucide-react';
+import { Check, User as UserIcon, AlertCircle, Clock } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
 
 export type Task = {
@@ -17,9 +17,12 @@ export type Task = {
   location?: string;
 };
 
-const STATUS_COLS: { id: InteractionStatus, label: string }[] = [
-    { id: 'open', label: 'Programadas' },
-    { id: 'done', label: 'Hechas' },
+type ColumnId = 'overdue' | 'upcoming' | 'done';
+
+const KANBAN_COLS: { id: ColumnId, label: string, icon: React.ElementType, headerColor: string }[] = [
+    { id: 'overdue', label: 'Caducadas', icon: AlertCircle, headerColor: 'text-red-600' },
+    { id: 'upcoming', label: 'Programadas', icon: Clock, headerColor: 'text-blue-600' },
+    { id: 'done', label: 'Hechas', icon: Check, headerColor: 'text-green-600' },
 ];
 
 function Avatar({ name }: { name?: string }) {
@@ -91,12 +94,16 @@ function TaskCard({ task, typeStyles, onComplete }: { task: Task; typeStyles: an
     );
 }
 
-function StatusColumn({ status, tasks, typeStyles, onCompleteTask }: { status: InteractionStatus, tasks: Task[], typeStyles: any, onCompleteTask: (id: string) => void; }) {
-    const { setNodeRef } = useDroppable({ id: status });
+function StatusColumn({ col, tasks, typeStyles, onCompleteTask }: { col: typeof KANBAN_COLS[0], tasks: Task[], typeStyles: any, onCompleteTask: (id: string) => void; }) {
+    const { setNodeRef } = useDroppable({ id: col.id });
 
     return (
         <div ref={setNodeRef} className="bg-zinc-100/70 p-3 rounded-xl w-full">
-            <h3 className="font-semibold text-zinc-700 px-1 mb-3">{STATUS_COLS.find(s=>s.id === status)?.label}</h3>
+            <h3 className={`flex items-center gap-2 font-semibold px-1 mb-3 ${col.headerColor}`}>
+                <col.icon size={18}/>
+                {col.label}
+                <span className="text-sm font-normal text-zinc-500">{tasks.length}</span>
+            </h3>
             <div className="space-y-3 min-h-[100px]">
                 {tasks.map(task => <TaskCard key={task.id} task={task} typeStyles={typeStyles} onComplete={onCompleteTask} />)}
             </div>
@@ -107,25 +114,52 @@ function StatusColumn({ status, tasks, typeStyles, onCompleteTask }: { status: I
 
 export function TaskBoard({ tasks, onTaskStatusChange, onCompleteTask, typeStyles }: { tasks: Task[], onTaskStatusChange: (id: string, newStatus: InteractionStatus) => void, onCompleteTask: (id: string) => void; typeStyles: any }) {
     
+    const categorizedTasks = useMemo(() => {
+        const now = new Date();
+        const upcoming = tasks.filter(t => t.status === 'open' && t.date && new Date(t.date) >= now);
+        const overdue = tasks.filter(t => t.status === 'open' && t.date && new Date(t.date) < now);
+        const done = tasks.filter(t => t.status === 'done');
+        return { upcoming, overdue, done };
+    }, [tasks]);
+
     function handleDragEnd(event: any) {
         const { over, active } = event;
         if (over && active) {
-            onTaskStatusChange(active.id, over.id);
+            const taskId = active.id as string;
+            const newColId = over.id as ColumnId;
+
+            // Solo cambiamos el estado si se mueve a 'done'
+            if (newColId === 'done') {
+                const task = tasks.find(t => t.id === taskId);
+                if (task && task.status !== 'done') {
+                    onTaskStatusChange(taskId, 'done');
+                }
+            }
+            // No hacemos nada si se mueve entre 'upcoming' y 'overdue' porque el estado 'open' no cambia
         }
     }
 
     return (
         <DndContext onDragEnd={handleDragEnd} collisionDetection={closestCorners}>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {STATUS_COLS.map(col => (
-                    <StatusColumn
-                        key={col.id}
-                        status={col.id}
-                        tasks={tasks.filter(t => t.status === col.id)}
-                        typeStyles={typeStyles}
-                        onCompleteTask={onCompleteTask}
-                    />
-                ))}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <StatusColumn
+                    col={KANBAN_COLS[0]}
+                    tasks={categorizedTasks.overdue}
+                    typeStyles={typeStyles}
+                    onCompleteTask={onCompleteTask}
+                />
+                <StatusColumn
+                    col={KANBAN_COLS[1]}
+                    tasks={categorizedTasks.upcoming}
+                    typeStyles={typeStyles}
+                    onCompleteTask={onCompleteTask}
+                />
+                 <StatusColumn
+                    col={KANBAN_COLS[2]}
+                    tasks={categorizedTasks.done}
+                    typeStyles={typeStyles}
+                    onCompleteTask={onCompleteTask}
+                />
             </div>
         </DndContext>
     );
