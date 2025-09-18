@@ -1,26 +1,15 @@
-import { getApps, initializeApp, cert } from 'firebase-admin/app';
+import { getApps, initializeApp, App } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import 'server-only';
+import firebaseConfig from '../../firebase.json';
 
-// Esta es la configuración recomendada para producción y entornos portables.
-// La app se autentica usando un archivo de credenciales de Service Account.
-// La ruta a este archivo se debe especificar en la variable de entorno GOOGLE_APPLICATION_CREDENTIALS.
-
-let serviceAccount;
-try {
-  if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-    // En un entorno de servidor real (producción, etc.), la variable de entorno contendrá el JSON directamente.
-    serviceAccount = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS);
-  }
-} catch (e) {
-  console.error('Error parsing GOOGLE_APPLICATION_CREDENTIALS. Make sure it is a valid JSON string.', e);
-}
-
-
-const app = getApps().length
+// Esta configuración simplificada usa las credenciales del entorno de desarrollo
+// que se establecen al ejecutar `firebase login`. Es la forma más robusta
+// para el desarrollo local sin gestionar archivos de service account.
+const app: App = getApps().length
   ? getApps()[0]
-  : initializeApp(serviceAccount ? { credential: cert(serviceAccount) } : undefined);
+  : initializeApp({ projectId: firebaseConfig.client.projectId });
 
 
 export const adminDb = getFirestore(app);
