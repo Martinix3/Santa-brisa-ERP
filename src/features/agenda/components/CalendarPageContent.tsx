@@ -15,7 +15,7 @@ import { useData } from "@/lib/dataprovider";
 import { ModuleHeader } from "@/components/ui/ModuleHeader";
 import { Calendar } from "lucide-react";
 import { SB_COLORS, DEPT_META } from "@/domain/ssot";
-import type { Department, Interaction, SantaData, OrderSellOut, InteractionStatus } from '@/domain/ssot';
+import type { Department, Interaction, SantaData, OrderSellOut, InteractionStatus, InteractionKind } from '@/domain/ssot';
 
 const FullCalendar = dynamic(() => import("@fullcalendar/react"), { ssr: false });
 
@@ -177,7 +177,7 @@ export function CalendarPageContent() {
     }
   };
   
-  const handleAddEvent = async (event: Omit<Interaction, 'id'|'createdAt'|'status'|'userId'|'kind'> & {title: string}) => {
+  const handleAddEvent = async (event: { title: string } & Omit<Interaction, 'id'|'createdAt'|'status'|'userId'>) => {
     if (!SantaData || !currentUser) return;
     const { title, ...rest } = event;
     const newInteraction: Interaction = {
@@ -185,7 +185,6 @@ export function CalendarPageContent() {
         createdAt: new Date().toISOString(),
         status: 'open',
         userId: currentUser.id,
-        kind: 'OTRO', // Default kind, can be refined
         note: title, // Use title as note
         ...rest,
     };

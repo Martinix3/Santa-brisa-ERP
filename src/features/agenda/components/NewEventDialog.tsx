@@ -1,10 +1,9 @@
-
 // src/features/agenda/components/NewEventDialog.tsx
 "use client";
 import React, { useState, useEffect } from 'react';
 import { SBDialog, SBDialogTrigger, SBDialogContent } from '@/features/agenda/ui';
 import { Plus, User as UserIcon } from 'lucide-react';
-import type { Department, User } from '@/domain/ssot';
+import type { Department, User, InteractionKind } from '@/domain/ssot';
 import { useData } from '@/lib/dataprovider';
 
 
@@ -26,6 +25,7 @@ export function NewEventDialog({ onAddEvent, accentColor }: { onAddEvent: (event
     const [open, setOpen] = useState(false);
     const [title, setTitle] = useState('');
     const [type, setType] = useState<Department>('VENTAS');
+    const [interactionKind, setInteractionKind] = useState<InteractionKind>('VISITA');
     const [date, setDate] = useState('');
     const [location, setLocation] = useState('');
     const [notes, setNotes] = useState('');
@@ -54,6 +54,7 @@ export function NewEventDialog({ onAddEvent, accentColor }: { onAddEvent: (event
         onAddEvent({ 
             title, 
             dept: type, 
+            kind: type === 'VENTAS' ? interactionKind : 'OTRO',
             plannedFor: date,
             note: finalNote,
             location,
@@ -64,6 +65,7 @@ export function NewEventDialog({ onAddEvent, accentColor }: { onAddEvent: (event
         setOpen(false);
         setTitle('');
         setType('VENTAS');
+        setInteractionKind('VISITA');
         setDate('');
         setLocation('');
         setNotes('');
@@ -123,6 +125,23 @@ export function NewEventDialog({ onAddEvent, accentColor }: { onAddEvent: (event
                             />
                         </label>
                     </div>
+
+                    {type === 'VENTAS' && (
+                         <label className="grid gap-1.5">
+                            <span className="text-sm font-medium text-zinc-700">Tipo de Interacción</span>
+                             <select
+                                value={interactionKind}
+                                onChange={(e) => setInteractionKind(e.target.value as InteractionKind)}
+                                className="h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm"
+                            >
+                                <option value="VISITA">Visita</option>
+                                <option value="LLAMADA">Llamada</option>
+                                <option value="EMAIL">Email</option>
+                                <option value="WHATSAPP">WhatsApp</option>
+                                <option value="OTRO">Otro</option>
+                            </select>
+                        </label>
+                    )}
 
                     {type === 'MARKETING' && (
                         <label className="grid gap-1.5">
