@@ -260,6 +260,12 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
   }
 
   const PersistenceIcon = isPersistenceEnabled ? DatabaseZap : DatabaseBackup;
+  const persistenceStyles = isPersistenceEnabled
+    ? 'text-green-700 bg-green-100 hover:bg-green-200 border-green-200'
+    : 'text-amber-800 bg-amber-100 hover:bg-amber-200 border-amber-200';
+  const persistenceTooltip = isPersistenceEnabled
+    ? 'Persistencia con DB activada. Los cambios se guardarán.'
+    : 'Persistencia con DB desactivada. Los cambios son locales y se perderán.';
 
   return (
     <div className="h-screen flex flex-col bg-white">
@@ -335,10 +341,8 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
 
                 <button
                     onClick={togglePersistence}
-                    className={`w-full flex items-center justify-center gap-3 px-3 py-2 mt-2 rounded-md text-sm font-medium transition-colors ${
-                        isPersistenceEnabled ? 'text-green-600 bg-green-50 hover:bg-green-100' : 'text-zinc-600 hover:bg-zinc-100'
-                    }`}
-                    title={isPersistenceEnabled ? 'Persistencia Activada' : 'Persistencia Desactivada'}
+                    className={`w-full flex items-center justify-center gap-3 px-3 py-2 mt-2 rounded-md text-sm font-semibold border transition-colors ${persistenceStyles}`}
+                    title={persistenceTooltip}
                 >
                     <PersistenceIcon className="h-5 w-5" />
                     {!isSidebarCollapsed && <span>{isPersistenceEnabled ? 'DB ON' : 'DB OFF'}</span>}
