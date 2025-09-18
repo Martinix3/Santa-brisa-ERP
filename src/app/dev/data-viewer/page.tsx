@@ -318,7 +318,7 @@ function ImportReviewerView({ importId }: { importId: string }) {
 
 // ===== MAIN PAGE COMPONENT =====
 function DataViewerContent() {
-    const { data, mode, setData, forceSave } = useData();
+    const { data: initialData, mode, setData: setGlobalData } = useData();
     const searchParams = useSearchParams();
     const reviewImportId = searchParams ? searchParams.get('reviewImportId') : null;
     
@@ -327,23 +327,51 @@ function DataViewerContent() {
     const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    // Local copy of data for editing
+    const [localData, setLocalData] = useState<SantaData | null>(initialData);
+    
+    useEffect(() => {
+        setLocalData(initialData);
+    }, [initialData]);
+
     useEffect(() => { if (notification) { const timer = setTimeout(() => setNotification(null), 3000); return () => clearTimeout(timer); } }, [notification]);
+
+    const saveCollection = async (collectionName: keyof SantaData, data: any[]) => {
+        try {
+            const response = await fetch('/api/dev/save-data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ collection: collectionName, data }),
+            });
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.error || `Error guardando la colección ${collectionName}`);
+            }
+            setNotification({ message: `Colección '${collectionName}' guardada con éxito.`, type: 'success'});
+            
+            // Update global state as well
+            setGlobalData(prev => prev ? { ...prev, [collectionName]: data } : null);
+
+        } catch (e: any) {
+            setNotification({ message: e.message, type: 'error' });
+        }
+    };
 
     if(reviewImportId){
         return <ImportReviewerView importId={reviewImportId} />;
     }
 
-    if (!data) return <div className="p-6 text-center"><p className="text-lg font-semibold">Cargando datos...</p></div>;
+    if (!localData) return <div className="p-6 text-center"><p className="text-lg font-semibold">Cargando datos...</p></div>;
 
-    const dataSummary = Object.keys(data).map(key => ({ key: key as keyof SantaData, count: Array.isArray((data as any)[key]) ? (data as any)[key].length : '-' })).sort((a,b) => a.key.localeCompare(b.key));
+    const dataSummary = Object.keys(localData).map(key => ({ key: key as keyof SantaData, count: Array.isArray((localData as any)[key]) ? (localData as any)[key].length : '-' })).sort((a,b) => a.key.localeCompare(b.key));
     
-    const selectedCollection = selectedKey ? (data as any)[selectedKey] : [];
+    const selectedCollection = selectedKey ? (localData as any)[selectedKey] : [];
 
     const handleUpdateRow = (rowIndex: number, newRowData: any) => {
         if (!selectedKey) return;
         const newCollection = [...selectedCollection];
         newCollection[rowIndex] = newRowData;
-        setData(prev => prev ? { ...prev, [selectedKey]: newCollection } : null);
+        setLocalData(prev => prev ? { ...prev, [selectedKey]: newCollection } : null);
         setNotification({ message: 'Fila actualizada localmente. Pulsa "Guardar Cambios" para persistir.', type: 'success' });
     };
     
@@ -367,23 +395,15 @@ function DataViewerContent() {
         if (selectedRows.size === 0 || !selectedKey) return;
         if (window.confirm(`¿Seguro que quieres eliminar ${selectedRows.size} registros de "${selectedKey}"? Esta acción guardará los cambios inmediatamente.`)) {
             const newCollection = selectedCollection.filter((row: any) => !selectedRows.has(row.id));
-            setData(prev => {
-                if (!prev) return null;
-                const updatedData = { ...prev, [selectedKey]: newCollection };
-                forceSave(updatedData).then(() => {
-                    setNotification({ message: `${selectedRows.size} registros eliminados permanentemente.`, type: 'success' });
-                }).catch(err => {
-                    setNotification({ message: `Error al eliminar: ${err.message}`, type: 'error' });
-                });
-                return updatedData;
-            });
+            setLocalData(prev => prev ? { ...prev, [selectedKey]: newCollection } : null);
+            saveCollection(selectedKey, newCollection);
             setSelectedRows(new Set());
         }
     };
 
     const handleExport = (format: 'csv' | 'json') => {
         if (!selectedKey) return;
-        const collection = (data as any)[selectedKey] || [];
+        const collection = (localData as any)[selectedKey] || [];
         if (collection.length === 0) {
             setNotification({ message: 'La colección está vacía, no se puede exportar.', type: 'error' });
             return;
@@ -422,16 +442,8 @@ function DataViewerContent() {
             skipEmptyLines: true,
             complete: (results) => {
                 const newCollection = [...selectedCollection, ...results.data];
-                setData(prev => {
-                    if (!prev) return null;
-                    const updatedData = { ...prev, [selectedKey]: newCollection };
-                     forceSave(updatedData).then(() => {
-                        setNotification({ message: `${results.data.length} filas importadas y guardadas en '${selectedKey}'.`, type: 'success' });
-                    }).catch(err => {
-                        setNotification({ message: `Error al guardar importación: ${err.message}`, type: 'error' });
-                    });
-                    return updatedData;
-                });
+                setLocalData(prev => prev ? { ...prev, [selectedKey]: newCollection } : null);
+                saveCollection(selectedKey, newCollection);
             },
             error: (error) => {
                 setNotification({ message: `Error al importar: ${error.message}`, type: 'error' });
@@ -440,11 +452,8 @@ function DataViewerContent() {
     };
     
     const handleSaveChanges = () => {
-        forceSave().then(() => {
-            setNotification({ message: `¡Datos guardados en ${mode === 'real' ? 'Firestore' : 'memoria'}!`, type: 'success' });
-        }).catch(err => {
-            setNotification({ message: `Error al guardar: ${err.message}`, type: 'error' });
-        });
+        if (!selectedKey || !selectedCollection) return;
+        saveCollection(selectedKey, selectedCollection);
     };
 
     return (
@@ -490,7 +499,7 @@ function DataViewerContent() {
                         <div className="mt-4">
                             <SBCard title="Análisis de Relaciones (FK)">
                                 <div className="p-4">
-                                    {selectedKey && <RelationAnalysis collectionName={selectedKey} collection={selectedCollection} data={data}/>}
+                                    {selectedKey && <RelationAnalysis collectionName={selectedKey} collection={selectedCollection} data={localData}/>}
                                 </div>
                             </SBCard>
                         </div>

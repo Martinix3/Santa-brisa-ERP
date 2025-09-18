@@ -56,7 +56,7 @@ function ChatModal({ open, onClose, children }: { open: boolean, onClose: () => 
 
 export default function QuickLogOverlay() {
   const [open, setOpen] = useState(false);
-  const { data, setData, currentUser, forceSave } = useData();
+  const { data, setData, currentUser } = useData();
 
   const handleNewData = useCallback(async (newData: Partial<SantaData>) => {
     if (!data) return;
@@ -86,17 +86,16 @@ export default function QuickLogOverlay() {
 
     if (hasNewData) {
         setData(updatedData);
-        // 2. Persist the ENTIRE updated data object to the backend
+        // 2. Persist only the new entities to the backend
         try {
-            console.log("Datos COMPLETOS que se envían a la API de persistencia:", updatedData);
-            await forceSave(updatedData);
+            await persistNewEntities(newData);
             console.log("Entities successfully sent to persistence API.");
         } catch (error) {
             console.error("Failed to save entities via API:", error);
             // Optionally, show an error to the user
         }
     }
-  }, [data, setData, forceSave]);
+  }, [data, setData]);
 
   if (!data || !currentUser) return null;
 

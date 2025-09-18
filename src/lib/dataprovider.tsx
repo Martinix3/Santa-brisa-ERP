@@ -26,7 +26,6 @@ interface DataContextProps {
   setMode: React.Dispatch<React.SetStateAction<DataMode>>;
   data: SantaData | null;
   setData: React.Dispatch<React.SetStateAction<SantaData | null>>;
-  forceSave: (dataToSave?: SantaData) => Promise<void>;
   currentUser: User | null;
   login: () => Promise<void>;
   logout: () => Promise<void>;
@@ -59,24 +58,22 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
             const response = await fetch("/api/brain-persist", { headers: await getAuthHeaders() });
 
             let finalData: SantaData;
+            const localDataCopy = JSON.parse(JSON.stringify(realSantaData));
 
             if (!response.ok) {
                 const errorBody = await response.text();
                 console.warn(`API fetch failed (${response.status}): ${errorBody}. Falling back to local data.`);
-                finalData = JSON.parse(JSON.stringify(realSantaData));
+                finalData = localDataCopy;
             } else {
                 const apiData = await response.json();
                 
                 // Deep merge: Prioritize API data but keep local data for collections not in API response.
-                const localDataCopy = JSON.parse(JSON.stringify(realSantaData));
                 const merged = { ...localDataCopy };
 
                 for (const key in apiData) {
-                    if (Object.prototype.hasOwnProperty.call(apiData, key)) {
-                        const collection = apiData[key];
-                        // Only overwrite if the API returns a non-empty array for that collection
-                        if (Array.isArray(collection) && collection.length > 0) {
-                            (merged as any)[key] = collection;
+                    if (Object.prototype.hasOwnProperty.call(apiData, key) && Array.isArray(apiData[key])) {
+                         if (apiData[key].length > 0) {
+                            (merged as any)[key] = apiData[key];
                         }
                     }
                 }
@@ -121,33 +118,6 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     setCurrentUser(null);
   }, []);
 
-  const forceSave = useCallback(
-    async (dataToSave?: SantaData) => {
-      const payload = dataToSave || data;
-      if (!payload) {
-        console.warn("Save requested, but no data is available.");
-        return;
-      }
-
-      try {
-        const headers = await getAuthHeaders();
-        const response = await fetch("/api/brain-persist", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", ...headers },
-          body: JSON.stringify(payload),
-        });
-        if (!response.ok) {
-          const errorBody = await response.json();
-          throw new Error(errorBody.error || "Failed to save data to server.");
-        }
-        console.log("Data successfully persisted via API.");
-      } catch (error) {
-        console.error("Error in forceSave:", error);
-        throw error;
-      }
-    },
-    [data]
-  );
 
   const value = useMemo(
     () => ({
@@ -155,17 +125,16 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
       setMode,
       data,
       setData,
-      forceSave,
       currentUser,
       login,
       logout,
       isLoading,
     }),
-    [mode, data, setData, forceSave, currentUser, login, logout, isLoading]
+    [mode, data, setData, currentUser, login, logout, isLoading]
   );
 
   return (
-    <DataContext.Provider value={value}>{children}</DataContext.Provider>
+    <DataContext.Provider value={value as any}>{children}</DataContext.Provider>
   );
 };
 
