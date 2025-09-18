@@ -176,9 +176,13 @@ function NavSection({
     const Icon = section.items[0].icon;
 
     const handleToggle = () => {
-        const dashboardItem = section.items.find(item => item.label.toLowerCase().includes('dashboard'));
-        if (!isExpanded && dashboardItem) {
-            router.push(dashboardItem.href);
+        // Only redirect if sidebar is collapsed
+        if (isCollapsed) {
+            const dashboardItem = section.items.find(item => item.label.toLowerCase().includes('dashboard'));
+            if (dashboardItem) {
+                router.push(dashboardItem.href);
+                return;
+            }
         }
         onToggle();
     };
