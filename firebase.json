@@ -10,5 +10,11 @@
     "frameworksBackend": {
       "region": "us-central1"
     }
+  },
+  "client": {
+    "apiKey": "REEMPLAZA_CON_TU_API_KEY",
+    "authDomain": "REEMPLAZA_CON_TU_AUTH_DOMAIN",
+    "projectId": "REEMPLAZA_CON_TU_PROJECT_ID",
+    "appId": "REEMPLAZA_CON_TU_APP_ID"
   }
 }

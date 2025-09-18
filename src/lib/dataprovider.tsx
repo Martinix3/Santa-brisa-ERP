@@ -110,10 +110,26 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const loadDataForUser = async () => {
       if (firebaseUser) {
+        let token: string | null = null;
         try {
-          const token = await getIdToken(firebaseUser, true);
-          const headers = { 'Authorization': `Bearer ${token}` };
+          // Force refresh the token to make sure it's valid
+          token = await getIdToken(firebaseUser, true);
+        } catch (error) {
+          console.error("Error getting auth token:", error);
+          showNotification('La sesión ha caducado. Por favor, inicia sesión de nuevo.', 'error');
+          setIsLoading(false);
+          await signOut(auth); // Log out the user if token is invalid
+          return;
+        }
 
+        if (!token) {
+          console.warn("Could not get auth token. Aborting data fetch.");
+          setIsLoading(false);
+          return;
+        }
+
+        try {
+          const headers = { 'Authorization': `Bearer ${token}` };
           const response = await fetch("/api/brain-persist", { headers });
 
           let finalData: SantaData = getEmptySantaData();
