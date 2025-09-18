@@ -93,7 +93,9 @@ export default function PersonalDashboardPage() {
                 i.id === taskId ? { ...i, status: newStatus } : i
             );
             setData({ ...data, interactions: updatedInteractions });
-            saveCollection('interactions', updatedInteractions, isPersistenceEnabled);
+            if (isPersistenceEnabled) {
+                saveCollection('interactions', updatedInteractions, isPersistenceEnabled);
+            }
         }
     };
     
@@ -103,8 +105,7 @@ export default function PersonalDashboardPage() {
 
     const handleSaveCompletedTask = (
       taskId: string,
-      resultNote: string,
-      nextActionNote?: string
+      resultNote: string
     ) => {
         if (!data) return;
         const updatedInteractions = data.interactions.map((i) => {
@@ -113,13 +114,14 @@ export default function PersonalDashboardPage() {
                     ...i,
                     status: 'done' as InteractionStatus,
                     resultNote,
-                    nextAction: nextActionNote ? { note: nextActionNote } : i.nextAction,
                 };
             }
             return i;
         });
         setData({ ...data, interactions: updatedInteractions as Interaction[] });
-        saveCollection('interactions', updatedInteractions, isPersistenceEnabled);
+        if (isPersistenceEnabled) {
+            saveCollection('interactions', updatedInteractions, isPersistenceEnabled);
+        }
         setCompletingTask(null);
     };
 
