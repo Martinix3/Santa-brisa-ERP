@@ -4,7 +4,7 @@ import type { Currency } from './ssot.core';
 export type OrderStatus = 'open' | 'confirmed' | 'shipped' | 'invoiced' | 'paid' | 'cancelled' | 'lost';
 export type InteractionKind = 'VISITA' | 'LLAMADA' | 'EMAIL' | 'WHATSAPP' | 'OTRO';
 export type Department = 'PRODUCCION' | 'ALMACEN' | 'MARKETING' | 'VENTAS' | 'FINANZAS';
-export type InteractionStatus = 'open' | 'done';
+export type InteractionStatus = 'open' | 'done' | 'processing';
 
 export interface OrderLine {
   sku: string;

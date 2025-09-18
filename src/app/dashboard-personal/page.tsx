@@ -5,13 +5,16 @@ import React, { useMemo, useState } from 'react';
 import { useData } from '@/lib/dataprovider';
 import AuthenticatedLayout from '@/components/layouts/AuthenticatedLayout';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
-import { User, CheckCircle, AlertCircle, Clock, BarChart3, Users, Target, Calendar, LayoutGrid } from 'lucide-react';
+import { User, CheckCircle, AlertCircle, Clock, Target, Loader } from 'lucide-react';
 import { SBCard } from '@/components/ui/ui-primitives';
-import type { Interaction, InteractionStatus } from '@/domain/ssot';
+import type { Interaction, InteractionStatus, SantaData } from '@/domain/ssot';
 import { DEPT_META } from '@/domain/ssot';
 import { TaskBoard, Task } from '@/features/agenda/TaskBoard';
 import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/TaskCompletionDialog';
 import { saveCollection } from '@/features/agenda/components/CalendarPageContent';
+import { runSantaBrain, ChatContext } from '@/ai/flows/santa-brain-flow';
+import { Message } from 'genkit';
+
 
 function KPI({label, value, icon: Icon}:{label:string; value:number|string; icon: React.ElementType}){
   return (
@@ -34,7 +37,6 @@ function mapInteractionsToTasks(interactions: Interaction[], accounts: any[]): T
   if (!interactions) return [];
   const accountMap = new Map(accounts.map(a => [a.id, a.name]));
   return interactions
-    .filter(i => i.plannedFor)
     .map(i => ({
       id: i.id,
       title: i.note || 'Tarea sin título',
@@ -51,34 +53,29 @@ export default function PersonalDashboardPage() {
     const { currentUser, data, setData, isPersistenceEnabled } = useData();
     const [completingTask, setCompletingTask] = useState<Interaction | null>(null);
 
-    const { upcoming, overdue, completed, allTasks } = useMemo(() => {
-        if (!data || !currentUser) return { upcoming: [], overdue: [], completed: [], allTasks: [] };
+    const allTasks = useMemo(() => {
+        if (!data || !currentUser) return [];
 
         const myInteractions = data.interactions.filter(i => 
             i.userId === currentUser.id || i.involvedUserIds?.includes(currentUser.id)
         );
 
-        const now = new Date();
-        
-        const upcomingTasks = myInteractions
-            .filter(i => i.status === 'open' && i.plannedFor && new Date(i.plannedFor) >= now);
-            
-        const overdueTasks = myInteractions
-            .filter(i => i.status === 'open' && i.plannedFor && new Date(i.plannedFor) < now);
-
-        const completedTasks = myInteractions
-            .filter(i => i.status === 'done');
-            
-        const allOpenTasks = mapInteractionsToTasks([...overdueTasks, ...upcomingTasks], data.accounts || []);
-        const allCompletedTasks = mapInteractionsToTasks(completedTasks, data.accounts || []);
-
-        return { 
-            upcoming: upcomingTasks, 
-            overdue: overdueTasks, 
-            completed: completedTasks,
-            allTasks: [...allOpenTasks, ...allCompletedTasks]
-        };
+        return mapInteractionsToTasks(myInteractions, data.accounts || []);
     }, [data, currentUser]);
+
+    const { openTasks, processingTasks, doneTasks } = useMemo(() => {
+        const open = allTasks.filter(t => t.status === 'open');
+        const processing = allTasks.filter(t => t.status === 'processing');
+        const done = allTasks.filter(t => t.status === 'done');
+        return { openTasks: open, processingTasks: processing, doneTasks: done };
+    }, [allTasks]);
+
+    const { upcoming, overdue } = useMemo(() => {
+        const now = new Date();
+        const upcomingTasks = openTasks.filter(i => i.date && new Date(i.date) >= now);
+        const overdueTasks = openTasks.filter(i => !i.date || new Date(i.date) < now);
+        return { upcoming: upcomingTasks, overdue: overdueTasks };
+    }, [openTasks]);
 
     const handleTaskStatusChange = (taskId: string, newStatus: InteractionStatus) => {
         if (!data) return;
@@ -103,37 +100,91 @@ export default function PersonalDashboardPage() {
         handleTaskStatusChange(taskId, 'done');
     }
 
-    const handleSaveCompletedTask = (
-      taskId: string,
-      resultNote: string
-    ) => {
-        if (!data) return;
-        const updatedInteractions = data.interactions.map((i) => {
-            if (i.id === taskId) {
-                return {
-                    ...i,
-                    status: 'done' as InteractionStatus,
-                    resultNote,
-                };
+    const handleSaveCompletedTask = async (taskId: string, resultNote: string) => {
+      if (!data || !currentUser) return;
+    
+      // 1. Immediately mark the task as 'processing' and save the note
+      const updatedInteractions = data.interactions.map((i) =>
+        i.id === taskId
+          ? { ...i, status: 'processing' as InteractionStatus, resultNote }
+          : i
+      );
+      setData({ ...data, interactions: updatedInteractions as Interaction[] });
+      setCompletingTask(null);
+    
+      // Persist this intermediate state if enabled
+      if (isPersistenceEnabled) {
+        saveCollection('interactions', updatedInteractions, isPersistenceEnabled);
+      }
+    
+      // 2. Run Santa Brain in the background
+      try {
+        const chatContext: ChatContext = {
+          accounts: data.accounts,
+          products: data.products,
+          orders: data.ordersSellOut,
+          interactions: data.interactions,
+          inventory: data.inventory,
+          mktEvents: data.mktEvents,
+          currentUser: currentUser,
+        };
+    
+        const { newEntities } = await runSantaBrain([], resultNote, chatContext);
+    
+        // 3. Merge new entities and mark the original task as 'done'
+        setData((prevData) => {
+          if (!prevData) return null;
+          let latestData = { ...prevData };
+    
+          // Merge new entities
+          for (const key in newEntities) {
+            const collectionName = key as keyof SantaData;
+            if (newEntities[collectionName] && Array.isArray(newEntities[collectionName])) {
+              const newItems = newEntities[collectionName] as any[];
+              if (newItems.length > 0) {
+                const existingItems = (latestData[collectionName] as any[]) || [];
+                latestData[collectionName] = [...existingItems, ...newItems] as any;
+              }
             }
-            return i;
+          }
+    
+          // Mark the original task as 'done'
+          const finalInteractions = latestData.interactions.map((i) =>
+            i.id === taskId ? { ...i, status: 'done' as InteractionStatus } : i
+          );
+          latestData.interactions = finalInteractions;
+    
+          // Persist the final state
+           if (isPersistenceEnabled) {
+                saveCollection('interactions', finalInteractions, isPersistenceEnabled);
+                // We should also save other modified collections, but that's a bigger change
+           }
+    
+          return latestData;
         });
-        setData({ ...data, interactions: updatedInteractions as Interaction[] });
-        if (isPersistenceEnabled) {
-            saveCollection('interactions', updatedInteractions, isPersistenceEnabled);
-        }
-        setCompletingTask(null);
+      } catch (error) {
+        console.error("Error processing task completion with AI:", error);
+        // Optional: Revert task status to 'open' on error
+        setData((prevData) => {
+           if (!prevData) return null;
+           const revertedInteractions = prevData.interactions.map((i) =>
+             i.id === taskId ? { ...i, status: 'open' as InteractionStatus } : i
+           );
+           return { ...prevData, interactions: revertedInteractions };
+        });
+      }
     };
+    
 
     return (
         <AuthenticatedLayout>
             <ModuleHeader title="Dashboard Personal" icon={User} />
             <div className="p-6 bg-zinc-50 flex-grow">
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-                    <KPI icon={Clock} label="Tareas Próximas" value={upcoming.length} />
                     <KPI icon={AlertCircle} label="Tareas Pendientes" value={overdue.length} />
-                    <KPI icon={CheckCircle} label="Tareas Completadas (30d)" value={completed.filter(t => new Date(t.createdAt) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)).length} />
-                    <KPI icon={Target} label="KPI Principal" value={"N/A"} />
+                    <KPI icon={Clock} label="Tareas Programadas" value={upcoming.length} />
+                    <KPI icon={Loader} label="Tareas Procesando" value={processingTasks.length} />
+                    <KPI icon={CheckCircle} label="Tareas Completadas (30d)" value={doneTasks.filter(t => t.date && new Date(t.date) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)).length} />
                 </div>
                 
                 <TaskBoard 

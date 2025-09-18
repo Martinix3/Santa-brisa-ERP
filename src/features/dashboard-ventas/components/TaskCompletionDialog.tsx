@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { SBDialog, SBDialogContent } from '@/features/agenda/ui';
 import type { Interaction } from '@/domain/ssot';
-import { ShoppingCart, Calendar } from 'lucide-react';
+import { Save, Bot } from 'lucide-react';
 
 export function TaskCompletionDialog({ task, open, onClose, onComplete }: {
     task: Interaction;
@@ -25,7 +25,7 @@ export function TaskCompletionDialog({ task, open, onClose, onComplete }: {
         <SBDialog open={open} onOpenChange={onClose}>
             <SBDialogContent
                 title={`Completar: ${task.note}`}
-                description="Registra el resultado de la interacción."
+                description="Escribe lo que ha pasado en la interacción. Santa Brain se encargará de crear los registros necesarios (pedidos, próximas visitas, etc.)"
                 onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}
                 primaryAction={{ label: 'Guardar y Completar', type: 'submit' }}
                 secondaryAction={{ label: 'Cancelar', onClick: onClose }}
@@ -36,31 +36,15 @@ export function TaskCompletionDialog({ task, open, onClose, onComplete }: {
                         <textarea
                             value={resultNote}
                             onChange={(e) => setResultNote(e.target.value)}
-                            placeholder="¿Qué ha pasado? ¿De qué se ha hablado? Sé lo más detallado posible, la IA usará esto para sugerir próximos pasos."
+                            placeholder="Ej: 'El cliente quiere un pedido de 5 cajas para la semana que viene. Quiere que le visitemos de nuevo el viernes 25 para revisar el material PLV.'"
                             className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm"
                             rows={5}
                             required
                         />
                     </label>
-                    
-                    <div className="pt-2 border-t">
-                         <span className="text-sm font-medium text-zinc-700">Acciones rápidas (Próximamente)</span>
-                         <div className="mt-2 flex gap-2">
-                            <button
-                                type="button"
-                                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm border bg-white hover:bg-zinc-50 border-zinc-300 disabled:opacity-50"
-                                disabled={true}
-                            >
-                                <ShoppingCart size={16} /> Crear Pedido
-                            </button>
-                             <button
-                                type="button"
-                                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm border bg-white hover:bg-zinc-50 border-zinc-300 disabled:opacity-50"
-                                disabled={true}
-                            >
-                                <Calendar size={16} /> Agendar Seguimiento
-                            </button>
-                         </div>
+                    <div className="flex items-center justify-end gap-2 text-xs text-zinc-500 pt-2">
+                        <Bot size={14}/>
+                        <span>Santa Brain procesará esta nota para automatizar las acciones.</span>
                     </div>
                 </div>
             </SBDialogContent>

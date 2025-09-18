@@ -3,7 +3,7 @@
 import React, { useMemo } from 'react';
 import { DndContext, useDraggable, useDroppable, closestCorners } from '@dnd-kit/core';
 import type { Department, InteractionStatus, User } from '@/domain/ssot';
-import { Check, User as UserIcon, AlertCircle, Clock } from 'lucide-react';
+import { Check, User as UserIcon, AlertCircle, Clock, Loader } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
 
 export type Task = {
@@ -16,11 +16,12 @@ export type Task = {
   location?: string;
 };
 
-type ColumnId = 'overdue' | 'upcoming' | 'done';
+type ColumnId = 'overdue' | 'upcoming' | 'processing' | 'done';
 
 const KANBAN_COLS: { id: ColumnId, label: string, icon: React.ElementType, headerColor: string }[] = [
     { id: 'overdue', label: 'Pendientes', icon: AlertCircle, headerColor: 'text-rose-600' },
     { id: 'upcoming', label: 'Programadas', icon: Clock, headerColor: 'text-cyan-600' },
+    { id: 'processing', label: 'Procesando', icon: Loader, headerColor: 'text-amber-600' },
     { id: 'done', label: 'Hechas', icon: Check, headerColor: 'text-emerald-600' },
 ];
 
@@ -55,6 +56,8 @@ function TaskCard({ task, typeStyles, onComplete }: { task: Task; typeStyles: an
     const typeStyle = typeStyles[task.type] || {};
 
     const involvedUsers = (task.involvedUserIds || []).map(id => santaData?.users.find(u => u.id === id)).filter(Boolean) as User[];
+    
+    const isProcessing = task.status === 'processing';
 
     return (
         <div 
@@ -62,23 +65,23 @@ function TaskCard({ task, typeStyles, onComplete }: { task: Task; typeStyles: an
             style={style}
             {...listeners} 
             {...attributes}
-            className="p-3 bg-white rounded-lg border shadow-sm cursor-grab group"
+            className={`p-3 bg-white rounded-lg border shadow-sm group ${isProcessing ? 'cursor-not-allowed' : 'cursor-grab'}`}
         >
-            <p className="font-medium text-sm text-zinc-800">{task.title}</p>
-            {task.location && <p className="text-xs text-zinc-500 mt-1">📍 {task.location}</p>}
+            <p className={`font-medium text-sm text-zinc-800 ${isProcessing ? 'opacity-60' : ''}`}>{task.title}</p>
+            {task.location && <p className={`text-xs text-zinc-500 mt-1 ${isProcessing ? 'opacity-60' : ''}`}>📍 {task.location}</p>}
             <div className="mt-2 flex justify-between items-center">
                 <span 
-                    className="text-xs font-semibold px-2 py-0.5 rounded-full"
+                    className={`text-xs font-semibold px-2 py-0.5 rounded-full ${isProcessing ? 'opacity-60' : ''}`}
                     style={{ backgroundColor: typeStyle.color, color: typeStyle.textColor }}
                 >
                     {typeStyle.label}
                 </span>
-                <div className="flex items-center gap-2">
+                <div className={`flex items-center gap-2 ${isProcessing ? 'opacity-60' : ''}`}>
                     <div className="flex -space-x-2">
                         {involvedUsers.map(user => <Avatar key={user.id} name={user.name} />)}
                     </div>
                     {task.date && <span className="text-xs text-zinc-500">{new Date(task.date).toLocaleDateString('es-ES')}</span>}
-                    {task.status !== 'done' && (
+                    {task.status === 'open' && (
                          <button 
                             onClick={(e) => { e.stopPropagation(); onComplete(task.id); }}
                             className="p-1 rounded-md text-zinc-400 opacity-0 group-hover:opacity-100 hover:bg-green-100 hover:text-green-600 transition-opacity"
@@ -99,7 +102,7 @@ function StatusColumn({ col, tasks, typeStyles, onCompleteTask }: { col: typeof 
     return (
         <div ref={setNodeRef} className="bg-zinc-100/70 p-3 rounded-xl w-full">
             <h3 className={`flex items-center gap-2 font-semibold px-1 mb-3 ${col.headerColor}`}>
-                <col.icon size={18}/>
+                <col.icon size={18} className={col.id === 'processing' ? 'animate-spin' : ''} />
                 {col.label}
                 <span className="text-sm font-normal text-zinc-500">{tasks.length}</span>
             </h3>
@@ -115,10 +118,12 @@ export function TaskBoard({ tasks, onTaskStatusChange, onCompleteTask, typeStyle
     
     const categorizedTasks = useMemo(() => {
         const now = new Date();
-        const upcoming = tasks.filter(t => t.status === 'open' && t.date && new Date(t.date) >= now);
-        const overdue = tasks.filter(t => t.status === 'open' && t.date && new Date(t.date) < now);
+        const openTasks = tasks.filter(t => t.status === 'open');
+        const upcoming = openTasks.filter(t => t.date && new Date(t.date) >= now);
+        const overdue = openTasks.filter(t => !t.date || new Date(t.date) < now);
+        const processing = tasks.filter(t => t.status === 'processing');
         const done = tasks.filter(t => t.status === 'done');
-        return { upcoming, overdue, done };
+        return { upcoming, overdue, processing, done };
     }, [tasks]);
 
     function handleDragEnd(event: any) {
@@ -126,21 +131,19 @@ export function TaskBoard({ tasks, onTaskStatusChange, onCompleteTask, typeStyle
         if (over && active) {
             const taskId = active.id as string;
             const newColId = over.id as ColumnId;
+            const task = tasks.find(t => t.id === taskId);
+            
+            if (!task || task.status === 'processing') return; // Cannot drag processing tasks
 
-            // Solo cambiamos el estado si se mueve a 'done'
-            if (newColId === 'done') {
-                const task = tasks.find(t => t.id === taskId);
-                if (task && task.status !== 'done') {
-                    onTaskStatusChange(taskId, 'done');
-                }
+            if (newColId === 'done' && task.status !== 'done') {
+                onTaskStatusChange(taskId, 'done');
             }
-            // No hacemos nada si se mueve entre 'upcoming' y 'overdue' porque el estado 'open' no cambia
         }
     }
 
     return (
         <DndContext onDragEnd={handleDragEnd} collisionDetection={closestCorners}>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatusColumn
                     col={KANBAN_COLS[0]}
                     tasks={categorizedTasks.overdue}
@@ -155,6 +158,12 @@ export function TaskBoard({ tasks, onTaskStatusChange, onCompleteTask, typeStyle
                 />
                  <StatusColumn
                     col={KANBAN_COLS[2]}
+                    tasks={categorizedTasks.processing}
+                    typeStyles={typeStyles}
+                    onCompleteTask={onCompleteTask}
+                />
+                 <StatusColumn
+                    col={KANBAN_COLS[3]}
                     tasks={categorizedTasks.done}
                     typeStyles={typeStyles}
                     onCompleteTask={onCompleteTask}
