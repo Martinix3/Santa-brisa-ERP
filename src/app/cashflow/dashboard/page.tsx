@@ -1,12 +1,13 @@
-
 "use client";
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { SBCard, KPI, SBButton } from '@/components/ui/ui-primitives';
-import { BarChart, TrendingUp, TrendingDown, Banknote, ArrowRight, Calendar } from 'lucide-react';
+import { BarChart, TrendingUp, TrendingDown, Banknote, ArrowRight, Calendar, BrainCircuit } from 'lucide-react';
 import Link from 'next/link';
 import { useData } from '@/lib/dataprovider';
 import { DEPT_META } from '@/domain/ssot';
 import type { Interaction } from '@/domain/ssot';
+import { generateInsights } from '@/ai/flows/generate-insights-flow';
+
 
 // Mock data - replace with real data fetching
 const cashflowData = {
@@ -20,6 +21,55 @@ const cashflowData = {
         { name: 'Sem 3', inflow: 8000, outflow: 7000 },
         { name: 'Sem 4', inflow: 15200, outflow: 4800 },
     ]
+}
+
+function AIInsightsCard() {
+    const { data } = useData();
+    const [insights, setInsights] = useState("");
+    const [loading, setLoading] = useState(false);
+
+    const handleGenerate = async () => {
+        if (!data) return;
+        setLoading(true);
+        setInsights("");
+        try {
+            const relevantData = {
+                // Mock data for now, should be replaced with real cashflow data
+                inflows: [{ amount: 10000, date: '2024-09-01' }, { amount: 5000, date: '2024-09-10' }],
+                outflows: [{ amount: 2000, date: '2024-09-05' }, { amount: 3000, date: '2024-09-15' }],
+                pendingPayments: [{ amount: 1500, dueDate: '2024-10-01' }],
+                pendingCollections: [{ amount: 8000, dueDate: '2024-09-25' }],
+            };
+            const result = await generateInsights({ 
+                jsonData: JSON.stringify(relevantData),
+                context: "Eres un analista financiero. Analiza los datos de flujos de caja, pagos y cobros para identificar riesgos de liquidez, patrones de gasto o retrasos en los cobros."
+            });
+            setInsights(result);
+        } catch (e) {
+            console.error(e);
+            setInsights("Hubo un error al generar el informe. Inténtalo de nuevo.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <SBCard title="Análisis Financiero con IA">
+            <div className="p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                    <p className="text-sm text-zinc-600">Genera un análisis sobre la salud financiera y los flujos de caja.</p>
+                    <SBButton onClick={handleGenerate} disabled={loading}>
+                        <BrainCircuit className="h-4 w-4" /> {loading ? 'Analizando...' : 'Generar Informe'}
+                    </SBButton>
+                </div>
+                {insights && (
+                    <div className="prose prose-sm p-4 bg-zinc-50 rounded-lg border max-w-none whitespace-pre-wrap">
+                        {insights}
+                    </div>
+                )}
+            </div>
+        </SBCard>
+    );
 }
 
 function UpcomingEvents() {
@@ -71,6 +121,8 @@ export default function CashflowDashboardPage() {
                 <KPI label="Salidas (30d)" value={cashflowData.outflow30d.toLocaleString('es-ES', {style: 'currency', currency: 'EUR'})} delta="-2%" />
                 <KPI label="Cash Flow Neto (30d)" value={cashflowData.netCashflow.toLocaleString('es-ES', {style: 'currency', currency: 'EUR'})} />
             </div>
+            
+             <AIInsightsCard />
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2">

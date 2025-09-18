@@ -1,193 +1,140 @@
 
 "use client";
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useData } from '@/lib/dataprovider';
 import type { Lot, QACheck } from '@/domain/ssot';
-import { QC_PARAMS, QCKey } from '@/domain/production.qc';
-import { SBCard, SB_COLORS, SBButton } from '@/components/ui/ui-primitives';
-import { Hourglass, CheckCircle, XCircle, Beaker, ChevronRight, Save } from 'lucide-react';
+import { SBCard, SBButton } from '@/components/ui/ui-primitives';
+import { Hourglass, CheckCircle, XCircle, FileText, BrainCircuit } from 'lucide-react';
+import { LotQualityStatusPill } from '@/features/production/components/ui';
+import { generateInsights } from '@/ai/flows/generate-insights-flow';
 
-function LotRow({ lot, onSelect, isSelected }: { lot: Lot; onSelect: () => void; isSelected: boolean }) {
+function KPI({ label, value, icon: Icon }: { label: string; value: number; icon: React.ElementType }) {
     return (
-        <button 
-            onClick={onSelect} 
-            className={`w-full text-left p-3 grid grid-cols-4 gap-4 items-center transition-colors ${isSelected ? 'bg-yellow-100' : 'hover:bg-zinc-50'}`}
-        >
-            <div className="font-mono text-sm font-semibold">{lot.id}</div>
-            <div>{lot.sku}</div>
-            <div>{lot.quantity} uds</div>
-            <div className="flex justify-between items-center">
-                <span>{new Date(lot.createdAt).toLocaleDateString()}</span>
-                <ChevronRight className={`h-5 w-5 text-zinc-400 transition-transform ${isSelected ? 'rotate-90' : ''}`} />
+        <SBCard title="">
+            <div className="p-4">
+                <div className="flex items-center gap-4">
+                    <div className="p-3 rounded-lg bg-zinc-100 text-zinc-600">
+                        <Icon className="h-6 w-6" />
+                    </div>
+                    <div>
+                        <p className="text-2xl font-bold text-zinc-900">{value}</p>
+                        <p className="text-sm text-zinc-600">{label}</p>
+                    </div>
+                </div>
             </div>
-        </button>
+        </SBCard>
     );
 }
 
-function QCAnalysisPanel({ lot, onSave }: { lot: Lot; onSave: (lotId: string, status: 'release' | 'reject', results: Lot['quality']['results']) => void; }) {
-    const spec = QC_PARAMS[lot.sku] || {};
-    const [results, setResults] = useState<Lot['quality']['results']>(lot.quality?.results || {});
+function AIInsightsCard() {
+    const { data } = useData();
+    const [insights, setInsights] = useState("");
+    const [loading, setLoading] = useState(false);
 
-    const handleResultChange = (key: QCKey, value: string) => {
-        const numValue = parseFloat(value);
-        const paramSpec = spec[key as keyof typeof spec];
-        let status: 'ok' | 'ko' = 'ok';
-
-        if (paramSpec && 'min' in paramSpec && !isNaN(numValue)) {
-            if (numValue < paramSpec.min || numValue > paramSpec.max) {
-                status = 'ko';
-            }
+    const handleGenerate = async () => {
+        if (!data) return;
+        setLoading(true);
+        setInsights("");
+        try {
+            const relevantData = {
+                lotsInQuarantine: data.lots?.filter(l => l.quality?.qcStatus === 'hold').map(l => ({ id: l.id, sku: l.sku, date: l.createdAt })),
+                recentChecks: data.qaChecks?.slice(0, 20).map(c => ({ lotId: c.lotId, result: c.result, date: c.reviewedAt })),
+            };
+            const result = await generateInsights({ 
+                jsonData: JSON.stringify(relevantData),
+                context: "Eres un experto en control de calidad. Analiza los lotes en cuarentena y los últimos controles para detectar patrones de fallo, SKUs problemáticos o retrasos en las liberaciones."
+            });
+            setInsights(result);
+        } catch (e) {
+            console.error(e);
+            setInsights("Hubo un error al generar el informe. Inténtalo de nuevo.");
+        } finally {
+            setLoading(false);
         }
-
-        setResults(prev => ({
-            ...prev,
-            [key]: { value: isNaN(numValue) ? value : numValue, status }
-        }));
     };
 
-    const allTestsPassed = Object.keys(spec).every(key => {
-        const result = results[key];
-        // If a test hasn't been performed, it hasn't passed.
-        if (!result) return false; 
-        // If it's a descriptive test, it passes if there's notes.
-        if (!('min' in spec[key]) && result.notes) return true;
-        // Otherwise, check status.
-        return result.status === 'ok';
-    });
-    
     return (
-        <SBCard title={`Análisis para Lote: ${lot.id}`} accent={SB_COLORS.quality}>
+        <SBCard title="Análisis de Calidad con IA">
             <div className="p-4 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {(Object.keys(spec) as QCKey[]).map(key => {
-                        const param = spec[key];
-                        if (!param) return null;
-                        const result = results[key];
-                        const isNumeric = 'min' in param;
-                        const statusColor = result?.status === 'ok' ? 'border-green-400' : result?.status === 'ko' ? 'border-red-400' : 'border-zinc-200';
-
-                        return (
-                            <div key={key} className={`p-3 rounded-lg border-2 ${statusColor} bg-white`}>
-                                <label className="flex items-center justify-between">
-                                    <span className="text-sm font-medium text-zinc-800 flex items-center gap-2">
-                                        <param.icon className="h-4 w-4 text-zinc-500"/>
-                                        {param.label}
-                                    </span>
-                                    {isNumeric && <span className="text-xs text-zinc-500">Spec: {param.min}-{param.max} {param.unit}</span>}
-                                </label>
-                                {isNumeric ? (
-                                    <input 
-                                        type="number"
-                                        step="0.01"
-                                        placeholder={`Valor (${param.unit})`}
-                                        value={result?.value as number || ''}
-                                        onChange={e => handleResultChange(key, e.target.value)}
-                                        className="mt-2 w-full h-9 rounded-md border border-zinc-200 bg-zinc-50 px-2 text-sm"
-                                    />
-                                ) : (
-                                    <textarea
-                                        placeholder="Notas de cata/observaciones..."
-                                        value={result?.notes || ''}
-                                        onChange={e => setResults(prev => ({...prev, [key]: {...prev[key], notes: e.target.value, status: e.target.value ? 'ok' : 'ko'}}))}
-                                        className="mt-2 w-full rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1 text-sm"
-                                        rows={2}
-                                    />
-                                )}
-                            </div>
-                        );
-                    })}
+                <div className="flex items-center justify-between">
+                    <p className="text-sm text-zinc-600">Detecta tendencias en los resultados de calidad y los lotes en espera.</p>
+                    <SBButton onClick={handleGenerate} disabled={loading}>
+                        <BrainCircuit className="h-4 w-4" /> {loading ? 'Analizando...' : 'Generar Informe'}
+                    </SBButton>
                 </div>
-            </div>
-            <div className="p-4 bg-zinc-50 border-t flex justify-end items-center gap-3">
-                 {!allTestsPassed && <span className="text-sm text-amber-700 mr-auto">Faltan pruebas o algunas están fuera de spec.</span>}
-                 <SBButton variant="destructive" onClick={() => onSave(lot.id, 'reject', results)}>
-                    <XCircle className="h-4 w-4" /> Rechazar Lote
-                </SBButton>
-                <SBButton onClick={() => onSave(lot.id, 'release', results)} disabled={!allTestsPassed}>
-                    <CheckCircle className="h-4 w-4" /> Liberar Lote
-                </SBButton>
+                {insights && (
+                    <div className="prose prose-sm p-4 bg-zinc-50 rounded-lg border max-w-none whitespace-pre-wrap">
+                        {insights}
+                    </div>
+                )}
             </div>
         </SBCard>
-    )
+    );
 }
 
-export default function QualityWorkbenchPage() {
-    const { data, setData } = useData();
-    const [selectedLotId, setSelectedLotId] = useState<string | null>(null);
+export default function QualityDashboardPage() {
+    const { data } = useData();
 
-    const lotsInQuarantine = useMemo(() => {
-        return (data?.lots || []).filter(l => l.quality?.qcStatus === 'hold').sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-    }, [data?.lots]);
+    const lots = useMemo(() => data?.lots || [], [data]);
+    const qaChecks = useMemo(() => data?.qaChecks || [], [data]);
 
-    const selectedLot = useMemo(() => {
-        return lotsInQuarantine.find(l => l.id === selectedLotId) || null;
-    }, [selectedLotId, lotsInQuarantine]);
-    
-    // Select first lot by default
-    useState(() => {
-        if (lotsInQuarantine.length > 0 && !selectedLotId) {
-            setSelectedLotId(lotsInQuarantine[0].id);
-        }
-    });
+    const kpis = useMemo(() => {
+        const pending = lots.filter(l => l.quality?.qcStatus === 'hold').length;
+        const released = lots.filter(l => l.quality?.qcStatus === 'release').length;
+        const rejected = lots.filter(l => l.quality?.qcStatus === 'reject').length;
+        return { pending, released, rejected };
+    }, [lots]);
 
-    const handleSave = useCallback((lotId: string, status: 'release' | 'reject', results: Lot['quality']['results']) => {
-        if (!data) return;
-
-        const updatedLots = data.lots.map(lot => {
-            if (lot.id === lotId) {
-                return {
-                    ...lot,
-                    quality: {
-                        ...lot.quality,
-                        qcStatus: status,
-                        results,
-                    }
-                };
-            }
-            return lot;
-        });
-
-        setData({ ...data, lots: updatedLots });
-        setSelectedLotId(null); // Deselect after action
-    }, [data, setData]);
+    const recentChecks = useMemo(() => {
+        return qaChecks.sort((a, b) => new Date(b.reviewedAt).getTime() - new Date(a.reviewedAt).getTime()).slice(0, 5);
+    }, [qaChecks]);
 
     return (
         <div className="space-y-6">
-            <h1 className="text-2xl font-semibold text-zinc-800">Banco de Trabajo de Calidad</h1>
-            <p className="text-zinc-600">
-                Selecciona un lote en cuarentena para introducir los resultados de los análisis y decidir si se libera o se rechaza.
-            </p>
+            <h1 className="text-2xl font-semibold text-zinc-800">Dashboard de Control de Calidad</h1>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <KPI label="Lotes en Cuarentena" value={kpis.pending} icon={Hourglass} />
+                <KPI label="Lotes Liberados" value={kpis.released} icon={CheckCircle} />
+                <KPI label="Lotes Rechazados" value={kpis.rejected} icon={XCircle} />
+            </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-                <div className="lg:col-span-1">
-                    <SBCard title={`Lotes en Cuarentena (${lotsInQuarantine.length})`} accent={SB_COLORS.quality}>
-                        <div className="divide-y divide-zinc-100 max-h-[60vh] overflow-y-auto">
-                            {lotsInQuarantine.length > 0 ? (
-                                lotsInQuarantine.map(lot => (
-                                    <LotRow 
-                                        key={lot.id} 
-                                        lot={lot} 
-                                        onSelect={() => setSelectedLotId(lot.id)}
-                                        isSelected={selectedLotId === lot.id}
-                                    />
-                                ))
-                            ) : (
-                                <p className="p-6 text-center text-sm text-zinc-500">¡Todo en orden! No hay lotes pendientes de revisión.</p>
-                            )}
-                        </div>
-                    </SBCard>
-                </div>
-                <div className="lg:col-span-2">
-                    {selectedLot ? (
-                        <QCAnalysisPanel lot={selectedLot} onSave={handleSave} />
-                    ) : (
-                        <div className="h-full flex flex-col items-center justify-center text-center p-12 bg-zinc-50 rounded-2xl border-2 border-dashed">
-                             <Beaker className="h-12 w-12 text-zinc-400 mb-4" />
-                             <h3 className="text-lg font-semibold text-zinc-800">Selecciona un lote</h3>
-                             <p className="text-sm text-zinc-500">Elige un lote de la lista de la izquierda para empezar el análisis de calidad.</p>
-                        </div>
-                    )}
-                </div>
+            <AIInsightsCard />
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <SBCard title="Lotes Pendientes de Revisión (en cuarentena)">
+                     <div className="divide-y divide-zinc-100">
+                        {lots.filter(l => l.quality?.qcStatus === 'hold').map(lot => (
+                            <div key={lot.id} className="p-3 flex justify-between items-center">
+                                <div>
+                                    <p className="font-mono text-sm font-semibold">{lot.id}</p>
+                                    <p className="text-xs text-zinc-500">{lot.sku}</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-sm font-bold">{lot.quantity} uds</p>
+                                    <p className="text-xs text-zinc-500">{new Date(lot.createdAt).toLocaleDateString()}</p>
+                                </div>
+                            </div>
+                        ))}
+                        {kpis.pending === 0 && <p className="p-4 text-sm text-center text-zinc-500">No hay lotes en cuarentena.</p>}
+                    </div>
+                </SBCard>
+                <SBCard title="Últimos Controles de Calidad Realizados">
+                    <div className="divide-y divide-zinc-100">
+                       {recentChecks.map(check => (
+                           <div key={check.id} className="p-3 flex justify-between items-center">
+                               <div>
+                                   <p className="font-mono text-sm font-semibold">{check.lotId}</p>
+                                   <p className="text-xs text-zinc-500">
+                                       Revisado por {data?.users.find(u => u.id === check.reviewerId)?.name || 'N/A'}
+                                   </p>
+                               </div>
+                               <LotQualityStatusPill status={check.result === 'PASS' ? 'release' : 'reject'} />
+                           </div>
+                       ))}
+                       {recentChecks.length === 0 && <p className="p-4 text-sm text-center text-zinc-500">No hay controles de calidad recientes.</p>}
+                    </div>
+                </SBCard>
             </div>
         </div>
     );

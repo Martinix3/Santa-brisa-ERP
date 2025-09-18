@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -35,6 +34,7 @@ import {
     Database,
     Map as MapIcon,
     LogOut,
+    Home,
 } from 'lucide-react';
 import { SB_COLORS, hexToRgba } from '@/components/ui/ui-primitives';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -44,10 +44,10 @@ import { useData } from '@/lib/dataprovider';
 
 const navSections = [
     {
-        title: 'Dashboards',
+        title: 'Personal',
         module: 'sales',
         items: [
-            { href: '/dashboard-ventas', label: 'Dashboards de Ventas', icon: BarChart3 },
+            { href: '/dashboard-ventas', label: 'Dashboard Personal', icon: BarChart3 },
         ]
     },
     {
@@ -61,7 +61,9 @@ const navSections = [
         title: 'Ventas',
         module: 'sales',
         items: [
+            { href: '/dashboard-ventas', label: 'Dashboard de Ventas', icon: BarChart3 },
             { href: '/accounts', label: 'Cuentas', icon: Users },
+            { href: '/dev/data-viewer?collection=distributors', label: 'Distribuidores', icon: Briefcase },
             { href: '/orders', label: 'Pedidos', icon: ShoppingCart },
         ]
     },
@@ -71,8 +73,9 @@ const navSections = [
         items: [
             { href: '/marketing/dashboard', label: 'Dashboard', icon: Megaphone },
             { href: '/marketing/events', label: 'Eventos', icon: Calendar },
-            { href: '/marketing/online', label: 'Campañas Online', icon: Zap },
+            { href: '/marketing/online', label: 'Adds', icon: Zap },
             { href: '/marketing/influencers/dashboard', label: 'Influencers', icon: Contact },
+            { href: '/marketing/dashboard', label: 'POS Marketing', icon: Home }, // Placeholder
         ]
     },
     {
@@ -81,54 +84,41 @@ const navSections = [
         items: [
             { href: '/production/dashboard', label: 'Dashboard', icon: Factory },
             { href: '/production/bom', label: 'BOMs', icon: BookOpen },
-            { href: '/production/execution', label: 'Producción', icon: Cpu },
+            { href: '/production/execution', label: 'Elaboración/Envasado', icon: Cpu },
             { href: '/production/traceability', label: 'Trazabilidad', icon: Waypoints },
+            { href: '/dev/qc-params', label: 'Calidad / Parámetros', icon: ClipboardCheck },
         ]
     },
     {
-        title: 'Calidad',
-        module: 'quality',
-        items: [
-            { href: '/quality/dashboard', label: 'Calidad (QC)', icon: ClipboardCheck },
-        ]
-    },
-    {
-        title: 'Almacén',
+        title: 'Logística',
         module: 'warehouse',
         items: [
-            { href: '/warehouse/dashboard', label: 'Dashboard', icon: Warehouse },
-            { href: '/warehouse/inventory', label: 'Inventario', icon: Users },
-            { href: '/warehouse/logistics', label: 'Logística', icon: Truck },
+            { href: '/warehouse/dashboard', label: 'Dashboard', icon: Truck },
+            { href: '/warehouse/logistics', label: 'Envíos', icon: Zap },
+            { href: '/warehouse/inventory', label: 'Inventario', icon: Warehouse },
         ]
     },
     {
         title: 'Financiera',
         module: 'finance',
         items: [
-            { href: '/cashflow/dashboard', label: 'Cashflow', icon: LineChart },
-            { href: '/cashflow/collections', label: 'Cobros', icon: ArrowDownCircle },
+            { href: '/cashflow/dashboard', label: 'Dashboard', icon: LineChart },
+            { href: '/cashflow/dashboard', label: 'Cashflow', icon: LineChart }, // Main dashboard has it all
             { href: '/cashflow/payments', label: 'Pagos', icon: ArrowUpCircle },
+            { href: '/cashflow/collections', label: 'Cobros', icon: ArrowDownCircle },
         ]
     },
     {
         title: 'Admin',
         module: 'admin',
         items: [
+            { href: '/admin/kpi-settings', label: 'Dashboard (Alertas)', icon: SlidersHorizontal },
             { href: '/users', label: 'Usuarios', icon: User },
-            { href: '/tools/ssot-accounts-editor', label: 'Editor de Cuentas', icon: FileCog },
-            { href: '/admin/sku-management', label: 'Gestión de SKUs', icon: Tags },
-            { href: '/admin/kpi-settings', label: 'Ajustes de KPIs', icon: SlidersHorizontal },
-        ]
-    },
-    {
-        title: 'Dev Tools',
-        module: 'admin',
-        items: [
-            { href: '/dev/data-viewer', label: 'Data Viewer', icon: Database },
-            { href: '/dev/data-map', label: 'Data Map', icon: MapIcon },
-            { href: '/dev/ssot-tests', label: 'SSOT Tests', icon: TestTube2 },
+            { href: '/admin/sku-management', label: 'SKUs', icon: Tags },
+            { href: '/admin/kpi-settings', label: 'KPIs', icon: SlidersHorizontal },
+            { href: '/dev/data-viewer', label: 'Data Viewer / Map', icon: Database },
+            { href: '/dev/ssot-tests', label: 'SSOT', icon: TestTube2 },
             { href: '/dev/integrations-panel', label: 'Integrations', icon: Zap },
-            { href: '/dev/qc-params', label: 'Parámetros QC', icon: FlaskConical },
         ]
     }
 ];
@@ -184,10 +174,20 @@ function NavSection({
     onToggle: () => void,
 }) {
     const pathname = usePathname() ?? '/';
+    const router = useRouter();
     const isSectionActive = section.items.some(item => pathname.startsWith(item.href) && (item.href !== '/' || pathname === '/'));
     const colorKey = (section.module || 'primary') as keyof typeof SB_COLORS;
     const moduleColor = SB_COLORS[colorKey] || SB_COLORS.primary;
     const Icon = section.items[0].icon;
+
+    const handleToggle = () => {
+        const dashboardItem = section.items.find(item => item.label.toLowerCase().includes('dashboard'));
+        if (!isExpanded && dashboardItem) {
+            router.push(dashboardItem.href);
+        }
+        onToggle();
+    };
+
 
     if (section.items.length === 1 && !isCollapsed) {
         return <NavLink {...section.items[0]} isCollapsed={isCollapsed} moduleColor={moduleColor} />;
@@ -196,7 +196,7 @@ function NavSection({
     return (
         <div className="py-1">
             <button
-                onClick={onToggle}
+                onClick={handleToggle}
                 className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-sm font-semibold transition-colors ${
                     isCollapsed ? 'justify-center' : ''
                 } ${isSectionActive ? '' : 'text-sb-neutral-500 hover:bg-sb-neutral-100 hover:text-sb-neutral-900'}`}
@@ -243,7 +243,7 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
   useEffect(() => {
     const activeSection = navSections.find(section => section.items.some(item => pathname.startsWith(item.href) && item.href !== '/'));
     if(pathname === '/') {
-        setExpandedSections(prev => ({...prev, 'Dashboards':true}));
+        setExpandedSections(prev => ({...prev, 'Personal':true}));
         return;
     }
     if (activeSection) {
