@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, {
@@ -45,13 +44,6 @@ interface DataContextProps {
 
 const DataContext = createContext<DataContextProps | undefined>(undefined);
 
-async function getAuthHeaders(): Promise<Record<string, string>> {
-  const user = auth.currentUser;
-  if (!user) return {};
-
-  const token = await getIdToken(user, true);
-  return { 'Authorization': `Bearer ${token}` };
-}
 
 const getEmptySantaData = (): SantaData => ({
     users: [], accounts: [], distributors: [], products: [], materials: [],
@@ -65,7 +57,7 @@ const getEmptySantaData = (): SantaData => ({
 });
 
 
-export const DataProvider = ({ children }: { children: React.ReactNode }) => {
+export function DataProvider({ children }: { children: React.ReactNode }) {
   const [mode, setMode] = useState<DataMode>("real");
   const [data, setData] = useState<SantaData | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -119,16 +111,17 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     const loadDataForUser = async () => {
       if (firebaseUser) {
         try {
-          const headers = await getAuthHeaders();
+          const token = await getIdToken(firebaseUser, true);
+          const headers = { 'Authorization': `Bearer ${token}` };
+
           const response = await fetch("/api/brain-persist", { headers });
 
           let finalData: SantaData = getEmptySantaData();
-          finalData.users = mockData.users; // Keep mock users for now to allow login switching
+          finalData.users = mockData.users; 
           finalData.distributors = mockData.distributors;
           
           if (response.ok) {
             const apiData = await response.json();
-            // Merge fetched data into the base structure
             Object.keys(apiData).forEach(key => {
                 const collectionName = key as keyof SantaData;
                 if (Array.isArray(apiData[collectionName])) {
@@ -142,14 +135,13 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
           
           let appUser = finalData.users.find(u => u.email === firebaseUser.email);
 
-          // If user doesn't exist in our DB, create them
           if (!appUser) {
               console.log(`Usuario de Firebase '${firebaseUser.email}' no encontrado en la BD. Creando nuevo perfil...`);
               const newUser: User = {
-                  id: firebaseUser.uid, // Use Firebase UID as the canonical ID
+                  id: firebaseUser.uid,
                   name: firebaseUser.displayName || firebaseUser.email || 'Nuevo Usuario',
                   email: firebaseUser.email!,
-                  role: 'comercial', // Default role
+                  role: 'comercial', 
                   active: true,
               };
 
@@ -158,9 +150,10 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
 
               if (isPersistenceEnabled) {
                   try {
+                       const createToken = await getIdToken(firebaseUser, true);
                        await fetch('/api/brain-persist', {
                           method: 'POST',
-                          headers: await getAuthHeaders(),
+                          headers: { 'Authorization': `Bearer ${createToken}`, 'Content-Type': 'application/json' },
                           body: JSON.stringify({ 
                             data: { users: [newUser] }, 
                             persistenceEnabled: true,
