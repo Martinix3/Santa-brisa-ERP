@@ -7,7 +7,7 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import listPlugin from "@fullcalendar/list";
-import type { EventContentArg, EventClickArg } from "@fullcalendar/core";
+import type { EventContentArg, EventClickArg, EventDropArg } from "@fullcalendar/core";
 import { useFullCalendarStyles } from "@/features/agenda/useFullCalendarStyles";
 import { TaskBoard, Task } from "@/features/agenda/TaskBoard";
 import { NewEventDialog } from "@/features/agenda/components/NewEventDialog";
@@ -157,7 +157,7 @@ export function CalendarPageContent() {
     updateAndPersistInteractions(updatedInteractions);
   };
   
-  const handleAddOrUpdateEvent = async (event: Omit<Interaction, 'createdAt'|'status'|'userId'> & { id?: string }) => {
+  const handleAddOrUpdateEvent = async (event: Omit<Interaction, 'createdAt' | 'status' | 'userId'> & { id?: string }) => {
     if (!SantaData || !currentUser) return;
     
     if (event.id) { // Update existing
@@ -174,6 +174,7 @@ export function CalendarPageContent() {
         const updatedInteractions = [...(allInteractions || []), newInteraction];
         updateAndPersistInteractions(updatedInteractions);
     }
+    setEditingEvent(null);
   };
   
   const handleEventClick = (clickInfo: EventClickArg) => {
@@ -183,6 +184,19 @@ export function CalendarPageContent() {
         setSelectedEvent(interaction);
     }
   };
+  
+  const handleEventDrop = (dropInfo: EventDropArg) => {
+    const { event } = dropInfo;
+    const { id, start } = event;
+    
+    if (!start) return;
+
+    const updatedInteractions = allInteractions.map(i => 
+        i.id === id ? { ...i, plannedFor: start.toISOString() } : i
+    );
+    updateAndPersistInteractions(updatedInteractions as Interaction[]);
+  };
+
 
   const tasksForBoard = useMemo(() => mapDomainToTasks(SantaData?.interactions, SantaData?.accounts), [SantaData]);
 
@@ -234,6 +248,8 @@ export function CalendarPageContent() {
               headerToolbar={{ left: "prev,next today", center: "title", right: "dayGridMonth,timeGridWeek,timeGridDay,listYear" }}
               events={calendarEvents as any}
               eventClick={handleEventClick}
+              editable={true}
+              eventDrop={handleEventDrop}
               eventContent={(arg: EventContentArg) => {
                 const { type, status } = (arg.event.extendedProps as any);
                 const dept = DEPT_META[type as Department] || DEPT_META.VENTAS;
