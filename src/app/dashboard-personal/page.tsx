@@ -98,7 +98,10 @@ export default function PersonalDashboardPage() {
     };
     
     const handleCompleteTask = (taskId: string) => {
-        handleTaskStatusChange(taskId, 'done');
+        const taskToComplete = allMyInteractions.find(i => i.id === taskId);
+        if(taskToComplete) {
+            setCompletingTask(taskToComplete);
+        }
     }
 
     const handleSaveCompletedTask = async (taskId: string, resultNote: string) => {
@@ -132,7 +135,7 @@ export default function PersonalDashboardPage() {
     
         const { newEntities } = await runSantaBrain([], resultNote, chatContext);
     
-        // 3. Merge new entities and mark the original task as 'done'
+        // 3. Merge new entities. The task remains in 'processing' status.
         setData((prevData) => {
           if (!prevData) return null;
           let latestData = { ...prevData };
@@ -148,21 +151,12 @@ export default function PersonalDashboardPage() {
               }
             }
           }
-    
-          // Mark the original task as 'done'
-          const finalInteractions = latestData.interactions.map((i) =>
-            i.id === taskId ? { ...i, status: 'done' as InteractionStatus } : i
-          );
-          latestData.interactions = finalInteractions;
-    
-          // Persist the final state
-           if (isPersistenceEnabled) {
-                saveCollection('interactions', finalInteractions, isPersistenceEnabled);
-                // We should also save other modified collections, but that's a bigger change
-           }
+          
+           // We could persist the new entities here, but for simplicity we'll rely on the global save.
     
           return latestData;
         });
+
       } catch (error) {
         console.error("Error processing task completion with AI:", error);
         // Optional: Revert task status to 'open' on error
@@ -171,6 +165,8 @@ export default function PersonalDashboardPage() {
            const revertedInteractions = prevData.interactions.map((i) =>
              i.id === taskId ? { ...i, status: 'open' as InteractionStatus } : i
            );
+           // Also notify user about the error
+            alert("Hubo un error al procesar la tarea con la IA. La tarea se ha vuelto a poner como pendiente.");
            return { ...prevData, interactions: revertedInteractions };
         });
       }
