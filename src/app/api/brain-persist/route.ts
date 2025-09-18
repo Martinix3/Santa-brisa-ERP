@@ -43,12 +43,12 @@ export async function GET(req: NextRequest) {
       
       (fetchedData as any)[collectionName as keyof SantaData] = items;
     }
-
+    
     return NextResponse.json(fetchedData);
 
   } catch (e: any) {
-    console.error(`[API GET /brain-persist] Firestore fetch error for user ${userId}:`, e);
-    return NextResponse.json({ ok: false, error: e?.message || 'Unknown server error fetching data.' }, { status: 500 });
+    console.error(`[API GET /api/brain-persist] Error for user ${userId}:`, e);
+    return NextResponse.json({ ok: false, error: e?.message || 'Unknown server error.' }, { status: 500 });
   }
 }
 
@@ -69,39 +69,55 @@ export async function POST(req: NextRequest) {
     if (!payload || typeof payload !== 'object' || !payload.data) {
         return NextResponse.json({ ok: false, error: 'Invalid payload. Expecting an object with a "data" property.' }, { status: 400 });
     }
-
+    
+    const { data, strategy } = payload;
     const db = adminDb;
     const batch = db.batch();
     let operationsCount = 0;
     const userRootRef = db.collection('userData').doc(userId);
 
-    const fullData = payload.data as SantaData;
-
     for (const collectionName of SANTA_DATA_COLLECTIONS) {
-        const collectionData = fullData[collectionName as keyof SantaData] as any[];
-        if (Array.isArray(collectionData)) {
+        const collectionData = data[collectionName as keyof SantaData] as any[];
+        if (Array.isArray(collectionData) && collectionData.length > 0) {
             const collectionRef = userRootRef.collection(collectionName);
-            collectionData.forEach(item => {
-                if (item && item.id) {
-                    const docRef = collectionRef.doc(item.id);
-                    batch.set(docRef, item, { merge: true });
-                    operationsCount++;
-                }
-            });
+            
+            // Strategy 'merge' will only add/update, not delete. Good for adding a new user.
+            if (strategy === 'merge') {
+                 collectionData.forEach(item => {
+                    if (item && item.id) {
+                        const docRef = collectionRef.doc(item.id);
+                        batch.set(docRef, item, { merge: true }); // Use merge to avoid overwriting existing docs completely
+                        operationsCount++;
+                    }
+                });
+            } else { // Default strategy: overwrite collection
+                // First, delete all existing documents in the collection for this user
+                const snapshot = await collectionRef.get();
+                snapshot.docs.forEach(doc => batch.delete(doc.ref));
+
+                // Then, add all the new data
+                collectionData.forEach(item => {
+                    if (item && item.id) {
+                        const docRef = collectionRef.doc(item.id);
+                        batch.set(docRef, item);
+                        operationsCount++;
+                    }
+                });
+            }
         }
     }
     
     if (operationsCount > 0) {
         await batch.commit();
-        console.log(`[API POST /brain-persist] Successfully committed ${operationsCount} documents for user ${userId}.`);
+        console.log(`[API POST] ✅ Success: ${operationsCount} documents saved for user ${userId}. Strategy: ${strategy || 'overwrite'}`);
     } else {
-        console.log(`[API POST /brain-persist] No valid documents to commit for user ${userId}.`);
+        console.log(`[API POST] No valid documents to save for user ${userId}.`);
     }
     
     return NextResponse.json({ ok: true, message: `${operationsCount} documents saved.` });
 
   } catch (e: any) {
-    console.error(`[API POST /brain-persist] Firestore write error for user ${userId}:`, e);
-    return NextResponse.json({ ok:false, error: e?.message || 'Unknown server error.' }, { status: 500 });
+    console.error(`[API POST /api/brain-persist] Error for user ${userId}:`, e);
+    return NextResponse.json({ ok: false, error: e?.message || 'Unknown server error.' }, { status: 500 });
   }
 }

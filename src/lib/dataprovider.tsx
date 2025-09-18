@@ -111,18 +111,50 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
           let finalData: SantaData;
           if (!response.ok) {
             console.warn(`API fetch failed (${response.status}). Falling back to local data structure for new user.`);
-            // For a new user, start with the base structure but empty collections
             finalData = { ...realSantaData, accounts: [], ordersSellOut: [], interactions: [] };
           } else {
             const apiData = await response.json();
-            // Merge with local structure to ensure all collections are present
             finalData = { ...realSantaData, ...apiData };
             console.log("✅ Datos cargados desde la API para el usuario.");
           }
-          setData(finalData);
+          
+          let appUser = finalData.users.find(u => u.email === firebaseUser.email);
 
-          // Find the corresponding app user
-          const appUser = finalData.users.find(u => u.email === firebaseUser.email);
+          // If user doesn't exist in our DB, create them
+          if (!appUser) {
+              console.log(`Usuario de Firebase '${firebaseUser.email}' no encontrado en la BD. Creando nuevo perfil...`);
+              const newUser: User = {
+                  id: firebaseUser.uid, // Use Firebase UID as the canonical ID
+                  name: firebaseUser.displayName || firebaseUser.email || 'Nuevo Usuario',
+                  email: firebaseUser.email!,
+                  role: 'comercial', // Default role
+                  active: true,
+              };
+
+              finalData.users = [...finalData.users, newUser];
+              appUser = newUser;
+
+              // Save the new user back to the database
+              if (isPersistenceEnabled) {
+                  try {
+                       await fetch('/api/brain-persist', {
+                          method: 'POST',
+                          headers,
+                          body: JSON.stringify({ 
+                            data: { users: [newUser] }, 
+                            persistenceEnabled: true,
+                            strategy: 'merge'
+                          }),
+                      });
+                      showNotification('Perfil de usuario creado con éxito.', 'success');
+                  } catch (e) {
+                      showNotification('Error al guardar el nuevo perfil de usuario.', 'error');
+                      console.error("Error saving new user:", e);
+                  }
+              }
+          }
+
+          setData(finalData);
           setCurrentUser(appUser || null);
 
         } catch (error) {
@@ -136,7 +168,7 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     loadDataForUser();
-  }, [firebaseUser]);
+  }, [firebaseUser, isPersistenceEnabled, showNotification]);
 
   const login = useCallback(async () => {
     try {
@@ -195,13 +227,12 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
       isPersistenceEnabled,
       togglePersistence,
       showNotification,
-      notification
     }),
-    [mode, data, setData, currentUser, setCurrentUserById, login, logout, signupWithEmail, loginWithEmail, isLoading, isPersistenceEnabled, togglePersistence, showNotification, notification]
+    [mode, data, setData, currentUser, setCurrentUserById, login, logout, signupWithEmail, loginWithEmail, isLoading, isPersistenceEnabled, togglePersistence, showNotification]
   );
 
   return (
-    <DataContext.Provider value={value as any}>
+    <DataContext.Provider value={value}>
       {children}
       {notification && (
         <NotificationToast
