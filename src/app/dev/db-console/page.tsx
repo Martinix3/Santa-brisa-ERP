@@ -1,52 +1,30 @@
+"use client";
 
-"use server";
-
-import React from 'react';
+import React, { useState } from 'react';
 import { SBCard, SBButton } from '@/components/ui/ui-primitives';
-import { Database, DownloadCloud, UploadCloud } from 'lucide-react';
-import { adminDb } from '@/server/firebaseAdmin';
+import { Database, DownloadCloud, UploadCloud, Server, Terminal } from 'lucide-react';
+import { writeTestData, readTestData } from './actions';
 
-// Server Action to write data to Firestore
-async function writeTestData() {
-  try {
-    const docRef = adminDb.collection('test_console').doc('test_doc');
-    const testData = {
-      message: '¡Hola desde la consola de DB!',
-      timestamp: new Date().toISOString(),
-      randomNumber: Math.random(),
-    };
-    await docRef.set(testData);
-    console.log(`Datos escritos en 'test_console/test_doc': ${JSON.stringify(testData)}`);
-    return { success: true, message: `Datos escritos en 'test_console/test_doc': ${JSON.stringify(testData)}` };
-  } catch (error: any) {
-    console.error("Error writing to Firestore:", error);
-    return { success: false, message: `Error al escribir: ${error.message}` };
-  }
-}
+// The page component is now a Client Component
+export default function DbConsolePage() {
+  const [result, setResult] = useState<{ type: 'write' | 'read'; message: string; success: boolean } | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-// Server Action to read data from Firestore
-async function readTestData() {
-  try {
-    const docRef = adminDb.collection('test_console').doc('test_doc');
-    const docSnap = await docRef.get();
-    if (docSnap.exists) {
-        const data = docSnap.data();
-        console.log(`Datos leídos de 'test_console/test_doc': ${JSON.stringify(data)}`);
-      return { success: true, message: `Datos leídos de 'test_console/test_doc': ${JSON.stringify(data)}` };
-    } else {
-      return { success: true, message: "El documento 'test_console/test_doc' no existe. Escribe datos primero." };
-    }
-  } catch (error: any) {
-    console.error("Error reading from Firestore:", error);
-    return { success: false, message: `Error al leer: ${error.message}` };
-  }
-}
+  const handleWrite = async () => {
+    setIsLoading(true);
+    setResult(null);
+    const response = await writeTestData();
+    setResult({ type: 'write', ...response });
+    setIsLoading(false);
+  };
 
-// The page component
-export default async function DbConsolePage() {
-  
-  // This component now runs on the server, but it will be interactive via Server Actions.
-  // We'll use a form to trigger the actions.
+  const handleRead = async () => {
+    setIsLoading(true);
+    setResult(null);
+    const response = await readTestData();
+    setResult({ type: 'read', ...response });
+    setIsLoading(false);
+  };
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -59,38 +37,52 @@ export default async function DbConsolePage() {
       </div>
 
       <SBCard title="Operaciones de Base de Datos">
-        <div className="p-6 space-y-4">
+        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Write Action */}
+          <div className="flex flex-col items-center justify-center p-4 border rounded-lg h-full">
+              <h3 className="font-semibold text-zinc-800">Escribir Datos</h3>
+              <p className="text-sm text-zinc-600 text-center mt-1 mb-4">Crea o sobrescribe un documento de prueba en `test_console/test_doc`.</p>
+              <SBButton onClick={handleWrite} disabled={isLoading}>
+                  <UploadCloud size={16} /> Escribir en DB
+              </SBButton>
+          </div>
           
-          {/* Write Action Form */}
-          <form action={writeTestData}>
-            <div className="flex items-center justify-between p-4 border rounded-lg">
-                <div>
-                    <h3 className="font-semibold text-zinc-800">Escribir Datos</h3>
-                    <p className="text-sm text-zinc-600">Crea o sobrescribe un documento de prueba en `test_console/test_doc`.</p>
-                </div>
-                <SBButton type="submit">
-                    <UploadCloud size={16} /> Escribir en DB
-                </SBButton>
-            </div>
-          </form>
-          
-          {/* Read Action Form */}
-          <form action={readTestData}>
-             <div className="flex items-center justify-between p-4 border rounded-lg">
-                 <div>
-                    <h3 className="font-semibold text-zinc-800">Leer Datos</h3>
-                    <p className="text-sm text-zinc-600">Intenta leer el documento de prueba `test_console/test_doc`.</p>
-                </div>
-                <SBButton type="submit" variant="secondary">
-                    <DownloadCloud size={16} /> Leer de DB
-                </SBButton>
-            </div>
-          </form>
-            <p className="text-xs text-center text-zinc-500 pt-4">
-                Nota: Los resultados de las operaciones se mostrarán como alertas en el navegador y en la consola del servidor. Esta es una herramienta de diagnóstico simple.
-            </p>
+          {/* Read Action */}
+           <div className="flex flex-col items-center justify-center p-4 border rounded-lg h-full">
+              <h3 className="font-semibold text-zinc-800">Leer Datos</h3>
+              <p className="text-sm text-zinc-600 text-center mt-1 mb-4">Intenta leer el documento de prueba `test_console/test_doc`.</p>
+              <SBButton onClick={handleRead} variant="secondary" disabled={isLoading}>
+                  <DownloadCloud size={16} /> Leer de DB
+              </SBButton>
+          </div>
         </div>
       </SBCard>
+      
+      {isLoading && (
+        <div className="text-center text-zinc-500">
+            <p>Ejecutando acción...</p>
+        </div>
+      )}
+
+      {result && (
+        <SBCard title="Resultado de la Operación">
+            <div className={`p-4 rounded-b-2xl text-sm font-mono ${result.success ? 'bg-green-50 text-green-900' : 'bg-red-50 text-red-900'}`}>
+                <div className="flex items-start gap-3">
+                    <div className="bg-white/50 p-2 rounded-md">
+                        {result.type === 'write' ? <UploadCloud size={16}/> : <DownloadCloud size={16}/>}
+                    </div>
+                    <div>
+                        <p className="font-semibold">{result.success ? 'ÉXITO' : 'ERROR'}</p>
+                        <p>{result.message}</p>
+                    </div>
+                </div>
+            </div>
+        </SBCard>
+      )}
+
+       <p className="text-xs text-center text-zinc-500 pt-4">
+          Nota: Los resultados de las operaciones también se muestran en la consola del servidor (no del navegador).
+        </p>
     </div>
   );
 }
