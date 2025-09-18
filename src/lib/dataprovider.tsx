@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, {
@@ -19,6 +20,7 @@ import {
   User as FirebaseUser,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  getIdToken,
 } from "firebase/auth";
 
 export type DataMode = "test" | "real";
@@ -48,7 +50,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isPersistenceEnabled, setIsPersistenceEnabled] = useState(false); // Default to off
+  const [isPersistenceEnabled, setIsPersistenceEnabled] = useState(false);
   const [notification, setNotification] = useState<{ id: number; message: string; type: 'success' | 'error' } | null>(null);
 
   const showNotification = useCallback((message: string, type: 'success' | 'error' = 'success') => {
@@ -75,20 +77,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   }, [data?.users, showNotification]);
 
-  // Listen to Firebase auth state changes
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setIsLoading(true);
       setFirebaseUser(user);
       if (user) {
-        // User signed in. Load mock data.
+        // User is signed in. Load mock data directly.
         setData(mockData);
-        // Find matching app user or create one
         const appUser = mockData.users.find(u => u.email === user.email);
         if (appUser) {
           setCurrentUser(appUser);
         } else {
-          // If user is not in mock data, use a default or create one dynamically
+          // If user is not in mock data, create one dynamically for the session.
            const newUser: User = {
               id: user.uid,
               name: user.displayName || user.email || 'Nuevo Usuario',
@@ -99,7 +99,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           setCurrentUser(newUser);
         }
       } else {
-        // User is signed out
+        // User is signed out. Clear all data.
         setData(null);
         setCurrentUser(null);
       }
@@ -107,6 +107,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     });
     return () => unsubscribe();
   }, []);
+
 
   const login = useCallback(async () => {
     try {
