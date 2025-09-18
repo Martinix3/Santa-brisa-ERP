@@ -689,3 +689,4 @@ export default function SalesDashboardPage() {
         </AuthenticatedLayout>
     )
 }
+

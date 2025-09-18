@@ -6,9 +6,9 @@ import React, { useMemo, useState } from 'react';
 import { useData } from '@/lib/dataprovider';
 import AuthenticatedLayout from '@/components/layouts/AuthenticatedLayout';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
-import { User, CheckCircle, AlertCircle, Clock, Target } from 'lucide-react';
+import { User, CheckCircle, AlertTriangle, Clock } from 'lucide-react';
 import { SBCard } from '@/components/ui/ui-primitives';
-import type { Interaction, InteractionStatus, SantaData } from '@/domain/ssot';
+import type { Interaction, InteractionStatus, SantaData, OrderSellOut } from '@/domain/ssot';
 import { DEPT_META } from '@/domain/ssot';
 import { TaskBoard, Task } from '@/features/agenda/TaskBoard';
 import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/TaskCompletionDialog';
@@ -65,10 +65,11 @@ export default function PersonalDashboardPage() {
         return mapInteractionsToTasks(allMyInteractions, data?.accounts || []);
     }, [allMyInteractions, data?.accounts]);
 
-    const { openTasks, doneTasks } = useMemo(() => {
+    const { openTasks, doneTasks, processingTasks } = useMemo(() => {
         const open = allTasks.filter(t => t.status === 'open');
         const done = allTasks.filter(t => t.status === 'done');
-        return { openTasks: open, doneTasks: done };
+        const processing = allTasks.filter(t => t.status === 'processing');
+        return { openTasks: open, doneTasks: done, processingTasks: processing };
     }, [allTasks]);
 
     const { upcoming, overdue } = useMemo(() => {
@@ -104,71 +105,86 @@ export default function PersonalDashboardPage() {
         }
     }
 
-    const handleSaveCompletedTask = async (taskId: string, resultNote: string) => {
-      if (!data || !currentUser) return;
+    const handleSaveCompletedTask = (
+        taskId: string,
+        payload: { type: 'venta', items: { sku: string, qty: number }[] } | { type: 'interaccion', note: string, nextActionDate?: string }
+    ) => {
+        if (!data || !currentUser) return;
     
-      // 1. Immediately mark the task as 'done' and save the note
-      const updatedInteractions = data.interactions.map((i) =>
-        i.id === taskId
-          ? { ...i, status: 'done' as InteractionStatus, resultNote }
-          : i
-      );
-      setData({ ...data, interactions: updatedInteractions as Interaction[] });
-      setCompletingTask(null);
+        let updatedInteractions = [...data.interactions];
+        let updatedOrders = [...data.ordersSellOut];
     
-      // Persist this final state if enabled
-      if (isPersistenceEnabled) {
-        saveCollection('interactions', updatedInteractions, isPersistenceEnabled);
-      }
+        const originalTaskIndex = updatedInteractions.findIndex(i => i.id === taskId);
+        if (originalTaskIndex === -1) return;
     
-      // 2. Run Santa Brain in the background to create entities, without waiting for it
-      try {
-        const chatContext: ChatContext = {
-          accounts: data.accounts,
-          products: data.products,
-          orders: data.ordersSellOut,
-          interactions: data.interactions,
-          inventory: data.inventory,
-          mktEvents: data.mktEvents,
-          currentUser: currentUser,
-        };
+        if (payload.type === 'interaccion') {
+            updatedInteractions[originalTaskIndex] = {
+                ...updatedInteractions[originalTaskIndex],
+                status: 'done',
+                resultNote: payload.note,
+            };
     
-        const { newEntities } = await runSantaBrain([], resultNote, chatContext);
-    
-        // 3. Merge new entities silently into the state
-        setData((prevData) => {
-          if (!prevData) return null;
-          let latestData = { ...prevData };
-    
-          for (const key in newEntities) {
-            const collectionName = key as keyof SantaData;
-            if (newEntities[collectionName] && Array.isArray(newEntities[collectionName])) {
-              const newItems = newEntities[collectionName] as any[];
-              if (newItems.length > 0) {
-                const existingItems = (latestData[collectionName] as any[]) || [];
-                latestData[collectionName] = [...existingItems, ...newItems] as any;
-              }
+            if (payload.nextActionDate) {
+                const nextInteraction: Interaction = {
+                    id: `int_${Date.now()}`,
+                    userId: currentUser.id,
+                    accountId: updatedInteractions[originalTaskIndex].accountId,
+                    kind: 'OTRO',
+                    note: `Seguimiento de: ${updatedInteractions[originalTaskIndex].note}`,
+                    plannedFor: payload.nextActionDate,
+                    createdAt: new Date().toISOString(),
+                    dept: 'VENTAS',
+                    status: 'open',
+                };
+                updatedInteractions.push(nextInteraction);
             }
-          }
-          return latestData;
-        });
-
-      } catch (error) {
-        console.error("Error processing task completion with AI:", error);
-        // We don't revert the task status, as the user has already marked it as done.
-        // We just log the error.
-        alert("Hubo un error al procesar la tarea con la IA. La tarea se ha marcado como hecha, pero puede que falten acciones automáticas.");
-      }
+        } else if (payload.type === 'venta') {
+            updatedInteractions[originalTaskIndex] = {
+                ...updatedInteractions[originalTaskIndex],
+                status: 'done',
+                resultNote: `Pedido creado con ${payload.items.length} línea(s).`,
+            };
+            
+            const accountId = updatedInteractions[originalTaskIndex].accountId;
+            if (accountId) {
+                 const newOrder: OrderSellOut = {
+                    id: `ord_${Date.now()}`,
+                    accountId: accountId,
+                    status: 'open',
+                    currency: 'EUR',
+                    createdAt: new Date().toISOString(),
+                    lines: payload.items.map(item => ({
+                        sku: item.sku,
+                        qty: item.qty,
+                        unit: 'uds',
+                        priceUnit: 0, // O buscar precio del catálogo
+                    })),
+                };
+                updatedOrders.push(newOrder);
+            }
+        }
+    
+        setData({ ...data, interactions: updatedInteractions, ordersSellOut: updatedOrders });
+    
+        if (isPersistenceEnabled) {
+            saveCollection('interactions', updatedInteractions, isPersistenceEnabled);
+            if(payload.type === 'venta') {
+                saveCollection('ordersSellOut', updatedOrders, isPersistenceEnabled);
+            }
+        }
+    
+        setCompletingTask(null);
     };
     
     return (
         <AuthenticatedLayout>
             <ModuleHeader title="Dashboard Personal" icon={User} />
             <div className="p-6 bg-zinc-50 flex-grow">
-                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
                     <KPI icon={AlertCircle} label="Tareas Pendientes" value={overdue.length} />
                     <KPI icon={Clock} label="Tareas Programadas" value={upcoming.length} />
-                    <KPI icon={CheckCircle} label="Tareas Completadas (30d)" value={doneTasks.filter(t => t.date && new Date(t.date) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)).length} />
+                    <KPI icon={CheckCircle} label="Tareas Hechas (30d)" value={doneTasks.filter(t => t.date && new Date(t.date) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)).length} />
+                    <KPI icon={User} label="Tareas Revisión" value={processingTasks.length} />
                 </div>
                 
                 <TaskBoard 
