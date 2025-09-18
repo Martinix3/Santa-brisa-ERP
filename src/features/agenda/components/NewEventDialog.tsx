@@ -1,3 +1,4 @@
+
 // src/features/agenda/components/NewEventDialog.tsx
 "use client";
 import React, { useState, useEffect } from 'react';
@@ -157,7 +158,8 @@ export function NewEventDialog({
             note: finalNote,
             location: selection.location,
             accountId: selection.accountId,
-            involvedUserIds: involvedUserIds.length > 0 ? involvedUserIds : undefined,
+            involvedUserIds: involvedUserIds.length > 0 ? involvedUserIds : [currentUser!.id],
+            userId: initialEventData?.userId || currentUser!.id, // Preserve original creator on edit
         });
 
         onOpenChange(false);
