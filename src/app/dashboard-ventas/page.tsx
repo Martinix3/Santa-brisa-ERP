@@ -44,7 +44,7 @@ function PersonalDashboardContent({ displayedUser, timePeriod, setTimePeriod }: 
     timePeriod: 'week' | 'month' | 'year',
     setTimePeriod: (p: 'week' | 'month' | 'year') => void,
 }){
-  const { data: santaData, setData, currentUser } = useData();
+  const { data: santaData, setData, currentUser, isPersistenceEnabled } = useData();
   const accent = SB_COLORS.accent;
 
   const [selectedEvent, setSelectedEvent] = useState<Interaction | null>(null);
@@ -175,7 +175,7 @@ function PersonalDashboardContent({ displayedUser, timePeriod, setTimePeriod }: 
     const updateAndPersistInteractions = (updatedInteractions: Interaction[]) => {
       if (!santaData) return;
       setData(prev => prev ? ({ ...prev, interactions: updatedInteractions }) : null);
-      saveCollection('interactions', updatedInteractions);
+      saveCollection('interactions', updatedInteractions, isPersistenceEnabled);
     }
   
     const handleAddOrUpdateEvent = async (event: Omit<Interaction, 'createdAt' | 'status' | 'userId'> & { id?: string }) => {
@@ -199,6 +199,7 @@ function PersonalDashboardContent({ displayedUser, timePeriod, setTimePeriod }: 
     };
 
     const handleDeleteEvent = (id: string) => {
+        if (!santaData) return;
         const updatedInteractions = santaData.interactions.filter(i => i.id !== id);
         updateAndPersistInteractions(updatedInteractions);
         setSelectedEvent(null);
@@ -294,7 +295,7 @@ function PersonalDashboardContent({ displayedUser, timePeriod, setTimePeriod }: 
                             const isOverdue = new Date(t.plannedFor!) < new Date();
                             const Icon = t.kind === 'LLAMADA' ? Phone : t.kind === 'EMAIL' ? Mail : MapPin;
                             return (
-                                <li key={i} className={`flex items-center gap-2 p-2 rounded-xl group ${isOverdue ? 'bg-rose-50/70' : 'hover:bg-zinc-50'}`}>
+                                <li key={i} className={`flex items-center gap-2 p-2 rounded-xl group ${isOverdue ? 'bg-rose-50/70' : ''}`}>
                                     <button onClick={() => setSelectedEvent(t)} className="flex-1 flex items-center gap-3 text-left">
                                         <div className={`p-2 rounded-lg ${isOverdue ? 'bg-rose-100 text-rose-600' : 'bg-zinc-100 text-zinc-600'}`}>
                                             <Icon className="h-4 w-4" />
@@ -351,7 +352,7 @@ function PersonalDashboardContent({ displayedUser, timePeriod, setTimePeriod }: 
         />
     )}
 
-    {isNewEventDialogOpen && (
+    {isNewEventDialogOpen && santaData && (
         <NewEventDialog
             open={isNewEventDialogOpen}
             onOpenChange={setIsNewEventDialogOpen}

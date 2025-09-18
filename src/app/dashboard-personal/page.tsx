@@ -10,6 +10,8 @@ import { SBCard } from '@/components/ui/ui-primitives';
 import type { Interaction, InteractionStatus } from '@/domain/ssot';
 import { DEPT_META } from '@/domain/ssot';
 import { TaskBoard, Task } from '@/features/agenda/TaskBoard';
+import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/TaskCompletionDialog';
+import { saveCollection } from '@/features/agenda/components/CalendarPageContent';
 
 function KPI({label, value, icon: Icon}:{label:string; value:number|string; icon: React.ElementType}){
   return (
@@ -46,7 +48,8 @@ function mapInteractionsToTasks(interactions: Interaction[], accounts: any[]): T
 
 
 export default function PersonalDashboardPage() {
-    const { currentUser, data, setData } = useData();
+    const { currentUser, data, setData, isPersistenceEnabled } = useData();
+    const [completingTask, setCompletingTask] = useState<Interaction | null>(null);
 
     const { upcoming, overdue, completed, allTasks } = useMemo(() => {
         if (!data || !currentUser) return { upcoming: [], overdue: [], completed: [], allTasks: [] };
@@ -80,21 +83,45 @@ export default function PersonalDashboardPage() {
     const handleTaskStatusChange = (taskId: string, newStatus: InteractionStatus) => {
         if (!data) return;
 
-        const updatedInteractions = data.interactions.map(i => {
-            if (i.id === taskId) {
-                // Aquí se abriría el diálogo en el futuro
-                console.log(`Task ${taskId} moved to ${newStatus}. Future: open dialog.`);
-                return { ...i, status: newStatus };
+        if (newStatus === 'done') {
+            const taskToComplete = data.interactions.find(i => i.id === taskId);
+            if(taskToComplete) {
+                setCompletingTask(taskToComplete);
             }
-            return i;
-        });
-
-        setData({ ...data, interactions: updatedInteractions });
+        } else {
+            const updatedInteractions = data.interactions.map(i => 
+                i.id === taskId ? { ...i, status: newStatus } : i
+            );
+            setData({ ...data, interactions: updatedInteractions });
+            saveCollection('interactions', updatedInteractions, isPersistenceEnabled);
+        }
     };
     
     const handleCompleteTask = (taskId: string) => {
         handleTaskStatusChange(taskId, 'done');
     }
+
+    const handleSaveCompletedTask = (
+      taskId: string,
+      resultNote: string,
+      nextActionNote?: string
+    ) => {
+        if (!data) return;
+        const updatedInteractions = data.interactions.map((i) => {
+            if (i.id === taskId) {
+                return {
+                    ...i,
+                    status: 'done' as InteractionStatus,
+                    resultNote,
+                    nextAction: nextActionNote ? { note: nextActionNote } : i.nextAction,
+                };
+            }
+            return i;
+        });
+        setData({ ...data, interactions: updatedInteractions as Interaction[] });
+        saveCollection('interactions', updatedInteractions, isPersistenceEnabled);
+        setCompletingTask(null);
+    };
 
     return (
         <AuthenticatedLayout>
@@ -114,6 +141,14 @@ export default function PersonalDashboardPage() {
                     typeStyles={DEPT_META}
                 />
             </div>
+            {completingTask && (
+                <TaskCompletionDialog
+                    task={completingTask}
+                    open={!!completingTask}
+                    onClose={() => setCompletingTask(null)}
+                    onComplete={handleSaveCompletedTask}
+                />
+            )}
         </AuthenticatedLayout>
     )
 }
