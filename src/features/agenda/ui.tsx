@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import * as React from "react";
@@ -61,7 +62,7 @@ interface SBDialogContentProps {
   size?: "sm" | "md" | "lg" | "xl";
   children: React.ReactNode;
   onSubmit: (e: React.FormEvent) => void;
-  primaryAction: { label: string, type?: "button" | "submit", disabled?: boolean };
+  primaryAction: { label: string, type?: "button" | "submit", disabled?: boolean, onClick?: () => void };
   secondaryAction: { label: string, onClick: () => void };
 }
 
@@ -106,6 +107,7 @@ export const SBDialogContent = ({ title, description, children, onSubmit, primar
             </button>
             <button
               type={primaryAction.type || 'button'}
+              onClick={primaryAction.onClick}
               disabled={primaryAction.disabled}
               className="px-4 py-2 text-sm font-medium text-white bg-zinc-900 rounded-lg hover:bg-zinc-800 transition-colors disabled:bg-zinc-400 disabled:cursor-not-allowed"
             >

@@ -1,3 +1,4 @@
+
 // src/features/agenda/components/EventDetailDialog.tsx
 "use client";
 import React from 'react';
@@ -29,7 +30,7 @@ export function EventDetailDialog({ event, open, onOpenChange, onUpdate, onDelet
                 title={event.note || 'Detalle del Evento'}
                 description={`Tarea para el departamento de ${deptStyle.label}`}
                 onSubmit={(e) => { e.preventDefault(); onOpenChange(false); }}
-                primaryAction={{ label: 'Cerrar' }}
+                primaryAction={{ label: 'Cerrar', onClick: () => onOpenChange(false) }}
                 secondaryAction={{ label: 'Editar', onClick: () => alert('Edit action not implemented yet.') }}
             >
                 <div className="space-y-4 pt-2 text-sm">

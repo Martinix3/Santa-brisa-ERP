@@ -165,12 +165,16 @@ export function CalendarPageContent() {
   
   const handleAddEvent = async (event: Omit<Interaction, 'id'|'createdAt'|'status'|'userId'>) => {
     if (!SantaData || !currentUser) return;
+    
+    let finalNote = event.note;
+    
     const newInteraction: Interaction = {
         id: `int_${Date.now()}`,
         createdAt: new Date().toISOString(),
         status: 'open',
         userId: currentUser.id,
         ...event,
+        note: finalNote,
     };
 
     const updatedInteractions = [...(SantaData.interactions || []), newInteraction];
@@ -190,6 +194,18 @@ export function CalendarPageContent() {
   if (!SantaData) return <div className="p-6">Cargando datos…</div>;
 
   const ACCENT = SB_COLORS.accent;
+  
+  const handleDeleteEvent = (id: string) => {
+      const updatedInteractions = allInteractions.filter(i => i.id !== id);
+      updateAndPersistInteractions(updatedInteractions);
+      setSelectedEvent(null);
+  };
+  
+  const handleUpdateEvent = (updatedEvent: Interaction) => {
+      const updatedInteractions = allInteractions.map(i => i.id === updatedEvent.id ? updatedEvent : i);
+      updateAndPersistInteractions(updatedInteractions as Interaction[]);
+      setSelectedEvent(null);
+  }
 
   return (
     <>
@@ -264,16 +280,8 @@ export function CalendarPageContent() {
             event={selectedEvent}
             open={!!selectedEvent}
             onOpenChange={() => setSelectedEvent(null)}
-            onUpdate={(updatedEvent) => {
-                 const updatedInteractions = allInteractions.map(i => i.id === updatedEvent.id ? updatedEvent : i);
-                 updateAndPersistInteractions(updatedInteractions as Interaction[]);
-                 setSelectedEvent(null);
-            }}
-            onDelete={(id) => {
-                 const updatedInteractions = allInteractions.filter(i => i.id !== id);
-                 updateAndPersistInteractions(updatedInteractions);
-                 setSelectedEvent(null);
-            }}
+            onUpdate={handleUpdateEvent}
+            onDelete={handleDeleteEvent}
         />
       )}
 
