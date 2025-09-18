@@ -66,7 +66,7 @@ function mapDomainToTasks(
         status: i.status,
         date: plannedISO,
         involvedUserIds: i.involvedUserIds,
-        location: i.location,
+        location: accountMap.get(i.accountId || '') || i.location,
       };
     });
 
@@ -157,7 +157,7 @@ export function CalendarPageContent() {
     updateAndPersistInteractions(updatedInteractions);
   };
   
-  const handleAddOrUpdateEvent = async (event: Omit<Interaction, 'id'|'createdAt'|'status'|'userId'> & { id?: string }) => {
+  const handleAddOrUpdateEvent = async (event: Omit<Interaction, 'createdAt'|'status'|'userId'> & { id?: string }) => {
     if (!SantaData || !currentUser) return;
     
     if (event.id) { // Update existing

@@ -1,9 +1,9 @@
 // src/features/agenda/components/NewEventDialog.tsx
 "use client";
 import React, { useState, useEffect } from 'react';
-import { SBDialog, SBDialogTrigger, SBDialogContent } from '@/features/agenda/ui';
-import { Plus, User as UserIcon } from 'lucide-react';
-import type { Department, User, Interaction, InteractionKind } from '@/domain/ssot';
+import { SBDialog, SBDialogContent } from '@/features/agenda/ui';
+import { Plus, User as UserIcon, Search } from 'lucide-react';
+import type { Department, User, Interaction, InteractionKind, Account } from '@/domain/ssot';
 import { useData } from '@/lib/dataprovider';
 
 const DEPT_META: Record<
@@ -19,6 +19,52 @@ const DEPT_META: Record<
 
 type MarketingSubtype = 'Evento/Activación' | 'Campaña Ads' | 'Collab Influencer';
 
+function AccountSearch({ onSelect }: { onSelect: (accountId: string) => void }) {
+    const { data: santaData } = useData();
+    const [query, setQuery] = useState('');
+    const [results, setResults] = useState<Account[]>([]);
+    
+    useEffect(() => {
+        if (query.length > 2 && santaData?.accounts) {
+            const lowerQuery = query.toLowerCase();
+            setResults(santaData.accounts.filter(a => a.name.toLowerCase().includes(lowerQuery)));
+        } else {
+            setResults([]);
+        }
+    }, [query, santaData?.accounts]);
+
+    return (
+        <div className="relative">
+            <div className="relative">
+                <Search className="h-4 w-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2"/>
+                <input
+                    value={query}
+                    onChange={e => setQuery(e.target.value)}
+                    placeholder="Buscar por nombre de cuenta..."
+                    className="h-10 w-full rounded-md border border-zinc-200 bg-white px-9 py-2 text-sm"
+                />
+            </div>
+            {results.length > 0 && (
+                <ul className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-48 overflow-auto">
+                    {results.map(account => (
+                        <li key={account.id} 
+                            className="px-3 py-2 cursor-pointer hover:bg-zinc-100"
+                            onClick={() => {
+                                setQuery(account.name);
+                                onSelect(account.id);
+                                setResults([]);
+                            }}
+                        >
+                            <p className="font-medium text-sm">{account.name}</p>
+                            <p className="text-xs text-zinc-500">{account.city}</p>
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </div>
+    );
+}
+
 export function NewEventDialog({
   open, onOpenChange, onSave, accentColor, initialEventData
 }: {
@@ -28,11 +74,12 @@ export function NewEventDialog({
   accentColor: string;
   initialEventData?: Interaction | null;
 }) {
-    const { data: santaData } = useData();
+    const { data: santaData, currentUser } = useData();
     const [title, setTitle] = useState('');
     const [type, setType] = useState<Department>('VENTAS');
     const [interactionKind, setInteractionKind] = useState<InteractionKind>('VISITA');
     const [date, setDate] = useState('');
+    const [accountId, setAccountId] = useState<string | undefined>(undefined);
     const [location, setLocation] = useState('');
     const [notes, setNotes] = useState('');
     const [involvedUserIds, setInvolvedUserIds] = useState<string[]>([]);
@@ -45,18 +92,20 @@ export function NewEventDialog({
             setInteractionKind(initialEventData.kind || 'VISITA');
             setDate(initialEventData.plannedFor ? new Date(initialEventData.plannedFor).toISOString().slice(0, 16) : '');
             setLocation(initialEventData.location || '');
-            setInvolvedUserIds(initialEventData.involvedUserIds || []);
+            setAccountId(initialEventData.accountId);
+            setInvolvedUserIds(initialEventData.involvedUserIds || [initialEventData.userId]);
         } else {
-            // Reset form for new event
+            // Reset form for new event and pre-select current user
             setTitle('');
             setType('VENTAS');
             setInteractionKind('VISITA');
             setDate('');
             setLocation('');
+            setAccountId(undefined);
             setNotes('');
-            setInvolvedUserIds([]);
+            setInvolvedUserIds(currentUser ? [currentUser.id] : []);
         }
-    }, [initialEventData, open]);
+    }, [initialEventData, open, currentUser]);
 
 
     const handleUserToggle = (userId: string) => {
@@ -83,7 +132,8 @@ export function NewEventDialog({
             kind: type === 'VENTAS' ? interactionKind : 'OTRO',
             plannedFor: date,
             note: finalNote,
-            location,
+            location: location,
+            accountId: accountId,
             involvedUserIds: involvedUserIds.length > 0 ? involvedUserIds : undefined,
         });
 
@@ -169,9 +219,14 @@ export function NewEventDialog({
                             </select>
                         </label>
                     )}
+                    
+                    <label className="grid gap-1.5">
+                        <span className="text-sm font-medium text-zinc-700">Cuenta Asociada (Opcional)</span>
+                        <AccountSearch onSelect={setAccountId} />
+                    </label>
 
                     <label className="grid gap-1.5">
-                        <span className="text-sm font-medium text-zinc-700">Ubicación (Opcional)</span>
+                        <span className="text-sm font-medium text-zinc-700">Ubicación (si no es una cuenta)</span>
                         <input
                             value={location}
                             onChange={(e) => setLocation(e.target.value)}
