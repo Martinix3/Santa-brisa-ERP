@@ -38,6 +38,7 @@ import {
     Home,
     DatabaseZap,
     DatabaseBackup,
+    ChevronUp,
 } from 'lucide-react';
 import { SB_COLORS, hexToRgba } from '@/components/ui/ui-primitives';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -72,7 +73,6 @@ const navSections = [
             { href: '/marketing/events', label: 'Eventos', icon: Calendar },
             { href: '/marketing/online', label: 'Adds', icon: Zap },
             { href: '/marketing/influencers/dashboard', label: 'Influencers', icon: Contact },
-            { href: '/marketing/pos', label: 'POS Marketing', icon: Home }, // Placeholder
         ]
     },
     {
@@ -100,7 +100,6 @@ const navSections = [
         module: 'finance',
         items: [
             { href: '/cashflow/dashboard', label: 'Dashboard', icon: LineChart },
-            { href: '/cashflow/dashboard', label: 'Cashflow', icon: LineChart }, // Main dashboard has it all
             { href: '/cashflow/payments', label: 'Pagos', icon: ArrowUpCircle },
             { href: '/cashflow/collections', label: 'Cobros', icon: ArrowDownCircle },
         ]
@@ -232,9 +231,10 @@ function NavSection({
 
 export default function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
   const pathname = usePathname() ?? '/';
-  const { currentUser, isLoading, logout, isPersistenceEnabled, togglePersistence } = useData();
+  const { data, currentUser, isLoading, logout, isPersistenceEnabled, togglePersistence, setCurrentUserById } = useData();
 
   useEffect(() => {
     const activeSection = navSections.find(section => section.items.some(item => pathname.startsWith(item.href) && item.href !== '/'));
@@ -251,7 +251,7 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
     logout();
   };
   
-  if (isLoading) {
+  if (isLoading || !data) {
     return (
         <div className="h-screen w-screen flex items-center justify-center bg-white">
             <p>Cargando...</p>
@@ -287,8 +287,11 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
                 ))}
             </div>
             
-            <div className="mt-4 pt-4 border-t border-sb-neutral-200">
-                <div className={`p-2 rounded-lg flex items-center gap-3 ${isSidebarCollapsed ? '' : 'hover:bg-sb-neutral-50'}`}>
+            <div className="mt-4 pt-4 border-t border-sb-neutral-200 relative">
+                <div 
+                    className={`p-2 rounded-lg flex items-center gap-3 cursor-pointer ${isSidebarCollapsed ? '' : 'hover:bg-sb-neutral-50'}`}
+                    onClick={() => !isSidebarCollapsed && setIsUserMenuOpen(!isUserMenuOpen)}
+                >
                     <div className="h-8 w-8 rounded-full bg-sb-sun flex-shrink-0 flex items-center justify-center font-bold text-sb-neutral-800">
                         {currentUser?.name.charAt(0)}
                     </div>
@@ -298,7 +301,37 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
                             <p className="text-xs text-sb-neutral-500 truncate">{currentUser?.email}</p>
                         </div>
                     )}
+                    {!isSidebarCollapsed && (
+                        isUserMenuOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />
+                    )}
                 </div>
+
+                <AnimatePresence>
+                {isUserMenuOpen && !isSidebarCollapsed && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="absolute bottom-full mb-2 w-full bg-white border rounded-lg shadow-lg"
+                    >
+                        <div className="p-2">
+                             <p className="text-xs font-semibold text-zinc-500 px-2 pt-1 pb-2">Cambiar de usuario</p>
+                            {data.users.map(user => (
+                                <button
+                                    key={user.id}
+                                    onClick={() => {
+                                        setCurrentUserById(user.id);
+                                        setIsUserMenuOpen(false);
+                                    }}
+                                    className={`w-full text-left text-sm px-2 py-1.5 rounded-md flex items-center gap-2 ${currentUser?.id === user.id ? 'bg-blue-50 text-blue-700 font-semibold' : 'hover:bg-zinc-100'}`}
+                                >
+                                    <User size={14} /> {user.name}
+                                </button>
+                            ))}
+                        </div>
+                    </motion.div>
+                )}
+                </AnimatePresence>
 
                 <button
                     onClick={togglePersistence}

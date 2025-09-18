@@ -27,6 +27,7 @@ interface DataContextProps {
   data: SantaData | null;
   setData: React.Dispatch<React.SetStateAction<SantaData | null>>;
   currentUser: User | null;
+  setCurrentUserById: (userId: string) => void;
   login: () => Promise<void>;
   logout: () => Promise<void>;
   isLoading: boolean;
@@ -58,6 +59,18 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
         return !prev;
     });
   }, []);
+
+  const setCurrentUserById = useCallback((userId: string) => {
+    if (data?.users) {
+        const userToSet = data.users.find(u => u.id === userId);
+        if (userToSet) {
+            setCurrentUser(userToSet);
+            console.log(`Switched to user: ${userToSet.name}`);
+        } else {
+            console.warn(`User with ID ${userId} not found.`);
+        }
+    }
+  }, [data?.users]);
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -105,12 +118,12 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
 
   // Efecto para actualizar el usuario actual cuando los datos cambian
   useEffect(() => {
-      if (data) {
+      if (data && !currentUser) {
           // Asigna un usuario por defecto ya que el login está deshabilitado
           const defaultUser = data.users.find(u => u.id === 'u_nico');
           setCurrentUser(defaultUser || data.users[0] || null);
       }
-  }, [data]);
+  }, [data, currentUser]);
 
 
   const login = useCallback(async () => {
@@ -136,13 +149,14 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
       data,
       setData,
       currentUser,
+      setCurrentUserById,
       login,
       logout,
       isLoading,
       isPersistenceEnabled,
       togglePersistence,
     }),
-    [mode, data, setData, currentUser, login, logout, isLoading, isPersistenceEnabled, togglePersistence]
+    [mode, data, setData, currentUser, setCurrentUserById, login, logout, isLoading, isPersistenceEnabled, togglePersistence]
   );
 
   return (
