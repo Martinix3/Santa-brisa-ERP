@@ -10,7 +10,7 @@ import React, {
   useCallback,
 } from "react";
 import type { User, SantaData } from "@/domain/ssot";
-import { realSantaData } from "@/domain/real-data";
+import { realSantaData as mockData } from "@/domain/mock-data";
 import { auth } from "./firebase-config";
 import {
   GoogleAuthProvider,
@@ -50,6 +50,18 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
   const token = await user.getIdToken(true);
   return { 'Authorization': `Bearer ${token}` };
 }
+
+const getEmptySantaData = (): SantaData => ({
+    users: [], accounts: [], distributors: [], products: [], materials: [],
+    billOfMaterials: [], interactions: [], ordersSellOut: [], shipments: [],
+    lots: [], inventory: [], stockMoves: [], productionOrders: [], qaChecks: [],
+    mktEvents: [], onlineCampaigns: [], creators: [], influencerCollabs: [],
+    // Deprecated or unused, keep empty
+    suppliers: [], traceEvents: [], goodsReceipts: [], activations: [],
+    receipts: [], purchaseOrders: [], priceLists: [], nonConformities: [],
+    supplierBills: [], payments: [],
+});
+
 
 export const DataProvider = ({ children }: { children: React.ReactNode }) => {
   const [mode, setMode] = useState<DataMode>("real");
@@ -108,14 +120,22 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
           const headers = await getAuthHeaders();
           const response = await fetch("/api/brain-persist", { headers });
 
-          let finalData: SantaData;
-          if (!response.ok) {
-            console.warn(`API fetch failed (${response.status}). Falling back to local data structure for new user.`);
-            finalData = { ...realSantaData, accounts: [], ordersSellOut: [], interactions: [] };
-          } else {
+          let finalData: SantaData = getEmptySantaData();
+          finalData.users = mockData.users; // Keep mock users for now to allow login switching
+          finalData.distributors = mockData.distributors;
+          
+          if (response.ok) {
             const apiData = await response.json();
-            finalData = { ...realSantaData, ...apiData };
+            // Merge fetched data into the base structure
+            Object.keys(apiData).forEach(key => {
+                const collectionName = key as keyof SantaData;
+                if (Array.isArray(apiData[collectionName])) {
+                    (finalData as any)[collectionName] = apiData[collectionName];
+                }
+            });
             console.log("✅ Datos cargados desde la API para el usuario.");
+          } else {
+            console.warn(`API fetch failed (${response.status}). Starting with an empty dataset for new user.`);
           }
           
           let appUser = finalData.users.find(u => u.email === firebaseUser.email);
@@ -134,7 +154,6 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
               finalData.users = [...finalData.users, newUser];
               appUser = newUser;
 
-              // Save the new user back to the database
               if (isPersistenceEnabled) {
                   try {
                        await fetch('/api/brain-persist', {
@@ -159,7 +178,7 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
 
         } catch (error) {
           console.error("Could not fetch initial data, falling back to local structure:", error);
-          setData({ ...realSantaData, accounts: [], ordersSellOut: [], interactions: [] });
+          setData(getEmptySantaData());
           setCurrentUser(null);
         } finally {
           setIsLoading(false);
