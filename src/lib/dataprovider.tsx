@@ -21,6 +21,7 @@ import {
   User as FirebaseUser,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  getIdToken,
 } from "firebase/auth";
 
 export type DataMode = "test" | "real";
@@ -48,7 +49,7 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
   const user = auth.currentUser;
   if (!user) return {};
 
-  const token = await user.getIdToken(true);
+  const token = await getIdToken(user, true);
   return { 'Authorization': `Bearer ${token}` };
 }
 
@@ -159,7 +160,7 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
                   try {
                        await fetch('/api/brain-persist', {
                           method: 'POST',
-                          headers,
+                          headers: await getAuthHeaders(),
                           body: JSON.stringify({ 
                             data: { users: [newUser] }, 
                             persistenceEnabled: true,
