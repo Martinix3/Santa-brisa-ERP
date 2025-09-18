@@ -2,10 +2,12 @@
 
 "use client";
 import React, { useMemo } from "react";
-import type { ProductionOrder, Lot, QCResult } from "@/domain/ssot";
+import type { ProductionOrder, Lot, QCResult, Interaction } from "@/domain/ssot";
 import { SBCard, SBButton, SB_COLORS } from "@/components/ui/ui-primitives";
-import { Factory, Cpu, BookOpen, Waypoints, AlertCircle, Hourglass, MoreVertical, Check, X, Thermometer, FlaskConical, Beaker, TestTube2, Paperclip, Upload, Trash2 } from "lucide-react";
+import { Factory, Cpu, BookOpen, Waypoints, AlertCircle, Hourglass, MoreVertical, Check, X, Thermometer, FlaskConical, Beaker, TestTube2, Paperclip, Upload, Trash2, Calendar } from "lucide-react";
 import Link from 'next/link';
+import { useData } from '@/lib/dataprovider';
+import { DEPT_META } from '@/domain/ssot';
 
 function KPI({ icon: Icon, label, value, color }: { icon: React.ElementType, label: string, value: string | number, color: string }) {
     return (
@@ -31,6 +33,39 @@ function StatusPill({status}:{status: 'pending'|'released'|'wip'|'done'|'cancell
   };
   const s = map[status] || map.pending;
   return <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-medium ${s.bg}`}>{s.txt}</span>;
+}
+
+function UpcomingEvents() {
+    const { data } = useData();
+    const upcomingEvents = useMemo(() => {
+        if (!data?.interactions) return [];
+        return data.interactions
+            .filter(i => i.dept === 'PRODUCCION' && i.plannedFor && new Date(i.plannedFor) >= new Date())
+            .sort((a, b) => new Date(a.plannedFor!).getTime() - new Date(b.plannedFor!).getTime())
+            .slice(0, 5);
+    }, [data]);
+
+    if (upcomingEvents.length === 0) {
+        return null;
+    }
+
+    return (
+        <SBCard title="Próximas Tareas de Producción">
+            <div className="p-4 space-y-3">
+                {upcomingEvents.map((event: Interaction) => (
+                    <div key={event.id} className="flex items-center gap-3 p-2 rounded-lg bg-zinc-50 border">
+                        <div className="p-2 rounded-full" style={{ backgroundColor: DEPT_META.PRODUCCION.color, color: DEPT_META.PRODUCCION.textColor }}>
+                            <Calendar size={16} />
+                        </div>
+                        <div>
+                            <p className="font-medium text-sm">{event.note}</p>
+                            <p className="text-xs text-zinc-500">{new Date(event.plannedFor!).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}</p>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </SBCard>
+    );
 }
 
 export function ProductionDashboard({ orders, lots }: { orders: ProductionOrder[], lots: Lot[] }) {
@@ -92,6 +127,7 @@ export function ProductionDashboard({ orders, lots }: { orders: ProductionOrder[
                     </SBCard>
                 </div>
                 <div className="space-y-6">
+                     <UpcomingEvents />
                      <SBCard title="Acciones Rápidas" accent={SB_COLORS.production}>
                         <div className="p-4 grid grid-cols-2 gap-3">
                            <Link href="/production/bom" className="text-center p-4 rounded-xl bg-sb-neutral-50 hover:bg-sb-neutral-100 border border-sb-neutral-200">

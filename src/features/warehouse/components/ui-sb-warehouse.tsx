@@ -4,8 +4,11 @@ import React, { useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Card, DataTableSB, Col, Button, SB_COLORS } from '@/components/ui/ui-primitives';
-import { Warehouse, Truck, Package, DollarSign } from 'lucide-react';
-import type { InventoryItem, Shipment, OrderStatus } from '@/domain/ssot';
+import { Warehouse, Truck, Package, DollarSign, Calendar } from 'lucide-react';
+import type { InventoryItem, Shipment, OrderStatus, Interaction } from '@/domain/ssot';
+import { SBCard } from '@/components/ui/ui-primitives';
+import { DEPT_META } from '@/domain/ssot';
+import { useData } from '@/lib/dataprovider';
 
 const clsx = (...xs: Array<string | false | null | undefined>) => xs.filter(Boolean).join(" ");
 
@@ -69,6 +72,43 @@ function KPI({ icon: Icon, label, value, color }: { icon: React.ElementType, lab
     )
 }
 
+function UpcomingEvents() {
+    const { data } = useData();
+    const upcomingEvents = useMemo(() => {
+        if (!data?.interactions) return [];
+        return data.interactions
+            .filter(i => i.dept === 'ALMACEN' && i.plannedFor && new Date(i.plannedFor) >= new Date())
+            .sort((a, b) => new Date(a.plannedFor!).getTime() - new Date(b.plannedFor!).getTime())
+            .slice(0, 5);
+    }, [data]);
+
+    if (upcomingEvents.length === 0) {
+        return (
+            <Card title="Próximas Tareas de Almacén" accent={SB_COLORS.warehouse}>
+                <p className="p-4 text-sm text-center text-zinc-500">No hay tareas programadas.</p>
+            </Card>
+        );
+    }
+
+    return (
+        <Card title="Próximas Tareas de Almacén" accent={SB_COLORS.warehouse}>
+            <div className="p-4 space-y-3">
+                {upcomingEvents.map((event: Interaction) => (
+                    <div key={event.id} className="flex items-center gap-3 p-2 rounded-lg bg-zinc-50 border">
+                        <div className="p-2 rounded-full" style={{ backgroundColor: DEPT_META.ALMACEN.color, color: DEPT_META.ALMACEN.textColor }}>
+                            <Calendar size={16} />
+                        </div>
+                        <div>
+                            <p className="font-medium text-sm">{event.note}</p>
+                            <p className="text-xs text-zinc-500">{new Date(event.plannedFor!).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}</p>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </Card>
+    );
+}
+
 
 export function WarehouseDashboardPage({ inventory, shipments }: { inventory: InventoryItem[], shipments: Shipment[] }) {
     
@@ -94,7 +134,7 @@ export function WarehouseDashboardPage({ inventory, shipments }: { inventory: In
             key: 'actions', 
             header: 'Acciones', 
             render: r => (
-                 <Link href={`/warehouse/logistics/${r.id}`}>
+                 <Link href={`/warehouse/logistics`}>
                     <Button variant="subtle">Ver</Button>
                 </Link>
             ) 
@@ -118,6 +158,7 @@ export function WarehouseDashboardPage({ inventory, shipments }: { inventory: In
                     </Card>
                 </div>
                  <div className="space-y-6">
+                     <UpcomingEvents />
                      <Card title="Alertas de Stock Bajo" accent={SB_COLORS.warehouse}>
                          <div className="p-2 space-y-1">
                              {lowStockItems.length > 0 ? lowStockItems.map(item => (

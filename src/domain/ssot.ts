@@ -438,14 +438,14 @@ export const MATERIAL_CATEGORIES: Material['category'][] = ['raw', 'packaging', 
 export const SB_COLORS = {
   primary: "#F7D15F",
   accent: "#618E8F",
-  sales: "#618E8F",
-  marketing: "#618E8F",
-  warehouse: "#618E8F",
+  sales: "#D7713E",
+  marketing: "#D7713E",
+  warehouse: "#A7D8D9",
   production: "#618E8F",
   finance: "#618E8F",
   analytics: "#618E8F",
   admin: "#618E8F",
-  quality: "#618E8F",
+  quality: "#F7D15F",
   general: "#618E8F",
   sun: "#F7D15F",
   cobre: "#D7713E",
@@ -453,5 +453,13 @@ export const SB_COLORS = {
   verde_mar: "#618E8F",
 };
 
-
-
+export const DEPT_META: Record<
+  Department,
+  { label: string; color: string; textColor: string }
+> = {
+  VENTAS: { label: 'Ventas', color: SB_COLORS.cobre, textColor: '#fff' },
+  PRODUCCION: { label: 'Producción', color: SB_COLORS.verde_mar, textColor: '#fff' },
+  ALMACEN:    { label: 'Almacén',    color: SB_COLORS.agua, textColor: SB_COLORS.verde_mar },
+  MARKETING:  { label: 'Marketing',  color: SB_COLORS.sun, textColor: SB_COLORS.cobre },
+  FINANZAS:   { label: 'Finanzas',   color: '#CCCCCC', textColor: '#333333' },
+};
