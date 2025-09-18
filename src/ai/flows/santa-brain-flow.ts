@@ -29,6 +29,7 @@ import {
 } from '@/ai/flows/schemas';
 import { gemini } from '@genkit-ai/googleai';
 import type { Message } from 'genkit';
+import { adminDb } from '@/server/firebaseAdmin';
 
 // ===============================
 // Helpers / Tipos
@@ -45,6 +46,9 @@ type ToolRequestPart = {
   toolRequest: { name: string; input?: unknown; ref?: string };
   [k: string]: unknown;
 };
+
+// Hardcoded user ID for dev purposes now that login is removed
+const DEV_USER_ID = 'dev-user-fixed-id';
 
 function isToolRequestPart(part: any): part is ToolRequestPart {
   return !!part && typeof part === 'object' && 'toolRequest' in part && !!part.toolRequest?.name;
@@ -63,7 +67,19 @@ const createInteractionTool = ai.defineTool(
   },
   async (input) => {
     console.log(`Tool "createInteraction" called with:`, input);
-    const interactionId = `int_brain_${Date.now()}`;
+    const collectionRef = adminDb.collection('userData').doc(DEV_USER_ID).collection('interactions');
+    const newDocRef = collectionRef.doc();
+    const interactionId = newDocRef.id;
+
+    // We don't have accountId here directly, will be enriched later in the flow
+    await newDocRef.set({ 
+        ...input, 
+        id: interactionId, 
+        createdAt: new Date().toISOString(),
+        userId: DEV_USER_ID,
+        dept: 'VENTAS'
+    });
+
     return { success: true, interactionId };
   }
 );
@@ -78,7 +94,26 @@ const createOrderTool = ai.defineTool(
   },
   async (input) => {
     console.log(`Tool "createOrder" called with:`, input);
-    const orderId = `ord_brain_${Date.now()}`;
+    const collectionRef = adminDb.collection('userData').doc(DEV_USER_ID).collection('ordersSellOut');
+    const newDocRef = collectionRef.doc();
+    const orderId = newDocRef.id;
+
+    // We don't have accountId here directly, will be enriched later in the flow
+    await newDocRef.set({
+        id: orderId,
+        accountName: input.accountName, // Store name temporarily
+        status: 'open',
+        currency: 'EUR',
+        createdAt: new Date().toISOString(),
+        lines: input.items.map((item) => ({
+            sku: item.sku || 'SB-750',
+            qty: item.quantity,
+            unit: 'uds',
+            priceUnit: 0,
+        })),
+        notes: input.notes,
+    });
+    
     return { success: true, orderId };
   }
 );
@@ -93,7 +128,20 @@ const scheduleEventTool = ai.defineTool(
   },
   async (input) => {
     console.log(`Tool "scheduleEvent" called with:`, input);
-    const eventId = `evt_brain_${Date.now()}`;
+    const collectionRef = adminDb.collection('userData').doc(DEV_USER_ID).collection('mktEvents');
+    const newDocRef = collectionRef.doc();
+    const eventId = newDocRef.id;
+    
+    const newEvent: Partial<EventMarketing> = {
+        id: eventId,
+        title: input.title,
+        kind: input.kind,
+        status: 'planned',
+        startAt: input.startAt,
+        city: input.location,
+    };
+    await newDocRef.set(newEvent);
+    
     return { success: true, eventId };
   }
 );
@@ -108,7 +156,28 @@ const upsertAccountTool = ai.defineTool(
   },
   async (input) => {
     console.log(`Tool "upsertAccount" called with:`, input);
-    const accountId = (input as any).id || `acc_brain_${Date.now()}`;
+    const collectionRef = adminDb.collection('userData').doc(DEV_USER_ID).collection('accounts');
+    let accountId = (input as any).id;
+    let docRef;
+
+    if (accountId) {
+        docRef = collectionRef.doc(accountId);
+        await docRef.update({ ...input, updatedAt: new Date().toISOString() });
+    } else {
+        docRef = collectionRef.doc();
+        accountId = docRef.id;
+        const newAccount: Account = {
+            ...input,
+            id: accountId,
+            createdAt: new Date().toISOString(),
+            stage: input.stage || 'POTENCIAL',
+            type: input.type || 'HORECA',
+            ownerId: DEV_USER_ID,
+            billerId: 'SB', // Por defecto venta propia
+        };
+        await docRef.set(newAccount);
+    }
+    
     return { success: true, accountId };
   }
 );
@@ -295,4 +364,3 @@ export async function runSantaBrain(
 
   return { finalAnswer: llmResponse.text, newEntities };
 }
-
