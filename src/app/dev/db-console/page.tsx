@@ -16,6 +16,7 @@ async function writeTestData() {
       randomNumber: Math.random(),
     };
     await docRef.set(testData);
+    console.log(`Datos escritos en 'test_console/test_doc': ${JSON.stringify(testData)}`);
     return { success: true, message: `Datos escritos en 'test_console/test_doc': ${JSON.stringify(testData)}` };
   } catch (error: any) {
     console.error("Error writing to Firestore:", error);
@@ -29,7 +30,9 @@ async function readTestData() {
     const docRef = adminDb.collection('test_console').doc('test_doc');
     const docSnap = await docRef.get();
     if (docSnap.exists) {
-      return { success: true, message: `Datos leídos de 'test_console/test_doc': ${JSON.stringify(docSnap.data())}` };
+        const data = docSnap.data();
+        console.log(`Datos leídos de 'test_console/test_doc': ${JSON.stringify(data)}`);
+      return { success: true, message: `Datos leídos de 'test_console/test_doc': ${JSON.stringify(data)}` };
     } else {
       return { success: true, message: "El documento 'test_console/test_doc' no existe. Escribe datos primero." };
     }
@@ -59,13 +62,7 @@ export default async function DbConsolePage() {
         <div className="p-6 space-y-4">
           
           {/* Write Action Form */}
-          <form action={async (formData) => {
-            const result = await writeTestData();
-            // In a real app, you might revalidate a path here.
-            // For this console, we'll rely on the user to manually read after writing.
-            // A more advanced version could use useFormState to display results.
-            console.log(result.message);
-          }}>
+          <form action={writeTestData}>
             <div className="flex items-center justify-between p-4 border rounded-lg">
                 <div>
                     <h3 className="font-semibold text-zinc-800">Escribir Datos</h3>
@@ -78,16 +75,7 @@ export default async function DbConsolePage() {
           </form>
           
           {/* Read Action Form */}
-          <form action={async (formData) => {
-             const result = await readTestData();
-             // This is a simple example. A more complex UI would use useFormState to show this message.
-             // For now, we're just logging it to the server console.
-             console.log(result.message);
-             // You can alert the message to see it on the client
-             if (typeof window !== 'undefined') {
-                alert(result.message);
-             }
-          }}>
+          <form action={readTestData}>
              <div className="flex items-center justify-between p-4 border rounded-lg">
                  <div>
                     <h3 className="font-semibold text-zinc-800">Leer Datos</h3>
