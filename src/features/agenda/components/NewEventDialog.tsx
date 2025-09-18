@@ -1,4 +1,3 @@
-
 // src/features/agenda/components/NewEventDialog.tsx
 "use client";
 import React, { useState, useEffect } from 'react';
@@ -17,8 +16,6 @@ const DEPT_META: Record<
   MARKETING:  { label: 'Marketing',  color: '#F7D15F', textColor: '#3f3414' },
   FINANZAS:   { label: 'Finanzas',   color: '#CCCCCC', textColor: '#333333' },
 };
-
-type MarketingSubtype = 'Evento/Activación' | 'Campaña Ads' | 'Collab Influencer';
 
 function AccountSearch({ initialAccountId, initialLocation, onSelectionChange }: { 
     initialAccountId?: string;
@@ -109,7 +106,6 @@ export function NewEventDialog({
     const [selection, setSelection] = useState<{ accountId?: string, location?: string }>({});
     const [notes, setNotes] = useState('');
     const [involvedUserIds, setInvolvedUserIds] = useState<string[]>([]);
-    const [marketingSubtype, setMarketingSubtype] = useState<MarketingSubtype | ''>('');
 
     useEffect(() => {
         if (initialEventData) {
@@ -146,9 +142,6 @@ export function NewEventDialog({
         }
 
         let finalNote = notes ? `${title} - ${notes}` : title;
-        if(type === 'MARKETING' && marketingSubtype) {
-            finalNote = `[${marketingSubtype}] ${finalNote}`;
-        }
         
         onSave({ 
             ...(initialEventData ? { id: initialEventData.id } : {}),
@@ -158,7 +151,7 @@ export function NewEventDialog({
             note: finalNote,
             location: selection.location,
             accountId: selection.accountId,
-            involvedUserIds: involvedUserIds.length > 0 ? involvedUserIds : [currentUser!.id],
+            involvedUserIds: involvedUserIds.length > 0 ? involvedUserIds : (currentUser ? [currentUser.id] : []),
             userId: initialEventData?.userId || currentUser!.id, // Preserve original creator on edit
         });
 
@@ -225,22 +218,6 @@ export function NewEventDialog({
                                 <option value="EMAIL">Email</option>
                                 <option value="WHATSAPP">WhatsApp</option>
                                 <option value="OTRO">Otro</option>
-                            </select>
-                        </label>
-                    )}
-
-                    {type === 'MARKETING' && (
-                        <label className="grid gap-1.5">
-                            <span className="text-sm font-medium text-zinc-700">Tipo de Actividad de Marketing</span>
-                             <select
-                                value={marketingSubtype}
-                                onChange={(e) => setMarketingSubtype(e.target.value as MarketingSubtype)}
-                                className="h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm"
-                            >
-                                <option value="">General</option>
-                                <option value="Evento/Activación">Evento/Activación</option>
-                                <option value="Campaña Ads">Campaña Ads</option>
-                                <option value="Collab Influencer">Collab Influencer</option>
                             </select>
                         </label>
                     )}

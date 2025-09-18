@@ -210,7 +210,7 @@ export function CalendarPageContent() {
   const handleAddOrUpdateEvent = async (eventData: any) => {
       if (!currentUser || !SantaData) return;
       
-      const { marketingSubtype, ...event } = eventData;
+      const { ...event } = eventData;
       let finalData = { ...SantaData };
       let updatedInteractions;
 
@@ -226,32 +226,17 @@ export function CalendarPageContent() {
           };
 
           if (newInteraction.dept === 'MARKETING' && newInteraction.note) {
-              if (marketingSubtype === 'Campaña Ads') {
-                  const newCampaign: OnlineCampaign = {
-                      id: `online_${Date.now()}`,
-                      title: newInteraction.note,
-                      channel: 'IG', // Default, should be part of the form later
-                      status: 'planned',
-                      startAt: newInteraction.plannedFor || new Date().toISOString(),
-                      budget: 0,
-                      spend: 0,
-                  };
-                  finalData.onlineCampaigns = [...(finalData.onlineCampaigns || []), newCampaign];
-                  newInteraction.linkedEntity = { type: 'Campaign', id: newCampaign.id };
-                  await saveCollection('onlineCampaigns', finalData.onlineCampaigns, isPersistenceEnabled);
-              } else { // Default to EventMarketing for 'Evento/Activación' or general marketing tasks
-                  const newMktEvent: EventMarketing = {
-                      id: `mkt_${Date.now()}`,
-                      title: newInteraction.note,
-                      kind: 'OTRO', // Default
-                      status: 'planned',
-                      startAt: newInteraction.plannedFor || new Date().toISOString(),
-                      city: newInteraction.location,
-                  };
-                  finalData.mktEvents = [...(finalData.mktEvents || []), newMktEvent];
-                  newInteraction.linkedEntity = { type: 'Campaign', id: newMktEvent.id };
-                  await saveCollection('mktEvents', finalData.mktEvents, isPersistenceEnabled);
-              }
+              const newMktEvent: EventMarketing = {
+                  id: `mkt_${Date.now()}`,
+                  title: newInteraction.note,
+                  kind: 'OTRO', // Default
+                  status: 'planned',
+                  startAt: newInteraction.plannedFor || new Date().toISOString(),
+                  city: newInteraction.location,
+              };
+              finalData.mktEvents = [...(finalData.mktEvents || []), newMktEvent];
+              newInteraction.linkedEntity = { type: 'Campaign', id: newMktEvent.id };
+              await saveCollection('mktEvents', finalData.mktEvents, isPersistenceEnabled);
           }
 
           updatedInteractions = [...(finalData.interactions || []), newInteraction];
@@ -479,7 +464,7 @@ export function CalendarPageContent() {
         <EventDetailDialog
             event={selectedEvent}
             open={!!selectedEvent}
-            onOpenChange={() => setSelectedEvent(null)}
+            onOpenChange={(open) => { if (!open) setSelectedEvent(null) }}
             onUpdateStatus={handleUpdateStatus}
             onEdit={handleEditRequest}
             onDelete={handleDeleteEvent}
