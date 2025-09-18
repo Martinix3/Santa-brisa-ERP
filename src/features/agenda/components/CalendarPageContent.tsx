@@ -43,10 +43,35 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
   }
 }
 
-export async function saveCollection(collectionName: keyof SantaData, data: any[]) {
-    // Persistence is handled by the DataProvider now, which centralizes the logic.
-    // This function can be simplified or removed if all data mutations go through `setData`.
-    console.warn("saveCollection from CalendarPageContent is deprecated. Use DataProvider's setData instead.");
+export async function saveCollection(collectionName: keyof SantaData, data: any[], isPersistenceEnabled: boolean) {
+    if (!isPersistenceEnabled) {
+      console.log(`[Offline Mode] Not saving collection: ${collectionName}`);
+      return;
+    }
+    
+    try {
+        const headers = await getAuthHeaders();
+        if (!headers['Authorization']) {
+          throw new Error('User not authenticated. Cannot save data.');
+        }
+
+        const response = await fetch('/api/brain-persist', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...headers },
+            body: JSON.stringify({
+                data: { [collectionName]: data },
+                persistenceEnabled: true,
+                strategy: 'overwrite'
+            }),
+        });
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.error || `Error guardando la colección ${collectionName}`);
+        }
+    } catch (e: any) {
+        console.error(`Error saving collection ${collectionName}:`, e);
+        throw e;
+    }
 }
 
 
@@ -74,6 +99,7 @@ function mapDomainToTasks(
         date: plannedISO,
         involvedUserIds: i.involvedUserIds,
         location: i.location || accountMap.get(i.accountId || ''),
+        linkedEntity: i.linkedEntity,
       };
     });
 
@@ -184,7 +210,9 @@ export function CalendarPageContent() {
   
   const updateAndPersistInteractions = (updatedInteractions: Interaction[]) => {
       if (!SantaData) return;
-      setData(prev => prev ? ({ ...prev, interactions: updatedInteractions }) : null);
+      const fullData = { ...SantaData, interactions: updatedInteractions };
+      setData(fullData);
+      saveCollection('interactions', updatedInteractions, isPersistenceEnabled);
   }
 
   const handleUpdateStatus = (id: string, newStatus: InteractionStatus) => {
@@ -240,6 +268,13 @@ export function CalendarPageContent() {
       
       finalData.interactions = updatedInteractions;
       setData(finalData);
+
+      if (isPersistenceEnabled) {
+          await saveCollection('interactions', finalData.interactions, isPersistenceEnabled);
+          if (finalData.mktEvents.length > (SantaData.mktEvents?.length || 0)) {
+              await saveCollection('mktEvents', finalData.mktEvents, isPersistenceEnabled);
+          }
+      }
 
       setEditingEvent(null);
       setIsNewEventDialogOpen(false);
@@ -335,6 +370,16 @@ export function CalendarPageContent() {
     
     setData(finalData);
 
+    if (isPersistenceEnabled) {
+        await saveCollection('interactions', finalData.interactions, isPersistenceEnabled);
+        if (payload.type === 'venta') {
+            await saveCollection('ordersSellOut', finalData.ordersSellOut, isPersistenceEnabled);
+        }
+        if (payload.type === 'marketing') {
+            await saveCollection('mktEvents', finalData.mktEvents, isPersistenceEnabled);
+        }
+    }
+    
     setCompletingTask(null);
     setCompletingMarketingTask(null);
   };
@@ -475,13 +520,13 @@ export function CalendarPageContent() {
         />
       )}
 
-      <style jsx global>{`
+      <style jsx global>{\`
         /* Toolbar */
         .fc .fc-toolbar.fc-header-toolbar {
                 margin-bottom: 1.5rem;
                 font-size: 0.875rem;
             }
-        .fc .fc-toolbar-title { font-weight: 600; color: ${SB_COLORS.accent}; }
+        .fc .fc-toolbar-title { font-weight: 600; color: \${SB_COLORS.accent}; }
         .fc .fc-button {
           background: #fff; color: #0f172a; border: 1px solid #e5e7eb;
           border-radius: 10px; padding: 6px 10px; text-transform: capitalize;
@@ -496,7 +541,7 @@ export function CalendarPageContent() {
           font-weight: 600;
         }
         .fc-theme-standard td, .fc-theme-standard th { border-color: #e5e7eb; }
-        .fc .fc-day-today { background: ${hexToRgba(SB_COLORS.sun || '#F7D15F', 0.12)} !important; }
+        .fc .fc-day-today { background: \${hexToRgba(SB_COLORS.sun || '#F7D15F', 0.12)} !important; }
         .fc .fc-button-primary.fc-today-button {
             background: #fff;
             border: 1px solid #e5e7eb;
@@ -504,9 +549,9 @@ export function CalendarPageContent() {
             font-weight: 500;
         }
         .fc .fc-button-primary.fc-today-button:disabled {
-            background: ${hexToRgba(ACCENT, 0.15)};
-            border: 1px solid ${hexToRgba(ACCENT, 0.3)};
-            color: ${ACCENT};
+            background: \${hexToRgba(ACCENT, 0.15)};
+            border: 1px solid \${hexToRgba(ACCENT, 0.3)};
+            color: \${ACCENT};
             font-weight: 600;
         }
         /* Eventos */
@@ -520,7 +565,7 @@ export function CalendarPageContent() {
         /* Cabeceras */
         .fc .fc-col-header-cell-cushion { padding: 8px 0; font-weight: 600; color: #334155; }
         .fc .fc-timegrid-slot-label { color: #64748b; }
-      `}</style>
+      \`}</style>
     </div>
     </>
   );
