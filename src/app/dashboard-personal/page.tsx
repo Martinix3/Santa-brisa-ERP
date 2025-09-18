@@ -5,7 +5,7 @@ import React, { useMemo, useState } from 'react';
 import { useData } from '@/lib/dataprovider';
 import AuthenticatedLayout from '@/components/layouts/AuthenticatedLayout';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
-import { User, CheckCircle, Clock, AlertCircle as AlertCircleIcon } from 'lucide-react';
+import { User, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import type { Interaction, InteractionStatus, SantaData, OrderSellOut, Department, EventMarketing } from '@/domain/ssot';
 import { DEPT_META } from '@/domain/ssot';
 import { TaskBoard, Task } from '@/features/agenda/TaskBoard';
@@ -55,7 +55,7 @@ export default function PersonalDashboardPage() {
     const allMyInteractions = useMemo(() => {
         if (!data || !currentUser) return [];
         return data.interactions.filter(i => 
-            i.userId === currentUser.id || i.involvedUserIds?.includes(currentUser.id)
+            i.userId === currentUser.id || (i.involvedUserIds && i.involvedUserIds.includes(currentUser.id))
         );
     }, [data, currentUser]);
 
@@ -126,10 +126,9 @@ export default function PersonalDashboardPage() {
         let finalData: SantaData = { ...data };
 
         // 1. Mark the original task as 'done' and add result note
-        const updatedInteractions = finalData.interactions.map(i =>
-            i.id === taskId ? { ...i, status: 'done' as InteractionStatus, resultNote: (payload as any).note } : i
+        finalData.interactions = finalData.interactions.map(i =>
+            i.id === taskId ? { ...i, status: 'done' as InteractionStatus, resultNote: payload.note } : i
         );
-        finalData.interactions = updatedInteractions;
         
         // 2. Handle different payload types
         if (payload.type === 'interaccion' && payload.nextActionDate) {
@@ -205,7 +204,7 @@ export default function PersonalDashboardPage() {
             <ModuleHeader title="Dashboard Personal" icon={User} />
             <div className="p-6 bg-zinc-50 flex-grow">
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-                    <KPI icon={AlertCircleIcon} label="Tareas Pendientes" value={overdue.length} />
+                    <KPI icon={AlertCircle} label="Tareas Pendientes" value={overdue.length} />
                     <KPI icon={Clock} label="Tareas Programadas" value={upcoming.length} />
                     <KPI icon={CheckCircle} label="Tareas Hechas (30d)" value={doneTasks.filter(t => t.date && new Date(t.date) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)).length} />
                     <KPI icon={User} label="Tareas en Revisión" value={processingTasks.length} />
