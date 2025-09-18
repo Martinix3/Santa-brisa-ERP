@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, {
@@ -11,7 +12,7 @@ import React, {
 } from "react";
 import type { User, SantaData } from "@/domain/ssot";
 import { realSantaData as mockData } from "@/domain/mock-data";
-import { auth } from "./firebase-config";
+import { auth } from "./firebaseClient";
 import {
   GoogleAuthProvider,
   signInWithPopup,

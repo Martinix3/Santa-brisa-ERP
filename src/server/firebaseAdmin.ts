@@ -1,15 +1,15 @@
-// src/server/firebase-admin.ts
-import { initializeApp, getApps } from "firebase-admin/app";
-import { getAuth } from "firebase-admin/auth";
-import { getFirestore } from "firebase-admin/firestore";
+import { getApps, initializeApp, applicationDefault } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
+import { getAuth } from 'firebase-admin/auth';
 
-// Al llamar a initializeApp() sin argumentos, usará las credenciales
-// del entorno (Application Default Credentials). Esto es lo ideal para
-// Cloud Run, Cloud Functions, y para desarrollo local con `gcloud auth application-default login`.
-const app =
-  getApps().length === 0
-    ? initializeApp()
-    : getApps()[0];
+// Usamos ADC (recomendado en Workstations/Cloud). Si necesitas SA JSON, cámbialo abajo.
+const app = getApps().length
+  ? getApps()[0]
+  : initializeApp({
+      credential: applicationDefault(),
+      // projectId opcional si ADC ya la detecta:
+      // projectId: process.env.GCLOUD_PROJECT || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    });
 
-export const adminAuth = getAuth(app);
 export const adminDb = getFirestore(app);
+export const adminAuth = getAuth(app);

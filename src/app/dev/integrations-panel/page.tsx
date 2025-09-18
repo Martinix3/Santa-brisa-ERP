@@ -6,7 +6,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { SBCard, SB_COLORS } from '@/components/ui/ui-primitives';
 import { KeyRound, Trash2, Zap, RefreshCw, Settings, PlugZap, LogOut, ChevronRight, Check, AlertTriangle, DownloadCloud } from 'lucide-react';
 import ApiKeyConnect from "@/components/integrations/ApiKeyConnect";
-import { auth } from '@/lib/firebase-config';
+import { auth } from '@/lib/firebaseClient';
 import { signInWithPopup, GoogleAuthProvider, onAuthStateChanged, User } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 

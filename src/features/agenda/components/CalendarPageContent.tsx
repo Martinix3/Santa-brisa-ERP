@@ -19,7 +19,7 @@ import { ModuleHeader } from "@/components/ui/ModuleHeader";
 import { Calendar, Filter } from "lucide-react";
 import { SB_COLORS, DEPT_META } from "@/domain/ssot";
 import type { Department, Interaction, SantaData, OrderSellOut, InteractionStatus, InteractionKind, Account, EventMarketing, OnlineCampaign } from '@/domain/ssot';
-import { auth } from "@/lib/firebase-config";
+import { auth } from '@/lib/firebaseClient';
 import { getIdToken } from "firebase/auth";
 
 
@@ -43,32 +43,10 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
   }
 }
 
-export async function saveCollection(collectionName: keyof SantaData, data: any[], persistenceEnabled: boolean) {
-    if (!persistenceEnabled) return;
-    try {
-        const headers = await getAuthHeaders();
-        if (!headers['Authorization']) {
-            throw new Error('User not authenticated. Cannot save data.');
-        }
-
-        const response = await fetch('/api/dev/save-data', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...headers },
-            body: JSON.stringify({ collection: collectionName, data, persistenceEnabled }),
-        });
-        if (!response.ok) {
-            let errText = `Error guardando la colección ${collectionName}`;
-            try {
-                const err = await response.json();
-                errText = err.error || errText;
-            } catch {}
-            throw new Error(errText);
-        }
-    } catch (e: any) {
-        console.error(e);
-        // La notificación se gestiona centralmente en DataProvider
-        throw e;
-    }
+export async function saveCollection(collectionName: keyof SantaData, data: any[]) {
+    // Persistence is handled by the DataProvider now, which centralizes the logic.
+    // This function can be simplified or removed if all data mutations go through `setData`.
+    console.warn("saveCollection from CalendarPageContent is deprecated. Use DataProvider's setData instead.");
 }
 
 
@@ -206,14 +184,7 @@ export function CalendarPageContent() {
   
   const updateAndPersistInteractions = (updatedInteractions: Interaction[]) => {
       if (!SantaData) return;
-      
-      const interactionMap = new Map(updatedInteractions.map(i => [i.id, i]));
-      
-      // Create a new array to ensure reactivity
-      const allNewInteractions = (SantaData.interactions || []).map(i => interactionMap.get(i.id) || i);
-      
-      setData(prev => prev ? ({ ...prev, interactions: allNewInteractions }) : prev);
-      saveCollection('interactions', allNewInteractions, isPersistenceEnabled);
+      setData(prev => prev ? ({ ...prev, interactions: updatedInteractions }) : null);
   }
 
   const handleUpdateStatus = (id: string, newStatus: InteractionStatus) => {
@@ -262,7 +233,6 @@ export function CalendarPageContent() {
               };
               finalData.mktEvents = [...(finalData.mktEvents || []), newMktEvent];
               newInteraction.linkedEntity = { type: 'Campaign', id: newMktEvent.id };
-              await saveCollection('mktEvents', finalData.mktEvents, isPersistenceEnabled);
           }
 
           updatedInteractions = [...(finalData.interactions || []), newInteraction];
@@ -270,7 +240,6 @@ export function CalendarPageContent() {
       
       finalData.interactions = updatedInteractions;
       setData(finalData);
-      await saveCollection('interactions', updatedInteractions, isPersistenceEnabled);
 
       setEditingEvent(null);
       setIsNewEventDialogOpen(false);
@@ -343,9 +312,6 @@ export function CalendarPageContent() {
             notes: `Pedido creado desde tarea ${taskId}`,
         };
         finalData.ordersSellOut = [...(finalData.ordersSellOut || []), newOrder];
-        if (isPersistenceEnabled) {
-          await saveCollection('ordersSellOut', finalData.ordersSellOut, isPersistenceEnabled);
-        }
     }
 
     if (payload.type === 'marketing' && originalTask.linkedEntity?.id) {
@@ -365,15 +331,9 @@ export function CalendarPageContent() {
             }
             return me;
         });
-        if (isPersistenceEnabled) {
-            await saveCollection('mktEvents', finalData.mktEvents, isPersistenceEnabled);
-        }
     }
     
     setData(finalData);
-    if (isPersistenceEnabled) {
-        await saveCollection('interactions', finalData.interactions, isPersistenceEnabled);
-    }
 
     setCompletingTask(null);
     setCompletingMarketingTask(null);

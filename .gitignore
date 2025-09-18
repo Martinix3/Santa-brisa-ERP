@@ -25,17 +25,16 @@ yarn-debug.log*
 yarn-error.log*
 
 # local env files
-.env*.local
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
 # vercel
 .vercel
 
 # typescript
 *.tsbuildinfo
-tsconfig.tsbuildinfo
-tsconfig.backup.*.json
-typecheck-errors.log
+next-env.d.ts
 
-# TS build cache/backups
-tsconfig.tsbuildinfo
-tsconfig.backup.*.json
+.env*
