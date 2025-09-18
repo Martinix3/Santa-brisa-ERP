@@ -1,8 +1,9 @@
 
+
 "use client"
 import React, { useMemo, useState, useEffect } from 'react'
-import { ChevronDown, Search, Plus, Phone, Mail, MessageSquare, Calendar, History, ShoppingCart, Info, BarChart3, UserPlus, Users } from 'lucide-react'
-import type { Account as AccountType, Stage, User, Distributor, Interaction, OrderSellOut, InteractionKind, SantaData } from '@/domain/ssot'
+import { ChevronDown, Search, Plus, Phone, Mail, MessageSquare, Calendar, History, ShoppingCart, Info, BarChart3, UserPlus, Users, MoreVertical } from 'lucide-react'
+import type { Account as AccountType, Stage, User, Distributor, Interaction, OrderSellOut, InteractionKind, SantaData, InteractionStatus } from '@/domain/ssot'
 import { orderTotal } from '@/domain/ssot'
 import { accountOwnerDisplay, computeAccountKPIs } from '@/lib/sb-core';
 import Link from 'next/link'
@@ -10,6 +11,9 @@ import { useData } from '@/lib/dataprovider'
 import { FilterSelect } from '@/components/ui/FilterSelect'
 import { ModuleHeader } from '@/components/ui/ModuleHeader'
 import { SB_COLORS } from '@/components/ui/ui-primitives'
+import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/TaskCompletionDialog'
+import { saveCollection } from '@/features/agenda/components/CalendarPageContent'
+
 
 const T = { primary:'#618E8F' }
 const STAGE: Record<string, { label:string; tint:string; text:string }> = {
@@ -59,7 +63,7 @@ function GroupBar({stage,count,onToggle,expanded}:{stage:keyof typeof STAGE; cou
   )
 }
 
-function AccountBar({ a, santaData }:{ a: AccountType, santaData: SantaData }){
+function AccountBar({ a, santaData, onAddActivity }: { a: AccountType, santaData: SantaData, onAddActivity: (acc: AccountType) => void }) {
   const [open, setOpen] = useState(false);
   const s = STAGE[a.stage as keyof typeof STAGE] ?? STAGE.ACTIVA;
   
@@ -102,21 +106,25 @@ function AccountBar({ a, santaData }:{ a: AccountType, santaData: SantaData }){
 
   return (
     <div className="overflow-hidden transition-all duration-200 hover:bg-black/5 rounded-lg border border-zinc-200/50">
-      <div className="w-full grid grid-cols-[1.6fr_1.2fr_1fr_1.2fr_auto] items-center gap-3 px-4 py-1.5 cursor-pointer" onClick={()=>setOpen(v=>!v)}>
-        <div className="text-sm font-medium truncate flex items-center gap-2">
-           <button onClick={(e)=>{ e.stopPropagation(); setOpen(v=>!v); }} className="p-1.5 rounded-md text-zinc-600 hover:bg-zinc-100/20" title={open ? 'Cerrar detalle' : 'Ver detalle'}>
+      <div className="w-full grid grid-cols-[auto_1.6fr_1.2fr_1fr_1.2fr_auto] items-center gap-3 px-4 py-1.5 cursor-pointer" onClick={()=>setOpen(v=>!v)}>
+         <button onClick={(e)=>{ e.stopPropagation(); setOpen(v=>!v); }} className="p-1.5 rounded-md text-zinc-600 hover:bg-zinc-100/20" title={open ? 'Cerrar detalle' : 'Ver detalle'}>
             <ChevronDown className="h-4 w-4 transition-transform duration-300" style={{transform: open? 'rotate(180deg)':'rotate(0deg)'}}/>
           </button>
-          <Link href={`/accounts/${a.id}`} className="text-zinc-900 hover:underline truncate">{a.name}</Link>
+        <div className="text-sm font-medium truncate flex items-center gap-2">
+          <span className="text-zinc-900 truncate">{a.name}</span>
           {orderAmount>0 && <span className="text-[11px] px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-700 whitespace-nowrap">{formatEUR(orderAmount)}</span>}
         </div>
         <div className="flex items-center gap-2 min-w-0"><Avatar name={owner}/><span className="text-sm text-zinc-700 truncate">{owner}</span></div>
         <div className="text-sm text-zinc-700 truncate">{a.city||'—'}</div>
         <div className="text-sm text-zinc-700 truncate">{distributor?.name || 'Propia'}</div>
-        <div className="text-right" onClick={(e) => { e.stopPropagation(); /* onAddActivityClick(); */ }}>
-          <button className="p-1.5 rounded-md border border-zinc-200 bg-white/50 text-zinc-700 inline-flex items-center transition-all hover:bg-white/90 hover:border-zinc-300 hover:scale-105" title="Nueva actividad">
-            <Plus className="h-3.5 w-3.5"/>
+        <div className="text-right relative group">
+          <button className="p-1.5 rounded-md border border-zinc-200 bg-white/50 text-zinc-700 inline-flex items-center transition-all hover:bg-white/90 hover:border-zinc-300 hover:scale-105" title="Acciones">
+            <MoreVertical className="h-3.5 w-3.5"/>
           </button>
+          <div className="absolute right-0 top-full mt-1 z-10 w-48 bg-white border rounded-md shadow-lg hidden group-hover:block">
+            <Link href={`/accounts/${a.id}`} className="block w-full text-left px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50">Ver Ficha de Cliente</Link>
+            <button onClick={(e) => { e.stopPropagation(); onAddActivity(a); }} className="block w-full text-left px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50">Añadir Interacción/Venta</button>
+          </div>
         </div>
       </div>
       {open && kpis && (
@@ -188,7 +196,7 @@ function AccountBar({ a, santaData }:{ a: AccountType, santaData: SantaData }){
 }
 
 export function AccountsPageContent() {
-  const { data: santaData, setData, currentUser } = useData();
+  const { data: santaData, setData, currentUser, isPersistenceEnabled } = useData();
   
   const [q,setQ]=useState('');
   const [expanded,setExpanded] = useState<Record<string,boolean>>({ ACTIVA:true });
@@ -196,6 +204,8 @@ export function AccountsPageContent() {
   const [fltCity, setFltCity] = useState("");
   const [fltDist, setFltDist] = useState("");
   
+  const [completingTaskForAccount, setCompletingTaskForAccount] = useState<AccountType | null>(null);
+
   const data = useMemo(() => santaData?.accounts || [], [santaData]);
 
   const { repOptions, cityOptions, distOptions } = useMemo(() => {
@@ -266,6 +276,66 @@ export function AccountsPageContent() {
       console.error('Failed to save expanded state to localStorage', e);
     }
   }, [expanded]);
+
+    const handleSaveCompletedTask = async (
+        accountId: string,
+        payload: { type: 'venta', items: { sku: string; qty: number }[] } | { type: 'interaccion', note: string, nextActionDate?: string }
+    ) => {
+        if (!santaData || !currentUser) return;
+    
+        let finalData: SantaData = { ...santaData };
+
+        if (payload.type === 'venta') {
+            const newOrder: OrderSellOut = {
+                id: `ord_${Date.now()}`,
+                accountId: accountId,
+                status: 'open',
+                currency: 'EUR',
+                createdAt: new Date().toISOString(),
+                lines: payload.items.map(item => ({ sku: item.sku, qty: item.qty, unit: 'uds', priceUnit: 0 })),
+                notes: `Pedido rápido creado desde lista de cuentas`,
+            };
+            finalData.ordersSellOut = [...(finalData.ordersSellOut || []), newOrder];
+        } else { // Interacción
+            const newInteraction: Interaction = {
+                id: `int_${Date.now()}`,
+                userId: currentUser.id,
+                accountId: accountId,
+                kind: 'OTRO', // Kind should be part of the dialog
+                note: payload.note,
+                createdAt: new Date().toISOString(),
+                dept: 'VENTAS',
+                status: 'done',
+            };
+            finalData.interactions = [...(finalData.interactions || []), newInteraction];
+
+            if (payload.nextActionDate) {
+                 const newFollowUp: Interaction = {
+                    id: `int_${Date.now() + 1}`,
+                    userId: currentUser.id,
+                    accountId: accountId,
+                    kind: 'OTRO', 
+                    note: `Seguimiento de: ${payload.note}`,
+                    plannedFor: payload.nextActionDate,
+                    createdAt: new Date().toISOString(),
+                    dept: 'VENTAS',
+                    status: 'open',
+                };
+                finalData.interactions.push(newFollowUp);
+            }
+        }
+    
+        setData(finalData);
+
+        if (isPersistenceEnabled) {
+            if (payload.type === 'venta') {
+                await saveCollection('ordersSellOut', finalData.ordersSellOut, isPersistenceEnabled);
+            }
+            await saveCollection('interactions', finalData.interactions, isPersistenceEnabled);
+        }
+    
+        setCompletingTaskForAccount(null);
+    };
   
   if (!santaData) {
     return <div className="p-6">Cargando datos...</div>;
@@ -301,13 +371,30 @@ export function AccountsPageContent() {
               <GroupBar stage={k} count={count} expanded={isOpen} onToggle={()=> setExpanded(e=> ({...e,[k]:!e[k]})) }/>
               {isOpen && count > 0 && santaData && (
                 <div className="rounded-b-md space-y-1 py-2" style={{backgroundColor: `${s.tint}1A`}}>
-                  {grouped[k].map(a=> <AccountBar key={a.id} a={a} santaData={santaData} />) }
+                  {grouped[k].map(a=> <AccountBar key={a.id} a={a} santaData={santaData} onAddActivity={() => setCompletingTaskForAccount(a)}/>) }
                 </div>
               )}
             </div>
           )
         })}
       </div>
+      {completingTaskForAccount && (
+        <TaskCompletionDialog
+            task={{
+                id: `temp-task-${completingTaskForAccount.id}`,
+                note: `Registrar actividad para ${completingTaskForAccount.name}`,
+                kind: 'OTRO',
+                status: 'open',
+                dept: 'VENTAS',
+                userId: currentUser!.id,
+                accountId: completingTaskForAccount.id,
+                createdAt: new Date().toISOString(),
+            }}
+            open={!!completingTaskForAccount}
+            onClose={() => setCompletingTaskForAccount(null)}
+            onComplete={(taskId, payload) => handleSaveCompletedTask(completingTaskForAccount.id, payload)}
+        />
+      )}
     </>
   )
 }
