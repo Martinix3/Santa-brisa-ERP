@@ -1,16 +1,16 @@
 
-
 "use client";
 
 import React, { useMemo, useState } from 'react';
 import { useData } from '@/lib/dataprovider';
 import AuthenticatedLayout from '@/components/layouts/AuthenticatedLayout';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
-import { User, CheckCircle, AlertTriangle, Clock } from 'lucide-react';
-import type { Interaction, InteractionStatus, SantaData, OrderSellOut } from '@/domain/ssot';
+import { User, CheckCircle, Clock, AlertCircle as AlertCircleIcon } from 'lucide-react';
+import type { Interaction, InteractionStatus, SantaData, OrderSellOut, Department, EventMarketing } from '@/domain/ssot';
 import { DEPT_META } from '@/domain/ssot';
 import { TaskBoard, Task } from '@/features/agenda/TaskBoard';
 import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/TaskCompletionDialog';
+import { MarketingTaskCompletionDialog } from '@/features/marketing/components/MarketingTaskCompletionDialog';
 import { saveCollection } from '@/features/agenda/components/CalendarPageContent';
 
 function KPI({label, value, icon: Icon}:{label:string; value:number|string; icon: React.ElementType}){
@@ -50,6 +50,7 @@ function mapInteractionsToTasks(interactions: Interaction[], accounts: any[]): T
 export default function PersonalDashboardPage() {
     const { currentUser, data, setData, isPersistenceEnabled } = useData();
     const [completingTask, setCompletingTask] = useState<Interaction | null>(null);
+    const [completingMarketingTask, setCompletingMarketingTask] = useState<Interaction | null>(null);
 
     const allMyInteractions = useMemo(() => {
         if (!data || !currentUser) return [];
@@ -80,10 +81,8 @@ export default function PersonalDashboardPage() {
         if (!data) return;
 
         const taskToUpdate = allMyInteractions.find(i => i.id === taskId);
-        if (newStatus === 'done' && taskToUpdate && taskToUpdate.dept === 'VENTAS') {
-             if(taskToUpdate) {
-                setCompletingTask(taskToUpdate);
-            }
+        if (newStatus === 'done' && taskToUpdate) {
+             handleCompleteTask(taskId);
         } else {
             const updatedInteractions = data.interactions.map(i => 
                 i.id === taskId ? { ...i, status: newStatus } : i
@@ -97,14 +96,27 @@ export default function PersonalDashboardPage() {
     
     const handleCompleteTask = (taskId: string) => {
         const taskToComplete = allMyInteractions.find(i => i.id === taskId);
-        if(taskToComplete) {
+        if(!taskToComplete) return;
+
+        if (taskToComplete.dept === 'MARKETING') {
+            setCompletingMarketingTask(taskToComplete);
+        } else if (taskToComplete.dept === 'VENTAS') {
             setCompletingTask(taskToComplete);
+        } else {
+            // For other depts, just mark as done for now
+            const updatedInteractions = data.interactions.map(i => 
+                i.id === taskId ? { ...i, status: 'done' as InteractionStatus } : i
+            );
+            setData({ ...data, interactions: updatedInteractions });
+            if (isPersistenceEnabled) {
+                saveCollection('interactions', updatedInteractions, isPersistenceEnabled);
+            }
         }
     }
 
     const handleSaveCompletedTask = async (
         taskId: string,
-        payload: { type: 'venta', items: { sku: string; qty: number }[] } | { type: 'interaccion', note: string, nextActionDate?: string }
+        payload: any
     ) => {
         if (!data || !currentUser) return;
     
@@ -119,15 +131,15 @@ export default function PersonalDashboardPage() {
         );
         finalData.interactions = updatedInteractions;
         
-        // 2. If there is a next action, create a new interaction for it
+        // 2. Handle different payload types
         if (payload.type === 'interaccion' && payload.nextActionDate) {
             const newFollowUp: Interaction = {
                 id: `int_${Date.now()}`,
                 userId: originalTask.userId,
                 involvedUserIds: originalTask.involvedUserIds,
                 accountId: originalTask.accountId,
-                kind: 'OTRO', // Or make this selectable
-                note: `Seguimiento de: ${originalTask.note}`,
+                kind: 'OTRO',
+                note: `Seguimiento de: ${payload.note}`,
                 plannedFor: payload.nextActionDate,
                 createdAt: new Date().toISOString(),
                 dept: originalTask.dept,
@@ -135,37 +147,57 @@ export default function PersonalDashboardPage() {
             };
             finalData.interactions.push(newFollowUp);
         }
-        
-        // 3. If it's a sale, create a new order
-        if (payload.type === 'venta' && originalTask.accountId) {
+        else if (payload.type === 'venta' && originalTask.accountId) {
             const newOrder: OrderSellOut = {
                 id: `ord_${Date.now()}`,
                 accountId: originalTask.accountId,
                 status: 'open',
                 currency: 'EUR',
                 createdAt: new Date().toISOString(),
-                lines: payload.items.map(item => ({
+                lines: payload.items.map((item: any) => ({
                     sku: item.sku,
                     qty: item.qty,
                     unit: 'uds',
-                    priceUnit: 0, // Placeholder, can be enriched later
+                    priceUnit: 0,
                 })),
                 notes: `Pedido creado desde tarea ${taskId}`,
             };
             finalData.ordersSellOut = [...(finalData.ordersSellOut || []), newOrder];
+            if (isPersistenceEnabled) {
+                await saveCollection('ordersSellOut', finalData.ordersSellOut, isPersistenceEnabled);
+            }
         }
-
-        // 4. Update state and persist
+        else if (payload.type === 'marketing' && originalTask.linkedEntity?.id) {
+             const mktEventId = originalTask.linkedEntity.id;
+             finalData.mktEvents = (finalData.mktEvents || []).map(me => {
+                 if (me.id === mktEventId) {
+                     return {
+                         ...me,
+                         status: 'closed',
+                         spend: payload.cost,
+                         goal: {
+                             ...(me.goal || {}),
+                             leads: payload.leads,
+                             sampling: payload.attendees,
+                         },
+                     } as EventMarketing;
+                 }
+                 return me;
+             });
+             if (isPersistenceEnabled) {
+                 await saveCollection('mktEvents', finalData.mktEvents, isPersistenceEnabled);
+             }
+        }
+    
+        // 4. Update state and persist interactions
         setData(finalData);
 
         if (isPersistenceEnabled) {
             await saveCollection('interactions', finalData.interactions, isPersistenceEnabled);
-            if (payload.type === 'venta' && finalData.ordersSellOut) {
-                await saveCollection('ordersSellOut', finalData.ordersSellOut, isPersistenceEnabled);
-            }
         }
     
         setCompletingTask(null);
+        setCompletingMarketingTask(null);
     };
     
     return (
@@ -173,7 +205,7 @@ export default function PersonalDashboardPage() {
             <ModuleHeader title="Dashboard Personal" icon={User} />
             <div className="p-6 bg-zinc-50 flex-grow">
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-                    <KPI icon={AlertTriangle} label="Tareas Pendientes" value={overdue.length} />
+                    <KPI icon={AlertCircleIcon} label="Tareas Pendientes" value={overdue.length} />
                     <KPI icon={Clock} label="Tareas Programadas" value={upcoming.length} />
                     <KPI icon={CheckCircle} label="Tareas Hechas (30d)" value={doneTasks.filter(t => t.date && new Date(t.date) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)).length} />
                     <KPI icon={User} label="Tareas en Revisión" value={processingTasks.length} />
@@ -191,6 +223,15 @@ export default function PersonalDashboardPage() {
                     task={completingTask}
                     open={!!completingTask}
                     onClose={() => setCompletingTask(null)}
+                    onComplete={handleSaveCompletedTask}
+                />
+            )}
+
+            {completingMarketingTask && (
+                <MarketingTaskCompletionDialog
+                    task={completingMarketingTask}
+                    open={!!completingMarketingTask}
+                    onClose={() => setCompletingMarketingTask(null)}
                     onComplete={handleSaveCompletedTask}
                 />
             )}
