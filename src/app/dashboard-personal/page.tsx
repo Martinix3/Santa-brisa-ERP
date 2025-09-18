@@ -1,14 +1,15 @@
 
 "use client";
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useData } from '@/lib/dataprovider';
 import AuthenticatedLayout from '@/components/layouts/AuthenticatedLayout';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
-import { User, CheckCircle, AlertCircle, Clock, BarChart3, Users, Target } from 'lucide-react';
+import { User, CheckCircle, AlertCircle, Clock, BarChart3, Users, Target, Calendar, LayoutGrid } from 'lucide-react';
 import { SBCard } from '@/components/ui/ui-primitives';
-import type { Interaction } from '@/domain/ssot';
+import type { Interaction, InteractionStatus } from '@/domain/ssot';
 import { DEPT_META } from '@/domain/ssot';
+import { TaskBoard, Task } from '@/features/agenda/TaskBoard';
 
 function KPI({label, value, icon: Icon}:{label:string; value:number|string; icon: React.ElementType}){
   return (
@@ -26,31 +27,29 @@ function KPI({label, value, icon: Icon}:{label:string; value:number|string; icon
   );
 }
 
-function TaskCard({ task }: { task: Interaction }) {
-    const deptStyle = DEPT_META[task.dept!] || DEPT_META.VENTAS;
-    const isOverdue = task.plannedFor ? new Date(task.plannedFor) < new Date() && task.status === 'open' : false;
 
-    return (
-        <div className={`p-3 rounded-lg border flex items-start gap-3 ${isOverdue ? 'bg-red-50/50 border-red-200' : 'bg-white'}`}>
-            <div className="p-2 rounded-full mt-1" style={{ backgroundColor: deptStyle.color, color: deptStyle.textColor }}>
-                 <CheckCircle size={16} />
-            </div>
-            <div className="flex-1">
-                 <p className="font-medium text-sm text-zinc-800">{task.note}</p>
-                 <div className="flex items-center gap-4 text-xs text-zinc-500 mt-1">
-                    <span>{new Date(task.plannedFor!).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}</span>
-                    <span className="font-semibold px-1.5 py-0.5 rounded" style={{backgroundColor: deptStyle.color, color: deptStyle.textColor}}>{task.dept}</span>
-                 </div>
-            </div>
-        </div>
-    )
+function mapInteractionsToTasks(interactions: Interaction[], accounts: any[]): Task[] {
+  if (!interactions) return [];
+  const accountMap = new Map(accounts.map(a => [a.id, a.name]));
+  return interactions
+    .filter(i => i.plannedFor)
+    .map(i => ({
+      id: i.id,
+      title: i.note || 'Tarea sin título',
+      type: i.dept || 'VENTAS',
+      status: i.status || 'open',
+      date: i.plannedFor,
+      involvedUserIds: i.involvedUserIds || [i.userId],
+      location: i.location || accountMap.get(i.accountId || ''),
+    }));
 }
 
-export default function PersonalDashboardPage() {
-    const { currentUser, data } = useData();
 
-    const { upcoming, overdue, completed } = useMemo(() => {
-        if (!data || !currentUser) return { upcoming: [], overdue: [], completed: [] };
+export default function PersonalDashboardPage() {
+    const { currentUser, data, setData } = useData();
+
+    const { upcoming, overdue, completed, allTasks } = useMemo(() => {
+        if (!data || !currentUser) return { upcoming: [], overdue: [], completed: [], allTasks: [] };
 
         const myInteractions = data.interactions.filter(i => 
             i.userId === currentUser.id || i.involvedUserIds?.includes(currentUser.id)
@@ -70,9 +69,36 @@ export default function PersonalDashboardPage() {
             .filter(i => i.status === 'done')
             .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
             .slice(0, 10);
+            
+        const allOpenTasks = mapInteractionsToTasks([...overdueTasks, ...upcomingTasks], data.accounts || []);
+        const allCompletedTasks = mapInteractionsToTasks(completedTasks, data.accounts || []);
 
-        return { upcoming: upcomingTasks, overdue: overdueTasks, completed: completedTasks };
+        return { 
+            upcoming: upcomingTasks, 
+            overdue: overdueTasks, 
+            completed: completedTasks,
+            allTasks: [...allOpenTasks, ...allCompletedTasks]
+        };
     }, [data, currentUser]);
+
+    const handleTaskStatusChange = (taskId: string, newStatus: InteractionStatus) => {
+        if (!data) return;
+
+        const updatedInteractions = data.interactions.map(i => {
+            if (i.id === taskId) {
+                // Aquí se abriría el diálogo en el futuro
+                console.log(`Task ${taskId} moved to ${newStatus}. Future: open dialog.`);
+                return { ...i, status: newStatus };
+            }
+            return i;
+        });
+
+        setData({ ...data, interactions: updatedInteractions });
+    };
+    
+    const handleCompleteTask = (taskId: string) => {
+        handleTaskStatusChange(taskId, 'done');
+    }
 
     return (
         <AuthenticatedLayout>
@@ -85,29 +111,12 @@ export default function PersonalDashboardPage() {
                     <KPI icon={Target} label="KPI Principal" value={"N/A"} />
                 </div>
                 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <SBCard title="Próximas Tareas">
-                        <div className="p-3 space-y-3 max-h-96 overflow-y-auto">
-                            {upcoming.length > 0 ? upcoming.map(task => (
-                                <TaskCard key={task.id} task={task} />
-                            )) : <p className="text-center text-sm text-zinc-500 py-4">¡Todo al día!</p>}
-                        </div>
-                    </SBCard>
-                    <SBCard title="Tareas Caducadas">
-                         <div className="p-3 space-y-3  max-h-96 overflow-y-auto">
-                            {overdue.length > 0 ? overdue.map(task => (
-                                <TaskCard key={task.id} task={task} />
-                            )) : <p className="text-center text-sm text-zinc-500 py-4">¡Ninguna tarea caducada!</p>}
-                        </div>
-                    </SBCard>
-                    <SBCard title="Completadas Recientemente">
-                         <div className="p-3 space-y-3  max-h-96 overflow-y-auto">
-                            {completed.length > 0 ? completed.map(task => (
-                                <TaskCard key={task.id} task={task} />
-                            )) : <p className="text-center text-sm text-zinc-500 py-4">No hay tareas completadas recientemente.</p>}
-                        </div>
-                    </SBCard>
-                </div>
+                <TaskBoard 
+                    tasks={allTasks}
+                    onTaskStatusChange={handleTaskStatusChange}
+                    onCompleteTask={handleCompleteTask}
+                    typeStyles={DEPT_META}
+                />
             </div>
         </AuthenticatedLayout>
     )
