@@ -7,7 +7,6 @@ import { useData } from '@/lib/dataprovider';
 import AuthenticatedLayout from '@/components/layouts/AuthenticatedLayout';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
 import { User, CheckCircle, AlertTriangle, Clock } from 'lucide-react';
-import { SBCard } from '@/components/ui/ui-primitives';
 import type { Interaction, InteractionStatus, SantaData, OrderSellOut } from '@/domain/ssot';
 import { DEPT_META } from '@/domain/ssot';
 import { TaskBoard, Task } from '@/features/agenda/TaskBoard';

@@ -12,6 +12,7 @@ import { useFullCalendarStyles } from "@/features/agenda/useFullCalendarStyles";
 import { TaskBoard, Task } from "@/features/agenda/TaskBoard";
 import { NewEventDialog } from "@/features/agenda/components/NewEventDialog";
 import { EventDetailDialog } from "@/features/agenda/components/EventDetailDialog";
+import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/TaskCompletionDialog';
 import { useData } from "@/lib/dataprovider";
 import { ModuleHeader } from "@/components/ui/ModuleHeader";
 import { Calendar } from "lucide-react";
@@ -121,6 +122,7 @@ export function CalendarPageContent() {
   const [selectedEvent, setSelectedEvent] = useState<Interaction | null>(null);
   const [editingEvent, setEditingEvent] = useState<Interaction | null>(null);
   const [isNewEventDialogOpen, setIsNewEventDialogOpen] = useState(false);
+  const [completingTask, setCompletingTask] = useState<Interaction | null>(null);
 
   const allInteractions = useMemo(() => SantaData?.interactions || [], [SantaData]);
 
@@ -150,10 +152,15 @@ export function CalendarPageContent() {
   }
 
   const handleUpdateStatus = (id: string, newStatus: InteractionStatus) => {
-    const updatedInteractions = allInteractions.map(i => 
-        i.id === id ? { ...i, status: newStatus } : i
-    ) as Interaction[];
-    updateAndPersistInteractions(updatedInteractions);
+    const taskToUpdate = allInteractions.find(i => i.id === id);
+    if (newStatus === 'done' && taskToUpdate?.dept === 'VENTAS') {
+        setCompletingTask(taskToUpdate);
+    } else {
+        const updatedInteractions = allInteractions.map(i => 
+            i.id === id ? { ...i, status: newStatus } : i
+        ) as Interaction[];
+        updateAndPersistInteractions(updatedInteractions);
+    }
   };
   
   const handleAddOrUpdateEvent = async (event: Omit<Interaction, 'createdAt' | 'status' | 'userId'> & { id?: string }) => {
@@ -196,6 +203,68 @@ export function CalendarPageContent() {
         i.id === id ? { ...i, plannedFor: start.toISOString() } : i
     );
     updateAndPersistInteractions(updatedInteractions as Interaction[]);
+  };
+
+  const handleSaveCompletedTask = async (
+    taskId: string,
+    payload: { type: 'venta', items: { sku: string; qty: number }[] } | { type: 'interaccion', note: string, nextActionDate?: string }
+  ) => {
+    if (!SantaData || !currentUser) return;
+
+    const originalTask = SantaData.interactions.find(i => i.id === taskId);
+    if (!originalTask) return;
+
+    let finalData: SantaData = { ...SantaData };
+
+    const updatedInteractions = finalData.interactions.map(i =>
+        i.id === taskId ? { ...i, status: 'done' as InteractionStatus, resultNote: (payload as any).note } : i
+    );
+    finalData.interactions = updatedInteractions;
+    
+    if (payload.type === 'interaccion' && payload.nextActionDate) {
+        const newFollowUp: Interaction = {
+            id: `int_${Date.now()}`,
+            userId: originalTask.userId,
+            involvedUserIds: originalTask.involvedUserIds,
+            accountId: originalTask.accountId,
+            kind: 'OTRO',
+            note: `Seguimiento de: ${originalTask.note}`,
+            plannedFor: payload.nextActionDate,
+            createdAt: new Date().toISOString(),
+            dept: originalTask.dept,
+            status: 'open',
+        };
+        finalData.interactions.push(newFollowUp);
+    }
+    
+    if (payload.type === 'venta' && originalTask.accountId) {
+        const newOrder: OrderSellOut = {
+            id: `ord_${Date.now()}`,
+            accountId: originalTask.accountId,
+            status: 'open',
+            currency: 'EUR',
+            createdAt: new Date().toISOString(),
+            lines: payload.items.map(item => ({
+                sku: item.sku,
+                qty: item.qty,
+                unit: 'uds',
+                priceUnit: 0, 
+            })),
+            notes: `Pedido creado desde tarea ${taskId}`,
+        };
+        finalData.ordersSellOut = [...(finalData.ordersSellOut || []), newOrder];
+    }
+
+    setData(finalData);
+
+    if (isPersistenceEnabled) {
+        await saveCollection('interactions', finalData.interactions, isPersistenceEnabled);
+        if (payload.type === 'venta' && finalData.ordersSellOut) {
+            await saveCollection('ordersSellOut', finalData.ordersSellOut, isPersistenceEnabled);
+        }
+    }
+
+    setCompletingTask(null);
   };
 
 
@@ -311,6 +380,15 @@ export function CalendarPageContent() {
         />
       )}
 
+      {completingTask && (
+        <TaskCompletionDialog
+            task={completingTask}
+            open={!!completingTask}
+            onClose={() => setCompletingTask(null)}
+            onComplete={handleSaveCompletedTask}
+        />
+      )}
+
       <style jsx global>{`
         /* Toolbar */
         .fc .fc-toolbar.fc-header-toolbar {
@@ -361,4 +439,3 @@ export function CalendarPageContent() {
     </>
   );
 }
-
