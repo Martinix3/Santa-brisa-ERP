@@ -1,10 +1,12 @@
 
 // src/features/agenda/components/NewEventDialog.tsx
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { SBDialog, SBDialogTrigger, SBDialogContent } from '@/features/agenda/ui';
-import { Plus } from 'lucide-react';
-import type { Department } from '@/domain/ssot';
+import { Plus, User as UserIcon } from 'lucide-react';
+import type { Department, User } from '@/domain/ssot';
+import { useData } from '@/lib/dataprovider';
+
 
 const DEPT_META: Record<
   Department,
@@ -17,20 +19,56 @@ const DEPT_META: Record<
   FINANZAS:   { label: 'Finanzas',   color: '#CCCCCC', textColor: '#333333' },
 };
 
-export function NewEventDialog({ onAddEvent, accentColor }: { onAddEvent: (event: { title: string, type: Department, date: string }) => void, accentColor: string }) {
+type MarketingSubtype = 'Evento/Activación' | 'Campaña Ads' | 'Collab Influencer';
+
+export function NewEventDialog({ onAddEvent, accentColor }: { onAddEvent: (event: any) => void, accentColor: string }) {
+    const { data: santaData } = useData();
     const [open, setOpen] = useState(false);
     const [title, setTitle] = useState('');
     const [type, setType] = useState<Department>('VENTAS');
     const [date, setDate] = useState('');
+    const [location, setLocation] = useState('');
+    const [notes, setNotes] = useState('');
+    const [involvedUserIds, setInvolvedUserIds] = useState<string[]>([]);
+    const [marketingSubtype, setMarketingSubtype] = useState<MarketingSubtype | ''>('');
+
+
+    const handleUserToggle = (userId: string) => {
+        setInvolvedUserIds(prev =>
+            prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
+        );
+    };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!title || !type || !date) return;
-        onAddEvent({ title, type, date });
+        if (!title || !type || !date) {
+            alert('El título, departamento y fecha son obligatorios.');
+            return;
+        }
+
+        let finalNote = notes;
+        if(type === 'MARKETING' && marketingSubtype) {
+            finalNote = `[${marketingSubtype}] ${notes}`;
+        }
+        
+        onAddEvent({ 
+            title, 
+            dept: type, 
+            plannedFor: date,
+            note: finalNote,
+            location,
+            involvedUserIds: involvedUserIds.length > 0 ? involvedUserIds : undefined,
+        });
+
+        // Reset form
         setOpen(false);
         setTitle('');
         setType('VENTAS');
         setDate('');
+        setLocation('');
+        setNotes('');
+        setInvolvedUserIds([]);
+        setMarketingSubtype('');
     };
 
     return (
@@ -40,12 +78,12 @@ export function NewEventDialog({ onAddEvent, accentColor }: { onAddEvent: (event
                     className="flex items-center gap-2 text-sm text-white rounded-lg px-4 py-2 font-semibold hover:brightness-110 transition-colors"
                     style={{backgroundColor: accentColor}}
                 >
-                    <Plus size={16} /> Nuevo Evento
+                    <Plus size={16} /> Nueva Tarea
                 </button>
             </SBDialogTrigger>
             <SBDialogContent
-                title="Crear Nuevo Evento"
-                description="Añade una nueva tarea o evento a tu calendario."
+                title="Crear Nueva Tarea o Evento"
+                description="Añade una nueva entrada a tu calendario y asigna responsables."
                 onSubmit={handleSubmit}
                 primaryAction={{ label: 'Crear Evento', type: 'submit' }}
                 secondaryAction={{ label: 'Cancelar', onClick: () => setOpen(false) }}
@@ -85,6 +123,64 @@ export function NewEventDialog({ onAddEvent, accentColor }: { onAddEvent: (event
                             />
                         </label>
                     </div>
+
+                    {type === 'MARKETING' && (
+                        <label className="grid gap-1.5">
+                            <span className="text-sm font-medium text-zinc-700">Tipo de Actividad de Marketing</span>
+                             <select
+                                value={marketingSubtype}
+                                onChange={(e) => setMarketingSubtype(e.target.value as MarketingSubtype)}
+                                className="h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm"
+                            >
+                                <option value="">General</option>
+                                <option value="Evento/Activación">Evento/Activación</option>
+                                <option value="Campaña Ads">Campaña Ads</option>
+                                <option value="Collab Influencer">Collab Influencer</option>
+                            </select>
+                        </label>
+                    )}
+
+                    <label className="grid gap-1.5">
+                        <span className="text-sm font-medium text-zinc-700">Ubicación (Opcional)</span>
+                        <input
+                            value={location}
+                            onChange={(e) => setLocation(e.target.value)}
+                            placeholder="Ej. Oficinas de Cliente, Videollamada..."
+                            className="h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm"
+                        />
+                    </label>
+
+                     <label className="grid gap-1.5">
+                        <span className="text-sm font-medium text-zinc-700">Usuarios Implicados</span>
+                        <div className="p-2 border rounded-md flex flex-wrap gap-2">
+                            {(santaData?.users || []).map((user: User) => (
+                                <button
+                                    key={user.id}
+                                    type="button"
+                                    onClick={() => handleUserToggle(user.id)}
+                                    className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-xs transition-colors ${
+                                        involvedUserIds.includes(user.id)
+                                            ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                                            : 'bg-zinc-100 text-zinc-700 border border-zinc-200 hover:bg-zinc-200'
+                                    }`}
+                                >
+                                    <UserIcon size={14} />
+                                    {user.name}
+                                </button>
+                            ))}
+                        </div>
+                    </label>
+                    
+                    <label className="grid gap-1.5">
+                        <span className="text-sm font-medium text-zinc-700">Notas Adicionales</span>
+                        <textarea
+                            value={notes}
+                            onChange={(e) => setNotes(e.target.value)}
+                            placeholder="Añade un resumen, objetivos o cualquier detalle relevante."
+                            className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm"
+                            rows={3}
+                        />
+                    </label>
                 </div>
             </SBDialogContent>
         </SBDialog>

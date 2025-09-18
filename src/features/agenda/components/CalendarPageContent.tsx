@@ -56,7 +56,7 @@ function mapDomainToTasks(
       const accountName = i.accountId ? accountMap.get(i.accountId) || "" : "";
       const plannedISO = asISO(i.plannedFor!);
       
-      const title = i.note ? `${i.note}${accountName ? ` - ${accountName}` : ''}` : `${i.kind} - ${accountName}`;
+      const title = i.note || `${i.kind} - ${accountName}`;
 
       const type: Department = (i.dept as Department) || "VENTAS";
       return {
@@ -65,6 +65,8 @@ function mapDomainToTasks(
         type,
         status: i.status,
         date: plannedISO,
+        involvedUserIds: i.involvedUserIds,
+        location: i.location,
       };
     });
 
@@ -175,14 +177,17 @@ export function CalendarPageContent() {
     }
   };
   
-  const handleAddEvent = async (event: Omit<Interaction, 'id'|'createdAt'|'status'>) => {
+  const handleAddEvent = async (event: Omit<Interaction, 'id'|'createdAt'|'status'|'userId'|'kind'> & {title: string}) => {
     if (!SantaData || !currentUser) return;
+    const { title, ...rest } = event;
     const newInteraction: Interaction = {
         id: `int_${Date.now()}`,
         createdAt: new Date().toISOString(),
         status: 'open',
-        ...event,
         userId: currentUser.id,
+        kind: 'OTRO', // Default kind, can be refined
+        note: title, // Use title as note
+        ...rest,
     };
 
     const updatedInteractions = [...(SantaData.interactions || []), newInteraction];

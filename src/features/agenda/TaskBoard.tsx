@@ -3,8 +3,9 @@
 "use client";
 import React from 'react';
 import { DndContext, useDraggable, useDroppable, closestCorners } from '@dnd-kit/core';
-import type { Department, InteractionStatus } from '@/domain/ssot';
-import { Check } from 'lucide-react';
+import type { Department, InteractionStatus, User } from '@/domain/ssot';
+import { Check, User as UserIcon } from 'lucide-react';
+import { useData } from '@/lib/dataprovider';
 
 export type Task = {
   id: string;
@@ -12,6 +13,8 @@ export type Task = {
   type: Department;
   status: InteractionStatus;
   date?: string;
+  involvedUserIds?: string[];
+  location?: string;
 };
 
 const STATUS_COLS: { id: InteractionStatus, label: string }[] = [
@@ -19,10 +22,37 @@ const STATUS_COLS: { id: InteractionStatus, label: string }[] = [
     { id: 'done', label: 'Hechas' },
 ];
 
+function Avatar({ name }: { name?: string }) {
+    function stringToColor(seed: string) {
+        let h = 0;
+        for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+        const hue = h % 360;
+        return `hsl(${hue} 40% 85%)`;
+    }
+    const initials = (name || '—')
+        .split(' ')
+        .filter(Boolean)
+        .slice(0, 2)
+        .map(s => s[0]?.toUpperCase() || '')
+        .join('');
+    return (
+        <div
+        className="inline-flex items-center justify-center h-5 w-5 rounded-full text-[9px] text-zinc-700 border"
+        style={{ background: stringToColor(name || '-'), borderColor: '#e5e7eb' }}
+        title={name}
+        >
+        {initials || '—'}
+        </div>
+    );
+}
+
 function TaskCard({ task, typeStyles, onComplete }: { task: Task; typeStyles: any, onComplete: (id: string) => void; }) {
     const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: task.id });
+    const { data: santaData } = useData();
     const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined;
     const typeStyle = typeStyles[task.type] || {};
+
+    const involvedUsers = (task.involvedUserIds || []).map(id => santaData?.users.find(u => u.id === id)).filter(Boolean) as User[];
 
     return (
         <div 
@@ -33,6 +63,7 @@ function TaskCard({ task, typeStyles, onComplete }: { task: Task; typeStyles: an
             className="p-3 bg-white rounded-lg border shadow-sm cursor-grab group"
         >
             <p className="font-medium text-sm text-zinc-800">{task.title}</p>
+            {task.location && <p className="text-xs text-zinc-500 mt-1">📍 {task.location}</p>}
             <div className="mt-2 flex justify-between items-center">
                 <span 
                     className="text-xs font-semibold px-2 py-0.5 rounded-full"
@@ -41,6 +72,9 @@ function TaskCard({ task, typeStyles, onComplete }: { task: Task; typeStyles: an
                     {typeStyle.label}
                 </span>
                 <div className="flex items-center gap-2">
+                    <div className="flex -space-x-2">
+                        {involvedUsers.map(user => <Avatar key={user.id} name={user.name} />)}
+                    </div>
                     {task.date && <span className="text-xs text-zinc-500">{new Date(task.date).toLocaleDateString('es-ES')}</span>}
                     {task.status !== 'done' && (
                          <button 
