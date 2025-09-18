@@ -6,7 +6,7 @@ import React, { useMemo, useState } from 'react';
 import { useData } from '@/lib/dataprovider';
 import AuthenticatedLayout from '@/components/layouts/AuthenticatedLayout';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
-import { User, CheckCircle, AlertTriangle, Clock, AlertCircle as AlertCircleIcon } from 'lucide-react';
+import { User, CheckCircle, AlertTriangle, Clock } from 'lucide-react';
 import { SBCard } from '@/components/ui/ui-primitives';
 import type { Interaction, InteractionStatus, SantaData, OrderSellOut } from '@/domain/ssot';
 import { DEPT_META } from '@/domain/ssot';
@@ -107,84 +107,67 @@ export default function PersonalDashboardPage() {
 
     const handleSaveCompletedTask = async (
         taskId: string,
-        payload: { type: 'venta', items: { sku: string, qty: number }[] } | { type: 'interaccion', note: string }
+        payload: { type: 'venta', items: { sku: string; qty: number }[] } | { type: 'interaccion', note: string, nextActionDate?: string }
     ) => {
         if (!data || !currentUser) return;
     
         const originalTask = data.interactions.find(i => i.id === taskId);
         if (!originalTask) return;
     
-        // 1. Marcar la tarea como 'processing' para indicar que la IA está trabajando
-        let updatedInteractions = data.interactions.map(i =>
-            i.id === taskId ? { ...i, status: 'processing' as InteractionStatus, resultNote: payload.note } : i
+        // 1. Mark the original task as 'done' and add result note
+        const updatedInteractions = data.interactions.map(i =>
+            i.id === taskId ? { ...i, status: 'done' as InteractionStatus, resultNote: (payload as any).note } : i
         );
-        setData({ ...data, interactions: updatedInteractions });
-        if (isPersistenceEnabled) {
-            await saveCollection('interactions', updatedInteractions, isPersistenceEnabled);
-        }
-        setCompletingTask(null);
+        
+        let finalData: SantaData = { ...data, interactions: updatedInteractions };
 
-        // 2. Ejecutar la IA en segundo plano
-        try {
-            const context: ChatContext = {
-                accounts: data.accounts,
-                products: data.products,
-                orders: data.ordersSellOut,
-                interactions: data.interactions,
-                inventory: data.inventory,
-                mktEvents: data.mktEvents,
-                currentUser: currentUser,
+        // 2. If there is a next action, create a new interaction for it
+        if (payload.type === 'interaccion' && payload.nextActionDate) {
+            const newFollowUp: Interaction = {
+                id: `int_${Date.now()}`,
+                userId: originalTask.userId,
+                involvedUserIds: originalTask.involvedUserIds,
+                accountId: originalTask.accountId,
+                kind: 'OTRO', // Or make this selectable
+                note: `Seguimiento de: ${originalTask.note}`,
+                plannedFor: payload.nextActionDate,
+                createdAt: new Date().toISOString(),
+                dept: originalTask.dept,
+                status: 'open',
             };
-            
-            const { newEntities } = await runSantaBrain([], payload.note, context);
-
-            // 3. Fusionar las nuevas entidades y marcar la tarea original como 'done'
-            setData(prevData => {
-                if (!prevData) return null;
-                
-                let finalInteractions = prevData.interactions.map(i => {
-                    if (i.id === taskId) {
-                        const newLinkedEntity = newEntities.ordersSellOut?.[0] || newEntities.interactions?.[0];
-                        return { 
-                            ...i,
-                            // La tarea se queda en 'processing' hasta la revisión manual
-                            linkedEntity: newLinkedEntity ? { type: newEntities.ordersSellOut?.[0] ? 'Order' : 'Interaction', id: newLinkedEntity.id } : undefined,
-                        };
-                    }
-                    return i;
-                });
-    
-                const mergedData = {
-                    ...prevData,
-                    interactions: finalInteractions,
-                    ordersSellOut: [...prevData.ordersSellOut, ...(newEntities.ordersSellOut || [])],
-                    accounts: [...prevData.accounts, ...(newEntities.accounts || [])],
-                    mktEvents: [...prevData.mktEvents, ...(newEntities.mktEvents || [])],
-                };
-                
-                // Persistir los nuevos datos si está habilitado
-                if (isPersistenceEnabled) {
-                    if (newEntities.ordersSellOut?.length) saveCollection('ordersSellOut', mergedData.ordersSellOut, true);
-                    if (newEntities.accounts?.length) saveCollection('accounts', mergedData.accounts, true);
-                    if (newEntities.mktEvents?.length) saveCollection('mktEvents', mergedData.mktEvents, true);
-                    // Guardar las interacciones actualizadas (con linkedEntity)
-                    saveCollection('interactions', finalInteractions, true);
-                }
-
-                return mergedData;
-            });
-
-        } catch (error) {
-            console.error("Error al procesar con Santa Brain:", error);
-            // Opcional: Revertir el estado a 'open' si la IA falla
-            setData(prevData => {
-                if (!prevData) return null;
-                const revertedInteractions = prevData.interactions.map(i => 
-                    i.id === taskId ? { ...i, status: 'open' as InteractionStatus } : i
-                );
-                return { ...prevData, interactions: revertedInteractions };
-            });
+            finalData.interactions.push(newFollowUp);
         }
+        
+        // 3. If it's a sale, create a new order
+        if (payload.type === 'venta' && originalTask.accountId) {
+            const newOrder: OrderSellOut = {
+                id: `ord_${Date.now()}`,
+                accountId: originalTask.accountId,
+                status: 'open',
+                currency: 'EUR',
+                createdAt: new Date().toISOString(),
+                lines: payload.items.map(item => ({
+                    sku: item.sku,
+                    qty: item.qty,
+                    unit: 'uds',
+                    priceUnit: 0, // Placeholder, can be enriched later
+                })),
+                notes: `Pedido creado desde tarea ${taskId}`,
+            };
+            finalData.ordersSellOut = [...(finalData.ordersSellOut || []), newOrder];
+        }
+
+        // 4. Update state and persist
+        setData(finalData);
+
+        if (isPersistenceEnabled) {
+            await saveCollection('interactions', finalData.interactions, isPersistenceEnabled);
+            if (payload.type === 'venta') {
+                await saveCollection('ordersSellOut', finalData.ordersSellOut, isPersistenceEnabled);
+            }
+        }
+    
+        setCompletingTask(null);
     };
     
     return (
@@ -192,7 +175,7 @@ export default function PersonalDashboardPage() {
             <ModuleHeader title="Dashboard Personal" icon={User} />
             <div className="p-6 bg-zinc-50 flex-grow">
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-                    <KPI icon={AlertCircleIcon} label="Tareas Pendientes" value={overdue.length} />
+                    <KPI icon={AlertCircle} label="Tareas Pendientes" value={overdue.length} />
                     <KPI icon={Clock} label="Tareas Programadas" value={upcoming.length} />
                     <KPI icon={CheckCircle} label="Tareas Hechas (30d)" value={doneTasks.filter(t => t.date && new Date(t.date) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)).length} />
                     <KPI icon={User} label="Tareas en Revisión" value={processingTasks.length} />
@@ -210,7 +193,7 @@ export default function PersonalDashboardPage() {
                     task={completingTask}
                     open={!!completingTask}
                     onClose={() => setCompletingTask(null)}
-                    onComplete={handleSaveCompletedTask as any}
+                    onComplete={handleSaveCompletedTask}
                 />
             )}
             
