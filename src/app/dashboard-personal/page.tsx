@@ -72,13 +72,12 @@ export default function PersonalDashboardPage() {
             
         const allOpenTasks = mapInteractionsToTasks([...overdueTasks, ...upcomingTasks], data.accounts || []);
         const allCompletedTasks = mapInteractionsToTasks(completedTasks, data.accounts || []);
-        const allOverdueTasks = mapInteractionsToTasks(overdueTasks, data.accounts || []);
 
         return { 
             upcoming: upcomingTasks, 
             overdue: overdueTasks, 
             completed: completedTasks,
-            allTasks: [...allOpenTasks, ...allCompletedTasks, ...allOverdueTasks]
+            allTasks: [...allOpenTasks, ...allCompletedTasks]
         };
     }, [data, currentUser]);
 
