@@ -5,7 +5,7 @@ import React, { useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Card, DataTableSB, Col, Button, SB_COLORS } from '@/components/ui/ui-primitives';
-import { Warehouse, Truck, Package, DollarSign, Calendar } from 'lucide-react';
+import { Warehouse, Truck, Package, DollarSign, Calendar, AlertCircle, Clock } from 'lucide-react';
 import type { InventoryItem, Shipment, OrderStatus, Interaction } from '@/domain/ssot';
 import { SBCard } from '@/components/ui/ui-primitives';
 import { DEPT_META } from '@/domain/ssot';
@@ -75,15 +75,27 @@ function KPI({ icon: Icon, label, value, color }: { icon: React.ElementType, lab
 
 function UpcomingEvents() {
     const { data } = useData();
-    const upcomingEvents = useMemo(() => {
-        if (!data?.interactions) return [];
-        return data.interactions
-            .filter(i => i.dept === 'ALMACEN' && i.plannedFor && new Date(i.plannedFor) >= new Date())
-            .sort((a, b) => new Date(a.plannedFor!).getTime() - new Date(b.plannedFor!).getTime())
-            .slice(0, 5);
+    const { overdue, upcoming } = useMemo(() => {
+        if (!data?.interactions) return { overdue: [], upcoming: [] };
+        
+        const now = new Date();
+        const openInteractions = data.interactions
+            .filter(i => i.dept === 'ALMACEN' && i.status === 'open' && i.plannedFor);
+            
+        const overdue = openInteractions
+            .filter(i => new Date(i.plannedFor!) < now)
+            .sort((a, b) => new Date(a.plannedFor!).getTime() - new Date(b.plannedFor!).getTime());
+            
+        const upcoming = openInteractions
+            .filter(i => new Date(i.plannedFor!) >= now)
+            .sort((a, b) => new Date(a.plannedFor!).getTime() - new Date(b.plannedFor!).getTime());
+
+        return { overdue, upcoming };
     }, [data]);
 
-    if (upcomingEvents.length === 0) {
+    const allEvents = [...overdue, ...upcoming].slice(0, 5);
+
+    if (allEvents.length === 0) {
         return (
             <Card title="Próximas Tareas de Almacén" accent={SB_COLORS.warehouse}>
                 <p className="p-4 text-sm text-center text-zinc-500">No hay tareas programadas.</p>
@@ -94,17 +106,23 @@ function UpcomingEvents() {
     return (
         <Card title="Próximas Tareas de Almacén" accent={SB_COLORS.warehouse}>
             <div className="p-4 space-y-3">
-                {upcomingEvents.map((event: Interaction) => (
-                    <div key={event.id} className="flex items-center gap-3 p-2 rounded-lg bg-zinc-50 border hover:bg-zinc-100 cursor-pointer">
-                        <div className="p-2 rounded-full" style={{ backgroundColor: DEPT_META.ALMACEN.color, color: DEPT_META.ALMACEN.textColor }}>
-                            <Calendar size={16} />
+                {allEvents.map((event: Interaction) => {
+                    const isOverdue = new Date(event.plannedFor!) < new Date();
+                    const Icon = isOverdue ? AlertCircle : Clock;
+                    const iconColor = isOverdue ? 'text-rose-500' : 'text-cyan-500';
+
+                    return (
+                         <div key={event.id} className={`flex items-center gap-3 p-2 rounded-lg border cursor-pointer ${isOverdue ? 'bg-rose-50/50 border-rose-200' : 'bg-zinc-50 border-zinc-200 hover:bg-zinc-100'}`}>
+                            <div className="p-2 rounded-full" style={{ backgroundColor: DEPT_META.ALMACEN.color, color: DEPT_META.ALMACEN.textColor }}>
+                                <Icon size={16} className={iconColor} />
+                            </div>
+                            <div>
+                                <p className="font-medium text-sm">{event.note}</p>
+                                <p className={`text-xs ${isOverdue ? 'text-rose-600 font-semibold' : 'text-zinc-500'}`}>{new Date(event.plannedFor!).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}</p>
+                            </div>
                         </div>
-                        <div>
-                            <p className="font-medium text-sm">{event.note}</p>
-                            <p className="text-xs text-zinc-500">{new Date(event.plannedFor!).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}</p>
-                        </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
         </Card>
     );

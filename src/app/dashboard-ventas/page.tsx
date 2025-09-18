@@ -2,7 +2,7 @@
 
 "use client";
 import React, { useMemo, useState, useEffect } from "react";
-import { BarChart3, Clock, MapPin, Phone, Target, Users, Briefcase, ChevronDown, MessageSquare, Map as MapIcon, ShoppingCart, UserPlus, User, BrainCircuit, CheckCircle, Edit, Trash2 } from "lucide-react";
+import { BarChart3, Clock, MapPin, Phone, Target, Users, Briefcase, ChevronDown, MessageSquare, Map as MapIcon, ShoppingCart, UserPlus, User, BrainCircuit, CheckCircle, Edit, Trash2, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import { ResponsiveContainer, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip, Line } from "recharts";
 import { useData } from "@/lib/dataprovider";
@@ -60,6 +60,7 @@ function PersonalDashboardContent({ displayedUser, timePeriod, setTimePeriod }: 
             teamAvg: { revenue: 0, visits: 0 },
             topAccounts: [],
             upcomingInteractions: [],
+            overdueInteractions: [],
             trendData: [],
             teamTrendData: [],
         };
@@ -113,18 +114,21 @@ function PersonalDashboardContent({ displayedUser, timePeriod, setTimePeriod }: 
         .sort((a,b) => b.revenue - a.revenue)
         .slice(0, 5);
 
-    // Upcoming Interactions
-    const upcomingInteractions = userInteractions
-        .filter(i => i.plannedFor && new Date(i.plannedFor) >= new Date() && i.status === 'open')
+    // Upcoming & Overdue Interactions
+    const now = new Date();
+    const openInteractions = userInteractions
+        .filter(i => i.plannedFor && i.status === 'open');
+
+    const upcomingInteractions = openInteractions
+        .filter(i => new Date(i.plannedFor!) >= now)
         .sort((a,b) => new Date(a.plannedFor!).getTime() - new Date(b.plannedFor!).getTime())
-        .slice(0, 5)
-        .map(i => ({
-            ...i,
-            title: i.note,
-            when: new Date(i.plannedFor!).toLocaleString('es-ES', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }),
-            icon: i.kind === 'LLAMADA' ? Phone : MapPin
-        }));
+        .slice(0, 5);
         
+    const overdueInteractions = openInteractions
+        .filter(i => new Date(i.plannedFor!) < now)
+        .sort((a,b) => new Date(a.plannedFor!).getTime() - new Date(b.plannedFor!).getTime())
+        .slice(0, 5);
+
     // Trend data
     const points = timePeriod === 'week' ? 7 : timePeriod === 'month' ? 30 : 12;
     const interval = timePeriod === 'year' ? 'month' : 'day';
@@ -160,8 +164,7 @@ function PersonalDashboardContent({ displayedUser, timePeriod, setTimePeriod }: 
         return { x: interval === 'day' ? pointStart.getDate().toString() : pointStart.toLocaleString('es-ES',{month:'short'}), y: teamSales };
     });
 
-
-    return { revenue, pipeline, visits, accounts: userAccounts.length, teamAvg, topAccounts, upcomingInteractions, trendData: userTrend, teamTrendData };
+    return { revenue, pipeline, visits, accounts: userAccounts.length, teamAvg, topAccounts, upcomingInteractions, overdueInteractions, trendData: userTrend, teamTrendData };
   }, [santaData, displayedUser, timePeriod]);
 
 
@@ -228,6 +231,8 @@ function PersonalDashboardContent({ displayedUser, timePeriod, setTimePeriod }: 
         setCompletingTask(null);
     };
 
+  const allTasks = [...userStats.overdueInteractions, ...userStats.upcomingInteractions];
+
 
   if (!displayedUser) {
       return <div className="p-6 text-center text-zinc-500">Selecciona un usuario para ver su dashboard.</div>
@@ -283,23 +288,28 @@ function PersonalDashboardContent({ displayedUser, timePeriod, setTimePeriod }: 
             
             {/* Lower cards */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <SBCard title="Próximas actividades de Venta">
-                    <ul className="space-y-1 p-2">
-                    {userStats.upcomingInteractions.map((t,i)=>{
-                        const Icon = t.icon;
-                        return (
-                        <li key={i} className="flex items-center gap-2 p-2 rounded-xl group hover:bg-zinc-50">
-                            <button onClick={() => setSelectedEvent(t)} className="flex-1 flex items-center gap-3 text-left">
-                                <div className="p-2 rounded-lg" style={{backgroundColor: `${accent}20`, color: accent}}><Icon className="h-4 w-4"/></div>
-                                <div className="flex-1">
-                                <div className="text-sm text-zinc-800 font-medium">{t.note}</div>
-                                <div className="text-xs text-zinc-500">{t.when}</div>
-                                </div>
-                            </button>
-                        </li>
-                        );
-                    })}
-                     {userStats.upcomingInteractions.length === 0 && <p className="text-sm text-center text-zinc-400 py-4">No hay actividades próximas.</p>}
+                <SBCard title="Actividades de Venta Pendientes">
+                     <ul className="space-y-1 p-2">
+                        {allTasks.map((t, i) => {
+                            const isOverdue = new Date(t.plannedFor!) < new Date();
+                            const Icon = t.kind === 'LLAMADA' ? Phone : t.kind === 'EMAIL' ? Mail : MapPin;
+                            return (
+                                <li key={i} className={`flex items-center gap-2 p-2 rounded-xl group ${isOverdue ? 'bg-rose-50/70' : 'hover:bg-zinc-50'}`}>
+                                    <button onClick={() => setSelectedEvent(t)} className="flex-1 flex items-center gap-3 text-left">
+                                        <div className={`p-2 rounded-lg ${isOverdue ? 'bg-rose-100 text-rose-600' : 'bg-zinc-100 text-zinc-600'}`}>
+                                            <Icon className="h-4 w-4" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="text-sm text-zinc-800 font-medium">{t.note}</div>
+                                            <div className={`text-xs ${isOverdue ? 'font-semibold text-rose-600' : 'text-zinc-500'}`}>
+                                                {new Date(t.plannedFor!).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                                            </div>
+                                        </div>
+                                    </button>
+                                </li>
+                            );
+                        })}
+                        {allTasks.length === 0 && <p className="text-sm text-center text-zinc-400 py-4">No hay actividades pendientes.</p>}
                     </ul>
                 </SBCard>
 
