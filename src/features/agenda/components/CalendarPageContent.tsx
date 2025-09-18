@@ -19,6 +19,9 @@ import { ModuleHeader } from "@/components/ui/ModuleHeader";
 import { Calendar, Filter } from "lucide-react";
 import { SB_COLORS, DEPT_META } from "@/domain/ssot";
 import type { Department, Interaction, SantaData, OrderSellOut, InteractionStatus, InteractionKind, Account, EventMarketing, OnlineCampaign } from '@/domain/ssot';
+import { auth } from "@/lib/firebase-config";
+import { getIdToken } from "firebase/auth";
+
 
 const FullCalendar = dynamic(() => import("@fullcalendar/react"), { ssr: false });
 
@@ -28,28 +31,43 @@ const asISO = (d: string | Date) => {
 };
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
-  // This is a placeholder, in a real app this would get the token from an auth context.
-  // The DataProvider will handle the real implementation.
-  return {};
+  const user = auth.currentUser;
+  if (!user) return {};
+
+  try {
+      const token = await getIdToken(user, true);
+      return { 'Authorization': `Bearer ${token}` };
+  } catch (error) {
+      console.error("Error getting auth token:", error);
+      return {};
+  }
 }
 
 export async function saveCollection(collectionName: keyof SantaData, data: any[], persistenceEnabled: boolean) {
     if (!persistenceEnabled) return;
     try {
+        const headers = await getAuthHeaders();
+        if (!headers['Authorization']) {
+            throw new Error('User not authenticated. Cannot save data.');
+        }
+
         const response = await fetch('/api/dev/save-data', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
+            headers: { 'Content-Type': 'application/json', ...headers },
             body: JSON.stringify({ collection: collectionName, data, persistenceEnabled }),
         });
         if (!response.ok) {
-            const err = await response.json();
-            throw new Error(err.error || `Error guardando la colección ${collectionName}`);
+            let errText = `Error guardando la colección ${collectionName}`;
+            try {
+                const err = await response.json();
+                errText = err.error || errText;
+            } catch {}
+            throw new Error(errText);
         }
     } catch (e: any) {
         console.error(e);
-        // We are relying on the central notification system now.
-        // alert(`Error al guardar: ${e.message}`);
-        throw e; // Re-throw to allow caller to handle it
+        // La notificación se gestiona centralmente en DataProvider
+        throw e;
     }
 }
 
