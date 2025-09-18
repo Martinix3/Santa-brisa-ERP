@@ -18,7 +18,7 @@ import { useData } from "@/lib/dataprovider";
 import { ModuleHeader } from "@/components/ui/ModuleHeader";
 import { Calendar, Filter } from "lucide-react";
 import { SB_COLORS, DEPT_META } from "@/domain/ssot";
-import type { Department, Interaction, SantaData, OrderSellOut, InteractionStatus, InteractionKind, Account, EventMarketing } from '@/domain/ssot';
+import type { Department, Interaction, SantaData, OrderSellOut, InteractionStatus, InteractionKind, Account, EventMarketing, OnlineCampaign } from '@/domain/ssot';
 
 const FullCalendar = dynamic(() => import("@fullcalendar/react"), { ssr: false });
 
@@ -28,6 +28,7 @@ const asISO = (d: string | Date) => {
 };
 
 export async function saveCollection(collectionName: keyof SantaData, data: any[], persistenceEnabled: boolean) {
+    if (!persistenceEnabled) return;
     try {
         const response = await fetch('/api/dev/save-data', {
             method: 'POST',
@@ -181,10 +182,12 @@ export function CalendarPageContent() {
       if (!SantaData) return;
       
       const interactionMap = new Map(updatedInteractions.map(i => [i.id, i]));
-      const allInteractions = (SantaData.interactions || []).map(i => interactionMap.get(i.id) || i);
       
-      setData(prev => prev ? ({ ...prev, interactions: allInteractions }) : prev);
-      saveCollection('interactions', allInteractions, isPersistenceEnabled);
+      // Create a new array to ensure reactivity
+      const allNewInteractions = (SantaData.interactions || []).map(i => interactionMap.get(i.id) || i);
+      
+      setData(prev => prev ? ({ ...prev, interactions: allNewInteractions }) : prev);
+      saveCollection('interactions', allNewInteractions, isPersistenceEnabled);
   }
 
   const handleUpdateStatus = (id: string, newStatus: InteractionStatus) => {
@@ -204,15 +207,16 @@ export function CalendarPageContent() {
     }
   };
   
-  const handleAddOrUpdateEvent = async (event: Omit<Interaction, 'createdAt' | 'status' | 'userId'> & { id?: string }) => {
+  const handleAddOrUpdateEvent = async (eventData: any) => {
       if (!currentUser || !SantaData) return;
       
+      const { marketingSubtype, ...event } = eventData;
       let finalData = { ...SantaData };
       let updatedInteractions;
 
-      if (event.id) { // Update existing
+      if (event.id) { // Update existing interaction
           updatedInteractions = finalData.interactions.map(i => i.id === event.id ? { ...i, ...event } as Interaction : i);
-      } else { // Create new
+      } else { // Create new interaction and potentially a new marketing entity
           const newInteraction: Interaction = {
               id: `int_${Date.now()}`,
               createdAt: new Date().toISOString(),
@@ -222,17 +226,32 @@ export function CalendarPageContent() {
           };
 
           if (newInteraction.dept === 'MARKETING' && newInteraction.note) {
-              const newMktEvent: EventMarketing = {
-                  id: `mkt_${Date.now()}`,
-                  title: newInteraction.note,
-                  kind: 'OTRO',
-                  status: 'planned',
-                  startAt: newInteraction.plannedFor || new Date().toISOString(),
-                  city: newInteraction.location,
-              };
-              finalData.mktEvents = [...(finalData.mktEvents || []), newMktEvent];
-              newInteraction.linkedEntity = { type: 'Campaign', id: newMktEvent.id };
-              await saveCollection('mktEvents', finalData.mktEvents, isPersistenceEnabled);
+              if (marketingSubtype === 'Campaña Ads') {
+                  const newCampaign: OnlineCampaign = {
+                      id: `online_${Date.now()}`,
+                      title: newInteraction.note,
+                      channel: 'IG', // Default, should be part of the form later
+                      status: 'planned',
+                      startAt: newInteraction.plannedFor || new Date().toISOString(),
+                      budget: 0,
+                      spend: 0,
+                  };
+                  finalData.onlineCampaigns = [...(finalData.onlineCampaigns || []), newCampaign];
+                  newInteraction.linkedEntity = { type: 'Campaign', id: newCampaign.id };
+                  await saveCollection('onlineCampaigns', finalData.onlineCampaigns, isPersistenceEnabled);
+              } else { // Default to EventMarketing for 'Evento/Activación' or general marketing tasks
+                  const newMktEvent: EventMarketing = {
+                      id: `mkt_${Date.now()}`,
+                      title: newInteraction.note,
+                      kind: 'OTRO', // Default
+                      status: 'planned',
+                      startAt: newInteraction.plannedFor || new Date().toISOString(),
+                      city: newInteraction.location,
+                  };
+                  finalData.mktEvents = [...(finalData.mktEvents || []), newMktEvent];
+                  newInteraction.linkedEntity = { type: 'Campaign', id: newMktEvent.id };
+                  await saveCollection('mktEvents', finalData.mktEvents, isPersistenceEnabled);
+              }
           }
 
           updatedInteractions = [...(finalData.interactions || []), newInteraction];
