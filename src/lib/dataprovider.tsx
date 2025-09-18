@@ -30,6 +30,8 @@ interface DataContextProps {
   login: () => Promise<void>;
   logout: () => Promise<void>;
   isLoading: boolean;
+  isPersistenceEnabled: boolean;
+  togglePersistence: () => void;
 }
 
 const DataContext = createContext<DataContextProps | undefined>(undefined);
@@ -48,6 +50,14 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
   const [data, setData] = useState<SantaData | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isPersistenceEnabled, setIsPersistenceEnabled] = useState(true);
+
+  const togglePersistence = useCallback(() => {
+    setIsPersistenceEnabled(prev => {
+        alert(`La persistencia de datos ha sido ${!prev ? 'ACTIVADA' : 'DESACTIVADA'}.`);
+        return !prev;
+    });
+  }, []);
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -129,8 +139,10 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
       login,
       logout,
       isLoading,
+      isPersistenceEnabled,
+      togglePersistence,
     }),
-    [mode, data, setData, currentUser, login, logout, isLoading]
+    [mode, data, setData, currentUser, login, logout, isLoading, isPersistenceEnabled, togglePersistence]
   );
 
   return (

@@ -63,6 +63,10 @@ export async function POST(req: NextRequest) {
     const decodedToken = await verifyAuth(req);
     const payload = await req.json();
 
+    if (payload.persistenceEnabled === false) {
+      return NextResponse.json({ ok: true, message: 'Persistencia desactivada. No se guardaron datos.' });
+    }
+
     if (!payload || typeof payload !== 'object') {
         return NextResponse.json({ ok: false, error: 'Invalid payload. Expecting an object of collections.' }, { status: 400 });
     }

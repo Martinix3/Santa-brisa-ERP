@@ -1,5 +1,4 @@
 
-
 "use client";
 import React, { useMemo, useState, useEffect } from "react";
 import dynamic from "next/dynamic";
@@ -25,12 +24,12 @@ const asISO = (d: string | Date) => {
   return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString();
 };
 
-export async function saveCollection(collectionName: keyof SantaData, data: any[]) {
+export async function saveCollection(collectionName: keyof SantaData, data: any[], persistenceEnabled: boolean) {
     try {
         const response = await fetch('/api/dev/save-data', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ collection: collectionName, data }),
+            body: JSON.stringify({ collection: collectionName, data, persistenceEnabled }),
         });
         if (!response.ok) {
             const err = await response.json();
@@ -116,7 +115,7 @@ function Tabs({
 
 export function CalendarPageContent() {
   useFullCalendarStyles();
-  const { data: SantaData, setData, currentUser } = useData();
+  const { data: SantaData, setData, currentUser, isPersistenceEnabled } = useData();
   const [activeTab, setActiveTab] = useState<"agenda" | "tareas">("agenda");
   const [selectedEvent, setSelectedEvent] = useState<Interaction | null>(null);
   const [editingEvent, setEditingEvent] = useState<Interaction | null>(null);
@@ -146,7 +145,7 @@ export function CalendarPageContent() {
   const updateAndPersistInteractions = (updatedInteractions: Interaction[]) => {
       if (!SantaData) return;
       setData({ ...SantaData, interactions: updatedInteractions });
-      saveCollection('interactions', updatedInteractions);
+      saveCollection('interactions', updatedInteractions, isPersistenceEnabled);
   }
 
   const handleUpdateStatus = (id: string, newStatus: InteractionStatus) => {

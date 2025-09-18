@@ -36,6 +36,8 @@ import {
     Map as MapIcon,
     LogOut,
     Home,
+    DatabaseZap,
+    DatabaseBackup,
 } from 'lucide-react';
 import { SB_COLORS, hexToRgba } from '@/components/ui/ui-primitives';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -232,7 +234,7 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
   const pathname = usePathname() ?? '/';
-  const { currentUser, isLoading, logout } = useData();
+  const { currentUser, isLoading, logout, isPersistenceEnabled, togglePersistence } = useData();
 
   useEffect(() => {
     const activeSection = navSections.find(section => section.items.some(item => pathname.startsWith(item.href) && item.href !== '/'));
@@ -256,6 +258,8 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
         </div>
     )
   }
+
+  const PersistenceIcon = isPersistenceEnabled ? DatabaseZap : DatabaseBackup;
 
   return (
     <div className="h-screen flex flex-col bg-white">
@@ -295,6 +299,17 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
                         </div>
                     )}
                 </div>
+
+                <button
+                    onClick={togglePersistence}
+                    className={`w-full flex items-center justify-center gap-3 px-3 py-2 mt-2 rounded-md text-sm font-medium transition-colors ${
+                        isPersistenceEnabled ? 'text-green-600 bg-green-50 hover:bg-green-100' : 'text-zinc-600 hover:bg-zinc-100'
+                    }`}
+                    title={isPersistenceEnabled ? 'Persistencia Activada' : 'Persistencia Desactivada'}
+                >
+                    <PersistenceIcon className="h-5 w-5" />
+                    {!isSidebarCollapsed && <span>{isPersistenceEnabled ? 'DB ON' : 'DB OFF'}</span>}
+                </button>
 
                 <button
                     onClick={handleLogout}

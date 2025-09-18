@@ -10,7 +10,11 @@ const DEV_USER_ID = 'dev-user-fixed-id';
 
 export async function POST(req: NextRequest) {
   try {
-    const { collection, data } = await req.json();
+    const { collection, data, persistenceEnabled } = await req.json();
+
+    if (persistenceEnabled === false) {
+      return NextResponse.json({ ok: true, message: 'Persistencia desactivada. No se guardaron datos.' });
+    }
 
     if (!collection || !Array.isArray(data)) {
       return NextResponse.json({ error: 'Payload inválido. Se necesita "collection" (string) y "data" (array).' }, { status: 400 });
