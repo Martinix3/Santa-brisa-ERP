@@ -1,18 +1,18 @@
-
 // src/features/agenda/components/EventDetailDialog.tsx
 "use client";
 import React from 'react';
 import { SBDialog, SBDialogContent } from '@/features/agenda/ui';
-import type { Interaction } from '@/domain/ssot';
+import type { Interaction, InteractionStatus } from '@/domain/ssot';
 import { useData } from '@/lib/dataprovider';
-import { User as UserIcon, Calendar, MapPin, Edit2, Trash2, X, Tag } from 'lucide-react';
+import { User as UserIcon, Calendar, MapPin, Edit2, Trash2, X, Tag, CheckCircle } from 'lucide-react';
 import { DEPT_META } from '@/domain/ssot';
 
-export function EventDetailDialog({ event, open, onOpenChange, onUpdate, onDelete }: {
+export function EventDetailDialog({ event, open, onOpenChange, onUpdateStatus, onEdit, onDelete }: {
     event: Interaction | null;
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    onUpdate: (event: Interaction) => void;
+    onUpdateStatus: (id: string, status: InteractionStatus) => void;
+    onEdit: (event: Interaction) => void;
     onDelete: (id: string) => void;
 }) {
     const { data: santaData } = useData();
@@ -31,7 +31,7 @@ export function EventDetailDialog({ event, open, onOpenChange, onUpdate, onDelet
                 description={`Tarea para el departamento de ${deptStyle.label}`}
                 onSubmit={(e) => { e.preventDefault(); onOpenChange(false); }}
                 primaryAction={{ label: 'Cerrar', onClick: () => onOpenChange(false) }}
-                secondaryAction={{ label: 'Editar', onClick: () => alert('Edit action not implemented yet.') }}
+                secondaryAction={{ label: 'Editar', onClick: () => onEdit(event) }}
             >
                 <div className="space-y-4 pt-2 text-sm">
                     <div className="flex items-center gap-2">
@@ -85,10 +85,20 @@ export function EventDetailDialog({ event, open, onOpenChange, onUpdate, onDelet
                         </div>
                     )}
                 </div>
-                 <div className="mt-6 flex justify-start gap-2">
-                     <button onClick={() => onDelete(event.id)} className="flex items-center gap-2 text-sm text-red-600 hover:text-red-800 px-3 py-1.5 rounded-lg hover:bg-red-50">
-                        <Trash2 size={14} /> Eliminar
-                    </button>
+                 <div className="mt-6 flex justify-between items-center">
+                    <div className="flex gap-2">
+                         <button onClick={() => onEdit(event)} className="flex items-center gap-2 text-sm text-zinc-600 hover:text-zinc-800 px-3 py-1.5 rounded-lg hover:bg-zinc-100">
+                            <Edit2 size={14} /> Editar
+                        </button>
+                        <button onClick={() => onDelete(event.id)} className="flex items-center gap-2 text-sm text-red-600 hover:text-red-800 px-3 py-1.5 rounded-lg hover:bg-red-50">
+                            <Trash2 size={14} /> Eliminar
+                        </button>
+                    </div>
+                    {event.status !== 'done' && (
+                        <button onClick={() => onUpdateStatus(event.id, 'done')} className="flex items-center gap-2 text-sm text-white bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg font-semibold">
+                            <CheckCircle size={16} /> Completar Tarea
+                        </button>
+                    )}
                  </div>
             </SBDialogContent>
         </SBDialog>

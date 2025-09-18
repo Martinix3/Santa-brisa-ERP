@@ -3,9 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { SBDialog, SBDialogTrigger, SBDialogContent } from '@/features/agenda/ui';
 import { Plus, User as UserIcon } from 'lucide-react';
-import type { Department, User, InteractionKind } from '@/domain/ssot';
+import type { Department, User, Interaction, InteractionKind } from '@/domain/ssot';
 import { useData } from '@/lib/dataprovider';
-
 
 const DEPT_META: Record<
   Department,
@@ -20,9 +19,16 @@ const DEPT_META: Record<
 
 type MarketingSubtype = 'Evento/Activación' | 'Campaña Ads' | 'Collab Influencer';
 
-export function NewEventDialog({ onAddEvent, accentColor }: { onAddEvent: (event: any) => void, accentColor: string }) {
+export function NewEventDialog({
+  open, onOpenChange, onSave, accentColor, initialEventData
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSave: (event: Omit<Interaction, 'createdAt' | 'status' | 'userId'> & { id?: string }) => void;
+  accentColor: string;
+  initialEventData?: Interaction | null;
+}) {
     const { data: santaData } = useData();
-    const [open, setOpen] = useState(false);
     const [title, setTitle] = useState('');
     const [type, setType] = useState<Department>('VENTAS');
     const [interactionKind, setInteractionKind] = useState<InteractionKind>('VISITA');
@@ -31,6 +37,26 @@ export function NewEventDialog({ onAddEvent, accentColor }: { onAddEvent: (event
     const [notes, setNotes] = useState('');
     const [involvedUserIds, setInvolvedUserIds] = useState<string[]>([]);
     const [marketingSubtype, setMarketingSubtype] = useState<MarketingSubtype | ''>('');
+
+    useEffect(() => {
+        if (initialEventData) {
+            setTitle(initialEventData.note || '');
+            setType(initialEventData.dept || 'VENTAS');
+            setInteractionKind(initialEventData.kind || 'VISITA');
+            setDate(initialEventData.plannedFor ? new Date(initialEventData.plannedFor).toISOString().slice(0, 16) : '');
+            setLocation(initialEventData.location || '');
+            setInvolvedUserIds(initialEventData.involvedUserIds || []);
+        } else {
+            // Reset form for new event
+            setTitle('');
+            setType('VENTAS');
+            setInteractionKind('VISITA');
+            setDate('');
+            setLocation('');
+            setNotes('');
+            setInvolvedUserIds([]);
+        }
+    }, [initialEventData, open]);
 
 
     const handleUserToggle = (userId: string) => {
@@ -51,7 +77,8 @@ export function NewEventDialog({ onAddEvent, accentColor }: { onAddEvent: (event
             finalNote = `[${marketingSubtype}] ${finalNote}`;
         }
         
-        onAddEvent({ 
+        onSave({ 
+            ...(initialEventData ? { id: initialEventData.id } : {}),
             dept: type, 
             kind: type === 'VENTAS' ? interactionKind : 'OTRO',
             plannedFor: date,
@@ -60,34 +87,19 @@ export function NewEventDialog({ onAddEvent, accentColor }: { onAddEvent: (event
             involvedUserIds: involvedUserIds.length > 0 ? involvedUserIds : undefined,
         });
 
-        // Reset form
-        setOpen(false);
-        setTitle('');
-        setType('VENTAS');
-        setInteractionKind('VISITA');
-        setDate('');
-        setLocation('');
-        setNotes('');
-        setInvolvedUserIds([]);
-        setMarketingSubtype('');
+        onOpenChange(false);
     };
+    
+    const dialogTitle = initialEventData ? "Editar Tarea" : "Crear Nueva Tarea o Evento";
 
     return (
-        <SBDialog open={open} onOpenChange={setOpen}>
-            <SBDialogTrigger asChild>
-                <button 
-                    className="flex items-center gap-2 text-sm text-white rounded-lg px-4 py-2 font-semibold hover:brightness-110 transition-colors"
-                    style={{backgroundColor: accentColor}}
-                >
-                    <Plus size={16} /> Nueva Tarea
-                </button>
-            </SBDialogTrigger>
+        <SBDialog open={open} onOpenChange={onOpenChange}>
             <SBDialogContent
-                title="Crear Nueva Tarea o Evento"
-                description="Añade una nueva entrada a tu calendario y asigna responsables."
+                title={dialogTitle}
+                description="Añade o edita una entrada en tu calendario y asigna responsables."
                 onSubmit={handleSubmit}
-                primaryAction={{ label: 'Crear Evento', type: 'submit' }}
-                secondaryAction={{ label: 'Cancelar', onClick: () => setOpen(false) }}
+                primaryAction={{ label: initialEventData ? 'Guardar Cambios' : 'Crear Evento', type: 'submit' }}
+                secondaryAction={{ label: 'Cancelar', onClick: () => onOpenChange(false) }}
             >
                 <div className="space-y-4 pt-2">
                     <label className="grid gap-1.5">

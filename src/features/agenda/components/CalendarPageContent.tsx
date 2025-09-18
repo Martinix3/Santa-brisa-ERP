@@ -73,14 +73,6 @@ function mapDomainToTasks(
   return interactionTasks;
 }
 
-function moveTaskStatus(tasks: Task[], id: string, newStatus: InteractionStatus): Task[] {
-  const idx = tasks.findIndex((t) => t.id === id);
-  if (idx === -1) return tasks;
-  const next = [...tasks];
-  next[idx] = { ...next[idx], status: newStatus };
-  return next;
-}
-
 const hexToRgba = (hex: string, a: number) => {
   if (!hex) return `rgba(0,0,0,0)`;
   const h = hex.replace("#", "");
@@ -127,6 +119,8 @@ export function CalendarPageContent() {
   const { data: SantaData, setData, currentUser } = useData();
   const [activeTab, setActiveTab] = useState<"agenda" | "tareas">("agenda");
   const [selectedEvent, setSelectedEvent] = useState<Interaction | null>(null);
+  const [editingEvent, setEditingEvent] = useState<Interaction | null>(null);
+  const [isNewEventDialogOpen, setIsNewEventDialogOpen] = useState(false);
 
   const allInteractions = useMemo(() => SantaData?.interactions || [], [SantaData]);
 
@@ -138,11 +132,11 @@ export function CalendarPageContent() {
           id: task.id,
           title: task.note,
           start: task.plannedFor,
-          allDay: task.dept !== "ALMACEN", // Example of allDay logic
-          extendedProps: { type: task.dept },
-          backgroundColor: hexToRgba(style.color, 0.25),
-          borderColor: hexToRgba(style.color, 0.45),
-          textColor: style.textColor,
+          allDay: task.status === 'done' ? false : (task.dept !== "ALMACEN"), // Example of allDay logic
+          extendedProps: { type: task.dept, status: task.status },
+          backgroundColor: task.status === 'done' ? '#d1d5db' : hexToRgba(style.color, 0.25),
+          borderColor: task.status === 'done' ? '#9ca3af' : hexToRgba(style.color, 0.45),
+          textColor: task.status === 'done' ? '#4b5563' : style.textColor,
           className: ["sb-event"],
         };
       }),
@@ -155,7 +149,7 @@ export function CalendarPageContent() {
       saveCollection('interactions', updatedInteractions);
   }
 
-  const handleTaskStatusChange = (id: string, newStatus: InteractionStatus) => {
+  const handleUpdateStatus = (id: string, newStatus: InteractionStatus) => {
     if (!SantaData) return;
     const updatedInteractions = SantaData.interactions.map(i => 
         i.id === id ? { ...i, status: newStatus } : i
@@ -163,22 +157,23 @@ export function CalendarPageContent() {
     updateAndPersistInteractions(updatedInteractions);
   };
   
-  const handleAddEvent = async (event: Omit<Interaction, 'id'|'createdAt'|'status'|'userId'>) => {
+  const handleAddOrUpdateEvent = async (event: Omit<Interaction, 'id'|'createdAt'|'status'|'userId'> & { id?: string }) => {
     if (!SantaData || !currentUser) return;
     
-    let finalNote = event.note;
-    
-    const newInteraction: Interaction = {
-        id: `int_${Date.now()}`,
-        createdAt: new Date().toISOString(),
-        status: 'open',
-        userId: currentUser.id,
-        ...event,
-        note: finalNote,
-    };
-
-    const updatedInteractions = [...(SantaData.interactions || []), newInteraction];
-    updateAndPersistInteractions(updatedInteractions);
+    if (event.id) { // Update existing
+        const updatedInteractions = allInteractions.map(i => i.id === event.id ? { ...i, ...event } : i);
+        updateAndPersistInteractions(updatedInteractions as Interaction[]);
+    } else { // Create new
+        const newInteraction: Interaction = {
+            id: `int_${Date.now()}`,
+            createdAt: new Date().toISOString(),
+            status: 'open',
+            userId: currentUser.id,
+            ...event,
+        };
+        const updatedInteractions = [...(allInteractions || []), newInteraction];
+        updateAndPersistInteractions(updatedInteractions);
+    }
   };
   
   const handleEventClick = (clickInfo: EventClickArg) => {
@@ -201,10 +196,10 @@ export function CalendarPageContent() {
       setSelectedEvent(null);
   };
   
-  const handleUpdateEvent = (updatedEvent: Interaction) => {
-      const updatedInteractions = allInteractions.map(i => i.id === updatedEvent.id ? updatedEvent : i);
-      updateAndPersistInteractions(updatedInteractions as Interaction[]);
-      setSelectedEvent(null);
+  const handleEditRequest = (event: Interaction) => {
+      setSelectedEvent(null); // Cierra el diálogo de detalle
+      setEditingEvent(event);
+      setIsNewEventDialogOpen(true);
   }
 
   return (
@@ -220,10 +215,13 @@ export function CalendarPageContent() {
             ]}
             accentColor={ACCENT}
           />
-          <NewEventDialog
-            onAddEvent={handleAddEvent as any}
-            accentColor={ACCENT}
-          />
+          <button 
+            onClick={() => { setEditingEvent(null); setIsNewEventDialogOpen(true); }}
+            className="flex items-center gap-2 text-sm text-white rounded-lg px-4 py-2 font-semibold hover:brightness-110 transition-colors"
+            style={{backgroundColor: ACCENT}}
+          >
+             Nueva Tarea
+          </button>
         </div>
     </ModuleHeader>
     <div className="h-full flex flex-col gap-6 p-4 md:p-6 bg-white">
@@ -237,13 +235,13 @@ export function CalendarPageContent() {
               events={calendarEvents as any}
               eventClick={handleEventClick}
               eventContent={(arg: EventContentArg) => {
-                const type = (arg.event.extendedProps as any).type as Department;
-                const dept = DEPT_META[type] || DEPT_META.VENTAS;
+                const { type, status } = (arg.event.extendedProps as any);
+                const dept = DEPT_META[type as Department] || DEPT_META.VENTAS;
                 return (
-                  <div className="flex items-center gap-1.5">
+                  <div className={`flex items-center gap-1.5 ${status === 'done' ? 'line-through' : ''}`}>
                     <span
                       className="inline-block h-2 w-2 rounded-full"
-                      style={{ backgroundColor: dept?.color || "#94a3b8" }}
+                      style={{ backgroundColor: status === 'done' ? '#9ca3af' : (dept?.color || "#94a3b8") }}
                     />
                     {arg.timeText && <span className="text-[11px] text-zinc-600 mr-1">{arg.timeText}</span>}
                     <span className="text-[12px] font-medium text-zinc-800">{arg.event.title}</span>
@@ -267,20 +265,31 @@ export function CalendarPageContent() {
           <div className="h-full rounded-2xl bg-white border border-zinc-200 shadow-sm p-4">
             <TaskBoard
               tasks={tasksForBoard}
-              onTaskStatusChange={handleTaskStatusChange}
-              onCompleteTask={(id) => handleTaskStatusChange(id, 'done')}
+              onTaskStatusChange={handleUpdateStatus}
+              onCompleteTask={(id) => handleUpdateStatus(id, 'done')}
               typeStyles={DEPT_META}
             />
           </div>
         )}
       </div>
+        
+      {isNewEventDialogOpen && (
+          <NewEventDialog
+            open={isNewEventDialogOpen}
+            onOpenChange={setIsNewEventDialogOpen}
+            onSave={handleAddOrUpdateEvent as any}
+            accentColor={ACCENT}
+            initialEventData={editingEvent}
+          />
+      )}
 
       {selectedEvent && (
         <EventDetailDialog
             event={selectedEvent}
             open={!!selectedEvent}
             onOpenChange={() => setSelectedEvent(null)}
-            onUpdate={handleUpdateEvent}
+            onUpdateStatus={handleUpdateStatus}
+            onEdit={handleEditRequest}
             onDelete={handleDeleteEvent}
         />
       )}
