@@ -53,15 +53,16 @@ export default function PersonalDashboardPage() {
     const { currentUser, data, setData, isPersistenceEnabled } = useData();
     const [completingTask, setCompletingTask] = useState<Interaction | null>(null);
 
-    const allTasks = useMemo(() => {
+    const allMyInteractions = useMemo(() => {
         if (!data || !currentUser) return [];
-
-        const myInteractions = data.interactions.filter(i => 
+        return data.interactions.filter(i => 
             i.userId === currentUser.id || i.involvedUserIds?.includes(currentUser.id)
         );
-
-        return mapInteractionsToTasks(myInteractions, data.accounts || []);
     }, [data, currentUser]);
+
+    const allTasks = useMemo(() => {
+        return mapInteractionsToTasks(allMyInteractions, data?.accounts || []);
+    }, [allMyInteractions, data?.accounts]);
 
     const { openTasks, processingTasks, doneTasks } = useMemo(() => {
         const open = allTasks.filter(t => t.status === 'open');
@@ -81,7 +82,7 @@ export default function PersonalDashboardPage() {
         if (!data) return;
 
         if (newStatus === 'done') {
-            const taskToComplete = data.interactions.find(i => i.id === taskId);
+            const taskToComplete = allMyInteractions.find(i => i.id === taskId);
             if(taskToComplete) {
                 setCompletingTask(taskToComplete);
             }

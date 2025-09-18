@@ -27,7 +27,7 @@ export function TaskCompletionDialog({ task, open, onClose, onComplete }: {
                 title={`Completar: ${task.note}`}
                 description="Escribe lo que ha pasado en la interacción. Santa Brain se encargará de crear los registros necesarios (pedidos, próximas visitas, etc.)"
                 onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}
-                primaryAction={{ label: 'Guardar y Completar', type: 'submit' }}
+                primaryAction={{ label: 'Guardar y Procesar', type: 'submit' }}
                 secondaryAction={{ label: 'Cancelar', onClick: onClose }}
             >
                 <div className="space-y-4 pt-2">
