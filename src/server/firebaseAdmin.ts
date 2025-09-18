@@ -4,12 +4,15 @@ import { getAuth } from 'firebase-admin/auth';
 import 'server-only';
 import firebaseConfig from '../../firebase.json';
 
-// Usar la configuración del cliente directamente. 
-// El SDK de Admin utilizará las credenciales del entorno de ejecución (Application Default Credentials),
-// que es el método estándar en entornos de Google Cloud como Firebase Studio.
+// Esta es la configuración más simple y estándar.
+// Confía en que el entorno de ejecución (como Firebase Studio)
+// proporcionará las credenciales por defecto (Application Default Credentials).
 const app: App = getApps().length
   ? getApps()[0]
-  : initializeApp({ projectId: firebaseConfig.client.projectId });
+  : initializeApp({
+    // Utiliza la configuración del proyecto del cliente para asegurar consistencia
+    projectId: firebaseConfig.client.projectId,
+  });
 
 export const adminDb = getFirestore(app);
 export const adminAuth = getAuth(app);

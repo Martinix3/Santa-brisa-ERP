@@ -5,16 +5,37 @@ import React, { useState } from 'react';
 import { SBCard, SBButton } from '@/components/ui/ui-primitives';
 import { Database, DownloadCloud, UploadCloud, Server, Terminal, ShieldCheck } from 'lucide-react';
 import { writeTestData, readTestData, checkAuthStatus } from './actions';
+import { auth } from '@/lib/firebaseClient';
+import { getIdToken } from 'firebase/auth';
 
 // The page component is now a Client Component
 export default function DbConsolePage() {
   const [result, setResult] = useState<{ type: 'write' | 'read' | 'auth'; message: string; success: boolean } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  const getAuthToken = async (): Promise<string | null> => {
+      const user = auth.currentUser;
+      if (!user) {
+          setResult({ type: 'auth', success: false, message: 'No hay usuario autenticado. Por favor, inicia sesión.' });
+          return null;
+      }
+      try {
+          return await getIdToken(user, true); // Force refresh
+      } catch (error) {
+          setResult({ type: 'auth', success: false, message: 'No se pudo obtener el token de autenticación.' });
+          return null;
+      }
+  }
+
   const handleWrite = async () => {
     setIsLoading(true);
     setResult(null);
-    const response = await writeTestData();
+    const token = await getAuthToken();
+    if (!token) {
+        setIsLoading(false);
+        return;
+    }
+    const response = await writeTestData(token);
     setResult({ type: 'write', ...response });
     setIsLoading(false);
   };
@@ -22,7 +43,12 @@ export default function DbConsolePage() {
   const handleRead = async () => {
     setIsLoading(true);
     setResult(null);
-    const response = await readTestData();
+    const token = await getAuthToken();
+    if (!token) {
+        setIsLoading(false);
+        return;
+    }
+    const response = await readTestData(token);
     setResult({ type: 'read', ...response });
     setIsLoading(false);
   };
@@ -30,7 +56,12 @@ export default function DbConsolePage() {
   const handleCheckAuth = async () => {
     setIsLoading(true);
     setResult(null);
-    const response = await checkAuthStatus();
+    const token = await getAuthToken();
+     if (!token) {
+        setIsLoading(false);
+        return;
+    }
+    const response = await checkAuthStatus(token);
     setResult({ type: 'auth', ...response });
     setIsLoading(false);
   }

@@ -1,0 +1,5 @@
+# policy-allow-keys.yaml
+name: organizations/196931184924/policies/iam.disableServiceAccountKeyCreation
+spec:
+  rules:
+  - enforce: false
