@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -233,18 +234,11 @@ function NavSection({
     )
 }
 
-function AuthenticatedLayoutContent({ children }: { children: React.ReactNode }) {
+export default function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
   const pathname = usePathname() ?? '/';
-  const router = useRouter();
   const { currentUser, isLoading, logout } = useData();
-
-  useEffect(() => {
-    if (!isLoading && !currentUser) {
-        router.replace('/login');
-    }
-  }, [isLoading, currentUser, router]);
 
   useEffect(() => {
     const activeSection = navSections.find(section => section.items.some(item => pathname.startsWith(item.href) && item.href !== '/'));
@@ -259,10 +253,9 @@ function AuthenticatedLayoutContent({ children }: { children: React.ReactNode })
 
   const handleLogout = () => {
     logout();
-    router.push('/login');
   };
   
-  if (isLoading || !currentUser) {
+  if (isLoading) {
     return (
         <div className="h-screen w-screen flex items-center justify-center bg-white">
             <p>Cargando...</p>
@@ -312,7 +305,7 @@ function AuthenticatedLayoutContent({ children }: { children: React.ReactNode })
                 <button
                     onClick={handleLogout}
                     className="w-full flex items-center justify-center gap-3 px-3 py-2 mt-2 rounded-md text-sm font-medium text-sb-neutral-600 hover:bg-sb-neutral-100"
-                    title="Cerrar sesión"
+                    title="Cerrar sesión (deshabilitado)"
                 >
                     <LogOut className="h-5 w-5" />
                     {!isSidebarCollapsed && <span>Cerrar Sesión</span>}
@@ -332,8 +325,4 @@ function AuthenticatedLayoutContent({ children }: { children: React.ReactNode })
       </div>
     </div>
   );
-}
-
-export default function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
-    return <AuthenticatedLayoutContent>{children}</AuthenticatedLayoutContent>
 }

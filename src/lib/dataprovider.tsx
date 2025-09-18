@@ -35,11 +35,13 @@ interface DataContextProps {
 
 const DataContext = createContext<DataContextProps | undefined>(undefined);
 
+// Hardcoded user ID for dev purposes now that login is removed
+const DEV_USER_ID = 'dev-user-fixed-id';
+
 async function getAuthHeaders(): Promise<Record<string, string>> {
-  if (!auth.currentUser) return {};
-  // true => fuerza refresh si el token está caducado
-  const token = await auth.currentUser.getIdToken(true);
-  return { Authorization: `Bearer ${token}` };
+  // Auth is disabled, so we don't need real headers.
+  // The API will use a fixed user ID.
+  return {};
 }
 
 export const DataProvider = ({ children }: { children: React.ReactNode }) => {
@@ -49,76 +51,60 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
-      setIsLoading(true);
-      if (firebaseUser) {
-        console.log("✅ Usuario autenticado:", firebaseUser.email);
-        
+    const loadInitialData = async () => {
+        setIsLoading(true);
+        console.log("⚠️ No hay autenticación, cargando datos locales y de API para dev.");
+
         try {
-          const headers = await getAuthHeaders();
-          const response = await fetch("/api/brain-persist", { headers });
+            const response = await fetch("/api/brain-persist", { headers: await getAuthHeaders() });
 
-          if (!response.ok) {
-            const errorBody = await response.text();
-            console.warn(`API fetch failed (${response.status}): ${errorBody}. Falling back to local data.`);
-            setData(JSON.parse(JSON.stringify(realSantaData)));
-          } else {
-            const apiData = await response.json();
-            // Merge con datos reales por si la DB está vacía o es la primera vez
-            const mergedData = {
-              ...JSON.parse(JSON.stringify(realSantaData)),
-              ...apiData,
-            };
-            setData(mergedData);
-          }
+            if (!response.ok) {
+                const errorBody = await response.text();
+                console.warn(`API fetch failed (${response.status}): ${errorBody}. Falling back to local data.`);
+                setData(JSON.parse(JSON.stringify(realSantaData)));
+            } else {
+                const apiData = await response.json();
+                // Merge con datos reales por si la DB está vacía o es la primera vez
+                const mergedData = {
+                    ...JSON.parse(JSON.stringify(realSantaData)),
+                    ...apiData,
+                };
+                setData(mergedData);
+                console.log("✅ Datos cargados desde la API y fusionados con datos locales.");
+            }
         } catch (error) {
-          console.error("Could not fetch initial data, falling back to local data:", error);
-          setData(JSON.parse(JSON.stringify(realSantaData)));
+            console.error("Could not fetch initial data, falling back to local data:", error);
+            setData(JSON.parse(JSON.stringify(realSantaData)));
         }
-        
-      } else {
-        console.log("⚠️ No hay usuario autenticado, cargando datos locales.");
-        setCurrentUser(null);
-        setData(JSON.parse(JSON.stringify(realSantaData)));
-      }
-      setIsLoading(false);
-    });
 
-    return () => unsub();
+        setIsLoading(false);
+    };
+
+    loadInitialData();
   }, []);
 
   // Efecto para actualizar el usuario actual cuando los datos cambian
   useEffect(() => {
-      if (auth.currentUser && data) {
-          const appUser = data.users.find(u => u.email === auth.currentUser?.email);
-          setCurrentUser(appUser || null);
+      if (data) {
+          // Asigna un usuario por defecto ya que el login está deshabilitado
+          const defaultUser = data.users.find(u => u.id === 'u_nico');
+          setCurrentUser(defaultUser || data.users[0] || null);
       }
   }, [data]);
 
 
   const login = useCallback(async (email: string, pass: string) => {
-      // Usamos el proveedor de Google para el login
-      const provider = new GoogleAuthProvider();
-      try {
-        const result = await signInWithPopup(auth, provider);
-        const firebaseUser = result.user;
-        if(firebaseUser && data) {
-            const appUser = data.users.find(u => u.email === firebaseUser.email);
-            if(appUser) {
-                setCurrentUser(appUser);
-            } else {
-                throw new Error("El usuario de Google no se encuentra en la lista de usuarios de la aplicación.");
-            }
-        }
-      } catch (error) {
-          console.error("Error durante el inicio de sesión con Google:", error);
-          throw error;
+      console.warn("Login function called, but authentication is disabled.");
+      // Simula un login exitoso asignando un usuario por defecto
+      if(data) {
+          const defaultUser = data.users.find(u => u.id === 'u_nico');
+          setCurrentUser(defaultUser || null);
       }
   }, [data]);
 
 
   const logout = useCallback(async () => {
-    await signOut(auth);
+    console.warn("Logout function called, but authentication is disabled.");
     setCurrentUser(null);
   }, []);
 
@@ -128,9 +114,6 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
       if (!payload) {
         console.warn("Save requested, but no data is available.");
         return;
-      }
-      if (!auth.currentUser) {
-        throw new Error("No hay un usuario autenticado para guardar los datos.");
       }
 
       try {

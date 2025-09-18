@@ -8,18 +8,12 @@ import { realSantaData } from '@/domain/real-data';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+// Hardcoded user ID for dev purposes now that login is removed
+const DEV_USER_ID = 'dev-user-fixed-id';
+
 async function verifyAuth(req: NextRequest) {
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      throw new Error("No token provided");
-    }
-    const idToken = authHeader.split(" ")[1];
-    try {
-        return await adminAuth.verifyIdToken(idToken);
-    } catch (error: any) {
-        console.error("Token verification failed:", error);
-        throw new Error("Authentication token is invalid or expired.");
-    }
+    // Auth is disabled, return a fixed user ID for persistence.
+    return { uid: DEV_USER_ID };
 }
 
 export async function GET(req: NextRequest) {
@@ -46,8 +40,8 @@ export async function GET(req: NextRequest) {
     }
 
     if (!hasData) {
-        // Si no hay absolutamente nada en Firestore para este usuario, devolvemos
-        // un objeto SantaData vacío pero bien formado. El frontend lo fusionará.
+        // If there is nothing in Firestore for this user, we return
+        // an empty but well-formed SantaData object. The frontend will merge it.
         const emptyData: Partial<SantaData> = {};
         SANTA_DATA_COLLECTIONS.forEach(key => {
             (emptyData as any)[key] = [];
@@ -58,10 +52,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(fetchedData);
 
   } catch (e:any) {
-    console.error('Auth error or Firestore fetch error in GET:', e);
-    if (e.message.includes("Authentication token is invalid or expired")) {
-      return NextResponse.json({ ok:false, error: e.message }, { status: 401 });
-    }
+    console.error('Firestore fetch error in GET:', e);
     return NextResponse.json({ ok:false, error: e?.message || 'Unknown server error fetching data.' }, { status: 500 });
   }
 }
@@ -87,27 +78,23 @@ export async function POST(req: NextRequest) {
             const collectionData = payload[collectionName];
             if(Array.isArray(collectionData)) {
                 const docRef = userRootCol.collection(collectionName).doc('all');
-                batch.set(docRef, { data: collectionData }, { merge: false }); // Sobrescribir el documento completo
+                batch.set(docRef, { data: collectionData }, { merge: false }); // Overwrite the entire document
                 operationsCount++;
             }
         }
     }
     
-    if (operationsCount === 0) {
+    if (operationsCount > 0) {
+        await batch.commit();
+        console.log(`[api/brain-persist] Successfully committed data for ${operationsCount} collections for user ${decodedToken.uid}.`);
+    } else {
         console.log('[api/brain-persist] No valid collections to commit.');
-        return NextResponse.json({ ok: true, message: 'No valid data to save.' });
     }
-    
-    await batch.commit();
-    console.log(`[api/brain-persist] Successfully committed data for ${operationsCount} collections for user ${decodedToken.email}.`);
     
     return NextResponse.json({ ok: true, message: `${operationsCount} collections saved.` });
 
   } catch (e:any) {
-    console.error('Auth error or Firestore write error in POST:', e);
-     if (e.message.includes("Authentication token is invalid or expired")) {
-      return NextResponse.json({ ok:false, error: e.message }, { status: 401 });
-    }
+    console.error('Firestore write error in POST:', e);
     return NextResponse.json({ ok:false, error: e?.message || 'Unknown server error.' }, { status: 500 });
   }
 }
