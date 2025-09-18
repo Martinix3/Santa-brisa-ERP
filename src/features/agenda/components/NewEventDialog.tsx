@@ -19,19 +19,45 @@ const DEPT_META: Record<
 
 type MarketingSubtype = 'Evento/Activación' | 'Campaña Ads' | 'Collab Influencer';
 
-function AccountSearch({ onSelect }: { onSelect: (accountId: string) => void }) {
+function AccountSearch({ initialAccountId, initialLocation, onSelectionChange }: { 
+    initialAccountId?: string;
+    initialLocation?: string;
+    onSelectionChange: (selection: { accountId?: string, location?: string }) => void 
+}) {
     const { data: santaData } = useData();
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<Account[]>([]);
     
     useEffect(() => {
-        if (query.length > 2 && santaData?.accounts) {
+        if(initialAccountId && santaData?.accounts) {
+            const acc = santaData.accounts.find(a => a.id === initialAccountId);
+            if(acc) setQuery(acc.name);
+        } else if (initialLocation) {
+            setQuery(initialLocation);
+        }
+    }, [initialAccountId, initialLocation, santaData?.accounts]);
+
+    useEffect(() => {
+        if (query.length > 1 && santaData?.accounts) {
             const lowerQuery = query.toLowerCase();
-            setResults(santaData.accounts.filter(a => a.name.toLowerCase().includes(lowerQuery)));
+            const filteredAccounts = santaData.accounts.filter(a => a.name.toLowerCase().includes(lowerQuery));
+            setResults(filteredAccounts);
+            
+            // If there's no exact match, treat it as a location string
+            const exactMatch = filteredAccounts.find(a => a.name.toLowerCase() === lowerQuery);
+            if (!exactMatch) {
+                onSelectionChange({ location: query });
+            }
+
         } else {
             setResults([]);
+            if (query.length > 1) {
+                 onSelectionChange({ location: query });
+            } else {
+                 onSelectionChange({});
+            }
         }
-    }, [query, santaData?.accounts]);
+    }, [query, santaData?.accounts, onSelectionChange]);
 
     return (
         <div className="relative">
@@ -40,18 +66,18 @@ function AccountSearch({ onSelect }: { onSelect: (accountId: string) => void }) 
                 <input
                     value={query}
                     onChange={e => setQuery(e.target.value)}
-                    placeholder="Buscar por nombre de cuenta..."
+                    placeholder="Buscar cuenta o escribir ubicación..."
                     className="h-10 w-full rounded-md border border-zinc-200 bg-white px-9 py-2 text-sm"
                 />
             </div>
-            {results.length > 0 && (
+            {results.length > 0 && query.length > 1 && (
                 <ul className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-48 overflow-auto">
                     {results.map(account => (
                         <li key={account.id} 
                             className="px-3 py-2 cursor-pointer hover:bg-zinc-100"
-                            onClick={() => {
+                            onMouseDown={() => {
                                 setQuery(account.name);
-                                onSelect(account.id);
+                                onSelectionChange({ accountId: account.id, location: account.name });
                                 setResults([]);
                             }}
                         >
@@ -79,8 +105,7 @@ export function NewEventDialog({
     const [type, setType] = useState<Department>('VENTAS');
     const [interactionKind, setInteractionKind] = useState<InteractionKind>('VISITA');
     const [date, setDate] = useState('');
-    const [accountId, setAccountId] = useState<string | undefined>(undefined);
-    const [location, setLocation] = useState('');
+    const [selection, setSelection] = useState<{ accountId?: string, location?: string }>({});
     const [notes, setNotes] = useState('');
     const [involvedUserIds, setInvolvedUserIds] = useState<string[]>([]);
     const [marketingSubtype, setMarketingSubtype] = useState<MarketingSubtype | ''>('');
@@ -91,8 +116,7 @@ export function NewEventDialog({
             setType(initialEventData.dept || 'VENTAS');
             setInteractionKind(initialEventData.kind || 'VISITA');
             setDate(initialEventData.plannedFor ? new Date(initialEventData.plannedFor).toISOString().slice(0, 16) : '');
-            setLocation(initialEventData.location || '');
-            setAccountId(initialEventData.accountId);
+            setSelection({ accountId: initialEventData.accountId, location: initialEventData.location });
             setInvolvedUserIds(initialEventData.involvedUserIds || [initialEventData.userId]);
         } else {
             // Reset form for new event and pre-select current user
@@ -100,8 +124,7 @@ export function NewEventDialog({
             setType('VENTAS');
             setInteractionKind('VISITA');
             setDate('');
-            setLocation('');
-            setAccountId(undefined);
+            setSelection({});
             setNotes('');
             setInvolvedUserIds(currentUser ? [currentUser.id] : []);
         }
@@ -132,8 +155,8 @@ export function NewEventDialog({
             kind: type === 'VENTAS' ? interactionKind : 'OTRO',
             plannedFor: date,
             note: finalNote,
-            location: location,
-            accountId: accountId,
+            location: selection.location,
+            accountId: selection.accountId,
             involvedUserIds: involvedUserIds.length > 0 ? involvedUserIds : undefined,
         });
 
@@ -221,17 +244,11 @@ export function NewEventDialog({
                     )}
                     
                     <label className="grid gap-1.5">
-                        <span className="text-sm font-medium text-zinc-700">Cuenta Asociada (Opcional)</span>
-                        <AccountSearch onSelect={setAccountId} />
-                    </label>
-
-                    <label className="grid gap-1.5">
-                        <span className="text-sm font-medium text-zinc-700">Ubicación (si no es una cuenta)</span>
-                        <input
-                            value={location}
-                            onChange={(e) => setLocation(e.target.value)}
-                            placeholder="Ej. Oficinas de Cliente, Videollamada..."
-                            className="h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm"
+                        <span className="text-sm font-medium text-zinc-700">Cuenta o Ubicación</span>
+                        <AccountSearch 
+                            initialAccountId={initialEventData?.accountId}
+                            initialLocation={initialEventData?.location}
+                            onSelectionChange={setSelection}
                         />
                     </label>
 
