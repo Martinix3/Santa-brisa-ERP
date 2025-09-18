@@ -145,7 +145,7 @@ export function CalendarPageContent() {
   
   const updateAndPersistInteractions = (updatedInteractions: Interaction[]) => {
       if (!SantaData) return;
-      setData(prev => prev ? ({ ...prev, interactions: updatedInteractions }) : null);
+      setData({ ...SantaData, interactions: updatedInteractions });
       saveCollection('interactions', updatedInteractions);
   }
 
@@ -157,11 +157,12 @@ export function CalendarPageContent() {
   };
   
   const handleAddOrUpdateEvent = async (event: Omit<Interaction, 'createdAt' | 'status' | 'userId'> & { id?: string }) => {
-    if (!currentUser) return;
+    if (!currentUser || !SantaData) return;
     
+    let updatedInteractions;
+
     if (event.id) { // Update existing
-        const updatedInteractions = allInteractions.map(i => i.id === event.id ? { ...i, ...event } : i);
-        updateAndPersistInteractions(updatedInteractions as Interaction[]);
+        updatedInteractions = SantaData.interactions.map(i => i.id === event.id ? { ...i, ...event } as Interaction : i);
     } else { // Create new
         const newInteraction: Interaction = {
             id: `int_${Date.now()}`,
@@ -170,9 +171,9 @@ export function CalendarPageContent() {
             userId: currentUser.id,
             ...event,
         };
-        const updatedInteractions = [...(allInteractions || []), newInteraction];
-        updateAndPersistInteractions(updatedInteractions);
+        updatedInteractions = [...(SantaData.interactions || []), newInteraction];
     }
+    updateAndPersistInteractions(updatedInteractions);
     setEditingEvent(null);
     setIsNewEventDialogOpen(false);
   };

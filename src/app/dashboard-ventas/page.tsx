@@ -74,8 +74,8 @@ function PersonalDashboardContent({ displayedUser, timePeriod, setTimePeriod }: 
     const userAccountIds = new Set(santaData.accounts.filter(a => a.ownerId === displayedUser.id).map(a => a.id));
     const userOrders = santaData.ordersSellOut.filter(o => userAccountIds.has(o.accountId) && inWindow(o.createdAt, startDate, endDate));
     
-    // Filtra las interacciones del usuario, no las de las cuentas del usuario
-    const userInteractions = santaData.interactions.filter(i => i.userId === displayedUser.id);
+    // Filtra las interacciones del usuario y de ventas
+    const userInteractions = santaData.interactions.filter(i => i.userId === displayedUser.id && i.dept === 'VENTAS');
     const userAccounts = santaData.accounts.filter(a => a.ownerId === displayedUser.id);
 
     const revenue = userOrders.filter(o => o.status === 'confirmed').reduce((sum, o) => sum + orderTotal(o), 0);
@@ -212,6 +212,7 @@ function PersonalDashboardContent({ displayedUser, timePeriod, setTimePeriod }: 
       resultNote: string,
       nextActionNote?: string
     ) => {
+        if (!santaData) return;
         const updatedInteractions = santaData.interactions.map((i) => {
             if (i.id === taskId) {
                 return {
@@ -282,7 +283,7 @@ function PersonalDashboardContent({ displayedUser, timePeriod, setTimePeriod }: 
             
             {/* Lower cards */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <SBCard title="Próximas actividades">
+                <SBCard title="Próximas actividades de Venta">
                     <ul className="space-y-1 p-2">
                     {userStats.upcomingInteractions.map((t,i)=>{
                         const Icon = t.icon;
