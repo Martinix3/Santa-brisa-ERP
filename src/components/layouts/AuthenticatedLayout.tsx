@@ -116,7 +116,6 @@ const navSections = [
             { href: '/admin/kpi-settings', label: 'Dashboard (Alertas)', icon: SlidersHorizontal },
             { href: '/users', label: 'Usuarios', icon: User },
             { href: '/admin/sku-management', label: 'SKUs', icon: Tags },
-            { href: '/admin/kpi-settings', label: 'KPIs', icon: SlidersHorizontal },
             { href: '/dev/data-viewer', label: 'Data Viewer / Map', icon: Database },
             { href: '/dev/ssot-tests', label: 'SSOT', icon: TestTube2 },
             { href: '/dev/integrations-panel', label: 'Integrations', icon: Zap },
