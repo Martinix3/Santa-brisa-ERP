@@ -15,6 +15,7 @@ import AuthenticatedLayout from "@/components/layouts/AuthenticatedLayout";
 import { EventDetailDialog } from "@/features/agenda/components/EventDetailDialog";
 import { NewEventDialog } from "@/features/agenda/components/NewEventDialog";
 import { saveCollection } from '@/features/agenda/components/CalendarPageContent';
+import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/TaskCompletionDialog';
 
 
 const formatEur = (n: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
@@ -49,6 +50,8 @@ function PersonalDashboardContent({ displayedUser, timePeriod, setTimePeriod }: 
   const [selectedEvent, setSelectedEvent] = useState<Interaction | null>(null);
   const [editingEvent, setEditingEvent] = useState<Interaction | null>(null);
   const [isNewEventDialogOpen, setIsNewEventDialogOpen] = useState(false);
+  const [completingTask, setCompletingTask] = useState<Interaction | null>(null);
+
 
   const userStats = useMemo(() => {
     if (!santaData || !displayedUser) {
@@ -117,7 +120,7 @@ function PersonalDashboardContent({ displayedUser, timePeriod, setTimePeriod }: 
         .slice(0, 5)
         .map(i => ({
             ...i,
-            title: i.note || `${i.kind} - ${santaData.accounts.find(a=>a.id===i.accountId)?.name}`,
+            title: i.note,
             when: new Date(i.plannedFor!).toLocaleString('es-ES', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }),
             icon: i.kind === 'LLAMADA' ? Phone : MapPin
         }));
@@ -172,15 +175,8 @@ function PersonalDashboardContent({ displayedUser, timePeriod, setTimePeriod }: 
       saveCollection('interactions', updatedInteractions);
     }
   
-    const handleUpdateStatus = (id: string, newStatus: InteractionStatus) => {
-        const updatedInteractions = santaData.interactions.map(i => 
-            i.id === id ? { ...i, status: newStatus } : i
-        ) as Interaction[];
-        updateAndPersistInteractions(updatedInteractions);
-    };
-
     const handleAddOrUpdateEvent = async (event: Omit<Interaction, 'createdAt' | 'status' | 'userId'> & { id?: string }) => {
-        if (!currentUser) return;
+        if (!currentUser || !santaData) return;
         if (event.id) { // Update existing
             const updatedInteractions = santaData.interactions.map(i => i.id === event.id ? { ...i, ...event } : i);
             updateAndPersistInteractions(updatedInteractions as Interaction[]);
@@ -209,6 +205,26 @@ function PersonalDashboardContent({ displayedUser, timePeriod, setTimePeriod }: 
         setSelectedEvent(null);
         setEditingEvent(event);
         setIsNewEventDialogOpen(true);
+    };
+
+    const handleCompleteTask = (
+      taskId: string,
+      resultNote: string,
+      nextActionNote?: string
+    ) => {
+        const updatedInteractions = santaData.interactions.map((i) => {
+            if (i.id === taskId) {
+                return {
+                    ...i,
+                    status: 'done' as InteractionStatus,
+                    resultNote,
+                    nextAction: nextActionNote ? { note: nextActionNote } : i.nextAction,
+                };
+            }
+            return i;
+        });
+        updateAndPersistInteractions(updatedInteractions as Interaction[]);
+        setCompletingTask(null);
     };
 
 
@@ -275,12 +291,12 @@ function PersonalDashboardContent({ displayedUser, timePeriod, setTimePeriod }: 
                             <button onClick={() => setSelectedEvent(t)} className="flex-1 flex items-center gap-3 text-left">
                                 <div className="p-2 rounded-lg" style={{backgroundColor: `${accent}20`, color: accent}}><Icon className="h-4 w-4"/></div>
                                 <div className="flex-1">
-                                <div className="text-sm text-zinc-800 font-medium">{t.title}</div>
+                                <div className="text-sm text-zinc-800 font-medium">{t.note}</div>
                                 <div className="text-xs text-zinc-500">{t.when}</div>
                                 </div>
                             </button>
                             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <SBButton variant="ghost" size="sm" title="Completar" onClick={() => handleUpdateStatus(t.id, 'done')}><CheckCircle size={16} className="text-green-600"/></SBButton>
+                                <SBButton variant="ghost" size="sm" title="Completar" onClick={() => setCompletingTask(t)}><CheckCircle size={16} className="text-green-600"/></SBButton>
                                 <SBButton variant="ghost" size="sm" title="Editar" onClick={() => handleEditRequest(t)}><Edit size={16} /></SBButton>
                                 <SBButton variant="ghost" size="sm" title="Eliminar" onClick={() => handleDeleteEvent(t.id)}><Trash2 size={16} className="text-red-600"/></SBButton>
                             </div>
@@ -323,7 +339,7 @@ function PersonalDashboardContent({ displayedUser, timePeriod, setTimePeriod }: 
             event={selectedEvent}
             open={!!selectedEvent}
             onOpenChange={() => setSelectedEvent(null)}
-            onUpdateStatus={handleUpdateStatus}
+            onUpdateStatus={() => {}}
             onEdit={handleEditRequest}
             onDelete={handleDeleteEvent}
         />
@@ -336,6 +352,15 @@ function PersonalDashboardContent({ displayedUser, timePeriod, setTimePeriod }: 
             onSave={handleAddOrUpdateEvent as any}
             accentColor={SB_COLORS.accent}
             initialEventData={editingEvent}
+        />
+    )}
+
+    {completingTask && (
+        <TaskCompletionDialog
+            task={completingTask}
+            open={!!completingTask}
+            onClose={() => setCompletingTask(null)}
+            onComplete={handleCompleteTask}
         />
     )}
     </>
@@ -659,4 +684,3 @@ export default function SalesDashboardPage() {
         </AuthenticatedLayout>
     )
 }
-
