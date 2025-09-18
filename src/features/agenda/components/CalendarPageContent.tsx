@@ -13,6 +13,7 @@ import { TaskBoard, Task } from "@/features/agenda/TaskBoard";
 import { NewEventDialog } from "@/features/agenda/components/NewEventDialog";
 import { EventDetailDialog } from "@/features/agenda/components/EventDetailDialog";
 import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/TaskCompletionDialog';
+import { MarketingTaskCompletionDialog } from '@/features/marketing/components/MarketingTaskCompletionDialog';
 import { useData } from "@/lib/dataprovider";
 import { ModuleHeader } from "@/components/ui/ModuleHeader";
 import { Calendar } from "lucide-react";
@@ -123,6 +124,8 @@ export function CalendarPageContent() {
   const [editingEvent, setEditingEvent] = useState<Interaction | null>(null);
   const [isNewEventDialogOpen, setIsNewEventDialogOpen] = useState(false);
   const [completingTask, setCompletingTask] = useState<Interaction | null>(null);
+  const [completingMarketingTask, setCompletingMarketingTask] = useState<Interaction | null>(null);
+
 
   const allInteractions = useMemo(() => SantaData?.interactions || [], [SantaData]);
 
@@ -153,13 +156,17 @@ export function CalendarPageContent() {
 
   const handleUpdateStatus = (id: string, newStatus: InteractionStatus) => {
     const taskToUpdate = allInteractions.find(i => i.id === id);
-    if (newStatus === 'done' && taskToUpdate?.dept === 'VENTAS') {
-        setCompletingTask(taskToUpdate);
-    } else {
-        const updatedInteractions = allInteractions.map(i => 
-            i.id === id ? { ...i, status: newStatus } : i
-        ) as Interaction[];
-        updateAndPersistInteractions(updatedInteractions);
+     if (newStatus === 'done') {
+        if (taskToUpdate?.dept === 'VENTAS') {
+            setCompletingTask(taskToUpdate);
+        } else if (taskToUpdate?.dept === 'MARKETING') {
+            setCompletingMarketingTask(taskToUpdate);
+        } else { // For other depts, just mark as done
+            const updatedInteractions = allInteractions.map(i => 
+                i.id === id ? { ...i, status: newStatus } : i
+            ) as Interaction[];
+            updateAndPersistInteractions(updatedInteractions);
+        }
     }
   };
   
@@ -207,7 +214,7 @@ export function CalendarPageContent() {
 
   const handleSaveCompletedTask = async (
     taskId: string,
-    payload: { type: 'venta', items: { sku: string; qty: number }[] } | { type: 'interaccion', note: string, nextActionDate?: string }
+    payload: any
   ) => {
     if (!SantaData || !currentUser) return;
 
@@ -216,12 +223,11 @@ export function CalendarPageContent() {
 
     let finalData: SantaData = { ...SantaData };
 
-    // 1. Mark the original task as 'done' and add result note
+    // Mark the original task as done and add the result note
     finalData.interactions = finalData.interactions.map(i =>
-        i.id === taskId ? { ...i, status: 'done' as InteractionStatus, resultNote: (payload as any).note || "Venta registrada" } : i
+        i.id === taskId ? { ...i, status: 'done' as InteractionStatus, resultNote: payload.note || "Venta registrada" } : i
     );
     
-    // 2. If there is a next action, create a new interaction for it
     if (payload.type === 'interaccion' && payload.nextActionDate) {
         const newFollowUp: Interaction = {
             id: `int_${Date.now()}`,
@@ -238,7 +244,6 @@ export function CalendarPageContent() {
         finalData.interactions.push(newFollowUp);
     }
     
-    // 3. If it's a sale, create a new order
     if (payload.type === 'venta' && originalTask.accountId) {
         const newOrder: OrderSellOut = {
             id: `ord_${Date.now()}`,
@@ -246,7 +251,7 @@ export function CalendarPageContent() {
             status: 'open',
             currency: 'EUR',
             createdAt: new Date().toISOString(),
-            lines: payload.items.map(item => ({
+            lines: payload.items.map((item: any) => ({
                 sku: item.sku,
                 qty: item.qty,
                 unit: 'uds',
@@ -257,7 +262,12 @@ export function CalendarPageContent() {
         finalData.ordersSellOut = [...(finalData.ordersSellOut || []), newOrder];
     }
 
-    // 4. Update state and persist
+    // For marketing tasks, we just save the notes for now.
+    // In a real app, you might save the KPIs to the linked MktEvent.
+    if (payload.type === 'marketing') {
+        console.log("Marketing KPIs guardados (en log):", payload);
+    }
+    
     setData(finalData);
 
     if (isPersistenceEnabled) {
@@ -268,6 +278,7 @@ export function CalendarPageContent() {
     }
 
     setCompletingTask(null);
+    setCompletingMarketingTask(null);
   };
 
 
@@ -392,6 +403,15 @@ export function CalendarPageContent() {
         />
       )}
 
+      {completingMarketingTask && (
+        <MarketingTaskCompletionDialog
+            task={completingMarketingTask}
+            open={!!completingMarketingTask}
+            onClose={() => setCompletingMarketingTask(null)}
+            onComplete={handleSaveCompletedTask}
+        />
+      )}
+
       <style jsx global>{`
         /* Toolbar */
         .fc .fc-toolbar.fc-header-toolbar {
@@ -442,3 +462,4 @@ export function CalendarPageContent() {
     </>
   );
 }
+
