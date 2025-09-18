@@ -48,13 +48,7 @@ const navSections = [
         title: 'Personal',
         module: 'sales',
         items: [
-            { href: '/dashboard-personal', label: 'Dashboard Personal', icon: BarChart3 },
-        ]
-    },
-    {
-        title: 'Agenda',
-        module: 'general',
-        items: [
+            { href: '/dashboard-personal', label: 'Dashboard', icon: BarChart3 },
             { href: '/agenda', label: 'Agenda', icon: Calendar },
         ]
     },
