@@ -157,6 +157,7 @@ export function CalendarPageContent() {
   const handleUpdateStatus = (id: string, newStatus: InteractionStatus) => {
     const taskToUpdate = allInteractions.find(i => i.id === id);
      if (newStatus === 'done' && taskToUpdate) {
+        setSelectedEvent(null); // Cierra el diálogo de detalle antes de abrir el de completar
         if (taskToUpdate?.dept === 'VENTAS') {
             setCompletingTask(taskToUpdate);
         } else if (taskToUpdate?.dept === 'MARKETING') {
@@ -299,12 +300,7 @@ export function CalendarPageContent() {
                         leads: payload.leads,
                         sampling: payload.attendees,
                     },
-                    metrics: {
-                        ...(me.metrics || {}),
-                        impressions: payload.impressions,
-                        interactions: payload.interactions,
-                    }
-                }
+                } as EventMarketing;
             }
             return me;
         });
