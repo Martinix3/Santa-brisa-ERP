@@ -1539,8 +1539,8 @@ const realAccounts: SantaData['accounts'] = [
 ];
 
 const realProducts: SantaData['products'] = [
-    { id: 'prod_sb750', sku: 'SB-750', name: 'Santa Brisa 750ml', active: true },
-    { id: 'prod_sb700', sku: 'SB-700', name: 'Santa Brisa 700ml (UK)', active: true },
+    { id: 'prod_sb750', sku: 'SB-750', name: 'Santa Brisa 750ml', active: true, kind: 'FG' },
+    { id: 'prod_sb700', sku: 'SB-700', name: 'Santa Brisa 700ml (UK)', active: true, kind: 'FG' },
     { id: 'prod_merch_vasos', sku: 'MERCH-VAS', name: 'Vasos Santa Brisa', active: true, kind: 'MERCH' },
     { id: 'prod_merch_posa', sku: 'MERCH-POS', name: 'Posavasos Santa Brisa', active: true, kind: 'MERCH' },
 ];

@@ -28,7 +28,7 @@ interface DataContextProps {
   setData: React.Dispatch<React.SetStateAction<SantaData | null>>;
   forceSave: (dataToSave?: SantaData) => Promise<void>;
   currentUser: User | null;
-  login: (email: string, pass: string) => Promise<void>;
+  login: () => Promise<void>;
   logout: () => Promise<void>;
   isLoading: boolean;
 }
@@ -93,7 +93,7 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
   }, [data]);
 
 
-  const login = useCallback(async (email: string, pass: string) => {
+  const login = useCallback(async () => {
       console.warn("Login function called, but authentication is disabled.");
       // Simula un login exitoso asignando un usuario por defecto
       if(data) {
