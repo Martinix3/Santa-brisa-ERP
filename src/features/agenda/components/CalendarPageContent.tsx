@@ -18,7 +18,7 @@ import { useData } from "@/lib/dataprovider";
 import { ModuleHeader } from "@/components/ui/ModuleHeader";
 import { Calendar } from "lucide-react";
 import { SB_COLORS, DEPT_META } from "@/domain/ssot";
-import type { Department, Interaction, SantaData, OrderSellOut, InteractionStatus, InteractionKind, Account } from '@/domain/ssot';
+import type { Department, Interaction, SantaData, OrderSellOut, InteractionStatus, InteractionKind, Account, EventMarketing } from '@/domain/ssot';
 
 const FullCalendar = dynamic(() => import("@fullcalendar/react"), { ssr: false });
 
@@ -150,13 +150,13 @@ export function CalendarPageContent() {
   
   const updateAndPersistInteractions = (updatedInteractions: Interaction[]) => {
       if (!SantaData) return;
-      setData({ ...SantaData, interactions: updatedInteractions });
+      setData(prev => prev ? ({ ...prev, interactions: updatedInteractions }) : prev);
       saveCollection('interactions', updatedInteractions, isPersistenceEnabled);
   }
 
   const handleUpdateStatus = (id: string, newStatus: InteractionStatus) => {
     const taskToUpdate = allInteractions.find(i => i.id === id);
-     if (newStatus === 'done') {
+     if (newStatus === 'done' && taskToUpdate) {
         if (taskToUpdate?.dept === 'VENTAS') {
             setCompletingTask(taskToUpdate);
         } else if (taskToUpdate?.dept === 'MARKETING') {
@@ -171,25 +171,46 @@ export function CalendarPageContent() {
   };
   
   const handleAddOrUpdateEvent = async (event: Omit<Interaction, 'createdAt' | 'status' | 'userId'> & { id?: string }) => {
-    if (!currentUser || !SantaData) return;
-    
-    let updatedInteractions;
+      if (!currentUser || !SantaData) return;
+      
+      let finalData = { ...SantaData };
+      let updatedInteractions;
 
-    if (event.id) { // Update existing
-        updatedInteractions = SantaData.interactions.map(i => i.id === event.id ? { ...i, ...event } as Interaction : i);
-    } else { // Create new
-        const newInteraction: Interaction = {
-            id: `int_${Date.now()}`,
-            createdAt: new Date().toISOString(),
-            status: 'open',
-            userId: currentUser.id,
-            ...event,
-        };
-        updatedInteractions = [...(SantaData.interactions || []), newInteraction];
-    }
-    updateAndPersistInteractions(updatedInteractions);
-    setEditingEvent(null);
-    setIsNewEventDialogOpen(false);
+      if (event.id) { // Update existing
+          updatedInteractions = finalData.interactions.map(i => i.id === event.id ? { ...i, ...event } as Interaction : i);
+      } else { // Create new
+          const newInteraction: Interaction = {
+              id: `int_${Date.now()}`,
+              createdAt: new Date().toISOString(),
+              status: 'open',
+              userId: currentUser.id,
+              ...event,
+          };
+
+          // Si es de marketing, crear también un EventMarketing
+          if (newInteraction.dept === 'MARKETING' && newInteraction.note) {
+              const newMktEvent: EventMarketing = {
+                  id: `mkt_${Date.now()}`,
+                  title: newInteraction.note,
+                  kind: 'OTRO', // Se podría inferir del título o añadir al diálogo
+                  status: 'planned',
+                  startAt: newInteraction.plannedFor || new Date().toISOString(),
+                  city: newInteraction.location,
+              };
+              finalData.mktEvents = [...(finalData.mktEvents || []), newMktEvent];
+              newInteraction.linkedEntity = { type: 'Campaign', id: newMktEvent.id }; // Link it
+              await saveCollection('mktEvents', finalData.mktEvents, isPersistenceEnabled);
+          }
+
+          updatedInteractions = [...(finalData.interactions || []), newInteraction];
+      }
+      
+      finalData.interactions = updatedInteractions;
+      setData(finalData);
+      await saveCollection('interactions', updatedInteractions, isPersistenceEnabled);
+
+      setEditingEvent(null);
+      setIsNewEventDialogOpen(false);
   };
   
   const handleEventClick = (clickInfo: EventClickArg) => {
@@ -225,7 +246,7 @@ export function CalendarPageContent() {
 
     // Mark the original task as done and add the result note
     finalData.interactions = finalData.interactions.map(i =>
-        i.id === taskId ? { ...i, status: 'done' as InteractionStatus, resultNote: payload.note || "Venta registrada" } : i
+        i.id === taskId ? { ...i, status: 'done' as InteractionStatus, resultNote: payload.note } : i
     );
     
     if (payload.type === 'interaccion' && payload.nextActionDate) {
@@ -235,7 +256,7 @@ export function CalendarPageContent() {
             involvedUserIds: originalTask.involvedUserIds,
             accountId: originalTask.accountId,
             kind: 'OTRO',
-            note: `Seguimiento de: ${originalTask.note}`,
+            note: `Seguimiento de: ${payload.note}`,
             plannedFor: payload.nextActionDate,
             createdAt: new Date().toISOString(),
             dept: originalTask.dept,
@@ -260,21 +281,41 @@ export function CalendarPageContent() {
             notes: `Pedido creado desde tarea ${taskId}`,
         };
         finalData.ordersSellOut = [...(finalData.ordersSellOut || []), newOrder];
+        if (isPersistenceEnabled) {
+          await saveCollection('ordersSellOut', finalData.ordersSellOut, isPersistenceEnabled);
+        }
     }
 
-    // For marketing tasks, we just save the notes for now.
-    // In a real app, you might save the KPIs to the linked MktEvent.
-    if (payload.type === 'marketing') {
-        console.log("Marketing KPIs guardados (en log):", payload);
+    if (payload.type === 'marketing' && originalTask.linkedEntity?.id) {
+        const mktEventId = originalTask.linkedEntity.id;
+        finalData.mktEvents = finalData.mktEvents.map(me => {
+            if (me.id === mktEventId) {
+                return {
+                    ...me,
+                    status: 'closed',
+                    spend: payload.cost,
+                    goal: {
+                        ...(me.goal || {}),
+                        leads: payload.leads,
+                        sampling: payload.attendees,
+                    },
+                    metrics: {
+                        ...(me.metrics || {}),
+                        impressions: payload.impressions,
+                        interactions: payload.interactions,
+                    }
+                }
+            }
+            return me;
+        });
+        if (isPersistenceEnabled) {
+            await saveCollection('mktEvents', finalData.mktEvents, isPersistenceEnabled);
+        }
     }
     
     setData(finalData);
-
     if (isPersistenceEnabled) {
         await saveCollection('interactions', finalData.interactions, isPersistenceEnabled);
-        if (payload.type === 'venta' && finalData.ordersSellOut) {
-            await saveCollection('ordersSellOut', finalData.ordersSellOut, isPersistenceEnabled);
-        }
     }
 
     setCompletingTask(null);
@@ -462,4 +503,3 @@ export function CalendarPageContent() {
     </>
   );
 }
-
