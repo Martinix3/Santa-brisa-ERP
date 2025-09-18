@@ -2,7 +2,8 @@
 "use client";
 
 import React, { useState } from 'react';
-import { useRouter, Link } from 'next/navigation';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useData } from '@/lib/dataprovider';
 
 export default function LoginPage() {
