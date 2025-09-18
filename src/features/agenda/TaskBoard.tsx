@@ -142,18 +142,21 @@ export function TaskBoard({ tasks, onTaskStatusChange, onCompleteTask, typeStyle
         <DndContext onDragEnd={handleDragEnd} collisionDetection={closestCorners}>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <StatusColumn
+                    key="overdue"
                     col={KANBAN_COLS[0]}
                     tasks={categorizedTasks.overdue}
                     typeStyles={typeStyles}
                     onCompleteTask={onCompleteTask}
                 />
                 <StatusColumn
+                    key="upcoming"
                     col={KANBAN_COLS[1]}
                     tasks={categorizedTasks.upcoming}
                     typeStyles={typeStyles}
                     onCompleteTask={onCompleteTask}
                 />
                  <StatusColumn
+                    key="done"
                     col={KANBAN_COLS[2]}
                     tasks={categorizedTasks.done}
                     typeStyles={typeStyles}
