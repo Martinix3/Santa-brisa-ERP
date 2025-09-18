@@ -58,20 +58,33 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
         try {
             const response = await fetch("/api/brain-persist", { headers: await getAuthHeaders() });
 
+            let finalData: SantaData;
+
             if (!response.ok) {
                 const errorBody = await response.text();
                 console.warn(`API fetch failed (${response.status}): ${errorBody}. Falling back to local data.`);
-                setData(JSON.parse(JSON.stringify(realSantaData)));
+                finalData = JSON.parse(JSON.stringify(realSantaData));
             } else {
                 const apiData = await response.json();
-                // Merge con datos reales por si la DB está vacía o es la primera vez
-                const mergedData = {
-                    ...JSON.parse(JSON.stringify(realSantaData)),
-                    ...apiData,
-                };
-                setData(mergedData);
+                
+                // Deep merge: Prioritize API data but keep local data for collections not in API response.
+                const localDataCopy = JSON.parse(JSON.stringify(realSantaData));
+                const merged = { ...localDataCopy };
+
+                for (const key in apiData) {
+                    if (Object.prototype.hasOwnProperty.call(apiData, key)) {
+                        const collection = apiData[key];
+                        // Only overwrite if the API returns a non-empty array for that collection
+                        if (Array.isArray(collection) && collection.length > 0) {
+                            (merged as any)[key] = collection;
+                        }
+                    }
+                }
+                finalData = merged;
                 console.log("✅ Datos cargados desde la API y fusionados con datos locales.");
             }
+            setData(finalData);
+
         } catch (error) {
             console.error("Could not fetch initial data, falling back to local data:", error);
             setData(JSON.parse(JSON.stringify(realSantaData)));
