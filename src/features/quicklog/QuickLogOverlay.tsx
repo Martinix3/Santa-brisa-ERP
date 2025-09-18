@@ -56,13 +56,13 @@ function ChatModal({ open, onClose, children }: { open: boolean, onClose: () => 
 
 export default function QuickLogOverlay() {
   const [open, setOpen] = useState(false);
-  const { data, setData, currentUser } = useData();
+  const { data, setData, currentUser, forceSave } = useData();
 
   const handleNewData = useCallback(async (newData: Partial<SantaData>) => {
     if (!data) return;
     
     // 1. Update local state immediately for snappy UI
-    const updatedData = { ...data };
+    const updatedData: SantaData = { ...data };
     let hasNewData = false;
 
     if (newData.interactions && newData.interactions.length > 0) {
@@ -86,17 +86,17 @@ export default function QuickLogOverlay() {
 
     if (hasNewData) {
         setData(updatedData);
-        // 2. Persist changes to the backend via API route
+        // 2. Persist the ENTIRE updated data object to the backend
         try {
-            console.log("Datos que se enviarían a la API de persistencia:", newData);
-            await persistNewEntities(newData);
+            console.log("Datos COMPLETOS que se envían a la API de persistencia:", updatedData);
+            await forceSave(updatedData);
             console.log("Entities successfully sent to persistence API.");
         } catch (error) {
             console.error("Failed to save entities via API:", error);
             // Optionally, show an error to the user
         }
     }
-  }, [data, setData]);
+  }, [data, setData, forceSave]);
 
   if (!data || !currentUser) return null;
 

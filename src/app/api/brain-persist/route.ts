@@ -78,7 +78,8 @@ export async function POST(req: NextRequest) {
             const collectionData = payload[collectionName];
             if(Array.isArray(collectionData)) {
                 const docRef = userRootCol.collection(collectionName).doc('all');
-                batch.set(docRef, { data: collectionData }, { merge: false }); // Overwrite the entire document
+                // Use merge: true to avoid deleting other collections when persisting partial data
+                batch.set(docRef, { data: collectionData }, { merge: true }); 
                 operationsCount++;
             }
         }
