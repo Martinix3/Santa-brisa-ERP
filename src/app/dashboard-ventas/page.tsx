@@ -175,7 +175,9 @@ function PersonalDashboardContent({ displayedUser, timePeriod, setTimePeriod }: 
     const updateAndPersistInteractions = (updatedInteractions: Interaction[]) => {
       if (!santaData) return;
       setData(prev => prev ? ({ ...prev, interactions: updatedInteractions }) : null);
-      saveCollection('interactions', updatedInteractions, isPersistenceEnabled);
+      if (isPersistenceEnabled) {
+          saveCollection('interactions', updatedInteractions, isPersistenceEnabled);
+      }
     }
   
     const handleAddOrUpdateEvent = async (event: Omit<Interaction, 'createdAt' | 'status' | 'userId'> & { id?: string }) => {
@@ -632,11 +634,13 @@ export function SalesDashboardPageContent(){
     }, [currentUser]);
     
     useEffect(() => {
-        // If an admin is viewing the team dashboard, default to it
-        if(isAdmin) {
+        // If an admin is viewing, default to team view
+        if(isAdmin && view !== 'team') {
             setView('team');
+        } else if (!isAdmin && view !== 'personal') {
+            setView('personal');
         }
-    }, [isAdmin]);
+    }, [isAdmin, view]);
 
     return (
         <div className="p-6 bg-zinc-50 flex-grow">
@@ -648,8 +652,8 @@ export function SalesDashboardPageContent(){
                             onChange={e => setView(e.target.value as any)}
                             className="text-lg font-semibold bg-transparent border-b-2 border-zinc-300 focus:outline-none focus:border-yellow-400"
                         >
-                            <option value="team">Vista de Equipo</option>
                             <option value="personal">Vista Personal</option>
+                            <option value="team">Vista de Equipo</option>
                         </select>
                     )}
 
