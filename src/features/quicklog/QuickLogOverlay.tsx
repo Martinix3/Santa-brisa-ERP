@@ -27,7 +27,19 @@ export default function QuickLogOverlay() {
         if (newData[collectionName] && Array.isArray(newData[collectionName])) {
             const newItems = newData[collectionName] as any[];
             if (newItems.length > 0) {
-                 updatedData[collectionName] = [ ...(updatedData[collectionName] as any[]), ...newItems] as any;
+                 const existingItems = (updatedData[collectionName] as any[]) || [];
+                 // Filter out items that already exist to prevent duplicates
+                 const uniqueNewItems = newItems.filter(newItem => !existingItems.some(existingItem => existingItem.id === newItem.id));
+                 updatedData[collectionName] = [ ...existingItems, ...uniqueNewItems] as any;
+                 
+                 // Also handle updates
+                 newItems.forEach(newItem => {
+                    const index = (updatedData[collectionName] as any[]).findIndex(i => i.id === newItem.id);
+                    if (index !== -1) {
+                        (updatedData[collectionName] as any[])[index] = newItem;
+                    }
+                 });
+
                  hasChanges = true;
             }
         }

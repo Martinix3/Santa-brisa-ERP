@@ -9,13 +9,13 @@ import interactionPlugin from "@fullcalendar/interaction";
 import listPlugin from "@fullcalendar/list";
 import type { EventContentArg } from "@fullcalendar/core";
 import { useFullCalendarStyles } from "@/features/agenda/useFullCalendarStyles";
-import { TaskBoard, Task, TaskStatus } from "@/features/agenda/TaskBoard";
+import { TaskBoard, Task } from "@/features/agenda/TaskBoard";
 import { NewEventDialog } from "@/features/agenda/components/NewEventDialog";
 import { useData } from "@/lib/dataprovider";
 import { ModuleHeader } from "@/components/ui/ModuleHeader";
 import { Calendar } from "lucide-react";
 import { SB_COLORS, DEPT_META } from "@/domain/ssot";
-import type { Department, Interaction, SantaData, OrderSellOut } from '@/domain/ssot';
+import type { Department, Interaction, SantaData, OrderSellOut, InteractionStatus } from '@/domain/ssot';
 
 const FullCalendar = dynamic(() => import("@fullcalendar/react"), { ssr: false });
 
@@ -43,53 +43,35 @@ async function saveCollection(collectionName: keyof SantaData, data: any[]) {
 
 
 function mapDomainToTasks(
-  interactions: any[] | undefined,
-  orders: any[] | undefined,
+  interactions: Interaction[] | undefined,
   accounts: any[] | undefined
 ): Task[] {
-  if (!interactions || !orders || !accounts) return [];
+  if (!interactions || !accounts) return [];
 
   const accountMap = new Map(accounts.map((a) => [a.id, a.name]));
 
   const interactionTasks: Task[] = interactions
     .filter((i) => i?.plannedFor)
     .map((i) => {
-      const accountName = accountMap.get(i.accountId) || "Cuenta";
-      const plannedISO = asISO(i.plannedFor);
-      const isPast = new Date(plannedISO) < new Date();
+      const accountName = i.accountId ? accountMap.get(i.accountId) || "" : "";
+      const plannedISO = asISO(i.plannedFor!);
       
-      let status: TaskStatus = i.status === 'done' ? 'HECHA' : 'PROGRAMADA';
-      if (status === 'PROGRAMADA' && isPast) {
-          status = 'HECHA'; // Automatically move past events to done
-      }
+      const title = i.note ? `${i.note}${accountName ? ` - ${accountName}` : ''}` : `${i.kind} - ${accountName}`;
 
       const type: Department = (i.dept as Department) || "VENTAS";
       return {
         id: `int_${i.id}`,
-        title: `${i.note || i.kind || "Interacción"} - ${accountName}`,
+        title: title,
         type,
-        status,
+        status: i.status,
         date: plannedISO,
       };
     });
 
-  const orderTasks: Task[] = (orders || []).map((o) => {
-    const accountName = accountMap.get(o.accountId) || "Cuenta";
-    const status: TaskStatus =
-      o.status === "confirmed" ? "HECHA" : o.status === "open" ? "EN_CURSO" : "PROGRAMADA";
-    return {
-      id: `ord_${o.id}`,
-      title: `Pedido - ${accountName}`,
-      type: "ALMACEN" as Department,
-      status,
-      date: asISO(o.createdAt || new Date()),
-    };
-  });
-
-  return [...interactionTasks, ...orderTasks];
+  return interactionTasks;
 }
 
-function moveTaskStatus(tasks: Task[], id: string, newStatus: TaskStatus): Task[] {
+function moveTaskStatus(tasks: Task[], id: string, newStatus: InteractionStatus): Task[] {
   const idx = tasks.findIndex((t) => t.id === id);
   if (idx === -1) return tasks;
   const next = [...tasks];
@@ -140,13 +122,12 @@ function Tabs({
 
 export function CalendarPageContent() {
   useFullCalendarStyles();
-  const { data: SantaData, setData } = useData();
+  const { data: SantaData, setData, currentUser } = useData();
 
   const initialTasks = useMemo(() => {
     if (!SantaData) return [] as Task[];
     return mapDomainToTasks(
       SantaData.interactions,
-      SantaData.ordersSellOut,
       SantaData.accounts
     );
   }, [SantaData]);
@@ -181,39 +162,28 @@ export function CalendarPageContent() {
       saveCollection('interactions', updatedInteractions);
   }
 
-  const handleTaskStatusChange = (id: string, newStatus: TaskStatus) => {
+  const handleTaskStatusChange = (id: string, newStatus: InteractionStatus) => {
     if (!SantaData) return;
     setTasks((prev) => moveTaskStatus(prev, id, newStatus));
 
     if (id.startsWith('int_')) {
         const interactionId = id.substring(4);
         const updatedInteractions = SantaData.interactions.map(i => 
-            i.id === interactionId ? { ...i, status: newStatus === 'HECHA' ? 'done' : 'open' } : i
+            i.id === interactionId ? { ...i, status: newStatus } : i
         ) as Interaction[];
         updateAndPersistInteractions(updatedInteractions);
-    } else if (id.startsWith('ord_')) {
-        const orderId = id.substring(4);
-        const updatedOrders = SantaData.ordersSellOut.map(o => 
-            o.id === orderId ? { ...o, status: newStatus === 'HECHA' ? 'confirmed' : newStatus === 'EN_CURSO' ? 'open' : 'open' } : o
-        ) as OrderSellOut[];
-        setData(prev => prev ? ({ ...prev, ordersSellOut: updatedOrders }) : null);
-        saveCollection('ordersSellOut', updatedOrders);
     }
   };
   
-  const handleAddEvent = async (event: { title: string; type: Department; date: string | Date }) => {
-    if (!SantaData) return;
+  const handleAddEvent = async (event: Omit<Interaction, 'id'|'createdAt'|'status'>) => {
+    if (!SantaData || !currentUser) return;
     const newInteraction: Interaction = {
         id: `int_${Date.now()}`,
-        accountId: 'acc_placeholder', // O requerir una cuenta en el formulario
-        userId: 'u_nico', // O el currentUser.id
-        kind: 'OTRO',
-        note: event.title,
-        plannedFor: asISO(event.date),
         createdAt: new Date().toISOString(),
-        dept: event.type,
         status: 'open',
-    } as Interaction;
+        ...event,
+        userId: currentUser.id,
+    };
 
     const updatedInteractions = [...(SantaData.interactions || []), newInteraction];
     updateAndPersistInteractions(updatedInteractions);
@@ -237,7 +207,7 @@ export function CalendarPageContent() {
             accentColor={ACCENT}
           />
           <NewEventDialog
-            onAddEvent={handleAddEvent}
+            onAddEvent={handleAddEvent as any}
             accentColor={ACCENT}
           />
         </div>
@@ -279,11 +249,11 @@ export function CalendarPageContent() {
         )}
 
         {activeTab === "tareas" && (
-          <div className="h-full rounded-2xl bg-white border border-zinc-200 shadow-sm">
+          <div className="h-full rounded-2xl bg-white border border-zinc-200 shadow-sm p-4">
             <TaskBoard
               tasks={tasks}
               onTaskStatusChange={handleTaskStatusChange}
-              onCompleteTask={(id) => handleTaskStatusChange(id, 'HECHA')}
+              onCompleteTask={(id) => handleTaskStatusChange(id, 'done')}
               typeStyles={DEPT_META}
             />
           </div>

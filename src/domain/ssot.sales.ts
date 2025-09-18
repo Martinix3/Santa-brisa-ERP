@@ -4,6 +4,7 @@ import type { Currency } from './ssot.core';
 export type OrderStatus = 'open' | 'confirmed' | 'shipped' | 'invoiced' | 'paid' | 'cancelled' | 'lost';
 export type InteractionKind = 'VISITA' | 'LLAMADA' | 'EMAIL' | 'WHATSAPP' | 'OTRO';
 export type Department = 'PRODUCCION' | 'ALMACEN' | 'MARKETING' | 'VENTAS' | 'FINANZAS';
+export type InteractionStatus = 'open' | 'done';
 
 export interface OrderLine {
   sku: string;
@@ -34,8 +35,9 @@ export interface OrderSellOut {
 
 export interface Interaction {
   id: string;
-  accountId: string;
-  userId: string;
+  userId: string; // El "owner" o creador de la tarea
+  involvedUserIds?: string[]; // Usuarios adicionales implicados
+  accountId?: string; // Cuenta de cliente asociada
   kind: InteractionKind;
   note?: string;
   plannedFor?: string;
@@ -43,4 +45,13 @@ export interface Interaction {
   durationMin?: number;
   sentiment?: 'pos' | 'neu' | 'neg';
   dept?: Department;
+  status: InteractionStatus;
+  
+  // Campos "vitaminados"
+  location?: string;
+  linkedEntity?: {
+    type: 'Order' | 'Account' | 'Campaign' | 'Collab' | 'Shipment' | 'ProductionOrder';
+    id: string;
+  };
+  tags?: string[];
 }

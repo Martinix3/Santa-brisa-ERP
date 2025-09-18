@@ -3,22 +3,20 @@
 "use client";
 import React from 'react';
 import { DndContext, useDraggable, useDroppable, closestCorners } from '@dnd-kit/core';
-import type { Department } from '@/domain/ssot';
+import type { Department, InteractionStatus } from '@/domain/ssot';
 import { Check } from 'lucide-react';
 
-export type TaskStatus = 'PROGRAMADA' | 'EN_CURSO' | 'HECHA';
 export type Task = {
   id: string;
   title: string;
   type: Department;
-  status: TaskStatus;
+  status: InteractionStatus;
   date?: string;
 };
 
-const STATUS_COLS: { id: TaskStatus, label: string }[] = [
-    { id: 'PROGRAMADA', label: 'Programadas' },
-    { id: 'EN_CURSO', label: 'En Curso' },
-    { id: 'HECHA', label: 'Hechas' },
+const STATUS_COLS: { id: InteractionStatus, label: string }[] = [
+    { id: 'open', label: 'Programadas' },
+    { id: 'done', label: 'Hechas' },
 ];
 
 function TaskCard({ task, typeStyles, onComplete }: { task: Task; typeStyles: any, onComplete: (id: string) => void; }) {
@@ -44,7 +42,7 @@ function TaskCard({ task, typeStyles, onComplete }: { task: Task; typeStyles: an
                 </span>
                 <div className="flex items-center gap-2">
                     {task.date && <span className="text-xs text-zinc-500">{new Date(task.date).toLocaleDateString('es-ES')}</span>}
-                    {task.status !== 'HECHA' && (
+                    {task.status !== 'done' && (
                          <button 
                             onClick={(e) => { e.stopPropagation(); onComplete(task.id); }}
                             className="p-1 rounded-md text-zinc-400 opacity-0 group-hover:opacity-100 hover:bg-green-100 hover:text-green-600 transition-opacity"
@@ -59,7 +57,7 @@ function TaskCard({ task, typeStyles, onComplete }: { task: Task; typeStyles: an
     );
 }
 
-function StatusColumn({ status, tasks, typeStyles, onCompleteTask }: { status: TaskStatus, tasks: Task[], typeStyles: any, onCompleteTask: (id: string) => void; }) {
+function StatusColumn({ status, tasks, typeStyles, onCompleteTask }: { status: InteractionStatus, tasks: Task[], typeStyles: any, onCompleteTask: (id: string) => void; }) {
     const { setNodeRef } = useDroppable({ id: status });
 
     return (
@@ -73,7 +71,7 @@ function StatusColumn({ status, tasks, typeStyles, onCompleteTask }: { status: T
 }
 
 
-export function TaskBoard({ tasks, onTaskStatusChange, onCompleteTask, typeStyles }: { tasks: Task[], onTaskStatusChange: (id: string, newStatus: TaskStatus) => void, onCompleteTask: (id: string) => void; typeStyles: any }) {
+export function TaskBoard({ tasks, onTaskStatusChange, onCompleteTask, typeStyles }: { tasks: Task[], onTaskStatusChange: (id: string, newStatus: InteractionStatus) => void, onCompleteTask: (id: string) => void; typeStyles: any }) {
     
     function handleDragEnd(event: any) {
         const { over, active } = event;
@@ -84,7 +82,7 @@ export function TaskBoard({ tasks, onTaskStatusChange, onCompleteTask, typeStyle
 
     return (
         <DndContext onDragEnd={handleDragEnd} collisionDetection={closestCorners}>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {STATUS_COLS.map(col => (
                     <StatusColumn
                         key={col.id}
