@@ -10,6 +10,8 @@ import { ModuleHeader } from '@/components/ui/ModuleHeader';
 import { ShoppingCart } from 'lucide-react';
 import Link from 'next/link';
 
+type Tab = 'directa' | 'colocacion';
+
 // Componente de UI para los filtros
 function FilterPill({
   value,
@@ -59,8 +61,36 @@ function StatusPill({ status }: { status: OrderStatus }) {
     );
 }
 
+function Tabs({ activeTab, setActiveTab }: { activeTab: Tab, setActiveTab: (tab: Tab) => void }) {
+    const tabs: {id: Tab, label: string}[] = [
+        { id: 'directa', label: 'Venta Directa' },
+        { id: 'colocacion', label: 'Colocación (Sell-Out)' },
+    ];
+    return (
+        <div className="border-b border-zinc-200">
+            <nav className="-mb-px flex space-x-6" aria-label="Tabs">
+                {tabs.map((tab) => (
+                <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors
+                    ${ activeTab === tab.id
+                        ? 'border-yellow-500 text-yellow-600'
+                        : 'border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300'
+                    }`
+                    }
+                >
+                    {tab.label}
+                </button>
+                ))}
+            </nav>
+        </div>
+    )
+}
+
 export default function OrdersDashboard() {
   const { data } = useData();
+  const [activeTab, setActiveTab] = useState<Tab>('directa');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
 
@@ -82,6 +112,13 @@ export default function OrdersDashboard() {
       .filter((order) => {
         if (!order) return false;
         const account = accountMap.get(order.accountId);
+        if (!account) return false;
+
+        // Filtro por tipo de venta (pestaña)
+        const isVentaDirecta = account.billerId === 'SB';
+        if (activeTab === 'directa' && !isVentaDirecta) return false;
+        if (activeTab === 'colocacion' && isVentaDirecta) return false;
+
         const matchesSearch =
           !searchTerm ||
           order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -92,7 +129,7 @@ export default function OrdersDashboard() {
         return matchesSearch && matchesStatus;
       })
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [ordersSellOut, searchTerm, statusFilter, accountMap]);
+  }, [ordersSellOut, searchTerm, statusFilter, accountMap, activeTab]);
 
   return (
     <>
@@ -108,7 +145,9 @@ export default function OrdersDashboard() {
       </ModuleHeader>
 
       <div className="p-4 md:p-6">
-        <div className="mb-4 flex items-center gap-3">
+        <Tabs activeTab={activeTab} setActiveTab={setActiveTab} />
+        
+        <div className="mt-4 mb-4 flex items-center gap-3">
             <div className="relative flex-grow">
                 <Search className="h-4 w-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2"/>
                 <input 
