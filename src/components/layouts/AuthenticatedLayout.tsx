@@ -108,12 +108,13 @@ const navSections = [
         title: 'Admin',
         module: 'admin',
         items: [
-            { href: '/admin/kpi-settings', label: 'Dashboard (Alertas)', icon: SlidersHorizontal },
+            { href: '/admin/kpi-settings', label: 'Ajustes de KPIs', icon: SlidersHorizontal },
             { href: '/users', label: 'Usuarios', icon: User },
             { href: '/admin/sku-management', label: 'SKUs', icon: Tags },
-            { href: '/dev/data-viewer', label: 'Data Viewer / Map', icon: Database },
-            { href: '/dev/ssot-tests', label: 'SSOT', icon: TestTube2 },
-            { href: '/dev/integrations-panel', label: 'Integrations', icon: Zap },
+            { href: '/dev/data-viewer', label: 'Data Viewer', icon: Database },
+            { href: '/dev/db-console', label: 'Consola de DB', icon: DatabaseZap },
+            { href: '/dev/ssot-tests', label: 'Tests de Integridad', icon: TestTube2 },
+            { href: '/dev/integrations-panel', label: 'Integraciones', icon: Zap },
         ]
     }
 ];
@@ -176,17 +177,8 @@ function NavSection({
     const Icon = section.items[0].icon;
 
     const handleToggle = () => {
-        // Only redirect if sidebar is collapsed
-        if (isCollapsed) {
-            const dashboardItem = section.items.find(item => item.label.toLowerCase().includes('dashboard'));
-            if (dashboardItem) {
-                router.push(dashboardItem.href);
-                return;
-            }
-        }
         onToggle();
     };
-
 
     if (section.items.length === 1 && !isCollapsed) {
         return <NavLink {...section.items[0]} isCollapsed={isCollapsed} moduleColor={moduleColor} />;
@@ -204,10 +196,12 @@ function NavSection({
             >
                 {!isCollapsed && <span className="uppercase tracking-wider text-xs">{section.title}</span>}
                 {isCollapsed && <div className="p-1"><Icon className="h-5 w-5"/></div>}
-                <ChevronDown 
-                    className={`h-4 w-4 transition-transform duration-200 ${isCollapsed ? 'hidden' : ''}`}
-                    style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
-                />
+                {!isCollapsed && (
+                    <ChevronDown 
+                        className={`h-4 w-4 transition-transform duration-200`}
+                        style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                    />
+                )}
             </button>
             <AnimatePresence initial={false}>
                 {isExpanded && !isCollapsed && (
