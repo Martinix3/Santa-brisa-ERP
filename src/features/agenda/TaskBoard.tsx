@@ -4,6 +4,7 @@
 import React from 'react';
 import { DndContext, useDraggable, useDroppable, closestCorners } from '@dnd-kit/core';
 import type { Department } from '@/domain/ssot';
+import { Check } from 'lucide-react';
 
 export type TaskStatus = 'PROGRAMADA' | 'EN_CURSO' | 'HECHA';
 export type Task = {
@@ -20,7 +21,7 @@ const STATUS_COLS: { id: TaskStatus, label: string }[] = [
     { id: 'HECHA', label: 'Hechas' },
 ];
 
-function TaskCard({ task, typeStyles }: { task: Task; typeStyles: any }) {
+function TaskCard({ task, typeStyles, onComplete }: { task: Task; typeStyles: any, onComplete: (id: string) => void; }) {
     const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: task.id });
     const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined;
     const typeStyle = typeStyles[task.type] || {};
@@ -31,7 +32,7 @@ function TaskCard({ task, typeStyles }: { task: Task; typeStyles: any }) {
             style={style}
             {...listeners} 
             {...attributes}
-            className="p-3 bg-white rounded-lg border shadow-sm cursor-grab"
+            className="p-3 bg-white rounded-lg border shadow-sm cursor-grab group"
         >
             <p className="font-medium text-sm text-zinc-800">{task.title}</p>
             <div className="mt-2 flex justify-between items-center">
@@ -41,27 +42,38 @@ function TaskCard({ task, typeStyles }: { task: Task; typeStyles: any }) {
                 >
                     {typeStyle.label}
                 </span>
-                {task.date && <span className="text-xs text-zinc-500">{new Date(task.date).toLocaleDateString('es-ES')}</span>}
+                <div className="flex items-center gap-2">
+                    {task.date && <span className="text-xs text-zinc-500">{new Date(task.date).toLocaleDateString('es-ES')}</span>}
+                    {task.status !== 'HECHA' && (
+                         <button 
+                            onClick={(e) => { e.stopPropagation(); onComplete(task.id); }}
+                            className="p-1 rounded-md text-zinc-400 opacity-0 group-hover:opacity-100 hover:bg-green-100 hover:text-green-600 transition-opacity"
+                            title="Marcar como completada"
+                        >
+                            <Check size={16} />
+                        </button>
+                    )}
+                </div>
             </div>
         </div>
     );
 }
 
-function StatusColumn({ status, tasks, typeStyles }: { status: TaskStatus, tasks: Task[], typeStyles: any }) {
+function StatusColumn({ status, tasks, typeStyles, onCompleteTask }: { status: TaskStatus, tasks: Task[], typeStyles: any, onCompleteTask: (id: string) => void; }) {
     const { setNodeRef } = useDroppable({ id: status });
 
     return (
         <div ref={setNodeRef} className="bg-zinc-100/70 p-3 rounded-xl w-full">
             <h3 className="font-semibold text-zinc-700 px-1 mb-3">{STATUS_COLS.find(s=>s.id === status)?.label}</h3>
             <div className="space-y-3 min-h-[100px]">
-                {tasks.map(task => <TaskCard key={task.id} task={task} typeStyles={typeStyles} />)}
+                {tasks.map(task => <TaskCard key={task.id} task={task} typeStyles={typeStyles} onComplete={onCompleteTask} />)}
             </div>
         </div>
     );
 }
 
 
-export function TaskBoard({ tasks, onTaskStatusChange, typeStyles }: { tasks: Task[], onTaskStatusChange: (id: string, newStatus: TaskStatus) => void, typeStyles: any }) {
+export function TaskBoard({ tasks, onTaskStatusChange, onCompleteTask, typeStyles }: { tasks: Task[], onTaskStatusChange: (id: string, newStatus: TaskStatus) => void, onCompleteTask: (id: string) => void; typeStyles: any }) {
     
     function handleDragEnd(event: any) {
         const { over, active } = event;
@@ -79,6 +91,7 @@ export function TaskBoard({ tasks, onTaskStatusChange, typeStyles }: { tasks: Ta
                         status={col.id}
                         tasks={tasks.filter(t => t.status === col.id)}
                         typeStyles={typeStyles}
+                        onCompleteTask={onCompleteTask}
                     />
                 ))}
             </div>

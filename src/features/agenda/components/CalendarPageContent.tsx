@@ -1,4 +1,5 @@
 
+
 "use client";
 import React, { useMemo, useState, useEffect } from "react";
 import dynamic from "next/dynamic";
@@ -13,21 +14,10 @@ import { NewEventDialog } from "@/features/agenda/components/NewEventDialog";
 import { useData } from "@/lib/dataprovider";
 import { ModuleHeader } from "@/components/ui/ModuleHeader";
 import { Calendar } from "lucide-react";
-import { SB_COLORS } from "@/components/ui/ui-primitives";
-import type { Department, Interaction, SantaData } from '@/domain/ssot';
+import { SB_COLORS, DEPT_META } from "@/domain/ssot";
+import type { Department, Interaction, SantaData, OrderSellOut } from '@/domain/ssot';
 
 const FullCalendar = dynamic(() => import("@fullcalendar/react"), { ssr: false });
-
-const DEPT_META: Record<
-  Department,
-  { label: string; color: string; textColor: string }
-> = {
-  VENTAS: { label: 'Ventas', color: '#D7713E', textColor: '#40210f' },
-  PRODUCCION: { label: 'Producción', color: '#618E8F', textColor: '#153235' },
-  ALMACEN:    { label: 'Almacén',    color: '#A7D8D9', textColor: '#17383a' },
-  MARKETING:  { label: 'Marketing',  color: '#F7D15F', textColor: '#3f3414' },
-  FINANZAS:   { label: 'Finanzas',   color: '#CCCCCC', textColor: '#333333' },
-};
 
 const asISO = (d: string | Date) => {
   const date = typeof d === "string" ? new Date(d) : d;
@@ -67,7 +57,12 @@ function mapDomainToTasks(
       const accountName = accountMap.get(i.accountId) || "Cuenta";
       const plannedISO = asISO(i.plannedFor);
       const isPast = new Date(plannedISO) < new Date();
-      const status: TaskStatus = isPast ? "HECHA" : "PROGRAMADA";
+      
+      let status: TaskStatus = i.status === 'done' ? 'HECHA' : 'PROGRAMADA';
+      if (status === 'PROGRAMADA' && isPast) {
+          status = 'HECHA'; // Automatically move past events to done
+      }
+
       const type: Department = (i.dept as Department) || "VENTAS";
       return {
         id: `int_${i.id}`,
@@ -179,9 +174,31 @@ export function CalendarPageContent() {
       }),
     [tasks]
   );
+  
+  const updateAndPersistInteractions = (updatedInteractions: Interaction[]) => {
+      if (!SantaData) return;
+      setData(prev => prev ? ({ ...prev, interactions: updatedInteractions }) : null);
+      saveCollection('interactions', updatedInteractions);
+  }
 
   const handleTaskStatusChange = (id: string, newStatus: TaskStatus) => {
+    if (!SantaData) return;
     setTasks((prev) => moveTaskStatus(prev, id, newStatus));
+
+    if (id.startsWith('int_')) {
+        const interactionId = id.substring(4);
+        const updatedInteractions = SantaData.interactions.map(i => 
+            i.id === interactionId ? { ...i, status: newStatus === 'HECHA' ? 'done' : 'open' } : i
+        ) as Interaction[];
+        updateAndPersistInteractions(updatedInteractions);
+    } else if (id.startsWith('ord_')) {
+        const orderId = id.substring(4);
+        const updatedOrders = SantaData.ordersSellOut.map(o => 
+            o.id === orderId ? { ...o, status: newStatus === 'HECHA' ? 'confirmed' : newStatus === 'EN_CURSO' ? 'open' : 'open' } : o
+        ) as OrderSellOut[];
+        setData(prev => prev ? ({ ...prev, ordersSellOut: updatedOrders }) : null);
+        saveCollection('ordersSellOut', updatedOrders);
+    }
   };
   
   const handleAddEvent = async (event: { title: string; type: Department; date: string | Date }) => {
@@ -194,12 +211,12 @@ export function CalendarPageContent() {
         note: event.title,
         plannedFor: asISO(event.date),
         createdAt: new Date().toISOString(),
-        dept: event.type
-    };
+        dept: event.type,
+        status: 'open',
+    } as Interaction;
 
     const updatedInteractions = [...(SantaData.interactions || []), newInteraction];
-    setData(prev => prev ? ({ ...prev, interactions: updatedInteractions }) : null);
-    await saveCollection('interactions', updatedInteractions);
+    updateAndPersistInteractions(updatedInteractions);
   };
 
   if (!SantaData) return <div className="p-6">Cargando datos…</div>;
@@ -266,6 +283,7 @@ export function CalendarPageContent() {
             <TaskBoard
               tasks={tasks}
               onTaskStatusChange={handleTaskStatusChange}
+              onCompleteTask={(id) => handleTaskStatusChange(id, 'HECHA')}
               typeStyles={DEPT_META}
             />
           </div>
