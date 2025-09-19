@@ -29,50 +29,6 @@ const asISO = (d: string | Date) => {
   return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString();
 };
 
-async function getAuthHeaders(): Promise<Record<string, string>> {
-  const user = auth.currentUser;
-  if (!user) return {};
-
-  try {
-      const token = await getIdToken(user, true);
-      return { 'Authorization': `Bearer ${token}` };
-  } catch (error) {
-      console.error("Error getting auth token:", error);
-      return {};
-  }
-}
-
-export async function saveCollection(collectionName: keyof SantaData, data: any[], isPersistenceEnabled: boolean) {
-    if (!isPersistenceEnabled) {
-      console.log(`[Offline Mode] Not saving collection: ${collectionName}`);
-      return;
-    }
-    
-    try {
-        const headers = await getAuthHeaders();
-        if (!headers['Authorization']) {
-          throw new Error('User not authenticated. Cannot save data.');
-        }
-
-        const response = await fetch('/api/brain-persist', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...headers },
-            body: JSON.stringify({
-                data: { [collectionName]: data },
-                persistenceEnabled: true,
-                strategy: 'overwrite'
-            }),
-        });
-        if (!response.ok) {
-            const err = await response.json();
-            throw new Error(err.error || `Error guardando la colección ${collectionName}`);
-        }
-    } catch (e: any) {
-        console.error(`Error saving collection ${collectionName}:`, e);
-        throw e;
-    }
-}
-
 
 function mapDomainToTasks(
   interactions: Interaction[] | undefined,
@@ -165,7 +121,7 @@ function FilterSelect({ value, onChange, options, placeholder, className }: { va
 
 export function CalendarPageContent() {
   useFullCalendarStyles();
-  const { data: SantaData, setData, currentUser, isPersistenceEnabled } = useData();
+  const { data: SantaData, setData, currentUser, isPersistenceEnabled, saveCollection } = useData();
   const [activeTab, setActiveTab] = useState<"agenda" | "tareas">("agenda");
   const [selectedEvent, setSelectedEvent] = useState<Interaction | null>(null);
   const [editingEvent, setEditingEvent] = useState<Interaction | null>(null);
@@ -212,7 +168,7 @@ export function CalendarPageContent() {
       const fullData = { ...SantaData, interactions: updatedInteractions };
       setData(fullData);
       if (isPersistenceEnabled) {
-        saveCollection('interactions', updatedInteractions, isPersistenceEnabled);
+        saveCollection('interactions', updatedInteractions);
       }
   }
 
@@ -271,9 +227,9 @@ export function CalendarPageContent() {
       setData(finalData);
 
       if (isPersistenceEnabled) {
-          await saveCollection('interactions', finalData.interactions, isPersistenceEnabled);
+          await saveCollection('interactions', finalData.interactions);
           if (finalData.mktEvents.length > (SantaData.mktEvents?.length || 0)) {
-              await saveCollection('mktEvents', finalData.mktEvents, isPersistenceEnabled);
+              await saveCollection('mktEvents', finalData.mktEvents);
           }
       }
 
@@ -372,12 +328,12 @@ export function CalendarPageContent() {
     setData(finalData);
 
     if (isPersistenceEnabled) {
-        await saveCollection('interactions', finalData.interactions, isPersistenceEnabled);
+        await saveCollection('interactions', finalData.interactions);
         if (payload.type === 'venta') {
-            await saveCollection('ordersSellOut', finalData.ordersSellOut, isPersistenceEnabled);
+            await saveCollection('ordersSellOut', finalData.ordersSellOut);
         }
         if (payload.type === 'marketing') {
-            await saveCollection('mktEvents', finalData.mktEvents, isPersistenceEnabled);
+            await saveCollection('mktEvents', finalData.mktEvents);
         }
     }
     
@@ -571,3 +527,5 @@ export function CalendarPageContent() {
     </>
   );
 }
+
+    

@@ -6,7 +6,6 @@ import type { Lot, QACheck, QCResult } from '@/domain/ssot';
 import { SBCard, SBButton, Input, Textarea } from '@/components/ui/ui-primitives';
 import { QC_PARAMS, QCKey } from '@/domain/production.qc';
 import { CheckCircle, XCircle, Hourglass, FlaskConical, Thermometer, Beaker, TestTube2, Paperclip, Upload, Trash2 } from 'lucide-react';
-import { saveCollection } from '@/features/agenda/components/CalendarPageContent';
 
 const ICONS: Record<string, React.ElementType> = { TestTube2, Thermometer, FlaskConical, Beaker };
 
@@ -73,7 +72,7 @@ function AnalysisInput({ paramKey, spec, value, onChange }: { paramKey: string, 
 }
 
 export default function LotReleasePage() {
-    const { data: santaData, setData, isPersistenceEnabled } = useData();
+    const { data: santaData, setData, isPersistenceEnabled, saveCollection } = useData();
     const [selectedLot, setSelectedLot] = useState<Lot | null>(null);
     const [analysisResults, setAnalysisResults] = useState<Record<string, QCResult>>({});
 
@@ -111,7 +110,7 @@ export default function LotReleasePage() {
         setData({ ...santaData, lots: updatedLots });
 
         if (isPersistenceEnabled) {
-            await saveCollection('lots', updatedLots, isPersistenceEnabled);
+            await saveCollection('lots', updatedLots);
         }
 
         setSelectedLot(null);
@@ -199,3 +198,4 @@ export default function LotReleasePage() {
     );
 }
 
+    

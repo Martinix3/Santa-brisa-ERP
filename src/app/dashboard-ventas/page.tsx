@@ -1,8 +1,7 @@
 
-
 "use client";
 import React, { useMemo, useState, useEffect } from "react";
-import { BarChart3, Clock, MapPin, Phone, Target, Users, Briefcase, ChevronDown, MessageSquare, Map as MapIcon, ShoppingCart, UserPlus, User, BrainCircuit, CheckCircle, Edit, Trash2, AlertCircle } from "lucide-react";
+import { BarChart3, Clock, MapPin, Phone, Target, Users, Briefcase, ChevronDown, MessageSquare, Map as MapIcon, ShoppingCart, UserPlus, User, BrainCircuit, CheckCircle, Edit, Trash2, AlertCircle, Mail } from "lucide-react";
 import { motion } from "framer-motion";
 import { ResponsiveContainer, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip, Line } from "recharts";
 import { useData } from "@/lib/dataprovider";
@@ -14,7 +13,6 @@ import { generateInsights } from "@/ai/flows/generate-insights-flow";
 import AuthenticatedLayout from "@/components/layouts/AuthenticatedLayout";
 import { EventDetailDialog } from "@/features/agenda/components/EventDetailDialog";
 import { NewEventDialog } from "@/features/agenda/components/NewEventDialog";
-import { saveCollection } from '@/features/agenda/components/CalendarPageContent';
 import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/TaskCompletionDialog';
 
 
@@ -44,7 +42,7 @@ function PersonalDashboardContent({ displayedUser, timePeriod, setTimePeriod }: 
     timePeriod: 'week' | 'month' | 'year',
     setTimePeriod: (p: 'week' | 'month' | 'year') => void,
 }){
-  const { data: santaData, setData, currentUser, isPersistenceEnabled } = useData();
+  const { data: santaData, setData, currentUser, isPersistenceEnabled, saveCollection } = useData();
   const accent = SB_COLORS.accent;
 
   const [selectedEvent, setSelectedEvent] = useState<Interaction | null>(null);
@@ -98,7 +96,7 @@ function PersonalDashboardContent({ displayedUser, timePeriod, setTimePeriod }: 
             const current = acc.get(order.accountId) || { revenue: 0, last: '1970-01-01' };
             acc.set(order.accountId, {
                 revenue: current.revenue + orderTotal(order),
-                last: order.createdAt > current.last ? order.createdAt : current.last,
+                last: order.createdAt > current.last ? order.createdAt : order.last,
             });
         }
         return acc;
@@ -176,7 +174,7 @@ function PersonalDashboardContent({ displayedUser, timePeriod, setTimePeriod }: 
       if (!santaData) return;
       setData(prev => prev ? ({ ...prev, interactions: updatedInteractions }) : null);
       if (isPersistenceEnabled) {
-          saveCollection('interactions', updatedInteractions, isPersistenceEnabled);
+          saveCollection('interactions', updatedInteractions);
       }
     }
   
@@ -696,3 +694,5 @@ export default function SalesDashboardPage() {
         </AuthenticatedLayout>
     )
 }
+
+    

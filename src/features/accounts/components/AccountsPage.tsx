@@ -99,7 +99,7 @@ function AccountBar({ a, santaData, onAddActivity }: { a: AccountType, santaData
       WHATSAPP: MessageSquare,
   };
 
-  const distributor = useMemo(() => santaData.distributors.find(d => d.id === a.billerId), [a.billerId, santaData.distributors]);
+  const distributor = useMemo(() => santaData.distributors.find(d => d.id === a.billerId), [a, santaData.distributors]);
 
   return (
     <div className="overflow-hidden transition-all duration-200 hover:bg-black/5 rounded-lg border border-zinc-200/50">
@@ -309,7 +309,7 @@ export function AccountsPageContent() {
             if (payload.nextActionDate) {
                  const newFollowUp: Interaction = {
                     id: `int_${Date.now() + 1}`,
-                    userId: currentUser.id,
+                    userId: originalTask.userId,
                     accountId: accountId,
                     kind: 'OTRO', 
                     note: `Seguimiento de: ${payload.note}`,
@@ -326,9 +326,9 @@ export function AccountsPageContent() {
 
         // Persist changes
         if (payload.type === 'venta') {
-            saveCollection('ordersSellOut', finalData.ordersSellOut);
+            await saveCollection('ordersSellOut', finalData.ordersSellOut);
         }
-        saveCollection('interactions', finalData.interactions);
+        await saveCollection('interactions', finalData.interactions);
     
         setCompletingTaskForAccount(null);
     };
@@ -394,3 +394,5 @@ export function AccountsPageContent() {
     </>
   )
 }
+
+    

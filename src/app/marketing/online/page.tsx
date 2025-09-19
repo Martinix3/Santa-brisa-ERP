@@ -4,7 +4,6 @@ import React, { useState, useMemo } from 'react';
 import { useData } from '@/lib/dataprovider';
 import { SBButton, SBCard, Input, Select } from '@/components/ui/ui-primitives';
 import type { OnlineCampaign } from '@/domain/ssot';
-import { saveCollection } from '@/features/agenda/components/CalendarPageContent';
 import { Plus, Edit, Save, X, Trash2 } from 'lucide-react';
 
 function StatusPill({ status }: { status: 'planned' | 'active' | 'closed' | 'cancelled' }) {
@@ -150,7 +149,7 @@ function CampaignRow({ campaign, onUpdate }: { campaign: OnlineCampaign; onUpdat
 }
 
 export default function OnlineCampaignsPage(){
-  const { data: santaData, setData, isPersistenceEnabled } = useData();
+  const { data: santaData, setData, isPersistenceEnabled, saveCollection } = useData();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const campaigns = useMemo(() => santaData?.onlineCampaigns || [], [santaData]);
@@ -169,7 +168,7 @@ export default function OnlineCampaignsPage(){
     setData(prevData => prevData ? { ...prevData, onlineCampaigns: updatedCampaigns } : null);
 
     if (isPersistenceEnabled) {
-        await saveCollection('onlineCampaigns', updatedCampaigns, isPersistenceEnabled);
+        await saveCollection('onlineCampaigns', updatedCampaigns);
     }
   };
 
@@ -180,7 +179,7 @@ export default function OnlineCampaignsPage(){
     setData(prevData => prevData ? { ...prevData, onlineCampaigns: updatedCampaigns } : null);
 
     if (isPersistenceEnabled) {
-        await saveCollection('onlineCampaigns', updatedCampaigns, isPersistenceEnabled);
+        await saveCollection('onlineCampaigns', updatedCampaigns);
     }
   }
 
@@ -224,3 +223,5 @@ export default function OnlineCampaignsPage(){
     </>
   );
 }
+
+    

@@ -6,7 +6,6 @@ import type { EventMarketing, Interaction } from '@/domain/ssot';
 import { SBCard, SBButton, DataTableSB, Col, SB_COLORS } from '@/components/ui/ui-primitives';
 import { NewEventDialog } from '@/features/agenda/components/NewEventDialog';
 import { MarketingTaskCompletionDialog } from '@/features/marketing/components/MarketingTaskCompletionDialog';
-import { saveCollection } from '@/features/agenda/components/CalendarPageContent';
 
 function StatusPill({ status }: { status: EventMarketing['status'] }) {
     const styles = {
@@ -26,7 +25,7 @@ const formatNumber = (num?: number) => num?.toLocaleString('es-ES') || 'N/A';
 const formatCurrency = (num?: number) => num?.toLocaleString('es-ES', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 }) || 'N/A';
 
 export default function Page(){
-  const { data: santaData, setData, currentUser, isPersistenceEnabled } = useData();
+  const { data: santaData, setData, currentUser, isPersistenceEnabled, saveCollection } = useData();
   const [isNewEventDialogOpen, setIsNewEventDialogOpen] = useState(false);
   const [completingEvent, setCompletingEvent] = useState<EventMarketing | null>(null);
 
@@ -60,8 +59,8 @@ export default function Page(){
       setData(finalData);
       
       if(isPersistenceEnabled) {
-          await saveCollection('mktEvents', finalData.mktEvents, isPersistenceEnabled);
-          await saveCollection('interactions', finalData.interactions, isPersistenceEnabled);
+          await saveCollection('mktEvents', finalData.mktEvents);
+          await saveCollection('interactions', finalData.interactions);
       }
 
       setIsNewEventDialogOpen(false);
@@ -84,7 +83,7 @@ export default function Page(){
 
     setData({ ...santaData, mktEvents: updatedMktEvents });
     if (isPersistenceEnabled) {
-        await saveCollection('mktEvents', updatedMktEvents, isPersistenceEnabled);
+        await saveCollection('mktEvents', updatedMktEvents);
     }
 
     setCompletingEvent(null);
@@ -145,3 +144,5 @@ export default function Page(){
     </>
   );
 }
+
+    
