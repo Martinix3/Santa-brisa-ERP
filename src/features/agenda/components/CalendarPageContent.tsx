@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useMemo, useState, useEffect } from "react";
 import dynamic from "next/dynamic";
@@ -25,10 +26,13 @@ import { getIdToken } from "firebase/auth";
 const toDate = (d: any): Date | null => {
   if (!d) return null;
   if (d instanceof Date) return isNaN(d.getTime()) ? null : d;
+
   if (typeof d === 'string' || typeof d === 'number') {
     const dt = new Date(d);
     return isNaN(dt.getTime()) ? null : dt;
   }
+
+  // Firestore Timestamp u objetos parecidos
   if (typeof d === 'object') {
     // Evita arrays u objetos extraños
     if (Array.isArray(d)) return null;
@@ -49,6 +53,7 @@ const toDate = (d: any): Date | null => {
       return isNaN(dt.getTime()) ? null : dt;
     }
   }
+
   return null;
 };
 
@@ -563,3 +568,4 @@ export function CalendarPageContent() {
     </>
   );
 }
+
