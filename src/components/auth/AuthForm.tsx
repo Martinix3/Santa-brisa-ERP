@@ -33,7 +33,8 @@ export function AuthForm({ onEmailLogin, onEmailSignup, onGoogleSubmit }: AuthFo
         setError(null);
         try {
             await onEmailSubmit(email, password);
-            // After successful login/signup, the main page will handle redirection
+            // After successful login/signup, redirect to the root page
+            // The root page will handle the final redirection to the dashboard.
             router.push('/');
         } catch (err: any) {
             setError(err.message || 'Ha ocurrido un error.');
