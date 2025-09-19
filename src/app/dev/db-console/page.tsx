@@ -13,11 +13,25 @@ import { useData } from '@/lib/dataprovider';
 
 function DataProviderStatusCard() {
     const { data, currentUser, isLoading } = useData();
+    const [testWrites, setTestWrites] = useState<any[] | null>(null);
+    const [readError, setReadError] = useState<string | null>(null);
+
+    const handleReadTestWrites = async () => {
+        setTestWrites(null);
+        setReadError(null);
+        try {
+            const querySnapshot = await getDocs(collection(db, "test_writes"));
+            const writes = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setTestWrites(writes);
+        } catch (error: any) {
+            setReadError(`Error de lectura: ${error.message}`);
+        }
+    };
 
     return (
-        <SBCard title="Prueba del DataProvider">
+        <SBCard title="Prueba del DataProvider y Lectura">
             <div className="p-4 space-y-3">
-                <p className="text-sm text-zinc-600">Comprueba si el `DataProvider` ha cargado los datos en la memoria de la aplicación.</p>
+                <p className="text-sm text-zinc-600">Comprueba si el `DataProvider` ha cargado los datos en memoria y si puede leer colecciones de Firestore.</p>
                 
                 {isLoading ? (
                     <div className="text-sm text-zinc-500 animate-pulse">Cargando DataProvider...</div>
@@ -37,6 +51,32 @@ function DataProviderStatusCard() {
                        <AlertTriangle size={16} /> El DataProvider no pudo cargar los datos.
                     </div>
                 )}
+                
+                <div className="border-t pt-3">
+                    <SBButton onClick={handleReadTestWrites} variant="secondary">
+                        <Zap size={14} /> Leer colección 'test_writes'
+                    </SBButton>
+
+                    {readError && <p className="text-red-600 text-sm mt-2">{readError}</p>}
+                    
+                    {testWrites && (
+                        <div className="mt-3 space-y-2">
+                            <h4 className="font-semibold text-sm">Contenido de 'test_writes':</h4>
+                            {testWrites.length > 0 ? (
+                                <div className="divide-y divide-zinc-100 border rounded-lg bg-zinc-50/50 max-h-40 overflow-auto">
+                                    {testWrites.map(doc => (
+                                        <div key={doc.id} className="p-2 text-xs">
+                                            <p className="font-mono text-zinc-500">{doc.id}</p>
+                                            <p>{doc.message} - {doc.timestamp?.toDate().toLocaleString('es-ES') || 'Sin fecha'}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-sm text-center text-zinc-500 py-4">La colección 'test_writes' está vacía.</p>
+                            )}
+                        </div>
+                    )}
+                </div>
             </div>
         </SBCard>
     )
