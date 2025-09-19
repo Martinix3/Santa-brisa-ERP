@@ -22,7 +22,7 @@ const round2 = (n:number)=> Math.round(n*100)/100;
 const sum = (arr:number[]) => arr.reduce((a,b)=>a+b,0);
 
 function computeRecipeCosts(r: RecipeBom & { stdLaborCostPerBatch?: number; stdOverheadPerBatch?: number }, materialsList: Material[]) {
-  if (!r || !r.items) return { materialsEUR: 0, totalBatchEUR: 0, costPerBottleEUR: 0, bottles: 0, laborEUR: 0, overheadEUR: 0 };
+  if (!r || !r.items || !materialsList) return { materialsEUR: 0, totalBatchEUR: 0, costPerBottleEUR: 0, bottles: 0, laborEUR: 0, overheadEUR: 0 };
 
   const materialsMap = new Map(materialsList.map(m => [m.id, m]));
   
@@ -226,49 +226,58 @@ function RecipeForm({ value, onChange, onSave, onCancel, materials }: {
 
 
 // ---------- Barra + Autocompletar ----------
-function useSuggestions(recipes: RecipeBom[], q: string){
-  if (!recipes) return [];
-  return useMemo(()=>{
-    const query=q.trim().toLowerCase(); if(!query) return [] as {id:string;label:string;aux:string;kind:'SKU'|'Nombre'|'Presentación'}[];
-    const out: {id:string;label:string;aux:string;kind:'SKU'|'Nombre'|'Presentación'}[] = [];
-    for(const r of recipes){
-      if(!r.id) continue;
-      if(r.sku.toLowerCase().includes(query)) out.push({ id:r.id, label:r.sku, aux:r.name, kind:'SKU' });
-      if(r.name.toLowerCase().includes(query)) out.push({ id:r.id, label:r.name, aux:r.sku, kind:'Nombre' });
-    }
-    const seen=new Set<string>();
-    return out.filter(s=>{ const k=s.id+"|"+s.label+"|"+s.kind; if(seen.has(k)) return false; seen.add(k); return true; }).slice(0,8);
-  },[recipes,q]);
-}
+function SearchBar({ recipes, onPick }: { recipes: RecipeBom[], onPick: (id: string) => void }) {
+    const [q, setQ] = useState("");
+    const [open, setOpen] = useState(false);
+    const wrapRef = useRef<HTMLDivElement>(null);
+    
+    const sugs = useMemo(() => {
+        if (!q.trim() || !recipes) return [];
+        const query = q.trim().toLowerCase();
+        const out: { id: string; label: string; aux: string; kind: 'SKU' | 'Nombre' | 'Presentación' }[] = [];
+        for (const r of recipes) {
+            if (!r.id) continue;
+            if (r.sku.toLowerCase().includes(query)) out.push({ id: r.id, label: r.sku, aux: r.name, kind: 'SKU' });
+            if (r.name.toLowerCase().includes(query)) out.push({ id: r.id, label: r.name, aux: r.sku, kind: 'Nombre' });
+        }
+        const seen = new Set<string>();
+        return out.filter(s => {
+            const k = s.id + "|" + s.label + "|" + s.kind;
+            if (seen.has(k)) return false;
+            seen.add(k);
+            return true;
+        }).slice(0, 8);
+    }, [recipes, q]);
 
-function SearchBar({ recipes, onPick }:{ recipes:RecipeBom[]; onPick:(id:string)=>void }){
-  const [q,setQ]=useState("");
-  const [open,setOpen]=useState(false);
-  const wrapRef=useRef<HTMLDivElement>(null);
-  const sugs=useSuggestions(recipes,q);
+    useEffect(() => {
+        const onDoc = (e: MouseEvent) => {
+            if (!wrapRef.current) return;
+            if (!wrapRef.current.contains(e.target as any)) setOpen(false);
+        };
+        document.addEventListener('mousedown', onDoc);
+        return () => document.removeEventListener('mousedown', onDoc);
+    }, []);
 
-  useEffect(()=>{ const onDoc=(e:MouseEvent)=>{ if(!wrapRef.current) return; if(!wrapRef.current.contains(e.target as any)) setOpen(false); }; document.addEventListener('mousedown',onDoc); return ()=>document.removeEventListener('mousedown',onDoc); },[]);
-
-  return (
-    <div ref={wrapRef} className="relative w-full max-w-md">
-       <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
-          <input value={q} onChange={e=>{ setQ(e.target.value); setOpen(true); }} placeholder="Buscar por SKU o nombre…"
-                 className="w-full pl-9 pr-8 py-2 text-sm bg-white border border-zinc-300 rounded-xl outline-none focus:ring-2 focus:ring-amber-400"/>
-          {q && <button onClick={()=>{ setQ(""); setOpen(false); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500"><X size={16} /></button>}
-      </div>
-      {open && sugs.length>0 && (
-        <div className="absolute z-10 mt-1 w-full bg-white border border-zinc-200 rounded-xl shadow-md overflow-hidden">
-          {sugs.map(s=> (
-            <button key={s.id+"|"+s.label} onClick={()=>{ onPick(s.id); setOpen(false); setQ(""); }} className="w-full text-left px-3 py-2 text-sm hover:bg-zinc-50 flex items-center justify-between">
-              <span>{s.label} <span className="text-zinc-400">· {s.aux}</span></span>
-              <span className="ml-2"><Badge>{s.kind}</Badge></span>
-            </button>
-          ))}
+    return (
+        <div ref={wrapRef} className="relative w-full max-w-md">
+            <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+                <input value={q} onChange={e => { setQ(e.target.value); setOpen(true); }} placeholder="Buscar por SKU o nombre…"
+                    className="w-full pl-9 pr-8 py-2 text-sm bg-white border border-zinc-300 rounded-xl outline-none focus:ring-2 focus:ring-amber-400" />
+                {q && <button onClick={() => { setQ(""); setOpen(false); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500"><X size={16} /></button>}
+            </div>
+            {open && sugs.length > 0 && (
+                <div className="absolute z-10 mt-1 w-full bg-white border border-zinc-200 rounded-xl shadow-md overflow-hidden">
+                    {sugs.map(s => (
+                        <button key={s.id + "|" + s.label} onClick={() => { onPick(s.id); setOpen(false); setQ(""); }} className="w-full text-left px-3 py-2 text-sm hover:bg-zinc-50 flex items-center justify-between">
+                            <span>{s.label} <span className="text-zinc-400">· {s.aux}</span></span>
+                            <span className="ml-2"><Badge>{s.kind}</Badge></span>
+                        </button>
+                    ))}
+                </div>
+            )}
         </div>
-      )}
-    </div>
-  );
+    );
 }
 
 // ---------- Página ----------
@@ -295,8 +304,8 @@ export default function BomPage(){
           fetchRecipes(),
           listMaterials(),
         ]);
-        setRecipes(recipeData.filter(r => r.id && r.sku));
-        setMaterials(materialData);
+        setRecipes(recipeData ? recipeData.filter(r => r.id && r.sku) : []);
+        setMaterials(materialData || []);
       } catch (e: any) {
         setError(e.message || String(e));
       } finally {
@@ -423,9 +432,4 @@ export default function BomPage(){
     </div>
   );
 }
-
-
-
-
-
 
