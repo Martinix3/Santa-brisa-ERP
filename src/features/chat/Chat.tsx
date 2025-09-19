@@ -6,17 +6,15 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Send, User, Bot, Loader, CheckCircle, AlertTriangle } from 'lucide-react';
 import type { Account, Product, SantaData, OrderSellOut, Interaction, InventoryItem, EventMarketing } from '@/domain/ssot';
 import { Message } from 'genkit';
-import type { ChatContext } from '@/ai/flows/santa-brain-flow';
+import { runSantaBrain } from '@/ai/flows/santa-brain-flow';
 
 
 type ChatProps = {
     userId: string;
-    context: ChatContext;
     onNewData: (data: Partial<SantaData>) => void;
-    runner: (history: Message[], input: string, context: ChatProps['context']) => Promise<{ finalAnswer: string; newEntities: Partial<SantaData> }>;
 };
 
-export function Chat({ userId, context, onNewData, runner }: ChatProps) {
+export function Chat({ userId, onNewData }: ChatProps) {
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -37,10 +35,9 @@ export function Chat({ userId, context, onNewData, runner }: ChatProps) {
         setIsLoading(true);
 
         try {
-            const { finalAnswer, newEntities } = await runner(
+            const { finalAnswer, newEntities } = await runSantaBrain(
                 [...messages, userMessage], 
-                input, 
-                context
+                input
             );
 
             const assistantMessage: Message = { role: 'model', content: [{text: finalAnswer}] } as Message;
@@ -57,7 +54,7 @@ export function Chat({ userId, context, onNewData, runner }: ChatProps) {
         } finally {
             setIsLoading(false);
         }
-    }, [input, isLoading, messages, runner, context, onNewData]);
+    }, [input, isLoading, messages, onNewData]);
 
     return (
         <div className="flex flex-col h-full bg-zinc-100">
@@ -105,4 +102,3 @@ export function Chat({ userId, context, onNewData, runner }: ChatProps) {
         </div>
     );
 }
-

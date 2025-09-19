@@ -6,9 +6,6 @@ import { Plus, X } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
 import type { SantaData, Account, Product, OrderSellOut, Interaction, InventoryItem, EventMarketing, User } from '@/domain/ssot';
 import { Chat } from '@/features/chat/Chat';
-import { runSantaBrain, ChatContext } from '@/ai/flows/santa-brain-flow';
-import { Message } from 'genkit';
-
 
 export default function QuickLogOverlay() {
   const [open, setOpen] = useState(false);
@@ -52,10 +49,6 @@ export default function QuickLogOverlay() {
 
   if (!data || !currentUser) return null;
 
-  const chatRunner = (history: Message[], input: string, context: ChatContext) => {
-      return runSantaBrain(history, input, context);
-  }
-
   return (
     <>
       <button
@@ -80,17 +73,7 @@ export default function QuickLogOverlay() {
                 </div>
                 <Chat
                     userId={currentUser.id}
-                    context={{
-                        accounts: data.accounts,
-                        products: data.products,
-                        orders: data.ordersSellOut,
-                        interactions: data.interactions,
-                        inventory: data.inventory,
-                        mktEvents: data.mktEvents,
-                        currentUser: currentUser,
-                    }}
                     onNewData={handleNewData}
-                    runner={chatRunner as any}
                 />
             </div>
         </div>
