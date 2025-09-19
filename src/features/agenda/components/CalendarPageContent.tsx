@@ -22,6 +22,7 @@ import { auth } from '@/lib/firebaseClient';
 import { getIdToken } from "firebase/auth";
 
 
+// Reemplaza tu asISO por esta versión robusta:
 const toDate = (d: any): Date | null => {
   if (!d) return null;
   if (d instanceof Date) return isNaN(d.getTime()) ? null : d;
@@ -78,22 +79,25 @@ function mapDomainToTasks(
     .filter((i) => i?.plannedFor)
     .map((i) => {
       const plannedISO = asISO(i.plannedFor!);
-      if (!plannedISO) console.warn('plannedFor inválido en interacción', i.id, i.plannedFor);
-      
-      const title = i.note || `${i.kind}`;
+      if (!plannedISO) {
+        console.warn('plannedFor inválido en interacción', i.id, i.plannedFor);
+        return null; // <- señalamos que esta no vale
+      }
 
+      const title = i.note || `${i.kind}`;
       const type: Department = (i.dept as Department) || "VENTAS";
       return {
         id: i.id,
         title: title,
         type,
-        status: i.status,
+        status: i.status || 'open',
         date: plannedISO,
         involvedUserIds: i.involvedUserIds,
         location: i.location || accountMap.get(i.accountId || ''),
         linkedEntity: i.linkedEntity,
-      };
-    });
+      } as Task;
+    })
+    .filter(Boolean) as Task[]; // <- nos quedamos solo con válidas
 
   return interactionTasks;
 }
@@ -183,11 +187,13 @@ export function CalendarPageContent() {
 
   const calendarEvents = useMemo(
     () =>
-      allInteractions.filter(i => i.plannedFor).map((task) => {
+      allInteractions
+        .filter(i => !!asISO(i.plannedFor)) // <- solo con fecha válida
+        .map((task) => {
         const style = DEPT_META[task.dept as Department] || DEPT_META.VENTAS;
         return {
           id: task.id,
-          title: task.note,
+          title: task.note || String(task.kind || 'Tarea'),
           start: asISO(task.plannedFor),
           allDay: task.status === 'done' ? false : (task.dept !== "ALMACEN"), // Example of allDay logic
           extendedProps: { type: task.dept, status: task.status },
@@ -202,7 +208,10 @@ export function CalendarPageContent() {
   
   const updateAndPersistInteractions = (updatedInteractions: Interaction[]) => {
       if (!SantaData) return;
-      saveCollection('interactions', updatedInteractions);
+      setData(prev => prev ? { ...prev, interactions: updatedInteractions } : null);
+      if (isPersistenceEnabled) {
+          saveCollection('interactions', updatedInteractions);
+      }
   }
 
   const handleUpdateStatus = (id: string, newStatus: InteractionStatus) => {
@@ -258,8 +267,10 @@ export function CalendarPageContent() {
       
       finalData.interactions = updatedInteractions;
       
+      setData(finalData);
+
       await saveCollection('interactions', finalData.interactions);
-      if (finalData.mktEvents.length > (SantaData.mktEvents?.length || 0)) {
+      if (finalData.mktEvents && finalData.mktEvents.length > (SantaData.mktEvents?.length || 0)) {
           await saveCollection('mktEvents', finalData.mktEvents);
       }
 
@@ -278,11 +289,10 @@ export function CalendarPageContent() {
   const handleEventDrop = (dropInfo: EventDropArg) => {
     const { event } = dropInfo;
     const { id, start } = event;
-    
     if (!start) return;
 
-    const updatedInteractions = allInteractions.map(i => 
-        i.id === id ? { ...i, plannedFor: start.toISOString() } : i
+    const updatedInteractions = allInteractions.map(i =>
+        i.id === id ? { ...i, plannedFor: asISO(start) } : i
     );
     updateAndPersistInteractions(updatedInteractions as Interaction[]);
   };
@@ -328,7 +338,7 @@ export function CalendarPageContent() {
             lines: payload.items.map((item: any) => ({
                 sku: item.sku,
                 qty: item.qty,
-                unit: 'uds',
+                uom: 'uds',
                 priceUnit: 0, 
             })),
             notes: `Pedido creado desde tarea ${taskId}`,
@@ -361,7 +371,7 @@ export function CalendarPageContent() {
     if (payload.type === 'venta') {
         await saveCollection('ordersSellOut', finalData.ordersSellOut);
     }
-    if (payload.type === 'marketing') {
+    if (payload.type === 'marketing' && finalData.mktEvents) {
         await saveCollection('mktEvents', finalData.mktEvents);
     }
     
@@ -427,7 +437,7 @@ export function CalendarPageContent() {
                 headerToolbar={{ left: "prev,next today", center: "title", right: "dayGridMonth,timeGridWeek,timeGridDay,listYear" }}
                 events={calendarEvents as any}
                 eventClick={handleEventClick}
-                editable={true}
+                editable={!!isPersistenceEnabled}
                 eventDrop={handleEventDrop}
                 eventContent={(arg: EventContentArg) => {
                   const { type, status } = (arg.event.extendedProps as any);
@@ -557,3 +567,5 @@ export function CalendarPageContent() {
     </>
   );
 }
+
+    
