@@ -7,7 +7,6 @@ import { SANTA_DATA_COLLECTIONS } from '@/domain/ssot';
 import { auth, db } from './firebaseClient';
 import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, getIdToken } from 'firebase/auth';
 import { collection, getDocs } from 'firebase/firestore';
-import { useRouter } from 'next/navigation';
 
 interface DataContextType {
   data: SantaData | null;
@@ -33,7 +32,41 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isPersistenceEnabled, setIsPersistenceEnabled] = useState(true);
-  const router = useRouter();
+
+  const saveCollection = useCallback(async (collectionName: keyof SantaData, dataToSave: any[]) => {
+    if (!isPersistenceEnabled) {
+        console.log(`[Offline Mode] Not saving collection: ${collectionName}`);
+        return;
+    }
+    
+    try {
+        const user = auth.currentUser;
+        if (!user) throw new Error("User not authenticated.");
+        const token = await getIdToken(user);
+        
+        const response = await fetch('/api/brain-persist', {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ 
+                data: { [collectionName]: dataToSave }, 
+                strategy: 'overwrite' 
+            }),
+        });
+
+        if (!response.ok) {
+            const errText = await response.text();
+            throw new Error(`Server error (${response.status}): ${errText}`);
+        }
+        console.log(`Successfully persisted ${collectionName}`);
+
+    } catch (error) {
+        console.error(`Error saving collection ${collectionName}:`, error);
+        throw error;
+    }
+  }, [isPersistenceEnabled]);
 
   const findOrCreateUser = useCallback(async (firebaseUser: import('firebase/auth').User, currentData: SantaData): Promise<{ user: User, needsUpdate: boolean }> => {
     let userInDb = currentData.users.find(u => u.email === firebaseUser.email);
@@ -64,7 +97,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             console.log("Attempting to load data from Firestore...");
             const allData: Partial<SantaData> = {};
             
-            for (const collectionName of SANTA_DATA_COLLECTIONS) {
+            const promises = SANTA_DATA_COLLECTIONS.map(async (collectionName) => {
                 try {
                   const querySnapshot = await getDocs(collection(db, collectionName));
                   (allData as any)[collectionName] = querySnapshot.docs.map(doc => ({id: doc.id, ...doc.data()}));
@@ -72,7 +105,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
                   console.warn(`Could not load collection ${collectionName}, initializing as empty array.`, e);
                   (allData as any)[collectionName] = [];
                 }
-            }
+            });
+            await Promise.all(promises);
             
             if (Object.values(allData).every(arr => !arr || arr.length === 0)) {
                 throw new Error("Firestore is empty or unreachable, falling back to local JSON.");
@@ -128,7 +162,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setIsLoading(false);
     });
     return () => unsubscribe();
-  }, [data, findOrCreateUser, isPersistenceEnabled]);
+  }, [data, findOrCreateUser, isPersistenceEnabled, saveCollection]);
   
   const login = async () => {
     const provider = new GoogleAuthProvider();
@@ -182,7 +216,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         console.error("Error signing up:", error);
         return null;
     }
-};
+  };
 
   const logout = async () => {
     if (!isPersistenceEnabled) {
@@ -208,41 +242,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const togglePersistence = () => {
     setIsPersistenceEnabled(prev => !prev);
   };
-  
-  const saveCollection = useCallback(async (collectionName: keyof SantaData, dataToSave: any[]) => {
-    if (!isPersistenceEnabled) {
-        console.log(`[Offline Mode] Not saving collection: ${collectionName}`);
-        return;
-    }
-    
-    try {
-        const user = auth.currentUser;
-        if (!user) throw new Error("User not authenticated.");
-        const token = await getIdToken(user);
-        
-        const response = await fetch('/api/brain-persist', {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ 
-                data: { [collectionName]: dataToSave }, 
-                strategy: 'overwrite' 
-            }),
-        });
-
-        if (!response.ok) {
-            const errText = await response.text();
-            throw new Error(`Server error (${response.status}): ${errText}`);
-        }
-        console.log(`Successfully persisted ${collectionName}`);
-
-    } catch (error) {
-        console.error(`Error saving collection ${collectionName}:`, error);
-        throw error;
-    }
-  }, [isPersistenceEnabled]);
 
   const value = {
     data,

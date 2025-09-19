@@ -1,3 +1,4 @@
+
 // src/domain/ssot.ts
 
 // =================================================================
@@ -473,13 +474,18 @@ export interface SantaData {
 }
 export type { RecipeBomExec } from './production.exec';
 
-// Lista de colecciones válidas para persistencia
-export const SANTA_DATA_COLLECTIONS: (keyof SantaData)[] = [
-    'users', 'accounts', 'distributors', 'products', 'materials', 'billOfMaterials',
-    'interactions', 'ordersSellOut', 'shipments', 'lots', 'inventory', 
-    'stockMoves', 'productionOrders', 'qaChecks', 'suppliers', 'traceEvents', 
-    'goodsReceipts', 'mktEvents', 'onlineCampaigns', 'creators', 'influencerCollabs'
-];
+// Lista de colecciones válidas para persistencia.
+// Se genera dinámicamente para asegurar que siempre esté completa.
+const _: { [K in keyof SantaData]: true } = {
+    users: true, accounts: true, distributors: true, products: true, materials: true, billOfMaterials: true,
+    interactions: true, ordersSellOut: true, shipments: true, lots: true, inventory: true, 
+    stockMoves: true, productionOrders: true, qaChecks: true, suppliers: true, traceEvents: true, 
+    goodsReceipts: true, mktEvents: true, onlineCampaigns: true, creators: true, influencerCollabs: true,
+    activations: true, receipts: true, purchaseOrders: true, priceLists: true, nonConformities: true,
+    supplierBills: true, payments: true,
+};
+export const SANTA_DATA_COLLECTIONS = Object.keys(_) as (keyof SantaData)[];
+
 
 // -----------------------------------------------------------------
 // 9. Helpers y Constantes Globales
