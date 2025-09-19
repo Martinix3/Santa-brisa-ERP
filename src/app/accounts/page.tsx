@@ -13,6 +13,7 @@ import { ModuleHeader } from '@/components/ui/ModuleHeader'
 import { SB_COLORS } from '@/components/ui/ui-primitives'
 import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/TaskCompletionDialog'
 import { saveCollection } from '@/features/agenda/components/CalendarPageContent'
+import AuthenticatedLayout from '@/components/layouts/AuthenticatedLayout'
 
 
 const T = { primary:'#618E8F' }
@@ -397,4 +398,12 @@ export function AccountsPageContent() {
       )}
     </>
   )
+}
+
+export default function AccountsPage() {
+    return (
+        <AuthenticatedLayout>
+            <AccountsPageContent />
+        </AuthenticatedLayout>
+    )
 }
