@@ -367,7 +367,7 @@ function PersonalDashboardContent({ displayedUser, timePeriod, setTimePeriod }: 
             task={completingTask}
             open={!!completingTask}
             onClose={() => setCompletingTask(null)}
-            onComplete={handleCompleteTask}
+            onComplete={handleCompleteTask as any}
         />
     )}
     </>
@@ -516,7 +516,10 @@ function AIInsightsCard() {
                 orders: data.ordersSellOut.map(o => ({ id: o.id, accountId: o.accountId, status: o.status, total: orderTotal(o), date: o.createdAt })),
                 interactions: data.interactions.map(i => ({ id: i.id, accountId: i.accountId, userId: i.userId, kind: i.kind, date: i.createdAt })),
             };
-            const result = await generateInsights({ jsonData: JSON.stringify(relevantData) });
+            const result = await generateInsights({ 
+                jsonData: JSON.stringify(relevantData),
+                context: "Eres un director de ventas. Analiza los datos de comerciales, cuentas y pedidos para encontrar oportunidades de venta, clientes en riesgo, o comerciales con bajo rendimiento."
+            });
             setInsights(result);
         } catch (e) {
             console.error(e);
