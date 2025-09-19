@@ -12,6 +12,7 @@ import { FilterSelect } from '@/components/ui/FilterSelect'
 import { ModuleHeader } from '@/components/ui/ModuleHeader'
 import { SB_COLORS } from '@/components/ui/ui-primitives'
 import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/TaskCompletionDialog'
+import AuthenticatedLayout from '@/components/layouts/AuthenticatedLayout';
 
 
 const T = { primary:'#618E8F' }
