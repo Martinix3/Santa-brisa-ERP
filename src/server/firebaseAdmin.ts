@@ -43,9 +43,9 @@ function loadServiceAccount(): ServiceAccount | null {
 }
 
 export function getProjectId(): string | undefined {
-    const sa = loadServiceAccount();
-    if(sa?.project_id) return sa.project_id;
-    return process.env.FSA_PROJECT_ID || process.env.FIREBASE_PROJECT_ID || process.env.GCLOUD_PROJECT;
+    // Busca el project ID en las variables de entorno comunes.
+    // NO debe llamar a loadServiceAccount para evitar recursión.
+    return process.env.GCLOUD_PROJECT || process.env.FIREBASE_PROJECT_ID || process.env.FSA_PROJECT_ID;
 }
 
 
