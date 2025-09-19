@@ -1,63 +1,124 @@
 
 {
   "users": [
-    { "id": "u_admin", "name": "Admin", "email": "admin@example.com", "role": "admin", "active": true },
-    { "id": "u_nico", "name": "Nico", "email": "nico@example.com", "role": "comercial", "active": true, "managerId": "u_admin", "kpiBaseline": { "revenue": 15000, "unitsSold": 1200, "visits": 25 } },
-    { "id": "u_annso", "name": "Ann-So", "email": "annso@example.com", "role": "comercial", "active": true, "managerId": "u_admin", "kpiBaseline": { "revenue": 18000, "unitsSold": 1500, "visits": 30 } },
-    { "id": "u_mj", "name": "Maria Jesus", "email": "mj@santabrisa.co", "role": "owner", "active": true }
+    { "id": "u_admin", "name": "Admin User", "email": "admin@santabrisa.co", "role": "admin", "active": true },
+    { "id": "u_nico", "name": "Nico", "email": "nico@santabrisa.co", "role": "owner", "active": true },
+    { "id": "u_annso", "name": "Ann-Sophie", "email": "annso@santabrisa.co", "role": "comercial", "active": true, "managerId": "u_nico" },
+    { "id": "u_juan", "name": "Juan Pérez", "email": "juan@santabrisa.co", "role": "comercial", "active": true, "managerId": "u_nico" },
+    { "id": "u_ops", "name": "Operario Fábrica", "email": "ops@santabrisa.co", "role": "ops", "active": true }
   ],
   "accounts": [
-    { "id": "acc_1", "name": "Bar Central", "city": "Madrid", "type": "HORECA", "stage": "ACTIVA", "ownerId": "u_nico", "billerId": "SB", "cif": "B12345678", "address": "Calle Gran Vía 1", "phone": "912345678", "createdAt": "2023-01-15T10:00:00Z" },
-    { "id": "acc_2", "name": "Hotel Lujo", "city": "Barcelona", "type": "HORECA", "stage": "ACTIVA", "ownerId": "u_annso", "billerId": "SB", "createdAt": "2023-02-20T11:00:00Z" },
-    { "id": "acc_3", "name": "Supermercado Sol", "city": "Valencia", "type": "RETAIL", "stage": "SEGUIMIENTO", "ownerId": "u_nico", "billerId": "d_1", "createdAt": "2023-03-10T09:00:00Z" },
-    { "id": "acc_4", "name": "Terraza Beach Club", "city": "Ibiza", "type": "HORECA", "stage": "POTENCIAL", "ownerId": "u_annso", "billerId": "SB", "createdAt": "2023-04-05T15:00:00Z" },
-    { "id": "acc_5", "name": "Disco Night", "city": "Madrid", "type": "HORECA", "stage": "FALLIDA", "ownerId": "u_nico", "billerId": "SB", "createdAt": "2023-05-01T18:00:00Z" }
+    { "id": "acc_1", "name": "Bar Terraza Sol", "city": "Valencia", "stage": "ACTIVA", "type": "HORECA", "ownerId": "u_annso", "billerId": "SB", "cif": "B12345678", "createdAt": "2023-05-10T10:00:00Z" },
+    { "id": "acc_2", "name": "Hotel Vista Mar", "city": "Alicante", "stage": "ACTIVA", "type": "HORECA", "ownerId": "u_annso", "billerId": "SB", "cif": "B87654321", "createdAt": "2023-06-15T11:00:00Z" },
+    { "id": "acc_3", "name": "Distribuciones Levante", "city": "Murcia", "stage": "ACTIVA", "type": "DISTRIBUIDOR", "ownerId": "d_1", "billerId": "d_1", "cif": "A11223344", "createdAt": "2023-02-20T12:00:00Z" },
+    { "id": "acc_4", "name": "Club Náutico", "city": "Valencia", "stage": "SEGUIMIENTO", "type": "HORECA", "ownerId": "u_juan", "billerId": "SB", "cif": "G55667788", "createdAt": "2024-01-10T09:00:00Z" },
+    { "id": "acc_5", "name": "Tienda Gourmet Delicias", "city": "Madrid", "stage": "POTENCIAL", "type": "RETAIL", "ownerId": "u_nico", "billerId": "SB", "createdAt": "2024-03-01T15:00:00Z" },
+    { "id": "acc_6", "name": "Cocktail Bar Moon", "city": "Valencia", "stage": "FALLIDA", "type": "HORECA", "ownerId": "u_annso", "billerId": "SB", "createdAt": "2023-11-05T18:00:00Z" }
   ],
   "distributors": [
-      { "id": "d_1", "name": "Distribuciones Levante", "city": "Valencia" },
-      { "id": "d_2", "name": "Gourmet Partners", "city": "Madrid" }
+    { "id": "d_1", "name": "Distribuciones Levante", "city": "Murcia", "country": "España", "cif": "A11223344" }
+  ],
+  "suppliers": [
+    { "id": "sup_vid", "name": "Vidrios de la Península", "country": "España" },
+    { "id": "sup_bot", "name": "Botanical Exports Co.", "country": "Italia" },
+    { "id": "sup_eti", "name": "Etiquetas del Mediterráneo", "country": "España" }
   ],
   "products": [
-      { "id": "prod_1", "sku": "SB-750", "name": "Santa Brisa 750ml", "kind": "FG", "caseUnits": 6, "casesPerPallet": 100, "active": true, "materialId": "mat_fg_sb750" },
-      { "id": "prod_2", "sku": "SB-200", "name": "Santa Brisa 200ml", "kind": "FG", "caseUnits": 24, "casesPerPallet": 80, "active": true, "materialId": "mat_fg_sb200" },
-      { "id": "prod_3", "sku": "MERCH-VAS", "name": "Vaso Santa Brisa", "kind": "MERCH", "active": true, "materialId": "mat_merch_vaso" }
+    { "id": "prod_sb750", "sku": "SB-750", "name": "Santa Brisa Gin 750ml", "category": "finished_good", "caseUnits": 6, "active": true, "materialId": "mat_sb750" },
+    { "id": "prod_vasos", "sku": "MERCH-VAS", "name": "Vaso de Marca Santa Brisa", "category": "merchandising", "active": true, "materialId": "mat_vas" }
   ],
-  "interactions": [
-      { "id": "int_1", "userId": "u_nico", "accountId": "acc_1", "kind": "VISITA", "note": "Presentación del producto, muy interesados.", "createdAt": "2023-09-01T10:00:00Z", "dept": "VENTAS", "status": "done" },
-      { "id": "int_2", "userId": "u_annso", "accountId": "acc_2", "kind": "LLAMADA", "note": "Llamada de seguimiento, enviada propuesta.", "createdAt": "2023-09-05T12:30:00Z", "dept": "VENTAS", "status": "done" },
-      { "id": "int_3", "userId": "u_nico", "accountId": "acc_1", "kind": "OTRO", "note": "Reunión de seguimiento para cerrar acuerdo", "plannedFor": "2025-09-25T10:00:00Z", "createdAt": "2023-09-10T11:00:00Z", "dept": "VENTAS", "status": "open" },
-      { "id": "int_4", "userId": "u_admin", "accountId": "acc_4", "kind": "OTRO", "note": "Planificar campaña de lanzamiento en Ibiza", "plannedFor": "2025-09-30T10:00:00Z", "createdAt": "2023-09-12T11:00:00Z", "dept": "MARKETING", "status": "open"}
+  "materials": [
+    { "id": "mat_sb750", "sku": "SB-750", "name": "Santa Brisa Gin 750ml", "category": "finished_good" },
+    { "id": "mat_enebro", "sku": "RM-JUNIPER", "name": "Enebro (Baya)", "category": "raw", "unit": "kg", "standardCost": 15.5 },
+    { "id": "mat_alcohol", "sku": "RM-ALCBASE", "name": "Alcohol Base Cereal", "category": "raw", "unit": "L", "standardCost": 2.5 },
+    { "id": "mat_botella", "sku": "PKG-BOT750", "name": "Botella Transparente 750ml", "category": "packaging", "unit": "uds", "standardCost": 0.8 },
+    { "id": "mat_etiqueta", "sku": "PKG-LABELSB", "name": "Etiqueta Frontal SB", "category": "label", "unit": "uds", "standardCost": 0.12 },
+    { "id": "mat_vas", "sku": "MERCH-VAS", "name": "Vaso de Marca Santa Brisa", "category": "merchandising" }
+  ],
+  "billOfMaterials": [
+    {
+      "id": "bom_sb750",
+      "sku": "SB-750",
+      "name": "Receta Santa Brisa Gin 750ml",
+      "items": [
+        { "materialId": "mat_alcohol", "quantity": 100, "unit": "L" },
+        { "materialId": "mat_enebro", "quantity": 5, "unit": "kg" },
+        { "materialId": "mat_botella", "quantity": 130, "unit": "uds" },
+        { "materialId": "mat_etiqueta", "quantity": 130, "unit": "uds" }
+      ],
+      "batchSize": 100,
+      "baseUnit": "L"
+    }
+  ],
+  "productionOrders": [
+    { "id": "po_001", "sku": "SB-750", "bomId": "bom_sb750", "targetQuantity": 100, "status": "done", "createdAt": "2024-03-10T08:00:00Z", "lotId": "lote_sb_001" },
+    { "id": "po_002", "sku": "SB-750", "bomId": "bom_sb750", "targetQuantity": 120, "status": "wip", "createdAt": "2024-03-25T09:00:00Z" }
+  ],
+  "lots": [
+    { "id": "lote_rm_ene_01", "sku": "RM-JUNIPER", "quantity": 50, "createdAt": "2024-02-01T10:00:00Z", "supplierId": "sup_bot", "receivedAt": "2024-02-01T10:00:00Z", "quality": { "qcStatus": "release", "results": {} }, "expDate": "2025-02-01T10:00:00Z" },
+    { "id": "lote_rm_bot_01", "sku": "PKG-BOT750", "quantity": 1000, "createdAt": "2024-01-15T11:00:00Z", "supplierId": "sup_vid", "receivedAt": "2024-01-15T11:00:00Z", "quality": { "qcStatus": "release", "results": {} } },
+    { "id": "lote_sb_001", "sku": "SB-750", "quantity": 130, "createdAt": "2024-03-12T16:00:00Z", "orderId": "po_001", "quality": { "qcStatus": "release", "results": { "ph": { "value": 3.4, "status": "ok" }}}, "expDate": "2026-03-12T16:00:00Z" },
+    { "id": "lote_sb_002", "sku": "SB-750", "quantity": 150, "createdAt": "2024-03-28T17:00:00Z", "orderId": "po_002", "quality": { "qcStatus": "hold", "results": {} }, "expDate": "2026-03-28T17:00:00Z" }
+  ],
+  "inventory": [
+    { "id": "inv_1", "sku": "RM-JUNIPER", "lotNumber": "lote_rm_ene_01", "uom": "kg", "qty": 45, "locationId": "RM/MAIN", "expDate": "2025-02-01T10:00:00Z", "updatedAt": "2024-03-10T08:00:00Z" },
+    { "id": "inv_2", "sku": "PKG-BOT750", "lotNumber": "lote_rm_bot_01", "uom": "uds", "qty": 870, "locationId": "RM/MAIN", "updatedAt": "2024-03-10T08:00:00Z" },
+    { "id": "inv_3", "sku": "SB-750", "lotNumber": "lote_sb_001", "uom": "bottle", "qty": 118, "locationId": "FG/MAIN", "expDate": "2026-03-12T16:00:00Z", "updatedAt": "2024-03-20T10:00:00Z" },
+    { "id": "inv_4", "sku": "SB-750", "lotNumber": "lote_sb_002", "uom": "bottle", "qty": 150, "locationId": "FG/QC", "expDate": "2026-03-28T17:00:00Z", "updatedAt": "2024-03-28T17:00:00Z" }
+  ],
+  "stockMoves": [
+    { "id": "mv_1", "sku": "RM-JUNIPER", "lotNumber": "lote_rm_ene_01", "uom": "kg", "qty": -5, "from": "RM/MAIN", "to": "PRODUCTION", "reason": "production_out", "at": "2024-03-10T09:00:00Z", "ref": { "prodOrderId": "po_001" } },
+    { "id": "mv_2", "sku": "SB-750", "lotNumber": "lote_sb_001", "uom": "bottle", "qty": 130, "from": "PRODUCTION", "to": "FG/MAIN", "reason": "production_in", "at": "2024-03-12T16:00:00Z", "ref": { "prodOrderId": "po_001" } },
+    { "id": "mv_3", "sku": "SB-750", "lotNumber": "lote_sb_001", "uom": "bottle", "qty": -12, "from": "FG/MAIN", "to": "CUSTOMER", "reason": "sale", "at": "2024-03-20T10:00:00Z", "ref": { "orderId": "ord_1" } }
+  ],
+  "goodsReceipts": [
+    {
+      "id": "gr_001",
+      "supplierId": "sup_bot",
+      "deliveryNote": "ALB-SUP-2024-00123",
+      "receivedAt": "2024-02-01T10:00:00Z",
+      "status": "completed",
+      "lines": [
+        { "materialId": "mat_enebro", "sku": "RM-JUNIPER", "lotId": "lote_rm_ene_01", "qty": 50, "uom": "kg" }
+      ]
+    },
+    {
+      "id": "gr_002",
+      "supplierId": "sup_vid",
+      "deliveryNote": "ALB-SUP-2024-V0088",
+      "receivedAt": "2024-01-15T11:00:00Z",
+      "status": "completed",
+      "lines": [
+        { "materialId": "mat_botella", "sku": "PKG-BOT750", "lotId": "lote_rm_bot_01", "qty": 1000, "uom": "uds" }
+      ]
+    }
   ],
   "ordersSellOut": [
-      { "id": "ord_1", "accountId": "acc_1", "createdAt": "2023-09-02T14:00:00Z", "status": "paid", "currency": "EUR", "lines": [{ "sku": "SB-750", "qty": 12, "unit": "uds", "priceUnit": 15 }] },
-      { "id": "ord_2", "accountId": "acc_2", "createdAt": "2023-09-06T09:00:00Z", "status": "shipped", "currency": "EUR", "lines": [{ "sku": "SB-750", "qty": 60, "unit": "uds", "priceUnit": 14.5 }] },
-      { "id": "ord_3", "accountId": "acc_1", "createdAt": "2023-09-15T11:00:00Z", "status": "confirmed", "currency": "EUR", "lines": [{ "sku": "SB-750", "qty": 24, "unit": "uds", "priceUnit": 15 }, { "sku": "MERCH-VAS", "qty": 50, "unit": "uds", "priceUnit": 0 }] }
+    { "id": "ord_1", "accountId": "acc_1", "userId": "u_annso", "status": "shipped", "createdAt": "2024-03-20T09:00:00Z", "lines": [{ "sku": "SB-750", "qty": 12, "unit": "caja", "priceUnit": 15, "lotNumber": "lote_sb_001" }] },
+    { "id": "ord_2", "accountId": "acc_2", "userId": "u_annso", "status": "confirmed", "createdAt": "2024-03-22T14:00:00Z", "lines": [{ "sku": "SB-750", "qty": 6, "unit": "caja", "priceUnit": 15.50 }] },
+    { "id": "ord_3", "accountId": "acc_4", "userId": "u_juan", "status": "open", "createdAt": "2024-03-28T11:00:00Z", "lines": [{ "sku": "SB-750", "qty": 18, "unit": "caja", "priceUnit": 14.50 }] }
   ],
-  "materials": [],
-  "billOfMaterials": [],
   "shipments": [],
-  "lots": [],
-  "inventory": [],
-  "stockMoves": [],
-  "productionOrders": [],
-  "qaChecks": [],
+  "interactions": [
+    { "id": "int_1", "accountId": "acc_1", "userId": "u_annso", "kind": "VISITA", "note": "Presentación del producto. Mostraron mucho interés. Próximo paso: enviar propuesta.", "createdAt": "2024-03-15T12:00:00Z", "dept": "VENTAS", "status": "done" },
+    { "id": "int_2", "accountId": "acc_4", "userId": "u_juan", "kind": "LLAMADA", "note": "Llamada de seguimiento. Aún no han decidido.", "createdAt": "2024-03-25T16:00:00Z", "dept": "VENTAS", "status": "done" },
+    { "id": "int_3", "accountId": "acc_5", "userId": "u_nico", "kind": "OTRO", "note": "Preparar visita para la próxima semana.", "plannedFor": "2024-04-05T10:00:00Z", "createdAt": "2024-03-28T18:00:00Z", "dept": "VENTAS", "status": "open" }
+  ],
   "mktEvents": [
-      { "id": "mkt_1", "title": "Feria Gastronómica Madrid", "kind": "FERIA", "status": "closed", "startAt": "2023-06-10T10:00:00Z", "spend": 5000, "goal": { "leads": 50, "sampling": 1000, "salesBoxes": 10 } },
-      { "id": "mkt_2", "title": "Activación Terraza Beach Club", "kind": "OTRO", "status": "active", "startAt": "2023-07-15T18:00:00Z", "city": "Ibiza" }
+    { "id": "mkte_1", "title": "Feria Gastronómica Valencia", "kind": "FERIA", "status": "closed", "startAt": "2024-02-15T10:00:00Z", "endAt": "2024-02-17T20:00:00Z", "city": "Valencia", "spend": 2500, "goal": { "sampling": 500, "leads": 50, "salesBoxes": 10 } }
   ],
   "onlineCampaigns": [
-    { "id": "camp_1", "title": "Campaña Verano Instagram", "channel": "IG", "status": "closed", "startAt": "2023-07-01T00:00:00Z", "endAt": "2023-08-31T23:59:59Z", "budget": 10000, "spend": 9500, "metrics": { "impressions": 2000000, "clicks": 40000, "roas": 2.5 } }
+    { "id": "onl_1", "title": "Campaña Verano IG", "channel": "IG", "status": "active", "startAt": "2024-03-20T00:00:00Z", "endAt": "2024-04-20T23:59:59Z", "budget": 1000, "spend": 350, "metrics": { "impressions": 150000, "clicks": 3000 } }
   ],
-  "activations": [],
   "creators": [],
   "influencerCollabs": [],
-  "suppliers": [],
   "traceEvents": [],
-  "goodsReceipts": [],
+  "qaChecks": [],
   "priceLists": [],
   "nonConformities": [],
   "supplierBills": [],
   "payments": [],
   "receipts": [],
-  "purchaseOrders": []
+  "purchaseOrders": [],
+  "activations": []
 }
