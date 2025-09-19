@@ -95,9 +95,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       }
 
       if (initialData) {
-        // Filtra los usuarios para dejar solo a mj@santabrisa.co
-        const filteredUsers = initialData.users.filter(u => u.email === 'mj@santabrisa.co');
-        setData({ ...initialData, users: filteredUsers });
+        setData(initialData);
       }
     }
     loadData();
