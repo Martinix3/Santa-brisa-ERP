@@ -1,4 +1,3 @@
-
 'use server';
 /**
  * @fileoverview Santa Brisa main conversational agent
@@ -50,6 +49,34 @@ const CreateAccountSchema = z.object({
   type: createEnumSchema(['HORECA', 'RETAIL', 'DISTRIBUIDOR', 'IMPORTADOR', 'OTRO']).optional(),
 });
 
+const registeredTools = [
+  ai.defineTool(
+    {
+      name: 'createOrder',
+      description: 'Creates a new sales order for an account.',
+      inputSchema: CreateOrderSchema,
+    },
+    async (input) => input
+  ),
+  ai.defineTool(
+    {
+      name: 'createInteraction',
+      description:
+        'Logs a new interaction (like a visit or call) with an account.',
+      inputSchema: CreateInteractionSchema,
+    },
+    async (input) => input
+  ),
+  ai.defineTool(
+    {
+      name: 'createAccount',
+      description: 'Creates a new account.',
+      inputSchema: CreateAccountSchema,
+    },
+    async (input) => input
+  ),
+];
+
 // Prompt principal
 const santaBrainPrompt = ai.definePrompt({
   name: 'santaBrainPrompt',
@@ -60,33 +87,7 @@ If the user's intent is clear, call the appropriate tool.
 If the user is asking a question, answer it based on your knowledge.
 If the request is ambiguous, ask for clarification.
 Always respond in Spanish.`,
-  tools: [
-    ai.defineTool(
-      {
-        name: 'createOrder',
-        description: 'Creates a new sales order for an account.',
-        inputSchema: CreateOrderSchema,
-      },
-      async (input) => input
-    ),
-    ai.defineTool(
-      {
-        name: 'createInteraction',
-        description:
-          'Logs a new interaction (like a visit or call) with an account.',
-        inputSchema: CreateInteractionSchema,
-      },
-      async (input) => input
-    ),
-    ai.defineTool(
-      {
-        name: 'createAccount',
-        description: 'Creates a new account.',
-        inputSchema: CreateAccountSchema,
-      },
-      async (input) => input
-    ),
-  ],
+  tools: registeredTools,
 });
 
 
@@ -107,10 +108,10 @@ const santaBrainFlow = ai.defineFlow(
       prompt: input,
       history,
       model: 'googleai/gemini-2.5-flash-preview',
-      tools: santaBrainPrompt.tools,
+      tools: registeredTools,
     });
 
-    const toolCalls = llmResponse.toolCalls;
+    const toolCalls = llmResponse.toolRequests ?? [];
     let finalAnswer = llmResponse.text;
     const newEntities: Partial<SantaData> = {};
 

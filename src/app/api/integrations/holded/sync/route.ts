@@ -1,4 +1,3 @@
-
 import { NextResponse } from 'next/server';
 import { fetchInvoices } from '@/features/integrations/holded/service';
 import { adminDb } from '@/server/firebaseAdmin';
@@ -44,7 +43,7 @@ export async function POST() {
       const newOrderId = db.collection('ordersSellOut').doc().id;
       const newOrder: OrderSellOut = {
         id: newOrderId,
-        accountId: account.id,
+        accountId: (account as Account).id,
         status: 'paid', // Holded invoices are usually for completed sales
         currency: 'EUR',
         createdAt: new Date(invoice.date * 1000).toISOString(),

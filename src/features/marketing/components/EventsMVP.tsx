@@ -1,4 +1,3 @@
-
 "use client";
 
 // =============================================
@@ -14,6 +13,7 @@ import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Calendar, MapPin, Clock, ListChecks, CheckCircle2, BarChart3, Users, FileText, ShoppingCart, Target, Euro } from "lucide-react";
 import { SBCard, SBButton } from "@/components/ui/ui-primitives";
+import type { EventMarketing } from "@/domain/ssot";
 
 // ==========================
 // 1) Tipos base y helpers
@@ -21,17 +21,7 @@ import { SBCard, SBButton } from "@/components/ui/ui-primitives";
 
 type EventKind = "DEMO" | "FERIA" | "FORMACION" | "ACTIVACION" | "OTRO";
 
-type SBEvent = {
-  id: string;
-  title: string;
-  kind: EventKind;
-  startAt: string; // ISO
-  endAt?: string;  // ISO
-  location?: string;
-  organizerId: string; // user id
-  notes?: string;
-  status: "PROGRAMADO" | "FINALIZADO" | "CANCELADO";
-};
+type SBEvent = EventMarketing;
 
 type PostEventSurvey = {
   eventId: string;
@@ -67,7 +57,7 @@ const DB: { events: SBEvent[], surveys: PostEventSurvey[] } = {
 
 async function createEvent(data: Omit<SBEvent, "id" | "status">) {
   const id = `ev_${Math.random().toString(36).slice(2, 8)}`;
-  const ev: SBEvent = { id, status: "PROGRAMADO", ...data };
+  const ev: SBEvent = { id, status: "planned", ...data };
   DB.events.push(ev);
   console.log("Event created:", ev);
   return ev;
@@ -98,10 +88,10 @@ async function getSurveyByEvent(eventId: string) {
 
 // Marca finalizados automáticamente si endAt ha pasado
 function computeStatus(e: SBEvent): SBEvent["status"] {
-  if (e.status === "CANCELADO") return e.status;
-  if (e.endAt && isPast(e.endAt)) return "FINALIZADO";
-  if (!e.endAt && isPast(e.startAt) && (new Date().getTime() - new Date(e.startAt).getTime()) > 12 * 3600 * 1000 ) return "FINALIZADO";
-  return "PROGRAMADO";
+  if (e.status === "cancelled") return e.status;
+  if (e.endAt && isPast(e.endAt)) return "closed";
+  if (!e.endAt && isPast(e.startAt) && (new Date().getTime() - new Date(e.startAt).getTime()) > 12 * 3600 * 1000 ) return "closed";
+  return "planned";
 }
 
 
@@ -118,7 +108,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function NewEventCard({ organizerId, onCreated }: { organizerId: string; onCreated: (e: SBEvent) => void }) {
+function NewEventCard({ onCreated }: { onCreated: (e: SBEvent) => void }) {
   const [title, setTitle] = useState("");
   const [kind, setKind] = useState<EventKind>("DEMO");
   const [date, setDate] = useState<string>(() => toISO(new Date()).slice(0,16));
@@ -130,7 +120,7 @@ function NewEventCard({ organizerId, onCreated }: { organizerId: string; onCreat
     if (!title) return;
     const startAt = new Date(date);
     const endAt = end ? new Date(end) : undefined;
-    const ev = await createEvent({ title, kind, startAt: toISO(startAt), endAt: endAt ? toISO(endAt) : undefined, location, organizerId, notes });
+    const ev = await createEvent({ title, kind, startAt: toISO(startAt), endAt: endAt ? toISO(endAt) : undefined, city: location, notes });
     onCreated(ev);
     setTitle(""); setNotes(""); setLocation("");
   }
@@ -231,13 +221,13 @@ function SurveyInline({ event, onSubmitted }: { event: SBEvent; onSubmitted: ()=
   );
 }
 
-function EventsList({ organizerId, newEvent }: { organizerId: string, newEvent: SBEvent | null }) {
+function EventsList({ newEvent }: { newEvent: SBEvent | null }) {
     const [events, setEvents] = useState<SBEvent[]>([]);
     const [surveys, setSurveys] = useState<Record<string, PostEventSurvey>>({});
     const [openSurveyId, setOpenSurveyId] = useState<string | null>(null);
 
     const loadData = useCallback(async () => {
-        const evs = await listMyEvents(organizerId);
+        const evs = await listMyEvents("USER_123");
         setEvents(evs);
         const srvs: Record<string, PostEventSurvey> = {};
         for(const ev of evs) {
@@ -245,7 +235,7 @@ function EventsList({ organizerId, newEvent }: { organizerId: string, newEvent: 
             if(s) srvs[ev.id] = s;
         }
         setSurveys(srvs);
-    }, [organizerId]);
+    }, []);
 
     useEffect(() => {
         loadData();
@@ -279,13 +269,13 @@ function EventsList({ organizerId, newEvent }: { organizerId: string, newEvent: 
                                     <p className="font-semibold text-zinc-900">{event.title}</p>
                                     <div className="flex items-center gap-4 text-sm text-zinc-600 mt-1">
                                         <span className="flex items-center gap-1.5"><Calendar className="w-4 h-4"/>{new Date(event.startAt).toLocaleDateString('es-ES', {weekday: 'long', day: 'numeric', month: 'long'})}</span>
-                                        <span className="flex items-center gap-1.5"><MapPin className="w-4 h-4"/>{event.location || 'N/A'}</span>
+                                        <span className="flex items-center gap-1.5"><MapPin className="w-4 h-4"/>{event.city || 'N/A'}</span>
                                         <span className="font-mono text-xs bg-zinc-100 px-2 py-1 rounded">{event.kind}</span>
                                     </div>
                                 </div>
-                                <span className={`px-2 py-1 text-xs rounded-full ${status === "FINALIZADO" ? "bg-green-100 text-green-800" : "bg-blue-100 text-blue-800"}`}>{status}</span>
+                                <span className={`px-2 py-1 text-xs rounded-full ${status === "closed" ? "bg-green-100 text-green-800" : "bg-blue-100 text-blue-800"}`}>{status}</span>
                             </div>
-                            {status === "FINALIZADO" && (
+                            {status === "closed" && (
                                 <div className="mt-3">
                                     {survey ? (
                                          <div className="text-sm text-green-700 flex items-center gap-2 p-2 rounded-lg bg-green-50 border border-green-200">
@@ -311,13 +301,13 @@ function EventsList({ organizerId, newEvent }: { organizerId: string, newEvent: 
 // 5) Widget de encuestas pendientes
 // ======================================
 
-function PendingSurveysWidget({ organizerId, onEventSelect }: { organizerId: string, onEventSelect: (id: string) => void }) {
+function PendingSurveysWidget({ onEventSelect }: { onEventSelect: (id: string) => void }) {
   const [pending, setPending] = useState<SBEvent[]>([]);
 
   useEffect(() => {
     const interval = setInterval(async () => {
-        const all = await listMyEvents(organizerId);
-        const fin = all.filter(e => computeStatus(e) === "FINALIZADO");
+        const all = await listMyEvents("USER_123");
+        const fin = all.filter(e => computeStatus(e) === "closed");
         const out: SBEvent[] = [];
         for (const ev of fin) {
             const s = await getSurveyByEvent(ev.id);
@@ -326,7 +316,7 @@ function PendingSurveysWidget({ organizerId, onEventSelect }: { organizerId: str
         setPending(out);
     }, 5000); // Check for pending surveys periodically
     return () => clearInterval(interval);
-  }, [organizerId]);
+  }, []);
 
   if (pending.length === 0) return null;
   return (
@@ -352,8 +342,6 @@ function PendingSurveysWidget({ organizerId, onEventSelect }: { organizerId: str
 // ======================================
 
 export function MarketingEventsMVP() {
-  const organizerId = "USER_123"; // mock del usuario autenticado
-
   const [justCreated, setJustCreated] = useState<SBEvent | null>(null);
   
   const handleEventSelectFromWidget = (eventId: string) => {
@@ -372,11 +360,11 @@ export function MarketingEventsMVP() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         <div className="lg:col-span-2 space-y-6">
-          <NewEventCard organizerId={organizerId} onCreated={(e) => setJustCreated(e)} />
-          <EventsList organizerId={organizerId} newEvent={justCreated} />
+          <NewEventCard onCreated={(e) => setJustCreated(e)} />
+          <EventsList newEvent={justCreated} />
         </div>
         <div className="space-y-6">
-          <PendingSurveysWidget organizerId={organizerId} onEventSelect={handleEventSelectFromWidget}/>
+          <PendingSurveysWidget onEventSelect={handleEventSelectFromWidget}/>
           <SBCard title="Insights">
             <div className="p-4 text-sm text-yellow-900 bg-yellow-50">
               <strong>Insight:</strong> Las activaciones con PLV en sitio muestran +12% de pedidos a 30 días vs promedio.

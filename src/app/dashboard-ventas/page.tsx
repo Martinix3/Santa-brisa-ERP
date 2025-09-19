@@ -1,4 +1,3 @@
-
 "use client";
 import React, { useMemo, useState, useEffect } from "react";
 import { BarChart3, Clock, MapPin, Phone, Target, Users, Briefcase, ChevronDown, MessageSquare, Map as MapIcon, ShoppingCart, UserPlus, User, BrainCircuit, CheckCircle, Edit, Trash2, AlertCircle, Mail } from "lucide-react";
@@ -178,15 +177,15 @@ function PersonalDashboardContent({ displayedUser, timePeriod, setTimePeriod }: 
       }
     }
   
-    const handleAddOrUpdateEvent = async (event: Omit<Interaction, 'createdAt' | 'status'> & { id?: string }) => {
+    const handleAddOrUpdateEvent = async (eventData: Omit<Interaction, 'createdAt' | 'status' | 'id'> & { id?: string }) => {
         if (!currentUser || !santaData) return;
         
         let updatedInteractions;
-        if (event.id) { // Update existing
-            updatedInteractions = santaData.interactions.map(i => i.id === event.id ? { ...i, ...event } : i);
+        if (eventData.id) { // Update existing
+            updatedInteractions = santaData.interactions.map(i => i.id === eventData.id ? { ...i, ...eventData } as Interaction : i);
         } else { // Create new
             const newInteraction: Interaction = {
-                ...event,
+                ...eventData,
                 id: `int_${Date.now()}`,
                 createdAt: new Date().toISOString(),
                 status: 'open',
@@ -355,7 +354,7 @@ function PersonalDashboardContent({ displayedUser, timePeriod, setTimePeriod }: 
         <NewEventDialog
             open={isNewEventDialogOpen}
             onOpenChange={setIsNewEventDialogOpen}
-            onSave={handleAddOrUpdateEvent as any}
+            onSave={handleAddOrUpdateEvent}
             accentColor={SB_COLORS.accent}
             initialEventData={editingEvent}
         />
@@ -692,6 +691,6 @@ export default function SalesDashboardPage() {
         <AuthenticatedLayout>
             <ModuleHeader title="Dashboards de Ventas" icon={BarChart3} />
             <SalesDashboardPageContent />
-        </AuthenticatedLayout>
+        </AuthenticatedicatedLayout>
     )
 }

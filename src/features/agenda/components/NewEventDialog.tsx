@@ -1,4 +1,3 @@
-
 // src/features/agenda/components/NewEventDialog.tsx
 "use client";
 import React, { useState, useEffect } from 'react';
@@ -95,7 +94,7 @@ export function NewEventDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (event: Omit<Interaction, 'createdAt' | 'status'> & { id?: string }) => void;
+  onSave: (event: Omit<Interaction, 'createdAt' | 'status' | 'id'> & { id?: string }) => void;
   accentColor: string;
   initialEventData?: Partial<Interaction> | null;
 }) {
@@ -145,7 +144,7 @@ export function NewEventDialog({
         let finalNote = notes ? `${title} - ${notes}` : title;
         
         onSave({ 
-            id: initialEventData?.id || `int_new_${Date.now()}`,
+            ...(initialEventData ? { id: initialEventData.id } : {}),
             userId: initialEventData?.userId || currentUser!.id,
             dept: type, 
             kind: type === 'VENTAS' ? interactionKind : 'OTRO',
