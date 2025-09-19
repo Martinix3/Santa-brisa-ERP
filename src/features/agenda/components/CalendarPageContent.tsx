@@ -22,13 +22,46 @@ import { auth } from '@/lib/firebaseClient';
 import { getIdToken } from "firebase/auth";
 
 
-const asISO = (d: string | Date | undefined | null) => {
-  if (!d) return undefined;
-  const date = typeof d === "string" ? new Date(d) : d;
-  // Check if date is valid
-  if (isNaN(date.getTime())) {
-    return undefined;
+const toDate = (d: any): Date | null => {
+  if (!d) return null;
+  if (d instanceof Date) return isNaN(d.getTime()) ? null : d;
+
+  if (typeof d === 'string') {
+    const dt = new Date(d);
+    return isNaN(dt.getTime()) ? null : dt;
   }
+
+  if (typeof d === 'number') {
+    const dt = new Date(d);
+    return isNaN(dt.getTime()) ? null : dt;
+  }
+
+  // Firestore Timestamp u objetos parecidos
+  if (typeof d === 'object') {
+    // Timestamp de Firestore
+    if (typeof d.toDate === 'function') {
+      const dt = d.toDate();
+      return isNaN(dt.getTime()) ? null : dt;
+    }
+    if (typeof d.toMillis === 'function') {
+      const dt = new Date(d.toMillis());
+      return isNaN(dt.getTime()) ? null : dt;
+    }
+    // { seconds, nanoseconds }
+    if ('seconds' in d && typeof d.seconds === 'number') {
+      const ms = d.seconds * 1000 + (typeof d.nanoseconds === 'number' ? d.nanoseconds / 1e6 : 0);
+      const dt = new Date(ms);
+      return isNaN(dt.getTime()) ? null : dt;
+    }
+  }
+
+  return null;
+};
+
+const asISO = (d: any) => {
+  const date = toDate(d);
+  if (!date) return undefined;
+  // Normaliza a “local-aware” ISO (sin desplazar el reloj)
   return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString();
 };
 
@@ -45,6 +78,7 @@ function mapDomainToTasks(
     .filter((i) => i?.plannedFor)
     .map((i) => {
       const plannedISO = asISO(i.plannedFor!);
+      if (!plannedISO) console.warn('plannedFor inválido en interacción', i.id, i.plannedFor);
       
       const title = i.note || `${i.kind}`;
 
@@ -154,7 +188,7 @@ export function CalendarPageContent() {
         return {
           id: task.id,
           title: task.note,
-          start: task.plannedFor,
+          start: asISO(task.plannedFor),
           allDay: task.status === 'done' ? false : (task.dept !== "ALMACEN"), // Example of allDay logic
           extendedProps: { type: task.dept, status: task.status },
           backgroundColor: task.status === 'done' ? '#d1d5db' : hexToRgba(style.color, 0.25),
@@ -301,7 +335,7 @@ export function CalendarPageContent() {
         };
         finalData.ordersSellOut = [...(finalData.ordersSellOut || []), newOrder];
     }
-
+    
     if (payload.type === 'marketing' && originalTask.linkedEntity?.id) {
         const mktEventId = originalTask.linkedEntity.id;
         finalData.mktEvents = (finalData.mktEvents || []).map(me => {
@@ -356,6 +390,8 @@ export function CalendarPageContent() {
       setEditingEvent(event);
       setIsNewEventDialogOpen(true);
   }
+  
+  const FullCalendar = dynamic(() => import('@fullcalendar/react'), { ssr: false });
 
   return (
     <>
