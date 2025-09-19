@@ -83,7 +83,15 @@ const navSections = [
             { href: '/production/bom', label: 'BOMs', icon: BookOpen },
             { href: '/production/execution', label: 'Elaboración/Envasado', icon: Cpu },
             { href: '/production/traceability', label: 'Trazabilidad', icon: Waypoints },
-            { href: '/dev/qc-params', label: 'Calidad / Parámetros', icon: ClipboardCheck },
+        ]
+    },
+    {
+        title: 'Calidad',
+        module: 'quality',
+        items: [
+            { href: '/quality/dashboard', label: 'Dashboard QC', icon: ClipboardCheck },
+            { href: '/quality/release', label: 'Liberación de Lotes', icon: CheckCircle },
+            { href: '/dev/qc-params', label: 'Parámetros de Calidad', icon: TestTube2 },
         ]
     },
     {
