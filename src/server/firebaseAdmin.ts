@@ -2,6 +2,7 @@
 // src/server/firebaseAdmin.ts
 import * as admin from 'firebase-admin';
 import type { ServiceAccount } from 'firebase-admin';
+import clientConfig from '@/../firebase.json';
 
 // Función robusta para cargar credenciales de servicio desde múltiples fuentes
 function loadServiceAccount(): ServiceAccount | null {
@@ -44,8 +45,7 @@ function loadServiceAccount(): ServiceAccount | null {
 
 export function getProjectId(): string | undefined {
     // Busca el project ID en las variables de entorno comunes.
-    // NO debe llamar a loadServiceAccount para evitar recursión.
-    return process.env.GCLOUD_PROJECT || process.env.FIREBASE_PROJECT_ID || process.env.FSA_PROJECT_ID;
+    return process.env.GCLOUD_PROJECT || process.env.FIREBASE_PROJECT_ID || clientConfig?.client.projectId;
 }
 
 
@@ -63,7 +63,9 @@ if (!admin.apps.length) {
     // Si no hay credenciales explícitas, intenta con Application Default Credentials (ADC)
     // Esto funciona en Cloud Run, Cloud Functions, o con `gcloud auth application-default login`
     try {
-        admin.initializeApp();
+        admin.initializeApp({
+            projectId: getProjectId(),
+        });
     } catch (e: any) {
         console.warn('Firebase Admin credentials not found via env vars. ADC will be attempted. Error:', e.message);
         // Si initializeApp() sin args falla, es que ADC tampoco está configurado.
