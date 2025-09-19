@@ -3,6 +3,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import type { SantaData, User, UserRole } from '@/domain/ssot';
+import { SANTA_DATA_COLLECTIONS } from '@/domain/ssot';
 import { auth, db } from './firebaseClient';
 import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, getIdToken } from 'firebase/auth';
 import { collection, getDocs } from 'firebase/firestore';
@@ -61,16 +62,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
       try {
         if (isPersistenceEnabled && db) {
             console.log("Attempting to load data from Firestore...");
-            const collections = ['users', 'accounts', 'products', 'interactions', 'ordersSellOut', 'distributors', 'materials', 'billOfMaterials', 'lots', 'inventory', 'stockMoves', 'productionOrders', 'qaChecks', 'mktEvents', 'onlineCampaigns', 'creators', 'influencerCollabs', 'shipments', 'suppliers', 'goodsReceipts', 'traceEvents'];
             const allData: Partial<SantaData> = {};
             
-            for (const collectionName of collections) {
-                const querySnapshot = await getDocs(collection(db, collectionName));
-                (allData as any)[collectionName] = querySnapshot.docs.map(doc => doc.data());
+            for (const collectionName of SANTA_DATA_COLLECTIONS) {
+                try {
+                  const querySnapshot = await getDocs(collection(db, collectionName));
+                  (allData as any)[collectionName] = querySnapshot.docs.map(doc => ({id: doc.id, ...doc.data()}));
+                } catch (e) {
+                  console.warn(`Could not load collection ${collectionName}, initializing as empty array.`, e);
+                  (allData as any)[collectionName] = [];
+                }
             }
             
-            if (Object.values(allData).every(arr => arr.length === 0)) {
-                throw new Error("Firestore is empty, falling back to local JSON.");
+            if (Object.values(allData).every(arr => !arr || arr.length === 0)) {
+                throw new Error("Firestore is empty or unreachable, falling back to local JSON.");
             }
             
             initialData = allData as SantaData;
@@ -129,7 +134,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
-      // onAuthStateChanged will handle the rest
     } catch (error) {
       console.error("Error during Google sign-in:", error);
     }
@@ -154,6 +158,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const signupWithEmail = async (email: string, pass: string) => {
+    if (!isPersistenceEnabled) {
+        console.error("Signup is disabled when persistence is off.");
+        return null;
+    }
     try {
         const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
         if (data) {
@@ -212,7 +220,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         if (!user) throw new Error("User not authenticated.");
         const token = await getIdToken(user);
         
-        await fetch('/api/brain-persist', {
+        const response = await fetch('/api/brain-persist', {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
@@ -223,7 +231,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 strategy: 'overwrite' 
             }),
         });
+
+        if (!response.ok) {
+            const errText = await response.text();
+            throw new Error(`Server error (${response.status}): ${errText}`);
+        }
         console.log(`Successfully persisted ${collectionName}`);
+
     } catch (error) {
         console.error(`Error saving collection ${collectionName}:`, error);
         throw error;
