@@ -30,7 +30,7 @@ import {
 } from '@/ai/flows/schemas';
 import { gemini } from '@genkit-ai/googleai';
 import type { Message } from 'genkit';
-import { adminDb } from '@/server/firebaseAdmin';
+
 
 // ===============================
 // Helpers / Tipos
@@ -53,7 +53,7 @@ function isToolRequestPart(part: any): part is ToolRequestPart {
 }
 
 // ===============================
-// Tools
+// Tools (Mocks - No DB connection)
 // ===============================
 const createInteractionTool = ai.defineTool(
   {
@@ -63,22 +63,9 @@ const createInteractionTool = ai.defineTool(
     inputSchema: AddInteractionSchema,
     outputSchema: z.object({ success: z.boolean(), interactionId: z.string() }),
   },
-  async (input, context) => {
-    const userId = context.auth?.uid;
-    if (!userId) throw new Error("Autenticación requerida.");
-    console.log(`Tool "createInteraction" called with:`, input);
-    const collectionRef = adminDb.collection('userData').doc(userId).collection('interactions');
-    const newDocRef = collectionRef.doc();
-    const interactionId = newDocRef.id;
-
-    await newDocRef.set({ 
-        ...input, 
-        id: interactionId, 
-        createdAt: new Date().toISOString(),
-        userId: userId,
-        dept: 'VENTAS'
-    });
-
+  async (input) => {
+    console.log(`[Mock Tool] "createInteraction" called with:`, input);
+    const interactionId = `mock_int_${Date.now()}`;
     return { success: true, interactionId };
   }
 );
@@ -91,29 +78,9 @@ const createOrderTool = ai.defineTool(
     inputSchema: CreateOrderSchema,
     outputSchema: z.object({ success: z.boolean(), orderId: z.string() }),
   },
-  async (input, context) => {
-    const userId = context.auth?.uid;
-    if (!userId) throw new Error("Autenticación requerida.");
-    console.log(`Tool "createOrder" called with:`, input);
-    const collectionRef = adminDb.collection('userData').doc(userId).collection('ordersSellOut');
-    const newDocRef = collectionRef.doc();
-    const orderId = newDocRef.id;
-
-    await newDocRef.set({
-        id: orderId,
-        accountName: input.accountName, 
-        status: 'open',
-        currency: 'EUR',
-        createdAt: new Date().toISOString(),
-        lines: input.items.map((item) => ({
-            sku: item.sku || 'SB-750',
-            qty: item.quantity,
-            unit: 'uds',
-            priceUnit: 0,
-        })),
-        notes: input.notes,
-    });
-    
+  async (input) => {
+    console.log(`[Mock Tool] "createOrder" called with:`, input);
+    const orderId = `mock_ord_${Date.now()}`;
     return { success: true, orderId };
   }
 );
@@ -126,24 +93,9 @@ const scheduleEventTool = ai.defineTool(
     inputSchema: ScheduleEventSchema,
     outputSchema: z.object({ success: z.boolean(), eventId: z.string() }),
   },
-  async (input, context) => {
-    const userId = context.auth?.uid;
-    if (!userId) throw new Error("Autenticación requerida.");
-    console.log(`Tool "scheduleEvent" called with:`, input);
-    const collectionRef = adminDb.collection('userData').doc(userId).collection('mktEvents');
-    const newDocRef = collectionRef.doc();
-    const eventId = newDocRef.id;
-    
-    const newEvent: Partial<EventMarketing> = {
-        id: eventId,
-        title: input.title,
-        kind: input.kind,
-        status: 'planned',
-        startAt: input.startAt,
-        city: input.location,
-    };
-    await newDocRef.set(newEvent);
-    
+  async (input) => {
+    console.log(`[Mock Tool] "scheduleEvent" called with:`, input);
+    const eventId = `mock_evt_${Date.now()}`;
     return { success: true, eventId };
   }
 );
@@ -156,32 +108,9 @@ const upsertAccountTool = ai.defineTool(
     inputSchema: UpsertAccountSchema,
     outputSchema: z.object({ success: z.boolean(), accountId: z.string() }),
   },
-  async (input, context) => {
-    const userId = context.auth?.uid;
-    if (!userId) throw new Error("Autenticación requerida.");
-    console.log(`Tool "upsertAccount" called with:`, input);
-    const collectionRef = adminDb.collection('userData').doc(userId).collection('accounts');
-    let accountId = (input as any).id;
-    let docRef;
-
-    if (accountId) {
-        docRef = collectionRef.doc(accountId);
-        await docRef.update({ ...input, updatedAt: new Date().toISOString() });
-    } else {
-        docRef = collectionRef.doc();
-        accountId = docRef.id;
-        const newAccount: Partial<Account> = {
-            ...input,
-            id: accountId,
-            createdAt: new Date().toISOString(),
-            stage: input.stage || 'POTENCIAL',
-            type: input.type || 'HORECA',
-            ownerId: userId,
-            billerId: 'SB', // Por defecto venta propia
-        };
-        await docRef.set(newAccount);
-    }
-    
+  async (input) => {
+    console.log(`[Mock Tool] "upsertAccount" called with:`, input);
+    const accountId = (input as any).id || `mock_acc_${Date.now()}`;
     return { success: true, accountId };
   }
 );
@@ -242,7 +171,6 @@ export async function runSantaBrain(
     messages: history,
     tools,
     context: [{ role: 'context', content: [{ text: `Contexto de negocio: ${JSON.stringify(context)}` }] }],
-    auth: { uid: context.currentUser.id }
   });
 
   const newEntities: Partial<SantaData> = {
@@ -270,9 +198,11 @@ export async function runSantaBrain(
       }
 
       try {
-        const output = (await tool(toolRequest.input as any, { auth: { uid: context.currentUser.id }})) as ToolOutput;
+        const output = (await tool(toolRequest.input as any, {})) as ToolOutput;
         toolResponses.push({ toolResponse: { name: toolRequest.name, output } });
 
+        // NOTE: Since we are not connected to a DB, we will just simulate the creation of entities
+        // for the sake of the conversation flow. The data won't be persisted.
         if (output.success) {
           switch (toolRequest.name) {
             case 'upsertAccount': {
@@ -294,45 +224,34 @@ export async function runSantaBrain(
             case 'createInteraction': {
               const typedInput = AddInteractionSchema.parse(toolRequest.input);
               const { interactionId } = output as Extract<ToolOutput, { interactionId: string }>;
-              const account =
-                accountsCreatedInThisTurn.find((a) => a.name === typedInput.accountName) ??
-                context.accounts.find((a) => a.name === typedInput.accountName);
-              if (account) {
-                const newInteraction: Interaction = {
-                  id: interactionId,
-                  accountId: account.id,
-                  userId: context.currentUser.id,
-                  kind: typedInput.kind,
-                  note: typedInput.note,
-                  createdAt: new Date().toISOString(),
-                  dept: 'VENTAS',
-                  status: 'done'
-                };
-                newEntities.interactions!.push(newInteraction);
-              }
+              newEntities.interactions!.push({
+                id: interactionId,
+                accountId: accountsCreatedInThisTurn.find(a => a.name === typedInput.accountName)?.id || context.accounts.find(a => a.name === typedInput.accountName)?.id || 'unknown_account',
+                userId: context.currentUser.id,
+                kind: typedInput.kind,
+                note: typedInput.note,
+                createdAt: new Date().toISOString(),
+                dept: 'VENTAS',
+                status: 'done'
+              });
               break;
             }
             case 'createOrder': {
               const typedInput = CreateOrderSchema.parse(toolRequest.input);
               const { orderId } = output as Extract<ToolOutput, { orderId: string }>;
-              const account =
-                accountsCreatedInThisTurn.find((a) => a.name === typedInput.accountName) ??
-                context.accounts.find((a) => a.name === typedInput.accountName);
-              if (account) {
-                newEntities.ordersSellOut!.push({
-                  id: orderId,
-                  accountId: account.id,
-                  status: 'open',
-                  currency: 'EUR',
-                  createdAt: new Date().toISOString(),
-                  lines: typedInput.items.map((item) => ({
-                    sku: item.sku || 'SB-750',
-                    qty: item.quantity,
-                    unit: 'uds',
-                    priceUnit: 0,
-                  })),
-                } as OrderSellOut);
-              }
+              newEntities.ordersSellOut!.push({
+                id: orderId,
+                accountId: accountsCreatedInThisTurn.find(a => a.name === typedInput.accountName)?.id || context.accounts.find(a => a.name === typedInput.accountName)?.id || 'unknown_account',
+                status: 'open',
+                currency: 'EUR',
+                createdAt: new Date().toISOString(),
+                lines: typedInput.items.map((item) => ({
+                  sku: item.sku || 'SB-750',
+                  qty: item.quantity,
+                  unit: 'uds',
+                  priceUnit: 0,
+                })),
+              } as OrderSellOut);
               break;
             }
             case 'scheduleUserEvent': {

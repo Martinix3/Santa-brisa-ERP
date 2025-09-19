@@ -1,0 +1,63 @@
+
+{
+  "users": [
+    { "id": "u_admin", "name": "Admin", "email": "admin@example.com", "role": "admin", "active": true },
+    { "id": "u_nico", "name": "Nico", "email": "nico@example.com", "role": "comercial", "active": true, "managerId": "u_admin", "kpiBaseline": { "revenue": 15000, "unitsSold": 1200, "visits": 25 } },
+    { "id": "u_annso", "name": "Ann-So", "email": "annso@example.com", "role": "comercial", "active": true, "managerId": "u_admin", "kpiBaseline": { "revenue": 18000, "unitsSold": 1500, "visits": 30 } },
+    { "id": "u_mj", "name": "Maria Jesus", "email": "mj@santabrisa.co", "role": "owner", "active": true }
+  ],
+  "accounts": [
+    { "id": "acc_1", "name": "Bar Central", "city": "Madrid", "type": "HORECA", "stage": "ACTIVA", "ownerId": "u_nico", "billerId": "SB", "cif": "B12345678", "address": "Calle Gran Vía 1", "phone": "912345678", "createdAt": "2023-01-15T10:00:00Z" },
+    { "id": "acc_2", "name": "Hotel Lujo", "city": "Barcelona", "type": "HORECA", "stage": "ACTIVA", "ownerId": "u_annso", "billerId": "SB", "createdAt": "2023-02-20T11:00:00Z" },
+    { "id": "acc_3", "name": "Supermercado Sol", "city": "Valencia", "type": "RETAIL", "stage": "SEGUIMIENTO", "ownerId": "u_nico", "billerId": "d_1", "createdAt": "2023-03-10T09:00:00Z" },
+    { "id": "acc_4", "name": "Terraza Beach Club", "city": "Ibiza", "type": "HORECA", "stage": "POTENCIAL", "ownerId": "u_annso", "billerId": "SB", "createdAt": "2023-04-05T15:00:00Z" },
+    { "id": "acc_5", "name": "Disco Night", "city": "Madrid", "type": "HORECA", "stage": "FALLIDA", "ownerId": "u_nico", "billerId": "SB", "createdAt": "2023-05-01T18:00:00Z" }
+  ],
+  "distributors": [
+      { "id": "d_1", "name": "Distribuciones Levante", "city": "Valencia" },
+      { "id": "d_2", "name": "Gourmet Partners", "city": "Madrid" }
+  ],
+  "products": [
+      { "id": "prod_1", "sku": "SB-750", "name": "Santa Brisa 750ml", "kind": "FG", "caseUnits": 6, "casesPerPallet": 100, "active": true, "materialId": "mat_fg_sb750" },
+      { "id": "prod_2", "sku": "SB-200", "name": "Santa Brisa 200ml", "kind": "FG", "caseUnits": 24, "casesPerPallet": 80, "active": true, "materialId": "mat_fg_sb200" },
+      { "id": "prod_3", "sku": "MERCH-VAS", "name": "Vaso Santa Brisa", "kind": "MERCH", "active": true, "materialId": "mat_merch_vaso" }
+  ],
+  "interactions": [
+      { "id": "int_1", "userId": "u_nico", "accountId": "acc_1", "kind": "VISITA", "note": "Presentación del producto, muy interesados.", "createdAt": "2023-09-01T10:00:00Z", "dept": "VENTAS", "status": "done" },
+      { "id": "int_2", "userId": "u_annso", "accountId": "acc_2", "kind": "LLAMADA", "note": "Llamada de seguimiento, enviada propuesta.", "createdAt": "2023-09-05T12:30:00Z", "dept": "VENTAS", "status": "done" },
+      { "id": "int_3", "userId": "u_nico", "accountId": "acc_1", "kind": "OTRO", "note": "Reunión de seguimiento para cerrar acuerdo", "plannedFor": "2025-09-25T10:00:00Z", "createdAt": "2023-09-10T11:00:00Z", "dept": "VENTAS", "status": "open" },
+      { "id": "int_4", "userId": "u_admin", "accountId": "acc_4", "kind": "OTRO", "note": "Planificar campaña de lanzamiento en Ibiza", "plannedFor": "2025-09-30T10:00:00Z", "createdAt": "2023-09-12T11:00:00Z", "dept": "MARKETING", "status": "open"}
+  ],
+  "ordersSellOut": [
+      { "id": "ord_1", "accountId": "acc_1", "createdAt": "2023-09-02T14:00:00Z", "status": "paid", "currency": "EUR", "lines": [{ "sku": "SB-750", "qty": 12, "unit": "uds", "priceUnit": 15 }] },
+      { "id": "ord_2", "accountId": "acc_2", "createdAt": "2023-09-06T09:00:00Z", "status": "shipped", "currency": "EUR", "lines": [{ "sku": "SB-750", "qty": 60, "unit": "uds", "priceUnit": 14.5 }] },
+      { "id": "ord_3", "accountId": "acc_1", "createdAt": "2023-09-15T11:00:00Z", "status": "confirmed", "currency": "EUR", "lines": [{ "sku": "SB-750", "qty": 24, "unit": "uds", "priceUnit": 15 }, { "sku": "MERCH-VAS", "qty": 50, "unit": "uds", "priceUnit": 0 }] }
+  ],
+  "materials": [],
+  "billOfMaterials": [],
+  "shipments": [],
+  "lots": [],
+  "inventory": [],
+  "stockMoves": [],
+  "productionOrders": [],
+  "qaChecks": [],
+  "mktEvents": [
+      { "id": "mkt_1", "title": "Feria Gastronómica Madrid", "kind": "FERIA", "status": "closed", "startAt": "2023-06-10T10:00:00Z", "spend": 5000, "goal": { "leads": 50, "sampling": 1000, "salesBoxes": 10 } },
+      { "id": "mkt_2", "title": "Activación Terraza Beach Club", "kind": "OTRO", "status": "active", "startAt": "2023-07-15T18:00:00Z", "city": "Ibiza" }
+  ],
+  "onlineCampaigns": [
+    { "id": "camp_1", "title": "Campaña Verano Instagram", "channel": "IG", "status": "closed", "startAt": "2023-07-01T00:00:00Z", "endAt": "2023-08-31T23:59:59Z", "budget": 10000, "spend": 9500, "metrics": { "impressions": 2000000, "clicks": 40000, "roas": 2.5 } }
+  ],
+  "activations": [],
+  "creators": [],
+  "influencerCollabs": [],
+  "suppliers": [],
+  "traceEvents": [],
+  "goodsReceipts": [],
+  "priceLists": [],
+  "nonConformities": [],
+  "supplierBills": [],
+  "payments": [],
+  "receipts": [],
+  "purchaseOrders": []
+}

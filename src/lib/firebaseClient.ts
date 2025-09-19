@@ -1,15 +1,14 @@
+
+// src/lib/firebaseClient.ts
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, browserLocalPersistence, setPersistence } from 'firebase/auth';
-import firebaseConfig from '../../firebase.json';
+import { getAuth } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
+import config from '@/../firebase.json';
 
-// Usamos la configuración del cliente desde firebase.json
-const clientConfig = firebaseConfig.client;
+const firebaseConfig = config.client;
 
-export const clientApp = getApps().length ? getApp() : initializeApp(clientConfig);
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+const auth = getAuth(app);
+const db = getFirestore(app);
 
-export const auth = getAuth(clientApp);
-
-// Persistencia en navegador para mantener la sesión
-setPersistence(auth, browserLocalPersistence).catch((error) => {
-  console.error("Error setting persistence:", error);
-});
+export { app, auth, db };
