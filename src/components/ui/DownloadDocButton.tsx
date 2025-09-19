@@ -22,7 +22,7 @@ export function DownloadDocButton(props: DownloadDocButtonProps) {
   const [loading, setLoading] = React.useState(false);
 
   const onClick = async (e: React.MouseEvent) => {
-    e.stopPropagation(); // Evita que el menú desplegable se cierre
+    e.stopPropagation(); 
     setLoading(true);
     try {
       const payload = {
@@ -47,22 +47,27 @@ export function DownloadDocButton(props: DownloadDocButtonProps) {
         throw new Error(`Server error: ${res.status}. Check console for details.`);
       }
 
-      const blob = await res.blob();
-      const effectiveFilename = filename || `${docType}-${order.id}.pdf`;
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = effectiveFilename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      const htmlContent = await res.text();
+      
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(htmlContent);
+        printWindow.document.close();
+        printWindow.focus();
+        // Give the browser a moment to render the content before printing
+        setTimeout(() => {
+          printWindow.print();
+          printWindow.close();
+        }, 250);
+      } else {
+        throw new Error("Could not open print window. Please check your browser's pop-up settings.");
+      }
       
       onPrint?.();
 
     } catch (e: any) {
-      console.error('Error generating or downloading PDF:', e);
-      alert('Error al generar el PDF: ' + e.message);
+      console.error('Error generating or printing document:', e);
+      alert('Error al generar el documento: ' + e.message);
     } finally {
       setLoading(false);
     }
