@@ -21,24 +21,15 @@ import { auth } from '@/lib/firebaseClient';
 import { getIdToken } from "firebase/auth";
 
 
-// Reemplaza tu asISO por esta versión robusta:
+// === Normalización robusta de fechas ===
 const toDate = (d: any): Date | null => {
   if (!d) return null;
   if (d instanceof Date) return isNaN(d.getTime()) ? null : d;
-
-  if (typeof d === 'string') {
+  if (typeof d === 'string' || typeof d === 'number') {
     const dt = new Date(d);
     return isNaN(dt.getTime()) ? null : dt;
   }
-
-  if (typeof d === 'number') {
-    const dt = new Date(d);
-    return isNaN(dt.getTime()) ? null : dt;
-  }
-
-  // Firestore Timestamp u objetos parecidos
   if (typeof d === 'object') {
-    // Timestamp de Firestore
     if (typeof d.toDate === 'function') {
       const dt = d.toDate();
       return isNaN(dt.getTime()) ? null : dt;
@@ -47,21 +38,19 @@ const toDate = (d: any): Date | null => {
       const dt = new Date(d.toMillis());
       return isNaN(dt.getTime()) ? null : dt;
     }
-    // { seconds, nanoseconds }
     if ('seconds' in d && typeof d.seconds === 'number') {
       const ms = d.seconds * 1000 + (typeof d.nanoseconds === 'number' ? d.nanoseconds / 1e6 : 0);
       const dt = new Date(ms);
       return isNaN(dt.getTime()) ? null : dt;
     }
   }
-
   return null;
 };
 
 const asISO = (d: any) => {
   const date = toDate(d);
   if (!date) return undefined;
-  // Normaliza a “local-aware” ISO (sin desplazar el reloj)
+  // ISO “local-aware”
   return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString();
 };
 
@@ -80,14 +69,13 @@ function mapDomainToTasks(
       const plannedISO = asISO(i.plannedFor!);
       if (!plannedISO) {
         console.warn('plannedFor inválido en interacción', i.id, i.plannedFor);
-        return null; // <- señalamos que esta no vale
+        return null;
       }
-
       const title = i.note || `${i.kind}`;
       const type: Department = (i.dept as Department) || "VENTAS";
       return {
         id: i.id,
-        title: title,
+        title,
         type,
         status: i.status || 'open',
         date: plannedISO,
@@ -96,7 +84,7 @@ function mapDomainToTasks(
         linkedEntity: i.linkedEntity,
       } as Task;
     })
-    .filter(Boolean) as Task[]; // <- nos quedamos solo con válidas
+    .filter(Boolean) as Task[];
 
   return interactionTasks;
 }
@@ -187,7 +175,7 @@ export function CalendarPageContent() {
   const calendarEvents = useMemo(
     () =>
       allInteractions
-        .filter(i => !!asISO(i.plannedFor)) // <- solo con fecha válida
+        .filter(i => !!asISO(i.plannedFor)) // evita fechas inválidas
         .map((task) => {
         const style = DEPT_META[task.dept as Department] || DEPT_META.VENTAS;
         return {
@@ -209,7 +197,7 @@ export function CalendarPageContent() {
       if (!SantaData) return;
       setData(prev => prev ? { ...prev, interactions: updatedInteractions } : null);
       if (isPersistenceEnabled) {
-          saveCollection('interactions', updatedInteractions);
+        saveCollection('interactions', updatedInteractions);
       }
   }
 
