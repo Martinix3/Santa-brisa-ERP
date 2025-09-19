@@ -27,6 +27,7 @@ import {
     PanelLeftClose,
     PanelRightClose,
     ClipboardCheck,
+    CheckCircle,
     Tags,
     ChevronDown,
     Contact,
