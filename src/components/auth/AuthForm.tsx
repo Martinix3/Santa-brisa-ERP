@@ -20,12 +20,6 @@ export function AuthForm({ onEmailLogin, onEmailSignup, onGoogleSubmit }: AuthFo
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
-        if (currentUser) {
-            router.replace('/dashboard-personal');
-        }
-    }, [currentUser, router]);
-
     const title = mode === 'login' ? 'Santa Brisa CRM' : 'Crear Cuenta';
     const description = mode === 'login' ? 'Por favor, inicia sesión para continuar.' : 'Regístrate para acceder al CRM de Santa Brisa.';
     const buttonText = mode === 'login' ? 'Iniciar Sesión' : 'Crear Cuenta';
@@ -39,7 +33,8 @@ export function AuthForm({ onEmailLogin, onEmailSignup, onGoogleSubmit }: AuthFo
         setError(null);
         try {
             await onEmailSubmit(email, password);
-            // Redirection will be handled by the useEffect hook
+            // After successful login/signup, the main page will handle redirection
+            router.push('/');
         } catch (err: any) {
             setError(err.message || 'Ha ocurrido un error.');
         } finally {
@@ -52,6 +47,7 @@ export function AuthForm({ onEmailLogin, onEmailSignup, onGoogleSubmit }: AuthFo
         setError(null);
         try {
             await onGoogleSubmit();
+            router.push('/');
         } catch (err: any) {
              setError(err.message || 'Error con el login de Google.');
         } finally {
