@@ -1,26 +1,68 @@
 
 // src/server/firebaseAdmin.ts
 import * as admin from 'firebase-admin';
-import firebaseConfig from '@/../firebase.json';
+import type { ServiceAccount } from 'firebase-admin';
 
-const serviceAccount = {
-  projectId: process.env.FIREBASE_PROJECT_ID || firebaseConfig.client.projectId,
-  clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-  privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-};
+// Función robusta para cargar credenciales de servicio desde múltiples fuentes
+function loadServiceAccount(): ServiceAccount | null {
+  // 1) Base64 en env
+  const b64 = process.env.FIREBASE_SERVICE_ACCOUNT_BASE64;
+  if (b64) {
+    try {
+      const raw = Buffer.from(b64, 'base64').toString('utf8');
+      return JSON.parse(raw);
+    } catch (e) {
+      console.error("Failed to parse FIREBASE_SERVICE_ACCOUNT_BASE64", e);
+    }
+  }
+
+  // 2) JSON directo en env
+  const json = process.env.FIREBASE_SERVICE_ACCOUNT;
+  if (json) {
+    try {
+      return JSON.parse(json);
+    } catch (e) {
+        console.error("Failed to parse FIREBASE_SERVICE_ACCOUNT", e);
+    }
+  }
+
+  // 3) Variables sueltas (FSA_ o FIREBASE_)
+  const projectId = process.env.FSA_PROJECT_ID || process.env.FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.FSA_CLIENT_EMAIL || process.env.FIREBASE_CLIENT_EMAIL;
+  const privateKey = (process.env.FSA_PRIVATE_KEY || process.env.FIREBASE_PRIVATE_KEY)?.replace(/\\n/g, '\n');
+  
+  if (projectId && clientEmail && privateKey) {
+    return {
+      project_id: projectId,
+      client_email: clientEmail,
+      private_key: privateKey,
+    } as ServiceAccount;
+  }
+
+  return null;
+}
+
 
 if (!admin.apps.length) {
-  try {
-    // Solo inicializa si las credenciales están completas
-    if (serviceAccount.clientEmail && serviceAccount.privateKey) {
-        admin.initializeApp({
-          credential: admin.credential.cert(serviceAccount),
-        });
-    } else {
-        console.warn('Firebase Admin credentials are not fully set in environment variables. Admin features will be disabled.');
+  const serviceAccount = loadServiceAccount();
+  if (serviceAccount && serviceAccount.project_id && serviceAccount.client_email && serviceAccount.private_key) {
+    try {
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+      });
+    } catch (error: any) {
+      console.error('Firebase Admin initialization error with explicit credentials:', error.message);
     }
-  } catch (error: any) {
-    console.error('Firebase Admin initialization error:', error.message);
+  } else {
+    // Si no hay credenciales explícitas, intenta con Application Default Credentials (ADC)
+    // Esto funciona en Cloud Run, Cloud Functions, o con `gcloud auth application-default login`
+    try {
+        admin.initializeApp();
+    } catch (e: any) {
+        console.warn('Firebase Admin credentials not found via env vars. ADC will be attempted. Error:', e.message);
+        // Si initializeApp() sin args falla, es que ADC tampoco está configurado.
+        // No hacemos nada, el adminDb será null y la API fallará con el mensaje correcto.
+    }
   }
 }
 
