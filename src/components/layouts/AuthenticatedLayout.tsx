@@ -266,6 +266,8 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
     ? 'Persistencia con DB activada. Los cambios se guardarán.'
     : 'Persistencia con DB desactivada. Los cambios son locales y se perderán.';
 
+  const isPrivilegedUser = currentUser?.role === 'admin' || currentUser?.role === 'owner';
+
   return (
     <div className="h-screen flex flex-col bg-white">
       <div className={`flex-grow grid grid-cols-1 md:grid-cols-[auto_1fr] min-h-0 transition-all duration-300 ease-in-out`}>
@@ -281,15 +283,18 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
                 />
             </div>
             <div className="space-y-1 flex-grow overflow-y-auto">
-                {navSections.map(section => (
-                    <NavSection 
-                        key={section.title} 
-                        section={section}
-                        isCollapsed={isSidebarCollapsed}
-                        isExpanded={!!expandedSections[section.title]}
-                        onToggle={() => setExpandedSections(prev => ({...prev, [section.title]: !prev[section.title]}))}
-                    />
-                ))}
+                {navSections.map(section => {
+                    if(section.title === 'Admin' && !isPrivilegedUser) return null;
+                    return (
+                        <NavSection 
+                            key={section.title} 
+                            section={section}
+                            isCollapsed={isSidebarCollapsed}
+                            isExpanded={!!expandedSections[section.title]}
+                            onToggle={() => setExpandedSections(prev => ({...prev, [section.title]: !prev[section.title]}))}
+                        />
+                    )
+                })}
             </div>
             
             <div className="mt-4 pt-4 border-t border-sb-neutral-200 relative">
