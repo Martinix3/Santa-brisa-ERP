@@ -179,24 +179,18 @@ function NavSection({
     onToggle: () => void,
 }) {
     const pathname = usePathname() ?? '/';
-    const router = useRouter();
     const isSectionActive = section.items.some(item => pathname.startsWith(item.href) && (item.href !== '/' || pathname === '/'));
     const colorKey = (section.module || 'primary') as keyof typeof SB_COLORS;
     const moduleColor = SB_COLORS[colorKey] || SB_COLORS.primary;
     const Icon = section.items[0].icon;
 
-    const handleToggle = () => {
-        onToggle();
-    };
-
-    if (section.items.length === 1 && !isCollapsed) {
-        return <NavLink {...section.items[0]} isCollapsed={isCollapsed} moduleColor={moduleColor} />;
-    }
+    // The first item is always the dashboard for the section
+    const dashboardItem = section.items[0];
 
     return (
         <div className="py-1">
-            <button
-                onClick={handleToggle}
+            <Link
+                href={dashboardItem.href}
                 className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-sm font-semibold transition-colors ${
                     isCollapsed ? 'justify-center' : ''
                 } ${isSectionActive ? '' : 'text-sb-neutral-500 hover:bg-sb-neutral-100 hover:text-sb-neutral-900'}`}
@@ -205,15 +199,9 @@ function NavSection({
             >
                 {!isCollapsed && <span className="uppercase tracking-wider text-xs">{section.title}</span>}
                 {isCollapsed && <div className="p-1"><Icon className="h-5 w-5"/></div>}
-                {!isCollapsed && (
-                    <ChevronDown 
-                        className={`h-4 w-4 transition-transform duration-200`}
-                        style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
-                    />
-                )}
-            </button>
+            </Link>
             <AnimatePresence initial={false}>
-                {isExpanded && !isCollapsed && (
+                {!isCollapsed && (
                      <motion.div
                         key="content"
                         initial="collapsed"
