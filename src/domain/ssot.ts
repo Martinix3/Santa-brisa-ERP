@@ -103,7 +103,8 @@ export interface Lot {
   expDate?: string;
   quantity: number; 
   quality: { qcStatus: 'hold' | 'release' | 'reject', results: Record<string, QCResult> };
-  orderId?: string;
+  orderId?: string; // Production order ID
+  supplierId?: string; // For received raw materials
   receivedAt?: string;
   kind?: 'RM' | 'SFG' | 'FG';
   status: LotStatus;
@@ -135,7 +136,12 @@ export interface StockMove {
   lotId?: string;
   occurredAt: string;
   createdAt: string;
-  ref?: Record<string, any>;
+  ref?: {
+    orderId?: string;
+    shipmentId?: string;
+    prodOrderId?: string;
+    goodsReceiptId?: string;
+  };
 }
 
 // -----------------------------------------------------------------
@@ -307,6 +313,23 @@ export interface TraceEvent {
     data?: any;
 }
 
+export interface GoodsReceiptLine {
+    materialId: string;
+    sku: string;
+    lotId: string;
+    qty: number;
+    uom: Uom;
+}
+export interface GoodsReceipt {
+    id: string;
+    supplierId: string;
+    deliveryNote: string; // Número de albarán del proveedor
+    receivedAt: string;
+    lines: GoodsReceiptLine[];
+    status: 'pending_qc' | 'completed' | 'partial';
+}
+
+
 // -----------------------------------------------------------------
 // 6. Marketing
 // -----------------------------------------------------------------
@@ -434,14 +457,15 @@ export interface SantaData {
   creators: Creator[];
   influencerCollabs: InfluencerCollab[];
 
-  // Antiguos o menos usados (revisar)
   suppliers: Supplier[];
+  goodsReceipts: GoodsReceipt[];
+  
+  // Antiguos o menos usados (revisar)
   traceEvents: TraceEvent[];
   
   // Placeholder para colecciones futuras o no modeladas aun
   receipts: any[];
   purchaseOrders: any[];
-  goodsReceipts: any[];
   priceLists: any[];
   nonConformities: any[];
   supplierBills: any[];

@@ -18,6 +18,12 @@ El módulo de inventario se centra en saber *qué tienes y dónde lo tienes* en 
     *   **Tipo de Dato:** `StockMove[]`
     *   **Cuándo se usa:** Para depurar discrepancias de stock y para reconstruir la historia de un lote.
 
+*   #### `goodsReceipts` (NUEVO)
+    *   **Propósito:** Registra la **entrada de mercancía de un proveedor**. Contiene el número de albarán, el proveedor y los productos y lotes recibidos. Es el punto de partida para la trazabilidad de las materias primas.
+    *   **Tipo de Dato:** `GoodsReceipt[]`
+    *   **Cuándo se usa:** Al recibir un pedido de un proveedor. Desencadena la creación de `StockMove` de tipo `receipt`.
+
+
 ---
 
 ### 2. Producción: La Transformación de Materiales
@@ -72,3 +78,7 @@ Estas colecciones actúan como diccionarios o tablas maestras para dar contexto 
 *   #### `users`
     *   **Propósito:** Lista de usuarios del sistema. Se usa para identificar quién realizó una acción (ej. un control de calidad, una orden de producción).
     *   **Tipo de Dato:** `User[]`
+    
+*   #### `suppliers`
+    *   **Propósito:** Catálogo de **proveedores** de materias primas y otros materiales.
+    *   **Tipo de Dato:** `Supplier[]`

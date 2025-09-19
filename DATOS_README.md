@@ -35,6 +35,12 @@ export type Distributor = {
   country?: string; 
   cif?: string; 
 };
+
+export type Supplier = { 
+  id: string; 
+  name: string; 
+  country: string; 
+};
 ```
 
 ### Cuentas y Ventas (Accounts & Sales)
@@ -133,7 +139,8 @@ export type Lot = {
   sku: string;
   quantity: number;
   createdAt: string;
-  orderId: string;
+  orderId?: string; // Production Order ID
+  supplierId?: string; // For raw materials
   quality: LotQuality;
   expDate?: string;
   receivedAt?: string;
@@ -199,7 +206,24 @@ export interface StockMove {
     orderId?: string;
     shipmentId?: string;
     prodOrderId?: string;
+    goodsReceiptId?: string;
   };
+}
+
+export interface GoodsReceiptLine {
+    materialId: string;
+    sku: string;
+    lotId: string;
+    qty: number;
+    uom: Uom;
+}
+export interface GoodsReceipt {
+    id: string;
+    supplierId: string;
+    deliveryNote: string; // Número de albarán del proveedor
+    receivedAt: string;
+    lines: GoodsReceiptLine[];
+    status: 'pending_qc' | 'completed' | 'partial';
 }
 
 export interface ShipmentLine {
