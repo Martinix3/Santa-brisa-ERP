@@ -29,7 +29,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<SantaData | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isPersistenceEnabled, setIsPersistenceEnabled] = useState(false);
+  const [isPersistenceEnabled, setIsPersistenceEnabled] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
@@ -99,26 +99,32 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const signupWithEmail = async (email: string, pass: string) => {
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
-      if (data) {
-        const newUser: User = {
-          id: userCredential.user.uid,
-          name: emailToName(email),
-          email: email,
-          role: 'comercial',
-          active: true,
-        };
-        // This is a local update. The user object will be persisted with other users if save is called.
-        setData({ ...data, users: [...data.users, newUser] });
-        return newUser;
-      }
-      return null;
+        const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
+        if (data) {
+            const newUser: User = {
+                id: userCredential.user.uid,
+                name: emailToName(email),
+                email: email,
+                role: 'comercial',
+                active: true,
+            };
+            const updatedUsers = [...data.users, newUser];
+            setData({ ...data, users: updatedUsers });
+            
+            // Persist the new user to the database
+            if (isPersistenceEnabled) {
+                await saveCollection('users', updatedUsers);
+            }
+            
+            return newUser;
+        }
+        return null;
     } catch (error) {
-      console.error("Error signing up:", error);
-      alert("Error al registrar la cuenta.");
-      return null;
+        console.error("Error signing up:", error);
+        alert("Error al registrar la cuenta.");
+        return null;
     }
-  };
+};
 
   const logout = async () => {
     try {
