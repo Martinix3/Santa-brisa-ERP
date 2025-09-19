@@ -1,4 +1,3 @@
-
 // src/app/api/brain-persist/route.ts
 "use server";
 
@@ -13,8 +12,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: 'Unauthorized: Missing token.' }, { status: 401 });
     }
 
-    // Verify token to ensure user is authenticated
-    await adminAuth?.verifyIdToken(idToken);
+    // Verify token to ensure user is authenticated. This is a security check.
+    // The actual write operation will use admin privileges.
+    try {
+        await adminAuth.verifyIdToken(idToken);
+    } catch (e: any) {
+        console.error('Invalid ID Token:', e.message);
+        return NextResponse.json({ ok: false, error: 'Unauthorized: Invalid token.' }, { status: 401 });
+    }
     
     if (!adminDb) {
       return NextResponse.json({ ok: false, error: "Server misconfiguration: Firebase Admin not initialized." }, { status: 500 });
@@ -37,7 +42,7 @@ export async function POST(req: Request) {
             if (item?.id) {
               ops++;
               const docRef = adminDb.collection(coll).doc(item.id);
-              // Use set with merge to avoid overwriting existing fields not present in the payload
+              // Use set with merge to create or update documents without overwriting missing fields.
               batch.set(docRef, item, { merge: true });
             }
           }
@@ -52,6 +57,7 @@ export async function POST(req: Request) {
 
   } catch (e: any) {
     console.error('[brain-persist] ERROR:', e?.code, e?.message);
+    // Handle potential token expiration errors from verifyIdToken
     if (e.code === 'auth/id-token-expired') {
         return NextResponse.json({ ok: false, error: 'Authentication token expired.' }, { status: 401 });
     }
