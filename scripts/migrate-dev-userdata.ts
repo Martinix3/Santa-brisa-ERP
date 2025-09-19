@@ -1,3 +1,4 @@
+
 // scripts/migrate-dev-userdata.ts
 import { initializeApp, cert, applicationDefault } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
@@ -82,17 +83,16 @@ const db = getFirestore();
 const SOURCE_SUBS = [
   "accounts","billOfMaterials","creators","distributors","goodsReceipts",
   "influencerCollabs","interactions","inventory","lots","mktEvents",
-  "orders", // <- en dev estaba como "orders"
+  "ordersSellOut", // <- Nombre correcto
   "productionOrders","qaChecks","shipments","stockMoves","suppliers","traceEvents",
   // si existen
   "products","materials","onlineCampaigns","activations",
   "receipts","purchaseOrders","priceLists","nonConformities","supplierBills","payments"
 ];
 
-// Mapeo a nombres SSOT destino
+// Mapeo a nombres SSOT destino (ya no es necesario para 'orders', pero se deja por si hay otros casos)
 const MAP: Record<string,string> = {
-  orders: "ordersSellOut",
-  // los demás igual nombre
+  // orders: "ordersSellOut",
 };
 
 async function run() {
