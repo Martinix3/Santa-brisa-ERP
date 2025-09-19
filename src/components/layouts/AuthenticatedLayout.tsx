@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -233,7 +234,7 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
   const pathname = usePathname() ?? '/';
-  const { data, currentUser, isLoading, logout, isPersistenceEnabled, togglePersistence, setCurrentUserById } = useData();
+  const { data, currentUser, authReady, logout, isPersistenceEnabled, togglePersistence, setCurrentUserById } = useData();
 
   useEffect(() => {
     const activeSection = navSections.find(section => section.items.some(item => pathname.startsWith(item.href) && item.href !== '/'));
@@ -250,7 +251,7 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
     logout();
   };
   
-  if (isLoading) {
+  if (!authReady) {
     return (
         <div className="h-screen w-screen flex items-center justify-center bg-white">
             <p>Cargando...</p>
@@ -266,7 +267,7 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
     ? 'Persistencia con DB activada. Los cambios se guardarán.'
     : 'Persistencia con DB desactivada. Los cambios son locales y se perderán.';
 
-  const isPrivilegedUser = currentUser?.role === 'admin' || currentUser?.role === 'owner';
+  const isPrivilegedUser = currentUser?.role?.toLowerCase() === 'admin' || currentUser?.role?.toLowerCase() === 'owner';
 
   return (
     <div className="h-screen flex flex-col bg-white">
