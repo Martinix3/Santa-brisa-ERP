@@ -94,7 +94,7 @@ export interface Material {
   id: string;
   sku: string;
   name: string;
-  unit?: Uom;
+  uom?: Uom;
   standardCost?: number;
   category: 'raw' | 'packaging' | 'label' | 'consumable' | 'intermediate' | 'finished_good' | 'merchandising';
 }
@@ -103,12 +103,10 @@ export interface Lot {
   id: string;
   sku: string;
   createdAt: string;
-  expDate?: string;
   quantity: number; 
   quality: { qcStatus: 'hold' | 'release' | 'reject', results: Record<string, QCResult> };
   orderId?: string; // Production order ID
   supplierId?: string; // For received raw materials
-  receivedAt?: string;
   kind?: 'RM' | 'SFG' | 'FG';
   status: LotStatus;
   qty?: { onHand: number; reserved: number; uom: Uom };
@@ -133,7 +131,7 @@ export interface StockMove {
   sku: string;
   uom: Uom;
   qty: number;
-  reason: 'receipt' | 'production_in' | 'production_out' | 'sale' | 'transfer' | 'adjustment' | 'return_in' | 'return_out' | 'SHIP';
+  reason: 'receipt' | 'production_in' | 'production_out' | 'sale' | 'transfer' | 'adjustment' | 'return_in' | 'return_out' | 'ship';
   fromLocation?: string;
   toLocation?: string;
   lotId?: string;
@@ -154,7 +152,7 @@ export interface StockMove {
 export interface OrderLine { 
   sku: string; 
   qty: number; 
-  unit: 'uds';
+  uom: Uom;
   priceUnit: number;
   discount?: number;
   lotIds?: string[];

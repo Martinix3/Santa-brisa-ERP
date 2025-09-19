@@ -292,7 +292,7 @@ function AccountsPageContent() {
                 status: 'open',
                 currency: 'EUR',
                 createdAt: new Date().toISOString(),
-                lines: payload.items.map(item => ({ sku: item.sku, qty: item.qty, unit: 'uds', priceUnit: 0 })),
+                lines: payload.items.map(item => ({ sku: item.sku, qty: item.qty, uom: 'uds', priceUnit: 0 })),
                 notes: `Pedido rápido creado desde lista de cuentas`,
             };
             finalData.ordersSellOut = [...(finalData.ordersSellOut || []), newOrder];

@@ -1,0 +1,43 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{db}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function hasRole(role) {
+      return signedIn() && role in request.auth.token.roles;
+    }
+
+    // USERS: lectura propia o admin; escritura solo admin
+    match /users/{uid} {
+      allow read: if signedIn() && (uid == request.auth.uid || hasRole("admin"));
+      allow write: if hasRole("admin");
+    }
+
+    // Colecciones de negocio (lectura autenticada; escritura solo vía Admin SDK)
+    match /{colName}/{docId} where
+      colName in [
+        "accounts","ordersSellOut","interactions","shipments",
+        "products","materials","billOfMaterials",
+        "lots","inventory","stockMoves","productionOrders","qaChecks",
+        "mktEvents","onlineCampaigns","creators","influencerCollabs",
+        "distributors","suppliers","goodsReceipts","traceEvents",
+        // opcionales (si los vas a usar ahora)
+        "activations","receipts","purchaseOrders","priceLists",
+        "nonConformities","supplierBills","payments"
+      ] {
+      allow read: if signedIn();
+      allow write: if false; // escribe desde /api/brain-persist (Admin SDK)
+    }
+
+    // Si prefieres anidar precios bajo /prices/**, deja esto activo
+    match /prices/{subPath=**} {
+      allow read: if signedIn();
+      allow write: if hasRole("admin");
+    }
+
+    // Bloquear colecciones de prueba en prod
+    match /test_writes/{doc} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -179,3 +179,4 @@ export function applyStockMoves(items: InventoryItem[], moves: StockMove[], prod
   }
   return stateToArray(state);
 }
+

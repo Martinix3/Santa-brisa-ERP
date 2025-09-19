@@ -138,7 +138,7 @@ export default function ProduccionPage() {
                     materialId: i.materialId,
                     name: mat?.name || 'Unknown',
                     qtyPerBatch: i.quantity,
-                    uom: (i.unit || mat?.unit || 'ud') as Uom,
+                    uom: (i.unit || mat?.uom || 'uds') as Uom,
                     stdCostPerUom: mat?.standardCost || 0,
                 }
             }),
@@ -497,7 +497,7 @@ function OrderDetail({ order, recipe, onClose, onStart, onFinish, onUpdate, inve
       if (!execution) return null;
       
       const plannedYield = recipe.baseUnit === 'L' ? order.targetQuantity : plannedBottles;
-      const plannedUom = recipe.baseUnit === 'L' ? 'L' : 'ud';
+      const plannedUom = recipe.baseUnit === 'L' ? 'L' : 'uds';
       const actualYield = execution.finalYield ?? 0;
       const merma = plannedYield - actualYield;
       const mermaPct = plannedYield > 0 ? (merma / plannedYield) * 100 : 0;
@@ -638,7 +638,7 @@ function OrderDetail({ order, recipe, onClose, onStart, onFinish, onUpdate, inve
                           <div className="flex">
                             <input type="number" min={0} value={finalYield} onChange={e=>setFinalYield(e.target.value===''? '' : parseFloat(e.target.value))} className="px-2 py-1.5 w-full rounded-l-lg border border-zinc-300"/>
                             <select value={yieldUom} onChange={e => setYieldUom(e.target.value as any)} className="px-2 py-1.5 rounded-r-lg border-t border-b border-r border-zinc-300 bg-zinc-100">
-                                <option value="ud">botellas</option>
+                                <option value="uds">botellas</option>
                                 <option value="L">Litros</option>
                             </select>
                           </div>

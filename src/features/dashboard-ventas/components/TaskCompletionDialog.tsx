@@ -2,7 +2,7 @@
 "use client";
 import React, { useState } from 'react';
 import { SBDialog, SBDialogContent } from '@/features/agenda/ui';
-import type { Interaction } from '@/domain/ssot';
+import type { Interaction, Uom } from '@/domain/ssot';
 import { useData } from '@/lib/dataprovider';
 import { ShoppingCart, MessageSquare, Plus, X } from 'lucide-react';
 

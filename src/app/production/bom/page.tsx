@@ -3,7 +3,7 @@
 "use client";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { listRecipes as fetchRecipes, createRecipe, updateRecipe, deleteRecipe, listMaterials } from "@/features/production/ssot-bridge";
-import type { Material, BillOfMaterial as RecipeBom } from '@/domain/ssot';
+import type { Material, BillOfMaterial as RecipeBom, Uom } from '@/domain/ssot';
 import { Plus, Search, X } from "lucide-react";
 import { SBCard, SB_COLORS } from "@/components/ui/ui-primitives";
 
@@ -14,7 +14,6 @@ import { SBCard, SB_COLORS } from "@/components/ui/ui-primitives";
 // =============================================================
 
 // ---------- Tipos (local a este componente) ----------
-type Uom = "kg" | "g" | "L" | "mL" | "ud";
 type BomLine = { materialId: string; name: string; quantity: number; uom: Uom; costPerUom: number };
 
 // ---------- Cálculo costes ----------
@@ -30,8 +29,8 @@ function computeRecipeCosts(r: RecipeBom & { stdLaborCostPerBatch?: number; stdO
     const materialDetails = materialsMap.get(l.materialId);
     const materialCost = materialDetails?.standardCost || 0;
     // Si la UoM del coste es por kg y el item está en g, o L y mL, ajustamos.
-    if (materialDetails?.unit === 'kg' && (l as any).uom === 'g') return (l.quantity / 1000) * materialCost;
-    if (materialDetails?.unit === 'L' && (l as any).uom === 'mL') return (l.quantity / 1000) * materialCost;
+    if (materialDetails?.uom === 'kg' && (l as any).uom === 'g') return (l.quantity / 1000) * materialCost;
+    if (materialDetails?.uom === 'L' && (l as any).uom === 'mL') return (l.quantity / 1000) * materialCost;
     return l.quantity * materialCost;
   }));
   
@@ -122,7 +121,7 @@ function LineRow({ idx, line, onChange, onRemove, materials }: { idx:number; lin
       <td className="px-3 py-2"><input type="number" min={0} step={0.01} value={line.quantity} onChange={e=>onChange({ ...line, quantity: parseFloat(e.target.value||"0") })} className="px-2 py-1.5 w-28 rounded-lg border border-zinc-300"/></td>
       <td className="px-3 py-2">
         <select value={line.uom} onChange={e=>onChange({ ...line, uom: e.target.value as Uom })} className="px-2 py-1.5 rounded-lg border border-zinc-300">
-          {(["kg","g","L","mL","ud"] as Uom[]).map(u => <option key={u} value={u}>{u}</option>)}
+          {(["kg","g","L","mL","uds"] as Uom[]).map(u => <option key={u} value={u}>{u}</option>)}
         </select>
       </td>
       <td className="px-3 py-2"><input type="number" min={0} step={0.001} value={line.costPerUom} onChange={e=>onChange({ ...line, costPerUom: parseFloat(e.target.value||"0") })} className="px-2 py-1.5 w-28 rounded-lg border border-zinc-300"/></td>
@@ -150,7 +149,7 @@ function RecipeForm({ value, onChange, onSave, onCancel, materials }: {
   };
   
   const addLine = () => {
-    const newLine: BomLine = { materialId: "", name: "", quantity: 0, uom: "ud", costPerUom: 0 };
+    const newLine: BomLine = { materialId: "", name: "", quantity: 0, uom: "uds", costPerUom: 0 };
     onChange({ ...r, items: [...(r.items || []), newLine] });
   };
   
@@ -177,7 +176,7 @@ function RecipeForm({ value, onChange, onSave, onCancel, materials }: {
                 <label className="text-sm">
                     <span className="block text-xs text-zinc-500 mb-1">UOM del Lote</span>
                     <select value={r.baseUnit} onChange={e=>onChange({ ...r, baseUnit: e.target.value })} className="px-2 py-1.5 rounded-lg border border-zinc-300 w-full">
-                    {(["kg","g","L","mL","ud"] as const).map(u => <option key={u} value={u}>{u}</option>)}
+                    {(["kg","g","L","mL","uds"] as const).map(u => <option key={u} value={u}>{u}</option>)}
                     </select>
                 </label>
                 </div>
@@ -432,4 +431,5 @@ export default function BomPage(){
     </div>
   );
 }
+
 

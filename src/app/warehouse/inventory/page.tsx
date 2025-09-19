@@ -5,7 +5,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Truck, PackageCheck, AlertCircle, ChevronDown, Printer, FileText, Plus, Download, MoreVertical, Package, Tag, Calendar, CheckCircle, XCircle, Hourglass } from "lucide-react";
 import { DataTableSB, Col } from '@/components/ui/ui-primitives';
 import { listLots, listMaterials } from "@/features/production/ssot-bridge";
-import type { Lot, Material, InventoryItem } from '@/domain/ssot';
+import type { Lot, Material, InventoryItem, Uom } from '@/domain/ssot';
 import { LotQualityStatusPill } from '@/features/production/components/ui';
 import { useData } from '@/lib/dataprovider';
 
@@ -22,6 +22,7 @@ type UnifiedInventoryItem = {
     quality?: {
         qcStatus?: 'hold' | 'release' | 'reject';
     };
+    uom: Uom;
 };
 
 
@@ -91,10 +92,11 @@ export default function InventoryPage() {
                     category: material?.category || 'finished_good',
                     quantity: lot.quantity,
                     createdAt: lot.createdAt,
-                    expDate: lot.expDate,
+                    expDate: lot.dates?.expDate,
                     quality: {
                         qcStatus: lot.quality?.qcStatus
-                    }
+                    },
+                    uom: material?.uom || 'uds',
                 }
             });
             
@@ -109,6 +111,7 @@ export default function InventoryPage() {
                     quantity: item.qty,
                     createdAt: item.updatedAt,
                     expDate: item.expDate,
+                    uom: item.uom,
                  }
             });
             
@@ -136,7 +139,7 @@ export default function InventoryPage() {
                 </div>
             )
         },
-        { key: 'quantity', header: 'Cantidad', className: "justify-end", render: r => <span className="font-semibold">{r.quantity}</span> },
+        { key: 'quantity', header: 'Cantidad', className: "justify-end", render: r => <span className="font-semibold">{r.quantity} {r.uom}</span> },
         { key: 'createdAt', header: 'Fecha', render: r => new Date(r.createdAt).toLocaleDateString('es-ES') },
         { key: 'expDate', header: 'Caducidad', render: r => <ExpirationPill date={r.expDate} /> },
         { 
