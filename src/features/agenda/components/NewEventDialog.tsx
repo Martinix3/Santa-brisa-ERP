@@ -145,7 +145,7 @@ export function NewEventDialog({
         let finalNote = notes ? `${title} - ${notes}` : title;
         
         onSave({ 
-            ...(initialEventData ? { id: initialEventData.id } : {}),
+            id: initialEventData?.id || `int_new_${Date.now()}`,
             userId: initialEventData?.userId || currentUser!.id,
             dept: type, 
             kind: type === 'VENTAS' ? interactionKind : 'OTRO',
