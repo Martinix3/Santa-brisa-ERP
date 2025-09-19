@@ -1,3 +1,4 @@
+
 // src/app/api/brain-persist/route.ts
 "use server";
 
@@ -6,18 +7,6 @@ import { db } from "@/lib/firebaseClient"; // el mismo que usas en db-console
 import { SANTA_DATA_COLLECTIONS } from "@/domain/ssot";
 import { collection, getDocs, writeBatch, doc } from "firebase/firestore";
 
-export async function GET() {
-  try {
-    const result: Record<string, any[]> = {};
-    for (const coll of SANTA_DATA_COLLECTIONS) {
-      const snap = await getDocs(collection(db, coll as string));
-      (result as any)[coll] = snap.docs.map((d) => d.data());
-    }
-    return NextResponse.json({ ok: true, data: result });
-  } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e.message }, { status: 500 });
-  }
-}
 
 export async function POST(req: Request) {
   try {
