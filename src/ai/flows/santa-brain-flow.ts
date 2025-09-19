@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileoverview Santa Brisa main conversational agent
@@ -110,10 +111,10 @@ const santaBrainFlow = ai.defineFlow(
     });
 
     const toolCalls = llmResponse.toolCalls;
-    const newEntities: Partial<SantaData> = {};
     let finalAnswer = llmResponse.text;
+    const newEntities: Partial<SantaData> = {};
 
-    if (toolCalls.length > 0) {
+    if (toolCalls && toolCalls.length > 0) {
         for (const toolCall of toolCalls) {
             finalAnswer += `Hecho. He creado una entidad de tipo ${toolCall.name} en el sistema.`;
         }

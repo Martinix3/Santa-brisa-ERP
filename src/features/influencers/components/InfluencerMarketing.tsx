@@ -380,7 +380,7 @@ export default function InfluencerMarketing({ components }: { components: any })
     } else {
       const id = "collab_" + Math.random().toString(36).slice(2, 9);
       const newCollab: InfluencerCollab = {
-          id, status: "PROSPECT", tier: "nano", platform: "Instagram", creatorName: "Nuevo/a", deliverables: [], compensation: { type: "gift" },
+          id, creatorId: `creator_${Date.now()}`, status: "PROSPECT", tier: "nano", platform: "Instagram", creatorName: "Nuevo/a", deliverables: [], compensation: { type: "gift" },
           createdAt: isoNow(), updatedAt: isoNow(),
           ...patch
       };

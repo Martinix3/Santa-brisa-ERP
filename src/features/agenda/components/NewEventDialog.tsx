@@ -1,3 +1,4 @@
+
 // src/features/agenda/components/NewEventDialog.tsx
 "use client";
 import React, { useState, useEffect } from 'react';
@@ -145,6 +146,7 @@ export function NewEventDialog({
         
         onSave({ 
             ...(initialEventData ? { id: initialEventData.id } : {}),
+            userId: initialEventData?.userId || currentUser!.id,
             dept: type, 
             kind: type === 'VENTAS' ? interactionKind : 'OTRO',
             plannedFor: date,

@@ -36,11 +36,11 @@ export default function Page(){
       
       let finalData = { ...santaData };
       const newInteraction: Interaction = {
+          ...event,
           id: `int_${Date.now()}`,
           createdAt: new Date().toISOString(),
           status: 'open',
           userId: currentUser.id,
-          ...event,
       };
 
       const newMktEvent: EventMarketing = {
@@ -144,5 +144,3 @@ export default function Page(){
     </>
   );
 }
-
-    

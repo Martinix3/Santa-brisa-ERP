@@ -382,20 +382,25 @@ export interface Creator {
     createdAt: string; updatedAt: string;
 }
 
+export type Platform = 'Instagram'|'TikTok'|'YouTube'|'Twitch'|'Blog'|'Otro';
+export type Tier = 'nano'|'micro'|'mid'|'macro';
+export type Deliverable = 'post' | 'story' | 'reel' | 'short' | 'video_long' | 'stream' | 'blogpost';
+export type CompType = 'gift' | 'flat' | 'cpa' | 'cpc' | 'revshare';
+
 export interface InfluencerCollab {
     id: string;
     creatorId: string;
     creatorName: string;
     handle?: string;
-    platform: 'Instagram'|'TikTok'|'YouTube'|'Twitch'|'Blog'|'Otro';
-    tier: 'nano'|'micro'|'mid'|'macro';
+    platform: Platform;
+    tier: Tier;
     status: 'PROSPECT' | 'OUTREACH' | 'NEGOTIATING' | 'AGREED' | 'LIVE' | 'COMPLETED' | 'PAUSED' | 'DECLINED';
     ownerUserId?: string;
     couponCode?: string;
     utmCampaign?: string;
     landingUrl?: string;
-    deliverables: { kind: 'post' | 'story' | 'reel' | 'short' | 'video_long' | 'stream' | 'blogpost'; qty: number; dueAt?: string }[];
-    compensation: { type: 'gift' | 'flat' | 'cpa' | 'cpc' | 'revshare'; amount?: number; currency?: 'EUR'; notes?: string; };
+    deliverables: { kind: Deliverable; qty: number; dueAt?: string }[];
+    compensation: { type: CompType; amount?: number; currency?: 'EUR'; notes?: string; };
     costs?: { productCost?: number; shippingCost?: number; cashPaid?: number; otherCost?: number };
     tracking?: {
         clicks?: number; orders?: number; revenue?: number;

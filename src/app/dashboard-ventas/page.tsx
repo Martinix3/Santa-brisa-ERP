@@ -178,7 +178,7 @@ function PersonalDashboardContent({ displayedUser, timePeriod, setTimePeriod }: 
       }
     }
   
-    const handleAddOrUpdateEvent = async (event: Omit<Interaction, 'createdAt' | 'status' | 'userId'> & { id?: string }) => {
+    const handleAddOrUpdateEvent = async (event: Omit<Interaction, 'createdAt' | 'status'> & { id?: string }) => {
         if (!currentUser || !santaData) return;
         
         let updatedInteractions;
@@ -186,11 +186,11 @@ function PersonalDashboardContent({ displayedUser, timePeriod, setTimePeriod }: 
             updatedInteractions = santaData.interactions.map(i => i.id === event.id ? { ...i, ...event } : i);
         } else { // Create new
             const newInteraction: Interaction = {
+                ...event,
                 id: `int_${Date.now()}`,
                 createdAt: new Date().toISOString(),
                 status: 'open',
                 userId: currentUser.id,
-                ...event,
             };
             updatedInteractions = [...(santaData.interactions || []), newInteraction];
         }
@@ -695,5 +695,3 @@ export default function SalesDashboardPage() {
         </AuthenticatedLayout>
     )
 }
-
-    
