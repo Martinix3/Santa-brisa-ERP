@@ -12,6 +12,7 @@
     "test": "vitest",
     "test:exports": "vitest run tests/ssot-exports.test.ts",
     "clean": "rm -rf .next",
+    "migrate": "tsx scripts/migrate-dev-userdata.ts",
     "genkit:start": "genkit start",
     "genkit:run": "genkit run",
     "genkit:list": "genkit list"
