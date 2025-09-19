@@ -7,7 +7,7 @@
  * - SantaBrainOutput - The return type for the santaBrainFlow.
  */
 
-import { ai } from '@/ai/genkit';
+import { ai } from '@/ai';
 import { z } from 'genkit';
 import { Message } from 'genkit';
 
@@ -111,10 +111,9 @@ const santaBrainFlow = ai.defineFlow(
 
     const toolCalls = llmResponse.toolCalls();
     const newEntities: Partial<SantaData> = {};
-    let finalAnswer = llmResponse.text();
+    const finalAnswer = llmResponse.text();
 
     if (toolCalls.length > 0) {
-        finalAnswer += '\n';
         for (const toolCall of toolCalls) {
             finalAnswer += `Hecho. He creado una entidad de tipo ${toolCall.name} en el sistema.`;
         }

@@ -6,7 +6,7 @@
  * - GenerateInsightsInput - The input type for the flow.
  */
 
-import { ai } from '@/ai/genkit';
+import { ai } from '@/ai';
 import { z } from 'zod';
 
 export const GenerateInsightsInputSchema = z.object({
@@ -16,7 +16,7 @@ export const GenerateInsightsInputSchema = z.object({
 export type GenerateInsightsInput = z.infer<typeof GenerateInsightsInputSchema>;
 
 export async function generateInsights(input: GenerateInsightsInput): Promise<string> {
-  const llmResponse = await ai.generate({
+  const {output} = await ai.generate({
     prompt: `
       Analyze the following JSON data and provide concise, actionable insights based on the provided context.
       Context: ${input.context || 'General business operations.'}
@@ -29,5 +29,5 @@ export async function generateInsights(input: GenerateInsightsInput): Promise<st
     model: 'googleai/gemini-2.5-flash-preview',
   });
 
-  return llmResponse.text();
+  return output as string;
 }
