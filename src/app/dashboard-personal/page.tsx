@@ -54,9 +54,11 @@ function PersonalDashboardContent() {
   }, [data, currentUser]);
 
   const kpis = useMemo(() => {
-    const now = new Date();
-    const todayStart = new Date(now.setHours(0, 0, 0, 0));
-    const todayEnd = new Date(now.setHours(23, 59, 59, 999));
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
     
     const overdueTasks = userTasks.filter(t => t.plannedFor && new Date(t.plannedFor) < todayStart).length;
     const todayTasks = userTasks.filter(t => t.plannedFor && new Date(t.plannedFor) >= todayStart && new Date(t.plannedFor) <= todayEnd).length;
