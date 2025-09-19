@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -88,16 +89,16 @@ function UserRow({
 }
 
 function UsersPageContent() {
-  const { data: SantaData, setData } = useData();
+  const { data: santaData, setData, saveCollection } = useData();
   const [users, setUsers] = useState<User[] | null>(null);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editedUser, setEditedUser] = useState<User | null>(null);
 
   useEffect(() => {
-    if (SantaData) {
-      setUsers(SantaData.users);
+    if (santaData) {
+      setUsers(santaData.users);
     }
-  }, [SantaData]);
+  }, [santaData]);
 
   const [newUser, setNewUser] = useState({
     name: '',
@@ -110,7 +111,7 @@ function UsersPageContent() {
     setNewUser(prev => ({ ...prev, [name]: value as UserRole }));
   };
 
-  const handleAddUser = (e: React.FormEvent) => {
+  const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!users || !newUser.name || !newUser.email) {
       alert('Por favor, completa el nombre y el email.');
@@ -127,28 +128,31 @@ function UsersPageContent() {
 
     const updatedUsers = [...(users || []), newUserObject];
     setUsers(updatedUsers);
-    if (SantaData) {
-      setData({ ...SantaData, users: updatedUsers });
+    if (santaData) {
+      setData({ ...santaData, users: updatedUsers });
+      await saveCollection('users', updatedUsers);
     }
     setNewUser({ name: '', email: '', role: 'comercial' });
   };
 
-  const handleUpdateUser = (updatedUser: User) => {
+  const handleUpdateUser = async (updatedUser: User) => {
       const updatedUsers = users ? users.map(u => u.id === updatedUser.id ? updatedUser : u) : null;
       setUsers(updatedUsers);
-       if (SantaData && updatedUsers) {
-          setData({ ...SantaData, users: updatedUsers });
+       if (santaData && updatedUsers) {
+          setData({ ...santaData, users: updatedUsers });
+          await saveCollection('users', updatedUsers);
       }
       setEditingUserId(null);
       setEditedUser(null);
   };
 
-  const handleDeleteUser = (userId: string) => {
+  const handleDeleteUser = async (userId: string) => {
       if(window.confirm('¿Seguro que quieres eliminar a este usuario?')) {
           const updatedUsers = users ? users.filter(u => u.id !== userId) : null;
           setUsers(updatedUsers);
-          if (SantaData && updatedUsers) {
-              setData({ ...SantaData, users: updatedUsers });
+          if (santaData && updatedUsers) {
+              setData({ ...santaData, users: updatedUsers });
+              await saveCollection('users', updatedUsers);
           }
       }
   };
@@ -163,7 +167,7 @@ function UsersPageContent() {
       setEditedUser(null);
   }
 
-  if (!SantaData) {
+  if (!santaData) {
     return <div className="p-6">Cargando datos...</div>;
   }
 

@@ -7,9 +7,10 @@ import { useData } from '@/lib/dataprovider';
 import { SBCard, SBButton, Input } from '@/components/ui/ui-primitives';
 import { Save, SlidersHorizontal } from 'lucide-react';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
+import AuthenticatedLayout from '@/components/layouts/AuthenticatedLayout';
 
 function KPISettingsPageContent() {
-    const { data, setData, currentUser } = useData();
+    const { data, setData, currentUser, saveCollection } = useData();
     const [users, setUsers] = useState<User[]>([]);
 
     useEffect(() => {
@@ -38,10 +39,16 @@ function KPISettingsPageContent() {
         );
     };
 
-    const handleSaveChanges = () => {
+    const handleSaveChanges = async () => {
         if (!data) return;
         setData({ ...data, users: users });
-        alert('¡Ajustes de KPI guardados!');
+        try {
+            await saveCollection('users', users);
+            alert('¡Ajustes de KPI guardados!');
+        } catch (error) {
+            alert('Error al guardar los ajustes.');
+            console.error(error);
+        }
     };
     
     if (currentUser?.role !== 'admin' && currentUser?.role !== 'owner') {
@@ -107,6 +114,11 @@ function KPISettingsPageContent() {
 
 export default function KPISettingsPage() {
     return (
-        <KPISettingsPageContent />
+      <AuthenticatedLayout>
+        <ModuleHeader title="Ajustes de KPIs" icon={SlidersHorizontal} />
+        <div className="p-6">
+            <KPISettingsPageContent />
+        </div>
+      </AuthenticatedLayout>
     );
 }

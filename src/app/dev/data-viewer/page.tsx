@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useRef, Suspense } from 'react';
@@ -318,8 +319,9 @@ function ImportReviewerView({ importId }: { importId: string }) {
 
 // ===== MAIN PAGE COMPONENT =====
 function DataViewerContent() {
-    const { data: initialData, mode, setData: setGlobalData } = useData();
+    const { data: initialData, setData, saveCollection } = useData();
     const searchParams = useSearchParams();
+    const router = useRouter();
     const reviewImportId = searchParams ? searchParams.get('reviewImportId') : null;
     
     const [selectedKey, setSelectedKey] = useState<keyof SantaData>('accounts');
@@ -334,24 +336,17 @@ function DataViewerContent() {
         setLocalData(initialData);
     }, [initialData]);
 
-    useEffect(() => { if (notification) { const timer = setTimeout(() => setNotification(null), 3000); return () => clearTimeout(timer); } }, [notification]);
+    useEffect(() => { 
+        if (notification) { 
+            const timer = setTimeout(() => setNotification(null), 3000); 
+            return () => clearTimeout(timer); 
+        } 
+    }, [notification]);
 
-    const saveCollection = async (collectionName: keyof SantaData, data: any[]) => {
+    const handleSaveCollection = async (collectionName: keyof SantaData, data: any[]) => {
         try {
-            const response = await fetch('/api/dev/save-data', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ collection: collectionName, data }),
-            });
-            if (!response.ok) {
-                const err = await response.json();
-                throw new Error(err.error || `Error guardando la colección ${collectionName}`);
-            }
+            await saveCollection(collectionName, data);
             setNotification({ message: `Colección '${collectionName}' guardada con éxito.`, type: 'success'});
-            
-            // Update global state as well
-            setGlobalData(prev => prev ? { ...prev, [collectionName]: data } : null);
-
         } catch (e: any) {
             setNotification({ message: e.message, type: 'error' });
         }
@@ -391,12 +386,12 @@ function DataViewerContent() {
         }
     };
 
-    const handleDeleteSelected = () => {
+    const handleDeleteSelected = async () => {
         if (selectedRows.size === 0 || !selectedKey) return;
         if (window.confirm(`¿Seguro que quieres eliminar ${selectedRows.size} registros de "${selectedKey}"? Esta acción guardará los cambios inmediatamente.`)) {
             const newCollection = selectedCollection.filter((row: any) => !selectedRows.has(row.id));
             setLocalData(prev => prev ? { ...prev, [selectedKey]: newCollection } : null);
-            saveCollection(selectedKey, newCollection);
+            await handleSaveCollection(selectedKey, newCollection);
             setSelectedRows(new Set());
         }
     };
@@ -440,10 +435,10 @@ function DataViewerContent() {
         Papa.parse(file, {
             header: true,
             skipEmptyLines: true,
-            complete: (results) => {
+            complete: async (results) => {
                 const newCollection = [...selectedCollection, ...results.data];
                 setLocalData(prev => prev ? { ...prev, [selectedKey]: newCollection } : null);
-                saveCollection(selectedKey, newCollection);
+                await handleSaveCollection(selectedKey, newCollection);
             },
             error: (error) => {
                 setNotification({ message: `Error al importar: ${error.message}`, type: 'error' });
@@ -453,7 +448,7 @@ function DataViewerContent() {
     
     const handleSaveChanges = () => {
         if (!selectedKey || !selectedCollection) return;
-        saveCollection(selectedKey, selectedCollection);
+        handleSaveCollection(selectedKey, selectedCollection);
     };
 
     return (
@@ -480,8 +475,9 @@ function DataViewerContent() {
             </ModuleHeader>
             <div className="p-6">
                 {notification && ( <div className={`fixed top-20 right-5 z-50 p-3 rounded-lg shadow-lg text-white text-sm ${notification.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}>{notification.message}</div> )}
+                
                 <p className="text-zinc-600 mb-6">
-                    Inspecciona, edita, importa o exporta el contenido del `DataProvider`. Modo actual: <strong className="font-semibold text-zinc-800">{mode}</strong>. Los cambios se guardan al pulsar &quot;Guardar&quot;, eliminar o importar.
+                    Inspecciona, edita, importa o exporta el contenido del `DataProvider`. Los cambios se guardan al pulsar &quot;Guardar&quot;, eliminar o importar.
                 </p>
 
                 <div className="grid grid-cols-1 lg:grid-cols-[1fr_3fr] gap-6 items-start">

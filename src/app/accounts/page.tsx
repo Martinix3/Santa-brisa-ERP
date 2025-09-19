@@ -12,8 +12,6 @@ import { FilterSelect } from '@/components/ui/FilterSelect'
 import { ModuleHeader } from '@/components/ui/ModuleHeader'
 import { SB_COLORS } from '@/components/ui/ui-primitives'
 import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/TaskCompletionDialog'
-import { saveCollection } from '@/features/agenda/components/CalendarPageContent'
-import AuthenticatedLayout from '@/components/layouts/AuthenticatedLayout'
 
 
 const T = { primary:'#618E8F' }
@@ -103,7 +101,7 @@ function AccountBar({ a, santaData, onAddActivity }: { a: AccountType, santaData
       WHATSAPP: MessageSquare,
   };
 
-  const distributor = useMemo(() => santaData.distributors.find(d => d.id === a.billerId), [a.billerId, santaData.distributors]);
+  const distributor = useMemo(() => santaData.distributors.find(d => d.id === a.billerId), [a, santaData.distributors]);
 
   return (
     <div className="overflow-hidden transition-all duration-200 hover:bg-black/5 rounded-lg border border-zinc-200/50">
@@ -112,7 +110,7 @@ function AccountBar({ a, santaData, onAddActivity }: { a: AccountType, santaData
             <ChevronDown className="h-4 w-4 transition-transform duration-300" style={{transform: open? 'rotate(180deg)':'rotate(0deg)'}}/>
           </button>
         <div className="text-sm font-medium truncate flex items-center gap-2">
-          <span className="text-zinc-900 truncate">{a.name}</span>
+          <Link href={`/accounts/${a.id}`} className="text-zinc-900 truncate hover:underline">{a.name}</Link>
           {orderAmount>0 && <span className="text-[11px] px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-700 whitespace-nowrap">{formatEUR(orderAmount)}</span>}
         </div>
         <div className="flex items-center gap-2 min-w-0"><Avatar name={owner}/><span className="text-sm text-zinc-700 truncate">{owner}</span></div>
@@ -196,8 +194,8 @@ function AccountBar({ a, santaData, onAddActivity }: { a: AccountType, santaData
   )
 }
 
-export function AccountsPageContent() {
-  const { data: santaData, setData, currentUser, isPersistenceEnabled } = useData();
+function AccountsPageContent() {
+  const { data: santaData, setData, currentUser, saveCollection } = useData();
   
   const [q,setQ]=useState('');
   const [expanded,setExpanded] = useState<Record<string,boolean>>({ ACTIVA:true });
@@ -291,15 +289,12 @@ export function AccountsPageContent() {
                 id: `ord_${Date.now()}`,
                 accountId: accountId,
                 status: 'open',
-                currency: 'EUR',
+                totalAmount: 0, // Should be calculated
                 createdAt: new Date().toISOString(),
                 lines: payload.items.map(item => ({ sku: item.sku, qty: item.qty, unit: 'uds', priceUnit: 0 })),
                 notes: `Pedido rápido creado desde lista de cuentas`,
-            };
+            } as OrderSellOut;
             finalData.ordersSellOut = [...(finalData.ordersSellOut || []), newOrder];
-            if (isPersistenceEnabled) {
-                await saveCollection('ordersSellOut', finalData.ordersSellOut, isPersistenceEnabled);
-            }
         } else { // Interacción
             const newInteraction: Interaction = {
                 id: `int_${Date.now()}`,
@@ -330,10 +325,12 @@ export function AccountsPageContent() {
         }
     
         setData(finalData);
-        
-        if (isPersistenceEnabled) {
-             await saveCollection('interactions', finalData.interactions, isPersistenceEnabled);
+
+        // Persist changes
+        if (payload.type === 'venta') {
+            await saveCollection('ordersSellOut', finalData.ordersSellOut);
         }
+        await saveCollection('interactions', finalData.interactions);
     
         setCompletingTaskForAccount(null);
     };
