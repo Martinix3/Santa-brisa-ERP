@@ -22,7 +22,7 @@ export type Currency = 'EUR';
 // 2. Entidades Principales (Personas y Organizaciones)
 // -----------------------------------------------------------------
 
-export type UserRole = 'comercial' | 'admin' | 'ops' | 'owner';
+export type UserRole = 'comercial' | 'admin' | 'ops' | 'owner' | 'Owner';
 export interface User { 
   id: string; 
   name: string; 
