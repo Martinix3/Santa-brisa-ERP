@@ -1,7 +1,5 @@
 
 // src/app/api/brain-persist/route.ts
-"use server";
-
 import { NextResponse } from "next/server";
 import { getProjectId } from "@/server/firebaseAdmin";
 
