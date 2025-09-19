@@ -6,7 +6,7 @@ import type { SantaData, User } from "@/domain/ssot";
 import { SANTA_DATA_COLLECTIONS } from "@/domain/ssot";
 import { auth, db } from "@/lib/firebaseClient";
 import { onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, getIdToken } from "firebase/auth";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, writeBatch, doc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 
 // --------- Tipos ----------
@@ -27,7 +27,7 @@ type DataContextType = {
   setRequireAuth: (v: boolean) => void;
   reload: () => Promise<void>;
   saveCollection: (name: keyof SantaData, rows: any[]) => Promise<void>;
-  loginGoogle: () => Promise<void>;
+  login: () => Promise<void>;
   loginWithEmail: (email: string, pass: string) => Promise<User | null>;
   signupWithEmail: (email: string, pass: string) => Promise<User | null>;
   logout: () => Promise<void>;
@@ -38,7 +38,7 @@ type DataContextType = {
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
-const ALLOW_LOCAL_FALLBACK = false;
+const ALLOW_LOCAL_FALLBACK = true; 
 
 const emailToName = (email: string) =>
   email.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
@@ -101,10 +101,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const isPersistenceEnabled = isOnlineMode;
   
   const loadOfflineData = useCallback(async () => {
+    setIsLoading(true);
     const local = await fetchLocalJson();
     setData(local);
     setLastLoadReport(local ? { ok: ["(local)"] as any, errors: [], totalDocs: Object.values(local).flat().length } : { ok: [], errors: [{ name: "local" as any, error: "no db.json" }], totalDocs: 0 });
-    if(local?.users?.[0]) setCurrentUser(local.users[0]);
+    if(local?.users?.[0]) {
+      const fbUser = auth.currentUser;
+      const userToSet = fbUser ? (local.users.find(u => u.email === fbUser.email) || local.users[0]) : local.users[0];
+      setCurrentUser(userToSet);
+    }
     else setCurrentUser(null);
     setIsLoading(false);
   }, []);
@@ -112,8 +117,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const loadOnlineData = useCallback(async () => {
     if (requireAuth && !auth.currentUser) {
       setIsLoading(false);
+      setCurrentUser(null);
+      setData(null);
       return;
     }
+    setIsLoading(true);
     const { partial, report } = await loadAllCollections();
 
     if (ALLOW_LOCAL_FALLBACK && report.ok.length === 0) {
@@ -122,54 +130,50 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
 
     const next = partial as SantaData;
-    if (auth.currentUser && next?.users) {
-      const ensured = ensureLocalUser(auth.currentUser, next);
-      setData(ensured.updated);
-      setCurrentUser(ensured.ensuredUser);
-    } else {
-      setData(next);
-      setCurrentUser(null);
-    }
+    setData(next);
     setLastLoadReport(report);
     setIsLoading(false);
   }, [requireAuth, loadOfflineData]);
 
   const reload = useCallback(async () => {
-    setIsLoading(true);
-    setLastLoadReport(null);
     if (isOnlineMode) {
       await loadOnlineData();
     } else {
       await loadOfflineData();
     }
-    setIsLoading(false);
   }, [isOnlineMode, loadOnlineData, loadOfflineData]);
   
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (fbUser) => {
       setFirebaseUser(fbUser);
-      reload();
+      // Data loading is now triggered by the data-loading useEffect
     });
     return () => unsub();
-  }, [reload]);
-
-
-  const togglePersistence = useCallback(() => {
-    setIsOnlineMode(prev => {
-        const next = !prev;
-        setData(null);
-        setCurrentUser(null);
-        setIsLoading(true); // Trigger loading state
-        return next;
-    });
   }, []);
 
   useEffect(() => {
-    // This effect runs when isOnlineMode changes, triggering the correct data load.
     reload();
-  }, [isOnlineMode]);
-  
+  }, [isOnlineMode, firebaseUser, reload]);
 
+  useEffect(() => {
+    if(!data || isLoading) return;
+
+    if(firebaseUser) {
+        const { ensuredUser, updated } = ensureLocalUser(firebaseUser, data);
+        if (updated.users.length > data.users.length) {
+            setData(updated); // only update if a new user was actually added
+        }
+        setCurrentUser(ensuredUser);
+    } else {
+        setCurrentUser(null);
+    }
+  }, [data, isLoading, firebaseUser]);
+
+
+  const togglePersistence = useCallback(() => {
+    setIsOnlineMode(prev => !prev);
+  }, []);
+  
   const setCurrentUserById = useCallback((userId: string) => {
     if (data?.users) {
         const user = data.users.find(u => u.id === userId);
@@ -204,7 +208,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [isOnlineMode, requireAuth]
   );
 
-  const loginGoogle = useCallback(async () => {
+  const login = useCallback(async () => {
     await signInWithPopup(auth, new GoogleAuthProvider());
   }, []);
 
@@ -221,11 +225,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const signupWithEmail = useCallback(
     async (email: string, pass: string) => {
       await createUserWithEmailAndPassword(auth, email, pass);
-      await reload();
+      // onAuthStateChanged will trigger reload and user sync
       const appUser = data?.users.find((u) => u.email === email) || null;
       return appUser;
     },
-    [reload, data?.users]
+    [data?.users]
   );
 
   const logout = useCallback(async () => {
@@ -246,7 +250,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setRequireAuth,
       reload,
       saveCollection,
-      loginGoogle,
+      login,
       loginWithEmail,
       signupWithEmail,
       logout,
@@ -254,7 +258,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       isPersistenceEnabled,
       setCurrentUserById,
     }),
-    [data, currentUser, isLoading, isOnlineMode, lastLoadReport, requireAuth, reload, saveCollection, loginGoogle, loginWithEmail, signupWithEmail, logout, togglePersistence, isPersistenceEnabled, setCurrentUserById]
+    [data, currentUser, isLoading, isOnlineMode, lastLoadReport, requireAuth, reload, saveCollection, login, loginWithEmail, signupWithEmail, logout, togglePersistence, isPersistenceEnabled, setCurrentUserById]
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

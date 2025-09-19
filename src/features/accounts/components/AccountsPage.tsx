@@ -108,7 +108,7 @@ function AccountBar({ a, santaData, onAddActivity }: { a: AccountType, santaData
             <ChevronDown className="h-4 w-4 transition-transform duration-300" style={{transform: open? 'rotate(180deg)':'rotate(0deg)'}}/>
           </button>
         <div className="text-sm font-medium truncate flex items-center gap-2">
-          <span className="text-zinc-900 truncate">{a.name}</span>
+          <Link href={`/accounts/${a.id}`} className="text-zinc-900 truncate hover:underline">{a.name}</Link>
           {orderAmount>0 && <span className="text-[11px] px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-700 whitespace-nowrap">{formatEUR(orderAmount)}</span>}
         </div>
         <div className="flex items-center gap-2 min-w-0"><Avatar name={owner}/><span className="text-sm text-zinc-700 truncate">{owner}</span></div>
@@ -289,7 +289,7 @@ export function AccountsPageContent() {
                 status: 'open',
                 currency: 'EUR',
                 createdAt: new Date().toISOString(),
-                lines: payload.items.map(item => ({ sku: item.sku, qty: item.qty, unit: 'uds', priceUnit: 0 })),
+                lines: payload.items.map(item => ({ sku: item.sku, qty: item.qty, uom: 'uds', priceUnit: 0 })),
                 notes: `Pedido rápido creado desde lista de cuentas`,
             };
             finalData.ordersSellOut = [...(finalData.ordersSellOut || []), newOrder];
