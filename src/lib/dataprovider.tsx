@@ -31,11 +31,13 @@ type DataContextType = {
   loginWithEmail: (email: string, pass: string) => Promise<User | null>;
   signupWithEmail: (email: string, pass: string) => Promise<User | null>;
   logout: () => Promise<void>;
+  togglePersistence: () => void;
+  setCurrentUserById: (userId: string) => void;
+  isPersistenceEnabled: boolean;
 };
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
-// Si quieres permitir fallback local, activa esto:
 const ALLOW_LOCAL_FALLBACK = false;
 
 const emailToName = (email: string) =>
@@ -72,7 +74,6 @@ async function loadAllCollections(): Promise<{ partial: Partial<SantaData>; repo
   return { partial, report };
 }
 
-// Crea usuario local si no existe
 function ensureLocalUser(user: import("firebase/auth").User, currentData: SantaData): { updated: SantaData; ensuredUser: User } {
   const found = currentData.users.find((u) => u.email === user.email);
   if (found) return { updated: currentData, ensuredUser: found };
@@ -96,78 +97,93 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [lastLoadReport, setLastLoadReport] = useState<LoadReport | null>(null);
   const router = useRouter();
 
+  const isPersistenceEnabled = isOnlineMode;
+
+  const loadOnlineData = useCallback(async () => {
+    if (requireAuth && !auth.currentUser) {
+      setIsLoading(false);
+      return;
+    }
+    const { partial, report } = await loadAllCollections();
+
+    if (ALLOW_LOCAL_FALLBACK && report.ok.length === 0) {
+      const local = await fetchLocalJson();
+      if (local) {
+        setData(local);
+        setLastLoadReport({ ok: ["(local)"] as any, errors: [], totalDocs: Object.values(local).flat().length });
+        return;
+      }
+    }
+
+    const next = partial as SantaData;
+    if (auth.currentUser && next?.users) {
+      const ensured = ensureLocalUser(auth.currentUser, next);
+      setData(ensured.updated);
+      setCurrentUser(ensured.ensuredUser);
+    } else {
+      setData(next);
+    }
+    setLastLoadReport(report);
+  }, [requireAuth]);
+
+  const loadOfflineData = useCallback(async () => {
+    const local = await fetchLocalJson();
+    setData(local);
+    setLastLoadReport(local ? { ok: ["(local)"] as any, errors: [], totalDocs: Object.values(local).flat().length } : { ok: [], errors: [{ name: "local" as any, error: "no db.json" }], totalDocs: 0 });
+    if(local?.users?.[0]) setCurrentUser(local.users[0]);
+  }, []);
+
+  const reload = useCallback(async () => {
+    setIsLoading(true);
+    setLastLoadReport(null);
+    if (isOnlineMode) {
+      await loadOnlineData();
+    } else {
+      await loadOfflineData();
+    }
+    setIsLoading(false);
+  }, [isOnlineMode, loadOnlineData, loadOfflineData]);
+
+  useEffect(() => {
+    reload();
+  }, [reload]);
+  
+  const togglePersistence = useCallback(() => {
+    setIsOnlineMode(prev => !prev);
+  }, []);
+
+  const setCurrentUserById = useCallback((userId: string) => {
+    if (data?.users) {
+        const user = data.users.find(u => u.id === userId);
+        if (user) setCurrentUser(user);
+    }
+  }, [data?.users]);
+  
   // ---- Auth binding ----
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (fbUser) => {
       if (!fbUser) {
         setCurrentUser(null);
-        if (requireAuth && isOnlineMode) {
-          // En modo “entorno real”, no sigas sin login
-          setIsLoading(false);
-        }
+        if (requireAuth && isOnlineMode) setIsLoading(false);
       } else {
-        // Nota: el usuario de negocio lo garantizamos tras cargar datos (en reload)
-        setCurrentUser((prev) => prev || { id: fbUser.uid, name: fbUser.displayName || emailToName(fbUser.email || "user"), email: fbUser.email || "", role: "comercial", active: true });
+        if(data?.users) {
+            const appUser = data.users.find(u => u.email === fbUser.email);
+            if (appUser) setCurrentUser(appUser);
+            else {
+                 const ensured = ensureLocalUser(fbUser, data);
+                 setData(ensured.updated);
+                 setCurrentUser(ensured.ensuredUser);
+            }
+        }
       }
     });
     return () => unsub();
-  }, [requireAuth, isOnlineMode]);
-
-  // ---- Carga inicial ----
-  const reload = useCallback(async () => {
-    setIsLoading(true);
-    setLastLoadReport(null);
-
-    if (isOnlineMode) {
-      if (requireAuth && !auth.currentUser) {
-        // No hacemos lecturas si exigimos auth y no hay token
-        setIsLoading(false);
-        return;
-      }
-      const { partial, report } = await loadAllCollections();
-
-      // Fallback opcional si TODO está vacío o hay demasiados errores
-      if (ALLOW_LOCAL_FALLBACK && report.ok.length === 0) {
-        const local = await fetchLocalJson();
-        if (local) {
-          setData(local);
-          setLastLoadReport({ ok: ["(local)"] as any, errors: [], totalDocs: Object.values(local).reduce((acc, v: any) => acc + (Array.isArray(v) ? v.length : 0), 0) });
-          setIsLoading(false);
-          return;
-        }
-      }
-
-      const next = partial as SantaData;
-      // Si hay user en auth, garantizamos su presencia en data.users
-      if (auth.currentUser && next?.users) {
-        const ensured = ensureLocalUser(auth.currentUser, next);
-        setData(ensured.updated);
-        // Ajustar currentUser final
-        setCurrentUser(ensured.ensuredUser);
-      } else {
-        setData(next);
-      }
-      setLastLoadReport(report);
-      setIsLoading(false);
-      return;
-    }
-
-    // Offline duro
-    const local = await fetchLocalJson();
-    setData(local);
-    setLastLoadReport(local ? { ok: ["(local)"] as any, errors: [], totalDocs: Object.values(local).reduce((acc, v: any) => acc + (Array.isArray(v) ? v.length : 0), 0) } : { ok: [], errors: [{ name: "local" as any, error: "no db.json" }], totalDocs: 0 });
-    setIsLoading(false);
-  }, [isOnlineMode, requireAuth]);
-
-  useEffect(() => {
-    reload();
-  }, [reload]);
+  }, [requireAuth, isOnlineMode, data]);
 
   // ---- Persistencia (vía backend) ----
   const saveCollection = useCallback(
     async (name: keyof SantaData, rows: any[]) => {
       if (!isOnlineMode) {
-        // Offline: solo cache local
         setData((prev) => (prev ? ({ ...prev, [name]: rows } as SantaData) : prev));
         return;
       }
@@ -183,7 +199,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         const text = await res.text().catch(() => "");
         throw new Error(`Persist failed ${res.status}: ${text}`);
       }
-      // Reflejar en memoria
       setData((prev) => (prev ? ({ ...prev, [name]: rows } as SantaData) : prev));
     },
     [isOnlineMode, requireAuth]
@@ -197,19 +212,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const loginWithEmail = useCallback(
     async (email: string, pass: string) => {
-      await signInWithEmailAndPassword(auth, email, pass);
-      // intenta mapear con data.users tras reload
+      const cred = await signInWithEmailAndPassword(auth, email, pass);
       await reload();
-      return data?.users.find((u) => u.email === email) || null;
+      return data?.users.find((u) => u.email === cred.user.email) || null;
     },
     [reload, data?.users]
   );
 
   const signupWithEmail = useCallback(
     async (email: string, pass: string) => {
-      await createUserWithEmailAndPassword(auth, email, pass);
+      const cred = await createUserWithEmailAndPassword(auth, email, pass);
       await reload(); // ensureLocalUser lo añadirá a users
-      return data?.users.find((u) => u.email === email) || null;
+      return data?.users.find((u) => u.email === cred.user.email) || null;
     },
     [reload, data?.users]
   );
@@ -236,8 +250,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       loginWithEmail,
       signupWithEmail,
       logout,
+      togglePersistence,
+      isPersistenceEnabled,
+      setCurrentUserById,
     }),
-    [data, currentUser, isLoading, isOnlineMode, lastLoadReport, requireAuth, reload, saveCollection, loginGoogle, loginWithEmail, signupWithEmail, logout]
+    [data, currentUser, isLoading, isOnlineMode, lastLoadReport, requireAuth, reload, saveCollection, loginGoogle, loginWithEmail, signupWithEmail, logout, togglePersistence, isPersistenceEnabled, setCurrentUserById]
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
