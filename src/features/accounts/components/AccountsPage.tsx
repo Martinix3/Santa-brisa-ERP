@@ -255,22 +255,26 @@ export function AccountsPageContent() {
   },[filtered]);
 
   useEffect(() => {
-    try {
-      const savedState = localStorage.getItem('sb-groups-expanded');
-      if (savedState && savedState.trim() && savedState !== 'undefined') {
-        setExpanded(JSON.parse(savedState));
-      }
-    } catch (e) {
-      console.error('Failed to parse expanded state from localStorage', e);
-      setExpanded({ ACTIVA: true });
+    if (typeof window !== 'undefined') {
+        try {
+            const savedState = localStorage.getItem('sb-groups-expanded');
+            if (savedState && savedState.trim() && savedState !== 'undefined') {
+                setExpanded(JSON.parse(savedState));
+            }
+        } catch (e) {
+            console.error('Failed to parse expanded state from localStorage', e);
+            setExpanded({ ACTIVA: true });
+        }
     }
   }, []);
 
   useEffect(() => {
-    try {
-      localStorage.setItem('sb-groups-expanded', JSON.stringify(expanded));
-    } catch (e) {
-      console.error('Failed to save expanded state to localStorage', e);
+    if (typeof window !== 'undefined') {
+        try {
+            localStorage.setItem('sb-groups-expanded', JSON.stringify(expanded));
+        } catch (e) {
+            console.error('Failed to save expanded state to localStorage', e);
+        }
     }
   }, [expanded]);
 
