@@ -24,8 +24,13 @@ import { getIdToken } from "firebase/auth";
 
 const FullCalendar = dynamic(() => import("@fullcalendar/react"), { ssr: false });
 
-const asISO = (d: string | Date) => {
+const asISO = (d: string | Date | undefined | null) => {
+  if (!d) return undefined;
   const date = typeof d === "string" ? new Date(d) : d;
+  // Check if date is valid
+  if (isNaN(date.getTime())) {
+    return undefined;
+  }
   return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString();
 };
 
@@ -527,5 +532,3 @@ export function CalendarPageContent() {
     </>
   );
 }
-
-    
