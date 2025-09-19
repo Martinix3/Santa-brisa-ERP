@@ -184,24 +184,28 @@ function NavSection({
     const moduleColor = SB_COLORS[colorKey] || SB_COLORS.primary;
     const Icon = section.items[0].icon;
 
-    // The first item is always the dashboard for the section
     const dashboardItem = section.items[0];
 
     return (
         <div className="py-1">
-            <Link
-                href={dashboardItem.href}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-sm font-semibold transition-colors ${
-                    isCollapsed ? 'justify-center' : ''
-                } ${isSectionActive ? '' : 'text-sb-neutral-500 hover:bg-sb-neutral-100 hover:text-sb-neutral-900'}`}
-                style={isSectionActive ? { color: moduleColor } : {}}
-                title={isCollapsed ? section.title : undefined}
-            >
-                {!isCollapsed && <span className="uppercase tracking-wider text-xs">{section.title}</span>}
-                {isCollapsed && <div className="p-1"><Icon className="h-5 w-5"/></div>}
-            </Link>
-            <AnimatePresence initial={false}>
+             <div className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-sm font-semibold transition-colors`}>
+                <Link
+                    href={dashboardItem.href}
+                    className={`flex-grow flex items-center gap-2 ${isCollapsed ? 'justify-center' : ''} ${isSectionActive ? '' : 'text-sb-neutral-500 hover:text-sb-neutral-900'}`}
+                    style={isSectionActive ? { color: moduleColor } : {}}
+                    title={isCollapsed ? section.title : undefined}
+                >
+                    {!isCollapsed && <span className="uppercase tracking-wider text-xs">{section.title}</span>}
+                    {isCollapsed && <div className="p-1"><Icon className="h-5 w-5"/></div>}
+                </Link>
                 {!isCollapsed && (
+                    <button onClick={onToggle} className="p-1 rounded-md hover:bg-zinc-100">
+                        {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                    </button>
+                )}
+            </div>
+            <AnimatePresence initial={false}>
+                {isExpanded && !isCollapsed && (
                      <motion.div
                         key="content"
                         initial="collapsed"
