@@ -4,8 +4,8 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import type { SantaData, User, UserRole } from '@/domain/ssot';
 import { auth, db } from './firebaseClient';
-import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
-import { doc, getDoc, setDoc, writeBatch } from 'firebase/firestore';
+import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, getIdToken } from 'firebase/auth';
+import { doc, getDoc, setDoc, writeBatch, collection, getDocs } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 
 interface DataContextType {
@@ -57,19 +57,44 @@ export function DataProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     async function loadData() {
       setIsLoading(true);
-      try {
-        const response = await fetch('/data/db.json');
-        if (!response.ok) {
-          throw new Error("Failed to fetch initial data");
-        }
-        const initialData = await response.json();
-        setData(initialData);
-      } catch (error) {
-        console.error("Failed to load initial data:", error);
+      if (isPersistenceEnabled && db) {
+          try {
+              console.log("Attempting to load data from Firestore...");
+              const collections = ['users', 'accounts', 'products', 'interactions', 'ordersSellOut', 'distributors', 'materials', 'billOfMaterials', 'lots', 'inventory', 'stockMoves', 'productionOrders', 'qaChecks', 'mktEvents', 'onlineCampaigns', 'creators', 'influencerCollabs', 'shipments', 'suppliers', 'goodsReceipts', 'traceEvents'];
+              const allData: Partial<SantaData> = {};
+              
+              for (const collectionName of collections) {
+                  const querySnapshot = await getDocs(collection(db, collectionName));
+                  (allData as any)[collectionName] = querySnapshot.docs.map(doc => doc.data());
+              }
+              
+              if(Object.values(allData).every(arr => arr.length === 0)) {
+                  throw new Error("Firestore is empty, falling back to local JSON.");
+              }
+              
+              setData(allData as SantaData);
+              console.log("Data loaded from Firestore.");
+          } catch(e) {
+              console.warn("Failed to load from Firestore, falling back to local data:", e);
+              const response = await fetch('/data/db.json');
+              const initialData = await response.json();
+              setData(initialData);
+          }
+      } else {
+          try {
+            const response = await fetch('/data/db.json');
+            if (!response.ok) {
+              throw new Error("Failed to fetch initial data");
+            }
+            const initialData = await response.json();
+            setData(initialData);
+          } catch (error) {
+            console.error("Failed to load initial data:", error);
+          }
       }
     }
     loadData();
-  }, []);
+  }, [isPersistenceEnabled]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -170,30 +195,32 @@ export function DataProvider({ children }: { children: ReactNode }) {
   
   const saveCollection = useCallback(async (collectionName: keyof SantaData, dataToSave: any[]) => {
     if (!isPersistenceEnabled) {
-      console.log(`[Offline Mode] Not saving collection: ${collectionName}`);
-      return;
+        console.log(`[Offline Mode] Not saving collection: ${collectionName}`);
+        return;
     }
-    if (!db) {
-      console.error("Firestore DB is not initialized.");
-      return;
-    }
-    
-    console.log(`Persisting ${dataToSave.length} items to '${collectionName}' collection...`);
-
-    const batch = writeBatch(db);
-    dataToSave.forEach(item => {
-      const docRef = doc(db, collectionName as string, item.id);
-      batch.set(docRef, item);
-    });
     
     try {
-      await batch.commit();
-      console.log(`Successfully saved ${collectionName}`);
-      setData(prevData => prevData ? { ...prevData, [collectionName]: dataToSave } : null);
+        const user = auth.currentUser;
+        if (!user) throw new Error("User not authenticated.");
+        const token = await getIdToken(user);
+        
+        await fetch('/api/brain-persist', {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ 
+                data: { [collectionName]: dataToSave }, 
+                strategy: 'overwrite' 
+            }),
+        });
 
+        setData(prevData => prevData ? { ...prevData, [collectionName]: dataToSave } : null);
+        console.log(`Successfully persisted ${collectionName}`);
     } catch (error) {
-      console.error(`Error saving collection ${collectionName}:`, error);
-      throw error;
+        console.error(`Error saving collection ${collectionName}:`, error);
+        throw error;
     }
   }, [isPersistenceEnabled]);
 
