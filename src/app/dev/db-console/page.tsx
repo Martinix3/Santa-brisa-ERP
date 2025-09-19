@@ -9,6 +9,7 @@ import { Database, Zap, CheckCircle, AlertTriangle, Layers, FileText } from 'luc
 import { SBCard, SBButton } from '@/components/ui/ui-primitives';
 import AuthenticatedLayout from '@/components/layouts/AuthenticatedLayout';
 import { useData } from '@/lib/dataprovider';
+import { SANTA_DATA_COLLECTIONS } from '@/domain/ssot';
 
 
 function DataProviderStatusCard() {
@@ -27,6 +28,11 @@ function DataProviderStatusCard() {
             setReadError(`Error de lectura: ${error.message}`);
         }
     };
+    
+    const collectionCounts = SANTA_DATA_COLLECTIONS.map(key => ({
+        name: key,
+        count: data && (data as any)[key] ? (data as any)[key].length : 0,
+    }));
 
     return (
         <SBCard title="Prueba del DataProvider y Lectura">
@@ -38,12 +44,12 @@ function DataProviderStatusCard() {
                 ) : data ? (
                     <div className="p-3 rounded-lg bg-green-50 text-green-800 text-sm space-y-2">
                         <div className="flex items-center gap-2 font-semibold">
-                            <CheckCircle size={16} /> DataProvider cargado con éxito.
+                            <CheckCircle size={16} /> DataProvider cargado. Usuario actual: <strong>{currentUser?.name || 'Ninguno'}</strong>
                         </div>
-                        <ul className="list-disc list-inside pl-2">
-                            <li>{data.users?.length || 0} usuarios encontrados.</li>
-                            <li>{data.accounts?.length || 0} cuentas encontradas.</li>
-                            <li>Usuario actual: <strong>{currentUser?.name || 'Ninguno'}</strong></li>
+                        <ul className="grid grid-cols-3 gap-x-4 gap-y-1 list-disc list-inside pl-2 text-xs">
+                           {collectionCounts.map(({ name, count }) => (
+                               <li key={name}><strong>{name}:</strong> {count}</li>
+                           ))}
                         </ul>
                     </div>
                 ) : (
@@ -51,32 +57,6 @@ function DataProviderStatusCard() {
                        <AlertTriangle size={16} /> El DataProvider no pudo cargar los datos.
                     </div>
                 )}
-                
-                <div className="border-t pt-3">
-                    <SBButton onClick={handleReadTestWrites} variant="secondary">
-                        <Zap size={14} /> Leer colección 'test_writes'
-                    </SBButton>
-
-                    {readError && <p className="text-red-600 text-sm mt-2">{readError}</p>}
-                    
-                    {testWrites && (
-                        <div className="mt-3 space-y-2">
-                            <h4 className="font-semibold text-sm">Contenido de 'test_writes':</h4>
-                            {testWrites.length > 0 ? (
-                                <div className="divide-y divide-zinc-100 border rounded-lg bg-zinc-50/50 max-h-40 overflow-auto">
-                                    {testWrites.map(doc => (
-                                        <div key={doc.id} className="p-2 text-xs">
-                                            <p className="font-mono text-zinc-500">{doc.id}</p>
-                                            <p>{doc.message} - {doc.timestamp?.toDate().toLocaleString('es-ES') || 'Sin fecha'}</p>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <p className="text-sm text-center text-zinc-500 py-4">La colección 'test_writes' está vacía.</p>
-                            )}
-                        </div>
-                    )}
-                </div>
             </div>
         </SBCard>
     )
@@ -84,7 +64,7 @@ function DataProviderStatusCard() {
 
 
 function DbConsolePageContent() {
-    const [readStatus, setReadStatus] = useState<{ status: 'idle' | 'loading' | 'success' | 'error', message: string }>({ status: 'idle', message: '' });
+    const [readStatus, setReadStatus] = useState<{ status: 'idle' | 'loading' | 'success' | 'error', message: string, counts: Record<string, number> }>({ status: 'idle', message: '', counts: {} });
     const [writeStatus, setWriteStatus] = useState<{ status: 'idle' | 'loading' | 'success' | 'error', message: string }>({ status: 'idle', message: '' });
     const [testWrites, setTestWrites] = useState<any[]>([]);
 
@@ -96,18 +76,23 @@ function DbConsolePageContent() {
             setTestWrites(writes);
         } catch (error) {
             console.error("Error fetching test_writes:", error);
-            // No mostramos un error al usuario, ya que puede que la colección no exista aún.
         }
     }, []);
 
     const testRead = useCallback(async () => {
-        setReadStatus({ status: 'loading', message: 'Leyendo la colección "users"...' });
+        setReadStatus({ status: 'loading', message: 'Leyendo todas las colecciones de Firestore...', counts: {} });
         try {
-            const querySnapshot = await getDocs(collection(db, "users"));
-            setReadStatus({ status: 'success', message: `Lectura directa exitosa. Se encontraron ${querySnapshot.size} documentos en la colección "users" de Firestore.` });
+            const counts: Record<string, number> = {};
+            let totalDocs = 0;
+            for (const collectionName of SANTA_DATA_COLLECTIONS) {
+                const querySnapshot = await getDocs(collection(db, collectionName));
+                counts[collectionName] = querySnapshot.size;
+                totalDocs += querySnapshot.size;
+            }
+            setReadStatus({ status: 'success', message: `Lectura directa completada. Se encontraron ${totalDocs} documentos en total.`, counts });
         } catch (error: any) {
             console.error("Firestore read error:", error);
-            setReadStatus({ status: 'error', message: `Error de lectura directa: ${error.message}. Revisa la consola y las reglas de seguridad de Firestore.` });
+            setReadStatus({ status: 'error', message: `Error de lectura directa: ${error.message}. Revisa la consola y las reglas de seguridad de Firestore.`, counts: {} });
         }
     }, []);
 
@@ -119,7 +104,7 @@ function DbConsolePageContent() {
                 timestamp: serverTimestamp()
             });
             setWriteStatus({ status: 'success', message: `Escritura directa exitosa. Documento creado con ID: ${docRef.id}` });
-            await fetchTestWrites(); // Recargar los datos después de escribir
+            await fetchTestWrites();
         } catch (error: any) {
             console.error("Firestore write error:", error);
             setWriteStatus({ status: 'error', message: `Error de escritura directa: ${error.message}. Revisa la consola y las reglas de seguridad de Firestore.` });
@@ -131,7 +116,7 @@ function DbConsolePageContent() {
         fetchTestWrites();
     }, [testRead, fetchTestWrites]);
 
-    const StatusIndicator = ({ status, message }: { status: 'idle' | 'loading' | 'success' | 'error', message: string }) => {
+    const StatusIndicator = ({ status, message, counts }: { status: 'idle' | 'loading' | 'success' | 'error', message: string, counts?: Record<string, number> }) => {
         if (status === 'idle') return null;
         if (status === 'loading') return <div className="text-sm text-zinc-500 animate-pulse">{message}</div>
         const isSuccess = status === 'success';
@@ -139,7 +124,16 @@ function DbConsolePageContent() {
         return (
             <div className={`flex items-start gap-2 p-3 rounded-lg text-sm ${isSuccess ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
                 <Icon className="h-5 w-5 mt-0.5 flex-shrink-0" />
-                <p>{message}</p>
+                <div>
+                    <p>{message}</p>
+                    {counts && Object.keys(counts).length > 0 && (
+                         <ul className="grid grid-cols-3 gap-x-4 gap-y-1 list-disc list-inside pl-2 text-xs mt-2">
+                           {Object.entries(counts).map(([name, count]) => (
+                               <li key={name}><strong>{name}:</strong> {count}</li>
+                           ))}
+                        </ul>
+                    )}
+                </div>
             </div>
         )
     };
@@ -154,7 +148,7 @@ function DbConsolePageContent() {
 
             <SBCard title="Prueba de Lectura Directa de Firestore">
                 <div className="p-4 space-y-3">
-                    <p className="text-sm text-zinc-600">Intenta leer la colección `users` directamente de Firestore para comprobar los permisos de lectura.</p>
+                    <p className="text-sm text-zinc-600">Intenta leer todas las colecciones directamente de Firestore para comprobar los permisos y comparar los recuentos.</p>
                     <StatusIndicator {...readStatus} />
                     <SBButton variant="secondary" onClick={testRead} disabled={readStatus.status === 'loading'}>
                         <Zap size={14} /> Volver a probar lectura
