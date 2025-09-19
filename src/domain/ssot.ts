@@ -22,7 +22,7 @@ export type Currency = 'EUR';
 // 2. Entidades Principales (Personas y Organizaciones)
 // -----------------------------------------------------------------
 
-export type UserRole = 'comercial' | 'admin' | 'ops' | 'owner' | 'Owner';
+export type UserRole = 'comercial' | 'admin' | 'ops' | 'owner';
 export interface User { 
   id: string; 
   name: string; 
@@ -96,7 +96,7 @@ export interface Material {
   name: string;
   uom?: Uom;
   standardCost?: number;
-  category: 'raw' | 'packaging' | 'label' | 'consumable' | 'intermediate' | 'finished_good' | 'merchandising';
+  category: 'raw' | 'packaging' | 'label' | 'consumable' | 'intermediate', 'finished_good', 'merchandising';
 }
 
 export interface Lot {

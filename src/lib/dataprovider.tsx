@@ -76,7 +76,12 @@ async function loadAllCollections(): Promise<{ partial: Partial<SantaData>; repo
 
 function ensureLocalUser(user: import("firebase/auth").User, currentData: SantaData): { updated: SantaData; ensuredUser: User } {
   const found = currentData.users.find((u) => u.email === user.email);
-  if (found) return { updated: currentData, ensuredUser: found };
+  if (found) {
+      const normalizedUser = { ...found, role: found.role.toLowerCase() as User['role'] };
+      const updatedUsers = currentData.users.map(u => u.id === found.id ? normalizedUser : u);
+      return { updated: { ...currentData, users: updatedUsers }, ensuredUser: normalizedUser };
+  }
+  
   const newUser: User = {
     id: user.uid,
     name: user.displayName || emailToName(user.email || "user"),
@@ -86,6 +91,7 @@ function ensureLocalUser(user: import("firebase/auth").User, currentData: SantaD
   };
   return { updated: { ...currentData, users: [...currentData.users, newUser] }, ensuredUser: newUser };
 }
+
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
   const user = auth.currentUser;
@@ -163,7 +169,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!data || !authReady) return;
     
-    const userToSet = firebaseUser ? data.users.find(u => u.email === firebaseUser.email) : null;
+    let userToSet: User | null | undefined = null;
+    if (firebaseUser) {
+        const foundUser = data.users.find(u => u.email === firebaseUser.email);
+        if (foundUser) {
+            userToSet = { ...foundUser, role: foundUser.role.toLowerCase() as User['role'] };
+        }
+    }
 
     if (firebaseUser && !userToSet) {
       const { ensuredUser, updated } = ensureLocalUser(firebaseUser, data);
@@ -183,7 +195,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const setCurrentUserById = useCallback((userId: string) => {
     if (data?.users) {
         const user = data.users.find(u => u.id === userId);
-        if (user) setCurrentUser(user);
+        if (user) {
+            setCurrentUser({ ...user, role: user.role.toLowerCase() as User['role'] });
+        }
     }
   }, [data?.users]);
   
@@ -223,7 +237,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     async (email: string, pass: string) => {
       const cred = await signInWithEmailAndPassword(auth, email, pass);
       const appUser = data?.users.find((u) => u.email === cred.user.email) || null;
-      if (appUser) setCurrentUser(appUser);
+      if (appUser) setCurrentUser({ ...appUser, role: appUser.role.toLowerCase() as User['role'] });
       return appUser;
     },
     [data?.users]
