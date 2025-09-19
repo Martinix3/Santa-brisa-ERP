@@ -15,8 +15,10 @@ import {
   ExternalLink, Tags, Plus, BarChart3, Link2, CalendarClock,
   DollarSign, Check, X, ChevronDown, UploadCloud, Pencil, PieChart,
 } from "lucide-react";
-import type { InfluencerCollab, InfStatus, Platform, Tier, Deliverable, CompType } from "@/domain/influencers";
+import type { InfluencerCollab, Platform, Tier, Deliverable, CompType } from "@/domain/ssot";
 import { listCollabs, listCreators } from "../ssot-bridge";
+
+type InfStatus = InfluencerCollab['status'];
 
 // =============== Utilidades métricas ===============
 function sumCosts(c?: InfluencerCollab["costs"]) {

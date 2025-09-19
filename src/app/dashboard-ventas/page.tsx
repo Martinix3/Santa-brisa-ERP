@@ -93,14 +93,14 @@ function PersonalDashboardContent({ displayedUser, timePeriod, setTimePeriod }: 
     // Top Accounts
     const accountRevenue = userOrders.reduce((acc, order) => {
         if (order.status === 'confirmed') {
-            const current = acc.get(order.accountId) || { revenue: 0, last: '1970-01-01' };
+            const current = acc.get(order.accountId) || { revenue: 0, lastCreatedAt: '1970-01-01' };
             acc.set(order.accountId, {
                 revenue: current.revenue + orderTotal(order),
-                last: order.createdAt > current.last ? order.createdAt : order.last,
+                lastCreatedAt: order.createdAt > current.lastCreatedAt ? order.createdAt : current.lastCreatedAt,
             });
         }
         return acc;
-    }, new Map<string, { revenue: number; last: string }>());
+    }, new Map<string, { revenue: number; lastCreatedAt: string }>());
 
     const topAccounts = Array.from(accountRevenue.entries())
         .map(([id, data]) => ({
@@ -180,9 +180,10 @@ function PersonalDashboardContent({ displayedUser, timePeriod, setTimePeriod }: 
   
     const handleAddOrUpdateEvent = async (event: Omit<Interaction, 'createdAt' | 'status' | 'userId'> & { id?: string }) => {
         if (!currentUser || !santaData) return;
+        
+        let updatedInteractions;
         if (event.id) { // Update existing
-            const updatedInteractions = santaData.interactions.map(i => i.id === event.id ? { ...i, ...event } : i);
-            updateAndPersistInteractions(updatedInteractions as Interaction[]);
+            updatedInteractions = santaData.interactions.map(i => i.id === event.id ? { ...i, ...event } : i);
         } else { // Create new
             const newInteraction: Interaction = {
                 id: `int_${Date.now()}`,
@@ -191,9 +192,9 @@ function PersonalDashboardContent({ displayedUser, timePeriod, setTimePeriod }: 
                 userId: currentUser.id,
                 ...event,
             };
-            const updatedInteractions = [...(santaData.interactions || []), newInteraction];
-            updateAndPersistInteractions(updatedInteractions);
+            updatedInteractions = [...(santaData.interactions || []), newInteraction];
         }
+        updateAndPersistInteractions(updatedInteractions as Interaction[]);
         setEditingEvent(null);
         setIsNewEventDialogOpen(false);
     };

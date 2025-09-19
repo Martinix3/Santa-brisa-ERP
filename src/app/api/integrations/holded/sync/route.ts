@@ -56,7 +56,7 @@ export async function POST() {
           description: item.name,
           qty: item.units,
           priceUnit: item.price,
-          unit: 'uds',
+          uom: 'uds',
         })),
         notes: `Importado de Holded. Factura: ${invoice.docNumber}`,
       };

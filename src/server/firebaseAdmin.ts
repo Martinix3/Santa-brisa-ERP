@@ -34,9 +34,9 @@ function loadServiceAccount(): ServiceAccount | null {
   
   if (projectId && clientEmail && privateKey) {
     return {
-      project_id: projectId,
-      client_email: clientEmail,
-      private_key: privateKey,
+      projectId: projectId,
+      clientEmail: clientEmail,
+      privateKey: privateKey,
     } as ServiceAccount;
   }
 
@@ -51,7 +51,7 @@ export function getProjectId(): string | undefined {
 
 if (!admin.apps.length) {
   const serviceAccount = loadServiceAccount();
-  if (serviceAccount && serviceAccount.project_id && serviceAccount.client_email && serviceAccount.private_key) {
+  if (serviceAccount && serviceAccount.projectId && serviceAccount.clientEmail && serviceAccount.privateKey) {
     try {
       admin.initializeApp({
         credential: admin.credential.cert(serviceAccount),

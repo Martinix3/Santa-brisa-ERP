@@ -96,7 +96,7 @@ export interface Material {
   name: string;
   uom?: Uom;
   standardCost?: number;
-  category: 'raw' | 'packaging' | 'label' | 'consumable' | 'intermediate', 'finished_good', 'merchandising';
+  category: 'raw' | 'packaging' | 'label' | 'consumable' | 'intermediate' | 'finished_good' | 'merchandising';
 }
 
 export interface Lot {
@@ -358,8 +358,8 @@ export interface OnlineCampaign {
   budget: number;
   spend: number;
   metrics?: {
-    impressions: number;
-    clicks: number;
+    impressions?: number;
+    clicks?: number;
     ctr?: number;
     conversions?: number;
     cpa?: number;
@@ -461,7 +461,6 @@ export interface SantaData {
   suppliers: Supplier[];
   goodsReceipts: GoodsReceipt[];
   
-  // Antiguos o menos usados (revisar)
   traceEvents: TraceEvent[];
   
   // Placeholder para colecciones futuras o no modeladas aun

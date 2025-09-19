@@ -3,9 +3,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { listCollabs } from '../ssot-bridge';
-import type { InfluencerCollab, InfStatus } from '@/domain/influencers';
+import type { InfluencerCollab } from '@/domain/ssot';
 import { SBCard, SBButton } from '@/components/ui/ui-primitives';
 import { Plus, Search, User, Instagram, Sparkles, Mail, Phone, MapPin } from 'lucide-react';
+
+type InfStatus = InfluencerCollab['status'];
 
 // --- Helpers de UI ---
 

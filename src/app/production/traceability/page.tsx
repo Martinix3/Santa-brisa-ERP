@@ -562,7 +562,7 @@ function SalesByCustomer({ lot, groups, accountIndex, santaData }: { lot: Lot; g
                         <span className="text-zinc-600"> {user?.name || "—"}</span>
                       </div>
                       <div>
-                        {d.lines.filter((l) => l.lotIds?.includes(lot.id)).reduce((a, b) => a + b.qty, 0)} {d.lines.find((l) => l.lotIds?.includes(lot.id))?.unit || "uds"}
+                        {d.lines.filter((l) => l.lotIds?.includes(lot.id)).reduce((a, b) => a + b.qty, 0)} {d.lines.find((l) => l.lotIds?.includes(lot.id))?.uom || "uds"}
                       </div>
                     </div>
                   );

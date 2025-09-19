@@ -93,7 +93,7 @@ const santaBrainFlow = ai.defineFlow(
   {
     name: 'santaBrainFlow',
     inputSchema: z.object({
-        history: z.array(Message.schema()),
+        history: z.array(z.any()), // Use z.any() for history messages
         input: z.string(),
     }),
     outputSchema: z.object({
@@ -106,12 +106,12 @@ const santaBrainFlow = ai.defineFlow(
       prompt: input,
       history,
       model: 'googleai/gemini-2.5-flash-preview',
-      tools: santaBrainPrompt.config.tools,
+      tools: santaBrainPrompt.tools,
     });
 
-    const toolCalls = llmResponse.toolCalls();
+    const toolCalls = llmResponse.toolCalls;
     const newEntities: Partial<SantaData> = {};
-    const finalAnswer = llmResponse.text();
+    let finalAnswer = llmResponse.text;
 
     if (toolCalls.length > 0) {
         for (const toolCall of toolCalls) {
@@ -129,5 +129,9 @@ export async function runSantaBrain(
   input: string,
 ): Promise<{ finalAnswer: string; newEntities: Partial<SantaData> }> {
   
-  return await santaBrainFlow({ history, input });
+  const result = await santaBrainFlow({ history, input });
+  return {
+      finalAnswer: result.finalAnswer,
+      newEntities: result.newEntities || {},
+  }
 }

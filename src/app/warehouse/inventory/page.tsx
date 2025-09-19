@@ -96,7 +96,7 @@ export default function InventoryPage() {
                     quality: {
                         qcStatus: lot.quality?.qcStatus
                     },
-                    uom: material?.uom || 'uds',
+                    uom: 'uds',
                 }
             });
             

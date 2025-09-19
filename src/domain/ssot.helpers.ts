@@ -86,7 +86,7 @@ export class MemoryAdapter implements SSOTAdapter {
 
   async getProductionOrders() { return this.data.productionOrders; }
   async getLots(): Promise<Lot[]> { return this.data.lots; }
-  async getLotTrace(lotId:string) { return traceBackFromLot(lotId, this.data.trace); }
+  async getLotTrace(lotId:string) { return traceBackFromLot(lotId, this.data.traceEvents); }
   async getMktEvents() { return this.data.mktEvents || []; }
   async getOnlineCampaigns() { return this.data.onlineCampaigns || []; }
   async getCreators() { return this.data.creators || []; }

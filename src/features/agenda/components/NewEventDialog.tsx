@@ -94,9 +94,9 @@ export function NewEventDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (event: Omit<Interaction, 'createdAt' | 'status' | 'userId'> & { id?: string }) => void;
+  onSave: (event: Omit<Interaction, 'createdAt' | 'status'> & { id?: string }) => void;
   accentColor: string;
-  initialEventData?: Interaction | null;
+  initialEventData?: Partial<Interaction> | null;
 }) {
     const { data: santaData, currentUser } = useData();
     const [title, setTitle] = useState('');
@@ -114,7 +114,7 @@ export function NewEventDialog({
             setInteractionKind(initialEventData.kind || 'VISITA');
             setDate(initialEventData.plannedFor ? new Date(initialEventData.plannedFor).toISOString().slice(0, 16) : '');
             setSelection({ accountId: initialEventData.accountId, location: initialEventData.location });
-            setInvolvedUserIds(initialEventData.involvedUserIds || [initialEventData.userId]);
+            setInvolvedUserIds(initialEventData.involvedUserIds || (initialEventData.userId ? [initialEventData.userId] : []));
         } else {
             // Reset form for new event and pre-select current user
             setTitle('');
@@ -152,13 +152,12 @@ export function NewEventDialog({
             location: selection.location,
             accountId: selection.accountId,
             involvedUserIds: involvedUserIds.length > 0 ? involvedUserIds : (currentUser ? [currentUser.id] : []),
-            userId: initialEventData?.userId || currentUser!.id, // Preserve original creator on edit
         });
 
         onOpenChange(false);
     };
     
-    const dialogTitle = initialEventData ? "Editar Tarea" : "Crear Nueva Tarea o Evento";
+    const dialogTitle = initialEventData?.id ? "Editar Tarea" : "Crear Nueva Tarea o Evento";
 
     return (
         <SBDialog open={open} onOpenChange={onOpenChange}>
@@ -166,7 +165,7 @@ export function NewEventDialog({
                 title={dialogTitle}
                 description="Añade o edita una entrada en tu calendario y asigna responsables."
                 onSubmit={handleSubmit}
-                primaryAction={{ label: initialEventData ? 'Guardar Cambios' : 'Crear Evento', type: 'submit' }}
+                primaryAction={{ label: initialEventData?.id ? 'Guardar Cambios' : 'Crear Evento', type: 'submit' }}
                 secondaryAction={{ label: 'Cancelar', onClick: () => onOpenChange(false) }}
             >
                 <div className="space-y-4 pt-2">

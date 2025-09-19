@@ -98,7 +98,7 @@ function CampaignRow({ campaign, onUpdate }: { campaign: OnlineCampaign; onUpdat
     }
     
     const handleMetricsChange = (field: string, value: any) => {
-        setEditedCampaign(prev => ({ ...prev, metrics: { ...(prev.metrics || {}), [field]: value } }));
+        setEditedCampaign(prev => ({ ...prev, metrics: { ...(prev.metrics || {}), [field]: value } as OnlineCampaign['metrics'] }));
     }
 
     if (isEditing) {

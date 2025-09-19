@@ -155,7 +155,7 @@ export function AccountDetailPageContent(){
                 createdAt: new Date().toISOString(),
                 status: 'open',
                 currency: 'EUR',
-                lines: payload.items.map((item: any) => ({ ...item, priceUnit: 0, unit: 'uds' })),
+                lines: payload.items.map((item: any) => ({ ...item, priceUnit: 0, uom: 'uds' })),
                 notes: payload.note,
             };
             setData({ ...santaData, ordersSellOut: [...santaData.ordersSellOut, newOrder] });
@@ -167,7 +167,8 @@ export function AccountDetailPageContent(){
                 createdAt: new Date().toISOString(),
                 kind: payload.kind,
                 note: `Próxima acción: ${payload.nextAction}. Resumen: ${payload.note}`,
-                dept: 'VENTAS'
+                dept: 'VENTAS',
+                status: 'open',
             };
             setData({ ...santaData, interactions: [...santaData.interactions, newInteraction] });
         }
@@ -254,7 +255,7 @@ export function AccountDetailPageContent(){
                               <div className="text-sm text-zinc-800 font-semibold">{formatEUR(orderTotal(order))}</div>
                               <div className="text-xs text-zinc-500">{formatDate(order.createdAt)}</div>
                           </div>
-                          <div className="text-sm text-zinc-800 col-span-2">{order.lines.map(l => `${l.qty} ${l.unit} de ${santaData.products.find(p=>p.sku === l.sku)?.name}`).join(', ')}</div>
+                          <div className="text-sm text-zinc-800 col-span-2">{order.lines.map(l => `${l.qty} ${l.uom} de ${santaData.products.find(p=>p.sku === l.sku)?.name}`).join(', ')}</div>
                       </div>
                     )
                   }

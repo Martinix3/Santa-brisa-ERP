@@ -63,7 +63,7 @@ function lineToBottles(line: OrderLine, product: Product | undefined, opts: Bott
   const isBottleSku = !!product?.bottleMl;
   if (!isBottleSku) return opts.countNonBottleSkusAsZero === false ? line.qty : 0;
 
-  switch (line.unit) {
+  switch (line.uom) {
     case 'uds':   return line.qty;
     default: return 0;
   }

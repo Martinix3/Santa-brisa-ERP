@@ -309,7 +309,7 @@ export function AccountsPageContent() {
             if (payload.nextActionDate) {
                  const newFollowUp: Interaction = {
                     id: `int_${Date.now() + 1}`,
-                    userId: originalTask.userId,
+                    userId: currentUser.id,
                     accountId: accountId,
                     kind: 'OTRO', 
                     note: `Seguimiento de: ${payload.note}`,

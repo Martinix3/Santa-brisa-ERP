@@ -31,7 +31,7 @@ export default function Page(){
 
   const events = useMemo(() => santaData?.mktEvents || [], [santaData]);
 
-  const handleAddOrUpdateEvent = async (event: Omit<Interaction, 'createdAt' | 'status' | 'userId'> & { id?: string }) => {
+  const handleAddOrUpdateEvent = async (event: Omit<Interaction, 'createdAt' | 'status'> & { id?: string }) => {
       if (!currentUser || !santaData) return;
       
       let finalData = { ...santaData };
