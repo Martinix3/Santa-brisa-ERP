@@ -31,7 +31,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<SantaData | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isPersistenceEnabled, setIsPersistenceEnabled] = useState(true);
+  const [isPersistenceEnabled, setIsPersistenceEnabled] = useState(false);
   const router = useRouter();
 
   // Función para encontrar o crear un usuario en nuestro sistema
@@ -82,6 +82,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           }
       } else {
           try {
+            console.log("Loading data from local db.json");
             const response = await fetch('/data/db.json');
             if (!response.ok) {
               throw new Error("Failed to fetch initial data");
@@ -97,6 +98,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [isPersistenceEnabled]);
 
   useEffect(() => {
+    if (!isPersistenceEnabled) {
+        if(data) {
+          // In local mode, default to the first admin/owner user
+          const adminUser = data.users.find(u => u.role === 'admin' || u.role === 'owner');
+          setCurrentUser(adminUser || data.users[0] || null);
+          setIsLoading(false);
+        }
+        return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser && data) {
         const { user, needsUpdate } = await findOrCreateUser(firebaseUser, data);
@@ -128,14 +139,27 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const loginWithEmail = async (email: string, pass: string) => {
-    try {
-      await signInWithEmailAndPassword(auth, email, pass);
-      return data?.users.find(u => u.email === email) || null;
-    } catch (error) {
-      console.error("Error signing in with email:", error);
-      alert("Error al iniciar sesión. Verifica tus credenciales.");
-      return null;
-    }
+      if (!isPersistenceEnabled) {
+          console.log("Local mode: Simulating login.");
+          const user = data?.users.find(u => u.email === email);
+          if (user) {
+              setCurrentUser(user);
+              router.push('/dashboard-personal');
+              return user;
+          }
+          alert("Usuario no encontrado en los datos locales.");
+          return null;
+      }
+
+      try {
+        await signInWithEmailAndPassword(auth, email, pass);
+        // onAuthStateChanged will handle setting the user
+        return data?.users.find(u => u.email === email) || null;
+      } catch (error) {
+        console.error("Error signing in with email:", error);
+        alert("Error al iniciar sesión. Verifica tus credenciales.");
+        return null;
+      }
   };
 
   const signupWithEmail = async (email: string, pass: string) => {
@@ -171,6 +195,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
 };
 
   const logout = async () => {
+    if (!isPersistenceEnabled) {
+        setCurrentUser(null);
+        router.push('/login');
+        return;
+    }
     try {
       await signOut(auth);
       setCurrentUser(null);
@@ -190,7 +219,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   const togglePersistence = () => {
-    setIsPersistenceEnabled(prev => !prev);
+    setIsPersistenceEnabled(prev => {
+        const nextState = !prev;
+        if (nextState) {
+            alert("Modo online: Conectando a Firebase. Se requiere iniciar sesión.");
+            logout();
+        } else {
+            alert("Modo offline: Usando datos locales. No se necesita sesión.");
+        }
+        return nextState;
+    });
   };
   
   const saveCollection = useCallback(async (collectionName: keyof SantaData, dataToSave: any[]) => {
