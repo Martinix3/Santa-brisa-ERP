@@ -1,14 +1,80 @@
 // scripts/migrate-dev-userdata.ts
-import { initializeApp, cert } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
+import { initializeApp, cert, applicationDefault } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
+import type { ServiceAccount } from 'firebase-admin';
 
-initializeApp({
-  credential: cert({
-    projectId: process.env.FIREBASE_PROJECT_ID,
-    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-    privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
-  }),
-});
+function loadServiceAccount(): ServiceAccount | null {
+  // 1) Base64 en env
+  const b64 = process.env.FIREBASE_SERVICE_ACCOUNT_BASE64;
+  if (b64) {
+    const raw = Buffer.from(b64, 'base64').toString('utf8');
+    return JSON.parse(raw);
+  }
+
+  // 2) JSON directo en env
+  const json = process.env.FIREBASE_SERVICE_ACCOUNT;
+  if (json) {
+    return JSON.parse(json);
+  }
+
+  // 3) Variables sueltas tipo FSA_PROJECT_ID, FSA_CLIENT_EMAIL, FSA_PRIVATE_KEY
+  const pid = process.env.FSA_PROJECT_ID;
+  const email = process.env.FSA_CLIENT_EMAIL;
+  const key = process.env.FSA_PRIVATE_KEY?.replace(/\\n/g, '\n'); // importante para claves con \n
+  if (pid && email && key) {
+    return {
+      project_id: pid,
+      client_email: email,
+      private_key: key,
+    } as ServiceAccount;
+  }
+  
+    // 3.5) Fallback a las variables originales (compatibilidad)
+  const oldPid = process.env.FIREBASE_PROJECT_ID;
+  const oldEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  const oldKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+  if(oldPid && oldEmail && oldKey){
+      return {
+          project_id: oldPid,
+          client_email: oldEmail,
+          private_key: oldKey
+      } as ServiceAccount
+  }
+
+
+  return null;
+}
+
+const useEmulator = !!process.env.FIRESTORE_EMULATOR_HOST;
+
+// 4) Inicialización flexible:
+// - Si hay emulador → no hacen falta credenciales.
+// - Si hay service account → cert(...).
+// - Si no, intenta Application Default Credentials (ADC).
+const sa = loadServiceAccount();
+
+if (useEmulator) {
+  initializeApp({
+    projectId: process.env.GCLOUD_PROJECT || process.env.FSA_PROJECT_ID || 'demo-santabrisa',
+  });
+} else if (sa) {
+  if (typeof sa.project_id !== 'string' || !sa.project_id) {
+    throw new Error('Service account inválida: falta "project_id" (string).');
+  }
+  initializeApp({ credential: cert(sa) });
+} else {
+  // Requiere GOOGLE_APPLICATION_CREDENTIALS o gcloud ADC configurado
+  try {
+    initializeApp({ credential: applicationDefault() });
+  } catch(e:any) {
+      console.error("Firebase Admin SDK - Application Default Credentials (ADC) no encontradas.");
+      console.error("Info: Para ejecutar este script necesitas credenciales de servidor. Puedes:");
+      console.error("1. Configurar variables de entorno (p.ej. FIREBASE_SERVICE_ACCOUNT_BASE64).");
+      console.error("2. Apuntar a un emulador con FIRESTORE_EMULATOR_HOST.");
+      console.error("3. Autenticarte con `gcloud auth application-default login`.");
+      throw e;
+  }
+}
 
 const db = getFirestore();
 
