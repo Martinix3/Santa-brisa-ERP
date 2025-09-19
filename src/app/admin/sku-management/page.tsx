@@ -73,8 +73,11 @@ function SkuManagementPageContent() {
 
     const fetchData = async () => {
         setLoading(true);
-        const [materials, lots] = await Promise.all([listMaterials(), listLots()]);
+        const [materialsRes, lotsRes] = await Promise.all([listMaterials(), listLots()]);
         
+        const materials = materialsRes || [];
+        const lots = lotsRes || [];
+
         const lotsBySku = new Map<string, Lot[]>();
         lots.forEach(lot => {
             const existing = lotsBySku.get(lot.sku) || [];
