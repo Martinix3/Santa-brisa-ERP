@@ -88,6 +88,8 @@ export interface Product {
   category?: string;
 }
 
+export const MATERIAL_CATEGORIES: Material['category'][] = ['raw', 'packaging', 'label', 'consumable', 'intermediate', 'finished_good', 'merchandising'];
+
 export interface Material {
   id: string;
   sku: string;
@@ -503,8 +505,6 @@ export function orderTotal(o: { totalAmount?: number; lines: { priceUnit:number;
   if (!o || !o.lines) return 0;
   return o.lines.reduce((s, l) => s + l.priceUnit * l.qty * (1 - (l.discount || 0)), 0);
 }
-
-export const MATERIAL_CATEGORIES: Material['category'][] = ['raw', 'packaging', 'label', 'consumable', 'intermediate', 'finished_good', 'merchandising'];
 
 export const SB_COLORS = {
   primary: "#F7D15F",

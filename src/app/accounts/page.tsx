@@ -290,11 +290,11 @@ function AccountsPageContent() {
                 id: `ord_${Date.now()}`,
                 accountId: accountId,
                 status: 'open',
-                totalAmount: 0, // Should be calculated
+                currency: 'EUR',
                 createdAt: new Date().toISOString(),
                 lines: payload.items.map(item => ({ sku: item.sku, qty: item.qty, unit: 'uds', priceUnit: 0 })),
                 notes: `Pedido rápido creado desde lista de cuentas`,
-            } as OrderSellOut;
+            };
             finalData.ordersSellOut = [...(finalData.ordersSellOut || []), newOrder];
         } else { // Interacción
             const newInteraction: Interaction = {
