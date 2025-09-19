@@ -22,8 +22,6 @@ import { auth } from '@/lib/firebaseClient';
 import { getIdToken } from "firebase/auth";
 
 
-const FullCalendar = dynamic(() => import("@fullcalendar/react"), { ssr: false });
-
 const asISO = (d: string | Date | undefined | null) => {
   if (!d) return undefined;
   const date = typeof d === "string" ? new Date(d) : d;
@@ -170,11 +168,7 @@ export function CalendarPageContent() {
   
   const updateAndPersistInteractions = (updatedInteractions: Interaction[]) => {
       if (!SantaData) return;
-      const fullData = { ...SantaData, interactions: updatedInteractions };
-      setData(fullData);
-      if (isPersistenceEnabled) {
-        saveCollection('interactions', updatedInteractions);
-      }
+      saveCollection('interactions', updatedInteractions);
   }
 
   const handleUpdateStatus = (id: string, newStatus: InteractionStatus) => {
@@ -229,13 +223,10 @@ export function CalendarPageContent() {
       }
       
       finalData.interactions = updatedInteractions;
-      setData(finalData);
-
-      if (isPersistenceEnabled) {
-          await saveCollection('interactions', finalData.interactions);
-          if (finalData.mktEvents.length > (SantaData.mktEvents?.length || 0)) {
-              await saveCollection('mktEvents', finalData.mktEvents);
-          }
+      
+      await saveCollection('interactions', finalData.interactions);
+      if (finalData.mktEvents.length > (SantaData.mktEvents?.length || 0)) {
+          await saveCollection('mktEvents', finalData.mktEvents);
       }
 
       setEditingEvent(null);
@@ -332,14 +323,12 @@ export function CalendarPageContent() {
     
     setData(finalData);
 
-    if (isPersistenceEnabled) {
-        await saveCollection('interactions', finalData.interactions);
-        if (payload.type === 'venta') {
-            await saveCollection('ordersSellOut', finalData.ordersSellOut);
-        }
-        if (payload.type === 'marketing') {
-            await saveCollection('mktEvents', finalData.mktEvents);
-        }
+    await saveCollection('interactions', finalData.interactions);
+    if (payload.type === 'venta') {
+        await saveCollection('ordersSellOut', finalData.ordersSellOut);
+    }
+    if (payload.type === 'marketing') {
+        await saveCollection('mktEvents', finalData.mktEvents);
     }
     
     setCompletingTask(null);
