@@ -25,12 +25,34 @@ interface DataContextType {
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
+const emailToName = (email: string) => email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+
 export function DataProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<SantaData | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isPersistenceEnabled, setIsPersistenceEnabled] = useState(true);
   const router = useRouter();
+
+  // Función para encontrar o crear un usuario en nuestro sistema
+  const findOrCreateUser = useCallback(async (firebaseUser: import('firebase/auth').User, currentData: SantaData): Promise<{ user: User, needsUpdate: boolean }> => {
+    let userInDb = currentData.users.find(u => u.email === firebaseUser.email);
+    let needsUpdate = false;
+
+    if (!userInDb) {
+      console.log(`User with email ${firebaseUser.email} not found in our DB. Creating...`);
+      userInDb = {
+        id: firebaseUser.uid,
+        name: firebaseUser.displayName || emailToName(firebaseUser.email!),
+        email: firebaseUser.email!,
+        role: 'comercial',
+        active: true,
+      };
+      needsUpdate = true;
+    }
+    
+    return { user: userInDb, needsUpdate };
+  }, []);
 
   useEffect(() => {
     async function loadData() {
@@ -52,20 +74,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser && data) {
-        let user = data.users.find(u => u.email === firebaseUser.email);
-        if (user) {
-          setCurrentUser(user);
-        } else {
-          // If user logs in but is not in our initial user list, add them.
-          const newUser: User = {
-            id: firebaseUser.uid,
-            name: firebaseUser.displayName || emailToName(firebaseUser.email!),
-            email: firebaseUser.email!,
-            role: 'comercial',
-            active: true
-          };
-          setData(d => d ? { ...d, users: [...d.users, newUser] } : null);
-          setCurrentUser(newUser);
+        const { user, needsUpdate } = await findOrCreateUser(firebaseUser, data);
+        
+        setCurrentUser(user);
+        
+        if (needsUpdate) {
+            const updatedUsers = [...data.users, user];
+            setData(d => d ? { ...d, users: updatedUsers } : null);
+            if (isPersistenceEnabled) {
+                await saveCollection('users', updatedUsers);
+            }
         }
       } else {
         setCurrentUser(null);
@@ -73,10 +91,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setIsLoading(false);
     });
     return () => unsubscribe();
-  }, [data]);
+  }, [data, findOrCreateUser, isPersistenceEnabled]);
   
-  const emailToName = (email: string) => email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-
   const login = async () => {
     const provider = new GoogleAuthProvider();
     try {
@@ -111,7 +127,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
             const updatedUsers = [...data.users, newUser];
             setData({ ...data, users: updatedUsers });
             
-            // Persist the new user to the database
             if (isPersistenceEnabled) {
                 await saveCollection('users', updatedUsers);
             }
@@ -119,9 +134,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return newUser;
         }
         return null;
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error signing up:", error);
-        alert("Error al registrar la cuenta.");
+        if (error.code === 'auth/email-already-in-use') {
+            alert('Este email ya está registrado. Por favor, inicia sesión.');
+        } else {
+            alert("Error al registrar la cuenta.");
+        }
         return null;
     }
 };
@@ -163,14 +182,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     const batch = writeBatch(db);
     dataToSave.forEach(item => {
-      const docRef = doc(db, collectionName, item.id);
+      const docRef = doc(db, collectionName as string, item.id);
       batch.set(docRef, item);
     });
     
     try {
       await batch.commit();
       console.log(`Successfully saved ${collectionName}`);
-      // Optimistically update local state if needed or re-fetch
       setData(prevData => prevData ? { ...prevData, [collectionName]: dataToSave } : null);
 
     } catch (error) {
