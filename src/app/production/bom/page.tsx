@@ -227,8 +227,8 @@ function RecipeForm({ value, onChange, onSave, onCancel, materials }: {
 
 // ---------- Barra + Autocompletar ----------
 function useSuggestions(recipes: RecipeBom[], q: string){
+  if (!recipes) return [];
   return useMemo(()=>{
-    if (!recipes) return [];
     const query=q.trim().toLowerCase(); if(!query) return [] as {id:string;label:string;aux:string;kind:'SKU'|'Nombre'|'Presentación'}[];
     const out: {id:string;label:string;aux:string;kind:'SKU'|'Nombre'|'Presentación'}[] = [];
     for(const r of recipes){
@@ -423,6 +423,7 @@ export default function BomPage(){
     </div>
   );
 }
+
 
 
 
