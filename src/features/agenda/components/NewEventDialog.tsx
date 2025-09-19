@@ -94,7 +94,7 @@ export function NewEventDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (event: Omit<Interaction, 'createdAt' | 'status' | 'id'> & { id?: string }) => void;
+  onSave: (event: Omit<Interaction, 'createdAt' | 'status'> & { id?: string }) => void;
   accentColor: string;
   initialEventData?: Partial<Interaction> | null;
 }) {
@@ -144,7 +144,7 @@ export function NewEventDialog({
         let finalNote = notes ? `${title} - ${notes}` : title;
         
         onSave({ 
-            ...(initialEventData ? { id: initialEventData.id } : {}),
+            id: initialEventData?.id || `int_local_${Date.now()}`,
             userId: initialEventData?.userId || currentUser!.id,
             dept: type, 
             kind: type === 'VENTAS' ? interactionKind : 'OTRO',
