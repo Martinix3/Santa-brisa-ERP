@@ -87,6 +87,19 @@ function ensureLocalUser(user: import("firebase/auth").User, currentData: SantaD
   return { updated: { ...currentData, users: [...currentData.users, newUser] }, ensuredUser: newUser };
 }
 
+async function getAuthHeaders(): Promise<Record<string, string>> {
+  const user = auth.currentUser;
+  if (!user) return {};
+  try {
+    const token = await getIdToken(user, true);
+    return { 'Authorization': `Bearer ${token}` };
+  } catch (error) {
+    console.error("Error getting auth token:", error);
+    return {};
+  }
+}
+
+
 // --------- Provider ----------
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<SantaData | null>(null);
@@ -146,27 +159,24 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (fbUser) => {
       setFirebaseUser(fbUser);
-      // Data loading is now triggered by the data-loading useEffect
     });
     return () => unsub();
   }, []);
 
   useEffect(() => {
     reload();
-  }, [isOnlineMode, firebaseUser, reload]);
-
+  }, [isOnlineMode, reload]);
+  
   useEffect(() => {
-    if(!data || isLoading) return;
-
-    if(firebaseUser) {
-        const { ensuredUser, updated } = ensureLocalUser(firebaseUser, data);
-        if (updated.users.length > data.users.length) {
-            setData(updated); // only update if a new user was actually added
-        }
-        setCurrentUser(ensuredUser);
-    } else {
-        setCurrentUser(null);
+    if(!data || isLoading || !firebaseUser) {
+        if(!firebaseUser && !isLoading) setCurrentUser(null);
+        return;
+    };
+    const { ensuredUser, updated } = ensureLocalUser(firebaseUser, data);
+    if (updated.users.length > data.users.length) {
+        setData(updated);
     }
+    setCurrentUser(ensuredUser);
   }, [data, isLoading, firebaseUser]);
 
 
@@ -191,9 +201,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       if (requireAuth && !auth.currentUser) throw new Error("No autenticado");
 
       try {
+        const headers = await getAuthHeaders();
         const res = await fetch("/api/brain-persist", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...headers },
           body: JSON.stringify({ newEntities: { [name]: rows } }),
         });
         if (!res.ok) {
@@ -225,7 +236,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const signupWithEmail = useCallback(
     async (email: string, pass: string) => {
       await createUserWithEmailAndPassword(auth, email, pass);
-      // onAuthStateChanged will trigger reload and user sync
       const appUser = data?.users.find((u) => u.email === email) || null;
       return appUser;
     },

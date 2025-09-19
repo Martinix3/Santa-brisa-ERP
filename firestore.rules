@@ -1,22 +1,95 @@
+
 rules_version = '2';
+
 service cloud.firestore {
-  match /databases/{db}/documents {
-
-    function signedIn() { return request.auth != null; }
+  match /databases/{database}/documents {
+    
+    // Helper function to check if user has a specific role
     function hasRole(role) {
-      return signedIn() && request.auth.token.roles[role] == true;
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
     }
-
-    // Los usuarios pueden leer y actualizar su propio documento
-    match /users/{uid} {
-      allow read, update: if signedIn() && request.auth.uid == uid;
-      allow create, delete: if hasRole('admin');
-    }
-
-    // Cualquiera autenticado puede leer. Las escrituras se hacen vía backend con Admin SDK,
-    // o se pueden permitir aquí con lógica fina (ej. solo el owner de la cuenta puede editarla)
+    
+    // By default, deny all reads and writes
     match /{document=**} {
-      allow read, write: if signedIn();
+      allow read, write: if false;
+    }
+
+    // Allow authenticated users to read and write most collections.
+    // This is a broad rule for rapid prototyping.
+    // In a production app, you would add more granular checks.
+    // For example: `allow write: if request.auth.uid == resource.data.userId;`
+    match /users/{userId} {
+      allow read, write: if request.auth != null;
+    }
+    match /accounts/{accountId} {
+       allow read, write: if request.auth != null;
+    }
+    match /distributors/{distributorId} {
+       allow read, write: if request.auth != null;
+    }
+     match /products/{productId} {
+       allow read, write: if request.auth != null;
+    }
+     match /materials/{materialId} {
+       allow read, write: if request.auth != null;
+    }
+    match /billOfMaterials/{bomId} {
+       allow read, write: if request.auth != null;
+    }
+     match /interactions/{interactionId} {
+       allow read, write: if request.auth != null;
+    }
+     match /ordersSellOut/{orderId} {
+       allow read, write: if request.auth != null;
+    }
+    match /shipments/{shipmentId} {
+       allow read, write: if request.auth != null;
+    }
+     match /lots/{lotId} {
+       allow read, write: if request.auth != null;
+    }
+     match /inventory/{inventoryId} {
+       allow read, write: if request.auth != null;
+    }
+     match /stockMoves/{moveId} {
+       allow read, write: if request.auth != null;
+    }
+     match /productionOrders/{poId} {
+       allow read, write: if request.auth != null;
+    }
+    match /qaChecks/{qaId} {
+       allow read, write: if request.auth != null;
+    }
+    match /suppliers/{supplierId} {
+       allow read, write: if request.auth != null;
+    }
+    match /goodsReceipts/{grId} {
+       allow read, write: if request.auth != null;
+    }
+    match /traceEvents/{traceId} {
+       allow read, write: if request.auth != null;
+    }
+    
+    // Marketing collections
+    match /mktEvents/{eventId} {
+       allow read, write: if request.auth != null;
+    }
+    match /onlineCampaigns/{campaignId} {
+       allow read, write: if request.auth != null;
+    }
+     match /creators/{creatorId} {
+       allow read, write: if request.auth != null;
+    }
+     match /influencerCollabs/{collabId} {
+       allow read, write: if request.auth != null;
+    }
+
+    // Dev/test collections
+    match /test_writes/{docId} {
+      allow write: if request.auth != null;
+    }
+     match /staged_imports/{docId} {
+      allow read, write: if request.auth != null;
     }
   }
 }
