@@ -10,6 +10,7 @@ import { Database, Check, X, Link as LinkIcon, AlertTriangle, Upload, Download, 
 import { SBCard, SBButton } from '@/components/ui/ui-primitives';
 import type { SantaData } from '@/domain/ssot';
 import * as Papa from "papaparse";
+import AuthenticatedLayout from '@/components/layouts/AuthenticatedLayout';
 
 // ===== UTILS & HELPERS =====
 const normText = (s: any) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
@@ -531,5 +532,3 @@ export default function DataViewerPage() {
         </Suspense>
     );
 }
-
-```
