@@ -20,7 +20,7 @@ type DataContextType = {
   data: SantaData | null;
   setData: React.Dispatch<React.SetStateAction<SantaData | null>>;
   currentUser: User | null;
-  isLoading: boolean;
+  authReady: boolean;
   isOnlineMode: boolean;
   lastLoadReport: LoadReport | null;
   requireAuth: boolean;
@@ -105,7 +105,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<SantaData | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<import("firebase/auth").User | null>(auth.currentUser);
-  const [isLoading, setIsLoading] = useState(true);
+  const [authReady, setAuthReady] = useState(false);
   const [isOnlineMode, setIsOnlineMode] = useState(true);
   const [requireAuth, setRequireAuth] = useState(true);
   const [lastLoadReport, setLastLoadReport] = useState<LoadReport | null>(null);
@@ -114,27 +114,19 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const isPersistenceEnabled = isOnlineMode;
   
   const loadOfflineData = useCallback(async () => {
-    setIsLoading(true);
     const local = await fetchLocalJson();
     setData(local);
     setLastLoadReport(local ? { ok: ["(local)"] as any, errors: [], totalDocs: Object.values(local).flat().length } : { ok: [], errors: [{ name: "local" as any, error: "no db.json" }], totalDocs: 0 });
-    if(local?.users?.[0]) {
-      const fbUser = auth.currentUser;
-      const userToSet = fbUser ? (local.users.find(u => u.email === fbUser.email) || local.users[0]) : local.users[0];
-      setCurrentUser(userToSet);
-    }
-    else setCurrentUser(null);
-    setIsLoading(false);
+    setAuthReady(true); // Data is loaded, auth state is considered "ready" for offline mode.
   }, []);
 
   const loadOnlineData = useCallback(async () => {
     if (requireAuth && !auth.currentUser) {
-      setIsLoading(false);
+      setAuthReady(true);
       setCurrentUser(null);
       setData(null);
       return;
     }
-    setIsLoading(true);
     const { partial, report } = await loadAllCollections();
 
     if (ALLOW_LOCAL_FALLBACK && report.ok.length === 0) {
@@ -145,7 +137,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const next = partial as SantaData;
     setData(next);
     setLastLoadReport(report);
-    setIsLoading(false);
   }, [requireAuth, loadOfflineData]);
 
   const reload = useCallback(async () => {
@@ -157,27 +148,32 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [isOnlineMode, loadOnlineData, loadOfflineData]);
   
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (fbUser) => {
-      setFirebaseUser(fbUser);
+    const unsub = onAuthStateChanged(auth, async (fbUser) => {
+        setFirebaseUser(fbUser);
+        
+        // This is now the single source of truth for auth readiness
+        if (!authReady) {
+            await reload(); // Load data based on auth state
+            setAuthReady(true); // Mark auth as ready
+        }
     });
     return () => unsub();
-  }, []);
-
-  useEffect(() => {
-    reload();
-  }, [isOnlineMode, reload]);
+  }, [reload, authReady]);
   
   useEffect(() => {
-    if(!data || isLoading || !firebaseUser) {
-        if(!firebaseUser && !isLoading) setCurrentUser(null);
-        return;
-    };
-    const { ensuredUser, updated } = ensureLocalUser(firebaseUser, data);
-    if (updated.users.length > data.users.length) {
-        setData(updated);
+    if (!data || !authReady) return;
+    
+    const userToSet = firebaseUser ? data.users.find(u => u.email === firebaseUser.email) : null;
+
+    if (firebaseUser && !userToSet) {
+      const { ensuredUser, updated } = ensureLocalUser(firebaseUser, data);
+      setData(updated);
+      setCurrentUser(ensuredUser);
+    } else {
+      setCurrentUser(userToSet || null);
     }
-    setCurrentUser(ensuredUser);
-  }, [data, isLoading, firebaseUser]);
+
+  }, [data, firebaseUser, authReady]);
 
 
   const togglePersistence = useCallback(() => {
@@ -253,7 +249,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       data,
       setData,
       currentUser,
-      isLoading,
+      authReady,
       isOnlineMode,
       lastLoadReport,
       requireAuth,
@@ -268,7 +264,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       isPersistenceEnabled,
       setCurrentUserById,
     }),
-    [data, currentUser, isLoading, isOnlineMode, lastLoadReport, requireAuth, reload, saveCollection, login, loginWithEmail, signupWithEmail, logout, togglePersistence, isPersistenceEnabled, setCurrentUserById]
+    [data, currentUser, authReady, isOnlineMode, lastLoadReport, requireAuth, reload, saveCollection, login, loginWithEmail, signupWithEmail, logout, togglePersistence, isPersistenceEnabled, setCurrentUserById]
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

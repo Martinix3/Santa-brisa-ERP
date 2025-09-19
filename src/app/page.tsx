@@ -8,17 +8,17 @@ import { useData } from '@/lib/dataprovider';
 // This page now handles redirection logic based on auth state.
 export default function Page(){
     const router = useRouter();
-    const { currentUser, isLoading } = useData();
+    const { currentUser, authReady } = useData();
 
     React.useEffect(() => {
-        if (!isLoading) {
+        if (authReady) {
             if (currentUser) {
                 router.replace('/dashboard-personal');
             } else {
                 router.replace('/login');
             }
         }
-    }, [isLoading, currentUser, router]);
+    }, [authReady, currentUser, router]);
 
     return (
         <div className="h-screen w-screen flex items-center justify-center bg-zinc-50">
