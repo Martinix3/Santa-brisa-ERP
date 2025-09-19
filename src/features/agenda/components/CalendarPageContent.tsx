@@ -167,9 +167,9 @@ export function CalendarPageContent() {
       if (isPersistenceEnabled) {
           saveCollection('interactions', updatedInteractions);
       }
-  }
+    }
   
-  const handleUpdateStatus = (id: string, newStatus: InteractionStatus) => {
+    const handleUpdateStatus = (id: string, newStatus: InteractionStatus) => {
     const taskToUpdate = allInteractions.find(i => i.id === id);
     setSelectedEvent(null); 
      if (newStatus === 'done' && taskToUpdate) {
