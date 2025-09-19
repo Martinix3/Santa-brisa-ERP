@@ -21,7 +21,7 @@ import { auth } from '@/lib/firebaseClient';
 import { getIdToken } from "firebase/auth";
 
 
-// === Normalización robusta de fechas ===
+// Reemplaza tu asISO por esta versión robusta (y renombrada) para evitar colisiones:
 const toDate = (d: any): Date | null => {
   if (!d) return null;
   if (d instanceof Date) return isNaN(d.getTime()) ? null : d;
@@ -30,6 +30,10 @@ const toDate = (d: any): Date | null => {
     return isNaN(dt.getTime()) ? null : dt;
   }
   if (typeof d === 'object') {
+    // Evita arrays u objetos extraños
+    if (Array.isArray(d)) return null;
+    if (!d) return null;
+    // Timestamp de Firestore
     if (typeof d.toDate === 'function') {
       const dt = d.toDate();
       return isNaN(dt.getTime()) ? null : dt;
@@ -38,6 +42,7 @@ const toDate = (d: any): Date | null => {
       const dt = new Date(d.toMillis());
       return isNaN(dt.getTime()) ? null : dt;
     }
+    // { seconds, nanoseconds }
     if ('seconds' in d && typeof d.seconds === 'number') {
       const ms = d.seconds * 1000 + (typeof d.nanoseconds === 'number' ? d.nanoseconds / 1e6 : 0);
       const dt = new Date(ms);
@@ -47,11 +52,14 @@ const toDate = (d: any): Date | null => {
   return null;
 };
 
-const asISO = (d: any) => {
+const sbAsISO = (d: any) => {
   const date = toDate(d);
-  if (!date) return undefined;
-  // ISO “local-aware”
-  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString();
+  // Guardas máximas: que exista y que tenga getTime
+  if (!date || typeof (date as any).getTime !== 'function') return undefined;
+  const t = (date as Date).getTime?.();
+  if (typeof t !== 'number' || Number.isNaN(t)) return undefined;
+  // Normaliza a “local-aware” ISO (sin desplazar el reloj)
+  return new Date(t - new Date().getTimezoneOffset() * 60000).toISOString();
 };
 
 
@@ -66,16 +74,17 @@ function mapDomainToTasks(
   const interactionTasks: Task[] = interactions
     .filter((i) => i?.plannedFor)
     .map((i) => {
-      const plannedISO = asISO(i.plannedFor!);
+      const plannedISO = sbAsISO(i.plannedFor!);
       if (!plannedISO) {
         console.warn('plannedFor inválido en interacción', i.id, i.plannedFor);
-        return null;
+        return null; // <- señalamos que esta no vale
       }
+
       const title = i.note || `${i.kind}`;
       const type: Department = (i.dept as Department) || "VENTAS";
       return {
         id: i.id,
-        title,
+        title: title,
         type,
         status: i.status || 'open',
         date: plannedISO,
@@ -84,7 +93,7 @@ function mapDomainToTasks(
         linkedEntity: i.linkedEntity,
       } as Task;
     })
-    .filter(Boolean) as Task[];
+    .filter(Boolean) as Task[]; // <- nos quedamos solo con válidas
 
   return interactionTasks;
 }
@@ -175,13 +184,13 @@ export function CalendarPageContent() {
   const calendarEvents = useMemo(
     () =>
       allInteractions
-        .filter(i => !!asISO(i.plannedFor)) // evita fechas inválidas
+        .filter(i => !!sbAsISO(i.plannedFor)) // <- solo con fecha válida
         .map((task) => {
         const style = DEPT_META[task.dept as Department] || DEPT_META.VENTAS;
         return {
           id: task.id,
           title: task.note || String(task.kind || 'Tarea'),
-          start: asISO(task.plannedFor),
+          start: sbAsISO(task.plannedFor),
           allDay: task.status === 'done' ? false : (task.dept !== "ALMACEN"), // Example of allDay logic
           extendedProps: { type: task.dept, status: task.status },
           backgroundColor: task.status === 'done' ? '#d1d5db' : hexToRgba(style.color, 0.25),
@@ -197,7 +206,7 @@ export function CalendarPageContent() {
       if (!SantaData) return;
       setData(prev => prev ? { ...prev, interactions: updatedInteractions } : null);
       if (isPersistenceEnabled) {
-        saveCollection('interactions', updatedInteractions);
+          saveCollection('interactions', updatedInteractions);
       }
   }
 
@@ -279,7 +288,7 @@ export function CalendarPageContent() {
     if (!start) return;
 
     const updatedInteractions = allInteractions.map(i =>
-        i.id === id ? { ...i, plannedFor: asISO(start) } : i
+        i.id === id ? { ...i, plannedFor: sbAsISO(start) } : i
     );
     updateAndPersistInteractions(updatedInteractions as Interaction[]);
   };
@@ -554,4 +563,3 @@ export function CalendarPageContent() {
     </>
   );
 }
-```

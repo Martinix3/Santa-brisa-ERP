@@ -280,6 +280,7 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
                     alt="Santa Brisa"
                     width={100}
                     height={32}
+                    priority
                     className={`transition-all duration-300 ease-in-out h-8`} 
                 />
             </div>
