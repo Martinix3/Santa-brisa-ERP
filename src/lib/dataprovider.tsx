@@ -3,8 +3,9 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import type { SantaData, User, UserRole } from '@/domain/ssot';
-import { auth } from './firebaseClient';
+import { auth, db } from './firebaseClient';
 import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { doc, getDoc, setDoc, writeBatch } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 
 interface DataContextType {
@@ -15,6 +16,7 @@ interface DataContextType {
   isLoading: boolean;
   isPersistenceEnabled: boolean;
   togglePersistence: () => void;
+  saveCollection: (collectionName: keyof SantaData, data: any[]) => Promise<void>;
   login: () => Promise<void>;
   loginWithEmail: (email: string, pass: string) => Promise<User | null>;
   signupWithEmail: (email: string, pass: string) => Promise<User | null>;
@@ -32,8 +34,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     async function loadData() {
+      setIsLoading(true);
       try {
         const response = await fetch('/data/db.json');
+        if (!response.ok) {
+          throw new Error("Failed to fetch initial data");
+        }
         const initialData = await response.json();
         setData(initialData);
       } catch (error) {
@@ -44,20 +50,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser && data) {
         let user = data.users.find(u => u.email === firebaseUser.email);
-        if (!user) {
-          user = {
+        if (user) {
+          setCurrentUser(user);
+        } else {
+          // If user logs in but is not in our initial user list, add them.
+          const newUser: User = {
             id: firebaseUser.uid,
-            name: firebaseUser.displayName || 'Nuevo Usuario',
+            name: firebaseUser.displayName || emailToName(firebaseUser.email!),
             email: firebaseUser.email!,
-            role: 'comercial' as UserRole,
+            role: 'comercial',
             active: true
           };
-          setData(d => d ? { ...d, users: [...d.users, user!] } : null);
+          setData(d => d ? { ...d, users: [...d.users, newUser] } : null);
+          setCurrentUser(newUser);
         }
-        setCurrentUser(user);
       } else {
         setCurrentUser(null);
       }
@@ -65,48 +74,50 @@ export function DataProvider({ children }: { children: ReactNode }) {
     });
     return () => unsubscribe();
   }, [data]);
+  
+  const emailToName = (email: string) => email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 
   const login = async () => {
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
-      // onAuthStateChanged will handle the rest
     } catch (error) {
       console.error("Error during Google sign-in:", error);
     }
   };
 
   const loginWithEmail = async (email: string, pass: string) => {
-      try {
-          await signInWithEmailAndPassword(auth, email, pass);
-          // onAuthStateChanged will set the user
-          return data?.users.find(u => u.email === email) || null;
-      } catch (error) {
-          console.error("Error signing in with email:", error);
-          alert("Error al iniciar sesión. Verifica tus credenciales.");
-          return null;
-      }
+    try {
+      await signInWithEmailAndPassword(auth, email, pass);
+      return data?.users.find(u => u.email === email) || null;
+    } catch (error) {
+      console.error("Error signing in with email:", error);
+      alert("Error al iniciar sesión. Verifica tus credenciales.");
+      return null;
+    }
   };
 
   const signupWithEmail = async (email: string, pass: string) => {
-      try {
-          const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
-          const newUser: User = {
-            id: userCredential.user.uid,
-            name: email.split('@')[0],
-            email: email,
-            role: 'comercial',
-            active: true,
-          };
-          if(data) {
-            setData({ ...data, users: [...data.users, newUser]});
-          }
-          return newUser;
-      } catch (error) {
-          console.error("Error signing up:", error);
-          alert("Error al registrar la cuenta.");
-          return null;
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
+      if (data) {
+        const newUser: User = {
+          id: userCredential.user.uid,
+          name: emailToName(email),
+          email: email,
+          role: 'comercial',
+          active: true,
+        };
+        // This is a local update. The user object will be persisted with other users if save is called.
+        setData({ ...data, users: [...data.users, newUser] });
+        return newUser;
       }
+      return null;
+    } catch (error) {
+      console.error("Error signing up:", error);
+      alert("Error al registrar la cuenta.");
+      return null;
+    }
   };
 
   const logout = async () => {
@@ -121,16 +132,46 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const setCurrentUserById = (userId: string) => {
     if (data) {
-        const userToSet = data.users.find(u => u.id === userId);
-        if (userToSet) {
-            setCurrentUser(userToSet);
-        }
+      const userToSet = data.users.find(u => u.id === userId);
+      if (userToSet) {
+        setCurrentUser(userToSet);
+      }
     }
   };
 
   const togglePersistence = () => {
     setIsPersistenceEnabled(prev => !prev);
-  }
+  };
+  
+  const saveCollection = useCallback(async (collectionName: keyof SantaData, dataToSave: any[]) => {
+    if (!isPersistenceEnabled) {
+      console.log(`[Offline Mode] Not saving collection: ${collectionName}`);
+      return;
+    }
+    if (!db) {
+      console.error("Firestore DB is not initialized.");
+      return;
+    }
+    
+    console.log(`Persisting ${dataToSave.length} items to '${collectionName}' collection...`);
+
+    const batch = writeBatch(db);
+    dataToSave.forEach(item => {
+      const docRef = doc(db, collectionName, item.id);
+      batch.set(docRef, item);
+    });
+    
+    try {
+      await batch.commit();
+      console.log(`Successfully saved ${collectionName}`);
+      // Optimistically update local state if needed or re-fetch
+      setData(prevData => prevData ? { ...prevData, [collectionName]: dataToSave } : null);
+
+    } catch (error) {
+      console.error(`Error saving collection ${collectionName}:`, error);
+      throw error;
+    }
+  }, [isPersistenceEnabled]);
 
   const value = {
     data,
@@ -140,6 +181,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     isLoading,
     isPersistenceEnabled,
     togglePersistence,
+    saveCollection,
     login,
     loginWithEmail,
     signupWithEmail,

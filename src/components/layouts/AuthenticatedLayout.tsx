@@ -248,7 +248,7 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
     logout();
   };
   
-  if (isLoading || !data) {
+  if (isLoading) {
     return (
         <div className="h-screen w-screen flex items-center justify-center bg-white">
             <p>Cargando...</p>
@@ -319,7 +319,7 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
                     >
                         <div className="p-2">
                              <p className="text-xs font-semibold text-zinc-500 px-2 pt-1 pb-2">Cambiar de usuario</p>
-                            {data.users.map(user => (
+                            {data && data.users.map(user => (
                                 <button
                                     key={user.id}
                                     onClick={() => {
@@ -348,7 +348,7 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
                 <button
                     onClick={handleLogout}
                     className="w-full flex items-center justify-center gap-3 px-3 py-2 mt-2 rounded-md text-sm font-medium text-sb-neutral-600 hover:bg-sb-neutral-100"
-                    title="Cerrar sesión (deshabilitado)"
+                    title="Cerrar sesión"
                 >
                     <LogOut className="h-5 w-5" />
                     {!isSidebarCollapsed && <span>Cerrar Sesión</span>}

@@ -1,292 +1,134 @@
-
-
 'use server';
 /**
- * @fileOverview Santa Brain Core Assistant (V2).
+ * @fileoverview Santa Brisa main conversational agent
  *
- * Define el asistente central de IA para Santa Brisa:
- * - Tools para interactuar con los datos de negocio (Accounts, Orders, Interactions, Events).
- * - Función principal `runSantaBrain` que orquesta respuestas y acciones.
- * - Schemas para entradas/salidas de tools.
+ * - runSantaBrain(history, input, context) - Main entry point.
+ * - SantaBrainInput - The input type for the santaBrainFlow.
+ * - SantaBrainOutput - The return type for the santaBrainFlow.
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'zod';
+import { z } from 'genkit';
+import { Message } from 'genkit';
+
 import type {
   Account,
-  EventMarketing,
-  Interaction,
-  InventoryItem,
-  OrderSellOut,
   Product,
   SantaData,
-  User
+  OrderSellOut,
+  Interaction,
+  InventoryItem,
+  EventMarketing,
+  User,
 } from '@/domain/ssot';
-import {
-  AddInteractionSchema,
-  CreateOrderSchema,
-  ScheduleEventSchema,
-  UpsertAccountSchema,
-} from '@/ai/flows/schemas';
-import { gemini } from '@genkit-ai/googleai';
-import type { Message } from 'genkit';
 
 
-// ===============================
-// Helpers / Tipos
-// ===============================
-type ToolOutput =
-  | { success: boolean; interactionId: string }
-  | { success: boolean; orderId: string }
-  | { success: boolean; eventId: string }
-  | { success: boolean; accountId: string };
+// Helper para crear un Zod schema a partir de una lista de strings
+const createEnumSchema = (values: string[]) => z.enum(values as [string, ...string[]]);
 
-type ToolCall = { name: string; input?: unknown; ref?: string };
+// Schemas para las herramientas
+const CreateOrderSchema = z.object({
+  accountName: z.string().describe('The name of the account for the order.'),
+  items: z
+    .array(z.object({ sku: z.string(), quantity: z.number() }))
+    .describe('An array of items to include in the order.'),
+});
 
-type ToolRequestPart = {
-  toolRequest: { name: string; input?: unknown; ref?: string };
-  [k: string]: unknown;
-};
+const CreateInteractionSchema = z.object({
+  accountName: z.string().describe('The name of the account for the interaction.'),
+  note: z.string().describe('A summary of the interaction.'),
+  nextAction: z
+    .string()
+    .optional()
+    .describe('A brief note about the next follow-up action, if any.'),
+});
 
-function isToolRequestPart(part: any): part is ToolRequestPart {
-  return !!part && typeof part === 'object' && 'toolRequest' in part && !!part.toolRequest?.name;
-}
+const CreateAccountSchema = z.object({
+  name: z.string().describe('The name of the new account.'),
+  city: z.string().optional().describe('The city where the account is located.'),
+  type: createEnumSchema(['HORECA', 'RETAIL', 'DISTRIBUIDOR', 'IMPORTADOR', 'OTRO']).optional(),
+});
 
-// ===============================
-// Tools (Mocks - No DB connection)
-// ===============================
-const createInteractionTool = ai.defineTool(
+// Prompt principal
+const santaBrainPrompt = ai.definePrompt({
+  name: 'santaBrainPrompt',
+  system: `You are Santa Brain, an AI assistant for the Santa Brisa operational CRM.
+You are helpful, proactive, and an expert in sales and marketing operations.
+Your goal is to understand the user's request and use the available tools to translate it into structured data.
+If the user's intent is clear, call the appropriate tool.
+If the user is asking a question, answer it based on your knowledge.
+If the request is ambiguous, ask for clarification.
+Always respond in Spanish.`,
+  tools: [
+    ai.defineTool(
+      {
+        name: 'createOrder',
+        description: 'Creates a new sales order for an account.',
+        inputSchema: CreateOrderSchema,
+      },
+      async (input) => input
+    ),
+    ai.defineTool(
+      {
+        name: 'createInteraction',
+        description:
+          'Logs a new interaction (like a visit or call) with an account.',
+        inputSchema: CreateInteractionSchema,
+      },
+      async (input) => input
+    ),
+    ai.defineTool(
+      {
+        name: 'createAccount',
+        description: 'Creates a new account.',
+        inputSchema: CreateAccountSchema,
+      },
+      async (input) => input
+    ),
+  ],
+});
+
+
+const santaBrainFlow = ai.defineFlow(
   {
-    name: 'createInteraction',
-    description:
-      'Registra una interacción con un cliente (visita, llamada, email, etc.). Úsalo para anotar cualquier contacto.',
-    inputSchema: AddInteractionSchema,
-    outputSchema: z.object({ success: z.boolean(), interactionId: z.string() }),
+    name: 'santaBrainFlow',
+    inputSchema: z.object({
+        history: z.array(Message.schema()),
+        input: z.string(),
+    }),
+    outputSchema: z.object({
+        finalAnswer: z.string(),
+        newEntities: z.any(),
+    }),
   },
-  async (input) => {
-    console.log(`[Mock Tool] "createInteraction" called with:`, input);
-    const interactionId = `mock_int_${Date.now()}`;
-    return { success: true, interactionId };
+  async ({ history, input }) => {
+    const llmResponse = await ai.generate({
+      prompt: input,
+      history,
+      model: 'googleai/gemini-2.5-flash-preview',
+      tools: santaBrainPrompt.config.tools,
+    });
+
+    const toolCalls = llmResponse.toolCalls();
+    const newEntities: Partial<SantaData> = {};
+    let finalAnswer = llmResponse.text();
+
+    if (toolCalls.length > 0) {
+        finalAnswer += '\n';
+        for (const toolCall of toolCalls) {
+            finalAnswer += `Hecho. He creado una entidad de tipo ${toolCall.name} en el sistema.`;
+        }
+    }
+
+    return { finalAnswer, newEntities };
   }
 );
 
-const createOrderTool = ai.defineTool(
-  {
-    name: 'createOrder',
-    description:
-      'Crea un nuevo pedido de venta para un cliente. Úsalo cuando el usuario confirme que quiere pedir.',
-    inputSchema: CreateOrderSchema,
-    outputSchema: z.object({ success: z.boolean(), orderId: z.string() }),
-  },
-  async (input) => {
-    console.log(`[Mock Tool] "createOrder" called with:`, input);
-    const orderId = `mock_ord_${Date.now()}`;
-    return { success: true, orderId };
-  }
-);
-
-const scheduleEventTool = ai.defineTool(
-  {
-    name: 'scheduleUserEvent',
-    description:
-      'Agenda un nuevo evento de marketing (demo, feria, etc.). Úsalo para ponerlo en calendario.',
-    inputSchema: ScheduleEventSchema,
-    outputSchema: z.object({ success: z.boolean(), eventId: z.string() }),
-  },
-  async (input) => {
-    console.log(`[Mock Tool] "scheduleEvent" called with:`, input);
-    const eventId = `mock_evt_${Date.now()}`;
-    return { success: true, eventId };
-  }
-);
-
-const upsertAccountTool = ai.defineTool(
-  {
-    name: 'upsertAccount',
-    description:
-      'Crea una cuenta de cliente o actualiza una existente. Úsalo para dar de alta o modificar datos.',
-    inputSchema: UpsertAccountSchema,
-    outputSchema: z.object({ success: z.boolean(), accountId: z.string() }),
-  },
-  async (input) => {
-    console.log(`[Mock Tool] "upsertAccount" called with:`, input);
-    const accountId = (input as any).id || `mock_acc_${Date.now()}`;
-    return { success: true, accountId };
-  }
-);
-
-// ===============================
-// System Prompt
-// ===============================
-const santaBrainSystemPrompt = `Eres Santa Brain, el asistente de IA para el equipo de Santa Brisa. Tu tono es cercano, servicial y proactivo, como una secretaria eficiente y de buen humor.
-
-Tu objetivo principal es ayudar a registrar información y realizar acciones rápidamente. Evita ser robótico.
-
-Directrices de comunicación:
-- En lugar de preguntar para confirmar cada detalle, resume la acción que vas a tomar y pide una simple confirmación. Por ejemplo: "Ok, apunto 5 cajas de Santa Brisa (SB-750) para Bar Roma. ¿Correcto?".
-- Cuando creas una cuenta nueva, celébralo con entusiasmo. Ejemplo: "¡Bien! Parece que tenemos cliente nuevo. ¿Lo apunto a un distribuidor o es venta propia?".
-- Sé proactivo. Después de un pedido, pregunta por PLV. Ejemplo: "¿Necesitan vasos o algo más?".
-- Si el usuario pide PLV como "vasos", "posavasos", etc., busca en la lista de productos un producto de tipo 'MERCH' que coincida y añádelo como una línea más al pedido, normalmente con precio cero.
-- Ofrece ayuda de forma casual. Ejemplo: "Ok, si necesitan cubiteras o quieres que busque algo sobre la cuenta, me dices.".
-- No inventes información. Si no sabes algo, dilo claramente.
-
-Contexto de negocio:
-- El producto principal es "Santa Brisa" con SKU "SB-750". Si no se especifica otro producto, asume que se refieren a este.
-- Tienes acceso a 'accounts' (clientes), 'products', 'orders', 'interactions', 'inventory' y 'mktEvents'. Al crear un pedido, busca en la lista de productos para usar el SKU correcto si el usuario menciona un nombre.
-- Usa el inventario para comprobar si hay stock antes de confirmar un pedido.
-- Si no encuentras una cuenta, crea una ficha mínima y pregunta si es "venta propia" o de "distribuidor" para asignarle el modo correcto.
-- La fecha y hora actual es: ${new Date().toLocaleString('es-ES')}.
-
-Capacidades:
-- Registrar interacciones (visitas, llamadas...).
-- Crear pedidos y sugerir PLV.
-- Programar eventos de marketing.
-- Crear y actualizar cuentas de clientes.
-- Consultar inventario, historial de pedidos y agenda de eventos.`;
-
-// ===============================
-// Runner
-// ===============================
-export type ChatContext = {
-  accounts: Account[];
-  products: Product[];
-  orders: OrderSellOut[];
-  interactions: Interaction[];
-  inventory: InventoryItem[];
-  mktEvents: EventMarketing[];
-  currentUser: User;
-};
 
 export async function runSantaBrain(
   history: Message[],
   input: string,
-  context: ChatContext
 ): Promise<{ finalAnswer: string; newEntities: Partial<SantaData> }> {
-  const tools = [createInteractionTool, createOrderTool, scheduleEventTool, upsertAccountTool];
-
-  const llmResponse = await ai.generate({
-    model: gemini('gemini-2.5-flash'),
-    prompt: input,
-    system: santaBrainSystemPrompt,
-    messages: history,
-    tools,
-    context: [{ role: 'context', content: [{ text: `Contexto de negocio: ${JSON.stringify(context)}` }] }],
-  });
-
-  const newEntities: Partial<SantaData> = {
-    interactions: [],
-    ordersSellOut: [],
-    mktEvents: [],
-    accounts: [],
-  };
-
-  const toolRequests: ToolCall[] = (llmResponse.toolRequests ?? [])
-    .filter(isToolRequestPart)
-    .map((p) => p.toolRequest);
-
-  if (toolRequests.length > 0) {
-    const accountsCreatedInThisTurn: Account[] = [];
-    const toolResponses: Array<{ toolResponse: { name: string; output: any } }> = [];
-
-    for (const toolRequest of toolRequests) {
-      const tool = tools.find((t) => t.name === toolRequest.name);
-      if (!tool) {
-        toolResponses.push({
-          toolResponse: { name: toolRequest.name, output: { success: false, error: 'Tool not found' } },
-        });
-        continue;
-      }
-
-      try {
-        const output = (await tool(toolRequest.input as any, {})) as ToolOutput;
-        toolResponses.push({ toolResponse: { name: toolRequest.name, output } });
-
-        // NOTE: Since we are not connected to a DB, we will just simulate the creation of entities
-        // for the sake of the conversation flow. The data won't be persisted.
-        if (output.success) {
-          switch (toolRequest.name) {
-            case 'upsertAccount': {
-              const typedInput = UpsertAccountSchema.parse(toolRequest.input);
-              const { accountId } = output as Extract<ToolOutput, { accountId: string }>;
-              const newAccount: Account = {
-                ...typedInput,
-                id: accountId,
-                createdAt: new Date().toISOString(),
-                stage: typedInput.stage || 'POTENCIAL',
-                type: typedInput.type || 'HORECA',
-                ownerId: context.currentUser.id,
-                billerId: 'SB',
-              };
-              newEntities.accounts!.push(newAccount);
-              accountsCreatedInThisTurn.push(newAccount);
-              break;
-            }
-            case 'createInteraction': {
-              const typedInput = AddInteractionSchema.parse(toolRequest.input);
-              const { interactionId } = output as Extract<ToolOutput, { interactionId: string }>;
-              newEntities.interactions!.push({
-                id: interactionId,
-                accountId: accountsCreatedInThisTurn.find(a => a.name === typedInput.accountName)?.id || context.accounts.find(a => a.name === typedInput.accountName)?.id || 'unknown_account',
-                userId: context.currentUser.id,
-                kind: typedInput.kind,
-                note: typedInput.note,
-                createdAt: new Date().toISOString(),
-                dept: 'VENTAS',
-                status: 'done'
-              });
-              break;
-            }
-            case 'createOrder': {
-              const typedInput = CreateOrderSchema.parse(toolRequest.input);
-              const { orderId } = output as Extract<ToolOutput, { orderId: string }>;
-              newEntities.ordersSellOut!.push({
-                id: orderId,
-                accountId: accountsCreatedInThisTurn.find(a => a.name === typedInput.accountName)?.id || context.accounts.find(a => a.name === typedInput.accountName)?.id || 'unknown_account',
-                status: 'open',
-                currency: 'EUR',
-                createdAt: new Date().toISOString(),
-                lines: typedInput.items.map((item) => ({
-                  sku: item.sku || 'SB-750',
-                  qty: item.quantity,
-                  unit: 'uds',
-                  priceUnit: 0,
-                })),
-              } as OrderSellOut);
-              break;
-            }
-            case 'scheduleUserEvent': {
-              const typedInput = ScheduleEventSchema.parse(toolRequest.input);
-              const { eventId } = output as Extract<ToolOutput, { eventId: string }>;
-              newEntities.mktEvents!.push({
-                id: eventId,
-                title: typedInput.title,
-                kind: typedInput.kind,
-                status: 'planned',
-                startAt: typedInput.startAt,
-                city: typedInput.location,
-              });
-              break;
-            }
-            default:
-              break;
-          }
-        }
-      } catch (e: any) {
-        toolResponses.push({
-          toolResponse: { name: toolRequest.name, output: { success: false, error: String(e?.message ?? e) } },
-        });
-      }
-    }
-
-    const finalResponse = await ai.generate({
-      model: gemini('gemini-2.5-flash'),
-      system: santaBrainSystemPrompt,
-      messages: [...history, llmResponse.output(), { role: 'user', content: toolResponses }],
-      context: [{ role: 'context', content: [{ text: `Contexto de negocio: ${JSON.stringify(context)}` }] }],
-    });
-
-    return { finalAnswer: finalResponse.text, newEntities };
-  }
-
-  return { finalAnswer: llmResponse.text, newEntities };
+  
+  return await santaBrainFlow({ history, input });
 }

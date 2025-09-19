@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from 'react';
@@ -14,11 +15,12 @@ export default function DbConsolePage() {
             <AlertTriangle className="mx-auto h-12 w-12 text-amber-500" />
             <h2 className="text-xl font-bold text-amber-900 mt-4">Página Deshabilitada</h2>
             <p className="mt-2 text-amber-800">
-                Esta consola de desarrollo para interactuar con la base de datos desde el servidor ha sido deshabilitada temporalmente
-                para resolver problemas persistentes de autenticación (`invalid_grant`) en el entorno de desarrollo.
+                Esta consola de desarrollo ha sido deshabilitada para asegurar una conexión estable
+                a la base de datos a través del cliente.
             </p>
             <p className="mt-2 text-sm text-amber-700">
-                Toda la lógica de la aplicación que interactúa con Firebase se gestionará a través del SDK del cliente, que se autentica correctamente al iniciar sesión.
+                Toda la lógica de interacción con Firebase se gestiona a través del `DataProvider`
+                y el SDK de cliente, utilizando la sesión de usuario autenticada.
             </p>
         </div>
       </div>

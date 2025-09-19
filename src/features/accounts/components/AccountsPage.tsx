@@ -1,5 +1,4 @@
 
-
 "use client"
 import React, { useMemo, useState, useEffect } from 'react'
 import { ChevronDown, Search, Plus, Phone, Mail, MessageSquare, Calendar, History, ShoppingCart, Info, BarChart3, UserPlus, Users, MoreVertical } from 'lucide-react'
@@ -12,8 +11,6 @@ import { FilterSelect } from '@/components/ui/FilterSelect'
 import { ModuleHeader } from '@/components/ui/ModuleHeader'
 import { SB_COLORS } from '@/components/ui/ui-primitives'
 import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/TaskCompletionDialog'
-import { saveCollection } from '@/features/agenda/components/CalendarPageContent'
-
 
 const T = { primary:'#618E8F' }
 const STAGE: Record<string, { label:string; tint:string; text:string }> = {
@@ -196,7 +193,7 @@ function AccountBar({ a, santaData, onAddActivity }: { a: AccountType, santaData
 }
 
 export function AccountsPageContent() {
-  const { data: santaData, setData, currentUser, isPersistenceEnabled } = useData();
+  const { data: santaData, setData, currentUser, saveCollection } = useData();
   
   const [q,setQ]=useState('');
   const [expanded,setExpanded] = useState<Record<string,boolean>>({ ACTIVA:true });
@@ -327,12 +324,11 @@ export function AccountsPageContent() {
     
         setData(finalData);
 
-        if (isPersistenceEnabled) {
-            if (payload.type === 'venta') {
-                await saveCollection('ordersSellOut', finalData.ordersSellOut, isPersistenceEnabled);
-            }
-            await saveCollection('interactions', finalData.interactions, isPersistenceEnabled);
+        // Persist changes
+        if (payload.type === 'venta') {
+            saveCollection('ordersSellOut', finalData.ordersSellOut);
         }
+        saveCollection('interactions', finalData.interactions);
     
         setCompletingTaskForAccount(null);
     };
