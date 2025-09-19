@@ -31,7 +31,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<SantaData | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isPersistenceEnabled, setIsPersistenceEnabled] = useState(false);
+  const [isPersistenceEnabled, setIsPersistenceEnabled] = useState(true);
   const router = useRouter();
 
   // Función para encontrar o crear un usuario en nuestro sistema
@@ -57,6 +57,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     async function loadData() {
       setIsLoading(true);
+      let initialData: SantaData | null = null;
+
       if (isPersistenceEnabled && db) {
           try {
               console.log("Attempting to load data from Firestore...");
@@ -72,13 +74,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
                   throw new Error("Firestore is empty, falling back to local JSON.");
               }
               
-              setData(allData as SantaData);
+              initialData = allData as SantaData;
               console.log("Data loaded from Firestore.");
           } catch(e) {
               console.warn("Failed to load from Firestore, falling back to local data:", e);
               const response = await fetch('/data/db.json');
-              const initialData = await response.json();
-              setData(initialData);
+              initialData = await response.json();
           }
       } else {
           try {
@@ -87,11 +88,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
             if (!response.ok) {
               throw new Error("Failed to fetch initial data");
             }
-            const initialData = await response.json();
-            setData(initialData);
+            initialData = await response.json();
           } catch (error) {
             console.error("Failed to load initial data:", error);
           }
+      }
+
+      if (initialData) {
+        // Filtra los usuarios para dejar solo a mj@santabrisa.co
+        const filteredUsers = initialData.users.filter(u => u.email === 'mj@santabrisa.co');
+        setData({ ...initialData, users: filteredUsers });
       }
     }
     loadData();
