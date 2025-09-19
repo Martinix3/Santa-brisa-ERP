@@ -228,10 +228,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setIsPersistenceEnabled(prev => {
         const nextState = !prev;
         if (nextState) {
-            alert("Modo online: Conectando a Firebase. Se requiere iniciar sesión.");
+            console.log("Switching to Online Mode. Connecting to Firebase. Login required.");
             logout();
         } else {
-            alert("Modo offline: Usando datos locales. No se necesita sesión.");
+            console.log("Switching to Offline Mode. Using local data. No login needed.");
         }
         return nextState;
     });
