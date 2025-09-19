@@ -9,7 +9,7 @@ import { ModuleHeader } from '@/components/ui/ModuleHeader';
 import { Database, Check, X, Link as LinkIcon, AlertTriangle, Upload, Download, Trash2, ChevronDown, Save, PlusCircle, RefreshCw, FileCog, FileUp, Edit2 } from 'lucide-react';
 import { SBCard, SBButton } from '@/components/ui/ui-primitives';
 import type { SantaData } from '@/domain/ssot';
-import Papa from "papaparse";
+import * as Papa from "papaparse";
 
 // ===== UTILS & HELPERS =====
 const normText = (s: any) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
@@ -152,7 +152,7 @@ const COLLECTION_SCHEMAS: Record<string, string[]> = {
     products: ['id', 'sku', 'name', 'category', 'bottleMl', 'caseUnits', 'casesPerPallet', 'active', 'materialId'],
     interactions: ['id', 'accountId', 'userId', 'kind', 'note', 'createdAt'],
     ordersSellOut: ['id', 'accountId', 'status', 'createdAt', 'lines'],
-    materials: ['id', 'sku', 'name', 'category', 'unit', 'standardCost'],
+    materials: ['id', 'sku', 'name', 'category', 'uom', 'standardCost'],
     lots: ['id', 'sku', 'quantity', 'createdAt', 'orderId', 'quality', 'expDate'],
     shipments: ['id', 'status', 'createdAt', 'accountId', 'lines'],
     productionOrders: ['id', 'sku', 'bomId', 'targetQuantity', 'status', 'createdAt', 'lotId'],
@@ -439,8 +439,9 @@ function DataViewerContent() {
                 const newCollection = [...selectedCollection, ...results.data];
                 setLocalData(prev => prev ? { ...prev, [selectedKey]: newCollection } : null);
                 await handleSaveCollection(selectedKey, newCollection);
+                setNotification({ message: `${results.data.length} filas importadas a '${selectedKey}' con éxito.`, type: 'success' });
             },
-            error: (error) => {
+            error: (error: any) => {
                 setNotification({ message: `Error al importar: ${error.message}`, type: 'error' });
             }
         });
@@ -524,7 +525,11 @@ function DataViewerContent() {
 export default function DataViewerPage() {
     return (
         <Suspense fallback={<div className="p-6 text-center">Cargando...</div>}>
-            <DataViewerContent />
+            <AuthenticatedLayout>
+                <DataViewerContent />
+            </AuthenticatedLayout>
         </Suspense>
     );
 }
+
+```
