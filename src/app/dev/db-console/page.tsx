@@ -1,11 +1,11 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { db } from '@/lib/firebaseClient';
-import { collection, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, addDoc, serverTimestamp, query, orderBy, limit } from 'firebase/firestore';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
-import { Database, Zap, CheckCircle, AlertTriangle, Layers } from 'lucide-react';
+import { Database, Zap, CheckCircle, AlertTriangle, Layers, FileText } from 'lucide-react';
 import { SBCard, SBButton } from '@/components/ui/ui-primitives';
 import AuthenticatedLayout from '@/components/layouts/AuthenticatedLayout';
 import { useData } from '@/lib/dataprovider';
@@ -46,8 +46,21 @@ function DataProviderStatusCard() {
 function DbConsolePageContent() {
     const [readStatus, setReadStatus] = useState<{ status: 'idle' | 'loading' | 'success' | 'error', message: string }>({ status: 'idle', message: '' });
     const [writeStatus, setWriteStatus] = useState<{ status: 'idle' | 'loading' | 'success' | 'error', message: string }>({ status: 'idle', message: '' });
+    const [testWrites, setTestWrites] = useState<any[]>([]);
 
-    const testRead = async () => {
+    const fetchTestWrites = useCallback(async () => {
+        try {
+            const writesQuery = query(collection(db, "test_writes"), orderBy("timestamp", "desc"), limit(10));
+            const querySnapshot = await getDocs(writesQuery);
+            const writes = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setTestWrites(writes);
+        } catch (error) {
+            console.error("Error fetching test_writes:", error);
+            // No mostramos un error al usuario, ya que puede que la colección no exista aún.
+        }
+    }, []);
+
+    const testRead = useCallback(async () => {
         setReadStatus({ status: 'loading', message: 'Leyendo la colección "users"...' });
         try {
             const querySnapshot = await getDocs(collection(db, "users"));
@@ -56,7 +69,7 @@ function DbConsolePageContent() {
             console.error("Firestore read error:", error);
             setReadStatus({ status: 'error', message: `Error de lectura directa: ${error.message}. Revisa la consola y las reglas de seguridad de Firestore.` });
         }
-    };
+    }, []);
 
     const testWrite = async () => {
         setWriteStatus({ status: 'loading', message: 'Escribiendo en la colección "test_writes"...' });
@@ -66,8 +79,8 @@ function DbConsolePageContent() {
                 timestamp: serverTimestamp()
             });
             setWriteStatus({ status: 'success', message: `Escritura directa exitosa. Documento creado con ID: ${docRef.id}` });
-        } catch (error: any)
-{
+            await fetchTestWrites(); // Recargar los datos después de escribir
+        } catch (error: any) {
             console.error("Firestore write error:", error);
             setWriteStatus({ status: 'error', message: `Error de escritura directa: ${error.message}. Revisa la consola y las reglas de seguridad de Firestore.` });
         }
@@ -75,7 +88,8 @@ function DbConsolePageContent() {
 
     useEffect(() => {
         testRead();
-    }, []);
+        fetchTestWrites();
+    }, [testRead, fetchTestWrites]);
 
     const StatusIndicator = ({ status, message }: { status: 'idle' | 'loading' | 'success' | 'error', message: string }) => {
         if (status === 'idle') return null;
@@ -114,6 +128,31 @@ function DbConsolePageContent() {
                      <StatusIndicator {...writeStatus} />
                     <SBButton variant="secondary" onClick={testWrite} disabled={writeStatus.status === 'loading'}>
                         <Zap size={14} /> Realizar prueba de escritura
+                    </SBButton>
+                </div>
+            </SBCard>
+
+            <SBCard title="Contenido de 'test_writes'">
+                <div className="p-4 space-y-3">
+                    <p className="text-sm text-zinc-600">Aquí se muestran los últimos 10 documentos creados en la colección de prueba.</p>
+                    {testWrites.length > 0 ? (
+                        <div className="divide-y divide-zinc-100 border rounded-lg">
+                            {testWrites.map(doc => (
+                                <div key={doc.id} className="p-3 flex items-start gap-3 text-sm">
+                                    <FileText className="h-4 w-4 text-zinc-500 mt-0.5" />
+                                    <div>
+                                        <p className="font-mono text-xs text-zinc-500">{doc.id}</p>
+                                        <p className="text-zinc-800">{doc.message}</p>
+                                        <p className="text-xs text-zinc-400">{doc.timestamp?.toDate().toLocaleString('es-ES') || 'Sin fecha'}</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="text-sm text-center text-zinc-500 py-6">La colección 'test_writes' está vacía o no se ha podido leer.</p>
+                    )}
+                     <SBButton variant="secondary" onClick={fetchTestWrites}>
+                        <Zap size={14} /> Refrescar
                     </SBButton>
                 </div>
             </SBCard>
