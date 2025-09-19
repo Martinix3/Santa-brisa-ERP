@@ -91,6 +91,7 @@ function ensureLocalUser(user: import("firebase/auth").User, currentData: SantaD
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<SantaData | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [firebaseUser, setFirebaseUser] = useState<import("firebase/auth").User | null>(auth.currentUser);
   const [isLoading, setIsLoading] = useState(true);
   const [isOnlineMode, setIsOnlineMode] = useState(true);
   const [requireAuth, setRequireAuth] = useState(true);
@@ -100,7 +101,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const isPersistenceEnabled = isOnlineMode;
 
   const loadOnlineData = useCallback(async () => {
-    if (requireAuth && !auth.currentUser) {
+    if (requireAuth && !firebaseUser) {
       setIsLoading(false);
       return;
     }
@@ -116,21 +117,23 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
 
     const next = partial as SantaData;
-    if (auth.currentUser && next?.users) {
-      const ensured = ensureLocalUser(auth.currentUser, next);
+    if (firebaseUser && next?.users) {
+      const ensured = ensureLocalUser(firebaseUser, next);
       setData(ensured.updated);
       setCurrentUser(ensured.ensuredUser);
     } else {
       setData(next);
+      setCurrentUser(null);
     }
     setLastLoadReport(report);
-  }, [requireAuth]);
+  }, [requireAuth, firebaseUser]);
 
   const loadOfflineData = useCallback(async () => {
     const local = await fetchLocalJson();
     setData(local);
     setLastLoadReport(local ? { ok: ["(local)"] as any, errors: [], totalDocs: Object.values(local).flat().length } : { ok: [], errors: [{ name: "local" as any, error: "no db.json" }], totalDocs: 0 });
     if(local?.users?.[0]) setCurrentUser(local.users[0]);
+    else setCurrentUser(null);
   }, []);
 
   const reload = useCallback(async () => {
@@ -148,8 +151,25 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     reload();
   }, [reload]);
   
+  // ---- Auth binding ----
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (fbUser) => {
+      setFirebaseUser(fbUser); // This triggers reload via dependency on firebaseUser in loadOnlineData
+      if (!fbUser && requireAuth && isOnlineMode) {
+          setIsLoading(false);
+          setCurrentUser(null);
+      }
+    });
+    return () => unsub();
+  }, [requireAuth, isOnlineMode]);
+
   const togglePersistence = useCallback(() => {
-    setIsOnlineMode(prev => !prev);
+    setIsOnlineMode(prev => {
+        const next = !prev;
+        setData(null);
+        setCurrentUser(null);
+        return next;
+    });
   }, []);
 
   const setCurrentUserById = useCallback((userId: string) => {
@@ -159,27 +179,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   }, [data?.users]);
   
-  // ---- Auth binding ----
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (fbUser) => {
-      if (!fbUser) {
-        setCurrentUser(null);
-        if (requireAuth && isOnlineMode) setIsLoading(false);
-      } else {
-        if(data?.users) {
-            const appUser = data.users.find(u => u.email === fbUser.email);
-            if (appUser) setCurrentUser(appUser);
-            else {
-                 const ensured = ensureLocalUser(fbUser, data);
-                 setData(ensured.updated);
-                 setCurrentUser(ensured.ensuredUser);
-            }
-        }
-      }
-    });
-    return () => unsub();
-  }, [requireAuth, isOnlineMode, data]);
-
   // ---- Persistencia (vía backend) ----
   const saveCollection = useCallback(
     async (name: keyof SantaData, rows: any[]) => {
@@ -196,8 +195,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ data: { [name]: rows }, strategy: "overwrite" }),
       });
       if (!res.ok) {
-        const text = await res.text().catch(() => "");
-        throw new Error(`Persist failed ${res.status}: ${text}`);
+        const text = await res.text().catch(() => `Error ${res.status}`);
+        throw new Error(`Persist failed 500: ${text}`);
       }
       setData((prev) => (prev ? ({ ...prev, [name]: rows } as SantaData) : prev));
     },
@@ -207,30 +206,29 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   // ---- Acciones auth ----
   const loginGoogle = useCallback(async () => {
     await signInWithPopup(auth, new GoogleAuthProvider());
-    await reload();
-  }, [reload]);
+  }, []);
 
   const loginWithEmail = useCallback(
     async (email: string, pass: string) => {
       const cred = await signInWithEmailAndPassword(auth, email, pass);
-      await reload();
-      return data?.users.find((u) => u.email === cred.user.email) || null;
+      const appUser = data?.users.find((u) => u.email === cred.user.email) || null;
+      return appUser;
     },
-    [reload, data?.users]
+    [data?.users]
   );
 
   const signupWithEmail = useCallback(
     async (email: string, pass: string) => {
-      const cred = await createUserWithEmailAndPassword(auth, email, pass);
-      await reload(); // ensureLocalUser lo añadirá a users
-      return data?.users.find((u) => u.email === cred.user.email) || null;
+      await createUserWithEmailAndPassword(auth, email, pass);
+      await reload(); // Reload will call ensureLocalUser
+      const appUser = data?.users.find((u) => u.email === email) || null;
+      return appUser;
     },
     [reload, data?.users]
   );
 
   const logout = useCallback(async () => {
     await signOut(auth);
-    setCurrentUser(null);
     if (requireAuth) router.push("/login");
   }, [requireAuth, router]);
 
