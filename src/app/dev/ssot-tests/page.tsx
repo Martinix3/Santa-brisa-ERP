@@ -5,6 +5,8 @@ import React, { useMemo } from 'react';
 import { runSmokeTests } from '@/domain/ssot.helpers';
 import { SBCard, SB_COLORS } from '@/components/ui/ui-primitives';
 import { CheckCircle, XCircle } from 'lucide-react';
+import AuthenticatedLayout from '@/components/layouts/AuthenticatedLayout';
+import { ModuleHeader } from '@/components/ui/ModuleHeader';
 
 function TestResult({ label, success, details }: { label: string, success: boolean, details: string[] }) {
     const bgColor = success ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200';
@@ -26,7 +28,7 @@ function TestResult({ label, success, details }: { label: string, success: boole
     );
 }
 
-export default function SSOTTestsPage() {
+function SSOTTestsPageContent() {
     const testResults = useMemo(() => runSmokeTests(), []);
 
     return (
@@ -75,4 +77,15 @@ export default function SSOTTestsPage() {
             </SBCard>
         </div>
     );
+}
+
+export default function SSOTTestsPage() {
+    return (
+        <AuthenticatedLayout>
+            <ModuleHeader title="Tests de Integridad SSOT" icon={CheckCircle} />
+            <div className="p-6">
+                 <SSOTTestsPageContent />
+            </div>
+        </AuthenticatedLayout>
+    )
 }

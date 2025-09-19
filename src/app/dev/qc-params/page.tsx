@@ -6,6 +6,8 @@ import { SBCard, SB_COLORS } from '@/components/ui/ui-primitives';
 import { QC_PARAMS as INITIAL_QC_PARAMS, QCKey } from '@/domain/production.qc';
 import { TestTube2, Save, Plus, Thermometer, FlaskConical, Beaker, Droplets } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
+import AuthenticatedLayout from '@/components/layouts/AuthenticatedLayout';
+import { ModuleHeader } from '@/components/ui/ModuleHeader';
 
 const ICONS: Record<string, React.ElementType> = {
     TestTube2,
@@ -15,7 +17,7 @@ const ICONS: Record<string, React.ElementType> = {
     Droplets,
 };
 
-function QCParamsPage() {
+function QCParamsPageContent() {
     const { data: santaData } = useData();
     const products = santaData?.products || [];
 
@@ -242,4 +244,13 @@ function QCParamsPage() {
     );
 }
 
-export default QCParamsPage;
+export default function QCParamsPage() {
+    return (
+        <AuthenticatedLayout>
+            <ModuleHeader title="Parámetros de Calidad" icon={TestTube2} />
+            <div className="p-6">
+                <QCParamsPageContent />
+            </div>
+        </AuthenticatedLayout>
+    )
+}

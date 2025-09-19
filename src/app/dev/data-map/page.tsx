@@ -7,6 +7,7 @@ import { SBCard, SB_COLORS } from '@/components/ui/ui-primitives';
 import type { SantaData } from '@/domain/ssot';
 import { Map, Link as LinkIcon } from 'lucide-react';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
+import AuthenticatedLayout from '@/components/layouts/AuthenticatedLayout';
 
 type PageCollectionMap = {
     module: string;
@@ -103,11 +104,11 @@ function DataMapPageContent() {
 
 export default function DataMapPage() {
     return (
-         <>
+        <AuthenticatedLayout>
             <ModuleHeader title="Mapa de Datos de la Aplicación" icon={Map}/>
             <div className="p-6">
                 <DataMapPageContent />
             </div>
-        </>
+        </AuthenticatedLayout>
     )
 }

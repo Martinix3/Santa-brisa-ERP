@@ -7,6 +7,7 @@ import { collection, getDocs, addDoc, serverTimestamp } from 'firebase/firestore
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
 import { Database, Zap, CheckCircle, AlertTriangle } from 'lucide-react';
 import { SBCard, SBButton } from '@/components/ui/ui-primitives';
+import AuthenticatedLayout from '@/components/layouts/AuthenticatedLayout';
 
 function DbConsolePageContent() {
     const [readStatus, setReadStatus] = useState<{ status: 'idle' | 'loading' | 'success' | 'error', message: string }>({ status: 'idle', message: '' });
@@ -86,11 +87,11 @@ function DbConsolePageContent() {
 
 export default function DbConsolePage() {
     return (
-        <>
+        <AuthenticatedLayout>
             <ModuleHeader title="Consola de Base de Datos" icon={Database} />
             <div className="p-6">
                 <DbConsolePageContent />
             </div>
-        </>
+        </AuthenticatedLayout>
     );
 }

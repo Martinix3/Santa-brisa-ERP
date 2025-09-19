@@ -1,8 +1,10 @@
+
 "use client";
 import React from 'react';
 import InfluencerMarketing from '@/features/influencers/components/InfluencerMarketing';
 import { SB_COLORS, waterHeader, hexToRgba, AgaveEdge, Input, Select, Textarea } from '@/components/ui/ui-primitives';
 import { ClipboardList } from 'lucide-react';
+import AuthenticatedLayout from '@/components/layouts/AuthenticatedLayout';
 
 
 // Mock Header component if it's not globally available or needs specific props
@@ -31,8 +33,10 @@ export default function InfluencersPage() {
     };
 
     return (
-        <div className="w-full">
-            <InfluencerMarketing components={injectedComponents} />
-        </div>
+        <AuthenticatedLayout>
+            <div className="w-full">
+                <InfluencerMarketing components={injectedComponents} />
+            </div>
+        </AuthenticatedLayout>
     );
 }

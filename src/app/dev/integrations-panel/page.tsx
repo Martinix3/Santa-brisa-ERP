@@ -9,6 +9,8 @@ import ApiKeyConnect from "@/components/integrations/ApiKeyConnect";
 import { auth } from '@/lib/firebaseClient';
 import { signInWithPopup, GoogleAuthProvider, onAuthStateChanged, User } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
+import AuthenticatedLayout from '@/components/layouts/AuthenticatedLayout';
+import { ModuleHeader } from '@/components/ui/ModuleHeader';
 
 
 type Secrets = Record<string, any>;
@@ -134,7 +136,7 @@ function IntegrationCard({
 }
 
 
-export default function IntegrationsPanelPage() {
+function IntegrationsPanelPageContent() {
     const [secrets, setSecrets] = useState<Secrets | null>(null);
     const [loadingSecrets, setLoadingSecrets] = useState(true);
     const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
@@ -382,3 +384,16 @@ export default function IntegrationsPanelPage() {
         </div>
     );
 }
+
+
+export default function IntegrationsPage() {
+    return (
+        <AuthenticatedLayout>
+            <ModuleHeader title="Integraciones" icon={Zap} />
+            <div className="p-6">
+                <IntegrationsPanelPageContent />
+            </div>
+        </AuthenticatedLayout>
+    )
+}
+
