@@ -4,6 +4,7 @@
 
 import { NextResponse } from "next/server";
 import { SANTA_DATA_COLLECTIONS } from "@/domain/ssot";
+import { getProjectId } from "@/server/firebaseAdmin";
 
 // Helper to convert JS values to Firestore's Value type format
 function toFirestoreValue(value: any): any {
@@ -43,7 +44,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: 'Unauthorized: Missing token.' }, { status: 401 });
     }
 
-    const projectId = process.env.FSA_PROJECT_ID || process.env.FIREBASE_PROJECT_ID;
+    const projectId = getProjectId();
     if (!projectId) {
       return NextResponse.json({ ok: false, error: "Server misconfiguration: FIREBASE_PROJECT_ID is not set." }, { status: 500 });
     }
@@ -53,7 +54,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "Missing newEntities in request body" }, { status: 400 });
     }
 
-    const writes = [];
+    const writes: any[] = [];
     let ops = 0;
 
     for (const coll in newEntities) {
@@ -71,9 +72,6 @@ export async function POST(req: Request) {
                     Object.entries(item).map(([k, v]) => [k, toFirestoreValue(v)])
                   ),
                 },
-                updateMask: {
-                  fieldPaths: Object.keys(item) // Use updateMask to merge fields
-                }
               });
             }
           }

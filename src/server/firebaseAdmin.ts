@@ -27,7 +27,7 @@ function loadServiceAccount(): ServiceAccount | null {
   }
 
   // 3) Variables sueltas (FSA_ o FIREBASE_)
-  const projectId = process.env.FSA_PROJECT_ID || process.env.FIREBASE_PROJECT_ID;
+  const projectId = getProjectId();
   const clientEmail = process.env.FSA_CLIENT_EMAIL || process.env.FIREBASE_CLIENT_EMAIL;
   const privateKey = (process.env.FSA_PRIVATE_KEY || process.env.FIREBASE_PRIVATE_KEY)?.replace(/\\n/g, '\n');
   
@@ -40,6 +40,12 @@ function loadServiceAccount(): ServiceAccount | null {
   }
 
   return null;
+}
+
+export function getProjectId(): string | undefined {
+    const sa = loadServiceAccount();
+    if(sa?.project_id) return sa.project_id;
+    return process.env.FSA_PROJECT_ID || process.env.FIREBASE_PROJECT_ID || process.env.GCLOUD_PROJECT;
 }
 
 
