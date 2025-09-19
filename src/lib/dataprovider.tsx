@@ -1,8 +1,9 @@
 
+
 "use client";
 
 import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
-import type { SantaData, User } from "@/domain/ssot";
+import type { SantaData, User, UserRole } from "@/domain/ssot";
 import { SANTA_DATA_COLLECTIONS } from "@/domain/ssot";
 import { auth, db } from "@/lib/firebaseClient";
 import { onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, getIdToken } from "firebase/auth";
@@ -77,7 +78,7 @@ async function loadAllCollections(): Promise<{ partial: Partial<SantaData>; repo
 function ensureLocalUser(user: import("firebase/auth").User, currentData: SantaData): { updated: SantaData; ensuredUser: User } {
   const found = currentData.users.find((u) => u.email === user.email);
   if (found) {
-      const normalizedUser = { ...found, role: found.role.toLowerCase() as User['role'] };
+      const normalizedUser = { ...found, role: (found.role?.toLowerCase() || 'comercial') as UserRole };
       const updatedUsers = currentData.users.map(u => u.id === found.id ? normalizedUser : u);
       return { updated: { ...currentData, users: updatedUsers }, ensuredUser: normalizedUser };
   }
@@ -173,7 +174,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (firebaseUser) {
         const foundUser = data.users.find(u => u.email === firebaseUser.email);
         if (foundUser) {
-            userToSet = { ...foundUser, role: foundUser.role.toLowerCase() as User['role'] };
+            userToSet = { ...foundUser, role: (foundUser.role?.toLowerCase() || 'comercial') as UserRole };
         }
     }
 
@@ -196,7 +197,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (data?.users) {
         const user = data.users.find(u => u.id === userId);
         if (user) {
-            setCurrentUser({ ...user, role: user.role.toLowerCase() as User['role'] });
+            setCurrentUser({ ...user, role: (user.role?.toLowerCase() || 'comercial') as UserRole });
         }
     }
   }, [data?.users]);
@@ -237,7 +238,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     async (email: string, pass: string) => {
       const cred = await signInWithEmailAndPassword(auth, email, pass);
       const appUser = data?.users.find((u) => u.email === cred.user.email) || null;
-      if (appUser) setCurrentUser({ ...appUser, role: appUser.role.toLowerCase() as User['role'] });
+      if (appUser) setCurrentUser({ ...appUser, role: (appUser.role?.toLowerCase() || 'comercial') as UserRole });
       return appUser;
     },
     [data?.users]
