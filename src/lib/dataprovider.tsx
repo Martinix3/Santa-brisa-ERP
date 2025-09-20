@@ -235,24 +235,41 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   );
 
   const login = useCallback(async () => {
-    await signInWithPopup(auth, new GoogleAuthProvider());
+    try {
+      await signInWithPopup(auth, new GoogleAuthProvider());
+    } catch(e) {
+      console.error("Google sign in failed", e);
+      throw e;
+    }
   }, []);
 
   const loginWithEmail = useCallback(
-    async (email: string, pass: string) => {
-      const cred = await signInWithEmailAndPassword(auth, email, pass);
-      const appUser = data?.users.find((u) => u.email === cred.user.email) || null;
-      if (appUser) setCurrentUser({ ...appUser, role: (appUser.role?.toLowerCase() || 'comercial') as UserRole });
-      return appUser;
+    async (email: string, pass: string): Promise<User | null> => {
+      const userCredential = await signInWithEmailAndPassword(auth, email, pass);
+      const fbUser = userCredential.user;
+      if (!fbUser || !data?.users) return null;
+      
+      const appUser = data.users.find((u) => u.email === fbUser.email);
+      if (appUser) {
+          const normalizedUser = { ...appUser, role: (appUser.role?.toLowerCase() || 'comercial') as UserRole };
+          setCurrentUser(normalizedUser);
+          return normalizedUser;
+      }
+      return null;
     },
     [data?.users]
   );
 
   const signupWithEmail = useCallback(
-    async (email: string, pass: string) => {
-      await createUserWithEmailAndPassword(auth, email, pass);
-      const appUser = data?.users.find((u) => u.email === email) || null;
-      return appUser;
+    async (email: string, pass: string): Promise<User | null> => {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
+       const fbUser = userCredential.user;
+      if (!fbUser || !data?.users) return null;
+
+      // After signup, ensureLocalUser will create and set the user
+      // No need to manually find it here, the useEffect hook will handle it.
+      const appUser = data.users.find((u) => u.email === email);
+      return appUser || null;
     },
     [data?.users]
   );
