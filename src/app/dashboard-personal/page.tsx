@@ -1,13 +1,17 @@
 
 "use client";
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { BarChart3, Calendar, CheckCircle, Clock, Plus, AlertTriangle } from 'lucide-react';
 import AuthenticatedLayout from '@/components/layouts/AuthenticatedLayout';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
 import { SBCard, SBButton, SB_COLORS } from '@/components/ui/ui-primitives';
 import { useData } from '@/lib/dataprovider';
-import type { Interaction } from '@/domain/ssot';
+import type { Interaction, InteractionStatus, Account } from '@/domain/ssot';
 import Link from 'next/link';
+import { TaskBoard, Task } from '@/features/agenda/TaskBoard';
+import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/TaskCompletionDialog';
+import { sbAsISO } from '@/features/agenda/helpers';
+
 
 function PersonalKPI({ label, value, icon: Icon, color }: { label: string; value: number | string; icon: React.ElementType; color: string }) {
     return (
@@ -23,35 +27,46 @@ function PersonalKPI({ label, value, icon: Icon, color }: { label: string; value
     );
 }
 
-function TaskCard({ task }: { task: Interaction }) {
-    const { data: santaData } = useData();
-    const isOverdue = task.plannedFor && new Date(task.plannedFor) < new Date();
-    const account = santaData?.accounts.find(a => a.id === task.accountId);
-    
-    return (
-        <Link href="/agenda" className="block p-3 rounded-lg border bg-white hover:bg-zinc-50 hover:border-zinc-300 transition-colors">
-            <div className="flex justify-between items-start">
-                <div>
-                    <p className="font-semibold text-sm text-zinc-800">{task.note}</p>
-                    {account && <p className="text-xs text-zinc-500 mt-0.5">{account.name}</p>}
-                </div>
-                <div className={`flex items-center gap-1.5 text-xs font-semibold ${isOverdue ? 'text-red-600' : 'text-zinc-500'}`}>
-                    {isOverdue ? <AlertTriangle size={14} /> : <Clock size={14} />}
-                    {task.plannedFor ? new Date(task.plannedFor).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) : 'Sin fecha'}
-                </div>
-            </div>
-        </Link>
-    );
+function mapInteractionsToTasks(
+  interactions: Interaction[] | undefined,
+  accounts: Account[] | undefined
+): Task[] {
+  if (!interactions || !accounts) return [];
+  const accountMap = new Map(accounts.map((a) => [a.id, a.name]));
+
+  return interactions
+    .filter((i) => i?.plannedFor)
+    .map((i) => {
+      const plannedISO = sbAsISO(i.plannedFor!);
+      if (!plannedISO) return null;
+      return {
+        id: i.id,
+        title: i.note || `${i.kind}`,
+        type: i.dept || "VENTAS",
+        status: i.status || 'open',
+        date: plannedISO,
+        involvedUserIds: i.involvedUserIds,
+        location: i.location || accountMap.get(i.accountId || ''),
+        linkedEntity: i.linkedEntity,
+      } as Task;
+    })
+    .filter(Boolean) as Task[];
 }
 
 
 function PersonalDashboardContent() {
-  const { currentUser, data } = useData();
+  const { currentUser, data, setData, saveCollection } = useData();
+  const [completingTask, setCompletingTask] = useState<Interaction | null>(null);
+  
+  const userInteractions = useMemo(() => {
+    if (!data || !currentUser) return [];
+    return data.interactions.filter(i => i.userId === currentUser.id);
+  }, [data, currentUser]);
   
   const userTasks = useMemo(() => {
-    if (!data || !currentUser) return [];
-    return data.interactions.filter(i => i.userId === currentUser.id && i.status === 'open');
-  }, [data, currentUser]);
+    return mapInteractionsToTasks(userInteractions, data?.accounts);
+  }, [userInteractions, data?.accounts]);
+
 
   const kpis = useMemo(() => {
     const todayStart = new Date();
@@ -60,73 +75,86 @@ function PersonalDashboardContent() {
     const todayEnd = new Date();
     todayEnd.setHours(23, 59, 59, 999);
     
-    const overdueTasks = userTasks.filter(t => t.plannedFor && new Date(t.plannedFor) < todayStart).length;
-    const todayTasks = userTasks.filter(t => t.plannedFor && new Date(t.plannedFor) >= todayStart && new Date(t.plannedFor) <= todayEnd).length;
-    const futureTasks = userTasks.filter(t => t.plannedFor && new Date(t.plannedFor) > todayEnd).length;
+    const openTasks = userInteractions.filter(t => t.status === 'open');
+    const overdueTasks = openTasks.filter(t => t.plannedFor && new Date(t.plannedFor) < todayStart).length;
+    const todayTasks = openTasks.filter(t => t.plannedFor && new Date(t.plannedFor) >= todayStart && new Date(t.plannedFor) <= todayEnd).length;
+    const futureTasks = openTasks.filter(t => t.plannedFor && new Date(t.plannedFor) > todayEnd).length;
 
     return { overdueTasks, todayTasks, futureTasks };
-  }, [userTasks]);
+  }, [userInteractions]);
   
+  const handleUpdateStatus = (id: string, newStatus: InteractionStatus) => {
+    const taskToUpdate = userInteractions.find(i => i.id === id);
+     if (newStatus === 'done' && taskToUpdate) {
+        setCompletingTask(taskToUpdate);
+    }
+  };
+  
+   const handleSaveCompletedTask = async (
+    taskId: string,
+    payload: any
+  ) => {
+      if (!data || !currentUser) return;
+      
+      const updatedInteractions = data.interactions.map(i =>
+          i.id === taskId ? { ...i, status: 'done' as InteractionStatus, resultNote: payload.note } : i
+      );
+      
+      setData({ ...data, interactions: updatedInteractions });
+      await saveCollection('interactions', updatedInteractions);
+      setCompletingTask(null);
+  };
+
+
   if (!currentUser || !data) {
     return <div className="p-6">Cargando...</div>;
   }
 
   return (
-    <div className="p-6 bg-zinc-50 flex-grow space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
+    <>
+      <div className="p-6 bg-zinc-50 flex-grow space-y-6">
+        {/* Header */}
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-semibold text-zinc-800">Bienvenido, {currentUser.name.split(' ')[0]}</h1>
+            <p className="text-zinc-600">Aquí tienes un resumen de tu actividad y tus tareas pendientes.</p>
+          </div>
+          <div className="flex items-center gap-2">
+              <Link href="/agenda">
+                  <SBButton>
+                      <Plus size={16} /> Nueva Tarea
+                  </SBButton>
+              </Link>
+          </div>
+        </div>
+
+        {/* KPIs */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <PersonalKPI label="Tareas Pendientes (Hoy)" value={kpis.todayTasks} icon={Clock} color={SB_COLORS.primary} />
+          <PersonalKPI label="Tareas Atrasadas" value={kpis.overdueTasks} icon={AlertTriangle} color={SB_COLORS.cobre} />
+          <PersonalKPI label="Tareas Futuras" value={kpis.futureTasks} icon={Calendar} color={SB_COLORS.accent} />
+        </div>
+
+        {/* Task Board */}
         <div>
-          <h1 className="text-2xl font-semibold text-zinc-800">Bienvenido, {currentUser.name.split(' ')[0]}</h1>
-          <p className="text-zinc-600">Aquí tienes un resumen de tu actividad.</p>
-        </div>
-        <div className="flex items-center gap-2">
-            <Link href="/agenda">
-                <SBButton>
-                    <Plus size={16} /> Nueva Tarea
-                </SBButton>
-            </Link>
+          <h2 className="text-lg font-semibold text-zinc-800 mb-3">Tu Tablero de Tareas</h2>
+          <TaskBoard
+              tasks={userTasks}
+              onTaskStatusChange={handleUpdateStatus}
+              onCompleteTask={(id) => handleUpdateStatus(id, 'done')}
+          />
         </div>
       </div>
 
-      {/* KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <PersonalKPI label="Tareas Pendientes (Hoy)" value={kpis.todayTasks} icon={Clock} color={SB_COLORS.primary} />
-        <PersonalKPI label="Tareas Atrasadas" value={kpis.overdueTasks} icon={AlertTriangle} color={SB_COLORS.cobre} />
-        <PersonalKPI label="Tareas Futuras" value={kpis.futureTasks} icon={Calendar} color={SB_COLORS.accent} />
-      </div>
-
-      {/* Task List */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-        <SBCard title="Tareas Más Próximas">
-            <div className="p-3 space-y-2">
-                {userTasks.length > 0 ? (
-                    userTasks
-                        .sort((a, b) => new Date(a.plannedFor || 0).getTime() - new Date(b.plannedFor || 0).getTime())
-                        .slice(0, 7)
-                        .map(task => <TaskCard key={task.id} task={task} />)
-                ) : (
-                    <div className="text-center py-8 text-zinc-500">
-                        <CheckCircle size={32} className="mx-auto text-green-500 mb-2" />
-                        <p className="font-semibold">¡Todo al día!</p>
-                        <p className="text-sm">No tienes tareas pendientes.</p>
-                    </div>
-                )}
-            </div>
-        </SBCard>
-        <div className="space-y-6">
-            <SBCard title="Accesos Directos">
-                <div className="p-4 grid grid-cols-2 gap-3">
-                    <Link href="/accounts" className="text-center p-4 rounded-xl bg-zinc-50 hover:bg-zinc-100 border border-zinc-200">
-                        <p className="font-semibold text-zinc-800">Ver Cuentas</p>
-                    </Link>
-                    <Link href="/orders" className="text-center p-4 rounded-xl bg-zinc-50 hover:bg-zinc-100 border border-zinc-200">
-                        <p className="font-semibold text-zinc-800">Ver Pedidos</p>
-                    </Link>
-                </div>
-            </SBCard>
-        </div>
-      </div>
-    </div>
+      {completingTask && (
+          <TaskCompletionDialog
+              task={completingTask}
+              open={!!completingTask}
+              onClose={() => setCompletingTask(null)}
+              onComplete={handleSaveCompletedTask}
+          />
+      )}
+    </>
   );
 }
 
@@ -139,3 +167,4 @@ export default function Page() {
     </AuthenticatedLayout>
   );
 }
+
