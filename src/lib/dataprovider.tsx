@@ -7,6 +7,7 @@ import { auth, db } from "@/lib/firebaseClient";
 import { onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, getIdToken } from "firebase/auth";
 import { collection, getDocs, writeBatch, doc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
+import { SANTA_DATA_COLLECTIONS } from "@/domain/ssot";
 
 // --------- Tipos ----------
 type LoadReport = {
@@ -41,6 +42,29 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 const emailToName = (email: string) =>
   email.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
 
+async function loadAllCollections(): Promise<[SantaData, LoadReport]> {
+    console.log('[DataProvider] Loading all collections from Firestore...');
+    const data: Partial<SantaData> = {};
+    const report: LoadReport = { ok: [], errors: [], totalDocs: 0 };
+    
+    for (const name of SANTA_DATA_COLLECTIONS) {
+        try {
+            const querySnapshot = await getDocs(collection(db, name));
+            const docs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            (data as any)[name] = docs;
+            report.ok.push(name);
+            report.totalDocs += docs.length;
+        } catch (e: any) {
+            console.error(`[DataProvider] Error loading collection ${name}:`, e);
+            report.errors.push({ name, error: e.message });
+            (data as any)[name] = [];
+        }
+    }
+    console.log('[DataProvider] Firestore data loaded. Report:', report);
+    return [data as SantaData, report];
+}
+
+
 // --------- Provider ----------
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<SantaData | null>(null);
@@ -50,24 +74,20 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [isPersistenceEnabled, setIsPersistenceEnabled] = useState(false);
   const router = useRouter();
 
-  // Load local data on initial mount
+  // Load Firestore data on initial mount
   useEffect(() => {
     async function loadInitialData() {
-      console.log('[DataProvider] Loading initial data from db.json...');
+      console.log('[DataProvider] useEffect: Loading initial data...');
+      if (data) return;
       try {
-        const r = await fetch("/data/db.json", { cache: "no-store" });
-        if (!r.ok) throw new Error("db.json not found");
-        const localData = await r.json() as SantaData;
-        setData(localData);
-        console.log('[DataProvider] Initial data loaded.');
+        const [firestoreData, report] = await loadAllCollections();
+        setData(firestoreData);
       } catch (e) {
-        console.error("[DataProvider] Failed to load local data:", e);
+        console.error("[DataProvider] Failed to load Firestore data:", e);
       }
     }
-    if (!data) {
-      loadInitialData();
-    }
-  }, [data]);
+    loadInitialData();
+  }, []);
 
   // Handle auth state changes
   useEffect(() => {
@@ -155,7 +175,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const loginWithEmail = useCallback(
     async (email: string, pass: string): Promise<User | null> => {
-      console.log('[DataProvider] loginWithEmail called.');
+      console.log('[DataProvider] loginWithEmail called for:', email);
       const userCredential = await signInWithEmailAndPassword(auth, email, pass);
       const fbUser = userCredential.user;
       console.log('[DataProvider] Firebase login successful for:', fbUser.email);
@@ -224,6 +244,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }),
     [data, currentUser, authReady, saveCollection, saveAllCollections, login, loginWithEmail, signupWithEmail, logout, togglePersistence, isPersistenceEnabled, setCurrentUserById]
   );
+
+  if (!data) {
+    return (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-white/80 backdrop-blur-sm">
+            <div className="flex flex-col items-center gap-4">
+                <p className="text-sb-neutral-700">Cargando datos de Santa Brisa...</p>
+            </div>
+        </div>
+    );
+  }
 
   return (
     <DataContext.Provider value={value}>
