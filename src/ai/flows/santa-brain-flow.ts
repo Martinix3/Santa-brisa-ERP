@@ -31,7 +31,7 @@ const CreateOrderSchema = z.object({
   accountName: z.string().describe('The name of the account for the order.'),
   items: z
     .array(z.object({ sku: z.string(), quantity: z.number() }))
-    .describe('An array of items to include in the order.'),
+    .describe('An array of items to include in the order. If the user mentions "botellas" or "bottles" without specifying a product, assume the SKU is "SB-750".'),
 });
 
 const CreateInteractionSchema = z.object({
@@ -55,14 +55,15 @@ const registeredTools = [
       name: 'createOrder',
       description: 'Creates a new sales order for an account.',
       inputSchema: CreateOrderSchema,
+      
     },
     async (input) => ({
-      ...input,
       id: `ord_${Date.now()}`,
       status: 'open',
       createdAt: new Date().toISOString(),
       currency: 'EUR',
       lines: input.items.map(item => ({ ...item, uom: 'uds', priceUnit: 0 })),
+      ...input,
     })
   ),
   ai.defineTool(
@@ -73,11 +74,11 @@ const registeredTools = [
       inputSchema: CreateInteractionSchema,
     },
     async (input) => ({
-      ...input,
       id: `int_${Date.now()}`,
       kind: 'OTRO',
       status: 'done',
       createdAt: new Date().toISOString(),
+      ...input,
     })
   ),
   ai.defineTool(
@@ -87,23 +88,40 @@ const registeredTools = [
       inputSchema: CreateAccountSchema,
     },
     async (input) => ({
-      ...input,
       id: `acc_${Date.now()}`,
       stage: 'POTENCIAL',
       ownerId: 'u_admin', // Default owner, should be context-aware
       billerId: 'SB',
       createdAt: new Date().toISOString(),
+      ...input,
     })
   ),
 ];
 
 const systemPrompt = `You are Santa Brain, an AI assistant for the Santa Brisa operational CRM.
-You are helpful, proactive, and an expert in sales and marketing operations.
-Your goal is to understand the user's request and use the available tools to translate it into structured data.
-If the user's intent is clear, call the appropriate tool.
-If the user is asking a question, answer it based on your knowledge and the provided context data.
-If the request is ambiguous, ask for clarification.
-Always respond in Spanish.`;
+You are helpful, proactive, and an expert in sales and marketing operations. Your goal is to be a true partner to the sales team.
+Always respond in Spanish.
+
+Your main tasks are to understand user requests and use tools to translate them into structured data, or to answer questions based on provided context.
+
+**Key Behavioral Guidelines:**
+
+1.  **Be Proactive & Conversational:** Don't just execute. Confirm, clarify, and ask relevant follow-up questions. For example, after creating an order, ask about promotions or marketing materials.
+2.  **Smart Defaults:**
+    *   When a user asks for "botellas" or "bottles" without specifying a product, **always assume they mean "Santa Brisa 750ml" which has the SKU "SB-750"**.
+
+3.  **Intelligent Account Matching for Orders:**
+    *   The user will provide their name in the context (e.g., "I am Marta"). Use this to be more precise.
+    *   When a user wants to create an order (e.g., "pedido de 6 botellas para terraza sol"), first search for accounts with similar names that belong to the current user.
+    *   If you find a close match (e.g., "Bar Terraza Sol" for "terraza sol"), **do not create the order immediately**. First, ask for confirmation: "¿Quieres que apunte 6 botellas de Santabrisa 750 a Bar Terraza Sol de Barcelona?".
+    *   If the user confirms ("si", "exacto", "correcto"), then use the 'createOrder' tool.
+    *   If no close match is found in the current user's accounts, check if a similar name exists under another user and suggest it as a possibility.
+    *   If no matches are found anywhere, suggest creating a new account for the name provided.
+
+4.  **Tool Usage:**
+    *   If the user's intent is clear and confirmed, call the appropriate tool.
+    *   If the request is ambiguous, ask for clarification before using any tool.
+    *   When a tool call is successful, confirm the action to the user (e.g., "Hecho. He creado un pedido para...").`;
 
 
 const santaBrainFlow = ai.defineFlow(
@@ -120,17 +138,21 @@ const santaBrainFlow = ai.defineFlow(
     }),
   },
   async ({ history, input, context }) => {
-    const { users, accounts } = context as { users: User[], accounts: Account[] };
+    const { users, accounts, currentUser } = context as { users: User[], accounts: Account[], currentUser: User };
+    
+    // Augment the user input with the current user's identity.
+    const augmentedInput = `I am ${currentUser.name}. The user's request is: "${input}"`;
 
     const llmResponse = await ai.generate({
-      prompt: input,
+      prompt: augmentedInput,
       history,
       system: systemPrompt,
       model: 'googleai/gemini-2.5-flash',
       tools: registeredTools,
       context: {
+          currentUser: {id: currentUser.id, name: currentUser.name, role: currentUser.role},
           users: users.map(u => ({id: u.id, name: u.name, role: u.role})),
-          accounts: accounts.map(a => ({id: a.id, name: a.name, city: a.city})),
+          accounts: accounts.map(a => ({id: a.id, name: a.name, city: a.city, ownerId: a.ownerId})),
       },
     });
 
@@ -144,20 +166,21 @@ const santaBrainFlow = ai.defineFlow(
             const accountName = (toolCall.input as any)?.accountName;
             const targetAccount = accounts.find(a => a.name.toLowerCase() === accountName?.toLowerCase());
             
-            if (targetAccount) {
-                 if (toolCall.name === 'createOrder') {
+            if (toolResponse) {
+                 if (toolCall.name === 'createOrder' && targetAccount) {
                     const newOrder = { ...toolResponse, accountId: targetAccount.id };
                     newEntities.ordersSellOut = [...(newEntities.ordersSellOut || []), newOrder as OrderSellOut];
-                    finalAnswer += `\nHecho. He creado un pedido para ${targetAccount.name}.`;
+                    finalAnswer += `\nHecho. He creado un pedido para ${targetAccount.name}. ¿Has hecho alguna promoción o necesitas visibilidad (PLV)?`;
                  }
-                 if (toolCall.name === 'createInteraction') {
+                 else if (toolCall.name === 'createInteraction' && targetAccount) {
                     const newInteraction = { ...toolResponse, accountId: targetAccount.id, userId: 'u_admin' }; // Placeholder user
                     newEntities.interactions = [...(newEntities.interactions || []), newInteraction as Interaction];
                     finalAnswer += `\nHecho. He registrado una interacción con ${targetAccount.name}.`;
                  }
-            } else if (toolCall.name === 'createAccount') {
-                newEntities.accounts = [...(newEntities.accounts || []), toolResponse as Account];
-                finalAnswer += `\nHecho. He creado la cuenta ${toolResponse.name}.`;
+                 else if (toolCall.name === 'createAccount') {
+                    newEntities.accounts = [...(newEntities.accounts || []), toolResponse as Account];
+                    finalAnswer += `\nHecho. He creado la cuenta ${toolResponse.name}.`;
+                }
             }
         }
     }
@@ -170,7 +193,7 @@ const santaBrainFlow = ai.defineFlow(
 export async function runSantaBrain(
   history: Message[],
   input: string,
-  context: { users: User[], accounts: Account[] }
+  context: { users: User[], accounts: Account[], currentUser: User }
 ): Promise<{ finalAnswer: string; newEntities: Partial<SantaData> }> {
   
   const result = await santaBrainFlow({ history, input, context });

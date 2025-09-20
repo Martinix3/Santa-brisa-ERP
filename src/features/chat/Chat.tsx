@@ -16,7 +16,7 @@ type ChatProps = {
 };
 
 export function Chat({ userId, onNewData }: ChatProps) {
-    const { data } = useData();
+    const { data, currentUser } = useData();
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -29,7 +29,7 @@ export function Chat({ userId, onNewData }: ChatProps) {
     useEffect(scrollToBottom, [messages]);
 
     const handleSend = useCallback(async () => {
-        if (!input.trim() || isLoading || !data) return;
+        if (!input.trim() || isLoading || !data || !currentUser) return;
 
         const userMessage: Message = { role: 'user', content: [{text: input}] };
         setMessages(prev => [...prev, userMessage]);
@@ -40,6 +40,7 @@ export function Chat({ userId, onNewData }: ChatProps) {
             const context = {
                 users: data.users as UserType[],
                 accounts: data.accounts as Account[],
+                currentUser: currentUser,
             };
 
             const { finalAnswer, newEntities } = await runSantaBrain(
@@ -62,7 +63,7 @@ export function Chat({ userId, onNewData }: ChatProps) {
         } finally {
             setIsLoading(false);
         }
-    }, [input, isLoading, messages, onNewData, data]);
+    }, [input, isLoading, messages, onNewData, data, currentUser]);
 
     return (
         <div className="flex flex-col h-full bg-zinc-100">
