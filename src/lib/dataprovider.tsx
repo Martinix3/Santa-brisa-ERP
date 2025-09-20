@@ -7,7 +7,6 @@ import { auth, db } from "@/lib/firebaseClient";
 import { onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, getIdToken } from "firebase/auth";
 import { collection, getDocs, writeBatch, doc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
-import { MemoryAdapter } from "@/domain/ssot.helpers";
 
 // --------- Tipos ----------
 type LoadReport = {
@@ -33,8 +32,8 @@ type DataContextType = {
   signupWithEmail: (email: string, pass: string) => Promise<User | null>;
   logout: () => Promise<void>;
   setCurrentUserById: (userId: string) => void;
-  isPersistenceEnabled: boolean; // Keep for UI controls
-  togglePersistence: () => void; // Keep for UI controls
+  isPersistenceEnabled: boolean;
+  togglePersistence: () => void;
 };
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -113,6 +112,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const saveAllCollections = useCallback(async (collectionsToSave: Partial<SantaData>) => {
         if (isPersistenceEnabled) {
             console.log("Saving to backend:", collectionsToSave);
+            // This would be a fetch to a serverless function that writes to Firestore
+            // For now, it's a mock.
             await new Promise(resolve => setTimeout(resolve, 500));
         } else {
              console.log("Persistence is disabled. Not saving.");
@@ -122,7 +123,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   
   const saveCollection = useCallback(
     async (name: keyof SantaData, rows: any[]) => {
+        // Update local state immediately for responsiveness
         setData(prevData => prevData ? { ...prevData, [name]: rows } : null);
+        // Persist to backend if enabled
         if (isPersistenceEnabled) {
              await saveAllCollections({ [name]: rows });
         }
@@ -160,6 +163,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
        const fbUser = userCredential.user;
       if (!fbUser || !data?.users) return null;
+      // This new user won't be persisted unless persistence is enabled and saveCollection is called.
+      // In a real app, you'd have a backend "createUser" function.
       const newUser: User = {
         id: fbUser.uid,
         name: fbUser.displayName || emailToName(email),
