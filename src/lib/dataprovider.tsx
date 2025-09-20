@@ -198,10 +198,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const unsub = onAuthStateChanged(auth, async (fbUser) => {
         setFirebaseUser(fbUser);
         
-        // This is now the single source of truth for auth readiness
         if (!authReady) {
-            await reload(); // Load data based on auth state
-            setAuthReady(true); // Mark auth as ready
+            await reload();
+            setAuthReady(true);
         }
     });
     return () => unsub();
