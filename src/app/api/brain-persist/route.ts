@@ -1,56 +1,12 @@
 
 // src/app/api/brain-persist/route.ts
 import { NextResponse } from "next/server";
-import { getProjectId } from "@/server/firebaseAdmin";
+import { adminDb, adminAuth, getProjectId } from "@/server/firebaseAdmin";
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-interface FirestoreWrite {
-  update: {
-    name: string;
-    fields: any;
-  };
-  currentDocument?: {
-    exists: boolean;
-  };
-}
-
-// Helper to convert a JS object to Firestore's mapValue format
-function toFirestoreValue(value: any): { [key: string]: any } {
-  const type = typeof value;
-  if (value === null || value === undefined) return { nullValue: null };
-  if (type === 'boolean') return { booleanValue: value };
-  if (type === 'number') {
-    if (Number.isInteger(value)) return { integerValue: value };
-    return { doubleValue: value };
-  }
-  if (type === 'string') {
-     // Check for ISO 8601 date string with Z timezone
-    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value)) {
-        return { timestampValue: value };
-    }
-    return { stringValue: value };
-  }
-  if (Array.isArray(value)) {
-    return {
-      arrayValue: {
-        values: value.map(toFirestoreValue),
-      },
-    };
-  }
-  if (type === 'object') {
-    return {
-      mapValue: {
-        fields: Object.entries(value).reduce((acc, [k, v]) => {
-          acc[k] = toFirestoreValue(v);
-          return acc;
-        }, {} as { [key: string]: any }),
-      },
-    };
-  }
-  return {};
-}
+// No necesitamos convertir al wire-format REST; con Admin SDK podemos guardar objetos JS tal cual.
 
 export async function POST(req: Request) {
   const projectId = getProjectId();
@@ -69,55 +25,34 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "Missing newEntities in request body" }, { status: 400 });
     }
 
-    const writes: FirestoreWrite[] = [];
-    let ops = 0;
+    // 1) Verifica el usuario
+    if (!adminAuth || !adminDb) {
+      return NextResponse.json({ ok: false, error: "Server has no Admin credentials (adminDb/adminAuth unavailable)." }, { status: 500 });
+    }
+    const decoded = await adminAuth.verifyIdToken(idToken).catch(() => null);
+    if (!decoded) {
+      return NextResponse.json({ ok: false, error: "Unauthorized: Invalid token." }, { status: 401 });
+    }
 
+    // 2) Construye batch Admin
+    const batch = adminDb.batch();
+    let ops = 0;
     for (const coll in newEntities) {
       const items = newEntities[coll];
-      if (Array.isArray(items)) {
-        for (const item of items) {
-          if (item?.id) {
-            ops++;
-            writes.push({
-              update: {
-                name: `projects/${projectId}/databases/(default)/documents/${coll}/${item.id}`,
-                fields: Object.entries(item).reduce((acc, [k, v]) => {
-                  acc[k] = toFirestoreValue(v);
-                  return acc;
-                }, {} as {[key: string]: any}),
-              },
-            });
-          }
-        }
+      if (!Array.isArray(items)) continue;
+      for (const item of items) {
+        if (!item || !item.id) continue;
+        const ref = adminDb.collection(coll).doc(item.id);
+        batch.set(ref, item, { merge: true });
+        ops++;
       }
     }
 
     if (ops === 0) {
       return NextResponse.json({ ok: true, saved: 0, message: "No documents to save." });
     }
-    
-    // Call Firestore REST API
-    const firestoreApiUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents:commit`;
-
-    const res = await fetch(firestoreApiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${idToken}`,
-      },
-      body: JSON.stringify({ writes }),
-    });
-
-    if (!res.ok) {
-        const errorBody = await res.json();
-        console.error('[Firestore REST API Error]', errorBody);
-        return NextResponse.json({ ok: false, error: errorBody.error?.message || 'Firestore commit failed.' }, { status: res.status });
-    }
-
-    const commitResult = await res.json();
-    const writeResultsCount = commitResult.writeResults?.length || 0;
-
-    return NextResponse.json({ ok: true, saved: writeResultsCount });
+    await batch.commit();
+    return NextResponse.json({ ok: true, saved: ops });
 
   } catch (e: any) {
     console.error('[brain-persist] UNHANDLED ERROR:', e?.message);

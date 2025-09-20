@@ -43,6 +43,7 @@ export const sbAsISO = (d: any): string | undefined => {
     if (!date || typeof (date as any).getTime !== 'function') return undefined;
     const t = (date as Date).getTime?.();
     if (typeof t !== 'number' || Number.isNaN(t)) return undefined;
-    // Normaliza a “local-aware” ISO (sin desplazar el reloj)
+    // Normaliza a “local-aware” ISO: conserva hh:mm locales al convertir a ISO UTC
+    // Idempotente: si ya es string/Date válido, no alterará el valor lógico del instante local
     return new Date(t - new Date().getTimezoneOffset() * 60000).toISOString();
 };
