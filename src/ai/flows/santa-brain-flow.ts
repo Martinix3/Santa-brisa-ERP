@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileoverview Santa Brisa main conversational agent
@@ -18,7 +19,6 @@ import type {
   OrderSellOut,
   Interaction,
   InventoryItem,
-  EventMarketing,
   User,
 } from '@/domain/ssot';
 
@@ -56,7 +56,14 @@ const registeredTools = [
       description: 'Creates a new sales order for an account.',
       inputSchema: CreateOrderSchema,
     },
-    async (input) => input
+    async (input) => ({
+      ...input,
+      id: `ord_${Date.now()}`,
+      status: 'open',
+      createdAt: new Date().toISOString(),
+      currency: 'EUR',
+      lines: input.items.map(item => ({ ...item, uom: 'uds', priceUnit: 0 })),
+    })
   ),
   ai.defineTool(
     {
@@ -65,7 +72,13 @@ const registeredTools = [
         'Logs a new interaction (like a visit or call) with an account.',
       inputSchema: CreateInteractionSchema,
     },
-    async (input) => input
+    async (input) => ({
+      ...input,
+      id: `int_${Date.now()}`,
+      kind: 'OTRO',
+      status: 'done',
+      createdAt: new Date().toISOString(),
+    })
   ),
   ai.defineTool(
     {
@@ -73,7 +86,14 @@ const registeredTools = [
       description: 'Creates a new account.',
       inputSchema: CreateAccountSchema,
     },
-    async (input) => input
+    async (input) => ({
+      ...input,
+      id: `acc_${Date.now()}`,
+      stage: 'POTENCIAL',
+      ownerId: 'u_admin', // Default owner, should be context-aware
+      billerId: 'SB',
+      createdAt: new Date().toISOString(),
+    })
   ),
 ];
 
@@ -97,18 +117,25 @@ const santaBrainFlow = ai.defineFlow(
     inputSchema: z.object({
         history: z.array(z.any()), // Use z.any() for history messages
         input: z.string(),
+        context: z.any().optional(),
     }),
     outputSchema: z.object({
         finalAnswer: z.string(),
         newEntities: z.any(),
     }),
   },
-  async ({ history, input }) => {
+  async ({ history, input, context }) => {
+    const { users, accounts } = context as { users: User[], accounts: Account[] };
+
     const llmResponse = await ai.generate({
       prompt: input,
       history,
       model: 'googleai/gemini-2.5-flash-preview',
       tools: registeredTools,
+      context: {
+          users: users.map(u => ({id: u.id, name: u.name, role: u.role})),
+          accounts: accounts.map(a => ({id: a.id, name: a.name, city: a.city})),
+      },
     });
 
     const toolCalls = llmResponse.toolRequests ?? [];
@@ -117,7 +144,25 @@ const santaBrainFlow = ai.defineFlow(
 
     if (toolCalls && toolCalls.length > 0) {
         for (const toolCall of toolCalls) {
-            finalAnswer += `Hecho. He creado una entidad de tipo ${toolCall.name} en el sistema.`;
+            const toolResponse = await toolCall.run();
+            const accountName = (toolCall.input as any)?.accountName;
+            const targetAccount = accounts.find(a => a.name.toLowerCase() === accountName?.toLowerCase());
+            
+            if (targetAccount) {
+                 if (toolCall.name === 'createOrder') {
+                    const newOrder = { ...toolResponse, accountId: targetAccount.id };
+                    newEntities.ordersSellOut = [...(newEntities.ordersSellOut || []), newOrder as OrderSellOut];
+                    finalAnswer += `\nHecho. He creado un pedido para ${targetAccount.name}.`;
+                 }
+                 if (toolCall.name === 'createInteraction') {
+                    const newInteraction = { ...toolResponse, accountId: targetAccount.id, userId: 'u_admin' }; // Placeholder user
+                    newEntities.interactions = [...(newEntities.interactions || []), newInteraction as Interaction];
+                    finalAnswer += `\nHecho. He registrado una interacción con ${targetAccount.name}.`;
+                 }
+            } else if (toolCall.name === 'createAccount') {
+                newEntities.accounts = [...(newEntities.accounts || []), toolResponse as Account];
+                finalAnswer += `\nHecho. He creado la cuenta ${toolResponse.name}.`;
+            }
         }
     }
 
@@ -129,9 +174,10 @@ const santaBrainFlow = ai.defineFlow(
 export async function runSantaBrain(
   history: Message[],
   input: string,
+  context: { users: User[], accounts: Account[] }
 ): Promise<{ finalAnswer: string; newEntities: Partial<SantaData> }> {
   
-  const result = await santaBrainFlow({ history, input });
+  const result = await santaBrainFlow({ history, input, context });
   return {
       finalAnswer: result.finalAnswer,
       newEntities: result.newEntities || {},

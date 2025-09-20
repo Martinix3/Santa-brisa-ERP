@@ -4,7 +4,7 @@
 import React, { useState, useCallback } from 'react';
 import { Plus, X } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
-import type { SantaData, Account, Product, OrderSellOut, Interaction, InventoryItem, EventMarketing, User } from '@/domain/ssot';
+import type { SantaData } from '@/domain/ssot';
 import { Chat } from '@/features/chat/Chat';
 
 export default function QuickLogOverlay() {
@@ -14,38 +14,33 @@ export default function QuickLogOverlay() {
   const handleNewData = useCallback((newData: Partial<SantaData>) => {
     if (!data) return;
     
-    // Create a new object for the updated data to ensure reactivity
-    const updatedData = { ...data };
-    let hasChanges = false;
-    
-    // Merge new data into the existing state
-    for (const key in newData) {
-        const collectionName = key as keyof SantaData;
-        if (newData[collectionName] && Array.isArray(newData[collectionName])) {
-            const newItems = newData[collectionName] as any[];
-            if (newItems.length > 0) {
-                 const existingItems = (updatedData[collectionName] as any[]) || [];
-                 // Filter out items that already exist to prevent duplicates
-                 const uniqueNewItems = newItems.filter(newItem => !existingItems.some(existingItem => existingItem.id === newItem.id));
-                 updatedData[collectionName] = [ ...existingItems, ...uniqueNewItems] as any;
-                 
-                 // Also handle updates
-                 newItems.forEach(newItem => {
-                    const index = (updatedData[collectionName] as any[]).findIndex(i => i.id === newItem.id);
-                    if (index !== -1) {
-                        (updatedData[collectionName] as any[])[index] = newItem;
-                    }
-                 });
+    setData(prevData => {
+        if (!prevData) return null;
 
-                 hasChanges = true;
+        const updatedData = { ...prevData };
+        let hasChanges = false;
+
+        for (const key in newData) {
+            const collectionName = key as keyof SantaData;
+            const newItems = (newData[collectionName] as any[]) || [];
+            
+            if (newItems.length > 0) {
+                const existingItems = (updatedData[collectionName] as any[]) || [];
+                const itemMap = new Map(existingItems.map(item => [item.id, item]));
+
+                newItems.forEach(newItem => {
+                    itemMap.set(newItem.id, newItem); // Add or update
+                });
+
+                updatedData[collectionName] = Array.from(itemMap.values()) as any;
+                hasChanges = true;
             }
         }
-    }
-    
-    if (hasChanges) {
-        setData(updatedData);
-    }
-  }, [data, setData]);
+        
+        return hasChanges ? updatedData : prevData;
+    });
+
+  }, [setData]);
 
   if (!data || !currentUser) return null;
 

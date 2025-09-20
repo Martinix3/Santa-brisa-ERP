@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
@@ -7,6 +6,7 @@ import { Send, User, Bot, Loader, CheckCircle, AlertTriangle } from 'lucide-reac
 import type { Account, Product, SantaData, OrderSellOut, Interaction, InventoryItem, EventMarketing } from '@/domain/ssot';
 import { Message } from 'genkit';
 import { runSantaBrain } from '@/ai/flows/santa-brain-flow';
+import { useData } from '@/lib/dataprovider';
 
 
 type ChatProps = {
@@ -15,6 +15,7 @@ type ChatProps = {
 };
 
 export function Chat({ userId, onNewData }: ChatProps) {
+    const { data } = useData();
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -27,34 +28,35 @@ export function Chat({ userId, onNewData }: ChatProps) {
     useEffect(scrollToBottom, [messages]);
 
     const handleSend = useCallback(async () => {
-        if (!input.trim() || isLoading) return;
+        if (!input.trim() || isLoading || !data) return;
 
-        const userMessage: Message = { role: 'user', content: [{text: input}] } as Message;
+        const userMessage: Message = { role: 'user', content: [{text: input}] };
         setMessages(prev => [...prev, userMessage]);
         setInput('');
         setIsLoading(true);
 
         try {
             const { finalAnswer, newEntities } = await runSantaBrain(
-                [...messages, userMessage], 
-                input
+                messages, 
+                input,
+                { users: data.users, accounts: data.accounts }
             );
 
-            const assistantMessage: Message = { role: 'model', content: [{text: finalAnswer}] } as Message;
+            const assistantMessage: Message = { role: 'model', content: [{text: finalAnswer}] };
             setMessages(prev => [...prev, assistantMessage]);
             
-            if (newEntities && (newEntities.interactions?.length || newEntities.ordersSellOut?.length || newEntities.mktEvents?.length || newEntities.accounts?.length)) {
+            if (Object.keys(newEntities).length > 0) {
                 onNewData(newEntities);
             }
 
         } catch (error) {
             console.error("Error running Santa Brain:", error);
-            const errorMessage: Message = { role: 'model', content: [{text: "Lo siento, ha ocurrido un error. Revisa la consola para más detalles."}] } as Message;
+            const errorMessage: Message = { role: 'model', content: [{text: "Lo siento, ha ocurrido un error. Revisa la consola para más detalles."}] };
             setMessages(prev => [...prev, errorMessage]);
         } finally {
             setIsLoading(false);
         }
-    }, [input, isLoading, messages, onNewData]);
+    }, [input, isLoading, messages, onNewData, data]);
 
     return (
         <div className="flex flex-col h-full bg-zinc-100">
