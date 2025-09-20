@@ -1,4 +1,3 @@
-
 // app/cashflow/settings/page.tsx
 'use client';
 import { useEffect, useState } from 'react';
@@ -40,10 +39,15 @@ export default function CashflowSettingsPage() {
       try { 
           const r = await fetch('/api/cashflow/settings'); 
           if (r.ok){ 
-              const data = await r.json();
-              if (data) setS(prev => ({...prev, ...data}));
+              const text = await r.text();
+              const data = text ? JSON.parse(text) : {};
+              if (data && Object.keys(data).length > 0) {
+                setS(prev => ({...prev, ...data}));
+              }
           } 
-      } catch {}
+      } catch (e) {
+          console.error("Failed to load cashflow settings:", e);
+      }
     })();
   }, []);
 
