@@ -72,14 +72,14 @@ export function AuthForm({ onEmailLogin, onEmailSignup, onGoogleSubmit }: AuthFo
                 <h1 className="text-2xl font-bold text-zinc-800">{title}</h1>
                 <p className="text-zinc-600 mt-2 mb-6">{description}</p>
                 
-                <form onSubmit={handleSubmit} className="space-y-4 text-left">
+                <form onSubmit={handleSubmit} className="space-y-4 text-left" autoComplete="on">
                     <div>
                         <label htmlFor="email" className="text-sm font-medium text-zinc-700">Email</label>
                         <input
                             id="email"
                             name="email"
                             type="email"
-                            autoComplete="email"
+                            autoComplete="username"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             className="mt-1 w-full px-3 py-2 border border-zinc-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500"
