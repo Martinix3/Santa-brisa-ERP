@@ -6,7 +6,7 @@ import AuthenticatedLayout from '@/components/layouts/AuthenticatedLayout';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
 import { SBCard, SBButton, SB_COLORS } from '@/components/ui/ui-primitives';
 import { useData } from '@/lib/dataprovider';
-import type { Interaction, InteractionStatus, Account } from '@/domain/ssot';
+import type { Interaction, InteractionStatus, Account, SantaData, OrderSellOut } from '@/domain/ssot';
 import Link from 'next/link';
 import { TaskBoard, Task } from '@/features/agenda/TaskBoard';
 import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/TaskCompletionDialog';
@@ -92,16 +92,58 @@ function PersonalDashboardContent() {
   
    const handleSaveCompletedTask = async (
     taskId: string,
-    payload: any
+    payload: { type: 'venta', items: { sku: string; qty: number }[] } | { type: 'interaccion', note: string, nextActionDate?: string }
   ) => {
       if (!data || !currentUser) return;
       
-      const updatedInteractions = data.interactions.map(i =>
+      let finalData: SantaData = { ...data };
+
+      // 1. Siempre se actualiza la interacción original.
+      finalData.interactions = finalData.interactions.map(i =>
           i.id === taskId ? { ...i, status: 'done' as InteractionStatus, resultNote: payload.note } : i
       );
-      
-      setData({ ...data, interactions: updatedInteractions });
-      await saveCollection('interactions', updatedInteractions);
+
+      // 2. Si hay una próxima acción, se crea una nueva interacción.
+      if (payload.type === 'interaccion' && payload.nextActionDate) {
+          const originalTask = data.interactions.find(i => i.id === taskId);
+          const newFollowUp: Interaction = {
+              id: `int_${Date.now()}`,
+              userId: currentUser.id,
+              accountId: originalTask?.accountId,
+              kind: 'OTRO', 
+              note: `Seguimiento de: ${payload.note}`,
+              plannedFor: payload.nextActionDate,
+              createdAt: new Date().toISOString(),
+              dept: originalTask?.dept || 'VENTAS',
+              status: 'open',
+          };
+          finalData.interactions.push(newFollowUp);
+      }
+
+      // 3. Si se creó una venta, se añade un nuevo pedido.
+      if (payload.type === 'venta') {
+          const originalTask = data.interactions.find(i => i.id === taskId);
+          const newOrder: OrderSellOut = {
+              id: `ord_${Date.now()}`,
+              accountId: originalTask!.accountId!,
+              status: 'open',
+              currency: 'EUR',
+              createdAt: new Date().toISOString(),
+              lines: payload.items.map(item => ({ sku: item.sku, qty: item.qty, uom: 'uds', priceUnit: 0 })),
+              notes: `Pedido rápido creado desde tarea ${taskId}`,
+          };
+          finalData.ordersSellOut = [...(finalData.ordersSellOut || []), newOrder];
+      }
+    
+      // 4. Actualizar el estado local
+      setData(finalData);
+
+      // 5. Persistir todas las colecciones modificadas
+      await saveCollection('interactions', finalData.interactions);
+      if (payload.type === 'venta') {
+          await saveCollection('ordersSellOut', finalData.ordersSellOut);
+      }
+    
       setCompletingTask(null);
   };
 
@@ -167,4 +209,3 @@ export default function Page() {
     </AuthenticatedLayout>
   );
 }
-
