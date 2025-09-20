@@ -1,4 +1,4 @@
-
+// src/features/agenda/components/CalendarPageContent.tsx
 "use client";
 import React, { useMemo, useState, useEffect } from "react";
 import dynamic from "next/dynamic";
@@ -18,6 +18,7 @@ import { sbAsISO } from "@/features/agenda/helpers";
 import { NewEventDialog } from "@/features/agenda/components/NewEventDialog";
 import { EventDetailDialog } from "@/features/agenda/components/EventDetailDialog";
 import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/TaskCompletionDialog';
+import { useFullCalendarStyles } from '@/features/agenda/useFullCalendarStyles';
 
 
 const hexToRgba = (hex: string, a: number) => {
@@ -45,6 +46,7 @@ function FilterSelect({ value, onChange, options, placeholder, className }: { va
 }
 
 export function CalendarPageContent() {
+  useFullCalendarStyles();
   const { data: santaData, setData, currentUser, isPersistenceEnabled, saveCollection } = useData();
   
   const [selectedEvent, setSelectedEvent] = useState<Interaction | null>(null);

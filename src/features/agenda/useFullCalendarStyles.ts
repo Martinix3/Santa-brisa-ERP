@@ -24,9 +24,9 @@ export function useFullCalendarStyles() {
                 text-transform: capitalize;
             }
             .fc .fc-button-primary:not(:disabled).fc-button-active, .fc .fc-button-primary:not(:disabled):active {
-                background-color: var(--sb-primary, #F7D15F);
-                border-color: var(--sb-primary, #F7D15F);
-                color: #1f2937;
+                background-color: hsl(var(--sb-sun));
+                border-color: hsl(var(--sb-sun));
+                color: hsl(var(--sb-neutral-900));
             }
             .fc-direction-ltr .fc-list-day-text, .fc-direction-rtl .fc-list-day-side-text {
                 font-weight: 600;
@@ -36,6 +36,9 @@ export function useFullCalendarStyles() {
             }
             .fc-v-event .fc-event-main {
                 padding: 4px;
+            }
+            .fc .fc-daygrid-day.fc-day-today {
+                background-color: hsla(var(--sb-sun), 0.15);
             }
         `;
         document.head.appendChild(style);
