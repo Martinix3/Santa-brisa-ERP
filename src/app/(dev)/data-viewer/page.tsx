@@ -11,7 +11,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 function CollectionSelector({ santaData, collections, active, onSelect }: { santaData: SantaData | null, collections: string[], active: string, onSelect: (name: string) => void }) {
     return (
         <div className="border-b">
-            <nav className="flex space-x-4 px-4" aria-label="Tabs">
+            <nav className="flex space-x-4 px-4 overflow-x-auto" aria-label="Tabs">
                 {collections.map((name) => (
                     <button
                         key={name}
@@ -55,7 +55,7 @@ function DataViewerContent() {
     };
 
     const activeData = useMemo(() => {
-        if (!santaData) return [];
+        if (!santaData || !activeCollection) return [];
         return (santaData[activeCollection] as any[]) || [];
     }, [santaData, activeCollection]);
 
@@ -64,13 +64,13 @@ function DataViewerContent() {
     }
 
     return (
-        <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
+        <div className="bg-white rounded-2xl border shadow-sm overflow-hidden h-full flex flex-col">
             <CollectionSelector santaData={santaData} collections={collections} active={activeCollection} onSelect={handleSelectCollection} />
-            <div className="p-4">
+            <div className="p-4 flex-grow">
                 <textarea
                     readOnly
                     value={JSON.stringify(activeData, null, 2)}
-                    className="w-full h-[70vh] p-4 font-mono text-xs bg-zinc-50 border rounded-lg whitespace-pre"
+                    className="w-full h-full p-4 font-mono text-xs bg-zinc-50 border rounded-lg whitespace-pre"
                 />
             </div>
         </div>
@@ -81,11 +81,9 @@ export default function DataViewerPage() {
     return (
         <div className="h-full flex flex-col">
             <ModuleHeader title="Data Viewer" icon={Database} />
-            <div className="flex-grow p-4 md:p-6">
+            <div className="flex-grow p-4 md:p-6 min-h-0">
                 <DataViewerContent />
             </div>
         </div>
     );
 }
-
-    
