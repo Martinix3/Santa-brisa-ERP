@@ -50,12 +50,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [firebaseUser, setFirebaseUser] = useState<import("firebase/auth").User | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [isPersistenceEnabled, setIsPersistenceEnabled] = useState(false);
+  const [loadingData, setLoadingData] = useState(true); // Nuevo estado de carga
   const router = useRouter();
 
-  // Load Firestore data on initial mount
+  // Load Firestore data on initial mount or when persistence changes
   useEffect(() => {
     async function loadInitialData() {
-        console.log('[DataProvider] useEffect: Loading all collections from Firestore...');
+        setLoadingData(true);
+        console.log(`[DataProvider] useEffect: Loading data. Persistence is ${isPersistenceEnabled ? 'ON' : 'OFF'}.`);
 
         const loadAllCollections = async (): Promise<[SantaData, LoadReport]> => {
             const data: Partial<SantaData> = {};
@@ -79,7 +81,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         }
 
         if (isPersistenceEnabled) {
-            setData(null); // Set to null to show loading state
             try {
                 const [firestoreData, report] = await loadAllCollections();
                 if (report.totalDocs > 0) {
@@ -95,6 +96,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         } else {
             setData(INITIAL_MOCK_DATA);
         }
+        setLoadingData(false);
     }
     
     loadInitialData();
@@ -113,15 +115,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   // Sync currentUser with firebaseUser and local data
   useEffect(() => {
-    console.log('[DataProvider] useEffect to sync user triggered.');
-    if (!data || !authReady) {
-        console.log('[DataProvider] Skipping user sync: data or auth not ready.');
+    if (loadingData || !authReady) {
+        console.log(`[DataProvider] Skipping user sync: loadingData=${loadingData}, authReady=${authReady}`);
         return;
     }
+    console.log('[DataProvider] useEffect to sync user triggered.');
 
     let userToSet: User | null = null;
     
-    if (firebaseUser && data.users) {
+    if (firebaseUser && data?.users) {
       console.log(`[DataProvider] Auth ready. Trying to find app user for Firebase user: ${firebaseUser.email}`);
       userToSet = data.users.find(u => u.email === firebaseUser.email) || null;
       if(userToSet) {
@@ -131,12 +133,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           console.warn(`[DataProvider] Firebase user ${firebaseUser.email} not found in local data.users array.`);
       }
     } else {
-        console.log('[DataProvider] No Firebase user.');
+        console.log('[DataProvider] No Firebase user or data.users not ready.');
     }
     
     setCurrentUser(userToSet);
 
-  }, [data, firebaseUser, authReady]);
+  }, [data, firebaseUser, authReady, loadingData]);
 
   const togglePersistence = useCallback(() => {
     setIsPersistenceEnabled(prev => !prev);
@@ -278,7 +280,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [data, currentUser, authReady, saveCollection, saveAllCollections, login, loginWithEmail, signupWithEmail, logout, togglePersistence, isPersistenceEnabled, setCurrentUserById]
   );
 
-  if (!authReady || !data) {
+  if (!authReady || loadingData) {
     return (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-white/80 backdrop-blur-sm">
             <div className="flex flex-col items-center gap-4">
@@ -300,5 +302,3 @@ export function useData() {
   if (!ctx) throw new Error("useData must be used within a DataProvider");
   return ctx;
 }
-
-    
