@@ -19,7 +19,7 @@ export async function generateInsights(input: GenerateInsightsInput): Promise<st
       Your response should be in Spanish, formatted as a brief, easy-to-read report using markdown.
       Focus on identifying patterns, risks, or opportunities. Be direct and avoid conversational fluff.
     `,
-    model: 'googleai/gemini-2.5-flash-preview',
+    model: 'googleai/gemini-2.5-flash',
   });
 
   return output as string;

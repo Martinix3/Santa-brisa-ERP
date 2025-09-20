@@ -130,7 +130,7 @@ const santaBrainFlow = ai.defineFlow(
     const llmResponse = await ai.generate({
       prompt: input,
       history,
-      model: 'googleai/gemini-2.5-flash-preview',
+      model: 'googleai/gemini-2.5-flash',
       tools: registeredTools,
       context: {
           users: users.map(u => ({id: u.id, name: u.name, role: u.role})),
