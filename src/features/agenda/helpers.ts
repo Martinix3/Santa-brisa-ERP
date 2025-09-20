@@ -1,3 +1,4 @@
+
 // src/features/agenda/helpers.ts
 
 // === Normalización robusta de fechas ===
@@ -36,7 +37,7 @@ export const toDate = (d: any): Date | null => {
     return null;
 };
   
-export const sbAsISO = (d: any) => {
+export const sbAsISO = (d: any): string | undefined => {
     const date = toDate(d);
     // Guardas máximas: que exista y que tenga getTime
     if (!date || typeof (date as any).getTime !== 'function') return undefined;

@@ -5,18 +5,8 @@ import React, { useState, useEffect } from 'react';
 import { SBDialog, SBDialogContent } from '@/features/agenda/ui';
 import { Plus, User as UserIcon, Search } from 'lucide-react';
 import type { Department, User, Interaction, InteractionKind, Account } from '@/domain/ssot';
+import { DEPT_META } from '@/domain/ssot'; // usa el canónico
 import { useData } from '@/lib/dataprovider';
-
-const DEPT_META: Record<
-  Department,
-  { label: string; color: string; textColor: string }
-> = {
-  VENTAS: { label: 'Ventas', color: '#D7713E', textColor: '#40210f' },
-  PRODUCCION: { label: 'Producción', color: '#618E8F', textColor: '#153235' },
-  ALMACEN:    { label: 'Almacén',    color: '#A7D8D9', textColor: '#17383a' },
-  MARKETING:  { label: 'Marketing',  color: '#F7D15F', textColor: '#3f3414' },
-  FINANZAS:   { label: 'Finanzas',   color: '#CCCCCC', textColor: '#333333' },
-};
 
 function AccountSearch({ initialAccountId, initialLocation, onSelectionChange }: { 
     initialAccountId?: string;
@@ -97,7 +87,7 @@ export function NewEventDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (event: Omit<Interaction, 'createdAt' | 'status' | 'id'> & { id?: string }) => void;
+  onSave: (event: Omit<Interaction, 'createdAt' | 'status'> & { id?: string }) => void;
   accentColor: string;
   initialEventData?: Partial<Interaction> | null;
 }) {

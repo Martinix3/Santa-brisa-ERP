@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useMemo, useState, useEffect } from "react";
 import dynamic from "next/dynamic";
@@ -17,8 +18,6 @@ import { ModuleHeader } from "@/components/ui/ModuleHeader";
 import { Calendar, Filter } from "lucide-react";
 import { SB_COLORS, DEPT_META } from "@/domain/ssot";
 import type { Department, Interaction, SantaData, OrderSellOut, InteractionStatus, InteractionKind, Account, EventMarketing, OnlineCampaign } from '@/domain/ssot';
-import { auth } from '@/lib/firebaseClient';
-import { getIdToken } from "firebase/auth";
 import { sbAsISO } from "@/features/agenda/helpers";
 
 
@@ -117,7 +116,7 @@ function FilterSelect({ value, onChange, options, placeholder, className }: { va
 
 export function CalendarPageContent() {
   useFullCalendarStyles();
-  const { data: SantaData, setData, currentUser, isPersistenceEnabled, saveCollection } = useData();
+  const { data: santaData, setData, currentUser, isPersistenceEnabled, saveCollection } = useData();
   const [activeTab, setActiveTab] = useState<"agenda" | "tareas">("agenda");
   const [selectedEvent, setSelectedEvent] = useState<Interaction | null>(null);
   const [editingEvent, setEditingEvent] = useState<Interaction | null>(null);
@@ -130,15 +129,15 @@ export function CalendarPageContent() {
 
 
   const allInteractions = useMemo(() => {
-    if (!SantaData?.interactions) return [];
+    if (!santaData?.interactions) return [];
     
-    return SantaData.interactions.filter(i => {
+    return santaData.interactions.filter(i => {
         const matchesResponsible = !responsibleFilter || i.userId === responsibleFilter || (i.involvedUserIds || []).includes(responsibleFilter);
         const matchesDepartment = !departmentFilter || i.dept === departmentFilter;
         return matchesResponsible && matchesDepartment;
     })
 
-  }, [SantaData?.interactions, responsibleFilter, departmentFilter]);
+  }, [santaData?.interactions, responsibleFilter, departmentFilter]);
 
   const calendarEvents = useMemo(
     () =>
@@ -161,13 +160,15 @@ export function CalendarPageContent() {
     [allInteractions]
   );
   
-  const updateAndPersistInteractions = (updatedInteractions: Interaction[]) => {
-      if (!SantaData) return;
-      setData(prev => prev ? { ...prev, interactions: updatedInteractions } : null);
-      if (isPersistenceEnabled) {
-          saveCollection('interactions', updatedInteractions);
-      }
-    }
+  const updateAndPersistInteractions = (updatedSubset: Interaction[]) => {
+    if (!santaData) return;
+    // reconstruir la colección completa: sustituir por id
+    const map = new Map((santaData.interactions || []).map(i => [i.id, i]));
+    for (const it of updatedSubset) map.set(it.id, it);
+    const fullList = Array.from(map.values());
+    setData(prev => prev ? { ...prev, interactions: fullList } : null);
+    if (isPersistenceEnabled) saveCollection('interactions', fullList);
+  }
   
     const handleUpdateStatus = (id: string, newStatus: InteractionStatus) => {
     const taskToUpdate = allInteractions.find(i => i.id === id);
@@ -187,10 +188,10 @@ export function CalendarPageContent() {
   };
   
   const handleAddOrUpdateEvent = async (eventData: any) => {
-      if (!currentUser || !SantaData) return;
+      if (!currentUser || !santaData) return;
       
       const { ...event } = eventData;
-      let finalData = { ...SantaData };
+      let finalData = { ...santaData };
       let updatedInteractions;
 
       if (event.id) { // Update existing interaction
@@ -225,7 +226,7 @@ export function CalendarPageContent() {
       setData(finalData);
 
       await saveCollection('interactions', finalData.interactions);
-      if (finalData.mktEvents && finalData.mktEvents.length > (SantaData.mktEvents?.length || 0)) {
+      if (finalData.mktEvents && finalData.mktEvents.length > (santaData.mktEvents?.length || 0)) {
           await saveCollection('mktEvents', finalData.mktEvents);
       }
 
@@ -256,12 +257,12 @@ export function CalendarPageContent() {
     taskId: string,
     payload: any
   ) => {
-    if (!SantaData || !currentUser) return;
+    if (!santaData || !currentUser) return;
 
-    const originalTask = SantaData.interactions.find(i => i.id === taskId);
+    const originalTask = santaData.interactions.find(i => i.id === taskId);
     if (!originalTask) return;
 
-    let finalData: SantaData = { ...SantaData };
+    let finalData: SantaData = { ...santaData };
 
     finalData.interactions = finalData.interactions.map(i =>
         i.id === taskId ? { ...i, status: 'done' as InteractionStatus, resultNote: payload.note } : i
@@ -335,19 +336,21 @@ export function CalendarPageContent() {
   };
 
 
-  const tasksForBoard = useMemo(() => mapDomainToTasks(allInteractions, SantaData?.accounts), [allInteractions, SantaData?.accounts]);
+  const tasksForBoard = useMemo(() => mapDomainToTasks(allInteractions, santaData?.accounts), [allInteractions, santaData?.accounts]);
   
-  const userOptions = useMemo(() => (SantaData?.users || []).map(u => ({ value: u.id, label: u.name })), [SantaData?.users]);
+  const userOptions = useMemo(() => (santaData?.users || []).map(u => ({ value: u.id, label: u.name })), [santaData?.users]);
   const departmentOptions = useMemo(() => Object.entries(DEPT_META).map(([key, meta]) => ({ value: key, label: meta.label })), []);
 
-  if (!SantaData) return <div className="p-6">Cargando datos…</div>;
+  if (!santaData) return <div className="p-6">Cargando datos…</div>;
 
   const ACCENT = SB_COLORS.accent;
   
   const handleDeleteEvent = (id: string) => {
-      const updatedInteractions = allInteractions.filter(i => i.id !== id);
-      updateAndPersistInteractions(updatedInteractions);
-      setSelectedEvent(null);
+    if (!santaData?.interactions) return;
+    const fullList = santaData.interactions.filter(i => i.id !== id);
+    setData(prev => prev ? { ...prev, interactions: fullList } : null);
+    if (isPersistenceEnabled) saveCollection('interactions', fullList);
+    setSelectedEvent(null);
   };
   
   const handleEditRequest = (event: Interaction) => {
@@ -357,6 +360,10 @@ export function CalendarPageContent() {
   }
   
   const FullCalendar = dynamic(() => import('@fullcalendar/react'), { ssr: false });
+  const initialView = useMemo(() => {
+   if (typeof window === 'undefined') return 'timeGridWeek';
+   return localStorage.getItem('sb_calendar_view') || 'timeGridWeek';
+ }, []);
 
   return (
     <>
@@ -388,7 +395,8 @@ export function CalendarPageContent() {
             <div className="h-full rounded-2xl bg-white border border-zinc-200 shadow-sm overflow-hidden">
               <FullCalendar
                 plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
-                initialView="timeGridWeek"
+                initialView={initialView}
+                viewDidMount={(arg) => localStorage.setItem('sb_calendar_view', arg.view.type)}
                 headerToolbar={{ left: "prev,next today", center: "title", right: "dayGridMonth,timeGridWeek,timeGridDay,listYear" }}
                 events={calendarEvents as any}
                 eventClick={handleEventClick}

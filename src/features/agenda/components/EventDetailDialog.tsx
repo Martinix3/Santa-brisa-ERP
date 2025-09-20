@@ -64,7 +64,7 @@ export function EventDetailDialog({
                 <>
                   <LinkIcon className="h-4 w-4 text-zinc-500" />
                   <a href="#" className="text-blue-600 hover:underline">
-                      {event.linkedEntity.type} #{event.linkedEntity.id.substring(0,8)}...
+                      {event.linkedEntity.type} #{event.linkedEntity.id.slice(0,8)}…
                   </a>
                 </>
             }
@@ -92,8 +92,8 @@ export function EventDetailDialog({
           )}
 
           <div className="flex justify-end gap-2 pt-4">
-              <button onClick={() => { onOpenChange(false); onDelete(event.id); }} className="p-2 text-zinc-500 hover:text-red-600 hover:bg-red-50 rounded-md text-xs flex items-center gap-1"><Trash2 size={14}/> Eliminar</button>
-              <button onClick={() => { onOpenChange(false); onEdit(event); }} className="p-2 text-zinc-500 hover:text-blue-600 hover:bg-blue-50 rounded-md text-xs flex items-center gap-1"><Edit size={14}/> Editar</button>
+              <button type="button" onClick={() => { onOpenChange(false); onDelete(event.id); }} className="p-2 text-zinc-500 hover:text-red-600 hover:bg-red-50 rounded-md text-xs flex items-center gap-1"><Trash2 size={14}/> Eliminar</button>
+              <button type="button" onClick={() => { onOpenChange(false); onEdit(event); }} className="p-2 text-zinc-500 hover:text-blue-600 hover:bg-blue-50 rounded-md text-xs flex items-center gap-1"><Edit size={14}/> Editar</button>
           </div>
         </div>
       </SBDialogContent>
