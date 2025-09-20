@@ -10,7 +10,6 @@ import { SBCard, SBButton, SB_COLORS } from "@/components/ui/ui-primitives";
 import type { User as UserType, OrderSellOut, Interaction, Account, InteractionStatus } from '@/domain/ssot';
 import { orderTotal, inWindow } from '@/domain/ssot';
 import { generateInsights } from "@/ai/flows/generate-insights-flow";
-import AuthenticatedLayout from "@/components/layouts/AuthenticatedLayout";
 import { EventDetailDialog } from "@/features/agenda/components/EventDetailDialog";
 import { NewEventDialog } from "@/features/agenda/components/NewEventDialog";
 import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/TaskCompletionDialog';
@@ -689,9 +688,9 @@ export function SalesDashboardPageContent(){
 
 export default function SalesDashboardPage() {
     return (
-        <AuthenticatedLayout>
+        <>
             <ModuleHeader title="Dashboards de Ventas" icon={BarChart3} />
             <SalesDashboardPageContent />
-        </AuthenticatedLayout>
+        </>
     )
 }

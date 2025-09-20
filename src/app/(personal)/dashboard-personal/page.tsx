@@ -2,7 +2,6 @@
 "use client";
 import React, { useMemo, useState } from 'react';
 import { BarChart3, Calendar, CheckCircle, Clock, Plus, AlertTriangle } from 'lucide-react';
-import AuthenticatedLayout from '@/components/layouts/AuthenticatedLayout';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
 import { SBCard, SBButton, SB_COLORS } from '@/components/ui/ui-primitives';
 import { useData } from '@/lib/dataprovider';
@@ -100,7 +99,7 @@ function PersonalDashboardContent() {
       const collectionsToSave: Partial<SantaData> = {};
 
       const updatedInteractions = data.interactions.map(i =>
-          i.id === taskId ? { ...i, status: 'done' as InteractionStatus, resultNote: payload.note } : i
+          i.id === taskId ? { ...i, status: 'done' as InteractionStatus, resultNote: (payload as any).note } : i
       );
       collectionsToSave.interactions = updatedInteractions;
 
@@ -111,7 +110,7 @@ function PersonalDashboardContent() {
               userId: currentUser.id,
               accountId: originalTask?.accountId,
               kind: 'OTRO', 
-              note: `Seguimiento de: ${payload.note}`,
+              note: `Seguimiento de: ${(payload as any).note}`,
               plannedFor: payload.nextActionDate,
               createdAt: new Date().toISOString(),
               dept: originalTask?.dept || 'VENTAS',
@@ -199,9 +198,9 @@ function PersonalDashboardContent() {
 
 export default function Page() {
   return (
-    <AuthenticatedLayout>
+    <>
       <ModuleHeader title="Dashboard Personal" icon={BarChart3} />
       <PersonalDashboardContent />
-    </AuthenticatedLayout>
+    </>
   );
 }
