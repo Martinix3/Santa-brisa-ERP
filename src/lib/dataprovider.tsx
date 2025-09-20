@@ -150,8 +150,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       const appUser = data.users.find((u) => u.email === fbUser.email);
       if (appUser) {
           const normalizedUser = { ...appUser, role: (appUser.role?.toLowerCase() || 'comercial') as UserRole };
-          setCurrentUser(normalizedUser);
-          return normalizedUser;
+          // Create a new object to ensure state update is detected by React
+          setCurrentUser({ ...normalizedUser });
+          return { ...normalizedUser };
       }
       return null;
     },
