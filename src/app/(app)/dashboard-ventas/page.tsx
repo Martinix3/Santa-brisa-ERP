@@ -7,17 +7,14 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { useData } from "@/lib/dataprovider";
 import { ModuleHeader } from "@/components/ui/ModuleHeader";
 import { SBCard, SBButton, SB_COLORS } from "@/components/ui/ui-primitives";
-import type { User as UserType, OrderSellOut, Account, Interaction, Task } from '@/domain/ssot';
+import type { User as UserType, OrderSellOut, Account, Interaction } from '@/domain/ssot';
 import { orderTotal, inWindow } from '@/domain/ssot';
 import { generateInsights } from "@/ai/flows/generate-insights-flow";
 import { Avatar } from "@/components/ui/Avatar";
-import { TaskBoard } from '@/features/agenda/TaskBoard';
 import { sbAsISO } from '@/features/agenda/helpers';
-
 
 const formatEur = (n: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
 const formatShortDate = (date: Date) => new Intl.DateTimeFormat('es-ES', { month: 'short', day: 'numeric' }).format(date);
-const dayOfWeek = (date: Date) => new Intl.DateTimeFormat('es-ES', { weekday: 'short' }).format(date);
 
 
 function KPI({label, value, icon: Icon}:{label:string; value:number|string; icon: React.ElementType}){
@@ -172,32 +169,71 @@ function CommercialsRace({ users, data }: { users: UserType[], data: any }) {
     )
 }
 
-function mapInteractionsToTasks(
-  interactions: Interaction[] | undefined,
-  accounts: Account[] | undefined
-): Task[] {
-  if (!interactions || !accounts) return [];
-  const accountMap = new Map(accounts.map((a) => [a.id, a.name]));
+type CategorizedTasks = {
+  overdue: Interaction[];
+  pending: Interaction[];
+  done: Interaction[];
+};
 
-  return interactions
-    .filter((i) => i?.plannedFor)
-    .map((i) => {
-      const plannedISO = sbAsISO(i.plannedFor!);
-      if (!plannedISO) return null;
-      return {
-        id: i.id,
-        title: i.note || `${i.kind}`,
-        type: i.dept || "VENTAS",
-        status: i.status || 'open',
-        date: plannedISO,
-        involvedUserIds: i.involvedUserIds,
-        location: i.location || accountMap.get(i.accountId || ''),
-        linkedEntity: i.linkedEntity,
-      } as Task;
-    })
-    .filter(Boolean) as Task[];
+function TeamTasks({ tasks, accounts, users }: { tasks: Interaction[], accounts: Account[], users: UserType[] }) {
+    const categorizedTasks = useMemo((): CategorizedTasks => {
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+
+        const openTasks = tasks.filter(t => t.status === 'open' && t.plannedFor);
+        
+        return {
+            overdue: openTasks.filter(t => new Date(t.plannedFor!) < now).sort((a, b) => +new Date(a.plannedFor!) - +new Date(b.plannedFor!)),
+            pending: openTasks.filter(t => new Date(t.plannedFor!) >= now).sort((a, b) => +new Date(a.plannedFor!) - +new Date(b.plannedFor!)),
+            done: tasks.filter(t => t.status === 'done').sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt)).slice(0, 10),
+        };
+    }, [tasks]);
+
+    const TaskList = ({ title, tasks, icon, color }: { title: string, tasks: Interaction[], icon: React.ElementType, color: string }) => {
+        const Icon = icon;
+        return (
+            <div>
+                <h3 className={`flex items-center gap-2 font-semibold text-sm mb-3 ${color}`}>
+                    <Icon size={16} /> {title} ({tasks.length})
+                </h3>
+                {tasks.length > 0 ? (
+                    <div className="space-y-2">
+                        {tasks.map(task => {
+                            const account = accounts.find(a => a.id === task.accountId);
+                            const assignedUsers = (task.involvedUserIds || []).map(id => users.find(u => u.id === id)).filter(Boolean) as UserType[];
+                            return (
+                                <div key={task.id} className="p-2 bg-white border rounded-lg text-xs">
+                                    <p className="font-medium text-zinc-800">{task.note}</p>
+                                    <div className="flex justify-between items-center mt-1 text-zinc-500">
+                                        <span>{account?.name || 'Sin cuenta'}</span>
+                                        <div className="flex items-center gap-2">
+                                            <span>{new Date(task.plannedFor!).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</span>
+                                            <div className="flex -space-x-1">
+                                                {assignedUsers.map(user => <Avatar key={user.id} name={user.name} size="sm" />)}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                ) : (
+                    <p className="text-xs text-center text-zinc-500 bg-zinc-50 py-4 rounded-lg">No hay tareas en esta categoría.</p>
+                )}
+            </div>
+        );
+    };
+
+    return (
+        <SBCard title="Tareas del Equipo de Ventas">
+            <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-6">
+                <TaskList title="Atrasadas" tasks={categorizedTasks.overdue} icon={AlertCircle} color="text-red-600" />
+                <TaskList title="Pendientes" tasks={categorizedTasks.pending} icon={Clock} color="text-blue-600" />
+                <TaskList title="Completadas (Recientes)" tasks={categorizedTasks.done} icon={Check} color="text-green-600" />
+            </div>
+        </SBCard>
+    );
 }
-
 
 function TeamDashboardContent() {
   const { data } = useData();
@@ -215,17 +251,20 @@ function TeamDashboardContent() {
     let interval: 'day' | 'month' = 'day';
 
     if (timeRange === 'week') {
-        startDate.setDate(now.getDate() - 7);
+        startDate.setDate(now.getDate() - (now.getDay() - 1)); // Start of week (Monday)
+        interval = 'day';
     } else if (timeRange === 'month') {
         startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        interval = 'day';
     } else { // year
         startDate = new Date(now.getFullYear(), 0, 1);
         interval = 'month';
     }
+    startDate.setHours(0,0,0,0);
+
 
     const ordersInPeriod = data.ordersSellOut.filter(o => inWindow(o.createdAt, startDate, now));
     
-    // Group sales by interval
     const salesByInterval: {[key: string]: number} = {};
     for (const order of ordersInPeriod) {
         const orderDate = new Date(order.createdAt);
@@ -237,8 +276,16 @@ function TeamDashboardContent() {
         }
         salesByInterval[key] = (salesByInterval[key] || 0) + orderTotal(order);
     }
-
-    const salesEvolutionData = Object.entries(salesByInterval).map(([name, sales]) => ({ name, sales })).reverse();
+    
+    let salesEvolutionData;
+    if (interval === 'day' && timeRange === 'week') {
+        salesEvolutionData = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'].map(day => {
+            const dateKey = Object.keys(salesByInterval).find(k => new Date(k + ' ' + now.getFullYear()).toLocaleString('es-ES', {weekday: 'short'}).startsWith(day.substring(0,2)));
+            return { name: day, sales: dateKey ? salesByInterval[dateKey] : 0 };
+        });
+    } else {
+        salesEvolutionData = Object.entries(salesByInterval).map(([name, sales]) => ({ name, sales })).reverse();
+    }
 
 
     const totalNewAccounts = data.accounts.filter(a => inWindow(a.createdAt, startDate, now)).length;
@@ -254,7 +301,7 @@ function TeamDashboardContent() {
 
   const salesTasks = useMemo(() => {
     if (!data) return [];
-    return mapInteractionsToTasks(data.interactions.filter(i => i.dept === 'VENTAS'), data.accounts);
+    return data.interactions.filter(i => i.dept === 'VENTAS');
   }, [data]);
   
   const handleGenerateInsights = async () => {
@@ -338,12 +385,7 @@ function TeamDashboardContent() {
         </div>
 
         <div>
-            <h2 className="text-xl font-semibold text-zinc-800 mb-4">Tareas del Equipo de Ventas</h2>
-            <TaskBoard
-                tasks={salesTasks}
-                onTaskStatusChange={() => {}} // This would trigger a modal or action
-                onCompleteTask={() => {}} // This would trigger a modal or action
-            />
+            {data && <TeamTasks tasks={salesTasks} accounts={data.accounts} users={data.users} />}
         </div>
     </div>
   );
@@ -359,3 +401,5 @@ export default function SalesDashboardPage() {
         </>
     )
 }
+
+    
