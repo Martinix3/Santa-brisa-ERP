@@ -1,57 +1,72 @@
 
 // src/features/production/ssot-bridge.ts
-import { MemoryAdapter } from '@/domain/ssot.helpers';
-import type { BillOfMaterial, Material, ProductionOrder, Lot } from '@/domain/ssot';
+import { collection, getDocs } from "firebase/firestore";
+import { db } from "@/lib/firebaseClient";
+import type { BillOfMaterial, Material, ProductionOrder, Lot, Creator, InfluencerCollab, EventMarketing, OnlineCampaign } from '@/domain/ssot';
 
-// Usamos un adaptador en memoria, pero las funciones podrían
-// en el futuro apuntar a Firestore o una API sin cambiar la firma.
-const adapter = new MemoryAdapter();
-
-export async function listBoms(): Promise<BillOfMaterial[]> {
-  return adapter.getBoms();
+async function listCollection<T>(name: string): Promise<T[]> {
+  const querySnapshot = await getDocs(collection(db, name));
+  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as T));
 }
 
-// Para la página de BOM, necesitamos la lista de recetas (que son BOMs)
+export async function listBoms(): Promise<BillOfMaterial[]> {
+  return listCollection<BillOfMaterial>('billOfMaterials');
+}
+
 export async function listRecipes(): Promise<BillOfMaterial[]> {
-    return adapter.getBoms();
+    return listBoms();
 }
 
 export async function listMaterials(): Promise<Material[]> {
-  return adapter.getMaterials();
+  return listCollection<Material>('materials');
 }
 
 export async function listProductionOrders(): Promise<ProductionOrder[]> {
-  return adapter.getProductionOrders();
+  return listCollection<ProductionOrder>('productionOrders');
 }
 
 export async function listLots(): Promise<Lot[]> {
-  return adapter.getLots();
+  return listCollection<Lot>('lots');
 }
 
 export async function getTrace(lotId: string) {
-    return adapter.getLotTrace(lotId);
+    // This function needs a more complex implementation, likely on the server side.
+    // For now, it returns an empty object as a placeholder.
+    console.warn("getTrace is not fully implemented on the client-side bridge yet.");
+    return {};
 }
 
 export async function updateMaterial(id: string, patch: Partial<Material>): Promise<Material> {
-    console.log("Pretending to update material", id, patch);
-    const materials = await adapter.getMaterials();
-    const mat = materials.find(m => m.id === id);
-    if (!mat) throw new Error("Material not found");
-    const updated = { ...mat, ...patch };
-    // En una app real, aquí se guardaría en la base de datos.
-    // Por ahora, solo devolvemos el objeto actualizado.
-    return updated;
+    console.warn("updateMaterial is not implemented on the client-side bridge yet.");
+    return { id, sku: '', name: 'Updated Material', category: 'raw', ...patch };
 }
 
-// Funciones placeholder para creación/actualización en la página de BOMs
 export async function createRecipe(recipe: BillOfMaterial): Promise<void> {
-    await adapter.createRecipe(recipe);
+    console.warn("createRecipe is not implemented on the client-side bridge yet.");
 }
 
 export async function updateRecipe(id: string, patch: Partial<BillOfMaterial>): Promise<void> {
-    await adapter.updateRecipe(id, patch);
+    console.warn("updateRecipe is not implemented on the client-side bridge yet.");
 }
 
 export async function deleteRecipe(id: string): Promise<void> {
-    await adapter.deleteRecipe(id);
+    console.warn("deleteRecipe is not implemented on the client-side bridge yet.");
+}
+
+// Marketing functions that were in duplicated files
+export async function listEvents(): Promise<EventMarketing[]> {
+  return listCollection<EventMarketing>('mktEvents');
+}
+
+export async function listOnlineCampaigns(): Promise<OnlineCampaign[]> {
+  return listCollection<OnlineCampaign>('onlineCampaigns');
+}
+
+// Influencer functions that were in duplicated files
+export async function listCreators(): Promise<Creator[]> {
+  return listCollection<Creator>('creators');
+}
+
+export async function listCollabs(): Promise<InfluencerCollab[]> {
+  return listCollection<InfluencerCollab>('influencerCollabs');
 }

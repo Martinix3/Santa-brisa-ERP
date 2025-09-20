@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
@@ -112,13 +113,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     
     if (firebaseUser && data.users) {
       console.log(`[DataProvider] Auth ready. Trying to find app user for Firebase user: ${firebaseUser.email}`);
-      const foundUser = data.users.find(u => u.email === firebaseUser.email);
-      if (foundUser) {
-        console.log(`[DataProvider] App user found: ${foundUser.name}. Setting as currentUser.`);
-        userToSet = { ...foundUser, role: (foundUser.role?.toLowerCase() || 'comercial') as UserRole };
+      userToSet = data.users.find(u => u.email === firebaseUser.email) || null;
+      if(userToSet) {
+          console.log(`[DataProvider] App user found: ${userToSet.name}. Setting as currentUser.`);
+          userToSet = { ...userToSet, role: (userToSet.role?.toLowerCase() || 'comercial') as UserRole };
       } else {
-         console.warn(`[DataProvider] Firebase user ${firebaseUser.email} not found in local data.users array.`);
+          console.warn(`[DataProvider] Firebase user ${firebaseUser.email} not found in local data.users array.`);
       }
+    } else {
+        console.log('[DataProvider] No Firebase user.');
     }
     
     setCurrentUser(userToSet);
