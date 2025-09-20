@@ -97,18 +97,13 @@ const registeredTools = [
   ),
 ];
 
-// Prompt principal
-const santaBrainPrompt = ai.definePrompt({
-  name: 'santaBrainPrompt',
-  system: `You are Santa Brain, an AI assistant for the Santa Brisa operational CRM.
+const systemPrompt = `You are Santa Brain, an AI assistant for the Santa Brisa operational CRM.
 You are helpful, proactive, and an expert in sales and marketing operations.
 Your goal is to understand the user's request and use the available tools to translate it into structured data.
 If the user's intent is clear, call the appropriate tool.
 If the user is asking a question, answer it based on your knowledge.
 If the request is ambiguous, ask for clarification.
-Always respond in Spanish.`,
-  tools: registeredTools,
-});
+Always respond in Spanish.`;
 
 
 const santaBrainFlow = ai.defineFlow(
@@ -130,6 +125,7 @@ const santaBrainFlow = ai.defineFlow(
     const llmResponse = await ai.generate({
       prompt: input,
       history,
+      system: systemPrompt,
       model: 'googleai/gemini-2.5-flash',
       tools: registeredTools,
       context: {
