@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
@@ -46,7 +45,7 @@ const emailToName = (email: string) =>
 
 // --------- Provider ----------
 export function DataProvider({ children }: { children: React.ReactNode }) {
-  const [data, setData] = useState<SantaData | null>(INITIAL_MOCK_DATA);
+  const [data, setData] = useState<SantaData | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<import("firebase/auth").User | null>(null);
   const [authReady, setAuthReady] = useState(false);
@@ -80,26 +79,25 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         }
 
         if (isPersistenceEnabled) {
+            setData(null); // Set to null to show loading state
             try {
                 const [firestoreData, report] = await loadAllCollections();
                 if (report.totalDocs > 0) {
                     setData(firestoreData);
                 } else {
+                    console.warn("[DataProvider] Firestore is empty or failed to load, using mock data.");
                     setData(INITIAL_MOCK_DATA);
                 }
             } catch (e) {
                 console.error("[DataProvider] Failed to load Firestore data, using mock data:", e);
                 setData(INITIAL_MOCK_DATA);
             }
+        } else {
+            setData(INITIAL_MOCK_DATA);
         }
     }
     
-    // Only run this if persistence is toggled ON
-    if (isPersistenceEnabled) {
-        loadInitialData();
-    } else {
-        setData(INITIAL_MOCK_DATA); // Reset to mock data if persistence is turned off
-    }
+    loadInitialData();
   }, [isPersistenceEnabled]);
 
   // Handle auth state changes
@@ -280,7 +278,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [data, currentUser, authReady, saveCollection, saveAllCollections, login, loginWithEmail, signupWithEmail, logout, togglePersistence, isPersistenceEnabled, setCurrentUserById]
   );
 
-  if (!data) {
+  if (!authReady || !data) {
     return (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-white/80 backdrop-blur-sm">
             <div className="flex flex-col items-center gap-4">
@@ -302,3 +300,5 @@ export function useData() {
   if (!ctx) throw new Error("useData must be used within a DataProvider");
   return ctx;
 }
+
+    
