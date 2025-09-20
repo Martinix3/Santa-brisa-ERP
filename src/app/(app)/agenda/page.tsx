@@ -1,11 +1,12 @@
 
 "use client";
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
-import React from 'react';
-import { CalendarPageContent } from '@/features/agenda/components/CalendarPageContent';
-
-export default function CalendarPage() {
-  return (
-      <CalendarPageContent />
-  );
+export default function AgendaRootPage() {
+  const router = useRouter();
+  useEffect(() => {
+    router.replace('/agenda/calendar');
+  }, [router]);
+  return null; // O un componente de carga
 }
