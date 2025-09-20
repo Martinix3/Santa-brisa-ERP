@@ -1,3 +1,4 @@
+
 // src/features/agenda/components/CalendarPageContent.tsx
 "use client";
 import React, { useMemo, useState, useEffect } from "react";
@@ -218,7 +219,7 @@ export function CalendarPageContent() {
               headerToolbar={{ left: "prev,next today", center: "title", right: "dayGridMonth,timeGridWeek,timeGridDay,listYear" }}
               events={calendarEvents as any}
               eventClick={handleEventClick}
-              editable={!!isPersistenceEnabled}
+              editable={isPersistenceEnabled}
               eventDrop={handleEventDrop}
               eventContent={(arg: EventContentArg) => {
                 const { type, status } = (arg.event.extendedProps as any);
