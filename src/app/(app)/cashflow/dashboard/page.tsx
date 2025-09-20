@@ -169,7 +169,7 @@ export default function CashflowDashboardPage() {
                             <p className="font-bold text-lg">€35,100</p>
                         </div>
                         <div className="flex justify-between items-center text-red-600">
-                            <p>Vencido (>30d)</p>
+                            <p>Vencido ({'>'}30d)</p>
                             <p className="font-bold">€4,500</p>
                         </div>
                          <Link href="/cashflow/collections" className="text-sm font-semibold text-zinc-700 hover:text-zinc-900 flex items-center gap-1">
