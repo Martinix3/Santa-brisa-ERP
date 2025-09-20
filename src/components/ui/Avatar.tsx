@@ -3,18 +3,18 @@
 
 function stringToColor(seed: string) {
     if (!seed) return `hsl(220 40% 85%)`;
-    let h = 0;
-    // Simple hash function
+    let hash = 0;
     for (let i = 0; i < seed.length; i++) {
-        h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+        hash = seed.charCodeAt(i) + ((hash << 5) - hash);
+        hash |= 0; // Ensure 32-bit integer
     }
 
-    const hue = h % 360;
-    // Use different parts of the hash to vary saturation and lightness
-    const saturation = 40 + (h % 21); // Range: 40% to 60%
-    const lightness = 80 + (h % 11);  // Range: 80% to 90%
+    const hue = hash % 360;
+    // Increased range for more vibrant and varied colors
+    const saturation = 50 + (hash % 25); // Range: 50% to 75%
+    const lightness = 75 + (hash % 15);  // Range: 75% to 90%
     
-    return `hsl(${hue} ${saturation}% ${lightness}%)`;
+    return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 }
   
 export function Avatar({ name, size = 'md' }: { name?: string, size?: 'sm' | 'md' | 'lg' }) {
