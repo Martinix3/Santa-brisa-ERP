@@ -1,7 +1,7 @@
 
 "use client";
-import React, { useMemo, useState, useEffect } from "react";
-import { BarChart3, Target, Users, Briefcase, BrainCircuit, UserPlus, MoreHorizontal, Check, AlertCircle, Clock, PieChart as PieChartIcon } from "lucide-react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
+import { BarChart3, Target, Users, Briefcase, BrainCircuit, UserPlus, MoreHorizontal, Check, AlertCircle, Clock, PieChart as PieChartIcon, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Bar, PieChart, Pie, Cell, Legend } from 'recharts';
 import { useData } from "@/lib/dataprovider";
@@ -35,93 +35,64 @@ function KPI({label, value, icon: Icon}:{label:string; value:number|string; icon
 
 type TimeRange = 'week' | 'month' | 'year';
 
-function SalesReportTable({ users, data, timeRange }: { users: UserType[], data: any, timeRange: TimeRange }) {
-    const reportData = useMemo(() => {
-        if (!data || !users) return { totals: { activeAccounts: 0, newAccounts: 0, newOrders: 0, totalEUR: 0 }, byUser: [] };
-        
-        const now = new Date();
-        let startDate = new Date();
-        if (timeRange === 'week') {
-            startDate.setDate(now.getDate() - 7);
-        } else if (timeRange === 'month') {
-            startDate.setDate(1);
-            startDate.setHours(0,0,0,0);
-        } else { // year
-            startDate = new Date(now.getFullYear(), 0, 1);
-        }
+type UserReportData = {
+    id: string;
+    name: string;
+    activeAccounts: number;
+    newAccounts: number;
+    newOrders: number;
+    totalEUR: number;
+    avgTicket: number;
+    conversionRate: number;
+};
 
-        const totals = {
-            activeAccounts: data.accounts.filter((a: Account) => a.stage === 'ACTIVA').length,
-            newAccounts: data.accounts.filter((a: Account) => inWindow(a.createdAt, startDate, now)).length,
-            newOrders: data.ordersSellOut.filter((o: OrderSellOut) => inWindow(o.createdAt, startDate, now)).length,
-            totalEUR: data.ordersSellOut.filter((o: OrderSellOut) => inWindow(o.createdAt, startDate, now)).reduce((sum: number, o: OrderSellOut) => sum + orderTotal(o), 0),
-        };
+type UserReportPopoverProps = {
+    userReport: UserReportData | null;
+    onClose: () => void;
+    anchorEl: HTMLElement | null;
+    timeRange: TimeRange;
+};
 
-        const byUser = users.map(user => {
-            const userAccounts = data.accounts.filter((a: Account) => a.ownerId === user.id);
-            const userAccountIds = new Set(userAccounts.map((a:Account) => a.id));
-            const userOrders = data.ordersSellOut.filter((o: OrderSellOut) => userAccountIds.has(o.accountId));
-            
-            const ordersInPeriod = userOrders.filter((o: OrderSellOut) => inWindow(o.createdAt, startDate, now));
-            const totalSales = ordersInPeriod.reduce((sum: number, o: OrderSellOut) => sum + orderTotal(o), 0);
-            
-            return {
-                id: user.id,
-                name: user.name,
-                activeAccounts: userAccounts.filter((a: Account) => a.stage === 'ACTIVA').length,
-                newAccounts: userAccounts.filter((a: Account) => inWindow(a.createdAt, startDate, now)).length,
-                newOrders: ordersInPeriod.length,
-                totalEUR: totalSales,
-                avgTicket: ordersInPeriod.length > 0 ? totalSales / ordersInPeriod.length : 0,
-                conversionRate: userAccounts.length > 0 ? (new Set(userOrders.map((o: OrderSellOut) => o.accountId)).size / userAccounts.length) * 100 : 0
+function UserReportPopover({ userReport, onClose, anchorEl, timeRange }: UserReportPopoverProps) {
+    const popoverRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (popoverRef.current && !popoverRef.current.contains(event.target as Node)) {
+                onClose();
             }
-        });
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [onClose]);
 
-        return { totals, byUser };
-    }, [users, data, timeRange]);
+    if (!userReport || !anchorEl) return null;
 
-
-    const headers = ['Comercial', 'Cuentas Activas', `Nuevas Cuentas (${timeRange})`, `Pedidos (${timeRange})`, `Ventas (${timeRange})`, 'Ticket Medio', 'Tasa Conversión'];
+    const rect = anchorEl.getBoundingClientRect();
+    const popoverStyle = {
+        top: `${rect.bottom + window.scrollY + 8}px`,
+        left: `${rect.left + window.scrollX}px`,
+    };
 
     return (
-        <SBCard title={`Informe de Rendimiento del Equipo (${timeRange === 'week' ? 'Semanal' : timeRange === 'month' ? 'Mensual' : 'Anual'})`}>
-            <div className="overflow-auto">
-                <table className="w-full text-sm text-left">
-                    <thead className="bg-zinc-50">
-                        <tr>
-                            {headers.map(h => <th key={h} className="px-4 py-2 text-xs font-semibold uppercase text-zinc-500 tracking-wider">{h}</th>)}
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-zinc-100">
-                        {reportData.byUser.map(row => (
-                            <tr key={row.id}>
-                                <td className="px-4 py-3 font-medium">{row.name}</td>
-                                <td className="px-4 py-3 text-center">{row.activeAccounts}</td>
-                                <td className="px-4 py-3 text-center">{row.newAccounts}</td>
-                                <td className="px-4 py-3 text-center">{row.newOrders}</td>
-                                <td className="px-4 py-3 text-right">{formatEur(row.totalEUR)}</td>
-                                <td className="px-4 py-3 text-right">{formatEur(row.avgTicket)}</td>
-                                <td className="px-4 py-3 text-center">{row.conversionRate.toFixed(1)}%</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                    <tfoot className="bg-zinc-100 font-bold">
-                        <tr>
-                            <td className="px-4 py-3">Total Equipo</td>
-                            <td className="px-4 py-3 text-center">{reportData.totals.activeAccounts}</td>
-                            <td className="px-4 py-3 text-center">{reportData.totals.newAccounts}</td>
-                            <td className="px-4 py-3 text-center">{reportData.totals.newOrders}</td>
-                            <td className="px-4 py-3 text-right">{formatEur(reportData.totals.totalEUR)}</td>
-                            <td colSpan={2}></td>
-                        </tr>
-                    </tfoot>
-                </table>
+        <div ref={popoverRef} style={popoverStyle} className="fixed z-10 w-80 bg-white border rounded-xl shadow-lg p-4">
+            <div className="flex justify-between items-center mb-2">
+                <h4 className="font-semibold text-zinc-800">{userReport.name}</h4>
+                <button onClick={onClose} className="p-1 rounded-full hover:bg-zinc-100"><X size={16}/></button>
             </div>
-        </SBCard>
+            <div className="space-y-1 text-sm">
+                 <div className="flex justify-between"><span className="text-zinc-500">Cuentas Activas:</span> <span className="font-medium">{userReport.activeAccounts}</span></div>
+                 <div className="flex justify-between"><span className="text-zinc-500">Nuevas Cuentas ({timeRange}):</span> <span className="font-medium">{userReport.newAccounts}</span></div>
+                 <div className="flex justify-between"><span className="text-zinc-500">Pedidos ({timeRange}):</span> <span className="font-medium">{userReport.newOrders}</span></div>
+                 <div className="flex justify-between"><span className="text-zinc-500">Ventas ({timeRange}):</span> <span className="font-medium">{formatEur(userReport.totalEUR)}</span></div>
+                 <div className="flex justify-between"><span className="text-zinc-500">Ticket Medio:</span> <span className="font-medium">{formatEur(userReport.avgTicket)}</span></div>
+                 <div className="flex justify-between"><span className="text-zinc-500">Tasa Conversión:</span> <span className="font-medium">{userReport.conversionRate.toFixed(1)}%</span></div>
+            </div>
+        </div>
     );
 }
 
-function CommercialsRace({ users, data }: { users: UserType[], data: any }) {
+function CommercialsRace({ users, data, onUserClick }: { users: UserType[], data: any, onUserClick: (report: UserReportData, target: HTMLElement) => void }) {
     const goal = 70;
     
     const raceData = useMemo(() => {
@@ -131,11 +102,31 @@ function CommercialsRace({ users, data }: { users: UserType[], data: any }) {
         
         return users.map(user => {
             const newAccounts = data.accounts.filter((a: Account) => a.ownerId === user.id && inWindow(a.createdAt, startOfYear, new Date())).length;
+            
+            // Generate report data for this user to be passed on click
+            const userAccounts = data.accounts.filter((a: Account) => a.ownerId === user.id);
+            const userAccountIds = new Set(userAccounts.map((a:Account) => a.id));
+            const userOrders = data.ordersSellOut.filter((o: OrderSellOut) => userAccountIds.has(o.accountId));
+            const ordersInPeriod = userOrders.filter((o: OrderSellOut) => inWindow(o.createdAt, startOfYear, new Date()));
+            const totalSales = ordersInPeriod.reduce((sum: number, o: OrderSellOut) => sum + orderTotal(o), 0);
+            
+            const report: UserReportData = {
+                id: user.id,
+                name: user.name,
+                activeAccounts: userAccounts.filter((a: Account) => a.stage === 'ACTIVA').length,
+                newAccounts: newAccounts,
+                newOrders: ordersInPeriod.length,
+                totalEUR: totalSales,
+                avgTicket: ordersInPeriod.length > 0 ? totalSales / ordersInPeriod.length : 0,
+                conversionRate: userAccounts.length > 0 ? (new Set(userOrders.map((o: OrderSellOut) => o.accountId)).size / userAccounts.length) * 100 : 0
+            };
+
             return {
                 id: user.id,
                 name: user.name,
                 newAccounts,
-                percentage: Math.min(100, (newAccounts / goal) * 100)
+                percentage: Math.min(100, (newAccounts / goal) * 100),
+                report
             }
         }).sort((a, b) => b.newAccounts - a.newAccounts);
 
@@ -145,11 +136,11 @@ function CommercialsRace({ users, data }: { users: UserType[], data: any }) {
         <SBCard title="Carrera de Cuentas (Anual)">
             <div className="p-4 space-y-4">
                 {raceData.map(user => (
-                    <div key={user.id} className="space-y-1">
+                    <button key={user.id} onClick={(e) => onUserClick(user.report, e.currentTarget)} className="w-full text-left space-y-1 group">
                         <div className="flex justify-between items-center text-sm">
                             <div className="flex items-center gap-2">
                                 <Avatar name={user.name} size="md" />
-                                <span className="font-medium">{user.name}</span>
+                                <span className="font-medium group-hover:text-sb-cobre">{user.name}</span>
                             </div>
                             <span className="font-semibold">{user.newAccounts} / {goal}</span>
                         </div>
@@ -162,7 +153,7 @@ function CommercialsRace({ users, data }: { users: UserType[], data: any }) {
                                 transition={{ duration: 1.2, ease: "easeOut" }}
                             />
                         </div>
-                    </div>
+                    </button>
                 ))}
             </div>
         </SBCard>
@@ -305,6 +296,8 @@ function TeamDashboardContent() {
   const [timeRange, setTimeRange] = useState<TimeRange>('month');
   const [insights, setInsights] = useState("");
   const [loadingInsights, setLoadingInsights] = useState(false);
+  const [selectedUserReport, setSelectedUserReport] = useState<UserReportData | null>(null);
+  const [popoverAnchor, setPopoverAnchor] = useState<HTMLElement | null>(null);
 
   const users = useMemo(() => data?.users.filter((u: UserType) => u.role === 'comercial' || u.role === 'owner') || [], [data]);
   
@@ -392,6 +385,11 @@ function TeamDashboardContent() {
         setLoadingInsights(false);
     }
   };
+  
+  const handleUserClick = (report: UserReportData, target: HTMLElement) => {
+    setSelectedUserReport(report);
+    setPopoverAnchor(target);
+  };
 
   return (
     <div className="space-y-6">
@@ -440,19 +438,21 @@ function TeamDashboardContent() {
             </div>
         </SBCard>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2">
-                 {data && <SalesReportTable users={users} data={data} timeRange={timeRange}/>}
-            </div>
-            <div className="space-y-6">
-                <CommercialsRace users={users} data={data} />
-                <SalesMixDonutChart data={data} timeRange={timeRange} />
-            </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <CommercialsRace users={users} data={data} onUserClick={handleUserClick} />
+            <SalesMixDonutChart data={data} timeRange={timeRange} />
         </div>
 
         <div>
             {data && <TeamTasks tasks={salesTasks} accounts={data.accounts} users={data.users} />}
         </div>
+        
+        <UserReportPopover 
+            userReport={selectedUserReport} 
+            onClose={() => setSelectedUserReport(null)}
+            anchorEl={popoverAnchor}
+            timeRange={timeRange}
+        />
     </div>
   );
 }
@@ -467,5 +467,3 @@ export default function SalesDashboardPage() {
         </>
     )
 }
-
-    
