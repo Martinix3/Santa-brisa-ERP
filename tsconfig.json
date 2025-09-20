@@ -1,11 +1,14 @@
 {
   "compilerOptions": {
     "target": "ES2023",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "jsx": "preserve",
-
     "strict": true,
     "skipLibCheck": true,
     "noEmit": true,
@@ -14,14 +17,24 @@
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "verbatimModuleSyntax": true,
-
     "baseUrl": ".",
-    "paths": { "@/*": ["src/*"] },
-
+    "paths": {
+      "@/*": [
+        "src/*"
+      ]
+    },
     /** 👇 CLAVES PARA CORTAR EL PROBLEMA */
-    "types": [],                         // <- no hereda tipos “globales”
-    "typeRoots": ["./node_modules/@types"], // <- no mira fuera del repo
-    "plugins": [{ "name": "next" }]
+    "types": [], // <- no hereda tipos “globales”
+    "typeRoots": [
+      "./node_modules/@types"
+    ], // <- no mira fuera del repo
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "allowJs": true,
+    "incremental": true
   },
   "include": [
     "next-env.d.ts",
@@ -31,5 +44,7 @@
     "**/*.ts",
     "**/*.tsx"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules"
+  ]
 }
