@@ -36,14 +36,13 @@ function CollectionSelector({ collections, active, onSelect, santaData }: {
     )
 }
 
-function DataViewerContent() {
+export default function DataViewerPage() {
     const { data: santaData } = useData();
     const searchParams = useSearchParams();
     const router = useRouter();
 
     const collections = SANTA_DATA_COLLECTIONS.filter(c => c !== 'activations');
     
-    // Directamente leer de la URL o usar un valor por defecto.
     const activeCollection: keyof SantaData = (searchParams.get('collection') as keyof SantaData) || collections[0] as keyof SantaData;
     
     const handleSelectCollection = (collectionName: string) => {
@@ -60,30 +59,24 @@ function DataViewerContent() {
     }
 
     return (
-        <div className="bg-white rounded-2xl border shadow-sm overflow-hidden h-full flex flex-col">
-            <CollectionSelector 
-                collections={collections} 
-                active={activeCollection} 
-                onSelect={handleSelectCollection}
-                santaData={santaData}
-            />
-            <div className="p-4 flex-grow min-h-0">
-                <textarea
-                    readOnly
-                    value={JSON.stringify(activeData, null, 2)}
-                    className="w-full h-full p-4 font-mono text-xs bg-zinc-50 border rounded-lg whitespace-pre"
-                />
-            </div>
-        </div>
-    );
-}
-
-export default function DataViewerPage() {
-    return (
         <div className="h-full flex flex-col">
             <ModuleHeader title="Data Viewer" icon={Database} />
             <div className="flex-grow p-4 md:p-6 min-h-0">
-                <DataViewerContent />
+                <div className="bg-white rounded-2xl border shadow-sm overflow-hidden h-full flex flex-col">
+                    <CollectionSelector 
+                        collections={collections} 
+                        active={activeCollection} 
+                        onSelect={handleSelectCollection}
+                        santaData={santaData}
+                    />
+                    <div className="p-4 flex-grow min-h-0">
+                        <textarea
+                            readOnly
+                            value={JSON.stringify(activeData, null, 2)}
+                            className="w-full h-full p-4 font-mono text-xs bg-zinc-50 border rounded-lg whitespace-pre"
+                        />
+                    </div>
+                </div>
             </div>
         </div>
     );
