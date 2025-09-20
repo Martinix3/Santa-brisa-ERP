@@ -1,13 +1,13 @@
 
 "use client";
 import React, { useMemo, useState, useEffect } from "react";
-import { BarChart3, Target, Users, Briefcase, BrainCircuit, UserPlus, MoreHorizontal, Check, AlertCircle, Clock } from "lucide-react";
+import { BarChart3, Target, Users, Briefcase, BrainCircuit, UserPlus, MoreHorizontal, Check, AlertCircle, Clock, PieChart as PieChartIcon } from "lucide-react";
 import { motion } from "framer-motion";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Bar } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Bar, PieChart, Pie, Cell, Legend } from 'recharts';
 import { useData } from "@/lib/dataprovider";
 import { ModuleHeader } from "@/components/ui/ModuleHeader";
 import { SBCard, SBButton, SB_COLORS } from "@/components/ui/ui-primitives";
-import type { User as UserType, OrderSellOut, Account, Interaction } from '@/domain/ssot';
+import type { User as UserType, OrderSellOut, Account, Interaction, Product } from '@/domain/ssot';
 import { orderTotal, inWindow } from '@/domain/ssot';
 import { generateInsights } from "@/ai/flows/generate-insights-flow";
 import { Avatar } from "@/components/ui/Avatar";
@@ -167,6 +167,71 @@ function CommercialsRace({ users, data }: { users: UserType[], data: any }) {
             </div>
         </SBCard>
     )
+}
+
+function SalesMixDonutChart({ data, timeRange }: { data: any, timeRange: TimeRange }) {
+    const salesMix = useMemo(() => {
+        if (!data) return [];
+        const now = new Date();
+        let startDate = new Date();
+
+        if (timeRange === 'week') startDate.setDate(now.getDate() - 7);
+        else if (timeRange === 'month') startDate.setDate(1);
+        else startDate = new Date(now.getFullYear(), 0, 1);
+        startDate.setHours(0,0,0,0);
+
+        const ordersInPeriod = data.ordersSellOut.filter((o: OrderSellOut) => inWindow(o.createdAt, startDate, now));
+        
+        const mix: { [sku: string]: { name: string, value: number } } = {};
+
+        for (const order of ordersInPeriod) {
+            for (const line of order.lines) {
+                if (!mix[line.sku]) {
+                    const product = data.products.find((p: Product) => p.sku === line.sku);
+                    mix[line.sku] = { name: product?.name || line.sku, value: 0 };
+                }
+                mix[line.sku].value += line.priceUnit * line.qty;
+            }
+        }
+        
+        return Object.values(mix).filter(item => item.value > 0).sort((a,b) => b.value - a.value);
+    }, [data, timeRange]);
+
+    const COLORS = ['#F7D15F', '#D7713E', '#618E8F', '#A7D8D9', '#FFEAA6', '#F2A678'];
+
+    if (salesMix.length === 0) {
+        return <SBCard title="Mix de Ventas"><p className="p-4 text-center text-sm text-zinc-500">No hay datos de ventas para este período.</p></SBCard>
+    }
+
+    return (
+        <SBCard title={`Mix de Ventas (${timeRange})`}>
+            <div className="w-full h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                        <Pie
+                            data={salesMix}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={60}
+                            outerRadius={80}
+                            fill="#8884d8"
+                            paddingAngle={5}
+                            dataKey="value"
+                            nameKey="name"
+                            label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                            labelLine={false}
+                        >
+                            {salesMix.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                            ))}
+                        </Pie>
+                        <Tooltip formatter={(value: number) => formatEur(value)} />
+                        <Legend iconType="circle" />
+                    </PieChart>
+                </ResponsiveContainer>
+            </div>
+        </SBCard>
+    );
 }
 
 type CategorizedTasks = {
@@ -379,8 +444,9 @@ function TeamDashboardContent() {
             <div className="lg:col-span-2">
                  {data && <SalesReportTable users={users} data={data} timeRange={timeRange}/>}
             </div>
-            <div>
-                 <CommercialsRace users={users} data={data} />
+            <div className="space-y-6">
+                <CommercialsRace users={users} data={data} />
+                <SalesMixDonutChart data={data} timeRange={timeRange} />
             </div>
         </div>
 
