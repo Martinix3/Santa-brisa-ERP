@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import type { InfluencerCollab, Platform, Tier, Deliverable, CompType } from "@/domain/ssot";
 import { listCollabs, listCreators } from "@/features/production/ssot-bridge";
+import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog";
 
 type InfStatus = InfluencerCollab['status'];
 
@@ -65,32 +66,6 @@ function isoPlusDays(d: number) {
 }
 
 // =============== Modales (crear/editar, registrar resultados) ===============
-function BaseSheet({ open, onClose, title, children, components }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode; components: any; }) {
-  if (!open) return null;
-  const { waterHeader, hexToRgba, AgaveEdge, SB_COLORS } = components;
-  return (
-    <AnimatePresence>
-      <motion.div className="fixed inset-0 z-50" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-        <div className="absolute inset-0 bg-black/10" onClick={onClose} />
-        <motion.div
-          role="dialog"
-          aria-modal="true"
-          className="absolute right-2 top-2 bottom-2 w-[92vw] max-w-xl rounded-2xl border border-zinc-200 bg-white shadow-xl overflow-hidden"
-          initial={{ x: 24, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 24, opacity: 0 }}
-          transition={{ type: "spring", stiffness: 260, damping: 24 }}
-        >
-          <div className="relative border-b" style={{ background: waterHeader("influ:"+title, SB_COLORS.marketing), borderColor: hexToRgba(SB_COLORS.marketing, 0.18) }}>
-            <div className="px-4 py-2.5 text-sm font-medium text-zinc-800 flex items-center gap-2"><Sparkles className="h-4 w-4" />{title}</div>
-            <div className="absolute left-0 right-0 -bottom-px"><AgaveEdge /></div>
-            <button onClick={onClose} className="absolute right-2 top-2 p-2 rounded-md hover:bg-white/60" aria-label="Cerrar"><X className="h-4 w-4" /></button>
-          </div>
-          <div className="p-4 overflow-auto h-full">{children}</div>
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
-  );
-}
-
 function CollabForm({
   defaults,
   onSubmit,
@@ -207,11 +182,6 @@ function CollabForm({
       </div>
 
       <div><label className="text-xs text-zinc-600">Notas</label><Textarea rows={3} value={notes} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNotes(e.target.value)} placeholder="Bajada creativa, referencias, aprobaciones…" /></div>
-
-      <div className="flex justify-end gap-2">
-        <button onClick={onCancel} className="px-3 py-2 text-sm rounded-lg border border-zinc-300 bg-white hover:bg-zinc-50">Cancelar</button>
-        <button onClick={submit} className="px-3 py-2 text-sm rounded-lg bg-[#F7D15F] text-zinc-900 hover:brightness-95">Guardar</button>
-      </div>
     </div>
   );
 }
@@ -277,11 +247,6 @@ function ResultsForm({
           <div><label className="text-xs text-zinc-600">Cash</label><Input type="number" value={cashPaid} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCash(+e.target.value)} /></div>
           <div><label className="text-xs text-zinc-600">Otros</label><Input type="number" value={otherCost} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOC(+e.target.value)} /></div>
         </div>
-      </div>
-
-      <div className="flex justify-end gap-2">
-        <button onClick={onCancel} className="px-3 py-2 text-sm rounded-lg border border-zinc-300 bg-white hover:bg-zinc-50">Cancelar</button>
-        <button onClick={submit} className="px-3 py-2 text-sm rounded-lg bg-[#F7D15F] text-zinc-900 hover:brightness-95">Guardar resultados</button>
       </div>
     </div>
   );
@@ -466,37 +431,24 @@ export default function InfluencerMarketing({ components }: { components: any })
         </div>
       </div>
 
+      <SBDialog open={openCreate} onOpenChange={setOpenCreate}>
+        <SBDialogContent title="Nueva Colaboración" size="lg" onSubmit={(e) => { e.preventDefault(); upsert({}); setOpenCreate(false); }} primaryAction={{label: "Crear"}} secondaryAction={{label: "Cancelar", onClick: () => setOpenCreate(false)}}>
+             <CollabForm components={components} onCancel={() => setOpenCreate(false)} onSubmit={(p) => { upsert(p); setOpenCreate(false); }} />
+        </SBDialogContent>
+      </SBDialog>
+      
+      <SBDialog open={!!editing} onOpenChange={() => setEditing(null)}>
+        {editing && <SBDialogContent title="Editar Colaboración"  size="lg" onSubmit={(e) => { e.preventDefault(); upsert({}, editing); setEditing(null);}} primaryAction={{label: "Guardar"}} secondaryAction={{label: "Cancelar", onClick: () => setEditing(null)}}>
+            <CollabForm defaults={editing} components={components} onCancel={() => setEditing(null)} onSubmit={(p) => { upsert(p, editing); setEditing(null); }} />
+        </SBDialogContent>}
+      </SBDialog>
 
-      {/* Modales */}
-      <BaseSheet open={openCreate} onClose={() => setOpenCreate(false)} title="Nueva colaboración" components={components}>
-        <CollabForm
-          components={components}
-          onCancel={() => setOpenCreate(false)}
-          onSubmit={(p) => { upsert(p); setOpenCreate(false); }}
-        />
-      </BaseSheet>
+      <SBDialog open={!!resultsFor} onOpenChange={() => setResultsFor(null)}>
+        {resultsFor && <SBDialogContent title="Registrar Resultados"  size="lg" onSubmit={(e) => { e.preventDefault(); setResultsFor(null);}} primaryAction={{label: "Guardar"}} secondaryAction={{label: "Cancelar", onClick: () => setResultsFor(null)}}>
+            <ResultsForm collab={resultsFor} components={components} onCancel={() => setResultsFor(null)} onSubmit={(patch) => { upsert(patch, resultsFor); setResultsFor(null); }}/>
+        </SBDialogContent>}
+      </SBDialog>
 
-      <BaseSheet open={!!editing} onClose={() => setEditing(null)} title="Editar colaboración" components={components}>
-        {editing && (
-          <CollabForm
-            defaults={editing}
-            components={components}
-            onCancel={() => setEditing(null)}
-            onSubmit={(p) => { upsert(p, editing); setEditing(null); }}
-          />
-        )}
-      </BaseSheet>
-
-      <BaseSheet open={!!resultsFor} onClose={() => setResultsFor(null)} title="Registrar resultados" components={components}>
-        {resultsFor && (
-          <ResultsForm
-            collab={resultsFor}
-            components={components}
-            onCancel={() => setResultsFor(null)}
-            onSubmit={(patch) => { upsert(patch, resultsFor); setResultsFor(null); }}
-          />
-        )}
-      </BaseSheet>
     </div>
   );
 }

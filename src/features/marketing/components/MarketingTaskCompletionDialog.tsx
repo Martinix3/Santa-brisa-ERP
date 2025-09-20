@@ -2,7 +2,7 @@
 // src/features/marketing/components/MarketingTaskCompletionDialog.tsx
 "use client";
 import React, { useState, useEffect } from 'react';
-import { SBDialog, SBDialogContent } from '@/features/agenda/ui';
+import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
 import type { Interaction } from '@/domain/ssot';
 import { Euro, Users, Target, BarChart3, Heart } from 'lucide-react';
 

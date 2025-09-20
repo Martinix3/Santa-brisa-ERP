@@ -2,7 +2,7 @@
 // src/features/agenda/components/NewEventDialog.tsx
 "use client";
 import React, { useState, useEffect } from 'react';
-import { SBDialog, SBDialogContent } from '@/features/agenda/ui';
+import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
 import { Plus, User as UserIcon, Search } from 'lucide-react';
 import type { Department, User, Interaction, InteractionKind, Account } from '@/domain/ssot';
 import { DEPT_META } from '@/domain/ssot'; // usa el canónico

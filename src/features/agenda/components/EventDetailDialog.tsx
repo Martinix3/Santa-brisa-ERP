@@ -1,7 +1,7 @@
 
 "use client";
 import React from 'react';
-import { SBDialog, SBDialogContent } from '@/features/agenda/ui';
+import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
 import type { Interaction, InteractionStatus } from '@/domain/ssot';
 import { Calendar, Tag, User as UserIcon, Building, Link as LinkIcon, Edit, Trash2, Check, X } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';

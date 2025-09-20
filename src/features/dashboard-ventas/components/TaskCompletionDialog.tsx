@@ -2,7 +2,7 @@
 // src/features/dashboard-ventas/components/TaskCompletionDialog.tsx
 "use client";
 import React, { useMemo, useState } from 'react';
-import { SBDialog, SBDialogContent } from '@/features/agenda/ui';
+import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
 import type { Interaction } from '@/domain/ssot';
 import { useData } from '@/lib/dataprovider';
 import { ShoppingCart, MessageSquare, Plus, X } from 'lucide-react';
