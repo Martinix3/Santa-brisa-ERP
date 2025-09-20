@@ -1,4 +1,3 @@
-
 // src/app/api/brain-persist/route.ts
 import { NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/server/firebaseAdmin";
