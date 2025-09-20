@@ -25,7 +25,7 @@ export function AuthForm({ onEmailLogin, onEmailSignup, onGoogleSubmit }: AuthFo
         if (currentUser) {
             router.replace('/');
         }
-    }, [currentUser, router]);
+    }, [currentUser]);
 
     const title = mode === 'login' ? 'Santa Brisa CRM' : 'Crear Cuenta';
     const description = mode === 'login' ? 'Por favor, inicia sesión para continuar.' : 'Regístrate para acceder al CRM de Santa Brisa.';
