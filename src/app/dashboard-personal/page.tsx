@@ -8,7 +8,8 @@ import { SBCard, SBButton, SB_COLORS } from '@/components/ui/ui-primitives';
 import { useData } from '@/lib/dataprovider';
 import type { Interaction, InteractionStatus, Account, SantaData, OrderSellOut } from '@/domain/ssot';
 import Link from 'next/link';
-import { TaskBoard, Task } from '@/features/agenda/TaskBoard';
+import { TaskBoard } from '@/features/agenda/TaskBoard';
+import type { Task } from '@/features/agenda/TaskBoard';
 import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/TaskCompletionDialog';
 import { sbAsISO } from '@/features/agenda/helpers';
 
