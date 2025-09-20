@@ -1,11 +1,13 @@
 
+
 "use client";
 import React, { useState, useEffect, useMemo } from 'react';
 import { Truck, PackageCheck, AlertCircle, ChevronDown, Printer, FileText, Plus, Download, MoreVertical, Package, Tag, Calendar, CheckCircle, XCircle, Hourglass } from "lucide-react";
-import { DataTableSB, Col, LotQualityStatusPill } from '@/components/ui/ui-primitives';
+import { DataTableSB, Col, LotQualityStatusPill, SBCard, Input, Select } from '@/components/ui/ui-primitives';
 import { listLots, listMaterials } from "@/features/production/ssot-bridge";
-import type { Lot, Material, InventoryItem, Uom } from '@/domain/ssot';
+import type { Lot, Material, InventoryItem, Uom, StockMove } from '@/domain/ssot';
 import { useData } from '@/lib/dataprovider';
+import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
 
 
 type UnifiedInventoryItem = {
@@ -65,11 +67,110 @@ function ExpirationPill({ date }: { date?: string }) {
     );
 }
 
+const ManualAdjustmentDialog = ({ open, onClose, onSave }: { open: boolean; onClose: () => void; onSave: (item: InventoryItem, move: StockMove) => void; }) => {
+    const { data } = useData();
+    const [sku, setSku] = useState('');
+    const [lotNumber, setLotNumber] = useState('');
+    const [qty, setQty] = useState(0);
+    const [uom, setUom] = useState<Uom>('uds');
+    const [locationId, setLocationId] = useState('FG/MAIN');
+    const [expDate, setExpDate] = useState('');
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if(!sku || !qty) {
+            alert('SKU y Cantidad son obligatorios');
+            return;
+        }
+        
+        const now = new Date().toISOString();
+        const newItem: InventoryItem = {
+            id: `inv_${Date.now()}`,
+            sku,
+            lotNumber: lotNumber || undefined,
+            qty,
+            uom,
+            locationId,
+            expDate: expDate || undefined,
+            updatedAt: now,
+        };
+
+        const newMove: StockMove = {
+            id: `sm_${Date.now()}`,
+            sku,
+            lotNumber: lotNumber || undefined,
+            qty,
+            uom,
+            to: locationId,
+            reason: 'adjustment',
+            at: now,
+        };
+
+        onSave(newItem, newMove);
+        onClose();
+    };
+
+    return (
+        <SBDialog open={open} onOpenChange={onClose}>
+            <SBDialogContent title="Ajuste Manual de Inventario" description="Crea una nueva línea de stock manualmente." onSubmit={handleSubmit} primaryAction={{ label: "Crear Entrada", type: "submit" }} secondaryAction={{ label: "Cancelar", onClick: onClose }}>
+                <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                        <label className="grid gap-1.5">
+                            <span className="text-sm font-medium">SKU</span>
+                            <Select value={sku} onChange={e => setSku(e.target.value)} required>
+                                <option value="" disabled>Selecciona un producto</option>
+                                {data?.materials.map(m => <option key={m.id} value={m.sku}>{m.name} ({m.sku})</option>)}
+                            </Select>
+                        </label>
+                        <label className="grid gap-1.5">
+                            <span className="text-sm font-medium">Nº Lote</span>
+                            <Input value={lotNumber} onChange={e => setLotNumber(e.target.value)} placeholder="Ej: 240101-SKU-01" />
+                        </label>
+                    </div>
+                     <div className="grid grid-cols-2 gap-4">
+                        <label className="grid gap-1.5">
+                            <span className="text-sm font-medium">Cantidad</span>
+                            <Input type="number" value={qty || ''} onChange={e => setQty(Number(e.target.value))} required />
+                        </label>
+                        <label className="grid gap-1.5">
+                            <span className="text-sm font-medium">Unidad</span>
+                             <Select value={uom} onChange={e => setUom(e.target.value as Uom)}>
+                                <option value="uds">Unidades</option>
+                                <option value="kg">Kilogramos</option>
+                                <option value="g">Gramos</option>
+                                <option value="L">Litros</option>
+                                <option value="mL">Mililitros</option>
+                            </Select>
+                        </label>
+                    </div>
+                     <div className="grid grid-cols-2 gap-4">
+                        <label className="grid gap-1.5">
+                            <span className="text-sm font-medium">Ubicación</span>
+                             <Select value={locationId} onChange={e => setLocationId(e.target.value)}>
+                                <option value="FG/MAIN">Almacén Producto Terminado</option>
+                                <option value="RM/MAIN">Almacén Materia Prima</option>
+                                <option value="QC/AREA">Área de Cuarentena</option>
+                                <option value="WIP/AREA">En Producción (WIP)</option>
+                            </Select>
+                        </label>
+                        <label className="grid gap-1.5">
+                            <span className="text-sm font-medium">Fecha de Caducidad</span>
+                            <Input type="date" value={expDate} onChange={e => setExpDate(e.target.value)} />
+                        </label>
+                    </div>
+                </div>
+            </SBDialogContent>
+        </SBDialog>
+    )
+}
+
 export default function InventoryPage() {
-    const { data: santaData } = useData();
+    const { data: santaData, setData, saveAllCollections } = useData();
     const [inventory, setInventory] = useState<UnifiedInventoryItem[]>([]);
     const [activeTab, setActiveTab] = useState('finished_good');
     const [loading, setLoading] = useState(true);
+    const [isAdjustmentDialogOpen, setIsAdjustmentDialogOpen] = useState(false);
+
 
     useEffect(() => {
         async function loadInventory() {
@@ -125,6 +226,18 @@ export default function InventoryPage() {
         return item.category === activeTab;
     });
 
+    const handleSaveAdjustment = async (newItem: InventoryItem, newMove: StockMove) => {
+        if (!santaData) return;
+        
+        const collectionsToSave = {
+            inventory: [...(santaData.inventory || []), newItem],
+            stockMoves: [...(santaData.stockMoves || []), newMove]
+        };
+
+        setData(prevData => prevData ? { ...prevData, ...collectionsToSave } : null);
+        await saveAllCollections(collectionsToSave);
+    };
+
     const cols: Col<UnifiedInventoryItem>[] = [
         { key: 'lotNumber', header: 'Lote', render: r => <span className="font-mono text-xs bg-zinc-100 px-2 py-1 rounded-md">{r.lotNumber || r.id}</span> },
         { 
@@ -164,7 +277,9 @@ export default function InventoryPage() {
                     <button className="flex items-center gap-2 text-sm bg-white border border-zinc-200 rounded-md px-3 py-1.5 outline-none hover:bg-zinc-50 focus:ring-2 focus:ring-cyan-400">
                         <Download size={14} /> Exportar
                     </button>
-                    <button className="flex items-center gap-2 text-sm bg-cyan-600 text-white rounded-md px-3 py-1.5 outline-none hover:bg-cyan-700 focus:ring-2 focus:ring-cyan-400">
+                    <button 
+                        onClick={() => setIsAdjustmentDialogOpen(true)}
+                        className="flex items-center gap-2 text-sm bg-cyan-600 text-white rounded-md px-3 py-1.5 outline-none hover:bg-cyan-700 focus:ring-2 focus:ring-cyan-400">
                         <Plus size={14} /> Ajuste Manual
                     </button>
                 </div>
@@ -172,11 +287,19 @@ export default function InventoryPage() {
 
             <Tabs active={activeTab} setActive={setActiveTab} tabs={TABS} />
             
+            <SBCard title="">
             {loading ? (
                 <div className="text-center py-12 text-zinc-500">Cargando inventario...</div>
             ) : (
                 <DataTableSB rows={filteredInventory} cols={cols as any} />
             )}
+            </SBCard>
+
+            <ManualAdjustmentDialog 
+                open={isAdjustmentDialogOpen}
+                onClose={() => setIsAdjustmentDialogOpen(false)}
+                onSave={handleSaveAdjustment}
+            />
         </div>
     );
 }
