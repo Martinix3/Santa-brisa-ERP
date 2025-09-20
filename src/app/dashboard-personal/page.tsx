@@ -96,14 +96,13 @@ function PersonalDashboardContent() {
   ) => {
       if (!data || !currentUser) return;
       
-      let finalData: SantaData = { ...data };
+      const collectionsToSave: Partial<SantaData> = {};
 
-      // 1. Siempre se actualiza la interacción original.
-      finalData.interactions = finalData.interactions.map(i =>
+      const updatedInteractions = data.interactions.map(i =>
           i.id === taskId ? { ...i, status: 'done' as InteractionStatus, resultNote: payload.note } : i
       );
+      collectionsToSave.interactions = updatedInteractions;
 
-      // 2. Si hay una próxima acción, se crea una nueva interacción.
       if (payload.type === 'interaccion' && payload.nextActionDate) {
           const originalTask = data.interactions.find(i => i.id === taskId);
           const newFollowUp: Interaction = {
@@ -117,10 +116,9 @@ function PersonalDashboardContent() {
               dept: originalTask?.dept || 'VENTAS',
               status: 'open',
           };
-          finalData.interactions.push(newFollowUp);
+          collectionsToSave.interactions.push(newFollowUp);
       }
 
-      // 3. Si se creó una venta, se añade un nuevo pedido.
       if (payload.type === 'venta') {
           const originalTask = data.interactions.find(i => i.id === taskId);
           const newOrder: OrderSellOut = {
@@ -132,17 +130,17 @@ function PersonalDashboardContent() {
               lines: payload.items.map(item => ({ sku: item.sku, qty: item.qty, uom: 'uds', priceUnit: 0 })),
               notes: `Pedido rápido creado desde tarea ${taskId}`,
           };
-          finalData.ordersSellOut = [...(finalData.ordersSellOut || []), newOrder];
+          collectionsToSave.ordersSellOut = [...(data.ordersSellOut || []), newOrder];
       }
     
-      // 4. Actualizar el estado local
-      setData(finalData);
+      setData(prevData => prevData ? { ...prevData, ...collectionsToSave } : null);
 
-      // 5. Persistir todas las colecciones modificadas
-      await saveCollection('interactions', finalData.interactions);
-      if (payload.type === 'venta') {
-          await saveCollection('ordersSellOut', finalData.ordersSellOut);
-      }
+      // Persistir todas las colecciones modificadas en una sola llamada
+      const savePromises = Object.entries(collectionsToSave).map(([key, value]) => 
+        saveCollection(key as keyof SantaData, value as any[])
+      );
+      
+      await Promise.all(savePromises);
     
       setCompletingTask(null);
   };
