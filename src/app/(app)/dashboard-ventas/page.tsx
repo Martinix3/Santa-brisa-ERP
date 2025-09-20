@@ -14,7 +14,6 @@ import { Avatar } from "@/components/ui/Avatar";
 
 const formatEur = (n: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
 
-// ===== Componentes UI (locales para este dashboard) =====
 function KPI({label, value, icon: Icon}:{label:string; value:number|string; icon: React.ElementType}){
   return (
     <div className="rounded-xl border border-zinc-200 p-4 bg-white shadow-sm">
@@ -31,78 +30,58 @@ function KPI({label, value, icon: Icon}:{label:string; value:number|string; icon
   );
 }
 
-function RaceToGoal({ current, goal, label }: { current: number; goal: number; label: string; }) {
-    const percent = Math.min(100, (current / goal) * 100);
-    return (
-        <SBCard title={label}>
-            <div className="p-4 space-y-2">
-                <div className="flex justify-between items-baseline">
-                    <span className="font-bold text-2xl text-zinc-800">{current.toLocaleString('es-ES')}</span>
-                    <span className="text-sm text-zinc-500">Objetivo: {goal.toLocaleString('es-ES')}</span>
-                </div>
-                <motion.div className="w-full bg-zinc-200 rounded-full h-4 overflow-hidden">
-                    <motion.div 
-                        className="h-4 rounded-full"
-                        style={{ background: SB_COLORS.accent }}
-                        initial={{ width: 0 }}
-                        animate={{ width: `${percent}%`}}
-                        transition={{ duration: 1, ease: "easeOut" }}
-                    />
-                </motion.div>
-            </div>
-        </SBCard>
-    );
-}
+type TimeRange = 'week' | 'month' | 'year';
 
-type ReportTotals = {
-    activeAccounts: number;
-    newAccounts: number;
-    newOrders: number;
-    totalEUR: number;
-};
-const EMPTY_TOTALS: ReportTotals = { activeAccounts: 0, newAccounts: 0, newOrders: 0, totalEUR: 0 };
-
-
-function SalesReportTable({ users, data }: { users: UserType[], data: any }) {
+function SalesReportTable({ users, data, timeRange }: { users: UserType[], data: any, timeRange: TimeRange }) {
     const reportData = useMemo(() => {
-        if (!data || !users) return { totals: EMPTY_TOTALS, byUser: [] };
+        if (!data || !users) return { totals: { activeAccounts: 0, newAccounts: 0, newOrders: 0, totalEUR: 0 }, byUser: [] };
+        
+        const now = new Date();
+        let startDate = new Date();
+        if (timeRange === 'week') {
+            startDate.setDate(now.getDate() - 7);
+        } else if (timeRange === 'month') {
+            startDate.setDate(1);
+            startDate.setHours(0,0,0,0);
+        } else { // year
+            startDate = new Date(now.getFullYear(), 0, 1);
+        }
 
-        const monthStart = new Date();
-        monthStart.setDate(1);
-
-        const totals: ReportTotals = {
+        const totals = {
             activeAccounts: data.accounts.filter((a: Account) => a.stage === 'ACTIVA').length,
-            newAccounts: data.accounts.filter((a: Account) => inWindow(a.createdAt, monthStart, new Date())).length,
-            newOrders: data.ordersSellOut.filter((o: OrderSellOut) => inWindow(o.createdAt, monthStart, new Date())).length,
-            totalEUR: data.ordersSellOut.reduce((sum: number, o: OrderSellOut) => sum + orderTotal(o), 0),
+            newAccounts: data.accounts.filter((a: Account) => inWindow(a.createdAt, startDate, now)).length,
+            newOrders: data.ordersSellOut.filter((o: OrderSellOut) => inWindow(o.createdAt, startDate, now)).length,
+            totalEUR: data.ordersSellOut.filter((o: OrderSellOut) => inWindow(o.createdAt, startDate, now)).reduce((sum: number, o: OrderSellOut) => sum + orderTotal(o), 0),
         };
 
         const byUser = users.map(user => {
             const userAccounts = data.accounts.filter((a: Account) => a.ownerId === user.id);
-            const userAccountIds = new Set(userAccounts.map(a => a.id));
+            const userAccountIds = new Set(userAccounts.map((a:Account) => a.id));
             const userOrders = data.ordersSellOut.filter((o: OrderSellOut) => userAccountIds.has(o.accountId));
-            const totalSales = userOrders.reduce((sum: number, o: OrderSellOut) => sum + orderTotal(o), 0);
+            
+            const ordersInPeriod = userOrders.filter((o: OrderSellOut) => inWindow(o.createdAt, startDate, now));
+            const totalSales = ordersInPeriod.reduce((sum: number, o: OrderSellOut) => sum + orderTotal(o), 0);
+            
             return {
                 id: user.id,
                 name: user.name,
                 activeAccounts: userAccounts.filter((a: Account) => a.stage === 'ACTIVA').length,
-                newAccounts: userAccounts.filter((a: Account) => inWindow(a.createdAt, monthStart, new Date())).length,
-                newOrders: userOrders.filter((o: OrderSellOut) => inWindow(o.createdAt, monthStart, new Date())).length,
+                newAccounts: userAccounts.filter((a: Account) => inWindow(a.createdAt, startDate, now)).length,
+                newOrders: ordersInPeriod.length,
                 totalEUR: totalSales,
-                avgTicket: userOrders.length > 0 ? totalSales / userOrders.length : 0,
+                avgTicket: ordersInPeriod.length > 0 ? totalSales / ordersInPeriod.length : 0,
                 conversionRate: userAccounts.length > 0 ? (new Set(userOrders.map((o: OrderSellOut) => o.accountId)).size / userAccounts.length) * 100 : 0
             }
         });
 
         return { totals, byUser };
-    }, [users, data]);
+    }, [users, data, timeRange]);
 
 
-    const headers = ['Comercial', 'Cuentas Activas', 'Nuevas Cuentas (mes)', 'Nuevos Pedidos (mes)', 'Total Ventas (€)', 'Ticket Medio (€)', 'Tasa Conversión'];
-    const tableTotals = { ...EMPTY_TOTALS, ...reportData.totals };
+    const headers = ['Comercial', 'Cuentas Activas', `Nuevas Cuentas (${timeRange})`, `Pedidos (${timeRange})`, `Ventas (${timeRange})`, 'Ticket Medio', 'Tasa Conversión'];
 
     return (
-        <SBCard title="Informe de Rendimiento del Equipo (Mensual)">
+        <SBCard title={`Informe de Rendimiento del Equipo (${timeRange === 'week' ? 'Semanal' : timeRange === 'month' ? 'Mensual' : 'Anual'})`}>
             <div className="overflow-auto">
                 <table className="w-full text-sm text-left">
                     <thead className="bg-zinc-50">
@@ -126,10 +105,10 @@ function SalesReportTable({ users, data }: { users: UserType[], data: any }) {
                     <tfoot className="bg-zinc-100 font-bold">
                         <tr>
                             <td className="px-4 py-3">Total Equipo</td>
-                            <td className="px-4 py-3 text-center">{tableTotals.activeAccounts}</td>
-                            <td className="px-4 py-3 text-center">{tableTotals.newAccounts}</td>
-                            <td className="px-4 py-3 text-center">{tableTotals.newOrders}</td>
-                            <td className="px-4 py-3 text-right">{formatEur(tableTotals.totalEUR)}</td>
+                            <td className="px-4 py-3 text-center">{reportData.totals.activeAccounts}</td>
+                            <td className="px-4 py-3 text-center">{reportData.totals.newAccounts}</td>
+                            <td className="px-4 py-3 text-center">{reportData.totals.newOrders}</td>
+                            <td className="px-4 py-3 text-right">{formatEur(reportData.totals.totalEUR)}</td>
                             <td colSpan={2}></td>
                         </tr>
                     </tfoot>
@@ -237,32 +216,57 @@ function CommercialsRace({ users, data }: { users: UserType[], data: any }) {
 
 function TeamDashboardContent() {
   const { data } = useData();
+  const [timeRange, setTimeRange] = useState<TimeRange>('month');
+
   const users = useMemo(() => data?.users.filter((u: UserType) => u.role === 'comercial' || u.role === 'owner') || [], [data]);
   
   const teamStats = useMemo(() => {
-    if(!data) return { totalNewAccountsWeekly: 0, totalNewAccountsYearly: 0, conversionRate: 0, attributedSales: 0 };
+    if(!data) return { totalNewAccounts: 0, conversionRate: 0, attributedSales: 0 };
+    
     const now = new Date();
-    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const startOfYear = new Date(now.getFullYear(), 0, 1);
+    let startDate = new Date();
+    if (timeRange === 'week') {
+        startDate.setDate(now.getDate() - 7);
+    } else if (timeRange === 'month') {
+        startDate.setDate(1);
+        startDate.setHours(0,0,0,0);
+    } else { // year
+        startDate = new Date(now.getFullYear(), 0, 1);
+    }
 
-    const totalNewAccountsWeekly = data.accounts.filter(a => new Date(a.createdAt) >= oneWeekAgo).length;
-    const totalNewAccountsYearly = data.accounts.filter(a => new Date(a.createdAt) >= startOfYear).length;
+    const totalNewAccounts = data.accounts.filter(a => inWindow(a.createdAt, startDate, now)).length;
     
     const accountsWithOrders = new Set(data.ordersSellOut.map(o => o.accountId));
     const conversionRate = data.accounts.length > 0 ? (accountsWithOrders.size / data.accounts.length) * 100 : 0;
     
-    const attributedSales = data.ordersSellOut.reduce((sum, order) => sum + orderTotal(order), 0);
+    const attributedSales = data.ordersSellOut
+        .filter(o => inWindow(o.createdAt, startDate, now))
+        .reduce((sum, order) => sum + orderTotal(order), 0);
 
-    return { totalNewAccountsWeekly, totalNewAccountsYearly, conversionRate, attributedSales };
-  }, [data]);
+    return { totalNewAccounts, conversionRate, attributedSales };
+  }, [data, timeRange]);
 
   return (
     <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <KPI icon={UserPlus} label="Cuentas nuevas (semana)" value={teamStats.totalNewAccountsWeekly} />
-            <KPI icon={Target} label="Cuentas abiertas (año)" value={teamStats.totalNewAccountsYearly} />
-            <KPI icon={BarChart3} label="Conversión a pedido" value={`${teamStats.conversionRate.toFixed(1)}%`} />
-            <KPI icon={Briefcase} label="Ventas totales" value={formatEur(teamStats.attributedSales)} />
+        <div className="flex justify-end">
+            <div className="flex items-center p-1 bg-zinc-100 rounded-lg">
+                {(['week', 'month', 'year'] as const).map(range => (
+                    <SBButton
+                        key={range}
+                        size="sm"
+                        onClick={() => setTimeRange(range)}
+                        className={`font-semibold ${timeRange === range ? 'bg-white shadow-sm' : 'bg-transparent text-zinc-600'}`}
+                    >
+                        {range === 'week' ? 'Semana' : range === 'month' ? 'Mes' : 'Año'}
+                    </SBButton>
+                ))}
+            </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <KPI icon={UserPlus} label={`Nuevas Cuentas (${timeRange})`} value={teamStats.totalNewAccounts} />
+            <KPI icon={BarChart3} label="Conversión a pedido (total)" value={`${teamStats.conversionRate.toFixed(1)}%`} />
+            <KPI icon={Briefcase} label={`Ventas (${timeRange})`} value={formatEur(teamStats.attributedSales)} />
         </div>
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -274,7 +278,7 @@ function TeamDashboardContent() {
             </div>
         </div>
 
-        {data && <SalesReportTable users={users} data={data}/>}
+        {data && <SalesReportTable users={users} data={data} timeRange={timeRange}/>}
     </div>
   );
 }
@@ -289,3 +293,5 @@ export default function SalesDashboardPage() {
         </>
     )
 }
+
+    
