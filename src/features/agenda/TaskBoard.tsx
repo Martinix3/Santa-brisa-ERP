@@ -1,4 +1,5 @@
 
+
 "use client";
 import React, { useMemo } from 'react';
 import { DndContext, useDraggable, useDroppable, closestCorners } from '@dnd-kit/core';
@@ -6,6 +7,7 @@ import type { Department, InteractionStatus, User, Interaction } from '@/domain/
 import { Check, AlertCircle, Clock } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
 import { DEPT_META } from '@/domain/ssot';
+import { Avatar } from '@/components/ui/Avatar';
 
 export type Task = {
   id: string;
@@ -25,30 +27,6 @@ const KANBAN_COLS: { id: ColumnId; label: string; icon: React.ElementType; heade
   { id: 'upcoming', label: 'Programadas', icon: Clock, headerColor: 'text-cyan-600' },
   { id: 'done', label: 'Hechas', icon: Check, headerColor: 'text-emerald-600' },
 ];
-
-function Avatar({ name }: { name?: string }) {
-  function stringToColor(seed: string) {
-    let h = 0;
-    for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
-    const hue = h % 360;
-    return `hsl(${hue} 40% 85%)`;
-  }
-  const initials = (name || '—')
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((s) => s[0]?.toUpperCase() || '')
-    .join('');
-  return (
-    <div
-      className="inline-flex items-center justify-center h-5 w-5 rounded-full text-[9px] text-zinc-700 border"
-      style={{ background: stringToColor(name || '-'), borderColor: '#e5e7eb' }}
-      title={name}
-    >
-      {initials || '—'}
-    </div>
-  );
-}
 
 function TaskCard({
   task,
@@ -92,7 +70,7 @@ function TaskCard({
         <div className="flex items-center gap-2">
           <div className="flex -space-x-2">
             {involvedUsers.map((user) => (
-              <Avatar key={user.id} name={user.name} />
+              <Avatar key={user.id} name={user.name} size="sm" />
             ))}
           </div>
           {task.date && (
@@ -159,8 +137,12 @@ function StatusColumn({
         {subGroups ? (
           subGroups.map((group, index) => (
             <div key={index}>
-              <h4 className="text-xs font-semibold text-zinc-500 mb-2 px-1">{group.title} ({group.tasks.length})</h4>
-              <div className="space-y-3">{renderTasks(group.tasks)}</div>
+              {group.tasks.length > 0 && (
+                 <>
+                    <h4 className="text-xs font-semibold text-zinc-500 mb-2 px-1">{group.title} ({group.tasks.length})</h4>
+                    <div className="space-y-3">{renderTasks(group.tasks)}</div>
+                 </>
+              )}
             </div>
           ))
         ) : (

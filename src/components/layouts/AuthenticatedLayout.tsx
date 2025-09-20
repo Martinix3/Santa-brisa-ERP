@@ -46,6 +46,7 @@ import { SB_COLORS, hexToRgba } from '@/components/ui/ui-primitives';
 import { AnimatePresence, motion } from 'framer-motion';
 import Image from 'next/image';
 import { useData } from '@/lib/dataprovider';
+import { Avatar } from '@/components/ui/Avatar';
 
 
 const navSections = [
@@ -302,9 +303,8 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
                     className={`p-2 rounded-lg flex items-center gap-3 cursor-pointer ${isSidebarCollapsed ? '' : 'hover:bg-sb-neutral-50'}`}
                     onClick={() => !isSidebarCollapsed && setIsUserMenuOpen(!isUserMenuOpen)}
                 >
-                    <div className="h-8 w-8 rounded-full bg-sb-sun flex-shrink-0 flex items-center justify-center font-bold text-sb-neutral-800">
-                        {currentUser?.name.charAt(0)}
-                    </div>
+                    <Avatar name={currentUser?.name} size="lg" />
+
                     {!isSidebarCollapsed && (
                         <div className="flex-1 overflow-hidden">
                             <p className="text-sm font-semibold truncate">{currentUser?.name}</p>

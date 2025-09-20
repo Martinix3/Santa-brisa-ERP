@@ -12,6 +12,7 @@ import { FilterSelect } from '@/components/ui/FilterSelect'
 import { ModuleHeader } from '@/components/ui/ModuleHeader'
 import { SB_COLORS } from '@/components/ui/ui-primitives'
 import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/TaskCompletionDialog'
+import { Avatar } from '@/components/ui/Avatar';
 
 const T = { primary:'#618E8F' }
 const STAGE: Record<string, { label:string; tint:string; text:string }> = {
@@ -21,29 +22,6 @@ const STAGE: Record<string, { label:string; tint:string; text:string }> = {
   FALLIDA: { label:'Perdidas', tint:'#618E8F', text:'#153235' },
 }
 const formatEUR = (n:number)=> new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n)
-
-function Avatar({ name }: { name?: string }) {
-  function stringToColor(seed: string) {
-    let h = 0;
-    for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
-    const hue = h % 360;
-    return `hsl(${hue} 40% 85%)`;
-  }
-  const initials = (name || '—')
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map(s => s[0]?.toUpperCase() || '')
-    .join('');
-  return (
-    <span
-      className="inline-flex items-center justify-center h-6 w-6 rounded-full text-[11px] text-zinc-700 border"
-      style={{ background: stringToColor(name || '-'), borderColor: '#e5e7eb' }}
-    >
-      {initials || '—'}
-    </span>
-  );
-}
 
 function GroupBar({stage,count,onToggle,expanded}:{stage:keyof typeof STAGE; count:number; onToggle:()=>void; expanded:boolean}){
   const s = STAGE[stage]
@@ -112,7 +90,7 @@ function AccountBar({ a, santaData, onAddActivity }: { a: AccountType, santaData
           <Link href={`/accounts/${a.id}`} className="text-zinc-900 truncate hover:underline">{a.name}</Link>
           {orderAmount>0 && <span className="text-[11px] px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-700 whitespace-nowrap">{formatEUR(orderAmount)}</span>}
         </div>
-        <div className="flex items-center gap-2 min-w-0"><Avatar name={owner}/><span className="text-sm text-zinc-700 truncate">{owner}</span></div>
+        <div className="flex items-center gap-2 min-w-0"><Avatar name={owner} size="md" /><span className="text-sm text-zinc-700 truncate">{owner}</span></div>
         <div className="text-sm text-zinc-700 truncate">{a.city||'—'}</div>
         <div className="text-sm text-zinc-700 truncate">{distributor?.name || 'Propia'}</div>
         <div className="text-right relative group">
