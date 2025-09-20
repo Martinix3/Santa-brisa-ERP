@@ -5,6 +5,7 @@ export const INITIAL_MOCK_DATA: SantaData = {
   users: [
     { id: 'u_owner', name: 'Ana', email: 'ana@santabrisa.es', role: 'owner', active: true },
     { id: 'u_admin', name: 'Nico', email: 'nico@santabrisa.es', role: 'admin', active: true },
+    { id: 'u_dev', name: 'MJ', email: 'mj@santabrisa.co', role: 'owner', active: true },
     { id: 'u_comercial_1', name: 'Marta', email: 'marta@santabrisa.es', role: 'comercial', active: true, kpiBaseline: { revenue: 12000, unitsSold: 800, visits: 25 } },
     { id: 'u_comercial_2', name: 'Carlos', email: 'carlos@santabrisa.es', role: 'comercial', active: true, kpiBaseline: { revenue: 15000, unitsSold: 950, visits: 30 } },
     { id: 'u_ops', name: 'Laura', email: 'laura@santabrisa.es', role: 'ops', active: true },
