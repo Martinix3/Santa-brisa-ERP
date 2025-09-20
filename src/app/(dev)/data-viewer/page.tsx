@@ -1,6 +1,6 @@
 
 "use client";
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { useData } from '@/lib/dataprovider';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
 import { Database } from 'lucide-react';
@@ -8,7 +8,12 @@ import { SANTA_DATA_COLLECTIONS } from '@/domain/ssot';
 import type { SantaData } from '@/domain/ssot';
 import { useSearchParams, useRouter } from 'next/navigation';
 
-function CollectionSelector({ santaData, collections, active, onSelect }: { santaData: SantaData | null, collections: string[], active: string, onSelect: (name: string) => void }) {
+function CollectionSelector({ collections, active, onSelect, santaData }: { 
+    collections: string[], 
+    active: string, 
+    onSelect: (name: string) => void,
+    santaData: SantaData | null 
+}) {
     return (
         <div className="border-b">
             <nav className="flex space-x-4 px-4 overflow-x-auto" aria-label="Tabs">
@@ -38,26 +43,17 @@ function DataViewerContent() {
 
     const collections = SANTA_DATA_COLLECTIONS.filter(c => c !== 'activations');
     
-    const [activeCollection, setActiveCollection] = useState<keyof SantaData>(
-        (searchParams?.get('collection') as keyof SantaData) || collections[0]
-    );
-
-    useEffect(() => {
-        const collectionFromUrl = searchParams?.get('collection') as keyof SantaData;
-        if (collectionFromUrl && collections.includes(collectionFromUrl)) {
-            setActiveCollection(collectionFromUrl);
-        }
-    }, [searchParams, collections]);
+    // Directamente leer de la URL o usar un valor por defecto.
+    const activeCollection: keyof SantaData = (searchParams.get('collection') as keyof SantaData) || collections[0] as keyof SantaData;
     
     const handleSelectCollection = (collectionName: string) => {
-        setActiveCollection(collectionName as keyof SantaData);
         router.push(`/dev/data-viewer?collection=${collectionName}`);
     };
 
     const activeData = useMemo(() => {
-        if (!santaData || !activeCollection) return [];
+        if (!santaData || !activeCollection || !collections.includes(activeCollection)) return [];
         return (santaData[activeCollection] as any[]) || [];
-    }, [santaData, activeCollection]);
+    }, [santaData, activeCollection, collections]);
 
     if (!santaData) {
         return <p className="p-8 text-center text-zinc-500">Cargando datos...</p>;
@@ -65,8 +61,13 @@ function DataViewerContent() {
 
     return (
         <div className="bg-white rounded-2xl border shadow-sm overflow-hidden h-full flex flex-col">
-            <CollectionSelector santaData={santaData} collections={collections} active={activeCollection} onSelect={handleSelectCollection} />
-            <div className="p-4 flex-grow">
+            <CollectionSelector 
+                collections={collections} 
+                active={activeCollection} 
+                onSelect={handleSelectCollection}
+                santaData={santaData}
+            />
+            <div className="p-4 flex-grow min-h-0">
                 <textarea
                     readOnly
                     value={JSON.stringify(activeData, null, 2)}
