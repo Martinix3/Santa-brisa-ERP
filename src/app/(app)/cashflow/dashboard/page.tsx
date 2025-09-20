@@ -1,0 +1,198 @@
+
+"use client";
+import React, { useMemo, useState } from 'react';
+import { SBCard, KPI, SBButton } from '@/components/ui/ui-primitives';
+import { BarChart, TrendingUp, TrendingDown, Banknote, ArrowRight, Calendar, BrainCircuit, AlertCircle, Clock } from 'lucide-react';
+import Link from 'next/link';
+import { useData } from '@/lib/dataprovider';
+import { DEPT_META } from '@/domain/ssot';
+import type { Interaction } from '@/domain/ssot';
+import { generateInsights } from '@/ai/flows/generate-insights-flow';
+
+
+// Mock data - replace with real data fetching
+const cashflowData = {
+    currentBalance: 125340,
+    inflow30d: 45200,
+    outflow30d: 22800,
+    netCashflow: 22400,
+    forecast: [
+        { name: 'Sem 1', inflow: 10000, outflow: 5000 },
+        { name: 'Sem 2', inflow: 12000, outflow: 6000 },
+        { name: 'Sem 3', inflow: 8000, outflow: 7000 },
+        { name: 'Sem 4', inflow: 15200, outflow: 4800 },
+    ]
+}
+
+function AIInsightsCard() {
+    const { data } = useData();
+    const [insights, setInsights] = useState("");
+    const [loading, setLoading] = useState(false);
+
+    const handleGenerate = async () => {
+        if (!data) return;
+        setLoading(true);
+        setInsights("");
+        try {
+            const relevantData = {
+                // Mock data for now, should be replaced with real cashflow data
+                inflows: [{ amount: 10000, date: '2024-09-01' }, { amount: 5000, date: '2024-09-10' }],
+                outflows: [{ amount: 2000, date: '2024-09-05' }, { amount: 3000, date: '2024-09-15' }],
+                pendingPayments: [{ amount: 1500, dueDate: '2024-10-01' }],
+                pendingCollections: [{ amount: 8000, dueDate: '2024-09-25' }],
+            };
+            const result = await generateInsights({ 
+                jsonData: JSON.stringify(relevantData),
+                context: "Eres un analista financiero. Analiza los datos de flujos de caja, pagos y cobros para identificar riesgos de liquidez, patrones de gasto o retrasos en los cobros."
+            });
+            setInsights(result);
+        } catch (e) {
+            console.error(e);
+            setInsights("Hubo un error al generar el informe. Inténtalo de nuevo.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <SBCard title="Análisis Financiero con IA">
+            <div className="p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                    <p className="text-sm text-zinc-600">Genera un análisis sobre la salud financiera y los flujos de caja.</p>
+                    <SBButton onClick={handleGenerate} disabled={loading}>
+                        <BrainCircuit className="h-4 w-4" /> {loading ? 'Analizando...' : 'Generar Informe'}
+                    </SBButton>
+                </div>
+                {insights && (
+                    <div className="prose prose-sm p-4 bg-zinc-50 rounded-lg border max-w-none whitespace-pre-wrap">
+                        {insights}
+                    </div>
+                )}
+            </div>
+        </SBCard>
+    );
+}
+
+function UpcomingEvents() {
+    const { data } = useData();
+    const { overdue, upcoming } = useMemo(() => {
+        if (!data?.interactions) return { overdue: [], upcoming: [] };
+        
+        const now = new Date();
+        const openInteractions = data.interactions
+            .filter(i => i.dept === 'FINANZAS' && i.status === 'open' && i.plannedFor);
+            
+        const overdue = openInteractions
+            .filter(i => new Date(i.plannedFor!) < now)
+            .sort((a, b) => new Date(a.plannedFor!).getTime() - new Date(b.plannedFor!).getTime());
+            
+        const upcoming = openInteractions
+            .filter(i => new Date(i.plannedFor!) >= now)
+            .sort((a, b) => new Date(a.plannedFor!).getTime() - new Date(b.plannedFor!).getTime());
+
+        return { overdue, upcoming };
+    }, [data]);
+
+    const allEvents = [...overdue, ...upcoming].slice(0, 5);
+
+    if (allEvents.length === 0) {
+        return null;
+    }
+
+    return (
+        <SBCard title="Próximas Tareas Financieras">
+            <div className="p-4 space-y-3">
+                {allEvents.map((event: Interaction) => {
+                    const isOverdue = new Date(event.plannedFor!) < new Date();
+                    const Icon = isOverdue ? AlertCircle : Clock;
+                    const iconColor = isOverdue ? 'text-rose-500' : 'text-cyan-500';
+
+                    return (
+                        <div key={event.id} className={`flex items-center gap-3 p-2 rounded-lg border cursor-pointer ${isOverdue ? 'bg-rose-50/50 border-rose-200' : 'bg-zinc-50 border-zinc-200 hover:bg-zinc-100'}`}>
+                            <div className="p-2 rounded-full" style={{ backgroundColor: DEPT_META.FINANZAS.color, color: DEPT_META.FINANZAS.textColor }}>
+                                <Icon size={16} className={iconColor} />
+                            </div>
+                            <div>
+                                <p className="font-medium text-sm">{event.note}</p>
+                                <p className={`text-xs ${isOverdue ? 'text-rose-600 font-semibold' : 'text-zinc-500'}`}>{new Date(event.plannedFor!).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}</p>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </SBCard>
+    );
+}
+
+export default function CashflowDashboardPage() {
+    return (
+        <div className="space-y-6">
+            <div className="flex justify-between items-center">
+                <h1 className="text-2xl font-semibold text-zinc-800">Dashboard de Tesorería</h1>
+                <Link href="/cashflow/settings" passHref>
+                    <SBButton as="a" variant="secondary">Ajustes</SBButton>
+                </Link>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <KPI label="Saldo Actual" value={cashflowData.currentBalance.toLocaleString('es-ES', {style: 'currency', currency: 'EUR'})} />
+                <KPI label="Entradas (30d)" value={cashflowData.inflow30d.toLocaleString('es-ES', {style: 'currency', currency: 'EUR'})} delta="+5%" />
+                <KPI label="Salidas (30d)" value={cashflowData.outflow30d.toLocaleString('es-ES', {style: 'currency', currency: 'EUR'})} delta="-2%" />
+                <KPI label="Cash Flow Neto (30d)" value={cashflowData.netCashflow.toLocaleString('es-ES', {style: 'currency', currency: 'EUR'})} />
+            </div>
+            
+             <AIInsightsCard />
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2">
+                    <SBCard title="Previsión de Tesorería (Próximas 4 semanas)">
+                        <div className="p-4">
+                             <div className="h-72">
+                                {/* Aquí iría un gráfico real, p.ej. con Recharts */}
+                                <div className="w-full h-full bg-zinc-50 border-2 border-dashed rounded-lg flex items-center justify-center">
+                                    <BarChart size={48} className="text-zinc-300" />
+                                </div>
+                            </div>
+                        </div>
+                    </SBCard>
+                </div>
+                <div className="space-y-6">
+                    <UpcomingEvents />
+                </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <SBCard title="Cuentas por Cobrar">
+                    <div className="p-4 space-y-3">
+                        <div className="flex justify-between items-center">
+                            <p>Total Pendiente</p>
+                            <p className="font-bold text-lg">€35,100</p>
+                        </div>
+                        <div className="flex justify-between items-center text-red-600">
+                            <p>Vencido (>30d)</p>
+                            <p className="font-bold">€4,500</p>
+                        </div>
+                         <Link href="/cashflow/collections" className="text-sm font-semibold text-zinc-700 hover:text-zinc-900 flex items-center gap-1">
+                            Ver todos los cobros <ArrowRight size={16} />
+                        </Link>
+                    </div>
+                </SBCard>
+                 <SBCard title="Cuentas por Pagar">
+                    <div className="p-4 space-y-3">
+                        <div className="flex justify-between items-center">
+                            <p>Total a Pagar</p>
+                            <p className="font-bold text-lg">€18,600</p>
+                        </div>
+                        <div className="flex justify-between items-center">
+                            <p>Próximo vencimiento</p>
+                            <p className="font-bold">€1,200</p>
+                        </div>
+                         <Link href="/cashflow/payments" className="text-sm font-semibold text-zinc-700 hover:text-zinc-900 flex items-center gap-1">
+                            Ver todos los pagos <ArrowRight size={16} />
+                        </Link>
+                    </div>
+                </SBCard>
+            </div>
+        </div>
+    );
+}
