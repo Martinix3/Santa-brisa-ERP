@@ -17,7 +17,9 @@
     "genkit:list": "genkit list",
     "audit:static": "node scripts/audit-static.mjs",
     "audit:runtime": "node scripts/audit-runtime.mjs",
-    "audit:all": "node scripts/audit-all.mjs"
+    "audit:all": "node scripts/audit-all.mjs",
+    "analyze": "ANALYZE=true npm run build",
+    "check-budgets": "node scripts/check-budgets.cjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -42,6 +44,7 @@
     "zod": "^4.1.9"
   },
   "devDependencies": {
+    "@next/bundle-analyzer": "^14.2.3",
     "@eslint/eslintrc": "^3.3.1",
     "@types/estree": "^1.0.8",
     "@types/json-schema": "^7.0.15",

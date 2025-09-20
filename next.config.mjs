@@ -1,21 +1,17 @@
+// next.config.mjs
+import bundleAnalyzer from '@next/bundle-analyzer';
+
+const withBundleAnalyzer = bundleAnalyzer({
+  enabled: process.env.ANALYZE === 'true',
+});
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true,
-  swcMinify: true,
+  // Tu configuración de Next.js existente va aquí
+  // Por ahora está vacía, pero si añades cosas, van dentro de este objeto.
   experimental: {
-    // optimizePackageImports está obsoleto en Next.js 14+ y se puede eliminar.
-    // Lo mantenemos comentado por si se usa una versión anterior, pero es mejor quitarlo.
-    // optimizePackageImports: ['lucide-react'],
-  },
-  eslint: {
-    // Advertencia: Esto deshabilita ESLint durante la compilación.
-    // Se recomienda ejecutar ESLint como parte del proceso de CI/CD.
-    ignoreDuringBuilds: true,
-  },
-  typescript: {
-    // Advertencia: Esto deshabilita la comprobación de tipos durante la compilación.
-    ignoreBuildErrors: true,
+    optimizePackageImports: ['lucide-react'],
   },
 };
 
-export default nextConfig;
+export default withBundleAnalyzer(nextConfig);
