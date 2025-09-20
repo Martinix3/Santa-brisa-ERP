@@ -1,24 +1,21 @@
 
 "use client";
 import React, { useMemo, useState, useEffect } from "react";
-import { BarChart3, Clock, MapPin, Phone, Target, Users, Briefcase, ChevronDown, MessageSquare, Map as MapIcon, ShoppingCart, UserPlus, User, BrainCircuit, CheckCircle, Edit, Trash2, AlertCircle, Mail } from "lucide-react";
+import { BarChart3, Target, Users, Briefcase, BrainCircuit, UserPlus, MoreHorizontal } from "lucide-react";
 import { motion } from "framer-motion";
-import { ResponsiveContainer, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip, Line } from "recharts";
 import { useData } from "@/lib/dataprovider";
 import { ModuleHeader } from "@/components/ui/ModuleHeader";
 import { SBCard, SBButton, SB_COLORS } from "@/components/ui/ui-primitives";
-import type { User as UserType, OrderSellOut, Interaction, Account, InteractionStatus } from '@/domain/ssot';
+import type { User as UserType, OrderSellOut, Account } from '@/domain/ssot';
 import { orderTotal, inWindow } from '@/domain/ssot';
 import { generateInsights } from "@/ai/flows/generate-insights-flow";
-import { EventDetailDialog } from "@/features/agenda/components/EventDetailDialog";
-import { NewEventDialog } from "@/features/agenda/components/NewEventDialog";
-import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/TaskCompletionDialog';
+import { Avatar } from "@/components/ui/Avatar";
 
 
 const formatEur = (n: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
 
 // ===== Componentes UI (locales para este dashboard) =====
-function KPI({label, value, secondary, icon: Icon}:{label:string; value:number|string; secondary?:React.ReactNode, icon: React.ElementType}){
+function KPI({label, value, icon: Icon}:{label:string; value:number|string; icon: React.ElementType}){
   return (
     <div className="rounded-xl border border-zinc-200 p-4 bg-white shadow-sm">
         <div className="flex items-center gap-4">
@@ -28,364 +25,8 @@ function KPI({label, value, secondary, icon: Icon}:{label:string; value:number|s
             <div>
                 <div className="text-xs text-zinc-500">{label}</div>
                 <div className="text-2xl font-semibold text-zinc-900">{typeof value==="number"? value.toLocaleString("es-ES"): value}</div>
-                {secondary && <div className="text-[11px] text-zinc-600 mt-0.5">{secondary}</div>}
             </div>
         </div>
-    </div>
-  );
-}
-
-// ===== Dashboard Personal =====
-function PersonalDashboardContent({ displayedUser, timePeriod, setTimePeriod }: { 
-    displayedUser: UserType | null,
-    timePeriod: 'week' | 'month' | 'year',
-    setTimePeriod: (p: 'week' | 'month' | 'year') => void,
-}){
-  const { data: santaData, setData, currentUser, isPersistenceEnabled, saveCollection } = useData();
-  const accent = SB_COLORS.accent;
-
-  const [selectedEvent, setSelectedEvent] = useState<Interaction | null>(null);
-  const [editingEvent, setEditingEvent] = useState<Interaction | null>(null);
-  const [isNewEventDialogOpen, setIsNewEventDialogOpen] = useState(false);
-  const [completingTask, setCompletingTask] = useState<Interaction | null>(null);
-
-
-  const userStats = useMemo(() => {
-    if (!santaData || !displayedUser) {
-        return {
-            revenue: 0, pipeline: 0, visits: 0, accounts: 0,
-            teamAvg: { revenue: 0, visits: 0 },
-            topAccounts: [],
-            upcomingInteractions: [],
-            overdueInteractions: [],
-            trendData: [],
-            teamTrendData: [],
-        };
-    }
-
-    const endDate = new Date();
-    const startDate = new Date();
-    if(timePeriod === 'week') startDate.setDate(endDate.getDate() - 7);
-    else if(timePeriod === 'month') startDate.setMonth(endDate.getMonth() - 1);
-    else if(timePeriod === 'year') startDate.setFullYear(endDate.getFullYear() - 1);
-
-    const userAccountIds = new Set(santaData.accounts.filter(a => a.ownerId === displayedUser.id).map(a => a.id));
-    const userOrders = santaData.ordersSellOut.filter(o => userAccountIds.has(o.accountId) && inWindow(o.createdAt, startDate, endDate));
-    
-    // Filtra las interacciones del usuario y de ventas
-    const userInteractions = santaData.interactions.filter(i => i.userId === displayedUser.id && i.dept === 'VENTAS');
-    const userAccounts = santaData.accounts.filter(a => a.ownerId === displayedUser.id);
-
-    const revenue = userOrders.filter(o => o.status === 'confirmed').reduce((sum, o) => sum + orderTotal(o), 0);
-    const pipeline = userOrders.filter(o => o.status === 'open').reduce((sum, o) => sum + orderTotal(o), 0);
-    const visits = userInteractions.filter(i => inWindow(i.createdAt, startDate, endDate) && i.kind === 'VISITA').length;
-    
-    // Team average
-    const salesUsers = santaData.users.filter(u => u.role === 'comercial' || u.role === 'owner');
-    const totalRevenue = santaData.ordersSellOut.filter(o => inWindow(o.createdAt, startDate, endDate)).reduce((sum, o) => sum + orderTotal(o), 0);
-    const totalVisits = santaData.interactions.filter(i => inWindow(i.createdAt, startDate, endDate) && i.kind === 'VISITA').length;
-    const teamAvg = {
-        revenue: totalRevenue / (salesUsers.length || 1),
-        visits: totalVisits / (salesUsers.length || 1)
-    };
-    
-    // Top Accounts
-    const accountRevenue = userOrders.reduce((acc, order) => {
-        if (order.status === 'confirmed') {
-            const current = acc.get(order.accountId) || { revenue: 0, lastCreatedAt: '1970-01-01' };
-            acc.set(order.accountId, {
-                revenue: current.revenue + orderTotal(order),
-                lastCreatedAt: order.createdAt > current.lastCreatedAt ? order.createdAt : current.lastCreatedAt,
-            });
-        }
-        return acc;
-    }, new Map<string, { revenue: number; lastCreatedAt: string }>());
-
-    const topAccounts = Array.from(accountRevenue.entries())
-        .map(([id, data]) => ({
-            id,
-            name: santaData.accounts.find(a => a.id === id)?.name || id,
-            city: santaData.accounts.find(a => a.id === id)?.city || '',
-            ...data
-        }))
-        .sort((a,b) => b.revenue - a.revenue)
-        .slice(0, 5);
-
-    // Upcoming & Overdue Interactions
-    const now = new Date();
-    const openInteractions = userInteractions
-        .filter(i => i.plannedFor && i.status === 'open');
-
-    const upcomingInteractions = openInteractions
-        .filter(i => new Date(i.plannedFor!) >= now)
-        .sort((a,b) => new Date(a.plannedFor!).getTime() - new Date(b.plannedFor!).getTime())
-        .slice(0, 5);
-        
-    const overdueInteractions = openInteractions
-        .filter(i => new Date(i.plannedFor!) < now)
-        .sort((a,b) => new Date(a.plannedFor!).getTime() - new Date(b.plannedFor!).getTime())
-        .slice(0, 5);
-
-    // Trend data
-    const points = timePeriod === 'week' ? 7 : timePeriod === 'month' ? 30 : 12;
-    const interval = timePeriod === 'year' ? 'month' : 'day';
-    
-    const userTrend = Array.from({length: points}).map((_, i) => {
-        const pointEnd = new Date(endDate);
-        const pointStart = new Date(endDate);
-        if(interval === 'day') {
-            pointStart.setDate(pointEnd.getDate() - (points - 1 - i));
-            pointEnd.setDate(pointEnd.getDate() - (points - 1 - i));
-            pointEnd.setHours(23, 59, 59, 999);
-        } else { // month
-            pointStart.setMonth(pointEnd.getMonth() - (points - 1 - i), 1);
-            pointEnd.setMonth(pointEnd.getMonth() - (points - 1 - i) + 1, 0);
-        }
-        
-        const sales = userOrders.filter(o => inWindow(o.createdAt, pointStart, pointEnd)).reduce((s,o) => s + orderTotal(o), 0);
-        return { x: interval === 'day' ? pointStart.getDate().toString() : pointStart.toLocaleString('es-ES',{month:'short'}), y: sales };
-    });
-    
-    const teamTrendData = Array.from({length: points}).map((_, i) => {
-        const pointEnd = new Date(endDate);
-        const pointStart = new Date(endDate);
-        if(interval === 'day') {
-            pointStart.setDate(pointEnd.getDate() - (points - 1 - i));
-            pointEnd.setDate(pointEnd.getDate() - (points - 1 - i));
-            pointEnd.setHours(23, 59, 59, 999);
-        } else { // month
-            pointStart.setMonth(pointEnd.getMonth() - (points - 1 - i), 1);
-            pointEnd.setMonth(pointEnd.getMonth() - (points - 1 - i) + 1, 0);
-        }
-        const teamSales = santaData.ordersSellOut.filter(o => inWindow(o.createdAt, pointStart, pointEnd)).reduce((s,o) => s + orderTotal(o), 0) / (salesUsers.length || 1);
-        return { x: interval === 'day' ? pointStart.getDate().toString() : pointStart.toLocaleString('es-ES',{month:'short'}), y: teamSales };
-    });
-
-    return { revenue, pipeline, visits, accounts: userAccounts.length, teamAvg, topAccounts, upcomingInteractions, overdueInteractions, trendData: userTrend, teamTrendData };
-  }, [santaData, displayedUser, timePeriod]);
-
-
-  // Benchmarks
-  const revVsTeamPct = Math.round(((userStats.revenue - userStats.teamAvg.revenue) / (userStats.teamAvg.revenue || 1)) * 1000) / 10;
-  const visitsVsTeamPct = Math.round(((userStats.visits - userStats.teamAvg.visits) / (userStats.teamAvg.visits || 1)) * 1000) / 10;
-  
-    const updateAndPersistInteractions = (updatedInteractions: Interaction[]) => {
-      if (!santaData) return;
-      setData(prev => prev ? ({ ...prev, interactions: updatedInteractions }) : null);
-      if (isPersistenceEnabled) {
-          saveCollection('interactions', updatedInteractions);
-      }
-    }
-  
-    const handleAddOrUpdateEvent = async (eventData: Omit<Interaction, 'createdAt' | 'status'> & { id?: string }) => {
-        if (!currentUser || !santaData) return;
-        
-        let updatedInteractions;
-        if (eventData.id) { // Update existing
-            updatedInteractions = santaData.interactions.map(i => i.id === eventData.id ? { ...i, ...eventData } as Interaction : i);
-        } else { // Create new
-            const newInteraction: Interaction = {
-                id: `int_${Date.now()}`,
-                ...eventData,
-                createdAt: new Date().toISOString(),
-                status: 'open',
-                userId: currentUser.id,
-            };
-            updatedInteractions = [...(santaData.interactions || []), newInteraction];
-        }
-        updateAndPersistInteractions(updatedInteractions as Interaction[]);
-        setEditingEvent(null);
-        setIsNewEventDialogOpen(false);
-    };
-
-    const handleDeleteEvent = (id: string) => {
-        if (!santaData) return;
-        const updatedInteractions = santaData.interactions.filter(i => i.id !== id);
-        updateAndPersistInteractions(updatedInteractions);
-        setSelectedEvent(null);
-    };
-
-    const handleEditRequest = (event: Interaction) => {
-        setSelectedEvent(null);
-        setEditingEvent(event);
-        setIsNewEventDialogOpen(true);
-    };
-
-    const handleCompleteTask = (
-      taskId: string,
-      resultNote: string
-    ) => {
-        if (!santaData) return;
-        const updatedInteractions = santaData.interactions.map((i) => {
-            if (i.id === taskId) {
-                return {
-                    ...i,
-                    status: 'done' as InteractionStatus,
-                    resultNote
-                };
-            }
-            return i;
-        });
-        updateAndPersistInteractions(updatedInteractions as Interaction[]);
-        setCompletingTask(null);
-    };
-
-  const allTasks = [...userStats.overdueInteractions, ...userStats.upcomingInteractions];
-
-
-  if (!displayedUser) {
-      return <div className="p-6 text-center text-zinc-500">Selecciona un usuario para ver su dashboard.</div>
-  }
-
-  return (
-    <>
-    <div className="space-y-6">
-        {/* KPIs */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            <KPI icon={BarChart3} label={`Ventas (${timePeriod})`} value={formatEur(userStats.revenue)}
-            secondary={<span>Equipo: {formatEur(userStats.teamAvg.revenue)} · <span className={revVsTeamPct>=0?"text-emerald-600":"text-rose-600"}>{revVsTeamPct>=0?"+":""}{revVsTeamPct}%</span> vs media</span>}
-            />
-            <KPI icon={Target} label="Pipeline" value={formatEur(userStats.pipeline)} />
-            <KPI icon={MapIcon} label={`Visitas (${timePeriod})`} value={userStats.visits}
-            secondary={<span>Equipo: {userStats.teamAvg.visits.toFixed(0)} · <span className={visitsVsTeamPct>=0?"text-emerald-600":"text-rose-600"}>{visitsVsTeamPct>=0?"+":""}{visitsVsTeamPct}%</span> vs media</span>}
-            />
-            <KPI icon={Users} label="Cuentas activas" value={userStats.accounts} />
-        </div>
-
-        {/* Main grid */}
-        <div className="grid grid-cols-1 gap-6">
-            {/* Chart taking full width */}
-            <SBCard title={`Evolución de ventas — ${displayedUser?.name} vs Equipo`}>
-                <div className="p-4">
-                    <div className="flex justify-end gap-1 mb-4">
-                        {(['week', 'month', 'year'] as const).map(p => (
-                            <SBButton key={p} variant={timePeriod === p ? 'primary' : 'secondary'} size="sm" onClick={() => setTimePeriod(p)} className="capitalize !px-3 !py-1 !text-xs">
-                                {p === 'week' ? 'Semana' : p === 'month' ? 'Mes' : 'Año'}
-                            </SBButton>
-                        ))}
-                    </div>
-                    <div className="h-72">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={userStats.trendData} margin={{left:8,right:8,top:8,bottom:8}}>
-                            <defs>
-                                <linearGradient id="sbFill" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor={accent} stopOpacity={0.35}/>
-                                <stop offset="100%" stopColor={accent} stopOpacity={0.05}/>
-                                </linearGradient>
-                            </defs>
-                            <CartesianGrid stroke="#eee" strokeDasharray="3 3"/>
-                            <XAxis dataKey="x"/>
-                            <YAxis tickFormatter={(val) => formatEur(val as number)}/>
-                            <Tooltip formatter={(val) => formatEur(val as number)}/>
-                            <Area type="monotone" dataKey="y" name={displayedUser?.name} stroke={accent} fill="url(#sbFill)" strokeWidth={2}/>
-                            <Line type="monotone" data={userStats.teamTrendData} dataKey="y" name="Equipo" stroke="#0f172a" strokeDasharray="4 4" dot={false} strokeWidth={2} />
-                            </AreaChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-            </SBCard>
-            
-            {/* Lower cards */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <SBCard title="Actividades de Venta Pendientes">
-                     <ul className="space-y-1 p-2">
-                        {allTasks.map((t, i) => {
-                            const isOverdue = new Date(t.plannedFor!) < new Date();
-                            const Icon = t.kind === 'LLAMADA' ? Phone : t.kind === 'EMAIL' ? Mail : MapPin;
-                            return (
-                                <li key={i} className={`flex items-center gap-2 p-2 rounded-xl group ${isOverdue ? 'bg-rose-50/70' : ''}`}>
-                                    <button onClick={() => setSelectedEvent(t)} className="flex-1 flex items-center gap-3 text-left">
-                                        <div className={`p-2 rounded-lg ${isOverdue ? 'bg-rose-100 text-rose-600' : 'bg-zinc-100 text-zinc-600'}`}>
-                                            <Icon className="h-4 w-4" />
-                                        </div>
-                                        <div className="flex-1">
-                                            <div className="text-sm text-zinc-800 font-medium">{t.note}</div>
-                                            <div className={`text-xs ${isOverdue ? 'font-semibold text-rose-600' : 'text-zinc-500'}`}>
-                                                {new Date(t.plannedFor!).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                                            </div>
-                                        </div>
-                                    </button>
-                                </li>
-                            );
-                        })}
-                        {allTasks.length === 0 && <p className="text-sm text-center text-zinc-400 py-4">No hay actividades pendientes.</p>}
-                    </ul>
-                </SBCard>
-
-                <SBCard title={`Top cuentas de ${displayedUser?.name}`}>
-                    <div className="overflow-auto rounded-b-2xl">
-                    <table className="w-full text-sm">
-                        <thead className="bg-zinc-50">
-                        <tr>
-                            <th className="text-left px-3 py-2 font-medium text-zinc-600">Cuenta</th>
-                            <th className="text-right px-3 py-2 font-medium text-zinc-600">Ventas (€)</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        {userStats.topAccounts.map((a,i)=> (
-                            <tr key={i} className="border-t">
-                            <td className="px-3 py-2">
-                                <a href={`/accounts/${a.id}`} className="font-medium hover:underline">{a.name}</a>
-                                <div className="text-xs text-zinc-500">{a.city}</div>
-                            </td>
-                            <td className="px-3 py-2 text-right font-semibold">{formatEur(a.revenue)}</td>
-                            </tr>
-                        ))}
-                        </tbody>
-                    </table>
-                    </div>
-                </SBCard>
-            </div>
-      </div>
-    </div>
-
-    {selectedEvent && (
-        <EventDetailDialog
-            event={selectedEvent}
-            open={!!selectedEvent}
-            onOpenChange={() => setSelectedEvent(null)}
-            onUpdateStatus={() => {}}
-            onEdit={handleEditRequest}
-            onDelete={handleDeleteEvent}
-        />
-    )}
-
-    {isNewEventDialogOpen && santaData && (
-        <NewEventDialog
-            open={isNewEventDialogOpen}
-            onOpenChange={setIsNewEventDialogOpen}
-            onSave={handleAddOrUpdateEvent}
-            accentColor={SB_COLORS.accent}
-            initialEventData={editingEvent}
-        />
-    )}
-
-    {completingTask && (
-        <TaskCompletionDialog
-            task={completingTask}
-            open={!!completingTask}
-            onClose={() => setCompletingTask(null)}
-            onComplete={handleCompleteTask as any}
-        />
-    )}
-    </>
-  );
-}
-
-
-// Team Dashboard Components
-function UserChip({ id, name, newAccounts, weeklyGoal, onNewOrder, onNewVisit, onNewInteraction }: { id: string; name: string; newAccounts: number; weeklyGoal: number; onNewOrder?: (userId: string) => void; onNewVisit?: (userId: string) => void; onNewInteraction?: (userId: string) => void; }) {
-  const ok = newAccounts >= weeklyGoal;
-  return (
-    <div className="flex items-center gap-2 border rounded-full px-3 py-1.5 bg-white shadow-sm">
-      <User className="h-4 w-4 text-zinc-500"/>
-      <span className="text-sm font-medium">{name}</span>
-      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${ok ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-        {newAccounts}/{weeklyGoal}
-      </span>
-      <SBButton size="sm" variant="ghost" onClick={() => onNewOrder?.(id)} title="Nuevo pedido"><ShoppingCart className="h-4 w-4"/></SBButton>
-      <SBButton size="sm" variant="ghost" onClick={() => onNewVisit?.(id)} title="Nueva visita"><MapIcon className="h-4 w-4"/></SBButton>
-      <SBButton size="sm" variant="ghost" onClick={() => onNewInteraction?.(id)} title="Nueva interacción"><MessageSquare className="h-4 w-4"/></SBButton>
     </div>
   );
 }
@@ -457,7 +98,7 @@ function SalesReportTable({ users, data }: { users: UserType[], data: any }) {
     }, [users, data]);
 
 
-    const headers = ['Comercial', 'Cuentas Activas', 'Nuevas Cuentas', 'Nuevos Pedidos', 'Total €', 'Ticket Medio', 'Tasa Conversión'];
+    const headers = ['Comercial', 'Cuentas Activas', 'Nuevas Cuentas (mes)', 'Nuevos Pedidos (mes)', 'Total Ventas (€)', 'Ticket Medio (€)', 'Tasa Conversión'];
     const tableTotals = { ...EMPTY_TOTALS, ...reportData.totals };
 
     return (
@@ -546,151 +187,105 @@ function AIInsightsCard() {
     );
 }
 
+function CommercialsRace({ users, data }: { users: UserType[], data: any }) {
+    const goal = 70;
+    
+    const raceData = useMemo(() => {
+        if (!data || !users) return [];
+        
+        const startOfYear = new Date(new Date().getFullYear(), 0, 1);
+        
+        return users.map(user => {
+            const newAccounts = data.accounts.filter((a: Account) => a.ownerId === user.id && inWindow(a.createdAt, startOfYear, new Date())).length;
+            return {
+                id: user.id,
+                name: user.name,
+                newAccounts,
+                percentage: Math.min(100, (newAccounts / goal) * 100)
+            }
+        }).sort((a, b) => b.newAccounts - a.newAccounts);
+
+    }, [data, users]);
+
+    return (
+        <SBCard title="Carrera de Cuentas (Anual)">
+            <div className="p-4 space-y-4">
+                {raceData.map(user => (
+                    <div key={user.id} className="space-y-1">
+                        <div className="flex justify-between items-center text-sm">
+                            <div className="flex items-center gap-2">
+                                <Avatar name={user.name} size="md" />
+                                <span className="font-medium">{user.name}</span>
+                            </div>
+                            <span className="font-semibold">{user.newAccounts} / {goal}</span>
+                        </div>
+                        <div className="w-full bg-zinc-200 rounded-full h-3 overflow-hidden">
+                            <motion.div 
+                                className="h-3 rounded-full"
+                                style={{ background: SB_COLORS.accent }}
+                                initial={{ width: 0 }}
+                                animate={{ width: `${user.percentage}%` }}
+                                transition={{ duration: 1.2, ease: "easeOut" }}
+                            />
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </SBCard>
+    )
+}
 
 function TeamDashboardContent() {
   const { data } = useData();
   const users = useMemo(() => data?.users.filter((u: UserType) => u.role === 'comercial' || u.role === 'owner') || [], [data]);
   
-  const weeklyGoal = 3;
-  const yearlyGoal = 250;
-  
   const teamStats = useMemo(() => {
-    if(!data) return { totalNewAccountsWeekly: 0, totalNewAccountsYearly: 0, conversionRate: 0, attributedSales: 0, usersWithData: []};
+    if(!data) return { totalNewAccountsWeekly: 0, totalNewAccountsYearly: 0, conversionRate: 0, attributedSales: 0 };
     const now = new Date();
     const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const startOfYear = new Date(now.getFullYear(), 0, 1);
 
-    const usersWithData = users.map(user => {
-      const newAccounts = data.accounts.filter(acc => acc.ownerId === user.id && new Date(acc.createdAt) >= oneWeekAgo);
-      return {
-        ...user,
-        newAccounts: newAccounts.length,
-      };
-    });
-    
-    const totalNewAccountsWeekly = usersWithData.reduce((s, u) => s + u.newAccounts, 0);
+    const totalNewAccountsWeekly = data.accounts.filter(a => new Date(a.createdAt) >= oneWeekAgo).length;
     const totalNewAccountsYearly = data.accounts.filter(a => new Date(a.createdAt) >= startOfYear).length;
+    
     const accountsWithOrders = new Set(data.ordersSellOut.map(o => o.accountId));
     const conversionRate = data.accounts.length > 0 ? (accountsWithOrders.size / data.accounts.length) * 100 : 0;
+    
     const attributedSales = data.ordersSellOut.reduce((sum, order) => sum + orderTotal(order), 0);
 
-    return { totalNewAccountsWeekly, totalNewAccountsYearly, conversionRate, attributedSales, usersWithData };
-  }, [data, users]);
+    return { totalNewAccountsWeekly, totalNewAccountsYearly, conversionRate, attributedSales };
+  }, [data]);
 
   return (
     <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <KPI icon={UserPlus} label="Cuentas abiertas (semana)" value={teamStats.totalNewAccountsWeekly} />
-            <KPI icon={Target} label="Cuentas abiertas (mes)" value={teamStats.totalNewAccountsWeekly * 4} />
+            <KPI icon={UserPlus} label="Cuentas nuevas (semana)" value={teamStats.totalNewAccountsWeekly} />
+            <KPI icon={Target} label="Cuentas abiertas (año)" value={teamStats.totalNewAccountsYearly} />
             <KPI icon={BarChart3} label="Conversión a pedido" value={`${teamStats.conversionRate.toFixed(1)}%`} />
-            <KPI icon={Briefcase} label="Ventas atribuidas" value={formatEur(teamStats.attributedSales)} />
+            <KPI icon={Briefcase} label="Ventas totales" value={formatEur(teamStats.attributedSales)} />
         </div>
         
-        <AIInsightsCard />
-
-        <RaceToGoal current={teamStats.totalNewAccountsYearly} goal={yearlyGoal} label="Carrera de Cuentas Anual" />
-
-        <SBCard title="Comerciales">
-            <div className="p-4">
-                <div className="flex flex-wrap gap-3">
-                {teamStats.usersWithData.map(u => (
-                    <UserChip 
-                        key={u.id} 
-                        id={u.id} 
-                        name={u.name} 
-                        newAccounts={u.newAccounts} 
-                        weeklyGoal={weeklyGoal}
-                        onNewOrder={(id) => alert('Nuevo pedido para ' + id)}
-                        onNewVisit={(id) => alert('Nueva visita para ' + id)}
-                        onNewInteraction={(id) => alert('Nueva interacción para ' + id)}
-                    />
-                ))}
-                </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2">
+                <AIInsightsCard />
             </div>
-        </SBCard>
+            <div>
+                 <CommercialsRace users={users} data={data} />
+            </div>
+        </div>
+
         {data && <SalesReportTable users={users} data={data}/>}
     </div>
   );
 }
 
-
-// Main Page Component
-export function SalesDashboardPageContent(){
-    const { currentUser, data } = useData();
-    const [view, setView] = useState<'personal' | 'team'>('personal');
-    const [timePeriod, setTimePeriod] = useState<'week' | 'month' | 'year'>('month');
-    const [displayedUser, setDisplayedUser] = useState<UserType | null>(currentUser);
-    const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'owner';
-    const salesTeam = useMemo(() => data?.users.filter(u => u.role === 'comercial' || u.role === 'owner'), [data?.users]);
-
-    const handleUserChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const selectedId = e.target.value;
-        const user = salesTeam?.find(u => u.id === selectedId) || null;
-        setDisplayedUser(user);
-    }
-    
-    // Set initial user on load
-    useEffect(() => {
-        setDisplayedUser(currentUser);
-    }, [currentUser]);
-    
-    useEffect(() => {
-        // If an admin is viewing, default to team view
-        if(isAdmin && view !== 'team') {
-            setView('team');
-        } else if (!isAdmin && view !== 'personal') {
-            setView('personal');
-        }
-    }, [isAdmin, view]);
-
-    return (
-        <div className="p-6 bg-zinc-50 flex-grow">
-            <div className="mb-6 flex justify-between items-center">
-                <div className="flex items-center gap-4">
-                    {isAdmin && (
-                        <select 
-                            value={view} 
-                            onChange={e => setView(e.target.value as any)}
-                            className="text-lg font-semibold bg-transparent border-b-2 border-zinc-300 focus:outline-none focus:border-yellow-400"
-                        >
-                            <option value="personal">Vista Personal</option>
-                            <option value="team">Vista de Equipo</option>
-                        </select>
-                    )}
-
-                    {view === 'personal' && (
-                        <div className="relative">
-                            <select 
-                                value={displayedUser?.id || ''}
-                                onChange={handleUserChange}
-                                className="pl-3 pr-8 py-1.5 text-sm font-medium bg-zinc-100 border border-zinc-200 rounded-md appearance-none focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                            >
-                                {salesTeam?.map(user => (
-                                    <option key={user.id} value={user.id}>{user.name}</option>
-                                ))}
-                            </select>
-                            <ChevronDown className="h-4 w-4 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-500" />
-                        </div>
-                    )}
-                </div>
-            </div>
-            
-            {view === 'personal' ? 
-                <PersonalDashboardContent 
-                    displayedUser={displayedUser}
-                    timePeriod={timePeriod}
-                    setTimePeriod={setTimePeriod}
-                /> 
-                : <TeamDashboardContent />}
-        </div>
-    );
-}
-
 export default function SalesDashboardPage() {
     return (
         <>
-            <ModuleHeader title="Dashboards de Ventas" icon={BarChart3} />
-            <SalesDashboardPageContent />
+            <ModuleHeader title="Dashboard de Ventas de Equipo" icon={BarChart3} />
+            <div className="p-6 bg-zinc-50 flex-grow">
+              <TeamDashboardContent />
+            </div>
         </>
     )
 }
