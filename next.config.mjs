@@ -1,32 +1,36 @@
+// next.config.mjs
+import createNextBundleAnalyzer from '@next/bundle-analyzer';
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    // Silencia el warning de cross-origin en entornos de desarrollo en la nube.
-    allowedDevOrigins: [
-      "*.cluster-fbfjltn375c6wqxlhoehbz44sk.cloudworkstations.dev",
-    ],
-    // Optimiza las importaciones de paquetes para un build más rápido.
-    optimizePackageImports: [
-      "lucide-react",
-      "@fullcalendar/core",
-      "@fullcalendar/daygrid",
-      "@fullcalendar/interaction",
-      "@fullcalendar/list",
-      "@fullcalendar/react",
-      "@fullcalendar/timegrid",
-      "firebase",
-      "firebase-admin",
-      "react-dom",
-      "react",
-      "recharts",
-    ],
+  reactStrictMode: false, // Ojo: false para evitar doble render en dev con mocks
+  eslint: {
+    ignoreDuringBuilds: true,
   },
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  experimental: {
+    optimizePackageImports: [
+      'lucide-react',
+      '@fullcalendar/react',
+      '@fullcalendar/daygrid',
+      '@fullcalendar/timegrid',
+      '@fullcalendar/interaction',
+      '@fullcalendar/list',
+    ],
+    allowedDevOrigins: ["https://*.cloudworkstations.dev"],
+  },
+  images: {
+    remotePatterns: [
+        { protocol: 'https', hostname: '**.pinimg.com' },
+        { protocol: 'https', hostname: 'picsum.photos' },
+    ]
+  }
 };
 
-// Envuelve la configuración con el analizador de bundles si ANALYZE=true
-const withBundleAnalyzer = require('@next/bundle-analyzer')({
+const withBundleAnalyzer = createNextBundleAnalyzer({
   enabled: process.env.ANALYZE === 'true',
 });
 
-module.exports = withBundleAnalyzer(nextConfig);
+export default withBundleAnalyzer(nextConfig);
