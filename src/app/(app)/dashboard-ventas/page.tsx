@@ -1,18 +1,24 @@
 
 "use client";
 import React, { useMemo, useState, useEffect } from "react";
-import { BarChart3, Target, Users, Briefcase, BrainCircuit, UserPlus, MoreHorizontal } from "lucide-react";
+import { BarChart3, Target, Users, Briefcase, BrainCircuit, UserPlus, MoreHorizontal, Check, AlertCircle, Clock } from "lucide-react";
 import { motion } from "framer-motion";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Bar } from 'recharts';
 import { useData } from "@/lib/dataprovider";
 import { ModuleHeader } from "@/components/ui/ModuleHeader";
 import { SBCard, SBButton, SB_COLORS } from "@/components/ui/ui-primitives";
-import type { User as UserType, OrderSellOut, Account } from '@/domain/ssot';
+import type { User as UserType, OrderSellOut, Account, Interaction, Task } from '@/domain/ssot';
 import { orderTotal, inWindow } from '@/domain/ssot';
 import { generateInsights } from "@/ai/flows/generate-insights-flow";
 import { Avatar } from "@/components/ui/Avatar";
+import { TaskBoard } from '@/features/agenda/TaskBoard';
+import { sbAsISO } from '@/features/agenda/helpers';
 
 
 const formatEur = (n: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
+const formatShortDate = (date: Date) => new Intl.DateTimeFormat('es-ES', { month: 'short', day: 'numeric' }).format(date);
+const dayOfWeek = (date: Date) => new Intl.DateTimeFormat('es-ES', { weekday: 'short' }).format(date);
+
 
 function KPI({label, value, icon: Icon}:{label:string; value:number|string; icon: React.ElementType}){
   return (
@@ -118,54 +124,6 @@ function SalesReportTable({ users, data, timeRange }: { users: UserType[], data:
     );
 }
 
-function AIInsightsCard() {
-    const { data } = useData();
-    const [insights, setInsights] = useState("");
-    const [loading, setLoading] = useState(false);
-
-    const handleGenerate = async () => {
-        if (!data) return;
-        setLoading(true);
-        setInsights("");
-        try {
-            const relevantData = {
-                users: data.users.map(u => ({ id: u.id, name: u.name, role: u.role })),
-                accounts: data.accounts.map(a => ({ id: a.id, name: a.name, city: a.city, stage: a.stage, type: a.type, owner: a.ownerId })),
-                orders: data.ordersSellOut.map(o => ({ id: o.id, accountId: o.accountId, status: o.status, total: orderTotal(o), date: o.createdAt })),
-                interactions: data.interactions.map(i => ({ id: i.id, accountId: i.accountId, userId: i.userId, kind: i.kind, date: i.createdAt })),
-            };
-            const result = await generateInsights({ 
-                jsonData: JSON.stringify(relevantData),
-                context: "Eres un director de ventas. Analiza los datos de comerciales, cuentas y pedidos para encontrar oportunidades de venta, clientes en riesgo, o comerciales con bajo rendimiento."
-            });
-            setInsights(result);
-        } catch (e) {
-            console.error(e);
-            setInsights("Hubo un error al generar el informe. Inténtalo de nuevo.");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return (
-        <SBCard title="Análisis con IA">
-            <div className="p-4 space-y-4">
-                <div className="flex items-center justify-between">
-                    <p className="text-sm text-zinc-600">Deja que la IA analice los datos y encuentre patrones o recomendaciones.</p>
-                    <SBButton onClick={handleGenerate} disabled={loading}>
-                        <BrainCircuit className="h-4 w-4" /> {loading ? 'Analizando...' : 'Generar Informe'}
-                    </SBButton>
-                </div>
-                {insights && (
-                    <div className="prose prose-sm p-4 bg-zinc-50 rounded-lg border max-w-none whitespace-pre-wrap">
-                        {insights}
-                    </div>
-                )}
-            </div>
-        </SBCard>
-    );
-}
-
 function CommercialsRace({ users, data }: { users: UserType[], data: any }) {
     const goal = 70;
     
@@ -214,41 +172,118 @@ function CommercialsRace({ users, data }: { users: UserType[], data: any }) {
     )
 }
 
+function mapInteractionsToTasks(
+  interactions: Interaction[] | undefined,
+  accounts: Account[] | undefined
+): Task[] {
+  if (!interactions || !accounts) return [];
+  const accountMap = new Map(accounts.map((a) => [a.id, a.name]));
+
+  return interactions
+    .filter((i) => i?.plannedFor)
+    .map((i) => {
+      const plannedISO = sbAsISO(i.plannedFor!);
+      if (!plannedISO) return null;
+      return {
+        id: i.id,
+        title: i.note || `${i.kind}`,
+        type: i.dept || "VENTAS",
+        status: i.status || 'open',
+        date: plannedISO,
+        involvedUserIds: i.involvedUserIds,
+        location: i.location || accountMap.get(i.accountId || ''),
+        linkedEntity: i.linkedEntity,
+      } as Task;
+    })
+    .filter(Boolean) as Task[];
+}
+
+
 function TeamDashboardContent() {
   const { data } = useData();
   const [timeRange, setTimeRange] = useState<TimeRange>('month');
+  const [insights, setInsights] = useState("");
+  const [loadingInsights, setLoadingInsights] = useState(false);
 
   const users = useMemo(() => data?.users.filter((u: UserType) => u.role === 'comercial' || u.role === 'owner') || [], [data]);
   
-  const teamStats = useMemo(() => {
-    if(!data) return { totalNewAccounts: 0, conversionRate: 0, attributedSales: 0 };
+  const { teamStats, salesEvolutionData } = useMemo(() => {
+    if(!data) return { teamStats: { totalNewAccounts: 0, conversionRate: 0, attributedSales: 0 }, salesEvolutionData: [] };
     
     const now = new Date();
     let startDate = new Date();
+    let interval: 'day' | 'month' = 'day';
+
     if (timeRange === 'week') {
         startDate.setDate(now.getDate() - 7);
     } else if (timeRange === 'month') {
-        startDate.setDate(1);
-        startDate.setHours(0,0,0,0);
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
     } else { // year
         startDate = new Date(now.getFullYear(), 0, 1);
+        interval = 'month';
     }
+
+    const ordersInPeriod = data.ordersSellOut.filter(o => inWindow(o.createdAt, startDate, now));
+    
+    // Group sales by interval
+    const salesByInterval: {[key: string]: number} = {};
+    for (const order of ordersInPeriod) {
+        const orderDate = new Date(order.createdAt);
+        let key = '';
+        if (interval === 'day') {
+            key = formatShortDate(orderDate);
+        } else { // month
+            key = orderDate.toLocaleString('es-ES', { month: 'short' });
+        }
+        salesByInterval[key] = (salesByInterval[key] || 0) + orderTotal(order);
+    }
+
+    const salesEvolutionData = Object.entries(salesByInterval).map(([name, sales]) => ({ name, sales })).reverse();
+
 
     const totalNewAccounts = data.accounts.filter(a => inWindow(a.createdAt, startDate, now)).length;
     
     const accountsWithOrders = new Set(data.ordersSellOut.map(o => o.accountId));
     const conversionRate = data.accounts.length > 0 ? (accountsWithOrders.size / data.accounts.length) * 100 : 0;
     
-    const attributedSales = data.ordersSellOut
-        .filter(o => inWindow(o.createdAt, startDate, now))
-        .reduce((sum, order) => sum + orderTotal(order), 0);
+    const attributedSales = ordersInPeriod.reduce((sum, order) => sum + orderTotal(order), 0);
 
-    return { totalNewAccounts, conversionRate, attributedSales };
+    const teamStats = { totalNewAccounts, conversionRate, attributedSales };
+    return { teamStats, salesEvolutionData };
   }, [data, timeRange]);
+
+  const salesTasks = useMemo(() => {
+    if (!data) return [];
+    return mapInteractionsToTasks(data.interactions.filter(i => i.dept === 'VENTAS'), data.accounts);
+  }, [data]);
+  
+  const handleGenerateInsights = async () => {
+    if (!data) return;
+    setLoadingInsights(true);
+    setInsights("");
+    try {
+        const relevantData = {
+            users: data.users.map(u => ({ id: u.id, name: u.name, role: u.role })),
+            accounts: data.accounts.map(a => ({ id: a.id, name: a.name, city: a.city, stage: a.stage, type: a.type, owner: a.ownerId })),
+            orders: data.ordersSellOut.map(o => ({ id: o.id, accountId: o.accountId, status: o.status, total: orderTotal(o), date: o.createdAt })),
+            interactions: data.interactions.map(i => ({ id: i.id, accountId: i.accountId, userId: i.userId, kind: i.kind, date: i.createdAt })),
+        };
+        const result = await generateInsights({ 
+            jsonData: JSON.stringify(relevantData),
+            context: "Eres un director de ventas. Analiza los datos de comerciales, cuentas y pedidos para encontrar oportunidades de venta, clientes en riesgo, o comerciales con bajo rendimiento."
+        });
+        setInsights(result);
+    } catch (e) {
+        console.error(e);
+        setInsights("Hubo un error al generar el informe. Inténtalo de nuevo.");
+    } finally {
+        setLoadingInsights(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
-        <div className="flex justify-end">
+        <div className="flex justify-between items-center">
             <div className="flex items-center p-1 bg-zinc-100 rounded-lg">
                 {(['week', 'month', 'year'] as const).map(range => (
                     <SBButton
@@ -261,7 +296,17 @@ function TeamDashboardContent() {
                     </SBButton>
                 ))}
             </div>
+             <SBButton variant="secondary" onClick={handleGenerateInsights} disabled={loadingInsights}>
+                <BrainCircuit className="h-4 w-4" /> {loadingInsights ? 'Analizando...' : 'Análisis con IA'}
+            </SBButton>
         </div>
+
+        {insights && (
+            <div className="prose prose-sm p-4 bg-zinc-50 rounded-lg border max-w-none whitespace-pre-wrap">
+                <h3 className="font-semibold text-zinc-800">Análisis con IA</h3>
+                {insights}
+            </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <KPI icon={UserPlus} label={`Nuevas Cuentas (${timeRange})`} value={teamStats.totalNewAccounts} />
@@ -269,16 +314,37 @@ function TeamDashboardContent() {
             <KPI icon={Briefcase} label={`Ventas (${timeRange})`} value={formatEur(teamStats.attributedSales)} />
         </div>
         
+        <SBCard title="Evolución de Ventas">
+            <div className="h-72 p-4">
+                <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={salesEvolutionData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" fontSize={12} />
+                        <YAxis fontSize={12} tickFormatter={(value) => formatEur(value as number)} />
+                        <Tooltip formatter={(value) => formatEur(value as number)} />
+                        <Line type="monotone" dataKey="sales" stroke={SB_COLORS.cobre} strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                    </LineChart>
+                </ResponsiveContainer>
+            </div>
+        </SBCard>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2">
-                <AIInsightsCard />
+                 {data && <SalesReportTable users={users} data={data} timeRange={timeRange}/>}
             </div>
             <div>
                  <CommercialsRace users={users} data={data} />
             </div>
         </div>
 
-        {data && <SalesReportTable users={users} data={data} timeRange={timeRange}/>}
+        <div>
+            <h2 className="text-xl font-semibold text-zinc-800 mb-4">Tareas del Equipo de Ventas</h2>
+            <TaskBoard
+                tasks={salesTasks}
+                onTaskStatusChange={() => {}} // This would trigger a modal or action
+                onCompleteTask={() => {}} // This would trigger a modal or action
+            />
+        </div>
     </div>
   );
 }
@@ -293,5 +359,3 @@ export default function SalesDashboardPage() {
         </>
     )
 }
-
-    
