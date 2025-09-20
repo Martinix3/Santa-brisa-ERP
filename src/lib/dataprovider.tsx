@@ -46,7 +46,7 @@ const emailToName = (email: string) =>
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<SantaData | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [firebaseUser, setFirebaseUser] = useState<import("firebase/auth").User | null>(auth.currentUser);
+  const [firebaseUser, setFirebaseUser] = useState<import("firebase/auth").User | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [isPersistenceEnabled, setIsPersistenceEnabled] = useState(false);
   const router = useRouter();
@@ -61,11 +61,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         setData(localData);
       } catch (e) {
         console.error("Failed to load local data:", e);
-        // Handle case where local data fails to load.
       }
     }
-    loadInitialData();
-  }, []);
+    if (!data) {
+      loadInitialData();
+    }
+  }, [data]);
 
   // Handle auth state changes
   useEffect(() => {
@@ -81,12 +82,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (!data || !authReady) return;
 
     let userToSet: User | null = null;
-    if (firebaseUser && data.users) {
+    
+    // Default to the first 'owner' or 'admin' user if no one is logged in (for dev purposes)
+    if (!firebaseUser && data.users) {
+        userToSet = data.users.find(u => u.role === 'owner') || data.users.find(u => u.role === 'admin') || data.users[0] || null;
+    } else if (firebaseUser && data.users) {
       const foundUser = data.users.find(u => u.email === firebaseUser.email);
       if (foundUser) {
         userToSet = { ...foundUser, role: (foundUser.role?.toLowerCase() || 'comercial') as UserRole };
       }
     }
+    
     setCurrentUser(userToSet);
 
   }, [data, firebaseUser, authReady]);
@@ -105,10 +111,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [data?.users]);
 
   const saveAllCollections = useCallback(async (collectionsToSave: Partial<SantaData>) => {
-        // This is a mock save. In a real app, this would hit an API.
         if (isPersistenceEnabled) {
             console.log("Saving to backend:", collectionsToSave);
-            // Simulate API call
             await new Promise(resolve => setTimeout(resolve, 500));
         } else {
              console.log("Persistence is disabled. Not saving.");
