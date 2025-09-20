@@ -60,7 +60,12 @@ function PersonalDashboardContent() {
   
   const userInteractions = useMemo(() => {
     if (!data || !currentUser) return [];
-    return data.interactions.filter(i => i.userId === currentUser.id);
+    return data.interactions.filter(i => {
+        // A task belongs to the user if they are involved, or if they created it and no one else is involved.
+        const isAssigned = (i.involvedUserIds || []).includes(currentUser.id);
+        const isSelfAssigned = (i.involvedUserIds === undefined || i.involvedUserIds.length === 0) && i.userId === currentUser.id;
+        return isAssigned || isSelfAssigned;
+    });
   }, [data, currentUser]);
   
   const userTasks = useMemo(() => {
