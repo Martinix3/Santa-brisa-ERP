@@ -197,7 +197,7 @@ export function CalendarPageContent() {
 
   return (
     <>
-      <div className="p-4 md:p-6 bg-white flex-grow flex flex-col min-h-0">
+      <div className="h-full p-4 md:p-6 bg-white flex flex-col">
         <div className="flex items-center gap-3 mb-4 flex-shrink-0">
           <FilterSelect value={responsibleFilter} onChange={setResponsibleFilter} options={userOptions} placeholder="Responsable" />
           <FilterSelect value={departmentFilter} onChange={setDepartmentFilter} options={departmentOptions} placeholder="Sector" />
@@ -211,7 +211,6 @@ export function CalendarPageContent() {
           </button>
         </div>
         <div className="flex-grow min-h-0">
-          <div className="h-full rounded-2xl bg-white border border-zinc-200 shadow-sm overflow-hidden">
             <FullCalendar
               plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
               initialView={initialView}
@@ -245,7 +244,6 @@ export function CalendarPageContent() {
               firstDay={1}
               buttonText={{ today: "hoy", month: "mes", week: "semana", day: "día", list: "año" }}
             />
-          </div>
         </div>
 
         {isNewEventDialogOpen && (
