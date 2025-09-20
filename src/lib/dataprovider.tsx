@@ -87,7 +87,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         }
     }
     loadInitialData();
-  }, []);
+  }, [data]);
 
   // Handle auth state changes
   useEffect(() => {
@@ -119,7 +119,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       } else {
          console.warn(`[DataProvider] Firebase user ${firebaseUser.email} not found in local data.users array.`);
       }
-    } else {
+    } else if (!firebaseUser) {
         console.log('[DataProvider] No Firebase user. Looking for a default user (owner/admin) for dev mode.');
         userToSet = data.users.find(u => u.role === 'owner') || data.users.find(u => u.role === 'admin') || data.users[0] || null;
         console.log(`[DataProvider] Default user set to:`, userToSet ? userToSet.name : 'null');
@@ -148,7 +148,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       const token = await auth.currentUser?.getIdToken();
       if (!token) {
         console.error("No auth token found, cannot save.");
-        return;
+        throw new Error("No auth token found, cannot save.");
       }
       try {
         const apiUrl = new URL('/api/brain-persist', window.location.origin);
@@ -162,7 +162,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         });
 
         if (!res.ok) {
-          // Try to get a meaningful error message from the response
           const errorBody = await res.text();
           try {
             const errorData = JSON.parse(errorBody);
@@ -176,6 +175,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
       } catch (e: any) {
         console.error("Error saving to backend:", e);
+        throw e;
       }
     } else {
       console.log("Persistence is disabled. Not saving.");
@@ -184,9 +184,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   
   const saveCollection = useCallback(
     async (name: keyof SantaData, rows: any[]) => {
-        // Update local state immediately for responsiveness
         setData(prevData => prevData ? { ...prevData, [name]: rows } : null);
-        // Persist to backend if enabled
         if (isPersistenceEnabled) {
              await saveAllCollections({ [name]: rows });
         }
@@ -218,7 +216,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       if (appUser) {
           console.log(`[DataProvider] Found matching app user: ${appUser.name}. Updating currentUser state.`);
           const normalizedUser = { ...appUser, role: (appUser.role?.toLowerCase() || 'comercial') as UserRole };
-          // IMPORTANT: Create a new object reference to trigger re-render in consumers
           setCurrentUser({ ...normalizedUser });
           return normalizedUser;
       }
@@ -233,8 +230,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
        const fbUser = userCredential.user;
       if (!fbUser || !data?.users) return null;
-      // This new user won't be persisted unless persistence is enabled and saveCollection is called.
-      // In a real app, you'd have a backend "createUser" function.
       const newUser: User = {
         id: fbUser.uid,
         name: fbUser.displayName || emailToName(email),

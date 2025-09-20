@@ -1,3 +1,4 @@
+
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -19,3 +20,5 @@ npm install --no-optional --legacy-peer-deps
 
 echo "🚀 Arrancando Next en 0.0.0.0:3000 ..."
 HOST=0.0.0.0 PORT=3000 npm run dev
+
+echo "✅ Script de desarrollo finalizado."
