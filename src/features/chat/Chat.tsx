@@ -3,7 +3,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Send, User, Bot, Loader, CheckCircle, AlertTriangle } from 'lucide-react';
-import type { Account, Product, SantaData, OrderSellOut, Interaction, InventoryItem, EventMarketing } from '@/domain/ssot';
+import type { Account, Product, SantaData, OrderSellOut, Interaction, InventoryItem, EventMarketing, User as UserType } from '@/domain/ssot';
 import { Message } from 'genkit';
 import { runSantaBrain } from '@/ai/flows/santa-brain-flow';
 import { useData } from '@/lib/dataprovider';
@@ -37,10 +37,15 @@ export function Chat({ userId, onNewData }: ChatProps) {
         setIsLoading(true);
 
         try {
+            const context = {
+                users: data.users as UserType[],
+                accounts: data.accounts as Account[],
+            };
+
             const { finalAnswer, newEntities } = await runSantaBrain(
                 messages, 
                 input,
-                { users: data.users, accounts: data.accounts }
+                context
             );
 
             const assistantMessage: Message = { role: 'model', content: [{text: finalAnswer}] };
