@@ -119,10 +119,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       } else {
          console.warn(`[DataProvider] Firebase user ${firebaseUser.email} not found in local data.users array.`);
       }
-    } else if (!firebaseUser) {
-        console.log('[DataProvider] No Firebase user. Looking for a default user (owner/admin) for dev mode.');
-        userToSet = data.users.find(u => u.role === 'owner') || data.users.find(u => u.role === 'admin') || data.users[0] || null;
-        console.log(`[DataProvider] Default user set to:`, userToSet ? userToSet.name : 'null');
     }
     
     setCurrentUser(userToSet);
