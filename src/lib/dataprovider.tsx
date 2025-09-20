@@ -9,6 +9,7 @@ import { onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, signI
 import { collection, getDocs, writeBatch, doc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { SANTA_DATA_COLLECTIONS } from "@/domain/ssot";
+import { INITIAL_MOCK_DATA } from "@/lib/mock-data";
 
 // --------- Tipos ----------
 type LoadReport = {
@@ -45,7 +46,7 @@ const emailToName = (email: string) =>
 
 // --------- Provider ----------
 export function DataProvider({ children }: { children: React.ReactNode }) {
-  const [data, setData] = useState<SantaData | null>(null);
+  const [data, setData] = useState<SantaData | null>(INITIAL_MOCK_DATA);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<import("firebase/auth").User | null>(null);
   const [authReady, setAuthReady] = useState(false);
@@ -78,17 +79,28 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             return [data as SantaData, report];
         }
 
-        if (data === null) {
+        if (isPersistenceEnabled) {
             try {
                 const [firestoreData, report] = await loadAllCollections();
-                setData(firestoreData);
+                if (report.totalDocs > 0) {
+                    setData(firestoreData);
+                } else {
+                    setData(INITIAL_MOCK_DATA);
+                }
             } catch (e) {
-                console.error("[DataProvider] Failed to load Firestore data:", e);
+                console.error("[DataProvider] Failed to load Firestore data, using mock data:", e);
+                setData(INITIAL_MOCK_DATA);
             }
         }
     }
-    loadInitialData();
-  }, [data]);
+    
+    // Only run this if persistence is toggled ON
+    if (isPersistenceEnabled) {
+        loadInitialData();
+    } else {
+        setData(INITIAL_MOCK_DATA); // Reset to mock data if persistence is turned off
+    }
+  }, [isPersistenceEnabled]);
 
   // Handle auth state changes
   useEffect(() => {
