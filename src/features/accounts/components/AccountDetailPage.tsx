@@ -31,13 +31,13 @@ function KPI({label, value, suffix, trend}:{label:string; value:string|number; s
 }
 
 function Row({label, children, icon: Icon}:{label:string; children:React.ReactNode, icon?: React.ElementType}){
-  return (
-    <div className="flex items-start gap-3 py-2">
-       {Icon && <Icon className="h-4 w-4 text-zinc-400 mt-0.5 flex-shrink-0" />}
-      <div className="w-32 text-xs uppercase tracking-wide text-zinc-500">{label}</div>
-      <div className="flex-1 text-sm text-zinc-800">{children || '—'}</div>
-    </div>
-  );
+    return (
+        <div className="flex items-start gap-3 py-2">
+            {Icon && <Icon className="h-4 w-4 text-zinc-400 mt-0.5 flex-shrink-0" />}
+            <div className="w-32 text-xs uppercase tracking-wide text-zinc-500">{label}</div>
+            <div className="flex-1 text-sm text-zinc-800">{children || '—'}</div>
+        </div>
+    );
 }
 
 function Chip({children}:{children:React.ReactNode}){
