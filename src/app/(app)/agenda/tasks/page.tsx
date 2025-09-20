@@ -91,14 +91,16 @@ export default function GlobalTasksPage() {
     };
 
     if (!data) {
-        return <div>Cargando...</div>;
+        return <div className="p-6">Cargando...</div>;
     }
     
     return (
         <>
-            <div className="space-y-6">
-                <h1 className="text-2xl font-semibold text-zinc-800">Tablero de Tareas Global</h1>
-                <p className="text-zinc-600">Vista de todas las tareas programadas para todos los usuarios.</p>
+            <div className="p-6 space-y-6">
+                <div className="mb-4">
+                    <h1 className="text-2xl font-semibold text-zinc-800">Tablero de Tareas Global</h1>
+                    <p className="text-zinc-600 mt-1">Vista de todas las tareas programadas para todos los usuarios.</p>
+                </div>
                 <TaskBoard
                     tasks={allTasks}
                     onTaskStatusChange={handleUpdateStatus}
