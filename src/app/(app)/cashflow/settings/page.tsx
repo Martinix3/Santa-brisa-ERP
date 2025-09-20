@@ -37,17 +37,23 @@ export default function CashflowSettingsPage() {
 
   useEffect(() => {
     (async () => {
-      try { 
-          const r = await fetch('/api/cashflow/settings'); 
-          if (r.ok){ 
-              const text = await r.text();
-              const data = text ? JSON.parse(text) : {};
-              if (data && Object.keys(data).length > 0) {
-                setS(prev => ({...prev, ...data}));
-              }
-          } 
-      } catch (e) {
-          console.error("Failed to load cashflow settings:", e);
+      try {
+        const response = await fetch('/api/cashflow/settings');
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+        
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.indexOf('application/json') !== -1) {
+          const data = await response.json();
+          if (data && Object.keys(data).length > 0) {
+            setS(prev => ({...prev, ...data}));
+          }
+        } else {
+            console.warn("Received non-JSON response from settings API");
+        }
+      } catch (error) {
+        console.error("Failed to load cashflow settings:", error);
       }
     })();
   }, []);
@@ -123,8 +129,8 @@ export default function CashflowSettingsPage() {
                 </SettingRow>
                 {(['HORECA', 'RETAIL', 'DISTRIBUIDOR', 'IMPORTADOR', 'ONLINE'] as const).map(ch => (
                      <SettingRow key={ch} label={`Días ${ch}`} htmlFor={`terms-${ch}`}>
-                        <Input id={`terms-${ch}`} name={`terms-${ch}`} type="number" value={s.termsByChannel?.[ch] ?? s.defaultTermsDays} onChange={e => setTerms(ch, e.target.value)} />
-                    </SettingRow>
+                        <Input id={`terms-${ch}`} name={`terms-${ch}`} type="number" value={s.termsByChannel?.[ch] ?? s.defaultTermsDays} onChange={e => setTerms(ch as AccountType, e.target.value)} />
+                    </Row>
                 ))}
             </div>
         </SBCard>

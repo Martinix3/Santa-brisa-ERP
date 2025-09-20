@@ -40,9 +40,8 @@ export default function QuickLogOverlay() {
         return hasChanges ? updatedData : prevData;
     });
 
-  }, [setData]);
+  }, [data, setData]);
 
-  if (!data || !currentUser) return null;
 
   return (
     <>
@@ -66,13 +65,20 @@ export default function QuickLogOverlay() {
                         <X size={20} />
                     </button>
                 </div>
-                <Chat
-                    userId={currentUser.id}
-                    onNewData={handleNewData}
-                />
+                {currentUser ? (
+                     <Chat
+                        userId={currentUser.id}
+                        onNewData={handleNewData}
+                    />
+                ) : (
+                    <div className="flex-1 flex items-center justify-center text-center text-zinc-500 p-4">
+                        <p>Por favor, inicia sesión para usar Santa Brain.</p>
+                    </div>
+                )}
             </div>
         </div>
       )}
     </>
   );
 }
+
