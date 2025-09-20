@@ -21,7 +21,7 @@ export type Task = {
 type ColumnId = 'overdue' | 'upcoming' | 'done';
 
 const KANBAN_COLS: { id: ColumnId; label: string; icon: React.ElementType; headerColor: string }[] = [
-  { id: 'overdue', label: 'Pendientes', icon: AlertCircle, headerColor: 'text-rose-600' },
+  { id: 'overdue', label: 'Atrasadas', icon: AlertCircle, headerColor: 'text-rose-600' },
   { id: 'upcoming', label: 'Programadas', icon: Clock, headerColor: 'text-cyan-600' },
   { id: 'done', label: 'Hechas', icon: Check, headerColor: 'text-emerald-600' },
 ];
@@ -124,13 +124,28 @@ function StatusColumn({
   tasks,
   typeStyles,
   onCompleteTask,
+  subGroups,
 }: {
   col: (typeof KANBAN_COLS)[number];
   tasks: Task[];
   typeStyles: Record<Department, { label: string; color: string; textColor: string }>;
   onCompleteTask: (id: string) => void;
+  subGroups?: { title: string; tasks: Task[] }[];
 }) {
   const { setNodeRef } = useDroppable({ id: col.id });
+
+  const renderTasks = (tasksToRender: Task[]) => {
+    if (tasksToRender.length === 0) {
+      return (
+        <div className="text-xs text-zinc-500 bg-white/60 border border-dashed border-zinc-300 rounded-lg px-3 py-6 text-center">
+          Sin tareas
+        </div>
+      );
+    }
+    return tasksToRender.map((task) => (
+      <TaskCard key={task.id} task={task} typeStyles={typeStyles} onComplete={onCompleteTask} />
+    ));
+  };
 
   return (
     <div ref={setNodeRef} className="bg-zinc-100/70 p-3 rounded-xl w-full" role="list" aria-label={col.label}>
@@ -141,14 +156,15 @@ function StatusColumn({
       </h3>
 
       <div className="space-y-3 min-h-[100px]">
-        {tasks.length === 0 ? (
-          <div className="text-xs text-zinc-500 bg-white/60 border border-dashed border-zinc-300 rounded-lg px-3 py-6 text-center">
-            Sin tareas
-          </div>
-        ) : (
-          tasks.map((task) => (
-            <TaskCard key={task.id} task={task} typeStyles={typeStyles} onComplete={onCompleteTask} />
+        {subGroups ? (
+          subGroups.map((group, index) => (
+            <div key={index}>
+              <h4 className="text-xs font-semibold text-zinc-500 mb-2 px-1">{group.title} ({group.tasks.length})</h4>
+              <div className="space-y-3">{renderTasks(group.tasks)}</div>
+            </div>
           ))
+        ) : (
+          renderTasks(tasks)
         )}
       </div>
     </div>
@@ -168,16 +184,29 @@ export function TaskBoard({
 }) {
   const categorizedTasks = useMemo(() => {
     const now = new Date();
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
     const byDateAsc = (a?: string, b?: string) => (a ? +new Date(a) : 0) - (b ? +new Date(b) : 0);
+    
     const openTasks = tasks.filter((t) => t.status === 'open');
+    
     const upcoming = openTasks
-      .filter((t) => t.date && new Date(t.date) >= now)
+      .filter((t) => t.date && new Date(t.date) >= todayStart)
       .sort((a, b) => byDateAsc(a.date, b.date));
+
+    const today = upcoming.filter(t => t.date && new Date(t.date) <= todayEnd);
+    const future = upcoming.filter(t => t.date && new Date(t.date) > todayEnd);
+    
     const overdue = openTasks
-      .filter((t) => !t.date || new Date(t.date) < now)
+      .filter((t) => !t.date || new Date(t.date) < todayStart)
       .sort((a, b) => byDateAsc(a.date, b.date));
+      
     const done = tasks.filter((t) => t.status === 'done');
-    return { upcoming, overdue, done };
+
+    return { upcoming, today, future, overdue, done };
   }, [tasks]);
 
   function handleDragEnd(event: any) {
@@ -190,6 +219,11 @@ export function TaskBoard({
     if (!task || task.status === 'done') return;
     onCompleteTask(taskId);
   }
+
+  const upcomingSubgroups = [
+      { title: 'Hoy', tasks: categorizedTasks.today },
+      { title: 'Próximos Días', tasks: categorizedTasks.future },
+  ];
 
   return (
     <DndContext onDragEnd={handleDragEnd} collisionDetection={closestCorners}>
@@ -207,6 +241,7 @@ export function TaskBoard({
           tasks={categorizedTasks.upcoming}
           typeStyles={typeStyles}
           onCompleteTask={onCompleteTask}
+          subGroups={upcomingSubgroups}
         />
         <StatusColumn
           key="done"
