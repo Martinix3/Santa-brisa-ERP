@@ -5,6 +5,7 @@ import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
 import type { Interaction, InteractionStatus } from '@/domain/ssot';
 import { Calendar, Tag, User as UserIcon, Building, Link as LinkIcon, Edit, Trash2, Check, X } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
+import { DEPT_META } from '@/domain/ssot';
 
 export function EventDetailDialog({
   event,
@@ -34,6 +35,8 @@ export function EventDetailDialog({
     const primaryAction = event.status === 'processing'
     ? { label: 'Confirmar y Cerrar Tarea', onClick: handleConfirmAndClose }
     : { label: 'Marcar como Hecha', onClick: () => onUpdateStatus(event.id, 'done') };
+  
+    const deptStyle = event.dept ? DEPT_META[event.dept] : null;
 
   return (
     <SBDialog open={open} onOpenChange={onOpenChange}>
@@ -49,7 +52,7 @@ export function EventDetailDialog({
             <span className={`px-2 py-1 text-xs rounded-full font-semibold ${event.status === 'done' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-800'}`}>
                 {event.status === 'done' ? 'Completada' : 'Pendiente'}
             </span>
-            {event.dept && <span className="px-2 py-1 text-xs rounded-full font-semibold bg-blue-100 text-blue-800">{event.dept}</span>}
+            {deptStyle && <span className="px-2 py-1 text-xs rounded-full font-semibold" style={{ backgroundColor: deptStyle.color, color: deptStyle.textColor}}>{deptStyle.label}</span>}
           </div>
           <div className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-2">
             <UserIcon className="h-4 w-4 text-zinc-500" />
