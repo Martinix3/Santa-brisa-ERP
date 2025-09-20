@@ -23,7 +23,8 @@ export function AuthForm({ onEmailLogin, onEmailSignup, onGoogleSubmit }: AuthFo
     // Redirect if user is already logged in or after a successful login.
     useEffect(() => {
         if (currentUser) {
-            router.replace('/');
+            console.log('[AuthForm] currentUser detected, redirecting...');
+            router.replace('/dashboard-personal');
         }
     }, [currentUser]);
 
@@ -38,10 +39,12 @@ export function AuthForm({ onEmailLogin, onEmailSignup, onGoogleSubmit }: AuthFo
         e.preventDefault();
         setLoading(true);
         setError(null);
+        console.log(`[AuthForm] Attempting ${mode} with email: ${email}`);
         try {
             await onEmailSubmit(email, password);
             // Redirection is now handled by the useEffect
         } catch (err: any) {
+            console.error("[AuthForm] Submit Error:", err);
             setError(err.message || 'Ha ocurrido un error.');
         } finally {
             setLoading(false);

@@ -53,13 +53,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   // Load local data on initial mount
   useEffect(() => {
     async function loadInitialData() {
+      console.log('[DataProvider] Loading initial data from db.json...');
       try {
         const r = await fetch("/data/db.json", { cache: "no-store" });
         if (!r.ok) throw new Error("db.json not found");
         const localData = await r.json() as SantaData;
         setData(localData);
+        console.log('[DataProvider] Initial data loaded.');
       } catch (e) {
-        console.error("Failed to load local data:", e);
+        console.error("[DataProvider] Failed to load local data:", e);
       }
     }
     if (!data) {
@@ -69,7 +71,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   // Handle auth state changes
   useEffect(() => {
+    console.log('[DataProvider] Setting up Firebase auth listener.');
     const unsub = onAuthStateChanged(auth, (fbUser) => {
+        console.log('[DataProvider] Auth state changed. Firebase user:', fbUser ? fbUser.email : 'null');
         setFirebaseUser(fbUser);
         setAuthReady(true);
     });
@@ -78,18 +82,26 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   // Sync currentUser with firebaseUser and local data
   useEffect(() => {
-    if (!data || !authReady) return;
+    if (!data || !authReady) {
+        console.log('[DataProvider] Skipping user sync: data or auth not ready.');
+        return;
+    }
 
     let userToSet: User | null = null;
     
-    // Default to the first 'owner' or 'admin' user if no one is logged in (for dev purposes)
-    if (!firebaseUser && data.users) {
-        userToSet = data.users.find(u => u.role === 'owner') || data.users.find(u => u.role === 'admin') || data.users[0] || null;
-    } else if (firebaseUser && data.users) {
+    if (firebaseUser && data.users) {
+      console.log(`[DataProvider] Auth ready. Trying to find app user for Firebase user: ${firebaseUser.email}`);
       const foundUser = data.users.find(u => u.email === firebaseUser.email);
       if (foundUser) {
+        console.log(`[DataProvider] App user found: ${foundUser.name}. Setting as currentUser.`);
         userToSet = { ...foundUser, role: (foundUser.role?.toLowerCase() || 'comercial') as UserRole };
+      } else {
+         console.warn(`[DataProvider] Firebase user ${firebaseUser.email} not found in local data.users array.`);
       }
+    } else {
+        console.log('[DataProvider] No Firebase user. Looking for a default user (owner/admin) for dev mode.');
+        userToSet = data.users.find(u => u.role === 'owner') || data.users.find(u => u.role === 'admin') || data.users[0] || null;
+        console.log(`[DataProvider] Default user set to:`, userToSet ? userToSet.name : 'null');
     }
     
     setCurrentUser(userToSet);
@@ -143,17 +155,25 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const loginWithEmail = useCallback(
     async (email: string, pass: string): Promise<User | null> => {
+      console.log('[DataProvider] loginWithEmail called.');
       const userCredential = await signInWithEmailAndPassword(auth, email, pass);
       const fbUser = userCredential.user;
-      if (!fbUser || !data?.users) return null;
+      console.log('[DataProvider] Firebase login successful for:', fbUser.email);
+
+      if (!fbUser || !data?.users) {
+        console.error('[DataProvider] Firebase user or local data not available after login.');
+        return null;
+      }
       
       const appUser = data.users.find((u) => u.email === fbUser.email);
       if (appUser) {
+          console.log(`[DataProvider] Found matching app user: ${appUser.name}. Updating currentUser state.`);
           const normalizedUser = { ...appUser, role: (appUser.role?.toLowerCase() || 'comercial') as UserRole };
-          // Create a new object to ensure state update is detected by React
+          // IMPORTANT: Create a new object reference to trigger re-render in consumers
           setCurrentUser({ ...normalizedUser });
-          return { ...normalizedUser };
+          return normalizedUser;
       }
+       console.warn(`[DataProvider] No matching app user found in local data for email: ${fbUser.email}`);
       return null;
     },
     [data?.users]
