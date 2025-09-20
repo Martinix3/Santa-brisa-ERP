@@ -4,9 +4,17 @@
 function stringToColor(seed: string) {
     if (!seed) return `hsl(220 40% 85%)`;
     let h = 0;
-    for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+    // Simple hash function
+    for (let i = 0; i < seed.length; i++) {
+        h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+    }
+
     const hue = h % 360;
-    return `hsl(${hue} 40% 85%)`;
+    // Use different parts of the hash to vary saturation and lightness
+    const saturation = 40 + (h % 21); // Range: 40% to 60%
+    const lightness = 80 + (h % 11);  // Range: 80% to 90%
+    
+    return `hsl(${hue} ${saturation}% ${lightness}%)`;
 }
   
 export function Avatar({ name, size = 'md' }: { name?: string, size?: 'sm' | 'md' | 'lg' }) {
