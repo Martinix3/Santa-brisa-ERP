@@ -55,7 +55,7 @@ function mapInteractionsToTasks(
 
 
 function PersonalDashboardContent() {
-  const { currentUser, data, setData, saveCollection } = useData();
+  const { currentUser, data, setData, saveAllCollections } = useData();
   const [completingTask, setCompletingTask] = useState<Interaction | null>(null);
   
   const userInteractions = useMemo(() => {
@@ -121,26 +121,23 @@ function PersonalDashboardContent() {
 
       if (payload.type === 'venta') {
           const originalTask = data.interactions.find(i => i.id === taskId);
-          const newOrder: OrderSellOut = {
-              id: `ord_${Date.now()}`,
-              accountId: originalTask!.accountId!,
-              status: 'open',
-              currency: 'EUR',
-              createdAt: new Date().toISOString(),
-              lines: payload.items.map(item => ({ sku: item.sku, qty: item.qty, uom: 'uds', priceUnit: 0 })),
-              notes: `Pedido rápido creado desde tarea ${taskId}`,
-          };
-          collectionsToSave.ordersSellOut = [...(data.ordersSellOut || []), newOrder];
+          if (originalTask?.accountId) {
+              const newOrder: OrderSellOut = {
+                  id: `ord_${Date.now()}`,
+                  accountId: originalTask.accountId,
+                  status: 'open',
+                  currency: 'EUR',
+                  createdAt: new Date().toISOString(),
+                  lines: payload.items.map(item => ({ sku: item.sku, qty: item.qty, uom: 'uds', priceUnit: 0 })),
+                  notes: `Pedido rápido creado desde tarea ${taskId}`,
+              };
+              collectionsToSave.ordersSellOut = [...(data.ordersSellOut || []), newOrder];
+          }
       }
     
       setData(prevData => prevData ? { ...prevData, ...collectionsToSave } : null);
 
-      // Persistir todas las colecciones modificadas en una sola llamada
-      const savePromises = Object.entries(collectionsToSave).map(([key, value]) => 
-        saveCollection(key as keyof SantaData, value as any[])
-      );
-      
-      await Promise.all(savePromises);
+      await saveAllCollections(collectionsToSave);
     
       setCompletingTask(null);
   };

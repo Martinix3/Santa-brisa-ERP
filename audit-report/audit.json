@@ -1,0 +1,40 @@
+{
+  "files": 112,
+  "pages": 36,
+  "layouts": 7,
+  "clientFiles": 5,
+  "duplicatesUI": {
+    "Dialog": [
+      "src/app/warehouse/logistics/page.tsx"
+    ],
+    "ModuleHeader": [
+      "src/components/ui/ModuleHeader.tsx"
+    ],
+    "EmptyState": [
+      "src/components/ui/ui-primitives.tsx"
+    ],
+    "TaskBoard": [
+      "src/features/agenda/TaskBoard.tsx"
+    ]
+  },
+  "overlaysFixed": [
+    "src/app/loading.tsx",
+    "src/components/ui/NewCustomerCelebration.tsx"
+  ],
+  "badServerExports": [],
+  "firebaseAdmin": [],
+  "effectNoCleanup": [
+    "src/app/cashflow/settings/page.tsx",
+    "src/app/dev/data-viewer/page.tsx",
+    "src/app/dev/integrations-panel/page.tsx",
+    "src/components/integrations/ApiKeyConnect.tsx",
+    "src/lib/dataprovider.tsx"
+  ],
+  "tokenViolations": [],
+  "routeGroups": {
+    "(root)": {
+      "pages": 37,
+      "layouts": 8
+    }
+  }
+}

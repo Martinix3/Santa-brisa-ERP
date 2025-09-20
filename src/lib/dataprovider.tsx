@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
@@ -17,6 +16,11 @@ type LoadReport = {
   totalDocs: number;
 };
 
+type ServerErrorState = {
+    show: boolean;
+    onRetry: () => void;
+}
+
 type DataContextType = {
   data: SantaData | null;
   setData: React.Dispatch<React.SetStateAction<SantaData | null>>;
@@ -28,6 +32,7 @@ type DataContextType = {
   setRequireAuth: (v: boolean) => void;
   reload: () => Promise<void>;
   saveCollection: (name: keyof SantaData, rows: any[]) => Promise<void>;
+  saveAllCollections: (collections: Partial<SantaData>) => Promise<void>;
   login: () => Promise<void>;
   loginWithEmail: (email: string, pass: string) => Promise<User | null>;
   signupWithEmail: (email: string, pass: string) => Promise<User | null>;
@@ -110,6 +115,36 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
   }
 }
 
+const ServerErrorOverlay = ({ serverError, setServerError }: { serverError: ServerErrorState, setServerError: React.Dispatch<React.SetStateAction<ServerErrorState>> }) => {
+    if (!serverError.show) return null;
+
+    const handleRetry = () => {
+        setServerError({ show: false, onRetry: () => {} }); // Hide first
+        serverError.onRetry(); // Then call the retry logic
+    }
+
+    return (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+            <div className="bg-white p-6 rounded-lg shadow-xl text-center max-w-md">
+                <h3 className="text-lg font-bold text-red-600">Error de Conexión con el Servidor</h3>
+                <p className="mt-2 text-sm text-zinc-600">
+                    No se pudo alcanzar el servidor (posiblemente un timeout del proxy de desarrollo). 
+                    Por favor, asegúrate de que la aplicación también está accesible en{' '}
+                    <a href="http://localhost:3000" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">http://localhost:3000</a> y vuelve a intentarlo.
+                </p>
+                <div className="mt-4 flex justify-center gap-4">
+                     <button onClick={() => setServerError({ show: false, onRetry: () => {} })} className="px-4 py-2 text-sm font-medium bg-zinc-200 rounded-md">
+                        Cerrar
+                    </button>
+                    <button onClick={handleRetry} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md">
+                        Reintentar
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 
 // --------- Provider ----------
 export function DataProvider({ children }: { children: React.ReactNode }) {
@@ -120,6 +155,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [isOnlineMode, setIsOnlineMode] = useState(true);
   const [requireAuth, setRequireAuth] = useState(true);
   const [lastLoadReport, setLastLoadReport] = useState<LoadReport | null>(null);
+  const [serverError, setServerError] = useState<ServerErrorState>({ show: false, onRetry: () => {} });
   const router = useRouter();
 
   const isPersistenceEnabled = isOnlineMode;
@@ -205,33 +241,47 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         }
     }
   }, [data?.users]);
+
+  const saveAllCollections = useCallback(async (collectionsToSave: Partial<SantaData>) => {
+        if (!isOnlineMode) {
+            console.log(`[Offline Mode] Not saving collections: ${Object.keys(collectionsToSave).join(', ')}`);
+            return;
+        }
+        if (requireAuth && !auth.currentUser) throw new Error("No autenticado");
+
+        const saveData = async () => {
+            try {
+                const headers = await getAuthHeaders();
+                const res = await fetch("/api/brain-persist", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", ...headers },
+                    body: JSON.stringify({ newEntities: collectionsToSave }),
+                });
+                if (!res.ok) {
+                    const text = await res.text().catch(() => `Error ${res.status}`);
+                    throw new Error(`Persist failed ${res.status}: ${text}`);
+                }
+            } catch (e: any) {
+                console.error("Error in saveAllCollections:", e);
+                const msg = e.message || '';
+                if (msg.includes('504') || msg.includes('Error reaching server') || msg.includes('Unexpected content-type')) {
+                    setServerError({ show: true, onRetry: saveData });
+                } else {
+                    throw e; // Re-throw other errors
+                }
+            }
+        }
+
+        await saveData();
+    },
+    [isOnlineMode, requireAuth]
+  );
   
   const saveCollection = useCallback(
     async (name: keyof SantaData, rows: any[]) => {
-      setData((prev) => (prev ? ({ ...prev, [name]: rows } as SantaData) : prev));
-      if (!isOnlineMode) {
-        console.log(`[Offline Mode] Not saving collection: ${name}`);
-        return;
-      }
-      if (requireAuth && !auth.currentUser) throw new Error("No autenticado");
-
-      try {
-        const headers = await getAuthHeaders();
-        const res = await fetch("/api/brain-persist", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", ...headers },
-          body: JSON.stringify({ newEntities: { [name]: rows } }),
-        });
-        if (!res.ok) {
-          const text = await res.text().catch(() => `Error ${res.status}`);
-          throw new Error(`Persist failed ${res.status}: ${text}`);
-        }
-      } catch (e) {
-          console.error("Error in saveCollection:", e);
-          throw e;
-      }
+        await saveAllCollections({ [name]: rows });
     },
-    [isOnlineMode, requireAuth]
+    [saveAllCollections]
   );
 
   const login = useCallback(async () => {
@@ -292,6 +342,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setRequireAuth,
       reload,
       saveCollection,
+      saveAllCollections,
       login,
       loginWithEmail,
       signupWithEmail,
@@ -300,10 +351,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       isPersistenceEnabled,
       setCurrentUserById,
     }),
-    [data, currentUser, authReady, isOnlineMode, lastLoadReport, requireAuth, reload, saveCollection, login, loginWithEmail, signupWithEmail, logout, togglePersistence, isPersistenceEnabled, setCurrentUserById]
+    [data, currentUser, authReady, isOnlineMode, lastLoadReport, requireAuth, reload, saveCollection, saveAllCollections, login, loginWithEmail, signupWithEmail, logout, togglePersistence, isPersistenceEnabled, setCurrentUserById]
   );
 
-  return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
+  return (
+    <DataContext.Provider value={value}>
+        {children}
+        <ServerErrorOverlay serverError={serverError} setServerError={setServerError} />
+    </DataContext.Provider>
+  );
 }
 
 export function useData() {
