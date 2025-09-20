@@ -5,9 +5,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { listLots, listMaterials, updateMaterial } from '@/features/production/ssot-bridge';
 import type { Lot, Material } from '@/domain/ssot';
 import { MATERIAL_CATEGORIES } from '@/domain/ssot';
-import { SBCard, SBButton } from '@/components/ui/ui-primitives';
+import { SBCard, SBButton, LotQualityStatusPill } from '@/components/ui/ui-primitives';
 import { ChevronDown, Save, Tags } from 'lucide-react';
-import { LotQualityStatusPill } from '@/features/production/components/ui';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
 
 type SkuWithLots = {

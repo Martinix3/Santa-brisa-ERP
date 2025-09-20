@@ -1,12 +1,10 @@
 
-
 "use client";
 import React, { useState, useEffect, useMemo } from 'react';
 import { Truck, PackageCheck, AlertCircle, ChevronDown, Printer, FileText, Plus, Download, MoreVertical, Package, Tag, Calendar, CheckCircle, XCircle, Hourglass } from "lucide-react";
-import { DataTableSB, Col } from '@/components/ui/ui-primitives';
+import { DataTableSB, Col, LotQualityStatusPill } from '@/components/ui/ui-primitives';
 import { listLots, listMaterials } from "@/features/production/ssot-bridge";
 import type { Lot, Material, InventoryItem, Uom } from '@/domain/ssot';
-import { LotQualityStatusPill } from '@/features/production/components/ui';
 import { useData } from '@/lib/dataprovider';
 
 

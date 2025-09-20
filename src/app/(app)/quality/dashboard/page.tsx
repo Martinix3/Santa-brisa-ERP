@@ -3,9 +3,8 @@
 import React, { useMemo, useState } from 'react';
 import { useData } from '@/lib/dataprovider';
 import type { Lot, QACheck } from '@/domain/ssot';
-import { SBCard, SBButton } from '@/components/ui/ui-primitives';
+import { SBCard, SBButton, LotQualityStatusPill } from '@/components/ui/ui-primitives';
 import { Hourglass, CheckCircle, XCircle, FileText, BrainCircuit } from 'lucide-react';
-import { LotQualityStatusPill } from '@/features/production/components/ui';
 import { generateInsights } from '@/ai/flows/generate-insights-flow';
 
 function KPI({ label, value, icon: Icon }: { label: string; value: number; icon: React.ElementType }) {
