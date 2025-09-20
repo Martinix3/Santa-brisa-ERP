@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
 import { ClipboardCheck } from 'lucide-react';
-import AuthenticatedLayout from '@/components/layouts/AuthenticatedLayout';
 import { SB_COLORS } from '@/components/ui/ui-primitives';
 
 const clsx = (...xs: Array<string | false | null | undefined>) => xs.filter(Boolean).join(" ");
@@ -44,7 +43,7 @@ function QualityNav() {
 
 export default function QualityLayout({ children }: { children: React.ReactNode }) {
   return (
-    <AuthenticatedLayout>
+    <>
       <ModuleHeader title="Control de Calidad" icon={ClipboardCheck} />
       <QualityNav />
       <div className="flex-grow">
@@ -52,6 +51,6 @@ export default function QualityLayout({ children }: { children: React.ReactNode 
             {children}
           </div>
       </div>
-    </AuthenticatedLayout>
+    </>
   );
 }

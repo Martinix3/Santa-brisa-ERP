@@ -9,7 +9,6 @@ import { SBCard, SBButton } from '@/components/ui/ui-primitives';
 import { ChevronDown, Save, Tags } from 'lucide-react';
 import { LotQualityStatusPill } from '@/features/production/components/ui';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
-import AuthenticatedLayout from '@/components/layouts/AuthenticatedLayout';
 
 type SkuWithLots = {
     sku: string;
@@ -154,13 +153,13 @@ function SkuManagementPageContent() {
 
 export default function SkuManagementPage() {
     return (
-        <AuthenticatedLayout>
+        <>
             <ModuleHeader title="Gestión de SKUs" icon={Tags} />
             <div className="bg-zinc-50 flex-grow">
                 <div className="max-w-7xl mx-auto py-6 px-4">
                     <SkuManagementPageContent />
                 </div>
             </div>
-        </AuthenticatedLayout>
+        </>
     )
 }

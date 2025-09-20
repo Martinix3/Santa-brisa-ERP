@@ -7,7 +7,6 @@ import { useData } from '@/lib/dataprovider';
 import { SBCard, SBButton, Input } from '@/components/ui/ui-primitives';
 import { Save, SlidersHorizontal } from 'lucide-react';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
-import AuthenticatedLayout from '@/components/layouts/AuthenticatedLayout';
 
 function KPISettingsPageContent() {
     const { data, setData, currentUser, saveCollection } = useData();
@@ -114,11 +113,11 @@ function KPISettingsPageContent() {
 
 export default function KPISettingsPage() {
     return (
-      <AuthenticatedLayout>
+      <>
         <ModuleHeader title="Ajustes de KPIs" icon={SlidersHorizontal} />
         <div className="p-6">
             <KPISettingsPageContent />
         </div>
-      </AuthenticatedLayout>
+      </>
     );
 }
