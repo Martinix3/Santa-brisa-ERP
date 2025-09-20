@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { TaskBoard } from '@/features/agenda/TaskBoard';
 import type { Task } from '@/features/agenda/TaskBoard';
 import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/TaskCompletionDialog';
+import { NewEventDialog } from '@/features/agenda/components/NewEventDialog';
 import { sbAsISO } from '@/features/agenda/helpers';
 
 
@@ -55,8 +56,9 @@ function mapInteractionsToTasks(
 
 
 function PersonalDashboardContent() {
-  const { currentUser, data, setData, saveAllCollections } = useData();
+  const { currentUser, data, setData, saveAllCollections, saveCollection } = useData();
   const [completingTask, setCompletingTask] = useState<Interaction | null>(null);
+  const [isNewEventDialogOpen, setIsNewEventDialogOpen] = useState(false);
   
   const userInteractions = useMemo(() => {
     if (!data || !currentUser) return [];
@@ -93,6 +95,25 @@ function PersonalDashboardContent() {
      if (newStatus === 'done' && taskToUpdate) {
         setCompletingTask(taskToUpdate);
     }
+  };
+
+  const handleSaveNewTask = async (eventData: Omit<Interaction, 'createdAt' | 'status'> & { id?: string }) => {
+      if (!currentUser || !data) return;
+      
+      const newInteraction: Interaction = {
+          id: `int_${Date.now()}`,
+          ...eventData,
+          createdAt: new Date().toISOString(),
+          status: 'open',
+          userId: currentUser.id,
+      };
+
+      const updatedInteractions = [...(data.interactions || []), newInteraction];
+      
+      setData({ ...data, interactions: updatedInteractions });
+      await saveCollection('interactions', updatedInteractions);
+
+      setIsNewEventDialogOpen(false);
   };
   
    const handleSaveCompletedTask = async (
@@ -162,11 +183,9 @@ function PersonalDashboardContent() {
             <p className="text-zinc-600">Aquí tienes un resumen de tu actividad y tus tareas pendientes.</p>
           </div>
           <div className="flex items-center gap-2">
-              <Link href="/agenda">
-                  <SBButton>
-                      <Plus size={16} /> Nueva Tarea
-                  </SBButton>
-              </Link>
+              <SBButton onClick={() => setIsNewEventDialogOpen(true)}>
+                  <Plus size={16} /> Nueva Tarea
+              </SBButton>
           </div>
         </div>
 
@@ -187,6 +206,15 @@ function PersonalDashboardContent() {
           />
         </div>
       </div>
+
+      {isNewEventDialogOpen && (
+          <NewEventDialog
+            open={isNewEventDialogOpen}
+            onOpenChange={setIsNewEventDialogOpen}
+            onSave={handleSaveNewTask as any}
+            accentColor={SB_COLORS.primary}
+          />
+      )}
 
       {completingTask && (
           <TaskCompletionDialog
