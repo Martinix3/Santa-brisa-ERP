@@ -76,7 +76,7 @@ function TaskCard({
       style={style}
       {...listeners}
       {...attributes}
-      className="p-3 bg-white rounded-lg border shadow-sm group cursor-grab active:cursor-grabbing transition-transform"
+      className="p-3 bg-white rounded-lg border shadow-sm group cursor-grab active:cursor-grabbing"
       role="listitem"
     >
       <p className="font-medium text-sm text-zinc-800">{task.title}</p>
