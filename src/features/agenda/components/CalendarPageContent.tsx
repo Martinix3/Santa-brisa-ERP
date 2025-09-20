@@ -99,7 +99,7 @@ function Tabs({
 
 function FilterSelect({ value, onChange, options, placeholder, className }: { value: string, onChange: (v: string) => void, options: Array<{value: string, label: string}>, placeholder: string, className?: string }) {
   return (
-    <div className={`relative ${className}`}>
+    <div className={`relative ${className ?? ''}`}>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -126,6 +126,13 @@ export function CalendarPageContent() {
 
   const [responsibleFilter, setResponsibleFilter] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('');
+
+  const initialView = useMemo(() => {
+    if (typeof window !== 'undefined') {
+        return localStorage.getItem('sb_calendar_view') || 'timeGridWeek';
+    }
+    return 'timeGridWeek';
+  }, []);
 
 
   const allInteractions = useMemo(() => {
@@ -324,7 +331,7 @@ export function CalendarPageContent() {
     setData(finalData);
 
     await saveCollection('interactions', finalData.interactions);
-    if (payload.type === 'venta') {
+    if (payload.type === 'venta' && finalData.ordersSellOut) {
         await saveCollection('ordersSellOut', finalData.ordersSellOut);
     }
     if (payload.type === 'marketing' && finalData.mktEvents) {
@@ -360,10 +367,6 @@ export function CalendarPageContent() {
   }
   
   const FullCalendar = dynamic(() => import('@fullcalendar/react'), { ssr: false });
-  const initialView = useMemo(() => {
-   if (typeof window === 'undefined') return 'timeGridWeek';
-   return localStorage.getItem('sb_calendar_view') || 'timeGridWeek';
- }, []);
 
   return (
     <>

@@ -98,10 +98,14 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
   const user = auth.currentUser;
   if (!user) return {};
   try {
-    const token = await getIdToken(user, true);
+    const token = await getIdToken(user, true); // Force refresh
     return { 'Authorization': `Bearer ${token}` };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error getting auth token:", error);
+    // If token refresh fails (e.g. user revoked), we should handle it
+    if (error.code === 'auth/user-token-expired' || error.code === 'auth/invalid-user-token') {
+       // Optionally, sign out the user here
+    }
     return {};
   }
 }
