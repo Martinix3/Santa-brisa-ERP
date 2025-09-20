@@ -8,8 +8,8 @@ pkill -f "node .*next" || true
 echo "🧹 Limpiando artefactos de compilación y cachés..."
 rm -rf .next .turbo node_modules/.cache dist build coverage
 
-echo "🧽 Limpiando cachés de usuario (si existen)..."
-rm -rf "$HOME/.npm/_cacache" "$HOME/.npm/_logs" "$HOME/.cache" "$HOME/.pnpm-store" "$HOME/.local/share/pnpm/store" 2>/dev/null || true
+echo "🧽 Limpiando caché de NPM de forma segura..."
+npm cache clean --force
 
 echo "🔒 Normalizando lockfiles: usar npm"
 rm -f pnpm-lock.yaml yarn.lock
