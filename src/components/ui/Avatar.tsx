@@ -3,14 +3,15 @@
 
 // A curated palette of background/foreground colors for the avatars.
 const avatarColors = [
-  { background: "#FDE68A", color: "#92400E" }, // Amarillo Sol
-  { background: "#FBCFE8", color: "#9D174D" }, // Rosa
-  { background: "#A7D8D9", color: "#155E75" }, // Agua
-  { background: "#FED7AA", color: "#9A3412" }, // Naranja
-  { background: "#D1FAE5", color: "#065F46" }, // Verde
-  { background: "#BFDBFE", color: "#1E40AF" }, // Azul
-  { background: "#E9D5FF", color: "#581C87" }, // Púrpura
-  { background: "#D7713E33", color: "#D7713E" }, // Cobre
+    { background: "#FFEAA6", color: "#8C6D0E" }, 
+    { background: "#F2A678", color: "#9E4E27" }, 
+    { background: "#D8F0F1", color: "#2F5D5D" }, 
+    { background: "#89B2B3", color: "#2F5D5D" }, 
+    { background: "#F7D15F", text: "#2C2A28" },
+    { background: "#A7D8D9", text: "#2C2A28" },
+    { background: "#618E8F", text: "#FFFFFF" },
+    { background: "#D7713E", text: "#FFFFFF" },
+    { background: "#2C2A28", text: "#F7D15F" },
 ];
 
 function stringToColor(seed: string) {
