@@ -55,7 +55,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     async function loadInitialData() {
         console.log('[DataProvider] useEffect: Loading all collections from Firestore...');
-        if (data) return;
 
         const loadAllCollections = async (): Promise<[SantaData, LoadReport]> => {
             const data: Partial<SantaData> = {};
@@ -78,15 +77,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             return [data as SantaData, report];
         }
 
-        try {
-            const [firestoreData, report] = await loadAllCollections();
-            setData(firestoreData);
-        } catch (e) {
-            console.error("[DataProvider] Failed to load Firestore data:", e);
+        if (data === null) {
+            try {
+                const [firestoreData, report] = await loadAllCollections();
+                setData(firestoreData);
+            } catch (e) {
+                console.error("[DataProvider] Failed to load Firestore data:", e);
+            }
         }
     }
     loadInitialData();
-  }, [data]);
+  }, []);
 
   // Handle auth state changes
   useEffect(() => {
@@ -142,32 +143,44 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [data?.users]);
 
   const saveAllCollections = useCallback(async (collectionsToSave: Partial<SantaData>) => {
-        if (isPersistenceEnabled) {
-            console.log("Saving to backend:", collectionsToSave);
-            const token = await auth.currentUser?.getIdToken();
-            if (!token) {
-                console.error("No auth token found, cannot save.");
-                return;
-            }
-            try {
-                const res = await fetch('/api/brain-persist', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify({ newEntities: collectionsToSave }),
-                });
-                if (!res.ok) {
-                    const errorData = await res.json();
-                    throw new Error(errorData.error || 'Failed to save data.');
-                }
-                console.log("Save successful:", await res.json());
-            } catch (e) {
-                console.error("Error saving to backend:", e);
-            }
-        } else {
-             console.log("Persistence is disabled. Not saving.");
+    if (isPersistenceEnabled) {
+      console.log("Saving to backend:", collectionsToSave);
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) {
+        console.error("No auth token found, cannot save.");
+        return;
+      }
+      try {
+        const apiUrl = new URL('/api/brain-persist', window.location.origin);
+        const res = await fetch(apiUrl.toString(), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ newEntities: collectionsToSave }),
+        });
+
+        if (!res.ok) {
+          // Try to get a meaningful error message from the response
+          const errorBody = await res.text();
+          try {
+            const errorData = JSON.parse(errorBody);
+            throw new Error(errorData.error || `HTTP error ${res.status}`);
+          } catch {
+             throw new Error(`HTTP error ${res.status}: ${errorBody}`);
+          }
         }
-    }, [isPersistenceEnabled]
-  );
+
+        console.log("Save successful:", await res.json());
+
+      } catch (e: any) {
+        console.error("Error saving to backend:", e);
+      }
+    } else {
+      console.log("Persistence is disabled. Not saving.");
+    }
+  }, [isPersistenceEnabled]);
   
   const saveCollection = useCallback(
     async (name: keyof SantaData, rows: any[]) => {
