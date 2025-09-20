@@ -1,49 +1,35 @@
 {
   "compilerOptions": {
-    "target": "ES2022",
-    "lib": [
-      "ES2022",
-      "DOM",
-      "DOM.Iterable"
-    ],
+    "target": "ES2023",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
-    "moduleResolution": "Node",
+    "moduleResolution": "Bundler",
     "jsx": "preserve",
-    "allowJs": false,
-    "skipLibCheck": true,
+
     "strict": true,
-    "noImplicitAny": false,
+    "skipLibCheck": true,
     "noEmit": true,
-    "types": [
-      "node",
-      "react",
-      "react-dom"
-    ],
-    "baseUrl": ".",
-    "paths": {
-      "@/*": [
-        "src/*"
-      ]
-    },
-    "resolveJsonModule": true,
     "isolatedModules": true,
-    "incremental": true,
+    "resolveJsonModule": true,
     "esModuleInterop": true,
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ]
+    "forceConsistentCasingInFileNames": true,
+    "verbatimModuleSyntax": true,
+
+    "baseUrl": ".",
+    "paths": { "@/*": ["src/*"] },
+
+    /** 👇 CLAVES PARA CORTAR EL PROBLEMA */
+    "types": [],                         // <- no hereda tipos “globales”
+    "typeRoots": ["./node_modules/@types"], // <- no mira fuera del repo
+    "plugins": [{ "name": "next" }]
   },
   "include": [
-    "**/*.ts",
-    "**/*.tsx",
     "next-env.d.ts",
     "src",
     "tests",
-    ".next/types/**/*.ts"
+    ".next/types/**/*.ts",
+    "**/*.ts",
+    "**/*.tsx"
   ],
-  "exclude": [
-    "node_modules"
-  ]
+  "exclude": ["node_modules"]
 }

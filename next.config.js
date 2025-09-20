@@ -1,16 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: "true",
-  experimental: {},
-  allowedDevOrigins: [
-    'https://3000-firebase-studio-1757248254463.cluster-fbfjltn375c6wqxlhoehbz44sk.cloudworkstations.dev',
-    'https://9000-firebase-studio-1757248254463.cluster-fbfjltn375c6wqxlhoehbz44sk.cloudworkstations.dev',
-    'http://localhost:3001',
-    'http://10.88.0.3:3001',
-  ],
-  async redirects() {
-    return [{ source: '/signup', destination: '/login', permanent: true }];
-  },
+  reactStrictMode: true,          // <= boolean, no string
+  // Si quieres exponer Next en Cloud Workstations:
+  devIndicators: { appIsrStatus: false }, // opcional
+  // Otras opciones que puedes usar
+  experimental: {
+    // opcional: mejora bundling de libs
+    optimizePackageImports: ['lucide-react', 'recharts']
+  }
 };
 
 module.exports = nextConfig;

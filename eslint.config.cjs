@@ -31,7 +31,7 @@ module.exports = [
     languageOptions: {
       parser: require('@typescript-eslint/parser'),
       parserOptions: {
-        project: ['./tsconfig.eslint.json'],
+        project: ['./tsconfig.json'], // <-- ASÍ QUEDA CORREGIDO
         tsconfigRootDir: path.resolve()
       }
     }

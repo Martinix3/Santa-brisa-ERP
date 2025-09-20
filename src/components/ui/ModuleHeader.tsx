@@ -16,7 +16,7 @@ export function ModuleHeader({ title, icon: Icon, color = SB_COLORS.general, chi
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
                 <div className="flex justify-between items-center">
                     <h1 className="text-xl font-semibold text-sb-neutral-800 flex items-center gap-3">
-                        <div className="p-2 rounded-lg" style={{ backgroundColor: `${color}20`, color }}>
+                        <div className="p-2 rounded-lg" style={{ backgroundColor: `${color}20`, color }} aria-hidden="true">
                             <Icon size={24} />
                         </div>
                         {title}
