@@ -8,7 +8,7 @@ import { SANTA_DATA_COLLECTIONS } from '@/domain/ssot';
 import type { SantaData } from '@/domain/ssot';
 import { useSearchParams, useRouter } from 'next/navigation';
 
-function CollectionSelector({ collections, active, onSelect }: { collections: string[], active: string, onSelect: (name: string) => void }) {
+function CollectionSelector({ santaData, collections, active, onSelect }: { santaData: SantaData | null, collections: string[], active: string, onSelect: (name: string) => void }) {
     return (
         <div className="border-b">
             <nav className="flex space-x-4 px-4" aria-label="Tabs">
@@ -23,7 +23,7 @@ function CollectionSelector({ collections, active, onSelect }: { collections: st
               }`
             }
                     >
-                        {name} ({(data as any)[name]?.length || 0})
+                        {name} ({(santaData as any)?.[name]?.length || 0})
                     </button>
                 ))}
             </nav>
@@ -65,7 +65,7 @@ function DataViewerContent() {
 
     return (
         <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
-            <CollectionSelector collections={collections} active={activeCollection} onSelect={handleSelectCollection} />
+            <CollectionSelector santaData={santaData} collections={collections} active={activeCollection} onSelect={handleSelectCollection} />
             <div className="p-4">
                 <textarea
                     readOnly
