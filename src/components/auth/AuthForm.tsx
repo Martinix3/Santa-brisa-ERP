@@ -74,9 +74,12 @@ export function AuthForm({ onEmailLogin, onEmailSignup, onGoogleSubmit }: AuthFo
                 
                 <form onSubmit={handleSubmit} className="space-y-4 text-left">
                     <div>
-                        <label className="text-sm font-medium text-zinc-700">Email</label>
+                        <label htmlFor="email" className="text-sm font-medium text-zinc-700">Email</label>
                         <input
+                            id="email"
+                            name="email"
                             type="email"
+                            autoComplete="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             className="mt-1 w-full px-3 py-2 border border-zinc-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500"
@@ -84,9 +87,12 @@ export function AuthForm({ onEmailLogin, onEmailSignup, onGoogleSubmit }: AuthFo
                         />
                     </div>
                     <div>
-                        <label className="text-sm font-medium text-zinc-700">Contraseña</label>
+                        <label htmlFor="password" className="text-sm font-medium text-zinc-700">Contraseña</label>
                         <input
+                            id="password"
+                            name="password"
                             type="password"
+                            autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             className="mt-1 w-full px-3 py-2 border border-zinc-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500"

@@ -178,17 +178,17 @@ function UsersPageContent() {
       <div className="bg-white p-6 rounded-2xl shadow-card border">
         <h2 className="text-lg font-semibold text-zinc-800 mb-4">Añadir Nuevo Usuario</h2>
         <form onSubmit={handleAddUser} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-          <label className="grid gap-1.5">
+          <label className="grid gap-1.5" htmlFor="new-user-name">
             <span className="text-sm font-medium text-zinc-700">Nombre</span>
-            <input name="name" value={newUser.name} onChange={handleInputChange} placeholder="Nombre Apellido" className="h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" required />
+            <input id="new-user-name" name="name" value={newUser.name} onChange={handleInputChange} placeholder="Nombre Apellido" className="h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" required />
           </label>
-          <label className="grid gap-1.5">
+          <label className="grid gap-1.5" htmlFor="new-user-email">
             <span className="text-sm font-medium text-zinc-700">Email</span>
-            <input type="email" name="email" value={newUser.email} onChange={handleInputChange} placeholder="email@dominio.com" className="h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" required />
+            <input id="new-user-email" type="email" name="email" value={newUser.email} onChange={handleInputChange} placeholder="email@dominio.com" className="h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" required />
           </label>
-          <label className="grid gap-1.5">
+          <label className="grid gap-1.5" htmlFor="new-user-role">
             <span className="text-sm font-medium text-zinc-700">Rol</span>
-            <select name="role" value={newUser.role} onChange={handleInputChange} className="h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm">
+            <select id="new-user-role" name="role" value={newUser.role} onChange={handleInputChange} className="h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm">
               <option value="comercial">Comercial</option>
               <option value="ops">Operaciones</option>
               <option value="admin">Admin</option>

@@ -1,3 +1,4 @@
+
 // src/features/dashboard-ventas/components/TaskCompletionDialog.tsx
 "use client";
 import React, { useState } from 'react';
@@ -46,7 +47,7 @@ export function TaskCompletionDialog({ task, open, onClose, onComplete }: {
         }
     };
     
-    const productOptions = (data?.products || []).filter(p => p.kind === 'FG');
+    const productOptions = (data?.products || []).filter(p => p.active && p.sku.startsWith('SB-'));
 
     return (
         <SBDialog open={open} onOpenChange={onClose}>
@@ -77,9 +78,11 @@ export function TaskCompletionDialog({ task, open, onClose, onComplete }: {
 
                     {mode === 'interaccion' ? (
                         <div className="space-y-3 animate-in fade-in">
-                             <label className="grid gap-1.5">
-                                <span className="text-sm font-medium text-zinc-700">Nota / Resultado</span>
+                             <div className="grid gap-1.5">
+                                <label htmlFor="task-note" className="text-sm font-medium text-zinc-700">Nota / Resultado</label>
                                 <textarea
+                                    id="task-note"
+                                    name="note"
                                     value={note}
                                     onChange={(e) => setNote(e.target.value)}
                                     placeholder="Ej: El cliente está contento, pero de momento no necesita más producto."
@@ -87,16 +90,18 @@ export function TaskCompletionDialog({ task, open, onClose, onComplete }: {
                                     rows={4}
                                     required
                                 />
-                            </label>
-                             <label className="grid gap-1.5">
-                                <span className="text-sm font-medium text-zinc-700">Próxima acción (opcional)</span>
+                            </div>
+                             <div className="grid gap-1.5">
+                                <label htmlFor="next-action-date" className="text-sm font-medium text-zinc-700">Próxima acción (opcional)</label>
                                 <input
+                                    id="next-action-date"
+                                    name="nextActionDate"
                                     type="datetime-local"
                                     value={nextActionDate}
                                     onChange={(e) => setNextActionDate(e.target.value)}
                                     className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm"
                                 />
-                            </label>
+                            </div>
                         </div>
                     ) : (
                          <div className="space-y-3 animate-in fade-in">
@@ -104,7 +109,10 @@ export function TaskCompletionDialog({ task, open, onClose, onComplete }: {
                             <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
                                 {items.map((item, index) => (
                                     <div key={index} className="grid grid-cols-[1fr_auto_auto] gap-2 items-center">
-                                        <select 
+                                        <label htmlFor={`sku-${index}`} className="sr-only">Producto</label>
+                                        <select
+                                            id={`sku-${index}`}
+                                            name={`sku-${index}`}
                                             value={item.sku}
                                             onChange={e => updateLine(index, 'sku', e.target.value)}
                                             className="h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm"
@@ -112,7 +120,10 @@ export function TaskCompletionDialog({ task, open, onClose, onComplete }: {
                                             <option value="" disabled>Selecciona producto</option>
                                             {productOptions.map(p => <option key={p.sku} value={p.sku}>{p.name}</option>)}
                                         </select>
+                                        <label htmlFor={`qty-${index}`} className="sr-only">Cantidad</label>
                                         <input
+                                            id={`qty-${index}`}
+                                            name={`qty-${index}`}
                                             type="number"
                                             min="1"
                                             value={item.qty}

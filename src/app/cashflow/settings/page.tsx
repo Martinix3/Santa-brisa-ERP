@@ -20,10 +20,10 @@ const DEFAULTS: CashflowSettings = {
   lagByPaymentMethod: { tarjeta: 2, transferencia: 3, domiciliado: 5, paypal: 2, contado: 0 },
 };
 
-function SettingRow({ label, children }: { label: string; children: React.ReactNode }) {
+function SettingRow({ label, children, htmlFor }: { label: string; children: React.ReactNode, htmlFor?: string }) {
     return (
         <div className="grid grid-cols-3 items-center gap-4">
-            <label className="text-sm font-medium text-zinc-700 col-span-1">{label}</label>
+            <label htmlFor={htmlFor} className="text-sm font-medium text-zinc-700 col-span-1">{label}</label>
             <div className="col-span-2">
                 {children}
             </div>
@@ -74,11 +74,11 @@ export default function CashflowSettingsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <SBCard title="Configuración General">
             <div className="p-4 space-y-4">
-                <SettingRow label="Saldo Inicial (€)">
-                    <Input type="number" value={s.openingBalance} onChange={e => set('openingBalance', Number(e.target.value))} />
+                <SettingRow label="Saldo Inicial (€)" htmlFor="openingBalance">
+                    <Input id="openingBalance" name="openingBalance" type="number" value={s.openingBalance} onChange={e => set('openingBalance', Number(e.target.value))} />
                 </SettingRow>
-                <SettingRow label="Agrupación (Bucket)">
-                    <Select value={s.bucket} onChange={e => set('bucket', e.target.value as CashflowSettings['bucket'])}>
+                <SettingRow label="Agrupación (Bucket)" htmlFor="bucket">
+                    <Select id="bucket" name="bucket" value={s.bucket} onChange={e => set('bucket', e.target.value as CashflowSettings['bucket'])}>
                       <option value="day">Día</option>
                       <option value="week">Semana</option>
                       <option value="month">Mes</option>
@@ -86,9 +86,9 @@ export default function CashflowSettingsPage() {
                 </SettingRow>
                  <SettingRow label="Niveles de Confianza">
                     <div className="flex items-center gap-4">
-                        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={s.includeConfidence.high} onChange={e => set('includeConfidence', { ...s.includeConfidence, high: e.target.checked })}/><span>Alta</span></label>
-                        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={s.includeConfidence.medium} onChange={e => set('includeConfidence', { ...s.includeConfidence, medium: e.target.checked })}/><span>Media</span></label>
-                        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={s.includeConfidence.low} onChange={e => set('includeConfidence', { ...s.includeConfidence, low: e.target.checked })}/><span>Baja</span></label>
+                        <label htmlFor="confidenceHigh" className="flex items-center gap-2 text-sm"><input id="confidenceHigh" type="checkbox" checked={s.includeConfidence.high} onChange={e => set('includeConfidence', { ...s.includeConfidence, high: e.target.checked })}/><span>Alta</span></label>
+                        <label htmlFor="confidenceMedium" className="flex items-center gap-2 text-sm"><input id="confidenceMedium" type="checkbox" checked={s.includeConfidence.medium} onChange={e => set('includeConfidence', { ...s.includeConfidence, medium: e.target.checked })}/><span>Media</span></label>
+                        <label htmlFor="confidenceLow" className="flex items-center gap-2 text-sm"><input id="confidenceLow" type="checkbox" checked={s.includeConfidence.low} onChange={e => set('includeConfidence', { ...s.includeConfidence, low: e.target.checked })}/><span>Baja</span></label>
                     </div>
                 </SettingRow>
             </div>
@@ -96,29 +96,29 @@ export default function CashflowSettingsPage() {
         
         <SBCard title="IVA y Comisiones">
             <div className="p-4 space-y-4">
-                <SettingRow label="Modo IVA">
-                     <Select value={s.vatMode} onChange={e => set('vatMode', e.target.value as CashflowSettings['vatMode'])}>
+                <SettingRow label="Modo IVA" htmlFor="vatMode">
+                     <Select id="vatMode" name="vatMode" value={s.vatMode} onChange={e => set('vatMode', e.target.value as CashflowSettings['vatMode'])}>
                       <option value="gross">Bruto (con IVA)</option>
                       <option value="net">Neto (sin IVA)</option>
                     </Select>
                 </SettingRow>
-                <SettingRow label="Día Liquidación IVA">
-                    <Input type="number" value={s.vatSettlementDay ?? 20} onChange={e => set('vatSettlementDay', Number(e.target.value) as 20 | undefined)}/>
+                <SettingRow label="Día Liquidación IVA" htmlFor="vatSettlementDay">
+                    <Input id="vatSettlementDay" name="vatSettlementDay" type="number" value={s.vatSettlementDay ?? 20} onChange={e => set('vatSettlementDay', Number(e.target.value) as 20 | undefined)}/>
                 </SettingRow>
-                 <SettingRow label="Fee Payout Online (%)">
-                    <Input type="number" step="0.01" value={s.payoutFeePctOnline ?? 0.02} onChange={e => set('payoutFeePctOnline', Number(e.target.value))}/>
+                 <SettingRow label="Fee Payout Online (%)" htmlFor="payoutFee">
+                    <Input id="payoutFee" name="payoutFee" type="number" step="0.01" value={s.payoutFeePctOnline ?? 0.02} onChange={e => set('payoutFeePctOnline', Number(e.target.value))}/>
                 </SettingRow>
             </div>
         </SBCard>
 
         <SBCard title="Términos de Pago por Tipo de Cuenta">
             <div className="p-4 space-y-4">
-                <SettingRow label="Términos por Defecto (días)">
-                    <Input type="number" value={s.defaultTermsDays} onChange={e => set('defaultTermsDays', Number(e.target.value))} />
+                <SettingRow label="Términos por Defecto (días)" htmlFor="defaultTerms">
+                    <Input id="defaultTerms" name="defaultTerms" type="number" value={s.defaultTermsDays} onChange={e => set('defaultTermsDays', Number(e.target.value))} />
                 </SettingRow>
                 {(['HORECA', 'RETAIL', 'DISTRIBUIDOR', 'IMPORTADOR', 'ONLINE'] as const).map(ch => (
-                     <SettingRow key={ch} label={`Días ${ch}`}>
-                        <Input type="number" value={s.termsByChannel?.[ch] ?? s.defaultTermsDays} onChange={e => setTerms(ch, e.target.value)} />
+                     <SettingRow key={ch} label={`Días ${ch}`} htmlFor={`terms-${ch}`}>
+                        <Input id={`terms-${ch}`} name={`terms-${ch}`} type="number" value={s.termsByChannel?.[ch] ?? s.defaultTermsDays} onChange={e => setTerms(ch, e.target.value)} />
                     </SettingRow>
                 ))}
             </div>
@@ -127,8 +127,8 @@ export default function CashflowSettingsPage() {
         <SBCard title="Lag por Método de Pago">
             <div className="p-4 space-y-4">
                 {(['contado','tarjeta','paypal','transferencia','domiciliado'] as const).map(pm => (
-                    <SettingRow key={pm} label={`Lag ${pm} (días)`}>
-                         <Input type="number" value={s.lagByPaymentMethod?.[pm] ?? 0} onChange={e => setLag(pm, e.target.value)} />
+                    <SettingRow key={pm} label={`Lag ${pm} (días)`} htmlFor={`lag-${pm}`}>
+                         <Input id={`lag-${pm}`} name={`lag-${pm}`} type="number" value={s.lagByPaymentMethod?.[pm] ?? 0} onChange={e => setLag(pm, e.target.value)} />
                     </SettingRow>
                 ))}
             </div>
