@@ -42,29 +42,6 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 const emailToName = (email: string) =>
   email.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
 
-async function loadAllCollections(): Promise<[SantaData, LoadReport]> {
-    console.log('[DataProvider] Loading all collections from Firestore...');
-    const data: Partial<SantaData> = {};
-    const report: LoadReport = { ok: [], errors: [], totalDocs: 0 };
-    
-    for (const name of SANTA_DATA_COLLECTIONS) {
-        try {
-            const querySnapshot = await getDocs(collection(db, name));
-            const docs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            (data as any)[name] = docs;
-            report.ok.push(name);
-            report.totalDocs += docs.length;
-        } catch (e: any) {
-            console.error(`[DataProvider] Error loading collection ${name}:`, e);
-            report.errors.push({ name, error: e.message });
-            (data as any)[name] = [];
-        }
-    }
-    console.log('[DataProvider] Firestore data loaded. Report:', report);
-    return [data as SantaData, report];
-}
-
-
 // --------- Provider ----------
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<SantaData | null>(null);
@@ -77,17 +54,39 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   // Load Firestore data on initial mount
   useEffect(() => {
     async function loadInitialData() {
-      console.log('[DataProvider] useEffect: Loading initial data...');
-      if (data) return;
-      try {
-        const [firestoreData, report] = await loadAllCollections();
-        setData(firestoreData);
-      } catch (e) {
-        console.error("[DataProvider] Failed to load Firestore data:", e);
-      }
+        console.log('[DataProvider] useEffect: Loading all collections from Firestore...');
+        if (data) return;
+
+        const loadAllCollections = async (): Promise<[SantaData, LoadReport]> => {
+            const data: Partial<SantaData> = {};
+            const report: LoadReport = { ok: [], errors: [], totalDocs: 0 };
+            
+            for (const name of SANTA_DATA_COLLECTIONS) {
+                try {
+                    const querySnapshot = await getDocs(collection(db, name));
+                    const docs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    (data as any)[name] = docs;
+                    report.ok.push(name);
+                    report.totalDocs += docs.length;
+                } catch (e: any) {
+                    console.error(`[DataProvider] Error loading collection ${name}:`, e);
+                    report.errors.push({ name, error: e.message });
+                    (data as any)[name] = [];
+                }
+            }
+            console.log('[DataProvider] Firestore data loaded. Report:', report);
+            return [data as SantaData, report];
+        }
+
+        try {
+            const [firestoreData, report] = await loadAllCollections();
+            setData(firestoreData);
+        } catch (e) {
+            console.error("[DataProvider] Failed to load Firestore data:", e);
+        }
     }
     loadInitialData();
-  }, []);
+  }, [data]);
 
   // Handle auth state changes
   useEffect(() => {
