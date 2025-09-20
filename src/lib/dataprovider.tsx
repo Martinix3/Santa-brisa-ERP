@@ -102,6 +102,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   // Sync currentUser with firebaseUser and local data
   useEffect(() => {
+    console.log('[DataProvider] useEffect to sync user triggered.');
     if (!data || !authReady) {
         console.log('[DataProvider] Skipping user sync: data or auth not ready.');
         return;
@@ -144,9 +145,25 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const saveAllCollections = useCallback(async (collectionsToSave: Partial<SantaData>) => {
         if (isPersistenceEnabled) {
             console.log("Saving to backend:", collectionsToSave);
-            // This would be a fetch to a serverless function that writes to Firestore
-            // For now, it's a mock.
-            await new Promise(resolve => setTimeout(resolve, 500));
+            const token = await auth.currentUser?.getIdToken();
+            if (!token) {
+                console.error("No auth token found, cannot save.");
+                return;
+            }
+            try {
+                const res = await fetch('/api/brain-persist', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ newEntities: collectionsToSave }),
+                });
+                if (!res.ok) {
+                    const errorData = await res.json();
+                    throw new Error(errorData.error || 'Failed to save data.');
+                }
+                console.log("Save successful:", await res.json());
+            } catch (e) {
+                console.error("Error saving to backend:", e);
+            }
         } else {
              console.log("Persistence is disabled. Not saving.");
         }
