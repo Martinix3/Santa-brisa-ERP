@@ -1,3 +1,10 @@
+# Informe de Auditoría — Santa Brisa
+
+- 📄 **Resumen estático**: [audit-summary.md](./audit-summary.md)
+- 🧭 **Hallazgos en runtime**: [runtime-findings.md](./runtime-findings.md)
+
+---
+
 # Auditoría Santa Brisa
 
 **Archivos escaneados:** 103
@@ -22,3 +29,12 @@
 
 ## Rutas (conteo aproximado)
 - (root): 37 pages, 8 layouts
+
+
+---
+
+# Runtime findings
+
+No se encontró `/tmp/sb-client-logs.ndjson`.
+Navega la app con la captura activa (MonitoringBoot) y vuelve a correr `npm run audit:runtime`.
+
