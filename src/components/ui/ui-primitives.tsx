@@ -1,5 +1,4 @@
 
-
 "use client";
 import React, { useMemo, useState } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -205,6 +204,19 @@ export function DataTableSB<T extends { id:string }>({ rows, cols }:{ rows:T[]; 
   );
 }
 
+export function LotQualityStatusPill({ status }: { status?: 'hold' | 'release' | 'reject' }) {
+    const styles = {
+        hold: 'bg-yellow-100 text-yellow-800',
+        release: 'bg-green-100 text-green-800',
+        reject: 'bg-red-100 text-red-800',
+    };
+    const s = status || 'hold';
+    return (
+        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${styles[s]}`}>
+            {s.toUpperCase()}
+        </span>
+    );
+}
+
 export { Card as SBCard };
 export { Button as SBButton };
-

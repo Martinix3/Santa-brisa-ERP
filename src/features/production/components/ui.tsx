@@ -1,5 +1,4 @@
 
-
 "use client";
 import React, { useMemo } from "react";
 import type { ProductionOrder, Lot, QCResult, Interaction } from "@/domain/ssot";
@@ -8,6 +7,7 @@ import { Factory, Cpu, BookOpen, Waypoints, AlertCircle, Hourglass, MoreVertical
 import Link from 'next/link';
 import { useData } from '@/lib/dataprovider';
 import { DEPT_META } from '@/domain/ssot';
+import { LotQualityStatusPill } from '@/components/ui/ui-primitives';
 
 function KPI({ icon: Icon, label, value, color }: { icon: React.ElementType, label: string, value: string | number, color: string }) {
     return (
@@ -183,18 +183,4 @@ export function ProductionLayout({ children }: { children: React.ReactNode }) {
 
 export function ExecutionPage() {
     return <div>Execution Page</div>
-}
-
-export function LotQualityStatusPill({ status }: { status?: 'hold' | 'release' | 'reject' }) {
-    const styles = {
-        hold: 'bg-yellow-100 text-yellow-800',
-        release: 'bg-green-100 text-green-800',
-        reject: 'bg-red-100 text-red-800',
-    };
-    const s = status || 'hold';
-    return (
-        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${styles[s]}`}>
-            {s.toUpperCase()}
-        </span>
-    );
 }
