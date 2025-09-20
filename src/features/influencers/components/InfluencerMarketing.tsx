@@ -16,7 +16,7 @@ import {
   DollarSign, Check, X, ChevronDown, UploadCloud, Pencil, PieChart,
 } from "lucide-react";
 import type { InfluencerCollab, Platform, Tier, Deliverable, CompType } from "@/domain/ssot";
-import { listCollabs, listCreators } from "../ssot-bridge";
+import { listCollabs, listCreators } from "@/features/production/ssot-bridge";
 
 type InfStatus = InfluencerCollab['status'];
 
