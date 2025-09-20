@@ -1,27 +1,34 @@
-// src/server/firebaseAdmin.ts
-import * as admin from 'firebase-admin';
+// server-only
+import { getApps, initializeApp, cert, applicationDefault } from "firebase-admin/app";
+import { getFirestore } from "firebase-admin/firestore";
+import { getAuth } from "firebase-admin/auth";
 
-function getProjectId(): string | undefined {
-    return process.env.GCLOUD_PROJECT || process.env.FIREBASE_PROJECT_ID;
+function init() {
+  const hasSA =
+    !!process.env.FIREBASE_PROJECT_ID &&
+    !!process.env.FIREBASE_CLIENT_EMAIL &&
+    !!process.env.FIREBASE_PRIVATE_KEY;
+
+  if (hasSA) {
+    // ✅ Sin key.json; usa variables de entorno
+    return initializeApp({
+      credential: cert({
+        projectId: process.env.FIREBASE_PROJECT_ID!,
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL!,
+        privateKey: process.env.FIREBASE_PRIVATE_KEY!.replace(/\\n/g, "\n"),
+      }),
+      projectId: process.env.FIREBASE_PROJECT_ID!,
+    });
+  }
+
+  // ⚠️ Fallback (ADC) — puede causar invalid_grant en Workstations
+  return initializeApp({
+    credential: applicationDefault(),
+    projectId: process.env.FIREBASE_PROJECT_ID || process.env.GCLOUD_PROJECT,
+  });
 }
 
-if (!admin.apps.length) {
-    console.log("[Firebase Admin] Initializing...");
-    const projectId = getProjectId();
-    
-    if (projectId) {
-        try {
-            // Usa las credenciales de entorno por defecto (Application Default Credentials).
-            // Esto es lo más robusto para entornos como Cloud Run, Cloud Shell, etc.
-            admin.initializeApp({ projectId });
-            console.log(`[Firebase Admin] Initialized successfully for project: ${projectId}`);
-        } catch (e: any) {
-            console.error('[Firebase Admin] Initialization failed:', e.message);
-        }
-    } else {
-        console.error('[Firebase Admin] Initialization failed: Project ID could not be determined from environment variables.');
-    }
-}
+const app = getApps().length ? getApps()[0] : init();
 
-export const adminDb = admin.apps.length ? admin.firestore() : null;
-export const adminAuth = admin.apps.length ? admin.auth() : null;
+export const adminDb = getFirestore(app);
+export const adminAuth = getAuth(app);

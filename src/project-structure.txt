@@ -1,0 +1,79 @@
+.
+├── src
+│   ├── app
+│   │   ├── (app)
+│   │   │   ├── accounts
+│   │   │   │   └── [accountId]
+│   │   │   ├── admin
+│   │   │   │   ├── kpi-settings
+│   │   │   │   └── sku-management
+│   │   │   ├── cashflow
+│   │   │   │   ├── collections
+│   │   │   │   ├── dashboard
+│   │   │   │   ├── payments
+│   │   │   │   └── settings
+│   │   │   ├── dashboard-ventas
+│   │   │   ├── marketing
+│   │   │   │   ├── dashboard
+│   │   │   │   ├── events
+│   │   │   │   ├── influencers
+│   │   │   │   └── online
+│   │   │   ├── orders
+│   │   │   ├── production
+│   │   │   │   ├── bom
+│   │   │   │   ├── dashboard
+│   │   │   │   ├── execution
+│   │   │   │   └── traceability
+│   │   │   ├── quality
+│   │   │   │   ├── dashboard
+│   │   │   │   └── release
+│   │   │   ├── users
+│   │   │   └── warehouse
+│   │   │       ├── dashboard
+│   │   │       ├── inventory
+│   │   │       └── logistics
+│   │   ├── (auth)
+│   │   │   └── login
+│   │   ├── (dev)
+│   │   │   ├── data-map
+│   │   │   ├── data-viewer
+│   │   │   ├── db-console
+│   │   │   ├── integrations-panel
+│   │   │   ├── qc-params
+│   │   │   └── ssot-tests
+│   │   ├── (personal)
+│   │   │   ├── agenda
+│   │   │   └── dashboard-personal
+│   │   ├── api
+│   │   │   ├── admin
+│   │   │   ├── brain-persist
+│   │   │   ├── cashflow
+│   │   │   ├── dev
+│   │   │   └── integrations
+│   │   └── tools
+│   │       └── ssot-accounts-editor
+│   ├── components
+│   │   ├── auth
+│   │   ├── integrations
+│   │   ├── layouts
+│   │   └── ui
+│   ├── domain
+│   ├── features
+│   │   ├── accounts
+│   │   ├── agenda
+│   │   ├── chat
+│   │   ├── dashboard-ventas
+│   │   ├── influencers
+│   │   ├── integrations
+│   │   ├── marketing
+│   │   ├── orders
+│   │   ├── production
+│   │   ├── quality
+│   │   ├── quicklog
+│   │   └── warehouse
+│   ├── lib
+│   ├── server
+│   └── ai
+│       └── flows
+└── public
+    └── data
