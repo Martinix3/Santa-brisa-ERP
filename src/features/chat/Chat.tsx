@@ -7,6 +7,7 @@ import type { Account, Product, SantaData, OrderSellOut, Interaction, InventoryI
 import { Message } from 'genkit';
 import { runSantaBrain } from '@/ai/flows/santa-brain-flow';
 import { useData } from '@/lib/dataprovider';
+import Image from 'next/image';
 
 
 type ChatProps = {
@@ -63,7 +64,18 @@ export function Chat({ userId, onNewData }: ChatProps) {
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
                 {messages.map((msg, index) => (
                     <div key={index} className={`flex items-start gap-3 ${msg.role === 'user' ? 'justify-end' : ''}`}>
-                        {msg.role !== 'user' && <div className="flex-shrink-0 h-8 w-8 rounded-full bg-zinc-200 flex items-center justify-center"><Bot size={18} /></div>}
+                        {msg.role !== 'user' && (
+                            <div className="flex-shrink-0 h-8 w-8 rounded-full bg-zinc-200 flex items-center justify-center overflow-hidden">
+                                <Image
+                                    src="https://picsum.photos/seed/santabrain/32/32"
+                                    alt="Santa Brain Avatar"
+                                    width={32}
+                                    height={32}
+                                    className="object-cover"
+                                    data-ai-hint="woman sunglasses"
+                                />
+                            </div>
+                        )}
                         <div className={`max-w-md p-3 rounded-2xl ${msg.role === 'user' ? 'bg-yellow-400 text-black' : 'bg-white border'}`}>
                             <p className="text-sm whitespace-pre-wrap">{msg.content[0].text}</p>
                         </div>
@@ -72,7 +84,16 @@ export function Chat({ userId, onNewData }: ChatProps) {
                 ))}
                 {isLoading && (
                      <div className="flex items-start gap-3">
-                        <div className="flex-shrink-0 h-8 w-8 rounded-full bg-zinc-200 flex items-center justify-center"><Bot size={18} /></div>
+                        <div className="flex-shrink-0 h-8 w-8 rounded-full bg-zinc-200 flex items-center justify-center overflow-hidden">
+                             <Image
+                                src="https://picsum.photos/seed/santabrain/32/32"
+                                alt="Santa Brain Avatar"
+                                width={32}
+                                height={32}
+                                className="object-cover"
+                                data-ai-hint="woman sunglasses"
+                            />
+                        </div>
                         <div className="max-w-md p-3 rounded-2xl bg-white border flex items-center gap-2">
                            <Loader size={16} className="animate-spin text-zinc-500" />
                            <span className="text-sm text-zinc-500">Pensando...</span>
