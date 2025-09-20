@@ -17,7 +17,7 @@ function AgendaNav() {
 
     return (
         <div className="bg-white border-b border-sb-neutral-200">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex gap-6">
                     {navItems.map(item => (
                         <Link
@@ -41,14 +41,12 @@ function AgendaNav() {
 
 export default function AgendaLayout({ children }: { children: React.ReactNode }) {
   return (
-    <>
+    <div className="h-full flex flex-col">
       <ModuleHeader title="Agenda" icon={Calendar} />
       <AgendaNav />
-      <div className="flex-grow bg-zinc-50/50">
-        <div className="max-w-full mx-auto py-6 px-4">
+      <div className="flex-grow min-h-0">
           {children}
-        </div>
       </div>
-    </>
+    </div>
   );
 }

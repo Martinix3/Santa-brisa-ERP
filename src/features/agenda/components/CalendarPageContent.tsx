@@ -9,8 +9,7 @@ import listPlugin from "@fullcalendar/list";
 import type { EventContentArg, EventClickArg, EventDropArg } from "@fullcalendar/core";
 
 import { useData } from "@/lib/dataprovider";
-import { ModuleHeader } from "@/components/ui/ModuleHeader";
-import { Calendar, Filter } from "lucide-react";
+import { Filter, Calendar } from "lucide-react";
 import { SB_COLORS, DEPT_META } from "@/domain/ssot";
 import type { Department, Interaction, SantaData, InteractionStatus } from '@/domain/ssot';
 import { sbAsISO } from "@/features/agenda/helpers";
@@ -198,10 +197,11 @@ export function CalendarPageContent() {
 
   return (
     <>
-      <ModuleHeader title="Agenda" icon={Calendar}>
-        <div className="flex items-center gap-3">
+      <div className="p-4 md:p-6 bg-white flex-grow flex flex-col min-h-0">
+        <div className="flex items-center gap-3 mb-4 flex-shrink-0">
           <FilterSelect value={responsibleFilter} onChange={setResponsibleFilter} options={userOptions} placeholder="Responsable" />
           <FilterSelect value={departmentFilter} onChange={setDepartmentFilter} options={departmentOptions} placeholder="Sector" />
+          <div className="flex-grow"></div>
           <button
             onClick={() => { setEditingEvent(null); setIsNewEventDialogOpen(true); }}
             className="flex items-center gap-2 text-sm text-white rounded-lg px-4 py-2 font-semibold hover:brightness-110 transition-colors"
@@ -210,8 +210,6 @@ export function CalendarPageContent() {
             Nueva Tarea
           </button>
         </div>
-      </ModuleHeader>
-      <div className="h-full flex flex-col gap-6 p-4 md:p-6 bg-white">
         <div className="flex-grow min-h-0">
           <div className="h-full rounded-2xl bg-white border border-zinc-200 shadow-sm overflow-hidden">
             <FullCalendar
