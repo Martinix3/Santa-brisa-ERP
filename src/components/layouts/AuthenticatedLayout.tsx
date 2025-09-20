@@ -47,6 +47,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import Image from 'next/image';
 import { useData } from '@/lib/dataprovider';
 import { Avatar } from '@/components/ui/Avatar';
+import QuickLogOverlay from '@/features/quicklog/QuickLogOverlay';
 
 
 const navSections = [
@@ -371,7 +372,10 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
             </div>
           </nav>
         </aside>
-        <main className="overflow-y-auto flex flex-col">{children}</main>
+        <main className="overflow-y-auto flex flex-col">
+            {children}
+            <QuickLogOverlay />
+        </main>
       </div>
     </div>
   );
