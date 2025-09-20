@@ -63,7 +63,6 @@ const navSections = [
         items: [
             { href: '/dashboard-ventas', label: 'Dashboard de Ventas', icon: BarChart3 },
             { href: '/accounts', label: 'Cuentas', icon: Users },
-            { href: '/dev/data-viewer?collection=distributors', label: 'Distribuidores', icon: Briefcase },
             { href: '/orders', label: 'Pedidos', icon: ShoppingCart },
         ]
     },
@@ -73,8 +72,8 @@ const navSections = [
         items: [
             { href: '/marketing/dashboard', label: 'Dashboard', icon: Megaphone },
             { href: '/marketing/events', label: 'Eventos', icon: Calendar },
-            { href: '/marketing/online', label: 'Adds', icon: Zap },
-            { href: '/marketing/influencers/dashboard', label: 'Influencers', icon: Contact },
+            { href: '/marketing/online', label: 'Ads', icon: Zap },
+            { href: '/marketing/influencers', label: 'Influencers', icon: Contact },
         ]
     },
     {
@@ -93,7 +92,6 @@ const navSections = [
         items: [
             { href: '/quality/dashboard', label: 'Dashboard QC', icon: ClipboardCheck },
             { href: '/quality/release', label: 'Liberación de Lotes', icon: CheckCircle },
-            { href: '/dev/qc-params', label: 'Parámetros de Calidad', icon: TestTube2 },
         ]
     },
     {
