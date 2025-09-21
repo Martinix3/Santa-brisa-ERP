@@ -70,7 +70,7 @@ const statusOptions: { value: OrderStatus; label: string }[] = [
     { value: 'lost', label: 'Perdido' },
 ];
 
-function StatusSelector({ order, onStatusChange }: { order: OrderSellOut; onStatusChange: (orderId: string, newStatus: OrderStatus) => Promise<void>; }) {
+function StatusSelector({ order, onStatusChange }: { order: OrderSellOut; onStatusChange: (order: OrderSellOut, newStatus: OrderStatus) => Promise<void>; }) {
     const [isPending, startTransition] = useTransition();
 
     const statusMap: Record<OrderStatus, { label: string; className: string }> = {
@@ -88,7 +88,7 @@ function StatusSelector({ order, onStatusChange }: { order: OrderSellOut; onStat
     const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const newStatus = e.target.value as OrderStatus;
         startTransition(async () => {
-            await onStatusChange(order.id, newStatus);
+            await onStatusChange(order, newStatus);
         });
     };
 
@@ -289,33 +289,39 @@ export default function OrdersDashboard() {
     setIsCreateOrderOpen(false);
   }
 
-  const handleStatusChange = async (orderId: string, newStatus: OrderStatus) => {
+  const handleStatusChange = async (order: OrderSellOut, newStatus: OrderStatus) => {
     if (!data) return;
   
     // Optimistic UI update
-    const originalOrders = data.ordersSellOut;
     setData(prevData => {
         if (!prevData) return null;
-        const updatedOrders = prevData.ordersSellOut.map(o => o.id === orderId ? { ...o, status: newStatus } : o);
+        const updatedOrders = prevData.ordersSellOut.map(o => o.id === order.id ? { ...o, status: newStatus } : o);
         return { ...prevData, ordersSellOut: updatedOrders };
     });
 
     try {
         if (newStatus === 'confirmed') {
-            const order = enrichedOrders.find(o => o.id === orderId);
-            if (order) {
-                const shortages = checkOrderStock(order as OrderSellOut, inventory || [], products || []);
+            const orderWithDetails = enrichedOrders.find(o => o.id === order.id);
+            if (orderWithDetails) {
+                const shortages = checkOrderStock(orderWithDetails as OrderSellOut, inventory || [], products || []);
                 if (shortages.length > 0) {
                     const shortageMessage = shortages.map(s => `${s.qtyShort} uds de ${s.sku}`).join(', ');
                     console.warn(`Falta de stock para el pedido ${order.docNumber || order.id}:\nFaltan ${shortageMessage}.\n\nEl pedido se confirmará de todos modos (backorder).`);
                 }
+                 await updateOrderStatus(orderWithDetails as OrderSellOut, newStatus);
             }
+        } else {
+             await updateOrderStatus(order, newStatus);
         }
-        await updateOrderStatus(orderId, newStatus);
         
     } catch (error) {
         console.error("Failed to update order status:", error);
-        setData(prevData => prevData ? ({ ...prevData, ordersSellOut: originalOrders }) : null);
+        // Revert optimistic update on failure
+        setData(prevData => {
+            if (!prevData) return null;
+            const revertedOrders = prevData.ordersSellOut.map(o => o.id === order.id ? order : o);
+            return { ...prevData, ordersSellOut: revertedOrders };
+        });
     }
   };
 
