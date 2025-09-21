@@ -4,8 +4,8 @@
 
 import React, { useMemo, useState, useTransition } from 'react';
 import { useData } from '@/lib/dataprovider';
-import { Download, Plus, Search, FileWarning, PackageCheck, FileText, Banknote, CheckCircle, Boxes, Loader2 } from 'lucide-react';
-import type { OrderSellOut, Account, User, OrderStatus, PartyRole, CustomerData, SantaData, Party } from '@/domain/ssot';
+import { Download, Plus, Search, FileWarning, PackageCheck, FileText, Banknote, CheckCircle, Boxes, Loader2, Truck } from 'lucide-react';
+import type { OrderSellOut, Account, User, OrderStatus, PartyRole, CustomerData, SantaData, Party, Shipment } from '@/domain/ssot';
 import { orderTotal } from '@/lib/sb-core';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
 import { ShoppingCart } from 'lucide-react';
@@ -257,7 +257,10 @@ export default function OrdersDashboard() {
   }
 
   const handleCreateOrder = (payload: any) => {
-    if (!data) return;
+    if (!data) {
+        console.error("No hay datos disponibles para crear el pedido.");
+        return;
+    }
 
     if (!payload.account && !payload.newAccount) {
         console.error("No se ha seleccionado o creado una cuenta para el nuevo pedido.");
@@ -265,8 +268,9 @@ export default function OrdersDashboard() {
     }
     
     let targetAccount = payload.newAccount ? payload.newAccount : data.accounts.find(a => a.name === payload.account);
+    const collectionsToSave: Partial<SantaData> = {};
 
-    if (!targetAccount) {
+    if (!targetAccount && payload.account) {
       // Create new account if it doesn't exist
       const newParty: Partial<Party> = { id: `party_${Date.now()}`, name: payload.account, kind: 'ORG', createdAt: new Date().toISOString(), contacts: [], addresses: [] };
       targetAccount = {
@@ -278,10 +282,18 @@ export default function OrdersDashboard() {
         ownerId: data.currentUser?.id || 'u_admin',
         createdAt: new Date().toISOString(),
       };
-      payload.newParty = newParty;
-      payload.newAccount = targetAccount;
+      collectionsToSave.parties = [...(data.parties || []), newParty as Party];
+      collectionsToSave.accounts = [...(data.accounts || []), targetAccount as Account];
+    } else if (payload.newAccount) {
+        collectionsToSave.parties = [...(data.parties || []), payload.newParty as Party];
+        collectionsToSave.accounts = [...(data.accounts || []), payload.newAccount as Account];
     }
     
+    if(!targetAccount) {
+      console.error("No se pudo determinar la cuenta para el pedido.");
+      return;
+    }
+
     const newOrder: OrderSellOut = {
         id: `ord_${Date.now()}`,
         docNumber: generateNextOrder((data.ordersSellOut || []).map(o=>o.docNumber).filter(Boolean) as string[], payload.channel, new Date()),
@@ -294,14 +306,7 @@ export default function OrdersDashboard() {
         source: 'MANUAL'
     };
     
-    const collectionsToSave: Partial<SantaData> = {
-        ordersSellOut: [...(data.ordersSellOut || []), newOrder]
-    };
-
-    if (payload.newAccount && payload.newParty) {
-        collectionsToSave.accounts = [...(data.accounts || []), payload.newAccount];
-        collectionsToSave.parties = [...(data.parties || []), payload.newParty];
-    }
+    collectionsToSave.ordersSellOut = [...(data.ordersSellOut || []), newOrder];
     
     saveAllCollections(collectionsToSave);
     setIsCreateOrderOpen(false);
@@ -318,27 +323,11 @@ export default function OrdersDashboard() {
     });
 
     try {
-        if (newStatus === 'confirmed') {
-            const orderWithDetails = enrichedOrders.find(o => o.id === order.id);
-            const account = data.accounts.find(a => a.id === order.accountId);
-            const party = account ? data.parties.find(p => p.id === account.partyId) : undefined;
-            
-            if (orderWithDetails && account && party) {
-                const shortages = checkOrderStock(orderWithDetails, inventory || [], products || []);
-                if (shortages.length > 0) {
-                    const shortageMessage = shortages.map(s => `${s.qtyShort} uds de ${s.sku}`).join(', ');
-                    console.warn(`Falta de stock para el pedido ${order.docNumber || order.id}:\nFaltan ${shortageMessage}.\n\nEl pedido se confirmará de todos modos (backorder).`);
-                }
-                await updateOrderStatus(orderWithDetails as OrderSellOut, account, party, newStatus);
-            }
-        } else {
-            const account = data.accounts.find(a => a.id === order.accountId);
-            const party = account ? data.parties.find(p => p.id === account.partyId) : undefined;
-            if(account && party) {
-               await updateOrderStatus(order, account, party, newStatus);
-            }
+        const account = data.accounts.find(a => a.id === order.accountId);
+        const party = account ? data.parties.find(p => p.id === account.partyId) : undefined;
+        if(account && party) {
+           await updateOrderStatus(order, account, party, newStatus);
         }
-        
     } catch (error) {
         console.error("Failed to update order status:", error);
         // Revert optimistic update on failure
@@ -349,7 +338,15 @@ export default function OrdersDashboard() {
         });
     }
   };
-
+  
+  const shipmentStatusMap: Record<Shipment['status'], { label: string; className: string }> = {
+    pending: { label: 'Pendiente', className: 'bg-yellow-100 text-yellow-700' },
+    picking: { label: 'Picking', className: 'bg-blue-100 text-blue-700' },
+    ready_to_ship: { label: 'Validado', className: 'bg-purple-100 text-purple-700' },
+    shipped: { label: 'Enviado', className: 'bg-cyan-100 text-cyan-700' },
+    delivered: { label: 'Entregado', className: 'bg-green-100 text-green-700' },
+    cancelled: { label: 'Cancelado', className: 'bg-red-100 text-red-700' },
+  };
 
   return (
     <>
@@ -447,6 +444,41 @@ export default function OrdersDashboard() {
             </div>
           )}
         </div>
+        
+        {/* Tabla de Envíos para Depuración */}
+        <div className="mt-8">
+            <h2 className="text-lg font-semibold flex items-center gap-2 mb-2"><Truck size={20}/> Chivato de Envíos (para depuración)</h2>
+            <div className="bg-white border rounded-2xl shadow-sm overflow-hidden">
+                <table className="w-full text-sm">
+                    <thead className="bg-zinc-50 text-left">
+                        <tr>
+                            <th className="p-3 font-semibold text-zinc-600">Shipment ID</th>
+                            <th className="p-3 font-semibold text-zinc-600">Order ID</th>
+                            <th className="p-3 font-semibold text-zinc-600">Cliente</th>
+                            <th className="p-3 font-semibold text-zinc-600">Fecha</th>
+                            <th className="p-3 font-semibold text-zinc-600">Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-100">
+                        {(data?.shipments || []).map(shipment => {
+                            const style = shipmentStatusMap[shipment.status] || shipmentStatusMap.pending;
+                            return (
+                                <tr key={shipment.id} className="hover:bg-zinc-50">
+                                    <td className="p-3 font-mono text-xs">{shipment.id}</td>
+                                    <td className="p-3 font-mono text-xs">{shipment.orderId}</td>
+                                    <td className="p-3">{shipment.customerName}</td>
+                                    <td className="p-3">{new Date(shipment.createdAt).toLocaleDateString('es-ES')}</td>
+                                    <td className="p-3"><span className={`px-2 py-1 text-xs font-semibold rounded-full ${style.className}`}>{style.label}</span></td>
+                                </tr>
+                            )
+                        })}
+                         {(data?.shipments || []).length === 0 && (
+                            <tr><td colSpan={5} className="p-8 text-center text-zinc-500">No hay envíos.</td></tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
+        </div>
       </div>
       {isCreateOrderOpen && (
         <SBFlowModal
@@ -462,3 +494,4 @@ export default function OrdersDashboard() {
     </>
   );
 }
+
