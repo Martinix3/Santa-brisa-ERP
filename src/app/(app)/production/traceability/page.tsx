@@ -1,19 +1,22 @@
 
-
 "use client";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useData } from "@/lib/dataprovider";
-import type { Lot, OrderSellOut as SaleDoc, QACheck, GenealogyLink, ProductionOrder, User, TraceEvent, LotStatus, Account, SantaData } from "@/domain/ssot";
+import type { Lot, OrderSellOut as SaleDoc, QACheck, ProductionOrder, User, TraceEvent, Account, SantaData } from "@/domain/ssot";
 import {
     Archive, FileText, CheckCircle2, XCircle, FlaskConical, Recycle, PackagePlus, Flag,
     Package as PackageIcon, PackageCheck, Truck, Pin, Paperclip, Send, Download,
 } from "lucide-react";
 
-
 // ======================================================================
 // SB Trazabilidad — Timeline + Auditoría (solo lectura)
 // Integrado al DataProvider central (useData) y tu esquema SSOT
 // ======================================================================
+
+// -------------------------- Tipos Locales --------------------------
+type GenealogyLink = { fromLotId: string; toLotId: string; };
+type LotStatus = Lot['quality']['qcStatus'];
+
 
 // -------------------------- Utils --------------------------
 function buildIndex<T extends { id: string }>(rows: T[] | undefined) {
@@ -60,12 +63,9 @@ const { Badge, Field } = TraceUI;
 function StatusPill({ s }: { s?: LotStatus }) {
     if (!s) return null;
     const toneMap: Record<LotStatus, "green" | "red" | "amber" | "blue" | "zinc"> = {
-        'APPROVED': 'green',
-        'REJECTED': 'red',
-        'QUARANTINE': 'amber',
-        'OPEN': 'blue',
-        'CONSUMED': 'zinc',
-        'CLOSED': 'zinc',
+        'release': 'green',
+        'reject': 'red',
+        'hold': 'amber',
     };
     const tone = toneMap[s] || 'zinc';
     return <Badge tone={tone as any}>{String(s).toUpperCase()}</Badge>;
@@ -89,7 +89,7 @@ function KindTag({ kind }: { kind: TraceEvent["kind"] }) {
   return <span className="px-1.5 py-0.5 rounded-md text-[10px] bg-zinc-100 text-zinc-700 border border-zinc-200">{kind}</span>;
 }
 
-// ------------------------------- Search Bar -------------------------------
+// ----------------брь--------------- Search Bar -------------------------------
 function SearchBar({ lots, onPick }: { lots: Lot[]; onPick: (id: string) => void }) {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
@@ -100,7 +100,7 @@ function SearchBar({ lots, onPick }: { lots: Lot[]; onPick: (id: string) => void
     const out: { id: string; label: string; aux: string }[] = [];
     for (const l of lots) {
       if (l.id.toLowerCase().includes(query)) out.push({ id: l.id, label: l.id, aux: l.sku });
-      if ((l.sku || "").toLowerCase().includes(query)) out.push({ id: l.id, label: l.sku, aux: l.id });
+      if (l.sku && l.sku.toLowerCase().includes(query)) out.push({ id: l.id, label: l.sku, aux: l.id });
     }
     const seen = new Set<string>();
     return out
@@ -192,7 +192,9 @@ function EventIcon({ kind }: { kind: TraceEvent["kind"] }) {
     DELIVERED: Download,
     FARM_DATA: FileText,
     SUPPLIER_PO: FileText,
-    SHIPMENT_PICKED: PackageIcon
+    SHIPMENT_PICKED: PackageIcon,
+    BATCH_PLANNED: FileText,
+    BATCH_RELEASED: FileText,
   };
   const Icon = map[kind] || 'div';
   return <Icon className="h-4 w-4" />;
@@ -232,10 +234,10 @@ export default function TraceabilityTimelinePage() {
       qaChecks: santaData?.qaChecks || [],
       users: santaData?.users || [],
       links: (santaData?.productionOrders || []).reduce((acc, b) => {
-          (b.inputs || []).forEach((i: any) => {
-              (b.outputs || []).forEach((o: any) => {
-                  acc.push({ fromLotId: i.lotId, toLotId: o.lotId });
-              });
+          (b.actuals || []).forEach((i: any) => {
+            if (b.lotId && i.fromLot) {
+                acc.push({ fromLotId: i.fromLot, toLotId: b.lotId });
+            }
           });
           return acc;
       }, [] as GenealogyLink[]),
@@ -271,7 +273,7 @@ export default function TraceabilityTimelinePage() {
     return Array.from(map.values()).sort((a, b) => a.customerName.localeCompare(b.customerName));
   }, [lotSales, openLot, accountIndex]);
 
-  const openLotProdOrder = openLot?.trace?.parentBatchId ? prodOrderIndex.get(openLot.trace.parentBatchId) : null;
+  const openLotProdOrder = openLot?.orderId ? prodOrderIndex.get(openLot.orderId) : null;
 
   const relatedLotIds = useMemo(() => {
     if (!openLot) return [] as string[];
@@ -313,7 +315,7 @@ export default function TraceabilityTimelinePage() {
                   <td className="px-3 py-2 font-medium">{l.id}</td>
                   <td className="px-3 py-2">{l.sku}</td>
                   <td className="px-3 py-2">
-                    <StatusPill s={l.status} />
+                    <StatusPill s={l.quality?.qcStatus} />
                   </td>
                   <td className="px-3 py-2 text-right">
                     <button onClick={() => setOpenLotId(l.id)} className="px-3 py-1.5 rounded-lg border border-zinc-300 hover:bg-zinc-50">
@@ -336,7 +338,7 @@ export default function TraceabilityTimelinePage() {
               <div className="flex items-center justify-between">
                 <div className="text-lg font-medium">Lote {openLot.id}</div>
                 <div className="flex items-center gap-2">
-                  <StatusPill s={openLot.status} />
+                  <StatusPill s={openLot.quality?.qcStatus} />
                 </div>
               </div>
 
@@ -347,9 +349,9 @@ export default function TraceabilityTimelinePage() {
                   <div className="grid gap-2">
                     <Field label="ID Lote">{openLot.id}</Field>
                     <Field label="SKU">{openLot.sku}</Field>
-                    <Field label="Cantidad">{openLot.qty?.onHand ?? "—"} {openLot.qty?.uom}</Field>
+                    <Field label="Cantidad">{openLot.quantity ?? "—"} uds</Field>
                     <Field label="Creado">{new Date(openLot.createdAt).toLocaleString()}</Field>
-                    <Field label="Orden Prod.">{openLot.trace?.parentBatchId || "—"}</Field>
+                    <Field label="Orden Prod.">{openLot.orderId || "—"}</Field>
                   </div>
                 </div>
 
@@ -365,7 +367,7 @@ export default function TraceabilityTimelinePage() {
                             <div>
                               <b>{p.id}</b> · <span className="text-zinc-600">{p.sku}</span>
                             </div>
-                            <StatusPill s={p.status} />
+                            <StatusPill s={p.quality?.qcStatus} />
                           </div>
                         ))
                       ) : (
@@ -380,7 +382,7 @@ export default function TraceabilityTimelinePage() {
                             <div>
                               <b>{c.id}</b> · <span className="text-zinc-600">{c.sku}</span>
                             </div>
-                            <StatusPill s={c.status} />
+                            <StatusPill s={c.quality?.qcStatus} />
                           </div>
                         ))
                       ) : (
@@ -467,7 +469,7 @@ function ProductionPanel({ prodOrder, users }: { prodOrder: ProductionOrder; use
     <div className="rounded-xl border border-zinc-200 p-4">
       <div className="text-sm text-zinc-500 mb-2">Protocolos e Incidencias de Producción</div>
       <ul className="divide-y divide-zinc-200">
-        {(prodOrder.protocolChecks || []).map((p: any) => (
+        {(prodOrder.checks || []).map((p: any) => (
           <li key={p.id} className="py-2 flex items-center justify-between text-sm">
             <div className="flex items-center gap-2">
               <span className={`w-2.5 h-2.5 rounded-full ${p.done ? "bg-green-500" : "bg-zinc-300"}`} />
@@ -489,7 +491,7 @@ function ProductionPanel({ prodOrder, users }: { prodOrder: ProductionOrder; use
           </li>
         ))}
       </ul>
-      {(prodOrder.protocolChecks?.length || 0) === 0 && (prodOrder.incidents?.length || 0) === 0 && (
+      {(prodOrder.checks?.length || 0) === 0 && (prodOrder.incidents?.length || 0) === 0 && (
         <div className="text-zinc-400 text-sm">No hay protocolos ni incidencias registradas.</div>
       )}
     </div>
@@ -513,14 +515,13 @@ function QCTable({ tests, users }: { tests: QACheck[]; users: Map<string, User> 
             <tbody>
               {tests.map((t) => (
                 <tr key={t.id} className="border-t border-zinc-200">
-                  <td className="px-3 py-2">{new Date(t.reviewedAt).toLocaleString()}</td>
-                  <td className="px-3 py-2">{users.get(t.reviewerId)?.name || t.reviewerId}</td>
+                  <td className="px-3 py-2">{new Date(t.reviewedAt || t.createdAt).toLocaleString()}</td>
+                  <td className="px-3 py-2">{users.get(t.reviewedById || '')?.name || t.reviewedById || 'N/A'}</td>
                   <td className="px-3 py-2">
                     <div className="flex flex-wrap gap-1">
-                      {t.checklist.map((r, i) => (
-                        <Badge key={i} tone={r.valueBool ? "green" : "red"}>
-                          {r.name}: {String(r.valueNum) || String(r.valueBool) || r.valueText}
-                          {r.uom ? " " + r.uom : ""}
+                      {(t.checklist || []).map((r, i) => (
+                        <Badge key={i} tone={r.result === 'ok' ? "green" : "red"}>
+                          {r.name}: {String(r.value)}
                         </Badge>
                       ))}
                     </div>
@@ -577,3 +578,5 @@ function SalesByCustomer({ lot, groups, accountIndex, santaData }: { lot: Lot; g
     </div>
   );
 }
+
+    
