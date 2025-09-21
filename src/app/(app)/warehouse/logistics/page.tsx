@@ -1,15 +1,16 @@
 
 "use client";
 import React, { useMemo, useState, useEffect } from "react";
-import { Printer, PackageCheck, Truck, CheckCircle2, Search, Plus, FileText, ClipboardList, Boxes, PackageOpen, BadgeCheck, AlertTriangle, Settings, Clipboard, Ruler, Weight, MoreHorizontal, Check as CheckIcon, FileDown, Package, Info, X } from "lucide-react";
+import { Printer, PackageCheck, Truck, CheckCircle2, Search, Plus, FileText, ClipboardList, Boxes, PackageOpen, BadgeCheck, AlertTriangle, Settings, Clipboard, Ruler, Weight, MoreHorizontal, Check as CheckIcon, FileDown, Package, Info, X, Loader2 } from "lucide-react";
 import { SBButton, SBCard, Input, Select, STATUS_STYLES } from '@/components/ui/ui-primitives';
 import { useData } from '@/lib/dataprovider';
 import type { Shipment, OrderSellOut, Account, ShipmentStatus, ShipmentLine, AccountType, Party } from '@/domain/ssot';
 import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog";
 import { generatePackingSlip } from './actions';
-import { canGenerateDeliveryNote, canGenerateLabel, canMarkShipped } from "@/lib/logistics.helpers";
+import { canGenerateDeliveryNote, canGenerateLabel, canMarkShipped, hasDimsAndWeight } from "@/lib/logistics.helpers";
 import { NewShipmentDialog } from "@/features/warehouse/components/NewShipmentDialog";
 import { upsertMany } from "@/lib/dataprovider/server";
+import Link from "next/link";
 
 // ===============================
 // UI Components (Re-localizados para simplicidad)
@@ -290,7 +291,7 @@ export default function LogisticsPage() {
     setOpenValidate(false);
   };
   
-  const generateDeliveryNote = (shipment: Shipment) => {
+  const handleGenerateAlbaran = async (shipment: Shipment) => {
      if (!canGenerateDeliveryNote(shipment)) { 
         setNotification({ type: 'error', message: 'Primero marca "Visual OK" en la validación del pedido.' });
         return; 
@@ -299,9 +300,11 @@ export default function LogisticsPage() {
      const updatedShipments = santaData.shipments.map(s => s.id === shipment.id ? { ...s, holdedDeliveryId: s.holdedDeliveryId || `ALB-${Math.floor(Math.random()*90000+10000)}` } : s);
      setData({ ...santaData, shipments: updatedShipments });
      setNotification({ type: 'success', message: `Albarán ${updatedShipments.find(s=>s.id === shipment.id)?.holdedDeliveryId} generado.`});
+     // Ahora, genera el PDF
+     await handleGeneratePackingSlip(shipment.id, "Albarán");
   };
 
-  const handleGeneratePackingSlip = async (shipmentId: string) => {
+  const handleGeneratePackingSlip = async (shipmentId: string, type: "Albarán" | "Hoja de Pedido") => {
     setGeneratingSlip(shipmentId);
     setNotification(null);
     try {
@@ -313,14 +316,14 @@ export default function LogisticsPage() {
       if (result.pdfDataUri) {
           const link = document.createElement('a');
           link.href = result.pdfDataUri;
-          link.download = `packing-slip-${shipmentId}.pdf`;
+          link.download = `${type.toLowerCase().replace(' ', '_')}-${shipmentId}.pdf`;
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
-          setNotification({type: 'success', message: 'Hoja de pedido generada y descargada.'});
+          setNotification({type: 'success', message: `${type} generado y descargado.`});
       }
     } catch (e: any) {
-      setNotification({type: 'error', message: e.message || 'Error al generar la hoja de pedido.'});
+      setNotification({type: 'error', message: e.message || `Error al generar ${type}.`});
       console.error(e);
     } finally {
         setGeneratingSlip(null);
@@ -359,9 +362,9 @@ export default function LogisticsPage() {
   type RowAction = { id: string; label: string; icon: React.ReactNode; onClick: () => void; available: boolean; pendingReason?: string };
   const buildRowActions = (shipment: Shipment): RowAction[] => {
     const actions: RowAction[] = [
-      { id: "packing_slip", label: "Imprimir hoja de pedido (IA)", icon: <Printer className="w-4 h-4"/>, onClick: () => handleGeneratePackingSlip(shipment.id), available: true },
+      { id: "packing_slip", label: "Generar Hoja Pedido (IA)", icon: <Printer className="w-4 h-4"/>, onClick: () => handleGeneratePackingSlip(shipment.id, "Hoja de Pedido"), available: true },
       { id: "validate", label: "Validar (lotes + visual)", icon: <BadgeCheck className="w-4 h-4"/>, onClick: () => openValidateFor(shipment), available: true },
-      { id: "delivery", label: "Generar albarán", icon: <FileText className="w-4 h-4"/>, onClick: () => generateDeliveryNote(shipment), available: canGenerateDeliveryNote(shipment), pendingReason: "Requiere Visual OK" },
+      { id: "delivery", label: "Generar albarán (PDF)", icon: <FileText className="w-4 h-4"/>, onClick: () => handleGenerateAlbaran(shipment), available: canGenerateDeliveryNote(shipment), pendingReason: "Requiere Visual OK" },
       { id: "label", label: "Generar etiqueta", icon: <Truck className="w-4 h-4"/>, onClick: () => generateLabel(shipment), available: canGenerateLabel(shipment), pendingReason: "Requiere Albarán + Servicio" },
       { id: "ship", label: "Marcar enviado", icon: <PackageCheck className="w-4 h-4"/>, onClick: () => markShipped(shipment), available: canMarkShipped(shipment), pendingReason: "Requiere Etiqueta" },
     ];
@@ -473,7 +476,7 @@ export default function LogisticsPage() {
                        <DropdownMenu>
                           <DropdownMenuTrigger>
                               <SBButton variant="secondary" disabled={generatingSlip === shipment.id}>
-                                {generatingSlip === shipment.id ? <div className="h-4 w-4 border-2 border-zinc-400 border-t-zinc-700 rounded-full animate-spin"/> : <MoreHorizontal className="w-4 h-4"/>}
+                                {generatingSlip === shipment.id ? <Loader2 className="h-4 w-4 animate-spin"/> : <MoreHorizontal className="w-4 h-4"/>}
                               </SBButton>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-64">
