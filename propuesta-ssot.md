@@ -1,6 +1,6 @@
 # Propuesta de Arquitectura de Datos (SSOT) - V4 (Party-Role + Trazabilidad y Calidad)
 
-Este documento presenta una arquitectura de datos unificada y completa. Se basa en el patrón "Party-Role" para una gestión de contactos sin duplicados y añade capas robustas para la trazabilidad, la gestión de calidad y la integración con sistemas externos como Holded.
+Este documento presenta una arquitectura de datos unificada y completa. Se basa en el patrón "Party-Role" para una gestión de contactos sin duplicados y añade capas robustas para la trazabilidad, la gestión de calidad, la integración con sistemas externos como Holded y un sistema de codificación centralizado.
 
 ---
 
@@ -11,6 +11,7 @@ Este documento presenta una arquitectura de datos unificada y completa. Se basa 
 *   **Holded como Maestro Contable**: El CRM no duplica la contabilidad. Almacena referencias (IDs) a documentos de Holded (facturas, albaranes, gastos) para enriquecer la vista de negocio.
 *   **Trazabilidad Extremo a Extremo**: Cada movimiento y transformación de un lote, desde la materia prima hasta la entrega al cliente, se registra a través de `StockMove` y `TraceEvent`.
 *   **Gestión de Incidencias**: Cualquier desviación (calidad, logística) se registra en una entidad `Incident`, permitiendo su seguimiento y resolución.
+*   **Codificación Centralizada**: Las reglas para generar códigos legibles (SKUs, códigos de cliente, números de lote) se definen en un único lugar para garantizar la consistencia.
 
 ---
 
@@ -50,7 +51,8 @@ El núcleo del modelo de contactos.
 // --- CONTACTO UNIFICADO (PARTY) ---
 // Representa a una persona u organización única. Es el maestro de contactos.
 export interface Party {
-  id: string;
+  id: string;             // ID interno inmutable (UUID)
+  code?: string;          // Código legible (ej. PTY-000123)
   kind: 'ORG' | 'PERSON';
   name: string;
   taxId?: string; // CIF, NIF, VAT ID. Clave de unicidad.
@@ -78,7 +80,7 @@ export interface PartyRole {
     partyId: string;        // Vínculo a la Party
     role: PartyRoleType;    // El tipo de relación que es
     isActive: boolean;
-    data: CustomerData | SupplierData | InfluencerData | EmployeeData;
+    data: CustomerData | SupplierData | InfluencerData | EmployeeData; // Datos específicos del rol
     createdAt: string;
 }
 
@@ -113,6 +115,7 @@ export interface EmployeeData {
 // Representa una oportunidad de venta o un pipeline con un cliente (Party con rol CUSTOMER).
 export interface Account {
   id: string;
+  code?: string;        // Código legible (ej. ACC-000123)
   partyId: string;      // Vinculado a una Party
   name: string;         // Denormalizado de Party para facilidad de uso
   type: AccountType;    // HORECA, RETAIL...
@@ -128,6 +131,7 @@ export interface Account {
 // --- PEDIDOS DE VENTA ---
 export interface OrderSellOut { 
   id: string;
+  docNumber?: string;   // Número de pedido legible (ej. ORD-SB-202409-0042)
   accountId: string;
   lines: { sku: string; qty: number; uom: 'uds'; priceUnit: number; discount?: number; lotIds?: string[]; }[];
   status: OrderStatus;
@@ -168,12 +172,13 @@ export interface Product { id: string; sku: string; name: string; category?: str
 
 // --- PRODUCCIÓN ---
 export interface BillOfMaterial { id: string; sku: string; name: string; items: { materialId: string; quantity: number; unit?: string; }[]; batchSize: number; baseUnit?: string; }
-export interface ProductionOrder { id: string; sku: string; bomId: string; targetQuantity: number; status: ProductionStatus; createdAt: string; lotId?: string; }
+export interface ProductionOrder { id: string; orderNumber?: string; sku: string; bomId: string; targetQuantity: number; status: ProductionStatus; createdAt: string; lotId?: string; }
 
 // --- CALIDAD Y LOTES ---
 export type QCResult = { value?: number | string | boolean; notes?: string; status: 'ok' | 'ko'; };
 export interface Lot {
   id: string;
+  lotCode?: string;      // Código legible (ej. 240915-SB-750-01)
   sku: string;
   quantity: number;
   createdAt: string;
@@ -228,6 +233,7 @@ export interface StockMove {
 // --- ENTRADA DE MERCANCÍA ---
 export interface GoodsReceipt {
   id: string;
+  receiptNumber?: string;    // Número legible (ej. GR-20240915-001)
   supplierPartyId: string;
   deliveryNote: string;      // Nº albarán proveedor
   holdedBillId?: string;     // factura compra en Holded
@@ -280,7 +286,7 @@ export interface TraceEvent {
 ```typescript
 // --- MARKETING EN PUNTO DE VENTA ---
 export interface Activation { id: string; accountId: string; materialId: string; description: string; status: 'active' | 'inactive' | 'pending_renewal'; startDate: string; endDate?: string; ownerId: string; }
-export interface Promotion { id: string; name: string; type: '5+1' | 'BOGO' | 'DISCOUNT_PERCENT' | 'DISCOUNT_FIXED'; value: number; validFrom: string; validTo: string; }
+export interface Promotion { id: string; code?: string; name: string; type: '5+1' | 'BOGO' | 'DISCOUNT_PERCENT' | 'DISCOUNT_FIXED'; value: number; validFrom: string; validTo: string; }
 
 // --- MARKETING GENERAL ---
 export interface EventMarketing { id: string; title: string; accountId?: string; status: 'planned' | 'active' | 'closed' | 'cancelled'; startAt: string; endAt?: string; city?: string; spend?: number; extraCosts?: { description: string; amount: number }[]; linkedActivations?: string[]; linkedPromotions?: string[]; }
@@ -297,7 +303,55 @@ export interface PaymentLink { id: string; financeLinkId: string; externalId?: s
 
 ---
 
-## 8. Colección de Datos Completa `SantaData`
+## 8. Sistema de Codificación Centralizado
+
+Aquí se definen las políticas para generar identificadores legibles por humanos, garantizando consistencia en toda la aplicación.
+
+```typescript
+// --- POLÍTICAS DE CÓDIGOS ---
+export type CodeEntity =
+  | 'PRODUCT' | 'ACCOUNT' | 'PARTY' | 'SUPPLIER'
+  | 'LOT' | 'PROD_ORDER' | 'SHIPMENT' | 'GOODS_RECEIPT'
+  | 'LOCATION' | 'PRICE_LIST' | 'PROMOTION';
+
+export interface CodePolicy {
+  entity: CodeEntity;
+  template: string; // Ej: 'ACC-{SEQ#6}', '{YY}{MM}{DD}-{SKU}-{SEQ#3}'
+  regex: string;    // Para validación
+  seqScope?: 'GLOBAL'|'YEAR'|'MONTH'|'DAY'; // Cómo se resetea la secuencia
+  pad?: number; // Cifras del secuencial
+}
+
+export const CODE_POLICIES: Record<CodeEntity, CodePolicy> = {
+  PRODUCT:    { entity:'PRODUCT', template:'{SKU}', regex:'^[A-Z0-9_-]{3,32}$'},
+  ACCOUNT:    { entity:'ACCOUNT', template:'ACC-{SEQ#6}', regex:'^ACC-\\d{6}$', seqScope:'GLOBAL', pad:6 },
+  PARTY:      { entity:'PARTY', template:'PTY-{SEQ#6}', regex:'^PTY-\\d{6}$', seqScope:'GLOBAL', pad:6 },
+  SUPPLIER:   { entity:'SUPPLIER', template:'SUP-{SEQ#5}', regex:'^SUP-\\d{5}$', seqScope:'GLOBAL', pad:5 },
+  LOT:        { entity:'LOT', template:'{YY}{MM}{DD}-{SKU}-{SEQ#3}', regex:'^\\d{6}-[A-Z0-9_-]+-\\d{3}$', seqScope:'DAY', pad:3 },
+  PROD_ORDER: { entity:'PROD_ORDER', template:'PO-{YYYY}{MM}-{SEQ#4}', regex:'^PO-\\d{6}-\\d{4}$', seqScope:'MONTH', pad:4 },
+  SHIPMENT:   { entity:'SHIPMENT', template:'SHP-{YYYY}{MM}{DD}-{SEQ#3}', regex:'^SHP-\\d{8}-\\d{3}$', seqScope:'DAY', pad:3 },
+  GOODS_RECEIPT:{ entity:'GOODS_RECEIPT', template:'GR-{YYYY}{MM}{DD}-{SEQ#3}', regex:'^GR-\\d{8}-\\d{3}$', seqScope:'DAY', pad:3 },
+  LOCATION:   { entity:'LOCATION', template:'{ZONE}-{SEQ#3}', regex:'^[A-Z]{2,6}-\\d{3}$', seqScope:'GLOBAL', pad:3 },
+  PRICE_LIST: { entity:'PRICE_LIST', template:'PL-{YYYY}-{SEQ#2}', regex:'^PL-\\d{4}-\\d{2}$', seqScope:'YEAR', pad:2 },
+  PROMOTION:  { entity:'PROMOTION', template:'PRM-{YY}{MM}-{SEQ#3}', regex:'^PRM-\\d{4}-\\d{3}$', seqScope:'MONTH', pad:3 },
+};
+
+// --- ALIASES DE CÓDIGOS EXTERNOS ---
+export type ExternalSystem = 'HOLDED'|'SHOPIFY'|'EAN'|'GTIN'|'CUSTOMER_REF'|'SUPPLIER_REF';
+
+export interface CodeAlias {
+  id: string;
+  entity: CodeEntity;
+  entityId: string;            // id interno (UUID)
+  system: ExternalSystem;      // Origen del código (ej. 'EAN')
+  code: string;                // El código externo
+  createdAt: string;
+}
+```
+
+---
+
+## 9. Colección de Datos Completa `SantaData`
 
 ```typescript
 // La interfaz que representa todo el estado de la aplicación.
@@ -340,6 +394,9 @@ export interface SantaData {
   // Registros de Auditoría y Trazabilidad
   traceEvents: TraceEvent[];
   incidents: Incident[];
+
+  // Códigos y Aliases
+  codeAliases: CodeAlias[];
 }
 
 // Lista de colecciones válidas para persistencia.
@@ -348,13 +405,13 @@ export const SANTA_DATA_COLLECTIONS: (keyof SantaData)[] = [
     'products', 'materials', 'billOfMaterials', 'productionOrders', 'lots', 'qaChecks',
     'inventory', 'stockMoves', 'shipments', 'goodsReceipts', 'activations', 'promotions',
     'events', 'onlineCampaigns', 'influencerCollabs', 'financeLinks', 'paymentLinks',
-    'traceEvents', 'incidents'
+    'traceEvents', 'incidents', 'codeAliases'
 ];
 ```
 
 ---
 
-## 9. Metadatos y Constantes
+## 10. Metadatos y Constantes
 
 ```typescript
 // Colores y etiquetas para los departamentos
