@@ -178,7 +178,7 @@ export function CalendarPageContent() {
 
   if (!santaData) return <div className="p-6">Cargando datos…</div>;
 
-  const ACCENT = SB_COLORS.accent;
+  const ACCENT = SB_COLORS.primary.sun;
   
   const handleDeleteEvent = (id: string) => {
     if (!santaData?.interactions) return;

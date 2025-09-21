@@ -4,14 +4,15 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useParams, useRouter, notFound } from 'next/navigation';
 import { useData } from '@/lib/dataprovider';
-import type { SantaData, Interaction as InteractionType, OrderSellOut, User as UserType, Party, InteractionKind, Account, CustomerData } from '@/domain';
+import type { SantaData, Interaction as InteractionType, OrderSellOut, User as UserType, Party, InteractionKind, Account, CustomerData, PartyRole } from '@/domain';
 import { computeAccountKPIs, accountOwnerDisplay } from '@/lib/sb-core';
 import { ArrowUpRight, ArrowDownRight, Phone, Mail, MapPin, User, Factory, Boxes, Megaphone, Briefcase, Banknote, Calendar, FileText, ShoppingCart, Star, Building2, CreditCard, ChevronRight, ChevronLeft, MessageSquare, Sparkles, Tag, Clock } from "lucide-react";
 import Link from 'next/link';
 import { enrichAccount } from '@/ai/flows/enrich-account-flow';
 
 import { SBFlowModal } from '@/features/quicklog/components/SBFlows';
-import { SBButton, SBCard, SB_COLORS } from '@/components/ui/ui-primitives';
+import { SBButton, SBCard } from '@/components/ui/ui-primitives';
+import { SB_COLORS } from '@/domain/ssot';
 
 
 // ====== UI Primitives ======
@@ -356,7 +357,7 @@ export function AccountDetailPageContent(){
                      createdAt: new Date().toISOString(),
                      data: { salesRepId: currentUser!.id, billerId: 'SB' } as CustomerData
                  }
-                 setData({...santaData, parties: [...santaData.parties, newParty], accounts: [...santaData.accounts, newAccount], partyRoles: [...santaData.partyRoles, newPartyRole] as PartyRole[]});
+                 setData({...santaData, parties: [...santaData.parties, newParty], accounts: [...santaData.accounts, newAccount], partyRoles: [...santaData.partyRoles, newPartyRole]});
                  return newAccount as any;
             }}
             defaults={modalVariant === 'editAccount' ? editAccountDefaults : undefined}

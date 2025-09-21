@@ -31,7 +31,7 @@ export function Chat({ userId, onNewData }: ChatProps) {
     const handleSend = useCallback(async () => {
         if (!input.trim() || isLoading || !data || !currentUser) return;
 
-        const userMessage: Message = { role: 'user', content: [{text: input}] };
+        const userMessage: Message = { role: 'user', content: [{text: input}] } as Message;
         setMessages(prev => [...prev, userMessage]);
         setInput('');
         setIsLoading(true);
@@ -50,7 +50,7 @@ export function Chat({ userId, onNewData }: ChatProps) {
                 context
             );
 
-            const assistantMessage: Message = { role: 'model', content: [{text: finalAnswer}] };
+            const assistantMessage: Message = { role: 'model', content: [{text: finalAnswer}] } as Message;
             setMessages(prev => [...prev, assistantMessage]);
             
             if (Object.keys(newEntities).length > 0) {
@@ -59,7 +59,7 @@ export function Chat({ userId, onNewData }: ChatProps) {
 
         } catch (error) {
             console.error("Error running Santa Brain:", error);
-            const errorMessage: Message = { role: 'model', content: [{text: "Lo siento, ha ocurrido un error. Revisa la consola para más detalles."}] };
+            const errorMessage: Message = { role: 'model', content: [{text: "Lo siento, ha ocurrido un error. Revisa la consola para más detalles."}] } as Message;
             setMessages(prev => [...prev, errorMessage]);
         } finally {
             setIsLoading(false);
