@@ -230,3 +230,31 @@ export interface Material {
   standardCost?: number; 
 }
 ```
+
+#### Activaciones en Punto de Venta (PLV)
+Registra los elementos de visibilidad, incentivos y acuerdos en un cliente para medir coste e impacto.
+```typescript
+export type ActivationStatus = 'active' | 'inactive' | 'pending_renewal';
+
+export interface Activation {
+  id: string;          // ID único de la activación
+  accountId: string;   // A qué cliente pertenece
+  
+  // ¿Qué es?
+  type: 'VISIBILIDAD' | 'INCENTIVO' | 'ACUERDO_PERMANENCIA';
+  description: string;   // Ej: "Posición preferente en carta de cócteles", "Cubiteras en terraza", "Incentivo jefe de barra"
+  
+  // ¿Cuánto cuesta?
+  costType: 'one-off' | 'monthly' | 'quarterly';
+  costAmount: number;    // El coste en EUR de esta activación para el período
+  
+  // ¿Cuándo?
+  status: ActivationStatus;
+  startDate: string;     // Fecha de inicio
+  endDate?: string;      // Fecha de fin (si aplica, para acuerdos temporales)
+  
+  // ¿Quién lo gestionó?
+  ownerId: string;       // ID del comercial responsable
+  createdAt: string;
+}
+```
