@@ -5,6 +5,8 @@ import { useData } from '@/lib/dataprovider';
 import { SBButton, SBCard, Input, Select } from '@/components/ui/ui-primitives';
 import type { OnlineCampaign } from '@/domain/ssot';
 import { Plus, Edit, Save, X, Trash2 } from 'lucide-react';
+import { MarketingTaskCompletionDialog } from '@/features/marketing/components/MarketingTaskCompletionDialog';
+
 
 function StatusPill({ status }: { status: 'planned' | 'active' | 'closed' | 'cancelled' }) {
     const styles = {
@@ -79,7 +81,7 @@ function NewCampaignDialog({ open, onClose, onSave }: { open: boolean; onClose: 
     );
 }
 
-function CampaignRow({ campaign, onUpdate }: { campaign: OnlineCampaign; onUpdate: (updatedCampaign: OnlineCampaign) => void; }) {
+function CampaignRow({ campaign, onUpdate, onComplete }: { campaign: OnlineCampaign; onUpdate: (updatedCampaign: OnlineCampaign) => void; onComplete: (campaign: OnlineCampaign) => void; }) {
     const [isEditing, setIsEditing] = useState(false);
     const [editedCampaign, setEditedCampaign] = useState(campaign);
 
@@ -142,7 +144,12 @@ function CampaignRow({ campaign, onUpdate }: { campaign: OnlineCampaign; onUpdat
             <td className="p-3 text-right">{formatNumber(campaign.metrics?.clicks)}</td>
             <td className="p-3 text-right font-semibold">{campaign.metrics?.roas ? `${campaign.metrics.roas.toFixed(2)}x` : 'N/A'}</td>
             <td className="p-3 text-center">
-                 <SBButton size="sm" variant="ghost" onClick={() => setIsEditing(true)}><Edit size={14} /></SBButton>
+                <div className="flex items-center gap-1">
+                    <SBButton size="sm" variant="ghost" onClick={() => setIsEditing(true)}><Edit size={14} /></SBButton>
+                    {(campaign.status === 'planned' || campaign.status === 'active') && (
+                        <SBButton size="sm" variant="secondary" onClick={() => onComplete(campaign)}>Registrar</SBButton>
+                    )}
+                 </div>
             </td>
         </tr>
     );
@@ -151,6 +158,7 @@ function CampaignRow({ campaign, onUpdate }: { campaign: OnlineCampaign; onUpdat
 export default function OnlineCampaignsPage(){
   const { data: santaData, setData, isPersistenceEnabled, saveCollection } = useData();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [completingCampaign, setCompletingCampaign] = useState<OnlineCampaign | null>(null);
 
   const campaigns = useMemo(() => santaData?.onlineCampaigns || [], [santaData]);
 
@@ -183,6 +191,35 @@ export default function OnlineCampaignsPage(){
     }
   }
 
+  const handleSaveCompletedCampaign = async (campaignId: string, payload: any) => {
+    if (!santaData) return;
+    
+    const updatedCampaigns = santaData.onlineCampaigns.map(c => {
+        if (c.id === campaignId) {
+            return {
+                ...c,
+                status: 'closed' as const,
+                spend: payload.spend,
+                metrics: {
+                    ...(c.metrics || {}),
+                    clicks: payload.clicks,
+                    impressions: payload.impressions,
+                    roas: payload.roas,
+                }
+            } as OnlineCampaign;
+        }
+        return c;
+    });
+
+    setData({ ...santaData, onlineCampaigns: updatedCampaigns });
+    if (isPersistenceEnabled) {
+        await saveCollection('onlineCampaigns', updatedCampaigns);
+    }
+
+    setCompletingCampaign(null);
+  };
+
+
   return (
     <>
         <div className="space-y-6">
@@ -209,7 +246,7 @@ export default function OnlineCampaignsPage(){
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-zinc-100">
-                            {campaigns.map(c => <CampaignRow key={c.id} campaign={c} onUpdate={handleUpdateCampaign} />)}
+                            {campaigns.map(c => <CampaignRow key={c.id} campaign={c} onUpdate={handleUpdateCampaign} onComplete={setCompletingCampaign} />)}
                         </tbody>
                     </table>
                  </div>
@@ -220,8 +257,15 @@ export default function OnlineCampaignsPage(){
             onClose={() => setIsDialogOpen(false)}
             onSave={handleCreateCampaign}
         />
+        {completingCampaign && (
+            <MarketingTaskCompletionDialog
+                event={completingCampaign as any} // Cast for now, should be a different dialog
+                open={!!completingCampaign}
+                onClose={() => setCompletingCampaign(null)}
+                onComplete={handleSaveCompletedCampaign as any}
+                isOnlineCampaign
+            />
+        )}
     </>
   );
 }
-
-    

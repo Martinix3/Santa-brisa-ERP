@@ -11,7 +11,7 @@ import { Calendar, AlertCircle, Clock, Megaphone, Target, Euro } from 'lucide-re
 function StatusPill({ status }: { status: 'planned' | 'active' | 'closed' | 'cancelled' }) {
     const styles = {
         planned: 'bg-blue-100 text-blue-800',
-        active: 'bg-green-100 text-green-800',
+        active: 'bg-green-100 text-green-800 animate-pulse',
         closed: 'bg-zinc-100 text-zinc-800',
         cancelled: 'bg-red-100 text-red-800',
     };
@@ -28,29 +28,10 @@ function MarketingDashboardPageContent() {
     const events = data?.marketingEvents || [];
     const campaigns = data?.onlineCampaigns || [];
 
-    const kpis = useMemo(() => {
-        const completedEvents = events.filter((e: MarketingEvent) => e.status === 'closed' && e.spend);
-        const totalSpend = completedEvents.reduce((acc, e) => acc + (e.spend || 0), 0);
-        const totalLeads = completedEvents.reduce((acc, e) => acc + (e.kpis?.leads || 0), 0);
-
-        return {
-            activeEvents: events.filter((e: MarketingEvent) => e.status === 'active').length,
-            plannedEvents: events.filter((e: MarketingEvent) => e.status === 'planned').length,
-            activeCampaigns: campaigns.filter((c: OnlineCampaign) => c.status === 'active').length,
-            avgCostPerEvent: completedEvents.length > 0 ? totalSpend / completedEvents.length : 0,
-            totalLeads,
-        };
-    }, [events, campaigns]);
-
     return (
         <div className="space-y-6">
              <h1 className="text-2xl font-semibold text-zinc-800">Dashboard de Marketing</h1>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <KPICard label="Eventos Planificados" value={kpis.plannedEvents.toString()} icon={Calendar} />
-                <KPICard label="Eventos Activos" value={kpis.activeEvents.toString()} icon={Megaphone} />
-                <KPICard label="Coste Medio Evento" value={kpis.avgCostPerEvent.toLocaleString('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })} icon={Euro} />
-                <KPICard label="Leads Generados (Eventos)" value={kpis.totalLeads.toLocaleString('es-ES')} icon={Target} />
-            </div>
+            
              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <SBCard title="Próximos Eventos">
                     {events.filter((e: MarketingEvent) => e.status === 'planned' || e.status === 'active').slice(0, 5).map((event: MarketingEvent) => (

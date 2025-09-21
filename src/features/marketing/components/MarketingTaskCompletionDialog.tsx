@@ -1,9 +1,10 @@
+
 // src/features/marketing/components/MarketingTaskCompletionDialog.tsx
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
-import type { MarketingEvent } from '@/domain/ssot';
-import { Euro, Users, Target, BarChart3, Heart } from 'lucide-react';
+import type { MarketingEvent, OnlineCampaign } from '@/domain/ssot';
+import { Euro, Users, Target, BarChart3, Heart, MousePointerClick, TrendingUp } from 'lucide-react';
 
 type CompleteResultsPayload = {
     spend: number;
@@ -11,6 +12,8 @@ type CompleteResultsPayload = {
     sampling: number;
     impressions: number;
     interactions: number;
+    clicks?: number;
+    roas?: number;
     notes?: string;
 };
 
@@ -19,36 +22,42 @@ export function MarketingTaskCompletionDialog({
   open,
   onClose,
   onComplete,
+  isOnlineCampaign = false,
 }: {
-  event: MarketingEvent;
+  event: MarketingEvent | OnlineCampaign;
   open: boolean;
   onClose: () => void;
-  onComplete: (eventId: string, payload: CompleteResultsPayload) => void;
+  onComplete: (eventId: string, payload: Partial<CompleteResultsPayload>) => void;
+  isOnlineCampaign?: boolean;
 }) {
-  const [results, setResults] = useState<CompleteResultsPayload>({
-    spend: 0,
-    leads: 0,
-    sampling: 0,
-    impressions: 0,
-    interactions: 0,
-    notes: '',
-  });
+  const [results, setResults] = useState<Partial<CompleteResultsPayload>>({});
   
   const [touched, setTouched] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (open) {
-      setResults({
-        spend: event.spend || 0,
-        leads: event.kpis?.leads || 0,
-        sampling: event.kpis?.sampling || 0,
-        impressions: event.kpis?.impressions || 0,
-        interactions: event.kpis?.interactions || 0,
-        notes: '',
-      });
+      if(isOnlineCampaign){
+        const campaign = event as OnlineCampaign;
+        setResults({
+            spend: campaign.spend || 0,
+            impressions: campaign.metrics?.impressions || 0,
+            clicks: campaign.metrics?.clicks || 0,
+            roas: campaign.metrics?.roas || 0,
+        });
+      } else {
+        const mktEvent = event as MarketingEvent;
+        setResults({
+            spend: mktEvent.spend || 0,
+            leads: mktEvent.kpis?.leads || 0,
+            sampling: mktEvent.kpis?.sampling || 0,
+            impressions: mktEvent.kpis?.impressions || 0,
+            interactions: mktEvent.kpis?.interactions || 0,
+            notes: '',
+        });
+      }
       setTouched({});
     }
-  }, [open, event]);
+  }, [open, event, isOnlineCampaign]);
 
   const handleInputChange = (field: keyof CompleteResultsPayload, value: string | number) => {
     setResults(prev => ({ ...prev, [field]: value }));
@@ -56,9 +65,12 @@ export function MarketingTaskCompletionDialog({
   };
 
   const handleSubmit = () => {
-    const requiredFields: (keyof CompleteResultsPayload)[] = ['spend', 'leads', 'sampling', 'impressions', 'interactions'];
+    const requiredFields = isOnlineCampaign
+        ? ['spend', 'impressions', 'clicks', 'roas']
+        : ['spend', 'leads', 'sampling', 'impressions', 'interactions'];
+    
     for (const field of requiredFields) {
-      if (results[field] === undefined || results[field] < 0) {
+      if (results[field as keyof CompleteResultsPayload] === undefined || (results[field as keyof CompleteResultsPayload] || -1) < 0) {
         alert(`El campo '${field}' es obligatorio y no puede ser negativo.`);
         return;
       }
@@ -67,17 +79,28 @@ export function MarketingTaskCompletionDialog({
   };
   
   const canSubmit = useMemo(() => {
-      const requiredFields: (keyof CompleteResultsPayload)[] = ['spend', 'leads', 'sampling', 'impressions', 'interactions'];
-      return requiredFields.every(field => results[field] !== undefined && results[field] >= 0);
-  }, [results]);
+      const requiredFields = isOnlineCampaign
+        ? ['spend', 'impressions', 'clicks', 'roas']
+        : ['spend', 'leads', 'sampling', 'impressions', 'interactions'];
+      return requiredFields.every(field => results[field as keyof typeof results] !== undefined && (results[field as keyof typeof results] || 0) >= 0);
+  }, [results, isOnlineCampaign]);
 
-  const kpiFields: { key: keyof CompleteResultsPayload, label: string, icon: React.ElementType }[] = [
+  const eventKpiFields: { key: keyof CompleteResultsPayload, label: string, icon: React.ElementType }[] = [
     { key: 'spend', label: 'Coste total (€)', icon: Euro },
     { key: 'sampling', label: 'Asistentes (Sampling)', icon: Users },
     { key: 'leads', label: 'Leads generados', icon: Target },
     { key: 'impressions', label: 'Impresiones RRSS', icon: BarChart3 },
     { key: 'interactions', label: 'Interacciones RRSS', icon: Heart },
   ];
+
+  const campaignKpiFields: { key: keyof CompleteResultsPayload, label: string, icon: React.ElementType }[] = [
+    { key: 'spend', label: 'Gasto Final (€)', icon: Euro },
+    { key: 'impressions', label: 'Impresiones', icon: BarChart3 },
+    { key: 'clicks', label: 'Clicks', icon: MousePointerClick },
+    { key: 'roas', label: 'ROAS (ej: 3.5)', icon: TrendingUp },
+  ];
+
+  const kpiFields = isOnlineCampaign ? campaignKpiFields : eventKpiFields;
 
   return (
     <SBDialog open={open} onOpenChange={onClose}>
@@ -97,25 +120,28 @@ export function MarketingTaskCompletionDialog({
                 </span>
                 <input
                   type="number"
+                  step={key === 'roas' ? '0.01' : '1'}
                   value={results[key] ?? ''}
                   onChange={(e) => handleInputChange(key, e.target.value === '' ? '' : Number(e.target.value))}
                   onBlur={() => setTouched(prev => ({...prev, [key]: true}))}
-                  className={`h-10 w-full rounded-md border bg-white px-3 py-2 text-sm ${touched[key] && (results[key] === undefined || results[key] < 0) ? 'border-red-500' : 'border-zinc-200'}`}
+                  className={`h-10 w-full rounded-md border bg-white px-3 py-2 text-sm ${touched[key] && (results[key] === undefined || (results[key] || -1) < 0) ? 'border-red-500' : 'border-zinc-200'}`}
                   min="0"
                 />
               </label>
             ))}
           </div>
-          <label className="grid gap-1.5">
-            <span className="text-sm font-medium text-zinc-700">Notas Cualitativas</span>
-            <textarea
-              value={results.notes}
-              onChange={(e) => handleInputChange('notes', e.target.value)}
-              placeholder="¿Qué tal fue? ¿Repetir? ¿Lecciones aprendidas? ¿Sentimiento general?"
-              className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm"
-              rows={4}
-            />
-          </label>
+          {!isOnlineCampaign && (
+            <label className="grid gap-1.5">
+                <span className="text-sm font-medium text-zinc-700">Notas Cualitativas</span>
+                <textarea
+                value={results.notes || ''}
+                onChange={(e) => handleInputChange('notes', e.target.value)}
+                placeholder="¿Qué tal fue? ¿Repetir? ¿Lecciones aprendidas? ¿Sentimiento general?"
+                className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm"
+                rows={4}
+                />
+            </label>
+           )}
         </div>
       </SBDialogContent>
     </SBDialog>

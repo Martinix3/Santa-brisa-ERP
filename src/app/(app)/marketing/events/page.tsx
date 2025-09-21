@@ -3,11 +3,12 @@
 import React, { useMemo, useState } from 'react';
 import { useData } from '@/lib/dataprovider';
 import type { MarketingEvent, Interaction, InteractionKind } from '@/domain/ssot';
-import { SBCard, SBButton, DataTableSB } from '@/components/ui/ui-primitives';
+import { SBCard, SBButton, DataTableSB, KPI } from '@/components/ui/ui-primitives';
 import type { Col } from '@/components/ui/ui-primitives';
 import { NewEventDialog } from '@/features/agenda/components/NewEventDialog';
 import { MarketingTaskCompletionDialog } from '@/features/marketing/components/MarketingTaskCompletionDialog';
 import { SB_COLORS } from '@/domain/ssot';
+import { Calendar, AlertCircle, Clock, Megaphone, Target, Euro } from 'lucide-react';
 
 function StatusPill({ status }: { status: MarketingEvent['status'] }) {
     const styles = {
@@ -32,6 +33,19 @@ export default function Page(){
   const [completingEvent, setCompletingEvent] = useState<MarketingEvent | null>(null);
 
   const events = useMemo(() => santaData?.marketingEvents || [], [santaData]);
+
+  const kpis = useMemo(() => {
+        const completedEvents = events.filter((e: MarketingEvent) => e.status === 'closed' && e.spend);
+        const totalSpend = completedEvents.reduce((acc, e) => acc + (e.spend || 0), 0);
+        const totalLeads = completedEvents.reduce((acc, e) => acc + (e.kpis?.leads || 0), 0);
+
+        return {
+            activeEvents: events.filter((e: MarketingEvent) => e.status === 'active').length,
+            plannedEvents: events.filter((e: MarketingEvent) => e.status === 'planned').length,
+            avgCostPerEvent: completedEvents.length > 0 ? totalSpend / completedEvents.length : 0,
+            totalLeads,
+        };
+    }, [events]);
 
   const handleAddOrUpdateEvent = async (event: Omit<Interaction, 'createdAt' | 'status' | 'id'> & { id?: string }) => {
       if (!currentUser || !santaData) return;
@@ -132,6 +146,14 @@ export default function Page(){
                 Nuevo Evento
             </SBButton>
         </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <KPI label="Eventos Planificados" value={kpis.plannedEvents} icon={Calendar} />
+            <KPI label="Eventos Activos" value={kpis.activeEvents} icon={Megaphone} />
+            <KPI label="Coste Medio Evento" value={formatCurrency(kpis.avgCostPerEvent)} icon={Euro} />
+            <KPI label="Leads Generados (Eventos)" value={kpis.totalLeads} icon={Target} />
+        </div>
+
         <SBCard title="Resultados de Eventos de Marketing" accent={SB_COLORS.primary.teal}>
              <DataTableSB rows={events} cols={cols as any} />
         </SBCard>
