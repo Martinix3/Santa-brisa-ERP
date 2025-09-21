@@ -4,7 +4,7 @@
 import React, { useMemo } from 'react';
 import { useData } from '@/lib/dataprovider';
 import { SBCard, SBButton } from '@/components/ui/ui-primitives';
-import { Star, BarChart, FileText } from 'lucide-react';
+import { Star, BarChart, FileText, Plus } from 'lucide-react';
 
 export default function PosTacticsPage() {
     const { data } = useData();
@@ -37,4 +37,3 @@ export default function PosTacticsPage() {
         </div>
     );
 }
-
