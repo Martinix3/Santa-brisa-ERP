@@ -1,13 +1,17 @@
 
-# Propuesta de Arquitectura de Datos (SSOT)
+# Propuesta de Arquitectura de Datos (SSOT) - V2
 
-Este documento presenta una propuesta completa para la estructura de datos principal de la aplicación. El objetivo es crear un modelo claro, escalable y fácil de mantener que cubra todas las áreas del negocio.
+Este documento presenta una propuesta completa para la estructura de datos principal de la aplicación. El objetivo es crear un modelo claro, escalable y fácil de mantener que cubra todas las áreas del negocio, unificando conceptos para mayor simplicidad.
 
 ---
 
-## 1. Enfoque: Entidades Especializadas y Separadas
+## 1. Enfoque: Entidades Especializadas y Relacionadas
 
-La arquitectura se basa en el principio de **separar cada tipo de entidad en su propia colección de datos**. En lugar de usar una única colección genérica, se definen colecciones distintas para cada rol, lo que aporta claridad, rendimiento y seguridad.
+La arquitectura se basa en el principio de separar cada tipo de entidad en su propia colección de datos, pero reconociendo sus roles fundamentales.
+
+*   **Clientes (`Account`)**: Entidades a las que les vendemos.
+*   **Proveedores (`Supplier`)**: Entidades a las que les compramos bienes o servicios (incluye materias primas, agencias, influencers, etc.).
+*   **Empleados/Usuarios (`User`)**: Personas con acceso al sistema.
 
 ---
 
@@ -45,8 +49,9 @@ export type ProductionStatus = 'pending' | 'released' | 'wip' | 'done' | 'cancel
 Representan a los actores clave del negocio.
 
 ```typescript
-// --- USUARIOS INTERNOS ---
-export type UserRole = 'comercial' | 'admin' | 'ops' | 'owner';
+// --- USUARIOS INTERNOS / EMPLEADOS ---
+// Representa a una persona con acceso al sistema. Es la entidad para la autenticación y permisos.
+export type UserRole = 'comercial' | 'admin' | 'ops' | 'owner' | 'marketing';
 
 export interface User { 
   id: string; 
@@ -55,13 +60,6 @@ export interface User {
   role: UserRole;
   active: boolean; 
   managerId?: string; // ID de su responsable
-  
-  // Opcional: KPIs para dashboards personales
-  kpiBaseline?: {
-    revenue?: number;
-    unitsSold?: number;
-    visits?: number;
-  }
 }
 
 // --- CLIENTES ---
@@ -107,20 +105,38 @@ export interface Account {
 
 // --- PROVEEDORES ---
 // Entidad a la que se le compra materia prima o servicios.
+// Incluye proveedores de marketing como influencers, agencias, etc.
+export type SupplierType = 'MATERIA_PRIMA' | 'PACKAGING' | 'SERVICIOS_GENERALES' | 'MARKETING_INFLUENCER' | 'MARKETING_AGENCIA' | 'FOTOGRAFIA' | 'OTRO';
+
 export interface Supplier { 
   id: string; 
   name: string;
+  type: SupplierType;
+  
+  // Datos fiscales y de contacto
   cif?: string;
   country: string;
   contactName?: string;
   email?: string;
   phone?: string;
+
+  // Datos específicos de marketing (si aplica)
+  handle?: string;
+  platform?: 'Instagram' | 'TikTok' | 'YouTube' | 'Blog' | 'Otro';
+  tier?: 'nano' | 'micro' | 'mid' | 'macro';
+  audienceSize?: number;
+
+  // Datos financieros
   paymentTermsDays?: number;
   bankAccount?: string;
+  
+  // Metadatos
+  tags?: string[];
   createdAt: string;
 }
 
 // --- DISTRIBUIDORES ---
+// Un tipo especial de cliente/partner que también puede ser propietario de cuentas.
 export interface Distributor { 
   id: string; 
   name: string; 
@@ -204,7 +220,7 @@ export interface Material {
   id: string; 
   sku: string; 
   name: string; 
-  category: 'raw' | 'packaging' | 'label' | 'consumable' | 'intermediate' | 'merchandising'; 
+  category: 'raw' | 'packaging' | 'label' | 'consumable' | 'intermediate'; 
   uom: Uom;
   standardCost?: number; 
 }
@@ -336,24 +352,36 @@ export interface Shipment {
 
 ## 7. Marketing y Visibilidad
 
-Modela todas las iniciativas de marketing, desde PLV hasta campañas online.
+Modela todas las iniciativas de marketing.
 
 ```typescript
-// --- MARKETING DE INFLUENCERS ---
-export interface Creator {
+// --- COLABORACIONES DE MARKETING (CON INFLUENCERS, AGENCIAS, ETC) ---
+// Es una transacción con un `Supplier` de tipo marketing.
+export interface InfluencerCollab {
     id: string;
-    name: string;
-    handle: string;
-    platform: 'Instagram' | 'TikTok' | 'YouTube' | 'Blog' | 'Otro';
-    tier: 'nano' | 'micro' | 'mid' | 'macro';
-    audienceSize?: number;
-    email?: string;
-    phone?: string;
-    shippingAddress?: string;
-    tags?: string[];
+    supplierId: string; // ID del proveedor (influencer, agencia...)
+    
+    // Resumen de la colaboración
+    name: string; // Ej: "Campaña Verano con Marta Foodie"
+    status: 'PROSPECT' | 'OUTREACH' | 'NEGOTIATING' | 'AGREED' | 'LIVE' | 'COMPLETED' | 'PAUSED' | 'DECLINED';
+    ownerUserId?: string; // Responsable interno
+    
+    // Fechas clave
+    startDate?: string;
+    endDate?: string;
+
+    // Entregables y compensación
+    deliverables: { kind: 'reel'|'story'|'post'|'video'; qty: number; dueAt?: string }[];
+    compensation: { type: 'gift'|'flat'|'cpa'; amount?: number; currency?: 'EUR'; notes?: string; };
+
+    // Métricas y costes
+    costs?: { productCost?: number; shippingCost?: number; cashPaid?: number; otherCost?: number };
+    tracking?: { clicks?: number; orders?: number; revenue?: number; impressions?: number; };
+    
     createdAt: string;
-    updatedAt?: string;
+    updatedAt: string;
 }
+
 
 // --- PLV FÍSICO EN CLIENTE ---
 export type ActivationStatus = 'active' | 'inactive' | 'pending_renewal';
