@@ -1,4 +1,3 @@
-
 // src/domain/ssot.ts
 
 // =================================================================
@@ -141,17 +140,24 @@ export interface OrderSellOut {
 
 export type InteractionKind = 'VISITA' | 'LLAMADA' | 'EMAIL' | 'WHATSAPP' | 'OTRO';
 export interface Interaction {
-  id:string;
-  partyId?: string;     // Para registrar llamadas a proveedores, etc.
-  accountId?: string;   // Para interacciones comerciales con clientes
+  id: string;
+  partyId?: string;
+  accountId?: string;
   userId: string;
-  dept?: Department;    // Ahora incluye 'CALIDAD'
+  dept?: Department;
   kind: InteractionKind;
   note?: string;
   plannedFor?: string;
   createdAt: string;
   status: InteractionStatus;
   resultNote?: string;
+  involvedUserIds?: string[];
+  location?: string;
+  linkedEntity?: {
+    type: 'Order' | 'Account' | 'Campaign' | 'Collab' | 'Shipment' | 'ProductionOrder' | 'Interaction';
+    id: string;
+  };
+  tags?: string[];
 }
 
 // -----------------------------------------------------------------
