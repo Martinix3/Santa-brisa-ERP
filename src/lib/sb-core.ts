@@ -1,6 +1,7 @@
+
 // --- Santa Brisa: lógica de negocio (sell-out a botellas, agregados y KPIs) ---
 import type {
-  Account, Party, PartyRole, CustomerData, OrderSellOut, Product, User, SantaData, Activation
+  Account, Party, PartyRole, CustomerData, OrderSellOut, Product, User, SantaData, Activation, AccountRollup
 } from '@/domain';
 
 export const inWindow = (dateStr: string, start: Date, end: Date): boolean => {
