@@ -161,13 +161,13 @@ function exportToCsv(filename: string, rows: (string | number)[][]) {
 const accountHref = (id: string) => `/accounts/${id}`;
 
 export default function OrdersDashboard() {
-  const { data, setData, saveAllCollections } = useData();
+  const { data, setData, currentUser, saveAllCollections } = useData();
   const [activeTab, setActiveTab] = useState<Tab>('directa');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [isCreateOrderOpen, setIsCreateOrderOpen] = useState(false);
 
-  const { ordersSellOut, accounts, users, partyRoles, stockMoves, inventory, products, parties } = data || { ordersSellOut: [], accounts: [], users: [], partyRoles: [], stockMoves: [], inventory: [], products: [], parties: [] };
+  const { ordersSellOut, accounts, users, partyRoles, stockMoves, inventory, products, parties, shipments } = data || { ordersSellOut: [], accounts: [], users: [], partyRoles: [], stockMoves: [], inventory: [], products: [], parties: [], shipments: [] };
   
   const consByAcc = useMemo(() => consignmentOnHandByAccount(stockMoves || []), [stockMoves]);
   const consTotals = useMemo(() => consignmentTotalUnits(consByAcc), [consByAcc]);
@@ -264,7 +264,6 @@ export default function OrdersDashboard() {
     const collectionsToSave: Partial<SantaData> = {};
 
     if (!targetAccount && payload.account) {
-      // Create new account if it doesn't exist
       const newParty: Partial<Party> = { id: `party_${Date.now()}`, name: payload.account, kind: 'ORG', createdAt: new Date().toISOString(), contacts: [], addresses: [] };
       targetAccount = {
         id: `acc_${Date.now()}`,
@@ -272,7 +271,7 @@ export default function OrdersDashboard() {
         name: payload.account,
         type: 'HORECA',
         stage: 'POTENCIAL',
-        ownerId: data.currentUser?.id || 'u_admin',
+        ownerId: currentUser?.id || 'u_admin',
         createdAt: new Date().toISOString(),
       };
       collectionsToSave.parties = [...(data.parties || []), newParty as Party];
@@ -305,32 +304,30 @@ export default function OrdersDashboard() {
     setIsCreateOrderOpen(false);
   }
 
-  const handleStatusChange = async (order: OrderSellOut, newStatus: OrderStatus) => {
+ const handleStatusChange = async (order: OrderSellOut, newStatus: OrderStatus) => {
     if (!data) return;
-
-    // First, optimistically update the UI
-    const originalOrders = data.ordersSellOut;
-    setData(prevData => {
-        if (!prevData) return null;
-        const updatedOrders = prevData.ordersSellOut.map(o => o.id === order.id ? { ...o, status: newStatus } : o);
-        return { ...prevData, ordersSellOut: updatedOrders };
-    });
-
-    try {
-        const account = data.accounts.find(a => a.id === order.accountId);
-        const party = account ? data.parties.find(p => p.id === account.partyId) : undefined;
-        if(account && party) {
-           await updateOrderStatus(order, account, party, newStatus);
-        } else {
-            throw new Error(`Account or Party not found for order ${order.id}`);
-        }
-    } catch (error) {
-        console.error("Failed to update order status:", error);
-        // Revert UI on failure
-        setData(prevData => prevData ? { ...prevData, ordersSellOut: originalOrders } : null);
+    
+    const account = data.accounts.find(a => a.id === order.accountId);
+    const party = account ? data.parties.find(p => p.id === account.partyId) : undefined;
+    
+    if (!account || !party) {
+        console.error("No se pudo encontrar la cuenta o el party para el pedido:", order.id);
+        // Aquí podrías mostrar una notificación al usuario.
+        return;
     }
-  };
+
+    startTransition(async () => {
+        try {
+            await updateOrderStatus(order, account, party, newStatus);
+        } catch (error) {
+            console.error("Error al actualizar el estado del pedido:", error);
+            // Aquí se podría revertir el estado en la UI si fuera necesario, aunque revalidatePath debería refrescar.
+        }
+    });
+};
   
+  const [isPending, startTransition] = useTransition();
+
   const shipmentStatusMap: Record<Shipment['status'], { label: string; className: string }> = {
     pending: { label: 'Pendiente', className: 'bg-yellow-100 text-yellow-700' },
     picking: { label: 'Picking', className: 'bg-blue-100 text-blue-700' },

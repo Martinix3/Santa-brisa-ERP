@@ -8,7 +8,7 @@ import { usePathname } from 'next/navigation';
 
 const clsx = (...xs: Array<string | false | null | undefined>) => xs.filter(Boolean).join(" ");
 
-export function WarehouseNav() {
+function WarehouseNav() {
     const pathname = usePathname();
     const navItems = [
         { href: '/warehouse/dashboard', label: 'Dashboard' },
