@@ -1,5 +1,3 @@
-
-
 // src/app/(app)/orders/actions.ts
 'use server';
 import { revalidatePath } from 'next/cache';
@@ -15,14 +13,14 @@ export async function updateOrderStatus(orderId: string, next: OrderStatus){
 
   // Si el pedido se confirma, creamos el envío.
   if (next === 'confirmed') {
-      console.log(`[Server Action] Order confirmed, creating shipment for ${orderId}.`);
-      
+    console.log(`[Server Action] Order confirmed, creating shipment for ${orderId}.`);
+    try {
       const data = await getServerData();
       const order = data.ordersSellOut.find(o => o.id === orderId);
       const account = order ? data.accounts.find(a => a.id === order.accountId) : undefined;
       const party = account ? data.parties.find(p => p.id === account.partyId) : undefined;
 
-      if (order && account && party) {
+      if (order && account) {
           const mainAddress = party?.addresses?.find(a => a.isPrimary || a.type === 'shipping') || party?.addresses?.[0];
           
           const newShipment: Shipment = {
@@ -54,8 +52,12 @@ export async function updateOrderStatus(orderId: string, next: OrderStatus){
           console.log(`[Server Action] New shipment for order ${orderId} saved to DB.`);
 
       } else {
-        console.error(`[Server Action] Could not create shipment for order ${orderId}. Missing data:`, { hasOrder: !!order, hasAccount: !!account, hasParty: !!party });
+        console.error(`[Server Action] Could not create shipment for order ${orderId}. Missing data:`, { hasOrder: !!order, hasAccount: !!account });
       }
+    } catch (error) {
+        console.error(`[Server Action] FATAL: Failed to create shipment for order ${orderId}:`, error);
+        // Opcional: podrías revertir el estado del pedido aquí si la creación del envío falla.
+    }
   }
   
   // Revalida las rutas para que Next.js las vuelva a renderizar con los datos actualizados.
