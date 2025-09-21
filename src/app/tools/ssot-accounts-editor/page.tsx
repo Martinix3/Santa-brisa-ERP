@@ -9,14 +9,15 @@ import { SBButton, Input, Select } from '@/components/ui/ui-primitives';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
 import { useData } from '@/lib/dataprovider';
 import { SANTA_DATA_COLLECTIONS, SantaData } from '@/domain/ssot';
+import AuthenticatedLayout from '@/components/layouts/AuthenticatedLayout';
 
 type CsvRow = Record<string, any>;
 
 function CsvDataEditor() {
-    const { data: santaData, saveCollection, isPersistenceEnabled } = useData();
+    const { data: santaData, setData, saveCollection, isPersistenceEnabled } = useData();
     
     const [selectedCollection, setSelectedCollection] = useState<keyof SantaData>('accounts');
-    const [data, setData] = useState<CsvRow[]>([]);
+    const [data, setDataState] = useState<CsvRow[]>([]);
     const [headers, setHeaders] = useState<string[]>([]);
     const [filters, setFilters] = useState<Record<string, string>>({});
     const [error, setError] = useState<string | null>(null);
@@ -25,7 +26,7 @@ function CsvDataEditor() {
     useEffect(() => {
         if (santaData && selectedCollection) {
             const collectionData = santaData[selectedCollection] as CsvRow[] || [];
-            setData(collectionData);
+            setDataState(collectionData);
             if (collectionData.length > 0) {
                 const allKeys = collectionData.reduce((acc, row) => {
                     Object.keys(row).forEach(key => acc.add(key));
@@ -55,9 +56,7 @@ function CsvDataEditor() {
                 const parsedData = results.data as CsvRow[];
                 if (parsedData.length > 0) {
                     const newHeaders = results.meta.fields || [];
-                    // Merge data, don't replace
-                    setData(prev => [...prev, ...parsedData]); 
-                    // Update headers to include new columns
+                    setDataState(prev => [...prev, ...parsedData]); 
                     setHeaders(prev => Array.from(new Set([...prev, ...newHeaders])));
                     setFilters({});
                 }
@@ -68,14 +67,18 @@ function CsvDataEditor() {
         });
     }, []);
 
-    const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop, multiple: false });
+    const { getRootProps, getInputProps, isDragActive, open } = useDropzone({ 
+        onDrop, 
+        multiple: false,
+        noClick: true, // Desactivamos el click en el área de drop para manejarlo con el botón
+    });
 
     const handleFilterChange = (header: string, value: string) => {
         setFilters(prev => ({ ...prev, [header]: value }));
     };
 
     const handleCellChange = (rowIndex: number, header: string, value: string) => {
-        setData(prev => {
+        setDataState(prev => {
             const newData = [...prev];
             const originalRowIndex = data.findIndex(row => row === filteredData[rowIndex]);
             if (originalRowIndex !== -1) {
@@ -88,7 +91,7 @@ function CsvDataEditor() {
 
     const handleClear = () => {
         if(window.confirm('¿Seguro que quieres limpiar todos los datos de la vista actual? Los cambios no guardados se perderán.')){
-            setData([]);
+            setDataState([]);
             setHeaders([]);
             setFilters({});
             setError(null);
@@ -156,30 +159,27 @@ function CsvDataEditor() {
                     <p className="font-semibold text-zinc-800">Mostrando {filteredData.length} de {data.length} filas</p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <div {...getRootProps()} className="inline-block">
-                        <input {...getInputProps()} />
-                        <SBButton variant="secondary"><Plus size={14}/> Añadir desde CSV</SBButton>
-                    </div>
+                    <SBButton variant="secondary" onClick={open}><Plus size={14}/> Añadir desde CSV</SBButton>
                     <SBButton variant="secondary" onClick={handleDownload}><Download size={14}/> Exportar CSV</SBButton>
                     <SBButton onClick={handleSaveChanges} disabled={saving || !isPersistenceEnabled} title={!isPersistenceEnabled ? "Activa la persistencia para guardar" : ""}>
                         <Save size={14}/> {saving ? 'Guardando...' : 'Guardar Cambios'}
                     </SBButton>
                 </div>
             </div>
-            {data.length === 0 ? (
-                 <div 
-                    {...getRootProps()} 
-                    className={`flex flex-col items-center justify-center p-12 flex-grow transition-colors
-                    ${isDragActive ? 'border-yellow-400 bg-yellow-50' : 'bg-white'}`}
-                >
-                    <input {...getInputProps()} />
-                    <UploadCloud className="h-16 w-16 text-zinc-400 mb-4" />
-                    <h3 className="text-xl font-semibold text-zinc-800">Colección vacía</h3>
-                    <p className="text-zinc-500 mt-2">Puedes arrastrar un archivo CSV aquí para añadir datos a la colección <span className="font-bold">{selectedCollection}</span>.</p>
-                    {error && <p className="text-red-500 mt-4">{error}</p>}
-                </div>
-            ) : (
-                <div className="flex-grow overflow-auto">
+            
+            <div className="flex-grow overflow-auto" {...getRootProps()}>
+                 <input {...getInputProps()} />
+                {data.length === 0 ? (
+                     <div 
+                        className={`flex flex-col items-center justify-center p-12 h-full transition-colors
+                        ${isDragActive ? 'border-yellow-400 bg-yellow-50' : 'bg-white'}`}
+                    >
+                        <UploadCloud className="h-16 w-16 text-zinc-400 mb-4" />
+                        <h3 className="text-xl font-semibold text-zinc-800">Colección vacía</h3>
+                        <p className="text-zinc-500 mt-2">Puedes arrastrar un archivo CSV aquí para añadir datos a la colección <span className="font-bold">{selectedCollection}</span>.</p>
+                        {error && <p className="text-red-500 mt-4">{error}</p>}
+                    </div>
+                ) : (
                     <table className="w-full text-sm">
                         <thead className="sticky top-0 bg-zinc-100 z-10">
                             <tr>
@@ -214,20 +214,19 @@ function CsvDataEditor() {
                             ))}
                         </tbody>
                     </table>
-                </div>
-            )}
+                )}
+            </div>
         </div>
     );
 }
 
-
 export default function DataEditorPage() {
     return (
-        <>
+        <AuthenticatedLayout>
             <ModuleHeader title="Editor de Datos de la Aplicación" icon={Sheet} />
             <div className="p-6 h-[calc(100vh_-_150px)]">
                 <CsvDataEditor />
             </div>
-        </>
+        </AuthenticatedLayout>
     )
 }
