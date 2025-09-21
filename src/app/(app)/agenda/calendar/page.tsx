@@ -1,5 +1,4 @@
-
-// src/features/agenda/components/CalendarPageContent.tsx
+// src/app/(app)/agenda/calendar/page.tsx
 "use client";
 import React, { useMemo, useState, useEffect } from "react";
 import dynamic from "next/dynamic";
@@ -46,7 +45,7 @@ function FilterSelect({ value, onChange, options, placeholder, className }: { va
   )
 }
 
-export function CalendarPageContent() {
+function CalendarPageContent() {
   useFullCalendarStyles();
   const { data: santaData, setData, currentUser, isPersistenceEnabled, saveCollection, saveAllCollections } = useData();
   
@@ -323,4 +322,8 @@ export function CalendarPageContent() {
       </div>
     </>
   );
+}
+
+export default function CalendarPage() {
+    return <CalendarPageContent />;
 }
