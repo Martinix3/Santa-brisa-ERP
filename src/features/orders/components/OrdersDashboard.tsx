@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useMemo, useState } from 'react';
@@ -146,7 +147,7 @@ function exportToCsv(filename: string, rows: (string | number)[][]) {
 const accountHref = (id: string) => `/accounts/${id}`;
 
 export default function OrdersDashboard() {
-  const { data, setData, saveCollection } = useData();
+  const { data, setData, saveCollection, saveAllCollections } = useData();
   const [activeTab, setActiveTab] = useState<Tab>('directa');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -230,29 +231,36 @@ export default function OrdersDashboard() {
   }
 
   const handleCreateOrder = (payload: any) => {
-      if (!data) return;
-      const targetAccount = data.accounts.find(a => a.name === payload.account);
-      if (!targetAccount) {
-          alert('Cuenta no encontrada');
-          return;
-      }
-      
-      const newOrder: OrderSellOut = {
-          id: `ord_${Date.now()}`,
-          docNumber: generateNextOrder((data.ordersSellOut || []).map(o=>o.docNumber).filter(Boolean) as string[], payload.channel, new Date()),
-          accountId: targetAccount.id,
-          lines: payload.items,
-          status: 'open',
-          createdAt: new Date().toISOString(),
-          currency: 'EUR',
-          notes: payload.note,
-          source: 'MANUAL'
-      };
-      
-      const updatedOrders = [...(data.ordersSellOut || []), newOrder];
-      setData({ ...data, ordersSellOut: updatedOrders });
-      saveCollection('ordersSellOut', updatedOrders);
-      setIsCreateOrderOpen(false);
+    if (!data) return;
+    const targetAccount = data.accounts.find(a => a.name === payload.account) ?? payload.newAccount;
+    if (!targetAccount) {
+        // This case should not happen with the new flow, but we keep a log just in case.
+        console.error("No se pudo encontrar o crear la cuenta para el pedido.");
+        return;
+    }
+    
+    const newOrder: OrderSellOut = {
+        id: `ord_${Date.now()}`,
+        docNumber: generateNextOrder((data.ordersSellOut || []).map(o=>o.docNumber).filter(Boolean) as string[], payload.channel, new Date()),
+        accountId: targetAccount.id,
+        lines: payload.items,
+        status: 'open',
+        createdAt: new Date().toISOString(),
+        currency: 'EUR',
+        notes: payload.note,
+        source: 'MANUAL'
+    };
+    
+    const collectionsToSave: Partial<SantaData> = {
+        ordersSellOut: [...(data.ordersSellOut || []), newOrder]
+    };
+    if (payload.newAccount) {
+        collectionsToSave.accounts = [...(data.accounts || []), payload.newAccount];
+        collectionsToSave.parties = [...(data.parties || []), payload.newParty];
+    }
+    
+    saveAllCollections(collectionsToSave);
+    setIsCreateOrderOpen(false);
   }
 
   const handleStatusChange = async (orderId: string, newStatus: OrderStatus) => {
@@ -391,7 +399,7 @@ export default function OrdersDashboard() {
           onClose={() => setIsCreateOrderOpen(false)}
           accounts={data?.accounts || []}
           onSearchAccounts={async (q) => (data?.accounts || []).filter(a => a.name.toLowerCase().includes(q.toLowerCase()))}
-          onCreateAccount={async (d) => { /* Lógica para crear cuenta aquí si es necesario */ return d as any; }}
+          onCreateAccount={async (d) => { return d as any; }}
           onSubmit={handleCreateOrder}
         />
       )}

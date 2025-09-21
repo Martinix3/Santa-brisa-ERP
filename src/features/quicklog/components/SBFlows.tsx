@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Plus, CalendarDays, ClipboardList, UserPlus2, Briefcase, Search, Check, MapPin, Pencil, Save, MessageSquare, Zap, Mail, Phone, History, ShoppingCart, Building, CreditCard } from "lucide-react";
 import { useData } from "@/lib/dataprovider";
 import { generateNextOrder } from "@/lib/codes";
-import type { AccountType, Account, OrderSellOut, Product } from '@/domain/ssot';
+import type { AccountType, Account, OrderSellOut, Product, Party } from '@/domain/ssot';
 import { SB_COLORS } from '@/domain/ssot';
 
 const hexToRgba = (hex: string, a: number) => { const h = hex.replace('#',''); const f = h.length===3? h.split('').map(c=>c+c).join(''):h; const n=parseInt(f,16); const r=(n>>16)&255, g=(n>>8)&255, b=n&255; return `rgba(${r},${g},${b},${a})`; };
@@ -47,7 +47,7 @@ type EditAccountPayload = {
 
 type CreateAccountPayload = { name:string; city:string; type:AccountType; mainContactName?:string; mainContactEmail?:string };
 
-type CreateOrderPayload = { account:string; requestedDate?:string; deliveryDate?:string; channel:AccountType; paymentTerms?:string; shipTo?:string; note?:string; items:{ sku:string; qty:number; unit:"uds", priceUnit: number, lotNumber?: string }[] };
+type CreateOrderPayload = { account?:string; newAccount?: Partial<Account>; newParty?: Partial<Party>; requestedDate?:string; deliveryDate?:string; channel:AccountType; paymentTerms?:string; shipTo?:string; note?:string; items:{ sku:string; qty:number; unit:"uds", priceUnit: number, lotNumber?: string }[] };
 
 // ===== UI Primitives =====
 function Row({children, className}:{children:React.ReactNode, className?: string}){ return <div className={`flex flex-col gap-1 ${className || ''}`}>{children}</div>; }
@@ -86,6 +86,7 @@ function AccountPicker({
   allowDefer?: boolean;
   placeholder?: string;
 }){
+  const { currentUser } = useData();
   const [q, setQ] = useState(value);
   const [list, setList] = useState<Account[]>([]);
   const [loading, setLoading] = useState(false);
@@ -118,9 +119,35 @@ function AccountPicker({
 
   async function createInline(){
     const name = newName || q.trim(); if(!name) return alert("Pon un nombre");
-    let created: Account = { id: "acc_"+Date.now(), name, type:newType, stage: 'POTENCIAL', ownerId: '', partyId: '', createdAt: new Date().toISOString() };
-    if(onCreateAccount){ created = await onCreateAccount({name, city:newCity, type:newType}); }
-    setMode("search"); setQ(created.name); onChange(created.name); setOpen(false);
+    let created: Account | null = null;
+    if(onCreateAccount){ 
+        const partyId = `party_${Date.now()}`;
+        const accountId = `acc_${Date.now()}`;
+
+        const newParty: Partial<Party> = {
+            id: partyId,
+            name,
+            kind: 'ORG',
+            addresses: newCity ? [{type: 'main', street: '', city: newCity, country: 'España', postalCode: ''}] : [],
+            contacts: [],
+            createdAt: new Date().toISOString(),
+        };
+
+        const newAccount: Partial<Account> = {
+            id: accountId,
+            partyId: partyId,
+            name,
+            type: newType,
+            stage: 'POTENCIAL',
+            ownerId: currentUser?.id || 'u_admin',
+            createdAt: new Date().toISOString(),
+        };
+
+        onChange(name);
+        // This is a special instruction for the submit handler
+        (onChange as any)('__internal_new_account', newAccount, newParty);
+    }
+    setMode("search"); setQ(name); setOpen(false);
   }
 
   return (
@@ -153,7 +180,7 @@ function AccountPicker({
                     ))}
                   </ul>
                 )}
-                {!loading && list.length===0 && (
+                {!loading && list.length===0 && debounced.length > 0 && (
                   <div className="px-3 py-3 text-sm text-zinc-600">Sin resultados</div>
                 )}
                 <div className="p-2 border-t bg-zinc-50 flex gap-2">
@@ -164,7 +191,7 @@ function AccountPicker({
                   {allowDefer && (
                     <button onClick={()=>{ onChange(""); setOpen(false); }}
                       className="px-3 py-2 rounded-lg text-sm border border-zinc-300 bg-white hover:bg-zinc-50">
-                      Dejarlo para más tarde
+                      Dejar para más tarde
                     </button>
                   )}
                 </div>
@@ -372,7 +399,19 @@ function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, onSubmit,
   defaults?: any;
 }){
   const { data: santaData } = useData();
-  const [account, setAccount] = useState(defaults?.account || "");
+  const [accountName, setAccountName] = useState(defaults?.account || "");
+  const [newAccountData, setNewAccountData] = useState<{account: Partial<Account>, party: Partial<Party>} | null>(null);
+
+  const handleAccountChange = (value: string, newAccount?: Partial<Account>, newParty?: Partial<Party>) => {
+    if (value === '__internal_new_account' && newAccount && newParty) {
+        setNewAccountData({ account: newAccount, party: newParty });
+        setAccountName(newAccount.name!);
+    } else {
+        setAccountName(value);
+        setNewAccountData(null);
+    }
+  };
+
   const [note, setNote] = useState(defaults?.note || "");
   const [requestedDate, setRequestedDate] = useState(new Date().toISOString().slice(0,16));
   const [deliveryDate, setDeliveryDate] = useState("");
@@ -393,9 +432,24 @@ function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, onSubmit,
   }
   function removeLine(i:number){ setItems(v=> v.filter((_,idx)=> idx!==i)); }
   function submit(){ 
-      if(!account) return alert("Selecciona una cuenta"); 
+      if(!accountName) return alert("Selecciona una cuenta"); 
       if(items.length===0 || items.some(it=>!it.sku || it.qty<=0)) return alert("Revisa las líneas"); 
-      onSubmit({account, requestedDate, deliveryDate: deliveryDate||undefined, channel, paymentTerms, shipTo: shipTo||undefined, note, items});
+      
+      const payload: CreateOrderPayload = {
+          account: accountName,
+          requestedDate,
+          deliveryDate: deliveryDate||undefined,
+          channel,
+          paymentTerms,
+          shipTo: shipTo||undefined,
+          note,
+          items
+      };
+      if (newAccountData) {
+          payload.newAccount = newAccountData.account;
+          payload.newParty = newAccountData.party;
+      }
+      onSubmit(payload);
   }
   
   const orderTotal = useMemo(() => items.reduce((total, item) => total + (item.qty * item.priceUnit), 0), [items]);
@@ -403,7 +457,7 @@ function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, onSubmit,
   return (
     <div className="p-4 space-y-3">
       <Row><Label>Cuenta</Label>
-        <AccountPicker value={account} onChange={setAccount} accounts={accounts} onSearchAccounts={onSearchAccounts} onCreateAccount={onCreateAccount}/>
+        <AccountPicker value={accountName} onChange={handleAccountChange as any} accounts={accounts} onSearchAccounts={onSearchAccounts} onCreateAccount={onCreateAccount}/>
       </Row>
       <div className="grid grid-cols-2 gap-3">
         <Row><Label>Fecha pedido</Label><Input type="datetime-local" value={requestedDate} onChange={e=>setRequestedDate(e.target.value)}/></Row>
@@ -530,4 +584,5 @@ export function SBFlowModal({
     </BaseModal>
   );
 }
+
 
