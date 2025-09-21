@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useMemo, useState } from 'react';
@@ -177,7 +176,7 @@ export default function OrdersDashboard() {
           !searchTerm ||
           (order.docNumber && order.docNumber.toLowerCase().includes(searchTerm.toLowerCase())) ||
           order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          order.account.name.toLowerCase().includes(searchTerm.toLowerCase());
+          (order.account && order.account.name.toLowerCase().includes(searchTerm.toLowerCase()));
         
         const matchesStatus = !statusFilter || order.status === statusFilter;
 
