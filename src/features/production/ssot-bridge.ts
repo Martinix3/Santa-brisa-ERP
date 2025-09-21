@@ -2,7 +2,9 @@
 // src/features/production/ssot-bridge.ts
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebaseClient";
-import type { BillOfMaterial, Material, ProductionOrder, Lot, InfluencerCollab, MarketingEvent, OnlineCampaign } from '@/domain';
+import type { BillOfMaterial, Material, ProductionOrder, Lot, InfluencerCollab, MarketingEvent, OnlineCampaign, Product } from '@/domain';
+import { useData } from "@/lib/dataprovider";
+import { useMemo } from "react";
 
 async function listCollection<T>(name: string): Promise<T[]> {
   const querySnapshot = await getDocs(collection(db, name));
@@ -10,7 +12,9 @@ async function listCollection<T>(name: string): Promise<T[]> {
 }
 
 export async function listBoms(): Promise<BillOfMaterial[]> {
-  return listCollection<BillOfMaterial>('billOfMaterials');
+  // This is a placeholder. In a real app, you would fetch from Firestore.
+  const { data } = useData();
+  return useMemo(() => data?.billOfMaterials || [], [data]);
 }
 
 export async function listRecipes(): Promise<BillOfMaterial[]> {
@@ -18,7 +22,22 @@ export async function listRecipes(): Promise<BillOfMaterial[]> {
 }
 
 export async function listMaterials(): Promise<Material[]> {
-  return listCollection<Material>('materials');
+  // This is a placeholder. In a real app, you would fetch from Firestore.
+  const { data } = useData();
+  return useMemo(() => data?.materials || [], [data]);
+}
+
+export async function listFinishedSkus(): Promise<{ sku: string; name: string; packSizeMl: number; bottlesPerCase?: number }[]> {
+  const { data } = useData();
+  const products = useMemo(() => data?.products || [], [data]);
+  return products
+      .filter((p: Product) => p.category === 'finished_good' && p.active)
+      .map((p: Product) => ({
+          sku: p.sku,
+          name: p.name,
+          packSizeMl: p.bottleMl || 0,
+          bottlesPerCase: p.caseUnits
+      }));
 }
 
 export async function listProductionOrders(): Promise<ProductionOrder[]> {

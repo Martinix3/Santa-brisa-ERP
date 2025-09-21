@@ -220,13 +220,28 @@ export interface Product {
   materialId?: string;
 }
 
+export type BomLineRole = "FORMULA" | "PACKAGING";
 export interface BillOfMaterial {
   id: string;
   sku: string;
   name: string;
-  items: { materialId: string; quantity: number; unit?: string; }[];
+  items: { 
+    materialId: string;
+    quantity: number;
+    unit?: string;
+    role?: BomLineRole;
+  }[];
   batchSize: number;
   baseUnit?: string;
+  // Nuevos campos para costeo avanzado
+  stdLaborCostPerBatch?: number;
+  stdOverheadPerBatch?: number;
+  currency?: Currency;
+  yieldPct?: number;
+  wastePctProduction?: number;
+  wastePctPackaging?: number;
+  version?: number;
+  status?: "ACTIVA" | "BORRADOR" | "ARCHIVADA";
 }
 
 export type Shortage = { materialId: string; required: number; available: number; uom: Uom };
@@ -902,4 +917,6 @@ export type AccountRollup = {
     activeActivations: number;
     lastActivationAt?: string;
     activePromotions: number;
+    activePosTactics: number;
+    lastTacticAt?: string;
 };
