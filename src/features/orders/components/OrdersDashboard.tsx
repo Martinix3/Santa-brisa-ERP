@@ -89,13 +89,7 @@ function StatusSelector({ order, onStatusChange }: { order: OrderSellOut; onStat
     const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const newStatus = e.target.value as OrderStatus;
         startTransition(async () => {
-            const account = data?.accounts.find(a => a.id === order.accountId);
-            const party = account ? data?.parties.find(p => p.id === account.partyId) : undefined;
-            if (account && party) {
-              await onStatusChange(order, newStatus);
-            } else {
-              console.error(`[StatusSelector] No se pudo encontrar account/party para el pedido ${order.id}`);
-            }
+            await onStatusChange(order, newStatus);
         });
     };
 
@@ -263,7 +257,6 @@ export default function OrdersDashboard() {
     }
 
     if (!payload.account && !payload.newAccount) {
-        console.error("No se ha seleccionado o creado una cuenta para el nuevo pedido.");
         return;
     }
     
@@ -314,8 +307,9 @@ export default function OrdersDashboard() {
 
   const handleStatusChange = async (order: OrderSellOut, newStatus: OrderStatus) => {
     if (!data) return;
-  
-    // Optimistic UI update
+
+    // First, optimistically update the UI
+    const originalOrders = data.ordersSellOut;
     setData(prevData => {
         if (!prevData) return null;
         const updatedOrders = prevData.ordersSellOut.map(o => o.id === order.id ? { ...o, status: newStatus } : o);
@@ -327,15 +321,13 @@ export default function OrdersDashboard() {
         const party = account ? data.parties.find(p => p.id === account.partyId) : undefined;
         if(account && party) {
            await updateOrderStatus(order, account, party, newStatus);
+        } else {
+            throw new Error(`Account or Party not found for order ${order.id}`);
         }
     } catch (error) {
         console.error("Failed to update order status:", error);
-        // Revert optimistic update on failure
-        setData(prevData => {
-            if (!prevData) return null;
-            const revertedOrders = prevData.ordersSellOut.map(o => o.id === order.id ? order : o);
-            return { ...prevData, ordersSellOut: revertedOrders };
-        });
+        // Revert UI on failure
+        setData(prevData => prevData ? { ...prevData, ordersSellOut: originalOrders } : null);
     }
   };
   
@@ -494,4 +486,3 @@ export default function OrdersDashboard() {
     </>
   );
 }
-

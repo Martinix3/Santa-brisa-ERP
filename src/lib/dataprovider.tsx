@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
@@ -154,26 +155,26 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [data?.users]);
 
   const saveAllCollections = useCallback(async (collectionsToSave: Partial<SantaData>) => {
-    // Primero, siempre actualiza el estado local para reflejar el cambio en la UI.
     setData(prevData => {
         if (!prevData) return null;
         const updatedData = { ...prevData };
         for (const key in collectionsToSave) {
             const collectionName = key as keyof SantaData;
-            const newItems = collectionsToSave[collectionName] || [];
-            if (newItems.length > 0) {
+            const newItems = collectionsToSave[collectionName] as any[] | undefined;
+            if (newItems && newItems.length > 0) {
                 const existingItems = (updatedData[collectionName] as any[]) || [];
                 const itemMap = new Map(existingItems.map(item => [item.id, item]));
+
                 newItems.forEach((newItem: any) => {
-                    itemMap.set(newItem.id, newItem);
+                    itemMap.set(newItem.id, newItem); // Add or update
                 });
+
                 (updatedData as any)[collectionName] = Array.from(itemMap.values());
             }
         }
         return updatedData;
     });
 
-    // Luego, si la persistencia está activada, guarda en el backend.
     if (isPersistenceEnabled) {
       console.log("Saving to backend:", collectionsToSave);
       const token = await auth.currentUser?.getIdToken();
@@ -215,9 +216,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   
   const saveCollection = useCallback(
     async (name: keyof SantaData, rows: any[]) => {
-      // Actualiza el estado local primero.
-      setData(prevData => prevData ? { ...prevData, [name]: rows } : null);
-      // Luego, intenta guardar en el backend si está habilitado.
+      // Siempre actualiza el estado local
+      setData(prevData => {
+        if (!prevData) return null;
+        const itemMap = new Map((prevData[name] as any[] || []).map(item => [item.id, item]));
+        rows.forEach(row => itemMap.set(row.id, row));
+        return { ...prevData, [name]: Array.from(itemMap.values()) };
+      });
+      
+      // Si la persistencia está activa, guarda en el backend
       if (isPersistenceEnabled) {
         await saveAllCollections({ [name]: rows });
       }

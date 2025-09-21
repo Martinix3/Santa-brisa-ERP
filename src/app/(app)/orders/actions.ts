@@ -23,7 +23,7 @@ export async function updateOrderStatus(order: OrderSellOut, account: Account, p
       
       const shipmentLines = (order.lines ?? []).map(it => ({
         sku: it.sku,
-        name: it.sku, // Temporal, la UI de logística debería poder buscar el nombre del producto
+        name: it.sku, // El dashboard de logística debe poder buscar el nombre si es necesario
         qty: it.qty,
         uom: 'uds' as const,
       }));
