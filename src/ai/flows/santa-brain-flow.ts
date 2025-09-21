@@ -9,8 +9,8 @@
  */
 
 import { ai } from '@/ai';
-import { z } from 'genkit';
-import { Message } from 'genkit';
+import { z } from 'zod';
+import type { Message } from 'genkit';
 
 import type {
   Account,
@@ -47,7 +47,7 @@ const CreateInteractionSchema = z.object({
 const CreateAccountSchema = z.object({
   name: z.string().describe('The name of the new account.'),
   city: z.string().optional().describe('The city where the account is located.'),
-  type: createEnumSchema(['HORECA', 'RETAIL', 'DISTRIBUIDOR', 'IMPORTADOR', 'OTRO']).optional(),
+  type: createEnumSchema(['HORECA', 'RETAIL', 'OTRO']).optional(),
 });
 
 const registeredTools = [
@@ -140,10 +140,8 @@ const santaBrainFlow = ai.defineFlow(
   async ({ history, input, context }) => {
     const { users, accounts, parties, currentUser } = context as { users: User[], accounts: Account[], parties: Party[], currentUser: User };
     
-    // Augment the user input with the current user's identity.
     const augmentedInput = `I am ${currentUser.name}. The user's request is: "${input}"`;
     
-    const accountMap = new Map(accounts.map(a => ([a.id, a])));
     const partyMap = new Map(parties.map(p => ([p.id, p])));
     const accountsWithContext = accounts.map(a => {
         const party = partyMap.get(a.partyId);
@@ -156,11 +154,13 @@ const santaBrainFlow = ai.defineFlow(
     });
 
     const llmResponse = await ai.generate({
-      prompt: augmentedInput,
-      history,
-      system: systemPrompt,
       model: 'googleai/gemini-2.5-flash',
       tools: registeredTools,
+      messages: [
+        { role: 'system', content: [{ text: systemPrompt }] },
+        ...history,
+        { role: 'user', content: [{ text: augmentedInput }] },
+      ],
       context: {
           currentUser: {id: currentUser.id, name: currentUser.name, role: currentUser.role},
           users: users.map(u => ({id: u.id, name: u.name, role: u.role})),
@@ -168,38 +168,41 @@ const santaBrainFlow = ai.defineFlow(
       },
     });
 
-    const toolCalls = llmResponse.toolRequests ?? [];
+    const toolResponses = llmResponse.toolResponses;
     let finalAnswer = llmResponse.text ?? '';
     const newEntities: Partial<SantaData> = {};
 
-    if (toolCalls && toolCalls.length > 0) {
-        for (const toolCall of toolCalls) {
-            const toolResponse = await toolCall.run();
-            const accountName = (toolCall.input as any)?.accountName;
+    if (toolResponses && toolResponses.length > 0) {
+        for (const toolResponse of toolResponses) {
+            const toolRequest = llmResponse.toolRequests.find(req => req.toolRequest.ref === toolResponse.toolResponse.ref);
+            if (!toolRequest) continue;
+
+            const accountName = (toolRequest.toolRequest.input as any)?.accountName;
             const targetAccount = accounts.find(a => a.name.toLowerCase() === accountName?.toLowerCase());
             
-            if (toolResponse) {
-                 if (toolCall.name === 'createOrder' && targetAccount) {
-                    const newOrder = { ...toolResponse, accountId: targetAccount.id };
+            if (toolResponse.toolResponse.output) {
+                 if (toolRequest.toolRequest.name === 'createOrder' && targetAccount) {
+                    const newOrder = { ...(toolResponse.toolResponse.output as object), accountId: targetAccount.id };
                     newEntities.ordersSellOut = [...(newEntities.ordersSellOut || []), newOrder as OrderSellOut];
                     finalAnswer += `\nHecho. He creado un pedido para ${targetAccount.name}. ¿Has hecho alguna promoción o necesitas visibilidad (PLV)?`;
                  }
-                 else if (toolCall.name === 'createInteraction' && targetAccount) {
-                    const newInteraction = { ...toolResponse, accountId: targetAccount.id, userId: 'u_admin' }; // Placeholder user
+                 else if (toolRequest.toolRequest.name === 'createInteraction' && targetAccount) {
+                    const newInteraction = { ...(toolResponse.toolResponse.output as object), accountId: targetAccount.id, userId: 'u_admin' }; // Placeholder user
                     newEntities.interactions = [...(newEntities.interactions || []), newInteraction as Interaction];
                     finalAnswer += `\nHecho. He registrado una interacción con ${targetAccount.name}.`;
                  }
-                 else if (toolCall.name === 'createAccount') {
+                 else if (toolRequest.toolRequest.name === 'createAccount') {
+                    const outputData = toolResponse.toolResponse.output as any;
                     const newParty: Party = {
                         id: `party_${Date.now()}`,
-                        name: toolResponse.name,
+                        name: outputData.name,
                         kind: 'ORG',
-                        addresses: toolResponse.city ? [{ type: 'main', city: toolResponse.city, street: '', country: 'España' }] : [],
+                        addresses: outputData.city ? [{ type: 'main', city: outputData.city, street: '', country: 'España', postalCode: '' }] : [],
                         contacts: [],
                         createdAt: new Date().toISOString(),
                     };
                     const newAccount: Account = {
-                        ...toolResponse,
+                        ...outputData,
                         id: `acc_${Date.now()}`,
                         partyId: newParty.id,
                         stage: 'POTENCIAL',
@@ -210,7 +213,7 @@ const santaBrainFlow = ai.defineFlow(
                     newEntities.parties = [...(newEntities.parties || []), newParty];
                     newEntities.accounts = [...(newEntities.accounts || []), newAccount];
 
-                    finalAnswer += `\nHecho. He creado la cuenta ${toolResponse.name}.`;
+                    finalAnswer += `\nHecho. He creado la cuenta ${outputData.name}.`;
                 }
             }
         }
