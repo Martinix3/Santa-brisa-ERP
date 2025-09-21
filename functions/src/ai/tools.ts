@@ -1,4 +1,3 @@
-
 import { defineTool } from '@genkit-ai/ai';
 import { z } from 'zod';
 import { db } from '../firebaseAdmin.js';
@@ -27,84 +26,111 @@ const memoryUpsertSchema = z.object({
   kind: z.enum(['message','summary']).default('message')
 });
 export const memory_upsert = defineTool(
-  'memory_upsert',
-  memoryUpsertSchema,
-  async (input) => {
-    const { userId, threadId, ...rest } = input;
-    await db.collection('brain_memory').doc(userId)
-      .collection('threads').doc(threadId)
-      .collection('turns').add({ ...rest, createdAt: nowIso() });
-    return { ok: true };
+  {
+    name: 'memory_upsert',
+    description: 'Guarda un mensaje o resumen del hilo.',
+    inputSchema: memoryUpsertSchema,
+    outputSchema: z.object({ ok: z.boolean() }),
+    fn: async (input) => {
+      const { userId, threadId, ...rest } = input;
+      await db.collection('brain_memory').doc(userId)
+        .collection('threads').doc(threadId)
+        .collection('turns').add({ ...rest, createdAt: nowIso() });
+      return { ok: true };
+    }
   }
 );
 
 const memoryGetContextSchema = z.object({ userId: z.string(), threadId: z.string(), limit: z.number().min(1).max(50).default(12) });
 export const memory_get_context = defineTool(
-  'memory_get_context',
-  memoryGetContextSchema,
-  async (input) => {
-    const { userId, threadId, limit } = input;
-    const turnsSnap = await db.collection('brain_memory').doc(userId)
-      .collection('threads').doc(threadId).collection('turns')
-      .orderBy('createdAt', 'desc').limit(limit).get();
+  {
+    name: 'memory_get_context',
+    description: 'Recupera últimas N entradas del hilo + perfil largo.',
+    inputSchema: memoryGetContextSchema,
+    outputSchema: z.object({
+      messages: z.array(z.object({ role: z.string(), text: z.string() })),
+      profile: z.string().optional()
+    }),
+    fn: async (input) => {
+      const { userId, threadId, limit } = input;
+      const turnsSnap = await db.collection('brain_memory').doc(userId)
+        .collection('threads').doc(threadId).collection('turns')
+        .orderBy('createdAt', 'desc').limit(limit).get();
 
-    const messages = turnsSnap.docs
-      .map(d=>d.data() as any)
-      .sort((a,b)=> String(a.createdAt).localeCompare(String(b.createdAt)))
-      .map(d=> ({ role: d.role, text: d.text }));
+      const messages = turnsSnap.docs
+        .map(d=>d.data() as any)
+        .sort((a,b)=> String(a.createdAt).localeCompare(String(b.createdAt)))
+        .map(d=> ({ role: d.role, text: d.text }));
 
-    const profileDoc = await db.collection('brain_memory').doc(userId).get();
-    return { messages, profile: profileDoc.exists() ? (profileDoc.data() as any).profile : undefined };
+      const profileDoc = await db.collection('brain_memory').doc(userId).get();
+      return { messages, profile: profileDoc.exists ? (profileDoc.data() as any).profile : undefined };
+    }
   }
 );
 
 const memoryUpdateProfileSchema = z.object({ userId: z.string(), profile: z.string().min(10) });
 export const memory_update_profile = defineTool(
-  'memory_update_profile',
-  memoryUpdateProfileSchema,
-  async (input) => {
-    const { userId, profile } = input;
-    await db.collection('brain_memory').doc(userId).set({ profile, updatedAt: nowIso() }, { merge: true });
-    return { ok: true };
+  {
+    name: 'memory_update_profile',
+    description: 'Actualiza el perfil de largo plazo del usuario.',
+    inputSchema: memoryUpdateProfileSchema,
+    outputSchema: z.object({ ok: z.boolean() }),
+    fn: async (input) => {
+      const { userId, profile } = input;
+      await db.collection('brain_memory').doc(userId).set({ profile, updatedAt: nowIso() }, { merge: true });
+      return { ok: true };
+    }
   }
 );
 
 // ===== Lectura SSOT =====
 const queryAccountsSchema = z.object({ text: z.string().optional(), limit: z.number().min(1).max(200).default(50) });
 export const query_accounts = defineTool(
-  'query_accounts',
-  queryAccountsSchema,
-  async (input) => {
-    const { text = '', limit } = input;
-    // DEV simple: lee subset y filtra en server (para prod, index/Algolia/Composite)
-    const snap = await db.collection('accounts').limit(500).get();
-    const all = snap.docs.map(d=> ({ id: d.id, ...(d.data() as any) }));
-    const t = text.toLowerCase();
-    const results = t
-      ? all.filter(a=> [a.name, a.city, a.mainContactName, a.mainContactEmail].filter(Boolean).join(' ').toLowerCase().includes(t))
-      : all;
-    return { results: results.slice(0, limit) };
+  {
+    name: 'query_accounts',
+    description: 'Busca cuentas por nombre/ciudad/contacto (dev simple).',
+    inputSchema: queryAccountsSchema,
+    outputSchema: z.object({ results: z.array(z.any()) }),
+    fn: async (input) => {
+      const { text = '', limit } = input;
+      const snap = await db.collection('accounts').limit(500).get();
+      const all = snap.docs.map(d=> ({ id: d.id, ...(d.data() as any) }));
+      const t = text.toLowerCase();
+      const results = t
+        ? all.filter(a=> [a.name, a.city, a.mainContactName, a.mainContactEmail].filter(Boolean).join(' ').toLowerCase().includes(t))
+        : all;
+      return { results: results.slice(0, limit) };
+    }
   }
 );
 
 const getAccountDeepSchema = z.object({ accountId: z.string() });
 export const get_account_deep = defineTool(
-  'get_account_deep',
-  getAccountDeepSchema,
-  async (input) => {
-    const { accountId } = input;
-    const acc = await mustAccount(accountId).catch(()=> null);
-    const [orders, interactions, events] = await Promise.all([
-      db.collection('orders').where('accountId','==',accountId).orderBy('date','desc').limit(20).get(),
-      db.collection('interactions').where('accountId','==',accountId).orderBy('when','desc').limit(50).get(),
-      db.collection('events').where('accountId','==',accountId).orderBy('startAt','desc').limit(30).get(),
-    ]);
-    return {
-      account: acc,
-      orders: orders.docs.map(d=> ({ id:d.id, ...(d.data() as any) })),
-      interactions: interactions.docs.map(d=> ({ id:d.id, ...(d.data() as any) })),
-      events: events.docs.map(d=> ({ id:d.id, ...(d.data() as any) })),
-    };
+  {
+    name: 'get_account_deep',
+    description: 'Cuenta + últimos pedidos/interacciones/eventos.',
+    inputSchema: getAccountDeepSchema,
+    outputSchema: z.object({
+      account: z.any().nullable(),
+      orders: z.array(z.any()),
+      interactions: z.array(z.any()),
+      events: z.array(z.any())
+    }),
+    fn: async (input) => {
+      const { accountId } = input;
+      const acc = await mustAccount(accountId).catch(()=> null);
+      const [orders, interactions, events] = await Promise.all([
+        db.collection('orders').where('accountId','==',accountId).orderBy('date','desc').limit(20).get(),
+        db.collection('interactions').where('accountId','==',accountId).orderBy('when','desc').limit(50).get(),
+        db.collection('events').where('accountId','==',accountId).orderBy('startAt','desc').limit(30).get(),
+      ]);
+      return {
+        account: acc,
+        orders: orders.docs.map(d=> ({ id:d.id, ...(d.data() as any) })),
+        interactions: interactions.docs.map(d=> ({ id:d.id, ...(d.data() as any) })),
+        events: events.docs.map(d=> ({ id:d.id, ...(d.data() as any) })),
+      };
+    }
   }
 );
 
@@ -115,14 +141,18 @@ const listCollectionSchema = z.object({
   limit: z.number().min(1).max(500).default(100)
 });
 export const list_collection = defineTool(
-  'list_collection',
-  listCollectionSchema,
-  async (input) => {
-    const { name, orderBy, dir, limit } = input;
-    let ref: FirebaseFirestore.Query = db.collection(name);
-    if (orderBy) ref = ref.orderBy(orderBy, dir);
-    const snap = await ref.limit(limit).get();
-    return { docs: snap.docs.map(d=> ({ id: d.id, ...(d.data() as any) })) };
+  {
+    name: 'list_collection',
+    description: 'Lee una colección SSOT permitida (cruda) con límite.',
+    inputSchema: listCollectionSchema,
+    outputSchema: z.object({ docs: z.array(z.any()) }),
+    fn: async (input) => {
+      const { name, orderBy, dir, limit } = input;
+      let ref: FirebaseFirestore.Query = db.collection(name);
+      if (orderBy) ref = ref.orderBy(orderBy, dir);
+      const snap = await ref.limit(limit).get();
+      return { docs: snap.docs.map(d=> ({ id: d.id, ...(d.data() as any) })) };
+    }
   }
 );
 
@@ -144,23 +174,27 @@ const createAccountSchema = z.object({
   salesRepId: z.string().optional()
 });
 export const create_account = defineTool(
-  'create_account',
-  createAccountSchema,
-  async (args) => {
-    const createdAt = nowIso();
-    const docData = {
-      name: args.name,
-      nameNorm: norm(args.name),
-      city: args.city ?? '',
-      accountType: args.accountType,
-      accountStage: args.accountStage,
-      mainContactName: args.mainContactName ?? null,
-      mainContactEmail: args.mainContactEmail ?? null,
-      salesRepId: args.salesRepId ?? null,
-      createdAt, updatedAt: createdAt
-    };
-    const ref = await db.collection('accounts').add(docData);
-    return { id: ref.id };
+  {
+    name: 'create_account',
+    description: 'Crea una cuenta SSOT con datos mínimos.',
+    inputSchema: createAccountSchema,
+    outputSchema: z.object({ id: z.string() }),
+    fn: async (args) => {
+      const createdAt = nowIso();
+      const docData = {
+        name: args.name,
+        nameNorm: norm(args.name),
+        city: args.city ?? '',
+        accountType: args.accountType,
+        accountStage: args.accountStage,
+        mainContactName: args.mainContactName ?? null,
+        mainContactEmail: args.mainContactEmail ?? null,
+        salesRepId: args.salesRepId ?? null,
+        createdAt, updatedAt: createdAt
+      };
+      const ref = await db.collection('accounts').add(docData);
+      return { id: ref.id };
+    }
   }
 );
 
@@ -173,30 +207,34 @@ const ensureAccountSchema = z.object({
   salesRepId: z.string().optional()
 });
 export const ensure_account = defineTool(
-  'ensure_account',
-  ensureAccountSchema,
-  async (args) => {
-    const needle = norm(args.name);
-    const email = (args.mainContactEmail || '').toLowerCase();
-    const snap = await db.collection('accounts').limit(500).get();
-    const all = snap.docs.map(d=> ({ id: d.id, ...(d.data() as any) }));
+  {
+    name: 'ensure_account',
+    description: 'Devuelve accountId; busca por nombre/email y crea si no existe.',
+    inputSchema: ensureAccountSchema,
+    outputSchema: z.object({ id: z.string(), existed: z.boolean() }),
+    fn: async (args) => {
+      const needle = norm(args.name);
+      const email = (args.mainContactEmail || '').toLowerCase();
+      const snap = await db.collection('accounts').limit(500).get();
+      const all = snap.docs.map(d=> ({ id: d.id, ...(d.data() as any) }));
 
-    const hit = all.find(a =>
-      (email && a.mainContactEmail && a.mainContactEmail.toLowerCase() === email) ||
-      (a.nameNorm && a.nameNorm === needle)
-    );
-    if (hit) return { id: hit.id, existed: true };
+      const hit = all.find(a =>
+        (email && a.mainContactEmail && a.mainContactEmail.toLowerCase() === email) ||
+        (a.nameNorm && a.nameNorm === needle)
+      );
+      if (hit) return { id: hit.id, existed: true };
 
-    const created = await create_account.run({
-      name: args.name,
-      city: args.city,
-      accountType: args.defaultAccountType,
-      accountStage: args.defaultStage,
-      salesRepId: args.salesRepId,
-      mainContactEmail: args.mainContactEmail
-    });
-    if (!created) throw new Error("Could not create account");
-    return { id: created.id, existed: false };
+      const created = await create_account.run({
+        name: args.name,
+        city: args.city,
+        accountType: args.defaultAccountType,
+        accountStage: args.defaultStage,
+        salesRepId: args.salesRepId,
+        mainContactEmail: args.mainContactEmail
+      });
+      if (!created) throw new Error("Could not create account");
+      return { id: created, existed: false };
+    }
   }
 );
 
@@ -210,24 +248,28 @@ const createOrderSchema = z.object({
   createdById: z.string().optional()
 });
 export const create_order = defineTool(
-  'create_order',
-  createOrderSchema,
-  async (input) => {
-    await mustAccount(input.accountId);
-    const createdAt = nowIso();
-    const order = {
-      accountId: input.accountId,
-      distributorId: input.distributorId ?? null,
-      date: input.date ?? createdAt,
-      currency: input.currency,
-      items: input.items,
-      amount: calcAmount(input.items),
-      notes: input.notes ?? null,
-      status: 'ABIERTO',
-      createdAt, updatedAt: createdAt
-    };
-    const ref = await db.collection('orders').add(order);
-    return { id: ref.id, amount: order.amount, currency: order.currency, createdAt };
+  {
+    name: 'create_order',
+    description: 'Crea un pedido en `orders`.',
+    inputSchema: createOrderSchema,
+    outputSchema: z.object({ id: z.string(), amount: z.number(), currency: z.string(), createdAt: z.string() }),
+    fn: async (input) => {
+      await mustAccount(input.accountId);
+      const createdAt = nowIso();
+      const order = {
+        accountId: input.accountId,
+        distributorId: input.distributorId ?? null,
+        date: input.date ?? createdAt,
+        currency: input.currency,
+        items: input.items,
+        amount: calcAmount(input.items),
+        notes: input.notes ?? null,
+        status: 'ABIERTO',
+        createdAt, updatedAt: createdAt
+      };
+      const ref = await db.collection('orders').add(order);
+      return { id: ref.id, amount: order.amount, currency: order.currency, createdAt };
+    }
   }
 );
 
@@ -242,14 +284,18 @@ const createInteractionSchema = z.object({
   createdById: z.string().optional()
 });
 export const create_interaction = defineTool(
-  'create_interaction',
-  createInteractionSchema,
-  async (input) => {
-    await mustAccount(input.accountId);
-    const createdAt = nowIso();
-    const doc = { ...input, when: input.when ?? createdAt, createdAt, updatedAt: createdAt };
-    const ref = await db.collection('interactions').add(doc);
-    return { id: ref.id, status: doc.status, when: doc.when, createdAt };
+  {
+    name: 'create_interaction',
+    description: 'Registra una interacción (VISITA, LLAMADA, EMAIL, WHATSAPP, OTRO).',
+    inputSchema: createInteractionSchema,
+    outputSchema: z.object({ id: z.string(), status: z.string(), when: z.string(), createdAt: z.string() }),
+    fn: async (input) => {
+      await mustAccount(input.accountId);
+      const createdAt = nowIso();
+      const doc = { ...input, when: input.when ?? createdAt, createdAt, updatedAt: createdAt };
+      const ref = await db.collection('interactions').add(doc);
+      return { id: ref.id, status: doc.status, when: doc.when, createdAt };
+    }
   }
 );
 
@@ -264,14 +310,18 @@ const createEventSchema = z.object({
   createdById: z.string().optional()
 });
 export const create_event = defineTool(
-  'create_event',
-  createEventSchema,
-  async (input) => {
-    if (input.accountId) await mustAccount(input.accountId);
-    const createdAt = nowIso();
-    const doc = { ...input, createdAt, updatedAt: createdAt };
-    const ref = await db.collection('events').add(doc);
-    return { id: ref.id, title: input.title, startAt: input.startAt, createdAt };
+  {
+    name: 'create_event',
+    description: 'Crea un evento (DEMO, FERIA, FORMACION, OTRO).',
+    inputSchema: createEventSchema,
+    outputSchema: z.object({ id: z.string(), title: z.string(), startAt: z.string(), createdAt: z.string() }),
+    fn: async (input) => {
+      if (input.accountId) await mustAccount(input.accountId);
+      const createdAt = nowIso();
+      const doc = { ...input, createdAt, updatedAt: createdAt };
+      const ref = await db.collection('events').add(doc);
+      return { id: ref.id, title: input.title, startAt: input.startAt, createdAt };
+    }
   }
 );
 
@@ -284,62 +334,76 @@ const getUpcomingAgendaSchema = z.object({
   forDept: z.enum(['VENTAS','MARKETING','LOGISTICA','ADMIN','OTRO']).optional()
 });
 export const get_upcoming_agenda = defineTool(
-  'get_upcoming_agenda',
-  getUpcomingAgendaSchema,
-  async (input) => {
-    const { horizonDays, limit, forUserId, forDept } = input;
-    const now = new Date();
-    const end = new Date(now.getTime() + horizonDays*24*60*60*1000);
+  {
+    name: 'get_upcoming_agenda',
+    description: 'Devuelve próximas tareas/eventos dentro de un horizonte (días).',
+    inputSchema: getUpcomingAgendaSchema,
+    outputSchema: z.object({
+      items: z.array(z.object({
+        type: z.enum(['EVENT','TASK']),
+        id: z.string(),
+        when: z.string(),
+        title: z.string(),
+        accountId: z.string().nullable(),
+        location: z.string().nullable(),
+        notes: z.string().nullable()
+      }))
+    }),
+    fn: async (input) => {
+      const { horizonDays, limit, forUserId, forDept } = input;
+      const now = new Date();
+      const end = new Date(now.getTime() + horizonDays*24*60*60*1000);
 
-    let evRef: FirebaseFirestore.Query = db.collection('events')
-      .where('startAt', '>=', now.toISOString())
-      .where('startAt', '<=', end.toISOString())
-      .orderBy('startAt', 'asc')
-      .limit(limit);
-    if (forUserId) evRef = evRef.where('createdById', '==', forUserId as any);
-    if (forDept) evRef = evRef.where('dept', '==', forDept as any);
+      let evRef: FirebaseFirestore.Query = db.collection('events')
+        .where('startAt', '>=', now.toISOString())
+        .where('startAt', '<=', end.toISOString())
+        .orderBy('startAt', 'asc')
+        .limit(limit);
+      if (forUserId) evRef = evRef.where('createdById', '==', forUserId as any);
+      if (forDept) evRef = evRef.where('dept', '==', forDept as any);
 
-    const evSnap = await evRef.get();
-    const evItems = evSnap.docs.map(d => {
-      const x = d.data() as any;
-      return {
-        type: 'EVENT' as const,
-        id: d.id,
-        when: x.startAt,
-        title: x.title || x.kind || 'Evento',
-        accountId: x.accountId ?? null,
-        location: x.location ?? null,
-        notes: x.notes ?? null
-      };
-    });
+      const evSnap = await evRef.get();
+      const evItems = evSnap.docs.map(d => {
+        const x = d.data() as any;
+        return {
+          type: 'EVENT' as const,
+          id: d.id,
+          when: x.startAt,
+          title: x.title || x.kind || 'Evento',
+          accountId: x.accountId ?? null,
+          location: x.location ?? null,
+          notes: x.notes ?? null
+        };
+      });
 
-    let inRef: FirebaseFirestore.Query = db.collection('interactions')
-      .where('nextAt', '>=', now.toISOString())
-      .where('nextAt', '<=', end.toISOString())
-      .orderBy('nextAt', 'asc')
-      .limit(limit);
-    if (forUserId) inRef = inRef.where('createdById', '==', forUserId as any);
-    if (forDept) inRef = inRef.where('dept', '==', forDept as any);
+      let inRef: FirebaseFirestore.Query = db.collection('interactions')
+        .where('nextAt', '>=', now.toISOString())
+        .where('nextAt', '<=', end.toISOString())
+        .orderBy('nextAt', 'asc')
+        .limit(limit);
+      if (forUserId) inRef = inRef.where('createdById', '==', forUserId as any);
+      if (forDept) inRef = inRef.where('dept', '==', forDept as any);
 
-    const inSnap = await inRef.get();
-    const taskItems = inSnap.docs.map(d => {
-      const x = d.data() as any;
-      return {
-        type: 'TASK' as const,
-        id: d.id,
-        when: x.nextAt,
-        title: x.summary || x.kind || 'Tarea',
-        accountId: x.accountId ?? null,
-        location: null,
-        notes: x.notes ?? null
-      };
-    });
+      const inSnap = await inRef.get();
+      const taskItems = inSnap.docs.map(d => {
+        const x = d.data() as any;
+        return {
+          type: 'TASK' as const,
+          id: d.id,
+          when: x.nextAt,
+          title: x.summary || x.kind || 'Tarea',
+          accountId: x.accountId ?? null,
+          location: null,
+          notes: x.notes ?? null
+        };
+      });
 
-    const items = [...evItems, ...taskItems]
-      .sort((a, b) => String(a.when).localeCompare(String(b.when)))
-      .slice(0, limit);
+      const items = [...evItems, ...taskItems]
+        .sort((a, b) => String(a.when).localeCompare(String(b.when)))
+        .slice(0, limit);
 
-    return { items };
+      return { items };
+    }
   }
 );
 
@@ -351,65 +415,80 @@ const getAccountsOverviewSchema = z.object({
   stage: z.enum(['SEGUIMIENTO','FALLIDA','ACTIVA','POTENCIAL']).optional()
 });
 export const get_accounts_overview = defineTool(
-  'get_accounts_overview',
-  getAccountsOverviewSchema,
-  async (input) => {
-    const { limit, dormantDays, windowDays, stage } = input;
-    const now = new Date();
-    const windowStart = new Date(now.getTime() - windowDays*24*60*60*1000).toISOString();
-    const dormantCut = new Date(now.getTime() - dormantDays*24*60*60*1000).toISOString();
+  {
+    name: 'get_accounts_overview',
+    description: 'Devuelve un overview de cuentas con última interacción/pedido y flag de dormidas.',
+    inputSchema: getAccountsOverviewSchema,
+    outputSchema: z.object({
+      accounts: z.array(z.object({
+        id: z.string(),
+        name: z.string(),
+        city: z.string().optional(),
+        accountType: z.string().optional(),
+        accountStage: z.string().optional(),
+        lastInteractionAt: z.string().nullable(),
+        lastOrderAt: z.string().nullable(),
+        isDormant: z.boolean()
+      }))
+    }),
+    fn: async (input) => {
+      const { limit, dormantDays, windowDays, stage } = input;
+      const now = new Date();
+      const windowStart = new Date(now.getTime() - windowDays*24*60*60*1000).toISOString();
+      const dormantCut = new Date(now.getTime() - dormantDays*24*60*60*1000).toISOString();
 
-    let accRef: FirebaseFirestore.Query = db.collection('accounts').limit(1000);
-    if (stage) accRef = accRef.where('accountStage','==',stage as any);
-    const accSnap = await accRef.get();
-    const accounts = accSnap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
+      let accRef: FirebaseFirestore.Query = db.collection('accounts').limit(1000);
+      if (stage) accRef = accRef.where('accountStage','==',stage as any);
+      const accSnap = await accRef.get();
+      const accounts = accSnap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
 
-    const ordSnap = await db.collection('orders')
-      .where('date','>=', windowStart)
-      .orderBy('date','desc')
-      .limit(5000).get();
-    const lastOrderByAcc = new Map<string,string>();
-    for (const doc of ordSnap.docs) {
-      const o = doc.data() as any;
-      const a = o.accountId as string;
-      if (!lastOrderByAcc.has(a)) lastOrderByAcc.set(a, o.date);
+      const ordSnap = await db.collection('orders')
+        .where('date','>=', windowStart)
+        .orderBy('date','desc')
+        .limit(5000).get();
+      const lastOrderByAcc = new Map<string,string>();
+      for (const doc of ordSnap.docs) {
+        const o = doc.data() as any;
+        const a = o.accountId as string;
+        if (!lastOrderByAcc.has(a)) lastOrderByAcc.set(a, o.date);
+      }
+
+      const intSnap = await db.collection('interactions')
+        .where('when','>=', windowStart)
+        .orderBy('when','desc')
+        .limit(5000).get();
+      const lastIntByAcc = new Map<string,string>();
+      for (const doc of intSnap.docs) {
+        const i = doc.data() as any;
+        const a = i.accountId as string;
+        if (!lastIntByAcc.has(a)) lastIntByAcc.set(a, i.when);
+      }
+
+      const rows = accounts.map(a => {
+        const lastOrderAt = lastOrderByAcc.get(a.id) ?? null;
+        const lastInteractionAt = lastIntByAcc.get(a.id) ?? null;
+        const lastRef = (lastOrderAt || lastInteractionAt || '');
+        const isDormant = lastRef ? (lastRef < dormantCut) : true;
+        return {
+          id: a.id,
+          name: a.name,
+          city: a.city,
+          accountType: a.accountType,
+          accountStage: a.accountStage,
+          lastInteractionAt,
+          lastOrderAt,
+          isDormant
+        };
+      })
+      .sort((x, y) => {
+        if (x.isDormant !== y.isDormant) return x.isDormant ? -1 : 1;
+        const a = x.lastOrderAt || x.lastInteractionAt || '';
+        const b = y.lastOrderAt || y.lastInteractionAt || '';
+        return a.localeCompare(b);
+      })
+      .slice(0, limit);
+
+      return { accounts: rows };
     }
-
-    const intSnap = await db.collection('interactions')
-      .where('when','>=', windowStart)
-      .orderBy('when','desc')
-      .limit(5000).get();
-    const lastIntByAcc = new Map<string,string>();
-    for (const doc of intSnap.docs) {
-      const i = doc.data() as any;
-      const a = i.accountId as string;
-      if (!lastIntByAcc.has(a)) lastIntByAcc.set(a, i.when);
-    }
-
-    const rows = accounts.map(a => {
-      const lastOrderAt = lastOrderByAcc.get(a.id) ?? null;
-      const lastInteractionAt = lastIntByAcc.get(a.id) ?? null;
-      const lastRef = (lastOrderAt || lastInteractionAt || '');
-      const isDormant = lastRef ? (lastRef < dormantCut) : true;
-      return {
-        id: a.id,
-        name: a.name,
-        city: a.city,
-        accountType: a.accountType,
-        accountStage: a.accountStage,
-        lastInteractionAt,
-        lastOrderAt,
-        isDormant
-      };
-    })
-    .sort((x, y) => {
-      if (x.isDormant !== y.isDormant) return x.isDormant ? -1 : 1;
-      const a = x.lastOrderAt || x.lastInteractionAt || '';
-      const b = y.lastOrderAt || y.lastInteractionAt || '';
-      return a.localeCompare(b);
-    })
-    .slice(0, limit);
-
-    return { accounts: rows };
   }
 );
