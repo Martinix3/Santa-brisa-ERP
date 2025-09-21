@@ -1,6 +1,6 @@
-# Propuesta de Arquitectura de Datos (SSOT) - V4 (Party-Role + Trazabilidad y Calidad)
+# Propuesta de Arquitectura de Datos (SSOT) - V5 (Party-Role, Trazabilidad, Costes y Gastos)
 
-Este documento presenta una arquitectura de datos unificada y completa. Se basa en el patrón "Party-Role" para una gestión de contactos sin duplicados y añade capas robustas para la trazabilidad, la gestión de calidad, la integración con sistemas externos como Holded y un sistema de codificación centralizado.
+Este documento presenta una arquitectura de datos unificada y completa. Se basa en el patrón "Party-Role" para una gestión de contactos sin duplicados y añade capas robustas para la trazabilidad, la gestión de calidad, la integración con sistemas externos como Holded y un sistema de codificación y costeo centralizado.
 
 ---
 
@@ -12,12 +12,11 @@ Este documento presenta una arquitectura de datos unificada y completa. Se basa 
 *   **Trazabilidad Extremo a Extremo**: Cada movimiento y transformación de un lote, desde la materia prima hasta la entrega al cliente, se registra a través de `StockMove` y `TraceEvent`.
 *   **Gestión de Incidencias**: Cualquier desviación (calidad, logística) se registra en una entidad `Incident`, permitiendo su seguimiento y resolución.
 *   **Codificación Centralizada**: Las reglas para generar códigos legibles (SKUs, códigos de cliente, números de lote) se definen en un único lugar para garantizar la consistencia.
+*   **Modelo de Costes Conectado**: Cada euro gastado (COGS y OPEX) se enlaza a un "objeto de coste" (producto, lote, campaña, evento, cliente, departamento) para un análisis financiero preciso.
 
 ---
 
 ## 2. Tipos Primitivos y Enums
-
-Estos son los tipos y uniones que se reutilizan en toda la aplicación para garantizar la consistencia.
 
 ```typescript
 // --- Tipos Generales ---
@@ -44,8 +43,6 @@ export type IncidentStatus = 'OPEN' | 'UNDER_REVIEW' | 'CONTAINED' | 'CLOSED';
 ---
 
 ## 3. Entidades Centrales: Party y Roles
-
-El núcleo del modelo de contactos.
 
 ```typescript
 // --- CONTACTO UNIFICADO (PARTY) ---
@@ -167,12 +164,72 @@ export interface Interaction {
 
 ```typescript
 // --- CATÁLOGOS ---
-export interface Material { id: string; sku: string; name: string; category: 'raw' | 'packaging' | 'label' | 'consumable' | 'intermediate' | 'finished_good' | 'merchandising'; uom?: Uom; standardCost?: number; }
-export interface Product { id: string; sku: string; name: string; category?: string; bottleMl?: number; caseUnits?: number; casesPerPallet?: number; active: boolean; materialId?: string; }
+export interface Material { 
+  id: string; 
+  sku: string; 
+  name: string; 
+  category: 'raw' | 'packaging' | 'label' | 'consumable' | 'intermediate' | 'finished_good' | 'merchandising'; 
+  uom?: Uom; 
+}
+export interface Product { 
+  id: string; 
+  sku: string; 
+  name: string; 
+  category?: string; 
+  bottleMl?: number; 
+  caseUnits?: number; 
+  casesPerPallet?: number; 
+  active: boolean; 
+  materialId?: string; 
+}
 
 // --- PRODUCCIÓN ---
-export interface BillOfMaterial { id: string; sku: string; name: string; items: { materialId: string; quantity: number; unit?: string; }[]; batchSize: number; baseUnit?: string; }
-export interface ProductionOrder { id: string; orderNumber?: string; sku: string; bomId: string; targetQuantity: number; status: ProductionStatus; createdAt: string; lotId?: string; }
+export interface BillOfMaterial { 
+  id: string; 
+  sku: string; 
+  name: string; 
+  items: { materialId: string; quantity: number; unit?: string; }[]; 
+  batchSize: number; 
+  baseUnit?: string; 
+}
+
+export interface ProductionOrder {
+  id: string;
+  orderNumber?: string;
+  sku: string;
+  bomId: string;
+  targetQuantity: number;
+  status: ProductionStatus;
+  createdAt: string;
+  scheduledFor?: string;
+  lotId?: string;
+
+  // Planificación vs Realidad
+  shortages?: { materialId: string; required: number; available: number; uom: Uom }[];
+  reservations?: { materialId: string; fromLot: string; reservedQty: number; uom: Uom }[];
+  
+  // Costes
+  costing?: {
+    stdCostPerUom?: number;
+    actual?: {
+      materials: number;
+      labor?: number;
+      overhead?: number;
+      other?: number;
+      total: number;
+      perUnit?: number;
+      yieldLossPct?: number;
+    };
+    variance?: {
+      materials?: number;
+      labor?: number;
+      overhead?: number;
+      total?: number;
+    };
+    updatedAt?: string;
+  };
+}
+
 
 // --- CALIDAD Y LOTES ---
 export type QCResult = { value?: number | string | boolean; notes?: string; status: 'ok' | 'ko'; };
@@ -243,6 +300,12 @@ export interface GoodsReceipt {
   status: 'pending_qc' | 'completed' | 'partial';
   incidentIds?: string[];
   notes?: string;
+  landedCosts?: {
+    kind: 'freight' | 'duty' | 'insurance' | 'other';
+    amount: number;
+    allocation: 'by_value' | 'by_weight' | 'by_qty';
+    notes?: string;
+  }[];
 }
 
 // --- ENVÍOS / SALIDA DE MERCANCÍA ---
@@ -281,7 +344,7 @@ export interface TraceEvent {
 
 ---
 
-## 7. Marketing y Finanzas
+## 7. Marketing, Finanzas y Costes
 
 ```typescript
 // --- MARKETING EN PUNTO DE VENTA ---
@@ -292,12 +355,41 @@ export interface Promotion { id: string; code?: string; name: string; type: '5+1
 export interface EventMarketing { id: string; title: string; accountId?: string; status: 'planned' | 'active' | 'closed' | 'cancelled'; startAt: string; endAt?: string; city?: string; spend?: number; extraCosts?: { description: string; amount: number }[]; linkedActivations?: string[]; linkedPromotions?: string[]; }
 export interface OnlineCampaign { id: string; title: string; channel: 'IG' | 'FB' | 'TikTok' | 'Google' | 'YouTube' | 'Email' | 'Other'; status: 'planned' | 'active' | 'closed' | 'cancelled'; startAt: string; endAt?: string; budget: number; spend: number; metrics?: any; }
 
-// --- INFLUENCERS (proveedores de servicios de marketing) ---
+// --- INFLUENCERS ---
 export interface InfluencerCollab { id: string; supplierPartyId: string; /* ... */ }
 
-// --- CONTABILIDAD (Enlaces a Holded) ---
+// --- GESTIÓN DE COSTES ---
+export interface MaterialCost {
+  id: string;
+  materialId: string;
+  currency: 'EUR';
+  costPerUom: number;
+  effectiveFrom: string;
+  effectiveTo?: string;
+  notes?: string;
+}
+
+// --- CONTABILIDAD Y GASTOS (Enlaces a Holded) ---
 export type HoldedDocType = 'SALES_INVOICE' | 'PURCHASE_BILL' | 'CREDIT_NOTE' | 'EXPENSE';
-export interface FinanceLink { id: string; docType: HoldedDocType; externalId: string; status: 'paid' | 'pending' | 'overdue'; netAmount: number; taxAmount: number; grossAmount: number; currency: Currency; issueDate: string; dueDate: string; campaignId?: string; eventId?: string; collabId?: string; partyId?: string; }
+
+export type CostObjectKind = 'NONE' | 'PRODUCT' | 'LOT' | 'PROD_ORDER' | 'ACCOUNT' | 'ORDER' | 'SHIPMENT' | 'EVENT' | 'CAMPAIGN' | 'COLLAB' | 'DEPARTMENT';
+export type ExpenseCategory = 'COGS_MATERIAL' | 'COGS_FREIGHT' | 'COGS_DUTY' | 'PLV' | 'MARKETING_MEDIA' | 'INFLUENCER' | 'EVENT' | 'TRAVEL' | 'MEALS' | 'ACCOMMODATION' | 'TRANSPORT' | 'SALARIES' | 'SOCIAL_SECURITY' | 'SUBCONTRACTING' | 'OTHER_OPEX';
+
+export interface FinanceLink {
+  id: string;
+  docType: HoldedDocType;
+  externalId: string;
+  status: 'paid' | 'pending' | 'overdue';
+  netAmount: number; taxAmount: number; grossAmount: number;
+  currency: Currency;
+  issueDate: string; dueDate: string;
+  docNumber?: string;
+  partyId?: string;
+  expenseCategory?: ExpenseCategory;
+  costObject?: { kind: CostObjectKind; id: string };
+  allocationPct?: number;
+  campaignId?: string; eventId?: string; collabId?: string;
+}
 export interface PaymentLink { id: string; financeLinkId: string; externalId?: string; amount: number; date: string; method?: string; }
 ```
 
@@ -305,21 +397,15 @@ export interface PaymentLink { id: string; financeLinkId: string; externalId?: s
 
 ## 8. Sistema de Codificación Centralizado
 
-Aquí se definen las políticas para generar identificadores legibles por humanos, garantizando consistencia en toda la aplicación.
-
 ```typescript
-// --- POLÍTICAS DE CÓDIGOS ---
-export type CodeEntity =
-  | 'PRODUCT' | 'ACCOUNT' | 'PARTY' | 'SUPPLIER'
-  | 'LOT' | 'PROD_ORDER' | 'SHIPMENT' | 'GOODS_RECEIPT'
-  | 'LOCATION' | 'PRICE_LIST' | 'PROMOTION';
+export type CodeEntity = 'PRODUCT' | 'ACCOUNT' | 'PARTY' | 'SUPPLIER' | 'LOT' | 'PROD_ORDER' | 'SHIPMENT' | 'GOODS_RECEIPT' | 'LOCATION' | 'PRICE_LIST' | 'PROMOTION';
 
 export interface CodePolicy {
   entity: CodeEntity;
   template: string; // Ej: 'ACC-{SEQ#6}', '{YY}{MM}{DD}-{SKU}-{SEQ#3}'
-  regex: string;    // Para validación
-  seqScope?: 'GLOBAL'|'YEAR'|'MONTH'|'DAY'; // Cómo se resetea la secuencia
-  pad?: number; // Cifras del secuencial
+  regex: string;
+  seqScope?: 'GLOBAL' | 'YEAR' | 'MONTH' | 'DAY';
+  pad?: number;
 }
 
 export const CODE_POLICIES: Record<CodeEntity, CodePolicy> = {
@@ -336,15 +422,14 @@ export const CODE_POLICIES: Record<CodeEntity, CodePolicy> = {
   PROMOTION:  { entity:'PROMOTION', template:'PRM-{YY}{MM}-{SEQ#3}', regex:'^PRM-\\d{4}-\\d{3}$', seqScope:'MONTH', pad:3 },
 };
 
-// --- ALIASES DE CÓDIGOS EXTERNOS ---
 export type ExternalSystem = 'HOLDED'|'SHOPIFY'|'EAN'|'GTIN'|'CUSTOMER_REF'|'SUPPLIER_REF';
 
 export interface CodeAlias {
   id: string;
   entity: CodeEntity;
-  entityId: string;            // id interno (UUID)
-  system: ExternalSystem;      // Origen del código (ej. 'EAN')
-  code: string;                // El código externo
+  entityId: string;
+  system: ExternalSystem;
+  code: string;
   createdAt: string;
 }
 ```
@@ -354,7 +439,6 @@ export interface CodeAlias {
 ## 9. Colección de Datos Completa `SantaData`
 
 ```typescript
-// La interfaz que representa todo el estado de la aplicación.
 export interface SantaData {
   // Catálogos principales
   parties: Party[];
@@ -388,6 +472,7 @@ export interface SantaData {
   influencerCollabs: InfluencerCollab[];
   
   // Finanzas y Contabilidad
+  materialCosts: MaterialCost[];
   financeLinks: FinanceLink[];
   paymentLinks: PaymentLink[];
   
@@ -399,13 +484,12 @@ export interface SantaData {
   codeAliases: CodeAlias[];
 }
 
-// Lista de colecciones válidas para persistencia.
 export const SANTA_DATA_COLLECTIONS: (keyof SantaData)[] = [
     'parties', 'partyRoles', 'users', 'accounts', 'ordersSellOut', 'interactions',
     'products', 'materials', 'billOfMaterials', 'productionOrders', 'lots', 'qaChecks',
     'inventory', 'stockMoves', 'shipments', 'goodsReceipts', 'activations', 'promotions',
-    'events', 'onlineCampaigns', 'influencerCollabs', 'financeLinks', 'paymentLinks',
-    'traceEvents', 'incidents', 'codeAliases'
+    'events', 'onlineCampaigns', 'influencerCollabs', 'materialCosts', 'financeLinks', 
+    'paymentLinks', 'traceEvents', 'incidents', 'codeAliases'
 ];
 ```
 
@@ -413,11 +497,9 @@ export const SANTA_DATA_COLLECTIONS: (keyof SantaData)[] = [
 
 ## 10. Lógica de Negocio y Hooks Operativos
 
-Esta sección describe las reglas de negocio y los "hooks" (disparadores automáticos) que el sistema debe implementar para mantener la integridad de los datos y automatizar los procesos.
+Esta sección describe las reglas de negocio y los "hooks" (disparadores automáticos) que el sistema debe implementar para mantener la integridad de los datos.
 
 ### 10.1. Invariantes del Sistema (Reglas de Oro)
-
-Estas son condiciones que el sistema debe garantizar en todo momento.
 
 *   No se puede vender o expedir (`ship`/`sale`) un `Lot` cuyo `quality.qcStatus` no sea `'release'`.
 *   Un `Shipment` no puede pasar a `'ready_to_ship'` si alguna de sus líneas de producto loteable no tiene un `lotNumber` asignado.
@@ -428,65 +510,43 @@ Estas son condiciones que el sistema debe garantizar en todo momento.
 
 #### **Entrada de Mercancía**
 *   **`onGoodsReceiptCreated`**:
-    *   **Trigger**: Se crea un nuevo albarán de entrada (`GoodsReceipt`).
-    *   **Acciones**:
-        1.  Para cada línea, si no trae `lotId`, se autogenera uno nuevo.
-        2.  Crea un `StockMove` de tipo `'receipt'` para cada línea, aumentando el stock en una ubicación de cuarentena (ej. `'QC/AREA'`).
-        3.  Crea un `TraceEvent` de tipo `'ARRIVED'` para cada lote.
+    *   Crea un `StockMove` de tipo `'receipt'` para cada línea, aumentando el stock en una ubicación de cuarentena (ej. `'QC/AREA'`).
+    *   Crea un `TraceEvent` de tipo `'ARRIVED'` para cada lote.
 
 #### **Control de Calidad (QC)**
 *   **`onQACheckReviewed`**:
-    *   **Trigger**: Un usuario de `CALIDAD` guarda el resultado de un `QACheck`.
-    *   **Acciones**:
-        1.  Actualiza el `quality.qcStatus` del `Lot` a `'release'` o `'reject'`.
-        2.  Crea un `TraceEvent` (`'CHECK_PASS'` o `'CHECK_FAIL'`).
-        3.  Si es `'FAIL'`, crea un `Incident` de tipo `'QC_INBOUND'` o `'QC_RELEASE'`.
-        4.  Si es `'PASS'` y el lote estaba en `'QC/AREA'`, genera un `StockMove` de tipo `'transfer'` para moverlo al almacén principal (ej. `'RM/MAIN'` o `'FG/MAIN'`).
+    *   Actualiza el `quality.qcStatus` del `Lot` a `'release'` o `'reject'`.
+    *   Crea un `TraceEvent` (`'CHECK_PASS'` o `'CHECK_FAIL'`).
+    *   Si es `'FAIL'`, crea un `Incident`.
+    *   Si es `'PASS'` y el lote estaba en `'QC/AREA'`, genera un `StockMove` de tipo `'transfer'` al almacén principal.
 
 #### **Producción**
 *   **`onProductionOrderCreated`**:
-    *   **Trigger**: Se crea una `ProductionOrder`.
-    *   **Acciones**:
-        1.  El estado inicial es `'planned'`.
-        2.  Se calculan los `shortages` comparando el `BillOfMaterial` con el `inventory` disponible.
-        3.  Se generan `reservations` para el material que sí está disponible.
-        4.  Se emite un `TraceEvent` de tipo `'BATCH_PLANNED'`.
+    *   Estado inicial `'planned'`. Calcula `shortages` comparando el `BillOfMaterial` con el `inventory` disponible.
+    *   Genera `reservations` para el material que sí está disponible.
+    *   Emite `TraceEvent` de tipo `'BATCH_PLANNED'`.
 *   **`onProductionOrderReleased`**:
-    *   **Trigger**: Se libera una orden de producción (manual o automáticamente si no hay `shortages`).
-    *   **Acciones**:
-        1.  El estado cambia a `'released'`.
-        2.  Se emite un `TraceEvent` de tipo `'BATCH_RELEASED'`.
+    *   Estado cambia a `'released'`. Emite `TraceEvent` de tipo `'BATCH_RELEASED'`.
 *   **`onProductionConsumeInput`**:
-    *   **Trigger**: Se consumen materiales para una orden en estado `'released'` o `'wip'`.
-    *   **Acciones**:
-        1.  Se cambia el estado a `'wip'`.
-        2.  Crea un `StockMove` de tipo `'production_out'` para cada material.
-        3.  Crea un `TraceEvent` de tipo `'CONSUME'` para cada lote de material consumido.
+    *   Estado cambia a `'wip'`. Crea `StockMove` de tipo `'production_out'` para cada material.
+    *   Crea `TraceEvent` de tipo `'CONSUME'`.
 *   **`onProductionOutput`**:
-    *   **Trigger**: Se declara la producción de producto terminado.
-    *   **Acciones**:
-        1.  Crea un nuevo `Lot` para el producto terminado con `qcStatus: 'hold'`.
-        2.  Crea un `StockMove` de tipo `'production_in'` para añadir el nuevo lote al `inventory`.
-        3.  Crea `TraceEvent` de tipo `'OUTPUT'` y `'BATCH_END'`. La orden pasa a `'done'`.
+    *   Crea un nuevo `Lot` con `qcStatus: 'hold'`.
+    *   Crea un `StockMove` de tipo `'production_in'`.
+    *   Crea `TraceEvent` de tipo `'OUTPUT'` y `'BATCH_END'`. La orden pasa a `'done'`.
 
 #### **Logística de Salida (Picking y Envío)**
 *   **`onShipmentLinePicked`**:
-    *   **Trigger**: Un operario de almacén confirma el picking de una línea de un envío.
-    *   **Acciones**:
-        1.  Crea un `StockMove` de tipo `'ship'` para decrementar el stock del lote correspondiente desde el almacén principal (`'FG/MAIN'`).
-        2.  Crea un `TraceEvent` de tipo `'SHIPMENT_PICKED'`.
+    *   Crea un `StockMove` de tipo `'ship'` para decrementar el stock.
+    *   Crea un `TraceEvent` de tipo `'SHIPMENT_PICKED'`.
 *   **`onShipmentConfirmed`**:
-    *   **Trigger**: Se confirma el envío completo (listo para expedir).
-    *   **Acciones**:
-        1.  Crea un `TraceEvent` de tipo `'SHIPPED'`.
-        2.  (Hook contable) Si se factura al expedir, genera el albarán/factura en Holded y guarda el ID en `holdedDeliveryId`/`holdedInvoiceId`. Crea el `FinanceLink`.
+    *   Crea un `TraceEvent` de tipo `'SHIPPED'`.
+    *   (Hook contable) Si se factura al expedir, genera el albarán/factura en Holded y crea el `FinanceLink`.
 
 #### **Devoluciones**
 *   **`onCustomerReturn`**:
-    *   **Trigger**: Se registra una devolución de cliente.
-    *   **Acciones**:
-        1.  Crea un `StockMove` de tipo `'return_in'`, añadiendo el stock a una ubicación de devoluciones (ej. `'RETURNS/AREA'`).
-        2.  Crea un `Incident` de tipo `'CUSTOMER_RETURN'` para que `CALIDAD` investigue el motivo.
+    *   Crea `StockMove` de tipo `'return_in'` a una ubicación de devoluciones.
+    *   Crea un `Incident` de tipo `'CUSTOMER_RETURN'`.
 
 ---
 
