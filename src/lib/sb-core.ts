@@ -1,7 +1,8 @@
 
+
 // --- Santa Brisa: lógica de negocio (sell-out a botellas, agregados y KPIs) ---
 import type {
-  Account, PartyRole, CustomerData, OrderSellOut, Product, User, SantaData
+  Account, Party, PartyRole, CustomerData, OrderSellOut, Product, User, SantaData
 } from '@/domain';
 
 const inWindow = (dateStr: string, start: number, end: number): boolean => {
@@ -9,14 +10,24 @@ const inWindow = (dateStr: string, start: number, end: number): boolean => {
   return time >= start && time <= end;
 };
 
-const orderTotal = (order: OrderSellOut): number => {
-    return order.lines.reduce((sum, line) => sum + (line.qty * line.priceUnit * (1 - (line.discount || 0))), 0);
+export const orderTotal = (order: OrderSellOut): number => {
+    return (order.lines || []).reduce((sum, line) => sum + (line.qty * line.priceUnit * (1 - (line.discount || 0))), 0);
 }
-
 
 export type ResolvedAccountMode = 'PROPIA_SB' | 'COLOCACION' | 'DISTRIB_PARTNER';
 
 // ===== 0) Lógica de negocio sobre el modelo de cuenta =====
+
+export function getDistributorForAccount(account: Account, partyRoles: PartyRole[], parties: Party[]): Party | null {
+    const customerRole = (partyRoles || []).find(pr => pr.partyId === account.partyId && pr.role === 'CUSTOMER');
+    const billerId = (customerRole?.data as CustomerData)?.billerId;
+    if (!billerId || billerId === 'SB') return null;
+
+    const distributorPartyRole = (partyRoles || []).find(pr => pr.partyId === billerId && pr.role === 'DISTRIBUTOR');
+    if (!distributorPartyRole) return null;
+
+    return (parties || []).find(p => p.id === distributorPartyRole.partyId) || null;
+}
 
 /**
  * Deriva el modo de operación de una cuenta ('PROPIA_SB', 'COLOCACION', 'DISTRIB_PARTNER')
@@ -175,7 +186,7 @@ export function computeFleetKPIs(params: {
 
   const totalUnits = ordersInWin.reduce((s, o) => s + orderToBottles(o, data.products), 0);
   const totalOrders = ordersInWin.length;
-  const avgTicketAll = totalOrders ? ordersInWin.map(orderTotal).reduce((a: number, b: number) => a + b, 0) / totalOrders : 0;
+  const avgTicketAll = totalOrders ? ordersInWin.map(o => orderTotal(o)).reduce((a: number, b: number) => a + b, 0) / totalOrders : 0;
 
   const repurchaseRatePct = horecaIds.length
     ? (Array.from(byAccOrders.values()).filter(arr => (arr?.length || 0) >= 2).length / horecaIds.length) * 100

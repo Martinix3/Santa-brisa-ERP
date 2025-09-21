@@ -139,7 +139,7 @@ export interface OrderSellOut {
   holdedDocType?: 'estimate' | 'order' | 'delivery' | 'invoice';
 }
 
-export type InteractionKind = 'VISITA' | 'LLAMADA' | 'EMAIL' | 'WHATSAPP' | 'OTRO';
+export type InteractionKind = 'VISITA' | 'LLAMADA' | 'EMAIL' | 'WHATSAPP' | 'OTRO' | 'COBRO' | 'EVENTO_MKT';
 export interface Interaction {
   id: string;
   partyId?: string;
@@ -808,15 +808,4 @@ export const DEPT_META: Record<Department, { label: string; color: string; textC
   MARKETING:  { label: 'Marketing',  color: SB_COLORS.dept.MARKETING.bg,  textColor: SB_COLORS.dept.MARKETING.text },
   FINANZAS:   { label: 'Finanzas',   color: SB_COLORS.dept.FINANZAS.bg,   textColor: SB_COLORS.dept.FINANZAS.text },
   CALIDAD:    { label: 'Calidad',    color: SB_COLORS.dept.CALIDAD.bg,    textColor: SB_COLORS.dept.CALIDAD.text },
-};
-
-
-// --- Lógica de cálculo simple (ejemplos) ---
-export const orderTotal = (order: OrderSellOut): number => {
-    if (!order || !order.lines) return 0;
-    return order.lines.reduce((sum, line) => sum + (line.qty * line.priceUnit * (1 - (line.discount || 0))), 0);
-}
-export const inWindow = (dateStr: string, start: Date, end: Date): boolean => {
-  const time = +new Date(dateStr);
-  return time >= start.getTime() && time <= end.getTime();
 };

@@ -3,8 +3,8 @@
 "use client"
 import React, { useMemo, useState, useEffect } from 'react'
 import { ChevronDown, Search, Plus, Phone, Mail, MessageSquare, Calendar, History, ShoppingCart, Info, BarChart3, UserPlus, Users, MoreVertical } from 'lucide-react'
-import type { Account as AccountType, Stage, User, Interaction, OrderSellOut, SantaData, CustomerData, Party } from '@/domain'
-import { accountOwnerDisplay, computeAccountKPIs } from '@/lib/sb-core';
+import type { Account as AccountType, Stage, User, Interaction, OrderSellOut, SantaData, CustomerData, Party, PartyRole } from '@/domain'
+import { accountOwnerDisplay, computeAccountKPIs, getDistributorForAccount } from '@/lib/sb-core';
 import Link from 'next/link'
 import { useData } from '@/lib/dataprovider'
 import { FilterSelect } from '@/components/ui/FilterSelect'
@@ -20,30 +20,8 @@ const STAGE: Record<string, { label:string; tint:string; text:string }> = {
 }
 const formatEUR = (n:number)=> new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n)
 
-function getCustomerRoleData(santaData: SantaData, partyId: string): CustomerData | undefined {
-  const role = santaData.partyRoles.find(r => r.partyId === partyId && r.role === 'CUSTOMER');
-  return role?.data as CustomerData | undefined;
-}
-
-const orderTotal = (order: OrderSellOut): number => {
-    return order.lines.reduce((sum, line) => sum + (line.qty * line.priceUnit * (1 - (line.discount || 0))), 0);
-}
-
-
-function GroupBar({stage,count,onToggle,expanded}:{stage:keyof typeof STAGE; count:number; onToggle:()=>void; expanded:boolean}){
-  const s = STAGE[stage]
-  return (
-    <button onClick={onToggle} className="w-full text-left rounded-md overflow-hidden shadow-sm transition-shadow hover:shadow-md" aria-expanded={expanded}>
-      <div className="flex items-center justify-between px-4 py-2.5" style={{ background: `linear-gradient(90deg, ${s.tint}33 0, ${s.tint}1a 60%, transparent 100%)` }}>
-        <div className="flex items-center gap-3">
-          <span className="h-2.5 w-2.5 rounded-full" style={{background:s.tint}}/>
-          <span className="font-medium" style={{color:s.text}}>{s.label}</span>
-          <span className="text-xs text-zinc-700">{count}</span>
-        </div>
-        <ChevronDown className="h-4 w-4 text-zinc-700 transition-transform duration-300" style={{transform: expanded? 'rotate(180deg)':'rotate(0deg)'}}/>
-      </div>
-    </button>
-  )
+function orderTotal(order: OrderSellOut): number {
+    return (order.lines || []).reduce((sum, line) => sum + (line.qty * line.priceUnit * (1 - (line.discount || 0))), 0);
 }
 
 function AccountBar({ a, party, santaData, onAddActivity }: { a: AccountType, party?: Party, santaData: SantaData, onAddActivity: (acc: AccountType) => void }) {
@@ -85,15 +63,9 @@ function AccountBar({ a, party, santaData, onAddActivity }: { a: AccountType, pa
       WHATSAPP: MessageSquare,
   };
 
-  const customerData = getCustomerRoleData(santaData, a.partyId);
-  const billerId = customerData?.billerId;
-  const distributorRoles = santaData.partyRoles.filter(r => r.role === 'DISTRIBUTOR');
-  const distMap = distributorRoles.reduce((acc, r) => {
-    const p = santaData.parties.find(p => p.id === r.partyId);
-    if (p) acc[r.partyId] = p.name;
-    return acc;
-  }, {} as Record<string, string>);
-  const distributorName = billerId && distMap[billerId] ? distMap[billerId] : 'Propia';
+  const distributorName = useMemo(() => {
+      return getDistributorForAccount(a, santaData.partyRoles, santaData.parties)?.name || 'Propia';
+  }, [a, santaData.partyRoles, santaData.parties]);
 
 
   return (
@@ -227,16 +199,16 @@ export function AccountsPageContent() {
   }, [data, santaData]);
 
   const filtered = useMemo(() => {
-    if (!santaData || !santaData.users) return [];
+    if (!santaData) return [];
     const s = q.trim().toLowerCase();
     
     return data.filter(a => {
-      const ownerName = santaData.users.find(u => u.id === a.ownerId)?.name || a.ownerId;
+      const ownerName = accountOwnerDisplay(a, santaData.users, santaData.partyRoles);
       const party = santaData.parties.find(p => p.id === a.partyId);
       const city = party?.addresses[0]?.city || '';
 
-      const customerRoleData = getCustomerRoleData(santaData, a.partyId);
-      const billerId = customerRoleData?.billerId;
+      const customerRole = (santaData.partyRoles || []).find(pr => pr.partyId === a.partyId && pr.role === 'CUSTOMER');
+      const billerId = (customerRole?.data as CustomerData)?.billerId;
 
       const matchesQuery = !s || [a.name, city, a.type, a.stage, ownerName].some(v=> (v||'').toString().toLowerCase().includes(s));
       const matchesRep = !fltRep || a.ownerId === fltRep;

@@ -5,14 +5,13 @@ import React, { useMemo, useState } from 'react';
 import { useData } from '@/lib/dataprovider';
 import { Download, Plus, Search } from 'lucide-react';
 import type { OrderSellOut, Account, User, OrderStatus, PartyRole, CustomerData } from '@/domain/ssot';
-import { orderTotal } from '@/domain/ssot';
+import { orderTotal } from '@/lib/sb-core';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
 import { ShoppingCart } from 'lucide-react';
 import Link from 'next/link';
 
 type Tab = 'directa' | 'colocacion';
 
-// Componente de UI para los filtros
 function FilterPill({
   value,
   onChange,
@@ -29,6 +28,7 @@ function FilterPill({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       className="text-sm bg-white border border-zinc-200 rounded-md pl-3 pr-8 py-2 outline-none focus:ring-2 focus:ring-yellow-300"
+      aria-label={placeholder}
     >
       <option value="">{placeholder}</option>
       {options.map((opt) => (
@@ -40,7 +40,6 @@ function FilterPill({
   );
 }
 
-// Pill para el estado del pedido
 function StatusPill({ status }: { status: OrderStatus }) {
     const statusMap: Record<OrderStatus, { label: string; className: string }> = {
         open: { label: 'Borrador', className: 'bg-zinc-100 text-zinc-700' },
@@ -79,6 +78,7 @@ function Tabs({ activeTab, setActiveTab }: { activeTab: Tab, setActiveTab: (tab:
                         : 'border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300'
                     }`
                     }
+                    aria-current={activeTab === tab.id ? 'page' : undefined}
                 >
                     {tab.label}
                 </button>
@@ -88,6 +88,28 @@ function Tabs({ activeTab, setActiveTab }: { activeTab: Tab, setActiveTab: (tab:
     )
 }
 
+function exportToCsv(filename: string, rows: (string | number)[][]) {
+    const processRow = (row: (string|number)[]) => row.map(val => {
+        const str = String(val).replace(/"/g, '""');
+        return `"${str}"`;
+    }).join(',');
+
+    const csvContent = rows.map(processRow).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    if (link.download !== undefined) {
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', filename);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+}
+
+const accountHref = (id: string) => `/accounts/${id}`;
+
 export default function OrdersDashboard() {
   const { data } = useData();
   const [activeTab, setActiveTab] = useState<Tab>('directa');
@@ -96,54 +118,69 @@ export default function OrdersDashboard() {
 
   const { ordersSellOut, accounts, users, partyRoles } = data || { ordersSellOut: [], accounts: [], users: [], partyRoles: [] };
   
-  const accountMap = useMemo(() => {
-    const accountEntries = (accounts || []).map((acc: Account): readonly [string, Account] => [acc.id, acc]);
-    return new Map<string, Account>(accountEntries);
-  }, [accounts]);
-  
-  const partyRoleMap = useMemo(() => {
-    const roleEntries = (partyRoles || []).map((pr: PartyRole): readonly [string, PartyRole] => [pr.partyId, pr]);
-    return new Map<string, PartyRole>(roleEntries);
-  }, [partyRoles]);
+  const enrichedOrders = useMemo(() => {
+    if (!ordersSellOut || !accounts || !partyRoles) return [];
+    
+    const accountMap = new Map((accounts || []).map((acc: Account) => [acc.id, acc]));
+    const userMap = new Map((users || []).map((user: User) => [user.id, user]));
 
-  const userMap = useMemo(() => {
-    const userEntries = (users || []).map((user: User): readonly [string, string] => [user.id, user.name]);
-    return new Map<string, string>(userEntries);
-  }, [users]);
+    return ordersSellOut.map(order => {
+        const account = accountMap.get(order.accountId);
+        if (!account) return null;
+        const customerRole = (partyRoles as PartyRole[]).find(pr => pr.partyId === account.partyId && pr.role === 'CUSTOMER');
+        const billerId = (customerRole?.data as CustomerData)?.billerId;
+        const owner = userMap.get(account.ownerId);
+
+        return {
+            ...order,
+            account,
+            owner,
+            billerId
+        };
+    }).filter(Boolean);
+  }, [ordersSellOut, accounts, users, partyRoles]);
 
 
   const filteredOrders = useMemo(() => {
-    if (!ordersSellOut) return [];
-    return ordersSellOut
+    if (!enrichedOrders) return [];
+    return enrichedOrders
       .filter((order) => {
         if (!order) return false;
-        const account = accountMap.get(order.accountId);
-        if (!account) return false;
-
-        const customerRole = (partyRoles as PartyRole[]).find(pr => pr.partyId === account.partyId && pr.role === 'CUSTOMER');
-        const billerId = (customerRole?.data as CustomerData)?.billerId;
-
-        const isVentaDirecta = billerId === 'SB';
+        
+        const isVentaDirecta = order.billerId === 'SB';
         if (activeTab === 'directa' && !isVentaDirecta) return false;
         if (activeTab === 'colocacion' && isVentaDirecta) return false;
 
         const matchesSearch =
           !searchTerm ||
           order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (account && account.name.toLowerCase().includes(searchTerm.toLowerCase()));
+          order.account.name.toLowerCase().includes(searchTerm.toLowerCase());
         
         const matchesStatus = !statusFilter || order.status === statusFilter;
 
         return matchesSearch && matchesStatus;
       })
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [ordersSellOut, searchTerm, statusFilter, accountMap, partyRoles, activeTab]);
+  }, [enrichedOrders, searchTerm, statusFilter, activeTab]);
+
+  const handleExport = () => {
+      const headers = ['id', 'fecha', 'cliente', 'total', 'estado', 'canal'];
+      const rows = filteredOrders.map(order => [
+          order.id,
+          new Date(order.createdAt).toISOString().split('T')[0],
+          order.account.name,
+          orderTotal(order as OrderSellOut),
+          order.status,
+          order.source || 'N/A'
+      ]);
+      exportToCsv(`pedidos-${activeTab}-${new Date().toISOString().split('T')[0]}.csv`, [headers, ...rows]);
+  }
 
   return (
     <>
       <ModuleHeader title="Gestión de Pedidos" icon={ShoppingCart}>
         <div className="flex items-center gap-2">
-            <button className="flex items-center gap-2 text-sm bg-white border border-zinc-200 rounded-md px-3 py-1.5 hover:bg-zinc-50">
+            <button onClick={handleExport} className="flex items-center gap-2 text-sm bg-white border border-zinc-200 rounded-md px-3 py-1.5 hover:bg-zinc-50" aria-label="Exportar datos a CSV">
               <Download size={14} /> Exportar
             </button>
             <button className="flex items-center gap-2 text-sm bg-yellow-400 text-zinc-900 font-semibold rounded-md px-3 py-1.5 hover:bg-yellow-500">
@@ -164,6 +201,7 @@ export default function OrdersDashboard() {
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="w-full pl-9 pr-3 py-2 text-sm bg-white border border-zinc-200 rounded-md outline-none focus:ring-2 focus:ring-yellow-300"
+                    aria-label="Buscar pedidos"
                 />
             </div>
             <FilterPill
@@ -177,6 +215,7 @@ export default function OrdersDashboard() {
                     { value: 'invoiced', label: 'Facturado' },
                     { value: 'paid', label: 'Pagado' },
                     { value: 'cancelled', label: 'Cancelado' },
+                    { value: 'lost', label: 'Perdido' },
                 ]}
             />
         </div>
@@ -184,37 +223,34 @@ export default function OrdersDashboard() {
           <table className="w-full text-sm">
             <thead className="bg-zinc-50 text-left">
               <tr>
-                <th className="p-3 font-semibold text-zinc-600">Pedido ID</th>
-                <th className="p-3 font-semibold text-zinc-600">Cliente</th>
-                <th className="p-3 font-semibold text-zinc-600">Comercial</th>
-                <th className="p-3 font-semibold text-zinc-600">Fecha</th>
-                <th className="p-3 font-semibold text-zinc-600 text-right">Total</th>
-                <th className="p-3 font-semibold text-zinc-600">Estado</th>
+                <th scope="col" className="p-3 font-semibold text-zinc-600">Pedido ID</th>
+                <th scope="col" className="p-3 font-semibold text-zinc-600">Cliente</th>
+                <th scope="col" className="p-3 font-semibold text-zinc-600">Comercial</th>
+                <th scope="col" className="p-3 font-semibold text-zinc-600">Fecha</th>
+                <th scope="col" className="p-3 font-semibold text-zinc-600 text-right">Total</th>
+                <th scope="col" className="p-3 font-semibold text-zinc-600">Estado</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
-              {filteredOrders.map((order) => {
-                const account = accountMap.get(order.accountId);
-                const ownerName = account ? userMap.get(account.ownerId) || 'N/A' : 'N/A';
-                return (
+              {filteredOrders.map((order) => (
                   <tr key={order.id} className="hover:bg-zinc-50">
                     <td className="p-3 font-mono text-xs font-medium text-zinc-800">{order.id}</td>
                     <td className="p-3">
-                      <Link href={`/accounts/${order.accountId}`} className="hover:underline">
-                        {account?.name || 'N/A'}
+                      <Link href={accountHref(order.accountId)} className="hover:underline">
+                        {order.account.name || 'N/A'}
                       </Link>
                     </td>
-                    <td className="p-3">{ownerName}</td>
+                    <td className="p-3">{order.owner?.name || 'N/A'}</td>
                     <td className="p-3">{new Date(order.createdAt).toLocaleDateString('es-ES')}</td>
                     <td className="p-3 text-right font-semibold">
-                      {orderTotal(order).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
+                      {orderTotal(order as OrderSellOut).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
                     </td>
                     <td className="p-3">
                       <StatusPill status={order.status} />
                     </td>
                   </tr>
                 )
-              })}
+              )}
             </tbody>
           </table>
           {filteredOrders.length === 0 && (

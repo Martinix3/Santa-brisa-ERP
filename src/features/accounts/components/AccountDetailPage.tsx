@@ -1,11 +1,12 @@
 
+
 "use client";
 
 import React, { useMemo, useState, useEffect } from 'react';
 import { useParams, useRouter, notFound } from 'next/navigation';
 import { useData } from '@/lib/dataprovider';
-import type { SantaData, Interaction as InteractionType, OrderSellOut, User as UserType, Party, InteractionKind, Account, CustomerData, PartyRole } from '@/domain';
-import { computeAccountKPIs, accountOwnerDisplay } from '@/lib/sb-core';
+import type { SantaData, Interaction as InteractionType, OrderSellOut, User as UserType, Party, InteractionKind, Account, CustomerData, PartyRole, Activation, Promotion } from '@/domain';
+import { computeAccountKPIs, accountOwnerDisplay, orderTotal, getDistributorForAccount } from '@/lib/sb-core';
 import { ArrowUpRight, ArrowDownRight, Phone, Mail, MapPin, User, Factory, Boxes, Megaphone, Briefcase, Banknote, Calendar, FileText, ShoppingCart, Star, Building2, CreditCard, ChevronRight, ChevronLeft, MessageSquare, Sparkles, Tag, Clock } from "lucide-react";
 import Link from 'next/link';
 import { enrichAccount } from '@/ai/flows/enrich-account-flow';
@@ -14,9 +15,7 @@ import { SBFlowModal } from '@/features/quicklog/components/SBFlows';
 import { SBButton, SBCard } from '@/components/ui/ui-primitives';
 import { SB_COLORS } from '@/domain/ssot';
 
-
 // ====== UI Primitives ======
-
 function KPI({label, value, suffix, trend}:{label:string; value:string|number; suffix?:string; trend?:'up'|'down'}){
   return (
     <div className="rounded-xl border border-zinc-200 p-3 bg-white">
@@ -40,20 +39,15 @@ function Row({label, children, icon: Icon}:{label:string; children:React.ReactNo
     );
 }
 
-function Chip({children}:{children:React.ReactNode}){
-  return <span className="inline-flex items-center rounded-md border border-zinc-200 bg-white px-2 py-0.5 text-xs text-zinc-700">{children}</span>;
-}
-
-const orderTotal = (order: OrderSellOut): number => {
-    return order.lines.reduce((sum, line) => sum + (line.qty * line.priceUnit * (1 - (line.discount || 0))), 0);
-}
-
-
-type UnifiedActivity = {
-    id: string;
-    type: 'interaction' | 'order';
-    date: string;
-    data: InteractionType | OrderSellOut;
+function Chip({children, color = 'zinc'}: {children: React.ReactNode, color?: 'zinc' | 'green' | 'amber' | 'red' | 'blue' }){
+  const colorClasses = {
+      zinc: 'bg-zinc-100 text-zinc-700 border-zinc-200',
+      green: 'bg-green-100 text-green-800 border-green-200',
+      amber: 'bg-amber-100 text-amber-800 border-amber-200',
+      red: 'bg-red-100 text-red-800 border-red-200',
+      blue: 'bg-blue-100 text-blue-800 border-blue-200',
+  }
+  return <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium ${colorClasses[color]}`}>{children}</span>;
 }
 
 const interactionIcons: Record<InteractionKind, React.ElementType> = {
@@ -62,10 +56,12 @@ const interactionIcons: Record<InteractionKind, React.ElementType> = {
     EMAIL: Mail,
     OTRO: FileText,
     WHATSAPP: MessageSquare,
+    COBRO: Banknote,
+    EVENTO_MKT: Megaphone,
 };
+
 const formatEUR = (n:number)=> new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(n);
 const formatDate = (iso: string) => new Date(iso).toLocaleDateString('es-ES', {day:'2-digit',month:'short', year:'numeric'});
-
 
 // ====== PAGE ======
 export function AccountDetailPageContent(){
@@ -78,8 +74,6 @@ export function AccountDetailPageContent(){
   const accountId = params.accountId as string;
 
   const { data: santaData, setData, currentUser } = useData();
-
-  const [modalVariant, setModalVariant] = useState<any | null>(null);
   const [isEnriching, setIsEnriching] = useState(false);
 
   const { account, party, unifiedActivity, kpis, owner, distributor } = useMemo(() => {
@@ -93,12 +87,8 @@ export function AccountDetailPageContent(){
     const interactions = santaData.interactions.filter(i => i.accountId === accountId);
     const orders = santaData.ordersSellOut.filter(o => o.accountId === accountId);
 
-    const unified: UnifiedActivity[] = [
-        ...interactions.map(i => ({ id: `int_${i.id}`, type: 'interaction' as const, date: i.createdAt, data: i })),
-        ...orders.map(o => ({ id: `ord_${o.id}`, type: 'order' as const, date: o.createdAt, data: o }))
-    ];
-    
-    unified.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const unified: (InteractionType | OrderSellOut)[] = [...interactions, ...orders];
+    unified.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       
     const endDate = new Date();
     const startDate = new Date();
@@ -111,14 +101,9 @@ export function AccountDetailPageContent(){
     });
 
     const own = accountOwnerDisplay(acc, santaData.users, santaData.partyRoles);
-    
-    const customerRoleData = santaData.partyRoles.find(pr => pr.partyId === acc.partyId && pr.role === 'CUSTOMER')?.data as CustomerData;
-    const billerId = customerRoleData?.billerId;
-    const distPartyRole = billerId ? santaData.partyRoles.find(pr => pr.partyId === billerId && pr.role === 'DISTRIBUTOR') : undefined;
-    const distParty = distPartyRole ? santaData.parties.find(p => p.id === distPartyRole.partyId) : undefined;
+    const dist = getDistributorForAccount(acc, santaData.partyRoles, santaData.parties);
 
-
-    return { account: acc, party: pty, unifiedActivity: unified, kpis: kpiData, owner: own, distributor: distParty };
+    return { account: acc, party: pty, unifiedActivity: unified, kpis: kpiData, owner: own, distributor: dist };
   }, [accountId, santaData]);
 
   const handleEnrich = async () => {
@@ -137,9 +122,11 @@ export function AccountDetailPageContent(){
             notes: enrichedData.notes,
         };
 
+        const currentTags = new Set(party.tags || []);
+        enrichedData.tags.forEach(tag => currentTags.add(tag));
         const updatedParty = {
             ...party,
-            tags: Array.from(new Set([...(party.tags || []), ...enrichedData.tags])),
+            tags: Array.from(currentTags),
         }
         
         const updatedAccounts = santaData.accounts.map(acc => acc.id === account.id ? updatedAccount : acc);
@@ -154,66 +141,18 @@ export function AccountDetailPageContent(){
     }
   };
 
-
-  const handleSubmit = (payload: any) => {
-    if (!currentUser || !santaData) return;
-    
-    if (payload.mode === 'order' || payload.mode === 'interaction') {
-        const targetAccountName = payload.account || account?.name;
-        const targetAccount = santaData.accounts.find(a => a.name === targetAccountName);
-        if (!targetAccount) return;
-
-        if (payload.mode === 'order') {
-             const newOrder: OrderSellOut = {
-                id: `ord_local_${Date.now()}`,
-                accountId: targetAccount.id,
-                createdAt: new Date().toISOString(),
-                status: 'open',
-                currency: 'EUR',
-                lines: payload.items.map((item: any) => ({ ...item, priceUnit: 0, uom: 'uds' })),
-                notes: payload.note,
-            };
-            setData({ ...santaData, ordersSellOut: [...santaData.ordersSellOut, newOrder] });
-        } else {
-             const newInteraction: InteractionType = {
-                id: `int_local_${Date.now()}`,
-                accountId: targetAccount.id,
-                userId: currentUser.id,
-                createdAt: new Date().toISOString(),
-                kind: payload.kind,
-                note: `Próxima acción: ${payload.nextAction}. Resumen: ${payload.note}`,
-                dept: 'VENTAS',
-                status: 'open',
-            };
-            setData({ ...santaData, interactions: [...santaData.interactions, newInteraction] });
-        }
-    }
-    else if (payload.id && payload.name) {
-        const updatedAccounts = santaData.accounts.map(acc => acc.id === payload.id ? { ...acc, ...payload } : acc);
-        setData({ ...santaData, accounts: updatedAccounts });
-    }
-
-    setModalVariant(null);
-  };
-  
+  const getDaysSinceLastOrderColor = (days?: number): 'green' | 'amber' | 'red' => {
+      if (days === undefined) return 'zinc';
+      if (days <= 30) return 'green';
+      if (days <= 60) return 'amber';
+      return 'red';
+  }
 
   if (!santaData) return <div className="p-6 text-center">Cargando datos...</div>;
   if (!account || !party || !kpis) return <div className="p-6 text-center">Cuenta no encontrada.</div>;
 
   const mainContact = party.contacts.find(c => c.isPrimary && (c.type === 'email' || c.type === 'phone'));
-
-  const editAccountDefaults = {
-      id: account.id,
-      name: account.name,
-      city: party.addresses[0]?.city,
-      type: account.type,
-      mainContactName: mainContact?.description,
-      mainContactEmail: mainContact?.value,
-      phone: party.contacts.find(c => c.type === 'phone')?.value,
-      address: party.addresses[0]?.street,
-      billingEmail: party.contacts.find(c => c.type === 'email' && c.description?.toLowerCase().includes('factura'))?.value,
-  };
-
+  
   return (
     <div className="bg-zinc-50 flex-grow">
       <div className="max-w-7xl mx-auto py-6 px-4 space-y-6">
@@ -228,15 +167,14 @@ export function AccountDetailPageContent(){
                       <div className="text-sm text-zinc-600">{party.addresses[0]?.city} · {account.type}{account.subType && ` (${account.subType})`} · <span className="font-medium">{account.stage}</span></div>
                     </div>
                     <div className="ml-4 flex items-center gap-2">
-                      <Chip>Último pedido hace {kpis.daysSinceLastOrder} días</Chip>
-                      <Chip>Última visita hace {kpis.daysSinceLastVisit} días</Chip>
+                        <Chip color={getDaysSinceLastOrderColor(kpis.daysSinceLastOrder)}>Último pedido hace {kpis.daysSinceLastOrder} días</Chip>
+                        <Chip>Última visita hace {kpis.daysSinceLastVisit} días</Chip>
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
                     <Link href="/accounts" className="inline-flex items-center gap-2 text-sm text-zinc-600 hover:text-zinc-900">
                         <ChevronLeft size={16} /> Volver a Cuentas
                     </Link>
-                    <SBButton onClick={() => setModalVariant('quick')}><ShoppingCart className="h-4 w-4"/> Nueva Actividad</SBButton>
                 </div>
               </div>
           </div>
@@ -260,12 +198,12 @@ export function AccountDetailPageContent(){
 
             {/* Últimos pedidos */}
             <SBCard title="Actividad Reciente">
-              <div className="divide-y divide-zinc-100">
-                {unifiedActivity.slice(0,10).map((act)=> {
-                  if (act.type === 'order') {
-                    const order = act.data as OrderSellOut;
+              <div className="divide-y divide-zinc-100 max-h-96 overflow-y-auto">
+                {unifiedActivity.slice(0,15).map((act, i)=> {
+                  if ('lines' in act) { // Is OrderSellOut
+                    const order = act as OrderSellOut;
                     return (
-                      <div key={act.id} className="grid grid-cols-[auto_1fr_2fr_1fr] items-center gap-3 px-4 py-3 hover:bg-zinc-50">
+                      <div key={order.id} className="grid grid-cols-[auto_1fr_2fr_1fr] items-center gap-3 px-4 py-3 hover:bg-zinc-50">
                           <ShoppingCart className="h-5 w-5 text-emerald-600"/>
                           <div>
                               <div className="text-sm text-zinc-800 font-semibold">{formatEUR(orderTotal(order))}</div>
@@ -275,10 +213,10 @@ export function AccountDetailPageContent(){
                       </div>
                     )
                   }
-                  const int = act.data as InteractionType;
+                  const int = act as InteractionType;
                   const Icon = interactionIcons[int.kind] || FileText;
                   return (
-                      <div key={act.id} className="grid grid-cols-[auto_1fr] items-start gap-3 px-4 py-3 hover:bg-zinc-50">
+                      <div key={int.id} className="grid grid-cols-[auto_1fr] items-start gap-3 px-4 py-3 hover:bg-zinc-50">
                         <Icon className="h-5 w-5 text-zinc-500 mt-0.5"/>
                         <div>
                             <div className="text-sm text-zinc-500">{formatDate(int.createdAt)} · <span className="font-medium capitalize text-zinc-700">{int.kind}</span></div>
@@ -316,54 +254,12 @@ export function AccountDetailPageContent(){
                     <SBButton variant="secondary" onClick={handleEnrich} disabled={isEnriching}>
                         <Sparkles size={14}/> {isEnriching ? 'Analizando...' : 'Enriquecer con IA'}
                     </SBButton>
-                    <SBButton variant="secondary" onClick={() => setModalVariant('editAccount')}>Editar</SBButton>
                 </div>
               </div>
             </SBCard>
           </aside>
         </main>
       </div>
-
-      {modalVariant && santaData && (
-         <SBFlowModal
-            open={!!modalVariant}
-            variant={modalVariant as any}
-            onClose={() => setModalVariant(null)}
-            accounts={(santaData.accounts as any) || []}
-            onSearchAccounts={async(q) => santaData.accounts.filter(a => a.name.toLowerCase().includes(q.toLowerCase())) as any[]}
-            onCreateAccount={async (d) => {
-                 const newParty: Party = {
-                    id: `party_local_${Date.now()}`,
-                    name: d.name,
-                    kind: 'ORG',
-                    addresses: [{ type: 'main', city: d.city || '', country: 'España', street: '', postalCode: '' }],
-                    contacts: [],
-                    createdAt: new Date().toISOString(),
-                 };
-                 const newAccount: Account = { 
-                     id: `acc_local_${Date.now()}`,
-                     partyId: newParty.id,
-                     name: d.name,
-                     type: d.type || 'HORECA',
-                     stage: 'POTENCIAL',
-                     ownerId: currentUser!.id, 
-                     createdAt: new Date().toISOString()
-                 };
-                 const newPartyRole: PartyRole = {
-                     id: `pr_local_${Date.now()}`,
-                     partyId: newParty.id,
-                     role: 'CUSTOMER',
-                     isActive: true,
-                     createdAt: new Date().toISOString(),
-                     data: { salesRepId: currentUser!.id, billerId: 'SB' } as CustomerData
-                 }
-                 setData({...santaData, parties: [...santaData.parties, newParty], accounts: [...santaData.accounts, newAccount], partyRoles: [...santaData.partyRoles, newPartyRole]});
-                 return newAccount as any;
-            }}
-            defaults={modalVariant === 'editAccount' ? editAccountDefaults : undefined}
-            onSubmit={handleSubmit}
-        />
-      )}
     </div>
   );
 }
