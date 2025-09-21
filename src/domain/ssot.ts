@@ -128,7 +128,7 @@ export interface OrderSellOut {
   id: string;
   docNumber?: string;   // Número de pedido legible (ej. ORD-SB-202409-0042)
   accountId: string;
-  lines: { sku: string; qty: number; uom: 'uds'; priceUnit: number; discount?: number; lotIds?: string[]; }[];
+  lines?: { sku: string; qty: number; uom: 'uds'; priceUnit: number; discount?: number; lotIds?: string[]; }[];
   status: OrderStatus;
   createdAt: string;
   currency: 'EUR';
