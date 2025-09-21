@@ -39,11 +39,16 @@ export function computeKpis({ orders, recipes, inventory, lots, materials }: Inp
   // Series para progress (botellas por día plan vs real)
   const daysBack = 30;
   const progressSeries = seriesDays(daysBack).map(d => {
-    const plannedOrders = orders.filter(o=>o.scheduledFor && isSameDay(new Date(o.scheduledFor!), d));
+    const plannedOrders = orders.filter(o=>o.scheduledFor && isSameDay(new Date(o.scheduledFor), d));
     const plannedBottles = sum(plannedOrders.map(po => {
         const recipe = recipes.find(r => r.id === po.bomId);
         if (!recipe) return 0;
-        return Math.floor((po.targetQuantity / recipe.batchSize) * (recipe.items.find(i => i.materialId.includes('BOTTLE'))?.quantity || 0));
+        const bottleLine = recipe.items.find(i => {
+            const material = materials.find(m => m.id === i.materialId);
+            return material?.category === 'packaging' && material.name.toLowerCase().includes('botella');
+        });
+        if (!bottleLine) return 0;
+        return Math.floor((po.targetQuantity / recipe.batchSize) * (bottleLine.quantity || 0));
     }));
     const real = orders.filter(o=>o.status==='done' && o.execution?.finishedAt && isSameDay(new Date(o.execution.finishedAt), d)).reduce((a,o)=>a+(o.execution?.goodBottles||0),0);
     return { date: d.toISOString().slice(0,10), planned: plannedBottles, real };

@@ -7,11 +7,11 @@ export function KpiCards({ kpis }:{ kpis: any }){
     { label: 'Programadas', value: c.planned, tone: 'amber' },
     { label: 'Liberadas', value: c.released, tone: 'blue' },
     { label: 'En proceso', value: c.wip, tone: 'blue' },
+    { label: 'Canceladas', value: c.cancelled, tone: 'slate' },
     { label: 'Completadas', value: c.done, tone: 'green' },
     { label: 'Botellas (30d)', value: kpis.totalBottles30.toLocaleString('es-ES'), tone: 'teal' },
     { label: 'Coste/botella (30d)', value: `${kpis.avgCostBottle30.toFixed(3)} €`, tone: 'teal' },
     { label: 'Rendimiento (30d)', value: `${kpis.avgYield30.toFixed(1)}%`, tone: 'teal' },
-    { label: 'Canceladas', value: c.cancelled, tone: 'slate' },
   ];
   return (
     <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">

@@ -7,18 +7,18 @@ export function ShortagesPanel({ shortages, materials }:{ shortages: any[]; mate
     <div className="rounded-2xl border border-zinc-200 bg-white p-4">
       <div className="text-sm text-zinc-500 mb-3">Faltantes en órdenes planificadas</div>
       {!shortages?.length ? (
-        <div className="text-sm text-zinc-600 p-4 text-center">Sin faltantes pendientes 🎉</div>
+        <div className="text-sm text-zinc-600 text-center p-4">Sin faltantes pendientes 🎉</div>
       ) : (
         <ul className="space-y-2">
           {shortages.slice(0,12).map((s,i)=>{
-            const mat = materials.find(m=>m.id===s.materialId || m.sku === s.materialId);
+            const mat = materials.find(m=>m.id===s.materialId);
             return (
               <li key={i} className="flex items-center justify-between gap-2 border-b last:border-b-0 py-2">
                 <div className="text-sm">
                   <span className="font-medium">{mat?.name || s.materialId}</span>
                   <span className="text-zinc-500"> · Req {s.required.toFixed(2)} / Disp {s.available.toFixed(2)} {s.uom}</span>
                 </div>
-                <span className="text-xs px-2 py-0.5 bg-red-100 text-red-800 rounded-full font-semibold">FALTA {(s.required - s.available).toFixed(2)} {s.uom}</span>
+                <span className="text-xs px-2 py-0.5 bg-red-100 text-red-800 rounded-full">FALTA {(s.required - s.available).toFixed(2)} {s.uom}</span>
               </li>
             );
           })}
