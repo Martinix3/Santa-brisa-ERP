@@ -91,10 +91,10 @@ export const INITIAL_MOCK_DATA: SantaData = {
     { id: 'ord_4', accountId: 'acc_6', source: 'Direct', lines: [{ sku: 'SB-750', qty: 18, uom: 'uds', priceUnit: 16 }], createdAt: '2023-04-18T11:00:00Z', status: 'paid', currency: 'EUR', totalAmount: 288 },
   ],
   shipments: [
-    { id: 'shp_1', orderId: 'ord_1', accountId: 'acc_1', createdAt: '2023-01-21T09:00:00Z', status: 'delivered', lines: [{ sku: 'SB-750', qty: 12, uom: 'uds', name: 'Santa Brisa 750ml' }], customerName: 'Bar Terraza Sol', city: 'Barcelona' },
-    { id: 'shp_2', orderId: 'ord_2', accountId: 'acc_2', createdAt: '2023-03-02T10:00:00Z', status: 'delivered', lines: [{ sku: 'SB-750', qty: 24, uom: 'uds', name: 'Santa Brisa 750ml' }, { sku: 'MERCH-VAS', qty: 50, uom: 'uds', name: 'Vaso Santa Brisa' }], customerName: 'Coctelería Luna', city: 'Madrid' },
-    { id: 'shp_3', orderId: 'ord_3', accountId: 'acc_1', createdAt: '2023-05-16T11:00:00Z', status: 'shipped', lines: [{ sku: 'SB-750', qty: 6, uom: 'uds', name: 'Santa Brisa 750ml' }], customerName: 'Bar Terraza Sol', city: 'Barcelona' },
-    { id: 'shp_4', orderId: 'ord_4', accountId: 'acc_6', createdAt: '2023-04-19T09:30:00Z', status: 'ready_to_ship', lines: [{ sku: 'SB-750', qty: 18, uom: 'uds', name: 'Santa Brisa 750ml' }], customerName: 'Gourmet World', city: 'Madrid' },
+    { id: 'shp_1', orderId: 'ord_1', accountId: 'acc_1', createdAt: '2023-01-21T09:00:00Z', status: 'delivered', lines: [{ sku: 'SB-750', name: 'Santa Brisa 750ml', qty: 12, uom: 'uds' }], customerName: 'Bar Terraza Sol', city: 'Barcelona' },
+    { id: 'shp_2', orderId: 'ord_2', accountId: 'acc_2', createdAt: '2023-03-02T10:00:00Z', status: 'delivered', lines: [{ sku: 'SB-750', name: 'Santa Brisa 750ml', qty: 24, uom: 'uds' }, { sku: 'MERCH-VAS', name: 'Vaso Santa Brisa', qty: 50, uom: 'uds' }], customerName: 'Coctelería Luna', city: 'Madrid' },
+    { id: 'shp_3', orderId: 'ord_3', accountId: 'acc_1', createdAt: '2023-05-16T11:00:00Z', status: 'shipped', lines: [{ sku: 'SB-750', name: 'Santa Brisa 750ml', qty: 6, uom: 'uds' }], customerName: 'Bar Terraza Sol', city: 'Barcelona' },
+    { id: 'shp_4', orderId: 'ord_4', accountId: 'acc_6', createdAt: '2023-04-19T09:30:00Z', status: 'ready_to_ship', lines: [{ sku: 'SB-750', name: 'Santa Brisa 750ml', qty: 18, uom: 'uds' }], customerName: 'Gourmet World', city: 'Madrid' },
   ],
   lots: [
     { id: '230110-SB-750-01', sku: 'SB-750', createdAt: '2023-01-10T08:00:00Z', quantity: 200, quality: { qcStatus: 'release', results: {} }, lotCode: '230110-SB-750-01' },
@@ -181,3 +181,6 @@ export const INITIAL_MOCK_DATA: SantaData = {
     
 
 
+
+
+    
