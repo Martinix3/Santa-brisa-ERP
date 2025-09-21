@@ -4,9 +4,11 @@ import React, { useMemo, useState, useEffect, useRef } from "react";
 import { BarChart3, Target, Users, Briefcase, BrainCircuit, UserPlus, MoreHorizontal, Check, AlertCircle, Clock, PieChart as PieChartIcon, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Bar, PieChart, Pie, Cell, Legend } from 'recharts';
+import type { PieLabelRenderProps } from 'recharts';
 import { useData } from "@/lib/dataprovider";
 import { ModuleHeader } from "@/components/ui/ModuleHeader";
-import { SBCard, SBButton, SB_COLORS } from "@/components/ui/ui-primitives";
+import { SBCard, SBButton } from "@/components/ui/ui-primitives";
+import { SB_COLORS } from '@/domain/ssot';
 import type { User as UserType, OrderSellOut, Account, Interaction, Product, Party } from '@/domain/ssot';
 import { orderTotal, inWindow } from '@/domain/ssot';
 import { generateInsights } from "@/ai/flows/generate-insights-flow";
@@ -209,7 +211,10 @@ function SalesMixDonutChart({ data, timeRange }: { data: any, timeRange: TimeRan
                             paddingAngle={5}
                             dataKey="value"
                             nameKey="name"
-                            label={({ name, percent }: { name: string; percent: number }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                            label={(props: PieLabelRenderProps) => {
+                                const { name, percent } = props.payload as any;
+                                return `${name} ${(percent * 100).toFixed(0)}%`;
+                            }}
                             labelLine={false}
                         >
                             {salesMix.map((entry, index) => (
