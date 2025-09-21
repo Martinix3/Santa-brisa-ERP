@@ -6,7 +6,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Plus, CalendarDays, ClipboardList, UserPlus2, Briefcase, Search, Check, MapPin, Pencil, Save, MessageSquare, Zap, Mail, Phone, History, ShoppingCart, Building, CreditCard } from "lucide-react";
 import { useData } from "@/lib/dataprovider";
 import { generateNextOrder } from "@/lib/codes";
-import { AccountType, AccountRef, SB_COLORS } from '@/domain/ssot';
+import type { AccountType, Account, OrderSellOut, Product } from '@/domain/ssot';
+import { SB_COLORS } from '@/domain/ssot';
 
 const hexToRgba = (hex: string, a: number) => { const h = hex.replace('#',''); const f = h.length===3? h.split('').map(c=>c+c).join(''):h; const n=parseInt(f,16); const r=(n>>16)&255, g=(n>>8)&255, b=n&255; return `rgba(${r},${g},${b},${a})`; };
 const waterHeader = (seed = "hdr", base = "#A7D8D9") => {
@@ -27,8 +28,7 @@ function AgaveEdge(){
 // ===== Tipos =====
 export type Variant = "quick" | "editAccount" | "createAccount" | "createOrder";
 export type InteractionKind = 'VISITA' | 'LLAMADA' | 'EMAIL' | 'WHATSAPP' | 'OTRO';
-
-type QuickMode = "order" | "interaction";
+type QuickMode = "interaction" | "order";
 
 type QuickOrderPayload = { mode:"order"; account?:string; items:{ sku:string; qty:number }[]; note?:string; isVentaPropia: boolean; };
 type QuickInteractionPayload = { mode:"interaction"; account?:string; kind:InteractionKind; note:string; nextAction?:string; };
@@ -80,14 +80,14 @@ function AccountPicker({
 }:{
   value:string;
   onChange:(v:string)=>void;
-  accounts?: AccountRef[];
-  onSearchAccounts?: (q:string)=>Promise<AccountRef[]>;
-  onCreateAccount?: (data:{name:string; city?:string; type?:AccountType})=>Promise<AccountRef>;
+  accounts?: Account[];
+  onSearchAccounts?: (q:string)=>Promise<Account[]>;
+  onCreateAccount?: (data:{name:string; city?:string; type?:AccountType})=>Promise<Account>;
   allowDefer?: boolean;
   placeholder?: string;
 }){
   const [q, setQ] = useState(value);
-  const [list, setList] = useState<AccountRef[]>([]);
+  const [list, setList] = useState<Account[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<"search"|"create">("search");
@@ -102,11 +102,11 @@ function AccountPicker({
     const handler = async()=>{
       if(!debounced){ setList([]); return; }
       setLoading(true);
-      let results: AccountRef[] = [];
+      let results: Account[] = [];
       const norm = (s:string)=> s.normalize('NFD').replace(/\p{Diacritic}/gu,'').toLowerCase();
       try{
         if(onSearchAccounts){ results = await onSearchAccounts(debounced); }
-        else if(accounts){ const nq = norm(debounced); results = accounts.filter(a => norm(a.name).includes(nq) || norm(a.city||"").includes(nq)).slice(0,8); }
+        else if(accounts){ const nq = norm(debounced); results = accounts.filter(a => norm(a.name).includes(nq)).slice(0,8); }
       } finally{ setLoading(false); setList(results||[]); }
     };
     handler();
@@ -118,7 +118,7 @@ function AccountPicker({
 
   async function createInline(){
     const name = newName || q.trim(); if(!name) return alert("Pon un nombre");
-    let created: AccountRef = { id: "ACC_"+Math.random().toString(36).slice(2,9), name, city:newCity, type:newType };
+    let created: Account = { id: "ACC_"+Math.random().toString(36).slice(2,9), name, type:newType, stage: 'POTENCIAL', ownerId: '', partyId: '', createdAt: new Date().toISOString() };
     if(onCreateAccount){ created = await onCreateAccount({name, city:newCity, type:newType}); }
     setMode("search"); setQ(created.name); onChange(created.name); setOpen(false);
   }
@@ -147,7 +147,7 @@ function AccountPicker({
                         <Check className="h-4 w-4 text-emerald-600 hidden"/>
                         <div className="flex-1">
                           <div className="font-medium text-zinc-800">{a.name}</div>
-                          <div className="text-[11px] text-zinc-500 flex items-center gap-1"><MapPin className="h-3 w-3"/>{a.city||"—"}· {a.type||""}</div>
+                          <div className="text-[11px] text-zinc-500 flex items-center gap-1"><MapPin className="h-3 w-3"/>{a.type||""}</div>
                         </div>
                       </li>
                     ))}
@@ -180,14 +180,14 @@ function AccountPicker({
                     <Row><Label>Ciudad</Label><Input value={newCity} onChange={e=>setNewCity(e.target.value)} /></Row>
                     <Row><Label>Tipo</Label>
                       <Select value={newType} onChange={e=>setNewType(e.target.value as AccountType)}>
-                        <option>HORECA</option><option>RETAIL</option><option>DISTRIBUIDOR</option><option>IMPORTADOR</option><option>ONLINE</option><option>OTRO</option>
+                        <option>HORECA</option><option>RETAIL</option><option>DISTRIBUIDOR</option><option>ONLINE</option><option>OTRO</option>
                       </Select>
                     </Row>
                   </div>
                 </div>
                 <div className="flex justify-between gap-2 p-2 border-t bg-zinc-50">
-                  <button onClick={()=>setMode("search")} className="px-3 py-2 rounded-lg text-sm border border-zinc-300 bg-white hover:bg-zinc-50">Volver</button>
-                  <button onClick={createInline} className="px-3 py-2 rounded-lg text-sm bg-[#F7D15F] text-zinc-900 hover:brightness-95">Crear y usar</button>
+                  <button onClick={()=>setMode("search")} className="px-3 py-2 text-sm rounded-lg border border-zinc-300 bg-white hover:bg-zinc-50">Volver</button>
+                  <button onClick={createInline} className="px-3 py-2 text-sm rounded-lg bg-[#F7D15F] text-zinc-900 hover:brightness-95">Crear y usar</button>
                 </div>
               </div>
             )}
@@ -200,9 +200,9 @@ function AccountPicker({
 
 // ===== Quick Interaction / Order (Switcher) =====
 function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, onCancel}:{
-  accounts: AccountRef[];
-  onSearchAccounts:(q:string)=>Promise<AccountRef[]>;
-  onCreateAccount:(d:{name:string;city?:string;type?:AccountType})=>Promise<AccountRef>;
+  accounts: Account[];
+  onSearchAccounts:(q:string)=>Promise<Account[]>;
+  onCreateAccount:(d:{name:string;city?:string;type?:AccountType})=>Promise<Account>;
   onSubmit:(p: QuickOrderPayload | QuickInteractionPayload)=>void;
   onCancel:()=>void;
 }){
@@ -311,7 +311,7 @@ function EditAccountForm({defaults, onSubmit, onCancel}:{
       <div className="grid grid-cols-2 gap-3">
         <Row><Label>Tipo</Label>
           <Select value={form.type} onChange={(e: React.ChangeEvent<HTMLSelectElement>)=>set("type", e.target.value as AccountType)}>
-            <option>HORECA</option><option>RETAIL</option><option>DISTRIBUIDOR</option><option>IMPORTADOR</option><option>ONLINE</option><option>OTRO</option>
+            <option>HORECA</option><option>RETAIL</option><option>DISTRIBUIDOR</option><option>ONLINE</option><option>OTRO</option>
           </Select>
         </Row>
         <Row><Label>Teléfono</Label><Input value={form.phone||""} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>set("phone", e.target.value)} placeholder="+34..."/></Row>
@@ -347,7 +347,7 @@ function CreateAccountForm({onSubmit, onCancel}:{ onSubmit:(p:CreateAccountPaylo
       <div className="grid grid-cols-2 gap-3">
         <Row><Label>Tipo</Label>
           <Select value={form.type} onChange={(e: React.ChangeEvent<HTMLSelectElement>)=>set("type", e.target.value as AccountType)}>
-            <option>HORECA</option><option>RETAIL</option><option>DISTRIBUIDOR</option><option>IMPORTADOR</option><option>ONLINE</option><option>OTRO</option>
+            <option>HORECA</option><option>RETAIL</option><option>DISTRIBUIDOR</option><option>ONLINE</option><option>OTRO</option>
           </Select>
         </Row>
         <Row><Label>Contacto principal</Label><Input value={form.mainContactName||""} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>set("mainContactName", e.target.value)} /></Row>
@@ -364,9 +364,9 @@ function CreateAccountForm({onSubmit, onCancel}:{ onSubmit:(p:CreateAccountPaylo
 
 // ===== Create Order (full) =====
 function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, onSubmit, onCancel, defaults}: {
-  accounts: AccountRef[];
-  onSearchAccounts:(q:string)=>Promise<AccountRef[]>;
-  onCreateAccount:(d:{name:string;city?:string;type?:AccountType})=>Promise<AccountRef>;
+  accounts: Account[];
+  onSearchAccounts:(q:string)=>Promise<Account[]>;
+  onCreateAccount:(d:{name:string;city?:string;type?:AccountType})=>Promise<Account>;
   onSubmit:(p:CreateOrderPayload)=>void;
   onCancel:()=>void;
   defaults?: any;
@@ -382,14 +382,12 @@ function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, onSubmit,
   const [items, setItems] = useState<CreateOrderPayload["items"]>(defaults?.items || [{sku:"SB-750", qty:1, unit:"uds", priceUnit: 12, lotNumber: ''}]);
   
   const availableInventory = useMemo(() => (santaData?.inventory || []).filter(i => i.locationId && i.locationId.startsWith('FG/')), [santaData]);
-  const priceList = useMemo(() => (santaData as any)?.priceLists.find((pl: any) => pl.id === 'pl_prop'), [santaData]);
 
   function addLine(){ setItems(v=>[...v,{sku:"", qty:1, unit:"uds", priceUnit: 0}]); }
   function setLine(i:number, patch:Partial<CreateOrderPayload["items"][number]>){
     const newItems = items.map((it,idx)=> idx===i? {...it,...patch}: it);
-    if(patch.sku && priceList) {
-        const price = priceList?.lines.find((l: any) => santaData?.products.find(p => p.id === l.productId)?.sku === patch.sku)?.price || 0;
-        newItems[i].priceUnit = price;
+    if(patch.sku) {
+        newItems[i].priceUnit = 0;
     }
     setItems(newItems);
   }
@@ -412,7 +410,7 @@ function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, onSubmit,
         <Row><Label>Entrega deseada</Label><Input type="datetime-local" value={deliveryDate} onChange={e=>setDeliveryDate(e.target.value)}/></Row>
         <Row><Label>Tipo de Cuenta</Label>
           <Select value={channel} onChange={e=>setChannel(e.target.value as any)}>
-            <option value="HORECA">HORECA</option><option value="RETAIL">RETAIL</option><option value="DISTRIBUIDOR">Distribuidor</option><option value="IMPORTADOR">Importador</option><option value="ONLINE">Online</option><option value="OTRO">Otro</option>
+            <option value="HORECA">HORECA</option><option value="RETAIL">RETAIL</option><option value="DISTRIBUIDOR">Distribuidor</option><option value="ONLINE">Online</option><option value="OTRO">Otro</option>
           </Select>
         </Row>
         <Row><Label>Condiciones pago</Label><Input value={paymentTerms} onChange={e=>setTerms(e.target.value)} placeholder="Contado / 30d / 60d"/></Row>
@@ -426,7 +424,7 @@ function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, onSubmit,
               <div key={i} className="grid grid-cols-[2fr_1fr_1fr_0.5fr_1fr_1fr_40px] gap-2 items-center px-3 py-2 border-b last:border-b-0">
                 <Select value={it.sku} onChange={e => setLine(i, { sku: e.target.value })}>
                     <option value="">Seleccionar producto...</option>
-                    {santaData?.products.filter(p=>p.kind === 'FG').map(p => (
+                    {santaData?.products.filter(p => p.category === 'finished_good').map(p => (
                         <option key={p.sku} value={p.sku}>{p.name}</option>
                     ))}
                 </Select>
@@ -497,37 +495,37 @@ export function SBFlowModal({
   open:boolean;
   variant: Variant;
   onClose:()=>void;
-  accounts: AccountRef[];
-  onSearchAccounts:(q:string)=>Promise<AccountRef[]>;
-  onCreateAccount:(d:{name:string;city?:string;type?:AccountType})=>Promise<AccountRef>;
+  accounts: Account[];
+  onSearchAccounts:(q:string)=>Promise<Account[]>;
+  onCreateAccount:(d:{name:string;city?:string;type?:AccountType})=>Promise<Account>;
   defaults?: any;
   onSubmit:(payload:any)=>void; // (en real tipa por variante)
 }){
   if(!open) return null;
   if(variant==="quick"){
     return (
-      <BaseModal open title="Interacción rápida / Pedido rápido" color={SB_COLORS.general} icon={Zap} onClose={onClose}>
+      <BaseModal open title="Interacción rápida / Pedido rápido" color={SB_COLORS.primary.teal} icon={Zap} onClose={onClose}>
         <QuickSwitcher accounts={accounts} onSearchAccounts={onSearchAccounts} onCreateAccount={onCreateAccount} onCancel={onClose} onSubmit={(p)=>{ onSubmit(p); }}/>
       </BaseModal>
     );
   }
   if(variant==="editAccount"){
     return (
-      <BaseModal open title="Editar cuenta" color={SB_COLORS.primary} icon={Pencil} onClose={onClose}>
+      <BaseModal open title="Editar cuenta" color={SB_COLORS.primary.sun} icon={Pencil} onClose={onClose}>
         <EditAccountForm defaults={defaults} onCancel={onClose} onSubmit={(p)=>{ onSubmit(p); }}/>
       </BaseModal>
     );
   }
   if(variant==="createAccount"){
     return (
-      <BaseModal open title="Nueva cuenta" color={SB_COLORS.primary} icon={UserPlus2} onClose={onClose}>
+      <BaseModal open title="Nueva cuenta" color={SB_COLORS.primary.sun} icon={UserPlus2} onClose={onClose}>
         <CreateAccountForm onCancel={onClose} onSubmit={(p)=>{ onSubmit(p); }}/>
       </BaseModal>
     );
   }
   // createOrder (full)
   return (
-    <BaseModal open title="Crear pedido" color={SB_COLORS.sales} icon={Briefcase} onClose={onClose}>
+    <BaseModal open title="Crear pedido" color={SB_COLORS.primary.copper} icon={Briefcase} onClose={onClose}>
       <CreateOrderForm accounts={accounts} onSearchAccounts={onSearchAccounts} onCreateAccount={onCreateAccount} onCancel={onClose} onSubmit={(p)=>{ onSubmit(p); }} defaults={defaults}/>
     </BaseModal>
   );
