@@ -3,48 +3,62 @@
 'use server';
 import { revalidatePath } from 'next/cache';
 import { getServerData, upsertMany } from '@/lib/dataprovider/server';
-import type { OrderStatus, Shipment, OrderSellOut, Account, Party } from '@/domain/ssot';
+import type { OrderStatus, Shipment, Account, Party, CustomerData, PartyRole } from '@/domain/ssot';
 
 const SHIPMENT_TRIGGER_STATES = new Set<OrderStatus>([
   'confirmed' as OrderStatus,
-  'open' as OrderStatus
 ]);
 
 export async function updateOrderStatus(orderId: string, next: OrderStatus) {
-  console.log(`[Server Action] Updating order ${orderId} → ${next}`);
+  console.log(`[Server Action] -----------------------------------------`);
+  console.log(`[Server Action] Received request to update order ${orderId} to status: ${next}`);
 
   try {
     // 1. Siempre actualiza el estado del pedido primero.
     await upsertMany('ordersSellOut', [{ id: orderId, status: next }]);
-    console.log(`[Server Action] Order ${orderId} status updated to ${next}.`);
+    console.log(`[Server Action] SUCCESS: Order ${orderId} status updated to ${next}.`);
 
-    // 2. Si el estado es 'confirmed', crea el envío.
+    // 2. Si el estado es 'confirmed', intenta crear el envío.
     if (SHIPMENT_TRIGGER_STATES.has(next)) {
-      console.log(`[Server Action] Status '${next}' triggers shipment creation for ${orderId}.`);
+      console.log(`[Server Action] TRIGGER: Status '${next}' triggers shipment creation for ${orderId}.`);
       try {
         const data = await getServerData();
         const order = data.ordersSellOut.find(o => o.id === orderId);
-
+        
         if (!order) {
-          console.warn(`[Server Action] Order ${orderId} not found after update. Cannot create shipment.`);
+          console.error(`[Server Action] CRITICAL: Order ${orderId} not found after update. Cannot create shipment.`);
           revalidatePath('/orders');
           return;
         }
+        console.log(`[Server Action] Found order:`, order);
         
         const account = data.accounts.find(a => a.id === order.accountId);
+        if (!account) {
+            console.error(`[Server Action] CRITICAL: Account ${order.accountId} not found for order.`)
+            return;
+        }
+        console.log(`[Server Action] Found account:`, account);
+
         const party = account ? data.parties.find(p => p.id === account.partyId) : undefined;
-        const mainAddress = party?.addresses?.find(a => a.isPrimary || a.type === 'shipping') || party?.addresses?.[0] || {};
+        if (!party) {
+            console.error(`[Server Action] CRITICAL: Party ${account.partyId} not found for account.`)
+            return;
+        }
+        console.log(`[Server Action] Found party:`, party);
         
-        // CORRECCIÓN: Asegurarse de que `name` está incluido en las líneas del envío.
+        const mainAddress = party?.addresses?.find(a => a.isPrimary || a.type === 'shipping') || party?.addresses?.[0] || {};
+        console.log(`[Server Action] Determined main address:`, mainAddress);
+        
         const shipmentLines = (order.lines ?? []).map(it => {
           const product = data.products.find(p => p.sku === it.sku);
           return {
             sku: it.sku,
-            name: product?.name || it.sku, // <--- Este campo faltaba
+            name: product?.name || it.sku,
             qty: it.qty,
             uom: 'uds' as const,
           };
         });
+        console.log(`[Server Action] Constructed shipment lines:`, shipmentLines);
 
         if(shipmentLines.length === 0) {
           console.warn(`[Server Action] Order ${orderId} has no lines. Shipment not created.`);
@@ -64,21 +78,21 @@ export async function updateOrderStatus(orderId: string, next: OrderStatus) {
             country: mainAddress.country || 'ES',
             notes: order.notes,
           };
+          console.log(`[Server Action] PRE-SAVE: Constructed new shipment object:`, newShipment);
           await upsertMany('shipments', [newShipment]);
-          console.log(`[Server Action] Shipment ${newShipment.id} created successfully for order ${orderId}.`);
+          console.log(`[Server Action] SUCCESS: Shipment ${newShipment.id} created for order ${orderId}.`);
         }
       } catch (err) {
          console.error(`[Server Action] CRITICAL: Failed to create shipment for order ${orderId}:`, err);
-         // No re-lanzamos el error para no romper la UI, pero lo logueamos como crítico.
       }
     }
   } catch (err) {
     console.error(`[Server Action] CRITICAL: Failed to update order status for ${orderId}:`, err);
-    // Podríamos querer revertir aquí, pero por ahora solo logueamos.
   }
 
   // 3. Revalidar rutas al final para que la UI se actualice.
   revalidatePath('/orders');
   revalidatePath('/warehouse/logistics');
   console.log(`[Server Action] Revalidated paths: /orders & /warehouse/logistics`);
+  console.log(`[Server Action] -----------------------------------------`);
 }

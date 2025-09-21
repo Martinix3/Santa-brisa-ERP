@@ -172,16 +172,23 @@ export default function OrdersDashboard() {
   const consTotals = useMemo(() => consignmentTotalUnits(consByAcc), [consByAcc]);
   
   const enrichedOrders = useMemo(() => {
-    if (!ordersSellOut || !accounts || !partyRoles) return [];
+    if (!ordersSellOut || !accounts || !partyRoles || !users) return [];
     
     const accountMap = new Map((accounts || []).map((acc: Account) => [acc.id, acc]));
     const userMap = new Map((users || []).map((user: User) => [user.id, user]));
+    const rolesMap = new Map();
+    (partyRoles || []).forEach((role: PartyRole) => {
+        if(role.role === 'CUSTOMER') {
+            rolesMap.set(role.partyId, role.data as CustomerData);
+        }
+    });
 
     return ordersSellOut.map(order => {
         const account = accountMap.get(order.accountId);
         if (!account) return null;
-        const customerRole = (partyRoles as PartyRole[]).find(pr => pr.partyId === account.partyId && pr.role === 'CUSTOMER');
-        const billerId = (customerRole?.data as CustomerData)?.billerId;
+
+        const customerData = rolesMap.get(account.partyId);
+        const billerId = customerData?.billerId || 'SB'; // Default to 'SB' if not found
         const owner = userMap.get(account.ownerId);
 
         return {
@@ -246,7 +253,6 @@ export default function OrdersDashboard() {
     if (!data) return;
 
     if (!payload.account) {
-        // This case should ideally be handled with better UI feedback
         console.error("No account selected or created for the new order.");
         return;
     }
@@ -301,17 +307,14 @@ export default function OrdersDashboard() {
                 const shortages = checkOrderStock(order as OrderSellOut, inventory || [], products || []);
                 if (shortages.length > 0) {
                     const shortageMessage = shortages.map(s => `${s.qtyShort} uds de ${s.sku}`).join(', ');
-                    // We avoid alert()
                     console.warn(`Falta de stock para el pedido ${order.docNumber || order.id}:\nFaltan ${shortageMessage}.\n\nEl pedido se confirmará de todos modos (backorder).`);
                 }
             }
         }
-        // This will now wait for the server action to complete.
         await updateOrderStatus(orderId, newStatus);
         
     } catch (error) {
         console.error("Failed to update order status:", error);
-        // Revert UI if server update fails
         setData(prevData => prevData ? ({ ...prevData, ordersSellOut: originalOrders }) : null);
     }
   };
