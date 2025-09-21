@@ -154,6 +154,26 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [data?.users]);
 
   const saveAllCollections = useCallback(async (collectionsToSave: Partial<SantaData>) => {
+    // Primero, siempre actualiza el estado local para reflejar el cambio en la UI.
+    setData(prevData => {
+        if (!prevData) return null;
+        const updatedData = { ...prevData };
+        for (const key in collectionsToSave) {
+            const collectionName = key as keyof SantaData;
+            const newItems = collectionsToSave[collectionName] || [];
+            if (newItems.length > 0) {
+                const existingItems = (updatedData[collectionName] as any[]) || [];
+                const itemMap = new Map(existingItems.map(item => [item.id, item]));
+                newItems.forEach((newItem: any) => {
+                    itemMap.set(newItem.id, newItem);
+                });
+                (updatedData as any)[collectionName] = Array.from(itemMap.values());
+            }
+        }
+        return updatedData;
+    });
+
+    // Luego, si la persistencia está activada, guarda en el backend.
     if (isPersistenceEnabled) {
       console.log("Saving to backend:", collectionsToSave);
       const token = await auth.currentUser?.getIdToken();
@@ -189,17 +209,19 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         throw e;
       }
     } else {
-      console.log("Persistence is disabled. Not saving.");
+      console.log("Persistence is disabled. Local state updated, but not saving to backend.");
     }
-  }, [isPersistenceEnabled]);
+  }, [isPersistenceEnabled, setData]);
   
   const saveCollection = useCallback(
     async (name: keyof SantaData, rows: any[]) => {
-        setData(prevData => prevData ? { ...prevData, [name]: rows } : null);
-        if (isPersistenceEnabled) {
-             await saveAllCollections({ [name]: rows });
-        }
-    }, [isPersistenceEnabled, saveAllCollections]
+      // Actualiza el estado local primero.
+      setData(prevData => prevData ? { ...prevData, [name]: rows } : null);
+      // Luego, intenta guardar en el backend si está habilitado.
+      if (isPersistenceEnabled) {
+        await saveAllCollections({ [name]: rows });
+      }
+    }, [isPersistenceEnabled, saveAllCollections, setData]
   );
 
   const login = useCallback(async () => {
@@ -252,7 +274,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setCurrentUser(newUser);
       return newUser;
     },
-    [data?.users]
+    [data?.users, setData]
   );
 
   const logout = useCallback(async () => {
