@@ -42,6 +42,7 @@ import {
     DatabaseBackup,
     ChevronUp,
     Sheet,
+    Star,
 } from 'lucide-react';
 import { SB_COLORS } from '@/domain/ssot';
 import { hexToRgba } from '@/components/ui/ui-primitives';
@@ -78,6 +79,7 @@ const navSections = [
             { href: '/marketing/events', label: 'Eventos', icon: Calendar },
             { href: '/marketing/online', label: 'Ads', icon: Zap },
             { href: '/marketing/influencers', label: 'Influencers', icon: Contact },
+            { href: '/marketing/pos-tactics', label: 'Tácticas POS', icon: Star },
         ]
     },
     {
