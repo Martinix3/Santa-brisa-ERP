@@ -31,7 +31,7 @@ export async function updateOrderStatus(orderId: string, next: OrderStatus){
               accountId: order.accountId,
               shipmentNumber: `SHP-${order.docNumber || order.id.slice(-4)}`,
               createdAt: new Date().toISOString(),
-              status: 'pending', // <<<<< ESTADO INICIAL CORRECTO
+              status: 'pending',
               lines: (order.lines || []).map(line => {
                   const product = data.products.find(p => p.sku === line.sku);
                   return {
