@@ -187,6 +187,16 @@ export interface BillOfMaterial {
 
 export type Shortage = { materialId: string; required: number; available: number; uom: Uom };
 export type Reservation = { materialId: string; fromLot: string; reservedQty: number; uom: Uom };
+export type ActualConsumption = {
+  materialId: string;
+  name: string;
+  fromLot?: string;
+  theoreticalQty: number;
+  actualQty: number;
+  uom: Uom;
+  costPerUom: number;
+};
+export type ExecCheck = { id:string; done:boolean; checkedBy?:string; checkedAt?:string };
 
 export interface ProductionOrder {
   id: string;
@@ -198,8 +208,21 @@ export interface ProductionOrder {
   createdAt: string;
   scheduledFor?: string;
   lotId?: string;
+  responsibleId?: string;
   shortages?: Shortage[];
   reservations?: Reservation[];
+  actuals?: ActualConsumption[];
+  checks?: ExecCheck[];
+  execution?: {
+    startedAt?: string;
+    finishedAt?: string;
+    durationHours?: number;
+    finalYield?: number;
+    yieldUom?: 'L' | 'ud';
+    goodBottles?: number;
+    scrapBottles?: number;
+  };
+  incidents?: { id: string; when: string; severity: "BAJA" | "MEDIA" | "ALTA"; text: string }[];
   costing?: {
     stdCostPerUom?: number;
     actual?: {
@@ -402,7 +425,6 @@ export interface OnlineCampaign {
 }
 
 export type Platform = 'Instagram' | 'TikTok' | 'YouTube' | 'Twitch' | 'Blog' | 'Otro';
-export type Tier = 'nano' | 'micro' | 'mid' | 'macro';
 export type Deliverable = 'post' | 'story' | 'reel' | 'short' | 'video_long' | 'stream' | 'blogpost';
 export type CompType = 'gift' | 'flat' | 'cpa' | 'cpc' | 'revshare';
 export type CollabStatus = 'PROSPECT' | 'OUTREACH' | 'NEGOTIATING' | 'AGREED' | 'LIVE' | 'COMPLETED' | 'PAUSED' | 'DECLINED';
