@@ -411,7 +411,78 @@ export const SANTA_DATA_COLLECTIONS: (keyof SantaData)[] = [
 
 ---
 
-## 10. Metadatos y Constantes
+## 10. Lógica de Negocio y Hooks Operativos
+
+Esta sección describe las reglas de negocio y los "hooks" (disparadores automáticos) que el sistema debe implementar para mantener la integridad de los datos y automatizar los procesos.
+
+### 10.1. Invariantes del Sistema (Reglas de Oro)
+
+Estas son condiciones que el sistema debe garantizar en todo momento.
+
+*   No se puede vender o expedir (`ship`/`sale`) un `Lot` cuyo `quality.qcStatus` no sea `'release'`.
+*   Un `Shipment` no puede pasar a `'ready_to_ship'` si alguna de sus líneas de producto loteable no tiene un `lotNumber` asignado.
+*   Un `GoodsReceipt` no puede pasar a `'completed'` hasta que todos sus lotes hayan pasado el QC de entrada (`'release'`) o se haya abierto un `Incident` asociado.
+*   La suma de todos los `StockMove` para un `lotId` específico debe ser igual a la cantidad `onHand` de ese lote en el `inventory` (considerando las reservas).
+
+### 10.2. Hooks por Proceso de Negocio
+
+#### **Entrada de Mercancía**
+*   **`onGoodsReceiptCreated`**:
+    *   **Trigger**: Se crea un nuevo albarán de entrada (`GoodsReceipt`).
+    *   **Acciones**:
+        1.  Para cada línea, si no trae `lotId`, se autogenera uno nuevo.
+        2.  Crea un `StockMove` de tipo `'receipt'` para cada línea, aumentando el stock en una ubicación de cuarentena (ej. `'QC/AREA'`).
+        3.  Crea un `TraceEvent` de tipo `'ARRIVED'` para cada lote.
+
+#### **Control de Calidad (QC)**
+*   **`onQACheckReviewed`**:
+    *   **Trigger**: Un usuario de `CALIDAD` guarda el resultado de un `QACheck`.
+    *   **Acciones**:
+        1.  Actualiza el `quality.qcStatus` del `Lot` a `'release'` o `'reject'`.
+        2.  Crea un `TraceEvent` (`'CHECK_PASS'` o `'CHECK_FAIL'`).
+        3.  Si es `'FAIL'`, crea un `Incident` de tipo `'QC_INBOUND'` o `'QC_RELEASE'`.
+        4.  Si es `'PASS'` y el lote estaba en `'QC/AREA'`, genera un `StockMove` de tipo `'transfer'` para moverlo al almacén principal (ej. `'RM/MAIN'` o `'FG/MAIN'`).
+
+#### **Producción**
+*   **`onProductionOrderReleased`**:
+    *   **Trigger**: Se libera una orden de producción.
+    *   **Acciones**:
+        1.  Crea un `TraceEvent` de tipo `'BATCH_START'`.
+        2.  (Opcional) Genera `reservations` para los materiales necesarios.
+*   **`onProductionConsumeInput`**:
+    *   **Trigger**: Se consumen materiales para una orden.
+    *   **Acciones**:
+        1.  Crea un `StockMove` de tipo `'production_out'` para cada material, decrementando el stock del almacén de materias primas.
+        2.  Crea un `TraceEvent` de tipo `'CONSUME'` para cada lote de material consumido.
+*   **`onProductionOutput`**:
+    *   **Trigger**: Se declara la producción de producto terminado.
+    *   **Acciones**:
+        1.  Crea un nuevo `Lot` para el producto terminado con `qcStatus: 'hold'`.
+        2.  Crea un `StockMove` de tipo `'production_in'` para añadir el nuevo lote al `inventory` en `'QC/AREA'`.
+        3.  Crea un `TraceEvent` de tipo `'OUTPUT'` y `'BATCH_END'`.
+
+#### **Logística de Salida (Picking y Envío)**
+*   **`onShipmentLinePicked`**:
+    *   **Trigger**: Un operario de almacén confirma el picking de una línea de un envío.
+    *   **Acciones**:
+        1.  Crea un `StockMove` de tipo `'ship'` para decrementar el stock del lote correspondiente desde el almacén principal (`'FG/MAIN'`).
+        2.  Crea un `TraceEvent` de tipo `'SHIPMENT_PICKED'`.
+*   **`onShipmentConfirmed`**:
+    *   **Trigger**: Se confirma el envío completo (listo para expedir).
+    *   **Acciones**:
+        1.  Crea un `TraceEvent` de tipo `'SHIPPED'`.
+        2.  (Hook contable) Si se factura al expedir, genera el albarán/factura en Holded y guarda el ID en `holdedDeliveryId`/`holdedInvoiceId`. Crea el `FinanceLink`.
+
+#### **Devoluciones**
+*   **`onCustomerReturn`**:
+    *   **Trigger**: Se registra una devolución de cliente.
+    *   **Acciones**:
+        1.  Crea un `StockMove` de tipo `'return_in'`, añadiendo el stock a una ubicación de devoluciones (ej. `'RETURNS/AREA'`).
+        2.  Crea un `Incident` de tipo `'CUSTOMER_RETURN'` para que `CALIDAD` investigue el motivo.
+
+---
+
+## 11. Metadatos y Constantes
 
 ```typescript
 // Colores y etiquetas para los departamentos
