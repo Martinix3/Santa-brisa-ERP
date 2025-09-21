@@ -1,5 +1,4 @@
 
-
 // src/domain/ssot.ts
 
 // =================================================================
@@ -428,15 +427,17 @@ export interface TraceEvent {
 // -----------------------------------------------------------------
 // 6. Marketing, Finanzas y Costes
 // -----------------------------------------------------------------
+export type ActivationType = 'bartender_day' | 'tasting' | 'event' | 'other_experience';
 export interface Activation {
     id: string;
     accountId: string;
-    materialId: string;
+    type: ActivationType;
     description: string;
     status: 'active' | 'inactive' | 'pending_renewal';
     startDate: string;
     endDate?: string;
     ownerId: string;
+    cost: number;
 }
 export interface Promotion {
     id: string;
@@ -901,6 +902,4 @@ export type AccountRollup = {
     activeActivations: number;
     lastActivationAt?: string;
     activePromotions: number;
-    activePosTactics: number;
-    lastTacticAt?: string;
 };
