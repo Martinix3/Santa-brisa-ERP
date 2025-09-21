@@ -1,5 +1,4 @@
 
-
 "use client";
 import React, { useMemo, useState, useEffect } from "react";
 import { Printer, PackageCheck, Truck, CheckCircle2, Search, Plus, FileText, ClipboardList, Boxes, PackageOpen, BadgeCheck, AlertTriangle, Settings, Clipboard, Ruler, Weight, MoreHorizontal, Check as CheckIcon, FileDown, Package, Info, X } from "lucide-react";
@@ -9,6 +8,8 @@ import type { Shipment, OrderSellOut, Account, ShipmentStatus, ShipmentLine, Acc
 import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog";
 import { generatePackingSlip } from './actions';
 import { canGenerateDeliveryNote, canGenerateLabel, canMarkShipped } from "@/lib/logistics.helpers";
+import { NewShipmentDialog } from "@/features/warehouse/components/NewShipmentDialog";
+import { upsertMany } from "@/lib/dataprovider/server";
 
 // ===============================
 // UI Components (Re-localizados para simplicidad)
@@ -219,12 +220,13 @@ const ValidateDialog: React.FC<{ open: boolean; onOpenChange: (v: boolean) => vo
 // Panel principal
 // ===============================
 export default function LogisticsPage() {
-  const { data: santaData, setData } = useData();
+  const { data: santaData, setData, saveCollection } = useData();
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<string>("all");
   const [channel, setChannel] = useState<string>("all");
   const [selected, setSelected] = useState<string[]>([]);
   const [openValidate, setOpenValidate] = useState(false);
+  const [openNewShipment, setOpenNewShipment] = useState(false);
   const [currentShipment, setCurrentShipment] = useState<Shipment | null>(null);
   const [showOnlyAvailable, setShowOnlyAvailable] = useState(true);
   
@@ -324,6 +326,17 @@ export default function LogisticsPage() {
         setGeneratingSlip(null);
     }
   };
+  
+  const handleSaveNewShipment = async (shipment: Omit<Shipment, 'id' | 'createdAt'>) => {
+    const newShipment = {
+        ...shipment,
+        id: `shp_${Date.now()}`,
+        createdAt: new Date().toISOString(),
+    };
+    await saveCollection('shipments', [...shipments, newShipment]);
+    setOpenNewShipment(false);
+    setNotification({ type: 'success', message: `Envío ${newShipment.id} creado con éxito.` });
+  };
 
   const generateLabel = (shipment: Shipment) => {
     if (!canGenerateLabel(shipment)) { 
@@ -363,6 +376,9 @@ export default function LogisticsPage() {
           <h1 className="text-2xl font-semibold text-zinc-900">Logística de Salidas</h1>
           <p className="text-sm text-zinc-500">Confirmado → picking → validación → albarán → etiqueta → envío. Con trazabilidad por lote.</p>
         </div>
+        <SBButton onClick={() => setOpenNewShipment(true)}>
+            <Plus size={16} className="mr-2"/> Nuevo Envío
+        </SBButton>
       </div>
       
       {notification && (
@@ -513,6 +529,15 @@ export default function LogisticsPage() {
 
       {/* Diálogo de validación */}
       <ValidateDialog open={openValidate} onOpenChange={setOpenValidate} shipment={currentShipment} onSave={handleSaveValidation} />
+      
+      {/* Diálogo de nuevo envío */}
+       <NewShipmentDialog 
+            open={openNewShipment} 
+            onClose={() => setOpenNewShipment(false)} 
+            onSave={handleSaveNewShipment}
+            accounts={accounts || []}
+            products={santaData?.products || []}
+        />
     </div>
   );
 }
