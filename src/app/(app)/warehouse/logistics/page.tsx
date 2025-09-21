@@ -281,7 +281,7 @@ export default function LogisticsPage() {
     const account = order ? accountMap.get(order.accountId) : undefined;
 
     const st = (status === "all" || s.status === status);
-    const ch = (channel === "all" || (account && account.type.toLowerCase() === channel));
+    const ch = (channel === "all" || (account && account.type.toLowerCase() === channel.toLowerCase()));
     const query = (q.trim() === "" || s.id.includes(q) || (account?.name || "").toLowerCase().includes(q.toLowerCase()));
     
     return st && ch && query;
