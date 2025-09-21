@@ -6,8 +6,9 @@ import { useData } from '@/lib/dataprovider';
 import { TaskBoard } from '@/features/agenda/TaskBoard';
 import type { Task } from '@/features/agenda/TaskBoard';
 import { sbAsISO } from '@/features/agenda/helpers';
-import type { Interaction, InteractionStatus, Account, SantaData, Payload } from '@/domain/ssot';
+import type { Interaction, InteractionStatus, Account, SantaData, Payload, MarketingEvent } from '@/domain/ssot';
 import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/TaskCompletionDialog';
+import { MarketingTaskCompletionDialog } from '@/features/marketing/components/MarketingTaskCompletionDialog';
 
 
 function mapInteractionsToTasks(
@@ -40,6 +41,7 @@ function mapInteractionsToTasks(
 export default function GlobalTasksPage() {
     const { data, setData, saveAllCollections } = useData();
     const [completingTask, setCompletingTask] = useState<Interaction | null>(null);
+    const [completingMarketingEvent, setCompletingMarketingEvent] = useState<MarketingEvent | null>(null);
 
     const allTasks = useMemo(() => {
         return mapInteractionsToTasks(data?.interactions, data?.accounts);
@@ -48,7 +50,14 @@ export default function GlobalTasksPage() {
     const handleUpdateStatus = (id: string, newStatus: InteractionStatus) => {
         const taskToUpdate = data?.interactions.find(i => i.id === id);
         if (newStatus === 'done' && taskToUpdate) {
-            setCompletingTask(taskToUpdate);
+            if (taskToUpdate.kind === 'EVENTO_MKT') {
+                const event = data?.marketingEvents.find(e => e.id === taskToUpdate.linkedEntity?.id);
+                if (event) {
+                    setCompletingMarketingEvent(event);
+                }
+            } else {
+                setCompletingTask(taskToUpdate);
+            }
         }
     };
 
@@ -90,6 +99,34 @@ export default function GlobalTasksPage() {
         setCompletingTask(null);
     };
 
+    const handleSaveMarketingEventTask = async (eventId: string, payload: any) => {
+        if (!data) return;
+        
+        const updatedMktEvents = data.marketingEvents.map(me => {
+            if (me.id === eventId) {
+                return {
+                    ...me,
+                    status: 'closed',
+                    spend: payload.spend,
+                    kpis: {
+                        leads: payload.leads,
+                        sampling: payload.sampling,
+                        impressions: payload.impressions,
+                        interactions: payload.interactions,
+                        completedAt: new Date().toISOString(),
+                    }
+                } as MarketingEvent;
+            }
+            return me;
+        });
+    
+        const interactionToClose = data.interactions.find(i => i.linkedEntity?.id === eventId);
+        const updatedInteractions = interactionToClose ? data.interactions.map(i => i.id === interactionToClose.id ? {...i, status: 'done' as InteractionStatus} : i) : data.interactions;
+    
+        await saveAllCollections({ marketingEvents: updatedMktEvents, interactions: updatedInteractions });
+        setCompletingMarketingEvent(null);
+    };
+
     if (!data) {
         return <div className="p-6">Cargando...</div>;
     }
@@ -113,6 +150,14 @@ export default function GlobalTasksPage() {
                     open={!!completingTask}
                     onClose={() => setCompletingTask(null)}
                     onComplete={handleSaveCompletedTask}
+                />
+            )}
+            {completingMarketingEvent && (
+                <MarketingTaskCompletionDialog
+                    event={completingMarketingEvent}
+                    open={!!completingMarketingEvent}
+                    onClose={() => setCompletingMarketingEvent(null)}
+                    onComplete={handleSaveMarketingEventTask}
                 />
             )}
         </>
