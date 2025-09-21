@@ -9,7 +9,7 @@ import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog";
 import { generatePackingSlip } from './actions';
 
 // ===============================
-// UI Components
+// UI Components (Re-localizados para simplicidad)
 // ===============================
 
 const Button = ({variant, className, ...props}: any) => <button className={`${variant} ${className}`} {...props}/>;
@@ -65,7 +65,7 @@ const getChannelInfo = (order?: OrderSellOut, account?: Account) => {
 
     if (account.type === 'ONLINE') return { label: "Online", className: "bg-emerald-100 text-emerald-900 border-emerald-200" };
     if (order?.totalAmount === 0) return { label: "Muestras (0€)", className: "bg-purple-100 text-purple-900 border-purple-200" };
-    if (account.type === 'DISTRIBUIDOR') return { label: "Distribuidor", className: "bg-sky-100 text-sky-900 border-sky-200" };
+    if ((account as any).type === 'DISTRIBUIDOR') return { label: "Distribuidor", className: "bg-sky-100 text-sky-900 border-sky-200" };
     return { label: account.type, className: "bg-zinc-100 text-zinc-900 border-zinc-200" };
 }
 
@@ -325,10 +325,13 @@ export default function LogisticsPage() {
     alert(`Iniciando generación de hoja de pedido para ${shipmentId}...`);
     try {
       const result = await generatePackingSlip(shipmentId);
-      if (result.url) {
-        window.open(result.url, '_blank');
-      } else {
-        alert(`Error: ${result.error}`);
+      if (result.error) {
+          alert(`Error: ${result.error}`);
+          return;
+      }
+      if (result.content) {
+          alert(`Contenido del Albarán (IA):\n\n${result.content}\n\nAbriendo PDF de ejemplo...`);
+          window.open(result.url, '_blank');
       }
     } catch (e) {
       alert(`Error al generar la hoja de pedido.`);
@@ -352,7 +355,7 @@ export default function LogisticsPage() {
   type RowAction = { id: string; label: string; icon: React.ReactNode; onClick: () => void; available: boolean; pendingReason?: string };
   const buildRowActions = (shipment: Shipment): RowAction[] => {
     const actions: RowAction[] = [
-      { id: "packing_slip", label: "Imprimir hoja de pedido", icon: <Printer className="w-4 h-4"/>, onClick: () => handleGeneratePackingSlip(shipment.id), available: true },
+      { id: "packing_slip", label: "Imprimir hoja de pedido (IA)", icon: <Printer className="w-4 h-4"/>, onClick: () => handleGeneratePackingSlip(shipment.id), available: true },
       { id: "validate", label: "Validar (lotes + visual)", icon: <BadgeCheck className="w-4 h-4"/>, onClick: () => openValidateFor(shipment), available: true },
       { id: "delivery", label: "Generar albarán", icon: <FileText className="w-4 h-4"/>, onClick: () => generateDeliveryNote(shipment), available: canGenerateDeliveryNote(shipment), pendingReason: "Requiere Visual OK" },
       { id: "label", label: "Generar etiqueta", icon: <Truck className="w-4 h-4"/>, onClick: () => generateLabel(shipment), available: canGenerateLabel(shipment), pendingReason: "Requiere Albarán + Servicio" },
@@ -408,14 +411,14 @@ export default function LogisticsPage() {
           <table className="w-full text-sm">
             <thead className="bg-zinc-50 text-left text-zinc-600">
               <tr>
-                <th className="p-3 w-10"><input type="checkbox" onChange={e => setSelected(e.target.checked ? filtered.map(s=>s.id): [])} /></th>
-                <th className="p-3">ID</th>
-                <th className="p-3">Fecha</th>
-                <th className="p-3">Canal</th>
-                <th className="p-3">Cliente</th>
-                <th className="p-3">Artículos</th>
-                <th className="p-3">Estado</th>
-                <th className="p-3 w-16 text-right">Acciones</th>
+                <th className="p-3 w-10"><Checkbox onCheckedChange={(checked: boolean) => setSelected(checked ? filtered.map(s => s.id) : [])}/></th>
+                <th className="p-3 w-32 font-semibold">ID Envío</th>
+                <th className="p-3 font-semibold">Fecha</th>
+                <th className="p-3 font-semibold">Canal</th>
+                <th className="p-3 font-semibold">Cliente</th>
+                <th className="p-3 font-semibold">Artículos</th>
+                <th className="p-3 font-semibold">Estado</th>
+                <th className="p-3 w-16 text-right font-semibold">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
@@ -427,7 +430,7 @@ export default function LogisticsPage() {
                 
                 return (
                   <tr key={shipment.id} className="hover:bg-zinc-50">
-                    <td className="p-3"><input type="checkbox" checked={selected.includes(shipment.id)} onChange={e => setSelected(p => e.target.checked ? [...p, shipment.id] : p.filter(id => id !== shipment.id))} /></td>
+                    <td className="p-3"><Checkbox checked={selected.includes(shipment.id)} onCheckedChange={(checked: boolean) => setSelected(p => checked ? [...p, shipment.id] : p.filter(id => id !== shipment.id))} /></td>
                     <td className="p-3 font-medium font-mono">{shipment.id.substring(0,8)}...</td>
                     <td className="p-3">{new Date(shipment.createdAt).toLocaleDateString('es-ES')}</td>
                     <td className="p-3"><span className={`inline-flex items-center px-2 py-0.5 rounded-md border text-xs ${channelInfo.className}`}>{channelInfo.label}</span></td>
