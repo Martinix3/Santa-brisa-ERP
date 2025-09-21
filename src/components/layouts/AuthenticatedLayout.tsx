@@ -1,5 +1,3 @@
-
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -43,6 +41,7 @@ import {
     ChevronUp,
     Sheet,
     Star,
+    BadgeCheck,
 } from 'lucide-react';
 import { SB_COLORS } from '@/domain/ssot';
 import { hexToRgba } from '@/components/ui/ui-primitives';
@@ -125,6 +124,7 @@ const navSections = [
             { href: '/admin/kpi-settings', label: 'Ajustes de KPIs', icon: SlidersHorizontal },
             { href: '/users', label: 'Usuarios', icon: User },
             { href: '/admin/sku-management', label: 'SKUs', icon: Tags },
+            { href: '/admin/schema-audit', label: 'Schema Audit', icon: BadgeCheck },
             { href: '/tools/ssot-accounts-editor', label: 'Editor de Datos', icon: Sheet },
             { href: '/dev/db-console', label: 'Consola DB', icon: DatabaseZap },
             { href: '/dev/ssot-tests', label: 'Tests de Integridad', icon: TestTube2 },
