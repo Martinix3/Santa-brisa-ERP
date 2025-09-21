@@ -5,12 +5,13 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useParams, useRouter, notFound } from 'next/navigation';
 import { useData } from '@/lib/dataprovider';
-import type { SantaData, Interaction as InteractionType, OrderSellOut, User as UserType, Party, InteractionKind, Account, CustomerData, PartyRole, Activation, Promotion, AccountRollup, AccountType } from '@/domain';
+import type { SantaData, Interaction as InteractionType, OrderSellOut, User as UserType, Party, InteractionKind, Account, CustomerData, PartyRole, Activation, Promotion, AccountRollup, AccountType, PosTactic, PosCostCatalogEntry, PlvMaterial } from '@/domain';
 import { computeAccountKPIs, accountOwnerDisplay, orderTotal, getDistributorForAccount, computeAccountRollup } from '@/lib/sb-core';
 import { ArrowUpRight, ArrowDownRight, Phone, Mail, MapPin, User, Factory, Boxes, Megaphone, Briefcase, Banknote, Calendar, FileText, ShoppingCart, Star, Building2, CreditCard, ChevronRight, ChevronLeft, MessageSquare, Sparkles, Tag, Clock, Edit, Plus } from "lucide-react";
 import Link from 'next/link';
 import { enrichAccount } from '@/ai/flows/enrich-account-flow';
 import { NewPosTacticDialog } from '@/features/marketing/components/NewPosTacticDialog';
+import { usePosTacticsService } from '@/features/marketing/services/posTactics.service';
 
 import { SBFlowModal } from '@/features/quicklog/components/SBFlows';
 import { SBButton, SBCard } from '@/components/ui/ui-primitives';
@@ -85,6 +86,7 @@ export function AccountDetailPageContent(){
   const accountId = params.accountId as string;
 
   const { data: santaData, setData, saveCollection, saveAllCollections, currentUser } = useData();
+  const { upsertPosTactic, catalog, plv } = usePosTacticsService();
   const [isEnriching, setIsEnriching] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isNewTacticOpen, setIsNewTacticOpen] = useState(false);
@@ -183,19 +185,14 @@ export function AccountDetailPageContent(){
     setIsEditing(false);
   };
   
-    const handleSaveTactic = async (tacticData: Omit<Interaction, 'id'|'createdAt'|'status'|'userId'>) => {
-        if (!currentUser || !santaData) return;
-        
-        const newInteraction: Interaction = {
-            id: `int_${Date.now()}`,
-            userId: currentUser.id,
-            createdAt: new Date().toISOString(),
-            status: 'open',
-            ...tacticData,
-        };
-        
-        await saveCollection('interactions', [...santaData.interactions, newInteraction]);
-        setIsNewTacticOpen(false);
+    const handleSaveTactic = async (tacticData: Omit<PosTactic, 'id' | 'createdAt' | 'createdById'>) => {
+        try {
+            await upsertPosTactic(tacticData);
+            setIsNewTacticOpen(false);
+        } catch (e) {
+            console.error(e);
+            alert((e as Error).message);
+        }
     };
 
   const getDaysSinceLastOrderColor = (days?: number): 'green' | 'amber' | 'red' => {
@@ -320,10 +317,8 @@ export function AccountDetailPageContent(){
             {rollup && (
                 <SBCard title="Estado de Marketing">
                     <div className="p-4 space-y-2 relative">
-                        <RollupBadge label="PLV Instalado" value={rollup.hasPLVInstalled ? "Sí" : "No"} color={rollup.hasPLVInstalled ? "green" : "zinc"} date={rollup.lastPLVInstalledAt} />
                         <RollupBadge label="Activaciones Activas" value={rollup.activeActivations} color={rollup.activeActivations > 0 ? "blue" : "zinc"} date={rollup.lastActivationAt}/>
                         <RollupBadge label="Promociones Activas" value={rollup.activePromotions} color={rollup.activePromotions > 0 ? "amber" : "zinc"} />
-                        <RollupBadge label="Tácticas POS Activas" value={rollup.activePosTactics} color={rollup.activePosTactics > 0 ? "green" : "zinc"} date={rollup.lastTacticAt}/>
                         
                         <SBButton 
                           size="sm"
@@ -362,12 +357,15 @@ export function AccountDetailPageContent(){
             />
         )}
         
-        {isNewTacticOpen && (
+        {isNewTacticOpen && santaData && (
             <NewPosTacticDialog
                 open={isNewTacticOpen}
                 onClose={() => setIsNewTacticOpen(false)}
                 onSave={handleSaveTactic}
-                accountId={accountId}
+                tacticBeingEdited={null}
+                accounts={[account]}
+                costCatalog={catalog}
+                plvInventory={plv}
             />
         )}
     </div>

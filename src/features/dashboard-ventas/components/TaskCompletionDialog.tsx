@@ -3,9 +3,11 @@
 "use client";
 import React, { useMemo, useState, useEffect } from 'react';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
-import type { Interaction, InteractionKind, Payload } from '@/domain/ssot';
-import { ShoppingCart, MessageSquare, Plus, X, Euro, Users, Target, BarChart3, Heart } from 'lucide-react';
+import type { Interaction, InteractionKind, Payload, PosTactic } from '@/domain/ssot';
+import { ShoppingCart, MessageSquare, Plus, X, Euro, Users, Target, BarChart3, Heart, Star } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
+import { usePosTacticsService } from '@/features/marketing/services/posTactics.service';
+import { NewPosTacticDialog } from '@/features/marketing/components/NewPosTacticDialog';
 
 export function TaskCompletionDialog({
   task,
@@ -19,6 +21,8 @@ export function TaskCompletionDialog({
   onComplete: (taskId: string, payload: Payload) => void;
 }) {
   const { data } = useData();
+  const { upsertPosTactic, catalog, plv } = usePosTacticsService();
+
   const productOptions = useMemo(
     () => (data?.products || []).filter((p) => p.active && p.sku),
     [data?.products]
@@ -37,6 +41,8 @@ export function TaskCompletionDialog({
 
   const [eventKpis, setEventKpis] = useState({ cost: 0, attendees: 0, leads: 0 });
   const [interactionKind, setInteractionKind] = useState<InteractionKind>(task.kind);
+
+  const [isNewTacticOpen, setIsNewTacticOpen] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -92,6 +98,16 @@ export function TaskCompletionDialog({
       onComplete(task.id, payload);
     }
   };
+  
+  const handleSaveTactic = async (tacticData: Omit<PosTactic, 'id' | 'createdAt' | 'createdById'>) => {
+      try {
+        await upsertPosTactic({ ...tacticData, interactionId: task.id, accountId: task.accountId! });
+        setIsNewTacticOpen(false);
+      } catch(e) {
+          console.error(e);
+          alert((e as Error).message);
+      }
+  };
 
   const renderContentForKind = () => {
       // Allow kind selection if the initial kind is 'OTRO' (e.g., from quick add)
@@ -110,13 +126,10 @@ export function TaskCompletionDialog({
                           <input id="next-action-date" type="datetime-local" value={nextActionDate} onChange={(e) => setNextActionDate(e.target.value)} className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" />
                       </div>
                       <div className="pt-2">
-                        <label className="flex items-center gap-2">
-                            <input type="checkbox" checked={plvInstalled} onChange={e => setPlvInstalled(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-yellow-600 focus:ring-yellow-500"/>
-                            <span className="text-sm font-medium text-zinc-700">Se instaló/entregó PLV</span>
-                        </label>
-                        {plvInstalled && (
-                             <textarea value={plvNotes} onChange={e => setPlvNotes(e.target.value)} placeholder="Detalles del PLV (ej: 2 vasos, 1 posavasos)" className="mt-2 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" rows={2}/>
-                        )}
+                        <button type="button" onClick={() => setIsNewTacticOpen(true)} className="w-full text-sm flex items-center justify-center gap-2 p-2 rounded-lg border border-dashed hover:bg-yellow-50">
+                            <Star size={16} className="text-yellow-500" />
+                            Añadir Táctica POS
+                        </button>
                       </div>
                   </div>
               );
@@ -195,16 +208,30 @@ export function TaskCompletionDialog({
   }
 
   return (
-    <SBDialog open={open} onOpenChange={onClose}>
-      <SBDialogContent
-        title={`Resultado de: ${task.note}`}
-        description="Registra qué ha pasado. Esto completará la tarea."
-        onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}
-        primaryAction={{ label: 'Guardar y Completar', type: 'submit' }}
-        secondaryAction={{ label: 'Cancelar', onClick: onClose }}
-      >
-        {renderContentForKind()}
-      </SBDialogContent>
-    </SBDialog>
+    <>
+      <SBDialog open={open} onOpenChange={onClose}>
+        <SBDialogContent
+          title={`Resultado de: ${task.note}`}
+          description="Registra qué ha pasado. Esto completará la tarea."
+          onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}
+          primaryAction={{ label: 'Guardar y Completar', type: 'submit' }}
+          secondaryAction={{ label: 'Cancelar', onClick: onClose }}
+        >
+          {renderContentForKind()}
+        </SBDialogContent>
+      </SBDialog>
+      
+      {isNewTacticOpen && data && task.accountId && (
+          <NewPosTacticDialog
+              open={isNewTacticOpen}
+              onClose={() => setIsNewTacticOpen(false)}
+              onSave={handleSaveTactic}
+              tacticBeingEdited={null}
+              accounts={data.accounts}
+              costCatalog={catalog}
+              plvInventory={plv}
+          />
+      )}
+    </>
   );
 }

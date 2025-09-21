@@ -2,13 +2,15 @@
 "use client";
 import React, { useMemo, useState } from 'react';
 import { useData } from '@/lib/dataprovider';
-import type { MarketingEvent, Interaction, InteractionKind } from '@/domain/ssot';
+import type { MarketingEvent, Interaction, InteractionKind, Account, PosTactic } from '@/domain/ssot';
 import { SBCard, SBButton, DataTableSB, KPI } from '@/components/ui/ui-primitives';
 import type { Col } from '@/components/ui/ui-primitives';
 import { NewEventDialog } from '@/features/agenda/components/NewEventDialog';
 import { MarketingTaskCompletionDialog } from '@/features/marketing/components/MarketingTaskCompletionDialog';
 import { SB_COLORS } from '@/domain/ssot';
-import { Calendar, AlertCircle, Clock, Megaphone, Target, Euro } from 'lucide-react';
+import { Calendar, AlertCircle, Clock, Megaphone, Target, Euro, Plus } from 'lucide-react';
+import { NewPosTacticDialog } from '@/features/marketing/components/NewPosTacticDialog';
+import { usePosTacticsService } from '@/features/marketing/services/posTactics.service';
 
 function StatusPill({ status }: { status: MarketingEvent['status'] }) {
     const styles = {
@@ -29,8 +31,11 @@ const formatCurrency = (num?: number) => num?.toLocaleString('es-ES', { style: '
 
 export default function Page(){
   const { data: santaData, setData, currentUser, isPersistenceEnabled, saveCollection } = useData();
+  const { upsertPosTactic, catalog, plv } = usePosTacticsService();
   const [isNewEventDialogOpen, setIsNewEventDialogOpen] = useState(false);
   const [completingEvent, setCompletingEvent] = useState<MarketingEvent | null>(null);
+  const [isNewTacticOpen, setIsNewTacticOpen] = useState(false);
+  const [tacticEventContext, setTacticEventContext] = useState<{ eventId: string; accountId?: string; } | null>(null);
 
   const events = useMemo(() => santaData?.marketingEvents || [], [santaData]);
 
@@ -116,6 +121,23 @@ export default function Page(){
 
     setCompletingEvent(null);
   };
+  
+  const openTacticDialog = (event: MarketingEvent) => {
+      setTacticEventContext({ eventId: event.id, accountId: event.accountId });
+      setIsNewTacticOpen(true);
+  }
+
+  const handleSaveTactic = async (tacticData: Omit<PosTactic, 'id' | 'createdAt' | 'createdById'>) => {
+      if (!tacticEventContext) return;
+      try {
+        await upsertPosTactic({ ...tacticData, ...tacticEventContext });
+        setIsNewTacticOpen(false);
+        setTacticEventContext(null);
+      } catch(e) {
+          console.error(e);
+          alert((e as Error).message);
+      }
+  };
 
   const cols: Col<MarketingEvent>[] = [
     { key: 'title', header: 'Evento', render: r => <div className="font-semibold">{r.title}</div> },
@@ -129,10 +151,12 @@ export default function Page(){
         key: 'actions', 
         header: 'Acciones', 
         render: r => {
+            const actions = [];
             if (r.status === 'planned' || r.status === 'active') {
-                return <SBButton variant="secondary" size="sm" onClick={() => setCompletingEvent(r)}>Registrar Resultados</SBButton>
+                actions.push(<SBButton key="complete" variant="secondary" size="sm" onClick={() => setCompletingEvent(r)}>Registrar Resultados</SBButton>);
             }
-            return null;
+            actions.push(<SBButton key="tactic" variant="subtle" size="sm" onClick={() => openTacticDialog(r)}><Plus size={12}/> Táctica</SBButton>);
+            return <div className="flex gap-2">{actions}</div>;
         }
     }
   ];
@@ -175,6 +199,18 @@ export default function Page(){
             open={!!completingEvent}
             onClose={() => setCompletingEvent(null)}
             onComplete={handleSaveCompletedTask}
+        />
+    )}
+    
+    {isNewTacticOpen && santaData && (
+        <NewPosTacticDialog
+            open={isNewTacticOpen}
+            onClose={() => setIsNewTacticOpen(false)}
+            onSave={handleSaveTactic}
+            tacticBeingEdited={null}
+            accounts={santaData.accounts}
+            costCatalog={catalog}
+            plvInventory={plv}
         />
     )}
     </>
