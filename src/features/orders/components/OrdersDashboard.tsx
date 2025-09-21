@@ -70,7 +70,7 @@ const statusOptions: { value: OrderStatus; label: string }[] = [
     { value: 'lost', label: 'Perdido' },
 ];
 
-function StatusSelector({ order, account, party, onStatusChange }: { order: OrderSellOut; account: Account; party: Party; onStatusChange: (order: OrderSellOut, account: Account, party: Party, newStatus: OrderStatus) => Promise<void>; }) {
+function StatusSelector({ orderId, currentStatus, onStatusChange }: { orderId: string; currentStatus: OrderStatus; onStatusChange: (orderId: string, newStatus: OrderStatus) => Promise<void>; }) {
     const [isPending, startTransition] = useTransition();
 
     const statusMap: Record<OrderStatus, { label: string; className: string }> = {
@@ -83,19 +83,19 @@ function StatusSelector({ order, account, party, onStatusChange }: { order: Orde
         lost: { label: 'Perdido', className: 'bg-neutral-200 text-neutral-600' },
     };
 
-    const style = statusMap[order.status] || statusMap.open;
+    const style = statusMap[currentStatus] || statusMap.open;
 
     const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const newStatus = e.target.value as OrderStatus;
         startTransition(async () => {
-            await onStatusChange(order, account, party, newStatus);
+            await onStatusChange(orderId, newStatus);
         });
     };
 
     return (
         <div className="relative flex items-center gap-2">
             <select
-                value={order.status}
+                value={currentStatus}
                 onChange={handleChange}
                 disabled={isPending}
                 className={`appearance-none px-2.5 py-1 text-xs font-semibold rounded-full outline-none focus:ring-2 ring-offset-1 ring-blue-400 transition-colors ${style.className}`}
@@ -300,8 +300,8 @@ export default function OrdersDashboard() {
     setIsCreateOrderOpen(false);
   }
   
-  const handleStatusChange = async (order: OrderSellOut, account: Account, party: Party, newStatus: OrderStatus) => {
-    const res = await updateOrderStatus(order, account, party, newStatus);
+  const handleStatusChange = async (orderId: string, newStatus: OrderStatus) => {
+    const res = await updateOrderStatus(orderId, newStatus);
     if (res.ok) {
         setData(prevData => {
             if (!prevData) return null;
@@ -384,10 +384,9 @@ export default function OrdersDashboard() {
               {filteredOrderIds.map((id) => {
                   const order = ordersSellOut.find(o => o.id === id);
                   const account = accounts.find(a => a.id === order?.accountId);
-                  const party = parties.find(p => p.id === account?.partyId);
                   const owner = users.find(u => u.id === account?.ownerId);
 
-                  if (!order || !account || !party) return null;
+                  if (!order || !account) return null;
 
                   return (
                       <tr key={order.id} className="hover:bg-zinc-50">
@@ -416,7 +415,7 @@ export default function OrdersDashboard() {
                           {orderTotal(order as OrderSellOut).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
                         </td>
                         <td className="p-3">
-                          <StatusSelector order={order} account={account} party={party} onStatusChange={handleStatusChange} />
+                          <StatusSelector orderId={order.id} currentStatus={order.status} onStatusChange={handleStatusChange} />
                         </td>
                       </tr>
                     );
