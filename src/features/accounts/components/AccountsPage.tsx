@@ -24,7 +24,7 @@ function GroupBar({ stage, count, expanded, onToggle }: { stage: keyof typeof ST
     const s = STAGE[stage];
     if (!s) return null;
     return (
-        <div
+        <button
             onClick={onToggle}
             className="w-full flex items-center justify-between px-3 py-2 rounded-t-lg transition-colors cursor-pointer"
             style={{ backgroundColor: s.tint, color: s.text }}
@@ -38,7 +38,7 @@ function GroupBar({ stage, count, expanded, onToggle }: { stage: keyof typeof ST
                 className="h-5 w-5 transition-transform duration-300"
                 style={{ transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
             />
-        </div>
+        </button>
     );
 }
 
@@ -90,7 +90,7 @@ function AccountBar({ a, party, santaData, onAddActivity }: { a: AccountType, pa
 
   return (
     <div className="overflow-hidden transition-all duration-200 hover:bg-black/5 rounded-lg border border-zinc-200/50">
-      <div className="flex w-full items-center cursor-pointer" onClick={()=>setOpen(v=>!v)}>
+      <div className="w-full flex items-center cursor-pointer" onClick={()=>setOpen(v=>!v)}>
           <button onClick={(e)=>{ e.stopPropagation(); setOpen(v=>!v); }} className="p-1.5 rounded-md text-zinc-600 hover:bg-zinc-100/20 ml-4" title={open ? 'Cerrar detalle' : 'Ver detalle'}>
             <ChevronDown className="h-4 w-4 transition-transform duration-300" style={{transform: open? 'rotate(180deg)':'rotate(0deg)'}}/>
           </button>
@@ -388,7 +388,7 @@ export function AccountsPageContent() {
             }}
             open={!!completingTaskForAccount}
             onClose={() => setCompletingTaskForAccount(null)}
-            onComplete={(taskId, payload) => handleSaveCompletedTask(completingTaskForAccount.id, payload)}
+            onComplete={(taskId, payload) => handleSaveCompletedTask(completingTaskForAccount.id, payload as Payload)}
         />
       )}
     </>

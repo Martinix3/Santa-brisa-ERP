@@ -1,4 +1,5 @@
 
+
 "use client";
 import React, { useMemo, useState, useEffect, useRef } from "react";
 import { BarChart3, Target, Users, Briefcase, BrainCircuit, UserPlus, MoreHorizontal, Check, AlertCircle, Clock, PieChart as PieChartIcon, X } from "lucide-react";
@@ -102,7 +103,7 @@ function CommercialsRace({
 
     // Periodo de la carrera (anual por defecto). Si quieres que siga Semana/Mes/Año, pásale start/end por props.
     const startOfYear = new Date(new Date().getFullYear(), 0, 1);
-    const targetsByRep: Record<string, { newAccountsTarget?: number }> = (data.salesTargets as any)?.byRep ?? {};
+    const targetsByRep: Record<string, { newAccountsTarget?: number }> = (data as any).salesTargets?.byRep ?? {};
 
     return users.map(user => {
       const userAccounts = data.accounts.filter((a: Account) => a.ownerId === user.id);

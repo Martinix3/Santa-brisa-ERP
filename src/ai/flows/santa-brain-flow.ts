@@ -1,4 +1,5 @@
 
+
 'use server';
 /**
  * @fileoverview Santa Brisa main conversational agent
@@ -163,7 +164,7 @@ const santaBrainFlow = ai.defineFlow(
 
     const newEntities: Partial<SantaData> = {};
     const finalAnswer = llmResponse.text ?? '';
-    const toolCalls = llmResponse.candidates[0]?.toolCalls;
+    const toolCalls = llmResponse.toolCalls;
     
     if (toolCalls) {
       for (const toolCall of toolCalls) {

@@ -2,7 +2,7 @@
 // src/features/production/ssot-bridge.ts
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebaseClient";
-import type { BillOfMaterial, Material, ProductionOrder, Lot, InfluencerCollab, EventMarketing, OnlineCampaign } from '@/domain';
+import type { BillOfMaterial, Material, ProductionOrder, Lot, InfluencerCollab, MarketingEvent, OnlineCampaign } from '@/domain';
 
 async function listCollection<T>(name: string): Promise<T[]> {
   const querySnapshot = await getDocs(collection(db, name));
@@ -54,8 +54,8 @@ export async function deleteRecipe(id: string): Promise<void> {
 }
 
 // Marketing functions that were in duplicated files
-export async function listEvents(): Promise<EventMarketing[]> {
-  return listCollection<EventMarketing>('mktEvents');
+export async function listEvents(): Promise<MarketingEvent[]> {
+  return listCollection<MarketingEvent>('marketingEvents');
 }
 
 export async function listOnlineCampaigns(): Promise<OnlineCampaign[]> {

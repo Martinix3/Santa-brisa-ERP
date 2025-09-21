@@ -59,9 +59,10 @@ export function MarketingTaskCompletionDialog({
     }
   }, [open, event, isOnlineCampaign]);
 
-  const handleInputChange = (field: keyof CompleteResultsPayload, value: string | number) => {
-    setResults(prev => ({ ...prev, [field]: value }));
-    setTouched(prev => ({ ...prev, [field]: true }));
+  const handleInputChange = (field: keyof CompleteResultsPayload, value: string) => {
+    const numValue = value === '' ? undefined : Number(value);
+    setResults(prev => ({ ...prev, [field]: numValue }));
+    setTouched(prev => ({...prev, [field]: true}));
   };
 
   const handleSubmit = () => {
@@ -70,19 +71,23 @@ export function MarketingTaskCompletionDialog({
         : ['spend', 'leads', 'sampling', 'impressions', 'interactions'];
     
     for (const field of requiredFields) {
-      if (results[field as keyof CompleteResultsPayload] === undefined || (results[field as keyof CompleteResultsPayload] || -1) < 0) {
-        alert(`El campo '${field}' es obligatorio y no puede ser negativo.`);
-        return;
-      }
+        const value = results[field as keyof CompleteResultsPayload];
+        if (value === undefined || value < 0) {
+            alert(`El campo '${field}' es obligatorio y no puede ser negativo.`);
+            return;
+        }
     }
     onComplete(event.id, results);
   };
   
   const canSubmit = useMemo(() => {
-      const requiredFields = isOnlineCampaign
+      const requiredFields: (keyof CompleteResultsPayload)[] = isOnlineCampaign
         ? ['spend', 'impressions', 'clicks', 'roas']
         : ['spend', 'leads', 'sampling', 'impressions', 'interactions'];
-      return requiredFields.every(field => results[field as keyof typeof results] !== undefined && (results[field as keyof typeof results] || 0) >= 0);
+      return requiredFields.every(field => {
+          const value = results[field];
+          return value !== undefined && value >= 0;
+      });
   }, [results, isOnlineCampaign]);
 
   const eventKpiFields: { key: keyof CompleteResultsPayload, label: string, icon: React.ElementType }[] = [
@@ -122,9 +127,9 @@ export function MarketingTaskCompletionDialog({
                   type="number"
                   step={key === 'roas' ? '0.01' : '1'}
                   value={results[key] ?? ''}
-                  onChange={(e) => handleInputChange(key, e.target.value === '' ? '' : Number(e.target.value))}
+                  onChange={(e) => handleInputChange(key, e.target.value)}
                   onBlur={() => setTouched(prev => ({...prev, [key]: true}))}
-                  className={`h-10 w-full rounded-md border bg-white px-3 py-2 text-sm ${touched[key] && (results[key] === undefined || (results[key] || -1) < 0) ? 'border-red-500' : 'border-zinc-200'}`}
+                  className={`h-10 w-full rounded-md border bg-white px-3 py-2 text-sm ${touched[key] && (results[key] === undefined || Number(results[key]) < 0) ? 'border-red-500' : 'border-zinc-200'}`}
                   min="0"
                 />
               </label>

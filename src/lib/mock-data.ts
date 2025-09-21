@@ -116,9 +116,9 @@ export const INITIAL_MOCK_DATA: SantaData = {
     { id: 'po_3', sku: 'SB-750', bomId: 'bom_sb750', targetQuantity: 300, status: 'planned', createdAt: '2023-05-19T14:00:00Z' },
   ],
   qaChecks: [],
-  events: [
-    { id: 'me_1', title: 'Feria de Coctelería de Madrid', accountId: undefined, status: 'closed', startAt: '2023-03-15T10:00:00Z', city: 'Madrid', spend: 5000 },
-    { id: 'me_2', title: 'Activación en Terraza Sol', accountId: 'acc_1', status: 'planned', startAt: '2024-07-20T18:00:00Z', city: 'Barcelona' }
+  marketingEvents: [
+    { id: 'me_1', title: 'Feria de Coctelería de Madrid', kind: 'FERIA', accountId: undefined, status: 'closed', startAt: '2023-03-15T10:00:00Z', city: 'Madrid', spend: 5000, createdAt: '2023-03-01T00:00:00Z', updatedAt: '2023-03-20T00:00:00Z' },
+    { id: 'me_2', title: 'Activación en Terraza Sol', kind: 'DEMO', accountId: 'acc_1', status: 'planned', startAt: '2024-07-20T18:00:00Z', city: 'Barcelona', createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z' }
   ],
   onlineCampaigns: [
     { id: 'oc_1', title: 'Campaña Verano 2023', channel: 'IG', status: 'closed', startAt: '2023-06-01T00:00:00Z', endAt: '2023-08-31T23:59:59Z', budget: 10000, spend: 9850, metrics: { impressions: 1500000, clicks: 7500, roas: 3.5 } }

@@ -3,7 +3,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Send, User, Bot, Loader, CheckCircle, AlertTriangle } from 'lucide-react';
-import type { Account, Product, SantaData, OrderSellOut, Interaction, InventoryItem, EventMarketing, User as UserType, Party } from '@/domain/ssot';
+import type { Account, Product, SantaData, OrderSellOut, Interaction, InventoryItem, MarketingEvent, User as UserType, Party } from '@/domain/ssot';
 import type { Message } from 'genkit';
 import { runSantaBrain } from '@/ai/flows/santa-brain-flow';
 import { useData } from '@/lib/dataprovider';
