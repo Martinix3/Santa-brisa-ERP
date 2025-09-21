@@ -7,6 +7,7 @@ import type { Lot, Material } from '@/domain/ssot';
 import { SBCard, SBButton, LotQualityStatusPill } from '@/components/ui/ui-primitives';
 import { ChevronDown, Save, Tags } from 'lucide-react';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
+import { useData } from '@/lib/dataprovider';
 
 const MATERIAL_CATEGORIES: Material['category'][] = ['raw', 'packaging', 'label', 'consumable', 'intermediate', 'finished_good', 'merchandising'];
 
@@ -67,37 +68,41 @@ function SkuRow({ item, onUpdateCategory }: { item: SkuWithLots; onUpdateCategor
 
 
 function SkuManagementPageContent() {
+    const { data: santaData } = useData();
     const [skuData, setSkuData] = useState<SkuWithLots[]>([]);
     const [loading, setLoading] = useState(true);
     const [hasChanges, setHasChanges] = useState(false);
 
-    const fetchData = async () => {
-        setLoading(true);
-        const [materialsRes, lotsRes] = await Promise.all([listMaterials(), listLots()]);
-        
-        const materials = materialsRes || [];
-        const lots = lotsRes || [];
-
-        const lotsBySku = new Map<string, Lot[]>();
-        lots.forEach(lot => {
-            const existing = lotsBySku.get(lot.sku) || [];
-            lotsBySku.set(lot.sku, [...existing, lot]);
-        });
-
-        const enrichedData: SkuWithLots[] = materials.map(mat => ({
-            sku: mat.sku || mat.id,
-            material: mat,
-            lots: lotsBySku.get(mat.sku || mat.id) || []
-        })).sort((a,b) => a.sku.localeCompare(b.sku));
-        
-        setSkuData(enrichedData);
-        setLoading(false);
-        setHasChanges(false);
-    }
-
     useEffect(() => {
+        async function fetchData() {
+            if (!santaData) return;
+            setLoading(true);
+            const [materialsRes, lotsRes] = await Promise.all([
+                listMaterials(santaData.materials || []),
+                listLots(santaData.lots || [])
+            ]);
+            
+            const materials = materialsRes || [];
+            const lots = lotsRes || [];
+    
+            const lotsBySku = new Map<string, Lot[]>();
+            lots.forEach(lot => {
+                const existing = lotsBySku.get(lot.sku) || [];
+                lotsBySku.set(lot.sku, [...existing, lot]);
+            });
+    
+            const enrichedData: SkuWithLots[] = materials.map(mat => ({
+                sku: mat.sku || mat.id,
+                material: mat,
+                lots: lotsBySku.get(mat.sku || mat.id) || []
+            })).sort((a,b) => a.sku.localeCompare(b.sku));
+            
+            setSkuData(enrichedData);
+            setLoading(false);
+            setHasChanges(false);
+        }
         fetchData();
-    }, []);
+    }, [santaData]);
 
     const handleUpdateCategory = (sku: string, newCategory: Material['category']) => {
         setSkuData(prevData =>

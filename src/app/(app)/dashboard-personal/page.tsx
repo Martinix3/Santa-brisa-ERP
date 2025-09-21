@@ -5,7 +5,7 @@ import { BarChart3, Calendar, CheckCircle, Clock, Plus, AlertTriangle } from 'lu
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
 import { SBCard, SBButton } from '@/components/ui/ui-primitives';
 import { useData } from '@/lib/dataprovider';
-import type { Interaction, InteractionStatus, Account, SantaData, OrderSellOut } from '@/domain/ssot';
+import type { Interaction, InteractionStatus, Account, SantaData, OrderSellOut, Payload } from '@/domain/ssot';
 import { SB_COLORS } from '@/domain/ssot';
 import Link from 'next/link';
 import { TaskBoard } from '@/features/agenda/TaskBoard';
@@ -119,7 +119,7 @@ function PersonalDashboardContent() {
   
    const handleSaveCompletedTask = async (
     taskId: string,
-    payload: { type: 'venta', items: { sku: string; qty: number }[] } | { type: 'interaccion', note: string, nextActionDate?: string }
+    payload: Payload
   ) => {
       if (!data || !currentUser) return;
       

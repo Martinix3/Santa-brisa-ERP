@@ -10,7 +10,5 @@ export type {
   Shortage,
   Reservation,
   ActualConsumption,
-  ExecCheck,
-  ProdExecution,
-  ProdCosting
+  ExecCheck
 } from '@/domain/ssot';

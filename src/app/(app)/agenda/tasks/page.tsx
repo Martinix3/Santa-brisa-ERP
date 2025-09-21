@@ -6,7 +6,7 @@ import { useData } from '@/lib/dataprovider';
 import { TaskBoard } from '@/features/agenda/TaskBoard';
 import type { Task } from '@/features/agenda/TaskBoard';
 import { sbAsISO } from '@/features/agenda/helpers';
-import type { Interaction, InteractionStatus, Account, SantaData } from '@/domain/ssot';
+import type { Interaction, InteractionStatus, Account, SantaData, Payload } from '@/domain/ssot';
 import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/TaskCompletionDialog';
 
 
@@ -54,7 +54,7 @@ export default function GlobalTasksPage() {
 
     const handleSaveCompletedTask = async (
         taskId: string,
-        payload: { type: 'venta', items: { sku: string; qty: number }[] } | { type: 'interaccion', note: string, nextActionDate?: string }
+        payload: Payload
     ) => {
         if (!data) return;
         

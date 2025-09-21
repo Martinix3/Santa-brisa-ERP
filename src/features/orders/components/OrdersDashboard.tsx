@@ -155,12 +155,11 @@ export default function OrdersDashboard() {
             owner,
             billerId
         };
-    }).filter(Boolean);
+    }).filter((o): o is NonNullable<typeof o> => !!o);
   }, [ordersSellOut, accounts, users, partyRoles]);
 
 
   const filteredOrders = useMemo(() => {
-    if (!enrichedOrders) return [];
     return enrichedOrders
       .filter((order) => {
         
@@ -217,7 +216,7 @@ export default function OrdersDashboard() {
       
       const newOrder: OrderSellOut = {
           id: `ord_${Date.now()}`,
-          docNumber: generateNextOrder(data.ordersSellOut.map(o=>o.docNumber).filter(Boolean) as string[], payload.channel, new Date()),
+          docNumber: generateNextOrder((data.ordersSellOut || []).map(o=>o.docNumber).filter(Boolean) as string[], payload.channel, new Date()),
           accountId: targetAccount.id,
           lines: payload.items,
           status: 'open',
@@ -227,7 +226,7 @@ export default function OrdersDashboard() {
           source: 'MANUAL'
       };
       
-      const updatedOrders = [...data.ordersSellOut, newOrder];
+      const updatedOrders = [...(data.ordersSellOut || []), newOrder];
       setData({ ...data, ordersSellOut: updatedOrders });
       saveCollection('ordersSellOut', updatedOrders);
       setIsCreateOrderOpen(false);

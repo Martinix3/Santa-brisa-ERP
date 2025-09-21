@@ -7,7 +7,7 @@ import { fmtEur, fmtNum, overlapsMonth } from "../utils/format";
 
 export function CollabKpiCards({ collabs }:{ collabs: InfluencerCollab[] }) {
   const k = useMemo(()=>{
-    const mtd = (collabs||[]).filter(overlapsMonth);
+    const mtd = (collabs||[]).filter(c => overlapsMonth(c));
     const sum = (xs:number[]) => xs.reduce((a,b)=>a+(b||0),0);
     const spend = sum(mtd.map(c => (c.costs?.cashPaid||0)+(c.costs?.productCost||0)+(c.costs?.shippingCost||0)));
     const revenue = sum(mtd.map(c => c.tracking?.revenue || 0));

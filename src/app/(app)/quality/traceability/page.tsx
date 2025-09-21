@@ -254,14 +254,14 @@ export default function TraceabilityTimelinePage() {
   const parents = useMemo(() => (openLot ? backtrace(links, openLot.id).map((id) => lotIndex.get(id)!).filter(Boolean) : []), [links, openLot, lotIndex]);
   const children = useMemo(() => (openLot ? forwardtrace(links, openLot.id).map((id) => lotIndex.get(id)!).filter(Boolean) : []), [links, openLot, lotIndex]);
   const lotTests = useMemo(() => qaChecks.filter((t) => t.lotId === openLot?.id), [qaChecks, openLot?.id]);
-  const lotSales = useMemo(() => sales.filter((s) => s.lines.some((l) => l.lotIds?.includes(openLot?.id || ''))), [sales, openLot?.id]);
+  const lotSales = useMemo(() => sales.filter((s) => s.lines?.some((l) => l.lotIds?.includes(openLot?.id || ''))), [sales, openLot?.id]);
 
 
   const salesByCustomer = useMemo(() => {
     if (!openLot) return [];
     const map = new Map<string, { customerId: string; customerName: string; total: number; docs: SaleDoc[] }>();
     for (const s of lotSales) {
-      const qty = s.lines.filter((l) => l.lotIds?.includes(openLot.id)).reduce((a, b) => a + (b.qty || 0), 0);
+      const qty = (s.lines || []).filter((l) => l.lotIds?.includes(openLot.id)).reduce((a, b) => a + (b.qty || 0), 0);
       const key = s.accountId;
       const account = accountIndex.get(key);
       if (!account) continue;
@@ -563,7 +563,7 @@ function SalesByCustomer({ lot, groups, accountIndex, santaData }: { lot: Lot; g
                         <span className="text-zinc-600"> {user?.name || "—"}</span>
                       </div>
                       <div>
-                        {d.lines.filter((l) => l.lotIds?.includes(lot.id)).reduce((a, b) => a + b.qty, 0)} {d.lines.find((l) => l.lotIds?.includes(lot.id))?.uom || "uds"}
+                        {(d.lines || []).filter((l) => l.lotIds?.includes(lot.id)).reduce((a, b) => a + b.qty, 0)} {(d.lines || []).find((l) => l.lotIds?.includes(lot.id))?.uom || "uds"}
                       </div>
                     </div>
                   );
