@@ -3,7 +3,7 @@
 'use server';
 import { revalidatePath } from 'next/cache';
 import { getServerData, upsertMany } from '@/lib/dataprovider/server';
-import type { OrderStatus, Shipment } from '@/domain';
+import type { OrderStatus, Shipment, SantaData } from '@/domain';
 
 export async function updateOrderStatus(orderId: string, next: OrderStatus){
   // En un caso real, aquí podrías añadir validaciones o lógica de negocio
@@ -42,8 +42,11 @@ export async function updateOrderStatus(orderId: string, next: OrderStatus){
               country: mainAddress?.country,
               notes: order.notes,
           };
+          
           // Ahora hacemos una segunda llamada para guardar el nuevo envío.
           await upsertMany('shipments', [newShipment]);
+      } else {
+        console.error(`[updateOrderStatus] No se pudo crear el envío para el pedido ${orderId}. Faltan datos:`, { hasOrder: !!order, hasAccount: !!account, hasParty: !!party });
       }
   }
   

@@ -118,7 +118,7 @@ function AccountPicker({
 
   async function createInline(){
     const name = newName || q.trim(); if(!name) return alert("Pon un nombre");
-    let created: Account = { id: "ACC_"+Math.random().toString(36).slice(2,9), name, type:newType, stage: 'POTENCIAL', ownerId: '', partyId: '', createdAt: new Date().toISOString() };
+    let created: Account = { id: "acc_"+Date.now(), name, type:newType, stage: 'POTENCIAL', ownerId: '', partyId: '', createdAt: new Date().toISOString() };
     if(onCreateAccount){ created = await onCreateAccount({name, city:newCity, type:newType}); }
     setMode("search"); setQ(created.name); onChange(created.name); setOpen(false);
   }
@@ -530,3 +530,4 @@ export function SBFlowModal({
     </BaseModal>
   );
 }
+
