@@ -4,8 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { listEvents, listActivations, listOnlineCampaigns } from '@/app/marketing/_components/ssot-bridge';
-import type { EventMarketing, Activation, OnlineCampaign } from '@/domain/ssot';
+import type { EventMarketing, Activation, OnlineCampaign } from '@/domain';
 import { SBCard, SBButton, KPI, DataTableSB, Col, SB_COLORS } from '@/components/ui/ui-primitives';
 import { Megaphone, Calendar, Zap, Wifi, Target, BarChart, CheckCircle, PlayCircle, PauseCircle } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';

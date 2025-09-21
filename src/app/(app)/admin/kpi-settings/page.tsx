@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import type { User } from '@/domain/ssot';
+import type { User } from '@/domain';
 import { useData } from '@/lib/dataprovider';
 import { SBCard, SBButton, Input } from '@/components/ui/ui-primitives';
 import { Save, SlidersHorizontal } from 'lucide-react';

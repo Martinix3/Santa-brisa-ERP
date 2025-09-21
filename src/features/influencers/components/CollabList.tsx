@@ -2,10 +2,10 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { listCollabs } from '../ssot-bridge';
-import type { InfluencerCollab } from '@/domain/ssot';
+import type { InfluencerCollab } from '@/domain';
 import { SBCard, SBButton } from '@/components/ui/ui-primitives';
 import { Plus, Search, User, Instagram, Sparkles, Mail, Phone, MapPin } from 'lucide-react';
+import { listCollabs } from '@/features/production/ssot-bridge';
 
 type InfStatus = InfluencerCollab['status'];
 

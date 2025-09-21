@@ -2,8 +2,8 @@
 // --- Santa Brisa: lógica de negocio (sell-out a botellas, agregados y KPIs) ---
 import type {
   Account, Distributor, OrderSellOut, OrderLine, Product, User, SantaData
-} from '@/domain/ssot';
-import { inWindow, orderTotal } from '@/domain/ssot';
+} from '@/domain';
+import { inWindow, orderTotal } from '@/domain';
 
 export type ResolvedAccountMode = 'PROPIA_SB' | 'COLOCACION' | 'DISTRIB_PARTNER';
 

@@ -2,10 +2,10 @@
 "use client";
 import React, { useMemo } from 'react';
 import { useData } from '@/lib/dataprovider';
-import type { Lot, QACheck } from '@/domain/ssot';
+import type { Lot, QACheck } from '@/domain';
 import { SBCard, SB_COLORS } from '@/components/ui/ui-primitives';
 import { Hourglass, CheckCircle, XCircle, FileText } from 'lucide-react';
-import { LotQualityStatusPill } from '@/features/production/components/ui';
+import { LotQualityStatusPill } from '@/components/ui/ui-primitives';
 
 function KPI({ label, value, icon: Icon }: { label: string; value: number; icon: React.ElementType }) {
     return (

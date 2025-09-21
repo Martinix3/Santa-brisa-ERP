@@ -1,3 +1,4 @@
+
 "use client";
 
 // =============================================
@@ -13,7 +14,7 @@ import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Calendar, MapPin, Clock, ListChecks, CheckCircle2, BarChart3, Users, FileText, ShoppingCart, Target, Euro } from "lucide-react";
 import { SBCard, SBButton } from "@/components/ui/ui-primitives";
-import type { EventMarketing } from "@/domain/ssot";
+import type { EventMarketing } from "@/domain";
 
 // ==========================
 // 1) Tipos base y helpers
@@ -66,7 +67,7 @@ async function createEvent(data: Omit<SBEvent, "id" | "status">) {
 async function listMyEvents(organizerId: string) {
   console.log("Listing events for:", organizerId, "Found:", DB.events.length);
   return DB.events
-    .filter((e) => e.organizerId === organizerId)
+    .filter((e) => (e as any).organizerId === organizerId)
     .sort((a, b) => a.startAt.localeCompare(b.startAt));
 }
 
@@ -174,7 +175,7 @@ function SurveyInline({ event, onSubmitted }: { event: SBEvent; onSubmitted: ()=
   async function handleSubmit() {
     await submitSurvey({
       eventId: event.id,
-      organizerId: event.organizerId,
+      organizerId: (event as any).organizerId,
       submittedAt: toISO(new Date()),
       costTotal, attendees, leads, ordersInSitu, orders30d, plvCost, notes,
     });

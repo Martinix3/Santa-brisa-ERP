@@ -8,7 +8,7 @@ import { UploadCloud, Filter, Trash2, Download, Sheet, Save, Database, Plus } fr
 import { SBButton, Input, Select } from '@/components/ui/ui-primitives';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
 import { useData } from '@/lib/dataprovider';
-import { SANTA_DATA_COLLECTIONS, SantaData } from '@/domain/ssot';
+import { SANTA_DATA_COLLECTIONS, SantaData } from '@/domain';
 import AuthenticatedLayout from '@/components/layouts/AuthenticatedLayout';
 
 type CsvRow = Record<string, any>;

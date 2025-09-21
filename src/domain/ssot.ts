@@ -1,8 +1,7 @@
-
 // src/domain/ssot.ts
 
 // =================================================================
-// == SINGLE SOURCE OF TRUTH (SSOT) - TIPOS DE DATOS CANÓNICOS
+// == SINGLE SOURCE OF TRUTH (SSOT) - V5
 // =================================================================
 
 // -----------------------------------------------------------------
@@ -10,19 +9,88 @@
 // -----------------------------------------------------------------
 
 export type Uom = 'bottle' | 'case' | 'pallet' | 'uds' | 'kg' | 'g' | 'L' | 'mL';
-export type Stage = 'POTENCIAL' | 'ACTIVA' | 'SEGUIMIENTO' | 'FALLIDA' | 'CERRADA' | 'BAJA';
-export type Department = 'VENTAS' | 'MARKETING' | 'PRODUCCION' | 'ALMACEN' | 'FINANZAS';
-export type InteractionKind = 'VISITA' | 'LLAMADA' | 'EMAIL' | 'WHATSAPP' | 'OTRO';
-export type InteractionStatus = 'open' | 'done' | 'processing';
-export type OrderStatus = 'open' | 'confirmed' | 'shipped' | 'invoiced' | 'paid' | 'cancelled' | 'lost';
-export type AccountType = 'HORECA' | 'RETAIL' | 'PRIVADA' | 'DISTRIBUIDOR' | 'IMPORTADOR' | 'PROVEEDOR' | 'ONLINE' | 'OTRO';
 export type Currency = 'EUR';
 
+// Departamentos internos
+export type Department = 'VENTAS' | 'MARKETING' | 'PRODUCCION' | 'ALMACEN' | 'FINANZAS' | 'CALIDAD';
+
+// --- Roles y Estados ---
+export type PartyRoleType = 'CUSTOMER' | 'SUPPLIER' | 'DISTRIBUTOR' | 'IMPORTER' | 'INFLUENCER' | 'CREATOR' | 'EMPLOYEE' | 'BRAND_AMBASSADOR';
+export type AccountType = 'HORECA' | 'RETAIL' | 'PRIVADA' | 'ONLINE' | 'OTRO';
+export type Stage = 'POTENCIAL' | 'ACTIVA' | 'SEGUIMIENTO' | 'FALLIDA' | 'CERRADA' | 'BAJA';
+export type UserRole = 'comercial' | 'admin' | 'ops' | 'owner';
+
+// Estados para flujos de trabajo
+export type InteractionStatus = 'open' | 'done' | 'processing';
+export type OrderStatus = 'open' | 'confirmed' | 'shipped' | 'invoiced' | 'paid' | 'cancelled' | 'lost';
+export type ShipmentStatus = 'pending' | 'picking' | 'ready_to_ship' | 'shipped' | 'delivered' | 'cancelled';
+export type ProductionStatus = 'planned' | 'released' | 'wip' | 'done' | 'cancelled';
+export type IncidentKind = 'QC_INBOUND' | 'QC_PROCESS' | 'QC_RELEASE' | 'LOGISTICS' | 'CUSTOMER_RETURN';
+export type IncidentStatus = 'OPEN' | 'UNDER_REVIEW' | 'CONTAINED' | 'CLOSED';
+export type ActivationStatus = 'active' | 'inactive' | 'pending_renewal';
+
+
 // -----------------------------------------------------------------
-// 2. Entidades Principales (Personas y Organizaciones)
+// 2. Entidades Centrales: Party y Roles
 // -----------------------------------------------------------------
 
-export type UserRole = 'comercial' | 'admin' | 'ops' | 'owner';
+// --- CONTACTO UNIFICADO (PARTY) ---
+// Representa a una persona u organización única. Es el maestro de contactos.
+export interface Party {
+  id: string;             // ID interno inmutable (UUID)
+  code?: string;          // Código legible (ej. PTY-000123)
+  kind: 'ORG' | 'PERSON';
+  name: string;
+  taxId?: string; // CIF, NIF, VAT ID. Clave de unicidad.
+
+  // --- Datos de Contacto (Array) ---
+  contacts: {
+    type: 'email' | 'phone' | 'whatsapp' | 'web';
+    value: string; isPrimary?: boolean; description?: string;
+  }[];
+  addresses: { type: 'main' | 'billing' | 'shipping'; street: string; city: string; postalCode?: string; country: string; isPrimary?: boolean; }[];
+  
+  // --- Identidades Digitales ---
+  handles?: Partial<Record<'instagram' | 'tiktok' | 'linkedin' | 'twitter', string>>;
+  
+  // --- Metadatos ---
+  tags?: string[];
+  createdAt: string;
+  holdedContactId?: string; // ID 1:1 con el Contacto en Holded
+}
+
+// --- ROLES DE LA PARTY ---
+// Define la relación de negocio que tenemos con una Party.
+export interface PartyRole {
+    id: string;
+    partyId: string;        // Vínculo a la Party
+    role: PartyRoleType;    // El tipo de relación que es
+    isActive: boolean;
+    data: CustomerData | SupplierData | InfluencerData | EmployeeData; // Datos específicos del rol
+    createdAt: string;
+}
+
+// --- Interfaces para los datos de cada rol ---
+export interface CustomerData {
+    priceListId?: string;
+    paymentTermsDays?: number;
+    salesRepId: string;       // ID del User responsable
+    billerId: string;         // 'SB' o un ID de distribuidor
+}
+export interface SupplierData {
+    paymentTermsDays?: number;
+    bankAccountNumber?: string;
+}
+export interface InfluencerData {
+    tier: 'nano' | 'micro' | 'mid' | 'macro';
+    audienceSize?: number;
+}
+export interface EmployeeData {
+    department: Department;
+    managerId?: string;
+    startDate: string;
+}
+
 export interface User { 
   id: string; 
   name: string; 
@@ -37,272 +105,221 @@ export interface User {
   }
 }
 
+// -----------------------------------------------------------------
+// 3. Entidades de Negocio (CRM y Ventas)
+// -----------------------------------------------------------------
 export interface Account {
   id: string;
-  name: string;
-  city?: string;
-  type: AccountType;
+  code?: string;        // Código legible (ej. ACC-000123)
+  partyId: string;      // Vinculado a una Party
+  name: string;         // Denormalizado de Party para facilidad de uso
+  type: AccountType;    // HORECA, RETAIL...
   stage: Stage;
-  ownerId: string;
-  billerId: string; 
-  
-  address?: string;
-  phone?: string;
-  cif?: string;
-  mainContactName?: string;
-  mainContactPhone?: string;
-  mainContactEmail?: string;
+  subType?: string;      // Ej. "Bar de copas", "Restaurante de autor"
+  ownerId: string;        // ID del User o Distributor responsable de la venta
   createdAt: string;
-  lastInteractionAt?: string;
-  orderCount?: number;
-  subType?: string;
-  tags?: string[];
-  notes?: string;
-  openingHours?: string;
-  deliveryInstructions?: string;
-  paymentTermsDays?: number;
-  paymentMethod?: string;
-  billingEmail?: string;
   updatedAt?: string;
+  lastInteractionAt?: string;
+  notes?: string;
 }
-export type AccountRef = { id:string; name:string; city?:string; type?:AccountType };
 
-export interface Distributor { id: string; name: string; city?: string; cif?: string; country?: string; }
-export interface Supplier { id: string; name: string; country: string; }
+export interface OrderSellOut { 
+  id: string;
+  docNumber?: string;   // Número de pedido legible (ej. ORD-SB-202409-0042)
+  accountId: string;
+  lines: { sku: string; qty: number; uom: 'uds'; priceUnit: number; discount?: number; lotIds?: string[]; }[];
+  status: OrderStatus;
+  createdAt: string;
+  currency: 'EUR';
+  totalAmount?: number;
+  notes?: string;
+  source?: 'SHOPIFY' | 'B2B' | 'Direct' | 'CRM' | 'MANUAL' | 'HOLDED';
+  holdedDocId?: string;
+  holdedDocType?: 'estimate' | 'order' | 'delivery' | 'invoice';
+}
+
+export interface Interaction {
+  id:string;
+  partyId?: string;     // Para registrar llamadas a proveedores, etc.
+  accountId?: string;   // Para interacciones comerciales con clientes
+  userId: string;
+  dept?: Department;    // Ahora incluye 'CALIDAD'
+  kind: 'VISITA' | 'LLAMADA' | 'EMAIL' | 'WHATSAPP' | 'OTRO';
+  note?: string;
+  plannedFor?: string;
+  createdAt: string;
+  status: InteractionStatus;
+  resultNote?: string;
+}
 
 // -----------------------------------------------------------------
-// 3. Productos, Materiales e Inventario
+// 4. Producción, Calidad y Trazabilidad
 // -----------------------------------------------------------------
-
-export interface Product {
-  id: string;
-  sku: string;
-  name: string;
-  kind?: 'FG' | 'RM' | 'MERCH';
-  uom?: Uom;
-  bottleMl?: number;
-  caseUnits?: number;
-  casesPerPallet?: number;
-  active: boolean;      
-  materialId?: string;
-  category?: string;
+export interface Material { 
+  id: string; 
+  sku: string; 
+  name: string; 
+  category: 'raw' | 'packaging' | 'label' | 'consumable' | 'intermediate' | 'finished_good' | 'merchandising'; 
+  uom?: Uom; 
+}
+export interface Product { 
+  id: string; 
+  sku: string; 
+  name: string; 
+  category?: string; 
+  bottleMl?: number; 
+  caseUnits?: number; 
+  casesPerPallet?: number; 
+  active: boolean; 
+  materialId?: string; 
 }
 
-export const MATERIAL_CATEGORIES: Material['category'][] = ['raw', 'packaging', 'label', 'consumable', 'intermediate', 'finished_good', 'merchandising'];
-
-export interface Material {
-  id: string;
-  sku: string;
-  name: string;
-  uom?: Uom;
-  standardCost?: number;
-  category: 'raw' | 'packaging' | 'label' | 'consumable' | 'intermediate' | 'finished_good' | 'merchandising';
+export interface BillOfMaterial { 
+  id: string; 
+  sku: string; 
+  name: string; 
+  items: { materialId: string; quantity: number; unit?: string; }[]; 
+  batchSize: number; 
+  baseUnit?: string; 
 }
 
+export interface ProductionOrder {
+  id: string;
+  orderNumber?: string;
+  sku: string;
+  bomId: string;
+  targetQuantity: number;
+  status: ProductionStatus;
+  createdAt: string;
+  scheduledFor?: string;
+  lotId?: string;
+
+  shortages?: { materialId: string; required: number; available: number; uom: Uom }[];
+  reservations?: { materialId: string; fromLot: string; reservedQty: number; uom: Uom }[];
+  
+  costing?: {
+    stdCostPerUom?: number;
+    actual?: {
+      materials: number;
+      labor?: number;
+      overhead?: number;
+      other?: number;
+      total: number;
+      perUnit?: number;
+      yieldLossPct?: number;
+    };
+    variance?: {
+      materials?: number;
+      labor?: number;
+      overhead?: number;
+      total?: number;
+    };
+    updatedAt?: string;
+  };
+}
+
+export type QCResult = { value?: number | string | boolean; notes?: string; status: 'ok' | 'ko'; };
 export interface Lot {
   id: string;
+  lotCode?: string;      // Código legible (ej. 240915-SB-750-01)
   sku: string;
+  quantity: number;
   createdAt: string;
-  quantity: number; 
+  orderId?: string; // Production Order ID
+  supplierId?: string; // For raw materials
   quality: { qcStatus: 'hold' | 'release' | 'reject', results: Record<string, QCResult> };
-  orderId?: string; // Production order ID
-  supplierId?: string; // For received raw materials
-  kind?: 'RM' | 'SFG' | 'FG';
-  status: LotStatus;
-  qty?: { onHand: number; reserved: number; uom: Uom };
-  dates?: { producedAt?: string; receivedAt?: string; approvedAt?: string; rejectedAt?: string; expDate?: string; };
-  trace?: { parentBatchId?: string };
-  updatedAt?: string;
+  expDate?: string;
+  receivedAt?: string;
 }
 
-export interface InventoryItem {
+export interface Incident {
   id: string;
-  sku: string;
-  lotNumber?: string;
-  uom: Uom;
-  qty: number;
-  locationId: string;
-  updatedAt: string;
-  expDate?: string;
+  kind: IncidentKind;
+  status: IncidentStatus;
+  openedAt: string;
+  closedAt?: string;
+  dept?: Department;       // 'CALIDAD' o 'ALMACEN'
+  partyId?: string;        // proveedor/cliente implicado
+  lotId?: string;
+  goodsReceiptId?: string;
+  shipmentId?: string;
+  orderId?: string;
+  description?: string;
+  photos?: string[];
+  correctiveActions?: { note: string; at: string; byUserId?: string }[];
+  notes?: string;
+}
+
+// -----------------------------------------------------------------
+// 5. Almacén y Logística (Trazabilidad)
+// -----------------------------------------------------------------
+export type StockReason = 'receipt' | 'production_in' | 'production_out' | 'sale' | 'transfer' | 'adjustment' | 'return_in' | 'return_out' | 'ship';
+
+export interface InventoryItem {
+    id: string;
+    sku: string;
+    lotNumber?: string;
+    uom: Uom;
+    qty: number;
+    locationId: string;
+    expDate?: string;
+    updatedAt: string;
 }
 
 export interface StockMove {
   id: string;
   sku: string;
+  lotId?: string;           // OBLIGATORIO si SKU es loteable
   uom: Uom;
-  qty: number;
-  reason: 'receipt' | 'production_in' | 'production_out' | 'sale' | 'transfer' | 'adjustment' | 'return_in' | 'return_out' | 'ship';
+  qty: number;              // + entrada / - salida
   fromLocation?: string;
   toLocation?: string;
-  lotId?: string;
+  reason: StockReason;
   occurredAt: string;
   createdAt: string;
-  ref?: {
-    orderId?: string;
-    shipmentId?: string;
-    prodOrderId?: string;
-    goodsReceiptId?: string;
-  };
+  ref?: { orderId?: string; shipmentId?: string; prodOrderId?: string; goodsReceiptId?: string; };
 }
 
-// -----------------------------------------------------------------
-// 4. Ventas y Logística
-// -----------------------------------------------------------------
-
-export interface OrderLine { 
-  sku: string; 
-  qty: number; 
-  uom: Uom;
-  priceUnit: number;
-  discount?: number;
-  lotIds?: string[];
-  lotNumber?: string;
-  description?: string;
-}
-
-export interface OrderSellOut {
-  id: string; 
-  accountId: string; 
-  source?: 'SHOPIFY' | 'B2B' | 'Direct' | 'CRM' | 'MANUAL' | 'HOLDED';
-  lines: OrderLine[]; 
-  createdAt: string;
-  status: OrderStatus;
-  currency: 'EUR';
-  closedAt?: string;
-  notes?: string;
-  totalAmount?: number;
-  paymentMethod?: string;
-  paymentTermDays?: number;
-  invoiceId?: string;
-  externalRef?: string;
-}
-
-export interface Interaction {
+export interface GoodsReceipt {
   id: string;
-  userId: string;
-  involvedUserIds?: string[];
-  accountId?: string;
-  kind: InteractionKind;
-  note?: string;
-  plannedFor?: string;
-  createdAt: string;
-  durationMin?: number;
-  sentiment?: 'pos' | 'neu' | 'neg';
-  dept?: Department;
-  status: InteractionStatus;
-  
-  location?: string;
-  linkedEntity?: {
-    type: 'Order' | 'Account' | 'Campaign' | 'Collab' | 'Shipment' | 'ProductionOrder' | 'Interaction';
-    id: string;
-  };
-  tags?: string[];
-  
-  resultNote?: string;
-  nextAction?: {
-      date?: string;
-      note?: string;
-  };
+  receiptNumber?: string;    // Número legible (ej. GR-20240915-001)
+  supplierPartyId: string;
+  deliveryNote: string;      // Nº albarán proveedor
+  holdedBillId?: string;     // factura compra en Holded
+  holdedDeliveryId?: string; // albarán en Holded (si aplica)
+  receivedAt: string;
+  lines: { materialId: string; sku: string; lotId: string; qty: number; uom: Uom; }[];
+  status: 'pending_qc' | 'completed' | 'partial';
+  incidentIds?: string[];
+  notes?: string;
+  landedCosts?: {
+    kind: 'freight' | 'duty' | 'insurance' | 'other';
+    amount: number;
+    allocation: 'by_value' | 'by_weight' | 'by_qty';
+    notes?: string;
+  }[];
 }
-
-export interface ShipmentLine { sku: string; qty: number; lotNumber?: string; unit: 'uds'; name: string; }
-export type ShipmentStatus = 'pending' | 'picking' | 'ready_to_ship' | 'shipped' | 'delivered' | 'cancelled';
 
 export interface Shipment {
   id: string;
   orderId: string;
   accountId: string;
+  shipmentNumber?: string;     // Nº albarán interno
+  holdedDeliveryId?: string;
+  holdedInvoiceId?: string;    // (si facturas al expedir)
   createdAt: string;
   status: ShipmentStatus;
-  lines: ShipmentLine[];
+  lines: { sku: string; name: string; qty: number; unit: 'uds'; lotNumber?: string; }[];
   customerName: string;
   city: string;
-  addressLine1?: string;
-  addressLine2?: string;
-  postalCode?: string;
-  country?: string;
-  notes?: string;
-  carrier?: string;
-  labelUrl?: string;
-  tracking?: string;
-  packedById?: string;
+  addressLine1?: string; addressLine2?: string; postalCode?: string; country?: string;
+  carrier?: string; labelUrl?: string; tracking?: string;
+  notes?: string; packedById?: string;
   checks?: { visualOk?: boolean };
 }
 
-// -----------------------------------------------------------------
-// 5. Producción y Calidad
-// -----------------------------------------------------------------
-
-export type QCResult = {
-  value?: number | string | boolean;
-  notes?: string;
-  status: 'ok' | 'ko';
-};
-
-export type ExecCheck = { id:string; done:boolean; checkedBy?:string; checkedAt?:string };
-
-export type LotStatus = 'OPEN' | 'QUARANTINE' | 'APPROVED' | 'REJECTED' | 'CONSUMED' | 'CLOSED';
-export type CheckResult = 'PASS' | 'FAIL' | 'CONDITIONAL';
-
-export interface QACheck {
-    id: string;
-    lotId: string;
-    scope: 'INBOUND' | 'INPROCESS' | 'RELEASE' | 'RETEST';
-    checklist: {
-        code: string;
-        name: string;
-        type: 'NUM' | 'BOOL' | 'TEXT' | 'IMG';
-        uom?: string;
-        valueNum?: number;
-        valueBool?: boolean;
-        valueText?: string;
-        photoUrl?: string;
-    }[];
-    result: CheckResult;
-    reviewerId: string;
-    reviewedAt: string;
-    createdAt: string;
-}
-
-export interface BillOfMaterialItem { materialId: string; quantity: number; unit?: string; }
-export interface BillOfMaterial { id: string; sku: string; name: string; items: BillOfMaterialItem[]; batchSize: number; baseUnit?: string; }
-
-export interface ProductionOrder {
-  id: string;
-  sku: string;
-  bomId: string;
-  targetQuantity: number;
-  status: 'pending' |'released'| 'wip' | 'done' | 'cancelled';
-  createdAt: string;
-  lotId?: string;
-  scheduledFor?: string;
-  responsibleId?: string;
-  protocolChecks?: any[];
-  incidents?: any[];
-  inputs?: any[];
-  outputs?: any[];
-  checks?: ExecCheck[];
-  shortages?: Shortage[];
-  reservations?: Reservation[];
-  actuals?: ActualConsumption[];
-  execution?: any;
-  costing?: any;
-}
-export interface Shortage { materialId: string; name: string; required: number; available: number; uom: Uom; }
-export interface Reservation { materialId: string; fromLot: string; reservedQty: number; uom: Uom }
-export interface ActualConsumption { materialId: string; name: string; fromLot?: string; theoreticalQty: number; actualQty: number; uom: Uom; costPerUom: number; }
-
-export type GenealogyLink = { fromLotId: string; toLotId: string };
 export type TraceEventPhase = 'SOURCE' | 'RECEIPT' | 'QC' | 'PRODUCTION' | 'PACK' | 'WAREHOUSE' | 'SALE' | 'DELIVERY';
-export type TraceEventKind =
-  | 'FARM_DATA' | 'SUPPLIER_PO'
-  | 'ARRIVED' | 'BOOKED'
-  | 'CHECK_PASS' | 'CHECK_FAIL' 
-  | 'BATCH_START' | 'CONSUME' | 'BATCH_END' | 'OUTPUT'
-  | 'PACK_START' | 'PACK_END'
-  | 'MOVE' | 'RESERVE'
-  | 'ORDER_ALLOC' | 'SHIPMENT_PICKED'
-  | 'SHIPPED' | 'DELIVERED';
+export type TraceEventKind = 'FARM_DATA' | 'SUPPLIER_PO' | 'ARRIVED' | 'BOOKED' | 'CHECK_PASS' | 'CHECK_FAIL' | 'BATCH_PLANNED' | 'BATCH_RELEASED' | 'BATCH_START' | 'CONSUME' | 'BATCH_END' | 'OUTPUT' | 'PACK_START' | 'PACK_END' | 'MOVE' | 'RESERVE' | 'ORDER_ALLOC' | 'SHIPMENT_PICKED' | 'SHIPPED' | 'DELIVERED';
 export interface TraceEvent {
     id: string;
     subject: { type: 'LOT' | 'BATCH' | 'ORDER' | 'SHIPMENT'; id: string; };
@@ -314,125 +331,125 @@ export interface TraceEvent {
     data?: any;
 }
 
-export interface GoodsReceiptLine {
-    materialId: string;
-    sku: string;
-    lotId: string;
-    qty: number;
-    uom: Uom;
-}
-export interface GoodsReceipt {
-    id: string;
-    supplierId: string;
-    deliveryNote: string; // Número de albarán del proveedor
-    receivedAt: string;
-    lines: GoodsReceiptLine[];
-    status: 'pending_qc' | 'completed' | 'partial';
-}
-
 
 // -----------------------------------------------------------------
-// 6. Marketing
+// 6. Marketing, Finanzas y Costes
 // -----------------------------------------------------------------
+export interface Activation { 
+    id: string; 
+    accountId: string; 
+    materialId: string; 
+    description: string; 
+    status: 'active' | 'inactive' | 'pending_renewal'; 
+    startDate: string; 
+    endDate?: string; 
+    ownerId: string; 
+}
+export interface Promotion { 
+    id: string; 
+    code?: string; 
+    name: string; 
+    type: '5+1' | 'BOGO' | 'DISCOUNT_PERCENT' | 'DISCOUNT_FIXED'; 
+    value: number; 
+    validFrom: string; 
+    validTo: string; 
+}
 
-export interface EventMarketing {
+export interface EventMarketing { 
+    id: string; 
+    title: string; 
+    accountId?: string; 
+    status: 'planned' | 'active' | 'closed' | 'cancelled'; 
+    startAt: string; 
+    endAt?: string; 
+    city?: string; 
+    spend?: number; 
+    extraCosts?: { description: string; amount: number }[]; 
+    linkedActivations?: string[]; 
+    linkedPromotions?: string[]; 
+}
+export interface OnlineCampaign { 
+    id: string; 
+    title: string; 
+    channel: 'IG' | 'FB' | 'TikTok' | 'Google' | 'YouTube' | 'Email' | 'Other'; 
+    status: 'planned' | 'active' | 'closed' | 'cancelled'; 
+    startAt: string; 
+    endAt?: string; 
+    budget: number; 
+    spend: number; 
+    metrics?: any; 
+}
+
+export interface InfluencerCollab { id: string; supplierPartyId: string; /* ... */ }
+
+export interface MaterialCost {
   id: string;
-  title: string;
-  kind: 'DEMO' | 'FERIA' | 'FORMACION' | 'POPUP' | 'OTRO';
-  status: 'planned' | 'active' | 'closed' | 'cancelled';
-  startAt: string;
-  endAt?: string;
-  city?: string;
-  venue?: string;
-  goal?: { sampling: number; leads: number; salesBoxes: number; };
-  spend?: number;
-  plv?: Array<{ sku: string; qty: number; }>;
-}
-export interface OnlineCampaign {
-  id: string;
-  title: string;
-  channel: 'IG' | 'FB' | 'TikTok' | 'Google' | 'YouTube' | 'Email' | 'Other';
-  status: 'planned' | 'active' | 'closed' | 'cancelled';
-  startAt: string;
-  endAt?: string;
-  budget: number;
-  spend: number;
-  metrics?: {
-    impressions?: number;
-    clicks?: number;
-    ctr?: number;
-    conversions?: number;
-    cpa?: number;
-    roas?: number;
-  };
-}
-export interface Activation { id: string; }
-
-export interface Creator {
-    id: string;
-    name: string;
-    handle?: string;
-    platform: 'Instagram'|'TikTok'|'YouTube'|'Twitch'|'Blog'|'Otro';
-    tier: 'nano'|'micro'|'mid'|'macro';
-    audience?: number;
-    country?: string; city?: string;
-    email?: string; phone?: string;
-    shippingAddress?: string;
-    tags?: string[];
-    createdAt: string; updatedAt: string;
-}
-
-export type Platform = 'Instagram'|'TikTok'|'YouTube'|'Twitch'|'Blog'|'Otro';
-export type Tier = 'nano'|'micro'|'mid'|'macro';
-export type Deliverable = 'post' | 'story' | 'reel' | 'short' | 'video_long' | 'stream' | 'blogpost';
-export type CompType = 'gift' | 'flat' | 'cpa' | 'cpc' | 'revshare';
-
-export interface InfluencerCollab {
-    id: string;
-    creatorId: string;
-    creatorName: string;
-    handle?: string;
-    platform: Platform;
-    tier: Tier;
-    status: 'PROSPECT' | 'OUTREACH' | 'NEGOTIATING' | 'AGREED' | 'LIVE' | 'COMPLETED' | 'PAUSED' | 'DECLINED';
-    ownerUserId?: string;
-    couponCode?: string;
-    utmCampaign?: string;
-    landingUrl?: string;
-    deliverables: { kind: Deliverable; qty: number; dueAt?: string }[];
-    compensation: { type: CompType; amount?: number; currency?: 'EUR'; notes?: string; };
-    costs?: { productCost?: number; shippingCost?: number; cashPaid?: number; otherCost?: number };
-    tracking?: {
-        clicks?: number; orders?: number; revenue?: number;
-        impressions?: number; views?: number;
-        likes?: number; comments?: number; saves?: number; shares?: number;
-        updatedAt?: string;
-    };
-    dates?: { outreachAt?: string; agreedAt?: string; goLiveAt?: string; deadlineAt?: string; completedAt?: string; };
-    sampleOrderId?: string;
-    eventIds?: string[];
-    notes?: string;
-    createdAt: string; updatedAt: string;
-}
-
-// -----------------------------------------------------------------
-// 7. Finanzas
-// -----------------------------------------------------------------
-
-export interface CashflowSettings {
+  materialId: string;
   currency: 'EUR';
-  openingBalance: number;
-  defaultTermsDays: number;
-  termsByChannel?: Partial<Record<AccountType, number>>;
-  lagByPaymentMethod?: Partial<Record<'contado'|'transferencia'|'tarjeta'|'paypal'|'domiciliado', number>>;
-  includeConfidence: { high: boolean; medium: boolean; low: boolean };
-  vatMode: 'net'|'gross';
-  vatSettlementDay?: 20;
-  fxRates?: Record<string, number>;
-  payoutFeePctOnline?: number;
-  bankFeePct?: number;
-  agingLagDays?: number;
-  bucket: 'day'|'week'|'month';
+  costPerUom: number;
+  effectiveFrom: string;
+  effectiveTo?: string;
+  notes?: string;
+}
+
+export type HoldedDocType = 'SALES_INVOICE' | 'PURCHASE_BILL' | 'CREDIT_NOTE' | 'EXPENSE';
+export type CostObjectKind = 'NONE' | 'PRODUCT' | 'LOT' | 'PROD_ORDER' | 'ACCOUNT' | 'ORDER' | 'SHIPMENT' | 'EVENT' | 'CAMPAIGN' | 'COLLAB' | 'DEPARTMENT';
+export type ExpenseCategory = 'COGS_MATERIAL' | 'COGS_FREIGHT' | 'COGS_DUTY' | 'PLV' | 'MARKETING_MEDIA' | 'INFLUENCER' | 'EVENT' | 'TRAVEL' | 'MEALS' | 'ACCOMMODATION' | 'TRANSPORT' | 'SALARIES' | 'SOCIAL_SECURITY' | 'SUBCONTRACTING' | 'OTHER_OPEX';
+
+export interface FinanceLink {
+  id: string;
+  docType: HoldedDocType;
+  externalId: string;
+  status: 'paid' | 'pending' | 'overdue';
+  netAmount: number; taxAmount: number; grossAmount: number;
+  currency: Currency;
+  issueDate: string; dueDate: string;
+  docNumber?: string;
+  partyId?: string;
+  expenseCategory?: ExpenseCategory;
+  costObject?: { kind: CostObjectKind; id: string };
+  allocationPct?: number;
+  campaignId?: string; eventId?: string; collabId?: string;
+}
+export interface PaymentLink { id: string; financeLinkId: string; externalId?: string; amount: number; date: string; method?: string; }
+
+
+// -----------------------------------------------------------------
+// 7. Sistema de Codificación Centralizado
+// -----------------------------------------------------------------
+export type CodeEntity = 'PRODUCT' | 'ACCOUNT' | 'PARTY' | 'SUPPLIER' | 'LOT' | 'PROD_ORDER' | 'SHIPMENT' | 'GOODS_RECEIPT' | 'LOCATION' | 'PRICE_LIST' | 'PROMOTION';
+
+export interface CodePolicy {
+  entity: CodeEntity;
+  template: string; // Ej: 'ACC-{SEQ#6}', '{YY}{MM}{DD}-{SKU}-{SEQ#3}'
+  regex: string;
+  seqScope?: 'GLOBAL' | 'YEAR' | 'MONTH' | 'DAY';
+  pad?: number;
+}
+
+export const CODE_POLICIES: Record<CodeEntity, CodePolicy> = {
+  PRODUCT:    { entity:'PRODUCT', template:'{SKU}', regex:'^[A-Z0-9_-]{3,32}$'},
+  ACCOUNT:    { entity:'ACCOUNT', template:'ACC-{SEQ#6}', regex:'^ACC-\\d{6}$', seqScope:'GLOBAL', pad:6 },
+  PARTY:      { entity:'PARTY', template:'PTY-{SEQ#6}', regex:'^PTY-\\d{6}$', seqScope:'GLOBAL', pad:6 },
+  SUPPLIER:   { entity:'SUPPLIER', template:'SUP-{SEQ#5}', regex:'^SUP-\\d{5}$', seqScope:'GLOBAL', pad:5 },
+  LOT:        { entity:'LOT', template:'{YY}{MM}{DD}-{SKU}-{SEQ#3}', regex:'^\\d{6}-[A-Z0-9_-]+-\\d{3}$', seqScope:'DAY', pad:3 },
+  PROD_ORDER: { entity:'PROD_ORDER', template:'PO-{YYYY}{MM}-{SEQ#4}', regex:'^PO-\\d{6}-\\d{4}$', seqScope:'MONTH', pad:4 },
+  SHIPMENT:   { entity:'SHIPMENT', template:'SHP-{YYYY}{MM}{DD}-{SEQ#3}', regex:'^SHP-\\d{8}-\\d{3}$', seqScope:'DAY', pad:3 },
+  GOODS_RECEIPT:{ entity:'GOODS_RECEIPT', template:'GR-{YYYY}{MM}{DD}-{SEQ#3}', regex:'^GR-\\d{8}-\\d{3}$', seqScope:'DAY', pad:3 },
+  LOCATION:   { entity:'LOCATION', template:'{ZONE}-{SEQ#3}', regex:'^[A-Z]{2,6}-\\d{3}$', seqScope:'GLOBAL', pad:3 },
+  PRICE_LIST: { entity:'PRICE_LIST', template:'PL-{YYYY}-{SEQ#2}', regex:'^PL-\\d{4}-\\d{2}$', seqScope:'YEAR', pad:2 },
+  PROMOTION:  { entity:'PROMOTION', template:'PRM-{YY}{MM}-{SEQ#3}', regex:'^PRM-\\d{4}-\\d{3}$', seqScope:'MONTH', pad:3 },
+};
+
+export type ExternalSystem = 'HOLDED'|'SHOPIFY'|'EAN'|'GTIN'|'CUSTOMER_REF'|'SUPPLIER_REF';
+
+export interface CodeAlias {
+  id: string;
+  entity: CodeEntity;
+  entityId: string;
+  system: ExternalSystem;
+  code: string;
+  createdAt: string;
 }
 
 // -----------------------------------------------------------------
@@ -440,99 +457,79 @@ export interface CashflowSettings {
 // -----------------------------------------------------------------
 
 export interface SantaData {
+  // Catálogos principales
+  parties: Party[];
+  partyRoles: PartyRole[];
   users: User[];
+  
+  // CRM y Ventas
   accounts: Account[];
-  distributors: Distributor[];
+  ordersSellOut: OrderSellOut[];
+  interactions: Interaction[];
+  
+  // Producción y Calidad
   products: Product[];
   materials: Material[];
   billOfMaterials: BillOfMaterial[];
-  
-  interactions: Interaction[];
-  ordersSellOut: OrderSellOut[];
-  shipments: Shipment[];
-  
+  productionOrders: ProductionOrder[];
   lots: Lot[];
+  qaChecks: any[]; // Asumiendo que se creará esta entidad
+  
+  // Logística y Almacén
   inventory: InventoryItem[];
   stockMoves: StockMove[];
-  productionOrders: ProductionOrder[];
-  qaChecks: QACheck[];
-  
-  mktEvents: EventMarketing[];
-  onlineCampaigns: OnlineCampaign[];
-  activations: Activation[];
-  creators: Creator[];
-  influencerCollabs: InfluencerCollab[];
-
-  suppliers: Supplier[];
+  shipments: Shipment[];
   goodsReceipts: GoodsReceipt[];
   
-  traceEvents: TraceEvent[];
+  // Marketing
+  activations: Activation[];
+  promotions: Promotion[];
+  events: EventMarketing[];
+  onlineCampaigns: OnlineCampaign[];
+  influencerCollabs: InfluencerCollab[];
   
-  // Placeholder para colecciones futuras o no modeladas aun
-  receipts: any[];
-  purchaseOrders: any[];
-  priceLists: any[];
-  nonConformities: any[];
-  supplierBills: any[];
-  payments: any[];
+  // Finanzas y Contabilidad
+  materialCosts: MaterialCost[];
+  financeLinks: FinanceLink[];
+  paymentLinks: PaymentLink[];
+  
+  // Registros de Auditoría y Trazabilidad
+  traceEvents: TraceEvent[];
+  incidents: Incident[];
+
+  // Códigos y Aliases
+  codeAliases: CodeAlias[];
 }
-export type { RecipeBomExec } from './production.exec';
 
-// Lista de colecciones válidas para persistencia.
-// Se genera dinámicamente para asegurar que siempre esté completa.
-const _: { [K in keyof SantaData]: true } = {
-    users: true, accounts: true, distributors: true, products: true, materials: true, billOfMaterials: true,
-    interactions: true, ordersSellOut: true, shipments: true, lots: true, inventory: true, 
-    stockMoves: true, productionOrders: true, qaChecks: true, suppliers: true, traceEvents: true, 
-    goodsReceipts: true, mktEvents: true, onlineCampaigns: true, creators: true, influencerCollabs: true,
-    activations: true, receipts: true, purchaseOrders: true, priceLists: true, nonConformities: true,
-    supplierBills: true, payments: true,
-};
-export const SANTA_DATA_COLLECTIONS = Object.keys(_) as (keyof SantaData)[];
-
+export const SANTA_DATA_COLLECTIONS: (keyof SantaData)[] = [
+    'parties', 'partyRoles', 'users', 'accounts', 'ordersSellOut', 'interactions',
+    'products', 'materials', 'billOfMaterials', 'productionOrders', 'lots', 'qaChecks',
+    'inventory', 'stockMoves', 'shipments', 'goodsReceipts', 'activations', 'promotions',
+    'events', 'onlineCampaigns', 'influencerCollabs', 'materialCosts', 'financeLinks', 
+    'paymentLinks', 'traceEvents', 'incidents', 'codeAliases'
+];
 
 // -----------------------------------------------------------------
-// 9. Helpers y Constantes Globales
+// 9. Lógica de Negocio y Hooks Operativos (Resumen)
 // -----------------------------------------------------------------
 
-export function inWindow(iso: string, start: number|Date, end: number|Date) {
-  const t = +new Date(iso);
-  const s = +new Date(start);
-  const e = +new Date(end);
-  return t >= s && t <= e;
-}
+// Los hooks como `onGoodsReceiptCreated`, `onQACheckReviewed`, etc. se definen aquí conceptualmente.
+// Su implementación real estará en los servicios del backend.
 
-export function orderTotal(o: { totalAmount?: number; lines: { priceUnit:number; qty:number; discount?:number }[] }) {
-  if (typeof o.totalAmount === 'number') return o.totalAmount;
-  if (!o || !o.lines) return 0;
-  return o.lines.reduce((s, l) => s + l.priceUnit * l.qty * (1 - (l.discount || 0)), 0);
-}
+// Invariantes del sistema:
+// - No se puede vender o expedir un `Lot` cuyo `quality.qcStatus` no sea `'release'`.
+// - Un `Shipment` no puede pasar a `'ready_to_ship'` si alguna línea no tiene `lotNumber`.
+// - Un `GoodsReceipt` no pasa a `'completed'` hasta que todos sus lotes pasen QC o se abra un `Incident`.
 
-export const SB_COLORS = {
-  primary: "#F7D15F",
-  accent: "#618E8F",
-  sales: "#D7713E",
-  marketing: "#D7713E",
-  warehouse: "#A7D8D9",
-  production: "#618E8F",
-  finance: "#618E8F",
-  analytics: "#618E8F",
-  admin: "#618E8F",
-  quality: "#F7D15F",
-  general: "#618E8F",
-  sun: "#F7D15F",
-  cobre: "#D7713E",
-  agua: "#A7D8D9",
-  verde_mar: "#618E8F",
-};
+// -----------------------------------------------------------------
+// 10. Metadatos y Constantes
+// -----------------------------------------------------------------
 
-export const DEPT_META: Record<
-  Department,
-  { label: string; color: string; textColor: string }
-> = {
-  VENTAS: { label: 'Ventas', color: SB_COLORS.cobre, textColor: '#fff' },
-  PRODUCCION: { label: 'Producción', color: SB_COLORS.verde_mar, textColor: '#fff' },
-  ALMACEN:    { label: 'Almacén',    color: SB_COLORS.agua, textColor: SB_COLORS.verde_mar },
-  MARKETING:  { label: 'Marketing',  color: SB_COLORS.sun, textColor: SB_COLORS.cobre },
-  FINANZAS:   { label: 'Finanzas',   color: '#CCCCCC', textColor: '#333333' },
+export const DEPT_META: Record<Department, { label: string; color: string; textColor: string }> = {
+  VENTAS:     { label: 'Ventas',     color: '#D7713E', textColor: '#fff' },
+  PRODUCCION: { label: 'Producción', color: '#618E8F', textColor: '#fff' },
+  ALMACEN:    { label: 'Almacén',    color: '#A7D8D9', textColor: '#2F5D5D' },
+  MARKETING:  { label: 'Marketing',  color: '#F7D15F', textColor: '#9E4E27' },
+  FINANZAS:   { label: 'Finanzas',   color: '#CCCCCC', textColor: '#333' },
+  CALIDAD:    { label: 'Calidad',    color: '#F7D15F', textColor: '#9E4E27' },
 };

@@ -1,7 +1,7 @@
 
 // src/features/agenda/ssot-bridge.ts
 import { MemoryAdapter } from '@/domain/ssot.helpers';
-import type { Interaction, SantaData } from '@/domain/ssot';
+import type { Interaction, SantaData } from '@/domain';
 
 const adapter = new MemoryAdapter();
 

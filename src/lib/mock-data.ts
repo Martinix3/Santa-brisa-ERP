@@ -1,5 +1,5 @@
 
-import type { SantaData } from '@/domain/ssot';
+import type { SantaData } from '@/domain';
 
 export const INITIAL_MOCK_DATA: SantaData = {
   users: [
@@ -79,12 +79,12 @@ export const INITIAL_MOCK_DATA: SantaData = {
     { id: 'shp_4', orderId: 'ord_4', accountId: 'acc_6', createdAt: '2023-04-19T09:30:00Z', status: 'ready_to_ship', lines: [{ sku: 'SB-750', qty: 18, unit: 'uds', name: 'Santa Brisa 750ml' }], customerName: 'Gourmet World', city: 'Madrid' },
   ],
   lots: [
-    { id: '230110-SB-750-01', sku: 'SB-750', createdAt: '2023-01-10T08:00:00Z', quantity: 200, quality: { qcStatus: 'release', results: {} }, status: 'CLOSED' },
-    { id: '230215-SB-750-01', sku: 'SB-750', createdAt: '2023-02-15T08:00:00Z', quantity: 150, quality: { qcStatus: 'release', results: {} }, status: 'OPEN' },
-    { id: '230520-SB-750-01', sku: 'SB-750', createdAt: '2023-05-20T09:00:00Z', quantity: 300, quality: { qcStatus: 'hold', results: {} }, status: 'QUARANTINE' },
-    { id: '230105-RM-AGAVE-01', sku: 'RM-AGAVE-MV', createdAt: '2023-01-05T09:00:00Z', quantity: 500, quality: { qcStatus: 'release', results: {} }, status: 'OPEN' },
-    { id: '230105-RM-LEMON-01', sku: 'RM-LEMON-UI', createdAt: '2023-01-05T09:00:00Z', quantity: 1000, quality: { qcStatus: 'release', results: {} }, status: 'OPEN' },
-  ],
+    { id: '230110-SB-750-01', sku: 'SB-750', createdAt: '2023-01-10T08:00:00Z', quantity: 200, quality: { qcStatus: 'release', results: {} }, lotCode: '230110-SB-750-01' },
+    { id: '230215-SB-750-01', sku: 'SB-750', createdAt: '2023-02-15T08:00:00Z', quantity: 150, quality: { qcStatus: 'release', results: {} }, lotCode: '230215-SB-750-01' },
+    { id: '230520-SB-750-01', sku: 'SB-750', createdAt: '2023-05-20T09:00:00Z', quantity: 300, quality: { qcStatus: 'hold', results: {} }, lotCode: '230520-SB-750-01' },
+    { id: '230105-RM-AGAVE-01', sku: 'RM-AGAVE-MV', createdAt: '2023-01-05T09:00:00Z', quantity: 500, quality: { qcStatus: 'release', results: {} }, lotCode: '230105-RM-AGAVE-01' },
+    { id: '230105-RM-LEMON-01', sku: 'RM-LEMON-UI', createdAt: '2023-01-05T09:00:00Z', quantity: 1000, quality: { qcStatus: 'release', results: {} }, lotCode: '230105-RM-LEMON-01' },
+  ] as any,
   inventory: [
     { id: 'inv_1', sku: 'SB-750', lotNumber: '230215-SB-750-01', uom: 'uds', qty: 150, locationId: 'FG/MAIN', updatedAt: '2023-02-15T09:00:00Z' },
     { id: 'inv_2', sku: 'RM-AGAVE-MV', lotNumber: '230105-RM-AGAVE-01', uom: 'kg', qty: 500, locationId: 'RM/MAIN', updatedAt: '2023-01-05T10:00:00Z' },
@@ -97,31 +97,30 @@ export const INITIAL_MOCK_DATA: SantaData = {
     { id: 'po_1', sku: 'SB-750', bomId: 'bom_sb750', targetQuantity: 100, status: 'done', createdAt: '2023-01-10T08:00:00Z', lotId: '230110-SB-750-01' },
     { id: 'po_2', sku: 'SB-750', bomId: 'bom_sb750', targetQuantity: 150, status: 'wip', createdAt: '2023-02-15T08:00:00Z', lotId: '230215-SB-750-01' },
     { id: 'po_3', sku: 'SB-750', bomId: 'bom_sb750', targetQuantity: 300, status: 'pending', createdAt: '2023-05-19T14:00:00Z' },
-  ],
+  ] as any,
   qaChecks: [],
-  mktEvents: [
-    { id: 'me_1', title: 'Feria de Coctelería de Madrid', kind: 'FERIA', status: 'closed', startAt: '2023-03-15T10:00:00Z', city: 'Madrid', spend: 5000, goal: { sampling: 2000, leads: 150, salesBoxes: 20 } },
-    { id: 'me_2', title: 'Activación en Terraza Sol', kind: 'DEMO', status: 'planned', startAt: '2024-07-20T18:00:00Z', city: 'Barcelona' }
+  events: [
+    { id: 'me_1', title: 'Feria de Coctelería de Madrid', accountId: undefined, status: 'closed', startAt: '2023-03-15T10:00:00Z', city: 'Madrid', spend: 5000 },
+    { id: 'me_2', title: 'Activación en Terraza Sol', accountId: 'acc_1', status: 'planned', startAt: '2024-07-20T18:00:00Z', city: 'Barcelona' }
   ],
   onlineCampaigns: [
     { id: 'oc_1', title: 'Campaña Verano 2023', channel: 'IG', status: 'closed', startAt: '2023-06-01T00:00:00Z', endAt: '2023-08-31T23:59:59Z', budget: 10000, spend: 9850, metrics: { impressions: 1500000, clicks: 7500, roas: 3.5 } }
   ],
-  creators: [
-    { id: 'cr_1', name: 'Marta Foodie', handle: '@martafoodie', platform: 'Instagram', tier: 'micro', city: 'Barcelona', createdAt: '2023-01-10T00:00:00Z', updatedAt: '2023-01-10T00:00:00Z' },
-    { id: 'cr_2', name: 'Juan Viajero', handle: '@juanviaja', platform: 'TikTok', tier: 'mid', city: 'Madrid', createdAt: '2023-02-15T00:00:00Z', updatedAt: '2023-02-15T00:00:00Z' },
-  ],
   influencerCollabs: [
-    { id: 'col_1', creatorId: 'cr_1', creatorName: 'Marta Foodie', handle: '@martafoodie', platform: 'Instagram', tier: 'micro', status: 'COMPLETED', deliverables: [{kind: 'reel', qty: 1}, {kind: 'story', qty: 3}], compensation: {type: 'flat', amount: 500}, costs: { productCost: 50, cashPaid: 500 }, tracking: { revenue: 2500, orders: 50 }, createdAt: '2023-04-01T00:00:00Z', updatedAt: '2023-05-15T00:00:00Z' },
-    { id: 'col_2', creatorId: 'cr_2', creatorName: 'Juan Viajero', handle: '@juanviaja', platform: 'TikTok', tier: 'mid', status: 'LIVE', deliverables: [{kind: 'short', qty: 2}], compensation: {type: 'gift'}, costs: { productCost: 100, shippingCost: 15 }, createdAt: '2023-06-01T00:00:00Z', updatedAt: '2023-06-10T00:00:00Z' }
+    { id: 'col_1', supplierPartyId: 'party_cr_1', createdAt: '2023-04-01T00:00:00Z', updatedAt: '2023-05-15T00:00:00Z' } as any,
+    { id: 'col_2', supplierPartyId: 'party_cr_2', createdAt: '2023-06-01T00:00:00Z', updatedAt: '2023-06-10T00:00:00Z' } as any,
   ],
   activations: [],
-  suppliers: [],
-  goodsReceipts: [],
+  promotions: [],
+  parties: [],
+  partyRoles: [],
+  materialCosts: [],
+  financeLinks: [],
+  paymentLinks: [],
   traceEvents: [],
-  receipts: [],
-  purchaseOrders: [],
-  priceLists: [],
-  nonConformities: [],
-  supplierBills: [],
-  payments: [],
+  incidents: [],
+  codeAliases: [],
+  goodsReceipts: [],
+  // Legacy fields below, to be deprecated
+  mktEvents: [],
 };

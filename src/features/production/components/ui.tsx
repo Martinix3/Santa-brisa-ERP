@@ -1,12 +1,12 @@
 
 "use client";
 import React, { useMemo } from "react";
-import type { ProductionOrder, Lot, QCResult, Interaction } from "@/domain/ssot";
+import type { ProductionOrder, Lot, QCResult, Interaction } from "@/domain";
 import { SBCard, SBButton, SB_COLORS } from "@/components/ui/ui-primitives";
 import { Factory, Cpu, BookOpen, Waypoints, AlertCircle, Hourglass, MoreVertical, Check, X, Thermometer, FlaskConical, Beaker, TestTube2, Paperclip, Upload, Trash2, Calendar, Clock } from "lucide-react";
 import Link from 'next/link';
 import { useData } from '@/lib/dataprovider';
-import { DEPT_META } from '@/domain/ssot';
+import { DEPT_META } from '@/domain';
 import { LotQualityStatusPill } from '@/components/ui/ui-primitives';
 
 function KPI({ icon: Icon, label, value, color }: { icon: React.ElementType, label: string, value: string | number, color: string }) {
