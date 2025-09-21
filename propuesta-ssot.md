@@ -1,39 +1,28 @@
 
 # Propuesta de Arquitectura de Datos (SSOT)
 
-Este documento presenta una propuesta para la estructura de datos principal de la aplicación. El objetivo es crear un modelo claro, escalable y fácil de mantener.
+Este documento presenta una propuesta completa para la estructura de datos principal de la aplicación. El objetivo es crear un modelo claro, escalable y fácil de mantener que cubra todas las áreas del negocio.
 
 ---
 
-## Enfoque: Entidades Especializadas y Separadas
+## 1. Enfoque: Entidades Especializadas y Separadas
 
-La propuesta se basa en el principio de **separar cada tipo de entidad en su propia colección de datos**. En lugar de usar una única colección genérica de "contactos" o "cuentas" para todo, se definen colecciones distintas para cada rol:
-
--   `accounts`: Clientes (HORECA, RETAIL, etc.).
--   `suppliers`: Proveedores de materias primas y servicios.
--   `creators`: Influencers y creadores de contenido.
--   `users`: Usuarios internos del CRM.
--   `distributors`: Distribuidores de producto.
-
-### Ventajas de este enfoque:
-1.  **Claridad del Modelo**: Cada entidad tiene solo los campos que le corresponden. Un `Supplier` no tiene un "stage de venta", y un `Account` no tiene "condiciones de entrega de materia prima".
-2.  **Rendimiento**: Las consultas son más rápidas y eficientes al no tener que escanear una colección masiva en busca de un `type`.
-3.  **Seguridad**: Facilita la implementación de reglas de acceso. El equipo de producción podría tener acceso a `suppliers` pero no a los datos de venta de `accounts`.
-4.  **Mantenibilidad**: Es mucho más fácil añadir o modificar campos a una entidad específica sin afectar a las demás.
+La arquitectura se basa en el principio de **separar cada tipo de entidad en su propia colección de datos**. En lugar de usar una única colección genérica, se definen colecciones distintas para cada rol, lo que aporta claridad, rendimiento y seguridad.
 
 ---
 
-## Esquema de Datos Propuesto (`domain/ssot.ts`)
+## 2. Tipos Primitivos y Enums
 
-A continuación, se detalla la estructura de cada tipo principal.
-
-### 1. Tipos Primitivos y Enums
+Estos son los tipos y uniones que se reutilizan en toda la aplicación para garantizar la consistencia.
 
 ```typescript
-// Tipos primitivos y uniones que se reutilizan en toda la aplicación.
-
+// Tipos de unidad de medida
 export type Uom = 'bottle' | 'case' | 'pallet' | 'uds' | 'kg' | 'g' | 'L' | 'mL';
-export type Currency = 'EUR' | 'USD';
+
+// Divisas
+export type Currency = 'EUR';
+
+// Departamentos internos
 export type Department = 'VENTAS' | 'MARKETING' | 'PRODUCCION' | 'ALMACEN' | 'FINANZAS';
 
 // Etapa del ciclo de vida de un cliente (Account)
@@ -42,32 +31,52 @@ export type Stage = 'POTENCIAL' | 'ACTIVA' | 'SEGUIMIENTO' | 'FALLIDA' | 'CERRAD
 // Tipo de cliente (Account)
 export type AccountType = 'HORECA' | 'RETAIL' | 'PRIVADA' | 'DISTRIBUIDOR' | 'IMPORTADOR' | 'ONLINE' | 'OTRO';
 
-// Estados para pedidos, interacciones, etc.
+// Estados para flujos de trabajo
 export type InteractionStatus = 'open' | 'done' | 'processing';
 export type OrderStatus = 'open' | 'confirmed' | 'shipped' | 'invoiced' | 'paid' | 'cancelled' | 'lost';
 export type ShipmentStatus = 'pending' | 'picking' | 'ready_to_ship' | 'shipped' | 'delivered' | 'cancelled';
 export type ProductionStatus = 'pending' | 'released' | 'wip' | 'done' | 'cancelled';
 ```
 
-### 2. Entidades Principales
+---
 
-#### 2.1. Cuentas (Clientes)
-Representa a una entidad a la que se le vende producto. Es el corazón del CRM de ventas.
+## 3. Entidades Principales (Personas y Organizaciones)
+
+Representan a los actores clave del negocio.
 
 ```typescript
+// --- USUARIOS INTERNOS ---
+export type UserRole = 'comercial' | 'admin' | 'ops' | 'owner';
+
+export interface User { 
+  id: string; 
+  name: string; 
+  email: string; 
+  role: UserRole;
+  active: boolean; 
+  managerId?: string; // ID de su responsable
+  
+  // Opcional: KPIs para dashboards personales
+  kpiBaseline?: {
+    revenue?: number;
+    unitsSold?: number;
+    visits?: number;
+  }
+}
+
+// --- CLIENTES ---
+// Representa a una entidad a la que se le vende producto. Es el corazón del CRM.
 export interface Account {
-  id: string;          // ID único
-  name: string;        // Nombre comercial
-  cif?: string;        // CIF/NIF para facturación
+  id: string;
+  name: string;
+  cif?: string;
   
   // --- Clasificación y Propiedad ---
-  type: AccountType;   // HORECA, RETAIL, etc.
-  stage: Stage;        // Etapa del ciclo de venta
+  type: AccountType;
+  stage: Stage;
   ownerId: string;     // ID del User o Distributor responsable
-  billerId: string;    // ID del que factura ('SB' o un Distributor)
-  subType?: string;    // Enriquecido por IA (ej. "Bar de copas")
-  tags?: string[];     // Enriquecido por IA (ej. ["música en vivo"])
-
+  billerId: string;    // Quién factura ('SB' o un Distributor)
+  
   // --- Datos de Contacto y Ubicación ---
   address?: string;
   city?: string;
@@ -77,106 +86,65 @@ export interface Account {
   mainContactName?: string;
   mainContactEmail?: string;
 
-  // --- Datos Operativos ---
-  openingHours?: string;        // Enriquecido por IA
-  deliveryInstructions?: string;// Enriquecido por IA
+  // --- Datos Enriquecidos (pueden ser por IA) ---
+  subType?: string;    // Ej. "Bar de copas", "Restaurante de autor"
+  tags?: string[];     // Ej. ["música en vivo", "terraza con vistas"]
+  openingHours?: string;
+  deliveryInstructions?: string;
   
   // --- Datos Financieros ---
-  paymentTermsDays?: number;  // Días para pagar
-  paymentMethod?: string;     // Transferencia, Domiciliado, etc.
-  billingEmail?: string;      // Email para enviar facturas
+  paymentTermsDays?: number;
+  paymentMethod?: string;
+  billingEmail?: string;
   
   // --- Metadatos del Sistema ---
-  createdAt: string;          // ISO Date
-  updatedAt?: string;         // ISO Date
-  lastInteractionAt?: string; // ISO Date
-  orderCount?: number;        // Total de pedidos históricos
-  notes?: string;             // Notas internas
+  createdAt: string; // ISO Date
+  updatedAt?: string;
+  lastInteractionAt?: string;
+  orderCount?: number;
+  notes?: string;
 }
-```
 
-#### 2.2. Proveedores
-Entidad a la que se le compra materia prima o servicios.
-
-```typescript
+// --- PROVEEDORES ---
+// Entidad a la que se le compra materia prima o servicios.
 export interface Supplier { 
   id: string; 
   name: string;
   cif?: string;
   country: string;
-  
-  // --- Datos de Contacto ---
   contactName?: string;
   email?: string;
   phone?: string;
-  
-  // --- Datos Financieros ---
   paymentTermsDays?: number;
   bankAccount?: string;
-  
-  // --- Metadatos ---
   createdAt: string;
 }
-```
 
-#### 2.3. Creadores (Influencers)
-Entidad para colaboraciones de marketing.
-
-```typescript
-export interface Creator {
-    id: string;
-    name: string;          // Nombre real
-    handle: string;        // @usuario en la plataforma
-    platform: 'Instagram' | 'TikTok' | 'YouTube' | 'Blog' | 'Otro';
-    tier: 'nano' | 'micro' | 'mid' | 'macro'; // Basado en seguidores
-    audienceSize?: number;
-    
-    // --- Datos de Contacto ---
-    email?: string;
-    phone?: string;
-    shippingAddress?: string; // Para enviar producto
-    
-    // --- Metadatos ---
-    tags?: string[];
-    createdAt: string;
-    updatedAt?: string;
-}
-```
-
-#### 2.4. Usuarios del Sistema
-Personas que usan esta aplicación (comerciales, administradores, etc.).
-
-```typescript
-export type UserRole = 'comercial' | 'admin' | 'ops' | 'owner';
-
-export interface User { 
+// --- DISTRIBUIDORES ---
+export interface Distributor { 
   id: string; 
   name: string; 
-  email: string; // Email es obligatorio para el login
-  role: UserRole;
-  active: boolean; 
-  managerId?: string; // ID de su responsable (otro User)
-  
-  // --- Opcional: KPIs para dashboards ---
-  kpiBaseline?: {
-    revenue?: number;
-    unitsSold?: number;
-    visits?: number;
-  }
+  city?: string; 
+  country?: string; 
+  cif?: string; 
 }
 ```
 
-### 3. Entidades Transaccionales y de Soporte
+---
 
-#### Pedidos de Venta
+## 4. Ventas y Actividad Comercial
+
+Registra las transacciones e interacciones con los clientes.
+
 ```typescript
+// --- PEDIDOS DE VENTA ---
 export interface OrderLine { 
   sku: string; 
   qty: number; 
-  uom: 'uds'; // Se asume que los pedidos son siempre en unidades
+  uom: 'uds'; // Se asume que los pedidos de venta son siempre en unidades
   priceUnit: number; 
   discount?: number; 
-  lotIds?: string[];
+  lotIds?: string[]; // Para trazabilidad
 }
 
 export interface OrderSellOut { 
@@ -190,29 +158,39 @@ export interface OrderSellOut {
   totalAmount?: number; // Calculado o explícito
   notes?: string;
   promotionIds?: string[]; // IDs de las promociones aplicadas
+  invoiceId?: string;
+  externalRef?: string; // Para IDs de sistemas externos como Holded/Shopify
 }
-```
 
-#### Interacciones
-Registra cualquier punto de contacto con un cliente.
-```typescript
+// --- INTERACCIONES ---
+// Registra cualquier punto de contacto con un cliente.
 export interface Interaction {
   id: string;
   userId: string;         // Usuario que registra la interacción
   involvedUserIds?: string[]; // Otros usuarios participantes
-  accountId: string;      // Cuenta con la que se interactúa
+  accountId?: string;      // Cuenta con la que se interactúa
   kind: 'VISITA' | 'LLAMADA' | 'EMAIL' | 'WHATSAPP' | 'OTRO';
-  note: string;           // Descripción de la interacción
+  note?: string;           // Descripción de la interacción
   plannedFor?: string;     // Si es una tarea futura
   createdAt: string;
   status: InteractionStatus; // open | done
-  dept: Department;       // A qué departamento pertenece la tarea
+  dept?: Department;       // A qué departamento pertenece la tarea
+  resultNote?: string;
+  nextAction?: {
+      date?: string;
+      note?: string;
+  };
 }
 ```
 
-#### Productos y Materiales
-Catálogos de lo que se vende y lo que se usa para producir.
+---
+
+## 5. Producción, Calidad y Trazabilidad
+
+Define cómo se fabrican los productos y cómo se sigue su rastro.
+
 ```typescript
+// --- CATÁLOGOS DE PRODUCTOS Y MATERIALES ---
 export interface Product {
   id: string;
   sku: string;
@@ -226,84 +204,223 @@ export interface Material {
   id: string; 
   sku: string; 
   name: string; 
-  // La categoría 'merchandising' puede incluir PLV como vasos, cubiteras, etc.
-  category: 'raw' | 'packaging' | 'label' | 'consumable' | 'merchandising'; 
+  category: 'raw' | 'packaging' | 'label' | 'consumable' | 'intermediate' | 'merchandising'; 
   uom: Uom;
   standardCost?: number; 
 }
-```
 
-### 4. Marketing en Punto de Venta (Propuesta Detallada)
+// --- RECETAS (BILL OF MATERIALS) ---
+export interface BillOfMaterialItem { 
+  materialId: string; 
+  quantity: number; 
+  uom: Uom; 
+}
 
-Para controlar la visibilidad, promociones y eventos en un cliente, proponemos 3 entidades conectadas.
+export interface BillOfMaterial { 
+  id: string; 
+  sku: string; // SKU del producto terminado que produce
+  name: string; 
+  items: BillOfMaterialItem[]; 
+  batchSize: number; // Tamaño del lote base para las cantidades de los items
+  baseUnit: Uom;
+}
 
-#### 4.1. `Activation` (PLV Físico)
-Registra el **material de visibilidad (PLV)** que está físicamente en un punto de venta.
+// --- ÓRDENES DE PRODUCCIÓN ---
+export interface ProductionOrder { 
+  id: string; 
+  sku: string; 
+  bomId: string; 
+  targetQuantity: number; 
+  status: ProductionStatus;
+  createdAt: string; 
+  lotId?: string; // Lote de producto terminado generado
+}
 
-```typescript
-export type ActivationStatus = 'active' | 'inactive' | 'pending_renewal';
+// --- LOTES Y CALIDAD ---
+export type QCResult = {
+  value?: number | string | boolean;
+  notes?: string;
+  status: 'ok' | 'ko';
+};
 
-export interface Activation {
-  id: string;          // ID único de la activación
-  accountId: string;   // A qué cliente pertenece
-  materialId: string;    // ID del Material de PLV (ej. 'MERCH-VASO', 'MERCH-CUBITERA')
-  description: string;   // Ej: "Cubiteras en terraza (10 uds)", "Vasos en barra principal (50 uds)"
-  
-  // El coste se deriva del `standardCost` del `Material` vinculado.
-  
-  status: ActivationStatus;
-  startDate: string;     // Fecha de inicio
-  endDate?: string;      // Fecha de fin (si aplica, para acuerdos temporales)
-  
-  ownerId: string;       // ID del comercial responsable
+export interface Lot {
+  id: string; // Formato: YYMMDD-SKU-SEQ
+  sku: string;
+  quantity: number;
   createdAt: string;
+  orderId?: string;      // Production Order ID que lo generó
+  supplierId?: string;   // Para materias primas
+  quality: { 
+    qcStatus: 'hold' | 'release' | 'reject', 
+    results: Record<string, QCResult> 
+  };
+  expDate?: string;
+  receivedAt?: string;
 }
 ```
 
-#### 4.2. `Promotion` (Ofertas y Descuentos)
-Define las **condiciones de una oferta comercial** que puede ser aplicada a un pedido.
+---
+
+## 6. Almacén y Logística
+
+Controla el stock físico y los envíos.
 
 ```typescript
+// --- INVENTARIO ---
+export interface InventoryItem {
+  id: string;
+  sku: string;
+  lotNumber?: string;
+  uom: Uom;
+  qty: number;
+  locationId: string; // Ej: 'FG/MAIN', 'RM/MAIN', 'QC/AREA'
+  expDate?: string;
+  updatedAt: string;
+}
+
+// --- MOVIMIENTOS DE STOCK ---
+export type StockReason =
+  | 'receipt'       // Entrada de proveedor
+  | 'production_in' // Entrada de producción a almacén
+  | 'production_out'// Salida de almacén a producción
+  | 'sale'          // Salida por venta
+  | 'transfer'      // Movimiento entre almacenes
+  | 'adjustment'    // Ajuste manual
+  | 'return_in'     // Devolución de cliente
+  | 'return_out';   // Devolución a proveedor
+
+export interface StockMove {
+  id: string;
+  sku: string;
+  lotNumber?: string;
+  uom: Uom;
+  qty: number; // Positivo para entrada, negativo para salida
+  from?: string; // Ubicación origen
+  to?: string;   // Ubicación destino
+  reason: StockReason;
+  at: string;
+  ref?: {
+    orderId?: string;
+    shipmentId?: string;
+    prodOrderId?: string;
+    goodsReceiptId?: string;
+  };
+}
+
+// --- ENVÍOS ---
+export interface ShipmentLine {
+  sku: string;
+  name: string;
+  qty: number;
+  unit: 'uds';
+  lotNumber?: string;
+}
+
+export interface Shipment {
+  id: string;
+  status: ShipmentStatus;
+  createdAt: string;
+  accountId: string;
+  customerName: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  city: string;
+  postalCode?: string;
+  country?: string;
+  lines: ShipmentLine[];
+  notes?: string;
+}
+```
+
+---
+
+## 7. Marketing y Visibilidad
+
+Modela todas las iniciativas de marketing, desde PLV hasta campañas online.
+
+```typescript
+// --- MARKETING DE INFLUENCERS ---
+export interface Creator {
+    id: string;
+    name: string;
+    handle: string;
+    platform: 'Instagram' | 'TikTok' | 'YouTube' | 'Blog' | 'Otro';
+    tier: 'nano' | 'micro' | 'mid' | 'macro';
+    audienceSize?: number;
+    email?: string;
+    phone?: string;
+    shippingAddress?: string;
+    tags?: string[];
+    createdAt: string;
+    updatedAt?: string;
+}
+
+// --- PLV FÍSICO EN CLIENTE ---
+export type ActivationStatus = 'active' | 'inactive' | 'pending_renewal';
+
+export interface Activation {
+  id: string;
+  accountId: string;   // A qué cliente pertenece
+  materialId: string;    // ID del Material de PLV (vaso, cubitera, etc.)
+  description: string;   // Ej: "Cubiteras en terraza (10 uds)"
+  status: ActivationStatus;
+  startDate: string;
+  endDate?: string;
+  ownerId: string;
+  createdAt: string;
+}
+
+// --- PROMOCIONES Y OFERTAS ---
 export interface Promotion {
   id: string;
-  name: string;          // Ej: "Campaña Verano 5+1", "Lanzamiento 20% Dto"
+  name: string;          // Ej: "Campaña Verano 5+1"
   type: 'BOGO' | '5+1' | 'DISCOUNT_PERCENT' | 'DISCOUNT_FIXED';
-  value?: number;         // Ej: 20 (para 20%) o 10 (para 10€)
-  appliesToSku?: string[];// A qué SKUs se aplica. Si está vacío, aplica a todo el pedido.
+  value?: number;         // Ej: 20 (para 20%)
+  appliesToSku?: string[];// Si está vacío, aplica a todo el pedido
   validFrom: string;
   validTo: string;
   isActive: boolean;
 }
-```
 
-#### 4.3. `EventMarketing` (Activaciones y Eventos)
-Registra un **evento con fecha y lugar concretos**, que ocurre en un cliente. Es el contenedor de costes y resultados de la acción.
-
-```typescript
+// --- EVENTOS DE MARKETING ---
 export interface EventMarketing {
   id: string;
-  title: string;         // Ej: "Margarita Day en Terraza Sol", "Formación equipo Bar Luna"
-  accountId?: string;    // A qué cliente se asocia (opcional, puede ser un evento general)
-  
+  title: string;
+  accountId?: string;    // Cliente donde ocurre el evento (opcional)
   kind: 'DEMO' | 'FERIA' | 'FORMACION' | 'POPUP' | 'OTRO';
   status: 'planned' | 'active' | 'closed' | 'cancelled';
-  
-  // ¿Cuándo y Dónde?
   startAt: string;
   endAt?: string;
-  location: string; // "Bar Terraza Sol, Barcelona"
-
-  // ¿Cuánto cuesta?
+  location: string;
+  
+  // Costes del evento
   budget?: number;       // Presupuesto planificado
   spend?: number;        // Gasto final ejecutado
-  extraCosts?: { description: string; amount: number }[]; // Para registrar gastos no planificados (ej. "Mariachis: 300€")
+  extraCosts?: { description: string; amount: number }[]; // Para gastos no planificados (mariachis, etc.)
 
-  // ¿Qué se usó y qué se ofreció?
-  linkedActivations?: string[]; // IDs de PLV usado (Activation)
-  linkedPromotions?: string[];  // IDs de promociones ofrecidas (Promotion)
-
-  // ¿Quién lo gestionó?
-  ownerId: string;
+  // Vínculos a otras entidades
+  linkedActivations?: string[]; // IDs de PLV usado
+  linkedPromotions?: string[];  // IDs de promociones ofrecidas
+  
+  ownerId: string;       // Responsable del evento
   createdAt: string;
+}
+
+// --- CAMPAÑAS DE PUBLICIDAD ONLINE ---
+export interface OnlineCampaign {
+  id: string;
+  title: string;
+  channel: 'IG' | 'FB' | 'TikTok' | 'Google' | 'YouTube' | 'Email' | 'Other';
+  status: 'planned' | 'active' | 'closed' | 'cancelled';
+  startAt: string;
+  endAt?: string;
+  budget: number;
+  spend: number;
+  metrics?: {
+    impressions?: number;
+    clicks?: number;
+    roas?: number;
+    // ... más métricas
+  };
 }
 ```
