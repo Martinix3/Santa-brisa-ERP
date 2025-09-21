@@ -1,11 +1,9 @@
-
 'use server';
 import { ai } from '@/ai';
 import { getServerData } from '@/lib/dataprovider/server';
-import puppeteer from 'puppeteer';
 
 /**
- * Generates a PDF packing slip for a given shipment using AI and Puppeteer.
+ * Generates a PDF packing slip for a given shipment using AI and an external PDF service.
  * @param shipmentId The ID of the shipment.
  * @returns An object with the PDF data URI or an error message.
  */
@@ -67,21 +65,33 @@ export async function generatePackingSlip(shipmentId: string): Promise<{ pdfData
     if (!generatedHtml) {
         throw new Error('AI failed to generate HTML content.');
     }
-
-    // 3. Use Puppeteer to generate a PDF from the HTML
-    console.log('[Server Action] Launching Puppeteer to generate PDF...');
-    const browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
-    const page = await browser.newPage();
     
-    // The replace is needed to clean potential markdown backticks from the AI response
+    // Clean potential markdown backticks from the AI response
     const cleanHtml = generatedHtml.replace(/```html/g, '').replace(/```/g, '');
+
+    // 3. Use an external API (pdflayer) to convert HTML to PDF
+    console.log('[Server Action] Calling pdflayer API to generate PDF...');
+    const apiKey = process.env.PDFLAYER_API_KEY;
+    if (!apiKey) {
+        throw new Error('PDFLAYER_API_KEY environment variable is not set.');
+    }
     
-    await page.setContent(cleanHtml, { waitUntil: 'networkidle0' });
-    const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true });
-    await browser.close();
+    const pdfLayerUrl = `https://api.pdflayer.com/api/convert?access_key=${apiKey}`;
+    const response = await fetch(pdfLayerUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `document_html=${encodeURIComponent(cleanHtml)}`
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`PDF generation failed: ${errorText}`);
+    }
+
+    const pdfBuffer = await response.arrayBuffer();
 
     // 4. Convert to Base64 Data URI and return
-    const pdfBase64 = pdfBuffer.toString('base64');
+    const pdfBase64 = Buffer.from(pdfBuffer).toString('base64');
     const pdfDataUri = `data:application/pdf;base64,${pdfBase64}`;
     
     console.log(`[Server Action] Successfully generated PDF for ${shipmentId}.`);
