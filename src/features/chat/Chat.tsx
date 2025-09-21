@@ -48,7 +48,13 @@ export function Chat({ userId, onNewData, cloudFunctionUrl }: ChatProps) {
             });
 
             if (!res.ok) {
-                const errorData = await res.json();
+                const errorBody = await res.text();
+                let errorData;
+                try {
+                    errorData = JSON.parse(errorBody);
+                } catch (e) {
+                    throw new Error(errorBody || 'Network response was not ok.');
+                }
                 throw new Error(errorData.error || 'Network response was not ok.');
             }
 
