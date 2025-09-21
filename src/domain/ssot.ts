@@ -140,6 +140,8 @@ export interface OrderSellOut {
 }
 
 export type InteractionKind = 'VISITA' | 'LLAMADA' | 'EMAIL' | 'WHATSAPP' | 'OTRO' | 'COBRO' | 'EVENTO_MKT';
+export type EventKind = 'DEMO'|'FERIA'|'FORMACION'|'OTRO';
+
 export interface Interaction {
   id: string;
   partyId?: string;
@@ -155,7 +157,7 @@ export interface Interaction {
   involvedUserIds?: string[];
   location?: string;
   linkedEntity?: {
-    type: 'Order' | 'Account' | 'Campaign' | 'Collab' | 'Shipment' | 'ProductionOrder' | 'Interaction';
+    type: 'Order' | 'Account' | 'EVENT' | 'Collab' | 'Shipment' | 'ProductionOrder' | 'Interaction';
     id: string;
   };
   tags?: string[];
@@ -411,23 +413,44 @@ export interface Promotion {
     validTo: string;
 }
 
-export interface EventMarketing {
+export interface MarketingEvent {
     id: string;
     title: string;
-    accountId?: string;
+    kind: EventKind;
     status: 'planned' | 'active' | 'closed' | 'cancelled';
     startAt: string;
     endAt?: string;
+    ownerUserId?: string;
+    accountId?: string;
     city?: string;
+    location?: string;
+    budget?: number;
     spend?: number;
-    extraCosts?: { description: string; amount: number }[];
-    linkedActivations?: string[];
-    linkedPromotions?: string[];
-    goal?: {
-      leads?: number;
-      sampling?: number;
+    goal?: { 
+        leads?: number; 
+        sampling?: number; 
+        impressions?: number; 
+        interactions?: number 
     };
+    kpis?: {
+        leads?: number;
+        sampling?: number;
+        impressions?: number;
+        interactions?: number;
+        revenueAttributed?: number;
+        roi?: number;
+        completedAt?: string;
+    };
+    links?: {
+        activationId?: string;
+        plvIds?: string[];
+        promotionId?: string;
+    };
+    notes?: string;
+    createdAt: string;
+    updatedAt?: string;
 }
+
 export interface OnlineCampaign {
     id: string;
     title: string;
@@ -599,7 +622,7 @@ export interface SantaData {
   // Marketing
   activations: Activation[];
   promotions: Promotion[];
-  events: EventMarketing[];
+  marketingEvents: MarketingEvent[];
   onlineCampaigns: OnlineCampaign[];
   influencerCollabs: InfluencerCollab[];
 
@@ -620,7 +643,7 @@ export const SANTA_DATA_COLLECTIONS: (keyof SantaData)[] = [
     'parties', 'partyRoles', 'users', 'accounts', 'ordersSellOut', 'interactions',
     'products', 'materials', 'billOfMaterials', 'productionOrders', 'lots', 'qaChecks',
     'inventory', 'stockMoves', 'shipments', 'goodsReceipts', 'activations', 'promotions',
-    'events', 'onlineCampaigns', 'influencerCollabs', 'materialCosts', 'financeLinks',
+    'marketingEvents', 'onlineCampaigns', 'influencerCollabs', 'materialCosts', 'financeLinks', 
     'paymentLinks', 'traceEvents', 'incidents', 'codeAliases'
 ];
 

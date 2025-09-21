@@ -2,13 +2,14 @@
 "use client";
 import React, { useMemo, useState } from 'react';
 import { useData } from '@/lib/dataprovider';
-import type { EventMarketing, Interaction } from '@/domain/ssot';
-import { SBCard, SBButton, DataTableSB, SB_COLORS } from '@/components/ui/ui-primitives';
+import type { MarketingEvent, Interaction, InteractionKind } from '@/domain/ssot';
+import { SBCard, SBButton, DataTableSB } from '@/components/ui/ui-primitives';
 import type { Col } from '@/components/ui/ui-primitives';
 import { NewEventDialog } from '@/features/agenda/components/NewEventDialog';
 import { MarketingTaskCompletionDialog } from '@/features/marketing/components/MarketingTaskCompletionDialog';
+import { SB_COLORS } from '@/domain/ssot';
 
-function StatusPill({ status }: { status: EventMarketing['status'] }) {
+function StatusPill({ status }: { status: MarketingEvent['status'] }) {
     const styles = {
         planned: 'bg-blue-100 text-blue-800',
         active: 'bg-green-100 text-green-800 animate-pulse',
@@ -28,75 +29,88 @@ const formatCurrency = (num?: number) => num?.toLocaleString('es-ES', { style: '
 export default function Page(){
   const { data: santaData, setData, currentUser, isPersistenceEnabled, saveCollection } = useData();
   const [isNewEventDialogOpen, setIsNewEventDialogOpen] = useState(false);
-  const [completingEvent, setCompletingEvent] = useState<EventMarketing | null>(null);
+  const [completingEvent, setCompletingEvent] = useState<MarketingEvent | null>(null);
 
-  const events = useMemo(() => santaData?.events || [], [santaData]);
+  const events = useMemo(() => santaData?.marketingEvents || [], [santaData]);
 
-  const handleAddOrUpdateEvent = async (event: Omit<Interaction, 'createdAt' | 'status'> & { id?: string }) => {
+  const handleAddOrUpdateEvent = async (event: Omit<Interaction, 'createdAt' | 'status' | 'id'> & { id?: string }) => {
       if (!currentUser || !santaData) return;
       
-      let finalData = { ...santaData };
+      const newMktEvent: MarketingEvent = {
+          id: `mkt_${Date.now()}`,
+          title: event.note!,
+          status: 'planned',
+          startAt: event.plannedFor!,
+          city: event.location,
+          ownerUserId: currentUser.id,
+          createdAt: new Date().toISOString(),
+          kind: event.kind as any, // Asumiendo que el diálogo puede pasar el EventKind
+      };
+
       const newInteraction: Interaction = {
           ...event,
           id: `int_${Date.now()}`,
           createdAt: new Date().toISOString(),
           status: 'open',
           userId: currentUser.id,
+          kind: 'EVENTO_MKT',
+          dept: 'MARKETING',
+          linkedEntity: { type: 'EVENT', id: newMktEvent.id },
       };
 
-      const newMktEvent: EventMarketing = {
-          id: `mkt_${Date.now()}`,
-          title: newInteraction.note!,
-          status: 'planned',
-          startAt: newInteraction.plannedFor || new Date().toISOString(),
-          city: newInteraction.location,
+      const finalData = { 
+          ...santaData,
+          marketingEvents: [...(santaData.marketingEvents || []), newMktEvent],
+          interactions: [...(santaData.interactions || []), newInteraction]
       };
-      finalData.events = [...(finalData.events || []), newMktEvent];
-      newInteraction.linkedEntity = { type: 'Campaign', id: newMktEvent.id };
-
-      finalData.interactions = [...(finalData.interactions || []), newInteraction];
       
       setData(finalData);
       
       if(isPersistenceEnabled) {
-          await saveCollection('events', finalData.events);
+          await saveCollection('marketingEvents', finalData.marketingEvents);
           await saveCollection('interactions', finalData.interactions);
       }
 
       setIsNewEventDialogOpen(false);
   };
   
-  const handleSaveCompletedTask = async (taskId: string, payload: any) => {
-    if (!santaData || !completingEvent) return;
+  const handleSaveCompletedTask = async (eventId: string, payload: any) => {
+    if (!santaData) return;
     
-    const updatedMktEvents = santaData.events.map(me => {
-        if (me.id === completingEvent.id) {
+    const updatedMktEvents = santaData.marketingEvents.map(me => {
+        if (me.id === eventId) {
             return {
                 ...me,
                 status: 'closed',
-                spend: payload.cost,
-                goal: { ...(me.goal || {}), leads: payload.leads, sampling: payload.attendees },
-            } as EventMarketing;
+                spend: payload.spend,
+                kpis: {
+                    leads: payload.leads,
+                    sampling: payload.sampling,
+                    impressions: payload.impressions,
+                    interactions: payload.interactions,
+                    completedAt: new Date().toISOString(),
+                }
+            } as MarketingEvent;
         }
         return me;
     });
 
-    setData({ ...santaData, events: updatedMktEvents });
+    setData({ ...santaData, marketingEvents: updatedMktEvents });
     if (isPersistenceEnabled) {
-        await saveCollection('events', updatedMktEvents);
+        await saveCollection('marketingEvents', updatedMktEvents);
     }
 
     setCompletingEvent(null);
   };
 
-  const cols: Col<EventMarketing>[] = [
+  const cols: Col<MarketingEvent>[] = [
     { key: 'title', header: 'Evento', render: r => <div className="font-semibold">{r.title}</div> },
     { key: 'status', header: 'Estado', render: r => <StatusPill status={r.status} /> },
     { key: 'startAt', header: 'Fecha', render: r => new Date(r.startAt).toLocaleDateString('es-ES', {day: 'numeric', month: 'long', year: 'numeric'}) },
     { key: 'city', header: 'Ubicación', render: r => r.city || 'N/A'},
     { key: 'spend', header: 'Gasto', className: "justify-end", render: r => formatCurrency(r.spend) },
-    { key: 'leads', header: 'Leads', className: "justify-end", render: r => formatNumber(r.goal?.leads) },
-    { key: 'sampling', header: 'Asistentes', className: "justify-end", render: r => formatNumber(r.goal?.sampling) },
+    { key: 'leads', header: 'Leads', className: "justify-end", render: r => formatNumber(r.kpis?.leads) },
+    { key: 'sampling', header: 'Asistentes', className: "justify-end", render: r => formatNumber(r.kpis?.sampling) },
     { 
         key: 'actions', 
         header: 'Acciones', 
@@ -129,13 +143,13 @@ export default function Page(){
             onOpenChange={setIsNewEventDialogOpen}
             onSave={handleAddOrUpdateEvent as any}
             accentColor={SB_COLORS.primary.teal}
-            initialEventData={{dept: 'MARKETING'} as any}
+            initialEventData={{dept: 'MARKETING', kind: 'EVENTO_MKT' as InteractionKind} as any}
         />
     )}
 
     {completingEvent && (
         <MarketingTaskCompletionDialog
-            task={{id: completingEvent.id, note: `Resultados para ${completingEvent.title}`} as Interaction}
+            event={completingEvent}
             open={!!completingEvent}
             onClose={() => setCompletingEvent(null)}
             onComplete={handleSaveCompletedTask}
