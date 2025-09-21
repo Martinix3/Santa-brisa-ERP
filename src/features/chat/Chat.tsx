@@ -7,6 +7,7 @@ import type { Message } from 'genkit';
 import { useData } from '@/lib/dataprovider';
 import Image from 'next/image';
 import type { SantaData } from '@/domain/ssot';
+import { runSantaBrainInBrowser } from '@/ai/browser/santaBrainClient';
 
 
 type ChatProps = {
@@ -14,8 +15,8 @@ type ChatProps = {
     onNewData: (data: Partial<SantaData>) => void;
 };
 
-// TODO: Replace with your actual Cloud Function URL
-const SANTA_BRAIN_URL = 'https://europe-west1-santa-brisa-erp.cloudfunctions.net/santaBrain';
+// NOTE: This now uses the browser-based client directly for simplicity in this environment.
+// The Cloud Function URL is no longer needed.
 
 export function Chat({ userId, onNewData }: ChatProps) {
     const [messages, setMessages] = useState<Message[]>([]);
@@ -39,42 +40,45 @@ export function Chat({ userId, onNewData }: ChatProps) {
         setIsLoading(true);
 
         try {
-            const response = await fetch(SANTA_BRAIN_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userId,
-                    threadId: 'main-thread', // Or a more sophisticated thread management
-                    message: currentInput,
-                }),
+            // Using the browser-based client directly
+            const { text, toolResponses } = await runSantaBrainInBrowser({
+                userId,
+                threadId: 'main-thread',
+                message: currentInput,
             });
-            
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Server responded with an error');
-            }
-
-            const { text, toolRequests } = await response.json();
-            
-            // NOTE: In a real app, you would handle the toolRequests by executing them
-            // and sending the results back to the function. For this demo, we assume
-            // the function handles its own tool loop or gives a final answer.
 
             const assistantMessage: Message = { role: 'model', content: [{text}] } as Message;
             setMessages(prev => [...prev, assistantMessage]);
 
-            // The function doesn't directly return new entities in this architecture.
-            // We would need to re-fetch or use Firestore listeners to see updates.
-            // For now, we'll rely on a manual refresh or listeners in useData.
+            // Extract new entities from tool responses
+            const newEntities: Partial<SantaData> = {};
+            for (const toolResponse of toolResponses) {
+              const result = toolResponse.functionResponse.response.content;
+              const toolName = toolResponse.functionResponse.name;
+              
+              if (result.id) {
+                  if (toolName.startsWith('create_order')) {
+                      (newEntities.ordersSellOut = newEntities.ordersSellOut || []).push(result);
+                  } else if (toolName.startsWith('create_account') || toolName.startsWith('ensure_account')) {
+                       (newEntities.accounts = newEntities.accounts || []).push(result);
+                  } else if (toolName.startsWith('create_interaction')) {
+                       (newEntities.interactions = newEntities.interactions || []).push(result);
+                  }
+              }
+            }
+
+            if (Object.keys(newEntities).length > 0) {
+                onNewData(newEntities);
+            }
 
         } catch (error: any) {
-            console.error("Error calling Santa Brain function:", error);
+            console.error("Error running Santa Brain:", error);
             const errorMessage: Message = { role: 'model', content: [{text: `Lo siento, ha ocurrido un error: ${error.message}`}] } as Message;
             setMessages(prev => [...prev, errorMessage]);
         } finally {
             setIsLoading(false);
         }
-    }, [input, isLoading, userId]);
+    }, [input, isLoading, userId, onNewData]);
 
     return (
         <div className="flex flex-col h-full bg-zinc-100">

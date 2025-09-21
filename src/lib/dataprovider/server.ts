@@ -31,14 +31,15 @@ export async function getServerData(): Promise<SantaData> {
  * @param items An array of documents to upsert. Each document must have an 'id'.
  * @returns An object with the count of inserted/updated documents.
  */
-export async function upsertMany(collectionName: keyof SantaData, items: any[]): Promise<{ inserted: number, updated: number }> {
-  if (!items || items.length === 0) return { inserted: 0, updated: 0 };
+export async function upsertMany(collectionName: keyof SantaData, items: any[]): Promise<{ inserted: number, updated: number, ids: string[] }> {
+  if (!items || items.length === 0) return { inserted: 0, updated: 0, ids: [] };
 
   const collectionRef = adminDb.collection(collectionName);
   const existingDocIds = new Set((await collectionRef.select().get()).docs.map(d => d.id));
   
   let inserted = 0;
   let updated = 0;
+  const ids: string[] = [];
 
   // Firestore allows a maximum of 500 operations in a single batch.
   const batchSize = 500;
@@ -52,7 +53,8 @@ export async function upsertMany(collectionName: keyof SantaData, items: any[]):
           continue;
       }
       const docRef = collectionRef.doc(item.id);
-      batch.set(docRef, item, { merge: true });
+      batch.set(docRef, JSON.parse(JSON.stringify(item, (k,v) => v === undefined ? null : v)), { merge: true });
+      ids.push(item.id);
       
       if (existingDocIds.has(item.id)) {
         updated++;
@@ -63,5 +65,5 @@ export async function upsertMany(collectionName: keyof SantaData, items: any[]):
     await batch.commit();
   }
 
-  return { inserted, updated };
+  return { inserted, updated, ids };
 }
