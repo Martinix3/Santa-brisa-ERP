@@ -8,17 +8,18 @@ import type { OrderStatus, Shipment, OrderSellOut, Account, Party } from '@/doma
 const SHIPMENT_TRIGGER_STATES = new Set<OrderStatus>(['confirmed']);
 
 export async function updateOrderStatus(
-  orderId: string,
-  accountId: string,
+  order: OrderSellOut,
+  account: Account,
+  party: Party,
   newStatus: OrderStatus
 ): Promise<{ ok: boolean; order: { id: string, status: OrderStatus }; shipment: Shipment | null; error?: string }> {
   
-  console.log(`[CHIVATO] Iniciando updateOrderStatus para order ${orderId} con nuevo estado ${newStatus}`);
+  console.log(`[CHIVATO] Iniciando updateOrderStatus para order ${order.id} con nuevo estado ${newStatus}`);
 
   try {
     // 1. Actualizar siempre el estado del pedido
-    await upsertMany('ordersSellOut', [{ id: orderId, status: newStatus, updatedAt: new Date().toISOString() }]);
-    console.log(`[CHIVATO] Pedido ${orderId} actualizado a estado ${newStatus} en la base de datos.`);
+    await upsertMany('ordersSellOut', [{ id: order.id, status: newStatus, updatedAt: new Date().toISOString() }]);
+    console.log(`[CHIVATO] Pedido ${order.id} actualizado a estado ${newStatus} en la base de datos.`);
 
     let createdShipment: Shipment | null = null;
 
@@ -26,19 +27,12 @@ export async function updateOrderStatus(
     if (SHIPMENT_TRIGGER_STATES.has(newStatus)) {
       console.log(`[CHIVATO] El estado '${newStatus}' dispara la creación de un envío.`);
 
-      const data = await getServerData();
-      const order = data.ordersSellOut.find(o => o.id === orderId);
-      if (!order) throw new Error(`Pedido ${orderId} no encontrado en el servidor para crear el envío.`);
-
-      const account = data.accounts.find(a => a.id === accountId);
-      if (!account) throw new Error(`Cuenta ${accountId} no encontrada para el pedido ${orderId}.`);
-      
-      const party = data.parties.find(p => p.id === account.partyId);
+      if (!account) throw new Error(`Cuenta ${order.accountId} no encontrada para el pedido ${order.id}.`);
       if (!party) throw new Error(`Party ${account.partyId} no encontrada para la cuenta ${account.id}.`);
 
       const shipmentLines = (order.lines ?? []).map(it => ({
         sku: it.sku,
-        name: data.products.find(p => p.sku === it.sku)?.name || it.sku,
+        name: it.sku, // Placeholder, a real app would look this up from a products collection
         qty: it.qty,
         uom: 'uds' as const,
       }));
@@ -72,10 +66,10 @@ export async function updateOrderStatus(
     revalidatePath('/orders');
     revalidatePath('/warehouse/logistics');
     
-    return { ok: true, order: { id: orderId, status: newStatus }, shipment: createdShipment };
+    return { ok: true, order: { id: order.id, status: newStatus }, shipment: createdShipment };
 
   } catch (err: any) {
-    console.error(`[CHIVATO] ERROR CRÍTICO en updateOrderStatus para el pedido ${orderId}:`, err);
-    return { ok: false, order: {id: orderId, status: newStatus}, shipment: null, error: err.message };
+    console.error(`[CHIVATO] ERROR CRÍTICO en updateOrderStatus para el pedido ${order.id}:`, err);
+    return { ok: false, order: {id: order.id, status: newStatus}, shipment: null, error: err.message };
   }
 }

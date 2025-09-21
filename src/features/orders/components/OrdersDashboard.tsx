@@ -301,14 +301,26 @@ export default function OrdersDashboard() {
   }
   
   const handleStatusChange = async (orderId: string, accountId: string, newStatus: OrderStatus) => {
-    const res = await updateOrderStatus(orderId, accountId, newStatus);
+    if(!data) return;
+
+    const order = data.ordersSellOut.find(o => o.id === orderId);
+    const account = data.accounts.find(a => a.id === accountId);
+    const party = account ? data.parties.find(p => p.id === account.partyId) : undefined;
+    
+    if (!order || !account || !party) {
+        console.error("Faltan datos para actualizar el estado del pedido.");
+        return;
+    }
+
+    const res = await updateOrderStatus(order, account, party, newStatus);
+    
     if (res.ok) {
         setData(prevData => {
             if (!prevData) return null;
             const newOrders = prevData.ordersSellOut.map(o => 
                 o.id === res.order.id ? { ...o, status: res.order.status } : o
             );
-            const newShipments = res.shipment ? [res.shipment, ...(prevData.shipments || [])] : prevData.shipments;
+            const newShipments = res.shipment ? [...(prevData.shipments || []), res.shipment] : prevData.shipments;
             return { ...prevData, ordersSellOut: newOrders, shipments: newShipments };
         });
     } else {
