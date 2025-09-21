@@ -41,6 +41,7 @@ import {
     DatabaseZap,
     DatabaseBackup,
     ChevronUp,
+    Sheet,
 } from 'lucide-react';
 import { SB_COLORS, hexToRgba } from '@/components/ui/ui-primitives';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -121,6 +122,7 @@ const navSections = [
             { href: '/admin/kpi-settings', label: 'Ajustes de KPIs', icon: SlidersHorizontal },
             { href: '/users', label: 'Usuarios', icon: User },
             { href: '/admin/sku-management', label: 'SKUs', icon: Tags },
+            { href: '/dev/data-viewer', label: 'Data Viewer', icon: Sheet },
             { href: '/dev/db-console', label: 'Consola DB', icon: DatabaseZap },
             { href: '/dev/ssot-tests', label: 'Tests de Integridad', icon: TestTube2 },
             { href: '/dev/integrations-panel', label: 'Integraciones', icon: Zap },
