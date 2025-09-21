@@ -1,3 +1,4 @@
+
 // src/domain/ssot.ts
 
 // =================================================================
@@ -161,6 +162,7 @@ export interface Material {
   name: string; 
   category: 'raw' | 'packaging' | 'label' | 'consumable' | 'intermediate' | 'finished_good' | 'merchandising'; 
   uom?: Uom; 
+  standardCost?: number;
 }
 export interface Product { 
   id: string; 
@@ -183,6 +185,9 @@ export interface BillOfMaterial {
   baseUnit?: string; 
 }
 
+export type Shortage = { materialId: string; required: number; available: number; uom: Uom };
+export type Reservation = { materialId: string; fromLot: string; reservedQty: number; uom: Uom };
+
 export interface ProductionOrder {
   id: string;
   orderNumber?: string;
@@ -193,10 +198,8 @@ export interface ProductionOrder {
   createdAt: string;
   scheduledFor?: string;
   lotId?: string;
-
-  shortages?: { materialId: string; required: number; available: number; uom: Uom }[];
-  reservations?: { materialId: string; fromLot: string; reservedQty: number; uom: Uom }[];
-  
+  shortages?: Shortage[];
+  reservations?: Reservation[];
   costing?: {
     stdCostPerUom?: number;
     actual?: {
@@ -380,7 +383,11 @@ export interface EventMarketing {
     spend?: number; 
     extraCosts?: { description: string; amount: number }[]; 
     linkedActivations?: string[]; 
-    linkedPromotions?: string[]; 
+    linkedPromotions?: string[];
+    goal?: {
+      leads?: number;
+      sampling?: number;
+    };
 }
 export interface OnlineCampaign { 
     id: string; 
@@ -394,7 +401,62 @@ export interface OnlineCampaign {
     metrics?: any; 
 }
 
-export interface InfluencerCollab { id: string; supplierPartyId: string; /* ... */ }
+export type Platform = 'Instagram' | 'TikTok' | 'YouTube' | 'Twitch' | 'Blog' | 'Otro';
+export type Tier = 'nano' | 'micro' | 'mid' | 'macro';
+export type Deliverable = 'post' | 'story' | 'reel' | 'short' | 'video_long' | 'stream' | 'blogpost';
+export type CompType = 'gift' | 'flat' | 'cpa' | 'cpc' | 'revshare';
+export type CollabStatus = 'PROSPECT' | 'OUTREACH' | 'NEGOTIATING' | 'AGREED' | 'LIVE' | 'COMPLETED' | 'PAUSED' | 'DECLINED';
+
+export interface InfluencerCollab {
+  id: string;
+  creatorId: string;
+  creatorName: string;
+  handle?: string;
+  platform: Platform;
+  tier: Tier;
+  status: CollabStatus;
+  ownerUserId?: string;
+  couponCode?: string;
+  utmCampaign?: string;
+  landingUrl?: string;
+  deliverables: {
+    kind: Deliverable;
+    qty: number;
+    dueAt?: string;
+  }[];
+  compensation: {
+    type: CompType;
+    amount?: number;
+    notes?: string;
+  };
+  costs?: {
+    productCost?: number;
+    shippingCost?: number;
+    cashPaid?: number;
+    otherCost?: number;
+  };
+  tracking?: {
+    views?: number;
+    impressions?: number;
+    likes?: number;
+    comments?: number;
+    saves?: number;
+    shares?: number;
+    clicks?: number;
+    orders?: number;
+    revenue?: number;
+    updatedAt?: string;
+  };
+  dates?: {
+    agreedAt?: string;
+    goLiveAt?: string;
+    completedAt?: string;
+  };
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+  supplierPartyId: string;
+}
 
 export interface MaterialCost {
   id: string;
@@ -546,4 +608,13 @@ export const DEPT_META: Record<Department, { label: string; color: string; textC
   MARKETING:  { label: 'Marketing',  color: '#F7D15F', textColor: '#9E4E27' },
   FINANZAS:   { label: 'Finanzas',   color: '#CCCCCC', textColor: '#333' },
   CALIDAD:    { label: 'Calidad',    color: '#F7D15F', textColor: '#9E4E27' },
+};
+
+// --- Lógica de cálculo simple (ejemplos) ---
+export const orderTotal = (order: OrderSellOut): number => {
+    return order.lines.reduce((sum, line) => sum + (line.qty * line.priceUnit * (1 - (line.discount || 0))), 0);
+}
+export const inWindow = (dateStr: string, start: Date, end: Date): boolean => {
+  const time = +new Date(dateStr);
+  return time >= start.getTime() && time <= end.getTime();
 };

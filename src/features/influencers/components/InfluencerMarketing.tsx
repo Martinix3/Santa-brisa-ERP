@@ -3,9 +3,6 @@
 
 // ========================================================
 // Santa Brisa — Influencer Marketing Module (single-file)
-// Requiere que existan en el scope: SB_COLORS, waterHeader,
-// hexToRgba, AgaveEdge, Input, Select, Textarea, Header.
-// (Si lo pegas aislado, añade esos helpers arriba.)
 // ========================================================
 
 import React, { useMemo, useState, useEffect } from "react";
@@ -15,11 +12,9 @@ import {
   ExternalLink, Tags, Plus, BarChart3, Link2, CalendarClock,
   DollarSign, Check, X, ChevronDown, UploadCloud, Pencil, PieChart,
 } from "lucide-react";
-import type { InfluencerCollab, Platform, Tier, Deliverable, CompType } from "@/domain/ssot";
-import { listCollabs, listCreators } from "@/features/production/ssot-bridge";
+import type { InfluencerCollab, Platform, Tier, Deliverable, CompType, CollabStatus as InfStatus } from "@/domain/ssot";
+import { listCollabs } from "@/features/production/ssot-bridge";
 import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog";
-
-type InfStatus = InfluencerCollab['status'];
 
 // =============== Utilidades métricas ===============
 function sumCosts(c?: InfluencerCollab["costs"]) {
@@ -347,7 +342,8 @@ export default function InfluencerMarketing({ components }: { components: any })
       const newCollab: InfluencerCollab = {
           id, creatorId: `creator_${Date.now()}`, status: "PROSPECT", tier: "nano", platform: "Instagram", creatorName: "Nuevo/a", deliverables: [], compensation: { type: "gift" },
           createdAt: isoNow(), updatedAt: isoNow(),
-          ...patch
+          ...patch,
+          supplierPartyId: '' // Needs to be filled
       };
       setData(prev => [newCollab, ...prev]);
     }
@@ -432,19 +428,19 @@ export default function InfluencerMarketing({ components }: { components: any })
       </div>
 
       <SBDialog open={openCreate} onOpenChange={setOpenCreate}>
-        <SBDialogContent title="Nueva Colaboración" size="lg" onSubmit={(e) => { e.preventDefault(); upsert({}); setOpenCreate(false); }} primaryAction={{label: "Crear"}} secondaryAction={{label: "Cancelar", onClick: () => setOpenCreate(false)}}>
+        <SBDialogContent title="Nueva Colaboración" size="lg" onSubmit={(e) => { e.preventDefault(); upsert({}); setOpenCreate(false); }} primaryAction={{label: "Crear", onClick: () => {}}} secondaryAction={{label: "Cancelar", onClick: () => setOpenCreate(false)}}>
              <CollabForm components={components} onCancel={() => setOpenCreate(false)} onSubmit={(p) => { upsert(p); setOpenCreate(false); }} />
         </SBDialogContent>
       </SBDialog>
       
       <SBDialog open={!!editing} onOpenChange={() => setEditing(null)}>
-        {editing && <SBDialogContent title="Editar Colaboración"  size="lg" onSubmit={(e) => { e.preventDefault(); upsert({}, editing); setEditing(null);}} primaryAction={{label: "Guardar"}} secondaryAction={{label: "Cancelar", onClick: () => setEditing(null)}}>
+        {editing && <SBDialogContent title="Editar Colaboración"  size="lg" onSubmit={(e) => { e.preventDefault(); setEditing(null);}} primaryAction={{label: "Guardar", onClick: () => {}}} secondaryAction={{label: "Cancelar", onClick: () => setEditing(null)}}>
             <CollabForm defaults={editing} components={components} onCancel={() => setEditing(null)} onSubmit={(p) => { upsert(p, editing); setEditing(null); }} />
         </SBDialogContent>}
       </SBDialog>
 
       <SBDialog open={!!resultsFor} onOpenChange={() => setResultsFor(null)}>
-        {resultsFor && <SBDialogContent title="Registrar Resultados"  size="lg" onSubmit={(e) => { e.preventDefault(); setResultsFor(null);}} primaryAction={{label: "Guardar"}} secondaryAction={{label: "Cancelar", onClick: () => setResultsFor(null)}}>
+        {resultsFor && <SBDialogContent title="Registrar Resultados"  size="lg" onSubmit={(e) => { e.preventDefault(); setResultsFor(null);}} primaryAction={{label: "Guardar", onClick: () => {}}} secondaryAction={{label: "Cancelar", onClick: () => setResultsFor(null)}}>
             <ResultsForm collab={resultsFor} components={components} onCancel={() => setResultsFor(null)} onSubmit={(patch) => { upsert(patch, resultsFor); setResultsFor(null); }}/>
         </SBDialogContent>}
       </SBDialog>
