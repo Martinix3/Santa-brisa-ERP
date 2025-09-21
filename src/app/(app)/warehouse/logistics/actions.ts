@@ -85,7 +85,9 @@ export async function generatePackingSlip(shipmentId: string): Promise<{ pdfData
             'x-rapidapi-key': apiKey,
         },
         body: new URLSearchParams({
-            document_html: cleanHtml
+            document_html: cleanHtml,
+            page_size: 'A4',
+            test: '1', // Use test mode to avoid consuming credits during development, if available
         })
     };
     
