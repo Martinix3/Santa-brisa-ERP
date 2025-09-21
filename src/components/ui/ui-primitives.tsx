@@ -3,32 +3,14 @@
 import React, { useMemo, useState } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import type { OrderStatus, ShipmentStatus } from '@/domain/ssot';
+import { SB_COLORS } from '@/domain/ssot';
 
 /*************************************************
  *  Santa Brisa — UI primitives
  *************************************************/
 const clsx = (...xs: Array<string | false | null | undefined>) => xs.filter(Boolean).join(" ");
 
-// Paleta de colores unificada
-export const SB_COLORS = {
-  primary: "#F7D15F",
-  accent: "#618E8F",
-  sales: "#618E8F",
-  marketing: "#618E8F",
-  warehouse: "#618E8F",
-  production: "#618E8F",
-  finance: "#618E8F",
-  analytics: "#618E8F",
-  admin: "#618E8F",
-  quality: "#618E8F",
-  general: "#618E8F",
-  sun: "#F7D15F",
-  cobre: "#D7713E",
-  agua: "#A7D8D9",
-  verde_mar: "#618E8F",
-};
-
-export const STATUS_STYLES: Record<OrderStatus | ShipmentStatus, { label: string, color: string, bg: string }> = {
+export const STATUS_STYLES: Record<OrderStatus | ShipmentStatus, { label: string; color: string; bg: string }> = {
   // Order Status
   open: { label: 'Borrador', color: 'text-zinc-800', bg: 'bg-zinc-100' },
   confirmed: { label: 'Confirmado', color: 'text-blue-800', bg: 'bg-blue-100' },
@@ -54,7 +36,7 @@ export const hexToRgba = (hex: string, a: number) => {
   return `rgba(${r},${g},${b},${a})`; 
 };
 
-export const waterHeader = (seed = "hdr", base = SB_COLORS.accent) => {
+export const waterHeader = (seed = "hdr", base = SB_COLORS.primary.aqua) => {
   const hash = Array.from(seed).reduce((s,c)=> (s*33+c.charCodeAt(0))>>>0,5381);
   let a = hash||1; const rnd = ()=> (a = (a*1664525+1013904223)>>>0, (a>>>8)/16777216);
   const L:string[]=[]; for(let i=0;i<4;i++){ const x=(i%2?80+rnd()*18:rnd()*18).toFixed(2); const y=(rnd()*70+15).toFixed(2); const rx=100+rnd()*120, ry=60+rnd()*120; const a1=0.06+rnd()*0.06, a2=a1*0.5, s1=45+rnd()*10, s2=70+rnd()*12; L.push(`radial-gradient(${rx}px ${ry}px at ${x}% ${y}%, ${hexToRgba(base,a1)}, ${hexToRgba(base,a2)} ${s1}%, rgba(255,255,255,0) ${s2}%)`);} L.push(`linear-gradient(to bottom, ${hexToRgba(base,0.08)}, rgba(255,255,255,0.02))`); return L.join(',');
@@ -106,11 +88,11 @@ export const Select = (p:React.SelectHTMLAttributes<HTMLSelectElement>)=> <selec
 export const Textarea = (p:React.TextareaHTMLAttributes<HTMLTextAreaElement>)=> <textarea {...p} rows={4} className={clsx("w-full px-3 py-2 rounded-lg border border-zinc-300 bg-white text-sm outline-none focus:ring-2 ring-sb-sun", p.className)}/>;
 
 
-export function Badge({accent = SB_COLORS.accent,label}:{accent?:string;label:string}){
+export function Badge({accent = SB_COLORS.primary.aqua,label}:{accent?:string;label:string}){
   return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs border" style={{background:hexToRgba(accent,0.12), borderColor:hexToRgba(accent,0.6)}}>{label}</span>;
 }
 
-export function Card({title,accent = SB_COLORS.accent,children}:{title:string;accent?:string;children:React.ReactNode}){
+export function Card({title,accent = SB_COLORS.primary.aqua,children}:{title:string;accent?:string;children:React.ReactNode}){
   return <div className="rounded-2xl border border-zinc-200 overflow-hidden bg-white shadow-sm">
     <div className="px-4 py-2.5 border-b relative" style={{background:waterHeader("card:"+title, accent), borderColor:hexToRgba(accent,0.18)}}>
       <div className="text-sm font-medium text-zinc-800">{title}</div>
@@ -145,7 +127,7 @@ export function Table({cols,rows}:{cols:{key:string;label:string}[]; rows:Record
   </div>;
 }
 
-export function MiniTrend({data,accent = SB_COLORS.accent}:{data:{x:string;y:number}[];accent?:string}){
+export function MiniTrend({data,accent = SB_COLORS.primary.aqua}:{data:{x:string;y:number}[];accent?:string}){
   return <div className="h-32">
     <ResponsiveContainer width="100%" height="100%">
       <LineChart data={data} margin={{left:8,right:8,top:8,bottom:8}}>

@@ -3,9 +3,10 @@
 import React, { useMemo, useState } from 'react';
 import { BarChart3, Calendar, CheckCircle, Clock, Plus, AlertTriangle } from 'lucide-react';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
-import { SBCard, SBButton, SB_COLORS } from '@/components/ui/ui-primitives';
+import { SBCard, SBButton } from '@/components/ui/ui-primitives';
 import { useData } from '@/lib/dataprovider';
 import type { Interaction, InteractionStatus, Account, SantaData, OrderSellOut } from '@/domain/ssot';
+import { SB_COLORS } from '@/domain/ssot';
 import Link from 'next/link';
 import { TaskBoard } from '@/features/agenda/TaskBoard';
 import type { Task } from '@/features/agenda/TaskBoard';
@@ -97,7 +98,7 @@ function PersonalDashboardContent() {
     }
   };
 
-  const handleSaveNewTask = async (eventData: Omit<Interaction, 'createdAt' | 'status'> & { id?: string }) => {
+  const handleSaveNewTask = async (eventData: Omit<Interaction, 'createdAt' | 'status'>) => {
       if (!currentUser || !data) return;
       
       const newInteraction: Interaction = {
