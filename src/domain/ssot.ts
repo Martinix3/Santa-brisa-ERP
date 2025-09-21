@@ -1,3 +1,4 @@
+
 // src/domain/ssot.ts
 
 // =================================================================
@@ -16,7 +17,7 @@ export type Department = 'VENTAS' | 'MARKETING' | 'PRODUCCION' | 'ALMACEN' | 'FI
 
 // --- Roles y Estados ---
 export type PartyRoleType = 'CUSTOMER' | 'SUPPLIER' | 'DISTRIBUTOR' | 'IMPORTER' | 'INFLUENCER' | 'CREATOR' | 'EMPLOYEE' | 'BRAND_AMBASSADOR';
-export type AccountType = 'HORECA' | 'RETAIL' | 'PRIVADA' | 'ONLINE' | 'OTRO';
+export type AccountType = 'HORECA' | 'RETAIL' | 'PRIVADA' | 'ONLINE' | 'OTRO' | 'DISTRIBUIDOR';
 export type Stage = 'POTENCIAL' | 'ACTIVA' | 'SEGUIMIENTO' | 'FALLIDA' | 'CERRADA' | 'BAJA';
 export type UserRole = 'comercial' | 'admin' | 'ops' | 'owner';
 
@@ -49,10 +50,10 @@ export interface Party {
     value: string; isPrimary?: boolean; description?: string;
   }[];
   addresses: { type: 'main' | 'billing' | 'shipping'; street: string; city: string; postalCode?: string; country: string; isPrimary?: boolean; }[];
-  
+
   // --- Identidades Digitales ---
   handles?: Partial<Record<'instagram' | 'tiktok' | 'linkedin' | 'twitter', string>>;
-  
+
   // --- Metadatos ---
   tags?: string[];
   createdAt: string;
@@ -91,12 +92,12 @@ export interface EmployeeData {
     startDate: string;
 }
 
-export interface User { 
-  id: string; 
-  name: string; 
-  email?: string; 
+export interface User {
+  id: string;
+  name: string;
+  email?: string;
   role: UserRole;
-  active: boolean; 
+  active: boolean;
   managerId?: string;
   kpiBaseline?: {
     revenue?: number;
@@ -123,7 +124,7 @@ export interface Account {
   notes?: string;
 }
 
-export interface OrderSellOut { 
+export interface OrderSellOut {
   id: string;
   docNumber?: string;   // Número de pedido legible (ej. ORD-SB-202409-0042)
   accountId: string;
@@ -163,33 +164,33 @@ export interface Interaction {
 // -----------------------------------------------------------------
 // 4. Producción, Calidad y Trazabilidad
 // -----------------------------------------------------------------
-export interface Material { 
-  id: string; 
-  sku: string; 
-  name: string; 
-  category: 'raw' | 'packaging' | 'label' | 'consumable' | 'intermediate' | 'finished_good' | 'merchandising'; 
-  uom?: Uom; 
+export interface Material {
+  id: string;
+  sku: string;
+  name: string;
+  category: 'raw' | 'packaging' | 'label' | 'consumable' | 'intermediate' | 'finished_good' | 'merchandising';
+  uom?: Uom;
   standardCost?: number;
 }
-export interface Product { 
-  id: string; 
-  sku: string; 
-  name: string; 
-  category?: string; 
-  bottleMl?: number; 
-  caseUnits?: number; 
-  casesPerPallet?: number; 
-  active: boolean; 
-  materialId?: string; 
+export interface Product {
+  id: string;
+  sku: string;
+  name: string;
+  category?: string;
+  bottleMl?: number;
+  caseUnits?: number;
+  casesPerPallet?: number;
+  active: boolean;
+  materialId?: string;
 }
 
-export interface BillOfMaterial { 
-  id: string; 
-  sku: string; 
-  name: string; 
-  items: { materialId: string; quantity: number; unit?: string; }[]; 
-  batchSize: number; 
-  baseUnit?: string; 
+export interface BillOfMaterial {
+  id: string;
+  sku: string;
+  name: string;
+  items: { materialId: string; quantity: number; unit?: string; }[];
+  batchSize: number;
+  baseUnit?: string;
 }
 
 export type Shortage = { materialId: string; required: number; available: number; uom: Uom };
@@ -347,6 +348,14 @@ export interface GoodsReceipt {
   }[];
 }
 
+export interface ShipmentLine {
+  sku: string;
+  name: string;
+  qty: number;
+  uom: 'uds';
+  lotNumber?: string;
+}
+
 export interface Shipment {
   id: string;
   orderId: string;
@@ -356,7 +365,7 @@ export interface Shipment {
   holdedInvoiceId?: string;    // (si facturas al expedir)
   createdAt: string;
   status: ShipmentStatus;
-  lines: { sku: string; name: string; qty: number; uom: 'uds'; lotNumber?: string; }[];
+  lines: ShipmentLine[];
   customerName: string;
   city: string;
   addressLine1?: string; addressLine2?: string; postalCode?: string; country?: string;
@@ -382,53 +391,53 @@ export interface TraceEvent {
 // -----------------------------------------------------------------
 // 6. Marketing, Finanzas y Costes
 // -----------------------------------------------------------------
-export interface Activation { 
-    id: string; 
-    accountId: string; 
-    materialId: string; 
-    description: string; 
-    status: 'active' | 'inactive' | 'pending_renewal'; 
-    startDate: string; 
-    endDate?: string; 
-    ownerId: string; 
+export interface Activation {
+    id: string;
+    accountId: string;
+    materialId: string;
+    description: string;
+    status: 'active' | 'inactive' | 'pending_renewal';
+    startDate: string;
+    endDate?: string;
+    ownerId: string;
 }
-export interface Promotion { 
-    id: string; 
-    code?: string; 
-    name: string; 
-    type: '5+1' | 'BOGO' | 'DISCOUNT_PERCENT' | 'DISCOUNT_FIXED'; 
-    value: number; 
-    validFrom: string; 
-    validTo: string; 
+export interface Promotion {
+    id: string;
+    code?: string;
+    name: string;
+    type: '5+1' | 'BOGO' | 'DISCOUNT_PERCENT' | 'DISCOUNT_FIXED';
+    value: number;
+    validFrom: string;
+    validTo: string;
 }
 
-export interface EventMarketing { 
-    id: string; 
-    title: string; 
-    accountId?: string; 
-    status: 'planned' | 'active' | 'closed' | 'cancelled'; 
-    startAt: string; 
-    endAt?: string; 
-    city?: string; 
-    spend?: number; 
-    extraCosts?: { description: string; amount: number }[]; 
-    linkedActivations?: string[]; 
+export interface EventMarketing {
+    id: string;
+    title: string;
+    accountId?: string;
+    status: 'planned' | 'active' | 'closed' | 'cancelled';
+    startAt: string;
+    endAt?: string;
+    city?: string;
+    spend?: number;
+    extraCosts?: { description: string; amount: number }[];
+    linkedActivations?: string[];
     linkedPromotions?: string[];
     goal?: {
       leads?: number;
       sampling?: number;
     };
 }
-export interface OnlineCampaign { 
-    id: string; 
-    title: string; 
-    channel: 'IG' | 'FB' | 'TikTok' | 'Google' | 'YouTube' | 'Email' | 'Other'; 
-    status: 'planned' | 'active' | 'closed' | 'cancelled'; 
-    startAt: string; 
-    endAt?: string; 
-    budget: number; 
-    spend: number; 
-    metrics?: any; 
+export interface OnlineCampaign {
+    id: string;
+    title: string;
+    channel: 'IG' | 'FB' | 'TikTok' | 'Google' | 'YouTube' | 'Email' | 'Other';
+    status: 'planned' | 'active' | 'closed' | 'cancelled';
+    startAt: string;
+    endAt?: string;
+    budget: number;
+    spend: number;
+    metrics?: any;
 }
 
 export type Platform = 'Instagram' | 'TikTok' | 'YouTube' | 'Twitch' | 'Blog' | 'Otro';
@@ -567,12 +576,12 @@ export interface SantaData {
   parties: Party[];
   partyRoles: PartyRole[];
   users: User[];
-  
+
   // CRM y Ventas
   accounts: Account[];
   ordersSellOut: OrderSellOut[];
   interactions: Interaction[];
-  
+
   // Producción y Calidad
   products: Product[];
   materials: Material[];
@@ -580,25 +589,25 @@ export interface SantaData {
   productionOrders: ProductionOrder[];
   lots: Lot[];
   qaChecks: QACheck[];
-  
+
   // Logística y Almacén
   inventory: InventoryItem[];
   stockMoves: StockMove[];
   shipments: Shipment[];
   goodsReceipts: GoodsReceipt[];
-  
+
   // Marketing
   activations: Activation[];
   promotions: Promotion[];
   events: EventMarketing[];
   onlineCampaigns: OnlineCampaign[];
   influencerCollabs: InfluencerCollab[];
-  
+
   // Finanzas y Contabilidad
   materialCosts: MaterialCost[];
   financeLinks: FinanceLink[];
   paymentLinks: PaymentLink[];
-  
+
   // Registros de Auditoría y Trazabilidad
   traceEvents: TraceEvent[];
   incidents: Incident[];
@@ -611,7 +620,7 @@ export const SANTA_DATA_COLLECTIONS: (keyof SantaData)[] = [
     'parties', 'partyRoles', 'users', 'accounts', 'ordersSellOut', 'interactions',
     'products', 'materials', 'billOfMaterials', 'productionOrders', 'lots', 'qaChecks',
     'inventory', 'stockMoves', 'shipments', 'goodsReceipts', 'activations', 'promotions',
-    'events', 'onlineCampaigns', 'influencerCollabs', 'materialCosts', 'financeLinks', 
+    'events', 'onlineCampaigns', 'influencerCollabs', 'materialCosts', 'financeLinks',
     'paymentLinks', 'traceEvents', 'incidents', 'codeAliases'
 ];
 

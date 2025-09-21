@@ -3,9 +3,10 @@
 "use client";
 import React, { useMemo, useState, useEffect } from "react";
 import { Printer, PackageCheck, Truck, CheckCircle2, Search, Plus, FileText, ClipboardList, Boxes, PackageOpen, BadgeCheck, AlertTriangle, Settings, Clipboard, Ruler, Weight, MoreHorizontal, Check as CheckIcon, FileDown, Package } from "lucide-react";
-import { SBButton, SBCard, DataTableSB, Col as SBCol, STATUS_STYLES } from '@/components/ui/ui-primitives';
+import { SBButton, SBCard, Input, Select, DataTableSB, STATUS_STYLES, type Col as SBCol } from '@/components/ui/ui-primitives';
 import { useData } from '@/lib/dataprovider';
-import type { Shipment, OrderSellOut, Account, ShipmentStatus, ShipmentLine, AccountType } from "@/domain/ssot";
+import type { Shipment, OrderSellOut, Account, ShipmentStatus, ShipmentLine, AccountType, Party } from '@/domain/ssot';
+import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog";
 
 
 // ===============================
@@ -18,10 +19,10 @@ const CardHeader = ({children, className}: any) => <div className={`p-6 pb-2 ${c
 const CardTitle = ({children, className}: any) => <h3 className={`text-lg font-semibold ${className}`}>{children}</h3>
 const CardDescription = ({children, className}: any) => <p className={`text-sm text-zinc-500 ${className}`}>{children}</p>
 const CardContent = ({children, className}: any) => <div className={`p-6 pt-0 ${className}`}>{children}</div>
-const Input = (props: any) => <input {...props} className={`w-full px-3 py-2 rounded-lg border border-zinc-300 bg-white text-sm outline-none focus:ring-2 focus:ring-[#F7D15F] ${props.className||""}`}/>;
+
 const Badge = ({variant, className, ...props}: any) => <span className={`${variant} ${className}`} {...props} />;
 const Checkbox = ({checked, onCheckedChange, ...props}: any) => <input type="checkbox" checked={checked} onChange={e => onCheckedChange(e.target.checked)} {...props} />;
-const Select = ({children, ...props}: any) => <select {...props} className={`w-full px-3 py-2 rounded-lg border border-zinc-300 bg-white text-sm outline-none focus:ring-2 focus:ring-[#F7D15F] ${props.className||""}`}>{children}</select>;
+
 const SelectItem = ({children, ...props}: any) => <option {...props}>{children}</option>;
 const Dialog = ({open, onOpenChange, children}: any) => open ? <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center" onClick={() => onOpenChange(false)}><div onClick={e => e.stopPropagation()}>{children}</div></div> : null;
 const DialogContent = ({children, className}: any) => <div className={`relative bg-white rounded-2xl p-6 shadow-xl w-full ${className}`}>{children}</div>;
@@ -62,7 +63,7 @@ function KPI({ icon: Icon, label, value, color }: { icon: React.ElementType, lab
 
 const getChannelInfo = (order?: OrderSellOut, account?: Account) => {
     if (!account) return { label: "N/A", className: "bg-zinc-100 text-zinc-900 border-zinc-200" };
-    
+
     if (account.type === 'ONLINE') return { label: "Online", className: "bg-emerald-100 text-emerald-900 border-emerald-200" };
     if (order?.totalAmount === 0) return { label: "Muestras (0€)", className: "bg-purple-100 text-purple-900 border-purple-200" };
     if (account.type === 'DISTRIBUIDOR') return { label: "Distribuidor", className: "bg-sky-100 text-sky-900 border-sky-200" };
@@ -77,15 +78,21 @@ export const hasDimsAndWeight = (row: any) => {
   const d = row?.logistics?.dimsCm || {};
   return w > 0 && ["l", "w", "h"].every((k) => Number(d?.[k] || 0) > 0);
 };
-export const hasContactInfo = (row: Account) => Boolean(row?.phone) && Boolean(row?.address);
+
+export const hasContactInfo = (party?: Party) => {
+    if (!party) return false;
+    const hasPhone = party.contacts.some(c => c.type === 'phone' && c.value);
+    const hasAddress = party.addresses.some(a => a.street);
+    return hasPhone && hasAddress;
+};
 export const canGenerateDeliveryNote = (row: Shipment) => Boolean(row.checks?.visualOk);
-export const canGenerateLabel = (row: Shipment, order: OrderSellOut) => Boolean(order.invoiceId) && Boolean(row.carrier) && hasDimsAndWeight(row);
+export const canGenerateLabel = (row: Shipment) => Boolean(row.holdedDeliveryId) && Boolean(row.carrier) && hasDimsAndWeight(row);
 export const canMarkShipped = (row: Shipment) => Boolean(row.labelUrl);
 
-export const pendingReasons = (row: Shipment, order: OrderSellOut): string[] => {
+export const pendingReasons = (row: Shipment): string[] => {
   const reasons: string[] = [];
   if (!row.checks?.visualOk) reasons.push("Visual OK");
-  if (!order.invoiceId) reasons.push("Albarán/Factura");
+  if (!row.holdedDeliveryId) reasons.push("Albarán");
   if (!row.carrier || !hasDimsAndWeight(row)) reasons.push("Srv/Peso/Dim");
   if (!row.labelUrl) reasons.push("Etiqueta");
   return Array.from(new Set(reasons));
@@ -95,7 +102,7 @@ export const pendingReasons = (row: Shipment, order: OrderSellOut): string[] => 
 // ===============================
 // Diálogo Validar Pedido (lotes + visual + dims/weight + servicio)
 // ===============================
-const ValidateDialog: React.FC<{ open: boolean; onOpenChange: (v: boolean) => void; order: Shipment | null; onSave: (payload: any) => void; }> = ({ open, onOpenChange, order, onSave }) => {
+const ValidateDialog: React.FC<{ open: boolean; onOpenChange: (v: boolean) => void; shipment: Shipment | null; onSave: (payload: any) => void; }> = ({ open, onOpenChange, shipment: shipment, onSave }) => {
   const [visualOk, setVisualOk] = React.useState(false);
   const [lotMap, setLotMap] = React.useState<Record<string, { lotId: string; qty: number }[]>>({});
   const [weight, setWeight] = React.useState<number | "">(0);
@@ -105,14 +112,14 @@ const ValidateDialog: React.FC<{ open: boolean; onOpenChange: (v: boolean) => vo
   const [carrier, setCarrier] = React.useState<string>("");
 
   useEffect(() => {
-    if(order) {
-        setVisualOk(Boolean(order.checks?.visualOk));
-        setPicker(order.packedById || "");
-        setPacker(order.packedById || "");
-        setCarrier(order.carrier || "");
+    if(shipment) {
+        setVisualOk(Boolean(shipment.checks?.visualOk));
+        setPicker(shipment.packedById || "");
+        setPacker(shipment.packedById || "");
+        setCarrier(shipment.carrier || "");
         // Simplified lotMap initialization
         const initialLotMap: Record<string, { lotId: string; qty: number }[]> = {};
-        order.lines.forEach((line: ShipmentLine) => {
+        shipment.lines.forEach((line: ShipmentLine) => {
             if(!initialLotMap[line.sku]) initialLotMap[line.sku] = [];
             if (line.lotNumber) {
                 initialLotMap[line.sku].push({lotId: line.lotNumber, qty: line.qty});
@@ -120,7 +127,7 @@ const ValidateDialog: React.FC<{ open: boolean; onOpenChange: (v: boolean) => vo
         })
         setLotMap(initialLotMap);
     }
-  }, [order]);
+  }, [shipment]);
 
 
   const setLot = (sku: string, index: number, field: "lotId" | "qty", value: string) => {
@@ -139,94 +146,93 @@ const ValidateDialog: React.FC<{ open: boolean; onOpenChange: (v: boolean) => vo
   const handleSave = () => onSave({ visualOk, lotMap: removeEmpty(lotMap), weightKg: weight || 0, dimsCm: { l: Number(dims.l || 0), w: Number(dims.w || 0), h: Number(dims.h || 0) }, picker: picker || "", packer: packer || "", carrier: carrier || undefined });
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Validar pedido — {order?.id}</DialogTitle>
-          <p className="text-sm text-zinc-500">Asigna lotes, marca Visual OK, añade peso/dimensiones y elige servicio.</p>
-        </DialogHeader>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs text-zinc-500">Servicio de envío</label>
-            <Select value={carrier || ""} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setCarrier(e.target.value)}>
-                <option value="" disabled>Elige servicio</option>
-                <option value="seur">SEUR Frío</option>
-                <option value="correos_express">Correos Express</option>
-                <option value="local_delivery">Entrega Local</option>
-            </Select>
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            <div>
-              <label className="text-xs text-zinc-500">Peso (kg)</label>
-              <Input type="number" value={(weight as any) ?? ""} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setWeight(e.target.value ? Number(e.target.value) : "")} />
-            </div>
-            <div>
-              <label className="text-xs text-zinc-500">Largo (cm)</label>
-              <Input type="number" value={(dims.l as any) ?? ""} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDims({ ...dims, l: e.target.value ? Number(e.target.value) : "" })} />
-            </div>
-            <div>
-              <label className="text-xs text-zinc-500">Ancho (cm)</label>
-              <Input type="number" value={(dims.w as any) ?? ""} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDims({ ...dims, w: e.target.value ? Number(e.target.value) : "" })} />
-            </div>
-            <div className="col-span-3">
-              <label className="text-xs text-zinc-500">Alto (cm)</label>
-              <Input type="number" value={(dims.h as any) ?? ""} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDims({ ...dims, h: e.target.value ? Number(e.target.value) : "" })} />
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-          <div>
-            <label className="text-xs text-zinc-500">Picker</label>
-            <Input placeholder="Nombre de quien hace picking" value={picker ?? ""} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPicker(e.target.value)} />
-          </div>
-          <div>
-            <label className="text-xs text-zinc-500">Packer</label>
-            <Input placeholder="Nombre de quien embala" value={packer ?? ""} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPacker(e.target.value)} />
-          </div>
-        </div>
-
-        <div className="border rounded-xl p-3 mt-4">
-          <p className="font-medium mb-2">Asignación de lotes</p>
-          <div className="space-y-4">
-            {order?.lines?.map((it: any) => (
-              <div key={it.sku} className="border rounded-lg p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <div>
-                    <p className="font-medium">{it.name || it.sku}</p>
-                    <p className="text-xs text-zinc-500">SKU {it.sku} · Cantidad solicitada: {it.qty} {it.unit}</p>
-                  </div>
-                  <SBButton onClick={() => addLotRow(it.sku)}><Plus className="w-4 h-4 mr-2"/>Añadir lote</SBButton>
+    <SBDialog open={open} onOpenChange={onOpenChange}>
+      <SBDialogContent
+        title={`Validar envío — ${shipment?.id}`}
+        description="Asigna lotes, marca Visual OK, añade peso/dimensiones y elige servicio."
+        onSubmit={e => { e.preventDefault(); handleSave(); }}
+        primaryAction={{label: "Guardar validación", onClick: handleSave}}
+        secondaryAction={{label: "Cancelar", onClick: () => onOpenChange(false)}}
+        size="lg"
+      >
+        <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-zinc-500">Servicio de envío</label>
+                <Select value={carrier || ""} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setCarrier(e.target.value)}>
+                    <option value="" disabled>Elige servicio</option>
+                    <option value="seur">SEUR Frío</option>
+                    <option value="correos_express">Correos Express</option>
+                    <option value="local_delivery">Entrega Local</option>
+                </Select>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="text-xs text-zinc-500">Peso (kg)</label>
+                  <Input type="number" value={(weight as any) ?? ""} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setWeight(e.target.value ? Number(e.target.value) : "")} />
                 </div>
-                <div className="space-y-2">
-                  {(lotMap[it.sku] ?? [{ lotId: "", qty: 0 }]).map((row, idx) => (
-                    <div key={idx} className="grid grid-cols-5 gap-2 items-center">
-                      <div className="col-span-3">
-                        <Input placeholder="ID Lote (escanea o escribe)" value={row.lotId} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLot(it.sku, idx, "lotId", e.target.value)} />
-                      </div>
-                      <div>
-                        <Input placeholder="Qty" type="number" value={row.qty || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLot(it.sku, idx, "qty", e.target.value)} />
-                      </div>
-                    </div>
-                  ))}
+                <div>
+                  <label className="text-xs text-zinc-500">Largo (cm)</label>
+                  <Input type="number" value={(dims.l as any) ?? ""} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDims({ ...dims, l: e.target.value ? Number(e.target.value) : "" })} />
+                </div>
+                <div>
+                  <label className="text-xs text-zinc-500">Ancho (cm)</label>
+                  <Input type="number" value={(dims.w as any) ?? ""} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDims({ ...dims, w: e.target.value ? Number(e.target.value) : "" })} />
+                </div>
+                <div className="col-span-3">
+                  <label className="text-xs text-zinc-500">Alto (cm)</label>
+                  <Input type="number" value={(dims.h as any) ?? ""} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDims({ ...dims, h: e.target.value ? Number(e.target.value) : "" })} />
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
+            </div>
 
-        <div className="flex items-center gap-3 mt-4">
-          <Checkbox id="visual-ok" checked={visualOk} onCheckedChange={(v:any) => setVisualOk(Boolean(v))} />
-          <label htmlFor="visual-ok" className="text-sm">Revisión visual completada — producto en perfectas condiciones</label>
-        </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <div>
+                <label className="text-xs text-zinc-500">Picker</label>
+                <Input placeholder="Nombre de quien hace picking" value={picker ?? ""} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPicker(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs text-zinc-500">Packer</label>
+                <Input placeholder="Nombre de quien embala" value={packer ?? ""} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPacker(e.target.value)} />
+              </div>
+            </div>
 
-        <DialogFooter className="mt-6">
-          <SBButton variant="secondary" onClick={() => onOpenChange(false)}>Cancelar</SBButton>
-          <SBButton onClick={handleSave}><CheckCircle2 className="w-4 h-4 mr-2"/>Guardar validación</SBButton>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+            <div className="border rounded-xl p-3 mt-4">
+              <p className="font-medium mb-2">Asignación de lotes</p>
+              <div className="space-y-4">
+                {shipment?.lines?.map((it: any) => (
+                  <div key={it.sku} className="border rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <p className="font-medium">{it.name || it.sku}</p>
+                        <p className="text-xs text-zinc-500">SKU {it.sku} · Cantidad solicitada: {it.qty} {it.uom}</p>
+                      </div>
+                      <SBButton onClick={() => addLotRow(it.sku)}><Plus className="w-4 h-4 mr-2"/>Añadir lote</SBButton>
+                    </div>
+                    <div className="space-y-2">
+                      {(lotMap[it.sku] ?? [{ lotId: "", qty: 0 }]).map((row, idx) => (
+                        <div key={idx} className="grid grid-cols-5 gap-2 items-center">
+                          <div className="col-span-3">
+                            <Input placeholder="ID Lote (escanea o escribe)" value={row.lotId} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLot(it.sku, idx, "lotId", e.target.value)} />
+                          </div>
+                          <div>
+                            <Input placeholder="Qty" type="number" value={row.qty || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLot(it.sku, idx, "qty", e.target.value)} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 mt-4">
+              <input type="checkbox" id="visual-ok" checked={visualOk} onChange={(e:any) => setVisualOk(Boolean(e.target.checked))} />
+              <label htmlFor="visual-ok" className="text-sm">Revisión visual completada — producto en perfectas condiciones</label>
+            </div>
+        </div>
+      </SBDialogContent>
+    </SBDialog>
   );
 };
 
@@ -241,13 +247,14 @@ export default function LogisticsPage() {
   const [channel, setChannel] = useState<string>("all");
   const [selected, setSelected] = useState<string[]>([]);
   const [openValidate, setOpenValidate] = useState(false);
-  const [currentOrder, setCurrentOrder] = useState<Shipment | null>(null);
+  const [currentShipment, setCurrentShipment] = useState<Shipment | null>(null);
   const [showOnlyAvailable, setShowOnlyAvailable] = useState(true);
 
-  const { shipments, orders, accounts } = useMemo(() => ({
+  const { shipments, orders, accounts, parties } = useMemo(() => ({
       shipments: santaData?.shipments || [],
       orders: santaData?.ordersSellOut || [],
       accounts: santaData?.accounts || [],
+      parties: santaData?.parties || [],
   }), [santaData]);
 
   const orderMap = useMemo(() => {
@@ -257,17 +264,18 @@ export default function LogisticsPage() {
   }, [orders]);
   
   const accountMap = useMemo(() => new Map(accounts.map(a => [a.id, a])), [accounts]);
+  const partyMap = useMemo(() => new Map(parties.map(p => [p.id, p])), [parties]);
 
   const filtered = useMemo(() => shipments.filter(s => {
-    const order = orders.find(o => o.id === s.orderId);
-    const account = order ? accounts.find(a => a.id === order.accountId) : undefined;
+    const order = orderMap.get(s.orderId);
+    const account = order ? accountMap.get(order.accountId) : undefined;
 
     const st = (status === "all" || s.status === status);
-    const ch = (channel === "all" || account?.type.toLowerCase() === channel);
+    const ch = (channel === "all" || (account && account.type.toLowerCase() === channel));
     const query = (q.trim() === "" || s.id.includes(q) || (account?.name || "").toLowerCase().includes(q.toLowerCase()));
     
     return st && ch && query;
-  }), [shipments, status, channel, q, orders, accounts]);
+  }), [shipments, status, channel, q, orderMap, accountMap]);
 
   const kpis = useMemo(() => ({
     pending: shipments.filter(r => ["pending", "picking"].includes(r.status || '')).length,
@@ -283,12 +291,12 @@ export default function LogisticsPage() {
     setSelected([]);
   };
 
-  const openValidateFor = (row: Shipment) => { setCurrentOrder(row); setOpenValidate(true); };
+  const openValidateFor = (row: Shipment) => { setCurrentShipment(row); setOpenValidate(true); };
 
   const handleSaveValidation = (payload: any) => {
-    if (!santaData || !currentOrder) return;
-    const updatedShipments: Shipment[] = santaData.shipments.map(s => s.id === currentOrder.id ? { 
-        ...s, 
+    if (!santaData || !currentShipment) return;
+    const updatedShipments: Shipment[] = santaData.shipments.map(s => s.id === currentShipment.id ? {
+        ...s,
         status: "ready_to_ship",
         carrier: payload.carrier,
         packedById: payload.packer,
@@ -302,17 +310,13 @@ export default function LogisticsPage() {
   const generateDeliveryNote = (row: Shipment) => {
      if (!canGenerateDeliveryNote(row)) { alert("Primero marca Visual OK en Validar."); return; }
      if(!santaData) return;
-     const order = orders.find(o => o.id === row.orderId);
-     if(!order) return;
-
-     const updatedOrders = santaData.ordersSellOut.map(o => o.id === order.id ? { ...o, invoiceId: o.invoiceId || `ALB-${Math.floor(Math.random()*90000+10000)}` } : o);
-     setData({ ...santaData, ordersSellOut: updatedOrders });
-     alert(`Albarán ${updatedOrders.find(o=>o.id === order.id)?.invoiceId} generado para envío ${row.id}`);
+     const updatedShipments = santaData.shipments.map(s => s.id === row.id ? { ...s, holdedDeliveryId: s.holdedDeliveryId || `ALB-${Math.floor(Math.random()*90000+10000)}` } : s);
+     setData({ ...santaData, shipments: updatedShipments });
+     alert(`Albarán ${updatedShipments.find(s=>s.id === row.id)?.holdedDeliveryId} generado para envío ${row.id}`);
   };
 
   const generateLabel = (row: Shipment) => {
-    const order = orders.find(o => o.id === row.orderId);
-    if (!order || !canGenerateLabel(row, order)) { alert("Para la etiqueta necesitas: Albarán + Servicio + Peso y Dimensiones."); return; }
+    if (!canGenerateLabel(row)) { alert("Para la etiqueta necesitas: Albarán + Servicio + Peso y Dimensiones."); return; }
     if(!santaData) return;
     const updatedShipments: Shipment[] = santaData.shipments.map(r => r.id === row.id ? { ...r, labelUrl: "https://label.example/mock.pdf", tracking: `SC-TRACK-9988` } : r);
     setData({ ...santaData, shipments: updatedShipments });
@@ -326,32 +330,31 @@ export default function LogisticsPage() {
 
   type RowAction = { id: string; label: string; icon: React.ReactNode; onClick: () => void; available: boolean; pendingReason?: string };
   const buildRowActions = (row: Shipment): RowAction[] => {
-    const order = orders.find(o => o.id === row.orderId);
-    if(!order) return [];
     const actions: RowAction[] = [
       { id: "sheet", label: "Imprimir hoja de pedido", icon: <Printer className="w-4 h-4"/>, onClick: () => alert(`Imprimiendo hoja para ${row.id}`), available: true },
       { id: "validate", label: "Validar (lotes + visual)", icon: <BadgeCheck className="w-4 h-4"/>, onClick: () => openValidateFor(row), available: true },
       { id: "delivery", label: "Generar albarán", icon: <FileText className="w-4 h-4"/>, onClick: () => generateDeliveryNote(row), available: canGenerateDeliveryNote(row), pendingReason: "Requiere Visual OK" },
-      { id: "label", label: "Generar etiqueta", icon: <Truck className="w-4 h-4"/>, onClick: () => generateLabel(row), available: !!order && canGenerateLabel(row, order), pendingReason: "Requiere Albarán + Servicio" },
+      { id: "label", label: "Generar etiqueta", icon: <Truck className="w-4 h-4"/>, onClick: () => generateLabel(row), available: canGenerateLabel(row), pendingReason: "Requiere Albarán + Servicio" },
       { id: "ship", label: "Marcar enviado", icon: <PackageCheck className="w-4 h-4"/>, onClick: () => markShipped(row), available: canMarkShipped(row), pendingReason: "Requiere Etiqueta" },
     ];
     return showOnlyAvailable ? actions.filter(a => a.available) : actions;
   };
 
-  const cols: SBCol<{row: Shipment, order?: OrderSellOut, account?: Account}>[] = [
-      { key: 'select', header: '', render: ({row}) => <Checkbox checked={selected.includes(row.id)} onCheckedChange={(v:any) => setSelected((p) => v ? [...p, row.id] : p.filter(id => id !== row.id))} />},
-      { key: 'id', header: 'ID', render: ({row, order}) => <div><p className="font-medium">{row.id}</p>{order?.source === 'SHOPIFY' && <p className="text-xs text-zinc-500">Shopify</p>}</div>},
-      { key: 'date', header: 'Fecha', render: ({row}) => <div className="text-sm">{new Date(row.createdAt).toLocaleDateString('es-ES')}</div>},
-      { key: 'channel', header: 'Canal / Tipo', render: ({order, account}) => {
-          const channelInfo = getChannelInfo(order, account);
+  type Row = {row: Shipment, order?: OrderSellOut, account?: Account};
+  const cols: SBCol<Row>[] = [
+      { key: 'select', header: '', render: ({row}) => <input type="checkbox" checked={selected.includes(row.row.id)} onChange={(e:any) => setSelected((p) => e.target.checked ? [...p, row.row.id] : p.filter(id => id !== row.row.id))} />},
+      { key: 'id', header: 'ID', render: ({row, order}) => <div><p className="font-medium">{row.row.id}</p>{order?.source === 'SHOPIFY' && <p className="text-xs text-zinc-500">Shopify</p>}</div>},
+      { key: 'date', header: 'Fecha', render: ({row}) => <div className="text-sm">{new Date(row.row.createdAt).toLocaleDateString('es-ES')}</div>},
+      { key: 'channel', header: 'Canal / Tipo', render: ({account}) => {
+          const channelInfo = getChannelInfo(undefined, account);
           return <span className={`inline-flex items-center px-2 py-0.5 rounded-md border text-xs ${channelInfo.className}`}>{channelInfo.label}</span>
       }},
-      { key: 'customer', header: 'Cliente', render: ({account}) => <div><p className="text-sm font-medium">{account?.name || 'N/A'}</p><p className="text-xs text-zinc-500">{account?.city}</p></div>},
+      { key: 'customer', header: 'Cliente', render: ({row}) => <div><p className="text-sm font-medium">{row?.row.customerName || 'N/A'}</p><p className="text-xs text-zinc-500">{row?.row.city}</p></div>},
       { key: 'items', header: 'Artículos', render: ({row}) => (
         <ul className="text-sm space-y-1">
-          {row.lines.map((it: any) => (
+          {row.row.lines.map((it: any) => (
             <li key={it.sku} className="flex items-center gap-2">
-              <Badge variant="secondary" className="text-[10px]">{it.sku}</Badge>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-100">{it.sku}</span>
               <span>{it.name}</span>
               <span className="text-zinc-500">×{it.qty}</span>
             </li>
@@ -359,8 +362,8 @@ export default function LogisticsPage() {
         </ul>
       )},
       { key: 'status', header: 'Estado', render: ({row}) => {
-          const style = STATUS_STYLES[row.status as keyof typeof STATUS_STYLES] || STATUS_STYLES['pending'];
-          return <span className={`inline-flex items-center px-2 py-1 rounded-md border text-xs ${style.bg} ${style.color}`}>{style.label}</span> 
+          const style = STATUS_STYLES[row.row.status as keyof typeof STATUS_STYLES] || STATUS_STYLES['pending'];
+          return <span className={`inline-flex items-center px-2 py-1 rounded-md border text-xs ${style.bg} ${style.color}`}>{style.label}</span>
       }},
       { key: 'actions', header: 'Acciones', render: ({row}) => (
         <div className="relative group">
@@ -370,7 +373,7 @@ export default function LogisticsPage() {
             <DropdownMenuContent align="end" className="w-64">
               <DropdownMenuLabel>Acciones</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              {buildRowActions(row).map((a) => (
+              {buildRowActions(row.row).map((a) => (
                 <DropdownMenuItem key={a.id} onClick={a.onClick} disabled={!a.available} className="flex items-center justify-between">
                   <div className="flex items-center gap-2">{a.icon}<span>{a.label}</span></div>
                   {!a.available && !showOnlyAvailable && a.pendingReason && (
@@ -400,17 +403,8 @@ export default function LogisticsPage() {
         </div>
       </div>
 
-      {/* KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <KPI icon={Package} label="Pendientes" value={kpis.pending} color="#f59e0b" />
-        <KPI icon={BadgeCheck} label="Validados" value={kpis.validated} color="#0d9488" />
-        <KPI icon={Truck} label="Enviados" value={kpis.shipped} color="#0ea5e9" />
-        <KPI icon={CheckCircle2} label="OTIF %" value={`${kpis.otif}%`} color="#16a34a" />
-      </div>
-
-      {/* Filtros y acciones masivas */}
-      <Card>
-        <CardContent className="pt-6 space-y-3">
+      <SBCard title="">
+        <div className="p-4 pt-6 space-y-3">
           <div className="flex flex-col md:flex-row gap-3 items-start md:items-center justify-between">
             <div className="flex gap-2 items-center w-full md:w-auto">
               <div className="relative w-full md:w-80">
@@ -437,59 +431,45 @@ export default function LogisticsPage() {
               <SBButton variant="secondary"><FileDown className="w-4 h-4 mr-2"/>Exportar CSV</SBButton>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </SBCard>
 
       {/* Tabla principal */}
-      <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-sm text-zinc-500">Pedidos</CardTitle></CardHeader>
-        <CardContent>
-            <DataTableSB rows={tableRows} cols={cols} />
-        </CardContent>
-      </Card>
+      <SBCard title="Pedidos">
+        <DataTableSB rows={tableRows} cols={cols} />
+      </SBCard>
 
       {/* Paneles secundarios */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Escaneo y utilidades</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
+        <SBCard title="Escaneo y utilidades">
+          <div className="p-4 space-y-3">
             <div className="flex gap-2">
               <Input placeholder="Escanea ID de pedido / lote / SKU" />
               <SBButton variant="secondary"><Clipboard className="w-4 h-4 mr-2"/>Escanear</SBButton>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </SBCard>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Incidencias y devoluciones</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
+        <SBCard title="Incidencias y devoluciones">
+          <div className="p-4 space-y-2">
             <div className="grid grid-cols-2 gap-2">
               <SBButton variant="secondary"><AlertTriangle className="w-4 h-4 mr-2"/>Nueva incidencia</SBButton>
               <SBButton variant="secondary"><PackageOpen className="w-4 h-4 mr-2"/>Abrir devolución</SBButton>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </SBCard>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Auditoría y trazabilidad</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="text-sm space-y-2">
+        <SBCard title="Auditoría y trazabilidad">
+          <ul className="p-4 text-sm space-y-2">
               <li>10:02 — SH-240915-001 importado de <span className="font-medium">Shopify</span> (unfulfilled).</li>
               <li>10:15 — SM-240915-002 validado <span className="font-medium">Muestra</span>, Visual OK, srv Standard.</li>
               <li>10:22 — SO-240915-003 etiqueta Sendcloud creada. Tracking SC-TRACK-9988.</li>
-            </ul>
-          </CardContent>
-        </Card>
+          </ul>
+        </SBCard>
       </div>
 
       {/* Diálogo de validación */}
-      <ValidateDialog open={openValidate} onOpenChange={setOpenValidate} order={currentOrder} onSave={handleSaveValidation} />
+      <ValidateDialog open={openValidate} onOpenChange={setOpenValidate} shipment={currentShipment} onSave={handleSaveValidation} />
     </div>
   );
 }
