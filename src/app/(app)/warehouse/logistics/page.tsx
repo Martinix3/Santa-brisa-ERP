@@ -329,9 +329,8 @@ export default function LogisticsPage() {
           alert(`Error: ${result.error}`);
           return;
       }
-      if (result.content) {
-          alert(`Contenido del Albarán (IA):\n\n${result.content}\n\nAbriendo PDF de ejemplo...`);
-          window.open(result.url, '_blank');
+      if (result.pdfDataUri) {
+          window.open(result.pdfDataUri, '_blank');
       }
     } catch (e) {
       alert(`Error al generar la hoja de pedido.`);
