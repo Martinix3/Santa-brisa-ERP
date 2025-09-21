@@ -1,3 +1,4 @@
+
 'use server';
 import { ai } from '@/ai';
 import { getServerData } from '@/lib/dataprovider/server';
@@ -87,7 +88,7 @@ export async function generatePackingSlip(shipmentId: string): Promise<{ pdfData
         body: new URLSearchParams({
             document_html: cleanHtml,
             page_size: 'A4',
-            test: '1', // Use test mode to avoid consuming credits during development, if available
+            test: '0', // Use test mode (1) to avoid consuming credits. Set to 0 for production.
         })
     };
     

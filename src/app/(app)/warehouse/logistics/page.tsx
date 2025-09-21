@@ -1,7 +1,7 @@
 
 "use client";
 import React, { useMemo, useState, useEffect } from "react";
-import { Printer, PackageCheck, Truck, CheckCircle2, Search, Plus, FileText, ClipboardList, Boxes, PackageOpen, BadgeCheck, AlertTriangle, Settings, Clipboard, Ruler, Weight, MoreHorizontal, Check as CheckIcon, FileDown, Package } from "lucide-react";
+import { Printer, PackageCheck, Truck, CheckCircle2, Search, Plus, FileText, ClipboardList, Boxes, PackageOpen, BadgeCheck, AlertTriangle, Settings, Clipboard, Ruler, Weight, MoreHorizontal, Check as CheckIcon, FileDown, Package, Info } from "lucide-react";
 import { SBButton, SBCard, Input, Select, STATUS_STYLES } from '@/components/ui/ui-primitives';
 import { useData } from '@/lib/dataprovider';
 import type { Shipment, OrderSellOut, Account, ShipmentStatus, ShipmentLine, AccountType, Party } from '@/domain/ssot';
@@ -255,6 +255,9 @@ export default function LogisticsPage() {
   const [openValidate, setOpenValidate] = useState(false);
   const [currentShipment, setCurrentShipment] = useState<Shipment | null>(null);
   const [showOnlyAvailable, setShowOnlyAvailable] = useState(true);
+  
+  const [generatingSlip, setGeneratingSlip] = useState<string | null>(null);
+  const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
 
   const { shipments, orders, accounts, parties } = useMemo(() => ({
       shipments: santaData?.shipments || [],
@@ -314,41 +317,58 @@ export default function LogisticsPage() {
   };
   
   const generateDeliveryNote = (shipment: Shipment) => {
-     if (!canGenerateDeliveryNote(shipment)) { alert("Primero marca Visual OK en Validar."); return; }
+     if (!canGenerateDeliveryNote(shipment)) { 
+        setNotification({ type: 'error', message: 'Primero marca "Visual OK" en la validación del pedido.' });
+        return; 
+     }
      if(!santaData) return;
      const updatedShipments = santaData.shipments.map(s => s.id === shipment.id ? { ...s, holdedDeliveryId: s.holdedDeliveryId || `ALB-${Math.floor(Math.random()*90000+10000)}` } : s);
      setData({ ...santaData, shipments: updatedShipments });
-     alert(`Albarán ${updatedShipments.find(s=>s.id === shipment.id)?.holdedDeliveryId} generado para envío ${shipment.id}`);
+     setNotification({ type: 'success', message: `Albarán ${updatedShipments.find(s=>s.id === shipment.id)?.holdedDeliveryId} generado.`});
   };
 
   const handleGeneratePackingSlip = async (shipmentId: string) => {
-    alert(`Iniciando generación de hoja de pedido para ${shipmentId}...`);
+    setGeneratingSlip(shipmentId);
+    setNotification(null);
     try {
       const result = await generatePackingSlip(shipmentId);
       if (result.error) {
-          alert(`Error: ${result.error}`);
-          return;
+        setNotification({type: 'error', message: `Error: ${result.error}`});
+        return;
       }
       if (result.pdfDataUri) {
-          window.open(result.pdfDataUri, '_blank');
+          const link = document.createElement('a');
+          link.href = result.pdfDataUri;
+          link.download = `packing-slip-${shipmentId}.pdf`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          setNotification({type: 'success', message: 'Hoja de pedido generada y descargada.'});
       }
-    } catch (e) {
-      alert(`Error al generar la hoja de pedido.`);
+    } catch (e: any) {
+      setNotification({type: 'error', message: e.message || 'Error al generar la hoja de pedido.'});
       console.error(e);
+    } finally {
+        setGeneratingSlip(null);
     }
   };
 
   const generateLabel = (shipment: Shipment) => {
-    if (!canGenerateLabel(shipment)) { alert("Para la etiqueta necesitas: Albarán + Servicio + Peso y Dimensiones."); return; }
+    if (!canGenerateLabel(shipment)) { 
+      setNotification({ type: 'error', message: 'Para la etiqueta necesitas: Albarán + Servicio + Peso y Dimensiones.' });
+      return; 
+    }
     if(!santaData) return;
     const updatedShipments: Shipment[] = santaData.shipments.map(r => r.id === shipment.id ? { ...r, labelUrl: "https://label.example/mock.pdf", tracking: `SC-TRACK-9988` } : r);
     setData({ ...santaData, shipments: updatedShipments });
+    setNotification({ type: 'success', message: 'Etiqueta de envío generada.' });
   };
 
   const markShipped = (shipment: Shipment) => {
     if(!santaData) return;
     const updatedShipments: Shipment[] = santaData.shipments.map(r => r.id === shipment.id ? { ...r, status: "shipped" } : r);
     setData({ ...santaData, shipments: updatedShipments });
+    setNotification({ type: 'success', message: `Envío ${shipment.id} marcado como "Enviado".`});
   };
 
   type RowAction = { id: string; label: string; icon: React.ReactNode; onClick: () => void; available: boolean; pendingReason?: string };
@@ -372,6 +392,16 @@ export default function LogisticsPage() {
           <p className="text-sm text-zinc-500">Confirmado → picking → validación → albarán → etiqueta → envío. Con trazabilidad por lote.</p>
         </div>
       </div>
+      
+      {notification && (
+        <div className={`flex items-center gap-3 p-3 rounded-lg border ${notification.type === 'success' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
+          <Info size={16}/>
+          <p className="text-sm font-medium">{notification.message}</p>
+          <button onClick={() => setNotification(null)} className="ml-auto p-1 rounded-full hover:bg-black/10">
+            <X size={14}/>
+          </button>
+        </div>
+      )}
 
       <SBCard title="">
         <div className="p-4 pt-6 space-y-3">
@@ -454,7 +484,9 @@ export default function LogisticsPage() {
                     <td className="p-3 text-right">
                        <DropdownMenu>
                           <DropdownMenuTrigger>
-                              <SBButton variant="secondary"><MoreHorizontal className="w-4 h-4"/></SBButton>
+                              <SBButton variant="secondary" disabled={generatingSlip === shipment.id}>
+                                {generatingSlip === shipment.id ? <div className="h-4 w-4 border-2 border-zinc-400 border-t-zinc-700 rounded-full animate-spin"/> : <MoreHorizontal className="w-4 h-4"/>}
+                              </SBButton>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-64">
                             <DropdownMenuLabel>Acciones</DropdownMenuLabel>
