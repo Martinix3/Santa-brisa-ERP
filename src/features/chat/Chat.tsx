@@ -11,15 +11,16 @@ import type { SantaData } from '@/domain/ssot';
 type ChatProps = {
     userId: string;
     onNewData: (data: Partial<SantaData>) => void;
-    cloudFunctionUrl: string;
 };
 
 
-export function Chat({ userId, onNewData, cloudFunctionUrl }: ChatProps) {
+export function Chat({ userId, onNewData }: ChatProps) {
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const endOfMessagesRef = useRef<HTMLDivElement>(null);
+
+    const cloudFunctionUrl = process.env.NEXT_PUBLIC_SANTA_BRAIN_URL!;
 
     const scrollToBottom = () => {
         endOfMessagesRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -37,6 +38,10 @@ export function Chat({ userId, onNewData, cloudFunctionUrl }: ChatProps) {
         setIsLoading(true);
 
         try {
+            if (!cloudFunctionUrl) {
+                throw new Error("La URL de la función de Santa Brain no está configurada.");
+            }
+
             const res = await fetch(cloudFunctionUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -62,10 +67,6 @@ export function Chat({ userId, onNewData, cloudFunctionUrl }: ChatProps) {
             
             const assistantMessage: Message = { role: 'model', content: [{text: result.text}] } as Message;
             setMessages(prev => [...prev, assistantMessage]);
-
-            // Note: Server-side tool execution means we don't get new entities back directly.
-            // We would need another mechanism like Firestore listeners or re-fetching to update the UI
-            // after the function modifies the database. For now, onNewData is not called.
 
         } catch (error: any) {
             console.error("Error calling Santa Brain function:", error);
