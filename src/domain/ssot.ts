@@ -1,5 +1,3 @@
-
-
 // src/domain/ssot.ts
 
 // =================================================================
@@ -138,6 +136,7 @@ export interface OrderSellOut {
   source?: 'SHOPIFY' | 'B2B' | 'Direct' | 'CRM' | 'MANUAL' | 'HOLDED';
   holdedDocId?: string;
   holdedDocType?: 'estimate' | 'order' | 'delivery' | 'invoice';
+  terms?: 'standard' | 'consignment';  // default 'standard'
 }
 
 export type InteractionKind = 'VISITA' | 'LLAMADA' | 'EMAIL' | 'WHATSAPP' | 'OTRO' | 'COBRO' | 'EVENTO_MKT';
@@ -353,7 +352,11 @@ export interface QACheck {
 // -----------------------------------------------------------------
 // 5. Almacén y Logística (Trazabilidad)
 // -----------------------------------------------------------------
-export type StockReason = 'receipt' | 'production_in' | 'production_out' | 'sale' | 'transfer' | 'adjustment' | 'return_in' | 'return_out' | 'ship';
+export type StockReason =
+  | 'receipt' | 'production_in' | 'production_out' | 'sale' | 'transfer'
+  | 'adjustment' | 'return_in' | 'return_out' | 'ship'
+  | 'consignment_send' | 'consignment_return' | 'consignment_sell'
+  | 'sample_send' | 'sample_consume';
 
 export interface InventoryItem {
     id: string;
@@ -424,6 +427,9 @@ export interface Shipment {
   carrier?: string; labelUrl?: string; tracking?: string;
   notes?: string; packedById?: string;
   checks?: { visualOk?: boolean };
+  isSample?: boolean;
+  samplePurpose?: 'sales'|'qc'|'mkt'|'other';
+  sampleNotes?: string;
 }
 
 export type TraceEventPhase = 'SOURCE' | 'RECEIPT' | 'QC' | 'PRODUCTION' | 'PACK' | 'WAREHOUSE' | 'SALE' | 'DELIVERY';

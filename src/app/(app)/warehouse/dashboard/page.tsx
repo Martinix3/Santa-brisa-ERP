@@ -1,4 +1,5 @@
 
+
 "use client";
 import React, { useMemo, useState } from 'react';
 import { useData } from '@/lib/dataprovider';
@@ -6,9 +7,10 @@ import { generateInsights } from '@/ai/flows/generate-insights-flow';
 import { SBCard, SBButton, Card, DataTableSB, Button } from '@/components/ui/ui-primitives';
 import type { Col } from '@/components/ui/ui-primitives';
 import { BrainCircuit, Package, DollarSign, Truck, AlertCircle, Clock } from 'lucide-react';
-import type { InventoryItem, Shipment, Interaction } from '@/domain/ssot';
+import type { InventoryItem, Shipment, Interaction, StockMove, Account } from '@/domain/ssot';
 import { DEPT_META, SB_COLORS } from '@/domain/ssot';
 import Link from 'next/link';
+import { samplesSentSummary } from "@/lib/consignment-and-samples";
 
 function KPI({ icon: Icon, label, value, color }: { icon: React.ElementType, label: string, value: string | number, color: string }) {
     return (
@@ -37,8 +39,53 @@ function StatusPill({status}:{status: Shipment['status']}){
   return <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-medium ${s.bg}`}>{s.txt}</span>;
 }
 
+function SamplesSentCard({ shipments, stockMoves, accounts }: { shipments: Shipment[], stockMoves: StockMove[], accounts: Account[] }) {
+    const sinceISO = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
 
-function WarehouseDashboardContent({ inventory, shipments }: { inventory: InventoryItem[], shipments: Shipment[] }) {
+    const sampleRows = useMemo(
+        () => samplesSentSummary({ shipments, stockMoves, accounts, sinceISO }),
+        [shipments, stockMoves, accounts, sinceISO]
+    );
+
+    return (
+        <Card title="Muestras enviadas · 30 días">
+            <div className="p-3 overflow-x-auto">
+                <table className="min-w-full text-xs">
+                    <thead>
+                        <tr className="text-left text-zinc-600">
+                            <th className="p-2">Cuenta</th>
+                            <th className="p-2">Unidades</th>
+                            <th className="p-2">Envíos</th>
+                            <th className="p-2">Último envío</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {sampleRows.map(r => (
+                            <tr key={r.accountId} className="border-t">
+                                <td className="p-2">
+                                    <Link href={`/accounts/${r.accountId}`} className="hover:underline font-medium">
+                                        {r.name}
+                                    </Link>
+                                </td>
+                                <td className="p-2">{r.units}</td>
+                                <td className="p-2">{r.shipments}</td>
+                                <td className="p-2">{r.last ? new Date(r.last).toLocaleDateString('es-ES') : '—'}</td>
+                            </tr>
+                        ))}
+                        {sampleRows.length === 0 && (
+                            <tr>
+                                <td colSpan={4} className="p-4 text-center text-zinc-500">No se han enviado muestras recientemente.</td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
+        </Card>
+    );
+}
+
+
+function WarehouseDashboardContent({ inventory, shipments, stockMoves, accounts }: { inventory: InventoryItem[], shipments: Shipment[], stockMoves: StockMove[], accounts: Account[] }) {
     const kpis = useMemo(() => {
         const stockUnits = inventory.reduce((sum, item) => sum + item.qty, 0);
         const stockValue = inventory.reduce((sum, item) => sum + (item.qty * 8.5), 0); // Precio coste estimado
@@ -103,6 +150,11 @@ function WarehouseDashboardContent({ inventory, shipments }: { inventory: Invent
                          </div>
                     </Card>
                  </div>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                 <div className="lg:col-span-2">
+                    <SamplesSentCard shipments={shipments} stockMoves={stockMoves} accounts={accounts} />
+                </div>
             </div>
         </div>
     )
@@ -211,10 +263,12 @@ function UpcomingEvents() {
 export default function Dashboard() {
     const { data: santaData } = useData();
 
-    const { inventory, shipments } = useMemo(() => {
+    const { inventory, shipments, stockMoves, accounts } = useMemo(() => {
         return {
             inventory: santaData?.inventory || [],
             shipments: santaData?.shipments || [],
+            stockMoves: santaData?.stockMoves || [],
+            accounts: santaData?.accounts || [],
         };
     }, [santaData]);
 
@@ -224,7 +278,7 @@ export default function Dashboard() {
     
     return (
         <div className="space-y-6">
-            <WarehouseDashboardContent inventory={inventory} shipments={shipments} />
+            <WarehouseDashboardContent inventory={inventory} shipments={shipments} stockMoves={stockMoves} accounts={accounts} />
             <div className="pt-6">
                 <AIInsightsCard />
             </div>

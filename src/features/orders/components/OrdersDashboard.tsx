@@ -12,6 +12,7 @@ import { ShoppingCart } from 'lucide-react';
 import Link from 'next/link';
 import { SBFlowModal } from '@/features/quicklog/components/SBFlows';
 import { generateNextOrder } from '@/lib/codes';
+import { consignmentOnHandByAccount, consignmentTotalUnits } from "@/lib/consignment-and-samples";
 
 type Tab = 'directa' | 'colocacion';
 
@@ -134,7 +135,10 @@ export default function OrdersDashboard() {
   const [statusFilter, setStatusFilter] = useState('');
   const [isCreateOrderOpen, setIsCreateOrderOpen] = useState(false);
 
-  const { ordersSellOut, accounts, users, partyRoles } = data || { ordersSellOut: [], accounts: [], users: [], partyRoles: [] };
+  const { ordersSellOut, accounts, users, partyRoles, stockMoves } = data || { ordersSellOut: [], accounts: [], users: [], partyRoles: [], stockMoves: [] };
+  
+  const consByAcc = useMemo(() => consignmentOnHandByAccount(stockMoves || []), [stockMoves]);
+  const consTotals = useMemo(() => consignmentTotalUnits(consByAcc), [consByAcc]);
   
   const enrichedOrders = useMemo(() => {
     if (!ordersSellOut || !accounts || !partyRoles) return [];
@@ -169,8 +173,8 @@ export default function OrdersDashboard() {
 
         const matchesSearch =
           !searchTerm ||
-          order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          order.account.name.toLowerCase().includes(searchTerm.toLowerCase());
+          (order.id && order.id.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (order.account.name && order.account.name.toLowerCase().includes(searchTerm.toLowerCase()));
         
         const matchesStatus = !statusFilter || order.status === statusFilter;
 
@@ -299,9 +303,22 @@ export default function OrdersDashboard() {
                   <tr key={order.id} className="hover:bg-zinc-50">
                     <td className="p-3 font-mono text-xs font-medium text-zinc-800">{order.id}</td>
                     <td className="p-3">
-                      <Link href={accountHref(order.accountId)} className="hover:underline">
-                        {order.account.name || 'N/A'}
-                      </Link>
+                        <div className="flex items-center gap-2">
+                            <Link href={accountHref(order.accountId)} className="hover:underline">
+                                {order.account.name || 'N/A'}
+                            </Link>
+                            {!!consTotals[order.accountId] && (
+                                <span title={
+                                    Object.entries(consByAcc[order.accountId] || {})
+                                        .map(([sku, qty]) => `${sku}: ${qty} uds`)
+                                        .join("\n")
+                                    }
+                                    className="text-[10px] rounded-full px-2 py-0.5 bg-amber-100 text-amber-900 border border-amber-200"
+                                >
+                                    Consigna: {consTotals[order.accountId]} uds
+                                </span>
+                            )}
+                        </div>
                     </td>
                     <td className="p-3">{order.owner?.name || 'N/A'}</td>
                     <td className="p-3">{new Date(order.createdAt).toLocaleDateString('es-ES')}</td>
