@@ -169,16 +169,15 @@ export default function OrdersDashboard() {
   const filteredOrders = useMemo(() => {
     return enrichedOrders
       .filter((order) => {
-        
         const isVentaDirecta = order.billerId === 'SB';
         if (activeTab === 'directa' && !isVentaDirecta) return false;
         if (activeTab === 'colocacion' && isVentaDirecta) return false;
 
         const matchesSearch =
           !searchTerm ||
-          (order.id && order.id.toLowerCase().includes(searchTerm.toLowerCase())) ||
           (order.docNumber && order.docNumber.toLowerCase().includes(searchTerm.toLowerCase())) ||
-          (order.account.name && order.account.name.toLowerCase().includes(searchTerm.toLowerCase()));
+          order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          order.account.name.toLowerCase().includes(searchTerm.toLowerCase());
         
         const matchesStatus = !statusFilter || order.status === statusFilter;
 
@@ -340,7 +339,9 @@ export default function OrdersDashboard() {
           <table className="w-full text-sm">
             <thead className="bg-zinc-50 text-left">
               <tr>
-                <th scope="col" className="p-3"><input type="checkbox" onChange={handleSelectAll} checked={selectedOrders.length > 0 && selectedOrders.length === filteredOrders.length} /></th>
+                <th scope="col" className="p-3">
+                    <input type="checkbox" onChange={handleSelectAll} checked={filteredOrders.length > 0 && selectedOrders.length === filteredOrders.length} aria-label="Seleccionar todos los pedidos"/>
+                </th>
                 <th scope="col" className="p-3 font-semibold text-zinc-600">Pedido ID</th>
                 <th scope="col" className="p-3 font-semibold text-zinc-600">Cliente</th>
                 <th scope="col" className="p-3 font-semibold text-zinc-600">Comercial</th>
@@ -352,20 +353,22 @@ export default function OrdersDashboard() {
             <tbody className="divide-y divide-zinc-100">
               {filteredOrders.map((order) => (
                   <tr key={order.id} className={`hover:bg-zinc-50 ${selectedOrders.includes(order.id) ? 'bg-yellow-50' : ''}`}>
-                    <td className="p-3"><input type="checkbox" checked={selectedOrders.includes(order.id)} onChange={(e) => setSelectedOrders(p => e.target.checked ? [...p, order.id] : p.filter(id => id !== order.id))} /></td>
+                    <td className="p-3">
+                        <input type="checkbox" checked={selectedOrders.includes(order.id)} onChange={(e) => setSelectedOrders(p => e.target.checked ? [...p, order.id] : p.filter(id => id !== order.id))} />
+                    </td>
                     <td className="p-3 font-mono text-xs font-medium text-zinc-800">{order.docNumber || order.id}</td>
                     <td className="p-3">
                         <div className="flex items-center gap-2">
                             <Link href={accountHref(order.accountId)} className="hover:underline font-medium">
                                 {order.account.name || 'N/A'}
                             </Link>
-                            {!!consTotals[order.accountId] && (
+                            {consTotals[order.accountId] > 0 && (
                                 <span title={
                                     Object.entries(consByAcc[order.accountId] || {})
                                         .map(([sku, qty]) => `${sku}: ${qty} uds`)
                                         .join("\n")
                                     }
-                                    className="text-[10px] rounded-full px-2 py-0.5 bg-amber-100 text-amber-900 border border-amber-200"
+                                    className="text-[10px] rounded-full px-2 py-0.5 bg-amber-100 text-amber-900 border border-amber-200 cursor-help"
                                 >
                                     Consigna: {consTotals[order.accountId]} uds
                                 </span>
