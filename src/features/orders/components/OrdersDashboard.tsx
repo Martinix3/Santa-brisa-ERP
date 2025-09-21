@@ -70,7 +70,7 @@ const statusOptions: { value: OrderStatus; label: string }[] = [
     { value: 'lost', label: 'Perdido' },
 ];
 
-function StatusSelector({ order, onStatusChange }: { order: OrderSellOut; onStatusChange: (order: OrderSellOut, newStatus: OrderStatus) => Promise<void>; }) {
+function StatusSelector({ order, onStatusChange }: { order: OrderSellOut; onStatusChange: (orderId: string, newStatus: OrderStatus) => Promise<void>; }) {
     const [isPending, startTransition] = useTransition();
     const { data } = useData();
 
@@ -89,7 +89,7 @@ function StatusSelector({ order, onStatusChange }: { order: OrderSellOut; onStat
     const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const newStatus = e.target.value as OrderStatus;
         startTransition(async () => {
-            await onStatusChange(order, newStatus);
+            await onStatusChange(order.id, newStatus);
         });
     };
 
@@ -303,28 +303,16 @@ export default function OrdersDashboard() {
     saveAllCollections(collectionsToSave);
     setIsCreateOrderOpen(false);
   }
-
- const handleStatusChange = async (order: OrderSellOut, newStatus: OrderStatus) => {
-    if (!data) return;
-    
-    const account = data.accounts.find(a => a.id === order.accountId);
-    const party = account ? data.parties.find(p => p.id === account.partyId) : undefined;
-    
-    if (!account || !party) {
-        console.error("No se pudo encontrar la cuenta o el party para el pedido:", order.id);
-        // Aquí podrías mostrar una notificación al usuario.
-        return;
-    }
-
+  
+  const handleStatusChange = async (orderId: string, newStatus: OrderStatus) => {
     startTransition(async () => {
         try {
-            await updateOrderStatus(order, account, party, newStatus);
+            await updateOrderStatus(orderId, newStatus);
         } catch (error) {
             console.error("Error al actualizar el estado del pedido:", error);
-            // Aquí se podría revertir el estado en la UI si fuera necesario, aunque revalidatePath debería refrescar.
         }
     });
-};
+  };
   
   const [isPending, startTransition] = useTransition();
 
