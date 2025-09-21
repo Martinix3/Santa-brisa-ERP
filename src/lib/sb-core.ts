@@ -1,5 +1,3 @@
-
-
 // --- Santa Brisa: lógica de negocio (sell-out a botellas, agregados y KPIs) ---
 import type {
   Account, Party, PartyRole, CustomerData, OrderSellOut, Product, User, SantaData, Activation, AccountRollup, Interaction
@@ -145,12 +143,13 @@ export function computeAccountKPIs(params: {
   }).length;
   const visitToOrderRate = visitsInWindow.length ? Number(((convertedVisits / visitsInWindow.length) * 100).toFixed(1)) : undefined;
 
-  const lastOrder = (data.ordersSellOut || [])
-    .filter(o => o.accountId === accountId && o.status === 'confirmed')
-    .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))[0];
-  const lastVisit = (data.interactions || [])
-    .filter(i => i.accountId === accountId && i.kind==='VISITA')
-    .sort((a,b)=> +new Date(b.createdAt) - +new Date(a.createdAt))[0];
+  const allAccountOrders = (data.ordersSellOut || []).filter(o => o.accountId === accountId && o.status === 'confirmed');
+  const sortedOrders = allAccountOrders.sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
+  const lastOrder = sortedOrders.length > 0 ? sortedOrders[0] : undefined;
+
+  const allAccountVisits = (data.interactions || []).filter(i => i.accountId === accountId && i.kind==='VISITA');
+  const sortedVisits = allAccountVisits.sort((a,b)=> +new Date(b.createdAt) - +new Date(a.createdAt));
+  const lastVisit = sortedVisits.length > 0 ? sortedVisits[0] : undefined;
 
   const now = new Date(end);
   const daysSinceLastOrder = lastOrder ? Math.max(0, Math.round((now.getTime() - +new Date(lastOrder.createdAt))/(1000*3600*24))) : undefined;
@@ -166,18 +165,21 @@ export function computeAccountRollup(accountId: string, data: SantaData): Accoun
     const accountActivations = (data.activations || []).filter(a => a.accountId === accountId);
     const activeActivations = accountActivations.filter(a => a.status === 'active');
     
-    const plvVisit = accountInteractions
+    const sortedPlvVisits = accountInteractions
         .filter(i => i.note?.toLowerCase().includes('plv'))
-        .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))[0];
+        .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
+    const plvVisit = sortedPlvVisits.length > 0 ? sortedPlvVisits[0] : undefined;
 
     const promotions = data.promotions || [];
     const now = new Date();
     const activePromotions = promotions.filter(p => now >= new Date(p.validFrom) && now <= new Date(p.validTo));
 
     const posTactics = accountInteractions.filter(i => i.posTactic && i.status === 'open');
-    const lastTactic = posTactics.sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))[0];
-
-    const lastActiveActivation = activeActivations.sort((a,b) => +new Date(b.startDate) - +new Date(a.startDate))[0];
+    const sortedPosTactics = posTactics.sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
+    const lastTactic = sortedPosTactics.length > 0 ? sortedPosTactics[0] : undefined;
+    
+    const sortedActiveActivations = activeActivations.sort((a,b) => +new Date(b.startDate) - +new Date(a.startDate));
+    const lastActiveActivation = sortedActiveActivations.length > 0 ? sortedActiveActivations[0] : undefined;
 
     return {
         accountId,
