@@ -1,9 +1,9 @@
 
 // src/app/(app)/marketing/dashboard/page.tsx
 "use client";
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useData } from '@/lib/dataprovider';
-import { SBCard } from '@/components/ui/ui-primitives';
+import { SBCard, SBButton } from '@/components/ui/ui-primitives';
 import { DEPT_META } from '@/domain/ssot';
 import type { Interaction, MarketingEvent, OnlineCampaign, InfluencerCollab, PosTactic } from '@/domain/ssot';
 import { Calendar, AlertCircle, Clock, Target, Euro, TrendingUp, BarChart, Percent, PieChart } from 'lucide-react';
@@ -11,7 +11,7 @@ import { Calendar, AlertCircle, Clock, Target, Euro, TrendingUp, BarChart, Perce
 // ===================================
 // Helper Functions & Types
 // ===================================
-
+type TimeRange = 'week' | 'month' | 'year';
 const fmtEur = (n?: number) => new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(n || 0);
 const fmtPct = (n?: number) => `${(n || 0).toFixed(1)}%`;
 
@@ -46,6 +46,7 @@ function KpiCard({ title, value, icon: Icon, color = "#71717a" }: { title: strin
 
 function MarketingDashboardPageContent() {
     const { data } = useData();
+    const [timeRange, setTimeRange] = useState<TimeRange>('month');
 
     // 1. Data Aggregation (as per brief)
     const dashboardData = useMemo(() => {
@@ -59,32 +60,40 @@ function MarketingDashboardPageContent() {
         }
 
         const now = new Date();
-        const mtdStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        let startDate = new Date();
+        if (timeRange === 'week') {
+            startDate.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1)); // Monday of current week
+        } else if (timeRange === 'month') {
+            startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        } else { // year
+            startDate = new Date(now.getFullYear(), 0, 1);
+        }
+        startDate.setHours(0,0,0,0);
 
-        const inMtd = (dateStr?: string) => dateStr && new Date(dateStr) >= mtdStart;
+        const inTimeRange = (dateStr?: string) => dateStr && new Date(dateStr) >= startDate && new Date(dateStr) <= now;
 
-        const eventsData = (data.marketingEvents || []).filter(e => inMtd(e.startAt) && e.status === 'closed').reduce((acc, e) => {
+        const eventsData = (data.marketingEvents || []).filter(e => inTimeRange(e.startAt) && e.status === 'closed').reduce((acc, e) => {
             acc.spend += e.spend || 0;
             acc.revenue += e.kpis?.revenueAttributed || 0;
             acc.actions += 1;
             return acc;
         }, { spend: 0, revenue: 0, actions: 0 });
 
-        const onlineData = (data.onlineCampaigns || []).filter(c => inMtd(c.startAt) && c.status === 'closed').reduce((acc, c) => {
+        const onlineData = (data.onlineCampaigns || []).filter(c => inTimeRange(c.startAt) && c.status === 'closed').reduce((acc, c) => {
             acc.spend += c.spend || 0;
             acc.revenue += c.metrics?.revenue || 0;
             acc.actions += 1;
             return acc;
         }, { spend: 0, revenue: 0, actions: 0 });
 
-        const collabsData = (data.influencerCollabs || []).filter(c => inMtd(c.dates?.goLiveAt) && c.status === 'COMPLETED').reduce((acc, c) => {
+        const collabsData = (data.influencerCollabs || []).filter(c => inTimeRange(c.dates?.goLiveAt) && c.status === 'COMPLETED').reduce((acc, c) => {
             acc.spend += (c.costs?.cashPaid || 0) + (c.costs?.productCost || 0) + (c.costs?.shippingCost || 0);
             acc.revenue += c.tracking?.revenue || 0;
             acc.actions += 1;
             return acc;
         }, { spend: 0, revenue: 0, actions: 0 });
         
-        const posData = (data.posTactics || []).filter(t => inMtd(t.createdAt) && t.status === 'closed').reduce((acc, t) => {
+        const posData = (data.posTactics || []).filter(t => inTimeRange(t.createdAt) && t.status === 'closed').reduce((acc, t) => {
             acc.spend += t.actualCost || 0;
             acc.revenue += t.result?.upliftMargin || 0; // Using upliftMargin as revenue proxy
             acc.actions += 1;
@@ -92,7 +101,7 @@ function MarketingDashboardPageContent() {
         }, { spend: 0, revenue: 0, actions: 0 });
 
         return { events: eventsData, online: onlineData, collabs: collabsData, pos: posData };
-    }, [data]);
+    }, [data, timeRange]);
 
     // 2. Calculations (as per brief)
     const totals = useMemo(() => {
@@ -138,23 +147,44 @@ function MarketingDashboardPageContent() {
             .filter(i => i.dept === 'MARKETING' && i.status === 'open' && i.plannedFor && new Date(i.plannedFor) <= in14Days)
             .sort((a, b) => new Date(a.plannedFor!).getTime() - new Date(b.plannedFor!).getTime());
     }, [data]);
+    
+    const timeRangeLabels = {
+        week: 'Semana',
+        month: 'Mes',
+        year: 'Año'
+    };
 
     // 3. Visualization (as per brief)
     return (
         <div className="space-y-6">
-            <h1 className="text-2xl font-semibold text-zinc-800">Dashboard de Marketing</h1>
+            <div className="flex justify-between items-center">
+                <h1 className="text-2xl font-semibold text-zinc-800">Dashboard de Marketing</h1>
+                <div className="flex items-center p-1 bg-zinc-100 rounded-lg">
+                    {(['week', 'month', 'year'] as const).map(range => (
+                        <SBButton
+                            key={range}
+                            size="sm"
+                            onClick={() => setTimeRange(range)}
+                            variant="ghost"
+                            className={`font-semibold ${timeRange === range ? 'bg-white shadow-sm !text-zinc-800' : 'text-zinc-600'}`}
+                        >
+                            {timeRangeLabels[range]}
+                        </SBButton>
+                    ))}
+                </div>
+            </div>
             
             {/* KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <KpiCard title="Inversión (MTD)" value={fmtEur(totals.totalSpend)} icon={Euro} color="#D7713E" />
-                <KpiCard title="Ingresos Atribuidos (MTD)" value={fmtEur(totals.totalRevenue)} icon={TrendingUp} color="#16a34a"/>
-                <KpiCard title="ROI (MTD)" value={`${totals.totalRoi.toFixed(2)}x`} icon={Percent} color="#618E8F" />
-                <KpiCard title="Acciones (MTD)" value={totals.totalActions.toString()} icon={Target} color="#A7D8D9"/>
+                <KpiCard title={`Inversión (${timeRangeLabels[timeRange]})`} value={fmtEur(totals.totalSpend)} icon={Euro} color="#D7713E" />
+                <KpiCard title={`Ingresos (${timeRangeLabels[timeRange]})`} value={fmtEur(totals.totalRevenue)} icon={TrendingUp} color="#16a34a"/>
+                <KpiCard title={`ROI (${timeRangeLabels[timeRange]})`} value={`${totals.totalRoi.toFixed(2)}x`} icon={Percent} color="#618E8F" />
+                <KpiCard title={`Acciones (${timeRangeLabels[timeRange]})`} value={totals.totalActions.toString()} icon={Target} color="#A7D8D9"/>
             </div>
 
             {/* Investment Mix & ROI */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <SBCard title="Mix de Inversión y ROI por Canal (MTD)">
+                <SBCard title={`Mix de Inversión y ROI por Canal (${timeRangeLabels[timeRange]})`}>
                     <div className="divide-y divide-zinc-100">
                         <div className="grid grid-cols-4 p-3 bg-zinc-50 text-xs font-semibold uppercase text-zinc-500">
                             <span>Canal</span>
