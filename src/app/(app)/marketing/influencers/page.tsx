@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
 import InfluencersDashboardPage from "@/features/influencers/pages/InfluencersDashboardPage";
-import { SB_COLORS, waterHeader, hexToRgba, AgaveEdge, Input, Select, Textarea, SBButton } from "@/components/ui/ui-primitives";
+import { SB_COLORS, waterHeader, hexToRgba, AgaveEdge, Input, Select, Textarea, SBButton, SBCard } from "@/components/ui/ui-primitives";
 import { ClipboardList } from "lucide-react";
 
 // Mock Header component if it's not globally available or needs specific props
@@ -27,6 +27,7 @@ export default function InfluencersPage() {
         Textarea,
         Header,
         SBButton,
+        SBCard,
     };
 
     return (
