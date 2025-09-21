@@ -1,10 +1,15 @@
+
 // src/app/(app)/orders/actions.ts
 'use server';
 import { revalidatePath } from 'next/cache';
 import { getServerData, upsertMany } from '@/lib/dataprovider/server';
 import type { OrderStatus, Shipment, OrderSellOut, Account, Party } from '@/domain/ssot';
 
-const SHIPMENT_TRIGGER_STATES = new Set<OrderStatus>(['confirmed', 'shipped']);
+// Mapea estados que deben generar shipment (ABIERTO/CONFIRMADO/EN_PROCESO, etc.)
+const SHIPMENT_TRIGGER_STATES = new Set<OrderStatus>([
+  'confirmed',
+  'shipped' // Sometimes reshipping might be a flow
+]);
 
 export async function updateOrderStatus(orderId: string, next: OrderStatus) {
   console.log(`[CHIVATO] Iniciando updateOrderStatus para order ${orderId} a estado ${next}`);
@@ -18,9 +23,9 @@ export async function updateOrderStatus(orderId: string, next: OrderStatus) {
     if (SHIPMENT_TRIGGER_STATES.has(next)) {
       console.log(`[CHIVATO] Paso 2: El estado '${next}' dispara la creación de un envío.`);
       
-      // Obtenemos los datos frescos desde el servidor, ya que es una Server Action
       const data = await getServerData();
       const order = data.ordersSellOut.find(o => o.id === orderId);
+      
       if (!order) {
         throw new Error(`[CHIVATO] ERROR: No se encontró el pedido ${orderId} en el servidor después de actualizarlo.`);
       }
@@ -36,15 +41,13 @@ export async function updateOrderStatus(orderId: string, next: OrderStatus) {
         const product = data.products.find(p => p.sku === it.sku);
         return {
           sku: it.sku,
-          name: product?.name || it.sku, // Aseguramos que 'name' esté presente
+          name: product?.name || it.sku,
           qty: it.qty,
           uom: 'uds' as const,
         };
       });
 
-      if (shipmentLines.length === 0) {
-        console.warn(`[CHIVATO] ADVERTENCIA: El pedido ${orderId} no tiene líneas. No se creará el envío.`);
-      } else {
+      if (shipmentLines.length > 0) {
         const newShipment: Shipment = {
           id: `shp_${Date.now()}`,
           orderId: order.id,
@@ -64,14 +67,19 @@ export async function updateOrderStatus(orderId: string, next: OrderStatus) {
         
         await upsertMany('shipments', [newShipment]);
         console.log(`[CHIVATO] Paso 2 OK: Envío ${newShipment.id} creado para el pedido ${order.id}.`);
+      } else {
+         console.warn(`[CHIVATO] ADVERTENCIA: El pedido ${orderId} no tiene líneas. No se creará el envío.`);
       }
     }
 
-    // 3. Revalida las rutas para que la UI se actualice.
+    console.log('[CHIVATO] Paso 3: Revalidando rutas /orders y /warehouse/logistics...');
     revalidatePath('/orders');
     revalidatePath('/warehouse/logistics');
-    console.log('[CHIVATO] Paso 3 OK: Rutas /orders y /warehouse/logistics revalidadas.');
-  } catch (err) {
+    console.log('[CHIVATO] Revalidación completada.');
+
+  } catch (err: any) {
     console.error(`[CHIVATO] ERROR CRÍTICO en updateOrderStatus para el pedido ${orderId}:`, err);
+    // Para no romper la UI, no lanzamos el error, pero lo logueamos.
+    // En un entorno real, aquí podrías devolver un objeto de error.
   }
 }
