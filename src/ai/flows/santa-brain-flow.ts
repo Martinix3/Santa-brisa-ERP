@@ -166,12 +166,12 @@ const santaBrainFlow = ai.defineFlow(
     
     if (llmResponse.toolCalls) {
       for (const toolCall of llmResponse.toolCalls) {
-        const toolRequest: ToolRequest = toolCall.toolRequest;
+        const toolRequest: ToolRequest = toolCall;
         const accountName = (toolRequest.input as any)?.accountName;
         const targetAccount = accounts.find(a => a.name.toLowerCase() === accountName?.toLowerCase());
         const toolOutput = { success: true, result: {} };
         
-        if (toolRequest.name === 'createOrder' && targetAccount) {
+        if (toolRequest.name === 'createOrder' && targetAccount && typeof toolRequest.input === 'object' && toolRequest.input !== null) {
             const newOrder = { 
                 id: `ord_${Date.now()}`, 
                 status: 'open',
@@ -179,11 +179,11 @@ const santaBrainFlow = ai.defineFlow(
                 currency: 'EUR',
                 lines: (toolRequest.input as any).items.map((item: any) => ({ ...item, uom: 'uds', priceUnit: 0 })),
                 accountId: targetAccount.id,
-                ...toolRequest.input 
+                ...(toolRequest.input as object),
             };
             newEntities.ordersSellOut = [...(newEntities.ordersSellOut || []), newOrder as OrderSellOut];
             finalAnswer += `\nHecho. He creado un pedido para ${targetAccount.name}. ¿Has hecho alguna promoción o necesitas visibilidad (PLV)?`;
-        } else if (toolRequest.name === 'createInteraction' && targetAccount) {
+        } else if (toolRequest.name === 'createInteraction' && targetAccount && typeof toolRequest.input === 'object' && toolRequest.input !== null) {
             const newInteraction = { 
                 id: `int_${Date.now()}`,
                 kind: 'OTRO',
@@ -191,11 +191,11 @@ const santaBrainFlow = ai.defineFlow(
                 createdAt: new Date().toISOString(),
                 accountId: targetAccount.id, 
                 userId: 'u_admin', 
-                ...toolRequest.input
+                ...(toolRequest.input as object),
             };
             newEntities.interactions = [...(newEntities.interactions || []), newInteraction as Interaction];
             finalAnswer += `\nHecho. He registrado una interacción con ${targetAccount.name}.`;
-        } else if (toolRequest.name === 'createAccount') {
+        } else if (toolRequest.name === 'createAccount' && typeof toolRequest.input === 'object' && toolRequest.input !== null) {
             const inputData = toolRequest.input as any;
             const newParty: Party = {
                 id: `party_${Date.now()}`,

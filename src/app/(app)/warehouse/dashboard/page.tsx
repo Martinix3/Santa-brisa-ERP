@@ -3,11 +3,11 @@
 import React, { useMemo, useState } from 'react';
 import { useData } from '@/lib/dataprovider';
 import { generateInsights } from '@/ai/flows/generate-insights-flow';
-import { SBCard, SBButton, Card, DataTableSB, Button, SB_COLORS } from '@/components/ui/ui-primitives';
+import { SBCard, SBButton, Card, DataTableSB, Button } from '@/components/ui/ui-primitives';
 import type { Col } from '@/components/ui/ui-primitives';
 import { BrainCircuit, Package, DollarSign, Truck, AlertCircle, Clock } from 'lucide-react';
 import type { InventoryItem, Shipment, Interaction } from '@/domain/ssot';
-import { DEPT_META } from '@/domain/ssot';
+import { DEPT_META, SB_COLORS } from '@/domain/ssot';
 import Link from 'next/link';
 
 function KPI({ icon: Icon, label, value, color }: { icon: React.ElementType, label: string, value: string | number, color: string }) {
@@ -193,7 +193,7 @@ function UpcomingEvents() {
                     
                     return (
                          <div key={event.id} className={`flex items-center gap-3 p-2 rounded-lg border cursor-pointer ${isOverdue ? 'bg-rose-50/50 border-rose-200' : 'bg-zinc-50 border-zinc-200 hover:bg-zinc-100'}`}>
-                            <div className="p-2 rounded-full" style={{ backgroundColor: DEPT_META.ALMACEN.bg, color: DEPT_META.ALMACEN.text }}>
+                            <div className="p-2 rounded-full" style={{ backgroundColor: DEPT_META.ALMACEN.color, color: DEPT_META.ALMACEN.textColor }}>
                                 <Icon size={16} />
                             </div>
                             <div>

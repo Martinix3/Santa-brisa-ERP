@@ -26,6 +26,7 @@ export const STATUS_STYLES: Record<OrderStatus | ShipmentStatus, { label: string
   delivered: { label: "Entregado", color: "text-green-900", bg: "bg-green-100" },
 };
 
+export { SB_COLORS };
 
 export const hexToRgba = (hex: string, a: number) => {
   if (!hex) return 'rgba(0,0,0,0)';
