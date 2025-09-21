@@ -69,19 +69,27 @@ export async function generatePackingSlip(shipmentId: string): Promise<{ pdfData
     // Clean potential markdown backticks from the AI response
     const cleanHtml = generatedHtml.replace(/```html/g, '').replace(/```/g, '');
 
-    // 3. Use an external API (pdflayer) to convert HTML to PDF
-    console.log('[Server Action] Calling pdflayer API to generate PDF...');
+    // 3. Use an external API (pdflayer via RapidAPI) to convert HTML to PDF
+    console.log('[Server Action] Calling pdflayer via RapidAPI to generate PDF...');
     const apiKey = process.env.PDFLAYER_API_KEY;
     if (!apiKey) {
         throw new Error('PDFLAYER_API_KEY environment variable is not set.');
     }
     
-    const pdfLayerUrl = `https://api.pdflayer.com/api/convert?access_key=${apiKey}`;
-    const response = await fetch(pdfLayerUrl, {
+    const url = 'https://apilayer-pdflayer-v1.p.rapidapi.com/convert';
+    const options = {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: `document_html=${encodeURIComponent(cleanHtml)}`
-    });
+        headers: {
+            'content-type': 'application/x-www-form-urlencoded',
+            'x-rapidapi-host': 'apilayer-pdflayer-v1.p.rapidapi.com',
+            'x-rapidapi-key': apiKey,
+        },
+        body: new URLSearchParams({
+            document_html: cleanHtml
+        })
+    };
+    
+    const response = await fetch(url, options);
 
     if (!response.ok) {
         const errorText = await response.text();
