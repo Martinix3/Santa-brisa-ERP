@@ -5,7 +5,7 @@ import { useData } from '@/lib/dataprovider';
 import { SBCard, SBButton } from '@/components/ui/ui-primitives';
 import { DEPT_META } from '@/domain/ssot';
 import type { Interaction, MarketingEvent, OnlineCampaign, InfluencerCollab, PosTactic } from '@/domain/ssot';
-import { Calendar, AlertCircle, Clock, Target, Euro, TrendingUp, BarChart, Percent, PieChart } from 'lucide-react';
+import { Calendar, AlertCircle, Clock, Target, Euro, TrendingUp, BarChart, Percent, PieChart as PieChartIcon } from 'lucide-react';
 
 // ===================================
 // Helper Functions & Types
@@ -138,6 +138,7 @@ function MarketingDashboardPageContent() {
         
         const investByStore = new Map<string, number>();
         (data.posTactics||[]).forEach(t=>{
+            if(!t.createdAt) return;
             const m = new Date(t.createdAt).getMonth(); const y = new Date(t.createdAt).getFullYear();
             if (`${y}-${String(m+1).padStart(2,'0')}`===mk) investByStore.set(t.accountId, (investByStore.get(t.accountId)||0) + (t.actualCost||0));
         });
@@ -150,6 +151,7 @@ function MarketingDashboardPageContent() {
 
         const byStoreMonth = new Map<string, number>();
         selloutWeekly.forEach((r:any)=>{
+            if(!r.weekISO) return;
             const d = new Date(r.weekISO); const key = `${r.storeId}@${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
             byStoreMonth.set(key, (byStoreMonth.get(key)||0) + (r.units||0));
         });
@@ -175,7 +177,7 @@ function MarketingDashboardPageContent() {
         const unitsPerEuro = med(activeRvi.map(r=>r.upe));
         const pctPositive = activeRvi.length ? (activeRvi.filter(r=>r.positive).length / activeRvi.length) : 0;
 
-        return { totals, investmentMix: investmentMixResult, upcomingActions: upcomingActionsResult, pendingTasks: pendingTasksResult, rviCards: { rvi, unitsPerEuro, pctPositive } };
+        return { totals: totalsResult, investmentMix: investmentMixResult, upcomingActions: upcomingActionsResult, pendingTasks: pendingTasksResult, rviCards: { rvi, unitsPerEuro, pctPositive } };
 
     }, [data, timeRange]);
 
@@ -238,7 +240,7 @@ function MarketingDashboardPageContent() {
                 <SBCard title={`Rotación vs Inversión (RVI) — ${timeRangeLabels[timeRange]}`}>
                   <div className="p-4 grid grid-cols-3 gap-3">
                     <KpiCard title="RVI (Δ lift%)" value={`${(rviCards.rvi*100).toFixed(0)}%`} icon={BarChart} color="#0ea5e9" />
-                    <KpiCard title="Units/€ (mediana)" value={rviCards.unitsPerEuro.toFixed(2)} icon={PieChart} color="#16a34a" />
+                    <KpiCard title="Units/€ (mediana)" value={rviCards.unitsPerEuro.toFixed(2)} icon={PieChartIcon} color="#16a34a" />
                     <KpiCard title="% locales con uplift > 0" value={`${(rviCards.pctPositive*100).toFixed(0)}%`} icon={TrendingUp} color="#f59e0b" />
                   </div>
                 </SBCard>
@@ -265,8 +267,8 @@ function MarketingDashboardPageContent() {
                     <div className="p-2 max-h-72 overflow-y-auto">
                         {pendingTasks.length > 0 ? pendingTasks.map((task: Interaction) => (
                             <div key={task.id} className={`flex items-center gap-3 p-2 rounded-lg hover:bg-zinc-50 ${new Date(task.plannedFor!) < new Date() ? 'bg-red-50/50' : ''}`}>
-                                <div className="p-2 rounded-md" style={{ backgroundColor: DEPT_META.MARKETING.color + '20' }}>
-                                    {new Date(task.plannedFor!) < new Date() ? <AlertCircle size={16} className="text-red-500"/> : <Clock size={16} style={{color: DEPT_META.MARKETING.color }} />}
+                                <div className="p-2 rounded-md" style={{ backgroundColor: (DEPT_META.MARKETING.color || '#F7D15F') + '20' }}>
+                                    {new Date(task.plannedFor!) < new Date() ? <AlertCircle size={16} className="text-red-500"/> : <Clock size={16} style={{color: DEPT_META.MARKETING.color || '#F7D15F' }} />}
                                 </div>
                                 <div>
                                     <p className="font-medium text-sm">{task.note}</p>
