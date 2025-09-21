@@ -69,6 +69,7 @@ export default function QuickLogOverlay() {
                      <Chat
                         userId={currentUser.id}
                         onNewData={handleNewData}
+                        cloudFunctionUrl={process.env.NEXT_PUBLIC_SANTA_BRAIN_URL!}
                     />
                 ) : (
                     <div className="flex-1 flex items-center justify-center text-center text-zinc-500 p-4">
@@ -81,4 +82,3 @@ export default function QuickLogOverlay() {
     </>
   );
 }
-
