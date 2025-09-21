@@ -637,20 +637,183 @@ export const SANTA_DATA_COLLECTIONS: (keyof SantaData)[] = [
 // - Un `GoodsReceipt` no pasa a `'completed'` hasta que todos sus lotes pasen QC o se abra un `Incident`.
 
 // -----------------------------------------------------------------
-// 10. Metadatos y Constantes
+// 10.A — UI KIT (SSOT de Colores, Metadatos y CSS Variables)
 // -----------------------------------------------------------------
 
-export const DEPT_META: Record<Department, { label: string; color: string; textColor: string }> = {
-  VENTAS:     { label: 'Ventas',     color: '#D7713E', textColor: '#fff' },
-  PRODUCCION: { label: 'Producción', color: '#618E8F', textColor: '#fff' },
-  ALMACEN:    { label: 'Almacén',    color: '#A7D8D9', textColor: '#2F5D5D' },
-  MARKETING:  { label: 'Marketing',  color: '#F7D15F', textColor: '#9E4E27' },
-  FINANZAS:   { label: 'Finanzas',   color: '#CCCCCC', textColor: '#333' },
-  CALIDAD:    { label: 'Calidad',    color: '#F7D15F', textColor: '#9E4E27' },
+export const SB_COLORS = {
+  primary: {
+    sun   : '#F7D15F', // Luz / CTA
+    copper: '#D7713E', // Ventas / Acento cálido
+    aqua  : '#A7D8D9', // Almacén / Logística
+    teal  : '#618E8F', // Producción / Admin
+    neutral50 : '#FAFAFA',
+    neutral900: '#111111',
+  },
+  state: {
+    success: '#22c55e', // ✅ Verde real (para release, paid, shipped, delivered)
+    warning: '#f59e0b',
+    danger : '#ef4444',
+    info   : '#3b82f6',
+  },
+  dept: {
+    VENTAS:     { bg: '#D7713E', text: '#fff'     },
+    PRODUCCION: { bg: '#618E8F', text: '#fff'     },
+    ALMACEN:    { bg: '#A7D8D9', text: '#2F5D5D'  },
+    MARKETING:  { bg: '#F7D15F', text: '#9E4E27'  },
+    FINANZAS:   { bg: '#CCCCCC', text: '#333'     },
+    CALIDAD:    { bg: '#F7D15F', text: '#9E4E27'  },
+  },
+  lotQC: {
+    release: { label: 'LIBERADO',  bg: '#22c55e', text: '#fff'    }, // verde
+    hold:    { label: 'RETENIDO',  bg: '#F7D15F', text: '#111111' }, // amarillo
+    reject:  { label: 'RECHAZADO', bg: '#ef4444', text: '#fff'    },
+  },
+  tokens: {
+    radius: { sm: 6, md: 10, lg: 14, xl: 18, full: 9999 },
+    shadow: {
+      sm: '0 1px 2px rgba(0,0,0,0.04)',
+      md: '0 2px 4px rgba(0,0,0,0.08)',
+      lg: '0 6px 12px rgba(0,0,0,0.08)',
+    },
+    spacing: { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 },
+  },
+} as const;
+
+export type DeptKey = keyof typeof SB_COLORS.dept;
+export type QCVisual = keyof typeof SB_COLORS.lotQC; // 'release'|'hold'|'reject'
+
+// --- Estados visuales de negocio ---
+export const ORDER_STATUS_META: Record<OrderStatus, { label: string; accent: string }> = {
+  open:      { label: 'Abierto',    accent: SB_COLORS.state.info    },
+  confirmed: { label: 'Confirmado', accent: SB_COLORS.primary.teal  },
+  shipped:   { label: 'Enviado',    accent: SB_COLORS.state.success }, // verde
+  invoiced:  { label: 'Facturado',  accent: SB_COLORS.primary.copper },
+  paid:      { label: 'Pagado',     accent: SB_COLORS.state.success }, // verde
+  cancelled: { label: 'Cancelado',  accent: SB_COLORS.state.danger  },
+  lost:      { label: 'Perdido',    accent: SB_COLORS.state.danger  },
 };
+
+export const SHIPMENT_STATUS_META: Record<ShipmentStatus, { label: string; accent: string }> = {
+  pending:       { label: 'Pendiente', accent: SB_COLORS.state.info   },
+  picking:       { label: 'Picking',   accent: SB_COLORS.primary.teal },
+  ready_to_ship: { label: 'Validado',  accent: SB_COLORS.primary.teal },
+  shipped:       { label: 'Enviado',   accent: SB_COLORS.state.success }, // verde
+  delivered:     { label: 'Entregado', accent: SB_COLORS.state.success }, // verde
+  cancelled:     { label: 'Cancelado', accent: SB_COLORS.state.danger },
+};
+
+export const LOT_QC_META = SB_COLORS.lotQC;
+
+// --- Fases de trazabilidad ---
+export const PHASE_NAME_ES: Record<TraceEventPhase, string> = {
+  SOURCE:    'Origen (Almacén)',
+  RECEIPT:   'Recepción (Almacén)',
+  QC:        'Calidad',
+  PRODUCTION:'Producción',
+  PACK:      'Embalaje',
+  WAREHOUSE: 'Almacén',
+  SALE:      'Venta',
+  DELIVERY:  'Entrega (Almacén)',
+};
+
+export const PHASE_DEPT: Record<TraceEventPhase, DeptKey> = {
+  SOURCE:     'ALMACEN',
+  RECEIPT:    'ALMACEN',
+  QC:         'CALIDAD',
+  PRODUCTION: 'PRODUCCION',
+  PACK:       'PRODUCCION',
+  WAREHOUSE:  'ALMACEN',
+  SALE:       'VENTAS',
+  DELIVERY:   'ALMACEN',
+};
+
+export const phaseStyle = (phase: TraceEventPhase) => {
+  const dept = PHASE_DEPT[phase];
+  const c = SB_COLORS.dept[dept];
+  return { bg: c.bg, text: c.text };
+};
+
+// --- Cuentas por tipo ---
+export const ACCOUNT_TYPE_META: Record<AccountType, { label: string; accent: string }> = {
+  HORECA:       { label: 'HORECA',       accent: SB_COLORS.primary.teal   },
+  RETAIL:       { label: 'Retail',       accent: SB_COLORS.primary.copper },
+  PRIVADA:      { label: 'Privada',      accent: SB_COLORS.state.info     },
+  ONLINE:       { label: 'Online',       accent: SB_COLORS.state.info     },
+  OTRO:         { label: 'Otro',         accent: '#9CA3AF'                },
+  DISTRIBUIDOR: { label: 'Distribuidor', accent: SB_COLORS.primary.aqua   },
+};
+
+// --- Variables CSS globales ---
+export function attachSBColorCSSVariables(targetDoc?: Document) {
+  const d = targetDoc || (typeof document !== 'undefined' ? document : undefined);
+  if (!d) return;
+  const root = d.documentElement;
+  const set = (k: string, v: string) => root.style.setProperty(k, v);
+
+  set('--sb-sun',    SB_COLORS.primary.sun);
+  set('--sb-copper', SB_COLORS.primary.copper);
+  set('--sb-aqua',   SB_COLORS.primary.aqua);
+  set('--sb-teal',   SB_COLORS.primary.teal);
+
+  set('--sb-success', SB_COLORS.state.success);
+  set('--sb-warning', SB_COLORS.state.warning);
+  set('--sb-danger',  SB_COLORS.state.danger);
+  set('--sb-info',    SB_COLORS.state.info);
+
+  (Object.keys(SB_COLORS.dept) as DeptKey[]).forEach((k) => {
+    set(`--sb-dept-${k.toLowerCase()}-bg`,   SB_COLORS.dept[k].bg);
+    set(`--sb-dept-${k.toLowerCase()}-text`, SB_COLORS.dept[k].text);
+  });
+}
+
+// --- Autotest rápido ---
+export function runColorMetaSelfTest(): string[] {
+  const errs: string[] = [];
+  const hex = /^#([0-9a-fA-F]{6})$/;
+
+  if (!SB_COLORS.primary || !SB_COLORS.state || !SB_COLORS.dept) errs.push('SB_COLORS incompleto');
+
+  (['VENTAS','PRODUCCION','ALMACEN','MARKETING','FINANZAS','CALIDAD'] as Department[])
+    .forEach(d => {
+      if (!SB_COLORS.dept[d]) errs.push(`Falta dept ${d}`);
+      if (!hex.test(SB_COLORS.dept[d].bg)) errs.push(`Dept ${d} bg inválido`);
+    });
+
+  (['open','confirmed','shipped','invoiced','paid','cancelled','lost'] as OrderStatus[])
+    .forEach(s => { if (!ORDER_STATUS_META[s]) errs.push(`Falta ORDER_STATUS_META.${s}`); });
+
+  (['pending','picking','ready_to_ship','shipped','delivered','cancelled'] as ShipmentStatus[])
+    .forEach(s => { if (!SHIPMENT_STATUS_META[s]) errs.push(`Falta SHIPMENT_STATUS_META.${s}`); });
+
+  (['HORECA','RETAIL','PRIVADA','ONLINE','OTRO','DISTRIBUIDOR'] as AccountType[])
+    .forEach(a => { if (!ACCOUNT_TYPE_META[a]) errs.push(`Falta ACCOUNT_TYPE_META.${a}`); });
+
+  (['SOURCE','RECEIPT','QC','PRODUCTION','PACK','WAREHOUSE','SALE','DELIVERY'] as TraceEventPhase[])
+    .forEach(p => {
+      if (!PHASE_NAME_ES[p]) errs.push(`Falta PHASE_NAME_ES.${p}`);
+      const dept = PHASE_DEPT[p];
+      if (!SB_COLORS.dept[dept]) errs.push(`PHASE_DEPT.${p} apunta a dept inexistente`);
+    });
+
+  return errs;
+}
+
+// -----------------------------------------------------------------
+// 10.B — DEPT_META (compat) derivado de SB_COLORS.dept
+// -----------------------------------------------------------------
+export const DEPT_META: Record<Department, { label: string; color: string; textColor: string }> = {
+  VENTAS:     { label: 'Ventas',     color: SB_COLORS.dept.VENTAS.bg,     textColor: SB_COLORS.dept.VENTAS.text },
+  PRODUCCION: { label: 'Producción', color: SB_COLORS.dept.PRODUCCION.bg, textColor: SB_COLORS.dept.PRODUCCION.text },
+  ALMACEN:    { label: 'Almacén',    color: SB_COLORS.dept.ALMACEN.bg,    textColor: SB_COLORS.dept.ALMACEN.text },
+  MARKETING:  { label: 'Marketing',  color: SB_COLORS.dept.MARKETING.bg,  textColor: SB_COLORS.dept.MARKETING.text },
+  FINANZAS:   { label: 'Finanzas',   color: SB_COLORS.dept.FINANZAS.bg,   textColor: SB_COLORS.dept.FINANZAS.text },
+  CALIDAD:    { label: 'Calidad',    color: SB_COLORS.dept.CALIDAD.bg,    textColor: SB_COLORS.dept.CALIDAD.text },
+};
+
 
 // --- Lógica de cálculo simple (ejemplos) ---
 export const orderTotal = (order: OrderSellOut): number => {
+    if (!order || !order.lines) return 0;
     return order.lines.reduce((sum, line) => sum + (line.qty * line.priceUnit * (1 - (line.discount || 0))), 0);
 }
 export const inWindow = (dateStr: string, start: Date, end: Date): boolean => {
