@@ -2,10 +2,10 @@
 "use client";
 import React, { useMemo } from 'react';
 import { useData } from '@/lib/dataprovider';
-import { SBCard, SBButton, KPI } from '@/components/ui/ui-primitives';
+import { SBCard, SBButton, KPI as KPICard } from '@/components/ui/ui-primitives';
 import { DEPT_META } from '@/domain/ssot';
-import type { Interaction, EventMarketing, OnlineCampaign } from '@/domain/ssot';
-import { Calendar, AlertCircle, Clock, Megaphone } from 'lucide-react';
+import type { Interaction, MarketingEvent, OnlineCampaign } from '@/domain/ssot';
+import { Calendar, AlertCircle, Clock, Megaphone, Target, Euro } from 'lucide-react';
 
 
 function StatusPill({ status }: { status: 'planned' | 'active' | 'closed' | 'cancelled' }) {
@@ -25,26 +25,35 @@ function StatusPill({ status }: { status: 'planned' | 'active' | 'closed' | 'can
 
 function MarketingDashboardPageContent() {
     const { data } = useData();
-    const events = data?.events || [];
+    const events = data?.marketingEvents || [];
     const campaigns = data?.onlineCampaigns || [];
 
-    const kpis = {
-        activeEvents: events.filter((e: EventMarketing) => e.status === 'active').length,
-        activeCampaigns: campaigns.filter((c: OnlineCampaign) => c.status === 'active').length,
-        totalBudget: campaigns.reduce((acc, c) => acc + c.budget, 0),
-    };
+    const kpis = useMemo(() => {
+        const completedEvents = events.filter((e: MarketingEvent) => e.status === 'closed' && e.spend);
+        const totalSpend = completedEvents.reduce((acc, e) => acc + (e.spend || 0), 0);
+        const totalLeads = completedEvents.reduce((acc, e) => acc + (e.kpis?.leads || 0), 0);
+
+        return {
+            activeEvents: events.filter((e: MarketingEvent) => e.status === 'active').length,
+            plannedEvents: events.filter((e: MarketingEvent) => e.status === 'planned').length,
+            activeCampaigns: campaigns.filter((c: OnlineCampaign) => c.status === 'active').length,
+            avgCostPerEvent: completedEvents.length > 0 ? totalSpend / completedEvents.length : 0,
+            totalLeads,
+        };
+    }, [events, campaigns]);
 
     return (
         <div className="space-y-6">
              <h1 className="text-2xl font-semibold text-zinc-800">Dashboard de Marketing</h1>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <KPI label="Eventos Activos" value={kpis.activeEvents.toString()} />
-                <KPI label="Campañas Online Activas" value={kpis.activeCampaigns.toString()} />
-                <KPI label="Presupuesto Total Online" value={`€${kpis.totalBudget.toLocaleString()}`} />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <KPICard label="Eventos Planificados" value={kpis.plannedEvents.toString()} icon={Calendar} />
+                <KPICard label="Eventos Activos" value={kpis.activeEvents.toString()} icon={Megaphone} />
+                <KPICard label="Coste Medio Evento" value={kpis.avgCostPerEvent.toLocaleString('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })} icon={Euro} />
+                <KPICard label="Leads Generados (Eventos)" value={kpis.totalLeads.toLocaleString('es-ES')} icon={Target} />
             </div>
              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <SBCard title="Próximos Eventos">
-                    {events.filter((e: EventMarketing) => e.status === 'planned' || e.status === 'active').slice(0, 5).map((event: EventMarketing) => (
+                    {events.filter((e: MarketingEvent) => e.status === 'planned' || e.status === 'active').slice(0, 5).map((event: MarketingEvent) => (
                         <div key={event.id} className="p-3 border-b last:border-b-0">
                             <p className="font-semibold">{event.title}</p>
                             <div className="flex justify-between items-center text-sm text-zinc-600 mt-1">
@@ -59,7 +68,7 @@ function MarketingDashboardPageContent() {
                         <div key={campaign.id} className="p-3 border-b last:border-b-0">
                             <p className="font-semibold">{campaign.title}</p>
                             <div className="flex justify-between items-center text-sm text-zinc-600 mt-1">
-                                <span>{campaign.channel} &middot; €{campaign.budget}</span>
+                                <span>{campaign.channel} &middot; €{campaign.budget.toLocaleString()}</span>
                                 <StatusPill status={campaign.status} />
                             </div>
                         </div>
@@ -103,8 +112,7 @@ function UpcomingEvents() {
                 {allEvents.map((event: Interaction) => {
                     const isOverdue = new Date(event.plannedFor!) < new Date();
                     const Icon = isOverdue ? AlertCircle : Clock;
-                    const iconColor = isOverdue ? 'text-rose-500' : 'text-cyan-500';
-
+                    
                     return (
                          <div key={event.id} className={`flex items-center gap-3 p-2 rounded-lg border cursor-pointer ${isOverdue ? 'bg-rose-50/50 border-rose-200' : 'bg-zinc-50 border-zinc-200 hover:bg-zinc-100'}`}>
                             <div className="p-2 rounded-full" style={{ backgroundColor: DEPT_META.MARKETING.color, color: DEPT_META.MARKETING.textColor }}>
@@ -132,3 +140,5 @@ export default function Page(){
     </div>
   );
 }
+
+    

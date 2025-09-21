@@ -103,11 +103,14 @@ export function Card({title,accent = SB_COLORS.primary.aqua,children}:{title:str
   </div>;
 }
 
-export const KPI = ({label,value,delta}:{label:string;value:string;delta?:string}) => (
-  <div className="rounded-xl border border-zinc-200 p-3 bg-white">
-    <div className="text-xs text-zinc-500">{label}</div>
-    <div className="text-xl font-semibold text-zinc-900">{value}</div>
-    {delta && <div className="text-[11px] text-emerald-600 mt-0.5">{delta}</div>}
+export const KPI = ({label,value,delta, icon: Icon}:{label:string;value:string|number;delta?:string; icon?: React.ElementType}) => (
+  <div className="rounded-xl border border-zinc-200 p-3 bg-white flex items-center gap-3">
+    {Icon && <div className="p-2 rounded-lg bg-zinc-100 text-zinc-600"><Icon className="h-5 w-5"/></div>}
+    <div>
+      <div className="text-xs text-zinc-500">{label}</div>
+      <div className="text-xl font-semibold text-zinc-900">{value}</div>
+      {delta && <div className="text-[11px] text-emerald-600 mt-0.5">{delta}</div>}
+    </div>
   </div>
 );
 
@@ -203,3 +206,5 @@ export function LotQualityStatusPill({ status }: { status?: 'hold' | 'release' |
 
 export { Card as SBCard };
 export { Button as SBButton };
+
+    
