@@ -1,3 +1,4 @@
+
 // src/app/(app)/orders/actions.ts
 'use server';
 import { revalidatePath } from 'next/cache';
@@ -7,11 +8,12 @@ import type { OrderStatus, Shipment, SantaData } from '@/domain';
 export async function updateOrderStatus(orderId: string, next: OrderStatus){
   console.log(`[Server Action] Updating order ${orderId} to status: ${next}`);
   
-  // Siempre actualizamos el estado del pedido.
+  // 1. Siempre actualizamos el estado del pedido.
+  // Esta era la parte que se rompió.
   await upsertMany('ordersSellOut', [{ id: orderId, status: next }]);
   console.log(`[Server Action] Order ${orderId} status updated to ${next} in DB.`);
 
-  // Si el pedido se confirma, creamos el envío.
+  // 2. Si el pedido se confirma, creamos el envío.
   if (next === 'confirmed') {
     console.log(`[Server Action] Order confirmed, creating shipment for ${orderId}.`);
     try {
@@ -29,7 +31,7 @@ export async function updateOrderStatus(orderId: string, next: OrderStatus){
               accountId: order.accountId,
               shipmentNumber: `SHP-${order.docNumber || order.id.slice(-4)}`,
               createdAt: new Date().toISOString(),
-              status: 'pending',
+              status: 'pending', // Correctamente en 'pending' como solicitaste.
               lines: (order.lines || []).map(line => {
                   const product = data.products.find(p => p.sku === line.sku);
                   return {
@@ -60,8 +62,9 @@ export async function updateOrderStatus(orderId: string, next: OrderStatus){
     }
   }
   
-  // Revalida las rutas para que Next.js las vuelva a renderizar con los datos actualizados.
+  // 3. Revalida las rutas para que Next.js las vuelva a renderizar con los datos actualizados.
   revalidatePath('/orders');
   revalidatePath('/warehouse/logistics');
   console.log(`[Server Action] Revalidated paths for /orders and /warehouse/logistics.`);
 }
+
