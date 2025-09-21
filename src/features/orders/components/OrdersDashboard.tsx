@@ -70,7 +70,7 @@ const statusOptions: { value: OrderStatus; label: string }[] = [
     { value: 'lost', label: 'Perdido' },
 ];
 
-function StatusSelector({ orderId, currentStatus, onStatusChange }: { orderId: string; currentStatus: OrderStatus; onStatusChange: (orderId: string, newStatus: OrderStatus) => Promise<void>; }) {
+function StatusSelector({ order, onStatusChange }: { order: OrderSellOut; onStatusChange: (orderId: string, accountId: string, newStatus: OrderStatus) => Promise<void>; }) {
     const [isPending, startTransition] = useTransition();
 
     const statusMap: Record<OrderStatus, { label: string; className: string }> = {
@@ -83,19 +83,19 @@ function StatusSelector({ orderId, currentStatus, onStatusChange }: { orderId: s
         lost: { label: 'Perdido', className: 'bg-neutral-200 text-neutral-600' },
     };
 
-    const style = statusMap[currentStatus] || statusMap.open;
+    const style = statusMap[order.status] || statusMap.open;
 
     const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const newStatus = e.target.value as OrderStatus;
         startTransition(async () => {
-            await onStatusChange(orderId, newStatus);
+            await onStatusChange(order.id, order.accountId, newStatus);
         });
     };
 
     return (
         <div className="relative flex items-center gap-2">
             <select
-                value={currentStatus}
+                value={order.status}
                 onChange={handleChange}
                 disabled={isPending}
                 className={`appearance-none px-2.5 py-1 text-xs font-semibold rounded-full outline-none focus:ring-2 ring-offset-1 ring-blue-400 transition-colors ${style.className}`}
@@ -300,13 +300,13 @@ export default function OrdersDashboard() {
     setIsCreateOrderOpen(false);
   }
   
-  const handleStatusChange = async (orderId: string, newStatus: OrderStatus) => {
-    const res = await updateOrderStatus(orderId, newStatus);
+  const handleStatusChange = async (orderId: string, accountId: string, newStatus: OrderStatus) => {
+    const res = await updateOrderStatus(orderId, accountId, newStatus);
     if (res.ok) {
         setData(prevData => {
             if (!prevData) return null;
             const newOrders = prevData.ordersSellOut.map(o => 
-                o.id === res.orderId ? { ...o, status: res.newStatus } : o
+                o.id === res.order.id ? { ...o, status: res.order.status } : o
             );
             const newShipments = res.shipment ? [res.shipment, ...(prevData.shipments || [])] : prevData.shipments;
             return { ...prevData, ordersSellOut: newOrders, shipments: newShipments };
@@ -415,7 +415,7 @@ export default function OrdersDashboard() {
                           {orderTotal(order as OrderSellOut).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
                         </td>
                         <td className="p-3">
-                          <StatusSelector orderId={order.id} currentStatus={order.status} onStatusChange={handleStatusChange} />
+                          <StatusSelector order={order} onStatusChange={handleStatusChange} />
                         </td>
                       </tr>
                     );

@@ -1,4 +1,5 @@
 
+
 'use server';
 import { revalidatePath } from 'next/cache';
 import { getServerData, upsertMany } from '@/lib/dataprovider/server';
@@ -8,8 +9,9 @@ const SHIPMENT_TRIGGER_STATES = new Set<OrderStatus>(['confirmed']);
 
 export async function updateOrderStatus(
   orderId: string,
+  accountId: string,
   newStatus: OrderStatus
-): Promise<{ ok: boolean; orderId: string; newStatus: OrderStatus; shipment: Shipment | null; error?: string }> {
+): Promise<{ ok: boolean; order: { id: string, status: OrderStatus }; shipment: Shipment | null; error?: string }> {
   
   console.log(`[CHIVATO] Iniciando updateOrderStatus para order ${orderId} con nuevo estado ${newStatus}`);
 
@@ -24,13 +26,12 @@ export async function updateOrderStatus(
     if (SHIPMENT_TRIGGER_STATES.has(newStatus)) {
       console.log(`[CHIVATO] El estado '${newStatus}' dispara la creación de un envío.`);
 
-      // Para crear el envío, necesitamos los datos completos del pedido y la cuenta.
       const data = await getServerData();
       const order = data.ordersSellOut.find(o => o.id === orderId);
       if (!order) throw new Error(`Pedido ${orderId} no encontrado en el servidor para crear el envío.`);
 
-      const account = data.accounts.find(a => a.id === order.accountId);
-      if (!account) throw new Error(`Cuenta ${order.accountId} no encontrada para el pedido ${orderId}.`);
+      const account = data.accounts.find(a => a.id === accountId);
+      if (!account) throw new Error(`Cuenta ${accountId} no encontrada para el pedido ${orderId}.`);
       
       const party = data.parties.find(p => p.id === account.partyId);
       if (!party) throw new Error(`Party ${account.partyId} no encontrada para la cuenta ${account.id}.`);
@@ -71,10 +72,10 @@ export async function updateOrderStatus(
     revalidatePath('/orders');
     revalidatePath('/warehouse/logistics');
     
-    return { ok: true, orderId: orderId, newStatus: newStatus, shipment: createdShipment };
+    return { ok: true, order: { id: orderId, status: newStatus }, shipment: createdShipment };
 
   } catch (err: any) {
     console.error(`[CHIVATO] ERROR CRÍTICO en updateOrderStatus para el pedido ${orderId}:`, err);
-    return { ok: false, orderId: orderId, newStatus: newStatus, shipment: null, error: err.message };
+    return { ok: false, order: {id: orderId, status: newStatus}, shipment: null, error: err.message };
   }
 }
