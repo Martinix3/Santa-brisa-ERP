@@ -36,7 +36,7 @@ export type Stage = 'POTENCIAL' | 'ACTIVA' | 'SEGUIMIENTO' | 'FALLIDA' | 'CERRAD
 export type InteractionStatus = 'open' | 'done' | 'processing';
 export type OrderStatus = 'open' | 'confirmed' | 'shipped' | 'invoiced' | 'paid' | 'cancelled' | 'lost';
 export type ShipmentStatus = 'pending' | 'picking' | 'ready_to_ship' | 'shipped' | 'delivered' | 'cancelled';
-export type ProductionStatus = 'pending' | 'released' | 'wip' | 'done' | 'cancelled';
+export type ProductionStatus = 'planned' | 'released' | 'wip' | 'done' | 'cancelled';
 export type IncidentKind = 'QC_INBOUND' | 'QC_PROCESS' | 'QC_RELEASE' | 'LOGISTICS' | 'CUSTOMER_RETURN';
 export type IncidentStatus = 'OPEN' | 'UNDER_REVIEW' | 'CONTAINED' | 'CLOSED';
 ```
@@ -266,7 +266,7 @@ export interface Shipment {
 
 // --- EVENTOS DE TRAZABILIDAD (LOG) ---
 export type TraceEventPhase = 'SOURCE' | 'RECEIPT' | 'QC' | 'PRODUCTION' | 'PACK' | 'WAREHOUSE' | 'SALE' | 'DELIVERY';
-export type TraceEventKind = 'FARM_DATA' | 'SUPPLIER_PO' | 'ARRIVED' | 'BOOKED' | 'CHECK_PASS' | 'CHECK_FAIL' | 'BATCH_START' | 'CONSUME' | 'BATCH_END' | 'OUTPUT' | 'PACK_START' | 'PACK_END' | 'MOVE' | 'RESERVE' | 'ORDER_ALLOC' | 'SHIPMENT_PICKED' | 'SHIPPED' | 'DELIVERED';
+export type TraceEventKind = 'FARM_DATA' | 'SUPPLIER_PO' | 'ARRIVED' | 'BOOKED' | 'CHECK_PASS' | 'CHECK_FAIL' | 'BATCH_PLANNED' | 'BATCH_RELEASED' | 'BATCH_START' | 'CONSUME' | 'BATCH_END' | 'OUTPUT' | 'PACK_START' | 'PACK_END' | 'MOVE' | 'RESERVE' | 'ORDER_ALLOC' | 'SHIPMENT_PICKED' | 'SHIPPED' | 'DELIVERED';
 export interface TraceEvent {
     id: string;
     subject: { type: 'LOT' | 'BATCH' | 'ORDER' | 'SHIPMENT'; id: string; };
@@ -444,22 +444,30 @@ Estas son condiciones que el sistema debe garantizar en todo momento.
         4.  Si es `'PASS'` y el lote estaba en `'QC/AREA'`, genera un `StockMove` de tipo `'transfer'` para moverlo al almacén principal (ej. `'RM/MAIN'` o `'FG/MAIN'`).
 
 #### **Producción**
+*   **`onProductionOrderCreated`**:
+    *   **Trigger**: Se crea una `ProductionOrder`.
+    *   **Acciones**:
+        1.  El estado inicial es `'planned'`.
+        2.  Se calculan los `shortages` comparando el `BillOfMaterial` con el `inventory` disponible.
+        3.  Se generan `reservations` para el material que sí está disponible.
+        4.  Se emite un `TraceEvent` de tipo `'BATCH_PLANNED'`.
 *   **`onProductionOrderReleased`**:
-    *   **Trigger**: Se libera una orden de producción.
+    *   **Trigger**: Se libera una orden de producción (manual o automáticamente si no hay `shortages`).
     *   **Acciones**:
-        1.  Crea un `TraceEvent` de tipo `'BATCH_START'`.
-        2.  (Opcional) Genera `reservations` para los materiales necesarios.
+        1.  El estado cambia a `'released'`.
+        2.  Se emite un `TraceEvent` de tipo `'BATCH_RELEASED'`.
 *   **`onProductionConsumeInput`**:
-    *   **Trigger**: Se consumen materiales para una orden.
+    *   **Trigger**: Se consumen materiales para una orden en estado `'released'` o `'wip'`.
     *   **Acciones**:
-        1.  Crea un `StockMove` de tipo `'production_out'` para cada material, decrementando el stock del almacén de materias primas.
-        2.  Crea un `TraceEvent` de tipo `'CONSUME'` para cada lote de material consumido.
+        1.  Se cambia el estado a `'wip'`.
+        2.  Crea un `StockMove` de tipo `'production_out'` para cada material.
+        3.  Crea un `TraceEvent` de tipo `'CONSUME'` para cada lote de material consumido.
 *   **`onProductionOutput`**:
     *   **Trigger**: Se declara la producción de producto terminado.
     *   **Acciones**:
         1.  Crea un nuevo `Lot` para el producto terminado con `qcStatus: 'hold'`.
-        2.  Crea un `StockMove` de tipo `'production_in'` para añadir el nuevo lote al `inventory` en `'QC/AREA'`.
-        3.  Crea un `TraceEvent` de tipo `'OUTPUT'` y `'BATCH_END'`.
+        2.  Crea un `StockMove` de tipo `'production_in'` para añadir el nuevo lote al `inventory`.
+        3.  Crea `TraceEvent` de tipo `'OUTPUT'` y `'BATCH_END'`. La orden pasa a `'done'`.
 
 #### **Logística de Salida (Picking y Envío)**
 *   **`onShipmentLinePicked`**:
