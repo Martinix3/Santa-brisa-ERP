@@ -70,7 +70,7 @@ const statusOptions: { value: OrderStatus; label: string }[] = [
     { value: 'lost', label: 'Perdido' },
 ];
 
-function StatusSelector({ order, onStatusChange }: { order: OrderSellOut; onStatusChange: (orderId: string, accountId: string, newStatus: OrderStatus) => Promise<void>; }) {
+function StatusSelector({ order, onStatusChange }: { order: OrderSellOut; onStatusChange: (order: OrderSellOut, newStatus: OrderStatus) => Promise<void>; }) {
     const [isPending, startTransition] = useTransition();
 
     const statusMap: Record<OrderStatus, { label: string; className: string }> = {
@@ -88,7 +88,7 @@ function StatusSelector({ order, onStatusChange }: { order: OrderSellOut; onStat
     const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const newStatus = e.target.value as OrderStatus;
         startTransition(async () => {
-            await onStatusChange(order.id, order.accountId, newStatus);
+            await onStatusChange(order, newStatus);
         });
     };
 
@@ -300,41 +300,35 @@ export default function OrdersDashboard() {
     setIsCreateOrderOpen(false);
   }
   
-  const handleStatusChange = async (orderId: string, accountId: string, newStatus: OrderStatus) => {
-    if(!data) return;
+  const handleStatusChange = async (order: OrderSellOut, newStatus: OrderStatus) => {
+    if (!data) return;
 
-    const order = data.ordersSellOut.find(o => o.id === orderId);
-    const account = data.accounts.find(a => a.id === accountId);
+    const account = data.accounts.find(a => a.id === order.accountId);
     const party = account ? data.parties.find(p => p.id === account.partyId) : undefined;
-    
+
     if (!order || !account || !party) {
         console.error("Faltan datos para actualizar el estado del pedido.");
         return;
     }
-
-    const res = await updateOrderStatus(order, account, party, newStatus);
     
-    if (res.ok) {
-        setData(prevData => {
-            if (!prevData) return null;
-            const newOrders = prevData.ordersSellOut.map(o => 
-                o.id === res.order.id ? { ...o, status: res.order.status } : o
-            );
-            const newShipments = res.shipment ? [...(prevData.shipments || []), res.shipment] : prevData.shipments;
-            return { ...prevData, ordersSellOut: newOrders, shipments: newShipments };
-        });
-    } else {
-        console.error("Failed to update order status:", res.error);
+    try {
+      const res = await updateOrderStatus(order, account, party, newStatus);
+      
+      if (res.ok) {
+          setData(prevData => {
+              if (!prevData) return null;
+              const newOrders = prevData.ordersSellOut.map(o => 
+                  o.id === res.order.id ? { ...o, status: res.order.status } : o
+              );
+              const newShipments = res.shipment ? [...(prevData.shipments || []), res.shipment] : prevData.shipments;
+              return { ...prevData, ordersSellOut: newOrders, shipments: newShipments };
+          });
+      } else {
+          console.error("Failed to update order status:", res.error);
+      }
+    } catch (e: any) {
+        console.error("Error in status change transition:", e);
     }
-  };
-
-  const shipmentStatusMap: Record<Shipment['status'], { label: string; className: string }> = {
-    pending: { label: 'Pendiente', className: 'bg-yellow-100 text-yellow-700' },
-    picking: { label: 'Picking', className: 'bg-blue-100 text-blue-700' },
-    ready_to_ship: { label: 'Validado', className: 'bg-purple-100 text-purple-700' },
-    shipped: { label: 'Enviado', className: 'bg-cyan-100 text-cyan-700' },
-    delivered: { label: 'Entregado', className: 'bg-green-100 text-green-700' },
-    cancelled: { label: 'Cancelado', className: 'bg-red-100 text-red-700' },
   };
 
   return (
@@ -394,11 +388,13 @@ export default function OrdersDashboard() {
             </thead>
             <tbody className="divide-y divide-zinc-100">
               {filteredOrderIds.map((id) => {
-                  const order = ordersSellOut.find(o => o.id === id);
-                  const account = accounts.find(a => a.id === order?.accountId);
-                  const owner = users.find(u => u.id === account?.ownerId);
+                  const order = data?.ordersSellOut.find(o => o.id === id);
+                  if (!order) return null;
+                  
+                  const account = data?.accounts.find(a => a.id === order.accountId);
+                  const owner = data?.users.find(u => u.id === account?.ownerId);
 
-                  if (!order || !account) return null;
+                  if (!account) return null;
 
                   return (
                       <tr key={order.id} className="hover:bg-zinc-50">
@@ -439,41 +435,6 @@ export default function OrdersDashboard() {
               No se encontraron pedidos que coincidan con tu búsqueda.
             </div>
           )}
-        </div>
-        
-        {/* Tabla de Envíos para Depuración */}
-        <div className="mt-8">
-            <h2 className="text-lg font-semibold flex items-center gap-2 mb-2"><Truck size={20}/> Chivato de Envíos (para depuración)</h2>
-            <div className="bg-white border rounded-2xl shadow-sm overflow-hidden">
-                <table className="w-full text-sm">
-                    <thead className="bg-zinc-50 text-left">
-                        <tr>
-                            <th className="p-3 font-semibold text-zinc-600">Shipment ID</th>
-                            <th className="p-3 font-semibold text-zinc-600">Order ID</th>
-                            <th className="p-3 font-semibold text-zinc-600">Cliente</th>
-                            <th className="p-3 font-semibold text-zinc-600">Fecha</th>
-                            <th className="p-3 font-semibold text-zinc-600">Estado</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-zinc-100">
-                        {(data?.shipments || []).map(shipment => {
-                            const style = shipmentStatusMap[shipment.status] || shipmentStatusMap.pending;
-                            return (
-                                <tr key={shipment.id} className="hover:bg-zinc-50">
-                                    <td className="p-3 font-mono text-xs">{shipment.id}</td>
-                                    <td className="p-3 font-mono text-xs">{shipment.orderId}</td>
-                                    <td className="p-3">{shipment.customerName}</td>
-                                    <td className="p-3">{new Date(shipment.createdAt).toLocaleDateString('es-ES')}</td>
-                                    <td className="p-3"><span className={`px-2 py-1 text-xs font-semibold rounded-full ${style.className}`}>{style.label}</span></td>
-                                </tr>
-                            )
-                        })}
-                         {(data?.shipments || []).length === 0 && (
-                            <tr><td colSpan={5} className="p-8 text-center text-zinc-500">No hay envíos.</td></tr>
-                        )}
-                    </tbody>
-                </table>
-            </div>
         </div>
       </div>
       {isCreateOrderOpen && (
