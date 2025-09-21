@@ -75,7 +75,9 @@ export type BottlesOpts = {
   countNonBottleSkusAsZero?: boolean;               // por defecto true
 };
 
-function lineToBottles(line: OrderSellOut['lines'][number], product: Product | undefined, opts: BottlesOpts = {}): number {
+type OrderLine = NonNullable<OrderSellOut['lines']>[number];
+
+function lineToBottles(line: OrderLine, product: Product | undefined, opts: BottlesOpts = {}): number {
   if(!line) return 0;
   const isBottleSku = !!product?.bottleMl;
   if (!isBottleSku) return opts.countNonBottleSkusAsZero === false ? line.qty : 0;

@@ -28,6 +28,31 @@ import type {
 // Helper para crear un Zod schema a partir de una lista de strings
 const createEnumSchema = (values: string[]) => z.enum(values as [string, ...string[]]);
 
+type ToolReq = { name: string; input?: unknown };
+
+function asToolReq(part: any): ToolReq | null {
+  // Si viene como { toolRequest: {...} }
+  if (part && typeof part === 'object' && 'toolRequest' in part) {
+    const tr = (part as any).toolRequest;
+    if (tr && typeof tr.name === 'string') return { name: tr.name, input: tr.input };
+  }
+  // Si ya viene plano { name, input }
+  if (part && typeof part.name === 'string') {
+    return { name: (part as any).name, input: (part as any).input };
+  }
+  return null;
+}
+
+function getToolCalls(llmResponse: any): any[] {
+  return (
+    llmResponse?.toolRequests ??
+    llmResponse?.output?.toolRequests ??
+    llmResponse?.candidates?.[0]?.content?.toolRequests ??
+    llmResponse?.candidates?.[0]?.content?.parts ?? // a veces vienen como parts con toolRequest dentro
+    []
+  );
+}
+
 const registeredTools = [
   ai.defineTool(
     {
@@ -164,37 +189,45 @@ const santaBrainFlow = ai.defineFlow(
 
     const newEntities: Partial<SantaData> = {};
     const finalAnswer = llmResponse.text ?? '';
-    const toolRequests = llmResponse.toolRequests;
+    const toolCalls = getToolCalls(llmResponse);
     
-    if (toolRequests) {
-      for (const toolRequest of toolRequests) {
-        const accountName = (toolRequest.input as any)?.accountName;
+    for (const part of toolCalls) {
+        const tr = asToolReq(part);
+        if (!tr) continue;
+      
+        const input = tr.input as any | undefined;
+        const accountName = input?.accountName as string | undefined;
+
         const targetAccount = accounts.find(a => a.name.toLowerCase() === accountName?.toLowerCase());
         
-        if (toolRequest.name === 'createOrder' && targetAccount && typeof toolRequest.input === 'object' && toolRequest.input !== null) {
-            const newOrder = { 
+        if (tr.name === 'createOrder' && targetAccount && input && typeof input === 'object') {
+            const payload = { 
                 id: `ord_${Date.now()}`, 
                 status: 'open',
                 createdAt: new Date().toISOString(),
                 currency: 'EUR',
-                lines: (toolRequest.input as any).items.map((item: any) => ({ ...item, uom: 'uds', priceUnit: 0 })),
+                lines: (Array.isArray(input.items) ? input.items : []).map((item: any) => ({
+                    ...item,
+                    uom: item?.uom ?? 'uds',
+                    priceUnit: Number(item?.priceUnit ?? 0),
+                })),
                 accountId: targetAccount.id,
-                ...(toolRequest.input as object),
+                ...input,
             };
-            newEntities.ordersSellOut = [...(newEntities.ordersSellOut || []), newOrder as OrderSellOut];
-        } else if (toolRequest.name === 'createInteraction' && targetAccount && typeof toolRequest.input === 'object' && toolRequest.input !== null) {
-            const newInteraction = { 
+            newEntities.ordersSellOut = [...(newEntities.ordersSellOut || []), payload as OrderSellOut];
+        } else if (tr.name === 'createInteraction' && targetAccount && input && typeof input === 'object') {
+            const payload = { 
                 id: `int_${Date.now()}`,
                 kind: 'OTRO',
                 status: 'done',
                 createdAt: new Date().toISOString(),
                 accountId: targetAccount.id, 
                 userId: 'u_admin', 
-                ...(toolRequest.input as object),
+                ...input,
             };
-            newEntities.interactions = [...(newEntities.interactions || []), newInteraction as Interaction];
-        } else if (toolRequest.name === 'createAccount' && typeof toolRequest.input === 'object' && toolRequest.input !== null) {
-            const inputData = toolRequest.input as any;
+            newEntities.interactions = [...(newEntities.interactions || []), payload as Interaction];
+        } else if (tr.name === 'createAccount' && input && typeof input === 'object') {
+            const inputData = input as any;
             const newParty: Party = {
                 id: `party_${Date.now()}`,
                 name: inputData.name,
@@ -216,9 +249,7 @@ const santaBrainFlow = ai.defineFlow(
             newEntities.parties = [...(newEntities.parties || []), newParty];
             newEntities.accounts = [...(newEntities.accounts || []), newAccount];
         }
-      }
     }
-
 
     return { finalAnswer, newEntities };
   }
