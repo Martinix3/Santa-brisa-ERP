@@ -1,5 +1,6 @@
+
 "use client";
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
 import { Input, Select, Textarea } from '@/components/ui/ui-primitives';
 import type { PosTactic, PosCostCatalogEntry, Account, PlvMaterial } from '@/domain';
@@ -21,9 +22,9 @@ function AccountSearch({ initialAccountId, onSelectionChange }: {
     useEffect(() => {
         if(initialAccountId && santaData?.accounts) {
             const acc = santaData.accounts.find(a => a.id === initialAccountId);
-            if(acc) setQuery(acc.name);
+            if(acc && acc.name !== query) setQuery(acc.name);
         }
-    }, [initialAccountId, santaData?.accounts]);
+    }, [initialAccountId, santaData?.accounts, query]);
 
     useEffect(() => {
         if (query.length > 1 && santaData?.accounts) {
@@ -96,12 +97,19 @@ export function NewPosTacticDialog({
 
     const handleSave = (e: React.FormEvent) => {
         e.preventDefault();
-        if(!tactic.accountId || !tactic.tacticCode || tactic.executionScore === undefined || tactic.actualCost === undefined) {
-            alert('Por favor, completa todos los campos requeridos: cuenta, táctica, coste y ejecución.');
+        if(!tactic.accountId || !tactic.tacticCode || tactic.actualCost === undefined) {
+            alert('Por favor, completa todos los campos requeridos: cuenta, táctica y coste.');
             return;
+        }
+        if(tactic.executionScore === undefined) {
+          tactic.executionScore = 0;
         }
         onSave(tactic as any);
     };
+    
+    const handleAccountSelectionChange = useCallback((selection: { accountId?: string }) => {
+        setTactic(p => ({ ...p, accountId: selection.accountId }));
+    }, []);
 
     return (
         <SBDialog open={open} onOpenChange={onClose}>
@@ -118,7 +126,7 @@ export function NewPosTacticDialog({
                         <span className="text-sm font-medium">Cuenta</span>
                         <AccountSearch
                             initialAccountId={tactic.accountId}
-                            onSelectionChange={({ accountId }) => setTactic(p => ({ ...p, accountId }))}
+                            onSelectionChange={handleAccountSelectionChange}
                         />
                     </label>
                     
@@ -137,7 +145,7 @@ export function NewPosTacticDialog({
                         </label>
                         <label className="grid gap-1.5">
                             <span className="text-sm font-medium">Ejecución (0-100)</span>
-                            <Input type="number" min="0" max="100" value={tactic.executionScore ?? ''} onChange={e => setTactic(p => ({...p, executionScore: Number(e.target.value)}))} required/>
+                            <Input type="number" min="0" max="100" value={tactic.executionScore ?? ''} onChange={e => setTactic(p => ({...p, executionScore: Number(e.target.value)}))} />
                         </label>
                     </div>
                 </div>
