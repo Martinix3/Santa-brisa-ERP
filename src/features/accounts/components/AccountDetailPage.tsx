@@ -12,7 +12,8 @@ import Link from 'next/link';
 import { enrichAccount } from '@/ai/flows/enrich-account-flow';
 
 import { SBFlowModal } from '@/features/quicklog/components/SBFlows';
-import { SBButton, SBCard, SB_COLORS } from '@/components/ui/ui-primitives';
+import { SBButton, SBCard } from '@/components/ui/ui-primitives';
+import { SB_COLORS } from '@/domain/ssot';
 
 // ====== UI Primitives ======
 function KPI({label, value, suffix, trend}:{label:string; value:string|number; suffix?:string; trend?:'up'|'down'}){
@@ -153,7 +154,7 @@ export function AccountDetailPageContent(){
   };
 
   const getDaysSinceLastOrderColor = (days?: number): 'green' | 'amber' | 'red' => {
-      if (days === undefined) return 'zinc' as any;
+      if (days === undefined) return 'amber';
       if (days <= 30) return 'green';
       if (days <= 60) return 'amber';
       return 'red';

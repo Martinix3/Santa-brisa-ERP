@@ -5,7 +5,8 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { listRecipes as fetchRecipes, createRecipe, updateRecipe, deleteRecipe, listMaterials } from "@/features/production/ssot-bridge";
 import type { Material, BillOfMaterial as RecipeBom, Uom } from '@/domain/ssot';
 import { Plus, Search, X } from "lucide-react";
-import { SBCard, SB_COLORS } from '@/components/ui/ui-primitives';
+import { SBCard } from '@/components/ui/ui-primitives';
+import { SB_COLORS } from "@/domain/ssot";
 
 // =============================================================
 // SB Producción — BOM (Recetas)

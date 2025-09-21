@@ -80,14 +80,14 @@ export function TaskCompletionDialog({
     switch (task.kind) {
       case 'VISITA':
         if (!note) return; // Add proper validation
-        payload = { type: 'visita_plv', note, nextActionDate: nextActionDate || undefined, plvInstalled, plvNotes };
+        payload = { type: 'visita_plv', note, nextActionDate: nextActionDate || undefined, plvInstalled, plvNotes: plvNotes || undefined };
         break;
       case 'COBRO':
         if (amountCollected <= 0) return;
-        payload = { type: 'cobro', amount: amountCollected, notes: note };
+        payload = { type: 'cobro', amount: amountCollected, notes: note || undefined };
         break;
       case 'EVENTO_MKT':
-        payload = { type: 'evento_mkt', kpis: eventKpis, notes: note };
+        payload = { type: 'evento_mkt', kpis: eventKpis, notes: note || undefined };
         break;
       default: // LLAMADA, EMAIL, WHATSAPP, OTRO
         if (mode === 'interaccion') {
