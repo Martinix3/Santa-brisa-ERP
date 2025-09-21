@@ -7,9 +7,10 @@ import { useParams, useRouter, notFound } from 'next/navigation';
 import { useData } from '@/lib/dataprovider';
 import type { SantaData, Interaction as InteractionType, OrderSellOut, User as UserType, Party, InteractionKind, Account, CustomerData, PartyRole, Activation, Promotion, AccountRollup, AccountType } from '@/domain';
 import { computeAccountKPIs, accountOwnerDisplay, orderTotal, getDistributorForAccount, computeAccountRollup } from '@/lib/sb-core';
-import { ArrowUpRight, ArrowDownRight, Phone, Mail, MapPin, User, Factory, Boxes, Megaphone, Briefcase, Banknote, Calendar, FileText, ShoppingCart, Star, Building2, CreditCard, ChevronRight, ChevronLeft, MessageSquare, Sparkles, Tag, Clock, Edit } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, Phone, Mail, MapPin, User, Factory, Boxes, Megaphone, Briefcase, Banknote, Calendar, FileText, ShoppingCart, Star, Building2, CreditCard, ChevronRight, ChevronLeft, MessageSquare, Sparkles, Tag, Clock, Edit, Plus } from "lucide-react";
 import Link from 'next/link';
 import { enrichAccount } from '@/ai/flows/enrich-account-flow';
+import { NewPosTacticDialog } from '@/features/marketing/components/NewPosTacticDialog';
 
 import { SBFlowModal } from '@/features/quicklog/components/SBFlows';
 import { SBButton, SBCard } from '@/components/ui/ui-primitives';
@@ -86,6 +87,7 @@ export function AccountDetailPageContent(){
   const { data: santaData, setData, saveCollection, saveAllCollections, currentUser } = useData();
   const [isEnriching, setIsEnriching] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [isNewTacticOpen, setIsNewTacticOpen] = useState(false);
 
   const { account, party, unifiedActivity, kpis, owner, distributor, rollup } = useMemo(() => {
     if (!santaData || !accountId) return { account: null, party: null, unifiedActivity: [], kpis: null, owner: null, distributor: null, rollup: null };
@@ -111,7 +113,7 @@ export function AccountDetailPageContent(){
         endIso: endDate.toISOString()
     });
 
-    const rollupData = computeAccountRollup(acc.id, santaData, startDate.toISOString(), endDate.toISOString());
+    const rollupData = computeAccountRollup(acc.id, santaData);
 
     const own = accountOwnerDisplay(acc, santaData.users, santaData.partyRoles);
     const dist = getDistributorForAccount(acc, santaData.partyRoles, santaData.parties);
@@ -181,6 +183,21 @@ export function AccountDetailPageContent(){
     setIsEditing(false);
   };
   
+    const handleSaveTactic = async (tacticData: Omit<Interaction, 'id'|'createdAt'|'status'|'userId'>) => {
+        if (!currentUser || !santaData) return;
+        
+        const newInteraction: Interaction = {
+            id: `int_${Date.now()}`,
+            userId: currentUser.id,
+            createdAt: new Date().toISOString(),
+            status: 'open',
+            ...tacticData,
+        };
+        
+        await saveCollection('interactions', [...santaData.interactions, newInteraction]);
+        setIsNewTacticOpen(false);
+    };
+
   const getDaysSinceLastOrderColor = (days?: number): 'green' | 'amber' | 'red' => {
       if (days === undefined) return 'amber';
       if (days <= 30) return 'green';
@@ -302,10 +319,19 @@ export function AccountDetailPageContent(){
             </SBCard>
             {rollup && (
                 <SBCard title="Estado de Marketing">
-                    <div className="p-4 space-y-2">
+                    <div className="p-4 space-y-2 relative">
                         <RollupBadge label="PLV Instalado" value={rollup.hasPLVInstalled ? "Sí" : "No"} color={rollup.hasPLVInstalled ? "green" : "zinc"} date={rollup.lastPLVInstalledAt} />
                         <RollupBadge label="Activaciones Activas" value={rollup.activeActivations} color={rollup.activeActivations > 0 ? "blue" : "zinc"} date={rollup.lastActivationAt}/>
-                        <RollupBadge label="Promociones Activas" value={`${rollup.activePromotionIds.length} activas`} color={rollup.activePromotionIds.length > 0 ? "amber" : "zinc"} />
+                        <RollupBadge label="Promociones Activas" value={rollup.activePromotions} color={rollup.activePromotions > 0 ? "amber" : "zinc"} />
+                        <RollupBadge label="Tácticas POS Activas" value={rollup.activePosTactics} color={rollup.activePosTactics > 0 ? "green" : "zinc"} date={rollup.lastTacticAt}/>
+                        
+                        <SBButton 
+                          size="sm"
+                          className="absolute -bottom-2 -right-2 rounded-full h-10 w-10 !p-0"
+                          onClick={() => setIsNewTacticOpen(true)}
+                        >
+                            <Plus size={20} />
+                        </SBButton>
                     </div>
                 </SBCard>
             )}
@@ -333,6 +359,15 @@ export function AccountDetailPageContent(){
                     phone: party.contacts.find(c => c.isPrimary && c.type === 'phone')?.value || '',
                     billingEmail: party.contacts.find(c => c.type === 'email' && c.description?.toLowerCase().includes('factura'))?.value || '',
                 }}
+            />
+        )}
+        
+        {isNewTacticOpen && (
+            <NewPosTacticDialog
+                open={isNewTacticOpen}
+                onClose={() => setIsNewTacticOpen(false)}
+                onSave={handleSaveTactic}
+                accountId={accountId}
             />
         )}
     </div>

@@ -1,4 +1,5 @@
 
+
 // src/domain/ssot.ts
 
 // =================================================================
@@ -899,7 +900,7 @@ export type AccountRollup = {
     lastPLVInstalledAt?: string;
     activeActivations: number;
     lastActivationAt?: string;
-    activePromotionIds: string[];
-    ordersWithPromoInPeriod: number;
-    attributedSalesInPeriod: number;
+    activePromotions: number;
+    activePosTactics: number;
+    lastTacticAt?: string;
 };

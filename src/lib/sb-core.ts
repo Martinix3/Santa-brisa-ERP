@@ -1,7 +1,8 @@
 
+
 // --- Santa Brisa: lógica de negocio (sell-out a botellas, agregados y KPIs) ---
 import type {
-  Account, Party, PartyRole, CustomerData, OrderSellOut, Product, User, SantaData, Activation, AccountRollup
+  Account, Party, PartyRole, CustomerData, OrderSellOut, Product, User, SantaData, Activation, AccountRollup, Interaction
 } from '@/domain';
 
 export const inWindow = (dateStr: string, start: Date, end: Date): boolean => {
@@ -159,26 +160,22 @@ export function computeAccountKPIs(params: {
 }
 
 // 4) Rollup por cuenta
-export function computeAccountRollup(accountId: string, data: SantaData, periodStartIso: string, periodEndIso: string): AccountRollup {
-    const start = new Date(periodStartIso);
-    const end = new Date(periodEndIso);
-
+export function computeAccountRollup(accountId: string, data: SantaData): AccountRollup {
+    const accountInteractions = (data.interactions || []).filter(i => i.accountId === accountId);
+    
     const accountActivations = (data.activations || []).filter(a => a.accountId === accountId);
     const activeActivations = accountActivations.filter(a => a.status === 'active');
     
-    // Simplificación para PLV, en un caso real se usaría una entidad `plv_material`
-    const plvVisit = (data.interactions || [])
-        .filter(i => i.accountId === accountId && i.note?.toLowerCase().includes('plv'))
+    const plvVisit = accountInteractions
+        .filter(i => i.note?.toLowerCase().includes('plv'))
         .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))[0];
 
     const promotions = data.promotions || [];
     const now = new Date();
     const activePromotions = promotions.filter(p => now >= new Date(p.validFrom) && now <= new Date(p.validTo));
 
-    // Lógica de atribución simplificada
-    const ordersInPeriod = (data.ordersSellOut || []).filter(o => o.accountId === accountId && inWindow(o.createdAt, start, end));
-    const attributedSalesInPeriod = ordersInPeriod.reduce((sum, order) => sum + orderTotal(order), 0);
-    const ordersWithPromoInPeriod = ordersInPeriod.filter(o => o.notes?.toLowerCase().includes('promo')).length;
+    const posTactics = accountInteractions.filter(i => i.posTactic && i.status === 'open');
+    const lastTactic = posTactics.sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))[0];
 
     return {
         accountId,
@@ -186,9 +183,9 @@ export function computeAccountRollup(accountId: string, data: SantaData, periodS
         lastPLVInstalledAt: plvVisit?.createdAt,
         activeActivations: activeActivations.length,
         lastActivationAt: activeActivations.sort((a, b) => +new Date(b.startDate) - +new Date(a.startDate))[0]?.startDate,
-        activePromotionIds: activePromotions.map(p => p.id),
-        ordersWithPromoInPeriod: ordersWithPromoInPeriod,
-        attributedSalesInPeriod: attributedSalesInPeriod,
+        activePromotions: activePromotions.length,
+        activePosTactics: posTactics.length,
+        lastTacticAt: lastTactic?.createdAt,
     };
 }
 
