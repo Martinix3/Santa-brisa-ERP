@@ -447,13 +447,14 @@ export interface Activation {
     id: string;
     accountId: string;
     type: ActivationType;
+    cost: number;
     description: string;
     status: 'active' | 'inactive' | 'pending_renewal';
     startDate: string;
     endDate?: string;
     ownerId: string;
-    cost: number;
 }
+
 export interface Promotion {
     id: string;
     code?: string;
@@ -624,6 +625,77 @@ export interface FinanceLink {
 export interface PaymentLink { id: string; financeLinkId: string; externalId?: string; amount: number; date: string; method?: string; }
 
 
+// === Catálogo de costes POS (runtime editable) ===
+export type PosUom = 'UNIT'|'HOUR'|'BATCH';
+export type PosCostCatalogEntry = {
+  code: string;                // p.ej. 'MENU_PRINT', 'ICE_BUCKET'
+  label: string;               // 'Impresión de cartas', 'Cubitera'
+  defaultUnitCost?: number;    // coste sugerido por unidad
+  uom?: PosUom;                // unidad de medida
+  vendor?: string;             // proveedor habitual
+  status?: 'ACTIVE'|'DRAFT'|'ARCHIVED';
+  createdAt?: string; createdById?: string;
+  updatedAt?: string;
+};
+
+// === Extensión de Material (PLV) para amortización ===
+export type PlvStatus = 'IN_STOCK'|'INSTALLED'|'DAMAGED'|'RETIRED';
+export type PlvMaterial = {
+  id: string;
+  sku?: string;
+  kind: 'SHELF_TALKER'|'STANDEE'|'FRIDGE_STICKER'|'HANGING'|'GONDOLA'|'OTHER';
+  purchaseCost?: number;                // coste de compra total
+  purchaseDate?: string;                // ISO
+  expectedLifespanMonths?: number;      // vida útil estimada
+  expectedUses?: number;                // alternativa a meses
+  usesCount?: number;                   // contador de usos
+  status: PlvStatus;
+  accountId?: string;                   // si está instalado
+  installedAt?: string;                 // si aplica
+  photoUrl?: string;
+  // metadatos
+  createdAt?: string; updatedAt?: string;
+};
+
+// === Táctica POS con partidas (granular sin ERP) ===
+export type PosTacticItem = {
+  id: string;                  // item_*
+  catalogCode?: string;        // referencia al catálogo (opcional)
+  description: string;         // libre o label del catálogo
+  qty?: number;                // cantidad: nº cartas, horas, etc.
+  unitCost?: number;           // coste unitario indicado por el usuario
+  actualCost: number;          // coste real/imputado (incl. amortización)
+  uom?: PosUom;                // unidad (si aplica)
+  vendor?: string;             // proveedor
+  assetId?: string;            // link a PLV reutilizable
+  attachments?: string[];      // fotos, facturas
+};
+
+export type PosTacticKind = 'PLV'|'MENU'|'INCENTIVE'|'PROMO'|'OTHER';
+
+export type PosTactic = {
+  id: string;                  // tac_*
+  accountId: string;           // local
+  eventId?: string;            // si nace en evento/activación
+  interactionId?: string;      // si nace en visita
+  orderId?: string;            // si nace en pedido
+  tacticCode: string;          // ICE_BUCKET, MENU_PLACEMENT, etc.
+  description?: string;
+  appliesToSkuIds?: string[];
+
+  items: PosTacticItem[];      // partidas
+  plannedCost?: number;        // opcional en planned
+  actualCost: number;          // derivado de items
+  executionScore: number;      // 0..100, obligatorio
+
+  status: 'planned'|'active'|'closed'|'cancelled';
+  createdAt: string; createdById: string;
+  updatedAt?: string;
+
+  // (opcional) resultados cacheados si ya calculas uplift/roi a nivel tactic
+  result?: { roi?: number; liftPct?: number; upliftUnits?: number; confidence?: 'LOW'|'MEDIUM'|'HIGH' };
+};
+
 // -----------------------------------------------------------------
 // 7. Sistema de Codificación Centralizado
 // -----------------------------------------------------------------
@@ -697,6 +769,10 @@ export interface SantaData {
   marketingEvents: MarketingEvent[];
   onlineCampaigns: OnlineCampaign[];
   influencerCollabs: InfluencerCollab[];
+  posTactics: PosTactic[];
+  posCostCatalog: PosCostCatalogEntry[];
+  plv_material: PlvMaterial[];
+
 
   // Finanzas y Contabilidad
   materialCosts: MaterialCost[];
@@ -716,7 +792,8 @@ export const SANTA_DATA_COLLECTIONS: (keyof SantaData)[] = [
     'products', 'materials', 'billOfMaterials', 'productionOrders', 'lots', 'qaChecks',
     'inventory', 'stockMoves', 'shipments', 'goodsReceipts', 'activations', 'promotions',
     'marketingEvents', 'onlineCampaigns', 'influencerCollabs', 'materialCosts', 'financeLinks', 
-    'paymentLinks', 'traceEvents', 'incidents', 'codeAliases'
+    'paymentLinks', 'traceEvents', 'incidents', 'codeAliases',
+    'posTactics', 'posCostCatalog', 'plv_material'
 ];
 
 // -----------------------------------------------------------------
@@ -920,3 +997,4 @@ export type AccountRollup = {
     activePosTactics: number;
     lastTacticAt?: string;
 };
+

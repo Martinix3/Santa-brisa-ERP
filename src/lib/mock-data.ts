@@ -172,6 +172,10 @@ export const INITIAL_MOCK_DATA: SantaData = {
   incidents: [],
   codeAliases: [],
   goodsReceipts: [],
+  posTactics: [],
+  posCostCatalog: [],
+  plv_material: [],
 };
 
     
+
