@@ -142,6 +142,14 @@ export interface OrderSellOut {
 export type InteractionKind = 'VISITA' | 'LLAMADA' | 'EMAIL' | 'WHATSAPP' | 'OTRO' | 'COBRO' | 'EVENTO_MKT';
 export type EventKind = 'DEMO'|'FERIA'|'FORMACION'|'OTRO';
 
+export type Payload = 
+    | { type: 'venta', items: { sku: string; qty: number }[] }
+    | { type: 'interaccion', note: string, nextActionDate?: string }
+    | { type: 'visita_plv', note: string, nextActionDate?: string, plvInstalled: boolean, plvNotes?: string }
+    | { type: 'cobro', amount: number, notes?: string }
+    | { type: 'evento_mkt', kpis: { cost: number; attendees: number; leads: number }, notes?: string };
+
+
 export interface Interaction {
   id: string;
   partyId?: string;
@@ -461,6 +469,14 @@ export interface OnlineCampaign {
     budget: number;
     spend: number;
     metrics?: any;
+    createdAt: string;
+    updatedAt: string;
+    ownerUserId?: string;
+    tracking?: {
+        utmCampaign?: string;
+        couponCode?: string;
+        landingUrl?: string;
+    };
 }
 
 export type Platform = 'Instagram' | 'TikTok' | 'YouTube' | 'Twitch' | 'Blog' | 'Otro';
@@ -508,11 +524,25 @@ export interface InfluencerCollab {
     orders?: number;
     revenue?: number;
     updatedAt?: string;
+    couponCode?: string;
+    utmCampaign?: string;
+  };
+  metrics?: {
+    impressions?: number;
+    clicks?: number;
+    engagements?: number;
+    orders?: number;
+    ctr?: number;
+    cpm?: number;
+    cpc?: number;
+    cpe?: number;
+    cac?: number;
   };
   dates?: {
     agreedAt?: string;
     goLiveAt?: string;
     completedAt?: string;
+    endAt?: string;
   };
   notes?: string;
   createdAt: string;
