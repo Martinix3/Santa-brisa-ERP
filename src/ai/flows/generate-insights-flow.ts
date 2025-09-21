@@ -14,7 +14,7 @@ export async function generateInsights(input: GenerateInsightsInput): Promise<st
       Analyze the following JSON data and provide concise, actionable insights based on the provided context.
       Context: ${input.context || 'General business operations.'}
       Data:
-      ${input.jsonData}
+      ${JSON.stringify(input.jsonData, null, 2)}
 
       Your response should be in Spanish, formatted as a brief, easy-to-read report using markdown.
       Focus on identifying patterns, risks, or opportunities. Be direct and avoid conversational fluff.
@@ -22,5 +22,11 @@ export async function generateInsights(input: GenerateInsightsInput): Promise<st
     model: 'googleai/gemini-2.5-flash',
   });
 
-  return (output as string) || '';
+  if (!output || typeof output !== 'string') {
+    const textResult = (output as any)?.text;
+    if (typeof textResult === 'string') return textResult;
+    return 'No se pudo generar una respuesta de texto.';
+  }
+
+  return output;
 }

@@ -1,10 +1,9 @@
-
 // src/features/dashboard-ventas/components/TaskCompletionDialog.tsx
 "use client";
 import React, { useMemo, useState, useEffect } from 'react';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
 import type { Interaction } from '@/domain/ssot';
-import { ShoppingCart, MessageSquare, Plus, X, Euro } from 'lucide-react';
+import { ShoppingCart, MessageSquare, Plus, X, Euro, Users, Target, BarChart3, Heart } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
 
 type Payload = 
@@ -37,21 +36,17 @@ export function TaskCompletionDialog({
   const [nextActionDate, setNextActionDate] = useState('');
   const [items, setItems] = useState<{ sku: string; qty: number }[]>([{ sku: defaultSku, qty: 1 }]);
   
-  // New state for VISITA
   const [plvInstalled, setPlvInstalled] = useState(false);
   const [plvNotes, setPlvNotes] = useState('');
 
-  // New state for COBRO
   const [amountCollected, setAmountCollected] = useState(0);
 
-  // New state for EVENTO_MKT
   const [eventKpis, setEventKpis] = useState({ cost: 0, attendees: 0, leads: 0 });
 
   useEffect(() => {
-    // Reset state when dialog opens based on task kind
     if (open) {
       if (task.kind === 'COBRO') {
-        setMode('interaccion'); // Simplified view for collection
+        setMode('interaccion');
       } else {
         setMode('interaccion');
       }
@@ -71,9 +66,9 @@ export function TaskCompletionDialog({
     const newItems = [...items];
     if (field === 'qty') {
       const n = typeof value === 'number' ? value : parseInt(String(value), 10);
-      (newItems[index] as any)[field] = Number.isFinite(n) && n > 0 ? n : 1;
+      newItems[index][field] = Number.isFinite(n) && n > 0 ? n : 1;
     } else {
-      (newItems[index] as any)[field] = value;
+      newItems[index][field] = value as string;
     }
     setItems(newItems);
   };

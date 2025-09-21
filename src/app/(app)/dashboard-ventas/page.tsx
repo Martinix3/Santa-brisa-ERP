@@ -10,14 +10,19 @@ import { ModuleHeader } from "@/components/ui/ModuleHeader";
 import { SBCard, SBButton } from "@/components/ui/ui-primitives";
 import { SB_COLORS } from '@/domain/ssot';
 import type { User as UserType, OrderSellOut, Account, Interaction, Product, Party } from '@/domain/ssot';
-import { orderTotal, inWindow } from '@/domain/ssot';
-import { generateInsights } from "@/ai/flows/generate-insights-flow";
+import { orderTotal } from '@/lib/sb-core';
+import { generateInsights } from '@/ai/flows/generate-insights-flow';
 import { Avatar } from "@/components/ui/Avatar";
 import { sbAsISO } from '@/features/agenda/helpers';
 
 const formatEur = (n: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
 const formatShortDate = (date: Date) => new Intl.DateTimeFormat('es-ES', { month: 'short', day: 'numeric' }).format(date);
 
+const inWindow = (dateStr: string, start: Date, end: Date): boolean => {
+  if (!dateStr) return false;
+  const time = +new Date(dateStr);
+  return time >= start.getTime() && time <= end.getTime();
+};
 
 function KPI({label, value, icon: Icon}:{label:string; value:number|string; icon: React.ElementType}){
   return (
@@ -103,10 +108,9 @@ function CommercialsRace({ users, data, onUserClick }: { users: UserType[], data
         const startOfYear = new Date(new Date().getFullYear(), 0, 1);
         
         return users.map(user => {
-            const newAccounts = data.accounts.filter((a: Account) => a.ownerId === user.id && inWindow(a.createdAt, startOfYear, new Date())).length;
-            
-            // Generate report data for this user to be passed on click
             const userAccounts = data.accounts.filter((a: Account) => a.ownerId === user.id);
+            const newAccounts = userAccounts.filter((a: Account) => inWindow(a.createdAt, startOfYear, new Date())).length;
+            
             const userAccountIds = new Set(userAccounts.map((a:Account) => a.id));
             const userOrders = data.ordersSellOut.filter((o: OrderSellOut) => userAccountIds.has(o.accountId));
             const ordersInPeriod = userOrders.filter((o: OrderSellOut) => inWindow(o.createdAt, startOfYear, new Date()));
@@ -196,6 +200,18 @@ function SalesMixDonutChart({ data, timeRange }: { data: any, timeRange: TimeRan
         return <SBCard title="Mix de Ventas"><p className="p-4 text-center text-sm text-zinc-500">No hay datos de ventas para este período.</p></SBCard>
     }
 
+    const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, name }: any) => {
+        const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+        const x = cx + radius * Math.cos(-midAngle * Math.PI / 180);
+        const y = cy + radius * Math.sin(-midAngle * Math.PI / 180);
+
+        return (
+            <text x={x} y={y} fill="black" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontSize="12">
+                {`${name} ${(percent * 100).toFixed(0)}%`}
+            </text>
+        );
+    };
+
     return (
         <SBCard title={`Mix de Ventas (${timeRange})`}>
             <div className="w-full h-72">
@@ -211,11 +227,8 @@ function SalesMixDonutChart({ data, timeRange }: { data: any, timeRange: TimeRan
                             paddingAngle={5}
                             dataKey="value"
                             nameKey="name"
-                            label={(props: PieLabelRenderProps) => {
-                                const { name, percent } = props.payload as any;
-                                return `${name} ${(percent * 100).toFixed(0)}%`;
-                            }}
                             labelLine={false}
+                            label={renderCustomizedLabel}
                         >
                             {salesMix.map((entry, index) => (
                                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -268,7 +281,7 @@ function TeamTasks({ tasks, accounts, users }: { tasks: Interaction[], accounts:
                                     <div className="flex justify-between items-center mt-1 text-zinc-500">
                                         <span>{account?.name || 'Sin cuenta'}</span>
                                         <div className="flex items-center gap-2">
-                                            <span>{new Date(task.plannedFor!).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</span>
+                                            <span>{task.plannedFor ? new Date(task.plannedFor).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) : ''}</span>
                                             <div className="flex -space-x-1">
                                                 {assignedUsers.map(user => <Avatar key={user.id} name={user.name} size="sm" />)}
                                             </div>
@@ -379,7 +392,7 @@ function TeamDashboardContent() {
             interactions: data.interactions.map(i => ({ id: i.id, accountId: i.accountId, userId: i.userId, kind: i.kind, date: i.createdAt })),
         };
         const result = await generateInsights({ 
-            jsonData: JSON.stringify(relevantData),
+            jsonData: relevantData,
             context: "Eres un director de ventas. Analiza los datos de comerciales, cuentas y pedidos para encontrar oportunidades de venta, clientes en riesgo, o comerciales con bajo rendimiento."
         });
         setInsights(result);
@@ -405,7 +418,8 @@ function TeamDashboardContent() {
                         key={range}
                         size="sm"
                         onClick={() => setTimeRange(range)}
-                        className={`font-semibold ${timeRange === range ? 'bg-white shadow-sm' : 'bg-transparent text-zinc-600'}`}
+                        variant="ghost"
+                        className={`font-semibold ${timeRange === range ? 'bg-white shadow-sm !text-zinc-800' : 'text-zinc-600'}`}
                     >
                         {range === 'week' ? 'Semana' : range === 'month' ? 'Mes' : 'Año'}
                     </SBButton>

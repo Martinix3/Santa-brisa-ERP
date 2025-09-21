@@ -1,14 +1,12 @@
-
-
 // --- Santa Brisa: lógica de negocio (sell-out a botellas, agregados y KPIs) ---
 import type {
   Account, Party, PartyRole, CustomerData, OrderSellOut, Product, User, SantaData, Activation
 } from '@/domain';
 
-const inWindow = (dateStr: string, start: number, end: number): boolean => {
+export const inWindow = (dateStr: string, start: Date, end: Date): boolean => {
   if (!dateStr) return false;
   const time = +new Date(dateStr);
-  return time >= start && time <= end;
+  return time >= start.getTime() && time <= end.getTime();
 };
 
 export const orderTotal = (order: OrderSellOut): number => {
@@ -112,14 +110,14 @@ export function computeAccountKPIs(params: {
 }): AccountKPIs {
   const { data, accountId, startIso, endIso, lookbackDaysForConversion = 14 } = params;
 
-  const start = +new Date(startIso), end = +new Date(endIso);
+  const start = new Date(startIso);
+  const end = new Date(endIso);
   const orders = (data.ordersSellOut || []).filter(o =>
     o.accountId === accountId && o.status === 'confirmed' && inWindow(o.createdAt, start, end)
   );
 
   const interactions = (data.interactions || []).filter(i => i.accountId === accountId && inWindow(i.createdAt, start, end));
 
-  // Find user to apply baseline
   const account = data.accounts.find(a => a.id === accountId);
   const ownerId = account?.ownerId;
   const user = ownerId ? data.users.find(u => u.id === ownerId) : undefined;
@@ -159,20 +157,9 @@ export function computeAccountKPIs(params: {
 }
 
 // 4) Rollup por cuenta
-export type AccountRollup = {
-    accountId: string;
-    hasPLVInstalled: boolean;
-    lastPLVInstalledAt?: string;
-    activeActivations: number;
-    lastActivationAt?: string;
-    activePromotionIds: string[];
-    ordersWithPromoInPeriod: number;
-    attributedSalesInPeriod: number;
-};
-
 export function computeAccountRollup(accountId: string, data: SantaData, periodStartIso: string, periodEndIso: string): AccountRollup {
-    const start = +new Date(periodStartIso);
-    const end = +new Date(periodEndIso);
+    const start = new Date(periodStartIso);
+    const end = new Date(periodEndIso);
 
     const accountActivations = (data.activations || []).filter(a => a.accountId === accountId);
     const activeActivations = accountActivations.filter(a => a.status === 'active');
@@ -219,7 +206,8 @@ export function computeFleetKPIs(params: {
   startIso: string; endIso: string;
 }): FleetKPIs {
   const { data, startIso, endIso } = params;
-  const start = +new Date(startIso), end = +new Date(endIso);
+  const start = new Date(startIso);
+  const end = new Date(endIso);
 
   const horecaIds = data.accounts.filter(a => a.type === 'HORECA').map(a => a.id);
   const ordersInWin = data.ordersSellOut.filter(o =>
