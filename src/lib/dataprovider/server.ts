@@ -2,19 +2,12 @@
 import { SANTA_DATA_COLLECTIONS, type SantaData } from '@/domain';
 import { adminDb } from '@/server/firebaseAdmin';
 
-let serverDataCache: SantaData | null = null;
-let cacheTimestamp = 0;
-
 /**
  * Fetches all collections from Firestore.
- * Caches the result for 1 minute to avoid excessive reads during a single operation.
+ * This function ALWAYS fetches fresh data from the database.
  */
 export async function getServerData(): Promise<SantaData> {
-  const now = Date.now();
-  if (serverDataCache && (now - cacheTimestamp < 60000)) {
-    return serverDataCache;
-  }
-
+  console.log('[getServerData] Fetching fresh data from Firestore...');
   const data: Partial<SantaData> = {};
   const promises = SANTA_DATA_COLLECTIONS.map(async (name) => {
     try {
@@ -27,11 +20,8 @@ export async function getServerData(): Promise<SantaData> {
   });
   
   await Promise.all(promises);
-
-  serverDataCache = data as SantaData;
-  cacheTimestamp = now;
-
-  return serverDataCache;
+  console.log('[getServerData] Fresh data fetch complete.');
+  return data as SantaData;
 }
 
 /**
@@ -72,10 +62,6 @@ export async function upsertMany(collectionName: keyof SantaData, items: any[]):
     }
     await batch.commit();
   }
-
-  // Invalidate server cache after writing
-  serverDataCache = null;
-  cacheTimestamp = 0;
 
   return { inserted, updated };
 }
