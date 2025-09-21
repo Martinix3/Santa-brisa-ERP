@@ -77,7 +77,7 @@ export type BottlesOpts = {
   countNonBottleSkusAsZero?: boolean;               // por defecto true
 };
 
-function lineToBottles(line: OrderSellOut['lines'][0], product: Product | undefined, opts: BottlesOpts = {}): number {
+function lineToBottles(line: OrderSellOut['lines'][number], product: Product | undefined, opts: BottlesOpts = {}): number {
   const isBottleSku = !!product?.bottleMl;
   if (!isBottleSku) return opts.countNonBottleSkusAsZero === false ? line.qty : 0;
 
@@ -177,12 +177,14 @@ export function computeAccountRollup(accountId: string, data: SantaData): Accoun
     const posTactics = accountInteractions.filter(i => i.posTactic && i.status === 'open');
     const lastTactic = posTactics.sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))[0];
 
+    const lastActiveActivation = activeActivations.sort((a,b) => +new Date(b.startDate) - +new Date(a.startDate))[0];
+
     return {
         accountId,
         hasPLVInstalled: !!plvVisit,
         lastPLVInstalledAt: plvVisit?.createdAt,
         activeActivations: activeActivations.length,
-        lastActivationAt: activeActivations.sort((a, b) => +new Date(b.startDate) - +new Date(a.startDate))[0]?.startDate,
+        lastActivationAt: lastActiveActivation?.startDate,
         activePromotions: activePromotions.length,
         activePosTactics: posTactics.length,
         lastTacticAt: lastTactic?.createdAt,
