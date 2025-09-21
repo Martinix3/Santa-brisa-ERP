@@ -4,7 +4,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { useData } from '@/lib/dataprovider';
-import { Download, Plus, Search, FileWarning, PackageCheck, FileText, Banknote } from 'lucide-react';
+import { Download, Plus, Search, FileWarning, PackageCheck, FileText, Banknote, CheckCircle } from 'lucide-react';
 import type { OrderSellOut, Account, User, OrderStatus, PartyRole, CustomerData, AccountType } from '@/domain/ssot';
 import { orderTotal } from '@/lib/sb-core';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
@@ -13,6 +13,8 @@ import Link from 'next/link';
 import { SBFlowModal } from '@/features/quicklog/components/SBFlows';
 import { generateNextOrder } from '@/lib/codes';
 import { consignmentOnHandByAccount, consignmentTotalUnits } from "@/lib/consignment-and-samples";
+import { checkOrderStock } from '@/lib/inventory';
+
 
 type Tab = 'directa' | 'colocacion';
 
@@ -134,8 +136,9 @@ export default function OrdersDashboard() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [isCreateOrderOpen, setIsCreateOrderOpen] = useState(false);
+  const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
 
-  const { ordersSellOut, accounts, users, partyRoles, stockMoves } = data || { ordersSellOut: [], accounts: [], users: [], partyRoles: [], stockMoves: [] };
+  const { ordersSellOut, accounts, users, partyRoles, stockMoves, inventory, products } = data || { ordersSellOut: [], accounts: [], users: [], partyRoles: [], stockMoves: [], inventory: [], products: [] };
   
   const consByAcc = useMemo(() => consignmentOnHandByAccount(stockMoves || []), [stockMoves]);
   const consTotals = useMemo(() => consignmentTotalUnits(consByAcc), [consByAcc]);
@@ -236,6 +239,45 @@ export default function OrdersDashboard() {
       setIsCreateOrderOpen(false);
   }
 
+  const handleBulkStatusChange = (newStatus: OrderStatus) => {
+    if (!data) return;
+    
+    if (newStatus === 'confirmed') {
+        const ordersToConfirm = selectedOrders.map(id => enrichedOrders.find(o => o.id === id)).filter(Boolean);
+        const stockShortages: string[] = [];
+
+        ordersToConfirm.forEach(order => {
+            const shortages = checkOrderStock(order as OrderSellOut, inventory || [], products || []);
+            if (shortages.length > 0) {
+                const shortageMessage = shortages.map(s => `${s.qtyShort} uds de ${s.sku}`).join(', ');
+                stockShortages.push(`Pedido ${order.id}: Faltan ${shortageMessage}`);
+            }
+        });
+
+        if (stockShortages.length > 0) {
+            alert("¡Atención! Falta de stock para algunos pedidos:\n\n" + stockShortages.join('\n') + "\n\nLos pedidos se confirmarán de todos modos (backorder).");
+        }
+    }
+
+    const updatedOrders = enrichedOrders.map(order => 
+        selectedOrders.includes(order.id)
+            ? { ...order, status: newStatus }
+            : order
+    );
+    setData({ ...data, ordersSellOut: updatedOrders });
+    saveCollection('ordersSellOut', updatedOrders);
+    setSelectedOrders([]);
+  };
+
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+        setSelectedOrders(filteredOrders.map(o => o.id));
+    } else {
+        setSelectedOrders([]);
+    }
+  }
+
+
   return (
     <>
       <ModuleHeader title="Gestión de Pedidos" icon={ShoppingCart}>
@@ -285,11 +327,19 @@ export default function OrdersDashboard() {
                     { value: 'lost', label: 'Perdido' },
                 ]}
             />
+            {selectedOrders.length > 0 && (
+                <div className="flex items-center gap-2">
+                    <span className="text-sm text-zinc-500">{selectedOrders.length} seleccionados</span>
+                    <button onClick={() => handleBulkStatusChange('confirmed')} className="px-3 py-1.5 text-sm rounded-md border bg-white hover:bg-zinc-50 flex items-center gap-1"><CheckCircle size={14}/> Confirmar</button>
+                    <button onClick={() => handleBulkStatusChange('paid')} className="px-3 py-1.5 text-sm rounded-md border bg-white hover:bg-zinc-50 flex items-center gap-1"><Banknote size={14}/> Marcar Pagado</button>
+                </div>
+            )}
         </div>
         <div className="bg-white border rounded-2xl shadow-sm overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-zinc-50 text-left">
               <tr>
+                <th scope="col" className="p-3"><input type="checkbox" onChange={handleSelectAll} checked={selectedOrders.length === filteredOrders.length && filteredOrders.length > 0} /></th>
                 <th scope="col" className="p-3 font-semibold text-zinc-600">Pedido ID</th>
                 <th scope="col" className="p-3 font-semibold text-zinc-600">Cliente</th>
                 <th scope="col" className="p-3 font-semibold text-zinc-600">Comercial</th>
@@ -300,8 +350,9 @@ export default function OrdersDashboard() {
             </thead>
             <tbody className="divide-y divide-zinc-100">
               {filteredOrders.map((order) => (
-                  <tr key={order.id} className="hover:bg-zinc-50">
-                    <td className="p-3 font-mono text-xs font-medium text-zinc-800">{order.id}</td>
+                  <tr key={order.id} className={`hover:bg-zinc-50 ${selectedOrders.includes(order.id) ? 'bg-yellow-50' : ''}`}>
+                    <td className="p-3"><input type="checkbox" checked={selectedOrders.includes(order.id)} onChange={(e) => setSelectedOrders(p => e.target.checked ? [...p, order.id] : p.filter(id => id !== order.id))} /></td>
+                    <td className="p-3 font-mono text-xs font-medium text-zinc-800">{order.docNumber || order.id}</td>
                     <td className="p-3">
                         <div className="flex items-center gap-2">
                             <Link href={accountHref(order.accountId)} className="hover:underline">
