@@ -43,7 +43,8 @@ import {
     ChevronUp,
     Sheet,
 } from 'lucide-react';
-import { SB_COLORS, hexToRgba } from '@/domain/ssot';
+import { SB_COLORS } from '@/domain/ssot';
+import { hexToRgba } from '@/components/ui/ui-primitives';
 import { AnimatePresence, motion } from 'framer-motion';
 import Image from 'next/image';
 import { useData } from '@/lib/dataprovider';
