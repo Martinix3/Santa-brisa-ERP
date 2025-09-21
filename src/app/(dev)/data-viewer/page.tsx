@@ -47,6 +47,7 @@ import Image from 'next/image';
 import { useData } from '@/lib/dataprovider';
 import { Avatar } from '@/components/ui/Avatar';
 import QuickLogOverlay from '@/features/quicklog/QuickLogOverlay';
+import ChatSantaBrain from '@/features/chat/ChatSantaBrain';
 
 
 const navSections = [
@@ -372,7 +373,7 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
           </nav>
         </aside>
         <main className="overflow-y-auto flex flex-col">
-            {children}
+            <ChatSantaBrain />
             <QuickLogOverlay />
         </main>
       </div>
