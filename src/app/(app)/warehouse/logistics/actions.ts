@@ -2,9 +2,10 @@
 'use server';
 import { ai } from '@/ai';
 import { getServerData } from '@/lib/dataprovider/server';
+import puppeteer from 'puppeteer';
 
 /**
- * Generates a PDF packing slip for a given shipment using AI and an external PDF service.
+ * Generates a PDF packing slip for a given shipment using AI and Puppeteer.
  * @param shipmentId The ID of the shipment.
  * @returns An object with the PDF data URI or an error message.
  */
@@ -70,39 +71,20 @@ export async function generatePackingSlip(shipmentId: string): Promise<{ pdfData
     // Clean potential markdown backticks from the AI response
     const cleanHtml = generatedHtml.replace(/```html/g, '').replace(/```/g, '');
 
-    // 3. Use an external API (pdflayer via RapidAPI) to convert HTML to PDF
-    console.log('[Server Action] Calling pdflayer via RapidAPI to generate PDF...');
-    const apiKey = process.env.PDFLAYER_API_KEY;
-    if (!apiKey) {
-        throw new Error('PDFLAYER_API_KEY environment variable is not set.');
-    }
-    
-    const url = 'https://apilayer-pdflayer-v1.p.rapidapi.com/convert';
-    const options = {
-        method: 'POST',
-        headers: {
-            'content-type': 'application/x-www-form-urlencoded',
-            'x-rapidapi-host': 'apilayer-pdflayer-v1.p.rapidapi.com',
-            'x-rapidapi-key': apiKey,
-        },
-        body: new URLSearchParams({
-            document_html: cleanHtml,
-            page_size: 'A4',
-            test: '0', // Use test mode (1) to avoid consuming credits. Set to 0 for production.
-        })
-    };
-    
-    const response = await fetch(url, options);
-
-    if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`PDF generation failed: ${errorText}`);
-    }
-
-    const pdfBuffer = await response.arrayBuffer();
+    // 3. Use Puppeteer to convert HTML to PDF
+    console.log('[Server Action] Launching Puppeteer to generate PDF...');
+    const browser = await puppeteer.launch({
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+        headless: true
+    });
+    const page = await browser.newPage();
+    await page.setContent(cleanHtml, { waitUntil: 'networkidle0' });
+    const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true });
+    await browser.close();
+    console.log('[Server Action] Puppeteer finished generating PDF buffer.');
 
     // 4. Convert to Base64 Data URI and return
-    const pdfBase64 = Buffer.from(pdfBuffer).toString('base64');
+    const pdfBase64 = pdfBuffer.toString('base64');
     const pdfDataUri = `data:application/pdf;base64,${pdfBase64}`;
     
     console.log(`[Server Action] Successfully generated PDF for ${shipmentId}.`);
