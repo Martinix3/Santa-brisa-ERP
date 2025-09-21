@@ -3,11 +3,13 @@
  * @fileoverview Flow to enrich an account with public data using AI.
  */
 import { ai } from '@/ai';
-import {
+import type {
   EnrichAccountInput,
-  EnrichAccountInputSchema,
   EnrichAccountOutput,
-  EnrichAccountOutputSchema
+} from '@/domain/schemas/enrich-account';
+import {
+  EnrichAccountInputSchema,
+  EnrichAccountOutputSchema,
 } from '@/domain/schemas/enrich-account';
 
 const enrichAccountPrompt = ai.definePrompt({

@@ -14,6 +14,7 @@ import { Message } from 'genkit';
 
 import type {
   Account,
+  Party,
   Product,
   SantaData,
   OrderSellOut,
@@ -91,7 +92,6 @@ const registeredTools = [
       id: `acc_${Date.now()}`,
       stage: 'POTENCIAL',
       ownerId: 'u_admin', // Default owner, should be context-aware
-      billerId: 'SB',
       createdAt: new Date().toISOString(),
       ...input,
     })
@@ -138,10 +138,22 @@ const santaBrainFlow = ai.defineFlow(
     }),
   },
   async ({ history, input, context }) => {
-    const { users, accounts, currentUser } = context as { users: User[], accounts: Account[], currentUser: User };
+    const { users, accounts, parties, currentUser } = context as { users: User[], accounts: Account[], parties: Party[], currentUser: User };
     
     // Augment the user input with the current user's identity.
     const augmentedInput = `I am ${currentUser.name}. The user's request is: "${input}"`;
+    
+    const accountMap = new Map(accounts.map(a => ([a.id, a])));
+    const partyMap = new Map(parties.map(p => ([p.id, p])));
+    const accountsWithContext = accounts.map(a => {
+        const party = partyMap.get(a.partyId);
+        return {
+            id: a.id,
+            name: a.name,
+            city: party?.addresses[0]?.city || '',
+            ownerId: a.ownerId
+        }
+    });
 
     const llmResponse = await ai.generate({
       prompt: augmentedInput,
@@ -152,12 +164,12 @@ const santaBrainFlow = ai.defineFlow(
       context: {
           currentUser: {id: currentUser.id, name: currentUser.name, role: currentUser.role},
           users: users.map(u => ({id: u.id, name: u.name, role: u.role})),
-          accounts: accounts.map(a => ({id: a.id, name: a.name, city: a.city, ownerId: a.ownerId})),
+          accounts: accountsWithContext,
       },
     });
 
     const toolCalls = llmResponse.toolRequests ?? [];
-    let finalAnswer = llmResponse.text;
+    let finalAnswer = llmResponse.text ?? '';
     const newEntities: Partial<SantaData> = {};
 
     if (toolCalls && toolCalls.length > 0) {
@@ -178,7 +190,26 @@ const santaBrainFlow = ai.defineFlow(
                     finalAnswer += `\nHecho. He registrado una interacción con ${targetAccount.name}.`;
                  }
                  else if (toolCall.name === 'createAccount') {
-                    newEntities.accounts = [...(newEntities.accounts || []), toolResponse as Account];
+                    const newParty: Party = {
+                        id: `party_${Date.now()}`,
+                        name: toolResponse.name,
+                        kind: 'ORG',
+                        addresses: toolResponse.city ? [{ type: 'main', city: toolResponse.city, street: '', country: 'España' }] : [],
+                        contacts: [],
+                        createdAt: new Date().toISOString(),
+                    };
+                    const newAccount: Account = {
+                        ...toolResponse,
+                        id: `acc_${Date.now()}`,
+                        partyId: newParty.id,
+                        stage: 'POTENCIAL',
+                        ownerId: currentUser.id,
+                        createdAt: new Date().toISOString(),
+                    };
+                    
+                    newEntities.parties = [...(newEntities.parties || []), newParty];
+                    newEntities.accounts = [...(newEntities.accounts || []), newAccount];
+
                     finalAnswer += `\nHecho. He creado la cuenta ${toolResponse.name}.`;
                 }
             }
@@ -193,7 +224,7 @@ const santaBrainFlow = ai.defineFlow(
 export async function runSantaBrain(
   history: Message[],
   input: string,
-  context: { users: User[], accounts: Account[], currentUser: User }
+  context: { users: User[], accounts: Account[], parties: Party[], currentUser: User }
 ): Promise<{ finalAnswer: string; newEntities: Partial<SantaData> }> {
   
   const result = await santaBrainFlow({ history, input, context });

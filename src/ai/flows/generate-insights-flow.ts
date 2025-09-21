@@ -6,7 +6,7 @@
  */
 
 import { ai } from '@/ai';
-import { GenerateInsightsInput } from '@/domain/schemas/generate-insights';
+import type { GenerateInsightsInput } from '@/domain/schemas/generate-insights';
 
 export async function generateInsights(input: GenerateInsightsInput): Promise<string> {
   const {output} = await ai.generate({
@@ -22,5 +22,5 @@ export async function generateInsights(input: GenerateInsightsInput): Promise<st
     model: 'googleai/gemini-2.5-flash',
   });
 
-  return output as string;
+  return (output as string) || '';
 }
