@@ -24,7 +24,7 @@ function init() {
   // ⚠️ Fallback (ADC) — puede causar invalid_grant en Workstations
   return initializeApp({
     credential: applicationDefault(),
-    projectId: process.env.FIREBASE_PROJECT_ID || process.env.GCLOUD_PROJECT,
+    projectId: process.env.FIREBASE_PROJECT_ID || process.env.GCLOUD_PROJECT || 'santa-brisa-erp',
   });
 }
 
