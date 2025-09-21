@@ -203,16 +203,22 @@ function CloseCampaignDialog({
 /* =========================
    KPI Cards (MTD ponderado)
 ========================= */
-function monthBounds(d = new Date()){
-  const start = new Date(d.getFullYear(), d.getMonth(), 1, 0,0,0,0);
-  const end   = new Date(d.getFullYear(), d.getMonth()+1, 0, 23,59,59,999);
+function monthBounds(d: Date | string = new Date()){
+  const date = typeof d === 'string' ? new Date(d) : d;
+  if(isNaN(date.getTime())) { // Invalid date
+      const now = new Date();
+      return { start: new Date(now.getFullYear(), now.getMonth(), 1), end: new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999) };
+  }
+  const start = new Date(date.getFullYear(), date.getMonth(), 1, 0,0,0,0);
+  const end   = new Date(date.getFullYear(), date.getMonth()+1, 0, 23,59,59,999);
   return { start, end };
 }
+
 function overlapsMonth(c: OnlineCampaign, now = new Date()){
-  const { start, end } = monthBounds(now);
   if (!c.startAt) return false;
   const s = new Date(c.startAt);
   if (isNaN(s.getTime())) return false; // Invalid date
+  const { start, end } = monthBounds(now);
   const e = c.endAt ? new Date(c.endAt) : s;
   return e >= start && s <= end;
 }
@@ -588,4 +594,3 @@ export default function OnlineCampaignsPage() {
     </>
   );
 }
-```
