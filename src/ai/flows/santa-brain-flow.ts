@@ -10,7 +10,7 @@
 
 import { ai } from '@/ai';
 import { z } from 'zod';
-import type { Message } from 'genkit';
+import type { Message, ToolRequest } from 'genkit';
 
 import type {
   Account,
@@ -106,7 +106,7 @@ Your main tasks are to understand user requests and use tools to translate them 
 3.  **Intelligent Account Matching for Orders:**
     *   The user will provide their name in the context (e.g., "I am Marta"). Use this to be more precise.
     *   When a user wants to create an order (e.g., "pedido de 6 botellas para terraza sol"), first search for accounts with similar names that belong to the current user.
-    *   If you find a close match (e.g., "Bar Terraza Sol" for "terraza sol"), **do not create the order immediately**. First, ask for confirmation: "¿Quieres que apunte 6 botellas de Santabrisa 750 a Bar Terraza Sol de Barcelona?".
+    *   If you find a close match (e.g., "Bar Terraza Sol" for "terrasa sol"), **do not create the order immediately**. First, ask for confirmation: "¿Quieres que apunte 6 botellas de Santabrisa 750 a Bar Terraza Sol de Barcelona?".
     *   If the user confirms ("si", "exacto", "correcto"), then use the 'createOrder' tool.
     *   If no close match is found in the current user's accounts, check if a similar name exists under another user and suggest it as a possibility.
     *   If no matches are found anywhere, suggest creating a new account for the name provided.
@@ -161,56 +161,68 @@ const santaBrainFlow = ai.defineFlow(
       },
     });
 
-    const toolResponses = llmResponse.toolResponses;
-    let finalAnswer = llmResponse.text ?? '';
     const newEntities: Partial<SantaData> = {};
-
-    if (toolResponses && toolResponses.length > 0) {
-        for (const toolResponse of toolResponses) {
-            const toolRequest = llmResponse.toolRequests.find(req => req.ref === toolResponse.ref);
-            if (!toolRequest) continue;
-
-            const accountName = (toolRequest.input as any)?.accountName;
-            const targetAccount = accounts.find(a => a.name.toLowerCase() === accountName?.toLowerCase());
+    let finalAnswer = llmResponse.text ?? '';
+    
+    if (llmResponse.toolCalls) {
+      for (const toolCall of llmResponse.toolCalls) {
+        const toolRequest: ToolRequest = toolCall.toolRequest;
+        const accountName = (toolRequest.input as any)?.accountName;
+        const targetAccount = accounts.find(a => a.name.toLowerCase() === accountName?.toLowerCase());
+        const toolOutput = { success: true, result: {} };
+        
+        if (toolRequest.name === 'createOrder' && targetAccount) {
+            const newOrder = { 
+                id: `ord_${Date.now()}`, 
+                status: 'open',
+                createdAt: new Date().toISOString(),
+                currency: 'EUR',
+                lines: (toolRequest.input as any).items.map((item: any) => ({ ...item, uom: 'uds', priceUnit: 0 })),
+                accountId: targetAccount.id,
+                ...toolRequest.input 
+            };
+            newEntities.ordersSellOut = [...(newEntities.ordersSellOut || []), newOrder as OrderSellOut];
+            finalAnswer += `\nHecho. He creado un pedido para ${targetAccount.name}. ¿Has hecho alguna promoción o necesitas visibilidad (PLV)?`;
+        } else if (toolRequest.name === 'createInteraction' && targetAccount) {
+            const newInteraction = { 
+                id: `int_${Date.now()}`,
+                kind: 'OTRO',
+                status: 'done',
+                createdAt: new Date().toISOString(),
+                accountId: targetAccount.id, 
+                userId: 'u_admin', 
+                ...toolRequest.input
+            };
+            newEntities.interactions = [...(newEntities.interactions || []), newInteraction as Interaction];
+            finalAnswer += `\nHecho. He registrado una interacción con ${targetAccount.name}.`;
+        } else if (toolRequest.name === 'createAccount') {
+            const inputData = toolRequest.input as any;
+            const newParty: Party = {
+                id: `party_${Date.now()}`,
+                name: inputData.name,
+                kind: 'ORG',
+                addresses: inputData.city ? [{ type: 'main', city: inputData.city, street: '', country: 'España', postalCode: '' }] : [],
+                contacts: [],
+                createdAt: new Date().toISOString(),
+            };
+            const newAccount: Account = {
+                id: `acc_${Date.now()}`,
+                partyId: newParty.id,
+                stage: 'POTENCIAL',
+                ownerId: currentUser.id,
+                createdAt: new Date().toISOString(),
+                name: inputData.name,
+                type: inputData.type || 'HORECA',
+            };
             
-            if (toolResponse.output) {
-                 if (toolRequest.name === 'createOrder' && targetAccount) {
-                    const newOrder = { ...(toolResponse.output as object), accountId: targetAccount.id };
-                    newEntities.ordersSellOut = [...(newEntities.ordersSellOut || []), newOrder as OrderSellOut];
-                    finalAnswer += `\nHecho. He creado un pedido para ${targetAccount.name}. ¿Has hecho alguna promoción o necesitas visibilidad (PLV)?`;
-                 }
-                 else if (toolRequest.name === 'createInteraction' && targetAccount) {
-                    const newInteraction = { ...(toolResponse.output as object), accountId: targetAccount.id, userId: 'u_admin' }; // Placeholder user
-                    newEntities.interactions = [...(newEntities.interactions || []), newInteraction as Interaction];
-                    finalAnswer += `\nHecho. He registrado una interacción con ${targetAccount.name}.`;
-                 }
-                 else if (toolRequest.name === 'createAccount') {
-                    const outputData = toolResponse.output as any;
-                    const newParty: Party = {
-                        id: `party_${Date.now()}`,
-                        name: outputData.name,
-                        kind: 'ORG',
-                        addresses: outputData.city ? [{ type: 'main', city: outputData.city, street: '', country: 'España', postalCode: '' }] : [],
-                        contacts: [],
-                        createdAt: new Date().toISOString(),
-                    };
-                    const newAccount: Account = {
-                        ...outputData,
-                        id: `acc_${Date.now()}`,
-                        partyId: newParty.id,
-                        stage: 'POTENCIAL',
-                        ownerId: currentUser.id,
-                        createdAt: new Date().toISOString(),
-                    };
-                    
-                    newEntities.parties = [...(newEntities.parties || []), newParty];
-                    newEntities.accounts = [...(newEntities.accounts || []), newAccount];
+            newEntities.parties = [...(newEntities.parties || []), newParty];
+            newEntities.accounts = [...(newEntities.accounts || []), newAccount];
 
-                    finalAnswer += `\nHecho. He creado la cuenta ${outputData.name}.`;
-                }
-            }
+            finalAnswer += `\nHecho. He creado la cuenta ${inputData.name}.`;
         }
+      }
     }
+
 
     return { finalAnswer, newEntities };
   }

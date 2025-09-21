@@ -43,7 +43,7 @@ import {
     ChevronUp,
     Sheet,
 } from 'lucide-react';
-import { SB_COLORS, hexToRgba } from '@/components/ui/ui-primitives';
+import { SB_COLORS, hexToRgba } from '@/domain/ssot';
 import { AnimatePresence, motion } from 'framer-motion';
 import Image from 'next/image';
 import { useData } from '@/lib/dataprovider';
@@ -183,7 +183,7 @@ function NavSection({
     const pathname = usePathname() ?? '/';
     const isSectionActive = section.items.some(item => pathname.startsWith(item.href) && (item.href !== '/' || pathname === '/'));
     const colorKey = (section.module || 'primary') as keyof typeof SB_COLORS;
-    const moduleColor = SB_COLORS[colorKey] || SB_COLORS.primary;
+    const moduleColor = SB_COLORS.primary.teal;
     const Icon = section.items[0].icon;
 
     const dashboardItem = section.items[0];

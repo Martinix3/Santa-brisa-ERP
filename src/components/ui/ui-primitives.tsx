@@ -36,7 +36,7 @@ export const hexToRgba = (hex: string, a: number) => {
   return `rgba(${r},${g},${b},${a})`; 
 };
 
-export const waterHeader = (seed = "hdr", base = SB_COLORS.primary.aqua) => {
+export const waterHeader = (seed = "hdr", base: string = SB_COLORS.primary.aqua) => {
   const hash = Array.from(seed).reduce((s,c)=> (s*33+c.charCodeAt(0))>>>0,5381);
   let a = hash||1; const rnd = ()=> (a = (a*1664525+1013904223)>>>0, (a>>>8)/16777216);
   const L:string[]=[]; for(let i=0;i<4;i++){ const x=(i%2?80+rnd()*18:rnd()*18).toFixed(2); const y=(rnd()*70+15).toFixed(2); const rx=100+rnd()*120, ry=60+rnd()*120; const a1=0.06+rnd()*0.06, a2=a1*0.5, s1=45+rnd()*10, s2=70+rnd()*12; L.push(`radial-gradient(${rx}px ${ry}px at ${x}% ${y}%, ${hexToRgba(base,a1)}, ${hexToRgba(base,a2)} ${s1}%, rgba(255,255,255,0) ${s2}%)`);} L.push(`linear-gradient(to bottom, ${hexToRgba(base,0.08)}, rgba(255,255,255,0.02))`); return L.join(',');

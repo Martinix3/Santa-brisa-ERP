@@ -27,9 +27,12 @@ function AccountSearch({ initialAccountId, initialLocation, onSelectionChange }:
     }, [initialAccountId, initialLocation, santaData?.accounts]);
 
     useEffect(() => {
-        if (query.length > 1 && santaData?.accounts) {
+        if (query.length > 1 && santaData?.accounts && santaData.parties) {
             const lowerQuery = query.toLowerCase();
-            const filteredAccounts = santaData.accounts.filter(a => a.name.toLowerCase().includes(lowerQuery));
+            const filteredAccounts = santaData.accounts.filter(a => {
+                const party = santaData.parties.find(p => p.id === a.partyId);
+                return a.name.toLowerCase().includes(lowerQuery) || party?.addresses[0]?.city.toLowerCase().includes(lowerQuery);
+            });
             setResults(filteredAccounts);
             
             // If there's no exact match, treat it as a location string
@@ -46,7 +49,7 @@ function AccountSearch({ initialAccountId, initialLocation, onSelectionChange }:
                  onSelectionChange({});
             }
         }
-    }, [query, santaData?.accounts, onSelectionChange]);
+    }, [query, santaData, onSelectionChange]);
 
     return (
         <div className="relative">
@@ -68,12 +71,13 @@ function AccountSearch({ initialAccountId, initialLocation, onSelectionChange }:
                             className="px-3 py-2 cursor-pointer hover:bg-zinc-100"
                             onMouseDown={() => {
                                 setQuery(account.name);
-                                onSelectionChange({ accountId: account.id, location: account.name });
+                                const party = santaData?.parties.find(p => p.id === account.partyId);
+                                onSelectionChange({ accountId: account.id, location: party?.addresses[0]?.city || account.name });
                                 setResults([]);
                             }}
                         >
                             <p className="font-medium text-sm">{account.name}</p>
-                            <p className="text-xs text-zinc-500">{account.city}</p>
+                            <p className="text-xs text-zinc-500">{santaData?.parties.find(p => p.id === account.partyId)?.addresses[0]?.city}</p>
                         </li>
                     ))}
                 </ul>
@@ -87,7 +91,7 @@ export function NewEventDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (event: Omit<Interaction, 'createdAt' | 'status'> & { id?: string }) => void;
+  onSave: (event: Omit<Interaction, 'createdAt' | 'status' | 'id'> & { id?: string }) => void;
   accentColor: string;
   initialEventData?: Partial<Interaction> | null;
 }) {
@@ -136,8 +140,8 @@ export function NewEventDialog({
 
         let finalNote = notes ? `${title} - ${notes}` : title;
         
-        onSave({ 
-            ...(initialEventData?.id ? { id: initialEventData.id } : {}),
+        const saveData: Omit<Interaction, 'id' | 'createdAt' | 'status'> & { id?: string } = {
+            id: initialEventData?.id,
             userId: initialEventData?.userId || currentUser!.id,
             dept: type, 
             kind: type === 'VENTAS' ? interactionKind : 'OTRO',
@@ -146,7 +150,13 @@ export function NewEventDialog({
             location: selection.location,
             accountId: selection.accountId,
             involvedUserIds: involvedUserIds.length > 0 ? involvedUserIds : (currentUser ? [currentUser.id] : []),
-        });
+        };
+
+        if (!saveData.id) {
+            delete saveData.id;
+        }
+
+        onSave(saveData);
 
         onOpenChange(false);
     };
