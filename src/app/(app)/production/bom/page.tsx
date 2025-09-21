@@ -157,7 +157,7 @@ function RecipeForm({ value, onChange, onSave, onCancel, materials }: {
   const setLine=(i:number,l:any)=> onChange({ ...r, items:(r.items || []).map((x,idx)=>idx===i?l:x) });
 
   return (
-    <SBCard title={value.id ? `Editando: ${value.name}` : 'Nueva Receta'} accent={SB_COLORS.production}>
+    <SBCard title={value.id ? `Editando: ${value.name}` : 'Nueva Receta'} accent={SB_COLORS.primary.teal}>
         <div className="p-4 space-y-4">
             <div className="grid md:grid-cols-2 gap-3">
                 <label className="text-sm">
@@ -389,7 +389,7 @@ export default function BomPage(){
 
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1">
-            <SBCard title="Recetas" accent={SB_COLORS.production}>
+            <SBCard title="Recetas" accent={SB_COLORS.primary.teal}>
                 <div className="p-2 space-y-1">
                 {recipes.map(r=>{ 
                     if(!r.id) return null;

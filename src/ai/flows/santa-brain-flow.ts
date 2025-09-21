@@ -162,14 +162,14 @@ const santaBrainFlow = ai.defineFlow(
     });
 
     const newEntities: Partial<SantaData> = {};
-    let finalAnswer = llmResponse.text ?? '';
+    const finalAnswer = llmResponse.text ?? '';
+    const toolCalls = llmResponse.choices[0]?.toolCalls;
     
-    if (llmResponse.toolCalls) {
-      for (const toolCall of llmResponse.toolCalls) {
-        const toolRequest: ToolRequest = toolCall;
+    if (toolCalls) {
+      for (const call of toolCalls) {
+        const toolRequest = call.toolRequest;
         const accountName = (toolRequest.input as any)?.accountName;
         const targetAccount = accounts.find(a => a.name.toLowerCase() === accountName?.toLowerCase());
-        const toolOutput = { success: true, result: {} };
         
         if (toolRequest.name === 'createOrder' && targetAccount && typeof toolRequest.input === 'object' && toolRequest.input !== null) {
             const newOrder = { 
@@ -182,7 +182,6 @@ const santaBrainFlow = ai.defineFlow(
                 ...(toolRequest.input as object),
             };
             newEntities.ordersSellOut = [...(newEntities.ordersSellOut || []), newOrder as OrderSellOut];
-            finalAnswer += `\nHecho. He creado un pedido para ${targetAccount.name}. ¿Has hecho alguna promoción o necesitas visibilidad (PLV)?`;
         } else if (toolRequest.name === 'createInteraction' && targetAccount && typeof toolRequest.input === 'object' && toolRequest.input !== null) {
             const newInteraction = { 
                 id: `int_${Date.now()}`,
@@ -194,7 +193,6 @@ const santaBrainFlow = ai.defineFlow(
                 ...(toolRequest.input as object),
             };
             newEntities.interactions = [...(newEntities.interactions || []), newInteraction as Interaction];
-            finalAnswer += `\nHecho. He registrado una interacción con ${targetAccount.name}.`;
         } else if (toolRequest.name === 'createAccount' && typeof toolRequest.input === 'object' && toolRequest.input !== null) {
             const inputData = toolRequest.input as any;
             const newParty: Party = {
@@ -217,8 +215,6 @@ const santaBrainFlow = ai.defineFlow(
             
             newEntities.parties = [...(newEntities.parties || []), newParty];
             newEntities.accounts = [...(newEntities.accounts || []), newAccount];
-
-            finalAnswer += `\nHecho. He creado la cuenta ${inputData.name}.`;
         }
       }
     }
