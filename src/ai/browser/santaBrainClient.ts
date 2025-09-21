@@ -4,15 +4,17 @@
 // - Crea cuenta si no existe (ensure_account), interacciones, pedidos y eventos
 // ⚠️ Para desarrollo. En producción mueve este bucle al servidor.
 
-import { GoogleGenAI, FunctionCallingConfigMode, SchemaType } from '@google/genai';
 import { addDoc, collection, doc, getDoc, getDocs, limit as fbLimit, orderBy, query, where, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebaseClient';
+import { ai } from '@/ai';
+import { z } from 'zod';
+import type { Message } from 'genkit';
+
 
 // ==============================
 // 0) Config y helpers
 // ==============================
-const MODEL = 'gemini-2.5-flash';
-const genai = new GoogleGenAI(process.env.NEXT_PUBLIC_GOOGLE_API_KEY!);
+const MODEL = 'googleai/gemini-2.5-flash';
 
 const nowIso = () => new Date().toISOString();
 const norm = (s: string) =>
@@ -30,62 +32,39 @@ const calcAmount = (
     0
   );
 
-// ==============================
-// 1) Schemas (validados en runtime por el modelo)
-// ==============================
-const OrderItemSchema = {
-  type: SchemaType.OBJECT,
-  properties: {
-    sku: { type: SchemaType.STRING },
-    qty: { type: SchemaType.NUMBER },
-    unitPrice: { type: SchemaType.NUMBER },
-    discountPct: { type: SchemaType.NUMBER },
-  },
-  required: ['sku', 'qty'],
-};
 
 // ==============================
 // 2) TOOLS — Memoria (corto/largo plazo)
 // ==============================
-const fn_memory_upsert = {
+const fn_memory_upsert = ai.defineTool({
   name: 'memory_upsert',
   description: 'Guarda un mensaje o resumen del hilo (memoria conversacional).',
-  parameters: {
-    type: SchemaType.OBJECT,
-    properties: {
-      userId: { type: SchemaType.STRING },
-      threadId: { type: SchemaType.STRING },
-      turn: { type: SchemaType.NUMBER },
-      role: { type: SchemaType.STRING, enum: ['user', 'assistant'] },
-      text: { type: SchemaType.STRING },
-      kind: { type: SchemaType.STRING, enum: ['message', 'summary'] },
-    },
-    required: ['userId', 'threadId', 'turn', 'role', 'text'],
-  },
-};
-async function exec_memory_upsert(args: any) {
+  inputSchema: z.object({
+      userId: z.string(),
+      threadId: z.string(),
+      turn: z.number(),
+      role: z.enum(['user', 'assistant']),
+      text: z.string(),
+      kind: z.enum(['message', 'summary']).optional(),
+  }),
+}, async (args) => {
   const { userId, threadId, ...rest } = args;
   await addDoc(collection(db, 'brain_memory', userId, 'threads', threadId, 'turns'), {
     ...rest,
     createdAt: nowIso(),
   });
   return { ok: true };
-}
+});
 
-const fn_memory_get_context = {
+const fn_memory_get_context = ai.defineTool({
   name: 'memory_get_context',
   description: 'Recupera últimas N entradas del hilo y (si existe) el perfil del usuario.',
-  parameters: {
-    type: SchemaType.OBJECT,
-    properties: {
-      userId: { type: SchemaType.STRING },
-      threadId: { type: SchemaType.STRING },
-      limit: { type: SchemaType.NUMBER },
-    },
-    required: ['userId', 'threadId'],
-  },
-};
-async function exec_memory_get_context(args: any) {
+  inputSchema: z.object({
+      userId: z.string(),
+      threadId: z.string(),
+      limit: z.number().optional(),
+  }),
+}, async (args) => {
   const { userId, threadId, limit = 12 } = args;
   const qTurns = query(
     collection(db, 'brain_memory', userId, 'threads', threadId, 'turns'),
@@ -99,21 +78,17 @@ async function exec_memory_get_context(args: any) {
     .map((d) => ({ role: d.role, text: d.text }));
   const prof = await getDoc(doc(db, 'brain_memory', userId));
   return { messages, profile: prof.exists() ? (prof.data() as any).profile : undefined };
-}
+});
 
-const fn_memory_update_profile = {
+
+const fn_memory_update_profile = ai.defineTool({
   name: 'memory_update_profile',
   description: 'Actualiza el perfil/resumen de largo plazo del usuario.',
-  parameters: {
-    type: SchemaType.OBJECT,
-    properties: {
-      userId: { type: SchemaType.STRING },
-      profile: { type: SchemaType.STRING },
-    },
-    required: ['userId', 'profile'],
-  },
-};
-async function exec_memory_update_profile(args: any) {
+  inputSchema: z.object({
+    userId: z.string(),
+    profile: z.string(),
+  }),
+}, async (args) => {
   const { userId, profile } = args;
   await setDoc(
     doc(db, 'brain_memory', userId),
@@ -121,20 +96,17 @@ async function exec_memory_update_profile(args: any) {
     { merge: true } as any
   );
   return { ok: true };
-}
+});
+
 
 // ==============================
 // 3) TOOLS — Lectura SSOT
 // ==============================
-const fn_query_accounts = {
+const fn_query_accounts = ai.defineTool({
   name: 'query_accounts',
   description: 'Busca cuentas por nombre/ciudad/contacto (búsqueda simple DEV).',
-  parameters: {
-    type: SchemaType.OBJECT,
-    properties: { text: { type: SchemaType.STRING }, limit: { type: SchemaType.NUMBER } },
-  },
-};
-async function exec_query_accounts({ text = '', limit = 20 }: any) {
+  inputSchema: z.object({ text: z.string().optional(), limit: z.number().optional() }),
+}, async ({ text = '', limit = 20 }) => {
   const snap = await getDocs(query(collection(db, 'accounts'), fbLimit(400)));
   const all = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
   const t = text.toLowerCase();
@@ -148,18 +120,13 @@ async function exec_query_accounts({ text = '', limit = 20 }: any) {
       )
     : all;
   return { results: results.slice(0, limit) };
-}
+});
 
-const fn_get_account_deep = {
+const fn_get_account_deep = ai.defineTool({
   name: 'get_account_deep',
   description: 'Devuelve cuenta + últimos pedidos/interacciones/eventos.',
-  parameters: {
-    type: SchemaType.OBJECT,
-    properties: { accountId: { type: SchemaType.STRING } },
-    required: ['accountId'],
-  },
-};
-async function exec_get_account_deep({ accountId }: any) {
+  inputSchema: z.object({ accountId: z.string() }),
+}, async ({ accountId }) => {
   const acc = await getDoc(doc(db, 'accounts', accountId));
   const ordersQ = query(
     collection(db, 'orders'),
@@ -186,36 +153,25 @@ async function exec_get_account_deep({ accountId }: any) {
     interactions: i.docs.map((d) => ({ id: d.id, ...(d.data() as any) })),
     events: e.docs.map((d) => ({ id: d.id, ...(d.data() as any) })),
   };
-}
+});
+
 
 // ==============================
 // 4) TOOLS — Escritura SSOT
 // ==============================
-// 4.1 Crear cuenta
-const fn_create_account = {
+const fn_create_account = ai.defineTool({
   name: 'create_account',
   description: 'Crea una cuenta con campos mínimos (SSOT: accounts).',
-  parameters: {
-    type: SchemaType.OBJECT,
-    properties: {
-      name: { type: SchemaType.STRING },
-      city: { type: SchemaType.STRING },
-      accountType: {
-        type: SchemaType.STRING,
-        enum: ['CLIENTE_FINAL', 'DISTRIBUIDOR', 'IMPORTADOR', 'HORECA', 'RETAIL', 'OTRO'],
-      },
-      accountStage: {
-        type: SchemaType.STRING,
-        enum: ['SEGUIMIENTO', 'FALLIDA', 'ACTIVA', 'POTENCIAL'],
-      },
-      mainContactName: { type: SchemaType.STRING },
-      mainContactEmail: { type: SchemaType.STRING },
-      salesRepId: { type: SchemaType.STRING },
-    },
-    required: ['name', 'accountType', 'accountStage'],
-  },
-};
-async function exec_create_account(args: any) {
+  inputSchema: z.object({
+      name: z.string(),
+      city: z.string().optional(),
+      accountType: z.enum(['CLIENTE_FINAL', 'DISTRIBUIDOR', 'IMPORTADOR', 'HORECA', 'RETAIL', 'OTRO']),
+      accountStage: z.enum(['SEGUIMIENTO', 'FALLIDA', 'ACTIVA', 'POTENCIAL']),
+      mainContactName: z.string().optional(),
+      mainContactEmail: z.string().optional(),
+      salesRepId: z.string().optional(),
+  }),
+}, async (args) => {
   const createdAt = nowIso();
   const docData = {
     name: args.name,
@@ -231,32 +187,20 @@ async function exec_create_account(args: any) {
   };
   const ref = await addDoc(collection(db, 'accounts'), docData);
   return { id: ref.id, ...docData };
-}
+});
 
-// 4.2 Asegurar cuenta (buscar por nombre/email y crear si no existe)
-const fn_ensure_account = {
+const fn_ensure_account = ai.defineTool({
   name: 'ensure_account',
   description: 'Devuelve accountId. Busca por nombre/email y crea si no existe.',
-  parameters: {
-    type: SchemaType.OBJECT,
-    properties: {
-      name: { type: SchemaType.STRING },
-      city: { type: SchemaType.STRING },
-      mainContactEmail: { type: SchemaType.STRING },
-      defaultAccountType: {
-        type: SchemaType.STRING,
-        enum: ['CLIENTE_FINAL', 'HORECA', 'RETAIL', 'OTRO', 'DISTRIBUIDOR', 'IMPORTADOR'],
-      },
-      defaultStage: {
-        type: SchemaType.STRING,
-        enum: ['POTENCIAL', 'SEGUIMIENTO', 'ACTIVA', 'FALLIDA'],
-      },
-      salesRepId: { type: SchemaType.STRING },
-    },
-    required: ['name'],
-  },
-};
-async function exec_ensure_account(args: any) {
+  inputSchema: z.object({
+      name: z.string(),
+      city: z.string().optional(),
+      mainContactEmail: z.string().optional(),
+      defaultAccountType: z.enum(['CLIENTE_FINAL', 'HORECA', 'RETAIL', 'OTRO', 'DISTRIBUIDOR', 'IMPORTADOR']).optional(),
+      defaultStage: z.enum(['POTENCIAL', 'SEGUIMIENTO', 'ACTIVA', 'FALLIDA']).optional(),
+      salesRepId: z.string().optional(),
+  }),
+}, async (args) => {
   const needle = norm(args.name);
   const email = (args.mainContactEmail || '').toLowerCase();
   const snap = await getDocs(query(collection(db, 'accounts'), fbLimit(200)));
@@ -267,35 +211,23 @@ async function exec_ensure_account(args: any) {
       (a.nameNorm && a.nameNorm === needle)
   );
   if (hit) return { id: hit.id, existed: true };
-  const created = await exec_create_account({
-    name: args.name,
-    city: args.city ?? '',
-    mainContactEmail: args.mainContactEmail ?? null,
-    accountType: args.defaultAccountType ?? 'HORECA',
-    accountStage: args.defaultStage ?? 'POTENCIAL',
-    salesRepId: args.salesRepId ?? null,
-  });
+  const created = await fn_create_account(args as any);
   return { id: created.id, existed: false };
-}
+});
 
-// 4.3 Crear pedido
-const fn_create_order = {
+
+const fn_create_order = ai.defineTool({
   name: 'create_order',
   description: 'Crea un pedido en `orders`.',
-  parameters: {
-    type: SchemaType.OBJECT,
-    properties: {
-      accountId: { type: SchemaType.STRING },
-      distributorId: { type: SchemaType.STRING },
-      date: { type: SchemaType.STRING },
-      currency: { type: SchemaType.STRING, enum: ['EUR', 'USD'] },
-      items: { type: SchemaType.ARRAY, items: OrderItemSchema },
-      notes: { type: SchemaType.STRING },
-    },
-    required: ['accountId', 'items'],
-  },
-};
-async function exec_create_order(args: any) {
+  inputSchema: z.object({
+      accountId: z.string(),
+      distributorId: z.string().optional(),
+      date: z.string().optional(),
+      currency: z.enum(['EUR', 'USD']).optional(),
+      items: z.array(z.object({ sku: z.string(), qty: z.number(), unitPrice: z.number().optional(), discountPct: z.number().optional()})),
+      notes: z.string().optional(),
+  }),
+}, async (args) => {
   const createdAt = nowIso();
   const order = {
     accountId: args.accountId,
@@ -311,32 +243,27 @@ async function exec_create_order(args: any) {
   };
   const ref = await addDoc(collection(db, 'orders'), order);
   return { id: ref.id, amount: order.amount, currency: order.currency, createdAt };
-}
+});
 
-// 4.4 Crear interacción
-const fn_create_interaction = {
+
+const fn_create_interaction = ai.defineTool({
   name: 'create_interaction',
   description: 'Registra una interacción (VISITA, LLAMADA, EMAIL, WHATSAPP, OTRO).',
-  parameters: {
-    type: SchemaType.OBJECT,
-    properties: {
-      accountId: { type: SchemaType.STRING },
-      kind: { type: SchemaType.STRING },
-      when: { type: SchemaType.STRING },
-      status: { type: SchemaType.STRING },
-      result: { type: SchemaType.STRING },
-      summary: { type: SchemaType.STRING },
-      nextAt: { type: SchemaType.STRING },
-      createdById: { type: SchemaType.STRING },
-    },
-    required: ['accountId', 'kind'],
-  },
-};
-async function exec_create_interaction(args: any) {
+  inputSchema: z.object({
+      accountId: z.string(),
+      kind: z.string(),
+      when: z.string().optional(),
+      status: z.string().optional(),
+      result: z.string().optional(),
+      summary: z.string().optional(),
+      nextAt: z.string().optional(),
+      createdById: z.string().optional(),
+  }),
+}, async (args) => {
   const createdAt = nowIso();
   const docData = {
     accountId: args.accountId,
-    kind: args.kind, // usa tus enums en UI si quieres tipeo estricto
+    kind: args.kind,
     when: args.when ?? createdAt,
     status: args.status ?? 'COMPLETADA',
     result: args.result ?? null,
@@ -348,28 +275,23 @@ async function exec_create_interaction(args: any) {
   };
   const ref = await addDoc(collection(db, 'interactions'), docData);
   return { id: ref.id, status: docData.status, when: docData.when, createdAt };
-}
+});
 
-// 4.5 Crear evento
-const fn_create_event = {
+
+const fn_create_event = ai.defineTool({
   name: 'create_event',
   description: 'Crea un evento (DEMO, FERIA, FORMACION, OTRO).',
-  parameters: {
-    type: SchemaType.OBJECT,
-    properties: {
-      accountId: { type: SchemaType.STRING },
-      kind: { type: SchemaType.STRING },
-      title: { type: SchemaType.STRING },
-      startAt: { type: SchemaType.STRING },
-      endAt: { type: SchemaType.STRING },
-      location: { type: SchemaType.STRING },
-      notes: { type: SchemaType.STRING },
-      createdById: { type: SchemaType.STRING },
-    },
-    required: ['kind', 'title', 'startAt'],
-  },
-};
-async function exec_create_event(args: any) {
+  inputSchema: z.object({
+      accountId: z.string().optional(),
+      kind: z.string(),
+      title: z.string(),
+      startAt: z.string(),
+      endAt: z.string().optional(),
+      location: z.string().optional(),
+      notes: z.string().optional(),
+      createdById: z.string().optional(),
+  }),
+}, async (args) => {
   const createdAt = nowIso();
   const docData = {
     accountId: args.accountId ?? null,
@@ -385,40 +307,23 @@ async function exec_create_event(args: any) {
   };
   const ref = await addDoc(collection(db, 'events'), docData);
   return { id: ref.id, title: docData.title, startAt: docData.startAt, createdAt };
-}
+});
 
 // ==============================
 // 5) Registro de tools y ejecutores
 // ==============================
 const functionDeclarations = [
-  // Memoria
   fn_memory_get_context,
   fn_memory_upsert,
   fn_memory_update_profile,
-  // Lectura
   fn_query_accounts,
   fn_get_account_deep,
-  // Cuentas
   fn_create_account,
   fn_ensure_account,
-  // Escritura
   fn_create_order,
   fn_create_interaction,
   fn_create_event,
 ];
-
-const executors: Record<string, (args: any) => Promise<any>> = {
-  memory_get_context: exec_memory_get_context,
-  memory_upsert: exec_memory_upsert,
-  memory_update_profile: exec_memory_update_profile,
-  query_accounts: exec_query_accounts,
-  get_account_deep: exec_get_account_deep,
-  create_account: exec_create_account,
-  ensure_account: exec_ensure_account,
-  create_order: exec_create_order,
-  create_interaction: exec_create_interaction,
-  create_event: exec_create_event,
-};
 
 // ==============================
 // 6) Orquestador — runSantaBrainInBrowser
@@ -442,46 +347,42 @@ Si falta un dato clave (accountId/nombre, fecha, SKU o qty), pide justo lo neces
 Regla: si mencionan un local por nombre y no existe, usa "ensure_account" y luego crea interacción/pedido/evento.
 Responde en el idioma del usuario.`;
 
-  // 1) Primer turno (el modelo decide si llama a tools)
-  const cfg = {
-    tools: [{ functionDeclarations }],
-    toolConfig: { functionCallingConfig: { mode: FunctionCallingConfigMode.AUTO } },
-  };
+  const history: Message[] = []; // En un futuro, podrías obtener esto de la memoria
+  
+  const llmResponse = await ai.generate({
+    model: MODEL,
+    tools: functionDeclarations,
+    history,
+    prompt: `userId=${userId} threadId=${threadId}\n${message}`,
+    system: system,
+  });
 
-  const chat = await genai.getGenerativeModel({ model: MODEL }).startChat(cfg);
-
-  const result = await chat.sendMessage(message);
-
-  const calls = result.response.functionCalls();
   const toolParts: any[] = [];
-  if (calls) {
-    for (const call of calls) {
-      const exec = executors[call.name];
-      if (!exec) throw new Error(`Tool desconocida: ${call.name}`);
-      const out = await exec(call.args);
+  const toolRequests = llmResponse.toolRequests;
+
+  if (toolRequests) {
+    for (const call of toolRequests) {
+      const tool = functionDeclarations.find(t => t.name === call.name);
+      if (!tool) throw new Error(`Tool desconocida: ${call.name}`);
+      const out = await tool.fn(call.input as any);
       toolParts.push({
-        functionResponse: {
+        toolResponse: {
           name: call.name,
-          response: { name: call.name, content: out },
+          output: out,
         },
       });
     }
   }
 
-
-  // 3) Segunda vuelta con respuestas de tools (permitiendo posteriores llamadas si el modelo quiere)
-  const secondResult = toolParts.length > 0 ? await chat.sendMessage(JSON.stringify(toolParts)) : result;
-
-  // 4) Guardar memoria (tolerante a fallos)
+  const finalResponse = llmResponse;
+  const friendly = (finalResponse.text || '').replaceAll('**', '').trim();
+  
   try {
-    await exec_memory_upsert({ userId, threadId, turn, role: 'user', text: message });
-    const short = (secondResult.response.text() || '').slice(0, 1000);
-    await exec_memory_upsert({ userId, threadId, turn: turn + 1, role: 'assistant', text: short, kind: 'summary' });
+    await fn_memory_upsert({ userId, threadId, turn, role: 'user', text: message });
+    await fn_memory_upsert({ userId, threadId, turn: turn + 1, role: 'assistant', text: friendly, kind: 'summary' });
   } catch (e) {
     console.warn('[SantaBrain] memory save failed', e);
   }
 
-  // 5) Tono final pulido
-  const friendly = (secondResult.response.text() || '').replaceAll('**', '').trim();
-  return { text: friendly, calls, toolResponses: toolParts };
+  return { text: friendly, calls: toolRequests, toolResponses: toolParts };
 }
