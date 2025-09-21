@@ -244,10 +244,17 @@ export default function OrdersDashboard() {
 
   const handleCreateOrder = (payload: any) => {
     if (!data) return;
+
+    if (!payload.account) {
+        // This case should ideally be handled with better UI feedback
+        console.error("No account selected or created for the new order.");
+        return;
+    }
+    
     const targetAccount = payload.newAccount ? payload.newAccount : data.accounts.find(a => a.name === payload.account);
 
     if (!targetAccount) {
-        console.error("No se pudo encontrar o crear la cuenta para el pedido.");
+        console.error("Could not find or create the account for the order.");
         return;
     }
     
