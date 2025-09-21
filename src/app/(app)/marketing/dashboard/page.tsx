@@ -1,125 +1,225 @@
 
+// src/app/(app)/marketing/dashboard/page.tsx
 "use client";
 import React, { useMemo } from 'react';
 import { useData } from '@/lib/dataprovider';
-import { SBCard, SBButton, KPI as KPICard } from '@/components/ui/ui-primitives';
+import { SBCard } from '@/components/ui/ui-primitives';
 import { DEPT_META } from '@/domain/ssot';
-import type { Interaction, MarketingEvent, OnlineCampaign } from '@/domain/ssot';
-import { Calendar, AlertCircle, Clock, Megaphone, Target, Euro } from 'lucide-react';
+import type { Interaction, MarketingEvent, OnlineCampaign, InfluencerCollab, PosTactic } from '@/domain/ssot';
+import { Calendar, AlertCircle, Clock, Target, Euro, TrendingUp, BarChart, Percent, PieChart } from 'lucide-react';
 
+// ===================================
+// Helper Functions & Types
+// ===================================
 
-function StatusPill({ status }: { status: 'planned' | 'active' | 'closed' | 'cancelled' }) {
-    const styles = {
-        planned: 'bg-blue-100 text-blue-800',
-        active: 'bg-green-100 text-green-800 animate-pulse',
-        closed: 'bg-zinc-100 text-zinc-800',
-        cancelled: 'bg-red-100 text-red-800',
-    };
+const fmtEur = (n?: number) => new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(n || 0);
+const fmtPct = (n?: number) => `${(n || 0).toFixed(1)}%`;
+
+type ChannelData = {
+  spend: number;
+  revenue: number;
+  roi: number;
+  actions: number;
+};
+
+// ===================================
+// KPI Card Component
+// ===================================
+
+function KpiCard({ title, value, icon: Icon, color = "#71717a" }: { title: string; value: string; icon: React.ElementType; color?: string; }) {
     return (
-        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${styles[status]}`}>
-            {status.charAt(0).toUpperCase() + status.slice(1)}
-        </span>
+        <div className="bg-white p-4 rounded-xl border border-zinc-200 flex items-center gap-4 shadow-sm">
+            <div className="p-3 rounded-lg" style={{ backgroundColor: `${color}1A`, color }}>
+                <Icon size={24} />
+            </div>
+            <div>
+                <p className="text-2xl font-bold text-zinc-900">{value}</p>
+                <p className="text-sm font-medium text-zinc-600">{title}</p>
+            </div>
+        </div>
     );
 }
 
+// ===================================
+// Main Dashboard Logic & Component
+// ===================================
 
 function MarketingDashboardPageContent() {
     const { data } = useData();
-    const events = data?.marketingEvents || [];
-    const campaigns = data?.onlineCampaigns || [];
 
+    // 1. Data Aggregation (as per brief)
+    const dashboardData = useMemo(() => {
+        if (!data) {
+            return {
+                events: { spend: 0, revenue: 0, actions: 0 },
+                online: { spend: 0, revenue: 0, actions: 0 },
+                collabs: { spend: 0, revenue: 0, actions: 0 },
+                pos: { spend: 0, revenue: 0, actions: 0 },
+            };
+        }
+
+        const now = new Date();
+        const mtdStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+        const inMtd = (dateStr?: string) => dateStr && new Date(dateStr) >= mtdStart;
+
+        const eventsData = (data.marketingEvents || []).filter(e => inMtd(e.startAt) && e.status === 'closed').reduce((acc, e) => {
+            acc.spend += e.spend || 0;
+            acc.revenue += e.kpis?.revenueAttributed || 0;
+            acc.actions += 1;
+            return acc;
+        }, { spend: 0, revenue: 0, actions: 0 });
+
+        const onlineData = (data.onlineCampaigns || []).filter(c => inMtd(c.startAt) && c.status === 'closed').reduce((acc, c) => {
+            acc.spend += c.spend || 0;
+            acc.revenue += c.metrics?.revenue || 0;
+            acc.actions += 1;
+            return acc;
+        }, { spend: 0, revenue: 0, actions: 0 });
+
+        const collabsData = (data.influencerCollabs || []).filter(c => inMtd(c.dates?.goLiveAt) && c.status === 'COMPLETED').reduce((acc, c) => {
+            acc.spend += (c.costs?.cashPaid || 0) + (c.costs?.productCost || 0) + (c.costs?.shippingCost || 0);
+            acc.revenue += c.tracking?.revenue || 0;
+            acc.actions += 1;
+            return acc;
+        }, { spend: 0, revenue: 0, actions: 0 });
+        
+        const posData = (data.posTactics || []).filter(t => inMtd(t.createdAt) && t.status === 'closed').reduce((acc, t) => {
+            acc.spend += t.actualCost || 0;
+            acc.revenue += t.result?.upliftMargin || 0; // Using upliftMargin as revenue proxy
+            acc.actions += 1;
+            return acc;
+        }, { spend: 0, revenue: 0, actions: 0 });
+
+        return { events: eventsData, online: onlineData, collabs: collabsData, pos: posData };
+    }, [data]);
+
+    // 2. Calculations (as per brief)
+    const totals = useMemo(() => {
+        const channels = Object.values(dashboardData);
+        const totalSpend = channels.reduce((sum, ch) => sum + ch.spend, 0);
+        const totalRevenue = channels.reduce((sum, ch) => sum + ch.revenue, 0);
+        const totalActions = channels.reduce((sum, ch) => sum + ch.actions, 0);
+        const totalRoi = totalSpend > 0 ? totalRevenue / totalSpend : 0;
+        return { totalSpend, totalRevenue, totalActions, totalRoi };
+    }, [dashboardData]);
+
+    const investmentMix = useMemo(() => {
+        const channels: Array<{ name: string; data: ChannelData }> = [
+            { name: 'Eventos', data: { ...dashboardData.events, roi: dashboardData.events.spend > 0 ? dashboardData.events.revenue / dashboardData.events.spend : 0 } },
+            { name: 'Online', data: { ...dashboardData.online, roi: dashboardData.online.spend > 0 ? dashboardData.online.revenue / dashboardData.online.spend : 0 } },
+            { name: 'Collabs', data: { ...dashboardData.collabs, roi: dashboardData.collabs.spend > 0 ? dashboardData.collabs.revenue / dashboardData.collabs.spend : 0 } },
+            { name: 'POS', data: { ...dashboardData.pos, roi: dashboardData.pos.spend > 0 ? dashboardData.pos.revenue / dashboardData.pos.spend : 0 } },
+        ];
+        return channels.map(ch => ({
+            ...ch,
+            mix: totals.totalSpend > 0 ? (ch.data.spend / totals.totalSpend) * 100 : 0,
+        })).sort((a,b) => b.data.spend - a.data.spend);
+    }, [dashboardData, totals.totalSpend]);
+
+    const upcomingActions = useMemo(() => {
+      if (!data) return [];
+      const now = new Date();
+      const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      const allActions = [
+        ...(data.marketingEvents || []).filter(e => e.status === 'planned' && new Date(e.startAt) <= in30Days).map(e => ({ date: e.startAt, title: e.title, type: 'Evento' })),
+        ...(data.onlineCampaigns || []).filter(c => c.status === 'planned' && new Date(c.startAt) <= in30Days).map(c => ({ date: c.startAt, title: c.title, type: 'Campaña' })),
+        ...(data.influencerCollabs || []).filter(c => c.status === 'AGREED' && c.dates?.goLiveAt && new Date(c.dates.goLiveAt) <= in30Days).map(c => ({ date: c.dates!.goLiveAt!, title: `Collab: ${c.creatorName}`, type: 'Collab' })),
+        ...(data.posTactics || []).filter(t => t.status === 'planned' && new Date(t.createdAt) <= in30Days).map(t => ({ date: t.createdAt, title: `POS: ${t.tacticCode}`, type: 'Táctica POS' })),
+      ];
+      return allActions.sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    }, [data]);
+
+    const pendingTasks = useMemo(() => {
+        if (!data?.interactions) return [];
+        const now = new Date();
+        const in14Days = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+        return data.interactions
+            .filter(i => i.dept === 'MARKETING' && i.status === 'open' && i.plannedFor && new Date(i.plannedFor) <= in14Days)
+            .sort((a, b) => new Date(a.plannedFor!).getTime() - new Date(b.plannedFor!).getTime());
+    }, [data]);
+
+    // 3. Visualization (as per brief)
     return (
         <div className="space-y-6">
-             <h1 className="text-2xl font-semibold text-zinc-800">Dashboard de Marketing</h1>
+            <h1 className="text-2xl font-semibold text-zinc-800">Dashboard de Marketing</h1>
             
-             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <SBCard title="Próximos Eventos">
-                    {events.filter((e: MarketingEvent) => e.status === 'planned' || e.status === 'active').slice(0, 5).map((event: MarketingEvent) => (
-                        <div key={event.id} className="p-3 border-b last:border-b-0">
-                            <p className="font-semibold">{event.title}</p>
-                            <div className="flex justify-between items-center text-sm text-zinc-600 mt-1">
-                                <span>{new Date(event.startAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })} en {event.city}</span>
-                                <StatusPill status={event.status} />
-                            </div>
+            {/* KPI Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <KpiCard title="Inversión (MTD)" value={fmtEur(totals.totalSpend)} icon={Euro} color="#D7713E" />
+                <KpiCard title="Ingresos Atribuidos (MTD)" value={fmtEur(totals.totalRevenue)} icon={TrendingUp} color="#16a34a"/>
+                <KpiCard title="ROI (MTD)" value={`${totals.totalRoi.toFixed(2)}x`} icon={Percent} color="#618E8F" />
+                <KpiCard title="Acciones (MTD)" value={totals.totalActions.toString()} icon={Target} color="#A7D8D9"/>
+            </div>
+
+            {/* Investment Mix & ROI */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <SBCard title="Mix de Inversión y ROI por Canal (MTD)">
+                    <div className="divide-y divide-zinc-100">
+                        <div className="grid grid-cols-4 p-3 bg-zinc-50 text-xs font-semibold uppercase text-zinc-500">
+                            <span>Canal</span>
+                            <span className="text-right">Inversión</span>
+                            <span className="text-right">Mix</span>
+                            <span className="text-right">ROI</span>
                         </div>
-                    ))}
+                        {investmentMix.map(ch => (
+                            <div key={ch.name} className="grid grid-cols-4 p-3 items-center hover:bg-zinc-50/50 text-sm">
+                                <div className="font-medium">{ch.name}</div>
+                                <div className="text-right font-mono">{fmtEur(ch.data.spend)}</div>
+                                <div className="text-right font-mono">{fmtPct(ch.mix)}</div>
+                                <div className={`text-right font-semibold ${ch.data.roi > 1 ? 'text-green-600' : 'text-red-600'}`}>{ch.data.roi.toFixed(2)}x</div>
+                            </div>
+                        ))}
+                    </div>
                 </SBCard>
-                <SBCard title="Campañas Online">
-                     {campaigns.slice(0, 5).map((campaign: OnlineCampaign) => (
-                        <div key={campaign.id} className="p-3 border-b last:border-b-0">
-                            <p className="font-semibold">{campaign.title}</p>
-                            <div className="flex justify-between items-center text-sm text-zinc-600 mt-1">
-                                <span>{campaign.channel} &middot; €{campaign.budget.toLocaleString()}</span>
-                                <StatusPill status={campaign.status} />
+                
+                {/* Placeholder for RVI - Block 4 from brief */}
+                <div className="p-8 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center text-center">
+                    <BarChart className="h-10 w-10 text-zinc-300 mb-2"/>
+                    <h3 className="font-semibold text-zinc-600">Rotación vs Inversión (RVI)</h3>
+                    <p className="text-sm text-zinc-400 mt-1">Este bloque mostrará el impacto de la inversión en las ventas a nivel de tienda. Próximamente.</p>
+                </div>
+            </div>
+
+             {/* Upcoming & Pending */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <SBCard title="Próximos 30 Días">
+                    <div className="p-2 max-h-72 overflow-y-auto">
+                        {upcomingActions.length > 0 ? upcomingActions.map((action, idx) => (
+                            <div key={idx} className="flex items-center gap-3 p-2 rounded-lg hover:bg-zinc-50">
+                                <div className="p-2 bg-zinc-100 rounded-md">
+                                    <Calendar size={16} className="text-zinc-600"/>
+                                </div>
+                                <div>
+                                    <p className="font-medium text-sm">{action.title}</p>
+                                    <p className="text-xs text-zinc-500">{new Date(action.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })} - {action.type}</p>
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        )) : <p className="text-center text-sm text-zinc-500 p-8">No hay acciones planificadas.</p>}
+                    </div>
+                </SBCard>
+                 <SBCard title="Tareas Pendientes (Próximos 14 días)">
+                    <div className="p-2 max-h-72 overflow-y-auto">
+                        {pendingTasks.length > 0 ? pendingTasks.map((task: Interaction) => (
+                            <div key={task.id} className={`flex items-center gap-3 p-2 rounded-lg hover:bg-zinc-50 ${new Date(task.plannedFor!) < new Date() ? 'bg-red-50/50' : ''}`}>
+                                <div className="p-2 rounded-md" style={{ backgroundColor: DEPT_META.MARKETING.color + '20' }}>
+                                    {new Date(task.plannedFor!) < new Date() ? <AlertCircle size={16} className="text-red-500"/> : <Clock size={16} style={{color: DEPT_META.MARKETING.color }} />}
+                                </div>
+                                <div>
+                                    <p className="font-medium text-sm">{task.note}</p>
+                                    <p className="text-xs text-zinc-500">{new Date(task.plannedFor!).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}</p>
+                                </div>
+                            </div>
+                        )) : <p className="text-center text-sm text-zinc-500 p-8">No tienes tareas pendientes.</p>}
+                    </div>
                 </SBCard>
             </div>
         </div>
     )
 }
 
-
-function UpcomingEvents() {
-    const { data } = useData();
-    const { overdue, upcoming } = useMemo(() => {
-        if (!data?.interactions) return { overdue: [], upcoming: [] };
-        
-        const now = new Date();
-        const openInteractions = data.interactions
-            .filter(i => i.dept === 'MARKETING' && i.status === 'open' && i.plannedFor);
-            
-        const overdue = openInteractions
-            .filter(i => new Date(i.plannedFor!) < now)
-            .sort((a, b) => new Date(a.plannedFor!).getTime() - new Date(b.plannedFor!).getTime());
-            
-        const upcoming = openInteractions
-            .filter(i => new Date(i.plannedFor!) >= now)
-            .sort((a, b) => new Date(a.plannedFor!).getTime() - new Date(b.plannedFor!).getTime());
-
-        return { overdue, upcoming };
-    }, [data]);
-
-    const allEvents = [...overdue, ...upcoming].slice(0, 5);
-
-    if (allEvents.length === 0) {
-        return null;
-    }
-
-    return (
-        <SBCard title="Próximas Tareas de Marketing">
-            <div className="p-4 space-y-3">
-                {allEvents.map((event: Interaction) => {
-                    const isOverdue = new Date(event.plannedFor!) < new Date();
-                    const Icon = isOverdue ? AlertCircle : Clock;
-                    
-                    return (
-                         <div key={event.id} className={`flex items-center gap-3 p-2 rounded-lg border cursor-pointer ${isOverdue ? 'bg-rose-50/50 border-rose-200' : 'bg-zinc-50 border-zinc-200 hover:bg-zinc-100'}`}>
-                            <div className="p-2 rounded-full" style={{ backgroundColor: DEPT_META.MARKETING.color, color: DEPT_META.MARKETING.textColor }}>
-                                <Icon size={16} />
-                            </div>
-                            <div>
-                                <p className="font-medium text-sm">{event.note}</p>
-                                <p className={`text-xs ${isOverdue ? 'text-rose-600 font-semibold' : 'text-zinc-500'}`}>{new Date(event.plannedFor!).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}</p>
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
-        </SBCard>
-    );
-}
-
 export default function Page(){
-  return (
-    <div className="space-y-6">
-      <MarketingDashboardPageContent/>
-      <div className="pt-6">
-        <UpcomingEvents/>
-      </div>
-    </div>
-  );
+  const { data } = useData();
+  if (!data) return <div className="p-6">Cargando dashboard de marketing...</div>;
+  return <MarketingDashboardPageContent/>;
 }
-
-    
