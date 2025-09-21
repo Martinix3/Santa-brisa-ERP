@@ -70,9 +70,8 @@ const statusOptions: { value: OrderStatus; label: string }[] = [
     { value: 'lost', label: 'Perdido' },
 ];
 
-function StatusSelector({ order, onStatusChange }: { order: OrderSellOut; onStatusChange: (orderId: string, newStatus: OrderStatus) => Promise<void>; }) {
+function StatusSelector({ order, account, party, onStatusChange }: { order: OrderSellOut; account: Account; party: Party; onStatusChange: (order: OrderSellOut, account: Account, party: Party, newStatus: OrderStatus) => Promise<void>; }) {
     const [isPending, startTransition] = useTransition();
-    const { data } = useData();
 
     const statusMap: Record<OrderStatus, { label: string; className: string }> = {
         open: { label: 'Borrador', className: 'bg-zinc-100 text-zinc-700' },
@@ -89,7 +88,7 @@ function StatusSelector({ order, onStatusChange }: { order: OrderSellOut; onStat
     const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const newStatus = e.target.value as OrderStatus;
         startTransition(async () => {
-            await onStatusChange(order.id, newStatus);
+            await onStatusChange(order, account, party, newStatus);
         });
     };
 
@@ -173,10 +172,11 @@ export default function OrdersDashboard() {
   const consTotals = useMemo(() => consignmentTotalUnits(consByAcc), [consByAcc]);
   
   const enrichedOrders = useMemo(() => {
-    if (!ordersSellOut || !accounts || !partyRoles || !users) return [];
+    if (!ordersSellOut || !accounts || !partyRoles || !users || !parties) return [];
     
     const accountMap = new Map((accounts || []).map((acc: Account) => [acc.id, acc]));
     const userMap = new Map((users || []).map((user: User) => [user.id, user]));
+    const partyMap = new Map((parties || []).map((p: Party) => [p.id, p]));
     const rolesMap = new Map();
     (partyRoles || []).forEach((role: PartyRole) => {
         if(role.role === 'CUSTOMER') {
@@ -188,18 +188,22 @@ export default function OrdersDashboard() {
         const account = accountMap.get(order.accountId);
         if (!account) return null;
 
+        const party = partyMap.get(account.partyId);
+        if (!party) return null;
+
         const customerData = rolesMap.get(account.partyId);
-        const billerId = customerData?.billerId || 'SB'; // Default to 'SB' if not found
+        const billerId = customerData?.billerId || 'SB'; 
         const owner = userMap.get(account.ownerId);
 
         return {
             ...order,
             account,
+            party,
             owner,
             billerId
         };
     }).filter((o): o is NonNullable<typeof o> => !!o);
-  }, [ordersSellOut, accounts, users, partyRoles]);
+  }, [ordersSellOut, accounts, users, partyRoles, parties]);
 
 
   const filteredOrders = useMemo(() => {
@@ -304,17 +308,21 @@ export default function OrdersDashboard() {
     setIsCreateOrderOpen(false);
   }
   
-  const handleStatusChange = async (orderId: string, newStatus: OrderStatus) => {
-    startTransition(async () => {
-        try {
-            await updateOrderStatus(orderId, newStatus);
-        } catch (error) {
-            console.error("Error al actualizar el estado del pedido:", error);
-        }
-    });
+  const handleStatusChange = async (order: OrderSellOut, account: Account, party: Party, newStatus: OrderStatus) => {
+    const res = await updateOrderStatus(order, account, party, newStatus);
+    if (res.ok) {
+        setData(prevData => {
+            if (!prevData) return null;
+            const newOrders = prevData.ordersSellOut.map(o => 
+                o.id === res.orderId ? { ...o, status: res.newStatus } : o
+            );
+            const newShipments = res.shipment ? [res.shipment, ...(prevData.shipments || [])] : prevData.shipments;
+            return { ...prevData, ordersSellOut: newOrders, shipments: newShipments };
+        });
+    } else {
+        console.error("Failed to update order status:", res.error);
+    }
   };
-  
-  const [isPending, startTransition] = useTransition();
 
   const shipmentStatusMap: Record<Shipment['status'], { label: string; className: string }> = {
     pending: { label: 'Pendiente', className: 'bg-yellow-100 text-yellow-700' },
@@ -408,7 +416,7 @@ export default function OrdersDashboard() {
                       {orderTotal(order as OrderSellOut).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
                     </td>
                     <td className="p-3">
-                      <StatusSelector order={order} onStatusChange={handleStatusChange} />
+                      <StatusSelector order={order} account={order.account} party={order.party} onStatusChange={handleStatusChange} />
                     </td>
                   </tr>
                 )
