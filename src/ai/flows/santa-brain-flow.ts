@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileoverview Santa Brisa main conversational agent
@@ -160,13 +161,13 @@ const santaBrainFlow = ai.defineFlow(
       },
     });
 
-    const toolResponses = llmResponse.toolRequest()?.responses;
+    const toolResponses = llmResponse.toolResponses;
     let finalAnswer = llmResponse.text ?? '';
     const newEntities: Partial<SantaData> = {};
 
     if (toolResponses && toolResponses.length > 0) {
         for (const toolResponse of toolResponses) {
-            const toolRequest = llmResponse.toolRequests().find(req => req.ref === toolResponse.ref);
+            const toolRequest = llmResponse.toolRequests.find(req => req.ref === toolResponse.ref);
             if (!toolRequest) continue;
 
             const accountName = (toolRequest.input as any)?.accountName;
