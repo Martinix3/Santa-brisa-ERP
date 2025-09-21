@@ -2,7 +2,6 @@
 'use server';
 import { ai } from '@/ai';
 import { getServerData } from '@/lib/dataprovider/server';
-import puppeteer from 'puppeteer';
 
 /**
  * Generates a PDF packing slip for a given shipment using AI and Puppeteer.
@@ -13,6 +12,9 @@ export async function generatePackingSlip(shipmentId: string): Promise<{ pdfData
   console.log(`[Server Action] Received request to generate packing slip for shipment: ${shipmentId}`);
 
   try {
+    // Dynamically import puppeteer only when needed
+    const puppeteer = (await import('puppeteer')).default;
+
     // 1. Fetch all necessary data from the database
     const data = await getServerData();
     const shipment = data.shipments.find(s => s.id === shipmentId);
