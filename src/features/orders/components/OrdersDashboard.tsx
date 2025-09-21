@@ -4,7 +4,7 @@
 import React, { useMemo, useState } from 'react';
 import { useData } from '@/lib/dataprovider';
 import { Download, Plus, Search } from 'lucide-react';
-import type { OrderSellOut, Account, User, OrderStatus } from '@/domain/ssot';
+import type { OrderSellOut, Account, User, OrderStatus, PartyRole, CustomerData } from '@/domain/ssot';
 import { orderTotal } from '@/domain/ssot';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
 import { ShoppingCart } from 'lucide-react';
@@ -94,12 +94,17 @@ export default function OrdersDashboard() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
 
-  const { ordersSellOut, accounts, users } = data || { ordersSellOut: [], accounts: [], users: [] };
+  const { ordersSellOut, accounts, users, partyRoles } = data || { ordersSellOut: [], accounts: [], users: [], partyRoles: [] };
   
   const accountMap = useMemo(() => {
     const accountEntries = (accounts || []).map((acc: Account): readonly [string, Account] => [acc.id, acc]);
     return new Map<string, Account>(accountEntries);
   }, [accounts]);
+  
+  const partyRoleMap = useMemo(() => {
+    const roleEntries = (partyRoles || []).map((pr: PartyRole): readonly [string, PartyRole] => [pr.partyId, pr]);
+    return new Map<string, PartyRole>(roleEntries);
+  }, [partyRoles]);
 
   const userMap = useMemo(() => {
     const userEntries = (users || []).map((user: User): readonly [string, string] => [user.id, user.name]);
@@ -108,14 +113,17 @@ export default function OrdersDashboard() {
 
 
   const filteredOrders = useMemo(() => {
-    return (ordersSellOut as OrderSellOut[])
+    if (!ordersSellOut) return [];
+    return ordersSellOut
       .filter((order) => {
         if (!order) return false;
         const account = accountMap.get(order.accountId);
         if (!account) return false;
 
-        // Filtro por tipo de venta (pestaña)
-        const isVentaDirecta = account.billerId === 'SB';
+        const customerRole = (partyRoles as PartyRole[]).find(pr => pr.partyId === account.partyId && pr.role === 'CUSTOMER');
+        const billerId = (customerRole?.data as CustomerData)?.billerId;
+
+        const isVentaDirecta = billerId === 'SB';
         if (activeTab === 'directa' && !isVentaDirecta) return false;
         if (activeTab === 'colocacion' && isVentaDirecta) return false;
 
@@ -129,7 +137,7 @@ export default function OrdersDashboard() {
         return matchesSearch && matchesStatus;
       })
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [ordersSellOut, searchTerm, statusFilter, accountMap, activeTab]);
+  }, [ordersSellOut, searchTerm, statusFilter, accountMap, partyRoles, activeTab]);
 
   return (
     <>
