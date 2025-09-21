@@ -1,4 +1,5 @@
 
+
 // src/app/(app)/marketing/dashboard/page.tsx
 "use client";
 import React, { useMemo, useState } from 'react';
@@ -72,28 +73,28 @@ function MarketingDashboardPageContent() {
 
         const inTimeRange = (dateStr?: string) => dateStr && new Date(dateStr) >= startDate && new Date(dateStr) <= now;
 
-        const eventsData = (data.marketingEvents || []).filter(e => inTimeRange(e.startAt) && e.status === 'closed').reduce((acc, e) => {
+        const eventsData = (data.marketingEvents || []).filter(e => inTimeRange(e.startAt) && (e.status === 'closed' || e.status === 'active')).reduce((acc, e) => {
             acc.spend += e.spend || 0;
             acc.revenue += e.kpis?.revenueAttributed || 0;
             acc.actions += 1;
             return acc;
         }, { spend: 0, revenue: 0, actions: 0 });
 
-        const onlineData = (data.onlineCampaigns || []).filter(c => inTimeRange(c.startAt) && c.status === 'closed').reduce((acc, c) => {
+        const onlineData = (data.onlineCampaigns || []).filter(c => inTimeRange(c.startAt) && (c.status === 'closed' || c.status === 'active')).reduce((acc, c) => {
             acc.spend += c.spend || 0;
             acc.revenue += c.metrics?.revenue || 0;
             acc.actions += 1;
             return acc;
         }, { spend: 0, revenue: 0, actions: 0 });
 
-        const collabsData = (data.influencerCollabs || []).filter(c => inTimeRange(c.dates?.goLiveAt) && c.status === 'COMPLETED').reduce((acc, c) => {
+        const collabsData = (data.influencerCollabs || []).filter(c => inTimeRange(c.dates?.goLiveAt) && (c.status === 'COMPLETED' || c.status === 'LIVE')).reduce((acc, c) => {
             acc.spend += (c.costs?.cashPaid || 0) + (c.costs?.productCost || 0) + (c.costs?.shippingCost || 0);
             acc.revenue += c.tracking?.revenue || 0;
             acc.actions += 1;
             return acc;
         }, { spend: 0, revenue: 0, actions: 0 });
         
-        const posData = (data.posTactics || []).filter(t => inTimeRange(t.createdAt) && t.status === 'closed').reduce((acc, t) => {
+        const posData = (data.posTactics || []).filter(t => inTimeRange(t.createdAt) && (t.status === 'closed' || t.status === 'active')).reduce((acc, t) => {
             acc.spend += t.actualCost || 0;
             acc.revenue += t.result?.upliftMargin || 0; // Using upliftMargin as revenue proxy
             acc.actions += 1;

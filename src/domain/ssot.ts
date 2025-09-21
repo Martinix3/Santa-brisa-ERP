@@ -1,4 +1,5 @@
 
+
 // src/domain/ssot.ts
 
 // =================================================================
@@ -500,7 +501,7 @@ export interface MarketingEvent {
     };
     notes?: string;
     createdAt: string;
-    updatedAt?: string;
+    updatedAt: string;
 }
 
 export interface OnlineCampaign {
@@ -997,4 +998,5 @@ export type AccountRollup = {
     activePosTactics: number;
     lastTacticAt?: string;
 };
+
 

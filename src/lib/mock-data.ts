@@ -1,4 +1,5 @@
 
+
 import type { SantaData } from '@/domain';
 
 export const INITIAL_MOCK_DATA: SantaData = {
@@ -121,7 +122,7 @@ export const INITIAL_MOCK_DATA: SantaData = {
     { id: 'me_2', title: 'Activación en Terraza Sol', kind: 'DEMO', accountId: 'acc_1', status: 'planned', startAt: '2024-07-20T18:00:00Z', city: 'Barcelona', createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z' }
   ],
   onlineCampaigns: [
-    { id: 'oc_1', title: 'Campaña Verano 2023', channel: 'IG', status: 'closed', startAt: '2023-06-01T00:00:00Z', endAt: '2023-08-31T23:59:59Z', budget: 10000, spend: 9850, metrics: { impressions: 1500000, clicks: 7500, roas: 3.5 } }
+    { id: 'oc_1', title: 'Campaña Verano 2023', channel: 'IG', status: 'closed', startAt: '2023-06-01T00:00:00Z', endAt: '2023-08-31T23:59:59Z', budget: 10000, spend: 9850, metrics: { impressions: 1500000, clicks: 7500, roas: 3.5 }, createdAt: '2023-06-01T00:00:00Z', updatedAt: '2023-08-31T23:59:59Z' }
   ],
   influencerCollabs: [
     {
@@ -178,4 +179,5 @@ export const INITIAL_MOCK_DATA: SantaData = {
 };
 
     
+
 
