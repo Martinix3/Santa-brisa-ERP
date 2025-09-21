@@ -9,7 +9,7 @@ import { useData } from "@/lib/dataprovider";
 import { ModuleHeader } from "@/components/ui/ModuleHeader";
 import { SBCard, SBButton } from "@/components/ui/ui-primitives";
 import { SB_COLORS } from '@/domain/ssot';
-import type { User as UserType, OrderSellOut, Account, Interaction, Product, Party } from '@/domain/ssot';
+import type { User as UserType, OrderSellOut, Account, Interaction, Product, Party, UserRole, Stage, OrderStatus, AccountType } from '@/domain/ssot';
 import { orderTotal } from '@/lib/sb-core';
 import { generateInsights } from '@/ai/flows/generate-insights-flow';
 import { Avatar } from "@/components/ui/Avatar";
@@ -200,7 +200,8 @@ function SalesMixDonutChart({ data, timeRange }: { data: any, timeRange: TimeRan
         return <SBCard title="Mix de Ventas"><p className="p-4 text-center text-sm text-zinc-500">No hay datos de ventas para este período.</p></SBCard>
     }
 
-    const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, name }: any) => {
+    const renderCustomizedLabel = (props: PieLabelRenderProps) => {
+        const { cx, cy, midAngle, innerRadius, outerRadius, percent, name } = props as any;
         const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
         const x = cx + radius * Math.cos(-midAngle * Math.PI / 180);
         const y = cy + radius * Math.sin(-midAngle * Math.PI / 180);
@@ -392,7 +393,7 @@ function TeamDashboardContent() {
             interactions: data.interactions.map(i => ({ id: i.id, accountId: i.accountId, userId: i.userId, kind: i.kind, date: i.createdAt })),
         };
         const result = await generateInsights({ 
-            jsonData: relevantData,
+            jsonData: JSON.stringify(relevantData),
             context: "Eres un director de ventas. Analiza los datos de comerciales, cuentas y pedidos para encontrar oportunidades de venta, clientes en riesgo, o comerciales con bajo rendimiento."
         });
         setInsights(result);

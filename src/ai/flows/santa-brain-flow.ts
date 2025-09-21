@@ -163,11 +163,11 @@ const santaBrainFlow = ai.defineFlow(
 
     const newEntities: Partial<SantaData> = {};
     const finalAnswer = llmResponse.text ?? '';
-    const toolCalls = llmResponse.toolCalls;
+    const toolCalls = llmResponse.candidates[0]?.toolCalls;
     
     if (toolCalls) {
       for (const toolCall of toolCalls) {
-        const toolRequest = toolCall;
+        const toolRequest = toolCall.toolRequest;
         const accountName = (toolRequest.input as any)?.accountName;
         const targetAccount = accounts.find(a => a.name.toLowerCase() === accountName?.toLowerCase());
         
