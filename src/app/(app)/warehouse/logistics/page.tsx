@@ -1,7 +1,8 @@
 
+
 "use client";
 import React, { useMemo, useState, useEffect } from "react";
-import { Printer, PackageCheck, Truck, CheckCircle2, Search, Plus, FileText, ClipboardList, Boxes, PackageOpen, BadgeCheck, AlertTriangle, Settings, Clipboard, Ruler, Weight, MoreHorizontal, Check as CheckIcon, FileDown, Package, Info } from "lucide-react";
+import { Printer, PackageCheck, Truck, CheckCircle2, Search, Plus, FileText, ClipboardList, Boxes, PackageOpen, BadgeCheck, AlertTriangle, Settings, Clipboard, Ruler, Weight, MoreHorizontal, Check as CheckIcon, FileDown, Package, Info, X } from "lucide-react";
 import { SBButton, SBCard, Input, Select, STATUS_STYLES } from '@/components/ui/ui-primitives';
 import { useData } from '@/lib/dataprovider';
 import type { Shipment, OrderSellOut, Account, ShipmentStatus, ShipmentLine, AccountType, Party } from '@/domain/ssot';
@@ -544,3 +545,4 @@ export default function LogisticsPage() {
     </div>
   );
 }
+
