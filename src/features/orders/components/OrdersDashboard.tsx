@@ -2,10 +2,10 @@
 
 "use client";
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useTransition } from 'react';
 import { useData } from '@/lib/dataprovider';
-import { Download, Plus, Search, FileWarning, PackageCheck, FileText, Banknote, CheckCircle, Boxes } from 'lucide-react';
-import type { OrderSellOut, Account, User, OrderStatus, PartyRole, CustomerData } from '@/domain/ssot';
+import { Download, Plus, Search, FileWarning, PackageCheck, FileText, Banknote, CheckCircle, Boxes, Loader2 } from 'lucide-react';
+import type { OrderSellOut, Account, User, OrderStatus, PartyRole, CustomerData, SantaData } from '@/domain/ssot';
 import { orderTotal } from '@/lib/sb-core';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
 import { ShoppingCart } from 'lucide-react';
@@ -70,7 +70,9 @@ const statusOptions: { value: OrderStatus; label: string }[] = [
     { value: 'lost', label: 'Perdido' },
 ];
 
-function StatusSelector({ order, onStatusChange }: { order: OrderSellOut; onStatusChange: (orderId: string, newStatus: OrderStatus) => void; }) {
+function StatusSelector({ order, onStatusChange }: { order: OrderSellOut; onStatusChange: (orderId: string, newStatus: OrderStatus) => Promise<void>; }) {
+    const [isPending, startTransition] = useTransition();
+
     const statusMap: Record<OrderStatus, { label: string; className: string }> = {
         open: { label: 'Borrador', className: 'bg-zinc-100 text-zinc-700' },
         confirmed: { label: 'Confirmado', className: 'bg-blue-100 text-blue-700' },
@@ -83,16 +85,27 @@ function StatusSelector({ order, onStatusChange }: { order: OrderSellOut; onStat
 
     const style = statusMap[order.status] || statusMap.open;
 
+    const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const newStatus = e.target.value as OrderStatus;
+        startTransition(async () => {
+            await onStatusChange(order.id, newStatus);
+        });
+    };
+
     return (
-        <select
-            value={order.status}
-            onChange={(e) => onStatusChange(order.id, e.target.value as OrderStatus)}
-            className={`appearance-none px-2.5 py-1 text-xs font-semibold rounded-full outline-none focus:ring-2 ring-offset-1 ring-blue-400 ${style.className}`}
-        >
-            {statusOptions.map(opt => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-        </select>
+        <div className="relative flex items-center gap-2">
+            <select
+                value={order.status}
+                onChange={handleChange}
+                disabled={isPending}
+                className={`appearance-none px-2.5 py-1 text-xs font-semibold rounded-full outline-none focus:ring-2 ring-offset-1 ring-blue-400 transition-colors ${style.className}`}
+            >
+                {statusOptions.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+            </select>
+            {isPending && <Loader2 className="h-4 w-4 animate-spin text-zinc-500" />}
+        </div>
     );
 }
 
@@ -147,12 +160,11 @@ function exportToCsv(filename: string, rows: (string | number)[][]) {
 const accountHref = (id: string) => `/accounts/${id}`;
 
 export default function OrdersDashboard() {
-  const { data, setData, saveCollection, saveAllCollections } = useData();
+  const { data, setData, saveAllCollections } = useData();
   const [activeTab, setActiveTab] = useState<Tab>('directa');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [isCreateOrderOpen, setIsCreateOrderOpen] = useState(false);
-  const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
 
   const { ordersSellOut, accounts, users, partyRoles, stockMoves, inventory, products } = data || { ordersSellOut: [], accounts: [], users: [], partyRoles: [], stockMoves: [], inventory: [], products: [] };
   
@@ -232,9 +244,9 @@ export default function OrdersDashboard() {
 
   const handleCreateOrder = (payload: any) => {
     if (!data) return;
-    const targetAccount = data.accounts.find(a => a.name === payload.account) ?? payload.newAccount;
+    const targetAccount = payload.newAccount ? payload.newAccount : data.accounts.find(a => a.name === payload.account);
+
     if (!targetAccount) {
-        // This case should not happen with the new flow, but we keep a log just in case.
         console.error("No se pudo encontrar o crear la cuenta para el pedido.");
         return;
     }
@@ -254,7 +266,8 @@ export default function OrdersDashboard() {
     const collectionsToSave: Partial<SantaData> = {
         ordersSellOut: [...(data.ordersSellOut || []), newOrder]
     };
-    if (payload.newAccount) {
+
+    if (payload.newAccount && payload.newParty) {
         collectionsToSave.accounts = [...(data.accounts || []), payload.newAccount];
         collectionsToSave.parties = [...(data.parties || []), payload.newParty];
     }
@@ -265,19 +278,9 @@ export default function OrdersDashboard() {
 
   const handleStatusChange = async (orderId: string, newStatus: OrderStatus) => {
     if (!data) return;
-
-    if (newStatus === 'confirmed') {
-        const order = enrichedOrders.find(o => o.id === orderId);
-        if (order) {
-            const shortages = checkOrderStock(order as OrderSellOut, inventory || [], products || []);
-            if (shortages.length > 0) {
-                const shortageMessage = shortages.map(s => `${s.qtyShort} uds de ${s.sku}`).join(', ');
-                alert(`¡Atención! Falta de stock para el pedido ${order.docNumber || order.id}:\nFaltan ${shortageMessage}.\n\nEl pedido se confirmará de todos modos (backorder).`);
-            }
-        }
-    }
-
+  
     // Optimistic UI update
+    const originalOrders = data.ordersSellOut;
     setData(prevData => {
         if (!prevData) return null;
         const updatedOrders = prevData.ordersSellOut.map(o => o.id === orderId ? { ...o, status: newStatus } : o);
@@ -285,12 +288,24 @@ export default function OrdersDashboard() {
     });
 
     try {
+        if (newStatus === 'confirmed') {
+            const order = enrichedOrders.find(o => o.id === orderId);
+            if (order) {
+                const shortages = checkOrderStock(order as OrderSellOut, inventory || [], products || []);
+                if (shortages.length > 0) {
+                    const shortageMessage = shortages.map(s => `${s.qtyShort} uds de ${s.sku}`).join(', ');
+                    // We avoid alert()
+                    console.warn(`Falta de stock para el pedido ${order.docNumber || order.id}:\nFaltan ${shortageMessage}.\n\nEl pedido se confirmará de todos modos (backorder).`);
+                }
+            }
+        }
+        // This will now wait for the server action to complete.
         await updateOrderStatus(orderId, newStatus);
+        
     } catch (error) {
         console.error("Failed to update order status:", error);
         // Revert UI if server update fails
-        setData(data);
-        alert("Error al actualizar el estado del pedido.");
+        setData(prevData => prevData ? ({ ...prevData, ordersSellOut: originalOrders }) : null);
     }
   };
 
