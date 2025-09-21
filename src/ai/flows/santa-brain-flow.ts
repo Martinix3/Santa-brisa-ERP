@@ -1,4 +1,3 @@
-
 'use server';
 /**
  * @fileoverview Santa Brisa main conversational agent
@@ -161,31 +160,31 @@ const santaBrainFlow = ai.defineFlow(
       },
     });
 
-    const toolResponses = llmResponse.toolResponses;
+    const toolResponses = llmResponse.toolRequest()?.responses;
     let finalAnswer = llmResponse.text ?? '';
     const newEntities: Partial<SantaData> = {};
 
     if (toolResponses && toolResponses.length > 0) {
         for (const toolResponse of toolResponses) {
-            const toolRequest = llmResponse.toolRequests.find(req => req.toolRequest.ref === toolResponse.toolResponse.ref);
+            const toolRequest = llmResponse.toolRequests().find(req => req.ref === toolResponse.ref);
             if (!toolRequest) continue;
 
-            const accountName = (toolRequest.toolRequest.input as any)?.accountName;
+            const accountName = (toolRequest.input as any)?.accountName;
             const targetAccount = accounts.find(a => a.name.toLowerCase() === accountName?.toLowerCase());
             
-            if (toolResponse.toolResponse.output) {
-                 if (toolRequest.toolRequest.name === 'createOrder' && targetAccount) {
-                    const newOrder = { ...(toolResponse.toolResponse.output as object), accountId: targetAccount.id };
+            if (toolResponse.output) {
+                 if (toolRequest.name === 'createOrder' && targetAccount) {
+                    const newOrder = { ...(toolResponse.output as object), accountId: targetAccount.id };
                     newEntities.ordersSellOut = [...(newEntities.ordersSellOut || []), newOrder as OrderSellOut];
                     finalAnswer += `\nHecho. He creado un pedido para ${targetAccount.name}. ¿Has hecho alguna promoción o necesitas visibilidad (PLV)?`;
                  }
-                 else if (toolRequest.toolRequest.name === 'createInteraction' && targetAccount) {
-                    const newInteraction = { ...(toolResponse.toolResponse.output as object), accountId: targetAccount.id, userId: 'u_admin' }; // Placeholder user
+                 else if (toolRequest.name === 'createInteraction' && targetAccount) {
+                    const newInteraction = { ...(toolResponse.output as object), accountId: targetAccount.id, userId: 'u_admin' }; // Placeholder user
                     newEntities.interactions = [...(newEntities.interactions || []), newInteraction as Interaction];
                     finalAnswer += `\nHecho. He registrado una interacción con ${targetAccount.name}.`;
                  }
-                 else if (toolRequest.toolRequest.name === 'createAccount') {
-                    const outputData = toolResponse.toolResponse.output as any;
+                 else if (toolRequest.name === 'createAccount') {
+                    const outputData = toolResponse.output as any;
                     const newParty: Party = {
                         id: `party_${Date.now()}`,
                         name: outputData.name,

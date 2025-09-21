@@ -16,13 +16,13 @@ export async function listInteractions(): Promise<Interaction[]> {
   return data.interactions || [];
 }
 
-export async function addOrUpdateInteraction(interaction: Omit<Interaction, 'id' | 'createdAt'> & { id?: string }): Promise<Interaction> {
+export async function addOrUpdateInteraction(interaction: Omit<Interaction, 'id' | 'createdAt' | 'status'> & { id?: string }): Promise<Interaction> {
     console.log("Mock save interaction", interaction);
     return {
         id: interaction.id || `int_${Date.now()}`,
         createdAt: new Date().toISOString(),
         status: 'open',
-        ...interaction,
+        ...(interaction as Omit<Interaction, 'id' | 'createdAt' | 'status'>),
     } as Interaction;
 }
 

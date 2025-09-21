@@ -3,7 +3,8 @@
 "use client";
 import React, { useState, useEffect, useMemo } from 'react';
 import { Truck, PackageCheck, AlertCircle, ChevronDown, Printer, FileText, Plus, Download, MoreVertical, Package, Tag, Calendar, CheckCircle, XCircle, Hourglass } from "lucide-react";
-import { DataTableSB, Col, LotQualityStatusPill, SBCard, Input, Select } from '@/components/ui/ui-primitives';
+import { DataTableSB, LotQualityStatusPill, SBCard, Input, Select } from '@/components/ui/ui-primitives';
+import type { Col } from '@/components/ui/ui-primitives';
 import { listLots, listMaterials } from "@/features/production/ssot-bridge";
 import type { Lot, Material, InventoryItem, Uom, StockMove } from '@/domain/ssot';
 import { useData } from '@/lib/dataprovider';
@@ -98,12 +99,13 @@ const ManualAdjustmentDialog = ({ open, onClose, onSave }: { open: boolean; onCl
         const newMove: StockMove = {
             id: `sm_${Date.now()}`,
             sku,
-            lotNumber: lotNumber || undefined,
+            lotId: lotNumber || undefined,
             qty,
             uom,
-            to: locationId,
+            toLocation: locationId,
             reason: 'adjustment',
-            at: now,
+            occurredAt: now,
+            createdAt: now,
         };
 
         onSave(newItem, newMove);
@@ -191,7 +193,7 @@ export default function InventoryPage() {
                     category: material?.category || 'finished_good',
                     quantity: lot.quantity,
                     createdAt: lot.createdAt,
-                    expDate: lot.dates?.expDate,
+                    expDate: lot.expDate,
                     quality: {
                         qcStatus: lot.quality?.qcStatus
                     },

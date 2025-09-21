@@ -2,9 +2,23 @@
 // app/cashflow/settings/page.tsx
 'use client';
 import { useEffect, useState } from 'react';
-import type { CashflowSettings, AccountType } from '@/domain/ssot';
+import type { AccountType } from '@/domain/ssot';
 import { SBCard, SBButton, Input, Select } from '@/components/ui/ui-primitives';
 import { Save } from 'lucide-react';
+
+export interface CashflowSettings {
+    currency: 'EUR';
+    openingBalance: number;
+    defaultTermsDays: number;
+    includeConfidence: { high: boolean; medium: boolean; low: boolean; };
+    vatMode: 'gross' | 'net';
+    vatSettlementDay?: 20;
+    payoutFeePctOnline?: number;
+    bankFeePct?: number;
+    bucket?: 'day' | 'week' | 'month';
+    termsByChannel?: Partial<Record<AccountType, number>>;
+    lagByPaymentMethod?: Partial<Record<'tarjeta' | 'transferencia' | 'domiciliado' | 'paypal' | 'contado', number>>;
+}
 
 const DEFAULTS: CashflowSettings = {
   currency: 'EUR',
@@ -47,7 +61,7 @@ export default function CashflowSettingsPage() {
         if (contentType && contentType.indexOf('application/json') !== -1) {
           const data = await response.json();
           if (data && Object.keys(data).length > 0) {
-            setS(prev => ({...prev, ...data}));
+            setS((prev: CashflowSettings) => ({...prev, ...data}));
           }
         } else {
             console.warn("Received non-JSON response from settings API");
@@ -65,12 +79,12 @@ export default function CashflowSettingsPage() {
     setSaving(false);
   };
 
-  const set = <K extends keyof CashflowSettings>(k:K, v:CashflowSettings[K]) => setS(prev => ({ ...prev, [k]: v }));
+  const set = <K extends keyof CashflowSettings>(k:K, v:CashflowSettings[K]) => setS((prev: CashflowSettings) => ({ ...prev, [k]: v }));
   const setLag = (method: keyof NonNullable<CashflowSettings['lagByPaymentMethod']>, value: string) => {
-      setS(prev => ({ ...prev, lagByPaymentMethod: { ...(prev.lagByPaymentMethod || {}), [method]: Number(value) } }));
+      setS((prev: CashflowSettings) => ({ ...prev, lagByPaymentMethod: { ...(prev.lagByPaymentMethod || {}), [method]: Number(value) } }));
   }
   const setTerms = (channel: AccountType, value: string) => {
-      setS(prev => ({ ...prev, termsByChannel: { ...(prev.termsByChannel || {}), [channel]: Number(value) } }));
+      setS((prev: CashflowSettings) => ({ ...prev, termsByChannel: { ...(prev.termsByChannel || {}), [channel]: Number(value) } }));
   }
 
   return (

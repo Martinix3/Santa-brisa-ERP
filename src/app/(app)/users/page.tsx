@@ -3,7 +3,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { User, SantaData as SantaDataType, UserRole } from '@/domain';
+import type { User, SantaData, UserRole } from '@/domain';
 import { Trash2, Lock, Unlock, Edit, Save, X, User as UserIcon } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';

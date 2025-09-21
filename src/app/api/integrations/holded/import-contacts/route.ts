@@ -3,7 +3,7 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/server/firebaseAdmin';
 import { fetchContacts } from '@/features/integrations/holded/service';
-import type { Account, SantaData } from '@/domain/ssot';
+import type { Account, Party } from '@/domain/ssot';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -27,14 +27,14 @@ export async function POST(req: Request) {
     }
 
     const holdedContacts = await fetchContacts(holdedApiKey);
-    const accountsSnapshot = await db.collection('accounts').get();
-    const existingAccounts: Account[] = accountsSnapshot.docs.map(doc => doc.data() as Account);
+    const partiesSnapshot = await db.collection('parties').get();
+    const existingParties: Party[] = partiesSnapshot.docs.map(doc => doc.data() as Party);
     
-    const accountsByCif = new Map<string, Account>();
-    const accountsByName = new Map<string, Account>();
-    existingAccounts.forEach(acc => {
-      if (acc.cif) accountsByCif.set(acc.cif.trim().toUpperCase(), acc);
-      accountsByName.set(acc.name.trim().toLowerCase(), acc);
+    const partiesByTaxId = new Map<string, Party>();
+    const partiesByName = new Map<string, Party>();
+    existingParties.forEach(p => {
+      if (p.taxId) partiesByTaxId.set(p.taxId.trim().toUpperCase(), p);
+      partiesByName.set(p.name.trim().toLowerCase(), p);
     });
 
     // Limpiar staging area anterior
@@ -51,30 +51,32 @@ export async function POST(req: Request) {
     for (const contact of holdedContacts) {
       if (!contact.name) continue;
 
-      const contactCif = (contact.code || '').trim().toUpperCase();
-      let existingAccount: Account | undefined = undefined;
+      const contactTaxId = (contact.code || '').trim().toUpperCase();
+      let existingParty: Party | undefined = undefined;
 
-      if (contactCif) existingAccount = accountsByCif.get(contactCif);
-      if (!existingAccount) existingAccount = accountsByName.get(contact.name.trim().toLowerCase());
+      if (contactTaxId) existingParty = partiesByTaxId.get(contactTaxId);
+      if (!existingParty) existingParty = partiesByName.get(contact.name.trim().toLowerCase());
       
-      const proposedData: Partial<Account> = {
+      const proposedData: Partial<Party> = {
         name: contact.name,
-        cif: contact.code || undefined,
-        address: contact.billAddress?.address || undefined,
-        city: contact.billAddress?.city || undefined,
-        phone: contact.phone || undefined,
-        type: 'HORECA',
-        stage: 'POTENCIAL',
-        ownerId: 'u_admin', 
-        billerId: 'SB',
+        taxId: contact.code || undefined,
+        addresses: contact.billAddress ? [{
+            type: 'billing',
+            street: contact.billAddress.address,
+            city: contact.billAddress.city,
+            postalCode: contact.billAddress.postalCode,
+            country: contact.billAddress.country,
+        }] : [],
+        contacts: contact.phone ? [{ type: 'phone', value: contact.phone }] : [],
+        kind: 'ORG',
       };
       
       const docRef = db.collection('staged_imports').doc();
-      if (existingAccount) {
+      if (existingParty) {
         importBatch.set(docRef, {
             importId,
-            type: 'update',
-            existingAccountId: existingAccount.id,
+            type: 'update_party',
+            existingPartyId: existingParty.id,
             proposedData,
             status: 'pending'
         });
@@ -82,7 +84,7 @@ export async function POST(req: Request) {
       } else {
         importBatch.set(docRef, {
             importId,
-            type: 'create',
+            type: 'create_party_and_account',
             proposedData,
             status: 'pending'
         });
@@ -92,11 +94,9 @@ export async function POST(req: Request) {
 
     await importBatch.commit();
     
-    // Opcional: guardar un registro de la última sincronización
     try {
       await db.collection('dev-metadata').doc('integrations').set({ holded: { lastContactSyncAt: new Date().toISOString() } }, { merge: true });
     } catch (e) {
-      // No es crítico si esto falla
       console.warn("Could not save last sync time for Holded contacts.", e);
     }
 
@@ -107,7 +107,6 @@ export async function POST(req: Request) {
       message: `Análisis completado. Listos para importar.`,
       toCreate: toCreateCount,
       toUpdate: toUpdateCount,
-      // Devuelve la URL de revisión para el DataViewer
       reviewUrl: `/dev/data-viewer?reviewImportId=${importId}`
     });
 

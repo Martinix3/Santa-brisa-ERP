@@ -3,7 +3,8 @@
 import React, { useMemo, useState } from 'react';
 import { useData } from '@/lib/dataprovider';
 import type { EventMarketing, Interaction } from '@/domain/ssot';
-import { SBCard, SBButton, DataTableSB, Col, SB_COLORS } from '@/components/ui/ui-primitives';
+import { SBCard, SBButton, DataTableSB, SB_COLORS } from '@/components/ui/ui-primitives';
+import type { Col } from '@/components/ui/ui-primitives';
 import { NewEventDialog } from '@/features/agenda/components/NewEventDialog';
 import { MarketingTaskCompletionDialog } from '@/features/marketing/components/MarketingTaskCompletionDialog';
 
@@ -29,7 +30,7 @@ export default function Page(){
   const [isNewEventDialogOpen, setIsNewEventDialogOpen] = useState(false);
   const [completingEvent, setCompletingEvent] = useState<EventMarketing | null>(null);
 
-  const events = useMemo(() => santaData?.mktEvents || [], [santaData]);
+  const events = useMemo(() => santaData?.events || [], [santaData]);
 
   const handleAddOrUpdateEvent = async (event: Omit<Interaction, 'createdAt' | 'status'> & { id?: string }) => {
       if (!currentUser || !santaData) return;
@@ -46,12 +47,11 @@ export default function Page(){
       const newMktEvent: EventMarketing = {
           id: `mkt_${Date.now()}`,
           title: newInteraction.note!,
-          kind: 'OTRO',
           status: 'planned',
           startAt: newInteraction.plannedFor || new Date().toISOString(),
           city: newInteraction.location,
       };
-      finalData.mktEvents = [...(finalData.mktEvents || []), newMktEvent];
+      finalData.events = [...(finalData.events || []), newMktEvent];
       newInteraction.linkedEntity = { type: 'Campaign', id: newMktEvent.id };
 
       finalData.interactions = [...(finalData.interactions || []), newInteraction];
@@ -59,7 +59,7 @@ export default function Page(){
       setData(finalData);
       
       if(isPersistenceEnabled) {
-          await saveCollection('mktEvents', finalData.mktEvents);
+          await saveCollection('events', finalData.events);
           await saveCollection('interactions', finalData.interactions);
       }
 
@@ -69,7 +69,7 @@ export default function Page(){
   const handleSaveCompletedTask = async (taskId: string, payload: any) => {
     if (!santaData || !completingEvent) return;
     
-    const updatedMktEvents = santaData.mktEvents.map(me => {
+    const updatedMktEvents = santaData.events.map(me => {
         if (me.id === completingEvent.id) {
             return {
                 ...me,
@@ -81,9 +81,9 @@ export default function Page(){
         return me;
     });
 
-    setData({ ...santaData, mktEvents: updatedMktEvents });
+    setData({ ...santaData, events: updatedMktEvents });
     if (isPersistenceEnabled) {
-        await saveCollection('mktEvents', updatedMktEvents);
+        await saveCollection('events', updatedMktEvents);
     }
 
     setCompletingEvent(null);
@@ -118,7 +118,7 @@ export default function Page(){
                 Nuevo Evento
             </SBButton>
         </div>
-        <SBCard title="Resultados de Eventos de Marketing" accent={SB_COLORS.marketing}>
+        <SBCard title="Resultados de Eventos de Marketing" accent={SB_COLORS.primary.teal}>
              <DataTableSB rows={events} cols={cols as any} />
         </SBCard>
     </div>
@@ -128,7 +128,7 @@ export default function Page(){
             open={isNewEventDialogOpen}
             onOpenChange={setIsNewEventDialogOpen}
             onSave={handleAddOrUpdateEvent as any}
-            accentColor={SB_COLORS.marketing}
+            accentColor={SB_COLORS.primary.teal}
             initialEventData={{dept: 'MARKETING'} as any}
         />
     )}

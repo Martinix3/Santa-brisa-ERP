@@ -11,7 +11,7 @@ import Link from 'next/link';
 import { enrichAccount } from '@/ai/flows/enrich-account-flow';
 
 import { SBFlowModal } from '@/features/quicklog/components/SBFlows';
-import { SBButton, SBCard } from '@/components/ui/ui-primitives';
+import { SBButton, SBCard, SB_COLORS } from '@/components/ui/ui-primitives';
 
 
 // ====== UI Primitives ======
@@ -221,7 +221,7 @@ export function AccountDetailPageContent(){
           <div className="p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl" style={{backgroundColor:SB_COLORS.accent}}/>
+                    <div className="h-10 w-10 rounded-xl" style={{backgroundColor:SB_COLORS.primary.teal}}/>
                     <div>
                       <h1 className="text-xl font-bold text-zinc-900">{account.name}</h1>
                       <div className="text-sm text-zinc-600">{party.addresses[0]?.city} · {account.type}{account.subType && ` (${account.subType})`} · <span className="font-medium">{account.stage}</span></div>
@@ -297,7 +297,7 @@ export function AccountDetailPageContent(){
                 <Row label="Contacto Principal" icon={User}>{mainContact?.description || '—'}<br/><span className="text-xs text-zinc-500">{mainContact?.value}</span></Row>
                 <Row label="Teléfono" icon={Phone}>{party.contacts.find(c => c.type==='phone')?.value}</Row>
                 <Row label="Dirección" icon={MapPin}>{party.addresses[0]?.street}</Row>
-                <Row label="Email Facturación" icon={Mail}>{party.contacts.find(c => c.description?.toLowerCase().includes('factura'))?.value}</Row>
+                <Row label="Email Facturación" icon={Mail}>{party.contacts.find(c => c.type === 'email' && c.description?.toLowerCase().includes('factura'))?.value}</Row>
                 <hr className="my-2"/>
                 {owner && <Row label="Comercial" icon={Briefcase}>{owner}</Row>}
                 {distributor && <Row label="Distribuidor" icon={Boxes}>{distributor.name}</Row>}
@@ -335,7 +335,7 @@ export function AccountDetailPageContent(){
                     id: `party_local_${Date.now()}`,
                     name: d.name,
                     kind: 'ORG',
-                    addresses: [{ type: 'main', city: d.city || '', country: 'España', street: '' }],
+                    addresses: [{ type: 'main', city: d.city || '', country: 'España', street: '', postalCode: '' }],
                     contacts: [],
                     createdAt: new Date().toISOString(),
                  };
@@ -348,15 +348,15 @@ export function AccountDetailPageContent(){
                      ownerId: currentUser!.id, 
                      createdAt: new Date().toISOString()
                  };
-                 const newPartyRole = {
+                 const newPartyRole: PartyRole = {
                      id: `pr_local_${Date.now()}`,
                      partyId: newParty.id,
                      role: 'CUSTOMER',
                      isActive: true,
                      createdAt: new Date().toISOString(),
-                     data: { salesRepId: currentUser!.id, billerId: 'SB' }
+                     data: { salesRepId: currentUser!.id, billerId: 'SB' } as CustomerData
                  }
-                 setData({...santaData, parties: [...santaData.parties, newParty], accounts: [...santaData.accounts, newAccount], partyRoles: [...santaData.partyRoles, newPartyRole]});
+                 setData({...santaData, parties: [...santaData.parties, newParty], accounts: [...santaData.accounts, newAccount], partyRoles: [...santaData.partyRoles, newPartyRole] as PartyRole[]});
                  return newAccount as any;
             }}
             defaults={modalVariant === 'editAccount' ? editAccountDefaults : undefined}

@@ -102,7 +102,7 @@ function PersonalDashboardContent() {
       
       const newInteraction: Interaction = {
           id: `int_${Date.now()}`,
-          ...eventData,
+          ...(eventData as Omit<Interaction, 'id' | 'createdAt' | 'status'>),
           createdAt: new Date().toISOString(),
           status: 'open',
           userId: currentUser.id,
@@ -191,9 +191,9 @@ function PersonalDashboardContent() {
 
         {/* KPIs */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <PersonalKPI label="Tareas Pendientes (Hoy)" value={kpis.todayTasks} icon={Clock} color={SB_COLORS.primary} />
-          <PersonalKPI label="Tareas Atrasadas" value={kpis.overdueTasks} icon={AlertTriangle} color={SB_COLORS.cobre} />
-          <PersonalKPI label="Tareas Futuras" value={kpis.futureTasks} icon={Calendar} color={SB_COLORS.accent} />
+          <PersonalKPI label="Tareas Pendientes (Hoy)" value={kpis.todayTasks} icon={Clock} color={SB_COLORS.primary.copper} />
+          <PersonalKPI label="Tareas Atrasadas" value={kpis.overdueTasks} icon={AlertTriangle} color={SB_COLORS.state.danger} />
+          <PersonalKPI label="Tareas Futuras" value={kpis.futureTasks} icon={Calendar} color={SB_COLORS.primary.teal} />
         </div>
 
         {/* Task Board */}
@@ -212,7 +212,7 @@ function PersonalDashboardContent() {
             open={isNewEventDialogOpen}
             onOpenChange={setIsNewEventDialogOpen}
             onSave={handleSaveNewTask as any}
-            accentColor={SB_COLORS.primary}
+            accentColor={SB_COLORS.primary.copper}
           />
       )}
 

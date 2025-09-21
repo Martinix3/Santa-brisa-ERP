@@ -4,10 +4,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { listLots, listMaterials, updateMaterial } from '@/features/production/ssot-bridge';
 import type { Lot, Material } from '@/domain/ssot';
-import { MATERIAL_CATEGORIES } from '@/domain/ssot';
 import { SBCard, SBButton, LotQualityStatusPill } from '@/components/ui/ui-primitives';
 import { ChevronDown, Save, Tags } from 'lucide-react';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
+
+const MATERIAL_CATEGORIES: Material['category'][] = ['raw', 'packaging', 'label', 'consumable', 'intermediate', 'finished_good', 'merchandising'];
 
 type SkuWithLots = {
     sku: string;
@@ -35,7 +36,7 @@ function SkuRow({ item, onUpdateCategory }: { item: SkuWithLots; onUpdateCategor
                         onChange={(e) => onUpdateCategory(item.sku, e.target.value as Material['category'])}
                         className="w-full h-9 rounded-md border border-zinc-200 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400"
                     >
-                        {(MATERIAL_CATEGORIES || []).map(cat => (
+                        {(MATERIAL_CATEGORIES || []).map((cat: Material['category']) => (
                             <option key={cat} value={cat}>{cat}</option>
                         ))}
                     </select>

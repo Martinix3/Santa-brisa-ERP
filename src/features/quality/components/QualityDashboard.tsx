@@ -39,7 +39,7 @@ export default function QualityDashboardPage() {
     }, [lots]);
 
     const recentChecks = useMemo(() => {
-        return qaChecks.sort((a, b) => new Date(b.reviewedAt).getTime() - new Date(a.reviewedAt).getTime()).slice(0, 5);
+        return qaChecks.sort((a, b) => new Date(b.reviewedAt || 0).getTime() - new Date(a.reviewedAt || 0).getTime()).slice(0, 5);
     }, [qaChecks]);
 
     return (
@@ -53,7 +53,7 @@ export default function QualityDashboardPage() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <SBCard title="Lotes Pendientes de Revisión (en cuarentena)" accent={SB_COLORS.quality}>
+                <SBCard title="Lotes Pendientes de Revisión (en cuarentena)" accent={SB_COLORS.primary.sun}>
                      <div className="divide-y divide-zinc-100">
                         {lots.filter(l => l.quality?.qcStatus === 'hold').map(lot => (
                             <div key={lot.id} className="p-3 flex justify-between items-center">
@@ -70,17 +70,17 @@ export default function QualityDashboardPage() {
                         {kpis.pending === 0 && <p className="p-4 text-sm text-center text-zinc-500">No hay lotes en cuarentena.</p>}
                     </div>
                 </SBCard>
-                <SBCard title="Últimos Controles de Calidad Realizados" accent={SB_COLORS.quality}>
+                <SBCard title="Últimos Controles de Calidad Realizados" accent={SB_COLORS.primary.sun}>
                     <div className="divide-y divide-zinc-100">
                        {recentChecks.map(check => (
                            <div key={check.id} className="p-3 flex justify-between items-center">
                                <div>
                                    <p className="font-mono text-sm font-semibold">{check.lotId}</p>
                                    <p className="text-xs text-zinc-500">
-                                       Revisado por {data?.users.find(u => u.id === check.reviewerId)?.name || 'N/A'}
+                                       Revisado por {data?.users.find(u => u.id === check.reviewedById)?.name || 'N/A'}
                                    </p>
                                </div>
-                               <LotQualityStatusPill status={check.result === 'PASS' ? 'release' : 'reject'} />
+                               <LotQualityStatusPill status={check.summaryStatus === 'ok' ? 'release' : 'reject'} />
                            </div>
                        ))}
                        {recentChecks.length === 0 && <p className="p-4 text-sm text-center text-zinc-500">No hay controles de calidad recientes.</p>}

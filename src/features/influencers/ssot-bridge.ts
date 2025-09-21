@@ -1,7 +1,8 @@
+
 // src/features/influencers/ssot-bridge.ts
 import { collection, getDocs, doc, writeBatch, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebaseClient";
-import type { Creator, InfluencerCollab } from '@/domain';
+import type { InfluencerCollab } from '@/domain';
 
 
 // En un proyecto real, estas funciones harían llamadas a Firestore.
@@ -17,8 +18,8 @@ async function listCollection<T>(name: string): Promise<T[]> {
   }
 }
 
-export async function listCreators(): Promise<Creator[]> {
-  return listCollection<Creator>('creators');
+export async function listCreators(): Promise<any[]> {
+  return listCollection<any>('creators');
 }
 
 export async function listCollabs(): Promise<InfluencerCollab[]> {

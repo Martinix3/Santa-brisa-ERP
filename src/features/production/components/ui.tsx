@@ -25,13 +25,13 @@ function KPI({ icon: Icon, label, value, color }: { icon: React.ElementType, lab
 
 function StatusPill({status}:{status: 'pending'|'released'|'wip'|'done'|'cancelled'}){
   const map:any = {
-    pending: { txt:'Pendiente', bg:'bg-sb-neutral-100 text-sb-neutral-700' },
+    planned: { txt:'Planificada', bg:'bg-sb-neutral-100 text-sb-neutral-700' },
     released: { txt:'Liberada', bg:'bg-blue-100 text-blue-800' },
     wip: { txt:'En curso', bg:'bg-amber-100 text-amber-800' },
     done: { txt:'Cerrada', bg:'bg-green-100 text-green-800' },
     cancelled: { txt:'Cancelada', bg:'bg-red-100 text-red-700' },
   };
-  const s = map[status] || map.pending;
+  const s = map[status] || map.planned;
   return <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-medium ${s.bg}`}>{s.txt}</span>;
 }
 
@@ -71,7 +71,7 @@ function UpcomingEvents() {
 
                     return (
                         <div key={event.id} className={`flex items-center gap-3 p-2 rounded-lg border cursor-pointer ${isOverdue ? 'bg-rose-50/50 border-rose-200' : 'bg-zinc-50 border-zinc-200 hover:bg-zinc-100'}`}>
-                            <div className="p-2 rounded-full" style={{ backgroundColor: DEPT_META.PRODUCCION.color, color: DEPT_META.PRODUCCION.textColor }}>
+                            <div className="p-2 rounded-full" style={{ backgroundColor: DEPT_META.PRODUCCION.bg, color: DEPT_META.PRODUCCION.text }}>
                                 <Icon size={16} className={iconColor} />
                             </div>
                             <div>
@@ -93,7 +93,7 @@ export function ProductionDashboard({ orders, lots }: { orders: ProductionOrder[
         const pendingQCLots = lots.filter(l => l.quality?.qcStatus === 'hold');
         const overdueOrders = orders.filter(o => {
             const isLate = new Date(o.createdAt) < new Date(Date.now() - 3 * 86400000); // >3 days old
-            return (o.status === 'pending' || o.status === 'released') && isLate;
+            return (o.status === 'planned' || o.status === 'released') && isLate;
         });
 
         return {
@@ -123,14 +123,14 @@ export function ProductionDashboard({ orders, lots }: { orders: ProductionOrder[
     return (
         <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <KPI icon={Factory} label="Órdenes Activas" value={kpis.activeOrders} color={SB_COLORS.production} />
-                <KPI icon={AlertCircle} label="Órdenes Retrasadas" value={kpis.overdueOrders} color={SB_COLORS.production} />
-                <KPI icon={Hourglass} label="Lotes Pendientes QC" value={kpis.pendingQCLots} color={SB_COLORS.primary} />
+                <KPI icon={Factory} label="Órdenes Activas" value={kpis.activeOrders} color={SB_COLORS.primary.teal} />
+                <KPI icon={AlertCircle} label="Órdenes Retrasadas" value={kpis.overdueOrders} color={SB_COLORS.primary.copper} />
+                <KPI icon={Hourglass} label="Lotes Pendientes QC" value={kpis.pendingQCLots} color={SB_COLORS.primary.sun} />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2">
-                    <SBCard title="Órdenes de Producción" accent={SB_COLORS.production}>
+                    <SBCard title="Órdenes de Producción" accent={SB_COLORS.primary.teal}>
                         <div className="divide-y divide-zinc-100">
                         {orders.map(order => (
                             <div key={order.id} className="grid grid-cols-6 gap-4 p-3 items-center hover:bg-zinc-50">
@@ -146,7 +146,7 @@ export function ProductionDashboard({ orders, lots }: { orders: ProductionOrder[
                 </div>
                 <div className="space-y-6">
                      <UpcomingEvents />
-                     <SBCard title="Acciones Rápidas" accent={SB_COLORS.production}>
+                     <SBCard title="Acciones Rápidas" accent={SB_COLORS.primary.teal}>
                         <div className="p-4 grid grid-cols-2 gap-3">
                            <Link href="/production/bom" className="text-center p-4 rounded-xl bg-sb-neutral-50 hover:bg-sb-neutral-100 border border-sb-neutral-200">
                                 <BookOpen className="mx-auto h-8 w-8 text-sb-neutral-600 mb-2"/>
@@ -158,7 +158,7 @@ export function ProductionDashboard({ orders, lots }: { orders: ProductionOrder[
                            </Link>
                         </div>
                     </SBCard>
-                    <SBCard title="Últimos Lotes Creados" accent={SB_COLORS.production}>
+                    <SBCard title="Últimos Lotes Creados" accent={SB_COLORS.primary.teal}>
                         <div className="p-2 space-y-2">
                             {lots.slice(0, 5).map(lot => (
                                 <div key={lot.id} className="flex justify-between items-center p-2 rounded-lg hover:bg-sb-neutral-50">

@@ -7,7 +7,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { useData } from "@/lib/dataprovider";
 import { ModuleHeader } from "@/components/ui/ModuleHeader";
 import { SBCard, SBButton, SB_COLORS } from "@/components/ui/ui-primitives";
-import type { User as UserType, OrderSellOut, Account, Interaction, Product } from '@/domain/ssot';
+import type { User as UserType, OrderSellOut, Account, Interaction, Product, Party } from '@/domain/ssot';
 import { orderTotal, inWindow } from '@/domain/ssot';
 import { generateInsights } from "@/ai/flows/generate-insights-flow";
 import { Avatar } from "@/components/ui/Avatar";
@@ -147,7 +147,7 @@ function CommercialsRace({ users, data, onUserClick }: { users: UserType[], data
                         <div className="w-full bg-zinc-200 rounded-full h-3 overflow-hidden">
                             <motion.div 
                                 className="h-3 rounded-full"
-                                style={{ background: SB_COLORS.accent }}
+                                style={{ background: SB_COLORS.primary.copper }}
                                 initial={{ width: 0 }}
                                 animate={{ width: `${user.percentage}%` }}
                                 transition={{ duration: 1.2, ease: "easeOut" }}
@@ -209,7 +209,7 @@ function SalesMixDonutChart({ data, timeRange }: { data: any, timeRange: TimeRan
                             paddingAngle={5}
                             dataKey="value"
                             nameKey="name"
-                            label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                            label={({ name, percent }: { name: string; percent: number }) => `${name} ${(percent * 100).toFixed(0)}%`}
                             labelLine={false}
                         >
                             {salesMix.map((entry, index) => (
@@ -369,7 +369,7 @@ function TeamDashboardContent() {
     try {
         const relevantData = {
             users: data.users.map(u => ({ id: u.id, name: u.name, role: u.role })),
-            accounts: data.accounts.map(a => ({ id: a.id, name: a.name, city: a.city, stage: a.stage, type: a.type, owner: a.ownerId })),
+            accounts: data.accounts.map(a => ({ id: a.id, name: a.name, stage: a.stage, type: a.type, owner: a.ownerId })),
             orders: data.ordersSellOut.map(o => ({ id: o.id, accountId: o.accountId, status: o.status, total: orderTotal(o), date: o.createdAt })),
             interactions: data.interactions.map(i => ({ id: i.id, accountId: i.accountId, userId: i.userId, kind: i.kind, date: i.createdAt })),
         };
@@ -432,7 +432,7 @@ function TeamDashboardContent() {
                         <XAxis dataKey="name" fontSize={12} />
                         <YAxis fontSize={12} tickFormatter={(value) => formatEur(value as number)} />
                         <Tooltip formatter={(value) => formatEur(value as number)} />
-                        <Line type="monotone" dataKey="sales" stroke={SB_COLORS.cobre} strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                        <Line type="monotone" dataKey="sales" stroke={SB_COLORS.primary.copper} strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
                     </LineChart>
                 </ResponsiveContainer>
             </div>

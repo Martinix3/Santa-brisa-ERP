@@ -193,7 +193,7 @@ function UpcomingEvents() {
                     
                     return (
                          <div key={event.id} className={`flex items-center gap-3 p-2 rounded-lg border cursor-pointer ${isOverdue ? 'bg-rose-50/50 border-rose-200' : 'bg-zinc-50 border-zinc-200 hover:bg-zinc-100'}`}>
-                            <div className="p-2 rounded-full" style={{ backgroundColor: DEPT_META.ALMACEN.color, color: DEPT_META.ALMACEN.textColor }}>
+                            <div className="p-2 rounded-full" style={{ backgroundColor: DEPT_META.ALMACEN.bg, color: DEPT_META.ALMACEN.text }}>
                                 <Icon size={16} />
                             </div>
                             <div>

@@ -37,7 +37,7 @@ function AIInsightsCard() {
         try {
             const relevantData = {
                 lotsInQuarantine: data.lots?.filter(l => l.quality?.qcStatus === 'hold').map(l => ({ id: l.id, sku: l.sku, date: l.createdAt })),
-                recentChecks: data.qaChecks?.slice(0, 20).map(c => ({ lotId: c.lotId, result: c.result, date: c.reviewedAt })),
+                recentChecks: data.qaChecks?.slice(0, 20).map(c => ({ lotId: c.lotId, result: c.summaryStatus, date: c.reviewedAt })),
             };
             const result = await generateInsights({ 
                 jsonData: JSON.stringify(relevantData),
@@ -85,7 +85,7 @@ export default function QualityDashboardPage() {
     }, [lots]);
 
     const recentChecks = useMemo(() => {
-        return qaChecks.sort((a, b) => new Date(b.reviewedAt).getTime() - new Date(a.reviewedAt).getTime()).slice(0, 5);
+        return qaChecks.sort((a, b) => (new Date(b.reviewedAt || 0)).getTime() - (new Date(a.reviewedAt || 0)).getTime()).slice(0, 5);
     }, [qaChecks]);
 
     return (
@@ -125,10 +125,10 @@ export default function QualityDashboardPage() {
                                <div>
                                    <p className="font-mono text-sm font-semibold">{check.lotId}</p>
                                    <p className="text-xs text-zinc-500">
-                                       Revisado por {data?.users.find(u => u.id === check.reviewerId)?.name || 'N/A'}
+                                       Revisado por {data?.users.find(u => u.id === check.reviewedById)?.name || 'N/A'}
                                    </p>
                                </div>
-                               <LotQualityStatusPill status={check.result === 'PASS' ? 'release' : 'reject'} />
+                               <LotQualityStatusPill status={check.summaryStatus === 'ok' ? 'release' : 'reject'} />
                            </div>
                        ))}
                        {recentChecks.length === 0 && <p className="p-4 text-sm text-center text-zinc-500">No hay controles de calidad recientes.</p>}

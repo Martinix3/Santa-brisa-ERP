@@ -1,6 +1,6 @@
 
 "use client";
-import React, { PropsWithChildren, useEffect } from "react";
+import React, { type PropsWithChildren, useEffect } from "react";
 
 export default function Modal({
   open, onClose, title, children,

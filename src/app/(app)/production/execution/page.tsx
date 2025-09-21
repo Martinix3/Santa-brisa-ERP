@@ -12,7 +12,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { AlertCircle, Check, Hourglass, X, Thermometer, FlaskConical, Beaker, TestTube2, Paperclip, Upload, Trash2, ChevronRight, ChevronDown, Save, Bug } from "lucide-react";
 import { SBCard, SBButton, SB_COLORS } from '@/components/ui/ui-primitives';
 import { useData } from "@/lib/dataprovider";
-import type { ProductionOrder as ProdOrder, Uom, Material, Shortage, ActualConsumption, InventoryItem, Product, SantaData, ExecCheck, BillOfMaterial as RecipeBom } from '@/domain/ssot';
+import type { ProductionOrder as ProdOrder, Uom, Material, Shortage, ActualConsumption, InventoryItem, Product, SantaData, ExecCheck, BillOfMaterial as RecipeBom, Reservation } from '@/domain/ssot';
 import { availableForMaterial, fifoReserveLots, buildConsumptionMoves, consumeForOrder } from '@/domain/inventory.helpers';
 import { generateNextLot } from "@/lib/codes";
 
@@ -71,8 +71,8 @@ function computeCosting(recipe: RecipeBom, po: ProdOrder) {
         }
     }
     
-    const stdLaborCostPerHour = (recipe as any).stdLaborCostPerHour || 25;
-    const stdOverheadPerBatch = (recipe as any).stdOverheadPerBatch || 50;
+    const stdLaborCostPerHour = 25;
+    const stdOverheadPerBatch = 50;
 
     const labor = stdLaborCostPerHour * (durationHours || 0);
     const overhead = stdOverheadPerBatch;
@@ -175,7 +175,7 @@ export default function ProduccionPage() {
       createdAt: now,
       scheduledFor: whenISO,
       responsibleId,
-      checks: (recipe as any).protocolChecklist.map((p: any) => ({ id: p.id, done: false })),
+      checks: ((recipe as any).protocolChecklist || []).map((p: any) => ({ id: p.id, done: false })),
       shortages: shortages.length ? shortages : undefined,
       reservations: reservations.length ? reservations : undefined,
       actuals,
@@ -253,7 +253,7 @@ export default function ProduccionPage() {
     const durationMs = new Date(finishedAt).getTime() - new Date(o.execution.startedAt).getTime();
     const durationHours = durationMs / (1000 * 60 * 60);
 
-    const bottlesPerLiter = (recipe as any).bottlesPerLitre || 1.33;
+    const bottlesPerLiter = 1.33;
     const goodBottles = yieldUom === 'ud' ? finalYield : Math.floor(finalYield * bottlesPerLiter);
 
     const finalExecution = {
@@ -520,7 +520,7 @@ function OrderDetail({ order, recipe, onClose, onStart, onFinish, onUpdate, inve
       <div className="flex items-center justify-between mb-3">
         <div className="font-medium flex items-center gap-2">
           Orden {order.id}
-          {order.shortages && order.shortages.length > 0 && (order.status === 'planned' || order.status === 'pending') && (
+          {order.shortages && order.shortages.length > 0 && order.status === 'planned' && (
               <div className="relative group">
                   <AlertCircle className="h-5 w-5 text-red-500 cursor-pointer"/>
                   <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-72 bg-zinc-800 text-white text-xs rounded-lg p-3 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
@@ -603,7 +603,7 @@ function OrderDetail({ order, recipe, onClose, onStart, onFinish, onUpdate, inve
         <ActualsBlock actuals={order.actuals || []} onChange={handleActualsChange} />
         
         <div className="md:col-span-2">
-            {(order.status === "planned" || order.status === "pending") && (
+            {order.status === "planned" && (
                 <div className="flex justify-end gap-2 p-3 bg-zinc-50 rounded-lg">
                     <SBButton disabled={!!order.shortages?.length} onClick={() => onUpdate(order.id, { status: "released" } )}>
                         Liberar para Producción <ChevronRight size={16}/>
@@ -667,7 +667,7 @@ function ProtocolsBlock({ order, recipe, onToggle }: { order: ProdOrder; recipe:
           <li key={c.id} className="py-2 flex items-center justify-between text-sm">
             <div className="flex items-center gap-2">
               <button onClick={()=>onToggle(c.id)} className={`w-5 h-5 rounded border flex items-center justify-center ${c.done ? 'bg-green-500 border-green-600 text-white' : 'border-zinc-300'}`}>{c.done ? '✓' : ''}</button>
-              <span>{(recipe as any).protocolChecklist.find((pc: any) => pc.id === c.id)?.text || c.id}</span>
+              <span>{((recipe as any).protocolChecklist || []).find((pc: any) => pc.id === c.id)?.text || c.id}</span>
             </div>
             <div className="text-xs text-zinc-500">{c.checkedAt ? new Date(c.checkedAt).toLocaleString() : '—'}</div>
           </li>

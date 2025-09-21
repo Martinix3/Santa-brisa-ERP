@@ -4,7 +4,8 @@ import React, { useState, useMemo } from 'react';
 import { useData } from '@/lib/dataprovider';
 import type { Lot, QACheck, QCResult } from '@/domain/ssot';
 import { SBCard, SBButton, Input, Textarea } from '@/components/ui/ui-primitives';
-import { QC_PARAMS, QCKey } from '@/domain/production.qc';
+import { QC_PARAMS } from '@/domain/production.qc';
+import type { QCKey } from '@/domain/production.qc';
 import { CheckCircle, XCircle, Hourglass, FlaskConical, Thermometer, Beaker, TestTube2, Paperclip, Upload, Trash2 } from 'lucide-react';
 
 const ICONS: Record<string, React.ElementType> = { TestTube2, Thermometer, FlaskConical, Beaker };

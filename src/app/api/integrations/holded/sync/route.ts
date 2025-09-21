@@ -1,3 +1,4 @@
+
 import { NextResponse } from 'next/server';
 import { fetchInvoices } from '@/features/integrations/holded/service';
 import { adminDb } from '@/server/firebaseAdmin';
@@ -23,14 +24,14 @@ export async function POST() {
     const accountMapByName = new Map(accounts.map(acc => [acc.name.toLowerCase(), acc]));
 
     const existingOrdersSnapshot = await db.collection('ordersSellOut').get();
-    const existingOrderRefs = new Set(existingOrdersSnapshot.docs.map(doc => doc.data().externalRef));
+    const existingOrderRefs = new Set(existingOrdersSnapshot.docs.map(doc => doc.data().holdedDocId));
     
     let createdCount = 0;
     const batch = db.batch();
 
     for (const invoice of invoices) {
-      const externalRef = `holded_${invoice.id}`;
-      if (existingOrderRefs.has(externalRef)) {
+      const holdedDocId = `holded_${invoice.id}`;
+      if (existingOrderRefs.has(holdedDocId)) {
         continue; // Skip already imported invoices
       }
 
@@ -49,13 +50,13 @@ export async function POST() {
         createdAt: new Date(invoice.date * 1000).toISOString(),
         totalAmount: invoice.total,
         source: 'HOLDED',
-        externalRef: externalRef,
+        holdedDocId: holdedDocId,
+        docNumber: invoice.docNumber,
         lines: invoice.items.map(item => ({
           sku: item.sku || 'UNKNOWN',
-          description: item.name,
           qty: item.units,
-          priceUnit: item.price,
           uom: 'uds',
+          priceUnit: item.price,
         })),
         notes: `Importado de Holded. Factura: ${invoice.docNumber}`,
       };
