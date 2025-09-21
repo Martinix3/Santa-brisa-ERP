@@ -8,9 +8,8 @@ export async function updateOrderStatus(orderId: string, next: OrderStatus){
   // En un caso real, aquí podrías añadir validaciones o lógica de negocio
   // antes de persistir el cambio en la base de datos.
   
-  const updates: any = {
-      ordersSellOut: [{ id: orderId, status: next }]
-  };
+  // Primero, siempre actualizamos el estado del pedido.
+  await upsertMany('ordersSellOut', [{ id: orderId, status: next }]);
 
   // Si el pedido se confirma, creamos el envío.
   if (next === 'confirmed') {
@@ -19,7 +18,7 @@ export async function updateOrderStatus(orderId: string, next: OrderStatus){
       const account = order ? data.accounts.find(a => a.id === order.accountId) : undefined;
       const party = account ? data.parties.find(p => p.id === account.partyId) : undefined;
 
-      if (order && account) {
+      if (order && account && party) {
           const mainAddress = party?.addresses.find(a => a.isPrimary || a.type === 'shipping') || party?.addresses[0];
           
           const newShipment: Shipment = {
@@ -42,16 +41,9 @@ export async function updateOrderStatus(orderId: string, next: OrderStatus){
               country: mainAddress?.country,
               notes: order.notes,
           };
-          updates.shipments = [newShipment];
+          // Ahora hacemos una segunda llamada para guardar el nuevo envío.
+          await upsertMany('shipments', [newShipment]);
       }
-  }
-  
-  // Usamos un solo upsert para ambas colecciones si es necesario.
-  if (updates.shipments) {
-      await upsertMany('ordersSellOut', updates.ordersSellOut);
-      await upsertMany('shipments', updates.shipments);
-  } else {
-      await upsertMany('ordersSellOut', updates.ordersSellOut);
   }
   
   // Revalida las rutas para que Next.js las vuelva a renderizar con los datos actualizados.
