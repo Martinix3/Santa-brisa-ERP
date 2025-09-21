@@ -1,3 +1,4 @@
+
 // src/app/(app)/marketing/online/page.tsx
 "use client";
 
@@ -204,7 +205,7 @@ function CloseCampaignDialog({
    KPI Cards (MTD ponderado)
 ========================= */
 function monthBounds(d: Date | string = new Date()){
-  const date = typeof d === 'string' ? new Date(d) : d;
+  const date = d instanceof Date ? d : new Date(d);
   if(isNaN(date.getTime())) { // Invalid date
       const now = new Date();
       return { start: new Date(now.getFullYear(), now.getMonth(), 1), end: new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999) };
