@@ -1,5 +1,4 @@
 
-
 "use client";
 import React, { useMemo, useState, useEffect } from "react";
 import { Printer, PackageCheck, Truck, CheckCircle2, Search, Plus, FileText, ClipboardList, Boxes, PackageOpen, BadgeCheck, AlertTriangle, Settings, Clipboard, Ruler, Weight, MoreHorizontal, Check as CheckIcon, FileDown, Package } from "lucide-react";
@@ -7,7 +6,7 @@ import { SBButton, SBCard, Input, Select, STATUS_STYLES } from '@/components/ui/
 import { useData } from '@/lib/dataprovider';
 import type { Shipment, OrderSellOut, Account, ShipmentStatus, ShipmentLine, AccountType, Party } from '@/domain/ssot';
 import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog";
-
+import { generatePackingSlip } from './actions';
 
 // ===============================
 // UI Components
@@ -322,6 +321,21 @@ export default function LogisticsPage() {
      alert(`Albarán ${updatedShipments.find(s=>s.id === shipment.id)?.holdedDeliveryId} generado para envío ${shipment.id}`);
   };
 
+  const handleGeneratePackingSlip = async (shipmentId: string) => {
+    alert(`Iniciando generación de hoja de pedido para ${shipmentId}...`);
+    try {
+      const result = await generatePackingSlip(shipmentId);
+      if (result.url) {
+        window.open(result.url, '_blank');
+      } else {
+        alert(`Error: ${result.error}`);
+      }
+    } catch (e) {
+      alert(`Error al generar la hoja de pedido.`);
+      console.error(e);
+    }
+  };
+
   const generateLabel = (shipment: Shipment) => {
     if (!canGenerateLabel(shipment)) { alert("Para la etiqueta necesitas: Albarán + Servicio + Peso y Dimensiones."); return; }
     if(!santaData) return;
@@ -338,7 +352,7 @@ export default function LogisticsPage() {
   type RowAction = { id: string; label: string; icon: React.ReactNode; onClick: () => void; available: boolean; pendingReason?: string };
   const buildRowActions = (shipment: Shipment): RowAction[] => {
     const actions: RowAction[] = [
-      { id: "sheet", label: "Imprimir hoja de pedido", icon: <Printer className="w-4 h-4"/>, onClick: () => alert(`Imprimiendo hoja para ${shipment.id}`), available: true },
+      { id: "packing_slip", label: "Imprimir hoja de pedido", icon: <Printer className="w-4 h-4"/>, onClick: () => handleGeneratePackingSlip(shipment.id), available: true },
       { id: "validate", label: "Validar (lotes + visual)", icon: <BadgeCheck className="w-4 h-4"/>, onClick: () => openValidateFor(shipment), available: true },
       { id: "delivery", label: "Generar albarán", icon: <FileText className="w-4 h-4"/>, onClick: () => generateDeliveryNote(shipment), available: canGenerateDeliveryNote(shipment), pendingReason: "Requiere Visual OK" },
       { id: "label", label: "Generar etiqueta", icon: <Truck className="w-4 h-4"/>, onClick: () => generateLabel(shipment), available: canGenerateLabel(shipment), pendingReason: "Requiere Albarán + Servicio" },
@@ -395,12 +409,12 @@ export default function LogisticsPage() {
             <thead className="bg-zinc-50 text-left text-zinc-600">
               <tr>
                 <th className="p-3 w-10"><input type="checkbox" onChange={e => setSelected(e.target.checked ? filtered.map(s=>s.id): [])} /></th>
-                <th className="p-3 w-1/12">ID</th>
-                <th className="p-3 w-1/6">Fecha</th>
-                <th className="p-3 w-1/6">Canal</th>
-                <th className="p-3 w-1/5">Cliente</th>
-                <th className="p-3 w-1/4">Artículos</th>
-                <th className="p-3 w-1/12">Estado</th>
+                <th className="p-3">ID</th>
+                <th className="p-3">Fecha</th>
+                <th className="p-3">Canal</th>
+                <th className="p-3">Cliente</th>
+                <th className="p-3">Artículos</th>
+                <th className="p-3">Estado</th>
                 <th className="p-3 w-16 text-right">Acciones</th>
               </tr>
             </thead>
@@ -414,7 +428,7 @@ export default function LogisticsPage() {
                 return (
                   <tr key={shipment.id} className="hover:bg-zinc-50">
                     <td className="p-3"><input type="checkbox" checked={selected.includes(shipment.id)} onChange={e => setSelected(p => e.target.checked ? [...p, shipment.id] : p.filter(id => id !== shipment.id))} /></td>
-                    <td className="p-3 font-medium">{shipment.id}</td>
+                    <td className="p-3 font-medium font-mono">{shipment.id.substring(0,8)}...</td>
                     <td className="p-3">{new Date(shipment.createdAt).toLocaleDateString('es-ES')}</td>
                     <td className="p-3"><span className={`inline-flex items-center px-2 py-0.5 rounded-md border text-xs ${channelInfo.className}`}>{channelInfo.label}</span></td>
                     <td className="p-3">
