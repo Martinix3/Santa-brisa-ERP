@@ -4,7 +4,7 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import Papa from 'papaparse';
-import { UploadCloud, Filter, Trash2, Download, Sheet, Save, Database } from 'lucide-react';
+import { UploadCloud, Filter, Trash2, Download, Sheet, Save, Database, Plus } from 'lucide-react';
 import { SBButton, Input, Select } from '@/components/ui/ui-primitives';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
 import { useData } from '@/lib/dataprovider';
@@ -27,7 +27,6 @@ function CsvDataEditor() {
             const collectionData = santaData[selectedCollection] as CsvRow[] || [];
             setData(collectionData);
             if (collectionData.length > 0) {
-                // Infer headers from the first object, trying to keep a consistent order
                 const allKeys = collectionData.reduce((acc, row) => {
                     Object.keys(row).forEach(key => acc.add(key));
                     return acc;
@@ -55,8 +54,11 @@ function CsvDataEditor() {
             complete: (results) => {
                 const parsedData = results.data as CsvRow[];
                 if (parsedData.length > 0) {
-                    setHeaders(results.meta.fields || []);
-                    setData(parsedData);
+                    const newHeaders = results.meta.fields || [];
+                    // Merge data, don't replace
+                    setData(prev => [...prev, ...parsedData]); 
+                    // Update headers to include new columns
+                    setHeaders(prev => Array.from(new Set([...prev, ...newHeaders])));
                     setFilters({});
                 }
             },
@@ -85,10 +87,12 @@ function CsvDataEditor() {
     };
 
     const handleClear = () => {
-        setData([]);
-        setHeaders([]);
-        setFilters({});
-        setError(null);
+        if(window.confirm('¿Seguro que quieres limpiar todos los datos de la vista actual? Los cambios no guardados se perderán.')){
+            setData([]);
+            setHeaders([]);
+            setFilters({});
+            setError(null);
+        }
     };
 
     const handleDownload = () => {
@@ -154,7 +158,7 @@ function CsvDataEditor() {
                 <div className="flex items-center gap-2">
                     <div {...getRootProps()} className="inline-block">
                         <input {...getInputProps()} />
-                        <SBButton variant="secondary"><UploadCloud size={14}/> Reemplazar con CSV</SBButton>
+                        <SBButton variant="secondary"><Plus size={14}/> Añadir desde CSV</SBButton>
                     </div>
                     <SBButton variant="secondary" onClick={handleDownload}><Download size={14}/> Exportar CSV</SBButton>
                     <SBButton onClick={handleSaveChanges} disabled={saving || !isPersistenceEnabled} title={!isPersistenceEnabled ? "Activa la persistencia para guardar" : ""}>
@@ -171,7 +175,7 @@ function CsvDataEditor() {
                     <input {...getInputProps()} />
                     <UploadCloud className="h-16 w-16 text-zinc-400 mb-4" />
                     <h3 className="text-xl font-semibold text-zinc-800">Colección vacía</h3>
-                    <p className="text-zinc-500 mt-2">Puedes arrastrar un archivo CSV aquí para poblar la colección <span className="font-bold">{selectedCollection}</span>.</p>
+                    <p className="text-zinc-500 mt-2">Puedes arrastrar un archivo CSV aquí para añadir datos a la colección <span className="font-bold">{selectedCollection}</span>.</p>
                     {error && <p className="text-red-500 mt-4">{error}</p>}
                 </div>
             ) : (
