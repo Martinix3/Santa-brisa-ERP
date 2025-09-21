@@ -1,7 +1,5 @@
 
-import React from 'react';
-import { CollabList } from '@/features/influencers/components/CollabList';
-
-export default function Page(){
-  return <CollabList />;
-}
+// This file is no longer needed after the refactoring.
+// The content was moved to the InfluencersDashboardPage.
+const CollabListPage = () => null;
+export default CollabListPage;

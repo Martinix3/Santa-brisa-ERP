@@ -13,7 +13,7 @@ import { NewPosTacticDialog } from '@/features/marketing/components/NewPosTactic
 import { usePosTacticsService } from '@/features/marketing/services/posTactics.service';
 
 function StatusPill({ status }: { status: MarketingEvent['status'] }) {
-    const styles = {
+    const styles: Record<MarketingEvent['status'], string> = {
         planned: 'bg-blue-100 text-blue-800',
         active: 'bg-green-100 text-green-800 animate-pulse',
         closed: 'bg-zinc-100 text-zinc-800',
@@ -55,6 +55,7 @@ export default function Page(){
   const handleAddOrUpdateEvent = async (event: Omit<Interaction, 'createdAt' | 'status' | 'id'> & { id?: string }) => {
       if (!currentUser || !santaData) return;
       
+      const now = new Date().toISOString();
       const newMktEvent: MarketingEvent = {
           id: `mkt_${Date.now()}`,
           title: event.note!,
@@ -62,14 +63,15 @@ export default function Page(){
           startAt: event.plannedFor!,
           city: event.location,
           ownerUserId: currentUser.id,
-          createdAt: new Date().toISOString(),
+          createdAt: now,
+          updatedAt: now,
           kind: event.kind as any, // Asumiendo que el diálogo puede pasar el EventKind
       };
 
       const newInteraction: Interaction = {
           ...event,
           id: `int_${Date.now()}`,
-          createdAt: new Date().toISOString(),
+          createdAt: now,
           status: 'open',
           userId: currentUser.id,
           kind: 'EVENTO_MKT',

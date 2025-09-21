@@ -29,7 +29,7 @@ import { useData } from "@/lib/dataprovider";
 type BomLineRole = "FORMULA" | "PACKAGING";
 
 // Usamos directamente el tipo del SSOT para los items de la BOM.
-type BomLine = RecipeBom['items'][0] & { name?: string }; // Añadimos name opcionalmente para UI
+type BomLine = RecipeBom['items'][0]; 
 
 type FinishedSku = { sku: string; name: string; packSizeMl: number; bottlesPerCase?: number };
 
@@ -326,13 +326,15 @@ function LineRow({
   onRemove: () => void;
   materials: Material[];
 }) {
-  const [searchQuery, setSearchQuery] = useState(line.name || '');
+    const lineMaterialName = useMemo(() => {
+        return materials.find(m => m.id === line.materialId)?.name || '';
+    }, [line.materialId, materials]);
+    const [searchQuery, setSearchQuery] = useState(lineMaterialName);
 
   const handleSelectMaterial = (mat: Material) => {
     onChange({
       ...line,
       materialId: mat.id,
-      name: mat.name,
       // La UOM de la línea la decide el formulador; coste se calcula con UOM del material
     });
     setSearchQuery(mat.name);
@@ -458,7 +460,6 @@ function RecipeForm({
   const addLine = (role: BomLineRole) => {
     const nl = {
       materialId: "",
-      name: "",
       quantity: 0,
       unit: "uds",
       role,
@@ -577,7 +578,7 @@ function RecipeForm({
                     <LineRow
                       key={`F-${i}`}
                       idx={idx}
-                      line={l as BomLine}
+                      line={l}
                       onChange={(nl) => setLine(i, nl)}
                       onRemove={() => removeLine(i)}
                       materials={materials}
@@ -623,7 +624,7 @@ function RecipeForm({
                     <LineRow
                       key={`P-${i}`}
                       idx={idx}
-                      line={l as BomLine}
+                      line={l}
                       onChange={(nl) => setLine(i, nl)}
                       onRemove={() => removeLine(i)}
                       materials={materials}
@@ -958,7 +959,13 @@ export default function BomPage() {
           <p className="text-sm text-zinc-500">Fórmula, packaging, costes y versionado</p>
         </div>
         <div className="flex items-center gap-2">
-          <SearchBar recipes={recipes} onPick={select} />
+           <div className="relative w-full max-w-xs">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+                <input
+                    placeholder="Buscar receta por SKU o nombre..."
+                    className="w-full pl-9 pr-3 py-2 text-sm bg-white border border-zinc-200 rounded-md outline-none focus:ring-2 focus:ring-yellow-300"
+                />
+            </div>
           <button
             onClick={createNew}
             className="px-3 py-1.5 rounded-lg bg-zinc-900 text-white hover:bg-zinc-800 flex items-center gap-2"

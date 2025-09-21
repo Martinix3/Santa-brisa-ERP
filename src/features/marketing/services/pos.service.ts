@@ -77,7 +77,7 @@ export function usePosTactics() {
     const updatedInteraction = {
       ...interaction,
       posTactic: input,
-      linkedEntity: { type: 'ACCOUNT', id: interaction.accountId! }
+      linkedEntity: { type: 'Account' as const, id: interaction.accountId! }
     } as Interaction;
 
     await saveCollection('interactions', data.interactions.map(i => i.id === interactionId ? updatedInteraction : i));
@@ -156,7 +156,7 @@ export function usePosTactics() {
 
     const updatedInteraction = {
       ...interaction,
-      status: 'closed',
+      status: 'closed' as const,
       posTacticResult: result,
     } as Interaction;
 

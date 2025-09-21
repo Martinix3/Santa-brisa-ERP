@@ -50,9 +50,9 @@ export function usePosTacticsService() {
       if (idx >= 0) nextList[idx] = updated; else nextList.push(updated);
     } else {
       const doc: PosTactic = {
+        ...input,
         id: `tac_${Date.now()}`,
         items: [],
-        ...input,
         createdAt: stamp,
         createdById: currentUser?.id || 'system',
         updatedAt: stamp
@@ -66,7 +66,7 @@ export function usePosTacticsService() {
   async function closePosTactic(tacticId: string) {
     const t = tactics.find(x => x.id === tacticId);
     if (!t) throw new Error("Táctica no encontrada");
-    const next = tactics.map(x => x.id === tacticId ? ({ ...x, status: 'closed', updatedAt: nowISO() }) : x);
+    const next = tactics.map(x => x.id === tacticId ? ({ ...x, status: 'closed' as const, updatedAt: nowISO() }) : x);
     await persist({ tactics: next });
     return next.find(x => x.id === tacticId)!;
   }

@@ -214,10 +214,11 @@ function monthBounds(d: Date | string = new Date()){
   const end   = new Date(date.getFullYear(), date.getMonth()+1, 0, 23,59,59,999);
   return { start, end };
 }
-function overlapsMonth(c: OnlineCampaign, now = new Date()){
+function overlapsMonth(c: OnlineCampaign){
   if (!c.startAt) return false;
   const s = new Date(c.startAt);
   if (isNaN(s.getTime())) return false; // Invalid date
+  const now = new Date();
   const { start, end } = monthBounds(now);
   const e = c.endAt ? new Date(c.endAt) : s;
   return e >= start && s <= end;
@@ -361,7 +362,7 @@ function CampaignRow({
   onCloseRequest: (c: OnlineCampaign) => void;
 }) {
   const [isEditing, setIsEditing] = useState(false);
-  const [edited, setEdited] = useState(campaign);
+  const [edited, setEdited] = useState<OnlineCampaign>(campaign);
   useEffect(()=>setEdited(campaign), [campaign]);
 
   const roas = (edited.spend||0)>0 ? (edited.metrics?.revenue||0)/(edited.spend||0) : 0;
@@ -384,7 +385,7 @@ function CampaignRow({
             <option value="planned">planned</option><option value="active">active</option><option value="closed">closed</option><option value="cancelled">cancelled</option>
           </Select>
         </td>
-        <td className="px-2 py-2 text-right"><Input type="number" value={edited.budget ?? ""} onChange={(e:any)=>setEdited(p=>({ ...p, budget: e.target.value===""?undefined:Number(e.target.value) }))} /></td>
+        <td className="px-2 py-2 text-right"><Input type="number" value={edited.budget ?? ""} onChange={(e:any)=>setEdited(p=>({ ...p, budget: e.target.value==="" ? 0 : Number(e.target.value) }))} /></td>
         <td className="px-2 py-2 text-right"><Input type="number" value={edited.spend ?? 0} onChange={(e:any)=>setEdited(p=>({ ...p, spend: Number(e.target.value||0) }))} /></td>
         <td className="px-2 py-2 text-right">{fmtNum(edited.metrics?.impressions)}</td>
         <td className="px-2 py-2 text-right">{fmtNum(edited.metrics?.clicks)}</td>
@@ -449,7 +450,7 @@ export default function OnlineCampaignsPage() {
       startAt: input.startAt,
       endAt: input.endAt,
       ownerUserId: input.ownerUserId,
-      budget: input.budget,
+      budget: input.budget || 0,
       spend: 0,
       tracking: input.tracking,
       metrics: { impressions: 0, clicks: 0, revenue: 0 },

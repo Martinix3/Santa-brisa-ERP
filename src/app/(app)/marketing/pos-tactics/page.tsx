@@ -123,8 +123,8 @@ export default function PosTacticsPage() {
                                 <div className="text-right font-mono">{tactic.actualCost.toFixed(2)}€</div>
                                 {result ? (
                                     <>
-                                        <div className={`text-right font-semibold ${result.liftPct > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                            {(result.liftPct * 100).toFixed(1)}%
+                                        <div className={`text-right font-semibold ${(result.liftPct || 0) > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                            {((result.liftPct || 0) * 100).toFixed(1)}%
                                         </div>
                                         <div className={`text-right font-semibold ${result.roi && result.roi > 0 ? 'text-green-600' : 'text-red-600'}`}>
                                             {result.roi ? `${(result.roi * 100).toFixed(0)}%` : 'N/A'}
@@ -162,4 +162,3 @@ export default function PosTacticsPage() {
         </div>
     );
 }
-

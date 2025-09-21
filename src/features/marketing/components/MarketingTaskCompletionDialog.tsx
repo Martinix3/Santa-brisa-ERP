@@ -1,4 +1,3 @@
-
 // src/features/marketing/components/MarketingTaskCompletionDialog.tsx
 "use client";
 import React, { useState, useEffect, useMemo } from 'react';
@@ -66,13 +65,13 @@ export function MarketingTaskCompletionDialog({
   };
 
   const handleSubmit = () => {
-    const requiredFields = isOnlineCampaign
+    const requiredFields: (keyof CompleteResultsPayload)[] = isOnlineCampaign
         ? ['spend', 'impressions', 'clicks', 'roas']
         : ['spend', 'leads', 'sampling', 'impressions', 'interactions'];
     
     for (const field of requiredFields) {
         const value = results[field as keyof CompleteResultsPayload];
-        if (value === undefined || value < 0) {
+        if (value === undefined || Number(value) < 0) {
             alert(`El campo '${field}' es obligatorio y no puede ser negativo.`);
             return;
         }
@@ -86,7 +85,7 @@ export function MarketingTaskCompletionDialog({
         : ['spend', 'leads', 'sampling', 'impressions', 'interactions'];
       return requiredFields.every(field => {
           const value = results[field];
-          return value !== undefined && value >= 0;
+          return value !== undefined && Number(value) >= 0;
       });
   }, [results, isOnlineCampaign]);
 
@@ -140,7 +139,7 @@ export function MarketingTaskCompletionDialog({
                 <span className="text-sm font-medium text-zinc-700">Notas Cualitativas</span>
                 <textarea
                 value={results.notes || ''}
-                onChange={(e) => handleInputChange('notes', e.target.value)}
+                onChange={(e) => setResults(prev => ({ ...prev, notes: e.target.value}))}
                 placeholder="¿Qué tal fue? ¿Repetir? ¿Lecciones aprendidas? ¿Sentimiento general?"
                 className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm"
                 rows={4}
