@@ -27,7 +27,7 @@ export async function updateOrderStatus(orderId: string, next: OrderStatus){
               accountId: order.accountId,
               shipmentNumber: `SHP-${order.docNumber || order.id.slice(-4)}`,
               createdAt: new Date().toISOString(),
-              status: 'pending',
+              status: 'ready_to_ship',
               lines: (order.lines || []).map(line => ({
                   sku: line.sku,
                   name: data.products.find(p => p.sku === line.sku)?.name || line.sku,
