@@ -1,209 +1,182 @@
-// src/app/(app)/admin/data-import/actions.ts
+// ================================================================
+// FILE: src/app/(app)/admin/data-import/actions.ts
+// PURPOSE: Server actions — CSV templates, preview (FK resolve), commit (upsert)
+// NOTES: Implement getServerData/upsertMany en '@/lib/dataprovider/server'
+//        Incluye: consigna y muestras, materialSku → materialId
+// ================================================================
+
 'use server';
-import Papa from 'papaparse';
-import { z } from 'zod';
-import { SANTA_DATA_COLLECTIONS, type SantaData, type Party } from '@/domain';
-import { getServerData, upsertMany } from '@/lib/dataprovider/server';
-import { generateNextLot, generateNextOrder } from '@/lib/codes';
 
-// ===================================
-// TYPES
-// ===================================
-export type StagedImportItem = {
-  key: string;
-  collection: keyof SantaData;
-  action: 'create' | 'update';
-  payload: any;
-  description: string;
-  warnings: string[];
-};
+import { randomUUID } from 'crypto';
+import {
+  SANTA_DATA_COLLECTIONS,
+  CODE_POLICIES,
+  type SantaData,
+  type Account,
+  type OrderSellOut,
+  type Interaction,
+  type Product,
+  type GoodsReceipt,
+  type Lot,
+  type Material,
+  type Shipment,
+  type User,
+  type StockReason,
+} from '@/domain/ssot';
 
-export type ImportResult = {
-  staged: StagedImportItem[];
-  summary: { total: number; new: number; updated: number; warnings: number; };
-  error?: string;
-};
-
-// ===================================
-// HELPERS
-// ===================================
-const normalizeValue = (value: string, type: 'string' | 'number' | 'boolean' | 'json' | 'date') => {
-  if (value === '' || value === null || value === undefined) return undefined;
-  try {
-    switch (type) {
-      case 'number': return Number(value.replace(',', '.'));
-      case 'boolean': return ['true', '1', 'yes', 'si'].includes(value.toLowerCase());
-      case 'json': return JSON.parse(value);
-      case 'date': return new Date(value).toISOString();
-      default: return value;
-    }
-  } catch {
-    return value; // fallback to string if parsing fails
-  }
-};
-
-async function resolveFk(
-  value: string,
-  targetCollection: keyof SantaData,
-  targetFields: string[],
-  serverData: SantaData
-): Promise<string | undefined> {
-  if (!value) return undefined;
-  const items = (serverData as any)[targetCollection] as any[];
-  if (!items) return undefined;
-  
-  for (const field of targetFields) {
-    const found = items.find(it => it[field]?.toString().toLowerCase() === value.toLowerCase());
-    if (found) return found.id;
-  }
-  return undefined;
+// ---- data adapters (rellena con tu DB) ----
+async function getData(): Promise<SantaData> {
+  const { getServerData } = await import('@/lib/dataprovider/server');
+  return getServerData();
+}
+async function persist(coll: keyof SantaData, docs: any[]) {
+  const { upsertMany } = await import('@/lib/dataprovider/server');
+  return upsertMany(coll, docs);
 }
 
-// ===================================
-// MAIN SERVER ACTIONS
-// ===================================
+// ---- CSV templates ----
+const TEMPLATE_FIELDS: Partial<Record<keyof SantaData, readonly string[]>> = {
+  accounts: ['id','code','name','partyId','type','stage','ownerId','createdAt','subType','notes'],
+  users: ['id','name','email','role','active','managerId'],
+  products: ['id','sku','name','category','bottleMl','caseUnits','casesPerPallet','active','materialId'],
+  materials: ['id','sku','name','category','uom','standardCost'],
+  ordersSellOut: ['id','docNumber','accountId','accountName','status','createdAt','currency','totalAmount','source','terms','lines'],
+  interactions: ['id','accountId','accountName','userId','userEmail','dept','kind','status','createdAt','note'],
+  plv_material: ['id','sku','kind','status','accountId','installedAt','photoUrl'],
+  promotions: ['id','code','name','type','value','validFrom','validTo'],
+  marketingEvents: ['id','title','kind','status','startAt','endAt','accountId','kpis','links'],
+  influencerCollabs: ['id','creatorId','creatorName','platform','tier','status','ownerUserId','couponCode','utmCampaign','tracking'],
+  posTactics: ['id','accountId','tacticCode','actualCost','executionScore','status','createdAt','items'],
+  productionOrders: ['id','orderNumber','sku','bomId','targetQuantity','status','createdAt','execution'],
+  lots: ['id','lotCode','sku','quantity','createdAt','orderId','supplierId','quality'],
+  goodsReceipts: ['id','receiptNumber','supplierPartyId','deliveryNote','receivedAt','lines'],
+  shipments: ['id','orderId','accountId','shipmentNumber','createdAt','status','isSample','samplePurpose','lines','customerName','city','postalCode','country'],
+  paymentLinks: ['id','financeLinkId','amount','date','method'],
+  financeLinks: ['id','docType','status','grossAmount','currency','issueDate','dueDate','partyId'],
+  stockMoves: ['id','sku','lotId','uom','qty','fromLocation','toLocation','reason','occurredAt','createdAt'],
+  materialCosts: ['id','materialId','materialSku','currency','costPerUom','effectiveFrom'],
+};
 
-export async function importPreview(args: { collection: string; csvText: string }): Promise<ImportResult> {
-  const { collection, csvText } = args;
+export async function generateCsvTemplate(coll: keyof SantaData){
+  const headers = TEMPLATE_FIELDS[coll] ?? [];
+  return headers.join(',') + '\n';
+}
 
-  if (!SANTA_DATA_COLLECTIONS.includes(collection as any)) {
-    return { error: 'Colección no soportada', staged: [], summary: { total: 0, new: 0, updated: 0, warnings: 0 } };
-  }
-
-  const parseResult = Papa.parse(csvText, { header: true, skipEmptyLines: true });
-  if (parseResult.errors.length > 0) {
-    return { error: `Error de CSV: ${parseResult.errors[0].message}`, staged: [], summary: { total: 0, new: 0, updated: 0, warnings: 0 } };
-  }
-  
-  const serverData = await getServerData();
-  const existingItems = new Map(((serverData as any)[collection] as any[] || []).map(it => [it.id, it]));
-  const staged: StagedImportItem[] = [];
-
-  for (const row of parseResult.data as any[]) {
-    let payload: any = {};
-    const warnings: string[] = [];
-
-    // Generic field processing
-    for (const key in row) {
-      if (row[key] !== '') {
-        const value = row[key];
-        // Heurísticas de normalización
-        if (key.endsWith('Id') || key.endsWith('Id')) payload[key] = value;
-        else if (key.includes('At') || key.includes('Date')) payload[key] = normalizeValue(value, 'date');
-        else if (typeof value === 'string' && (value.startsWith('{') || value.startsWith('['))) payload[key] = normalizeValue(value, 'json');
-        else if (!isNaN(Number(value.replace(',', '.')))) payload[key] = normalizeValue(value, 'number');
-        else if (['true', 'false'].includes(value.toLowerCase())) payload[key] = normalizeValue(value, 'boolean');
-        else payload[key] = value;
-      }
-    }
-
-    // Collection-specific logic & FK resolution
-    if (collection === 'ordersSellOut') {
-        const accountId = await resolveFk(row.accountCode || row.accountName, 'accounts', ['code', 'name'], serverData);
-        if(accountId) {
-            payload.accountId = accountId;
-        } else if (row.accountName) {
-            warnings.push(`Cuenta '${row.accountName}' no encontrada, se creará una nueva.`);
-        }
-    } else if (collection === 'interactions') {
-        const accountId = await resolveFk(row.accountName, 'accounts', ['name'], serverData);
-        if(accountId) payload.accountId = accountId;
-        else warnings.push(`Cuenta '${row.accountName}' no encontrada.`);
-        
-        const userId = await resolveFk(row.userEmail, 'users', ['email'], serverData);
-        if(userId) payload.userId = userId;
-        else warnings.push(`Usuario con email '${row.userEmail}' no encontrado.`);
-    } else if (collection === 'goodsReceipts') {
-        if (payload.lines && Array.isArray(payload.lines)) {
-            for(const line of payload.lines) {
-                const materialId = await resolveFk(line.materialSku || line.materialId, 'materials', ['sku', 'id'], serverData);
-                if(materialId) line.materialId = materialId;
-                else warnings.push(`Material '${line.materialSku || line.materialId}' no encontrado.`);
-            }
-        }
-    }
-    // ... más lógicas aquí
-
-    const key = row.id || row.code || row.name || `new_${staged.length}`;
-    const action = row.id && existingItems.has(row.id) ? 'update' : 'create';
-    if(action === 'create' && !row.id) payload.id = `${collection.slice(0,3)}_${Date.now()}_${staged.length}`;
-    else if(action === 'update') payload.id = row.id;
-
-    staged.push({
-      key,
-      collection: collection as keyof SantaData,
-      action,
-      payload,
-      description: Object.entries(payload).slice(0, 3).map(([k, v]) => `${k}=${v}`).join(', '),
-      warnings,
-    });
-  }
-  
+// ---- registry & normalizers ----
+type FKRegistry = {
+  accountsById: Map<string, Account>;
+  accountsByName: Map<string, Account>;
+  accountsByCode: Map<string, Account>;
+  usersById: Map<string, User>;
+  usersByEmail: Map<string, User>;
+  productsBySku: Map<string, Product>;
+  lotsById: Map<string, Lot>;
+  materialsById: Map<string, Material>;
+  materialsBySku: Map<string, Material>;
+  ordersById: Map<string, OrderSellOut>;
+};
+function buildRegistry(data: SantaData): FKRegistry {
   return {
-    staged,
-    summary: {
-        total: staged.length,
-        new: staged.filter(s => s.action === 'create').length,
-        updated: staged.filter(s => s.action === 'update').length,
-        warnings: staged.reduce((acc, s) => acc + s.warnings.length, 0),
-    }
+    accountsById: new Map(data.accounts.map(a=>[a.id,a])),
+    accountsByName: new Map(data.accounts.map(a=>[a.name.toLowerCase(),a])),
+    accountsByCode: new Map(data.accounts.filter(a=>a.code).map(a=>[String(a.code).toLowerCase(),a])),
+    usersById: new Map(data.users.map(u=>[u.id,u])),
+    usersByEmail: new Map(data.users.filter(u=>u.email).map(u=>[String(u.email).toLowerCase(),u])),
+    productsBySku: new Map(data.products.map(p=>[p.sku,p])),
+    lotsById: new Map(data.lots.map(l=>[l.id,l])),
+    materialsById: new Map(data.materials.map(m=>[m.id,m])),
+    materialsBySku: new Map(data.materials.filter(m=>m.sku).map(m=>[String(m.sku),m])),
+    ordersById: new Map(data.ordersSellOut.map(o=>[o.id,o])),
   };
 }
+const LOT_RE = /^\d{6}-[A-Z0-9_-]+-\d{3}$/;
+const REASON_ALIASES: Record<string, StockReason> = {
+  consign_send: 'consignment_send',
+  consign_sell: 'consignment_sell',
+  consign_return: 'consignment_return',
+  sample_out: 'sample_send',
+  sample_use: 'sample_consume',
+} as any;
+function nBool(x:any){ if (typeof x==='boolean') return x; if (typeof x==='string') return ['true','1','yes','y','si','sí'].includes(x.trim().toLowerCase()); return Boolean(x); }
+function nNum(x:any){ const n=Number(x); return Number.isFinite(n)? n: 0; }
+function j(x:any){ if (x==null||x==='') return undefined; if (typeof x!=='string') return x; try{ return JSON.parse(x);}catch{ return x; } }
+function newId(prefix: keyof typeof CODE_POLICIES | 'GEN'){ const now=new Date(); const y=now.getFullYear(), m=String(now.getMonth()+1).padStart(2,'0'), d=String(now.getDate()).padStart(2,'0'); const rnd=randomUUID().slice(0,6).toUpperCase(); switch(prefix){ case 'ACCOUNT': return `ACC-${rnd}`; case 'SHIPMENT': return `SHP-${y}${m}${d}-${rnd.slice(0,3)}`; case 'GOODS_RECEIPT': return `GR-${y}${m}${d}-${rnd.slice(0,3)}`; case 'PROD_ORDER': return `PO-${y}${m}-${rnd.slice(0,4)}`; case 'LOT': return `${String(y).slice(2)}${m}${d}-GEN-${rnd.slice(0,3)}`; default: return `${prefix}-${rnd}`; } }
 
-export async function importCommit(args: { stagedItems: StagedImportItem[] }): Promise<{ committedCount: number; error?: string }> {
-  const { stagedItems } = args;
-  if (!stagedItems || stagedItems.length === 0) {
-    return { committedCount: 0, error: 'No hay datos para importar.' };
-  }
-  
-  const serverData = await getServerData();
-  const itemsToUpsert: Record<string, any[]> = {};
-  
-  // Re-resolve FKs and create missing entities if needed
-  for (const item of stagedItems) {
-    if (!itemsToUpsert[item.collection]) itemsToUpsert[item.collection] = [];
+async function resolveAndNormalize(coll: keyof SantaData, rows: any[], data: SantaData, opts?: { allowCreateAccounts?: boolean }){
+  const reg = buildRegistry(data); const info = { createdAccounts: 0, linked: 0, warnings: [] as string[] }; const out:any[]=[];
+  for (const r of rows){ const row = { ...r }; for (const k of Object.keys(row)) if (typeof row[k]==='string') row[k] = row[k].trim();
 
-    // Special logic for creating accounts on the fly for orders
-    if (item.collection === 'ordersSellOut' && !item.payload.accountId && item.payload.accountName) {
-        const newPartyId = `party_imp_${Date.now()}`;
-        const newAccountId = `acc_imp_${Date.now()}`;
-        
-        const newParty: Party = {
-            id: newPartyId,
-            name: item.payload.accountName,
-            kind: 'ORG',
-            createdAt: new Date().toISOString(),
-            contacts: [], addresses: [],
-        };
-        const newAccount = {
-            id: newAccountId,
-            partyId: newPartyId,
-            name: item.payload.accountName,
-            type: 'HORECA',
-            stage: 'POTENCIAL',
-            ownerId: 'u_admin', // Asignar a un admin por defecto
-            createdAt: new Date().toISOString(),
-        };
+    if (coll==='accounts'){ row.id ||= newId('ACCOUNT'); row.createdAt ||= new Date().toISOString(); out.push(row); continue; }
+    if (coll==='products'){ row.active = nBool(row.active ?? true); out.push(row); continue; }
 
-        if(!itemsToUpsert['parties']) itemsToUpsert['parties'] = [];
-        if(!itemsToUpsert['accounts']) itemsToUpsert['accounts'] = [];
-        itemsToUpsert['parties'].push(newParty);
-        itemsToUpsert['accounts'].push(newAccount);
-        
-        item.payload.accountId = newAccountId;
+    if (coll==='ordersSellOut'){
+      let acc: Account | undefined;
+      if (row.accountId) acc = reg.accountsById.get(row.accountId);
+      if (!acc && row.accountCode) acc = reg.accountsByCode.get(String(row.accountCode).toLowerCase());
+      if (!acc && row.accountName) acc = reg.accountsByName.get(String(row.accountName).toLowerCase());
+      if (!acc && (opts?.allowCreateAccounts ?? true) && row.accountName){ const id=newId('ACCOUNT'); acc={ id, partyId:'', name: row.accountName, type:'OTRO', stage:'POTENCIAL', ownerId:'', createdAt: new Date().toISOString() } as Account; info.createdAccounts++; reg.accountsById.set(id,acc); reg.accountsByName.set(acc.name.toLowerCase(),acc); }
+      if (!acc) info.warnings.push(`order ${row.id||'(no id)'}: account not found`);
+      row.accountId = acc?.id ?? row.accountId; row.currency ||= 'EUR';
+      // consigna
+      row.terms = (row.terms === 'consignment') ? 'consignment' : 'standard';
+      // lines
+      let lines = j(row.lines);
+      if (!Array.isArray(lines)){
+        const sku = row.sku ?? row.productSku; const qty = nNum(row.qty);
+        lines = sku ? [{ sku, qty, uom:'uds', priceUnit: nNum(row.priceUnit) }] : [];
+      }
+      row.lines = (lines as any[]).map(l=> ({ sku: l.sku, qty: nNum(l.qty), uom: l.uom ?? 'uds', priceUnit: nNum(l.priceUnit ?? 0), discount: l.discount? Number(l.discount): undefined }));
+      out.push(row); continue;
     }
-    
-    itemsToUpsert[item.collection].push(item.payload);
-  }
 
-  try {
-    let committedCount = 0;
-    for(const collName in itemsToUpsert) {
-      await upsertMany(collName as keyof SantaData, itemsToUpsert[collName]);
-      committedCount += itemsToUpsert[collName].length;
+    if (coll==='interactions'){
+      let acc: Account | undefined; if (row.accountId) acc = reg.accountsById.get(row.accountId); if (!acc && row.accountName) acc = reg.accountsByName.get(String(row.accountName).toLowerCase()); if (acc) row.accountId = acc.id; else info.warnings.push(`interaction ${row.id||'(no id)'}: account not found`);
+      if (row.userEmail && !row.userId){ const u = reg.usersByEmail.get(String(row.userEmail).toLowerCase()); if (u) row.userId = u.id; else info.warnings.push(`interaction ${row.id||'(no id)'}: user not found`); }
+      out.push(row); continue;
     }
-    return { committedCount };
-  } catch (e: any) {
-    return { committedCount: 0, error: e.message };
+
+    if (coll==='goodsReceipts'){
+      const lines = Array.isArray(row.lines) ? row.lines : j(row.lines);
+      if (Array.isArray(lines)){
+        row.lines = lines.map((ln:any)=> ({ materialId: reg.materialsById.get(ln.materialId)?.id ?? reg.materialsBySku.get(ln.materialSku)?.id ?? ln.materialId, sku: ln.sku, lotId: ln.lotId, qty: nNum(ln.qty), uom: ln.uom ?? 'uds' }));
+      }
+      out.push(row); continue;
+    }
+
+    if (coll==='lots'){ const code = String(row.lotCode ?? row.id ?? '').trim(); if (code && !LOT_RE.test(code)) row.lotCode = code; out.push(row); continue; }
+
+    if (coll==='shipments'){
+      const lines = Array.isArray(row.lines) ? row.lines : j(row.lines);
+      if (Array.isArray(lines)) row.lines = lines.map((ln:any)=> ({ sku: ln.sku, name: ln.name ?? '', qty: nNum(ln.qty), uom: ln.uom ?? 'uds', lotNumber: ln.lotNumber }));
+      row.isSample = nBool(row.isSample);
+      out.push(row); continue;
+    }
+
+    if (coll==='stockMoves'){
+      row.qty = nNum(row.qty);
+      row.reason = REASON_ALIASES[row.reason] ?? row.reason;
+      out.push(row); continue;
+    }
+
+    if (coll==='materialCosts'){
+      if (row.materialSku && !row.materialId) row.materialId = reg.materialsBySku.get(row.materialSku)?.id ?? row.materialId;
+      out.push(row); continue;
+    }
+
+    // default passthrough
+    out.push(row);
   }
+  return { rows: out, info };
+}
+
+export async function importPreview({ coll, rows }: { coll: keyof SantaData; rows: any[] }){
+  const data = await getData();
+  const { rows: normalized, info } = await resolveAndNormalize(coll, rows, data, { allowCreateAccounts: true });
+  return { coll, count: normalized.length, info, sample: normalized.slice(0,200) };
+}
+export async function importCommit({ coll, rows }: { coll: keyof SantaData; rows: any[] }){
+  const data = await getData();
+  const { rows: normalized } = await resolveAndNormalize(coll, rows, data, { allowCreateAccounts: true });
+  const res = await persist(coll, normalized);
+  return { coll, ...res };
 }
