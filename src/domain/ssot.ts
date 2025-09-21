@@ -139,13 +139,14 @@ export interface OrderSellOut {
   holdedDocType?: 'estimate' | 'order' | 'delivery' | 'invoice';
 }
 
+export type InteractionKind = 'VISITA' | 'LLAMADA' | 'EMAIL' | 'WHATSAPP' | 'OTRO';
 export interface Interaction {
   id:string;
   partyId?: string;     // Para registrar llamadas a proveedores, etc.
   accountId?: string;   // Para interacciones comerciales con clientes
   userId: string;
   dept?: Department;    // Ahora incluye 'CALIDAD'
-  kind: 'VISITA' | 'LLAMADA' | 'EMAIL' | 'WHATSAPP' | 'OTRO';
+  kind: InteractionKind;
   note?: string;
   plannedFor?: string;
   createdAt: string;
@@ -428,6 +429,7 @@ export type Platform = 'Instagram' | 'TikTok' | 'YouTube' | 'Twitch' | 'Blog' | 
 export type Deliverable = 'post' | 'story' | 'reel' | 'short' | 'video_long' | 'stream' | 'blogpost';
 export type CompType = 'gift' | 'flat' | 'cpa' | 'cpc' | 'revshare';
 export type CollabStatus = 'PROSPECT' | 'OUTREACH' | 'NEGOTIATING' | 'AGREED' | 'LIVE' | 'COMPLETED' | 'PAUSED' | 'DECLINED';
+export type Tier = 'nano' | 'micro' | 'mid' | 'macro';
 
 export interface InfluencerCollab {
   id: string;

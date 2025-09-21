@@ -12,7 +12,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { AlertCircle, Check, Hourglass, X, Thermometer, FlaskConical, Beaker, TestTube2, Paperclip, Upload, Trash2, ChevronRight, ChevronDown, Save, Bug } from "lucide-react";
 import { SBCard, SBButton, SB_COLORS } from '@/components/ui/ui-primitives';
 import { useData } from "@/lib/dataprovider";
-import type { ProductionOrder as ProdOrder, Uom, Material, Shortage, ActualConsumption, InventoryItem, Product, SantaData, ExecCheck, RecipeBomExec as RecipeBom } from '@/domain/ssot';
+import type { ProductionOrder as ProdOrder, Uom, Material, Shortage, ActualConsumption, InventoryItem, Product, SantaData, ExecCheck, BillOfMaterial as RecipeBom } from '@/domain/ssot';
 import { availableForMaterial, fifoReserveLots, buildConsumptionMoves, consumeForOrder } from '@/domain/inventory.helpers';
 import { generateNextLot } from "@/lib/codes";
 
@@ -21,24 +21,25 @@ import { generateNextLot } from "@/lib/codes";
 function scaleQty(qtyPerBatch: number, base: number, target: number) { return (qtyPerBatch * target) / base; }
 
 function planFromRecipe(recipe: RecipeBom, targetBatchSize: number, materials: Material[]): { lines: ActualConsumption[], plannedBottles: number } {
-  if (!recipe || !recipe.lines) {
+  if (!recipe || !recipe.items) {
     return { lines: [], plannedBottles: 0 };
   }
   const materialMap = new Map(materials.map(m => [m.id, m]));
-  const lines: ActualConsumption[] = recipe.lines.map((l) => {
-    const theoreticalQty = scaleQty(l.qtyPerBatch, recipe.baseBatchSize, targetBatchSize);
+  const lines: ActualConsumption[] = recipe.items.map((l) => {
+    const theoreticalQty = scaleQty(l.quantity, recipe.batchSize, targetBatchSize);
     const material = materialMap.get(l.materialId);
     return {
         materialId: l.materialId,
-        name: material?.name || l.name || 'Unknown',
+        name: material?.name || 'Unknown',
         fromLot: undefined, // Se determinará al iniciar
         theoreticalQty,
         actualQty: theoreticalQty, // Por defecto, lo real es lo teórico
-        uom: l.uom,
-        costPerUom: material?.standardCost || l.stdCostPerUom || 0
+        uom: (l.unit || 'uds') as Uom,
+        costPerUom: material?.standardCost || 0
     };
   });
-  const plannedBottles = Math.floor((recipe.bottlesPerLitre || 1.4) * targetBatchSize); // Fallback to 1.4 bottles/L (700ml)
+  const bottlesPerLiter = recipe.sku.includes('700') ? 1.42 : 1.33;
+  const plannedBottles = Math.floor(bottlesPerLiter * targetBatchSize);
   return { lines, plannedBottles };
 }
 
@@ -69,14 +70,18 @@ function computeCosting(recipe: RecipeBom, po: ProdOrder) {
             materials += l.theoreticalQty * l.costPerUom;
         }
     }
+    
+    const stdLaborCostPerHour = (recipe as any).stdLaborCostPerHour || 25;
+    const stdOverheadPerBatch = (recipe as any).stdOverheadPerBatch || 50;
 
-    const labor = (recipe.stdLaborCostPerHour || 0) * (durationHours || 0);
-    const overhead = recipe.stdOverheadPerBatch || 0;
+    const labor = stdLaborCostPerHour * (durationHours || 0);
+    const overhead = stdOverheadPerBatch;
     const total = materials + labor + overhead;
     const costPerBottle = goodBottles > 0 ? total / goodBottles : 0;
     const yieldPct = plannedBottles > 0 ? (goodBottles / plannedBottles) * 100 : 0;
     const scrapBottles = po.execution.scrapBottles ?? Math.max(0, plannedBottles - goodBottles);
     const scrapPct = plannedBottles > 0 ? (scrapBottles / plannedBottles) * 100 : 0;
+    
     return {
         materialsEUR: round2(materials), laborEUR: round2(labor), overheadEUR: round2(overhead),
         totalEUR: round2(total), costPerBottleEUR: round2(costPerBottle), yieldPct: round1(yieldPct), scrapPct: round1(scrapPct)
@@ -123,33 +128,9 @@ export default function ProduccionPage() {
     useEffect(() => {
         if (!santaData) return;
         setLoading(true);
-        const recipeData = (santaData.billOfMaterials || []).map((b: any) => ({
-            id: b.id || `bom_${b.sku}`,
-            name: b.name,
-            finishedSku: b.sku,
-            finishedName: b.name,
-            baseBatchSize: b.batchSize,
-            baseUnit: (b.baseUnit || 'L') as Uom,
-            commercialSku: b.sku,
-            bottlesPerLitre: b.sku.includes('700') ? 1.42 : 1.33,
-            lines: b.items.map((i: any) => {
-                const mat = allMaterials.find(m => m.id === i.materialId);
-                return {
-                    materialId: i.materialId,
-                    name: mat?.name || 'Unknown',
-                    qtyPerBatch: i.quantity,
-                    uom: (i.unit || mat?.uom || 'uds') as Uom,
-                    stdCostPerUom: mat?.standardCost || 0,
-                }
-            }),
-            protocolChecklist: [{id:'check1', text:'Verificar limpieza'}],
-            stdLaborCostPerHour: 25,
-            stdLaborHoursPerBatch: 2,
-            stdOverheadPerBatch: 50,
-        }));
-        setRecipes(recipeData);
+        setRecipes(santaData.billOfMaterials as RecipeBom[] || []);
         setLoading(false);
-  }, [santaData, allMaterials]);
+  }, [santaData]);
   
   const showNotification = (message: string) => {
     setNotification(message);
@@ -165,14 +146,13 @@ export default function ProduccionPage() {
     const { lines: actuals } = planFromRecipe(recipe, targetBatchSize, allMaterials);
   
     const shortages: Shortage[] = [];
-    const reservations: { materialId: string; fromLot: string; reservedQty: number; uom: Uom }[] = [];
+    const reservations: Reservation[] = [];
   
     for (const line of actuals) {
       const avail = availableForMaterial(line.materialId, warehouseInventory, allMaterials, "RM/");
       if (avail < line.theoreticalQty) {
         shortages.push({
           materialId: line.materialId,
-          name: line.name,
           required: line.theoreticalQty,
           available: avail,
           uom: line.uom,
@@ -189,13 +169,13 @@ export default function ProduccionPage() {
     const newOrder: ProdOrder = {
       id,
       bomId: recipe.id,
-      sku: recipe.finishedSku,
+      sku: recipe.sku,
       targetQuantity: targetBatchSize,
-      status: "pending",
+      status: "planned",
       createdAt: now,
       scheduledFor: whenISO,
       responsibleId,
-      checks: recipe.protocolChecklist.map((p) => ({ id: p.id, done: false })),
+      checks: (recipe as any).protocolChecklist.map((p: any) => ({ id: p.id, done: false })),
       shortages: shortages.length ? shortages : undefined,
       reservations: reservations.length ? reservations : undefined,
       actuals,
@@ -204,7 +184,7 @@ export default function ProduccionPage() {
     setData(prev => prev ? ({ ...prev, productionOrders: [newOrder, ...prev.productionOrders] }) : prev);
   
     if (shortages.length) {
-      showNotification(`Orden creada con faltantes: ${shortages.map(s => s.name).join(", ")}.`);
+      showNotification(`Orden creada con faltantes: ${shortages.map(s => allMaterials.find(m => m.id === s.materialId)?.name).join(", ")}.`);
     } else {
       showNotification("Orden creada con stock reservado.");
     }
@@ -221,7 +201,7 @@ export default function ProduccionPage() {
                     const recipe = recipes.find(r => r.id === updatedOrder.bomId);
                     if (recipe) {
                       const c = computeCosting(recipe, updatedOrder);
-                      updatedOrder.costing = c;
+                      updatedOrder.costing = c as any;
                     }
                 }
                 return updatedOrder;
@@ -273,7 +253,8 @@ export default function ProduccionPage() {
     const durationMs = new Date(finishedAt).getTime() - new Date(o.execution.startedAt).getTime();
     const durationHours = durationMs / (1000 * 60 * 60);
 
-    const goodBottles = yieldUom === 'ud' ? finalYield : Math.floor(finalYield * (recipe.bottlesPerLitre || 1.33));
+    const bottlesPerLiter = (recipe as any).bottlesPerLitre || 1.33;
+    const goodBottles = yieldUom === 'ud' ? finalYield : Math.floor(finalYield * bottlesPerLiter);
 
     const finalExecution = {
         ...(o.execution),
@@ -287,14 +268,14 @@ export default function ProduccionPage() {
     const newLotId = generateNextLot(
         (santaData.lots || []).map(l => l.id),
         new Date(),
-        recipe.finishedSku
+        recipe.sku
     );
 
     const newLotCosting = computeCosting(recipe!, { ...o, execution: finalExecution });
 
     const newLot = {
         id: newLotId,
-        sku: recipe.finishedSku,
+        sku: recipe.sku,
         quantity: finalExecution.goodBottles || 0,
         createdAt: new Date().toISOString(),
         orderId: o.id,
@@ -315,7 +296,6 @@ export default function ProduccionPage() {
 
 
   if (loading || !santaData) return <div className="p-6">Cargando producción…</div>;
-  if (error) return <div className="p-6 text-red-700">Error: {error}</div>;
   if (!recipes.length) return <div className="p-6">No hay recetas disponibles.</div>;
 
   return (
@@ -347,7 +327,7 @@ function CreateOrderCard({ recipes, onCreate }: { recipes: RecipeBom[]; onCreate
 
   const selectedRecipe = useMemo(() => recipes.find(r => r.id === selectedRecipeId), [recipes, selectedRecipeId]);
 
-  const [target, setTarget] = useState<number>(selectedRecipe?.baseBatchSize || 100);
+  const [target, setTarget] = useState<number>(selectedRecipe?.batchSize || 100);
   const [when, setWhen] = useState<string>(() => new Date().toISOString().slice(0,16));
   const [resp, setResp] = useState<string>("");
   
@@ -357,7 +337,7 @@ function CreateOrderCard({ recipes, onCreate }: { recipes: RecipeBom[]; onCreate
 
   useEffect(() => {
     if (selectedRecipe) {
-        setTarget(selectedRecipe.baseBatchSize);
+        setTarget(selectedRecipe.batchSize);
     }
   }, [selectedRecipe]);
   
@@ -375,7 +355,7 @@ function CreateOrderCard({ recipes, onCreate }: { recipes: RecipeBom[]; onCreate
             className="font-medium px-2 py-1.5 w-full rounded-lg border border-zinc-300 bg-white"
           >
             {recipes.map(r => (
-              <option key={r.id} value={r.id}>{r.name || r.finishedName}</option>
+              <option key={r.id} value={r.id}>{r.name}</option>
             ))}
           </select>
         </label>
@@ -432,17 +412,18 @@ function OrdersList({ orders, recipes, onStart, onFinish, onUpdate, inventory, a
               <td className="px-3 py-2 font-medium">{o.id}</td>
               <td className="px-3 py-2">
                 <div className="flex items-center gap-2">
-                    {o.status === 'pending' && <Pill tone="amber">PROGRAMADA</Pill>}
+                    {o.status === 'planned' && <Pill tone="amber">PROGRAMADA</Pill>}
+                    {o.status === 'released' && <Pill tone="blue">LIBERADA</Pill>}
                     {o.status === 'wip' && <Pill tone="blue">EN PROCESO</Pill>}
                     {o.status === 'done' && <Pill tone="green">COMPLETADA</Pill>}
                     {o.status === 'cancelled' && <Pill tone="slate">CANCELADA</Pill>}
-                    {o.shortages && o.shortages.length > 0 && o.status === 'pending' && (
+                    {o.shortages && o.shortages.length > 0 && o.status === 'planned' && (
                         <div className="relative group">
                             <AlertCircle className="h-4 w-4 text-red-500 cursor-pointer"/>
                             <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-64 bg-zinc-800 text-white text-xs rounded-lg p-2 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                                 <p className="font-bold mb-1">Falta de stock:</p>
                                 <ul className="list-disc list-inside">
-                                    {o.shortages.map(s => <li key={s.materialId}>{s.name}: falta {(s.required - s.available).toFixed(2)} {s.uom}</li>)}
+                                    {o.shortages.map(s => <li key={s.materialId}>{allMaterials.find(m => m.id === s.materialId)?.name}: falta {(s.required - s.available).toFixed(2)} {s.uom}</li>)}
                                 </ul>
                                 <div className="absolute left-1/2 -translate-x-1/2 bottom-[-4px] w-2 h-2 bg-zinc-800 rotate-45"/>
                             </div>
@@ -496,10 +477,10 @@ function OrderDetail({ order, recipe, onClose, onStart, onFinish, onUpdate, inve
       const { execution, costing } = order;
       if (!execution) return null;
       
-      const plannedYield = recipe.baseUnit === 'L' ? order.targetQuantity : plannedBottles;
+      const plannedYield = (recipe.baseUnit === 'L' ? order.targetQuantity : plannedBottles);
       const plannedUom = recipe.baseUnit === 'L' ? 'L' : 'uds';
       const actualYield = execution.finalYield ?? 0;
-      const merma = plannedYield - actualYield;
+      const merma = plannedYield > 0 ? plannedYield - actualYield : 0;
       const mermaPct = plannedYield > 0 ? (merma / plannedYield) * 100 : 0;
       
       let durationStr = '0m';
@@ -513,10 +494,10 @@ function OrderDetail({ order, recipe, onClose, onStart, onFinish, onUpdate, inve
         <div className="md:col-span-2 rounded-xl border border-[var(--line)] bg-white">
             <div className="px-4 py-3 border-b border-[var(--line)] text-sm text-zinc-500">Resumen de Producción</div>
             <div className="p-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-              <div>Total lote: <b>{costing.totalEUR.toFixed(2)} €</b></div>
-              <div>Coste/botella: <b>{costing.costPerBottleEUR.toFixed(3)} €</b></div>
+              <div>Total lote: <b>{(costing as any).totalEUR.toFixed(2)} €</b></div>
+              <div>Coste/botella: <b>{(costing as any).costPerBottleEUR.toFixed(3)} €</b></div>
               <div>Duración: <b>{durationStr}</b></div>
-              <div>Rendimiento: <b>{costing.yieldPct.toFixed(1)}%</b></div>
+              <div>Rendimiento: <b>{(costing as any).yieldPct.toFixed(1)}%</b></div>
               <div>Merma: <b>{merma.toFixed(2)} {plannedUom} ({mermaPct.toFixed(1)}%)</b></div>
               <div className="col-span-full mt-2">
                 <p className="font-bold">Incidencias Registradas:</p>
@@ -539,7 +520,7 @@ function OrderDetail({ order, recipe, onClose, onStart, onFinish, onUpdate, inve
       <div className="flex items-center justify-between mb-3">
         <div className="font-medium flex items-center gap-2">
           Orden {order.id}
-          {order.shortages && order.shortages.length > 0 && order.status === 'pending' && (
+          {order.shortages && order.shortages.length > 0 && (order.status === 'planned' || order.status === 'pending') && (
               <div className="relative group">
                   <AlertCircle className="h-5 w-5 text-red-500 cursor-pointer"/>
                   <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-72 bg-zinc-800 text-white text-xs rounded-lg p-3 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
@@ -547,7 +528,7 @@ function OrderDetail({ order, recipe, onClose, onStart, onFinish, onUpdate, inve
                       <ul className="mt-1 space-y-1">
                           {order.shortages.map((s: any) => (
                             <li key={s.materialId} className="flex justify-between">
-                              <span>{s.name}:</span>
+                              <span>{allMaterials.find(m => m.id === s.materialId)?.name}:</span>
                               <span className="font-mono">Req: {s.required.toFixed(2)} / Disp: {s.available.toFixed(2)} {s.uom}</span>
                             </li>
                           ))}
@@ -622,7 +603,15 @@ function OrderDetail({ order, recipe, onClose, onStart, onFinish, onUpdate, inve
         <ActualsBlock actuals={order.actuals || []} onChange={handleActualsChange} />
         
         <div className="md:col-span-2">
-            {order.status === "pending" && (
+            {(order.status === "planned" || order.status === "pending") && (
+                <div className="flex justify-end gap-2 p-3 bg-zinc-50 rounded-lg">
+                    <SBButton disabled={!!order.shortages?.length} onClick={() => onUpdate(order.id, { status: "released" } )}>
+                        Liberar para Producción <ChevronRight size={16}/>
+                    </SBButton>
+                </div>
+            )}
+
+            {order.status === "released" && (
                 <div className="flex justify-end gap-2 p-3 bg-zinc-50 rounded-lg">
                     <div className="text-sm text-zinc-600 mr-auto">Protocolos: {protocolsOk ? <b className="text-green-600">OK</b> : <b className="text-red-600">Faltan ✓</b>}</div>
                     <SBButton disabled={!protocolsOk} onClick={() => onStart(order.id)}>Iniciar Producción <ChevronRight size={16}/></SBButton>
@@ -650,7 +639,7 @@ function OrderDetail({ order, recipe, onClose, onStart, onFinish, onUpdate, inve
                             <SBButton variant="secondary" onClick={async ()=>{
                               if (!incidentNote.trim()) return;
                               const incidents = [ ...(order.incidents||[]), { id: Math.random().toString(36).slice(2,8), when: new Date().toISOString(), severity: 'MEDIA', text: incidentNote.trim() } ];
-                              await onUpdate(order.id, { incidents });
+                              await onUpdate(order.id, { incidents: incidents as any });
                               setIncidentNote("");
                             }}>Añadir</SBButton>
                           </div>
@@ -678,7 +667,7 @@ function ProtocolsBlock({ order, recipe, onToggle }: { order: ProdOrder; recipe:
           <li key={c.id} className="py-2 flex items-center justify-between text-sm">
             <div className="flex items-center gap-2">
               <button onClick={()=>onToggle(c.id)} className={`w-5 h-5 rounded border flex items-center justify-center ${c.done ? 'bg-green-500 border-green-600 text-white' : 'border-zinc-300'}`}>{c.done ? '✓' : ''}</button>
-              <span>{recipe.protocolChecklist.find((pc) => pc.id === c.id)?.text || c.id}</span>
+              <span>{(recipe as any).protocolChecklist.find((pc: any) => pc.id === c.id)?.text || c.id}</span>
             </div>
             <div className="text-xs text-zinc-500">{c.checkedAt ? new Date(c.checkedAt).toLocaleString() : '—'}</div>
           </li>
