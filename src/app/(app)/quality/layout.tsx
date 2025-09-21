@@ -14,6 +14,7 @@ function QualityNav() {
     const navItems = [
         { href: '/quality/dashboard', label: 'Dashboard' },
         { href: '/quality/release', label: 'Revisión de Lotes' },
+        { href: '/quality/traceability', label: 'Trazabilidad' },
     ];
 
     return (

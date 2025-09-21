@@ -89,7 +89,6 @@ const navSections = [
             { href: '/production/dashboard', label: 'Dashboard', icon: Factory },
             { href: '/production/bom', label: 'BOMs', icon: BookOpen },
             { href: '/production/execution', label: 'Elaboración/Envasado', icon: Cpu },
-            { href: '/production/traceability', label: 'Trazabilidad', icon: Waypoints },
         ]
     },
     {
@@ -98,6 +97,7 @@ const navSections = [
         items: [
             { href: '/quality/dashboard', label: 'Dashboard QC', icon: ClipboardCheck },
             { href: '/quality/release', label: 'Liberación de Lotes', icon: CheckCircle },
+            { href: '/quality/traceability', label: 'Trazabilidad', icon: Waypoints },
         ]
     },
     {
