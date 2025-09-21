@@ -171,12 +171,10 @@ export default function OrdersDashboard() {
   const consByAcc = useMemo(() => consignmentOnHandByAccount(stockMoves || []), [stockMoves]);
   const consTotals = useMemo(() => consignmentTotalUnits(consByAcc), [consByAcc]);
   
-  const enrichedOrders = useMemo(() => {
-    if (!ordersSellOut || !accounts || !partyRoles || !users || !parties) return [];
+  const filteredOrderIds = useMemo(() => {
+    if (!ordersSellOut || !accounts || !partyRoles) return [];
     
     const accountMap = new Map((accounts || []).map((acc: Account) => [acc.id, acc]));
-    const userMap = new Map((users || []).map((user: User) => [user.id, user]));
-    const partyMap = new Map((parties || []).map((p: Party) => [p.id, p]));
     const rolesMap = new Map();
     (partyRoles || []).forEach((role: PartyRole) => {
         if(role.role === 'CUSTOMER') {
@@ -184,32 +182,15 @@ export default function OrdersDashboard() {
         }
     });
 
-    return ordersSellOut.map(order => {
+    return ordersSellOut
+      .filter((order) => {
         const account = accountMap.get(order.accountId);
-        if (!account) return null;
-
-        const party = partyMap.get(account.partyId);
-        if (!party) return null;
-
+        if (!account) return false;
+        
         const customerData = rolesMap.get(account.partyId);
         const billerId = customerData?.billerId || 'SB'; 
-        const owner = userMap.get(account.ownerId);
-
-        return {
-            ...order,
-            account,
-            party,
-            owner,
-            billerId
-        };
-    }).filter((o): o is NonNullable<typeof o> => !!o);
-  }, [ordersSellOut, accounts, users, partyRoles, parties]);
-
-
-  const filteredOrders = useMemo(() => {
-    return enrichedOrders
-      .filter((order) => {
-        const isVentaDirecta = order.billerId === 'SB';
+        const isVentaDirecta = billerId === 'SB';
+        
         if (activeTab === 'directa' && !isVentaDirecta) return false;
         if (activeTab === 'colocacion' && isVentaDirecta) return false;
 
@@ -217,18 +198,23 @@ export default function OrdersDashboard() {
           !searchTerm ||
           (order.docNumber && order.docNumber.toLowerCase().includes(searchTerm.toLowerCase())) ||
           order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (order.account && order.account.name.toLowerCase().includes(searchTerm.toLowerCase()));
+          (account && account.name.toLowerCase().includes(searchTerm.toLowerCase()));
         
         const matchesStatus = !statusFilter || order.status === statusFilter;
 
         return matchesSearch && matchesStatus;
       })
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [enrichedOrders, searchTerm, statusFilter, activeTab]);
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .map(o => o.id);
+  }, [ordersSellOut, accounts, partyRoles, searchTerm, statusFilter, activeTab]);
 
   const kpis = useMemo(() => {
-    const relevantOrders = enrichedOrders.filter(order => {
-        const isVentaDirecta = order.billerId === 'SB';
+    const relevantOrders = (ordersSellOut || []).filter(order => {
+        const account = accounts.find(a => a.id === order.accountId);
+        if(!account) return false;
+        const customerRole = partyRoles.find(pr => pr.partyId === account.partyId && pr.role === 'CUSTOMER');
+        const billerId = (customerRole?.data as CustomerData)?.billerId || 'SB';
+        const isVentaDirecta = billerId === 'SB';
         return activeTab === 'directa' ? isVentaDirecta : !isVentaDirecta;
     });
 
@@ -239,18 +225,24 @@ export default function OrdersDashboard() {
         pendingPayment: relevantOrders.filter(o => o.status === 'invoiced').length,
         totalConsignment: Object.values(consTotals).reduce((sum, current) => sum + current, 0),
     }
-  }, [enrichedOrders, activeTab, consTotals]);
+  }, [ordersSellOut, accounts, partyRoles, activeTab, consTotals]);
 
   const handleExport = () => {
+      const accountMap = new Map(accounts.map(a => [a.id, a]));
       const headers = ['id', 'fecha', 'cliente', 'total', 'estado', 'canal'];
-      const rows = filteredOrders.map(order => [
-          order.docNumber || order.id,
-          new Date(order.createdAt).toISOString().split('T')[0],
-          order.account.name,
-          orderTotal(order as OrderSellOut),
-          order.status,
-          order.source || 'N/A'
-      ]);
+      const rows = filteredOrderIds.map(id => {
+          const order = ordersSellOut.find(o => o.id === id);
+          if(!order) return [];
+          const account = accountMap.get(order.accountId);
+          return [
+              order.docNumber || order.id,
+              new Date(order.createdAt).toISOString().split('T')[0],
+              account?.name || order.accountId,
+              orderTotal(order),
+              order.status,
+              order.source || 'N/A'
+          ]
+      });
       exportToCsv(`pedidos-${activeTab}-${new Date().toISOString().split('T')[0]}.csv`, [headers, ...rows]);
   }
 
@@ -389,41 +381,49 @@ export default function OrdersDashboard() {
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
-              {filteredOrders.map((order) => (
-                  <tr key={order.id} className="hover:bg-zinc-50">
-                    <td className="p-3 font-mono text-xs font-medium text-zinc-800">{order.docNumber || order.id}</td>
-                    <td className="p-3">
-                        <div className="flex items-center gap-2">
-                            <Link href={accountHref(order.accountId)} className="hover:underline font-medium">
-                                {order.account.name || 'N/A'}
-                            </Link>
-                            {consTotals[order.accountId] > 0 && (
-                                <span title={
-                                    Object.entries(consByAcc[order.accountId] || {})
-                                        .map(([sku, qty]) => `${sku}: ${qty} uds`)
-                                        .join("\n")
-                                    }
-                                    className="text-[10px] rounded-full px-2 py-0.5 bg-amber-100 text-amber-900 border border-amber-200 cursor-help"
-                                >
-                                    Consigna: {consTotals[order.accountId]} uds
-                                </span>
-                            )}
-                        </div>
-                    </td>
-                    <td className="p-3">{order.owner?.name || 'N/A'}</td>
-                    <td className="p-3">{new Date(order.createdAt).toLocaleDateString('es-ES')}</td>
-                    <td className="p-3 text-right font-semibold">
-                      {orderTotal(order as OrderSellOut).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
-                    </td>
-                    <td className="p-3">
-                      <StatusSelector order={order} account={order.account} party={order.party} onStatusChange={handleStatusChange} />
-                    </td>
-                  </tr>
-                )
-              )}
+              {filteredOrderIds.map((id) => {
+                  const order = ordersSellOut.find(o => o.id === id);
+                  const account = accounts.find(a => a.id === order?.accountId);
+                  const party = parties.find(p => p.id === account?.partyId);
+                  const owner = users.find(u => u.id === account?.ownerId);
+
+                  if (!order || !account || !party) return null;
+
+                  return (
+                      <tr key={order.id} className="hover:bg-zinc-50">
+                        <td className="p-3 font-mono text-xs font-medium text-zinc-800">{order.docNumber || order.id}</td>
+                        <td className="p-3">
+                            <div className="flex items-center gap-2">
+                                <Link href={accountHref(order.accountId)} className="hover:underline font-medium">
+                                    {account.name || 'N/A'}
+                                </Link>
+                                {consTotals[order.accountId] > 0 && (
+                                    <span title={
+                                        Object.entries(consByAcc[order.accountId] || {})
+                                            .map(([sku, qty]) => `${sku}: ${qty} uds`)
+                                            .join("\n")
+                                        }
+                                        className="text-[10px] rounded-full px-2 py-0.5 bg-amber-100 text-amber-900 border border-amber-200 cursor-help"
+                                    >
+                                        Consigna: {consTotals[order.accountId]} uds
+                                    </span>
+                                )}
+                            </div>
+                        </td>
+                        <td className="p-3">{owner?.name || 'N/A'}</td>
+                        <td className="p-3">{new Date(order.createdAt).toLocaleDateString('es-ES')}</td>
+                        <td className="p-3 text-right font-semibold">
+                          {orderTotal(order as OrderSellOut).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
+                        </td>
+                        <td className="p-3">
+                          <StatusSelector order={order} account={account} party={party} onStatusChange={handleStatusChange} />
+                        </td>
+                      </tr>
+                    );
+                })}
             </tbody>
           </table>
-          {filteredOrders.length === 0 && (
+          {filteredOrderIds.length === 0 && (
             <div className="p-8 text-center text-zinc-500">
               No se encontraron pedidos que coincidan con tu búsqueda.
             </div>
