@@ -2,7 +2,8 @@
 "use client";
 import React, { useMemo } from "react";
 import type { ProductionOrder, Lot, QCResult, Interaction } from "@/domain";
-import { SBCard, SBButton, SB_COLORS } from "@/components/ui/ui-primitives";
+import { SBCard, SBButton } from "@/components/ui/ui-primitives";
+import { SB_COLORS } from "@/domain/ssot";
 import { Factory, Cpu, BookOpen, Waypoints, AlertCircle, Hourglass, MoreVertical, Check, X, Thermometer, FlaskConical, Beaker, TestTube2, Paperclip, Upload, Trash2, Calendar, Clock } from "lucide-react";
 import Link from 'next/link';
 import { useData } from '@/lib/dataprovider';
@@ -71,7 +72,7 @@ function UpcomingEvents() {
 
                     return (
                         <div key={event.id} className={`flex items-center gap-3 p-2 rounded-lg border cursor-pointer ${isOverdue ? 'bg-rose-50/50 border-rose-200' : 'bg-zinc-50 border-zinc-200 hover:bg-zinc-100'}`}>
-                            <div className="p-2 rounded-full" style={{ backgroundColor: DEPT_META.PRODUCCION.bg, color: DEPT_META.PRODUCCION.text }}>
+                            <div className="p-2 rounded-full" style={{ backgroundColor: DEPT_META.PRODUCCION.color, color: DEPT_META.PRODUCCION.textColor }}>
                                 <Icon size={16} className={iconColor} />
                             </div>
                             <div>
