@@ -15,7 +15,7 @@ export function computeKpis({ orders, recipes, inventory, lots, materials }: Inp
   const doneLast30 = orders.filter(o=>o.status==='done' && o.execution?.finishedAt && new Date(o.execution.finishedAt) >= last30);
   const totalBottles30 = sum(doneLast30.map(o => o.execution?.goodBottles || 0));
   const avgCostBottle30 = avg(doneLast30.map(o => o.costing?.actual?.perUnit || 0));
-  const avgYield30 = avg(doneLast30.map(o => o.costing?.actual?.yieldLossPct ? 100 - o.costing.actual.yieldLossPct : 0));
+  const avgYield30 = avg(doneLast30.map(o => o.costing?.actual?.yieldLossPct ? 100 - o.costing.actual.yieldLossPct : 100));
 
   // Shortages: toma los planned con shortages
   const currentShortages = orders.filter(o => o.status==='planned' && (o.shortages?.length)).flatMap(o => o.shortages!.map(s => ({ orderId:o.id, ...s })));
@@ -27,14 +27,16 @@ export function computeKpis({ orders, recipes, inventory, lots, materials }: Inp
     byMaterial[it.sku] = (byMaterial[it.sku]||0) + (it.qty || 0);
   }
   const criticalInventory = Object.entries(byMaterial)
-    .filter(([sku, qty]) => {
+    .map(([sku, qty]) => {
         const mat = materials.find(m => m.sku === sku);
-        if (mat?.category === 'raw' && qty <= 10) return true;
-        if (mat?.category === 'packaging' && qty <= 100) return true;
-        return false;
+        if (!mat) return null;
+        let isCritical = false;
+        if (mat.category === 'raw' && qty <= 10) isCritical = true;
+        if (mat.category === 'packaging' && qty <= 100) isCritical = true;
+        return isCritical ? { sku, qty } : null;
     })
-    .slice(0, 12)
-    .map(([sku, qty]) => ({ sku, qty }));
+    .filter(Boolean)
+    .slice(0, 12) as { sku: string; qty: number }[];
 
   // Series para progress (botellas por día plan vs real)
   const daysBack = 30;
@@ -51,25 +53,39 @@ export function computeKpis({ orders, recipes, inventory, lots, materials }: Inp
         return Math.floor((po.targetQuantity / recipe.batchSize) * (bottleLine.quantity || 0));
     }));
     const real = orders.filter(o=>o.status==='done' && o.execution?.finishedAt && isSameDay(new Date(o.execution.finishedAt), d)).reduce((a,o)=>a+(o.execution?.goodBottles||0),0);
-    return { date: d.toISOString().slice(0,10), planned: plannedBottles, real };
+    return { date: d.toISOString().slice(5,10).replace('-', '/'), planned: plannedBottles, real };
   });
 
   // Series de eficiencia (MO horas y coste/botella en últimos 30 días)
   const laborSeries = seriesDays(daysBack).map(d => {
     const dayOrders = doneLast30.filter(o => o.execution?.finishedAt && isSameDay(new Date(o.execution.finishedAt), d));
     const hours = sum(dayOrders.map(o => o.execution?.durationHours || 0));
-    return { date: d.toISOString().slice(0,10), hours };
+    return { date: d.toISOString().slice(5,10).replace('-', '/'), hours };
   });
   const costPerBottleSeries = seriesDays(daysBack).map(d => {
     const dayOrders = doneLast30.filter(o => o.execution?.finishedAt && isSameDay(new Date(o.execution.finishedAt), d));
     const cpb = avg(dayOrders.map(o => o.costing?.actual?.perUnit || 0));
-    return { date: d.toISOString().slice(0,10), cpb };
+    return { date: d.toISOString().slice(5,10).replace('-', '/'), cpb };
   });
+  
+  const overdueOrders = orders.filter(o => {
+      const isLate = o.createdAt && new Date(o.createdAt) < new Date(Date.now() - 3 * 86400000); // >3 days old
+      return (o.status === 'planned' || o.status === 'released') && isLate;
+  }).length;
+  
+  const pendingQCLots = lots.filter(l => l.quality?.qcStatus === 'hold').length;
 
   return {
     counters: {
-      planned: count('planned'), released: count('released'), wip: count('wip'), done: count('done'), cancelled: count('cancelled')
+      planned: count('planned'),
+      released: count('released'),
+      wip: count('wip'),
+      done: count('done'),
+      cancelled: count('cancelled')
     },
+    doneLast30: doneLast30.length,
+    overdueOrders,
+    pendingQCLots,
     totalBottles30, avgCostBottle30, avgYield30,
     currentShortages, criticalInventory,
     progressSeries, laborSeries, costPerBottleSeries,

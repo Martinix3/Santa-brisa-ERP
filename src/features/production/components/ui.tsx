@@ -10,7 +10,7 @@ import { useData } from '@/lib/dataprovider';
 import { DEPT_META } from '@/domain';
 import { LotQualityStatusPill } from '@/components/ui/ui-primitives';
 
-function KPI({ icon: Icon, label, value, color }: { icon: React.ElementType, label: string, value: string | number, color: string }) {
+export function KPI({ icon: Icon, label, value, color }: { icon: React.ElementType, label: string, value: string | number, color: string }) {
     return (
         <div className="bg-white p-4 rounded-xl border border-sb-neutral-200 flex items-start gap-4">
             <div className={`h-10 w-10 rounded-lg flex items-center justify-center`} style={{ backgroundColor: `${color}20`, color }}>
@@ -153,7 +153,7 @@ export function ProductionDashboard({ orders, lots }: { orders: ProductionOrder[
                                 <BookOpen className="mx-auto h-8 w-8 text-sb-neutral-600 mb-2"/>
                                 <span className="text-sm font-semibold">Gestionar BOMs</span>
                            </Link>
-                            <Link href="/production/traceability" className="text-center p-4 rounded-xl bg-sb-neutral-50 hover:bg-sb-neutral-100 border border-sb-neutral-200">
+                            <Link href="/quality/traceability" className="text-center p-4 rounded-xl bg-sb-neutral-50 hover:bg-sb-neutral-100 border border-sb-neutral-200">
                                 <Waypoints className="mx-auto h-8 w-8 text-sb-neutral-600 mb-2"/>
                                 <span className="text-sm font-semibold">Trazabilidad</span>
                            </Link>
