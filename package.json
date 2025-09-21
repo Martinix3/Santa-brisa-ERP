@@ -36,6 +36,7 @@
     "firebase-admin": "^13.5.0",
     "framer-motion": "^12.23.16",
     "genkit": "^1.19.3",
+    "jszip": "^3.10.1",
     "lucide-react": "^0.544.0",
     "next": "^15.5.3",
     "papaparse": "^5.5.3",
