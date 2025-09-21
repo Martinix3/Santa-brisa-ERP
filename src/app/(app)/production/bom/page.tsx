@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -11,10 +12,11 @@ import {
   updateRecipe,
   deleteRecipe,
   listMaterials,
-  listFinishedSkus, // NUEVO en ssot-bridge
+  listFinishedSkus,
 } from "@/features/production/ssot-bridge";
 import type { Material, BillOfMaterial as RecipeBom, Uom, Currency } from "@/domain/ssot";
 import { useData } from "@/lib/dataprovider";
+
 
 // =============================================================
 // SB Producción — BOM (Recetas) · v2
@@ -26,28 +28,10 @@ import { useData } from "@/lib/dataprovider";
 // ---------- Extensiones de dominio (compatibles con SSOT) ----------
 type BomLineRole = "FORMULA" | "PACKAGING";
 
-export type BomLine = {
-  materialId: string;
-  name: string;
-  quantity: number;
-  uom: Uom;              // 'kg'|'g'|'L'|'mL'|'uds'
-  role: BomLineRole;     // FORMULA o PACKAGING
-  notes?: string;
-};
+// Usamos directamente el tipo del SSOT para los items de la BOM.
+type BomLine = RecipeBom['items'][0] & { name?: string }; // Añadimos name opcionalmente para UI
 
 type FinishedSku = { sku: string; name: string; packSizeMl: number; bottlesPerCase?: number };
-
-type BomV2 = RecipeBom & {
-  items: BomLine[];
-  stdLaborCostPerBatch?: number;
-  stdOverheadPerBatch?: number;
-  currency?: Currency;   // por defecto 'EUR'
-  yieldPct?: number;     // rendimiento global, ej. 98 => 98%
-  wastePctProduction?: number; // mermas de producción (previas al envasado)
-  wastePctPackaging?: number;  // mermas propias del envasado
-  version?: number;
-  status?: "ACTIVA" | "BORRADOR" | "ARCHIVADA";
-};
 
 // ---------- Validación ----------
 const bomSchema = z.object({
@@ -59,11 +43,9 @@ const bomSchema = z.object({
   items: z.array(
     z.object({
       materialId: z.string().min(1),
-      name: z.string().min(1),
       quantity: z.number().nonnegative(),
-      uom: z.enum(["kg", "g", "L", "mL", "uds"]),
-      role: z.enum(["FORMULA", "PACKAGING"]),
-      notes: z.string().optional(),
+      unit: z.string().optional(),
+      role: z.enum(["FORMULA", "PACKAGING"]).optional(),
     })
   ),
   stdLaborCostPerBatch: z.number().nonnegative().optional(),
@@ -79,7 +61,6 @@ const bomSchema = z.object({
 // ---------- Unidades y conversiones ----------
 const UOM: Uom[] = ["kg", "g", "L", "mL", "uds"];
 const round2 = (n: number) => Math.round(n * 100) / 100;
-const round3 = (n: number) => Math.round(n * 1000) / 1000;
 
 function convertQty(qty: number, from: Uom, to: Uom) {
   if (from === to) return qty;
@@ -106,7 +87,7 @@ type CostBreakdown = {
 };
 
 function computeRecipeCosts(
-  r: BomV2,
+  r: RecipeBom,
   materialsList: Material[],
   finished: FinishedSku | null
 ): CostBreakdown {
@@ -125,20 +106,20 @@ function computeRecipeCosts(
   const wasteProd = r.wastePctProduction ?? 0;
   const wastePack = r.wastePctPackaging ?? 0;
 
-  const matCost = (line: BomLine) => {
+  const matCost = (line: RecipeBom['items'][0]) => {
     const mat = materialsMap.get(line.materialId);
     const unitCost = mat?.standardCost || 0;
-    const matUom = mat?.uom as Uom | undefined;
+    const matUom = mat?.uom;
     if (!matUom) return 0;
 
     // Convertimos la cantidad de la línea a la UOM del coste estándar del material
-    const qtyInMatUom = convertQty(line.quantity, line.uom, matUom);
+    const qtyInMatUom = convertQty(line.quantity, (line.unit || 'uds') as Uom, matUom);
     return qtyInMatUom * unitCost;
   };
 
   const formulaEUR = round2(
     (r.items || [])
-      .filter(l => l.role === "FORMULA")
+      .filter(l => (l.role || 'FORMULA') === "FORMULA")
       .map(matCost)
       .reduce((a, b) => a + b, 0)
   );
@@ -345,7 +326,7 @@ function LineRow({
   onRemove: () => void;
   materials: Material[];
 }) {
-  const [searchQuery, setSearchQuery] = useState(line.name);
+  const [searchQuery, setSearchQuery] = useState(line.name || '');
 
   const handleSelectMaterial = (mat: Material) => {
     onChange({
@@ -382,8 +363,8 @@ function LineRow({
       </td>
       <td className="px-3 py-2">
         <select
-          value={line.uom}
-          onChange={(e) => onChange({ ...line, uom: e.target.value as Uom })}
+          value={line.unit}
+          onChange={(e) => onChange({ ...line, unit: e.target.value as Uom })}
           className="px-2 py-1.5 rounded-lg border border-zinc-300"
         >
           {UOM.map((u) => (
@@ -395,7 +376,7 @@ function LineRow({
       </td>
       <td className="px-3 py-2">
         <select
-          value={line.role}
+          value={line.role || 'FORMULA'}
           onChange={(e) =>
             onChange({ ...line, role: e.target.value as BomLineRole })
           }
@@ -457,8 +438,8 @@ function RecipeForm({
   materials,
   finishedSkus,
 }: {
-  value: BomV2;
-  onChange: (r: BomV2) => void;
+  value: RecipeBom;
+  onChange: (r: RecipeBom) => void;
   onSave: () => void;
   onCancel: () => void;
   materials: Material[];
@@ -475,11 +456,11 @@ function RecipeForm({
   );
 
   const addLine = (role: BomLineRole) => {
-    const nl: BomLine = {
+    const nl = {
       materialId: "",
       name: "",
       quantity: 0,
-      uom: "uds",
+      unit: "uds",
       role,
     };
     onChange({ ...value, items: [...(value.items || []), nl] });
@@ -494,7 +475,7 @@ function RecipeForm({
       items: (value.items || []).map((x, idx) => (idx === i ? l : x)),
     });
 
-  const itemsFormula = (value.items || []).filter((l) => l.role === "FORMULA");
+  const itemsFormula = (value.items || []).filter((l) => (l.role || 'FORMULA') === "FORMULA");
   const itemsPackaging = (value.items || []).filter((l) => l.role === "PACKAGING");
 
   const trySave = () => {
@@ -596,7 +577,7 @@ function RecipeForm({
                     <LineRow
                       key={`F-${i}`}
                       idx={idx}
-                      line={l}
+                      line={l as BomLine}
                       onChange={(nl) => setLine(i, nl)}
                       onRemove={() => removeLine(i)}
                       materials={materials}
@@ -642,7 +623,7 @@ function RecipeForm({
                     <LineRow
                       key={`P-${i}`}
                       idx={idx}
-                      line={l}
+                      line={l as BomLine}
                       onChange={(nl) => setLine(i, nl)}
                       onRemove={() => removeLine(i)}
                       materials={materials}
@@ -818,7 +799,7 @@ function RecipeForm({
                 <select
                   value={value.status || "BORRADOR"}
                   onChange={(e) =>
-                    onChange({ ...value, status: e.target.value as BomV2["status"] })
+                    onChange({ ...value, status: e.target.value as RecipeBom["status"] })
                   }
                   className="px-2 py-1.5 rounded-lg border border-zinc-300 w-full"
                 >
@@ -852,95 +833,10 @@ function RecipeForm({
   );
 }
 
-// ---------- Barra + Autocompletar de recetas ----------
-function SearchBar({
-  recipes,
-  onPick,
-}: {
-  recipes: RecipeBom[];
-  onPick: (id: string) => void;
-}) {
-  const [q, setQ] = useState("");
-  const [open, setOpen] = useState(false);
-  const wrapRef = useOutsideCloser<HTMLDivElement>(() => setOpen(false));
-
-  const sugs = useMemo(() => {
-    if (!q.trim() || !recipes) return [];
-    const query = q.trim().toLowerCase();
-    const out: { id: string; label: string; aux: string; kind: "SKU" | "Nombre" }[] = [];
-    for (const r of recipes) {
-      if (!r.id) continue;
-      if (r.sku.toLowerCase().includes(query))
-        out.push({ id: r.id, label: r.sku, aux: r.name, kind: "SKU" });
-      if (r.name.toLowerCase().includes(query))
-        out.push({ id: r.id, label: r.name, aux: r.sku, kind: "Nombre" });
-    }
-    const seen = new Set<string>();
-    return out
-      .filter((s) => {
-        const k = s.id + "|" + s.label + "|" + s.kind;
-        if (seen.has(k)) return false;
-        seen.add(k);
-        return true;
-      })
-      .slice(0, 10);
-  }, [recipes, q]);
-
-  return (
-    <div ref={wrapRef} className="relative w-full max-w-md">
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
-        <input
-          value={q}
-          onChange={(e) => {
-            setQ(e.target.value);
-            setOpen(true);
-          }}
-          placeholder="Buscar por SKU o nombre…"
-          className="w-full pl-9 pr-8 py-2 text-sm bg-white border border-zinc-300 rounded-xl outline-none focus:ring-2 focus:ring-amber-400"
-        />
-        {q && (
-          <button
-            onClick={() => {
-              setQ("");
-              setOpen(false);
-            }}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500"
-          >
-            <X size={16} />
-          </button>
-        )}
-      </div>
-      {open && sugs.length > 0 && (
-        <div className="absolute z-10 mt-1 w-full bg-white border border-zinc-200 rounded-xl shadow-md overflow-hidden">
-          {sugs.map((s) => (
-            <button
-              key={s.id + "|" + s.label}
-              onClick={() => {
-                onPick(s.id);
-                setOpen(false);
-                setQ("");
-              }}
-              className="w-full text-left px-3 py-2 text-sm hover:bg-zinc-50 flex items-center justify-between"
-            >
-              <span>
-                {s.label} <span className="text-zinc-400">· {s.aux}</span>
-              </span>
-              <span className="ml-2">
-                <Badge>{s.kind}</Badge>
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ---------- Página ----------
 export default function BomPage() {
     const { data: santaData } = useData();
-  const [openRecipe, setOpenRecipe] = useState<BomV2 | null>(null);
+  const [openRecipe, setOpenRecipe] = useState<RecipeBom | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notification, setNotification] = useState<string | null>(null);
@@ -964,7 +860,7 @@ export default function BomPage() {
 
 
   const select = (id: string) => {
-    const recipe = recipes.find((r) => r.id === id) as BomV2 | undefined;
+    const recipe = recipes.find((r) => r.id === id);
     if (recipe) {
       // Defaults sensatos
       setOpenRecipe({
@@ -975,18 +871,18 @@ export default function BomPage() {
         version: 1,
         status: "BORRADOR",
         ...recipe,
-        items: (recipe.items as any[] | undefined)?.map((l) => ({
-          role: "FORMULA", // backcompat: si antes no existía role, asumimos fórmula
-          uom: (l as any).uom ?? "uds",
+        items: (recipe.items || []).map(l => ({
+          role: "FORMULA", // backcompat
+          unit: "uds",
           ...l,
-        })) as BomLine[],
+        })),
       });
     }
   };
 
   const createNew = () => {
     const id = `bom_${Date.now()}`;
-    const empty: BomV2 = {
+    const empty: RecipeBom = {
       id,
       sku: "",
       name: "",
@@ -1038,7 +934,7 @@ export default function BomPage() {
     }
   };
 
-  const handleFormChange = (recipe: BomV2) => setOpenRecipe(recipe);
+  const handleFormChange = (recipe: RecipeBom) => setOpenRecipe(recipe);
 
   if (loading) return <div className="p-6">Cargando BOMs y Materiales…</div>;
   if (error) return <div className="p-6 text-red-700">Error: {error}</div>;
@@ -1078,23 +974,7 @@ export default function BomPage() {
             <div className="p-2 space-y-1">
               {recipes.map((r) => {
                 if (!r.id) return null;
-                // Convertimos a BomV2 en caliente para costeo rápido de tarjeta
-                const shim: BomV2 = {
-                  currency: "EUR",
-                  yieldPct: 98,
-                  wastePctProduction: 0,
-                  wastePctPackaging: 0,
-                  version: 1,
-                  status: "BORRADOR",
-                  ...r,
-                  items: (r.items as any[] | undefined)?.map((l) => ({
-                    role: "FORMULA",
-                    uom: (l as any).uom ?? "uds",
-                    ...l,
-                  })) as BomLine[],
-                };
-                // Nota: no pasamos finished SKU aquí (solo tarjeta: mostramos coste/botella si posible)
-                const c = computeRecipeCosts(shim, materials, null);
+                const c = computeRecipeCosts(r, materials, null);
                 const isSelected = openRecipe?.id === r.id;
                 return (
                   <div
