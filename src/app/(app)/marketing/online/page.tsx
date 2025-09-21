@@ -1,4 +1,3 @@
-
 // src/app/(app)/marketing/online/page.tsx
 "use client";
 
@@ -211,7 +210,9 @@ function monthBounds(d = new Date()){
 }
 function overlapsMonth(c: OnlineCampaign, now = new Date()){
   const { start, end } = monthBounds(now);
+  if (!c.startAt) return false;
   const s = new Date(c.startAt);
+  if (isNaN(s.getTime())) return false; // Invalid date
   const e = c.endAt ? new Date(c.endAt) : s;
   return e >= start && s <= end;
 }
@@ -587,3 +588,4 @@ export default function OnlineCampaignsPage() {
     </>
   );
 }
+```
