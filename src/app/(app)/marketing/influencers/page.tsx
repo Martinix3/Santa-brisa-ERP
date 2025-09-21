@@ -1,10 +1,8 @@
-
 "use client";
-import React from 'react';
-import InfluencerMarketing from '@/features/influencers/components/InfluencerMarketing';
-import { SB_COLORS, waterHeader, hexToRgba, AgaveEdge, Input, Select, Textarea } from '@/components/ui/ui-primitives';
-import { ClipboardList } from 'lucide-react';
-
+import React from "react";
+import InfluencersDashboardPage from "@/features/influencers/pages/InfluencersDashboardPage";
+import { SB_COLORS, waterHeader, hexToRgba, AgaveEdge, Input, Select, Textarea, SBButton } from "@/components/ui/ui-primitives";
+import { ClipboardList } from "lucide-react";
 
 // Mock Header component if it's not globally available or needs specific props
 function Header({ title, color = "#A7D8D9", icon: Icon = ClipboardList }: { title: string; color?: string; icon?: any }) {
@@ -15,7 +13,6 @@ function Header({ title, color = "#A7D8D9", icon: Icon = ClipboardList }: { titl
         </div>
     );
 }
-
 
 export default function InfluencersPage() {
     // These components are passed to the single-file component.
@@ -28,12 +25,13 @@ export default function InfluencersPage() {
         Input,
         Select,
         Textarea,
-        Header
+        Header,
+        SBButton,
     };
 
     return (
         <div className="w-full">
-            <InfluencerMarketing components={injectedComponents} />
+            <InfluencersDashboardPage components={injectedComponents} />
         </div>
     );
 }
