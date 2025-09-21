@@ -16,7 +16,7 @@ const DEFAULTS: CashflowSettings = {
   payoutFeePctOnline: 0.02,
   bankFeePct: 0.001,
   bucket: 'week',
-  termsByChannel: { HORECA: 30, DISTRIBUIDOR: 45, IMPORTADOR: 60, ONLINE: 2 },
+  termsByChannel: { HORECA: 30, RETAIL: 30, ONLINE: 2 },
   lagByPaymentMethod: { tarjeta: 2, transferencia: 3, domiciliado: 5, paypal: 2, contado: 0 },
 };
 
@@ -127,10 +127,10 @@ export default function CashflowSettingsPage() {
                 <SettingRow label="Términos por Defecto (días)" htmlFor="defaultTerms">
                     <Input id="defaultTerms" name="defaultTerms" type="number" value={s.defaultTermsDays} onChange={e => set('defaultTermsDays', Number(e.target.value))} />
                 </SettingRow>
-                {(['HORECA', 'RETAIL', 'DISTRIBUIDOR', 'IMPORTADOR', 'ONLINE'] as const).map(ch => (
+                {(['HORECA', 'RETAIL', 'ONLINE'] as const).map(ch => (
                      <SettingRow key={ch} label={`Días ${ch}`} htmlFor={`terms-${ch}`}>
                         <Input id={`terms-${ch}`} name={`terms-${ch}`} type="number" value={s.termsByChannel?.[ch] ?? s.defaultTermsDays} onChange={e => setTerms(ch as AccountType, e.target.value)} />
-                    </Row>
+                    </SettingRow>
                 ))}
             </div>
         </SBCard>
