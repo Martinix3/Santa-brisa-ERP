@@ -5,11 +5,13 @@
 import React, { useMemo, useState } from 'react';
 import { useData } from '@/lib/dataprovider';
 import { Download, Plus, Search, FileWarning, PackageCheck, FileText, Banknote } from 'lucide-react';
-import type { OrderSellOut, Account, User, OrderStatus, PartyRole, CustomerData } from '@/domain/ssot';
+import type { OrderSellOut, Account, User, OrderStatus, PartyRole, CustomerData, AccountType } from '@/domain/ssot';
 import { orderTotal } from '@/lib/sb-core';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
 import { ShoppingCart } from 'lucide-react';
 import Link from 'next/link';
+import { SBFlowModal } from '@/features/quicklog/components/SBFlows';
+import { generateNextOrder } from '@/lib/codes';
 
 type Tab = 'directa' | 'colocacion';
 
@@ -126,10 +128,11 @@ function exportToCsv(filename: string, rows: (string | number)[][]) {
 const accountHref = (id: string) => `/accounts/${id}`;
 
 export default function OrdersDashboard() {
-  const { data } = useData();
+  const { data, setData, saveCollection } = useData();
   const [activeTab, setActiveTab] = useState<Tab>('directa');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [isCreateOrderOpen, setIsCreateOrderOpen] = useState(false);
 
   const { ordersSellOut, accounts, users, partyRoles } = data || { ordersSellOut: [], accounts: [], users: [], partyRoles: [] };
   
@@ -204,6 +207,32 @@ export default function OrdersDashboard() {
       exportToCsv(`pedidos-${activeTab}-${new Date().toISOString().split('T')[0]}.csv`, [headers, ...rows]);
   }
 
+  const handleCreateOrder = (payload: any) => {
+      if (!data) return;
+      const targetAccount = data.accounts.find(a => a.name === payload.account);
+      if (!targetAccount) {
+          alert('Cuenta no encontrada');
+          return;
+      }
+      
+      const newOrder: OrderSellOut = {
+          id: `ord_${Date.now()}`,
+          docNumber: generateNextOrder(data.ordersSellOut.map(o=>o.docNumber).filter(Boolean) as string[], payload.channel, new Date()),
+          accountId: targetAccount.id,
+          lines: payload.items,
+          status: 'open',
+          createdAt: new Date().toISOString(),
+          currency: 'EUR',
+          notes: payload.note,
+          source: 'MANUAL'
+      };
+      
+      const updatedOrders = [...data.ordersSellOut, newOrder];
+      setData({ ...data, ordersSellOut: updatedOrders });
+      saveCollection('ordersSellOut', updatedOrders);
+      setIsCreateOrderOpen(false);
+  }
+
   return (
     <>
       <ModuleHeader title="Gestión de Pedidos" icon={ShoppingCart}>
@@ -211,7 +240,7 @@ export default function OrdersDashboard() {
             <button onClick={handleExport} className="flex items-center gap-2 text-sm bg-white border border-zinc-200 rounded-md px-3 py-1.5 hover:bg-zinc-50" aria-label="Exportar datos a CSV">
               <Download size={14} /> Exportar
             </button>
-            <button className="flex items-center gap-2 text-sm bg-yellow-400 text-zinc-900 font-semibold rounded-md px-3 py-1.5 hover:bg-yellow-500">
+            <button onClick={() => setIsCreateOrderOpen(true)} className="flex items-center gap-2 text-sm bg-yellow-400 text-zinc-900 font-semibold rounded-md px-3 py-1.5 hover:bg-yellow-500">
               <Plus size={16} /> Nuevo Pedido
             </button>
         </div>
@@ -295,6 +324,17 @@ export default function OrdersDashboard() {
           )}
         </div>
       </div>
+      {isCreateOrderOpen && (
+        <SBFlowModal
+          open={isCreateOrderOpen}
+          variant="createOrder"
+          onClose={() => setIsCreateOrderOpen(false)}
+          accounts={data?.accounts || []}
+          onSearchAccounts={async (q) => (data?.accounts || []).filter(a => a.name.toLowerCase().includes(q.toLowerCase()))}
+          onCreateAccount={async (d) => { /* Lógica para crear cuenta aquí si es necesario */ return d as any; }}
+          onSubmit={handleCreateOrder}
+        />
+      )}
     </>
   );
 }
