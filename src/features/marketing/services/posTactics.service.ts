@@ -1,3 +1,4 @@
+// src/features/marketing/services/posTactics.service.ts
 
 "use client";
 import { useData } from "@/lib/dataprovider";
@@ -26,7 +27,7 @@ export function usePosTacticsService() {
     }
   }
 
-  async function upsertPosTactic(input: Omit<PosTactic,'id'|'createdAt'|'createdById'|'updatedAt' | 'items'> & { id?: string, items?: PosTacticItem[] }) {
+  async function upsertPosTactic(input: Omit<PosTactic,'id'|'createdAt'|'createdById'|'updatedAt'> & { id?: string }) {
     if (!input.accountId) throw new Error("accountId es obligatorio");
     if (input.executionScore == null || input.executionScore < 0 || input.executionScore > 100) {
       throw new Error("executionScore 0..100 es obligatorio");
@@ -50,18 +51,8 @@ export function usePosTacticsService() {
     } else {
       const doc: PosTactic = {
         id: `tac_${Date.now()}`,
-        accountId: input.accountId,
-        eventId: input.eventId,
-        interactionId: input.interactionId,
-        orderId: input.orderId,
-        tacticCode: input.tacticCode,
-        description: input.description,
-        appliesToSkuIds: input.appliesToSkuIds,
-        items: input.items || [],
-        plannedCost: input.plannedCost,
-        actualCost: input.actualCost,
-        executionScore: input.executionScore,
-        status: input.status ?? 'active',
+        items: [],
+        ...input,
         createdAt: stamp,
         createdById: currentUser?.id || 'system',
         updatedAt: stamp

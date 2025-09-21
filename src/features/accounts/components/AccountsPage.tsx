@@ -1,4 +1,4 @@
-
+// src/features/accounts/components/AccountsPage.tsx
 
 "use client"
 import React, { useMemo, useState, useEffect } from 'react'
@@ -294,7 +294,7 @@ export function AccountsPageContent() {
                 notes: `Pedido rápido creado desde lista de cuentas`,
             };
             collectionsToSave.ordersSellOut = [...(santaData.ordersSellOut || []), newOrder];
-        } else { // Interacción y otros
+        } else { 
             const newInteraction: Partial<Interaction> = {
                 id: `int_${Date.now()}`,
                 userId: currentUser.id,
@@ -394,5 +394,3 @@ export function AccountsPageContent() {
     </>
   )
 }
-
-    

@@ -1,10 +1,9 @@
-
 "use client";
 import React, { useMemo, useState, useEffect } from 'react';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
 import { Input, Select, Textarea } from '@/components/ui/ui-primitives';
-import type { PosTactic, PosCostCatalogEntry, Account } from '@/domain';
-import { Plus, X, Package } from 'lucide-react';
+import type { PosTactic, PosCostCatalogEntry, Account, PlvMaterial } from '@/domain';
+import { useData } from '@/lib/dataprovider';
 
 const TACTIC_CODES = [
     "ICE_BUCKET", "GLASSWARE", "BARTENDER_INCENTIVE", "MENU_PLACEMENT",
@@ -83,6 +82,8 @@ export function NewPosTacticDialog({
     onSave: (data: Omit<PosTactic, 'id' | 'createdAt' | 'createdById'> & { id?: string }) => void;
     tacticBeingEdited: PosTactic | null;
     accounts: Account[];
+    costCatalog: PosCostCatalogEntry[];
+    plvInventory: PlvMaterial[];
 }) {
     const [tactic, setTactic] = useState<Partial<PosTactic>>({});
 
