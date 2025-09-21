@@ -15,6 +15,7 @@ import { inWindow, orderTotal } from '@/lib/sb-core';
 import { generateInsights } from '@/ai/flows/generate-insights-flow';
 import { Avatar } from "@/components/ui/Avatar";
 import { sbAsISO } from '@/features/agenda/helpers';
+import { UpcomingTasks } from '@/features/agenda/components/UpcomingTasks';
 
 const formatEur = (n: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
 const formatShortDate = (date: Date) => new Intl.DateTimeFormat('es-ES', { month: 'short', day: 'numeric' }).format(date);
@@ -226,73 +227,6 @@ function SalesChannelDonut({ data, timeRange }: { data:any; timeRange:TimeRange 
   );
 }
 
-
-type CategorizedTasks = {
-  overdue: Interaction[];
-  pending: Interaction[];
-  done: Interaction[];
-};
-
-function TeamTasks({ tasks, accounts, users }: { tasks: Interaction[], accounts: Account[], users: UserType[] }) {
-    const categorizedTasks = useMemo((): CategorizedTasks => {
-        const now = new Date();
-        now.setHours(0, 0, 0, 0);
-
-        const openTasks = tasks.filter(t => t.status === 'open' && t.plannedFor);
-        
-        return {
-            overdue: openTasks.filter(t => new Date(t.plannedFor!) < now).sort((a, b) => +new Date(a.plannedFor!) - +new Date(b.plannedFor!)),
-            pending: openTasks.filter(t => new Date(t.plannedFor!) >= now).sort((a, b) => +new Date(a.plannedFor!) - +new Date(b.plannedFor!)),
-            done: tasks.filter(t => t.status === 'done').sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt)).slice(0, 10),
-        };
-    }, [tasks]);
-
-    const TaskList = ({ title, tasks, icon, color }: { title: string, tasks: Interaction[], icon: React.ElementType, color: string }) => {
-        const Icon = icon;
-        return (
-            <div>
-                <h3 className={`flex items-center gap-2 font-semibold text-sm mb-3 ${color}`}>
-                    <Icon size={16} /> {title} ({tasks.length})
-                </h3>
-                {tasks.length > 0 ? (
-                    <div className="space-y-2">
-                        {tasks.map(task => {
-                            const account = accounts.find(a => a.id === task.accountId);
-                            const assignedUsers = (task.involvedUserIds || []).map(id => users.find(u => u.id === id)).filter(Boolean) as UserType[];
-                            return (
-                                <div key={task.id} className="p-2 bg-white border rounded-lg text-xs">
-                                    <p className="font-medium text-zinc-800">{task.note}</p>
-                                    <div className="flex justify-between items-center mt-1 text-zinc-500">
-                                        <span>{account?.name || 'Sin cuenta'}</span>
-                                        <div className="flex items-center gap-2">
-                                            <span>{task.plannedFor ? new Date(task.plannedFor).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) : ''}</span>
-                                            <div className="flex -space-x-1">
-                                                {assignedUsers.map(user => <Avatar key={user.id} name={user.name} size="sm" />)}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                ) : (
-                    <p className="text-xs text-center text-zinc-500 bg-zinc-50 py-4 rounded-lg">No hay tareas en esta categoría.</p>
-                )}
-            </div>
-        );
-    };
-
-    return (
-        <SBCard title="Tareas del Equipo de Ventas">
-            <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-6">
-                <TaskList title="Atrasadas" tasks={categorizedTasks.overdue} icon={AlertCircle} color="text-red-600" />
-                <TaskList title="Pendientes" tasks={categorizedTasks.pending} icon={Clock} color="text-blue-600" />
-                <TaskList title="Completadas (Recientes)" tasks={categorizedTasks.done} icon={Check} color="text-green-600" />
-            </div>
-        </SBCard>
-    );
-}
-
 function buildTimeSeries(orders: OrderSellOut[], start: Date, end: Date, granularity:'day'|'month'){
   const out: { name:string; sales:number; target?:number }[] = [];
   const cursor = new Date(start);
@@ -377,11 +311,6 @@ function TeamDashboardContent() {
     const teamStats = { totalNewAccounts, conversionRate, attributedSales, visitsInPeriod };
     return { teamStats, salesEvolutionData };
   }, [data, timeRange]);
-
-  const salesTasks = useMemo(() => {
-    if (!data) return [];
-    return data.interactions.filter(i => i.dept === 'VENTAS');
-  }, [data]);
   
   const handleGenerateInsights = async () => {
     if (!data) return;
@@ -464,13 +393,14 @@ function TeamDashboardContent() {
             </div>
         </SBCard>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <CommercialsRace users={users} data={data} onUserClick={handleUserClick} />
-            <SalesChannelDonut data={data} timeRange={timeRange} />
-        </div>
-
-        <div>
-            {data && <TeamTasks tasks={salesTasks} accounts={data.accounts} users={data.users} />}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <CommercialsRace users={users} data={data} onUserClick={handleUserClick} />
+                <SalesChannelDonut data={data} timeRange={timeRange} />
+            </div>
+            <div className="space-y-6">
+                <UpcomingTasks department="VENTAS" />
+            </div>
         </div>
         
         <UserReportPopover 

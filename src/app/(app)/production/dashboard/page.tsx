@@ -12,6 +12,7 @@ import { BottlingProgress } from "@/features/production/dashboard/components/Bot
 import { EfficiencyWidget } from "@/features/production/dashboard/components/EfficiencyWidget";
 import { Plus } from "lucide-react";
 import { SBCard } from "@/components/ui/ui-primitives";
+import { UpcomingTasks } from "@/features/agenda/components/UpcomingTasks";
 
 export default function ProductionDashboardPage() {
   const { data } = useData();
@@ -44,6 +45,7 @@ export default function ProductionDashboardPage() {
           <ShortagesPanel shortages={kpis.currentShortages} materials={materials as any} />
           <InventorySnapshot critical={kpis.criticalInventory} materials={materials as any} />
           <QCPanel lots={lots as any} />
+          <UpcomingTasks department="PRODUCCION" />
         </div>
       </div>
       

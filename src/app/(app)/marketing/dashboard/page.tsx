@@ -6,6 +6,7 @@ import { SBCard, SBButton } from '@/components/ui/ui-primitives';
 import { DEPT_META } from '@/domain/ssot';
 import type { Interaction, MarketingEvent, OnlineCampaign, InfluencerCollab, PosTactic } from '@/domain/ssot';
 import { Calendar, AlertCircle, Clock, Target, Euro, TrendingUp, BarChart, Percent, PieChart as PieChartIcon } from 'lucide-react';
+import { UpcomingTasks } from '@/features/agenda/components/UpcomingTasks';
 
 // ===================================
 // Helper Functions & Types
@@ -41,13 +42,12 @@ function MarketingDashboardPageContent() {
     const [timeRange, setTimeRange] = useState<TimeRange>('month');
 
     // 1. Data Aggregation & Calculations (as per brief)
-    const { totals, investmentMix, upcomingActions, pendingTasks, rviCards } = useMemo(() => {
+    const { totals, investmentMix, upcomingActions, rviCards } = useMemo(() => {
         if (!data) {
             return {
                 totals: { totalSpend: 0, totalRevenue: 0, totalActions: 0, totalRoi: 0 },
                 investmentMix: [],
                 upcomingActions: [],
-                pendingTasks: [],
                 rviCards: { rvi: 0, unitsPerEuro: 0, pctPositive: 0 }
             };
         }
@@ -122,12 +122,6 @@ function MarketingDashboardPageContent() {
             ...(data.posTactics || []).filter(t => t.status === 'planned' && new Date(t.createdAt) <= in30Days).map(t => ({ date: t.createdAt, title: `POS: ${t.tacticCode}`, type: 'Táctica POS' })),
         ];
         const upcomingActionsResult = allUpcoming.sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-        
-        // Tareas pendientes
-        const in14Days = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
-        const pendingTasksResult = (data.interactions || [])
-            .filter(i => i.dept === 'MARKETING' && i.status === 'open' && i.plannedFor && new Date(i.plannedFor) <= in14Days)
-            .sort((a, b) => new Date(a.plannedFor!).getTime() - new Date(b.plannedFor!).getTime());
             
         // RVI Cards
         const selloutWeekly = (data as any).selloutWeekly || [];
@@ -177,7 +171,7 @@ function MarketingDashboardPageContent() {
         const unitsPerEuro = med(activeRvi.map(r=>r.upe));
         const pctPositive = activeRvi.length ? (activeRvi.filter(r=>r.positive).length / activeRvi.length) : 0;
 
-        return { totals: totalsResult, investmentMix: investmentMixResult, upcomingActions: upcomingActionsResult, pendingTasks: pendingTasksResult, rviCards: { rvi, unitsPerEuro, pctPositive } };
+        return { totals: totalsResult, investmentMix: investmentMixResult, upcomingActions: upcomingActionsResult, rviCards: { rvi, unitsPerEuro, pctPositive } };
 
     }, [data, timeRange]);
 
@@ -263,21 +257,7 @@ function MarketingDashboardPageContent() {
                         )) : <p className="text-center text-sm text-zinc-500 p-8">No hay acciones planificadas.</p>}
                     </div>
                 </SBCard>
-                 <SBCard title="Tareas Pendientes (Próximos 14 días)">
-                    <div className="p-2 max-h-72 overflow-y-auto">
-                        {pendingTasks.length > 0 ? pendingTasks.map((task: Interaction) => (
-                            <div key={task.id} className={`flex items-center gap-3 p-2 rounded-lg hover:bg-zinc-50 ${new Date(task.plannedFor!) < new Date() ? 'bg-red-50/50' : ''}`}>
-                                <div className="p-2 rounded-md" style={{ backgroundColor: (DEPT_META.MARKETING.color || '#F7D15F') + '20' }}>
-                                    {new Date(task.plannedFor!) < new Date() ? <AlertCircle size={16} className="text-red-500"/> : <Clock size={16} style={{color: DEPT_META.MARKETING.color || '#F7D15F' }} />}
-                                </div>
-                                <div>
-                                    <p className="font-medium text-sm">{task.note}</p>
-                                    <p className="text-xs text-zinc-500">{new Date(task.plannedFor!).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}</p>
-                                </div>
-                            </div>
-                        )) : <p className="text-center text-sm text-zinc-500 p-8">No tienes tareas pendientes.</p>}
-                    </div>
-                </SBCard>
+                <UpcomingTasks department="MARKETING" />
             </div>
         </div>
     )

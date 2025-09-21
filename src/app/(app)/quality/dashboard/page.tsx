@@ -6,6 +6,7 @@ import type { Lot, QACheck } from '@/domain/ssot';
 import { SBCard, SBButton, LotQualityStatusPill } from '@/components/ui/ui-primitives';
 import { Hourglass, CheckCircle, XCircle, FileText, BrainCircuit } from 'lucide-react';
 import { generateInsights } from '@/ai/flows/generate-insights-flow';
+import { UpcomingTasks } from '@/features/agenda/components/UpcomingTasks';
 
 function KPI({ label, value, icon: Icon }: { label: string; value: number; icon: React.ElementType }) {
     return (
@@ -100,40 +101,45 @@ export default function QualityDashboardPage() {
 
             <AIInsightsCard />
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <SBCard title="Lotes Pendientes de Revisión (en cuarentena)">
-                     <div className="divide-y divide-zinc-100">
-                        {lots.filter(l => l.quality?.qcStatus === 'hold').map(lot => (
-                            <div key={lot.id} className="p-3 flex justify-between items-center">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <SBCard title="Lotes Pendientes de Revisión (en cuarentena)">
+                        <div className="divide-y divide-zinc-100">
+                            {lots.filter(l => l.quality?.qcStatus === 'hold').map(lot => (
+                                <div key={lot.id} className="p-3 flex justify-between items-center">
+                                    <div>
+                                        <p className="font-mono text-sm font-semibold">{lot.id}</p>
+                                        <p className="text-xs text-zinc-500">{lot.sku}</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-sm font-bold">{lot.quantity} uds</p>
+                                        <p className="text-xs text-zinc-500">{new Date(lot.createdAt).toLocaleDateString()}</p>
+                                    </div>
+                                </div>
+                            ))}
+                            {kpis.pending === 0 && <p className="p-4 text-sm text-center text-zinc-500">No hay lotes en cuarentena.</p>}
+                        </div>
+                    </SBCard>
+                    <SBCard title="Últimos Controles de Calidad Realizados">
+                        <div className="divide-y divide-zinc-100">
+                        {recentChecks.map(check => (
+                            <div key={check.id} className="p-3 flex justify-between items-center">
                                 <div>
-                                    <p className="font-mono text-sm font-semibold">{lot.id}</p>
-                                    <p className="text-xs text-zinc-500">{lot.sku}</p>
+                                    <p className="font-mono text-sm font-semibold">{check.lotId}</p>
+                                    <p className="text-xs text-zinc-500">
+                                        Revisado por {data?.users.find(u => u.id === check.reviewedById)?.name || 'N/A'}
+                                    </p>
                                 </div>
-                                <div className="text-right">
-                                    <p className="text-sm font-bold">{lot.quantity} uds</p>
-                                    <p className="text-xs text-zinc-500">{new Date(lot.createdAt).toLocaleDateString()}</p>
-                                </div>
+                                <LotQualityStatusPill status={check.summaryStatus === 'ok' ? 'release' : 'reject'} />
                             </div>
                         ))}
-                        {kpis.pending === 0 && <p className="p-4 text-sm text-center text-zinc-500">No hay lotes en cuarentena.</p>}
-                    </div>
-                </SBCard>
-                <SBCard title="Últimos Controles de Calidad Realizados">
-                    <div className="divide-y divide-zinc-100">
-                       {recentChecks.map(check => (
-                           <div key={check.id} className="p-3 flex justify-between items-center">
-                               <div>
-                                   <p className="font-mono text-sm font-semibold">{check.lotId}</p>
-                                   <p className="text-xs text-zinc-500">
-                                       Revisado por {data?.users.find(u => u.id === check.reviewedById)?.name || 'N/A'}
-                                   </p>
-                               </div>
-                               <LotQualityStatusPill status={check.summaryStatus === 'ok' ? 'release' : 'reject'} />
-                           </div>
-                       ))}
-                       {recentChecks.length === 0 && <p className="p-4 text-sm text-center text-zinc-500">No hay controles de calidad recientes.</p>}
-                    </div>
-                </SBCard>
+                        {recentChecks.length === 0 && <p className="p-4 text-sm text-center text-zinc-500">No hay controles de calidad recientes.</p>}
+                        </div>
+                    </SBCard>
+                </div>
+                <div className="space-y-6">
+                    <UpcomingTasks department="CALIDAD" />
+                </div>
             </div>
         </div>
     );

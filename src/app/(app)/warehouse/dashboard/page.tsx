@@ -11,6 +11,7 @@ import type { InventoryItem, Shipment, Interaction, StockMove, Account } from '@
 import { DEPT_META, SB_COLORS } from '@/domain/ssot';
 import Link from 'next/link';
 import { samplesSentSummary } from "@/lib/consignment-and-samples";
+import { UpcomingTasks } from '@/features/agenda/components/UpcomingTasks';
 
 function KPI({ icon: Icon, label, value, color }: { icon: React.ElementType, label: string, value: string | number, color: string }) {
     return (
@@ -132,7 +133,7 @@ function WarehouseDashboardContent({ inventory, shipments, stockMoves, accounts 
                     </Card>
                 </div>
                  <div className="space-y-6">
-                     <UpcomingEvents />
+                     <UpcomingTasks department="ALMACEN" />
                      <Card title="Alertas de Stock Bajo">
                          <div className="p-2 space-y-1">
                              {lowStockItems.length > 0 ? lowStockItems.map(item => (
@@ -203,60 +204,6 @@ function AIInsightsCard() {
                 )}
             </div>
         </SBCard>
-    );
-}
-
-function UpcomingEvents() {
-    const { data } = useData();
-    const { overdue, upcoming } = useMemo(() => {
-        if (!data?.interactions) return { overdue: [], upcoming: [] };
-        
-        const now = new Date();
-        const openInteractions = data.interactions
-            .filter(i => i.dept === 'ALMACEN' && i.status === 'open' && i.plannedFor);
-            
-        const overdue = openInteractions
-            .filter(i => new Date(i.plannedFor!) < now)
-            .sort((a, b) => new Date(a.plannedFor!).getTime() - new Date(b.plannedFor!).getTime());
-            
-        const upcoming = openInteractions
-            .filter(i => new Date(i.plannedFor!) >= now)
-            .sort((a, b) => new Date(a.plannedFor!).getTime() - new Date(b.plannedFor!).getTime());
-
-        return { overdue, upcoming };
-    }, [data]);
-
-    const allEvents = [...overdue, ...upcoming].slice(0, 5);
-
-    if (allEvents.length === 0) {
-        return (
-            <Card title="Próximas Tareas de Almacén">
-                <p className="p-4 text-sm text-center text-zinc-500">No hay tareas programadas.</p>
-            </Card>
-        );
-    }
-
-    return (
-        <Card title="Próximas Tareas de Almacén">
-            <div className="p-4 space-y-3">
-                {allEvents.map((event: Interaction) => {
-                    const isOverdue = new Date(event.plannedFor!) < new Date();
-                    const Icon = isOverdue ? AlertCircle : Clock;
-                    
-                    return (
-                         <div key={event.id} className={`flex items-center gap-3 p-2 rounded-lg border cursor-pointer ${isOverdue ? 'bg-rose-50/50 border-rose-200' : 'bg-zinc-50 border-zinc-200 hover:bg-zinc-100'}`}>
-                            <div className="p-2 rounded-full" style={{ backgroundColor: DEPT_META.ALMACEN.color, color: DEPT_META.ALMACEN.textColor }}>
-                                <Icon size={16} />
-                            </div>
-                            <div>
-                                <p className="font-medium text-sm">{event.note}</p>
-                                <p className={`text-xs ${isOverdue ? 'text-rose-600 font-semibold' : 'text-zinc-500'}`}>{new Date(event.plannedFor!).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}</p>
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
-        </Card>
     );
 }
 
