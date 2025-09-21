@@ -1,9 +1,10 @@
 
+
 "use client";
 
 import React, { useMemo, useState } from 'react';
 import { useData } from '@/lib/dataprovider';
-import { Download, Plus, Search } from 'lucide-react';
+import { Download, Plus, Search, FileWarning, PackageCheck, FileText, Banknote } from 'lucide-react';
 import type { OrderSellOut, Account, User, OrderStatus, PartyRole, CustomerData } from '@/domain/ssot';
 import { orderTotal } from '@/lib/sb-core';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
@@ -11,6 +12,20 @@ import { ShoppingCart } from 'lucide-react';
 import Link from 'next/link';
 
 type Tab = 'directa' | 'colocacion';
+
+function KPI({ icon: Icon, label, value, color }: { icon: React.ElementType, label: string, value: string | number, color: string }) {
+    return (
+        <div className="bg-white p-4 rounded-xl border border-sb-neutral-200 flex items-start gap-4">
+            <div className={`h-10 w-10 rounded-lg flex items-center justify-center`} style={{ backgroundColor: `${color}20`, color }}>
+                <Icon size={20} />
+            </div>
+            <div>
+                <p className="text-2xl font-bold text-sb-neutral-900">{value}</p>
+                <p className="text-sm text-sb-neutral-600">{label}</p>
+            </div>
+        </div>
+    )
+}
 
 function FilterPill({
   value,
@@ -162,6 +177,20 @@ export default function OrdersDashboard() {
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [enrichedOrders, searchTerm, statusFilter, activeTab]);
 
+  const kpis = useMemo(() => {
+    const relevantOrders = enrichedOrders.filter(order => {
+        const isVentaDirecta = order.billerId === 'SB';
+        return activeTab === 'directa' ? isVentaDirecta : !isVentaDirecta;
+    });
+
+    return {
+        pendingConfirmation: relevantOrders.filter(o => o.status === 'open').length,
+        pendingShipment: relevantOrders.filter(o => o.status === 'confirmed').length,
+        pendingInvoice: relevantOrders.filter(o => o.status === 'shipped').length,
+        pendingPayment: relevantOrders.filter(o => o.status === 'invoiced').length,
+    }
+  }, [enrichedOrders, activeTab]);
+
   const handleExport = () => {
       const headers = ['id', 'fecha', 'cliente', 'total', 'estado', 'canal'];
       const rows = filteredOrders.map(order => [
@@ -190,6 +219,13 @@ export default function OrdersDashboard() {
 
       <div className="p-4 md:p-6">
         <Tabs activeTab={activeTab} setActiveTab={setActiveTab} />
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 my-4">
+            <KPI icon={FileWarning} label="Pendiente de Confirmar" value={kpis.pendingConfirmation} color="#f59e0b" />
+            <KPI icon={PackageCheck} label="Pendiente de Enviar" value={kpis.pendingShipment} color="#3b82f6" />
+            <KPI icon={FileText} label="Pendiente de Facturar" value={kpis.pendingInvoice} color="#10b981" />
+            <KPI icon={Banknote} label="Pendiente de Cobrar" value={kpis.pendingPayment} color="#8b5cf6" />
+        </div>
         
         <div className="mt-4 mb-4 flex items-center gap-3">
             <div className="relative flex-grow">
