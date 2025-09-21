@@ -3,13 +3,13 @@
 "use client"
 import React, { useMemo, useState, useEffect } from 'react'
 import { ChevronDown, Search, Plus, Phone, Mail, MessageSquare, Calendar, History, ShoppingCart, Info, BarChart3, UserPlus, Users, MoreVertical } from 'lucide-react'
-import type { Account as AccountType, Stage, User, Interaction, OrderSellOut, SantaData, CustomerData, Party, PartyRole } from '@/domain'
+import type { Account as AccountType, Stage, User, Interaction, OrderSellOut, SantaData, CustomerData, Party, PartyRole, InteractionKind, Payload } from '@/domain'
 import { accountOwnerDisplay, computeAccountKPIs, getDistributorForAccount, orderTotal } from '@/lib/sb-core';
 import Link from 'next/link'
 import { useData } from '@/lib/dataprovider'
 import { FilterSelect } from '@/components/ui/FilterSelect'
 import { ModuleHeader } from '@/components/ui/ModuleHeader'
-import { TaskCompletionDialog, Payload as TaskCompletionPayload } from '@/features/dashboard-ventas/components/TaskCompletionDialog'
+import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/TaskCompletionDialog'
 import { Avatar } from '@/components/ui/Avatar';
 
 const STAGE: Record<string, { label:string; tint:string; text:string }> = {
@@ -73,12 +73,14 @@ function AccountBar({ a, party, santaData, onAddActivity }: { a: AccountType, pa
     return { unifiedActivity: unified, kpis: kpiData };
   }, [a.id, santaData]);
   
-  const interactionIcons: Record<any, React.ElementType> = {
+  const interactionIcons: Record<InteractionKind, React.ElementType> = {
       VISITA: MessageSquare,
       LLAMADA: Phone,
       EMAIL: Mail,
       OTRO: History,
       WHATSAPP: MessageSquare,
+      EVENTO_MKT: MessageSquare,
+      COBRO: MessageSquare
   };
 
   const distributorName = useMemo(() => {
@@ -88,26 +90,28 @@ function AccountBar({ a, party, santaData, onAddActivity }: { a: AccountType, pa
 
   return (
     <div className="overflow-hidden transition-all duration-200 hover:bg-black/5 rounded-lg border border-zinc-200/50">
-      <div className="w-full grid grid-cols-[auto_1.6fr_1.2fr_1fr_1.2fr_auto] items-center gap-3 px-4 py-1.5 cursor-pointer" onClick={()=>setOpen(v=>!v)}>
-         <button onClick={(e)=>{ e.stopPropagation(); setOpen(v=>!v); }} className="p-1.5 rounded-md text-zinc-600 hover:bg-zinc-100/20" title={open ? 'Cerrar detalle' : 'Ver detalle'}>
+      <div className="flex w-full items-center cursor-pointer" onClick={()=>setOpen(v=>!v)}>
+          <button onClick={(e)=>{ e.stopPropagation(); setOpen(v=>!v); }} className="p-1.5 rounded-md text-zinc-600 hover:bg-zinc-100/20 ml-4" title={open ? 'Cerrar detalle' : 'Ver detalle'}>
             <ChevronDown className="h-4 w-4 transition-transform duration-300" style={{transform: open? 'rotate(180deg)':'rotate(0deg)'}}/>
           </button>
-        <div className="text-sm font-medium truncate flex items-center gap-2">
-          <Link href={`/accounts/${a.id}`} className="text-zinc-900 truncate hover:underline">{a.name}</Link>
-          {orderAmount>0 && <span className="text-[11px] px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-700 whitespace-nowrap">{formatEUR(orderAmount)}</span>}
-        </div>
-        <div className="flex items-center gap-2 min-w-0"><Avatar name={owner} size="md" /><span className="text-sm text-zinc-700 truncate">{owner}</span></div>
-        <div className="text-sm text-zinc-700 truncate">{party?.addresses[0]?.city ||'—'}</div>
-        <div className="text-sm text-zinc-700 truncate">{distributorName}</div>
-        <div className="text-right relative group">
-          <button className="p-1.5 rounded-md border border-zinc-200 bg-white/50 text-zinc-700 inline-flex items-center transition-all hover:bg-white/90 hover:border-zinc-300 hover:scale-105" title="Acciones">
-            <MoreVertical className="h-3.5 w-3.5"/>
-          </button>
-          <div className="absolute right-0 top-full mt-1 z-10 w-48 bg-white border rounded-md shadow-lg hidden group-hover:block">
-            <Link href={`/accounts/${a.id}`} className="block w-full text-left px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50">Ver Ficha de Cliente</Link>
-            <button onClick={(e) => { e.stopPropagation(); onAddActivity(a); }} className="block w-full text-left px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50">Añadir Interacción/Venta</button>
+          <div className="w-full grid grid-cols-[1.6fr_1.2fr_1fr_1.2fr_auto] items-center gap-3 px-4 py-1.5">
+            <div className="text-sm font-medium truncate flex items-center gap-2">
+            <Link href={`/accounts/${a.id}`} className="text-zinc-900 truncate hover:underline">{a.name}</Link>
+            {orderAmount>0 && <span className="text-[11px] px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-700 whitespace-nowrap">{formatEUR(orderAmount)}</span>}
+            </div>
+            <div className="flex items-center gap-2 min-w-0"><Avatar name={owner} size="md" /><span className="text-sm text-zinc-700 truncate">{owner}</span></div>
+            <div className="text-sm text-zinc-700 truncate">{party?.addresses[0]?.city ||'—'}</div>
+            <div className="text-sm text-zinc-700 truncate">{distributorName}</div>
+            <div className="text-right relative group">
+            <button className="p-1.5 rounded-md border border-zinc-200 bg-white/50 text-zinc-700 inline-flex items-center transition-all hover:bg-white/90 hover:border-zinc-300 hover:scale-105" title="Acciones">
+                <MoreVertical className="h-3.5 w-3.5"/>
+            </button>
+            <div className="absolute right-0 top-full mt-1 z-10 w-48 bg-white border rounded-md shadow-lg hidden group-hover:block">
+                <Link href={`/accounts/${a.id}`} className="block w-full text-left px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50">Ver Ficha de Cliente</Link>
+                <button onClick={(e) => { e.stopPropagation(); onAddActivity(a); }} className="block w-full text-left px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50">Añadir Interacción/Venta</button>
+            </div>
+            </div>
           </div>
-        </div>
       </div>
       {open && kpis && (
         <div className="border-t bg-white/50" style={{borderColor:`${s.tint}33`}}>
@@ -273,7 +277,7 @@ export function AccountsPageContent() {
 
     const handleSaveCompletedTask = async (
         accountId: string,
-        payload: TaskCompletionPayload
+        payload: Payload
     ) => {
         if (!santaData || !currentUser) return;
     
