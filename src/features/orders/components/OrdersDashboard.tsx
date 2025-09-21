@@ -145,7 +145,6 @@ export default function OrdersDashboard() {
     if (!enrichedOrders) return [];
     return enrichedOrders
       .filter((order) => {
-        if (!order) return false;
         
         const isVentaDirecta = order.billerId === 'SB';
         if (activeTab === 'directa' && !isVentaDirecta) return false;
