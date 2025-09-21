@@ -7,18 +7,15 @@ import type { Message } from 'genkit';
 import { useData } from '@/lib/dataprovider';
 import Image from 'next/image';
 import type { SantaData } from '@/domain/ssot';
-import { runSantaBrainInBrowser } from '@/ai/browser/santaBrainClient';
-
 
 type ChatProps = {
     userId: string;
     onNewData: (data: Partial<SantaData>) => void;
+    cloudFunctionUrl: string;
 };
 
-// NOTE: This now uses the browser-based client directly for simplicity in this environment.
-// The Cloud Function URL is no longer needed.
 
-export function Chat({ userId, onNewData }: ChatProps) {
+export function Chat({ userId, onNewData, cloudFunctionUrl }: ChatProps) {
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -40,45 +37,38 @@ export function Chat({ userId, onNewData }: ChatProps) {
         setIsLoading(true);
 
         try {
-            // Using the browser-based client directly
-            const { text, toolResponses } = await runSantaBrainInBrowser({
-                userId,
-                threadId: 'main-thread',
-                message: currentInput,
+            const res = await fetch(cloudFunctionUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId,
+                    threadId: 'main-thread',
+                    message: currentInput,
+                }),
             });
 
-            const assistantMessage: Message = { role: 'model', content: [{text}] } as Message;
+            if (!res.ok) {
+                const errorData = await res.json();
+                throw new Error(errorData.error || 'Network response was not ok.');
+            }
+
+            const result = await res.json();
+            
+            const assistantMessage: Message = { role: 'model', content: [{text: result.text}] } as Message;
             setMessages(prev => [...prev, assistantMessage]);
 
-            // Extract new entities from tool responses
-            const newEntities: Partial<SantaData> = {};
-            for (const toolResponse of toolResponses) {
-              const result = toolResponse.functionResponse.response.content;
-              const toolName = toolResponse.functionResponse.name;
-              
-              if (result.id) {
-                  if (toolName.startsWith('create_order')) {
-                      (newEntities.ordersSellOut = newEntities.ordersSellOut || []).push(result);
-                  } else if (toolName.startsWith('create_account') || toolName.startsWith('ensure_account')) {
-                       (newEntities.accounts = newEntities.accounts || []).push(result);
-                  } else if (toolName.startsWith('create_interaction')) {
-                       (newEntities.interactions = newEntities.interactions || []).push(result);
-                  }
-              }
-            }
-
-            if (Object.keys(newEntities).length > 0) {
-                onNewData(newEntities);
-            }
+            // Note: Server-side tool execution means we don't get new entities back directly.
+            // We would need another mechanism like Firestore listeners or re-fetching to update the UI
+            // after the function modifies the database. For now, onNewData is not called.
 
         } catch (error: any) {
-            console.error("Error running Santa Brain:", error);
+            console.error("Error calling Santa Brain function:", error);
             const errorMessage: Message = { role: 'model', content: [{text: `Lo siento, ha ocurrido un error: ${error.message}`}] } as Message;
             setMessages(prev => [...prev, errorMessage]);
         } finally {
             setIsLoading(false);
         }
-    }, [input, isLoading, userId, onNewData]);
+    }, [input, isLoading, userId, onNewData, cloudFunctionUrl]);
 
     return (
         <div className="flex flex-col h-full bg-zinc-100">

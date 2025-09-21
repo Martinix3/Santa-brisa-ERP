@@ -5,7 +5,8 @@ import { gemini25Flash } from '@genkit-ai/googleai';
 import {
   memory_get_context, memory_upsert, memory_update_profile,
   query_accounts, get_account_deep, list_collection,
-  create_account, ensure_account, create_order, create_interaction, create_event
+  create_account, ensure_account, create_order, create_interaction, create_event,
+  get_upcoming_agenda, get_accounts_overview
 } from './tools.js';
 
 const SYSTEM_PROMPT = `
@@ -15,6 +16,7 @@ Funciones:
 - Memoria conversacional y perfil (memory_*).
 - Leer SSOT (accounts, orders, interactions, events, products, ...).
 - Crear cuentas (si no existen), interacciones, pedidos y eventos.
+- **Consultar agenda** (get_upcoming_agenda) y **hacer overview de cuentas** (get_accounts_overview).
 Reglas:
 - Si mencionan un local por nombre y no existe, usa "ensure_account".
 - Valida datos mínimos antes de escribir y pide lo que falte.
@@ -32,17 +34,22 @@ export async function santaBrainRun({
 userId: ${userId}
 threadId: ${threadId}
 
-# Instrucciones
-1) Llama a memory_get_context para cargar el hilo/perfil.
-2) Si se menciona un sitio sin accountId, usa ensure_account.
-3) Crea interacción/pedido/evento según corresponda.
-4) Resume el turno y guarda con memory_upsert (summary).
+# Sugerencias de uso
+- Si el usuario pide "qué hay esta semana", llama a get_upcoming_agenda.
+- Si pide "dime cuentas dormidas/pendientes", llama a get_accounts_overview (ajusta dormantDays).
+- Para registrar acciones, usa ensure_account → create_interaction / create_order / create_event.
+- Resume y guarda memoria con memory_upsert (summary).
 `,
       `# Mensaje de usuario\n${message}`
     ].join('\n'),
     tools: [
+      // Memoria
       memory_get_context, memory_upsert, memory_update_profile,
+      // Lectura SSOT
       query_accounts, get_account_deep, list_collection,
+      // Agenda / Cuentas
+      get_upcoming_agenda, get_accounts_overview,
+      // Escritura
       create_account, ensure_account,
       create_order, create_interaction, create_event
     ],

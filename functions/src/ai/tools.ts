@@ -2,6 +2,7 @@
 import { defineTool } from '@genkit-ai/ai';
 import { z } from 'zod';
 import { db } from '../firebaseAdmin.js';
+import { Timestamp } from 'firebase-admin/firestore';
 
 // ===== Helpers =====
 const nowIso = () => new Date().toISOString();
@@ -305,5 +306,179 @@ export const create_event = defineTool(
     const doc = { ...input, createdAt, updatedAt: createdAt };
     const ref = await db.collection('events').add(doc);
     return { id: ref.id, title: input.title, startAt: input.startAt, createdAt };
+  }
+);
+
+
+// ========== AGENDA / TASKS ==========
+export const get_upcoming_agenda = defineTool(
+  {
+    name: 'get_upcoming_agenda',
+    description: 'Devuelve próximas tareas/eventos dentro de un horizonte (días).',
+    inputSchema: z.object({
+      horizonDays: z.number().min(1).max(60).default(14),
+      limit: z.number().min(1).max(200).default(50),
+      // si tienes ownership por usuario/departamento, puedes filtrar aquí:
+      forUserId: z.string().optional(),
+      forDept: z.enum(['VENTAS','MARKETING','LOGISTICA','ADMIN','OTRO']).optional()
+    }),
+    outputSchema: z.object({
+      items: z.array(z.object({
+        type: z.enum(['EVENT','TASK']),
+        id: z.string(),
+        when: z.string(),          // ISO
+        title: z.string(),
+        accountId: z.string().nullable(),
+        location: z.string().nullable(),
+        notes: z.string().nullable()
+      }))
+    })
+  },
+  async ({ horizonDays, limit, forUserId, forDept }) => {
+    const now = new Date();
+    const end = new Date(now.getTime() + horizonDays*24*60*60*1000);
+
+    // 1) Próximos EVENTOS
+    let evRef: FirebaseFirestore.Query = db.collection('events')
+      .where('startAt', '>=', now.toISOString())
+      .where('startAt', '<=', end.toISOString())
+      .orderBy('startAt', 'asc')
+      .limit(limit);
+    if (forUserId) evRef = evRef.where('createdById', '==', forUserId as any);
+    if (forDept) evRef = evRef.where('dept', '==', forDept as any); // opcional si lo usáis
+
+    const evSnap = await evRef.get();
+    const evItems = evSnap.docs.map(d => {
+      const x = d.data() as any;
+      return {
+        type: 'EVENT' as const,
+        id: d.id,
+        when: x.startAt,
+        title: x.title || x.kind || 'Evento',
+        accountId: x.accountId ?? null,
+        location: x.location ?? null,
+        notes: x.notes ?? null
+      };
+    });
+
+    // 2) Próximas TAREAS (usando interactions.nextAt como fecha de plan)
+    let inRef: FirebaseFirestore.Query = db.collection('interactions')
+      .where('nextAt', '>=', now.toISOString())
+      .where('nextAt', '<=', end.toISOString())
+      .orderBy('nextAt', 'asc')
+      .limit(limit);
+    if (forUserId) inRef = inRef.where('createdById', '==', forUserId as any);
+    if (forDept) inRef = inRef.where('dept', '==', forDept as any); // opcional
+
+    const inSnap = await inRef.get();
+    const taskItems = inSnap.docs.map(d => {
+      const x = d.data() as any;
+      return {
+        type: 'TASK' as const,
+        id: d.id,
+        when: x.nextAt,
+        title: x.summary || x.kind || 'Tarea',
+        accountId: x.accountId ?? null,
+        location: null,
+        notes: x.notes ?? null
+      };
+    });
+
+    const items = [...evItems, ...taskItems]
+      .sort((a, b) => String(a.when).localeCompare(String(b.when)))
+      .slice(0, limit);
+
+    return { items };
+  }
+);
+
+// ========== CUENTAS / OVERVIEW ==========
+export const get_accounts_overview = defineTool(
+  {
+    name: 'get_accounts_overview',
+    description: 'Devuelve un overview de cuentas con última interacción/pedido y flag de dormidas.',
+    inputSchema: z.object({
+      limit: z.number().min(1).max(500).default(100),
+      // Días sin pedido para marcar "dormidas"
+      dormantDays: z.number().min(7).max(365).default(60),
+      // ventana de lectura para interacciones/pedidos recientes (reduce coste)
+      windowDays: z.number().min(7).max(365).default(180),
+      stage: z.enum(['SEGUIMIENTO','FALLIDA','ACTIVA','POTENCIAL']).optional()
+    }),
+    outputSchema: z.object({
+      accounts: z.array(z.object({
+        id: z.string(),
+        name: z.string(),
+        city: z.string().optional(),
+        accountType: z.string().optional(),
+        accountStage: z.string().optional(),
+        lastInteractionAt: z.string().nullable(),
+        lastOrderAt: z.string().nullable(),
+        isDormant: z.boolean()
+      }))
+    })
+  },
+  async ({ limit, dormantDays, windowDays, stage }) => {
+    const now = new Date();
+    const windowStart = new Date(now.getTime() - windowDays*24*60*60*1000).toISOString();
+    const dormantCut = new Date(now.getTime() - dormantDays*24*60*60*1000).toISOString();
+
+    // 1) Cuentas (con filtro opcional por stage)
+    let accRef: FirebaseFirestore.Query = db.collection('accounts').limit(1000);
+    if (stage) accRef = accRef.where('accountStage','==',stage as any);
+    const accSnap = await accRef.get();
+    const accounts = accSnap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
+
+    // 2) Últimos pedidos en ventana
+    const ordSnap = await db.collection('orders')
+      .where('date','>=', windowStart)
+      .orderBy('date','desc')
+      .limit(5000).get();
+    const lastOrderByAcc = new Map<string,string>();
+    for (const doc of ordSnap.docs) {
+      const o = doc.data() as any;
+      const a = o.accountId as string;
+      if (!lastOrderByAcc.has(a)) lastOrderByAcc.set(a, o.date);
+    }
+
+    // 3) Últimas interacciones en ventana
+    const intSnap = await db.collection('interactions')
+      .where('when','>=', windowStart)
+      .orderBy('when','desc')
+      .limit(5000).get();
+    const lastIntByAcc = new Map<string,string>();
+    for (const doc of intSnap.docs) {
+      const i = doc.data() as any;
+      const a = i.accountId as string;
+      if (!lastIntByAcc.has(a)) lastIntByAcc.set(a, i.when);
+    }
+
+    // 4) Ensamblar overview + dormancy
+    const rows = accounts.map(a => {
+      const lastOrderAt = lastOrderByAcc.get(a.id) ?? null;
+      const lastInteractionAt = lastIntByAcc.get(a.id) ?? null;
+      const lastRef = (lastOrderAt || lastInteractionAt || '');
+      const isDormant = lastRef ? (lastRef < dormantCut) : true;
+      return {
+        id: a.id,
+        name: a.name,
+        city: a.city,
+        accountType: a.accountType,
+        accountStage: a.accountStage,
+        lastInteractionAt,
+        lastOrderAt,
+        isDormant
+      };
+    })
+    // orden: primero las más "críticas" (dormidas), luego por más antiguas
+    .sort((x, y) => {
+      if (x.isDormant !== y.isDormant) return x.isDormant ? -1 : 1;
+      const a = x.lastOrderAt || x.lastInteractionAt || '';
+      const b = y.lastOrderAt || y.lastInteractionAt || '';
+      return a.localeCompare(b);
+    })
+    .slice(0, limit);
+
+    return { accounts: rows };
   }
 );
