@@ -1,16 +1,12 @@
 
 "use client";
-
 import React, { useMemo, useState } from 'react';
+import { SBButton, SBCard } from '@/components/ui/ui-primitives';
+import { Star, TrendingUp, DollarSign, Trophy, Percent, Plus } from 'lucide-react';
+import { usePosTacticsService } from '@/features/marketing/services/posTactics.service';
+import { NewPosTacticDialog } from '@/features/marketing/components/NewPosTacticDialog';
+import type { PosTactic, PosResult } from '@/domain';
 import { useData } from '@/lib/dataprovider';
-import { SBCard, SBButton } from '@/components/ui/ui-primitives';
-import { Star, TrendingUp, DollarSign, Trophy, Percent, ChevronDown } from 'lucide-react';
-import { usePosTactics } from '@/features/marketing/services/pos.service';
-import type { Interaction, PosResult, Account, Activation, Promotion } from '@/domain';
-import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
-import Typeahead from '@/components/ui/Typeahead';
-
-type Tactic = (Activation | Promotion) & { tacticType: 'Activation' | 'Promotion' };
 
 function KPI({ label, value, icon: Icon, unit = '' }: { label: string; value: string | number; icon: React.ElementType, unit?: string }) {
     return (
@@ -28,68 +24,73 @@ function KPI({ label, value, icon: Icon, unit = '' }: { label: string; value: st
     );
 }
 
-function ConfidencePill({ confidence }: { confidence?: PosResult['confidence']}) {
-    if (!confidence) return <span className="text-zinc-400">—</span>;
+function StatusPill({ status }: { status: PosTactic['status'] }) {
     const styles = {
-        HIGH: 'bg-green-100 text-green-800',
-        MEDIUM: 'bg-yellow-100 text-yellow-800',
-        LOW: 'bg-red-100 text-red-800',
+        planned: 'bg-blue-100 text-blue-800',
+        active: 'bg-green-100 text-green-800 animate-pulse',
+        closed: 'bg-zinc-100 text-zinc-800',
+        cancelled: 'bg-red-100 text-red-800',
     };
-    return <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${styles[confidence]}`}>{confidence}</span>
+    return <span className={`px-2 py-1 text-xs font-semibold rounded-full ${styles[status]}`}>{status}</span>;
 }
 
 
 export default function PosTacticsPage() {
+    const { tactics, upsertPosTactic, closePosTactic, catalog, plv } = usePosTacticsService();
     const { data } = useData();
     const [isNewTacticOpen, setIsNewTacticOpen] = useState(false);
-
-    const allTactics = useMemo((): Tactic[] => {
-        if (!data) return [];
-        const activations: Tactic[] = (data.activations || []).map(a => ({ ...a, tacticType: 'Activation' }));
-        const promotions: Tactic[] = (data.promotions || []).map(p => ({ ...p, tacticType: 'Promotion' }));
-        // En un futuro, las promociones también deberían estar ligadas a una cuenta.
-        // Por ahora, las excluimos o las asociamos a una cuenta dummy si es necesario.
-        return [...activations].sort((a,b) => new Date(b.startDate || b.validFrom).getTime() - new Date(a.startDate || a.validFrom).getTime());
-    }, [data]);
-
-    const completedTactics = useMemo(() => {
-        // Lógica para filtrar tácticas con resultados computados.
-        // Por ahora, simularemos que algunas tienen resultados.
-        return allTactics.map((t, i) => ({
-            ...t,
-            // Simulación de resultados
-            result: i % 3 !== 0 ? {
-                liftPct: (Math.random() - 0.2) * 0.5,
-                roi: (Math.random() - 0.3) * 3,
-                confidence: (['HIGH', 'MEDIUM', 'LOW'] as const)[i % 3]
-            } as PosResult : undefined
-        }));
-    }, [allTactics]);
+    const [editingTactic, setEditingTactic] = useState<PosTactic | null>(null);
 
     const kpis = useMemo(() => {
-        const withResults = completedTactics.filter(t => t.result);
-        if (withResults.length === 0) {
+        const closedTactics = tactics.filter(t => t.status === 'closed' && t.result);
+        if (closedTactics.length === 0) {
             return { avgRoi: 0, avgLift: 0, totalSpend: 0, successRate: 0 };
         }
-        const totalSpend = allTactics.reduce((sum, t) => sum + ((t as Activation).cost || 0), 0);
-        const totalRoi = withResults.reduce((sum, t) => sum + (t.result?.roi || 0), 0);
-        const totalLift = withResults.reduce((sum, t) => sum + (t.result?.liftPct || 0), 0);
-        const successfulTactics = withResults.filter(t => (t.result?.roi || 0) > 0).length;
+        const totalSpend = tactics.reduce((sum, t) => sum + (t.actualCost || 0), 0);
+        const totalRoi = closedTactics.reduce((sum, t) => sum + (t.result?.roi || 0), 0);
+        const totalLift = closedTactics.reduce((sum, t) => sum + (t.result?.liftPct || 0), 0);
+        const successfulTactics = closedTactics.filter(t => (t.result?.roi || 0) > 0).length;
 
         return {
-            avgRoi: (totalRoi / withResults.length) * 100,
-            avgLift: (totalLift / withResults.length) * 100,
+            avgRoi: (totalRoi / closedTactics.length) * 100,
+            avgLift: (totalLift / closedTactics.length) * 100,
             totalSpend,
-            successRate: (successfulTactics / withResults.length) * 100,
+            successRate: (successfulTactics / closedTactics.length) * 100,
         };
-    }, [completedTactics, allTactics]);
+    }, [tactics]);
+    
+    const handleSaveTactic = async (tacticData: any) => {
+        try {
+            await upsertPosTactic(tacticData);
+            setIsNewTacticOpen(false);
+            setEditingTactic(null);
+        } catch (e) {
+            console.error(e);
+            alert((e as Error).message);
+        }
+    };
+    
+    const handleEdit = (tactic: PosTactic) => {
+        setEditingTactic(tactic);
+        setIsNewTacticOpen(true);
+    };
+
+    const handleCloseTactic = async (tacticId: string) => {
+        if (confirm("¿Estás seguro de que quieres cerrar esta táctica? Se calcularán sus resultados finales.")) {
+            try {
+                await closePosTactic(tacticId);
+            } catch (e) {
+                alert((e as Error).message);
+            }
+        }
+    };
 
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                  <h1 className="text-2xl font-semibold text-zinc-800">Tácticas en Punto de Venta (POS)</h1>
-                 <SBButton onClick={() => setIsNewTacticOpen(true)}>
-                    <Star size={16} className="mr-2"/>
+                 <SBButton onClick={() => { setEditingTactic(null); setIsNewTacticOpen(true); }}>
+                    <Plus size={16} className="mr-2"/>
                     Nueva Táctica
                  </SBButton>
             </div>
@@ -109,18 +110,17 @@ export default function PosTacticsPage() {
                         <span className="text-right">Coste</span>
                         <span className="text-right">Uplift Ventas</span>
                         <span className="text-right">ROI</span>
-                        <span>Confianza</span>
+                        <span>Acciones</span>
                     </div>
-                    {completedTactics.map(tactic => {
-                        const account = data?.accounts.find(a => a.id === (tactic as Activation).accountId);
-                        const result = (tactic as any).result;
-                        const cost = (tactic as Activation).cost || ((tactic as Promotion).value || 0);
+                    {tactics.map(tactic => {
+                        const account = data?.accounts.find(a => a.id === tactic.accountId);
+                        const result = tactic.result;
 
                         return (
                             <div key={tactic.id} className="grid grid-cols-6 p-3 items-center hover:bg-zinc-50/50 text-sm">
-                                <div className="font-medium">{account?.name || 'N/A'}</div>
-                                <div>{tactic.description || tactic.name}</div>
-                                <div className="text-right font-mono">{cost.toFixed(2)}€</div>
+                                <div className="font-medium">{account?.name || tactic.accountId}</div>
+                                <div>{tactic.description || tactic.tacticCode}</div>
+                                <div className="text-right font-mono">{tactic.actualCost.toFixed(2)}€</div>
                                 {result ? (
                                     <>
                                         <div className={`text-right font-semibold ${result.liftPct > 0 ? 'text-green-600' : 'text-red-600'}`}>
@@ -129,19 +129,37 @@ export default function PosTacticsPage() {
                                         <div className={`text-right font-semibold ${result.roi && result.roi > 0 ? 'text-green-600' : 'text-red-600'}`}>
                                             {result.roi ? `${(result.roi * 100).toFixed(0)}%` : 'N/A'}
                                         </div>
-                                        <div><ConfidencePill confidence={result.confidence} /></div>
                                     </>
                                 ) : (
-                                    <td colSpan={3} className="text-center text-xs text-zinc-500">Pendiente de cálculo</td>
+                                    <td colSpan={2} className="text-center text-xs text-zinc-500">Pendiente de cálculo</td>
                                 )}
+                                <div className="flex gap-2 justify-end">
+                                    <SBButton size="sm" variant="secondary" onClick={() => handleEdit(tactic)}>Editar</SBButton>
+                                    {tactic.status !== 'closed' && (
+                                        <SBButton size="sm" onClick={() => handleCloseTactic(tactic.id)}>Cerrar</SBButton>
+                                    )}
+                                </div>
                             </div>
                         )
                     })}
-                    {completedTactics.length === 0 && (
-                        <p className="p-8 text-center text-sm text-zinc-500">No hay tácticas POS con resultados todavía.</p>
+                    {tactics.length === 0 && (
+                        <p className="p-8 text-center text-sm text-zinc-500">No hay tácticas POS registradas todavía.</p>
                     )}
                 </div>
             </SBCard>
+            
+            {isNewTacticOpen && (
+                <NewPosTacticDialog
+                    open={isNewTacticOpen}
+                    onClose={() => setIsNewTacticOpen(false)}
+                    onSave={handleSaveTactic}
+                    tacticBeingEdited={editingTactic}
+                    accounts={data?.accounts || []}
+                    costCatalog={catalog}
+                    plvInventory={plv}
+                />
+            )}
         </div>
     );
 }
+
