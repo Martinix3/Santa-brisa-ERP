@@ -40,7 +40,7 @@ const TEMPLATE_FIELDS: Partial<Record<keyof SantaData, readonly string[]>> = {
   users: ['id','name','email','role','active','managerId'],
   products: ['id','sku','name','category','bottleMl','caseUnits','casesPerPallet','active','materialId'],
   materials: ['id','sku','name','category','uom','standardCost'],
-  ordersSellOut: ['id','docNumber','accountId','accountName','status','createdAt','currency','totalAmount','source','terms','lines'],
+  ordersSellOut: ['id','docNumber','accountId','accountName','status','createdAt','currency','totalAmount','source','terms','lines','sku','qty','priceUnit'],
   interactions: ['id','accountId','accountName','userId','userEmail','dept','kind','status','createdAt','note'],
   plv_material: ['id','sku','kind','status','accountId','installedAt','photoUrl'],
   promotions: ['id','code','name','type','value','validFrom','validTo'],
@@ -89,7 +89,7 @@ function buildRegistry(data: SantaData): FKRegistry {
     ordersById: new Map(data.ordersSellOut.map(o=>[o.id,o])),
   };
 }
-const LOT_RE = /^\d{6}-[A-Z0-9_-]+-\d{3}$/;
+const LOT_RE = /^(\d{6})-([A-Z0-9_-]+)-(\d{2,3})$/;
 const REASON_ALIASES: Record<string, StockReason> = {
   consign_send: 'consignment_send',
   consign_sell: 'consignment_sell',
@@ -98,7 +98,7 @@ const REASON_ALIASES: Record<string, StockReason> = {
   sample_use: 'sample_consume',
 } as any;
 function nBool(x:any){ if (typeof x==='boolean') return x; if (typeof x==='string') return ['true','1','yes','y','si','sí'].includes(x.trim().toLowerCase()); return Boolean(x); }
-function nNum(x:any){ const n=Number(x); return Number.isFinite(n)? n: 0; }
+const nNumComma = (x:any) => { if (typeof x === 'string') x = x.replace(',', '.'); const n = Number(x); return Number.isFinite(n) ? n : 0; };
 function j(x:any){ if (x==null||x==='') return undefined; if (typeof x!=='string') return x; try{ return JSON.parse(x);}catch{ return x; } }
 function newId(prefix: keyof typeof CODE_POLICIES | 'GEN'){ const now=new Date(); const y=now.getFullYear(), m=String(now.getMonth()+1).padStart(2,'0'), d=String(now.getDate()).padStart(2,'0'); const rnd=randomUUID().slice(0,6).toUpperCase(); switch(prefix){ case 'ACCOUNT': return `ACC-${rnd}`; case 'SHIPMENT': return `SHP-${y}${m}${d}-${rnd.slice(0,3)}`; case 'GOODS_RECEIPT': return `GR-${y}${m}${d}-${rnd.slice(0,3)}`; case 'PROD_ORDER': return `PO-${y}${m}-${rnd.slice(0,4)}`; case 'LOT': return `${String(y).slice(2)}${m}${d}-GEN-${rnd.slice(0,3)}`; default: return `${prefix}-${rnd}`; } }
 
@@ -121,11 +121,11 @@ async function resolveAndNormalize(coll: keyof SantaData, rows: any[], data: San
       row.terms = (row.terms === 'consignment') ? 'consignment' : 'standard';
       // lines
       let lines = j(row.lines);
-      if (!Array.isArray(lines)){
-        const sku = row.sku ?? row.productSku; const qty = nNum(row.qty);
-        lines = sku ? [{ sku, qty, uom:'uds', priceUnit: nNum(row.priceUnit) }] : [];
+      if (!Array.isArray(lines) || lines.length === 0){
+        const sku = row.sku ?? row.productSku; const qty = nNumComma(row.qty); const pu = nNumComma(row.priceUnit);
+        lines = sku ? [{ sku, qty, uom:'uds', priceUnit: pu }] : [];
       }
-      row.lines = (lines as any[]).map(l=> ({ sku: l.sku, qty: nNum(l.qty), uom: l.uom ?? 'uds', priceUnit: nNum(l.priceUnit ?? 0), discount: l.discount? Number(l.discount): undefined }));
+      row.lines = (lines as any[]).map(l=> ({ sku: l.sku, qty: nNumComma(l.qty), uom: l.uom || l.unit || 'uds', priceUnit: nNumComma(l.priceUnit ?? l.unitPrice ?? 0), discount: l.discount? Number(l.discount): undefined }));
       out.push(row); continue;
     }
 
@@ -138,7 +138,7 @@ async function resolveAndNormalize(coll: keyof SantaData, rows: any[], data: San
     if (coll==='goodsReceipts'){
       const lines = Array.isArray(row.lines) ? row.lines : j(row.lines);
       if (Array.isArray(lines)){
-        row.lines = lines.map((ln:any)=> ({ materialId: reg.materialsById.get(ln.materialId)?.id ?? reg.materialsBySku.get(ln.materialSku)?.id ?? ln.materialId, sku: ln.sku, lotId: ln.lotId, qty: nNum(ln.qty), uom: ln.uom ?? 'uds' }));
+        row.lines = lines.map((ln:any)=> ({ materialId: reg.materialsById.get(ln.materialId)?.id ?? reg.materialsBySku.get(ln.materialSku)?.id ?? ln.materialId, sku: ln.sku, lotId: ln.lotId, qty: nNumComma(ln.qty), uom: ln.uom ?? 'uds' }));
       }
       out.push(row); continue;
     }
@@ -147,14 +147,22 @@ async function resolveAndNormalize(coll: keyof SantaData, rows: any[], data: San
 
     if (coll==='shipments'){
       const lines = Array.isArray(row.lines) ? row.lines : j(row.lines);
-      if (Array.isArray(lines)) row.lines = lines.map((ln:any)=> ({ sku: ln.sku, name: ln.name ?? '', qty: nNum(ln.qty), uom: ln.uom ?? 'uds', lotNumber: ln.lotNumber }));
+      if (Array.isArray(lines)) row.lines = lines.map((ln:any)=> ({ sku: ln.sku, name: ln.name ?? '', qty: nNumComma(ln.qty), uom: ln.uom ?? 'uds', lotNumber: ln.lotNumber }));
       row.isSample = nBool(row.isSample);
       out.push(row); continue;
     }
 
     if (coll==='stockMoves'){
-      row.qty = nNum(row.qty);
+      row.qty = nNumComma(row.qty);
       row.reason = REASON_ALIASES[row.reason] ?? row.reason;
+      if (row.toLocation && !reg.accountsById.has(row.toLocation)) {
+        const acc = reg.accountsByName.get(String(row.toLocation).toLowerCase());
+        if (acc) row.toLocation = acc.id;
+      }
+      if (row.fromLocation && !reg.accountsById.has(row.fromLocation)) {
+        const acc = reg.accountsByName.get(String(row.fromLocation).toLowerCase());
+        if (acc) row.fromLocation = acc.id;
+      }
       out.push(row); continue;
     }
 
@@ -180,3 +188,4 @@ export async function importCommit({ coll, rows }: { coll: keyof SantaData; rows
   const res = await persist(coll, normalized);
   return { coll, ...res };
 }
+
