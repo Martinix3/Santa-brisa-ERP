@@ -1,3 +1,4 @@
+
 // src/app/(app)/orders/actions.ts
 'use server';
 import { revalidatePath } from 'next/cache';
@@ -27,7 +28,7 @@ export async function updateOrderStatus(orderId: string, next: OrderStatus){
               accountId: order.accountId,
               shipmentNumber: `SHP-${order.docNumber || order.id.slice(-4)}`,
               createdAt: new Date().toISOString(),
-              status: 'ready_to_ship',
+              status: 'pending',
               lines: (order.lines || []).map(line => ({
                   sku: line.sku,
                   name: data.products.find(p => p.sku === line.sku)?.name || line.sku,
