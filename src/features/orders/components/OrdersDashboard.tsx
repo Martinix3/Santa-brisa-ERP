@@ -177,6 +177,7 @@ export default function OrdersDashboard() {
         const matchesSearch =
           !searchTerm ||
           (order.id && order.id.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (order.docNumber && order.docNumber.toLowerCase().includes(searchTerm.toLowerCase())) ||
           (order.account.name && order.account.name.toLowerCase().includes(searchTerm.toLowerCase()));
         
         const matchesStatus = !statusFilter || order.status === statusFilter;
@@ -203,7 +204,7 @@ export default function OrdersDashboard() {
   const handleExport = () => {
       const headers = ['id', 'fecha', 'cliente', 'total', 'estado', 'canal'];
       const rows = filteredOrders.map(order => [
-          order.id,
+          order.docNumber || order.id,
           new Date(order.createdAt).toISOString().split('T')[0],
           order.account.name,
           orderTotal(order as OrderSellOut),
@@ -243,14 +244,14 @@ export default function OrdersDashboard() {
     if (!data) return;
     
     if (newStatus === 'confirmed') {
-        const ordersToConfirm = selectedOrders.map(id => enrichedOrders.find(o => o.id === id)).filter(Boolean);
+        const ordersToConfirm = selectedOrders.map(id => enrichedOrders.find(o => o.id === id)).filter((o): o is NonNullable<typeof o> => !!o);
         const stockShortages: string[] = [];
 
         ordersToConfirm.forEach(order => {
             const shortages = checkOrderStock(order as OrderSellOut, inventory || [], products || []);
             if (shortages.length > 0) {
                 const shortageMessage = shortages.map(s => `${s.qtyShort} uds de ${s.sku}`).join(', ');
-                stockShortages.push(`Pedido ${order.id}: Faltan ${shortageMessage}`);
+                stockShortages.push(`Pedido ${order.docNumber || order.id}: Faltan ${shortageMessage}`);
             }
         });
 
@@ -264,8 +265,8 @@ export default function OrdersDashboard() {
             ? { ...order, status: newStatus }
             : order
     );
-    setData({ ...data, ordersSellOut: updatedOrders });
-    saveCollection('ordersSellOut', updatedOrders);
+    setData({ ...data, ordersSellOut: updatedOrders as OrderSellOut[] });
+    saveCollection('ordersSellOut', updatedOrders as OrderSellOut[]);
     setSelectedOrders([]);
   };
 
@@ -339,7 +340,7 @@ export default function OrdersDashboard() {
           <table className="w-full text-sm">
             <thead className="bg-zinc-50 text-left">
               <tr>
-                <th scope="col" className="p-3"><input type="checkbox" onChange={handleSelectAll} checked={selectedOrders.length === filteredOrders.length && filteredOrders.length > 0} /></th>
+                <th scope="col" className="p-3"><input type="checkbox" onChange={handleSelectAll} checked={selectedOrders.length > 0 && selectedOrders.length === filteredOrders.length} /></th>
                 <th scope="col" className="p-3 font-semibold text-zinc-600">Pedido ID</th>
                 <th scope="col" className="p-3 font-semibold text-zinc-600">Cliente</th>
                 <th scope="col" className="p-3 font-semibold text-zinc-600">Comercial</th>
@@ -355,7 +356,7 @@ export default function OrdersDashboard() {
                     <td className="p-3 font-mono text-xs font-medium text-zinc-800">{order.docNumber || order.id}</td>
                     <td className="p-3">
                         <div className="flex items-center gap-2">
-                            <Link href={accountHref(order.accountId)} className="hover:underline">
+                            <Link href={accountHref(order.accountId)} className="hover:underline font-medium">
                                 {order.account.name || 'N/A'}
                             </Link>
                             {!!consTotals[order.accountId] && (
