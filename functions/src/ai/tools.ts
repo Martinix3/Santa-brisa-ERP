@@ -1,4 +1,4 @@
-import { defineTool } from '@genkit-ai/ai';
+import { defineTool, tool } from '@genkit-ai/ai';
 import { z } from 'zod';
 import { db } from '../firebaseAdmin.js';
 import { Timestamp } from 'firebase-admin/firestore';
@@ -173,28 +173,28 @@ const createAccountSchema = z.object({
   mainContactEmail: z.string().optional(),
   salesRepId: z.string().optional()
 });
-export const create_account = defineTool(
+export const create_account = tool(
   {
     name: 'create_account',
     description: 'Crea una cuenta SSOT con datos mínimos.',
     inputSchema: createAccountSchema,
-    outputSchema: z.object({ id: z.string() }),
-    fn: async (args) => {
-      const createdAt = nowIso();
-      const docData = {
-        name: args.name,
-        nameNorm: norm(args.name),
-        city: args.city ?? '',
-        accountType: args.accountType,
-        accountStage: args.accountStage,
-        mainContactName: args.mainContactName ?? null,
-        mainContactEmail: args.mainContactEmail ?? null,
-        salesRepId: args.salesRepId ?? null,
-        createdAt, updatedAt: createdAt
-      };
-      const ref = await db.collection('accounts').add(docData);
-      return { id: ref.id };
-    }
+    outputSchema: z.object({ id: z.string() })
+  },
+  async (args) => {
+    const createdAt = nowIso();
+    const docData = {
+      name: args.name,
+      nameNorm: norm(args.name),
+      city: args.city ?? '',
+      accountType: args.accountType,
+      accountStage: args.accountStage,
+      mainContactName: args.mainContactName ?? null,
+      mainContactEmail: args.mainContactEmail ?? null,
+      salesRepId: args.salesRepId ?? null,
+      createdAt, updatedAt: createdAt
+    };
+    const ref = await db.collection('accounts').add(docData);
+    return { id: ref.id };
   }
 );
 
@@ -206,35 +206,28 @@ const ensureAccountSchema = z.object({
   defaultStage: z.enum(['POTENCIAL','SEGUIMIENTO','ACTIVA','FALLIDA']).default('POTENCIAL'),
   salesRepId: z.string().optional()
 });
-export const ensure_account = defineTool(
+export const ensure_account = tool(
   {
     name: 'ensure_account',
     description: 'Devuelve accountId; busca por nombre/email y crea si no existe.',
     inputSchema: ensureAccountSchema,
-    outputSchema: z.object({ id: z.string(), existed: z.boolean() }),
-    fn: async (args) => {
-      const needle = norm(args.name);
-      const email = (args.mainContactEmail || '').toLowerCase();
-      const snap = await db.collection('accounts').limit(500).get();
-      const all = snap.docs.map(d=> ({ id: d.id, ...(d.data() as any) }));
+    outputSchema: z.object({ id: z.string(), existed: z.boolean() })
+  },
+  async (args) => {
+    const needle = norm(args.name);
+    const email = (args.mainContactEmail || '').toLowerCase();
+    const snap = await db.collection('accounts').limit(500).get();
+    const all = snap.docs.map(d=> ({ id: d.id, ...(d.data() as any) }));
 
-      const hit = all.find(a =>
-        (email && a.mainContactEmail && a.mainContactEmail.toLowerCase() === email) ||
-        (a.nameNorm && a.nameNorm === needle)
-      );
-      if (hit) return { id: hit.id, existed: true };
+    const hit = all.find(a =>
+      (email && a.mainContactEmail && a.mainContactEmail.toLowerCase() === email) ||
+      (a.nameNorm && a.nameNorm === needle)
+    );
+    if (hit) return { id: hit.id, existed: true };
 
-      const created = await create_account.run({
-        name: args.name,
-        city: args.city,
-        accountType: args.defaultAccountType,
-        accountStage: args.defaultStage,
-        salesRepId: args.salesRepId,
-        mainContactEmail: args.mainContactEmail
-      });
-      if (!created) throw new Error("Could not create account");
-      return { id: created, existed: false };
-    }
+    const created = await create_account(args);
+    if (!created) throw new Error("Could not create account");
+    return { id: created.id, existed: false };
   }
 );
 

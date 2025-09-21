@@ -1,14 +1,18 @@
-
 import * as functions from 'firebase-functions';
 import { santaBrainRun } from './ai/santaBrain.js';
 
 export const santaBrain = functions
   .region('europe-west1')
-  .https.onRequest(async (req, res) => {
+  .https.onRequest(async (req: functions.https.Request, res: functions.Response) => {
     // CORS simple (ajusta origen en prod)
     res.set('Access-Control-Allow-Origin', '*');
     res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    if (req.method === 'OPTIONS') return res.status(204).send('');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+    if (req.method === 'OPTIONS') {
+      res.status(204).send('');
+      return;
+    }
 
     try {
       const { userId, threadId, message } = req.body || {};

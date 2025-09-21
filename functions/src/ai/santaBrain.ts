@@ -1,7 +1,6 @@
-
 import { generate } from '@genkit-ai/ai';
-import { gemini25Flash } from '@genkit-ai/googleai';
-
+import { gemini15Flash } from '@genkit-ai/googleai';
+import { defineTool, tool } from '@genkit-ai/ai';
 import {
   memory_get_context, memory_upsert, memory_update_profile,
   query_accounts, get_account_deep, list_collection,
@@ -27,7 +26,7 @@ export async function santaBrainRun({
   userId, threadId, message
 }: { userId: string; threadId: string; message: string }) {
   const res = await generate({
-    model: gemini25Flash,
+    model: gemini15Flash,
     system: SYSTEM_PROMPT,
     prompt: [
       `# Contexto
@@ -53,8 +52,10 @@ threadId: ${threadId}
       create_account, ensure_account,
       create_order, create_interaction, create_event
     ],
-    returnToolRequests: true
+    output: {
+      format: 'toolRequest',
+    }
   });
 
-  return { text: res.text(), toolRequests: res.toolRequests };
+  return { text: res.text, toolRequests: res.toolRequests };
 }
