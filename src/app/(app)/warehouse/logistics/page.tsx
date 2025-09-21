@@ -307,52 +307,52 @@ export default function LogisticsPage() {
     setOpenValidate(false);
   };
   
-  const generateDeliveryNote = (row: Shipment) => {
-     if (!canGenerateDeliveryNote(row)) { alert("Primero marca Visual OK en Validar."); return; }
+  const generateDeliveryNote = (shipment: Shipment) => {
+     if (!canGenerateDeliveryNote(shipment)) { alert("Primero marca Visual OK en Validar."); return; }
      if(!santaData) return;
-     const updatedShipments = santaData.shipments.map(s => s.id === row.id ? { ...s, holdedDeliveryId: s.holdedDeliveryId || `ALB-${Math.floor(Math.random()*90000+10000)}` } : s);
+     const updatedShipments = santaData.shipments.map(s => s.id === shipment.id ? { ...s, holdedDeliveryId: s.holdedDeliveryId || `ALB-${Math.floor(Math.random()*90000+10000)}` } : s);
      setData({ ...santaData, shipments: updatedShipments });
-     alert(`Albarán ${updatedShipments.find(s=>s.id === row.id)?.holdedDeliveryId} generado para envío ${row.id}`);
+     alert(`Albarán ${updatedShipments.find(s=>s.id === shipment.id)?.holdedDeliveryId} generado para envío ${shipment.id}`);
   };
 
-  const generateLabel = (row: Shipment) => {
-    if (!canGenerateLabel(row)) { alert("Para la etiqueta necesitas: Albarán + Servicio + Peso y Dimensiones."); return; }
+  const generateLabel = (shipment: Shipment) => {
+    if (!canGenerateLabel(shipment)) { alert("Para la etiqueta necesitas: Albarán + Servicio + Peso y Dimensiones."); return; }
     if(!santaData) return;
-    const updatedShipments: Shipment[] = santaData.shipments.map(r => r.id === row.id ? { ...r, labelUrl: "https://label.example/mock.pdf", tracking: `SC-TRACK-9988` } : r);
+    const updatedShipments: Shipment[] = santaData.shipments.map(r => r.id === shipment.id ? { ...r, labelUrl: "https://label.example/mock.pdf", tracking: `SC-TRACK-9988` } : r);
     setData({ ...santaData, shipments: updatedShipments });
   };
 
-  const markShipped = (row: Shipment) => {
+  const markShipped = (shipment: Shipment) => {
     if(!santaData) return;
-    const updatedShipments: Shipment[] = santaData.shipments.map(r => r.id === row.id ? { ...r, status: "shipped" } : r);
+    const updatedShipments: Shipment[] = santaData.shipments.map(r => r.id === shipment.id ? { ...r, status: "shipped" } : r);
     setData({ ...santaData, shipments: updatedShipments });
   };
 
   type RowAction = { id: string; label: string; icon: React.ReactNode; onClick: () => void; available: boolean; pendingReason?: string };
-  const buildRowActions = (row: Shipment): RowAction[] => {
+  const buildRowActions = (shipment: Shipment): RowAction[] => {
     const actions: RowAction[] = [
-      { id: "sheet", label: "Imprimir hoja de pedido", icon: <Printer className="w-4 h-4"/>, onClick: () => alert(`Imprimiendo hoja para ${row.id}`), available: true },
-      { id: "validate", label: "Validar (lotes + visual)", icon: <BadgeCheck className="w-4 h-4"/>, onClick: () => openValidateFor(row), available: true },
-      { id: "delivery", label: "Generar albarán", icon: <FileText className="w-4 h-4"/>, onClick: () => generateDeliveryNote(row), available: canGenerateDeliveryNote(row), pendingReason: "Requiere Visual OK" },
-      { id: "label", label: "Generar etiqueta", icon: <Truck className="w-4 h-4"/>, onClick: () => generateLabel(row), available: canGenerateLabel(row), pendingReason: "Requiere Albarán + Servicio" },
-      { id: "ship", label: "Marcar enviado", icon: <PackageCheck className="w-4 h-4"/>, onClick: () => markShipped(row), available: canMarkShipped(row), pendingReason: "Requiere Etiqueta" },
+      { id: "sheet", label: "Imprimir hoja de pedido", icon: <Printer className="w-4 h-4"/>, onClick: () => alert(`Imprimiendo hoja para ${shipment.id}`), available: true },
+      { id: "validate", label: "Validar (lotes + visual)", icon: <BadgeCheck className="w-4 h-4"/>, onClick: () => openValidateFor(shipment), available: true },
+      { id: "delivery", label: "Generar albarán", icon: <FileText className="w-4 h-4"/>, onClick: () => generateDeliveryNote(shipment), available: canGenerateDeliveryNote(shipment), pendingReason: "Requiere Visual OK" },
+      { id: "label", label: "Generar etiqueta", icon: <Truck className="w-4 h-4"/>, onClick: () => generateLabel(shipment), available: canGenerateLabel(shipment), pendingReason: "Requiere Albarán + Servicio" },
+      { id: "ship", label: "Marcar enviado", icon: <PackageCheck className="w-4 h-4"/>, onClick: () => markShipped(shipment), available: canMarkShipped(shipment), pendingReason: "Requiere Etiqueta" },
     ];
     return showOnlyAvailable ? actions.filter(a => a.available) : actions;
   };
 
-  type Row = {row: Shipment, order?: OrderSellOut, account?: Account};
+  type Row = {id: string, shipment: Shipment, order?: OrderSellOut, account?: Account};
   const cols: SBCol<Row>[] = [
-      { key: 'select', header: '', render: ({row}) => <input type="checkbox" checked={selected.includes(row.row.id)} onChange={(e:any) => setSelected((p) => e.target.checked ? [...p, row.row.id] : p.filter(id => id !== row.row.id))} />},
-      { key: 'id', header: 'ID', render: ({row, order}) => <div><p className="font-medium">{row.row.id}</p>{order?.source === 'SHOPIFY' && <p className="text-xs text-zinc-500">Shopify</p>}</div>},
-      { key: 'date', header: 'Fecha', render: ({row}) => <div className="text-sm">{new Date(row.row.createdAt).toLocaleDateString('es-ES')}</div>},
-      { key: 'channel', header: 'Canal / Tipo', render: ({account}) => {
-          const channelInfo = getChannelInfo(undefined, account);
+      { key: 'select', header: '', render: ({shipment}) => <input type="checkbox" checked={selected.includes(shipment.id)} onChange={(e:any) => setSelected((p) => e.target.checked ? [...p, shipment.id] : p.filter(id => id !== shipment.id))} />},
+      { key: 'id', header: 'ID', render: ({shipment, order}) => <div><p className="font-medium">{shipment.id}</p>{order?.source === 'SHOPIFY' && <p className="text-xs text-zinc-500">Shopify</p>}</div>},
+      { key: 'date', header: 'Fecha', render: ({shipment}) => <div className="text-sm">{new Date(shipment.createdAt).toLocaleDateString('es-ES')}</div>},
+      { key: 'channel', header: 'Canal / Tipo', render: ({order, account}) => {
+          const channelInfo = getChannelInfo(order, account);
           return <span className={`inline-flex items-center px-2 py-0.5 rounded-md border text-xs ${channelInfo.className}`}>{channelInfo.label}</span>
       }},
-      { key: 'customer', header: 'Cliente', render: ({row}) => <div><p className="text-sm font-medium">{row?.row.customerName || 'N/A'}</p><p className="text-xs text-zinc-500">{row?.row.city}</p></div>},
-      { key: 'items', header: 'Artículos', render: ({row}) => (
+      { key: 'customer', header: 'Cliente', render: ({shipment}) => <div><p className="text-sm font-medium">{shipment?.customerName || 'N/A'}</p><p className="text-xs text-zinc-500">{shipment?.city}</p></div>},
+      { key: 'items', header: 'Artículos', render: ({shipment}) => (
         <ul className="text-sm space-y-1">
-          {row.row.lines.map((it: any) => (
+          {shipment.lines.map((it: any) => (
             <li key={it.sku} className="flex items-center gap-2">
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-100">{it.sku}</span>
               <span>{it.name}</span>
@@ -361,11 +361,11 @@ export default function LogisticsPage() {
           ))}
         </ul>
       )},
-      { key: 'status', header: 'Estado', render: ({row}) => {
-          const style = STATUS_STYLES[row.row.status as keyof typeof STATUS_STYLES] || STATUS_STYLES['pending'];
+      { key: 'status', header: 'Estado', render: ({shipment}) => {
+          const style = STATUS_STYLES[shipment.status as keyof typeof STATUS_STYLES] || STATUS_STYLES['pending'];
           return <span className={`inline-flex items-center px-2 py-1 rounded-md border text-xs ${style.bg} ${style.color}`}>{style.label}</span>
       }},
-      { key: 'actions', header: 'Acciones', render: ({row}) => (
+      { key: 'actions', header: 'Acciones', render: ({shipment}) => (
         <div className="relative group">
             <DropdownMenuTrigger>
                 <SBButton variant="secondary"><MoreHorizontal className="w-4 h-4"/></SBButton>
@@ -373,7 +373,7 @@ export default function LogisticsPage() {
             <DropdownMenuContent align="end" className="w-64">
               <DropdownMenuLabel>Acciones</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              {buildRowActions(row.row).map((a) => (
+              {buildRowActions(shipment).map((a) => (
                 <DropdownMenuItem key={a.id} onClick={a.onClick} disabled={!a.available} className="flex items-center justify-between">
                   <div className="flex items-center gap-2">{a.icon}<span>{a.label}</span></div>
                   {!a.available && !showOnlyAvailable && a.pendingReason && (
@@ -386,11 +386,11 @@ export default function LogisticsPage() {
       )},
   ];
 
-  const tableRows = useMemo(() => filtered.map(row => ({
-      id: row.id,
-      row,
-      order: orderMap.get(row.orderId || ''),
-      account: accountMap.get(orderMap.get(row.orderId || '')?.accountId || '')
+  const tableRows: Row[] = useMemo(() => filtered.map(shipment => ({
+      id: shipment.id,
+      shipment: shipment,
+      order: orderMap.get(shipment.orderId || ''),
+      account: accountMap.get(orderMap.get(shipment.orderId || '')?.accountId || '')
   })), [filtered, orderMap, accountMap]);
 
   return (
