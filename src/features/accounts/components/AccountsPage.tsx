@@ -4,12 +4,12 @@
 import React, { useMemo, useState, useEffect } from 'react'
 import { ChevronDown, Search, Plus, Phone, Mail, MessageSquare, Calendar, History, ShoppingCart, Info, BarChart3, UserPlus, Users, MoreVertical } from 'lucide-react'
 import type { Account as AccountType, Stage, User, Interaction, OrderSellOut, SantaData, CustomerData, Party, PartyRole } from '@/domain'
-import { accountOwnerDisplay, computeAccountKPIs, getDistributorForAccount } from '@/lib/sb-core';
+import { accountOwnerDisplay, computeAccountKPIs, getDistributorForAccount, orderTotal } from '@/lib/sb-core';
 import Link from 'next/link'
 import { useData } from '@/lib/dataprovider'
 import { FilterSelect } from '@/components/ui/FilterSelect'
 import { ModuleHeader } from '@/components/ui/ModuleHeader'
-import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/TaskCompletionDialog'
+import { TaskCompletionDialog, Payload as TaskCompletionPayload } from '@/features/dashboard-ventas/components/TaskCompletionDialog'
 import { Avatar } from '@/components/ui/Avatar';
 
 const STAGE: Record<string, { label:string; tint:string; text:string }> = {
@@ -20,15 +20,33 @@ const STAGE: Record<string, { label:string; tint:string; text:string }> = {
 }
 const formatEUR = (n:number)=> new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n)
 
-function orderTotal(order: OrderSellOut): number {
-    return (order.lines || []).reduce((sum, line) => sum + (line.qty * line.priceUnit * (1 - (line.discount || 0))), 0);
+function GroupBar({ stage, count, expanded, onToggle }: { stage: keyof typeof STAGE, count: number, expanded: boolean, onToggle: () => void }) {
+    const s = STAGE[stage];
+    if (!s) return null;
+    return (
+        <button
+            onClick={onToggle}
+            className="w-full flex items-center justify-between px-3 py-2 rounded-t-lg transition-colors"
+            style={{ backgroundColor: s.tint, color: s.text }}
+            aria-expanded={expanded}
+        >
+            <div className="flex items-center gap-2">
+                <h3 className="font-semibold text-sm">{s.label}</h3>
+                <span className="text-xs font-normal opacity-80">({count})</span>
+            </div>
+            <ChevronDown
+                className="h-5 w-5 transition-transform duration-300"
+                style={{ transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
+            />
+        </button>
+    );
 }
 
 function AccountBar({ a, party, santaData, onAddActivity }: { a: AccountType, party?: Party, santaData: SantaData, onAddActivity: (acc: AccountType) => void }) {
   const [open, setOpen] = useState(false);
   const s = STAGE[a.stage as keyof typeof STAGE] ?? STAGE.ACTIVA;
   
-  const owner = useMemo(() => accountOwnerDisplay(a, santaData.users, []), [a, santaData.users]);
+  const owner = useMemo(() => accountOwnerDisplay(a, santaData.users, santaData.partyRoles), [a, santaData.users, santaData.partyRoles]);
   const orderAmount = useMemo(()=> (santaData.ordersSellOut || []).filter((o: OrderSellOut)=>o.accountId===a.id).reduce((n: number,o: OrderSellOut)=> n+orderTotal(o),0), [a.id, santaData.ordersSellOut]);
   
   const { unifiedActivity, kpis } = useMemo(() => {
@@ -160,7 +178,7 @@ function AccountBar({ a, party, santaData, onAddActivity }: { a: AccountType, pa
 }
 
 export function AccountsPageContent() {
-  const { data: santaData, setData, currentUser, saveCollection } = useData();
+  const { data: santaData, setData, currentUser, saveCollection, saveAllCollections } = useData();
   
   const [q,setQ]=useState('');
   const [expanded,setExpanded] = useState<Record<string,boolean>>({ ACTIVA:true });
@@ -255,11 +273,11 @@ export function AccountsPageContent() {
 
     const handleSaveCompletedTask = async (
         accountId: string,
-        payload: { type: 'venta'; items: { sku: string; qty: number }[] } | { type: 'interaccion'; note: string; nextActionDate?: string }
+        payload: TaskCompletionPayload
     ) => {
         if (!santaData || !currentUser) return;
     
-        let finalData: SantaData = { ...santaData };
+        const collectionsToSave: Partial<SantaData> = {};
 
         if (payload.type === 'venta') {
             const newOrder: OrderSellOut = {
@@ -271,42 +289,39 @@ export function AccountsPageContent() {
                 lines: payload.items.map(item => ({ sku: item.sku, qty: item.qty, uom: 'uds', priceUnit: 0 })),
                 notes: `Pedido rápido creado desde lista de cuentas`,
             };
-            finalData.ordersSellOut = [...(finalData.ordersSellOut || []), newOrder];
-        } else { // Interacción
-            const newInteraction: Interaction = {
+            collectionsToSave.ordersSellOut = [...(santaData.ordersSellOut || []), newOrder];
+        } else { // Interacción y otros
+            const newInteraction: Partial<Interaction> = {
                 id: `int_${Date.now()}`,
                 userId: currentUser.id,
                 accountId: accountId,
                 kind: 'OTRO',
-                note: payload.note,
+                note: (payload as any).note,
                 createdAt: new Date().toISOString(),
                 dept: 'VENTAS',
                 status: 'done',
             };
-            finalData.interactions = [...(finalData.interactions || []), newInteraction];
-
-            if (payload.nextActionDate) {
+            
+            if (payload.type === 'interaccion' && payload.nextActionDate) {
                  const newFollowUp: Interaction = {
                     id: `int_${Date.now() + 1}`,
                     userId: currentUser.id,
                     accountId: accountId,
                     kind: 'OTRO', 
-                    note: `Seguimiento de: ${payload.note}`,
+                    note: `Seguimiento de: ${(payload as any).note}`,
                     plannedFor: payload.nextActionDate,
                     createdAt: new Date().toISOString(),
                     dept: 'VENTAS',
                     status: 'open',
                 };
-                finalData.interactions.push(newFollowUp);
+                collectionsToSave.interactions = [...(santaData.interactions || []), newInteraction as Interaction, newFollowUp];
+            } else {
+                collectionsToSave.interactions = [...(santaData.interactions || []), newInteraction as Interaction];
             }
         }
     
-        setData(finalData);
-
-        if (payload.type === 'venta') {
-            await saveCollection('ordersSellOut', finalData.ordersSellOut);
-        }
-        await saveCollection('interactions', finalData.interactions);
+        setData(prevData => prevData ? { ...prevData, ...collectionsToSave } : null);
+        await saveAllCollections(collectionsToSave);
     
         setCompletingTaskForAccount(null);
     };
