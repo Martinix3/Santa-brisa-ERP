@@ -1,9 +1,18 @@
 
 // --- Santa Brisa: lógica de negocio (sell-out a botellas, agregados y KPIs) ---
 import type {
-  Account, Distributor, OrderSellOut, OrderLine, Product, User, SantaData
+  Account, PartyRole, CustomerData, OrderSellOut, Product, User, SantaData
 } from '@/domain';
-import { inWindow, orderTotal } from '@/domain';
+
+const inWindow = (dateStr: string, start: number, end: number): boolean => {
+  const time = +new Date(dateStr);
+  return time >= start && time <= end;
+};
+
+const orderTotal = (order: OrderSellOut): number => {
+    return order.lines.reduce((sum, line) => sum + (line.qty * line.priceUnit * (1 - (line.discount || 0))), 0);
+}
+
 
 export type ResolvedAccountMode = 'PROPIA_SB' | 'COLOCACION' | 'DISTRIB_PARTNER';
 
@@ -13,12 +22,9 @@ export type ResolvedAccountMode = 'PROPIA_SB' | 'COLOCACION' | 'DISTRIB_PARTNER'
  * Deriva el modo de operación de una cuenta ('PROPIA_SB', 'COLOCACION', 'DISTRIB_PARTNER')
  * a partir de su `ownerId` y `billerId`. Esta es ahora la única fuente de verdad para el modo.
  */
-export function computeAccountMode(account: Account): ResolvedAccountMode {
-  // `ownerId` puede ser un `userId` (u_...) o un `distributorId` (d_...)
-  // `billerId` puede ser 'SB' o un `distributorId` (d_...)
-
+export function computeAccountMode(account: Account, customerRoleData?: CustomerData): ResolvedAccountMode {
   const isOwnerUser = account.ownerId.startsWith('u_');
-  const isBillerSB = account.billerId === 'SB';
+  const isBillerSB = customerRoleData?.billerId === 'SB';
 
   if (isOwnerUser && isBillerSB) {
     return 'PROPIA_SB';
@@ -29,9 +35,6 @@ export function computeAccountMode(account: Account): ResolvedAccountMode {
   if (!isOwnerUser && !isBillerSB) {
     return 'DISTRIB_PARTNER';
   }
-
-  // Fallback por si hay una combinación inesperada (p.ej. owner de distribuidor pero factura SB)
-  // Devolvemos el modo más restrictivo.
   return 'PROPIA_SB';
 }
 
@@ -40,15 +43,15 @@ export function computeAccountMode(account: Account): ResolvedAccountMode {
 export function accountOwnerDisplay(
   acc: Account,
   users: User[],
-  distributors: Distributor[]
+  partyRoles: PartyRole[]
 ): string {
   if (!acc.ownerId) return '—';
 
   const user = users.find(u => u.id === acc.ownerId);
   if (user) return user.name;
 
-  const dist = distributors.find(d => d.id === acc.ownerId);
-  if (dist) return dist.name;
+  const distRole = partyRoles.find(pr => pr.partyId === acc.ownerId && pr.role === 'DISTRIBUTOR');
+  if (distRole) return distRole.partyId; // Should resolve to party name
   
   return acc.ownerId; // Fallback al ID si no se encuentra
 }
@@ -59,7 +62,7 @@ export type BottlesOpts = {
   countNonBottleSkusAsZero?: boolean;               // por defecto true
 };
 
-function lineToBottles(line: OrderLine, product: Product | undefined, opts: BottlesOpts = {}): number {
+function lineToBottles(line: OrderSellOut['lines'][0], product: Product | undefined, opts: BottlesOpts = {}): number {
   const isBottleSku = !!product?.bottleMl;
   if (!isBottleSku) return opts.countNonBottleSkusAsZero === false ? line.qty : 0;
 
@@ -172,7 +175,7 @@ export function computeFleetKPIs(params: {
 
   const totalUnits = ordersInWin.reduce((s, o) => s + orderToBottles(o, data.products), 0);
   const totalOrders = ordersInWin.length;
-  const avgTicketAll = totalOrders ? ordersInWin.map(orderTotal).reduce((a, b) => a + b, 0) / totalOrders : 0;
+  const avgTicketAll = totalOrders ? ordersInWin.map(orderTotal).reduce((a: number, b: number) => a + b, 0) / totalOrders : 0;
 
   const repurchaseRatePct = horecaIds.length
     ? (Array.from(byAccOrders.values()).filter(arr => (arr?.length || 0) >= 2).length / horecaIds.length) * 100

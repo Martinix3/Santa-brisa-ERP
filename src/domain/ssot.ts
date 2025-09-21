@@ -250,6 +250,20 @@ export interface Incident {
   notes?: string;
 }
 
+export interface QACheck {
+  id: string;
+  lotId?: string;                 // Para QC inbound o de proceso sobre un lote
+  prodOrderId?: string;           // Para QC de proceso/lanzamiento
+  phase: 'INBOUND' | 'PROCESS' | 'RELEASE';
+  checklist?: Array<{ name: string; result: 'ok' | 'ko'; value?: number | string | boolean; notes?: string }>;
+  summaryStatus: 'ok' | 'ko';     // Resultado global
+  reviewedById?: string;
+  reviewedAt?: string;
+  notes?: string;
+  links?: { goodsReceiptId?: string; traceEventId?: string };
+  createdAt: string;
+}
+
 // -----------------------------------------------------------------
 // 5. Almacén y Logística (Trazabilidad)
 // -----------------------------------------------------------------
@@ -309,7 +323,7 @@ export interface Shipment {
   holdedInvoiceId?: string;    // (si facturas al expedir)
   createdAt: string;
   status: ShipmentStatus;
-  lines: { sku: string; name: string; qty: number; unit: 'uds'; lotNumber?: string; }[];
+  lines: { sku: string; name: string; qty: number; uom: 'uds'; lotNumber?: string; }[];
   customerName: string;
   city: string;
   addressLine1?: string; addressLine2?: string; postalCode?: string; country?: string;
@@ -473,7 +487,7 @@ export interface SantaData {
   billOfMaterials: BillOfMaterial[];
   productionOrders: ProductionOrder[];
   lots: Lot[];
-  qaChecks: any[]; // Asumiendo que se creará esta entidad
+  qaChecks: QACheck[];
   
   // Logística y Almacén
   inventory: InventoryItem[];

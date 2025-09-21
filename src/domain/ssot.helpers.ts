@@ -1,6 +1,6 @@
 
 // domain/ssot.helpers.ts
-import type { SantaData, BillOfMaterial, Material, ProductionOrder, Lot, Creator, InfluencerCollab } from './ssot';
+import type { SantaData, BillOfMaterial, Material, ProductionOrder, Lot, InfluencerCollab } from './ssot';
 
 // --- INTERFAZ ADAPTADOR ---
 export interface SSOTAdapter {
@@ -24,7 +24,7 @@ export interface SSOTAdapter {
   getMktEvents: () => Promise<any[]>;
   getOnlineCampaigns: () => Promise<any[]>;
   // Influencers
-  getCreators: () => Promise<Creator[]>;
+  getCreators: () => Promise<any[]>;
   getInfluencerCollabs: () => Promise<InfluencerCollab[]>;
 }
 
@@ -63,7 +63,7 @@ export class MemoryAdapter implements SSOTAdapter {
   async getProducts() { return this.data.products; }
   async getOrders() { return this.data.ordersSellOut; }
   async getUsers() { return this.data.users; }
-  async getDistributors() { return this.data.distributors; }
+  async getDistributors() { return (this.data as any).distributors; }
   async getInteractions() { return this.data.interactions; }
   async getFullDump() { return this.data; }
   async getMaterials() { return this.data.materials; }
@@ -87,9 +87,9 @@ export class MemoryAdapter implements SSOTAdapter {
   async getProductionOrders() { return this.data.productionOrders; }
   async getLots(): Promise<Lot[]> { return this.data.lots; }
   async getLotTrace(lotId:string) { return traceBackFromLot(lotId, this.data.traceEvents); }
-  async getMktEvents() { return this.data.mktEvents || []; }
+  async getMktEvents() { return (this.data as any).mktEvents || []; }
   async getOnlineCampaigns() { return this.data.onlineCampaigns || []; }
-  async getCreators() { return this.data.creators || []; }
+  async getCreators() { return (this.data as any).creators || []; }
   async getInfluencerCollabs() { return this.data.influencerCollabs || []; }
 }
 

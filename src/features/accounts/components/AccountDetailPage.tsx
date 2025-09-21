@@ -4,15 +4,14 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useParams, useRouter, notFound } from 'next/navigation';
 import { useData } from '@/lib/dataprovider';
-import type { SantaData, Interaction as InteractionType, OrderSellOut, User as UserType, Distributor, InteractionKind, Account, AccountRef } from '@/domain/ssot';
+import type { SantaData, Interaction as InteractionType, OrderSellOut, User as UserType, Party, InteractionKind, Account, CustomerData } from '@/domain';
 import { computeAccountKPIs, accountOwnerDisplay } from '@/lib/sb-core';
-import { orderTotal } from '@/domain/ssot';
 import { ArrowUpRight, ArrowDownRight, Phone, Mail, MapPin, User, Factory, Boxes, Megaphone, Briefcase, Banknote, Calendar, FileText, ShoppingCart, Star, Building2, CreditCard, ChevronRight, ChevronLeft, MessageSquare, Sparkles, Tag, Clock } from "lucide-react";
 import Link from 'next/link';
 import { enrichAccount } from '@/ai/flows/enrich-account-flow';
 
-import { SBFlowModal, Variant } from '@/features/quicklog/components/SBFlows';
-import { SBButton, SBCard, SB_COLORS } from '@/components/ui/ui-primitives';
+import { SBFlowModal } from '@/features/quicklog/components/SBFlows';
+import { SBButton, SBCard } from '@/components/ui/ui-primitives';
 
 
 // ====== UI Primitives ======
@@ -42,6 +41,10 @@ function Row({label, children, icon: Icon}:{label:string; children:React.ReactNo
 
 function Chip({children}:{children:React.ReactNode}){
   return <span className="inline-flex items-center rounded-md border border-zinc-200 bg-white px-2 py-0.5 text-xs text-zinc-700">{children}</span>;
+}
+
+const orderTotal = (order: OrderSellOut): number => {
+    return order.lines.reduce((sum, line) => sum + (line.qty * line.priceUnit * (1 - (line.discount || 0))), 0);
 }
 
 
@@ -75,14 +78,16 @@ export function AccountDetailPageContent(){
 
   const { data: santaData, setData, currentUser } = useData();
 
-  const [modalVariant, setModalVariant] = useState<Variant | null>(null);
+  const [modalVariant, setModalVariant] = useState<any | null>(null);
   const [isEnriching, setIsEnriching] = useState(false);
 
-  const { account, unifiedActivity, kpis, owner, distributor } = useMemo(() => {
-    if (!santaData || !accountId) return { account: null, unifiedActivity: [], kpis: null, owner: null, distributor: null };
+  const { account, party, unifiedActivity, kpis, owner, distributor } = useMemo(() => {
+    if (!santaData || !accountId) return { account: null, party: null, unifiedActivity: [], kpis: null, owner: null, distributor: null };
     
     const acc = santaData.accounts.find(a => a.id === accountId);
-    if (!acc) return { account: null, unifiedActivity: [], kpis: null, owner: null, distributor: null };
+    if (!acc) return { account: null, party: null, unifiedActivity: [], kpis: null, owner: null, distributor: null };
+
+    const pty = santaData.parties.find(p => p.id === acc.partyId);
     
     const interactions = santaData.interactions.filter(i => i.accountId === accountId);
     const orders = santaData.ordersSellOut.filter(o => o.accountId === accountId);
@@ -104,31 +109,41 @@ export function AccountDetailPageContent(){
         endIso: endDate.toISOString()
     });
 
-    const own = accountOwnerDisplay(acc, santaData.users, santaData.distributors);
+    const own = accountOwnerDisplay(acc, santaData.users, santaData.partyRoles);
     
-    const dist = santaData.distributors.find(d => d.id === acc.billerId);
+    const customerRoleData = santaData.partyRoles.find(pr => pr.partyId === acc.partyId && pr.role === 'CUSTOMER')?.data as CustomerData;
+    const billerId = customerRoleData?.billerId;
+    const distPartyRole = billerId ? santaData.partyRoles.find(pr => pr.partyId === billerId && pr.role === 'DISTRIBUTOR') : undefined;
+    const distParty = distPartyRole ? santaData.parties.find(p => p.id === distPartyRole.partyId) : undefined;
 
-    return { account: acc, unifiedActivity: unified, kpis: kpiData, owner: own, distributor: dist };
+
+    return { account: acc, party: pty, unifiedActivity: unified, kpis: kpiData, owner: own, distributor: distParty };
   }, [accountId, santaData]);
 
   const handleEnrich = async () => {
-    if (!account || !santaData) return;
+    if (!account || !party || !santaData) return;
     setIsEnriching(true);
     try {
         const enrichedData = await enrichAccount({
             accountName: account.name,
-            address: account.address,
-            city: account.city,
+            address: party.addresses[0]?.street,
+            city: party.addresses[0]?.city,
         });
 
         const updatedAccount = { 
             ...account, 
-            ...enrichedData,
-            tags: Array.from(new Set([...(account.tags || []), ...enrichedData.tags])), // Merge tags
+            subType: enrichedData.subType,
+            notes: enrichedData.notes,
         };
+
+        const updatedParty = {
+            ...party,
+            tags: Array.from(new Set([...(party.tags || []), ...enrichedData.tags])),
+        }
         
         const updatedAccounts = santaData.accounts.map(acc => acc.id === account.id ? updatedAccount : acc);
-        setData({ ...santaData, accounts: updatedAccounts });
+        const updatedParties = santaData.parties.map(p => p.id === party.id ? updatedParty : p);
+        setData({ ...santaData, accounts: updatedAccounts, parties: updatedParties });
 
     } catch (error) {
         console.error("Error enriching account:", error);
@@ -142,7 +157,6 @@ export function AccountDetailPageContent(){
   const handleSubmit = (payload: any) => {
     if (!currentUser || !santaData) return;
     
-    // Quick Interaction/Order
     if (payload.mode === 'order' || payload.mode === 'interaction') {
         const targetAccountName = payload.account || account?.name;
         const targetAccount = santaData.accounts.find(a => a.name === targetAccountName);
@@ -173,7 +187,6 @@ export function AccountDetailPageContent(){
             setData({ ...santaData, interactions: [...santaData.interactions, newInteraction] });
         }
     }
-    // Edit Account
     else if (payload.id && payload.name) {
         const updatedAccounts = santaData.accounts.map(acc => acc.id === payload.id ? { ...acc, ...payload } : acc);
         setData({ ...santaData, accounts: updatedAccounts });
@@ -184,18 +197,20 @@ export function AccountDetailPageContent(){
   
 
   if (!santaData) return <div className="p-6 text-center">Cargando datos...</div>;
-  if (!account || !kpis) return <div className="p-6 text-center">Cuenta no encontrada.</div>;
+  if (!account || !party || !kpis) return <div className="p-6 text-center">Cuenta no encontrada.</div>;
+
+  const mainContact = party.contacts.find(c => c.isPrimary && (c.type === 'email' || c.type === 'phone'));
 
   const editAccountDefaults = {
       id: account.id,
       name: account.name,
-      city: account.city,
+      city: party.addresses[0]?.city,
       type: account.type,
-      mainContactName: account.mainContactName,
-      mainContactEmail: account.mainContactEmail,
-      phone: account.phone,
-      address: account.address,
-      billingEmail: account.billingEmail,
+      mainContactName: mainContact?.description,
+      mainContactEmail: mainContact?.value,
+      phone: party.contacts.find(c => c.type === 'phone')?.value,
+      address: party.addresses[0]?.street,
+      billingEmail: party.contacts.find(c => c.type === 'email' && c.description?.toLowerCase().includes('factura'))?.value,
   };
 
   return (
@@ -206,10 +221,10 @@ export function AccountDetailPageContent(){
           <div className="p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl" style={{background:SB_COLORS.accent}}/>
+                    <div className="h-10 w-10 rounded-xl" style={{backgroundColor:SB_COLORS.accent}}/>
                     <div>
                       <h1 className="text-xl font-bold text-zinc-900">{account.name}</h1>
-                      <div className="text-sm text-zinc-600">{account.city} · {account.type}{account.subType && ` (${account.subType})`} · <span className="font-medium">{account.stage}</span></div>
+                      <div className="text-sm text-zinc-600">{party.addresses[0]?.city} · {account.type}{account.subType && ` (${account.subType})`} · <span className="font-medium">{account.stage}</span></div>
                     </div>
                     <div className="ml-4 flex items-center gap-2">
                       <Chip>Último pedido hace {kpis.daysSinceLastOrder} días</Chip>
@@ -232,7 +247,7 @@ export function AccountDetailPageContent(){
           <section className="space-y-6 xl:col-span-2">
             {/* KPIs */}
             <SBCard title="KPIs de Rendimiento (últimos 90 días)">
-              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 p-4">
                 <KPI label="Unidades vendidas" value={kpis.unitsSold} suffix="uds."/>
                 <KPI label="Nº Pedidos" value={kpis.orderCount} />
                 <KPI label="Ticket medio" value={formatEUR(kpis.avgTicket)} />
@@ -279,21 +294,21 @@ export function AccountDetailPageContent(){
           <aside className="space-y-6">
             <SBCard title="Información de la Cuenta">
               <div className="p-4 space-y-2">
-                <Row label="Contacto Principal" icon={User}>{account.mainContactName || '—'}<br/><span className="text-xs text-zinc-500">{account.mainContactEmail}</span></Row>
-                <Row label="Teléfono" icon={Phone}>{account.phone}</Row>
-                <Row label="Dirección" icon={MapPin}>{account.address}</Row>
-                <Row label="Email Facturación" icon={Mail}>{account.billingEmail}</Row>
+                <Row label="Contacto Principal" icon={User}>{mainContact?.description || '—'}<br/><span className="text-xs text-zinc-500">{mainContact?.value}</span></Row>
+                <Row label="Teléfono" icon={Phone}>{party.contacts.find(c => c.type==='phone')?.value}</Row>
+                <Row label="Dirección" icon={MapPin}>{party.addresses[0]?.street}</Row>
+                <Row label="Email Facturación" icon={Mail}>{party.contacts.find(c => c.description?.toLowerCase().includes('factura'))?.value}</Row>
                 <hr className="my-2"/>
                 {owner && <Row label="Comercial" icon={Briefcase}>{owner}</Row>}
                 {distributor && <Row label="Distribuidor" icon={Boxes}>{distributor.name}</Row>}
-                <Row label="CIF" icon={Building2}>{account.cif}</Row>
+                <Row label="CIF" icon={Building2}>{party.taxId}</Row>
                 <hr className="my-2"/>
                  <Row label="Sub-tipo" icon={Tag}>{account.subType}</Row>
-                 <Row label="Horario" icon={Clock}>{account.openingHours}</Row>
+                 <Row label="Horario" icon={Clock}>{(party as any).openingHours || 'No disponible'}</Row>
                  <Row label="Notas IA" icon={Sparkles}><span className="italic">“{account.notes}”</span></Row>
                  <Row label="Etiquetas" icon={Tag}>
                     <div className="flex flex-wrap gap-1">
-                        {(account.tags || []).map(t => <Chip key={t}>{t}</Chip>)}
+                        {(party.tags || []).map(t => <Chip key={t}>{t}</Chip>)}
                     </div>
                 </Row>
                 <div className="mt-4 flex justify-between">
@@ -311,21 +326,38 @@ export function AccountDetailPageContent(){
       {modalVariant && santaData && (
          <SBFlowModal
             open={!!modalVariant}
-            variant={modalVariant as Variant}
+            variant={modalVariant as any}
             onClose={() => setModalVariant(null)}
-            accounts={santaData.accounts as AccountRef[]}
-            onSearchAccounts={async(q) => santaData.accounts.filter(a => a.name.toLowerCase().includes(q.toLowerCase())) as AccountRef[]}
+            accounts={(santaData.accounts as any) || []}
+            onSearchAccounts={async(q) => santaData.accounts.filter(a => a.name.toLowerCase().includes(q.toLowerCase())) as any[]}
             onCreateAccount={async (d) => {
+                 const newParty: Party = {
+                    id: `party_local_${Date.now()}`,
+                    name: d.name,
+                    kind: 'ORG',
+                    addresses: [{ type: 'main', city: d.city || '', country: 'España', street: '' }],
+                    contacts: [],
+                    createdAt: new Date().toISOString(),
+                 };
                  const newAccount: Account = { 
                      id: `acc_local_${Date.now()}`,
-                     name: d.name, city: d.city, stage: 'POTENCIAL',
+                     partyId: newParty.id,
+                     name: d.name,
                      type: d.type || 'HORECA',
+                     stage: 'POTENCIAL',
                      ownerId: currentUser!.id, 
-                     billerId: 'SB',
                      createdAt: new Date().toISOString()
                  };
-                 setData({...santaData, accounts: [...santaData.accounts, newAccount]});
-                 return newAccount as AccountRef;
+                 const newPartyRole = {
+                     id: `pr_local_${Date.now()}`,
+                     partyId: newParty.id,
+                     role: 'CUSTOMER',
+                     isActive: true,
+                     createdAt: new Date().toISOString(),
+                     data: { salesRepId: currentUser!.id, billerId: 'SB' }
+                 }
+                 setData({...santaData, parties: [...santaData.parties, newParty], accounts: [...santaData.accounts, newAccount], partyRoles: [...santaData.partyRoles, newPartyRole]});
+                 return newAccount as any;
             }}
             defaults={modalVariant === 'editAccount' ? editAccountDefaults : undefined}
             onSubmit={handleSubmit}

@@ -3,18 +3,15 @@
 "use client"
 import React, { useMemo, useState, useEffect } from 'react'
 import { ChevronDown, Search, Plus, Phone, Mail, MessageSquare, Calendar, History, ShoppingCart, Info, BarChart3, UserPlus, Users, MoreVertical } from 'lucide-react'
-import type { Account as AccountType, Stage, User, Distributor, Interaction, OrderSellOut, InteractionKind, SantaData, InteractionStatus } from '@/domain/ssot'
-import { orderTotal } from '@/domain/ssot'
+import type { Account as AccountType, Stage, User, Interaction, OrderSellOut, SantaData, CustomerData, Party } from '@/domain'
 import { accountOwnerDisplay, computeAccountKPIs } from '@/lib/sb-core';
 import Link from 'next/link'
 import { useData } from '@/lib/dataprovider'
 import { FilterSelect } from '@/components/ui/FilterSelect'
 import { ModuleHeader } from '@/components/ui/ModuleHeader'
-import { SB_COLORS } from '@/components/ui/ui-primitives'
 import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/TaskCompletionDialog'
 import { Avatar } from '@/components/ui/Avatar';
 
-const T = { primary:'#618E8F' }
 const STAGE: Record<string, { label:string; tint:string; text:string }> = {
   ACTIVA: { label:'Activas', tint:'#A7D8D9', text:'#17383a' },
   SEGUIMIENTO: { label:'En seguimiento', tint:'#F7D15F', text:'#3f3414' },
@@ -22,6 +19,16 @@ const STAGE: Record<string, { label:string; tint:string; text:string }> = {
   FALLIDA: { label:'Perdidas', tint:'#618E8F', text:'#153235' },
 }
 const formatEUR = (n:number)=> new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n)
+
+function getCustomerRoleData(santaData: SantaData, partyId: string): CustomerData | undefined {
+  const role = santaData.partyRoles.find(r => r.partyId === partyId && r.role === 'CUSTOMER');
+  return role?.data as CustomerData | undefined;
+}
+
+const orderTotal = (order: OrderSellOut): number => {
+    return order.lines.reduce((sum, line) => sum + (line.qty * line.priceUnit * (1 - (line.discount || 0))), 0);
+}
+
 
 function GroupBar({stage,count,onToggle,expanded}:{stage:keyof typeof STAGE; count:number; onToggle:()=>void; expanded:boolean}){
   const s = STAGE[stage]
@@ -39,11 +46,11 @@ function GroupBar({stage,count,onToggle,expanded}:{stage:keyof typeof STAGE; cou
   )
 }
 
-function AccountBar({ a, santaData, onAddActivity }: { a: AccountType, santaData: SantaData, onAddActivity: (acc: AccountType) => void }) {
+function AccountBar({ a, party, santaData, onAddActivity }: { a: AccountType, party?: Party, santaData: SantaData, onAddActivity: (acc: AccountType) => void }) {
   const [open, setOpen] = useState(false);
   const s = STAGE[a.stage as keyof typeof STAGE] ?? STAGE.ACTIVA;
   
-  const owner = useMemo(() => accountOwnerDisplay(a, santaData.users, santaData.distributors), [a, santaData.users, santaData.distributors]);
+  const owner = useMemo(() => accountOwnerDisplay(a, santaData.users, []), [a, santaData.users]);
   const orderAmount = useMemo(()=> (santaData.ordersSellOut || []).filter((o: OrderSellOut)=>o.accountId===a.id).reduce((n: number,o: OrderSellOut)=> n+orderTotal(o),0), [a.id, santaData.ordersSellOut]);
   
   const { unifiedActivity, kpis } = useMemo(() => {
@@ -70,7 +77,7 @@ function AccountBar({ a, santaData, onAddActivity }: { a: AccountType, santaData
     return { unifiedActivity: unified, kpis: kpiData };
   }, [a.id, santaData]);
   
-  const interactionIcons: Record<InteractionKind, React.ElementType> = {
+  const interactionIcons: Record<any, React.ElementType> = {
       VISITA: MessageSquare,
       LLAMADA: Phone,
       EMAIL: Mail,
@@ -78,7 +85,16 @@ function AccountBar({ a, santaData, onAddActivity }: { a: AccountType, santaData
       WHATSAPP: MessageSquare,
   };
 
-  const distributor = useMemo(() => santaData.distributors.find(d => d.id === a.billerId), [a, santaData.distributors]);
+  const customerData = getCustomerRoleData(santaData, a.partyId);
+  const billerId = customerData?.billerId;
+  const distributorRoles = santaData.partyRoles.filter(r => r.role === 'DISTRIBUTOR');
+  const distMap = distributorRoles.reduce((acc, r) => {
+    const p = santaData.parties.find(p => p.id === r.partyId);
+    if (p) acc[r.partyId] = p.name;
+    return acc;
+  }, {} as Record<string, string>);
+  const distributorName = billerId && distMap[billerId] ? distMap[billerId] : 'Propia';
+
 
   return (
     <div className="overflow-hidden transition-all duration-200 hover:bg-black/5 rounded-lg border border-zinc-200/50">
@@ -91,8 +107,8 @@ function AccountBar({ a, santaData, onAddActivity }: { a: AccountType, santaData
           {orderAmount>0 && <span className="text-[11px] px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-700 whitespace-nowrap">{formatEUR(orderAmount)}</span>}
         </div>
         <div className="flex items-center gap-2 min-w-0"><Avatar name={owner} size="md" /><span className="text-sm text-zinc-700 truncate">{owner}</span></div>
-        <div className="text-sm text-zinc-700 truncate">{a.city||'—'}</div>
-        <div className="text-sm text-zinc-700 truncate">{distributor?.name || 'Propia'}</div>
+        <div className="text-sm text-zinc-700 truncate">{party?.addresses[0]?.city ||'—'}</div>
+        <div className="text-sm text-zinc-700 truncate">{distributorName}</div>
         <div className="text-right relative group">
           <button className="p-1.5 rounded-md border border-zinc-200 bg-white/50 text-zinc-700 inline-flex items-center transition-all hover:bg-white/90 hover:border-zinc-300 hover:scale-105" title="Acciones">
             <MoreVertical className="h-3.5 w-3.5"/>
@@ -185,39 +201,47 @@ export function AccountsPageContent() {
   const data = useMemo(() => santaData?.accounts || [], [santaData]);
 
   const { repOptions, cityOptions, distOptions } = useMemo(() => {
-    if (!santaData || !santaData.users || !santaData.distributors) {
+    if (!santaData || !santaData.users || !santaData.partyRoles || !santaData.parties) {
       return { repOptions: [], cityOptions: [], distOptions: [] };
     }
     const reps = new Set<string>();
     const cities = new Set<string>();
-    const dists = new Set<string>();
+    
     data.forEach(a => {
-      if (a.ownerId) reps.add(a.ownerId);
-      if (a.city) cities.add(a.city);
-      if (a.billerId && a.billerId !== 'SB') dists.add(a.billerId);
+      reps.add(a.ownerId);
+      const party = santaData.parties.find(p => p.id === a.partyId);
+      if (party?.addresses[0]?.city) cities.add(party.addresses[0].city);
     });
+
+    const distributorRoles = santaData.partyRoles.filter(r => r.role === 'DISTRIBUTOR');
+    
     const userMap = santaData.users.reduce((acc, u) => ({ ...acc, [u.id]: u.name }), {} as Record<string, string>);
-    const distMap = santaData.distributors.reduce((acc, d) => ({ ...acc, [d.id]: d.name }), {} as Record<string, string>);
+    
+    const partyMap = santaData.parties.reduce((acc, p) => ({ ...acc, [p.id]: p.name }), {} as Record<string, string>);
 
     return {
-      repOptions: Array.from(reps).map(id => ({ value: id, label: userMap[id] || distMap[id] || id })).sort((a,b) => a.label.localeCompare(b.label)),
+      repOptions: Array.from(reps).map(id => ({ value: id, label: userMap[id] || partyMap[id] || id })).sort((a,b) => a.label.localeCompare(b.label)),
       cityOptions: Array.from(cities).map(c => ({ value: c, label: c })).sort((a,b) => a.label.localeCompare(b.label)),
-      distOptions: Array.from(dists).map(id => ({ value: id, label: distMap[id] || id })).sort((a,b) => a.label.localeCompare(b.label)),
+      distOptions: distributorRoles.map(role => ({ value: role.partyId, label: partyMap[role.partyId] || role.partyId })).sort((a,b) => a.label.localeCompare(b.label)),
     };
   }, [data, santaData]);
 
   const filtered = useMemo(() => {
-    if (!santaData || !santaData.users || !santaData.distributors) return [];
+    if (!santaData || !santaData.users) return [];
     const s = q.trim().toLowerCase();
+    
     return data.filter(a => {
-      const owner = accountOwnerDisplay(a, santaData.users, santaData.distributors);
-      const dist = santaData.distributors.find(d => d.id === a.billerId);
-      const distName = dist?.name || (a.billerId === 'SB' ? 'Propia' : '');
-      
-      const matchesQuery = !s || [a.name,a.city,a.type,a.stage, owner, distName].some(v=> (v||'').toString().toLowerCase().includes(s));
+      const ownerName = santaData.users.find(u => u.id === a.ownerId)?.name || a.ownerId;
+      const party = santaData.parties.find(p => p.id === a.partyId);
+      const city = party?.addresses[0]?.city || '';
+
+      const customerRoleData = getCustomerRoleData(santaData, a.partyId);
+      const billerId = customerRoleData?.billerId;
+
+      const matchesQuery = !s || [a.name, city, a.type, a.stage, ownerName].some(v=> (v||'').toString().toLowerCase().includes(s));
       const matchesRep = !fltRep || a.ownerId === fltRep;
-      const matchesCity = !fltCity || a.city === fltCity;
-      const matchesDist = !fltDist || a.billerId === fltDist;
+      const matchesCity = !fltCity || city === fltCity;
+      const matchesDist = !fltDist || billerId === fltDist;
 
       return matchesQuery && matchesRep && matchesCity && matchesDist;
     });
@@ -259,7 +283,7 @@ export function AccountsPageContent() {
 
     const handleSaveCompletedTask = async (
         accountId: string,
-        payload: { type: 'venta', items: { sku: string; qty: number }[] } | { type: 'interaccion', note: string, nextActionDate?: string }
+        payload: { type: 'venta'; items: { sku: string; qty: number }[] } | { type: 'interaccion'; note: string; nextActionDate?: string }
     ) => {
         if (!santaData || !currentUser) return;
     
@@ -281,7 +305,7 @@ export function AccountsPageContent() {
                 id: `int_${Date.now()}`,
                 userId: currentUser.id,
                 accountId: accountId,
-                kind: 'OTRO', // Kind should be part of the dialog
+                kind: 'OTRO',
                 note: payload.note,
                 createdAt: new Date().toISOString(),
                 dept: 'VENTAS',
@@ -307,7 +331,6 @@ export function AccountsPageContent() {
     
         setData(finalData);
 
-        // Persist changes
         if (payload.type === 'venta') {
             await saveCollection('ordersSellOut', finalData.ordersSellOut);
         }
@@ -350,7 +373,10 @@ export function AccountsPageContent() {
               <GroupBar stage={k} count={count} expanded={isOpen} onToggle={()=> setExpanded(e=> ({...e,[k]:!e[k]})) }/>
               {isOpen && count > 0 && santaData && (
                 <div className="rounded-b-md space-y-1 py-2" style={{backgroundColor: `${s.tint}1A`}}>
-                  {grouped[k].map(a=> <AccountBar key={a.id} a={a} santaData={santaData} onAddActivity={() => setCompletingTaskForAccount(a)}/>) }
+                  {grouped[k].map(a=> {
+                      const party = santaData.parties.find(p => p.id === a.partyId);
+                      return <AccountBar key={a.id} a={a} party={party} santaData={santaData} onAddActivity={() => setCompletingTaskForAccount(a)}/>
+                  }) }
                 </div>
               )}
             </div>
@@ -377,5 +403,3 @@ export function AccountsPageContent() {
     </>
   )
 }
-
-    
