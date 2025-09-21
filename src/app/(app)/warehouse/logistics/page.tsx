@@ -3,7 +3,7 @@
 "use client";
 import React, { useMemo, useState, useEffect } from "react";
 import { Printer, PackageCheck, Truck, CheckCircle2, Search, Plus, FileText, ClipboardList, Boxes, PackageOpen, BadgeCheck, AlertTriangle, Settings, Clipboard, Ruler, Weight, MoreHorizontal, Check as CheckIcon, FileDown, Package } from "lucide-react";
-import { SBButton, SBCard, Input, Select, DataTableSB, STATUS_STYLES, type Col as SBCol } from '@/components/ui/ui-primitives';
+import { SBButton, SBCard, Input, Select, STATUS_STYLES } from '@/components/ui/ui-primitives';
 import { useData } from '@/lib/dataprovider';
 import type { Shipment, OrderSellOut, Account, ShipmentStatus, ShipmentLine, AccountType, Party } from '@/domain/ssot';
 import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog";
@@ -347,59 +347,6 @@ export default function LogisticsPage() {
     return showOnlyAvailable ? actions.filter(a => a.available) : actions;
   };
 
-  type Row = {id: string, shipment: Shipment, order?: OrderSellOut, account?: Account};
-  const cols: SBCol<Row>[] = [
-      { key: 'select', header: '', render: ({shipment}) => <input type="checkbox" checked={selected.includes(shipment.id)} onChange={(e:any) => setSelected((p) => e.target.checked ? [...p, shipment.id] : p.filter(id => id !== shipment.id))} />},
-      { key: 'id', header: 'ID', render: ({shipment, order}) => <div><p className="font-medium">{shipment.id}</p>{order?.source === 'SHOPIFY' && <p className="text-xs text-zinc-500">Shopify</p>}</div>},
-      { key: 'date', header: 'Fecha', render: ({shipment}) => <div className="text-sm">{new Date(shipment.createdAt).toLocaleDateString('es-ES')}</div>},
-      { key: 'channel', header: 'Canal / Tipo', render: ({order, account}) => {
-          const channelInfo = getChannelInfo(order, account);
-          return <span className={`inline-flex items-center px-2 py-0.5 rounded-md border text-xs ${channelInfo.className}`}>{channelInfo.label}</span>
-      }},
-      { key: 'customer', header: 'Cliente', render: ({shipment}) => <div><p className="text-sm font-medium">{shipment?.customerName || 'N/A'}</p><p className="text-xs text-zinc-500">{shipment?.city}</p></div>},
-      { key: 'items', header: 'Artículos', render: ({shipment}) => (
-        <ul className="text-sm space-y-1">
-          {shipment.lines.map((it: any) => (
-            <li key={it.sku} className="flex items-center gap-2">
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-100">{it.sku}</span>
-              <span>{it.name}</span>
-              <span className="text-zinc-500">×{it.qty}</span>
-            </li>
-          ))}
-        </ul>
-      )},
-      { key: 'status', header: 'Estado', render: ({shipment}) => {
-          const style = STATUS_STYLES[shipment.status as keyof typeof STATUS_STYLES] || STATUS_STYLES['pending'];
-          return <span className={`inline-flex items-center px-2 py-1 rounded-md border text-xs ${style.bg} ${style.color}`}>{style.label}</span>
-      }},
-      { key: 'actions', header: 'Acciones', render: ({shipment}) => (
-        <div className="relative group">
-            <DropdownMenuTrigger>
-                <SBButton variant="secondary"><MoreHorizontal className="w-4 h-4"/></SBButton>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-64">
-              <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {buildRowActions(shipment).map((a) => (
-                <DropdownMenuItem key={a.id} onClick={a.onClick} disabled={!a.available} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">{a.icon}<span>{a.label}</span></div>
-                  {!a.available && !showOnlyAvailable && a.pendingReason && (
-                    <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-200">{a.pendingReason}</span>
-                  )}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </div>
-      )},
-  ];
-
-  const tableRows: Row[] = useMemo(() => filtered.map(shipment => ({
-      id: shipment.id,
-      shipment: shipment,
-      order: orderMap.get(shipment.orderId || ''),
-      account: accountMap.get(orderMap.get(shipment.orderId || '')?.accountId || '')
-  })), [filtered, orderMap, accountMap]);
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -443,7 +390,76 @@ export default function LogisticsPage() {
 
       {/* Tabla principal */}
       <SBCard title="Pedidos">
-        <DataTableSB rows={tableRows} cols={cols} />
+         <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-zinc-50 text-left text-zinc-600">
+              <tr>
+                <th className="p-3 w-10"><input type="checkbox" onChange={e => setSelected(e.target.checked ? filtered.map(s=>s.id): [])} /></th>
+                <th className="p-3 w-1/12">ID</th>
+                <th className="p-3 w-1/6">Fecha</th>
+                <th className="p-3 w-1/6">Canal</th>
+                <th className="p-3 w-1/5">Cliente</th>
+                <th className="p-3 w-1/4">Artículos</th>
+                <th className="p-3 w-1/12">Estado</th>
+                <th className="p-3 w-16 text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-100">
+              {filtered.map(shipment => {
+                const order = orderMap.get(shipment.orderId || '');
+                const account = accountMap.get(order?.accountId || '');
+                const channelInfo = getChannelInfo(order, account);
+                const style = STATUS_STYLES[shipment.status as keyof typeof STATUS_STYLES] || STATUS_STYLES['pending'];
+                
+                return (
+                  <tr key={shipment.id} className="hover:bg-zinc-50">
+                    <td className="p-3"><input type="checkbox" checked={selected.includes(shipment.id)} onChange={e => setSelected(p => e.target.checked ? [...p, shipment.id] : p.filter(id => id !== shipment.id))} /></td>
+                    <td className="p-3 font-medium">{shipment.id}</td>
+                    <td className="p-3">{new Date(shipment.createdAt).toLocaleDateString('es-ES')}</td>
+                    <td className="p-3"><span className={`inline-flex items-center px-2 py-0.5 rounded-md border text-xs ${channelInfo.className}`}>{channelInfo.label}</span></td>
+                    <td className="p-3">
+                      <div>
+                        <p className="font-medium">{shipment?.customerName || 'N/A'}</p>
+                        <p className="text-xs text-zinc-500">{shipment?.city}</p>
+                      </div>
+                    </td>
+                    <td className="p-3">
+                      <ul className="text-sm space-y-1">
+                        {shipment.lines.map((it: any) => (
+                          <li key={it.sku} className="flex items-center gap-2">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-100">{it.sku}</span>
+                            <span>{it.name}</span>
+                            <span className="text-zinc-500">×{it.qty}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </td>
+                    <td className="p-3"><span className={`inline-flex items-center px-2 py-1 rounded-md border text-xs ${style.bg} ${style.color}`}>{style.label}</span></td>
+                    <td className="p-3 text-right">
+                       <DropdownMenu>
+                          <DropdownMenuTrigger>
+                              <SBButton variant="secondary"><MoreHorizontal className="w-4 h-4"/></SBButton>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-64">
+                            <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            {buildRowActions(shipment).map((a) => (
+                              <DropdownMenuItem key={a.id} onClick={a.onClick} disabled={!a.available} className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">{a.icon}<span>{a.label}</span></div>
+                                {!a.available && !showOnlyAvailable && a.pendingReason && (
+                                  <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-200">{a.pendingReason}</span>
+                                )}
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </SBCard>
 
       {/* Paneles secundarios */}
