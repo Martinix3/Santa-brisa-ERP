@@ -85,6 +85,7 @@ export const INITIAL_MOCK_DATA: SantaData = {
     { id: 'int_7', userId: 'u_comercial_2', accountId: 'acc_5', kind: 'LLAMADA', note: 'Planificar segunda reunión', createdAt: '2023-05-10T15:00:00Z', dept: 'VENTAS', status: 'open', plannedFor: '2024-08-10T10:00:00Z', involvedUserIds: ['u_comercial_2'] },
   ],
   ordersSellOut: [
+    { id: 'ord_mock_1', docNumber: 'ORD-SB-240725-0001', accountId: 'acc_1', source: 'MANUAL', lines: [{ sku: 'SB-750', qty: 6, uom: 'uds', priceUnit: 15 }], createdAt: '2024-07-25T10:00:00Z', status: 'open', currency: 'EUR', totalAmount: 90 },
     { id: 'ord_1', accountId: 'acc_1', source: 'Direct', lines: [{ sku: 'SB-750', qty: 12, uom: 'uds', priceUnit: 15 }], createdAt: '2023-01-20T14:00:00Z', status: 'paid', currency: 'EUR', totalAmount: 180 },
     { id: 'ord_2', accountId: 'acc_2', source: 'Direct', lines: [{ sku: 'SB-750', qty: 24, uom: 'uds', priceUnit: 14.5 }, { sku: 'MERCH-VAS', qty: 50, uom: 'uds', priceUnit: 0 }], createdAt: '2023-03-01T12:00:00Z', status: 'paid', currency: 'EUR', totalAmount: 348 },
     { id: 'ord_3', accountId: 'acc_1', source: 'Direct', lines: [{ sku: 'SB-750', qty: 6, uom: 'uds', priceUnit: 15 }], createdAt: '2023-05-15T18:00:00Z', status: 'invoiced', currency: 'EUR', totalAmount: 90 },

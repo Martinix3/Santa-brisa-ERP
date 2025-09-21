@@ -5,7 +5,7 @@
 import React, { useMemo, useState, useTransition } from 'react';
 import { useData } from '@/lib/dataprovider';
 import { Download, Plus, Search, FileWarning, PackageCheck, FileText, Banknote, CheckCircle, Boxes, Loader2 } from 'lucide-react';
-import type { OrderSellOut, Account, User, OrderStatus, PartyRole, CustomerData, SantaData } from '@/domain/ssot';
+import type { OrderSellOut, Account, User, OrderStatus, PartyRole, CustomerData, SantaData, Party } from '@/domain/ssot';
 import { orderTotal } from '@/lib/sb-core';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
 import { ShoppingCart } from 'lucide-react';
@@ -72,6 +72,7 @@ const statusOptions: { value: OrderStatus; label: string }[] = [
 
 function StatusSelector({ order, onStatusChange }: { order: OrderSellOut; onStatusChange: (order: OrderSellOut, newStatus: OrderStatus) => Promise<void>; }) {
     const [isPending, startTransition] = useTransition();
+    const { data } = useData();
 
     const statusMap: Record<OrderStatus, { label: string; className: string }> = {
         open: { label: 'Borrador', className: 'bg-zinc-100 text-zinc-700' },
@@ -88,7 +89,13 @@ function StatusSelector({ order, onStatusChange }: { order: OrderSellOut; onStat
     const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const newStatus = e.target.value as OrderStatus;
         startTransition(async () => {
-            await onStatusChange(order, newStatus);
+            const account = data?.accounts.find(a => a.id === order.accountId);
+            const party = account ? data?.parties.find(p => p.id === account.partyId) : undefined;
+            if (account && party) {
+              await onStatusChange(order, newStatus);
+            } else {
+              console.error(`[StatusSelector] No se pudo encontrar account/party para el pedido ${order.id}`);
+            }
         });
     };
 
@@ -166,7 +173,7 @@ export default function OrdersDashboard() {
   const [statusFilter, setStatusFilter] = useState('');
   const [isCreateOrderOpen, setIsCreateOrderOpen] = useState(false);
 
-  const { ordersSellOut, accounts, users, partyRoles, stockMoves, inventory, products } = data || { ordersSellOut: [], accounts: [], users: [], partyRoles: [], stockMoves: [], inventory: [], products: [] };
+  const { ordersSellOut, accounts, users, partyRoles, stockMoves, inventory, products, parties } = data || { ordersSellOut: [], accounts: [], users: [], partyRoles: [], stockMoves: [], inventory: [], products: [], parties: [] };
   
   const consByAcc = useMemo(() => consignmentOnHandByAccount(stockMoves || []), [stockMoves]);
   const consTotals = useMemo(() => consignmentTotalUnits(consByAcc), [consByAcc]);
@@ -252,16 +259,27 @@ export default function OrdersDashboard() {
   const handleCreateOrder = (payload: any) => {
     if (!data) return;
 
-    if (!payload.account) {
-        console.error("No account selected or created for the new order.");
+    if (!payload.account && !payload.newAccount) {
+        console.error("No se ha seleccionado o creado una cuenta para el nuevo pedido.");
         return;
     }
     
-    const targetAccount = payload.newAccount ? payload.newAccount : data.accounts.find(a => a.name === payload.account);
+    let targetAccount = payload.newAccount ? payload.newAccount : data.accounts.find(a => a.name === payload.account);
 
     if (!targetAccount) {
-        console.error("Could not find or create the account for the order.");
-        return;
+      // Create new account if it doesn't exist
+      const newParty: Partial<Party> = { id: `party_${Date.now()}`, name: payload.account, kind: 'ORG', createdAt: new Date().toISOString(), contacts: [], addresses: [] };
+      targetAccount = {
+        id: `acc_${Date.now()}`,
+        partyId: newParty.id!,
+        name: payload.account,
+        type: 'HORECA',
+        stage: 'POTENCIAL',
+        ownerId: data.currentUser?.id || 'u_admin',
+        createdAt: new Date().toISOString(),
+      };
+      payload.newParty = newParty;
+      payload.newAccount = targetAccount;
     }
     
     const newOrder: OrderSellOut = {
@@ -302,16 +320,23 @@ export default function OrdersDashboard() {
     try {
         if (newStatus === 'confirmed') {
             const orderWithDetails = enrichedOrders.find(o => o.id === order.id);
-            if (orderWithDetails) {
-                const shortages = checkOrderStock(orderWithDetails as OrderSellOut, inventory || [], products || []);
+            const account = data.accounts.find(a => a.id === order.accountId);
+            const party = account ? data.parties.find(p => p.id === account.partyId) : undefined;
+            
+            if (orderWithDetails && account && party) {
+                const shortages = checkOrderStock(orderWithDetails, inventory || [], products || []);
                 if (shortages.length > 0) {
                     const shortageMessage = shortages.map(s => `${s.qtyShort} uds de ${s.sku}`).join(', ');
                     console.warn(`Falta de stock para el pedido ${order.docNumber || order.id}:\nFaltan ${shortageMessage}.\n\nEl pedido se confirmará de todos modos (backorder).`);
                 }
-                 await updateOrderStatus(orderWithDetails as OrderSellOut, newStatus);
+                await updateOrderStatus(orderWithDetails as OrderSellOut, account, party, newStatus);
             }
         } else {
-             await updateOrderStatus(order, newStatus);
+            const account = data.accounts.find(a => a.id === order.accountId);
+            const party = account ? data.parties.find(p => p.id === account.partyId) : undefined;
+            if(account && party) {
+               await updateOrderStatus(order, account, party, newStatus);
+            }
         }
         
     } catch (error) {
