@@ -1,35 +1,30 @@
-
 // src/features/production/ssot-bridge.ts
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebaseClient";
 import type { BillOfMaterial, Material, ProductionOrder, Lot, InfluencerCollab, MarketingEvent, OnlineCampaign, Product } from '@/domain';
-import { useData } from "@/lib/dataprovider";
-import { useMemo } from "react";
 
 async function listCollection<T>(name: string): Promise<T[]> {
   const querySnapshot = await getDocs(collection(db, name));
   return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as T));
 }
 
-export async function listBoms(): Promise<BillOfMaterial[]> {
-  // This is a placeholder. In a real app, you would fetch from Firestore.
-  const { data } = useData();
-  return useMemo(() => data?.billOfMaterials || [], [data]);
+// These functions will use the client-side Firebase SDK. 
+// For a real app, you'd want to manage data fetching and state with a provider.
+// The useData hook is not used here to keep this file as a pure data access layer.
+
+export async function listBoms(boms: BillOfMaterial[]): Promise<BillOfMaterial[]> {
+  return boms;
 }
 
-export async function listRecipes(): Promise<BillOfMaterial[]> {
-    return listBoms();
+export async function listRecipes(boms: BillOfMaterial[]): Promise<BillOfMaterial[]> {
+    return listBoms(boms);
 }
 
-export async function listMaterials(): Promise<Material[]> {
-  // This is a placeholder. In a real app, you would fetch from Firestore.
-  const { data } = useData();
-  return useMemo(() => data?.materials || [], [data]);
+export async function listMaterials(materials: Material[]): Promise<Material[]> {
+  return materials;
 }
 
-export async function listFinishedSkus(): Promise<{ sku: string; name: string; packSizeMl: number; bottlesPerCase?: number }[]> {
-  const { data } = useData();
-  const products = useMemo(() => data?.products || [], [data]);
+export function listFinishedSkus(products: Product[]): { sku: string; name: string; packSizeMl: number; bottlesPerCase?: number }[] {
   return products
       .filter((p: Product) => p.category === 'finished_good' && p.active)
       .map((p: Product) => ({

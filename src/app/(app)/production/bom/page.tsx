@@ -14,6 +14,7 @@ import {
   listFinishedSkus, // NUEVO en ssot-bridge
 } from "@/features/production/ssot-bridge";
 import type { Material, BillOfMaterial as RecipeBom, Uom, Currency } from "@/domain/ssot";
+import { useData } from "@/lib/dataprovider";
 
 // =============================================================
 // SB Producción — BOM (Recetas) · v2
@@ -938,13 +939,15 @@ function SearchBar({
 
 // ---------- Página ----------
 export default function BomPage() {
-  const [recipes, setRecipes] = useState<RecipeBom[]>([]);
-  const [materials, setMaterials] = useState<Material[]>([]);
-  const [finishedSkus, setFinishedSkus] = useState<FinishedSku[]>([]);
+    const { data: santaData } = useData();
   const [openRecipe, setOpenRecipe] = useState<BomV2 | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notification, setNotification] = useState<string | null>(null);
+  
+  const recipes = useMemo(() => santaData?.billOfMaterials || [], [santaData]);
+  const materials = useMemo(() => santaData?.materials || [], [santaData]);
+  const finishedSkus = useMemo(() => listFinishedSkus(santaData?.products || []), [santaData]);
 
   useEffect(() => {
     if (notification) {
@@ -953,28 +956,12 @@ export default function BomPage() {
     }
   }, [notification]);
 
-  const loadAllData = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [recipeData, materialData, finishedData] = await Promise.all([
-        fetchRecipes(),
-        listMaterials(),
-        listFinishedSkus(), // NUEVO
-      ]);
-      setRecipes(recipeData ? recipeData.filter((r) => r.id && r.sku) : []);
-      setMaterials(materialData || []);
-      setFinishedSkus(finishedData || []);
-    } catch (e: any) {
-      setError(e.message || String(e));
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    loadAllData();
-  }, []);
+    if (santaData) {
+        setLoading(false);
+    }
+  }, [santaData]);
+
 
   const select = (id: string) => {
     const recipe = recipes.find((r) => r.id === id) as BomV2 | undefined;
@@ -1034,7 +1021,7 @@ export default function BomPage() {
       }
       setNotification("Receta guardada con éxito");
       setOpenRecipe(null);
-      await loadAllData();
+      // Data will be re-fetched by the provider, no need for loadAllData
     } catch (e: any) {
       setError("Error al guardar: " + e.message);
     }
@@ -1045,7 +1032,6 @@ export default function BomPage() {
     try {
       await deleteRecipe(id);
       setNotification("Receta eliminada");
-      setRecipes((prev) => prev.filter((r) => r.id !== id));
       if (openRecipe?.id === id) setOpenRecipe(null);
     } catch (e: any) {
       setError("Error al eliminar: " + e.message);
