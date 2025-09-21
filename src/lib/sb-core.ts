@@ -11,6 +11,7 @@ export const inWindow = (dateStr: string, start: Date, end: Date): boolean => {
 };
 
 export const orderTotal = (order: OrderSellOut): number => {
+    if (!order || !order.lines) return 0;
     return (order.lines || []).reduce((sum, line) => sum + (line.qty * line.priceUnit * (1 - (line.discount || 0))), 0);
 }
 

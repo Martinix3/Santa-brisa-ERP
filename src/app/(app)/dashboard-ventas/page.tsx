@@ -10,19 +10,13 @@ import { ModuleHeader } from "@/components/ui/ModuleHeader";
 import { SBCard, SBButton } from "@/components/ui/ui-primitives";
 import { SB_COLORS } from '@/domain/ssot';
 import type { User as UserType, OrderSellOut, Account, Interaction, Product, Party, UserRole, Stage, OrderStatus, AccountType } from '@/domain/ssot';
-import { orderTotal } from '@/lib/sb-core';
+import { inWindow, orderTotal } from '@/lib/sb-core';
 import { generateInsights } from '@/ai/flows/generate-insights-flow';
 import { Avatar } from "@/components/ui/Avatar";
 import { sbAsISO } from '@/features/agenda/helpers';
 
 const formatEur = (n: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
 const formatShortDate = (date: Date) => new Intl.DateTimeFormat('es-ES', { month: 'short', day: 'numeric' }).format(date);
-
-const inWindow = (dateStr: string, start: Date, end: Date): boolean => {
-  if (!dateStr) return false;
-  const time = +new Date(dateStr);
-  return time >= start.getTime() && time <= end.getTime();
-};
 
 function KPI({label, value, icon: Icon}:{label:string; value:number|string; icon: React.ElementType}){
   return (
@@ -99,150 +93,138 @@ function UserReportPopover({ userReport, onClose, anchorEl, timeRange }: UserRep
     );
 }
 
-function CommercialsRace({ users, data, onUserClick }: { users: UserType[], data: any, onUserClick: (report: UserReportData, target: HTMLElement) => void }) {
-    const goal = 70;
-    
-    const raceData = useMemo(() => {
-        if (!data || !users) return [];
-        
-        const startOfYear = new Date(new Date().getFullYear(), 0, 1);
-        
-        return users.map(user => {
-            const userAccounts = data.accounts.filter((a: Account) => a.ownerId === user.id);
-            const newAccounts = userAccounts.filter((a: Account) => inWindow(a.createdAt, startOfYear, new Date())).length;
-            
-            const userAccountIds = new Set(userAccounts.map((a:Account) => a.id));
-            const userOrders = data.ordersSellOut.filter((o: OrderSellOut) => userAccountIds.has(o.accountId));
-            const ordersInPeriod = userOrders.filter((o: OrderSellOut) => inWindow(o.createdAt, startOfYear, new Date()));
-            const totalSales = ordersInPeriod.reduce((sum: number, o: OrderSellOut) => sum + orderTotal(o), 0);
-            
-            const report: UserReportData = {
-                id: user.id,
-                name: user.name,
-                activeAccounts: userAccounts.filter((a: Account) => a.stage === 'ACTIVA').length,
-                newAccounts: newAccounts,
-                newOrders: ordersInPeriod.length,
-                totalEUR: totalSales,
-                avgTicket: ordersInPeriod.length > 0 ? totalSales / ordersInPeriod.length : 0,
-                conversionRate: userAccounts.length > 0 ? (new Set(userOrders.map((o: OrderSellOut) => o.accountId)).size / userAccounts.length) * 100 : 0
-            };
+function CommercialsRace({
+  users, data, onUserClick
+}: { users: UserType[], data: any, onUserClick: (report: UserReportData, target: HTMLElement) => void }) {
 
-            return {
-                id: user.id,
-                name: user.name,
-                newAccounts,
-                percentage: Math.min(100, (newAccounts / goal) * 100),
-                report
-            }
-        }).sort((a, b) => b.newAccounts - a.newAccounts);
+  const raceData = useMemo(() => {
+    if (!data || !users) return [];
 
-    }, [data, users]);
+    // Periodo de la carrera (anual por defecto). Si quieres que siga Semana/Mes/Año, pásale start/end por props.
+    const startOfYear = new Date(new Date().getFullYear(), 0, 1);
+    const targetsByRep: Record<string, { newAccountsTarget?: number }> = (data.salesTargets as any)?.byRep ?? {};
 
-    return (
-        <SBCard title="Carrera de Cuentas (Anual)">
-            <div className="p-4 space-y-4">
-                {raceData.map(user => (
-                    <button key={user.id} onClick={(e) => onUserClick(user.report, e.currentTarget)} className="w-full text-left space-y-1 group">
-                        <div className="flex justify-between items-center text-sm">
-                            <div className="flex items-center gap-2">
-                                <Avatar name={user.name} size="md" />
-                                <span className="font-medium group-hover:text-sb-cobre">{user.name}</span>
-                            </div>
-                            <span className="font-semibold">{user.newAccounts} / {goal}</span>
-                        </div>
-                        <div className="w-full bg-zinc-200 rounded-full h-3 overflow-hidden">
-                            <motion.div 
-                                className="h-3 rounded-full"
-                                style={{ background: SB_COLORS.primary.copper }}
-                                initial={{ width: 0 }}
-                                animate={{ width: `${user.percentage}%` }}
-                                transition={{ duration: 1.2, ease: "easeOut" }}
-                            />
-                        </div>
-                    </button>
-                ))}
+    return users.map(user => {
+      const userAccounts = data.accounts.filter((a: Account) => a.ownerId === user.id);
+      const openedInPeriod = userAccounts.filter((a: Account) => inWindow(a.createdAt, startOfYear, new Date())).length;
+
+      const target = targetsByRep[user.id]?.newAccountsTarget ?? 0;
+      const remaining = Math.max(0, target - openedInPeriod);
+      const percentage = target > 0 ? Math.min(100, (openedInPeriod / target) * 100) : 0;
+
+      const userAccountIds = new Set(userAccounts.map((a:Account) => a.id));
+      const ordersInPeriod = data.ordersSellOut
+        .filter((o: OrderSellOut) => userAccountIds.has(o.accountId) && inWindow(o.createdAt, startOfYear, new Date()));
+      const totalSales = ordersInPeriod.reduce((sum: number, o: OrderSellOut) => sum + orderTotal(o), 0);
+
+      const report: UserReportData = {
+        id: user.id,
+        name: user.name,
+        activeAccounts: userAccounts.filter((a: Account) => a.stage === 'ACTIVA').length,
+        newAccounts: openedInPeriod,
+        newOrders: ordersInPeriod.length,
+        totalEUR: totalSales,
+        avgTicket: ordersInPeriod.length ? totalSales / ordersInPeriod.length : 0,
+        conversionRate: userAccounts.length
+          ? (new Set(ordersInPeriod.map((o: OrderSellOut) => o.accountId)).size / userAccounts.length) * 100
+          : 0
+      };
+
+      return { id: user.id, name: user.name, opened: openedInPeriod, target, remaining, percentage, report };
+    }).sort((a, b) => a.remaining - b.remaining);
+  }, [data, users]);
+
+  return (
+    <SBCard title="Carrera hacia objetivo (Cuentas nuevas)">
+      <div className="p-4 space-y-4">
+        {raceData.map(u => (
+          <button key={u.id} onClick={(e)=>onUserClick(u.report, e.currentTarget)} className="w-full text-left space-y-1 group" aria-label={`Progreso de ${u.name}`}>
+            <div className="flex justify-between items-center text-sm">
+              <div className="flex items-center gap-2">
+                <Avatar name={u.name} size="md" />
+                <span className="font-medium group-hover:text-sb-cobre">{u.name}</span>
+              </div>
+              <span className="font-semibold">{u.opened} / {u.target} <span className="text-zinc-500">({u.remaining} por abrir)</span></span>
             </div>
-        </SBCard>
-    )
+            <div className="w-full bg-zinc-200 rounded-full h-3 overflow-hidden">
+              <motion.div
+                className="h-3 rounded-full"
+                style={{ background: SB_COLORS.primary.copper }}
+                initial={{ width: 0 }}
+                animate={{ width: `${u.percentage}%` }}
+                transition={{ duration: 1.0, ease: "easeOut" }}
+              />
+            </div>
+          </button>
+        ))}
+      </div>
+    </SBCard>
+  );
 }
 
-function SalesMixDonutChart({ data, timeRange }: { data: any, timeRange: TimeRange }) {
-    const salesMix = useMemo(() => {
-        if (!data) return [];
-        const now = new Date();
-        let startDate = new Date();
-
-        if (timeRange === 'week') startDate.setDate(now.getDate() - 7);
-        else if (timeRange === 'month') startDate.setDate(1);
-        else startDate = new Date(now.getFullYear(), 0, 1);
-        startDate.setHours(0,0,0,0);
-
-        const ordersInPeriod = data.ordersSellOut.filter((o: OrderSellOut) => inWindow(o.createdAt, startDate, now));
-        
-        const mix: { [sku: string]: { name: string, value: number } } = {};
-
-        for (const order of ordersInPeriod) {
-            for (const line of order.lines) {
-                if (!mix[line.sku]) {
-                    const product = data.products.find((p: Product) => p.sku === line.sku);
-                    mix[line.sku] = { name: product?.name || line.sku, value: 0 };
-                }
-                mix[line.sku].value += line.priceUnit * line.qty;
-            }
-        }
-        
-        return Object.values(mix).filter(item => item.value > 0).sort((a,b) => b.value - a.value);
-    }, [data, timeRange]);
-
-    const COLORS = ['#F7D15F', '#D7713E', '#618E8F', '#A7D8D9', '#FFEAA6', '#F2A678'];
-
-    if (salesMix.length === 0) {
-        return <SBCard title="Mix de Ventas"><p className="p-4 text-center text-sm text-zinc-500">No hay datos de ventas para este período.</p></SBCard>
-    }
-
-    const renderCustomizedLabel = (props: PieLabelRenderProps) => {
-        const { cx, cy, midAngle, innerRadius, outerRadius, percent, name } = props as any;
-        const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-        const x = cx + radius * Math.cos(-midAngle * Math.PI / 180);
-        const y = cy + radius * Math.sin(-midAngle * Math.PI / 180);
-
-        return (
-            <text x={x} y={y} fill="black" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontSize="12">
-                {`${name} ${(percent * 100).toFixed(0)}%`}
-            </text>
-        );
-    };
-
-    return (
-        <SBCard title={`Mix de Ventas (${timeRange})`}>
-            <div className="w-full h-72">
-                <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                        <Pie
-                            data={salesMix}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={60}
-                            outerRadius={80}
-                            fill="#8884d8"
-                            paddingAngle={5}
-                            dataKey="value"
-                            nameKey="name"
-                            labelLine={false}
-                            label={renderCustomizedLabel}
-                        >
-                            {salesMix.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                            ))}
-                        </Pie>
-                        <Tooltip formatter={(value: number) => formatEur(value)} />
-                        <Legend iconType="circle" />
-                    </PieChart>
-                </ResponsiveContainer>
-            </div>
-        </SBCard>
-    );
+function resolveChannel(acc: Account): 'ONLINE'|'PRIVADA'|'HORECA'|'RETAIL'|'EXCLUDE' {
+  // Excluye distribuidor/importador usando el modo de cuenta
+  // (si tu dataset ya trae type DISTRIBUIDOR/IMPORTADOR puedes usarlo directamente)
+  // Nota: customerRoleData no está aquí; para excluir, basta computeAccountMode si ya mapeas billerId/ownerId.
+  // Si no, fallback por acc.type:
+  if ((acc as any).type === 'DISTRIBUIDOR' || (acc as any).type === 'IMPORTADOR') return 'EXCLUDE';
+  if ((acc as any).channel === 'Online' || (acc as any).source === 'Shopify') return 'ONLINE';
+  if ((acc as any).type === 'HORECA' || (acc as any).channel === 'Horeca') return 'HORECA';
+  if ((acc as any).type === 'RETAIL' || (acc as any).channel === 'Retail') return 'RETAIL';
+  return 'PRIVADA';
 }
+
+function SalesChannelDonut({ data, timeRange }: { data:any; timeRange:TimeRange }){
+  const now = new Date();
+  const start = new Date(now);
+  if (timeRange==='week') start.setDate(now.getDate()-7);
+  else if (timeRange==='month') { start.setDate(1); }
+  else { start.setMonth(0); start.setDate(1); }
+  start.setHours(0,0,0,0);
+
+  const orders = data.ordersSellOut.filter((o:OrderSellOut)=> inWindow(o.createdAt, start, now));
+  const accById = new Map<string,Account>(data.accounts.map((a:Account)=>[a.id,a]));
+  const mix = { ONLINE:0, PRIVADA:0, HORECA:0, RETAIL:0 };
+
+  for (const o of orders){
+    const acc = accById.get(o.accountId);
+    if (!acc) continue;
+    const ch = resolveChannel(acc);
+    if (ch === 'EXCLUDE') continue;
+    mix[ch as keyof typeof mix] += orderTotal(o);
+  }
+
+  const rows = Object.entries(mix)
+    .map(([name,value])=>({ name, value }))
+    .filter(r=>r.value>0);
+
+  if (!rows.length) return <SBCard title="Mix Comercial"><p className="p-4 text-center text-sm text-zinc-500">Sin datos en el periodo.</p></SBCard>;
+
+  const COLORS = ['#F7D15F', '#D7713E', '#618E8F', '#A7D8D9'];
+
+  return (
+    <SBCard title={`Mix Comercial (${timeRange})`}>
+      <div className="w-full h-72">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie data={rows} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value" nameKey="name" labelLine={false}
+              label={({cx,cy,midAngle,innerRadius,outerRadius,percent, name}:any)=>{
+                const r = innerRadius + (outerRadius-innerRadius)*0.5;
+                const x = cx + r * Math.cos(-midAngle * Math.PI / 180);
+                const y = cy + r * Math.sin(-midAngle * Math.PI / 180);
+                return <text x={x} y={y} fontSize="12" textAnchor={x>cx?'start':'end'} dominantBaseline="central">{`${name} ${(percent*100).toFixed(0)}%`}</text>
+              }}>
+              {rows.map((_,i)=><Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+            </Pie>
+            <Tooltip formatter={(v:number)=>formatEur(v)} />
+            <Legend iconType="circle" />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+    </SBCard>
+  );
+}
+
 
 type CategorizedTasks = {
   overdue: Interaction[];
@@ -310,6 +292,37 @@ function TeamTasks({ tasks, accounts, users }: { tasks: Interaction[], accounts:
     );
 }
 
+function buildTimeSeries(orders: OrderSellOut[], start: Date, end: Date, granularity:'day'|'month'){
+  const out: { name:string; sales:number; target?:number }[] = [];
+  const cursor = new Date(start);
+
+  if (granularity === 'day') {
+    while (cursor <= end) {
+      const dayStart = new Date(cursor); dayStart.setHours(0,0,0,0);
+      const dayEnd   = new Date(cursor); dayEnd.setHours(23,59,59,999);
+      const name = dayStart.toLocaleDateString('es-ES', { weekday:'short', day:'2-digit' }); // ej. "lun 22"
+      const sales = orders
+        .filter(o => inWindow(o.createdAt, dayStart, dayEnd))
+        .reduce((s,o)=> s + orderTotal(o), 0);
+      out.push({ name, sales });
+      cursor.setDate(cursor.getDate()+1);
+    }
+  } else {
+    const months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth()) + 1;
+    for (let i = 0; i < months; i++) {
+      const m = new Date(start.getFullYear(), start.getMonth() + i, 1);
+      const mStart = new Date(m.getFullYear(), m.getMonth(), 1);
+      const mEnd   = new Date(m.getFullYear(), m.getMonth()+1, 0, 23,59,59,999);
+      const name = mStart.toLocaleDateString('es-ES', { month:'short' }); // "ene"
+      const sales = orders
+        .filter(o => inWindow(o.createdAt, mStart, mEnd))
+        .reduce((s,o)=> s + orderTotal(o), 0);
+      out.push({ name, sales });
+    }
+  }
+  return out;
+}
+
 function TeamDashboardContent() {
   const { data } = useData();
   const [timeRange, setTimeRange] = useState<TimeRange>('month');
@@ -321,49 +334,31 @@ function TeamDashboardContent() {
   const users = useMemo(() => data?.users.filter((u: UserType) => u.role === 'comercial' || u.role === 'owner') || [], [data]);
   
   const { teamStats, salesEvolutionData } = useMemo(() => {
-    if(!data) return { teamStats: { totalNewAccounts: 0, conversionRate: 0, attributedSales: 0 }, salesEvolutionData: [] };
+    if(!data) return { teamStats: { totalNewAccounts: 0, conversionRate: 0, attributedSales: 0, visitsInPeriod: 0 }, salesEvolutionData: [] };
     
     const now = new Date();
     let startDate = new Date();
-    let interval: 'day' | 'month' = 'day';
-
+    
     if (timeRange === 'week') {
-        startDate.setDate(now.getDate() - (now.getDay() - 1)); // Start of week (Monday)
-        interval = 'day';
+        startDate.setDate(now.getDate() - (now.getDay() - 1 || 7) + 1); // Start of week (Monday)
     } else if (timeRange === 'month') {
         startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-        interval = 'day';
     } else { // year
         startDate = new Date(now.getFullYear(), 0, 1);
-        interval = 'month';
     }
     startDate.setHours(0,0,0,0);
 
 
     const ordersInPeriod = data.ordersSellOut.filter(o => inWindow(o.createdAt, startDate, now));
-    
-    const salesByInterval: {[key: string]: number} = {};
-    for (const order of ordersInPeriod) {
-        const orderDate = new Date(order.createdAt);
-        let key = '';
-        if (interval === 'day') {
-            key = formatShortDate(orderDate);
-        } else { // month
-            key = orderDate.toLocaleString('es-ES', { month: 'short' });
-        }
-        salesByInterval[key] = (salesByInterval[key] || 0) + orderTotal(order);
-    }
-    
-    let salesEvolutionData;
-    if (interval === 'day' && timeRange === 'week') {
-        salesEvolutionData = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'].map(day => {
-            const dateKey = Object.keys(salesByInterval).find(k => new Date(k + ' ' + now.getFullYear()).toLocaleString('es-ES', {weekday: 'short'}).startsWith(day.substring(0,2)));
-            return { name: day, sales: dateKey ? salesByInterval[dateKey] : 0 };
-        });
-    } else {
-        salesEvolutionData = Object.entries(salesByInterval).map(([name, sales]) => ({ name, sales })).reverse();
-    }
+    const granularity = timeRange === 'year' ? 'month' : 'day';
+    const baseSeries = buildTimeSeries(ordersInPeriod, startDate, now, granularity);
 
+    // línea de objetivo (global o por rep si filtras uno):
+    const revenueTarget = (data as any).salesTargets?.revenueTarget ?? null;
+    const salesEvolutionData = baseSeries.map(p => ({
+      ...p,
+      target: revenueTarget ? Math.round(revenueTarget / baseSeries.length) : undefined
+    }));
 
     const totalNewAccounts = data.accounts.filter(a => inWindow(a.createdAt, startDate, now)).length;
     
@@ -372,7 +367,13 @@ function TeamDashboardContent() {
     
     const attributedSales = ordersInPeriod.reduce((sum, order) => sum + orderTotal(order), 0);
 
-    const teamStats = { totalNewAccounts, conversionRate, attributedSales };
+    const visitsInPeriod = data.interactions.filter(i =>
+        i.kind === 'VISITA' &&
+        i.status === 'done' &&
+        inWindow(i.createdAt, startDate, now)
+    ).length;
+
+    const teamStats = { totalNewAccounts, conversionRate, attributedSales, visitsInPeriod };
     return { teamStats, salesEvolutionData };
   }, [data, timeRange]);
 
@@ -438,8 +439,9 @@ function TeamDashboardContent() {
             </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <KPI icon={UserPlus} label={`Nuevas Cuentas (${timeRange})`} value={teamStats.totalNewAccounts} />
+            <KPI icon={Users} label={`Visitas (${timeRange})`} value={teamStats.visitsInPeriod} />
             <KPI icon={BarChart3} label="Conversión a pedido (total)" value={`${teamStats.conversionRate.toFixed(1)}%`} />
             <KPI icon={Briefcase} label={`Ventas (${timeRange})`} value={formatEur(teamStats.attributedSales)} />
         </div>
@@ -452,7 +454,10 @@ function TeamDashboardContent() {
                         <XAxis dataKey="name" fontSize={12} />
                         <YAxis fontSize={12} tickFormatter={(value) => formatEur(value as number)} />
                         <Tooltip formatter={(value) => formatEur(value as number)} />
-                        <Line type="monotone" dataKey="sales" stroke={SB_COLORS.primary.copper} strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                        <Line type="monotone" dataKey="sales" stroke={SB_COLORS.primary.copper} strokeWidth={2} dot={{ r: 3 }} />
+                        {teamStats.attributedSales > 0 && (
+                          <Line type="monotone" dataKey="target" stroke="#999" strokeDasharray="4 4" dot={false} />
+                        )}
                     </LineChart>
                 </ResponsiveContainer>
             </div>
@@ -460,7 +465,7 @@ function TeamDashboardContent() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <CommercialsRace users={users} data={data} onUserClick={handleUserClick} />
-            <SalesMixDonutChart data={data} timeRange={timeRange} />
+            <SalesChannelDonut data={data} timeRange={timeRange} />
         </div>
 
         <div>
