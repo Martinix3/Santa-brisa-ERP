@@ -5,9 +5,9 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useParams, useRouter, notFound } from 'next/navigation';
 import { useData } from '@/lib/dataprovider';
-import type { SantaData, Interaction as InteractionType, OrderSellOut, User as UserType, Party, InteractionKind, Account, CustomerData, PartyRole, Activation, Promotion, AccountRollup } from '@/domain';
+import type { SantaData, Interaction as InteractionType, OrderSellOut, User as UserType, Party, InteractionKind, Account, CustomerData, PartyRole, Activation, Promotion, AccountRollup, AccountType } from '@/domain';
 import { computeAccountKPIs, accountOwnerDisplay, orderTotal, getDistributorForAccount, computeAccountRollup } from '@/lib/sb-core';
-import { ArrowUpRight, ArrowDownRight, Phone, Mail, MapPin, User, Factory, Boxes, Megaphone, Briefcase, Banknote, Calendar, FileText, ShoppingCart, Star, Building2, CreditCard, ChevronRight, ChevronLeft, MessageSquare, Sparkles, Tag, Clock } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, Phone, Mail, MapPin, User, Factory, Boxes, Megaphone, Briefcase, Banknote, Calendar, FileText, ShoppingCart, Star, Building2, CreditCard, ChevronRight, ChevronLeft, MessageSquare, Sparkles, Tag, Clock, Edit } from "lucide-react";
 import Link from 'next/link';
 import { enrichAccount } from '@/ai/flows/enrich-account-flow';
 
@@ -83,8 +83,9 @@ export function AccountDetailPageContent(){
   }
   const accountId = params.accountId as string;
 
-  const { data: santaData, setData, currentUser } = useData();
+  const { data: santaData, setData, saveCollection, saveAllCollections, currentUser } = useData();
   const [isEnriching, setIsEnriching] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   const { account, party, unifiedActivity, kpis, owner, distributor, rollup } = useMemo(() => {
     if (!santaData || !accountId) return { account: null, party: null, unifiedActivity: [], kpis: null, owner: null, distributor: null, rollup: null };
@@ -141,9 +142,7 @@ export function AccountDetailPageContent(){
             tags: Array.from(currentTags),
         }
         
-        const updatedAccounts = santaData.accounts.map(acc => acc.id === account.id ? updatedAccount : acc);
-        const updatedParties = santaData.parties.map(p => p.id === party.id ? updatedParty : p);
-        setData({ ...santaData, accounts: updatedAccounts, parties: updatedParties });
+        await saveAllCollections({ accounts: [updatedAccount], parties: [updatedParty] });
 
     } catch (error) {
         console.error("Error enriching account:", error);
@@ -153,6 +152,35 @@ export function AccountDetailPageContent(){
     }
   };
 
+  const handleUpdateAccount = async (payload: any) => {
+    if (!account || !party || !santaData) return;
+    
+    const updatedAccount = { ...account, name: payload.name, type: payload.type, city: payload.city };
+    
+    const contacts = [...party.contacts];
+    const mainEmail = contacts.find(c => c.isPrimary && c.type === 'email');
+    if (mainEmail) mainEmail.value = payload.mainContactEmail;
+    else if (payload.mainContactEmail) contacts.push({ type: 'email', value: payload.mainContactEmail, isPrimary: true });
+
+    const mainPhone = contacts.find(c => c.isPrimary && c.type === 'phone');
+    if (mainPhone) mainPhone.value = payload.phone;
+    else if (payload.phone) contacts.push({ type: 'phone', value: payload.phone, isPrimary: true });
+    
+    const addresses = [...party.addresses];
+    const mainAddress = addresses.find(a => a.isPrimary);
+    if(mainAddress) {
+        mainAddress.street = payload.address;
+        mainAddress.city = payload.city;
+    } else if (payload.address || payload.city) {
+        addresses.push({type: 'main', street: payload.address, city: payload.city, country: 'España', isPrimary: true})
+    }
+    
+    const updatedParty = { ...party, name: payload.name, contacts, addresses };
+
+    await saveAllCollections({ accounts: [updatedAccount], parties: [updatedParty] });
+    setIsEditing(false);
+  };
+  
   const getDaysSinceLastOrderColor = (days?: number): 'green' | 'amber' | 'red' => {
       if (days === undefined) return 'amber';
       if (days <= 30) return 'green';
@@ -266,6 +294,9 @@ export function AccountDetailPageContent(){
                     <SBButton variant="secondary" onClick={handleEnrich} disabled={isEnriching}>
                         <Sparkles size={14}/> {isEnriching ? 'Analizando...' : 'Enriquecer con IA'}
                     </SBButton>
+                    <SBButton variant="secondary" onClick={() => setIsEditing(true)}>
+                        <Edit size={14}/> Editar Cuenta
+                    </SBButton>
                 </div>
               </div>
             </SBCard>
@@ -281,6 +312,29 @@ export function AccountDetailPageContent(){
           </aside>
         </main>
       </div>
+
+       {isEditing && (
+            <SBFlowModal
+                open={isEditing}
+                variant="editAccount"
+                onClose={() => setIsEditing(false)}
+                accounts={[]} 
+                onSearchAccounts={async()=>[]} 
+                onCreateAccount={async()=>({} as Account)} 
+                onSubmit={handleUpdateAccount}
+                defaults={{
+                    id: account.id,
+                    name: account.name,
+                    city: party.addresses.find(a => a.isPrimary)?.city || '',
+                    address: party.addresses.find(a => a.isPrimary)?.street || '',
+                    type: account.type,
+                    mainContactName: party.contacts.find(c => c.isPrimary)?.description || '',
+                    mainContactEmail: party.contacts.find(c => c.isPrimary && c.type === 'email')?.value || '',
+                    phone: party.contacts.find(c => c.isPrimary && c.type === 'phone')?.value || '',
+                    billingEmail: party.contacts.find(c => c.type === 'email' && c.description?.toLowerCase().includes('factura'))?.value || '',
+                }}
+            />
+        )}
     </div>
   );
 }
