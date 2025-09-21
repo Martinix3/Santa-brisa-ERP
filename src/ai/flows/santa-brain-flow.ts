@@ -27,35 +27,17 @@ import type {
 // Helper para crear un Zod schema a partir de una lista de strings
 const createEnumSchema = (values: string[]) => z.enum(values as [string, ...string[]]);
 
-// Schemas para las herramientas
-const CreateOrderSchema = z.object({
-  accountName: z.string().describe('The name of the account for the order.'),
-  items: z
-    .array(z.object({ sku: z.string(), quantity: z.number() }))
-    .describe('An array of items to include in the order. If the user mentions "botellas" or "bottles" without specifying a product, assume the SKU is "SB-750".'),
-});
-
-const CreateInteractionSchema = z.object({
-  accountName: z.string().describe('The name of the account for the interaction.'),
-  note: z.string().describe('A summary of the interaction.'),
-  nextAction: z
-    .string()
-    .optional()
-    .describe('A brief note about the next follow-up action, if any.'),
-});
-
-const CreateAccountSchema = z.object({
-  name: z.string().describe('The name of the new account.'),
-  city: z.string().optional().describe('The city where the account is located.'),
-  type: createEnumSchema(['HORECA', 'RETAIL', 'OTRO']).optional(),
-});
-
 const registeredTools = [
   ai.defineTool(
     {
       name: 'createOrder',
       description: 'Creates a new sales order for an account.',
-      inputSchema: CreateOrderSchema,
+      inputSchema: z.object({
+        accountName: z.string().describe('The name of the account for the order.'),
+        items: z
+          .array(z.object({ sku: z.string(), quantity: z.number() }))
+          .describe('An array of items to include in the order. If the user mentions "botellas" or "bottles" without specifying a product, assume the SKU is "SB-750".'),
+      }),
       
     },
     async (input) => ({
@@ -72,7 +54,14 @@ const registeredTools = [
       name: 'createInteraction',
       description:
         'Logs a new interaction (like a visit or call) with an account.',
-      inputSchema: CreateInteractionSchema,
+      inputSchema: z.object({
+        accountName: z.string().describe('The name of the account for the interaction.'),
+        note: z.string().describe('A summary of the interaction.'),
+        nextAction: z
+          .string()
+          .optional()
+          .describe('A brief note about the next follow-up action, if any.'),
+      }),
     },
     async (input) => ({
       id: `int_${Date.now()}`,
@@ -86,7 +75,11 @@ const registeredTools = [
     {
       name: 'createAccount',
       description: 'Creates a new account.',
-      inputSchema: CreateAccountSchema,
+      inputSchema: z.object({
+        name: z.string().describe('The name of the new account.'),
+        city: z.string().optional().describe('The city where the account is located.'),
+        type: createEnumSchema(['HORECA', 'RETAIL', 'OTRO']).optional(),
+      }),
     },
     async (input) => ({
       id: `acc_${Date.now()}`,
