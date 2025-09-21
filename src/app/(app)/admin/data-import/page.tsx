@@ -7,7 +7,9 @@
 
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
+import { useDropzone } from 'react-dropzone';
+import { UploadCloud } from 'lucide-react';
 import { SANTA_DATA_COLLECTIONS, type SantaData, CODE_POLICIES } from "@/domain/ssot";
 import { importPreview, importCommit } from "./actions";
 
@@ -32,8 +34,30 @@ export default function DataImportPage(){
   const [tab, setTab] = useState<'csv'|'sheet'>('csv');
   const [coll, setColl] = useState<keyof SantaData | ''>('');
   const [csvText, setCsvText] = useState('');
+  const [fileName, setFileName] = useState('');
   const [preview, setPreview] = useState<any[] | null>(null);
   const [report, setReport] = useState<string>('');
+
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    const file = acceptedFiles[0];
+    if (file) {
+      setFileName(file.name);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target?.result;
+        if (typeof text === 'string') {
+            setCsvText(text);
+        }
+      };
+      reader.readAsText(file);
+    }
+  }, []);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: { 'text/csv': ['.csv'] },
+    multiple: false,
+  });
 
   // Sheet
   const [headers, setHeaders] = useState<string[]>([]);
@@ -88,10 +112,27 @@ export default function DataImportPage(){
 
       {tab==='csv' && (
         <section className="space-y-3">
-          <textarea value={csvText} onChange={e=>setCsvText(e.target.value)} rows={10} className="w-full border rounded p-2 font-mono text-xs" placeholder="Pega aquí CSV con cabecera" />
+          <div
+            {...getRootProps()}
+            className={`p-8 border-2 border-dashed rounded-xl text-center cursor-pointer transition-colors ${
+              isDragActive ? 'border-blue-500 bg-blue-50' : 'border-zinc-300 bg-zinc-50 hover:bg-zinc-100'
+            }`}
+          >
+            <input {...getInputProps()} />
+            <UploadCloud className="mx-auto h-12 w-12 text-zinc-400" />
+            {fileName ? (
+              <p className="mt-2 text-sm text-zinc-800 font-medium">Archivo seleccionado: {fileName}</p>
+            ) : (
+              <p className="mt-2 text-sm text-zinc-600">
+                {isDragActive
+                  ? 'Suelta el archivo aquí...'
+                  : 'Arrastra un archivo CSV aquí, o haz clic para seleccionarlo'}
+              </p>
+            )}
+          </div>
           <div className="flex gap-2">
-            <button onClick={doPreviewCSV} className="px-3 py-1 border rounded">Previsualizar</button>
-            <button onClick={doCommitCSV} className="px-3 py-1 border rounded bg-emerald-50">Importar</button>
+            <button onClick={doPreviewCSV} className="px-3 py-1 border rounded" disabled={!csvText}>Previsualizar</button>
+            <button onClick={doCommitCSV} className="px-3 py-1 border rounded bg-emerald-50" disabled={!preview}>Importar</button>
           </div>
         </section>
       )}
