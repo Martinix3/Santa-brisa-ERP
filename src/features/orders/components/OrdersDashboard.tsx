@@ -3,8 +3,8 @@
 
 import React, { useMemo, useState } from 'react';
 import { useData } from '@/lib/dataprovider';
-import { Download, Plus, Search, FileWarning, PackageCheck, FileText, Banknote, CheckCircle } from 'lucide-react';
-import type { OrderSellOut, Account, User, OrderStatus, PartyRole, CustomerData, AccountType } from '@/domain/ssot';
+import { Download, Plus, Search, FileWarning, PackageCheck, FileText, Banknote, CheckCircle, Boxes } from 'lucide-react';
+import type { OrderSellOut, Account, User, OrderStatus, PartyRole, CustomerData } from '@/domain/ssot';
 import { orderTotal } from '@/lib/sb-core';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
 import { ShoppingCart } from 'lucide-react';
@@ -13,7 +13,7 @@ import { SBFlowModal } from '@/features/quicklog/components/SBFlows';
 import { generateNextOrder } from '@/lib/codes';
 import { consignmentOnHandByAccount, consignmentTotalUnits } from "@/lib/consignment-and-samples";
 import { checkOrderStock } from '@/lib/inventory';
-
+import { updateOrderStatus } from '@/app/(app)/orders/actions';
 
 type Tab = 'directa' | 'colocacion';
 
@@ -59,7 +59,17 @@ function FilterPill({
   );
 }
 
-function StatusPill({ status }: { status: OrderStatus }) {
+const statusOptions: { value: OrderStatus; label: string }[] = [
+    { value: 'open', label: 'Borrador' },
+    { value: 'confirmed', label: 'Confirmado' },
+    { value: 'shipped', label: 'Enviado' },
+    { value: 'invoiced', label: 'Facturado' },
+    { value: 'paid', label: 'Pagado' },
+    { value: 'cancelled', label: 'Cancelado' },
+    { value: 'lost', label: 'Perdido' },
+];
+
+function StatusSelector({ order, onStatusChange }: { order: OrderSellOut; onStatusChange: (orderId: string, newStatus: OrderStatus) => void; }) {
     const statusMap: Record<OrderStatus, { label: string; className: string }> = {
         open: { label: 'Borrador', className: 'bg-zinc-100 text-zinc-700' },
         confirmed: { label: 'Confirmado', className: 'bg-blue-100 text-blue-700' },
@@ -70,12 +80,18 @@ function StatusPill({ status }: { status: OrderStatus }) {
         lost: { label: 'Perdido', className: 'bg-neutral-200 text-neutral-600' },
     };
 
-    const style = statusMap[status] || statusMap.open;
+    const style = statusMap[order.status] || statusMap.open;
 
     return (
-        <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${style.className}`}>
-            {style.label}
-        </span>
+        <select
+            value={order.status}
+            onChange={(e) => onStatusChange(order.id, e.target.value as OrderStatus)}
+            className={`appearance-none px-2.5 py-1 text-xs font-semibold rounded-full outline-none focus:ring-2 ring-offset-1 ring-blue-400 ${style.className}`}
+        >
+            {statusOptions.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+        </select>
     );
 }
 
@@ -196,8 +212,9 @@ export default function OrdersDashboard() {
         pendingShipment: relevantOrders.filter(o => o.status === 'confirmed').length,
         pendingInvoice: relevantOrders.filter(o => o.status === 'shipped').length,
         pendingPayment: relevantOrders.filter(o => o.status === 'invoiced').length,
+        totalConsignment: Object.values(consTotals).reduce((sum, current) => sum + current, 0),
     }
-  }, [enrichedOrders, activeTab]);
+  }, [enrichedOrders, activeTab, consTotals]);
 
   const handleExport = () => {
       const headers = ['id', 'fecha', 'cliente', 'total', 'estado', 'canal'];
@@ -238,43 +255,36 @@ export default function OrdersDashboard() {
       setIsCreateOrderOpen(false);
   }
 
-  const handleBulkStatusChange = (newStatus: OrderStatus) => {
+  const handleStatusChange = async (orderId: string, newStatus: OrderStatus) => {
     if (!data) return;
-    
-    if (newStatus === 'confirmed') {
-        const ordersToConfirm = selectedOrders.map(id => enrichedOrders.find(o => o.id === id)).filter((o): o is NonNullable<typeof o> => !!o);
-        const stockShortages: string[] = [];
 
-        ordersToConfirm.forEach(order => {
+    if (newStatus === 'confirmed') {
+        const order = enrichedOrders.find(o => o.id === orderId);
+        if (order) {
             const shortages = checkOrderStock(order as OrderSellOut, inventory || [], products || []);
             if (shortages.length > 0) {
                 const shortageMessage = shortages.map(s => `${s.qtyShort} uds de ${s.sku}`).join(', ');
-                stockShortages.push(`Pedido ${order.docNumber || order.id}: Faltan ${shortageMessage}`);
+                alert(`¡Atención! Falta de stock para el pedido ${order.docNumber || order.id}:\nFaltan ${shortageMessage}.\n\nEl pedido se confirmará de todos modos (backorder).`);
             }
-        });
-
-        if (stockShortages.length > 0) {
-            alert("¡Atención! Falta de stock para algunos pedidos:\n\n" + stockShortages.join('\n') + "\n\nLos pedidos se confirmarán de todos modos (backorder).");
         }
     }
 
-    const updatedOrders = enrichedOrders.map(order => 
-        selectedOrders.includes(order.id)
-            ? { ...order, status: newStatus }
-            : order
-    );
-    setData({ ...data, ordersSellOut: updatedOrders as OrderSellOut[] });
-    saveCollection('ordersSellOut', updatedOrders as OrderSellOut[]);
-    setSelectedOrders([]);
-  };
+    // Optimistic UI update
+    setData(prevData => {
+        if (!prevData) return null;
+        const updatedOrders = prevData.ordersSellOut.map(o => o.id === orderId ? { ...o, status: newStatus } : o);
+        return { ...prevData, ordersSellOut: updatedOrders };
+    });
 
-  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.checked) {
-        setSelectedOrders(filteredOrders.map(o => o.id));
-    } else {
-        setSelectedOrders([]);
+    try {
+        await updateOrderStatus(orderId, newStatus);
+    } catch (error) {
+        console.error("Failed to update order status:", error);
+        // Revert UI if server update fails
+        setData(data);
+        alert("Error al actualizar el estado del pedido.");
     }
-  }
+  };
 
 
   return (
@@ -293,9 +303,10 @@ export default function OrdersDashboard() {
       <div className="p-4 md:p-6">
         <Tabs activeTab={activeTab} setActiveTab={setActiveTab} />
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 my-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 my-4">
             <KPI icon={FileWarning} label="Pendiente de Confirmar" value={kpis.pendingConfirmation} color="#f59e0b" />
             <KPI icon={PackageCheck} label="Pendiente de Enviar" value={kpis.pendingShipment} color="#3b82f6" />
+            <KPI icon={Boxes} label="Unidades en Consigna" value={kpis.totalConsignment} color="#a855f7" />
             <KPI icon={FileText} label="Pendiente de Facturar" value={kpis.pendingInvoice} color="#10b981" />
             <KPI icon={Banknote} label="Pendiente de Cobrar" value={kpis.pendingPayment} color="#8b5cf6" />
         </div>
@@ -316,31 +327,13 @@ export default function OrdersDashboard() {
                 value={statusFilter}
                 onChange={setStatusFilter}
                 placeholder="Filtrar por estado"
-                options={[
-                    { value: 'open', label: 'Borrador' },
-                    { value: 'confirmed', label: 'Confirmado' },
-                    { value: 'shipped', label: 'Enviado' },
-                    { value: 'invoiced', label: 'Facturado' },
-                    { value: 'paid', label: 'Pagado' },
-                    { value: 'cancelled', label: 'Cancelado' },
-                    { value: 'lost', label: 'Perdido' },
-                ]}
+                options={statusOptions}
             />
-            {selectedOrders.length > 0 && (
-                <div className="flex items-center gap-2">
-                    <span className="text-sm text-zinc-500">{selectedOrders.length} seleccionados</span>
-                    <button onClick={() => handleBulkStatusChange('confirmed')} className="px-3 py-1.5 text-sm rounded-md border bg-white hover:bg-zinc-50 flex items-center gap-1"><CheckCircle size={14}/> Confirmar</button>
-                    <button onClick={() => handleBulkStatusChange('paid')} className="px-3 py-1.5 text-sm rounded-md border bg-white hover:bg-zinc-50 flex items-center gap-1"><Banknote size={14}/> Marcar Pagado</button>
-                </div>
-            )}
         </div>
         <div className="bg-white border rounded-2xl shadow-sm overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-zinc-50 text-left">
               <tr>
-                <th scope="col" className="p-3">
-                    <input type="checkbox" onChange={handleSelectAll} checked={filteredOrders.length > 0 && selectedOrders.length === filteredOrders.length} aria-label="Seleccionar todos los pedidos"/>
-                </th>
                 <th scope="col" className="p-3 font-semibold text-zinc-600">Pedido ID</th>
                 <th scope="col" className="p-3 font-semibold text-zinc-600">Cliente</th>
                 <th scope="col" className="p-3 font-semibold text-zinc-600">Comercial</th>
@@ -351,10 +344,7 @@ export default function OrdersDashboard() {
             </thead>
             <tbody className="divide-y divide-zinc-100">
               {filteredOrders.map((order) => (
-                  <tr key={order.id} className={`hover:bg-zinc-50 ${selectedOrders.includes(order.id) ? 'bg-yellow-50' : ''}`}>
-                    <td className="p-3">
-                        <input type="checkbox" checked={selectedOrders.includes(order.id)} onChange={(e) => setSelectedOrders(p => e.target.checked ? [...p, order.id] : p.filter(id => id !== order.id))} />
-                    </td>
+                  <tr key={order.id} className="hover:bg-zinc-50">
                     <td className="p-3 font-mono text-xs font-medium text-zinc-800">{order.docNumber || order.id}</td>
                     <td className="p-3">
                         <div className="flex items-center gap-2">
@@ -380,7 +370,7 @@ export default function OrdersDashboard() {
                       {orderTotal(order as OrderSellOut).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
                     </td>
                     <td className="p-3">
-                      <StatusPill status={order.status} />
+                      <StatusSelector order={order} onStatusChange={handleStatusChange} />
                     </td>
                   </tr>
                 )
