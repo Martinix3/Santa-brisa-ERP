@@ -56,7 +56,12 @@ function CsvDataEditor() {
                 const parsedData = results.data as CsvRow[];
                 if (parsedData.length > 0) {
                     const newHeaders = results.meta.fields || [];
-                    setDataState(prev => [...prev, ...parsedData]); 
+                    // Asegurarse de que los nuevos datos tengan un ID único si no lo tienen
+                    const dataWithIds = parsedData.map(row => ({
+                        id: row.id || `csv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                        ...row
+                    }));
+                    setDataState(prev => [...prev, ...dataWithIds]); 
                     setHeaders(prev => Array.from(new Set([...prev, ...newHeaders])));
                     setFilters({});
                 }
@@ -67,10 +72,10 @@ function CsvDataEditor() {
         });
     }, []);
 
-    const { getRootProps, getInputProps, isDragActive, open } = useDropzone({ 
+    const { getRootProps, getInputProps, open } = useDropzone({ 
         onDrop, 
         multiple: false,
-        noClick: true, // Desactivamos el click en el área de drop para manejarlo con el botón
+        noClick: true,
     });
 
     const handleFilterChange = (header: string, value: string) => {
@@ -80,23 +85,24 @@ function CsvDataEditor() {
     const handleCellChange = (rowIndex: number, header: string, value: string) => {
         setDataState(prev => {
             const newData = [...prev];
-            const originalRowIndex = data.findIndex(row => row === filteredData[rowIndex]);
-            if (originalRowIndex !== -1) {
-                const updatedRow = { ...newData[originalRowIndex], [header]: value };
-                newData[originalRowIndex] = updatedRow;
+            // Find the original index in the unfiltered `data` array
+            const originalIndex = data.findIndex(row => row.id === filteredData[rowIndex].id);
+            if (originalIndex !== -1) {
+                const updatedRow = { ...newData[originalIndex], [header]: value };
+                newData[originalIndex] = updatedRow;
             }
             return newData;
         });
     };
 
-    const handleClear = () => {
-        if(window.confirm('¿Seguro que quieres limpiar todos los datos de la vista actual? Los cambios no guardados se perderán.')){
-            setDataState([]);
-            setHeaders([]);
-            setFilters({});
-            setError(null);
-        }
+    const handleAddNewRow = () => {
+        const newRow: CsvRow = { id: `new_${Date.now()}` };
+        headers.forEach(h => {
+            newRow[h] = '';
+        });
+        setDataState(prev => [newRow, ...prev]);
     };
+    
 
     const handleDownload = () => {
         if (filteredData.length === 0) return;
@@ -159,7 +165,8 @@ function CsvDataEditor() {
                     <p className="font-semibold text-zinc-800">Mostrando {filteredData.length} de {data.length} filas</p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <SBButton variant="secondary" onClick={open}><Plus size={14}/> Añadir desde CSV</SBButton>
+                    <SBButton variant="secondary" onClick={handleAddNewRow}><Plus size={14}/> Añadir Fila</SBButton>
+                    <SBButton variant="secondary" onClick={open}><UploadCloud size={14}/> Añadir desde CSV</SBButton>
                     <SBButton variant="secondary" onClick={handleDownload}><Download size={14}/> Exportar CSV</SBButton>
                     <SBButton onClick={handleSaveChanges} disabled={saving || !isPersistenceEnabled} title={!isPersistenceEnabled ? "Activa la persistencia para guardar" : ""}>
                         <Save size={14}/> {saving ? 'Guardando...' : 'Guardar Cambios'}
@@ -172,11 +179,11 @@ function CsvDataEditor() {
                 {data.length === 0 ? (
                      <div 
                         className={`flex flex-col items-center justify-center p-12 h-full transition-colors
-                        ${isDragActive ? 'border-yellow-400 bg-yellow-50' : 'bg-white'}`}
+                        ${'bg-white'}`}
                     >
                         <UploadCloud className="h-16 w-16 text-zinc-400 mb-4" />
                         <h3 className="text-xl font-semibold text-zinc-800">Colección vacía</h3>
-                        <p className="text-zinc-500 mt-2">Puedes arrastrar un archivo CSV aquí para añadir datos a la colección <span className="font-bold">{selectedCollection}</span>.</p>
+                        <p className="text-zinc-500 mt-2">Puedes añadir una fila manualmente o arrastrar un archivo CSV aquí para añadir datos a la colección <span className="font-bold">{selectedCollection}</span>.</p>
                         {error && <p className="text-red-500 mt-4">{error}</p>}
                     </div>
                 ) : (
