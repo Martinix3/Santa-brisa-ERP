@@ -189,6 +189,7 @@ export interface OrderSellOut {
   currency: Currency;
   totalAmount?: number; // Calculado o explícito
   notes?: string;
+  promotionIds?: string[]; // IDs de las promociones aplicadas
 }
 ```
 
@@ -225,36 +226,84 @@ export interface Material {
   id: string; 
   sku: string; 
   name: string; 
-  category: 'raw' | 'packaging' | 'label' | 'consumable'; 
+  // La categoría 'merchandising' puede incluir PLV como vasos, cubiteras, etc.
+  category: 'raw' | 'packaging' | 'label' | 'consumable' | 'merchandising'; 
   uom: Uom;
   standardCost?: number; 
 }
 ```
 
-#### Activaciones en Punto de Venta (PLV)
-Registra los elementos de visibilidad, incentivos y acuerdos en un cliente para medir coste e impacto.
+### 4. Marketing en Punto de Venta (Propuesta Detallada)
+
+Para controlar la visibilidad, promociones y eventos en un cliente, proponemos 3 entidades conectadas.
+
+#### 4.1. `Activation` (PLV Físico)
+Registra el **material de visibilidad (PLV)** que está físicamente en un punto de venta.
+
 ```typescript
 export type ActivationStatus = 'active' | 'inactive' | 'pending_renewal';
 
 export interface Activation {
   id: string;          // ID único de la activación
   accountId: string;   // A qué cliente pertenece
+  materialId: string;    // ID del Material de PLV (ej. 'MERCH-VASO', 'MERCH-CUBITERA')
+  description: string;   // Ej: "Cubiteras en terraza (10 uds)", "Vasos en barra principal (50 uds)"
   
-  // ¿Qué es?
-  type: 'VISIBILIDAD' | 'INCENTIVO' | 'ACUERDO_PERMANENCIA';
-  description: string;   // Ej: "Posición preferente en carta de cócteles", "Cubiteras en terraza", "Incentivo jefe de barra"
+  // El coste se deriva del `standardCost` del `Material` vinculado.
   
-  // ¿Cuánto cuesta?
-  costType: 'one-off' | 'monthly' | 'quarterly';
-  costAmount: number;    // El coste en EUR de esta activación para el período
-  
-  // ¿Cuándo?
   status: ActivationStatus;
   startDate: string;     // Fecha de inicio
   endDate?: string;      // Fecha de fin (si aplica, para acuerdos temporales)
   
-  // ¿Quién lo gestionó?
   ownerId: string;       // ID del comercial responsable
+  createdAt: string;
+}
+```
+
+#### 4.2. `Promotion` (Ofertas y Descuentos)
+Define las **condiciones de una oferta comercial** que puede ser aplicada a un pedido.
+
+```typescript
+export interface Promotion {
+  id: string;
+  name: string;          // Ej: "Campaña Verano 5+1", "Lanzamiento 20% Dto"
+  type: 'BOGO' | '5+1' | 'DISCOUNT_PERCENT' | 'DISCOUNT_FIXED';
+  value?: number;         // Ej: 20 (para 20%) o 10 (para 10€)
+  appliesToSku?: string[];// A qué SKUs se aplica. Si está vacío, aplica a todo el pedido.
+  validFrom: string;
+  validTo: string;
+  isActive: boolean;
+}
+```
+
+#### 4.3. `EventMarketing` (Activaciones y Eventos)
+Registra un **evento con fecha y lugar concretos**, que ocurre en un cliente. Es el contenedor de costes y resultados de la acción.
+
+```typescript
+export interface EventMarketing {
+  id: string;
+  title: string;         // Ej: "Margarita Day en Terraza Sol", "Formación equipo Bar Luna"
+  accountId?: string;    // A qué cliente se asocia (opcional, puede ser un evento general)
+  
+  kind: 'DEMO' | 'FERIA' | 'FORMACION' | 'POPUP' | 'OTRO';
+  status: 'planned' | 'active' | 'closed' | 'cancelled';
+  
+  // ¿Cuándo y Dónde?
+  startAt: string;
+  endAt?: string;
+  location: string; // "Bar Terraza Sol, Barcelona"
+
+  // ¿Cuánto cuesta?
+  budget?: number;       // Presupuesto planificado
+  spend?: number;        // Gasto final ejecutado
+  extraCosts?: { description: string; amount: number }[]; // Para registrar gastos no planificados (ej. "Mariachis: 300€")
+
+  // ¿Qué se usó y qué se ofreció?
+  linkedActivations?: string[]; // IDs de PLV usado (Activation)
+  linkedPromotions?: string[];  // IDs de promociones ofrecidas (Promotion)
+
+  // ¿Quién lo gestionó?
+  ownerId: string;
   createdAt: string;
 }
 ```
