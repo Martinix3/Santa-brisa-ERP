@@ -10,8 +10,8 @@ export const INITIAL_MOCK_DATA: SantaData = {
     { id: 'party_5', name: 'Hotel Vista Mar', kind: 'ORG', taxId: 'B99887766', contacts: [], addresses: [{type: 'main', street: 'Paseo Marítimo 100', city: 'Málaga', country: 'España'}], createdAt: '2023-05-01T12:00:00Z' },
     { id: 'party_6', name: 'Gourmet World', kind: 'ORG', taxId: 'B11223399', contacts: [], addresses: [{type: 'main', street: 'Calle Serrano 50', city: 'Madrid', country: 'España'}], createdAt: '2023-04-12T18:00:00Z' },
     { id: 'party_7', name: 'Beach Club Ibiza', kind: 'ORG', taxId: 'B44556677', contacts: [], addresses: [{type: 'main', street: 'Playa d\'en Bossa', city: 'Ibiza', country: 'España'}], createdAt: '2023-06-05T10:00:00Z' },
-    { id: 'party_cr_1', name: 'Marta Foodie', kind: 'PERSON', handles: { instagram: '@martafoodie'}, createdAt: '2023-01-01T00:00:00Z' },
-    { id: 'party_cr_2', name: 'Carlos Drinks', kind: 'PERSON', handles: { tiktok: '@carlosdrinks' }, createdAt: '2023-01-01T00:00:00Z' },
+    { id: 'party_cr_1', name: 'Marta Foodie', kind: 'PERSON', handles: { instagram: '@martafoodie'}, createdAt: '2023-01-01T00:00:00Z', contacts: [], addresses: [] },
+    { id: 'party_cr_2', name: 'Carlos Drinks', kind: 'PERSON', handles: { tiktok: '@carlosdrinks' }, createdAt: '2023-01-01T00:00:00Z', contacts: [], addresses: [] },
   ],
   partyRoles: [
       { id: 'pr_1', partyId: 'party_1', role: 'CUSTOMER', isActive: true, createdAt: '2023-01-15T10:00:00Z', data: { salesRepId: 'u_comercial_1', billerId: 'SB' } as any },
@@ -78,10 +78,10 @@ export const INITIAL_MOCK_DATA: SantaData = {
     { id: 'int_1', userId: 'u_comercial_1', accountId: 'acc_1', kind: 'VISITA', note: 'Presentación de producto. Interesados.', plannedFor: '2023-01-15T10:00:00Z', createdAt: '2023-01-15T10:30:00Z', dept: 'VENTAS', status: 'done' },
     { id: 'int_2', userId: 'u_comercial_2', accountId: 'acc_2', kind: 'LLAMADA', note: 'Confirmar asistencia a evento.', createdAt: '2023-02-22T16:00:00Z', dept: 'VENTAS', status: 'done' },
     { id: 'int_3', userId: 'u_comercial_1', accountId: 'acc_3', kind: 'VISITA', note: 'Seguimiento. Pendiente de decisión.', plannedFor: '2023-06-10T11:00:00Z', createdAt: '2023-06-10T11:00:00Z', dept: 'VENTAS', status: 'open' },
-    { id: 'int_4', userId: 'u_ops', kind: 'OTRO', note: 'Revisar stock de botellas', dept: 'PRODUCCION', status: 'open', plannedFor: '2023-08-01T09:00:00Z', createdAt: '2023-07-30T15:00:00Z' },
+    { id: 'int_4', userId: 'u_ops', kind: 'OTRO', note: 'Revisar stock de botellas', dept: 'PRODUCCION', status: 'open', plannedFor: '2023-08-01T09:00:00Z', createdAt: '2023-07-30T15:00:00Z', involvedUserIds: ['u_ops'] },
     { id: 'int_5', userId: 'u_comercial_1', accountId: 'acc_7', kind: 'EMAIL', note: 'Enviar catálogo de verano', createdAt: '2023-06-06T10:00:00Z', dept: 'VENTAS', status: 'done' },
     { id: 'int_6', userId: 'u_comercial_2', accountId: 'acc_5', kind: 'VISITA', note: 'Primera visita, buena impresión', createdAt: '2023-05-02T12:00:00Z', dept: 'VENTAS', status: 'done' },
-    { id: 'int_7', userId: 'u_comercial_2', accountId: 'acc_5', kind: 'LLAMADA', note: 'Planificar segunda reunión', createdAt: '2023-05-10T15:00:00Z', dept: 'VENTAS', status: 'open', plannedFor: '2024-08-10T10:00:00Z' },
+    { id: 'int_7', userId: 'u_comercial_2', accountId: 'acc_5', kind: 'LLAMADA', note: 'Planificar segunda reunión', createdAt: '2023-05-10T15:00:00Z', dept: 'VENTAS', status: 'open', plannedFor: '2024-08-10T10:00:00Z', involvedUserIds: ['u_comercial_2'] },
   ],
   ordersSellOut: [
     { id: 'ord_1', accountId: 'acc_1', source: 'Direct', lines: [{ sku: 'SB-750', qty: 12, uom: 'uds', priceUnit: 15 }], createdAt: '2023-01-20T14:00:00Z', status: 'paid', currency: 'EUR', totalAmount: 180 },
@@ -113,7 +113,7 @@ export const INITIAL_MOCK_DATA: SantaData = {
   productionOrders: [
     { id: 'po_1', sku: 'SB-750', bomId: 'bom_sb750', targetQuantity: 100, status: 'done', createdAt: '2023-01-10T08:00:00Z', lotId: '230110-SB-750-01' },
     { id: 'po_2', sku: 'SB-750', bomId: 'bom_sb750', targetQuantity: 150, status: 'wip', createdAt: '2023-02-15T08:00:00Z', lotId: '230215-SB-750-01' },
-    { id: 'po_3', sku: 'SB-750', bomId: 'bom_sb750', targetQuantity: 300, status: 'pending', createdAt: '2023-05-19T14:00:00Z' },
+    { id: 'po_3', sku: 'SB-750', bomId: 'bom_sb750', targetQuantity: 300, status: 'planned', createdAt: '2023-05-19T14:00:00Z' },
   ],
   qaChecks: [],
   events: [
@@ -173,3 +173,5 @@ export const INITIAL_MOCK_DATA: SantaData = {
   codeAliases: [],
   goodsReceipts: [],
 };
+
+    
