@@ -2,12 +2,11 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Send, User, Bot, Loader, CheckCircle, AlertTriangle } from 'lucide-react';
-import type { Account, Product, SantaData, OrderSellOut, Interaction, InventoryItem, MarketingEvent, User as UserType, Party } from '@/domain/ssot';
+import { Send, User, Bot, Loader } from 'lucide-react';
 import type { Message } from 'genkit';
-import { runSantaBrain } from '@/ai/flows/santa-brain-flow';
 import { useData } from '@/lib/dataprovider';
 import Image from 'next/image';
+import type { SantaData } from '@/domain/ssot';
 
 
 type ChatProps = {
@@ -15,8 +14,10 @@ type ChatProps = {
     onNewData: (data: Partial<SantaData>) => void;
 };
 
+// TODO: Replace with your actual Cloud Function URL
+const SANTA_BRAIN_URL = 'https://europe-west1-santa-brisa-erp.cloudfunctions.net/santaBrain';
+
 export function Chat({ userId, onNewData }: ChatProps) {
-    const { data, currentUser } = useData();
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -29,42 +30,51 @@ export function Chat({ userId, onNewData }: ChatProps) {
     useEffect(scrollToBottom, [messages]);
 
     const handleSend = useCallback(async () => {
-        if (!input.trim() || isLoading || !data || !currentUser) return;
+        if (!input.trim() || isLoading) return;
 
         const userMessage: Message = { role: 'user', content: [{text: input}] } as Message;
         setMessages(prev => [...prev, userMessage]);
+        const currentInput = input;
         setInput('');
         setIsLoading(true);
 
         try {
-            const context = {
-                users: data.users as UserType[],
-                accounts: data.accounts as Account[],
-                parties: data.parties as Party[],
-                currentUser: currentUser,
-            };
-
-            const { finalAnswer, newEntities } = await runSantaBrain(
-                messages, 
-                input,
-                context
-            );
-
-            const assistantMessage: Message = { role: 'model', content: [{text: finalAnswer}] } as Message;
-            setMessages(prev => [...prev, assistantMessage]);
+            const response = await fetch(SANTA_BRAIN_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId,
+                    threadId: 'main-thread', // Or a more sophisticated thread management
+                    message: currentInput,
+                }),
+            });
             
-            if (Object.keys(newEntities).length > 0) {
-                onNewData(newEntities);
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Server responded with an error');
             }
 
-        } catch (error) {
-            console.error("Error running Santa Brain:", error);
-            const errorMessage: Message = { role: 'model', content: [{text: "Lo siento, ha ocurrido un error. Revisa la consola para más detalles."}] } as Message;
+            const { text, toolRequests } = await response.json();
+            
+            // NOTE: In a real app, you would handle the toolRequests by executing them
+            // and sending the results back to the function. For this demo, we assume
+            // the function handles its own tool loop or gives a final answer.
+
+            const assistantMessage: Message = { role: 'model', content: [{text}] } as Message;
+            setMessages(prev => [...prev, assistantMessage]);
+
+            // The function doesn't directly return new entities in this architecture.
+            // We would need to re-fetch or use Firestore listeners to see updates.
+            // For now, we'll rely on a manual refresh or listeners in useData.
+
+        } catch (error: any) {
+            console.error("Error calling Santa Brain function:", error);
+            const errorMessage: Message = { role: 'model', content: [{text: `Lo siento, ha ocurrido un error: ${error.message}`}] } as Message;
             setMessages(prev => [...prev, errorMessage]);
         } finally {
             setIsLoading(false);
         }
-    }, [input, isLoading, messages, onNewData, data, currentUser]);
+    }, [input, isLoading, userId]);
 
     return (
         <div className="flex flex-col h-full bg-zinc-100">

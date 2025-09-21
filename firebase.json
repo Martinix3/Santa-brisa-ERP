@@ -1,4 +1,8 @@
+
 {
+  "functions": {
+    "source": "functions"
+  },
   "client": {
     "apiKey": "AIzaSyAbPqt51bslHSvs0LROCWt7WSQBrMNqKN0",
     "authDomain": "santa-brisa-erp.firebaseapp.com",

@@ -1,26 +1,28 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isTeam() {
-      return request.auth != null; // TODO: endurecer con claims (e.g., request.auth.token.team == 'santabrisa')
-    }
+    // Lectura por el equipo (ajusta según auth/claims)
+    function isTeam() { return request.auth != null; }
 
-    // Memoria
+    // Si el cliente no escribe colecciones SSOT, puedes permitir solo lectura básica:
+    match /products/{id} { allow read: if isTeam(); }
+
+    // Memoria si quieres leer desde cliente (opcional):
     match /brain_memory/{userId} {
-      allow read, write: if isTeam() && request.auth.uid != null;
+      allow read: if isTeam(); // o limita al propio usuario
+      allow write: if false;   // solo la Function escribe
       match /threads/{threadId}/turns/{turnId} {
-        allow read, write: if isTeam();
+        allow read: if isTeam();
+        allow write: if false;
       }
     }
 
-    // SSOT básico
-    match /accounts/{id} { allow read, create, update: if isTeam(); }
-    match /orders/{id} { allow read, create, update: if isTeam(); }
-    match /interactions/{id} { allow read, create, update: if isTeam(); }
-    match /events/{id} { allow read, create, update: if isTeam(); }
-
-    // Productos (solo lectura)
-    match /products/{id} { allow read: if isTeam(); }
+    // Colecciones SSOT escritas solo por Function → denegar al cliente:
+    match /{col}/{id} where col in ['accounts','orders','interactions','events','plv_material','activations','shipments'] {
+      allow read: if isTeam();
+      allow write: if false;
+    }
   }
 }

@@ -1,0 +1,309 @@
+
+import { defineTool } from '@genkit-ai/ai';
+import { z } from 'zod';
+import { db } from '../firebaseAdmin.js';
+
+// ===== Helpers =====
+const nowIso = () => new Date().toISOString();
+const norm = (s: string) =>
+  (s || '').trim().toLowerCase().normalize('NFKD').replace(/\p{Diacritic}/gu, '');
+const calcAmount = (items: Array<{ sku: string; qty: number; unitPrice?: number; discountPct?: number }>) =>
+  items.reduce((a, it) => a + it.qty * (it.unitPrice ?? 0) * (1 - (it.discountPct ?? 0)/100), 0);
+
+async function mustAccount(id: string) {
+  const snap = await db.collection('accounts').doc(id).get();
+  if (!snap.exists) throw new Error(`Account ${id} no existe`);
+  return { id: snap.id, ...(snap.data() as any) };
+}
+
+// ===== Memoria (corto/largo) =====
+export const memory_upsert = defineTool(
+  {
+    name: 'memory_upsert',
+    description: 'Guarda un mensaje o resumen del hilo.',
+    inputSchema: z.object({
+      userId: z.string(),
+      threadId: z.string(),
+      turn: z.number(),
+      role: z.enum(['user','assistant']),
+      text: z.string().min(1),
+      kind: z.enum(['message','summary']).default('message')
+    }),
+    outputSchema: z.object({ ok: z.boolean() })
+  },
+  async ({ userId, threadId, ...rest }) => {
+    await db.collection('brain_memory').doc(userId)
+      .collection('threads').doc(threadId)
+      .collection('turns').add({ ...rest, createdAt: nowIso() });
+    return { ok: true };
+  }
+);
+
+export const memory_get_context = defineTool(
+  {
+    name: 'memory_get_context',
+    description: 'Recupera últimas N entradas del hilo + perfil largo.',
+    inputSchema: z.object({ userId: z.string(), threadId: z.string(), limit: z.number().min(1).max(50).default(12) }),
+    outputSchema: z.object({
+      messages: z.array(z.object({ role: z.string(), text: z.string() })),
+      profile: z.string().optional()
+    })
+  },
+  async ({ userId, threadId, limit }) => {
+    const turnsSnap = await db.collection('brain_memory').doc(userId)
+      .collection('threads').doc(threadId).collection('turns')
+      .orderBy('createdAt', 'desc').limit(limit).get();
+
+    const messages = turnsSnap.docs
+      .map(d=>d.data() as any)
+      .sort((a,b)=> String(a.createdAt).localeCompare(String(b.createdAt)))
+      .map(d=> ({ role: d.role, text: d.text }));
+
+    const profileDoc = await db.collection('brain_memory').doc(userId).get();
+    return { messages, profile: profileDoc.exists ? (profileDoc.data() as any).profile : undefined };
+  }
+);
+
+export const memory_update_profile = defineTool(
+  {
+    name: 'memory_update_profile',
+    description: 'Actualiza el perfil de largo plazo del usuario.',
+    inputSchema: z.object({ userId: z.string(), profile: z.string().min(10) }),
+    outputSchema: z.object({ ok: z.boolean() })
+  },
+  async ({ userId, profile }) => {
+    await db.collection('brain_memory').doc(userId).set({ profile, updatedAt: nowIso() }, { merge: true });
+    return { ok: true };
+  }
+);
+
+// ===== Lectura SSOT =====
+export const query_accounts = defineTool(
+  {
+    name: 'query_accounts',
+    description: 'Busca cuentas por nombre/ciudad/contacto (dev simple).',
+    inputSchema: z.object({ text: z.string().optional(), limit: z.number().min(1).max(200).default(50) }),
+    outputSchema: z.object({ results: z.array(z.any()) })
+  },
+  async ({ text = '', limit }) => {
+    // DEV simple: lee subset y filtra en server (para prod, index/Algolia/Composite)
+    const snap = await db.collection('accounts').limit(500).get();
+    const all = snap.docs.map(d=> ({ id: d.id, ...(d.data() as any) }));
+    const t = text.toLowerCase();
+    const results = t
+      ? all.filter(a=> [a.name, a.city, a.mainContactName, a.mainContactEmail].filter(Boolean).join(' ').toLowerCase().includes(t))
+      : all;
+    return { results: results.slice(0, limit) };
+  }
+);
+
+export const get_account_deep = defineTool(
+  {
+    name: 'get_account_deep',
+    description: 'Cuenta + últimos pedidos/interacciones/eventos.',
+    inputSchema: z.object({ accountId: z.string() }),
+    outputSchema: z.object({
+      account: z.any().nullable(),
+      orders: z.array(z.any()),
+      interactions: z.array(z.any()),
+      events: z.array(z.any())
+    })
+  },
+  async ({ accountId }) => {
+    const acc = await mustAccount(accountId).catch(()=> null);
+    const [orders, interactions, events] = await Promise.all([
+      db.collection('orders').where('accountId','==',accountId).orderBy('date','desc').limit(20).get(),
+      db.collection('interactions').where('accountId','==',accountId).orderBy('when','desc').limit(50).get(),
+      db.collection('events').where('accountId','==',accountId).orderBy('startAt','desc').limit(30).get(),
+    ]);
+    return {
+      account: acc,
+      orders: orders.docs.map(d=> ({ id:d.id, ...(d.data() as any) })),
+      interactions: interactions.docs.map(d=> ({ id:d.id, ...(d.data() as any) })),
+      events: events.docs.map(d=> ({ id:d.id, ...(d.data() as any) })),
+    };
+  }
+);
+
+export const list_collection = defineTool(
+  {
+    name: 'list_collection',
+    description: 'Lee una colección SSOT permitida (cruda) con límite.',
+    inputSchema: z.object({
+      name: z.enum(['accounts','orders','interactions','events','plv_material','activations','products','shipments']),
+      orderBy: z.string().optional(),
+      dir: z.enum(['asc','desc']).default('desc'),
+      limit: z.number().min(1).max(500).default(100)
+    }),
+    outputSchema: z.object({ docs: z.array(z.any()) })
+  },
+  async ({ name, orderBy, dir, limit }) => {
+    let ref: FirebaseFirestore.Query = db.collection(name);
+    if (orderBy) ref = ref.orderBy(orderBy, dir);
+    const snap = await ref.limit(limit).get();
+    return { docs: snap.docs.map(d=> ({ id: d.id, ...(d.data() as any) })) };
+  }
+);
+
+// ===== Escritura SSOT =====
+const OrderItemSchema = z.object({
+  sku: z.string(),
+  qty: z.number().positive(),
+  unitPrice: z.number().optional(),
+  discountPct: z.number().min(0).max(100).optional(),
+});
+
+export const create_account = defineTool(
+  {
+    name: 'create_account',
+    description: 'Crea una cuenta SSOT con datos mínimos.',
+    inputSchema: z.object({
+      name: z.string(),
+      city: z.string().optional(),
+      accountType: z.enum(['CLIENTE_FINAL','DISTRIBUIDOR','IMPORTADOR','HORECA','RETAIL','OTRO']),
+      accountStage: z.enum(['SEGUIMIENTO','FALLIDA','ACTIVA','POTENCIAL']),
+      mainContactName: z.string().optional(),
+      mainContactEmail: z.string().optional(),
+      salesRepId: z.string().optional()
+    }),
+    outputSchema: z.object({ id: z.string() })
+  },
+  async (args) => {
+    const createdAt = nowIso();
+    const docData = {
+      name: args.name,
+      nameNorm: norm(args.name),
+      city: args.city ?? '',
+      accountType: args.accountType,
+      accountStage: args.accountStage,
+      mainContactName: args.mainContactName ?? null,
+      mainContactEmail: args.mainContactEmail ?? null,
+      salesRepId: args.salesRepId ?? null,
+      createdAt, updatedAt: createdAt
+    };
+    const ref = await db.collection('accounts').add(docData);
+    return { id: ref.id };
+  }
+);
+
+export const ensure_account = defineTool(
+  {
+    name: 'ensure_account',
+    description: 'Devuelve accountId; busca por nombre/email y crea si no existe.',
+    inputSchema: z.object({
+      name: z.string(),
+      city: z.string().optional(),
+      mainContactEmail: z.string().optional(),
+      defaultAccountType: z.enum(['CLIENTE_FINAL','HORECA','RETAIL','OTRO','DISTRIBUIDOR','IMPORTADOR']).default('HORECA'),
+      defaultStage: z.enum(['POTENCIAL','SEGUIMIENTO','ACTIVA','FALLIDA']).default('POTENCIAL'),
+      salesRepId: z.string().optional()
+    }),
+    outputSchema: z.object({ id: z.string(), existed: z.boolean() })
+  },
+  async (args) => {
+    const needle = norm(args.name);
+    const email = (args.mainContactEmail || '').toLowerCase();
+    const snap = await db.collection('accounts').limit(500).get();
+    const all = snap.docs.map(d=> ({ id: d.id, ...(d.data() as any) }));
+
+    const hit = all.find(a =>
+      (email && a.mainContactEmail && a.mainContactEmail.toLowerCase() === email) ||
+      (a.nameNorm && a.nameNorm === needle)
+    );
+    if (hit) return { id: hit.id, existed: true };
+
+    const created = await create_account.run({
+      name: args.name,
+      city: args.city,
+      accountType: args.defaultAccountType,
+      accountStage: args.defaultStage,
+      salesRepId: args.salesRepId,
+      mainContactEmail: args.mainContactEmail
+    });
+    return { id: created.id, existed: false };
+  }
+);
+
+export const create_order = defineTool(
+  {
+    name: 'create_order',
+    description: 'Crea un pedido en `orders`.',
+    inputSchema: z.object({
+      accountId: z.string(),
+      distributorId: z.string().optional(),
+      date: z.string().datetime().optional(),
+      currency: z.enum(['EUR','USD']).default('EUR'),
+      items: z.array(OrderItemSchema).min(1),
+      notes: z.string().optional(),
+      createdById: z.string().optional()
+    }),
+    outputSchema: z.object({ id: z.string(), amount: z.number(), currency: z.string(), createdAt: z.string() })
+  },
+  async (input) => {
+    await mustAccount(input.accountId);
+    const createdAt = nowIso();
+    const order = {
+      accountId: input.accountId,
+      distributorId: input.distributorId ?? null,
+      date: input.date ?? createdAt,
+      currency: input.currency,
+      items: input.items,
+      amount: calcAmount(input.items),
+      notes: input.notes ?? null,
+      status: 'ABIERTO',
+      createdAt, updatedAt: createdAt
+    };
+    const ref = await db.collection('orders').add(order);
+    return { id: ref.id, amount: order.amount, currency: order.currency, createdAt };
+  }
+);
+
+export const create_interaction = defineTool(
+  {
+    name: 'create_interaction',
+    description: 'Registra una interacción (VISITA, LLAMADA, EMAIL, WHATSAPP, OTRO).',
+    inputSchema: z.object({
+      accountId: z.string(),
+      kind: z.string(),
+      when: z.string().datetime().optional(),
+      status: z.string().default('COMPLETADA'),
+      result: z.string().optional(),
+      summary: z.string().optional(),
+      nextAt: z.string().datetime().optional(),
+      createdById: z.string().optional()
+    }),
+    outputSchema: z.object({ id: z.string(), status: z.string(), when: z.string(), createdAt: z.string() })
+  },
+  async (input) => {
+    await mustAccount(input.accountId);
+    const createdAt = nowIso();
+    const doc = { ...input, when: input.when ?? createdAt, createdAt, updatedAt: createdAt };
+    const ref = await db.collection('interactions').add(doc);
+    return { id: ref.id, status: doc.status, when: doc.when, createdAt };
+  }
+);
+
+export const create_event = defineTool(
+  {
+    name: 'create_event',
+    description: 'Crea un evento (DEMO, FERIA, FORMACION, OTRO).',
+    inputSchema: z.object({
+      accountId: z.string().optional(),
+      kind: z.string(),
+      title: z.string().min(3),
+      startAt: z.string().datetime(),
+      endAt: z.string().datetime().optional(),
+      location: z.string().optional(),
+      notes: z.string().optional(),
+      createdById: z.string().optional()
+    }),
+    outputSchema: z.object({ id: z.string(), title: z.string(), startAt: z.string(), createdAt: z.string() })
+  },
+  async (input) => {
+    if (input.accountId) await mustAccount(input.accountId);
+    const createdAt = nowIso();
+    const doc = { ...input, createdAt, updatedAt: createdAt };
+    const ref = await db.collection('events').add(doc);
+    return { id: ref.id, title: input.title, startAt: input.startAt, createdAt };
+  }
+);
