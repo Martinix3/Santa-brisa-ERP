@@ -22,7 +22,7 @@ export type Stage = 'POTENCIAL' | 'ACTIVA' | 'SEGUIMIENTO' | 'FALLIDA' | 'CERRAD
 export type UserRole = 'comercial' | 'admin' | 'ops' | 'owner';
 
 // Estados para flujos de trabajo
-export type InteractionStatus = 'open' | 'done' | 'processing';
+export type InteractionStatus = 'open' | 'done' | 'processing' | 'closed' | 'cancelled';
 export type OrderStatus = 'open' | 'confirmed' | 'shipped' | 'invoiced' | 'paid' | 'cancelled' | 'lost';
 export type ShipmentStatus = 'pending' | 'picking' | 'ready_to_ship' | 'shipped' | 'delivered' | 'cancelled';
 export type ProductionStatus = 'planned' | 'released' | 'wip' | 'done' | 'cancelled';
@@ -149,7 +149,19 @@ export type Payload =
     | { type: 'cobro', amount: number, notes?: string }
     | { type: 'evento_mkt', kpis: { cost: number; attendees: number; leads: number }, notes?: string };
 
-
+export type PosResult = {
+  windowWeeks: number;
+  baselineUnits: number;
+  actualUnits: number;
+  upliftUnits: number;
+  liftPct: number;
+  marginPerUnit?: number;
+  upliftMargin?: number;
+  roi?: number;
+  confidence: 'LOW'|'MEDIUM'|'HIGH';
+  computedAt: string;
+};
+    
 export interface Interaction {
   id: string;
   partyId?: string;
@@ -169,6 +181,20 @@ export interface Interaction {
     id: string;
   };
   tags?: string[];
+  posTactic?: {
+    tacticCode: string;
+    startDate: string;
+    endDate?: string;
+    costTotal: number;
+    executionScore: number;
+    exposure?: {
+      unitsGiven?: number;
+      staffIncentivized?: number;
+    };
+    appliesToSkuIds?: string[];
+    photos?: string[];
+  };
+  posTacticResult?: PosResult;
 }
 
 // -----------------------------------------------------------------
@@ -496,7 +522,6 @@ export interface InfluencerCollab {
   ownerUserId?: string;
   couponCode?: string;
   utmCampaign?: string;
-  landingUrl?: string;
   deliverables: {
     kind: Deliverable;
     qty: number;
