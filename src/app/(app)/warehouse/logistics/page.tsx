@@ -73,9 +73,10 @@ const getChannelInfo = (order?: OrderSellOut, account?: Account) => {
 // ===============================
 // Helpers lógicos (null-safe) — testables
 // ===============================
-export const hasDimsAndWeight = (row: any) => {
-  const w = Number(row?.logistics?.weightKg || 0);
-  const d = row?.logistics?.dimsCm || {};
+export const hasDimsAndWeight = (shipment: Shipment) => {
+  const s = shipment as any; // Cast to any to access nested properties safely
+  const w = Number(s?.logistics?.weightKg || 0);
+  const d = s?.logistics?.dimsCm || {};
   return w > 0 && ["l", "w", "h"].every((k) => Number(d?.[k] || 0) > 0);
 };
 
@@ -86,7 +87,7 @@ export const hasContactInfo = (party?: Party) => {
     return hasPhone && hasAddress;
 };
 export const canGenerateDeliveryNote = (row: Shipment) => Boolean(row.checks?.visualOk);
-export const canGenerateLabel = (row: Shipment) => Boolean(row.holdedDeliveryId) && Boolean(row.carrier) && hasDimsAndWeight(row);
+export const canGenerateLabel = (shipment: Shipment) => Boolean(shipment.holdedDeliveryId) && Boolean(shipment.carrier) && hasDimsAndWeight(shipment);
 export const canMarkShipped = (row: Shipment) => Boolean(row.labelUrl);
 
 export const pendingReasons = (row: Shipment): string[] => {
@@ -143,7 +144,13 @@ const ValidateDialog: React.FC<{ open: boolean; onOpenChange: (v: boolean) => vo
   const addLotRow = (sku: string) => setLotMap((p) => ({ ...p, [sku]: [...(p[sku] ?? []), { lotId: "", qty: 0 }] }));
   const removeEmpty = (m: typeof lotMap) => Object.fromEntries(Object.entries(m).map(([k, arr]) => [k, arr.filter((r) => r.lotId && r.qty > 0)]));
 
-  const handleSave = () => onSave({ visualOk, lotMap: removeEmpty(lotMap), weightKg: weight || 0, dimsCm: { l: Number(dims.l || 0), w: Number(dims.w || 0), h: Number(dims.h || 0) }, picker: picker || "", packer: packer || "", carrier: carrier || undefined });
+  const handleSave = () => {
+    const logistics = {
+        weightKg: weight || 0,
+        dimsCm: { l: Number(dims.l || 0), w: Number(dims.w || 0), h: Number(dims.h || 0) }
+    };
+    onSave({ visualOk, lotMap: removeEmpty(lotMap), logistics, picker: picker || "", packer: packer || "", carrier: carrier || undefined });
+  };
 
   return (
     <SBDialog open={open} onOpenChange={onOpenChange}>

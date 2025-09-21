@@ -2,10 +2,11 @@
 
 // --- Santa Brisa: lógica de negocio (sell-out a botellas, agregados y KPIs) ---
 import type {
-  Account, Party, PartyRole, CustomerData, OrderSellOut, Product, User, SantaData
+  Account, Party, PartyRole, CustomerData, OrderSellOut, Product, User, SantaData, Activation
 } from '@/domain';
 
 const inWindow = (dateStr: string, start: number, end: number): boolean => {
+  if (!dateStr) return false;
   const time = +new Date(dateStr);
   return time >= start && time <= end;
 };
@@ -19,14 +20,16 @@ export type ResolvedAccountMode = 'PROPIA_SB' | 'COLOCACION' | 'DISTRIB_PARTNER'
 // ===== 0) Lógica de negocio sobre el modelo de cuenta =====
 
 export function getDistributorForAccount(account: Account, partyRoles: PartyRole[], parties: Party[]): Party | null {
-    const customerRole = (partyRoles || []).find(pr => pr.partyId === account.partyId && pr.role === 'CUSTOMER');
-    const billerId = (customerRole?.data as CustomerData)?.billerId;
+    if (!account || !partyRoles || !parties) return null;
+    const customerRole = partyRoles.find(pr => pr.partyId === account.partyId && pr.role === 'CUSTOMER');
+    if (!customerRole) return null;
+    const billerId = (customerRole.data as CustomerData)?.billerId;
     if (!billerId || billerId === 'SB') return null;
 
-    const distributorPartyRole = (partyRoles || []).find(pr => pr.partyId === billerId && pr.role === 'DISTRIBUTOR');
+    const distributorPartyRole = partyRoles.find(pr => pr.partyId === billerId && pr.role === 'DISTRIBUTOR');
     if (!distributorPartyRole) return null;
 
-    return (parties || []).find(p => p.id === distributorPartyRole.partyId) || null;
+    return parties.find(p => p.id === distributorPartyRole.partyId) || null;
 }
 
 /**
@@ -56,12 +59,12 @@ export function accountOwnerDisplay(
   users: User[],
   partyRoles: PartyRole[]
 ): string {
-  if (!acc.ownerId) return '—';
+  if (!acc || !acc.ownerId) return '—';
 
-  const user = users.find(u => u.id === acc.ownerId);
+  const user = (users || []).find(u => u.id === acc.ownerId);
   if (user) return user.name;
 
-  const distRole = partyRoles.find(pr => pr.partyId === acc.ownerId && pr.role === 'DISTRIBUTOR');
+  const distRole = (partyRoles || []).find(pr => pr.partyId === acc.ownerId && pr.role === 'DISTRIBUTOR');
   if (distRole) return distRole.partyId; // Should resolve to party name
   
   return acc.ownerId; // Fallback al ID si no se encuentra
@@ -84,7 +87,7 @@ function lineToBottles(line: OrderSellOut['lines'][0], product: Product | undefi
 }
 
 export function orderToBottles(order: OrderSellOut, products: Product[], opts?: BottlesOpts): number {
-  return order.lines.reduce((s, l) => {
+  return (order.lines || []).reduce((s, l) => {
     const p = products.find(x => x.sku === l.sku);
     return s + lineToBottles(l, p, opts);
   }, 0);
@@ -110,11 +113,11 @@ export function computeAccountKPIs(params: {
   const { data, accountId, startIso, endIso, lookbackDaysForConversion = 14 } = params;
 
   const start = +new Date(startIso), end = +new Date(endIso);
-  const orders = data.ordersSellOut.filter(o =>
+  const orders = (data.ordersSellOut || []).filter(o =>
     o.accountId === accountId && o.status === 'confirmed' && inWindow(o.createdAt, start, end)
   );
 
-  const interactions = data.interactions.filter(i => i.accountId === accountId && inWindow(i.createdAt, start, end));
+  const interactions = (data.interactions || []).filter(i => i.accountId === accountId && inWindow(i.createdAt, start, end));
 
   // Find user to apply baseline
   const account = data.accounts.find(a => a.id === accountId);
@@ -141,10 +144,10 @@ export function computeAccountKPIs(params: {
   }).length;
   const visitToOrderRate = visitsInWindow.length ? Number(((convertedVisits / visitsInWindow.length) * 100).toFixed(1)) : undefined;
 
-  const lastOrder = data.ordersSellOut
+  const lastOrder = (data.ordersSellOut || [])
     .filter(o => o.accountId === accountId && o.status === 'confirmed')
     .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))[0];
-  const lastVisit = data.interactions
+  const lastVisit = (data.interactions || [])
     .filter(i => i.accountId === accountId && i.kind==='VISITA')
     .sort((a,b)=> +new Date(b.createdAt) - +new Date(a.createdAt))[0];
 
@@ -153,6 +156,51 @@ export function computeAccountKPIs(params: {
   const daysSinceLastVisit = lastVisit ? Math.max(0, Math.round((now.getTime() - +new Date(lastVisit.createdAt))/(1000*3600*24))) : undefined;
 
   return { accountId, unitsSold, orderCount, avgTicket, visitsCount, visitToOrderRate, daysSinceLastOrder, daysSinceLastVisit };
+}
+
+// 4) Rollup por cuenta
+export type AccountRollup = {
+    accountId: string;
+    hasPLVInstalled: boolean;
+    lastPLVInstalledAt?: string;
+    activeActivations: number;
+    lastActivationAt?: string;
+    activePromotionIds: string[];
+    ordersWithPromoInPeriod: number;
+    attributedSalesInPeriod: number;
+};
+
+export function computeAccountRollup(accountId: string, data: SantaData, periodStartIso: string, periodEndIso: string): AccountRollup {
+    const start = +new Date(periodStartIso);
+    const end = +new Date(periodEndIso);
+
+    const accountActivations = (data.activations || []).filter(a => a.accountId === accountId);
+    const activeActivations = accountActivations.filter(a => a.status === 'active');
+    
+    // Simplificación para PLV, en un caso real se usaría una entidad `plv_material`
+    const plvVisit = (data.interactions || [])
+        .filter(i => i.accountId === accountId && i.note?.toLowerCase().includes('plv'))
+        .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))[0];
+
+    const promotions = data.promotions || [];
+    const now = new Date();
+    const activePromotions = promotions.filter(p => now >= new Date(p.validFrom) && now <= new Date(p.validTo));
+
+    // Lógica de atribución simplificada
+    const ordersInPeriod = (data.ordersSellOut || []).filter(o => o.accountId === accountId && inWindow(o.createdAt, start, end));
+    const attributedSalesInPeriod = ordersInPeriod.reduce((sum, order) => sum + orderTotal(order), 0);
+    const ordersWithPromoInPeriod = ordersInPeriod.filter(o => o.notes?.toLowerCase().includes('promo')).length;
+
+    return {
+        accountId,
+        hasPLVInstalled: !!plvVisit,
+        lastPLVInstalledAt: plvVisit?.createdAt,
+        activeActivations: activeActivations.length,
+        lastActivationAt: activeActivations.sort((a, b) => +new Date(b.startDate) - +new Date(a.startDate))[0]?.startDate,
+        activePromotionIds: activePromotions.map(p => p.id),
+        ordersWithPromoInPeriod: ordersWithPromoInPeriod,
+        attributedSalesInPeriod: attributedSalesInPeriod,
+    };
 }
 
 export type FleetKPIs = {

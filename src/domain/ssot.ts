@@ -809,3 +809,19 @@ export const DEPT_META: Record<Department, { label: string; color: string; textC
   FINANZAS:   { label: 'Finanzas',   color: SB_COLORS.dept.FINANZAS.bg,   textColor: SB_COLORS.dept.FINANZAS.text },
   CALIDAD:    { label: 'Calidad',    color: SB_COLORS.dept.CALIDAD.bg,    textColor: SB_COLORS.dept.CALIDAD.text },
 };
+
+
+// -----------------------------------------------------------------
+// 11. Rollups de Cuenta
+// -----------------------------------------------------------------
+
+export type AccountRollup = {
+    accountId: string;
+    hasPLVInstalled: boolean;
+    lastPLVInstalledAt?: string;
+    activeActivations: number;
+    lastActivationAt?: string;
+    activePromotionIds: string[];
+    ordersWithPromoInPeriod: number;
+    attributedSalesInPeriod: number;
+};

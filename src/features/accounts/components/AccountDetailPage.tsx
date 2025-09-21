@@ -5,15 +5,14 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useParams, useRouter, notFound } from 'next/navigation';
 import { useData } from '@/lib/dataprovider';
-import type { SantaData, Interaction as InteractionType, OrderSellOut, User as UserType, Party, InteractionKind, Account, CustomerData, PartyRole, Activation, Promotion } from '@/domain';
-import { computeAccountKPIs, accountOwnerDisplay, orderTotal, getDistributorForAccount } from '@/lib/sb-core';
+import type { SantaData, Interaction as InteractionType, OrderSellOut, User as UserType, Party, InteractionKind, Account, CustomerData, PartyRole, Activation, Promotion, AccountRollup } from '@/domain';
+import { computeAccountKPIs, accountOwnerDisplay, orderTotal, getDistributorForAccount, computeAccountRollup } from '@/lib/sb-core';
 import { ArrowUpRight, ArrowDownRight, Phone, Mail, MapPin, User, Factory, Boxes, Megaphone, Briefcase, Banknote, Calendar, FileText, ShoppingCart, Star, Building2, CreditCard, ChevronRight, ChevronLeft, MessageSquare, Sparkles, Tag, Clock } from "lucide-react";
 import Link from 'next/link';
 import { enrichAccount } from '@/ai/flows/enrich-account-flow';
 
 import { SBFlowModal } from '@/features/quicklog/components/SBFlows';
-import { SBButton, SBCard } from '@/components/ui/ui-primitives';
-import { SB_COLORS } from '@/domain/ssot';
+import { SBButton, SBCard, SB_COLORS } from '@/components/ui/ui-primitives';
 
 // ====== UI Primitives ======
 function KPI({label, value, suffix, trend}:{label:string; value:string|number; suffix?:string; trend?:'up'|'down'}){
@@ -63,6 +62,16 @@ const interactionIcons: Record<InteractionKind, React.ElementType> = {
 const formatEUR = (n:number)=> new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(n);
 const formatDate = (iso: string) => new Date(iso).toLocaleDateString('es-ES', {day:'2-digit',month:'short', year:'numeric'});
 
+function RollupBadge({ label, value, date, color = 'zinc'}: { label: string; value: string | number; date?: string; color?: 'zinc' | 'green' | 'amber' | 'red' | 'blue' }) {
+    return (
+        <div className={`p-2 rounded-lg border flex items-center gap-2 text-xs ${ {zinc: 'bg-zinc-50 border-zinc-200', green: 'bg-green-50 border-green-200', amber: 'bg-amber-50 border-amber-200', red: 'bg-red-50 border-red-200', blue: 'bg-blue-50 border-blue-200'}[color] }`}>
+            <span className={`font-bold ${ {zinc: 'text-zinc-800', green: 'text-green-800', amber: 'text-amber-800', red: 'text-red-800', blue: 'text-blue-800'}[color] }`}>{value}</span>
+            <span className="text-zinc-600">{label}</span>
+            {date && <span className="text-zinc-500 ml-auto">{new Date(date).toLocaleDateString('es-ES', {day: 'numeric', month: 'short'})}</span>}
+        </div>
+    )
+}
+
 // ====== PAGE ======
 export function AccountDetailPageContent(){
   const router = useRouter();
@@ -76,16 +85,16 @@ export function AccountDetailPageContent(){
   const { data: santaData, setData, currentUser } = useData();
   const [isEnriching, setIsEnriching] = useState(false);
 
-  const { account, party, unifiedActivity, kpis, owner, distributor } = useMemo(() => {
-    if (!santaData || !accountId) return { account: null, party: null, unifiedActivity: [], kpis: null, owner: null, distributor: null };
+  const { account, party, unifiedActivity, kpis, owner, distributor, rollup } = useMemo(() => {
+    if (!santaData || !accountId) return { account: null, party: null, unifiedActivity: [], kpis: null, owner: null, distributor: null, rollup: null };
     
     const acc = santaData.accounts.find(a => a.id === accountId);
-    if (!acc) return { account: null, party: null, unifiedActivity: [], kpis: null, owner: null, distributor: null };
+    if (!acc) return { account: null, party: null, unifiedActivity: [], kpis: null, owner: null, distributor: null, rollup: null };
 
     const pty = santaData.parties.find(p => p.id === acc.partyId);
     
-    const interactions = santaData.interactions.filter(i => i.accountId === accountId);
-    const orders = santaData.ordersSellOut.filter(o => o.accountId === accountId);
+    const interactions = (santaData.interactions || []).filter(i => i.accountId === accountId);
+    const orders = (santaData.ordersSellOut || []).filter(o => o.accountId === accountId);
 
     const unified: (InteractionType | OrderSellOut)[] = [...interactions, ...orders];
     unified.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -100,10 +109,12 @@ export function AccountDetailPageContent(){
         endIso: endDate.toISOString()
     });
 
+    const rollupData = computeAccountRollup(acc.id, santaData, startDate.toISOString(), endDate.toISOString());
+
     const own = accountOwnerDisplay(acc, santaData.users, santaData.partyRoles);
     const dist = getDistributorForAccount(acc, santaData.partyRoles, santaData.parties);
 
-    return { account: acc, party: pty, unifiedActivity: unified, kpis: kpiData, owner: own, distributor: dist };
+    return { account: acc, party: pty, unifiedActivity: unified, kpis: kpiData, owner: own, distributor: dist, rollup: rollupData };
   }, [accountId, santaData]);
 
   const handleEnrich = async () => {
@@ -142,7 +153,7 @@ export function AccountDetailPageContent(){
   };
 
   const getDaysSinceLastOrderColor = (days?: number): 'green' | 'amber' | 'red' => {
-      if (days === undefined) return 'zinc';
+      if (days === undefined) return 'zinc' as any;
       if (days <= 30) return 'green';
       if (days <= 60) return 'amber';
       return 'red';
@@ -190,8 +201,8 @@ export function AccountDetailPageContent(){
                 <KPI label="Unidades vendidas" value={kpis.unitsSold} suffix="uds."/>
                 <KPI label="Nº Pedidos" value={kpis.orderCount} />
                 <KPI label="Ticket medio" value={formatEUR(kpis.avgTicket)} />
-                <KPI label="Días sin Pedido" value={kpis.daysSinceLastOrder || '—'} trend={kpis.daysSinceLastOrder && kpis.daysSinceLastOrder > 30 ? 'down' : undefined} />
-                <KPI label="Visita→Pedido" value={kpis.visitToOrderRate || 0} suffix="%" trend={kpis.visitToOrderRate && kpis.visitToOrderRate >=50 ? 'up':'down'} />
+                <KPI label="Días sin Pedido" value={kpis.daysSinceLastOrder ?? '—'} trend={kpis.daysSinceLastOrder && kpis.daysSinceLastOrder > 30 ? 'down' : undefined} />
+                <KPI label="Visita→Pedido" value={kpis.visitToOrderRate ?? 0} suffix="%" trend={kpis.visitToOrderRate && kpis.visitToOrderRate >=50 ? 'up':'down'} />
                 <KPI label="Nº Visitas" value={kpis.visitsCount} />
               </div>
             </SBCard>
@@ -209,7 +220,7 @@ export function AccountDetailPageContent(){
                               <div className="text-sm text-zinc-800 font-semibold">{formatEUR(orderTotal(order))}</div>
                               <div className="text-xs text-zinc-500">{formatDate(order.createdAt)}</div>
                           </div>
-                          <div className="text-sm text-zinc-800 col-span-2">{order.lines.map(l => `${l.qty} ${l.uom} de ${santaData.products.find(p=>p.sku === l.sku)?.name}`).join(', ')}</div>
+                          <div className="text-sm text-zinc-800 col-span-2">{(order.lines || []).map(l => `${l.qty} ${l.uom} de ${santaData.products.find(p=>p.sku === l.sku)?.name}`).join(', ')}</div>
                       </div>
                     )
                   }
@@ -257,6 +268,15 @@ export function AccountDetailPageContent(){
                 </div>
               </div>
             </SBCard>
+            {rollup && (
+                <SBCard title="Estado de Marketing">
+                    <div className="p-4 space-y-2">
+                        <RollupBadge label="PLV Instalado" value={rollup.hasPLVInstalled ? "Sí" : "No"} color={rollup.hasPLVInstalled ? "green" : "zinc"} date={rollup.lastPLVInstalledAt} />
+                        <RollupBadge label="Activaciones Activas" value={rollup.activeActivations} color={rollup.activeActivations > 0 ? "blue" : "zinc"} date={rollup.lastActivationAt}/>
+                        <RollupBadge label="Promociones Activas" value={`${rollup.activePromotionIds.length} activas`} color={rollup.activePromotionIds.length > 0 ? "amber" : "zinc"} />
+                    </div>
+                </SBCard>
+            )}
           </aside>
         </main>
       </div>
