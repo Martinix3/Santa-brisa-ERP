@@ -24,13 +24,13 @@ function GroupBar({ stage, count, expanded, onToggle }: { stage: keyof typeof ST
     const s = STAGE[stage];
     if (!s) return null;
     return (
-        <button
+        <div
             onClick={onToggle}
-            className="w-full flex items-center justify-between px-3 py-2 rounded-t-lg transition-colors"
+            className="w-full flex items-center justify-between px-3 py-2 rounded-t-lg transition-colors cursor-pointer"
             style={{ backgroundColor: s.tint, color: s.text }}
             aria-expanded={expanded}
         >
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-grow">
                 <h3 className="font-semibold text-sm">{s.label}</h3>
                 <span className="text-xs font-normal opacity-80">({count})</span>
             </div>
@@ -38,7 +38,7 @@ function GroupBar({ stage, count, expanded, onToggle }: { stage: keyof typeof ST
                 className="h-5 w-5 transition-transform duration-300"
                 style={{ transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
             />
-        </button>
+        </div>
     );
 }
 
@@ -394,3 +394,5 @@ export function AccountsPageContent() {
     </>
   )
 }
+
+    
