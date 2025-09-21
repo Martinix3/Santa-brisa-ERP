@@ -16,9 +16,9 @@
     "genkit:start": "genkit start",
     "genkit:run": "genkit run",
     "genkit:list": "genkit list",
-    "audit:static": "node scripts/audit-static.mjs",
+    "audit:static": "node scripts/audit.js",
     "audit:runtime": "node scripts/audit-runtime.mjs",
-    "audit:all": "node scripts/audit-all.mjs",
+    "audit": "npm run audit:static && npm run audit:runtime",
     "analyze": "ANALYZE=true npm run build",
     "check-budgets": "node scripts/check-budgets.cjs"
   },
