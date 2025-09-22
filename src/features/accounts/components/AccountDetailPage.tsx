@@ -103,7 +103,7 @@ export function AccountDetailPageContent(){
     const orders = (santaData.ordersSellOut || []).filter(o => o.accountId === accountId);
 
     const unified: (InteractionType | OrderSellOut)[] = [...interactions, ...orders];
-    unified.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    unified.sort((a,b) => new Date(String(b.createdAt)).getTime() - new Date(String(a.createdAt)).getTime());
       
     const endDate = new Date();
     const startDate = new Date();
@@ -164,11 +164,11 @@ export function AccountDetailPageContent(){
     const contacts = [...party.contacts];
     const mainEmail = contacts.find(c => c.isPrimary && c.type === 'email');
     if (mainEmail) mainEmail.value = payload.mainContactEmail;
-    else if (payload.mainContactEmail) contacts.push({ type: 'email', value: payload.mainContactEmail, isPrimary: true });
+    else if (payload.mainContactEmail) contacts.push({ type: 'email', value: payload.mainContactEmail, isPrimary: true, description: 'Main' });
 
     const mainPhone = contacts.find(c => c.isPrimary && c.type === 'phone');
     if (mainPhone) mainPhone.value = payload.phone;
-    else if (payload.phone) contacts.push({ type: 'phone', value: payload.phone, isPrimary: true });
+    else if (payload.phone) contacts.push({ type: 'phone', value: payload.phone, isPrimary: true, description: 'Main' });
     
     const addresses = [...party.addresses];
     const mainAddress = addresses.find(a => a.isPrimary);

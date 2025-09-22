@@ -222,6 +222,17 @@ export interface Interaction {
   posTacticResult?: PosResult;
 }
 
+export interface AccountRollup {
+  accountId: string;
+  hasPLVInstalled?: boolean;
+  lastPLVInstalledAt?: Timestamp;
+  activeActivations: number;
+  lastActivationAt?: Timestamp;
+  activePromotions: number;
+  activePosTactics: number;
+  lastTacticAt?: Timestamp;
+}
+
 // ... Resto de tipos del SSOT sin cambios ...
 
 export interface Material {
@@ -463,17 +474,6 @@ export interface TraceEvent {
     actorId?: string;
     links?: { lotId?: string; batchId?: string; orderId?: string; shipmentId?: string; receiptId?: string; qaCheckId?: string; };
     data?: any;
-}
-
-export interface AccountRollup {
-  accountId: string;
-  hasPLVInstalled?: boolean;
-  lastPLVInstalledAt?: Timestamp;
-  activeActivations: number;
-  lastActivationAt?: Timestamp;
-  activePromotions: number;
-  activePosTactics: number;
-  lastTacticAt?: Timestamp;
 }
 
 export type ActivationType = 'bartender_day' | 'tasting' | 'event' | 'other_experience';

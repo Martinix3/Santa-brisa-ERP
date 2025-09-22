@@ -114,7 +114,7 @@ export function MarketingTaskCompletionDialog({
         initialResults.spend = c.spend || 0;
         initialResults.impressions = c.metrics?.impressions || 0;
         initialResults.clicks = c.metrics?.clicks || 0;
-        initialResults.roas = c.metrics?.roas || 0;
+        initialResults.roas = (c.metrics as any)?.roas || 0;
       } else if (entityType === 'collab') {
         const c = entity as InfluencerCollab;
         initialResults.cashPaid = c.costs?.cashPaid || 0;
