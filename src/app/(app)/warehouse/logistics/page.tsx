@@ -279,26 +279,28 @@ export default function LogisticsPage() {
 
   const openValidateFor = (row: Shipment) => { setCurrentShipment(row); setOpenValidate(true); };
 
-  const handleAction = (shipmentId: string, action: () => Promise<any>, successMessage: string) => {
+  const handleAction = (shipmentId: string, action: () => Promise<{ ok: boolean }>, successMessage: string) => {
     setPendingJobs(prev => ({...prev, [shipmentId]: true}));
     setNotification(null);
     startTransition(async () => {
         try {
-            await action();
-            setNotification({ type: 'success', message: successMessage });
-            setTimeout(() => {
-                 router.refresh();
-            }, 2000);
+            const res = await action();
+            if (res.ok) {
+                setNotification({ type: 'success', message: successMessage });
+                setTimeout(() => router.refresh(), 2000); // Soft refresh
+            } else {
+                throw new Error("La acción falló en el servidor.");
+            }
         } catch (e: any) {
             setNotification({ type: 'error', message: `Error: ${e.message}` });
         } finally {
+            // Remove pending state after a delay to allow UI to update
             setTimeout(() => {
                 setPendingJobs(prev => {
                     const next = {...prev};
                     delete next[shipmentId];
                     return next;
                 });
-                router.refresh();
             }, 2500);
         }
     });
@@ -502,6 +504,7 @@ export default function LogisticsPage() {
     </div>
   );
 }
+
 
 
 
