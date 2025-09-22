@@ -20,7 +20,8 @@
     "audit:runtime": "node scripts/audit-runtime.mjs",
     "audit": "npm run audit:static && npm run audit:runtime",
     "analyze": "ANALYZE=true npm run build",
-    "check-budgets": "node scripts/check-budgets.cjs"
+    "check-budgets": "node scripts/check-budgets.cjs",
+    "worker": "tsx src/server/queue/runner.local.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "latest",
@@ -30,7 +31,7 @@
     "@fullcalendar/list": "latest",
     "@fullcalendar/react": "latest",
     "@fullcalendar/timegrid": "latest",
-    "@genkit-ai/ai": "^0.6.1",
+    "@genkit-ai/ai": "latest",
     "@genkit-ai/googleai": "latest",
     "@google-cloud/firestore": "latest",
     "firebase": "latest",
@@ -61,8 +62,8 @@
     "@types/papaparse": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
-    "@typescript-eslint/eslint-plugin": "^7.18.0",
-    "@typescript-eslint/parser": "^7.18.0",
+    "@typescript-eslint/eslint-plugin": "^8.4.0",
+    "@typescript-eslint/parser": "^8.4.0",
     "autoprefixer": "latest",
     "cross-env": "latest",
     "esbuild": "latest",

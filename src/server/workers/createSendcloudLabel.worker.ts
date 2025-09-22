@@ -1,10 +1,11 @@
+// src/server/workers/createSendcloudLabel.worker.ts
 'use server';
 import { adminDb } from '@/server/firebaseAdmin';
 import type { Shipment } from '@/domain/ssot';
 // import { callSendcloudApi } from '../integrations/sendcloud/client';
 
 // Stub for the Sendcloud worker
-export async function handleCreateSendcloudLabel({ shipmentId }: { shipmentId: string }) {
+export async function run({ shipmentId }: { shipmentId: string }) {
     console.log(`[WORKER-STUB] Received job to create Sendcloud label for shipment ${shipmentId}`);
     
     const shipmentRef = adminDb.collection('shipments').doc(shipmentId);

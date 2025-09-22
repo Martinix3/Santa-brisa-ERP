@@ -1,15 +1,17 @@
+// src/server/workers/createDeliveryNote.worker.ts
 'use server';
 import { adminDb } from '@/server/firebaseAdmin';
-import { renderDeliveryNotePdf, toDataUri } from '@/server/pdf/deliveryNote';
+import { renderDeliveryNotePdf } from '@/server/pdf/deliveryNote';
 import type { Shipment, DeliveryNote, OrderSellOut, Party } from '@/domain/ssot';
 import { saveBufferToStorage } from '../storage';
 
-async function uploadPdfToStorage(pdfBytes: Uint8Array, fileName: string): Promise<string> {
-  console.log(`[WORKER-STUB] "Uploading" ${fileName} to storage.`);
-  return saveBufferToStorage(fileName, Buffer.from(pdfBytes), 'application/pdf');
+function nextDnId(series: 'ONLINE'|'B2B'|'INTERNAL' = 'B2B') {
+  const y = new Date().getFullYear();
+  const rnd = Math.floor(Math.random()*90000 + 10000);
+  return `DN-${series}-${y}-${rnd}`;
 }
 
-export async function handleCreateDeliveryNoteCrm({ shipmentId }: { shipmentId: string }) {
+export async function run({ shipmentId }: { shipmentId: string }) {
     const shipmentRef = adminDb.collection('shipments').doc(shipmentId);
     const shipmentSnap = await shipmentRef.get();
     if (!shipmentSnap.exists) throw new Error(`Shipment ${shipmentId} not found.`);
@@ -31,15 +33,15 @@ export async function handleCreateDeliveryNoteCrm({ shipmentId }: { shipmentId: 
     if (!partySnap.exists) throw new Error(`Party ${shipment.partyId} not found.`);
     const party = partySnap.data() as Party;
 
-    // Generate a simple delivery note ID
-    const dnId = `DN-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 90000) + 10000)}`;
+    const series: 'ONLINE'|'B2B'|'INTERNAL' = order.source === 'SHOPIFY' ? 'ONLINE' : 'B2B';
+    const dnId = nextDnId(series);
 
     const deliveryNoteData: DeliveryNote = {
         id: dnId,
         orderId: shipment.orderId,
         shipmentId: shipment.id,
         partyId: shipment.partyId,
-        series: order.source === 'SHOPIFY' ? 'ONLINE' : 'B2B',
+        series: series,
         date: new Date().toISOString(),
         soldTo: { name: party.legalName, vat: party.vat || party.taxId },
         shipTo: {
@@ -51,7 +53,7 @@ export async function handleCreateDeliveryNoteCrm({ shipmentId }: { shipmentId: 
         },
         lines: shipment.lines.map(l => ({
             sku: l.sku,
-            description: l.name || l.sku,
+            description: l.name,
             qty: l.qty,
             uom: l.uom,
             lotNumbers: l.lotNumber ? [l.lotNumber] : [],
@@ -67,10 +69,10 @@ export async function handleCreateDeliveryNoteCrm({ shipmentId }: { shipmentId: 
         soldTo: deliveryNoteData.soldTo,
         shipTo: deliveryNoteData.shipTo,
         lines: deliveryNoteData.lines,
-        company: { name: 'Santa Brisa', vat: 'B00000000' } // Should come from settings
+        company: { name: 'Santa Brisa', vat: 'B00000000' }
     });
 
-    const pdfUrl = await uploadPdfToStorage(pdfBytes, `${dnId}.pdf`);
+    const pdfUrl = await saveBufferToStorage(`deliveryNotes/${dnId}.pdf`, Buffer.from(pdfBytes), 'application/pdf');
 
     await adminDb.collection('deliveryNotes').doc(dnId).set({ ...deliveryNoteData, pdfUrl });
     await shipmentRef.update({ deliveryNoteId: dnId, updatedAt: new Date().toISOString() });

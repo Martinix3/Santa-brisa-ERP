@@ -1,9 +1,10 @@
+// src/server/workers/createInhouseLabel.worker.ts
 'use server';
 import { adminDb } from '@/server/firebaseAdmin';
 import type { Shipment } from '@/domain/ssot';
 
 // This is a stub. A real implementation would generate a PDF/ZPL with QR codes.
-export async function handleCreateInhousePalletLabel({ shipmentId }: { shipmentId: string }) {
+export async function run({ shipmentId }: { shipmentId: string }) {
     console.log(`[WORKER-STUB] Received job to create in-house pallet label for shipment ${shipmentId}`);
 
     const shipmentRef = adminDb.collection('shipments').doc(shipmentId);

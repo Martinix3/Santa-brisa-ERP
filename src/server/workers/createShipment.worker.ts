@@ -1,9 +1,9 @@
-
+// src/server/workers/createShipment.worker.ts
 'use server';
 import { adminDb } from '@/server/firebaseAdmin';
-import type { OrderSellOut, Shipment, Account, Party, PartyRole, CustomerData } from '@/domain/ssot';
+import type { OrderSellOut, Shipment, Account, Party } from '@/domain/ssot';
 
-export async function handleCreateShipmentFromOrder({ orderId }: { orderId: string }) {
+export async function run({ orderId }: { orderId: string }) {
     const orderSnap = await adminDb.collection('ordersSellOut').doc(orderId).get();
     if (!orderSnap.exists) {
         throw new Error(`Order ${orderId} not found.`);
@@ -30,7 +30,8 @@ export async function handleCreateShipmentFromOrder({ orderId }: { orderId: stri
     const totalUnits = (order.lines || []).reduce((sum, line) => sum + line.qty, 0);
     const mode: 'PARCEL' | 'PALLET' = isOnlineOrPrivate || totalUnits < 12 ? 'PARCEL' : 'PALLET';
 
-    const shipmentId = `shp_${Date.now()}`;
+    const shipmentId = adminDb.collection('shipments').doc().id;
+    
     const newShipment: Shipment = {
         id: shipmentId,
         orderId: order.id,

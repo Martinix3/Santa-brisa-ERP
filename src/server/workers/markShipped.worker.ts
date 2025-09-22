@@ -1,8 +1,9 @@
+// src/server/workers/markShipped.worker.ts
 'use server';
 import { adminDb } from '@/server/firebaseAdmin';
 import type { Shipment } from '@/domain/ssot';
 
-export async function handleMarkShipmentShipped({ shipmentId }: { shipmentId: string }) {
+export async function run({ shipmentId }: { shipmentId: string }) {
     const shipmentRef = adminDb.collection('shipments').doc(shipmentId);
     const shipmentSnap = await shipmentRef.get();
     if (!shipmentSnap.exists) {
@@ -27,9 +28,6 @@ export async function handleMarkShipmentShipped({ shipmentId }: { shipmentId: st
         status: 'shipped',
         updatedAt: new Date().toISOString(),
     });
-
-    // Future enhancement: Enqueue a job to update Shopify fulfillment
-    // await enqueue({ kind: 'UPDATE_SHOPIFY_FULFILLMENT', payload: { ... } });
 
     console.log(`Shipment ${shipmentId} marked as shipped.`);
 }

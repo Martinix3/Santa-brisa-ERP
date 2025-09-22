@@ -1,9 +1,9 @@
-
+// src/server/workers/validateShipment.worker.ts
 'use server';
 import { adminDb } from '@/server/firebaseAdmin';
 import type { Shipment, ShipmentLine } from '@/domain/ssot';
 
-export async function handleValidateShipment(payload: {
+export async function run(payload: {
     shipmentId: string;
     visualOk: boolean;
     carrier?: string;
