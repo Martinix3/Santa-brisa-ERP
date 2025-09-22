@@ -1,6 +1,6 @@
 'use server';
 
-import { renderDeliveryNotePdf, toDataUri } from '@/deliveryNote';
+import { renderDeliveryNotePdf, toDataUri } from '@/server/pdf/deliveryNote';
 
 export async function generateTestPdf() {
   const pdf = await renderDeliveryNotePdf({
