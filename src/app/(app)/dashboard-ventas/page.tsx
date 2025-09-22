@@ -116,7 +116,7 @@ function CommercialsRace({
 
       const userAccountIds = new Set(userAccounts.map((a:Account) => a.id));
       const ordersInPeriod = data.ordersSellOut
-        .filter((o: OrderSellOut) => userAccountIds.has(o.accountId) && inWindow(o.createdAt, startOfYear, new Date()));
+        .filter((o: OrderSellOut) => userAccountIds.has(o.accountId) && inWindow(String(o.createdAt), startOfYear, new Date()));
       const totalSales = ordersInPeriod.reduce((sum: number, o: OrderSellOut) => sum + orderTotal(o), 0);
 
       const report: UserReportData = {
@@ -184,7 +184,7 @@ function SalesChannelDonut({ data, timeRange }: { data:any; timeRange:TimeRange 
   else { start.setMonth(0); start.setDate(1); }
   start.setHours(0,0,0,0);
 
-  const orders = data.ordersSellOut.filter((o:OrderSellOut)=> inWindow(o.createdAt, start, now));
+  const orders = data.ordersSellOut.filter((o:OrderSellOut)=> inWindow(String(o.createdAt), start, now));
   const accById = new Map<string,Account>(data.accounts.map((a:Account)=>[a.id,a]));
   const mix = { ONLINE:0, PRIVADA:0, HORECA:0, RETAIL:0 };
 
@@ -237,7 +237,7 @@ function buildTimeSeries(orders: OrderSellOut[], start: Date, end: Date, granula
       const dayEnd   = new Date(cursor); dayEnd.setHours(23,59,59,999);
       const name = dayStart.toLocaleDateString('es-ES', { weekday:'short', day:'2-digit' }); // ej. "lun 22"
       const sales = orders
-        .filter(o => inWindow(o.createdAt, dayStart, dayEnd))
+        .filter(o => inWindow(String(o.createdAt), dayStart, dayEnd))
         .reduce((s,o)=> s + orderTotal(o), 0);
       out.push({ name, sales });
       cursor.setDate(cursor.getDate()+1);
@@ -250,7 +250,7 @@ function buildTimeSeries(orders: OrderSellOut[], start: Date, end: Date, granula
       const mEnd   = new Date(m.getFullYear(), m.getMonth()+1, 0, 23,59,59,999);
       const name = mStart.toLocaleDateString('es-ES', { month:'short' }); // "ene"
       const sales = orders
-        .filter(o => inWindow(o.createdAt, mStart, mEnd))
+        .filter(o => inWindow(String(o.createdAt), mStart, mEnd))
         .reduce((s,o)=> s + orderTotal(o), 0);
       out.push({ name, sales });
     }
@@ -284,7 +284,7 @@ function TeamDashboardContent() {
     startDate.setHours(0,0,0,0);
 
 
-    const ordersInPeriod = data.ordersSellOut.filter(o => inWindow(o.createdAt, startDate, now));
+    const ordersInPeriod = data.ordersSellOut.filter(o => inWindow(String(o.createdAt), startDate, now));
     const granularity = timeRange === 'year' ? 'month' : 'day';
     const baseSeries = buildTimeSeries(ordersInPeriod, startDate, now, granularity);
 
@@ -305,7 +305,7 @@ function TeamDashboardContent() {
     const visitsInPeriod = data.interactions.filter(i =>
         i.kind === 'VISITA' &&
         i.status === 'done' &&
-        inWindow(i.createdAt, startDate, now)
+        inWindow(String(i.createdAt), startDate, now)
     ).length;
 
     const teamStats = { totalNewAccounts, conversionRate, attributedSales, visitsInPeriod };
