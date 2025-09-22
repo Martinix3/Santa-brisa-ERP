@@ -86,7 +86,7 @@ const ValidateDialog: React.FC<{ open: boolean; onOpenChange: (v: boolean) => vo
   const [packer, setPacker] = React.useState<string>("");
   const [carrier, setCarrier] = React.useState<string>("");
 
-  React.useEffect(() => {
+  useEffect(() => {
     if(shipment) {
         setVisualOk(Boolean(shipment.checks?.visualOk));
         setPicker(shipment.packedById || "");
@@ -237,7 +237,7 @@ export default function LogisticsPage() {
   const [currentShipment, setCurrentShipment] = useState<Shipment | null>(null);
   const [showOnlyAvailable, setShowOnlyAvailable] = useState(true);
   
-  const [generatingSlip, setGeneratingSlip] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
   const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
 
   const { shipments, orders, accounts, parties } = useMemo(() => ({
@@ -275,28 +275,58 @@ export default function LogisticsPage() {
 
   const openValidateFor = (row: Shipment) => { setCurrentShipment(row); setOpenValidate(true); };
 
-  const handleSaveValidation = async (payload: any) => {
+  const handleAction = (action: () => Promise<any>, successMessage: string) => {
+    startTransition(async () => {
+        try {
+            await action();
+            setNotification({ type: 'success', message: successMessage });
+        } catch (e: any) {
+            setNotification({ type: 'error', message: `Error: ${e.message}` });
+        }
+    });
+  };
+
+  const handleSaveValidation = (payload: any) => {
     if (!currentShipment) return;
-    await validateShipment(currentShipment.id, payload);
+    handleAction(() => validateShipment(currentShipment.id, payload), `Envío ${currentShipment.id} validado.`);
     setOpenValidate(false);
-    setNotification({ type: 'success', message: `Envío ${currentShipment.id} validado.` });
   };
   
-  const handleSaveNewShipment = async (shipmentData: Omit<Shipment, 'id' | 'createdAt' | 'updatedAt'>) => {
-      await createShipmentFromOrder(shipmentData.orderId); // Asumiendo que se crea desde un pedido, o se necesita una nueva acción.
+  const handleSaveNewShipment = (shipmentData: Omit<Shipment, 'id' | 'createdAt' | 'updatedAt'>) => {
+      handleAction(() => createShipmentFromOrder(shipmentData.orderId), `Job para crear envío encolado.`);
       setOpenNewShipment(false);
-      setNotification({ type: 'success', message: `Job para crear envío encolado.` });
+  };
+
+  const generatePickingSlip = async (shipmentId: string) => {
+    try {
+        const response = await fetch(`/api/shipment/${shipmentId}/picking-slip`);
+        if (!response.ok) {
+            throw new Error('Failed to generate picking slip');
+        }
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `picking-slip-${shipmentId}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+    } catch (error) {
+        console.error('Error downloading picking slip:', error);
+        setNotification({ type: 'error', message: 'No se pudo generar la hoja de picking.' });
+    }
   };
   
   type RowAction = { id: string; label: string; icon: React.ReactNode; onClick: () => void; available: boolean; pendingReason?: string };
   const buildRowActions = (shipment: Shipment): RowAction[] => {
     const isPending = shipment.status === 'pending' || shipment.status === 'picking';
     const actions: RowAction[] = [
-      { id: "picking_slip", label: "Generar Hoja de Picking", icon: <FileText className="w-4 h-4"/>, onClick: () => window.open(`/api/shipment/${shipment.id}/picking-slip`, '_blank'), available: isPending },
+      { id: "picking_slip", label: "Generar Hoja de Picking", icon: <FileText className="w-4 h-4"/>, onClick: () => generatePickingSlip(shipment.id), available: isPending },
       { id: "validate", label: "Validar (lotes + visual)", icon: <BadgeCheck className="w-4 h-4"/>, onClick: () => openValidateFor(shipment), available: isPending },
-      { id: "delivery", label: "Generar albarán (PDF)", icon: <FileText className="w-4 h-4"/>, onClick: () => createDeliveryNote(shipment.id), available: canGenerateDeliveryNote(shipment), pendingReason: "Requiere Visual OK" },
-      { id: "label", label: "Generar etiqueta", icon: <Truck className="w-4 h-4"/>, onClick: () => shipment.mode === 'PARCEL' ? createParcelLabel(shipment.id) : createPalletLabel(shipment.id), available: canGenerateLabel(shipment), pendingReason: "Req. Albarán/Peso" },
-      { id: "ship", label: "Marcar enviado", icon: <PackageCheck className="w-4 h-4"/>, onClick: () => markShipped(shipment.id), available: canMarkShipped(shipment), pendingReason: "Requiere Etiqueta" },
+      { id: "delivery", label: "Generar albarán (PDF)", icon: <FileText className="w-4 h-4"/>, onClick: () => handleAction(() => createDeliveryNote(shipment.id), 'Job para generar albarán encolado.'), available: canGenerateDeliveryNote(shipment), pendingReason: "Requiere Visual OK" },
+      { id: "label", label: "Generar etiqueta", icon: <Truck className="w-4 h-4"/>, onClick: () => handleAction(() => shipment.mode === 'PARCEL' ? createParcelLabel(shipment.id) : createPalletLabel(shipment.id), 'Job para generar etiqueta encolado.'), available: canGenerateLabel(shipment), pendingReason: "Req. Albarán/Peso" },
+      { id: "ship", label: "Marcar enviado", icon: <PackageCheck className="w-4 h-4"/>, onClick: () => handleAction(() => markShipped(shipment.id), 'Job para marcar como enviado encolado.'), available: canMarkShipped(shipment), pendingReason: "Requiere Etiqueta" },
     ];
     return showOnlyAvailable ? actions.filter(a => a.available) : actions;
   };
@@ -346,14 +376,20 @@ export default function LogisticsPage() {
                   <option value="distribuidor">Distribuidor</option>
               </Select>
             </div>
+            <div className="flex items-center gap-2">
+                <label htmlFor="show-all-actions" className="text-sm flex items-center gap-2">
+                    <Checkbox id="show-all-actions" checked={!showOnlyAvailable} onCheckedChange={(c: boolean) => setShowOnlyAvailable(!c)} />
+                    Mostrar todas las acciones
+                </label>
+            </div>
           </div>
         </div>
       </SBCard>
 
       {/* Tabla principal */}
-       <SBCard title="Pedidos">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+      <SBCard title="Pedidos">
+        <div className="overflow-x-visible">
+          <table>
             <thead className="text-[11px] uppercase tracking-wide text-sb-neutral-500 bg-white">
               <tr>
                 <th className="p-3 w-10 text-center"><Checkbox checked={selected.length === filtered.length && filtered.length > 0} onCheckedChange={(checked: boolean) => setSelected(checked ? filtered.map(s => s.id) : [])}/></th>
@@ -443,6 +479,7 @@ export default function LogisticsPage() {
     </div>
   );
 }
+
 
 
 
