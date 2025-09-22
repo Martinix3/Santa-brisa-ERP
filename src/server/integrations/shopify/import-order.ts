@@ -9,8 +9,6 @@ const ONLINE_PARTY_LEGAL = 'SHOPIFY D2C';
 const ONLINE_ACCOUNT_NAME = 'Canal Online (Shopify)';
 
 async function ensureOnlinePartyAccount() {
-  // This helper function might need adjustment based on how getServerData is implemented.
-  // For now, assuming it can fetch specific collections.
   const data = await getServerData() as { parties: Party[]; accounts: Account[] };
 
   let party = data.parties.find(p => p.legalName === ONLINE_PARTY_LEGAL);
