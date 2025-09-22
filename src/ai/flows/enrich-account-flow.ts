@@ -12,13 +12,13 @@ import {
   EnrichAccountInputSchema,
   EnrichAccountOutputSchema,
 } from '@/domain/schemas/enrich-account';
-import { type ZodTypeAny } from 'genkit/zod';
+import type { GenkitZodCompat } from '@/ai/zod-compat';
 
 export async function enrichAccount(input: EnrichAccountInput): Promise<EnrichAccountOutput> {
   const enrichAccountPrompt = ai.definePrompt({
     name: 'enrichAccountPrompt',
-    input: { schema: EnrichAccountInputSchema as ZodTypeAny },
-    output: { schema: EnrichAccountOutputSchema as ZodTypeAny },
+    input: { schema: EnrichAccountInputSchema as GenkitZodCompat },
+    output: { schema: EnrichAccountOutputSchema as GenkitZodCompat },
     prompt: `
       You are an expert business analyst. Your task is to research a business based on its name and location and return structured data about it.
       Analyze the following business and provide the requested information in the specified JSON format.
