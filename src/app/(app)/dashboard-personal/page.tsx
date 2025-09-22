@@ -5,12 +5,13 @@ import { BarChart3, Calendar, CheckCircle, Clock, Plus, AlertTriangle } from 'lu
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
 import { SBCard, SBButton } from '@/components/ui/ui-primitives';
 import { useData } from '@/lib/dataprovider';
-import type { Interaction, InteractionStatus, Account, SantaData, OrderSellOut, Payload } from '@/domain/ssot';
+import type { Interaction, InteractionStatus, Account, SantaData, OrderSellOut, Payload, MarketingEvent } from '@/domain/ssot';
 import { SB_COLORS } from '@/domain/ssot';
 import Link from 'next/link';
 import { TaskBoard } from '@/features/agenda/TaskBoard';
 import type { Task } from '@/features/agenda/TaskBoard';
 import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/TaskCompletionDialog';
+import { MarketingTaskCompletionDialog } from '@/features/marketing/components/MarketingTaskCompletionDialog';
 import { NewEventDialog } from '@/features/agenda/components/NewEventDialog';
 import { sbAsISO } from '@/features/agenda/helpers';
 
@@ -60,6 +61,7 @@ function PersonalDashboardContent() {
   const { currentUser, data, setData, saveAllCollections, saveCollection } = useData();
   const [completingTask, setCompletingTask] = useState<Interaction | null>(null);
   const [isNewEventDialogOpen, setIsNewEventDialogOpen] = useState(false);
+  const [completingMarketingEvent, setCompletingMarketingEvent] = useState<MarketingEvent | null>(null);
   
   const userInteractions = useMemo(() => {
     if (!data || !currentUser) return [];
@@ -93,8 +95,17 @@ function PersonalDashboardContent() {
   
   const handleUpdateStatus = (id: string, newStatus: InteractionStatus) => {
     const taskToUpdate = userInteractions.find(i => i.id === id);
-     if (newStatus === 'done' && taskToUpdate) {
+    if (!taskToUpdate) return;
+
+    if (newStatus === 'done') {
+      if (taskToUpdate.kind === 'EVENTO_MKT' && taskToUpdate.linkedEntity?.id && data?.marketingEvents) {
+        const event = data.marketingEvents.find(e => e.id === taskToUpdate.linkedEntity?.id);
+        if (event) {
+          setCompletingMarketingEvent(event);
+        }
+      } else {
         setCompletingTask(taskToUpdate);
+      }
     }
   };
 
@@ -168,6 +179,34 @@ function PersonalDashboardContent() {
     
       setCompletingTask(null);
   };
+  
+  const handleSaveMarketingEventTask = async (eventId: string, payload: any) => {
+    if (!data) return;
+    
+    const updatedMktEvents = data.marketingEvents.map(me => {
+        if (me.id === eventId) {
+            return {
+                ...me,
+                status: 'closed',
+                spend: payload.spend,
+                kpis: {
+                    leads: payload.leads,
+                    sampling: payload.sampling,
+                    impressions: payload.impressions,
+                    interactions: payload.interactions,
+                    completedAt: new Date().toISOString(),
+                }
+            } as MarketingEvent;
+        }
+        return me;
+    });
+
+    const interactionToClose = data.interactions.find(i => i.linkedEntity?.id === eventId);
+    const updatedInteractions = interactionToClose ? data.interactions.map(i => i.id === interactionToClose.id ? {...i, status: 'done' as InteractionStatus} : i) : data.interactions;
+
+    await saveAllCollections({ marketingEvents: updatedMktEvents, interactions: updatedInteractions });
+    setCompletingMarketingEvent(null);
+  };
 
 
   if (!currentUser || !data) {
@@ -225,6 +264,15 @@ function PersonalDashboardContent() {
               onComplete={handleSaveCompletedTask}
           />
       )}
+
+      {completingMarketingEvent && (
+            <MarketingTaskCompletionDialog
+                event={completingMarketingEvent}
+                open={!!completingMarketingEvent}
+                onClose={() => setCompletingMarketingEvent(null)}
+                onComplete={handleSaveMarketingEventTask}
+            />
+        )}
     </>
   );
 }
