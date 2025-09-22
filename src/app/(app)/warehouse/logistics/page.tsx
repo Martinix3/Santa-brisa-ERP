@@ -1,7 +1,7 @@
 
 
 "use client";
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useTransition } from "react";
 import { Printer, PackageCheck, Truck, CheckCircle2, Search, Plus, FileText, ClipboardList, Boxes, PackageOpen, BadgeCheck, AlertTriangle, Settings, Clipboard, Ruler, Weight, MoreHorizontal, Check as CheckIcon, FileDown, Package, Info, X, Loader2 } from "lucide-react";
 import { SBButton, SBCard, Input, Select, STATUS_STYLES } from '@/components/ui/ui-primitives';
 import { useData } from '@/lib/dataprovider';
@@ -350,21 +350,21 @@ export default function LogisticsPage() {
 
       {/* Tabla principal */}
       <SBCard title="Pedidos">
-         <div>
-          <table className="w-full text-sm table-fixed">
-            <thead className="bg-zinc-50 text-left text-zinc-600">
+         <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="text-[11px] uppercase tracking-wide text-sb-neutral-500 bg-white">
               <tr>
-                <th className="p-3 w-10"><Checkbox checked={selected.length === filtered.length && filtered.length > 0} onCheckedChange={(checked: boolean) => setSelected(checked ? filtered.map(s => s.id) : [])}/></th>
-                <th className="p-3 w-32 font-semibold">ID Envío</th>
-                <th className="p-3 font-semibold">Fecha</th>
-                <th className="p-3 font-semibold">Canal</th>
-                <th className="p-3 font-semibold">Cliente</th>
-                <th className="p-3 font-semibold">Artículos</th>
-                <th className="p-3 font-semibold">Estado</th>
+                <th className="p-3"><Checkbox checked={selected.length === filtered.length && filtered.length > 0} onCheckedChange={(checked: boolean) => setSelected(checked ? filtered.map(s => s.id) : [])}/></th>
+                <th className="p-3 font-semibold text-left">ID Envío</th>
+                <th className="p-3 font-semibold text-left">Fecha</th>
+                <th className="p-3 font-semibold text-left">Canal</th>
+                <th className="p-3 font-semibold text-left">Cliente</th>
+                <th className="p-3 font-semibold text-left">Artículos</th>
+                <th className="p-3 font-semibold text-left">Estado</th>
                 <th className="p-3 w-16 text-right font-semibold">Acciones</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-100">
+            <TableBody className="divide-y divide-zinc-100">
               {filtered.map(shipment => {
                 const order = orderMap.get(shipment.orderId || '');
                 const account = accountMap.get(order?.accountId || '');
@@ -372,18 +372,18 @@ export default function LogisticsPage() {
                 const style = STATUS_STYLES[shipment.status as keyof typeof STATUS_STYLES] || STATUS_STYLES['pending'];
                 
                 return (
-                  <tr key={shipment.id} className="hover:bg-zinc-50">
-                    <td className="p-3"><Checkbox checked={selected.includes(shipment.id)} onCheckedChange={(checked: boolean) => setSelected(p => checked ? [...p, shipment.id] : p.filter(id => id !== shipment.id))} /></td>
-                    <td className="p-3 font-medium font-mono">{shipment.id.substring(0,8)}...</td>
-                    <td className="p-3">{new Date(shipment.createdAt).toLocaleDateString('es-ES')}</td>
-                    <td className="p-3"><span className={`inline-flex items-center px-2 py-0.5 rounded-md border text-xs ${channelInfo.className}`}>{channelInfo.label}</span></td>
-                    <td className="p-3">
+                  <TableRow key={shipment.id} className="hover:bg-zinc-50 relative">
+                    <TableCell className="p-3"><Checkbox checked={selected.includes(shipment.id)} onCheckedChange={(checked: boolean) => setSelected(p => checked ? [...p, shipment.id] : p.filter(id => id !== shipment.id))} /></TableCell>
+                    <TableCell className="p-3 font-medium font-mono">{shipment.id.substring(0,8)}...</TableCell>
+                    <TableCell className="p-3">{new Date(shipment.createdAt).toLocaleDateString('es-ES')}</TableCell>
+                    <TableCell className="p-3"><span className={`inline-flex items-center px-2 py-0.5 rounded-md border text-xs ${channelInfo.className}`}>{channelInfo.label}</span></TableCell>
+                    <TableCell className="p-3">
                       <div>
                         <p className="font-medium">{shipment?.customerName || 'N/A'}</p>
                         <p className="text-xs text-zinc-500">{shipment?.city}</p>
                       </div>
-                    </td>
-                    <td className="p-3">
+                    </TableCell>
+                    <TableCell className="p-3">
                       <ul className="text-sm space-y-1">
                         {shipment.lines.map((it: any) => (
                           <li key={it.sku} className="flex items-center gap-2">
@@ -393,9 +393,9 @@ export default function LogisticsPage() {
                           </li>
                         ))}
                       </ul>
-                    </td>
-                    <td className="p-3"><span className={`inline-flex items-center px-2 py-1 rounded-md border text-xs ${style.bg} ${style.color}`}>{style.label}</span></td>
-                    <td className="p-3 text-right">
+                    </TableCell>
+                    <TableCell className="p-3"><span className={`inline-flex items-center px-2 py-1 rounded-md border text-xs ${style.bg} ${style.color}`}>{style.label}</span></TableCell>
+                    <TableCell className="p-3 text-right">
                        <DropdownMenu>
                           <DropdownMenuTrigger>
                               <SBButton variant="secondary">
@@ -415,11 +415,11 @@ export default function LogisticsPage() {
                             ))}
                           </DropdownMenuContent>
                         </DropdownMenu>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
-            </tbody>
+            </TableBody>
           </table>
         </div>
       </SBCard>
