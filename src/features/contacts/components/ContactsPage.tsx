@@ -8,7 +8,8 @@ import { SBCard, Input, Select } from '@/components/ui/ui-primitives';
 import { Search, Building, User as UserIcon, Mail, Phone, Globe } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import Link from 'next/link';
-import { PARTY_ROLE_META, hexToRgba } from '@/domain/ssot';
+import { PARTY_ROLE_META } from '@/domain/ssot';
+import { hexToRgba } from '@/components/ui/ui-primitives';
 
 
 function PartyRoleBadge({ role }: { role: PartyRoleType }) {
