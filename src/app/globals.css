@@ -50,27 +50,50 @@
 @layer components {
   /* Botón primario amarillo Santa Brisa */
   .sb-btn-primary {
-    @apply bg-primary text-primary-foreground hover:bg-primary/90
-           rounded-xl shadow-sm transition-all duration-150 focus-visible:outline-none
-           focus-visible:ring-2 focus-visible:ring-primary/30 active:scale-[0.98];
+    background-color: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+    border-radius: theme('borderRadius.xl');
+    box-shadow: theme('boxShadow.sm');
+    transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .sb-btn-primary:hover {
+    background-color: hsl(var(--primary) / 0.9);
+  }
+  .sb-btn-primary:focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+   .sb-btn-primary:active {
+    transform: scale(0.98);
   }
 
   /* Paneles y tarjetas suaves */
   .sb-card {
-    @apply rounded-2xl border border-[hsl(var(--border)/0.6)]
-           bg-background/90 shadow-md backdrop-blur-[2px];
+    border-radius: theme('borderRadius.2xl');
+    border-width: 1px;
+    border-color: hsl(var(--border) / 0.6);
+    background-color: hsl(var(--background) / 0.9);
+    box-shadow: theme('boxShadow.md');
+    backdrop-filter: blur(2px);
   }
 
   /* Menús / popovers suaves con animación */
   .sb-menu {
-    @apply rounded-xl border border-[hsl(var(--border)/0.6)]
-           bg-background/95 shadow-lg backdrop-blur-[4px]
-           animate-in fade-in-50 slide-in-from-top-1 duration-150;
+    border-radius: theme('borderRadius.xl');
+    border-width: 1px;
+    border-color: hsl(var(--border) / 0.6);
+    background-color: hsl(var(--background) / 0.95);
+    box-shadow: theme('boxShadow.lg');
+    backdrop-filter: blur(4px);
+    animation: theme('animation.fade-in-50'), theme('animation.slide-in-from-top-1');
   }
 
   /* Chips/badges “éxito” con verde suave corporativo */
   .sb-badge-success {
-    @apply bg-[hsl(var(--sb-verde-mar)/0.12)] text-[hsl(var(--sb-verde-mar))]
-           border border-[hsl(var(--sb-verde-mar)/0.25)] rounded-lg;
+    background-color: hsl(var(--sb-verde-mar) / 0.12);
+    color: hsl(var(--sb-verde-mar));
+    border-width: 1px;
+    border-color: hsl(var(--sb-verde-mar) / 0.25);
+    border-radius: theme('borderRadius.lg');
   }
 }

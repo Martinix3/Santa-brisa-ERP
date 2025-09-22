@@ -379,7 +379,7 @@ export default function LogisticsPage() {
           <h1 className="text-2xl font-semibold text-zinc-900">Logística de Salidas</h1>
           <p className="text-sm text-zinc-500">Confirmado → picking → validación → albarán → etiqueta → envío. Con trazabilidad por lote.</p>
         </div>
-        <SBButton onClick={() => setOpenNewShipment(true)}>
+        <SBButton onClick={() => setOpenNewShipment(true)} className="sb-btn-primary">
             <Plus size={16} className="mr-2"/> Nuevo Envío
         </SBButton>
       </div>
@@ -479,7 +479,7 @@ export default function LogisticsPage() {
                                 {generatingSlip === shipment.id ? <Loader2 className="h-4 w-4 animate-spin"/> : <MoreHorizontal className="w-4 h-4"/>}
                               </SBButton>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-64">
+                          <DropdownMenuContent align="end" className="w-64 sb-menu">
                             <DropdownMenuLabel>Acciones</DropdownMenuLabel>
                             <DropdownMenuSeparator />
                             {buildRowActions(shipment).map((a) => (
