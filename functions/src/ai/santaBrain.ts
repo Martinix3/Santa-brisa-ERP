@@ -1,11 +1,11 @@
-import { ai } from './index.js';
+import { ai } from '@/ai';
 import { gemini15Flash } from '@genkit-ai/googleai';
 import {
   memory_get_context, memory_upsert, memory_update_profile,
   query_accounts, get_account_deep, list_collection,
   create_account, ensure_account, create_order, create_interaction, create_event,
   get_upcoming_agenda, get_accounts_overview
-} from './tools.js';
+} from './tools';
 
 const SYSTEM_PROMPT = `
 Eres **Santa Brain**, asistente del CRM Santa Brisa.

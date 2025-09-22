@@ -34,6 +34,7 @@
     "@google-cloud/firestore": "latest",
     "firebase": "latest",
     "firebase-admin": "latest",
+    "firebase-functions": "^5.0.1",
     "framer-motion": "latest",
     "genkit": "latest",
     "jszip": "latest",
@@ -46,7 +47,7 @@
     "react-dropzone": "latest",
     "recharts": "latest",
     "server-only": "latest",
-    "zod": "3.25.76"
+    "zod": "3.23.8"
   },
   "devDependencies": {
     "@eslint/eslintrc": "latest",
@@ -74,7 +75,7 @@
     "vitest": "latest"
   },
   "engines": {
-    "node": ">=18.18.0",
+    "node": ">=20",
     "npm": ">=10.0.0"
   }
 }

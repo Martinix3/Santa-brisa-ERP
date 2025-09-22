@@ -1,5 +1,5 @@
 import { onRequest } from 'firebase-functions/v2/https';
-import { santaBrainRun } from './ai/santaBrain.js';
+import { santaBrainRun } from './ai/santaBrain';
 
 export const santaBrain = onRequest(
   { region: 'europe-west1', cors: true },

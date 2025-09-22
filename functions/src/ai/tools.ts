@@ -1,8 +1,8 @@
 // functions/src/ai/tools.ts
 import { z } from 'zod';
-import { ai } from './index.js';
-import { db } from '../firebaseAdmin.js';
-import type { OrderSellOut, Account } from '../domain/ssot.js';
+import { ai } from '@/ai';
+import { adminDb as db } from '@/server/firebaseAdmin';
+import type { OrderSellOut, Account } from '@/domain/ssot';
 
 // ===== Helpers =====
 const nowIso = () => new Date().toISOString();
