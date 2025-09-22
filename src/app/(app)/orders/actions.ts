@@ -54,3 +54,32 @@ export async function updateOrderStatus(
     return { ok: false, order: {id: order.id, status: newStatus}, shipment: null, error: err.message };
   }
 }
+
+export async function importShopifyOrder(orderId: string): Promise<OrderSellOut> {
+  if (!orderId) throw new Error('Falta orderId');
+  if (!process.env.INTEGRATIONS_API_KEY) throw new Error('INTEGRATIONS_API_KEY no configurada');
+
+  // Construye URL local (funciona en dev/prod)
+  const base =
+    process.env.NEXT_PUBLIC_BASE_URL?.replace(/\/$/, '') ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+
+  const res = await fetch(`${base}/api/integrations/shopify/import-order`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': process.env.INTEGRATIONS_API_KEY!,
+    },
+    body: JSON.stringify({ orderId }),
+    cache: 'no-store',
+  });
+
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json?.ok) {
+    throw new Error(json?.error || `Error importando pedido ${orderId}`);
+  }
+
+  // Refresca la página de pedidos
+  revalidatePath('/orders');
+  return json.order as OrderSellOut;
+}

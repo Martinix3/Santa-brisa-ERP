@@ -15,6 +15,7 @@ import { generateNextOrder } from '@/lib/codes';
 import { consignmentOnHandByAccount, consignmentTotalUnits } from "@/lib/consignment-and-samples";
 import { checkOrderStock } from '@/lib/inventory';
 import { updateOrderStatus } from '@/app/(app)/orders/actions';
+import { ImportShopifyOrderButton } from './ImportShopifyOrderButton';
 
 type Tab = 'directa' | 'colocacion';
 
@@ -337,6 +338,7 @@ export default function OrdersDashboard() {
     <>
       <ModuleHeader title="Gestión de Pedidos" icon={ShoppingCart}>
         <div className="flex items-center gap-2">
+            <ImportShopifyOrderButton />
             <button onClick={handleExport} className="flex items-center gap-2 text-sm bg-white border border-zinc-200 rounded-md px-3 py-1.5 hover:bg-zinc-50" aria-label="Exportar datos a CSV">
               <Download size={14} /> Exportar
             </button>
@@ -384,6 +386,7 @@ export default function OrdersDashboard() {
                 <th scope="col" className="p-3 font-semibold text-zinc-600">Cliente</th>
                 <th scope="col" className="p-3 font-semibold text-zinc-600">Comercial</th>
                 <th scope="col" className="p-3 font-semibold text-zinc-600">Fecha</th>
+                <th scope="col" className="p-3 font-semibold text-zinc-600">Fuente</th>
                 <th scope="col" className="p-3 font-semibold text-zinc-600 text-right">Total</th>
                 <th scope="col" className="p-3 font-semibold text-zinc-600">Estado</th>
               </tr>
@@ -421,6 +424,11 @@ export default function OrdersDashboard() {
                         </td>
                         <td className="p-3">{owner?.name || 'N/A'}</td>
                         <td className="p-3">{new Date(order.createdAt).toLocaleDateString('es-ES')}</td>
+                        <td className="p-3">
+                            <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs border bg-zinc-100 text-zinc-800">
+                                {order.source || 'CRM'}
+                            </span>
+                        </td>
                         <td className="p-3 text-right font-semibold">
                           {orderTotal(order as OrderSellOut).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
                         </td>
