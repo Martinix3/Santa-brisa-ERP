@@ -1,3 +1,4 @@
+
 // functions/src/ai/tools.ts
 import { z } from 'zod';
 import { ai } from './index.js';
@@ -31,8 +32,8 @@ const memoryUpsertSchema = z.object({
 });
 
 export const memory_upsert = ai.defineTool(
-  'memory_upsert',
   {
+    name: 'memory_upsert',
     description: 'Guarda un mensaje o resumen del hilo.',
     inputSchema: memoryUpsertSchema,
     outputSchema: z.object({ ok: z.boolean() }),
@@ -57,8 +58,8 @@ const memoryGetContextSchema = z.object({
 });
 
 export const memory_get_context = ai.defineTool(
-  'memory_get_context',
   {
+    name: 'memory_get_context',
     description: 'Recupera últimas N entradas del hilo + perfil largo.',
     inputSchema: memoryGetContextSchema,
     outputSchema: z.object({
@@ -85,7 +86,7 @@ export const memory_get_context = ai.defineTool(
       .map((d) => ({ role: d.role, text: d.text }));
 
     const profileDoc = await db.collection('brain_memory').doc(userId).get();
-    return { messages, profile: profileDoc.exists() ? (profileDoc.data() as any).profile : undefined };
+    return { messages, profile: profileDoc.exists ? (profileDoc.data() as any).profile : undefined };
   }
 );
 
@@ -95,8 +96,8 @@ const memoryUpdateProfileSchema = z.object({
 });
 
 export const memory_update_profile = ai.defineTool(
-  'memory_update_profile',
   {
+    name: 'memory_update_profile',
     description: 'Actualiza el perfil de largo plazo del usuario.',
     inputSchema: memoryUpdateProfileSchema,
     outputSchema: z.object({ ok: z.boolean() }),
@@ -118,8 +119,8 @@ const queryAccountsSchema = z.object({
 });
 
 export const query_accounts = ai.defineTool(
-  'query_accounts',
   {
+    name: 'query_accounts',
     description: 'Busca cuentas por nombre/ciudad/contacto (dev simple).',
     inputSchema: queryAccountsSchema,
     outputSchema: z.object({ results: z.array(z.any()) }),
@@ -145,8 +146,8 @@ export const query_accounts = ai.defineTool(
 const getAccountDeepSchema = z.object({ accountId: z.string() });
 
 export const get_account_deep = ai.defineTool(
-  'get_account_deep',
   {
+    name: 'get_account_deep',
     description: 'Cuenta + últimos pedidos/interacciones/eventos.',
     inputSchema: getAccountDeepSchema,
     outputSchema: z.object({
@@ -190,8 +191,8 @@ const listCollectionSchema = z.object({
 });
 
 export const list_collection = ai.defineTool(
-  'list_collection',
   {
+    name: 'list_collection',
     description: 'Lee una colección SSOT permitida (cruda) con límite.',
     inputSchema: listCollectionSchema,
     outputSchema: z.object({ docs: z.array(z.any()) }),
@@ -245,8 +246,8 @@ async function createAccountDirect(args: z.infer<typeof createAccountSchema>) {
 }
 
 export const create_account = ai.defineTool(
-  'create_account',
   {
+    name: 'create_account',
     description: 'Crea una cuenta SSOT con datos mínimos.',
     inputSchema: createAccountSchema,
     outputSchema: z.object({ id: z.string() }),
@@ -264,8 +265,8 @@ const ensureAccountSchema = z.object({
 });
 
 export const ensure_account = ai.defineTool(
-  'ensure_account',
   {
+    name: 'ensure_account',
     description: 'Devuelve accountId; busca por nombre/email y crea si no existe.',
     inputSchema: ensureAccountSchema,
     outputSchema: z.object({ id: z.string(), existed: z.boolean() }),
@@ -298,8 +299,8 @@ const createOrderSchema = z.object({
 });
 
 export const create_order = ai.defineTool(
-  'create_order',
   {
+    name: 'create_order',
     description: 'Crea un pedido en `orders`.',
     inputSchema: createOrderSchema,
     outputSchema: z.object({
@@ -349,8 +350,8 @@ const createInteractionSchema = z.object({
 });
 
 export const create_interaction = ai.defineTool(
-  'create_interaction',
   {
+    name: 'create_interaction',
     description: 'Registra una interacción (VISITA, LLAMADA, EMAIL, WHATSAPP, OTRO).',
     inputSchema: createInteractionSchema,
     outputSchema: z.object({
@@ -380,8 +381,8 @@ const createEventSchema = z.object({
 });
 
 export const create_event = ai.defineTool(
-  'create_event',
   {
+    name: 'create_event',
     description: 'Crea un evento (DEMO, FERIA, FORMACION, OTRO).',
     inputSchema: createEventSchema,
     outputSchema: z.object({
@@ -412,8 +413,8 @@ const getUpcomingAgendaSchema = z.object({
 });
 
 export const get_upcoming_agenda = ai.defineTool(
-  'get_upcoming_agenda',
   {
+    name: 'get_upcoming_agenda',
     description: 'Devuelve próximas tareas/eventos dentro de un horizonte (días).',
     inputSchema: getUpcomingAgendaSchema,
     outputSchema: z.object({
@@ -497,8 +498,8 @@ const getAccountsOverviewSchema = z.object({
 });
 
 export const get_accounts_overview = ai.defineTool(
-  'get_accounts_overview',
   {
+    name: 'get_accounts_overview',
     description:
       'Devuelve un overview de cuentas con última interacción/pedido y flag de dormidas.',
     inputSchema: getAccountsOverviewSchema,
@@ -583,3 +584,5 @@ export const get_accounts_overview = ai.defineTool(
     return { accounts: rows };
   }
 );
+
+    
