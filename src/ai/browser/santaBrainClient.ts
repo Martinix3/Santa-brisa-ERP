@@ -246,7 +246,7 @@ async function exec_create_account(args: any) {
         contacts: args.mainContactEmail ? [{type: 'email', value: args.mainContactEmail, isPrimary: true, description: args.mainContactName}] : [],
         addresses: args.city ? [{type: 'main', street: '', city: args.city, country: 'España', isPrimary: true}] : [],
     });
-    return { ...docData, id: newId };
+    return { ...docData };
 }
 
 const fn_ensure_account = {
@@ -459,7 +459,7 @@ Responde en el idioma del usuario.`;
       { role: "user", parts: [{ text: `Contexto: userId=${userId} threadId=${threadId}`}] },
       { role: "model", parts: [{ text: "Contexto recibido." }] },
     ],
-  tools as any,
+    tools: tools as any,
   });
 
   let response: EnhancedGenerateContentResponse;
