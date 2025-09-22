@@ -1,4 +1,5 @@
 
+
 "use client";
 import React, { useState, useEffect, useCallback } from 'react';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
@@ -70,7 +71,6 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, products }:
             alert('Selecciona un cliente válido.');
             return;
         }
-        const now = new Date().toISOString();
         const payload: NewShipmentPayload = {
             orderId: `manual_${Date.now()}`,
             accountId,

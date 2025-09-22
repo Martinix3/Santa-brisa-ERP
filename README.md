@@ -1,3 +1,4 @@
+
 # Santa Brisa ERP - Resumen de Funcionalidades
 
 Este documento proporciona un resumen de lo que hace cada página o módulo principal dentro de la aplicación Santa Brisa ERP.

@@ -188,4 +188,3 @@ export async function importCommit({ coll, rows }: { coll: keyof SantaData; rows
   const res = await persist(coll, normalized);
   return { coll, ...res };
 }
-
