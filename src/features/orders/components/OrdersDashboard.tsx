@@ -1,463 +1,148 @@
 
-
 "use client";
 
-import React, { useMemo, useState, useTransition } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useData } from '@/lib/dataprovider';
-import { Download, Plus, Search, FileWarning, PackageCheck, FileText, Banknote, CheckCircle, Boxes, Loader2, Truck } from 'lucide-react';
-import type { OrderSellOut, Account, User, OrderStatus, PartyRole, CustomerData, SantaData, Party, Shipment } from '@/domain/ssot';
-import { orderTotal } from '@/lib/sb-core';
-import { ModuleHeader } from '@/components/ui/ModuleHeader';
-import { ShoppingCart } from 'lucide-react';
+import type { OrderSellOut, Account } from '@/domain/ssot';
+import { ORDER_STATUS_META } from '@/domain/ssot';
 import Link from 'next/link';
-import { SBFlowModal } from '@/features/quicklog/components/SBFlows';
-import { generateNextOrder } from '@/lib/codes';
-import { consignmentOnHandByAccount, consignmentTotalUnits } from "@/lib/consignment-and-samples";
-import { checkOrderStock } from '@/lib/inventory';
-import { updateOrderStatus } from '@/app/(app)/orders/actions';
-import { ImportShopifyOrderButton } from './ImportShopifyOrderButton';
+import { ImportShopifyOrderButton } from '@/features/orders/components/ImportShopifyOrderButton';
 
-type Tab = 'directa' | 'colocacion';
+type Tab = 'directa' | 'colocacion' | 'online';
 
-function KPI({ icon: Icon, label, value, color }: { icon: React.ElementType, label: string, value: string | number, color: string }) {
-    return (
-        <div className="bg-white p-4 rounded-xl border border-sb-neutral-200 flex items-start gap-4">
-            <div className={`h-10 w-10 rounded-lg flex items-center justify-center`} style={{ backgroundColor: `${color}20`, color }}>
-                <Icon size={20} />
-            </div>
-            <div>
-                <p className="text-2xl font-bold text-sb-neutral-900">{value}</p>
-                <p className="text-sm text-sb-neutral-600">{label}</p>
-            </div>
-        </div>
-    )
-}
-
-function FilterPill({
-  value,
-  onChange,
-  options,
-  placeholder,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  options: { value: string; label: string }[];
-  placeholder: string;
-}) {
+function KpiCard({ title, value }: { title:string; value:number }) {
   return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="text-sm bg-white border border-zinc-200 rounded-md pl-3 pr-8 py-2 outline-none focus:ring-2 focus:ring-yellow-300"
-      aria-label={placeholder}
-    >
-      <option value="">{placeholder}</option>
-      {options.map((opt) => (
-        <option key={opt.value} value={opt.value}>
-          {opt.label}
-        </option>
-      ))}
-    </select>
+    <div className="rounded-2xl border p-4 bg-white">
+      <div className="text-2xl font-semibold">{value}</div>
+      <div className="text-sm text-zinc-600">{title}</div>
+    </div>
   );
 }
 
-const statusOptions: { value: OrderStatus; label: string }[] = [
-    { value: 'open', label: 'Borrador' },
-    { value: 'confirmed', label: 'Confirmado' },
-    { value: 'shipped', label: 'Enviado' },
-    { value: 'invoiced', label: 'Facturado' },
-    { value: 'paid', label: 'Pagado' },
-    { value: 'cancelled', label: 'Cancelado' },
-    { value: 'lost', label: 'Perdido' },
-];
-
-function StatusSelector({ order, onStatusChange }: { order: OrderSellOut; onStatusChange: (order: OrderSellOut, newStatus: OrderStatus) => Promise<void>; }) {
-    const [isPending, startTransition] = useTransition();
-
-    const statusMap: Record<OrderStatus, { label: string; className: string }> = {
-        open: { label: 'Borrador', className: 'bg-zinc-100 text-zinc-700' },
-        confirmed: { label: 'Confirmado', className: 'bg-blue-100 text-blue-700' },
-        shipped: { label: 'Enviado', className: 'bg-cyan-100 text-cyan-700' },
-        invoiced: { label: 'Facturado', className: 'bg-emerald-100 text-emerald-700' },
-        paid: { label: 'Pagado', className: 'bg-green-100 text-green-700' },
-        cancelled: { label: 'Cancelado', className: 'bg-red-100 text-red-700' },
-        lost: { label: 'Perdido', className: 'bg-neutral-200 text-neutral-600' },
-    };
-
-    const style = statusMap[order.status] || statusMap.open;
-
-    const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const newStatus = e.target.value as OrderStatus;
-        startTransition(async () => {
-            await onStatusChange(order, newStatus);
-        });
-    };
-
-    return (
-        <div className="relative flex items-center gap-2">
-            <select
-                value={order.status}
-                onChange={handleChange}
-                disabled={isPending}
-                className={`appearance-none px-2.5 py-1 text-xs font-semibold rounded-full outline-none focus:ring-2 ring-offset-1 ring-blue-400 transition-colors ${style.className}`}
-            >
-                {statusOptions.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-            </select>
-            {isPending && <Loader2 className="h-4 w-4 animate-spin text-zinc-500" />}
-        </div>
-    );
-}
-
-function Tabs({ activeTab, setActiveTab }: { activeTab: Tab, setActiveTab: (tab: Tab) => void }) {
-    const tabs: {id: Tab, label: string}[] = [
-        { id: 'directa', label: 'Venta Directa' },
-        { id: 'colocacion', label: 'Colocación (Sell-Out)' },
-    ];
-    return (
-        <div className="border-b border-zinc-200">
-            <nav className="-mb-px flex space-x-6" aria-label="Tabs">
-                {tabs.map((tab) => (
-                <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors
-                    ${ activeTab === tab.id
-                        ? 'border-yellow-500 text-yellow-600'
-                        : 'border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300'
-                    }`
-                    }
-                    aria-current={activeTab === tab.id ? 'page' : undefined}
-                >
-                    {tab.label}
-                </button>
-                ))}
-            </nav>
-        </div>
-    )
-}
-
-function exportToCsv(filename: string, rows: (string | number)[][]) {
-    const processRow = (row: (string|number)[]) => row.map(val => {
-        const str = String(val).replace(/"/g, '""');
-        return `"${str}"`;
-    }).join(',');
-
-    const csvContent = rows.map(processRow).join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    if (link.download !== undefined) {
-        const url = URL.createObjectURL(blob);
-        link.setAttribute('href', url);
-        link.setAttribute('download', filename);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    }
-}
-
-const accountHref = (id: string) => `/accounts/${id}`;
-
 export default function OrdersDashboard() {
-  const { data, setData, currentUser, saveAllCollections } = useData();
-  const [activeTab, setActiveTab] = useState<Tab>('directa');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [isCreateOrderOpen, setIsCreateOrderOpen] = useState(false);
-
-  const { ordersSellOut, accounts, users, partyRoles, stockMoves, inventory, products, parties, shipments } = data || { ordersSellOut: [], accounts: [], users: [], partyRoles: [], stockMoves: [], inventory: [], products: [], parties: [], shipments: [] };
-  
-  const consByAcc = useMemo(() => consignmentOnHandByAccount(stockMoves || []), [stockMoves]);
-  const consTotals = useMemo(() => consignmentTotalUnits(consByAcc), [consByAcc]);
-  
-  const filteredOrderIds = useMemo(() => {
-    if (!ordersSellOut || !accounts || !partyRoles) return [];
-    
-    const accountMap = new Map((accounts || []).map((acc: Account) => [acc.id, acc]));
-    const rolesMap = new Map();
-    (partyRoles || []).forEach((role: PartyRole) => {
-        if(role.role === 'CUSTOMER') {
-            rolesMap.set(role.partyId, role.data as CustomerData);
-        }
-    });
-
-    return ordersSellOut
-      .filter((order) => {
-        const account = accountMap.get(order.accountId);
-        if (!account) return false;
-        
-        const customerData = rolesMap.get(account.partyId);
-        const billerId = customerData?.billerId || 'SB'; 
-        const isVentaDirecta = billerId === 'SB';
-        
-        if (activeTab === 'directa' && !isVentaDirecta) return false;
-        if (activeTab === 'colocacion' && isVentaDirecta) return false;
-
-        const matchesSearch =
-          !searchTerm ||
-          (order.docNumber && order.docNumber.toLowerCase().includes(searchTerm.toLowerCase())) ||
-          order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (account && account.name.toLowerCase().includes(searchTerm.toLowerCase()));
-        
-        const matchesStatus = !statusFilter || order.status === statusFilter;
-
-        return matchesSearch && matchesStatus;
-      })
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .map(o => o.id);
-  }, [ordersSellOut, accounts, partyRoles, searchTerm, statusFilter, activeTab]);
-
-  const kpis = useMemo(() => {
-    const relevantOrders = (ordersSellOut || []).filter(order => {
-        const account = accounts.find(a => a.id === order.accountId);
-        if(!account) return false;
-        const customerRole = partyRoles.find(pr => pr.partyId === account.partyId && pr.role === 'CUSTOMER');
-        const billerId = (customerRole?.data as CustomerData)?.billerId || 'SB';
-        const isVentaDirecta = billerId === 'SB';
-        return activeTab === 'directa' ? isVentaDirecta : !isVentaDirecta;
-    });
-
-    return {
-        pendingConfirmation: relevantOrders.filter(o => o.status === 'open').length,
-        pendingShipment: relevantOrders.filter(o => o.status === 'confirmed').length,
-        pendingInvoice: relevantOrders.filter(o => o.status === 'shipped').length,
-        pendingPayment: relevantOrders.filter(o => o.status === 'invoiced').length,
-        totalConsignment: Object.values(consTotals).reduce((sum, current) => sum + current, 0),
-    }
-  }, [ordersSellOut, accounts, partyRoles, activeTab, consTotals]);
-
-  const handleExport = () => {
-      const accountMap = new Map(accounts.map(a => [a.id, a]));
-      const headers = ['id', 'fecha', 'cliente', 'total', 'estado', 'canal'];
-      const rows = filteredOrderIds.map(id => {
-          const order = ordersSellOut.find(o => o.id === id);
-          if(!order) return [];
-          const account = accountMap.get(order.accountId);
-          return [
-              order.docNumber || order.id,
-              new Date(order.createdAt).toISOString().split('T')[0],
-              account?.name || order.accountId,
-              orderTotal(order),
-              order.status,
-              order.source || 'N/A'
-          ]
-      });
-      exportToCsv(`pedidos-${activeTab}-${new Date().toISOString().split('T')[0]}.csv`, [headers, ...rows]);
-  }
-
-  const handleCreateOrder = (payload: any) => {
-    if (!data) {
-        console.error("No hay datos disponibles para crear el pedido.");
-        return;
-    }
-
-    if (!payload.account && !payload.newAccount) {
-        return;
-    }
-    
-    let targetAccount = payload.newAccount ? payload.newAccount : data.accounts.find(a => a.name === payload.account);
-    const collectionsToSave: Partial<SantaData> = {};
-
-    if (!targetAccount && payload.account) {
-      const newParty: Partial<Party> = { id: `party_${Date.now()}`, name: payload.account, kind: 'ORG', createdAt: new Date().toISOString(), contacts: [], addresses: [] };
-      targetAccount = {
-        id: `acc_${Date.now()}`,
-        partyId: newParty.id!,
-        name: payload.account,
-        type: 'HORECA',
-        stage: 'POTENCIAL',
-        ownerId: currentUser?.id || 'u_admin',
-        createdAt: new Date().toISOString(),
-      };
-      collectionsToSave.parties = [...(data.parties || []), newParty as Party];
-      collectionsToSave.accounts = [...(data.accounts || []), targetAccount as Account];
-    } else if (payload.newAccount) {
-        collectionsToSave.parties = [...(data.parties || []), payload.newParty as Party];
-        collectionsToSave.accounts = [...(data.accounts || []), payload.newAccount as Account];
-    }
-    
-    if(!targetAccount) {
-      console.error("No se pudo determinar la cuenta para el pedido.");
-      return;
-    }
-
-    const newOrder: OrderSellOut = {
-        id: `ord_${Date.now()}`,
-        partyId: targetAccount.partyId,
-        billingStatus: 'PENDING',
-        docNumber: generateNextOrder((data.ordersSellOut || []).map(o=>o.docNumber).filter(Boolean) as string[], payload.channel, new Date()),
-        accountId: targetAccount.id,
-        lines: payload.items,
-        status: 'open',
-        createdAt: new Date().toISOString(),
-        currency: 'EUR',
-        notes: payload.note,
-        source: 'MANUAL'
-    };
-    
-    collectionsToSave.ordersSellOut = [...(data.ordersSellOut || []), newOrder];
-    
-    saveAllCollections(collectionsToSave);
-    setIsCreateOrderOpen(false);
-  }
-  
-  const handleStatusChange = async (order: OrderSellOut, newStatus: OrderStatus) => {
-    if (!data) return;
-
-    const account = data.accounts.find(a => a.id === order.accountId);
-    const party = account ? data.parties.find(p => p.id === account.partyId) : undefined;
-
-    if (!order || !account || !party) {
-        console.error("Faltan datos para actualizar el estado del pedido.");
-        return;
-    }
-    
-    try {
-      const res = await updateOrderStatus(order, account, party, newStatus);
-      
-      if (res.ok) {
-          setData(prevData => {
-              if (!prevData) return null;
-              const newOrders = prevData.ordersSellOut.map(o => 
-                  o.id === res.order.id ? { ...o, status: res.order.status } : o
-              );
-              const newShipments = res.shipment ? [...(prevData.shipments || []), res.shipment] : prevData.shipments;
-              return { ...prevData, ordersSellOut: newOrders, shipments: newShipments };
-          });
-      } else {
-          console.error("Failed to update order status:", res.error);
-      }
-    } catch (e: any) {
-        console.error("Error in status change transition:", e);
-    }
+  const { data } = useData() as {
+    data: { ordersSellOut: OrderSellOut[]; accounts: Account[] } | null
   };
 
+  const [tab, setTab] = useState<Tab>('directa');
+  
+  const accountsById = useMemo(() => {
+    const m = new Map<string, Account>();
+    (data?.accounts || []).forEach(a => m.set(a.id, a));
+    return m;
+  }, [data]);
+
+  const allOrders = (data?.ordersSellOut || []).sort((a,b)=> (a.createdAt > b.createdAt ? -1 : 1));
+
+  const filtered = useMemo(() => {
+    if (tab === 'online') {
+      // Dos criterios SSOT válidos para “Online”: source = SHOPIFY o account.type = ONLINE
+      return allOrders.filter(o =>
+        o.source === 'SHOPIFY' || accountsById.get(o.accountId)?.type === 'ONLINE'
+      );
+    }
+    if (tab === 'colocacion') {
+      // Si tienes una marca de consignación propia, filtra aquí.
+      // Placeholder: deja solo no-online y no-cancelados.
+      return allOrders.filter(o => accountsById.get(o.accountId)?.type !== 'ONLINE');
+    }
+    // directa: el resto (no online). Ajusta si manejas “consignación” explícita.
+    return allOrders.filter(o => accountsById.get(o.accountId)?.type !== 'ONLINE');
+  }, [allOrders, tab, accountsById]);
+
+  // KPIs del tablero (mismo formato por pestaña)
+  const kpi = useMemo(() => {
+    const k = { toConfirm: 0, toShip: 0, consignmentUnits: 0, toInvoice: 0, toCollect: 0, total: 0 };
+    for (const o of filtered) {
+      k.total++;
+      if (o.status === 'open') k.toConfirm++;
+      if (o.status === 'confirmed') k.toShip++;
+      if (o.status === 'invoiced') k.toCollect++; // o.toInvoice según tu política
+    }
+    return k;
+  }, [filtered]);
+
   return (
-    <>
-      <ModuleHeader title="Gestión de Pedidos" icon={ShoppingCart}>
-        <div className="flex items-center gap-2">
-            <ImportShopifyOrderButton />
-            <button onClick={handleExport} className="flex items-center gap-2 text-sm bg-white border border-zinc-200 rounded-md px-3 py-1.5 hover:bg-zinc-50" aria-label="Exportar datos a CSV">
-              <Download size={14} /> Exportar
-            </button>
-            <button onClick={() => setIsCreateOrderOpen(true)} className="flex items-center gap-2 text-sm bg-yellow-400 text-zinc-900 font-semibold rounded-md px-3 py-1.5 hover:bg-yellow-500">
-              <Plus size={16} /> Nuevo Pedido
-            </button>
-        </div>
-      </ModuleHeader>
-
-      <div className="p-4 md:p-6">
-        <Tabs activeTab={activeTab} setActiveTab={setActiveTab} />
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 my-4">
-            <KPI icon={FileWarning} label="Pendiente de Confirmar" value={kpis.pendingConfirmation} color="#f59e0b" />
-            <KPI icon={PackageCheck} label="Pendiente de Enviar" value={kpis.pendingShipment} color="#3b82f6" />
-            <KPI icon={Boxes} label="Unidades en Consigna" value={kpis.totalConsignment} color="#a855f7" />
-            <KPI icon={FileText} label="Pendiente de Facturar" value={kpis.pendingInvoice} color="#10b981" />
-            <KPI icon={Banknote} label="Pendiente de Cobrar" value={kpis.pendingPayment} color="#8b5cf6" />
-        </div>
-        
-        <div className="mt-4 mb-4 flex items-center gap-3">
-            <div className="relative flex-grow">
-                <Search className="h-4 w-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2"/>
-                <input 
-                    type="text"
-                    placeholder="Buscar por ID de pedido o cliente..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 text-sm bg-white border border-zinc-200 rounded-md outline-none focus:ring-2 focus:ring-yellow-300"
-                    aria-label="Buscar pedidos"
-                />
-            </div>
-            <FilterPill
-                value={statusFilter}
-                onChange={setStatusFilter}
-                placeholder="Filtrar por estado"
-                options={statusOptions}
-            />
-        </div>
-        <div className="bg-white border rounded-2xl shadow-sm overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-zinc-50 text-left">
-              <tr>
-                <th scope="col" className="p-3 font-semibold text-zinc-600">Pedido ID</th>
-                <th scope="col" className="p-3 font-semibold text-zinc-600">Cliente</th>
-                <th scope="col" className="p-3 font-semibold text-zinc-600">Comercial</th>
-                <th scope="col" className="p-3 font-semibold text-zinc-600">Fecha</th>
-                <th scope="col" className="p-3 font-semibold text-zinc-600">Fuente</th>
-                <th scope="col" className="p-3 font-semibold text-zinc-600 text-right">Total</th>
-                <th scope="col" className="p-3 font-semibold text-zinc-600">Estado</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-100">
-              {filteredOrderIds.map((id) => {
-                  const order = data?.ordersSellOut.find(o => o.id === id);
-                  if (!order) return null;
-                  
-                  const account = data?.accounts.find(a => a.id === order.accountId);
-                  const owner = data?.users.find(u => u.id === account?.ownerId);
-
-                  if (!account) return null;
-
-                  return (
-                      <tr key={order.id} className="hover:bg-zinc-50">
-                        <td className="p-3 font-mono text-xs font-medium text-zinc-800">{order.docNumber || order.id}</td>
-                        <td className="p-3">
-                            <div className="flex items-center gap-2">
-                                <Link href={accountHref(order.accountId)} className="hover:underline font-medium">
-                                    {account.name || 'N/A'}
-                                </Link>
-                                {consTotals[order.accountId] > 0 && (
-                                    <span title={
-                                        Object.entries(consByAcc[order.accountId] || {})
-                                            .map(([sku, qty]) => `${sku}: ${qty} uds`)
-                                            .join("\n")
-                                        }
-                                        className="text-[10px] rounded-full px-2 py-0.5 bg-amber-100 text-amber-900 border border-amber-200 cursor-help"
-                                    >
-                                        Consigna: {consTotals[order.accountId]} uds
-                                    </span>
-                                )}
-                            </div>
-                        </td>
-                        <td className="p-3">{owner?.name || 'N/A'}</td>
-                        <td className="p-3">{new Date(order.createdAt).toLocaleDateString('es-ES')}</td>
-                        <td className="p-3">
-                            <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs border bg-zinc-100 text-zinc-800">
-                                {order.source || 'CRM'}
-                            </span>
-                        </td>
-                        <td className="p-3 text-right font-semibold">
-                          {orderTotal(order as OrderSellOut).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
-                        </td>
-                        <td className="p-3">
-                          <StatusSelector order={order} onStatusChange={handleStatusChange} />
-                        </td>
-                      </tr>
-                    );
-                })}
-            </tbody>
-          </table>
-          {filteredOrderIds.length === 0 && (
-            <div className="p-8 text-center text-zinc-500">
-              No se encontraron pedidos que coincidan con tu búsqueda.
-            </div>
-          )}
+    <div className="p-4 space-y-4">
+      {/* Tabs */}
+      <div className="flex items-center gap-2">
+        {(['directa','colocacion','online'] as Tab[]).map(t => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className={`px-4 py-2 rounded-full border text-sm ${
+              tab===t ? 'bg-black text-white' : 'bg-white'
+            }`}
+          >
+            {t === 'directa' ? 'Venta Directa' : t === 'colocacion' ? 'Colocación (Sell-Out)' : 'Online'}
+          </button>
+        ))}
+        <div className="ml-auto flex items-center gap-2">
+          {tab === 'online' && <ImportShopifyOrderButton />}
+          <Link href="/orders/new" className="px-3 py-2 text-sm rounded-md bg-black text-white">
+            Nuevo pedido
+          </Link>
         </div>
       </div>
-      {isCreateOrderOpen && (
-        <SBFlowModal
-          open={isCreateOrderOpen}
-          variant="createOrder"
-          onClose={() => setIsCreateOrderOpen(false)}
-          accounts={data?.accounts || []}
-          onSearchAccounts={async (q) => (data?.accounts || []).filter(a => a.name.toLowerCase().includes(q.toLowerCase()))}
-          onCreateAccount={async (d) => { return d as any; }}
-          onSubmit={handleCreateOrder}
-        />
-      )}
-    </>
+
+      {/* KPIs (mismo formato/estilos) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <KpiCard title="Pendiente de Confirmar" value={kpi.toConfirm} />
+        <KpiCard title="Pendiente de Enviar" value={kpi.toShip} />
+        <KpiCard title="Unidades en Consigna" value={kpi.consignmentUnits} />
+        <KpiCard title="Pendiente de Facturar" value={kpi.toInvoice} />
+        <KpiCard title="Pendiente de Cobrar" value={kpi.toCollect} />
+      </div>
+
+      {/* Tabla — mismo layout + columna Fuente (SSOT: order.source) */}
+      <div className="overflow-x-auto rounded-xl border">
+        <table className="min-w-full text-sm">
+          <thead className="bg-zinc-50">
+            <tr className="text-left">
+              <th className="p-3">Pedido ID</th>
+              <th className="p-3">Cliente</th>
+              <th className="p-3">Fecha</th>
+              <th className="p-3">Importe</th>
+              <th className="p-3">Fuente</th>
+              <th className="p-3">Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map(o => {
+              const acc = accountsById.get(o.accountId);
+              const meta = ORDER_STATUS_META[o.status];
+              return (
+                <tr key={o.id} className="border-t">
+                  <td className="p-3">
+                    <Link href={`/orders/${o.id}`} className="underline">
+                      {o.docNumber || o.id}
+                    </Link>
+                  </td>
+                  <td className="p-3">{acc?.name || o.accountId}</td>
+                  <td className="p-3">{new Date(o.createdAt).toLocaleDateString()}</td>
+                  <td className="p-3">{(o.totalAmount ?? 0).toFixed(2)} {o.currency}</td>
+                  <td className="p-3">
+                    <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 border">
+                      {o.source || 'CRM'}
+                    </span>
+                  </td>
+                  <td className="p-3">
+                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-white"
+                          style={{ background: meta.accent }}>
+                      {meta.label}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
+            {filtered.length === 0 && (
+              <tr><td className="p-6 text-zinc-500" colSpan={6}>
+                No hay pedidos en esta pestaña. {tab === 'online' ? 'Importa uno desde Shopify para empezar.' : ''}
+              </td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
