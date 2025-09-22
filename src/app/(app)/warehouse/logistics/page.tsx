@@ -86,7 +86,7 @@ const ValidateDialog: React.FC<{ open: boolean; onOpenChange: (v: boolean) => vo
   const [packer, setPacker] = React.useState<string>("");
   const [carrier, setCarrier] = React.useState<string>("");
 
-  useEffect(() => {
+  React.useEffect(() => {
     if(shipment) {
         setVisualOk(Boolean(shipment.checks?.visualOk));
         setPicker(shipment.packedById || "");
@@ -443,6 +443,7 @@ export default function LogisticsPage() {
     </div>
   );
 }
+
 
 
 
