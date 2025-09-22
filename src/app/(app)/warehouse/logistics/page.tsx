@@ -1,8 +1,9 @@
 
 
 "use client";
-import React, { useMemo, useState, useTransition, useEffect } from "react";
+import React, { useMemo, useState, useTransition, useEffect, useCallback } from "react";
 import { revalidatePath } from 'next/cache';
+import { useRouter } from "next/navigation";
 import { Printer, PackageCheck, Truck, CheckCircle2, Search, Plus, FileText, ClipboardList, Boxes, PackageOpen, BadgeCheck, AlertTriangle, Settings, Clipboard, Ruler, Weight, MoreHorizontal, Check as CheckIcon, FileDown, Package, Info, X, Loader2 } from "lucide-react";
 import { SBButton, SBCard, Input, Select, STATUS_STYLES } from '@/components/ui/ui-primitives';
 import { useData } from '@/lib/dataprovider';
@@ -87,7 +88,7 @@ const ValidateDialog: React.FC<{ open: boolean; onOpenChange: (v: boolean) => vo
   const [packer, setPacker] = React.useState<string>("");
   const [carrier, setCarrier] = React.useState<string>("");
 
-  React.useEffect(() => {
+  useEffect(() => {
     if(shipment) {
         setVisualOk(Boolean(shipment.checks?.visualOk));
         setPicker(shipment.packedById || "");
@@ -116,7 +117,9 @@ const ValidateDialog: React.FC<{ open: boolean; onOpenChange: (v: boolean) => vo
     });
   };
 
-  const addLotRow = (sku: string) => setLotMap((p) => ({ ...p, [sku]: [...(p[sku] ?? []), { lotId: "", qty: 0 }] }));
+  const addLotRow = (sku: string) => {
+    setLotMap((p) => ({ ...p, [sku]: [...(p[sku] ?? []), { lotId: "", qty: 0 }] }));
+  };
   const removeEmpty = (m: typeof lotMap) => Object.fromEntries(Object.entries(m).map(([k, arr]) => [k, arr.filter((r) => r.lotId && r.qty > 0)]));
 
   const handleSave = () => {
@@ -228,6 +231,7 @@ const ValidateDialog: React.FC<{ open: boolean; onOpenChange: (v: boolean) => vo
 // Panel principal
 // ===============================
 export default function LogisticsPage() {
+  const router = useRouter();
   const { data: santaData } = useData();
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<string>("all");
@@ -283,15 +287,12 @@ export default function LogisticsPage() {
         try {
             await action();
             setNotification({ type: 'success', message: successMessage });
-            // Simulate worker completion and data refresh
             setTimeout(() => {
-                // In a real app, this would be a revalidation call, e.g., router.refresh()
-                 window.location.reload(); 
+                 router.refresh();
             }, 2000);
         } catch (e: any) {
             setNotification({ type: 'error', message: `Error: ${e.message}` });
         } finally {
-            // Keep pending state for simulation time
             setTimeout(() => setPendingJobs(prev => ({...prev, [shipmentId]: false})), 2000);
         }
     });
@@ -424,7 +425,7 @@ export default function LogisticsPage() {
                 const isJobPending = pendingJobs[shipment.id];
                 
                 return (
-                  <tr key={shipment.id} className="hover:bg-zinc-50 relative">
+                  <tr key={shipment.id} className="hover:bg-zinc-50">
                     <td className="p-3 text-center"><Checkbox checked={selected.includes(shipment.id)} onCheckedChange={(checked: boolean) => setSelected(p => checked ? [...p, shipment.id] : p.filter(id => id !== shipment.id))} /></td>
                     <td className="p-3 font-medium font-mono">{shipment.shipmentNumber || shipment.id.substring(0,8)}...</td>
                     <td className="p-3">{new Date(shipment.createdAt).toLocaleDateString('es-ES')}</td>
@@ -497,6 +498,7 @@ export default function LogisticsPage() {
     </div>
   );
 }
+
 
 
 
