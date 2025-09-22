@@ -1,5 +1,3 @@
-
-
 // app/api/integrations/[provider]/connect/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from '@/server/firebaseAdmin';
@@ -21,12 +19,13 @@ export async function POST(
   }
 
   if (provider === "holded") {
-    // La API key ahora se gestiona vía .env, así que esta ruta ya no es necesaria para guardar la clave.
-    // Podríamos añadir una lógica para validar la clave si se pasa en el body, pero por ahora lo dejamos simple.
+    // La clave de API se gestiona de forma segura a través de variables de entorno.
+    // Esta ruta solo necesita confirmar que la clave está disponible en el servidor.
     if (process.env.HOLDED_API_KEY) {
-        return NextResponse.json({ ok: true, message: 'Holded API Key ya está configurada en el servidor.' });
+        return NextResponse.json({ ok: true, message: 'La API Key de Holded ya está configurada en el servidor.' });
     }
-    return NextResponse.json({ ok: false, error: "La API Key de Holded debe configurarse en el archivo .env del servidor." }, { status: 400 });
+    // Si la clave no está, se informa al usuario de que es una configuración del servidor.
+    return NextResponse.json({ ok: false, error: "La API Key de Holded no se ha encontrado. Debe configurarse en las variables de entorno del servidor." }, { status: 400 });
   }
 
   if (provider === "sendcloud") {
