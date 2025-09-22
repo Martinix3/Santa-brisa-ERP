@@ -2,7 +2,6 @@
 
 "use client";
 import React, { useMemo, useState, useTransition, useEffect, useCallback } from "react";
-import { revalidatePath } from 'next/cache';
 import { useRouter } from "next/navigation";
 import { Printer, PackageCheck, Truck, CheckCircle2, Search, Plus, FileText, ClipboardList, Boxes, PackageOpen, BadgeCheck, AlertTriangle, Settings, Clipboard, Ruler, Weight, MoreHorizontal, Check as CheckIcon, FileDown, Package, Info, X, Loader2 } from "lucide-react";
 import { SBButton, SBCard, Input, Select, STATUS_STYLES } from '@/components/ui/ui-primitives';
@@ -88,7 +87,7 @@ const ValidateDialog: React.FC<{ open: boolean; onOpenChange: (v: boolean) => vo
   const [packer, setPacker] = React.useState<string>("");
   const [carrier, setCarrier] = React.useState<string>("");
 
-  useEffect(() => {
+  React.useEffect(() => {
     if(shipment) {
         setVisualOk(Boolean(shipment.checks?.visualOk));
         setPicker(shipment.packedById || "");
@@ -293,7 +292,14 @@ export default function LogisticsPage() {
         } catch (e: any) {
             setNotification({ type: 'error', message: `Error: ${e.message}` });
         } finally {
-            setTimeout(() => setPendingJobs(prev => ({...prev, [shipmentId]: false})), 2000);
+            setTimeout(() => {
+                setPendingJobs(prev => {
+                    const next = {...prev};
+                    delete next[shipmentId];
+                    return next;
+                });
+                router.refresh();
+            }, 2500);
         }
     });
   };
@@ -336,11 +342,11 @@ export default function LogisticsPage() {
   const buildRowActions = (shipment: Shipment): RowAction[] => {
     const isPendingOrPicking = shipment.status === 'pending' || shipment.status === 'picking';
     const actions: RowAction[] = [
-      { id: "picking_slip", label: "Generar Hoja de Picking", icon: <FileText className="w-4 h-4"/>, onClick: () => generatePickingSlip(shipment.id), available: isPendingOrPicking },
-      { id: "validate", label: "Validar (lotes + visual)", icon: <BadgeCheck className="w-4 h-4"/>, onClick: () => openValidateFor(shipment), available: isPendingOrPicking },
-      { id: "delivery", label: "Generar albarán (PDF)", icon: <FileText className="w-4 h-4"/>, onClick: () => handleAction(shipment.id, () => createDeliveryNote(shipment.id), 'Job para generar albarán encolado.'), available: canGenerateDeliveryNote(shipment), pendingReason: "Requiere Visual OK" },
-      { id: "label", label: "Generar etiqueta", icon: <Truck className="w-4 h-4"/>, onClick: () => handleAction(shipment.id, () => shipment.mode === 'PARCEL' ? createParcelLabel(shipment.id) : createPalletLabel(shipment.id), 'Job para generar etiqueta encolado.'), available: canGenerateLabel(shipment), pendingReason: "Req. Albarán/Peso" },
-      { id: "ship", label: "Marcar enviado", icon: <PackageCheck className="w-4 h-4"/>, onClick: () => handleAction(shipment.id, () => markShipped(shipment.id), 'Job para marcar como enviado encolado.'), available: canMarkShipped(shipment), pendingReason: "Requiere Etiqueta" },
+      { id: "picking_slip", label: "Hoja de Picking", icon: <FileText className="w-4 h-4"/>, onClick: () => generatePickingSlip(shipment.id), available: isPendingOrPicking },
+      { id: "validate", label: "Validar", icon: <BadgeCheck className="w-4 h-4"/>, onClick: () => openValidateFor(shipment), available: isPendingOrPicking },
+      { id: "delivery", label: "Albarán", icon: <FileText className="w-4 h-4"/>, onClick: () => handleAction(shipment.id, () => createDeliveryNote(shipment.id), 'Job para generar albarán encolado.'), available: canGenerateDeliveryNote(shipment), pendingReason: "Requiere Visual OK" },
+      { id: "label", label: "Etiqueta", icon: <Truck className="w-4 h-4"/>, onClick: () => handleAction(shipment.id, () => shipment.mode === 'PARCEL' ? createParcelLabel(shipment.id) : createPalletLabel(shipment.id), 'Job para generar etiqueta encolado.'), available: canGenerateLabel(shipment), pendingReason: "Req. Albarán/Peso" },
+      { id: "ship", label: "Marcar Enviado", icon: <PackageCheck className="w-4 h-4"/>, onClick: () => handleAction(shipment.id, () => markShipped(shipment.id), 'Job para marcar como enviado encolado.'), available: canMarkShipped(shipment), pendingReason: "Requiere Etiqueta" },
     ];
     return showOnlyAvailable ? actions.filter(a => a.available) : actions;
   };
@@ -403,20 +409,18 @@ export default function LogisticsPage() {
       {/* Tabla principal */}
        <SBCard title="Envíos">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-zinc-50 text-left">
-              <tr>
-                <th className="p-3 w-10 text-center font-semibold text-zinc-600"><Checkbox checked={selected.length === filtered.length && filtered.length > 0} onCheckedChange={(checked: boolean) => setSelected(checked ? filtered.map(s => s.id) : [])}/></th>
-                <th className="p-3 font-semibold text-zinc-600">ID Envío</th>
-                <th className="p-3 font-semibold text-zinc-600">Fecha</th>
-                <th className="p-3 font-semibold text-zinc-600">Canal</th>
-                <th className="p-3 font-semibold text-zinc-600">Cliente</th>
-                <th className="p-3 font-semibold text-zinc-600">Artículos</th>
-                <th className="p-3 font-semibold text-zinc-600">Estado</th>
-                <th className="p-3 w-24 text-right font-semibold text-zinc-600">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-100">
+          <div className="min-w-full">
+            <div className="grid grid-cols-[auto_1fr_1fr_1fr_1fr_1fr_1fr_auto] text-xs font-semibold text-zinc-600 bg-zinc-50 border-b">
+                <div className="p-3 text-center"><Checkbox checked={selected.length === filtered.length && filtered.length > 0} onCheckedChange={(checked: boolean) => setSelected(checked ? filtered.map(s => s.id) : [])}/></div>
+                <div className="p-3">ID Envío</div>
+                <div className="p-3">Fecha</div>
+                <div className="p-3">Canal</div>
+                <div className="p-3">Cliente</div>
+                <div className="p-3">Artículos</div>
+                <div className="p-3">Estado</div>
+                <div className="p-3 text-right">Acciones</div>
+            </div>
+            <div className="divide-y divide-zinc-100">
               {filtered.map(shipment => {
                 const order = orderMap.get(shipment.orderId || '');
                 const account = accountMap.get(order?.accountId || '');
@@ -425,21 +429,21 @@ export default function LogisticsPage() {
                 const isJobPending = pendingJobs[shipment.id];
                 
                 return (
-                  <tr key={shipment.id} className="hover:bg-zinc-50">
-                    <td className="p-3 text-center"><Checkbox checked={selected.includes(shipment.id)} onCheckedChange={(checked: boolean) => setSelected(p => checked ? [...p, shipment.id] : p.filter(id => id !== shipment.id))} /></td>
-                    <td className="p-3 font-medium font-mono">{shipment.shipmentNumber || shipment.id.substring(0,8)}...</td>
-                    <td className="p-3">{new Date(shipment.createdAt).toLocaleDateString('es-ES')}</td>
-                    <td className="p-3"><span className={`inline-flex items-center px-2 py-0.5 rounded-md border text-xs ${channelInfo.className}`}>{channelInfo.label}</span></td>
-                    <td className="p-3">
+                  <div key={shipment.id} className="grid grid-cols-[auto_1fr_1fr_1fr_1fr_1fr_1fr_auto] items-center hover:bg-zinc-50">
+                    <div className="p-3 text-center"><Checkbox checked={selected.includes(shipment.id)} onCheckedChange={(checked: boolean) => setSelected(p => checked ? [...p, shipment.id] : p.filter(id => id !== shipment.id))} /></div>
+                    <div className="p-3 font-medium font-mono text-xs">{shipment.shipmentNumber || shipment.id.substring(0,8)}...</div>
+                    <div className="p-3 text-sm">{new Date(shipment.createdAt).toLocaleDateString('es-ES')}</div>
+                    <div className="p-3 text-sm"><span className={`inline-flex items-center px-2 py-0.5 rounded-md border text-xs ${channelInfo.className}`}>{channelInfo.label}</span></div>
+                    <div className="p-3 text-sm">
                       <div>
                         <p className="font-medium">{shipment?.customerName || 'N/A'}</p>
                         <p className="text-xs text-zinc-500">{shipment?.city}</p>
                       </div>
-                    </td>
-                    <td className="p-3">
-                      <ul className="text-sm space-y-1">
-                        {shipment.lines.map((it: any) => (
-                          <li key={it.sku}>
+                    </div>
+                    <div className="p-3 text-sm">
+                      <ul className="text-xs space-y-1">
+                        {shipment.lines.map((it: any, index: number) => (
+                          <li key={index}>
                             <div className="flex items-center gap-2">
                                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-100">{it.sku}</span>
                                 <span>{it.name}</span>
@@ -449,9 +453,9 @@ export default function LogisticsPage() {
                           </li>
                         ))}
                       </ul>
-                    </td>
-                    <td className="p-3"><span className={`inline-flex items-center px-2 py-1 rounded-md border text-xs ${style.bg} ${style.color}`}>{style.label}</span></td>
-                    <td className="p-3 text-right">
+                    </div>
+                    <div className="p-3 text-sm"><span className={`inline-flex items-center px-2 py-1 rounded-md border text-xs ${style.bg} ${style.color}`}>{style.label}</span></div>
+                    <div className="p-3 text-right">
                         {isJobPending ? (
                             <Loader2 className="w-5 h-5 animate-spin text-zinc-400 mx-auto" />
                         ) : (
@@ -475,12 +479,12 @@ export default function LogisticsPage() {
                               </DropdownMenuContent>
                             </DropdownMenu>
                         )}
-                    </td>
-                  </tr>
+                    </div>
+                  </div>
                 );
               })}
-            </tbody>
-          </table>
+            </div>
+          </div>
         </div>
       </SBCard>
       
@@ -498,6 +502,7 @@ export default function LogisticsPage() {
     </div>
   );
 }
+
 
 
 
