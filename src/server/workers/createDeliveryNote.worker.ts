@@ -64,7 +64,7 @@ export async function handleCreateDeliveryNoteCrm({ shipmentId }: { shipmentId: 
         id: dnId,
         dateISO: deliveryNoteData.date,
         orderId: deliveryNoteData.orderId,
-        soldTo: { name: deliveryNoteData.soldTo.name, vat: deliveryNoteData.soldTo.vat },
+        soldTo: deliveryNoteData.soldTo,
         shipTo: deliveryNoteData.shipTo,
         lines: deliveryNoteData.lines,
         company: { name: 'Santa Brisa', vat: 'B00000000' } // Should come from settings

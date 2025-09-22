@@ -3,8 +3,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
 import { Input, Select } from '@/components/ui/ui-primitives';
-import type { Shipment, Account, Product } from '@/domain/ssot';
+import type { Shipment, Account, Product, Party } from '@/domain/ssot';
 import { Plus, X } from 'lucide-react';
+import { useData } from '@/lib/dataprovider';
 
 type NewShipmentPayload = Omit<Shipment, 'id' | 'createdAt'>;
 
@@ -17,6 +18,7 @@ interface NewShipmentDialogProps {
 }
 
 export function NewShipmentDialog({ open, onClose, onSave, accounts, products }: NewShipmentDialogProps) {
+    const { data } = useData();
     const [accountId, setAccountId] = useState('');
     const [address, setAddress] = useState('');
     const [city, setCity] = useState('');
@@ -36,10 +38,13 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, products }:
     const handleAccountChange = (selectedAccountId: string) => {
         setAccountId(selectedAccountId);
         const account = accounts.find(a => a.id === selectedAccountId);
-        if (account) {
-            // Placeholder for address logic. In a real app, you'd fetch the party and its addresses.
-            setCity(account.name.split(' ').pop() || 'Ciudad');
-            setAddress(`Calle Falsa 123, ${account.name}`);
+        const party = data?.parties.find(p => p.id === account?.partyId);
+        if (party) {
+            const mainAddress = party.addresses.find(a => a.isPrimary) || party.addresses[0];
+            if (mainAddress) {
+                setCity(mainAddress.city);
+                setAddress(mainAddress.street);
+            }
         }
     };
 
@@ -65,15 +70,20 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, products }:
             alert('Selecciona un cliente válido.');
             return;
         }
+        const now = new Date().toISOString();
         const payload: NewShipmentPayload = {
             orderId: `manual_${Date.now()}`,
             accountId,
+            partyId: account.partyId,
+            mode: 'PARCEL',
             status: 'pending',
             lines,
             customerName: account.name,
             addressLine1: address,
             city,
             notes,
+            createdAt: now,
+            updatedAt: now,
         };
         onSave(payload);
     };

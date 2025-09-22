@@ -1,4 +1,3 @@
-
 // src/domain/ssot.ts
 
 // =================================================================
@@ -141,7 +140,7 @@ export interface Account {
   }
 }
 
-export type BillingStatus = 'PENDING'|'INVOICING'|'INVOICED'|'FAILED';
+export type BillingStatus = 'PENDING'|'INVOICING'|'INVOICED'|'PAID'|'FAILED';
 
 export interface OrderSellOut {
   id: string;

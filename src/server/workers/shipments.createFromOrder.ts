@@ -24,13 +24,13 @@ export async function handleCreateShipmentFromOrder({ orderId }: { orderId: stri
     partyId: order.partyId,
     mode,
     status: 'pending',
-    lines: (order.lines || []).map(l => ({ sku: l.sku, name: l.name, qty: l.qty, uom: 'uds' })),
+    lines: (order.lines || []).map(l => ({ sku: l.sku, name: l.name ?? l.sku, qty: l.qty, uom: 'uds' })),
     createdAt: Timestamp.now() as any,
     updatedAt: Timestamp.now() as any,
     customerName: party?.tradeName || party?.legalName || 'Cliente',
-    city: party?.shippingAddress?.city || party?.billingAddress?.city || '',
+    city: party?.addresses?.[0]?.city || '',
     accountId: order.accountId, // for compatibility
   };
 
-  await adminDb.collection('shipments').doc(shipment.id).set(shipment);
+  await adminDb.collection('shipments').doc(shipment.id).set(shipment as any);
 }

@@ -1,8 +1,10 @@
 // src/server/workers/delivery.createNote.ts
-import { adminDb, serverTimestamp } from '@/server/firebaseAdmin';
+import { adminDb } from '@/server/firebaseAdmin';
 import { renderDeliveryNotePdf } from '@/server/pdf/deliveryNote'; // tu util del MVP
 import { saveBufferToStorage } from '@/server/storage';            // helper que sube a Storage
 import type { Shipment, Party, OrderSellOut, DeliveryNote } from '@/domain/ssot';
+import { Timestamp } from 'firebase-admin/firestore';
+
 
 function nextDnId(series: 'ONLINE'|'B2B'|'INTERNAL' = 'B2B') {
   const y = new Date().getFullYear();
@@ -59,10 +61,10 @@ export async function handleCreateDeliveryNoteCRM({ shipmentId }: { shipmentId: 
     series,
     date: new Date().toISOString(),
     pdfUrl,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
+    createdAt: Timestamp.now(),
+    updatedAt: Timestamp.now(),
     lines: (s.lines||[]).map((l:any)=>({ sku:l.sku, description:l.name||l.sku, qty:l.qty, uom:l.uom||'ud', lotNumbers: l.lotNumber?[l.lotNumber]:[] })),
-    soldTo: { legalName: party.tradeName || party.legalName, vat: party.vat },
+    soldTo: { name: party.tradeName || party.legalName, vat: party.vat },
     shipTo: {
       name: party.tradeName || party.legalName,
       address: party.addresses?.[0]?.street || '',
@@ -73,5 +75,5 @@ export async function handleCreateDeliveryNoteCRM({ shipmentId }: { shipmentId: 
   };
 
   await adminDb.collection('deliveryNotes').doc(dnId).set(note);
-  await sRef.set({ deliveryNoteId: dnId, updatedAt: serverTimestamp() }, { merge: true });
+  await sRef.set({ deliveryNoteId: dnId, updatedAt: Timestamp.now() }, { merge: true });
 }

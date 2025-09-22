@@ -86,10 +86,10 @@ export const INITIAL_MOCK_DATA: SantaData = {
   ],
   ordersSellOut: [
     { id: 'ord_mock_1', partyId: 'party_1', billingStatus: 'PENDING', docNumber: 'ORD-SB-240725-0001', accountId: 'acc_1', source: 'MANUAL', lines: [{ sku: 'SB-750', qty: 6, uom: 'uds', priceUnit: 15 }], createdAt: '2024-07-25T10:00:00Z', status: 'open', currency: 'EUR', totalAmount: 90 },
-    { id: 'ord_1', partyId: 'party_1', billingStatus: 'PAID', accountId: 'acc_1', source: 'CRM', lines: [{ sku: 'SB-750', qty: 12, uom: 'uds', priceUnit: 15 }], createdAt: '2023-01-20T14:00:00Z', status: 'paid', currency: 'EUR', totalAmount: 180 },
-    { id: 'ord_2', partyId: 'party_2', billingStatus: 'PAID', accountId: 'acc_2', source: 'CRM', lines: [{ sku: 'SB-750', qty: 24, uom: 'uds', priceUnit: 14.5 }, { sku: 'MERCH-VAS', qty: 50, uom: 'uds', priceUnit: 0 }], createdAt: '2023-03-01T12:00:00Z', status: 'paid', currency: 'EUR', totalAmount: 348 },
+    { id: 'ord_1', partyId: 'party_1', billingStatus: 'INVOICED', accountId: 'acc_1', source: 'CRM', lines: [{ sku: 'SB-750', qty: 12, uom: 'uds', priceUnit: 15 }], createdAt: '2023-01-20T14:00:00Z', status: 'paid', currency: 'EUR', totalAmount: 180 },
+    { id: 'ord_2', partyId: 'party_2', billingStatus: 'INVOICED', accountId: 'acc_2', source: 'CRM', lines: [{ sku: 'SB-750', qty: 24, uom: 'uds', priceUnit: 14.5 }, { sku: 'MERCH-VAS', qty: 50, uom: 'uds', priceUnit: 0 }], createdAt: '2023-03-01T12:00:00Z', status: 'paid', currency: 'EUR', totalAmount: 348 },
     { id: 'ord_3', partyId: 'party_1', billingStatus: 'INVOICED', accountId: 'acc_1', source: 'CRM', lines: [{ sku: 'SB-750', qty: 6, uom: 'uds', priceUnit: 15 }], createdAt: '2023-05-15T18:00:00Z', status: 'invoiced', currency: 'EUR', totalAmount: 90 },
-    { id: 'ord_4', partyId: 'party_6', billingStatus: 'PAID', accountId: 'acc_6', source: 'CRM', lines: [{ sku: 'SB-750', qty: 18, uom: 'uds', priceUnit: 16 }], createdAt: '2023-04-18T11:00:00Z', status: 'paid', currency: 'EUR', totalAmount: 288 },
+    { id: 'ord_4', partyId: 'party_6', billingStatus: 'INVOICED', accountId: 'acc_6', source: 'CRM', lines: [{ sku: 'SB-750', qty: 18, uom: 'uds', priceUnit: 16 }], createdAt: '2023-04-18T11:00:00Z', status: 'paid', currency: 'EUR', totalAmount: 288 },
   ],
   shipments: [
     { id: 'shp_1', orderId: 'ord_1', accountId: 'acc_1', partyId: 'party_1', mode: 'PALLET', createdAt: '2023-01-21T09:00:00Z', updatedAt: '2023-01-21T09:00:00Z', status: 'delivered', lines: [{ sku: 'SB-750', name: 'Santa Brisa 750ml', qty: 12, uom: 'uds' }], customerName: 'Bar Terraza Sol', city: 'Barcelona' },

@@ -1,6 +1,5 @@
-
 // src/app/api/shipment/[shipmentId]/picking-slip/route.ts
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import { adminDb } from '@/server/firebaseAdmin';
 import type { Shipment, OrderSellOut, Party } from '@/domain/ssot';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
@@ -88,7 +87,7 @@ async function renderPickingSlipPdf(shipment: Shipment, order?: OrderSellOut, pa
 }
 
 export async function GET(
-  request: Request,
+  _req: NextRequest,
   { params }: { params: { shipmentId: string } }
 ) {
   const { shipmentId } = params;
@@ -102,7 +101,7 @@ export async function GET(
 
     const pdfBytes = await renderPickingSlipPdf(shipment);
     
-    return new NextResponse(pdfBytes, {
+    return new Response(pdfBytes, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
