@@ -51,7 +51,7 @@ async function ensureOnlinePartyAccount() {
 }
 
 export async function importSingleShopifyOrder(orderId: string) {
-  if (!process.env.SHOPIFY_SHOP_DOMAIN || !process.env.SHOPIFY_ACCESS_TOKEN) {
+  if (!process.env.SHOPIFY_SHOP || !process.env.SHOPIFY_ADMIN_TOKEN) {
     throw new Error('Shopify env vars missing');
   }
 

@@ -1,12 +1,12 @@
 // Sencillo cliente REST para Shopify Admin API
 const API_VERSION = process.env.SHOPIFY_API_VERSION || '2024-07';
-const BASE = `https://${process.env.SHOPIFY_SHOP_DOMAIN}/admin/api/${API_VERSION}`;
+const BASE = `https://${process.env.SHOPIFY_SHOP}/admin/api/${API_VERSION}`;
 
 export async function fetchShopify(path: string, init?: RequestInit) {
   const res = await fetch(`${BASE}${path}`, {
     ...init,
     headers: {
-      'X-Shopify-Access-Token': process.env.SHOPIFY_ACCESS_TOKEN!,
+      'X-Shopify-Access-Token': process.env.SHOPIFY_ADMIN_TOKEN!,
       'Content-Type': 'application/json',
       ...(init?.headers || {}),
     },
