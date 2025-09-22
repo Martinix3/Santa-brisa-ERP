@@ -1,15 +1,16 @@
+
 "use client";
 
 import React, { useMemo, useState } from 'react';
 import { useData } from '@/lib/dataprovider';
-import type { Party, PartyRole, Account } from '@/domain/ssot';
-import { SBCard, Input } from '@/components/ui/ui-primitives';
-import { Search, Building, User as UserIcon, Briefcase } from 'lucide-react';
+import type { Party, PartyRole, PartyRoleType, Account } from '@/domain/ssot';
+import { SBCard, Input, Select } from '@/components/ui/ui-primitives';
+import { Search, Building, User as UserIcon, Mail, Phone, Globe } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import Link from 'next/link';
 
 function PartyRoleBadge({ role }: { role: PartyRole['role'] }) {
-    const roleStyles: Record<PartyRole['role'], string> = {
+    const roleStyles: Record<string, string> = {
         CUSTOMER: 'bg-blue-100 text-blue-800',
         SUPPLIER: 'bg-emerald-100 text-emerald-800',
         DISTRIBUTOR: 'bg-purple-100 text-purple-800',
@@ -19,13 +20,15 @@ function PartyRoleBadge({ role }: { role: PartyRole['role'] }) {
         EMPLOYEE: 'bg-sky-100 text-sky-800',
         BRAND_AMBASSADOR: 'bg-teal-100 text-teal-800',
     };
-    return <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${roleStyles[role] || 'bg-zinc-100 text-zinc-800'}`}>{role}</span>;
+    return <span className={`px-2 py-0.5 text-[10px] font-semibold rounded-full ${roleStyles[role] || 'bg-zinc-100 text-zinc-800'}`}>{role}</span>;
 }
 
 
 export function ContactsPageContent() {
     const { data } = useData();
     const [searchTerm, setSearchTerm] = useState('');
+    const [roleFilter, setRoleFilter] = useState<PartyRoleType | ''>('');
+    const [kindFilter, setKindFilter] = useState<Party['kind'] | ''>('');
 
     const { parties, partyRolesByPartyId } = useMemo(() => {
         if (!data) return { parties: [], partyRolesByPartyId: new Map() };
@@ -40,15 +43,27 @@ export function ContactsPageContent() {
     }, [data]);
 
     const filteredParties = useMemo(() => {
-        if (!searchTerm) return parties;
         const lowerCaseSearch = searchTerm.toLowerCase();
-        return parties.filter(party =>
-            party.name.toLowerCase().includes(lowerCaseSearch) ||
-            party.taxId?.toLowerCase().includes(lowerCaseSearch) ||
-            party.contacts.some(c => c.value.toLowerCase().includes(lowerCaseSearch)) ||
-            (partyRolesByPartyId.get(party.id) || []).some(r => r.role.toLowerCase().includes(lowerCaseSearch))
-        );
-    }, [parties, searchTerm, partyRolesByPartyId]);
+        return parties.filter(party => {
+            const roles = partyRolesByPartyId.get(party.id) || [];
+            
+            const matchesSearch = !searchTerm ||
+                party.name.toLowerCase().includes(lowerCaseSearch) ||
+                party.taxId?.toLowerCase().includes(lowerCaseSearch) ||
+                party.contacts.some(c => c.value.toLowerCase().includes(lowerCaseSearch));
+
+            const matchesRole = !roleFilter || roles.some(r => r.role === roleFilter);
+            const matchesKind = !kindFilter || party.kind === kindFilter;
+
+            return matchesSearch && matchesRole && matchesKind;
+        });
+    }, [parties, searchTerm, roleFilter, kindFilter, partyRolesByPartyId]);
+
+    const uniqueRoles = useMemo(() => {
+        const roles = new Set<PartyRoleType>();
+        (data?.partyRoles || []).forEach(r => roles.add(r.role));
+        return Array.from(roles).sort();
+    }, [data?.partyRoles]);
 
     if (!data) {
         return <div className="p-6 text-center">Cargando contactos...</div>;
@@ -56,25 +71,36 @@ export function ContactsPageContent() {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-semibold text-zinc-800">Directorio de Contactos</h1>
                     <p className="text-sm text-zinc-600">Unifica la vista de todos tus clientes, proveedores, influencers y empleados.</p>
                 </div>
-                <div className="relative w-full max-w-sm">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
-                    <Input
-                        placeholder="Buscar por nombre, CIF, rol, email..."
-                        className="pl-9"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
+                <div className="flex w-full md:w-auto items-center gap-2">
+                    <div className="relative flex-grow">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+                        <Input
+                            placeholder="Buscar por nombre, CIF, email..."
+                            className="pl-9 w-full md:w-64"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                     <Select value={roleFilter} onChange={e => setRoleFilter(e.target.value as any)}>
+                        <option value="">Todos los Roles</option>
+                        {uniqueRoles.map(role => <option key={role} value={role}>{role}</option>)}
+                    </Select>
+                     <Select value={kindFilter} onChange={e => setKindFilter(e.target.value as any)}>
+                        <option value="">Todos los Tipos</option>
+                        <option value="ORG">Organización</option>
+                        <option value="PERSON">Persona</option>
+                    </Select>
                 </div>
             </div>
 
             <SBCard title="">
                 <div className="divide-y divide-zinc-100">
-                     <div className="grid grid-cols-[auto_2fr_1.5fr_1fr_1fr] items-center gap-4 px-4 py-3 bg-zinc-50 text-xs font-semibold uppercase text-zinc-500 tracking-wider">
+                     <div className="grid grid-cols-[auto_2fr_1.5fr_1.5fr_1fr] items-center gap-4 px-4 py-3 bg-zinc-50 text-xs font-semibold uppercase text-zinc-500 tracking-wider">
                         <div />
                         <span>Nombre / Razón Social</span>
                         <span>Roles</span>
@@ -87,9 +113,9 @@ export function ContactsPageContent() {
                         const account = data.accounts.find(a => a.partyId === party.id);
                         
                         return (
-                            <div key={party.id} className="grid grid-cols-[auto_2fr_1.5fr_1fr_1fr] items-center gap-4 px-4 py-3 hover:bg-zinc-50/50">
+                            <div key={party.id} className="grid grid-cols-[auto_2fr_1.5fr_1.5fr_1fr] items-center gap-4 px-4 py-3 hover:bg-zinc-50/50">
                                 <div className="flex-shrink-0">
-                                    {party.kind === 'PERSON' ? <UserIcon className="h-6 w-6 text-zinc-500"/> : <Building className="h-6 w-6 text-zinc-500"/>}
+                                    {party.kind === 'PERSON' ? <Avatar name={party.name} size="lg"/> : <Building className="h-6 w-6 text-zinc-500"/>}
                                 </div>
                                 <div className="font-medium text-zinc-800">
                                     {account ? (
@@ -100,10 +126,16 @@ export function ContactsPageContent() {
                                 </div>
                                 <div className="flex flex-wrap gap-1">
                                     {roles.map(role => <PartyRoleBadge key={role.id} role={role.role} />)}
+                                    {roles.length === 0 && <span className="text-xs text-zinc-400">Sin rol asignado</span>}
                                 </div>
                                 <div>
                                     {primaryContact ? (
-                                        <div className="text-sm text-zinc-600">{primaryContact.value}</div>
+                                        <div className="text-sm text-zinc-600 flex items-center gap-2">
+                                            {primaryContact.type === 'email' && <Mail size={14} className="text-zinc-400" />}
+                                            {primaryContact.type === 'phone' && <Phone size={14} className="text-zinc-400" />}
+                                            {primaryContact.type === 'web' && <Globe size={14} className="text-zinc-400" />}
+                                            <span>{primaryContact.value}</span>
+                                        </div>
                                     ) : (
                                         <span className="text-xs text-zinc-400">Sin contacto</span>
                                     )}
