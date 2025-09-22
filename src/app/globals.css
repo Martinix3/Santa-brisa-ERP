@@ -1,7 +1,7 @@
-@config "../../tailwind.config.ts";
+@config "../tailwind.config.ts";
 @import "tailwindcss";
 
-:root{
+:root {
   --radius: 12px;
 
   /* neutrales y superficies */
@@ -50,10 +50,10 @@
 @layer components {
   /* Botón primario amarillo Santa Brisa */
   .sb-btn-primary {
-    background-color: hsl(var(--primary));
-    color: hsl(var(--primary-foreground));
-    border-radius: theme('borderRadius.xl');
-    box-shadow: theme('boxShadow.sm');
+    background-color: theme(colors.primary.DEFAULT);
+    color: theme(colors.primary.foreground);
+    border-radius: theme(borderRadius.xl);
+    box-shadow: theme(boxShadow.sm);
     transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
   }
   .sb-btn-primary:hover {
@@ -63,29 +63,29 @@
     outline: 2px solid hsl(var(--ring));
     outline-offset: 2px;
   }
-   .sb-btn-primary:active {
+  .sb-btn-primary:active {
     transform: scale(0.98);
   }
 
   /* Paneles y tarjetas suaves */
   .sb-card {
-    border-radius: theme('borderRadius.2xl');
+    border-radius: theme(borderRadius.2xl);
     border-width: 1px;
     border-color: hsl(var(--border) / 0.6);
     background-color: hsl(var(--background) / 0.9);
-    box-shadow: theme('boxShadow.md');
+    box-shadow: theme(boxShadow.md);
     backdrop-filter: blur(2px);
   }
 
   /* Menús / popovers suaves con animación */
   .sb-menu {
-    border-radius: theme('borderRadius.xl');
+    border-radius: theme(borderRadius.xl);
     border-width: 1px;
     border-color: hsl(var(--border) / 0.6);
     background-color: hsl(var(--background) / 0.95);
-    box-shadow: theme('boxShadow.lg');
+    box-shadow: theme(boxShadow.lg);
     backdrop-filter: blur(4px);
-    animation: theme('animation.fade-in-50'), theme('animation.slide-in-from-top-1');
+    animation: theme(animation.fade-in-50), theme(animation.slide-in-from-top-1);
   }
 
   /* Chips/badges “éxito” con verde suave corporativo */
@@ -94,6 +94,6 @@
     color: hsl(var(--sb-verde-mar));
     border-width: 1px;
     border-color: hsl(var(--sb-verde-mar) / 0.25);
-    border-radius: theme('borderRadius.lg');
+    border-radius: theme(borderRadius.lg);
   }
 }
