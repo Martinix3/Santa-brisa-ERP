@@ -1,4 +1,4 @@
-// app/api/integrations/[provider]/connect/route.ts
+// src/app/api/integrations/[provider]/connect/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from '@/server/firebaseAdmin';
 
@@ -7,15 +7,18 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(
   req: NextRequest,
-  context: { params: Promise<{ provider: string }> }
+  context: { params: { provider: string } }
 ) {
-  const { provider } = await context.params;
+  const { provider } = context.params;
   const body = await req.json().catch(()=> ({}));
 
   if (provider === "shopify") {
-    // Redirect a OAuth install
-    const url = new URL(`${process.env.APP_URL}/api/integrations/shopify/oauth`);
-    return NextResponse.redirect(url, { status:302 });
+    // Para Shopify, con una Custom App, solo necesitamos verificar que las variables de entorno están en el servidor.
+    const { SHOPIFY_SHOP_DOMAIN, SHOPIFY_ADMIN_TOKEN } = process.env;
+    if (SHOPIFY_SHOP_DOMAIN && SHOPIFY_ADMIN_TOKEN) {
+        return NextResponse.json({ ok: true, message: 'La conexión con Shopify ya está configurada en el servidor.' });
+    }
+    return NextResponse.json({ ok: false, error: "Las variables de entorno de Shopify (DOMAIN/TOKEN) no se han encontrado." }, { status: 400 });
   }
 
   if (provider === "holded") {
