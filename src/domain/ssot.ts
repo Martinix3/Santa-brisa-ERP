@@ -451,6 +451,7 @@ export interface Shipment {
   partyId: string;
   mode: 'PARCEL' | 'PALLET';
   shipmentNumber?: string;
+  deliveryNoteId?: string;
   holdedDeliveryId?: string;
   holdedInvoiceId?: string;
   createdAt: Timestamp;
@@ -474,21 +475,21 @@ export interface Shipment {
   dimsCm?: { l:number; w:number; h:number };
   parcels?: Array<{ weightKg?:number; dimsCm?:{l:number;w:number;h:number} }>;
   pallets?: Array<{ type:'EURO'|'AMERICAN'|'OTHER'; count:number; notes?:string }>;
-  deliveryNoteId?: string;
   trackingUrl?: string;
 }
 
 export interface DeliveryNote {
-  id: string;                       // DN-<serie>-<año>-<corr>
+  id: string;
   orderId: string;
   shipmentId: string;
   partyId: string;
   series: 'ONLINE'|'B2B'|'INTERNAL';
-  date: string;                     // ISO
+  date: string; // ISO
   soldTo: { name: string; vat?: string };
   shipTo: { name: string; address: string; zip: string; city: string; country: string };
   lines: Array<{ sku:string; description:string; qty:number; uom?:string; lotNumbers?:string[] }>;
   pdfUrl?: string;
+  company: { name: string; vat: string; address?: string; city?: string; zip?: string; country?: string };
   createdAt: any;
   updatedAt: any;
 }
@@ -765,7 +766,7 @@ export interface CodePolicy {
 export const CODE_POLICIES: Record<CodeEntity, CodePolicy> = {
   PRODUCT:    { entity:'PRODUCT', template:'{SKU}', regex:'^[A-Z0-9_-]{3,32}$'},
   ACCOUNT:    { entity:'ACCOUNT', template:'ACC-{SEQ#6}', regex:'^ACC-\\d{6}$', seqScope:'GLOBAL', pad:6 },
-  PARTY:      { entity:'PARTY', template:'PTY-{SEQ#6}', regex:'^PTY-\\d{6}$', seqScope:'GLOBAL', pad:6 },
+  PARTY:      { entity:'PARTY', template:'PTY-{SEQ#6}', regex:'^PTY-\\d{6}s$', seqScope:'GLOBAL', pad:6 },
   SUPPLIER:   { entity:'SUPPLIER', template:'SUP-{SEQ#5}', regex:'^SUP-\\d{5}$', seqScope:'GLOBAL', pad:5 },
   LOT:        { entity:'LOT', template:'{YY}{MM}{DD}-{SKU}-{SEQ#3}', regex:'^\\d{6}-.+-\\d{3}$', seqScope:'DAY', pad:3 },
   PROD_ORDER: { entity:'PROD_ORDER', template:'PO-{YYYY}{MM}-{SEQ#4}', regex:'^PO-\\d{6}-\\d{4}$', seqScope:'MONTH', pad:4 },

@@ -1,4 +1,4 @@
-
+// src/app/(app)/warehouse/logistics/page.tsx
 
 "use client";
 import React, { useMemo, useState, useTransition, useEffect, useCallback } from "react";
@@ -319,7 +319,7 @@ export default function LogisticsPage() {
   const handleSaveNewShipment = useCallback((shipmentData: Omit<Shipment, 'id'|'createdAt'|'updatedAt'>) => {
       handleAction(
           shipmentData.orderId, 
-          () => createManualShipment(shipmentData), 
+          () => createManualShipment(shipmentData),
           `Envío manual ${shipmentData.orderId} creado correctamente.`
       );
       setOpenNewShipment(false);
@@ -351,6 +351,8 @@ export default function LogisticsPage() {
   type RowAction = { id: string; label: string; icon: React.ReactNode; onClick: () => void; available: boolean; pendingReason?: string };
   const buildRowActions = (shipment: Shipment): RowAction[] => {
     const isPendingOrPicking = shipment.status === 'pending' || shipment.status === 'picking';
+    const order = orderMap.get(shipment.orderId);
+    
     const actions: RowAction[] = [
       { id: "picking_slip", label: "Hoja de Picking", icon: <FileText className="w-4 h-4"/>, onClick: () => generatePickingSlip(shipment.id), available: isPendingOrPicking },
       { id: "validate", label: "Validar", icon: <BadgeCheck className="w-4 h-4"/>, onClick: () => openValidateFor(shipment), available: isPendingOrPicking },
@@ -366,10 +368,21 @@ export default function LogisticsPage() {
           if (!orderId) return;
           handleAction(orderId, () => invoiceOrder(orderId), 'Job para crear factura encolado.');
         },
-        available: canInvoice(shipment),
+        available: canInvoice(shipment, order),
         pendingReason: "Requiere Enviado",
       },
     ];
+
+    if(shipment.deliveryNoteId) {
+        actions.push({
+            id: 'view_delivery_note',
+            label: 'Ver Albarán',
+            icon: <FileDown className="w-4 h-4"/>,
+            onClick: () => window.open(`/api/shipment/${shipment.id}/delivery-note`, '_blank'),
+            available: true,
+        });
+    }
+
     return showOnlyAvailable ? actions.filter(a => a.available) : actions;
   };
 
@@ -454,7 +467,7 @@ export default function LogisticsPage() {
                   <div key={shipment.id} className="grid grid-cols-[auto_1fr_1fr_1fr_1fr_1fr_1fr_auto] items-center hover:bg-zinc-50">
                     <div className="p-3 text-center"><Checkbox checked={selected.includes(shipment.id)} onCheckedChange={(checked: boolean) => setSelected(p => checked ? [...p, shipment.id] : p.filter(id => id !== shipment.id))} /></div>
                     <div className="p-3 font-medium font-mono text-xs">{shipment.shipmentNumber || shipment.id.substring(0,8)}...</div>
-                    <div className="p-3 text-sm">{new Date(shipment.createdAt).toLocaleDateString('es-ES')}</div>
+                    <div className="p-3 text-sm">{new Date(shipment.createdAt as any).toLocaleDateString('es-ES')}</div>
                     <div className="p-3 text-sm"><span className={`inline-flex items-center px-2 py-0.5 rounded-md border text-xs ${channelInfo.className}`}>{channelInfo.label}</span></div>
                     <div className="p-3 text-sm">
                       <div>

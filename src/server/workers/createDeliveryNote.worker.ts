@@ -1,9 +1,7 @@
 // src/server/workers/createDeliveryNote.worker.ts
 'use server';
 import { adminDb } from '@/server/firebaseAdmin';
-import { renderDeliveryNotePdf } from '@/server/pdf/deliveryNote';
-import type { Shipment, DeliveryNote, OrderSellOut, Party } from '@/domain/ssot';
-import { saveBufferToStorage } from '../storage';
+import type { DeliveryNote, Shipment, OrderSellOut, Party } from '@/domain/ssot';
 import { Timestamp } from 'firebase-admin/firestore';
 
 function nextDnId(series: 'ONLINE'|'B2B'|'INTERNAL' = 'B2B') {
@@ -37,7 +35,7 @@ export async function run({ shipmentId }: { shipmentId: string }) {
     const series: 'ONLINE'|'B2B'|'INTERNAL' = order.source === 'SHOPIFY' ? 'ONLINE' : 'B2B';
     const dnId = nextDnId(series);
 
-    const deliveryNoteData: DeliveryNote = {
+    const deliveryNoteData: Omit<DeliveryNote, 'pdfUrl'|'createdAt'|'updatedAt'> = {
         id: dnId,
         orderId: shipment.orderId,
         shipmentId: shipment.id,
@@ -59,23 +57,15 @@ export async function run({ shipmentId }: { shipmentId: string }) {
             uom: 'uds',
             lotNumbers: l.lotNumber ? [l.lotNumber] : [],
         })),
-        createdAt: Timestamp.now() as any,
-        updatedAt: Timestamp.now() as any,
+        company: { name: 'Santa Brisa', vat: 'B00000000', address: 'C/ Olivos 10', city: 'Madrid', zip: '28010', country: 'España' }
     };
-
-    const pdfBytes = await renderDeliveryNotePdf({
-        id: dnId,
-        dateISO: deliveryNoteData.date,
-        orderId: deliveryNoteData.orderId,
-        soldTo: deliveryNoteData.soldTo,
-        shipTo: deliveryNoteData.shipTo,
-        lines: deliveryNoteData.lines,
-        company: { name: 'Santa Brisa', vat: 'B00000000' }
+    
+    await adminDb.collection('deliveryNotes').doc(dnId).set({ 
+        ...deliveryNoteData,
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
     });
-
-    const pdfUrl = await saveBufferToStorage(`deliveryNotes/${dnId}.pdf`, Buffer.from(pdfBytes), 'application/pdf');
-
-    await adminDb.collection('deliveryNotes').doc(dnId).set({ ...deliveryNoteData, pdfUrl });
+    
     await shipmentRef.update({ deliveryNoteId: dnId, updatedAt: Timestamp.now() });
     
     console.log(`Created delivery note ${dnId} for shipment ${shipmentId}.`);
