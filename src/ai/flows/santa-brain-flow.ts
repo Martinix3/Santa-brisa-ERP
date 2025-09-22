@@ -8,7 +8,7 @@
  */
 
 import { ai } from '@/ai';
-import { z, type ZodTypeAny } from '@genkit-ai/ai/zod';
+import { z, type ZodTypeAny } from 'genkit/zod';
 import type { Message } from 'genkit';
 import { gemini15Flash } from '@genkit-ai/googleai';
 

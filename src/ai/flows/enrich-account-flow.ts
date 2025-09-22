@@ -12,7 +12,7 @@ import {
   EnrichAccountInputSchema,
   EnrichAccountOutputSchema,
 } from '@/domain/schemas/enrich-account';
-import { type ZodTypeAny } from '@genkit-ai/ai/zod';
+import { type ZodTypeAny } from 'genkit/zod';
 
 export async function enrichAccount(input: EnrichAccountInput): Promise<EnrichAccountOutput> {
   const enrichAccountPrompt = ai.definePrompt({
