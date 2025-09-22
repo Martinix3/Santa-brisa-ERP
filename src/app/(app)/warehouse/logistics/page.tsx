@@ -356,14 +356,14 @@ export default function LogisticsPage() {
           <table className="w-full text-sm">
             <thead className="text-[11px] uppercase tracking-wide text-sb-neutral-500 bg-white">
               <tr>
-                <th className="p-3"><Checkbox checked={selected.length === filtered.length && filtered.length > 0} onCheckedChange={(checked: boolean) => setSelected(checked ? filtered.map(s => s.id) : [])}/></th>
+                <th className="p-3 w-10 text-center"><Checkbox checked={selected.length === filtered.length && filtered.length > 0} onCheckedChange={(checked: boolean) => setSelected(checked ? filtered.map(s => s.id) : [])}/></th>
                 <th className="p-3 font-semibold text-left">ID Envío</th>
                 <th className="p-3 font-semibold text-left">Fecha</th>
                 <th className="p-3 font-semibold text-left">Canal</th>
                 <th className="p-3 font-semibold text-left">Cliente</th>
                 <th className="p-3 font-semibold text-left">Artículos</th>
                 <th className="p-3 font-semibold text-left">Estado</th>
-                <th className="p-3 w-16 text-right font-semibold">Acciones</th>
+                <th className="p-3 w-24 text-right font-semibold">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
@@ -375,7 +375,7 @@ export default function LogisticsPage() {
                 
                 return (
                   <tr key={shipment.id} className="hover:bg-zinc-50 relative">
-                    <td className="p-3"><Checkbox checked={selected.includes(shipment.id)} onCheckedChange={(checked: boolean) => setSelected(p => checked ? [...p, shipment.id] : p.filter(id => id !== shipment.id))} /></td>
+                    <td className="p-3 text-center"><Checkbox checked={selected.includes(shipment.id)} onCheckedChange={(checked: boolean) => setSelected(p => checked ? [...p, shipment.id] : p.filter(id => id !== shipment.id))} /></td>
                     <td className="p-3 font-medium font-mono">{shipment.id.substring(0,8)}...</td>
                     <td className="p-3">{new Date(shipment.createdAt).toLocaleDateString('es-ES')}</td>
                     <td className="p-3"><span className={`inline-flex items-center px-2 py-0.5 rounded-md border text-xs ${channelInfo.className}`}>{channelInfo.label}</span></td>
@@ -388,10 +388,13 @@ export default function LogisticsPage() {
                     <td className="p-3">
                       <ul className="text-sm space-y-1">
                         {shipment.lines.map((it: any) => (
-                          <li key={it.sku} className="flex items-center gap-2">
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-100">{it.sku}</span>
-                            <span>{it.name}</span>
-                            <span className="text-zinc-500">×{it.qty}</span>
+                          <li key={it.sku}>
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-100">{it.sku}</span>
+                                <span>{it.name}</span>
+                                <span className="text-zinc-500">×{it.qty}</span>
+                            </div>
+                            {it.lotNumber && <div className="text-xs text-zinc-500 pl-2">↳ Lote: {it.lotNumber}</div>}
                           </li>
                         ))}
                       </ul>
@@ -404,7 +407,7 @@ export default function LogisticsPage() {
                                 <MoreHorizontal className="w-4 h-4"/>
                               </SBButton>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-64 sb-menu">
+                          <DropdownMenuContent align="end" className="w-64">
                             <DropdownMenuLabel>Acciones</DropdownMenuLabel>
                             <DropdownMenuSeparator />
                             {buildRowActions(shipment).map((a) => (
@@ -440,5 +443,6 @@ export default function LogisticsPage() {
     </div>
   );
 }
+
 
 

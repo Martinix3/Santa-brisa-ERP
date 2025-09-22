@@ -45,8 +45,8 @@ export default function WarehouseLayout({ children }: { children: React.ReactNod
   return (
     <>
       <ModuleHeader title="Almacén" icon={Warehouse} />
-      <WarehouseNav />
-      <div className="flex-grow">
+      {/* The WarehouseNav is now part of the main layout, so it's removed from the logistics page */}
+      <div className="flex-grow bg-zinc-50">
           <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
             {children}
           </div>
