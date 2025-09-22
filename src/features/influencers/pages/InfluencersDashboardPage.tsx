@@ -18,9 +18,11 @@ export default function InfluencersDashboardPage({ components }:{ components:any
 
   const insights = useMemo(()=> buildCollabInsights(collabs, 200), [collabs]);
 
-  async function handleClose(collab: InfluencerCollab, k: any) {
+  async function handleClose(collabId: string, k: any) {
+    const collab = collabs.find(c => c.id === collabId);
     if (!collab) return;
     await closeCollab(collab, k);
+    setClosing(null);
   }
 
   return (
@@ -85,7 +87,7 @@ export default function InfluencersDashboardPage({ components }:{ components:any
             entity={closing}
             open={!!closing} 
             onClose={()=>setClosing(null)} 
-            onComplete={(id, payload) => handleClose(closing, payload)}
+            onComplete={handleClose}
         />
       )}
     </div>

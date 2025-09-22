@@ -3,10 +3,10 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
-import type { SantaData, User, UserRole } from "@/domain";
+import type { SantaData, User, UserRole } from '@/domain';
 import { auth, db } from "@/lib/firebaseClient";
 import { onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, getIdToken } from "firebase/auth";
-import { collection, getDocs, writeBatch, doc } from "firebase/firestore";
+import { collection, getDocs, writeBatch, doc, Timestamp } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { SANTA_DATA_COLLECTIONS } from "@/domain";
 import { INITIAL_MOCK_DATA } from "@/lib/mock-data";

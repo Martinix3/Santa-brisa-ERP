@@ -1,17 +1,18 @@
 // --- Santa Brisa: lógica de negocio (sell-out a botellas, agregados y KPIs) ---
+import { Timestamp } from 'firebase/firestore';
 import type {
-  Account, Party, PartyRole, CustomerData, OrderSellOut, Product, User, SantaData, Activation, AccountRollup, Interaction
+  Account, Party, PartyRole, CustomerData, OrderSellOut, Product, User, SantaData, Activation, Interaction
 } from '@/domain';
 
-export const inWindow = (dateStr: string, start: Date, end: Date): boolean => {
+export const inWindow = (dateStr: string | number, start: Date, end: Date): boolean => {
   if (!dateStr) return false;
-  const time = +new Date(dateStr);
+  const time = typeof dateStr === 'string' ? +new Date(dateStr) : dateStr;
   return time >= start.getTime() && time <= end.getTime();
 };
 
 export const orderTotal = (order: OrderSellOut): number => {
     if (!order || !order.lines) return 0;
-    return (order.lines || []).reduce((sum, line) => sum + (line.qty * line.priceUnit * (1 - (line.discount || 0))), 0);
+    return (order.lines || []).reduce((sum, line) => sum + (line.qty * line.priceUnit * (1 - (line.discountPct || 0) / 100)), 0);
 }
 
 export type ResolvedAccountMode = 'PROPIA_SB' | 'COLOCACION' | 'DISTRIB_PARTNER';
@@ -138,28 +139,39 @@ export function computeAccountKPIs(params: {
   const visitsCount = (baseline?.visits || 0) + interactions.filter(i => i.kind === 'VISITA').length;
   const visitsInWindow = interactions.filter(i => i.kind === 'VISITA');
   
-  const ordersTimes = orders.map(o => +new Date(o.createdAt));
+  const ordersTimes = orders.map(o => +(typeof o.createdAt === 'string' ? new Date(o.createdAt) : o.createdAt));
   const lookN = lookbackDaysForConversion * 24 * 3600 * 1000;
   const convertedVisits = visitsInWindow.filter(v => {
-    const tv = +new Date(v.createdAt);
+    const tv = +(typeof v.createdAt === 'string' ? new Date(v.createdAt) : v.createdAt);
     return ordersTimes.some(to => to >= tv && to <= tv + lookN);
   }).length;
   const visitToOrderRate = visitsInWindow.length ? Number(((convertedVisits / visitsInWindow.length) * 100).toFixed(1)) : undefined;
 
   const allAccountOrders = (data.ordersSellOut || []).filter(o => o.accountId === accountId && o.status === 'confirmed');
-  const sortedOrders = allAccountOrders.sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
+  const sortedOrders = allAccountOrders.sort((a, b) => +(typeof b.createdAt === 'string' ? new Date(b.createdAt) : b.createdAt) - +(typeof a.createdAt === 'string' ? new Date(a.createdAt) : a.createdAt));
   const lastOrder = sortedOrders.length > 0 ? sortedOrders[0] : undefined;
 
   const allAccountVisits = (data.interactions || []).filter(i => i.accountId === accountId && i.kind==='VISITA');
-  const sortedVisits = allAccountVisits.sort((a,b)=> +new Date(b.createdAt) - +new Date(a.createdAt));
+  const sortedVisits = allAccountVisits.sort((a,b)=> +(typeof b.createdAt === 'string' ? new Date(b.createdAt) : b.createdAt) - +(typeof a.createdAt === 'string' ? new Date(a.createdAt) : a.createdAt));
   const lastVisit = sortedVisits.length > 0 ? sortedVisits[0] : undefined;
 
   const now = new Date(end);
-  const daysSinceLastOrder = lastOrder ? Math.max(0, Math.round((now.getTime() - +new Date(lastOrder.createdAt))/(1000*3600*24))) : undefined;
-  const daysSinceLastVisit = lastVisit ? Math.max(0, Math.round((now.getTime() - +new Date(lastVisit.createdAt))/(1000*3600*24))) : undefined;
+  const daysSinceLastOrder = lastOrder ? Math.max(0, Math.round((now.getTime() - +(typeof lastOrder.createdAt === 'string' ? new Date(lastOrder.createdAt) : lastOrder.createdAt))/(1000*3600*24))) : undefined;
+  const daysSinceLastVisit = lastVisit ? Math.max(0, Math.round((now.getTime() - +(typeof lastVisit.createdAt === 'string' ? new Date(lastVisit.createdAt) : lastVisit.createdAt))/(1000*3600*24))) : undefined;
 
   return { accountId, unitsSold, orderCount, avgTicket, visitsCount, visitToOrderRate, daysSinceLastOrder, daysSinceLastVisit };
 }
+
+export type AccountRollup = {
+    accountId: string;
+    hasPLVInstalled?: boolean;
+    lastPLVInstalledAt?: string;
+    activeActivations: number;
+    lastActivationAt?: string;
+    activePromotions: number;
+    activePosTactics: number;
+    lastTacticAt?: string;
+};
 
 // 4) Rollup por cuenta
 export function computeAccountRollup(accountId: string, data: SantaData): AccountRollup {
@@ -170,7 +182,7 @@ export function computeAccountRollup(accountId: string, data: SantaData): Accoun
     
     const sortedPlvVisits = accountInteractions
         .filter(i => i.note?.toLowerCase().includes('plv'))
-        .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
+        .sort((a, b) => +(typeof b.createdAt === 'string' ? new Date(b.createdAt) : b.createdAt) - +(typeof a.createdAt === 'string' ? new Date(a.createdAt) : a.createdAt));
     const plvVisit = sortedPlvVisits.length > 0 ? sortedPlvVisits[0] : undefined;
 
     const promotions = data.promotions || [];
@@ -178,7 +190,7 @@ export function computeAccountRollup(accountId: string, data: SantaData): Accoun
     const activePromotions = promotions.filter(p => now >= new Date(p.validFrom) && now <= new Date(p.validTo));
 
     const posTactics = accountInteractions.filter(i => i.posTactic && i.status === 'open');
-    const sortedPosTactics = posTactics.sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
+    const sortedPosTactics = posTactics.sort((a, b) => +(typeof b.createdAt === 'string' ? new Date(b.createdAt) : b.createdAt) - +(typeof a.createdAt === 'string' ? new Date(a.createdAt) : a.createdAt));
     const lastTactic = sortedPosTactics.length > 0 ? sortedPosTactics[0] : undefined;
     
     const sortedActiveActivations = activeActivations.sort((a,b) => +new Date(b.startDate) - +new Date(a.startDate));
@@ -237,7 +249,7 @@ export function computeFleetKPIs(params: {
   const perAccDeltaDays: number[] = [];
   byAccOrders.forEach(arr => {
     if ((arr?.length || 0) >= 2) {
-      const sorted = arr.map(o => +new Date(o.createdAt)).sort((a, b) => a - b);
+      const sorted = arr.map(o => +(typeof o.createdAt === 'string' ? new Date(o.createdAt) : o.createdAt)).sort((a, b) => a - b);
       const deltas = sorted.slice(1).map((t, i) => (t - sorted[i]) / (1000 * 3600 * 24));
       perAccDeltaDays.push(deltas.reduce((a, b) => a + b, 0) / deltas.length);
     }

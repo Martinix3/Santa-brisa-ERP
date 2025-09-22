@@ -94,20 +94,21 @@ function PersonalDashboardContent() {
   }, [userInteractions]);
   
   const handleUpdateStatus = (id: string, newStatus: InteractionStatus) => {
+    if (!data) return;
     const taskToUpdate = userInteractions.find(i => i.id === id);
     if (!taskToUpdate) return;
 
     if (newStatus === 'done') {
-      if (taskToUpdate.dept === 'MARKETING') {
-          const event = data?.marketingEvents.find(e => e.id === taskToUpdate.linkedEntity?.id);
-          if (event) {
-              setCompletingMarketingEvent(event);
-          } else {
-              alert("No se encontró el evento de marketing asociado para registrar los KPIs.");
-          }
-      } else {
-          setCompletingTask(taskToUpdate);
-      }
+        if (taskToUpdate.dept === 'MARKETING') {
+            const event = data.marketingEvents.find(e => e.id === taskToUpdate.linkedEntity?.id);
+            if (event) {
+                setCompletingMarketingEvent(event);
+            } else {
+                setCompletingTask(taskToUpdate);
+            }
+        } else {
+            setCompletingTask(taskToUpdate);
+        }
     }
   };
 
@@ -161,11 +162,15 @@ function PersonalDashboardContent() {
 
       if (payload.type === 'venta') {
           const originalTask = data.interactions.find(i => i.id === taskId);
-          if (originalTask?.accountId) {
+          const account = data.accounts.find(a => a.id === originalTask?.accountId);
+          if (account) {
               const newOrder: OrderSellOut = {
                   id: `ord_${Date.now()}`,
-                  accountId: originalTask.accountId,
+                  accountId: account.id,
+                  partyId: account.partyId,
                   status: 'open',
+                  source: 'MANUAL',
+                  billingStatus: 'PENDING',
                   currency: 'EUR',
                   createdAt: new Date().toISOString(),
                   lines: payload.items.map(item => ({ sku: item.sku, qty: item.qty, uom: 'uds', priceUnit: 0 })),

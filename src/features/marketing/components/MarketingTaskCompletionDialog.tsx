@@ -1,4 +1,3 @@
-
 // src/features/marketing/components/MarketingTaskCompletionDialog.tsx
 "use client";
 import React, { useState, useEffect, useMemo } from 'react';
@@ -68,6 +67,13 @@ function getEntityType(entity: Entity): 'event' | 'campaign' | 'collab' {
     if ('creatorName' in entity) return 'collab';
     return 'event'; // Default
 }
+
+function getEntityTitle(entity: Entity): string {
+    if ('title' in entity && entity.title) return entity.title;
+    if ('creatorName' in entity && entity.creatorName) return `Collab con ${entity.creatorName}`;
+    return "Evento de Marketing";
+}
+
 
 export function MarketingTaskCompletionDialog({
   entity,
@@ -165,7 +171,7 @@ export function MarketingTaskCompletionDialog({
   return (
     <SBDialog open={open} onOpenChange={onClose}>
       <SBDialogContent
-        title={`Resultados de: ${entity.title}`}
+        title={`Resultados de: ${getEntityTitle(entity)}`}
         description="Registra los KPIs de la acción de marketing para completarla. Todos los campos son obligatorios."
         onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}
         primaryAction={{ label: 'Guardar y Completar', type: 'submit', disabled: !canSubmit }}

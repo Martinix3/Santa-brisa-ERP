@@ -1,4 +1,3 @@
-
 // src/app/(app)/marketing/online/page.tsx
 "use client";
 
@@ -320,7 +319,7 @@ function CampaignRow({
       <td className="p-3 text-right">{fmtNum(campaign.metrics?.impressions)}</td>
       <td className="p-3 text-right">{fmtNum(campaign.metrics?.clicks)}</td>
       <td className="p-3 text-right font-semibold">
-        {(campaign.spend||0)>0 && (campaign.metrics?.revenue||0)>0 ? `${((campaign.metrics!.revenue!)/(campaign.spend!)).toFixed(2)}x` : "—"}
+        {(campaign.spend||0)>0 && (campaign.metrics?.revenue||0)>0 ? `${(((campaign.metrics!.revenue!))/(campaign.spend!)).toFixed(2)}x` : "—"}
       </td>
       <td className="p-3">
         <div className="flex items-center gap-1 justify-end">
@@ -375,9 +374,9 @@ export default function OnlineCampaignsPage() {
     await persist(next);
   }
 
-  async function handleComplete(campaign: OnlineCampaign, payload: { spend:number; impressions:number; clicks:number; roas:number; }) {
+  async function handleComplete(campaignId: string, payload: { spend:number; impressions:number; clicks:number; roas:number; }) {
     const next = campaigns.map(c => {
-      if (c.id !== campaign.id) return c;
+      if (c.id !== campaignId) return c;
       const ctr = payload.impressions > 0 ? payload.clicks / payload.impressions : 0;
       const cpc = payload.clicks > 0 ? payload.spend / payload.clicks : 0;
       const cpm = payload.impressions > 0 ? payload.spend / (payload.impressions / 1000) : 0;
@@ -399,6 +398,7 @@ export default function OnlineCampaignsPage() {
       } as OnlineCampaign;
     });
     await persist(next);
+    setClosing(null);
   }
 
   const insights = useMemo(()=> buildPaidInsights(campaigns, 300), [campaigns]);
@@ -493,11 +493,10 @@ export default function OnlineCampaignsPage() {
       <NewCampaignDialog open={openCreate} onClose={()=>setOpenCreate(false)} onSave={handleCreate} />
       {closing && (
         <MarketingTaskCompletionDialog
-          event={closing}
+          entity={closing}
           open={!!closing}
           onClose={() => setClosing(null)}
-          onComplete={handleComplete as any}
-          isOnlineCampaign
+          onComplete={handleComplete}
         />
       )}
     </>

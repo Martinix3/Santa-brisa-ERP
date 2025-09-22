@@ -22,7 +22,7 @@ export async function handleCreateHoldedInvoice({ orderId }: { orderId: string }
   // 2) Asegurar contacto Holded
   let contactId = party.external?.holdedContactId;
   if (!contactId) {
-    const created = await callHoldedApi('/invoicing/v1/contacts', 'POST', {
+    const created: any = await callHoldedApi('/invoicing/v1/contacts', 'POST', {
       name: party.tradeName || party.legalName,
       code: party.vat, // vat -> code en Holded
       email: party.emails?.[0],
@@ -54,7 +54,7 @@ export async function handleCreateHoldedInvoice({ orderId }: { orderId: string }
   const issuedAtSec = Math.floor((typeof order.createdAt === 'number' ? order.createdAt : new Date(order.createdAt).getTime()) / 1000);
 
   // 5) Crear factura (idempotencia: customId)
-  const invoice = await callHoldedApi('/invoicing/v1/documents/invoice', 'POST', {
+  const invoice: any = await callHoldedApi('/invoicing/v1/documents/invoice', 'POST', {
     contactId,
     items,
     currency: (order.currency || 'EUR').toUpperCase(),

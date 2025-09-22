@@ -190,7 +190,7 @@ export default function Page(){
 
     {completingEvent && (
         <MarketingTaskCompletionDialog
-            event={completingEvent}
+            entity={completingEvent}
             open={!!completingEvent}
             onClose={() => setCompletingEvent(null)}
             onComplete={handleSaveCompletedTask}

@@ -4,7 +4,7 @@ import { callHoldedApi } from '@/server/integrations/holded/client';
 import { Timestamp } from 'firebase-admin/firestore';
 
 type HoldedPurchase = {
-  id: string; contactId: string; contactName?: string; email?: string; vatnumber?: string;
+  id: string; contactId: string; contactName?: string; email?: string; code?: string; // code is vat
   status?: string; date?: string; dueDate?: string; currency?: string;
   total?: number; totalTax?: number; tax?: number;
   lines?: Array<{ description?: string; name?: string; itemName?: string; quantity?: number; price?: number; taxPercent?: number }>;
@@ -22,7 +22,7 @@ async function upsertSupplierParty(p: { contactId: string; name?: string; vat?: 
   // Por holdedContactId
   const q = await adminDb.collection('parties').where('external.holdedContactId', '==', p.contactId).limit(1).get();
   const ref = q.empty ? adminDb.collection('parties').doc() : q.docs[0].ref;
-  const data = q.empty ? {} : q.docs[0].data();
+  const data = q.empty ? {} as any : q.docs[0].data();
 
   const roles = new Set<string>([...(data.roles || [])]);
   roles.add('SUPPLIER');
@@ -42,13 +42,13 @@ async function upsertSupplierParty(p: { contactId: string; name?: string; vat?: 
 
 export async function handleSyncHoldedPurchases({ page = 1 }: { page?: number }) {
   // Endpoint de compras (ajústalo si tu cuenta usa ruta distinta)
-  const purchases: HoldedPurchase[] = await callHoldedApi(`/documents/purchaseinvoice?limit=200&page=${page}`, 'GET');
+  const purchases: HoldedPurchase[] = await callHoldedApi(`/documents/purchaseinvoice?limit=200&page=${page}`, 'GET') as HoldedPurchase[];
 
   for (const p of purchases) {
     const supplierPartyId = await upsertSupplierParty({
       contactId: p.contactId,
       name: p.contactName,
-      vat: p.vatnumber,
+      vat: p.code,
       email: p.email
     });
 
