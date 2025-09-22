@@ -882,6 +882,18 @@ export const SB_COLORS = {
 export type DeptKey = keyof typeof SB_COLORS.dept;
 export type QCVisual = keyof typeof SB_COLORS.lotQC; // 'release'|'hold'|'reject'
 
+export const PARTY_ROLE_META: Record<PartyRoleType, { label: string; accent: string }> = {
+    CUSTOMER: { label: 'Cliente', accent: SB_COLORS.primary.copper },
+    SUPPLIER: { label: 'Proveedor', accent: SB_COLORS.primary.aqua },
+    DISTRIBUTOR: { label: 'Distribuidor', accent: SB_COLORS.primary.teal },
+    IMPORTER: { label: 'Importador', accent: SB_COLORS.primary.teal },
+    INFLUENCER: { label: 'Influencer', accent: '#f472b6' },
+    CREATOR: { label: 'Creator', accent: '#ec4899' },
+    EMPLOYEE: { label: 'Empleado', accent: '#6366f1' },
+    BRAND_AMBASSADOR: { label: 'Brand Ambassador', accent: '#8b5cf6' },
+};
+
+
 // --- Estados visuales de negocio ---
 export const ORDER_STATUS_META: Record<OrderStatus, { label: string; accent: string }> = {
   open:      { label: 'Abierto',    accent: SB_COLORS.state.info    },

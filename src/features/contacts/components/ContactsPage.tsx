@@ -8,19 +8,27 @@ import { SBCard, Input, Select } from '@/components/ui/ui-primitives';
 import { Search, Building, User as UserIcon, Mail, Phone, Globe } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import Link from 'next/link';
+import { PARTY_ROLE_META, hexToRgba } from '@/domain/ssot';
 
-function PartyRoleBadge({ role }: { role: PartyRole['role'] }) {
-    const roleStyles: Record<string, string> = {
-        CUSTOMER: 'bg-blue-100 text-blue-800',
-        SUPPLIER: 'bg-emerald-100 text-emerald-800',
-        DISTRIBUTOR: 'bg-purple-100 text-purple-800',
-        IMPORTER: 'bg-indigo-100 text-indigo-800',
-        INFLUENCER: 'bg-pink-100 text-pink-800',
-        CREATOR: 'bg-rose-100 text-rose-800',
-        EMPLOYEE: 'bg-sky-100 text-sky-800',
-        BRAND_AMBASSADOR: 'bg-teal-100 text-teal-800',
-    };
-    return <span className={`px-2 py-0.5 text-[10px] font-semibold rounded-full ${roleStyles[role] || 'bg-zinc-100 text-zinc-800'}`}>{role}</span>;
+
+function PartyRoleBadge({ role }: { role: PartyRoleType }) {
+    const meta = PARTY_ROLE_META[role];
+    if (!meta) {
+        return <span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-zinc-100 text-zinc-800">{role}</span>;
+    }
+
+    return (
+        <span 
+            className="px-2 py-0.5 text-[10px] font-semibold rounded-full border"
+            style={{
+                backgroundColor: hexToRgba(meta.accent, 0.1),
+                borderColor: hexToRgba(meta.accent, 0.2),
+                color: meta.accent
+            }}
+        >
+            {meta.label}
+        </span>
+    );
 }
 
 
@@ -88,7 +96,7 @@ export function ContactsPageContent() {
                     </div>
                      <Select value={roleFilter} onChange={e => setRoleFilter(e.target.value as any)}>
                         <option value="">Todos los Roles</option>
-                        {uniqueRoles.map(role => <option key={role} value={role}>{role}</option>)}
+                        {uniqueRoles.map(role => <option key={role} value={role}>{PARTY_ROLE_META[role]?.label || role}</option>)}
                     </Select>
                      <Select value={kindFilter} onChange={e => setKindFilter(e.target.value as any)}>
                         <option value="">Todos los Tipos</option>
