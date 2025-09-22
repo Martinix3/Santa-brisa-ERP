@@ -40,7 +40,7 @@ const TableBody = ({children, ...props}: any) => <tbody {...props}>{children}</t
 const TableCell = ({children, ...props}: any) => <td {...props}>{children}</td>;
 const DropdownMenu = ({children}: any) => <div className="relative group">{children}</div>;
 const DropdownMenuTrigger = ({children}: any) => <div>{children}</div>;
-const DropdownMenuContent = ({children, className}: any) => <div className={`absolute right-0 mt-1 z-20 bg-white border rounded-md shadow-lg hidden group-hover:block ${className}`}>{children}</div>;
+const DropdownMenuContent = ({children, className}: any) => <div className={`sb-menu absolute right-0 mt-1 z-20 hidden group-hover:block ${className}`}>{children}</div>;
 const DropdownMenuItem = ({children, ...props}: any) => <button {...props} className="w-full text-left block px-4 py-2 text-sm text-zinc-700 hover:bg-zinc-100">{children}</button>;
 const DropdownMenuLabel = ({children}: any) => <div className="px-4 py-2 text-xs font-semibold text-zinc-500">{children}</div>;
 const DropdownMenuSeparator = () => <hr className="my-1"/>;

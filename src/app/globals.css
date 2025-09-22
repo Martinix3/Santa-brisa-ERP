@@ -1,18 +1,20 @@
 @config "../../tailwind.config.ts";
 @import "tailwindcss";
 
-/* Variables de tema (ejemplo) */
 :root{
   --radius: 12px;
 
-  --border: 240 5% 84%;
+  /* neutrales y superficies */
+  --border: 240 6% 90%;          /* más claro para que las líneas sean suaves */
   --input: 240 5% 96%;
   --ring: 240 5% 65%;
   --background: 0 0% 100%;
   --foreground: 240 10% 3.9%;
 
-  --primary: 173 58% 39%;
-  --primary-foreground: 210 40% 98%;
+  /* 🎯 amarillo Santa Brisa como color primario de la UI */
+  --sb-sun: 32 95% 55%;
+  --primary: var(--sb-sun);
+  --primary-foreground: 0 0% 10%; /* casi negro para buen contraste */
 
   --secondary: 240 4.8% 95.9%;
   --secondary-foreground: 240 5.9% 10%;
@@ -23,7 +25,7 @@
   --accent: 240 4.8% 95.9%;
   --accent-foreground: 240 5.9% 10%;
 
-  --sb-sun: 32 95% 55%;
+  /* paleta corporativa extendida (por si la usas directamente) */
   --sb-cobre: 18 75% 45%;
   --sb-agua: 185 70% 40%;
   --sb-verde-mar: 165 50% 35%;
@@ -37,4 +39,38 @@
   --sb-neutral-50: 0 0% 98%;
 }
 
-/* Si usas tipografías base o resets, añádelos aquí */
+/* Base: bordes más suaves en TODA la app */
+@layer base {
+  * {
+    border-color: hsl(var(--border) / 0.55);
+  }
+}
+
+/* Componentes “prefabricados” para aplicar estilo refinado rápido */
+@layer components {
+  /* Botón primario amarillo Santa Brisa */
+  .sb-btn-primary {
+    @apply bg-primary text-primary-foreground hover:bg-primary/90
+           rounded-xl shadow-sm transition-all duration-150 focus-visible:outline-none
+           focus-visible:ring-2 focus-visible:ring-primary/30 active:scale-[0.98];
+  }
+
+  /* Paneles y tarjetas suaves */
+  .sb-card {
+    @apply rounded-2xl border border-[hsl(var(--border)/0.6)]
+           bg-background/90 shadow-md backdrop-blur-[2px];
+  }
+
+  /* Menús / popovers suaves con animación */
+  .sb-menu {
+    @apply rounded-xl border border-[hsl(var(--border)/0.6)]
+           bg-background/95 shadow-lg backdrop-blur-[4px]
+           animate-in fade-in-50 slide-in-from-top-1 duration-150;
+  }
+
+  /* Chips/badges “éxito” con verde suave corporativo */
+  .sb-badge-success {
+    @apply bg-[hsl(var(--sb-verde-mar)/0.12)] text-[hsl(var(--sb-verde-mar))]
+           border border-[hsl(var(--sb-verde-mar)/0.25)] rounded-lg;
+  }
+}

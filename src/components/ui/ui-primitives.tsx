@@ -66,11 +66,11 @@ export const Button = React.forwardRef<HTMLButtonElement | HTMLAnchorElement, Bu
     ({ variant = "primary", size = "md", as: Component = "button", className, ...props }, ref) => {
         const base = "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed";
         const variantMap = {
-            primary: "bg-sb-sun text-sb-neutral-900 hover:brightness-110",
-            secondary: "border border-zinc-300 bg-white hover:bg-zinc-50",
-            subtle: "border border-zinc-200 bg-white hover:bg-zinc-50",
-            destructive: "bg-rose-600 text-white hover:bg-rose-700",
-            ghost: "hover:bg-zinc-100",
+            primary: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm",
+            secondary: "border bg-white hover:bg-zinc-50",
+            subtle: "border bg-white hover:bg-zinc-50",
+            destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+            ghost: "hover:bg-muted",
         } as const;
         const sizeMap = {
             sm: "px-2.5 py-1.5 text-xs",
@@ -84,9 +84,9 @@ export const Button = React.forwardRef<HTMLButtonElement | HTMLAnchorElement, Bu
 Button.displayName = "Button";
 
 
-export const Input = (p:React.InputHTMLAttributes<HTMLInputElement>)=> <input {...p} className={clsx("w-full px-3 py-2 rounded-lg border border-zinc-300 bg-white text-sm outline-none focus:ring-2 ring-sb-sun", p.className)}/>;
-export const Select = (p:React.SelectHTMLAttributes<HTMLSelectElement>)=> <select {...p} className={clsx("w-full px-3 py-2 rounded-lg border border-zinc-300 bg-white text-sm outline-none focus:ring-2 ring-sb-sun", p.className)}/>;
-export const Textarea = (p:React.TextareaHTMLAttributes<HTMLTextAreaElement>)=> <textarea {...p} rows={4} className={clsx("w-full px-3 py-2 rounded-lg border border-zinc-300 bg-white text-sm outline-none focus:ring-2 ring-sb-sun", p.className)}/>;
+export const Input = (p:React.InputHTMLAttributes<HTMLInputElement>)=> <input {...p} className={clsx("w-full px-3 py-2 rounded-lg border bg-white text-sm outline-none focus:ring-2 ring-primary", p.className)}/>;
+export const Select = (p:React.SelectHTMLAttributes<HTMLSelectElement>)=> <select {...p} className={clsx("w-full px-3 py-2 rounded-lg border bg-white text-sm outline-none focus:ring-2 ring-primary", p.className)}/>;
+export const Textarea = (p:React.TextareaHTMLAttributes<HTMLTextAreaElement>)=> <textarea {...p} rows={4} className={clsx("w-full px-3 py-2 rounded-lg border bg-white text-sm outline-none focus:ring-2 ring-primary", p.className)}/>;
 
 
 export function Badge({accent = SB_COLORS.primary.aqua,label}:{accent?:string;label:string}){
@@ -94,7 +94,7 @@ export function Badge({accent = SB_COLORS.primary.aqua,label}:{accent?:string;la
 }
 
 export function Card({title,accent = SB_COLORS.primary.aqua,children}:{title:string;accent?:string;children:React.ReactNode}){
-  return <div className="rounded-2xl border border-zinc-200 overflow-hidden bg-white shadow-sm">
+  return <div className="rounded-2xl border overflow-hidden bg-white shadow-sm">
     <div className="px-4 py-2.5 border-b relative" style={{background:waterHeader("card:"+title, accent), borderColor:hexToRgba(accent,0.18)}}>
       <div className="text-sm font-medium text-zinc-800">{title}</div>
       <div className="absolute left-0 right-0 -bottom-px"><AgaveEdge/></div>
@@ -104,7 +104,7 @@ export function Card({title,accent = SB_COLORS.primary.aqua,children}:{title:str
 }
 
 export const KPI = ({label,value,delta, icon: Icon}:{label:string;value:string|number;delta?:string; icon?: React.ElementType}) => (
-  <div className="rounded-xl border border-zinc-200 p-3 bg-white flex items-center gap-3">
+  <div className="rounded-xl border p-3 bg-white flex items-center gap-3">
     {Icon && <div className="p-2 rounded-lg bg-zinc-100 text-zinc-600"><Icon className="h-5 w-5"/></div>}
     <div>
       <div className="text-xs text-zinc-500">{label}</div>
@@ -115,7 +115,7 @@ export const KPI = ({label,value,delta, icon: Icon}:{label:string;value:string|n
 );
 
 export function Table({cols,rows}:{cols:{key:string;label:string}[]; rows:Record<string,React.ReactNode>[]}){
-  return <div className="overflow-auto rounded-xl border border-zinc-200">
+  return <div className="overflow-auto rounded-xl border">
     <table className="min-w-[720px] w-full text-sm">
       <thead className="bg-zinc-50">
         <tr>{cols.map(c=> <th key={c.key} className="text-left px-3 py-2 font-medium text-zinc-700">{c.label}</th>)}</tr>
@@ -145,7 +145,7 @@ export function MiniTrend({data,accent = SB_COLORS.primary.aqua}:{data:{x:string
 }
 
 export const EmptyState = ({icon:Icon,title,desc,action}:{icon:any; title:string; desc:string; action?:React.ReactNode})=> (
-  <div className="text-center py-12 border border-dashed border-zinc-200 rounded-2xl">
+  <div className="text-center py-12 border border-dashed rounded-2xl">
     <Icon className="h-6 w-6 mx-auto text-zinc-500"/>
     <div className="mt-2 text-zinc-900 font-medium">{title}</div>
     <div className="text-sm text-zinc-600">{desc}</div>
