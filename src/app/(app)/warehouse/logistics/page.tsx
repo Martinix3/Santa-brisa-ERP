@@ -2,6 +2,7 @@
 
 "use client";
 import React, { useMemo, useState, useTransition, useEffect } from "react";
+import { revalidatePath } from 'next/cache';
 import { Printer, PackageCheck, Truck, CheckCircle2, Search, Plus, FileText, ClipboardList, Boxes, PackageOpen, BadgeCheck, AlertTriangle, Settings, Clipboard, Ruler, Weight, MoreHorizontal, Check as CheckIcon, FileDown, Package, Info, X, Loader2 } from "lucide-react";
 import { SBButton, SBCard, Input, Select, STATUS_STYLES } from '@/components/ui/ui-primitives';
 import { useData } from '@/lib/dataprovider';
@@ -86,7 +87,7 @@ const ValidateDialog: React.FC<{ open: boolean; onOpenChange: (v: boolean) => vo
   const [packer, setPacker] = React.useState<string>("");
   const [carrier, setCarrier] = React.useState<string>("");
 
-  useEffect(() => {
+  React.useEffect(() => {
     if(shipment) {
         setVisualOk(Boolean(shipment.checks?.visualOk));
         setPicker(shipment.packedById || "");
@@ -193,7 +194,7 @@ const ValidateDialog: React.FC<{ open: boolean; onOpenChange: (v: boolean) => vo
                         <p className="font-medium">{it.name || it.sku}</p>
                         <p className="text-xs text-zinc-500">SKU {it.sku} · Cantidad solicitada: {it.qty} {it.uom}</p>
                       </div>
-                      <SBButton onClick={() => addLotRow(it.sku)}><Plus className="w-4 h-4 mr-2"/>Añadir lote</SBButton>
+                      <SBButton type="button" onClick={() => addLotRow(it.sku)}><Plus className="w-4 h-4 mr-2"/>Añadir lote</SBButton>
                     </div>
                     <div className="space-y-2">
                       {(lotMap[it.sku] ?? [{ lotId: "", qty: 0 }]).map((row, idx) => (
@@ -237,7 +238,7 @@ export default function LogisticsPage() {
   const [currentShipment, setCurrentShipment] = useState<Shipment | null>(null);
   const [showOnlyAvailable, setShowOnlyAvailable] = useState(true);
   
-  const [isPending, startTransition] = useTransition();
+  const [pendingJobs, setPendingJobs] = useState<Record<string, boolean>>({});
   const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
 
   const { shipments, orders, accounts, parties } = useMemo(() => ({
@@ -275,25 +276,35 @@ export default function LogisticsPage() {
 
   const openValidateFor = (row: Shipment) => { setCurrentShipment(row); setOpenValidate(true); };
 
-  const handleAction = (action: () => Promise<any>, successMessage: string) => {
+  const handleAction = (shipmentId: string, action: () => Promise<any>, successMessage: string) => {
+    setPendingJobs(prev => ({...prev, [shipmentId]: true}));
+    setNotification(null);
     startTransition(async () => {
         try {
             await action();
             setNotification({ type: 'success', message: successMessage });
+            // Simulate worker completion and data refresh
+            setTimeout(() => {
+                // In a real app, this would be a revalidation call, e.g., router.refresh()
+                 window.location.reload(); 
+            }, 2000);
         } catch (e: any) {
             setNotification({ type: 'error', message: `Error: ${e.message}` });
+        } finally {
+            // Keep pending state for simulation time
+            setTimeout(() => setPendingJobs(prev => ({...prev, [shipmentId]: false})), 2000);
         }
     });
   };
 
   const handleSaveValidation = (payload: any) => {
     if (!currentShipment) return;
-    handleAction(() => validateShipment(currentShipment.id, payload), `Envío ${currentShipment.id} validado.`);
+    handleAction(currentShipment.id, () => validateShipment(currentShipment!.id, payload), `Validación para envío ${currentShipment.id} encolada.`);
     setOpenValidate(false);
   };
   
   const handleSaveNewShipment = (shipmentData: Omit<Shipment, 'id' | 'createdAt' | 'updatedAt'>) => {
-      handleAction(() => createShipmentFromOrder(shipmentData.orderId), `Job para crear envío encolado.`);
+      handleAction(shipmentData.orderId, () => createShipmentFromOrder(shipmentData.orderId), `Job para crear envío encolado.`);
       setOpenNewShipment(false);
   };
 
@@ -318,15 +329,17 @@ export default function LogisticsPage() {
     }
   };
   
+  const [isPending, startTransition] = useTransition();
+
   type RowAction = { id: string; label: string; icon: React.ReactNode; onClick: () => void; available: boolean; pendingReason?: string };
   const buildRowActions = (shipment: Shipment): RowAction[] => {
-    const isPending = shipment.status === 'pending' || shipment.status === 'picking';
+    const isPendingOrPicking = shipment.status === 'pending' || shipment.status === 'picking';
     const actions: RowAction[] = [
-      { id: "picking_slip", label: "Generar Hoja de Picking", icon: <FileText className="w-4 h-4"/>, onClick: () => generatePickingSlip(shipment.id), available: isPending },
-      { id: "validate", label: "Validar (lotes + visual)", icon: <BadgeCheck className="w-4 h-4"/>, onClick: () => openValidateFor(shipment), available: isPending },
-      { id: "delivery", label: "Generar albarán (PDF)", icon: <FileText className="w-4 h-4"/>, onClick: () => handleAction(() => createDeliveryNote(shipment.id), 'Job para generar albarán encolado.'), available: canGenerateDeliveryNote(shipment), pendingReason: "Requiere Visual OK" },
-      { id: "label", label: "Generar etiqueta", icon: <Truck className="w-4 h-4"/>, onClick: () => handleAction(() => shipment.mode === 'PARCEL' ? createParcelLabel(shipment.id) : createPalletLabel(shipment.id), 'Job para generar etiqueta encolado.'), available: canGenerateLabel(shipment), pendingReason: "Req. Albarán/Peso" },
-      { id: "ship", label: "Marcar enviado", icon: <PackageCheck className="w-4 h-4"/>, onClick: () => handleAction(() => markShipped(shipment.id), 'Job para marcar como enviado encolado.'), available: canMarkShipped(shipment), pendingReason: "Requiere Etiqueta" },
+      { id: "picking_slip", label: "Generar Hoja de Picking", icon: <FileText className="w-4 h-4"/>, onClick: () => generatePickingSlip(shipment.id), available: isPendingOrPicking },
+      { id: "validate", label: "Validar (lotes + visual)", icon: <BadgeCheck className="w-4 h-4"/>, onClick: () => openValidateFor(shipment), available: isPendingOrPicking },
+      { id: "delivery", label: "Generar albarán (PDF)", icon: <FileText className="w-4 h-4"/>, onClick: () => handleAction(shipment.id, () => createDeliveryNote(shipment.id), 'Job para generar albarán encolado.'), available: canGenerateDeliveryNote(shipment), pendingReason: "Requiere Visual OK" },
+      { id: "label", label: "Generar etiqueta", icon: <Truck className="w-4 h-4"/>, onClick: () => handleAction(shipment.id, () => shipment.mode === 'PARCEL' ? createParcelLabel(shipment.id) : createPalletLabel(shipment.id), 'Job para generar etiqueta encolado.'), available: canGenerateLabel(shipment), pendingReason: "Req. Albarán/Peso" },
+      { id: "ship", label: "Marcar enviado", icon: <PackageCheck className="w-4 h-4"/>, onClick: () => handleAction(shipment.id, () => markShipped(shipment.id), 'Job para marcar como enviado encolado.'), available: canMarkShipped(shipment), pendingReason: "Requiere Etiqueta" },
     ];
     return showOnlyAvailable ? actions.filter(a => a.available) : actions;
   };
@@ -387,19 +400,19 @@ export default function LogisticsPage() {
       </SBCard>
 
       {/* Tabla principal */}
-      <SBCard title="Pedidos">
-        <div className="overflow-x-visible">
-          <table>
-            <thead className="text-[11px] uppercase tracking-wide text-sb-neutral-500 bg-white">
+       <SBCard title="Envíos">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-zinc-50 text-left">
               <tr>
-                <th className="p-3 w-10 text-center"><Checkbox checked={selected.length === filtered.length && filtered.length > 0} onCheckedChange={(checked: boolean) => setSelected(checked ? filtered.map(s => s.id) : [])}/></th>
-                <th className="p-3 font-semibold text-left">ID Envío</th>
-                <th className="p-3 font-semibold text-left">Fecha</th>
-                <th className="p-3 font-semibold text-left">Canal</th>
-                <th className="p-3 font-semibold text-left">Cliente</th>
-                <th className="p-3 font-semibold text-left">Artículos</th>
-                <th className="p-3 font-semibold text-left">Estado</th>
-                <th className="p-3 w-24 text-right font-semibold">Acciones</th>
+                <th className="p-3 w-10 text-center font-semibold text-zinc-600"><Checkbox checked={selected.length === filtered.length && filtered.length > 0} onCheckedChange={(checked: boolean) => setSelected(checked ? filtered.map(s => s.id) : [])}/></th>
+                <th className="p-3 font-semibold text-zinc-600">ID Envío</th>
+                <th className="p-3 font-semibold text-zinc-600">Fecha</th>
+                <th className="p-3 font-semibold text-zinc-600">Canal</th>
+                <th className="p-3 font-semibold text-zinc-600">Cliente</th>
+                <th className="p-3 font-semibold text-zinc-600">Artículos</th>
+                <th className="p-3 font-semibold text-zinc-600">Estado</th>
+                <th className="p-3 w-24 text-right font-semibold text-zinc-600">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
@@ -408,11 +421,12 @@ export default function LogisticsPage() {
                 const account = accountMap.get(order?.accountId || '');
                 const channelInfo = getChannelInfo(order, account);
                 const style = STATUS_STYLES[shipment.status as keyof typeof STATUS_STYLES] || STATUS_STYLES['pending'];
+                const isJobPending = pendingJobs[shipment.id];
                 
                 return (
                   <tr key={shipment.id} className="hover:bg-zinc-50 relative">
                     <td className="p-3 text-center"><Checkbox checked={selected.includes(shipment.id)} onCheckedChange={(checked: boolean) => setSelected(p => checked ? [...p, shipment.id] : p.filter(id => id !== shipment.id))} /></td>
-                    <td className="p-3 font-medium font-mono">{shipment.id.substring(0,8)}...</td>
+                    <td className="p-3 font-medium font-mono">{shipment.shipmentNumber || shipment.id.substring(0,8)}...</td>
                     <td className="p-3">{new Date(shipment.createdAt).toLocaleDateString('es-ES')}</td>
                     <td className="p-3"><span className={`inline-flex items-center px-2 py-0.5 rounded-md border text-xs ${channelInfo.className}`}>{channelInfo.label}</span></td>
                     <td className="p-3">
@@ -437,25 +451,29 @@ export default function LogisticsPage() {
                     </td>
                     <td className="p-3"><span className={`inline-flex items-center px-2 py-1 rounded-md border text-xs ${style.bg} ${style.color}`}>{style.label}</span></td>
                     <td className="p-3 text-right">
-                       <DropdownMenu>
-                          <DropdownMenuTrigger>
-                              <SBButton variant="secondary">
-                                <MoreHorizontal className="w-4 h-4"/>
-                              </SBButton>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-64">
-                            <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            {buildRowActions(shipment).map((a) => (
-                              <DropdownMenuItem key={a.id} onClick={a.onClick} disabled={!a.available} className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">{a.icon}<span>{a.label}</span></div>
-                                {!a.available && !showOnlyAvailable && a.pendingReason && (
-                                  <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-200">{a.pendingReason}</span>
-                                )}
-                              </DropdownMenuItem>
-                            ))}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        {isJobPending ? (
+                            <Loader2 className="w-5 h-5 animate-spin text-zinc-400 mx-auto" />
+                        ) : (
+                           <DropdownMenu>
+                              <DropdownMenuTrigger>
+                                  <SBButton variant="secondary">
+                                    <MoreHorizontal className="w-4 h-4"/>
+                                  </SBButton>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-64">
+                                <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                {buildRowActions(shipment).map((a) => (
+                                  <DropdownMenuItem key={a.id} onClick={a.onClick} disabled={!a.available} className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">{a.icon}<span>{a.label}</span></div>
+                                    {!a.available && !showOnlyAvailable && a.pendingReason && (
+                                      <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-200">{a.pendingReason}</span>
+                                    )}
+                                  </DropdownMenuItem>
+                                ))}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                        )}
                     </td>
                   </tr>
                 );
@@ -479,6 +497,7 @@ export default function LogisticsPage() {
     </div>
   );
 }
+
 
 
 
