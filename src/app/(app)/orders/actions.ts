@@ -6,6 +6,7 @@ import { getServerData } from '@/lib/dataprovider/server';
 import { upsertMany } from '@/lib/dataprovider/actions';
 import type { OrderStatus, Shipment, OrderSellOut, Account, Party } from '@/domain/ssot';
 import { enqueue } from '@/server/queue/queue';
+import { importSingleShopifyOrder } from '@/server/integrations/shopify/import-order';
 
 
 const SHIPMENT_TRIGGER_STATES = new Set<OrderStatus>(['confirmed']);
@@ -57,41 +58,16 @@ export async function updateOrderStatus(
 
 export async function importShopifyOrder(orderId: string): Promise<OrderSellOut> {
   if (!orderId) throw new Error('Falta orderId');
-  if (!process.env.INTEGRATIONS_API_KEY) throw new Error('INTEGRATIONS_API_KEY no configurada');
-
-  // Construye URL local (funciona en dev/prod)
-  const base =
-    process.env.NEXT_PUBLIC_BASE_URL?.replace(/\/$/, '') ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
-
-  const res = await fetch(`${base}/api/integrations/shopify/import-order`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': process.env.INTEGRATIONS_API_KEY!,
-    },
-    body: JSON.stringify({ orderId }),
-    cache: 'no-store',
-  });
-
-  if (!res.ok) {
-    const errorText = await res.text().catch(() => 'Error desconocido al leer la respuesta');
-    let errorJson;
-    try {
-        errorJson = JSON.parse(errorText);
-    } catch(e) {
-        // Not a JSON response
-    }
-    const errorMessage = errorJson?.error || errorText || `Error importando pedido ${orderId}`;
-    throw new Error(errorMessage);
+  if (!process.env.INTEGRATIONS_API_KEY) {
+      throw new Error('INTEGRATIONS_API_KEY no configurada en el servidor.');
   }
 
-  const json = await res.json();
-  if (!json?.ok) {
-    throw new Error(json?.error || `Error en la respuesta de la API al importar pedido ${orderId}`);
+  try {
+    const saved = await importSingleShopifyOrder(orderId);
+    revalidatePath('/orders');
+    return saved;
+  } catch (e: any) {
+    console.error(`Error en la server action importShopifyOrder: ${e.message}`);
+    throw e; // Lanza el error para que el cliente lo reciba
   }
-
-  // Refresca la página de pedidos
-  revalidatePath('/orders');
-  return json.order as OrderSellOut;
 }
