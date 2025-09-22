@@ -1,3 +1,4 @@
+
 'use server';
 import { adminDb } from '@/server/firebaseAdmin';
 import type { Shipment, ShipmentLine } from '@/domain/ssot';
@@ -20,11 +21,11 @@ export async function handleValidateShipment(payload: {
 
     const updatedLines = [...shipment.lines];
     if (updateData.lotMap) {
-        for (const sku in updateData.lotMap) {
-            const lineIndex = updatedLines.findIndex(l => l.sku === sku);
-            if (lineIndex !== -1) {
+        for (const line of updatedLines) {
+            const lotsForSku = updateData.lotMap[line.sku];
+            if (lotsForSku && lotsForSku.length > 0) {
                 // For simplicity, we'll just take the first lot. A real system might handle multiple lots per line.
-                updatedLines[lineIndex].lotNumber = updateData.lotMap[sku][0]?.lotId;
+                line.lotNumber = lotsForSku[0].lotId;
             }
         }
     }
@@ -34,11 +35,15 @@ export async function handleValidateShipment(payload: {
         carrier: updateData.carrier || shipment.carrier,
         weightKg: updateData.weightKg || shipment.weightKg,
         dimsCm: updateData.dimsCm || shipment.dimsCm,
-        lines: updatedLines as any, // Cast because we know it's correct
-        status: 'ready_to_ship',
+        lines: updatedLines as ShipmentLine[],
         updatedAt: new Date().toISOString(),
     };
 
+    if (updateData.visualOk) {
+        patch.status = 'ready_to_ship';
+    }
+
+
     await shipmentRef.update(patch as any); // Cast to any to avoid deep type issues
-    console.log(`Shipment ${shipmentId} validated and moved to ready_to_ship.`);
+    console.log(`Shipment ${shipmentId} validated. New status: ${patch.status}`);
 }
