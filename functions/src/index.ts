@@ -1,4 +1,4 @@
-import * as functions from 'firebase-functions';
+import { onRequest } from 'firebase-functions/v2/https';
 import { santaBrainRun } from './ai/santaBrain.js';
 
 export const santaBrain = functions

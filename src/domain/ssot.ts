@@ -52,7 +52,7 @@ export interface Party {
 
   // --- Identidades Digitales ---
   handles?: Partial<Record<'instagram' | 'tiktok' | 'linkedin' | 'twitter', string>>;
-
+  
   // --- Metadatos ---
   tags?: string[];
   createdAt: string;
@@ -121,7 +121,15 @@ export interface Account {
   updatedAt?: string;
   lastInteractionAt?: string;
   notes?: string;
+  // Nuevos campos para integraciones
+  external?: {
+    shopifyCustomerId?: string;
+    holdedContactId?: string;
+    vat?: string;
+  }
 }
+
+export type BillingStatus = 'PENDING' | 'INVOICED' | 'FAILED';
 
 export interface OrderSellOut {
   id: string;
@@ -137,6 +145,13 @@ export interface OrderSellOut {
   holdedDocId?: string;
   holdedDocType?: 'estimate' | 'order' | 'delivery' | 'invoice';
   terms?: 'standard' | 'consignment';  // default 'standard'
+  // Nuevos campos para integraciones
+  external?: {
+    shopifyOrderId?: string;
+    holdedInvoiceId?: string;
+    holdedSalesOrderId?: string;
+  }
+  billingStatus?: BillingStatus;
 }
 
 export type InteractionKind = 'VISITA' | 'LLAMADA' | 'EMAIL' | 'WHATSAPP' | 'OTRO' | 'COBRO' | 'EVENTO_MKT';
@@ -792,6 +807,11 @@ export interface SantaData {
 
   // Códigos y Aliases
   codeAliases: CodeAlias[];
+
+  // Integraciones (subcolecciones)
+  integrations?: any;
+  jobs?: any[];
+  dead_letters?: any[];
 }
 
 export const SANTA_DATA_COLLECTIONS: (keyof SantaData)[] = [
@@ -800,7 +820,7 @@ export const SANTA_DATA_COLLECTIONS: (keyof SantaData)[] = [
     'inventory', 'stockMoves', 'shipments', 'goodsReceipts', 'activations', 'promotions',
     'marketingEvents', 'onlineCampaigns', 'influencerCollabs', 'materialCosts', 'financeLinks', 
     'paymentLinks', 'traceEvents', 'incidents', 'codeAliases',
-    'posTactics', 'posCostCatalog', 'plv_material'
+    'posTactics', 'posCostCatalog', 'plv_material', 'integrations', 'jobs', 'dead_letters'
 ];
 
 // -----------------------------------------------------------------
@@ -853,6 +873,7 @@ export const SB_COLORS = {
       sm: '0 1px 2px rgba(0,0,0,0.04)',
       md: '0 2px 4px rgba(0,0,0,0.08)',
       lg: '0 6px 12px rgba(0,0,0,0.08)',
+      xl: '0 20px 25px rgba(0,0,0,0.08)',
     },
     spacing: { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 },
   },

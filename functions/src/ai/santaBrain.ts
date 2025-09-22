@@ -1,6 +1,7 @@
+import { ai } from './registry';
 import { generate } from '@genkit-ai/ai';
 import { gemini15Flash } from '@genkit-ai/googleai';
-import { defineTool, tool } from '@genkit-ai/ai';
+import { defineTool, generate } from '@genkit-ai/ai';
 import {
   memory_get_context, memory_upsert, memory_update_profile,
   query_accounts, get_account_deep, list_collection,
@@ -25,7 +26,7 @@ Reglas:
 export async function santaBrainRun({
   userId, threadId, message
 }: { userId: string; threadId: string; message: string }) {
-  const res = await generate({
+  const res = await generate(ai, {
     model: gemini15Flash,
     system: SYSTEM_PROMPT,
     prompt: [
