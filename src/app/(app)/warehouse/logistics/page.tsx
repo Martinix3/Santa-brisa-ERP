@@ -1,4 +1,5 @@
 
+
 "use client";
 import React, { useMemo, useState, useEffect } from "react";
 import { Printer, PackageCheck, Truck, CheckCircle2, Search, Plus, FileText, ClipboardList, Boxes, PackageOpen, BadgeCheck, AlertTriangle, Settings, Clipboard, Ruler, Weight, MoreHorizontal, Check as CheckIcon, FileDown, Package, Info, X, Loader2 } from "lucide-react";
@@ -325,7 +326,7 @@ export default function LogisticsPage() {
         <div className="p-4 pt-6 space-y-3">
           <div className="flex flex-col md:flex-row gap-3 items-start md:items-center justify-between">
             <div className="flex gap-2 items-center w-full md:w-auto">
-              <div className="relative w-full md:w-80">
+              <div className="relative flex-grow">
                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"/>
                 <Input className="pl-9" placeholder="Buscar por ID o cliente" value={q} onChange={(e:any) => setQ(e.target.value)} />
               </div>
@@ -349,8 +350,8 @@ export default function LogisticsPage() {
 
       {/* Tabla principal */}
       <SBCard title="Pedidos">
-         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+         <div>
+          <table className="w-full text-sm table-fixed">
             <thead className="bg-zinc-50 text-left text-zinc-600">
               <tr>
                 <th className="p-3 w-10"><Checkbox checked={selected.length === filtered.length && filtered.length > 0} onCheckedChange={(checked: boolean) => setSelected(checked ? filtered.map(s => s.id) : [])}/></th>
