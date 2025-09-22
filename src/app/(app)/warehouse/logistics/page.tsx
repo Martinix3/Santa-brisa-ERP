@@ -1,6 +1,7 @@
 
+
 "use client";
-import React, { useMemo, useState, useTransition, useEffect } from "react";
+import React, { useMemo, useState, useTransition } from "react";
 import { Printer, PackageCheck, Truck, CheckCircle2, Search, Plus, FileText, ClipboardList, Boxes, PackageOpen, BadgeCheck, AlertTriangle, Settings, Clipboard, Ruler, Weight, MoreHorizontal, Check as CheckIcon, FileDown, Package, Info, X, Loader2 } from "lucide-react";
 import { SBButton, SBCard, Input, Select, STATUS_STYLES } from '@/components/ui/ui-primitives';
 import { useData } from '@/lib/dataprovider';
@@ -85,7 +86,7 @@ const ValidateDialog: React.FC<{ open: boolean; onOpenChange: (v: boolean) => vo
   const [packer, setPacker] = React.useState<string>("");
   const [carrier, setCarrier] = React.useState<string>("");
 
-  useEffect(() => {
+  React.useEffect(() => {
     if(shipment) {
         setVisualOk(Boolean(shipment.checks?.visualOk));
         setPicker(shipment.packedById || "");
@@ -289,8 +290,10 @@ export default function LogisticsPage() {
   
   type RowAction = { id: string; label: string; icon: React.ReactNode; onClick: () => void; available: boolean; pendingReason?: string };
   const buildRowActions = (shipment: Shipment): RowAction[] => {
+    const isPending = shipment.status === 'pending' || shipment.status === 'picking';
     const actions: RowAction[] = [
-      { id: "validate", label: "Validar (lotes + visual)", icon: <BadgeCheck className="w-4 h-4"/>, onClick: () => openValidateFor(shipment), available: true },
+      { id: "picking_slip", label: "Generar Hoja de Picking", icon: <FileText className="w-4 h-4"/>, onClick: () => window.open(`/api/shipment/${shipment.id}/picking-slip`, '_blank'), available: isPending },
+      { id: "validate", label: "Validar (lotes + visual)", icon: <BadgeCheck className="w-4 h-4"/>, onClick: () => openValidateFor(shipment), available: isPending },
       { id: "delivery", label: "Generar albarán (PDF)", icon: <FileText className="w-4 h-4"/>, onClick: () => createDeliveryNote(shipment.id), available: canGenerateDeliveryNote(shipment), pendingReason: "Requiere Visual OK" },
       { id: "label", label: "Generar etiqueta", icon: <Truck className="w-4 h-4"/>, onClick: () => shipment.mode === 'PARCEL' ? createParcelLabel(shipment.id) : createPalletLabel(shipment.id), available: canGenerateLabel(shipment), pendingReason: "Req. Albarán/Peso" },
       { id: "ship", label: "Marcar enviado", icon: <PackageCheck className="w-4 h-4"/>, onClick: () => markShipped(shipment.id), available: canMarkShipped(shipment), pendingReason: "Requiere Etiqueta" },
@@ -363,7 +366,7 @@ export default function LogisticsPage() {
                 <th className="p-3 w-16 text-right font-semibold">Acciones</th>
               </tr>
             </thead>
-            <TableBody className="divide-y divide-zinc-100">
+            <tbody className="divide-y divide-zinc-100">
               {filtered.map(shipment => {
                 const order = orderMap.get(shipment.orderId || '');
                 const account = accountMap.get(order?.accountId || '');
@@ -371,18 +374,18 @@ export default function LogisticsPage() {
                 const style = STATUS_STYLES[shipment.status as keyof typeof STATUS_STYLES] || STATUS_STYLES['pending'];
                 
                 return (
-                  <TableRow key={shipment.id} className="hover:bg-zinc-50 relative">
-                    <TableCell className="p-3"><Checkbox checked={selected.includes(shipment.id)} onCheckedChange={(checked: boolean) => setSelected(p => checked ? [...p, shipment.id] : p.filter(id => id !== shipment.id))} /></TableCell>
-                    <TableCell className="p-3 font-medium font-mono">{shipment.id.substring(0,8)}...</TableCell>
-                    <TableCell className="p-3">{new Date(shipment.createdAt).toLocaleDateString('es-ES')}</TableCell>
-                    <TableCell className="p-3"><span className={`inline-flex items-center px-2 py-0.5 rounded-md border text-xs ${channelInfo.className}`}>{channelInfo.label}</span></TableCell>
-                    <TableCell className="p-3">
+                  <tr key={shipment.id} className="hover:bg-zinc-50 relative">
+                    <td className="p-3"><Checkbox checked={selected.includes(shipment.id)} onCheckedChange={(checked: boolean) => setSelected(p => checked ? [...p, shipment.id] : p.filter(id => id !== shipment.id))} /></td>
+                    <td className="p-3 font-medium font-mono">{shipment.id.substring(0,8)}...</td>
+                    <td className="p-3">{new Date(shipment.createdAt).toLocaleDateString('es-ES')}</td>
+                    <td className="p-3"><span className={`inline-flex items-center px-2 py-0.5 rounded-md border text-xs ${channelInfo.className}`}>{channelInfo.label}</span></td>
+                    <td className="p-3">
                       <div>
                         <p className="font-medium">{shipment?.customerName || 'N/A'}</p>
                         <p className="text-xs text-zinc-500">{shipment?.city}</p>
                       </div>
-                    </TableCell>
-                    <TableCell className="p-3">
+                    </td>
+                    <td className="p-3">
                       <ul className="text-sm space-y-1">
                         {shipment.lines.map((it: any) => (
                           <li key={it.sku} className="flex items-center gap-2">
@@ -392,9 +395,9 @@ export default function LogisticsPage() {
                           </li>
                         ))}
                       </ul>
-                    </TableCell>
-                    <TableCell className="p-3"><span className={`inline-flex items-center px-2 py-1 rounded-md border text-xs ${style.bg} ${style.color}`}>{style.label}</span></TableCell>
-                    <TableCell className="p-3 text-right">
+                    </td>
+                    <td className="p-3"><span className={`inline-flex items-center px-2 py-1 rounded-md border text-xs ${style.bg} ${style.color}`}>{style.label}</span></td>
+                    <td className="p-3 text-right">
                        <DropdownMenu>
                           <DropdownMenuTrigger>
                               <SBButton variant="secondary">
@@ -414,11 +417,11 @@ export default function LogisticsPage() {
                             ))}
                           </DropdownMenuContent>
                         </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
+                    </td>
+                  </tr>
                 );
               })}
-            </TableBody>
+            </tbody>
           </table>
         </div>
       </SBCard>
@@ -437,4 +440,5 @@ export default function LogisticsPage() {
     </div>
   );
 }
+
 
