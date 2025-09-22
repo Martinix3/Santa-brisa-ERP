@@ -18,4 +18,5 @@ export interface Job {
   startedAt?: Timestamp;
   finishedAt?: Timestamp;
   error?: string;
+  delaySec?: number;
 }

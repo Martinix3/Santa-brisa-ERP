@@ -3,13 +3,13 @@ import { z } from 'zod';
 import { defineTool } from '@genkit-ai/ai';
 import { ai } from './index.js';
 import { db } from '../firebaseAdmin.js';
-import type { OrderLine, Account } from '@/domain/ssot';
+import type { OrderSellOut, Account } from '@/domain/ssot';
 
 // ===== Helpers =====
 const nowIso = () => new Date().toISOString();
 const norm = (s: string) =>
   (s || '').trim().toLowerCase().normalize('NFKD').replace(/\p{Diacritic}/gu, '');
-const calcAmount = (items: Array<Partial<OrderLine>>) =>
+const calcAmount = (items: Array<Partial<OrderSellOut['lines'][number]>>) =>
   items.reduce((a, it) => a + (it.qty ?? 0) * (it.priceUnit ?? 0) * (1 - (it.discount ?? 0) / 100), 0);
 
 async function mustAccount(id: string): Promise<Account> {
@@ -83,7 +83,7 @@ export const memory_get_context = defineTool(
       .map((d) => ({ role: d.role, text: d.text }));
 
     const profileDoc = await db.collection('brain_memory').doc(userId).get();
-    return { messages, profile: profileDoc.exists ? (profileDoc.data() as any).profile : undefined };
+    return { messages, profile: profileDoc.exists() ? (profileDoc.data() as any).profile : undefined };
   },
 );
 
@@ -275,7 +275,7 @@ export const ensure_account = defineTool(
     if (hit) return { id: hit.id, existed: true };
 
     const created = await create_account.run(args);
-    return { id: created, existed: false };
+    return { id: created.id, existed: false };
   },
 );
 
