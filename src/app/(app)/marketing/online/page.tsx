@@ -7,6 +7,8 @@ import { useData } from "@/lib/dataprovider";
 import type { OnlineCampaign } from "@/domain/ssot";
 import { SBButton, SBCard, Input, Select } from "@/components/ui/ui-primitives";
 import { Plus, Edit, Save, X } from "lucide-react";
+import { MarketingTaskCompletionDialog } from "@/features/marketing/components/MarketingTaskCompletionDialog";
+
 
 /* =========================
    Utils de formato
@@ -108,98 +110,6 @@ function NewCampaignDialog({
   );
 }
 
-/* ==========================================
-   Dialogo: Cerrar/Registrar Resultados (KPIs)
-   Regla dura: spend, impressions, clicks, revenue obligatorios
-========================================== */
-function CloseCampaignDialog({
-  open,
-  onClose,
-  onSubmit,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onSubmit: (payload: { spend: number; impressions: number; clicks: number; revenue: number; orders?: number }) => void;
-}) {
-  const [values, setValues] = useState<{ spend: string; impressions: string; clicks: string; revenue: string; orders: string }>({
-    spend: "", impressions: "", clicks: "", revenue: "", orders: ""
-  });
-  const [touched, setTouched] = useState<Record<keyof typeof values, boolean>>({
-    spend:false, impressions:false, clicks:false, revenue:false, orders:false
-  });
-
-  useEffect(()=> {
-    if (open) {
-      setValues({ spend:"", impressions:"", clicks:"", revenue:"", orders:"" });
-      setTouched({ spend:false, impressions:false, clicks:false, revenue:false, orders:false });
-    }
-  }, [open]);
-
-  const req: (keyof typeof values)[] = ["spend","impressions","clicks","revenue"];
-  const parse = (s:string) => (s==="" ? NaN : Number(s));
-  const ok = (s:string) => Number.isFinite(parse(s)) && parse(s) >= 0;
-  const error = (k:keyof typeof values) => (touched[k] && (req.includes(k) ? !ok(values[k]) : false)) ? "Requerido (≥ 0)" : "";
-  const isValid = req.every(k => ok(values[k]));
-
-  function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!isValid) {
-      setTouched(prev => ({ ...prev, spend:true, impressions:true, clicks:true, revenue:true }));
-      return;
-    }
-    onSubmit({
-      spend: Number(values.spend),
-      impressions: Number(values.impressions),
-      clicks: Number(values.clicks),
-      revenue: Number(values.revenue),
-      orders: values.orders==="" ? undefined : Number(values.orders)
-    });
-    onClose();
-  }
-
-  if (!open) return null;
-  const field = (k:keyof typeof values, label:string, required=false) => {
-    const err = error(k);
-    const invalid = !!err;
-    return (
-      <label className="grid gap-1.5">
-        <span className="text-sm text-zinc-700">{label}{required ? " *":""}</span>
-        <input
-          type="number"
-          value={values[k]}
-          onBlur={()=>setTouched(t=>({ ...t, [k]:true }))}
-          onChange={(e)=>setValues(v=>({ ...v, [k]: e.target.value }))}
-          className={`h-10 w-full rounded-md border bg-white px-3 py-2 text-sm ${invalid ? "border-rose-400 focus:ring-2 focus:ring-rose-300":"border-zinc-200"}`}
-          aria-invalid={invalid}
-          min={0}
-          step="any"
-        />
-        {invalid && <span className="text-xs text-rose-600">{err}</span>}
-      </label>
-    );
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
-      <div className="relative bg-white rounded-2xl p-6 shadow-xl w-full max-w-xl" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-lg font-semibold mb-4">Registrar Resultados — Cierre de campaña</h2>
-        <form onSubmit={submit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            {field("spend","Gasto (€)", true)}
-            {field("revenue","Ingresos atribuidos (€)", true)}
-            {field("impressions","Impresiones", true)}
-            {field("clicks","Clicks", true)}
-            {field("orders","Pedidos (opcional)")}
-          </div>
-          <div className="flex justify-end gap-2 pt-4">
-            <SBButton type="button" variant="secondary" onClick={onClose}>Cancelar</SBButton>
-            <SBButton type="submit" disabled={!isValid}>Guardar y Cerrar</SBButton>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
 
 /* =========================
    KPI Cards (MTD ponderado)
@@ -308,7 +218,7 @@ function buildPaidInsights(campaigns: OnlineCampaign[], minSpendToJudge=300): Ro
       const hasOrders = (g.metrics?.orders ?? 0) > 0;
       const Z = {
         roas: z(g._stats.roas, m.roas, s.roas),
-        ctr:  z(g._stats.ctr,  m.ctr,  s.ctr),
+        ctr:  z((g._stats.ctr ?? 0),  m.ctr,  s.ctr),
         cvr:  z((g._stats.cvr ?? 0), m.cvr, s.cvr),
         cpc:  z(g._stats.cpc,  m.cpc,  s.cpc),
         cpm:  z(g._stats.cpm,  m.cpm,  s.cpm),
@@ -465,18 +375,12 @@ export default function OnlineCampaignsPage() {
     await persist(next);
   }
 
-  async function handleComplete(campaign: OnlineCampaign, payload: { spend:number; impressions:number; clicks:number; revenue:number; orders?:number }) {
-    // Guard defensivo (además de validación del dialogo)
-    const required: (keyof typeof payload)[] = ["spend","impressions","clicks","revenue"];
-    if (required.some(k => payload[k] === undefined || Number.isNaN(Number(payload[k])) || Number(payload[k])<0)) return;
-
+  async function handleComplete(campaign: OnlineCampaign, payload: { spend:number; impressions:number; clicks:number; roas:number; }) {
     const next = campaigns.map(c => {
       if (c.id !== campaign.id) return c;
-      const ctr = payload.impressions>0 ? payload.clicks/payload.impressions : 0;
-      const cpc = payload.clicks>0 ? payload.spend/payload.clicks : 0;
-      const cpm = payload.impressions>0 ? payload.spend/(payload.impressions/1000) : 0;
-      const roas = payload.spend>0 ? payload.revenue/payload.spend : 0;
-      const cac  = payload.orders && payload.orders>0 ? payload.spend/payload.orders : undefined;
+      const ctr = payload.impressions > 0 ? payload.clicks / payload.impressions : 0;
+      const cpc = payload.clicks > 0 ? payload.spend / payload.clicks : 0;
+      const cpm = payload.impressions > 0 ? payload.spend / (payload.impressions / 1000) : 0;
 
       return {
         ...c,
@@ -486,9 +390,9 @@ export default function OnlineCampaignsPage() {
           ...c.metrics,
           impressions: payload.impressions,
           clicks: payload.clicks,
-          revenue: payload.revenue,
-          orders: payload.orders,
-          ctr, cpc, cpm, roas, cac,
+          revenue: payload.spend * payload.roas,
+          roas: payload.roas,
+          ctr, cpc, cpm,
           updatedAt: new Date().toISOString(),
         },
         updatedAt: new Date().toISOString(),
@@ -587,11 +491,15 @@ export default function OnlineCampaignsPage() {
 
       {/* Dialogos */}
       <NewCampaignDialog open={openCreate} onClose={()=>setOpenCreate(false)} onSave={handleCreate} />
-      <CloseCampaignDialog
-        open={!!closing}
-        onClose={()=>setClosing(null)}
-        onSubmit={(payload)=> closing && handleComplete(closing, payload)}
-      />
+      {closing && (
+        <MarketingTaskCompletionDialog
+          event={closing}
+          open={!!closing}
+          onClose={() => setClosing(null)}
+          onComplete={handleComplete as any}
+          isOnlineCampaign
+        />
+      )}
     </>
   );
 }

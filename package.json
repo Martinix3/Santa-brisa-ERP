@@ -41,6 +41,7 @@
     "lucide-react": "latest",
     "next": "latest",
     "papaparse": "latest",
+    "pdf-lib": "1.17.1",
     "puppeteer": "latest",
     "react": "latest",
     "react-dom": "latest",

@@ -7,7 +7,7 @@ import { CollabKpiCards } from "../components/CollabKpiCards";
 import { CollabTable } from "../components/CollabTable";
 import { buildCollabInsights } from "../insights/buildCollabInsights";
 import { NewCollabDialog } from "../dialogs/NewCollabDialog";
-import { CloseCollabDialog } from "../dialogs/CloseCollabDialog";
+import { MarketingTaskCompletionDialog } from "@/features/marketing/components/MarketingTaskCompletionDialog";
 import type { InfluencerCollab } from "@/domain/ssot";
 
 export default function InfluencersDashboardPage({ components }:{ components:any }) {
@@ -15,9 +15,13 @@ export default function InfluencersDashboardPage({ components }:{ components:any
   const { collabs, createCollab, updateCollab, closeCollab } = useCollabsService();
   const [openNew,setOpenNew]=useState(false);
   const [closing,setClosing]=useState<InfluencerCollab | null>(null);
-  const [editing, setEditing] = useState<InfluencerCollab | null>(null);
 
   const insights = useMemo(()=> buildCollabInsights(collabs, 200), [collabs]);
+
+  async function handleClose(collab: InfluencerCollab, k: any) {
+    if (!collab) return;
+    await closeCollab(collab, k);
+  }
 
   return (
     <div className="space-y-6">
@@ -76,7 +80,14 @@ export default function InfluencersDashboardPage({ components }:{ components:any
       </SBCard>
 
       <NewCollabDialog open={openNew} onClose={()=>setOpenNew(false)} onSave={createCollab} components={components} />
-      <CloseCollabDialog open={!!closing} onClose={()=>setClosing(null)} onSubmit={(k)=>closing && closeCollab(closing, k)} components={components} />
+      {closing && (
+        <MarketingTaskCompletionDialog 
+            entity={closing}
+            open={!!closing} 
+            onClose={()=>setClosing(null)} 
+            onComplete={(id, payload) => handleClose(closing, payload)}
+        />
+      )}
     </div>
   );
 }
