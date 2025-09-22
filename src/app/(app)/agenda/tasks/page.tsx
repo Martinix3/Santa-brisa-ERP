@@ -50,10 +50,12 @@ export default function GlobalTasksPage() {
     const handleUpdateStatus = (id: string, newStatus: InteractionStatus) => {
         const taskToUpdate = data?.interactions.find(i => i.id === id);
         if (newStatus === 'done' && taskToUpdate) {
-            if (taskToUpdate.kind === 'EVENTO_MKT') {
+            if (taskToUpdate.dept === 'MARKETING' || taskToUpdate.kind === 'EVENTO_MKT') {
                 const event = data?.marketingEvents.find(e => e.id === taskToUpdate.linkedEntity?.id);
                 if (event) {
                     setCompletingMarketingEvent(event);
+                } else {
+                    alert("No se encontró el evento de marketing asociado para registrar los KPIs.");
                 }
             } else {
                 setCompletingTask(taskToUpdate);
@@ -154,7 +156,7 @@ export default function GlobalTasksPage() {
             )}
             {completingMarketingEvent && (
                 <MarketingTaskCompletionDialog
-                    event={completingMarketingEvent}
+                    entity={completingMarketingEvent}
                     open={!!completingMarketingEvent}
                     onClose={() => setCompletingMarketingEvent(null)}
                     onComplete={handleSaveMarketingEventTask}

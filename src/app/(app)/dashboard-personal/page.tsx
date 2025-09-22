@@ -98,13 +98,15 @@ function PersonalDashboardContent() {
     if (!taskToUpdate) return;
 
     if (newStatus === 'done') {
-      if (taskToUpdate.kind === 'EVENTO_MKT' && taskToUpdate.linkedEntity?.id && data?.marketingEvents) {
-        const event = data.marketingEvents.find(e => e.id === taskToUpdate.linkedEntity?.id);
-        if (event) {
-          setCompletingMarketingEvent(event);
-        }
+      if (taskToUpdate.dept === 'MARKETING' || taskToUpdate.kind === 'EVENTO_MKT') {
+          const event = data?.marketingEvents.find(e => e.id === taskToUpdate.linkedEntity?.id);
+          if (event) {
+              setCompletingMarketingEvent(event);
+          } else {
+              alert("No se encontró el evento de marketing asociado para registrar los KPIs.");
+          }
       } else {
-        setCompletingTask(taskToUpdate);
+          setCompletingTask(taskToUpdate);
       }
     }
   };
@@ -267,7 +269,7 @@ function PersonalDashboardContent() {
 
       {completingMarketingEvent && (
             <MarketingTaskCompletionDialog
-                event={completingMarketingEvent}
+                entity={completingMarketingEvent}
                 open={!!completingMarketingEvent}
                 onClose={() => setCompletingMarketingEvent(null)}
                 onComplete={handleSaveMarketingEventTask}
