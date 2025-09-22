@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -62,6 +61,7 @@ const navSections = [
         items: [
             { href: '/dashboard-personal', label: 'Dashboard', icon: BarChart3 },
             { href: '/agenda', label: 'Agenda', icon: Calendar },
+            { href: '/contacts', label: 'Contactos', icon: Contact },
         ]
     },
     {
