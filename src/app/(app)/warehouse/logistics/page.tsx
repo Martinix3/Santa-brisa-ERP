@@ -1,7 +1,6 @@
 
-
 "use client";
-import React, { useMemo, useState, useTransition } from "react";
+import React, { useMemo, useState, useTransition, useEffect } from "react";
 import { Printer, PackageCheck, Truck, CheckCircle2, Search, Plus, FileText, ClipboardList, Boxes, PackageOpen, BadgeCheck, AlertTriangle, Settings, Clipboard, Ruler, Weight, MoreHorizontal, Check as CheckIcon, FileDown, Package, Info, X, Loader2 } from "lucide-react";
 import { SBButton, SBCard, Input, Select, STATUS_STYLES } from '@/components/ui/ui-primitives';
 import { useData } from '@/lib/dataprovider';
@@ -349,8 +348,8 @@ export default function LogisticsPage() {
       </SBCard>
 
       {/* Tabla principal */}
-      <SBCard title="Pedidos">
-         <div className="overflow-x-auto">
+       <SBCard title="Pedidos">
+        <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="text-[11px] uppercase tracking-wide text-sb-neutral-500 bg-white">
               <tr>
@@ -438,3 +437,4 @@ export default function LogisticsPage() {
     </div>
   );
 }
+
