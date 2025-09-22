@@ -178,7 +178,6 @@ export function CalendarPageContent() {
 
   if (!santaData) return <div className="p-6">Cargando datos…</div>;
 
-  const ACCENT = SB_COLORS.primary.sun;
   
   const handleDeleteEvent = (id: string) => {
     if (!santaData?.interactions) return;
@@ -205,8 +204,7 @@ export function CalendarPageContent() {
           <div className="flex-grow"></div>
           <button
             onClick={() => { setEditingEvent(null); setIsNewEventDialogOpen(true); }}
-            className="flex items-center gap-2 text-sm text-white rounded-lg px-4 py-2 font-semibold hover:brightness-110 transition-colors"
-            style={{ backgroundColor: ACCENT }}
+            className="flex items-center gap-2 text-sm text-primary-foreground bg-primary rounded-lg px-4 py-2 font-semibold hover:bg-primary/90 transition-colors"
           >
             Nueva Tarea
           </button>
@@ -252,7 +250,7 @@ export function CalendarPageContent() {
             open={isNewEventDialogOpen}
             onOpenChange={setIsNewEventDialogOpen}
             onSave={handleAddOrUpdateEvent as any}
-            accentColor={ACCENT}
+            accentColor={SB_COLORS.primary.sun}
             initialEventData={editingEvent}
           />
         )}
