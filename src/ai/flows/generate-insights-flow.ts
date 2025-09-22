@@ -7,9 +7,10 @@
 
 import { ai } from '@/ai';
 import type { GenerateInsightsInput } from '@/domain/schemas/generate-insights';
+import { gemini15Flash } from '@genkit-ai/googleai';
 
 export async function generateInsights(input: GenerateInsightsInput): Promise<string> {
-  const {output} = await ai.generate({
+  const { text } = await ai.generate({
     prompt: `
       Analyze the following JSON data and provide concise, actionable insights based on the provided context.
       Context: ${input.context || 'General business operations.'}
@@ -19,14 +20,8 @@ export async function generateInsights(input: GenerateInsightsInput): Promise<st
       Your response should be in Spanish, formatted as a brief, easy-to-read report using markdown.
       Focus on identifying patterns, risks, or opportunities. Be direct and avoid conversational fluff.
     `,
-    model: 'googleai/gemini-2.5-flash',
+    model: gemini15Flash,
   });
 
-  if (!output || typeof output !== 'string') {
-    const textResult = (output as any)?.text;
-    if (typeof textResult === 'string') return textResult;
-    return 'No se pudo generar una respuesta de texto.';
-  }
-
-  return output;
+  return text ?? 'No se pudo generar una respuesta de texto.';
 }

@@ -1,5 +1,3 @@
-
-
 'use server';
 /**
  * @fileoverview Santa Brisa main conversational agent
@@ -12,6 +10,7 @@
 import { ai } from '@/ai';
 import { z } from 'zod';
 import type { Message, ToolRequest } from 'genkit';
+import { gemini15Flash } from '@genkit-ai/googleai';
 
 import type {
   Account,
@@ -64,7 +63,7 @@ const registeredTools = [
           .array(z.object({ sku: z.string(), quantity: z.number() }))
           .describe('An array of items to include in the order. If the user mentions "botellas" or "bottles" without specifying a product, assume the SKU is "SB-750".'),
       }),
-      
+      outputSchema: z.any(),
     },
     async (input) => ({
       id: `ord_${Date.now()}`,
@@ -88,6 +87,7 @@ const registeredTools = [
           .optional()
           .describe('A brief note about the next follow-up action, if any.'),
       }),
+      outputSchema: z.any(),
     },
     async (input) => ({
       id: `int_${Date.now()}`,
@@ -106,6 +106,7 @@ const registeredTools = [
         city: z.string().optional().describe('The city where the account is located.'),
         type: createEnumSchema(['HORECA', 'RETAIL', 'OTRO']).optional(),
       }),
+      outputSchema: z.any(),
     },
     async (input) => ({
       id: `acc_${Date.now()}`,
@@ -173,7 +174,7 @@ const santaBrainFlow = ai.defineFlow(
     });
 
     const llmResponse = await ai.generate({
-      model: 'googleai/gemini-2.5-flash',
+      model: gemini15Flash,
       tools: registeredTools,
       messages: [
         { role: 'system', content: [{ text: systemPrompt }] },
@@ -188,7 +189,7 @@ const santaBrainFlow = ai.defineFlow(
     });
 
     const newEntities: Partial<SantaData> = {};
-    const finalAnswer = llmResponse.text ?? '';
+    const finalAnswer = llmResponse.text;
     const toolCalls = getToolCalls(llmResponse);
     
     for (const part of toolCalls) {
@@ -208,7 +209,7 @@ const santaBrainFlow = ai.defineFlow(
                 currency: 'EUR',
                 lines: (Array.isArray(input.items) ? input.items : []).map((item: any) => ({
                     ...item,
-                    uom: item?.uom ?? 'uds',
+                    uom: 'uds',
                     priceUnit: Number(item?.priceUnit ?? 0),
                 })),
                 accountId: targetAccount.id,

@@ -17,14 +17,15 @@
     "@genkit-ai/ai": "1.19.3",
     "@genkit-ai/googleai": "1.19.3",
     "cross-fetch": "^4.1.0",
-    "firebase-admin": "13.5.0",
-    "firebase-functions": "6.4.0",
+    "firebase-admin": "12.7.0",
+    "firebase-functions": "4.9.0",
     "genkit": "1.19.3",
     "zod": "3.23.8"
   },
   "devDependencies": {
-    "@types/node": "^24.5.2",
-    "typescript": "^5.9.2"
+    "@types/node": "^20.19.17",
+    "ts-node": "^10.9.2",
+    "typescript": "5.6.x"
   },
   "overrides": {
     "zod": "3.23.8"

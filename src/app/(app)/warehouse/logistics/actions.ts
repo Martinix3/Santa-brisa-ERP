@@ -1,7 +1,7 @@
-
 'use server';
 import { ai } from '@/ai';
 import { getServerData } from '@/lib/dataprovider/server';
+import { gemini15Flash } from '@genkit-ai/googleai';
 
 /**
  * Generates a PDF packing slip for a given shipment using AI and Puppeteer.
@@ -63,7 +63,7 @@ export async function generatePackingSlip(shipmentId: string): Promise<{ pdfData
             Here is the shipment data in JSON format:
             ${JSON.stringify(promptData, null, 2)}
         `,
-        model: 'googleai/gemini-2.5-flash',
+        model: gemini15Flash,
     });
 
     if (!generatedHtml) {

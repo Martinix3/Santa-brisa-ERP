@@ -1,5 +1,4 @@
-
-import { ai } from '../ai';
+import { ai } from './index.js';
 import { gemini15Flash } from '@genkit-ai/googleai';
 import {
   memory_get_context, memory_upsert, memory_update_profile,
@@ -26,7 +25,7 @@ export async function santaBrainRun({
   userId, threadId, message
 }: { userId: string; threadId: string; message: string }) {
   const res = await ai.generate({
-    model: 'googleai/gemini-1.5-flash',
+    model: gemini15Flash,
     system: SYSTEM_PROMPT,
     prompt: [
       `# Contexto

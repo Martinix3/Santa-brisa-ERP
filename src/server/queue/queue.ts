@@ -8,7 +8,7 @@ import type { Job } from './types';
  * @param job The job details, including kind, payload, and optional settings.
  * @returns The ID of the newly created job document in Firestore.
  */
-export async function enqueue(job: Omit<Job, 'id' | 'status' | 'attempts' | 'createdAt' | 'updatedAt' | 'nextRunAt'>): Promise<string> {
+export async function enqueue(job: Omit<Job, 'id' | 'status' | 'attempts' | 'createdAt' | 'updatedAt' | 'nextRunAt'> & { delaySec?: number }): Promise<string> {
   const ref = adminDb.collection('jobs').doc();
   
   const newJob: Job = {

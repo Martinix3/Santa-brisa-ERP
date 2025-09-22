@@ -30,7 +30,7 @@ async function upsertAccount(accountData: Partial<Account>, shopifyCustomer: any
   
   // 2. If not found, try to find by email (assuming email is a unique contact point)
   const qByEmail = await accountsRef.where('mainContactEmail', '==', shopifyCustomer.email).limit(1).get();
-  if (!qByEmail.empty) {
+  if(!qByEmail.empty){
     const docRef = qByEmail.docs[0].ref;
     await docRef.set(accountData, { merge: true });
     return docRef;
@@ -93,7 +93,6 @@ export async function processShopifyEvent(params: WebhookParams) {
         payload: { orderId: orderRef.id },
         correlationId,
         maxAttempts: 5,
-        delaySec: 10,
       });
       
       await eventRef.update({ processedAt: FieldValue.serverTimestamp(), status: 'OK', orderId: orderRef.id });

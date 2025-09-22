@@ -1,20 +1,21 @@
 // functions/src/ai/tools.ts
 import { z } from 'zod';
 import { defineTool } from '@genkit-ai/ai';
-import { ai } from '../ai';
+import { ai } from './index.js';
 import { db } from '../firebaseAdmin.js';
+import type { OrderLine, Account } from '@/domain/ssot';
 
 // ===== Helpers =====
 const nowIso = () => new Date().toISOString();
 const norm = (s: string) =>
   (s || '').trim().toLowerCase().normalize('NFKD').replace(/\p{Diacritic}/gu, '');
-const calcAmount = (items: Array<{ sku: string; qty: number; unitPrice?: number; discountPct?: number }>) =>
-  items.reduce((a, it) => a + it.qty * (it.unitPrice ?? 0) * (1 - (it.discountPct ?? 0) / 100), 0);
+const calcAmount = (items: Array<Partial<OrderLine>>) =>
+  items.reduce((a, it) => a + (it.qty ?? 0) * (it.priceUnit ?? 0) * (1 - (it.discount ?? 0) / 100), 0);
 
-async function mustAccount(id: string) {
+async function mustAccount(id: string): Promise<Account> {
   const snap = await db.collection('accounts').doc(id).get();
   if (!snap.exists) throw new Error(`Account ${id} no existe`);
-  return { id: snap.id, ...(snap.data() as any) };
+  return { id: snap.id, ...(snap.data() as any) } as Account;
 }
 
 // =====================================================
@@ -30,13 +31,14 @@ const memoryUpsertSchema = z.object({
   kind: z.enum(['message', 'summary']).default('message'),
 });
 
-export const memory_upsert = defineTool({
-  name: 'memory_upsert',
-  description: 'Guarda un mensaje o resumen del hilo.',
-  inputSchema: memoryUpsertSchema,
-  outputSchema: z.object({ ok: z.boolean() }),
-  fn: async (input) => {
-    const { userId, threadId, ...rest } = input;
+export const memory_upsert = defineTool(
+  {
+    name: 'memory_upsert',
+    description: 'Guarda un mensaje o resumen del hilo.',
+    inputSchema: memoryUpsertSchema,
+    outputSchema: z.object({ ok: z.boolean() }),
+  },
+  async ({ userId, threadId, ...rest }) => {
     await db
       .collection('brain_memory')
       .doc(userId)
@@ -46,7 +48,7 @@ export const memory_upsert = defineTool({
       .add({ ...rest, createdAt: nowIso() });
     return { ok: true };
   },
-});
+);
 
 const memoryGetContextSchema = z.object({
   userId: z.string(),
@@ -54,17 +56,17 @@ const memoryGetContextSchema = z.object({
   limit: z.number().min(1).max(50).default(12),
 });
 
-export const memory_get_context = defineTool({
-  name: 'memory_get_context',
-  description: 'Recupera últimas N entradas del hilo + perfil largo.',
-  inputSchema: memoryGetContextSchema,
-  outputSchema: z.object({
-    messages: z.array(z.object({ role: z.string(), text: z.string() })),
-    profile: z.string().optional(),
-  }),
-  fn: async (input) => {
-    const { userId, threadId, limit } = input;
-
+export const memory_get_context = defineTool(
+  {
+    name: 'memory_get_context',
+    description: 'Recupera últimas N entradas del hilo + perfil largo.',
+    inputSchema: memoryGetContextSchema,
+    outputSchema: z.object({
+      messages: z.array(z.object({ role: z.string(), text: z.string() })),
+      profile: z.string().optional(),
+    }),
+  },
+  async ({ userId, threadId, limit }) => {
     const turnsSnap = await db
       .collection('brain_memory')
       .doc(userId)
@@ -83,24 +85,25 @@ export const memory_get_context = defineTool({
     const profileDoc = await db.collection('brain_memory').doc(userId).get();
     return { messages, profile: profileDoc.exists ? (profileDoc.data() as any).profile : undefined };
   },
-});
+);
 
 const memoryUpdateProfileSchema = z.object({
   userId: z.string(),
   profile: z.string().min(10),
 });
 
-export const memory_update_profile = defineTool({
-  name: 'memory_update_profile',
-  description: 'Actualiza el perfil de largo plazo del usuario.',
-  inputSchema: memoryUpdateProfileSchema,
-  outputSchema: z.object({ ok: z.boolean() }),
-  fn: async (input) => {
-    const { userId, profile } = input;
+export const memory_update_profile = defineTool(
+  {
+    name: 'memory_update_profile',
+    description: 'Actualiza el perfil de largo plazo del usuario.',
+    inputSchema: memoryUpdateProfileSchema,
+    outputSchema: z.object({ ok: z.boolean() }),
+  },
+  async ({ userId, profile }) => {
     await db.collection('brain_memory').doc(userId).set({ profile, updatedAt: nowIso() }, { merge: true });
     return { ok: true };
   },
-});
+);
 
 // =====================================================
 // ===============      LECTURA SSOT   =================
@@ -111,13 +114,14 @@ const queryAccountsSchema = z.object({
   limit: z.number().min(1).max(200).default(50),
 });
 
-export const query_accounts = defineTool({
-  name: 'query_accounts',
-  description: 'Busca cuentas por nombre/ciudad/contacto (dev simple).',
-  inputSchema: queryAccountsSchema,
-  outputSchema: z.object({ results: z.array(z.any()) }),
-  fn: async (input) => {
-    const { text = '', limit } = input;
+export const query_accounts = defineTool(
+  {
+    name: 'query_accounts',
+    description: 'Busca cuentas por nombre/ciudad/contacto (dev simple).',
+    inputSchema: queryAccountsSchema,
+    outputSchema: z.object({ results: z.array(z.any()) }),
+  },
+  async ({ text = '', limit }) => {
     const snap = await db.collection('accounts').limit(500).get();
     const all = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
     const t = text.toLowerCase();
@@ -132,22 +136,23 @@ export const query_accounts = defineTool({
       : all;
     return { results: results.slice(0, limit) };
   },
-});
+);
 
 const getAccountDeepSchema = z.object({ accountId: z.string() });
 
-export const get_account_deep = defineTool({
-  name: 'get_account_deep',
-  description: 'Cuenta + últimos pedidos/interacciones/eventos.',
-  inputSchema: getAccountDeepSchema,
-  outputSchema: z.object({
-    account: z.any().nullable(),
-    orders: z.array(z.any()),
-    interactions: z.array(z.any()),
-    events: z.array(z.any()),
-  }),
-  fn: async (input) => {
-    const { accountId } = input;
+export const get_account_deep = defineTool(
+  {
+    name: 'get_account_deep',
+    description: 'Cuenta + últimos pedidos/interacciones/eventos.',
+    inputSchema: getAccountDeepSchema,
+    outputSchema: z.object({
+      account: z.any().nullable(),
+      orders: z.array(z.any()),
+      interactions: z.array(z.any()),
+      events: z.array(z.any()),
+    }),
+  },
+  async ({ accountId }) => {
     const acc = await mustAccount(accountId).catch(() => null);
     const [orders, interactions, events] = await Promise.all([
       db.collection('orders').where('accountId', '==', accountId).orderBy('date', 'desc').limit(20).get(),
@@ -161,7 +166,7 @@ export const get_account_deep = defineTool({
       events: events.docs.map((d) => ({ id: d.id, ...(d.data() as any) })),
     };
   },
-});
+);
 
 const listCollectionSchema = z.object({
   name: z.enum([
@@ -179,19 +184,20 @@ const listCollectionSchema = z.object({
   limit: z.number().min(1).max(500).default(100),
 });
 
-export const list_collection = defineTool({
-  name: 'list_collection',
-  description: 'Lee una colección SSOT permitida (cruda) con límite.',
-  inputSchema: listCollectionSchema,
-  outputSchema: z.object({ docs: z.array(z.any()) }),
-  fn: async (input) => {
-    const { name, orderBy, dir, limit } = input;
+export const list_collection = defineTool(
+  {
+    name: 'list_collection',
+    description: 'Lee una colección SSOT permitida (cruda) con límite.',
+    inputSchema: listCollectionSchema,
+    outputSchema: z.object({ docs: z.array(z.any()) }),
+  },
+  async ({ name, orderBy, dir, limit }) => {
     let ref: FirebaseFirestore.Query = db.collection(name);
     if (orderBy) ref = ref.orderBy(orderBy, dir);
     const snap = await ref.limit(limit).get();
     return { docs: snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })) };
   },
-});
+);
 
 // =====================================================
 // ===============      ESCRITURA SSOT  =================
@@ -214,12 +220,14 @@ const createAccountSchema = z.object({
   salesRepId: z.string().optional(),
 });
 
-export const create_account = defineTool({
-  name: 'create_account',
-  description: 'Crea una cuenta SSOT con datos mínimos.',
-  inputSchema: createAccountSchema,
-  outputSchema: z.object({ id: z.string() }),
-  fn: async (args) => {
+export const create_account = defineTool(
+  {
+    name: 'create_account',
+    description: 'Crea una cuenta SSOT con datos mínimos.',
+    inputSchema: createAccountSchema,
+    outputSchema: z.object({ id: z.string() }),
+  },
+  async (args) => {
     const createdAt = nowIso();
     const docData = {
       name: args.name,
@@ -236,7 +244,7 @@ export const create_account = defineTool({
     const ref = await db.collection('accounts').add(docData);
     return { id: ref.id };
   },
-});
+);
 
 const ensureAccountSchema = z.object({
   name: z.string(),
@@ -247,12 +255,14 @@ const ensureAccountSchema = z.object({
   defaultStage: z.enum(['POTENCIAL', 'SEGUIMIENTO', 'ACTIVA', 'FALLIDA']).default('POTENCIAL'),
 });
 
-export const ensure_account = defineTool({
-  name: 'ensure_account',
-  description: 'Devuelve accountId; busca por nombre/email y crea si no existe.',
-  inputSchema: ensureAccountSchema,
-  outputSchema: z.object({ id: z.string(), existed: z.boolean() }),
-  fn: async (args) => {
+export const ensure_account = defineTool(
+  {
+    name: 'ensure_account',
+    description: 'Devuelve accountId; busca por nombre/email y crea si no existe.',
+    inputSchema: ensureAccountSchema,
+    outputSchema: z.object({ id: z.string(), existed: z.boolean() }),
+  },
+  async (args) => {
     const needle = norm(args.name);
     const email = (args.mainContactEmail || '').toLowerCase();
     const snap = await db.collection('accounts').limit(500).get();
@@ -265,10 +275,9 @@ export const ensure_account = defineTool({
     if (hit) return { id: hit.id, existed: true };
 
     const created = await create_account.run(args);
-    if (!created) throw new Error('Could not create account');
-    return { id: created.id, existed: false };
+    return { id: created, existed: false };
   },
-});
+);
 
 const createOrderSchema = z.object({
   accountId: z.string(),
@@ -280,17 +289,19 @@ const createOrderSchema = z.object({
   createdById: z.string().optional(),
 });
 
-export const create_order = defineTool({
-  name: 'create_order',
-  description: 'Crea un pedido en `orders`.',
-  inputSchema: createOrderSchema,
-  outputSchema: z.object({
-    id: z.string(),
-    amount: z.number(),
-    currency: z.string(),
-    createdAt: z.string(),
-  }),
-  fn: async (input) => {
+export const create_order = defineTool(
+  {
+    name: 'create_order',
+    description: 'Crea un pedido en `orders`.',
+    inputSchema: createOrderSchema,
+    outputSchema: z.object({
+      id: z.string(),
+      amount: z.number(),
+      currency: z.string(),
+      createdAt: z.string(),
+    }),
+  },
+  async (input) => {
     await mustAccount(input.accountId);
     const createdAt = nowIso();
     const order = {
@@ -309,7 +320,7 @@ export const create_order = defineTool({
     const ref = await db.collection('orders').add(order);
     return { id: ref.id, amount: order.amount, currency: order.currency, createdAt };
   },
-});
+);
 
 const createInteractionSchema = z.object({
   accountId: z.string().optional(),
@@ -323,23 +334,25 @@ const createInteractionSchema = z.object({
   dept: z.string().optional(),
 });
 
-export const create_interaction = defineTool({
-  name: 'create_interaction',
-  description: 'Registra una interacción (VISITA, LLAMADA, EMAIL, WHATSAPP, OTRO).',
-  inputSchema: createInteractionSchema,
-  outputSchema: z.object({
-    id: z.string(),
-    status: z.string(),
-    when: z.string(),
-    createdAt: z.string(),
-  }),
-  fn: async (input) => {
+export const create_interaction = defineTool(
+  {
+    name: 'create_interaction',
+    description: 'Registra una interacción (VISITA, LLAMADA, EMAIL, WHATSAPP, OTRO).',
+    inputSchema: createInteractionSchema,
+    outputSchema: z.object({
+      id: z.string(),
+      status: z.string(),
+      when: z.string(),
+      createdAt: z.string(),
+    }),
+  },
+  async (input) => {
     const createdAt = nowIso();
     const doc = { ...input, when: input.when ?? createdAt, createdAt, updatedAt: createdAt };
     const ref = await db.collection('interactions').add(doc);
     return { id: ref.id, status: doc.status, when: doc.when, createdAt };
   },
-});
+);
 
 const createEventSchema = z.object({
   accountId: z.string().optional(),
@@ -352,24 +365,26 @@ const createEventSchema = z.object({
   notes: z.string().optional(),
 });
 
-export const create_event = defineTool({
-  name: 'create_event',
-  description: 'Crea un evento (DEMO, FERIA, FORMACION, OTRO).',
-  inputSchema: createEventSchema,
-  outputSchema: z.object({
-    id: z.string(),
-    title: z.string(),
-    startAt: z.string(),
-    createdAt: z.string(),
-  }),
-  fn: async (input) => {
+export const create_event = defineTool(
+  {
+    name: 'create_event',
+    description: 'Crea un evento (DEMO, FERIA, FORMACION, OTRO).',
+    inputSchema: createEventSchema,
+    outputSchema: z.object({
+      id: z.string(),
+      title: z.string(),
+      startAt: z.string(),
+      createdAt: z.string(),
+    }),
+  },
+  async (input) => {
     if (input.accountId) await mustAccount(input.accountId);
     const createdAt = nowIso();
     const doc = { ...input, createdAt, updatedAt: createdAt };
     const ref = await db.collection('events').add(doc);
     return { id: ref.id, title: input.title, startAt: input.startAt, createdAt };
   },
-});
+);
 
 // =====================================================
 // ===============   AGENDA / OVERVIEW  =================
@@ -382,25 +397,26 @@ const getUpcomingAgendaSchema = z.object({
   forDept: z.enum(['VENTAS', 'MARKETING', 'LOGISTICA', 'ADMIN', 'OTRO']).optional(),
 });
 
-export const get_upcoming_agenda = defineTool({
-  name: 'get_upcoming_agenda',
-  description: 'Devuelve próximas tareas/eventos dentro de un horizonte (días).',
-  inputSchema: getUpcomingAgendaSchema,
-  outputSchema: z.object({
-    items: z.array(
-      z.object({
-        type: z.enum(['EVENT', 'TASK']),
-        id: z.string(),
-        when: z.string(),
-        title: z.string(),
-        accountId: z.string().nullable(),
-        location: z.string().nullable(),
-        notes: z.string().nullable(),
-      })
-    ),
-  }),
-  fn: async (input) => {
-    const { horizonDays, limit, forUserId, forDept } = input;
+export const get_upcoming_agenda = defineTool(
+  {
+    name: 'get_upcoming_agenda',
+    description: 'Devuelve próximas tareas/eventos dentro de un horizonte (días).',
+    inputSchema: getUpcomingAgendaSchema,
+    outputSchema: z.object({
+      items: z.array(
+        z.object({
+          type: z.enum(['EVENT', 'TASK']),
+          id: z.string(),
+          when: z.string(),
+          title: z.string(),
+          accountId: z.string().nullable(),
+          location: z.string().nullable(),
+          notes: z.string().nullable(),
+        })
+      ),
+    }),
+  },
+  async ({ horizonDays, limit, forUserId, forDept }) => {
     const now = new Date();
     const end = new Date(now.getTime() + horizonDays * 24 * 60 * 60 * 1000);
 
@@ -456,7 +472,7 @@ export const get_upcoming_agenda = defineTool({
 
     return { items };
   },
-});
+);
 
 const getAccountsOverviewSchema = z.object({
   limit: z.number().min(1).max(500).default(100),
@@ -465,27 +481,28 @@ const getAccountsOverviewSchema = z.object({
   stage: z.enum(['SEGUIMIENTO', 'FALLIDA', 'ACTIVA', 'POTENCIAL']).optional(),
 });
 
-export const get_accounts_overview = defineTool({
-  name: 'get_accounts_overview',
-  description:
-    'Devuelve un overview de cuentas con última interacción/pedido y flag de dormidas.',
-  inputSchema: getAccountsOverviewSchema,
-  outputSchema: z.object({
-    accounts: z.array(
-      z.object({
-        id: z.string(),
-        name: z.string(),
-        city: z.string().optional(),
-        accountType: z.string().optional(),
-        accountStage: z.string().optional(),
-        lastInteractionAt: z.string().nullable(),
-        lastOrderAt: z.string().nullable(),
-        isDormant: z.boolean(),
-      })
-    ),
-  }),
-  fn: async (input) => {
-    const { limit, dormantDays, windowDays, stage } = input;
+export const get_accounts_overview = defineTool(
+  {
+    name: 'get_accounts_overview',
+    description:
+      'Devuelve un overview de cuentas con última interacción/pedido y flag de dormidas.',
+    inputSchema: getAccountsOverviewSchema,
+    outputSchema: z.object({
+      accounts: z.array(
+        z.object({
+          id: z.string(),
+          name: z.string(),
+          city: z.string().optional(),
+          accountType: z.string().optional(),
+          accountStage: z.string().optional(),
+          lastInteractionAt: z.string().nullable(),
+          lastOrderAt: z.string().nullable(),
+          isDormant: z.boolean(),
+        })
+      ),
+    }),
+  },
+  async ({ limit, dormantDays, windowDays, stage }) => {
     const now = new Date();
     const windowStart = new Date(now.getTime() - windowDays * 24 * 60 * 60 * 1000).toISOString();
     const dormantCut = new Date(now.getTime() - dormantDays * 24 * 60 * 60 * 1000).toISOString();
@@ -548,4 +565,4 @@ export const get_accounts_overview = defineTool({
 
     return { accounts: rows };
   },
-});
+);
