@@ -1,6 +1,5 @@
 
 import { NextResponse } from 'next/server';
-import { callHoldedApi } from '@/server/integrations/holded/client';
 import { enqueue } from '@/server/queue/queue';
 
 export const runtime = 'nodejs';

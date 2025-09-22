@@ -6,7 +6,7 @@ const KEY = process.env.HOLDED_API_KEY!;
 export async function callHoldedApi(path: string, method: 'GET'|'POST'|'PUT'|'DELETE', body?: any) {
   const res = await fetch(`${BASE}${path}`, {
     method,
-    headers: { 'Accept':'application/json', 'Content-Type':'application/json', 'key': KEY },
+    headers: { 'Accept':'application/json', 'Content-Type':'application/json', 'X-Api-Key': KEY },
     body: body ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) throw new Error(`Holded ${method} ${path} -> ${res.status} ${await res.text()}`);

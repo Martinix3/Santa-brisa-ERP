@@ -374,7 +374,7 @@ export default function OnlineCampaignsPage() {
     await persist(next);
   }
 
-  async function handleComplete(campaignId: string, payload: { spend:number; impressions:number; clicks:number; roas:number; }) {
+  async function handleComplete(campaignId: string, payload: any) {
     const next = campaigns.map(c => {
       if (c.id !== campaignId) return c;
       const ctr = payload.impressions > 0 ? payload.clicks / payload.impressions : 0;

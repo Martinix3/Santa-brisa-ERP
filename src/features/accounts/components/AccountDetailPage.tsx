@@ -176,7 +176,7 @@ export function AccountDetailPageContent(){
         mainAddress.street = payload.address;
         mainAddress.city = payload.city;
     } else if (payload.address || payload.city) {
-        addresses.push({type: 'main', street: payload.address, city: payload.city, country: 'España', isPrimary: true})
+        addresses.push({type: 'main', street: payload.address, city: payload.city, country: 'España', isPrimary: true, postalCode: ''})
     }
     
     const updatedParty = { ...party, name: payload.name, contacts, addresses };
@@ -261,9 +261,9 @@ export function AccountDetailPageContent(){
                           <ShoppingCart className="h-5 w-5 text-emerald-600"/>
                           <div>
                               <div className="text-sm text-zinc-800 font-semibold">{formatEUR(orderTotal(order))}</div>
-                              <div className="text-xs text-zinc-500">{formatDate(order.createdAt)}</div>
+                              <div className="text-xs text-zinc-500">{formatDate(String(order.createdAt))}</div>
                           </div>
-                          <div className="text-sm text-zinc-800 col-span-2">{(order.lines || []).map(l => `${l.qty} ${l.uom} de ${santaData.products.find(p=>p.sku === l.sku)?.name}`).join(', ')}</div>
+                          <div className="text-sm text-zinc-800 col-span-2">{(order.lines || []).map(l => `${l.qty} ${l.uom || 'uds'} de ${santaData.products.find(p=>p.sku === l.sku)?.name}`).join(', ')}</div>
                       </div>
                     )
                   }

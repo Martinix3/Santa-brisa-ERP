@@ -14,6 +14,8 @@ export async function handleCreateHoldedInvoice({ orderId }: { orderId: string }
 
   await orderRef.set({ billingStatus: 'INVOICING', updatedAt: Timestamp.now() }, { merge: true });
 
+  if (!order.partyId) throw new Error(`Order ${order.id} is missing partyId`);
+
   // 1) Party (cliente)
   const partySnap = await adminDb.collection('parties').doc(order.partyId).get();
   if (!partySnap.exists) throw new Error(`Party ${order.partyId} not found`);

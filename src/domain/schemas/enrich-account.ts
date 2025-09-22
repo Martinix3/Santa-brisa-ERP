@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from '@genkit-ai/ai/zod';
 
 // Define el esquema de entrada para el flujo de enriquecimiento.
 export const EnrichAccountInputSchema = z.object({

@@ -1,11 +1,9 @@
 // src/app/api/brain-persist/route.ts
 import { NextResponse } from "next/server";
-import { SANTA_DATA_COLLECTIONS } from "@/domain/ssot"; // importa tu lista canónica
+import { upsertMany } from '@/lib/dataprovider/server';
 import type { SantaData } from "@/domain/ssot";
 
-// ❌ No exportes runtime/dynamic aquí
-
-type NewEntities = Partial<SantaData> | Record<string, any[]>;
+type NewEntities = Partial<SantaData>;
 
 export async function POST(req: Request) {
   try {
@@ -15,14 +13,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "Missing newEntities in request body" }, { status: 400 });
     }
 
-    // This is a mock implementation for a browser-only environment
-    console.log("Mock persisting data:", newEntities);
-    const writeCount = Object.values(newEntities).reduce((acc, items) => acc + (Array.isArray(items) ? items.length : 0), 0);
+    let writeCount = 0;
+    const promises = [];
+    for (const coll in newEntities) {
+      const collectionName = coll as keyof SantaData;
+      const items = newEntities[collectionName];
+      if (Array.isArray(items) && items.length > 0) {
+        promises.push(upsertMany(collectionName, items));
+        writeCount += items.length;
+      }
+    }
+    
+    await Promise.all(promises);
 
     if (writeCount === 0) {
       return NextResponse.json({ ok: true, saved: 0, message: "No valid documents to save." });
     }
-
+    
     return NextResponse.json({ ok: true, saved: writeCount, message: "Data persisted in mock environment." });
     
   } catch (e: any) {

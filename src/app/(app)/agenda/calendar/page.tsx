@@ -108,15 +108,16 @@ function CalendarPageContent() {
   }
   
   const handleUpdateStatus = (id: string, newStatus: InteractionStatus) => {
+    if (!santaData) return;
     const taskToUpdate = allInteractions.find(i => i.id === id);
     setSelectedEvent(null);
     if (newStatus === 'done' && taskToUpdate) {
-        if (taskToUpdate.dept === 'MARKETING') {
-            const event = santaData?.marketingEvents.find(e => e.id === taskToUpdate.linkedEntity?.id);
+        if (taskToUpdate.dept === 'MARKETING' && taskToUpdate.linkedEntity?.type === 'EVENT') {
+            const event = santaData.marketingEvents.find(e => e.id === taskToUpdate.linkedEntity?.id);
             if (event) {
                 setCompletingMarketingEvent(event);
             } else {
-                alert("No se encontró el evento de marketing asociado para registrar los KPIs.");
+                setCompletingTask(taskToUpdate);
             }
         } else {
             setCompletingTask(taskToUpdate);

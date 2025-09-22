@@ -48,14 +48,15 @@ export default function GlobalTasksPage() {
     }, [data?.interactions, data?.accounts]);
     
     const handleUpdateStatus = (id: string, newStatus: InteractionStatus) => {
+        if (!data) return;
         const taskToUpdate = data?.interactions.find(i => i.id === id);
         if (newStatus === 'done' && taskToUpdate) {
-            if (taskToUpdate.dept === 'MARKETING') {
+            if (taskToUpdate.dept === 'MARKETING' && taskToUpdate.linkedEntity?.type === 'EVENT') {
                 const event = data?.marketingEvents.find(e => e.id === taskToUpdate.linkedEntity?.id);
                 if (event) {
                     setCompletingMarketingEvent(event);
                 } else {
-                    alert("No se encontró el evento de marketing asociado para registrar los KPIs.");
+                    setCompletingTask(taskToUpdate);
                 }
             } else {
                 setCompletingTask(taskToUpdate);

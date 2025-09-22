@@ -61,7 +61,7 @@ export function ContactsPageContent() {
                 party.taxId?.toLowerCase().includes(lowerCaseSearch) ||
                 party.contacts.some(c => c.value.toLowerCase().includes(lowerCaseSearch));
 
-            const matchesRole = !roleFilter || roles.some(r => r.role === roleFilter);
+            const matchesRole = !roleFilter || roles.some((r: { role: PartyRoleType; }) => r.role === roleFilter);
             const matchesKind = !kindFilter || party.kind === kindFilter;
 
             return matchesSearch && matchesRole && matchesKind;
@@ -134,7 +134,7 @@ export function ContactsPageContent() {
                                     )}
                                 </div>
                                 <div className="flex flex-wrap gap-1">
-                                    {roles.map(role => <PartyRoleBadge key={role.id} role={role.role} />)}
+                                    {roles.map((role: { id: string; role: PartyRoleType; }) => <PartyRoleBadge key={role.id} role={role.role} />)}
                                     {roles.length === 0 && <span className="text-xs text-zinc-400">Sin rol asignado</span>}
                                 </div>
                                 <div>

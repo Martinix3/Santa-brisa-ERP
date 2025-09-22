@@ -97,18 +97,17 @@ function PersonalDashboardContent() {
     if (!data) return;
     const taskToUpdate = userInteractions.find(i => i.id === id);
     if (!taskToUpdate) return;
-
+  
     if (newStatus === 'done') {
-        if (taskToUpdate.dept === 'MARKETING') {
-            const event = data.marketingEvents.find(e => e.id === taskToUpdate.linkedEntity?.id);
-            if (event) {
-                setCompletingMarketingEvent(event);
-            } else {
-                setCompletingTask(taskToUpdate);
-            }
-        } else {
-            setCompletingTask(taskToUpdate);
+      if (taskToUpdate.dept === 'MARKETING') {
+        const event = data.marketingEvents.find(e => e.id === taskToUpdate.linkedEntity?.id);
+        if (event) {
+          setCompletingMarketingEvent(event);
+          return;
         }
+      }
+      // For all other departments (Ventas, Produccion, etc.), use the general completion dialog
+      setCompletingTask(taskToUpdate);
     }
   };
 

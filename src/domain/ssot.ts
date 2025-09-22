@@ -1,10 +1,9 @@
-
 // src/domain/ssot.ts
 
 // =================================================================
 // == SINGLE SOURCE OF TRUTH (SSOT) - V5
 // =================================================================
-import { Timestamp } from "firebase/firestore";
+export type Timestamp = string; // ISO string
 
 // -----------------------------------------------------------------
 // 1. Tipos Primitivos y Enums Transversales
@@ -57,6 +56,7 @@ export interface Party {
   // Campos del modelo anterior para compatibilidad temporal. Serán eliminados.
   name: string; // Mantener por ahora, pero usar legalName/tradeName
   kind: 'ORG' | 'PERSON';
+  taxId?: string; // CIF/NIF opcional para compatibilidad
   contacts: { type: 'email' | 'phone' | 'whatsapp' | 'web'; value: string; isPrimary?: boolean; description?: string; }[];
   addresses: { type: 'main' | 'billing' | 'shipping'; street: string; city: string; postalCode?: string; country: string; isPrimary?: boolean; }[];
 }
@@ -132,14 +132,14 @@ export type BillingStatus = 'PENDING'|'INVOICING'|'INVOICED'|'FAILED';
 
 export interface OrderSellOut {
   id: string;
-  partyId: string; // <-- party-centric
+  partyId?: string; // <-- party-centric
   accountId: string; // <-- compatibilidad
   source: 'CRM'|'SHOPIFY'|'OTHER' | 'MANUAL' | 'HOLDED';
   createdAt: string | number;         // ISO o epoch
   currency: 'EUR' | string;
   lines: Array<{ sku: string; name?: string; qty: number; priceUnit: number; taxRate?: number; discountPct?: number; uom?: 'uds'; lotIds?: string[] }>;
   notes?: string;
-  billingStatus: BillingStatus;
+  billingStatus?: BillingStatus;
   status: OrderStatus; // compatibilidad
   docNumber?: string;
   totalAmount?: number;
@@ -465,6 +465,16 @@ export interface TraceEvent {
     data?: any;
 }
 
+export interface AccountRollup {
+  accountId: string;
+  hasPLVInstalled?: boolean;
+  lastPLVInstalledAt?: Timestamp;
+  activeActivations: number;
+  lastActivationAt?: Timestamp;
+  activePromotions: number;
+  activePosTactics: number;
+  lastTacticAt?: Timestamp;
+}
 
 export type ActivationType = 'bartender_day' | 'tasting' | 'event' | 'other_experience';
 export interface Activation {

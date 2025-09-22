@@ -20,7 +20,7 @@ export async function updateOrderStatus(
 
   try {
     // 1. Actualizar siempre el estado del pedido
-    await upsertMany('ordersSellOut', [{ id: order.id, status: newStatus, updatedAt: new Date().toISOString() }]);
+    await upsertMany('ordersSellOut', [{ id: order.id, status: newStatus, billingStatus: newStatus === 'confirmed' ? 'INVOICING' : order.billingStatus, updatedAt: new Date().toISOString() }]);
     console.log(`[CHIVATO] Pedido ${order.id} actualizado a estado ${newStatus} en la base de datos.`);
 
     let createdShipment: Shipment | null = null;
@@ -45,7 +45,7 @@ export async function updateOrderStatus(
 
       const shipmentLines = (order.lines ?? []).map(it => ({
         sku: it.sku,
-        name: it.sku, // Placeholder, a real app would look this up from a products collection
+        name: it.name || it.sku, // Placeholder, a real app would look this up from a products collection
         qty: it.qty,
         uom: 'uds' as const,
       }));

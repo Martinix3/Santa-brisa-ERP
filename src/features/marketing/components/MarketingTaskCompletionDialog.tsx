@@ -7,7 +7,7 @@ import { Euro, Users, Target, BarChart3, Heart, MousePointerClick, TrendingUp, D
 
 type Entity = MarketingEvent | OnlineCampaign | InfluencerCollab;
 
-type CompleteResultsPayload = {
+export type CompleteResultsPayload = {
     // Shared
     spend?: number;
     notes?: string;
@@ -69,8 +69,9 @@ function getEntityType(entity: Entity): 'event' | 'campaign' | 'collab' {
 }
 
 function getEntityTitle(entity: Entity): string {
-    if ('title' in entity && entity.title) return entity.title;
-    if ('creatorName' in entity && entity.creatorName) return `Collab con ${entity.creatorName}`;
+    const e = entity as any;
+    if (e.title) return e.title;
+    if (e.creatorName) return `Collab con ${e.creatorName}`;
     return "Evento de Marketing";
 }
 
@@ -90,6 +91,7 @@ export function MarketingTaskCompletionDialog({
   const [touched, setTouched] = useState<Record<string, boolean>>({});
 
   const entityType = useMemo(() => getEntityType(entity), [entity]);
+  const entityTitle = useMemo(() => getEntityTitle(entity), [entity]);
 
   const kpiFields = useMemo(() => {
       if (entityType === 'campaign') return CAMPAIGN_KPI_FIELDS;
@@ -143,7 +145,7 @@ export function MarketingTaskCompletionDialog({
     for (const field of requiredFields) {
         const value = results[field];
         if (value === undefined || Number(value) < 0) {
-            alert(`El campo '${field}' es obligatorio y no puede ser negativo.`);
+            alert(`El campo '${kpiFields.find(f => f.key === field)?.label}' es obligatorio y no puede ser negativo.`);
             return;
         }
     }
@@ -171,7 +173,7 @@ export function MarketingTaskCompletionDialog({
   return (
     <SBDialog open={open} onOpenChange={onClose}>
       <SBDialogContent
-        title={`Resultados de: ${getEntityTitle(entity)}`}
+        title={`Resultados de: ${entityTitle}`}
         description="Registra los KPIs de la acción de marketing para completarla. Todos los campos son obligatorios."
         onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}
         primaryAction={{ label: 'Guardar y Completar', type: 'submit', disabled: !canSubmit }}

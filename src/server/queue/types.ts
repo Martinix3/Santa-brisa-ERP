@@ -6,8 +6,7 @@ export type JobStatus = 'QUEUED' | 'RUNNING' | 'DONE' | 'RETRY' | 'DEAD';
 // Definición de cada tipo de trabajo
 export type JobDefinition =
  | { kind:'CREATE_HOLDED_INVOICE'; payload:{ orderId: string }; }
- | { kind:'SYNC_HOLDED_PURCHASES'; payload:{ page?: number }; }
- | { kind:'SYNC_HOLDED_SUPPLIERS'; payload:{ page?: number }; };
+ | { kind:'SYNC_HOLDED_PURCHASES'; payload:{ page?: number }; };
  // ...otros tipos de trabajos futuros
 
 export type JobKind = JobDefinition['kind'];

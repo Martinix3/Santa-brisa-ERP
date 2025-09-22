@@ -8,7 +8,7 @@ import type { Col } from '@/components/ui/ui-primitives';
 import { NewEventDialog } from '@/features/agenda/components/NewEventDialog';
 import { MarketingTaskCompletionDialog } from '@/features/marketing/components/MarketingTaskCompletionDialog';
 import { SB_COLORS } from '@/domain/ssot';
-import { Calendar, AlertCircle, Clock, Megaphone, Target, Euro, Plus } from 'lucide-react';
+import { Calendar, Megaphone, Target, Euro, Plus } from 'lucide-react';
 import { NewPosTacticDialog } from '@/features/marketing/components/NewPosTacticDialog';
 import { usePosTacticsService } from '@/features/marketing/services/posTactics.service';
 
@@ -30,7 +30,7 @@ const formatNumber = (num?: number) => num?.toLocaleString('es-ES') || 'N/A';
 const formatCurrency = (num?: number) => num?.toLocaleString('es-ES', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 }) || 'N/A';
 
 export default function Page(){
-  const { data: santaData, setData, currentUser, isPersistenceEnabled, saveCollection, saveAllCollections } = useData();
+  const { data: santaData, currentUser, saveAllCollections } = useData();
   const { upsertPosTactic, catalog, plv } = usePosTacticsService();
   const [isNewEventDialogOpen, setIsNewEventDialogOpen] = useState(false);
   const [completingEvent, setCompletingEvent] = useState<MarketingEvent | null>(null);
@@ -112,7 +112,10 @@ export default function Page(){
         return me;
     });
 
-    await saveCollection('marketingEvents', updatedMktEvents);
+    const interactionToClose = santaData.interactions.find(i => i.linkedEntity?.id === eventId);
+    const updatedInteractions = interactionToClose ? santaData.interactions.map(i => i.id === interactionToClose.id ? {...i, status: 'done' as const} : i) : santaData.interactions;
+
+    await saveAllCollections({ marketingEvents: updatedMktEvents, interactions: updatedInteractions });
 
     setCompletingEvent(null);
   };

@@ -1,12 +1,11 @@
 // --- Santa Brisa: lógica de negocio (sell-out a botellas, agregados y KPIs) ---
-import { Timestamp } from 'firebase/firestore';
 import type {
-  Account, Party, PartyRole, CustomerData, OrderSellOut, Product, User, SantaData, Activation, Interaction
+  Account, Party, PartyRole, CustomerData, OrderSellOut, Product, User, SantaData, Activation, Interaction, AccountRollup
 } from '@/domain';
 
-export const inWindow = (dateStr: string | number, start: Date, end: Date): boolean => {
+export const inWindow = (dateStr: string, start: Date, end: Date): boolean => {
   if (!dateStr) return false;
-  const time = typeof dateStr === 'string' ? +new Date(dateStr) : dateStr;
+  const time = typeof dateStr === 'string' ? +new Date(dateStr) : +new Date(Number(dateStr));
   return time >= start.getTime() && time <= end.getTime();
 };
 
@@ -118,10 +117,10 @@ export function computeAccountKPIs(params: {
   const start = new Date(startIso);
   const end = new Date(endIso);
   const orders = (data.ordersSellOut || []).filter(o =>
-    o.accountId === accountId && o.status === 'confirmed' && inWindow(o.createdAt, start, end)
+    o.accountId === accountId && o.status === 'confirmed' && inWindow(String(o.createdAt), start, end)
   );
 
-  const interactions = (data.interactions || []).filter(i => i.accountId === accountId && inWindow(i.createdAt, start, end));
+  const interactions = (data.interactions || []).filter(i => i.accountId === accountId && inWindow(String(i.createdAt), start, end));
 
   const account = data.accounts.find(a => a.id === accountId);
   const ownerId = account?.ownerId;
@@ -139,39 +138,28 @@ export function computeAccountKPIs(params: {
   const visitsCount = (baseline?.visits || 0) + interactions.filter(i => i.kind === 'VISITA').length;
   const visitsInWindow = interactions.filter(i => i.kind === 'VISITA');
   
-  const ordersTimes = orders.map(o => +(typeof o.createdAt === 'string' ? new Date(o.createdAt) : o.createdAt));
+  const ordersTimes = orders.map(o => +(typeof o.createdAt === 'string' ? new Date(o.createdAt) : new Date(Number(o.createdAt))));
   const lookN = lookbackDaysForConversion * 24 * 3600 * 1000;
   const convertedVisits = visitsInWindow.filter(v => {
-    const tv = +(typeof v.createdAt === 'string' ? new Date(v.createdAt) : v.createdAt);
+    const tv = +(typeof v.createdAt === 'string' ? new Date(v.createdAt) : new Date(Number(v.createdAt)));
     return ordersTimes.some(to => to >= tv && to <= tv + lookN);
   }).length;
   const visitToOrderRate = visitsInWindow.length ? Number(((convertedVisits / visitsInWindow.length) * 100).toFixed(1)) : undefined;
 
   const allAccountOrders = (data.ordersSellOut || []).filter(o => o.accountId === accountId && o.status === 'confirmed');
-  const sortedOrders = allAccountOrders.sort((a, b) => +(typeof b.createdAt === 'string' ? new Date(b.createdAt) : b.createdAt) - +(typeof a.createdAt === 'string' ? new Date(a.createdAt) : a.createdAt));
+  const sortedOrders = allAccountOrders.sort((a, b) => +(typeof b.createdAt === 'string' ? new Date(b.createdAt) : new Date(Number(b.createdAt))) - +(typeof a.createdAt === 'string' ? new Date(a.createdAt) : new Date(Number(a.createdAt))));
   const lastOrder = sortedOrders.length > 0 ? sortedOrders[0] : undefined;
 
   const allAccountVisits = (data.interactions || []).filter(i => i.accountId === accountId && i.kind==='VISITA');
-  const sortedVisits = allAccountVisits.sort((a,b)=> +(typeof b.createdAt === 'string' ? new Date(b.createdAt) : b.createdAt) - +(typeof a.createdAt === 'string' ? new Date(a.createdAt) : a.createdAt));
+  const sortedVisits = allAccountVisits.sort((a,b)=> +(typeof b.createdAt === 'string' ? new Date(b.createdAt) : new Date(Number(b.createdAt))) - +(typeof a.createdAt === 'string' ? new Date(a.createdAt) : new Date(Number(a.createdAt))));
   const lastVisit = sortedVisits.length > 0 ? sortedVisits[0] : undefined;
 
   const now = new Date(end);
-  const daysSinceLastOrder = lastOrder ? Math.max(0, Math.round((now.getTime() - +(typeof lastOrder.createdAt === 'string' ? new Date(lastOrder.createdAt) : lastOrder.createdAt))/(1000*3600*24))) : undefined;
-  const daysSinceLastVisit = lastVisit ? Math.max(0, Math.round((now.getTime() - +(typeof lastVisit.createdAt === 'string' ? new Date(lastVisit.createdAt) : lastVisit.createdAt))/(1000*3600*24))) : undefined;
+  const daysSinceLastOrder = lastOrder ? Math.max(0, Math.round((now.getTime() - +(typeof lastOrder.createdAt === 'string' ? new Date(lastOrder.createdAt) : new Date(Number(lastOrder.createdAt))))/(1000*3600*24))) : undefined;
+  const daysSinceLastVisit = lastVisit ? Math.max(0, Math.round((now.getTime() - +(typeof lastVisit.createdAt === 'string' ? new Date(lastVisit.createdAt) : new Date(Number(lastVisit.createdAt))))/(1000*3600*24))) : undefined;
 
   return { accountId, unitsSold, orderCount, avgTicket, visitsCount, visitToOrderRate, daysSinceLastOrder, daysSinceLastVisit };
 }
-
-export type AccountRollup = {
-    accountId: string;
-    hasPLVInstalled?: boolean;
-    lastPLVInstalledAt?: string;
-    activeActivations: number;
-    lastActivationAt?: string;
-    activePromotions: number;
-    activePosTactics: number;
-    lastTacticAt?: string;
-};
 
 // 4) Rollup por cuenta
 export function computeAccountRollup(accountId: string, data: SantaData): AccountRollup {
@@ -182,7 +170,7 @@ export function computeAccountRollup(accountId: string, data: SantaData): Accoun
     
     const sortedPlvVisits = accountInteractions
         .filter(i => i.note?.toLowerCase().includes('plv'))
-        .sort((a, b) => +(typeof b.createdAt === 'string' ? new Date(b.createdAt) : b.createdAt) - +(typeof a.createdAt === 'string' ? new Date(a.createdAt) : a.createdAt));
+        .sort((a, b) => +(typeof b.createdAt === 'string' ? new Date(b.createdAt) : new Date(Number(b.createdAt))) - +(typeof a.createdAt === 'string' ? new Date(a.createdAt) : new Date(Number(a.createdAt))));
     const plvVisit = sortedPlvVisits.length > 0 ? sortedPlvVisits[0] : undefined;
 
     const promotions = data.promotions || [];
@@ -190,7 +178,7 @@ export function computeAccountRollup(accountId: string, data: SantaData): Accoun
     const activePromotions = promotions.filter(p => now >= new Date(p.validFrom) && now <= new Date(p.validTo));
 
     const posTactics = accountInteractions.filter(i => i.posTactic && i.status === 'open');
-    const sortedPosTactics = posTactics.sort((a, b) => +(typeof b.createdAt === 'string' ? new Date(b.createdAt) : b.createdAt) - +(typeof a.createdAt === 'string' ? new Date(a.createdAt) : a.createdAt));
+    const sortedPosTactics = posTactics.sort((a, b) => +(typeof b.createdAt === 'string' ? new Date(b.createdAt) : new Date(Number(b.createdAt))) - +(typeof a.createdAt === 'string' ? new Date(a.createdAt) : new Date(Number(a.createdAt))));
     const lastTactic = sortedPosTactics.length > 0 ? sortedPosTactics[0] : undefined;
     
     const sortedActiveActivations = activeActivations.sort((a,b) => +new Date(b.startDate) - +new Date(a.startDate));
@@ -229,7 +217,7 @@ export function computeFleetKPIs(params: {
 
   const horecaIds = data.accounts.filter(a => a.type === 'HORECA').map(a => a.id);
   const ordersInWin = data.ordersSellOut.filter(o =>
-    o.status === 'confirmed' && inWindow(o.createdAt, start, end) && horecaIds.includes(o.accountId)
+    o.status === 'confirmed' && inWindow(String(o.createdAt), start, end) && horecaIds.includes(o.accountId)
   );
 
   const byAccOrders = new Map<string, OrderSellOut[]>();
@@ -249,7 +237,7 @@ export function computeFleetKPIs(params: {
   const perAccDeltaDays: number[] = [];
   byAccOrders.forEach(arr => {
     if ((arr?.length || 0) >= 2) {
-      const sorted = arr.map(o => +(typeof o.createdAt === 'string' ? new Date(o.createdAt) : o.createdAt)).sort((a, b) => a - b);
+      const sorted = arr.map(o => +(typeof o.createdAt === 'string' ? new Date(o.createdAt) : new Date(Number(o.createdAt)))).sort((a, b) => a - b);
       const deltas = sorted.slice(1).map((t, i) => (t - sorted[i]) / (1000 * 3600 * 24));
       perAccDeltaDays.push(deltas.reduce((a, b) => a + b, 0) / deltas.length);
     }

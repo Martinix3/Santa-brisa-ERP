@@ -1,67 +1,75 @@
 // src/server/integrations/holded/createInvoice.worker.ts
 import { adminDb } from '@/server/firebaseAdmin';
-import type { OrderSellOut, Account } from '@/domain/ssot';
+import type { OrderSellOut, Party } from '@/domain/ssot';
+import { callHoldedApi } from './client';
+import { Timestamp } from 'firebase-admin/firestore';
 
-async function callHolded(path: string, method: string, body?: any) {
-  const HOLDED_API_KEY = process.env.HOLDED_API_KEY!;
-  const HOLDED_BASE = 'https://api.holded.com/api';
-
-  const r = await fetch(`${HOLDED_BASE}${path}`, {
-    method,
-    headers: {
-      'X-Api-Key': HOLDED_API_KEY,
-      'Content-Type': 'application/json',
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-
-  if (!r.ok) {
-    throw new Error(`Holded ${method} ${path} -> ${r.status} ${await r.text()}`);
-  }
-  return r.json();
-}
 
 export async function handleCreateHoldedInvoice({ orderId }: { orderId: string }) {
-  const orderSnap = await adminDb.collection('ordersSellOut').doc(orderId).get();
-  if (!orderSnap.exists) throw new Error(`Order ${orderId} not found`);
-  const order = orderSnap.data() as OrderSellOut;
+  const orderRef = adminDb.collection('ordersSellOut').doc(orderId);
+  const snap = await orderRef.get();
+  if (!snap.exists) throw new Error(`Order ${orderId} not found`);
+  const order = snap.data() as OrderSellOut;
 
-  if (order.external?.holdedInvoiceId) return; // idempotencia
-  if (order.billingStatus === 'INVOICED') return;
+  if (order.external?.holdedInvoiceId || order.billingStatus === 'INVOICED') return;
 
-  const accSnap = await adminDb.collection('accounts').doc(order.accountId).get();
-  if (!accSnap.exists) throw new Error(`Account ${order.accountId} for order ${orderId} not found`);
-  const acc = accSnap.data() as Account;
+  await orderRef.set({ billingStatus: 'INVOICING', updatedAt: Timestamp.now() }, { merge: true });
 
-  let holdedContactId = acc.external?.holdedContactId;
+  if (!order.partyId) throw new Error(`Order ${order.id} is missing partyId`);
 
-  if (!holdedContactId) {
-    const contact = await callHolded('/invoicing/v1/contacts', 'POST', {
-      name: acc.name,
-      vat: acc.external?.vat,
+  // 1) Party (cliente)
+  const partySnap = await adminDb.collection('parties').doc(order.partyId).get();
+  if (!partySnap.exists) throw new Error(`Party ${order.partyId} not found`);
+  const party = partySnap.data() as Party;
+
+  // 2) Asegurar contacto Holded
+  let contactId = party.external?.holdedContactId;
+  if (!contactId) {
+    const created: any = await callHoldedApi('/invoicing/v1/contacts', 'POST', {
+      name: party.tradeName || party.legalName,
+      code: party.vat, // vat -> code en Holded
+      email: party.emails?.[0],
+      address: party.billingAddress?.address,
+      city: party.billingAddress?.city,
+      postalCode: party.billingAddress?.zip,
+      country: party.billingAddress?.countryCode || 'ES',
+      type: 'client',
     });
-    holdedContactId = contact.id;
-    await adminDb.collection('accounts').doc(order.accountId).set({
-      external: { ...(acc.external || {}), holdedContactId }
+    contactId = created.id;
+    await adminDb.collection('parties').doc(order.partyId).set({
+      roles: party.roles?.includes('CUSTOMER') ? party.roles : [...(party.roles||[]), 'CUSTOMER'],
+      external: { ...(party.external||{}), holdedContactId: contactId },
+      updatedAt: Timestamp.now(),
     }, { merge: true });
   }
 
-  const lines = (order.lines || []).map((it: any) => ({
-    name: it.sku,
-    units: it.qty,
-    price: it.priceUnit ?? 0,
-    // Aquí iría la lógica para mapear impuestos
+  // 3) Líneas con impuestos
+  const items = (order.lines || []).map(l => ({
+    name: l.name || l.sku,
+    sku: l.sku,
+    units: l.qty,
+    price: l.priceUnit,
+    tax: l.taxRate ?? 21,
+    discount: l.discountPct ?? 0,
   }));
 
-  const invoice = await callHolded('/invoicing/v1/documents/invoice', 'POST', {
-    contactId: holdedContactId,
-    items: lines,
-    currency: order.currency || 'EUR',
-    date: new Date(order.createdAt).getTime() / 1000,
+  // 4) Fecha a epoch segundos
+  const issuedAtSec = Math.floor((typeof order.createdAt === 'number' ? order.createdAt : new Date(order.createdAt).getTime()) / 1000);
+
+  // 5) Crear factura (idempotencia: customId)
+  const invoice: any = await callHoldedApi('/invoicing/v1/documents/invoice', 'POST', {
+    contactId,
+    items,
+    currency: (order.currency || 'EUR').toUpperCase(),
+    date: issuedAtSec,
+    customId: orderId, // ← evita duplicados si reintenta
+    notes: order.notes,
   });
 
-  await orderSnap.ref.set({
+  // 6) Persistir
+  await orderRef.set({
     billingStatus: 'INVOICED',
-    external: { ...(order.external || {}), holdedInvoiceId: invoice.id }
+    external: { ...(order.external||{}), holdedInvoiceId: invoice.id },
+    updatedAt: Timestamp.now()
   }, { merge: true });
 }
