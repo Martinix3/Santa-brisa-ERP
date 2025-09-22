@@ -53,7 +53,9 @@ export async function upsertMany(collectionName: keyof SantaData, items: any[]):
           continue;
       }
       const docRef = collectionRef.doc(item.id);
-      batch.set(docRef, JSON.parse(JSON.stringify(item, (k,v) => v === undefined ? null : v)), { merge: true });
+      // Clean undefined values before sending to Firestore
+      const cleanItem = JSON.parse(JSON.stringify(item, (k,v) => v === undefined ? null : v));
+      batch.set(docRef, cleanItem, { merge: true });
       ids.push(item.id);
       
       if (existingDocIds.has(item.id)) {

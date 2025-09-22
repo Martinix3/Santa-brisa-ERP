@@ -10,6 +10,7 @@ import { collection, getDocs, writeBatch, doc, Timestamp } from "firebase/firest
 import { useRouter } from "next/navigation";
 import { SANTA_DATA_COLLECTIONS } from "@/domain";
 import { INITIAL_MOCK_DATA } from "@/lib/mock-data";
+import { upsertMany } from './dataprovider/server';
 
 // --------- Tipos ----------
 type LoadReport = {
@@ -50,8 +51,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<import("firebase/auth").User | null>(null);
   const [authReady, setAuthReady] = useState(false);
-  const [isPersistenceEnabled, setIsPersistenceEnabled] = useState(false);
-  const [loadingData, setLoadingData] = useState(true); // Nuevo estado de carga
+  const [isPersistenceEnabled, setIsPersistenceEnabled] = useState(true); // Persistencia ON por defecto
+  const [loadingData, setLoadingData] = useState(true);
   const router = useRouter();
 
   // Load Firestore data on initial mount or when persistence changes
@@ -155,58 +156,50 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [data?.users]);
 
   const saveAllCollections = useCallback(async (collectionsToSave: Partial<SantaData>) => {
+    // 1. Optimistically update local state
     setData(prevData => {
-        if (!prevData) return null;
-        const updatedData = { ...prevData };
-        for (const key in collectionsToSave) {
-            const collectionName = key as keyof SantaData;
-            const newItems = collectionsToSave[collectionName] as any[] | undefined;
-            if (newItems && newItems.length > 0) {
-                const existingItems = (updatedData[collectionName] as any[]) || [];
-                const itemMap = new Map(existingItems.map(item => [item.id, item]));
+      if (!prevData) return null;
+      const updatedData = { ...prevData };
+      let hasChanges = false;
 
-                newItems.forEach((newItem: any) => {
-                    itemMap.set(newItem.id, newItem); // Add or update
-                });
+      for (const key in collectionsToSave) {
+        const collectionName = key as keyof SantaData;
+        const newItems = (collectionsToSave[collectionName] as any[]) || [];
 
-                (updatedData as any)[collectionName] = Array.from(itemMap.values());
-            }
+        if (newItems.length > 0) {
+          const existingItems = (updatedData[collectionName] as any[]) || [];
+          const itemMap = new Map(existingItems.map(item => [item.id, item]));
+
+          newItems.forEach((newItem: any) => {
+            itemMap.set(newItem.id, newItem);
+          });
+
+          (updatedData as any)[collectionName] = Array.from(itemMap.values());
+          hasChanges = true;
         }
-        return updatedData;
+      }
+      return hasChanges ? updatedData : prevData;
     });
 
+    // 2. If persistence is enabled, save to backend
     if (isPersistenceEnabled) {
-      console.log("Saving to backend:", collectionsToSave);
-      const token = await auth.currentUser?.getIdToken();
-      if (!token) {
-        console.error("No auth token found, cannot save.");
-        throw new Error("No auth token found, cannot save.");
-      }
-      try {
-        const apiUrl = new URL('/api/brain-persist', window.location.origin);
-        const res = await fetch(apiUrl.toString(), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({ newEntities: collectionsToSave }),
-        });
-
-        if (!res.ok) {
-          const errorBody = await res.text();
-          try {
-            const errorData = JSON.parse(errorBody);
-            throw new Error(errorData.error || `HTTP error ${res.status}`);
-          } catch {
-             throw new Error(`HTTP error ${res.status}: ${errorBody}`);
-          }
+      console.log("Saving to backend:", Object.keys(collectionsToSave));
+      const promises = [];
+      for (const key in collectionsToSave) {
+        const collectionName = key as keyof SantaData;
+        const items = collectionsToSave[collectionName];
+        if (Array.isArray(items) && items.length > 0) {
+          // This now calls the server action directly
+          promises.push(upsertMany(collectionName, items));
         }
+      }
 
-        console.log("Save successful:", await res.json());
-
+      try {
+        await Promise.all(promises);
+        console.log("Save successful.");
       } catch (e: any) {
         console.error("Error saving to backend:", e);
+        // Optionally, revert local state or show an error
         throw e;
       }
     } else {
@@ -216,19 +209,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   
   const saveCollection = useCallback(
     async (name: keyof SantaData, rows: any[]) => {
-      // Siempre actualiza el estado local
-      setData(prevData => {
-        if (!prevData) return null;
-        const itemMap = new Map((prevData[name] as any[] || []).map(item => [item.id, item]));
-        rows.forEach(row => itemMap.set(row.id, row));
-        return { ...prevData, [name]: Array.from(itemMap.values()) };
-      });
-      
-      // Si la persistencia está activa, guarda en el backend
-      if (isPersistenceEnabled) {
-        await saveAllCollections({ [name]: rows });
-      }
-    }, [isPersistenceEnabled, saveAllCollections, setData]
+      await saveAllCollections({ [name]: rows });
+    }, [saveAllCollections]
   );
 
   const login = useCallback(async () => {
