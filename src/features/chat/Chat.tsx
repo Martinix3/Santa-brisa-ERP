@@ -75,7 +75,8 @@ export function Chat({ userId, onNewData }: ChatProps) {
         } finally {
             setIsLoading(false);
         }
-    }, [input, isLoading, userId, onNewData, cloudFunctionUrl]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [input, isLoading, userId, cloudFunctionUrl]);
 
     return (
         <div className="flex flex-col h-full bg-zinc-100">

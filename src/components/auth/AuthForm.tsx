@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useData } from '@/lib/dataprovider';
 
@@ -20,13 +20,14 @@ export function AuthForm({ onEmailLogin, onEmailSignup, onGoogleSubmit }: AuthFo
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    const stableRouter = router;
     // Redirect if user is already logged in or after a successful login.
     useEffect(() => {
         if (currentUser) {
             console.log('[AuthForm] currentUser detected, redirecting...');
-            router.replace('/dashboard-personal');
+            stableRouter.replace('/dashboard-personal');
         }
-    }, [currentUser]);
+    }, [currentUser, stableRouter]);
 
     const title = mode === 'login' ? 'Santa Brisa CRM' : 'Crear Cuenta';
     const description = mode === 'login' ? 'Por favor, inicia sesión para continuar.' : 'Regístrate para acceder al CRM de Santa Brisa.';

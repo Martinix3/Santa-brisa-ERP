@@ -1,3 +1,4 @@
+// src/ai/flows/enrich-account-flow.ts
 'use server';
 /**
  * @fileoverview Flow to enrich an account with public data using AI.
@@ -11,12 +12,13 @@ import {
   EnrichAccountInputSchema,
   EnrichAccountOutputSchema,
 } from '@/domain/schemas/enrich-account';
+import type { z } from 'zod';
 
 export async function enrichAccount(input: EnrichAccountInput): Promise<EnrichAccountOutput> {
   const enrichAccountPrompt = ai.definePrompt({
     name: 'enrichAccountPrompt',
-    input: { schema: EnrichAccountInputSchema },
-    output: { schema: EnrichAccountOutputSchema },
+    input: { schema: EnrichAccountInputSchema as z.ZodTypeAny },
+    output: { schema: EnrichAccountOutputSchema as z.ZodTypeAny },
     prompt: `
       You are an expert business analyst. Your task is to research a business based on its name and location and return structured data about it.
       Analyze the following business and provide the requested information in the specified JSON format.

@@ -62,7 +62,7 @@ const registeredTools = [
         items: z
           .array(z.object({ sku: z.string(), quantity: z.number() }))
           .describe('An array of items to include in the order. If the user mentions "botellas" or "bottles" without specifying a product, assume the SKU is "SB-750".'),
-      }),
+      }) as z.ZodTypeAny,
       outputSchema: z.any(),
     },
     async (input) => ({
@@ -70,7 +70,7 @@ const registeredTools = [
       status: 'open',
       createdAt: new Date().toISOString(),
       currency: 'EUR',
-      lines: input.items.map(item => ({ ...item, uom: 'uds', priceUnit: 0 })),
+      lines: input.items.map((item: any) => ({ ...item, uom: 'uds', priceUnit: 0 })),
       ...input,
     })
   ),
@@ -86,7 +86,7 @@ const registeredTools = [
           .string()
           .optional()
           .describe('A brief note about the next follow-up action, if any.'),
-      }),
+      }) as z.ZodTypeAny,
       outputSchema: z.any(),
     },
     async (input) => ({
@@ -105,7 +105,7 @@ const registeredTools = [
         name: z.string().describe('The name of the new account.'),
         city: z.string().optional().describe('The city where the account is located.'),
         type: createEnumSchema(['HORECA', 'RETAIL', 'OTRO']).optional(),
-      }),
+      }) as z.ZodTypeAny,
       outputSchema: z.any(),
     },
     async (input) => ({
@@ -151,11 +151,11 @@ const santaBrainFlow = ai.defineFlow(
         history: z.array(z.any()), // Use z.any() for history messages
         input: z.string(),
         context: z.any().optional(),
-    }),
+    }) as z.ZodTypeAny,
     outputSchema: z.object({
         finalAnswer: z.string(),
         newEntities: z.any(),
-    }),
+    }) as z.ZodTypeAny,
   },
   async ({ history, input, context }) => {
     const { users, accounts, parties, currentUser } = context as { users: User[], accounts: Account[], parties: Party[], currentUser: User };

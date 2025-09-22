@@ -103,7 +103,7 @@ async function exec_memory_get_context(args: any) {
     .sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)))
     .map((d) => ({ role: d.role, text: d.text }));
   const prof = await getDoc(doc(db, 'brain_memory', userId));
-  return { messages, profile: prof.exists ? (prof.data() as any).profile : undefined };
+  return { messages, profile: prof.exists() ? (prof.data() as any).profile : undefined };
 }
 
 const fn_memory_update_profile = {
