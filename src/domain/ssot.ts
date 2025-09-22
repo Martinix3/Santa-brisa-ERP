@@ -24,7 +24,7 @@ export type UserRole = 'comercial' | 'admin' | 'ops' | 'owner';
 // Estados para flujos de trabajo
 export type InteractionStatus = 'open' | 'done' | 'processing' | 'closed' | 'cancelled';
 export type OrderStatus = 'open' | 'confirmed' | 'shipped' | 'invoiced' | 'paid' | 'cancelled' | 'lost';
-export type ShipmentStatus = 'pending' | 'picking' | 'ready_to_ship' | 'shipped' | 'delivered' | 'cancelled';
+export type ShipmentStatus = 'pending' | 'picking' | 'ready_to_ship' | 'shipped' | 'delivered' | 'exception' | 'cancelled';
 export type ProductionStatus = 'planned' | 'released' | 'wip' | 'done' | 'cancelled';
 export type IncidentKind = 'QC_INBOUND' | 'QC_PROCESS' | 'QC_RELEASE' | 'LOGISTICS' | 'CUSTOMER_RETURN';
 export type IncidentStatus = 'OPEN' | 'UNDER_REVIEW' | 'CONTAINED' | 'CLOSED';
@@ -59,7 +59,6 @@ export interface Party {
   taxId?: string; // CIF/NIF opcional para compatibilidad
   contacts: { type: 'email' | 'phone' | 'whatsapp' | 'web'; value: string; isPrimary?: boolean; description?: string; }[];
   addresses: { type: 'main' | 'billing' | 'shipping'; street: string; city: string; postalCode?: string; country: string; isPrimary?: boolean; }[];
-  handles?: Partial<Record<'instagram' | 'tiktok' | 'linkedin' | 'twitter', string>>;
 }
 
 export interface PartyRole {
@@ -136,7 +135,7 @@ export interface OrderSellOut {
   partyId?: string; // <-- party-centric
   accountId: string; // <-- compatibilidad
   source: 'CRM'|'SHOPIFY'|'OTHER' | 'MANUAL' | 'HOLDED';
-  createdAt: Timestamp;
+  createdAt: Timestamp;         // ISO o epoch
   currency: 'EUR' | string;
   lines: Array<{ sku: string; name?: string; qty: number; priceUnit: number; taxRate?: number; discountPct?: number; uom?: 'uds'; lotIds?: string[] }>;
   notes?: string;
@@ -402,20 +401,6 @@ export interface InventoryItem {
     updatedAt: Timestamp;
 }
 
-export interface StockMove {
-  id: string;
-  sku: string;
-  lotId?: string;
-  uom: Uom;
-  qty: number;
-  fromLocation?: string;
-  toLocation?: string;
-  reason: StockReason;
-  occurredAt: Timestamp;
-  createdAt: Timestamp;
-  ref?: { orderId?: string; shipmentId?: string; prodOrderId?: string; goodsReceiptId?: string; };
-}
-
 export interface GoodsReceipt {
   id: string;
   receiptNumber?: string;
@@ -436,33 +421,49 @@ export interface GoodsReceipt {
   }[];
 }
 
-export interface ShipmentLine {
-  sku: string;
-  name: string;
-  qty: number;
-  uom: 'uds';
-  lotNumber?: string;
-}
-
 export interface Shipment {
   id: string;
   orderId: string;
-  accountId: string;
-  shipmentNumber?: string;
-  holdedDeliveryId?: string;
-  holdedInvoiceId?: string;
-  createdAt: Timestamp;
+  partyId: string;
+  mode: 'PARCEL' | 'PALLET';
   status: ShipmentStatus;
-  lines: ShipmentLine[];
+  lines: Array<{ sku: string; name?: string; qty: number; uom?: string; lotNumber?: string }>;
+  checks?: { visualOk?: boolean };
+  carrier?: 'sendcloud'|'inhouse'|'seur'|'correos_express'|'local_delivery'|string;
+  weightKg?: number;
+  dimsCm?: { l: number; w: number; h: number };
+  parcels?: Array<{ weightKg?: number; dimsCm?: { l: number; w: number; h: number } }>;
+  pallets?: Array<{ type: 'EURO' | 'AMERICAN' | 'OTHER'; count: number; notes?: string }>;
+  deliveryNoteId?: string;
+  labelUrl?: string;
+  trackingCode?: string;
+  trackingUrl?: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  // Compatibilidad con modelo anterior
+  accountId: string;
   customerName: string;
   city: string;
   addressLine1?: string; addressLine2?: string; postalCode?: string; country?: string;
-  carrier?: string; labelUrl?: string; tracking?: string;
   notes?: string; packedById?: string;
-  checks?: { visualOk?: boolean };
   isSample?: boolean;
   samplePurpose?: 'sales'|'qc'|'mkt'|'other';
   sampleNotes?: string;
+}
+
+export interface DeliveryNote {
+  id: string;                       // DN-<serie>-<año>-<corr>
+  orderId: string;
+  shipmentId: string;
+  partyId: string;
+  series: 'ONLINE'|'B2B'|'INTERNAL';
+  date: string;                     // ISO
+  soldTo: { legalName:string; vat?:string };
+  shipTo: { name:string; address:string; zip:string; city:string; country:string };
+  lines: Array<{ sku:string; description:string; qty:number; uom?:string; lotNumbers?:string[] }>;
+  pdfUrl?: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
 }
 
 export type TraceEventPhase = 'SOURCE' | 'RECEIPT' | 'QC' | 'PRODUCTION' | 'PACK' | 'WAREHOUSE' | 'SALE' | 'DELIVERY';
@@ -775,6 +776,7 @@ export interface SantaData {
   inventory: InventoryItem[];
   stockMoves: StockMove[];
   shipments: Shipment[];
+  deliveryNotes: DeliveryNote[];
   goodsReceipts: GoodsReceipt[];
   activations: Activation[];
   promotions: Promotion[];
@@ -802,7 +804,8 @@ export const SANTA_DATA_COLLECTIONS: (keyof SantaData)[] = [
     'inventory', 'stockMoves', 'shipments', 'goodsReceipts', 'activations', 'promotions',
     'marketingEvents', 'onlineCampaigns', 'influencerCollabs', 'materialCosts', 'financeLinks', 
     'paymentLinks', 'traceEvents', 'incidents', 'codeAliases',
-    'posTactics', 'posCostCatalog', 'plv_material', 'integrations', 'jobs', 'dead_letters', 'expenses'
+    'posTactics', 'posCostCatalog', 'plv_material', 'integrations', 'jobs', 'dead_letters', 'expenses',
+    'deliveryNotes'
 ];
 
 export const SB_COLORS = {
@@ -878,6 +881,7 @@ export const SHIPMENT_STATUS_META: Record<ShipmentStatus, { label: string; accen
   shipped:       { label: 'Enviado',   accent: SB_COLORS.state.success },
   delivered:     { label: 'Entregado', accent: SB_COLORS.state.success },
   cancelled:     { label: 'Cancelado', accent: SB_COLORS.state.danger },
+  exception:     { label: 'Incidencia', accent: SB_COLORS.state.danger },
 };
 
 export const LOT_QC_META = SB_COLORS.lotQC;
