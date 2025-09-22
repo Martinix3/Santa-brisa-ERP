@@ -62,8 +62,8 @@ const registeredTools = [
         items: z
           .array(z.object({ sku: z.string(), quantity: z.number() }))
           .describe('An array of items to include in the order. If the user mentions "botellas" or "bottles" without specifying a product, assume the SKU is "SB-750".'),
-      }) as ZodTypeAny,
-      outputSchema: z.any() as ZodTypeAny,
+      }) as unknown as ZodTypeAny,
+      outputSchema: z.any() as unknown as ZodTypeAny,
     },
     async (input) => ({
       id: `ord_${Date.now()}`,
@@ -86,8 +86,8 @@ const registeredTools = [
           .string()
           .optional()
           .describe('A brief note about the next follow-up action, if any.'),
-      }) as ZodTypeAny,
-      outputSchema: z.any() as ZodTypeAny,
+      }) as unknown as ZodTypeAny,
+      outputSchema: z.any() as unknown as ZodTypeAny,
     },
     async (input) => ({
       id: `int_${Date.now()}`,
@@ -105,8 +105,8 @@ const registeredTools = [
         name: z.string().describe('The name of the new account.'),
         city: z.string().optional().describe('The city where the account is located.'),
         type: createEnumSchema(['HORECA', 'RETAIL', 'OTRO']).optional(),
-      }) as ZodTypeAny,
-      outputSchema: z.any() as ZodTypeAny,
+      }) as unknown as ZodTypeAny,
+      outputSchema: z.any() as unknown as ZodTypeAny,
     },
     async (input) => ({
       id: `acc_${Date.now()}`,
@@ -151,11 +151,11 @@ const santaBrainFlow = ai.defineFlow(
         history: z.array(z.any()), // Use z.any() for history messages
         input: z.string(),
         context: z.any().optional(),
-    }) as ZodTypeAny,
+    }) as unknown as ZodTypeAny,
     outputSchema: z.object({
         finalAnswer: z.string(),
         newEntities: z.any(),
-    }) as ZodTypeAny,
+    }) as unknown as ZodTypeAny,
   },
   async ({ history, input, context }) => {
     const { users, accounts, parties, currentUser } = context as { users: User[], accounts: Account[], parties: Party[], currentUser: User };

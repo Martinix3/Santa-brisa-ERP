@@ -103,6 +103,7 @@ export const INITIAL_MOCK_DATA: SantaData = {
     { id: '230520-SB-750-01', sku: 'SB-750', createdAt: '2023-05-20T09:00:00Z', quantity: 300, quality: { qcStatus: 'hold', results: {} }, lotCode: '230520-SB-750-01' },
     { id: '230105-RM-AGAVE-01', sku: 'RM-AGAVE-MV', createdAt: '2023-01-05T09:00:00Z', quantity: 500, quality: { qcStatus: 'release', results: {} }, lotCode: '230105-RM-AGAVE-01' },
     { id: '230105-RM-LEMON-01', sku: 'RM-LEMON-UI', createdAt: '2023-01-05T09:00:00Z', quantity: 1000, quality: { qcStatus: 'release', results: {} }, lotCode: '230105-RM-LEMON-01' },
+    { id: '240801-SB-750-01', sku: 'SB-750', createdAt: '2024-08-01T10:00:00Z', quantity: 100, quality: { qcStatus: 'release', results: {} }, lotCode: '240801-SB-750-01' },
   ],
   inventory: [
     { id: 'inv_1', sku: 'SB-750', lotNumber: '230215-SB-750-01', uom: 'uds', qty: 150, locationId: 'FG/MAIN', updatedAt: '2023-02-15T09:00:00Z' },
@@ -110,6 +111,7 @@ export const INITIAL_MOCK_DATA: SantaData = {
     { id: 'inv_3', sku: 'RM-LEMON-UI', lotNumber: '230105-RM-LEMON-01', uom: 'L', qty: 1000, locationId: 'RM/MAIN', updatedAt: '2023-01-05T10:00:00Z' },
     { id: 'inv_4', sku: 'PKG-BOTTLE-PILOT', uom: 'uds', qty: 2000, locationId: 'PKG/MAIN', updatedAt: '2023-01-01T10:00:00Z' },
     { id: 'inv_5', sku: 'SB-750', lotNumber: '230520-SB-750-01', uom: 'uds', qty: 300, locationId: 'QC/AREA', updatedAt: '2023-05-20T10:00:00Z' },
+    { id: 'inv_6', sku: 'SB-750', lotNumber: '240801-SB-750-01', uom: 'uds', qty: 100, locationId: 'FG/MAIN', updatedAt: '2024-08-01T10:00:00Z' },
   ],
   stockMoves: [],
   productionOrders: [
