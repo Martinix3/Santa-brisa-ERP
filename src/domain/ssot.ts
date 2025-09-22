@@ -1,3 +1,4 @@
+
 // src/domain/ssot.ts
 
 // =================================================================
@@ -151,7 +152,7 @@ export interface OrderSellOut {
   currency: 'EUR' | string;
   lines: Array<{ sku: string; name?: string; qty: number; priceUnit: number; taxRate?: number; discountPct?: number; uom?: 'uds'; lotIds?: string[] }>;
   notes?: string;
-  billingStatus: BillingStatus;
+  billingStatus?: BillingStatus;
   status: OrderStatus; // compatibilidad
   docNumber?: string;
   totalAmount?: number;
@@ -453,8 +454,8 @@ export interface Shipment {
   shipmentNumber?: string;
   holdedDeliveryId?: string;
   holdedInvoiceId?: string;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
   status: ShipmentStatus;
   lines: ShipmentLine[];
   customerName: string;
@@ -485,8 +486,8 @@ export interface DeliveryNote {
   partyId: string;
   series: 'ONLINE'|'B2B'|'INTERNAL';
   date: string;                     // ISO
-  soldTo: { legalName:string; vat?:string };
-  shipTo: { name:string; address:string; zip:string; city:string; country:string };
+  soldTo: { name: string; vat?: string };
+  shipTo: { name: string; address: string; zip: string; city: string; country: string };
   lines: Array<{ sku:string; description:string; qty:number; uom?:string; lotNumbers?:string[] }>;
   pdfUrl?: string;
   createdAt: any;
