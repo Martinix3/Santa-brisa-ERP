@@ -23,14 +23,14 @@ import {
   type User,
   type StockReason,
 } from '@/domain/ssot';
+import { getServerData } from '@/lib/dataprovider/server';
+import { upsertMany } from '@/lib/dataprovider/actions';
 
 // ---- data adapters (rellena con tu DB) ----
 async function getData(): Promise<SantaData> {
-  const { getServerData } = await import('@/lib/dataprovider/server');
   return getServerData();
 }
 async function persist(coll: keyof SantaData, docs: any[]) {
-  const { upsertMany } = await import('@/lib/dataprovider/server');
   return upsertMany(coll, docs);
 }
 

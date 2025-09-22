@@ -7,7 +7,7 @@ import type { Shipment, Account, Product, Party } from '@/domain/ssot';
 import { Plus, X } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
 
-type NewShipmentPayload = Omit<Shipment, 'id' | 'createdAt'>;
+type NewShipmentPayload = Omit<Shipment, 'id' | 'createdAt' | 'updatedAt'>;
 
 interface NewShipmentDialogProps {
     open: boolean;
@@ -82,8 +82,6 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, products }:
             addressLine1: address,
             city,
             notes,
-            createdAt: now,
-            updatedAt: now,
         };
         onSave(payload);
     };

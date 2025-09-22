@@ -1,6 +1,6 @@
 // src/server/queue/dispatcher.ts
 import { adminDb } from '@/server/firebaseAdmin';
-import { Timestamp } from 'firebase-admin/firestore';
+import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import type { Job, JobKind, JobStatus } from './types';
 
 const JOBS_COLL = 'jobs';

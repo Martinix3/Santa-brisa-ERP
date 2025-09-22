@@ -1,7 +1,7 @@
 // src/server/integrations/shopify/upsertShopifyOrder.usecase.ts
 import { adminDb } from '@/server/firebaseAdmin';
 import { FieldValue } from 'firebase-admin/firestore';
-import { enqueue } from '../queue';
+import { enqueue } from '@/server/queue/queue';
 import { mapShopifyToSSOT } from './shopify.mapper';
 import type { Account } from '@/domain/ssot';
 

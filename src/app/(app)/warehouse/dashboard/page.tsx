@@ -7,7 +7,7 @@ import { generateInsights } from '@/ai/flows/generate-insights-flow';
 import { SBCard, SBButton, Card, DataTableSB, Button } from '@/components/ui/ui-primitives';
 import type { Col } from '@/components/ui/ui-primitives';
 import { BrainCircuit, Package, DollarSign, Truck, AlertCircle, Clock } from 'lucide-react';
-import type { InventoryItem, Shipment, Interaction, StockMove, Account } from '@/domain/ssot';
+import type { InventoryItem, Shipment, Interaction, StockMove, Account, ShipmentStatus } from '@/domain/ssot';
 import { DEPT_META, SB_COLORS } from '@/domain/ssot';
 import Link from 'next/link';
 import { samplesSentSummary } from "@/lib/consignment-and-samples";
@@ -28,13 +28,14 @@ function KPI({ icon: Icon, label, value, color }: { icon: React.ElementType, lab
 }
 
 function StatusPill({status}:{status: Shipment['status']}){
-  const map: Record<Shipment['status'], { txt:string, bg:string }> = {
+  const map: Record<ShipmentStatus, { txt:string, bg:string }> = {
     pending: { txt: "Pendiente", bg: "bg-yellow-100 text-yellow-800" },
     picking: { txt: "En picking", bg: "bg-blue-100 text-blue-800" },
     ready_to_ship: { txt: "Listo", bg: "bg-purple-100 text-purple-800" },
     shipped: { txt: "Enviado", bg: "bg-cyan-100 text-cyan-800" },
     delivered: { txt: "Entregado", bg: "bg-green-100 text-green-800" },
     cancelled: { txt: "Cancelado", bg: "bg-red-100 text-red-800" },
+    exception: { txt: "Incidencia", bg: "bg-orange-100 text-orange-800" },
   };
   const s = map[status] || map.pending;
   return <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-medium ${s.bg}`}>{s.txt}</span>;

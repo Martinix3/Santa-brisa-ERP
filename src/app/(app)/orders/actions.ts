@@ -2,7 +2,8 @@
 
 'use server';
 import { revalidatePath } from 'next/cache';
-import { getServerData, upsertMany } from '@/lib/dataprovider/server';
+import { getServerData } from '@/lib/dataprovider/server';
+import { upsertMany } from '@/lib/dataprovider/actions';
 import type { OrderStatus, Shipment, OrderSellOut, Account, Party } from '@/domain/ssot';
 import { enqueue } from '@/server/queue/queue';
 
