@@ -1,3 +1,4 @@
+
 // src/app/api/shipment/[shipmentId]/picking-slip/route.ts
 import { NextResponse, type NextRequest } from 'next/server';
 import { adminDb } from '@/server/firebaseAdmin';
