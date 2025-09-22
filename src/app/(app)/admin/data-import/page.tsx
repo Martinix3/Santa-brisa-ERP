@@ -65,6 +65,7 @@ export default function DataImportPage(){
   const [autoId, setAutoId] = useState(true);
   const [autoSku, setAutoSku] = useState(true);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(()=>{ // cargar cabeceras desde plantilla CSV
     (async()=>{
       if (!coll) { setHeaders([]); setRows([]); return; }
@@ -143,7 +144,7 @@ export default function DataImportPage(){
             <>
               <div className="flex flex-wrap items-center gap-2 text-sm">
                 <label className="inline-flex items-center gap-2"><input type="checkbox" checked={autoId} onChange={e=>setAutoId(e.target.checked)} /> Autogenerar IDs</label>
-                <label className="inline-flex items-center gap-2"><input type="checkbox" checked={autoSku} onChange={e=>setAutoSku(e.target.checked)} /> Autogenerar SKU desde "name"</label>
+                <label className="inline-flex items-center gap-2"><input type="checkbox" checked={autoSku} onChange={e=>setAutoSku(e.target.checked)} /> Autogenerar SKU desde &quot;name&quot;</label>
                 <button className="ml-auto px-3 py-1 border rounded" onClick={addRow}>Añadir fila</button>
                 <button className="px-3 py-1 border rounded" onClick={autoFill}>Autocompletar</button>
                 <button className="px-3 py-1 border rounded" onClick={doPreviewSheet}>Previsualizar (resolver FKs)</button>

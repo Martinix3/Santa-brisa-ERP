@@ -103,7 +103,7 @@ async function exec_memory_get_context(args: any) {
     .sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)))
     .map((d) => ({ role: d.role, text: d.text }));
   const prof = await getDoc(doc(db, 'brain_memory', userId));
-  return { messages, profile: prof.exists() ? (prof.data() as any).profile : undefined };
+  return { messages, profile: prof.exists ? (prof.data() as any).profile : undefined };
 }
 
 const fn_memory_update_profile = {
@@ -405,18 +405,16 @@ async function exec_create_event(args: any) {
 // 5) Registro de tools y ejecutores
 // ==============================
 const tools = [
-  { functionDeclarations: [
-      fn_memory_get_context,
-      fn_memory_upsert,
-      fn_memory_update_profile,
-      fn_query_accounts,
-      fn_get_account_deep,
-      fn_create_account,
-      fn_ensure_account,
-      fn_create_order,
-      fn_create_interaction,
-      fn_create_event,
-  ]},
+  fn_memory_get_context,
+  fn_memory_upsert,
+  fn_memory_update_profile,
+  fn_query_accounts,
+  fn_get_account_deep,
+  fn_create_account,
+  fn_ensure_account,
+  fn_create_order,
+  fn_create_interaction,
+  fn_create_event,
 ];
 
 const executors: Record<string, (args: any) => Promise<any>> = {
@@ -459,7 +457,7 @@ Responde en el idioma del usuario.`;
       { role: "user", parts: [{ text: `Contexto: userId=${userId} threadId=${threadId}`}] },
       { role: "model", parts: [{ text: "Contexto recibido." }] },
     ],
-    tools: tools,
+    tools: tools as any,
   });
 
   let response: EnhancedGenerateContentResponse;

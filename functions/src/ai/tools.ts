@@ -1,4 +1,3 @@
-
 // functions/src/ai/tools.ts
 import { z } from 'zod';
 import { ai } from './index.js';
@@ -9,7 +8,7 @@ import type { OrderSellOut, Account } from '../domain/ssot.js';
 const nowIso = () => new Date().toISOString();
 const norm = (s: string) =>
   (s || '').trim().toLowerCase().normalize('NFKD').replace(/\p{Diacritic}/gu, '');
-const calcAmount = (items: Array<{ qty: number, priceUnit: number, discount: number }>) =>
+const calcAmount = (items: Array<{ qty: number, priceUnit: number, discount?: number }>) =>
   items.reduce((a, it) => a + (it.qty ?? 0) * (it.priceUnit ?? 0) * (1 - (it.discount ?? 0) / 100), 0);
 
 async function mustAccount(id: string): Promise<Account> {
@@ -35,8 +34,8 @@ export const memory_upsert = ai.defineTool(
   {
     name: 'memory_upsert',
     description: 'Guarda un mensaje o resumen del hilo.',
-    inputSchema: memoryUpsertSchema,
-    outputSchema: z.object({ ok: z.boolean() }),
+    inputSchema: memoryUpsertSchema as z.ZodTypeAny,
+    outputSchema: z.object({ ok: z.boolean() }) as z.ZodTypeAny,
   },
   async (input: z.infer<typeof memoryUpsertSchema>) => {
     const { userId, threadId, ...rest } = input;
@@ -61,11 +60,11 @@ export const memory_get_context = ai.defineTool(
   {
     name: 'memory_get_context',
     description: 'Recupera últimas N entradas del hilo + perfil largo.',
-    inputSchema: memoryGetContextSchema,
+    inputSchema: memoryGetContextSchema as z.ZodTypeAny,
     outputSchema: z.object({
       messages: z.array(z.object({ role: z.string(), text: z.string() })),
       profile: z.string().optional(),
-    }),
+    }) as z.ZodTypeAny,
   },
   async (input: z.infer<typeof memoryGetContextSchema>) => {
     const { userId, threadId, limit } = input;
@@ -99,8 +98,8 @@ export const memory_update_profile = ai.defineTool(
   {
     name: 'memory_update_profile',
     description: 'Actualiza el perfil de largo plazo del usuario.',
-    inputSchema: memoryUpdateProfileSchema,
-    outputSchema: z.object({ ok: z.boolean() }),
+    inputSchema: memoryUpdateProfileSchema as z.ZodTypeAny,
+    outputSchema: z.object({ ok: z.boolean() }) as z.ZodTypeAny,
   },
   async (input: z.infer<typeof memoryUpdateProfileSchema>) => {
     const { userId, profile } = input;
@@ -122,8 +121,8 @@ export const query_accounts = ai.defineTool(
   {
     name: 'query_accounts',
     description: 'Busca cuentas por nombre/ciudad/contacto (dev simple).',
-    inputSchema: queryAccountsSchema,
-    outputSchema: z.object({ results: z.array(z.any()) }),
+    inputSchema: queryAccountsSchema as z.ZodTypeAny,
+    outputSchema: z.object({ results: z.array(z.any()) }) as z.ZodTypeAny,
   },
   async (input: z.infer<typeof queryAccountsSchema>) => {
     const { text = '', limit } = input;
@@ -149,13 +148,13 @@ export const get_account_deep = ai.defineTool(
   {
     name: 'get_account_deep',
     description: 'Cuenta + últimos pedidos/interacciones/eventos.',
-    inputSchema: getAccountDeepSchema,
+    inputSchema: getAccountDeepSchema as z.ZodTypeAny,
     outputSchema: z.object({
       account: z.any().nullable(),
       orders: z.array(z.any()),
       interactions: z.array(z.any()),
       events: z.array(z.any()),
-    }),
+    }) as z.ZodTypeAny,
   },
   async (input: z.infer<typeof getAccountDeepSchema>) => {
     const { accountId } = input;
@@ -194,8 +193,8 @@ export const list_collection = ai.defineTool(
   {
     name: 'list_collection',
     description: 'Lee una colección SSOT permitida (cruda) con límite.',
-    inputSchema: listCollectionSchema,
-    outputSchema: z.object({ docs: z.array(z.any()) }),
+    inputSchema: listCollectionSchema as z.ZodTypeAny,
+    outputSchema: z.object({ docs: z.array(z.any()) }) as z.ZodTypeAny,
   },
   async (input: z.infer<typeof listCollectionSchema>) => {
     const { name, orderBy, dir, limit } = input;
@@ -249,8 +248,8 @@ export const create_account = ai.defineTool(
   {
     name: 'create_account',
     description: 'Crea una cuenta SSOT con datos mínimos.',
-    inputSchema: createAccountSchema,
-    outputSchema: z.object({ id: z.string() }),
+    inputSchema: createAccountSchema as z.ZodTypeAny,
+    outputSchema: z.object({ id: z.string() }) as z.ZodTypeAny,
   },
   createAccountDirect
 );
@@ -268,8 +267,8 @@ export const ensure_account = ai.defineTool(
   {
     name: 'ensure_account',
     description: 'Devuelve accountId; busca por nombre/email y crea si no existe.',
-    inputSchema: ensureAccountSchema,
-    outputSchema: z.object({ id: z.string(), existed: z.boolean() }),
+    inputSchema: ensureAccountSchema as z.ZodTypeAny,
+    outputSchema: z.object({ id: z.string(), existed: z.boolean() }) as z.ZodTypeAny,
   },
   async (args: z.infer<typeof ensureAccountSchema>) => {
     const needle = norm(args.name);
@@ -302,13 +301,13 @@ export const create_order = ai.defineTool(
   {
     name: 'create_order',
     description: 'Crea un pedido en `orders`.',
-    inputSchema: createOrderSchema,
+    inputSchema: createOrderSchema as z.ZodTypeAny,
     outputSchema: z.object({
       id: z.string(),
       amount: z.number(),
       currency: z.string(),
       createdAt: z.string(),
-    }),
+    }) as z.ZodTypeAny,
   },
   async (input: z.infer<typeof createOrderSchema>) => {
     await mustAccount(input.accountId);
@@ -353,13 +352,13 @@ export const create_interaction = ai.defineTool(
   {
     name: 'create_interaction',
     description: 'Registra una interacción (VISITA, LLAMADA, EMAIL, WHATSAPP, OTRO).',
-    inputSchema: createInteractionSchema,
+    inputSchema: createInteractionSchema as z.ZodTypeAny,
     outputSchema: z.object({
       id: z.string(),
       status: z.string(),
       when: z.string(),
       createdAt: z.string(),
-    }),
+    }) as z.ZodTypeAny,
   },
   async (input: z.infer<typeof createInteractionSchema>) => {
     const createdAt = nowIso();
@@ -384,13 +383,13 @@ export const create_event = ai.defineTool(
   {
     name: 'create_event',
     description: 'Crea un evento (DEMO, FERIA, FORMACION, OTRO).',
-    inputSchema: createEventSchema,
+    inputSchema: createEventSchema as z.ZodTypeAny,
     outputSchema: z.object({
       id: z.string(),
       title: z.string(),
       startAt: z.string(),
       createdAt: z.string(),
-    }),
+    }) as z.ZodTypeAny,
   },
   async (input: z.infer<typeof createEventSchema>) => {
     if (input.accountId) await mustAccount(input.accountId);
@@ -416,7 +415,7 @@ export const get_upcoming_agenda = ai.defineTool(
   {
     name: 'get_upcoming_agenda',
     description: 'Devuelve próximas tareas/eventos dentro de un horizonte (días).',
-    inputSchema: getUpcomingAgendaSchema,
+    inputSchema: getUpcomingAgendaSchema as z.ZodTypeAny,
     outputSchema: z.object({
       items: z.array(
         z.object({
@@ -429,7 +428,7 @@ export const get_upcoming_agenda = ai.defineTool(
           notes: z.string().nullable(),
         })
       ),
-    }),
+    }) as z.ZodTypeAny,
   },
   async (input: z.infer<typeof getUpcomingAgendaSchema>) => {
     const { horizonDays, limit, forUserId, forDept } = input;
@@ -502,7 +501,7 @@ export const get_accounts_overview = ai.defineTool(
     name: 'get_accounts_overview',
     description:
       'Devuelve un overview de cuentas con última interacción/pedido y flag de dormidas.',
-    inputSchema: getAccountsOverviewSchema,
+    inputSchema: getAccountsOverviewSchema as z.ZodTypeAny,
     outputSchema: z.object({
       accounts: z.array(
         z.object({
@@ -516,7 +515,7 @@ export const get_accounts_overview = ai.defineTool(
           isDormant: z.boolean(),
         })
       ),
-    }),
+    }) as z.ZodTypeAny,
   },
   async (input: z.infer<typeof getAccountsOverviewSchema>) => {
     const { limit, dormantDays, windowDays, stage } = input;
@@ -584,5 +583,3 @@ export const get_accounts_overview = ai.defineTool(
     return { accounts: rows };
   }
 );
-
-    

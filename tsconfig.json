@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "skipLibCheck": true,
     "target": "ES2023",
     "lib": [
       "ES2022",
@@ -10,7 +11,6 @@
     "moduleResolution": "Bundler",
     "jsx": "preserve",
     "strict": true,
-    "skipLibCheck": true,
     "noEmit": true,
     "isolatedModules": true,
     "resolveJsonModule": true,
@@ -24,10 +24,10 @@
       ]
     },
     /** 👇 CLAVES PARA CORTAR EL PROBLEMA */
-    "types": [], // <- no hereda tipos “globales”
+    "types": [],
     "typeRoots": [
       "./node_modules/@types"
-    ], // <- no mira fuera del repo
+    ],
     "plugins": [
       {
         "name": "next"

@@ -86,7 +86,9 @@ export async function generatePackingSlip(shipmentId: string): Promise<{ pdfData
     console.log('[Server Action] Puppeteer finished generating PDF buffer.');
 
     // 4. Convert to Base64 Data URI and return
-    const pdfBase64 = pdfBuffer.toString('base64');
+    const pdfBase64 = Buffer.isBuffer(pdfBuffer)
+    ? pdfBuffer.toString('base64')
+    : Buffer.from(pdfBuffer as any).toString('base64');
     const pdfDataUri = `data:application/pdf;base64,${pdfBase64}`;
     
     console.log(`[Server Action] Successfully generated PDF for ${shipmentId}.`);

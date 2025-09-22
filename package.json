@@ -46,23 +46,24 @@
     "react-dropzone": "latest",
     "recharts": "latest",
     "server-only": "latest",
-    "zod": "^3.23.8"
+    "zod": "3.25.76"
   },
   "devDependencies": {
     "@eslint/eslintrc": "latest",
     "@next/bundle-analyzer": "latest",
+    "@tailwindcss/postcss": "latest",
     "@types/estree": "latest",
     "@types/json-schema": "latest",
     "@types/node": "latest",
     "@types/papaparse": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
-    "@typescript-eslint/eslint-plugin": "^9.0.0",
-    "@typescript-eslint/parser": "^9.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.44.0",
+    "@typescript-eslint/parser": "^8.44.0",
     "autoprefixer": "latest",
     "cross-env": "latest",
     "esbuild": "latest",
-    "eslint": "^9.0.0",
+    "eslint": "^9.36.0",
     "eslint-config-next": "latest",
     "postcss": "latest",
     "tailwindcss": "latest",
@@ -71,9 +72,6 @@
     "vite": "latest",
     "vite-node": "latest",
     "vitest": "latest"
-  },
-  "overrides": {
-    "debug": "4.4.1"
   },
   "engines": {
     "node": ">=18.18.0",
