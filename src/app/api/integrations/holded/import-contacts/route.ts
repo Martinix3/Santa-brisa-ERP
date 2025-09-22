@@ -33,7 +33,7 @@ export async function POST(req: Request) {
     const partiesByTaxId = new Map<string, Party>();
     const partiesByName = new Map<string, Party>();
     existingParties.forEach(p => {
-      if (p.taxId) partiesByTaxId.set(p.taxId.trim().toUpperCase(), p);
+      if (p.taxId?.trim()) partiesByTaxId.set(p.taxId.trim().toUpperCase(), p);
       partiesByName.set(p.name.trim().toLowerCase(), p);
     });
 
@@ -67,7 +67,7 @@ export async function POST(req: Request) {
             postalCode: contact.billAddress.postalCode,
             country: contact.billAddress.country,
         }] : [],
-        contacts: contact.phone ? [{ type: 'phone', value: contact.phone }] : [],
+        contacts: contact.phone ? [{ type: 'phone', value: contact.phone, isPrimary: true, description: 'Principal' }] : [],
         kind: 'ORG',
       };
       

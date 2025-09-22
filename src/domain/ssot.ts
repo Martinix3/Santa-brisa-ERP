@@ -59,6 +59,7 @@ export interface Party {
   taxId?: string; // CIF/NIF opcional para compatibilidad
   contacts: { type: 'email' | 'phone' | 'whatsapp' | 'web'; value: string; isPrimary?: boolean; description?: string; }[];
   addresses: { type: 'main' | 'billing' | 'shipping'; street: string; city: string; postalCode?: string; country: string; isPrimary?: boolean; }[];
+  handles?: Partial<Record<'instagram' | 'tiktok' | 'linkedin' | 'twitter', string>>;
 }
 
 export interface PartyRole {
@@ -67,7 +68,7 @@ export interface PartyRole {
     role: PartyRoleType;    // El tipo de relación que es
     isActive: boolean;
     data: CustomerData | SupplierData | InfluencerData | EmployeeData; // Datos específicos del rol
-    createdAt: string;
+    createdAt: Timestamp;
 }
 
 // --- Interfaces para los datos de cada rol ---
@@ -117,9 +118,9 @@ export interface Account {
   stage: Stage;
   subType?: string;      // Ej. "Bar de copas", "Restaurante de autor"
   ownerId: string;        // ID del User o Distributor responsable de la venta
-  createdAt: string;
-  updatedAt?: string;
-  lastInteractionAt?: string;
+  createdAt: Timestamp;
+  updatedAt?: Timestamp;
+  lastInteractionAt?: Timestamp;
   notes?: string;
   external?: {
     shopifyCustomerId?: string;
@@ -135,7 +136,7 @@ export interface OrderSellOut {
   partyId?: string; // <-- party-centric
   accountId: string; // <-- compatibilidad
   source: 'CRM'|'SHOPIFY'|'OTHER' | 'MANUAL' | 'HOLDED';
-  createdAt: string | number;         // ISO o epoch
+  createdAt: Timestamp;
   currency: 'EUR' | string;
   lines: Array<{ sku: string; name?: string; qty: number; priceUnit: number; taxRate?: number; discountPct?: number; uom?: 'uds'; lotIds?: string[] }>;
   notes?: string;
@@ -196,7 +197,7 @@ export interface Interaction {
   kind: InteractionKind;
   note?: string;
   plannedFor?: string;
-  createdAt: string;
+  createdAt: Timestamp;
   status: InteractionStatus;
   resultNote?: string;
   involvedUserIds?: string[];
@@ -232,6 +233,7 @@ export interface AccountRollup {
   activePosTactics: number;
   lastTacticAt?: Timestamp;
 }
+
 
 // ... Resto de tipos del SSOT sin cambios ...
 
@@ -298,7 +300,7 @@ export interface ProductionOrder {
   bomId: string;
   targetQuantity: number;
   status: ProductionStatus;
-  createdAt: string;
+  createdAt: Timestamp;
   scheduledFor?: string;
   lotId?: string;
   responsibleId?: string;
@@ -343,7 +345,7 @@ export interface Lot {
   lotCode?: string;
   sku: string;
   quantity: number;
-  createdAt: string;
+  createdAt: Timestamp;
   orderId?: string; 
   supplierId?: string;
   quality: { qcStatus: 'hold' | 'release' | 'reject', results: Record<string, QCResult> };
@@ -380,7 +382,7 @@ export interface QACheck {
   reviewedAt?: string;
   notes?: string;
   links?: { goodsReceiptId?: string; traceEventId?: string };
-  createdAt: string;
+  createdAt: Timestamp;
 }
 
 export type StockReason =
@@ -397,7 +399,7 @@ export interface InventoryItem {
     qty: number;
     locationId: string;
     expDate?: string;
-    updatedAt: string;
+    updatedAt: Timestamp;
 }
 
 export interface StockMove {
@@ -409,8 +411,8 @@ export interface StockMove {
   fromLocation?: string;
   toLocation?: string;
   reason: StockReason;
-  occurredAt: string;
-  createdAt: string;
+  occurredAt: Timestamp;
+  createdAt: Timestamp;
   ref?: { orderId?: string; shipmentId?: string; prodOrderId?: string; goodsReceiptId?: string; };
 }
 
@@ -421,7 +423,7 @@ export interface GoodsReceipt {
   deliveryNote: string;
   holdedBillId?: string;
   holdedDeliveryId?: string;
-  receivedAt: string;
+  receivedAt: Timestamp;
   lines: { materialId: string; sku: string; lotId: string; qty: number; uom: Uom; }[];
   status: 'pending_qc' | 'completed' | 'partial';
   incidentIds?: string[];
@@ -449,7 +451,7 @@ export interface Shipment {
   shipmentNumber?: string;
   holdedDeliveryId?: string;
   holdedInvoiceId?: string;
-  createdAt: string;
+  createdAt: Timestamp;
   status: ShipmentStatus;
   lines: ShipmentLine[];
   customerName: string;
@@ -470,7 +472,7 @@ export interface TraceEvent {
     subject: { type: 'LOT' | 'BATCH' | 'ORDER' | 'SHIPMENT'; id: string; };
     phase: TraceEventPhase;
     kind: TraceEventKind;
-    occurredAt: string;
+    occurredAt: Timestamp;
     actorId?: string;
     links?: { lotId?: string; batchId?: string; orderId?: string; shipmentId?: string; receiptId?: string; qaCheckId?: string; };
     data?: any;
@@ -484,8 +486,8 @@ export interface Activation {
     cost: number;
     description: string;
     status: 'active' | 'inactive' | 'pending_renewal';
-    startDate: string;
-    endDate?: string;
+    startDate: Timestamp;
+    endDate?: Timestamp;
     ownerId: string;
 }
 
@@ -495,8 +497,8 @@ export interface Promotion {
     name: string;
     type: '5+1' | 'BOGO' | 'DISCOUNT_PERCENT' | 'DISCOUNT_FIXED';
     value: number;
-    validFrom: string;
-    validTo: string;
+    validFrom: Timestamp;
+    validTo: Timestamp;
 }
 
 export interface MarketingEvent {
@@ -504,8 +506,8 @@ export interface MarketingEvent {
     title: string;
     kind: EventKind;
     status: 'planned' | 'active' | 'closed' | 'cancelled';
-    startAt: string;
-    endAt?: string;
+    startAt: Timestamp;
+    endAt?: Timestamp;
     ownerUserId?: string;
     accountId?: string;
     city?: string;
@@ -533,8 +535,8 @@ export interface MarketingEvent {
         promotionId?: string;
     };
     notes?: string;
-    createdAt: string;
-    updatedAt: string;
+    createdAt: Timestamp;
+    updatedAt: Timestamp;
 }
 
 export interface OnlineCampaign {
@@ -542,13 +544,13 @@ export interface OnlineCampaign {
     title: string;
     channel: 'IG' | 'FB' | 'TikTok' | 'Google' | 'YouTube' | 'Email' | 'Other';
     status: 'planned' | 'active' | 'closed' | 'cancelled';
-    startAt: string;
-    endAt?: string;
+    startAt: Timestamp;
+    endAt?: Timestamp;
     budget: number;
     spend: number;
     metrics?: any;
-    createdAt: string;
-    updatedAt: string;
+    createdAt: Timestamp;
+    updatedAt: Timestamp;
     ownerUserId?: string;
     tracking?: {
         utmCampaign?: string;
@@ -622,8 +624,8 @@ export interface InfluencerCollab {
     endAt?: string;
   };
   notes?: string;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
   supplierPartyId: string;
 }
 
@@ -632,8 +634,8 @@ export interface MaterialCost {
   materialId: string;
   currency: 'EUR';
   costPerUom: number;
-  effectiveFrom: string;
-  effectiveTo?: string;
+  effectiveFrom: Timestamp;
+  effectiveTo?: Timestamp;
   notes?: string;
 }
 
@@ -648,7 +650,8 @@ export interface FinanceLink {
   status: 'paid' | 'pending' | 'overdue';
   netAmount: number; taxAmount: number; grossAmount: number;
   currency: Currency;
-  issueDate: string; dueDate: string;
+  issueDate: Timestamp;
+  dueDate: Timestamp;
   docNumber?: string;
   partyId?: string;
   expenseCategory?: ExpenseCategory;
@@ -656,7 +659,7 @@ export interface FinanceLink {
   allocationPct?: number;
   campaignId?: string; eventId?: string; collabId?: string;
 }
-export interface PaymentLink { id: string; financeLinkId: string; externalId?: string; amount: number; date: string; method?: string; }
+export interface PaymentLink { id: string; financeLinkId: string; externalId?: string; amount: number; date: Timestamp; method?: string; }
 
 export type PosUom = 'UNIT'|'HOUR'|'BATCH';
 export type PosCostCatalogEntry = {
@@ -716,8 +719,8 @@ export type PosTactic = {
   actualCost: number;
   executionScore: number;
   status: 'planned'|'active'|'closed'|'cancelled';
-  createdAt: string; createdById: string;
-  updatedAt?: string;
+  createdAt: Timestamp; createdById: string;
+  updatedAt?: Timestamp;
   result?: { roi?: number; liftPct?: number; upliftUnits?: number; confidence?: 'LOW'|'MEDIUM'|'HIGH' };
 };
 
