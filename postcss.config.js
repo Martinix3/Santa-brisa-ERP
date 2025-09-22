@@ -1,4 +1,4 @@
-/** Tailwind v4 con PostCSS */
+/** Tailwind v4 + PostCSS */
 module.exports = {
   plugins: {
     '@tailwindcss/postcss': {},
