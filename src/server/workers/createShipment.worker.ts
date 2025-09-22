@@ -1,3 +1,4 @@
+
 'use server';
 import { adminDb } from '@/server/firebaseAdmin';
 import type { OrderSellOut, Shipment, Account, Party, PartyRole, CustomerData } from '@/domain/ssot';
@@ -39,7 +40,7 @@ export async function handleCreateShipmentFromOrder({ orderId }: { orderId: stri
         status: 'pending',
         lines: (order.lines || []).map(line => ({
             sku: line.sku,
-            name: line.name || line.sku,
+            name: line.name ?? line.sku, // Ensure name is always a string
             qty: line.qty,
             uom: 'uds'
         })),

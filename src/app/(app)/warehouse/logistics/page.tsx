@@ -11,7 +11,7 @@ import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog";
 import { canGenerateDeliveryNote, canGenerateLabel, canMarkShipped, pendingReasons } from "@/lib/logistics.helpers";
 import { NewShipmentDialog } from "@/features/warehouse/components/NewShipmentDialog";
 import Link from "next/link";
-import { createShipmentFromOrder, validateShipment, createDeliveryNote, createParcelLabel, createPalletLabel, markShipped } from './actions';
+import { createManualShipment, validateShipment, createDeliveryNote, createParcelLabel, createPalletLabel, markShipped } from './actions';
 
 
 // ===============================
@@ -196,7 +196,7 @@ const ValidateDialog: React.FC<{ open: boolean; onOpenChange: (v: boolean) => vo
                         <p className="font-medium">{it.name || it.sku}</p>
                         <p className="text-xs text-zinc-500">SKU {it.sku} · Cantidad solicitada: {it.qty} {it.uom}</p>
                       </div>
-                      <SBButton type="button" onClick={() => addLotRow(it.sku)}><Plus className="w-4 h-4 mr-2"/>Añadir lote</SBButton>
+                      <SBButton type="button" onClick={(e) => { e.stopPropagation(); addLotRow(it.sku); }}><Plus className="w-4 h-4 mr-2"/>Añadir lote</SBButton>
                     </div>
                     <div className="space-y-2">
                       {(lotMap[it.sku] ?? [{ lotId: "", qty: 0 }]).map((row, idx) => (
@@ -279,7 +279,7 @@ export default function LogisticsPage() {
 
   const openValidateFor = (row: Shipment) => { setCurrentShipment(row); setOpenValidate(true); };
 
-  const handleAction = (shipmentId: string, action: () => Promise<{ ok: boolean }>, successMessage: string) => {
+  const handleAction = useCallback((shipmentId: string, action: () => Promise<{ ok: boolean }>, successMessage: string) => {
     setPendingJobs(prev => ({...prev, [shipmentId]: true}));
     setNotification(null);
     startTransition(async () => {
@@ -304,18 +304,26 @@ export default function LogisticsPage() {
             }, 2500);
         }
     });
-  };
+  }, [router]);
 
-  const handleSaveValidation = (payload: any) => {
+  const handleSaveValidation = useCallback((payload: any) => {
     if (!currentShipment) return;
-    handleAction(currentShipment.id, () => validateShipment(currentShipment!.id, payload), `Validación para envío ${currentShipment.id} encolada.`);
+    handleAction(
+        currentShipment.id, 
+        () => validateShipment(currentShipment!.id, payload), 
+        `Validación para envío ${currentShipment.id} guardada.`
+    );
     setOpenValidate(false);
-  };
+  }, [currentShipment, handleAction]);
   
-  const handleSaveNewShipment = (shipmentData: Omit<Shipment, 'id' | 'createdAt' | 'updatedAt'>) => {
-      handleAction(shipmentData.orderId, () => createShipmentFromOrder(shipmentData.orderId), `Job para crear envío encolado.`);
+  const handleSaveNewShipment = useCallback((shipmentData: Omit<Shipment, 'id'|'createdAt'|'updatedAt'>) => {
+      handleAction(
+          shipmentData.orderId, 
+          () => createManualShipment(shipmentData), 
+          `Envío manual ${shipmentData.orderId} creado correctamente.`
+      );
       setOpenNewShipment(false);
-  };
+  }, [handleAction]);
 
   const generatePickingSlip = async (shipmentId: string) => {
     try {
@@ -504,13 +512,3 @@ export default function LogisticsPage() {
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
-
