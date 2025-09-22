@@ -1,13 +1,13 @@
 // src/app/api/webhooks/shopify/route.ts
 import { NextResponse } from 'next/server';
-import { processShopifyWebhook } from '@/server/integrations/shopify/shopify.webhooks';
+import { processShopifyEvent } from '@/server/integrations/shopify/process';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
   try {
-    const rawBody = await req.text(); // rawBody es necesario para la verificación HMAC
+    const rawBody = await req.text();
     const hmac = req.headers.get('X-Shopify-Hmac-SHA256');
     const topic = req.headers.get('X-Shopify-Topic') || 'unknown';
     const shop = req.headers.get('X-Shopify-Shop-Domain') || 'unknown';
@@ -16,7 +16,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: 'Missing HMAC header' }, { status: 401 });
     }
 
-    const result = await processShopifyWebhook({
+    const result = await processShopifyEvent({
       rawBody,
       hmac,
       topic,
@@ -26,7 +26,6 @@ export async function POST(req: Request) {
     if (result.ok) {
       return NextResponse.json({ ok: true, message: result.message }, { status: 200 });
     } else {
-      // Si la verificación falla u otro error de pre-procesamiento
       return NextResponse.json({ ok: false, error: result.error }, { status: result.status || 400 });
     }
   } catch (e: any) {

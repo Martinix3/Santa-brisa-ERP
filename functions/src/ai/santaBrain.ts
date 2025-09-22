@@ -1,7 +1,7 @@
 import { ai } from './registry';
-import { generate } from '@genkit-ai/ai';
+
 import { gemini15Flash } from '@genkit-ai/googleai';
-import { defineTool, generate } from '@genkit-ai/ai';
+import { generate } from '@genkit-ai/ai';
 import {
   memory_get_context, memory_upsert, memory_update_profile,
   query_accounts, get_account_deep, list_collection,

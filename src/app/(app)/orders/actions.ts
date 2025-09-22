@@ -51,7 +51,7 @@ export async function updateOrderStatus(
           addressLine1: party.addresses[0]?.street || '',
           postalCode: party.addresses[0]?.postalCode || '',
           country: party.addresses[0]?.country || 'ES',
-          notes: order.notes || null,
+          notes: order.notes || undefined,
         };
         console.log('[CHIVATO] Objeto de envío construido:', JSON.stringify(newShipment, null, 2));
         

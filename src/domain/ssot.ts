@@ -141,7 +141,7 @@ export interface OrderSellOut {
   currency: 'EUR';
   totalAmount?: number;
   notes?: string;
-  source?: 'SHOPIFY' | 'B2B' | 'Direct' | 'CRM' | 'MANUAL' | 'HOLDED';
+  source?: 'SHOPIFY' | 'B2B' | 'Direct' | 'CRM' | 'MANUAL' | 'HOLDED' | 'ERP' | 'OTHER';
   holdedDocId?: string;
   holdedDocType?: 'estimate' | 'order' | 'delivery' | 'invoice';
   terms?: 'standard' | 'consignment';  // default 'standard'
@@ -1025,8 +1025,3 @@ export type AccountRollup = {
     activePosTactics: number;
     lastTacticAt?: string;
 };
-
-
-
-
-    

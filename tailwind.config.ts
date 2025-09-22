@@ -1,17 +1,17 @@
-// tailwind.config.ts
-const config = {
+// tailwind.config.ts (Tailwind v4)
+import type { Config } from 'tailwindcss'
+
+const config: Config = {
   content: [
     './src/app/**/*.{ts,tsx}',
     './src/pages/**/*.{ts,tsx}',
     './src/components/**/*.{ts,tsx}',
     './src/features/**/*.{ts,tsx}',
-    // opcional si usas /app fuera de /src
     './app/**/*.{ts,tsx}',
   ],
   theme: {
     extend: {
       colors: {
-        // Tokens SB vía CSS variables (HSL)
         'sb-sun': 'hsl(var(--sb-sun))',
         'sb-cobre': 'hsl(var(--sb-cobre))',
         'sb-agua': 'hsl(var(--sb-agua))',
@@ -26,8 +26,7 @@ const config = {
           100: 'hsl(var(--sb-neutral-100))',
           50: 'hsl(var(--sb-neutral-50))',
         },
-
-        // Paleta UI típica shadcn-compatible mapeada a variables
+        // tokens shadcn-compat
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
@@ -70,4 +69,4 @@ const config = {
   plugins: [],
 }
 
-module.exports = config;
+export default config
