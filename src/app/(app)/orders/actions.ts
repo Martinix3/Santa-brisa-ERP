@@ -74,9 +74,21 @@ export async function importShopifyOrder(orderId: string): Promise<OrderSellOut>
     cache: 'no-store',
   });
 
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok || !json?.ok) {
-    throw new Error(json?.error || `Error importando pedido ${orderId}`);
+  if (!res.ok) {
+    const errorText = await res.text().catch(() => 'Error desconocido al leer la respuesta');
+    let errorJson;
+    try {
+        errorJson = JSON.parse(errorText);
+    } catch(e) {
+        // Not a JSON response
+    }
+    const errorMessage = errorJson?.error || errorText || `Error importando pedido ${orderId}`;
+    throw new Error(errorMessage);
+  }
+
+  const json = await res.json();
+  if (!json?.ok) {
+    throw new Error(json?.error || `Error en la respuesta de la API al importar pedido ${orderId}`);
   }
 
   // Refresca la página de pedidos
