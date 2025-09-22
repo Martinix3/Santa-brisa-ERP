@@ -282,13 +282,17 @@ export function AccountsPageContent() {
         if (!santaData || !currentUser) return;
     
         const collectionsToSave: Partial<SantaData> = {};
+        const account = santaData.accounts.find(a => a.id === accountId);
+        if (!account) return;
 
         if (payload.type === 'venta') {
             const newOrder: OrderSellOut = {
                 id: `ord_${Date.now()}`,
                 accountId: accountId,
+                partyId: account.partyId,
                 source: 'MANUAL',
                 status: 'open',
+                billingStatus: 'PENDING',
                 currency: 'EUR',
                 createdAt: new Date().toISOString(),
                 lines: payload.items.map(item => ({ sku: item.sku, qty: item.qty, uom: 'uds', priceUnit: 0 })),

@@ -1,4 +1,5 @@
 
+
 "use client";
 import React, { useMemo, useState } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -24,6 +25,7 @@ export const STATUS_STYLES: Record<OrderStatus | ShipmentStatus, { label: string
   picking: { label: "Picking", color: "text-sky-900", bg: "bg-sky-100" },
   ready_to_ship: { label: "Validado", color: "text-teal-900", bg: "bg-teal-100" },
   delivered: { label: "Entregado", color: "text-green-900", bg: "bg-green-100" },
+  exception: { label: "Incidencia", color: "text-orange-900", bg: "bg-orange-100" },
 };
 
 export { SB_COLORS };

@@ -59,6 +59,7 @@ export interface Party {
   taxId?: string; // CIF/NIF opcional para compatibilidad
   contacts: { type: 'email' | 'phone' | 'whatsapp' | 'web'; value: string; isPrimary?: boolean; description?: string; }[];
   addresses: { type: 'main' | 'billing' | 'shipping'; street: string; city: string; postalCode?: string; country: string; isPrimary?: boolean; }[];
+  handles?: Partial<Record<'instagram' | 'tiktok' | 'linkedin' | 'twitter', string>>;
 }
 
 export interface PartyRole {
@@ -389,6 +390,20 @@ export type StockReason =
   | 'adjustment' | 'return_in' | 'return_out' | 'ship'
   | 'consignment_send' | 'consignment_return' | 'consignment_sell'
   | 'sample_send' | 'sample_consume';
+  
+export interface StockMove {
+  id: string;
+  sku: string;
+  lotId?: string;
+  uom: Uom;
+  qty: number;
+  fromLocation?: string;
+  toLocation?: string;
+  reason: StockReason;
+  occurredAt: string;
+  createdAt: string;
+  ref?: { orderId?: string; shipmentId?: string; prodOrderId?: string; goodsReceiptId?: string; };
+}
 
 export interface InventoryItem {
     id: string;
@@ -421,34 +436,46 @@ export interface GoodsReceipt {
   }[];
 }
 
+export interface ShipmentLine {
+  sku: string;
+  name: string;
+  qty: number;
+  uom: 'uds';
+  lotNumber?: string;
+}
+
 export interface Shipment {
   id: string;
   orderId: string;
+  accountId: string;
   partyId: string;
   mode: 'PARCEL' | 'PALLET';
+  shipmentNumber?: string;
+  holdedDeliveryId?: string;
+  holdedInvoiceId?: string;
+  createdAt: string;
+  updatedAt: string;
   status: ShipmentStatus;
-  lines: Array<{ sku:string; name?:string; qty:number; uom?:string; lotNumber?:string }>;
+  lines: ShipmentLine[];
+  customerName: string;
+  city: string;
+  addressLine1?: string; addressLine2?: string; postalCode?: string; country?: string;
+  carrier?: string;
+  labelUrl?: string; 
+  trackingCode?: string;
+  tracking?: string;
+  notes?: string;
+  packedById?: string;
   checks?: { visualOk?: boolean };
-  carrier?: 'sendcloud'|'inhouse'|'seur'|'correos_express'|'local_delivery'|string;
+  isSample?: boolean;
+  samplePurpose?: 'sales'|'qc'|'mkt'|'other';
+  sampleNotes?: string;
   weightKg?: number;
   dimsCm?: { l:number; w:number; h:number };
   parcels?: Array<{ weightKg?:number; dimsCm?:{l:number;w:number;h:number} }>;
   pallets?: Array<{ type:'EURO'|'AMERICAN'|'OTHER'; count:number; notes?:string }>;
   deliveryNoteId?: string;
-  labelUrl?: string;
-  trackingCode?: string;
   trackingUrl?: string;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
-  // Compatibilidad con modelo anterior
-  accountId: string;
-  customerName: string;
-  city: string;
-  addressLine1?: string; addressLine2?: string; postalCode?: string; country?: string;
-  notes?: string; packedById?: string;
-  isSample?: boolean;
-  samplePurpose?: 'sales'|'qc'|'mkt'|'other';
-  sampleNotes?: string;
 }
 
 export interface DeliveryNote {
@@ -740,10 +767,10 @@ export const CODE_POLICIES: Record<CodeEntity, CodePolicy> = {
   ACCOUNT:    { entity:'ACCOUNT', template:'ACC-{SEQ#6}', regex:'^ACC-\\d{6}$', seqScope:'GLOBAL', pad:6 },
   PARTY:      { entity:'PARTY', template:'PTY-{SEQ#6}', regex:'^PTY-\\d{6}$', seqScope:'GLOBAL', pad:6 },
   SUPPLIER:   { entity:'SUPPLIER', template:'SUP-{SEQ#5}', regex:'^SUP-\\d{5}$', seqScope:'GLOBAL', pad:5 },
-  LOT:        { entity:'LOT', template:'{YY}{MM}{DD}-{SKU}-{SEQ#3}', regex:'^\\d{6}-[A-Z0-9_-]+-\\d{2,3}$', seqScope:'DAY', pad:3 },
+  LOT:        { entity:'LOT', template:'{YY}{MM}{DD}-{SKU}-{SEQ#3}', regex:'^\\d{6}-.+-\\d{3}$', seqScope:'DAY', pad:3 },
   PROD_ORDER: { entity:'PROD_ORDER', template:'PO-{YYYY}{MM}-{SEQ#4}', regex:'^PO-\\d{6}-\\d{4}$', seqScope:'MONTH', pad:4 },
   SHIPMENT:   { entity:'SHIPMENT', template:'SHP-{YYYY}{MM}{DD}-{SEQ#3}', regex:'^SHP-\\d{8}-\\d{3}$', seqScope:'DAY', pad:3 },
-  GOODS_RECEIPT:{ entity:'GOODS_RECEIPT', template:'GR-{YYYY}{MM}{DD}-{SEQ#3}', regex:'^GR-\\d{8}-\\d{3}$', seqScope:'DAY', pad:3 },
+  GOODS_RECEIPT:{ entity:'GOODS_RECEIPT', template:'GR-{YYYY}{MM}{DD}-{SEQ#3}', regex:'^GR-\\d{8}-\\d{3}s$', seqScope:'DAY', pad:3 },
   LOCATION:   { entity:'LOCATION', template:'{ZONE}-{SEQ#3}', regex:'^[A-Z]{2,6}-\\d{3}$', seqScope:'GLOBAL', pad:3 },
   PRICE_LIST: { entity:'PRICE_LIST', template:'PL-{YYYY}-{SEQ#2}', regex:'^PL-\\d{4}-\\d{2}$', seqScope:'YEAR', pad:2 },
   PROMOTION:  { entity:'PROMOTION', template:'PRM-{YY}{MM}-{SEQ#3}', regex:'^PRM-\\d{4}-\\d{3}$', seqScope:'MONTH', pad:3 },
@@ -875,13 +902,13 @@ export const ORDER_STATUS_META: Record<OrderStatus, { label: string; accent: str
 };
 
 export const SHIPMENT_STATUS_META: Record<ShipmentStatus, { label: string; accent: string }> = {
-  pending:       { label: 'Pendiente', accent: SB_COLORS.state.info   },
+  pending:       { label: 'Pendiente',  accent: SB_COLORS.state.info   },
   picking:       { label: 'Picking',   accent: SB_COLORS.primary.teal },
   ready_to_ship: { label: 'Validado',  accent: SB_COLORS.primary.teal },
   shipped:       { label: 'Enviado',   accent: SB_COLORS.state.success },
   delivered:     { label: 'Entregado', accent: SB_COLORS.state.success },
   cancelled:     { label: 'Cancelado', accent: SB_COLORS.state.danger },
-  exception:     { label: 'Incidencia', accent: SB_COLORS.state.danger },
+  exception:     { label: 'Incidencia', accent: SB_COLORS.state.warning },
 };
 
 export const LOT_QC_META = SB_COLORS.lotQC;

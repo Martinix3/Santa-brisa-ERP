@@ -1,9 +1,8 @@
 // src/server/workers/delivery.createNote.ts
-import { adminDb } from '@/server/firebaseAdmin';
-import { Timestamp } from 'firebase-admin/firestore';
-import { renderDeliveryNotePdf } from '@/server/pdf/deliveryNote';
-import { saveBufferToStorage } from '@/server/storage';
-import type { Shipment, DeliveryNote, OrderSellOut, Party } from '@/domain/ssot';
+import { adminDb, serverTimestamp } from '@/server/firebaseAdmin';
+import { renderDeliveryNotePdf } from '@/server/pdf/deliveryNote'; // tu util del MVP
+import { saveBufferToStorage } from '@/server/storage';            // helper que sube a Storage
+import type { Shipment, Party, OrderSellOut, DeliveryNote } from '@/domain/ssot';
 
 function nextDnId(series: 'ONLINE'|'B2B'|'INTERNAL' = 'B2B') {
   const y = new Date().getFullYear();
@@ -34,13 +33,13 @@ export async function handleCreateDeliveryNoteCRM({ shipmentId }: { shipmentId: 
     id: dnId,
     dateISO: new Date().toISOString(),
     orderId: s.orderId,
-    soldTo: { legalName: party.tradeName || party.legalName, vat: party.vat },
+    soldTo: { name: party.tradeName || party.legalName, vat: party.vat },
     shipTo: {
       name: party.tradeName || party.legalName,
-      address: party.shippingAddress?.address || party.billingAddress?.address || '',
-      zip: party.shippingAddress?.zip || party.billingAddress?.zip || '',
-      city: party.shippingAddress?.city || party.billingAddress?.city || '',
-      country: party.shippingAddress?.country || party.billingAddress?.country || 'España',
+      address: party.addresses?.[0]?.street || '',
+      zip: party.addresses?.[0]?.postalCode || '',
+      city: party.addresses?.[0]?.city || '',
+      country: party.addresses?.[0]?.country || 'España',
     },
     lines: (s.lines||[]).map((l:any)=>({ sku:l.sku, description:l.name || l.sku, qty:l.qty, uom:l.uom || 'ud' })),
     company: {
@@ -52,7 +51,7 @@ export async function handleCreateDeliveryNoteCRM({ shipmentId }: { shipmentId: 
 
   const pdfUrl = await saveBufferToStorage(`deliveryNotes/${dnId}.pdf`, Buffer.from(pdfBytes), 'application/pdf');
 
-  const note = {
+  const note: DeliveryNote = {
     id: dnId,
     orderId: s.orderId,
     shipmentId,
@@ -60,19 +59,19 @@ export async function handleCreateDeliveryNoteCRM({ shipmentId }: { shipmentId: 
     series,
     date: new Date().toISOString(),
     pdfUrl,
-    createdAt: Timestamp.now(),
-    updatedAt: Timestamp.now(),
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
     lines: (s.lines||[]).map((l:any)=>({ sku:l.sku, description:l.name||l.sku, qty:l.qty, uom:l.uom||'ud', lotNumbers: l.lotNumber?[l.lotNumber]:[] })),
     soldTo: { legalName: party.tradeName || party.legalName, vat: party.vat },
     shipTo: {
       name: party.tradeName || party.legalName,
-      address: party.shippingAddress?.address || party.billingAddress?.address || '',
-      zip: party.shippingAddress?.zip || party.billingAddress?.zip || '',
-      city: party.shippingAddress?.city || party.billingAddress?.city || '',
-      country: party.shippingAddress?.country || party.billingAddress?.country || 'España',
+      address: party.addresses?.[0]?.street || '',
+      zip: party.addresses?.[0]?.postalCode || '',
+      city: party.addresses?.[0]?.city || '',
+      country: party.addresses?.[0]?.country || 'España',
     }
   };
 
   await adminDb.collection('deliveryNotes').doc(dnId).set(note);
-  await sRef.set({ deliveryNoteId: dnId, updatedAt: Timestamp.now() }, { merge: true });
+  await sRef.set({ deliveryNoteId: dnId, updatedAt: serverTimestamp() }, { merge: true });
 }

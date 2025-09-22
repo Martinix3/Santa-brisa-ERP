@@ -1,4 +1,5 @@
 
+
 // runtime: Node (no Edge) cuando se use en route/actions
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 

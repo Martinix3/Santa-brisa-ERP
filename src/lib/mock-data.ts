@@ -4,15 +4,15 @@ import type { SantaData } from '@/domain';
 
 export const INITIAL_MOCK_DATA: SantaData = {
   parties: [
-    { id: 'party_1', legalName: 'Bar Terraza Sol', name: 'Bar Terraza Sol', kind: 'ORG', taxId: 'B12345678', contacts: [{type: 'email', value:'hola@terrazasol.es'}], addresses: [{type: 'main', street: 'Passeig de Gracia 1', city: 'Barcelona', country: 'España'}] , createdAt: '2023-01-15T10:00:00Z', updatedAt: '2023-01-15T10:00:00Z', tags: ['terraza', 'verano', 'costa'], roles: ['CUSTOMER'] },
+    { id: 'party_1', legalName: 'Bar Terraza Sol', name: 'Bar Terraza Sol', kind: 'ORG', taxId: 'B12345678', contacts: [{type: 'email', value:'hola@terrazasol.es'}], addresses: [{type: 'main', street: 'Passeig de Gracia 1', city: 'Barcelona', country: 'España'}], createdAt: '2023-01-15T10:00:00Z', updatedAt: '2023-01-15T10:00:00Z', tags: ['terraza', 'verano', 'costa'], roles: ['CUSTOMER'] },
     { id: 'party_2', legalName: 'Coctelería Luna', name: 'Coctelería Luna', kind: 'ORG', taxId: 'B87654321', contacts: [{type: 'email', value:'contact@luna.bar'}], addresses: [{type: 'main', street: 'Calle Gran Vía 20', city: 'Madrid', country: 'España'}], createdAt: '2023-02-20T11:30:00Z', updatedAt: '2023-02-20T11:30:00Z', roles: ['CUSTOMER'] },
     { id: 'party_3', legalName: 'Supermercado Fresco', name: 'Supermercado Fresco', kind: 'ORG', taxId: 'A11223344', contacts: [], addresses: [{type: 'main', street: 'Avenida del Puerto 5', city: 'Valencia', country: 'España'}], createdAt: '2023-03-10T09:00:00Z', updatedAt: '2023-03-10T09:00:00Z', roles: ['CUSTOMER'] },
     { id: 'party_4', legalName: 'Distribuciones del Sur', name: 'Distribuciones del Sur', kind: 'ORG', taxId: 'A55667788', contacts: [], addresses: [{type: 'main', street: 'Polígono Industrial La Red 10', city: 'Sevilla', country: 'España'}], createdAt: '2022-11-05T15:00:00Z', updatedAt: '2022-11-05T15:00:00Z', roles: ['DISTRIBUTOR'] },
     { id: 'party_5', legalName: 'Hotel Vista Mar', name: 'Hotel Vista Mar', kind: 'ORG', taxId: 'B99887766', contacts: [], addresses: [{type: 'main', street: 'Paseo Marítimo 100', city: 'Málaga', country: 'España'}], createdAt: '2023-05-01T12:00:00Z', updatedAt: '2023-05-01T12:00:00Z', roles: ['CUSTOMER'] },
     { id: 'party_6', legalName: 'Gourmet World', name: 'Gourmet World', kind: 'ORG', taxId: 'B11223399', contacts: [], addresses: [{type: 'main', street: 'Calle Serrano 50', city: 'Madrid', country: 'España'}], createdAt: '2023-04-12T18:00:00Z', updatedAt: '2023-04-12T18:00:00Z', roles: ['CUSTOMER'] },
     { id: 'party_7', legalName: 'Beach Club Ibiza', name: 'Beach Club Ibiza', kind: 'ORG', taxId: 'B44556677', contacts: [], addresses: [{type: 'main', street: 'Playa d\'en Bossa', city: 'Ibiza', country: 'España'}], createdAt: '2023-06-05T10:00:00Z', updatedAt: '2023-06-05T10:00:00Z', roles: ['CUSTOMER'] },
-    { id: 'party_cr_1', legalName: 'Marta Foodie', name: 'Marta Foodie', kind: 'PERSON', createdAt: '2023-01-01T00:00:00Z', updatedAt: '2023-01-01T00:00:00Z', contacts: [], addresses: [], roles: ['INFLUENCER'] },
-    { id: 'party_cr_2', legalName: 'Carlos Drinks', name: 'Carlos Drinks', kind: 'PERSON', createdAt: '2023-01-01T00:00:00Z', updatedAt: '2023-01-01T00:00:00Z', contacts: [], addresses: [], roles: ['CREATOR'] },
+    { id: 'party_cr_1', legalName: 'Marta Foodie', name: 'Marta Foodie', kind: 'PERSON', createdAt: '2023-01-01T00:00:00Z', updatedAt: '2023-01-01T00:00:00Z', contacts: [], addresses: [], roles: ['INFLUENCER'], handles: { instagram: '@martafoodie' } },
+    { id: 'party_cr_2', legalName: 'Carlos Drinks', name: 'Carlos Drinks', kind: 'PERSON', createdAt: '2023-01-01T00:00:00Z', updatedAt: '2023-01-01T00:00:00Z', contacts: [], addresses: [], roles: ['CREATOR'], handles: { tiktok: '@carlosdrinks' } },
   ] as any,
   partyRoles: [
       { id: 'pr_1', partyId: 'party_1', role: 'CUSTOMER', isActive: true, createdAt: '2023-01-15T10:00:00Z', data: { salesRepId: 'u_comercial_1', billerId: 'SB' } as any },
@@ -85,17 +85,17 @@ export const INITIAL_MOCK_DATA: SantaData = {
     { id: 'int_7', userId: 'u_comercial_2', accountId: 'acc_5', kind: 'LLAMADA', note: 'Planificar segunda reunión', createdAt: '2023-05-10T15:00:00Z', dept: 'VENTAS', status: 'open', plannedFor: '2024-08-10T10:00:00Z', involvedUserIds: ['u_comercial_2'] },
   ],
   ordersSellOut: [
-    { id: 'ord_mock_1', docNumber: 'ORD-SB-240725-0001', accountId: 'acc_1', source: 'MANUAL', lines: [{ sku: 'SB-750', qty: 6, uom: 'uds', priceUnit: 15 }], createdAt: '2024-07-25T10:00:00Z', status: 'open', currency: 'EUR', totalAmount: 90, partyId: 'party_1', billingStatus: 'PENDING' },
-    { id: 'ord_1', accountId: 'acc_1', source: 'CRM', lines: [{ sku: 'SB-750', qty: 12, uom: 'uds', priceUnit: 15 }], createdAt: '2023-01-20T14:00:00Z', status: 'paid', currency: 'EUR', totalAmount: 180 },
-    { id: 'ord_2', accountId: 'acc_2', source: 'CRM', lines: [{ sku: 'SB-750', qty: 24, uom: 'uds', priceUnit: 14.5 }, { sku: 'MERCH-VAS', qty: 50, uom: 'uds', priceUnit: 0 }], createdAt: '2023-03-01T12:00:00Z', status: 'paid', currency: 'EUR', totalAmount: 348 },
-    { id: 'ord_3', accountId: 'acc_1', source: 'CRM', lines: [{ sku: 'SB-750', qty: 6, uom: 'uds', priceUnit: 15 }], createdAt: '2023-05-15T18:00:00Z', status: 'invoiced', currency: 'EUR', totalAmount: 90 },
-    { id: 'ord_4', accountId: 'acc_6', source: 'CRM', lines: [{ sku: 'SB-750', qty: 18, uom: 'uds', priceUnit: 16 }], createdAt: '2023-04-18T11:00:00Z', status: 'paid', currency: 'EUR', totalAmount: 288 },
+    { id: 'ord_mock_1', partyId: 'party_1', billingStatus: 'PENDING', docNumber: 'ORD-SB-240725-0001', accountId: 'acc_1', source: 'MANUAL', lines: [{ sku: 'SB-750', qty: 6, uom: 'uds', priceUnit: 15 }], createdAt: '2024-07-25T10:00:00Z', status: 'open', currency: 'EUR', totalAmount: 90 },
+    { id: 'ord_1', partyId: 'party_1', billingStatus: 'PAID', accountId: 'acc_1', source: 'CRM', lines: [{ sku: 'SB-750', qty: 12, uom: 'uds', priceUnit: 15 }], createdAt: '2023-01-20T14:00:00Z', status: 'paid', currency: 'EUR', totalAmount: 180 },
+    { id: 'ord_2', partyId: 'party_2', billingStatus: 'PAID', accountId: 'acc_2', source: 'CRM', lines: [{ sku: 'SB-750', qty: 24, uom: 'uds', priceUnit: 14.5 }, { sku: 'MERCH-VAS', qty: 50, uom: 'uds', priceUnit: 0 }], createdAt: '2023-03-01T12:00:00Z', status: 'paid', currency: 'EUR', totalAmount: 348 },
+    { id: 'ord_3', partyId: 'party_1', billingStatus: 'INVOICED', accountId: 'acc_1', source: 'CRM', lines: [{ sku: 'SB-750', qty: 6, uom: 'uds', priceUnit: 15 }], createdAt: '2023-05-15T18:00:00Z', status: 'invoiced', currency: 'EUR', totalAmount: 90 },
+    { id: 'ord_4', partyId: 'party_6', billingStatus: 'PAID', accountId: 'acc_6', source: 'CRM', lines: [{ sku: 'SB-750', qty: 18, uom: 'uds', priceUnit: 16 }], createdAt: '2023-04-18T11:00:00Z', status: 'paid', currency: 'EUR', totalAmount: 288 },
   ],
   shipments: [
-    { id: 'shp_1', orderId: 'ord_1', accountId: 'acc_1', createdAt: '2023-01-21T09:00:00Z', status: 'delivered', lines: [{ sku: 'SB-750', name: 'Santa Brisa 750ml', qty: 12, uom: 'uds' }], customerName: 'Bar Terraza Sol', city: 'Barcelona' },
-    { id: 'shp_2', orderId: 'ord_2', accountId: 'acc_2', createdAt: '2023-03-02T10:00:00Z', status: 'delivered', lines: [{ sku: 'SB-750', name: 'Santa Brisa 750ml', qty: 24, uom: 'uds' }, { sku: 'MERCH-VAS', name: 'Vaso Santa Brisa', qty: 50, uom: 'uds' }], customerName: 'Coctelería Luna', city: 'Madrid' },
-    { id: 'shp_3', orderId: 'ord_3', accountId: 'acc_1', createdAt: '2023-05-16T11:00:00Z', status: 'shipped', lines: [{ sku: 'SB-750', name: 'Santa Brisa 750ml', qty: 6, uom: 'uds' }], customerName: 'Bar Terraza Sol', city: 'Barcelona' },
-    { id: 'shp_4', orderId: 'ord_4', accountId: 'acc_6', createdAt: '2023-04-19T09:30:00Z', status: 'ready_to_ship', lines: [{ sku: 'SB-750', name: 'Santa Brisa 750ml', qty: 18, uom: 'uds' }], customerName: 'Gourmet World', city: 'Madrid' },
+    { id: 'shp_1', orderId: 'ord_1', accountId: 'acc_1', partyId: 'party_1', mode: 'PALLET', createdAt: '2023-01-21T09:00:00Z', updatedAt: '2023-01-21T09:00:00Z', status: 'delivered', lines: [{ sku: 'SB-750', name: 'Santa Brisa 750ml', qty: 12, uom: 'uds' }], customerName: 'Bar Terraza Sol', city: 'Barcelona' },
+    { id: 'shp_2', orderId: 'ord_2', accountId: 'acc_2', partyId: 'party_2', mode: 'PALLET', createdAt: '2023-03-02T10:00:00Z', updatedAt: '2023-03-02T10:00:00Z', status: 'delivered', lines: [{ sku: 'SB-750', name: 'Santa Brisa 750ml', qty: 24, uom: 'uds' }, { sku: 'MERCH-VAS', name: 'Vaso Santa Brisa', qty: 50, uom: 'uds' }], customerName: 'Coctelería Luna', city: 'Madrid' },
+    { id: 'shp_3', orderId: 'ord_3', accountId: 'acc_1', partyId: 'party_1', mode: 'PARCEL', createdAt: '2023-05-16T11:00:00Z', updatedAt: '2023-05-16T11:00:00Z', status: 'shipped', lines: [{ sku: 'SB-750', name: 'Santa Brisa 750ml', qty: 6, uom: 'uds' }], customerName: 'Bar Terraza Sol', city: 'Barcelona' },
+    { id: 'shp_4', orderId: 'ord_4', accountId: 'acc_6', partyId: 'party_6', mode: 'PALLET', createdAt: '2023-04-19T09:30:00Z', updatedAt: '2023-04-19T09:30:00Z', status: 'ready_to_ship', lines: [{ sku: 'SB-750', name: 'Santa Brisa 750ml', qty: 18, uom: 'uds' }], customerName: 'Gourmet World', city: 'Madrid' },
   ],
   lots: [
     { id: '230110-SB-750-01', sku: 'SB-750', createdAt: '2023-01-10T08:00:00Z', quantity: 200, quality: { qcStatus: 'release', results: {} }, lotCode: '230110-SB-750-01' },
@@ -180,12 +180,5 @@ export const INITIAL_MOCK_DATA: SantaData = {
   posCostCatalog: [],
   plv_material: [],
   expenses: [],
+  deliveryNotes: [],
 };
-
-    
-
-
-
-
-    
-

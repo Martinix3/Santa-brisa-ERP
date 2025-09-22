@@ -284,6 +284,8 @@ export default function OrdersDashboard() {
 
     const newOrder: OrderSellOut = {
         id: `ord_${Date.now()}`,
+        partyId: targetAccount.partyId,
+        billingStatus: 'PENDING',
         docNumber: generateNextOrder((data.ordersSellOut || []).map(o=>o.docNumber).filter(Boolean) as string[], payload.channel, new Date()),
         accountId: targetAccount.id,
         lines: payload.items,

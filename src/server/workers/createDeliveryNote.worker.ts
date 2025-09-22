@@ -2,17 +2,11 @@
 import { adminDb } from '@/server/firebaseAdmin';
 import { renderDeliveryNotePdf, toDataUri } from '@/server/pdf/deliveryNote';
 import type { Shipment, DeliveryNote, OrderSellOut, Party } from '@/domain/ssot';
-// In a real app, you would use a cloud storage service like Firebase Storage
-// For this prototype, we'll just generate a data URI and pretend it's a URL.
-// import { getStorage } from 'firebase-admin/storage';
+import { saveBufferToStorage } from '../storage';
 
 async function uploadPdfToStorage(pdfBytes: Uint8Array, fileName: string): Promise<string> {
-  // const bucket = getStorage().bucket();
-  // const file = bucket.file(`delivery_notes/${fileName}`);
-  // await file.save(Buffer.from(pdfBytes), { contentType: 'application/pdf' });
-  // return file.publicUrl();
   console.log(`[WORKER-STUB] "Uploading" ${fileName} to storage.`);
-  return `data:application/pdf;base64,${Buffer.from(pdfBytes).toString('base64')}`;
+  return saveBufferToStorage(fileName, Buffer.from(pdfBytes), 'application/pdf');
 }
 
 export async function handleCreateDeliveryNoteCrm({ shipmentId }: { shipmentId: string }) {
@@ -47,7 +41,7 @@ export async function handleCreateDeliveryNoteCrm({ shipmentId }: { shipmentId: 
         partyId: shipment.partyId,
         series: order.source === 'SHOPIFY' ? 'ONLINE' : 'B2B',
         date: new Date().toISOString(),
-        soldTo: { legalName: party.legalName, vat: party.vat || party.taxId },
+        soldTo: { name: party.legalName, vat: party.vat || party.taxId },
         shipTo: {
             name: shipment.customerName,
             address: shipment.addressLine1 || '',
@@ -70,7 +64,7 @@ export async function handleCreateDeliveryNoteCrm({ shipmentId }: { shipmentId: 
         id: dnId,
         dateISO: deliveryNoteData.date,
         orderId: deliveryNoteData.orderId,
-        soldTo: deliveryNoteData.soldTo,
+        soldTo: { name: deliveryNoteData.soldTo.name, vat: deliveryNoteData.soldTo.vat },
         shipTo: deliveryNoteData.shipTo,
         lines: deliveryNoteData.lines,
         company: { name: 'Santa Brisa', vat: 'B00000000' } // Should come from settings
