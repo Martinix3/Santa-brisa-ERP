@@ -4,8 +4,8 @@
 // - Crea cuenta si no existe (ensure_account), interacciones, pedidos y eventos
 // ⚠️ Para desarrollo. En producción mueve este bucle al servidor.
 
-import { GoogleGenerativeAI, FunctionCallingMode } from "@google/generative-ai";
-import type { Part, EnhancedGenerateContentResponse } from "@google/generative-ai";
+import { GoogleGenerativeAI, FunctionCallingMode } from "@google/genai";
+import type { Part, EnhancedGenerateContentResponse } from "@google/gen-ai";
 import { addDoc, collection, doc, getDoc, getDocs, limit as fbLimit, orderBy, query, where, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebaseClient';
 
@@ -457,7 +457,7 @@ Responde en el idioma del usuario.`;
       { role: "user", parts: [{ text: `Contexto: userId=${userId} threadId=${threadId}`}] },
       { role: "model", parts: [{ text: "Contexto recibido." }] },
     ],
-    tools: tools as any,
+    tools: (tools as any),
   });
 
   let response: EnhancedGenerateContentResponse;
