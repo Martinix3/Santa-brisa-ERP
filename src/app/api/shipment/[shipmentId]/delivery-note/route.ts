@@ -4,7 +4,10 @@ import { adminDb } from '@/server/firebaseAdmin';
 import { renderDeliveryNotePdf } from '@/server/pdf/deliveryNote';
 import type { DeliveryNote } from '@/domain/ssot';
 
-export async function GET(_req: NextRequest, { params }: { params: { shipmentId: string } }) {
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: { shipmentId: string } }
+) {
   const { shipmentId } = params;
 
   try {
@@ -15,7 +18,7 @@ export async function GET(_req: NextRequest, { params }: { params: { shipmentId:
       .get();
 
     if (q.empty) {
-      return new NextResponse('Delivery Note not found for this shipment', { status: 404 });
+      return new Response('Delivery Note not found for this shipment', { status: 404 });
     }
 
     const deliveryNote = q.docs[0].data() as DeliveryNote;
@@ -25,14 +28,18 @@ export async function GET(_req: NextRequest, { params }: { params: { shipmentId:
       dateISO: deliveryNote.date,
       orderId: deliveryNote.orderId,
       soldTo: deliveryNote.soldTo,
-      shipTo: deliveryNote.shipTo,
+      shipTo: {
+          name: deliveryNote.shipTo.name,
+          address: deliveryNote.shipTo.address,
+          zip: deliveryNote.shipTo.zip,
+          city: deliveryNote.shipTo.city,
+          country: deliveryNote.shipTo.country
+      },
       lines: deliveryNote.lines,
       company: { name: 'Santa Brisa', vat: 'B00000000' },
     });
 
-    const body: ArrayBuffer = pdfBytes.buffer;
-
-    return new Response(body, {
+    return new Response(Buffer.from(pdfBytes), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
@@ -40,7 +47,7 @@ export async function GET(_req: NextRequest, { params }: { params: { shipmentId:
       },
     });
   } catch (err) {
-    console.error(`Failed to serve delivery note for shipment ${shipmentId}:`, err);
-    return new NextResponse('Internal Server Error', { status: 500 });
+    console.error(`Failed to generate delivery note for shipment ${shipmentId}:`, err);
+    return new Response('Internal Server Error', { status: 500 });
   }
 }
