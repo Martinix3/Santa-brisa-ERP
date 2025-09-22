@@ -2,12 +2,20 @@
 import type { Timestamp } from 'firebase-admin/firestore';
 
 export type JobStatus = 'QUEUED' | 'RUNNING' | 'DONE' | 'RETRY' | 'DEAD';
-export type JobKind = 'CREATE_HOLDED_INVOICE' | 'UPDATE_SHOPIFY_FULFILLMENT' | 'SYNC_STOCK' | 'CREATE_SENDCLOUD_LABEL';
 
-export interface Job {
+// Definición de cada tipo de trabajo
+export type JobDefinition =
+ | { kind:'CREATE_HOLDED_INVOICE'; payload:{ orderId: string }; }
+ | { kind:'SYNC_HOLDED_PURCHASES'; payload:{ page?: number }; }
+ | { kind:'SYNC_HOLDED_SUPPLIERS'; payload:{ page?: number }; };
+ // ...otros tipos de trabajos futuros
+
+export type JobKind = JobDefinition['kind'];
+
+export interface Job<T extends JobDefinition = JobDefinition> {
   id: string;
-  kind: JobKind;
-  payload: any;
+  kind: T['kind'];
+  payload: T['payload'];
   correlationId?: string;
   status: JobStatus;
   attempts: number;
@@ -18,5 +26,4 @@ export interface Job {
   startedAt?: Timestamp;
   finishedAt?: Timestamp;
   error?: string;
-  delaySec?: number;
 }

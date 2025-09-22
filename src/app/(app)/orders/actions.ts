@@ -4,6 +4,8 @@
 import { revalidatePath } from 'next/cache';
 import { getServerData, upsertMany } from '@/lib/dataprovider/server';
 import type { OrderStatus, Shipment, OrderSellOut, Account, Party } from '@/domain/ssot';
+import { enqueue } from '@/server/queue/queue';
+
 
 const SHIPMENT_TRIGGER_STATES = new Set<OrderStatus>(['confirmed']);
 
@@ -22,6 +24,17 @@ export async function updateOrderStatus(
     console.log(`[CHIVATO] Pedido ${order.id} actualizado a estado ${newStatus} en la base de datos.`);
 
     let createdShipment: Shipment | null = null;
+    
+    // Si el pedido se confirma, encolar la creación de la factura en Holded
+    if (newStatus === 'confirmed') {
+        await enqueue({
+            kind: 'CREATE_HOLDED_INVOICE',
+            payload: { orderId: order.id },
+            correlationId: `order-${order.id}-invoice`,
+        });
+        console.log(`[CHIVATO] Encolado job CREATE_HOLDED_INVOICE para el pedido ${order.id}`);
+    }
+
 
     // 2. Si el nuevo estado lo requiere, crear el envío.
     if (SHIPMENT_TRIGGER_STATES.has(newStatus)) {
