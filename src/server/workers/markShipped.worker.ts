@@ -1,6 +1,7 @@
 // src/server/workers/markShipped.worker.ts
 'use server';
 import { adminDb } from '@/server/firebaseAdmin';
+import { Timestamp } from 'firebase-admin/firestore';
 import type { Shipment } from '@/domain/ssot';
 
 export async function run({ shipmentId }: { shipmentId: string }) {
@@ -26,7 +27,7 @@ export async function run({ shipmentId }: { shipmentId: string }) {
 
     await shipmentRef.update({
         status: 'shipped',
-        updatedAt: new Date().toISOString(),
+        updatedAt: Timestamp.now(),
     });
 
     console.log(`Shipment ${shipmentId} marked as shipped.`);

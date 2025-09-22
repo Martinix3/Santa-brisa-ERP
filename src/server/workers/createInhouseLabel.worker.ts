@@ -1,25 +1,26 @@
 // src/server/workers/createInhouseLabel.worker.ts
 'use server';
 import { adminDb } from '@/server/firebaseAdmin';
-import type { Shipment } from '@/domain/ssot';
+import { Timestamp } from 'firebase-admin/firestore';
+// import { renderPalletLabelPdf } from '@/server/pdf/palletLabel'; // si generas un PDF propio
 
-// This is a stub. A real implementation would generate a PDF/ZPL with QR codes.
 export async function run({ shipmentId }: { shipmentId: string }) {
-    console.log(`[WORKER-STUB] Received job to create in-house pallet label for shipment ${shipmentId}`);
+  const ref = adminDb.collection('shipments').doc(shipmentId);
+  const snap = await ref.get();
+  if (!snap.exists) throw new Error('Shipment not found');
+  const s = snap.data()!;
 
-    const shipmentRef = adminDb.collection('shipments').doc(shipmentId);
-    const shipmentSnap = await shipmentRef.get();
-    if (!shipmentSnap.exists) {
-        throw new Error(`Shipment ${shipmentId} not found.`);
-    }
+  if (s.mode !== 'PALLET') throw new Error('Este worker es solo para envíos tipo PALLET');
+  if (s.labelUrl) return; // Ya tiene etiqueta
 
-    // Generate a mock PDF URL
-    const mockLabelUrl = `/api/dev/mock-pallet-label?shipment=${shipmentId}`;
+  // const pdf = await renderPalletLabelPdf(s);
+  // const labelUrl = await saveBufferToStorage(`labels/pallet/${shipmentId}.pdf`, pdf, 'application/pdf');
+  const labelUrl = `https://cdn.example.com/pallet-labels/${shipmentId}.pdf`; // Mock
 
-    await shipmentRef.update({
-        labelUrl: mockLabelUrl,
-        updatedAt: new Date().toISOString(),
-    });
+  await ref.update({
+    labelUrl,
+    updatedAt: Timestamp.now(),
+  });
 
-    console.log(`[WORKER-STUB] In-house pallet label URL set for ${shipmentId}.`);
+  console.log(`[WORKER] In-house pallet label URL set for ${shipmentId}.`);
 }

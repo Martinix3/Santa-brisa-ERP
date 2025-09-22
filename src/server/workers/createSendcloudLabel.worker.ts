@@ -2,11 +2,11 @@
 'use server';
 import { adminDb } from '@/server/firebaseAdmin';
 import type { Shipment } from '@/domain/ssot';
+import { Timestamp } from 'firebase-admin/firestore';
 // import { callSendcloudApi } from '../integrations/sendcloud/client';
 
-// Stub for the Sendcloud worker
 export async function run({ shipmentId }: { shipmentId: string }) {
-    console.log(`[WORKER-STUB] Received job to create Sendcloud label for shipment ${shipmentId}`);
+    console.log(`[WORKER] Received job to create Sendcloud label for shipment ${shipmentId}`);
     
     const shipmentRef = adminDb.collection('shipments').doc(shipmentId);
     const shipmentSnap = await shipmentRef.get();
@@ -20,7 +20,7 @@ export async function run({ shipmentId }: { shipmentId: string }) {
         throw new Error("Missing preconditions: delivery note, carrier, weight or dimensions.");
     }
     if (shipment.labelUrl) {
-        console.log("Label already exists for this shipment. Skipping.");
+        console.log(`Label for ${shipmentId} already exists. Skipping.`);
         return;
     }
 
@@ -36,8 +36,8 @@ export async function run({ shipmentId }: { shipmentId: string }) {
         labelUrl: mockLabelUrl,
         trackingCode: mockTrackingCode,
         trackingUrl: `https://mock.tracking.link/${mockTrackingCode}`,
-        updatedAt: new Date().toISOString(),
+        updatedAt: Timestamp.now(),
     });
 
-    console.log(`[WORKER-STUB] Generated Sendcloud label for ${shipmentId}. Tracking: ${mockTrackingCode}`);
+    console.log(`[WORKER] Generated Sendcloud label for ${shipmentId}. Tracking: ${mockTrackingCode}`);
 }

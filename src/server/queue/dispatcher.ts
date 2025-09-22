@@ -1,7 +1,7 @@
 // src/server/queue/dispatcher.ts
 import { adminDb } from '@/server/firebaseAdmin';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
-import type { Job, JobKind, JobStatus } from './types';
+import type { Job, JobKind } from './types';
 
 const JOBS_COLL = 'jobs';
 const DEFAULT_BATCH = 10;
@@ -10,6 +10,7 @@ const BASE_BACKOFF_MS = 30_000;
 
 // --- Registro de handlers ---
 const HANDLERS: Record<JobKind, (payload: any) => Promise<void>> = {
+  CREATE_MANUAL_SHIPMENT: async (payload) => (await import('../workers/createManualShipment.worker')).run(payload),
   CREATE_SHIPMENT_FROM_ORDER: async (payload) => (await import('../workers/createShipment.worker')).run(payload),
   VALIDATE_SHIPMENT: async (payload) => (await import('../workers/validateShipment.worker')).run(payload),
   CREATE_DELIVERY_NOTE_CRM: async (payload) => (await import('../workers/createDeliveryNote.worker')).run(payload),
@@ -18,6 +19,7 @@ const HANDLERS: Record<JobKind, (payload: any) => Promise<void>> = {
   MARK_SHIPMENT_SHIPPED: async (payload) => (await import('../workers/markShipped.worker')).run(payload),
   SYNC_HOLDED_PURCHASES: async (payload) => (await import('../integrations/holded/syncPurchases')).handleSyncHoldedPurchases(payload),
   CREATE_HOLDED_INVOICE: async (payload) => (await import('../integrations/holded/createInvoice.worker')).handleCreateHoldedInvoice(payload),
+  CREATE_INVOICE_FROM_ORDER: async (payload) => (await import('../workers/invoicing.createFromOrder')).run(payload),
 };
 
 

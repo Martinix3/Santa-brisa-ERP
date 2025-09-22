@@ -1,6 +1,6 @@
 
 
-import type { Shipment, Party } from '@/domain/ssot';
+import type { Shipment, Party, OrderSellOut } from '@/domain/ssot';
 
 export const hasDimsAndWeight = (shipment: Shipment) => {
   const s = shipment as any; // Cast to any to access nested properties safely
@@ -18,6 +18,10 @@ export const hasContactInfo = (party?: Party) => {
 export const canGenerateDeliveryNote = (row: Shipment) => Boolean(row.checks?.visualOk || row.status !== 'pending');
 export const canGenerateLabel = (shipment: Shipment) => Boolean(shipment.deliveryNoteId) && Boolean(shipment.carrier) && hasDimsAndWeight(shipment);
 export const canMarkShipped = (row: Shipment) => Boolean(row.labelUrl);
+export const canInvoice = (shipment: Shipment, order?: OrderSellOut) => {
+  // Simplified logic: can invoice if shipped and not already invoiced
+  return shipment.status === 'shipped' && order?.billingStatus !== 'INVOICED';
+};
 
 export const pendingReasons = (row: Shipment): string[] => {
   const reasons: string[] = [];

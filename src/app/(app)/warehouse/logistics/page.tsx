@@ -8,10 +8,10 @@ import { SBButton, SBCard, Input, Select, STATUS_STYLES } from '@/components/ui/
 import { useData } from '@/lib/dataprovider';
 import type { Shipment, OrderSellOut, Account, ShipmentStatus, ShipmentLine, AccountType, Party } from '@/domain/ssot';
 import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog";
-import { canGenerateDeliveryNote, canGenerateLabel, canMarkShipped, pendingReasons } from "@/lib/logistics.helpers";
+import { canGenerateDeliveryNote, canGenerateLabel, canMarkShipped, canInvoice, pendingReasons } from "@/lib/logistics.helpers";
 import { NewShipmentDialog } from "@/features/warehouse/components/NewShipmentDialog";
 import Link from "next/link";
-import { createManualShipment, validateShipment, createDeliveryNote, createParcelLabel, createPalletLabel, markShipped } from './actions';
+import { createManualShipment, validateShipment, createDeliveryNote, createParcelLabel, createPalletLabel, markShipped, invoiceOrder } from './actions';
 
 
 // ===============================
@@ -357,6 +357,18 @@ export default function LogisticsPage() {
       { id: "delivery", label: "Albarán", icon: <FileText className="w-4 h-4"/>, onClick: () => handleAction(shipment.id, () => createDeliveryNote(shipment.id), 'Job para generar albarán encolado.'), available: canGenerateDeliveryNote(shipment), pendingReason: "Requiere Visual OK" },
       { id: "label", label: "Etiqueta", icon: <Truck className="w-4 h-4"/>, onClick: () => handleAction(shipment.id, () => shipment.mode === 'PARCEL' ? createParcelLabel(shipment.id) : createPalletLabel(shipment.id), 'Job para generar etiqueta encolado.'), available: canGenerateLabel(shipment), pendingReason: "Req. Albarán/Peso" },
       { id: "ship", label: "Marcar Enviado", icon: <PackageCheck className="w-4 h-4"/>, onClick: () => handleAction(shipment.id, () => markShipped(shipment.id), 'Job para marcar como enviado encolado.'), available: canMarkShipped(shipment), pendingReason: "Requiere Etiqueta" },
+      {
+        id: "invoice",
+        label: "Facturar",
+        icon: <FileText className="w-4 h-4"/>,
+        onClick: () => {
+          const orderId = shipment.orderId;
+          if (!orderId) return;
+          handleAction(orderId, () => invoiceOrder(orderId), 'Job para crear factura encolado.');
+        },
+        available: canInvoice(shipment),
+        pendingReason: "Requiere Enviado",
+      },
     ];
     return showOnlyAvailable ? actions.filter(a => a.available) : actions;
   };
@@ -436,7 +448,7 @@ export default function LogisticsPage() {
                 const account = accountMap.get(order?.accountId || '');
                 const channelInfo = getChannelInfo(order, account);
                 const style = STATUS_STYLES[shipment.status as keyof typeof STATUS_STYLES] || STATUS_STYLES['pending'];
-                const isJobPending = pendingJobs[shipment.id];
+                const isJobPending = pendingJobs[shipment.id] || (order && pendingJobs[order.id]);
                 
                 return (
                   <div key={shipment.id} className="grid grid-cols-[auto_1fr_1fr_1fr_1fr_1fr_1fr_auto] items-center hover:bg-zinc-50">

@@ -1,6 +1,7 @@
 // src/server/workers/validateShipment.worker.ts
 'use server';
 import { adminDb } from '@/server/firebaseAdmin';
+import { Timestamp } from 'firebase-admin/firestore';
 import type { Shipment, ShipmentLine } from '@/domain/ssot';
 
 export async function run(payload: {

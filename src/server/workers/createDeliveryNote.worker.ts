@@ -4,6 +4,7 @@ import { adminDb } from '@/server/firebaseAdmin';
 import { renderDeliveryNotePdf } from '@/server/pdf/deliveryNote';
 import type { Shipment, DeliveryNote, OrderSellOut, Party } from '@/domain/ssot';
 import { saveBufferToStorage } from '../storage';
+import { Timestamp } from 'firebase-admin/firestore';
 
 function nextDnId(series: 'ONLINE'|'B2B'|'INTERNAL' = 'B2B') {
   const y = new Date().getFullYear();
@@ -17,7 +18,7 @@ export async function run({ shipmentId }: { shipmentId: string }) {
     if (!shipmentSnap.exists) throw new Error(`Shipment ${shipmentId} not found.`);
     const shipment = shipmentSnap.data() as Shipment;
 
-    if (shipment.status !== 'ready_to_ship' || !shipment.checks?.visualOk) {
+    if (shipment.status !== 'ready_to_ship' && !shipment.checks?.visualOk) {
         throw new Error('Shipment not ready or visual check not passed.');
     }
     if (shipment.deliveryNoteId) {
@@ -55,11 +56,11 @@ export async function run({ shipmentId }: { shipmentId: string }) {
             sku: l.sku,
             description: l.name,
             qty: l.qty,
-            uom: l.uom,
+            uom: 'uds',
             lotNumbers: l.lotNumber ? [l.lotNumber] : [],
         })),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        createdAt: Timestamp.now() as any,
+        updatedAt: Timestamp.now() as any,
     };
 
     const pdfBytes = await renderDeliveryNotePdf({
@@ -75,7 +76,7 @@ export async function run({ shipmentId }: { shipmentId: string }) {
     const pdfUrl = await saveBufferToStorage(`deliveryNotes/${dnId}.pdf`, Buffer.from(pdfBytes), 'application/pdf');
 
     await adminDb.collection('deliveryNotes').doc(dnId).set({ ...deliveryNoteData, pdfUrl });
-    await shipmentRef.update({ deliveryNoteId: dnId, updatedAt: new Date().toISOString() });
+    await shipmentRef.update({ deliveryNoteId: dnId, updatedAt: Timestamp.now() });
     
     console.log(`Created delivery note ${dnId} for shipment ${shipmentId}.`);
 }
