@@ -287,6 +287,7 @@ export function AccountsPageContent() {
             const newOrder: OrderSellOut = {
                 id: `ord_${Date.now()}`,
                 accountId: accountId,
+                source: 'MANUAL',
                 status: 'open',
                 currency: 'EUR',
                 createdAt: new Date().toISOString(),
