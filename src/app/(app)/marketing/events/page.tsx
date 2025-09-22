@@ -30,7 +30,7 @@ const formatNumber = (num?: number) => num?.toLocaleString('es-ES') || 'N/A';
 const formatCurrency = (num?: number) => num?.toLocaleString('es-ES', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 }) || 'N/A';
 
 export default function Page(){
-  const { data: santaData, setData, currentUser, isPersistenceEnabled, saveCollection } = useData();
+  const { data: santaData, setData, currentUser, isPersistenceEnabled, saveCollection, saveAllCollections } = useData();
   const { upsertPosTactic, catalog, plv } = usePosTacticsService();
   const [isNewEventDialogOpen, setIsNewEventDialogOpen] = useState(false);
   const [completingEvent, setCompletingEvent] = useState<MarketingEvent | null>(null);
@@ -65,32 +65,28 @@ export default function Page(){
           ownerUserId: currentUser.id,
           createdAt: now,
           updatedAt: now,
-          kind: event.kind as any, // Asumiendo que el diálogo puede pasar el EventKind
+          kind: event.kind as any,
       };
 
       const newInteraction: Interaction = {
-          ...event,
           id: `int_${Date.now()}`,
           createdAt: now,
           status: 'open',
           userId: currentUser.id,
-          kind: 'EVENTO_MKT',
           dept: 'MARKETING',
+          kind: 'EVENTO_MKT',
+          note: event.note,
+          plannedFor: event.plannedFor,
+          location: event.location,
+          accountId: event.accountId,
+          involvedUserIds: event.involvedUserIds,
           linkedEntity: { type: 'EVENT', id: newMktEvent.id },
       };
-
-      const finalData = { 
-          ...santaData,
+      
+      await saveAllCollections({
           marketingEvents: [...(santaData.marketingEvents || []), newMktEvent],
           interactions: [...(santaData.interactions || []), newInteraction]
-      };
-      
-      setData(finalData);
-      
-      if(isPersistenceEnabled) {
-          await saveCollection('marketingEvents', finalData.marketingEvents);
-          await saveCollection('interactions', finalData.interactions);
-      }
+      });
 
       setIsNewEventDialogOpen(false);
   };
@@ -116,10 +112,7 @@ export default function Page(){
         return me;
     });
 
-    setData({ ...santaData, marketingEvents: updatedMktEvents });
-    if (isPersistenceEnabled) {
-        await saveCollection('marketingEvents', updatedMktEvents);
-    }
+    await saveCollection('marketingEvents', updatedMktEvents);
 
     setCompletingEvent(null);
   };

@@ -105,22 +105,24 @@ export function NewEventDialog({
     const [involvedUserIds, setInvolvedUserIds] = useState<string[]>([]);
 
     useEffect(() => {
-        if (initialEventData) {
-            setTitle(initialEventData.note || '');
-            setType(initialEventData.dept || 'VENTAS');
-            setInteractionKind(initialEventData.kind || 'VISITA');
-            setDate(initialEventData.plannedFor ? new Date(initialEventData.plannedFor).toISOString().slice(0, 16) : '');
-            setSelection({ accountId: initialEventData.accountId, location: initialEventData.location });
-            setInvolvedUserIds(initialEventData.involvedUserIds || (initialEventData.userId ? [initialEventData.userId] : []));
-        } else {
-            // Reset form for new event and pre-select current user
-            setTitle('');
-            setType('VENTAS');
-            setInteractionKind('VISITA');
-            setDate('');
-            setSelection({});
-            setNotes('');
-            setInvolvedUserIds(currentUser ? [currentUser.id] : []);
+        if (open) {
+            if (initialEventData) {
+                setTitle(initialEventData.note || '');
+                setType(initialEventData.dept || 'VENTAS');
+                setInteractionKind(initialEventData.kind || (initialEventData.dept === 'MARKETING' ? 'EVENTO_MKT' : 'VISITA'));
+                setDate(initialEventData.plannedFor ? new Date(initialEventData.plannedFor).toISOString().slice(0, 16) : '');
+                setSelection({ accountId: initialEventData.accountId, location: initialEventData.location });
+                setInvolvedUserIds(initialEventData.involvedUserIds || (initialEventData.userId ? [initialEventData.userId] : []));
+            } else {
+                // Reset form for new event and pre-select current user
+                setTitle('');
+                setType('VENTAS');
+                setInteractionKind('VISITA');
+                setDate('');
+                setSelection({});
+                setNotes('');
+                setInvolvedUserIds(currentUser ? [currentUser.id] : []);
+            }
         }
     }, [initialEventData, open, currentUser]);
 
@@ -144,7 +146,7 @@ export function NewEventDialog({
             id: initialEventData?.id,
             userId: initialEventData?.userId || currentUser!.id,
             dept: type, 
-            kind: type === 'VENTAS' ? interactionKind : 'OTRO',
+            kind: type === 'MARKETING' ? 'EVENTO_MKT' : interactionKind,
             plannedFor: date,
             note: finalNote,
             location: selection.location,
