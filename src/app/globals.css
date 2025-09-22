@@ -14,9 +14,9 @@
   --foreground: 240 10% 3.9%;
 
   /* 🎯 amarillo Santa Brisa como color primario de la UI */
-  --sb-sun: 32 95% 55%;
+  --sb-sun: 45 93% 68%;
   --primary: var(--sb-sun);
-  --primary-foreground: 0 0% 10%;
+  --primary-foreground: 240 10% 3.9%;
 
   --secondary: 240 4.8% 95.9%;
   --secondary-foreground: 240 5.9% 10%;
@@ -28,9 +28,9 @@
   --accent-foreground: 240 5.9% 10%;
 
   /* paleta corporativa extendida */
-  --sb-cobre: 18 75% 45%;
-  --sb-agua: 185 70% 40%;
-  --sb-verde-mar: 165 50% 35%;
+  --sb-cobre: 24 95% 65%;
+  --sb-agua: 181 38% 85%;
+  --sb-verde-mar: 182 25% 47%;
   --sb-neutral-950: 240 10% 3.9%;
   --sb-neutral-900: 240 10% 7%;
   --sb-neutral-700: 240 5% 30%;
