@@ -1,4 +1,3 @@
-
 // src/app/api/shipment/[shipmentId]/delivery-note/route.ts
 import { NextResponse, type NextRequest } from 'next/server';
 import { adminDb } from '@/server/firebaseAdmin';
@@ -31,7 +30,7 @@ export async function GET(
         company: { name: 'Santa Brisa', vat: 'B00000000' }
     });
     
-    return new Response(pdfBytes, {
+    return new Response(Buffer.from(pdfBytes), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
