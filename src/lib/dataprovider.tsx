@@ -10,7 +10,7 @@ import { collection, getDocs, writeBatch, doc, Timestamp } from "firebase/firest
 import { useRouter } from "next/navigation";
 import { SANTA_DATA_COLLECTIONS } from "@/domain";
 import { INITIAL_MOCK_DATA } from "@/lib/mock-data";
-import { upsertMany } from './dataprovider/server';
+import { upsertMany } from './dataprovider/actions';
 
 // --------- Tipos ----------
 type LoadReport = {
@@ -59,7 +59,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     async function loadInitialData() {
         setLoadingData(true);
-        console.log(`[DataProvider] useEffect: Loading data. Persistence is ${isPersistenceEnabled ? 'ON' : 'OFF'}.`);
+        console.log(`[DataProvider] useEffect: Loading initial data. Persistence is ${isPersistenceEnabled ? 'ON' : 'OFF'}.`);
 
         const loadAllCollections = async (): Promise<[SantaData, LoadReport]> => {
             const data: Partial<SantaData> = {};
@@ -101,8 +101,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         setLoadingData(false);
     }
     
-    loadInitialData();
-  }, [isPersistenceEnabled]);
+    // Only load data once on initial mount
+    if (!data) {
+        loadInitialData();
+    }
+  }, [isPersistenceEnabled, data]);
 
   // Handle auth state changes
   useEffect(() => {
@@ -129,8 +132,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       console.log(`[DataProvider] Auth ready. Trying to find app user for Firebase user: ${firebaseUser.email}`);
       userToSet = data.users.find(u => u.email === firebaseUser.email) || null;
       if(userToSet) {
-          console.log(`[DataProvider] App user found: ${userToSet.name}. Setting as currentUser.`);
-          userToSet = { ...userToSet, role: (userToSet.role?.toLowerCase() || 'comercial') as UserRole };
+          const userName = userToSet.name === 'MJ' ? 'Martin' : userToSet.name;
+          console.log(`[DataProvider] App user found: ${userName}. Setting as currentUser.`);
+          userToSet = { ...userToSet, name: userName, role: (userToSet.role?.toLowerCase() || 'comercial') as UserRole };
       } else {
           console.warn(`[DataProvider] Firebase user ${firebaseUser.email} not found in local data.users array.`);
       }
@@ -143,7 +147,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [data, firebaseUser, authReady, loadingData]);
 
   const togglePersistence = useCallback(() => {
-    setIsPersistenceEnabled(prev => !prev);
+    setIsPersistenceEnabled(prev => {
+        console.log(`[DataProvider] Toggling persistence from ${prev} to ${!prev}`);
+        return !prev;
+    });
   }, []);
   
   const setCurrentUserById = useCallback((userId: string) => {
