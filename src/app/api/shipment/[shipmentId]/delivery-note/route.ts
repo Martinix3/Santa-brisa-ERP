@@ -7,7 +7,7 @@ import type { DeliveryNote } from '@/domain/ssot';
 export async function GET(
   _req: NextRequest,
   { params }: { params: { shipmentId: string } }
-) {
+): Promise<Response> {
   const { shipmentId } = params;
 
   try {
