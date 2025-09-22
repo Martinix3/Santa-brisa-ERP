@@ -111,7 +111,7 @@ function CalendarPageContent() {
     const taskToUpdate = allInteractions.find(i => i.id === id);
     setSelectedEvent(null);
     if (newStatus === 'done' && taskToUpdate) {
-        if (taskToUpdate.dept === 'MARKETING' || taskToUpdate.kind === 'EVENTO_MKT') {
+        if (taskToUpdate.dept === 'MARKETING') {
             const event = santaData?.marketingEvents.find(e => e.id === taskToUpdate.linkedEntity?.id);
             if (event) {
                 setCompletingMarketingEvent(event);

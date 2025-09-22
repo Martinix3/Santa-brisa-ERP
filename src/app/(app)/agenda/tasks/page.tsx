@@ -50,7 +50,7 @@ export default function GlobalTasksPage() {
     const handleUpdateStatus = (id: string, newStatus: InteractionStatus) => {
         const taskToUpdate = data?.interactions.find(i => i.id === id);
         if (newStatus === 'done' && taskToUpdate) {
-            if (taskToUpdate.dept === 'MARKETING' || taskToUpdate.kind === 'EVENTO_MKT') {
+            if (taskToUpdate.dept === 'MARKETING') {
                 const event = data?.marketingEvents.find(e => e.id === taskToUpdate.linkedEntity?.id);
                 if (event) {
                     setCompletingMarketingEvent(event);

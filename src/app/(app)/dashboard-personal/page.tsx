@@ -98,7 +98,7 @@ function PersonalDashboardContent() {
     if (!taskToUpdate) return;
 
     if (newStatus === 'done') {
-      if (taskToUpdate.dept === 'MARKETING' || taskToUpdate.kind === 'EVENTO_MKT') {
+      if (taskToUpdate.dept === 'MARKETING') {
           const event = data?.marketingEvents.find(e => e.id === taskToUpdate.linkedEntity?.id);
           if (event) {
               setCompletingMarketingEvent(event);
