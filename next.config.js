@@ -1,7 +1,15 @@
+// next.config.mjs
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    allowedDevOrigins: ['http://*.cloudworkstations.dev','https://*.cloudworkstations.dev'],
+    // Permite el overlay en los subdominios efímeros del Workstations
+    // (puedes ampliar con otros hosts internos si usas puertos distintos)
+    // @ts-ignore - la opción está marcada experimental
+    allowedDevOrigins: [
+      /.*-firebase-studio-.*\.cloudworkstations\.dev$/,
+      /localhost:\d+$/,
+    ],
   },
 };
-module.exports = nextConfig;
+
+export default nextConfig;

@@ -1,6 +1,5 @@
 // functions/src/ai/tools.ts
 import { z } from 'zod';
-import { defineTool } from '@genkit-ai/ai';
 import { ai } from './index.js';
 import { db } from '../firebaseAdmin.js';
 import type { OrderSellOut, Account } from '../domain/ssot.js';
@@ -9,7 +8,7 @@ import type { OrderSellOut, Account } from '../domain/ssot.js';
 const nowIso = () => new Date().toISOString();
 const norm = (s: string) =>
   (s || '').trim().toLowerCase().normalize('NFKD').replace(/\p{Diacritic}/gu, '');
-const calcAmount = (items: Array<Partial<OrderSellOut['lines'][number]>>) =>
+const calcAmount = (items: Array<{ qty: number, priceUnit: number, discount: number }>) =>
   items.reduce((a, it) => a + (it.qty ?? 0) * (it.priceUnit ?? 0) * (1 - (it.discount ?? 0) / 100), 0);
 
 async function mustAccount(id: string): Promise<Account> {
@@ -31,14 +30,15 @@ const memoryUpsertSchema = z.object({
   kind: z.enum(['message', 'summary']).default('message'),
 });
 
-export const memory_upsert = defineTool(
+export const memory_upsert = ai.defineTool(
+  'memory_upsert',
   {
-    name: 'memory_upsert',
     description: 'Guarda un mensaje o resumen del hilo.',
     inputSchema: memoryUpsertSchema,
     outputSchema: z.object({ ok: z.boolean() }),
   },
-  async ({ userId, threadId, ...rest }) => {
+  async (input: z.infer<typeof memoryUpsertSchema>) => {
+    const { userId, threadId, ...rest } = input;
     await db
       .collection('brain_memory')
       .doc(userId)
@@ -47,7 +47,7 @@ export const memory_upsert = defineTool(
       .collection('turns')
       .add({ ...rest, createdAt: nowIso() });
     return { ok: true };
-  },
+  }
 );
 
 const memoryGetContextSchema = z.object({
@@ -56,9 +56,9 @@ const memoryGetContextSchema = z.object({
   limit: z.number().min(1).max(50).default(12),
 });
 
-export const memory_get_context = defineTool(
+export const memory_get_context = ai.defineTool(
+  'memory_get_context',
   {
-    name: 'memory_get_context',
     description: 'Recupera últimas N entradas del hilo + perfil largo.',
     inputSchema: memoryGetContextSchema,
     outputSchema: z.object({
@@ -66,7 +66,9 @@ export const memory_get_context = defineTool(
       profile: z.string().optional(),
     }),
   },
-  async ({ userId, threadId, limit }) => {
+  async (input: z.infer<typeof memoryGetContextSchema>) => {
+    const { userId, threadId, limit } = input;
+
     const turnsSnap = await db
       .collection('brain_memory')
       .doc(userId)
@@ -83,8 +85,8 @@ export const memory_get_context = defineTool(
       .map((d) => ({ role: d.role, text: d.text }));
 
     const profileDoc = await db.collection('brain_memory').doc(userId).get();
-    return { messages, profile: profileDoc.exists ? (profileDoc.data() as any).profile : undefined };
-  },
+    return { messages, profile: profileDoc.exists() ? (profileDoc.data() as any).profile : undefined };
+  }
 );
 
 const memoryUpdateProfileSchema = z.object({
@@ -92,17 +94,18 @@ const memoryUpdateProfileSchema = z.object({
   profile: z.string().min(10),
 });
 
-export const memory_update_profile = defineTool(
+export const memory_update_profile = ai.defineTool(
+  'memory_update_profile',
   {
-    name: 'memory_update_profile',
     description: 'Actualiza el perfil de largo plazo del usuario.',
     inputSchema: memoryUpdateProfileSchema,
     outputSchema: z.object({ ok: z.boolean() }),
   },
-  async ({ userId, profile }) => {
+  async (input: z.infer<typeof memoryUpdateProfileSchema>) => {
+    const { userId, profile } = input;
     await db.collection('brain_memory').doc(userId).set({ profile, updatedAt: nowIso() }, { merge: true });
     return { ok: true };
-  },
+  }
 );
 
 // =====================================================
@@ -114,14 +117,15 @@ const queryAccountsSchema = z.object({
   limit: z.number().min(1).max(200).default(50),
 });
 
-export const query_accounts = defineTool(
+export const query_accounts = ai.defineTool(
+  'query_accounts',
   {
-    name: 'query_accounts',
     description: 'Busca cuentas por nombre/ciudad/contacto (dev simple).',
     inputSchema: queryAccountsSchema,
     outputSchema: z.object({ results: z.array(z.any()) }),
   },
-  async ({ text = '', limit }) => {
+  async (input: z.infer<typeof queryAccountsSchema>) => {
+    const { text = '', limit } = input;
     const snap = await db.collection('accounts').limit(500).get();
     const all = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
     const t = text.toLowerCase();
@@ -135,14 +139,14 @@ export const query_accounts = defineTool(
         )
       : all;
     return { results: results.slice(0, limit) };
-  },
+  }
 );
 
 const getAccountDeepSchema = z.object({ accountId: z.string() });
 
-export const get_account_deep = defineTool(
+export const get_account_deep = ai.defineTool(
+  'get_account_deep',
   {
-    name: 'get_account_deep',
     description: 'Cuenta + últimos pedidos/interacciones/eventos.',
     inputSchema: getAccountDeepSchema,
     outputSchema: z.object({
@@ -152,7 +156,8 @@ export const get_account_deep = defineTool(
       events: z.array(z.any()),
     }),
   },
-  async ({ accountId }) => {
+  async (input: z.infer<typeof getAccountDeepSchema>) => {
+    const { accountId } = input;
     const acc = await mustAccount(accountId).catch(() => null);
     const [orders, interactions, events] = await Promise.all([
       db.collection('orders').where('accountId', '==', accountId).orderBy('date', 'desc').limit(20).get(),
@@ -165,7 +170,7 @@ export const get_account_deep = defineTool(
       interactions: interactions.docs.map((d) => ({ id: d.id, ...(d.data() as any) })),
       events: events.docs.map((d) => ({ id: d.id, ...(d.data() as any) })),
     };
-  },
+  }
 );
 
 const listCollectionSchema = z.object({
@@ -184,19 +189,20 @@ const listCollectionSchema = z.object({
   limit: z.number().min(1).max(500).default(100),
 });
 
-export const list_collection = defineTool(
+export const list_collection = ai.defineTool(
+  'list_collection',
   {
-    name: 'list_collection',
     description: 'Lee una colección SSOT permitida (cruda) con límite.',
     inputSchema: listCollectionSchema,
     outputSchema: z.object({ docs: z.array(z.any()) }),
   },
-  async ({ name, orderBy, dir, limit }) => {
+  async (input: z.infer<typeof listCollectionSchema>) => {
+    const { name, orderBy, dir, limit } = input;
     let ref: FirebaseFirestore.Query = db.collection(name);
     if (orderBy) ref = ref.orderBy(orderBy, dir);
     const snap = await ref.limit(limit).get();
     return { docs: snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })) };
-  },
+  }
 );
 
 // =====================================================
@@ -220,14 +226,7 @@ const createAccountSchema = z.object({
   salesRepId: z.string().optional(),
 });
 
-export const create_account = defineTool(
-  {
-    name: 'create_account',
-    description: 'Crea una cuenta SSOT con datos mínimos.',
-    inputSchema: createAccountSchema,
-    outputSchema: z.object({ id: z.string() }),
-  },
-  async (args) => {
+async function createAccountDirect(args: z.infer<typeof createAccountSchema>) {
     const createdAt = nowIso();
     const docData = {
       name: args.name,
@@ -243,7 +242,16 @@ export const create_account = defineTool(
     };
     const ref = await db.collection('accounts').add(docData);
     return { id: ref.id };
+}
+
+export const create_account = ai.defineTool(
+  'create_account',
+  {
+    description: 'Crea una cuenta SSOT con datos mínimos.',
+    inputSchema: createAccountSchema,
+    outputSchema: z.object({ id: z.string() }),
   },
+  createAccountDirect
 );
 
 const ensureAccountSchema = z.object({
@@ -255,14 +263,14 @@ const ensureAccountSchema = z.object({
   defaultStage: z.enum(['POTENCIAL', 'SEGUIMIENTO', 'ACTIVA', 'FALLIDA']).default('POTENCIAL'),
 });
 
-export const ensure_account = defineTool(
+export const ensure_account = ai.defineTool(
+  'ensure_account',
   {
-    name: 'ensure_account',
     description: 'Devuelve accountId; busca por nombre/email y crea si no existe.',
     inputSchema: ensureAccountSchema,
     outputSchema: z.object({ id: z.string(), existed: z.boolean() }),
   },
-  async (args) => {
+  async (args: z.infer<typeof ensureAccountSchema>) => {
     const needle = norm(args.name);
     const email = (args.mainContactEmail || '').toLowerCase();
     const snap = await db.collection('accounts').limit(500).get();
@@ -274,9 +282,9 @@ export const ensure_account = defineTool(
     );
     if (hit) return { id: hit.id, existed: true };
 
-    const created = await create_account.run(args);
-    return { id: (created as any).id, existed: false };
-  },
+    const created = await createAccountDirect(args as any);
+    return { id: created.id, existed: false };
+  }
 );
 
 const createOrderSchema = z.object({
@@ -289,9 +297,9 @@ const createOrderSchema = z.object({
   createdById: z.string().optional(),
 });
 
-export const create_order = defineTool(
+export const create_order = ai.defineTool(
+  'create_order',
   {
-    name: 'create_order',
     description: 'Crea un pedido en `orders`.',
     inputSchema: createOrderSchema,
     outputSchema: z.object({
@@ -301,7 +309,7 @@ export const create_order = defineTool(
       createdAt: z.string(),
     }),
   },
-  async (input) => {
+  async (input: z.infer<typeof createOrderSchema>) => {
     await mustAccount(input.accountId);
     const createdAt = nowIso();
     const order = {
@@ -310,7 +318,13 @@ export const create_order = defineTool(
       date: input.date ?? createdAt,
       currency: input.currency,
       items: input.items,
-      amount: calcAmount(input.items),
+      amount: calcAmount(
+        input.items.map((it) => ({
+          qty: it.qty,
+          priceUnit: it.unitPrice ?? 0,
+          discount: it.discountPct ?? 0,
+        }))
+      ),
       notes: input.notes ?? null,
       status: 'ABIERTO',
       createdAt,
@@ -319,7 +333,7 @@ export const create_order = defineTool(
     };
     const ref = await db.collection('orders').add(order);
     return { id: ref.id, amount: order.amount, currency: order.currency, createdAt };
-  },
+  }
 );
 
 const createInteractionSchema = z.object({
@@ -334,9 +348,9 @@ const createInteractionSchema = z.object({
   dept: z.string().optional(),
 });
 
-export const create_interaction = defineTool(
+export const create_interaction = ai.defineTool(
+  'create_interaction',
   {
-    name: 'create_interaction',
     description: 'Registra una interacción (VISITA, LLAMADA, EMAIL, WHATSAPP, OTRO).',
     inputSchema: createInteractionSchema,
     outputSchema: z.object({
@@ -346,12 +360,12 @@ export const create_interaction = defineTool(
       createdAt: z.string(),
     }),
   },
-  async (input) => {
+  async (input: z.infer<typeof createInteractionSchema>) => {
     const createdAt = nowIso();
     const doc = { ...input, when: input.when ?? createdAt, createdAt, updatedAt: createdAt };
     const ref = await db.collection('interactions').add(doc);
     return { id: ref.id, status: doc.status, when: doc.when, createdAt };
-  },
+  }
 );
 
 const createEventSchema = z.object({
@@ -365,9 +379,9 @@ const createEventSchema = z.object({
   notes: z.string().optional(),
 });
 
-export const create_event = defineTool(
+export const create_event = ai.defineTool(
+  'create_event',
   {
-    name: 'create_event',
     description: 'Crea un evento (DEMO, FERIA, FORMACION, OTRO).',
     inputSchema: createEventSchema,
     outputSchema: z.object({
@@ -377,13 +391,13 @@ export const create_event = defineTool(
       createdAt: z.string(),
     }),
   },
-  async (input) => {
+  async (input: z.infer<typeof createEventSchema>) => {
     if (input.accountId) await mustAccount(input.accountId);
     const createdAt = nowIso();
     const doc = { ...input, createdAt, updatedAt: createdAt };
     const ref = await db.collection('events').add(doc);
     return { id: ref.id, title: input.title, startAt: input.startAt, createdAt };
-  },
+  }
 );
 
 // =====================================================
@@ -397,9 +411,9 @@ const getUpcomingAgendaSchema = z.object({
   forDept: z.enum(['VENTAS', 'MARKETING', 'LOGISTICA', 'ADMIN', 'OTRO']).optional(),
 });
 
-export const get_upcoming_agenda = defineTool(
+export const get_upcoming_agenda = ai.defineTool(
+  'get_upcoming_agenda',
   {
-    name: 'get_upcoming_agenda',
     description: 'Devuelve próximas tareas/eventos dentro de un horizonte (días).',
     inputSchema: getUpcomingAgendaSchema,
     outputSchema: z.object({
@@ -416,7 +430,8 @@ export const get_upcoming_agenda = defineTool(
       ),
     }),
   },
-  async ({ horizonDays, limit, forUserId, forDept }) => {
+  async (input: z.infer<typeof getUpcomingAgendaSchema>) => {
+    const { horizonDays, limit, forUserId, forDept } = input;
     const now = new Date();
     const end = new Date(now.getTime() + horizonDays * 24 * 60 * 60 * 1000);
 
@@ -471,7 +486,7 @@ export const get_upcoming_agenda = defineTool(
       .slice(0, limit);
 
     return { items };
-  },
+  }
 );
 
 const getAccountsOverviewSchema = z.object({
@@ -481,9 +496,9 @@ const getAccountsOverviewSchema = z.object({
   stage: z.enum(['SEGUIMIENTO', 'FALLIDA', 'ACTIVA', 'POTENCIAL']).optional(),
 });
 
-export const get_accounts_overview = defineTool(
+export const get_accounts_overview = ai.defineTool(
+  'get_accounts_overview',
   {
-    name: 'get_accounts_overview',
     description:
       'Devuelve un overview de cuentas con última interacción/pedido y flag de dormidas.',
     inputSchema: getAccountsOverviewSchema,
@@ -502,7 +517,9 @@ export const get_accounts_overview = defineTool(
       ),
     }),
   },
-  async ({ limit, dormantDays, windowDays, stage }) => {
+  async (input: z.infer<typeof getAccountsOverviewSchema>) => {
+    const { limit, dormantDays, windowDays, stage } = input;
+
     const now = new Date();
     const windowStart = new Date(now.getTime() - windowDays * 24 * 60 * 60 * 1000).toISOString();
     const dormantCut = new Date(now.getTime() - dormantDays * 24 * 60 * 60 * 1000).toISOString();
@@ -564,5 +581,5 @@ export const get_accounts_overview = defineTool(
       .slice(0, limit);
 
     return { accounts: rows };
-  },
+  }
 );

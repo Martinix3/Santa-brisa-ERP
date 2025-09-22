@@ -14,18 +14,19 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@genkit-ai/ai": "1.19.3",
-    "@genkit-ai/googleai": "1.19.3",
+    "@genkit-ai/ai": "^1.21.0",
+    "@genkit-ai/googleai": "^1.21.0",
     "cross-fetch": "^4.1.0",
-    "firebase-admin": "12.7.0",
-    "firebase-functions": "4.9.0",
-    "genkit": "1.19.3",
+    "firebase-admin": "^12.4.0",
+    "firebase-functions": "^5.0.1",
+    "genkit": "^1.21.0",
     "zod": "3.23.8"
   },
   "devDependencies": {
-    "@types/node": "^20.19.17",
+    "@types/node": "^20.14.13",
     "ts-node": "^10.9.2",
-    "typescript": "5.6.x"
+    "typescript": "5.5.4",
+    "@tailwindcss/postcss": "^4.1.13"
   },
   "overrides": {
     "zod": "3.23.8"
