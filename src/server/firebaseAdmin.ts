@@ -10,6 +10,18 @@ function init() {
     process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ??
     "santa-brisa-erp";
 
+  if (!process.env.GOOGLE_IMPERSONATE_SERVICE_ACCOUNT) {
+    console.warn(`
+      ===============================================================
+      ATENCIÓN: La variable GOOGLE_IMPERSONATE_SERVICE_ACCOUNT no está
+      definida. El SDK de Admin podría no funcionar correctamente para
+      escrituras en Firestore.
+
+      Asegúrate de arrancar el servidor con 'npm run dev' o 'npm run dev:sa'.
+      ===============================================================
+    `);
+  }
+
   return initializeApp({
     credential: applicationDefault(), // ← ADC (App Hosting o gcloud + impersonation)
     projectId,                       // ← clave para que verifyIdToken espere el aud correcto

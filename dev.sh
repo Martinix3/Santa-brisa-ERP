@@ -18,7 +18,8 @@ rm -f pnpm-lock.yaml yarn.lock
 echo "📦 Instalando dependencias (sin opcionales, menos espacio)..."
 npm install --no-optional --legacy-peer-deps
 
-echo "🚀 Arrancando Next en 0.0.0.0:3000 ..."
+echo "🚀 Arrancando Next con 'npm run dev' (que usa impersonation)..."
+# El script 'npm run dev' ya contiene la variable de entorno necesaria
 HOST=0.0.0.0 PORT=3000 npm run dev
 
 echo "✅ Script de desarrollo finalizado."

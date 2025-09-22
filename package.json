@@ -3,7 +3,7 @@
   "version": "1.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "cross-env GOOGLE_IMPERSONATE_SERVICE_ACCOUNT=firebase-adminsdk-fbsvc@santa-brisa-erp.iam.gserviceaccount.com next dev",
     "build": "next build",
     "start": "next start -H 0.0.0.0 -p 3000",
     "lint": "eslint .",
@@ -30,6 +30,7 @@
     "@fullcalendar/list": "latest",
     "@fullcalendar/react": "latest",
     "@fullcalendar/timegrid": "latest",
+    "@genkit-ai/ai": "^0.6.1",
     "@genkit-ai/googleai": "latest",
     "@google-cloud/firestore": "latest",
     "firebase": "latest",
@@ -48,7 +49,7 @@
     "react-dropzone": "latest",
     "recharts": "latest",
     "server-only": "latest",
-    "zod": "3.23.8"
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@eslint/eslintrc": "latest",
@@ -60,12 +61,12 @@
     "@types/papaparse": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
-    "@typescript-eslint/eslint-plugin": "^8.44.0",
-    "@typescript-eslint/parser": "^8.44.0",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
     "autoprefixer": "latest",
     "cross-env": "latest",
     "esbuild": "latest",
-    "eslint": "^9.36.0",
+    "eslint": "^9.8.0",
     "eslint-config-next": "latest",
     "postcss": "latest",
     "tailwindcss": "latest",
@@ -78,5 +79,8 @@
   "engines": {
     "node": ">=20",
     "npm": ">=10.0.0"
+  },
+  "resolutions": {
+    "zod": "^3.23.8"
   }
 }
