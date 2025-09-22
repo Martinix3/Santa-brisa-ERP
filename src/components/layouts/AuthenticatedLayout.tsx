@@ -43,7 +43,8 @@ import {
     Sheet,
     Star,
     BadgeCheck,
-    UploadCloud
+    UploadCloud,
+    PlugZap
 } from 'lucide-react';
 import { SB_COLORS } from '@/domain/ssot';
 import { hexToRgba } from '@/components/ui/ui-primitives';
@@ -128,10 +129,11 @@ const navSections = [
             { href: '/admin/sku-management', label: 'SKUs', icon: Tags },
             { href: '/admin/schema-audit', label: 'Schema Audit', icon: BadgeCheck },
             { href: '/admin/data-import', label: 'Importar Datos', icon: UploadCloud },
+            { href: '/admin/integrations', label: 'Integraciones', icon: PlugZap },
             { href: '/tools/ssot-accounts-editor', label: 'Editor de Datos', icon: Sheet },
             { href: '/dev/db-console', label: 'Consola DB', icon: DatabaseZap },
             { href: '/dev/ssot-tests', label: 'Tests de Integridad', icon: TestTube2 },
-            { href: '/dev/integrations-panel', label: 'Integraciones', icon: Zap },
+            { href: '/dev/integrations-panel', label: 'Integraciones (Old)', icon: Zap },
         ]
     }
 ];
