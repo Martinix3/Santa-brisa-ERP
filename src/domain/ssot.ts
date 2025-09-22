@@ -105,6 +105,17 @@ export interface User {
   }
 }
 
+export interface AccountRollup {
+    accountId: string;
+    hasPLVInstalled?: boolean;
+    lastPLVInstalledAt?: Timestamp;
+    activeActivations: number;
+    lastActivationAt?: Timestamp;
+    activePromotions: number;
+    activePosTactics: number;
+    lastTacticAt?: Timestamp;
+}
+
 // -----------------------------------------------------------------
 // 3. Entidades de Negocio (CRM y Ventas)
 // -----------------------------------------------------------------
@@ -132,14 +143,14 @@ export type BillingStatus = 'PENDING'|'INVOICING'|'INVOICED'|'FAILED';
 
 export interface OrderSellOut {
   id: string;
-  partyId?: string; // <-- party-centric
+  partyId: string; // <-- party-centric
   accountId: string; // <-- compatibilidad
   source: 'CRM'|'SHOPIFY'|'OTHER' | 'MANUAL' | 'HOLDED';
   createdAt: Timestamp;         // ISO o epoch
   currency: 'EUR' | string;
   lines: Array<{ sku: string; name?: string; qty: number; priceUnit: number; taxRate?: number; discountPct?: number; uom?: 'uds'; lotIds?: string[] }>;
   notes?: string;
-  billingStatus?: BillingStatus;
+  billingStatus: BillingStatus;
   status: OrderStatus; // compatibilidad
   docNumber?: string;
   totalAmount?: number;
@@ -220,17 +231,6 @@ export interface Interaction {
     photos?: string[];
   };
   posTacticResult?: PosResult;
-}
-
-export interface AccountRollup {
-  accountId: string;
-  hasPLVInstalled?: boolean;
-  lastPLVInstalledAt?: Timestamp;
-  activeActivations: number;
-  lastActivationAt?: Timestamp;
-  activePromotions: number;
-  activePosTactics: number;
-  lastTacticAt?: Timestamp;
 }
 
 
@@ -427,13 +427,13 @@ export interface Shipment {
   partyId: string;
   mode: 'PARCEL' | 'PALLET';
   status: ShipmentStatus;
-  lines: Array<{ sku: string; name?: string; qty: number; uom?: string; lotNumber?: string }>;
+  lines: Array<{ sku:string; name?:string; qty:number; uom?:string; lotNumber?:string }>;
   checks?: { visualOk?: boolean };
   carrier?: 'sendcloud'|'inhouse'|'seur'|'correos_express'|'local_delivery'|string;
   weightKg?: number;
-  dimsCm?: { l: number; w: number; h: number };
-  parcels?: Array<{ weightKg?: number; dimsCm?: { l: number; w: number; h: number } }>;
-  pallets?: Array<{ type: 'EURO' | 'AMERICAN' | 'OTHER'; count: number; notes?: string }>;
+  dimsCm?: { l:number; w:number; h:number };
+  parcels?: Array<{ weightKg?:number; dimsCm?:{l:number;w:number;h:number} }>;
+  pallets?: Array<{ type:'EURO'|'AMERICAN'|'OTHER'; count:number; notes?:string }>;
   deliveryNoteId?: string;
   labelUrl?: string;
   trackingCode?: string;
@@ -462,8 +462,8 @@ export interface DeliveryNote {
   shipTo: { name:string; address:string; zip:string; city:string; country:string };
   lines: Array<{ sku:string; description:string; qty:number; uom?:string; lotNumbers?:string[] }>;
   pdfUrl?: string;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
+  createdAt: any;
+  updatedAt: any;
 }
 
 export type TraceEventPhase = 'SOURCE' | 'RECEIPT' | 'QC' | 'PRODUCTION' | 'PACK' | 'WAREHOUSE' | 'SALE' | 'DELIVERY';

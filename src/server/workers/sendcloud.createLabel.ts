@@ -1,56 +1,39 @@
 // src/server/workers/sendcloud.createLabel.ts
 import { adminDb } from '@/server/firebaseAdmin';
-import { callSendcloudApi } from '../integrations/sendcloud/client';
-import type { Shipment, Account, Party } from '@/domain/ssot';
+import { Timestamp } from 'firebase-admin/firestore';
+
+type SendcloudRes = { labelUrl: string; trackingCode: string; trackingUrl?: string };
+
+async function callSendcloudCreateLabel(s: any): Promise<SendcloudRes> {
+  // TODO: implementa llamada real a Sendcloud. Por ahora, stub:
+  const tracking = `SC-${Math.floor(Math.random()*1e8).toString().padStart(8,'0')}`;
+  return {
+    labelUrl: `https://example.com/labels/${tracking}.pdf`,
+    trackingCode: tracking,
+    trackingUrl: `https://tracking.sendcloud.sc/${tracking}`
+  };
+}
 
 export async function handleCreateSendcloudLabel({ shipmentId }: { shipmentId: string }) {
-    const shipmentSnap = await adminDb.collection('shipments').doc(shipmentId).get();
-    if (!shipmentSnap.exists) throw new Error(`Shipment ${shipmentId} not found.`);
-    const shipment = shipmentSnap.data() as Shipment;
+  const sRef = adminDb.collection('shipments').doc(shipmentId);
+  const sSnap = await sRef.get();
+  if (!sSnap.exists) throw new Error('Shipment not found');
+  const s = sSnap.data()!;
 
-    // Idempotency: if label already exists, just return it
-    if (shipment.labelUrl && shipment.tracking) {
-        return { labelUrl: shipment.labelUrl, tracking: shipment.tracking };
-    }
+  if (!s.deliveryNoteId) throw new Error('Requiere albarán antes de crear etiqueta');
+  if (!s.weightKg || !s.dimsCm) throw new Error('Peso y dimensiones requeridos');
+  // idempotencia: si ya hay label/track, salimos
+  if (s.labelUrl && s.trackingCode) return;
 
-    const accountSnap = await adminDb.collection('accounts').doc(shipment.accountId).get();
-    const account = accountSnap.data() as Account;
-    const partySnap = await adminDb.collection('parties').doc(account.partyId).get();
-    const party = partySnap.data() as Party;
-    const address = party.addresses.find(a => a.isPrimary || a.type === 'shipping') || party.addresses[0];
+  const res = await callSendcloudCreateLabel(s);
 
-    const parcelPayload = {
-        parcel: {
-            name: shipment.customerName,
-            address: address.street,
-            city: address.city,
-            postal_code: address.postalCode,
-            country: address.country.toUpperCase(), // Sendcloud requires ISO 2 codes
-            email: party.contacts.find(c => c.type === 'email')?.value,
-            telephone: party.contacts.find(c => c.type === 'phone')?.value,
-            order_number: shipment.orderId,
-            shipping_method: 8, // Example: SEUR DPD Shop (lookup required)
-            parcel_items: shipment.lines.map(line => ({
-                description: line.name,
-                quantity: line.qty,
-                weight: "0.5", // Needs real weight data
-                sku: line.sku,
-                value: "15.00" // Needs real value data
-            })),
-        }
-    };
+  await sRef.set({
+    labelUrl: res.labelUrl,
+    trackingCode: res.trackingCode,
+    trackingUrl: res.trackingUrl,
+    updatedAt: Timestamp.now()
+  }, { merge: true });
 
-    const createdParcel = await callSendcloudApi('/parcels', 'POST', parcelPayload);
-
-    const labelUrl = createdParcel.parcel.label.label_printer;
-    const trackingNumber = createdParcel.parcel.tracking_number;
-
-    await shipmentSnap.ref.update({
-        labelUrl: labelUrl,
-        tracking: trackingNumber,
-        status: 'ready_to_ship'
-    });
-
-    console.log(`Generated Sendcloud label for shipment ${shipmentId}. Tracking: ${trackingNumber}`);
-    return { labelUrl, tracking: trackingNumber };
+  // Política opcional: marcar enviado al tener etiqueta
+  // await sRef.set({ status: 'shipped' as const, updatedAt: serverTimestamp() }, { merge: true });
 }

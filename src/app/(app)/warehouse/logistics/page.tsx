@@ -6,11 +6,11 @@ import { SBButton, SBCard, Input, Select, STATUS_STYLES } from '@/components/ui/
 import { useData } from '@/lib/dataprovider';
 import type { Shipment, OrderSellOut, Account, ShipmentStatus, ShipmentLine, AccountType, Party } from '@/domain/ssot';
 import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog";
-import { generatePackingSlip } from './actions';
-import { canGenerateDeliveryNote, canGenerateLabel, canMarkShipped, hasDimsAndWeight } from "@/lib/logistics.helpers";
+import { canGenerateDeliveryNote, canGenerateLabel, canMarkShipped } from "@/lib/logistics.helpers";
 import { NewShipmentDialog } from "@/features/warehouse/components/NewShipmentDialog";
-import { upsertMany } from "@/lib/dataprovider/server";
 import Link from "next/link";
+import { createShipmentFromOrder, validateShipment, createDeliveryNote, createParcelLabel, createPalletLabel, markShipped } from './actions';
+
 
 // ===============================
 // UI Components (Re-localizados para simplicidad)
@@ -118,11 +118,15 @@ const ValidateDialog: React.FC<{ open: boolean; onOpenChange: (v: boolean) => vo
   const removeEmpty = (m: typeof lotMap) => Object.fromEntries(Object.entries(m).map(([k, arr]) => [k, arr.filter((r) => r.lotId && r.qty > 0)]));
 
   const handleSave = () => {
-    const logistics = {
-        weightKg: weight || 0,
-        dimsCm: { l: Number(dims.l || 0), w: Number(dims.w || 0), h: Number(dims.h || 0) }
-    };
-    onSave({ visualOk, lotMap: removeEmpty(lotMap), logistics, picker: picker || "", packer: packer || "", carrier: carrier || undefined });
+    onSave({ 
+        visualOk, 
+        lotMap: removeEmpty(lotMap), 
+        weightKg: weight || undefined,
+        dimsCm: { l: Number(dims.l || 0), w: Number(dims.w || 0), h: Number(dims.h || 0) },
+        picker: picker || undefined,
+        packer: packer || undefined,
+        carrier: carrier || undefined
+    });
   };
 
   return (
@@ -144,6 +148,7 @@ const ValidateDialog: React.FC<{ open: boolean; onOpenChange: (v: boolean) => vo
                     <option value="seur">SEUR Frío</option>
                     <option value="correos_express">Correos Express</option>
                     <option value="local_delivery">Entrega Local</option>
+                    <option value="inhouse">In-house (Pallet)</option>
                 </Select>
               </div>
               <div className="grid grid-cols-3 gap-2">
@@ -221,7 +226,7 @@ const ValidateDialog: React.FC<{ open: boolean; onOpenChange: (v: boolean) => vo
 // Panel principal
 // ===============================
 export default function LogisticsPage() {
-  const { data: santaData, setData, saveCollection } = useData();
+  const { data: santaData } = useData();
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<string>("all");
   const [channel, setChannel] = useState<string>("all");
@@ -248,7 +253,6 @@ export default function LogisticsPage() {
   }, [orders]);
   
   const accountMap = useMemo(() => new Map(accounts.map(a => [a.id, a])), [accounts]);
-  const partyMap = useMemo(() => new Map(parties.map(p => [p.id, p])), [parties]);
 
   const filtered = useMemo(() => shipments.filter(s => {
     const order = orderMap.get(s.orderId);
@@ -268,105 +272,28 @@ export default function LogisticsPage() {
     otif: 96, // mock
   }), [shipments]);
 
-  const bulkSetStatus = (next: ShipmentStatus) => {
-    if (!santaData) return;
-    const updatedShipments = santaData.shipments.map(s => selected.includes(s.id) ? { ...s, status: next } : s);
-    setData({ ...santaData, shipments: updatedShipments });
-    setSelected([]);
-  };
-
   const openValidateFor = (row: Shipment) => { setCurrentShipment(row); setOpenValidate(true); };
 
-  const handleSaveValidation = (payload: any) => {
-    if (!santaData || !currentShipment) return;
-    const updatedShipments: Shipment[] = santaData.shipments.map(s => s.id === currentShipment.id ? {
-        ...s,
-        status: "ready_to_ship",
-        carrier: payload.carrier,
-        packedById: payload.packer,
-        checks: { ...s.checks, visualOk: payload.visualOk },
-        // Lógica para actualizar líneas con lotes vendría aquí
-    } : s);
-     setData({ ...santaData, shipments: updatedShipments });
+  const handleSaveValidation = async (payload: any) => {
+    if (!currentShipment) return;
+    await validateShipment(currentShipment.id, payload);
     setOpenValidate(false);
+    setNotification({ type: 'success', message: `Envío ${currentShipment.id} validado.` });
   };
   
-  const handleGenerateAlbaran = async (shipment: Shipment) => {
-     if (!canGenerateDeliveryNote(shipment)) { 
-        setNotification({ type: 'error', message: 'Primero marca "Visual OK" en la validación del pedido.' });
-        return; 
-     }
-     if(!santaData) return;
-     const updatedShipments = santaData.shipments.map(s => s.id === shipment.id ? { ...s, holdedDeliveryId: s.holdedDeliveryId || `ALB-${Math.floor(Math.random()*90000+10000)}` } : s);
-     setData({ ...santaData, shipments: updatedShipments });
-     setNotification({ type: 'success', message: `Albarán ${updatedShipments.find(s=>s.id === shipment.id)?.holdedDeliveryId} generado.`});
-     // Ahora, genera el PDF
-     await handleGeneratePackingSlip(shipment.id, "Albarán");
-  };
-
-  const handleGeneratePackingSlip = async (shipmentId: string, type: "Albarán" | "Hoja de Pedido") => {
-    setGeneratingSlip(shipmentId);
-    setNotification(null);
-    try {
-      const result = await generatePackingSlip(shipmentId);
-      if (result.error) {
-        setNotification({type: 'error', message: `Error: ${result.error}`});
-        return;
-      }
-      if (result.pdfDataUri) {
-          const link = document.createElement('a');
-          link.href = result.pdfDataUri;
-          link.download = `${type.toLowerCase().replace(' ', '_')}-${shipmentId}.pdf`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          setNotification({type: 'success', message: `${type} generado y descargado.`});
-      }
-    } catch (e: any) {
-      setNotification({type: 'error', message: e.message || `Error al generar ${type}.`});
-      console.error(e);
-    } finally {
-        setGeneratingSlip(null);
-    }
+  const handleSaveNewShipment = async (shipmentData: Omit<Shipment, 'id' | 'createdAt' | 'updatedAt'>) => {
+      await createShipmentFromOrder(shipmentData.orderId); // Asumiendo que se crea desde un pedido, o se necesita una nueva acción.
+      setOpenNewShipment(false);
+      setNotification({ type: 'success', message: `Job para crear envío encolado.` });
   };
   
-  const handleSaveNewShipment = async (shipment: Omit<Shipment, 'id' | 'createdAt'>) => {
-    const newShipment = {
-        ...shipment,
-        id: `shp_${Date.now()}`,
-        createdAt: new Date().toISOString(),
-    };
-    await saveCollection('shipments', [...shipments, newShipment]);
-    setOpenNewShipment(false);
-    setNotification({ type: 'success', message: `Envío ${newShipment.id} creado con éxito.` });
-  };
-
-  const generateLabel = (shipment: Shipment) => {
-    if (!canGenerateLabel(shipment)) { 
-      setNotification({ type: 'error', message: 'Para la etiqueta necesitas: Albarán + Servicio + Peso y Dimensiones.' });
-      return; 
-    }
-    if(!santaData) return;
-    const updatedShipments: Shipment[] = santaData.shipments.map(r => r.id === shipment.id ? { ...r, labelUrl: "https://label.example/mock.pdf", tracking: `SC-TRACK-9988` } : r);
-    setData({ ...santaData, shipments: updatedShipments });
-    setNotification({ type: 'success', message: 'Etiqueta de envío generada.' });
-  };
-
-  const markShipped = (shipment: Shipment) => {
-    if(!santaData) return;
-    const updatedShipments: Shipment[] = santaData.shipments.map(r => r.id === shipment.id ? { ...r, status: "shipped" } : r);
-    setData({ ...santaData, shipments: updatedShipments });
-    setNotification({ type: 'success', message: `Envío ${shipment.id} marcado como "Enviado".`});
-  };
-
   type RowAction = { id: string; label: string; icon: React.ReactNode; onClick: () => void; available: boolean; pendingReason?: string };
   const buildRowActions = (shipment: Shipment): RowAction[] => {
     const actions: RowAction[] = [
-      { id: "packing_slip", label: "Generar Hoja Pedido (IA)", icon: <Printer className="w-4 h-4"/>, onClick: () => handleGeneratePackingSlip(shipment.id, "Hoja de Pedido"), available: true },
       { id: "validate", label: "Validar (lotes + visual)", icon: <BadgeCheck className="w-4 h-4"/>, onClick: () => openValidateFor(shipment), available: true },
-      { id: "delivery", label: "Generar albarán (PDF)", icon: <FileText className="w-4 h-4"/>, onClick: () => handleGenerateAlbaran(shipment), available: canGenerateDeliveryNote(shipment), pendingReason: "Requiere Visual OK" },
-      { id: "label", label: "Generar etiqueta", icon: <Truck className="w-4 h-4"/>, onClick: () => generateLabel(shipment), available: canGenerateLabel(shipment), pendingReason: "Requiere Albarán + Servicio" },
-      { id: "ship", label: "Marcar enviado", icon: <PackageCheck className="w-4 h-4"/>, onClick: () => markShipped(shipment), available: canMarkShipped(shipment), pendingReason: "Requiere Etiqueta" },
+      { id: "delivery", label: "Generar albarán (PDF)", icon: <FileText className="w-4 h-4"/>, onClick: () => createDeliveryNote(shipment.id), available: canGenerateDeliveryNote(shipment), pendingReason: "Requiere Visual OK" },
+      { id: "label", label: "Generar etiqueta", icon: <Truck className="w-4 h-4"/>, onClick: () => shipment.mode === 'PARCEL' ? createParcelLabel(shipment.id) : createPalletLabel(shipment.id), available: canGenerateLabel(shipment), pendingReason: "Req. Albarán/Peso" },
+      { id: "ship", label: "Marcar enviado", icon: <PackageCheck className="w-4 h-4"/>, onClick: () => markShipped(shipment.id), available: canMarkShipped(shipment), pendingReason: "Requiere Etiqueta" },
     ];
     return showOnlyAvailable ? actions.filter(a => a.available) : actions;
   };
@@ -416,11 +343,6 @@ export default function LogisticsPage() {
                   <option value="distribuidor">Distribuidor</option>
               </Select>
             </div>
-            <div className="flex gap-2">
-              <SBButton variant="secondary" disabled={selected.length === 0} onClick={() => bulkSetStatus("ready_to_ship")}><BadgeCheck className="w-4 h-4 mr-2"/>Validar</SBButton>
-              <SBButton variant="secondary" disabled={selected.length === 0} onClick={() => bulkSetStatus("shipped")}><Truck className="w-4 h-4 mr-2"/>Marcar enviado</SBButton>
-              <SBButton variant="secondary"><FileDown className="w-4 h-4 mr-2"/>Exportar CSV</SBButton>
-            </div>
           </div>
         </div>
       </SBCard>
@@ -431,7 +353,7 @@ export default function LogisticsPage() {
           <table className="w-full text-sm">
             <thead className="bg-zinc-50 text-left text-zinc-600">
               <tr>
-                <th className="p-3 w-10"><Checkbox onCheckedChange={(checked: boolean) => setSelected(checked ? filtered.map(s => s.id) : [])}/></th>
+                <th className="p-3 w-10"><Checkbox checked={selected.length === filtered.length && filtered.length > 0} onCheckedChange={(checked: boolean) => setSelected(checked ? filtered.map(s => s.id) : [])}/></th>
                 <th className="p-3 w-32 font-semibold">ID Envío</th>
                 <th className="p-3 font-semibold">Fecha</th>
                 <th className="p-3 font-semibold">Canal</th>
@@ -475,8 +397,8 @@ export default function LogisticsPage() {
                     <td className="p-3 text-right">
                        <DropdownMenu>
                           <DropdownMenuTrigger>
-                              <SBButton variant="secondary" disabled={generatingSlip === shipment.id}>
-                                {generatingSlip === shipment.id ? <Loader2 className="h-4 w-4 animate-spin"/> : <MoreHorizontal className="w-4 h-4"/>}
+                              <SBButton variant="secondary">
+                                <MoreHorizontal className="w-4 h-4"/>
                               </SBButton>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-64 sb-menu">
@@ -500,36 +422,7 @@ export default function LogisticsPage() {
           </table>
         </div>
       </SBCard>
-
-      {/* Paneles secundarios */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <SBCard title="Escaneo y utilidades">
-          <div className="p-4 space-y-3">
-            <div className="flex gap-2">
-              <Input placeholder="Escanea ID de pedido / lote / SKU" />
-              <SBButton variant="secondary"><Clipboard className="w-4 h-4 mr-2"/>Escanear</SBButton>
-            </div>
-          </div>
-        </SBCard>
-
-        <SBCard title="Incidencias y devoluciones">
-          <div className="p-4 space-y-2">
-            <div className="grid grid-cols-2 gap-2">
-              <SBButton variant="secondary"><AlertTriangle className="w-4 h-4 mr-2"/>Nueva incidencia</SBButton>
-              <SBButton variant="secondary"><PackageOpen className="w-4 h-4 mr-2"/>Abrir devolución</SBButton>
-            </div>
-          </div>
-        </SBCard>
-
-        <SBCard title="Auditoría y trazabilidad">
-          <ul className="p-4 text-sm space-y-2">
-              <li>10:02 — SH-240915-001 importado de <span className="font-medium">Shopify</span> (unfulfilled).</li>
-              <li>10:15 — SM-240915-002 validado <span className="font-medium">Muestra</span>, Visual OK, srv Standard.</li>
-              <li>10:22 — SO-240915-003 etiqueta Sendcloud creada. Tracking SC-TRACK-9988.</li>
-          </ul>
-        </SBCard>
-      </div>
-
+      
       {/* Diálogo de validación */}
       <ValidateDialog open={openValidate} onOpenChange={setOpenValidate} shipment={currentShipment} onSave={handleSaveValidation} />
       
