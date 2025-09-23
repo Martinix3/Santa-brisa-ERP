@@ -1,38 +1,54 @@
-
 // /src/app/api/contacts/route.ts
 import { NextResponse } from 'next/server';
-import { getServerData } from '@/lib/dataprovider/server'; 
-import type { Party, SantaData } from '@/domain/ssot';
+import { db } from '@/lib/firebase/admin';
 
-async function getMany<T>(collection: keyof SantaData): Promise<T[]> {
-    const data = await getServerData();
-    return (data[collection] as T[]) || [];
-}
+type Row = {
+  id: string;
+  legalName: string;
+  tradeName?: string;
+  vat?: string;
+  city?: string;
+  email?: string;
+  phone?: string;
+  roles: string[];
+  holded?: boolean;
+  updatedAt?: string;
+};
 
 export async function GET() {
   try {
-    // Trae Parties (clientes, proveedores, etc.). Filtra aquí si quieres solo visibles.
-    const parties = await getMany<Party>('parties');
+    const qs = await db.collection('parties').limit(1000).get();
+    const rows: Row[] = qs.docs.map((d) => {
+      const p = d.data() as any;
+      const emails: any[] = p.emails ?? [];
+      const phones: any[] = p.phones ?? [];
+      const contacts: any[] = p.contacts ?? [];   // legacy read-only
+      const addr0: any = (p.addresses ?? [])[0] || {};
+      const primaryEmail =
+        emails.find((e) => e?.isPrimary)?.value ??
+        emails[0]?.value ??
+        contacts.find((c) => c.type === 'email' && c.isPrimary)?.value ??
+        contacts.find((c) => c.type === 'email')?.value;
 
-    // Mapea a una lista de "contactos" segura, sin asumir arrays
-    const rows = (parties ?? []).map(p => {
-      const emails = (p.emails ?? []);
-      const phones = (p.phones ?? []);
-      const contacts = (p.contacts ?? []);          // legacy
-      const addresses = (p.addresses ?? []);        // legacy
-      const addr0 = addresses[0] as any || {};
-      const mainLegacy = contacts.find(c => c.isPrimary) as any || {};
+      const primaryPhone =
+        phones.find((t) => t?.isPrimary)?.value ??
+        phones[0]?.value ??
+        contacts.find((c) => c.type === 'phone' && c.isPrimary)?.value ??
+        contacts.find((c) => c.type === 'phone')?.value;
+
+      const city =
+        p.billingAddress?.city ?? p.shippingAddress?.city ?? addr0?.city ?? undefined;
 
       return {
-        id: p.id,
+        id: d.id,
         legalName: p.legalName || p.name || '',
         tradeName: p.tradeName || undefined,
         vat: p.vat || p.taxId || undefined,
-        // “principal” por preferencia: emails/phones modernos → fallback legacy
-        email: emails.find(e => e.isPrimary)?.value || emails[0]?.value || (mainLegacy.type === 'email' ? mainLegacy.value : undefined),
-        phone: phones.find(p => p.isPrimary)?.value || phones[0]?.value || (mainLegacy.type === 'phone' ? mainLegacy.value : undefined),
-        city: addr0?.city || undefined,
-        roles: p.roles || [],
+        city,
+        email: primaryEmail,
+        phone: primaryPhone,
+        roles: p.roles ?? [],
+        holded: !!p?.external?.holdedContactId,
         updatedAt: p.updatedAt ?? p.createdAt,
       };
     });
