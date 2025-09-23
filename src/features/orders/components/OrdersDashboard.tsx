@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useMemo, useState, useTransition } from "react";
@@ -9,6 +10,8 @@ import { updateOrderStatus } from "@/app/(app)/orders/actions";
 import { ImportShopifyOrderButton } from './ImportShopifyOrderButton';
 import Link from "next/link";
 import { orderTotal } from "@/lib/sb-core";
+import { consignmentOnHandByAccount, consignmentTotalUnits } from '@/lib/consignment-and-samples';
+
 
 type Tab = "directa" | "colocacion" | "online";
 
@@ -89,12 +92,13 @@ function StatusSelector({ order, onChange, accountsById, partiesById }: {
   partiesById: Map<string, Party>;
 }) {
   const [isPending, start] = useTransition();
-  const style = ORDER_STATUS_META[order.status] || ORDER_STATUS_META.open;
+  const status = order.status || 'open';
+  const style = ORDER_STATUS_META[status] || ORDER_STATUS_META.open;
 
   return (
     <div className="relative flex items-center gap-2">
       <select
-        value={order.status}
+        value={status}
         onChange={(e) => start(() => {
           const account = accountsById.get(order.accountId);
           const party = account ? partiesById.get(account.partyId) : undefined;
@@ -221,23 +225,14 @@ export default function OrdersDashboard() {
   return (
     <div className="space-y-4">
         <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 p-1 bg-zinc-100 rounded-lg">
-                {(['directa','colocacion','online'] as Tab[]).map(t => (
-                    <SBButton
-                        key={t}
-                        size="sm"
-                        onClick={() => setTab(t)}
-                        variant={tab === t ? 'primary' : 'ghost'}
-                        className={`font-semibold ${tab === t ? 'bg-white shadow-sm !text-zinc-800' : 'text-zinc-600'}`}
-                    >
-                        {t === 'directa' ? 'Venta Directa' : t === 'colocacion' ? 'Colocación (Sell-Out)' : 'Online'}
-                    </SBButton>
-                ))}
-            </div>
+            <Tabs active={tab} onChange={setTab} />
             <div className="flex items-center gap-2">
                 {tab === 'online' && <ImportShopifyOrderButton />}
                 <SBButton as={Link} href="/orders/new">
                     Nuevo pedido
+                </SBButton>
+                 <SBButton variant="secondary" onClick={onExport} aria-label="Exportar a CSV">
+                    Exportar
                 </SBButton>
             </div>
         </div>
@@ -250,17 +245,31 @@ export default function OrdersDashboard() {
         <KpiCard emoji="💶" label="Pendiente de Cobrar" value={kpi.toCollect} color="#8b5cf6" />
       </div>
 
-      <div className="overflow-x-auto rounded-xl border bg-white">
-        <table className="min-w-full text-sm">
-          <thead className="bg-zinc-50">
-            <tr className="text-left">
-              <th className="p-3 font-medium text-zinc-600">Pedido ID</th>
-              <th className="p-3 font-medium text-zinc-600">Cliente</th>
-              <th className="p-3 font-medium text-zinc-600">Comercial</th>
-              <th className="p-3 font-medium text-zinc-600">Fecha</th>
-              <th className="p-3 font-medium text-zinc-600">Fuente</th>
-              <th className="p-3 font-medium text-zinc-600 text-right">Total</th>
-              <th className="p-3 font-medium text-zinc-600">Estado</th>
+       <div className="mt-4 mb-4 flex items-center gap-3">
+          <div className="relative flex-grow">
+            <input
+              type="text"
+              placeholder="Buscar por ID de pedido o cliente..."
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              className="w-full pl-3 pr-3 py-2 text-sm bg-white border border-zinc-200 rounded-md outline-none focus:ring-2 focus:ring-yellow-300"
+              aria-label="Buscar pedidos"
+            />
+          </div>
+          <FilterPill value={status} onChange={setStatus} placeholder="Filtrar por estado" options={STATUS_OPTS} />
+        </div>
+
+      <div className="bg-white border rounded-2xl overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-zinc-50 text-left">
+            <tr>
+              <th className="p-3 font-semibold text-zinc-600">Pedido ID</th>
+              <th className="p-3 font-semibold text-zinc-600">Cliente</th>
+              <th className="p-3 font-semibold text-zinc-600">Comercial</th>
+              <th className="p-3 font-semibold text-zinc-600">Fecha</th>
+              <th className="p-3 font-semibold text-zinc-600">Fuente</th>
+              <th className="p-3 font-semibold text-zinc-600 text-right">Total</th>
+              <th className="p-3 font-semibold text-zinc-600">Estado</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
@@ -269,7 +278,9 @@ export default function OrdersDashboard() {
               if (!acc) return null;
               const owner = usersById.get(acc.ownerId);
               const total = orderTotal(o);
-              const meta = ORDER_STATUS_META[o.status];
+              const status = o.status || 'open';
+              const meta = ORDER_STATUS_META[status];
+
               return (
                 <tr key={o.id} className="hover:bg-zinc-50">
                   <td className="p-3 font-mono text-xs font-medium text-zinc-800">
@@ -293,7 +304,7 @@ export default function OrdersDashboard() {
                   </td>
                   <td className="p-3 text-right font-semibold">{total.toLocaleString("es-ES", { style: "currency", currency: "EUR" })}</td>
                   <td className="p-3">
-                    <StatusSelector order={o} onChange={onStatusChange} accountsById={accountsById} partiesById={partiesById} />
+                    <StatusSelector order={o} onChange={onStatusChange} accountsById={accountsById} partiesById={partiesById}/>
                   </td>
                 </tr>
               );
@@ -301,7 +312,7 @@ export default function OrdersDashboard() {
             {visibleOrders.length === 0 && (
               <tr>
                 <td colSpan={7} className="p-8 text-center text-zinc-500">
-                  No se encontraron pedidos en esta vista. {tab === 'online' ? 'Importa uno desde Shopify para empezar.' : ''}
+                  No se encontraron pedidos en esta vista.
                 </td>
               </tr>
             )}
@@ -311,18 +322,3 @@ export default function OrdersDashboard() {
     </div>
   );
 }
-
-// ------------------------------------------------------------------
-// Local helpers (replacing '@/lib/*')
-// ------------------------------------------------------------------
-
-function consignmentOnHandByAccount(_stockMoves: any[]) {
-  return {} as Record<string, Record<string, number>>; // sku -> qty per account
-}
-function consignmentTotalUnits(byAcc: Record<string, Record<string, number>>) {
-  const out: Record<string, number> = {};
-  Object.entries(byAcc).forEach(([acc, items]) => (out[acc] = Object.values(items).reduce((a, b) => a + b, 0)));
-  return out;
-}
-
-    
