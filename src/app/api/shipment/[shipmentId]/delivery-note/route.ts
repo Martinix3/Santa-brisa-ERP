@@ -7,41 +7,6 @@ import { renderDeliveryNotePdf } from '@/server/pdf/deliveryNote';
 import type { DeliveryNote, Shipment, OrderSellOut, Party } from '@/domain/ssot';
 import { bucket } from '@/lib/firebase/admin';
 
-async function generateAndSendPdf(shp: Shipment, dn: DeliveryNote) {
-  // Construye el payload que exige el renderer (incluye dateISO)
-  const dnData = {
-    ...dn,
-    dateISO: dn.date, // el renderer la pide explícita
-  } as any;
-  
-  // Regenerate PDF bytes from stored metadata
-  const pdfBytes = await renderDeliveryNotePdf(dnData);
-
-  // If there's a stored URL and we trust it, we can just redirect.
-  // For this example, we'll assume we might need to regenerate/re-upload if something changed.
-  
-  const filePath = `delivery-notes/${dn.id}.pdf`;
-  const file = bucket().file(filePath);
-
-  // Re-upload to ensure consistency
-  await file.save(Buffer.from(pdfBytes), {
-    contentType: 'application/pdf',
-    resumable: false,
-    metadata: { cacheControl: 'public, max-age=31536000, immutable' },
-  });
-
-  const [signedUrl] = await file.getSignedUrl({
-    action: 'read',
-    expires: '9999-12-31',
-  });
-
-  // Update the stored URL in case it changes (unlikely with this config)
-  await upsertMany('deliveryNotes', [{ id: dn.id, pdfUrl: signedUrl }] as any);
-
-  return Response.redirect(signedUrl, 302);
-}
-
-
 export async function GET(
   _req: NextRequest,
   ctx: { params: Promise<{ shipmentId: string }> }
@@ -52,14 +17,11 @@ export async function GET(
     const shp = await getOne<Shipment>('shipments', shipmentId);
     if (!shp) return new Response('Shipment not found', { status: 404 });
 
-    // Idempotency check: if DN already exists, use its URL or regenerate.
+    // Idempotency: If a delivery note already exists and has a URL, redirect to it.
     if (shp.deliveryNoteId) {
       const dn = await getOne<DeliveryNote>('deliveryNotes', shp.deliveryNoteId);
       if (dn?.pdfUrl) {
           return Response.redirect(dn.pdfUrl, 302);
-      }
-      if (dn) {
-        return generateAndSendPdf(shp, dn);
       }
     }
 
@@ -67,16 +29,17 @@ export async function GET(
     const party = await getOne<Party>('parties', shp.partyId);
 
     const now = new Date().toISOString();
-    const dnId = `DN-${now.slice(0,10)}-${String(Math.floor(Math.random()*1000)).padStart(3,'0')}`;
+    const dnId = shp.deliveryNoteId ?? `DN-${now.slice(0,10)}-${String(Math.floor(Math.random()*1000)).padStart(3,'0')}`;
     
-    const dnData: Omit<DeliveryNote, 'pdfUrl'> = {
+    const dnData: Omit<DeliveryNote, 'pdfUrl'|'createdAt'|'updatedAt'> & { dateISO: string } = {
       id: dnId,
       orderId: shp.orderId,
       shipmentId: shp.id,
       partyId: shp.partyId,
       series: order?.source === 'SHOPIFY' ? 'ONLINE' : 'B2B',
       date: now,
-      soldTo: { name: party?.name ?? shp.customerName ?? 'Cliente', vat: party?.vat },
+      dateISO: now, // Ensure dateISO is present for the PDF renderer
+      soldTo: { name: party?.name ?? shp.customerName ?? 'Cliente', vat: party?.taxId },
       shipTo: {
         name: shp.customerName ?? 'Cliente',
         address: `${shp.addressLine1 ?? ''} ${shp.addressLine2 ?? ''}`.trim(),
@@ -86,13 +49,9 @@ export async function GET(
         sku: l.sku, description: l.name ?? l.sku, qty: l.qty, uom: 'uds', lotNumbers: l.lotNumber ? [l.lotNumber] : []
       })),
       company: { name: 'Santa Brisa', vat: 'ESB00000000', address: 'C/ Olivos 10', city: 'Madrid', zip: '28010', country: 'España' },
-      createdAt: now as any, updatedAt: now as any,
     };
     
-    const pdfBytes = await renderDeliveryNotePdf({
-      ...dnData,
-      dateISO: dnData.date,
-    } as any);
+    const pdfBytes = await renderDeliveryNotePdf(dnData as any);
 
     const filePath = `delivery-notes/${dnId}.pdf`;
     const file = bucket().file(filePath);
