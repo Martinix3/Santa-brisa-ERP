@@ -4,13 +4,14 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
 import type { SantaData, User, UserRole } from '@/domain';
-import { initializeApp, getApps, getApp } from "firebase/app";
+import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, getIdToken } from "firebase/auth";
 import { getFirestore, collection, getDocs, writeBatch, doc, Timestamp } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { SANTA_DATA_COLLECTIONS } from "@/domain";
 import { INITIAL_MOCK_DATA } from "@/lib/mock-data";
 import { upsertMany } from './dataprovider/actions';
+import { firebaseWebConfig } from "@/config/firebaseWebApp";
 
 // --------- Tipos ----------
 type LoadReport = {
@@ -53,20 +54,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [authReady, setAuthReady] = useState(false);
   const [isPersistenceEnabled, setIsPersistenceEnabled] = useState(true); // Persistencia ON por defecto
   const [loadingData, setLoadingData] = useState(true);
-  const [firebaseApp, setFirebaseApp] = useState<import("firebase/app").FirebaseApp | null>(null);
+  const [firebaseApp, setFirebaseApp] = useState<FirebaseApp | null>(null);
   const router = useRouter();
 
   useEffect(() => {
-    async function initFirebase() {
-        const response = await fetch('/api/firebase-config');
-        const config = await response.json();
-
-        if (config && config.apiKey) {
-            const app = getApps().length ? getApp() : initializeApp(config);
-            setFirebaseApp(app);
-        } else {
-            console.error("Failed to load Firebase config from API.");
-        }
+    function initFirebase() {
+      if (firebaseWebConfig && firebaseWebConfig.apiKey) {
+        const app = getApps().length ? getApp() : initializeApp(firebaseWebConfig);
+        setFirebaseApp(app);
+      } else {
+        console.error("Firebase web config is missing or incomplete.");
+      }
     }
     initFirebase();
   }, []);

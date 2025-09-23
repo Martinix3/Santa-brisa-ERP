@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
+import { firebaseWebConfig } from '@/config/firebaseWebApp';
 
 export async function GET() {
   try {
-    const config = JSON.parse(process.env.NEXT_PUBLIC_FIREBASE_WEBAPP_CONFIG || "{}");
-    if (!config.apiKey) {
+    if (!firebaseWebConfig.apiKey) {
       throw new Error("Firebase web config is not available in environment variables.");
     }
-    return NextResponse.json(config);
+    return NextResponse.json(firebaseWebConfig);
   } catch (error: any) {
     console.error("Error serving Firebase config:", error);
     return NextResponse.json({ error: "Could not load Firebase configuration." }, { status: 500 });
