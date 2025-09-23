@@ -1,9 +1,10 @@
+// src/lib/firebaseClient.ts
 
 "use client";
 
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
-import { getAuth, connectAuthEmulator } from "firebase/auth";
-import { getFirestore, connectFirestoreEmulator, initializeFirestore } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
+import { getFirestore, initializeFirestore } from "firebase/firestore";
 import { firebaseWebConfig } from "@/config/firebaseWebApp";
 
 let app: FirebaseApp;
@@ -17,18 +18,6 @@ if (!getApps().length) {
   app = initializeApp(firebaseWebConfig);
   auth = getAuth(app);
   db = initializeFirestore(app, { experimentalAutoDetectLongPolling: true });
-
-  const useEmu = process.env.NEXT_PUBLIC_USE_EMULATORS === '1';
-  
-  if (useEmu) {
-    console.log('[Firebase] Connecting to emulators...');
-    const protocol = typeof window !== 'undefined' ? window.location.protocol.slice(0,-1) : 'http';
-    const browserHost = typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1';
-    
-    connectAuthEmulator(auth, `${protocol}://${browserHost}:9099`, { disableWarnings: true });
-    connectFirestoreEmulator(db, browserHost, 8080);
-    console.info('[Firebase] Connected to emulators');
-  }
 
 } else {
   app = getApp();
