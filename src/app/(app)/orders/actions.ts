@@ -1,7 +1,6 @@
 // src/app/(app)/orders/actions.ts
 'use server';
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
+
 import { revalidatePath } from 'next/cache';
 import { getOne, upsertMany } from '@/lib/dataprovider/server';
 import type { OrderStatus, Shipment, OrderSellOut, Account, Party, FinanceLink, PaymentLink } from '@/domain/ssot';
@@ -98,7 +97,7 @@ export async function createSalesInvoice({ orderId }: { orderId:string }) {
      costObject: { kind: 'ORDER', id: orderId },
   };
 
-  await upsertMany('financeLinks', [fin]);
+  await upsertMany('financeLinks', [fin] as any);
   await upsertMany('ordersSellOut', [{
      id: orderId,
      status: 'invoiced',
@@ -123,7 +122,7 @@ export async function recordPayment({ financeLinkId, amount, date, method }: {
     date: date ?? now,
     method: method ?? 'transfer',
   };
-  await upsertMany('paymentLinks', [pay]);
+  await upsertMany('paymentLinks', [pay] as any);
   revalidatePath('/finance');
   return { ok:true, paymentId: pay.id };
 }
