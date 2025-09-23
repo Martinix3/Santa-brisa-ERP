@@ -36,5 +36,10 @@ export async function callSendcloudApi(path: string, method: 'GET' | 'POST', bod
     throw new Error(`Sendcloud API request failed with status ${response.status}: ${errorBody}`);
   }
 
+  // Sendcloud devuelve 204 No Content para algunas operaciones exitosas sin cuerpo.
+  if (response.status === 204) {
+    return null;
+  }
+
   return response.json();
 }

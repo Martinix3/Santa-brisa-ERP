@@ -34,14 +34,12 @@ export async function POST(
   }
 
   if (provider === "sendcloud") {
-    const { apiKey, apiSecret } = body || {};
-    if (!apiKey || !apiSecret) return NextResponse.json({ ok:false, error:"Falta apiKey/apiSecret" }, { status:400 });
-    
-    // Guardar secretos en Firestore para persistencia
-    const db = adminDb;
-    await db.collection('dev-secrets').doc('sendcloud').set({ apiKey, apiSecret });
-
-    return NextResponse.json({ ok:true });
+    // La clave de API y el secreto se gestionan de forma segura a través de variables de entorno.
+    // Esta ruta solo necesita confirmar que las claves están disponibles en el servidor.
+    if (process.env.SENDCLOUD_API_KEY && process.env.SENDCLOUD_API_SECRET) {
+        return NextResponse.json({ ok: true, message: 'Las credenciales de Sendcloud ya están configuradas en el servidor.' });
+    }
+    return NextResponse.json({ ok: false, error: "Las credenciales de Sendcloud (KEY/SECRET) no se han encontrado. Deben configurarse en las variables de entorno del servidor." }, { status: 400 });
   }
   
   if (provider === 'firebase' || provider === 'google') {
