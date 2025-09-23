@@ -1,22 +1,39 @@
 
-import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
+import { getAuth, connectAuthEmulator } from "firebase/auth";
+import { getFirestore, connectFirestoreEmulator, initializeFirestore } from "firebase/firestore";
 import { firebaseWebConfig } from "@/config/firebaseWebApp";
 
-let app;
+let app: FirebaseApp;
+let auth: ReturnType<typeof getAuth>;
+let db: ReturnType<typeof getFirestore>;
 
 if (!getApps().length) {
     try {
         app = initializeApp(firebaseWebConfig);
+        auth = getAuth(app);
+        
+        const firestore = initializeFirestore(app, {
+            experimentalAutoDetectLongPolling: true,
+        });
+        db = firestore;
+
+        if (process.env.NEXT_PUBLIC_USE_EMULATORS === '1') {
+            console.log('[Firebase] Connecting to emulators...');
+            connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+            connectFirestoreEmulator(db, '127.0.0.1', 8080);
+            console.info('[Firebase] Connected to emulators');
+        }
+
     } catch(e) {
         console.error("Failed to initialize Firebase", e);
-        // En caso de error, `app` seguirá indefinido
     }
 } else {
     app = getApp();
+    auth = getAuth(app);
+    db = getFirestore(app);
 }
 
-// Exporta los servicios de Firebase solo si la app se inicializó correctamente
-export const auth = app ? getAuth(app) : undefined;
-export const db = app ? getFirestore(app) : undefined;
+export const firebaseApp = app!;
+export const firebaseAuth = auth!;
+export const firestoreDb = db!;

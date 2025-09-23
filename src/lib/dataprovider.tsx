@@ -11,7 +11,8 @@ import { useRouter } from "next/navigation";
 import { SANTA_DATA_COLLECTIONS } from "@/domain";
 import { INITIAL_MOCK_DATA } from "@/lib/mock-data";
 import { upsertMany } from './dataprovider/actions';
-import { firebaseWebConfig } from "@/config/firebaseWebApp";
+import { firebaseApp, auth as firebaseAuth, db as firestoreDb } from "@/lib/firebaseClient";
+
 
 // --------- Tipos ----------
 type LoadReport = {
@@ -54,87 +55,74 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [authReady, setAuthReady] = useState(false);
   const [isPersistenceEnabled, setIsPersistenceEnabled] = useState(true); // Persistencia ON por defecto
   const [loadingData, setLoadingData] = useState(true);
-  const [firebaseApp, setFirebaseApp] = useState<FirebaseApp | null>(null);
   const router = useRouter();
-
-  useEffect(() => {
-    function initFirebase() {
-      if (firebaseWebConfig && firebaseWebConfig.apiKey) {
-        const app = getApps().length ? getApp() : initializeApp(firebaseWebConfig);
-        setFirebaseApp(app);
-      } else {
-        console.error("Firebase web config is missing or incomplete.");
-      }
+  
+  const loadInitialData = useCallback(async () => {
+    if (!authReady || !firebaseUser) {
+        console.log('[DataProvider] Blocked loadInitialData: authReady=%s user=%s', authReady, !!firebaseUser);
+        return;
     }
-    initFirebase();
-  }, []);
+    
+    setLoadingData(true);
+    console.log(`[DataProvider] useEffect: Loading initial data. Persistence is ${isPersistenceEnabled ? 'ON' : 'OFF'}.`);
+
+    const loadAllCollections = async (): Promise<[SantaData, LoadReport]> => {
+        const data: Partial<SantaData> = {};
+        const report: LoadReport = { ok: [], errors: [], totalDocs: 0 };
+        
+        for (const name of SANTA_DATA_COLLECTIONS) {
+            try {
+                const querySnapshot = await getDocs(collection(firestoreDb!, name));
+                const docs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                (data as any)[name] = docs;
+                report.ok.push(name);
+                report.totalDocs += docs.length;
+            } catch (e: any) {
+                console.error(`[DataProvider] Error loading collection ${name}:`, e);
+                report.errors.push({ name, error: e.message });
+                (data as any)[name] = [];
+            }
+        }
+        console.log('[DataProvider] Firestore data loaded. Report:', report);
+        return [data as SantaData, report];
+    }
+
+    if (isPersistenceEnabled) {
+        try {
+            const [firestoreData, report] = await loadAllCollections();
+            if (report.totalDocs > 0) {
+                setData(firestoreData);
+            } else {
+                console.warn("[DataProvider] Firestore is empty or failed to load, using mock data.");
+                setData(INITIAL_MOCK_DATA);
+            }
+        } catch (e) {
+            console.error("[DataProvider] Failed to load Firestore data, using mock data:", e);
+            setData(INITIAL_MOCK_DATA);
+        }
+    } else {
+        setData(INITIAL_MOCK_DATA);
+    }
+    setLoadingData(false);
+  }, [authReady, firebaseUser, isPersistenceEnabled]);
 
   // Load Firestore data on initial mount or when persistence changes
   useEffect(() => {
-    if (!firebaseApp) return;
-    const db = getFirestore(firebaseApp);
-
-    async function loadInitialData() {
-        setLoadingData(true);
-        console.log(`[DataProvider] useEffect: Loading initial data. Persistence is ${isPersistenceEnabled ? 'ON' : 'OFF'}.`);
-
-        const loadAllCollections = async (): Promise<[SantaData, LoadReport]> => {
-            const data: Partial<SantaData> = {};
-            const report: LoadReport = { ok: [], errors: [], totalDocs: 0 };
-            
-            for (const name of SANTA_DATA_COLLECTIONS) {
-                try {
-                    const querySnapshot = await getDocs(collection(db, name));
-                    const docs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    (data as any)[name] = docs;
-                    report.ok.push(name);
-                    report.totalDocs += docs.length;
-                } catch (e: any) {
-                    console.error(`[DataProvider] Error loading collection ${name}:`, e);
-                    report.errors.push({ name, error: e.message });
-                    (data as any)[name] = [];
-                }
-            }
-            console.log('[DataProvider] Firestore data loaded. Report:', report);
-            return [data as SantaData, report];
-        }
-
-        if (isPersistenceEnabled) {
-            try {
-                const [firestoreData, report] = await loadAllCollections();
-                if (report.totalDocs > 0) {
-                    setData(firestoreData);
-                } else {
-                    console.warn("[DataProvider] Firestore is empty or failed to load, using mock data.");
-                    setData(INITIAL_MOCK_DATA);
-                }
-            } catch (e) {
-                console.error("[DataProvider] Failed to load Firestore data, using mock data:", e);
-                setData(INITIAL_MOCK_DATA);
-            }
-        } else {
-            setData(INITIAL_MOCK_DATA);
-        }
-        setLoadingData(false);
-    }
-    
-    if (!data) {
-        loadInitialData();
-    }
-  }, [isPersistenceEnabled, data, firebaseApp]);
+    if (!authReady || !firebaseUser) return;
+    loadInitialData().catch(console.error);
+  }, [authReady, firebaseUser, isPersistenceEnabled, loadInitialData]);
 
   // Handle auth state changes
   useEffect(() => {
-    if (!firebaseApp) return;
+    if (!firebaseAuth) return;
     console.log('[DataProvider] Setting up Firebase auth listener.');
-    const auth = getAuth(firebaseApp);
-    const unsub = onAuthStateChanged(auth, (fbUser) => {
+    const unsub = onAuthStateChanged(firebaseAuth, (fbUser) => {
         console.log('[DataProvider] Auth state changed. Firebase user:', fbUser ? fbUser.email : 'null');
         setFirebaseUser(fbUser);
         setAuthReady(true);
     });
     return () => unsub();
-  }, [firebaseApp]);
+  }, []);
 
   // Sync currentUser with firebaseUser and local data
   useEffect(() => {
@@ -167,6 +155,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const togglePersistence = useCallback(() => {
     setIsPersistenceEnabled(prev => {
         console.log(`[DataProvider] Toggling persistence from ${prev} to ${!prev}`);
+        setData(null); // Force data reload
         return !prev;
     });
   }, []);
@@ -239,22 +228,20 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   );
 
   const login = useCallback(async () => {
-    if (!firebaseApp) return;
-    const auth = getAuth(firebaseApp);
+    if (!firebaseAuth) return;
     try {
-      await signInWithPopup(auth, new GoogleAuthProvider());
+      await signInWithPopup(firebaseAuth, new GoogleAuthProvider());
     } catch(e) {
       console.error("Google sign in failed", e);
       throw e;
     }
-  }, [firebaseApp]);
+  }, [firebaseAuth]);
 
   const loginWithEmail = useCallback(
     async (email: string, pass: string): Promise<User | null> => {
-      if (!firebaseApp) return null;
-      const auth = getAuth(firebaseApp);
+      if (!firebaseAuth) return null;
       console.log('[DataProvider] loginWithEmail called for:', email);
-      const userCredential = await signInWithEmailAndPassword(auth, email, pass);
+      const userCredential = await signInWithEmailAndPassword(firebaseAuth, email, pass);
       const fbUser = userCredential.user;
       console.log('[DataProvider] Firebase login successful for:', fbUser.email);
 
@@ -273,14 +260,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
        console.warn(`[DataProvider] No matching app user found in local data for email: ${fbUser.email}`);
       return null;
     },
-    [data?.users, firebaseApp]
+    [data?.users, firebaseAuth]
   );
 
   const signupWithEmail = useCallback(
     async (email: string, pass: string): Promise<User | null> => {
-      if (!firebaseApp) return null;
-      const auth = getAuth(firebaseApp);
-      const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
+      if (!firebaseAuth) return null;
+      const userCredential = await createUserWithEmailAndPassword(firebaseAuth, email, pass);
        const fbUser = userCredential.user;
       if (!fbUser || !data?.users) return null;
       const newUser: User = {
@@ -294,16 +280,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setCurrentUser(newUser);
       return newUser;
     },
-    [data?.users, setData, firebaseApp]
+    [data?.users, setData, firebaseAuth]
   );
 
   const logout = useCallback(async () => {
-    if (!firebaseApp) return;
-    const auth = getAuth(firebaseApp);
-    await signOut(auth);
+    if (!firebaseAuth) return;
+    await signOut(firebaseAuth);
     setCurrentUser(null);
     router.push("/login");
-  }, [router, firebaseApp]);
+  }, [router, firebaseAuth]);
 
   const value = useMemo<DataContextType>(
     () => ({
@@ -324,7 +309,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [data, currentUser, authReady, saveCollection, saveAllCollections, login, loginWithEmail, signupWithEmail, logout, togglePersistence, isPersistenceEnabled, setCurrentUserById]
   );
 
-  if (!authReady || loadingData) {
+  if (!authReady || (!data && isPersistenceEnabled)) {
     return (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-white/80 backdrop-blur-sm">
             <div className="flex flex-col items-center gap-4">
