@@ -1,46 +1,29 @@
+
 'use client';
-import React, { useMemo, useState, useEffect } from 'react';
-import { pullHoldedContactsAction, pushPartyToHoldedAction } from './actions';
+import React, { useMemo, useState } from 'react';
+import { useData } from '@/lib/dataprovider';
 import type { Party } from '@/domain/ssot';
+import { pullHoldedContactsAction, pushPartyToHoldedAction } from './actions';
 
 export default function ContactsPage() {
-  const [parties, setParties] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
+  const data = useData<{ parties: Party[] }>();
   const [q, setQ] = useState('');
 
-  useEffect(() => {
-    async function fetchContacts() {
-      try {
-        setLoading(true);
-        const res = await fetch('/api/contacts', { cache: 'no-store' });
-        if (!res.ok) throw new Error('CONTACTS_API_FAILED');
-        const { rows } = await res.json();
-        setParties(rows);
-      } catch (e: any) {
-        setError(e.message || 'Error al cargar los contactos');
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchContacts();
-  }, []);
-  
   const list = useMemo(() => {
+    const parties: Party[] = data?.parties ?? [];
     const s = q.toLowerCase();
     if (!s) return parties;
     return (parties ?? []).filter(p =>
       (p.legalName || '').toLowerCase().includes(s) ||
       (p.tradeName || '').toLowerCase().includes(s) ||
       (p.vat || '').toLowerCase().includes(s) ||
-      (p.email?.value || '').toLowerCase().includes(s) ||
-      (p.phone?.value || '').toLowerCase().includes(s)
+      (p.emails ?? []).some(e => (typeof e === 'string' ? e : e.value).toLowerCase().includes(s)) ||
+      (p.phones ?? []).some(t => (typeof t === 'string' ? t : t.value).toLowerCase().includes(s)) ||
+      (p.contacts ?? []).some(c => c.value?.toLowerCase?.().includes(s)) // legacy, por si acaso
     );
-  }, [parties, q]);
+  }, [data?.parties, q]);
 
-  if(loading) return <div className="p-4">Cargando contactos...</div>
-  if(error) return <div className="p-4 text-red-600">Error: {error}</div>
+  if(!data) return <div className="p-4">Cargando contactos...</div>
 
   return (
     <div className="p-4 space-y-4">
@@ -61,8 +44,8 @@ export default function ContactsPage() {
               <td>{p.legalName}</td>
               <td>{p.tradeName}</td>
               <td>{p.vat}</td>
-              <td>{p.email?.value}</td>
-              <td>{p.phone?.value}</td>
+              <td>{(p.emails?.[0] as any)?.value || p.emails?.[0]}</td>
+              <td>{(p.phones?.[0] as any)?.value || p.phones?.[0]}</td>
               <td><span className="text-xs px-2 py-1 rounded bg-zinc-100">{p.status ?? '—'}</span></td>
               <td>
                 {p.external?.holdedContactId ? (
@@ -78,3 +61,5 @@ export default function ContactsPage() {
     </div>
   );
 }
+
+    

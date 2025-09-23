@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useMemo, useState, useEffect } from 'react';
@@ -41,7 +40,7 @@ function Row({label, children, icon: Icon}:{label:string; children:React.ReactNo
     );
 }
 
-function Chip({children, color = 'zinc'}: {children: React.ReactNode, color?: 'zinc' | 'green' | 'amber' | 'red' | 'blue' }){
+function Chip({children, color = 'zinc' | 'green' | 'amber' | 'red' | 'blue' }: {children: React.ReactNode, color?: 'zinc' | 'green' | 'amber' | 'red' | 'blue' }){
   const colorClasses = {
       zinc: 'bg-zinc-100 text-zinc-700 border-zinc-200',
       green: 'bg-green-100 text-green-800 border-green-200',
@@ -65,7 +64,7 @@ const interactionIcons: Record<InteractionKind, React.ElementType> = {
 const formatEUR = (n:number)=> new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(n);
 const formatDate = (iso: string) => new Date(iso).toLocaleDateString('es-ES', {day:'2-digit',month:'short', year:'numeric'});
 
-function RollupBadge({ label, value, date, color = 'zinc'}: { label: string; value: string | number; date?: string; color?: 'zinc' | 'green' | 'amber' | 'red' | 'blue' }) {
+function RollupBadge({ label, value, date, color = 'zinc' | 'green' | 'amber' | 'red' | 'blue' }: { label: string; value: string | number; date?: string; color?: 'zinc' | 'green' | 'amber' | 'red' | 'blue' }) {
     return (
         <div className={`p-2 rounded-lg border flex items-center gap-2 text-xs ${ {zinc: 'bg-zinc-50 border-zinc-200', green: 'bg-green-50 border-green-200', amber: 'bg-amber-50 border-amber-200', red: 'bg-red-50 border-red-200', blue: 'bg-blue-50 border-blue-200'}[color] }`}>
             <span className={`font-bold ${ {zinc: 'text-zinc-800', green: 'text-green-800', amber: 'text-amber-800', red: 'text-red-800', blue: 'text-blue-800'}[color] }`}>{value}</span>
@@ -171,7 +170,7 @@ export function AccountDetailPageContent(){
     if(mainPhone) mainPhone.value = payload.phone;
     else if (payload.phone) phones.push({ value: payload.phone, isPrimary: true, source: 'CRM', verified: false, updatedAt: new Date().toISOString() });
 
-    const updatedParty = { ...party, legalName: payload.name, tradeName: payload.name, emails, phones, billingAddress: { street: payload.address, city: payload.city } };
+    const updatedParty = { ...party, legalName: payload.name, tradeName: payload.name, emails, phones, billingAddress: { address: payload.address, city: payload.city } };
 
     await saveAllCollections({ accounts: [updatedAccount], parties: [updatedParty] });
     setIsEditing(false);
@@ -340,7 +339,7 @@ export function AccountDetailPageContent(){
                     id: account.id,
                     name: account.name,
                     city: party.billingAddress?.city || '',
-                    address: party.billingAddress?.street || '',
+                    address: party.billingAddress?.address || '',
                     type: account.type,
                     mainContactName: (party.people ?? [])[0]?.name || '',
                     mainContactEmail: mainEmail?.value || '',
@@ -364,5 +363,7 @@ export function AccountDetailPageContent(){
     </div>
   );
 }
+
+    
 
     
