@@ -15,7 +15,7 @@ function CreateOrderPageContent() {
     const { data, setData, currentUser } = useData();
 
     const handleSubmit = async (payload: {
-        account: string;
+        account?: string;
         newAccount?: Partial<Account>;
         newParty?: Partial<Party>;
         requestedDate?: string;
@@ -27,10 +27,14 @@ function CreateOrderPageContent() {
         items: { sku: string; qty: number; unit: "uds"; priceUnit: number, lotNumber?: string }[];
     }) => {
         if (!data || !currentUser) return;
+        if (!payload.account && !payload.newAccount) {
+            alert('Error: Debes seleccionar o crear una cuenta.');
+            return;
+        }
 
-        let accountId = data.accounts.find(a => a.name === payload.account)?.id;
-        let partyId = data.accounts.find(a => a.id === accountId)?.partyId;
-        
+        let accountId = payload.account ? data.accounts.find(a => a.name === payload.account)?.id : undefined;
+        let partyId: string | undefined;
+
         const collectionsToSave: Partial<SantaData> = {};
 
         if (payload.newAccount && payload.newParty) {
@@ -38,6 +42,8 @@ function CreateOrderPageContent() {
             partyId = payload.newParty.id!;
             collectionsToSave.parties = [...(data.parties || []), payload.newParty as Party];
             collectionsToSave.accounts = [...(data.accounts || []), payload.newAccount as Account];
+        } else if (accountId) {
+             partyId = data.accounts.find(a => a.id === accountId)?.partyId;
         }
 
         if (!accountId || !partyId) {
@@ -70,7 +76,7 @@ function CreateOrderPageContent() {
         // Server action
         const entries = Object.entries(finalCollectionsToSave) as [keyof SantaData, any][];
         for (const [col, docs] of entries) {
-          await upsertMany(String(col), docs);
+          await upsertMany(col, docs);
         }
         
         router.push('/orders');
