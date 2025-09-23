@@ -18,10 +18,13 @@ if (!getApps().length) {
         });
         db = firestore;
 
-        if (process.env.NEXT_PUBLIC_USE_EMULATORS === '1') {
+        const useEmu = process.env.NEXT_PUBLIC_USE_EMULATORS === '1';
+        const browserHost = typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1';
+
+        if (useEmu) {
             console.log('[Firebase] Connecting to emulators...');
-            connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
-            connectFirestoreEmulator(db, '127.0.0.1', 8080);
+            connectAuthEmulator(auth, `http://${browserHost}:9099`, { disableWarnings: true });
+            connectFirestoreEmulator(db, browserHost, 8080);
             console.info('[Firebase] Connected to emulators');
         }
 
@@ -37,4 +40,3 @@ if (!getApps().length) {
 export const firebaseApp = app!;
 export const firebaseAuth = auth!;
 export const firestoreDb = db!;
-

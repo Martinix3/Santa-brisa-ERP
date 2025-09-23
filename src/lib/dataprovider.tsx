@@ -111,8 +111,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (!authReady) return;
     
     if (!firebaseUser) {
-      setData(null);
-      setLoadingData(false); 
+      setLoadingData(false);
       return;
     };
     
