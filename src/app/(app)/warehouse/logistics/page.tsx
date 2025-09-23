@@ -318,42 +318,18 @@ export default function LogisticsPage() {
       );
       setOpenNewShipment(false);
   }, [handleAction]);
-
-  const handleDownloadDeliveryNote = async (shipmentId: string) => {
-    setPendingJobs(prev => ({ ...prev, [shipmentId]: true }));
-    try {
-        const response = await fetch(`/api/shipment/${shipmentId}/delivery-note`);
-        if (!response.ok) {
-            throw new Error(`Error ${response.status}: ${await response.text()}`);
-        }
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `albaran-${shipmentId}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        window.URL.revokeObjectURL(url);
-        setNotification({ type: 'success', message: 'Albarán descargado.' });
-    } catch (error: any) {
-        setNotification({ type: 'error', message: `No se pudo generar el albarán: ${error.message}` });
-    } finally {
-        setTimeout(() => setPendingJobs(prev => ({ ...prev, [shipmentId]: false })), 2000);
-    }
-  };
   
   const [isPending, startTransition] = useTransition();
 
-  type RowAction = { id: string; label: string; icon: React.ReactNode; onClick: () => void; available: boolean; pendingReason?: string };
+  type RowAction = { id: string; label: string; icon: React.ReactNode; onClick?: () => void; href?: string; available: boolean; pendingReason?: string };
   const buildRowActions = (shipment: Shipment): RowAction[] => {
     const isPendingOrPicking = shipment.status === 'pending' || shipment.status === 'picking';
     const order = orderMap.get(shipment.orderId);
     
     const actions: RowAction[] = [
-      { id: "picking_slip", label: "Hoja de Picking", icon: <FileText className="w-4 h-4"/>, onClick: () => {}, available: isPendingOrPicking },
+      { id: "picking_slip", label: "Hoja de Picking", icon: <FileText className="w-4 h-4"/>, href: `/api/shipment/${shipment.id}/picking-slip`, available: isPendingOrPicking },
       { id: "validate", label: "Validar", icon: <BadgeCheck className="w-4 h-4"/>, onClick: () => openValidateFor(shipment), available: isPendingOrPicking },
-      { id: "delivery", label: "Albarán", icon: <FileDown className="w-4 h-4"/>, onClick: () => handleDownloadDeliveryNote(shipment.id), available: canGenerateDeliveryNote(shipment), pendingReason: "Requiere Visual OK" },
+      { id: "delivery", label: "Albarán", icon: <FileDown className="w-4 h-4"/>, href: `/api/shipment/${shipment.id}/delivery-note`, available: canGenerateDeliveryNote(shipment), pendingReason: "Requiere Visual OK" },
       { id: "label", label: "Etiqueta", icon: <Truck className="w-4 h-4"/>, onClick: () => handleAction(shipment.id, () => shipment.mode === 'PARCEL' ? createParcelLabel(shipment.id) : createPalletLabel(shipment.id)), available: canGenerateLabel(shipment), pendingReason: "Req. Albarán/Peso" },
       { id: "ship", label: "Marcar Enviado", icon: <PackageCheck className="w-4 h-4"/>, onClick: () => handleAction(shipment.id, () => markShipped({ shipmentId: shipment.id })), available: canMarkShipped(shipment), pendingReason: "Requiere Etiqueta" },
       {
@@ -490,14 +466,28 @@ export default function LogisticsPage() {
                               <DropdownMenuContent align="end" className="w-64">
                                 <DropdownMenuLabel>Acciones</DropdownMenuLabel>
                                 <DropdownMenuSeparator />
-                                {buildRowActions(shipment).map((a) => (
-                                  <DropdownMenuItem key={a.id} onClick={a.onClick} disabled={!a.available} className="flex items-center justify-between">
+                                {buildRowActions(shipment).map((a) => {
+                                  const itemContent = (<>
                                     <div className="flex items-center gap-2">{a.icon}<span>{a.label}</span></div>
                                     {!a.available && !showOnlyAvailable && a.pendingReason && (
                                       <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-200">{a.pendingReason}</span>
                                     )}
-                                  </DropdownMenuItem>
-                                ))}
+                                  </>);
+                                  
+                                  if (a.href) {
+                                    return (
+                                        <a key={a.id} href={a.href} target="_blank" rel="noopener noreferrer" className={`w-full text-left block px-4 py-2 text-sm text-zinc-700 flex items-center justify-between ${a.available ? 'hover:bg-zinc-100' : 'opacity-50 cursor-not-allowed'}`}>
+                                            {itemContent}
+                                        </a>
+                                    );
+                                  }
+
+                                  return (
+                                    <DropdownMenuItem key={a.id} onClick={a.onClick} disabled={!a.available} className="flex items-center justify-between">
+                                        {itemContent}
+                                    </DropdownMenuItem>
+                                  );
+                                })}
                               </DropdownMenuContent>
                             </DropdownMenu>
                         )}

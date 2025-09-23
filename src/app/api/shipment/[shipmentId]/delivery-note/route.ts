@@ -5,26 +5,42 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { getOne, upsertMany } from '@/lib/dataprovider/server';
 import { renderDeliveryNotePdf } from '@/server/pdf/deliveryNote';
 import type { DeliveryNote, Shipment, OrderSellOut, Party } from '@/domain/ssot';
+import { bucket } from '@/lib/firebase/admin';
 
-async function generateAndSendPdf(shipment: Shipment, deliveryNote: DeliveryNote) {
+async function generateAndSendPdf(shp: Shipment, dn: DeliveryNote) {
+  // Regenerate PDF bytes from stored metadata
   const pdfBytes = await renderDeliveryNotePdf({
-    id: deliveryNote.id,
-    dateISO: deliveryNote.date,
-    orderId: deliveryNote.orderId,
-    soldTo: deliveryNote.soldTo,
-    shipTo: deliveryNote.shipTo,
-    lines: deliveryNote.lines,
-    company: deliveryNote.company,
+    id: dn.id,
+    dateISO: dn.date,
+    orderId: dn.orderId,
+    soldTo: dn.soldTo,
+    shipTo: dn.shipTo,
+    lines: dn.lines,
+    company: dn.company,
   });
 
-  const nodeBody = Buffer.isBuffer(pdfBytes) ? pdfBytes : Buffer.from(pdfBytes as Uint8Array);
-  return new Response(nodeBody as any, {
-    status: 200,
-    headers: {
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="albaran-${shipment.id}.pdf"`,
-    },
+  // If there's a stored URL and we trust it, we can just redirect.
+  // For this example, we'll assume we might need to regenerate/re-upload if something changed.
+  
+  const filePath = `delivery-notes/${dn.id}.pdf`;
+  const file = bucket().file(filePath);
+
+  // Re-upload to ensure consistency
+  await file.save(Buffer.from(pdfBytes), {
+    contentType: 'application/pdf',
+    resumable: false,
+    metadata: { cacheControl: 'public, max-age=31536000, immutable' },
   });
+
+  const [signedUrl] = await file.getSignedUrl({
+    action: 'read',
+    expires: '9999-12-31',
+  });
+
+  // Update the stored URL in case it changes (unlikely with this config)
+  await upsertMany('deliveryNotes', [{ id: dn.id, pdfUrl: signedUrl }]);
+
+  return Response.redirect(signedUrl, 302);
 }
 
 
@@ -38,9 +54,12 @@ export async function GET(
     const shp = await getOne<Shipment>('shipments', shipmentId);
     if (!shp) return new Response('Shipment not found', { status: 404 });
 
-    // Idempotency check: if DN already exists, regenerate and return it.
+    // Idempotency check: if DN already exists, use its URL or regenerate.
     if (shp.deliveryNoteId) {
       const dn = await getOne<DeliveryNote>('deliveryNotes', shp.deliveryNoteId);
+      if (dn?.pdfUrl) {
+          return Response.redirect(dn.pdfUrl, 302);
+      }
       if (dn) {
         return generateAndSendPdf(shp, dn);
       }
@@ -52,12 +71,12 @@ export async function GET(
     const now = new Date().toISOString();
     const dnId = `DN-${now.slice(0,10)}-${String(Math.floor(Math.random()*1000)).padStart(3,'0')}`;
     
-    const dn: DeliveryNote = {
+    const dnData: Omit<DeliveryNote, 'pdfUrl'> = {
       id: dnId,
       orderId: shp.orderId,
       shipmentId: shp.id,
       partyId: shp.partyId,
-      series: 'B2B',
+      series: order?.source === 'SHOPIFY' ? 'ONLINE' : 'B2B',
       date: now,
       soldTo: { name: party?.name ?? shp.customerName ?? 'Cliente', vat: party?.vat },
       shipTo: {
@@ -72,10 +91,24 @@ export async function GET(
       createdAt: now, updatedAt: now,
     };
     
-    await upsertMany('deliveryNotes', [dn as any]);
+    const pdfBytes = await renderDeliveryNotePdf(dnData as DeliveryNote);
+
+    const filePath = `delivery-notes/${dnId}.pdf`;
+    const file = bucket().file(filePath);
+    await file.save(Buffer.from(pdfBytes), {
+        contentType: 'application/pdf',
+        resumable: false,
+    });
+    
+    const [signedUrl] = await file.getSignedUrl({
+        action: 'read',
+        expires: '9999-12-31',
+    });
+
+    await upsertMany('deliveryNotes', [{ ...dnData, pdfUrl: signedUrl } as any]);
     await upsertMany('shipments', [{ id: shp.id, deliveryNoteId: dnId, updatedAt: now }]);
 
-    return generateAndSendPdf(shp, dn);
+    return Response.redirect(signedUrl, 302);
 
   } catch (err) {
     console.error(`Failed to generate delivery note for shipment ${shipmentId}:`, err);
