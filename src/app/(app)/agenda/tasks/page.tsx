@@ -6,9 +6,11 @@ import { useData } from '@/lib/dataprovider';
 import { TaskBoard } from '@/features/agenda/TaskBoard';
 import type { Task } from '@/features/agenda/TaskBoard';
 import { sbAsISO } from '@/features/agenda/helpers';
-import type { Interaction, InteractionStatus, Account, SantaData, Payload, MarketingEvent } from '@/domain/ssot';
+import type { Interaction, InteractionStatus, Account, SantaData, Payload, MarketingEvent, Department } from '@/domain/ssot';
 import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/TaskCompletionDialog';
 import { MarketingTaskCompletionDialog } from '@/features/marketing/components/MarketingTaskCompletionDialog';
+import { FilterSelect } from '@/components/ui/FilterSelect';
+import { DEPT_META } from '@/domain';
 
 
 function mapInteractionsToTasks(
@@ -43,9 +45,23 @@ export default function GlobalTasksPage() {
     const [completingTask, setCompletingTask] = useState<Interaction | null>(null);
     const [completingMarketingEvent, setCompletingMarketingEvent] = useState<MarketingEvent | null>(null);
 
+    const [responsibleFilter, setResponsibleFilter] = useState('');
+    const [departmentFilter, setDepartmentFilter] = useState('');
+
+    const userOptions = useMemo(() => (data?.users || []).map(u => ({ value: u.id, label: u.name })), [data?.users]);
+    const departmentOptions = useMemo(() => Object.entries(DEPT_META).map(([key, meta]) => ({ value: key, label: meta.label })), []);
+
     const allTasks = useMemo(() => {
-        return mapInteractionsToTasks(data?.interactions, data?.accounts);
-    }, [data?.interactions, data?.accounts]);
+        if (!data?.interactions || !data?.accounts) return [];
+
+        const filteredInteractions = data.interactions.filter(i => {
+            const matchesResponsible = !responsibleFilter || i.userId === responsibleFilter || (i.involvedUserIds || []).includes(responsibleFilter);
+            const matchesDepartment = !departmentFilter || i.dept === departmentFilter;
+            return matchesResponsible && matchesDepartment;
+        });
+
+        return mapInteractionsToTasks(filteredInteractions, data.accounts);
+    }, [data?.interactions, data?.accounts, responsibleFilter, departmentFilter]);
     
     const handleUpdateStatus = (id: string, newStatus: InteractionStatus) => {
         if (!data) return;
@@ -137,9 +153,15 @@ export default function GlobalTasksPage() {
     return (
         <>
             <div className="p-6 space-y-6">
-                <div className="mb-4">
-                    <h1 className="text-2xl font-semibold text-zinc-800">Tablero de Tareas Global</h1>
-                    <p className="text-zinc-600 mt-1">Vista de todas las tareas programadas para todos los usuarios.</p>
+                <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+                    <div>
+                        <h1 className="text-2xl font-semibold text-zinc-800">Tablero de Tareas Global</h1>
+                        <p className="text-zinc-600 mt-1">Vista de todas las tareas programadas para todos los usuarios.</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <FilterSelect value={responsibleFilter} onChange={setResponsibleFilter} options={userOptions} placeholder="Responsable" />
+                        <FilterSelect value={departmentFilter} onChange={setDepartmentFilter} options={departmentOptions} placeholder="Sector" />
+                    </div>
                 </div>
                 <TaskBoard
                     tasks={allTasks}
