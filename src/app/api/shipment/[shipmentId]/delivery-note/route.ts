@@ -70,8 +70,21 @@ export async function GET(
 
     return Response.redirect(signedUrl, 302);
 
-  } catch (err) {
-    console.error(`Failed to generate delivery note for shipment ${shipmentId}:`, err);
-    return new Response('Internal Server Error', { status: 500 });
+  } catch (err: any) {
+    console.error(`[delivery-note][ERROR] Failed to generate delivery note for shipment ${shipmentId}:`, err);
+    // Fallback: devolvemos 500 con texto legible si no hay PDF generado
+    // o devolvemos el PDF si lo tenemos en memoria.
+    const msg = (err && err.message) ? err.message : String(err);
+    if (err?.pdfBytes) {
+      const nodeBody = Buffer.isBuffer(err.pdfBytes) ? err.pdfBytes : Buffer.from(err.pdfBytes as Uint8Array);
+      return new Response(nodeBody as any, {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': 'attachment; filename="albaran.pdf"',
+        },
+      });
+    }
+    return new Response(`Error generating delivery note: ${msg}`, { status: 500 });
   }
 }

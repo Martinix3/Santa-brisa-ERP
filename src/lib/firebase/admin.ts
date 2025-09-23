@@ -26,7 +26,6 @@ export const db =
 
 // Aplica settings una sola vez por proceso (o por HMR session)
 if (!globalForFirebase.__SB_DB_SETTINGS_DONE) {
-  // @ts-expect-error internals pueden variar por versión
   const alreadyFrozen = (db as any)?._settingsFrozen === true;
   if (!alreadyFrozen) {
     db.settings({ ignoreUndefinedProperties: true });
@@ -37,9 +36,7 @@ if (!globalForFirebase.__SB_DB_SETTINGS_DONE) {
 export function infoAdmin() {
   const projectId =
     process.env.FIREBASE_PROJECT_ID ||
-    // @ts-expect-error acceso interno depende de versión
     (db as any)?._settings?.projectId ||
-    // @ts-expect-error app.options puede existir
     (db as any)?.app?.options?.projectId ||
     'unknown';
   const bucketName =
