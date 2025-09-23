@@ -1,9 +1,13 @@
+
 'use server';
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 import { revalidatePath } from 'next/cache';
-import { enqueue } from '@/server/queue/queue';
-import { getServerData } from '@/lib/dataprovider/server';
-import { upsertMany } from '@/lib/dataprovider/actions';
+import { getOne, upsertMany } from '@/lib/dataprovider/server';
 import type { Shipment, OrderSellOut } from '@/domain/ssot';
+import { enqueue } from '@/server/queue/queue';
+
 
 /**
  * Creates a shipment document directly in Firestore from manual input.
@@ -33,56 +37,61 @@ type ValidateShipmentInput = {
 };
 
 export async function validateShipment(input: ValidateShipmentInput) {
-    const { shipmentId, userId, notes, lots } = input;
-    const now = new Date().toISOString();
-    const data = await getServerData();
-    const shp = data.shipments.find(s => s.id === shipmentId);
-    if (!shp) throw new Error('Shipment not found');
+  const { shipmentId, userId, notes, lots } = input;
+  const now = new Date().toISOString();
+  const shp = await getOne<Shipment>('shipments', shipmentId);
+  if (!shp) throw new Error('Shipment not found');
 
-    await upsertMany('shipments', [{
-        id: shipmentId,
-        status: 'ready_to_ship',
-        updatedAt: now,
-        checks: { ...(shp.checks || {}), visualOk: true },
-        // validatedById: userId, // Assuming you add this to your SSOT
-        notes: notes ?? shp.notes,
-        lines: lots ? lots.map(l => ({ sku: l.sku, qty: l.qty, uom: 'uds' as const, name: l.sku, lotNumber: l.lotNumber })) : shp.lines,
-    }]);
+  await upsertMany('shipments', [
+    {
+      id: shipmentId,
+      status: 'ready_to_ship',
+      updatedAt: now,
+      validatedById: userId,
+      validatedAt: now,
+      validationNotes: notes ?? null,
+      lines: lots?.length
+        ? lots.map((l) => ({ sku: l.sku, qty: l.qty, uom: 'uds' as const, lotNumber: l.lotNumber }))
+        : (shp.lines || []),
+    },
+  ]);
 
-    if (shp.orderId) {
-        await upsertMany('ordersSellOut', [{
-            id: shp.orderId,
-            status: 'confirmed',
-            updatedAt: now,
-        }]);
-    }
-    revalidatePath('/warehouse/logistics');
-    if (shp.orderId) revalidatePath('/sales/orders');
-    return { ok: true, shipmentId, orderId: shp.orderId ?? null };
+  if (shp.orderId) {
+    await upsertMany<OrderSellOut>('ordersSellOut', [
+      { id: shp.orderId, status: 'confirmed', updatedAt: now } as any,
+    ]);
+  }
+  revalidatePath('/warehouse/logistics');
+  if (shp.orderId) revalidatePath('/sales/orders');
+  return { ok: true, shipmentId, orderId: shp.orderId ?? null };
 }
 
 type MarkShippedInput = { shipmentId: string; trackingCode?: string; labelUrl?: string };
-export async function markShipped({ shipmentId, trackingCode, labelUrl }: MarkShippedInput) {
-    const data = await getServerData();
-    const shp = data.shipments.find(s => s.id === shipmentId);
-    if (!shp) throw new Error('Shipment not found');
-    const now = new Date().toISOString();
+export async function markShipmentShipped({ shipmentId, trackingCode, labelUrl }: MarkShippedInput) {
+  const now = new Date().toISOString();
+  const shp = await getOne<Shipment>('shipments', shipmentId);
+  if (!shp) throw new Error('Shipment not found');
 
-    await upsertMany('shipments', [{
-        id: shipmentId,
-        status: 'shipped',
-        trackingCode: trackingCode ?? shp.trackingCode,
-        labelUrl: labelUrl ?? shp.labelUrl,
-        updatedAt: now,
-    }]);
+  await upsertMany('shipments', [{
+    id: shipmentId,
+    status: 'shipped',
+    shippedAt: now,
+    updatedAt: now,
+    trackingCode: trackingCode ?? shp.trackingCode ?? null,
+    labelUrl: labelUrl ?? shp.labelUrl ?? null,
+  } as any]);
 
-    if (shp.orderId) {
-        await upsertMany('ordersSellOut', [{ id: shp.orderId, status: 'shipped', updatedAt: now }]);
-    }
-    revalidatePath('/warehouse/logistics');
-    if (shp.orderId) revalidatePath('/sales/orders');
-    return { ok: true };
+  if (shp.orderId) {
+    await upsertMany<OrderSellOut>('ordersSellOut', [{ id: shp.orderId, status: 'shipped', updatedAt: now } as any]);
+  }
+
+  revalidatePath('/warehouse/logistics');
+  if (shp.orderId) revalidatePath('/sales/orders');
+  return { ok:true };
 }
+
+// alias por compatibilidad con imports antiguos
+export const markShipped = markShipmentShipped;
 
 
 export async function createDeliveryNote(shipmentId: string) {

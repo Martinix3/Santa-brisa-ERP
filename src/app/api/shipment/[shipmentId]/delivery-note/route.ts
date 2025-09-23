@@ -1,7 +1,8 @@
 // src/app/api/shipment/[shipmentId]/delivery-note/route.ts
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 import { NextResponse, type NextRequest } from 'next/server';
-import { getServerData } from '@/lib/dataprovider/server';
-import { upsertMany } from '@/lib/dataprovider/actions';
+import { getOne, upsertMany, getServerData } from '@/lib/dataprovider/server';
 import { renderDeliveryNotePdf } from '@/server/pdf/deliveryNote';
 import type { DeliveryNote, Shipment } from '@/domain/ssot';
 
@@ -12,10 +13,10 @@ export async function GET(
   const { shipmentId } = params;
 
   try {
-    const data = await getServerData();
-    const shp = data.shipments.find(s => s.id === shipmentId);
+    const shp = await getOne<Shipment>('shipments', shipmentId);
     if (!shp) return new Response('Shipment not found', { status: 404 });
 
+    const data = await getServerData();
     const now = new Date().toISOString();
     const dnId = `DN-${now.slice(0, 10)}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
     const party = data.parties.find(p => p.id === shp.partyId);
@@ -27,7 +28,7 @@ export async function GET(
       partyId: shp.partyId,
       series: 'B2B',
       date: now,
-      soldTo: { name: party?.name ?? shp.customerName ?? 'Cliente', vat: party?.vat },
+      soldTo: { name: party?.name ?? shp.customerName ?? 'Cliente', vat: (party as any)?.vat },
       shipTo: {
         name: shp.customerName ?? 'Cliente',
         address: `${shp.addressLine1 ?? ''} ${shp.addressLine2 ?? ''}`.trim(),
@@ -40,8 +41,8 @@ export async function GET(
       createdAt: now, updatedAt: now,
     };
     
-    await upsertMany('deliveryNotes', [dn] as any);
-    await upsertMany('shipments', [{ id: shp.id, deliveryNoteId: dnId, updatedAt: now }]);
+    await upsertMany('deliveryNotes', [dn as any]);
+    await upsertMany('shipments', [{ id: shp.id, deliveryNoteId: dnId, updatedAt: now } as any]);
 
     const pdfBytes = await renderDeliveryNotePdf({
       id: dn.id,
@@ -53,7 +54,7 @@ export async function GET(
       company: dn.company
     });
 
-    const body = new Blob([Buffer.from(pdfBytes)], { type: 'application/pdf' });
+    const body = new Blob([pdfBytes], { type: 'application/pdf' });
     return new Response(body, {
       status: 200,
       headers: {

@@ -1,8 +1,9 @@
 // src/app/(app)/orders/actions.ts
 'use server';
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 import { revalidatePath } from 'next/cache';
-import { getServerData } from '@/lib/dataprovider/server';
-import { upsertMany } from '@/lib/dataprovider/actions';
+import { getOne, upsertMany, getServerData } from '@/lib/dataprovider/server';
 import type { OrderStatus, Shipment, OrderSellOut, Account, Party, FinanceLink, PaymentLink } from '@/domain/ssot';
 import { enqueue } from '@/server/queue/queue';
 import { importSingleShopifyOrder } from '@/server/integrations/shopify/import-order';
@@ -21,7 +22,7 @@ export async function updateOrderStatus(
 
   try {
     // 1. Actualizar siempre el estado del pedido
-    await upsertMany('ordersSellOut', [{ id: order.id, status: newStatus, billingStatus: newStatus === 'confirmed' ? 'INVOICING' : order.billingStatus, updatedAt: new Date().toISOString() }]);
+    await upsertMany('ordersSellOut', [{ id: order.id, status: newStatus, billingStatus: newStatus === 'confirmed' ? 'INVOICING' : order.billingStatus, updatedAt: new Date().toISOString() } as any]);
     console.log(`[ACTION] Pedido ${order.id} actualizado a estado ${newStatus} en la base de datos.`);
 
     // Si el pedido se confirma, encolar la creación de la factura en Holded
@@ -72,8 +73,7 @@ export async function importShopifyOrder(orderId: string): Promise<OrderSellOut>
 }
 
 export async function createSalesInvoice({ orderId }: { orderId:string }) {
-  const data = await getServerData();
-  const order = data.ordersSellOut.find(o => o.id === orderId);
+  const order = await getOne<OrderSellOut>('ordersSellOut', orderId);
   if (!order) throw new Error('Order not found');
   const amount = (order.lines || []).reduce((a,l) => {
      const unit = l.priceUnit ?? 0;
@@ -104,7 +104,7 @@ export async function createSalesInvoice({ orderId }: { orderId:string }) {
      status: 'invoiced',
      billingStatus: 'INVOICED',
      updatedAt: now,
-  }]);
+  } as any]);
 
   revalidatePath('/orders');
   revalidatePath('/finance');

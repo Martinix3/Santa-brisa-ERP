@@ -1,0 +1,319 @@
+*** /dev/null
+--- a/src/lib/firebase/admin.ts
+@@
++import { getApps, initializeApp, cert, applicationDefault } from 'firebase-admin/app';
++import { getFirestore } from 'firebase-admin/firestore';
++
++const app =
++  getApps()[0] ??
++  initializeApp({
++    credential: process.env.FIREBASE_CLIENT_EMAIL
++      ? cert({
++          clientEmail: process.env.FIREBASE_CLIENT_EMAIL!,
++          privateKey: process.env.FIREBASE_PRIVATE_KEY!.replace(/\\n/g, '\n'),
++          projectId: process.env.FIREBASE_PROJECT_ID!,
++        })
++      : applicationDefault(),
++  });
++
++export const db = getFirestore(app);
++// Muy importante para no romper por undefined en docs parciales
++db.settings({ ignoreUndefinedProperties: true });
++
++export function infoAdmin() {
++  return { projectId: db.projectId };
++}
+*** /dev/null
+--- a/src/lib/ssot/collections.ts
+@@
++// Colecciones canónicas según SSOT v5
++export const SANTA_DATA_COLLECTIONS = new Set<string>([
++  'parties', 'partyRoles', 'partyDuplicates', 'users', 'accounts', 'ordersSellOut', 'interactions',
++  'products', 'materials', 'billOfMaterials', 'productionOrders', 'lots', 'qaChecks',
++  'inventory', 'stockMoves', 'shipments', 'goodsReceipts', 'activations', 'promotions',
++  'marketingEvents', 'onlineCampaigns', 'influencerCollabs', 'materialCosts', 'financeLinks',
++  'paymentLinks', 'traceEvents', 'incidents', 'codeAliases', 'posTactics', 'posCostCatalog',
++  'plv_material', 'integrations', 'jobs', 'dead_letters', 'expenses', 'deliveryNotes'
++]);
++
++export function assertCollection(col: string) {
++  if (!SANTA_DATA_COLLECTIONS.has(col)) {
++    throw new Error(`Colección no SSOT: ${col}`);
++  }
++}
+*** /dev/null
+--- a/src/lib/dataprovider/server/index.ts
+@@
++import { db } from '@/lib/firebase/admin';
++import { assertCollection } from '@/lib/ssot/collections';
++
++type AnyDoc = Record<string, any>;
++
++export async function getOne<T = AnyDoc>(col: string, id: string): Promise<T | null> {
++  assertCollection(col);
++  if (!id) throw new Error(`getOne(${col}): id vacío`);
++  const snap = await db.collection(col).doc(id).get();
++  return snap.exists ? ({ id: snap.id, ...snap.data() } as T) : null;
++}
++
++/**
++ * upsertMany:
++ * - valida ids
++ * - usa BulkWriter (con retries automáticos)
++ * - merge:true para no machacar otros campos
++ */
++export async function upsertMany<T extends { id: string }>(
++  col: string,
++  docs: T[],
++): Promise<{ ok: true; count: number }> {
++  assertCollection(col);
++  if (!Array.isArray(docs) || !docs.length) return { ok: true, count: 0 };
++
++  const writer = db.bulkWriter();
++  let count = 0;
++  for (const d of docs) {
++    if (!d?.id || typeof d.id !== 'string') {
++      throw new Error(`upsertMany(${col}): missing/invalid id`);
++    }
++    const { id, ...rest } = d as AnyDoc;
++    const ref = db.collection(col).doc(id);
++    writer.set(
++      ref,
++      { ...rest, updatedAt: rest.updatedAt ?? new Date().toISOString() },
++      { merge: true },
++    );
++    count++;
++  }
++  await writer.close();
++  return { ok: true, count };
++}
+*** /dev/null
+--- a/scripts/sanity-write.ts
+@@
++// Ejecuta:  npx tsx scripts/sanity-write.ts
++import { db, infoAdmin } from '@/lib/firebase/admin';
++
++async function main() {
++  const { projectId } = infoAdmin();
++  const id = 'sanity-' + Date.now();
++  await db.collection('jobs').doc(id).set(
++    { hello: 'world', createdAt: new Date().toISOString() },
++    { merge: true },
++  );
++  const snap = await db.collection('jobs').doc(id).get();
++  console.log('[SANITY]', { projectId, exists: snap.exists, data: snap.data() });
++}
++
++main().catch((e) => {
++  console.error('[SANITY][ERROR]', e);
++  process.exit(1);
++});
+--- a/src/app/(app)/warehouse/logistics/actions.ts
++++ b/src/app/(app)/warehouse/logistics/actions.ts
+@@
+-'use server';
++'use server';
++export const runtime = 'nodejs';
++export const dynamic = 'force-dynamic';
+ 
+-import { revalidatePath } from 'next/cache';
+-import { getOne, upsertMany } from '@/lib/dataprovider/server';
++import { revalidatePath } from 'next/cache';
++import { getOne, upsertMany } from '@/lib/dataprovider/server';
++import type { Shipment, OrderSellOut } from '@/domain/ssot';
+ 
+-export async function validateShipment(shipmentId: string, payload: any) {
+-  const now = new Date().toISOString();
+-  const shp = await getOne<any>('shipments', shipmentId);
++type ValidateShipmentInput = {
++  shipmentId: string;
++  userId: string;
++  notes?: string;
++  lots?: Array<{ sku: string; lotNumber?: string; qty: number }>;
++};
++
++export async function validateShipment(input: ValidateShipmentInput) {
++  const { shipmentId, userId, notes, lots } = input;
++  const now = new Date().toISOString();
++  const shp = await getOne<Shipment>('shipments', shipmentId);
+   if (!shp) throw new Error('Shipment not found');
+-  await upsertMany('shipments', [{
+-    id: shipmentId,
+-    status: 'ready_to_ship',
+-    updatedAt: now,
+-    validatedById: payload.userId,
+-    validationNotes: payload.notes ?? null,
+-    lines: payload.lots?.length ? payload.lots.map((l: any) => ({ sku: l.sku, qty: l.qty, uom: 'uds', lotNumber: l.lotNumber })) : (shp.lines || []),
+-  }]);
+-  if (shp.orderId) {
+-    await upsertMany('ordersSellOut', [{ id: shp.orderId, status: 'confirmed', updatedAt: now }]);
+-  }
+-  return { ok: true, shipmentId, orderId: shp.orderId ?? null };
++  await upsertMany('shipments', [
++    {
++      id: shipmentId,
++      status: 'ready_to_ship',
++      updatedAt: now,
++      validatedById: userId,
++      validatedAt: now,
++      validationNotes: notes ?? null,
++      lines: lots?.length
++        ? lots.map((l) => ({ sku: l.sku, qty: l.qty, uom: 'uds' as const, lotNumber: l.lotNumber }))
++        : (shp.lines || []),
++    },
++  ]);
++  if (shp.orderId) {
++    await upsertMany<OrderSellOut>('ordersSellOut', [
++      { id: shp.orderId, status: 'confirmed', updatedAt: now },
++    ]);
++  }
++  revalidatePath('/warehouse/logistics');
++  if (shp.orderId) revalidatePath('/sales/orders');
++  return { ok: true, shipmentId, orderId: shp.orderId ?? null };
+ }
+ 
++type MarkShippedInput = { shipmentId: string; trackingCode?: string; labelUrl?: string };
+ export async function markShipmentShipped({ shipmentId, trackingCode, labelUrl }: MarkShippedInput) {
+   const now = new Date().toISOString();
+-  const shp = await getOne<any>('shipments', shipmentId);
++  const shp = await getOne<Shipment>('shipments', shipmentId);
+   if (!shp) throw new Error('Shipment not found');
+ 
+   await upsertMany('shipments', [{
+     id: shipmentId,
+     status: 'shipped',
+     shippedAt: now,
+     updatedAt: now,
+     trackingCode: trackingCode ?? shp.trackingCode ?? null,
+     labelUrl: labelUrl ?? shp.labelUrl ?? null,
+   }]);
+ 
+   if (shp.orderId) {
+-    await upsertMany('ordersSellOut', [{ id: shp.orderId, status: 'shipped', updatedAt: now }]);
++    await upsertMany<OrderSellOut>('ordersSellOut', [{ id: shp.orderId, status: 'shipped', updatedAt: now }]);
+   }
+ 
+   revalidatePath('/warehouse/logistics');
+   if (shp.orderId) revalidatePath('/sales/orders');
+   return { ok:true };
+ }
++
++// alias por compatibilidad con imports antiguos
++export const markShipped = markShipmentShipped;
+--- a/src/app/api/shipment/[shipmentId]/delivery-note/route.ts
++++ b/src/app/api/shipment/[shipmentId]/delivery-note/route.ts
+@@
+-import { NextRequest } from 'next/server';
++export const runtime = 'nodejs';
++export const dynamic = 'force-dynamic';
++import { NextRequest } from 'next/server';
+ import { getOne, upsertMany } from '@/lib/dataprovider/server';
+ import type { Shipment, DeliveryNote } from '@/domain/ssot';
+ import { generateDeliveryNotePdf } from '@/server/pdf/deliveryNote';
+ 
+-export async function GET(_req: NextRequest, { params }: { params: { shipmentId: string } }) {
+-  const { shipmentId } = params;
++export async function GET(_req: NextRequest, ctx: { params: Promise<{ shipmentId: string }> }) {
++  const { shipmentId } = await ctx.params;
+   const shp = await getOne<Shipment>('shipments', shipmentId);
+   if (!shp) return new Response('Shipment not found', { status: 404 });
+ 
+   const now = new Date().toISOString();
+   const dnId = `DN-${now.slice(0,10)}-${String(Math.floor(Math.random()*1000)).padStart(3,'0')}`;
+@@
+   await upsertMany('deliveryNotes', [dn]);
+   await upsertMany('shipments', [{ id: shp.id, deliveryNoteId: dnId, updatedAt: now }]);
+ 
+-  const pdfBytes = await generateDeliveryNotePdf({ shipment: shp, deliveryNote: dn });
+-  return new Response(pdfBytes, {
++  const pdfBytes = await generateDeliveryNotePdf({ shipment: shp, deliveryNote: dn });
++  const body = new Blob([pdfBytes], { type: 'application/pdf' });
++  return new Response(body, {
+     status: 200,
+     headers: {
+       'Content-Type': 'application/pdf',
+       'Content-Disposition': `attachment; filename="albaran-${shp.id}.pdf"`,
+       'Cache-Control': 'private, max-age=0, must-revalidate',
+     },
+   });
+ }
+--- a/src/app/(app)/orders/actions.ts
++++ b/src/app/(app)/orders/actions.ts
+@@
+ 'use server';
++export const runtime = 'nodejs';
++export const dynamic = 'force-dynamic';
+ import { revalidatePath } from 'next/cache';
+ import { getOne, upsertMany } from '@/lib/dataprovider/server';
+ import type { OrderSellOut, FinanceLink, PaymentLink } from '@/domain/ssot';
+@@
+   const fin: FinanceLink = {
+     id: `INV-${now.slice(0,10)}-${Math.floor(Math.random()*99999)}`,
+     docType: 'SALES_INVOICE',
+     externalId: '',
+     status: 'pending',
+     netAmount: amount,
+     taxAmount: 0,
+     grossAmount: amount,
+-    currency: order.currency ?? 'EUR',
++    currency: 'EUR' as const,
+     issueDate: now,
+     dueDate: now,
+     docNumber: undefined,
+     partyId: order.partyId,
+     costObject: { kind: 'ORDER', id: orderId },
+   };
+@@
+   const pay: PaymentLink = {
+     id: `PAY-${now}-${Math.floor(Math.random()*1e6)}`,
+     financeLinkId,
+     externalId: undefined,
+     amount,
+     date: date ?? now,
+     method: method ?? 'transfer',
+   };
+   await upsertMany<PaymentLink>('paymentLinks', [pay]);
+   revalidatePath('/finance');
+   return { ok:true, paymentId: pay.id };
+ }
+*** /dev/null
+--- a/patch-notes/SB_DATAPROVIDER_README.md
+@@
++# Santa Brisa — Data Provider & Firestore
++
++Este patch añade:
++
++1. `src/lib/firebase/admin.ts`: inicialización única de `firebase-admin` y `getFirestore`, con `ignoreUndefinedProperties`.
++2. `src/lib/dataprovider/server/index.ts`: helpers de servidor `getOne` / `upsertMany` usando **BulkWriter** y validación de colecciones SSOT.
++3. `src/lib/ssot/collections.ts`: lista canónica de colecciones del **SSOT v5** y guardia `assertCollection`.
++4. Fuerza **runtime Node** y **dynamic** en server actions/routes que escriben: evita Edge Runtime (no compatible con `firebase-admin`) y caches.
++5. Corrección de la ruta de **Albarán** para Next 15 (`params` como **Promise** + `Response` con **Blob** PDF).
++6. `scripts/sanity-write.ts`: script de humo para verificar escritura real en Firestore.
++
++## Comandos útiles
++```bash
++npx tsx scripts/sanity-write.ts
++```
++Deberías ver `exists: true` y los datos guardados en `jobs/{sanity-<ts>}`.
++
++```bash
++npm run typecheck && npm run test
++```
++
++## Variables de entorno (Vercel/Local)
++```
++FIREBASE_PROJECT_ID=...
++FIREBASE_CLIENT_EMAIL=...
++FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
++# (opcional) FIRESTORE_EMULATOR_HOST=127.0.0.1:8080
++```
++
++> Si en los logs de Vercel ves que una ruta se ejecuta como **Edge Function**, revisa que el archivo tenga `export const runtime='nodejs'`.
+--- a/package.json
++++ b/package.json
+@@
+   "scripts": {
+-    "typecheck": "tsc --noEmit",
++    "typecheck": "tsc --noEmit",
++    "sanity:write": "tsx scripts/sanity-write.ts"
+   }
