@@ -37,13 +37,14 @@ export type PartyStatus = 'PROVISIONAL'|'ENRIQUECIDO'|'VINCULADO'|'CONFIABLE';
 // -----------------------------------------------------------------
 export type Address = { address?: string; city?: string; zip?: string; province?: string; country?: string; countryCode?: string };
 
+// Comunicación normalizada (email/teléfono)
 export type CommItem = {
-  value: string;
+  value: string;              // "+34999111222" | "bar@x.com"
   isPrimary?: boolean;
   verified?: boolean;
   source?: 'CRM'|'HOLDED'|'IMPORT'|'USER';
   updatedAt?: Timestamp;
-  optOut?: boolean;
+  optOut?: boolean;           // aplica a emails
 };
 
 export interface PartyPerson {
@@ -58,26 +59,26 @@ export interface Party {
   id: string;
   legalName: string;
   tradeName?: string;
-  vat?: string;
-  emails?: CommItem[];
-  phones?: CommItem[];
+  vat?: string;                     // NIF/CIF normalizado
+  emails?: CommItem[];              // listas (no borramos, marcamos principal)
+  phones?: CommItem[];              // listas (E.164)
   billingAddress?: Address;
   shippingAddress?: Address;
-  roles?: Array<'CUSTOMER'|'SUPPLIER'|'OTHER'>; // denormalizado
+  roles?: Array<'CUSTOMER'|'SUPPLIER'|'OTHER'>; // mantener sólo como denormalizado
   external?: {
     holdedContactId?: string;
-    holdedUpdatedAt?: string;
+    holdedUpdatedAt?: Timestamp;    // incremental idempotente
     shopifyCustomerId?: string;
   };
-  status?: PartyStatus;
-  people?: PartyPerson[];
+  status?: 'PROVISIONAL'|'ENRIQUECIDO'|'VINCULADO'|'CONFIABLE';
+  people?: PartyPerson[];           // personas de contacto si es empresa
   flags?: {
     needsReview?: boolean;
-    issues?: string[];
+    issues?: string[];              // ej: ['MISSING_VAT','POSSIBLE_DUP']
   };
   quality?: {
     lastAuditAt?: string;
-    score?: number;
+    score?: number;                 // 0..100
   };
   createdAt: any;
   updatedAt: any;
@@ -85,8 +86,8 @@ export interface Party {
   name: string; // Mantener por ahora, pero usar legalName/tradeName
   kind: 'ORG' | 'PERSON';
   taxId?: string; // CIF/NIF opcional para compatibilidad
-  contacts: never[]; // Deprecado, migrar a emails/phones
-  addresses: never[]; // Deprecado, migrar a billingAddress/shippingAddress
+  contacts: never[];                // deprecated - migrar a emails/phones/people
+  addresses: never[];               // deprecated - usar Address estándar
   handles?: Partial<Record<'instagram' | 'tiktok' | 'linkedin' | 'twitter', string>>;
   tags?: string[];
 }
