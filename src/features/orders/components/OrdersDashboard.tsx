@@ -109,8 +109,7 @@ function StatusSelector({ order, onChange, accountsById, partiesById }: {
           }
         })}
         disabled={isPending}
-        className="appearance-none px-2.5 py-1 text-xs font-semibold rounded-full outline-none focus:ring-2 ring-offset-1 ring-blue-400 transition-colors"
-        style={{ background: `${style.bg}`, color: style.color.replace('text-', '') }}
+        className={`appearance-none px-2.5 py-1 text-xs font-semibold rounded-full outline-none focus:ring-2 ring-offset-1 ring-blue-400 transition-colors ${style.bg} ${style.color}`}
       >
         {STATUS_OPTS.map((opt) => (
           <option key={opt.value} value={opt.value}>
