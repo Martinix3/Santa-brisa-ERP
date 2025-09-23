@@ -20,8 +20,8 @@
 
 Cuentas relevantes del proyecto:
 
-* `firebase-adminsdk-<id>@<project>.iam.gserviceaccount.com` (SA interna del SDK).
-* `firebase-app-hosting-compute@<project>.iam.gserviceaccount.com` (runtime de Hosting / App Hosting).
+* `firebase-adminsdk-fbsvc@santa-brisa-erp.iam.gserviceaccount.com` (SA interna del SDK).
+* `firebase-app-hosting-compute@santa-brisa-erp.iam.gserviceaccount.com` (runtime de Hosting / App Hosting).
 
 Roles mínimos recomendados:
 
@@ -73,7 +73,7 @@ Como no generamos JSON keys, en local usamos **impersonation**:
 
 Concede a tu usuario (p. ej. `mj@santabrisa.co`) el rol:
 
-* `roles/iam.serviceAccountTokenCreator` **sobre** la SA objetivo (p. ej. `firebase-adminsdk-<id>@...`).
+* `roles/iam.serviceAccountTokenCreator` **sobre** la SA objetivo (`firebase-adminsdk-fbsvc@santa-brisa-erp.iam.gserviceaccount.com`).
 
 ### 6.2 Autenticación gcloud local (una vez)
 
@@ -88,7 +88,7 @@ Usa la var `GOOGLE_IMPERSONATE_SERVICE_ACCOUNT`:
 
 ```bash
 # Opción temporal en shell
-export GOOGLE_IMPERSONATE_SERVICE_ACCOUNT=firebase-adminsdk-<id>@<project>.iam.gserviceaccount.com
+export GOOGLE_IMPERSONATE_SERVICE_ACCOUNT=firebase-adminsdk-fbsvc@santa-brisa-erp.iam.gserviceaccount.com
 npm run dev
 ```
 
@@ -98,7 +98,7 @@ o añade script npm (recomendado):
 // package.json
 {
   "scripts": {
-    "dev:sa": "cross-env GOOGLE_IMPERSONATE_SERVICE_ACCOUNT=firebase-adminsdk-<id>@<project>.iam.gserviceaccount.com next dev"
+    "dev:sa": "cross-env GOOGLE_IMPERSONATE_SERVICE_ACCOUNT=firebase-adminsdk-fbsvc@santa-brisa-erp.iam.gserviceaccount.com next dev"
   }
 }
 ```
@@ -136,7 +136,7 @@ SENDCLOUD_SECRET_KEY=...
 ```bash
 gcloud auth list
 gcloud auth application-default print-identity-token \
-  --impersonate-service-account=firebase-adminsdk-<id>@<project>.iam.gserviceaccount.com >/dev/null && echo "Impersonation OK"
+  --impersonate-service-account=firebase-adminsdk-fbsvc@santa-brisa-erp.iam.gserviceaccount.com >/dev/null && echo "Impersonation OK"
 ```
 
 ### 8.2 Sanity write a Firestore (script)
