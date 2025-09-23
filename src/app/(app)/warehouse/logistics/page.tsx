@@ -424,20 +424,20 @@ export default function LogisticsPage() {
       {/* Tabla principal */}
        <SBCard title="Envíos">
         <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead className="text-xs font-semibold text-zinc-600 bg-zinc-50 text-left">
-              <tr>
-                <th className="p-3 text-center"><Checkbox checked={selected.length === filtered.length && filtered.length > 0} onCheckedChange={(checked: boolean) => setSelected(checked ? filtered.map(s => s.id) : [])}/></th>
-                <th className="p-3">ID Envío</th>
-                <th className="p-3">Fecha</th>
-                <th className="p-3">Canal</th>
-                <th className="p-3">Cliente</th>
-                <th className="p-3">Artículos</th>
-                <th className="p-3">Estado</th>
-                <th className="p-3 text-right">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-100">
+          <Table className="min-w-full text-sm">
+            <TableHeader className="text-xs font-semibold text-zinc-600 bg-zinc-50 text-left">
+              <TableRow>
+                <TableHead className="p-3 text-center"><Checkbox checked={selected.length === filtered.length && filtered.length > 0} onCheckedChange={(checked: boolean) => setSelected(checked ? filtered.map(s => s.id) : [])}/></TableHead>
+                <TableHead className="p-3">ID Envío</TableHead>
+                <TableHead className="p-3">Fecha</TableHead>
+                <TableHead className="p-3">Canal</TableHead>
+                <TableHead className="p-3">Cliente</TableHead>
+                <TableHead className="p-3">Artículos</TableHead>
+                <TableHead className="p-3">Estado</TableHead>
+                <TableHead className="p-3 text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody className="divide-y divide-zinc-100">
               {filtered.map(shipment => {
                 const row = optimistic[shipment.id] ?? shipment;
                 const isValidated = row.status === 'ready_to_ship' || row.validated === true;
@@ -449,23 +449,22 @@ export default function LogisticsPage() {
                 const isJobPending = pendingJobs[shipment.id] || (order && pendingJobs[order.id]);
                 
                 return (
-                  <tr key={shipment.id} className="hover:bg-zinc-50">
-                    <td className="p-3 text-center"><Checkbox checked={selected.includes(shipment.id)} onCheckedChange={(checked: boolean) => setSelected(p => checked ? [...p, shipment.id] : p.filter(id => id !== shipment.id))} /></td>
-                    <td className="p-3 font-medium font-mono text-xs">{shipment.shipmentNumber || shipment.id.substring(0,8)}...</td>
-                    <td className="p-3 text-sm">{new Date(shipment.createdAt as any).toLocaleDateString('es-ES')}</td>
-                    <td className="p-3 text-sm"><span className={`inline-flex items-center px-2 py-0.5 rounded-md border text-xs ${channelInfo.className}`}>{channelInfo.label}</span></td>
-                    <td className="p-3 text-sm">
+                  <TableRow key={shipment.id} className="hover:bg-zinc-50">
+                    <TableCell className="p-3 text-center"><Checkbox checked={selected.includes(shipment.id)} onCheckedChange={(checked: boolean) => setSelected(p => checked ? [...p, shipment.id] : p.filter(id => id !== shipment.id))} /></TableCell>
+                    <TableCell className="p-3 font-medium font-mono text-xs">{shipment.shipmentNumber || shipment.id.substring(0,8)}...</TableCell>
+                    <TableCell className="p-3 text-sm">{new Date(shipment.createdAt as any).toLocaleDateString('es-ES')}</TableCell>
+                    <TableCell className="p-3 text-sm"><span className={`inline-flex items-center px-2 py-0.5 rounded-md border text-xs ${channelInfo.className}`}>{channelInfo.label}</span></TableCell>
+                    <TableCell className="p-3 text-sm">
                       <div>
                         <p className="font-medium">{shipment?.customerName || 'N/A'}</p>
                         <p className="text-xs text-zinc-500">{shipment?.city}</p>
                       </div>
-                    </td>
-                    <td className="p-3 text-sm">
+                    </TableCell>
+                    <TableCell className="p-3 text-sm">
                       <ul className="text-xs space-y-1">
                         {shipment.lines.map((it: any, index: number) => (
                           <li key={index}>
                             <div className="flex items-center gap-2">
-                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-100">{it.sku}</span>
                                 <span>{it.name}</span>
                                 <span className="text-zinc-500">×{it.qty}</span>
                             </div>
@@ -473,13 +472,13 @@ export default function LogisticsPage() {
                           </li>
                         ))}
                       </ul>
-                    </td>
-                    <td className="p-3">
+                    </TableCell>
+                    <TableCell className="p-3">
                       <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs ${isValidated ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
                         {isValidated ? 'Validado' : 'Pendiente'}
                       </span>
-                    </td>
-                    <td className="p-3 text-right">
+                    </TableCell>
+                    <TableCell className="p-3 text-right">
                       <div className="relative inline-flex">
                         {!isValidated && (
                           <button
@@ -509,12 +508,12 @@ export default function LogisticsPage() {
                           </div>
                         )}
                       </div>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       </SBCard>
       
