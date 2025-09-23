@@ -7,7 +7,7 @@ import { pullHoldedContactsAction, pushPartyToHoldedAction } from './actions';
 import { Mail, Phone, Link as LinkIcon, RefreshCw, Menu, Filter } from 'lucide-react';
 import { Input, Select, SBButton } from '@/components/ui/ui-primitives';
 
-type RoleKey = 'CUSTOMER' | 'SUPPLIER' | 'OTHER';
+type RoleKey = PartyRole['role'];
 type StatusKey = NonNullable<Party['status']>;
 
 const ROLE_LABEL: Record<string, string> = {
@@ -49,21 +49,21 @@ export default function ContactsPage() {
   const [city, setCity] = useState<string>('ALL');
   const [isPending, start] = useTransition();
 
+  const parties: Party[] = data?.parties ?? [];
+
   const cityOptions = useMemo(() => {
-    const src: Party[] = (data?.parties ?? []) as Party[];
     const set = new Set<string>();
-    for (const p of src) {
+    for (const p of parties) {
       const c = getCity(p);
       if (c) set.add(c);
       if (set.size > 200) break;
     }
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'es'));
-  }, [data?.parties]);
+  }, [parties]);
 
   const list = useMemo(() => {
-    const src: Party[] = (data?.parties ?? []) as Party[];
     const s = q.trim().toLowerCase();
-    return src.filter(p => {
+    return parties.filter(p => {
       if (role !== 'ALL' && !(p.roles ?? []).includes(role as RoleKey)) return false;
       if (status !== 'ALL' && p.status !== (status as StatusKey)) return false;
       if (city !== 'ALL' && (getCity(p) ?? '') !== city) return false;
@@ -77,7 +77,7 @@ export default function ContactsPage() {
       const legacy = (p.contacts ?? []).some(c => c.value?.toLowerCase?.().includes(s));
       return haystack.includes(s) || legacy;
     });
-  }, [data?.parties, q, role, status, city]);
+  }, [parties, q, role, status, city]);
 
   const onPull = (since?: string) =>
     start(async () => {
@@ -222,7 +222,7 @@ export default function ContactsPage() {
       </div>
 
       <div className="text-xs text-zinc-500">
-        {list.length} resultados · {data?.parties?.length ?? 0} contactos totales
+        {list.length} resultados · {parties.length} contactos totales
       </div>
     </div>
   );
