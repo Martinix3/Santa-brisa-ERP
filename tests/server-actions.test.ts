@@ -3,6 +3,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { validateShipment } from '@/app/(app)/warehouse/logistics/actions';
 import { createSalesInvoice } from '@/app/(app)/orders/actions';
 import type { Shipment, OrderSellOut, FinanceLink, SantaData } from '@/domain/ssot';
+import { getServerData } from '@/lib/dataprovider/server';
+import { upsertMany } from '@/lib/dataprovider/actions';
 
 // Mock del data provider del servidor
 vi.mock('@/lib/dataprovider/server', () => ({
@@ -18,9 +20,8 @@ vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
 }));
 
-// Importar los mocks para poder espiarlos
-const getServerDataMock = (await import('@/lib/dataprovider/server')).getServerData as any;
-const upsertManyMock = (await import('@/lib/dataprovider/actions')).upsertMany as any;
+const getServerDataMock = getServerData as any;
+const upsertManyMock = upsertMany as any;
 
 describe('Server Actions', () => {
 
@@ -56,7 +57,7 @@ describe('Server Actions', () => {
         expect.objectContaining({
           id: MOCK_SHIPMENT_ID,
           status: 'ready_to_ship',
-          // validatedById: MOCK_USER_ID, // Asumiendo que el campo existe en el SSOT
+          // validatedById: MOCK_USER_ID, // Assuming you add this to your SSOT
         })
       ]));
 

@@ -56,6 +56,8 @@ export async function validateShipment(input: ValidateShipmentInput) {
             updatedAt: now,
         }]);
     }
+    revalidatePath('/warehouse/logistics');
+    if (shp.orderId) revalidatePath('/sales/orders');
     return { ok: true, shipmentId, orderId: shp.orderId ?? null };
 }
 

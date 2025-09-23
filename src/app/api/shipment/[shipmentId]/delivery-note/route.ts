@@ -1,10 +1,9 @@
 // src/app/api/shipment/[shipmentId]/delivery-note/route.ts
 import { NextResponse, type NextRequest } from 'next/server';
-import { adminDb } from '@/server/firebaseAdmin';
+import { getServerData } from '@/lib/dataprovider/server';
+import { upsertMany } from '@/lib/dataprovider/actions';
 import { renderDeliveryNotePdf } from '@/server/pdf/deliveryNote';
 import type { DeliveryNote, Shipment } from '@/domain/ssot';
-import { upsertMany } from '@/lib/dataprovider/actions';
-import { getServerData } from '@/lib/dataprovider/server';
 
 export async function GET(
   _req: NextRequest,

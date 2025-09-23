@@ -22,7 +22,10 @@
     "audit": "npm run audit:static && npm run audit:runtime",
     "analyze": "ANALYZE=true npm run build",
     "check-budgets": "node scripts/check-budgets.cjs",
-    "worker": "tsx src/server/queue/runner.local.ts"
+    "worker": "tsx src/server/queue/runner.local.ts",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "validate": "npm run typecheck && npm run lint && npm run test && node scripts/find-route-collisions.mjs && node scripts/check-budgets.cjs"
   },
   "dependencies": {
     "@dnd-kit/core": "latest",
