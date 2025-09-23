@@ -1,51 +1,67 @@
+
 // src/app/api/shipment/[shipmentId]/delivery-note/route.ts
 import { NextResponse, type NextRequest } from 'next/server';
 import { adminDb } from '@/server/firebaseAdmin';
 import { renderDeliveryNotePdf } from '@/server/pdf/deliveryNote';
-import type { DeliveryNote } from '@/domain/ssot';
+import type { DeliveryNote, Shipment } from '@/domain/ssot';
+import { upsertMany } from '@/lib/dataprovider/actions';
+import { getServerData } from '@/lib/dataprovider/server';
 
-type RouteCtx = { params: Promise<{ shipmentId: string }> };
+type RouteCtx = { params: { shipmentId: string } };
 
 export async function GET(
   _req: NextRequest,
   { params }: RouteCtx
 ): Promise<Response> {
-  const { shipmentId } = await params;
+  const { shipmentId } = params;
 
   try {
-    const q = await adminDb
-      .collection('deliveryNotes')
-      .where('shipmentId', '==', shipmentId)
-      .limit(1)
-      .get();
+    const data = await getServerData();
+    const shp = data.shipments.find(s => s.id === shipmentId);
+    if (!shp) return new Response('Shipment not found', { status: 404 });
 
-    if (q.empty) {
-      return new Response('Delivery Note not found for this shipment', { status: 404 });
-    }
+    const now = new Date().toISOString();
+    const dnId = `DN-${now.slice(0, 10)}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
+    const party = data.parties.find(p => p.id === shp.partyId);
 
-    const deliveryNote = q.docs[0].data() as DeliveryNote;
+    const dn: DeliveryNote = {
+      id: dnId,
+      orderId: shp.orderId,
+      shipmentId: shp.id,
+      partyId: shp.partyId,
+      series: 'B2B',
+      date: now,
+      soldTo: { name: party?.name ?? shp.customerName ?? 'Cliente', vat: party?.vat },
+      shipTo: {
+        name: shp.customerName ?? 'Cliente',
+        address: `${shp.addressLine1 ?? ''} ${shp.addressLine2 ?? ''}`.trim(),
+        zip: shp.postalCode ?? '', city: shp.city ?? '', country: 'ES'
+      },
+      lines: (shp.lines || []).map(l => ({
+        sku: l.sku, description: l.name ?? l.sku, qty: l.qty, uom: l.uom, lotNumbers: l.lotNumber ? [l.lotNumber] : []
+      })),
+      company: { name: 'Santa Brisa', vat: 'ESB00000000', address: 'C/ Olivos 10', city: 'Madrid', zip: '28010', country: 'España' },
+      createdAt: now, updatedAt: now,
+    };
+    
+    await upsertMany('deliveryNotes', [dn]);
+    await upsertMany('shipments', [{ id: shp.id, deliveryNoteId: dnId, updatedAt: now }]);
 
     const pdfBytes = await renderDeliveryNotePdf({
-      id: deliveryNote.id,
-      dateISO: deliveryNote.date,
-      orderId: deliveryNote.orderId,
-      soldTo: deliveryNote.soldTo,
-      shipTo: {
-          name: deliveryNote.shipTo.name,
-          address: deliveryNote.shipTo.address,
-          zip: deliveryNote.shipTo.zip,
-          city: deliveryNote.shipTo.city,
-          country: deliveryNote.shipTo.country
-      },
-      lines: deliveryNote.lines,
-      company: { name: 'Santa Brisa', vat: 'B00000000', address: 'C/ Olivos 10', city: 'Madrid', zip: '28010', country: 'España' },
+      id: dn.id,
+      dateISO: dn.date,
+      orderId: dn.orderId,
+      soldTo: dn.soldTo,
+      shipTo: dn.shipTo,
+      lines: dn.lines,
+      company: dn.company
     });
 
-    return new Response(Buffer.from(pdfBytes), {
+    return new Response(pdfBytes, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `inline; filename="albaran-${deliveryNote.id}.pdf"`,
+        'Content-Disposition': `inline; filename="albaran-${dn.id}.pdf"`,
       },
     });
   } catch (err) {

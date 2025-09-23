@@ -283,7 +283,7 @@ export default function OrdersDashboard() {
               const owner = usersById.get(acc.ownerId);
               const total = orderTotal(o);
               const status = normalizeOrderStatus(o.status);
-              const meta = ORDER_STATUS_STYLES[status];
+              const meta = ORDER_STATUS_STYLES[status] || { label: status, color: 'text-zinc-800', bg: 'bg-zinc-100' };
 
               return (
                 <tr key={o.id} className="hover:bg-zinc-50">
