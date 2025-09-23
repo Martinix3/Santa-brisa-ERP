@@ -53,7 +53,7 @@ export async function GET(
       company: dn.company
     });
 
-    const body = new Blob([pdfBytes], { type: 'application/pdf' });
+    const body = new Blob([Buffer.from(pdfBytes)], { type: 'application/pdf' });
     return new Response(body, {
       status: 200,
       headers: {
