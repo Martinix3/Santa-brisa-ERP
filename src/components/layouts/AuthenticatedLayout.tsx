@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -133,7 +134,6 @@ const navSections = [
             { href: '/tools/ssot-accounts-editor', label: 'Editor de Datos', icon: Sheet },
             { href: '/dev/db-console', label: 'Consola DB', icon: DatabaseZap },
             { href: '/dev/ssot-tests', label: 'Tests de Integridad', icon: TestTube2 },
-            { href: '/dev/integrations-panel', label: 'Integraciones (Old)', icon: Zap },
         ]
     }
 ];
