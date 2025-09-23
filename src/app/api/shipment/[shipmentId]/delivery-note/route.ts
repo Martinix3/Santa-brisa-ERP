@@ -1,4 +1,3 @@
-
 // src/app/api/shipment/[shipmentId]/delivery-note/route.ts
 import { NextResponse, type NextRequest } from 'next/server';
 import { adminDb } from '@/server/firebaseAdmin';
@@ -38,7 +37,7 @@ export async function GET(
         zip: shp.postalCode ?? '', city: shp.city ?? '', country: 'ES'
       },
       lines: (shp.lines || []).map(l => ({
-        sku: l.sku, description: l.name ?? l.sku, qty: l.qty, uom: l.uom, lotNumbers: l.lotNumber ? [l.lotNumber] : []
+        sku: l.sku, description: l.name ?? l.sku, qty: l.qty, uom: 'uds', lotNumbers: l.lotNumber ? [l.lotNumber] : []
       })),
       company: { name: 'Santa Brisa', vat: 'ESB00000000', address: 'C/ Olivos 10', city: 'Madrid', zip: '28010', country: 'España' },
       createdAt: now, updatedAt: now,
@@ -61,7 +60,7 @@ export async function GET(
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `inline; filename="albaran-${dn.id}.pdf"`,
+        'Content-Disposition': `attachment; filename="albaran-${shp.id}.pdf"`,
       },
     });
   } catch (err) {
