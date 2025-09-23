@@ -1,18 +1,14 @@
 // Ejecuta:  npx tsx scripts/sanity-write.ts
-import { db, infoAdmin } from '@/lib/firebase/admin';
+import { getFirestore } from 'firebase-admin/firestore';
+import { getApps, initializeApp, applicationDefault } from 'firebase-admin/app';
+
+const app = getApps()[0] ?? initializeApp({ credential: applicationDefault() });
+const db = getFirestore(app);
 
 async function main() {
-  const { projectId } = infoAdmin();
   const id = 'sanity-' + Date.now();
-  await db.collection('jobs').doc(id).set(
-    { hello: 'world', createdAt: new Date().toISOString() },
-    { merge: true },
-  );
+  await db.collection('jobs').doc(id).set({ hello: 'world', at: new Date().toISOString() }, { merge: true });
   const snap = await db.collection('jobs').doc(id).get();
-  console.log('[SANITY]', { projectId, exists: snap.exists, data: snap.data() });
+  console.log({ exists: snap.exists, data: snap.data() });
 }
-
-main().catch((e) => {
-  console.error('[SANITY][ERROR]', e);
-  process.exit(1);
-});
+main().catch(e => { console.error(e); process.exit(1); });

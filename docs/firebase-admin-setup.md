@@ -1,77 +1,199 @@
+# Firebase Admin SDK — Configuración estable (Santa Brisa CRM)
 
-# Informe Técnico — Configuración Firebase Admin SDK (Santa Brisa CRM)
+## 1) Problema inicial (contexto)
 
-## 1. Problema inicial
-
-*   El servidor daba errores `invalid_grant` (`invalid_rapt`) al escribir en Firestore.
-*   Las lecturas funcionaban porque iban con token de usuario de Firebase Auth (cliente).
-*   La causa: el backend usaba ADC de usuario humano (ej. `mj@santabrisa.co`) → los tokens de corta duración caducaban o pedían reautenticación, provocando un fallo al escribir.
-
-## 2. Objetivo
-
-*   Que el backend funcione de forma autónoma sin depender de una sesión de `gcloud` de un usuario específico.
-*   Que el CRM sea estable en producción sin necesidad de intervención humana.
-*   Que en desarrollo se pueda levantar el entorno local de forma clara y reproducible.
-
-## 3. Cambios realizados
-
-### 🔐 Cuentas de Servicio (Service Accounts)
-*   Identificamos las cuentas de servicio (SA) clave del proyecto:
-    *   `firebase-adminsdk-fbsvc@...` (SA interna del SDK de Firebase).
-    *   `firebase-app-hosting-compute@...` (SA del runtime de Firebase App Hosting).
-*   Se concedió a ambas SA el rol:
-    *   `roles/datastore.user` → permisos de lectura/escritura en Firestore.
-
-### ⚙️ Entorno de Producción
-*   Se modificó la inicialización en `src/server/firebaseAdmin.ts` para usar credenciales por defecto del entorno:
-    ```typescript
-    import * as admin from "firebase-admin";
-
-    if (!admin.apps.length) {
-      admin.initializeApp({
-        credential: admin.credential.applicationDefault(),
-      });
-    }
-    
-    export const adminDb = admin.firestore();
-    export const adminAuth = admin.auth();
-    ```
-*   Con esto, en producción (App Hosting), la aplicación usa la SA del propio servicio (`firebase-app-hosting-compute@...`). Google gestiona la rotación de tokens automáticamente, y el sistema es robusto.
-
-### 👩‍💻 Entorno de Desarrollo (Workstations)
-*   Dado que no se pueden crear claves JSON para las SA de Firebase, se utiliza **impersonation**.
-*   Pasos realizados:
-    1.  Se añadió el rol `roles/iam.serviceAccountTokenCreator` a tu usuario sobre la SA `firebase-adminsdk-fbsvc@...`.
-    2.  Se creó un script en `package.json` para activar la `impersonation` fácilmente:
-        ```json
-        "scripts": {
-          "dev:sa": "cross-env GOOGLE_IMPERSONATE_SERVICE_ACCOUNT=firebase-adminsdk-fbsvc@... next dev"
-        }
-        ```
-    3.  Al ejecutar `npm run dev:sa`, el SDK de Admin, aunque inicializado con `applicationDefault()`, detecta la variable de entorno y firma las peticiones como si fuera la Service Account, no el usuario.
-
-## 4. Resumen de Comportamiento
-
-*   **Producción (App Hosting)**:
-    *   Totalmente autónomo.
-    *   Los tokens se renuevan solos.
-    *   El CRM funcionará indefinidamente sin depender de tu cuenta personal.
-*   **Desarrollo (Workstations)**:
-    *   Requiere una sesión de `gcloud` activa (`gcloud auth login`).
-    *   Si el entorno se resetea, solo hay que volver a hacer login.
-    *   Se debe usar `npm run dev:sa` para que el backend se autentique correctamente.
-
-## 5. Recomendaciones Futuras
-
-1.  **No usar ADC de usuario en producción**. La solución actual es la correcta.
-2.  **No guardar claves JSON** en el repositorio. Usar `impersonation` o la SA del runtime.
-3.  **Para nuevos desarrolladores**:
-    *   Añadir su email de Google al rol `roles/iam.serviceAccountTokenCreator` sobre la SA `firebase-adminsdk-fbsvc@...`.
-    *   Con esto, podrán usar `npm run dev:sa` igual que tú.
-4.  **Mantener este documento** como referencia para el equipo.
+* Escrituras a Firestore fallaban con `invalid_grant (invalid_rapt)` en backend.
+* Las **lecturas** iban bien (cliente con Firebase Auth de usuario).
+* **Causa raíz:** el backend usaba **ADC de usuario humano** (p. ej. `mj@santabrisa.co`). Los tokens caducaban / pedían reautenticación ⇒ las **server actions** quedaban sin credenciales válidas.
 
 ---
 
-✅ **Conclusión**: Si el error `invalid_grant` vuelve a aparecer:
-*   En **PROD**: No debería pasar. La configuración es autónoma.
-*   En **DEV**: Asegúrate de que tienes una sesión de `gcloud` activa y estás usando `npm run dev:sa`.
+## 2) Objetivo
+
+* Que el backend **no** dependa de sesión humana de `gcloud`.
+* Producción **estable**: tokens renovados automáticamente por Google.
+* Desarrollo local **claro y reproducible** (impersonation; sin JSON keys).
+
+---
+
+## 3) Roles y cuentas de servicio (SAs)
+
+Cuentas relevantes del proyecto:
+
+* `firebase-adminsdk-<id>@<project>.iam.gserviceaccount.com` (SA interna del SDK).
+* `firebase-app-hosting-compute@<project>.iam.gserviceaccount.com` (runtime de Hosting / App Hosting).
+
+Roles mínimos recomendados:
+
+* `roles/datastore.user` (lectura/escritura Firestore).
+* Opcional para utilidades: `roles/logging.logWriter`, `roles/iam.serviceAccountTokenCreator` (solo para usuarios que **impersonan**).
+
+> **Principio de mínimo privilegio**: evita usar `Editor`/`Owner` si no es imprescindible.
+
+---
+
+## 4) Inicialización del Admin SDK (común a PROD y DEV)
+
+Archivo: `src/lib/firebase/admin.ts`
+
+```ts
+import { getApps, initializeApp, applicationDefault } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
+
+const app = getApps()[0] ?? initializeApp({
+  credential: applicationDefault(), // ✅ usa ADC (en PROD = SA del runtime; en DEV = gcloud/impersonation)
+});
+
+export const db = getFirestore(app);
+// Evita errores por campos undefined en escrituras parciales
+db.settings({ ignoreUndefinedProperties: true });
+```
+
+> **No** uses claves JSON en repo. **No** metas secretos en `NEXT_PUBLIC_*`.
+
+---
+
+## 5) Producción (App Hosting / Hosting)
+
+**No hay que hacer nada especial** en variables de entorno para Firebase Admin:
+
+* El runtime ejecuta con su **Service Account** (`firebase-app-hosting-compute@…`).
+* `applicationDefault()` detecta esa SA y Google **renueva tokens** automáticamente.
+* Asegúrate de que esa SA tenga `roles/datastore.user`.
+
+**Variables que sí usas para integraciones** (ej. Holded/Sendcloud): defínelas como **secretos de servidor**, nunca `NEXT_PUBLIC_*`.
+
+---
+
+## 6) Desarrollo local (Workstations) — **Impersonation**
+
+Como no generamos JSON keys, en local usamos **impersonation**:
+
+### 6.1 Dar permisos al usuario que desarrolla
+
+Concede a tu usuario (p. ej. `mj@santabrisa.co`) el rol:
+
+* `roles/iam.serviceAccountTokenCreator` **sobre** la SA objetivo (p. ej. `firebase-adminsdk-<id>@...`).
+
+### 6.2 Autenticación gcloud local (una vez)
+
+```bash
+gcloud auth login
+gcloud auth application-default login   # para ADC local
+```
+
+### 6.3 Activar impersonation al arrancar dev
+
+Usa la var `GOOGLE_IMPERSONATE_SERVICE_ACCOUNT`:
+
+```bash
+# Opción temporal en shell
+export GOOGLE_IMPERSONATE_SERVICE_ACCOUNT=firebase-adminsdk-<id>@<project>.iam.gserviceaccount.com
+npm run dev
+```
+
+o añade script npm (recomendado):
+
+```json
+// package.json
+{
+  "scripts": {
+    "dev:sa": "cross-env GOOGLE_IMPERSONATE_SERVICE_ACCOUNT=firebase-adminsdk-<id>@<project>.iam.gserviceaccount.com next dev"
+  }
+}
+```
+
+> Con esto, `applicationDefault()` **firma como la SA**, no como tu usuario humano.
+
+---
+
+## 7) Variables de entorno (resumen)
+
+No necesitas `FIREBASE_PRIVATE_KEY` ni `FIREBASE_CLIENT_EMAIL` si usas **ADC + impersonation**.
+
+Solo asegúrate de **no** mezclar secretos de cliente con servidor:
+
+```dotenv
+# Cliente (públicas; ej. SDK web de Firebase)
+NEXT_PUBLIC_FIREBASE_API_KEY=...
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=...
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=...
+# ...
+
+# Servidor (privadas; usadas en server actions / routes)
+HOLDED_API_KEY=...
+SENDCLOUD_PUBLIC_KEY=...
+SENDCLOUD_SECRET_KEY=...
+# (sin NEXT_PUBLIC_)
+```
+
+---
+
+## 8) Verificación rápida
+
+### 8.1 ¿Qué identidad está usando Admin SDK?
+
+```bash
+gcloud auth list
+gcloud auth application-default print-identity-token \
+  --impersonate-service-account=firebase-adminsdk-<id>@<project>.iam.gserviceaccount.com >/dev/null && echo "Impersonation OK"
+```
+
+### 8.2 Sanity write a Firestore (script)
+
+```ts
+// scripts/sanity-write.ts
+import { getFirestore } from 'firebase-admin/firestore';
+import { getApps, initializeApp, applicationDefault } from 'firebase-admin/app';
+
+const app = getApps()[0] ?? initializeApp({ credential: applicationDefault() });
+const db = getFirestore(app);
+
+async function main() {
+  const id = 'sanity-' + Date.now();
+  await db.collection('jobs').doc(id).set({ hello: 'world', at: new Date().toISOString() }, { merge: true });
+  const snap = await db.collection('jobs').doc(id).get();
+  console.log({ exists: snap.exists, data: snap.data() });
+}
+main().catch(e => { console.error(e); process.exit(1); });
+```
+
+```bash
+npx tsx scripts/sanity-write.ts
+# Esperado: { exists: true, data: { hello: 'world', ... } }
+```
+
+---
+
+## 9) Troubleshooting
+
+* **`invalid_grant (invalid_rapt)`**
+  → Estás firmando como **usuario humano** y el token requiere reauth/2FA.
+  **Solución:** usa impersonation (`GOOGLE_IMPERSONATE_SERVICE_ACCOUNT`) o ejecuta en PROD (runtime SA).
+
+* **`permission denied` al escribir**
+  → A la SA le falta `roles/datastore.user` (o reglas de seguridad bloquean si escribes desde cliente por accidente).
+  **Solución:** añade rol; garantiza que las **escrituras** se hacen **desde server actions**.
+
+* **En Vercel/Hosting sale “Edge Function”**
+  → `firebase-admin` no funciona en Edge.
+  **Solución:** en server actions/routes:
+
+  ```ts
+  export const runtime = 'nodejs';
+  export const dynamic = 'force-dynamic';
+  ```
+
+* **“No guarda” pero no hay error**
+  → Faltó `await` a la promesa de escritura, o caché SSR.
+  **Solución:** `await upsertMany(...)` y `revalidatePath(...)` tras escribir.
+
+---
+
+## 10) Reglas de oro
+
+1. **PROD:** siempre la **SA del runtime** (tokens automáticos).
+2. **DEV:** **impersonation**, sin claves JSON.
+3. **Nada de secretos** en `NEXT_PUBLIC_*`.
+4. **Server actions** para todas las escrituras; `runtime='nodejs'`.
+5. Documenta y versiona este archivo (`docs/firebase-admin-setup.md`).
