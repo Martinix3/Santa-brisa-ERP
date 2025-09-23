@@ -5,13 +5,8 @@ import { getFirestore } from 'firebase-admin/firestore';
 const app =
   getApps()[0] ??
   initializeApp({
-    credential: process.env.FIREBASE_CLIENT_EMAIL
-      ? cert({
-          clientEmail: process.env.FIREBASE_CLIENT_EMAIL!,
-          privateKey: process.env.FIREBASE_PRIVATE_KEY!.replace(/\\n/g, '\n'),
-          projectId: process.env.FIREBASE_PROJECT_ID!,
-        })
-      : applicationDefault(),
+    credential: applicationDefault(), // ✅ usa ADC (en PROD = SA del runtime; en DEV = gcloud/impersonation)
+    projectId: process.env.FIREBASE_PROJECT_ID, // fuerza el proyecto correcto
   });
 
 export const db = getFirestore(app);
