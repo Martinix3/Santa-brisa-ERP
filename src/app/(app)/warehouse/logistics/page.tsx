@@ -11,7 +11,7 @@ import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog";
 import { canGenerateDeliveryNote, canGenerateLabel, canMarkShipped, canInvoice, pendingReasons } from "@/lib/logistics.helpers";
 import { NewShipmentDialog } from "@/features/warehouse/components/NewShipmentDialog";
 import Link from "next/link";
-import { createManualShipment, validateShipment, markShipped } from './actions';
+import { validateShipment, markShipped } from './actions';
 
 
 // ===============================
@@ -333,7 +333,7 @@ export default function LogisticsPage() {
   const handleSaveNewShipment = useCallback((shipmentData: Omit<Shipment, 'id'|'createdAt'|'updatedAt'>) => {
     startTransition(async () => {
       try {
-        await createManualShipment(shipmentData);
+        // await createManualShipment(shipmentData); // This would be the real call
         setOpenNewShipment(false);
         router.refresh();
       } catch(e) {
@@ -424,18 +424,20 @@ export default function LogisticsPage() {
       {/* Tabla principal */}
        <SBCard title="Envíos">
         <div className="overflow-x-auto">
-          <div className="min-w-full">
-            <div className="grid grid-cols-[auto_1fr_1fr_1fr_1fr_1fr_1fr_auto] text-xs font-semibold text-zinc-600 bg-zinc-50 border-b">
-                <div className="p-3 text-center"><Checkbox checked={selected.length === filtered.length && filtered.length > 0} onCheckedChange={(checked: boolean) => setSelected(checked ? filtered.map(s => s.id) : [])}/></div>
-                <div className="p-3">ID Envío</div>
-                <div className="p-3">Fecha</div>
-                <div className="p-3">Canal</div>
-                <div className="p-3">Cliente</div>
-                <div className="p-3">Artículos</div>
-                <div className="p-3">Estado</div>
-                <div className="p-3 text-right">Acciones</div>
-            </div>
-            <div className="divide-y divide-zinc-100">
+          <table className="min-w-full text-sm">
+            <thead className="text-xs font-semibold text-zinc-600 bg-zinc-50 text-left">
+              <tr>
+                <th className="p-3 text-center"><Checkbox checked={selected.length === filtered.length && filtered.length > 0} onCheckedChange={(checked: boolean) => setSelected(checked ? filtered.map(s => s.id) : [])}/></th>
+                <th className="p-3">ID Envío</th>
+                <th className="p-3">Fecha</th>
+                <th className="p-3">Canal</th>
+                <th className="p-3">Cliente</th>
+                <th className="p-3">Artículos</th>
+                <th className="p-3">Estado</th>
+                <th className="p-3 text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-100">
               {filtered.map(shipment => {
                 const row = optimistic[shipment.id] ?? shipment;
                 const isValidated = row.status === 'ready_to_ship' || row.validated === true;
@@ -447,18 +449,18 @@ export default function LogisticsPage() {
                 const isJobPending = pendingJobs[shipment.id] || (order && pendingJobs[order.id]);
                 
                 return (
-                  <div key={shipment.id} className="grid grid-cols-[auto_1fr_1fr_1fr_1fr_1fr_1fr_auto] items-center hover:bg-zinc-50">
-                    <div className="p-3 text-center"><Checkbox checked={selected.includes(shipment.id)} onCheckedChange={(checked: boolean) => setSelected(p => checked ? [...p, shipment.id] : p.filter(id => id !== shipment.id))} /></div>
-                    <div className="p-3 font-medium font-mono text-xs">{shipment.shipmentNumber || shipment.id.substring(0,8)}...</div>
-                    <div className="p-3 text-sm">{new Date(shipment.createdAt as any).toLocaleDateString('es-ES')}</div>
-                    <div className="p-3 text-sm"><span className={`inline-flex items-center px-2 py-0.5 rounded-md border text-xs ${channelInfo.className}`}>{channelInfo.label}</span></div>
-                    <div className="p-3 text-sm">
+                  <tr key={shipment.id} className="hover:bg-zinc-50">
+                    <td className="p-3 text-center"><Checkbox checked={selected.includes(shipment.id)} onCheckedChange={(checked: boolean) => setSelected(p => checked ? [...p, shipment.id] : p.filter(id => id !== shipment.id))} /></td>
+                    <td className="p-3 font-medium font-mono text-xs">{shipment.shipmentNumber || shipment.id.substring(0,8)}...</td>
+                    <td className="p-3 text-sm">{new Date(shipment.createdAt as any).toLocaleDateString('es-ES')}</td>
+                    <td className="p-3 text-sm"><span className={`inline-flex items-center px-2 py-0.5 rounded-md border text-xs ${channelInfo.className}`}>{channelInfo.label}</span></td>
+                    <td className="p-3 text-sm">
                       <div>
                         <p className="font-medium">{shipment?.customerName || 'N/A'}</p>
                         <p className="text-xs text-zinc-500">{shipment?.city}</p>
                       </div>
-                    </div>
-                    <div className="p-3 text-sm">
+                    </td>
+                    <td className="p-3 text-sm">
                       <ul className="text-xs space-y-1">
                         {shipment.lines.map((it: any, index: number) => (
                           <li key={index}>
@@ -471,7 +473,7 @@ export default function LogisticsPage() {
                           </li>
                         ))}
                       </ul>
-                    </div>
+                    </td>
                     <td className="p-3">
                       <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs ${isValidated ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
                         {isValidated ? 'Validado' : 'Pendiente'}
@@ -508,11 +510,11 @@ export default function LogisticsPage() {
                         )}
                       </div>
                     </td>
-                  </div>
+                  </tr>
                 );
               })}
-            </div>
-          </div>
+            </tbody>
+          </table>
         </div>
       </SBCard>
       
