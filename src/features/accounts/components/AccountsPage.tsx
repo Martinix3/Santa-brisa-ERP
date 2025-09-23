@@ -100,7 +100,7 @@ function AccountBar({ a, party, santaData, onAddActivity }: { a: AccountType, pa
             {orderAmount>0 && <span className="text-[11px] px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-700 whitespace-nowrap">{formatEUR(orderAmount)}</span>}
             </div>
             <div className="flex items-center gap-2 min-w-0"><Avatar name={owner} size="md" /><span className="text-sm text-zinc-700 truncate">{owner}</span></div>
-            <div className="text-sm text-zinc-700 truncate">{party?.addresses[0]?.city ||'—'}</div>
+            <div className="text-sm text-zinc-700 truncate">{party?.addresses?.[0]?.city ||'—'}</div>
             <div className="text-sm text-zinc-700 truncate">{distributorName}</div>
             <div className="text-right relative group">
             <button className="p-1.5 rounded-md border border-zinc-200 bg-white/50 text-zinc-700 inline-flex items-center transition-all hover:bg-white/90 hover:border-zinc-300 hover:scale-105" title="Acciones">
@@ -204,7 +204,7 @@ export function AccountsPageContent() {
     data.forEach(a => {
       reps.add(a.ownerId);
       const party = santaData.parties.find(p => p.id === a.partyId);
-      if (party?.addresses[0]?.city) cities.add(party.addresses[0].city);
+      if (party?.addresses?.[0]?.city) cities.add(party.addresses[0].city);
     });
 
     const distributorRoles = santaData.partyRoles.filter(r => r.role === 'DISTRIBUTOR');
@@ -227,7 +227,7 @@ export function AccountsPageContent() {
     return data.filter(a => {
       const ownerName = accountOwnerDisplay(a, santaData.users, santaData.partyRoles);
       const party = santaData.parties.find(p => p.id === a.partyId);
-      const city = party?.addresses[0]?.city || '';
+      const city = party?.addresses?.[0]?.city || '';
 
       const customerRole = (santaData.partyRoles || []).find(pr => pr.partyId === a.partyId && pr.role === 'CUSTOMER');
       const billerId = (customerRole?.data as CustomerData)?.billerId;
@@ -399,3 +399,5 @@ export function AccountsPageContent() {
     </>
   )
 }
+
+    

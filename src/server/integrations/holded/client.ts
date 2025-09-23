@@ -15,4 +15,15 @@ export async function holdedFetch(path: string, init: RequestInit = {}) {
   return res;
 }
 
-export { holdedFetch as callHoldedApi };
+export async function callHoldedApi(path: string, initOrMethod?: RequestInit | 'GET'|'POST'|'PATCH'|'DELETE', maybeBody?: any) {
+  const init: RequestInit = typeof initOrMethod === 'string'
+    ? { method: initOrMethod, body: maybeBody ? JSON.stringify(maybeBody) : undefined }
+    : (initOrMethod ?? {});
+  const res = await holdedFetch(path, init);
+  // muchas llamadas esperan ya el objeto y no Response; devolvemos el JSON
+  const ct = res.headers.get('content-type') || '';
+  if (res.status === 204) return null;
+  return ct.includes('application/json') ? res.json() : res.text();
+}
+
+    

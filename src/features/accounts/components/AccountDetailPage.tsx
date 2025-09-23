@@ -129,8 +129,8 @@ export function AccountDetailPageContent(){
     try {
         const enrichedData = await enrichAccount({
             accountName: account.name,
-            address: party.addresses[0]?.street,
-            city: party.addresses[0]?.city,
+            address: party.addresses?.[0]?.street,
+            city: party.addresses?.[0]?.city,
         });
 
         const updatedAccount = { 
@@ -161,7 +161,7 @@ export function AccountDetailPageContent(){
     
     const updatedAccount = { ...account, name: payload.name, type: payload.type, city: payload.city };
     
-    const contacts = [...party.contacts];
+    const contacts = [...(party.contacts ?? [])];
     const mainEmail = contacts.find(c => c.isPrimary && c.type === 'email');
     if (mainEmail) mainEmail.value = payload.mainContactEmail;
     else if (payload.mainContactEmail) contacts.push({ type: 'email', value: payload.mainContactEmail, isPrimary: true, description: 'Main' });
@@ -170,7 +170,7 @@ export function AccountDetailPageContent(){
     if (mainPhone) mainPhone.value = payload.phone;
     else if (payload.phone) contacts.push({ type: 'phone', value: payload.phone, isPrimary: true, description: 'Main' });
     
-    const addresses = [...party.addresses];
+    const addresses = [...(party.addresses ?? [])];
     const mainAddress = addresses.find(a => a.isPrimary);
     if(mainAddress) {
         mainAddress.street = payload.address;
@@ -205,7 +205,7 @@ export function AccountDetailPageContent(){
   if (!santaData) return <div className="p-6 text-center">Cargando datos...</div>;
   if (!account || !party || !kpis) return <div className="p-6 text-center">Cuenta no encontrada.</div>;
 
-  const mainContact = party.contacts.find(c => c.isPrimary && (c.type === 'email' || c.type === 'phone'));
+  const mainContact = (party.contacts ?? []).find(c => c.isPrimary && (c.type === 'email' || c.type === 'phone'));
   
   return (
     <div className="bg-zinc-50 flex-grow">
@@ -218,7 +218,7 @@ export function AccountDetailPageContent(){
                     <div className="h-10 w-10 rounded-xl" style={{backgroundColor:SB_COLORS.primary.teal}}/>
                     <div>
                       <h1 className="text-xl font-bold text-zinc-900">{account.name}</h1>
-                      <div className="text-sm text-zinc-600">{party.addresses[0]?.city} · {account.type}{account.subType && ` (${account.subType})`} · <span className="font-medium">{account.stage}</span></div>
+                      <div className="text-sm text-zinc-600">{party.addresses?.[0]?.city} · {account.type}{account.subType && ` (${account.subType})`} · <span className="font-medium">{account.stage}</span></div>
                     </div>
                     <div className="ml-4 flex items-center gap-2">
                         <Chip color={getDaysSinceLastOrderColor(kpis.daysSinceLastOrder)}>Último pedido hace {kpis.daysSinceLastOrder} días</Chip>
@@ -288,9 +288,9 @@ export function AccountDetailPageContent(){
             <SBCard title="Información de la Cuenta">
               <div className="p-4 space-y-2">
                 <Row label="Contacto Principal" icon={User}>{mainContact?.description || '—'}<br/><span className="text-xs text-zinc-500">{mainContact?.value}</span></Row>
-                <Row label="Teléfono" icon={Phone}>{party.contacts.find(c => c.type==='phone')?.value}</Row>
-                <Row label="Dirección" icon={MapPin}>{party.addresses[0]?.street}</Row>
-                <Row label="Email Facturación" icon={Mail}>{party.contacts.find(c => c.type === 'email' && c.description?.toLowerCase().includes('factura'))?.value}</Row>
+                <Row label="Teléfono" icon={Phone}>{(party.contacts ?? []).find(c => c.type==='phone')?.value}</Row>
+                <Row label="Dirección" icon={MapPin}>{party.addresses?.[0]?.street}</Row>
+                <Row label="Email Facturación" icon={Mail}>{(party.contacts ?? []).find(c => c.type === 'email' && c.description?.toLowerCase().includes('factura'))?.value}</Row>
                 <hr className="my-2"/>
                 {owner && <Row label="Comercial" icon={Briefcase}>{owner}</Row>}
                 {distributor && <Row label="Distribuidor" icon={Boxes}>{distributor.name}</Row>}
@@ -346,13 +346,13 @@ export function AccountDetailPageContent(){
                 defaults={{
                     id: account.id,
                     name: account.name,
-                    city: party.addresses.find(a => a.isPrimary)?.city || '',
-                    address: party.addresses.find(a => a.isPrimary)?.street || '',
+                    city: (party.addresses ?? []).find(a => a.isPrimary)?.city || '',
+                    address: (party.addresses ?? []).find(a => a.isPrimary)?.street || '',
                     type: account.type,
-                    mainContactName: party.contacts.find(c => c.isPrimary)?.description || '',
-                    mainContactEmail: party.contacts.find(c => c.isPrimary && c.type === 'email')?.value || '',
-                    phone: party.contacts.find(c => c.isPrimary && c.type === 'phone')?.value || '',
-                    billingEmail: party.contacts.find(c => c.type === 'email' && c.description?.toLowerCase().includes('factura'))?.value || '',
+                    mainContactName: (party.contacts ?? []).find(c => c.isPrimary)?.description || '',
+                    mainContactEmail: (party.contacts ?? []).find(c => c.isPrimary && c.type === 'email')?.value || '',
+                    phone: (party.contacts ?? []).find(c => c.isPrimary && c.type === 'phone')?.value || '',
+                    billingEmail: (party.contacts ?? []).find(c => c.type === 'email' && c.description?.toLowerCase().includes('factura'))?.value || '',
                 }}
             />
         )}
@@ -371,3 +371,5 @@ export function AccountDetailPageContent(){
     </div>
   );
 }
+
+    

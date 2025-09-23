@@ -11,8 +11,8 @@ export const hasDimsAndWeight = (shipment: Shipment) => {
 
 export const hasContactInfo = (party?: Party) => {
     if (!party) return false;
-    const hasPhone = party.contacts.some(c => c.type === 'phone' && c.value);
-    const hasAddress = party.addresses.some(a => a.street);
+    const hasPhone = (party.contacts ?? []).some(c => c.type === 'phone' && c.value);
+    const hasAddress = (party.addresses ?? []).some(a => a.street);
     return hasPhone && hasAddress;
 };
 export const canGenerateDeliveryNote = (row: Shipment) => Boolean(row.checks?.visualOk || row.status === 'ready_to_ship');
@@ -31,3 +31,5 @@ export const pendingReasons = (row: Shipment): string[] => {
   if (!row.labelUrl) reasons.push("Etiqueta");
   return Array.from(new Set(reasons));
 };
+
+    

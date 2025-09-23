@@ -46,10 +46,10 @@ export async function run({ orderId }: { orderId: string }) {
             uom: 'uds'
         })),
         customerName: party.name, // denormalized for logistics
-        addressLine1: party.addresses[0]?.street || '',
-        city: party.addresses[0]?.city || '',
-        postalCode: party.addresses[0]?.postalCode || '',
-        country: party.addresses[0]?.country || 'España',
+        addressLine1: party.addresses?.[0]?.street || '',
+        city: party.addresses?.[0]?.city || '',
+        postalCode: party.addresses?.[0]?.postalCode || '',
+        country: party.addresses?.[0]?.country || 'España',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
     };
@@ -57,3 +57,5 @@ export async function run({ orderId }: { orderId: string }) {
     await adminDb.collection('shipments').doc(shipmentId).set(newShipment);
     console.log(`Successfully created shipment ${shipmentId} for order ${orderId}.`);
 }
+
+    

@@ -1,3 +1,4 @@
+// src/ai/flows/santa-brain-flow.ts
 'use server';
 /**
  * @fileoverview Santa Brisa main conversational agent
@@ -168,7 +169,7 @@ const santaBrainFlow = ai.defineFlow(
         return {
             id: a.id,
             name: a.name,
-            city: party?.addresses[0]?.city || '',
+            city: party?.addresses?.[0]?.city || '',
             ownerId: a.ownerId
         }
     });
@@ -274,3 +275,5 @@ export async function runSantaBrain(
       newEntities: result.newEntities || {},
   }
 }
+
+    

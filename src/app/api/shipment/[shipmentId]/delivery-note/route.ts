@@ -71,7 +71,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ shipmentId
         uom: 'uds',
         lotNumbers: l.lotNumber ? [l.lotNumber] : []
       })),
-      company: { name: 'Santa Brisa', vat: 'ESB00000000' },
+      company: { name: 'Santa Brisa', vat: 'ESB00000000', address: 'C/ Olivos 10', zip: '28010', city: 'Madrid', country: 'España' },
       createdAt: now,
       updatedAt: now,
     };
@@ -122,3 +122,5 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ shipmentId
     return new Response(`Error generating delivery note: ${msg}`, { status: 500 });
   }
 }
+
+    

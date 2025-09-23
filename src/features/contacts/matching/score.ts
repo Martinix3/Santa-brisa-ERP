@@ -38,3 +38,5 @@ export function scorePartyMatch(incoming: Partial<Candidate>, existing: Candidat
 
 export const SCORE_AUTO = 80;
 export const SCORE_SUGGEST = 60;
+
+    
