@@ -1,16 +1,22 @@
-
 'use server';
+
 import { revalidatePath } from 'next/cache';
 import { db } from '@/lib/firebase/admin';
 import type { Party, PartyDuplicate } from '@/domain/ssot';
 import { mergeParties } from '@/features/contacts/merge/mergeParties';
 import { withDerived } from '@/server/contacts/derive';
+import { pullHoldedContacts } from '@/server/integrations/holded/pullContacts';
 
-export async function pullHoldedContactsAction(form: FormData) {
-  const since = form.get('since') as string | undefined;
-  const { pullHoldedContacts } = await import('@/server/integrations/holded/pullContacts');
-  await pullHoldedContacts({ since });
-  revalidatePath('/contacts');
+export async function pullHoldedContactsAction(formData: FormData) {
+  try {
+    const since = (formData.get('since') as string) || undefined;
+    await pullHoldedContacts({ since });
+    revalidatePath('/contacts');
+    return { ok: true };
+  } catch (err: any) {
+    console.error('[pullHoldedContactsAction] error', err);
+    return { ok: false, error: String(err?.message || err) };
+  }
 }
 
 export async function pushPartyToHoldedAction(partyId: string) {

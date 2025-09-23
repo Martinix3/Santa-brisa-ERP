@@ -6,6 +6,7 @@ import type { Party, PartyRole } from '@/domain/ssot';
 import { pullHoldedContactsAction, pushPartyToHoldedAction } from './actions';
 import { Mail, Phone, Link as LinkIcon, RefreshCw, Menu, Filter } from 'lucide-react';
 import { Input, Select, SBButton } from '@/components/ui/ui-primitives';
+import { PullButton } from './PullButton';
 
 type RoleKey = PartyRole['role'];
 type StatusKey = NonNullable<Party['status']>;
@@ -64,8 +65,8 @@ export default function ContactsPage() {
   const list = useMemo(() => {
     const s = q.trim().toLowerCase();
     return parties.filter(p => {
-      if (role !== 'ALL' && !(p.roles ?? []).includes(role as RoleKey)) return false;
-      if (status !== 'ALL' && p.status !== (status as StatusKey)) return false;
+      if (role !== 'ALL' && !(p.roles ?? []).includes(role as any)) return false;
+      if (status !== 'ALL' && p.status !== (status as any)) return false;
       if (city !== 'ALL' && (getCity(p) ?? '') !== city) return false;
 
       if (!s) return true;
@@ -78,13 +79,6 @@ export default function ContactsPage() {
       return haystack.includes(s) || legacy;
     });
   }, [parties, q, role, status, city]);
-
-  const onPull = (since?: string) =>
-    start(async () => {
-      const fd = new FormData();
-      if (since) fd.set('since', since);
-      await pullHoldedContactsAction(fd);
-    });
 
   const onSync = (id: string) =>
     start(async () => {
@@ -123,14 +117,7 @@ export default function ContactsPage() {
             <option value="ALL">Todas las ciudades</option>
             {cityOptions.map(c => <option key={c} value={c}>{c}</option>)}
           </Select>
-          <SBButton
-            variant="secondary"
-            disabled={isPending}
-            onClick={()=>onPull()}
-            title="Pull contactos desde Holded"
-          >
-            <RefreshCw size={16} className={isPending ? 'animate-spin' : ''} /> Pull Holded
-          </SBButton>
+          <PullButton action={pullHoldedContactsAction} />
           <SBButton as="a" href="/contacts/merge" variant="secondary">Fusiones</SBButton>
         </div>
       </div>
