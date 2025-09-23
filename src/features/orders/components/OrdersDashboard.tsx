@@ -6,7 +6,7 @@ import React, { useMemo, useState, useTransition } from "react";
 import type { OrderStatus, Account, OrderSellOut, Party, PartyRole, CustomerData, User, Shipment, SantaData } from '@/domain';
 import { ORDER_STATUS_STYLES, SBButton } from '@/components/ui/ui-primitives';
 import { useData } from "@/lib/dataprovider";
-import { updateOrderStatus } from "@/app/(app)/orders/actions";
+import { updateOrderStatus, createSalesInvoice, recordPayment } from "@/app/(app)/orders/actions";
 import { ImportShopifyOrderButton } from './ImportShopifyOrderButton';
 import Link from "next/link";
 import { orderTotal } from "@/lib/sb-core";
@@ -134,6 +134,8 @@ function exportToCsv(filename: string, rows: (string | number)[][]) {
 
 export default function OrdersDashboard() {
   const { data, setData } = useData();
+  const [isPending, start] = useTransition();
+  const [msg, setMsg] = useState<string | null>(null);
 
   const [tab, setTab] = useState<Tab>("directa");
   const [q, setQ] = useState("");
@@ -274,6 +276,7 @@ export default function OrdersDashboard() {
               <th className="p-3 font-semibold text-zinc-600">Fuente</th>
               <th className="p-3 font-semibold text-zinc-600 text-right">Total</th>
               <th className="p-3 font-semibold text-zinc-600">Estado</th>
+              <th className="p-3 font-semibold text-zinc-600">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
@@ -310,12 +313,18 @@ export default function OrdersDashboard() {
                   <td className="p-3">
                     <StatusSelector order={o} onChange={onStatusChange} accountsById={accountsById} partiesById={partiesById}/>
                   </td>
+                  <td className="p-3">
+                    <div className="flex gap-2">
+                        <SBButton size="sm" variant="secondary" disabled={isPending || o.status === 'invoiced' || o.status === 'paid'} onClick={() => start(async () => { setMsg(null); await createSalesInvoice({ orderId: o.id }); setMsg(`Factura creada para ${o.id}`); })}>Facturar</SBButton>
+                        <SBButton size="sm" variant="secondary" disabled={isPending || o.status !== 'invoiced'} onClick={() => start(async () => { setMsg(null); await recordPayment({ financeLinkId: (o as any).financeLinkId || `holded-${(o.external as any)?.holdedInvoiceId}`, amount: o.totalAmount || 0 }); setMsg(`Cobro registrado para ${o.id}`); })}>Registrar Cobro</SBButton>
+                    </div>
+                  </td>
                 </tr>
               );
             })}
             {visibleOrders.length === 0 && (
               <tr>
-                <td colSpan={7} className="p-8 text-center text-zinc-500">
+                <td colSpan={8} className="p-8 text-center text-zinc-500">
                   No se encontraron pedidos en esta vista.
                 </td>
               </tr>
