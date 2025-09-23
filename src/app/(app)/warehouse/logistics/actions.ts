@@ -1,7 +1,6 @@
 
 'use server';
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
+import 'server-only';
 
 import { revalidatePath } from 'next/cache';
 import { getOne, upsertMany } from '@/lib/dataprovider/server';
@@ -90,8 +89,10 @@ export async function markShipmentShipped({ shipmentId, trackingCode, labelUrl }
   return { ok:true };
 }
 
-// alias por compatibilidad con imports antiguos
-export const markShipped = markShipmentShipped;
+// Alias compatible, pero exportado como función async (no constante)
+export async function markShipped(args: MarkShippedInput) {
+  return markShipmentShipped(args);
+}
 
 
 export async function createDeliveryNote(shipmentId: string) {

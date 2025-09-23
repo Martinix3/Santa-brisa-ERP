@@ -15,7 +15,7 @@ export const hasContactInfo = (party?: Party) => {
     const hasAddress = party.addresses.some(a => a.street);
     return hasPhone && hasAddress;
 };
-export const canGenerateDeliveryNote = (row: Shipment) => Boolean(row.checks?.visualOk || row.status !== 'pending');
+export const canGenerateDeliveryNote = (row: Shipment) => Boolean(row.checks?.visualOk || row.status === 'ready_to_ship');
 export const canGenerateLabel = (shipment: Shipment) => Boolean(shipment.deliveryNoteId) && Boolean(shipment.carrier) && hasDimsAndWeight(shipment);
 export const canMarkShipped = (row: Shipment) => Boolean(row.labelUrl);
 export const canInvoice = (shipment: Shipment, order?: OrderSellOut) => {

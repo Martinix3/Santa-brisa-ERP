@@ -279,39 +279,34 @@ export default function LogisticsPage() {
 
   const openValidateFor = (row: Shipment) => { setCurrentShipment(row); setOpenValidate(true); };
 
-  const handleAction = useCallback((shipmentId: string, action: () => Promise<{ ok: boolean }>, successMessage: string) => {
+  const handleAction = useCallback(async (shipmentId: string, action: () => Promise<any>) => {
     setPendingJobs(prev => ({...prev, [shipmentId]: true}));
     setNotification(null);
-    startTransition(async () => {
-        try {
-            const res = await action();
-            if (res.ok) {
-                setNotification({ type: 'success', message: successMessage });
-                setTimeout(() => router.refresh(), 2000); // Soft refresh
-            } else {
-                throw new Error("La acción falló en el servidor.");
-            }
-        } catch (e: any) {
-            setNotification({ type: 'error', message: `Error: ${e.message}` });
-        } finally {
-            // Remove pending state after a delay to allow UI to update
-            setTimeout(() => {
-                setPendingJobs(prev => {
-                    const next = {...prev};
-                    delete next[shipmentId];
-                    return next;
-                });
-            }, 2500);
+    try {
+        const res = await action();
+        if (res.ok) {
+            setNotification({ type: 'success', message: `Acción para envío ${shipmentId} encolada.` });
+        } else {
+            throw new Error(res.error || "La acción falló en el servidor.");
         }
-    });
-  }, [router]);
+    } catch (e: any) {
+        setNotification({ type: 'error', message: `Error: ${e.message}` });
+    } finally {
+        setTimeout(() => {
+            setPendingJobs(prev => {
+                const next = {...prev};
+                delete next[shipmentId];
+                return next;
+            });
+        }, 2500);
+    }
+  }, []);
 
   const handleSaveValidation = useCallback((payload: any) => {
     if (!currentShipment || !currentUser) return;
     handleAction(
         currentShipment.id, 
-        () => validateShipment({ shipmentId: currentShipment!.id, userId: currentUser.id, ...payload }), 
-        `Validación para envío ${currentShipment.id} guardada.`
+        () => validateShipment({ shipmentId: currentShipment!.id, userId: currentUser.id, ...payload })
     );
     setOpenValidate(false);
   }, [currentShipment, currentUser, handleAction]);
@@ -319,30 +314,32 @@ export default function LogisticsPage() {
   const handleSaveNewShipment = useCallback((shipmentData: Omit<Shipment, 'id'|'createdAt'|'updatedAt'>) => {
       handleAction(
           shipmentData.orderId, 
-          () => createManualShipment(shipmentData),
-          `Envío manual ${shipmentData.orderId} creado correctamente.`
+          () => createManualShipment(shipmentData)
       );
       setOpenNewShipment(false);
   }, [handleAction]);
 
-  const generatePickingSlip = async (shipmentId: string) => {
+  const handleDownloadDeliveryNote = async (shipmentId: string) => {
+    setPendingJobs(prev => ({ ...prev, [shipmentId]: true }));
     try {
-        const response = await fetch(`/api/shipment/${shipmentId}/picking-slip`);
+        const response = await fetch(`/api/shipment/${shipmentId}/delivery-note`);
         if (!response.ok) {
-            throw new Error('Failed to generate picking slip');
+            throw new Error(`Error ${response.status}: ${await response.text()}`);
         }
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `picking-slip-${shipmentId}.pdf`;
+        a.download = `albaran-${shipmentId}.pdf`;
         document.body.appendChild(a);
         a.click();
         a.remove();
         window.URL.revokeObjectURL(url);
-    } catch (error) {
-        console.error('Error downloading picking slip:', error);
-        setNotification({ type: 'error', message: 'No se pudo generar la hoja de picking.' });
+        setNotification({ type: 'success', message: 'Albarán descargado.' });
+    } catch (error: any) {
+        setNotification({ type: 'error', message: `No se pudo generar el albarán: ${error.message}` });
+    } finally {
+        setTimeout(() => setPendingJobs(prev => ({ ...prev, [shipmentId]: false })), 2000);
     }
   };
   
@@ -354,11 +351,11 @@ export default function LogisticsPage() {
     const order = orderMap.get(shipment.orderId);
     
     const actions: RowAction[] = [
-      { id: "picking_slip", label: "Hoja de Picking", icon: <FileText className="w-4 h-4"/>, onClick: () => generatePickingSlip(shipment.id), available: isPendingOrPicking },
+      { id: "picking_slip", label: "Hoja de Picking", icon: <FileText className="w-4 h-4"/>, onClick: () => {}, available: isPendingOrPicking },
       { id: "validate", label: "Validar", icon: <BadgeCheck className="w-4 h-4"/>, onClick: () => openValidateFor(shipment), available: isPendingOrPicking },
-      { id: "delivery", label: "Albarán", icon: <FileText className="w-4 h-4"/>, onClick: () => handleAction(shipment.id, () => createDeliveryNote(shipment.id), 'Job para generar albarán encolado.'), available: canGenerateDeliveryNote(shipment), pendingReason: "Requiere Visual OK" },
-      { id: "label", label: "Etiqueta", icon: <Truck className="w-4 h-4"/>, onClick: () => handleAction(shipment.id, () => shipment.mode === 'PARCEL' ? createParcelLabel(shipment.id) : createPalletLabel(shipment.id), 'Job para generar etiqueta encolado.'), available: canGenerateLabel(shipment), pendingReason: "Req. Albarán/Peso" },
-      { id: "ship", label: "Marcar Enviado", icon: <PackageCheck className="w-4 h-4"/>, onClick: () => handleAction(shipment.id, () => markShipped({ shipmentId: shipment.id }), 'Job para marcar como enviado encolado.'), available: canMarkShipped(shipment), pendingReason: "Requiere Etiqueta" },
+      { id: "delivery", label: "Albarán", icon: <FileDown className="w-4 h-4"/>, onClick: () => handleDownloadDeliveryNote(shipment.id), available: canGenerateDeliveryNote(shipment), pendingReason: "Requiere Visual OK" },
+      { id: "label", label: "Etiqueta", icon: <Truck className="w-4 h-4"/>, onClick: () => handleAction(shipment.id, () => shipment.mode === 'PARCEL' ? createParcelLabel(shipment.id) : createPalletLabel(shipment.id)), available: canGenerateLabel(shipment), pendingReason: "Req. Albarán/Peso" },
+      { id: "ship", label: "Marcar Enviado", icon: <PackageCheck className="w-4 h-4"/>, onClick: () => handleAction(shipment.id, () => markShipped({ shipmentId: shipment.id })), available: canMarkShipped(shipment), pendingReason: "Requiere Etiqueta" },
       {
         id: "invoice",
         label: "Facturar",
@@ -366,22 +363,12 @@ export default function LogisticsPage() {
         onClick: () => {
           const orderId = shipment.orderId;
           if (!orderId) return;
-          handleAction(orderId, () => invoiceOrder(orderId), 'Job para crear factura encolado.');
+          handleAction(orderId, () => invoiceOrder(orderId));
         },
         available: canInvoice(shipment, order),
         pendingReason: "Requiere Enviado",
       },
     ];
-
-    if(shipment.deliveryNoteId) {
-        actions.push({
-            id: 'view_delivery_note',
-            label: 'Ver Albarán',
-            icon: <FileDown className="w-4 h-4"/>,
-            onClick: () => window.open(`/api/shipment/${shipment.id}/delivery-note`, '_blank'),
-            available: true,
-        });
-    }
 
     return showOnlyAvailable ? actions.filter(a => a.available) : actions;
   };
