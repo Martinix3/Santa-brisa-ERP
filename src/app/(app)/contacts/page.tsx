@@ -5,6 +5,7 @@ import { useData } from '@/lib/dataprovider';
 import type { Party, PartyRole } from '@/domain/ssot';
 import { pullHoldedContactsAction, pushPartyToHoldedAction } from './actions';
 import { Mail, Phone, Link as LinkIcon, RefreshCw, Menu, Filter } from 'lucide-react';
+import { Input, Select, SBButton } from '@/components/ui/ui-primitives';
 
 type RoleKey = PartyRole['role'] | 'CUSTOMER' | 'SUPPLIER' | 'OTHER';
 type StatusKey = NonNullable<Party['status']>;
@@ -50,7 +51,6 @@ export default function ContactsPage() {
 
   const parties: Party[] = data?.parties ?? [];
 
-  // Derivar ciudades únicas (máx 200 para no saturar la UI)
   const cityOptions = useMemo(() => {
     const set = new Set<string>();
     for (const p of parties) {
@@ -64,7 +64,6 @@ export default function ContactsPage() {
   const list = useMemo(() => {
     const s = q.trim().toLowerCase();
     return parties.filter(p => {
-      // filtros
       if (role !== 'ALL' && !(p.roles ?? []).includes(role as RoleKey)) return false;
       if (status !== 'ALL' && p.status !== (status as StatusKey)) return false;
       if (city !== 'ALL' && (getCity(p) ?? '') !== city) return false;
@@ -75,7 +74,6 @@ export default function ContactsPage() {
         getPrimaryEmail(p), getPrimaryPhone(p),
       ].filter(Boolean).join(' ').toLowerCase();
 
-      // también busca en legacy contacts
       const legacy = (p.contacts ?? []).some(c => c.value?.toLowerCase?.().includes(s));
       return haystack.includes(s) || legacy;
     });
@@ -100,40 +98,40 @@ export default function ContactsPage() {
         <h1 className="text-xl font-semibold">Contactos</h1>
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative flex-1 md:w-64">
-            <input
+            <Input
               value={q}
               onChange={e=>setQ(e.target.value)}
               placeholder="Buscar nombre, ciudad, VAT..."
-              className="w-full border rounded-lg px-3 py-2 pl-9"
+              className="pl-9"
             />
             <Filter size={16} className="absolute left-3 top-2.5 text-zinc-400" />
           </div>
-          <select className="border rounded-lg px-2 py-2" value={role} onChange={e=>setRole(e.target.value)}>
+          <Select value={role} onChange={e=>setRole(e.target.value)}>
             <option value="ALL">Todos los roles</option>
             <option value="CUSTOMER">Cliente</option>
             <option value="SUPPLIER">Proveedor</option>
             <option value="OTHER">Otro</option>
-          </select>
-          <select className="border rounded-lg px-2 py-2" value={status} onChange={e=>setStatus(e.target.value)}>
+          </Select>
+          <Select value={status} onChange={e=>setStatus(e.target.value)}>
             <option value="ALL">Todos los estados</option>
             <option value="PROVISIONAL">Provisional</option>
             <option value="ENRIQUECIDO">Enriquecido</option>
             <option value="VINCULADO">Vinculado</option>
             <option value="CONFIABLE">Confiable</option>
-          </select>
-          <select className="border rounded-lg px-2 py-2" value={city} onChange={e=>setCity(e.target.value)}>
+          </Select>
+          <Select value={city} onChange={e=>setCity(e.target.value)}>
             <option value="ALL">Todas las ciudades</option>
             {cityOptions.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-          <button
+          </Select>
+          <SBButton
+            variant="secondary"
             disabled={isPending}
             onClick={()=>onPull()}
-            className="inline-flex items-center gap-2 border rounded-lg px-3 py-2"
             title="Pull contactos desde Holded"
           >
             <RefreshCw size={16} className={isPending ? 'animate-spin' : ''} /> Pull Holded
-          </button>
-          <a href="/contacts/merge" className="border rounded-lg px-3 py-2">Fusiones</a>
+          </SBButton>
+          <SBButton as="a" href="/contacts/merge" variant="secondary">Fusiones</SBButton>
         </div>
       </div>
 
