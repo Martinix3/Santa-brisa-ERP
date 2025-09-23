@@ -1,79 +1,111 @@
 // src/app/api/shipment/[shipmentId]/delivery-note/route.ts
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-import { NextResponse, type NextRequest } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getOne, upsertMany } from '@/lib/dataprovider/server';
+import type { Shipment, DeliveryNote, OrderSellOut, Account, Party } from '@/domain/ssot';
 import { renderDeliveryNotePdf } from '@/server/pdf/deliveryNote';
-import type { DeliveryNote, Shipment, OrderSellOut, Party } from '@/domain/ssot';
 import { bucket } from '@/lib/firebase/admin';
 
-export async function GET(
-  _req: NextRequest,
-  ctx: { params: Promise<{ shipmentId: string }> }
-): Promise<Response> {
-  const { shipmentId } = await ctx.params;
-
+export async function GET(_req: NextRequest, ctx: { params: Promise<{ shipmentId: string }> }) {
   try {
+    const { shipmentId } = await ctx.params;
     const shp = await getOne<Shipment>('shipments', shipmentId);
     if (!shp) return new Response('Shipment not found', { status: 404 });
 
-    // Idempotency: If a delivery note already exists and has a URL, redirect to it.
-    if (shp.deliveryNoteId) {
-      const dn = await getOne<DeliveryNote>('deliveryNotes', shp.deliveryNoteId);
-      if (dn?.pdfUrl) {
-          return Response.redirect(dn.pdfUrl, 302);
+    // -------- Resolver partyId (shipment.partyId || order.accountId -> account.partyId)
+    let resolvedPartyId: string | undefined = shp.partyId;
+    let account: Account | undefined;
+    if (!resolvedPartyId && shp.orderId) {
+      const ord = await getOne<OrderSellOut>('ordersSellOut', shp.orderId);
+      if (ord?.accountId) {
+        account = await getOne<Account>('accounts', ord.accountId);
+        resolvedPartyId = account?.partyId || resolvedPartyId;
       }
     }
+    // Evitar llamadas con id vacío
+    let party: Party | undefined;
+    if (resolvedPartyId && resolvedPartyId.trim().length > 0) {
+      party = await getOne<Party>('parties', resolvedPartyId);
+    }
 
-    const order = await getOne<OrderSellOut>('ordersSellOut', shp.orderId);
-    const party = await getOne<Party>('parties', shp.partyId);
+    // Persistir partyId resuelto en el shipment si no lo tenía
+    if (!shp.partyId && resolvedPartyId) {
+      await upsertMany('shipments', [{ id: shp.id, partyId: resolvedPartyId, updatedAt: new Date().toISOString() }]);
+      shp.partyId = resolvedPartyId;
+    }
 
     const now = new Date().toISOString();
-    const dnId = shp.deliveryNoteId ?? `DN-${now.slice(0,10)}-${String(Math.floor(Math.random()*1000)).padStart(3,'0')}`;
-    
-    const dnData: Omit<DeliveryNote, 'pdfUrl'|'createdAt'|'updatedAt'> & { dateISO: string } = {
+    // Id estable si ya existía; así evitamos duplicados
+    const existingId = shp.deliveryNoteId;
+    const dnId = existingId ?? `DN-${now.slice(0,10)}-${String(Math.floor(Math.random()*1000)).padStart(3,'0')}`;
+
+    // Datos del destinatario (soldTo/shipTo) con fallbacks
+    const soldToName = party?.legalName || party?.tradeName || shp.customerName || account?.name || 'Cliente';
+    const shipAddress = [
+      shp.addressLine1 ?? '',
+      shp.addressLine2 ?? ''
+    ].join(' ').trim();
+    const shipZip = shp.postalCode ?? '';
+    const shipCity = shp.city ?? '';
+
+    const dn: DeliveryNote = {
       id: dnId,
       orderId: shp.orderId,
       shipmentId: shp.id,
-      partyId: shp.partyId,
-      series: order?.source === 'SHOPIFY' ? 'ONLINE' : 'B2B',
+      partyId: shp.partyId || resolvedPartyId || '',
+      series: 'B2B',
       date: now,
-      dateISO: now, // Ensure dateISO is present for the PDF renderer
-      soldTo: { name: party?.name ?? shp.customerName ?? 'Cliente', vat: party?.taxId },
+      soldTo: { name: soldToName, vat: party?.vat || party?.taxId },
       shipTo: {
-        name: shp.customerName ?? 'Cliente',
-        address: `${shp.addressLine1 ?? ''} ${shp.addressLine2 ?? ''}`.trim(),
-        zip: shp.postalCode ?? '', city: shp.city ?? '', country: 'España'
+        name: soldToName,
+        address: shipAddress || (party?.billingAddress?.address ?? '') || '',
+        zip: shipZip || party?.billingAddress?.zip || '',
+        city: shipCity || party?.billingAddress?.city || '',
+        country: 'ES',
       },
       lines: (shp.lines || []).map((l: Shipment['lines'][number]) => ({
-        sku: l.sku, description: l.name ?? l.sku, qty: l.qty, uom: 'uds', lotNumbers: l.lotNumber ? [l.lotNumber] : []
+        sku: l.sku,
+        description: l.name ?? l.sku,
+        qty: l.qty,
+        uom: 'uds',
+        lotNumbers: l.lotNumber ? [l.lotNumber] : []
       })),
-      company: { name: 'Santa Brisa', vat: 'ESB00000000', address: 'C/ Olivos 10', city: 'Madrid', zip: '28010', country: 'España' },
+      company: { name: 'Santa Brisa', vat: 'ESB00000000' },
+      createdAt: now,
+      updatedAt: now,
     };
-    
-    const pdfBytes = await renderDeliveryNotePdf(dnData as any);
 
+    // Construye el payload que exige el renderer (incluye dateISO)
+    const dnData = { ...dn, dateISO: dn.date } as any;
+
+    // Genera PDF SIEMPRE en memoria (fuente única de verdad)
+    const pdfBytes = await renderDeliveryNotePdf(dnData);
+
+    // Sube a Storage (idempotente: sobreescribe si ya existe)
     const filePath = `delivery-notes/${dnId}.pdf`;
     const file = bucket().file(filePath);
-    await file.save(Buffer.from(pdfBytes), {
-        contentType: 'application/pdf',
-        resumable: false,
+    const nodeBody = Buffer.isBuffer(pdfBytes) ? pdfBytes : Buffer.from(pdfBytes as Uint8Array);
+    await file.save(nodeBody, {
+      contentType: 'application/pdf',
+      resumable: false,
+      metadata: { cacheControl: 'public, max-age=31536000, immutable' },
     });
-    
+
+    // URL firmada (larga duración)
     const [signedUrl] = await file.getSignedUrl({
-        action: 'read',
-        expires: '9999-12-31',
+      action: 'read',
+      expires: '9999-12-31',
     });
 
-    await upsertMany('deliveryNotes', [{ ...dnData, pdfUrl: signedUrl } as any]);
-    await upsertMany('shipments', [{ id: shp.id, deliveryNoteId: dnId, updatedAt: now as any }]);
+    // Guarda metadatos e incorpora pdfUrl
+    await upsertMany('deliveryNotes', [{ ...dn, pdfUrl: signedUrl }]);
+    await upsertMany('shipments', [{ id: shp.id, deliveryNoteId: dnId, updatedAt: now }]);
 
+    // Redirige al PDF en Storage (mejor UX y cacheable)
     return Response.redirect(signedUrl, 302);
-
   } catch (err: any) {
-    console.error(`[delivery-note][ERROR] Failed to generate delivery note for shipment ${shipmentId}:`, err);
-    // Fallback: devolvemos 500 con texto legible si no hay PDF generado
-    // o devolvemos el PDF si lo tenemos en memoria.
+    console.error('[delivery-note][ERROR]', err);
     const msg = (err && err.message) ? err.message : String(err);
     if (err?.pdfBytes) {
       const nodeBody = Buffer.isBuffer(err.pdfBytes) ? err.pdfBytes : Buffer.from(err.pdfBytes as Uint8Array);
