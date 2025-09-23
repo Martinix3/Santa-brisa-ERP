@@ -29,6 +29,7 @@ export type ProductionStatus = 'planned' | 'released' | 'wip' | 'done' | 'cancel
 export type IncidentKind = 'QC_INBOUND' | 'QC_PROCESS' | 'QC_RELEASE' | 'LOGISTICS' | 'CUSTOMER_RETURN';
 export type IncidentStatus = 'OPEN' | 'UNDER_REVIEW' | 'CONTAINED' | 'CLOSED';
 export type ActivationStatus = 'active' | 'inactive' | 'pending_renewal';
+export type PartyStatus = 'PROVISIONAL'|'ENRIQUECIDO'|'VINCULADO'|'CONFIABLE';
 
 
 // -----------------------------------------------------------------
@@ -36,55 +37,75 @@ export type ActivationStatus = 'active' | 'inactive' | 'pending_renewal';
 // -----------------------------------------------------------------
 export type Address = { address?: string; city?: string; zip?: string; province?: string; country?: string; countryCode?: string };
 
+export type CommItem = {
+  value: string;
+  isPrimary?: boolean;
+  verified?: boolean;
+  source?: 'CRM'|'HOLDED'|'IMPORT'|'USER';
+  updatedAt?: Timestamp;
+  optOut?: boolean;
+};
+
+export interface PartyPerson {
+  name: string;
+  role?: string;
+  email?: CommItem;
+  phone?: CommItem;
+  updatedAt?: Timestamp;
+}
+
 export interface Party {
   id: string;
   legalName: string;
   tradeName?: string;
-  vat?: string;                     // NIF/CIF normalizado
-  emails?: string[];                // normalizados en minúscula
-  phones?: string[];                // E.164 +34...
+  vat?: string;
+  emails?: CommItem[];
+  phones?: CommItem[];
   billingAddress?: Address;
   shippingAddress?: Address;
-  roles: Array<'CUSTOMER'|'SUPPLIER'|'OTHER'>;
+  roles?: Array<'CUSTOMER'|'SUPPLIER'|'OTHER'>; // denormalizado
   external?: {
     holdedContactId?: string;
+    holdedUpdatedAt?: string;
     shopifyCustomerId?: string;
   };
+  status?: PartyStatus;
+  people?: PartyPerson[];
   flags?: {
     needsReview?: boolean;
-    issues?: string[];              // ej: ['MISSING_VAT','POSSIBLE_DUP']
+    issues?: string[];
   };
   quality?: {
     lastAuditAt?: string;
-    score?: number;                 // 0..100
+    score?: number;
   };
-  createdAt: any; 
+  createdAt: any;
   updatedAt: any;
   // Campos del modelo anterior para compatibilidad temporal. Serán eliminados.
   name: string; // Mantener por ahora, pero usar legalName/tradeName
   kind: 'ORG' | 'PERSON';
   taxId?: string; // CIF/NIF opcional para compatibilidad
-  contacts: { type: 'email' | 'phone' | 'whatsapp' | 'web'; value: string; isPrimary?: boolean; description?: string; }[];
-  addresses: { type: 'main' | 'billing' | 'shipping'; street: string; city: string; postalCode?: string; country: string; isPrimary?: boolean; }[];
+  contacts: never[]; // Deprecado, migrar a emails/phones
+  addresses: never[]; // Deprecado, migrar a billingAddress/shippingAddress
   handles?: Partial<Record<'instagram' | 'tiktok' | 'linkedin' | 'twitter', string>>;
   tags?: string[];
 }
 
 export interface PartyRole {
     id: string;
-    partyId: string;        // Vínculo a la Party
-    role: PartyRoleType;    // El tipo de relación que es
+    partyId: string;
+    role: PartyRoleType;
     isActive: boolean;
-    data: CustomerData | SupplierData | InfluencerData | EmployeeData; // Datos específicos del rol
+    data: CustomerData | SupplierData | InfluencerData | EmployeeData;
     createdAt: Timestamp;
 }
 
 export interface PartyDuplicate {
-  id: string;                       // dup_<timestamp>_<rand>
-  primaryPartyId: string;           // candidato ganador
-  duplicatePartyId: string;         // candidato a fusionar
+  id: string;
+  primaryPartyId: string;
+  duplicatePartyId: string;
   reason: 'SAME_VAT'|'SAME_EMAIL'|'FUZZY_NAME_CITY'|'SAME_PHONE';
-  score: number;                    // 0..1
+  score: number;
   status: 'OPEN'|'MERGED'|'IGNORED';
   createdAt: any; resolvedAt?: any;
 }
@@ -94,8 +115,8 @@ export interface PartyDuplicate {
 export interface CustomerData {
     priceListId?: string;
     paymentTermsDays?: number;
-    salesRepId: string;       // ID del User responsable
-    billerId: string;         // 'SB' o un ID de distribuidor
+    salesRepId: string;
+    billerId: string;
 }
 export interface SupplierData {
     paymentTermsDays?: number;
@@ -141,13 +162,13 @@ export interface AccountRollup {
 // -----------------------------------------------------------------
 export interface Account {
   id: string;
-  code?: string;        // Código legible (ej. ACC-000123)
-  partyId: string;      // Vinculado a una Party
-  name: string;         // Denormalizado de Party para facilidad de uso
-  type: AccountType;    // HORECA, RETAIL...
+  code?: string;
+  partyId: string;
+  name: string;
+  type: AccountType;
   stage: Stage;
-  subType?: string;      // Ej. "Bar de copas", "Restaurante de autor"
-  ownerId: string;        // ID del User o Distributor responsable de la venta
+  subType?: string;
+  ownerId: string;
   createdAt: Timestamp;
   updatedAt?: Timestamp;
   lastInteractionAt?: Timestamp;
@@ -163,15 +184,15 @@ export type BillingStatus = 'PENDING'|'INVOICING'|'INVOICED'|'PAID'|'FAILED';
 
 export interface OrderSellOut {
   id: string;
-  partyId: string; // <-- party-centric
-  accountId: string; // <-- compatibilidad
+  partyId: string;
+  accountId: string;
   source: 'CRM'|'SHOPIFY'|'OTHER' | 'MANUAL' | 'HOLDED';
-  createdAt: Timestamp;         // ISO o epoch
+  createdAt: Timestamp;
   currency: 'EUR' | string;
   lines: Array<{ sku: string; name?: string; qty: number; priceUnit: number; taxRate?: number; discountPct?: number; uom?: 'uds'; lotIds?: string[] }>;
   notes?: string;
   billingStatus?: BillingStatus;
-  status: OrderStatus; // compatibilidad
+  status: OrderStatus;
   docNumber?: string;
   totalAmount?: number;
   external?: {
@@ -181,9 +202,9 @@ export interface OrderSellOut {
 }
 
 export type Expense = {
-  id: string;                           // "holded-<purchaseId>" (idempotente)
-  partyId: string;                      // ← Party SUPPLIER
-  date: string;                         // ISO
+  id: string;
+  partyId: string;
+  date: string;
   dueDate?: string;
   status: 'DRAFT'|'APPROVED'|'PAID'|'CANCELLED';
   amountTotal: number;
@@ -198,13 +219,13 @@ export type Expense = {
 export type InteractionKind = 'VISITA' | 'LLAMADA' | 'EMAIL' | 'WHATSAPP' | 'OTRO' | 'COBRO' | 'EVENTO_MKT';
 export type EventKind = 'DEMO'|'FERIA'|'FORMACION'|'OTRO';
 
-export type Payload = 
+export type Payload =
     | { type: 'venta', items: { sku: string; qty: number }[] }
     | { type: 'interaccion', note: string, nextActionDate?: string }
     | { type: 'visita_plv', note: string, nextActionDate?: string, plvInstalled: boolean, plvNotes?: string }
     | { type: 'cobro', amount: number, notes?: string }
     | { type: 'evento_mkt', kpis: { cost: number; attendees: number; leads: number }, notes?: string };
-    
+
 export type PosResult = {
   windowWeeks: number;
   baselineUnits: number;
@@ -217,7 +238,7 @@ export type PosResult = {
   confidence: 'LOW'|'MEDIUM'|'HIGH';
   computedAt: string;
 };
-    
+
 export interface Interaction {
   id: string;
   partyId?: string;
@@ -281,7 +302,7 @@ export interface BillOfMaterial {
   id: string;
   sku: string;
   name: string;
-  items: { 
+  items: {
     materialId: string;
     quantity: number;
     unit?: string;
@@ -365,7 +386,7 @@ export interface Lot {
   sku: string;
   quantity: number;
   createdAt: Timestamp;
-  orderId?: string; 
+  orderId?: string;
   supplierId?: string;
   quality: { qcStatus: 'hold' | 'release' | 'reject', results: Record<string, QCResult> };
   expDate?: string;
@@ -409,7 +430,7 @@ export type StockReason =
   | 'adjustment' | 'return_in' | 'return_out' | 'ship'
   | 'consignment_send' | 'consignment_return' | 'consignment_sell'
   | 'sample_send' | 'sample_consume';
-  
+
 export interface StockMove {
   id: string;
   sku: string;
@@ -481,7 +502,7 @@ export interface Shipment {
   city: string;
   addressLine1?: string; addressLine2?: string; postalCode?: string; country?: string;
   carrier?: string;
-  labelUrl?: string; 
+  labelUrl?: string;
   trackingCode?: string;
   tracking?: string;
   notes?: string;
@@ -562,11 +583,11 @@ export interface MarketingEvent {
     location?: string;
     budget?: number;
     spend?: number;
-    goal?: { 
-        leads?: number; 
-        sampling?: number; 
-        impressions?: number; 
-        interactions?: number 
+    goal?: {
+        leads?: number;
+        sampling?: number;
+        impressions?: number;
+        interactions?: number
     };
     kpis?: {
         leads?: number;
@@ -785,12 +806,12 @@ export interface CodePolicy {
 export const CODE_POLICIES: Record<CodeEntity, CodePolicy> = {
   PRODUCT:    { entity:'PRODUCT', template:'{SKU}', regex:'^[A-Z0-9_-]{3,32}$'},
   ACCOUNT:    { entity:'ACCOUNT', template:'ACC-{SEQ#6}', regex:'^ACC-\\d{6}$', seqScope:'GLOBAL', pad:6 },
-  PARTY:      { entity:'PARTY', template:'PTY-{SEQ#6}', regex:'^PTY-\\d{6}s$', seqScope:'GLOBAL', pad:6 },
+  PARTY:      { entity:'PARTY', template:'PTY-{SEQ#6}', regex:'^PTY-\\d{6}$', seqScope:'GLOBAL', pad:6 },
   SUPPLIER:   { entity:'SUPPLIER', template:'SUP-{SEQ#5}', regex:'^SUP-\\d{5}$', seqScope:'GLOBAL', pad:5 },
   LOT:        { entity:'LOT', template:'{YY}{MM}{DD}-{SKU}-{SEQ#3}', regex:'^\\d{6}-.+-\\d{3}$', seqScope:'DAY', pad:3 },
   PROD_ORDER: { entity:'PROD_ORDER', template:'PO-{YYYY}{MM}-{SEQ#4}', regex:'^PO-\\d{6}-\\d{4}$', seqScope:'MONTH', pad:4 },
   SHIPMENT:   { entity:'SHIPMENT', template:'SHP-{YYYY}{MM}{DD}-{SEQ#3}', regex:'^SHP-\\d{8}-\\d{3}$', seqScope:'DAY', pad:3 },
-  GOODS_RECEIPT:{ entity:'GOODS_RECEIPT', template:'GR-{YYYY}{MM}{DD}-{SEQ#3}', regex:'^GR-\\d{8}-\\d{3}s$', seqScope:'DAY', pad:3 },
+  GOODS_RECEIPT:{ entity:'GOODS_RECEIPT', template:'GR-{YYYY}{MM}{DD}-{SEQ#3}', regex:'^GR-\\d{8}-\\d{3}$', seqScope:'DAY', pad:3 },
   LOCATION:   { entity:'LOCATION', template:'{ZONE}-{SEQ#3}', regex:'^[A-Z]{2,6}-\\d{3}$', seqScope:'GLOBAL', pad:3 },
   PRICE_LIST: { entity:'PRICE_LIST', template:'PL-{YYYY}-{SEQ#2}', regex:'^PL-\\d{4}-\\d{2}$', seqScope:'YEAR', pad:2 },
   PROMOTION:  { entity:'PROMOTION', template:'PRM-{YY}{MM}-{SEQ#3}', regex:'^PRM-\\d{4}-\\d{3}$', seqScope:'MONTH', pad:3 },
@@ -850,7 +871,7 @@ export const SANTA_DATA_COLLECTIONS: (keyof SantaData)[] = [
     'parties', 'partyRoles', 'users', 'accounts', 'ordersSellOut', 'interactions',
     'products', 'materials', 'billOfMaterials', 'productionOrders', 'lots', 'qaChecks',
     'inventory', 'stockMoves', 'shipments', 'goodsReceipts', 'activations', 'promotions',
-    'marketingEvents', 'onlineCampaigns', 'influencerCollabs', 'materialCosts', 'financeLinks', 
+    'marketingEvents', 'onlineCampaigns', 'influencerCollabs', 'materialCosts', 'financeLinks',
     'paymentLinks', 'traceEvents', 'incidents', 'codeAliases',
     'posTactics', 'posCostCatalog', 'plv_material', 'integrations', 'jobs', 'dead_letters', 'expenses',
     'deliveryNotes', 'partyDuplicates'
