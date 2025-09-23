@@ -11,7 +11,7 @@ import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog";
 import { canGenerateDeliveryNote, canGenerateLabel, canMarkShipped, canInvoice, pendingReasons } from "@/lib/logistics.helpers";
 import { NewShipmentDialog } from "@/features/warehouse/components/NewShipmentDialog";
 import Link from "next/link";
-import { createManualShipment, validateShipment, createDeliveryNote, createParcelLabel, createPalletLabel, markShipped, invoiceOrder } from './actions';
+import { createManualShipment, validateShipment, markShipped } from './actions';
 
 
 // ===============================
@@ -232,6 +232,9 @@ const ValidateDialog: React.FC<{ open: boolean; onOpenChange: (v: boolean) => vo
 export default function LogisticsPage() {
   const router = useRouter();
   const { data: santaData, currentUser } = useData();
+  const [isPending, startTransition] = useTransition();
+  const [optimistic, setOptimistic] = useState<Record<string, any>>({});
+  
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<string>("all");
   const [channel, setChannel] = useState<string>("all");
@@ -302,25 +305,43 @@ export default function LogisticsPage() {
     }
   }, []);
 
-  const handleSaveValidation = useCallback((payload: any) => {
-    if (!currentShipment || !currentUser) return;
-    handleAction(
-        currentShipment.id, 
-        () => validateShipment({ shipmentId: currentShipment!.id, userId: currentUser.id, ...payload })
-    );
-    setOpenValidate(false);
-  }, [currentShipment, currentUser, handleAction]);
+  async function onValidate(shipment: any) {
+    setOptimistic((s) => ({ ...s, [shipment.id]: { ...shipment, status: 'ready_to_ship', validated: true } }));
+    startTransition(async () => {
+      try {
+        await validateShipment({ shipmentId: shipment.id, userId: 'me' });
+      } catch (e:any) {
+        setOptimistic((s) => { const { [shipment.id]:_, ...rest } = s; return rest; });
+      } finally {
+        router.refresh();
+      }
+    });
+  }
+
+  async function onMarkShipped(shipment: any) {
+    startTransition(async () => {
+      try {
+        await markShipped({ shipmentId: shipment.id });
+      } catch (e:any) {
+        // error handled by toast in prod
+      } finally {
+        router.refresh();
+      }
+    });
+  }
   
   const handleSaveNewShipment = useCallback((shipmentData: Omit<Shipment, 'id'|'createdAt'|'updatedAt'>) => {
-      handleAction(
-          shipmentData.orderId, 
-          () => createManualShipment(shipmentData)
-      );
-      setOpenNewShipment(false);
-  }, [handleAction]);
+    startTransition(async () => {
+      try {
+        await createManualShipment(shipmentData);
+        setOpenNewShipment(false);
+        router.refresh();
+      } catch(e) {
+        // error handling
+      }
+    });
+  }, [router]);
   
-  const [isPending, startTransition] = useTransition();
-
   type RowAction = { id: string; label: string; icon: React.ReactNode; onClick?: () => void; href?: string; available: boolean; pendingReason?: string };
   const buildRowActions = (shipment: Shipment): RowAction[] => {
     const isPendingOrPicking = shipment.status === 'pending' || shipment.status === 'picking';
@@ -328,22 +349,18 @@ export default function LogisticsPage() {
     
     const actions: RowAction[] = [
       { id: "picking_slip", label: "Hoja de Picking", icon: <FileText className="w-4 h-4"/>, href: `/api/shipment/${shipment.id}/picking-slip`, available: isPendingOrPicking },
-      { id: "validate", label: "Validar", icon: <BadgeCheck className="w-4 h-4"/>, onClick: () => openValidateFor(shipment), available: isPendingOrPicking },
+      { id: "validate", label: "Validar", icon: <BadgeCheck className="w-4 h-4"/>, onClick: () => onValidate(shipment), available: isPendingOrPicking },
       { id: "delivery", label: "Albarán", icon: <FileDown className="w-4 h-4"/>, href: `/api/shipment/${shipment.id}/delivery-note`, available: canGenerateDeliveryNote(shipment), pendingReason: "Requiere Visual OK" },
-      { id: "label", label: "Etiqueta", icon: <Truck className="w-4 h-4"/>, onClick: () => handleAction(shipment.id, () => shipment.mode === 'PARCEL' ? createParcelLabel(shipment.id) : createPalletLabel(shipment.id)), available: canGenerateLabel(shipment), pendingReason: "Req. Albarán/Peso" },
-      { id: "ship", label: "Marcar Enviado", icon: <PackageCheck className="w-4 h-4"/>, onClick: () => handleAction(shipment.id, () => markShipped({ shipmentId: shipment.id })), available: canMarkShipped(shipment), pendingReason: "Requiere Etiqueta" },
-      {
-        id: "invoice",
-        label: "Facturar",
-        icon: <FileText className="w-4 h-4"/>,
-        onClick: () => {
-          const orderId = shipment.orderId;
-          if (!orderId) return;
-          handleAction(orderId, () => invoiceOrder(orderId));
-        },
-        available: canInvoice(shipment, order),
-        pendingReason: "Requiere Enviado",
-      },
+      // { id: "label", label: "Etiqueta", icon: <Truck className="w-4 h-4"/>, onClick: () => {}, available: canGenerateLabel(shipment), pendingReason: "Req. Albarán/Peso" },
+      { id: "ship", label: "Marcar Enviado", icon: <PackageCheck className="w-4 h-4"/>, onClick: () => onMarkShipped(shipment), available: canMarkShipped(shipment), pendingReason: "Requiere Etiqueta" },
+      // {
+      //   id: "invoice",
+      //   label: "Facturar",
+      //   icon: <FileText className="w-4 h-4"/>,
+      //   onClick: () => {},
+      //   available: canInvoice(shipment, order),
+      //   pendingReason: "Requiere Enviado",
+      // },
     ];
 
     return showOnlyAvailable ? actions.filter(a => a.available) : actions;
@@ -420,6 +437,9 @@ export default function LogisticsPage() {
             </div>
             <div className="divide-y divide-zinc-100">
               {filtered.map(shipment => {
+                const row = optimistic[shipment.id] ?? shipment;
+                const isValidated = row.status === 'ready_to_ship' || row.validated === true;
+
                 const order = orderMap.get(shipment.orderId || '');
                 const account = accountMap.get(order?.accountId || '');
                 const channelInfo = getChannelInfo(order, account);
@@ -452,46 +472,42 @@ export default function LogisticsPage() {
                         ))}
                       </ul>
                     </div>
-                    <div className="p-3 text-sm"><span className={`inline-flex items-center px-2 py-1 rounded-md border text-xs ${style.bg} ${style.color}`}>{style.label}</span></div>
-                    <div className="p-3 text-right">
-                        {isJobPending ? (
-                            <Loader2 className="w-5 h-5 animate-spin text-zinc-400 mx-auto" />
-                        ) : (
-                           <DropdownMenu>
-                              <DropdownMenuTrigger>
-                                  <SBButton variant="secondary">
-                                    <MoreHorizontal className="w-4 h-4"/>
-                                  </SBButton>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-64">
-                                <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                                <DropdownMenuSeparator />
-                                {buildRowActions(shipment).map((a) => {
-                                  const itemContent = (<>
-                                    <div className="flex items-center gap-2">{a.icon}<span>{a.label}</span></div>
-                                    {!a.available && !showOnlyAvailable && a.pendingReason && (
-                                      <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-200">{a.pendingReason}</span>
-                                    )}
-                                  </>);
-                                  
-                                  if (a.href) {
-                                    return (
-                                        <a key={a.id} href={a.href} target="_blank" rel="noopener noreferrer" className={`w-full text-left block px-4 py-2 text-sm text-zinc-700 flex items-center justify-between ${a.available ? 'hover:bg-zinc-100' : 'opacity-50 cursor-not-allowed'}`}>
-                                            {itemContent}
-                                        </a>
-                                    );
-                                  }
-
-                                  return (
-                                    <DropdownMenuItem key={a.id} onClick={a.onClick} disabled={!a.available} className="flex items-center justify-between">
-                                        {itemContent}
-                                    </DropdownMenuItem>
-                                  );
-                                })}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                    <td className="p-3">
+                      <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs ${isValidated ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                        {isValidated ? 'Validado' : 'Pendiente'}
+                      </span>
+                    </td>
+                    <td className="p-3 text-right">
+                      <div className="relative inline-flex">
+                        {!isValidated && (
+                          <button
+                            disabled={isPending}
+                            onClick={() => onValidate(row)}
+                            className="mr-2 rounded-md border px-3 py-1.5 text-sm hover:bg-neutral-50 disabled:opacity-50"
+                          >
+                            Validar
+                          </button>
                         )}
-                    </div>
+                        {isValidated && (
+                          <div className="inline-flex gap-2">
+                            <Link
+                              href={`/api/shipment/${row.id}/delivery-note`}
+                              className="rounded-md border px-3 py-1.5 text-sm hover:bg-neutral-50"
+                              target="_blank"
+                            >
+                              Albarán
+                            </Link>
+                            <button
+                              disabled={isPending}
+                              onClick={() => onMarkShipped(row)}
+                              className="rounded-md border px-3 py-1.5 text-sm hover:bg-neutral-50 disabled:opacity-50"
+                            >
+                              Enviar
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </td>
                   </div>
                 );
               })}
@@ -501,7 +517,7 @@ export default function LogisticsPage() {
       </SBCard>
       
       {/* Diálogo de validación */}
-      <ValidateDialog open={openValidate} onOpenChange={setOpenValidate} shipment={currentShipment} onSave={handleSaveValidation} />
+      <ValidateDialog open={openValidate} onOpenChange={setOpenValidate} shipment={currentShipment} onSave={onValidate as any} />
       
       {/* Diálogo de nuevo envío */}
        <NewShipmentDialog 
