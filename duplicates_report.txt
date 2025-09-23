@@ -1,0 +1,142 @@
+## dataprovider.tsx (2)
+./src/app/dataprovider.tsx
+./src/lib/dataprovider.tsx
+
+## client.ts (3)
+./src/server/integrations/holded/client.ts
+./src/server/integrations/sendcloud/client.ts
+./src/server/integrations/shopify/client.ts
+
+## firebaseAdmin.ts (2)
+./functions/src/firebaseAdmin.ts
+./src/server/firebaseAdmin.ts
+
+## page.tsx (46)
+./src/app/(app)/accounts/[accountId]/page.tsx
+./src/app/(app)/accounts/page.tsx
+./src/app/(app)/admin/data-import/page.tsx
+./src/app/(app)/admin/integrations/page.tsx
+./src/app/(app)/admin/kpi-settings/page.tsx
+./src/app/(app)/admin/pdf-test/page.tsx
+./src/app/(app)/admin/schema-audit/page.tsx
+./src/app/(app)/admin/sku-management/page.tsx
+./src/app/(app)/agenda/calendar/page.tsx
+./src/app/(app)/agenda/page.tsx
+./src/app/(app)/agenda/tasks/page.tsx
+./src/app/(app)/cashflow/collections/page.tsx
+./src/app/(app)/cashflow/dashboard/page.tsx
+./src/app/(app)/cashflow/payments/page.tsx
+./src/app/(app)/cashflow/settings/page.tsx
+./src/app/(app)/dashboard-personal/page.tsx
+./src/app/(app)/dashboard-ventas/page.tsx
+./src/app/(app)/dev/integrations-panel/page.tsx
+./src/app/(app)/marketing/dashboard/page.tsx
+./src/app/(app)/marketing/events/page.tsx
+./src/app/(app)/marketing/influencers/collabs/page.tsx
+./src/app/(app)/marketing/influencers/dashboard/page.tsx
+./src/app/(app)/marketing/influencers/page.tsx
+./src/app/(app)/marketing/online/page.tsx
+./src/app/(app)/marketing/pos-tactics/page.tsx
+./src/app/(app)/orders/page.tsx
+./src/app/(app)/production/bom/page.tsx
+./src/app/(app)/production/dashboard/page.tsx
+./src/app/(app)/production/execution/page.tsx
+./src/app/(app)/production/traceability/page.tsx
+./src/app/(app)/quality/dashboard/page.tsx
+./src/app/(app)/quality/release/page.tsx
+./src/app/(app)/quality/traceability/page.tsx
+./src/app/(app)/users/page.tsx
+./src/app/(app)/warehouse/dashboard/page.tsx
+./src/app/(app)/warehouse/inventory/page.tsx
+./src/app/(app)/warehouse/logistics/page.tsx
+./src/app/(auth)/login/page.tsx
+./src/app/(dev)/data-editor/page.tsx
+./src/app/(dev)/data-viewer/page.tsx
+./src/app/(dev)/db-console/page.tsx
+./src/app/(dev)/integrations-panel/page.tsx
+./src/app/(dev)/palette-preview/page.tsx
+./src/app/page.tsx
+./src/app/(personal)/contacts/page.tsx
+./src/features/production/dashboard/page.tsx
+
+## ssot-bridge.ts (3)
+./src/features/agenda/ssot-bridge.ts
+./src/features/influencers/ssot-bridge.ts
+./src/features/production/ssot-bridge.ts
+
+## actions.ts (5)
+./src/app/(app)/admin/data-import/actions.ts
+./src/app/(app)/admin/pdf-test/actions.ts
+./src/app/(app)/orders/actions.ts
+./src/app/(app)/warehouse/logistics/actions.ts
+./src/lib/dataprovider/actions.ts
+
+## index.ts (4)
+./functions/src/ai/index.ts
+./functions/src/index.ts
+./src/ai/index.ts
+./src/domain/index.ts
+
+## route.ts (24)
+./src/app/api/brain-persist/route.ts
+./src/app/api/cashflow/recompute/route.ts
+./src/app/api/cashflow/settings/route.ts
+./src/app/api/csv-template/route.ts
+./src/app/api/dev/client-log/route.ts
+./src/app/api/dev/integrations/route.ts
+./src/app/api/firebase-config/route.ts
+./src/app/api/integrations/holded/import-contacts/route.ts
+./src/app/api/integrations/holded/import/route.ts
+./src/app/api/integrations/holded/sync/route.ts
+./src/app/api/integrations/[provider]/connect/route.ts
+./src/app/api/integrations/[provider]/disconnect/route.ts
+./src/app/api/integrations/shopify/callback/route.ts
+./src/app/api/integrations/shopify/import-order/route.ts
+./src/app/api/integrations/shopify/oauth/route.ts
+./src/app/api/integrations/status/route.ts
+./src/app/api/integrations/test/route.ts
+./src/app/api/shipment/[shipmentId]/delivery-note/route.ts
+./src/app/api/shipment/[shipmentId]/picking-slip/route.ts
+./src/app/api/webhooks/shopify/orders/create/route.ts
+./src/app/api/webhooks/shopify/orders/fulfilled/route.ts
+./src/app/api/webhooks/shopify/orders/paid/route.ts
+./src/app/api/webhooks/shopify/route.ts
+./src/server/integrations/holded/import-contacts/route.ts
+
+## README.md (2)
+./README.md
+./src/README.md
+
+## types.ts (2)
+./src/features/production/execution/types.ts
+./src/server/queue/types.ts
+
+## ssot.ts (2)
+./functions/src/domain/ssot.ts
+./src/domain/ssot.ts
+
+## dev.nix (2)
+./dev.nix
+./.idx/dev.nix
+
+## deliveryNote.ts (2)
+./src/deliveryNote.ts
+./src/server/pdf/deliveryNote.ts
+
+## layout.tsx (11)
+./src/app/(app)/agenda/layout.tsx
+./src/app/(app)/cashflow/layout.tsx
+./src/app/(app)/layout.tsx
+./src/app/(app)/marketing/influencers/layout.tsx
+./src/app/(app)/marketing/layout.tsx
+./src/app/(app)/production/layout.tsx
+./src/app/(app)/quality/layout.tsx
+./src/app/(app)/warehouse/layout.tsx
+./src/app/(auth)/layout.tsx
+./src/app/(dev)/layout.tsx
+./src/app/layout.tsx
+
+## queue.ts (2)
+./src/server/integrations/queue.ts
+./src/server/queue/queue.ts
+
