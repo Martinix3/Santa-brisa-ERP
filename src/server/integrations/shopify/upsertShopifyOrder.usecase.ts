@@ -2,7 +2,7 @@
 import { adminDb } from '@/server/firebaseAdmin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { enqueue } from '@/server/queue/queue';
-import { mapShopifyToSSOT } from './shopify.mapper';
+import { mapShopifyToSSOT } from './map';
 import type { Account } from '@/domain/ssot';
 
 async function upsertAccount(accountData: Partial<Account>, shopifyCustomer: any): Promise<FirebaseFirestore.DocumentReference> {
