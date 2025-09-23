@@ -4,11 +4,13 @@ import { adminDb } from '@/server/firebaseAdmin';
 import { renderDeliveryNotePdf } from '@/server/pdf/deliveryNote';
 import type { DeliveryNote } from '@/domain/ssot';
 
+type RouteCtx = { params: Promise<{ shipmentId: string }> };
+
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { shipmentId: string } }
+  { params }: RouteCtx
 ): Promise<Response> {
-  const { shipmentId } = params;
+  const { shipmentId } = await params;
 
   try {
     const q = await adminDb

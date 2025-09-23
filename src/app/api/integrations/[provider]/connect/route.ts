@@ -5,11 +5,13 @@ import { adminDb } from '@/server/firebaseAdmin';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+type RouteCtx = { params: Promise<{ provider: string }> };
+
 export async function POST(
   req: NextRequest,
-  context: { params: { provider: string } }
+  context: RouteCtx
 ) {
-  const { provider } = context.params;
+  const { provider } = await context.params;
   const body = await req.json().catch(()=> ({}));
 
   if (provider === "shopify") {

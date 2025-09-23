@@ -1,4 +1,3 @@
-
 // src/app/api/shipment/[shipmentId]/picking-slip/route.ts
 import { NextResponse, type NextRequest } from 'next/server';
 import { adminDb } from '@/server/firebaseAdmin';
@@ -87,11 +86,13 @@ async function renderPickingSlipPdf(shipment: Shipment, order?: OrderSellOut, pa
   return doc.save();
 }
 
+type RouteCtx = { params: Promise<{ shipmentId: string }> };
+
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { shipmentId: string } }
+  { params }: RouteCtx
 ) {
-  const { shipmentId } = params;
+  const { shipmentId } = await params;
 
   try {
     const shipmentSnap = await adminDb.collection('shipments').doc(shipmentId).get();
