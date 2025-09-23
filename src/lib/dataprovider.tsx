@@ -11,7 +11,7 @@ import { useRouter } from "next/navigation";
 import { SANTA_DATA_COLLECTIONS } from "@/domain";
 import { INITIAL_MOCK_DATA } from "@/lib/mock-data";
 import { upsertMany } from './dataprovider/actions';
-import { firebaseApp, auth as firebaseAuth, db as firestoreDb } from "@/lib/firebaseClient";
+import { firebaseApp, firebaseAuth, firestoreDb } from "@/lib/firebaseClient";
 
 
 // --------- Tipos ----------
@@ -108,7 +108,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   // Load Firestore data on initial mount or when persistence changes
   useEffect(() => {
-    if (!authReady || !firebaseUser) return;
+    if (!authReady || !firebaseUser) {
+        setData(null);
+        return;
+    };
     loadInitialData().catch(console.error);
   }, [authReady, firebaseUser, isPersistenceEnabled, loadInitialData]);
 
