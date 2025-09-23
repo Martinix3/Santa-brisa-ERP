@@ -2,6 +2,7 @@
 
 
 
+
 'use server';
 import { revalidatePath } from 'next/cache';
 import { getServerData } from '@/lib/dataprovider/server';
@@ -101,7 +102,7 @@ export async function createSalesInvoice({ orderId }: { orderId:string }) {
      costObject: { kind: 'ORDER', id: orderId },
   };
 
-  await upsertMany('financeLinks', [fin]);
+  await upsertMany('financeLinks', [fin] as any);
   await upsertMany('ordersSellOut', [{
      id: orderId,
      status: 'invoiced',
@@ -126,7 +127,7 @@ export async function recordPayment({ financeLinkId, amount, date, method }: {
     date: date ?? now,
     method: method ?? 'transfer',
   };
-  await upsertMany('paymentLinks', [pay]);
+  await upsertMany('paymentLinks', [pay] as any);
   revalidatePath('/finance');
   return { ok:true, paymentId: pay.id };
 }

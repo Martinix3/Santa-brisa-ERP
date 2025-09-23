@@ -358,7 +358,7 @@ export default function LogisticsPage() {
       { id: "validate", label: "Validar", icon: <BadgeCheck className="w-4 h-4"/>, onClick: () => openValidateFor(shipment), available: isPendingOrPicking },
       { id: "delivery", label: "Albarán", icon: <FileText className="w-4 h-4"/>, onClick: () => handleAction(shipment.id, () => createDeliveryNote(shipment.id), 'Job para generar albarán encolado.'), available: canGenerateDeliveryNote(shipment), pendingReason: "Requiere Visual OK" },
       { id: "label", label: "Etiqueta", icon: <Truck className="w-4 h-4"/>, onClick: () => handleAction(shipment.id, () => shipment.mode === 'PARCEL' ? createParcelLabel(shipment.id) : createPalletLabel(shipment.id), 'Job para generar etiqueta encolado.'), available: canGenerateLabel(shipment), pendingReason: "Req. Albarán/Peso" },
-      { id: "ship", label: "Marcar Enviado", icon: <PackageCheck className="w-4 h-4"/>, onClick: () => handleAction(shipment.id, () => markShipped(shipment.id), 'Job para marcar como enviado encolado.'), available: canMarkShipped(shipment), pendingReason: "Requiere Etiqueta" },
+      { id: "ship", label: "Marcar Enviado", icon: <PackageCheck className="w-4 h-4"/>, onClick: () => handleAction(shipment.id, () => markShipped({ shipmentId: shipment.id }), 'Job para marcar como enviado encolado.'), available: canMarkShipped(shipment), pendingReason: "Requiere Etiqueta" },
       {
         id: "invoice",
         label: "Facturar",

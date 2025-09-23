@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import Modal from '@/components/ui/Modal';
+import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
 import { Input, SBButton } from '@/components/ui/ui-primitives';
 
 type Field = { name: string; label: string; placeholder: string };
@@ -58,31 +58,30 @@ export default function ApiKeyConnect({ open, onClose, provider, fields }: ApiKe
   };
 
   return (
-    <Modal open={open} onClose={onClose} title={`Conectar con ${provider.charAt(0).toUpperCase() + provider.slice(1)}`}>
-        <form onSubmit={(e) => { e.preventDefault(); handleConnect(); }} className="space-y-4">
-            <p className="text-sm text-zinc-600">Introduce tus credenciales de API para continuar.</p>
-            <div className="space-y-4">
-                {fields.map(field => (
-                    <label key={field.name} className="grid gap-1.5">
-                        <span className="text-sm font-medium text-zinc-700">{field.label}</span>
-                        <Input
-                            type="password"
-                            value={secrets[field.name] || ''}
-                            onChange={(e) => handleInputChange(field.name, e.target.value)}
-                            placeholder={field.placeholder}
-                            required
-                        />
-                    </label>
-                ))}
-                {error && <p className="text-sm text-red-600 bg-red-50 p-2 rounded-md">{error}</p>}
-            </div>
-             <div className="flex justify-end gap-2 pt-4">
-                <SBButton type="button" variant="secondary" onClick={onClose}>Cancelar</SBButton>
-                <SBButton type="submit" disabled={loading}>
-                    {loading ? 'Conectando...' : 'Conectar'}
-                </SBButton>
-            </div>
-        </form>
-    </Modal>
+    <SBDialog open={open} onOpenChange={onClose}>
+        <SBDialogContent
+          title={`Conectar con ${provider.charAt(0).toUpperCase() + provider.slice(1)}`}
+          description="Introduce tus credenciales de API para continuar."
+          onSubmit={(e) => { e.preventDefault(); handleConnect(); }}
+          primaryAction={{ label: loading ? 'Conectando...' : 'Conectar', disabled: loading, type: 'submit' }}
+          secondaryAction={{ label: 'Cancelar', onClick: onClose }}
+        >
+          <div className="space-y-4">
+              {fields.map(field => (
+                  <label key={field.name} className="grid gap-1.5">
+                      <span className="text-sm font-medium text-zinc-700">{field.label}</span>
+                      <Input
+                          type="password"
+                          value={secrets[field.name] || ''}
+                          onChange={(e) => handleInputChange(field.name, e.target.value)}
+                          placeholder={field.placeholder}
+                          required
+                      />
+                  </label>
+              ))}
+              {error && <p className="text-sm text-red-600 bg-red-50 p-2 rounded-md">{error}</p>}
+          </div>
+        </SBDialogContent>
+    </SBDialog>
   );
 }

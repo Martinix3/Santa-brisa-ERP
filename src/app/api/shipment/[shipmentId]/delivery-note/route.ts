@@ -43,7 +43,7 @@ export async function GET(
       createdAt: now, updatedAt: now,
     };
     
-    await upsertMany('deliveryNotes', [dn]);
+    await upsertMany('deliveryNotes', [dn] as any);
     await upsertMany('shipments', [{ id: shp.id, deliveryNoteId: dnId, updatedAt: now }]);
 
     const pdfBytes = await renderDeliveryNotePdf({

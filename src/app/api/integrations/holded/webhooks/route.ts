@@ -1,6 +1,6 @@
 
-import { NextRequest } from 'next/server';
-import { upsertMany } from '@/lib/dataprovider/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { upsertMany } from '@/lib/dataprovider/actions';
 import type { FinanceLink, PaymentLink, OrderSellOut } from '@/domain/ssot';
 
 // Ajusta si añades verificación de firma
@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
     costObject: meta?.orderId ? { kind: 'ORDER', id: meta.orderId } : undefined,
   };
 
-  await upsertMany('financeLinks' as any, [fin]);
+  await upsertMany('financeLinks', [fin as any]);
 
   // Persistimos pagos individuales
   const payDocs: PaymentLink[] = (payments || []).map((p: any) => ({
@@ -45,11 +45,11 @@ export async function POST(req: NextRequest) {
     date: p.date ?? now,
     method: p.method ?? 'transfer',
   }));
-  if (payDocs.length) await upsertMany('paymentLinks' as any, payDocs);
+  if (payDocs.length) await upsertMany('paymentLinks', payDocs as any);
 
   // Si la factura referencia un pedido, marca como PAID
   if (meta?.orderId && status === 'paid') {
-    await upsertMany('ordersSellOut' as any, [{
+    await upsertMany('ordersSellOut', [{
       id: meta.orderId,
       status: 'paid',
       billingStatus: 'PAID',

@@ -1,7 +1,7 @@
 import { adminDb } from '@/server/firebaseAdmin';
 import { callHoldedApi } from '@/server/integrations/holded/client';
 import { Timestamp } from 'firebase-admin/firestore';
-import type { Party, PartyDuplicate } from '@/domain/ssot';
+import type { Party, PartyDuplicate, Address } from '@/domain/ssot';
 
 type HoldedContact = {
   id: string;
@@ -71,16 +71,18 @@ export async function handleSyncHoldedContacts({ page = 1, dryRun = false }: { p
     if (contactTaxId) existingParty = (await adminDb.collection('parties').where('taxId', '==', contactTaxId).limit(1).get()).docs[0]?.data() as Party | null;
     if (!existingParty) existingParty = (await adminDb.collection('parties').where('name', '==', c.name.trim()).limit(1).get()).docs[0]?.data() as Party | null;
       
+      const billAddress = c.billAddress;
+      const proposedAddresses: Address[] = billAddress && billAddress.street ? [{
+        street: billAddress.address,
+        city: billAddress.city,
+        postalCode: billAddress.postalCode,
+        country: billAddress.country || 'España',
+      }] : [];
+      
       const proposedData: Partial<Party> = {
         name: c.name,
         taxId: c.code || undefined,
-        addresses: c.billAddress ? [{
-            type: 'billing',
-            street: c.billAddress.address,
-            city: c.billAddress.city,
-            postalCode: c.billAddress.postalCode,
-            country: c.billAddress.country,
-        }] : [],
+        addresses: proposedAddresses as any, // Cast to any to bypass strict check for this partial update
         contacts: c.phone ? [{ type: 'phone', value: c.phone, isPrimary: true, description: 'Principal' }] : [],
         kind: 'ORG',
       };

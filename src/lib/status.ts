@@ -12,11 +12,20 @@ export function normalizeOrderStatus(s?: string): OrderStatus {
 }
 
 export const SHIPMENT_STATUS_MAP: Record<string, ShipmentStatus> = {
-  pendiente:'pending', picking:'picking',
-  validado:'ready_to_ship', preparado:'ready_to_ship',
-  enviado:'shipped', entregado:'delivered', incidencia:'exception', cancelado:'cancelled',
-  pending:'pending', picking:'picking', ready_to_ship:'ready_to_ship',
-  shipped:'shipped', delivered:'delivered', exception:'exception', cancelled:'cancelled',
+  pendiente:'pending',
+  picking:'picking',
+  validado:'ready_to_ship',
+  preparado:'ready_to_ship',
+  enviado:'shipped',
+  entregado:'delivered',
+  incidencia:'exception',
+  cancelado:'cancelled',
+  pending:'pending',
+  ready_to_ship:'ready_to_ship',
+  shipped:'shipped',
+  delivered:'delivered',
+  exception:'exception',
+  cancelled:'cancelled',
 };
 
 export function normalizeShipmentStatus(s?: string): ShipmentStatus {

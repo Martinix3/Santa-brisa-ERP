@@ -1,9 +1,10 @@
 
 
+
 'use server';
 import { revalidatePath } from 'next/cache';
 import { enqueue } from '@/server/queue/queue';
-import { getServerData } from '@/server/dataprovider/server';
+import { getServerData } from '@/lib/dataprovider/server';
 import { upsertMany } from '@/lib/dataprovider/actions';
 import type { Shipment, OrderSellOut } from '@/domain/ssot';
 
@@ -41,7 +42,7 @@ export async function validateShipment(shipmentId: string, payload: any) {
 }
 
 type MarkShippedInput = { shipmentId: string; trackingCode?: string; labelUrl?: string };
-export async function markShipmentShipped(shipmentId: string) {
+export async function markShipped({ shipmentId }: MarkShippedInput) {
   await enqueue({ kind:'MARK_SHIPMENT_SHIPPED', payload:{ shipmentId }, maxAttempts:5 });
   return { ok:true };
 }
