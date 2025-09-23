@@ -7,34 +7,46 @@
 
 # Auditoría Santa Brisa
 
-**Archivos escaneados:** 103
-**Pages:** 37, **Layouts:** 8, **Client comps:** 77
+**Archivos escaneados:** 188
+**Pages:** 45, **Layouts:** 11, **Client comps:** 100
 
 ## UI duplicada (por nombre de archivo)
 - Sin duplicados detectados
 
 ## Otros hallazgos
-- Overlays fixed: 10
-  - src/app/loading.tsx
-  - src/app/marketing/online/page.tsx
-  - src/app/warehouse/logistics/page.tsx
-  - src/components/ui/Modal.tsx
+- Overlays fixed: 9
+  - src/app/(app)/marketing/online/page.tsx
+  - src/app/(app)/warehouse/logistics/page.tsx
   - src/components/ui/NewCustomerCelebration.tsx
-  - src/features/agenda/ui.tsx
-  - src/features/influencers/components/InfluencerMarketing.tsx
+  - src/components/ui/SBDialog.tsx
+  - src/features/influencers/dialogs/NewCollabDialog.tsx
+  - src/features/orders/components/ImportShopifyOrderButton.tsx
   - src/features/quicklog/QuickLogOverlay.tsx
   - src/features/quicklog/components/SBFlows.tsx
   - src/lib/dataprovider.tsx
 - "useEffect" sin cleanup: 0
 
 ## Rutas (conteo aproximado)
-- (root): 37 pages, 8 layouts
+- (root): 45 pages, 11 layouts
 
 
 ---
 
 # Runtime findings
 
-No se encontró `/tmp/sb-client-logs.ndjson`.
-Navega la app con la captura activa (MonitoringBoot) y vuelve a correr `npm run audit:runtime`.
+Logs analizados: 14
+
+## /  
+Total issues: 3
+Tipos: console.error: 3
+
+- (3×) Failed to load Firebase config from API.
+
+## /login  
+Total issues: 11
+Tipos: console.error: 10, unhandledrejection: 1
+
+- (9×) [AuthForm] Submit Error: Firebase: Error (auth/network-request-failed).
+- (2×) Failed to fetch
+
 

@@ -1,4 +1,17 @@
 # Runtime findings
 
-No se encontró `/tmp/sb-client-logs.ndjson`.
-Navega la app con la captura activa (MonitoringBoot) y vuelve a correr `npm run audit:runtime`.
+Logs analizados: 14
+
+## /  
+Total issues: 3
+Tipos: console.error: 3
+
+- (3×) Failed to load Firebase config from API.
+
+## /login  
+Total issues: 11
+Tipos: console.error: 10, unhandledrejection: 1
+
+- (9×) [AuthForm] Submit Error: Firebase: Error (auth/network-request-failed).
+- (2×) Failed to fetch
+
