@@ -13,9 +13,11 @@ export type JobPayloads =
  | { kind:'CREATE_SENDCLOUD_LABEL'; payload:{ shipmentId: string }; }
  | { kind:'CREATE_INHOUSE_PALLET_LABEL'; payload:{ shipmentId: string }; }
  | { kind:'MARK_SHIPMENT_SHIPPED'; payload:{ shipmentId: string }; }
- | { kind: 'SYNC_HOLDED_PURCHASES'; payload: { page?: number }; }
+ | { kind: 'SYNC_HOLDED_PURCHASES'; payload: { page?: number, dryRun?: boolean }; }
  | { kind: 'CREATE_HOLDED_INVOICE'; payload: { orderId: string }; }
- | { kind: 'CREATE_INVOICE_FROM_ORDER'; payload: { orderId: string, force?: boolean }; };
+ | { kind: 'CREATE_INVOICE_FROM_ORDER'; payload: { orderId: string, force?: boolean }; }
+ | { kind:'SYNC_HOLDED_CONTACTS'; payload:{ page?: number; dryRun?: boolean } }
+ | { kind:'SYNC_HOLDED_PRODUCTS'; payload:{ page?: number; dryRun?: boolean } };
 
 
 export type JobKind = JobPayloads['kind'];

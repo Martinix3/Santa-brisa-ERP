@@ -2,14 +2,10 @@
 import { adminDb } from '@/server/firebaseAdmin';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import type { Job, JobKind } from './types';
-
-const JOBS_COLL = 'jobs';
-const DEFAULT_BATCH = 10;
-const LEASE_MS = 60_000;
-const BASE_BACKOFF_MS = 30_000;
+import { enqueue } from './queue';
 
 // --- Registro de handlers ---
-const HANDLERS: Record<JobKind, (payload: any) => Promise<void>> = {
+const HANDLERS: Record<JobKind, (payload: any) => Promise<any>> = {
   CREATE_MANUAL_SHIPMENT: async (payload) => (await import('../workers/createManualShipment.worker')).run(payload),
   CREATE_SHIPMENT_FROM_ORDER: async (payload) => (await import('../workers/createShipment.worker')).run(payload),
   VALIDATE_SHIPMENT: async (payload) => (await import('../workers/validateShipment.worker')).run(payload),
@@ -17,60 +13,19 @@ const HANDLERS: Record<JobKind, (payload: any) => Promise<void>> = {
   CREATE_SENDCLOUD_LABEL: async (payload) => (await import('../workers/createSendcloudLabel.worker')).run(payload),
   CREATE_INHOUSE_PALLET_LABEL: async (payload) => (await import('../workers/createInhouseLabel.worker')).run(payload),
   MARK_SHIPMENT_SHIPPED: async (payload) => (await import('../workers/markShipped.worker')).run(payload),
-  SYNC_HOLDED_PURCHASES: async (payload) => (await import('../integrations/holded/syncPurchases')).handleSyncHoldedPurchases(payload),
   CREATE_HOLDED_INVOICE: async (payload) => (await import('../integrations/holded/createInvoice.worker')).handleCreateHoldedInvoice(payload),
   CREATE_INVOICE_FROM_ORDER: async (payload) => (await import('../workers/invoicing.createFromOrder')).run(payload),
+  SYNC_HOLDED_CONTACTS: async (payload) => (await import('../workers/holded.syncContacts')).handleSyncHoldedContacts(payload),
+  SYNC_HOLDED_PURCHASES: async (payload) => (await import('../integrations/holded/syncPurchases')).handleSyncHoldedPurchases(payload),
+  SYNC_HOLDED_PRODUCTS: async (payload) => (await import('../workers/holded.syncProducts')).handleSyncHoldedProducts(payload),
 };
 
 
-export async function claimJobs(workerId: string, batch = DEFAULT_BATCH): Promise<Job[]> {
-  const now = Timestamp.now();
-  const lockUntilExpired = Timestamp.fromMillis(now.toMillis() - LEASE_MS);
-
-  // Re-queue stuck jobs
-  const stuckJobsSnap = await adminDb.collection(JOBS_COLL)
-    .where('status', '==', 'RUNNING')
-    .where('updatedAt', '<', lockUntilExpired)
-    .limit(batch)
-    .get();
-
-  for (const doc of stuckJobsSnap.docs) {
-    await doc.ref.update({ status: 'QUEUED', updatedAt: now, lockedBy: null });
-    console.log(`Re-queued stuck job: ${doc.id}`);
-  }
-
-  // Claim new jobs
-  const queuedJobsSnap = await adminDb.collection(JOBS_COLL)
-    .where('status', '==', 'QUEUED')
-    .where('nextRunAt', '<=', now)
-    .orderBy('nextRunAt')
-    .limit(batch)
-    .get();
-
-  const claimedJobs: Job[] = [];
-  for (const doc of queuedJobsSnap.docs) {
-    try {
-      await adminDb.runTransaction(async (tx) => {
-        const freshDoc = await tx.get(doc.ref);
-        if (freshDoc.data()?.status === 'QUEUED') {
-          tx.update(doc.ref, {
-            status: 'RUNNING',
-            updatedAt: Timestamp.now(),
-            lockedBy: workerId,
-            attempts: FieldValue.increment(1)
-          });
-          claimedJobs.push({ id: doc.id, ...freshDoc.data() } as Job);
-        }
-      });
-    } catch (e) {
-      console.error(`Error claiming job ${doc.id}:`, e);
-    }
-  }
-  return claimedJobs;
-}
+const LEASE_MS = 60_000;
+const BASE_BACKOFF_MS = 30_000;
 
 export async function processJob(workerId: string, job: Job): Promise<void> {
-  const jobRef = adminDb.collection(JOBS_COLL).doc(job.id);
+  const jobRef = adminDb.collection('jobs').doc(job.id);
   const handler = HANDLERS[job.kind];
 
   if (!handler) {
@@ -79,9 +34,20 @@ export async function processJob(workerId: string, job: Job): Promise<void> {
   }
 
   try {
-    await handler(job.payload);
+    const result = await handler(job.payload);
     await jobRef.update({ status: 'DONE', finishedAt: Timestamp.now(), updatedAt: Timestamp.now() });
     console.log(`[${workerId}] Job ${job.id} (${job.kind}) completed successfully.`);
+    
+    // Auto-pagination for sync jobs
+    if (result?.nextPage) {
+        await enqueue({ 
+            kind: job.kind as any, 
+            payload: { page: result.nextPage, dryRun: (job.payload as any).dryRun }, 
+            maxAttempts: job.maxAttempts 
+        });
+        console.log(`[${workerId}] Enqueued next page ${result.nextPage} for ${job.kind}`);
+    }
+
   } catch (error: any) {
     console.error(`[${workerId}] Job ${job.id} (${job.kind}) failed:`, error.message);
     const attempts = (job.attempts || 0) + 1;
@@ -99,13 +65,4 @@ export async function processJob(workerId: string, job: Job): Promise<void> {
       await jobRef.update({ status: 'DEAD', error: error.message, updatedAt: Timestamp.now() });
     }
   }
-}
-
-export async function dispatchOnce(workerId = `worker_${process.pid}`): Promise<number> {
-  const jobs = await claimJobs(workerId);
-  if (jobs.length > 0) {
-    console.log(`[${workerId}] Claimed ${jobs.length} jobs.`);
-    await Promise.all(jobs.map(job => processJob(workerId, job)));
-  }
-  return jobs.length;
 }

@@ -1,7 +1,7 @@
 
 'use client';
-import { useEffect, useState } from 'react';
-import { CheckCircle, AlertTriangle, RefreshCw, Link as LinkIcon, PlugZap, TestTubes } from 'lucide-react';
+import { useEffect, useState, useTransition } from 'react';
+import { CheckCircle, AlertTriangle, RefreshCw, Link as LinkIcon, PlugZap, TestTubes, DownloadCloud, UploadCloud, Info } from 'lucide-react';
 
 type Status = { ok: boolean; details?: any; ping?: string; error?: string };
 type AllStatus = { shopify: Status; holded: Status; sendcloud: Status };
@@ -12,6 +12,10 @@ export default function IntegrationsPage() {
   const [status, setStatus] = useState<AllStatus | null>(null);
   const [testing, setTesting] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<any>(null);
+
+  const [isPending, startTransition] = useTransition();
+  const [dryRun, setDryRun] = useState(true);
+  const [importStatus, setImportStatus] = useState<string | null>(null);
 
   async function load(livePing=false) {
     setLoading(true);
@@ -30,6 +34,26 @@ export default function IntegrationsPage() {
     setTesting(null);
     setTestResult({ kind, ...json });
   }
+
+  const handleImport = (scopes: string[]) => {
+      startTransition(async () => {
+          setImportStatus(`Iniciando importación para: ${scopes.join(', ')}...`);
+          try {
+              const res = await fetch('/api/integrations/holded/import', {
+                  method: 'POST',
+                  body: JSON.stringify({ scope: scopes, dryRun }),
+              });
+              const result = await res.json();
+              if (result.ok) {
+                  setImportStatus(`✅ ¡Jobs encolados! ${result.enqueued.join(', ')} (${dryRun ? 'dry-run' : 'escritura'})`);
+              } else {
+                  throw new Error(result.error || "Error desconocido");
+              }
+          } catch(e: any) {
+              setImportStatus(`❌ Error: ${e.message}`);
+          }
+      });
+  };
 
   useEffect(()=> { load(false); }, []);
 
@@ -74,7 +98,29 @@ export default function IntegrationsPage() {
           onTest={() => test('holded')}
           testing={testing === 'holded'}
           docsUrl="https://developers.holded.com/"
-        />
+        >
+            <div className="mt-4 pt-4 border-t space-y-2">
+                <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-medium">Importación Inicial</h4>
+                    <label className="flex items-center gap-2 text-xs">
+                        <input type="checkbox" checked={dryRun} onChange={(e) => setDryRun(e.target.checked)} />
+                        Dry-run
+                    </label>
+                </div>
+                <div className="flex flex-col gap-2">
+                    <button onClick={() => handleImport(['contacts'])} disabled={isPending || !status?.holded.ok} className="w-full text-sm inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg border hover:bg-gray-50 disabled:opacity-60">
+                        <DownloadCloud className="w-4 h-4" /> Importar Contactos
+                    </button>
+                     <button onClick={() => handleImport(['purchases'])} disabled={isPending || !status?.holded.ok} className="w-full text-sm inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg border hover:bg-gray-50 disabled:opacity-60">
+                        <DownloadCloud className="w-4 h-4" /> Importar Compras
+                    </button>
+                    <button onClick={() => handleImport(['products'])} disabled={isPending || !status?.holded.ok} className="w-full text-sm inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg border hover:bg-gray-50 disabled:opacity-60">
+                        <DownloadCloud className="w-4 h-4" /> Importar Productos
+                    </button>
+                </div>
+                {importStatus && <p className="text-xs text-zinc-600 bg-zinc-100 p-2 rounded-md"><Info className="w-3 h-3 inline mr-1"/> {importStatus}</p>}
+            </div>
+        </Card>
         <Card
           title="Sendcloud"
           desc="Etiquetas y tracking"
@@ -96,10 +142,6 @@ export default function IntegrationsPage() {
           </pre>
         </div>
       )}
-
-      <p className="text-sm text-gray-600">
-        Las credenciales se leen del backend. Este panel nunca expone claves en el cliente.
-      </p>
     </div>
   );
 }
@@ -117,9 +159,9 @@ function StatusPill({ ok }: { ok?: boolean }) {
 }
 
 function Card({
-  title, desc, status, onTest, testing, docsUrl
+  title, desc, status, onTest, testing, docsUrl, children
 }: {
-  title: string; desc: string; status?: Status; onTest: ()=>void; testing: boolean; docsUrl: string;
+  title: string; desc: string; status?: Status; onTest: ()=>void; testing: boolean; docsUrl: string; children?: React.ReactNode;
 }) {
   return (
     <div className="rounded-xl border p-4 bg-white flex flex-col gap-3">
@@ -148,6 +190,7 @@ function Card({
           <RefreshCw className={`w-4 h-4 ${testing ? 'animate-spin' : ''}`} /> Probar conexión
         </button>
       </div>
+      {children}
     </div>
   );
 }
