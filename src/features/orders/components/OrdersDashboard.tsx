@@ -11,6 +11,7 @@ import { ImportShopifyOrderButton } from './ImportShopifyOrderButton';
 import Link from "next/link";
 import { orderTotal } from "@/lib/sb-core";
 import { consignmentOnHandByAccount, consignmentTotalUnits } from '@/lib/consignment-and-samples';
+import { AlertCircle, Truck, Boxes, FileText, CreditCard } from 'lucide-react';
 
 
 type Tab = "directa" | "colocacion" | "online";
@@ -71,11 +72,11 @@ function FilterPill({ value, onChange, options, placeholder }: { value: string; 
   );
 }
 
-function KpiCard({ emoji, label, value, color }: { emoji: string; label: string; value: string | number; color: string }) {
+function KpiCard({ icon: Icon, label, value, color }: { icon: React.ElementType; label: string; value: string | number; color: string }) {
   return (
     <div className="bg-white p-4 rounded-xl border border-zinc-200 flex items-start gap-4">
       <div className="h-10 w-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${color}20`, color }}>
-        <span aria-hidden>{emoji}</span>
+        <Icon size={20} />
       </div>
       <div>
         <p className="text-2xl font-bold text-zinc-900">{value}</p>
@@ -84,6 +85,7 @@ function KpiCard({ emoji, label, value, color }: { emoji: string; label: string;
     </div>
   );
 }
+
 
 function StatusSelector({ order, onChange, accountsById, partiesById }: { 
   order: OrderSellOut; 
@@ -215,7 +217,7 @@ export default function OrdersDashboard() {
       if (res?.ok && data) {
         const orders = data.ordersSellOut.map((x) => (x.id === res.order.id ? { ...x, status: res.order.status } : x));
         const ships = res.shipment ? [...(data.shipments || []), res.shipment] : data.shipments;
-        setData({ ...data, ordersSellOut: orders, shipments: ships });
+        setData({ ...data, ordersSellOut: orders, shipments: ships as Shipment[] });
       }
     } catch (e) {
       console.error(e);
@@ -238,11 +240,11 @@ export default function OrdersDashboard() {
         </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <KpiCard emoji="⚠️" label="Pendiente de Confirmar" value={kpi.toConfirm} color="#f59e0b" />
-        <KpiCard emoji="📦" label="Pendiente de Enviar" value={kpi.toShip} color="#3b82f6" />
-        <KpiCard emoji="🧮" label="Unidades en Consigna" value={kpi.consignmentUnits} color="#a855f7" />
-        <KpiCard emoji="🧾" label="Pendiente de Facturar" value={kpi.toInvoice} color="#10b981" />
-        <KpiCard emoji="💶" label="Pendiente de Cobrar" value={kpi.toCollect} color="#8b5cf6" />
+        <KpiCard icon={AlertCircle} label="Pendiente de Confirmar" value={kpi.toConfirm} color="#f59e0b" />
+        <KpiCard icon={Truck} label="Pendiente de Enviar" value={kpi.toShip} color="#3b82f6" />
+        <KpiCard icon={Boxes} label="Unidades en Consigna" value={kpi.consignmentUnits} color="#a855f7" />
+        <KpiCard icon={FileText} label="Pendiente de Facturar" value={kpi.toInvoice} color="#10b981" />
+        <KpiCard icon={CreditCard} label="Pendiente de Cobrar" value={kpi.toCollect} color="#8b5cf6" />
       </div>
 
        <div className="mt-4 mb-4 flex items-center gap-3">
@@ -279,7 +281,7 @@ export default function OrdersDashboard() {
               const owner = usersById.get(acc.ownerId);
               const total = orderTotal(o);
               const status = o.status || 'open';
-              const meta = ORDER_STATUS_STYLES[status] || ORDER_STATUS_STYLES.open;
+              const meta = ORDER_STATUS_STYLES[status];
 
               return (
                 <tr key={o.id} className="hover:bg-zinc-50">
