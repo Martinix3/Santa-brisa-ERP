@@ -169,7 +169,7 @@ export default function ContactsPage() {
               </tr>
             ))}
             {list.length === 0 && (
-              <tr><td colSpan={6} className="px-3 py-10 text-center text-zinc-500">Sin resultados. Ajusta filtros o haz Pull desde Holded.</td></tr>
+              <tr><td colSpan={6} className="px-3 py-10 text-center text-zinc-500">Sin resultados. Ajusta filtros o haz Pull de Holded.</td></tr>
             )}
           </tbody>
         </table>
