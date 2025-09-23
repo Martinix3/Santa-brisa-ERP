@@ -8,3 +8,5 @@ export default function AccountDetailPage() {
         <AccountDetailPageContent />
     );
 }
+
+export const dynamic = 'force-dynamic';

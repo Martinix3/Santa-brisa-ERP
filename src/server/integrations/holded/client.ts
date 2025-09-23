@@ -14,3 +14,5 @@ export async function holdedFetch(path: string, init: RequestInit = {}) {
   }
   return res;
 }
+
+export { holdedFetch as callHoldedApi };

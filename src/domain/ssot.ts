@@ -70,7 +70,7 @@ export interface Party {
     holdedUpdatedAt?: Timestamp;    // incremental idempotente
     shopifyCustomerId?: string;
   };
-  status?: 'PROVISIONAL'|'ENRIQUECIDO'|'VINCULADO'|'CONFIABLE';
+  status?: PartyStatus;
   people?: PartyPerson[];           // personas de contacto si es empresa
   flags?: {
     needsReview?: boolean;
@@ -82,12 +82,13 @@ export interface Party {
   };
   createdAt: any;
   updatedAt: any;
+  // DEPRECATED: campos legacy usados por UI actual; se eliminarán cuando migremos a emails/phones/people
+  contacts?: { type: 'email' | 'phone' | 'whatsapp' | 'web'; value: string; isPrimary?: boolean; description?: string; }[];
+  addresses?: { type: 'main' | 'billing' | 'shipping'; street: string; city: string; postalCode?: string; country: string; isPrimary?: boolean; }[];
   // Campos del modelo anterior para compatibilidad temporal. Serán eliminados.
   name: string; // Mantener por ahora, pero usar legalName/tradeName
   kind: 'ORG' | 'PERSON';
   taxId?: string; // CIF/NIF opcional para compatibilidad
-  contacts: never[];                // deprecated - migrar a emails/phones/people
-  addresses: never[];               // deprecated - usar Address estándar
   handles?: Partial<Record<'instagram' | 'tiktok' | 'linkedin' | 'twitter', string>>;
   tags?: string[];
 }

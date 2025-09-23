@@ -65,7 +65,6 @@ export default function DataImportPage(){
   const [autoId, setAutoId] = useState(true);
   const [autoSku, setAutoSku] = useState(true);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(()=>{ // cargar cabeceras desde plantilla CSV
     (async()=>{
       if (!coll) { setHeaders([]); setRows([]); return; }
