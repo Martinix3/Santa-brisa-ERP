@@ -1,4 +1,3 @@
-
 // src/app/api/shipment/[shipmentId]/delivery-note/route.ts
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -47,8 +46,8 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ shipmentId
       shp.addressLine1 ?? '',
       shp.addressLine2 ?? ''
     ].join(' ').trim();
-    const shipZip = shp.postalCode ?? '';
-    const shipCity = shp.city ?? '';
+    const shipZip = shp.postalCode || '';
+    const shipCity = shp.city || '';
 
     const dn: DeliveryNote = {
       id: dnId,
@@ -101,15 +100,17 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ shipmentId
 
     // Guarda metadatos e incorpora pdfUrl
     await upsertMany('deliveryNotes', [{ ...dn, pdfUrl: signedUrl }]);
-    await upsertMany('shipments', [{ id: shp.id, deliveryNoteId: dnId, updatedAt: now }]);
+    if (!shp.deliveryNoteId) {
+      await upsertMany('shipments', [{ id: shp.id, deliveryNoteId: dnId, updatedAt: now }]);
+    }
 
     // Redirige al PDF en Storage (mejor UX y cacheable)
     return Response.redirect(signedUrl, 302);
   } catch (err: any) {
     console.error('[delivery-note][ERROR]', err);
     const msg = (err && err.message) ? err.message : String(err);
-    if (err?.pdfBytes) {
-      const nodeBody = Buffer.isBuffer(err.pdfBytes) ? err.pdfBytes : Buffer.from(err.pdfBytes as Uint8Array);
+    if ((err as any)?.pdfBytes) {
+      const nodeBody = Buffer.isBuffer((err as any).pdfBytes) ? (err as any).pdfBytes : Buffer.from((err as any).pdfBytes as Uint8Array);
       return new Response(nodeBody as any, {
         status: 200,
         headers: {
