@@ -26,7 +26,7 @@ function WarehouseNav() {
                             href={item.href}
                             className={clsx(
                                 'py-3 border-b-2 text-sm font-medium transition-colors',
-                                pathname === item.href
+                                pathname.startsWith(item.href)
                                     ? 'border-sb-verde-mar text-sb-verde-mar'
                                     : 'border-transparent text-sb-neutral-500 hover:text-sb-neutral-700 hover:border-sb-neutral-300'
                             )}
@@ -45,7 +45,7 @@ export default function WarehouseLayout({ children }: { children: React.ReactNod
   return (
     <>
       <ModuleHeader title="Almacén" icon={Warehouse} />
-      {/* The WarehouseNav is now part of the main layout, so it's removed from the logistics page */}
+      <WarehouseNav />
       <div className="flex-grow bg-zinc-50">
           <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
             {children}

@@ -1,5 +1,6 @@
 
 
+
 'use server';
 import { revalidatePath } from 'next/cache';
 import { getServerData } from '@/lib/dataprovider/server';
@@ -73,28 +74,6 @@ export async function importShopifyOrder(orderId: string): Promise<OrderSellOut>
 }
 
 export async function createSalesInvoice({ orderId }: { orderId:string }) {
-  const data = await getServerData();
-  const order = data.ordersSellOut.find(o => o.id === orderId);
-  if (!order) throw new Error('Order not found');
-  const amount = (order.lines || []).reduce((a,l) => a + l.qty * (l.priceUnit ?? 0) * (1 - (l.discountPct ?? 0)/100), 0);
-
-  const now = new Date().toISOString();
-  const link: FinanceLink = {
-    id: `INV-${now.slice(0,10)}-${Math.floor(Math.random()*99999)}`, // ajusta a tu política de códigos si quieres
-    docType: 'SALES_INVOICE',
-    externalId: '', // si sincronizas con Holded, rellenas aquí
-    status: 'pending',
-    netAmount: amount, taxAmount: 0, grossAmount: amount,
-    currency: order.currency ?? 'EUR',
-    issueDate: now, dueDate: now,
-    docNumber: undefined,
-    partyId: order.partyId,
-    costObject: { kind: 'ORDER', id: orderId },
-  };
-
-  await upsertMany('financeLinks', [link]);
-  await upsertMany('ordersSellOut', [{ id: orderId, status:'invoiced', billingStatus:'INVOICED', updatedAt:now }]);
-  revalidatePath('/orders');
-  revalidatePath('/finance');
-  return { ok:true, financeLinkId: link.id };
+  await enqueue({ kind:'CREATE_INVOICE_FROM_ORDER', payload:{ orderId }, maxAttempts:5 });
+  return { ok:true };
 }
