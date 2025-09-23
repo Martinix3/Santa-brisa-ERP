@@ -12,6 +12,7 @@ import Link from "next/link";
 import { orderTotal } from "@/lib/sb-core";
 import { consignmentOnHandByAccount, consignmentTotalUnits } from '@/lib/consignment-and-samples';
 import { AlertCircle, Truck, Boxes, FileText, CreditCard } from 'lucide-react';
+import { normalizeOrderStatus } from '@/lib/status';
 
 
 type Tab = "directa" | "colocacion" | "online";
@@ -94,7 +95,7 @@ function StatusSelector({ order, onChange, accountsById, partiesById }: {
   partiesById: Map<string, Party>;
 }) {
   const [isPending, start] = useTransition();
-  const status = order.status || 'open';
+  const status = normalizeOrderStatus(order.status);
   const style = ORDER_STATUS_STYLES[status] || ORDER_STATUS_STYLES.open;
 
   return (
@@ -175,7 +176,8 @@ export default function OrdersDashboard() {
           if (isDirecta || isOnlineAcc(acc)) return false;
         }
 
-        const sOk = !status || o.status === (status as OrderStatus);
+        const normalizedStatus = normalizeOrderStatus(o.status);
+        const sOk = !status || normalizedStatus === (status as OrderStatus);
         const qOk =
           !q ||
           (o.docNumber && o.docNumber.toLowerCase().includes(q.toLowerCase())) ||
@@ -189,10 +191,11 @@ export default function OrdersDashboard() {
   const kpi = useMemo(() => {
     const k = { toConfirm: 0, toShip: 0, toInvoice: 0, toCollect: 0, consignmentUnits: 0 };
     for (const o of visibleOrders) {
-      if (o.status === "open") k.toConfirm++;
-      if (o.status === "confirmed") k.toShip++;
-      if (o.status === "shipped") k.toInvoice++;
-      if (o.status === "invoiced") k.toCollect++;
+      const normalizedStatus = normalizeOrderStatus(o.status);
+      if (normalizedStatus === "open") k.toConfirm++;
+      if (normalizedStatus === "confirmed") k.toShip++;
+      if (normalizedStatus === "shipped") k.toInvoice++;
+      if (normalizedStatus === "invoiced") k.toCollect++;
     }
     k.consignmentUnits = Object.values(consTotals).reduce((a, b) => a + b, 0);
     return k;
@@ -279,7 +282,7 @@ export default function OrdersDashboard() {
               if (!acc) return null;
               const owner = usersById.get(acc.ownerId);
               const total = orderTotal(o);
-              const status = o.status || 'open';
+              const status = normalizeOrderStatus(o.status);
               const meta = ORDER_STATUS_STYLES[status];
 
               return (
