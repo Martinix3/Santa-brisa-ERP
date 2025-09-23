@@ -2,25 +2,23 @@
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 import { NextResponse, type NextRequest } from 'next/server';
-import { getOne, upsertMany, getServerData } from '@/lib/dataprovider/server';
+import { getOne, upsertMany } from '@/lib/dataprovider/server';
 import { renderDeliveryNotePdf } from '@/server/pdf/deliveryNote';
 import type { DeliveryNote, Shipment } from '@/domain/ssot';
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { shipmentId: string } }
+  ctx: { params: Promise<{ shipmentId: string }> }
 ): Promise<Response> {
-  const { shipmentId } = params;
+  const { shipmentId } = await ctx.params;
 
   try {
     const shp = await getOne<Shipment>('shipments', shipmentId);
     if (!shp) return new Response('Shipment not found', { status: 404 });
 
-    const data = await getServerData();
     const now = new Date().toISOString();
     const dnId = `DN-${now.slice(0, 10)}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
-    const party = data.parties.find(p => p.id === shp.partyId);
-
+    
     const dn: DeliveryNote = {
       id: dnId,
       orderId: shp.orderId,
@@ -28,13 +26,13 @@ export async function GET(
       partyId: shp.partyId,
       series: 'B2B',
       date: now,
-      soldTo: { name: party?.name ?? shp.customerName ?? 'Cliente', vat: (party as any)?.vat },
+      soldTo: { name: shp.customerName ?? 'Cliente' },
       shipTo: {
         name: shp.customerName ?? 'Cliente',
         address: `${shp.addressLine1 ?? ''} ${shp.addressLine2 ?? ''}`.trim(),
         zip: shp.postalCode ?? '', city: shp.city ?? '', country: 'ES'
       },
-      lines: (shp.lines || []).map(l => ({
+      lines: (shp.lines || []).map((l: Shipment['lines'][number]) => ({
         sku: l.sku, description: l.name ?? l.sku, qty: l.qty, uom: 'uds', lotNumbers: l.lotNumber ? [l.lotNumber] : []
       })),
       company: { name: 'Santa Brisa', vat: 'ESB00000000', address: 'C/ Olivos 10', city: 'Madrid', zip: '28010', country: 'España' },
@@ -54,8 +52,8 @@ export async function GET(
       company: dn.company
     });
 
-    const body = new Blob([pdfBytes], { type: 'application/pdf' });
-    return new Response(body, {
+    const nodeBody = Buffer.isBuffer(pdfBytes) ? pdfBytes : Buffer.from(pdfBytes as Uint8Array);
+    return new Response(nodeBody as any, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',

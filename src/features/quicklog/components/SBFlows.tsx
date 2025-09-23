@@ -390,7 +390,7 @@ function CreateAccountForm({onSubmit, onCancel}:{ onSubmit:(p:CreateAccountPaylo
 }
 
 // ===== Create Order (full) =====
-function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, onSubmit, onCancel, defaults}: {
+export function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, onSubmit, onCancel, defaults}: {
   accounts: Account[];
   onSearchAccounts:(q:string)=>Promise<Account[]>;
   onCreateAccount:(d:{name:string;city?:string;type?:AccountType})=>Promise<Account>;
@@ -584,6 +584,7 @@ export function SBFlowModal({
     </BaseModal>
   );
 }
+
 
 
 

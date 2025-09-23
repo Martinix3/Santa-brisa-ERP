@@ -3,7 +3,7 @@
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 import { revalidatePath } from 'next/cache';
-import { getOne, upsertMany, getServerData } from '@/lib/dataprovider/server';
+import { getOne, upsertMany } from '@/lib/dataprovider/server';
 import type { OrderStatus, Shipment, OrderSellOut, Account, Party, FinanceLink, PaymentLink } from '@/domain/ssot';
 import { enqueue } from '@/server/queue/queue';
 import { importSingleShopifyOrder } from '@/server/integrations/shopify/import-order';
@@ -22,7 +22,7 @@ export async function updateOrderStatus(
 
   try {
     // 1. Actualizar siempre el estado del pedido
-    await upsertMany('ordersSellOut', [{ id: order.id, status: newStatus, billingStatus: newStatus === 'confirmed' ? 'INVOICING' : order.billingStatus, updatedAt: new Date().toISOString() } as any]);
+    await upsertMany('ordersSellOut', [{ id: order.id, status: newStatus, billingStatus: newStatus === 'confirmed' ? 'INVOICING' : order.billingStatus, updatedAt: new Date().toISOString() }]);
     console.log(`[ACTION] Pedido ${order.id} actualizado a estado ${newStatus} en la base de datos.`);
 
     // Si el pedido se confirma, encolar la creación de la factura en Holded
@@ -75,7 +75,7 @@ export async function importShopifyOrder(orderId: string): Promise<OrderSellOut>
 export async function createSalesInvoice({ orderId }: { orderId:string }) {
   const order = await getOne<OrderSellOut>('ordersSellOut', orderId);
   if (!order) throw new Error('Order not found');
-  const amount = (order.lines || []).reduce((a,l) => {
+  const amount = (order.lines || []).reduce((a: number, l: OrderSellOut['lines'][number]) => {
      const unit = l.priceUnit ?? 0;
      const disc = (l.discountPct ?? 0) / 100;
      return a + l.qty * unit * (1 - disc);
@@ -98,13 +98,13 @@ export async function createSalesInvoice({ orderId }: { orderId:string }) {
      costObject: { kind: 'ORDER', id: orderId },
   };
 
-  await upsertMany('financeLinks', [fin] as any);
+  await upsertMany('financeLinks', [fin]);
   await upsertMany('ordersSellOut', [{
      id: orderId,
      status: 'invoiced',
      billingStatus: 'INVOICED',
      updatedAt: now,
-  } as any]);
+  }]);
 
   revalidatePath('/orders');
   revalidatePath('/finance');
@@ -123,7 +123,7 @@ export async function recordPayment({ financeLinkId, amount, date, method }: {
     date: date ?? now,
     method: method ?? 'transfer',
   };
-  await upsertMany('paymentLinks', [pay] as any);
+  await upsertMany('paymentLinks', [pay]);
   revalidatePath('/finance');
   return { ok:true, paymentId: pay.id };
 }

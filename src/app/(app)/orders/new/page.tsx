@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useData } from '@/lib/dataprovider';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
 import { Briefcase, ChevronLeft } from 'lucide-react';
-import type { Account, AccountType, OrderSellOut, Party, Product } from '@/domain/ssot';
+import type { Account, AccountType, OrderSellOut, Party, Product, SantaData } from '@/domain/ssot';
 import { CreateOrderForm } from '@/features/quicklog/components/SBFlows';
 import { upsertMany } from '@/lib/dataprovider/actions';
 import { generateNextOrder } from '@/lib/codes';
@@ -31,7 +31,7 @@ function CreateOrderPageContent() {
         let accountId = data.accounts.find(a => a.name === payload.account)?.id;
         let partyId = data.accounts.find(a => a.id === accountId)?.partyId;
         
-        const collectionsToSave: { parties?: Party[], accounts?: Account[] } = {};
+        const collectionsToSave: Partial<SantaData> = {};
 
         if (payload.newAccount && payload.newParty) {
             accountId = payload.newAccount.id!;
@@ -59,7 +59,7 @@ function CreateOrderPageContent() {
             notes: payload.note,
         };
 
-        const finalCollectionsToSave = {
+        const finalCollectionsToSave: Partial<SantaData> = {
             ...collectionsToSave,
             ordersSellOut: [...(data.ordersSellOut || []), newOrder],
         };
@@ -68,8 +68,9 @@ function CreateOrderPageContent() {
         setData(prev => prev ? { ...prev, ...finalCollectionsToSave } : prev);
 
         // Server action
-        for (const key in finalCollectionsToSave) {
-            await upsertMany(key as keyof SantaData, (finalCollectionsToSave as any)[key]);
+        const entries = Object.entries(finalCollectionsToSave) as [keyof SantaData, any][];
+        for (const [col, docs] of entries) {
+          await upsertMany(String(col), docs);
         }
         
         router.push('/orders');

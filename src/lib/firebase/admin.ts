@@ -18,5 +18,12 @@ export const db = getFirestore(app);
 db.settings({ ignoreUndefinedProperties: true });
 
 export function infoAdmin() {
-  return { projectId: db.projectId };
+  const projectId =
+    process.env.FIREBASE_PROJECT_ID ||
+    // @ts-expect-error acceso interno depende de versión
+    (db as any)?._settings?.projectId ||
+    // @ts-expect-error app.options puede existir
+    (db as any)?.app?.options?.projectId ||
+    'unknown';
+  return { projectId };
 }
