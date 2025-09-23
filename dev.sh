@@ -1,4 +1,3 @@
-
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -20,6 +19,8 @@ npm install --no-optional --legacy-peer-deps
 
 echo "🚀 Arrancando Next con 'npm run dev' (que usa impersonation)..."
 # El script 'npm run dev' ya contiene la variable de entorno necesaria
-HOST=0.0.0.0 PORT=3000 npm run dev
+# Usamos 'exec' para reemplazar el proceso actual y evitar que el script termine,
+# lo que causaba un bucle de reinicio del servidor.
+exec npm run dev
 
 echo "✅ Script de desarrollo finalizado."
