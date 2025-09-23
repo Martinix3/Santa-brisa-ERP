@@ -1,3 +1,4 @@
+
 // src/app/api/shipment/[shipmentId]/delivery-note/route.ts
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -15,7 +16,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ shipmentId
 
     // -------- Resolver partyId (shipment.partyId || order.accountId -> account.partyId)
     let resolvedPartyId: string | undefined = shp.partyId;
-    let account: Account | undefined;
+    let account: Account | null = null;
     if (!resolvedPartyId && shp.orderId) {
       const ord = await getOne<OrderSellOut>('ordersSellOut', shp.orderId);
       if (ord?.accountId) {
@@ -24,7 +25,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ shipmentId
       }
     }
     // Evitar llamadas con id vacío
-    let party: Party | undefined;
+    let party: Party | null = null;
     if (resolvedPartyId && resolvedPartyId.trim().length > 0) {
       party = await getOne<Party>('parties', resolvedPartyId);
     }
