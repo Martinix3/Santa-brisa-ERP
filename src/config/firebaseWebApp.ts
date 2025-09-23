@@ -1,14 +1,9 @@
-// Lee el JSON de config web desde variables de entorno (App Hosting te la inyecta)
-const raw = process.env.NEXT_PUBLIC_FIREBASE_WEBAPP_CONFIG
-  ?? process.env.FIREBASE_WEBAPP_CONFIG
-  ?? "{}";
-
-export const firebaseWebConfig = JSON.parse(raw) as {
-  apiKey: string;
-  authDomain: string;
-  projectId: string;
-  storageBucket: string;
-  appId: string;
-  messagingSenderId?: string;
-  databaseURL?: string;
+// src/config/firebaseWebApp.ts
+export const firebaseWebConfig = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN!,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID!,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET!,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID!,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID!,
 };

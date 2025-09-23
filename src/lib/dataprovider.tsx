@@ -109,12 +109,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   // Load Firestore data on initial mount or when persistence changes
   useEffect(() => {
     if (!authReady) return;
-    
     if (!firebaseUser) {
       setLoadingData(false);
       return;
-    };
-    
+    }
     loadInitialData().catch(console.error);
   }, [authReady, firebaseUser, isPersistenceEnabled, loadInitialData]);
 
@@ -241,7 +239,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       console.error("Google sign in failed", e);
       throw e;
     }
-  }, [firebaseAuth]);
+  }, []);
 
   const loginWithEmail = useCallback(
     async (email: string, pass: string): Promise<User | null> => {
@@ -266,7 +264,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
        console.warn(`[DataProvider] No matching app user found in local data for email: ${fbUser.email}`);
       return null;
     },
-    [data?.users, firebaseAuth]
+    [data?.users]
   );
 
   const signupWithEmail = useCallback(
@@ -286,7 +284,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setCurrentUser(newUser);
       return newUser;
     },
-    [data?.users, setData, firebaseAuth]
+    [data?.users, setData]
   );
 
   const logout = useCallback(async () => {
@@ -294,7 +292,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     await signOut(firebaseAuth);
     setCurrentUser(null);
     router.push("/login");
-  }, [router, firebaseAuth]);
+  }, [router]);
 
   const value = useMemo<DataContextType>(
     () => ({
@@ -319,13 +317,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   // 1) ya sabemos el estado de auth (authReady)
   // 2) hay un usuario autenticado (firebaseUser)
   // 3) la persistencia está ON y seguimos cargando/esperando data
-  const mustBlockForData =
-    authReady &&
-    !!firebaseUser &&
-    isPersistenceEnabled &&
-    (loadingData || !data);
+  const isBlocking =
+    !authReady || (firebaseUser && isPersistenceEnabled && (loadingData || !data));
 
-  if (!authReady || mustBlockForData) {
+  if (isBlocking) {
     return (
       <div className="fixed inset-0 z-[200] flex items-center justify-center bg-white/80 backdrop-blur-sm">
         <div className="flex flex-col items-center gap-4">
