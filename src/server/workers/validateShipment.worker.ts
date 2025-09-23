@@ -1,7 +1,7 @@
 // src/server/workers/validateShipment.worker.ts
 'use server';
 import { adminDb } from '@/server/firebaseAdmin';
-import { Timestamp } from 'firebase-admin/firestore';
+import { Timestamp } from 'firebase-admin/firestore'; // Importar Timestamp
 import type { Shipment, ShipmentLine } from '@/domain/ssot';
 
 export async function run(payload: {
@@ -37,7 +37,7 @@ export async function run(payload: {
         weightKg: updateData.weightKg || shipment.weightKg,
         dimsCm: updateData.dimsCm || shipment.dimsCm,
         lines: updatedLines as ShipmentLine[],
-        updatedAt: new Date().toISOString(),
+        updatedAt: Timestamp.now() as any, // <-- CORRECCIÓN APLICADA
     };
 
     if (updateData.visualOk) {
