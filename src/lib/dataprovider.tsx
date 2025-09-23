@@ -4,9 +4,9 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
 import type { SantaData, User, UserRole } from '@/domain';
-import { auth, db } from "@/lib/firebaseClient";
-import { onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, getIdToken } from "firebase/auth";
-import { collection, getDocs, writeBatch, doc, Timestamp } from "firebase/firestore";
+import { initializeApp, getApps, getApp } from "firebase/app";
+import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, getIdToken } from "firebase/auth";
+import { getFirestore, collection, getDocs, writeBatch, doc, Timestamp } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { SANTA_DATA_COLLECTIONS } from "@/domain";
 import { INITIAL_MOCK_DATA } from "@/lib/mock-data";
@@ -53,10 +53,29 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [authReady, setAuthReady] = useState(false);
   const [isPersistenceEnabled, setIsPersistenceEnabled] = useState(true); // Persistencia ON por defecto
   const [loadingData, setLoadingData] = useState(true);
+  const [firebaseApp, setFirebaseApp] = useState<import("firebase/app").FirebaseApp | null>(null);
   const router = useRouter();
+
+  useEffect(() => {
+    async function initFirebase() {
+        const response = await fetch('/api/firebase-config');
+        const config = await response.json();
+
+        if (config && config.apiKey) {
+            const app = getApps().length ? getApp() : initializeApp(config);
+            setFirebaseApp(app);
+        } else {
+            console.error("Failed to load Firebase config from API.");
+        }
+    }
+    initFirebase();
+  }, []);
 
   // Load Firestore data on initial mount or when persistence changes
   useEffect(() => {
+    if (!firebaseApp) return;
+    const db = getFirestore(firebaseApp);
+
     async function loadInitialData() {
         setLoadingData(true);
         console.log(`[DataProvider] useEffect: Loading initial data. Persistence is ${isPersistenceEnabled ? 'ON' : 'OFF'}.`);
@@ -101,22 +120,23 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         setLoadingData(false);
     }
     
-    // Only load data once on initial mount
     if (!data) {
         loadInitialData();
     }
-  }, [isPersistenceEnabled, data]);
+  }, [isPersistenceEnabled, data, firebaseApp]);
 
   // Handle auth state changes
   useEffect(() => {
+    if (!firebaseApp) return;
     console.log('[DataProvider] Setting up Firebase auth listener.');
+    const auth = getAuth(firebaseApp);
     const unsub = onAuthStateChanged(auth, (fbUser) => {
         console.log('[DataProvider] Auth state changed. Firebase user:', fbUser ? fbUser.email : 'null');
         setFirebaseUser(fbUser);
         setAuthReady(true);
     });
     return () => unsub();
-  }, []);
+  }, [firebaseApp]);
 
   // Sync currentUser with firebaseUser and local data
   useEffect(() => {
@@ -221,16 +241,20 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   );
 
   const login = useCallback(async () => {
+    if (!firebaseApp) return;
+    const auth = getAuth(firebaseApp);
     try {
       await signInWithPopup(auth, new GoogleAuthProvider());
     } catch(e) {
       console.error("Google sign in failed", e);
       throw e;
     }
-  }, []);
+  }, [firebaseApp]);
 
   const loginWithEmail = useCallback(
     async (email: string, pass: string): Promise<User | null> => {
+      if (!firebaseApp) return null;
+      const auth = getAuth(firebaseApp);
       console.log('[DataProvider] loginWithEmail called for:', email);
       const userCredential = await signInWithEmailAndPassword(auth, email, pass);
       const fbUser = userCredential.user;
@@ -251,11 +275,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
        console.warn(`[DataProvider] No matching app user found in local data for email: ${fbUser.email}`);
       return null;
     },
-    [data?.users]
+    [data?.users, firebaseApp]
   );
 
   const signupWithEmail = useCallback(
     async (email: string, pass: string): Promise<User | null> => {
+      if (!firebaseApp) return null;
+      const auth = getAuth(firebaseApp);
       const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
        const fbUser = userCredential.user;
       if (!fbUser || !data?.users) return null;
@@ -270,14 +296,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setCurrentUser(newUser);
       return newUser;
     },
-    [data?.users, setData]
+    [data?.users, setData, firebaseApp]
   );
 
   const logout = useCallback(async () => {
+    if (!firebaseApp) return;
+    const auth = getAuth(firebaseApp);
     await signOut(auth);
     setCurrentUser(null);
     router.push("/login");
-  }, [router]);
+  }, [router, firebaseApp]);
 
   const value = useMemo<DataContextType>(
     () => ({

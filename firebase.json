@@ -1,14 +1,15 @@
-
 {
-  "functions": {
-    "source": "functions"
-  },
-  "client": {
-    "apiKey": "AIzaSyAbPqt51bslHSvs0LROCWt7WSQBrMNqKN0",
-    "authDomain": "santa-brisa-erp.firebaseapp.com",
-    "projectId": "santa-brisa-erp",
-    "storageBucket": "santa-brisa-erp.appspot.com",
-    "messagingSenderId": "526543168723",
-    "appId": "1:526543168723:web:af0088ec4aa1cfd1c9e026"
-  }
+  "apphosting": [
+    {
+      "backendId": "studio",
+      "rootDir": ".",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "functions"
+      ]
+    }
+  ]
 }

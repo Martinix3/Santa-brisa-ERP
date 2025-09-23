@@ -70,6 +70,7 @@
     "esbuild": "latest",
     "eslint": "^9.8.0",
     "eslint-config-next": "latest",
+    "madge": "8.0.0",
     "postcss": "latest",
     "tailwindcss": "latest",
     "tsx": "latest",
