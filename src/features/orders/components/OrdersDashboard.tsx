@@ -4,7 +4,7 @@
 
 import React, { useMemo, useState, useTransition } from "react";
 import type { OrderStatus, Account, OrderSellOut, Party, PartyRole, CustomerData, User, Shipment, SantaData } from '@/domain';
-import { ORDER_STATUS_META, SBButton } from '@/components/ui/ui-primitives';
+import { ORDER_STATUS_STYLES, SBButton } from '@/components/ui/ui-primitives';
 import { useData } from "@/lib/dataprovider";
 import { updateOrderStatus } from "@/app/(app)/orders/actions";
 import { ImportShopifyOrderButton } from './ImportShopifyOrderButton';
@@ -93,7 +93,7 @@ function StatusSelector({ order, onChange, accountsById, partiesById }: {
 }) {
   const [isPending, start] = useTransition();
   const status = order.status || 'open';
-  const style = ORDER_STATUS_META[status] || ORDER_STATUS_META.open;
+  const style = ORDER_STATUS_STYLES[status] || ORDER_STATUS_STYLES.open;
 
   return (
     <div className="relative flex items-center gap-2">
@@ -108,7 +108,7 @@ function StatusSelector({ order, onChange, accountsById, partiesById }: {
         })}
         disabled={isPending}
         className="appearance-none px-2.5 py-1 text-xs font-semibold rounded-full outline-none focus:ring-2 ring-offset-1 ring-blue-400 transition-colors"
-        style={{ background: `${style.accent}22`, color: "#111" }}
+        style={{ background: `${style.bg}`, color: style.color.replace('text-', '') }}
       >
         {STATUS_OPTS.map((opt) => (
           <option key={opt.value} value={opt.value}>
@@ -279,7 +279,7 @@ export default function OrdersDashboard() {
               const owner = usersById.get(acc.ownerId);
               const total = orderTotal(o);
               const status = o.status || 'open';
-              const meta = ORDER_STATUS_META[status];
+              const meta = ORDER_STATUS_STYLES[status] || ORDER_STATUS_STYLES.open;
 
               return (
                 <tr key={o.id} className="hover:bg-zinc-50">

@@ -11,7 +11,7 @@ import { SB_COLORS } from '@/domain/ssot';
  *************************************************/
 const clsx = (...xs: Array<string | false | null | undefined>) => xs.filter(Boolean).join(" ");
 
-export const STATUS_STYLES: Record<OrderStatus | ShipmentStatus, { label: string; color: string; bg: string }> = {
+export const ORDER_STATUS_STYLES: Record<OrderStatus | ShipmentStatus, { label: string; color: string; bg: string }> = {
   // Order Status
   open: { label: 'Borrador', color: 'text-zinc-800', bg: 'bg-zinc-100' },
   confirmed: { label: 'Confirmado', color: 'text-blue-800', bg: 'bg-blue-100' },
@@ -27,6 +27,9 @@ export const STATUS_STYLES: Record<OrderStatus | ShipmentStatus, { label: string
   delivered: { label: "Entregado", color: "text-green-900", bg: "bg-green-100" },
   exception: { label: "Incidencia", color: "text-orange-900", bg: "bg-orange-100" },
 };
+
+export const STATUS_STYLES = ORDER_STATUS_STYLES;
+
 
 export { SB_COLORS };
 
