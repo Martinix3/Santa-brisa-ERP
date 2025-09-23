@@ -1,4 +1,3 @@
-
 import type { OrderStatus, ShipmentStatus } from '@/domain/ssot';
 
 export const ORDER_STATUS_MAP: Record<string, OrderStatus> = {
@@ -13,7 +12,8 @@ export function normalizeOrderStatus(s?: string): OrderStatus {
 }
 
 export const SHIPMENT_STATUS_MAP: Record<string, ShipmentStatus> = {
-  pendiente:'pending', picking:'picking', validado:'ready_to_ship', preparado:'ready_to_ship',
+  pendiente:'pending', picking:'picking',
+  validado:'ready_to_ship', preparado:'ready_to_ship',
   enviado:'shipped', entregado:'delivered', incidencia:'exception', cancelado:'cancelled',
   pending:'pending', picking:'picking', ready_to_ship:'ready_to_ship',
   shipped:'shipped', delivered:'delivered', exception:'exception', cancelled:'cancelled',
