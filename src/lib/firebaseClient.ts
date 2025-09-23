@@ -19,15 +19,14 @@ if (!getApps().length) {
   db = initializeFirestore(app, { experimentalAutoDetectLongPolling: true });
 
   const useEmu = process.env.NEXT_PUBLIC_USE_EMULATORS === '1';
-
+  
   if (useEmu) {
     console.log('[Firebase] Connecting to emulators...');
-    const host = typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1';
-    const protocol = typeof window !== 'undefined' ? window.location.protocol.slice(0, -1) : 'http';
+    const protocol = typeof window !== 'undefined' ? window.location.protocol.slice(0,-1) : 'http';
+    const browserHost = typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1';
     
-    // Usar el protocolo de la página para evitar errores de contenido mixto
-    connectAuthEmulator(auth, `${protocol}://${host}:9099`, { disableWarnings: true });
-    connectFirestoreEmulator(db, host, 8080);
+    connectAuthEmulator(auth, `${protocol}://${browserHost}:9099`, { disableWarnings: true });
+    connectFirestoreEmulator(db, browserHost, 8080);
     console.info('[Firebase] Connected to emulators');
   }
 
