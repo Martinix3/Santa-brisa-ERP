@@ -108,10 +108,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   // Load Firestore data on initial mount or when persistence changes
   useEffect(() => {
-    if (!authReady || !firebaseUser) {
-        setData(null);
-        return;
+    if (!authReady) return;
+    
+    if (!firebaseUser) {
+      setData(null);
+      setLoadingData(false); // <-- FIX: Ensure loading is false when there is no user
+      return;
     };
+    
     loadInitialData().catch(console.error);
   }, [authReady, firebaseUser, isPersistenceEnabled, loadInitialData]);
 
@@ -312,7 +316,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [data, currentUser, authReady, saveCollection, saveAllCollections, login, loginWithEmail, signupWithEmail, logout, togglePersistence, isPersistenceEnabled, setCurrentUserById]
   );
 
-  if (!authReady || (!data && isPersistenceEnabled)) {
+  if (!authReady || (loadingData && isPersistenceEnabled)) {
     return (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-white/80 backdrop-blur-sm">
             <div className="flex flex-col items-center gap-4">
