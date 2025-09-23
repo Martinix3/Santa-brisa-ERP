@@ -1,0 +1,2 @@
+# Quita cualquier token Admin API/secret de Shopify en todo el historial
+regex:shp(at|ua|ss)_[0-9A-Za-z]+ ===> ***REMOVED***
