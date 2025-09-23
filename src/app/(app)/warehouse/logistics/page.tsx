@@ -1,4 +1,3 @@
-
 // src/app/(app)/warehouse/logistics/page.tsx
 
 "use client";
@@ -232,7 +231,7 @@ const ValidateDialog: React.FC<{ open: boolean; onOpenChange: (v: boolean) => vo
 // ===============================
 export default function LogisticsPage() {
   const router = useRouter();
-  const { data: santaData } = useData();
+  const { data: santaData, currentUser } = useData();
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<string>("all");
   const [channel, setChannel] = useState<string>("all");
@@ -308,14 +307,14 @@ export default function LogisticsPage() {
   }, [router]);
 
   const handleSaveValidation = useCallback((payload: any) => {
-    if (!currentShipment) return;
+    if (!currentShipment || !currentUser) return;
     handleAction(
         currentShipment.id, 
-        () => validateShipment(currentShipment!.id, payload), 
+        () => validateShipment({ shipmentId: currentShipment!.id, userId: currentUser.id, ...payload }), 
         `Validación para envío ${currentShipment.id} guardada.`
     );
     setOpenValidate(false);
-  }, [currentShipment, handleAction]);
+  }, [currentShipment, currentUser, handleAction]);
   
   const handleSaveNewShipment = useCallback((shipmentData: Omit<Shipment, 'id'|'createdAt'|'updatedAt'>) => {
       handleAction(

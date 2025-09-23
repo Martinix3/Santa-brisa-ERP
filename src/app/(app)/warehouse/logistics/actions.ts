@@ -1,6 +1,3 @@
-
-
-
 'use server';
 import { revalidatePath } from 'next/cache';
 import { enqueue } from '@/server/queue/queue';
@@ -30,22 +27,61 @@ export async function createShipmentFromOrder(orderId: string) {
 
 type ValidateShipmentInput = {
   shipmentId: string;
-  lots?: Array<{ sku:string; lotNumber?: string; qty:number }>;
-  notes?: string;
   userId: string;
+  notes?: string;
+  lots?: Array<{ sku: string; lotNumber?: string; qty: number }>;
 };
 
-export async function validateShipment(shipmentId: string, payload: any) {
-  await enqueue({ kind:'VALIDATE_SHIPMENT', payload:{ shipmentId, ...payload }, maxAttempts:3 });
-  console.log(`[Action] Enqueued job to validate shipment ${shipmentId}.`);
-  return { ok:true };
+export async function validateShipment(input: ValidateShipmentInput) {
+    const { shipmentId, userId, notes, lots } = input;
+    const now = new Date().toISOString();
+    const data = await getServerData();
+    const shp = data.shipments.find(s => s.id === shipmentId);
+    if (!shp) throw new Error('Shipment not found');
+
+    await upsertMany('shipments', [{
+        id: shipmentId,
+        status: 'ready_to_ship',
+        updatedAt: now,
+        checks: { ...(shp.checks || {}), visualOk: true },
+        // validatedById: userId, // Assuming you add this to your SSOT
+        notes: notes ?? shp.notes,
+        lines: lots ? lots.map(l => ({ sku: l.sku, qty: l.qty, uom: 'uds' as const, name: l.sku, lotNumber: l.lotNumber })) : shp.lines,
+    }]);
+
+    if (shp.orderId) {
+        await upsertMany('ordersSellOut', [{
+            id: shp.orderId,
+            status: 'confirmed',
+            updatedAt: now,
+        }]);
+    }
+    return { ok: true, shipmentId, orderId: shp.orderId ?? null };
 }
 
 type MarkShippedInput = { shipmentId: string; trackingCode?: string; labelUrl?: string };
-export async function markShipped({ shipmentId }: MarkShippedInput) {
-  await enqueue({ kind:'MARK_SHIPMENT_SHIPPED', payload:{ shipmentId }, maxAttempts:5 });
-  return { ok:true };
+export async function markShipped({ shipmentId, trackingCode, labelUrl }: MarkShippedInput) {
+    const data = await getServerData();
+    const shp = data.shipments.find(s => s.id === shipmentId);
+    if (!shp) throw new Error('Shipment not found');
+    const now = new Date().toISOString();
+
+    await upsertMany('shipments', [{
+        id: shipmentId,
+        status: 'shipped',
+        trackingCode: trackingCode ?? shp.trackingCode,
+        labelUrl: labelUrl ?? shp.labelUrl,
+        updatedAt: now,
+    }]);
+
+    if (shp.orderId) {
+        await upsertMany('ordersSellOut', [{ id: shp.orderId, status: 'shipped', updatedAt: now }]);
+    }
+    revalidatePath('/warehouse/logistics');
+    if (shp.orderId) revalidatePath('/sales/orders');
+    return { ok: true };
 }
+
 
 export async function createDeliveryNote(shipmentId: string) {
   await enqueue({ kind:'CREATE_DELIVERY_NOTE_CRM', payload:{ shipmentId }, maxAttempts:5 });

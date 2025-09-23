@@ -6,11 +6,9 @@ import type { DeliveryNote, Shipment } from '@/domain/ssot';
 import { upsertMany } from '@/lib/dataprovider/actions';
 import { getServerData } from '@/lib/dataprovider/server';
 
-type RouteCtx = { params: { shipmentId: string } };
-
 export async function GET(
   _req: NextRequest,
-  { params }: RouteCtx
+  { params }: { params: { shipmentId: string } }
 ): Promise<Response> {
   const { shipmentId } = params;
 
@@ -56,7 +54,8 @@ export async function GET(
       company: dn.company
     });
 
-    return new Response(pdfBytes, {
+    const body = new Blob([pdfBytes], { type: 'application/pdf' });
+    return new Response(body, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',

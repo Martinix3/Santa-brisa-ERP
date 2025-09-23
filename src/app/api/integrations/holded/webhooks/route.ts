@@ -1,4 +1,3 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 import { upsertMany } from '@/lib/dataprovider/actions';
 import type { FinanceLink, PaymentLink, OrderSellOut } from '@/domain/ssot';
@@ -34,7 +33,7 @@ export async function POST(req: NextRequest) {
     costObject: meta?.orderId ? { kind: 'ORDER', id: meta.orderId } : undefined,
   };
 
-  await upsertMany('financeLinks', [fin as any]);
+  await upsertMany('financeLinks', [fin] as any);
 
   // Persistimos pagos individuales
   const payDocs: PaymentLink[] = (payments || []).map((p: any) => ({

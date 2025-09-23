@@ -53,36 +53,41 @@ async function recordDuplicate(primaryPartyId: string, duplicatePartyId: string,
 export async function handleSyncHoldedContacts({ page = 1, dryRun = false }: { page?: number; dryRun?: boolean }) {
   const contacts: HoldedContact[] = await callHoldedApi(`/invoicing/v1/contacts?limit=50&page=${page}`, 'GET') as HoldedContact[];
 
-  // --- INICIO DE LA MODIFICACIÓN ---
-  // Capturamos la lista completa de nombres para el informe.
   const processedNames = contacts.map(c => c.name || 'Sin Nombre').filter(Boolean);
-  // --- FIN DE LA MODIFICACIÓN ---
 
   for (const c of contacts) {
-    // ... (toda la lógica de sincronización existente se mantiene igual) ...
-    
-    let existingParty: Party | null = null;
-    let existingRef: FirebaseFirestore.DocumentReference | null = null;
-    // ...
-    // Lógica de match y upsert
-        if (!c.name) continue;
+    if (!c.name) continue;
 
     const contactTaxId = (c.code || '').trim().toUpperCase();
-    if (contactTaxId) existingParty = (await adminDb.collection('parties').where('taxId', '==', contactTaxId).limit(1).get()).docs[0]?.data() as Party | null;
-    if (!existingParty) existingParty = (await adminDb.collection('parties').where('name', '==', c.name.trim()).limit(1).get()).docs[0]?.data() as Party | null;
+    let existingParty: Party | null = null;
+    if (contactTaxId) {
+        const querySnapshot = await adminDb.collection('parties').where('taxId', '==', contactTaxId).limit(1).get();
+        if (!querySnapshot.empty) {
+            existingParty = querySnapshot.docs[0].data() as Party;
+        }
+    }
+    if (!existingParty) {
+        const querySnapshot = await adminDb.collection('parties').where('name', '==', c.name.trim()).limit(1).get();
+        if (!querySnapshot.empty) {
+            existingParty = querySnapshot.docs[0].data() as Party;
+        }
+    }
       
       const billAddress = c.billAddress;
-      const proposedAddresses: Address[] = billAddress && billAddress.street ? [{
-        street: billAddress.address,
-        city: billAddress.city,
-        postalCode: billAddress.postalCode,
-        country: billAddress.country || 'España',
-      }] : [];
+      const proposedAddresses: Address[] =
+        billAddress && (billAddress.address || billAddress.city || billAddress.country) ? [{
+          address: billAddress.address ?? '',
+          city: billAddress.city ?? '',
+          zip: billAddress.postalCode ?? '',
+          province: billAddress.province ?? '',
+          country: billAddress.country ?? '',
+          countryCode: billAddress.countryCode ?? undefined,
+        }] : [];
       
       const proposedData: Partial<Party> = {
         name: c.name,
         taxId: c.code || undefined,
-        addresses: proposedAddresses as any, // Cast to any to bypass strict check for this partial update
+        addresses: proposedAddresses as any,
         contacts: c.phone ? [{ type: 'phone', value: c.phone, isPrimary: true, description: 'Principal' }] : [],
         kind: 'ORG',
       };
@@ -97,7 +102,5 @@ export async function handleSyncHoldedContacts({ page = 1, dryRun = false }: { p
       }
   }
 
-  // --- LÍNEA MODIFICADA ---
-  // Devolvemos la lista completa en el resultado del worker.
   return { ok: true, count: contacts.length, nextPage: contacts.length === 50 ? page + 1 : null, dryRun, processedNames };
 }

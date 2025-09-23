@@ -2,7 +2,7 @@
 import { adminDb } from '@/server/firebaseAdmin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { enqueue } from '@/server/queue/queue';
-import { mapShopifyToSSOT } from '@/server/integrations/shopify/shopify.mapper';
+import { mapShopifyToSSOT } from '@/server/integrations/shopify/map';
 import { verifyShopifyHmac } from './hmac';
 import type { Account } from '@/domain/ssot';
 

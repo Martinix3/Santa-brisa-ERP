@@ -1,8 +1,3 @@
-
-
-
-
-
 'use server';
 import { revalidatePath } from 'next/cache';
 import { getServerData } from '@/lib/dataprovider/server';
@@ -94,7 +89,7 @@ export async function createSalesInvoice({ orderId }: { orderId:string }) {
      netAmount: amount,
      taxAmount: 0,
      grossAmount: amount,
-     currency: order.currency ?? 'EUR',
+     currency: 'EUR' as const,
      issueDate: now,
      dueDate: now,
      docNumber: undefined,
