@@ -3,7 +3,7 @@
 "use client";
 
 import React, { useMemo, useState, useTransition } from "react";
-import type { OrderStatus, Account, OrderSellOut, Party, PartyRole, CustomerData, User, Shipment, SantaData } from '@/domain';
+import type { OrderStatus, Account, OrderSellOut, Party, PartyRole, CustomerData, User, Shipment, SantaData, AccountType } from '@/domain';
 import { ORDER_STATUS_STYLES, SBButton } from '@/components/ui/ui-primitives';
 import { useData } from "@/lib/dataprovider";
 import { updateOrderStatus, createSalesInvoice, recordPayment } from "@/app/(app)/orders/actions";
@@ -13,6 +13,10 @@ import { orderTotal } from "@/lib/sb-core";
 import { consignmentOnHandByAccount, consignmentTotalUnits } from '@/lib/consignment-and-samples';
 import { AlertCircle, Truck, Boxes, FileText, CreditCard } from 'lucide-react';
 import { normalizeOrderStatus } from '@/lib/status';
+import { CreateOrderForm } from '@/features/quicklog/components/SBFlows';
+import { SBFlowModal } from '@/features/quicklog/components/SBFlows';
+import { upsertMany } from '@/lib/dataprovider/actions';
+import { generateNextOrder } from '@/lib/codes';
 
 
 type Tab = "directa" | "colocacion" | "online";
@@ -133,7 +137,7 @@ function exportToCsv(filename: string, rows: (string | number)[][]) {
 }
 
 export default function OrdersDashboard() {
-  const { data, setData } = useData();
+  const { data, setData, currentUser } = useData();
   const [isPending, start] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -228,13 +232,98 @@ export default function OrdersDashboard() {
     }
   };
 
+  const handleCreateOrder = async (payload: {
+        account?: string;
+        newAccount?: Partial<Account>;
+        newParty?: Partial<Party>;
+        requestedDate?: string;
+        deliveryDate?: string;
+        channel: AccountType;
+        paymentTerms?: string;
+        shipTo?: string;
+        note?: string;
+        items: { sku: string; qty: number; unit: "uds"; priceUnit: number, lotNumber?: string }[];
+    }) => {
+        if (!data || !currentUser) return;
+        if (!payload.account && !payload.newAccount) {
+            alert('Error: Debes seleccionar o crear una cuenta.');
+            return;
+        }
+
+        let accountId = payload.account ? data.accounts.find(a => a.name === payload.account)?.id : undefined;
+        let partyId: string | undefined;
+
+        const collectionsToSave: Partial<SantaData> = {};
+
+        if (payload.newAccount && payload.newParty) {
+            accountId = payload.newAccount.id!;
+            partyId = payload.newParty.id!;
+            collectionsToSave.parties = [...(data.parties || []), payload.newParty as Party];
+            collectionsToSave.accounts = [...(data.accounts || []), payload.newAccount as Account];
+        } else if (accountId) {
+             partyId = data.accounts.find(a => a.id === accountId)?.partyId;
+        }
+
+        if (!accountId || !partyId) {
+            alert('Error: No se pudo determinar la cuenta o el contacto.');
+            return;
+        }
+
+        const newOrder: OrderSellOut = {
+            id: `ord_${Date.now()}`,
+            docNumber: generateNextOrder((data.ordersSellOut || []).map(o => o.docNumber || ''), payload.channel, new Date()),
+            accountId: accountId,
+            partyId: partyId,
+            source: 'MANUAL',
+            status: 'open',
+            billingStatus: 'PENDING',
+            currency: 'EUR',
+            createdAt: payload.requestedDate || new Date().toISOString(),
+            lines: payload.items.map(item => ({ ...item, name: data.products.find(p => p.sku === item.sku)?.name || item.sku })),
+            notes: payload.note,
+        };
+
+        const finalCollectionsToSave: Partial<SantaData> = {
+            ...collectionsToSave,
+            ordersSellOut: [...(data.ordersSellOut || []), newOrder],
+        };
+
+        setData(prev => prev ? { ...prev, ...finalCollectionsToSave } : prev);
+
+        const entries = Object.entries(finalCollectionsToSave) as [keyof SantaData, any][];
+        for (const [col, docs] of entries) {
+          await upsertMany(col, docs);
+        }
+        
+        setCreateOpen(false);
+    };
+
+    const handleSearchAccounts = async (query: string): Promise<Account[]> => {
+        if (!data) return [];
+        const lowerQuery = query.toLowerCase();
+        return data.accounts.filter(a => a.name.toLowerCase().includes(lowerQuery));
+    };
+
+    const handleCreateAccount = async (accountData: { name: string; city?: string; type?: AccountType }): Promise<Account> => {
+        const tempId = `new_acc_${Date.now()}`;
+        return {
+            id: tempId,
+            partyId: `new_party_${Date.now()}`,
+            name: accountData.name,
+            type: accountData.type || 'HORECA',
+            stage: 'POTENCIAL',
+            ownerId: currentUser?.id || 'system',
+            createdAt: new Date().toISOString(),
+        };
+    };
+
   return (
     <div className="space-y-4">
         <div className="flex items-center justify-between">
             <Tabs active={tab} onChange={setTab} />
             <div className="flex items-center gap-2">
                 {tab === 'online' && <ImportShopifyOrderButton />}
-                <SBButton as={Link} href="/orders/new">
+                <SBButton onClick={() => setCreateOpen(true)}>
                     Nuevo pedido
                 </SBButton>
                  <SBButton variant="secondary" onClick={onExport} aria-label="Exportar a CSV">
@@ -332,6 +421,18 @@ export default function OrdersDashboard() {
           </tbody>
         </table>
       </div>
+
+       {isCreateOpen && data && (
+        <SBFlowModal
+            open={isCreateOpen}
+            variant="createOrder"
+            onClose={() => setCreateOpen(false)}
+            accounts={data.accounts}
+            onSearchAccounts={handleSearchAccounts}
+            onCreateAccount={handleCreateAccount}
+            onSubmit={handleCreateOrder}
+        />
+      )}
     </div>
   );
 }
