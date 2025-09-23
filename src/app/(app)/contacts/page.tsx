@@ -42,28 +42,28 @@ function getCity(p: Party): string | undefined {
 }
 
 export default function ContactsPage() {
-  const data = useData<{ parties: Party[]; partyRoles?: PartyRole[] }>();
+  const data: any = useData();
   const [q, setQ] = useState('');
   const [role, setRole] = useState<string>('ALL');
   const [status, setStatus] = useState<string>('ALL');
   const [city, setCity] = useState<string>('ALL');
   const [isPending, start] = useTransition();
 
-  const parties: Party[] = data?.parties ?? [];
-
   const cityOptions = useMemo(() => {
+    const src: Party[] = (data?.parties ?? []) as Party[];
     const set = new Set<string>();
-    for (const p of parties) {
+    for (const p of src) {
       const c = getCity(p);
       if (c) set.add(c);
       if (set.size > 200) break;
     }
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'es'));
-  }, [parties]);
+  }, [data?.parties]);
 
   const list = useMemo(() => {
+    const src: Party[] = (data?.parties ?? []) as Party[];
     const s = q.trim().toLowerCase();
-    return parties.filter(p => {
+    return src.filter(p => {
       if (role !== 'ALL' && !(p.roles ?? []).includes(role as RoleKey)) return false;
       if (status !== 'ALL' && p.status !== (status as StatusKey)) return false;
       if (city !== 'ALL' && (getCity(p) ?? '') !== city) return false;
@@ -77,7 +77,7 @@ export default function ContactsPage() {
       const legacy = (p.contacts ?? []).some(c => c.value?.toLowerCase?.().includes(s));
       return haystack.includes(s) || legacy;
     });
-  }, [parties, q, role, status, city]);
+  }, [data?.parties, q, role, status, city]);
 
   const onPull = (since?: string) =>
     start(async () => {
@@ -222,7 +222,7 @@ export default function ContactsPage() {
       </div>
 
       <div className="text-xs text-zinc-500">
-        {list.length} resultados · {parties.length} contactos totales
+        {list.length} resultados · {data?.parties?.length ?? 0} contactos totales
       </div>
     </div>
   );

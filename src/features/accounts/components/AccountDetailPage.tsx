@@ -40,14 +40,14 @@ function Row({label, children, icon: Icon}:{label:string; children:React.ReactNo
     );
 }
 
-function Chip({children, color = 'zinc' | 'green' | 'amber' | 'red' | 'blue' }: {children: React.ReactNode, color?: 'zinc' | 'green' | 'amber' | 'red' | 'blue' }){
-  const colorClasses = {
+function Chip({children, color = 'zinc'}: {children: React.ReactNode, color?: 'zinc' | 'green' | 'amber' | 'red' | 'blue' }){
+  const colorClasses: Record<string, string> = {
       zinc: 'bg-zinc-100 text-zinc-700 border-zinc-200',
       green: 'bg-green-100 text-green-800 border-green-200',
       amber: 'bg-amber-100 text-amber-800 border-amber-200',
       red: 'bg-red-100 text-red-800 border-red-200',
       blue: 'bg-blue-100 text-blue-800 border-blue-200',
-  }
+  };
   return <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium ${colorClasses[color]}`}>{children}</span>;
 }
 
@@ -64,10 +64,17 @@ const interactionIcons: Record<InteractionKind, React.ElementType> = {
 const formatEUR = (n:number)=> new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(n);
 const formatDate = (iso: string) => new Date(iso).toLocaleDateString('es-ES', {day:'2-digit',month:'short', year:'numeric'});
 
-function RollupBadge({ label, value, date, color = 'zinc' | 'green' | 'amber' | 'red' | 'blue' }: { label: string; value: string | number; date?: string; color?: 'zinc' | 'green' | 'amber' | 'red' | 'blue' }) {
+function RollupBadge({ label, value, date, color = 'zinc' }: { label: string; value: string | number; date?: string; color?: 'zinc' | 'green' | 'amber' | 'red' | 'blue' }) {
+    const colorClasses: Record<string, string> = {
+        zinc: 'bg-zinc-50 border-zinc-200 text-zinc-800',
+        green: 'bg-green-50 border-green-200 text-green-800',
+        amber: 'bg-amber-50 border-amber-200 text-amber-800',
+        red: 'bg-red-50 border-red-200 text-red-800',
+        blue: 'bg-blue-50 border-blue-200 text-blue-800'
+    };
     return (
-        <div className={`p-2 rounded-lg border flex items-center gap-2 text-xs ${ {zinc: 'bg-zinc-50 border-zinc-200', green: 'bg-green-50 border-green-200', amber: 'bg-amber-50 border-amber-200', red: 'bg-red-50 border-red-200', blue: 'bg-blue-50 border-blue-200'}[color] }`}>
-            <span className={`font-bold ${ {zinc: 'text-zinc-800', green: 'text-green-800', amber: 'text-amber-800', red: 'text-red-800', blue: 'text-blue-800'}[color] }`}>{value}</span>
+        <div className={`p-2 rounded-lg border flex items-center gap-2 text-xs ${colorClasses[color]}`}>
+            <span className={`font-bold`}>{value}</span>
             <span className="text-zinc-600">{label}</span>
             {date && <span className="text-zinc-500 ml-auto">{new Date(date).toLocaleDateString('es-ES', {day: 'numeric', month: 'short'})}</span>}
         </div>
