@@ -36,7 +36,7 @@ export async function GET(
           country: deliveryNote.shipTo.country
       },
       lines: deliveryNote.lines,
-      company: { name: 'Santa Brisa', vat: 'B00000000' },
+      company: { name: 'Santa Brisa', vat: 'B00000000', address: 'C/ Olivos 10', city: 'Madrid', zip: '28010', country: 'España' },
     });
 
     return new Response(Buffer.from(pdfBytes), {

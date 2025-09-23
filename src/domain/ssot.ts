@@ -67,6 +67,7 @@ export interface Party {
   contacts: { type: 'email' | 'phone' | 'whatsapp' | 'web'; value: string; isPrimary?: boolean; description?: string; }[];
   addresses: { type: 'main' | 'billing' | 'shipping'; street: string; city: string; postalCode?: string; country: string; isPrimary?: boolean; }[];
   handles?: Partial<Record<'instagram' | 'tiktok' | 'linkedin' | 'twitter', string>>;
+  tags?: string[];
 }
 
 export interface PartyRole {
@@ -85,8 +86,7 @@ export interface PartyDuplicate {
   reason: 'SAME_VAT'|'SAME_EMAIL'|'FUZZY_NAME_CITY'|'SAME_PHONE';
   score: number;                    // 0..1
   status: 'OPEN'|'MERGED'|'IGNORED';
-  createdAt: any; 
-  resolvedAt?: any;
+  createdAt: any; resolvedAt?: any;
 }
 
 
@@ -810,6 +810,7 @@ export interface CodeAlias {
 export interface SantaData {
   parties: Party[];
   partyRoles: PartyRole[];
+  partyDuplicates: PartyDuplicate[];
   users: User[];
   accounts: Account[];
   ordersSellOut: OrderSellOut[];
@@ -843,7 +844,6 @@ export interface SantaData {
   jobs?: any[];
   dead_letters?: any[];
   expenses: Expense[];
-  partyDuplicates: PartyDuplicate[];
 }
 
 export const SANTA_DATA_COLLECTIONS: (keyof SantaData)[] = [

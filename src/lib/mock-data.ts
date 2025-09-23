@@ -25,6 +25,7 @@ export const INITIAL_MOCK_DATA: SantaData = {
       { id: 'pr_cr_1', partyId: 'party_cr_1', role: 'INFLUENCER', isActive: true, createdAt: '2023-01-01T00:00:00Z', data: { tier: 'micro', audienceSize: 50000 } },
       { id: 'pr_cr_2', partyId: 'party_cr_2', role: 'CREATOR', isActive: true, createdAt: '2023-01-01T00:00:00Z', data: { tier: 'mid', audienceSize: 150000 } },
   ],
+  partyDuplicates: [],
   users: [
     { id: 'u_owner', name: 'Ana', email: 'ana@santabrisa.es', role: 'owner', active: true },
     { id: 'u_admin', name: 'Nico', email: 'nico@santabrisa.es', role: 'admin', active: true },

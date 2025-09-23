@@ -61,8 +61,8 @@ export async function handleCreateDeliveryNoteCRM({ shipmentId }: { shipmentId: 
     series,
     date: new Date().toISOString(),
     pdfUrl,
-    createdAt: Timestamp.now(),
-    updatedAt: Timestamp.now(),
+    createdAt: Timestamp.now() as any,
+    updatedAt: Timestamp.now() as any,
     lines: (s.lines||[]).map((l:any)=>({ sku:l.sku, description:l.name||l.sku, qty:l.qty, uom:l.uom||'ud', lotNumbers: l.lotNumber?[l.lotNumber]:[] })),
     soldTo: { name: party.tradeName || party.legalName, vat: party.vat },
     shipTo: {
@@ -71,7 +71,8 @@ export async function handleCreateDeliveryNoteCRM({ shipmentId }: { shipmentId: 
       zip: party.addresses?.[0]?.postalCode || '',
       city: party.addresses?.[0]?.city || '',
       country: party.addresses?.[0]?.country || 'España',
-    }
+    },
+    company: { name: 'Santa Brisa', vat: 'B00000000' }
   };
 
   await adminDb.collection('deliveryNotes').doc(dnId).set(note);
