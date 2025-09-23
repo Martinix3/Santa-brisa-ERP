@@ -1,7 +1,7 @@
 
 // src/features/influencers/ssot-bridge.ts
 import { collection, getDocs, doc, writeBatch, Timestamp } from "firebase/firestore";
-import { db } from "@/lib/firebaseClient";
+import { firestoreDb as db } from "@/lib/firebaseClient";
 import type { InfluencerCollab } from '@/domain';
 
 

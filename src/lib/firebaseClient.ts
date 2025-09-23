@@ -37,3 +37,4 @@ if (!getApps().length) {
 export const firebaseApp = app!;
 export const firebaseAuth = auth!;
 export const firestoreDb = db!;
+
