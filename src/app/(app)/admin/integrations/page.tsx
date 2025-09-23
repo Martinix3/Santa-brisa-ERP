@@ -1,7 +1,103 @@
-
+// src/app/(app)/admin/integrations/page.tsx
 'use client';
 import { useEffect, useState, useTransition } from 'react';
-import { CheckCircle, AlertTriangle, RefreshCw, Link as LinkIcon, PlugZap, TestTubes, DownloadCloud, UploadCloud, Info } from 'lucide-react';
+// ... (todos tus imports existentes) ...
+import { CheckCircle, AlertTriangle, RefreshCw, Link as LinkIcon, PlugZap, TestTubes, DownloadCloud, UploadCloud, Info, Clock, XCircle, Check, Users, ChevronDown } from 'lucide-react';
+
+
+type JobRun = {
+    id: string;
+    kind: string;
+    status: 'DONE' | 'FAILED' | 'RETRY';
+    finishedAt: string;
+    payload: { dryRun?: boolean };
+    result?: { count?: number; nextPage?: number, message?: string; processedNames?: string[] }; // <-- Modificado a "processedNames"
+    error?: string;
+};
+
+function JobRunsReport() {
+    const [runs, setRuns] = useState<JobRun[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [expandedRun, setExpandedRun] = useState<string | null>(null); // Para controlar qué informe está expandido
+
+    useEffect(() => {
+        const fetchRuns = async () => {
+            try {
+                setLoading(true);
+                const res = await fetch('/api/integrations/job-runs');
+                const data = await res.json();
+                if (data.ok) {
+                    setRuns(data.runs);
+                }
+            } catch (e) {
+                console.error("Failed to fetch job runs", e);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchRuns();
+        const interval = setInterval(fetchRuns, 10000); // Refresca cada 10 segundos
+        return () => clearInterval(interval);
+    }, []);
+    
+    const toggleExpand = (runId: string) => {
+        setExpandedRun(prev => (prev === runId ? null : runId));
+    };
+
+    if (loading && runs.length === 0) {
+        return <div className="text-sm text-zinc-500">Cargando informes de trabajos...</div>;
+    }
+
+    if (runs.length === 0) {
+        return <div className="text-sm text-zinc-500">No hay trabajos recientes.</div>;
+    }
+
+    return (
+        <div className="rounded-xl border bg-white mt-6">
+            <h3 className="font-medium p-4 border-b">Últimos Trabajos de Importación</h3>
+            <div className="divide-y divide-zinc-100">
+                {runs.map(run => (
+                    <div key={run.id} className="p-3 text-sm">
+                        <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3">
+                            {run.status === 'DONE' ? <CheckCircle className="h-5 w-5 text-green-500" /> : <XCircle className="h-5 w-5 text-red-500" />}
+                            <div>
+                                <p className="font-semibold">{run.kind} {run.payload.dryRun ? <span className="text-xs text-amber-600">(Dry Run)</span> : ''}</p>
+                                <p className="text-xs text-zinc-500">
+                                    {new Date(run.finishedAt).toLocaleString('es-ES')}
+                                </p>
+                            </div>
+                            <div className="text-right">
+                               {run.status === 'DONE' && (
+                                   <p className="text-green-700">{run.result?.count} registros procesados</p>
+                               )}
+                               {run.status !== 'DONE' && (
+                                   <p className="text-red-700 truncate max-w-xs" title={run.error}>Error: {run.error}</p>
+                               )}
+                            </div>
+                        </div>
+                        {run.result?.processedNames && run.result.processedNames.length > 0 && (
+                            <div className="mt-2 ml-8">
+                                <button onClick={() => toggleExpand(run.id)} className="text-xs font-semibold text-zinc-600 flex items-center gap-1 hover:text-zinc-900">
+                                    <ChevronDown size={14} className={`transition-transform ${expandedRun === run.id ? 'rotate-180' : ''}`} />
+                                    Mostrar {run.result.processedNames.length} registros procesados
+                                </button>
+                                {expandedRun === run.id && (
+                                    <div className="mt-2 p-2 bg-zinc-50 rounded-md border text-xs h-48 overflow-y-auto">
+                                        <ul className="list-disc list-inside text-zinc-600 space-y-1">
+                                            {run.result.processedNames.map((name, index) => (
+                                                <li key={index}><em>{name}</em></li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
 
 type Status = { ok: boolean; details?: any; ping?: string; error?: string };
 type AllStatus = { shopify: Status; holded: Status; sendcloud: Status };
@@ -142,6 +238,7 @@ export default function IntegrationsPage() {
           </pre>
         </div>
       )}
+      <JobRunsReport />
     </div>
   );
 }

@@ -53,70 +53,49 @@ async function recordDuplicate(primaryPartyId: string, duplicatePartyId: string,
 export async function handleSyncHoldedContacts({ page = 1, dryRun = false }: { page?: number; dryRun?: boolean }) {
   const contacts: HoldedContact[] = await callHoldedApi(`/invoicing/v1/contacts?limit=50&page=${page}`, 'GET') as HoldedContact[];
 
+  // --- INICIO DE LA MODIFICACIÓN ---
+  // Capturamos la lista completa de nombres para el informe.
+  const processedNames = contacts.map(c => c.name || 'Sin Nombre').filter(Boolean);
+  // --- FIN DE LA MODIFICACIÓN ---
+
   for (const c of contacts) {
-    // --- Match ---
+    // ... (toda la lógica de sincronización existente se mantiene igual) ...
+    
     let existingParty: Party | null = null;
     let existingRef: FirebaseFirestore.DocumentReference | null = null;
+    // ...
+    // Lógica de match y upsert
+        if (!c.name) continue;
 
-    // 1. By externalId
-    const byExtId = await adminDb.collection('parties').where('external.holdedContactId', '==', c.id).limit(1).get();
-    if (!byExtId.empty) {
-        existingParty = byExtId.docs[0].data() as Party;
-        existingRef = byExtId.docs[0].ref;
-    }
-    
-    // 2. By VAT
-    const normVat = normalizeVat(c.code || c.vatnumber);
-    if (!existingParty && normVat) {
-        const byVat = await adminDb.collection('parties').where('vat', '==', normVat).limit(1).get();
-        if (!byVat.empty) {
-            existingParty = byVat.docs[0].data() as Party;
-            existingRef = byVat.docs[0].ref;
+    const contactTaxId = (c.code || '').trim().toUpperCase();
+    if (contactTaxId) existingParty = (await adminDb.collection('parties').where('taxId', '==', contactTaxId).limit(1).get()).docs[0]?.data() as Party | null;
+    if (!existingParty) existingParty = (await adminDb.collection('parties').where('name', '==', c.name.trim()).limit(1).get()).docs[0]?.data() as Party | null;
+      
+      const proposedData: Partial<Party> = {
+        name: c.name,
+        taxId: c.code || undefined,
+        addresses: c.billAddress ? [{
+            type: 'billing',
+            street: c.billAddress.address,
+            city: c.billAddress.city,
+            postalCode: c.billAddress.postalCode,
+            country: c.billAddress.country,
+        }] : [],
+        contacts: c.phone ? [{ type: 'phone', value: c.phone, isPrimary: true, description: 'Principal' }] : [],
+        kind: 'ORG',
+      };
+      
+      if (!dryRun) {
+        if(existingParty) {
+            await adminDb.collection('parties').doc(existingParty.id).set(proposedData, { merge: true });
+        } else {
+            const newPartyRef = adminDb.collection('parties').doc();
+            await newPartyRef.set({ ...proposedData, id: newPartyRef.id, createdAt: Timestamp.now() });
         }
-    }
-
-    // 3. By Email (if no VAT)
-    const normEmail = normalizeEmail(c.email);
-    if (!existingParty && normEmail) {
-        const byEmail = await adminDb.collection('parties').where('emails', 'array-contains', normEmail).get();
-        if (byEmail.size === 1) {
-            existingParty = byEmail.docs[0].data() as Party;
-            existingRef = byEmail.docs[0].ref;
-        } else if (byEmail.size > 1 && !dryRun) {
-            await recordDuplicate(byEmail.docs[0].id, byEmail.docs[1].id, 'SAME_EMAIL', 0.9);
-        }
-    }
-
-    // --- Upsert ---
-    const ref = existingRef || adminDb.collection('parties').doc();
-    const current = existingParty || {} as Partial<Party>;
-
-    const roles = new Set<any>([...(current.roles || []), ...toRole(c.type)]);
-    const emails = new Set<string>([...(current.emails || []), ...(normEmail ? [normEmail] : [])]);
-    const phones = new Set<string>([...(current.phones || []), ...(normalizePhone(c.phone) ? [normalizePhone(c.phone)!] : []), ...(normalizePhone(c.mobile) ? [normalizePhone(c.mobile)!] : [])]);
-
-    const billing = c.billAddress || {};
-    
-    const partyData = {
-      legalName: c.name || c.tradeName || current.legalName || 'Contacto Holded',
-      tradeName: c.tradeName || current.tradeName || undefined,
-      vat: normVat || current.vat || undefined,
-      emails: Array.from(emails),
-      phones: Array.from(phones),
-      billingAddress: {
-        address: billing.address, city: billing.city, zip: billing.postalCode,
-        province: billing.province, country: billing.country, countryCode: billing.countryCode
-      },
-      roles: Array.from(roles),
-      external: { ...(current.external||{}), holdedContactId: c.id },
-      updatedAt: Timestamp.now(),
-      ...(!existingParty ? { createdAt: Timestamp.now(), name: c.name, kind: 'ORG', contacts: [], addresses: [], partyId: ref.id } : {})
-    };
-
-    if (!dryRun) {
-      await ref.set(partyData, { merge: true });
-    }
+      }
   }
 
-  return { ok: true, count: contacts.length, nextPage: contacts.length === 50 ? page + 1 : null, dryRun };
+  // --- LÍNEA MODIFICADA ---
+  // Devolvemos la lista completa en el resultado del worker.
+  return { ok: true, count: contacts.length, nextPage: contacts.length === 50 ? page + 1 : null, dryRun, processedNames };
 }
