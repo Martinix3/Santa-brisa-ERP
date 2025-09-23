@@ -4,9 +4,9 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
 import type { SantaData, User, UserRole } from '@/domain';
-import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
-import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, getIdToken } from "firebase/auth";
-import { getFirestore, collection, getDocs, writeBatch, doc, Timestamp } from "firebase/firestore";
+import type { User as FirebaseUser } from "firebase/auth";
+import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
+import { getFirestore, collection, getDocs } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { SANTA_DATA_COLLECTIONS } from "@/domain";
 import { INITIAL_MOCK_DATA } from "@/lib/mock-data";
@@ -51,7 +51,7 @@ const emailToName = (email: string) =>
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<SantaData | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [firebaseUser, setFirebaseUser] = useState<import("firebase/auth").User | null>(null);
+  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [isPersistenceEnabled, setIsPersistenceEnabled] = useState(true); // Persistencia ON por defecto
   const [loadingData, setLoadingData] = useState(true);
@@ -112,7 +112,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     
     if (!firebaseUser) {
       setData(null);
-      setLoadingData(false); // <-- FIX: Ensure loading is false when there is no user
+      setLoadingData(false); 
       return;
     };
     
@@ -316,13 +316,25 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [data, currentUser, authReady, saveCollection, saveAllCollections, login, loginWithEmail, signupWithEmail, logout, togglePersistence, isPersistenceEnabled, setCurrentUserById]
   );
 
-  if (!authReady || (loadingData && isPersistenceEnabled)) {
+  // Mostrar loader solo si:
+  // 1) ya sabemos el estado de auth (authReady)
+  // 2) hay un usuario autenticado (firebaseUser)
+  // 3) la persistencia está ON y seguimos cargando/esperando data
+  const mustBlockForData =
+    authReady &&
+    !!firebaseUser &&
+    isPersistenceEnabled &&
+    (loadingData || !data);
+
+  if (!authReady || mustBlockForData) {
     return (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-white/80 backdrop-blur-sm">
-            <div className="flex flex-col items-center gap-4">
-                <p className="text-sb-neutral-700">Cargando datos de Santa Brisa...</p>
-            </div>
+      <div className="fixed inset-0 z-[200] flex items-center justify-center bg-white/80 backdrop-blur-sm">
+        <div className="flex flex-col items-center gap-4">
+          <p className="text-sb-neutral-700">
+            {firebaseUser ? "Cargando datos de Santa Brisa..." : "Inicializando..."}
+          </p>
         </div>
+      </div>
     );
   }
 
