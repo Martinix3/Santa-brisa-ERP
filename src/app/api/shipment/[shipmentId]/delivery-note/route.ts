@@ -8,16 +8,14 @@ import type { DeliveryNote, Shipment, OrderSellOut, Party } from '@/domain/ssot'
 import { bucket } from '@/lib/firebase/admin';
 
 async function generateAndSendPdf(shp: Shipment, dn: DeliveryNote) {
+  // Construye el payload que exige el renderer (incluye dateISO)
+  const dnData = {
+    ...dn,
+    dateISO: dn.date, // el renderer la pide explícita
+  } as any;
+  
   // Regenerate PDF bytes from stored metadata
-  const pdfBytes = await renderDeliveryNotePdf({
-    id: dn.id,
-    dateISO: dn.date,
-    orderId: dn.orderId,
-    soldTo: dn.soldTo,
-    shipTo: dn.shipTo,
-    lines: dn.lines,
-    company: dn.company,
-  });
+  const pdfBytes = await renderDeliveryNotePdf(dnData);
 
   // If there's a stored URL and we trust it, we can just redirect.
   // For this example, we'll assume we might need to regenerate/re-upload if something changed.
@@ -38,7 +36,7 @@ async function generateAndSendPdf(shp: Shipment, dn: DeliveryNote) {
   });
 
   // Update the stored URL in case it changes (unlikely with this config)
-  await upsertMany('deliveryNotes', [{ id: dn.id, pdfUrl: signedUrl }]);
+  await upsertMany('deliveryNotes', [{ id: dn.id, pdfUrl: signedUrl }] as any);
 
   return Response.redirect(signedUrl, 302);
 }
@@ -88,10 +86,13 @@ export async function GET(
         sku: l.sku, description: l.name ?? l.sku, qty: l.qty, uom: 'uds', lotNumbers: l.lotNumber ? [l.lotNumber] : []
       })),
       company: { name: 'Santa Brisa', vat: 'ESB00000000', address: 'C/ Olivos 10', city: 'Madrid', zip: '28010', country: 'España' },
-      createdAt: now, updatedAt: now,
+      createdAt: now as any, updatedAt: now as any,
     };
     
-    const pdfBytes = await renderDeliveryNotePdf(dnData as DeliveryNote);
+    const pdfBytes = await renderDeliveryNotePdf({
+      ...dnData,
+      dateISO: dnData.date,
+    } as any);
 
     const filePath = `delivery-notes/${dnId}.pdf`;
     const file = bucket().file(filePath);
@@ -106,7 +107,7 @@ export async function GET(
     });
 
     await upsertMany('deliveryNotes', [{ ...dnData, pdfUrl: signedUrl } as any]);
-    await upsertMany('shipments', [{ id: shp.id, deliveryNoteId: dnId, updatedAt: now }]);
+    await upsertMany('shipments', [{ id: shp.id, deliveryNoteId: dnId, updatedAt: now as any }]);
 
     return Response.redirect(signedUrl, 302);
 
