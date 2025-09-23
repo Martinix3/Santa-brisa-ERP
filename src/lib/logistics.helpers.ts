@@ -11,8 +11,8 @@ export const hasDimsAndWeight = (shipment: Shipment) => {
 
 export const hasContactInfo = (party?: Party) => {
     if (!party) return false;
-    const hasPhone = (party.contacts ?? []).some(c => c.type === 'phone' && c.value);
-    const hasAddress = (party.addresses ?? []).some(a => a.street);
+    const hasPhone = (party.phones ?? []).some(c => c.value);
+    const hasAddress = !!party.billingAddress?.address;
     return hasPhone && hasAddress;
 };
 export const canGenerateDeliveryNote = (row: Shipment) => Boolean(row.checks?.visualOk || row.status === 'ready_to_ship');

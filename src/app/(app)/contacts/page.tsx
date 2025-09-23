@@ -1,24 +1,46 @@
-
 'use client';
-import React, { useMemo, useState } from 'react';
-import { useData } from '@/lib/dataprovider';
-import type { Party } from '@/domain/ssot';
+import React, { useMemo, useState, useEffect } from 'react';
 import { pullHoldedContactsAction, pushPartyToHoldedAction } from './actions';
+import type { Party } from '@/domain/ssot';
 
 export default function ContactsPage() {
-  const { data } = useData() as { data: { parties: Party[] } };
-  const parties = data?.parties || [];
+  const [parties, setParties] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const [q, setQ] = useState('');
+
+  useEffect(() => {
+    async function fetchContacts() {
+      try {
+        setLoading(true);
+        const res = await fetch('/api/contacts', { cache: 'no-store' });
+        if (!res.ok) throw new Error('CONTACTS_API_FAILED');
+        const { rows } = await res.json();
+        setParties(rows);
+      } catch (e: any) {
+        setError(e.message || 'Error al cargar los contactos');
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchContacts();
+  }, []);
+  
   const list = useMemo(() => {
     const s = q.toLowerCase();
+    if (!s) return parties;
     return (parties ?? []).filter(p =>
       (p.legalName || '').toLowerCase().includes(s) ||
       (p.tradeName || '').toLowerCase().includes(s) ||
       (p.vat || '').toLowerCase().includes(s) ||
-      (p.emails ?? []).some(e => (typeof e === 'string' ? e : e.value).toLowerCase().includes(s)) ||
-      (p.phones ?? []).some(t => (typeof t === 'string' ? t : t.value).toLowerCase().includes(s))
+      (p.email?.value || '').toLowerCase().includes(s) ||
+      (p.phone?.value || '').toLowerCase().includes(s)
     );
   }, [parties, q]);
+
+  if(loading) return <div className="p-4">Cargando contactos...</div>
+  if(error) return <div className="p-4 text-red-600">Error: {error}</div>
 
   return (
     <div className="p-4 space-y-4">
@@ -39,8 +61,8 @@ export default function ContactsPage() {
               <td>{p.legalName}</td>
               <td>{p.tradeName}</td>
               <td>{p.vat}</td>
-              <td>{p.emails?.[0] && (typeof p.emails[0] === 'string' ? p.emails[0] : p.emails[0].value)}</td>
-              <td>{p.phones?.[0] && (typeof p.phones[0] === 'string' ? p.phones[0] : p.phones[0].value)}</td>
+              <td>{p.email?.value}</td>
+              <td>{p.phone?.value}</td>
               <td><span className="text-xs px-2 py-1 rounded bg-zinc-100">{p.status ?? '—'}</span></td>
               <td>
                 {p.external?.holdedContactId ? (

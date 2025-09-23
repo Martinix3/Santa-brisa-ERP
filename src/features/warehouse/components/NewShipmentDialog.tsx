@@ -40,10 +40,10 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, products }:
         const account = accounts.find(a => a.id === selectedAccountId);
         const party = data?.parties.find(p => p.id === account?.partyId);
         if (party) {
-            const mainAddress = (party.addresses ?? []).find(a => a.isPrimary) || party.addresses?.[0];
+            const mainAddress = (party.billingAddress ?? undefined);
             if (mainAddress) {
                 setCity(mainAddress?.city ?? '');
-                setAddress(mainAddress?.street ?? '');
+                setAddress(mainAddress?.address ?? '');
             }
         }
     };

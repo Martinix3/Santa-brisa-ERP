@@ -30,7 +30,7 @@ function AccountSearch({ initialAccountId, initialLocation, onSelectionChange }:
             const lowerQuery = query.toLowerCase();
             const filteredAccounts = santaData.accounts.filter(a => {
                 const party = santaData.parties.find(p => p.id === a.partyId);
-                return a.name.toLowerCase().includes(lowerQuery) || party?.addresses?.[0]?.city?.toLowerCase().includes(lowerQuery);
+                return a.name.toLowerCase().includes(lowerQuery) || party?.billingAddress?.city?.toLowerCase().includes(lowerQuery);
             });
             setResults(filteredAccounts);
             
@@ -71,12 +71,12 @@ function AccountSearch({ initialAccountId, initialLocation, onSelectionChange }:
                             onMouseDown={() => {
                                 setQuery(account.name);
                                 const party = santaData?.parties.find(p => p.id === account.partyId);
-                                onSelectionChange({ accountId: account.id, location: party?.addresses?.[0]?.city || account.name });
+                                onSelectionChange({ accountId: account.id, location: party?.billingAddress?.city || account.name });
                                 setResults([]);
                             }}
                         >
                             <p className="font-medium text-sm">{account.name}</p>
-                            <p className="text-xs text-zinc-500">{santaData?.parties.find(p => p.id === account.partyId)?.addresses?.[0]?.city}</p>
+                            <p className="text-xs text-zinc-500">{santaData?.parties.find(p => p.id === account.partyId)?.billingAddress?.city}</p>
                         </li>
                     ))}
                 </ul>

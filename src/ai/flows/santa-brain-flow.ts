@@ -169,7 +169,7 @@ const santaBrainFlow = ai.defineFlow(
         return {
             id: a.id,
             name: a.name,
-            city: party?.addresses?.[0]?.city || '',
+            city: party?.billingAddress?.city || '',
             ownerId: a.ownerId
         }
     });
@@ -238,11 +238,10 @@ const santaBrainFlow = ai.defineFlow(
                 name: inputData.name,
                 roles: ['CUSTOMER'],
                 kind: 'ORG',
-                addresses: inputData.city ? [{ type: 'main', city: inputData.city, street: '', country: 'España', postalCode: '' }] : [],
-                contacts: [],
+                billingAddress: inputData.city ? { city: inputData.city, street: '', country: 'España', postalCode: '' } : undefined,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
-            };
+            } as Party;
             const newAccount: Account = {
                 id: `acc_${Date.now()}`,
                 partyId: newParty.id,

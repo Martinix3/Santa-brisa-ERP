@@ -25,5 +25,3 @@ export async function callHoldedApi(path: string, initOrMethod?: RequestInit | '
   if (res.status === 204) return null;
   return ct.includes('application/json') ? res.json() : res.text();
 }
-
-    

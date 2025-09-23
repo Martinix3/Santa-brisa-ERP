@@ -29,7 +29,7 @@ export async function handleCreateHoldedInvoice({ orderId }: { orderId: string }
     const created: any = await callHoldedApi('/contacts', 'POST', {
       name: party.tradeName || party.legalName,
       code: party.vat, // vat -> code en Holded
-      email: (party.emails ?? [])[0],
+      email: (party.emails ?? [])[0]?.value,
       address: party.billingAddress?.address,
       city: party.billingAddress?.city,
       postalCode: party.billingAddress?.zip,
