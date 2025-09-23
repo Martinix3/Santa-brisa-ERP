@@ -1,4 +1,4 @@
-// src/server/queue/dispatcher.ts
+
 import { adminDb } from '@/server/firebaseAdmin';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import type { Job, JobKind } from './types';
@@ -18,6 +18,7 @@ const HANDLERS: Record<JobKind, (payload: any) => Promise<any>> = {
   SYNC_HOLDED_CONTACTS: async (payload) => (await import('../workers/holded.syncContacts')).handleSyncHoldedContacts(payload),
   SYNC_HOLDED_PURCHASES: async (payload) => (await import('../integrations/holded/syncPurchases')).handleSyncHoldedPurchases(payload),
   SYNC_HOLDED_PRODUCTS: async (payload) => (await import('../workers/holded.syncProducts')).handleSyncHoldedProducts(payload),
+  UPDATE_SHOPIFY_FULFILLMENT: async (payload) => (await import('../integrations/shopify/shopify.fulfillment.worker')).handleUpdateShopifyFulfillment(payload),
 };
 
 
@@ -38,7 +39,6 @@ export async function processJob(workerId: string, job: Job): Promise<void> {
     await jobRef.update({ status: 'DONE', finishedAt: Timestamp.now(), updatedAt: Timestamp.now() });
     console.log(`[${workerId}] Job ${job.id} (${job.kind}) completed successfully.`);
     
-    // Auto-pagination for sync jobs
     if (result?.nextPage) {
         await enqueue({ 
             kind: job.kind as any, 
@@ -58,6 +58,7 @@ export async function processJob(workerId: string, job: Job): Promise<void> {
       await jobRef.update({
         status: 'RETRY',
         error: error.message,
+        attempts: FieldValue.increment(1),
         nextRunAt: Timestamp.fromMillis(Date.now() + backoff),
         updatedAt: Timestamp.now(),
       });

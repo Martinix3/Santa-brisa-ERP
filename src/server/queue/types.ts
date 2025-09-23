@@ -1,10 +1,9 @@
-// src/server/queue/types.ts
+
 import type { Timestamp } from 'firebase-admin/firestore';
 import type { Shipment } from '@/domain/ssot';
 
 export type JobStatus = 'QUEUED' | 'RUNNING' | 'DONE' | 'RETRY' | 'DEAD' | 'FAILED';
 
-// Definición de cada tipo de trabajo
 export type JobPayloads =
  | { kind:'CREATE_MANUAL_SHIPMENT'; payload: Omit<Shipment, 'id' | 'createdAt' | 'updatedAt'> }
  | { kind:'CREATE_SHIPMENT_FROM_ORDER'; payload:{ orderId: string }; }
@@ -17,7 +16,8 @@ export type JobPayloads =
  | { kind: 'CREATE_INVOICE_FROM_ORDER'; payload: { orderId: string, force?: boolean }; }
  | { kind:'SYNC_HOLDED_CONTACTS'; payload:{ page?: number; dryRun?: boolean } }
  | { kind:'SYNC_HOLDED_PURCHASES'; payload:{ page?: number; dryRun?: boolean } }
- | { kind:'SYNC_HOLDED_PRODUCTS'; payload:{ page?: number; dryRun?: boolean } };
+ | { kind:'SYNC_HOLDED_PRODUCTS'; payload:{ page?: number; dryRun?: boolean } }
+ | { kind: 'UPDATE_SHOPIFY_FULFILLMENT'; payload: { shipmentId: string; shopifyOrderId: string; trackingNumber?: string; trackingUrl?: string; carrier?: string }};
 
 
 export type JobKind = JobPayloads['kind'];
