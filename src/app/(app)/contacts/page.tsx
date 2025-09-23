@@ -7,7 +7,7 @@ import { pullHoldedContactsAction, pushPartyToHoldedAction } from './actions';
 import { Mail, Phone, Link as LinkIcon, RefreshCw, Menu, Filter } from 'lucide-react';
 import { Input, Select, SBButton } from '@/components/ui/ui-primitives';
 
-type RoleKey = PartyRole['role'] | 'CUSTOMER' | 'SUPPLIER' | 'OTHER';
+type RoleKey = 'CUSTOMER' | 'SUPPLIER' | 'OTHER';
 type StatusKey = NonNullable<Party['status']>;
 
 const ROLE_LABEL: Record<string, string> = {
