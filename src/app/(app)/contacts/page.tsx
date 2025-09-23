@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useMemo, useState, useTransition } from 'react';
@@ -99,12 +98,12 @@ export default function ContactsPage() {
       {/* Toolbar */}
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <h1 className="text-xl font-semibold">Contactos</h1>
-        <div className="flex flex-col md:flex-row gap-2 md:items-center w-full md:w-auto">
-          <div className="relative flex-1 md:w-96">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative flex-1 md:w-64">
             <input
               value={q}
               onChange={e=>setQ(e.target.value)}
-              placeholder="Buscar nombre, ciudad, VAT, email o teléfono…"
+              placeholder="Buscar nombre, ciudad, VAT..."
               className="w-full border rounded-lg px-3 py-2 pl-9"
             />
             <Filter size={16} className="absolute left-3 top-2.5 text-zinc-400" />
