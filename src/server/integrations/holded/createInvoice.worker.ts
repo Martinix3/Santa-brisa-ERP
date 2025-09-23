@@ -1,7 +1,8 @@
+
 // src/server/integrations/holded/createInvoice.worker.ts
 import { adminDb } from '@/server/firebaseAdmin';
 import type { OrderSellOut, Party } from '@/domain/ssot';
-import { holdedFetch as callHoldedApi } from './client';
+import { callHoldedApi } from './client';
 import { Timestamp } from 'firebase-admin/firestore';
 
 
@@ -28,7 +29,7 @@ export async function handleCreateHoldedInvoice({ orderId }: { orderId: string }
     const created: any = await callHoldedApi('/contacts', 'POST', {
       name: party.tradeName || party.legalName,
       code: party.vat, // vat -> code en Holded
-      email: party.emails?.[0],
+      email: (party.emails ?? [])[0],
       address: party.billingAddress?.address,
       city: party.billingAddress?.city,
       postalCode: party.billingAddress?.zip,
@@ -37,7 +38,7 @@ export async function handleCreateHoldedInvoice({ orderId }: { orderId: string }
     });
     contactId = created.id;
     await adminDb.collection('parties').doc(order.partyId).set({
-      roles: party.roles?.includes('CUSTOMER') ? party.roles : [...(party.roles||[]), 'CUSTOMER'],
+      roles: (party.roles ?? []).includes('CUSTOMER') ? party.roles : [...(party.roles||[]), 'CUSTOMER'],
       external: { ...(party.external||{}), holdedContactId: contactId },
       updatedAt: Timestamp.now(),
     }, { merge: true });
