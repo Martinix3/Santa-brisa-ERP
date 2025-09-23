@@ -40,19 +40,26 @@ export interface Party {
   id: string;
   legalName: string;
   tradeName?: string;
-  roles: PartyRoleType[];
-  vat?: string;
-  emails?: string[];
-  phones?: string[];
+  vat?: string;                     // NIF/CIF normalizado
+  emails?: string[];                // normalizados en minúscula
+  phones?: string[];                // E.164 +34...
   billingAddress?: Address;
   shippingAddress?: Address;
+  roles: Array<'CUSTOMER'|'SUPPLIER'|'OTHER'>;
   external?: {
     holdedContactId?: string;
     shopifyCustomerId?: string;
   };
-  tags?: string[];
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
+  flags?: {
+    needsReview?: boolean;
+    issues?: string[];              // ej: ['MISSING_VAT','POSSIBLE_DUP']
+  };
+  quality?: {
+    lastAuditAt?: string;
+    score?: number;                 // 0..100
+  };
+  createdAt: any; 
+  updatedAt: any;
   // Campos del modelo anterior para compatibilidad temporal. Serán eliminados.
   name: string; // Mantener por ahora, pero usar legalName/tradeName
   kind: 'ORG' | 'PERSON';
@@ -70,6 +77,18 @@ export interface PartyRole {
     data: CustomerData | SupplierData | InfluencerData | EmployeeData; // Datos específicos del rol
     createdAt: Timestamp;
 }
+
+export interface PartyDuplicate {
+  id: string;                       // dup_<timestamp>_<rand>
+  primaryPartyId: string;           // candidato ganador
+  duplicatePartyId: string;         // candidato a fusionar
+  reason: 'SAME_VAT'|'SAME_EMAIL'|'FUZZY_NAME_CITY'|'SAME_PHONE';
+  score: number;                    // 0..1
+  status: 'OPEN'|'MERGED'|'IGNORED';
+  createdAt: any; 
+  resolvedAt?: any;
+}
+
 
 // --- Interfaces para los datos de cada rol ---
 export interface CustomerData {
@@ -824,6 +843,7 @@ export interface SantaData {
   jobs?: any[];
   dead_letters?: any[];
   expenses: Expense[];
+  partyDuplicates: PartyDuplicate[];
 }
 
 export const SANTA_DATA_COLLECTIONS: (keyof SantaData)[] = [
@@ -833,7 +853,7 @@ export const SANTA_DATA_COLLECTIONS: (keyof SantaData)[] = [
     'marketingEvents', 'onlineCampaigns', 'influencerCollabs', 'materialCosts', 'financeLinks', 
     'paymentLinks', 'traceEvents', 'incidents', 'codeAliases',
     'posTactics', 'posCostCatalog', 'plv_material', 'integrations', 'jobs', 'dead_letters', 'expenses',
-    'deliveryNotes'
+    'deliveryNotes', 'partyDuplicates'
 ];
 
 export const SB_COLORS = {

@@ -40,9 +40,8 @@ async function upsertSupplierParty(p: { contactId: string; name?: string; vat?: 
   return ref.id;
 }
 
-export async function handleSyncHoldedPurchases({ page = 1 }: { page?: number }) {
-  // Endpoint de compras (ajústalo si tu cuenta usa ruta distinta)
-  const purchases: HoldedPurchase[] = await callHoldedApi(`/documents/purchaseinvoice?limit=200&page=${page}`, 'GET') as HoldedPurchase[];
+export async function handleSyncHoldedPurchases({ page = 1, dryRun = false }: { page?: number; dryRun?: boolean }) {
+  const purchases: HoldedPurchase[] = await callHoldedApi(`/documents/purchaseinvoice?limit=50&page=${page}`, 'GET') as HoldedPurchase[];
 
   for (const p of purchases) {
     const supplierPartyId = await upsertSupplierParty({
@@ -60,19 +59,23 @@ export async function handleSyncHoldedPurchases({ page = 1 }: { page?: number })
     }));
 
     const expenseId = `holded-${p.id}`;
-    await adminDb.collection('expenses').doc(expenseId).set({
-      id: expenseId,
-      partyId: supplierPartyId,
-      date: p.date || new Date().toISOString(),
-      dueDate: p.dueDate || null,
-      status: mapStatus(p.status),
-      amountTotal: Number(p.total ?? 0),
-      amountTax: Number((p.totalTax ?? p.tax) ?? 0),
-      currency: (p.currency || 'EUR').toUpperCase(),
-      lines,
-      external: { holdedPurchaseId: p.id },
-      updatedAt: Timestamp.now(),
-      createdAt: Timestamp.now(),
-    }, { merge: true });
+    if (!dryRun) {
+        await adminDb.collection('expenses').doc(expenseId).set({
+            id: expenseId,
+            partyId: supplierPartyId,
+            date: p.date || new Date().toISOString(),
+            dueDate: p.dueDate || null,
+            status: mapStatus(p.status),
+            amountTotal: Number(p.total ?? 0),
+            amountTax: Number((p.totalTax ?? p.tax) ?? 0),
+            currency: (p.currency || 'EUR').toUpperCase(),
+            lines,
+            external: { holdedPurchaseId: p.id },
+            updatedAt: Timestamp.now(),
+            createdAt: Timestamp.now(),
+        }, { merge: true });
+    }
   }
+  
+  return { ok: true, count: purchases.length, nextPage: purchases.length === 50 ? page + 1 : null, dryRun };
 }

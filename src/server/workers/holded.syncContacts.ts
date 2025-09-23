@@ -1,6 +1,7 @@
 import { adminDb } from '@/server/firebaseAdmin';
 import { callHoldedApi } from '@/server/integrations/holded/client';
 import { Timestamp } from 'firebase-admin/firestore';
+import type { Party, PartyDuplicate } from '@/domain/ssot';
 
 type HoldedContact = {
   id: string;
@@ -18,6 +19,17 @@ type HoldedContact = {
   updatedAt?: number;
 };
 
+// --- Normalization Helpers ---
+const normalizeVat = (vat?: string) => (vat || '').replace(/[\s-]/g, '').toUpperCase();
+const normalizeEmail = (email?: string) => (email || '').trim().toLowerCase();
+const normalizePhone = (phone?: string) => {
+    if (!phone) return undefined;
+    const digits = phone.replace(/\D/g, '');
+    if (digits.startsWith('34') && digits.length === 11) return `+${digits}`;
+    if (digits.length === 9) return `+34${digits}`;
+    return phone; // Fallback
+};
+
 function toRole(t?: string): Array<'CUSTOMER'|'SUPPLIER'|'OTHER'> {
   const v = (t||'').toLowerCase();
   if (v === 'client') return ['CUSTOMER'];
@@ -25,42 +37,80 @@ function toRole(t?: string): Array<'CUSTOMER'|'SUPPLIER'|'OTHER'> {
   return ['OTHER'];
 }
 
+async function recordDuplicate(primaryPartyId: string, duplicatePartyId: string, reason: PartyDuplicate['reason'], score: number) {
+    const id = `dup_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    await adminDb.collection('partyDuplicates').doc(id).set({
+        id,
+        primaryPartyId,
+        duplicatePartyId,
+        reason,
+        score,
+        status: 'OPEN',
+        createdAt: Timestamp.now(),
+    });
+}
+
 export async function handleSyncHoldedContacts({ page = 1, dryRun = false }: { page?: number; dryRun?: boolean }) {
-  // GET contacts (paginado). Ajusta 'limit' si tu tenant permite otros tamaños.
-  const contacts: HoldedContact[] = await callHoldedApi(`/invoicing/v1/contacts?limit=200&page=${page}`, 'GET') as HoldedContact[];
+  const contacts: HoldedContact[] = await callHoldedApi(`/invoicing/v1/contacts?limit=50&page=${page}`, 'GET') as HoldedContact[];
 
   for (const c of contacts) {
-    // 1) buscar party por holdedContactId
-    const q = await adminDb.collection('parties').where('external.holdedContactId', '==', c.id).limit(1).get();
-    const ref = q.empty ? adminDb.collection('parties').doc() : q.docs[0].ref;
-    const current = q.empty ? {} as any : q.docs[0].data();
+    // --- Match ---
+    let existingParty: Party | null = null;
+    let existingRef: FirebaseFirestore.DocumentReference | null = null;
 
-    // 2) roles (merge)
-    const roles = new Set<string>(current.roles || []);
-    toRole(c.type).forEach(r => roles.add(r));
+    // 1. By externalId
+    const byExtId = await adminDb.collection('parties').where('external.holdedContactId', '==', c.id).limit(1).get();
+    if (!byExtId.empty) {
+        existingParty = byExtId.docs[0].data() as Party;
+        existingRef = byExtId.docs[0].ref;
+    }
+    
+    // 2. By VAT
+    const normVat = normalizeVat(c.code || c.vatnumber);
+    if (!existingParty && normVat) {
+        const byVat = await adminDb.collection('parties').where('vat', '==', normVat).limit(1).get();
+        if (!byVat.empty) {
+            existingParty = byVat.docs[0].data() as Party;
+            existingRef = byVat.docs[0].ref;
+        }
+    }
 
-    // 3) direcciones
+    // 3. By Email (if no VAT)
+    const normEmail = normalizeEmail(c.email);
+    if (!existingParty && normEmail) {
+        const byEmail = await adminDb.collection('parties').where('emails', 'array-contains', normEmail).get();
+        if (byEmail.size === 1) {
+            existingParty = byEmail.docs[0].data() as Party;
+            existingRef = byEmail.docs[0].ref;
+        } else if (byEmail.size > 1 && !dryRun) {
+            await recordDuplicate(byEmail.docs[0].id, byEmail.docs[1].id, 'SAME_EMAIL', 0.9);
+        }
+    }
+
+    // --- Upsert ---
+    const ref = existingRef || adminDb.collection('parties').doc();
+    const current = existingParty || {} as Partial<Party>;
+
+    const roles = new Set<any>([...(current.roles || []), ...toRole(c.type)]);
+    const emails = new Set<string>([...(current.emails || []), ...(normEmail ? [normEmail] : [])]);
+    const phones = new Set<string>([...(current.phones || []), ...(normalizePhone(c.phone) ? [normalizePhone(c.phone)!] : []), ...(normalizePhone(c.mobile) ? [normalizePhone(c.mobile)!] : [])]);
+
     const billing = c.billAddress || {};
-    const ship = (c.shippingAddresses && c.shippingAddresses[0]) || undefined;
-
+    
     const partyData = {
       legalName: c.name || c.tradeName || current.legalName || 'Contacto Holded',
       tradeName: c.tradeName || current.tradeName || undefined,
-      vat: c.vatnumber || c.code || current.vat || undefined,
-      emails: c.email ? Array.from(new Set([...(current.emails||[]), c.email])) : (current.emails||[]),
-      phones: Array.from(new Set([...(current.phones||[]), ...(c.mobile?[c.mobile]:[]), ...(c.phone?[c.phone]:[])])),
+      vat: normVat || current.vat || undefined,
+      emails: Array.from(emails),
+      phones: Array.from(phones),
       billingAddress: {
         address: billing.address, city: billing.city, zip: billing.postalCode,
         province: billing.province, country: billing.country, countryCode: billing.countryCode
       },
-      shippingAddress: ship ? {
-        address: ship.address, city: ship.city, zip: ship.postalCode,
-        province: ship.province, country: ship.country, countryCode: ship.countryCode
-      } : current.shippingAddress,
       roles: Array.from(roles),
       external: { ...(current.external||{}), holdedContactId: c.id },
       updatedAt: Timestamp.now(),
-      ...(q.empty ? { createdAt: Timestamp.now() } : {})
+      ...(!existingParty ? { createdAt: Timestamp.now(), name: c.name, kind: 'ORG', contacts: [], addresses: [], partyId: ref.id } : {})
     };
 
     if (!dryRun) {
@@ -68,5 +118,5 @@ export async function handleSyncHoldedContacts({ page = 1, dryRun = false }: { p
     }
   }
 
-  return { ok: true, count: contacts.length, nextPage: contacts.length === 200 ? page + 1 : null };
+  return { ok: true, count: contacts.length, nextPage: contacts.length === 50 ? page + 1 : null, dryRun };
 }

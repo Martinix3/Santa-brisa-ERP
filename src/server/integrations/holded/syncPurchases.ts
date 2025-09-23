@@ -41,7 +41,7 @@ async function upsertSupplierParty(p: { contactId: string; name?: string; vat?: 
 }
 
 export async function handleSyncHoldedPurchases({ page = 1, dryRun = false }: { page?: number; dryRun?: boolean }) {
-  const purchases: HoldedPurchase[] = await callHoldedApi(`/documents/purchaseinvoice?limit=200&page=${page}`, 'GET') as HoldedPurchase[];
+  const purchases: HoldedPurchase[] = await callHoldedApi(`/documents/purchaseinvoice?limit=50&page=${page}`, 'GET') as HoldedPurchase[];
 
   for (const p of purchases) {
     const supplierPartyId = await upsertSupplierParty({
@@ -77,5 +77,5 @@ export async function handleSyncHoldedPurchases({ page = 1, dryRun = false }: { 
     }
   }
 
-  return { ok: true, count: purchases.length, nextPage: purchases.length === 200 ? page + 1 : null };
+  return { ok: true, count: purchases.length, nextPage: purchases.length === 50 ? page + 1 : null, dryRun };
 }
