@@ -62,26 +62,29 @@ function CalendarPageContent() {
 
   }, [santaData?.interactions, responsibleFilter, departmentFilter]);
 
-  const calendarEvents = useMemo(
-    () =>
-      allInteractions
-        .filter(i => !!sbAsISO(i.plannedFor))
-        .map((task) => {
+  const calendarEvents = useMemo(() => {
+    return allInteractions
+      .filter(i => !!sbAsISO(i.plannedFor))
+      .map((task) => {
         const style = DEPT_META[task.dept as Department] || DEPT_META.VENTAS;
+        const plannedForISO = sbAsISO(task.plannedFor);
+        
+        // La tarea es "todo el día" si no tiene una hora específica (es T00:00:00.000Z)
+        const isAllDay = plannedForISO ? plannedForISO.endsWith('T00:00:00.000Z') : true;
+
         return {
           id: task.id,
           title: task.note || String(task.kind || 'Tarea'),
-          start: sbAsISO(task.plannedFor),
-          allDay: task.status === 'done' ? false : (task.dept !== "ALMACEN"),
+          start: plannedForISO,
+          allDay: isAllDay,
           extendedProps: { type: task.dept, status: task.status, kind: task.kind, linkedEntity: task.linkedEntity },
           backgroundColor: task.status === 'done' ? '#d1d5db' : hexToRgba(style.color, 0.25),
           borderColor: task.status === 'done' ? '#9ca3af' : hexToRgba(style.color, 0.45),
           textColor: task.status === 'done' ? '#4b5563' : style.textColor,
           className: ["sb-event"],
         };
-      }),
-    [allInteractions]
-  );
+      });
+  }, [allInteractions]);
   
   const updateAndPersistInteractions = (updatedSubset: Interaction[]) => {
     if (!santaData) return;
