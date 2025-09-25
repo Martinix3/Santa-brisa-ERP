@@ -62,7 +62,7 @@ const MODULE_ACCENTS: Record<string, string> = {
     production: 'var(--sb-accent-produc)',
     quality: 'var(--sb-accent-calidad)',
     warehouse: 'var(--sb-accent-logistica)',
-    finance: 'var(--sb-accent-finance)',
+    finance: 'var(--sb-sun-strong)',
     admin: 'var(--sb-accent-admin)',
 };
   
