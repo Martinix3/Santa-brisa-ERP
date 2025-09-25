@@ -1,4 +1,3 @@
-
 // src/features/quicklog/components/SBFlows.tsx
 "use client";
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
@@ -8,6 +7,7 @@ import { useData } from "@/lib/dataprovider";
 import { generateNextOrder } from '@/lib/codes';
 import type { AccountType, Account, OrderSellOut, Product, Party, SB_THEME, InteractionKind, PosTactic, PosTacticItem, PartyRole, CustomerData, PosCostCatalogEntry } from '@/domain/ssot';
 import { SB_COLORS } from "@/domain/ssot";
+import { TimePicker } from "@/components/ui/TimePicker";
 
 const hexToRgba = (hex: string, a: number) => { const h = hex.replace('#',''); const f = h.length===3? h.split('').map(c=>c+c).join(''):h; const n=parseInt(f,16); const r=(n>>16)&255, g=(n>>8)&255, b=n&255; return `rgba(${r},${g},${b},${a})`; };
 const waterHeader = (seed = "hdr", base = "#A7D8D9") => {
@@ -95,11 +95,11 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
   
   // quick order state
   const [items, setItems] = useState<{sku:string; qty:number, lotNumber?: string }[]>([{sku:"SB-750", qty:1, lotNumber: ''}]);
-  const [orderNote, setOrderNote] = useState("");
   
   // quick interaction state
   const [interactionNote, setInteractionNote] = useState("");
-  const [interactionDate, setInteractionDate] = useState(() => new Date().toISOString().slice(0, 16));
+  const [interactionDate, setInteractionDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [interactionTime, setInteractionTime] = useState<string | null>(() => new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }));
   const [nextAction, setNextAction] = useState("");
   
   // POS Tactic State
@@ -115,27 +115,26 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
     return (santaData.parties || []).filter(p => distPartyIds.has(p.id));
   }, [santaData]);
 
-  useEffect(() => {
+    useEffect(() => {
     const run = async () => {
       if (debouncedName.length < 1 || selectedAccountId) {
         setSearchSuggestions([]);
         setIsSearchOpen(false);
         return;
       }
-  
+
       searchAbortRef.current?.abort();
       const ac = new AbortController();
       searchAbortRef.current = ac;
-  
+
       try {
         const key = debouncedName.toLowerCase();
         if (searchCache.current.has(key)) {
-          const results = searchCache.current.get(key)!;
-          setSearchSuggestions(results);
-          setIsSearchOpen(true); // Siempre abrir
+          setSearchSuggestions(searchCache.current.get(key)!);
+          setIsSearchOpen(true);
           return;
         }
-  
+
         setLoading(true);
         setIsSearchOpen(true);
         const results = await onSearchAccounts(debouncedName, { signal: ac.signal });
@@ -214,7 +213,6 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
     
     let newAccountPayload: Partial<Account> | undefined;
     let newPartyPayload: Partial<Party> | undefined;
-    let newPartyRolePayload: Partial<PartyRole> | undefined;
     
     if(!selectedAccountId && accountName.trim()){
       const partyId = `party_${Date.now()}`;
@@ -222,31 +220,22 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
           id: partyId, name: accountName.trim(), legalName: accountName.trim(), kind: 'ORG',
           billingAddress: accountCity ? { city: accountCity, country: 'España'} : undefined,
           createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-      } as Party;
+      };
       newAccountPayload = {
           id: `acc_${Date.now()}`, partyId, name: accountName.trim(), type: 'HORECA',
           stage: 'POTENCIAL', ownerId: currentUser?.id || 'u_admin', createdAt: new Date().toISOString(),
       };
-      newPartyRolePayload = {
-        id: `pr_${Date.now()}`,
-        partyId: partyId,
-        role: 'CUSTOMER',
-        isActive: true,
-        data: {
-          billerId: billerId,
-          salesRepId: currentUser?.id || 'u_admin',
-        } as CustomerData,
-        createdAt: new Date().toISOString()
-      } as PartyRole;
     }
 
     if(mode==="order"){
       if(items.length===0 || items.some(it=>!it.sku || it.qty<=0)) return alert("Revisa las líneas del pedido");
-      onSubmit({ mode:"order", accountId: selectedAccountId, newAccount: newAccountPayload, newParty: newPartyPayload, items, note: orderNote, posTactic: posPayload, isVentaPropia: billerId === 'SB' } as any);
+      onSubmit({ mode:"order", accountId: selectedAccountId, newAccount: newAccountPayload, newParty: newPartyPayload, items, note: '', posTactic: posPayload, isVentaPropia: billerId === 'SB' });
     } else {
-      if(!interactionNote) return alert("Añade un resumen de la interacción");
-      onSubmit({ mode:"interaction", accountId: selectedAccountId, newAccount: newAccountPayload, newParty: newPartyPayload, kind: 'OTRO', note: interactionNote, nextAction: nextAction || undefined, posTactic: posPayload, interactionDate } as any);
+        if(!interactionNote) return alert("Añade un resumen de la interacción");
+        const plannedFor = interactionDate && interactionTime
+            ? new Date(`${interactionDate}T${interactionTime}`).toISOString()
+            : interactionDate ? new Date(interactionDate).toISOString() : undefined;
+        onSubmit({ mode:"interaction", accountId: selectedAccountId, newAccount: newAccountPayload, newParty: newPartyPayload, kind: 'OTRO', note: interactionNote, nextAction: nextAction || undefined, posTactic: posPayload, plannedFor });
     }
   }
 
@@ -307,7 +296,8 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
     const d = new Date();
     if(preset === 'hour') d.setHours(d.getHours() - 1);
     if(preset === 'day') d.setDate(d.getDate() - 1);
-    setInteractionDate(d.toISOString().slice(0, 16));
+    setInteractionDate(d.toISOString().slice(0, 10));
+    setInteractionTime(d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }));
   };
 
   return (
@@ -367,7 +357,7 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
          <Row>
             <Label>Pedido Rápido</Label>
             <div className="border rounded-xl p-2 space-y-2">
-                <div className="grid grid-cols-[2fr_1fr] gap-2 items-center">
+                <div className="grid grid-cols-[2fr_1fr_auto] gap-2 items-center">
                     <Select value={items[0].sku} onChange={e => setOrderLine(0, { sku: e.target.value })}>
                         <option value="">Producto...</option>
                         {(santaData?.products || []).filter(p => p.category === 'finished_good').map(p => (
@@ -375,6 +365,12 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
                         ))}
                     </Select>
                     <Input type="number" min="1" value={items[0].qty} onChange={e=>setOrderLine(0,{qty: Number(e.target.value)})}/>
+                    <Select value={items[0].lotNumber || ''} onChange={e => setOrderLine(0, { lotNumber: e.target.value })}>
+                        <option value="">Lote...</option>
+                        {availableInventory.filter(i => i.sku === items[0].sku).map(i => (
+                            <option key={i.lotNumber} value={i.lotNumber}>{i.lotNumber} ({i.qty} uds)</option>
+                        ))}
+                    </Select>
                 </div>
             </div>
           </Row>
@@ -382,7 +378,10 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
         <div className="space-y-3">
             <Row>
               <Label>Fecha y Hora</Label>
-              <Input type="datetime-local" value={interactionDate} onChange={e => setInteractionDate(e.target.value)} />
+              <div className="flex gap-2">
+                <Input type="date" value={interactionDate} onChange={e => setInteractionDate(e.target.value)} className="flex-1"/>
+                <TimePicker value={interactionTime} onChange={setInteractionTime} step={5} className="flex-1"/>
+              </div>
               <div className="flex items-center gap-2 mt-1">
                 <button type="button" onClick={() => setQuickDate('now')} className="text-xs px-2 py-1 rounded-md border bg-zinc-100 hover:bg-zinc-200">Ahora</button>
                 <button type="button" onClick={() => setQuickDate('hour')} className="text-xs px-2 py-1 rounded-md border bg-zinc-100 hover:bg-zinc-200">Hace 1h</button>
