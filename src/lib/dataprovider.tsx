@@ -72,14 +72,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         
         for (const name of SANTA_DATA_COLLECTIONS) {
             try {
-                const querySnapshot = await getDocs(collection(firestoreDb!, name));
+                const querySnapshot = await getDocs(collection(firestoreDb!, name as string));
                 const docs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 (data as any)[name] = docs;
-                report.ok.push(name);
+                report.ok.push(name as keyof SantaData);
                 report.totalDocs += docs.length;
             } catch (e: any) {
                 console.error(`[DataProvider] Error loading collection ${name}:`, e);
-                report.errors.push({ name, error: e.message });
+                report.errors.push({ name: name as keyof SantaData, error: e.message });
                 (data as any)[name] = [];
             }
         }
@@ -208,7 +208,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         const items = collectionsToSave[collectionName];
         if (Array.isArray(items) && items.length > 0) {
           // This now calls the server action directly
-          promises.push(upsertMany(collectionName, items));
+          promises.push(upsertMany(collectionName as string, items));
         }
       }
 
