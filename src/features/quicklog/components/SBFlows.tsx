@@ -104,6 +104,7 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
   
   // quick interaction state
   const [interactionNote, setInteractionNote] = useState("");
+  const [interactionDate, setInteractionDate] = useState(() => new Date().toISOString().slice(0, 16));
   const [nextAction, setNextAction] = useState("");
   
   // POS Tactic State
@@ -121,38 +122,38 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
 
   useEffect(() => {
     const run = async () => {
-      if (debouncedName.length < 1 || selectedAccountId) {
-        setSearchSuggestions([]);
-        setIsSearchOpen(false);
-        return;
-      }
-      
-      searchAbortRef.current?.abort();
-      const ac = new AbortController();
-      searchAbortRef.current = ac;
-  
-      try {
-        const key = debouncedName.toLowerCase();
-        if (searchCache.current.has(key)) {
-            const results = searchCache.current.get(key)!;
-            setSearchSuggestions(results);
-            setIsSearchOpen(true);
+        if (debouncedName.length < 1 || selectedAccountId) {
+            setSearchSuggestions([]);
+            setIsSearchOpen(false);
             return;
         }
 
-        setLoading(true);
-        setIsSearchOpen(true);
-        const results = await onSearchAccounts(debouncedName, { signal: ac.signal });
-        if (!ac.signal.aborted) {
-          searchCache.current.set(key, results);
-          setSearchSuggestions(results);
-          setIsSearchOpen(true);
+        searchAbortRef.current?.abort();
+        const ac = new AbortController();
+        searchAbortRef.current = ac;
+
+        try {
+            const key = debouncedName.toLowerCase();
+            if (searchCache.current.has(key)) {
+                const results = searchCache.current.get(key)!;
+                setSearchSuggestions(results);
+                setIsSearchOpen(true);
+                return;
+            }
+
+            setLoading(true);
+            setIsSearchOpen(true);
+            const results = await onSearchAccounts(debouncedName, { signal: ac.signal });
+            if (!ac.signal.aborted) {
+                searchCache.current.set(key, results);
+                setSearchSuggestions(results);
+                setIsSearchOpen(true);
+            }
+        } catch (e) {
+            if ((e as any).name !== 'AbortError') console.error(e);
+        } finally {
+            if (!ac.signal.aborted) setLoading(false);
         }
-      } catch (e) {
-        if ((e as any).name !== 'AbortError') console.error(e);
-      } finally {
-        if (!ac.signal.aborted) setLoading(false);
-      }
     };
     run();
     return () => searchAbortRef.current?.abort();
@@ -241,10 +242,10 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
 
     if(mode==="order"){
       if(items.length===0 || items.some(it=>!it.sku || it.qty<=0)) return alert("Revisa las líneas del pedido");
-      onSubmit({ mode:"order", accountId: selectedAccountId, newAccount: newAccountPayload, newParty: newPartyPayload, items, note: orderNote, posTactic: posPayload } as any);
+      onSubmit({ mode:"order", accountId: selectedAccountId, newAccount: newAccountPayload, newParty: newPartyPayload, items, note: orderNote, posTactic: posPayload, isVentaPropia: billerId === 'SB' } as any);
     } else {
       if(!interactionNote) return alert("Añade un resumen de la interacción");
-      onSubmit({ mode:"interaction", accountId: selectedAccountId, newAccount: newAccountPayload, newParty: newPartyPayload, kind: 'OTRO', note: interactionNote, nextAction: nextAction || undefined, posTactic: posPayload } as any);
+      onSubmit({ mode:"interaction", accountId: selectedAccountId, newAccount: newAccountPayload, newParty: newPartyPayload, kind: 'OTRO', note: interactionNote, nextAction: nextAction || undefined, posTactic: posPayload, interactionDate } as any);
     }
   }
 
@@ -297,6 +298,13 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
       )}
     </div>
   );
+
+  const setQuickDate = (preset: 'now' | 'hour' | 'day') => {
+    const d = new Date();
+    if(preset === 'hour') d.setHours(d.getHours() - 1);
+    if(preset === 'day') d.setDate(d.getDate() - 1);
+    setInteractionDate(d.toISOString().slice(0, 16));
+  };
 
   return (
     <div className="p-4 space-y-3">
@@ -380,6 +388,15 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
         </>
       ) : (
         <div className="space-y-3">
+            <Row>
+              <Label>Fecha y Hora</Label>
+              <Input type="datetime-local" value={interactionDate} onChange={e => setInteractionDate(e.target.value)} />
+              <div className="flex items-center gap-2 mt-1">
+                <button type="button" onClick={() => setQuickDate('now')} className="text-xs px-2 py-1 rounded-md border bg-zinc-100 hover:bg-zinc-200">Ahora</button>
+                <button type="button" onClick={() => setQuickDate('hour')} className="text-xs px-2 py-1 rounded-md border bg-zinc-100 hover:bg-zinc-200">Hace 1h</button>
+                <button type="button" onClick={() => setQuickDate('day')} className="text-xs px-2 py-1 rounded-md border bg-zinc-100 hover:bg-zinc-200">Ayer</button>
+              </div>
+            </Row>
             <Row><Label>Resumen</Label>
                 <Textarea rows={3} placeholder="¿Qué ha pasado? ¿De qué se ha hablado?" value={interactionNote} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>)=>setInteractionNote(e.target.value)}/>
             </Row>
