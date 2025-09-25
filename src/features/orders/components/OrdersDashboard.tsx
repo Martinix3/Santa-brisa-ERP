@@ -17,6 +17,7 @@ import { CreateOrderForm } from '@/features/quicklog/components/SBFlows';
 import { SBFlowModal } from '@/features/quicklog/components/SBFlows';
 import { upsertMany } from '@/lib/dataprovider/actions';
 import { generateNextOrder } from '@/lib/codes';
+import { DEPT_META } from "@/domain/ssot";
 
 
 type Tab = "directa" | "colocacion" | "online";
@@ -323,7 +324,11 @@ export default function OrdersDashboard() {
             <Tabs active={tab} onChange={setTab} />
             <div className="flex items-center gap-2">
                 {tab === 'online' && <ImportShopifyOrderButton />}
-                <SBButton onClick={() => setCreateOpen(true)}>
+                <SBButton
+                  onClick={() => setCreateOpen(true)}
+                  style={{ backgroundColor: DEPT_META.VENTAS.color, color: DEPT_META.VENTAS.textColor }}
+                  className="hover:brightness-110"
+                >
                     Nuevo pedido
                 </SBButton>
                  <SBButton variant="secondary" onClick={onExport} aria-label="Exportar a CSV">
