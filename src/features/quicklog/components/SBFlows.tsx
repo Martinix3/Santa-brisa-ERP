@@ -278,7 +278,7 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
                 <div key={i} className="grid grid-cols-[1.2fr_0.6fr_40px] gap-2 items-center px-3 py-2 border-b last:border-b-0">
                 <Input placeholder="SKU" value={it.sku} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>setLine(i,{sku:e.target.value})}/>
                 <Input type="number" min={1} value={it.qty} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>setLine(i,{qty: Number(e.target.value)})}/>
-                <button onClick={()=>removeLine(i)} className="sb-btn-primary p-2 rounded-md hover:bg-zinc-100" aria-label="Eliminar"><X className="h-4 w-4"/></button>
+                <button onClick={()=>removeLine(i)} className="p-2 rounded-md hover:bg-zinc-100" aria-label="Eliminar"><X className="h-4 w-4"/></button>
                 </div>
             ))}
             <div className="px-3 py-2 flex justify-between items-center">
@@ -527,7 +527,7 @@ function BaseModal({open, onClose, color="#A7D8D9", title, icon:Icon=ClipboardLi
           transition={{type:"spring", stiffness:260, damping:22}}
           className="relative w-[92vw] max-w-4xl rounded-2xl border border-zinc-200 bg-white shadow-xl overflow-hidden">
           <Header title={title} color={color} icon={Icon}/>
-          <div className="absolute right-2 top-2 z-10"><button onClick={onClose} className="sb-btn-primary p-2 rounded-md hover:bg-white/60" aria-label="Cerrar"><X className="h-4 w-4"/></button></div>
+          <div className="absolute right-2 top-2 z-10"><button onClick={onClose} className="sb-btn-primary p-2 rounded-md hover:bg-zinc-100" aria-label="Cerrar"><X className="h-4 w-4"/></button></div>
           {children}
         </motion.div>
       </motion.div>
@@ -584,6 +584,7 @@ export function SBFlowModal({
     </BaseModal>
   );
 }
+
 
 
 
