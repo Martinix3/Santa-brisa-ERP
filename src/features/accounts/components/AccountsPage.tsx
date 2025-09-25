@@ -363,12 +363,11 @@ export function AccountsPageContent() {
         {(Object.keys(STAGE) as Array<keyof typeof STAGE>).map(k=>{
           const count = grouped[k]?.length || 0;
           const isOpen = !!expanded[k];
-          const s = STAGE[k];
           return (
             <div key={k} id={`group-${k}`} className="w-full">
               <GroupBar stage={k} count={count} expanded={isOpen} onToggle={()=> setExpanded(e=> ({...e,[k]:!e[k]})) }/>
               {isOpen && count > 0 && santaData && (
-                <div className="rounded-b-md space-y-1 py-2" style={{backgroundColor: `${s.tint}1A`}}>
+                <div className="rounded-b-md space-y-1 py-2">
                   {grouped[k].map(a=> {
                       const party = santaData.parties.find(p => p.id === a.partyId);
                       return <AccountBar key={a.id} a={a} party={party} santaData={santaData} onAddActivity={() => setCompletingTaskForAccount(a)}/>
@@ -399,5 +398,3 @@ export function AccountsPageContent() {
     </>
   )
 }
-
-    
