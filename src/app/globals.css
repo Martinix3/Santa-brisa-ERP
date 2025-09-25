@@ -8,7 +8,7 @@
   --radius: 12px;
 
   /* 🎯 Primario: amarillo (suave por defecto, dorado como variante fuerte) */
-  --sb-sun: 54 100% 83%;        /* #fff5a9 */
+  --sb-sun: 54 80% 84%;        /* #fbf5b8 */
   --sb-sun-strong: 45 99% 63%;  /* #fecb46 */
   --primary: var(--sb-sun);
   --primary-foreground: 240 10% 3.9%;
@@ -16,10 +16,10 @@
 
   /* Acentos por departamento (HEX que nos diste, pasados a HSL) */
   --sb-accent-personal: 54 80% 84%; /* #fbf5b8 - más suave */
-  --sb-accent-ventas: 45 75% 63%; /* #f2ca67 - más suave */
+  --sb-accent-ventas: 22 70% 61%; /* #ea945e - más suave */
   --sb-accent-marketing: 182 40% 70%; /* #9dd4d6 - más suave */
   --sb-accent-logistica: 22 40% 44%; /* #996947 - más suave */
-  --sb-accent-produc: 22 70% 61%; /* #ea945e - más suave */
+  --sb-accent-produc: 182 20% 47%; /* #638c8d - verde mar oscuro */
   --sb-accent-calidad: 214 35% 65%; /* #8298ce - azulado suave */
   --sb-accent-finance: 182 20% 47%; /* #638c8d - verde mar oscuro */
   --sb-accent-admin: 240 5% 55%; /* #8a8c92 - neutro */

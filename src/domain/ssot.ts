@@ -1027,9 +1027,9 @@ export const ACCOUNT_TYPE_META: Record<AccountType, { label: string; accent: str
 
 // Metadatos de departamento → apuntan a tokens de globals.css
 export const DEPT_META: Record<Department, { label: string; token: string; color: string; textColor: string }> = {
-  VENTAS:     { label: 'Ventas',     token: '--sb-accent-ventas',   color: '#f2ca67', textColor: '#3f3414' },
+  VENTAS:     { label: 'Ventas',     token: '--sb-accent-ventas',   color: '#ea945e', textColor: '#ffffff' },
   MARKETING:  { label: 'Marketing',  token: '--sb-accent-marketing',color: '#9dd4d6', textColor: '#2F5D5D' },
-  PRODUCCION: { label: 'Producción', token: '--sb-accent-produc',   color: '#ea945e', textColor: '#ffffff' },
+  PRODUCCION: { label: 'Producción', token: '--sb-accent-produc',   color: '#638c8d', textColor: '#ffffff' },
   CALIDAD:    { label: 'Calidad',    token: '--sb-accent-calidad',  color: '#829fce', textColor: '#ffffff' },
   ALMACEN:    { label: 'Almacén',    token: '--sb-accent-logistica',color: '#996947', textColor: '#ffffff' },
   FINANZAS:   { label: 'Finanzas',   token: '--sb-accent-finance',  color: '#638c8d', textColor: '#ffffff' },

@@ -1,11 +1,12 @@
 // tailwind.config.ts — Tailwind v4 (TS)
 import type { Config } from 'tailwindcss';
+import defaultTheme from 'tailwindcss/defaultTheme';
 
 const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-          sans: ['var(--font-inter)', 'sans-serif'],
+          sans: ['var(--font-inter)', ...defaultTheme.fontFamily.sans],
       },
       colors: {
         'sb-sun': 'hsl(var(--sb-sun))',

@@ -4,7 +4,11 @@ import "./globals.css";
 import MonitoringBoot from '@/components/monitoring/MonitoringBoot';
 import { Inter } from 'next/font/google';
 
-const inter = Inter({ subsets: ['latin'] });
+const inter = Inter({ 
+    subsets: ['latin'],
+    display: 'swap',
+    variable: '--font-inter',
+});
 
 export const metadata: Metadata = {
   title: "Santa Brisa App",
@@ -17,7 +21,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="es" className={inter.className}>
+    <html lang="es" className={inter.variable}>
       <body>
         <MonitoringBoot />
         <ClientProviders>{children}</ClientProviders>

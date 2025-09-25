@@ -1,6 +1,6 @@
 
 "use client";
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Calendar, CheckCircle, Clock, Plus, AlertTriangle, Home } from 'lucide-react';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
 import { SBCard, SBButton, KPI } from '@/components/ui/ui-primitives';
@@ -153,8 +153,8 @@ function PersonalDashboardContent() {
                   id: `ord_${Date.now()}`,
                   accountId: account.id,
                   partyId: account.partyId,
-                  status: 'open',
                   source: 'MANUAL',
+                  status: 'open',
                   billingStatus: 'PENDING',
                   currency: 'EUR',
                   createdAt: new Date().toISOString(),
@@ -216,16 +216,16 @@ function PersonalDashboardContent() {
           </div>
           <div className="flex items-center gap-2">
               <SBButton onClick={() => setIsNewEventDialogOpen(true)}>
-                  <Plus size={16} className="sb-icon" /> Nueva Tarea
+                  <Plus size={16} className="sb-icon mr-2" /> Nueva Tarea
               </SBButton>
           </div>
         </div>
 
         {/* KPIs */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <KPI label="Tareas Pendientes (Hoy)" value={kpis.todayTasks} icon={Clock} />
-          <KPI label="Tareas Atrasadas" value={kpis.overdueTasks} icon={AlertTriangle} />
-          <KPI label="Tareas Futuras" value={kpis.futureTasks} icon={Calendar} />
+          <KPI label="Tareas Pendientes (Hoy)" value={kpis.todayTasks} icon={Clock} color={SB_COLORS.primary.teal}/>
+          <KPI label="Tareas Atrasadas" value={kpis.overdueTasks} icon={AlertTriangle} color={SB_COLORS.state.danger} />
+          <KPI label="Tareas Futuras" value={kpis.futureTasks} icon={Calendar} color={SB_COLORS.state.info} />
         </div>
 
         {/* Task Board */}
@@ -243,7 +243,7 @@ function PersonalDashboardContent() {
           <NewEventDialog
             open={isNewEventDialogOpen}
             onOpenChange={setIsNewEventDialogOpen}
-            onSave={handleSaveNewTask}
+            onSave={handleSaveNewTask as any}
             accentColor={SB_COLORS.primary.sun}
           />
       )}

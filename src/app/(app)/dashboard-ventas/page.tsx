@@ -8,7 +8,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import type { PieLabelRenderProps } from 'recharts';
 import { useData } from "@/lib/dataprovider";
 import { ModuleHeader } from "@/components/ui/ModuleHeader";
-import { SBCard, SBButton } from "@/components/ui/ui-primitives";
+import { SBCard, SBButton, KPI } from "@/components/ui/ui-primitives";
 import { SB_COLORS, SB_THEME } from '@/domain/ssot';
 import type { User as UserType, OrderSellOut, Account, Interaction, Product, Party, UserRole, Stage, OrderStatus, AccountType } from '@/domain/ssot';
 import { inWindow, orderTotal } from '@/lib/sb-core';
@@ -19,22 +19,6 @@ import { UpcomingTasks } from '@/features/agenda/components/UpcomingTasks';
 
 const formatEur = (n: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
 const formatShortDate = (date: Date) => new Intl.DateTimeFormat('es-ES', { month: 'short', day: 'numeric' }).format(date);
-
-function KPI({label, value, icon: Icon}:{label:string; value:number|string; icon: React.ElementType}){
-  return (
-    <div className="rounded-xl border border-zinc-200 p-4 bg-white shadow-sm">
-        <div className="flex items-center gap-4">
-            <div className="p-3 rounded-lg bg-zinc-100 text-zinc-600">
-                <Icon className="sb-icon h-6 w-6" />
-            </div>
-            <div>
-                <div className="text-xs text-zinc-500">{label}</div>
-                <div className="text-2xl font-semibold text-zinc-900">{typeof value==="number"? value.toLocaleString("es-ES"): value}</div>
-            </div>
-        </div>
-    </div>
-  );
-}
 
 type TimeRange = 'week' | 'month' | 'year';
 
@@ -81,7 +65,7 @@ function UserReportPopover({ userReport, onClose, anchorEl, timeRange }: UserRep
         <div ref={popoverRef} style={popoverStyle} className="fixed z-10 w-80 bg-white border rounded-xl shadow-lg p-4">
             <div className="flex justify-between items-center mb-2">
                 <h4 className="font-semibold text-zinc-800">{userReport.name}</h4>
-                <button onClick={onClose} className="sb-btn-primary p-1 rounded-full hover:bg-zinc-100"><X size={16}/></button>
+                <button onClick={onClose} className="p-1 rounded-full hover:bg-zinc-100"><X size={16}/></button>
             </div>
             <div className="space-y-1 text-sm">
                  <div className="flex justify-between"><span className="text-zinc-500">Cuentas Activas:</span> <span className="font-medium">{userReport.activeAccounts}</span></div>
@@ -140,10 +124,10 @@ function CommercialsRace({
     <SBCard title="Carrera hacia objetivo (Cuentas nuevas)">
       <div className="p-4 space-y-4">
         {raceData.map(u => (
-          <button key={u.id} onClick={(e)=>onUserClick(u.report, e.currentTarget)} className="sb-btn-primary w-full text-left space-y-1 group" aria-label={`Progreso de ${u.name}`}>
+          <button key={u.id} onClick={(e)=>onUserClick(u.report, e.currentTarget)} className="w-full text-left space-y-1 group" aria-label={`Progreso de ${u.name}`}>
             <div className="flex justify-between items-center text-sm">
               <div className="flex items-center gap-2">
-                <Avatar name={u.name} size="md" className="sb-icon" />
+                <Avatar name={u.name} size="md" />
                 <span className="font-medium group-hover:text-sb-cobre">{u.name}</span>
               </div>
               <span className="font-semibold">{u.opened} / {u.target} <span className="text-zinc-500">({u.remaining} por abrir)</span></span>
@@ -358,7 +342,7 @@ function TeamDashboardContent() {
                 ))}
             </div>
              <SBButton variant="secondary" onClick={handleGenerateInsights} disabled={loadingInsights}>
-                <BrainCircuit className="h-4 w-4" /> {loadingInsights ? 'Analizando...' : 'Análisis con IA'}
+                <BrainCircuit className="h-4 w-4 mr-2" /> {loadingInsights ? 'Analizando...' : 'Análisis con IA'}
             </SBButton>
         </div>
 
@@ -384,7 +368,7 @@ function TeamDashboardContent() {
                         <XAxis dataKey="name" fontSize={12} />
                         <YAxis fontSize={12} tickFormatter={(value) => formatEur(value as number)} />
                         <Tooltip formatter={(value) => formatEur(value as number)} />
-                        <Line type="monotone" dataKey="sales" stroke={SB_COLORS.primary.copper} strokeWidth={2} dot={{ r: 3 }} className="sb-icon" />
+                        <Line type="monotone" dataKey="sales" stroke={SB_COLORS.primary.copper} strokeWidth={2} dot={{ r: 3 }} />
                         {teamStats.attributedSales > 0 && (
                           <Line type="monotone" dataKey="target" stroke="#999" strokeDasharray="4 4" dot={false} />
                         )}
