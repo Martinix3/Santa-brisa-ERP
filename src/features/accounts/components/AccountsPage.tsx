@@ -1,3 +1,4 @@
+
 // src/features/accounts/components/AccountsPage.tsx
 
 "use client"
@@ -120,8 +121,8 @@ function AccountBar({ a, party, santaData, onAddActivity, userMap, shortDate }: 
         <div 
           className="border-t" 
           style={{
-             backgroundColor: `${s.tint}1A`,
-             borderColor: `${s.tint}33`,
+             backgroundColor: `${s.tint}1A`, 
+             borderColor:     `${s.tint}33`, 
              ['--account-tint-color' as any]: s.tint,
              background: `color-mix(in srgb, var(--account-tint-color) 10%, transparent)`,
              outlineColor:  `color-mix(in srgb, var(--account-tint-color) 20%, transparent)`
@@ -409,7 +410,7 @@ export function AccountsPageContent() {
           <FilterSelect value={fltDist} onChange={setFltDist} options={distOptions} placeholder="Distribuidor" />
         </div>
       </div>
-      <div className="max-w-6xl mx-auto p-4 md:p-6 space-y-3">
+      <div className="w-full px-4 md:px-6 pb-6 space-y-3">
         {(Object.keys(STAGE) as Array<keyof typeof STAGE>).map(k=>{
           const count = grouped[k]?.length || 0;
           const isOpen = !!expanded[k];
