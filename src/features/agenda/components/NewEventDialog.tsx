@@ -98,6 +98,7 @@ export function NewEventDialog({
     const { data: santaData, currentUser } = useData();
     const [type, setType] = useState<Department>('VENTAS');
     const [date, setDate] = useState('');
+    const [time, setTime] = useState('');
     const [selection, setSelection] = useState<{ accountId?: string, location?: string }>({});
     const [notes, setNotes] = useState('');
     const [involvedUserIds, setInvolvedUserIds] = useState<string[]>([]);
@@ -105,8 +106,10 @@ export function NewEventDialog({
     useEffect(() => {
         if (open) {
             if (initialEventData) {
+                const planned = initialEventData.plannedFor ? new Date(initialEventData.plannedFor) : null;
                 setType(initialEventData.dept || 'VENTAS');
-                setDate(initialEventData.plannedFor ? new Date(initialEventData.plannedFor).toISOString().slice(0, 16) : '');
+                setDate(planned ? planned.toISOString().split('T')[0] : '');
+                setTime(planned && planned.toISOString().includes('T') ? planned.toTimeString().slice(0,5) : '');
                 setSelection({ accountId: initialEventData.accountId, location: initialEventData.location });
                 setNotes(initialEventData.note || '');
                 setInvolvedUserIds(initialEventData.involvedUserIds || (initialEventData.userId ? [initialEventData.userId] : []));
@@ -114,6 +117,7 @@ export function NewEventDialog({
                 // Reset form for new event and pre-select current user
                 setType('VENTAS');
                 setDate('');
+                setTime('');
                 setSelection({});
                 setNotes('');
                 setInvolvedUserIds(currentUser ? [currentUser.id] : []);
@@ -135,12 +139,14 @@ export function NewEventDialog({
             return;
         }
         
+        const plannedFor = time ? `${date}T${time}:00` : date;
+
         const saveData: Omit<Interaction, 'id' | 'createdAt' | 'status'> & { id?: string } = {
             id: initialEventData?.id,
             userId: initialEventData?.userId || currentUser!.id,
             dept: type, 
-            kind: 'OTRO', // Defaulting to 'OTRO' as the field is removed
-            plannedFor: date,
+            kind: 'OTRO',
+            plannedFor: plannedFor,
             note: notes,
             location: selection.location,
             accountId: selection.accountId,
@@ -207,17 +213,30 @@ export function NewEventDialog({
                                     ))}
                                 </select>
                             </div>
-                            <div className="grid gap-1.5">
-                                <label htmlFor="event-date" className="text-sm font-medium text-zinc-700">Fecha y Hora</label>
-                                <input
-                                    id="event-date"
-                                    name="date"
-                                    type="datetime-local"
-                                    value={date}
-                                    onChange={(e) => setDate(e.target.value)}
-                                    className="h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm"
-                                    required
-                                />
+                            <div className="grid grid-cols-2 gap-2">
+                                <div className="grid gap-1.5">
+                                    <label htmlFor="event-date" className="text-sm font-medium text-zinc-700">Fecha</label>
+                                    <input
+                                        id="event-date"
+                                        name="date"
+                                        type="date"
+                                        value={date}
+                                        onChange={(e) => setDate(e.target.value)}
+                                        className="h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm"
+                                        required
+                                    />
+                                </div>
+                                <div className="grid gap-1.5">
+                                    <label htmlFor="event-time" className="text-sm font-medium text-zinc-700">Hora (opcional)</label>
+                                    <input
+                                        id="event-time"
+                                        name="time"
+                                        type="time"
+                                        value={time}
+                                        onChange={(e) => setTime(e.target.value)}
+                                        className="h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm"
+                                    />
+                                </div>
                             </div>
                         </div>
                         

@@ -69,8 +69,8 @@ function CalendarPageContent() {
         const style = DEPT_META[task.dept as Department] || DEPT_META.VENTAS;
         const plannedForISO = sbAsISO(task.plannedFor);
         
-        // La tarea es "todo el día" si no tiene una hora específica (es T00:00:00.000Z)
-        const isAllDay = plannedForISO ? plannedForISO.endsWith('T00:00:00.000Z') : true;
+        // La tarea es "todo el día" si la fecha no incluye hora
+        const isAllDay = !String(plannedForISO).includes('T');
 
         return {
           id: task.id,
