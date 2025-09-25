@@ -2,19 +2,27 @@
  * @type {import('next').NextConfig}
  */
 const nextConfig = {
+  /* config options here */
   reactStrictMode: true,
-  transpilePackages: ['@genkit-ai/googleai'],
-  webpack: (config, { isServer, webpack }) => {
-    config.externals.push({
-      '@google-cloud/functions-framework': 'commonjs @google-cloud/functions-framework',
-    });
-    // Ver https://webpack.js.org/configuration/resolve/#resolvefallback
-    config.resolve.fallback = {
-      ...config.resolve.fallback,
-      'utf-8-validate': false,
-      'bufferutil': false,
+  webpack: (config, { isServer }) => {
+    // Soluciona el problema de "Can't resolve 'canvas'" de pdf-lib en el servidor
+    if (isServer) {
+      config.externals.push('canvas');
     }
-    return config
+    return config;
+  },
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'santabrisa.es',
+      },
+      {
+        protocol: 'https',
+        hostname: 'picsum.photos',
+      },
+    ],
   },
 };
+
 export default nextConfig;
