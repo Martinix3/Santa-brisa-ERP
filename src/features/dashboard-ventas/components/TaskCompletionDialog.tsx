@@ -39,7 +39,7 @@ export function TaskCompletionDialog({
   const [items, setItems] = useState<{ sku: string; qty: number }[]>([{ sku: defaultSku, qty: 1 }]);
   
   const [showPosTacticForm, setShowPosTacticForm] = useState(false);
-  const [posTacticData, setPosTacticData] = useState<Partial<Omit<PosTactic, 'id' | 'items'>>>({ tacticCode: 'OTHER', status: 'planned' });
+  const [posTacticData, setPosTacticData] = useState<Partial<Omit<PosTactic, 'id' | 'items'>>>({ tacticCode: 'OTHER', status: 'planned', actualCost: 0 });
 
   useEffect(() => {
     if (open) {
@@ -48,7 +48,7 @@ export function TaskCompletionDialog({
       setNextActionDate('');
       setItems([{ sku: defaultSku, qty: 1 }]);
       setShowPosTacticForm(false);
-      setPosTacticData({ tacticCode: 'OTHER', status: 'planned' });
+      setPosTacticData({ tacticCode: 'OTHER', status: 'planned', actualCost: 0 });
     }
   }, [open, defaultSku]);
 
@@ -77,12 +77,12 @@ export function TaskCompletionDialog({
         payload = { type: 'venta', items };
     }
     
-    if (showPosTacticForm && posTacticData.tacticCode && posTacticData.actualCost !== undefined) {
+    if (showPosTacticForm && posTacticData.tacticCode && posTacticData.actualCost !== undefined && posTacticData.actualCost > 0) {
       await upsertPosTactic({
         accountId: task.accountId!,
         interactionId: task.id,
-        status: 'planned',
-        executionScore: 80, // Default value since it's removed from UI
+        status: 'active', // If we are completing a task, it means it happened.
+        executionScore: 80, // Default value, can be refined.
         ...posTacticData,
       } as any);
     }
