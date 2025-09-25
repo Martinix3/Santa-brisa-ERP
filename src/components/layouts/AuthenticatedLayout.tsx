@@ -101,6 +101,7 @@ const navSections = [
             { href: '/marketing/online', label: 'Ads', icon: Zap },
             { href: '/marketing/influencers', label: 'Influencers', icon: Contact },
             { href: '/marketing/pos-tactics', label: 'Tácticas POS', icon: Star },
+            { href: '/marketing/pos-catalog', label: 'Catálogo Tácticas', icon: Tags },
         ]
     },
     {
