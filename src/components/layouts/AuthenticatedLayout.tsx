@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -409,7 +408,7 @@ function NavSection({
 
                 <button
                     onClick={handleLogout}
-                    className="sb-btn-primary w-full flex items-center justify-center gap-3 px-3 py-2 mt-2 rounded-md text-sm font-medium text-sb-neutral-600 hover:bg-sb-neutral-100"
+                    className="w-full flex items-center justify-center gap-3 px-3 py-2 mt-2 rounded-md text-sm font-medium text-sb-neutral-600 hover:bg-sb-neutral-100"
                     title="Cerrar sesión"
                 >
                     <LogOut className="h-5 w-5" />
@@ -418,7 +417,7 @@ function NavSection({
 
                 <button
                     onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                    className="sb-btn-primary w-full flex items-center justify-center gap-3 px-3 py-2 mt-2 rounded-md text-sm font-medium text-sb-neutral-600 hover:bg-sb-neutral-100"
+                    className="w-full flex items-center justify-center gap-3 px-3 py-2 mt-2 rounded-md text-sm font-medium text-sb-neutral-600 hover:bg-sb-neutral-100"
                     title={isSidebarCollapsed ? 'Expandir menú' : 'Colapsar menú'}
                 >
                     {isSidebarCollapsed ? <PanelRightClose className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
