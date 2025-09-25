@@ -1,4 +1,4 @@
-
+// src/features/quicklog/components/SBFlows.tsx
 "use client";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -28,8 +28,8 @@ function AgaveEdge(){
 export type Variant = "quick" | "editAccount" | "createAccount" | "createOrder";
 type QuickMode = "interaction" | "order";
 
-type QuickOrderPayload = { mode:"order"; account?:string; items:{ sku:string; qty:number }[]; note?:string; isVentaPropia: boolean; posTactic?: Partial<Omit<PosTactic, 'id' | 'items'>> };
-type QuickInteractionPayload = { mode:"interaction"; account?:string; kind:InteractionKind; note:string; nextAction?:string; posTactic?: Partial<Omit<PosTactic, 'id' | 'items'>> };
+type QuickOrderPayload = { mode:"order"; account?:string; newAccount?: Partial<Account>; newParty?: Partial<Party>; items:{ sku:string; qty:number }[]; note?:string; isVentaPropia: boolean; posTactic?: Partial<Omit<PosTactic, 'id' | 'items'>> };
+type QuickInteractionPayload = { mode:"interaction"; account?:string; newAccount?: Partial<Account>; newParty?: Partial<Party>; kind:InteractionKind; note:string; nextAction?:string; posTactic?: Partial<Omit<PosTactic, 'id' | 'items'>> };
 
 type EditAccountPayload = {
   id:string;
@@ -67,6 +67,7 @@ function Header({title, color="#A7D8D9", icon:Icon=ClipboardList}:{title:string;
 function useDebounced<T>(value:T, delay=250){ const [v,setV]=useState(value); useEffect(()=>{ const id=setTimeout(()=>setV(value), delay); return ()=>clearTimeout(id); },[value,delay]); return v; }
 
 // ===== AccountPicker (search + inline create + "dejar para más tarde") =====
+// Este componente ya no se usa, pero lo mantenemos por si se necesita en otro sitio.
 function AccountPicker({
   value,
   onChange,
@@ -77,14 +78,14 @@ function AccountPicker({
   placeholder="Ej. Bar Pepe",
 }:{
   value:string;
-  onChange:(v:string)=>void;
+  onChange:(v:string, newAccount?:Partial<Account>, newParty?:Partial<Party>)=>void;
   accounts?: Account[];
   onSearchAccounts?: (q:string)=>Promise<Account[]>;
   onCreateAccount?: (data:{name:string; city?:string; type?:AccountType})=>Promise<Account>;
   allowDefer?: boolean;
   placeholder?: string;
 }){
-  const { currentUser } = useData();
+  const { currentUser, data: santaData } = useData();
   const [q, setQ] = useState(value);
   const [list, setList] = useState<Account[]>([]);
   const [loading, setLoading] = useState(false);
@@ -102,7 +103,6 @@ function AccountPicker({
     const handler = async()=>{
       if(!debounced){ 
         setList([]);
-        setMode("search"); // Vuelve a buscar si el input se vacía
         return; 
       }
       setLoading(true);
@@ -127,8 +127,6 @@ function AccountPicker({
 
   useEffect(()=>{ const onDocClick=(e:MouseEvent)=>{ if(!boxRef.current) return; if(!boxRef.current.contains(e.target as any)) setOpen(false); }; document.addEventListener('mousedown', onDocClick); return ()=> document.removeEventListener('mousedown', onDocClick); },[]);
 
-  const exact = list.find(a=> a.name.toLowerCase()===q.toLowerCase());
-
   async function createInline(){
     const name = newName || q.trim(); if(!name) return alert("Pon un nombre");
     if(onCreateAccount){
@@ -147,8 +145,7 @@ function AccountPicker({
             createdAt: new Date().toISOString(),
         };
 
-        onChange(name);
-        (onChange as any)('__internal_new_account', newAccount, newParty);
+        onChange('__internal_new_account', newAccount, newParty);
     }
     setMode("search"); setQ(name); setOpen(false);
   }
@@ -160,49 +157,7 @@ function AccountPicker({
         <input value={q} onChange={(e)=>{ setQ(e.target.value); onChange(""); setOpen(true); }} onFocus={()=>setOpen(true)} placeholder={placeholder}
           className="w-full pl-9 pr-3 py-2 rounded-lg border border-zinc-300 bg-white text-sm outline-none focus:ring-2 focus:ring-[#F7D15F]"/>
       </div>
-
-      <AnimatePresence>
-        {open && (
-          <motion.div initial={{opacity:0, y:4}} animate={{opacity:1, y:0}} exit={{opacity:0, y:4}}
-            className="absolute z-20 mt-1 w-full rounded-xl border border-zinc-200 bg-white shadow-lg overflow-hidden">
-            
-            {loading && <div className="px-3 py-2 text-sm text-zinc-500">Buscando…</div>}
-            
-            {!loading && list.length>0 && (
-              <ul className="max-h-56 overflow-auto divide-y">
-                {list.map(a=> (
-                  <li key={a.id} className="px-3 py-2 text-sm hover:bg-zinc-50 cursor-pointer flex items-center gap-2"
-                    onClick={()=>{ onChange(a.name); setQ(a.name); setOpen(false); }}>
-                    <div className="flex-1">
-                      <div className="font-medium text-zinc-800">{a.name}</div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-            
-            {!loading && mode === 'create' && (
-              <div>
-                <div className="px-3 py-2 text-[11px] uppercase tracking-wide text-zinc-500 border-b bg-zinc-50">Nueva cuenta</div>
-                <div className="p-3 space-y-2">
-                  <Row><Label>Nombre</Label><Input value={newName} onChange={e=>setNewName(e.target.value)} autoFocus/></Row>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Row><Label>Ciudad</Label><Input value={newCity} onChange={e=>setNewCity(e.target.value)} /></Row>
-                    <Row><Label>Tipo</Label>
-                      <Select value={newType} onChange={e=>setNewType(e.target.value as AccountType)}>
-                        <option>HORECA</option><option>RETAIL</option><option>DISTRIBUIDOR</option><option>ONLINE</option><option>OTRO</option>
-                      </Select>
-                    </Row>
-                  </div>
-                </div>
-                <div className="flex justify-end gap-2 p-2 border-t bg-zinc-50">
-                  <button onClick={createInline} className="flex-1 sb-btn-primary px-3 py-2 text-sm rounded-lg bg-sb-sun text-zinc-900 hover:brightness-95">Crear y usar</button>
-                </div>
-              </div>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* ... (resto del componente AccountPicker que no usaremos en el nuevo flujo) ... */}
     </div>
   );
 }
@@ -221,19 +176,77 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
   onSubmit:(p: QuickOrderPayload | QuickInteractionPayload)=>void;
   onCancel:()=>void;
 }){
+  const { currentUser, data: santaData } = useData();
   const [mode, setMode] = useState<QuickMode>("interaction");
-  const [account, setAccount] = useState("");
-  // quick order
+  
+  // State for the unified form
+  const [accountName, setAccountName] = useState("");
+  const [accountCity, setAccountCity] = useState("");
+  const [accountType, setAccountType] = useState<AccountType>("HORECA");
+  const [selectedAccountId, setSelectedAccountId] = useState<string | undefined>();
+  const [searchSuggestions, setSearchSuggestions] = useState<Account[]>([]);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const nameInputRef = useRef<HTMLDivElement>(null);
+  
+  // quick order state
   const [items, setItems] = useState<{sku:string; qty:number}[]>([{sku:"SB-750", qty:1}]);
   const [orderNote, setOrderNote] = useState("");
   const [isVentaPropia, setIsVentaPropia] = useState(true);
-  // quick interaction
+  
+  // quick interaction state
   const [interactionNote, setInteractionNote] = useState("");
   const [nextAction, setNextAction] = useState("");
+  
+  // POS Tactic State
   const [showPosTacticForm, setShowPosTacticForm] = useState(false);
   const [posTacticData, setPosTacticData] = useState<Partial<Omit<PosTactic, 'id' | 'items'>>>({ tacticCode: 'OTHER', status: 'planned', actualCost: 0 });
 
-  function addLine(){ setItems(v=>[...v,{sku:"", qty:1}]); }
+  const debouncedName = useDebounced(accountName, 250);
+
+  useEffect(() => {
+    const handleSearch = async () => {
+      if (debouncedName.length > 1 && !selectedAccountId) {
+        const results = await onSearchAccounts(debouncedName);
+        setSearchSuggestions(results);
+        setIsSearchOpen(results.length > 0);
+      } else {
+        setSearchSuggestions([]);
+        setIsSearchOpen(false);
+      }
+    };
+    handleSearch();
+  }, [debouncedName, onSearchAccounts, selectedAccountId]);
+
+  const handleAccountSelect = (account: Account) => {
+    const party = santaData?.parties.find(p => p.id === account.partyId);
+    setAccountName(account.name);
+    setAccountCity(party?.billingAddress?.city || "");
+    setAccountType(account.type);
+    setSelectedAccountId(account.id);
+    setIsSearchOpen(false);
+  };
+  
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      setAccountName(e.target.value);
+      // Si el usuario modifica el nombre, reseteamos la cuenta seleccionada.
+      if (selectedAccountId) {
+          setSelectedAccountId(undefined);
+          setAccountCity("");
+          setAccountType("HORECA");
+      }
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (nameInputRef.current && !nameInputRef.current.contains(event.target as Node)) {
+        setIsSearchOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  function addLine(){ setItems(v=>[...v,{sku:"SB-750", qty:1}]); }
   function setLine(i:number, patch:Partial<{sku:string; qty:number}>){ setItems(v=> v.map((it,idx)=> idx===i? {...it,...patch}: it)); }
   function removeLine(i:number){ setItems(v=> v.filter((_,idx)=> idx!==i)); }
 
@@ -246,23 +259,30 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
         executionScore: 80, // Default value
       };
     }
+    
+    let newAccountPayload: Partial<Account> | undefined;
+    let newPartyPayload: Partial<Party> | undefined;
+    
+    if(!selectedAccountId && accountName.trim()){
+      const partyId = `party_${Date.now()}`;
+      newPartyPayload = {
+          id: partyId, name: accountName.trim(), kind: 'ORG',
+          addresses: accountCity ? [{type: 'main', street: '', city: accountCity, country: 'España', postalCode: ''}] : [],
+          contacts: [], createdAt: new Date().toISOString(),
+      };
+      newAccountPayload = {
+          id: `acc_${Date.now()}`, partyId, name: accountName.trim(), type: accountType,
+          stage: 'POTENCIAL', ownerId: currentUser?.id || 'u_admin', createdAt: new Date().toISOString(),
+      };
+    }
+
 
     if(mode==="order"){
       if(items.length===0 || items.some(it=>!it.sku || it.qty<=0)) return alert("Revisa las líneas del pedido");
-      onSubmit({ mode:"order", account: account||undefined, items, note: orderNote, isVentaPropia, posTactic: posPayload });
+      onSubmit({ mode:"order", account: selectedAccountId ? accountName : undefined, newAccount: newAccountPayload, newParty: newPartyPayload, items, note: orderNote, isVentaPropia, posTactic: posPayload });
     } else {
       if(!interactionNote) return alert("Añade un resumen de la interacción");
-      
-      const payload: QuickInteractionPayload = {
-        mode:"interaction",
-        account: account||undefined,
-        kind: 'OTRO', // Defaulting kind
-        note: interactionNote,
-        nextAction: nextAction || undefined,
-        posTactic: posPayload,
-      };
-
-      onSubmit(payload);
+      onSubmit({ mode:"interaction", account: selectedAccountId ? accountName : undefined, newAccount: newAccountPayload, newParty: newPartyPayload, kind: 'OTRO', note: interactionNote, nextAction: nextAction || undefined, posTactic: posPayload });
     }
   }
 
@@ -305,11 +325,35 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
         <button onClick={()=>setMode("interaction")} className={`px-3 py-1.5 rounded-lg border ${mode==="interaction"?"bg-white border-zinc-300":"border-zinc-200 hover:bg-zinc-50"}`}><MessageSquare className="h-4 w-4 inline mr-1"/> Interacción</button>
         <button onClick={()=>setMode("order")} className={`px-3 py-1.5 rounded-lg border ${mode==="order"?"bg-white border-zinc-300":"border-zinc-200 hover:bg-zinc-50"}`}><Zap className="h-4 w-4 inline mr-1"/> Pedido rápido</button>
       </div>
-
-      <Row><Label>Cuenta</Label>
-        <AccountPicker value={account} onChange={setAccount} accounts={accounts} onSearchAccounts={onSearchAccounts} onCreateAccount={onCreateAccount} allowDefer/>
-        <div className="text-[11px] text-zinc-500">Puedes seleccionar una cuenta existente, <em>crear una nueva</em> o pulsar &quot;Dejarlo para más tarde&quot; y seguir sin cuenta.</div>
-      </Row>
+      
+      <div className="border border-zinc-200 rounded-xl p-3 bg-white space-y-3">
+        <div className="text-xs text-zinc-500 uppercase font-semibold">Nueva cuenta</div>
+        <div className="relative" ref={nameInputRef}>
+            <Row>
+              <Label>Nombre</Label>
+              <Input value={accountName} onChange={handleNameChange} placeholder="Buscar o crear cuenta..." />
+            </Row>
+            {isSearchOpen && (
+              <div className="absolute z-10 mt-1 w-full rounded-xl border border-zinc-200 bg-white shadow-lg overflow-hidden">
+                <ul className="max-h-40 overflow-y-auto divide-y">
+                  {searchSuggestions.map(account => (
+                    <li key={account.id} onClick={() => handleAccountSelect(account)} className="px-3 py-2 text-sm hover:bg-zinc-50 cursor-pointer">
+                      {account.name}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+            <Row><Label>Ciudad</Label><Input value={accountCity} onChange={e=>setAccountCity(e.target.value)} /></Row>
+            <Row><Label>Tipo</Label>
+                <Select value={accountType} onChange={e=>setAccountType(e.target.value as AccountType)}>
+                    <option>HORECA</option><option>RETAIL</option><option>DISTRIBUIDOR</option><option>ONLINE</option><option>OTRO</option>
+                </Select>
+            </Row>
+        </div>
+      </div>
 
       {mode==="order" ? (
         <>
@@ -323,7 +367,7 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
                 </div>
             ))}
             <div className="px-3 py-2 flex justify-between items-center">
-                <button onClick={addLine} className="sb-btn-primary inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md border border-zinc-300 bg-white hover:bg-zinc-50"><Plus className="h-3.5 w-3.5"/>Añadir línea</button>
+                <button onClick={addLine} className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md border border-zinc-300 bg-white hover:bg-zinc-50"><Plus className="h-3.5 w-3.5"/>Añadir línea</button>
                 <div className="w-1/2"><Input placeholder="Nota opcional" value={orderNote} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>setOrderNote(e.target.value)}/></div>
             </div>
             </div>
@@ -346,8 +390,8 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
       {posTacticSection}
 
       <div className="flex justify-end gap-2 pt-1">
-        <button onClick={onCancel} className="sb-btn-primary px-3 py-2 text-sm rounded-lg border border-zinc-300 bg-white hover:bg-zinc-50">Cancelar</button>
-        <button onClick={submit} className="sb-btn-primary px-3 py-2 text-sm rounded-lg bg-sb-sun text-zinc-900 hover:brightness-110">Guardar</button>
+        <button onClick={onCancel} className="px-3 py-2 text-sm rounded-lg border border-zinc-300 bg-white hover:bg-zinc-50">Cancelar</button>
+        <button onClick={submit} className="px-3 py-2 text-sm rounded-lg bg-sb-sun text-zinc-900 hover:brightness-110">Guardar</button>
       </div>
     </div>
   );
@@ -386,8 +430,8 @@ function EditAccountForm({defaults, onSubmit, onCancel}:{
       <div className="flex justify-between items-center pt-1">
         <div className="text-[11px] text-zinc-500">ID: <code>{form.id}</code></div>
         <div className="flex gap-2">
-          <button onClick={onCancel} className="sb-btn-primary px-3 py-2 text-sm rounded-lg border border-zinc-300 bg-white hover:bg-zinc-50">Cancelar</button>
-          <button onClick={submit} className="sb-btn-primary px-3 py-2 text-sm rounded-lg bg-sb-sun text-zinc-900 hover:brightness-110"><Save className="h-4 w-4 inline mr-1"/>Guardar</button>
+          <button onClick={onCancel} className="px-3 py-2 text-sm rounded-lg border border-zinc-300 bg-white hover:bg-zinc-50">Cancelar</button>
+          <button onClick={submit} className="px-3 py-2 text-sm rounded-lg bg-sb-sun text-zinc-900 hover:brightness-110"><Save className="h-4 w-4 inline mr-1"/>Guardar</button>
         </div>
       </div>
     </div>
@@ -416,8 +460,8 @@ function CreateAccountForm({onSubmit, onCancel}:{ onSubmit:(p:CreateAccountPaylo
       <Row><Label>Email contacto</Label><Input type="email" value={form.mainContactEmail||""} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>set("mainContactEmail", e.target.value)} placeholder="ana@bar.com"/></Row>
 
       <div className="flex justify-end gap-2 pt-1">
-        <button onClick={onCancel} className="sb-btn-primary px-3 py-2 text-sm rounded-lg border border-zinc-300 bg-white hover:bg-zinc-50">Cancelar</button>
-        <button onClick={submit} className="sb-btn-primary px-3 py-2 text-sm rounded-lg bg-sb-sun text-zinc-900 hover:brightness-110">Crear cuenta</button>
+        <button onClick={onCancel} className="px-3 py-2 text-sm rounded-lg border border-zinc-300 bg-white hover:bg-zinc-50">Cancelar</button>
+        <button onClick={submit} className="px-3 py-2 text-sm rounded-lg bg-sb-sun text-zinc-900 hover:brightness-110">Crear cuenta</button>
       </div>
     </div>
   );
@@ -530,20 +574,20 @@ export function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, on
                 </Select>
                 <Input type="number" value={it.priceUnit} onChange={e=>setLine(i, {priceUnit: Number(e.target.value)})} placeholder="Precio Unit."/>
                 <div className="text-right font-medium pr-2">{(it.qty * it.priceUnit).toFixed(2)}€</div>
-                <button onClick={()=>removeLine(i)} className="sb-btn-primary p-2 rounded-md hover:bg-zinc-100" aria-label="Eliminar"><X className="h-4 w-4"/></button>
+                <button onClick={()=>removeLine(i)} className="p-2 rounded-md hover:bg-zinc-100" aria-label="Eliminar"><X className="h-4 w-4"/></button>
               </div>
             )
         })}
         <div className="px-3 py-2 flex justify-between items-center bg-zinc-50">
-            <button onClick={addLine} className="sb-btn-primary inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md border border-zinc-300 bg-white hover:bg-zinc-50"><Plus className="h-3.5 w-3.5"/>Añadir línea</button>
+            <button onClick={addLine} className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md border border-zinc-300 bg-white hover:bg-zinc-50"><Plus className="h-3.5 w-3.5"/>Añadir línea</button>
             <div className="text-right font-bold">Total: {orderTotal.toFixed(2)}€</div>
         </div>
       </div>
       <Row><Label>Notas</Label><Textarea rows={3} value={note} onChange={e=>setNote(e.target.value)} /></Row>
 
       <div className="flex justify-end gap-2 pt-1">
-        <button onClick={onCancel} className="sb-btn-primary px-3 py-2 text-sm rounded-lg border border-zinc-300 bg-white hover:bg-zinc-50">Cancelar</button>
-        <button onClick={submit} className="sb-btn-primary px-3 py-2 text-sm rounded-lg bg-sb-sun text-zinc-900 hover:brightness-110">Crear pedido</button>
+        <button onClick={onCancel} className="px-3 py-2 text-sm rounded-lg border border-zinc-300 bg-white hover:bg-zinc-50">Cancelar</button>
+        <button onClick={submit} className="px-3 py-2 text-sm rounded-lg bg-sb-sun text-zinc-900 hover:brightness-110">Crear pedido</button>
       </div>
     </div>
   );
@@ -620,13 +664,3 @@ export function SBFlowModal({
     </BaseModal>
   );
 }
-
-
-
-
-
-
-
-
-
-
