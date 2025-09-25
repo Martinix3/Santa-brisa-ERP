@@ -6,7 +6,7 @@ import { X, Plus, CalendarDays, ClipboardList, UserPlus2, Briefcase, Search, Che
 import { useData } from "@/lib/dataprovider";
 import { generateNextOrder } from '@/lib/codes';
 import type { AccountType, Account, OrderSellOut, Product, Party, SB_THEME, InteractionKind, PosTactic } from '@/domain/ssot';
-import { SB_COLORS } from '@/domain/ssot';
+import { SB_COLORS } from "@/domain/ssot";
 
 const hexToRgba = (hex: string, a: number) => { const h = hex.replace('#',''); const f = h.length===3? h.split('').map(c=>c+c).join(''):h; const n=parseInt(f,16); const r=(n>>16)&255, g=(n>>8)&255, b=n&255; return `rgba(${r},${g},${b},${a})`; };
 const waterHeader = (seed = "hdr", base = "#A7D8D9") => {
@@ -205,8 +205,8 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
 
   useEffect(() => {
     const handleSearch = async () => {
-      if (debouncedName.length > 1 && !selectedAccountId) {
-        const results = await onSearchAccounts(debouncedName);
+      if (accountName.length > 1 && !selectedAccountId) {
+        const results = await onSearchAccounts(accountName);
         setSearchSuggestions(results);
         setIsSearchOpen(results.length > 0);
       } else {
@@ -215,7 +215,7 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
       }
     };
     handleSearch();
-  }, [debouncedName, onSearchAccounts, selectedAccountId]);
+  }, [debouncedName, accountName, onSearchAccounts, selectedAccountId]);
 
   const handleAccountSelect = (account: Account) => {
     const party = santaData?.parties.find(p => p.id === account.partyId);
