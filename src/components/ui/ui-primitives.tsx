@@ -183,10 +183,16 @@ export function AgaveEdge(){
 }
 
 export const STATUS_STYLES: Record<string, { label: string; bg: string; color: string; border: string }> = {
+  open: { label: "Borrador", bg: "bg-zinc-100", color: "text-zinc-800", border: "border-zinc-200" },
   pending: { label: "Pendiente", bg: "bg-yellow-50", color: "text-yellow-800", border: "border-yellow-200" },
+  confirmed: { label: "Confirmado", bg: "bg-blue-50", color: "text-blue-800", border: "border-blue-200" },
   picking: { label: "Picking", bg: "bg-blue-50", color: "text-blue-800", border: "border-blue-200" },
   ready_to_ship: { label: "Validado", bg: "bg-indigo-50", color: "text-indigo-800", border: "border-indigo-200" },
   shipped: { label: "Enviado", bg: "bg-cyan-50", color: "text-cyan-800", border: "border-cyan-200" },
   delivered: { label: "Entregado", bg: "bg-green-50", color: "text-green-800", border: "border-green-200" },
+  invoiced: { label: "Facturado", bg: "bg-purple-50", color: "text-purple-800", border: "border-purple-200" },
+  paid: { label: "Pagado", bg: "bg-emerald-50", color: "text-emerald-800", border: "border-emerald-200" },
   cancelled: { label: "Cancelado", bg: "bg-zinc-100", color: "text-zinc-600", border: "border-zinc-200" },
+  lost: { label: "Perdido", bg: "bg-red-50", color: "text-red-800", border: "border-red-200" },
+  exception: { label: "Incidencia", bg: "bg-orange-50", color: "text-orange-800", border: "border-orange-200" },
 };
