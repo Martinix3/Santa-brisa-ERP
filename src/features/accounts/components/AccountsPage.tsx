@@ -122,7 +122,7 @@ function AccountBar({ a, party, santaData, onAddActivity, userMap, shortDate }: 
           className="border-t" 
           style={{
              backgroundColor: `${s.tint}1A`, 
-             borderColor:     `${s.tint}33`, 
+             borderColor: `${s.tint}33`,
              ['--account-tint-color' as any]: s.tint,
              background: `color-mix(in srgb, var(--account-tint-color) 10%, transparent)`,
              outlineColor:  `color-mix(in srgb, var(--account-tint-color) 20%, transparent)`
