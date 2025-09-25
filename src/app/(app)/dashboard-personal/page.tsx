@@ -215,7 +215,11 @@ function PersonalDashboardContent() {
             <p className="text-zinc-600">Aquí tienes un resumen de tu actividad y tus tareas pendientes.</p>
           </div>
           <div className="flex items-center gap-2">
-              <SBButton onClick={() => setIsNewEventDialogOpen(true)}>
+              <SBButton 
+                onClick={() => setIsNewEventDialogOpen(true)}
+                style={{ backgroundColor: 'hsl(var(--sb-accent-personal))', color: 'hsl(var(--sb-neutral-900))' }}
+                className="hover:brightness-110"
+              >
                   <Plus size={16} className="sb-icon mr-2" /> Nueva Tarea
               </SBButton>
           </div>
