@@ -1,3 +1,4 @@
+
 // src/features/accounts/components/AccountsPage.tsx
 
 "use client"
@@ -11,6 +12,7 @@ import { FilterSelect } from '@/components/ui/FilterSelect'
 import { ModuleHeader } from '@/components/ui/ModuleHeader'
 import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/TaskCompletionDialog'
 import { Avatar } from '@/components/ui/Avatar';
+import { NewAccountDialog } from './NewAccountDialog';
 
 const STAGE: Record<string, { label:string; tint:string; text:string }> = {
   ACTIVA: { label:'Activas', tint:'#A7D8D9', text:'#17383a' },
@@ -183,7 +185,7 @@ function AccountBar({ a, party, santaData, onAddActivity }: { a: AccountType, pa
 }
 
 export function AccountsPageContent() {
-  const { data: santaData, setData, currentUser, saveCollection, saveAllCollections } = useData();
+  const { data: santaData, setData, currentUser, saveAllCollections } = useData();
   
   const [q,setQ]=useState('');
   const [expanded,setExpanded] = useState<Record<string,boolean>>({ ACTIVA:true });
@@ -192,6 +194,7 @@ export function AccountsPageContent() {
   const [fltDist, setFltDist] = useState("");
   
   const [completingTaskForAccount, setCompletingTaskForAccount] = useState<AccountType | null>(null);
+  const [isNewAccountOpen, setIsNewAccountOpen] = useState(false);
 
   const data = useMemo(() => santaData?.accounts || [], [santaData]);
 
@@ -335,6 +338,18 @@ export function AccountsPageContent() {
     
         setCompletingTaskForAccount(null);
     };
+
+    const handleSaveNewAccount = async (newParty: Party, newAccount: Account, newRole: PartyRole) => {
+        if (!santaData) return;
+        
+        await saveAllCollections({
+            parties: [...(santaData.parties || []), newParty],
+            accounts: [...(santaData.accounts || []), newAccount],
+            partyRoles: [...(santaData.partyRoles || []), newRole],
+        });
+        
+        setIsNewAccountOpen(false);
+    };
   
   if (!santaData) {
     return <div className="p-6">Cargando datos...</div>;
@@ -342,7 +357,11 @@ export function AccountsPageContent() {
 
   return (
     <>
-      <ModuleHeader title="Cuentas" icon={Users} />
+      <ModuleHeader title="Cuentas" icon={Users}>
+        <button onClick={() => setIsNewAccountOpen(true)} className="flex items-center gap-2 text-sm bg-zinc-900 text-white rounded-md px-3 py-1.5 font-semibold hover:bg-zinc-800 transition-colors">
+            <Plus size={16} /> Nueva Cuenta
+        </button>
+      </ModuleHeader>
       <div className="max-w-6xl mx-auto px-4 pt-3 pb-1">
         <div className="flex items-center gap-2">
           <div className="relative flex-grow">
@@ -394,6 +413,15 @@ export function AccountsPageContent() {
             open={!!completingTaskForAccount}
             onClose={() => setCompletingTaskForAccount(null)}
             onComplete={(taskId, payload) => handleSaveCompletedTask(completingTaskForAccount.id, payload as Payload)}
+        />
+      )}
+      {isNewAccountOpen && santaData && (
+        <NewAccountDialog
+          open={isNewAccountOpen}
+          onClose={() => setIsNewAccountOpen(false)}
+          onSave={handleSaveNewAccount}
+          users={santaData.users}
+          distributors={distOptions}
         />
       )}
     </>
