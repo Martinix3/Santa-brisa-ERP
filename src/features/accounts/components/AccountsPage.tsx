@@ -94,97 +94,98 @@ function AccountBar({ a, party, santaData, onAddActivity, userMap, shortDate }: 
 
 
   return (
-    <div className="overflow-hidden transition-colors duration-150 hover:bg-black/5 rounded-lg border border-zinc-200/60">
-      <div className="w-full grid grid-cols-[auto_1.6fr_1.2fr_1fr_1.2fr_auto] items-center gap-3 px-4 py-1.5 cursor-pointer" onClick={()=>setOpen(v=>!v)}>
-          <div className="p-1.5 rounded-md text-zinc-600 hover:bg-zinc-100/20">
-            <ChevronDown className="h-4 w-4 transition-transform duration-300" style={{transform: open? 'rotate(180deg)':'rotate(0deg)'}} aria-hidden="true"/>
-          </div>
+    <div className={`overflow-hidden transition-colors duration-150 hover:bg-black/5 rounded-lg border border-zinc-200/60 ${open ? 'bg-white shadow-md' : ''}`}
+         style={open ? { borderLeft: `4px solid ${s.tint}` } : {}}>
+        <div className="w-full grid grid-cols-[auto_1.6fr_1.2fr_1fr_1.2fr_auto] items-center gap-3 px-4 py-1.5 cursor-pointer" onClick={()=>setOpen(v=>!v)}>
+            <div className="p-1.5 rounded-md text-zinc-600 hover:bg-zinc-100/20">
+                <ChevronDown className="h-4 w-4 transition-transform duration-300" style={{transform: open? 'rotate(180deg)':'rotate(0deg)'}} aria-hidden="true"/>
+            </div>
             <div className="text-sm font-medium truncate flex items-center gap-2">
-            <Link href={`/accounts/${a.id}`} className="text-zinc-900 truncate hover:underline">{a.name}</Link>
-            {orderAmount>0 && <span className="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap">{formatEUR(orderAmount)}</span>}
+                <Link href={`/accounts/${a.id}`} className="text-zinc-900 truncate hover:underline">{a.name}</Link>
+                {orderAmount>0 && <span className="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap">{formatEUR(orderAmount)}</span>}
             </div>
             <div className="flex items-center gap-2 min-w-0"><Avatar name={owner} size="md" />
-            <span className="text-sm text-zinc-700 truncate">{owner}</span></div>
+                <span className="text-sm text-zinc-700 truncate">{owner}</span>
+            </div>
             <div className="text-sm text-zinc-700 truncate">{party?.billingAddress?.city ||'—'}</div>
             <div className="text-sm text-zinc-700 truncate">{distributorName}</div>
             <div className="text-right relative group focus-within:z-10">
-            <button className="p-1.5 rounded-md border border-zinc-200 bg-white/50 text-zinc-700 inline-flex items-center transition-all hover:bg-white/90 hover:border-zinc-300 hover:scale-105" title="Acciones">
-                <MoreVertical className="h-3.5 w-3.5"/>
-            </button>
-            <div className="absolute right-0 top-full mt-1 w-48 bg-white border rounded-md shadow-lg invisible group-hover:visible group-focus-within:visible">
-                <Link href={`/accounts/${a.id}`} className="flex items-center gap-2 w-full text-left px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50"><Info size={14}/> Ver Ficha de Cliente</Link>
-                <button onClick={(e) => { e.stopPropagation(); onAddActivity(a); }} className="flex items-center gap-2 w-full text-left px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50"><Plus size={14}/> Añadir Actividad</button>
-            </div>
-            </div>
-      </div>
-      {open && kpis && (
-        <div className="border-t border-zinc-200 bg-white" style={{ borderLeft: `4px solid ${s.tint}`}}>
-            <div className="p-4 grid grid-cols-3 gap-6">
-              <div className='col-span-2'>
-                <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">Actividad Reciente</h4>
-                <ul className="space-y-1 text-sm text-zinc-700 max-h-40 overflow-y-auto pr-2">
-                    {unifiedActivity.length > 0 ? unifiedActivity.slice(0, 5).map((act, i) => {
-                       if (act.type === 'interaction') {
-                          const int = act.data as Interaction;
-                          const Icon = interactionIcons[int.kind] || History;
-                          return (
-                               <li key={`act_${i}`} className="flex items-start gap-3 text-xs">
-                                  <Icon className="h-4 w-4 mt-0.5 text-zinc-500 flex-shrink-0" />
-                                  <div>
-                                      <span className="font-medium text-zinc-800 capitalize">{int.kind}</span>
-                                      <span className="text-zinc-500"> &middot; {shortDate.format(new Date(int.createdAt))}</span>
-                                      {int.note && <p className="text-zinc-600 italic mt-0.5 line-clamp-2">“{int.note}”</p>}
-                                  </div>
-                               </li>
-                          )
-                       }
-                       if (act.type === 'order') {
-                          const order = act.data as OrderSellOut;
-                          return (
-                            <li key={`act_${i}`} className="flex items-start gap-3 text-xs">
-                              <ShoppingCart className="h-4 w-4 mt-0.5 text-emerald-600 flex-shrink-0" />
-                              <div>
-                                <span className="font-medium text-emerald-800">Pedido</span>
-                                <span className="text-zinc-500"> &middot; {shortDate.format(new Date(order.createdAt))}</span>
-                                <p className="font-semibold text-zinc-800 mt-0.5">{formatEUR(orderTotal(order))}</p>
-                              </div>
-                            </li>
-                          )
-                       }
-                       return null;
-                    }) : <div className="text-xs text-zinc-500 text-center py-2">No hay actividad registrada.</div>}
-                </ul>
-              </div>
-
-              <div>
-                 <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">KPIs (90d)</h4>
-                 {kpis && <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div className="text-center p-2 bg-zinc-100/50 rounded flex flex-col items-center gap-1">
-                      <Ticket size={16} className="text-zinc-500"/>
-                      <div className="font-bold text-base">{formatEUR(kpis.avgTicket)}</div>
-                      <div className="text-zinc-600">Ticket Medio</div>
-                    </div>
-                    <div className="text-center p-2 bg-zinc-100/50 rounded flex flex-col items-center gap-1">
-                      <ShoppingCart size={16} className="text-zinc-500"/>
-                      <div className="font-bold text-base">{kpis.orderCount}</div>
-                      <div className="text-zinc-600">Nº Pedidos</div>
-                    </div>
-                    <div className="text-center p-2 bg-zinc-100/50 rounded flex flex-col items-center gap-1">
-                       <MessageSquare size={16} className="text-zinc-500"/>
-                      <div className="font-bold text-base">{kpis.visitsCount}</div>
-                      <div className="text-zinc-600">Nº Visitas</div>
-                    </div>
-                     <div className="text-center p-2 bg-zinc-100/50 rounded flex flex-col items-center gap-1">
-                      <Clock size={16} className="text-zinc-500"/>
-                      <div className="font-bold text-base">{kpis.daysSinceLastOrder ?? '—'}</div>
-                      <div className="text-zinc-600">Días s/ Pedido</div>
-                    </div>
-                 </div>}
-              </div>
-
+                <button className="p-1.5 rounded-md border border-zinc-200 bg-white/50 text-zinc-700 inline-flex items-center transition-all hover:bg-white/90 hover:border-zinc-300 hover:scale-105" title="Acciones">
+                    <MoreVertical className="h-3.5 w-3.5"/>
+                </button>
+                <div className="absolute right-0 top-full mt-1 w-48 bg-white border rounded-md shadow-lg invisible group-hover:visible group-focus-within:visible">
+                    <Link href={`/accounts/${a.id}`} className="flex items-center gap-2 w-full text-left px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50"><Info size={14}/> Ver Ficha de Cliente</Link>
+                    <button onClick={(e) => { e.stopPropagation(); onAddActivity(a); }} className="flex items-center gap-2 w-full text-left px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50"><Plus size={14}/> Añadir Actividad</button>
+                </div>
             </div>
         </div>
-      )}
+        {open && kpis && (
+            <div className="border-t border-zinc-200">
+                <div className="p-4 grid grid-cols-3 gap-6">
+                    <div className='col-span-2'>
+                        <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">Actividad Reciente</h4>
+                        <ul className="space-y-1 text-sm text-zinc-700 max-h-40 overflow-y-auto pr-2">
+                            {unifiedActivity.length > 0 ? unifiedActivity.slice(0, 5).map((act, i) => {
+                                if (act.type === 'interaction') {
+                                    const int = act.data as Interaction;
+                                    const Icon = interactionIcons[int.kind] || History;
+                                    return (
+                                        <li key={`act_${i}`} className="flex items-start gap-3 text-xs">
+                                            <Icon className="h-4 w-4 mt-0.5 text-zinc-500 flex-shrink-0" />
+                                            <div>
+                                                <span className="font-medium text-zinc-800 capitalize">{int.kind}</span>
+                                                <span className="text-zinc-500"> &middot; {shortDate.format(new Date(int.createdAt))}</span>
+                                                {int.note && <p className="text-zinc-600 italic mt-0.5 line-clamp-2">“{int.note}”</p>}
+                                            </div>
+                                        </li>
+                                    )
+                                }
+                                if (act.type === 'order') {
+                                    const order = act.data as OrderSellOut;
+                                    return (
+                                        <li key={`act_${i}`} className="flex items-start gap-3 text-xs">
+                                            <ShoppingCart className="h-4 w-4 mt-0.5 text-emerald-600 flex-shrink-0" />
+                                            <div>
+                                                <span className="font-medium text-emerald-800">Pedido</span>
+                                                <span className="text-zinc-500"> &middot; {shortDate.format(new Date(order.createdAt))}</span>
+                                                <p className="font-semibold text-zinc-800 mt-0.5">{formatEUR(orderTotal(order))}</p>
+                                            </div>
+                                        </li>
+                                    )
+                                }
+                                return null;
+                            }) : <div className="text-xs text-zinc-500 text-center py-2">No hay actividad registrada.</div>}
+                        </ul>
+                    </div>
+
+                    <div>
+                        <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">KPIs (90d)</h4>
+                        {kpis && <div className="grid grid-cols-2 gap-2 text-xs">
+                            <div className="text-center p-2 bg-zinc-100/50 rounded flex flex-col items-center gap-1">
+                                <Ticket size={16} className="text-zinc-500"/>
+                                <div className="font-bold text-base">{formatEUR(kpis.avgTicket)}</div>
+                                <div className="text-zinc-600">Ticket Medio</div>
+                            </div>
+                            <div className="text-center p-2 bg-zinc-100/50 rounded flex flex-col items-center gap-1">
+                                <ShoppingCart size={16} className="text-zinc-500"/>
+                                <div className="font-bold text-base">{kpis.orderCount}</div>
+                                <div className="text-zinc-600">Nº Pedidos</div>
+                            </div>
+                            <div className="text-center p-2 bg-zinc-100/50 rounded flex flex-col items-center gap-1">
+                                <MessageSquare size={16} className="text-zinc-500"/>
+                                <div className="font-bold text-base">{kpis.visitsCount}</div>
+                                <div className="text-zinc-600">Nº Visitas</div>
+                            </div>
+                            <div className="text-center p-2 bg-zinc-100/50 rounded flex flex-col items-center gap-1">
+                                <Clock size={16} className="text-zinc-500"/>
+                                <div className="font-bold text-base">{kpis.daysSinceLastOrder ?? '—'}</div>
+                                <div className="text-zinc-600">Días s/ Pedido</div>
+                            </div>
+                        </div>}
+                    </div>
+                </div>
+            </div>
+        )}
     </div>
   )
 }
@@ -415,7 +416,7 @@ export function AccountsPageContent() {
               {isOpen && count > 0 && santaData && (
                 <div id={`panel-${k}`} role="region" aria-labelledby={`button-${k}`} className="rounded-b-md py-2 divide-y divide-zinc-100">
                   {grouped[k].map(a=> (
-                    <AccountBar key={a.id} a={a} party={partyMap[a.id]} santaData={santaData} onAddActivity={() => setCompletingTaskForAccount(a)} userMap={userMap} shortDate={shortDate}/>
+                    <AccountBar key={a.id} a={a} party={partyMap[a.partyId]} santaData={santaData} onAddActivity={() => setCompletingTaskForAccount(a)} userMap={userMap} shortDate={shortDate}/>
                   ))}
                 </div>
               )}
