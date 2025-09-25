@@ -1,9 +1,8 @@
-
 // src/features/quicklog/components/SBFlows.tsx
 "use client";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Plus, CalendarDays, ClipboardList, UserPlus2, Briefcase, Search, Check, MapPin, Pencil, Save, MessageSquare, Zap, Mail, Phone, History, ShoppingCart, Building, CreditCard, Star } from "lucide-react";
+import { X, Plus, CalendarDays, ClipboardList, UserPlus2, Briefcase, Search, Check, MapPin, Pencil, Save, MessageSquare, Zap, Mail, Phone, History, ShoppingCart, Building, CreditCard, Star, Loader2 } from "lucide-react";
 import { useData } from "@/lib/dataprovider";
 import { generateNextOrder } from '@/lib/codes';
 import type { AccountType, Account, OrderSellOut, Product, Party, SB_THEME, InteractionKind, PosTactic } from '@/domain/ssot';
@@ -29,8 +28,8 @@ function AgaveEdge(){
 export type Variant = "quick" | "editAccount" | "createAccount" | "createOrder";
 type QuickMode = "interaction" | "order";
 
-type QuickOrderPayload = { mode:"order"; account?:string; newAccount?: Partial<Account>; newParty?: Partial<Party>; items:{ sku:string; qty:number }[]; note?:string; isVentaPropia: boolean; posTactic?: Partial<Omit<PosTactic, 'id' | 'items'>> };
-type QuickInteractionPayload = { mode:"interaction"; account?:string; newAccount?: Partial<Account>; newParty?: Partial<Party>; kind:InteractionKind; note:string; nextAction?:string; posTactic?: Partial<Omit<PosTactic, 'id' | 'items'>> };
+type QuickOrderPayload = { mode:"order"; accountId?:string; newAccount?: Partial<Account>; newParty?: Partial<Party>; items:{ sku:string; qty:number, lotNumber?: string }[]; note?:string; isVentaPropia: boolean; posTactic?: Partial<Omit<PosTactic, 'id' | 'items'>> };
+type QuickInteractionPayload = { mode:"interaction"; accountId?:string; newAccount?: Partial<Account>; newParty?: Partial<Party>; kind:InteractionKind; note:string; nextAction?:string; posTactic?: Partial<Omit<PosTactic, 'id' | 'items'>> };
 
 type EditAccountPayload = {
   id:string;
@@ -46,7 +45,7 @@ type EditAccountPayload = {
 
 type CreateAccountPayload = { name:string; city:string; type:AccountType; mainContactName?:string; mainContactEmail?:string };
 
-type CreateOrderPayload = { account?:string; newAccount?: Partial<Account>; newParty?: Partial<Party>; requestedDate?:string; deliveryDate?:string; channel:AccountType; paymentTerms?:string; shipTo?:string; note?:string; items:{ sku:string; qty:number; unit:"uds", priceUnit: number, lotNumber?: string }[] };
+type CreateOrderPayload = { accountId?:string; newAccount?: Partial<Account>; newParty?: Partial<Party>; requestedDate?:string; deliveryDate?:string; channel:AccountType; paymentTerms?:string; shipTo?:string; note?:string; items:{ sku:string; qty:number; unit:"uds", priceUnit: number, lotNumber?: string }[] };
 
 // ===== UI Primitives =====
 function Row({children, className}:{children:React.ReactNode, className?: string}){ return <div className={`flex flex-col gap-1 ${className || ''}`}>{children}</div>; }
@@ -172,7 +171,7 @@ const TACTIC_CODES = [
 // ===== Quick Interaction / Order (Switcher) =====
 function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, onCancel}:{
   accounts: Account[];
-  onSearchAccounts:(q:string)=>Promise<Account[]>;
+  onSearchAccounts:(q:string, options: { signal: AbortSignal })=>Promise<Account[]>;
   onCreateAccount:(d:{name:string;city?:string;type?:AccountType})=>Promise<Account>;
   onSubmit:(p: QuickOrderPayload | QuickInteractionPayload)=>void;
   onCancel:()=>void;
@@ -185,12 +184,18 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
   const [accountCity, setAccountCity] = useState("");
   const [accountType, setAccountType] = useState<AccountType>("HORECA");
   const [selectedAccountId, setSelectedAccountId] = useState<string | undefined>();
+  
   const [searchSuggestions, setSearchSuggestions] = useState<Account[]>([]);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [activeIdx, setActiveIdx] = useState(-1);
   const nameInputRef = useRef<HTMLDivElement>(null);
+  const searchAbortRef = useRef<AbortController | null>(null);
+  const searchCache = useRef<Map<string, Account[]>>(new Map());
+
   
   // quick order state
-  const [items, setItems] = useState<{sku:string; qty:number}[]>([{sku:"SB-750", qty:1}]);
+  const [items, setItems] = useState<{sku:string; qty:number, lotNumber?: string}[]>([{sku:"SB-750", qty:1, lotNumber: ''}]);
   const [orderNote, setOrderNote] = useState("");
   const [isVentaPropia, setIsVentaPropia] = useState(true);
   
@@ -205,17 +210,38 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
   const debouncedName = useDebounced(accountName, 250);
 
   useEffect(() => {
-    const handleSearch = async () => {
-      if (debouncedName.length > 1 && !selectedAccountId) {
-        const results = await onSearchAccounts(debouncedName);
-        setSearchSuggestions(results);
-        setIsSearchOpen(results.length > 0);
-      } else {
-        setSearchSuggestions([]);
-        setIsSearchOpen(false);
+    const run = async () => {
+      if (debouncedName.length < 2 || selectedAccountId) { setSearchSuggestions([]); setIsSearchOpen(false); return; }
+      
+      searchAbortRef.current?.abort();
+      const ac = new AbortController();
+      searchAbortRef.current = ac;
+  
+      try {
+        const key = debouncedName.toLowerCase();
+        if (searchCache.current.has(key)) {
+            const results = searchCache.current.get(key)!;
+            setSearchSuggestions(results);
+            setIsSearchOpen(results.length > 0);
+            return;
+        }
+
+        setLoading(true);
+        setIsSearchOpen(true);
+        const results = await onSearchAccounts(debouncedName, { signal: ac.signal });
+        if (!ac.signal.aborted) {
+          searchCache.current.set(key, results);
+          setSearchSuggestions(results);
+          setIsSearchOpen(results.length > 0);
+        }
+      } catch (e) {
+        if ((e as any).name !== 'AbortError') console.error(e);
+      } finally {
+        if (!ac.signal.aborted) setLoading(false);
       }
     };
-    handleSearch();
+    run();
+    return () => searchAbortRef.current?.abort();
   }, [debouncedName, onSearchAccounts, selectedAccountId]);
 
   const handleAccountSelect = (account: Account) => {
@@ -229,7 +255,6 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
   
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       setAccountName(e.target.value);
-      // Si el usuario modifica el nombre, reseteamos la cuenta seleccionada.
       if (selectedAccountId) {
           setSelectedAccountId(undefined);
           setAccountCity("");
@@ -238,17 +263,26 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
   };
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (nameInputRef.current && !nameInputRef.current.contains(event.target as Node)) {
-        setIsSearchOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    const close = () => setIsSearchOpen(false);
+    window.addEventListener('resize', close);
+    window.addEventListener('scroll', close, true);
+    if (nameInputRef.current) {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (nameInputRef.current && !nameInputRef.current.contains(event.target as Node)) {
+                close();
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            window.removeEventListener('resize', close);
+            window.removeEventListener('scroll', close, true);
+        };
+    }
   }, []);
 
-  function addLine(){ setItems(v=>[...v,{sku:"SB-750", qty:1}]); }
-  function setLine(i:number, patch:Partial<{sku:string; qty:number}>){ setItems(v=> v.map((it,idx)=> idx===i? {...it,...patch}: it)); }
+  function addLine(){ setItems(v=>[...v,{sku:"SB-750", qty:1, lotNumber: ''}]); }
+  function setLine(i:number, patch:Partial<{sku:string; qty:number, lotNumber?: string}>){ setItems(v=> v.map((it,idx)=> idx===i? {...it,...patch}: it)); }
   function removeLine(i:number){ setItems(v=> v.filter((_,idx)=> idx!==i)); }
 
   function submit(){
@@ -267,9 +301,10 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
     if(!selectedAccountId && accountName.trim()){
       const partyId = `party_${Date.now()}`;
       newPartyPayload = {
-          id: partyId, name: accountName.trim(), kind: 'ORG',
-          addresses: accountCity ? [{type: 'main', street: '', city: accountCity, country: 'España', postalCode: ''}] : [],
-          contacts: [], createdAt: new Date().toISOString(),
+          id: partyId, name: accountName.trim(), legalName: accountName.trim(), kind: 'ORG',
+          billingAddress: accountCity ? { city: accountCity, country: 'España'} : undefined,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
       };
       newAccountPayload = {
           id: `acc_${Date.now()}`, partyId, name: accountName.trim(), type: accountType,
@@ -277,15 +312,31 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
       };
     }
 
-
     if(mode==="order"){
       if(items.length===0 || items.some(it=>!it.sku || it.qty<=0)) return alert("Revisa las líneas del pedido");
-      onSubmit({ mode:"order", account: selectedAccountId ? accountName : undefined, newAccount: newAccountPayload, newParty: newPartyPayload, items, note: orderNote, isVentaPropia, posTactic: posPayload });
+      onSubmit({ mode:"order", accountId: selectedAccountId, newAccount: newAccountPayload, newParty: newPartyPayload, items, note: orderNote, isVentaPropia, posTactic: posPayload });
     } else {
       if(!interactionNote) return alert("Añade un resumen de la interacción");
-      onSubmit({ mode:"interaction", account: selectedAccountId ? accountName : undefined, newAccount: newAccountPayload, newParty: newPartyPayload, kind: 'OTRO', note: interactionNote, nextAction: nextAction || undefined, posTactic: posPayload });
+      onSubmit({ mode:"interaction", accountId: selectedAccountId, newAccount: newAccountPayload, newParty: newPartyPayload, kind: 'OTRO', note: interactionNote, nextAction: nextAction || undefined, posTactic: posPayload });
     }
   }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!isSearchOpen && (e.key === 'ArrowDown' || e.key === 'Enter')) setIsSearchOpen(true);
+    if (e.key === 'ArrowDown') setActiveIdx(i => Math.min(i + 1, searchSuggestions.length - 1));
+    if (e.key === 'ArrowUp') setActiveIdx(i => Math.max(i - 1, -1));
+    if (e.key === 'Escape') setIsSearchOpen(false);
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (activeIdx >= 0 && searchSuggestions[activeIdx]) {
+        handleAccountSelect(searchSuggestions[activeIdx]);
+      } else if (!selectedAccountId && accountName.trim()) {
+        setIsSearchOpen(false);
+      }
+    }
+  };
+  
+  const availableInventory = useMemo(() => (santaData?.inventory || []).filter(i => i.locationId && i.locationId.startsWith('FG/')), [santaData]);
 
   const posTacticSection = (
     <div className="pt-2">
@@ -332,17 +383,21 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
         <div className="relative" ref={nameInputRef}>
             <Row>
               <Label>Nombre</Label>
-              <Input value={accountName} onChange={handleNameChange} placeholder="Buscar o crear cuenta..." />
+              <Input value={accountName} onChange={handleNameChange} onKeyDown={handleKeyDown} onFocus={() => setIsSearchOpen(true)} placeholder="Buscar o crear cuenta..." />
             </Row>
             {isSearchOpen && (
               <div className="absolute z-10 mt-1 w-full rounded-xl border border-zinc-200 bg-white shadow-lg overflow-hidden">
+                {loading ? <div className="px-3 py-2 text-sm text-zinc-500">Buscando...</div> :
                 <ul className="max-h-40 overflow-y-auto divide-y">
-                  {searchSuggestions.map(account => (
-                    <li key={account.id} onClick={() => handleAccountSelect(account)} className="px-3 py-2 text-sm hover:bg-zinc-50 cursor-pointer">
+                  {searchSuggestions.map((account, i) => (
+                    <li key={account.id} onClick={() => handleAccountSelect(account)} className={`px-3 py-2 text-sm hover:bg-zinc-50 cursor-pointer ${i === activeIdx ? 'bg-zinc-50' : ''}`}>
                       {account.name}
                     </li>
                   ))}
-                </ul>
+                  {searchSuggestions.length === 0 && !!debouncedName && (
+                    <li className="px-3 py-2 text-sm text-zinc-600">Crear “<strong>{debouncedName}</strong>” como nueva cuenta ↵</li>
+                  )}
+                </ul>}
               </div>
             )}
         </div>
@@ -360,13 +415,29 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
         <>
             <div className="rounded-xl border border-zinc-200 overflow-hidden">
             <div className="px-3 py-2 text-xs uppercase tracking-wide text-zinc-500 border-b bg-zinc-50">Líneas (rápido)</div>
-            {items.map((it,i)=> (
-                <div key={i} className="grid grid-cols-[1.2fr_0.6fr_40px] gap-2 items-center px-3 py-2 border-b last:border-b-0">
-                <Input placeholder="SKU" value={it.sku} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>setLine(i,{sku:e.target.value})}/>
-                <Input type="number" min={1} value={it.qty} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>setLine(i,{qty: Number(e.target.value)})}/>
-                <button onClick={()=>removeLine(i)} className="p-2 rounded-md hover:bg-zinc-100" aria-label="Eliminar"><X className="h-4 w-4"/></button>
-                </div>
-            ))}
+            {items.map((it,i)=> {
+                const lotsForSku = availableInventory.filter(inv => inv.sku === it.sku);
+                return (
+                  <div key={i} className="grid grid-cols-[2fr_1.5fr_1fr_40px] gap-2 items-center px-3 py-2 border-b last:border-b-0">
+                    <Select value={it.sku} onChange={e => setLine(i, { sku: e.target.value })}>
+                        <option value="">Producto...</option>
+                        {santaData?.products.filter(p => p.category === 'finished_good').map(p => (
+                            <option key={p.sku} value={p.sku}>{p.name}</option>
+                        ))}
+                    </Select>
+                     <Select value={it.lotNumber || ''} onChange={e => setLine(i, { lotNumber: e.target.value })}>
+                        <option value="">Seleccionar lote...</option>
+                        {lotsForSku.map(lot => (
+                            <option key={lot.lotNumber} value={lot.lotNumber}>
+                                {lot.lotNumber} ({lot.qty} uds)
+                            </option>
+                        ))}
+                    </Select>
+                    <Input type="number" min={1} value={it.qty} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>setLine(i,{qty: Number(e.target.value)})}/>
+                    <button onClick={()=>removeLine(i)} className="p-2 rounded-md hover:bg-zinc-100" aria-label="Eliminar"><X className="h-4 w-4"/></button>
+                  </div>
+                )
+            })}
             <div className="px-3 py-2 flex justify-between items-center">
                 <button onClick={addLine} className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md border border-zinc-300 bg-white hover:bg-zinc-50"><Plus className="h-3.5 w-3.5"/>Añadir línea</button>
                 <div className="w-1/2"><Input placeholder="Nota opcional" value={orderNote} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>setOrderNote(e.target.value)}/></div>
@@ -471,25 +542,15 @@ function CreateAccountForm({onSubmit, onCancel}:{ onSubmit:(p:CreateAccountPaylo
 // ===== Create Order (full) =====
 export function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, onSubmit, onCancel, defaults}: {
   accounts: Account[];
-  onSearchAccounts:(q:string)=>Promise<Account[]>;
+  onSearchAccounts:(q:string, options: { signal: AbortSignal })=>Promise<Account[]>;
   onCreateAccount:(d:{name:string;city?:string;type?:AccountType})=>Promise<Account>;
   onSubmit:(p:CreateOrderPayload)=>void;
   onCancel:()=>void;
   defaults?: any;
 }){
   const { data: santaData } = useData();
-  const [accountName, setAccountName] = useState(defaults?.account || "");
+  const [accountId, setAccountId] = useState(defaults?.accountId || "");
   const [newAccountData, setNewAccountData] = useState<{account: Partial<Account>, party: Partial<Party>} | null>(null);
-
-  const handleAccountChange = (value: string, newAccount?: Partial<Account>, newParty?: Partial<Party>) => {
-    if (value === '__internal_new_account' && newAccount && newParty) {
-        setNewAccountData({ account: newAccount, party: newParty });
-        setAccountName(newAccount.name!);
-    } else {
-        setAccountName(value);
-        setNewAccountData(null);
-    }
-  };
 
   const [note, setNote] = useState(defaults?.note || "");
   const [requestedDate, setRequestedDate] = useState(new Date().toISOString().slice(0,16));
@@ -500,6 +561,17 @@ export function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, on
   const [items, setItems] = useState<CreateOrderPayload["items"]>(defaults?.items || [{sku:"SB-750", qty:1, unit:"uds", priceUnit: 12, lotNumber: ''}]);
   
   const availableInventory = useMemo(() => (santaData?.inventory || []).filter(i => i.locationId && i.locationId.startsWith('FG/')), [santaData]);
+  
+  const handleAccountChange = (id?: string, newAccount?: Partial<Account>, newParty?: Partial<Party>) => {
+    if (newAccount && newParty) {
+        setNewAccountData({ account: newAccount, party: newParty });
+        setAccountId("");
+    } else {
+        setAccountId(id || "");
+        setNewAccountData(null);
+    }
+  };
+
 
   function addLine(){ setItems(v=>[...v,{sku:"", qty:1, unit:"uds", priceUnit: 0}]); }
   function setLine(i:number, patch:Partial<CreateOrderPayload["items"][number]>){
@@ -511,11 +583,13 @@ export function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, on
   }
   function removeLine(i:number){ setItems(v=> v.filter((_,idx)=> idx!==i)); }
   function submit(){ 
-      if(!accountName) return alert("Selecciona una cuenta"); 
+      if(!accountId && !newAccountData) return alert("Selecciona una cuenta"); 
       if(items.length===0 || items.some(it=>!it.sku || it.qty<=0)) return alert("Revisa las líneas"); 
       
       const payload: CreateOrderPayload = {
-          account: accountName,
+          accountId: accountId || undefined,
+          newAccount: newAccountData?.account,
+          newParty: newAccountData?.party,
           requestedDate,
           deliveryDate: deliveryDate||undefined,
           channel,
@@ -524,10 +598,6 @@ export function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, on
           note,
           items
       };
-      if (newAccountData) {
-          payload.newAccount = newAccountData.account;
-          payload.newParty = newAccountData.party;
-      }
       onSubmit(payload);
   }
   
@@ -535,9 +605,7 @@ export function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, on
 
   return (
     <div className="p-4 space-y-3">
-      <Row><Label>Cuenta</Label>
-        <AccountPicker value={accountName} onChange={handleAccountChange as any} accounts={accounts} onSearchAccounts={onSearchAccounts} onCreateAccount={onCreateAccount}/>
-      </Row>
+       {/* AccountPicker is not used here, the parent modal handles the account selection */}
       <div className="grid grid-cols-2 gap-3">
         <Row><Label>Fecha pedido</Label><Input type="datetime-local" value={requestedDate} onChange={e=>setRequestedDate(e.target.value)}/></Row>
         <Row><Label>Entrega deseada</Label><Input type="datetime-local" value={deliveryDate} onChange={e=>setDeliveryDate(e.target.value)}/></Row>
@@ -554,7 +622,7 @@ export function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, on
         {items.map((it,i)=> {
             const lotsForSku = availableInventory.filter(inv => inv.sku === it.sku);
             return (
-              <div key={i} className="grid grid-cols-[2fr_1fr_1fr_0.5fr_1fr_1fr_40px] gap-2 items-center px-3 py-2 border-b last:border-b-0">
+              <div key={i} className="grid grid-cols-[2fr_1.5fr_1fr_0.5fr_1fr_1fr_40px] gap-2 items-center px-3 py-2 border-b last:border-b-0">
                 <Select value={it.sku} onChange={e => setLine(i, { sku: e.target.value })}>
                     <option value="">Seleccionar producto...</option>
                     {santaData?.products.filter(p => p.category === 'finished_good').map(p => (
@@ -564,7 +632,7 @@ export function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, on
                 <Select value={it.lotNumber || ''} onChange={e => setLine(i, { lotNumber: e.target.value })}>
                     <option value="">Seleccionar lote...</option>
                     {lotsForSku.map(lot => (
-                        <option key={lot.id} value={lot.lotNumber}>
+                        <option key={lot.lotNumber} value={lot.lotNumber}>
                             {lot.lotNumber} ({lot.qty} uds)
                         </option>
                     ))}
@@ -631,7 +699,7 @@ export function SBFlowModal({
   variant: Variant;
   onClose:()=>void;
   accounts: Account[];
-  onSearchAccounts:(q:string)=>Promise<Account[]>;
+  onSearchAccounts:(q:string, options: { signal: AbortSignal })=>Promise<Account[]>;
   onCreateAccount:(d:{name:string;city?:string;type?:AccountType})=>Promise<Account>;
   defaults?: any;
   onSubmit:(payload:any)=>void; // (en real tipa por variante)
