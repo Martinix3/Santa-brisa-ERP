@@ -97,15 +97,17 @@ export default function QuickLogOverlay() {
     }
 
     return (
-      <SBFlowModal
-        open={true}
-        variant="quick"
-        onClose={() => setOpen(false)}
-        accounts={accounts || []}
-        onSearchAccounts={async () => []} // Mock implementation
-        onCreateAccount={async () => ({} as any)} // Mock implementation
-        onSubmit={handleQuickSubmit}
-      />
+      <div className="flex flex-col h-full">
+        <SBFlowModal
+          open={true}
+          variant="quick"
+          onClose={() => setOpen(false)}
+          accounts={accounts || []}
+          onSearchAccounts={async () => []} // Mock implementation
+          onCreateAccount={async () => ({} as any)} // Mock implementation
+          onSubmit={handleQuickSubmit}
+        />
+      </div>
     );
   };
   
@@ -127,19 +129,15 @@ export default function QuickLogOverlay() {
             className="relative w-[95vw] max-w-2xl h-[85vh] bg-white rounded-2xl shadow-xl flex flex-col overflow-hidden"
             onClick={e => e.stopPropagation()}
           >
-            {isBrainAvailable ? (
-                <>
-                    <div className="flex-shrink-0 p-4 border-b bg-zinc-50 flex justify-between items-center">
-                        <h2 className="text-lg font-semibold text-zinc-800">Santa Brain 🧠</h2>
-                        <button onClick={() => setOpen(false)} className="p-2 rounded-full hover:bg-zinc-200">
-                            <X size={20} />
-                        </button>
-                    </div>
-                    {renderContent()}
-                </>
-            ) : (
-                renderContent()
+            {isBrainAvailable && (
+              <div className="flex-shrink-0 p-4 border-b bg-zinc-50 flex justify-between items-center">
+                  <h2 className="text-lg font-semibold text-zinc-800">Santa Brain 🧠</h2>
+                  <button onClick={() => setOpen(false)} className="p-2 rounded-full hover:bg-zinc-200">
+                      <X size={20} />
+                  </button>
+              </div>
             )}
+            {renderContent()}
           </div>
         </div>
       )}

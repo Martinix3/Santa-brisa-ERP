@@ -1,11 +1,10 @@
 
-
 "use client";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Plus, CalendarDays, ClipboardList, UserPlus2, Briefcase, Search, Check, MapPin, Pencil, Save, MessageSquare, Zap, Mail, Phone, History, ShoppingCart, Building, CreditCard } from "lucide-react";
 import { useData } from "@/lib/dataprovider";
-import { generateNextOrder } from "@/lib/codes";
+import { generateNextOrder } from '@/lib/codes';
 import type { AccountType, Account, OrderSellOut, Product, Party, SB_THEME } from '@/domain/ssot';
 import { SB_COLORS } from '@/domain/ssot';
 
@@ -521,14 +520,16 @@ function BaseModal({open, onClose, color="#A7D8D9", title, icon:Icon=ClipboardLi
   return (
     <AnimatePresence>
       <motion.div className="fixed inset-0 z-50 flex items-center justify-center" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
-        <div className="absolute inset-0 bg-black/10" onClick={onClose}/>
+        <div className="absolute inset-0" onClick={onClose}/>
         <motion.div role="dialog" aria-modal="true" aria-labelledby="sb-modal-title"
           initial={{opacity:0, y:12, scale:0.98}} animate={{opacity:1, y:0, scale:1}} exit={{opacity:0, y:12, scale:0.98}}
           transition={{type:"spring", stiffness:260, damping:22}}
-          className="relative w-[92vw] max-w-4xl rounded-2xl border border-zinc-200 bg-white shadow-xl overflow-hidden">
+          className="relative w-[95vw] max-w-2xl h-[85vh] rounded-2xl border border-zinc-200 bg-white shadow-xl overflow-hidden flex flex-col">
           <Header title={title} color={color} icon={Icon}/>
-          <div className="absolute right-2 top-2 z-10"><button onClick={onClose} className="sb-btn-primary p-2 rounded-md hover:bg-zinc-100" aria-label="Cerrar"><X className="h-4 w-4"/></button></div>
-          {children}
+          <div className="absolute right-2 top-2 z-10"><button onClick={onClose} className="p-2 rounded-md hover:bg-zinc-100" aria-label="Cerrar"><X className="h-4 w-4"/></button></div>
+          <div className="flex-grow overflow-y-auto">
+            {children}
+          </div>
         </motion.div>
       </motion.div>
     </AnimatePresence>
@@ -584,6 +585,7 @@ export function SBFlowModal({
     </BaseModal>
   );
 }
+
 
 
 
