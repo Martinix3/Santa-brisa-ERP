@@ -29,11 +29,9 @@ const KANBAN_COLS: { id: ColumnId; label: string; icon: React.ElementType; heade
 
 function TaskCard({
   task,
-  typeStyles,
   onComplete,
 }: {
   task: Task;
-  typeStyles: Record<Department, { label: string; color: string; textColor: string }>;
   onComplete: (id: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: task.id });
@@ -51,23 +49,14 @@ function TaskCard({
   return (
     <div
       ref={setNodeRef}
-      style={style}
+      style={{ ...style, borderLeft: `4px solid ${deptMeta?.color || '#ccc'}` }}
       {...listeners}
       {...attributes}
-      className="p-3 bg-white rounded-lg border shadow-sm group cursor-grab active:cursor-grabbing"
+      className="p-3 bg-white rounded-lg border shadow-sm group cursor-grab active:cursor-grabbing border-l-4"
       role="listitem"
     >
       <div className="flex items-start justify-between">
         <p className="font-medium text-sm text-zinc-800 flex-1 pr-2">{task.title}</p>
-        {deptMeta && (
-          <div
-            className="sb-chip-solid w-6 h-6 text-xs flex-shrink-0"
-            style={{ backgroundColor: deptMeta.color, color: deptMeta.textColor }}
-            title={deptMeta.label}
-          >
-            {deptMeta.label.slice(0,1)}
-          </div>
-        )}
       </div>
 
       {task.location && <p className="text-xs text-zinc-500 mt-1">{task.location}</p>}
@@ -106,13 +95,11 @@ function TaskCard({
 function StatusColumn({
   col,
   tasks,
-  typeStyles,
   onCompleteTask,
   subGroups,
 }: {
   col: (typeof KANBAN_COLS)[number];
   tasks: Task[];
-  typeStyles: Record<Department, { label: string; color: string; textColor: string }>;
   onCompleteTask: (id: string) => void;
   subGroups?: { title: string; tasks: Task[] }[];
 }) {
@@ -127,7 +114,7 @@ function StatusColumn({
       );
     }
     return tasksToRender.map((task) => (
-      <TaskCard key={task.id} task={task} typeStyles={typeStyles} onComplete={onCompleteTask} />
+      <TaskCard key={task.id} task={task} onComplete={onCompleteTask} />
     ));
   };
 
@@ -163,12 +150,10 @@ export function TaskBoard({
   tasks,
   onTaskStatusChange,
   onCompleteTask,
-  typeStyles = DEPT_META,
 }: {
   tasks: Task[];
   onTaskStatusChange: (id: string, newStatus: InteractionStatus) => void;
   onCompleteTask: (id: string) => void;
-  typeStyles?: Record<Department, { label: string; token: string; text?: 'light' | 'dark', color: string, textColor: string }>;
 }) {
   const categorizedTasks = useMemo(() => {
     const now = new Date();
@@ -220,14 +205,12 @@ export function TaskBoard({
           key="overdue"
           col={KANBAN_COLS[0]}
           tasks={categorizedTasks.overdue}
-          typeStyles={typeStyles as any}
           onCompleteTask={onCompleteTask}
         />
         <StatusColumn
           key="upcoming"
           col={KANBAN_COLS[1]}
           tasks={categorizedTasks.upcoming}
-          typeStyles={typeStyles as any}
           onCompleteTask={onCompleteTask}
           subGroups={upcomingSubgroups}
         />
@@ -235,7 +218,6 @@ export function TaskBoard({
           key="done"
           col={KANBAN_COLS[2]}
           tasks={categorizedTasks.done}
-          typeStyles={typeStyles as any}
           onCompleteTask={onCompleteTask}
         />
       </div>
