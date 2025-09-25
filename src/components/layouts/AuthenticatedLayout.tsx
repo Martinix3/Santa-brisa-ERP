@@ -196,6 +196,8 @@ function NavSection({
   const dashboardItem = section.items[0];
   const DeptIcon = dashboardItem.icon;
 
+  const isPersonal = section.module === 'personal';
+
   return (
     <div className="py-1">
       <div className="w-full flex items-center justify-between">
@@ -206,10 +208,10 @@ function NavSection({
         >
           <span
             className="sb-chip-solid"
-            style={{ backgroundColor: hsl(accentVar) }}
+            style={{ backgroundColor: isPersonal ? 'hsl(var(--sb-accent-personal))' : hsl(accentVar) }}
             aria-hidden
           >
-            <DeptIcon className="w-4 h-4" />
+            <DeptIcon className={`w-4 h-4 ${isPersonal ? 'text-[hsl(var(--sb-naranja))]' : ''}`} />
           </span>
           {!isCollapsed && (
             <span className="uppercase tracking-wider text-xs font-semibold text-neutral-700">
