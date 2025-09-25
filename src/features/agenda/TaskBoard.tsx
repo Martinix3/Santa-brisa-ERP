@@ -52,7 +52,7 @@ function TaskCard({
       style={{ ...style, borderLeft: `4px solid ${deptMeta?.color || '#ccc'}` }}
       {...listeners}
       {...attributes}
-      className="p-3 bg-white rounded-lg border shadow-sm group cursor-grab active:cursor-grabbing border-l-4"
+      className="p-3 bg-white rounded-lg border shadow-sm group cursor-grab active:cursor-grabbing"
       role="listitem"
     >
       <div className="flex items-start justify-between">
@@ -62,11 +62,6 @@ function TaskCard({
       {task.location && <p className="text-xs text-zinc-500 mt-1">{task.location}</p>}
 
       <div className="mt-2 flex justify-between items-center">
-        <div className="flex -space-x-2">
-          {involvedUsers.map((user) => (
-            <Avatar key={user.id} name={user.name} size="md" />
-          ))}
-        </div>
         <div className="flex items-center gap-2">
           {task.date && (
             <time className="text-xs text-zinc-500" dateTime={new Date(task.date).toISOString()}>
@@ -86,6 +81,11 @@ function TaskCard({
               <Check size={16} />
             </button>
           )}
+        </div>
+        <div className="flex -space-x-2">
+          {involvedUsers.map((user) => (
+            <Avatar key={user.id} name={user.name} size="md" />
+          ))}
         </div>
       </div>
     </div>
