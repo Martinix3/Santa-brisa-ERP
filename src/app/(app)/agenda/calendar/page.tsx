@@ -270,7 +270,7 @@ function CalendarPageContent() {
             open={isNewEventDialogOpen}
             onOpenChange={setIsNewEventDialogOpen}
             onSave={handleAddOrUpdateEvent as any}
-            accentColor={SB_COLORS.primary.sun}
+            accentColor={'hsl(var(--sb-sun-strong))'}
             initialEventData={editingEvent}
           />
         )}
