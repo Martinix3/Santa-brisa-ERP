@@ -5,7 +5,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useParams, useRouter, notFound } from 'next/navigation';
 import { useData } from '@/lib/dataprovider';
-import type { SantaData, Interaction as InteractionType, OrderSellOut, User as UserType, Party, InteractionKind, Account, CustomerData, PartyRole, Activation, Promotion, AccountRollup, AccountType, PosTactic, PosCostCatalogEntry, PlvMaterial, SB_THEME } from '@/domain/ssot';
+import type { SantaData, Interaction as InteractionType, OrderSellOut, User as UserType, Party, InteractionKind, Account, CustomerData, PartyRole, Activation, Promotion, AccountRollup, AccountType, PosTactic, PosCostCatalogEntry, PlvMaterial, PosTacticItem } from '@/domain/ssot';
 import { computeAccountKPIs, accountOwnerDisplay, orderTotal, getDistributorForAccount, computeAccountRollup } from '@/lib/sb-core';
 import { ArrowUpRight, ArrowDownRight, Phone, Mail, MapPin, User, Factory, Boxes, Megaphone, Briefcase, Banknote, Calendar, FileText, ShoppingCart, Star, Building2, CreditCard, ChevronRight, ChevronLeft, MessageSquare, Sparkles, Tag, Clock, Edit, Plus } from "lucide-react";
 import Link from 'next/link';
@@ -195,16 +195,16 @@ export function AccountDetailPageContent(){
     setIsEditing(false);
   };
   
-    const handleSaveTactic = async (tacticData: Omit<PosTactic, 'id' | 'createdAt' | 'createdById'>) => {
-        if (!currentUser) return;
-        try {
-            await upsertPosTactic(tacticData, currentUser.id);
-            setIsNewTacticOpen(false);
-        } catch (e) {
-            console.error(e);
-            alert((e as Error).message);
-        }
-    };
+  const handleSaveTactic = async (tacticData: Omit<PosTactic, 'id' | 'createdAt' | 'createdById'>) => {
+    if (!currentUser) return;
+    try {
+        await upsertPosTactic(tacticData as any, currentUser.id);
+        setIsNewTacticOpen(false);
+    } catch (e) {
+        console.error(e);
+        alert((e as Error).message);
+    }
+  };
 
   const getDaysSinceLastOrderColor = (days?: number): 'green' | 'amber' | 'red' => {
       if (days === undefined) return 'amber';

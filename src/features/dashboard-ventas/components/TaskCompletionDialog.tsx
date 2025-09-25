@@ -1,9 +1,10 @@
+
 // src/features/dashboard-ventas/components/TaskCompletionDialog.tsx
 "use client";
 import React, { useMemo, useState, useEffect } from 'react';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
 import { Input, Select, Textarea } from '@/components/ui/ui-primitives';
-import type { Interaction, InteractionKind, Payload, PosTactic } from '@/domain/ssot';
+import type { Interaction, InteractionKind, Payload, PosTactic, PosTacticItem } from '@/domain/ssot';
 import { ShoppingCart, MessageSquare, Plus, X, Star } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
 import { upsertPosTactic } from '@/features/marketing/services/posTactics.client';
@@ -82,6 +83,12 @@ export function TaskCompletionDialog({
         interactionId: task.id,
         status: 'active', // If we are completing a task, it means it happened.
         executionScore: 80, // Default value, can be refined.
+        items: [{
+          id: `item_${Date.now()}`,
+          description: posTacticData.description || posTacticData.tacticCode || 'Táctica POS',
+          actualCost: posTacticData.actualCost || 0,
+          qty: 1
+        }],
         ...posTacticData,
       }, currentUser?.id || 'unknown');
     }

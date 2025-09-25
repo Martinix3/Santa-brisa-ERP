@@ -3,7 +3,7 @@
 "use client";
 import React, { useMemo, useState, useEffect } from 'react';
 import { useData } from '@/lib/dataprovider';
-import type { MarketingEvent, Interaction, InteractionKind, Account, PosTactic, SB_THEME, PosCostCatalogEntry, PlvMaterial, PosTacticItem, PosTacticStatus } from '@/domain/ssot';
+import type { MarketingEvent, Interaction, InteractionKind, Account, PosTactic, PosCostCatalogEntry, PlvMaterial, PosTacticItem, PosTacticStatus } from '@/domain/ssot';
 import { SBCard, SBButton, DataTableSB, KPI } from '@/components/ui/ui-primitives';
 import type { Col } from '@/components/ui/ui-primitives';
 import { NewEventDialog } from '@/features/agenda/components/NewEventDialog';
@@ -141,7 +141,7 @@ export default function Page(){
   const handleSaveTactic = async (tacticData: Omit<PosTactic, 'id' | 'createdAt' | 'createdById'>) => {
       if (!tacticEventContext || !currentUser) return;
       try {
-        await upsertPosTactic({ ...tacticData, ...tacticEventContext }, currentUser.id);
+        await upsertPosTactic({ ...tacticData, ...tacticEventContext } as any, currentUser.id);
         setIsNewTacticOpen(false);
         setTacticEventContext(null);
       } catch(e) {
