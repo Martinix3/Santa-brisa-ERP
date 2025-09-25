@@ -29,7 +29,7 @@ function GroupBar({ stage, count, expanded, onToggle }: { stage: keyof typeof ST
     return (
         <button
             onClick={onToggle}
-            className="w-full grid grid-cols-[1fr_auto] gap-2 items-center px-3 py-2 rounded-t-lg transition-colors cursor-pointer bg-zinc-50/50"
+            className="w-full grid grid-cols-[1fr_auto] gap-2 items-center px-3 py-2 transition-colors cursor-pointer bg-zinc-50/50"
             aria-expanded={expanded}
             aria-controls={`panel-${stage}`}
             id={`button-${stage}`}
@@ -120,8 +120,8 @@ function AccountBar({ a, party, santaData, onAddActivity, userMap, shortDate }: 
             </div>
         </div>
         {open && kpis && (
-            <div className="border-t border-zinc-200">
-                <div className="p-4 grid grid-cols-3 gap-6">
+            <div className="p-4 bg-white shadow-inner">
+                <div className="grid grid-cols-3 gap-6">
                     <div className='col-span-2'>
                         <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">Actividad Reciente</h4>
                         <ul className="space-y-1 text-sm text-zinc-700 max-h-40 overflow-y-auto pr-2">
@@ -412,15 +412,15 @@ export function AccountsPageContent() {
           const isOpen = !!expanded[k];
           const s = STAGE[k];
           return (
-            <div key={k} id={`group-${k}`} className="w-full">
+            <div key={k} id={`group-${k}`} className="w-full rounded-lg overflow-hidden"
+              style={{
+                borderLeft: `4px solid ${s.tint}`,
+                backgroundColor: `${s.tint}1A`,
+              }}
+            >
               <GroupBar stage={k} count={count} expanded={isOpen} onToggle={()=> setExpanded(e=> ({...e,[k]:!e[k]})) }/>
               {isOpen && count > 0 && santaData && (
-                <div id={`panel-${k}`} role="region" aria-labelledby={`button-${k}`} className="rounded-b-md"
-                    style={{
-                       borderLeft: `4px solid ${s.tint}`,
-                       backgroundColor: `${s.tint}10`,
-                    }}
-                >
+                <div id={`panel-${k}`} role="region" aria-labelledby={`button-${k}`}>
                     <div className="divide-y divide-zinc-200/60">
                         {grouped[k].map(a=> (
                             <AccountBar key={a.id} a={a} party={partyMap[a.partyId]} santaData={santaData} onAddActivity={() => setCompletingTaskForAccount(a)} userMap={userMap} shortDate={shortDate}/>
