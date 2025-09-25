@@ -1,4 +1,3 @@
-
 // src/features/accounts/components/AccountsPage.tsx
 
 "use client"
@@ -13,6 +12,7 @@ import { ModuleHeader } from '@/components/ui/ModuleHeader'
 import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/TaskCompletionDialog'
 import { Avatar } from '@/components/ui/Avatar';
 import { NewAccountDialog } from './NewAccountDialog';
+import { DEPT_META } from '@/domain/ssot';
 
 const STAGE: Record<string, { label:string; tint:string; text:string }> = {
   ACTIVA: { label:'Activas', tint:'#A7D8D9', text:'#17383a' },
@@ -358,7 +358,8 @@ export function AccountsPageContent() {
   return (
     <>
       <ModuleHeader title="Cuentas" icon={Users}>
-        <button onClick={() => setIsNewAccountOpen(true)} className="flex items-center gap-2 text-sm bg-zinc-900 text-white rounded-md px-3 py-1.5 font-semibold hover:bg-zinc-800 transition-colors">
+        <button onClick={() => setIsNewAccountOpen(true)} className="flex items-center gap-2 text-sm rounded-md px-3 py-1.5 font-semibold transition-colors"
+         style={{ backgroundColor: DEPT_META.VENTAS.color, color: DEPT_META.VENTAS.textColor }}>
             <Plus size={16} /> Nueva Cuenta
         </button>
       </ModuleHeader>
