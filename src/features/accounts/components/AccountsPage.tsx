@@ -1,9 +1,8 @@
-
 // src/features/accounts/components/AccountsPage.tsx
 
 "use client"
 import React, { useMemo, useState, useEffect } from 'react'
-import { ChevronDown, Search, Plus, Phone, Mail, MessageSquare, Calendar, History, ShoppingCart, Info, BarChart3, UserPlus, Users, MoreVertical } from 'lucide-react'
+import { ChevronDown, Search, Plus, Phone, Mail, MessageSquare, Calendar, History, ShoppingCart, Info, BarChart3, UserPlus, Users, MoreVertical, Ticket, Clock, Edit, FileText } from 'lucide-react'
 import type { Account as AccountType, Stage, User, Interaction, OrderSellOut, SantaData, CustomerData, Party, PartyRole, InteractionKind, Payload } from '@/domain/ssot'
 import { accountOwnerDisplay, computeAccountKPIs, getDistributorForAccount, orderTotal } from '@/lib/sb-core';
 import Link from 'next/link'
@@ -29,19 +28,19 @@ function GroupBar({ stage, count, expanded, onToggle }: { stage: keyof typeof ST
     return (
         <button
             onClick={onToggle}
-            className="w-full grid grid-cols-[1fr_auto] gap-2 items-center px-3 py-2 rounded-t-lg transition-colors cursor-pointer"
-            style={{ backgroundColor: s.tint, color: s.text }}
+            className="w-full grid grid-cols-[1fr_auto] gap-2 items-center px-3 py-2 rounded-t-lg transition-colors cursor-pointer bg-zinc-50/50"
+            style={{ borderLeft: `4px solid ${s.tint}`}}
             aria-expanded={expanded}
             aria-controls={`panel-${stage}`}
             id={`button-${stage}`}
         >
             <div className="flex items-center gap-2 flex-grow">
-                <h3 className="font-semibold text-sm">{s.label}</h3>
-                <span className="text-xs font-normal opacity-80">({count})</span>
+                <h3 className="font-semibold text-sm" style={{color: s.text}}>{s.label}</h3>
+                <span className="text-xs font-normal opacity-80" style={{color: s.text}}>({count})</span>
             </div>
             <ChevronDown
                 className="h-5 w-5 transition-transform duration-300"
-                style={{ transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                style={{ transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)', color: s.text }}
                 aria-hidden="true"
             />
         </button>
@@ -52,7 +51,7 @@ function AccountBar({ a, party, santaData, onAddActivity, userMap, shortDate }: 
   const [open, setOpen] = useState(false);
   const s = STAGE[a.stage as keyof typeof STAGE] ?? STAGE.ACTIVA;
   
-  const owner = useMemo(() => accountOwnerDisplay(a, santaData.users, santaData.partyRoles, userMap), [a, santaData.users, santaData.partyRoles, userMap]);
+  const owner = useMemo(() => accountOwnerDisplay(a, santaData.users, santaData.partyRoles), [a, santaData.users, santaData.partyRoles]);
   const orderAmount = useMemo(()=> (santaData.ordersSellOut || []).filter((o: OrderSellOut)=>o.accountId===a.id).reduce((n: number,o: OrderSellOut)=> n+orderTotal(o),0), [a.id, santaData.ordersSellOut]);
   
   const { unifiedActivity, kpis } = useMemo(() => {
@@ -102,9 +101,10 @@ function AccountBar({ a, party, santaData, onAddActivity, userMap, shortDate }: 
           </div>
             <div className="text-sm font-medium truncate flex items-center gap-2">
             <Link href={`/accounts/${a.id}`} className="text-zinc-900 truncate hover:underline">{a.name}</Link>
-            {orderAmount>0 && <span className="text-[11px] px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-700 whitespace-nowrap">{formatEUR(orderAmount)}</span>}
+            {orderAmount>0 && <span className="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap">{formatEUR(orderAmount)}</span>}
             </div>
-            <div className="flex items-center gap-2 min-w-0"><Avatar name={owner} size="md" className="sb-icon" /><span className="text-sm text-zinc-700 truncate">{owner}</span></div>
+            <div className="flex items-center gap-2 min-w-0"><Avatar name={owner} size="md" />
+            <span className="text-sm text-zinc-700 truncate">{owner}</span></div>
             <div className="text-sm text-zinc-700 truncate">{party?.billingAddress?.city ||'—'}</div>
             <div className="text-sm text-zinc-700 truncate">{distributorName}</div>
             <div className="text-right relative group focus-within:z-10">
@@ -112,22 +112,13 @@ function AccountBar({ a, party, santaData, onAddActivity, userMap, shortDate }: 
                 <MoreVertical className="h-3.5 w-3.5"/>
             </button>
             <div className="absolute right-0 top-full mt-1 w-48 bg-white border rounded-md shadow-lg invisible group-hover:visible group-focus-within:visible">
-                <Link href={`/accounts/${a.id}`} className="block w-full text-left px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50">Ver Ficha de Cliente</Link>
-                <button onClick={(e) => { e.stopPropagation(); onAddActivity(a); }} className="block w-full text-left px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50">Añadir Interacción/Venta</button>
+                <Link href={`/accounts/${a.id}`} className="flex items-center gap-2 w-full text-left px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50"><Info size={14}/> Ver Ficha de Cliente</Link>
+                <button onClick={(e) => { e.stopPropagation(); onAddActivity(a); }} className="flex items-center gap-2 w-full text-left px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50"><Plus size={14}/> Añadir Actividad</button>
             </div>
             </div>
       </div>
       {open && kpis && (
-        <div 
-          className="border-t" 
-          style={{
-             backgroundColor: `${s.tint}1A`, 
-             borderColor: `${s.tint}33`,
-             ['--account-tint-color' as any]: s.tint,
-             background: `color-mix(in srgb, var(--account-tint-color) 10%, transparent)`,
-             outlineColor:  `color-mix(in srgb, var(--account-tint-color) 20%, transparent)`
-          }}
-        >
+        <div className="border-t border-zinc-200 bg-white" style={{ borderLeft: `4px solid ${s.tint}`}}>
             <div className="p-4 grid grid-cols-3 gap-6">
               <div className='col-span-2'>
                 <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">Actividad Reciente</h4>
@@ -168,19 +159,23 @@ function AccountBar({ a, party, santaData, onAddActivity, userMap, shortDate }: 
               <div>
                  <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">KPIs (90d)</h4>
                  {kpis && <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div className="text-center p-2 bg-zinc-100/50 rounded">
+                    <div className="text-center p-2 bg-zinc-100/50 rounded flex flex-col items-center gap-1">
+                      <Ticket size={16} className="text-zinc-500"/>
                       <div className="font-bold text-base">{formatEUR(kpis.avgTicket)}</div>
                       <div className="text-zinc-600">Ticket Medio</div>
                     </div>
-                    <div className="text-center p-2 bg-zinc-100/50 rounded">
+                    <div className="text-center p-2 bg-zinc-100/50 rounded flex flex-col items-center gap-1">
+                      <ShoppingCart size={16} className="text-zinc-500"/>
                       <div className="font-bold text-base">{kpis.orderCount}</div>
                       <div className="text-zinc-600">Nº Pedidos</div>
                     </div>
-                    <div className="text-center p-2 bg-zinc-100/50 rounded">
+                    <div className="text-center p-2 bg-zinc-100/50 rounded flex flex-col items-center gap-1">
+                       <MessageSquare size={16} className="text-zinc-500"/>
                       <div className="font-bold text-base">{kpis.visitsCount}</div>
                       <div className="text-zinc-600">Nº Visitas</div>
                     </div>
-                     <div className="text-center p-2 bg-zinc-100/50 rounded">
+                     <div className="text-center p-2 bg-zinc-100/50 rounded flex flex-col items-center gap-1">
+                      <Clock size={16} className="text-zinc-500"/>
                       <div className="font-bold text-base">{kpis.daysSinceLastOrder ?? '—'}</div>
                       <div className="text-zinc-600">Días s/ Pedido</div>
                     </div>
@@ -222,14 +217,14 @@ export function AccountsPageContent() {
   const data = useMemo(() => santaData?.accounts || [], [santaData]);
 
   const { partyMap, userMap, repOptions, cityOptions, distOptions } = useMemo(() => {
-    if (!santaData || !santaData.users || !santaData.partyRoles || !santaData.parties) {
+    if (!santaData) {
       return { partyMap: {}, userMap: {}, repOptions: [], cityOptions: [], distOptions: [] };
     }
     const pMap: Record<string, Party> = {};
-    santaData.parties.forEach(p => { pMap[p.id] = p; });
+    (santaData.parties || []).forEach(p => { pMap[p.id] = p; });
 
     const uMap: Record<string, string> = {};
-    santaData.users.forEach(u => { uMap[u.id] = u.name; });
+    (santaData.users || []).forEach(u => { uMap[u.id] = u.name; });
 
     const reps = new Set<string>();
     const cities = new Set<string>();
@@ -240,7 +235,7 @@ export function AccountsPageContent() {
       if (party?.billingAddress?.city) cities.add(party.billingAddress.city);
     });
 
-    const distributorRoles = santaData.partyRoles.filter(r => r.role === 'DISTRIBUTOR');
+    const distributorRoles = (santaData.partyRoles || []).filter(r => r.role === 'DISTRIBUTOR');
     
     return {
       partyMap: pMap,
@@ -420,7 +415,7 @@ export function AccountsPageContent() {
               {isOpen && count > 0 && santaData && (
                 <div id={`panel-${k}`} role="region" aria-labelledby={`button-${k}`} className="rounded-b-md py-2 divide-y divide-zinc-100">
                   {grouped[k].map(a=> (
-                    <AccountBar key={a.id} a={a} party={partyMap[a.partyId]} santaData={santaData} onAddActivity={() => setCompletingTaskForAccount(a)} userMap={userMap} shortDate={shortDate}/>
+                    <AccountBar key={a.id} a={a} party={partyMap[a.id]} santaData={santaData} onAddActivity={() => setCompletingTaskForAccount(a)} userMap={userMap} shortDate={shortDate}/>
                   ))}
                 </div>
               )}
