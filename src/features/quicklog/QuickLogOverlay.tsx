@@ -46,10 +46,10 @@ export default function QuickLogOverlay() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="sb-btn-primary fixed bottom-6 right-6 z-40 h-14 w-14 rounded-full bg-primary shadow-lg flex items-center justify-center text-primary-foreground hover:bg-primary/90 transition-transform hover:scale-110"
+        className="fixed bottom-6 right-6 z-40 h-14 w-14 rounded-full bg-yellow-400 text-black shadow-2xl flex items-center justify-center hover:bg-yellow-500 transition-transform hover:scale-110"
         aria-label="Abrir asistente Santa Brain"
       >
-        <Plus size={24} strokeWidth={2.5} className="sb-icon" />
+        <Plus size={24} strokeWidth={2.5} />
       </button>
 
       {open && (
