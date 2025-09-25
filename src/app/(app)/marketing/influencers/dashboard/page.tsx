@@ -2,7 +2,7 @@
 "use client";
 import React from "react";
 import InfluencersDashboardPage from "@/features/influencers/pages/InfluencersDashboardPage";
-import { waterHeader, hexToRgba, AgaveEdge, Input, Select, Textarea, SBButton } from "@/components/ui/ui-primitives";
+import { waterHeader, hexToRgba, AgaveEdge, Input, Select, Textarea, SBButton, SBCard } from "@/components/ui/ui-primitives";
 import { ClipboardList } from "lucide-react";
 import { SB_COLORS } from "@/domain/ssot";
 
@@ -24,7 +24,8 @@ export default function Page() {
       Select, 
       Textarea, 
       Header, 
-      SBButton
+      SBButton,
+      SBCard
   };
   return <InfluencersDashboardPage components={injected} />;
 }
