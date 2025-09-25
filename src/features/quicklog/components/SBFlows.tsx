@@ -190,7 +190,7 @@ function AccountPicker({
                   </button>
                   {allowDefer && (
                     <button onClick={()=>{ onChange(""); setOpen(false); }}
-                      className="sb-btn-primary px-3 py-2 rounded-lg text-sm border border-zinc-300 bg-white hover:bg-zinc-50">
+                      className="sb-btn-primary px-3 py-2 text-sm rounded-lg border border-zinc-300 bg-white hover:bg-zinc-50">
                       Dejar para más tarde
                     </button>
                   )}
@@ -584,6 +584,7 @@ export function SBFlowModal({
     </BaseModal>
   );
 }
+
 
 
 

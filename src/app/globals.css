@@ -160,7 +160,7 @@
   .sb-glass {
     background: color-mix(in oklab, white 82%, transparent);
     backdrop-filter: blur(8px);
-    border: 1px solid hsl(var(--border) / .6);
+    border: 1px solid hsl(var(--border) / 0.6);
   }
 
   /* Chip sólido (para icono de departamento) */
@@ -191,6 +191,4 @@
   .sb-input { @apply h-10; }
   .sb-select { @apply h-10; }
   .sb-textarea { @apply py-2; }
-
-  .sb-section { @apply sb-glass p-4 rounded-2xl; }
 }
