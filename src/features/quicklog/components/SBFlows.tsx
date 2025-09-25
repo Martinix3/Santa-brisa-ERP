@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Plus, CalendarDays, ClipboardList, UserPlus2, Briefcase, Search, Check, MapPin, Pencil, Save, MessageSquare, Zap, Mail, Phone, History, ShoppingCart, Building, CreditCard, Star, Loader2 } from "lucide-react";
 import { useData } from "@/lib/dataprovider";
 import { generateNextOrder } from '@/lib/codes';
-import type { AccountType, Account, OrderSellOut, Product, Party, SB_THEME, InteractionKind, PosTactic, PartyRole, CustomerData } from '@/domain/ssot';
+import type { AccountType, Account, OrderSellOut, Product, Party, SB_THEME, InteractionKind, PosTactic, PosTacticItem, PartyRole, CustomerData, PosCostCatalogEntry } from '@/domain/ssot';
 import { SB_COLORS } from "@/domain/ssot";
 
 const hexToRgba = (hex: string, a: number) => { const h = hex.replace('#',''); const f = h.length===3? h.split('').map(c=>c+c).join(''):h; const n=parseInt(f,16); const r=(n>>16)&255, g=(n>>8)&255, b=n&255; return `rgba(${r},${g},${b},${a})`; };
@@ -28,8 +28,8 @@ function AgaveEdge(){
 export type Variant = "quick" | "editAccount" | "createAccount" | "createOrder";
 type QuickMode = "interaction" | "order";
 
-type QuickOrderPayload = { mode:"order"; accountId?:string; newAccount?: Partial<Account>; newParty?: Partial<Party>; items:{ sku:string; qty:number, lotNumber?: string, comment?: string }[]; note?:string; isVentaPropia: boolean; posTactic?: Partial<Omit<PosTactic, 'id' | 'items'>> };
-type QuickInteractionPayload = { mode:"interaction"; accountId?:string; newAccount?: Partial<Account>; newParty?: Partial<Party>; kind:InteractionKind; note:string; nextAction?:string; posTactic?: Partial<Omit<PosTactic, 'id' | 'items'>> };
+type QuickOrderPayload = { mode:"order"; accountId?:string; newAccount?: Partial<Account>; newParty?: Partial<Party>; items:{ sku:string; qty:number, lotNumber?: string }[]; note?:string; isVentaPropia: boolean; posTactic?: Partial<Omit<PosTactic, 'id' | 'items'>> & { items?: Partial<PosTacticItem>[] } };
+type QuickInteractionPayload = { mode:"interaction"; accountId?:string; newAccount?: Partial<Account>; newParty?: Partial<Party>; kind:InteractionKind; note:string; nextAction?:string; posTactic?: Partial<Omit<PosTactic, 'id' | 'items'>> & { items?: Partial<PosTacticItem>[] } };
 
 type EditAccountPayload = {
   id:string;
@@ -66,12 +66,6 @@ function Header({title, color="#A7D8D9", icon:Icon=ClipboardList}:{title:string;
 // ===== Utils =====
 function useDebounced<T>(value:T, delay=250){ const [v,setV]=useState(value); useEffect(()=>{ const id=setTimeout(()=>setV(value), delay); return ()=>clearTimeout(id); },[value,delay]); return v; }
 
-const TACTIC_CODES = [
-    "ICE_BUCKET", "GLASSWARE", "BARTENDER_INCENTIVE", "MENU_PLACEMENT",
-    "CHALKBOARD", "TWO_FOR_ONE", "HAPPY_HOUR", "SECONDARY_PLACEMENT", "OTHER"
-];
-
-
 // ===== Quick Interaction / Order (Switcher) =====
 function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, onCancel}:{
   accounts: Account[];
@@ -99,7 +93,7 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
 
   
   // quick order state
-  const [items, setItems] = useState<{sku:string; qty:number, lotNumber?: string, comment?: string}[]>([{sku:"SB-750", qty:1, lotNumber: ''}]);
+  const [items, setItems] = useState<{sku:string; qty:number, lotNumber?: string }[]>([{sku:"SB-750", qty:1, lotNumber: ''}]);
   const [orderNote, setOrderNote] = useState("");
   
   // quick interaction state
@@ -109,7 +103,11 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
   
   // POS Tactic State
   const [showPosTacticForm, setShowPosTacticForm] = useState(false);
-  const [posTacticData, setPosTacticData] = useState<Partial<Omit<PosTactic, 'id' | 'items'>>>({ tacticCode: 'OTHER', status: 'planned', actualCost: 0 });
+  const [posTacticData, setPosTacticData] = useState<Partial<Omit<PosTactic, 'id'>>>({
+    tacticCode: 'OTHER',
+    status: 'planned',
+    items: [{ catalogCode: '', description: '', qty: 1, unitCost: 0, actualCost: 0 }]
+  });
 
   const debouncedName = useDebounced(accountName, 250);
 
@@ -197,15 +195,23 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
     }
   }, []);
 
-  function addLine(){ setItems(v=>[...v,{sku:"SB-750", qty:1, lotNumber: ''}]); }
-  function setLine(i:number, patch:Partial<(typeof items)[0]>){ setItems(v=> v.map((it,idx)=> idx===i? {...it,...patch}: it)); }
-  function removeLine(i:number){ setItems(v=> v.filter((_,idx)=> idx!==i)); }
+  function addOrderLine(){ setItems(v=>[...v,{sku:"SB-750", qty:1, lotNumber: ''}]); }
+  function setOrderLine(i:number, patch:Partial<(typeof items)[0]>){ setItems(v=> v.map((it,idx)=> idx===i? {...it,...patch}: it)); }
+  function removeOrderLine(i:number){ setItems(v=> v.filter((_,idx)=> idx!==i)); }
+
+  function addTacticLine() { setPosTacticData(p => ({ ...p, items: [...(p.items || []), { catalogCode: '', description: '', qty: 1, unitCost: 0, actualCost: 0 }] })) }
+  function setTacticLine(i:number, patch:Partial<PosTacticItem>){ setPosTacticData(p => ({ ...p, items: (p.items || []).map((it,idx)=> idx===i? {...it,...patch, actualCost: ((it.qty || 1) * (it.unitCost || 0))}: it) })) }
+  function removeTacticLine(i:number){ setPosTacticData(p => ({ ...p, items: (p.items || []).filter((_,idx)=> idx!==i) })) }
+
+  const totalPosCost = useMemo(() => (posTacticData.items || []).reduce((sum, item) => sum + (item.actualCost || 0), 0), [posTacticData.items]);
 
   function submit(){
-    let posPayload: Partial<Omit<PosTactic, 'id' | 'items'>> | undefined = undefined;
-    if (showPosTacticForm && posTacticData.tacticCode && posTacticData.actualCost !== undefined && posTacticData.actualCost > 0) {
+    let posPayload: Partial<Omit<PosTactic, 'id'>> | undefined = undefined;
+    if (showPosTacticForm) {
       posPayload = {
         ...posTacticData,
+        actualCost: totalPosCost,
+        items: posTacticData.items?.filter(it => it.description),
         status: 'active',
         executionScore: 80, // Default value
       };
@@ -241,7 +247,7 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
     }
 
     if(mode==="order"){
-      if(items.length===0 || items.some(it=>it.sku !== 'OTRO' && (!it.sku || it.qty<=0))) return alert("Revisa las líneas del pedido");
+      if(items.length===0 || items.some(it=>!it.sku || it.qty<=0)) return alert("Revisa las líneas del pedido");
       onSubmit({ mode:"order", accountId: selectedAccountId, newAccount: newAccountPayload, newParty: newPartyPayload, items, note: orderNote, posTactic: posPayload, isVentaPropia: billerId === 'SB' } as any);
     } else {
       if(!interactionNote) return alert("Añade un resumen de la interacción");
@@ -279,21 +285,24 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
               <h4 className="font-semibold text-sm">Detalles de Táctica POS</h4>
               <button type="button" onClick={() => setShowPosTacticForm(false)} className="text-xs text-zinc-500 hover:text-zinc-800">Cancelar</button>
            </div>
-           <div className="grid grid-cols-2 gap-2">
-              <label className="grid gap-1.5"><span className="text-xs font-medium">Táctica</span>
-                  <Select value={posTacticData.tacticCode || ''} onChange={e => setPosTacticData(p => ({...p, tacticCode: e.target.value}))} className="h-9">
-                    {TACTIC_CODES.map(c => <option key={c} value={c}>{c.replace(/_/g, ' ')}</option>)}
-                  </Select>
-              </label>
-              <label className="grid gap-1.5"><span className="text-xs font-medium">Coste Total (€)</span>
-                  <Input type="number" min="0" value={posTacticData.actualCost ?? ''} onChange={e => setPosTacticData(p => ({...p, actualCost: Number(e.target.value)}))} className="h-9"/>
-              </label>
+           
+           <div className="space-y-2">
+              {(posTacticData.items || []).map((item, i) => (
+                  <div key={i} className="grid grid-cols-[2fr_1fr_1fr_auto] gap-2 items-center">
+                    <Select value={item.catalogCode || ''} onChange={e => setTacticLine(i, { catalogCode: e.target.value, description: santaData?.posCostCatalog.find(c => c.code === e.target.value)?.label, unitCost: santaData?.posCostCatalog.find(c => c.code === e.target.value)?.defaultUnitCost })}>
+                        <option value="">Selecciona coste...</option>
+                        {santaData?.posCostCatalog.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}
+                    </Select>
+                    <Input type="number" min="1" placeholder="Uds." value={item.qty || 1} onChange={e => setTacticLine(i, { qty: Number(e.target.value) })}/>
+                    <Input type="number" min="0" placeholder="Coste/ud" value={item.unitCost || 0} onChange={e => setTacticLine(i, { unitCost: Number(e.target.value) })}/>
+                    <button type="button" onClick={() => removeTacticLine(i)} className="p-2 text-red-500 hover:bg-red-50 rounded-md"><X size={16}/></button>
+                  </div>
+              ))}
            </div>
-           {posTacticData.tacticCode === 'OTHER' && (
-              <label className="grid gap-1.5"><span className="text-xs font-medium">Descripción (si es "OTRO")</span>
-                  <Input value={posTacticData.description ?? ''} onChange={e => setPosTacticData(p => ({...p, description: e.target.value}))} className="h-9"/>
-              </label>
-           )}
+            <div className="flex justify-between items-center">
+              <button type="button" onClick={addTacticLine} className="text-xs flex items-center gap-1 text-blue-600 hover:underline"><Plus size={12}/>Añadir línea</button>
+              <div className="text-sm font-semibold">Total: {totalPosCost.toFixed(2)}€</div>
+            </div>
         </div>
       )}
     </div>
@@ -339,7 +348,7 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
                   </ul>
                 ) : debouncedName ? (
                     <div className="px-3 py-2 text-sm text-zinc-600">
-                        Crear “<strong>{debouncedName}</strong>” como nueva cuenta ↵
+                        Pulsa ↵ para crear “<strong>{debouncedName}</strong>” como nueva cuenta.
                     </div>
                 ) : null}
               </div>
@@ -360,35 +369,20 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
       </div>
 
       {mode==="order" ? (
-        <>
-            <div className="rounded-xl border border-zinc-200 overflow-hidden">
-            <div className="px-3 py-2 text-xs uppercase tracking-wide text-zinc-500 border-b bg-zinc-50">Líneas</div>
-            {items.map((it,i)=> {
-                const lotsForSku = availableInventory.filter(inv => inv.sku === it.sku);
-                const isOther = it.sku === 'OTRO';
-                return (
-                  <div key={i} className="grid grid-cols-[2fr_1fr_40px] gap-2 items-center px-3 py-2 border-b last:border-b-0">
-                    <Select value={it.sku} onChange={e => setLine(i, { sku: e.target.value })}>
+          <Row>
+            <Label>Pedido Rápido</Label>
+            <div className="border rounded-xl p-2 space-y-2">
+                <div className="grid grid-cols-[1fr_auto] gap-2 items-center">
+                    <Select value={items[0].sku} onChange={e => setOrderLine(0, { sku: e.target.value })}>
                         <option value="">Producto...</option>
                         {(santaData?.products || []).filter(p => p.category === 'finished_good').map(p => (
                             <option key={p.sku} value={p.sku}>{p.name}</option>
                         ))}
-                        <option value="OTRO">Otro (comentarios)</option>
                     </Select>
-                    {isOther ? (
-                      <Input placeholder="Comentarios..." value={it.comment || ''} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>setLine(i,{comment: e.target.value})}/>
-                    ) : (
-                      <Input type="number" min={1} value={it.qty} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>setLine(i,{qty: Number(e.target.value)})}/>
-                    )}
-                    <button onClick={()=>removeLine(i)} className="p-2 rounded-md hover:bg-zinc-100" aria-label="Eliminar"><X className="h-4 w-4"/></button>
-                  </div>
-                )
-            })}
-            <div className="px-3 py-2 flex justify-between items-center">
-                <button onClick={addLine} className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md border border-zinc-300 bg-white hover:bg-zinc-50"><Plus className="h-3.5 w-3.5"/>Añadir línea</button>
+                    <Input type="number" min="1" value={items[0].qty} onChange={e=>setOrderLine(0,{qty: Number(e.target.value)})} className="w-24"/>
+                </div>
             </div>
-            </div>
-        </>
+          </Row>
       ) : (
         <div className="space-y-3">
             <Row>
