@@ -50,7 +50,7 @@ type CreateOrderPayload = { accountId?:string; newAccount?: Partial<Account>; ne
 
 // ===== UI Primitives =====
 function Row({children, className}:{children:React.ReactNode, className?: string}){ return <div className={`flex flex-col gap-1 ${className || ''}`}>{children}</div>; }
-function Label({children}:{children:React.ReactNode}){ return <label className="text-xs text-zinc-600">{children}</label>; }
+function Label({children, htmlFor}:{children:React.ReactNode, htmlFor?: string}){ return <label htmlFor={htmlFor} className="text-xs text-zinc-600">{children}</label>; }
 function Input(props:React.InputHTMLAttributes<HTMLInputElement>){ return <input {...props} className={`w-full px-3 py-2 rounded-lg border border-zinc-300 bg-white text-sm outline-none focus:ring-2 focus:ring-[#F7D15F] ${props.className||""}`}/>; }
 function Select(props:React.SelectHTMLAttributes<HTMLSelectElement>){ return <select {...props} className={`w-full px-3 py-2 rounded-lg border border-zinc-300 bg-white text-sm outline-none focus:ring-2 focus:ring-[#F7D15F] ${props.className||""}`}/>; }
 function Textarea(props:React.TextareaHTMLAttributes<HTMLTextAreaElement>){ return <textarea {...props} className={`w-full px-3 py-2 rounded-lg border border-zinc-300 bg-white text-sm outline-none focus:ring-2 focus:ring-[#F7D15F] ${props.className||""}`}/>; }
@@ -92,19 +92,21 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
   const searchAbortRef = useRef<AbortController | null>(null);
   const searchCache = useRef<Map<string, Account[]>>(new Map());
 
-  
   // quick order state
   const [items, setItems] = useState<{sku:string; qty:number, lotNumber?: string }[]>([{sku:"SB-750", qty:1, lotNumber: ''}]);
   
   // quick interaction state
   const [interactionNote, setInteractionNote] = useState("");
-  const [interactionDate, setInteractionDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [interactionTime, setInteractionTime] = useState<string | null>(() => new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }));
-  const [nextAction, setNextAction] = useState("");
-  
+  const [nextActionNote, setNextActionNote] = useState("");
+  const [nextActionDate, setNextActionDate] = useState("");
+  const [nextActionTime, setNextActionTime] = useState<string | null>(null);
+
   // POS Tactic State
   const [showPosTacticForm, setShowPosTacticForm] = useState(false);
   const [posTacticLines, setPosTacticLines] = useState<{ code: string; description: string }[]>([{ code: 'OTHER', description: '' }]);
+  
+  // Validation state
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const debouncedName = useDebounced(accountName, 250);
 
@@ -115,18 +117,18 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
     return (santaData.parties || []).filter(p => distPartyIds.has(p.id));
   }, [santaData]);
 
-    useEffect(() => {
+  useEffect(() => {
     const run = async () => {
       if (debouncedName.length < 1 || selectedAccountId) {
         setSearchSuggestions([]);
         setIsSearchOpen(false);
         return;
       }
-
+  
       searchAbortRef.current?.abort();
       const ac = new AbortController();
       searchAbortRef.current = ac;
-
+  
       try {
         const key = debouncedName.toLowerCase();
         if (searchCache.current.has(key)) {
@@ -134,7 +136,7 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
           setIsSearchOpen(true);
           return;
         }
-
+  
         setLoading(true);
         setIsSearchOpen(true);
         const results = await onSearchAccounts(debouncedName, { signal: ac.signal });
@@ -151,7 +153,6 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
     run();
     return () => searchAbortRef.current?.abort();
   }, [debouncedName, onSearchAccounts, selectedAccountId]);
-  
 
   const handleAccountSelect = (account: Account) => {
     const party = santaData?.parties.find(p => p.id === account.partyId);
@@ -161,6 +162,7 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
     setBillerId((role?.data as CustomerData)?.billerId || 'SB');
     setSelectedAccountId(account.id);
     setIsSearchOpen(false);
+    setErrors(e => ({...e, accountName: ''}));
   };
   
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -176,9 +178,10 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
     const close = () => setIsSearchOpen(false);
     window.addEventListener('resize', close);
     window.addEventListener('scroll', close, true);
-    if (nameInputRef.current) {
+    const node = nameInputRef.current;
+    if (node) {
         const handleClickOutside = (event: MouseEvent) => {
-            if (nameInputRef.current && !nameInputRef.current.contains(event.target as Node)) {
+            if (node && !node.contains(event.target as Node)) {
                 close();
             }
         };
@@ -201,8 +204,23 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
   }
   function removePosTacticLine(i:number) { setPosTacticLines(p => p.filter((_, idx) => idx !== i)); }
 
+  const validate = (): boolean => {
+    const newErrors: Record<string, string> = {};
+    if (mode === 'interaction' && !interactionNote.trim()) {
+        newErrors.interactionNote = 'El resumen es obligatorio.';
+    }
+    if (mode === 'order') {
+        if (!items.length || items.some(it => !it.sku || it.qty <= 0)) {
+            newErrors.items = 'Añade al menos un producto con cantidad válida.';
+        }
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  }
 
   function submit(){
+    if (!validate()) return;
+
     let posPayload: Partial<Omit<PosTactic, 'id' | 'items'>> & { items?: Partial<PosTacticItem>[] } | undefined;
     if (showPosTacticForm) {
       posPayload = {
@@ -228,14 +246,12 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
     }
 
     if(mode==="order"){
-      if(items.length===0 || items.some(it=>!it.sku || it.qty<=0)) return alert("Revisa las líneas del pedido");
       onSubmit({ mode:"order", accountId: selectedAccountId, newAccount: newAccountPayload, newParty: newPartyPayload, items, note: '', posTactic: posPayload, isVentaPropia: billerId === 'SB' });
     } else {
-        if(!interactionNote) return alert("Añade un resumen de la interacción");
-        const plannedFor = interactionDate && interactionTime
-            ? new Date(`${interactionDate}T${interactionTime}`).toISOString()
-            : interactionDate ? new Date(interactionDate).toISOString() : undefined;
-        onSubmit({ mode:"interaction", accountId: selectedAccountId, newAccount: newAccountPayload, newParty: newPartyPayload, kind: 'OTRO', note: interactionNote, nextAction: nextAction || undefined, posTactic: posPayload, plannedFor });
+        const plannedFor = nextActionDate && nextActionTime
+            ? new Date(`${nextActionDate}T${nextActionTime}`).toISOString()
+            : nextActionDate ? new Date(nextActionDate).toISOString() : undefined;
+        onSubmit({ mode:"interaction", accountId: selectedAccountId, newAccount: newAccountPayload, newParty: newPartyPayload, kind: 'OTRO', note: interactionNote, nextAction: nextActionNote || undefined, posTactic: posPayload, plannedFor });
     }
   }
 
@@ -291,14 +307,10 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
       )}
     </div>
   );
-
-  const setQuickDate = (preset: 'now' | 'hour' | 'day') => {
-    const d = new Date();
-    if(preset === 'hour') d.setHours(d.getHours() - 1);
-    if(preset === 'day') d.setDate(d.getDate() - 1);
-    setInteractionDate(d.toISOString().slice(0, 10));
-    setInteractionTime(d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }));
-  };
+  
+  const isSaveDisabled = 
+      (mode === 'interaction' && !interactionNote.trim()) ||
+      (mode === 'order' && (!items.length || items.some(it => !it.sku || it.qty <= 0)));
 
   return (
     <div className="p-4 space-y-3">
@@ -333,7 +345,7 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
                   </ul>
                 ) : debouncedName ? (
                     <div className="px-3 py-2 text-sm text-zinc-600">
-                        Sin resultados. Pulsa ↵ para crear “<strong>{debouncedName}</strong>”.
+                        Pulsa ↵ para crear “<strong>{debouncedName}</strong>”.
                     </div>
                 ) : null}
               </div>
@@ -355,44 +367,42 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
 
       {mode==="order" ? (
          <Row>
-            <Label>Pedido Rápido</Label>
-            <div className="border rounded-xl p-2 space-y-2">
-                <div className="grid grid-cols-[2fr_1fr_auto] gap-2 items-center">
+            <Label htmlFor="order-items">Pedido Rápido</Label>
+            <div id="order-items" className="border rounded-xl p-2 space-y-2">
+                <div className="grid grid-cols-[2fr_1.5fr_1fr_40px] gap-2 items-center">
                     <Select value={items[0].sku} onChange={e => setOrderLine(0, { sku: e.target.value })}>
                         <option value="">Producto...</option>
                         {(santaData?.products || []).filter(p => p.category === 'finished_good').map(p => (
                             <option key={p.sku} value={p.sku}>{p.name}</option>
                         ))}
                     </Select>
-                    <Input type="number" min="1" value={items[0].qty} onChange={e=>setOrderLine(0,{qty: Number(e.target.value)})}/>
                     <Select value={items[0].lotNumber || ''} onChange={e => setOrderLine(0, { lotNumber: e.target.value })}>
                         <option value="">Lote...</option>
                         {availableInventory.filter(i => i.sku === items[0].sku).map(i => (
                             <option key={i.lotNumber} value={i.lotNumber}>{i.lotNumber} ({i.qty} uds)</option>
                         ))}
                     </Select>
+                    <Input type="number" min="1" value={items[0].qty} onChange={e=>setOrderLine(0,{qty: Number(e.target.value)})}/>
+                    <div className="text-right font-medium pr-2"></div>
                 </div>
             </div>
           </Row>
       ) : (
         <div className="space-y-3">
             <Row>
-              <Label>Fecha y Hora</Label>
+              <Label htmlFor="interaction-note">Resumen de la Interacción</Label>
+                <Textarea id="interaction-note" rows={3} placeholder="¿Qué ha pasado? ¿De qué se ha hablado?" value={interactionNote} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>)=> { setInteractionNote(e.target.value); setErrors(e => ({...e, interactionNote: ''}))} }/>
+                {errors.interactionNote && <p className="text-xs text-red-500">{errors.interactionNote}</p>}
+            </Row>
+             <Row><Label htmlFor="next-action-note">Próxima Acción (opcional)</Label>
+                <Input id="next-action-note" placeholder="Ej. Enviar propuesta, volver a llamar en 7 días..." value={nextActionNote} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>setNextActionNote(e.target.value)}/>
+            </Row>
+            <Row>
+              <Label htmlFor="next-action-date">Fecha Próxima Acción (opcional)</Label>
               <div className="flex gap-2">
-                <Input type="date" value={interactionDate} onChange={e => setInteractionDate(e.target.value)} className="flex-1"/>
-                <TimePicker value={interactionTime} onChange={setInteractionTime} step={5} className="flex-1"/>
+                <Input id="next-action-date" type="date" value={nextActionDate} onChange={e => setNextActionDate(e.target.value)} className="flex-1"/>
+                <TimePicker value={nextActionTime} onChange={setNextActionTime} step={15} className="flex-1"/>
               </div>
-              <div className="flex items-center gap-2 mt-1">
-                <button type="button" onClick={() => setQuickDate('now')} className="text-xs px-2 py-1 rounded-md border bg-zinc-100 hover:bg-zinc-200">Ahora</button>
-                <button type="button" onClick={() => setQuickDate('hour')} className="text-xs px-2 py-1 rounded-md border bg-zinc-100 hover:bg-zinc-200">Hace 1h</button>
-                <button type="button" onClick={() => setQuickDate('day')} className="text-xs px-2 py-1 rounded-md border bg-zinc-100 hover:bg-zinc-200">Ayer</button>
-              </div>
-            </Row>
-            <Row><Label>Resumen</Label>
-                <Textarea rows={3} placeholder="¿Qué ha pasado? ¿De qué se ha hablado?" value={interactionNote} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>)=>setInteractionNote(e.target.value)}/>
-            </Row>
-             <Row><Label>Próxima Acción (opcional)</Label>
-                <Input placeholder="Ej. Enviar propuesta, volver a llamar en 7 días..." value={nextAction} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>setNextAction(e.target.value)}/>
             </Row>
         </div>
       )}
@@ -400,8 +410,8 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
       {posTacticSection}
 
       <div className="flex justify-end gap-2 pt-1">
-        <button onClick={onCancel} className="px-3 py-2 text-sm rounded-lg border border-zinc-300 bg-white hover:bg-zinc-50">Cancelar</button>
-        <button onClick={submit} className="px-3 py-2 text-sm rounded-lg bg-sb-sun text-zinc-900 hover:brightness-110">Guardar</button>
+        <button type="button" onClick={onCancel} className="px-3 py-2 text-sm rounded-lg border border-zinc-300 bg-white hover:bg-zinc-50">Cancelar</button>
+        <button type="button" onClick={submit} disabled={isSaveDisabled} className="px-3 py-2 text-sm rounded-lg bg-sb-sun text-zinc-900 hover:brightness-110 disabled:bg-zinc-200 disabled:text-zinc-500 disabled:cursor-not-allowed">Guardar</button>
       </div>
     </div>
   );
