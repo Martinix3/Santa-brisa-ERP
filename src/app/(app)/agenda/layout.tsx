@@ -50,7 +50,7 @@ export default function AgendaLayout({ children }: { children: React.ReactNode }
         icon={() => <div className="p-2 rounded-lg bg-[hsl(var(--sb-accent-personal))]">{icon}</div>}
       />
       <AgendaNav />
-      <div className="flex-grow min-h-0 bg-[hsl(var(--sb-accent-personal))]">
+      <div className="flex-grow min-h-0 bg-zinc-50">
           {children}
       </div>
     </div>
