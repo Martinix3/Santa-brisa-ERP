@@ -185,7 +185,10 @@
   }
 
   /* Link activo del sidebar: fondo neutro y borde izquierda con acento */
-  .sb-nav-active { background-color: hsl(var(--sb-neutral-100)); border-left-width: 3px; }
+  .sb-nav-active {
+    background-color: hsl(var(--sb-neutral-50));
+    border-left-width: 3px;
+  }
 
   /* Helpers para acentos por CSS var --tone */
   .sb-dot  { width:.375rem; height:.375rem; border-radius:9999px; background-color:hsl(var(--tone)); display:inline-block; }

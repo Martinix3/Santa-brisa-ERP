@@ -165,14 +165,13 @@ function NavLink({
   const isActive = href === '/' ? pathname === href : pathname.startsWith(href) && href !== '/';
 
   const base =
-    'group flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--sb-neutral-200))] border border-transparent';
+    'group flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--sb-neutral-200))]';
   const hover = isCollapsed ? '' : ' hover:bg-[hsl(var(--sb-neutral-100))]';
 
   return (
     <Link
       href={href}
-      className={`${base}${hover} ${isCollapsed ? 'justify-center' : ''} ${isActive ? 'sb-nav-active' : ''}`}
-      style={isActive ? { borderLeftColor: hsl(moduleColor) } : undefined}
+      className={`${base}${hover} ${isCollapsed ? 'justify-center' : ''} ${isActive ? 'bg-[hsl(var(--sb-neutral-100))]' : ''}`}
       aria-current={isActive ? 'page' : undefined}
       title={isCollapsed ? label : undefined}
     >
@@ -199,7 +198,8 @@ function NavSection({
   const isPersonal = section.module === 'personal';
 
   return (
-    <div className="py-1">
+    <div className={`py-1 rounded-lg ${isSectionActive ? 'sb-nav-active' : ''}`}
+         style={isSectionActive ? { borderLeftColor: hsl(accentVar) } : {}}>
       <div className="w-full flex items-center justify-between">
         <Link
           href={dashboardItem.href}
@@ -241,7 +241,7 @@ function NavSection({
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.18 }}
             id={`dept-${section.title}`}
-            className="pl-3 mt-1 space-y-1 overflow-hidden"
+            className="pl-6 mt-1 space-y-1 overflow-hidden"
           >
             {section.items.map((item) => (
               <NavLink
