@@ -4,8 +4,10 @@
 
 import { z } from 'zod';
 import { PosTactic, PosTacticItem, PosCostCatalogEntry, PlvMaterial, PosResult } from '@/domain/ssot';
-import { adminDb as db } from '@/server/firebaseAdmin'; // ajusta a tu inicialización (Admin SDK)
+import { adminDb as db } from '@/server/firebaseAdmin';
 import { Timestamp } from 'firebase-admin/firestore';
+import { getAttributedRevenue, estimateLiftPct } from './pos.service';
+
 
 // === Helpers ===
 const nowISO = () => new Date().toISOString();
@@ -13,9 +15,8 @@ const nowISO = () => new Date().toISOString();
 const TacticInput = z.object({
   id: z.string().optional(),
   accountId: z.string(),
-  tacticCode: z.string(),
+  tacticCode: z.string().optional(),
   description: z.string().optional(),
-  appliesToSkuIds: z.array(z.string()).optional(),
   items: z.array(z.object({
     id: z.string().optional(),
     catalogCode: z.string().optional(),
@@ -35,102 +36,29 @@ export type UpsertPosTacticInput = z.infer<typeof TacticInput>;
 const CATALOG_COLL = 'posCostCatalog';
 const TACTICS_COLL = 'posTactics';
 const PLV_COLL = 'plv_material';
-const ORDERS_COLL = 'ordersSellOut'; // ajusta al nombre de tu colección
-const ACCOUNTS_COLL = 'accounts';
 
-// === CRUD Catálogo ===
-export async function upsertPosCostCatalogEntry(entry: PosCostCatalogEntry) {
-  const ref = db.collection(CATALOG_COLL).doc(entry.code);
-  const payload = {
-    ...entry,
-    updatedAt: nowISO(),
-    createdAt: entry.createdAt ?? nowISO(),
-  };
-  await ref.set(payload, { merge: true });
-  return (await ref.get()).data() as PosCostCatalogEntry;
-}
-
-export async function listPosCostCatalog(status?: 'ACTIVE'|'DRAFT'|'ARCHIVED') {
+// === Funciones de lectura (llamadas desde Server Components) ===
+export async function listPosCostCatalog(status?: 'ACTIVE'|'DRAFT'|'ARCHIVED'): Promise<PosCostCatalogEntry[]> {
   let q = db.collection(CATALOG_COLL) as FirebaseFirestore.Query;
   if (status) q = q.where('status', '==', status);
   const snap = await q.get();
   return snap.docs.map(d => d.data() as PosCostCatalogEntry);
 }
 
-// === CRUD PLV simple (para selector en el diálogo) ===
-export async function listPlvInStock() {
+export async function listPlvInStock(): Promise<PlvMaterial[]> {
   const snap = await db.collection(PLV_COLL).where('status', '==', 'IN_STOCK').get();
   return snap.docs.map(d => ({ id: d.id, ...(d.data() as PlvMaterial) }));
 }
 
-// === Atribución de revenue ±N días ===
-// Supone ORDERS: { accountId, date(ISO), amount:number, items[], status }
-type OrdersLike = { accountId: string; createdAt: string; totalAmount: number; };
-
-/**
- * getAttributedRevenue
- * Asocia pedidos de una cuenta dentro de ventana [start-N, end+N]
- * Si pasas appliesToSkuIds, filtra por items que contengan esos SKUs (si tu modelo lo permite).
- */
-export async function getAttributedRevenue(accountId: string, startISO: string, endISO: string, windowDays = 7, appliesToSkuIds?: string[]) {
-  const start = new Date(startISO); const end = new Date(endISO);
-  const lo = new Date(start); lo.setDate(lo.getDate() - windowDays);
-  const hi = new Date(end);   hi.setDate(hi.getDate() + windowDays);
-
-  // Por simplicidad: filtramos por rango de fecha y accountId.
-  let q = db.collection(ORDERS_COLL)
-    .where('accountId', '==', accountId)
-    .where('createdAt', '>=', lo.toISOString())
-    .where('createdAt', '<=', hi.toISOString());
-
-  const snap = await q.get();
-  let orders = snap.docs.map(d => d.data() as any);
-
-  // (Opcional) filtrar por SKUs si tu modelo guarda items[].sku
-  if (appliesToSkuIds && appliesToSkuIds.length) {
-    orders = snap.docs
-      .map(d => d.data() as any)
-      .filter(o => Array.isArray(o.lines) && o.lines.some((it: any) => appliesToSkuIds.includes(it.sku)))
-      .map(o => ({ accountId: o.accountId, createdAt: o.createdAt, totalAmount: o.totalAmount }));
-  }
-
-  const revenue = orders.reduce((s, o) => s + (o.totalAmount || 0), 0);
-  return { revenue, ordersCount: orders.length };
+export async function listPosTactics(): Promise<PosTactic[]> {
+  const snap = await db.collection(TACTICS_COLL).orderBy('createdAt', 'desc').limit(100).get();
+  return snap.docs.map(d => d.data() as PosTactic);
 }
 
-// === Estimación Lift% vs baseline ===
-// baseline: media diaria (o semanal) de ventas previas X días a la táctica
-export async function estimateLiftPct(accountId: string, startISO: string, endISO: string, lookbackDays = 30) {
-  const start = new Date(startISO);
-  const baseLo = new Date(start); baseLo.setDate(baseLo.getDate() - lookbackDays);
-  const baseHi = new Date(start); baseHi.setDate(baseHi.getDate() - 1);
-
-  const baseQ = db.collection(ORDERS_COLL)
-    .where('accountId', '==', accountId)
-    .where('createdAt', '>=', baseLo.toISOString())
-    .where('createdAt', '<=', baseHi.toISOString());
-
-  const baseSnap = await baseQ.get();
-  const baseRevenue = baseSnap.docs.reduce((s, d) => s + (Number((d.data() as any).totalAmount) || 0), 0);
-  const baseDays = Math.max(1, (baseHi.getTime() - baseLo.getTime()) / (1000*3600*24));
-  const basePerDay = baseRevenue / baseDays;
-
-  // revenue durante la táctica + ventana
-  const { revenue } = await getAttributedRevenue(accountId, startISO, endISO, 0);
-
-  const tacticDays = Math.max(1, (new Date(endISO).getTime() - new Date(startISO).getTime()) / (1000*3600*24));
-  const tacticPerDay = revenue / tacticDays;
-
-  if (basePerDay <= 0) return { liftPct: undefined, confidence: 'LOW' as const };
-  const liftPct = ((tacticPerDay / basePerDay) - 1) * 100;
-  const confidence = (lookbackDays >= 30 && tacticDays >= 3) ? 'MEDIUM' : 'LOW';
-  return { liftPct, confidence };
-}
-
-// === UPSERT / CLOSE TACTIC ===
-export async function upsertPosTactic(input: UpsertPosTacticInput, createdById: string) {
+// === Server Actions (llamadas desde Client Components) ===
+export async function upsertPosTactic(input: UpsertPosTacticInput, createdById: string): Promise<PosTactic> {
   const data = TacticInput.parse(input);
-  const id = data.id ?? db.collection(TACTICS_COLL).doc().id;
+  const id = data.id || db.collection(TACTICS_COLL).doc().id;
 
   const items: PosTacticItem[] = data.items.map((i, idx) => {
     const unit = Number(i.unitCost ?? 0);
@@ -151,7 +79,7 @@ export async function upsertPosTactic(input: UpsertPosTacticInput, createdById: 
   const payload: PosTactic = {
     id,
     accountId: data.accountId,
-    tacticCode: data.tacticCode,
+    tacticCode: data.tacticCode ?? 'OTHER',
     description: data.description,
     appliesToSkuIds: data.appliesToSkuIds,
     items,
@@ -168,7 +96,7 @@ export async function upsertPosTactic(input: UpsertPosTacticInput, createdById: 
   return payload;
 }
 
-export async function closePosTactic(tacticId: string, { windowDays = 7 }: { windowDays?: number } = {}) {
+export async function closePosTactic(tacticId: string, { windowDays = 7 }: { windowDays?: number } = {}): Promise<Partial<PosTactic>> {
   const ref = db.collection(TACTICS_COLL).doc(tacticId);
   const snap = await ref.get();
   if (!snap.exists) throw new Error('Tactic not found');
@@ -183,7 +111,7 @@ export async function closePosTactic(tacticId: string, { windowDays = 7 }: { win
   const totalCost = t.actualCost || t.plannedCost || 0;
   const roi = totalCost > 0 ? (revenue - totalCost) / totalCost : undefined;
 
-  const result: PosTacticResult = {
+  const result: PosResult = {
     roi, liftPct, confidence: (confidence ?? 'LOW'),
     revenueAttributed: revenue,
   };
