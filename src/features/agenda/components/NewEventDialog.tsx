@@ -142,7 +142,7 @@ export function NewEventDialog({
             id: initialEventData?.id,
             userId: initialEventData?.userId || currentUser!.id,
             dept: type, 
-            kind: type === 'MARKETING' ? 'EVENTO_MKT' : (type === 'VENTAS' ? 'OTRO' : interactionKind),
+            kind: type === 'VENTAS' ? 'OTRO' : interactionKind,
             plannedFor: date,
             note: notes,
             location: selection.location,
@@ -224,6 +224,25 @@ export function NewEventDialog({
                             </div>
                         </div>
                         
+                        {type !== 'VENTAS' && (
+                            <div className="grid gap-1.5">
+                                <label htmlFor="interaction-kind" className="text-sm font-medium text-zinc-700">Tipo de Interacción</label>
+                                <select
+                                    id="interaction-kind"
+                                    name="interaction-kind"
+                                    value={interactionKind}
+                                    onChange={(e) => setInteractionKind(e.target.value as InteractionKind)}
+                                    className="h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm"
+                                >
+                                    <option value="VISITA">Visita</option>
+                                    <option value="LLAMADA">Llamada</option>
+                                    <option value="EMAIL">Email</option>
+                                    <option value="WHATSAPP">WhatsApp</option>
+                                    <option value="OTRO">Otro</option>
+                                </select>
+                            </div>
+                        )}
+                        
                         <div className="grid gap-1.5">
                             <span className="text-sm font-medium text-zinc-700">Usuarios Implicados</span>
                             <div className="p-2 border rounded-md flex flex-wrap gap-2">
@@ -237,7 +256,7 @@ export function NewEventDialog({
                                                 ? 'ring-2 ring-offset-1'
                                                 : 'opacity-50 hover:opacity-100'
                                         }`}
-                                        style={{ ringColor: deptStyle.color }}
+                                        style={{ ringColor: `hsl(var(--sb-sun-strong))` }}
                                         title={user.name}
                                     >
                                         <Avatar name={user.name} size="lg" />
