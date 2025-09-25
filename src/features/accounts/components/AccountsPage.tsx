@@ -3,7 +3,7 @@
 "use client"
 import React, { useMemo, useState, useEffect } from 'react'
 import { ChevronDown, Search, Plus, Phone, Mail, MessageSquare, Calendar, History, ShoppingCart, Info, BarChart3, UserPlus, Users, MoreVertical } from 'lucide-react'
-import type { Account as AccountType, Stage, User, Interaction, OrderSellOut, SantaData, CustomerData, Party, PartyRole, InteractionKind, Payload, SB_THEME } from '@/domain/ssot'
+import type { Account as AccountType, Stage, User, Interaction, OrderSellOut, SantaData, CustomerData, Party, PartyRole, InteractionKind, Payload } from '@/domain/ssot'
 import { accountOwnerDisplay, computeAccountKPIs, getDistributorForAccount, orderTotal } from '@/lib/sb-core';
 import Link from 'next/link'
 import { useData } from '@/lib/dataprovider'
@@ -28,9 +28,11 @@ function GroupBar({ stage, count, expanded, onToggle }: { stage: keyof typeof ST
     return (
         <button
             onClick={onToggle}
-            className="w-full flex items-center justify-between px-3 py-2 rounded-t-lg transition-colors cursor-pointer"
+            className="w-full grid grid-cols-[1fr_auto] gap-2 items-center px-3 py-2 rounded-t-lg transition-colors cursor-pointer"
             style={{ backgroundColor: s.tint, color: s.text }}
             aria-expanded={expanded}
+            aria-controls={`panel-${stage}`}
+            id={`button-${stage}`}
         >
             <div className="flex items-center gap-2 flex-grow">
                 <h3 className="font-semibold text-sm">{s.label}</h3>
@@ -39,16 +41,17 @@ function GroupBar({ stage, count, expanded, onToggle }: { stage: keyof typeof ST
             <ChevronDown
                 className="h-5 w-5 transition-transform duration-300"
                 style={{ transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                aria-hidden="true"
             />
         </button>
     );
 }
 
-function AccountBar({ a, party, santaData, onAddActivity }: { a: AccountType, party?: Party, santaData: SantaData, onAddActivity: (acc: AccountType) => void }) {
+function AccountBar({ a, party, santaData, onAddActivity, userMap, shortDate }: { a: AccountType, party?: Party, santaData: SantaData, onAddActivity: (acc: AccountType) => void, userMap: Record<string, string>, shortDate: Intl.DateTimeFormat }) {
   const [open, setOpen] = useState(false);
   const s = STAGE[a.stage as keyof typeof STAGE] ?? STAGE.ACTIVA;
   
-  const owner = useMemo(() => accountOwnerDisplay(a, santaData.users, santaData.partyRoles), [a, santaData.users, santaData.partyRoles]);
+  const owner = useMemo(() => accountOwnerDisplay(a, santaData.users, santaData.partyRoles, userMap), [a, santaData.users, santaData.partyRoles, userMap]);
   const orderAmount = useMemo(()=> (santaData.ordersSellOut || []).filter((o: OrderSellOut)=>o.accountId===a.id).reduce((n: number,o: OrderSellOut)=> n+orderTotal(o),0), [a.id, santaData.ordersSellOut]);
   
   const { unifiedActivity, kpis } = useMemo(() => {
@@ -91,10 +94,10 @@ function AccountBar({ a, party, santaData, onAddActivity }: { a: AccountType, pa
 
 
   return (
-    <div className="overflow-hidden transition-all duration-200 hover:bg-black/5 rounded-lg border border-zinc-200/50">
+    <div className="overflow-hidden transition-colors duration-150 hover:bg-black/5 rounded-lg border border-zinc-200/60">
       <div className="w-full grid grid-cols-[auto_1.6fr_1.2fr_1fr_1.2fr_auto] items-center gap-3 px-4 py-1.5 cursor-pointer" onClick={()=>setOpen(v=>!v)}>
           <div className="p-1.5 rounded-md text-zinc-600 hover:bg-zinc-100/20">
-            <ChevronDown className="h-4 w-4 transition-transform duration-300" style={{transform: open? 'rotate(180deg)':'rotate(0deg)'}}/>
+            <ChevronDown className="h-4 w-4 transition-transform duration-300" style={{transform: open? 'rotate(180deg)':'rotate(0deg)'}} aria-hidden="true"/>
           </div>
             <div className="text-sm font-medium truncate flex items-center gap-2">
             <Link href={`/accounts/${a.id}`} className="text-zinc-900 truncate hover:underline">{a.name}</Link>
@@ -103,11 +106,11 @@ function AccountBar({ a, party, santaData, onAddActivity }: { a: AccountType, pa
             <div className="flex items-center gap-2 min-w-0"><Avatar name={owner} size="md" className="sb-icon" /><span className="text-sm text-zinc-700 truncate">{owner}</span></div>
             <div className="text-sm text-zinc-700 truncate">{party?.billingAddress?.city ||'—'}</div>
             <div className="text-sm text-zinc-700 truncate">{distributorName}</div>
-            <div className="text-right relative group">
+            <div className="text-right relative group focus-within:z-10">
             <button className="p-1.5 rounded-md border border-zinc-200 bg-white/50 text-zinc-700 inline-flex items-center transition-all hover:bg-white/90 hover:border-zinc-300 hover:scale-105" title="Acciones">
                 <MoreVertical className="h-3.5 w-3.5"/>
             </button>
-            <div className="absolute right-0 top-full mt-1 z-10 w-48 bg-white border rounded-md shadow-lg hidden group-hover:block">
+            <div className="absolute right-0 top-full mt-1 w-48 bg-white border rounded-md shadow-lg invisible group-hover:visible group-focus-within:visible">
                 <Link href={`/accounts/${a.id}`} className="block w-full text-left px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50">Ver Ficha de Cliente</Link>
                 <button onClick={(e) => { e.stopPropagation(); onAddActivity(a); }} className="block w-full text-left px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50">Añadir Interacción/Venta</button>
             </div>
@@ -116,7 +119,13 @@ function AccountBar({ a, party, santaData, onAddActivity }: { a: AccountType, pa
       {open && kpis && (
         <div 
           className="border-t" 
-          style={{ '--account-tint-color': s.tint, borderColor: `color-mix(in srgb, var(--account-tint-color) 20%, transparent)`, backgroundColor: `color-mix(in srgb, var(--account-tint-color) 10%, transparent)` }}
+          style={{
+             backgroundColor: `${s.tint}1A`,
+             borderColor: `${s.tint}33`,
+             ['--account-tint-color' as any]: s.tint,
+             background: `color-mix(in srgb, var(--account-tint-color) 10%, transparent)`,
+             outlineColor:  `color-mix(in srgb, var(--account-tint-color) 20%, transparent)`
+          }}
         >
             <div className="p-4 grid grid-cols-3 gap-6">
               <div className='col-span-2'>
@@ -131,8 +140,8 @@ function AccountBar({ a, party, santaData, onAddActivity }: { a: AccountType, pa
                                   <Icon className="h-4 w-4 mt-0.5 text-zinc-500 flex-shrink-0" />
                                   <div>
                                       <span className="font-medium text-zinc-800 capitalize">{int.kind}</span>
-                                      <span className="text-zinc-500"> &middot; {new Date(int.createdAt).toLocaleDateString('es-ES', {day:'2-digit',month:'short'})}</span>
-                                      {int.note && <p className="text-zinc-600 italic mt-0.5">“{int.note}”</p>}
+                                      <span className="text-zinc-500"> &middot; {shortDate.format(new Date(int.createdAt))}</span>
+                                      {int.note && <p className="text-zinc-600 italic mt-0.5 line-clamp-2">“{int.note}”</p>}
                                   </div>
                                </li>
                           )
@@ -144,7 +153,7 @@ function AccountBar({ a, party, santaData, onAddActivity }: { a: AccountType, pa
                               <ShoppingCart className="h-4 w-4 mt-0.5 text-emerald-600 flex-shrink-0" />
                               <div>
                                 <span className="font-medium text-emerald-800">Pedido</span>
-                                <span className="text-zinc-500"> &middot; {new Date(order.createdAt).toLocaleDateString('es-ES', {day:'2-digit',month:'short'})}</span>
+                                <span className="text-zinc-500"> &middot; {shortDate.format(new Date(order.createdAt))}</span>
                                 <p className="font-semibold text-zinc-800 mt-0.5">{formatEUR(orderTotal(order))}</p>
                               </div>
                             </li>
@@ -196,41 +205,60 @@ export function AccountsPageContent() {
   const [completingTaskForAccount, setCompletingTaskForAccount] = useState<AccountType | null>(null);
   const [isNewAccountOpen, setIsNewAccountOpen] = useState(false);
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() === 'f' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        const el = document.getElementById('accounts-search') as HTMLInputElement | null;
+        el?.focus();
+        e.preventDefault();
+      }
+      if (e.key === 'Escape') setQ('');
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   const data = useMemo(() => santaData?.accounts || [], [santaData]);
 
-  const { repOptions, cityOptions, distOptions } = useMemo(() => {
+  const { partyMap, userMap, repOptions, cityOptions, distOptions } = useMemo(() => {
     if (!santaData || !santaData.users || !santaData.partyRoles || !santaData.parties) {
-      return { repOptions: [], cityOptions: [], distOptions: [] };
+      return { partyMap: {}, userMap: {}, repOptions: [], cityOptions: [], distOptions: [] };
     }
+    const pMap: Record<string, Party> = {};
+    santaData.parties.forEach(p => { pMap[p.id] = p; });
+
+    const uMap: Record<string, string> = {};
+    santaData.users.forEach(u => { uMap[u.id] = u.name; });
+
     const reps = new Set<string>();
     const cities = new Set<string>();
     
     data.forEach(a => {
       reps.add(a.ownerId);
-      const party = santaData.parties.find(p => p.id === a.partyId);
+      const party = pMap[a.partyId];
       if (party?.billingAddress?.city) cities.add(party.billingAddress.city);
     });
 
     const distributorRoles = santaData.partyRoles.filter(r => r.role === 'DISTRIBUTOR');
     
-    const userMap = santaData.users.reduce((acc, u) => ({ ...acc, [u.id]: u.name }), {} as Record<string, string>);
-    
-    const partyMap = santaData.parties.reduce((acc, p) => ({ ...acc, [p.id]: p.name }), {} as Record<string, string>);
-
     return {
-      repOptions: Array.from(reps).map(id => ({ value: id, label: userMap[id] || partyMap[id] || id })).sort((a,b) => a.label.localeCompare(b.label)),
+      partyMap: pMap,
+      userMap: uMap,
+      repOptions: Array.from(reps).map(id => ({ value: id, label: uMap[id] || pMap[id]?.name || id })).sort((a,b) => a.label.localeCompare(b.label)),
       cityOptions: Array.from(cities).map(c => ({ value: c, label: c })).sort((a,b) => a.label.localeCompare(b.label)),
-      distOptions: distributorRoles.map(role => ({ value: role.partyId, label: partyMap[role.partyId] || role.partyId })).sort((a,b) => a.label.localeCompare(b.label)),
+      distOptions: distributorRoles.map(role => ({ value: role.partyId, label: pMap[role.partyId]?.name || role.partyId })).sort((a,b) => a.label.localeCompare(b.label)),
     };
   }, [data, santaData]);
+
+  const shortDate = useMemo(() => new Intl.DateTimeFormat('es-ES', { day:'2-digit', month:'short' }), []);
 
   const filtered = useMemo(() => {
     if (!santaData) return [];
     const s = q.trim().toLowerCase();
     
     return data.filter(a => {
-      const ownerName = accountOwnerDisplay(a, santaData.users, santaData.partyRoles);
-      const party = santaData.parties.find(p => p.id === a.partyId);
+      const ownerName = userMap[a.ownerId] || '';
+      const party = partyMap[a.partyId];
       const city = party?.billingAddress?.city || '';
 
       const customerRole = (santaData.partyRoles || []).find(pr => pr.partyId === a.partyId && pr.role === 'CUSTOMER');
@@ -243,7 +271,7 @@ export function AccountsPageContent() {
 
       return matchesQuery && matchesRep && matchesCity && matchesDist;
     });
-  }, [q, data, fltRep, fltCity, fltDist, santaData]);
+  }, [q, data, fltRep, fltCity, fltDist, santaData, userMap, partyMap]);
 
   const grouped = useMemo(()=>{
     const g: Record<string,AccountType[]> = { ACTIVA:[], SEGUIMIENTO:[], POTENCIAL:[], FALLIDA:[] };
@@ -363,15 +391,16 @@ export function AccountsPageContent() {
             <Plus size={16} /> Nueva Cuenta
         </button>
       </ModuleHeader>
-      <div className="max-w-6xl mx-auto px-4 pt-3 pb-1">
+      <div className="w-full px-4 lg:px-8 pt-3 pb-1 sticky top-0 z-20 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60 border-b">
         <div className="flex items-center gap-2">
           <div className="relative flex-grow">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
             <input
+              id="accounts-search"
               type="text"
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Buscar por cuenta, comercial, ciudad..."
+              placeholder="Buscar por cuenta, comercial, ciudad... (F)"
               className="w-full pl-9 pr-3 py-2 text-sm bg-white border border-zinc-200 rounded-md outline-none focus:ring-2 focus:ring-yellow-300"
             />
           </div>
@@ -388,16 +417,20 @@ export function AccountsPageContent() {
             <div key={k} id={`group-${k}`} className="w-full">
               <GroupBar stage={k} count={count} expanded={isOpen} onToggle={()=> setExpanded(e=> ({...e,[k]:!e[k]})) }/>
               {isOpen && count > 0 && santaData && (
-                <div className="rounded-b-md space-y-1 py-2">
-                  {grouped[k].map(a=> {
-                      const party = santaData.parties.find(p => p.id === a.partyId);
-                      return <AccountBar key={a.id} a={a} party={party} santaData={santaData} onAddActivity={() => setCompletingTaskForAccount(a)}/>
-                  }) }
+                <div id={`panel-${k}`} role="region" aria-labelledby={`button-${k}`} className="rounded-b-md py-2 divide-y divide-zinc-100">
+                  {grouped[k].map(a=> (
+                    <AccountBar key={a.id} a={a} party={partyMap[a.partyId]} santaData={santaData} onAddActivity={() => setCompletingTaskForAccount(a)} userMap={userMap} shortDate={shortDate}/>
+                  ))}
                 </div>
               )}
             </div>
           )
         })}
+        {!filtered.length && (q || fltRep || fltCity || fltDist) ? (
+            <div className="px-4 py-8 text-center text-sm text-zinc-600">
+                No hay resultados con esos filtros. <button onClick={() => { setQ(''); setFltRep(''); setFltCity(''); setFltDist(''); }} className="underline">Limpiar filtros</button>
+            </div>
+        ) : null}
       </div>
       {completingTaskForAccount && (
         <TaskCompletionDialog
