@@ -141,7 +141,7 @@ export function NewEventDialog({
             id: initialEventData?.id,
             userId: initialEventData?.userId || currentUser!.id,
             dept: type, 
-            kind: type === 'MARKETING' ? 'EVENTO_MKT' : interactionKind,
+            kind: type === 'MARKETING' ? 'EVENTO_MKT' : (type === 'VENTAS' ? 'OTRO' : interactionKind),
             plannedFor: date,
             note: notes,
             location: selection.location,
@@ -159,90 +159,93 @@ export function NewEventDialog({
     };
     
     const dialogTitle = initialEventData?.id ? "Editar Tarea" : "Crear Nueva Tarea o Evento";
+    const deptStyle = DEPT_META[type];
 
     return (
         <SBDialog open={open} onOpenChange={onOpenChange}>
-            <SBDialogContent
-                title={dialogTitle}
-                description="Añade o edita una entrada en tu calendario y asigna responsables."
-                onSubmit={handleSubmit}
-                primaryAction={{ label: initialEventData?.id ? 'Guardar Cambios' : 'Crear Tarea', type: 'submit' }}
-                secondaryAction={{ label: 'Cancelar', onClick: () => onOpenChange(false) }}
-            >
-                <div className="space-y-4 pt-2">
-                    <div className="grid gap-1.5">
-                        <label htmlFor="account-location-search" className="text-sm font-medium text-zinc-700">Cuenta o Ubicación</label>
-                        <AccountSearch 
-                            initialAccountId={initialEventData?.accountId}
-                            initialLocation={initialEventData?.location}
-                            onSelectionChange={setSelection}
-                        />
-                    </div>
-                    <div className="grid gap-1.5">
-                        <label htmlFor="event-notes" className="text-sm font-medium text-zinc-700">Descripción / Notas</label>
-                        <textarea
-                            id="event-notes"
-                            name="notes"
-                            value={notes}
-                            onChange={(e) => setNotes(e.target.value)}
-                            placeholder="Añade un resumen, objetivos o cualquier detalle relevante."
-                            className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm"
-                            rows={3}
-                            required
-                        />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
+            <div className="bg-white rounded-xl overflow-hidden shadow-2xl" style={{ borderTop: `4px solid ${deptStyle.color}` }}>
+                <SBDialogContent
+                    title={dialogTitle}
+                    description="Añade o edita una entrada en tu calendario y asigna responsables."
+                    onSubmit={handleSubmit}
+                    primaryAction={{ label: initialEventData?.id ? 'Guardar Cambios' : 'Crear Tarea', type: 'submit' }}
+                    secondaryAction={{ label: 'Cancelar', onClick: () => onOpenChange(false) }}
+                >
+                    <div className="space-y-4 pt-2">
                         <div className="grid gap-1.5">
-                            <label htmlFor="event-dept" className="text-sm font-medium text-zinc-700">Departamento</label>
-                            <select
-                                id="event-dept"
-                                name="dept"
-                                value={type}
-                                onChange={(e) => setType(e.target.value as Department)}
-                                className="h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm"
-                            >
-                                {Object.entries(DEPT_META).map(([key, meta]) => (
-                                    <option key={key} value={key}>{meta.label}</option>
-                                ))}
-                            </select>
+                            <label htmlFor="account-location-search" className="text-sm font-medium text-zinc-700">Cuenta o Ubicación</label>
+                            <AccountSearch 
+                                initialAccountId={initialEventData?.accountId}
+                                initialLocation={initialEventData?.location}
+                                onSelectionChange={setSelection}
+                            />
                         </div>
                         <div className="grid gap-1.5">
-                            <label htmlFor="event-date" className="text-sm font-medium text-zinc-700">Fecha y Hora</label>
-                            <input
-                                id="event-date"
-                                name="date"
-                                type="datetime-local"
-                                value={date}
-                                onChange={(e) => setDate(e.target.value)}
-                                className="h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm"
+                            <label htmlFor="event-notes" className="text-sm font-medium text-zinc-700">Descripción / Notas</label>
+                            <textarea
+                                id="event-notes"
+                                name="notes"
+                                value={notes}
+                                onChange={(e) => setNotes(e.target.value)}
+                                placeholder="Añade un resumen, objetivos o cualquier detalle relevante."
+                                className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm"
+                                rows={3}
                                 required
                             />
                         </div>
-                    </div>
-                    
-                     <div className="grid gap-1.5">
-                        <span className="text-sm font-medium text-zinc-700">Usuarios Implicados</span>
-                        <div className="p-2 border rounded-md flex flex-wrap gap-2">
-                            {(santaData?.users || []).map((user: User) => (
-                                <button
-                                    key={user.id}
-                                    type="button"
-                                    onClick={() => handleUserToggle(user.id)}
-                                    className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-xs transition-colors ${
-                                        involvedUserIds.includes(user.id)
-                                            ? 'bg-blue-100 text-blue-800 border border-blue-200'
-                                            : 'bg-zinc-100 text-zinc-700 border border-zinc-200 hover:bg-zinc-200'
-                                    }`}
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="grid gap-1.5">
+                                <label htmlFor="event-dept" className="text-sm font-medium text-zinc-700">Departamento</label>
+                                <select
+                                    id="event-dept"
+                                    name="dept"
+                                    value={type}
+                                    onChange={(e) => setType(e.target.value as Department)}
+                                    className="h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm"
                                 >
-                                    <UserIcon size={14} className="sb-icon" />
-                                    {user.name}
-                                </button>
-                            ))}
+                                    {Object.entries(DEPT_META).map(([key, meta]) => (
+                                        <option key={key} value={key}>{meta.label}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="grid gap-1.5">
+                                <label htmlFor="event-date" className="text-sm font-medium text-zinc-700">Fecha y Hora</label>
+                                <input
+                                    id="event-date"
+                                    name="date"
+                                    type="datetime-local"
+                                    value={date}
+                                    onChange={(e) => setDate(e.target.value)}
+                                    className="h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm"
+                                    required
+                                />
+                            </div>
+                        </div>
+                        
+                        <div className="grid gap-1.5">
+                            <span className="text-sm font-medium text-zinc-700">Usuarios Implicados</span>
+                            <div className="p-2 border rounded-md flex flex-wrap gap-2">
+                                {(santaData?.users || []).map((user: User) => (
+                                    <button
+                                        key={user.id}
+                                        type="button"
+                                        onClick={() => handleUserToggle(user.id)}
+                                        className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-xs transition-colors ${
+                                            involvedUserIds.includes(user.id)
+                                                ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                                                : 'bg-zinc-100 text-zinc-700 border border-zinc-200 hover:bg-zinc-200'
+                                        }`}
+                                    >
+                                        <UserIcon size={14} className="sb-icon" />
+                                        {user.name}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                     </div>
-                </div>
-            </SBDialogContent>
+                </SBDialogContent>
+            </div>
         </SBDialog>
     );
 }
