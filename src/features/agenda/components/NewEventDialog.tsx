@@ -1,4 +1,3 @@
-
 // src/features/agenda/components/NewEventDialog.tsx
 "use client";
 import React, { useState, useEffect } from 'react';
@@ -97,7 +96,7 @@ export function NewEventDialog({
   initialEventData?: Partial<Interaction> | null;
 }) {
     const { data: santaData, currentUser } = useData();
-    const [type, setType] = useState<Department>('VENTAS');
+    const [type, setType] = useState<Department>('PERSONAL');
     const [dateTime, setDateTime] = useState('');
     const [selection, setSelection] = useState<{ accountId?: string, location?: string }>({});
     const [notes, setNotes] = useState('');
@@ -107,14 +106,14 @@ export function NewEventDialog({
         if (open) {
             if (initialEventData) {
                 const planned = initialEventData.plannedFor ? new Date(initialEventData.plannedFor) : null;
-                setType(initialEventData.dept || 'VENTAS');
+                setType(initialEventData.dept || 'PERSONAL');
                 setDateTime(planned ? planned.toISOString().slice(0, 16) : '');
                 setSelection({ accountId: initialEventData.accountId, location: initialEventData.location });
                 setNotes(initialEventData.note || '');
                 setInvolvedUserIds(initialEventData.involvedUserIds || (initialEventData.userId ? [initialEventData.userId] : []));
             } else {
                 // Reset form for new event and pre-select current user
-                setType('VENTAS');
+                setType('PERSONAL');
                 setDateTime('');
                 setSelection({});
                 setNotes('');

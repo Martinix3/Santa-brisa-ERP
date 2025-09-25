@@ -13,7 +13,7 @@ export type Uom = 'bottle' | 'case' | 'pallet' | 'uds' | 'kg' | 'g' | 'L' | 'mL'
 export type Currency = 'EUR';
 
 // Departamentos internos
-export type Department = 'VENTAS' | 'MARKETING' | 'PRODUCCION' | 'ALMACEN' | 'FINANZAS' | 'CALIDAD';
+export type Department = 'VENTAS' | 'MARKETING' | 'PRODUCCION' | 'ALMACEN' | 'FINANZAS' | 'CALIDAD' | 'PERSONAL';
 
 // --- Roles y Estados ---
 export type PartyRoleType = 'CUSTOMER' | 'SUPPLIER' | 'DISTRIBUTOR' | 'IMPORTER' | 'INFLUENCER' | 'CREATOR' | 'EMPLOYEE' | 'BRAND_AMBASSADOR' | 'OTHER';
@@ -1033,6 +1033,7 @@ export const DEPT_META: Record<Department, { label: string; token: string; color
   CALIDAD:    { label: 'Calidad',    token: '--sb-accent-calidad',  color: '#829fce', textColor: '#ffffff' },
   ALMACEN:    { label: 'Almacén',    token: '--sb-accent-logistica',color: '#996947', textColor: '#ffffff' },
   FINANZAS:   { label: 'Finanzas',   token: '--sb-sun-strong',      color: '#fecb46', textColor: '#412c00' },
+  PERSONAL:   { label: 'Personal',   token: '--sb-accent-personal', color: 'hsl(var(--sb-accent-personal))', textColor: 'hsl(var(--sb-neutral-900))' },
 };
 
 // Helper opcional para UI
