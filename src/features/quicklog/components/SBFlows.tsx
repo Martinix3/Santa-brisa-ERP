@@ -1,3 +1,4 @@
+
 // src/features/quicklog/components/SBFlows.tsx
 "use client";
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -205,8 +206,8 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
 
   useEffect(() => {
     const handleSearch = async () => {
-      if (accountName.length > 1 && !selectedAccountId) {
-        const results = await onSearchAccounts(accountName);
+      if (debouncedName.length > 1 && !selectedAccountId) {
+        const results = await onSearchAccounts(debouncedName);
         setSearchSuggestions(results);
         setIsSearchOpen(results.length > 0);
       } else {
@@ -215,7 +216,7 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
       }
     };
     handleSearch();
-  }, [debouncedName, accountName, onSearchAccounts, selectedAccountId]);
+  }, [debouncedName, onSearchAccounts, selectedAccountId]);
 
   const handleAccountSelect = (account: Account) => {
     const party = santaData?.parties.find(p => p.id === account.partyId);
@@ -327,7 +328,7 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
       </div>
       
       <div className="border border-zinc-200 rounded-xl p-3 bg-white space-y-3">
-        <div className="text-xs text-zinc-500 uppercase font-semibold">Nueva cuenta</div>
+        <div className="text-xs text-zinc-500 uppercase font-semibold">Cuenta</div>
         <div className="relative" ref={nameInputRef}>
             <Row>
               <Label>Nombre</Label>
@@ -638,9 +639,11 @@ export function SBFlowModal({
   if(!open) return null;
   if(variant==="quick"){
     return (
-      <BaseModal open title="Interacción rápida / Pedido rápido" color={SB_COLORS.primary.teal} icon={Zap} onClose={onClose}>
-        <QuickSwitcher accounts={accounts} onSearchAccounts={onSearchAccounts} onCreateAccount={onCreateAccount} onCancel={onClose} onSubmit={(p)=>{ onSubmit(p); }}/>
-      </BaseModal>
+      <div className="w-full h-full rounded-2xl border border-zinc-200 bg-white/95 shadow-xl overflow-hidden flex flex-col backdrop-blur-sm">
+        <div className="flex-grow overflow-y-auto">
+          <QuickSwitcher accounts={accounts} onSearchAccounts={onSearchAccounts} onCreateAccount={onCreateAccount} onCancel={onClose} onSubmit={(p)=>{ onSubmit(p); }}/>
+        </div>
+      </div>
     );
   }
   if(variant==="editAccount"){
