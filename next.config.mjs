@@ -1,16 +1,16 @@
-// next.config.mjs
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: false,
-
-  // Permisivo para desarrollo: no exige lista de dominios de imágenes
-  images: {
-    unoptimized: true,
-  },
-
-  // No rompas el build por ESLint/TS mientras estabilizas
-  eslint: { ignoreDuringBuilds: true },
-  typescript: { ignoreBuildErrors: true },
+  // This is a new feature in Next.js 15.5+ that helps with security in development.
+  // We need to allow the origin from which Firebase Studio serves the preview.
+  // You can find this origin in the server logs if it changes.
+  ...(process.env.NODE_ENV === 'development' && {
+    experimental: {
+      allowedDevOrigins: [
+        'https://*.cloudworkstations.dev',
+      ],
+    },
+  }),
 };
 
 export default nextConfig;
