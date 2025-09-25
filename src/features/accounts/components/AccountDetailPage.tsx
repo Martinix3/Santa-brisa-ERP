@@ -4,7 +4,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useParams, useRouter, notFound } from 'next/navigation';
 import { useData } from '@/lib/dataprovider';
-import type { SantaData, Interaction as InteractionType, OrderSellOut, User as UserType, Party, InteractionKind, Account, CustomerData, PartyRole, Activation, Promotion, AccountRollup, AccountType, PosTactic, PosCostCatalogEntry, PlvMaterial } from '@/domain';
+import type { SantaData, Interaction as InteractionType, OrderSellOut, User as UserType, Party, InteractionKind, Account, CustomerData, PartyRole, Activation, Promotion, AccountRollup, AccountType, PosTactic, PosCostCatalogEntry, PlvMaterial } from '@/domain/ssot';
 import { computeAccountKPIs, accountOwnerDisplay, orderTotal, getDistributorForAccount, computeAccountRollup } from '@/lib/sb-core';
 import { ArrowUpRight, ArrowDownRight, Phone, Mail, MapPin, User, Factory, Boxes, Megaphone, Briefcase, Banknote, Calendar, FileText, ShoppingCart, Star, Building2, CreditCard, ChevronRight, ChevronLeft, MessageSquare, Sparkles, Tag, Clock, Edit, Plus } from "lucide-react";
 import Link from 'next/link';

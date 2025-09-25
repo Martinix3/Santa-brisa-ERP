@@ -2,10 +2,10 @@
 "use client";
 import React from 'react';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
-import type { Interaction, InteractionStatus } from '@/domain';
+import type { Interaction, InteractionStatus } from '@/domain/ssot';
 import { Calendar, Tag, User as UserIcon, Building, Link as LinkIcon, Edit, Trash2, Check, X } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
-import { DEPT_META } from '@/domain';
+import { DEPT_META } from '@/domain/ssot';
 
 export function EventDetailDialog({
   event,
@@ -43,7 +43,7 @@ export function EventDetailDialog({
       <SBDialogContent
         title={event.note || "Detalle del Evento"}
         description={event.plannedFor ? new Date(event.plannedFor).toLocaleString('es-ES', { dateStyle: 'full', timeStyle: 'short' }) : ''}
-        onSubmit={(e) => e.preventDefault()}
+        onSubmit={(e: React.FormEvent<HTMLFormElement>) => e.preventDefault()}
         primaryAction={primaryAction}
         secondaryAction={{ label: 'Cerrar', onClick: () => onOpenChange(false) }}
       >

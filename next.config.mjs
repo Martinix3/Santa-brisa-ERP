@@ -1,11 +1,18 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    // activa solo lo que uses; ejemplo:
-    // typedRoutes: true,
+  reactStrictMode: true,
+  compiler: {
+    // For top-level await
+    styledComponents: true,
   },
-  // images: { remotePatterns: [] }, // si usas imágenes remotas
-  // output: 'standalone', // opcional si despliegas en server/SSR
+  webpack: (config, { isServer }) => {
+    // For top-level await
+    config.experiments = {
+      ...config.experiments,
+      topLevelAwait: true,
+    };
+    return config;
+  },
 };
 
 export default nextConfig;

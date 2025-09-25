@@ -7,7 +7,7 @@ import { SB_COLORS } from "@/domain/ssot";
 import { Factory, Cpu, BookOpen, Waypoints, AlertCircle, Hourglass, MoreVertical, Check, X, Thermometer, FlaskConical, Beaker, TestTube2, Paperclip, Upload, Trash2, Calendar, Clock } from "lucide-react";
 import Link from 'next/link';
 import { useData } from '@/lib/dataprovider';
-import { DEPT_META } from '@/domain';
+import { DEPT_META } from '@/domain/ssot';
 import { LotQualityStatusPill } from '@/components/ui/ui-primitives';
 
 export function KPI({ icon: Icon, label, value, color }: { icon: React.ElementType, label: string, value: string | number, color: string }) {

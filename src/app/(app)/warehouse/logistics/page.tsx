@@ -141,7 +141,7 @@ const ValidateDialog: React.FC<{ open: boolean; onOpenChange: (v: boolean) => vo
         onSubmit={e => { e.preventDefault(); handleSave(); }}
         primaryAction={{label: "Guardar validación", onClick: handleSave}}
         secondaryAction={{label: "Cancelar", onClick: () => onOpenChange(false)}}
-        size="lg"
+        maxWidth="40rem"
       >
         <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

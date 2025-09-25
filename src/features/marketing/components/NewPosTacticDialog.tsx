@@ -2,8 +2,8 @@
 "use client";
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
-import { Input, Select, Textarea } from '@/components/ui/ui-primitives';
-import type { PosTactic, PosCostCatalogEntry, Account, PlvMaterial } from '@/domain';
+import { Input, Select, Textarea, SBButton } from '@/components/ui/ui-primitives';
+import type { PosTactic, PosCostCatalogEntry, Account, PlvMaterial } from '@/domain/ssot';
 import { useData } from '@/lib/dataprovider';
 
 const TACTIC_CODES = [
@@ -119,7 +119,7 @@ export function NewPosTacticDialog({
                 onSubmit={handleSave}
                 primaryAction={{ label: tacticBeingEdited ? "Guardar Táctica" : "Guardar Táctica", type: "submit" }}
                 secondaryAction={{ label: "Cancelar", onClick: onClose }}
-                size="md"
+                maxWidth="36rem"
             >
                 <div className="space-y-4 pt-2">
                     <label className="grid gap-1.5">

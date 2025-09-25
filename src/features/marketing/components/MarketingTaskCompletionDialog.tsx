@@ -175,7 +175,7 @@ export function MarketingTaskCompletionDialog({
       <SBDialogContent
         title={`Resultados de: ${entityTitle}`}
         description="Registra los KPIs de la acción de marketing para completarla. Todos los campos son obligatorios."
-        onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}
+        onSubmit={(e: React.FormEvent<HTMLFormElement>) => { e.preventDefault(); handleSubmit(); }}
         primaryAction={{ label: 'Guardar y Completar', type: 'submit', disabled: !canSubmit }}
         secondaryAction={{ label: 'Cancelar', onClick: onClose }}
       >

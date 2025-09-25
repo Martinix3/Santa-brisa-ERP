@@ -169,7 +169,7 @@ export function TaskCompletionDialog({
         <SBDialogContent
           title={`Resultado de: ${task.note}`}
           description="Registra qué ha pasado. Esto completará la tarea."
-          onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}
+          onSubmit={(e: React.FormEvent<HTMLFormElement>) => { e.preventDefault(); handleSubmit(); }}
           primaryAction={{ label: 'Guardar y Completar', type: 'submit' }}
           secondaryAction={{ label: 'Cancelar', onClick: onClose }}
         >

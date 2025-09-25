@@ -10,7 +10,7 @@ import type { Interaction, InteractionStatus, Account, SantaData, Payload, Marke
 import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/TaskCompletionDialog';
 import { MarketingTaskCompletionDialog } from '@/features/marketing/components/MarketingTaskCompletionDialog';
 import { FilterSelect } from '@/components/ui/FilterSelect';
-import { DEPT_META } from '@/domain';
+import { DEPT_META } from '@/domain/ssot';
 
 
 function mapInteractionsToTasks(

@@ -1,6 +1,6 @@
 // src/features/production/ssot-bridge.ts
 import { useData } from '@/lib/dataprovider';
-import type { BillOfMaterial, Material, ProductionOrder, Lot, InfluencerCollab, MarketingEvent, OnlineCampaign, Product, InventoryItem } from '@/domain';
+import type { BillOfMaterial, Material, ProductionOrder, Lot, InfluencerCollab, MarketingEvent, OnlineCampaign, Product, InventoryItem } from '@/domain/ssot';
 
 export function useBridge() {
     const { data } = useData();

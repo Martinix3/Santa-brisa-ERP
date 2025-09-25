@@ -5,7 +5,7 @@ import { SBButton, SBCard } from '@/components/ui/ui-primitives';
 import { Star, TrendingUp, DollarSign, Trophy, Percent, Plus } from 'lucide-react';
 import { usePosTacticsService } from '@/features/marketing/services/posTactics.service';
 import { NewPosTacticDialog } from '@/features/marketing/components/NewPosTacticDialog';
-import type { PosTactic, PosResult } from '@/domain';
+import type { PosTactic, PosResult } from '@/domain/ssot';
 import { useData } from '@/lib/dataprovider';
 
 function KPI({ label, value, icon: Icon, unit = '' }: { label: string; value: string | number; icon: React.ElementType, unit?: string }) {

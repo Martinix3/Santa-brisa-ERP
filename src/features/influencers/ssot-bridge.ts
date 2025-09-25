@@ -2,7 +2,7 @@
 // src/features/influencers/ssot-bridge.ts
 import { collection, getDocs, doc, writeBatch, Timestamp } from "firebase/firestore";
 import { firestoreDb as db } from "@/lib/firebaseClient";
-import type { InfluencerCollab } from '@/domain';
+import type { InfluencerCollab } from '@/domain/ssot';
 
 
 // En un proyecto real, estas funciones harían llamadas a Firestore.
