@@ -1,3 +1,4 @@
+
 // src/features/quicklog/QuickLogOverlay.tsx
 "use client";
 import React, { useState, useCallback, useEffect } from 'react';
@@ -6,6 +7,8 @@ import { useData } from '@/lib/dataprovider';
 import type { SantaData, Account, AccountType, Party, InteractionKind } from '@/domain/ssot';
 import { Chat } from '@/features/chat/Chat';
 import { SBFlowModal } from './components/SBFlows';
+import { NewCustomerCelebration } from '@/components/ui/NewCustomerCelebration';
+
 
 // util de normalización (acentos, casing)
 const norm = (s: string) => s.normalize('NFD').replace(/\p{Diacritic}/gu,'').toLowerCase();
@@ -14,6 +17,7 @@ export default function QuickLogOverlay() {
   const [open, setOpen] = useState(false);
   const { data, setData, currentUser, accounts, saveAllCollections } = useData();
   const [isBrainAvailable, setIsBrainAvailable] = useState<boolean | null>(null);
+  const [celebration, setCelebration] = useState<{accountName: string} | null>(null);
 
   const sourceAccounts = (accounts?.length ? accounts : data?.accounts) || [];
 
@@ -149,6 +153,7 @@ export default function QuickLogOverlay() {
           onSearchAccounts={onSearchAccounts}
           onCreateAccount={onCreateAccount}
           onSubmit={handleQuickSubmit}
+          onOrderCreated={(accountName) => setCelebration({ accountName })}
         />
       </div>
     );
@@ -183,6 +188,13 @@ export default function QuickLogOverlay() {
             {renderContent()}
           </div>
         </div>
+      )}
+
+      {celebration && (
+        <NewCustomerCelebration 
+          accountName={celebration.accountName} 
+          onClose={() => setCelebration(null)} 
+        />
       )}
     </>
   );

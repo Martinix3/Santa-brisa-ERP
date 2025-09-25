@@ -69,12 +69,13 @@ function Header({title, color="#A7D8D9", icon:Icon=ClipboardList}:{title:string;
 function useDebounced<T>(value:T, delay=250){ const [v,setV]=useState(value); useEffect(()=>{ const id=setTimeout(()=>setV(value), delay); return ()=>clearTimeout(id); },[value,delay]); return v; }
 
 // ===== Quick Interaction / Order (Switcher) =====
-function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, onCancel}:{
+function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, onCancel, onOrderCreated}:{
   accounts: Account[];
   onSearchAccounts:(q:string, options: { signal: AbortSignal })=>Promise<Account[]>;
   onCreateAccount:(d:{name:string;city?:string;type?:AccountType})=>Promise<Account>;
   onSubmit:(p: QuickOrderPayload | QuickInteractionPayload)=>void;
   onCancel:()=>void;
+  onOrderCreated: (accountName: string) => void;
 }){
   const { currentUser, data: santaData } = useData();
   const [mode, setMode] = useState<QuickMode>("interaction");
@@ -93,11 +94,12 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
   const searchAbortRef = useRef<AbortController | null>(null);
   const searchCache = useRef<Map<string, Account[]>>(new Map());
 
-  // quick order state
-  const [items, setItems] = useState<{sku:string; qty:number, lotNumber?: string }[]>([{sku:"SB-750", qty:1, lotNumber: ''}]);
   const addOrderLine = useCallback(() => { setItems(v => [...v, { sku: "SB-750", qty: 1, lotNumber: '' }]); }, []);
   const setOrderLine = useCallback((i: number, patch: Partial<{ sku: string; qty: number; lotNumber?: string }>) => { setItems(v => v.map((it, idx) => (idx === i ? { ...it, ...patch } : it))); }, []);
   const removeOrderLine = useCallback((i: number) => { setItems(v => v.filter((_, idx) => idx !== i)); }, []);
+  
+  // quick order state
+  const [items, setItems] = useState<{sku:string; qty:number, lotNumber?: string }[]>([{sku:"SB-750", qty:1, lotNumber: ''}]);
   
   // quick interaction state
   const [interactionNote, setInteractionNote] = useState("");
@@ -242,6 +244,7 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
 
     if(mode==="order"){
       onSubmit({ mode:"order", accountId: finalAccountId, items, note: '', posTactic: posPayload, isVentaPropia: billerId === 'SB' });
+      onOrderCreated(accountName || 'un nuevo cliente');
     } else {
         const plannedFor = nextActionDate && nextActionTime
             ? new Date(`${nextActionDate}T${nextActionTime}`).toISOString()
@@ -317,9 +320,13 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
 
   return (
     <div className="p-4 space-y-4">
-      <div className="flex items-center gap-2 text-sm">
-        <button onClick={()=>setMode("interaction")} className={`px-3 py-1.5 rounded-lg border ${mode==="interaction"?"bg-white border-zinc-300":"border-transparent text-zinc-500 hover:bg-zinc-100"}`}><MessageSquare className="h-4 w-4 inline mr-1"/> Interacción</button>
-        <button onClick={()=>setMode("order")} className={`px-3 py-1.5 rounded-lg border ${mode==="order"?"bg-white border-zinc-300":"border-transparent text-zinc-500 hover:bg-zinc-100"}`}><Zap className="h-4 w-4 inline mr-1"/> Pedido rápido</button>
+       <div className="flex items-center gap-2 p-1 bg-zinc-100 rounded-xl">
+        <button onClick={()=>setMode("interaction")} className={`flex-1 text-center px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${mode==="interaction"?"bg-white shadow-sm":"text-zinc-600 hover:bg-white/50"}`}>
+            <MessageSquare className="h-4 w-4 inline mr-1.5"/> Interacción
+        </button>
+        <button onClick={()=>setMode("order")} className={`flex-1 text-center px-3 py-2 rounded-lg text-sm font-semibold transition-all ${mode==="order"?"bg-[hsl(var(--sb-cobre))] text-white shadow-md":"text-zinc-600 hover:bg-white/50"}`}>
+            <Zap className="h-4 w-4 inline mr-1.5"/> Pedido rápido
+        </button>
       </div>
       
       <div className="border border-zinc-200 rounded-xl p-3 bg-white space-y-3">
@@ -404,7 +411,10 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
       ) : (
         <div className="space-y-4">
           <Row>
-            <Label htmlFor="interaction-note">Resumen de la Interacción</Label>
+            <div className="flex justify-between items-center">
+                <Label htmlFor="interaction-note">Resumen de la Interacción</Label>
+                <span className="text-xs text-zinc-400">{interactionNote.length} / 200</span>
+            </div>
             <div className='relative'>
                 <Textarea
                   id="interaction-note"
@@ -413,7 +423,6 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
                   placeholder="Ej: Cliente interesado, enviar propuesta la semana que viene."
                   value={interactionNote}
                   onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => { setInteractionNote(e.target.value); setErrors(e => ({ ...e, interactionNote: '' })) }} />
-                <div className="absolute bottom-2 right-2 text-xs text-zinc-400">{interactionNote.length} / 200</div>
             </div>
             {errors.interactionNote && <p className="text-xs text-red-500">{errors.interactionNote}</p>}
           </Row>
@@ -664,7 +673,8 @@ export function SBFlowModal({
   onSearchAccounts,
   onCreateAccount,
   defaults,
-  onSubmit
+  onSubmit,
+  onOrderCreated,
 }:{
   open:boolean;
   variant: Variant;
@@ -674,13 +684,14 @@ export function SBFlowModal({
   onCreateAccount:(d:{name:string;city?:string;type?:AccountType})=>Promise<Account>;
   defaults?: any;
   onSubmit:(payload:any)=>void; // (en real tipa por variante)
+  onOrderCreated?: (accountName: string) => void;
 }){
   if(!open) return null;
   if(variant==="quick"){
     return (
       <div className="w-full h-full rounded-2xl flex flex-col">
         <div className="flex-grow overflow-y-auto">
-          <QuickSwitcher accounts={accounts} onSearchAccounts={onSearchAccounts} onCreateAccount={onCreateAccount} onCancel={onClose} onSubmit={(p)=>{ onSubmit(p); }}/>
+          <QuickSwitcher accounts={accounts} onSearchAccounts={onSearchAccounts} onCreateAccount={onCreateAccount} onCancel={onClose} onSubmit={(p)=>{ onSubmit(p); }} onOrderCreated={onOrderCreated!} />
         </div>
       </div>
     );
