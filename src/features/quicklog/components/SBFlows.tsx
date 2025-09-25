@@ -98,7 +98,6 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
   
   // quick interaction state
   const [interactionNote, setInteractionNote] = useState("");
-  const [nextActionNote, setNextActionNote] = useState("");
   const [nextActionDate, setNextActionDate] = useState("");
   const [nextActionTime, setNextActionTime] = useState<string | null>(null);
 
@@ -248,7 +247,7 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
         const plannedFor = nextActionDate && nextActionTime
             ? new Date(`${nextActionDate}T${nextActionTime}`).toISOString()
             : nextActionDate ? new Date(nextActionDate).toISOString() : undefined;
-        onSubmit({ mode:"interaction", accountId: finalAccountId, kind: 'OTRO', note: interactionNote, nextActionNote: nextActionNote || undefined, plannedFor: plannedFor, posTactic: posPayload });
+        onSubmit({ mode:"interaction", accountId: finalAccountId, kind: 'OTRO', note: interactionNote, nextActionNote: '', plannedFor: plannedFor, posTactic: posPayload });
     }
     setIsSaving(false);
   }
@@ -373,72 +372,69 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
         </div>
       </div>
 
-      {mode==="order" ? (
-         <Row>
-            <Label htmlFor="order-items">Pedido</Label>
-            <div className="border rounded-xl p-2 space-y-2">
-              {items.map((it, i) => {
-                const lotsForSku = availableInventory.filter(inv => inv.sku === it.sku);
-                return (
-                  <div key={i} className="grid grid-cols-[2fr_1.5fr_1fr_auto] gap-2 items-center">
-                      <Select value={it.sku} onChange={e => setLine(i, { sku: e.target.value })}>
-                          <option value="">Producto...</option>
-                          {(santaData?.products || []).filter(p => p.category === 'finished_good').map(p => (
-                              <option key={p.sku} value={p.sku}>{p.name}</option>
-                          ))}
-                      </Select>
-                      <Select value={it.lotNumber || ''} onChange={e => setLine(i, { lotNumber: e.target.value })}>
-                          <option value="">Lote...</option>
-                          {lotsForSku.map(lot => (
-                              <option key={lot.lotNumber} value={lot.lotNumber || ''}>
-                                  {lot.lotNumber} ({lot.qty} uds)
-                              </option>
-                          ))}
-                      </Select>
-                      <Input type="number" min="1" value={it.qty} onChange={e=>setLine(i,{qty: Number(e.target.value)})}/>
-                      <button onClick={()=>removeLine(i)} className="p-2 rounded-md hover:bg-zinc-100" aria-label="Eliminar"><X className="h-4 w-4 text-zinc-500"/></button>
-                  </div>
-                )
-              })}
-              <button onClick={addLine} className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md border border-zinc-300 bg-white hover:bg-zinc-50"><Plus className="h-3.5 w-3.5"/>Añadir línea</button>
-            </div>
-          </Row>
+      {mode === "order" ? (
+        <Row>
+          <Label htmlFor="order-items">Pedido</Label>
+          <div className="border rounded-xl p-2 space-y-2">
+            {items.map((it, i) => {
+              const lotsForSku = availableInventory.filter(inv => inv.sku === it.sku);
+              return (
+                <div key={i} className="grid grid-cols-[2fr_1.5fr_1fr_auto] gap-2 items-center">
+                  <Select value={it.sku} onChange={e => setLine(i, { sku: e.target.value })}>
+                    <option value="">Producto...</option>
+                    {(santaData?.products || []).filter(p => p.category === 'finished_good').map(p => (
+                      <option key={p.sku} value={p.sku}>{p.name}</option>
+                    ))}
+                  </Select>
+                  <Select value={it.lotNumber || ''} onChange={e => setLine(i, { lotNumber: e.target.value })}>
+                    <option value="">Lote...</option>
+                    {lotsForSku.map(lot => (
+                      <option key={lot.lotNumber} value={lot.lotNumber || ''}>
+                        {lot.lotNumber} ({lot.qty} uds)
+                      </option>
+                    ))}
+                  </Select>
+                  <Input type="number" min="1" value={it.qty} onChange={e => setLine(i, { qty: Number(e.target.value) })} />
+                  <button onClick={() => removeLine(i)} className="p-2 rounded-md hover:bg-zinc-100" aria-label="Eliminar"><X className="h-4 w-4 text-zinc-500" /></button>
+                </div>
+              )
+            })}
+            <button onClick={addLine} className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md border border-zinc-300 bg-white hover:bg-zinc-50"><Plus className="h-3.5 w-3.5" />Añadir línea</button>
+          </div>
+        </Row>
       ) : (
         <div className="space-y-4">
-            <Row>
-              <Label htmlFor="interaction-note">Cuéntamelo en una frase</Label>
-                <Textarea 
-                  id="interaction-note"
-                  rows={2}
-                  maxLength={200}
-                  placeholder="Ej: Cliente interesado, enviar propuesta la semana que viene."
-                  value={interactionNote}
-                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>)=> { setInteractionNote(e.target.value); setErrors(e => ({...e, interactionNote: ''}))} }/>
-                <div className="text-xs text-zinc-500 text-right">{interactionNote.length} / 200</div>
-                {errors.interactionNote && <p className="text-xs text-red-500">{errors.interactionNote}</p>}
-            </Row>
-            <Row>
-              <Label htmlFor="next-action-note">¿Qué hacemos después?</Label>
-              <Input id="next-action-note" value={nextActionNote} onChange={e => setNextActionNote(e.target.value)} placeholder="Opcional: Enviar propuesta, llamar en 7 días..."/>
-            </Row>
-            <Row>
-              <Label htmlFor="next-action-date">¿Cuándo?</Label>
-              <div className="flex gap-2">
-                <Input id="next-action-date" type="date" value={nextActionDate} onChange={e => setNextActionDate(e.target.value)} className="flex-1"/>
-                <TimePicker value={nextActionTime} onChange={setNextActionTime} step={15} className="flex-1"/>
-              </div>
-            </Row>
+          <Row>
+            <Label htmlFor="interaction-note">Resumen de la Interacción</Label>
+            <Textarea
+              id="interaction-note"
+              rows={2}
+              maxLength={200}
+              placeholder="Ej: Cliente interesado, enviar propuesta la semana que viene."
+              value={interactionNote}
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => { setInteractionNote(e.target.value); setErrors(e => ({ ...e, interactionNote: '' })) }} />
+            <div className="text-xs text-zinc-500 text-right">{interactionNote.length} / 200</div>
+            {errors.interactionNote && <p className="text-xs text-red-500">{errors.interactionNote}</p>}
+          </Row>
+          
+          <Row>
+            <Label>Fecha Próxima Acción (opcional)</Label>
+            <div className="flex gap-2">
+              <Input id="next-action-date" type="date" value={nextActionDate} onChange={e => setNextActionDate(e.target.value)} className="flex-1" />
+              <TimePicker value={nextActionTime} onChange={setNextActionTime} step={15} className="flex-1" />
+            </div>
+          </Row>
         </div>
       )}
       
       {posTacticSection}
       
-      <footer className="sticky bottom-0 bg-white/80 backdrop-blur-sm py-3 px-4 -m-4 mt-4 border-t border-zinc-200 flex justify-end gap-2">
+      <div className="sticky bottom-0 bg-white/80 backdrop-blur-sm py-3 px-4 -m-4 mt-4 border-t border-zinc-200 flex justify-end gap-2">
         <button type="button" onClick={onCancel} className="px-4 py-2 text-sm rounded-lg border border-zinc-300 bg-white hover:bg-zinc-50">Cancelar</button>
         <button type="button" onClick={submit} disabled={isSaveDisabled} className="w-32 px-4 py-2 text-sm font-semibold rounded-lg bg-sb-sun text-zinc-900 hover:brightness-110 disabled:bg-zinc-200 disabled:text-zinc-500 disabled:cursor-not-allowed flex items-center justify-center">
             {isSaving ? <Loader2 className="h-4 w-4 animate-spin"/> : 'Guardar'}
         </button>
-      </footer>
+      </div>
     </div>
   );
 }
