@@ -122,7 +122,7 @@ const TacticItemRow = ({
             <Input type="number" placeholder="Cantidad" value={item.qty ?? 1} onChange={e => onChange(index, { qty: Number(e.target.value), actualCost: (item.unitCost || 0) * Number(e.target.value) })}/>
             <div className="relative">
                 <Input type="number" placeholder="Coste" value={item.actualCost ?? 0} onChange={e => onChange(index, { actualCost: Number(e.target.value) })}/>
-                {stockShortage && <AlertCircle className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-red-500" title={`Stock insuficiente. Disponible: ${stockAvailable}`}/>}
+                {stockShortage && <AlertCircle className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-red-500" />}
             </div>
             <button type="button" onClick={() => onRemove(index)} className="p-2 text-red-500 hover:bg-red-50 rounded-md"><X size={16}/></button>
         </div>
@@ -141,11 +141,11 @@ export function NewPosTacticDialog({
     costCatalog: PosCostCatalogEntry[];
     plvInventory: PlvMaterial[];
 }) {
-    const [tactic, setTactic] = useState<Partial<PosTactic>>({ items: [{id: '', description: '', actualCost: 0}] });
+    const [tactic, setTactic] = useState<Partial<PosTactic>>({ items: [{id: '', description: '', actualCost: 0, qty: 1}] });
 
     useEffect(() => {
         if(open) {
-            const initial = tacticBeingEdited || { status: 'active', executionScore: 80, accountId: accounts.length === 1 ? accounts[0].id : undefined, items: [{id: '', description: '', actualCost: 0}] };
+            const initial = tacticBeingEdited || { status: 'active', executionScore: 80, accountId: accounts.length === 1 ? accounts[0].id : undefined, items: [{id: '', description: '', actualCost: 0, qty: 1}] };
             setTactic(initial);
         }
     }, [open, tacticBeingEdited, accounts]);
@@ -157,7 +157,7 @@ export function NewPosTacticDialog({
         setTactic(p => ({...p, items: newItems, actualCost: totalCost }));
     };
     
-    const addItem = () => setTactic(p => ({...p, items: [...(p.items || []), {id: '', description: '', actualCost: 0}]}));
+    const addItem = () => setTactic(p => ({...p, items: [...(p.items || []), {id: '', description: '', actualCost: 0, qty: 1}]}));
     const removeItem = (index: number) => setTactic(p => {
         const newItems = (p.items || []).filter((_, i) => i !== index);
         const totalCost = newItems.reduce((sum, item) => sum + (item.actualCost || 0), 0);

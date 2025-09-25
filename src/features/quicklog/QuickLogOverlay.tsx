@@ -19,8 +19,6 @@ export default function QuickLogOverlay() {
   const { data, setData, currentUser, saveAllCollections } = useData();
   const [isBrainAvailable, setIsBrainAvailable] = useState<boolean | null>(null);
 
-  const sourceAccounts = (data?.accounts) || [];
-
   useEffect(() => {
     const checkBrainAvailability = async () => {
       const brainUrl = process.env.NEXT_PUBLIC_SANTA_BRAIN_URL;
@@ -55,7 +53,7 @@ export default function QuickLogOverlay() {
   }, [data, setData]);
 
   const onSearchAccounts = useCallback(async (q: string): Promise<Account[]> => {
-    const list = sourceAccounts;
+    const list = data?.accounts || [];
     const nq = norm(q || '');
     if (!nq) return [];
     
@@ -68,7 +66,7 @@ export default function QuickLogOverlay() {
     
     console.log('[onSearchAccounts]', { q, in: list.length, out: res.length });
     return res as Account[];
-  }, [sourceAccounts]);
+  }, [data?.accounts]);
 
   const onCreateAccount = useCallback(async (d: { name: string; city?: string; type?: AccountType }) => {
     const partyId = `party_${Date.now()}`;
@@ -103,7 +101,7 @@ export default function QuickLogOverlay() {
     console.log("Quick form submitted:", payload);
 
     const acc =
-      (sourceAccounts || []).find((a: Account) => a.id === payload.accountId);
+      (data?.accounts || []).find((a: Account) => a.id === payload.accountId);
 
     const accountId = acc?.id;
 
@@ -128,7 +126,7 @@ export default function QuickLogOverlay() {
     }
     
     setOpen(false);
-  }, [sourceAccounts, currentUser?.id, saveAllCollections]);
+  }, [data?.accounts, currentUser?.id, saveAllCollections]);
 
   const renderContent = () => {
     if (isBrainAvailable === null) {
@@ -149,7 +147,7 @@ export default function QuickLogOverlay() {
           open={true}
           variant="quick"
           onClose={() => setOpen(false)}
-          accounts={sourceAccounts}
+          accounts={data?.accounts || []}
           onSearchAccounts={onSearchAccounts}
           onCreateAccount={onCreateAccount}
           onSubmit={handleQuickSubmit}

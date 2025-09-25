@@ -97,7 +97,7 @@ function CatalogFormDialog({ item, open, onClose, onSave }: {
 }
 
 export default function PosCatalogPage() {
-    const { data, saveCollection } = useData();
+    const { data, saveCollection, currentUser } = useData();
     const [editingItem, setEditingItem] = useState<Partial<PosCostCatalogEntry> | null>(null);
 
     const catalog = useMemo(() => data?.posCostCatalog || [], [data]);
@@ -112,7 +112,7 @@ export default function PosCatalogPage() {
             updatedEntry.id = `poscat_${Date.now()}`;
             updatedEntry.createdAt = now;
             updatedEntry.updatedAt = now;
-            updatedEntry.createdById = 'system'; // Debería ser el currentUser.id
+            updatedEntry.createdById = currentUser?.id || 'system';
         }
 
         const newCatalog = entry.createdAt 
@@ -130,7 +130,7 @@ export default function PosCatalogPage() {
                     <h1 className="text-2xl font-semibold text-zinc-800">Catálogo de Tácticas POS</h1>
                     <p className="text-sm text-zinc-600">Define las acciones de marketing estandarizadas para el punto de venta.</p>
                 </div>
-                <SBButton onClick={() => setEditingItem({})}>
+                <SBButton onClick={() => setEditingItem({ status: 'ACTIVE', uom: 'UNIT' })}>
                     <Plus size={16} className="mr-2"/>
                     Nueva Táctica
                 </SBButton>

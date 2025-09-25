@@ -143,7 +143,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       userToSet = data.users.find(u => u.email === firebaseUser.email) || null;
       if(userToSet) {
           const userName = userToSet.name === 'MJ' ? 'Martin' : userToSet.name;
-          console.log(`[DataProvider] App user found: ${userName}. Setting as currentUser.`);
+          console.log(`[DataProvider] Found matching app user: ${userName}. Setting as currentUser.`);
           userToSet = { ...userToSet, name: userName, role: (userToSet.role?.toLowerCase() || 'comercial') as UserRole };
       } else {
           console.warn(`[DataProvider] Firebase user ${firebaseUser.email} not found in local data.users array.`);

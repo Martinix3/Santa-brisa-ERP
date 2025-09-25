@@ -1,4 +1,3 @@
-
 // src/app/(app)/marketing/pos-tactics/page.tsx
 import React from 'react';
 import { listPosCostCatalog, listPlvInStock, listPosTactics } from '@/features/marketing/services/posTactics.service';

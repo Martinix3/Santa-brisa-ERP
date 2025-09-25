@@ -11,7 +11,8 @@ import { ArrowUpRight, ArrowDownRight, Phone, Mail, MapPin, User, Factory, Boxes
 import Link from 'next/link';
 import { enrichAccount } from '@/ai/flows/enrich-account-flow';
 import { NewPosTacticDialog } from '@/features/marketing/components/NewPosTacticDialog';
-import { upsertPosTactic, listPosCostCatalog, listPlvInStock } from '@/features/marketing/services/posTactics.service';
+import { upsertPosTactic } from '@/features/marketing/services/posTactics.client';
+import { listPosCostCatalog, listPlvInStock } from '@/features/marketing/services/posTactics.service';
 
 import { SBFlowModal } from '@/features/quicklog/components/SBFlows';
 import { SBButton, SBCard } from '@/components/ui/ui-primitives';

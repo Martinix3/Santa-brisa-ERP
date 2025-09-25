@@ -34,7 +34,7 @@ export function PosTacticsClientPage({
     catalog: PosCostCatalogEntry[];
     plv: PlvMaterial[];
 }) {
-    const { data } = useData();
+    const { data, currentUser } = useData();
     const [tactics, setTactics] = useState(initialTactics);
     const [isNewTacticOpen, setIsNewTacticOpen] = useState(false);
     const [editingTactic, setEditingTactic] = useState<PosTactic | null>(null);
@@ -59,7 +59,7 @@ export function PosTacticsClientPage({
 
     const handleSaveTactic = async (tacticData: any) => {
         try {
-            const savedTactic = await upsertPosTactic(tacticData, data?.currentUser?.id || 'unknown');
+            const savedTactic = await upsertPosTactic(tacticData, currentUser?.id || 'unknown');
             setTactics(prev => {
                 const index = prev.findIndex(t => t.id === savedTactic.id);
                 if (index > -1) {

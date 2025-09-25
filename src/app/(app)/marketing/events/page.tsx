@@ -1,9 +1,9 @@
 
 
 "use client";
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useData } from '@/lib/dataprovider';
-import type { MarketingEvent, Interaction, InteractionKind, Account, PosTactic, SB_THEME } from '@/domain/ssot';
+import type { MarketingEvent, Interaction, InteractionKind, Account, PosTactic, SB_THEME, PosCostCatalogEntry, PlvMaterial, PosTacticItem, PosTacticStatus } from '@/domain/ssot';
 import { SBCard, SBButton, DataTableSB, KPI } from '@/components/ui/ui-primitives';
 import type { Col } from '@/components/ui/ui-primitives';
 import { NewEventDialog } from '@/features/agenda/components/NewEventDialog';
@@ -11,7 +11,8 @@ import { MarketingTaskCompletionDialog } from '@/features/marketing/components/M
 import { SB_COLORS } from '@/domain/ssot';
 import { Calendar, Megaphone, Target, Euro, Plus } from 'lucide-react';
 import { NewPosTacticDialog } from '@/features/marketing/components/NewPosTacticDialog';
-import { upsertPosTactic, listPosCostCatalog, listPlvInStock } from '@/features/marketing/services/posTactics.service';
+import { upsertPosTactic } from '@/features/marketing/services/posTactics.client';
+import { listPosCostCatalog, listPlvInStock } from '@/features/marketing/services/posTactics.service';
 
 function StatusPill({ status }: { status: MarketingEvent['status'] }) {
     const styles: Record<MarketingEvent['status'], string> = {
