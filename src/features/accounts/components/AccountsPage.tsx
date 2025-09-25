@@ -91,9 +91,9 @@ function AccountBar({ a, party, santaData, onAddActivity }: { a: AccountType, pa
   return (
     <div className="overflow-hidden transition-all duration-200 hover:bg-black/5 rounded-lg border border-zinc-200/50">
       <div className="w-full flex items-center cursor-pointer" onClick={()=>setOpen(v=>!v)}>
-          <button onClick={(e)=>{ e.stopPropagation(); setOpen(v=>!v); }} className="p-1.5 rounded-md text-zinc-600 hover:bg-zinc-100/20 ml-4" title={open ? 'Cerrar detalle' : 'Ver detalle'}>
+          <div className="p-1.5 rounded-md text-zinc-600 hover:bg-zinc-100/20 ml-4">
             <ChevronDown className="h-4 w-4 transition-transform duration-300" style={{transform: open? 'rotate(180deg)':'rotate(0deg)'}}/>
-          </button>
+          </div>
           <div className="w-full grid grid-cols-[1.6fr_1.2fr_1fr_1.2fr_auto] items-center gap-3 px-4 py-1.5">
             <div className="text-sm font-medium truncate flex items-center gap-2">
             <Link href={`/accounts/${a.id}`} className="text-zinc-900 truncate hover:underline">{a.name}</Link>
@@ -114,7 +114,7 @@ function AccountBar({ a, party, santaData, onAddActivity }: { a: AccountType, pa
           </div>
       </div>
       {open && kpis && (
-        <div className="border-t bg-white/50" style={{borderColor:`${s.tint}33`}}>
+        <div className="border-t" style={{borderColor:`${s.tint}33`, backgroundColor: `${s.tint}1A`}}>
             <div className="p-4 grid grid-cols-3 gap-6">
               <div className='col-span-2'>
                 <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">Actividad Reciente</h4>
