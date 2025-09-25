@@ -30,7 +30,7 @@ export type Variant = "quick" | "editAccount" | "createAccount" | "createOrder";
 type QuickMode = "interaction" | "order";
 
 type QuickOrderPayload = { mode:"order"; accountId?:string; newAccount?: Partial<Account>; newParty?: Partial<Party>; items:{ sku:string; qty:number, lotNumber?: string }[]; note?:string; isVentaPropia: boolean; posTactic?: Partial<Omit<PosTactic, 'id' | 'items'>> & { items?: Partial<PosTacticItem>[] } };
-type QuickInteractionPayload = { mode:"interaction"; accountId?:string; newAccount?: Partial<Account>; newParty?: Partial<Party>; kind:InteractionKind; note:string; nextAction?:string; posTactic?: Partial<Omit<PosTactic, 'id' | 'items'>> & { items?: Partial<PosTacticItem>[] } };
+type QuickInteractionPayload = { mode:"interaction"; accountId?:string; newAccount?: Partial<Account>; newParty?: Partial<Party>; kind:InteractionKind; note:string; plannedFor?:string; posTactic?: Partial<Omit<PosTactic, 'id' | 'items'>> & { items?: Partial<PosTacticItem>[] } };
 
 type EditAccountPayload = {
   id:string;
@@ -97,7 +97,6 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
   
   // quick interaction state
   const [interactionNote, setInteractionNote] = useState("");
-  const [nextActionNote, setNextActionNote] = useState("");
   const [nextActionDate, setNextActionDate] = useState("");
   const [nextActionTime, setNextActionTime] = useState<string | null>(null);
 
@@ -251,14 +250,20 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
         const plannedFor = nextActionDate && nextActionTime
             ? new Date(`${nextActionDate}T${nextActionTime}`).toISOString()
             : nextActionDate ? new Date(nextActionDate).toISOString() : undefined;
-        onSubmit({ mode:"interaction", accountId: selectedAccountId, newAccount: newAccountPayload, newParty: newPartyPayload, kind: 'OTRO', note: interactionNote, nextAction: nextActionNote || undefined, posTactic: posPayload, plannedFor });
+        onSubmit({ mode:"interaction", accountId: selectedAccountId, newAccount: newAccountPayload, newParty: newPartyPayload, kind: 'OTRO', note: interactionNote, plannedFor: plannedFor, posTactic: posPayload });
     }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (!isSearchOpen && (e.key === 'ArrowDown' || e.key === 'Enter')) setIsSearchOpen(true);
-    if (e.key === 'ArrowDown') setActiveIdx(i => Math.min(i + 1, searchSuggestions.length - 1));
-    if (e.key === 'ArrowUp') setActiveIdx(i => Math.max(i - 1, -1));
+    if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setActiveIdx(i => Math.min(i + 1, searchSuggestions.length - 1));
+    }
+    if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setActiveIdx(i => Math.max(i - 1, -1));
+    }
     if (e.key === 'Escape') setIsSearchOpen(false);
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -290,8 +295,8 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
                 {posTacticLines.map((line, i) => (
                     <div key={i} className="grid grid-cols-[1fr_2fr_auto] gap-2 items-center">
                         <Select value={line.code} onChange={e => setPosTacticLine(i, { code: e.target.value })}>
-                            {(santaData?.posCostCatalog || []).map(c => <option key={c.code} value={c.code}>{c.label}</option>)}
                             <option value="OTHER">Otro</option>
+                            {(santaData?.posCostCatalog || []).map(c => <option key={c.code} value={c.code}>{c.label}</option>)}
                         </Select>
                         <Input value={line.description} onChange={e => setPosTacticLine(i, { description: e.target.value })} placeholder="Descripción..."/>
                         <button type="button" onClick={() => removePosTacticLine(i)} className="p-1 text-red-500 hover:bg-red-50 rounded-md">
@@ -393,9 +398,6 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
               <Label htmlFor="interaction-note">Resumen de la Interacción</Label>
                 <Textarea id="interaction-note" rows={3} placeholder="¿Qué ha pasado? ¿De qué se ha hablado?" value={interactionNote} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>)=> { setInteractionNote(e.target.value); setErrors(e => ({...e, interactionNote: ''}))} }/>
                 {errors.interactionNote && <p className="text-xs text-red-500">{errors.interactionNote}</p>}
-            </Row>
-             <Row><Label htmlFor="next-action-note">Próxima Acción (opcional)</Label>
-                <Input id="next-action-note" placeholder="Ej. Enviar propuesta, volver a llamar en 7 días..." value={nextActionNote} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>setNextActionNote(e.target.value)}/>
             </Row>
             <Row>
               <Label htmlFor="next-action-date">Fecha Próxima Acción (opcional)</Label>
