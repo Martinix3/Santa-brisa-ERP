@@ -1,3 +1,4 @@
+
 // src/features/quicklog/components/SBFlows.tsx
 "use client";
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
@@ -30,7 +31,7 @@ export type Variant = "quick" | "editAccount" | "createAccount" | "createOrder";
 type QuickMode = "interaction" | "order";
 
 type QuickOrderPayload = { mode:"order"; accountId?:string; newAccount?: Partial<Account>; newParty?: Partial<Party>; items:{ sku:string; qty:number, lotNumber?: string }[]; note?:string; isVentaPropia: boolean; posTactic?: Partial<Omit<PosTactic, 'id' | 'items'>> & { items?: Partial<PosTacticItem>[] } };
-type QuickInteractionPayload = { mode:"interaction"; accountId?:string; newAccount?: Partial<Account>; newParty?: Partial<Party>; kind:InteractionKind; note:string; plannedFor?:string; posTactic?: Partial<Omit<PosTactic, 'id' | 'items'>> & { items?: Partial<PosTacticItem>[] } };
+type QuickInteractionPayload = { mode:"interaction"; accountId?:string; newAccount?: Partial<Account>; newParty?: Partial<Party>; kind:InteractionKind; note:string; nextActionNote?: string, plannedFor?:string; posTactic?: Partial<Omit<PosTactic, 'id' | 'items'>> & { items?: Partial<PosTacticItem>[] } };
 
 type EditAccountPayload = {
   id:string;
@@ -49,10 +50,10 @@ type CreateAccountPayload = { name:string; city:string; type:AccountType; mainCo
 type CreateOrderPayload = { accountId?:string; newAccount?: Partial<Account>; newParty?: Partial<Party>; requestedDate?:string; deliveryDate?:string; channel:AccountType; paymentTerms?:string; shipTo?:string; note?:string; items:{ sku:string; qty:number; unit:"uds", priceUnit: number, lotNumber?: string }[] };
 
 // ===== UI Primitives =====
-function Row({children, className}:{children:React.ReactNode, className?: string}){ return <div className={`flex flex-col gap-1 ${className || ''}`}>{children}</div>; }
-function Label({children, htmlFor}:{children:React.ReactNode, htmlFor?: string}){ return <label htmlFor={htmlFor} className="text-xs text-zinc-600">{children}</label>; }
-function Input(props:React.InputHTMLAttributes<HTMLInputElement>){ return <input {...props} className={`w-full px-3 py-2 rounded-lg border border-zinc-300 bg-white text-sm outline-none focus:ring-2 focus:ring-[#F7D15F] ${props.className||""}`}/>; }
-function Select(props:React.SelectHTMLAttributes<HTMLSelectElement>){ return <select {...props} className={`w-full px-3 py-2 rounded-lg border border-zinc-300 bg-white text-sm outline-none focus:ring-2 focus:ring-[#F7D15F] ${props.className||""}`}/>; }
+function Row({children, className}:{children:React.ReactNode, className?: string}){ return <div className={`flex flex-col gap-1.5 ${className || ''}`}>{children}</div>; }
+function Label({children, htmlFor}:{children:React.ReactNode, htmlFor?: string}){ return <label htmlFor={htmlFor} className="text-sm font-medium text-zinc-700">{children}</label>; }
+function Input(props:React.InputHTMLAttributes<HTMLInputElement>){ return <input {...props} className={`h-10 w-full px-3 py-2 rounded-lg border border-zinc-300 bg-white text-sm outline-none focus:ring-2 focus:ring-[#F7D15F] ${props.className||""}`}/>; }
+function Select(props:React.SelectHTMLAttributes<HTMLSelectElement>){ return <select {...props} className={`h-10 w-full px-3 py-2 rounded-lg border border-zinc-300 bg-white text-sm outline-none focus:ring-2 focus:ring-[#F7D15F] ${props.className||""}`}/>; }
 function Textarea(props:React.TextareaHTMLAttributes<HTMLTextAreaElement>){ return <textarea {...props} className={`w-full px-3 py-2 rounded-lg border border-zinc-300 bg-white text-sm outline-none focus:ring-2 focus:ring-[#F7D15F] ${props.className||""}`}/>; }
 
 function Header({title, color="#A7D8D9", icon:Icon=ClipboardList}:{title:string;color?:string;icon?:any}){
@@ -97,6 +98,7 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
   
   // quick interaction state
   const [interactionNote, setInteractionNote] = useState("");
+  const [nextActionNote, setNextActionNote] = useState("");
   const [nextActionDate, setNextActionDate] = useState("");
   const [nextActionTime, setNextActionTime] = useState<string | null>(null);
 
@@ -106,6 +108,7 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
   
   // Validation state
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSaving, setIsSaving] = useState(false);
 
   const debouncedName = useDebounced(accountName, 250);
 
@@ -217,9 +220,10 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
     return Object.keys(newErrors).length === 0;
   }
 
-  function submit(){
-    if (!validate()) return;
+  async function submit(){
+    if (!validate() || isSaving) return;
 
+    setIsSaving(true);
     let posPayload: Partial<Omit<PosTactic, 'id' | 'items'>> & { items?: Partial<PosTacticItem>[] } | undefined;
     if (showPosTacticForm) {
       posPayload = {
@@ -231,27 +235,22 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
     let newAccountPayload: Partial<Account> | undefined;
     let newPartyPayload: Partial<Party> | undefined;
     
+    let finalAccountId = selectedAccountId;
+
     if(!selectedAccountId && accountName.trim()){
-      const partyId = `party_${Date.now()}`;
-      newPartyPayload = {
-          id: partyId, name: accountName.trim(), legalName: accountName.trim(), kind: 'ORG',
-          billingAddress: accountCity ? { city: accountCity, country: 'España'} : undefined,
-          createdAt: new Date().toISOString(),
-      };
-      newAccountPayload = {
-          id: `acc_${Date.now()}`, partyId, name: accountName.trim(), type: 'HORECA',
-          stage: 'POTENCIAL', ownerId: currentUser?.id || 'u_admin', createdAt: new Date().toISOString(),
-      };
+        const newAccount = await onCreateAccount({ name: accountName, city: accountCity, type: 'HORECA' });
+        finalAccountId = newAccount.id;
     }
 
     if(mode==="order"){
-      onSubmit({ mode:"order", accountId: selectedAccountId, newAccount: newAccountPayload, newParty: newPartyPayload, items, note: '', posTactic: posPayload, isVentaPropia: billerId === 'SB' });
+      onSubmit({ mode:"order", accountId: finalAccountId, items, note: '', posTactic: posPayload, isVentaPropia: billerId === 'SB' });
     } else {
         const plannedFor = nextActionDate && nextActionTime
             ? new Date(`${nextActionDate}T${nextActionTime}`).toISOString()
             : nextActionDate ? new Date(nextActionDate).toISOString() : undefined;
-        onSubmit({ mode:"interaction", accountId: selectedAccountId, newAccount: newAccountPayload, newParty: newPartyPayload, kind: 'OTRO', note: interactionNote, plannedFor: plannedFor, posTactic: posPayload });
+        onSubmit({ mode:"interaction", accountId: finalAccountId, kind: 'OTRO', note: interactionNote, nextActionNote: nextActionNote || undefined, plannedFor: plannedFor, posTactic: posPayload });
     }
+    setIsSaving(false);
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -314,21 +313,21 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
   );
   
   const isSaveDisabled = 
+      isSaving ||
       (mode === 'interaction' && !interactionNote.trim()) ||
       (mode === 'order' && (!items.length || items.some(it => !it.sku || it.qty <= 0)));
 
   return (
-    <div className="p-4 space-y-3">
+    <div className="p-4 space-y-4">
       <div className="flex items-center gap-2 text-sm">
-        <button onClick={()=>setMode("interaction")} className={`px-3 py-1.5 rounded-lg border ${mode==="interaction"?"bg-white border-zinc-300":"border-zinc-200 hover:bg-zinc-50"}`}><MessageSquare className="h-4 w-4 inline mr-1"/> Interacción</button>
-        <button onClick={()=>setMode("order")} className={`px-3 py-1.5 rounded-lg border ${mode==="order"?"bg-white border-zinc-300":"border-zinc-200 hover:bg-zinc-50"}`}><Zap className="h-4 w-4 inline mr-1"/> Pedido rápido</button>
+        <button onClick={()=>setMode("interaction")} className={`px-3 py-1.5 rounded-lg border ${mode==="interaction"?"bg-white border-zinc-300":"border-transparent text-zinc-500 hover:bg-zinc-100"}`}><MessageSquare className="h-4 w-4 inline mr-1"/> Interacción</button>
+        <button onClick={()=>setMode("order")} className={`px-3 py-1.5 rounded-lg border ${mode==="order"?"bg-white border-zinc-300":"border-transparent text-zinc-500 hover:bg-zinc-100"}`}><Zap className="h-4 w-4 inline mr-1"/> Pedido rápido</button>
       </div>
       
       <div className="border border-zinc-200 rounded-xl p-3 bg-white space-y-3">
-        <div className="text-xs text-zinc-500 uppercase font-semibold">Cuenta</div>
+        <div className="text-xs text-zinc-500 uppercase font-semibold">¿Con qué cuenta trabajas?</div>
         <div className="relative" ref={nameInputRef}>
             <Row>
-              <Label>Nombre</Label>
               <Input 
                 value={accountName} 
                 onChange={handleNameChange} 
@@ -342,15 +341,19 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
                 {loading ? <div className="px-3 py-2 text-sm text-zinc-500">Buscando...</div> :
                 searchSuggestions.length > 0 ? (
                   <ul className="max-h-40 overflow-y-auto divide-y">
-                    {searchSuggestions.map((account, i) => (
-                      <li key={account.id} onClick={() => handleAccountSelect(account)} className={`px-3 py-2 text-sm hover:bg-zinc-50 cursor-pointer ${i === activeIdx ? 'bg-zinc-50' : ''}`}>
-                        {account.name}
-                      </li>
-                    ))}
+                    {searchSuggestions.map((account, i) => {
+                      const party = santaData?.parties.find(p => p.id === account.partyId);
+                      return (
+                        <li key={account.id} onClick={() => handleAccountSelect(account)} className={`px-3 py-2 text-sm hover:bg-zinc-50 cursor-pointer ${i === activeIdx ? 'bg-zinc-50' : ''}`}>
+                          {account.name}
+                          {party?.billingAddress?.city && <span className="text-zinc-500 ml-2">({party.billingAddress.city})</span>}
+                        </li>
+                      )
+                    })}
                   </ul>
                 ) : debouncedName ? (
                     <div className="px-3 py-2 text-sm text-zinc-600">
-                        Pulsa ↵ para crear “<strong>{debouncedName}</strong>”.
+                        No hay resultados. Pulsa ↵ para crear “<strong>{debouncedName}</strong>”.
                     </div>
                 ) : null}
               </div>
@@ -359,7 +362,7 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
         <div className="grid grid-cols-2 gap-3">
             <Row><Label>Ciudad</Label><Input value={accountCity} onChange={e=>setAccountCity(e.target.value)} /></Row>
             <Row>
-              <Label>Canal de Venta / Facturador</Label>
+              <Label>Canal de venta</Label>
               <Select value={billerId} onChange={e => setBillerId(e.target.value)}>
                 <option value="SB">Venta Propia (Santa Brisa)</option>
                 {distributors.map(d => (
@@ -372,35 +375,54 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
 
       {mode==="order" ? (
          <Row>
-            <Label htmlFor="order-items">Pedido Rápido</Label>
-            <div id="order-items" className="border rounded-xl p-2 space-y-2">
-                <div className="grid grid-cols-[2fr_1.5fr_1fr_40px] gap-2 items-center">
-                    <Select value={items[0].sku} onChange={e => setOrderLine(0, { sku: e.target.value })}>
-                        <option value="">Producto...</option>
-                        {(santaData?.products || []).filter(p => p.category === 'finished_good').map(p => (
-                            <option key={p.sku} value={p.sku}>{p.name}</option>
-                        ))}
-                    </Select>
-                    <Select value={items[0].lotNumber || ''} onChange={e => setOrderLine(0, { lotNumber: e.target.value })}>
-                        <option value="">Lote...</option>
-                        {availableInventory.filter(i => i.sku === items[0].sku).map(i => (
-                            <option key={i.lotNumber} value={i.lotNumber}>{i.lotNumber} ({i.qty} uds)</option>
-                        ))}
-                    </Select>
-                    <Input type="number" min="1" value={items[0].qty} onChange={e=>setOrderLine(0,{qty: Number(e.target.value)})}/>
-                    <div className="text-right font-medium pr-2"></div>
-                </div>
+            <Label htmlFor="order-items">Pedido</Label>
+            <div className="border rounded-xl p-2 space-y-2">
+              {items.map((it, i) => {
+                const lotsForSku = availableInventory.filter(inv => inv.sku === it.sku);
+                return (
+                  <div key={i} className="grid grid-cols-[2fr_1.5fr_1fr_auto] gap-2 items-center">
+                      <Select value={it.sku} onChange={e => setLine(i, { sku: e.target.value })}>
+                          <option value="">Producto...</option>
+                          {(santaData?.products || []).filter(p => p.category === 'finished_good').map(p => (
+                              <option key={p.sku} value={p.sku}>{p.name}</option>
+                          ))}
+                      </Select>
+                      <Select value={it.lotNumber || ''} onChange={e => setLine(i, { lotNumber: e.target.value })}>
+                          <option value="">Lote...</option>
+                          {lotsForSku.map(lot => (
+                              <option key={lot.lotNumber} value={lot.lotNumber || ''}>
+                                  {lot.lotNumber} ({lot.qty} uds)
+                              </option>
+                          ))}
+                      </Select>
+                      <Input type="number" min="1" value={it.qty} onChange={e=>setLine(i,{qty: Number(e.target.value)})}/>
+                      <button onClick={()=>removeLine(i)} className="p-2 rounded-md hover:bg-zinc-100" aria-label="Eliminar"><X className="h-4 w-4 text-zinc-500"/></button>
+                  </div>
+                )
+              })}
+              <button onClick={addLine} className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md border border-zinc-300 bg-white hover:bg-zinc-50"><Plus className="h-3.5 w-3.5"/>Añadir línea</button>
             </div>
           </Row>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
             <Row>
-              <Label htmlFor="interaction-note">Resumen de la Interacción</Label>
-                <Textarea id="interaction-note" rows={3} placeholder="¿Qué ha pasado? ¿De qué se ha hablado?" value={interactionNote} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>)=> { setInteractionNote(e.target.value); setErrors(e => ({...e, interactionNote: ''}))} }/>
+              <Label htmlFor="interaction-note">Cuéntamelo en una frase</Label>
+                <Textarea 
+                  id="interaction-note"
+                  rows={2}
+                  maxLength={200}
+                  placeholder="Ej: Cliente interesado, enviar propuesta la semana que viene."
+                  value={interactionNote}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>)=> { setInteractionNote(e.target.value); setErrors(e => ({...e, interactionNote: ''}))} }/>
+                <div className="text-xs text-zinc-500 text-right">{interactionNote.length} / 200</div>
                 {errors.interactionNote && <p className="text-xs text-red-500">{errors.interactionNote}</p>}
             </Row>
             <Row>
-              <Label htmlFor="next-action-date">Fecha Próxima Acción (opcional)</Label>
+              <Label htmlFor="next-action-note">¿Qué hacemos después?</Label>
+              <Input id="next-action-note" value={nextActionNote} onChange={e => setNextActionNote(e.target.value)} placeholder="Opcional: Enviar propuesta, llamar en 7 días..."/>
+            </Row>
+            <Row>
+              <Label htmlFor="next-action-date">¿Cuándo?</Label>
               <div className="flex gap-2">
                 <Input id="next-action-date" type="date" value={nextActionDate} onChange={e => setNextActionDate(e.target.value)} className="flex-1"/>
                 <TimePicker value={nextActionTime} onChange={setNextActionTime} step={15} className="flex-1"/>
@@ -410,11 +432,13 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
       )}
       
       {posTacticSection}
-
-      <div className="flex justify-end gap-2 pt-1">
-        <button type="button" onClick={onCancel} className="px-3 py-2 text-sm rounded-lg border border-zinc-300 bg-white hover:bg-zinc-50">Cancelar</button>
-        <button type="button" onClick={submit} disabled={isSaveDisabled} className="px-3 py-2 text-sm rounded-lg bg-sb-sun text-zinc-900 hover:brightness-110 disabled:bg-zinc-200 disabled:text-zinc-500 disabled:cursor-not-allowed">Guardar</button>
-      </div>
+      
+      <footer className="sticky bottom-0 bg-white/80 backdrop-blur-sm py-3 px-4 -m-4 mt-4 border-t border-zinc-200 flex justify-end gap-2">
+        <button type="button" onClick={onCancel} className="px-4 py-2 text-sm rounded-lg border border-zinc-300 bg-white hover:bg-zinc-50">Cancelar</button>
+        <button type="button" onClick={submit} disabled={isSaveDisabled} className="w-32 px-4 py-2 text-sm font-semibold rounded-lg bg-sb-sun text-zinc-900 hover:brightness-110 disabled:bg-zinc-200 disabled:text-zinc-500 disabled:cursor-not-allowed flex items-center justify-center">
+            {isSaving ? <Loader2 className="h-4 w-4 animate-spin"/> : 'Guardar'}
+        </button>
+      </footer>
     </div>
   );
 }
