@@ -103,10 +103,8 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
   
   // POS Tactic State
   const [showPosTacticForm, setShowPosTacticForm] = useState(false);
-  const [posTacticData, setPosTacticData] = useState<Partial<Omit<PosTactic, 'id'>>>({
+  const [posTacticData, setPosTacticData] = useState<Partial<Omit<PosTactic, 'id' | 'items'>>>({
     tacticCode: 'OTHER',
-    status: 'planned',
-    items: [{ catalogCode: '', description: '', qty: 1, unitCost: 0, actualCost: 0 }]
   });
 
   const debouncedName = useDebounced(accountName, 250);
@@ -120,41 +118,41 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
 
   useEffect(() => {
     const run = async () => {
-      if (debouncedName.length < 1 || selectedAccountId) {
-        setSearchSuggestions([]);
-        setIsSearchOpen(false);
-        return;
-      }
-  
-      searchAbortRef.current?.abort();
-      const ac = new AbortController();
-      searchAbortRef.current = ac;
-  
-      try {
-        const key = debouncedName.toLowerCase();
-        if (searchCache.current.has(key)) {
-          const results = searchCache.current.get(key)!;
-          setSearchSuggestions(results);
-          setIsSearchOpen(true);
-          return;
+        if (debouncedName.length < 1 || selectedAccountId) {
+            setSearchSuggestions([]);
+            setIsSearchOpen(false);
+            return;
         }
-  
-        setLoading(true);
-        setIsSearchOpen(true);
-        const results = await onSearchAccounts(debouncedName, { signal: ac.signal });
-        if (!ac.signal.aborted) {
-          searchCache.current.set(key, results);
-          setSearchSuggestions(results);
+
+        searchAbortRef.current?.abort();
+        const ac = new AbortController();
+        searchAbortRef.current = ac;
+
+        try {
+            const key = debouncedName.toLowerCase();
+            if (searchCache.current.has(key)) {
+                const results = searchCache.current.get(key)!;
+                setSearchSuggestions(results);
+                setIsSearchOpen(true);
+                return;
+            }
+
+            setLoading(true);
+            setIsSearchOpen(true);
+            const results = await onSearchAccounts(debouncedName, { signal: ac.signal });
+            if (!ac.signal.aborted) {
+                searchCache.current.set(key, results);
+                setSearchSuggestions(results);
+            }
+        } catch (e) {
+            if ((e as any).name !== 'AbortError') console.error(e);
+        } finally {
+            if (!ac.signal.aborted) setLoading(false);
         }
-      } catch (e) {
-        if ((e as any).name !== 'AbortError') console.error(e);
-      } finally {
-        if (!ac.signal.aborted) setLoading(false);
-      }
     };
     run();
     return () => searchAbortRef.current?.abort();
-  }, [debouncedName, onSearchAccounts, selectedAccountId]);
+}, [debouncedName, onSearchAccounts, selectedAccountId]);
   
 
   const handleAccountSelect = (account: Account) => {
@@ -199,19 +197,11 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
   function setOrderLine(i:number, patch:Partial<(typeof items)[0]>){ setItems(v=> v.map((it,idx)=> idx===i? {...it,...patch}: it)); }
   function removeOrderLine(i:number){ setItems(v=> v.filter((_,idx)=> idx!==i)); }
 
-  function addTacticLine() { setPosTacticData(p => ({ ...p, items: [...(p.items || []), { catalogCode: '', description: '', qty: 1, unitCost: 0, actualCost: 0 }] })) }
-  function setTacticLine(i:number, patch:Partial<PosTacticItem>){ setPosTacticData(p => ({ ...p, items: (p.items || []).map((it,idx)=> idx===i? {...it,...patch, actualCost: ((it.qty || 1) * (it.unitCost || 0))}: it) })) }
-  function removeTacticLine(i:number){ setPosTacticData(p => ({ ...p, items: (p.items || []).filter((_,idx)=> idx!==i) })) }
-
-  const totalPosCost = useMemo(() => (posTacticData.items || []).reduce((sum, item) => sum + (item.actualCost || 0), 0), [posTacticData.items]);
-
   function submit(){
     let posPayload: Partial<Omit<PosTactic, 'id'>> | undefined = undefined;
     if (showPosTacticForm) {
       posPayload = {
         ...posTacticData,
-        actualCost: totalPosCost,
-        items: posTacticData.items?.filter(it => it.description),
         status: 'active',
         executionScore: 80, // Default value
       };
@@ -286,23 +276,19 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
               <button type="button" onClick={() => setShowPosTacticForm(false)} className="text-xs text-zinc-500 hover:text-zinc-800">Cancelar</button>
            </div>
            
-           <div className="space-y-2">
-              {(posTacticData.items || []).map((item, i) => (
-                  <div key={i} className="grid grid-cols-[2fr_1fr_1fr_auto] gap-2 items-center">
-                    <Select value={item.catalogCode || ''} onChange={e => setTacticLine(i, { catalogCode: e.target.value, description: santaData?.posCostCatalog.find(c => c.code === e.target.value)?.label, unitCost: santaData?.posCostCatalog.find(c => c.code === e.target.value)?.defaultUnitCost })}>
-                        <option value="">Selecciona coste...</option>
-                        {santaData?.posCostCatalog.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}
-                    </Select>
-                    <Input type="number" min="1" placeholder="Uds." value={item.qty || 1} onChange={e => setTacticLine(i, { qty: Number(e.target.value) })}/>
-                    <Input type="number" min="0" placeholder="Coste/ud" value={item.unitCost || 0} onChange={e => setTacticLine(i, { unitCost: Number(e.target.value) })}/>
-                    <button type="button" onClick={() => removeTacticLine(i)} className="p-2 text-red-500 hover:bg-red-50 rounded-md"><X size={16}/></button>
-                  </div>
-              ))}
+           <div className="grid grid-cols-2 gap-3">
+              <Row>
+                <Label>Táctica</Label>
+                <Select value={posTacticData.tacticCode || ''} onChange={e => setPosTacticData(p => ({...p, tacticCode: e.target.value}))} className="h-9">
+                    {santaData?.posCostCatalog.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}
+                    <option value="OTHER">Otro (describir abajo)</option>
+                </Select>
+              </Row>
+              <Row>
+                <Label>Comentarios</Label>
+                <Input value={posTacticData.description || ''} onChange={e => setPosTacticData(p => ({...p, description: e.target.value}))} className="h-9"/>
+              </Row>
            </div>
-            <div className="flex justify-between items-center">
-              <button type="button" onClick={addTacticLine} className="text-xs flex items-center gap-1 text-blue-600 hover:underline"><Plus size={12}/>Añadir línea</button>
-              <div className="text-sm font-semibold">Total: {totalPosCost.toFixed(2)}€</div>
-            </div>
         </div>
       )}
     </div>
@@ -336,7 +322,7 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
               />
             </Row>
             {isSearchOpen && (
-              <div className="absolute z-10 mt-1 w-full rounded-xl border border-zinc-200 bg-white shadow-lg overflow-hidden">
+              <div className="absolute z-50 mt-1 w-full rounded-xl border border-zinc-200 bg-white shadow-lg overflow-hidden">
                 {loading ? <div className="px-3 py-2 text-sm text-zinc-500">Buscando...</div> :
                 searchSuggestions.length > 0 ? (
                   <ul className="max-h-40 overflow-y-auto divide-y">
@@ -348,7 +334,7 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
                   </ul>
                 ) : debouncedName ? (
                     <div className="px-3 py-2 text-sm text-zinc-600">
-                        Pulsa ↵ para crear “<strong>{debouncedName}</strong>” como nueva cuenta.
+                        Sin resultados. Pulsa ↵ para crear “<strong>{debouncedName}</strong>”.
                     </div>
                 ) : null}
               </div>
@@ -372,14 +358,14 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
           <Row>
             <Label>Pedido Rápido</Label>
             <div className="border rounded-xl p-2 space-y-2">
-                <div className="grid grid-cols-[1fr_auto] gap-2 items-center">
+                <div className="grid grid-cols-[2fr_1fr] gap-2 items-center">
                     <Select value={items[0].sku} onChange={e => setOrderLine(0, { sku: e.target.value })}>
                         <option value="">Producto...</option>
                         {(santaData?.products || []).filter(p => p.category === 'finished_good').map(p => (
                             <option key={p.sku} value={p.sku}>{p.name}</option>
                         ))}
                     </Select>
-                    <Input type="number" min="1" value={items[0].qty} onChange={e=>setOrderLine(0,{qty: Number(e.target.value)})} className="w-24"/>
+                    <Input type="number" min="1" value={items[0].qty} onChange={e=>setOrderLine(0,{qty: Number(e.target.value)})}/>
                 </div>
             </div>
           </Row>
