@@ -1,3 +1,4 @@
+
 // src/features/marketing/services/posTactics.service.ts
 
 "use client";
@@ -52,8 +53,7 @@ export function usePosTacticsService() {
       if (idx >= 0) nextList[idx] = updated; else nextList.push(updated);
     } else {
       const doc: PosTactic = {
-        ...input,
-        items: [],
+        ...(input as any),
         id: `tac_${Date.now()}`,
         createdAt: stamp,
         createdById: currentUser?.id || 'system',
