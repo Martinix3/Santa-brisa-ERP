@@ -38,8 +38,6 @@ export function TaskCompletionDialog({
   const [nextActionDate, setNextActionDate] = useState('');
   const [items, setItems] = useState<{ sku: string; qty: number }[]>([{ sku: defaultSku, qty: 1 }]);
   
-  const [interactionKind, setInteractionKind] = useState<InteractionKind>(task.kind);
-
   const [showPosTacticForm, setShowPosTacticForm] = useState(false);
   const [posTacticData, setPosTacticData] = useState<Partial<Omit<PosTactic, 'id' | 'items'>>>({ tacticCode: 'OTHER', status: 'planned' });
 
@@ -49,11 +47,10 @@ export function TaskCompletionDialog({
       setNote('');
       setNextActionDate('');
       setItems([{ sku: defaultSku, qty: 1 }]);
-      setInteractionKind(task.kind);
       setShowPosTacticForm(false);
       setPosTacticData({ tacticCode: 'OTHER', status: 'planned' });
     }
-  }, [open, task.kind, defaultSku]);
+  }, [open, defaultSku]);
 
 
   const addLine = () => setItems((prev) => [...prev, { sku: defaultSku, qty: 1 }]);
