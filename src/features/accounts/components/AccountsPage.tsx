@@ -90,11 +90,10 @@ function AccountBar({ a, party, santaData, onAddActivity }: { a: AccountType, pa
 
   return (
     <div className="overflow-hidden transition-all duration-200 hover:bg-black/5 rounded-lg border border-zinc-200/50">
-      <div className="w-full flex items-center cursor-pointer" onClick={()=>setOpen(v=>!v)}>
-          <div className="p-1.5 rounded-md text-zinc-600 hover:bg-zinc-100/20 ml-4">
+      <div className="w-full grid grid-cols-[auto_1.6fr_1.2fr_1fr_1.2fr_auto] items-center gap-3 px-4 py-1.5 cursor-pointer" onClick={()=>setOpen(v=>!v)}>
+          <div className="p-1.5 rounded-md text-zinc-600 hover:bg-zinc-100/20">
             <ChevronDown className="h-4 w-4 transition-transform duration-300" style={{transform: open? 'rotate(180deg)':'rotate(0deg)'}}/>
           </div>
-          <div className="w-full grid grid-cols-[1.6fr_1.2fr_1fr_1.2fr_auto] items-center gap-3 px-4 py-1.5">
             <div className="text-sm font-medium truncate flex items-center gap-2">
             <Link href={`/accounts/${a.id}`} className="text-zinc-900 truncate hover:underline">{a.name}</Link>
             {orderAmount>0 && <span className="text-[11px] px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-700 whitespace-nowrap">{formatEUR(orderAmount)}</span>}
@@ -111,10 +110,12 @@ function AccountBar({ a, party, santaData, onAddActivity }: { a: AccountType, pa
                 <button onClick={(e) => { e.stopPropagation(); onAddActivity(a); }} className="block w-full text-left px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50">Añadir Interacción/Venta</button>
             </div>
             </div>
-          </div>
       </div>
       {open && kpis && (
-        <div className="border-t" style={{borderColor:`${s.tint}33`, backgroundColor: `${s.tint}1A`}}>
+        <div 
+          className="border-t" 
+          style={{ '--account-tint-color': s.tint, borderColor: `color-mix(in srgb, var(--account-tint-color) 20%, transparent)`, backgroundColor: `color-mix(in srgb, var(--account-tint-color) 10%, transparent)` }}
+        >
             <div className="p-4 grid grid-cols-3 gap-6">
               <div className='col-span-2'>
                 <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">Actividad Reciente</h4>
