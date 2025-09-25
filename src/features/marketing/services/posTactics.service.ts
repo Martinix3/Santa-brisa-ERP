@@ -1,4 +1,5 @@
 
+
 // src/features/marketing/services/posTactics.service.ts
 'use server';
 
@@ -6,7 +7,7 @@ import { z } from 'zod';
 import { PosTactic, PosTacticItem, PosCostCatalogEntry, PlvMaterial, PosResult } from '@/domain/ssot';
 import { adminDb as db } from '@/server/firebaseAdmin';
 import { Timestamp } from 'firebase-admin/firestore';
-import { getAttributedRevenue, estimateLiftPct } from './pos.service';
+import { computePosResult } from './pos.service';
 
 
 // === Helpers ===
@@ -15,8 +16,12 @@ const nowISO = () => new Date().toISOString();
 const TacticInput = z.object({
   id: z.string().optional(),
   accountId: z.string(),
+  eventId: z.string().optional(),
+  interactionId: z.string().optional(),
+  orderId: z.string().optional(),
   tacticCode: z.string().optional(),
   description: z.string().optional(),
+  appliesToSkuIds: z.array(z.string()).optional(),
   items: z.array(z.object({
     id: z.string().optional(),
     catalogCode: z.string().optional(),
@@ -47,7 +52,7 @@ export async function listPosCostCatalog(status?: 'ACTIVE'|'DRAFT'|'ARCHIVED'): 
 
 export async function listPlvInStock(): Promise<PlvMaterial[]> {
   const snap = await db.collection(PLV_COLL).where('status', '==', 'IN_STOCK').get();
-  return snap.docs.map(d => ({ id: d.id, ...(d.data() as PlvMaterial) }));
+  return snap.docs.map(d => ({ ...(d.data() as PlvMaterial), id: d.id }));
 }
 
 export async function listPosTactics(): Promise<PosTactic[]> {
@@ -81,10 +86,8 @@ export async function upsertPosTactic(input: UpsertPosTacticInput, createdById: 
     accountId: data.accountId,
     tacticCode: data.tacticCode ?? 'OTHER',
     description: data.description,
-    appliesToSkuIds: data.appliesToSkuIds,
     items,
-    plannedCost: data.status === 'planned' ? actualCost : undefined,
-    actualCost: data.status !== 'planned' ? actualCost : 0,
+    actualCost,
     executionScore: data.executionScore,
     status: data.status,
     createdAt: nowISO(),
@@ -105,16 +108,13 @@ export async function closePosTactic(tacticId: string, { windowDays = 7 }: { win
   const startISO = t.createdAt;
   const endISO = nowISO();
 
-  const { revenue } = await getAttributedRevenue(t.accountId, startISO, endISO, windowDays, t.appliesToSkuIds);
-  const { liftPct, confidence } = await estimateLiftPct(t.accountId, startISO, endISO, 30);
-
-  const totalCost = t.actualCost || t.plannedCost || 0;
-  const roi = totalCost > 0 ? (revenue - totalCost) / totalCost : undefined;
-
-  const result: PosResult = {
-    roi, liftPct, confidence: (confidence ?? 'LOW'),
-    revenueAttributed: revenue,
-  };
+  const result: PosResult = await computePosResult({
+    accountId: t.accountId,
+    startDate: startISO,
+    endDate: endISO,
+    costTotal: t.actualCost,
+    executionScore: t.executionScore,
+  });
 
   const payload: Partial<PosTactic> = {
     status: 'closed',

@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useMemo, useState, useEffect } from 'react';
@@ -10,7 +11,7 @@ import { ArrowUpRight, ArrowDownRight, Phone, Mail, MapPin, User, Factory, Boxes
 import Link from 'next/link';
 import { enrichAccount } from '@/ai/flows/enrich-account-flow';
 import { NewPosTacticDialog } from '@/features/marketing/components/NewPosTacticDialog';
-import { usePosTacticsService } from '@/features/marketing/services/posTactics.service';
+import { upsertPosTactic, listPosCostCatalog, listPlvInStock } from '@/features/marketing/services/posTactics.service';
 
 import { SBFlowModal } from '@/features/quicklog/components/SBFlows';
 import { SBButton, SBCard } from '@/components/ui/ui-primitives';
@@ -33,7 +34,7 @@ function KPI({label, value, suffix, trend}:{label:string; value:string|number; s
 function Row({label, children, icon: Icon}:{label:string; children:React.ReactNode, icon?: React.ElementType}){
     return (
         <div className="flex items-start gap-3 py-2">
-            {Icon && <Icon className="sb-icon h-4 w-4 text-zinc-400 mt-0.5 flex-shrink-0" />}
+            {Icon && <Icon className="h-4 w-4 text-zinc-400 mt-0.5 flex-shrink-0" />}
             <div className="w-32 text-xs uppercase tracking-wide text-zinc-500">{label}</div>
             <div className="flex-1 text-sm text-zinc-800">{children || '—'}</div>
         </div>
@@ -92,10 +93,20 @@ export function AccountDetailPageContent(){
   const accountId = params.accountId as string;
 
   const { data: santaData, setData, saveCollection, saveAllCollections, currentUser } = useData();
-  const { upsertPosTactic, catalog, plv } = usePosTacticsService();
+  const [catalog, setCatalog] = useState<PosCostCatalogEntry[]>([]);
+  const [plv, setPlv] = useState<PlvMaterial[]>([]);
   const [isEnriching, setIsEnriching] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isNewTacticOpen, setIsNewTacticOpen] = useState(false);
+
+  useEffect(() => {
+    async function fetchData() {
+        const [cat, plvData] = await Promise.all([listPosCostCatalog('ACTIVE'), listPlvInStock()]);
+        setCatalog(cat);
+        setPlv(plvData);
+    }
+    fetchData();
+  }, []);
 
   const { account, party, unifiedActivity, kpis, owner, distributor, rollup } = useMemo(() => {
     if (!santaData || !accountId) return { account: null, party: null, unifiedActivity: [], kpis: null, owner: null, distributor: null, rollup: null };
@@ -173,7 +184,7 @@ export function AccountDetailPageContent(){
     else if (payload.mainContactEmail) emails.push({ value: payload.mainContactEmail, isPrimary: true, source: 'CRM', verified: false, updatedAt: new Date().toISOString() });
     
     const phones = [...(party.phones ?? [])];
-    const mainPhone = phones.find(c => c.isPrimary);
+    const mainPhone = phones.find(p => p.isPrimary);
     if(mainPhone) mainPhone.value = payload.phone;
     else if (payload.phone) phones.push({ value: payload.phone, isPrimary: true, source: 'CRM', verified: false, updatedAt: new Date().toISOString() });
 
@@ -184,8 +195,9 @@ export function AccountDetailPageContent(){
   };
   
     const handleSaveTactic = async (tacticData: Omit<PosTactic, 'id' | 'createdAt' | 'createdById'>) => {
+        if (!currentUser) return;
         try {
-            await upsertPosTactic(tacticData);
+            await upsertPosTactic(tacticData, currentUser.id);
             setIsNewTacticOpen(false);
         } catch (e) {
             console.error(e);
@@ -226,7 +238,7 @@ export function AccountDetailPageContent(){
                 </div>
                 <div className="flex items-center gap-2">
                     <Link href="/accounts" className="inline-flex items-center gap-2 text-sm text-zinc-600 hover:text-zinc-900">
-                        <ChevronLeft size={16} className="sb-icon" /> Volver a Cuentas
+                        <ChevronLeft size={16} /> Volver a Cuentas
                     </Link>
                 </div>
               </div>
@@ -270,7 +282,7 @@ export function AccountDetailPageContent(){
                   const Icon = interactionIcons[int.kind] || FileText;
                   return (
                       <div key={int.id} className="grid grid-cols-[auto_1fr] items-start gap-3 px-4 py-3 hover:bg-zinc-50">
-                        <Icon className="sb-icon h-5 w-5 text-zinc-500 mt-0.5"/>
+                        <Icon className="h-5 w-5 text-zinc-500 mt-0.5"/>
                         <div>
                             <div className="text-sm text-zinc-500">{formatDate(int.createdAt)} · <span className="font-medium capitalize text-zinc-700">{int.kind}</span></div>
                             <div className="text-sm text-zinc-800 italic col-span-2 mt-1">“{int.note}”</div>
@@ -305,10 +317,10 @@ export function AccountDetailPageContent(){
                 </Row>
                 <div className="mt-4 flex justify-between">
                     <SBButton variant="secondary" onClick={handleEnrich} disabled={isEnriching}>
-                        <Sparkles size={14} className="sb-icon"/> {isEnriching ? 'Analizando...' : 'Enriquecer con IA'}
+                        <Sparkles size={14} /> {isEnriching ? 'Analizando...' : 'Enriquecer con IA'}
                     </SBButton>
                     <SBButton variant="secondary" onClick={() => setIsEditing(true)}>
-                        <Edit size={14} className="sb-icon"/> Editar Cuenta
+                        <Edit size={14} /> Editar Cuenta
                     </SBButton>
                 </div>
               </div>
@@ -321,10 +333,10 @@ export function AccountDetailPageContent(){
                         
                         <SBButton 
                           size="sm"
-                          className="sb-icon absolute -bottom-2 -right-2 rounded-full h-10 w-10 !p-0"
+                          className="absolute -bottom-2 -right-2 rounded-full h-10 w-10 !p-0"
                           onClick={() => setIsNewTacticOpen(true)}
                         >
-                            <Plus size={20} className="sb-icon" />
+                            <Plus size={20} />
                         </SBButton>
                     </div>
                 </SBCard>
@@ -370,7 +382,3 @@ export function AccountDetailPageContent(){
     </div>
   );
 }
-
-    
-
-    

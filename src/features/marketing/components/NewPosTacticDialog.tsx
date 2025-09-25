@@ -1,4 +1,5 @@
 
+
 "use client";
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
@@ -140,11 +141,11 @@ export function NewPosTacticDialog({
     costCatalog: PosCostCatalogEntry[];
     plvInventory: PlvMaterial[];
 }) {
-    const [tactic, setTactic] = useState<Partial<PosTactic>>({ items: [{}] });
+    const [tactic, setTactic] = useState<Partial<PosTactic>>({ items: [{id: '', description: '', actualCost: 0}] });
 
     useEffect(() => {
         if(open) {
-            const initial = tacticBeingEdited || { status: 'active', executionScore: 80, accountId: accounts.length === 1 ? accounts[0].id : undefined, items: [{}] };
+            const initial = tacticBeingEdited || { status: 'active', executionScore: 80, accountId: accounts.length === 1 ? accounts[0].id : undefined, items: [{id: '', description: '', actualCost: 0}] };
             setTactic(initial);
         }
     }, [open, tacticBeingEdited, accounts]);
@@ -156,7 +157,7 @@ export function NewPosTacticDialog({
         setTactic(p => ({...p, items: newItems, actualCost: totalCost }));
     };
     
-    const addItem = () => setTactic(p => ({...p, items: [...(p.items || []), {}]}));
+    const addItem = () => setTactic(p => ({...p, items: [...(p.items || []), {id: '', description: '', actualCost: 0}]}));
     const removeItem = (index: number) => setTactic(p => {
         const newItems = (p.items || []).filter((_, i) => i !== index);
         const totalCost = newItems.reduce((sum, item) => sum + (item.actualCost || 0), 0);

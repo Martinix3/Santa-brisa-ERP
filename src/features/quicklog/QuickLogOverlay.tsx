@@ -1,4 +1,5 @@
 
+
 // src/features/quicklog/QuickLogOverlay.tsx
 "use client";
 import React, { useState, useCallback, useEffect } from 'react';
@@ -15,10 +16,10 @@ const norm = (s: string) => s.normalize('NFD').replace(/\p{Diacritic}/gu,'').toL
 
 export default function QuickLogOverlay() {
   const [open, setOpen] = useState(false);
-  const { data, setData, currentUser, accounts, saveAllCollections } = useData();
+  const { data, setData, currentUser, saveAllCollections } = useData();
   const [isBrainAvailable, setIsBrainAvailable] = useState<boolean | null>(null);
 
-  const sourceAccounts = (accounts?.length ? accounts : data?.accounts) || [];
+  const sourceAccounts = (data?.accounts) || [];
 
   useEffect(() => {
     const checkBrainAvailability = async () => {
@@ -59,7 +60,7 @@ export default function QuickLogOverlay() {
     if (!nq) return [];
     
     const res = list
-      .filter(a => {
+      .filter((a: Account) => {
         const name = (a as any).name || '';
         return norm(name).includes(nq);
       })
@@ -102,7 +103,7 @@ export default function QuickLogOverlay() {
     console.log("Quick form submitted:", payload);
 
     const acc =
-      (accounts || []).find(a => a.id === payload.accountId);
+      (sourceAccounts || []).find((a: Account) => a.id === payload.accountId);
 
     const accountId = acc?.id;
 
@@ -127,7 +128,7 @@ export default function QuickLogOverlay() {
     }
     
     setOpen(false);
-  }, [accounts, currentUser?.id, saveAllCollections]);
+  }, [sourceAccounts, currentUser?.id, saveAllCollections]);
 
   const renderContent = () => {
     if (isBrainAvailable === null) {

@@ -1,7 +1,8 @@
+
 // src/features/marketing/services/pos.service.ts
 'use server';
 
-import type { OrderSellOut } from "@/domain/ssot";
+import type { OrderSellOut, PosResult } from "@/domain/ssot";
 import { adminDb as db } from '@/server/firebaseAdmin';
 
 // Esta función ahora es una 'server action' que puede ser llamada desde el servidor.
@@ -79,7 +80,7 @@ export async function computePosResult(args: {
       executionScore: number;
       marginPerUnit?: number;
       weeksBackBaseline?: number;
-    }): Promise<any> { // Usamos 'any' para evitar problemas de tipo con la estructura de PosResult.
+    }): Promise<PosResult> {
       
       const { accountId, startDate, endDate, costTotal, executionScore, marginPerUnit = 8, weeksBackBaseline = 4 } = args;
 
@@ -108,16 +109,11 @@ export async function computePosResult(args: {
       }
 
       return {
-        windowWeeks,
-        baselineUnits,
-        actualUnits,
         upliftUnits,
         liftPct,
-        marginPerUnit,
-        upliftMargin,
         roi,
         confidence,
-        computedAt: new Date().toISOString(),
+        revenueAttributed: upliftMargin,
       };
 }
 

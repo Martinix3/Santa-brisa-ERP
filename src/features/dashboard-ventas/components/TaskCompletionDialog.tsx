@@ -1,3 +1,4 @@
+
 // src/features/dashboard-ventas/components/TaskCompletionDialog.tsx
 "use client";
 import React, { useMemo, useState, useEffect } from 'react';
@@ -6,7 +7,7 @@ import { Input, Select, Textarea } from '@/components/ui/ui-primitives';
 import type { Interaction, InteractionKind, Payload, PosTactic } from '@/domain/ssot';
 import { ShoppingCart, MessageSquare, Plus, X, Star } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
-import { usePosTacticsService } from '@/features/marketing/services/posTactics.service';
+import { upsertPosTactic } from '@/features/marketing/services/posTactics.client';
 
 const TACTIC_CODES = [
     "ICE_BUCKET", "GLASSWARE", "BARTENDER_INCENTIVE", "MENU_PLACEMENT",
@@ -24,8 +25,7 @@ export function TaskCompletionDialog({
   onClose: () => void;
   onComplete: (taskId: string, payload: Payload) => void;
 }) {
-  const { data } = useData();
-  const { upsertPosTactic } = usePosTacticsService();
+  const { data, currentUser } = useData();
 
   const productOptions = useMemo(
     () => (data?.products || []).filter((p) => p.active && p.sku),
@@ -84,7 +84,7 @@ export function TaskCompletionDialog({
         status: 'active', // If we are completing a task, it means it happened.
         executionScore: 80, // Default value, can be refined.
         ...posTacticData,
-      } as any);
+      } as any, currentUser?.id || 'unknown');
     }
     
     if (payload) {

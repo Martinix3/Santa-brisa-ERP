@@ -1,4 +1,5 @@
 
+
 // src/features/marketing/components/PosTacticsClientPage.tsx
 'use client';
 
@@ -92,7 +93,7 @@ export function PosTacticsClientPage({
             <div className="flex justify-between items-center">
                  <h1 className="text-2xl font-semibold text-zinc-800">Tácticas en Punto de Venta (POS)</h1>
                  <SBButton onClick={() => { setEditingTactic(null); setIsNewTacticOpen(true); }}>
-                    <Plus size={16} className="sb-icon mr-2"/>
+                    <Plus size={16} className="mr-2"/>
                     Nueva Táctica
                  </SBButton>
             </div>

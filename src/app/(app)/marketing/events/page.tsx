@@ -1,4 +1,5 @@
 
+
 "use client";
 import React, { useMemo, useState } from 'react';
 import { useData } from '@/lib/dataprovider';
@@ -10,7 +11,7 @@ import { MarketingTaskCompletionDialog } from '@/features/marketing/components/M
 import { SB_COLORS } from '@/domain/ssot';
 import { Calendar, Megaphone, Target, Euro, Plus } from 'lucide-react';
 import { NewPosTacticDialog } from '@/features/marketing/components/NewPosTacticDialog';
-import { usePosTacticsService } from '@/features/marketing/services/posTactics.service';
+import { upsertPosTactic, listPosCostCatalog, listPlvInStock } from '@/features/marketing/services/posTactics.service';
 
 function StatusPill({ status }: { status: MarketingEvent['status'] }) {
     const styles: Record<MarketingEvent['status'], string> = {
@@ -31,7 +32,18 @@ const formatCurrency = (num?: number) => num?.toLocaleString('es-ES', { style: '
 
 export default function Page(){
   const { data: santaData, currentUser, saveAllCollections } = useData();
-  const { upsertPosTactic, catalog, plv } = usePosTacticsService();
+  const [catalog, setCatalog] = useState<PosCostCatalogEntry[]>([]);
+  const [plv, setPlv] = useState<PlvMaterial[]>([]);
+
+  useEffect(() => {
+    async function fetchData() {
+        const [cat, plvData] = await Promise.all([listPosCostCatalog('ACTIVE'), listPlvInStock()]);
+        setCatalog(cat);
+        setPlv(plvData);
+    }
+    fetchData();
+  }, []);
+
   const [isNewEventDialogOpen, setIsNewEventDialogOpen] = useState(false);
   const [completingEvent, setCompletingEvent] = useState<MarketingEvent | null>(null);
   const [isNewTacticOpen, setIsNewTacticOpen] = useState(false);
@@ -126,9 +138,9 @@ export default function Page(){
   }
 
   const handleSaveTactic = async (tacticData: Omit<PosTactic, 'id' | 'createdAt' | 'createdById'>) => {
-      if (!tacticEventContext) return;
+      if (!tacticEventContext || !currentUser) return;
       try {
-        await upsertPosTactic({ ...tacticData, ...tacticEventContext });
+        await upsertPosTactic({ ...tacticData, ...tacticEventContext }, currentUser.id);
         setIsNewTacticOpen(false);
         setTacticEventContext(null);
       } catch(e) {
@@ -151,9 +163,9 @@ export default function Page(){
         render: r => {
             const actions = [];
             if (r.status === 'planned' || r.status === 'active') {
-                actions.push(<SBButton key="complete" variant="secondary" size="sm" onClick={() => setCompletingEvent(r)} className="sb-icon">Registrar Resultados</SBButton>);
+                actions.push(<SBButton key="complete" variant="secondary" size="sm" onClick={() => setCompletingEvent(r)}>Registrar Resultados</SBButton>);
             }
-            actions.push(<SBButton key="tactic" variant="subtle" size="sm" onClick={() => openTacticDialog(r)} className="sb-icon"><Plus size={12} className="sb-icon"/> Táctica</SBButton>);
+            actions.push(<SBButton key="tactic" variant="subtle" size="sm" onClick={() => openTacticDialog(r)}><Plus size={12} className="mr-1"/> Táctica</SBButton>);
             return <div className="flex gap-2">{actions}</div>;
         }
     }

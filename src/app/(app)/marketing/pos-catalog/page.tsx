@@ -1,4 +1,5 @@
 
+
 "use client";
 import React, { useMemo, useState } from 'react';
 import { useData } from '@/lib/dataprovider';
@@ -97,7 +98,7 @@ function CatalogFormDialog({ item, open, onClose, onSave }: {
 
 export default function PosCatalogPage() {
     const { data, saveCollection } = useData();
-    const [editingItem, setEditingItem] = useState<PosCostCatalogEntry | null>(null);
+    const [editingItem, setEditingItem] = useState<Partial<PosCostCatalogEntry> | null>(null);
 
     const catalog = useMemo(() => data?.posCostCatalog || [], [data]);
 

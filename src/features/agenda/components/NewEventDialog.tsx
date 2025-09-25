@@ -1,3 +1,4 @@
+
 // src/features/agenda/components/NewEventDialog.tsx
 "use client";
 import React, { useState, useEffect } from 'react';
@@ -234,7 +235,7 @@ export function NewEventDialog({
                                                 ? 'ring-2 ring-offset-1'
                                                 : 'opacity-50 hover:opacity-100'
                                         }`}
-                                        style={{ ringColor: `hsl(var(--sb-sun-strong))` }}
+                                        style={{ ringColor: `hsl(var(--sb-sun-strong))` } as React.CSSProperties}
                                         title={user.name}
                                     >
                                         <Avatar name={user.name} size="lg" />

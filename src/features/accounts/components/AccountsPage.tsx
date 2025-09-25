@@ -1,10 +1,11 @@
 
+
 // src/features/accounts/components/AccountsPage.tsx
 
 "use client"
 import React, { useMemo, useState, useEffect, useCallback } from 'react'
 import { ChevronDown, Search, Plus, Phone, Mail, MessageSquare, Calendar, History, ShoppingCart, Info, BarChart3, UserPlus, Users, MoreVertical, Ticket, Clock, Edit, FileText } from 'lucide-react'
-import type { Account as AccountType, Stage, User, Interaction, OrderSellOut, SantaData, CustomerData, Party, PartyRole, InteractionKind, Payload } from '@/domain/ssot'
+import type { Stage, User, Interaction, OrderSellOut, SantaData, CustomerData, Party, PartyRole, InteractionKind, Payload, Account } from '@/domain/ssot'
 import { accountOwnerDisplay, computeAccountKPIs, getDistributorForAccount, orderTotal } from '@/lib/sb-core';
 import Link from 'next/link'
 import { useData } from '@/lib/dataprovider'
@@ -47,7 +48,7 @@ function GroupBar({ stage, count, expanded, onToggle }: { stage: keyof typeof ST
     );
 }
 
-function AccountBar({ a, party, santaData, onAddActivity, userMap, shortDate }: { a: AccountType, party?: Party, santaData: SantaData, onAddActivity: (acc: AccountType) => void, userMap: Record<string, string>, shortDate: Intl.DateTimeFormat }) {
+function AccountBar({ a, party, santaData, onAddActivity, userMap, shortDate }: { a: Account, party?: Party, santaData: SantaData, onAddActivity: (acc: Account) => void, userMap: Record<string, string>, shortDate: Intl.DateTimeFormat }) {
   const [open, setOpen] = useState(false);
   
   const owner = useMemo(() => accountOwnerDisplay(a, santaData.users, santaData.partyRoles), [a, santaData.users, santaData.partyRoles]);
@@ -199,7 +200,7 @@ export function AccountsPageContent() {
   const [fltCity, setFltCity] = useState("");
   const [fltDist, setFltDist] = useState("");
   
-  const [completingTaskForAccount, setCompletingTaskForAccount] = useState<AccountType | null>(null);
+  const [completingTaskForAccount, setCompletingTaskForAccount] = useState<Account | null>(null);
   const [isNewAccountOpen, setIsNewAccountOpen] = useState(false);
 
   useEffect(() => {
@@ -271,10 +272,10 @@ export function AccountsPageContent() {
   }, [q, data, fltRep, fltCity, fltDist, santaData, userMap, partyMap]);
 
   const grouped = useMemo(()=>{
-    const g: Record<string,AccountType[]> = { ACTIVA:[], SEGUIMIENTO:[], POTENCIAL:[], FALLIDA:[] };
+    const g: Record<string,Account[]> = { ACTIVA:[], SEGUIMIENTO:[], POTENCIAL:[], FALLIDA:[] };
     filtered.forEach(a=> {
         if (a.stage && g[a.stage]) {
-            (g[a.stage] as AccountType[]).push(a);
+            (g[a.stage] as Account[]).push(a);
         }
     });
     return g;

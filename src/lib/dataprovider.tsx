@@ -8,7 +8,7 @@ import type { User as FirebaseUser } from "firebase/auth";
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
 import { getFirestore, collection, getDocs } from "firebase/firestore";
 import { useRouter } from "next/navigation";
-import { SANTA_DATA_COLLECTIONS } from "@/domain";
+import { SANTA_DATA_COLLECTIONS } from "@/lib/ssot/collections";
 import { INITIAL_MOCK_DATA } from "@/lib/mock-data";
 import { upsertMany } from './dataprovider/actions';
 import { firebaseApp, firebaseAuth, firestoreDb } from "@/lib/firebaseClient";
@@ -70,7 +70,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         const data: Partial<SantaData> = {};
         const report: LoadReport = { ok: [], errors: [], totalDocs: 0 };
         
-        for (const name of SANTA_DATA_COLLECTIONS) {
+        for (const name of Array.from(SANTA_DATA_COLLECTIONS)) {
             try {
                 const querySnapshot = await getDocs(collection(firestoreDb!, name as string));
                 const docs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -208,7 +208,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         const items = collectionsToSave[collectionName];
         if (Array.isArray(items) && items.length > 0) {
           // This now calls the server action directly
-          promises.push(upsertMany(collectionName as string, items));
+          promises.push(upsertMany(collectionName, items));
         }
       }
 
