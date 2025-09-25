@@ -2,10 +2,10 @@
 "use client";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Plus, CalendarDays, ClipboardList, UserPlus2, Briefcase, Search, Check, MapPin, Pencil, Save, MessageSquare, Zap, Mail, Phone, History, ShoppingCart, Building, CreditCard } from "lucide-react";
+import { X, Plus, CalendarDays, ClipboardList, UserPlus2, Briefcase, Search, Check, MapPin, Pencil, Save, MessageSquare, Zap, Mail, Phone, History, ShoppingCart, Building, CreditCard, Star } from "lucide-react";
 import { useData } from "@/lib/dataprovider";
 import { generateNextOrder } from '@/lib/codes';
-import type { AccountType, Account, OrderSellOut, Product, Party, SB_THEME } from '@/domain/ssot';
+import type { AccountType, Account, OrderSellOut, Product, Party, SB_THEME, InteractionKind, PosTactic } from '@/domain/ssot';
 import { SB_COLORS } from '@/domain/ssot';
 
 const hexToRgba = (hex: string, a: number) => { const h = hex.replace('#',''); const f = h.length===3? h.split('').map(c=>c+c).join(''):h; const n=parseInt(f,16); const r=(n>>16)&255, g=(n>>8)&255, b=n&255; return `rgba(${r},${g},${b},${a})`; };
@@ -26,11 +26,10 @@ function AgaveEdge(){
 
 // ===== Tipos =====
 export type Variant = "quick" | "editAccount" | "createAccount" | "createOrder";
-export type InteractionKind = 'VISITA' | 'LLAMADA' | 'EMAIL' | 'WHATSAPP' | 'OTRO';
 type QuickMode = "interaction" | "order";
 
 type QuickOrderPayload = { mode:"order"; account?:string; items:{ sku:string; qty:number }[]; note?:string; isVentaPropia: boolean; };
-type QuickInteractionPayload = { mode:"interaction"; account?:string; kind:InteractionKind; note:string; nextAction?:string; };
+type QuickInteractionPayload = { mode:"interaction"; account?:string; kind:InteractionKind; note:string; nextAction?:string; posTactic?: Partial<Omit<PosTactic, 'id' | 'items'>> };
 
 type EditAccountPayload = {
   id:string;
@@ -119,7 +118,7 @@ function AccountPicker({
   async function createInline(){
     const name = newName || q.trim(); if(!name) return alert("Pon un nombre");
     let created: Account | null = null;
-    if(onCreateAccount){ 
+    if(onCreateAccount){
         const partyId = `party_${Date.now()}`;
         const accountId = `acc_${Date.now()}`;
 
@@ -224,6 +223,12 @@ function AccountPicker({
   );
 }
 
+const TACTIC_CODES = [
+    "ICE_BUCKET", "GLASSWARE", "BARTENDER_INCENTIVE", "MENU_PLACEMENT",
+    "CHALKBOARD", "TWO_FOR_ONE", "HAPPY_HOUR", "SECONDARY_PLACEMENT", "OTHER"
+];
+
+
 // ===== Quick Interaction / Order (Switcher) =====
 function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, onCancel}:{
   accounts: Account[];
@@ -239,9 +244,10 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
   const [orderNote, setOrderNote] = useState("");
   const [isVentaPropia, setIsVentaPropia] = useState(true);
   // quick interaction
-  const [interactionKind, setInteractionKind] = useState<InteractionKind>('VISITA');
   const [interactionNote, setInteractionNote] = useState("");
   const [nextAction, setNextAction] = useState("");
+  const [showPosTacticForm, setShowPosTacticForm] = useState(false);
+  const [posTacticData, setPosTacticData] = useState<Partial<Omit<PosTactic, 'id' | 'items'>>>({ tacticCode: 'OTHER', status: 'planned', actualCost: 0 });
 
   function addLine(){ setItems(v=>[...v,{sku:"", qty:1}]); }
   function setLine(i:number, patch:Partial<{sku:string; qty:number}>){ setItems(v=> v.map((it,idx)=> idx===i? {...it,...patch}: it)); }
@@ -253,7 +259,24 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
       onSubmit({ mode:"order", account: account||undefined, items, note: orderNote, isVentaPropia });
     } else {
       if(!interactionNote) return alert("Añade un resumen de la interacción");
-      onSubmit({ mode:"interaction", account: account||undefined, kind: interactionKind, note: interactionNote, nextAction: nextAction || undefined });
+      
+      const payload: QuickInteractionPayload = {
+        mode:"interaction",
+        account: account||undefined,
+        kind: 'OTRO', // Defaulting kind
+        note: interactionNote,
+        nextAction: nextAction || undefined
+      };
+      
+      if (showPosTacticForm && posTacticData.tacticCode && posTacticData.actualCost !== undefined && posTacticData.actualCost > 0) {
+        payload.posTactic = {
+            ...posTacticData,
+            status: 'active',
+            executionScore: 80, // Default value
+        };
+      }
+
+      onSubmit(payload);
     }
   }
 
@@ -292,21 +315,43 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
         </>
       ) : (
         <div className="space-y-3">
-            <Row><Label>Tipo de Interacción</Label>
-                <Select value={interactionKind} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setInteractionKind(e.target.value as InteractionKind)}>
-                    <option value="VISITA">Visita</option>
-                    <option value="LLAMADA">Llamada</option>
-                    <option value="EMAIL">Email</option>
-                    <option value="WHATSAPP">WhatsApp</option>
-                    <option value="OTRO">Otro</option>
-                </Select>
-            </Row>
             <Row><Label>Resumen</Label>
                 <Textarea rows={3} placeholder="¿Qué ha pasado? ¿De qué se ha hablado?" value={interactionNote} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>)=>setInteractionNote(e.target.value)}/>
             </Row>
              <Row><Label>Próxima Acción (opcional)</Label>
                 <Input placeholder="Ej. Enviar propuesta, volver a llamar en 7 días..." value={nextAction} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>setNextAction(e.target.value)}/>
             </Row>
+            
+            <div className="pt-2">
+            {!showPosTacticForm ? (
+                <button type="button" onClick={() => setShowPosTacticForm(true)} className="w-full text-sm flex items-center justify-center gap-2 p-2 rounded-lg border border-dashed hover:bg-yellow-50">
+                    <Star size={16} className="text-yellow-500" />
+                    Añadir Táctica POS a esta interacción
+                </button>
+            ) : (
+              <div className="p-3 border rounded-lg bg-zinc-50 space-y-3">
+                 <div className="flex justify-between items-center">
+                    <h4 className="font-semibold text-sm">Detalles de Táctica POS</h4>
+                    <button type="button" onClick={() => setShowPosTacticForm(false)} className="text-xs text-zinc-500 hover:text-zinc-800">Cancelar</button>
+                 </div>
+                 <div className="grid grid-cols-2 gap-2">
+                    <label className="grid gap-1.5"><span className="text-xs font-medium">Táctica</span>
+                        <Select value={posTacticData.tacticCode || ''} onChange={e => setPosTacticData(p => ({...p, tacticCode: e.target.value}))} className="h-9">
+                          {TACTIC_CODES.map(c => <option key={c} value={c}>{c.replace(/_/g, ' ')}</option>)}
+                        </Select>
+                    </label>
+                    <label className="grid gap-1.5"><span className="text-xs font-medium">Coste Total (€)</span>
+                        <Input type="number" min="0" value={posTacticData.actualCost ?? ''} onChange={e => setPosTacticData(p => ({...p, actualCost: Number(e.target.value)}))} className="h-9"/>
+                    </label>
+                 </div>
+                 {posTacticData.tacticCode === 'OTHER' && (
+                    <label className="grid gap-1.5"><span className="text-xs font-medium">Descripción (si es "OTRO")</span>
+                        <Input value={posTacticData.description ?? ''} onChange={e => setPosTacticData(p => ({...p, description: e.target.value}))} className="h-9"/>
+                    </label>
+                 )}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -515,7 +560,7 @@ export function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, on
 }
 
 // ===== Modal base =====
-function BaseModal({open, onClose, color="#A7D8D9", title, icon:Icon=ClipboardList, children}:{open:boolean; onClose:()=>void; color?:string; title:string; icon?:any; children:React.ReactNode}){
+export function BaseModal({open, onClose, color="#A7D8D9", title, icon:Icon=ClipboardList, children}:{open:boolean; onClose:()=>void; color?:string; title:string; icon?:any; children:React.ReactNode}){
   if(!open) return null;
   return (
     <AnimatePresence>
@@ -585,6 +630,7 @@ export function SBFlowModal({
     </BaseModal>
   );
 }
+
 
 
 
