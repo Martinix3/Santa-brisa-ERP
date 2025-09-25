@@ -47,11 +47,10 @@ export default function AgendaLayout({ children }: { children: React.ReactNode }
     <div className="h-full flex flex-col">
       <ModuleHeader 
         title="Agenda" 
-        icon={() => icon}
-        color={tokenToHsl('var(--sb-accent-personal)')}
+        icon={() => <div className="p-2 rounded-lg bg-[hsl(var(--sb-accent-personal))]">{icon}</div>}
       />
       <AgendaNav />
-      <div className="flex-grow min-h-0">
+      <div className="flex-grow min-h-0 bg-[hsl(var(--sb-accent-personal))]">
           {children}
       </div>
     </div>
