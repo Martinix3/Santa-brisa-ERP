@@ -1,7 +1,8 @@
+
 // src/features/accounts/components/AccountsPage.tsx
 
 "use client"
-import React, { useMemo, useState, useEffect } from 'react'
+import React, { useMemo, useState, useEffect, useCallback } from 'react'
 import { ChevronDown, Search, Plus, Phone, Mail, MessageSquare, Calendar, History, ShoppingCart, Info, BarChart3, UserPlus, Users, MoreVertical, Ticket, Clock, Edit, FileText } from 'lucide-react'
 import type { Account as AccountType, Stage, User, Interaction, OrderSellOut, SantaData, CustomerData, Party, PartyRole, InteractionKind, Payload } from '@/domain/ssot'
 import { accountOwnerDisplay, computeAccountKPIs, getDistributorForAccount, orderTotal } from '@/lib/sb-core';
@@ -29,7 +30,6 @@ function GroupBar({ stage, count, expanded, onToggle }: { stage: keyof typeof ST
         <button
             onClick={onToggle}
             className="w-full grid grid-cols-[1fr_auto] gap-2 items-center px-3 py-2 rounded-t-lg transition-colors cursor-pointer bg-zinc-50/50"
-            style={{ borderLeft: `4px solid ${s.tint}`}}
             aria-expanded={expanded}
             aria-controls={`panel-${stage}`}
             id={`button-${stage}`}
@@ -49,7 +49,6 @@ function GroupBar({ stage, count, expanded, onToggle }: { stage: keyof typeof ST
 
 function AccountBar({ a, party, santaData, onAddActivity, userMap, shortDate }: { a: AccountType, party?: Party, santaData: SantaData, onAddActivity: (acc: AccountType) => void, userMap: Record<string, string>, shortDate: Intl.DateTimeFormat }) {
   const [open, setOpen] = useState(false);
-  const s = STAGE[a.stage as keyof typeof STAGE] ?? STAGE.ACTIVA;
   
   const owner = useMemo(() => accountOwnerDisplay(a, santaData.users, santaData.partyRoles), [a, santaData.users, santaData.partyRoles]);
   const orderAmount = useMemo(()=> (santaData.ordersSellOut || []).filter((o: OrderSellOut)=>o.accountId===a.id).reduce((n: number,o: OrderSellOut)=> n+orderTotal(o),0), [a.id, santaData.ordersSellOut]);
@@ -95,8 +94,7 @@ function AccountBar({ a, party, santaData, onAddActivity, userMap, shortDate }: 
 
   return (
     <div
-      className={`overflow-hidden transition-colors duration-150 hover:bg-black/5 rounded-lg border border-zinc-200/60 border-l-4 ${open ? 'bg-white shadow-md' : ''}`}
-      style={{ borderLeftColor: s.tint }}
+      className="overflow-hidden transition-colors duration-150 hover:bg-black/5"
     >
         <div className="w-full grid grid-cols-[auto_1.6fr_1.2fr_1fr_1.2fr_auto] items-center gap-3 px-4 py-1.5 cursor-pointer" onClick={()=>setOpen(v=>!v)}>
             <div className="p-1.5 rounded-md text-zinc-600 hover:bg-zinc-100/20">
@@ -412,14 +410,22 @@ export function AccountsPageContent() {
         {(Object.keys(STAGE) as Array<keyof typeof STAGE>).map(k=>{
           const count = grouped[k]?.length || 0;
           const isOpen = !!expanded[k];
+          const s = STAGE[k];
           return (
             <div key={k} id={`group-${k}`} className="w-full">
               <GroupBar stage={k} count={count} expanded={isOpen} onToggle={()=> setExpanded(e=> ({...e,[k]:!e[k]})) }/>
               {isOpen && count > 0 && santaData && (
-                <div id={`panel-${k}`} role="region" aria-labelledby={`button-${k}`} className="rounded-b-md py-2 divide-y divide-zinc-100">
-                  {grouped[k].map(a=> (
-                    <AccountBar key={a.id} a={a} party={partyMap[a.partyId]} santaData={santaData} onAddActivity={() => setCompletingTaskForAccount(a)} userMap={userMap} shortDate={shortDate}/>
-                  ))}
+                <div id={`panel-${k}`} role="region" aria-labelledby={`button-${k}`} className="rounded-b-md"
+                    style={{
+                       borderLeft: `4px solid ${s.tint}`,
+                       backgroundColor: `${s.tint}10`,
+                    }}
+                >
+                    <div className="divide-y divide-zinc-200/60">
+                        {grouped[k].map(a=> (
+                            <AccountBar key={a.id} a={a} party={partyMap[a.partyId]} santaData={santaData} onAddActivity={() => setCompletingTaskForAccount(a)} userMap={userMap} shortDate={shortDate}/>
+                        ))}
+                    </div>
                 </div>
               )}
             </div>
