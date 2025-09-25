@@ -21,7 +21,7 @@
   --sb-accent-logistica: 22 40% 44%; /* #996947 - más suave */
   --sb-accent-produc: 182 20% 47%; /* #638c8d - verde mar oscuro */
   --sb-accent-calidad: 214 35% 65%; /* #8298ce - azulado suave */
-  --sb-accent-finance: 182 20% 47%; /* #638c8d - verde mar oscuro */
+  --sb-accent-finance: var(--sb-sun-strong);
   --sb-accent-admin: 240 5% 55%; /* #8a8c92 - neutro */
 
   /* Paleta corporativa */
@@ -56,6 +56,15 @@
   --sb-neutral-200: 240 6% 90%;
   --sb-neutral-100: 240 6% 96%;
   --sb-neutral-50: 0 0% 98%;
+
+  /* Override para react-day-picker */
+  --rdp-cell-range-bg: hsl(var(--sb-sun-strong));
+  --rdp-cell-range-bg-disabled: hsl(var(--sb-sun) / 0.4);
+  --rdp-cell-range_start-bg: hsl(var(--sb-sun-strong));
+  --rdp-cell-range_end-bg: hsl(var(--sb-sun-strong));
+  --rdp-selected-color: hsl(var(--sb-neutral-900));
+  --rdp-accent-color: hsl(var(--sb-sun-strong));
+  --rdp-accent-color-dark: hsl(var(--sb-sun));
 }
 
 /* Tema oscuro opcional */
@@ -191,4 +200,17 @@
   .sb-input { @apply h-10; }
   .sb-select { @apply h-10; }
   .sb-textarea { @apply py-2; }
+}
+
+/* ===== Estilos para react-day-picker ===== */
+.rdp-day_selected, .rdp-day_selected:focus-visible, .rdp-day_selected:hover {
+  background-color: hsl(var(--sb-sun-strong));
+  color: hsl(var(--sb-neutral-900));
+}
+.rdp-button:hover:not([disabled]):not(.rdp-day_selected) {
+  background-color: hsl(var(--sb-sun));
+}
+.rdp-button_today {
+  color: hsl(var(--sb-cobre));
+  border: 1px solid hsl(var(--sb-sun-strong));
 }
