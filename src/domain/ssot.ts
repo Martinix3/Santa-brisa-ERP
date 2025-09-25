@@ -917,7 +917,7 @@ export const SB_COLORS = {
     PRODUCCION: { bg: '#ea945e', text: '#ffffff' }, // produc: naranja
     ALMACEN:    { bg: '#996947', text: '#ffffff' }, // logistica: cobre-oscuro
     MARKETING:  { bg: '#9dd4d6', text: '#2F5D5D' }, // mkt: agua-claro
-    FINANZAS:   { bg: '#638c8d', text: '#ffffff' }, // finanzas: verde-mar-oscuro
+    FINANZAS:   { bg: '#fecb46', text: '#412c00' }, // finanzas: amarillo intenso
     CALIDAD:    { bg: '#829fce', text: '#ffffff' }, // calidad: azul corporativo
   },
 
@@ -1032,7 +1032,7 @@ export const DEPT_META: Record<Department, { label: string; token: string; color
   PRODUCCION: { label: 'Producción', token: '--sb-accent-produc',   color: '#638c8d', textColor: '#ffffff' },
   CALIDAD:    { label: 'Calidad',    token: '--sb-accent-calidad',  color: '#829fce', textColor: '#ffffff' },
   ALMACEN:    { label: 'Almacén',    token: '--sb-accent-logistica',color: '#996947', textColor: '#ffffff' },
-  FINANZAS:   { label: 'Finanzas',   token: '--sb-accent-finance',  color: '#638c8d', textColor: '#ffffff' },
+  FINANZAS:   { label: 'Finanzas',   token: '--sb-sun-strong',      color: '#fecb46', textColor: '#412c00' },
 };
 
 // Helper opcional para UI
