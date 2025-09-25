@@ -7,6 +7,9 @@ import Image from 'next/image';
 import { SB_THEME } from "@/domain/ssot";
 
 export function NewCustomerCelebration({ accountName, onClose }: { accountName: string; onClose: () => void; }) {
+    // Placeholder image to avoid configuration errors
+    const imageUrl = "https://picsum.photos/seed/confetti/320/320";
+
     return (
         <AnimatePresence>
             <motion.div
@@ -23,7 +26,7 @@ export function NewCustomerCelebration({ accountName, onClose }: { accountName: 
                     className="text-center p-8"
                 >
                     <Image
-                        src="https://i.pinimg.com/originals/89/8d/6f/898d6f8726ba02f41bec46ae5df45000.gif"
+                        src={imageUrl}
                         alt="Confeti de celebración"
                         width={320}
                         height={320}

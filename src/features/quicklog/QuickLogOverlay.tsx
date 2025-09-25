@@ -17,7 +17,6 @@ export default function QuickLogOverlay() {
   const [open, setOpen] = useState(false);
   const { data, setData, currentUser, accounts, saveAllCollections } = useData();
   const [isBrainAvailable, setIsBrainAvailable] = useState<boolean | null>(null);
-  const [celebration, setCelebration] = useState<{accountName: string} | null>(null);
 
   const sourceAccounts = (accounts?.length ? accounts : data?.accounts) || [];
 
@@ -153,7 +152,10 @@ export default function QuickLogOverlay() {
           onSearchAccounts={onSearchAccounts}
           onCreateAccount={onCreateAccount}
           onSubmit={handleQuickSubmit}
-          onOrderCreated={(accountName) => setCelebration({ accountName })}
+          onOrderCreated={(accountName) => {
+            // Placeholder for future celebration/notification logic
+            console.log(`Order created for ${accountName}`);
+          }}
         />
       </div>
     );
@@ -188,13 +190,6 @@ export default function QuickLogOverlay() {
             {renderContent()}
           </div>
         </div>
-      )}
-
-      {celebration && (
-        <NewCustomerCelebration 
-          accountName={celebration.accountName} 
-          onClose={() => setCelebration(null)} 
-        />
       )}
     </>
   );
