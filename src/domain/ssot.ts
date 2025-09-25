@@ -1025,11 +1025,4 @@ export const DEPT_META: Record<Department, { label: string; color: string; textC
   FINANZAS:   { label: 'Finanzas',   color: SB_COLORS.dept.FINANZAS.bg,   textColor: SB_COLORS.dept.FINANZAS.text },
   CALIDAD:    { label: 'Calidad',    color: SB_COLORS.dept.CALIDAD.bg,    textColor: SB_COLORS.dept.CALIDAD.text },
 };
-// src/domain/SB_COLORS.ts (añade si no lo tienes)
-export const SB_THEME = {
-  chart: {
-    line:   ['#c56a3c','#ed6a36','#5a9496','#99d9d9','#fecb46'],
-    donut:  ['#fecb46','#c56a3c','#5a9496','#99d9d9','#ed6a36'],
-    grid:   'hsl(240 6% 90%)',
-  }
-}
+
