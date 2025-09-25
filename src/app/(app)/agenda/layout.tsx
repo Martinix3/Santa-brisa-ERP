@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
 import { Calendar } from 'lucide-react';
+import { SB_COLORS, tokenToHsl } from '@/domain/ssot';
 
 const clsx = (...xs: Array<string | false | null | undefined>) => xs.filter(Boolean).join(" ");
 
@@ -26,7 +27,7 @@ function AgendaNav() {
                             className={clsx(
                                 'py-3 border-b-2 text-sm font-medium transition-colors',
                                 pathname.startsWith(item.href)
-                                    ? 'border-sb-sun text-sb-cobre'
+                                    ? 'border-sb-sun-strong text-zinc-900'
                                     : 'border-transparent text-sb-neutral-500 hover:text-sb-neutral-700 hover:border-sb-neutral-300'
                             )}
                         >
@@ -42,7 +43,11 @@ function AgendaNav() {
 export default function AgendaLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="h-full flex flex-col">
-      <ModuleHeader title="Agenda" icon={Calendar} />
+      <ModuleHeader 
+        title="Agenda" 
+        icon={Calendar} 
+        color={tokenToHsl('var(--sb-accent-personal)')} 
+      />
       <AgendaNav />
       <div className="flex-grow min-h-0">
           {children}
