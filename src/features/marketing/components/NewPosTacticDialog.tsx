@@ -216,14 +216,10 @@ export function NewPosTacticDialog({
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4">
                         <label className="grid gap-1.5">
                             <span className="text-sm font-medium">Coste Total (€)</span>
                             <Input type="number" min="0" value={tactic.actualCost ?? ''} readOnly className="bg-zinc-100" />
-                        </label>
-                        <label className="grid gap-1.5">
-                            <span className="text-sm font-medium">Puntuación Ejecución (0-100)</span>
-                            <Input type="number" min="0" max="100" value={tactic.executionScore ?? ''} onChange={e => setTactic(p => ({...p, executionScore: Number(e.target.value)}))} />
                         </label>
                     </div>
                 </div>

@@ -996,7 +996,7 @@ export const PHASE_NAME_ES: Record<TraceEventPhase, string> = {
   QC:        'Calidad',
   PRODUCTION:'Producción',
   PACK:      'Embalaje',
-  WAREHOUSE: 'Almacén',
+  WAREHOUSE:  'Almacén',
   SALE:      'Venta',
   DELIVERY:  'Entrega (Almacén)',
 };

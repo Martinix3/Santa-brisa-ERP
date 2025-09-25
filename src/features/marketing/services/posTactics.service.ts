@@ -32,10 +32,7 @@ export function usePosTacticsService() {
 
   async function upsertPosTactic(input: Omit<PosTactic,'id'|'createdAt'|'createdById'|'updatedAt'> & { id?: string }) {
     if (!input.accountId) throw new Error("accountId es obligatorio");
-    if (input.executionScore == null || input.executionScore < 0 || input.executionScore > 100) {
-      throw new Error("executionScore 0..100 es obligatorio");
-    }
-     if (input.actualCost == null) {
+    if (input.actualCost == null) {
       throw new Error("El coste es obligatorio");
     }
 
@@ -48,6 +45,7 @@ export function usePosTacticsService() {
       const updated: PosTactic = {
         ...prev,
         ...input,
+        executionScore: input.executionScore ?? 80, // Default value
         updatedAt: stamp
       } as PosTactic;
       if (idx >= 0) nextList[idx] = updated; else nextList.push(updated);
@@ -55,6 +53,7 @@ export function usePosTacticsService() {
       const doc: PosTactic = {
         ...(input as any),
         id: `tac_${Date.now()}`,
+        executionScore: input.executionScore ?? 80, // Default value
         createdAt: stamp,
         createdById: currentUser?.id || 'system',
         updatedAt: stamp

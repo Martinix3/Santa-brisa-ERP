@@ -88,20 +88,19 @@ export default function PosTacticsPage() {
 
             <SBCard title="Historial y Rentabilidad de Tácticas">
                  <div className="divide-y divide-zinc-100">
-                    <div className="grid grid-cols-6 p-3 bg-zinc-50 text-xs font-semibold uppercase text-zinc-500">
+                    <div className="grid grid-cols-5 p-3 bg-zinc-50 text-xs font-semibold uppercase text-zinc-500">
                         <span>Cuenta</span>
                         <span>Táctica</span>
                         <span className="text-right">Coste</span>
                         <span className="text-right">Uplift Ventas</span>
                         <span className="text-right">ROI</span>
-                        <span>Acciones</span>
                     </div>
                     {tactics.map(tactic => {
                         const account = data?.accounts.find(a => a.id === tactic.accountId);
                         const result = tactic.result;
 
                         return (
-                            <div key={tactic.id} className="grid grid-cols-6 p-3 items-center hover:bg-zinc-50/50 text-sm">
+                            <div key={tactic.id} className="grid grid-cols-5 p-3 items-center hover:bg-zinc-50/50 text-sm">
                                 <div className="font-medium">{account?.name || tactic.accountId}</div>
                                 <div>{tactic.description || tactic.tacticCode}</div>
                                 <div className="text-right font-mono">{tactic.actualCost.toFixed(2)}€</div>
@@ -117,12 +116,6 @@ export default function PosTacticsPage() {
                                 ) : (
                                     <td colSpan={2} className="text-center text-xs text-zinc-500">Pendiente de cálculo</td>
                                 )}
-                                <div className="flex gap-2 justify-end">
-                                    <SBButton size="sm" variant="secondary" onClick={() => handleEdit(tactic)} className="sb-icon">Editar</SBButton>
-                                    {tactic.status !== 'closed' && (
-                                        <SBButton size="sm" onClick={() => handleCloseTactic(tactic.id)} className="sb-icon">Cerrar</SBButton>
-                                    )}
-                                </div>
                             </div>
                         )
                     })}
