@@ -229,18 +229,6 @@ export type Payload =
     | { type: 'cobro', amount: number, notes?: string }
     | { type: 'evento_mkt', kpis: { cost: number; attendees: number; leads: number }, notes?: string };
 
-export type PosResult = {
-  windowWeeks: number;
-  baselineUnits: number;
-  actualUnits: number;
-  upliftUnits: number;
-  liftPct: number;
-  marginPerUnit?: number;
-  upliftMargin?: number;
-  roi?: number;
-  confidence: 'LOW'|'MEDIUM'|'HIGH';
-  computedAt: string;
-};
 
 export interface Interaction {
   id: string;
@@ -257,7 +245,7 @@ export interface Interaction {
   involvedUserIds?: string[];
   location?: string;
   linkedEntity?: {
-    type: 'Order' | 'Account' | 'EVENT' | 'Collab' | 'Shipment' | 'ProductionOrder' | 'Interaction';
+    type: 'Order' | 'Account' | 'EVENT' | 'Collab' | 'Shipment' | 'ProductionOrder' | 'Interaction' | 'PosTactic';
     id: string;
   };
   tags?: string[];
@@ -778,6 +766,16 @@ export type PosTacticItem = {
 
 export type PosTacticKind = 'PLV'|'MENU'|'INCENTIVE'|'PROMO'|'OTHER';
 
+export type PosTacticStatus = 'planned'|'active'|'closed'|'cancelled';
+
+export type PosResult = {
+  roi?: number;
+  liftPct?: number;
+  upliftUnits?: number;
+  confidence?: 'LOW'|'MEDIUM'|'HIGH';
+  revenueAttributed?: number;
+};
+
 export type PosTactic = {
   id: string;
   accountId: string;
@@ -791,9 +789,9 @@ export type PosTactic = {
   plannedCost?: number;
   actualCost: number;
   executionScore: number;
-  status: 'planned'|'active'|'closed'|'cancelled';
-  createdAt: Timestamp; createdById: string;
-  updatedAt?: Timestamp;
+  status: PosTacticStatus;
+  createdAt: string; createdById: string;
+  updatedAt?: string;
   result?: PosResult;
 };
 

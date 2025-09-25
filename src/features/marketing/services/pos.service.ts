@@ -1,6 +1,7 @@
 
+// src/features/marketing/services/pos.service.ts
 'use client';
-import type { Interaction, SantaData, PosResult, OrderSellOut } from "@/domain";
+import type { Interaction, SantaData, PosResult, OrderSellOut } from "@/domain/ssot";
 import { useData } from "@/lib/dataprovider";
 
 // Helper para obtener las ventas semanales de un local
@@ -74,11 +75,11 @@ export function usePosTactics() {
     const interaction = data.interactions.find(i => i.id === interactionId);
     if (!interaction) throw new Error("Interacción no encontrada");
 
-    const updatedInteraction = {
+    const updatedInteraction: Interaction = {
       ...interaction,
       posTactic: input,
       linkedEntity: { type: 'Account' as const, id: interaction.accountId! }
-    } as Interaction;
+    };
 
     await saveCollection('interactions', data.interactions.map(i => i.id === interactionId ? updatedInteraction : i));
 
@@ -154,11 +155,11 @@ export function usePosTactics() {
       ...opts,
     });
 
-    const updatedInteraction = {
+    const updatedInteraction: Interaction = {
       ...interaction,
       status: 'closed' as const,
       posTacticResult: result,
-    } as Interaction;
+    };
 
     await saveCollection('interactions', data.interactions.map(i => i.id === interactionId ? updatedInteraction : i));
 
