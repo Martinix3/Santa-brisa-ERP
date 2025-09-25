@@ -1,3 +1,4 @@
+
 // src/features/agenda/components/NewEventDialog.tsx
 "use client";
 import React, { useState, useEffect } from 'react';
@@ -95,7 +96,6 @@ export function NewEventDialog({
   initialEventData?: Partial<Interaction> | null;
 }) {
     const { data: santaData, currentUser } = useData();
-    const [title, setTitle] = useState('');
     const [type, setType] = useState<Department>('VENTAS');
     const [interactionKind, setInteractionKind] = useState<InteractionKind>('VISITA');
     const [date, setDate] = useState('');
@@ -106,15 +106,14 @@ export function NewEventDialog({
     useEffect(() => {
         if (open) {
             if (initialEventData) {
-                setTitle(initialEventData.note || '');
                 setType(initialEventData.dept || 'VENTAS');
                 setInteractionKind(initialEventData.kind || (initialEventData.dept === 'MARKETING' ? 'EVENTO_MKT' : 'VISITA'));
                 setDate(initialEventData.plannedFor ? new Date(initialEventData.plannedFor).toISOString().slice(0, 16) : '');
                 setSelection({ accountId: initialEventData.accountId, location: initialEventData.location });
+                setNotes(initialEventData.note || '');
                 setInvolvedUserIds(initialEventData.involvedUserIds || (initialEventData.userId ? [initialEventData.userId] : []));
             } else {
                 // Reset form for new event and pre-select current user
-                setTitle('');
                 setType('VENTAS');
                 setInteractionKind('VISITA');
                 setDate('');
@@ -134,12 +133,10 @@ export function NewEventDialog({
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!title || !type || !date) {
-            alert('El título, departamento y fecha son obligatorios.');
+        if (!notes || !type || !date) {
+            alert('La descripción, departamento y fecha son obligatorios.');
             return;
         }
-
-        let finalNote = notes ? `${title} - ${notes}` : title;
         
         const saveData: Omit<Interaction, 'id' | 'createdAt' | 'status'> & { id?: string } = {
             id: initialEventData?.id,
@@ -147,7 +144,7 @@ export function NewEventDialog({
             dept: type, 
             kind: type === 'MARKETING' ? 'EVENTO_MKT' : interactionKind,
             plannedFor: date,
-            note: finalNote,
+            note: notes,
             location: selection.location,
             accountId: selection.accountId,
             involvedUserIds: involvedUserIds.length > 0 ? involvedUserIds : (currentUser ? [currentUser.id] : []),
@@ -170,22 +167,32 @@ export function NewEventDialog({
                 title={dialogTitle}
                 description="Añade o edita una entrada en tu calendario y asigna responsables."
                 onSubmit={handleSubmit}
-                primaryAction={{ label: initialEventData?.id ? 'Guardar Cambios' : 'Crear Evento', type: 'submit' }}
+                primaryAction={{ label: initialEventData?.id ? 'Guardar Cambios' : 'Crear Tarea', type: 'submit' }}
                 secondaryAction={{ label: 'Cancelar', onClick: () => onOpenChange(false) }}
             >
                 <div className="space-y-4 pt-2">
                     <div className="grid gap-1.5">
-                        <label htmlFor="event-title" className="text-sm font-medium text-zinc-700">Título del Evento</label>
-                        <input
-                            id="event-title"
-                            name="title"
-                            value={title}
-                            onChange={(e) => setTitle(e.target.value)}
-                            placeholder="Ej. Llamada de seguimiento a Cliente X"
-                            className="h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm"
+                        <label htmlFor="account-location-search" className="text-sm font-medium text-zinc-700">Cuenta o Ubicación</label>
+                        <AccountSearch 
+                            initialAccountId={initialEventData?.accountId}
+                            initialLocation={initialEventData?.location}
+                            onSelectionChange={setSelection}
+                        />
+                    </div>
+                    <div className="grid gap-1.5">
+                        <label htmlFor="event-notes" className="text-sm font-medium text-zinc-700">Descripción / Notas</label>
+                        <textarea
+                            id="event-notes"
+                            name="notes"
+                            value={notes}
+                            onChange={(e) => setNotes(e.target.value)}
+                            placeholder="Añade un resumen, objetivos o cualquier detalle relevante."
+                            className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm"
+                            rows={3}
                             required
                         />
                     </div>
+
                     <div className="grid grid-cols-2 gap-4">
                         <div className="grid gap-1.5">
                             <label htmlFor="event-dept" className="text-sm font-medium text-zinc-700">Departamento</label>
@@ -234,15 +241,6 @@ export function NewEventDialog({
                         </div>
                     )}
                     
-                    <div className="grid gap-1.5">
-                        <label htmlFor="account-location-search" className="text-sm font-medium text-zinc-700">Cuenta o Ubicación</label>
-                        <AccountSearch 
-                            initialAccountId={initialEventData?.accountId}
-                            initialLocation={initialEventData?.location}
-                            onSelectionChange={setSelection}
-                        />
-                    </div>
-
                      <div className="grid gap-1.5">
                         <span className="text-sm font-medium text-zinc-700">Usuarios Implicados</span>
                         <div className="p-2 border rounded-md flex flex-wrap gap-2">
@@ -263,23 +261,8 @@ export function NewEventDialog({
                             ))}
                         </div>
                     </div>
-                    
-                    <div className="grid gap-1.5">
-                        <label htmlFor="event-notes" className="text-sm font-medium text-zinc-700">Notas Adicionales</label>
-                        <textarea
-                            id="event-notes"
-                            name="notes"
-                            value={notes}
-                            onChange={(e) => setNotes(e.target.value)}
-                            placeholder="Añade un resumen, objetivos o cualquier detalle relevante."
-                            className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm"
-                            rows={3}
-                        />
-                    </div>
                 </div>
             </SBDialogContent>
         </SBDialog>
     );
 }
-
-    

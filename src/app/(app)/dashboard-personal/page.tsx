@@ -97,7 +97,7 @@ function PersonalDashboardContent() {
     }
   };
 
-  const handleSaveNewTask = async (eventData: Omit<Interaction, 'id' | 'createdAt' | 'status'> & { id?: string }) => {
+  const handleSaveNewTask = async (eventData: Omit<Interaction, 'createdAt' | 'status' | 'id'> & { id?: string }) => {
       if (!currentUser || !data) return;
       
       const newInteraction: Interaction = {
@@ -243,7 +243,7 @@ function PersonalDashboardContent() {
           <NewEventDialog
             open={isNewEventDialogOpen}
             onOpenChange={setIsNewEventDialogOpen}
-            onSave={handleSaveNewTask as any}
+            onSave={handleSaveNewTask}
             accentColor={SB_COLORS.primary.sun}
           />
       )}
