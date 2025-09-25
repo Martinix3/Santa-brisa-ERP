@@ -6,6 +6,7 @@ import { Plus, User as UserIcon, Search } from 'lucide-react';
 import type { Department, User, Interaction, InteractionKind, Account } from '@/domain/ssot';
 import { DEPT_META } from '@/domain/ssot'; // usa el canónico
 import { useData } from '@/lib/dataprovider';
+import { Avatar } from '@/components/ui/Avatar';
 
 function AccountSearch({ initialAccountId, initialLocation, onSelectionChange }: { 
     initialAccountId?: string;
@@ -231,14 +232,15 @@ export function NewEventDialog({
                                         key={user.id}
                                         type="button"
                                         onClick={() => handleUserToggle(user.id)}
-                                        className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-xs transition-colors ${
+                                        className={`rounded-full transition-all duration-150 ${
                                             involvedUserIds.includes(user.id)
-                                                ? 'bg-blue-100 text-blue-800 border border-blue-200'
-                                                : 'bg-zinc-100 text-zinc-700 border border-zinc-200 hover:bg-zinc-200'
+                                                ? 'ring-2 ring-offset-1'
+                                                : 'opacity-50 hover:opacity-100'
                                         }`}
+                                        style={{ ringColor: deptStyle.color }}
+                                        title={user.name}
                                     >
-                                        <UserIcon size={14} className="sb-icon" />
-                                        {user.name}
+                                        <Avatar name={user.name} size="lg" />
                                     </button>
                                 ))}
                             </div>
