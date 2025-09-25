@@ -1,4 +1,3 @@
-
 // src/features/dashboard-ventas/components/TaskCompletionDialog.tsx
 "use client";
 import React, { useMemo, useState, useEffect } from 'react';
@@ -42,7 +41,7 @@ export function TaskCompletionDialog({
   const [interactionKind, setInteractionKind] = useState<InteractionKind>(task.kind);
 
   const [showPosTacticForm, setShowPosTacticForm] = useState(false);
-  const [posTacticData, setPosTacticData] = useState<Partial<Omit<PosTactic, 'id' | 'items'>>>({ tacticCode: 'OTHER', executionScore: 80, status: 'planned' });
+  const [posTacticData, setPosTacticData] = useState<Partial<Omit<PosTactic, 'id' | 'items'>>>({ tacticCode: 'OTHER', status: 'planned' });
 
   useEffect(() => {
     if (open) {
@@ -52,7 +51,7 @@ export function TaskCompletionDialog({
       setItems([{ sku: defaultSku, qty: 1 }]);
       setInteractionKind(task.kind);
       setShowPosTacticForm(false);
-      setPosTacticData({ tacticCode: 'OTHER', executionScore: 80, status: 'planned' });
+      setPosTacticData({ tacticCode: 'OTHER', status: 'planned' });
     }
   }, [open, task.kind, defaultSku]);
 
@@ -81,11 +80,12 @@ export function TaskCompletionDialog({
         payload = { type: 'venta', items };
     }
     
-    if (showPosTacticForm && posTacticData.tacticCode && posTacticData.actualCost !== undefined && posTacticData.executionScore !== undefined) {
+    if (showPosTacticForm && posTacticData.tacticCode && posTacticData.actualCost !== undefined) {
       await upsertPosTactic({
         accountId: task.accountId!,
         interactionId: task.id,
         status: 'planned',
+        executionScore: 80, // Default value since it's removed from UI
         ...posTacticData,
       } as any);
     }
@@ -98,21 +98,6 @@ export function TaskCompletionDialog({
   const renderContent = () => {
       return (
         <div className="space-y-4">
-          <div className="grid gap-1.5">
-            <label htmlFor="interaction-kind-selector" className="text-sm font-medium text-zinc-700">Tipo de Interacción</label>
-            <Select 
-                id="interaction-kind-selector"
-                value={interactionKind} 
-                onChange={(e) => setInteractionKind(e.target.value as InteractionKind)}
-            >
-              <option value="VISITA">Visita</option>
-              <option value="LLAMADA">Llamada</option>
-              <option value="EMAIL">Email</option>
-              <option value="WHATSAPP">WhatsApp</option>
-              <option value="OTRO">Otro</option>
-            </Select>
-          </div>
-
           <div className="flex gap-2 border-b pb-4">
             <button type="button" onClick={() => setMode('interaccion')} className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-colors ${mode === 'interaccion' ? 'bg-blue-50 text-blue-700' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'}`}><MessageSquare size={16} /> Registrar Interacción</button>
             <button type="button" onClick={() => setMode('venta')} className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-colors ${mode === 'venta' ? 'bg-green-50 text-green-700' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'}`}><ShoppingCart size={16} /> Crear Venta</button>
@@ -144,19 +129,21 @@ export function TaskCompletionDialog({
                     <h4 className="font-semibold text-sm">Detalles de Táctica POS</h4>
                     <button type="button" onClick={() => setShowPosTacticForm(false)} className="text-xs text-zinc-500 hover:text-zinc-800">Cancelar</button>
                  </div>
-                 <label className="grid gap-1.5"><span className="text-xs font-medium">Táctica</span>
-                    <Select value={posTacticData.tacticCode || ''} onChange={e => setPosTacticData(p => ({...p, tacticCode: e.target.value}))} className="h-9">
-                      {TACTIC_CODES.map(c => <option key={c} value={c}>{c.replace(/_/g, ' ')}</option>)}
-                    </Select>
-                 </label>
                  <div className="grid grid-cols-2 gap-2">
-                   <label className="grid gap-1.5"><span className="text-xs font-medium">Coste Total (€)</span>
-                      <Input type="number" min="0" value={posTacticData.actualCost ?? ''} onChange={e => setPosTacticData(p => ({...p, actualCost: Number(e.target.value)}))} className="h-9"/>
-                   </label>
-                   <label className="grid gap-1.5"><span className="text-xs font-medium">Ejecución (0-100)</span>
-                      <Input type="number" min="0" max="100" value={posTacticData.executionScore ?? ''} onChange={e => setPosTacticData(p => ({...p, executionScore: Number(e.target.value)}))} className="h-9"/>
-                   </label>
+                    <label className="grid gap-1.5"><span className="text-xs font-medium">Táctica</span>
+                        <Select value={posTacticData.tacticCode || ''} onChange={e => setPosTacticData(p => ({...p, tacticCode: e.target.value}))} className="h-9">
+                          {TACTIC_CODES.map(c => <option key={c} value={c}>{c.replace(/_/g, ' ')}</option>)}
+                        </Select>
+                    </label>
+                    <label className="grid gap-1.5"><span className="text-xs font-medium">Coste Total (€)</span>
+                        <Input type="number" min="0" value={posTacticData.actualCost ?? ''} onChange={e => setPosTacticData(p => ({...p, actualCost: Number(e.target.value)}))} className="h-9"/>
+                    </label>
                  </div>
+                 {posTacticData.tacticCode === 'OTHER' && (
+                    <label className="grid gap-1.5"><span className="text-xs font-medium">Descripción (si es "OTRO")</span>
+                        <Input value={posTacticData.description ?? ''} onChange={e => setPosTacticData(p => ({...p, description: e.target.value}))} className="h-9"/>
+                    </label>
+                 )}
               </div>
             )}
           </div>
