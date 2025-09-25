@@ -176,7 +176,12 @@ function NavLink({
       title={isCollapsed ? label : undefined}
     >
       {isCollapsed && <Icon className="w-4 h-4 text-neutral-600" aria-hidden="true" />}
-      {!isCollapsed && <span className={`flex-1 truncate text-neutral-800`}>{label}</span>}
+      {!isCollapsed && (
+        <>
+          <Icon className="w-4 h-4 text-neutral-500 group-hover:text-[var(--accent-color)] transition-colors" aria-hidden="true" />
+          <span className={`flex-1 truncate text-neutral-800`}>{label}</span>
+        </>
+      )}
     </Link>
   );
 }
@@ -200,7 +205,7 @@ function NavSection({
 
   return (
     <div
-      className={`py-1 rounded-lg ${isSectionActive ? 'sb-nav-active' : ''}`}
+      className={`rounded-lg transition-colors duration-200 ${isSectionActive ? 'sb-nav-active' : ''}`}
       style={ isSectionActive ? { borderLeftColor: hsl(accentVar), ['--accent-color' as any]: hsl(accentVar) } : { ['--accent-color' as any]: hsl(accentVar) } }
     >
       <div className="w-full flex items-center justify-between group">
@@ -209,15 +214,14 @@ function NavSection({
           className={`flex-grow flex items-center gap-3 px-3 py-2 rounded-md ${isCollapsed ? 'justify-center' : ''} ${isSectionActive ? '' : 'text-neutral-500'} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--sb-neutral-200))]`}
           title={isCollapsed ? section.title : undefined}
         >
-          {isCollapsed && (
-            <span
-              className="sb-chip-solid"
-              style={{ backgroundColor: isPersonal ? 'hsl(var(--sb-accent-personal))' : hsl(accentVar) }}
-              aria-hidden
-            >
-              <DeptIcon className={`w-4 h-4 ${isPersonal ? 'text-[hsl(var(--sb-naranja))]' : ''}`} />
-            </span>
-          )}
+          <span
+            className="sb-chip-solid"
+            style={{ backgroundColor: isPersonal ? 'hsl(var(--sb-accent-personal))' : hsl(accentVar) }}
+            aria-hidden
+          >
+            <DeptIcon className={`w-4 h-4 ${isPersonal ? 'text-[hsl(var(--sb-naranja))]' : ''}`} />
+          </span>
+
 
           {!isCollapsed && (
             <span className="uppercase tracking-wider text-xs font-semibold text-neutral-700 group-hover:text-[var(--accent-color)]">

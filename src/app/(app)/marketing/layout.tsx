@@ -16,6 +16,7 @@ function MarketingNav() {
         { href: '/marketing/events', label: 'Eventos' },
         { href: '/marketing/online', label: 'Campañas Online' },
         { href: '/marketing/influencers/dashboard', label: 'Influencers' },
+        { href: '/marketing/pos-tactics', label: 'Tácticas POS' },
     ];
 
     return (
