@@ -3,15 +3,15 @@
 "use client";
 
 import React, { useMemo, useState, useTransition } from "react";
-import type { OrderStatus, Account, OrderSellOut, Party, PartyRole, CustomerData, User, Shipment, SantaData, AccountType, SB_THEME } from '@/domain/ssot';
-import { SBButton, STATUS_STYLES } from '@/components/ui/ui-primitives';
+import type { OrderStatus, Account, OrderSellOut, Party, PartyRole, CustomerData, User, Shipment, SantaData, AccountType } from '@/domain/ssot';
+import { SBButton, STATUS_STYLES, EmptyState } from '@/components/ui/ui-primitives';
 import { useData } from "@/lib/dataprovider";
 import { updateOrderStatus, createSalesInvoice, recordPayment } from "@/app/(app)/orders/actions";
 import { ImportShopifyOrderButton } from './ImportShopifyOrderButton';
 import Link from "next/link";
 import { orderTotal } from "@/lib/sb-core";
 import { consignmentOnHandByAccount, consignmentTotalUnits } from '@/lib/consignment-and-samples';
-import { AlertCircle, Truck, Boxes, FileText, CreditCard } from 'lucide-react';
+import { AlertCircle, Truck, Boxes, FileText, CreditCard, ShoppingCart } from 'lucide-react';
 import { normalizeOrderStatus } from '@/lib/status';
 import { CreateOrderForm } from '@/features/quicklog/components/SBFlows';
 import { SBFlowModal } from '@/features/quicklog/components/SBFlows';
@@ -360,71 +360,77 @@ export default function OrdersDashboard() {
         </div>
 
       <div className="bg-white border rounded-2xl overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-zinc-50 text-left">
-            <tr>
-              <th className="p-3 font-semibold text-zinc-600">Pedido ID</th>
-              <th className="p-3 font-semibold text-zinc-600">Cliente</th>
-              <th className="p-3 font-semibold text-zinc-600">Comercial</th>
-              <th className="p-3 font-semibold text-zinc-600">Fecha</th>
-              <th className="p-3 font-semibold text-zinc-600">Fuente</th>
-              <th className="p-3 font-semibold text-zinc-600 text-right">Total</th>
-              <th className="p-3 font-semibold text-zinc-600">Estado</th>
-              <th className="p-3 font-semibold text-zinc-600">Acciones</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-zinc-100">
-            {visibleOrders.map((o) => {
-              const acc = accountsById.get(o.accountId);
-              if (!acc) return null;
-              const owner = usersById.get(acc.ownerId);
-              const total = orderTotal(o);
-              const status = normalizeOrderStatus(o.status);
-              const meta = STATUS_STYLES[status] || { label: status, color: 'text-zinc-800', bg: 'bg-zinc-100' };
-
-              return (
-                <tr key={o.id} className="hover:bg-zinc-50">
-                  <td className="p-3 font-mono text-xs font-medium text-zinc-800">
-                    <Link href={`/orders/${o.id}`} className="text-blue-600 hover:underline" title={o.id}>
-                      {o.docNumber || o.id}
-                    </Link>
-                  </td>
-                  <td className="p-3">
-                    <div className="flex items-center gap-2">
-                      <Link href={`/accounts/${acc.id}`} className="hover:underline font-medium" title={o.accountId}>
-                        {acc?.name || "N/A"}
-                      </Link>
-                    </div>
-                  </td>
-                  <td className="p-3">{owner?.name || "N/A"}</td>
-                  <td className="p-3">{new Date(o.createdAt).toLocaleDateString("es-ES")}</td>
-                  <td className="p-3">
-                    <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs border bg-zinc-100 text-zinc-800">
-                      {o.source || "CRM"}
-                    </span>
-                  </td>
-                  <td className="p-3 text-right font-semibold">{total.toLocaleString("es-ES", { style: "currency", currency: "EUR" })}</td>
-                  <td className="p-3">
-                    <StatusSelector order={o} onChange={onStatusChange} accountsById={accountsById} partiesById={partiesById}/>
-                  </td>
-                  <td className="p-3">
-                    <div className="flex gap-2">
-                        <SBButton size="sm" variant="secondary" disabled={isPending || o.status === 'invoiced' || o.status === 'paid'} onClick={() => start(async () => { setMsg(null); await createSalesInvoice({ orderId: o.id }); setMsg(`Factura creada para ${o.id}`); })} className="sb-icon">Facturar</SBButton>
-                        <SBButton size="sm" variant="secondary" disabled={isPending || o.status !== 'invoiced'} onClick={() => start(async () => { setMsg(null); await recordPayment({ financeLinkId: (o as any).financeLinkId || `holded-${(o.external as any)?.holdedInvoiceId}`, amount: o.totalAmount || 0 }); setMsg(`Cobro registrado para ${o.id}`); })} className="sb-icon">Registrar Cobro</SBButton>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-            {visibleOrders.length === 0 && (
+        {visibleOrders.length > 0 ? (
+          <table className="w-full text-sm">
+            <thead className="bg-zinc-50 text-left">
               <tr>
-                <td colSpan={8} className="p-8 text-center text-zinc-500">
-                  No se encontraron pedidos en esta vista.
-                </td>
+                <th className="p-3 font-semibold text-zinc-600">Pedido ID</th>
+                <th className="p-3 font-semibold text-zinc-600">Cliente</th>
+                <th className="p-3 font-semibold text-zinc-600">Comercial</th>
+                <th className="p-3 font-semibold text-zinc-600">Fecha</th>
+                <th className="p-3 font-semibold text-zinc-600">Fuente</th>
+                <th className="p-3 font-semibold text-zinc-600 text-right">Total</th>
+                <th className="p-3 font-semibold text-zinc-600">Estado</th>
+                <th className="p-3 font-semibold text-zinc-600">Acciones</th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-zinc-100">
+              {visibleOrders.map((o) => {
+                const acc = accountsById.get(o.accountId);
+                if (!acc) return null;
+                const owner = usersById.get(acc.ownerId);
+                const total = orderTotal(o);
+                const status = normalizeOrderStatus(o.status);
+                const meta = STATUS_STYLES[status] || { label: status, color: 'text-zinc-800', bg: 'bg-zinc-100' };
+
+                return (
+                  <tr key={o.id} className="hover:bg-zinc-50">
+                    <td className="p-3 font-mono text-xs font-medium text-zinc-800">
+                      <Link href={`/orders/${o.id}`} className="text-blue-600 hover:underline" title={o.id}>
+                        {o.docNumber || o.id}
+                      </Link>
+                    </td>
+                    <td className="p-3">
+                      <div className="flex items-center gap-2">
+                        <Link href={`/accounts/${acc.id}`} className="hover:underline font-medium" title={o.accountId}>
+                          {acc?.name || "N/A"}
+                        </Link>
+                      </div>
+                    </td>
+                    <td className="p-3">{owner?.name || "N/A"}</td>
+                    <td className="p-3">{new Date(o.createdAt).toLocaleDateString("es-ES")}</td>
+                    <td className="p-3">
+                      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs border bg-zinc-100 text-zinc-800">
+                        {o.source || "CRM"}
+                      </span>
+                    </td>
+                    <td className="p-3 text-right font-semibold">{total.toLocaleString("es-ES", { style: "currency", currency: "EUR" })}</td>
+                    <td className="p-3">
+                      <StatusSelector order={o} onChange={onStatusChange} accountsById={accountsById} partiesById={partiesById}/>
+                    </td>
+                    <td className="p-3">
+                      <div className="flex gap-2">
+                          <SBButton size="sm" variant="secondary" disabled={isPending || o.status === 'invoiced' || o.status === 'paid'} onClick={() => start(async () => { setMsg(null); await createSalesInvoice({ orderId: o.id }); setMsg(`Factura creada para ${o.id}`); })} className="sb-icon">Facturar</SBButton>
+                          <SBButton size="sm" variant="secondary" disabled={isPending || o.status !== 'invoiced'} onClick={() => start(async () => { setMsg(null); await recordPayment({ financeLinkId: (o as any).financeLinkId || `holded-${(o.external as any)?.holdedInvoiceId}`, amount: o.totalAmount || 0 }); setMsg(`Cobro registrado para ${o.id}`); })} className="sb-icon">Registrar Cobro</SBButton>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        ) : (
+          <EmptyState
+            icon={ShoppingCart}
+            title="No hay pedidos que mostrar"
+            description="Parece que no hay ningún pedido que coincida con los filtros seleccionados. ¿Quizás quieres crear uno nuevo?"
+            actions={
+              <SBButton onClick={() => setCreateOpen(true)} style={{ backgroundColor: DEPT_META.VENTAS.color, color: DEPT_META.VENTAS.textColor }} className="hover:brightness-110">
+                Nuevo pedido
+              </SBButton>
+            }
+          />
+        )}
       </div>
 
        {isCreateOpen && data && (

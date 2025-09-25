@@ -155,6 +155,29 @@ export function DataTableSB<T extends { id: string }>({ rows, cols }: { rows: T[
 }
 
 // ===================================
+// Empty State
+// ===================================
+interface EmptyStateProps {
+  icon: React.ElementType;
+  title: string;
+  description: string;
+  actions?: React.ReactNode;
+}
+
+export function EmptyState({ icon: Icon, title, description, actions }: EmptyStateProps) {
+  return (
+    <div className="flex flex-col items-center justify-center text-center p-8 md:p-12 border-2 border-dashed rounded-2xl bg-zinc-50/50">
+        <div className="p-3 rounded-full bg-zinc-100 mb-4">
+            <Icon className="h-8 w-8 text-zinc-500" />
+        </div>
+        <h3 className="text-lg font-semibold text-zinc-800">{title}</h3>
+        <p className="mt-1 text-sm text-zinc-600 max-w-sm">{description}</p>
+        {actions && <div className="mt-6 flex items-center gap-3">{actions}</div>}
+    </div>
+  );
+}
+
+// ===================================
 // Misc
 // ===================================
 export const hexToRgba = (hex: string, a: number) => {
