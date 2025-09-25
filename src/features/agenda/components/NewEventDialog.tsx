@@ -91,13 +91,12 @@ export function NewEventDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (event: Omit<Interaction, 'createdAt' | 'status' | 'id'> & { id?: string }) => void;
+  onSave: (event: Omit<Interaction, 'id' | 'createdAt' | 'status'> & { id?: string }) => void;
   accentColor: string;
   initialEventData?: Partial<Interaction> | null;
 }) {
     const { data: santaData, currentUser } = useData();
     const [type, setType] = useState<Department>('VENTAS');
-    const [interactionKind, setInteractionKind] = useState<InteractionKind>('OTRO');
     const [date, setDate] = useState('');
     const [selection, setSelection] = useState<{ accountId?: string, location?: string }>({});
     const [notes, setNotes] = useState('');
@@ -107,7 +106,6 @@ export function NewEventDialog({
         if (open) {
             if (initialEventData) {
                 setType(initialEventData.dept || 'VENTAS');
-                setInteractionKind(initialEventData.kind || 'OTRO');
                 setDate(initialEventData.plannedFor ? new Date(initialEventData.plannedFor).toISOString().slice(0, 16) : '');
                 setSelection({ accountId: initialEventData.accountId, location: initialEventData.location });
                 setNotes(initialEventData.note || '');
@@ -115,7 +113,6 @@ export function NewEventDialog({
             } else {
                 // Reset form for new event and pre-select current user
                 setType('VENTAS');
-                setInteractionKind('OTRO');
                 setDate('');
                 setSelection({});
                 setNotes('');
@@ -142,7 +139,7 @@ export function NewEventDialog({
             id: initialEventData?.id,
             userId: initialEventData?.userId || currentUser!.id,
             dept: type, 
-            kind: type === 'VENTAS' ? 'OTRO' : interactionKind,
+            kind: 'OTRO', // Defaulting to 'OTRO' as the field is removed
             plannedFor: date,
             note: notes,
             location: selection.location,
@@ -223,25 +220,6 @@ export function NewEventDialog({
                                 />
                             </div>
                         </div>
-                        
-                        {type !== 'VENTAS' && (
-                            <div className="grid gap-1.5">
-                                <label htmlFor="interaction-kind" className="text-sm font-medium text-zinc-700">Tipo de Interacción</label>
-                                <select
-                                    id="interaction-kind"
-                                    name="interaction-kind"
-                                    value={interactionKind}
-                                    onChange={(e) => setInteractionKind(e.target.value as InteractionKind)}
-                                    className="h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm"
-                                >
-                                    <option value="VISITA">Visita</option>
-                                    <option value="LLAMADA">Llamada</option>
-                                    <option value="EMAIL">Email</option>
-                                    <option value="WHATSAPP">WhatsApp</option>
-                                    <option value="OTRO">Otro</option>
-                                </select>
-                            </div>
-                        )}
                         
                         <div className="grid gap-1.5">
                             <span className="text-sm font-medium text-zinc-700">Usuarios Implicados</span>
