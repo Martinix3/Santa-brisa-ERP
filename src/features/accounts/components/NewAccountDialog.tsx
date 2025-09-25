@@ -76,7 +76,7 @@ export function NewAccountDialog({
     const newRole: PartyRole = {
         id: roleId,
         partyId: partyId,
-        role: 'CUSTOMER',
+        role: type === 'DISTRIBUIDOR' ? 'DISTRIBUTOR' : 'CUSTOMER',
         isActive: true,
         createdAt: now,
         data: {
@@ -111,6 +111,7 @@ export function NewAccountDialog({
                         <option value="RETAIL">Retail</option>
                         <option value="ONLINE">Online</option>
                         <option value="PRIVADA">Privada</option>
+                        <option value="DISTRIBUIDOR">Distribuidor</option>
                         <option value="OTRO">Otro</option>
                     </Select>
                 </label>
