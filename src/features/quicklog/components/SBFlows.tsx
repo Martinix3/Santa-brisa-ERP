@@ -1,11 +1,11 @@
 // src/features/quicklog/components/SBFlows.tsx
 "use client";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Plus, CalendarDays, ClipboardList, UserPlus2, Briefcase, Search, Check, MapPin, Pencil, Save, MessageSquare, Zap, Mail, Phone, History, ShoppingCart, Building, CreditCard, Star, Loader2 } from "lucide-react";
 import { useData } from "@/lib/dataprovider";
 import { generateNextOrder } from '@/lib/codes';
-import type { AccountType, Account, OrderSellOut, Product, Party, SB_THEME, InteractionKind, PosTactic } from '@/domain/ssot';
+import type { AccountType, Account, OrderSellOut, Product, Party, SB_THEME, InteractionKind, PosTactic, PartyRole } from '@/domain/ssot';
 import { SB_COLORS } from "@/domain/ssot";
 
 const hexToRgba = (hex: string, a: number) => { const h = hex.replace('#',''); const f = h.length===3? h.split('').map(c=>c+c).join(''):h; const n=parseInt(f,16); const r=(n>>16)&255, g=(n>>8)&255, b=n&255; return `rgba(${r},${g},${b},${a})`; };
@@ -86,7 +86,7 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
   // State for the unified form
   const [accountName, setAccountName] = useState("");
   const [accountCity, setAccountCity] = useState("");
-  const [accountType, setAccountType] = useState<AccountType>("HORECA");
+  const [billerId, setBillerId] = useState("SB");
   const [selectedAccountId, setSelectedAccountId] = useState<string | undefined>();
   
   const [searchSuggestions, setSearchSuggestions] = useState<Account[]>([]);
@@ -101,7 +101,6 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
   // quick order state
   const [items, setItems] = useState<{sku:string; qty:number, lotNumber?: string}[]>([{sku:"SB-750", qty:1, lotNumber: ''}]);
   const [orderNote, setOrderNote] = useState("");
-  const [isVentaPropia, setIsVentaPropia] = useState(true);
   
   // quick interaction state
   const [interactionNote, setInteractionNote] = useState("");
@@ -113,12 +112,19 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
 
   const debouncedName = useDebounced(accountName, 250);
 
+  const distributors = useMemo(() => {
+    if (!santaData) return [];
+    const distRoles = (santaData.partyRoles || []).filter(r => r.role === 'DISTRIBUTOR');
+    const distPartyIds = new Set(distRoles.map(r => r.partyId));
+    return (santaData.parties || []).filter(p => distPartyIds.has(p.id));
+  }, [santaData]);
+
   useEffect(() => {
     const run = async () => {
-      if (debouncedName.length < 1 || selectedAccountId) { 
-        setSearchSuggestions([]); 
-        setIsSearchOpen(false); 
-        return; 
+      if (debouncedName.length < 1 || selectedAccountId) {
+        setSearchSuggestions([]);
+        setIsSearchOpen(false);
+        return;
       }
       
       searchAbortRef.current?.abort();
@@ -140,7 +146,7 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
         if (!ac.signal.aborted) {
           searchCache.current.set(key, results);
           setSearchSuggestions(results);
-          setIsSearchOpen(results.length > 0 || !!debouncedName); // Keep open to show "create"
+          setIsSearchOpen(true);
         }
       } catch (e) {
         if ((e as any).name !== 'AbortError') console.error(e);
@@ -154,9 +160,10 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
 
   const handleAccountSelect = (account: Account) => {
     const party = santaData?.parties.find(p => p.id === account.partyId);
+    const role = santaData?.partyRoles.find(pr => pr.partyId === account.partyId && pr.role === 'CUSTOMER');
     setAccountName(account.name);
     setAccountCity(party?.billingAddress?.city || "");
-    setAccountType(account.type);
+    setBillerId((role?.data as any)?.billerId || 'SB');
     setSelectedAccountId(account.id);
     setIsSearchOpen(false);
   };
@@ -166,7 +173,7 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
       if (selectedAccountId) {
           setSelectedAccountId(undefined);
           setAccountCity("");
-          setAccountType("HORECA");
+          setBillerId("SB");
       }
   };
 
@@ -205,6 +212,7 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
     
     let newAccountPayload: Partial<Account> | undefined;
     let newPartyPayload: Partial<Party> | undefined;
+    let newPartyRolePayload: Partial<PartyRole> | undefined;
     
     if(!selectedAccountId && accountName.trim()){
       const partyId = `party_${Date.now()}`;
@@ -215,17 +223,28 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
           updatedAt: new Date().toISOString(),
       };
       newAccountPayload = {
-          id: `acc_${Date.now()}`, partyId, name: accountName.trim(), type: accountType,
+          id: `acc_${Date.now()}`, partyId, name: accountName.trim(), type: 'HORECA',
           stage: 'POTENCIAL', ownerId: currentUser?.id || 'u_admin', createdAt: new Date().toISOString(),
+      };
+      newPartyRolePayload = {
+        id: `pr_${Date.now()}`,
+        partyId: partyId,
+        role: 'CUSTOMER',
+        isActive: true,
+        data: {
+          billerId: billerId,
+          salesRepId: currentUser?.id || 'u_admin',
+        } as any,
+        createdAt: new Date().toISOString()
       };
     }
 
     if(mode==="order"){
       if(items.length===0 || items.some(it=>!it.sku || it.qty<=0)) return alert("Revisa las líneas del pedido");
-      onSubmit({ mode:"order", accountId: selectedAccountId, newAccount: newAccountPayload, newParty: newPartyPayload, items, note: orderNote, isVentaPropia, posTactic: posPayload });
+      onSubmit({ mode:"order", accountId: selectedAccountId, newAccount: newAccountPayload, newParty: newPartyPayload, items, note: orderNote, posTactic: posPayload } as any);
     } else {
       if(!interactionNote) return alert("Añade un resumen de la interacción");
-      onSubmit({ mode:"interaction", accountId: selectedAccountId, newAccount: newAccountPayload, newParty: newPartyPayload, kind: 'OTRO', note: interactionNote, nextAction: nextAction || undefined, posTactic: posPayload });
+      onSubmit({ mode:"interaction", accountId: selectedAccountId, newAccount: newAccountPayload, newParty: newPartyPayload, kind: 'OTRO', note: interactionNote, nextAction: nextAction || undefined, posTactic: posPayload } as any);
     }
   }
 
@@ -251,7 +270,7 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
       {!showPosTacticForm ? (
           <button type="button" onClick={() => setShowPosTacticForm(true)} className="w-full text-sm flex items-center justify-center gap-2 p-2 rounded-lg border border-dashed hover:bg-yellow-50">
               <Star size={16} className="text-yellow-500" />
-              Añadir Táctica POS a esta entrada
+              Añadir Táctica POS
           </button>
       ) : (
         <div className="p-3 border rounded-lg bg-zinc-50 space-y-3">
@@ -296,11 +315,7 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
             {isSearchOpen && (
               <div className="absolute z-10 mt-1 w-full rounded-xl border border-zinc-200 bg-white shadow-lg overflow-hidden">
                 {loading ? <div className="px-3 py-2 text-sm text-zinc-500">Buscando...</div> :
-                searchSuggestions.length === 0 && !!debouncedName ? (
-                  <div className="px-3 py-2 text-sm text-zinc-600">
-                    Crear “<strong>{debouncedName}</strong>” como nueva cuenta ↵
-                  </div>
-                ) : (
+                searchSuggestions.length > 0 ? (
                   <ul className="max-h-40 overflow-y-auto divide-y">
                     {searchSuggestions.map((account, i) => (
                       <li key={account.id} onClick={() => handleAccountSelect(account)} className={`px-3 py-2 text-sm hover:bg-zinc-50 cursor-pointer ${i === activeIdx ? 'bg-zinc-50' : ''}`}>
@@ -308,16 +323,24 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
                       </li>
                     ))}
                   </ul>
-                )}
+                ) : !!debouncedName ? (
+                    <div className="px-3 py-2 text-sm text-zinc-600">
+                        Crear “<strong>{debouncedName}</strong>” como nueva cuenta ↵
+                    </div>
+                ) : null}
               </div>
             )}
         </div>
         <div className="grid grid-cols-2 gap-3">
             <Row><Label>Ciudad</Label><Input value={accountCity} onChange={e=>setAccountCity(e.target.value)} /></Row>
-            <Row><Label>Tipo</Label>
-                <Select value={accountType} onChange={e=>setAccountType(e.target.value as AccountType)}>
-                    <option>HORECA</option><option>RETAIL</option><option>DISTRIBUIDOR</option><option>ONLINE</option><option>OTRO</option>
-                </Select>
+            <Row>
+              <Label>Canal de Venta / Facturador</Label>
+              <Select value={billerId} onChange={e => setBillerId(e.target.value)}>
+                <option value="SB">Venta Propia (Santa Brisa)</option>
+                {distributors.map(d => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </Select>
             </Row>
         </div>
       </div>
@@ -339,7 +362,7 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
                      <Select value={it.lotNumber || ''} onChange={e => setLine(i, { lotNumber: e.target.value })}>
                         <option value="">Seleccionar lote...</option>
                         {lotsForSku.map(lot => (
-                            <option key={lot.lotNumber} value={lot.lotNumber}>
+                            <option key={lot.lotNumber} value={lot.lotNumber || ''}>
                                 {lot.lotNumber} ({lot.qty} uds)
                             </option>
                         ))}
@@ -353,10 +376,6 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
                 <button onClick={addLine} className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md border border-zinc-300 bg-white hover:bg-zinc-50"><Plus className="h-3.5 w-3.5"/>Añadir línea</button>
                 <div className="w-1/2"><Input placeholder="Nota opcional" value={orderNote} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>setOrderNote(e.target.value)}/></div>
             </div>
-            </div>
-            <div className="flex items-center gap-2">
-                <input type="checkbox" id="venta-propia-check" checked={isVentaPropia} onChange={(e) => setIsVentaPropia(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-yellow-600 focus:ring-yellow-500"/>
-                <label htmlFor="venta-propia-check" className="text-sm font-medium text-gray-700">Es Venta Propia (factura Santa Brisa)</label>
             </div>
         </>
       ) : (
@@ -543,7 +562,7 @@ export function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, on
                 <Select value={it.lotNumber || ''} onChange={e => setLine(i, { lotNumber: e.target.value })}>
                     <option value="">Seleccionar lote...</option>
                     {lotsForSku.map(lot => (
-                        <option key={lot.lotNumber} value={lot.lotNumber}>
+                        <option key={lot.lotNumber} value={lot.lotNumber || ''}>
                             {lot.lotNumber} ({lot.qty} uds)
                         </option>
                     ))}
