@@ -97,52 +97,57 @@ function AccountPicker({
   const boxRef = useRef<HTMLDivElement>(null);
 
   useEffect(()=>{ setQ(value); },[value]);
+  
   useEffect(()=>{
     const handler = async()=>{
-      if(!debounced){ setList([]); return; }
+      if(!debounced){ 
+        setList([]);
+        setMode("search"); // Vuelve a buscar si el input se vacía
+        return; 
+      }
       setLoading(true);
       let results: Account[] = [];
       const norm = (s:string)=> s.normalize('NFD').replace(/\p{Diacritic}/gu,'').toLowerCase();
       try{
         if(onSearchAccounts){ results = await onSearchAccounts(debounced); }
         else if(accounts){ const nq = norm(debounced); results = accounts.filter(a => norm(a.name).includes(nq)).slice(0,8); }
-      } finally{ setLoading(false); setList(results||[]); }
+      } finally{ 
+        setLoading(false); 
+        setList(results||[]);
+        if (results.length === 0 && debounced) {
+            setMode("create");
+            setNewName(debounced);
+        } else {
+            setMode("search");
+        }
+      }
     };
     handler();
   },[debounced, onSearchAccounts, accounts]);
+
   useEffect(()=>{ const onDocClick=(e:MouseEvent)=>{ if(!boxRef.current) return; if(!boxRef.current.contains(e.target as any)) setOpen(false); }; document.addEventListener('mousedown', onDocClick); return ()=> document.removeEventListener('mousedown', onDocClick); },[]);
 
   const exact = list.find(a=> a.name.toLowerCase()===q.toLowerCase());
-  const canCreate = q.trim().length>=3 && !exact;
 
   async function createInline(){
     const name = newName || q.trim(); if(!name) return alert("Pon un nombre");
-    let created: Account | null = null;
     if(onCreateAccount){
         const partyId = `party_${Date.now()}`;
         const accountId = `acc_${Date.now()}`;
 
         const newParty: Partial<Party> = {
-            id: partyId,
-            name,
-            kind: 'ORG',
+            id: partyId, name, kind: 'ORG',
             addresses: newCity ? [{type: 'main', street: '', city: newCity, country: 'España', postalCode: ''}] : [],
-            contacts: [],
-            createdAt: new Date().toISOString(),
+            contacts: [], createdAt: new Date().toISOString(),
         };
 
         const newAccount: Partial<Account> = {
-            id: accountId,
-            partyId: partyId,
-            name,
-            type: newType,
-            stage: 'POTENCIAL',
-            ownerId: currentUser?.id || 'u_admin',
+            id: accountId, partyId: partyId, name, type: newType,
+            stage: 'POTENCIAL', ownerId: currentUser?.id || 'u_admin',
             createdAt: new Date().toISOString(),
         };
 
         onChange(name);
-        // This is a special instruction for the submit handler
         (onChange as any)('__internal_new_account', newAccount, newParty);
     }
     setMode("search"); setQ(name); setOpen(false);
@@ -160,43 +165,23 @@ function AccountPicker({
         {open && (
           <motion.div initial={{opacity:0, y:4}} animate={{opacity:1, y:0}} exit={{opacity:0, y:4}}
             className="absolute z-20 mt-1 w-full rounded-xl border border-zinc-200 bg-white shadow-lg overflow-hidden">
-            {mode==="search" && (
-              <div>
-                <div className="px-3 py-2 text-[11px] uppercase tracking-wide text-zinc-500 border-b bg-zinc-50">Cuentas</div>
-                {loading && <div className="px-3 py-2 text-sm text-zinc-500">Buscando…</div>}
-                {!loading && list.length>0 && (
-                  <ul className="max-h-56 overflow-auto divide-y">
-                    {list.map(a=> (
-                      <li key={a.id} className="px-3 py-2 text-sm hover:bg-zinc-50 cursor-pointer flex items-center gap-2"
-                        onClick={()=>{ onChange(a.name); setQ(a.name); setOpen(false); }}>
-                        <Check className="h-4 w-4 text-emerald-600 hidden"/>
-                        <div className="flex-1">
-                          <div className="font-medium text-zinc-800">{a.name}</div>
-                          <div className="text-[11px] text-zinc-500 flex items-center gap-1"><MapPin className="h-3 w-3"/>{a.type||""}</div>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {!loading && list.length===0 && debounced.length > 0 && (
-                  <div className="px-3 py-3 text-sm text-zinc-600">Sin resultados</div>
-                )}
-                <div className="p-2 border-t bg-zinc-50 flex gap-2">
-                  <button disabled={!canCreate} onClick={()=>{ setMode("create"); setNewName(q.trim()); }}
-                    className={`flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm border ${canCreate?"bg-white hover:bg-zinc-50 border-zinc-300":"bg-white/60 border-zinc-200 text-zinc-400 cursor-not-allowed"}`}>
-                    <Plus className="h-4 w-4"/> Crear cuenta &quot;{q || ""}&quot;
-                  </button>
-                  {allowDefer && (
-                    <button onClick={()=>{ onChange(""); setOpen(false); }}
-                      className="sb-btn-primary px-3 py-2 text-sm rounded-lg border border-zinc-300 bg-white hover:bg-zinc-50">
-                      Dejar para más tarde
-                    </button>
-                  )}
-                </div>
-              </div>
+            
+            {loading && <div className="px-3 py-2 text-sm text-zinc-500">Buscando…</div>}
+            
+            {!loading && list.length>0 && (
+              <ul className="max-h-56 overflow-auto divide-y">
+                {list.map(a=> (
+                  <li key={a.id} className="px-3 py-2 text-sm hover:bg-zinc-50 cursor-pointer flex items-center gap-2"
+                    onClick={()=>{ onChange(a.name); setQ(a.name); setOpen(false); }}>
+                    <div className="flex-1">
+                      <div className="font-medium text-zinc-800">{a.name}</div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
             )}
-
-            {mode==="create" && (
+            
+            {!loading && mode === 'create' && (
               <div>
                 <div className="px-3 py-2 text-[11px] uppercase tracking-wide text-zinc-500 border-b bg-zinc-50">Nueva cuenta</div>
                 <div className="p-3 space-y-2">
@@ -210,9 +195,8 @@ function AccountPicker({
                     </Row>
                   </div>
                 </div>
-                <div className="flex justify-between gap-2 p-2 border-t bg-zinc-50">
-                  <button onClick={()=>setMode("search")} className="sb-btn-primary px-3 py-2 text-sm rounded-lg border border-zinc-300 bg-white hover:bg-zinc-50">Volver</button>
-                  <button onClick={createInline} className="sb-btn-primary px-3 py-2 text-sm rounded-lg bg-[#F7D15F] text-zinc-900 hover:brightness-95">Crear y usar</button>
+                <div className="flex justify-end gap-2 p-2 border-t bg-zinc-50">
+                  <button onClick={createInline} className="flex-1 sb-btn-primary px-3 py-2 text-sm rounded-lg bg-sb-sun text-zinc-900 hover:brightness-95">Crear y usar</button>
                 </div>
               </div>
             )}
@@ -577,7 +561,7 @@ export function BaseModal({open, onClose, color="#A7D8D9", title, icon:Icon=Clip
           transition={{type:"spring", stiffness:260, damping:22}}
           className="relative w-[95vw] max-w-2xl h-[85vh] rounded-2xl border border-zinc-200 bg-white shadow-xl overflow-hidden flex flex-col">
           <Header title={title} color={color} icon={Icon}/>
-          <div className="absolute right-2 top-2 z-10"><button onClick={onClose} className="p-2 rounded-md hover:bg-zinc-100" aria-label="Cerrar"><X className="h-4 w-4"/></button></div>
+          <div className="absolute right-2 top-2 z-10"><button onClick={onClose} className="p-2 rounded-full hover:bg-zinc-100" aria-label="Cerrar"><X className="h-4 w-4"/></button></div>
           <div className="flex-grow overflow-y-auto">
             {children}
           </div>
@@ -636,6 +620,7 @@ export function SBFlowModal({
     </BaseModal>
   );
 }
+
 
 
 
