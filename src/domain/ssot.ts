@@ -792,7 +792,7 @@ export type PosTactic = {
   status: 'planned'|'active'|'closed'|'cancelled';
   createdAt: Timestamp; createdById: string;
   updatedAt?: Timestamp;
-  result?: { roi?: number; liftPct?: number; upliftUnits?: number; confidence?: 'LOW'|'MEDIUM'|'HIGH' };
+  result?: PosResult;
 };
 
 export type CodeEntity = 'PRODUCT' | 'ACCOUNT' | 'PARTY' | 'SUPPLIER' | 'LOT' | 'PROD_ORDER' | 'SHIPMENT' | 'GOODS_RECEIPT' | 'LOCATION' | 'PRICE_LIST' | 'PROMOTION';

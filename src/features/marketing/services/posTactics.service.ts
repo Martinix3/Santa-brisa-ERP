@@ -2,12 +2,14 @@
 
 "use client";
 import { useData } from "@/lib/dataprovider";
-import type { PosTactic, PosTacticItem, PosCostCatalogEntry, PlvMaterial } from "@/domain/ssot";
+import type { PosTactic, PosTacticItem, PosCostCatalogEntry, PlvMaterial, OrderSellOut } from "@/domain/ssot";
+import { usePosTactics } from '@/features/marketing/services/pos.service';
 
 function nowISO(){ return new Date().toISOString(); }
 
 export function usePosTacticsService() {
   const { data, setData, isPersistenceEnabled, saveCollection, currentUser } = useData();
+  const { computePosResult } = usePosTactics();
 
   const catalog: PosCostCatalogEntry[] = (data as any)?.posCostCatalog || [];
   const tactics: PosTactic[] = (data as any)?.posTactics || [];
@@ -51,8 +53,8 @@ export function usePosTacticsService() {
     } else {
       const doc: PosTactic = {
         ...input,
-        id: `tac_${Date.now()}`,
         items: [],
+        id: `tac_${Date.now()}`,
         createdAt: stamp,
         createdById: currentUser?.id || 'system',
         updatedAt: stamp
@@ -66,7 +68,17 @@ export function usePosTacticsService() {
   async function closePosTactic(tacticId: string) {
     const t = tactics.find(x => x.id === tacticId);
     if (!t) throw new Error("Táctica no encontrada");
-    const next = tactics.map(x => x.id === tacticId ? ({ ...x, status: 'closed' as const, updatedAt: nowISO() }) : x);
+
+    const result = await computePosResult({
+      accountId: t.accountId,
+      startDate: t.createdAt,
+      endDate: t.updatedAt || new Date().toISOString(),
+      costTotal: t.actualCost,
+      executionScore: t.executionScore,
+    });
+    
+    const next = tactics.map(x => x.id === tacticId ? ({ ...x, status: 'closed' as const, result, updatedAt: nowISO() }) : x);
+    
     await persist({ tactics: next });
     return next.find(x => x.id === tacticId)!;
   }

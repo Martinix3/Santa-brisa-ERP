@@ -6,7 +6,7 @@ import { SBButton, SBCard, KPI } from '@/components/ui/ui-primitives';
 import { Star, TrendingUp, DollarSign, Trophy, Percent, Plus } from 'lucide-react';
 import { usePosTacticsService } from '@/features/marketing/services/posTactics.service';
 import { NewPosTacticDialog } from '@/features/marketing/components/NewPosTacticDialog';
-import type { PosTactic, PosResult, SB_THEME } from '@/domain/ssot';
+import type { PosTactic, PosResult } from '@/domain/ssot';
 import { useData } from '@/lib/dataprovider';
 
 function StatusPill({ status }: { status: PosTactic['status'] }) {
