@@ -95,6 +95,9 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
 
   // quick order state
   const [items, setItems] = useState<{sku:string; qty:number, lotNumber?: string }[]>([{sku:"SB-750", qty:1, lotNumber: ''}]);
+  const addOrderLine = useCallback(() => { setItems(v => [...v, { sku: "SB-750", qty: 1, lotNumber: '' }]); }, []);
+  const setOrderLine = useCallback((i: number, patch: Partial<{ sku: string; qty: number; lotNumber?: string }>) => { setItems(v => v.map((it, idx) => (idx === i ? { ...it, ...patch } : it))); }, []);
+  const removeOrderLine = useCallback((i: number) => { setItems(v => v.filter((_, idx) => idx !== i)); }, []);
   
   // quick interaction state
   const [interactionNote, setInteractionNote] = useState("");
@@ -195,10 +198,6 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
     }
   }, []);
 
-  function addOrderLine(){ setItems(v=>[...v,{sku:"SB-750", qty:1, lotNumber: ''}]); }
-  function setOrderLine(i:number, patch:Partial<(typeof items)[0]>){ setItems(v=> v.map((it,idx)=> idx===i? {...it,...patch}: it)); }
-  function removeOrderLine(i:number){ setItems(v=> v.filter((_,idx)=> idx!==i)); }
-  
   function addPosTacticLine() { setPosTacticLines(p => [...p, { code: 'OTHER', description: '' }]) }
   function setPosTacticLine(i:number, patch: Partial<(typeof posTacticLines)[0]>) {
     setPosTacticLines(p => p.map((l, idx) => idx === i ? {...l, ...patch} : l));
@@ -380,13 +379,13 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
               const lotsForSku = availableInventory.filter(inv => inv.sku === it.sku);
               return (
                 <div key={i} className="grid grid-cols-[2fr_1.5fr_1fr_auto] gap-2 items-center">
-                  <Select value={it.sku} onChange={e => setLine(i, { sku: e.target.value })}>
+                  <Select value={it.sku} onChange={e => setOrderLine(i, { sku: e.target.value })}>
                     <option value="">Producto...</option>
                     {(santaData?.products || []).filter(p => p.category === 'finished_good').map(p => (
                       <option key={p.sku} value={p.sku}>{p.name}</option>
                     ))}
                   </Select>
-                  <Select value={it.lotNumber || ''} onChange={e => setLine(i, { lotNumber: e.target.value })}>
+                  <Select value={it.lotNumber || ''} onChange={e => setOrderLine(i, { lotNumber: e.target.value })}>
                     <option value="">Lote...</option>
                     {lotsForSku.map(lot => (
                       <option key={lot.lotNumber} value={lot.lotNumber || ''}>
@@ -394,26 +393,28 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
                       </option>
                     ))}
                   </Select>
-                  <Input type="number" min="1" value={it.qty} onChange={e => setLine(i, { qty: Number(e.target.value) })} />
-                  <button onClick={() => removeLine(i)} className="p-2 rounded-md hover:bg-zinc-100" aria-label="Eliminar"><X className="h-4 w-4 text-zinc-500" /></button>
+                  <Input type="number" min="1" value={it.qty} onChange={e => setOrderLine(i, { qty: Number(e.target.value) })} />
+                  <button onClick={() => removeOrderLine(i)} className="p-2 rounded-md hover:bg-zinc-100" aria-label="Eliminar"><X className="h-4 w-4 text-zinc-500" /></button>
                 </div>
               )
             })}
-            <button onClick={addLine} className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md border border-zinc-300 bg-white hover:bg-zinc-50"><Plus className="h-3.5 w-3.5" />Añadir línea</button>
+            <button onClick={addOrderLine} className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md border border-zinc-300 bg-white hover:bg-zinc-50"><Plus className="h-3.5 w-3.5" />Añadir línea</button>
           </div>
         </Row>
       ) : (
         <div className="space-y-4">
           <Row>
             <Label htmlFor="interaction-note">Resumen de la Interacción</Label>
-            <Textarea
-              id="interaction-note"
-              rows={2}
-              maxLength={200}
-              placeholder="Ej: Cliente interesado, enviar propuesta la semana que viene."
-              value={interactionNote}
-              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => { setInteractionNote(e.target.value); setErrors(e => ({ ...e, interactionNote: '' })) }} />
-            <div className="text-xs text-zinc-500 text-right">{interactionNote.length} / 200</div>
+            <div className='relative'>
+                <Textarea
+                  id="interaction-note"
+                  rows={2}
+                  maxLength={200}
+                  placeholder="Ej: Cliente interesado, enviar propuesta la semana que viene."
+                  value={interactionNote}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => { setInteractionNote(e.target.value); setErrors(e => ({ ...e, interactionNote: '' })) }} />
+                <div className="absolute bottom-2 right-2 text-xs text-zinc-400">{interactionNote.length} / 200</div>
+            </div>
             {errors.interactionNote && <p className="text-xs text-red-500">{errors.interactionNote}</p>}
           </Row>
           
