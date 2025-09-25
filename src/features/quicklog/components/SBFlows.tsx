@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Plus, CalendarDays, ClipboardList, UserPlus2, Briefcase, Search, Check, MapPin, Pencil, Save, MessageSquare, Zap, Mail, Phone, History, ShoppingCart, Building, CreditCard, Star, Loader2 } from "lucide-react";
 import { useData } from "@/lib/dataprovider";
 import { generateNextOrder } from '@/lib/codes';
-import type { AccountType, Account, OrderSellOut, Product, Party, SB_THEME, InteractionKind, PosTactic, PartyRole } from '@/domain/ssot';
+import type { AccountType, Account, OrderSellOut, Product, Party, SB_THEME, InteractionKind, PosTactic, PartyRole, CustomerData } from '@/domain/ssot';
 import { SB_COLORS } from "@/domain/ssot";
 
 const hexToRgba = (hex: string, a: number) => { const h = hex.replace('#',''); const f = h.length===3? h.split('').map(c=>c+c).join(''):h; const n=parseInt(f,16); const r=(n>>16)&255, g=(n>>8)&255, b=n&255; return `rgba(${r},${g},${b},${a})`; };
@@ -28,7 +28,7 @@ function AgaveEdge(){
 export type Variant = "quick" | "editAccount" | "createAccount" | "createOrder";
 type QuickMode = "interaction" | "order";
 
-type QuickOrderPayload = { mode:"order"; accountId?:string; newAccount?: Partial<Account>; newParty?: Partial<Party>; items:{ sku:string; qty:number, lotNumber?: string }[]; note?:string; isVentaPropia: boolean; posTactic?: Partial<Omit<PosTactic, 'id' | 'items'>> };
+type QuickOrderPayload = { mode:"order"; accountId?:string; newAccount?: Partial<Account>; newParty?: Partial<Party>; items:{ sku:string; qty:number, lotNumber?: string, comment?: string }[]; note?:string; isVentaPropia: boolean; posTactic?: Partial<Omit<PosTactic, 'id' | 'items'>> };
 type QuickInteractionPayload = { mode:"interaction"; accountId?:string; newAccount?: Partial<Account>; newParty?: Partial<Party>; kind:InteractionKind; note:string; nextAction?:string; posTactic?: Partial<Omit<PosTactic, 'id' | 'items'>> };
 
 type EditAccountPayload = {
@@ -99,7 +99,7 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
 
   
   // quick order state
-  const [items, setItems] = useState<{sku:string; qty:number, lotNumber?: string}[]>([{sku:"SB-750", qty:1, lotNumber: ''}]);
+  const [items, setItems] = useState<{sku:string; qty:number, lotNumber?: string, comment?: string}[]>([{sku:"SB-750", qty:1, lotNumber: ''}]);
   const [orderNote, setOrderNote] = useState("");
   
   // quick interaction state
@@ -122,49 +122,49 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
 
   useEffect(() => {
     const run = async () => {
-        if (debouncedName.length < 1 || selectedAccountId) {
-            setSearchSuggestions([]);
-            setIsSearchOpen(false);
-            return;
+      if (debouncedName.length < 1 || selectedAccountId) {
+        setSearchSuggestions([]);
+        setIsSearchOpen(false);
+        return;
+      }
+  
+      searchAbortRef.current?.abort();
+      const ac = new AbortController();
+      searchAbortRef.current = ac;
+  
+      try {
+        const key = debouncedName.toLowerCase();
+        if (searchCache.current.has(key)) {
+          const results = searchCache.current.get(key)!;
+          setSearchSuggestions(results);
+          setIsSearchOpen(true);
+          return;
         }
-
-        searchAbortRef.current?.abort();
-        const ac = new AbortController();
-        searchAbortRef.current = ac;
-
-        try {
-            const key = debouncedName.toLowerCase();
-            if (searchCache.current.has(key)) {
-                const results = searchCache.current.get(key)!;
-                setSearchSuggestions(results);
-                setIsSearchOpen(true);
-                return;
-            }
-
-            setLoading(true);
-            setIsSearchOpen(true);
-            const results = await onSearchAccounts(debouncedName, { signal: ac.signal });
-            if (!ac.signal.aborted) {
-                searchCache.current.set(key, results);
-                setSearchSuggestions(results);
-                setIsSearchOpen(true);
-            }
-        } catch (e) {
-            if ((e as any).name !== 'AbortError') console.error(e);
-        } finally {
-            if (!ac.signal.aborted) setLoading(false);
+  
+        setLoading(true);
+        setIsSearchOpen(true);
+        const results = await onSearchAccounts(debouncedName, { signal: ac.signal });
+        if (!ac.signal.aborted) {
+          searchCache.current.set(key, results);
+          setSearchSuggestions(results);
         }
+      } catch (e) {
+        if ((e as any).name !== 'AbortError') console.error(e);
+      } finally {
+        if (!ac.signal.aborted) setLoading(false);
+      }
     };
     run();
     return () => searchAbortRef.current?.abort();
   }, [debouncedName, onSearchAccounts, selectedAccountId]);
+  
 
   const handleAccountSelect = (account: Account) => {
     const party = santaData?.parties.find(p => p.id === account.partyId);
     const role = santaData?.partyRoles.find(pr => pr.partyId === account.partyId && pr.role === 'CUSTOMER');
     setAccountName(account.name);
     setAccountCity(party?.billingAddress?.city || "");
-    setBillerId((role?.data as any)?.billerId || 'SB');
+    setBillerId((role?.data as CustomerData)?.billerId || 'SB');
     setSelectedAccountId(account.id);
     setIsSearchOpen(false);
   };
@@ -198,7 +198,7 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
   }, []);
 
   function addLine(){ setItems(v=>[...v,{sku:"SB-750", qty:1, lotNumber: ''}]); }
-  function setLine(i:number, patch:Partial<{sku:string; qty:number, lotNumber?: string}>){ setItems(v=> v.map((it,idx)=> idx===i? {...it,...patch}: it)); }
+  function setLine(i:number, patch:Partial<(typeof items)[0]>){ setItems(v=> v.map((it,idx)=> idx===i? {...it,...patch}: it)); }
   function removeLine(i:number){ setItems(v=> v.filter((_,idx)=> idx!==i)); }
 
   function submit(){
@@ -222,7 +222,7 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
           billingAddress: accountCity ? { city: accountCity, country: 'España'} : undefined,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-      };
+      } as Party;
       newAccountPayload = {
           id: `acc_${Date.now()}`, partyId, name: accountName.trim(), type: 'HORECA',
           stage: 'POTENCIAL', ownerId: currentUser?.id || 'u_admin', createdAt: new Date().toISOString(),
@@ -235,13 +235,13 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
         data: {
           billerId: billerId,
           salesRepId: currentUser?.id || 'u_admin',
-        } as any,
+        } as CustomerData,
         createdAt: new Date().toISOString()
-      };
+      } as PartyRole;
     }
 
     if(mode==="order"){
-      if(items.length===0 || items.some(it=>!it.sku || it.qty<=0)) return alert("Revisa las líneas del pedido");
+      if(items.length===0 || items.some(it=>it.sku !== 'OTRO' && (!it.sku || it.qty<=0))) return alert("Revisa las líneas del pedido");
       onSubmit({ mode:"order", accountId: selectedAccountId, newAccount: newAccountPayload, newParty: newPartyPayload, items, note: orderNote, posTactic: posPayload, isVentaPropia: billerId === 'SB' } as any);
     } else {
       if(!interactionNote) return alert("Añade un resumen de la interacción");
@@ -318,7 +318,13 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
         <div className="relative" ref={nameInputRef}>
             <Row>
               <Label>Nombre</Label>
-              <Input value={accountName} onChange={handleNameChange} onKeyDown={handleKeyDown} onFocus={() => { if (accountName && !selectedAccountId) setIsSearchOpen(true); }} placeholder="Buscar o crear cuenta..." />
+              <Input 
+                value={accountName} 
+                onChange={handleNameChange} 
+                onKeyDown={handleKeyDown} 
+                onFocus={() => { if (accountName && !selectedAccountId) setIsSearchOpen(true); }}
+                placeholder="Buscar o crear cuenta..."
+              />
             </Row>
             {isSearchOpen && (
               <div className="absolute z-10 mt-1 w-full rounded-xl border border-zinc-200 bg-white shadow-lg overflow-hidden">
@@ -331,7 +337,7 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
                       </li>
                     ))}
                   </ul>
-                ) : !!debouncedName ? (
+                ) : debouncedName ? (
                     <div className="px-3 py-2 text-sm text-zinc-600">
                         Crear “<strong>{debouncedName}</strong>” como nueva cuenta ↵
                     </div>
@@ -356,33 +362,30 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
       {mode==="order" ? (
         <>
             <div className="rounded-xl border border-zinc-200 overflow-hidden">
-            <div className="px-3 py-2 text-xs uppercase tracking-wide text-zinc-500 border-b bg-zinc-50">Líneas (rápido)</div>
+            <div className="px-3 py-2 text-xs uppercase tracking-wide text-zinc-500 border-b bg-zinc-50">Líneas</div>
             {items.map((it,i)=> {
                 const lotsForSku = availableInventory.filter(inv => inv.sku === it.sku);
+                const isOther = it.sku === 'OTRO';
                 return (
-                  <div key={i} className="grid grid-cols-[2fr_1.5fr_1fr_40px] gap-2 items-center px-3 py-2 border-b last:border-b-0">
+                  <div key={i} className="grid grid-cols-[2fr_1fr_40px] gap-2 items-center px-3 py-2 border-b last:border-b-0">
                     <Select value={it.sku} onChange={e => setLine(i, { sku: e.target.value })}>
                         <option value="">Producto...</option>
                         {(santaData?.products || []).filter(p => p.category === 'finished_good').map(p => (
                             <option key={p.sku} value={p.sku}>{p.name}</option>
                         ))}
+                        <option value="OTRO">Otro (comentarios)</option>
                     </Select>
-                     <Select value={it.lotNumber || ''} onChange={e => setLine(i, { lotNumber: e.target.value })}>
-                        <option value="">Seleccionar lote...</option>
-                        {lotsForSku.map(lot => (
-                            <option key={lot.lotNumber} value={lot.lotNumber || ''}>
-                                {lot.lotNumber} ({lot.qty} uds)
-                            </option>
-                        ))}
-                    </Select>
-                    <Input type="number" min={1} value={it.qty} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>setLine(i,{qty: Number(e.target.value)})}/>
+                    {isOther ? (
+                      <Input placeholder="Comentarios..." value={it.comment || ''} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>setLine(i,{comment: e.target.value})}/>
+                    ) : (
+                      <Input type="number" min={1} value={it.qty} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>setLine(i,{qty: Number(e.target.value)})}/>
+                    )}
                     <button onClick={()=>removeLine(i)} className="p-2 rounded-md hover:bg-zinc-100" aria-label="Eliminar"><X className="h-4 w-4"/></button>
                   </div>
                 )
             })}
             <div className="px-3 py-2 flex justify-between items-center">
                 <button onClick={addLine} className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md border border-zinc-300 bg-white hover:bg-zinc-50"><Plus className="h-3.5 w-3.5"/>Añadir línea</button>
-                <div className="w-1/2"><Input placeholder="Nota opcional" value={orderNote} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>setOrderNote(e.target.value)}/></div>
             </div>
             </div>
         </>
@@ -520,7 +523,7 @@ export function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, on
   };
 
 
-  function addLine(){ setItems(v=>[...v,{sku:"", qty:1, unit:"uds", priceUnit: 0}]); }
+  function addLine(){ setItems(v=>[...v,{sku:"", qty:1, unit:"uds", priceUnit: 0, lotNumber: ''}]); }
   function setLine(i:number, patch:Partial<CreateOrderPayload["items"][number]>){
     const newItems = items.map((it,idx)=> idx===i? {...it,...patch}: it);
     if(patch.sku) {
