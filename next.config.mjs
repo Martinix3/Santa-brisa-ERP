@@ -1,27 +1,23 @@
-/**
- * @type {import('next').NextConfig}
- */
+/** @type {import('next').NextConfig} */
 const nextConfig = {
-  /* config options here */
-  reactStrictMode: true,
-  webpack: (config, { isServer }) => {
-    // Soluciona el problema de "Can't resolve 'canvas'" de pdf-lib en el servidor
-    if (isServer) {
-      config.externals.push('canvas');
-    }
-    return config;
-  },
+  reactStrictMode: false, // Recommended for framer-motion etc.
   images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'santabrisa.es',
-      },
-      {
-        protocol: 'https',
-        hostname: 'picsum.photos',
-      },
-    ],
+    remotePatterns: [{ protocol: 'https', hostname: 'picsum.photos' }],
+  },
+  compiler: {
+    // For styled-components
+    // styledComponents: true,
+  },
+  devIndicators: {
+    allowedDevOrigins: [
+      '6000-firebase-studio-1757248254463.cluster-fbfjltn375c6wqxlhoehbz44sk.cloudworkstations.dev'
+    ]
+  },
+  webpack(config) {
+    config.externals.push({
+      'node-gyp': 'commonjs node-gyp',
+    });
+    return config;
   },
 };
 
