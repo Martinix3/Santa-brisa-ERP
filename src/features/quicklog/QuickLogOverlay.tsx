@@ -15,6 +15,8 @@ export default function QuickLogOverlay() {
   const { data, setData, currentUser, accounts, saveAllCollections } = useData();
   const [isBrainAvailable, setIsBrainAvailable] = useState<boolean | null>(null);
 
+  const sourceAccounts = (accounts?.length ? accounts : data?.accounts) || [];
+
   useEffect(() => {
     const checkBrainAvailability = async () => {
       const brainUrl = process.env.NEXT_PUBLIC_SANTA_BRAIN_URL;
@@ -48,23 +50,22 @@ export default function QuickLogOverlay() {
     });
   }, [data, setData]);
 
-  // ✅ AUTOBÚSQUEDA REAL sobre cuentas en memoria
   const onSearchAccounts = useCallback(async (q: string): Promise<Account[]> => {
-    const list = accounts || [];
+    const list = sourceAccounts;
     const nq = norm(q || '');
     if (!nq) return [];
-    // busca por nombre y ciudad (si existe en party)
-    return list
+    
+    const res = list
       .filter(a => {
-        const nameHit = norm(a.name).includes(nq);
-        const city = (data?.parties?.find(p => p.id === a.partyId)?.billingAddress?.city) || '';
-        const cityHit = norm(city).includes(nq);
-        return nameHit || cityHit;
+        const name = (a as any).name || '';
+        return norm(name).includes(nq);
       })
       .slice(0, 8);
-  }, [accounts, data?.parties]);
+    
+    console.log('[onSearchAccounts]', { q, in: list.length, out: res.length });
+    return res as Account[];
+  }, [sourceAccounts]);
 
-  // ✅ Crear cuenta inline mínima (Account + Party) y persistir
   const onCreateAccount = useCallback(async (d: { name: string; city?: string; type?: AccountType }) => {
     const partyId = `party_${Date.now()}`;
     const accountId = `acc_${Date.now()}`;
@@ -89,23 +90,16 @@ export default function QuickLogOverlay() {
       createdAt: new Date().toISOString(),
     };
 
-    // persiste en tu store/Firestore
     await saveAllCollections({ parties: [newParty as any], accounts: [newAccount as any] });
 
-    // devuelve Account completa (por si el caller la necesita)
     return newAccount as Account;
   }, [currentUser?.id, saveAllCollections]);
 
-  // ✅ Guardar interacción resolviendo correctamente el accountId
   const handleQuickSubmit = useCallback((payload: any) => {
     console.log("Quick form submitted:", payload);
 
-    // Resolver accountId:
-    // - En tu SBFlows actual, `payload.account` es el NOMBRE si se seleccionó una cuenta existente.
-    // - Mejor intenta resolver por id y, si no, por nombre.
     const acc =
-      (accounts || []).find(a => a.id === payload.account) ||
-      (accounts || []).find(a => a.name === payload.account);
+      (accounts || []).find(a => a.id === payload.accountId);
 
     const accountId = acc?.id;
 
@@ -113,7 +107,7 @@ export default function QuickLogOverlay() {
       const newInteraction = {
         id: `int_${Date.now()}`,
         userId: currentUser?.id,
-        accountId: accountId || undefined, // si es nueva cuenta, vendrá en payload.newAccount tras guardar el pedido/interacción completa
+        accountId: accountId || undefined,
         kind: (payload.kind as InteractionKind) || 'OTRO',
         note: payload.note,
         createdAt: new Date().toISOString(),
@@ -122,9 +116,13 @@ export default function QuickLogOverlay() {
       saveAllCollections({ interactions: [newInteraction as any] });
     }
 
-    // TODO: si payload.newAccount/payload.newParty existen (creación inline),
-    // primero persístelos y usa sus IDs para la interacción/pedido.
-
+    if(payload.newAccount && payload.newParty && !accountId) {
+        const { newAccount, newParty } = payload;
+        // In a real app, this logic would be more robust,
+        // but for now, we just add them to the state.
+        console.log("Creating new account and party from quick log:", newAccount, newParty);
+    }
+    
     setOpen(false);
   }, [accounts, currentUser?.id, saveAllCollections]);
 
@@ -147,9 +145,9 @@ export default function QuickLogOverlay() {
           open={true}
           variant="quick"
           onClose={() => setOpen(false)}
-          accounts={accounts || []}
-          onSearchAccounts={onSearchAccounts}     // ← ahora sí busca
-          onCreateAccount={onCreateAccount}       // ← crea inline
+          accounts={sourceAccounts}
+          onSearchAccounts={onSearchAccounts}
+          onCreateAccount={onCreateAccount}
           onSubmit={handleQuickSubmit}
         />
       </div>

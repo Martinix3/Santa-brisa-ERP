@@ -66,102 +66,6 @@ function Header({title, color="#A7D8D9", icon:Icon=ClipboardList}:{title:string;
 // ===== Utils =====
 function useDebounced<T>(value:T, delay=250){ const [v,setV]=useState(value); useEffect(()=>{ const id=setTimeout(()=>setV(value), delay); return ()=>clearTimeout(id); },[value,delay]); return v; }
 
-// ===== AccountPicker (search + inline create + "dejar para más tarde") =====
-// Este componente ya no se usa, pero lo mantenemos por si se necesita en otro sitio.
-function AccountPicker({
-  value,
-  onChange,
-  accounts,
-  onSearchAccounts,
-  onCreateAccount,
-  allowDefer=false,
-  placeholder="Ej. Bar Pepe",
-}:{
-  value:string;
-  onChange:(v:string, newAccount?:Partial<Account>, newParty?:Partial<Party>)=>void;
-  accounts?: Account[];
-  onSearchAccounts?: (q:string)=>Promise<Account[]>;
-  onCreateAccount?: (data:{name:string; city?:string; type?:AccountType})=>Promise<Account>;
-  allowDefer?: boolean;
-  placeholder?: string;
-}){
-  const { currentUser, data: santaData } = useData();
-  const [q, setQ] = useState(value);
-  const [list, setList] = useState<Account[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<"search"|"create">("search");
-  const [newName,setNewName] = useState("");
-  const [newCity,setNewCity] = useState("");
-  const [newType,setNewType] = useState<AccountType>("HORECA");
-  const debounced = useDebounced(q, 250);
-  const boxRef = useRef<HTMLDivElement>(null);
-
-  useEffect(()=>{ setQ(value); },[value]);
-  
-  useEffect(()=>{
-    const handler = async()=>{
-      if(!debounced){ 
-        setList([]);
-        return; 
-      }
-      setLoading(true);
-      let results: Account[] = [];
-      const norm = (s:string)=> s.normalize('NFD').replace(/\p{Diacritic}/gu,'').toLowerCase();
-      try{
-        if(onSearchAccounts){ results = await onSearchAccounts(debounced); }
-        else if(accounts){ const nq = norm(debounced); results = accounts.filter(a => norm(a.name).includes(nq)).slice(0,8); }
-      } finally{ 
-        setLoading(false); 
-        setList(results||[]);
-        if (results.length === 0 && debounced) {
-            setMode("create");
-            setNewName(debounced);
-        } else {
-            setMode("search");
-        }
-      }
-    };
-    handler();
-  },[debounced, onSearchAccounts, accounts]);
-
-  useEffect(()=>{ const onDocClick=(e:MouseEvent)=>{ if(!boxRef.current) return; if(!boxRef.current.contains(e.target as any)) setOpen(false); }; document.addEventListener('mousedown', onDocClick); return ()=> document.removeEventListener('mousedown', onDocClick); },[]);
-
-  async function createInline(){
-    const name = newName || q.trim(); if(!name) return alert("Pon un nombre");
-    if(onCreateAccount){
-        const partyId = `party_${Date.now()}`;
-        const accountId = `acc_${Date.now()}`;
-
-        const newParty: Partial<Party> = {
-            id: partyId, name, kind: 'ORG',
-            addresses: newCity ? [{type: 'main', street: '', city: newCity, country: 'España', postalCode: ''}] : [],
-            contacts: [], createdAt: new Date().toISOString(),
-        };
-
-        const newAccount: Partial<Account> = {
-            id: accountId, partyId: partyId, name, type: newType,
-            stage: 'POTENCIAL', ownerId: currentUser?.id || 'u_admin',
-            createdAt: new Date().toISOString(),
-        };
-
-        onChange('__internal_new_account', newAccount, newParty);
-    }
-    setMode("search"); setQ(name); setOpen(false);
-  }
-
-  return (
-    <div className="relative" ref={boxRef}>
-      <div className="relative">
-        <Search className="h-4 w-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2"/>
-        <input value={q} onChange={(e)=>{ setQ(e.target.value); onChange(""); setOpen(true); }} onFocus={()=>setOpen(true)} placeholder={placeholder}
-          className="w-full pl-9 pr-3 py-2 rounded-lg border border-zinc-300 bg-white text-sm outline-none focus:ring-2 focus:ring-[#F7D15F]"/>
-      </div>
-      {/* ... (resto del componente AccountPicker que no usaremos en el nuevo flujo) ... */}
-    </div>
-  );
-}
-
 const TACTIC_CODES = [
     "ICE_BUCKET", "GLASSWARE", "BARTENDER_INCENTIVE", "MENU_PLACEMENT",
     "CHALKBOARD", "TWO_FOR_ONE", "HAPPY_HOUR", "SECONDARY_PLACEMENT", "OTHER"
@@ -211,7 +115,11 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
 
   useEffect(() => {
     const run = async () => {
-      if (debouncedName.length < 2 || selectedAccountId) { setSearchSuggestions([]); setIsSearchOpen(false); return; }
+      if (debouncedName.length < 1 || selectedAccountId) { 
+        setSearchSuggestions([]); 
+        setIsSearchOpen(false); 
+        return; 
+      }
       
       searchAbortRef.current?.abort();
       const ac = new AbortController();
@@ -222,7 +130,7 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
         if (searchCache.current.has(key)) {
             const results = searchCache.current.get(key)!;
             setSearchSuggestions(results);
-            setIsSearchOpen(results.length > 0);
+            setIsSearchOpen(true);
             return;
         }
 
@@ -232,7 +140,7 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
         if (!ac.signal.aborted) {
           searchCache.current.set(key, results);
           setSearchSuggestions(results);
-          setIsSearchOpen(results.length > 0);
+          setIsSearchOpen(results.length > 0 || !!debouncedName); // Keep open to show "create"
         }
       } catch (e) {
         if ((e as any).name !== 'AbortError') console.error(e);
@@ -383,21 +291,24 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
         <div className="relative" ref={nameInputRef}>
             <Row>
               <Label>Nombre</Label>
-              <Input value={accountName} onChange={handleNameChange} onKeyDown={handleKeyDown} onFocus={() => setIsSearchOpen(true)} placeholder="Buscar o crear cuenta..." />
+              <Input value={accountName} onChange={handleNameChange} onKeyDown={handleKeyDown} onFocus={() => { if (accountName && !selectedAccountId) setIsSearchOpen(true); }} placeholder="Buscar o crear cuenta..." />
             </Row>
             {isSearchOpen && (
               <div className="absolute z-10 mt-1 w-full rounded-xl border border-zinc-200 bg-white shadow-lg overflow-hidden">
                 {loading ? <div className="px-3 py-2 text-sm text-zinc-500">Buscando...</div> :
-                <ul className="max-h-40 overflow-y-auto divide-y">
-                  {searchSuggestions.map((account, i) => (
-                    <li key={account.id} onClick={() => handleAccountSelect(account)} className={`px-3 py-2 text-sm hover:bg-zinc-50 cursor-pointer ${i === activeIdx ? 'bg-zinc-50' : ''}`}>
-                      {account.name}
-                    </li>
-                  ))}
-                  {searchSuggestions.length === 0 && !!debouncedName && (
-                    <li className="px-3 py-2 text-sm text-zinc-600">Crear “<strong>{debouncedName}</strong>” como nueva cuenta ↵</li>
-                  )}
-                </ul>}
+                searchSuggestions.length === 0 && !!debouncedName ? (
+                  <div className="px-3 py-2 text-sm text-zinc-600">
+                    Crear “<strong>{debouncedName}</strong>” como nueva cuenta ↵
+                  </div>
+                ) : (
+                  <ul className="max-h-40 overflow-y-auto divide-y">
+                    {searchSuggestions.map((account, i) => (
+                      <li key={account.id} onClick={() => handleAccountSelect(account)} className={`px-3 py-2 text-sm hover:bg-zinc-50 cursor-pointer ${i === activeIdx ? 'bg-zinc-50' : ''}`}>
+                        {account.name}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             )}
         </div>
@@ -421,7 +332,7 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
                   <div key={i} className="grid grid-cols-[2fr_1.5fr_1fr_40px] gap-2 items-center px-3 py-2 border-b last:border-b-0">
                     <Select value={it.sku} onChange={e => setLine(i, { sku: e.target.value })}>
                         <option value="">Producto...</option>
-                        {santaData?.products.filter(p => p.category === 'finished_good').map(p => (
+                        {(santaData?.products || []).filter(p => p.category === 'finished_good').map(p => (
                             <option key={p.sku} value={p.sku}>{p.name}</option>
                         ))}
                     </Select>
@@ -707,7 +618,7 @@ export function SBFlowModal({
   if(!open) return null;
   if(variant==="quick"){
     return (
-      <div className="w-full h-full rounded-2xl border border-zinc-200 bg-white/95 shadow-xl overflow-hidden flex flex-col backdrop-blur-sm">
+      <div className="w-full h-full rounded-2xl flex flex-col">
         <div className="flex-grow overflow-y-auto">
           <QuickSwitcher accounts={accounts} onSearchAccounts={onSearchAccounts} onCreateAccount={onCreateAccount} onCancel={onClose} onSubmit={(p)=>{ onSubmit(p); }}/>
         </div>
