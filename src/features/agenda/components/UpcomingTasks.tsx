@@ -2,7 +2,7 @@
 "use client";
 import React, { useMemo } from 'react';
 import { useData } from '@/lib/dataprovider';
-import type { Interaction, Department } from '@/domain/ssot';
+import type { Interaction, Department, SB_THEME } from '@/domain/ssot';
 import { SBCard } from '@/components/ui/ui-primitives';
 import { AlertCircle, Clock, Building } from 'lucide-react';
 import { DEPT_META } from '@/domain/ssot';
@@ -57,25 +57,25 @@ export function UpcomingTasks({ department }: { department: Department }) {
                          <Link href="/agenda/calendar" key={event.id} className={`block p-3 rounded-lg border cursor-pointer ${isOverdue ? 'bg-rose-50/50 border-rose-200' : 'bg-zinc-50 border-zinc-200 hover:bg-zinc-100'}`}>
                             <div className="flex items-start gap-3">
                                 <div className="p-2 rounded-full mt-1" style={{ backgroundColor: `${DEPT_META[department].color}22`, color: DEPT_META[department].color }}>
-                                    <Icon size={16} />
+                                    <Icon size={16} className="sb-icon" />
                                 </div>
                                 <div className="flex-1">
                                     <p className="font-medium text-sm">{event.note}</p>
                                     <div className="flex items-center gap-4 mt-2 text-xs text-zinc-500">
                                         <div className={`flex items-center gap-1 ${isOverdue ? 'text-rose-600 font-semibold' : ''}`}>
-                                            <Clock size={12} />
+                                            <Clock size={12} className="sb-icon" />
                                             <span>{new Date(event.plannedFor!).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}</span>
                                         </div>
                                         {account && (
                                             <div className="flex items-center gap-1">
-                                                <Building size={12} />
+                                                <Building size={12} className="sb-icon" />
                                                 <span>{account.name}</span>
                                             </div>
                                         )}
                                     </div>
                                 </div>
                                 <div className="flex -space-x-2">
-                                    {involvedUsers.map(user => user && <Avatar key={user.id} name={user.name} size="md" />)}
+                                    {involvedUsers.map(user => user && <Avatar key={user.id} name={user.name} size="md" className="sb-icon" />)}
                                 </div>
                             </div>
                         </Link>

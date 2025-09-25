@@ -7,7 +7,8 @@ import type { User, SantaData, UserRole } from '@/domain/ssot';
 import { Trash2, Lock, Unlock, Edit, Save, X, User as UserIcon } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
-import { SB_COLORS, SBButton } from '@/components/ui/ui-primitives';
+import { SBButton } from '@/components/ui/ui-primitives';
+import { SB_COLORS } from '@/domain/ssot';
 
 function UserRow({ 
     user, 
@@ -58,8 +59,8 @@ function UserRow({
                 </div>
                 
                 <div className="flex justify-end gap-2">
-                    <button onClick={onCancel} className="px-3 py-1.5 text-sm rounded-md border bg-white flex items-center gap-1"><X size={14}/>Cancelar</button>
-                    <SBButton onClick={handleSave} className="flex items-center gap-1"><Save size={14}/>Guardar</SBButton>
+                    <button onClick={onCancel} className="h-9 px-3 text-sm rounded-md border bg-white flex items-center gap-1"><X size={14}/>Cancelar</button>
+                    <SBButton onClick={handleSave} className="flex items-center gap-1"><Save size={14} className="sb-icon"/>Guardar</SBButton>
                 </div>
             </div>
         );
@@ -73,15 +74,15 @@ function UserRow({
                 <div className="text-zinc-600 capitalize">{user.role}</div>
                 <div className="flex items-center gap-1 text-xs">
                      {isPrivileged ? (
-                        <span className="flex items-center gap-1 text-green-700"><Unlock size={12}/> Acceso Total</span>
+                        <span className="flex items-center gap-1 text-green-700"><Unlock size={12} className="sb-icon"/> Acceso Total</span>
                     ) : (
-                        <span className="flex items-center gap-1 text-zinc-500"><Lock size={12}/> Acceso por Rol</span>
+                        <span className="flex items-center gap-1 text-zinc-500"><Lock size={12} className="sb-icon"/> Acceso por Rol</span>
                     )}
                 </div>
             </div>
             <div className="flex gap-2 ml-4">
-                <button onClick={() => onEdit(user)} className="p-2 text-zinc-500 hover:text-blue-600 hover:bg-blue-50 rounded-md"><Edit size={16}/></button>
-                <button onClick={() => onDelete(user.id)} className="p-2 text-zinc-500 hover:text-red-600 hover:bg-red-50 rounded-md"><Trash2 size={16}/></button>
+                <button onClick={() => onEdit(user)} className="p-2 text-zinc-500 hover:text-blue-600 hover:bg-blue-50 rounded-md"><Edit size={16} className="sb-icon"/></button>
+                <button onClick={() => onDelete(user.id)} className="p-2 text-zinc-500 hover:text-red-600 hover:bg-red-50 rounded-md"><Trash2 size={16} className="sb-icon"/></button>
             </div>
         </div>
     );

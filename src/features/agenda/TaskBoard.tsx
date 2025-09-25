@@ -1,5 +1,4 @@
 
-
 "use client";
 import React, { useMemo } from 'react';
 import { DndContext, useDraggable, useDroppable, closestCorners } from '@dnd-kit/core';
@@ -42,7 +41,8 @@ function TaskCard({
   const style = transform
     ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
     : undefined;
-  const typeStyle = (typeStyles as Record<Department, { label: string; color: string; textColor: string }>)[task.type] || {};
+  
+  const deptMeta = DEPT_META[task.type];
 
   const involvedUsers = (task.involvedUserIds || [])
     .map((id) => santaData?.users.find((u) => u.id === id))
@@ -57,22 +57,28 @@ function TaskCard({
       className="p-3 bg-white rounded-lg border shadow-sm group cursor-grab active:cursor-grabbing"
       role="listitem"
     >
-      <p className="font-medium text-sm text-zinc-800">{task.title}</p>
+      <div className="flex items-start justify-between">
+        <p className="font-medium text-sm text-zinc-800 flex-1 pr-2">{task.title}</p>
+        {deptMeta && (
+          <div
+            className="sb-chip-solid w-6 h-6 text-xs flex-shrink-0"
+            style={{ backgroundColor: deptMeta.color, color: deptMeta.textColor }}
+            title={deptMeta.label}
+          >
+            {deptMeta.label.slice(0,1)}
+          </div>
+        )}
+      </div>
+
       {task.location && <p className="text-xs text-zinc-500 mt-1">{task.location}</p>}
 
       <div className="mt-2 flex justify-between items-center">
-        <span
-          className="text-xs font-semibold px-2 py-0.5 rounded-full"
-          style={{ backgroundColor: typeStyle.color, color: typeStyle.textColor }}
-        >
-          {typeStyle.label}
-        </span>
+        <div className="flex -space-x-2">
+          {involvedUsers.map((user) => (
+            <Avatar key={user.id} name={user.name} size="md" />
+          ))}
+        </div>
         <div className="flex items-center gap-2">
-          <div className="flex -space-x-2">
-            {involvedUsers.map((user) => (
-              <Avatar key={user.id} name={user.name} size="sm" />
-            ))}
-          </div>
           {task.date && (
             <time className="text-xs text-zinc-500" dateTime={new Date(task.date).toISOString()}>
               {new Date(task.date).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}
@@ -162,7 +168,7 @@ export function TaskBoard({
   tasks: Task[];
   onTaskStatusChange: (id: string, newStatus: InteractionStatus) => void;
   onCompleteTask: (id: string) => void;
-  typeStyles?: Record<Department, { label: string; color: string; textColor: string }>;
+  typeStyles?: Record<Department, { label: string; token: string; text?: 'light' | 'dark', color: string, textColor: string }>;
 }) {
   const categorizedTasks = useMemo(() => {
     const now = new Date();
@@ -214,14 +220,14 @@ export function TaskBoard({
           key="overdue"
           col={KANBAN_COLS[0]}
           tasks={categorizedTasks.overdue}
-          typeStyles={typeStyles}
+          typeStyles={typeStyles as any}
           onCompleteTask={onCompleteTask}
         />
         <StatusColumn
           key="upcoming"
           col={KANBAN_COLS[1]}
           tasks={categorizedTasks.upcoming}
-          typeStyles={typeStyles}
+          typeStyles={typeStyles as any}
           onCompleteTask={onCompleteTask}
           subGroups={upcomingSubgroups}
         />
@@ -229,7 +235,7 @@ export function TaskBoard({
           key="done"
           col={KANBAN_COLS[2]}
           tasks={categorizedTasks.done}
-          typeStyles={typeStyles}
+          typeStyles={typeStyles as any}
           onCompleteTask={onCompleteTask}
         />
       </div>

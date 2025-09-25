@@ -3,8 +3,8 @@
 "use client";
 
 import React, { useMemo, useState, useTransition } from "react";
-import type { OrderStatus, Account, OrderSellOut, Party, PartyRole, CustomerData, User, Shipment, SantaData, AccountType } from '@/domain/ssot';
-import { ORDER_STATUS_STYLES, SBButton } from '@/components/ui/ui-primitives';
+import type { OrderStatus, Account, OrderSellOut, Party, PartyRole, CustomerData, User, Shipment, SantaData, AccountType, SB_THEME } from '@/domain/ssot';
+import { SBButton, STATUS_STYLES } from '@/components/ui/ui-primitives';
 import { useData } from "@/lib/dataprovider";
 import { updateOrderStatus, createSalesInvoice, recordPayment } from "@/app/(app)/orders/actions";
 import { ImportShopifyOrderButton } from './ImportShopifyOrderButton';
@@ -81,7 +81,7 @@ function KpiCard({ icon: Icon, label, value, color }: { icon: React.ElementType;
   return (
     <div className="bg-white p-4 rounded-xl border border-zinc-200 flex items-start gap-4">
       <div className="h-10 w-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${color}20`, color }}>
-        <Icon size={20} />
+        <Icon size={20} className="sb-icon" />
       </div>
       <div>
         <p className="text-2xl font-bold text-zinc-900">{value}</p>
@@ -100,7 +100,7 @@ function StatusSelector({ order, onChange, accountsById, partiesById }: {
 }) {
   const [isPending, start] = useTransition();
   const status = normalizeOrderStatus(order.status);
-  const style = ORDER_STATUS_STYLES[status] || ORDER_STATUS_STYLES.open;
+  const style = STATUS_STYLES[status] || STATUS_STYLES.open;
 
   return (
     <div className="relative flex items-center gap-2">
@@ -375,7 +375,7 @@ export default function OrdersDashboard() {
               const owner = usersById.get(acc.ownerId);
               const total = orderTotal(o);
               const status = normalizeOrderStatus(o.status);
-              const meta = ORDER_STATUS_STYLES[status] || { label: status, color: 'text-zinc-800', bg: 'bg-zinc-100' };
+              const meta = STATUS_STYLES[status] || { label: status, color: 'text-zinc-800', bg: 'bg-zinc-100' };
 
               return (
                 <tr key={o.id} className="hover:bg-zinc-50">
@@ -404,8 +404,8 @@ export default function OrdersDashboard() {
                   </td>
                   <td className="p-3">
                     <div className="flex gap-2">
-                        <SBButton size="sm" variant="secondary" disabled={isPending || o.status === 'invoiced' || o.status === 'paid'} onClick={() => start(async () => { setMsg(null); await createSalesInvoice({ orderId: o.id }); setMsg(`Factura creada para ${o.id}`); })}>Facturar</SBButton>
-                        <SBButton size="sm" variant="secondary" disabled={isPending || o.status !== 'invoiced'} onClick={() => start(async () => { setMsg(null); await recordPayment({ financeLinkId: (o as any).financeLinkId || `holded-${(o.external as any)?.holdedInvoiceId}`, amount: o.totalAmount || 0 }); setMsg(`Cobro registrado para ${o.id}`); })}>Registrar Cobro</SBButton>
+                        <SBButton size="sm" variant="secondary" disabled={isPending || o.status === 'invoiced' || o.status === 'paid'} onClick={() => start(async () => { setMsg(null); await createSalesInvoice({ orderId: o.id }); setMsg(`Factura creada para ${o.id}`); })} className="sb-icon">Facturar</SBButton>
+                        <SBButton size="sm" variant="secondary" disabled={isPending || o.status !== 'invoiced'} onClick={() => start(async () => { setMsg(null); await recordPayment({ financeLinkId: (o as any).financeLinkId || `holded-${(o.external as any)?.holdedInvoiceId}`, amount: o.totalAmount || 0 }); setMsg(`Cobro registrado para ${o.id}`); })} className="sb-icon">Registrar Cobro</SBButton>
                     </div>
                   </td>
                 </tr>

@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import type { User } from '@/domain/ssot';
+import type { User, SB_THEME } from '@/domain/ssot';
 import { useData } from '@/lib/dataprovider';
 import { SBCard, SBButton, Input } from '@/components/ui/ui-primitives';
 import { Save, SlidersHorizontal } from 'lucide-react';
@@ -103,7 +103,7 @@ function KPISettingsPageContent() {
                 </div>
                 <div className="p-4 border-t bg-zinc-50 flex justify-end">
                     <SBButton onClick={handleSaveChanges}>
-                        <Save size={16} /> Guardar Cambios
+                        <Save size={16} className="sb-icon" /> Guardar Cambios
                     </SBButton>
                 </div>
             </SBCard>

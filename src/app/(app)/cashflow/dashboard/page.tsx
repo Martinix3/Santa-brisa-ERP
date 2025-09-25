@@ -5,7 +5,7 @@ import { SBCard, KPI, SBButton } from '@/components/ui/ui-primitives';
 import { BarChart, TrendingUp, TrendingDown, Banknote, ArrowRight, Calendar, BrainCircuit, AlertCircle, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { useData } from '@/lib/dataprovider';
-import { DEPT_META } from '@/domain/ssot';
+import { DEPT_META, SB_THEME } from '@/domain/ssot';
 import type { Interaction } from '@/domain/ssot';
 import { generateInsights } from '@/ai/flows/generate-insights-flow';
 import { UpcomingTasks } from '@/features/agenda/components/UpcomingTasks';
@@ -100,7 +100,7 @@ export default function CashflowDashboardPage() {
                              <div className="h-72">
                                 {/* Aquí iría un gráfico real, p.ej. con Recharts */}
                                 <div className="w-full h-full bg-zinc-50 border-2 border-dashed rounded-lg flex items-center justify-center">
-                                    <BarChart size={48} className="text-zinc-300" />
+                                    <BarChart size={48} className="sb-icon text-zinc-300" />
                                 </div>
                             </div>
                         </div>
@@ -123,7 +123,7 @@ export default function CashflowDashboardPage() {
                             <p className="font-bold">€4,500</p>
                         </div>
                          <Link href="/cashflow/collections" className="text-sm font-semibold text-zinc-700 hover:text-zinc-900 flex items-center gap-1">
-                            Ver todos los cobros <ArrowRight size={16} />
+                            Ver todos los cobros <ArrowRight size={16} className="sb-icon" />
                         </Link>
                     </div>
                 </SBCard>
@@ -138,7 +138,7 @@ export default function CashflowDashboardPage() {
                             <p className="font-bold">€1,200</p>
                         </div>
                          <Link href="/cashflow/payments" className="text-sm font-semibold text-zinc-700 hover:text-zinc-900 flex items-center gap-1">
-                            Ver todos los pagos <ArrowRight size={16} />
+                            Ver todos los pagos <ArrowRight size={16} className="sb-icon" />
                         </Link>
                     </div>
                 </SBCard>

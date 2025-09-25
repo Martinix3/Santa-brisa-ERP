@@ -2,7 +2,7 @@
 // src/features/influencers/components/CollabTable.tsx
 "use client";
 import React, { useState, useEffect } from "react";
-import type { InfluencerCollab } from "@/domain/ssot";
+import type { InfluencerCollab, SB_THEME } from "@/domain/ssot";
 import { fmtEur, fmtNum } from "../utils/format";
 import { StatusPill } from "./StatusPill";
 import { Edit, Save, X } from "lucide-react";
@@ -32,8 +32,8 @@ export function CollabRow({ c, onUpdate, onCloseRequest }:{
         <td className="px-2 py-2 text-right font-semibold">{roas?`${roas.toFixed(2)}x`:'—'}</td>
         <td className="px-2 py-2">
           <div className="flex justify-end gap-1">
-            <button className="px-2 py-1 rounded bg-zinc-900 text-white text-xs" onClick={()=>{onUpdate({...draft,updatedAt:new Date().toISOString()} as InfluencerCollab); setEdit(false);}}><Save size={14}/></button>
-            <button className="px-2 py-1 rounded border text-xs" onClick={()=>{setDraft(c); setEdit(false);}}><X size={14}/></button>
+            <button className="sb-btn-primary px-2 py-1 rounded bg-zinc-900 text-white text-xs" onClick={()=>{onUpdate({...draft,updatedAt:new Date().toISOString()} as InfluencerCollab); setEdit(false);}}><Save size={14} className="sb-icon"/></button>
+            <button className="sb-btn-primary px-2 py-1 rounded border text-xs" onClick={()=>{setDraft(c); setEdit(false);}}><X size={14}/></button>
           </div>
         </td>
       </tr>
@@ -53,8 +53,8 @@ export function CollabRow({ c, onUpdate, onCloseRequest }:{
       <td className="p-3 text-right font-semibold">{((c.tracking?.revenue||0)>0 && ((c.costs?.cashPaid||0)+(c.costs?.productCost||0)+(c.costs?.shippingCost||0))>0) ? `${(((c.tracking!.revenue!))/(((c.costs?.cashPaid||0)+(c.costs?.productCost||0)+(c.costs?.shippingCost||0)))).toFixed(2)}x` : "—"}</td>
       <td className="p-3">
         <div className="flex justify-end gap-1">
-          {c.status!=="COMPLETED" && <button className="px-2 py-1 rounded border text-xs" onClick={()=>onCloseRequest(c)}>Resultados</button>}
-          <button className="px-2 py-1 rounded bg-transparent text-xs" onClick={()=>setEdit(true)}><Edit size={14}/></button>
+          {c.status!=="COMPLETED" && <button className="sb-btn-primary px-2 py-1 rounded border text-xs" onClick={()=>onCloseRequest(c)}>Resultados</button>}
+          <button className="sb-btn-primary px-2 py-1 rounded bg-transparent text-xs" onClick={()=>setEdit(true)}><Edit size={14} className="sb-icon"/></button>
         </div>
       </td>
     </tr>

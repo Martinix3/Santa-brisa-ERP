@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from 'react';
 // ... (todos tus imports existentes) ...
 import { CheckCircle, AlertTriangle, RefreshCw, Link as LinkIcon, PlugZap, TestTubes, DownloadCloud, UploadCloud, Info, Clock, XCircle, Check, Users, ChevronDown } from 'lucide-react';
-
+import { SB_THEME } from "@/domain/ssot";
 
 type JobRun = {
     id: string;
@@ -77,7 +77,7 @@ function JobRunsReport() {
                         </div>
                         {run.result?.processedNames && run.result.processedNames.length > 0 && (
                             <div className="mt-2 ml-8">
-                                <button onClick={() => toggleExpand(run.id)} className="text-xs font-semibold text-zinc-600 flex items-center gap-1 hover:text-zinc-900">
+                                <button onClick={() => toggleExpand(run.id)} className="sb-btn-primary text-xs font-semibold text-zinc-600 flex items-center gap-1 hover:text-zinc-900">
                                     <ChevronDown size={14} className={`transition-transform ${expandedRun === run.id ? 'rotate-180' : ''}`} />
                                     Mostrar {run.result.processedNames.length} registros procesados
                                 </button>
@@ -163,14 +163,14 @@ export default function IntegrationsPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => load(false)}
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border hover:bg-gray-50 text-sm"
+            className="sb-btn-primary inline-flex items-center gap-2 px-3 py-2 rounded-lg border hover:bg-gray-50 text-sm"
             title="Comprobar variables"
           >
             <RefreshCw className={`w-4 h-4 ${loading && !live ? 'animate-spin' : ''}`} /> Comprobar env
           </button>
           <button
             onClick={() => load(true)}
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border hover:bg-gray-50 text-sm"
+            className="sb-btn-primary inline-flex items-center gap-2 px-3 py-2 rounded-lg border hover:bg-gray-50 text-sm"
             title="Ping real a APIs"
           >
             <RefreshCw className={`w-4 h-4 ${loading && live ? 'animate-spin' : ''}`} /> Ping en vivo
@@ -204,13 +204,13 @@ export default function IntegrationsPage() {
                     </label>
                 </div>
                 <div className="flex flex-col gap-2">
-                    <button onClick={() => handleImport(['contacts'])} disabled={isPending || !status?.holded.ok} className="w-full text-sm inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg border hover:bg-gray-50 disabled:opacity-60">
+                    <button onClick={() => handleImport(['contacts'])} disabled={isPending || !status?.holded.ok} className="sb-btn-primary w-full text-sm inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg border hover:bg-gray-50 disabled:opacity-60">
                         <DownloadCloud className="w-4 h-4" /> Importar Contactos
                     </button>
-                     <button onClick={() => handleImport(['purchases'])} disabled={isPending || !status?.holded.ok} className="w-full text-sm inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg border hover:bg-gray-50 disabled:opacity-60">
+                     <button onClick={() => handleImport(['purchases'])} disabled={isPending || !status?.holded.ok} className="sb-btn-primary w-full text-sm inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg border hover:bg-gray-50 disabled:opacity-60">
                         <DownloadCloud className="w-4 h-4" /> Importar Compras
                     </button>
-                    <button onClick={() => handleImport(['products'])} disabled={isPending || !status?.holded.ok} className="w-full text-sm inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg border hover:bg-gray-50 disabled:opacity-60">
+                    <button onClick={() => handleImport(['products'])} disabled={isPending || !status?.holded.ok} className="sb-btn-primary w-full text-sm inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg border hover:bg-gray-50 disabled:opacity-60">
                         <DownloadCloud className="w-4 h-4" /> Importar Productos
                     </button>
                 </div>
@@ -277,12 +277,12 @@ function Card({
       </div>
       <div className="mt-auto flex items-center justify-between">
         <a href={docsUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm text-teal-700 hover:underline">
-          <LinkIcon className="w-4 h-4" /> Docs
+          <LinkIcon className="sb-icon w-4 h-4" /> Docs
         </a>
         <button
           onClick={onTest}
           disabled={!status?.ok || testing}
-          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed"
+          className="sb-btn-primary inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed"
         >
           <RefreshCw className={`w-4 h-4 ${testing ? 'animate-spin' : ''}`} /> Probar conexión
         </button>

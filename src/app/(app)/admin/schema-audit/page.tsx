@@ -5,7 +5,7 @@ import { useData } from '@/lib/dataprovider';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
 import { BadgeCheck, FileJson, ShieldAlert, CheckCircle, XCircle } from 'lucide-react';
 import { SBCard, SBButton } from '@/components/ui/ui-primitives';
-import type { SantaData } from '@/domain/ssot';
+import type { SantaData, SB_THEME } from '@/domain/ssot';
 import { SANTA_DATA_COLLECTIONS } from '@/domain/ssot';
 import { CODE_POLICIES } from "@/domain/ssot"; // para validar patrones de códigos
 
@@ -255,7 +255,7 @@ function ResultCard({ title, violations, icon: Icon, color }: { title: string, v
         <SBCard title="">
              <div className={`p-4 border-b ${hasIssues ? `border-${color}-200 bg-${color}-50` : 'border-zinc-200 bg-zinc-50'}`}>
                 <div className={`flex items-center gap-2 font-semibold ${hasIssues ? `text-${color}-800` : 'text-zinc-800'}`}>
-                    <Icon size={18} />
+                    <Icon size={18} className="sb-icon" />
                     {title}
                     <span className={`px-2 py-0.5 text-xs rounded-full ${hasIssues ? `bg-${color}-200` : 'bg-zinc-200'}`}>{violations.length}</span>
                 </div>
@@ -277,7 +277,7 @@ function KpiCard({ name, readiness }: { name: string; readiness: KpiReadiness[st
     return (
         <div className={`p-4 border rounded-lg ${readiness.ok ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
             <h4 className="font-semibold flex items-center gap-2">
-                {readiness.ok ? <CheckCircle size={16} className="text-green-600" /> : <ShieldAlert size={16} className="text-amber-600" />}
+                {readiness.ok ? <CheckCircle size={16} className="sb-icon text-green-600" /> : <ShieldAlert size={16} className="sb-icon text-amber-600" />}
                 {name}
             </h4>
             {!readiness.ok && (
@@ -307,7 +307,7 @@ export default function SchemaAuditPage() {
         const idx = buildIndexes(data);
 
         // A) Unknown keys + enums + required + formatos/rangos/refs
-        for (const coll of SANTA_DATA_COLLECTIONS as (keyof SantaData)[]){
+        for (const coll of Array.from(SANTA_DATA_COLLECTIONS) as (keyof SantaData)[]){
             const arr = (data as any)[coll] as any[] | undefined;
             if (!Array.isArray(arr)) continue;
             const allowed = ALLOWED_KEYS[coll];
@@ -386,7 +386,7 @@ export default function SchemaAuditPage() {
                         <p className="text-zinc-600">Detecta inconsistencias de datos contra el Single Source of Truth.</p>
                     </div>
                     <SBButton onClick={handleExport}>
-                        <FileJson size={16} /> Exportar Resultados
+                        <FileJson size={16} className="sb-icon" /> Exportar Resultados
                     </SBButton>
                 </div>
                 
@@ -412,7 +412,7 @@ export default function SchemaAuditPage() {
                     ))
                 ) : (
                     <div className="p-12 text-center border-2 border-dashed rounded-2xl text-green-700 bg-green-50">
-                        <CheckCircle size={48} className="mx-auto mb-4" />
+                        <CheckCircle size={48} className="sb-icon mx-auto mb-4" />
                         <h3 className="text-xl font-bold">¡Todo correcto!</h3>
                         <p>No se encontraron violaciones de esquema en las colecciones de datos ({report.scannedDocs} documentos analizados).</p>
                     </div>

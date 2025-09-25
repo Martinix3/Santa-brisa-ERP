@@ -1,9 +1,11 @@
+
 // src/features/dashboard-ventas/components/TaskCompletionDialog.tsx
 "use client";
 import React, { useMemo, useState, useEffect } from 'react';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
+import { Input, Select, Textarea } from '@/components/ui/ui-primitives';
 import type { Interaction, InteractionKind, Payload, PosTactic } from '@/domain/ssot';
-import { ShoppingCart, MessageSquare, Plus, X, Euro, Users, Target, BarChart3, Heart, Star } from 'lucide-react';
+import { ShoppingCart, MessageSquare, Plus, X, Star } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
 import { usePosTacticsService } from '@/features/marketing/services/posTactics.service';
 
@@ -98,18 +100,17 @@ export function TaskCompletionDialog({
         <div className="space-y-4">
           <div className="grid gap-1.5">
             <label htmlFor="interaction-kind-selector" className="text-sm font-medium text-zinc-700">Tipo de Interacción</label>
-            <select 
+            <Select 
                 id="interaction-kind-selector"
                 value={interactionKind} 
                 onChange={(e) => setInteractionKind(e.target.value as InteractionKind)}
-                className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm"
             >
               <option value="VISITA">Visita</option>
               <option value="LLAMADA">Llamada</option>
               <option value="EMAIL">Email</option>
               <option value="WHATSAPP">WhatsApp</option>
               <option value="OTRO">Otro</option>
-            </select>
+            </Select>
           </div>
 
           <div className="flex gap-2 border-b pb-4">
@@ -119,13 +120,13 @@ export function TaskCompletionDialog({
 
           {mode === 'interaccion' ? (
              <div className="space-y-3 animate-in fade-in">
-               <div className="grid gap-1.5"><label htmlFor="task-note" className="text-sm font-medium text-zinc-700">Nota / Resultado</label><textarea id="task-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Ej: Cliente interesado, enviar propuesta." className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" rows={4} required/></div>
-               <div className="grid gap-1.5"><label htmlFor="next-action-date" className="text-sm font-medium text-zinc-700">Próxima acción (opcional)</label><input id="next-action-date" type="datetime-local" value={nextActionDate} onChange={(e) => setNextActionDate(e.target.value)} className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" /></div>
+               <div className="grid gap-1.5"><label htmlFor="task-note" className="text-sm font-medium text-zinc-700">Nota / Resultado</label><Textarea id="task-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Ej: Cliente interesado, enviar propuesta." className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" rows={4} required/></div>
+               <div className="grid gap-1.5"><label htmlFor="next-action-date" className="text-sm font-medium text-zinc-700">Próxima acción (opcional)</label><Input id="next-action-date" type="datetime-local" value={nextActionDate} onChange={(e) => setNextActionDate(e.target.value)} className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" /></div>
              </div>
           ) : (
             <div className="space-y-3 animate-in fade-in">
               <span className="text-sm font-medium text-zinc-700">Líneas del Pedido</span>
-              <div className="space-y-2 max-h-60 overflow-y-auto pr-2">{items.map((item, index) => (<div key={index} className="grid grid-cols-[1fr_auto_auto] gap-2 items-center"><select id={`sku-${index}`} value={item.sku} onChange={(e) => updateLine(index, 'sku', e.target.value)} className="h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm"><option value="" disabled>Selecciona producto</option>{productOptions.map((p) => (<option key={p.sku} value={p.sku}>{p.name}</option>))}</select><input id={`qty-${index}`} type="number" min="1" value={item.qty} onChange={(e) => updateLine(index, 'qty', parseInt(e.target.value, 10))} className="h-10 w-20 rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" /><button type="button" aria-label="Eliminar línea" onClick={() => removeLine(index)} className="p-2 text-red-500 hover:bg-red-50 rounded-md"><X size={16} /></button></div>))}</div>
+              <div className="space-y-2 max-h-60 overflow-y-auto pr-2">{items.map((item, index) => (<div key={index} className="grid grid-cols-[1fr_auto_auto] gap-2 items-center"><Select id={`sku-${index}`} value={item.sku} onChange={(e) => updateLine(index, 'sku', e.target.value)}><option value="" disabled>Selecciona producto</option>{productOptions.map((p) => (<option key={p.sku} value={p.sku}>{p.name}</option>))}</Select><Input id={`qty-${index}`} type="number" min="1" value={item.qty} onChange={(e) => updateLine(index, 'qty', parseInt(e.target.value, 10))} className="w-20" /><button type="button" aria-label="Eliminar línea" onClick={() => removeLine(index)} className="p-2 text-red-500 hover:bg-red-50 rounded-md"><X size={16} /></button></div>))}</div>
               <button type="button" onClick={addLine} className="text-sm flex items-center gap-1 text-blue-600 hover:underline"><Plus size={14} /> Añadir línea</button>
             </div>
           )}
@@ -144,16 +145,16 @@ export function TaskCompletionDialog({
                     <button type="button" onClick={() => setShowPosTacticForm(false)} className="text-xs text-zinc-500 hover:text-zinc-800">Cancelar</button>
                  </div>
                  <label className="grid gap-1.5"><span className="text-xs font-medium">Táctica</span>
-                    <select value={posTacticData.tacticCode || ''} onChange={e => setPosTacticData(p => ({...p, tacticCode: e.target.value}))} className="h-9 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm">
+                    <Select value={posTacticData.tacticCode || ''} onChange={e => setPosTacticData(p => ({...p, tacticCode: e.target.value}))} className="h-9">
                       {TACTIC_CODES.map(c => <option key={c} value={c}>{c.replace(/_/g, ' ')}</option>)}
-                    </select>
+                    </Select>
                  </label>
                  <div className="grid grid-cols-2 gap-2">
                    <label className="grid gap-1.5"><span className="text-xs font-medium">Coste Total (€)</span>
-                      <input type="number" min="0" value={posTacticData.actualCost ?? ''} onChange={e => setPosTacticData(p => ({...p, actualCost: Number(e.target.value)}))} className="h-9 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm"/>
+                      <Input type="number" min="0" value={posTacticData.actualCost ?? ''} onChange={e => setPosTacticData(p => ({...p, actualCost: Number(e.target.value)}))} className="h-9"/>
                    </label>
                    <label className="grid gap-1.5"><span className="text-xs font-medium">Ejecución (0-100)</span>
-                      <input type="number" min="0" max="100" value={posTacticData.executionScore ?? ''} onChange={e => setPosTacticData(p => ({...p, executionScore: Number(e.target.value)}))} className="h-9 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm"/>
+                      <Input type="number" min="0" max="100" value={posTacticData.executionScore ?? ''} onChange={e => setPosTacticData(p => ({...p, executionScore: Number(e.target.value)}))} className="h-9"/>
                    </label>
                  </div>
               </div>

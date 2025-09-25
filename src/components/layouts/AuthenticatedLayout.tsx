@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -46,7 +47,7 @@ import {
     UploadCloud,
     PlugZap
 } from 'lucide-react';
-import { SB_COLORS } from '@/domain/ssot';
+import { SB_COLORS, SB_THEME } from '@/domain/ssot';
 import { hexToRgba } from '@/components/ui/ui-primitives';
 import { AnimatePresence, motion } from 'framer-motion';
 import Image from 'next/image';
@@ -54,13 +55,31 @@ import { useData } from '@/lib/dataprovider';
 import { Avatar } from '@/components/ui/Avatar';
 import QuickLogOverlay from '@/features/quicklog/QuickLogOverlay';
 
+// === Helpers de acento y persistencia ===
+const MODULE_ACCENTS: Record<string, string> = {
+    personal: 'var(--sb-accent-personal)',
+    sales: 'var(--sb-accent-ventas)',
+    marketing: 'var(--sb-accent-marketing)',
+    production: 'var(--sb-accent-produc)',
+    quality: 'var(--sb-accent-calidad)',
+    warehouse: 'var(--sb-accent-logistica)',
+    finance: 'var(--sb-accent-finance)',
+    admin: 'var(--sb-accent-admin)',
+};
+  
+const hsl = (cssVar: string, alpha?: number) =>
+  alpha == null ? `hsl(${cssVar})` : `hsl(${cssVar} / ${alpha})`;
+  
+  // Persistencia simple en localStorage (colapso + secciones abiertas)
+  const LS_COLLAPSED = 'sb.sidebar.collapsed';
+  const LS_EXPANDED = 'sb.sidebar.expandedSections';
 
 const navSections = [
     {
         title: 'Personal',
-        module: 'sales',
+        module: 'personal',
         items: [
-            { href: '/dashboard-personal', label: 'Dashboard', icon: BarChart3 },
+            { href: '/dashboard-personal', label: 'Dashboard', icon: Home },
             { href: '/agenda', label: 'Agenda', icon: Calendar },
             { href: '/contacts', label: 'Contactos', icon: Contact },
         ]
@@ -138,135 +157,161 @@ const navSections = [
     }
 ];
 
-function NavLink({ 
-    href, 
-    label, 
-    icon: Icon, 
-    isCollapsed,
-    moduleColor
-}: { 
-    href: string; 
-    label: string; 
-    icon: React.ElementType, 
-    isCollapsed: boolean,
-    moduleColor: string,
+function NavLink({
+  href, label, isCollapsed, moduleColor,
+}: {
+  href: string; label: string; isCollapsed: boolean; moduleColor: string;
 }) {
-    const pathname = usePathname() ?? '/';
-    const isActive = href === '/' ? pathname === href : pathname.startsWith(href) && href !== '/';
-
-    const activeStyle = {
-        backgroundColor: hexToRgba(moduleColor, 0.08),
-        color: moduleColor,
-    };
-    const inactiveStyle = {
-        color: 'hsl(var(--sb-neutral-700))',
-    };
-
-    return (
-        <Link 
-            href={href} 
-            className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                isCollapsed ? 'justify-center' : ''
-            } ${isActive ? '' : 'hover:bg-sb-neutral-100 hover:text-sb-neutral-900'}`}
-            style={isActive ? activeStyle : inactiveStyle}
-            title={isCollapsed ? label : undefined}
-        >
-            <Icon className="h-5 w-5 flex-shrink-0" />
-            {!isCollapsed && <span className="flex-1 truncate">{label}</span>}
-        </Link>
-    );
-}
-
-function NavSection({ 
-    section, 
-    isCollapsed,
-    isExpanded,
-    onToggle
-}: { 
-    section: typeof navSections[0], 
-    isCollapsed: boolean,
-    isExpanded: boolean,
-    onToggle: () => void,
-}) {
-    const pathname = usePathname() ?? '/';
-    const isSectionActive = section.items.some(item => pathname.startsWith(item.href) && (item.href !== '/' || pathname === '/'));
-    const colorKey = (section.module || 'primary') as keyof typeof SB_COLORS;
-    const moduleColor = SB_COLORS.primary.teal;
-    const Icon = section.items[0].icon;
-
-    const dashboardItem = section.items[0];
-
-    return (
-        <div className="py-1">
-             <div className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-sm font-semibold transition-colors`}>
-                <Link
-                    href={dashboardItem.href}
-                    className={`flex-grow flex items-center gap-2 ${isCollapsed ? 'justify-center' : ''} ${isSectionActive ? '' : 'text-sb-neutral-500 hover:text-sb-neutral-900'}`}
-                    style={isSectionActive ? { color: moduleColor } : {}}
-                    title={isCollapsed ? section.title : undefined}
-                >
-                    {!isCollapsed && <span className="uppercase tracking-wider text-xs">{section.title}</span>}
-                    {isCollapsed && <div className="p-1"><Icon className="h-5 w-5"/></div>}
-                </Link>
-                {!isCollapsed && (
-                    <button onClick={onToggle} className="p-1 rounded-md hover:bg-zinc-100">
-                        {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                    </button>
-                )}
-            </div>
-            <AnimatePresence initial={false}>
-                {isExpanded && !isCollapsed && (
-                     <motion.div
-                        key="content"
-                        initial="collapsed"
-                        animate="open"
-                        exit="collapsed"
-                        variants={{
-                            open: { opacity: 1, height: "auto" },
-                            collapsed: { opacity: 0, height: 0 }
-                        }}
-                        transition={{ duration: 0.3, ease: [0.04, 0.62, 0.23, 0.98] }}
-                        className="pl-3 mt-1 space-y-1 overflow-hidden"
-                     >
-                        {section.items.map(item => (
-                            <NavLink key={item.href} {...item} isCollapsed={isCollapsed} moduleColor={moduleColor} />
-                        ))}
-                    </motion.div>
-                )}
-            </AnimatePresence>
-        </div>
-    )
-}
-
-export default function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
   const pathname = usePathname() ?? '/';
-  const { data, currentUser, authReady, logout, isPersistenceEnabled, togglePersistence, setCurrentUserById } = useData();
+  const isActive = href === '/' ? pathname === href : pathname.startsWith(href) && href !== '/';
 
-  useEffect(() => {
-    const activeSection = navSections.find(section => section.items.some(item => pathname.startsWith(item.href) && item.href !== '/'));
-    if(pathname === '/') {
-        setExpandedSections(prev => ({...prev, 'Personal':true}));
-        return;
-    }
-    if (activeSection) {
-        setExpandedSections(prev => ({ ...prev, [activeSection.title]: true }));
-    }
-  }, [pathname]);
+  const base =
+    'group flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--sb-neutral-200))] border border-transparent';
+  const hover = isCollapsed ? '' : ' hover:bg-[hsl(var(--sb-neutral-100))]';
 
-  const handleLogout = () => {
-    logout();
-  };
+  return (
+    <Link
+      href={href}
+      className={`${base}${hover} ${isCollapsed ? 'justify-center' : ''} ${isActive ? 'sb-nav-active' : ''}`}
+      style={isActive ? { borderLeftColor: hsl(moduleColor) } : undefined}
+      aria-current={isActive ? 'page' : undefined}
+      title={isCollapsed ? label : undefined}
+    >
+      <span className={`flex-1 truncate ${isCollapsed ? 'text-center' : 'text-neutral-800'}`}>{label}</span>
+    </Link>
+  );
+}
+
   
-  if (!authReady) {
-    return (
-        <div className="h-screen w-screen flex items-center justify-center bg-white">
-            <p>Cargando...</p>
-        </div>
-    )
-  }
+function NavSection({
+  section, isCollapsed, isExpanded, onToggle,
+}: {
+  section: typeof navSections[number]; isCollapsed: boolean; isExpanded: boolean; onToggle: () => void;
+}) {
+  const pathname = usePathname() ?? '/';
+  const isSectionActive = section.items.some(
+    (item) => pathname.startsWith(item.href) && (item.href !== '/' || pathname === '/')
+  );
+
+  const accentVar = MODULE_ACCENTS[section.module] ?? 'var(--sb-accent-personal)';
+  const dashboardItem = section.items[0];
+  const DeptIcon = dashboardItem.icon;
+
+  return (
+    <div className="py-1">
+      <div className="w-full flex items-center justify-between">
+        <Link
+          href={dashboardItem.href}
+          className={`flex-grow flex items-center gap-3 px-3 py-2 rounded-md ${isCollapsed ? 'justify-center' : ''} ${isSectionActive ? '' : 'text-neutral-500 hover:text-neutral-900'} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--sb-neutral-200))]`}
+          title={isCollapsed ? section.title : undefined}
+        >
+          <span
+            className="sb-chip-solid"
+            style={{ backgroundColor: hsl(accentVar) }}
+            aria-hidden
+          >
+            <DeptIcon className="w-4 h-4" />
+          </span>
+          {!isCollapsed && (
+            <span className="uppercase tracking-wider text-xs font-semibold text-neutral-700">
+              {section.title}
+            </span>
+          )}
+        </Link>
+
+        {!isCollapsed && (
+          <button
+            onClick={onToggle}
+            aria-expanded={isExpanded}
+            aria-controls={`dept-${section.title}`}
+            className="p-1 rounded-md text-neutral-600 hover:bg-[hsl(var(--sb-neutral-100))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--sb-neutral-200))]"
+          >
+            {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          </button>
+        )}
+      </div>
+
+      <AnimatePresence initial={false}>
+        {isExpanded && !isCollapsed && (
+          <motion.div
+            key={`content-${section.title}`}
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.18 }}
+            id={`dept-${section.title}`}
+            className="pl-3 mt-1 space-y-1 overflow-hidden"
+          >
+            {section.items.map((item) => (
+              <NavLink
+                key={item.href}
+                {...item}
+                isCollapsed={isCollapsed}
+                moduleColor={accentVar}
+              />
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+  export default function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
+      if (typeof window === 'undefined') return false;
+      return localStorage.getItem(LS_COLLAPSED) === '1';
+    });
+    const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+    const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>(() => {
+      if (typeof window === 'undefined') return {};
+      try {
+        const raw = localStorage.getItem(LS_EXPANDED);
+        return raw ? JSON.parse(raw) : {};
+      } catch {
+        return {};
+      }
+    });
+  
+    const pathname = usePathname() ?? '/';
+    const { data, currentUser, authReady, logout, isPersistenceEnabled, togglePersistence, setCurrentUserById } = useData();
+  
+    // Abrir sección del path actual
+    useEffect(() => {
+      const activeSection = navSections.find((section) =>
+        section.items.some((item) => pathname.startsWith(item.href) && item.href !== '/')
+      );
+      if (pathname === '/') {
+        setExpandedSections((prev) => ({ ...prev, Personal: true }));
+        return;
+      }
+      if (activeSection) {
+        setExpandedSections((prev) => {
+          const next = { ...prev, [activeSection.title]: true };
+          localStorage.setItem(LS_EXPANDED, JSON.stringify(next));
+          return next;
+        });
+      }
+    }, [pathname]);
+  
+    // Persistir colapso
+    useEffect(() => {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(LS_COLLAPSED, isSidebarCollapsed ? '1' : '0');
+      }
+    }, [isSidebarCollapsed]);
+  
+    // Toggle secciones con persistencia
+    const toggleSection = (title: string) =>
+      setExpandedSections((prev) => {
+        const next = { ...prev, [title]: !prev[title] };
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(LS_EXPANDED, JSON.stringify(next));
+        }
+        return next;
+      });
+  
+    const handleLogout = () => logout();
 
   const PersistenceIcon = isPersistenceEnabled ? DatabaseZap : DatabaseBackup;
   const persistenceStyles = isPersistenceEnabled
@@ -302,7 +347,7 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
                             section={section}
                             isCollapsed={isSidebarCollapsed}
                             isExpanded={!!expandedSections[section.title]}
-                            onToggle={() => setExpandedSections(prev => ({...prev, [section.title]: !prev[section.title]}))}
+                            onToggle={() => toggleSection(section.title)}
                         />
                     )
                 })}
@@ -313,7 +358,7 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
                     className={`p-2 rounded-lg flex items-center gap-3 cursor-pointer ${isSidebarCollapsed ? '' : 'hover:bg-sb-neutral-50'}`}
                     onClick={() => !isSidebarCollapsed && setIsUserMenuOpen(!isUserMenuOpen)}
                 >
-                    <Avatar name={currentUser?.name} size="lg" />
+                    <Avatar name={currentUser?.name} size="lg" className="sb-icon" />
 
                     {!isSidebarCollapsed && (
                         <div className="flex-1 overflow-hidden">
@@ -322,7 +367,7 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
                         </div>
                     )}
                     {!isSidebarCollapsed && (
-                        isUserMenuOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />
+                        isUserMenuOpen ? <ChevronUp size={16} className="sb-icon" /> : <ChevronDown size={16} className="sb-icon" />
                     )}
                 </div>
 
@@ -345,7 +390,7 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
                                     }}
                                     className={`w-full text-left text-sm px-2 py-1.5 rounded-md flex items-center gap-2 ${currentUser?.id === user.id ? 'bg-blue-50 text-blue-700 font-semibold' : 'hover:bg-zinc-100'}`}
                                 >
-                                    <User size={14} /> {user.name}
+                                    <User size={14} className="sb-icon" /> {user.name}
                                 </button>
                             ))}
                         </div>
@@ -358,13 +403,13 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
                     className={`w-full flex items-center justify-center gap-3 px-3 py-2 mt-2 rounded-md text-sm font-semibold border transition-colors ${persistenceStyles}`}
                     title={persistenceTooltip}
                 >
-                    <PersistenceIcon className="h-5 w-5" />
+                    <PersistenceIcon className="sb-icon h-5 w-5" />
                     {!isSidebarCollapsed && <span>{isPersistenceEnabled ? 'DB ON' : 'DB OFF'}</span>}
                 </button>
 
                 <button
                     onClick={handleLogout}
-                    className="w-full flex items-center justify-center gap-3 px-3 py-2 mt-2 rounded-md text-sm font-medium text-sb-neutral-600 hover:bg-sb-neutral-100"
+                    className="sb-btn-primary w-full flex items-center justify-center gap-3 px-3 py-2 mt-2 rounded-md text-sm font-medium text-sb-neutral-600 hover:bg-sb-neutral-100"
                     title="Cerrar sesión"
                 >
                     <LogOut className="h-5 w-5" />
@@ -373,7 +418,7 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
 
                 <button
                     onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                    className="w-full flex items-center justify-center gap-3 px-3 py-2 mt-2 rounded-md text-sm font-medium text-sb-neutral-600 hover:bg-sb-neutral-100"
+                    className="sb-btn-primary w-full flex items-center justify-center gap-3 px-3 py-2 mt-2 rounded-md text-sm font-medium text-sb-neutral-600 hover:bg-sb-neutral-100"
                     title={isSidebarCollapsed ? 'Expandir menú' : 'Colapsar menú'}
                 >
                     {isSidebarCollapsed ? <PanelRightClose className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}

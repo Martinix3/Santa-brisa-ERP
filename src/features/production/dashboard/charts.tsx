@@ -2,6 +2,7 @@
 "use client";
 import React from "react";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar, LineChart, Line } from "recharts";
+import { SB_THEME } from "@/domain/ssot";
 
 export function AreaBasic({ data, xKey, yKey, height=220, unit, color='#3b82f6' }:{ data:any[]; xKey:string; yKey:string; height?:number; unit?:string, color?: string }){
   return (
@@ -50,7 +51,7 @@ export function LineBasic({ data, xKey, yKey, height=220, unit, color='#10b981' 
           <XAxis dataKey={xKey} tick={{ fontSize: 12 }} />
           <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => typeof v === 'number' ? `${v.toFixed(3)} €` : v} />
           <Tooltip formatter={(v:any)=> unit?`${Number(v).toFixed(3)} ${unit}`:Number(v).toFixed(3)} />
-          <Line type="monotone" dataKey={yKey} stroke={color} strokeWidth={2} dot={false} />
+          <Line type="monotone" dataKey={yKey} stroke={color} strokeWidth={2} dot={false} className="sb-icon" />
         </LineChart>
       </ResponsiveContainer>
     </div>

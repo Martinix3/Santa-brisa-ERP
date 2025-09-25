@@ -2,7 +2,7 @@
 "use client";
 import React, { useState, useEffect, useMemo } from 'react';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
-import type { MarketingEvent, OnlineCampaign, InfluencerCollab } from '@/domain/ssot';
+import type { MarketingEvent, OnlineCampaign, InfluencerCollab, SB_THEME } from '@/domain/ssot';
 import { Euro, Users, Target, BarChart3, Heart, MousePointerClick, TrendingUp, DollarSign } from 'lucide-react';
 
 type Entity = MarketingEvent | OnlineCampaign | InfluencerCollab;
@@ -184,7 +184,7 @@ export function MarketingTaskCompletionDialog({
             {kpiFields.map(({ key, label, icon: Icon, step }) => (
               <label key={key} className="grid gap-1.5">
                 <span className="text-sm font-medium text-zinc-700 flex items-center gap-1.5">
-                  <Icon size={14} /> {label}
+                  <Icon size={14} className="sb-icon" /> {label}
                 </span>
                 <input
                   type="number"

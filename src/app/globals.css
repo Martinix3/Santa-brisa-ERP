@@ -4,33 +4,50 @@
 
 /* ===== Tokens SB ===== */
 :root {
+
   --radius: 12px;
 
-  /* neutrales y superficies */
+  /* 🎯 Primario: amarillo (suave por defecto, dorado como variante fuerte) */
+  --sb-sun: 54 100% 83%;        /* #fff5a9 */
+  --sb-sun-strong: 45 99% 63%;  /* #fecb46 */
+  --primary: var(--sb-sun);
+  --primary-foreground: 240 10% 3.9%;
+
+
+  /* Acentos por departamento (HEX que nos diste, pasados a HSL) */
+  --sb-accent-personal: 54 80% 84%; /* #fbf5b8 - más suave */
+  --sb-accent-ventas: 45 75% 63%; /* #f2ca67 - más suave */
+  --sb-accent-marketing: 182 40% 70%; /* #9dd4d6 - más suave */
+  --sb-accent-logistica: 22 40% 44%; /* #996947 - más suave */
+  --sb-accent-produc: 22 70% 61%; /* #ea945e - más suave */
+  --sb-accent-calidad: 214 35% 65%; /* #8298ce - azulado suave */
+  --sb-accent-finance: 182 20% 47%; /* #638c8d - verde mar oscuro */
+  --sb-accent-admin: 240 5% 55%; /* #8a8c92 - neutro */
+
+  /* Paleta corporativa */
+  --sb-agua: 180 46% 72%;       /* #99d9d9 */
+  --sb-cobre: 19 53% 51%;       /* #c56a3c */
+  --sb-naranja: 17 85% 57%;     /* #ed6a36 */
+  --sb-verde-mar: 182 25% 47%;
+
+  /* Neutrales y superficies */
   --border: 240 6% 90%;
   --input: 240 5% 96%;
   --ring: 240 5% 65%;
   --background: 0 0% 100%;
   --foreground: 240 10% 3.9%;
 
-  /* 🎯 amarillo Santa Brisa como color primario de la UI */
-  --sb-sun: 45 93% 68%;
-  --primary: var(--sb-sun);
-  --primary-foreground: 240 10% 3.9%;
-
+  /* Semánticos UI */
   --secondary: 240 4.8% 95.9%;
   --secondary-foreground: 240 5.9% 10%;
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 98%;
   --muted: 240 4.8% 95.9%;
   --muted-foreground: 240 3.8% 46.1%;
-  --accent: 240 4.8% 95.9%;
+  --accent: var(--sb-agua);
   --accent-foreground: 240 5.9% 10%;
 
-  /* paleta corporativa extendida */
-  --sb-cobre: 24 95% 65%;
-  --sb-agua: 181 38% 85%;
-  --sb-verde-mar: 182 25% 47%;
+  /* Escala neutral */
   --sb-neutral-950: 240 10% 3.9%;
   --sb-neutral-900: 240 10% 7%;
   --sb-neutral-700: 240 5% 30%;
@@ -41,13 +58,27 @@
   --sb-neutral-50: 0 0% 98%;
 }
 
+/* Tema oscuro opcional */
+:root.dark {
+  --primary: var(--sb-sun-strong);
+  --primary-foreground: 0 0% 10%;
+  --accent: 181 38% 62%;
+  --accent-foreground: 0 0% 10%;
+}
+
 /* ===== Base ===== */
 @layer base {
   * { border-color: hsl(var(--border) / 0.55); }
+
+  h1 { @apply text-2xl font-semibold tracking-tight text-zinc-900; }
+  h2 { @apply text-lg font-semibold tracking-tight text-zinc-800; }
+  h3 { @apply text-base font-semibold text-zinc-800; }
+  p, li, td { @apply text-sm text-zinc-700; }
 }
 
-/* ===== Components ===== */
+/* ===== Components (único bloque) ===== */
 @layer components {
+  /* Botón primario */
   .sb-btn-primary {
     border-radius: var(--radius);
     box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
@@ -56,36 +87,110 @@
     color: hsl(var(--primary-foreground));
   }
   .sb-btn-primary:hover { background-color: hsl(var(--primary) / 0.9); }
+  .sb-btn-primary[data-variant="strong"],
+  .sb-btn-primary:where([data-variant="strong"]:hover) {
+    background-color: hsl(var(--sb-sun-strong));
+  }
   .sb-btn-primary:focus-visible {
     outline: 2px solid hsl(var(--ring));
     outline-offset: 2px;
   }
   .sb-btn-primary:active { transform: scale(0.98); }
 
+  /* Card unificada */
   .sb-card {
     border-radius: calc(var(--radius) + 8px);
-    border-width: 1px;
-    border-color: hsl(var(--border) / 0.6);
-    background-color: hsl(var(--background) / 0.9);
+    border: 1px solid hsl(var(--border) / 0.6);
+    background: hsl(var(--background) / 0.98);
     box-shadow: 0 16px 24px -8px rgb(0 0 0 / 0.12);
-    backdrop-filter: blur(2px);
+    overflow: hidden;
   }
+  .sb-card__header {
+    display: flex; align-items: center; gap: .5rem;
+    padding: .75rem 1rem;
+    background: hsl(var(--sb-neutral-100)); /* más corporativo/sobrio */
+    border-bottom: 1px solid hsl(var(--border) / .6);
+  }
+  .sb-card__title { font-weight: 600; color: hsl(var(--foreground)); }
+  .sb-card[data-variant="plain"] .sb-card__header { background: transparent; }
+  .sb-card__content { padding: 1rem; }
+  .sb-card__footer { padding: .75rem 1rem; border-top: 1px solid hsl(var(--border) / .6); }
 
+  /* Menú/flotantes */
   .sb-menu {
     border-radius: calc(var(--radius) + 4px);
-    border-width: 1px;
-    border-color: hsl(var(--border) / 0.6);
-    background-color: hsl(var(--background) / 0.95);
+    border: 1px solid hsl(var(--border) / 0.6);
+    background: hsl(var(--background) / 0.95);
     box-shadow: 0 24px 32px -12px rgb(0 0 0 / 0.14);
     backdrop-filter: blur(4px);
     animation: fade-in-50 .15s ease-out both, slide-in-from-top-1 .15s ease-out both;
   }
 
-  .sb-badge-success {
-    background-color: hsl(var(--sb-verde-mar) / 0.12);
-    color: hsl(var(--sb-verde-mar));
-    border-width: 1px;
-    border-color: hsl(var(--sb-verde-mar) / 0.25);
+  /* Iconos */
+  .sb-icon { color: hsl(var(--sb-agua)); line-height: 1; display: inline-flex; }
+  .sb-icon[data-muted="true"] { color: hsl(var(--sb-agua) / .5); }
+  .sb-icon--warn   { color: hsl(var(--sb-sun-strong)); }
+  .sb-icon--ok     { color: hsl(var(--sb-verde-mar)); }
+  .sb-icon--danger { color: hsl(var(--destructive)); }
+
+  /* Badges */
+  .sb-badge {
+    display:inline-flex; align-items:center; gap:.35rem;
     border-radius: calc(var(--radius) - 2px);
+    border: 1px solid transparent;
+    font-size: .75rem; padding: .2rem .5rem; line-height: 1;
+    white-space: nowrap;
   }
+  .sb-badge--info    { background: hsl(var(--sb-agua) / .18);  color: hsl(var(--foreground)); border-color: hsl(var(--sb-agua) / .35); }
+  .sb-badge--ok      { background: hsl(var(--sb-verde-mar) /.12); color: hsl(var(--sb-verde-mar)); border-color: hsl(var(--sb-verde-mar)/.25); }
+  .sb-badge--warn    { background: hsl(var(--sb-sun-strong)/.20); color: hsl(var(--foreground)); border-color: hsl(var(--sb-sun-strong)/.35); }
+  .sb-badge--danger  { background: hsl(var(--destructive) /.12); color: hsl(var(--destructive) / .75); border-color: hsl(var(--destructive)/.25); }
+
+  /* Badges por departamento */
+  .sb-badge--ventas     { background: color-mix(in oklab, #c56a3c 18%, white); color:#fff; border-color:#c56a3c40; }
+  .sb-badge--marketing  { background: color-mix(in oklab, #fff5a9 35%, white); color:#111; border-color:#fecb4640; }
+  .sb-badge--almacen    { background: color-mix(in oklab, #99d9d9 25%, white); color:#2F5D5D; border-color:#99d9d960; }
+  .sb-badge--produccion { background: color-mix(in oklab, #5a9496 25%, white); color:#fff; border-color:#5a949640; }
+  .sb-badge--finanzas   { background: #eef2f7; color:#111; border-color:#cdd6e3; }
+  .sb-badge--calidad    { background: color-mix(in oklab, #fecb46 25%, white); color:#111; border-color:#fecb4640; }
+
+  /* UTILS NUEVAS */
+
+  /* Utilidad glass */
+  .sb-glass {
+    background: color-mix(in oklab, white 82%, transparent);
+    backdrop-filter: blur(8px);
+    border: 1px solid hsl(var(--border) / .6);
+  }
+
+  /* Chip sólido (para icono de departamento) */
+  .sb-chip-solid {
+    display:inline-flex;align-items:center;justify-content:center;
+    width:1.75rem;height:1.75rem;border-radius:.5rem;color:#fff;
+  }
+  
+  /* Chip base (pastilla blanca) */
+  .sb-chip {
+    @apply inline-flex items-center gap-2 rounded-full bg-white shadow-sm
+           border border-zinc-200 px-2.5 py-1 text-sm;
+  }
+
+  /* Link activo del sidebar: fondo neutro y borde izquierda con acento */
+  .sb-nav-active { background-color: hsl(var(--sb-neutral-100)); border-left-width: 3px; }
+
+  /* Helpers para acentos por CSS var --tone */
+  .sb-dot  { width:.375rem; height:.375rem; border-radius:9999px; background-color:hsl(var(--tone)); display:inline-block; }
+  .sb-badge-accent { background-color: hsl(var(--tone) / .15); border: 1px solid hsl(var(--tone) / .35); }
+
+  .sb-field { @apply grid gap-1.5; }
+  .sb-label { @apply text-sm font-medium text-zinc-700; }
+
+  .sb-input, .sb-select, .sb-textarea {
+    @apply w-full rounded-xl border border-zinc-200 bg-white/90 px-3 text-sm shadow-inner;
+  }
+  .sb-input { @apply h-10; }
+  .sb-select { @apply h-10; }
+  .sb-textarea { @apply py-2; }
+
+  .sb-section { @apply sb-glass p-4 rounded-2xl; }
 }

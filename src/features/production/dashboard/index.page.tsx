@@ -12,6 +12,7 @@ import { BottlingProgress } from "./components/BottlingProgress";
 import { EfficiencyWidget } from "./components/EfficiencyWidget";
 import { SBCard } from "@/components/ui/ui-primitives";
 import { Plus } from 'lucide-react';
+import { SB_THEME } from "@/domain/ssot";
 
 export default function ProductionDashboardPage(){
   const { data } = useData();
@@ -52,7 +53,7 @@ export default function ProductionDashboardPage(){
        </SBCard>
        
        <button className="fixed bottom-6 right-6 h-14 w-14 rounded-full bg-zinc-900 text-white shadow-lg flex items-center justify-center z-40 hover:bg-zinc-800 transition-colors">
-            <Plus size={24}/>
+            <Plus size={24} className="sb-icon"/>
        </button>
     </div>
   );

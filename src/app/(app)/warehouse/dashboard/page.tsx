@@ -4,10 +4,10 @@
 import React, { useMemo, useState } from 'react';
 import { useData } from '@/lib/dataprovider';
 import { generateInsights } from '@/ai/flows/generate-insights-flow';
-import { SBCard, SBButton, Card, DataTableSB, Button } from '@/components/ui/ui-primitives';
+import { SBCard, SBButton, DataTableSB } from '@/components/ui/ui-primitives';
 import type { Col } from '@/components/ui/ui-primitives';
 import { BrainCircuit, Package, DollarSign, Truck, AlertCircle, Clock } from 'lucide-react';
-import type { InventoryItem, Shipment, Interaction, StockMove, Account, ShipmentStatus } from '@/domain/ssot';
+import type { InventoryItem, Shipment, Interaction, StockMove, Account, ShipmentStatus, SB_THEME } from '@/domain/ssot';
 import { DEPT_META, SB_COLORS } from '@/domain/ssot';
 import Link from 'next/link';
 import { samplesSentSummary } from "@/lib/consignment-and-samples";
@@ -17,7 +17,7 @@ function KPI({ icon: Icon, label, value, color }: { icon: React.ElementType, lab
     return (
         <div className="bg-white p-4 rounded-xl border border-sb-neutral-200 flex items-start gap-4">
             <div className={`h-10 w-10 rounded-lg flex items-center justify-center`} style={{ backgroundColor: `${color}20`, color }}>
-                <Icon size={20} />
+                <Icon size={20} className="sb-icon" />
             </div>
             <div>
                 <p className="text-2xl font-bold text-sb-neutral-900">{value}</p>
@@ -50,7 +50,7 @@ function SamplesSentCard({ shipments, stockMoves, accounts }: { shipments: Shipm
     );
 
     return (
-        <Card title="Muestras enviadas · 30 días">
+        <SBCard title="Muestras enviadas · 30 días">
             <div className="p-3 overflow-x-auto">
                 <table className="min-w-full text-xs">
                     <thead>
@@ -82,7 +82,7 @@ function SamplesSentCard({ shipments, stockMoves, accounts }: { shipments: Shipm
                     </tbody>
                 </table>
             </div>
-        </Card>
+        </SBCard>
     );
 }
 
@@ -111,7 +111,7 @@ function WarehouseDashboardContent({ inventory, shipments, stockMoves, accounts 
             header: 'Acciones', 
             render: r => (
                  <Link href={`/warehouse/logistics`}>
-                    <Button variant="subtle">Ver</Button>
+                    <SBButton variant="subtle">Ver</SBButton>
                 </Link>
             ) 
         }
@@ -129,13 +129,13 @@ function WarehouseDashboardContent({ inventory, shipments, stockMoves, accounts 
 
              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2">
-                    <Card title="Envíos Recientes">
+                    <SBCard title="Envíos Recientes">
                          <DataTableSB rows={shipments.slice(0,10)} cols={shipmentCols as any} />
-                    </Card>
+                    </SBCard>
                 </div>
                  <div className="space-y-6">
                      <UpcomingTasks department="ALMACEN" />
-                     <Card title="Alertas de Stock Bajo">
+                     <SBCard title="Alertas de Stock Bajo">
                          <div className="p-2 space-y-1">
                              {lowStockItems.length > 0 ? lowStockItems.map(item => (
                                  <div key={item.id} className="flex items-center justify-between p-2 rounded-lg bg-amber-50 border border-amber-100">
@@ -150,7 +150,7 @@ function WarehouseDashboardContent({ inventory, shipments, stockMoves, accounts 
                                  </div>
                              )) : <p className="text-sm text-sb-neutral-500 p-4 text-center">No hay alertas de stock.</p>}
                          </div>
-                    </Card>
+                    </SBCard>
                  </div>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Plus, CalendarDays, ClipboardList, UserPlus2, Briefcase, Search, Check, MapPin, Pencil, Save, MessageSquare, Zap, Mail, Phone, History, ShoppingCart, Building, CreditCard } from "lucide-react";
 import { useData } from "@/lib/dataprovider";
 import { generateNextOrder } from "@/lib/codes";
-import type { AccountType, Account, OrderSellOut, Product, Party } from '@/domain/ssot';
+import type { AccountType, Account, OrderSellOut, Product, Party, SB_THEME } from '@/domain/ssot';
 import { SB_COLORS } from '@/domain/ssot';
 
 const hexToRgba = (hex: string, a: number) => { const h = hex.replace('#',''); const f = h.length===3? h.split('').map(c=>c+c).join(''):h; const n=parseInt(f,16); const r=(n>>16)&255, g=(n>>8)&255, b=n&255; return `rgba(${r},${g},${b},${a})`; };
@@ -59,7 +59,7 @@ function Textarea(props:React.TextareaHTMLAttributes<HTMLTextAreaElement>){ retu
 function Header({title, color="#A7D8D9", icon:Icon=ClipboardList}:{title:string;color?:string;icon?:any}){
   return (
     <div className="relative border-b" style={{background: waterHeader("modal:"+title, color), borderColor: hexToRgba(color,0.18)}}>
-      <div className="px-4 py-2.5 text-sm font-medium text-zinc-800 flex items-center gap-2"><Icon className="h-4 w-4"/>{title}</div>
+      <div className="px-4 py-2.5 text-sm font-medium text-zinc-800 flex items-center gap-2"><Icon className="sb-icon h-4 w-4"/>{title}</div>
       <div className="absolute left-0 right-0 -bottom-px"><AgaveEdge/></div>
     </div>
   );
@@ -190,7 +190,7 @@ function AccountPicker({
                   </button>
                   {allowDefer && (
                     <button onClick={()=>{ onChange(""); setOpen(false); }}
-                      className="px-3 py-2 rounded-lg text-sm border border-zinc-300 bg-white hover:bg-zinc-50">
+                      className="sb-btn-primary px-3 py-2 rounded-lg text-sm border border-zinc-300 bg-white hover:bg-zinc-50">
                       Dejar para más tarde
                     </button>
                   )}
@@ -213,8 +213,8 @@ function AccountPicker({
                   </div>
                 </div>
                 <div className="flex justify-between gap-2 p-2 border-t bg-zinc-50">
-                  <button onClick={()=>setMode("search")} className="px-3 py-2 text-sm rounded-lg border border-zinc-300 bg-white hover:bg-zinc-50">Volver</button>
-                  <button onClick={createInline} className="px-3 py-2 text-sm rounded-lg bg-[#F7D15F] text-zinc-900 hover:brightness-95">Crear y usar</button>
+                  <button onClick={()=>setMode("search")} className="sb-btn-primary px-3 py-2 text-sm rounded-lg border border-zinc-300 bg-white hover:bg-zinc-50">Volver</button>
+                  <button onClick={createInline} className="sb-btn-primary px-3 py-2 text-sm rounded-lg bg-[#F7D15F] text-zinc-900 hover:brightness-95">Crear y usar</button>
                 </div>
               </div>
             )}
@@ -278,11 +278,11 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
                 <div key={i} className="grid grid-cols-[1.2fr_0.6fr_40px] gap-2 items-center px-3 py-2 border-b last:border-b-0">
                 <Input placeholder="SKU" value={it.sku} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>setLine(i,{sku:e.target.value})}/>
                 <Input type="number" min={1} value={it.qty} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>setLine(i,{qty: Number(e.target.value)})}/>
-                <button onClick={()=>removeLine(i)} className="p-2 rounded-md hover:bg-zinc-100" aria-label="Eliminar"><X className="h-4 w-4"/></button>
+                <button onClick={()=>removeLine(i)} className="sb-btn-primary p-2 rounded-md hover:bg-zinc-100" aria-label="Eliminar"><X className="h-4 w-4"/></button>
                 </div>
             ))}
             <div className="px-3 py-2 flex justify-between items-center">
-                <button onClick={addLine} className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md border border-zinc-300 bg-white hover:bg-zinc-50"><Plus className="h-3.5 w-3.5"/>Añadir línea</button>
+                <button onClick={addLine} className="sb-btn-primary inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md border border-zinc-300 bg-white hover:bg-zinc-50"><Plus className="h-3.5 w-3.5"/>Añadir línea</button>
                 <div className="w-1/2"><Input placeholder="Nota opcional" value={orderNote} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>setOrderNote(e.target.value)}/></div>
             </div>
             </div>
@@ -312,8 +312,8 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
       )}
 
       <div className="flex justify-end gap-2 pt-1">
-        <button onClick={onCancel} className="px-3 py-2 text-sm rounded-lg border border-zinc-300 bg-white hover:bg-zinc-50">Cancelar</button>
-        <button onClick={submit} className="px-3 py-2 text-sm rounded-lg bg-sb-sun text-zinc-900 hover:brightness-110">Guardar</button>
+        <button onClick={onCancel} className="sb-btn-primary px-3 py-2 text-sm rounded-lg border border-zinc-300 bg-white hover:bg-zinc-50">Cancelar</button>
+        <button onClick={submit} className="sb-btn-primary px-3 py-2 text-sm rounded-lg bg-sb-sun text-zinc-900 hover:brightness-110">Guardar</button>
       </div>
     </div>
   );
@@ -352,8 +352,8 @@ function EditAccountForm({defaults, onSubmit, onCancel}:{
       <div className="flex justify-between items-center pt-1">
         <div className="text-[11px] text-zinc-500">ID: <code>{form.id}</code></div>
         <div className="flex gap-2">
-          <button onClick={onCancel} className="px-3 py-2 text-sm rounded-lg border border-zinc-300 bg-white hover:bg-zinc-50">Cancelar</button>
-          <button onClick={submit} className="px-3 py-2 text-sm rounded-lg bg-sb-sun text-zinc-900 hover:brightness-110"><Save className="h-4 w-4 inline mr-1"/>Guardar</button>
+          <button onClick={onCancel} className="sb-btn-primary px-3 py-2 text-sm rounded-lg border border-zinc-300 bg-white hover:bg-zinc-50">Cancelar</button>
+          <button onClick={submit} className="sb-btn-primary px-3 py-2 text-sm rounded-lg bg-sb-sun text-zinc-900 hover:brightness-110"><Save className="h-4 w-4 inline mr-1"/>Guardar</button>
         </div>
       </div>
     </div>
@@ -382,8 +382,8 @@ function CreateAccountForm({onSubmit, onCancel}:{ onSubmit:(p:CreateAccountPaylo
       <Row><Label>Email contacto</Label><Input type="email" value={form.mainContactEmail||""} onChange={(e: React.ChangeEvent<HTMLInputElement>)=>set("mainContactEmail", e.target.value)} placeholder="ana@bar.com"/></Row>
 
       <div className="flex justify-end gap-2 pt-1">
-        <button onClick={onCancel} className="px-3 py-2 text-sm rounded-lg border border-zinc-300 bg-white hover:bg-zinc-50">Cancelar</button>
-        <button onClick={submit} className="px-3 py-2 text-sm rounded-lg bg-sb-sun text-zinc-900 hover:brightness-110">Crear cuenta</button>
+        <button onClick={onCancel} className="sb-btn-primary px-3 py-2 text-sm rounded-lg border border-zinc-300 bg-white hover:bg-zinc-50">Cancelar</button>
+        <button onClick={submit} className="sb-btn-primary px-3 py-2 text-sm rounded-lg bg-sb-sun text-zinc-900 hover:brightness-110">Crear cuenta</button>
       </div>
     </div>
   );
@@ -496,20 +496,20 @@ export function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, on
                 </Select>
                 <Input type="number" value={it.priceUnit} onChange={e=>setLine(i, {priceUnit: Number(e.target.value)})} placeholder="Precio Unit."/>
                 <div className="text-right font-medium pr-2">{(it.qty * it.priceUnit).toFixed(2)}€</div>
-                <button onClick={()=>removeLine(i)} className="p-2 rounded-md hover:bg-zinc-100" aria-label="Eliminar"><X className="h-4 w-4"/></button>
+                <button onClick={()=>removeLine(i)} className="sb-btn-primary p-2 rounded-md hover:bg-zinc-100" aria-label="Eliminar"><X className="h-4 w-4"/></button>
               </div>
             )
         })}
         <div className="px-3 py-2 flex justify-between items-center bg-zinc-50">
-            <button onClick={addLine} className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md border border-zinc-300 bg-white hover:bg-zinc-50"><Plus className="h-3.5 w-3.5"/>Añadir línea</button>
+            <button onClick={addLine} className="sb-btn-primary inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md border border-zinc-300 bg-white hover:bg-zinc-50"><Plus className="h-3.5 w-3.5"/>Añadir línea</button>
             <div className="text-right font-bold">Total: {orderTotal.toFixed(2)}€</div>
         </div>
       </div>
       <Row><Label>Notas</Label><Textarea rows={3} value={note} onChange={e=>setNote(e.target.value)} /></Row>
 
       <div className="flex justify-end gap-2 pt-1">
-        <button onClick={onCancel} className="px-3 py-2 text-sm rounded-lg border border-zinc-300 bg-white hover:bg-zinc-50">Cancelar</button>
-        <button onClick={submit} className="px-3 py-2 text-sm rounded-lg bg-sb-sun text-zinc-900 hover:brightness-110">Crear pedido</button>
+        <button onClick={onCancel} className="sb-btn-primary px-3 py-2 text-sm rounded-lg border border-zinc-300 bg-white hover:bg-zinc-50">Cancelar</button>
+        <button onClick={submit} className="sb-btn-primary px-3 py-2 text-sm rounded-lg bg-sb-sun text-zinc-900 hover:brightness-110">Crear pedido</button>
       </div>
     </div>
   );
@@ -527,7 +527,7 @@ function BaseModal({open, onClose, color="#A7D8D9", title, icon:Icon=ClipboardLi
           transition={{type:"spring", stiffness:260, damping:22}}
           className="relative w-[92vw] max-w-4xl rounded-2xl border border-zinc-200 bg-white shadow-xl overflow-hidden">
           <Header title={title} color={color} icon={Icon}/>
-          <div className="absolute right-2 top-2 z-10"><button onClick={onClose} className="p-2 rounded-md hover:bg-white/60" aria-label="Cerrar"><X className="h-4 w-4"/></button></div>
+          <div className="absolute right-2 top-2 z-10"><button onClick={onClose} className="sb-btn-primary p-2 rounded-md hover:bg-white/60" aria-label="Cerrar"><X className="h-4 w-4"/></button></div>
           {children}
         </motion.div>
       </motion.div>

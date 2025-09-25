@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import { useData } from '@/lib/dataprovider';
 import { SBCard, SBButton } from '@/components/ui/ui-primitives';
-import { DEPT_META } from '@/domain/ssot';
+import { DEPT_META, SB_THEME } from '@/domain/ssot';
 import type { Interaction, MarketingEvent, OnlineCampaign, InfluencerCollab, PosTactic } from '@/domain/ssot';
 import { Calendar, AlertCircle, Clock, Target, Euro, TrendingUp, BarChart, Percent, PieChart as PieChartIcon } from 'lucide-react';
 import { UpcomingTasks } from '@/features/agenda/components/UpcomingTasks';
@@ -23,7 +23,7 @@ function KpiCard({ title, value, icon: Icon, color = "#71717a" }: { title: strin
     return (
         <div className="bg-white p-4 rounded-xl border border-zinc-200 flex items-center gap-4 shadow-sm">
             <div className="p-3 rounded-lg" style={{ backgroundColor: `${color}1A`, color }}>
-                <Icon size={24} />
+                <Icon size={24} className="sb-icon" />
             </div>
             <div>
                 <p className="text-2xl font-bold text-zinc-900">{value}</p>
@@ -247,7 +247,7 @@ function MarketingDashboardPageContent() {
                         {upcomingActions.length > 0 ? upcomingActions.map((action, idx) => (
                             <div key={idx} className="flex items-center gap-3 p-2 rounded-lg hover:bg-zinc-50">
                                 <div className="p-2 bg-zinc-100 rounded-md">
-                                    <Calendar size={16} className="text-zinc-600"/>
+                                    <Calendar size={16} className="sb-icon text-zinc-600"/>
                                 </div>
                                 <div>
                                     <p className="font-medium text-sm">{action.title}</p>

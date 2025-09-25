@@ -4,7 +4,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { useData } from '@/lib/dataprovider';
-import type { Party, PartyRole, PartyRoleType, Account } from '@/domain/ssot';
+import type { Party, PartyRole, PartyRoleType, Account, SB_THEME } from '@/domain/ssot';
 import { SBCard, Input, Select } from '@/components/ui/ui-primitives';
 import { Search, Building, User as UserIcon, Mail, Phone, Globe } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
@@ -125,7 +125,7 @@ export function ContactsPageContent() {
                     return (
                         <div key={party.id} className="grid grid-cols-[auto_2fr_1.5fr_1.5fr_1fr] items-center gap-4 px-4 py-3 hover:bg-zinc-50/50">
                             <div className="flex-shrink-0">
-                                {party.kind === 'PERSON' ? <Avatar name={party.name} size="lg"/> : <Building className="h-6 w-6 text-zinc-500"/>}
+                                {party.kind === 'PERSON' ? <Avatar name={party.name} size="lg" className="sb-icon"/> : <Building className="h-6 w-6 text-zinc-500"/>}
                             </div>
                             <div className="font-medium text-zinc-800">
                                 {account ? (
@@ -141,9 +141,9 @@ export function ContactsPageContent() {
                             <div>
                                 {primaryContact ? (
                                     <div className="text-sm text-zinc-600 flex items-center gap-2">
-                                        {primaryContact.type === 'email' && <Mail size={14} className="text-zinc-400" />}
-                                        {primaryContact.type === 'phone' && <Phone size={14} className="text-zinc-400" />}
-                                        {primaryContact.type === 'web' && <Globe size={14} className="text-zinc-400" />}
+                                        {primaryContact.type === 'email' && <Mail size={14} className="sb-icon text-zinc-400" />}
+                                        {primaryContact.type === 'phone' && <Phone size={14} className="sb-icon text-zinc-400" />}
+                                        {primaryContact.type === 'web' && <Globe size={14} className="sb-icon text-zinc-400" />}
                                         <span>{primaryContact.value}</span>
                                     </div>
                                 ) : (

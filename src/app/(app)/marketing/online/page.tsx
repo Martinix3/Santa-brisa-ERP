@@ -3,7 +3,7 @@
 
 import React, { useMemo, useState, useEffect } from "react";
 import { useData } from "@/lib/dataprovider";
-import type { OnlineCampaign } from "@/domain/ssot";
+import type { OnlineCampaign, SB_THEME } from "@/domain/ssot";
 import { SBButton, SBCard, Input, Select } from "@/components/ui/ui-primitives";
 import { Plus, Edit, Save, X } from "lucide-react";
 import { MarketingTaskCompletionDialog } from "@/features/marketing/components/MarketingTaskCompletionDialog";
@@ -301,8 +301,8 @@ function CampaignRow({
         <td className="px-2 py-2 text-right font-semibold">{roas ? `${roas.toFixed(2)}x` : "—"}</td>
         <td className="px-2 py-2">
           <div className="flex items-center gap-1 justify-end">
-            <SBButton size="sm" onClick={save}><Save size={14} /></SBButton>
-            <SBButton size="sm" variant="secondary" onClick={cancel}><X size={14} /></SBButton>
+            <SBButton size="sm" onClick={save} className="sb-icon"><Save size={14} className="sb-icon" /></SBButton>
+            <SBButton size="sm" variant="secondary" onClick={cancel} className="sb-icon"><X size={14} /></SBButton>
           </div>
         </td>
       </tr>
@@ -324,9 +324,9 @@ function CampaignRow({
       <td className="p-3">
         <div className="flex items-center gap-1 justify-end">
           {campaign.status !== "closed" && (
-            <SBButton size="sm" variant="secondary" onClick={()=>onCloseRequest(campaign)}>Resultados</SBButton>
+            <SBButton size="sm" variant="secondary" onClick={()=>onCloseRequest(campaign)} className="sb-icon">Resultados</SBButton>
           )}
-          <SBButton size="sm" variant="ghost" onClick={()=>setIsEditing(true)}><Edit size={14} /></SBButton>
+          <SBButton size="sm" variant="ghost" onClick={()=>setIsEditing(true)} className="sb-icon"><Edit size={14} className="sb-icon" /></SBButton>
         </div>
       </td>
     </tr>
@@ -408,7 +408,7 @@ export default function OnlineCampaignsPage() {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-semibold text-zinc-800">Paid Media — Campañas Online</h1>
-          <SBButton onClick={()=>setOpenCreate(true)}><Plus size={16} className="mr-2" /> Nueva campaña</SBButton>
+          <SBButton onClick={()=>setOpenCreate(true)}><Plus size={16} className="sb-icon mr-2" /> Nueva campaña</SBButton>
         </div>
 
         {/* KPI Cards */}

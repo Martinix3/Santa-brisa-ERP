@@ -2,8 +2,8 @@
 "use client";
 import React, { useState, useMemo } from 'react';
 import { useData } from '@/lib/dataprovider';
-import type { Lot, QACheck, QCResult } from '@/domain/ssot';
-import { SBCard, SBButton, Input, Textarea } from '@/components/ui/ui-primitives';
+import type { Lot, QACheck, QCResult, SB_THEME } from '@/domain/ssot';
+import { SBCard, SBButton, Input, Textarea, LotQualityStatusPill } from '@/components/ui/ui-primitives';
 import { QC_PARAMS } from '@/domain/production.qc';
 import type { QCKey } from '@/domain/production.qc';
 import { CheckCircle, XCircle, Hourglass, FlaskConical, Thermometer, Beaker, TestTube2, Paperclip, Upload, Trash2 } from 'lucide-react';
@@ -37,7 +37,7 @@ function AnalysisInput({ paramKey, spec, value, onChange }: { paramKey: string, 
         return (
             <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
-                    <Icon className="h-5 w-5 text-zinc-500" />
+                    <Icon className="sb-icon h-5 w-5 text-zinc-500" />
                     <span className="font-medium text-zinc-800">{spec.label}</span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -54,7 +54,7 @@ function AnalysisInput({ paramKey, spec, value, onChange }: { paramKey: string, 
     return (
         <div className="flex items-center gap-3">
              <div className="flex items-center gap-2 w-40">
-                <Icon className="h-5 w-5 text-zinc-500" />
+                <Icon className="sb-icon h-5 w-5 text-zinc-500" />
                 <span className="font-medium text-zinc-800">{spec.label}</span>
             </div>
             <Input
@@ -198,5 +198,3 @@ export default function LotReleasePage() {
         </div>
     );
 }
-
-    

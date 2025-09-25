@@ -11,7 +11,7 @@ import type { EventContentArg, EventClickArg, EventDropArg } from "@fullcalendar
 
 import { useData } from "@/lib/dataprovider";
 import { Filter, Calendar } from "lucide-react";
-import { SB_COLORS, DEPT_META } from "@/domain/ssot";
+import { SB_COLORS, DEPT_META, SB_THEME } from "@/domain/ssot";
 import type { Department, Interaction, SantaData, InteractionStatus, MarketingEvent } from '@/domain/ssot';
 import { sbAsISO } from "@/features/agenda/helpers";
 
@@ -221,7 +221,7 @@ function CalendarPageContent() {
           <div className="flex-grow"></div>
           <button
             onClick={() => { setEditingEvent(null); setIsNewEventDialogOpen(true); }}
-            className="flex items-center gap-2 text-sm text-primary-foreground bg-primary rounded-lg px-4 py-2 font-semibold hover:bg-primary/90 transition-colors"
+            className="sb-btn-primary flex items-center gap-2 text-sm text-primary-foreground bg-primary rounded-lg px-4 py-2 font-semibold hover:bg-primary/90 transition-colors"
           >
             Nueva Tarea
           </button>

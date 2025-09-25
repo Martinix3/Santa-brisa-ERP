@@ -9,7 +9,7 @@ import type { PieLabelRenderProps } from 'recharts';
 import { useData } from "@/lib/dataprovider";
 import { ModuleHeader } from "@/components/ui/ModuleHeader";
 import { SBCard, SBButton } from "@/components/ui/ui-primitives";
-import { SB_COLORS } from '@/domain/ssot';
+import { SB_COLORS, SB_THEME } from '@/domain/ssot';
 import type { User as UserType, OrderSellOut, Account, Interaction, Product, Party, UserRole, Stage, OrderStatus, AccountType } from '@/domain/ssot';
 import { inWindow, orderTotal } from '@/lib/sb-core';
 import { generateInsights } from '@/ai/flows/generate-insights-flow';
@@ -25,7 +25,7 @@ function KPI({label, value, icon: Icon}:{label:string; value:number|string; icon
     <div className="rounded-xl border border-zinc-200 p-4 bg-white shadow-sm">
         <div className="flex items-center gap-4">
             <div className="p-3 rounded-lg bg-zinc-100 text-zinc-600">
-                <Icon className="h-6 w-6" />
+                <Icon className="sb-icon h-6 w-6" />
             </div>
             <div>
                 <div className="text-xs text-zinc-500">{label}</div>
@@ -81,7 +81,7 @@ function UserReportPopover({ userReport, onClose, anchorEl, timeRange }: UserRep
         <div ref={popoverRef} style={popoverStyle} className="fixed z-10 w-80 bg-white border rounded-xl shadow-lg p-4">
             <div className="flex justify-between items-center mb-2">
                 <h4 className="font-semibold text-zinc-800">{userReport.name}</h4>
-                <button onClick={onClose} className="p-1 rounded-full hover:bg-zinc-100"><X size={16}/></button>
+                <button onClick={onClose} className="sb-btn-primary p-1 rounded-full hover:bg-zinc-100"><X size={16}/></button>
             </div>
             <div className="space-y-1 text-sm">
                  <div className="flex justify-between"><span className="text-zinc-500">Cuentas Activas:</span> <span className="font-medium">{userReport.activeAccounts}</span></div>
@@ -140,10 +140,10 @@ function CommercialsRace({
     <SBCard title="Carrera hacia objetivo (Cuentas nuevas)">
       <div className="p-4 space-y-4">
         {raceData.map(u => (
-          <button key={u.id} onClick={(e)=>onUserClick(u.report, e.currentTarget)} className="w-full text-left space-y-1 group" aria-label={`Progreso de ${u.name}`}>
+          <button key={u.id} onClick={(e)=>onUserClick(u.report, e.currentTarget)} className="sb-btn-primary w-full text-left space-y-1 group" aria-label={`Progreso de ${u.name}`}>
             <div className="flex justify-between items-center text-sm">
               <div className="flex items-center gap-2">
-                <Avatar name={u.name} size="md" />
+                <Avatar name={u.name} size="md" className="sb-icon" />
                 <span className="font-medium group-hover:text-sb-cobre">{u.name}</span>
               </div>
               <span className="font-semibold">{u.opened} / {u.target} <span className="text-zinc-500">({u.remaining} por abrir)</span></span>
@@ -380,11 +380,11 @@ function TeamDashboardContent() {
             <div className="h-72 p-4">
                 <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={salesEvolutionData}>
-                        <CartesianGrid strokeDasharray="3 3" />
+                        <CartesianGrid strokeDasharray="3 3" stroke={SB_THEME.chart.grid} />
                         <XAxis dataKey="name" fontSize={12} />
                         <YAxis fontSize={12} tickFormatter={(value) => formatEur(value as number)} />
                         <Tooltip formatter={(value) => formatEur(value as number)} />
-                        <Line type="monotone" dataKey="sales" stroke={SB_COLORS.primary.copper} strokeWidth={2} dot={{ r: 3 }} />
+                        <Line type="monotone" dataKey="sales" stroke={SB_COLORS.primary.copper} strokeWidth={2} dot={{ r: 3 }} className="sb-icon" />
                         {teamStats.attributedSales > 0 && (
                           <Line type="monotone" dataKey="target" stroke="#999" strokeDasharray="4 4" dot={false} />
                         )}

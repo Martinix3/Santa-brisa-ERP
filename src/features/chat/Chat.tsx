@@ -6,7 +6,7 @@ import { Send, User, Bot, Loader } from 'lucide-react';
 import type { Message } from 'genkit';
 import { useData } from '@/lib/dataprovider';
 import Image from 'next/image';
-import type { SantaData } from '@/domain/ssot';
+import type { SantaData, SB_THEME } from '@/domain/ssot';
 
 type ChatProps = {
     userId: string;
@@ -97,7 +97,7 @@ export function Chat({ userId, onNewData }: ChatProps) {
                         <div className={`max-w-md p-3 rounded-2xl ${msg.role === 'user' ? 'bg-yellow-400 text-black' : 'bg-white border'}`}>
                             <p className="text-sm whitespace-pre-wrap">{msg.content[0].text}</p>
                         </div>
-                        {msg.role === 'user' && <div className="flex-shrink-0 h-8 w-8 rounded-full bg-zinc-200 flex items-center justify-center"><User size={18} /></div>}
+                        {msg.role === 'user' && <div className="flex-shrink-0 h-8 w-8 rounded-full bg-zinc-200 flex items-center justify-center"><User size={18} className="sb-icon" /></div>}
                     </div>
                 ))}
                 {isLoading && (
@@ -113,7 +113,7 @@ export function Chat({ userId, onNewData }: ChatProps) {
                             />
                         </div>
                         <div className="max-w-md p-3 rounded-2xl bg-white border flex items-center gap-2">
-                           <Loader size={16} className="animate-spin text-zinc-500" />
+                           <Loader size={16} className="sb-icon animate-spin text-zinc-500" />
                            <span className="text-sm text-zinc-500">Pensando...</span>
                         </div>
                     </div>
@@ -134,9 +134,9 @@ export function Chat({ userId, onNewData }: ChatProps) {
                     <button
                         onClick={handleSend}
                         disabled={isLoading || !input.trim()}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 h-10 w-10 bg-yellow-400 text-black rounded-full flex items-center justify-center disabled:bg-zinc-200 disabled:text-zinc-500 transition-colors"
+                        className="sb-btn-primary absolute right-2 top-1/2 -translate-y-1/2 h-10 w-10 bg-yellow-400 text-black rounded-full flex items-center justify-center disabled:bg-zinc-200 disabled:text-zinc-500 transition-colors"
                     >
-                        <Send size={20} />
+                        <Send size={20} className="sb-icon" />
                     </button>
                 </div>
             </div>

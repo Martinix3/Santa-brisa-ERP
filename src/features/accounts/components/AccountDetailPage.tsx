@@ -4,7 +4,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useParams, useRouter, notFound } from 'next/navigation';
 import { useData } from '@/lib/dataprovider';
-import type { SantaData, Interaction as InteractionType, OrderSellOut, User as UserType, Party, InteractionKind, Account, CustomerData, PartyRole, Activation, Promotion, AccountRollup, AccountType, PosTactic, PosCostCatalogEntry, PlvMaterial } from '@/domain/ssot';
+import type { SantaData, Interaction as InteractionType, OrderSellOut, User as UserType, Party, InteractionKind, Account, CustomerData, PartyRole, Activation, Promotion, AccountRollup, AccountType, PosTactic, PosCostCatalogEntry, PlvMaterial, SB_THEME } from '@/domain/ssot';
 import { computeAccountKPIs, accountOwnerDisplay, orderTotal, getDistributorForAccount, computeAccountRollup } from '@/lib/sb-core';
 import { ArrowUpRight, ArrowDownRight, Phone, Mail, MapPin, User, Factory, Boxes, Megaphone, Briefcase, Banknote, Calendar, FileText, ShoppingCart, Star, Building2, CreditCard, ChevronRight, ChevronLeft, MessageSquare, Sparkles, Tag, Clock, Edit, Plus } from "lucide-react";
 import Link from 'next/link';
@@ -33,7 +33,7 @@ function KPI({label, value, suffix, trend}:{label:string; value:string|number; s
 function Row({label, children, icon: Icon}:{label:string; children:React.ReactNode, icon?: React.ElementType}){
     return (
         <div className="flex items-start gap-3 py-2">
-            {Icon && <Icon className="h-4 w-4 text-zinc-400 mt-0.5 flex-shrink-0" />}
+            {Icon && <Icon className="sb-icon h-4 w-4 text-zinc-400 mt-0.5 flex-shrink-0" />}
             <div className="w-32 text-xs uppercase tracking-wide text-zinc-500">{label}</div>
             <div className="flex-1 text-sm text-zinc-800">{children || '—'}</div>
         </div>
@@ -226,7 +226,7 @@ export function AccountDetailPageContent(){
                 </div>
                 <div className="flex items-center gap-2">
                     <Link href="/accounts" className="inline-flex items-center gap-2 text-sm text-zinc-600 hover:text-zinc-900">
-                        <ChevronLeft size={16} /> Volver a Cuentas
+                        <ChevronLeft size={16} className="sb-icon" /> Volver a Cuentas
                     </Link>
                 </div>
               </div>
@@ -270,7 +270,7 @@ export function AccountDetailPageContent(){
                   const Icon = interactionIcons[int.kind] || FileText;
                   return (
                       <div key={int.id} className="grid grid-cols-[auto_1fr] items-start gap-3 px-4 py-3 hover:bg-zinc-50">
-                        <Icon className="h-5 w-5 text-zinc-500 mt-0.5"/>
+                        <Icon className="sb-icon h-5 w-5 text-zinc-500 mt-0.5"/>
                         <div>
                             <div className="text-sm text-zinc-500">{formatDate(int.createdAt)} · <span className="font-medium capitalize text-zinc-700">{int.kind}</span></div>
                             <div className="text-sm text-zinc-800 italic col-span-2 mt-1">“{int.note}”</div>
@@ -305,10 +305,10 @@ export function AccountDetailPageContent(){
                 </Row>
                 <div className="mt-4 flex justify-between">
                     <SBButton variant="secondary" onClick={handleEnrich} disabled={isEnriching}>
-                        <Sparkles size={14}/> {isEnriching ? 'Analizando...' : 'Enriquecer con IA'}
+                        <Sparkles size={14} className="sb-icon"/> {isEnriching ? 'Analizando...' : 'Enriquecer con IA'}
                     </SBButton>
                     <SBButton variant="secondary" onClick={() => setIsEditing(true)}>
-                        <Edit size={14}/> Editar Cuenta
+                        <Edit size={14} className="sb-icon"/> Editar Cuenta
                     </SBButton>
                 </div>
               </div>
@@ -321,10 +321,10 @@ export function AccountDetailPageContent(){
                         
                         <SBButton 
                           size="sm"
-                          className="absolute -bottom-2 -right-2 rounded-full h-10 w-10 !p-0"
+                          className="sb-icon absolute -bottom-2 -right-2 rounded-full h-10 w-10 !p-0"
                           onClick={() => setIsNewTacticOpen(true)}
                         >
-                            <Plus size={20} />
+                            <Plus size={20} className="sb-icon" />
                         </SBButton>
                     </div>
                 </SBCard>

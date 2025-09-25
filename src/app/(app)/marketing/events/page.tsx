@@ -2,7 +2,7 @@
 "use client";
 import React, { useMemo, useState } from 'react';
 import { useData } from '@/lib/dataprovider';
-import type { MarketingEvent, Interaction, InteractionKind, Account, PosTactic } from '@/domain/ssot';
+import type { MarketingEvent, Interaction, InteractionKind, Account, PosTactic, SB_THEME } from '@/domain/ssot';
 import { SBCard, SBButton, DataTableSB, KPI } from '@/components/ui/ui-primitives';
 import type { Col } from '@/components/ui/ui-primitives';
 import { NewEventDialog } from '@/features/agenda/components/NewEventDialog';
@@ -142,18 +142,18 @@ export default function Page(){
     { key: 'status', header: 'Estado', render: r => <StatusPill status={r.status} /> },
     { key: 'startAt', header: 'Fecha', render: r => new Date(r.startAt).toLocaleDateString('es-ES', {day: 'numeric', month: 'long', year: 'numeric'}) },
     { key: 'city', header: 'Ubicación', render: r => r.city || 'N/A'},
-    { key: 'spend', header: 'Gasto', className: "justify-end", render: r => formatCurrency(r.spend) },
-    { key: 'leads', header: 'Leads', className: "justify-end", render: r => formatNumber(r.kpis?.leads) },
-    { key: 'sampling', header: 'Asistentes', className: "justify-end", render: r => formatNumber(r.kpis?.sampling) },
+    { key: 'spend', header: 'Gasto', className: "text-right", render: r => formatCurrency(r.spend) },
+    { key: 'leads', header: 'Leads', className: "text-right", render: r => formatNumber(r.kpis?.leads) },
+    { key: 'sampling', header: 'Asistentes', className: "text-right", render: r => formatNumber(r.kpis?.sampling) },
     { 
         key: 'actions', 
         header: 'Acciones', 
         render: r => {
             const actions = [];
             if (r.status === 'planned' || r.status === 'active') {
-                actions.push(<SBButton key="complete" variant="secondary" size="sm" onClick={() => setCompletingEvent(r)}>Registrar Resultados</SBButton>);
+                actions.push(<SBButton key="complete" variant="secondary" size="sm" onClick={() => setCompletingEvent(r)} className="sb-icon">Registrar Resultados</SBButton>);
             }
-            actions.push(<SBButton key="tactic" variant="subtle" size="sm" onClick={() => openTacticDialog(r)}><Plus size={12}/> Táctica</SBButton>);
+            actions.push(<SBButton key="tactic" variant="subtle" size="sm" onClick={() => openTacticDialog(r)} className="sb-icon"><Plus size={12} className="sb-icon"/> Táctica</SBButton>);
             return <div className="flex gap-2">{actions}</div>;
         }
     }

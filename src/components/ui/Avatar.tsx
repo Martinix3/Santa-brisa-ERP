@@ -39,7 +39,7 @@ function stringToColor(seed: string) {
     return avatarColors[index];
 }
   
-export function Avatar({ name, size = 'md' }: { name?: string, size?: 'sm' | 'md' | 'lg' }) {
+export function Avatar({ name, size = 'md', className }: { name?: string, size?: 'sm' | 'md' | 'lg', className?: string }) {
     const initials = (name || '—')
       .split(' ')
       .filter(Boolean)
@@ -57,7 +57,7 @@ export function Avatar({ name, size = 'md' }: { name?: string, size?: 'sm' | 'md
 
     return (
       <span
-        className={`inline-flex items-center justify-center rounded-full font-semibold border flex-shrink-0 ${sizeClasses[size]}`}
+        className={`inline-flex items-center justify-center rounded-full font-semibold border flex-shrink-0 ${sizeClasses[size]} ${className || ''}`}
         style={{ 
           backgroundColor: colors.bg, 
           color: colors.text,

@@ -4,8 +4,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import { Plus, Search, X, Droplets, Package2, Coins, Info } from "lucide-react";
-import { SBCard } from "@/components/ui/ui-primitives";
-import { SB_COLORS } from "@/domain/ssot";
+import { SBCard } from '@/components/ui/ui-primitives';
+import { SB_COLORS, SB_THEME } from "@/domain/ssot";
 import {
   listRecipes as fetchRecipes,
   createRecipe,
@@ -970,7 +970,7 @@ export default function BomPage() {
             onClick={createNew}
             className="px-3 py-1.5 rounded-lg bg-zinc-900 text-white hover:bg-zinc-800 flex items-center gap-2"
           >
-            <Plus size={16} /> Nueva receta
+            <Plus size={16} className="sb-icon" /> Nueva receta
           </button>
         </div>
       </header>

@@ -1,28 +1,13 @@
 
+
 "use client";
 import React, { useMemo, useState } from 'react';
-import { SBButton, SBCard } from '@/components/ui/ui-primitives';
+import { SBButton, SBCard, KPI } from '@/components/ui/ui-primitives';
 import { Star, TrendingUp, DollarSign, Trophy, Percent, Plus } from 'lucide-react';
 import { usePosTacticsService } from '@/features/marketing/services/posTactics.service';
 import { NewPosTacticDialog } from '@/features/marketing/components/NewPosTacticDialog';
-import type { PosTactic, PosResult } from '@/domain/ssot';
+import type { PosTactic, PosResult, SB_THEME } from '@/domain/ssot';
 import { useData } from '@/lib/dataprovider';
-
-function KPI({ label, value, icon: Icon, unit = '' }: { label: string; value: string | number; icon: React.ElementType, unit?: string }) {
-    return (
-        <div className="bg-white p-4 rounded-xl border">
-            <div className="flex items-center gap-3">
-                <div className="p-2 bg-zinc-100 rounded-lg text-zinc-600">
-                    <Icon size={20} />
-                </div>
-                <div>
-                    <p className="text-xl font-bold text-zinc-800">{value}{unit}</p>
-                    <p className="text-xs text-zinc-500">{label}</p>
-                </div>
-            </div>
-        </div>
-    );
-}
 
 function StatusPill({ status }: { status: PosTactic['status'] }) {
     const styles = {
@@ -90,7 +75,7 @@ export default function PosTacticsPage() {
             <div className="flex justify-between items-center">
                  <h1 className="text-2xl font-semibold text-zinc-800">Tácticas en Punto de Venta (POS)</h1>
                  <SBButton onClick={() => { setEditingTactic(null); setIsNewTacticOpen(true); }}>
-                    <Plus size={16} className="mr-2"/>
+                    <Plus size={16} className="sb-icon mr-2"/>
                     Nueva Táctica
                  </SBButton>
             </div>
@@ -134,9 +119,9 @@ export default function PosTacticsPage() {
                                     <td colSpan={2} className="text-center text-xs text-zinc-500">Pendiente de cálculo</td>
                                 )}
                                 <div className="flex gap-2 justify-end">
-                                    <SBButton size="sm" variant="secondary" onClick={() => handleEdit(tactic)}>Editar</SBButton>
+                                    <SBButton size="sm" variant="secondary" onClick={() => handleEdit(tactic)} className="sb-icon">Editar</SBButton>
                                     {tactic.status !== 'closed' && (
-                                        <SBButton size="sm" onClick={() => handleCloseTactic(tactic.id)}>Cerrar</SBButton>
+                                        <SBButton size="sm" onClick={() => handleCloseTactic(tactic.id)} className="sb-icon">Cerrar</SBButton>
                                     )}
                                 </div>
                             </div>

@@ -1,4 +1,4 @@
-// src/app/(app)/production/dashboard/page.tsx
+// src/features/production/dashboard/page.tsx
 "use client";
 import React, { useMemo } from "react";
 import { useData } from "@/lib/dataprovider";
@@ -55,7 +55,7 @@ export default function ProductionDashboardPage() {
        </SBCard>
        
        {/* Botón de acción flotante, sin acción por ahora */}
-       <button className="sb-btn-primary fixed bottom-6 right-6 h-14 w-14 rounded-full bg-zinc-900 text-white shadow-lg flex items-center justify-center z-40 hover:bg-zinc-800 transition-colors">
+       <button className="fixed bottom-6 right-6 h-14 w-14 rounded-full bg-zinc-900 text-white shadow-lg flex items-center justify-center z-40 hover:bg-zinc-800 transition-colors">
             <Plus size={24} className="sb-icon"/>
        </button>
     </div>

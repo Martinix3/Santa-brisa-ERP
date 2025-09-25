@@ -1,9 +1,9 @@
 
 "use client";
 import React, { useMemo, useState } from 'react';
-import { BarChart3, Calendar, CheckCircle, Clock, Plus, AlertTriangle } from 'lucide-react';
+import { Calendar, CheckCircle, Clock, Plus, AlertTriangle, Home } from 'lucide-react';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
-import { SBCard, SBButton } from '@/components/ui/ui-primitives';
+import { SBCard, SBButton, KPI } from '@/components/ui/ui-primitives';
 import { useData } from '@/lib/dataprovider';
 import type { Interaction, InteractionStatus, Account, SantaData, OrderSellOut, Payload, MarketingEvent } from '@/domain/ssot';
 import { SB_COLORS } from '@/domain/ssot';
@@ -15,20 +15,6 @@ import { MarketingTaskCompletionDialog } from '@/features/marketing/components/M
 import { NewEventDialog } from '@/features/agenda/components/NewEventDialog';
 import { sbAsISO } from '@/features/agenda/helpers';
 
-
-function PersonalKPI({ label, value, icon: Icon, color }: { label: string; value: number | string; icon: React.ElementType; color: string }) {
-    return (
-        <div className="bg-white p-4 rounded-xl border border-zinc-200 flex items-start gap-4">
-            <div className={`h-10 w-10 rounded-lg flex items-center justify-center`} style={{ backgroundColor: `${color}20`, color }}>
-                <Icon size={20} />
-            </div>
-            <div>
-                <p className="text-2xl font-bold text-zinc-900">{value}</p>
-                <p className="text-sm text-zinc-600">{label}</p>
-            </div>
-        </div>
-    );
-}
 
 function mapInteractionsToTasks(
   interactions: Interaction[] | undefined,
@@ -111,18 +97,18 @@ function PersonalDashboardContent() {
     }
   };
 
-  const handleSaveNewTask = async (eventData: Omit<Interaction, 'createdAt' | 'status'>) => {
+  const handleSaveNewTask = async (eventData: Omit<Interaction, 'id' | 'createdAt' | 'status'> & { id?: string }) => {
       if (!currentUser || !data) return;
       
       const newInteraction: Interaction = {
-          id: `int_${Date.now()}`,
+          id: eventData.id || `int_${Date.now()}`,
           ...(eventData as Omit<Interaction, 'id' | 'createdAt' | 'status'>),
           createdAt: new Date().toISOString(),
           status: 'open',
           userId: currentUser.id,
       };
 
-      const updatedInteractions = [...(data.interactions || []), newInteraction];
+      const updatedInteractions = [...(data.interactions || []).filter(i => i.id !== newInteraction.id), newInteraction];
       
       setData({ ...data, interactions: updatedInteractions });
       await saveCollection('interactions', updatedInteractions);
@@ -230,16 +216,16 @@ function PersonalDashboardContent() {
           </div>
           <div className="flex items-center gap-2">
               <SBButton onClick={() => setIsNewEventDialogOpen(true)}>
-                  <Plus size={16} /> Nueva Tarea
+                  <Plus size={16} className="sb-icon" /> Nueva Tarea
               </SBButton>
           </div>
         </div>
 
         {/* KPIs */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <PersonalKPI label="Tareas Pendientes (Hoy)" value={kpis.todayTasks} icon={Clock} color={SB_COLORS.primary.sun} />
-          <PersonalKPI label="Tareas Atrasadas" value={kpis.overdueTasks} icon={AlertTriangle} color={SB_COLORS.state.danger} />
-          <PersonalKPI label="Tareas Futuras" value={kpis.futureTasks} icon={Calendar} color={SB_COLORS.primary.teal} />
+          <KPI label="Tareas Pendientes (Hoy)" value={kpis.todayTasks} icon={Clock} />
+          <KPI label="Tareas Atrasadas" value={kpis.overdueTasks} icon={AlertTriangle} />
+          <KPI label="Tareas Futuras" value={kpis.futureTasks} icon={Calendar} />
         </div>
 
         {/* Task Board */}
@@ -257,7 +243,7 @@ function PersonalDashboardContent() {
           <NewEventDialog
             open={isNewEventDialogOpen}
             onOpenChange={setIsNewEventDialogOpen}
-            onSave={handleSaveNewTask as any}
+            onSave={handleSaveNewTask}
             accentColor={SB_COLORS.primary.sun}
           />
       )}
@@ -287,7 +273,7 @@ function PersonalDashboardContent() {
 export default function Page() {
   return (
     <>
-      <ModuleHeader title="Dashboard Personal" icon={BarChart3} />
+      <ModuleHeader title="Dashboard Personal" icon={Home} />
       <PersonalDashboardContent />
     </>
   );

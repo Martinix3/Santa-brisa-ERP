@@ -2,19 +2,18 @@
 "use client";
 import React, { useMemo } from "react";
 import type { ProductionOrder, Lot, QCResult, Interaction } from "@/domain";
-import { SBCard, SBButton } from "@/components/ui/ui-primitives";
-import { SB_COLORS } from "@/domain/ssot";
+import { SBCard, SBButton, LotQualityStatusPill } from "@/components/ui/ui-primitives";
+import { SB_COLORS, SB_THEME } from "@/domain/ssot";
 import { Factory, Cpu, BookOpen, Waypoints, AlertCircle, Hourglass, MoreVertical, Check, X, Thermometer, FlaskConical, Beaker, TestTube2, Paperclip, Upload, Trash2, Calendar, Clock } from "lucide-react";
 import Link from 'next/link';
 import { useData } from '@/lib/dataprovider';
 import { DEPT_META } from '@/domain/ssot';
-import { LotQualityStatusPill } from '@/components/ui/ui-primitives';
 
 export function KPI({ icon: Icon, label, value, color }: { icon: React.ElementType, label: string, value: string | number, color: string }) {
     return (
         <div className="bg-white p-4 rounded-xl border border-sb-neutral-200 flex items-start gap-4">
             <div className={`h-10 w-10 rounded-lg flex items-center justify-center`} style={{ backgroundColor: `${color}20`, color }}>
-                <Icon size={20} />
+                <Icon size={20} className="sb-icon" />
             </div>
             <div>
                 <p className="text-2xl font-bold text-sb-neutral-900">{value}</p>
@@ -107,7 +106,7 @@ export function ProductionDashboard({ orders, lots }: { orders: ProductionOrder[
     const orderCols: { key: keyof ProductionOrder | 'actions', header: string, render?: (r:ProductionOrder) => React.ReactNode, className?: string }[] = [
       { key: 'id', header: 'Orden', render: r => <span className="font-mono text-xs font-semibold">{r.id}</span> },
       { key: 'sku', header: 'SKU' },
-      { key: 'targetQuantity', header: 'Cantidad', className:"justify-end", render: r => <span className="font-semibold">{r.targetQuantity}</span> },
+      { key: 'targetQuantity', header: 'Cantidad', className:"text-right", render: r => <span className="font-semibold">{r.targetQuantity}</span> },
       { key: 'status', header: 'Estado', render: r => <StatusPill status={r.status as any} /> },
       { key: 'createdAt', header: 'F. Creación', render: r => new Date(r.createdAt).toLocaleDateString('es-ES') },
       { 

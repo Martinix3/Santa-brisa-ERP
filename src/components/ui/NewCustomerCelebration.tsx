@@ -4,6 +4,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
+import { SB_THEME } from "@/domain/ssot";
 
 export function NewCustomerCelebration({ accountName, onClose }: { accountName: string; onClose: () => void; }) {
     return (
@@ -32,7 +33,7 @@ export function NewCustomerCelebration({ accountName, onClose }: { accountName: 
                     <p className="text-xl text-yellow-200 mt-2">¡Felicidades por el primer pedido de <span className="font-bold">{accountName}</span>!</p>
                     <button
                         onClick={onClose}
-                        className="mt-8 px-8 py-3 bg-white text-zinc-900 font-semibold rounded-full shadow-lg transition-transform hover:scale-105"
+                        className="sb-btn-primary mt-8 px-8 py-3 bg-white text-zinc-900 font-semibold rounded-full shadow-lg transition-transform hover:scale-105"
                     >
                         ¡Genial!
                     </button>

@@ -10,7 +10,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useDropzone } from 'react-dropzone';
 import { UploadCloud } from 'lucide-react';
-import { SANTA_DATA_COLLECTIONS, type SantaData, CODE_POLICIES } from "@/domain/ssot";
+import { SANTA_DATA_COLLECTIONS, type SantaData, CODE_POLICIES, SB_THEME } from "@/domain/ssot";
 import { importPreview, importCommit } from "./actions";
 
 // ----------------- helpers (cliente) -----------------
@@ -131,8 +131,8 @@ export default function DataImportPage(){
             )}
           </div>
           <div className="flex gap-2">
-            <button onClick={doPreviewCSV} className="px-3 py-1 border rounded" disabled={!csvText}>Previsualizar</button>
-            <button onClick={doCommitCSV} className="px-3 py-1 border rounded bg-emerald-50" disabled={!preview}>Importar</button>
+            <button onClick={doPreviewCSV} className="sb-btn-primary px-3 py-1 border rounded" disabled={!csvText}>Previsualizar</button>
+            <button onClick={doCommitCSV} className="sb-btn-primary px-3 py-1 border rounded bg-emerald-50" disabled={!preview}>Importar</button>
           </div>
         </section>
       )}
@@ -144,10 +144,10 @@ export default function DataImportPage(){
               <div className="flex flex-wrap items-center gap-2 text-sm">
                 <label className="inline-flex items-center gap-2"><input type="checkbox" checked={autoId} onChange={e=>setAutoId(e.target.checked)} /> Autogenerar IDs</label>
                 <label className="inline-flex items-center gap-2"><input type="checkbox" checked={autoSku} onChange={e=>setAutoSku(e.target.checked)} /> Autogenerar SKU desde &quot;name&quot;</label>
-                <button className="ml-auto px-3 py-1 border rounded" onClick={addRow}>Añadir fila</button>
-                <button className="px-3 py-1 border rounded" onClick={autoFill}>Autocompletar</button>
-                <button className="px-3 py-1 border rounded" onClick={doPreviewSheet}>Previsualizar (resolver FKs)</button>
-                <button className="px-3 py-1 border rounded bg-emerald-50" onClick={doCommitSheet}>Importar</button>
+                <button className="sb-btn-primary ml-auto px-3 py-1 border rounded" onClick={addRow}>Añadir fila</button>
+                <button className="sb-btn-primary px-3 py-1 border rounded" onClick={autoFill}>Autocompletar</button>
+                <button className="sb-btn-primary px-3 py-1 border rounded" onClick={doPreviewSheet}>Previsualizar (resolver FKs)</button>
+                <button className="sb-btn-primary px-3 py-1 border rounded bg-emerald-50" onClick={doCommitSheet}>Importar</button>
               </div>
 
               <div className="rounded border overflow-x-auto">

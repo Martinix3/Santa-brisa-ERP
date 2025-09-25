@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { generateTestPdf } from './actions';
+import { SB_THEME } from "@/domain/ssot";
 
 export default function PdfTestPage() {
   const [uri, setUri] = useState<string | null>(null);
@@ -30,7 +31,7 @@ export default function PdfTestPage() {
       <button
         onClick={run}
         disabled={busy}
-        className="px-4 py-2 rounded-lg border bg-white hover:bg-zinc-50 disabled:opacity-60"
+        className="sb-btn-primary px-4 py-2 rounded-lg border bg-white hover:bg-zinc-50 disabled:opacity-60"
       >
         {busy ? 'Generando…' : 'Generar PDF de prueba'}
       </button>

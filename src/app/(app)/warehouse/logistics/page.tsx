@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Printer, PackageCheck, Truck, CheckCircle2, Search, Plus, FileText, ClipboardList, Boxes, PackageOpen, BadgeCheck, AlertTriangle, Settings, Clipboard, Ruler, Weight, MoreHorizontal, Check as CheckIcon, FileDown, Package, Info, X, Loader2 } from "lucide-react";
 import { SBButton, SBCard, Input, Select, STATUS_STYLES } from '@/components/ui/ui-primitives';
 import { useData } from '@/lib/dataprovider';
-import type { Shipment, OrderSellOut, Account, ShipmentStatus, ShipmentLine, AccountType, Party } from '@/domain/ssot';
+import type { Shipment, OrderSellOut, Account, ShipmentStatus, ShipmentLine, AccountType, Party, SB_THEME } from '@/domain/ssot';
 import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog";
 import { canGenerateDeliveryNote, canGenerateLabel, canMarkShipped, canInvoice, pendingReasons } from "@/lib/logistics.helpers";
 import { NewShipmentDialog } from "@/features/warehouse/components/NewShipmentDialog";
@@ -43,7 +43,7 @@ const TableCell = ({children, ...props}: any) => <td {...props}>{children}</td>;
 const DropdownMenu = ({children}: any) => <div className="relative group">{children}</div>;
 const DropdownMenuTrigger = ({children}: any) => <div>{children}</div>;
 const DropdownMenuContent = ({children, className}: any) => <div className={`sb-menu absolute right-0 mt-1 z-20 hidden group-hover:block ${className}`}>{children}</div>;
-const DropdownMenuItem = ({children, ...props}: any) => <button {...props} className="w-full text-left block px-4 py-2 text-sm text-zinc-700 hover:bg-zinc-100">{children}</button>;
+const DropdownMenuItem = ({children, ...props}: any) => <button {...props} className="sb-btn-primary w-full text-left block px-4 py-2 text-sm text-zinc-700 hover:bg-zinc-100">{children}</button>;
 const DropdownMenuLabel = ({children}: any) => <div className="px-4 py-2 text-xs font-semibold text-zinc-500">{children}</div>;
 const DropdownMenuSeparator = () => <hr className="my-1"/>;
 
@@ -52,7 +52,7 @@ function KPI({ icon: Icon, label, value, color }: { icon: React.ElementType, lab
     return (
         <div className="bg-white p-4 rounded-xl border border-sb-neutral-200 flex items-start gap-4">
             <div className={`h-10 w-10 rounded-lg flex items-center justify-center`} style={{ backgroundColor: `${color}20`, color }}>
-                <Icon size={20} />
+                <Icon size={20} className="sb-icon" />
             </div>
             <div>
                 <p className="text-2xl font-bold text-sb-neutral-900">{value}</p>
@@ -375,15 +375,15 @@ export default function LogisticsPage() {
           <p className="text-sm text-zinc-500">Confirmado → picking → validación → albarán → etiqueta → envío. Con trazabilidad por lote.</p>
         </div>
         <SBButton onClick={() => setOpenNewShipment(true)} className="sb-btn-primary">
-            <Plus size={16} className="mr-2"/> Nuevo Envío
+            <Plus size={16} className="sb-icon mr-2"/> Nuevo Envío
         </SBButton>
       </div>
       
       {notification && (
         <div className={`flex items-center gap-3 p-3 rounded-lg border ${notification.type === 'success' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
-          <Info size={16}/>
+          <Info size={16} className="sb-icon"/>
           <p className="text-sm font-medium">{notification.message}</p>
-          <button onClick={() => setNotification(null)} className="ml-auto p-1 rounded-full hover:bg-black/10">
+          <button onClick={() => setNotification(null)} className="sb-btn-primary ml-auto p-1 rounded-full hover:bg-black/10">
             <X size={14}/>
           </button>
         </div>
@@ -484,7 +484,7 @@ export default function LogisticsPage() {
                           <button
                             disabled={isPending}
                             onClick={() => onValidate(row)}
-                            className="mr-2 rounded-md border px-3 py-1.5 text-sm hover:bg-neutral-50 disabled:opacity-50"
+                            className="sb-btn-primary mr-2 rounded-md border px-3 py-1.5 text-sm hover:bg-neutral-50 disabled:opacity-50"
                           >
                             Validar
                           </button>
@@ -501,7 +501,7 @@ export default function LogisticsPage() {
                             <button
                               disabled={isPending}
                               onClick={() => onMarkShipped(row)}
-                              className="rounded-md border px-3 py-1.5 text-sm hover:bg-neutral-50 disabled:opacity-50"
+                              className="sb-btn-primary rounded-md border px-3 py-1.5 text-sm hover:bg-neutral-50 disabled:opacity-50"
                             >
                               Enviar
                             </button>

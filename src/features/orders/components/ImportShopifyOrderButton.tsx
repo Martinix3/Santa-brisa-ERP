@@ -5,6 +5,7 @@ import React, { useState, useTransition } from 'react';
 import { importShopifyOrder } from '@/app/(app)/orders/actions';
 import { SBButton } from '@/components/ui/ui-primitives';
 import { Download } from 'lucide-react';
+import { SB_THEME } from "@/domain/ssot";
 
 export function ImportShopifyOrderButton() {
   const [open, setOpen] = useState(false);
@@ -58,7 +59,7 @@ export function ImportShopifyOrderButton() {
               <div className="flex items-center justify-end gap-2">
                 <button
                   type="button"
-                  className="px-3 py-2 text-sm rounded-md border"
+                  className="sb-btn-primary px-3 py-2 text-sm rounded-md border"
                   onClick={() => setOpen(false)}
                   disabled={isPending}
                 >
@@ -66,7 +67,7 @@ export function ImportShopifyOrderButton() {
                 </button>
                 <button
                   type="submit"
-                  className="px-3 py-2 text-sm rounded-md bg-black text-white disabled:opacity-60"
+                  className="sb-btn-primary px-3 py-2 text-sm rounded-md bg-black text-white disabled:opacity-60"
                   disabled={isPending}
                 >
                   {isPending ? 'Importando…' : 'Importar'}

@@ -7,6 +7,7 @@
 
 import React from "react";
 import { Copy } from "lucide-react";
+import { SB_THEME } from "@/domain/ssot";
 
 export default function UserColorsPreview() {
   const [initials, setInitials] = React.useState("SB");
@@ -68,7 +69,7 @@ export default function UserColorsPreview() {
           <button
             key={i}
             onClick={() => copy(c.bg, c.text)}
-            className="group relative rounded-2xl border border-gray-200 bg-white p-4 shadow-sm hover:shadow-md transition-shadow text-left"
+            className="sb-btn-primary group relative rounded-2xl border border-gray-200 bg-white p-4 shadow-sm hover:shadow-md transition-shadow text-left"
             title="Copiar combinación"
           >
             <div className="flex items-center gap-4">

@@ -10,11 +10,12 @@ import { motion, AnimatePresence } from "framer-motion";
 // =============================================================
 
 import { AlertCircle, Check, Hourglass, X, Thermometer, FlaskConical, Beaker, TestTube2, Paperclip, Upload, Trash2, ChevronRight, ChevronDown, Save, Bug } from "lucide-react";
-import { SBCard, SBButton, SB_COLORS } from '@/components/ui/ui-primitives';
+import { SBCard, SBButton } from '@/components/ui/ui-primitives';
 import { useData } from "@/lib/dataprovider";
-import type { ProductionOrder as ProdOrder, Uom, Material, Shortage, ActualConsumption, InventoryItem, Product, SantaData, ExecCheck, BillOfMaterial as RecipeBom, Reservation } from '@/domain/ssot';
+import type { ProductionOrder as ProdOrder, Uom, Material, Shortage, ActualConsumption, InventoryItem, Product, SantaData, ExecCheck, BillOfMaterial as RecipeBom, Reservation, SB_THEME } from '@/domain/ssot';
 import { availableForMaterial, fifoReserveLots, buildConsumptionMoves, consumeForOrder } from '@/domain/inventory.helpers';
 import { generateNextLot } from "@/lib/codes";
+import { SB_COLORS } from "@/domain/ssot";
 
 
 // ---------------------- Utilidades de cálculo ----------------------
@@ -509,7 +510,7 @@ function OrderDetail({ order, recipe, onClose, onStart, onFinish, onUpdate, inve
               </div>
             </div>
              <div className="p-3 border-t flex justify-end">
-                <SBButton onClick={() => onUpdate(order.id, { costing: order.costing })}><Save size={16}/> Guardar Resultados</SBButton>
+                <SBButton onClick={() => onUpdate(order.id, { costing: order.costing })}><Save size={16} className="sb-icon"/> Guardar Resultados</SBButton>
              </div>
         </div>
       );
@@ -540,7 +541,7 @@ function OrderDetail({ order, recipe, onClose, onStart, onFinish, onUpdate, inve
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => setShowDiagnostics(!showDiagnostics)} className="px-3 py-1.5 rounded-lg border border-zinc-300 text-sm flex items-center gap-2 hover:bg-zinc-100">
-              <Bug size={14}/> Diagnóstico
+              <Bug size={14} className="sb-icon"/> Diagnóstico
           </button>
           <button onClick={onClose} className="px-3 py-1.5 rounded-lg border border-zinc-300">Cerrar</button>
         </div>
@@ -606,7 +607,7 @@ function OrderDetail({ order, recipe, onClose, onStart, onFinish, onUpdate, inve
             {order.status === "planned" && (
                 <div className="flex justify-end gap-2 p-3 bg-zinc-50 rounded-lg">
                     <SBButton disabled={!!order.shortages?.length} onClick={() => onUpdate(order.id, { status: "released" } )}>
-                        Liberar para Producción <ChevronRight size={16}/>
+                        Liberar para Producción <ChevronRight size={16} className="sb-icon"/>
                     </SBButton>
                 </div>
             )}
@@ -614,7 +615,7 @@ function OrderDetail({ order, recipe, onClose, onStart, onFinish, onUpdate, inve
             {order.status === "released" && (
                 <div className="flex justify-end gap-2 p-3 bg-zinc-50 rounded-lg">
                     <div className="text-sm text-zinc-600 mr-auto">Protocolos: {protocolsOk ? <b className="text-green-600">OK</b> : <b className="text-red-600">Faltan ✓</b>}</div>
-                    <SBButton disabled={!protocolsOk} onClick={() => onStart(order.id)}>Iniciar Producción <ChevronRight size={16}/></SBButton>
+                    <SBButton disabled={!protocolsOk} onClick={() => onStart(order.id)}>Iniciar Producción <ChevronRight size={16} className="sb-icon"/></SBButton>
                 </div>
             )}
 

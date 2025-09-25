@@ -2,7 +2,7 @@
 "use client";
 import React, { useMemo, useState } from 'react';
 import { useData } from '@/lib/dataprovider';
-import type { Lot, QACheck } from '@/domain/ssot';
+import type { Lot, QACheck, SB_THEME } from '@/domain/ssot';
 import { SBCard, SBButton, LotQualityStatusPill } from '@/components/ui/ui-primitives';
 import { Hourglass, CheckCircle, XCircle, FileText, BrainCircuit } from 'lucide-react';
 import { generateInsights } from '@/ai/flows/generate-insights-flow';
@@ -14,7 +14,7 @@ function KPI({ label, value, icon: Icon }: { label: string; value: number; icon:
             <div className="p-4">
                 <div className="flex items-center gap-4">
                     <div className="p-3 rounded-lg bg-zinc-100 text-zinc-600">
-                        <Icon className="h-6 w-6" />
+                        <Icon className="sb-icon h-6 w-6" />
                     </div>
                     <div>
                         <p className="text-2xl font-bold text-zinc-900">{value}</p>

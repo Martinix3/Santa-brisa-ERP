@@ -4,10 +4,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Truck, PackageCheck, AlertCircle, ChevronDown, Printer, FileText, Plus, Download, MoreVertical, Package, Tag, Calendar, CheckCircle, XCircle, Hourglass } from "lucide-react";
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
-import { SBCard, Input, Select } from '@/components/ui/ui-primitives';
+import { SBCard, Input, Select, DataTableSB } from '@/components/ui/ui-primitives';
 
 import { listLots, listMaterials } from "@/features/production/ssot-bridge";
-import type { Lot, Material, InventoryItem, Uom, StockMove } from '@/domain/ssot';
+import type { Lot, Material, InventoryItem, Uom, StockMove, SB_THEME } from '@/domain/ssot';
 import { useData } from '@/lib/dataprovider';
 
 // ✅ Pill simple para estado de calidad (temporal)
@@ -20,41 +20,6 @@ function LotQualityStatusPill({ status }: { status?: 'hold' | 'release' | 'rejec
   const cls = status ? map[status] ?? 'bg-zinc-100 text-zinc-700' : 'bg-zinc-100 text-zinc-700';
   return <span className={`px-2 py-0.5 rounded-md text-xs ${cls}`}>{status ?? '—'}</span>;
 }
-
-// ✅ Tabla mínima para salir del paso (temporal)
-function DataTableSB<T extends Record<string, any>>({
-  rows,
-  cols,
-}: {
-  rows: T[];
-  cols: Col<T>[];
-}) {
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-left text-zinc-500">
-            {cols.map((c) => (
-              <th key={String(c.key)} className="px-3 py-2">{c.header}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r, idx) => (
-            <tr key={idx} className="border-t border-zinc-200">
-              {cols.map((c) => (
-                <td key={String(c.key)} className={`px-3 py-2 ${c.className ?? ''}`}>
-                  {c.render ? c.render(r) : String(r[c.key as keyof T] ?? '—')}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
 
 type Col<T> = {
     key: keyof T | string;
@@ -304,7 +269,7 @@ export default function InventoryPage() {
                 </div>
             )
         },
-        { key: 'quantity', header: 'Cantidad', className: "justify-end", render: r => <span className="font-semibold">{r.quantity} {r.uom}</span> },
+        { key: 'quantity', header: 'Cantidad', className: "text-right", render: r => <span className="font-semibold">{r.quantity} {r.uom}</span> },
         { key: 'createdAt', header: 'Fecha', render: r => new Date(r.createdAt).toLocaleDateString('es-ES') },
         { key: 'expDate', header: 'Caducidad', render: r => <ExpirationPill date={r.expDate} /> },
         { 
@@ -312,7 +277,7 @@ export default function InventoryPage() {
             header: 'Estado Calidad', 
             render: r => r.quality?.qcStatus ? <LotQualityStatusPill status={r.quality.qcStatus} /> : <span className="text-zinc-400">—</span>
         },
-        { key: 'actions', header: 'Acciones', render: r => (<div className="relative"><MoreVertical size={16} className="cursor-pointer" /></div>) }
+        { key: 'actions', header: 'Acciones', render: r => (<div className="relative"><MoreVertical size={16} className="sb-icon cursor-pointer" /></div>) }
     ];
 
     const TABS = [
@@ -329,12 +294,12 @@ export default function InventoryPage() {
                 <h1 className="text-2xl font-semibold text-zinc-800">Inventario por Lotes</h1>
                 <div className="flex gap-2">
                     <button className="flex items-center gap-2 text-sm bg-white border border-zinc-200 rounded-md px-3 py-1.5 outline-none hover:bg-zinc-50 focus:ring-2 focus:ring-cyan-400">
-                        <Download size={14} /> Exportar
+                        <Download size={14} className="sb-icon" /> Exportar
                     </button>
                     <button 
                         onClick={() => setIsAdjustmentDialogOpen(true)}
                         className="flex items-center gap-2 text-sm bg-cyan-600 text-white rounded-md px-3 py-1.5 outline-none hover:bg-cyan-700 focus:ring-2 focus:ring-cyan-400">
-                        <Plus size={14} /> Ajuste Manual
+                        <Plus size={14} className="sb-icon" /> Ajuste Manual
                     </button>
                 </div>
             </div>

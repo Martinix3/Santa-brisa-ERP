@@ -2,7 +2,7 @@
 // app/cashflow/settings/page.tsx
 'use client';
 import { useEffect, useState } from 'react';
-import type { AccountType } from '@/domain/ssot';
+import type { AccountType, SB_THEME } from '@/domain/ssot';
 import { SBCard, SBButton, Input, Select } from '@/components/ui/ui-primitives';
 import { Save } from 'lucide-react';
 
@@ -92,7 +92,7 @@ export default function CashflowSettingsPage() {
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-semibold">Ajustes de Tesorería</h1>
         <SBButton onClick={apply} disabled={saving}>
-          <Save size={16}/> {saving ? 'Guardando...' : 'Guardar y Recalcular'}
+          <Save size={16} className="sb-icon"/> {saving ? 'Guardando...' : 'Guardar y Recalcular'}
         </SBButton>
       </div>
 

@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { listLots, listMaterials, updateMaterial } from '@/features/production/ssot-bridge';
-import type { Lot, Material } from '@/domain/ssot';
+import type { Lot, Material, SB_THEME } from '@/domain/ssot';
 import { SBCard, SBButton, LotQualityStatusPill } from '@/components/ui/ui-primitives';
 import { ChevronDown, Save, Tags } from 'lucide-react';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
@@ -147,7 +147,7 @@ function SkuManagementPageContent() {
                         <SBButton
                             onClick={handleSaveChanges}
                         >
-                            <Save size={16} /> Guardar Cambios
+                            <Save size={16} className="sb-icon" /> Guardar Cambios
                         </SBButton>
                     </div>
                 )}

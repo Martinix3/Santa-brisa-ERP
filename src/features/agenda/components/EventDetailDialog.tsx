@@ -2,7 +2,7 @@
 "use client";
 import React from 'react';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
-import type { Interaction, InteractionStatus } from '@/domain/ssot';
+import type { Interaction, InteractionStatus, SB_THEME } from '@/domain/ssot';
 import { Calendar, Tag, User as UserIcon, Building, Link as LinkIcon, Edit, Trash2, Check, X } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
 import { DEPT_META } from '@/domain/ssot';
@@ -55,7 +55,7 @@ export function EventDetailDialog({
             {deptStyle && <span className="px-2 py-1 text-xs rounded-full font-semibold" style={{ backgroundColor: deptStyle.color, color: deptStyle.textColor}}>{deptStyle.label}</span>}
           </div>
           <div className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-2">
-            <UserIcon className="h-4 w-4 text-zinc-500" />
+            <UserIcon className="sb-icon h-4 w-4 text-zinc-500" />
             <span>{owner?.name || 'N/A'}</span>
 
             {account && <>
@@ -65,7 +65,7 @@ export function EventDetailDialog({
             
             {event.linkedEntity && linkedEntity &&
                 <>
-                  <LinkIcon className="h-4 w-4 text-zinc-500" />
+                  <LinkIcon className="sb-icon h-4 w-4 text-zinc-500" />
                   <a href="#" className="text-blue-600 hover:underline">
                       {event.linkedEntity.type} #{event.linkedEntity.id.slice(0,8)}…
                   </a>
@@ -95,8 +95,8 @@ export function EventDetailDialog({
           )}
 
           <div className="flex justify-end gap-2 pt-4">
-              <button type="button" onClick={() => { onOpenChange(false); onDelete(event.id); }} className="p-2 text-zinc-500 hover:text-red-600 hover:bg-red-50 rounded-md text-xs flex items-center gap-1"><Trash2 size={14}/> Eliminar</button>
-              <button type="button" onClick={() => { onOpenChange(false); onEdit(event); }} className="p-2 text-zinc-500 hover:text-blue-600 hover:bg-blue-50 rounded-md text-xs flex items-center gap-1"><Edit size={14}/> Editar</button>
+              <button type="button" onClick={() => { onOpenChange(false); onDelete(event.id); }} className="sb-btn-primary p-2 text-zinc-500 hover:text-red-600 hover:bg-red-50 rounded-md text-xs flex items-center gap-1"><Trash2 size={14} className="sb-icon"/> Eliminar</button>
+              <button type="button" onClick={() => { onOpenChange(false); onEdit(event); }} className="sb-btn-primary p-2 text-zinc-500 hover:text-blue-600 hover:bg-blue-50 rounded-md text-xs flex items-center gap-1"><Edit size={14} className="sb-icon"/> Editar</button>
           </div>
         </div>
       </SBDialogContent>

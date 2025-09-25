@@ -2,7 +2,7 @@
 'use client';
 import React, { useTransition } from 'react';
 import { useData } from '@/lib/dataprovider';
-import type { PartyDuplicate, Party } from '@/domain/ssot';
+import type { PartyDuplicate, Party, SB_THEME } from '@/domain/ssot';
 import { mergePartyDuplicateAction } from '../actions';
 
 export default function MergeSuggestionsPage(){
@@ -31,7 +31,7 @@ export default function MergeSuggestionsPage(){
                 <td>{Math.round((dup.score ?? 0) * 100)/100}</td>
                 <td>{dup.status}</td>
                 <td>
-                  <button disabled={isPending} className="px-3 py-1 rounded bg-emerald-600 text-white"
+                  <button disabled={isPending} className="sb-btn-primary px-3 py-1 rounded bg-emerald-600 text-white"
                           onClick={()=> start(async ()=> await mergePartyDuplicateAction(dup.id))}>Fusionar</button>
                 </td>
               </tr>

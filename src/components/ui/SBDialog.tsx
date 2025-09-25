@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { SB_THEME } from "@/domain/ssot";
 
 type Action =
   | { label: string; onClick?: () => void; type?: "button" | "submit"; disabled?: boolean }
@@ -56,7 +57,7 @@ export function SBDialogContent({
                 type={secondaryAction.type ?? "button"}
                 onClick={secondaryAction.onClick}
                 disabled={secondaryAction.disabled}
-                className="h-10 px-4 rounded-md border border-zinc-200 bg-white text-zinc-800 text-sm"
+                className="sb-btn-primary h-10 px-4 rounded-md border border-zinc-200 bg-white text-zinc-800 text-sm"
               >
                 {secondaryAction.label}
               </button>

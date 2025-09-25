@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
 import { Plus, User as UserIcon, Search } from 'lucide-react';
-import type { Department, User, Interaction, InteractionKind, Account } from '@/domain/ssot';
+import type { Department, User, Interaction, InteractionKind, Account, SB_THEME } from '@/domain/ssot';
 import { DEPT_META } from '@/domain/ssot'; // usa el canónico
 import { useData } from '@/lib/dataprovider';
 
@@ -257,7 +257,7 @@ export function NewEventDialog({
                                             : 'bg-zinc-100 text-zinc-700 border border-zinc-200 hover:bg-zinc-200'
                                     }`}
                                 >
-                                    <UserIcon size={14} />
+                                    <UserIcon size={14} className="sb-icon" />
                                     {user.name}
                                 </button>
                             ))}

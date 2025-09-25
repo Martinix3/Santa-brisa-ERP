@@ -2,7 +2,7 @@
 "use client";
 
 import React from 'react';
-import { SB_COLORS } from '@/domain/ssot';
+import { SB_COLORS, SB_THEME } from '@/domain/ssot';
 
 interface ModuleHeaderProps {
     title: string;
@@ -19,7 +19,7 @@ export function ModuleHeader({ title, icon: Icon, color, children }: ModuleHeade
                 <div className="flex justify-between items-center">
                     <h1 className="text-xl font-semibold text-sb-neutral-800 flex items-center gap-3">
                         <div className="p-2 rounded-lg" style={{ backgroundColor: `${finalColor}20`, color: finalColor }} aria-hidden="true">
-                            <Icon size={24} />
+                            <Icon size={24} className="sb-icon" />
                         </div>
                         {title}
                     </h1>

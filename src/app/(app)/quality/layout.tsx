@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
 import { ClipboardCheck } from 'lucide-react';
-import { SB_COLORS } from '@/components/ui/ui-primitives';
+import { SB_COLORS } from '@/domain/ssot';
 
 const clsx = (...xs: Array<string | false | null | undefined>) => xs.filter(Boolean).join(" ");
 

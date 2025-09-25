@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
 import { Input, Select, SBButton } from '@/components/ui/ui-primitives';
-import type { Shipment, Account, Product, Party } from '@/domain/ssot';
+import type { Shipment, Account, Product, Party, SB_THEME } from '@/domain/ssot';
 import { Plus, X } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
 
@@ -124,13 +124,13 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, products }:
                                         {products.map(p => <option key={p.sku} value={p.sku}>{p.name} ({p.sku})</option>)}
                                     </Select>
                                     <Input type="number" min="1" value={line.qty} onChange={e => handleLineChange(index, 'qty', e.target.value)} className="w-20" required />
-                                    <button type="button" onClick={() => removeLine(index)} className="p-2 text-red-500 hover:bg-red-50 rounded-md">
+                                    <button type="button" onClick={() => removeLine(index)} className="sb-btn-primary p-2 text-red-500 hover:bg-red-50 rounded-md">
                                         <X size={16} />
                                     </button>
                                 </div>
                             ))}
-                             <button type="button" onClick={addLine} className="text-sm flex items-center gap-1 text-blue-600 hover:underline pt-2">
-                                <Plus size={14} /> Añadir línea
+                             <button type="button" onClick={addLine} className="sb-btn-primary text-sm flex items-center gap-1 text-blue-600 hover:underline pt-2">
+                                <Plus size={14} className="sb-icon" /> Añadir línea
                             </button>
                         </div>
                     </div>

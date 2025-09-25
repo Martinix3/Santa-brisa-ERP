@@ -1,38 +1,162 @@
-
-
+// src/components/ui/ui-primitives.tsx
 "use client";
-import React, { useMemo, useState } from "react";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import type { OrderStatus, ShipmentStatus } from '@/domain/ssot';
-import { SB_COLORS } from '@/domain/ssot';
+import React from 'react';
+import type { Lot } from '@/domain/ssot';
 
-/*************************************************
- *  Santa Brisa — UI primitives
- *************************************************/
-const clsx = (...xs: Array<string | false | null | undefined>) => xs.filter(Boolean).join(" ");
+// ===================================
+// Tarjeta Genérica (Card)
+// ===================================
 
-export const ORDER_STATUS_STYLES: Record<OrderStatus | ShipmentStatus, { label: string; color: string; bg: string }> = {
-  // Order Status
-  open: { label: 'Borrador', color: 'text-zinc-800', bg: 'bg-zinc-100' },
-  confirmed: { label: 'Confirmado', color: 'text-blue-800', bg: 'bg-blue-100' },
-  shipped: { label: 'Enviado', color: 'text-cyan-800', bg: 'bg-cyan-100' },
-  invoiced: { label: 'Facturado', color: 'text-emerald-800', bg: 'bg-emerald-100' },
-  paid: { label: 'Pagado', color: 'text-green-800', bg: 'bg-green-100' },
-  cancelled: { label: 'Cancelado', color: 'text-red-800', bg: 'bg-red-100' },
-  lost: { label: 'Perdido', color: 'text-neutral-600', bg: 'bg-neutral-200' },
-  // Shipment Status
-  pending: { label: "Pendiente", color: "text-yellow-900", bg: "bg-yellow-100" },
-  picking: { label: "Picking", color: "text-sky-900", bg: "bg-sky-100" },
-  ready_to_ship: { label: "Validado", color: "text-teal-900", bg: "bg-teal-100" },
-  delivered: { label: "Entregado", color: "text-green-900", bg: "bg-green-100" },
-  exception: { label: "Incidencia", color: "text-orange-900", bg: "bg-orange-100" },
+interface SBCardProps {
+  title: string;
+  accent?: string;
+  children: React.ReactNode;
+}
+
+export function SBCard({ title, accent, children }: SBCardProps) {
+  return (
+    <div className="bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden">
+      {title && (
+        <div className="p-4 border-b border-zinc-200">
+          <h3 className="font-semibold text-zinc-800" style={{ borderLeft: accent ? `3px solid ${accent}` : undefined, paddingLeft: accent ? '8px' : '0' }}>
+            {title}
+          </h3>
+        </div>
+      )}
+      <div>{children}</div>
+    </div>
+  );
+}
+
+// ===================================
+// Botón Genérico (Button)
+// ===================================
+
+interface SBButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement | HTMLAnchorElement> {
+    variant?: 'primary' | 'secondary' | 'destructive' | 'ghost' | 'subtle';
+    size?: 'sm' | 'md' | 'lg';
+    as?: 'button' | 'a';
+}
+
+export const SBButton = React.forwardRef<HTMLButtonElement | HTMLAnchorElement, SBButtonProps>(
+    ({ className, variant = 'primary', size = 'md', as = 'button', ...props }, ref) => {
+        const Comp = as;
+        const base = "inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 disabled:pointer-events-none";
+        
+        const variants: Record<string, string> = {
+            primary: "bg-zinc-900 text-white hover:bg-zinc-800",
+            secondary: "bg-zinc-100 text-zinc-800 hover:bg-zinc-200 border border-zinc-200",
+            destructive: "bg-red-500 text-white hover:bg-red-600",
+            ghost: "hover:bg-zinc-100 hover:text-zinc-900",
+            subtle: "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100",
+        };
+        const sizes = {
+            sm: "h-8 px-3 text-xs",
+            md: "h-9 px-4",
+            lg: "h-10 px-6",
+        };
+
+        return <Comp className={`${base} ${variants[variant]} ${sizes[size]} ${className || ''}`} ref={ref as any} {...props} />;
+    }
+);
+SBButton.displayName = "SBButton";
+
+
+// ===================================
+// KPI Display
+// ===================================
+export function KPI({ label, value, icon: Icon, delta, hint, unit, color }: { label: string; value: string | number; icon?: React.ElementType; delta?: string; hint?: string; unit?:string, color?: string }) {
+  const trend = delta ? (delta.startsWith('+') ? 'up' : (delta.startsWith('-') ? 'down' : 'neutral')) : 'neutral';
+  return (
+    <div className="bg-white p-4 rounded-xl border border-zinc-200 flex-grow">
+        {Icon && <div className="p-2 rounded-lg inline-block mb-2" style={{ backgroundColor: color ? `${color}20` : '#f4f4f5', color: color || '#52525b' }}><Icon className="h-5 w-5" /></div>}
+        <p className="text-xs text-zinc-500">{label}</p>
+        <div className="flex items-baseline gap-2">
+            <p className="text-2xl font-bold text-zinc-900">{value}{unit && <span className="text-zinc-500 text-sm ml-1">{unit}</span>}</p>
+            {delta && <span className={`text-xs font-semibold ${trend === 'up' ? 'text-green-600' : 'text-red-600'}`}>{delta}</span>}
+        </div>
+        {hint && <p className="text-xs text-zinc-400 mt-1">{hint}</p>}
+    </div>
+  );
+}
+
+// ===================================
+// Lot Quality Status Pill
+// ===================================
+export function LotQualityStatusPill({ status }: { status?: 'hold' | 'release' | 'reject' }) {
+    const map = {
+        hold: 'bg-yellow-100 text-yellow-800',
+        release: 'bg-green-100 text-green-800',
+        reject: 'bg-red-100 text-red-800',
+    };
+    const s = status || 'hold';
+    return <span className={`px-2 py-1 text-xs font-semibold rounded-full ${map[s]}`}>{s}</span>;
+}
+
+
+// ===================================
+// Form Controls
+// ===================================
+
+export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
+    ({ className, ...props }, ref) => (
+        <input ref={ref} className={`h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-yellow-400 ${className || ''}`} {...props} />
+    )
+);
+Input.displayName = 'Input';
+
+export const Select = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttributes<HTMLSelectElement>>(
+    ({ className, ...props }, ref) => (
+         <select ref={ref} className={`h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-yellow-400 ${className || ''}`} {...props} />
+    )
+);
+Select.displayName = 'Select';
+
+export const Textarea = React.forwardRef<HTMLTextAreaElement, React.TextareaHTMLAttributes<HTMLTextAreaElement>>(
+    ({ className, ...props }, ref) => (
+         <textarea ref={ref} className={`w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-yellow-400 ${className || ''}`} {...props} />
+    )
+);
+Textarea.displayName = 'Textarea';
+
+// ===================================
+// DataTable (Simplified)
+// ===================================
+export type Col<T> = {
+    key: keyof T | (string & {});
+    header: string;
+    className?: string;
+    render?: (row: T) => React.ReactNode;
 };
 
-export const STATUS_STYLES = ORDER_STATUS_STYLES;
+export function DataTableSB<T extends { id: string }>({ rows, cols }: { rows: T[], cols: Col<T>[] }) {
+    return (
+        <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+                <thead>
+                    <tr className="text-left bg-zinc-50">
+                        {cols.map(c => <th key={String(c.key)} className="p-3 font-semibold text-zinc-600">{c.header}</th>)}
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-100">
+                    {rows.map(row => (
+                        <tr key={row.id} className="hover:bg-zinc-50/50">
+                            {cols.map(c => (
+                                <td key={String(c.key)} className={`p-3 ${c.className || ''}`}>
+                                    {c.render ? c.render(row) : String(row[c.key as keyof T] ?? '—')}
+                                </td>
+                            ))}
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+    );
+}
 
-
-export { SB_COLORS };
-
+// ===================================
+// Misc
+// ===================================
 export const hexToRgba = (hex: string, a: number) => {
   if (!hex) return 'rgba(0,0,0,0)';
   const h = hex.replace('#',''); 
@@ -42,171 +166,27 @@ export const hexToRgba = (hex: string, a: number) => {
   return `rgba(${r},${g},${b},${a})`; 
 };
 
-export const waterHeader = (seed = "hdr", base: string = SB_COLORS.primary.aqua) => {
+export const waterHeader = (seed = "hdr", base = "#A7D8D9") => {
   const hash = Array.from(seed).reduce((s,c)=> (s*33+c.charCodeAt(0))>>>0,5381);
   let a = hash||1; const rnd = ()=> (a = (a*1664525+1013904223)>>>0, (a>>>8)/16777216);
-  const L:string[]=[]; for(let i=0;i<3;i++){ const x=(i%2?80+rnd()*18:rnd()*18).toFixed(2); const y=(rnd()*70+15).toFixed(2); const rx=90+rnd()*120, ry=60+rnd()*120; const a1=0.06+rnd()*0.06, a2=a1*0.5, s1=45+rnd()*10, s2=70+rnd()*12; L.push(`radial-gradient(${rx}px ${ry}px at ${x}% ${y}%, ${hexToRgba(base,a1)}, ${hexToRgba(base,a2)} ${s1}%, rgba(255,255,255,0) ${s2}%)`);} L.push(`linear-gradient(to bottom, ${hexToRgba(base,0.08)}, rgba(255,255,255,0.02))`); return L.join(','); };
+  const L:string[]=[]; for(let i=0;i<3;i++){ const x=(i%2?80+rnd()*18:rnd()*18).toFixed(2); const y=(rnd()*70+15).toFixed(2); const rx=90+rnd()*120, ry=60+rnd()*120; const a1=0.06+rnd()*0.06, a2=a1*0.5, s1=45+rnd()*10, s2=70+rnd()*12; L.push(`radial-gradient(${rx}px ${ry}px at ${x}% ${y}%, ${hexToRgba(base,a1)}, ${hexToRgba(base,a2)} ${s1}%, rgba(255,255,255,0) ${s2}%)`);} L.push(`linear-gradient(to bottom, ${hexToRgba(base,0.08)}, rgba(255,255,255,0.02))`); return L.join(',');
+};
 
-export function AgaveEdge(){ 
-  const W=600,H=14; 
-  let seed=0xa94f1c2b; 
-  const rnd=()=> (seed=(seed*1664525+1013904223)>>>0, (seed>>>8)/16777216); 
-  const mk=(dense:boolean)=>{ const arr:any[]=[]; let x=0; while(x<W){ const w=dense?(1+Math.floor(rnd()*2)):(2+Math.floor(rnd()*2)); const h=dense?(4+Math.floor(rnd()*5)):(8+Math.floor(rnd()*7)); const dir=rnd()<0.5?-1:1; const skew=dir*(dense?0.18*h:0.08*h); arr.push({x,w,h,skew}); x+=w; } return arr; }; 
-  const back=mk(false), front=mk(true); 
-  return (<svg className="h-3 w-full" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden> 
-    {back.map((p:any,i:number)=> <polygon key={`b-${i}`} fill="#fff" points={`${p.x},${H} ${p.x+p.w/2+p.skew},${Math.max(0,H-p.h)} ${p.x+p.w},${H}`} />)} 
-    {front.map((p:any,i:number)=> <polygon key={`f-${i}`} fill="#fff" points={`${p.x},${H} ${p.x+p.w/2+p.skew},${Math.max(0,H-p.h)} ${p.x+p.w},${H}`} />)} 
-  </svg>); 
-}
-
-type ButtonProps = {
-  variant?: "primary" | "secondary" | "subtle" | "destructive" | "ghost";
-  size?: "sm" | "md" | "lg";
-  as?: React.ElementType;
-} & React.ButtonHTMLAttributes<HTMLButtonElement> & React.AnchorHTMLAttributes<HTMLAnchorElement>;
-
-
-export const Button = React.forwardRef<HTMLButtonElement | HTMLAnchorElement, ButtonProps>(
-    ({ variant = "primary", size = "md", as: Component = "button", className, ...props }, ref) => {
-        const base = "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed";
-        const variantMap = {
-            primary: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm",
-            secondary: "border bg-white hover:bg-zinc-50",
-            subtle: "border bg-white hover:bg-zinc-50",
-            destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
-            ghost: "hover:bg-muted",
-        } as const;
-        const sizeMap = {
-            sm: "px-2.5 py-1.5 text-xs",
-            md: "px-4 py-2 text-sm",
-            lg: "px-5 py-2.5 text-base",
-        }
-
-        return <Component className={clsx(base, variantMap[variant], sizeMap[size], className)} ref={ref as any} {...props} />;
-    }
-);
-Button.displayName = "Button";
-
-
-export const Input = (p:React.InputHTMLAttributes<HTMLInputElement>)=> <input {...p} className={clsx("w-full px-3 py-2 rounded-lg border bg-white text-sm outline-none focus:ring-2 ring-primary", p.className)}/>;
-export const Select = (p:React.SelectHTMLAttributes<HTMLSelectElement>)=> <select {...p} className={clsx("w-full px-3 py-2 rounded-lg border bg-white text-sm outline-none focus:ring-2 ring-primary", p.className)}/>;
-export const Textarea = (p:React.TextareaHTMLAttributes<HTMLTextAreaElement>)=> <textarea {...p} rows={4} className={clsx("w-full px-3 py-2 rounded-lg border bg-white text-sm outline-none focus:ring-2 ring-primary", p.className)}/>;
-
-
-export function Badge({accent = SB_COLORS.primary.aqua,label}:{accent?:string;label:string}){
-  return <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs border" style={{background:hexToRgba(accent,0.12), borderColor:hexToRgba(accent,0.6)}}>{label}</span>;
-}
-
-export function Card({title,accent = SB_COLORS.primary.aqua,children}:{title:string;accent?:string;children:React.ReactNode}){
-  return <div className="rounded-2xl border overflow-hidden bg-white shadow-sm">
-    <div className="px-4 py-2.5 border-b relative" style={{background:waterHeader("card:"+title, accent), borderColor:hexToRgba(accent,0.18)}}>
-      <div className="text-sm font-medium text-zinc-800">{title}</div>
-      <div className="absolute left-0 right-0 -bottom-px"><AgaveEdge/></div>
-    </div>
-    {children}
-  </div>;
-}
-
-export const KPI = ({label,value,delta, icon: Icon}:{label:string;value:string|number;delta?:string; icon?: React.ElementType}) => (
-  <div className="rounded-xl border p-3 bg-white flex items-center gap-3">
-    {Icon && <div className="p-2 rounded-lg bg-zinc-100 text-zinc-600"><Icon className="h-5 w-5"/></div>}
-    <div>
-      <div className="text-xs text-zinc-500">{label}</div>
-      <div className="text-xl font-semibold text-zinc-900">{value}</div>
-      {delta && <div className="text-[11px] text-emerald-600 mt-0.5">{delta}</div>}
-    </div>
-  </div>
-);
-
-export function Table({cols,rows}:{cols:{key:string;label:string}[]; rows:Record<string,React.ReactNode>[]}){
-  return <div className="overflow-auto rounded-xl border">
-    <table className="min-w-[720px] w-full text-sm">
-      <thead className="bg-zinc-50">
-        <tr>{cols.map(c=> <th key={c.key} className="text-left px-3 py-2 font-medium text-zinc-700">{c.label}</th>)}</tr>
-      </thead>
-      <tbody>
-        {rows.map((r,i)=> (
-          <tr key={i} className={i%2? "bg-white":"bg-white"}>
-            {cols.map(c=> <td key={c.key} className="px-3 py-2 border-t border-zinc-100">{r[c.key]}</td>)}
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  </div>;
-}
-
-export function MiniTrend({data,accent = SB_COLORS.primary.aqua}:{data:{x:string;y:number}[];accent?:string}){
-  return <div className="h-32">
-    <ResponsiveContainer width="100%" height="100%">
-      <LineChart data={data} margin={{left:8,right:8,top:8,bottom:8}}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-        <XAxis dataKey="x" hide/><YAxis hide/>
-        <Tooltip />
-        <Line type="monotone" dataKey="y" stroke={accent} strokeWidth={2} dot={false} />
-      </LineChart>
-    </ResponsiveContainer>
-  </div>;
-}
-
-export const EmptyState = ({icon:Icon,title,desc,action}:{icon:any; title:string; desc:string; action?:React.ReactNode})=> (
-  <div className="text-center py-12 border border-dashed rounded-2xl">
-    <Icon className="h-6 w-6 mx-auto text-zinc-500"/>
-    <div className="mt-2 text-zinc-900 font-medium">{title}</div>
-    <div className="text-sm text-zinc-600">{desc}</div>
-    {action && <div className="mt-3">{action}</div>}
-  </div>
-);
-
-export type Col<T> = { key: keyof T | 'actions' | string; header: string; className?:string; render?: (row:T)=>React.ReactNode };
-
-export function DataTableSB<T extends { id:string }>({ rows, cols }:{ rows:T[]; cols:Col<T>[] }){
-  const [hoveredRow, setHoveredRow] = useState<string | null>(null);
-  const gridTemplateColumns = useMemo(() => {
-    return cols.map(() => 'minmax(0, 1fr)').join(' ');
-  }, [cols]);
-  
+export function AgaveEdge(){
+  const H = 14;
   return (
-    <div className="bg-white">
-      <div className="grid text-[11px] uppercase tracking-wide text-sb-neutral-500 border-b bg-white" style={{ gridTemplateColumns }}>
-        {cols.map((c, i)=> <div key={i} className={clsx('px-3 py-2', c.className)}>{c.header}</div>)}
-      </div>
-      <div className="divide-y divide-sb-neutral-100">
-        {rows.map((r,i)=> (
-          <div 
-            key={r.id} 
-            className="grid items-center hover:bg-sb-neutral-50 relative" 
-            style={{ 
-                gridTemplateColumns,
-                zIndex: hoveredRow === r.id ? 10 : 1,
-            }}
-            onMouseEnter={() => setHoveredRow(r.id)}
-            onMouseLeave={() => setHoveredRow(null)}
-          >
-            {cols.map((c, j)=> (
-              <div key={j} className={clsx('px-3 py-2 text-sm text-sb-neutral-800 flex items-center', c.className)}>
-                {c.render ? c.render(r) : c.key in r ? String(r[c.key as keyof T]) : null}
-              </div>
-            ))}
-          </div>
-        ))}
-      </div>
-    </div>
+    <svg className="h-3 w-full" viewBox={`0 0 600 14`} preserveAspectRatio="none" aria-hidden>
+        <polygon fill="#fff" points="0,14 25.8,5.1 51.6,14 77.4,6 103.2,14 129,4.2 154.8,14 180.6,7.7 206.4,14 232.2,4.9 258,14 283.8,6.3 309.6,14 335.4,3.5 361.2,14 387,5.6 412.8,14 438.6,7 464.4,14 490.2,4.2 516,14 541.8,6.3 567.6,14 593.4,2.8 600,14" />
+        <polygon fill="#fff" points="0,14 20,4.8 40,14 60,5.7 80,14 100,4.5 120,14 140,7.2 160,14 180,5.1 200,14 220,6.6 240,14 260,4.2 280,14 300,5.4 320,14 340,3.9 360,14 380,5.7 400,14 420,7.5 440,14 460,4.8 480,14 500,6.6 520,14 540,3.3 560,14 580,5.7 600,14" />
+    </svg>
   );
 }
 
-export function LotQualityStatusPill({ status }: { status?: 'hold' | 'release' | 'reject' }) {
-    const styles = {
-        hold: 'bg-yellow-100 text-yellow-800',
-        release: 'bg-green-100 text-green-800',
-        reject: 'bg-red-100 text-red-800',
-    };
-    const s = status || 'hold';
-    return (
-        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${styles[s]}`}>
-            {s.toUpperCase()}
-        </span>
-    );
-}
-
-export { Card as SBCard };
-export { Button as SBButton };
+export const STATUS_STYLES: Record<string, { label: string; bg: string; color: string; border: string }> = {
+  pending: { label: "Pendiente", bg: "bg-yellow-50", color: "text-yellow-800", border: "border-yellow-200" },
+  picking: { label: "Picking", bg: "bg-blue-50", color: "text-blue-800", border: "border-blue-200" },
+  ready_to_ship: { label: "Validado", bg: "bg-indigo-50", color: "text-indigo-800", border: "border-indigo-200" },
+  shipped: { label: "Enviado", bg: "bg-cyan-50", color: "text-cyan-800", border: "border-cyan-200" },
+  delivered: { label: "Entregado", bg: "bg-green-50", color: "text-green-800", border: "border-green-200" },
+  cancelled: { label: "Cancelado", bg: "bg-zinc-100", color: "text-zinc-600", border: "border-zinc-200" },
+};

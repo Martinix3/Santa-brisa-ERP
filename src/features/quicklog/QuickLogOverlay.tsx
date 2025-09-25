@@ -4,7 +4,7 @@
 import React, { useState, useCallback } from 'react';
 import { Plus, X } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
-import type { SantaData } from '@/domain/ssot';
+import type { SantaData, SB_THEME } from '@/domain/ssot';
 import { Chat } from '@/features/chat/Chat';
 
 export default function QuickLogOverlay() {
@@ -46,10 +46,10 @@ export default function QuickLogOverlay() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 z-40 h-14 w-14 rounded-full bg-primary shadow-lg flex items-center justify-center text-primary-foreground hover:bg-primary/90 transition-transform hover:scale-110"
+        className="sb-btn-primary fixed bottom-6 right-6 z-40 h-14 w-14 rounded-full bg-primary shadow-lg flex items-center justify-center text-primary-foreground hover:bg-primary/90 transition-transform hover:scale-110"
         aria-label="Abrir asistente Santa Brain"
       >
-        <Plus size={24} strokeWidth={2.5} />
+        <Plus size={24} strokeWidth={2.5} className="sb-icon" />
       </button>
 
       {open && (
@@ -60,7 +60,7 @@ export default function QuickLogOverlay() {
             >
                 <div className="flex-shrink-0 p-4 border-b bg-zinc-50 flex justify-between items-center">
                     <h2 className="text-lg font-semibold text-zinc-800">Santa Brain 🧠</h2>
-                    <button onClick={() => setOpen(false)} className="p-2 rounded-full hover:bg-zinc-200">
+                    <button onClick={() => setOpen(false)} className="sb-btn-primary p-2 rounded-full hover:bg-zinc-200">
                         <X size={20} />
                     </button>
                 </div>

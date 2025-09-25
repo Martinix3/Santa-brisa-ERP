@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Mail, Phone, Filter, Link as LinkIcon, ChevronDown } from 'lucide-react';
 import { PullButton } from './PullButton';
 import { pullHoldedContactsAction } from './actions';
+import { SB_THEME } from "@/domain/ssot";
 
 type Row = {
   id: string;
@@ -85,7 +86,7 @@ export default function ContactsPage() {
               placeholder="Buscar nombre, ciudad, VAT, email o teléfono…"
               className="w-full border rounded-lg px-3 py-2 pl-9"
             />
-            <Filter size={16} className="absolute left-3 top-2.5 text-zinc-400" />
+            <Filter size={16} className="sb-icon absolute left-3 top-2.5 text-zinc-400" />
           </div>
           <div className="flex items-center gap-2">
             <div className="relative">
@@ -100,7 +101,7 @@ export default function ContactsPage() {
                 <option value="SUPPLIER">Proveedores</option>
                 <option value="OTHER">Otros</option>
               </select>
-              <ChevronDown size={14} className="pointer-events-none absolute right-2 top-2.5 text-zinc-400" />
+              <ChevronDown size={14} className="sb-icon pointer-events-none absolute right-2 top-2.5 text-zinc-400" />
             </div>
             <div className="relative">
               <select
@@ -111,7 +112,7 @@ export default function ContactsPage() {
               >
                 {cityOptions.map(c => <option key={c} value={c}>{c === 'ALL' ? 'Todas las ciudades' : c}</option>)}
               </select>
-              <ChevronDown size={14} className="pointer-events-none absolute right-2 top-2.5 text-zinc-400" />
+              <ChevronDown size={14} className="sb-icon pointer-events-none absolute right-2 top-2.5 text-zinc-400" />
             </div>
           </div>
         </div>
@@ -142,8 +143,8 @@ export default function ContactsPage() {
                 <td className="px-3 py-2">{r.city || '—'}</td>
                 <td className="px-3 py-2">
                   <div className="flex flex-col gap-1">
-                    {r.email ? <span className="inline-flex items-center gap-1 text-zinc-700"><Mail size={14}/>{r.email}</span> : null}
-                    {r.phone ? <span className="inline-flex items-center gap-1 text-zinc-700"><Phone size={14}/>{r.phone}</span> : null}
+                    {r.email ? <span className="inline-flex items-center gap-1 text-zinc-700"><Mail size={14} className="sb-icon"/>{r.email}</span> : null}
+                    {r.phone ? <span className="inline-flex items-center gap-1 text-zinc-700"><Phone size={14} className="sb-icon"/>{r.phone}</span> : null}
                     {!r.email && !r.phone && <span className="text-zinc-400">—</span>}
                   </div>
                 </td>
@@ -158,7 +159,7 @@ export default function ContactsPage() {
                 </td>
                 <td className="px-3 py-2">
                   {r.holded ? (
-                    <span className="inline-flex items-center gap-1 text-emerald-700"><LinkIcon size={14}/> Holded</span>
+                    <span className="inline-flex items-center gap-1 text-emerald-700"><LinkIcon size={14} className="sb-icon"/> Holded</span>
                   ) : (
                     <span className="text-zinc-400">—</span>
                   )}

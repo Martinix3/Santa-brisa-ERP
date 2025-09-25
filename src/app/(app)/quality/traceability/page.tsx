@@ -2,7 +2,7 @@
 "use client";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useData } from "@/lib/dataprovider";
-import type { Lot, OrderSellOut as SaleDoc, QACheck, ProductionOrder, User, TraceEvent, Account, SantaData } from "@/domain/ssot";
+import type { Lot, OrderSellOut as SaleDoc, QACheck, ProductionOrder, User, TraceEvent, Account, SantaData, SB_THEME } from "@/domain/ssot";
 import {
     Archive, FileText, CheckCircle2, XCircle, FlaskConical, Recycle, PackagePlus, Flag,
     Package as PackageIcon, PackageCheck, Truck, Pin, Paperclip, Send, Download,
@@ -173,7 +173,7 @@ function normalizeEventTitle(e: TraceEvent): string {
   return t[0] + t.slice(1).toLowerCase();
 }
 
-function EventIcon({ kind }: { kind: TraceEvent["kind"] }) {
+function EventIcon({ kind, className }: { kind: TraceEvent["kind"], className?: string }) {
   const map: Record<TraceEvent["kind"], React.ElementType> = {
     ARRIVED: Archive,
     BOOKED: FileText,
@@ -197,7 +197,7 @@ function EventIcon({ kind }: { kind: TraceEvent["kind"] }) {
     BATCH_RELEASED: FileText,
   };
   const Icon = map[kind] || 'div';
-  return <Icon className="h-4 w-4" />;
+  return <Icon className={`h-4 w-4 ${className}`} />;
 }
 
 
@@ -435,7 +435,7 @@ function PhaseTimeline({ events }: { events: TraceEvent[] }) {
             {(map.get(phase) || []).map((e) => (
               <li key={e.id} className="px-3 py-2 text-sm flex items-start justify-between">
                 <div className="flex items-start gap-2">
-                  <div className="text-zinc-500 pt-0.5"><EventIcon kind={e.kind} /></div>
+                  <div className="text-zinc-500 pt-0.5"><EventIcon kind={e.kind} className="sb-icon" /></div>
                   <div>
                     <div className="font-medium">{normalizeEventTitle(e)}</div>
                     <div className="text-xs text-zinc-500">
@@ -578,5 +578,3 @@ function SalesByCustomer({ lot, groups, accountIndex, santaData }: { lot: Lot; g
     </div>
   );
 }
-
-    
