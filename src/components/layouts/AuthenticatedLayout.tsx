@@ -175,8 +175,8 @@ function NavLink({
       aria-current={isActive ? 'page' : undefined}
       title={isCollapsed ? label : undefined}
     >
-      {isCollapsed && <Icon className="w-4 h-4 text-neutral-600" />}
-      {!isCollapsed && <span className={`flex-1 truncate ${isCollapsed ? 'text-center' : 'text-neutral-800'}`}>{label}</span>}
+      {isCollapsed && <Icon className="w-4 h-4 text-neutral-600" aria-hidden="true" />}
+      {!isCollapsed && <span className={`flex-1 truncate text-neutral-800`}>{label}</span>}
     </Link>
   );
 }
@@ -408,7 +408,7 @@ function NavSection({
                     className={`w-full flex items-center justify-center gap-3 px-3 py-2 mt-2 rounded-md text-sm font-semibold border transition-colors ${persistenceStyles}`}
                     title={persistenceTooltip}
                 >
-                    <PersistenceIcon className="sb-icon h-5 w-5" />
+                    <PersistenceIcon className="h-5 w-5" />
                     {!isSidebarCollapsed && <span>{isPersistenceEnabled ? 'DB ON' : 'DB OFF'}</span>}
                 </button>
 
