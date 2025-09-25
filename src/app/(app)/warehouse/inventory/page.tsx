@@ -3,13 +3,65 @@
 "use client";
 import React, { useState, useEffect, useMemo } from 'react';
 import { Truck, PackageCheck, AlertCircle, ChevronDown, Printer, FileText, Plus, Download, MoreVertical, Package, Tag, Calendar, CheckCircle, XCircle, Hourglass } from "lucide-react";
-import { DataTableSB, LotQualityStatusPill, SBCard, Input, Select } from '@/components/ui/ui-primitives';
-import type { Col } from '@/components/ui/ui-primitives';
+import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
+import { SBCard, Input, Select } from '@/components/ui/ui-primitives';
+
 import { listLots, listMaterials } from "@/features/production/ssot-bridge";
 import type { Lot, Material, InventoryItem, Uom, StockMove } from '@/domain/ssot';
 import { useData } from '@/lib/dataprovider';
-import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
 
+// ✅ Pill simple para estado de calidad (temporal)
+function LotQualityStatusPill({ status }: { status?: 'hold' | 'release' | 'reject' }) {
+  const map: Record<string, string> = {
+    hold: 'bg-yellow-100 text-yellow-800',
+    release: 'bg-green-100 text-green-800',
+    reject: 'bg-red-100 text-red-800',
+  };
+  const cls = status ? map[status] ?? 'bg-zinc-100 text-zinc-700' : 'bg-zinc-100 text-zinc-700';
+  return <span className={`px-2 py-0.5 rounded-md text-xs ${cls}`}>{status ?? '—'}</span>;
+}
+
+// ✅ Tabla mínima para salir del paso (temporal)
+function DataTableSB<T extends Record<string, any>>({
+  rows,
+  cols,
+}: {
+  rows: T[];
+  cols: Col<T>[];
+}) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-left text-zinc-500">
+            {cols.map((c) => (
+              <th key={String(c.key)} className="px-3 py-2">{c.header}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r, idx) => (
+            <tr key={idx} className="border-t border-zinc-200">
+              {cols.map((c) => (
+                <td key={String(c.key)} className={`px-3 py-2 ${c.className ?? ''}`}>
+                  {c.render ? c.render(r) : String(r[c.key as keyof T] ?? '—')}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+
+type Col<T> = {
+    key: keyof T | string;
+    header: string;
+    className?: string;
+    render?: (row: T) => React.ReactNode;
+  };
 
 type UnifiedInventoryItem = {
     id: string;

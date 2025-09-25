@@ -1,6 +1,6 @@
 
 
-import type { SantaData } from '@/domain';
+import type { SantaData } from '@/domain/ssot';
 
 export const INITIAL_MOCK_DATA: SantaData = {
   parties: [

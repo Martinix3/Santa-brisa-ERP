@@ -3,10 +3,10 @@
 "use client";
 import React, { useMemo } from 'react';
 import { DndContext, useDraggable, useDroppable, closestCorners } from '@dnd-kit/core';
-import type { Department, InteractionStatus, User, Interaction } from '@/domain';
+import type { Department, InteractionStatus, User, Interaction } from '@/domain/ssot';
 import { Check, AlertCircle, Clock } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
-import { DEPT_META } from '@/domain';
+import { DEPT_META } from '@/domain/ssot';
 import { Avatar } from '@/components/ui/Avatar';
 
 export type Task = {

@@ -1,6 +1,6 @@
 import { db } from '@/lib/firebase/admin';
 import { assertCollection } from '@/lib/ssot/collections';
-import { SANTA_DATA_COLLECTIONS, type SantaData } from '@/domain';
+import { SANTA_DATA_COLLECTIONS, type SantaData } from '@/domain/ssot';
 
 
 type AnyDoc = Record<string, any>;

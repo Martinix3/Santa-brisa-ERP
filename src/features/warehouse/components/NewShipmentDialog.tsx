@@ -2,7 +2,7 @@
 "use client";
 import React, { useState, useEffect, useCallback } from 'react';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
-import { Input, Select } from '@/components/ui/ui-primitives';
+import { Input, Select, SBButton } from '@/components/ui/ui-primitives';
 import type { Shipment, Account, Product, Party } from '@/domain/ssot';
 import { Plus, X } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
@@ -93,7 +93,7 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, products }:
                 onSubmit={handleSubmit}
                 primaryAction={{ label: 'Crear Envío', type: 'submit' }}
                 secondaryAction={{ label: 'Cancelar', onClick: onClose }}
-                size="lg"
+                maxWidth="40rem"
             >
                 <div className="space-y-4 pt-2">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

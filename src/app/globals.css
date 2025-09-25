@@ -43,14 +43,11 @@
 
 /* ===== Base ===== */
 @layer base {
-  * {
-    border-color: hsl(var(--border) / 0.55);
-  }
+  * { border-color: hsl(var(--border) / 0.55); }
 }
 
 /* ===== Components ===== */
 @layer components {
-  /* Botón primario amarillo Santa Brisa */
   .sb-btn-primary {
     border-radius: var(--radius);
     box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
@@ -65,7 +62,6 @@
   }
   .sb-btn-primary:active { transform: scale(0.98); }
 
-  /* Paneles y tarjetas suaves */
   .sb-card {
     border-radius: calc(var(--radius) + 8px);
     border-width: 1px;
@@ -75,7 +71,6 @@
     backdrop-filter: blur(2px);
   }
 
-  /* Menús / popovers suaves con animación */
   .sb-menu {
     border-radius: calc(var(--radius) + 4px);
     border-width: 1px;
@@ -83,11 +78,9 @@
     background-color: hsl(var(--background) / 0.95);
     box-shadow: 0 24px 32px -12px rgb(0 0 0 / 0.14);
     backdrop-filter: blur(4px);
-    /* Usa nombres definidos en theme.extend.animation */
     animation: fade-in-50 .15s ease-out both, slide-in-from-top-1 .15s ease-out both;
   }
 
-  /* Chip éxito */
   .sb-badge-success {
     background-color: hsl(var(--sb-verde-mar) / 0.12);
     color: hsl(var(--sb-verde-mar));

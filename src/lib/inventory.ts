@@ -1,6 +1,6 @@
 
 // src/lib/inventory.ts
-import type { OrderSellOut, InventoryItem, Product } from '@/domain';
+import type { OrderSellOut, InventoryItem, Product } from '@/domain/ssot';
 
 type StockShortage = {
     sku: string;

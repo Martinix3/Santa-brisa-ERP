@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
-import { Input, SBButton } from '@/components/ui/ui-primitives';
+import { SBButton, Input } from '@/components/ui/ui-primitives';
 
 type Field = { name: string; label: string; placeholder: string };
 
@@ -62,7 +62,7 @@ export default function ApiKeyConnect({ open, onClose, provider, fields }: ApiKe
         <SBDialogContent
           title={`Conectar con ${provider.charAt(0).toUpperCase() + provider.slice(1)}`}
           description="Introduce tus credenciales de API para continuar."
-          onSubmit={(e) => { e.preventDefault(); handleConnect(); }}
+          onSubmit={(e: React.FormEvent<HTMLFormElement>) => { e.preventDefault(); handleConnect(); }}
           primaryAction={{ label: loading ? 'Conectando...' : 'Conectar', disabled: loading, type: 'submit' }}
           secondaryAction={{ label: 'Cancelar', onClick: onClose }}
         >

@@ -1,11 +1,24 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    // activa solo lo que uses; ejemplo:
-    // typedRoutes: true,
+  reactStrictMode: false, // Recommended for framer-motion etc.
+  images: {
+    remotePatterns: [{ protocol: 'https', hostname: 'picsum.photos' }],
   },
-  // images: { remotePatterns: [] }, // si usas imágenes remotas
-  // output: 'standalone', // opcional si despliegas en server/SSR
+  compiler: {
+    // For styled-components
+    // styledComponents: true,
+  },
+  devIndicators: {
+    allowedDevOrigins: [
+      '6000-firebase-studio-1757248254463.cluster-fbfjltn375c6wqxlhoehbz44sk.cloudworkstations.dev'
+    ]
+  },
+  webpack(config) {
+    config.externals.push({
+      'node-gyp': 'commonjs node-gyp',
+    });
+    return config;
+  },
 };
 
 export default nextConfig;

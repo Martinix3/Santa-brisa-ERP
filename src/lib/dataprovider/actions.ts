@@ -1,7 +1,7 @@
 // src/lib/dataprovider/actions.ts
 'use server';
 
-import type { SantaData } from '@/domain';
+import type { SantaData } from '@/domain/ssot';
 import { adminDb } from '@/server/firebaseAdmin';
 
 /**

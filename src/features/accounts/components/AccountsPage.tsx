@@ -3,7 +3,7 @@
 "use client"
 import React, { useMemo, useState, useEffect } from 'react'
 import { ChevronDown, Search, Plus, Phone, Mail, MessageSquare, Calendar, History, ShoppingCart, Info, BarChart3, UserPlus, Users, MoreVertical } from 'lucide-react'
-import type { Account as AccountType, Stage, User, Interaction, OrderSellOut, SantaData, CustomerData, Party, PartyRole, InteractionKind, Payload } from '@/domain'
+import type { Account as AccountType, Stage, User, Interaction, OrderSellOut, SantaData, CustomerData, Party, PartyRole, InteractionKind, Payload } from '@/domain/ssot'
 import { accountOwnerDisplay, computeAccountKPIs, getDistributorForAccount, orderTotal } from '@/lib/sb-core';
 import Link from 'next/link'
 import { useData } from '@/lib/dataprovider'

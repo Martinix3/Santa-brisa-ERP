@@ -3,7 +3,7 @@
 "use client";
 
 import React, { useMemo, useState, useTransition } from "react";
-import type { OrderStatus, Account, OrderSellOut, Party, PartyRole, CustomerData, User, Shipment, SantaData, AccountType } from '@/domain';
+import type { OrderStatus, Account, OrderSellOut, Party, PartyRole, CustomerData, User, Shipment, SantaData, AccountType } from '@/domain/ssot';
 import { ORDER_STATUS_STYLES, SBButton } from '@/components/ui/ui-primitives';
 import { useData } from "@/lib/dataprovider";
 import { updateOrderStatus, createSalesInvoice, recordPayment } from "@/app/(app)/orders/actions";
