@@ -1,3 +1,4 @@
+
 // src/domain/ssot.ts
 
 // =================================================================
@@ -734,6 +735,7 @@ export interface PaymentLink { id: string; financeLinkId: string; externalId?: s
 
 export type PosUom = 'UNIT'|'HOUR'|'BATCH';
 export type PosCostCatalogEntry = {
+  id: string;
   code: string;
   label: string;
   defaultUnitCost?: number;
