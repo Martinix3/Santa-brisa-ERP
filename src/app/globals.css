@@ -60,8 +60,9 @@
   * { border-color: hsl(var(--border) / 0.55); }
 }
 
-/* ===== Components ===== */
+/* ===== Components (único bloque) ===== */
 @layer components {
+  /* Botón primario */
   .sb-btn-primary {
     border-radius: var(--radius);
     box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
@@ -80,96 +81,43 @@
   }
   .sb-btn-primary:active { transform: scale(0.98); }
 
+  /* Card unificada */
   .sb-card {
     border-radius: calc(var(--radius) + 8px);
-    border-width: 1px;
-    border-color: hsl(var(--border) / 0.6);
-    background-color: hsl(var(--background) / 0.9);
+    border: 1px solid hsl(var(--border) / 0.6);
+    background: hsl(var(--background) / 0.98);
     box-shadow: 0 16px 24px -8px rgb(0 0 0 / 0.12);
-    backdrop-filter: blur(2px);
+    overflow: hidden;
   }
+  .sb-card__header {
+    display: flex; align-items: center; gap: .5rem;
+    padding: .75rem 1rem;
+    background: hsl(var(--sb-agua) / .16);
+    border-bottom: 1px solid hsl(var(--border) / .6);
+  }
+  .sb-card__title { font-weight: 600; color: hsl(var(--foreground)); }
+  .sb-card[data-variant="plain"] .sb-card__header { background: transparent; }
+  .sb-card__content { padding: 1rem; }
+  .sb-card__footer { padding: .75rem 1rem; border-top: 1px solid hsl(var(--border) / .6); }
 
+  /* Menú/flotantes */
   .sb-menu {
     border-radius: calc(var(--radius) + 4px);
-    border-width: 1px;
-    border-color: hsl(var(--border) / 0.6);
-    background-color: hsl(var(--background) / 0.95);
+    border: 1px solid hsl(var(--border) / 0.6);
+    background: hsl(var(--background) / 0.95);
     box-shadow: 0 24px 32px -12px rgb(0 0 0 / 0.14);
     backdrop-filter: blur(4px);
     animation: fade-in-50 .15s ease-out both, slide-in-from-top-1 .15s ease-out both;
   }
 
-  .sb-badge-success {
-    background-color: hsl(var(--sb-verde-mar) / 0.12);
-    color: hsl(var(--sb-verde-mar));
-    border-width: 1px;
-    border-color: hsl(var(--sb-verde-mar) / 0.25);
-    border-radius: calc(var(--radius) - 2px);
-  }
-
-/* ===== Cards unificadas ===== */
-@layer components {
-  /* Base de todas las tarjetas */
-  .sb-card {
-    border-radius: calc(var(--radius) + 8px);
-    border: 1px solid hsl(var(--border) / 0.6);
-    background: hsl(var(--background) / 0.98);
-    box-shadow: 0 16px 24px -8px rgb(0 0 0 / 0.12);
-    overflow: hidden;
-  }
-
-  /* Cabecera “agua” (para KPIs y módulos marketing/sales) */
-  .sb-card__header {
-    display: flex; align-items: center; gap: .5rem;
-    padding: .75rem 1rem;
-    background: hsl(var(--sb-agua) / .16);
-    border-bottom: 1px solid hsl(var(--border) / .6);
-  }
-  .sb-card__title { font-weight: 600; color: hsl(var(--foreground)); }
-
-  /* Variante “plain” cuando NO quieras cabecera acuosa */
-  .sb-card[data-variant="plain"] .sb-card__header { background: transparent; }
-
-  .sb-card__content { padding: 1rem; }
-  .sb-card__footer { padding: .75rem 1rem; border-top: 1px solid hsl(var(--border) / .6); }
-}
-/* ===== Cards unificadas ===== */
-@layer components {
-  /* Base de todas las tarjetas */
-  .sb-card {
-    border-radius: calc(var(--radius) + 8px);
-    border: 1px solid hsl(var(--border) / 0.6);
-    background: hsl(var(--background) / 0.98);
-    box-shadow: 0 16px 24px -8px rgb(0 0 0 / 0.12);
-    overflow: hidden;
-  }
-
-  /* Cabecera “agua” (para KPIs y módulos marketing/sales) */
-  .sb-card__header {
-    display: flex; align-items: center; gap: .5rem;
-    padding: .75rem 1rem;
-    background: hsl(var(--sb-agua) / .16);
-    border-bottom: 1px solid hsl(var(--border) / .6);
-  }
-  .sb-card__title { font-weight: 600; color: hsl(var(--foreground)); }
-
-  /* Variante “plain” cuando NO quieras cabecera acuosa */
-  .sb-card[data-variant="plain"] .sb-card__header { background: transparent; }
-
-  .sb-card__content { padding: 1rem; }
-  .sb-card__footer { padding: .75rem 1rem; border-top: 1px solid hsl(var(--border) / .6); }
-}
-@layer components {
-  /* Icono por defecto en “agua” */
+  /* Iconos */
   .sb-icon { color: hsl(var(--sb-agua)); line-height: 1; display: inline-flex; }
-  /* Muted/disabled */
   .sb-icon[data-muted="true"] { color: hsl(var(--sb-agua) / .5); }
-  /* Icono de alerta/éxito/error */
-  .sb-icon--warn  { color: hsl(var(--sb-sun-strong)); }
-  .sb-icon--ok    { color: hsl(var(--sb-verde-mar)); }
-  .sb-icon--danger{ color: hsl(var(--destructive)); }
-}
-@layer components {
+  .sb-icon--warn   { color: hsl(var(--sb-sun-strong)); }
+  .sb-icon--ok     { color: hsl(var(--sb-verde-mar)); }
+  .sb-icon--danger { color: hsl(var(--destructive)); }
+
+  /* Badges */
   .sb-badge {
     display:inline-flex; align-items:center; gap:.35rem;
     border-radius: calc(var(--radius) - 2px);
@@ -177,20 +125,16 @@
     font-size: .75rem; padding: .2rem .5rem; line-height: 1;
     white-space: nowrap;
   }
-
-  /* Estados */
   .sb-badge--info    { background: hsl(var(--sb-agua) / .18);  color: hsl(var(--foreground)); border-color: hsl(var(--sb-agua) / .35); }
   .sb-badge--ok      { background: hsl(var(--sb-verde-mar) /.12); color: hsl(var(--sb-verde-mar)); border-color: hsl(var(--sb-verde-mar)/.25); }
   .sb-badge--warn    { background: hsl(var(--sb-sun-strong)/.20); color: hsl(var(--foreground)); border-color: hsl(var(--sb-sun-strong)/.35); }
   .sb-badge--danger  { background: hsl(var(--destructive) /.12); color: hsl(var(--destructive) / .75); border-color: hsl(var(--destructive)/.25); }
 
-  /* Departamentos */
-  .sb-badge--ventas     { background: color-mix(in oklab, #c56a3c 18%, white); color:#fff; border-color: #c56a3c40; }
-  .sb-badge--marketing  { background: color-mix(in oklab, #fff5a9 35%, white); color:#111; border-color: #fecb4640; }
-  .sb-badge--almacen    { background: color-mix(in oklab, #99d9d9 25%, white); color:#2F5D5D; border-color: #99d9d960; }
-  .sb-badge--produccion { background: color-mix(in oklab, #5a9496 25%, white); color:#fff; border-color: #5a949640; }
-  .sb-badge--finanzas   { background: #eef2f7; color:#111; border-color: #cdd6e3; }
-  .sb-badge--calidad    { background: color-mix(in oklab, #fecb46 25%, white); color:#111; border-color: #fecb4640; }
-}
-
+  /* Badges por departamento */
+  .sb-badge--ventas     { background: color-mix(in oklab, #c56a3c 18%, white); color:#fff; border-color:#c56a3c40; }
+  .sb-badge--marketing  { background: color-mix(in oklab, #fff5a9 35%, white); color:#111; border-color:#fecb4640; }
+  .sb-badge--almacen    { background: color-mix(in oklab, #99d9d9 25%, white); color:#2F5D5D; border-color:#99d9d960; }
+  .sb-badge--produccion { background: color-mix(in oklab, #5a9496 25%, white); color:#fff; border-color:#5a949640; }
+  .sb-badge--finanzas   { background: #eef2f7; color:#111; border-color:#cdd6e3; }
+  .sb-badge--calidad    { background: color-mix(in oklab, #fecb46 25%, white); color:#111; border-color:#fecb4640; }
 }
