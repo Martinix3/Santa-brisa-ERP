@@ -94,8 +94,10 @@ function AccountBar({ a, party, santaData, onAddActivity, userMap, shortDate }: 
 
 
   return (
-    <div className={`overflow-hidden transition-colors duration-150 hover:bg-black/5 rounded-lg border border-zinc-200/60 ${open ? 'bg-white shadow-md' : ''}`}
-         style={open ? { borderLeft: `4px solid ${s.tint}` } : {}}>
+    <div
+      className={`overflow-hidden transition-colors duration-150 hover:bg-black/5 rounded-lg border border-zinc-200/60 border-l-4 ${open ? 'bg-white shadow-md' : ''}`}
+      style={{ borderLeftColor: s.tint }}
+    >
         <div className="w-full grid grid-cols-[auto_1.6fr_1.2fr_1fr_1.2fr_auto] items-center gap-3 px-4 py-1.5 cursor-pointer" onClick={()=>setOpen(v=>!v)}>
             <div className="p-1.5 rounded-md text-zinc-600 hover:bg-zinc-100/20">
                 <ChevronDown className="h-4 w-4 transition-transform duration-300" style={{transform: open? 'rotate(180deg)':'rotate(0deg)'}} aria-hidden="true"/>
