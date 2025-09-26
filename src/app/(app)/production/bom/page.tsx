@@ -8,9 +8,6 @@ import { SBCard } from '@/components/ui/ui-primitives';
 import { SB_COLORS, SB_THEME } from "@/domain/ssot";
 import {
   listRecipes as fetchRecipes,
-  createRecipe,
-  updateRecipe,
-  deleteRecipe,
   listMaterials,
   listFinishedSkus,
 } from "@/features/production/ssot-bridge";
@@ -482,7 +479,7 @@ function RecipeForm({
   const trySave = () => {
     const parsed = bomSchema.safeParse(value);
     if (!parsed.success) {
-      alert(parsed.error.issues.map((i) => i.message).join("\n"));
+      alert(parsed.error.issues.map((i) => i.message).join("\\n"));
       return;
     }
     onSave();
@@ -836,7 +833,7 @@ function RecipeForm({
 
 // ---------- Página ----------
 export default function BomPage() {
-    const { data: santaData } = useData();
+    const { data: santaData, saveAllCollections } = useData();
   const [openRecipe, setOpenRecipe] = useState<RecipeBom | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -909,16 +906,17 @@ export default function BomPage() {
       setError(parsed.error.issues.map((i) => i.message).join("; "));
       return;
     }
+
     const exists = recipes.some((r) => r.id === openRecipe.id);
     try {
-      if (exists) {
-        await updateRecipe(openRecipe.id!, openRecipe);
-      } else {
-        await createRecipe(openRecipe);
-      }
+      const updatedBoms = exists
+        ? recipes.map(r => r.id === openRecipe.id ? openRecipe : r)
+        : [...recipes, openRecipe];
+      
+      await saveAllCollections({ billOfMaterials: updatedBoms });
+      
       setNotification("Receta guardada con éxito");
       setOpenRecipe(null);
-      // Data will be re-fetched by the provider, no need for loadAllData
     } catch (e: any) {
       setError("Error al guardar: " + e.message);
     }
@@ -927,7 +925,8 @@ export default function BomPage() {
   const remove = async (id: string) => {
     if (!confirm("¿Eliminar la receta?")) return;
     try {
-      await deleteRecipe(id);
+      const updatedBoms = recipes.filter(r => r.id !== id);
+      await saveAllCollections({ billOfMaterials: updatedBoms });
       setNotification("Receta eliminada");
       if (openRecipe?.id === id) setOpenRecipe(null);
     } catch (e: any) {

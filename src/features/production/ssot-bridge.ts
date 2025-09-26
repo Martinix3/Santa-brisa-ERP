@@ -1,3 +1,4 @@
+
 // src/features/production/ssot-bridge.ts
 import { useData } from '@/lib/dataprovider';
 import type { BillOfMaterial, Material, ProductionOrder, Lot, InfluencerCollab, MarketingEvent, OnlineCampaign, Product, InventoryItem } from '@/domain/ssot';
@@ -58,14 +59,23 @@ export async function updateMaterial(id: string, patch: Partial<Material>): Prom
     return { id, sku: '', name: 'Updated Material', category: 'raw', ...patch };
 }
 
-export async function createRecipe(recipe: BillOfMaterial): Promise<void> {
-    console.warn("createRecipe is not implemented on the client-side bridge yet.");
+export async function createRecipe(data: { billOfMaterials: BillOfMaterial[] }, recipe: BillOfMaterial): Promise<void> {
+    const updatedBoms = [...data.billOfMaterials, recipe];
+    // This should call a centralized save function, like saveAllCollections from useData
+    // For now, it's a placeholder. A proper implementation would be:
+    // const { saveAllCollections } = useData();
+    // await saveAllCollections({ billOfMaterials: updatedBoms });
+    console.warn("createRecipe needs to be connected to a data provider save function.");
 }
 
-export async function updateRecipe(id: string, patch: Partial<BillOfMaterial>): Promise<void> {
-    console.warn("updateRecipe is not implemented on the client-side bridge yet.");
+export async function updateRecipe(data: { billOfMaterials: BillOfMaterial[] }, id: string, patch: Partial<BillOfMaterial>): Promise<void> {
+    const updatedBoms = data.billOfMaterials.map(b => b.id === id ? { ...b, ...patch } : b);
+     // This should call a centralized save function
+    console.warn("updateRecipe needs to be connected to a data provider save function.");
 }
 
-export async function deleteRecipe(id: string): Promise<void> {
-    console.warn("deleteRecipe is not implemented on the client-side bridge yet.");
+export async function deleteRecipe(data: { billOfMaterials: BillOfMaterial[] }, id: string): Promise<void> {
+    const updatedBoms = data.billOfMaterials.filter(b => b.id !== id);
+     // This should call a centralized save function
+    console.warn("deleteRecipe needs to be connected to a data provider save function.");
 }
