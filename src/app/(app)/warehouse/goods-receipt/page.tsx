@@ -4,7 +4,7 @@
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import { useData } from '@/lib/dataprovider';
 import { SBButton, SBCard, Input, Select, Textarea } from '@/components/ui/ui-primitives';
-import { Plus, Trash2, Box, Truck, Search, Building } from 'lucide-react';
+import { Plus, Trash2, Box, Truck, Search, Building, Info, X } from 'lucide-react';
 import type { Party, Material, GoodsReceipt, Lot, StockMove, Uom } from '@/domain/ssot';
 
 const norm = (s: string) =>
@@ -118,6 +118,28 @@ function SearchableSelect<T extends {id: string, name: string}>({
     );
 }
 
+function Notification({ message, type, onClose }: { message: string, type: 'success' | 'error', onClose: () => void }) {
+    const baseClasses = "flex items-center gap-3 p-3 rounded-lg border";
+    const typeClasses = type === 'success'
+        ? "bg-green-50 border-green-200 text-green-800"
+        : "bg-red-50 border-red-200 text-red-800";
+    
+    useEffect(() => {
+        const timer = setTimeout(onClose, 5000);
+        return () => clearTimeout(timer);
+    }, [onClose]);
+
+    return (
+        <div className={`${baseClasses} ${typeClasses}`}>
+            <Info size={16} className="flex-shrink-0" />
+            <p className="text-sm font-medium flex-grow">{message}</p>
+            <button onClick={onClose} className="p-1 rounded-full hover:bg-black/10">
+                <X size={14} />
+            </button>
+        </div>
+    );
+}
+
 
 export default function GoodsReceiptPage() {
     const { data, currentUser, saveAllCollections } = useData();
@@ -126,6 +148,7 @@ export default function GoodsReceiptPage() {
     const [deliveryNote, setDeliveryNote] = useState('');
     const [lines, setLines] = useState<LineItem[]>([{ supplierLot: '', qty: 0, unitCost: 0, newMaterialCategory: 'raw', uom: 'uds' }]);
     const [sendToQc, setSendToQc] = useState(true);
+    const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
 
     const suppliers = useMemo(() => {
         return (data?.parties || []).filter(p => (p.roles || []).includes('SUPPLIER'));
@@ -162,8 +185,9 @@ export default function GoodsReceiptPage() {
     };
 
     const handleSave = async () => {
+        setNotification(null);
         if ((!supplierId && !newSupplierName) || !deliveryNote || lines.some(l => (!l.materialId && !l.newMaterialName) || !l.qty || !l.supplierLot)) {
-            alert('Por favor, completa Proveedor, Albarán y todas las líneas de producto (incluyendo lote del proveedor).');
+            setNotification({ message: 'Por favor, completa Proveedor, Albarán y todas las líneas de producto.', type: 'error' });
             return;
         }
 
@@ -180,19 +204,19 @@ export default function GoodsReceiptPage() {
 
         // Create new supplier if needed
         if (newSupplierName && !supplierId) {
-          const newPartyId = uid('party');
-          const nowIso = now.toISOString();
-          const newParty: Party = {
-            id: newPartyId,
-            name: newSupplierName,
-            legalName: newSupplierName,
-            kind: 'ORG',
-            roles: ['SUPPLIER'],
-            createdAt: nowIso,
-            updatedAt: nowIso,
-          } as Party;
-          newParties.push(newParty);
-          finalSupplierId = newPartyId;
+            const newPartyId = uid('party');
+            const nowIso = now.toISOString();
+            const newParty: Party = {
+                id: newPartyId,
+                name: newSupplierName,
+                legalName: newSupplierName,
+                kind: 'ORG',
+                roles: ['SUPPLIER'],
+                createdAt: nowIso,
+                updatedAt: nowIso,
+            } as Party;
+            newParties.push(newParty);
+            finalSupplierId = newPartyId;
         }
 
         const existingSkus = materials.map(m => m.sku);
@@ -204,28 +228,28 @@ export default function GoodsReceiptPage() {
 
             // Create new material if needed
             if (line.newMaterialName && !line.materialId) {
-              const newMaterialId = uid('mat');
-              const cat = line.newMaterialCategory || 'raw';
-              const newSku = makeSku(line.newMaterialName, cat, existingSkus);
+                const newMaterialId = uid('mat');
+                const cat = line.newMaterialCategory || 'raw';
+                const newSku = makeSku(line.newMaterialName, cat, existingSkus);
 
-              const newMaterial: Material = {
-                id: newMaterialId,
-                sku: newSku,
-                name: line.newMaterialName,
-                category: cat,
-                uom: ((line.uom as Uom) || 'uds') as Uom,
-                standardCost: line.unitCost || 0,
-              } as any;
+                const newMaterial: Material = {
+                    id: newMaterialId,
+                    sku: newSku,
+                    name: line.newMaterialName,
+                    category: cat,
+                    uom: ((line.uom as Uom) || 'uds') as Uom,
+                    standardCost: line.unitCost || 0,
+                } as any;
 
-              newMaterials.push(newMaterial);
-              existingSkus.push(newSku);
-              materialId = newMaterialId;
-              sku = newSku;
-              uom = newMaterial.uom as Uom;
+                newMaterials.push(newMaterial);
+                existingSkus.push(newSku);
+                materialId = newMaterialId;
+                sku = newSku;
+                uom = newMaterial.uom as Uom;
             } else {
-              const m = materials.find(mm => mm.id === materialId);
-              sku = m?.sku || '';
-              uom = (m?.uom as Uom) || ('uds' as Uom);
+                const m = materials.find(mm => mm.id === materialId);
+                sku = m?.sku || '';
+                uom = (m?.uom as Uom) || ('uds' as Uom);
             }
             
             const newLotId = uid(`lot_${receiptId}_${index}`);
@@ -276,20 +300,25 @@ export default function GoodsReceiptPage() {
             lines: finalLines,
         };
 
-        await saveAllCollections({
-            goodsReceipts: [...(data?.goodsReceipts || []), receipt],
-            lots: [...(data?.lots || []), ...newLots],
-            stockMoves: [...(data?.stockMoves || []), ...newStockMoves],
-            materials: [...(data?.materials || []), ...newMaterials],
-            parties: [...(data?.parties || []), ...newParties],
-        });
+        try {
+            await saveAllCollections({
+                goodsReceipts: [...(data?.goodsReceipts || []), receipt],
+                lots: [...(data?.lots || []), ...newLots],
+                stockMoves: [...(data?.stockMoves || []), ...newStockMoves],
+                materials: [...(data?.materials || []), ...newMaterials],
+                parties: [...(data?.parties || []), ...newParties],
+            });
 
-        alert('Recepción de mercancía guardada con éxito. El stock ha sido actualizado.');
-        // Reset form
-        setSupplierId(undefined);
-        setNewSupplierName(undefined);
-        setDeliveryNote('');
-        setLines([{ supplierLot: '', qty: 0, unitCost: 0, newMaterialCategory: 'raw', uom: 'uds' }]);
+            setNotification({ message: 'Recepción de mercancía guardada con éxito.', type: 'success' });
+            // Reset form
+            setSupplierId(undefined);
+            setNewSupplierName(undefined);
+            setDeliveryNote('');
+            setLines([{ supplierLot: '', qty: 0, unitCost: 0, newMaterialCategory: 'raw', uom: 'uds' }]);
+        } catch (error) {
+            console.error("Failed to save goods receipt:", error);
+            setNotification({ message: 'Error al guardar la recepción.', type: 'error' });
+        }
     };
 
     return (
@@ -299,6 +328,8 @@ export default function GoodsReceiptPage() {
                     <Truck /> Recepción de Mercancía
                 </h1>
             </div>
+            
+            {notification && <Notification message={notification.message} type={notification.type} onClose={() => setNotification(null)} />}
 
             <SBCard title="Registrar Entrada de Material">
                 <div className="p-6 space-y-6">
@@ -311,14 +342,15 @@ export default function GoodsReceiptPage() {
                                   setSupplierId(item.id); 
                                   setNewSupplierName(undefined);
                                 }}
-                                onFreeText={text => { 
+                                onFreeText={useCallback(text => { 
                                     const exact = suppliers.some(s => s.name.toLowerCase() === text.toLowerCase());
                                     if (!exact) { 
                                       setNewSupplierName(text); 
                                       setSupplierId(undefined); 
                                     }
-                                }}
+                                }, [suppliers])}
                                 placeholder="Buscar o crear proveedor..."
+                                initialValue={supplierId ? suppliers.find(s => s.id === supplierId)?.name : newSupplierName}
                             />
                         </label>
                          <label className="grid gap-1.5">
@@ -343,7 +375,7 @@ export default function GoodsReceiptPage() {
                                         <SearchableSelect<Material>
                                             items={materials}
                                             onSelect={item => handleLineChange(index, 'materialId', item.id)}
-                                            onFreeText={text => handleLineChange(index, 'newMaterialName', text)}
+                                            onFreeText={useCallback((text) => handleLineChange(index, 'newMaterialName', text), [handleLineChange, index])}
                                             placeholder="Buscar o crear material..."
                                             initialValue={line.materialId ? materials.find(m=>m.id === line.materialId)?.name : line.newMaterialName}
                                         />
@@ -377,4 +409,3 @@ export default function GoodsReceiptPage() {
         </div>
     );
 }
-
