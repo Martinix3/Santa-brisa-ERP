@@ -61,7 +61,7 @@ export function computeKpis({ orders, recipes, onHand, items }: Input){
   });
   
   const overdueOrders = orders.filter(o => {
-      const isLate = o.createdAt && new Date(o.createdAt) < new Date(Date.now() - 3 * 86400000);
+      const isLate = o.createdAt && new Date(o.createdAt) < new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
       return (o.status === 'planned' || o.status === 'released') && isLate;
   }).length;
   

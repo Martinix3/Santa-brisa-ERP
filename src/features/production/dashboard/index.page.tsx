@@ -1,4 +1,5 @@
 
+// src/features/production/dashboard/index.page.tsx
 "use client";
 import React, { useMemo } from "react";
 import { useData } from "@/lib/dataprovider";
@@ -10,18 +11,19 @@ import { InventorySnapshot } from "./components/InventorySnapshot";
 import { QCPanel } from "./components/QCPanel";
 import { BottlingProgress } from "./components/BottlingProgress";
 import { EfficiencyWidget } from "./components/EfficiencyWidget";
-import { SBCard } from "@/components/ui/ui-primitives";
 import { Plus } from 'lucide-react';
+import { SBCard } from "@/components/ui/ui-primitives";
+import { UpcomingTasks } from "@/features/agenda/components/UpcomingTasks";
 import { SB_THEME } from "@/domain/ssot";
 
-export default function ProductionDashboardPage(){
+export default function ProductionDashboardPage() {
   const { data } = useData();
-  const { billOfMaterials: recipes, materials, inventory, productionOrders: orders, lots } = data || {};
+  const { billOfMaterials: recipes, items, onHand, productionOrders: orders } = data || {};
   
   const kpis = useMemo(()=> {
-      if (!orders || !recipes || !inventory || !lots || !materials) return null;
-      return computeKpis({ orders, recipes, inventory, lots, materials });
-  }, [orders, recipes, inventory, lots, materials]);
+      if (!orders || !recipes || !onHand || !items) return null;
+      return computeKpis({ orders: orders as any, recipes: recipes as any, onHand: onHand as any, items });
+  }, [orders, recipes, onHand, items]);
 
   if (!data || !kpis) return <div className="p-6">Cargando dashboard…</div>;
 
@@ -42,18 +44,20 @@ export default function ProductionDashboardPage(){
           <OrdersTimeline orders={orders || []} />
         </div>
         <div className="space-y-6">
-          <ShortagesPanel shortages={kpis.currentShortages} materials={materials || []} />
-          <InventorySnapshot critical={kpis.criticalInventory} materials={materials || []}/>
-          <QCPanel lots={lots || []} />
+          <ShortagesPanel shortages={kpis.currentShortages} items={items || []} />
+          <InventorySnapshot critical={kpis.criticalInventory} items={items || []}/>
+          <QCPanel lots={onHand || []} />
+          <UpcomingTasks department="PRODUCCION" />
         </div>
       </div>
       
        <SBCard title="Análisis de Eficiencia (Últimos 30 días)">
-         <EfficiencyWidget laborSeries={kpis.laborSeries} costPerBottleSeries={kpis.costPerBottleSeries} />
+         <EfficiencyWidget laborSeries={kpis.laborSeries} costPerUnitSeries={kpis.costPerUnitSeries} />
        </SBCard>
        
+       {/* Botón de acción flotante, sin acción por ahora */}
        <button className="fixed bottom-6 right-6 h-14 w-14 rounded-full bg-zinc-900 text-white shadow-lg flex items-center justify-center z-40 hover:bg-zinc-800 transition-colors">
-            <Plus size={24} className="sb-icon"/>
+            <Plus size={24} />
        </button>
     </div>
   );
