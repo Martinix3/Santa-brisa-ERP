@@ -42,7 +42,7 @@ export async function handleCreateHoldedInvoice({ orderId }: { orderId: string }
     const partyRolesSnap = await db.collection('partyRoles').where('partyId', '==', order.partyId).where('role', '==', 'CUSTOMER').limit(1).get();
     if (partyRolesSnap.empty) {
         const newRoleRef = db.collection('partyRoles').doc();
-        const newRole: Omit<PartyRole, 'data'> = {
+        const newRole: PartyRole = {
             id: newRoleRef.id,
             partyId: order.partyId,
             role: 'CUSTOMER',
