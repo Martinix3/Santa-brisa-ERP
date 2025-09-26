@@ -32,13 +32,34 @@ export async function run({ orderId }: { orderId: string }) {
 
     const shipmentId = db.collection('shipments').doc().id;
     
+    // Check for stock before changing status
+    const inventorySnap = await db.collection('inventory').get();
+    const inventory = inventorySnap.docs.map(doc => doc.data());
+    
+    const shortages = (order.lines || []).map(line => {
+        const available = inventory
+            .filter(item => item.sku === line.sku && item.locationId === 'FG/MAIN')
+            .reduce((sum, item) => sum + item.qty, 0);
+        return {
+            sku: line.sku,
+            required: line.qty,
+            available: available,
+            isShort: available < line.qty,
+        };
+    }).filter(s => s.isShort);
+
+    const status: Shipment['status'] = shortages.length > 0 ? 'exception' : 'pending';
+    const notes = shortages.length > 0 
+        ? `Falta de stock: ${shortages.map(s => `${s.required - s.available}x ${s.sku}`).join(', ')}`
+        : order.notes;
+
     const newShipment: Shipment = {
         id: shipmentId,
         orderId: order.id,
         partyId: account.partyId,
         accountId: account.id, // For compatibility
         mode,
-        status: 'pending',
+        status: status,
         lines: (order.lines || []).map(line => ({
             sku: line.sku,
             name: line.name ?? line.sku, // Ensure name is always a string
@@ -52,8 +73,9 @@ export async function run({ orderId }: { orderId: string }) {
         country: party.billingAddress?.country || 'España',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        notes: notes
     };
 
-    await db.collection('shipments').doc(shipmentId).set(newShipment);
-    console.log(`Successfully created shipment ${shipmentId} for order ${orderId}.`);
+    await db.collection('shipments').doc(shipmentId).set(newShipment as any);
+    console.log(`Successfully created shipment ${shipmentId} for order ${orderId} with status ${status}.`);
 }
