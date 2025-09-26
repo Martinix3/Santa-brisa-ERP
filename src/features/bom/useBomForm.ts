@@ -1,30 +1,65 @@
 // src/features/bom/useBomForm.ts
 "use client";
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { FieldErrors } from "@/lib/result";
 
-export function useBomForm(initial: any) {
-  const [values, setValues] = useState(initial);
+function toDotPath(p: string) {
+  // "items[0].quantity" -> "items.0.quantity"
+  return p.replace(/\[(\d+)\]/g, ".$1");
+}
+
+function setByPath(obj: any, path: string, value: any) {
+  const segs = path.replace(/\]/g, "").split(/[.[]/g);
+  let cur = obj;
+  for (let i = 0; i < segs.length - 1; i++) {
+    const key = segs[i];
+    const nextKey = segs[i + 1];
+    const isNextIndex = /^\d+$/.test(nextKey);
+    if (cur[key] == null) cur[key] = isNextIndex ? [] : {};
+    cur = cur[key];
+  }
+  cur[segs[segs.length - 1]] = value;
+}
+
+export function useBomForm<T = any>(initial: T) {
+  const [values, setValues] = useState<T>(initial);
   const [saving, setSaving] = useState(false);
-  const [fieldErrors, setFieldErrors] = useState<FieldErrors|undefined>();
-  const [lastError, setLastError] = useState<string|undefined>();
-  const dirty = useMemo(() => JSON.stringify(values) !== JSON.stringify(initial), [values, initial]);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors | undefined>();
+  const [lastError, setLastError] = useState<string | undefined>();
+  const [initialSnapshot, setInitialSnapshot] = useState<T>(initial);
+
+  // 🔄 si cambian los initialValues (abrir otra receta), resetea el formulario
+  useEffect(() => {
+    setValues(initial);
+    setInitialSnapshot(initial);
+    setFieldErrors(undefined);
+    setLastError(undefined);
+  }, [initial]);
 
   function set<K extends string>(path: K, value: any) {
     setValues((v: any) => {
-      const copy = structuredClone(v);
-      // soporta paths como "items[0].quantity"
-      const segs = path.replace(/\]/g,"").split(/[.[]/g);
-      let cur: any = copy;
-      for (let i=0;i<segs.length-1;i++) cur = cur[segs[i]];
-      cur[segs[segs.length-1]] = value;
+      const copy = structuredClone ? structuredClone(v) : JSON.parse(JSON.stringify(v));
+      setByPath(copy, path as string, value);
       return copy;
     });
     setFieldErrors(e => {
       if (!e) return e;
-      const copy = { ...e }; delete copy[path]; return copy;
+      const copy = { ...e };
+      delete copy[toDotPath(path)]; // ✅ borra el error asociado a este campo
+      return copy;
     });
   }
 
-  return { values, set, saving, setSaving, fieldErrors, setFieldErrors, lastError, setLastError, dirty };
+  const reset = () => {
+    setValues(initialSnapshot);
+    setFieldErrors(undefined);
+    setLastError(undefined);
+  };
+
+  const dirty = useMemo(
+    () => JSON.stringify(values) !== JSON.stringify(initialSnapshot),
+    [values, initialSnapshot]
+  );
+
+  return { values, set, saving, setSaving, fieldErrors, setFieldErrors, lastError, setLastError, dirty, reset };
 }
