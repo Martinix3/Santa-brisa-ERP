@@ -337,12 +337,31 @@ export default function ProduccionPage() {
           <p className="whitespace-pre-wrap">{notification}</p>
         </div>
       )}
-      <header className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-zinc-900">Producción</h1>
-          <p className="text-sm text-zinc-500">Órdenes desde receta (BOM), stock, ejecución y costes</p>
+      <header className="flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold text-zinc-900">Producción</h1>
+            <p className="text-sm text-zinc-500">Órdenes, faltantes y programaciones</p>
+          </div>
+          <CreateOrderCard recipes={recipes} onCreate={createOrder} onEdit={updateOrder} editingOrder={editingOrder} onCloseEdit={() => setEditingOrder(null)} />
         </div>
-        <CreateOrderCard recipes={recipes} onCreate={createOrder} onEdit={updateOrder} editingOrder={editingOrder} onCloseEdit={() => setEditingOrder(null)} />
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Tarjeta de faltantes globales */}
+          <MissingMaterialsCard orders={orders} allMaterials={allMaterials} />
+          {/* Próximas producciones programadas */}
+          <UpcomingScheduleCard orders={orders} recipes={recipes} allMaterials={allMaterials} />
+          {/* Puedes dejar un hueco para KPIs o un mini-ratio stock/consumo */}
+          <div className="rounded-2xl border border-[var(--line)] bg-white p-4">
+            <div className="text-xs text-zinc-500 mb-2">Resumen rápido</div>
+            <div className="text-sm grid grid-cols-2 gap-2">
+              <div>Órdenes abiertas: <b>{orders.filter(o => o.status!=='done' && o.status!=='cancelled').length}</b></div>
+              <div>Con faltantes: <b className={orders.some(o=>o.shortages?.length)?'text-red-600':'text-zinc-800'}>
+                {orders.filter(o => o.shortages?.length).length}
+              </b></div>
+            </div>
+          </div>
+        </div>
       </header>
 
       <OrdersList orders={orders} recipes={recipes} onStart={startOrder} onFinish={finishOrder} onUpdate={updateOrder} onDelete={deleteOrder} onEdit={setEditingOrder} inventory={warehouseInventory} allMaterials={allMaterials} />
@@ -528,7 +547,7 @@ function OrdersList({ orders, recipes, onStart, onFinish, onUpdate, onDelete, on
             const { plannedBottles: plan } = recipe ? planFromRecipe(recipe, o.targetQuantity, allMaterials) : { plannedBottles: 0 };
             return (
             <tr key={o.id} className="border-t border-[var(--line)]">
-              <td className="px-3 py-2 font-medium">{o.id}</td>
+              <td className="px-3 py-2 font-medium">{o.orderNumber || o.id}</td>
               <td className="px-3 py-2">
                 <div className="flex items-center gap-2">
                     {o.status === 'planned' && <Pill tone="amber">PROGRAMADA</Pill>}
@@ -646,7 +665,7 @@ function OrderDetail({ order, recipe, onClose, onStart, onFinish, onUpdate, inve
     <div className="rounded-xl border border-[var(--line)] bg-white p-4">
       <div className="flex items-center justify-between mb-3">
         <div className="font-medium flex items-center gap-2">
-          Orden {order.id}
+          Orden {order.orderNumber || order.id}
           {order.shortages && order.shortages.length > 0 && order.status === 'planned' && (
               <div className="relative group">
                   <AlertCircle className="h-5 w-5 text-red-500 cursor-pointer"/>
@@ -826,6 +845,91 @@ function ActualsBlock({ actuals, onChange }: { actuals: ActualConsumption[], onC
     );
 }
 
+function MissingMaterialsCard({ orders, allMaterials }: { orders: ProdOrder[]; allMaterials: Material[] }) {
+  // Junta faltantes de órdenes planned/released
+  const shortagesMap = useMemo(() => {
+    const m = new Map<string, { required: number; available: number; uom: Uom }>();
+    orders
+      .filter(o => (o.status === 'planned' || o.status === 'released') && o.shortages?.length)
+      .forEach(o => o.shortages!.forEach(s => {
+        const cur = m.get(s.materialId);
+        if (!cur) m.set(s.materialId, { required: s.required - s.available, available: s.available, uom: s.uom });
+        else m.set(s.materialId, { required: cur.required + (s.required - s.available), available: cur.available + s.available, uom: s.uom });
+      }));
+    return m;
+  }, [orders]);
+
+  const items = [...shortagesMap.entries()]
+    .map(([materialId, v]) => ({ materialId, missing: Math.max(0, v.required), uom: v.uom }))
+    .filter(x => x.missing > 0)
+    .sort((a,b)=> b.missing - a.missing)
+    .slice(0, 8); // top 8
+
+  const hasShortages = items.length > 0;
+
+  return (
+    <div className={`rounded-2xl border p-4 ${hasShortages ? 'border-red-300 bg-red-50' : 'border-[var(--line)] bg-white'}`}>
+      <div className="flex items-center justify-between mb-2">
+        <div className={`text-sm ${hasShortages ? 'text-red-800' : 'text-zinc-500'}`}>
+          {hasShortages ? 'Materiales faltantes' : 'Sin faltantes'}
+        </div>
+        {hasShortages && <Pill tone="red">ALERTA</Pill>}
+      </div>
+      {hasShortages ? (
+        <ul className="space-y-1 text-sm">
+          {items.map(it => (
+            <li key={it.materialId} className="flex justify-between">
+              <span className="truncate">{allMaterials.find(m => m.id === it.materialId)?.name || it.materialId}</span>
+              <span className="font-mono">-{it.missing.toFixed(2)} {it.uom}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-sm text-zinc-600">Todo listo para producir.</p>
+      )}
+    </div>
+  );
+}
+
+function UpcomingScheduleCard({ orders, recipes, allMaterials }: { orders: ProdOrder[]; recipes: RecipeBom[]; allMaterials: Material[] }) {
+  const upcoming = useMemo(() => {
+    return orders
+      .filter(o => o.status === 'planned' || o.status === 'released')
+      .filter(o => o.scheduledFor)
+      .sort((a,b) => new Date(a.scheduledFor!).getTime() - new Date(b.scheduledFor!).getTime())
+      .slice(0, 3)
+      .map(o => {
+        const recipe = recipes.find(r => r.id === o.bomId);
+        const { plannedBottles } = recipe ? planFromRecipe(recipe, o.targetQuantity, allMaterials) : { plannedBottles: 0 };
+        return { id: o.id, when: o.scheduledFor!, status: o.status, plannedBottles, sku: recipe?.sku, name: recipe?.name };
+      });
+  }, [orders, recipes, allMaterials]);
+
+  return (
+    <div className="rounded-2xl border border-[var(--line)] bg-white p-4">
+      <div className="text-xs text-zinc-500 mb-2">Próximas producciones</div>
+      {upcoming.length ? (
+        <ul className="text-sm space-y-2">
+          {upcoming.map(u => (
+            <li key={u.id} className="flex items-center justify-between">
+              <div className="min-w-0">
+                <div className="font-medium truncate">{u.name || u.sku || u.id}</div>
+                <div className="text-xs text-zinc-500">{new Date(u.when).toLocaleString()}</div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Pill tone={u.status === 'released' ? 'blue' : 'amber'}>{u.status === 'released' ? 'LIBERADA' : 'PROGRAMADA'}</Pill>
+                <span className="text-xs text-zinc-600">Plan: <b>{u.plannedBottles}</b></span>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-sm text-zinc-600">No hay órdenes próximas.</p>
+      )}
+    </div>
+  );
+}
   
+
 
 
