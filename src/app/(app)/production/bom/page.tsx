@@ -7,6 +7,7 @@ import { SB_COLORS } from "@/domain/ssot";
 import { useData } from "@/lib/dataprovider";
 import { listMaterials, listFinishedSkus } from "@/features/production/ssot-bridge";
 import type { Material, BillOfMaterial as RecipeBom, Uom } from "@/domain/ssot";
+import { canonicalUomForMaterial } from '@/domain/uom';
 
 // Nuevos imports para el formulario mejorado
 import { useToaster } from "@/components/ui/Toaster";
@@ -59,6 +60,7 @@ function RecipeForm({
   finishedSkus: FinishedSku[];
 }) {
   const fm = useBomForm(initialValues);
+  const { data: santaData } = useData();
   const { push } = useToaster();
   const [isNewSku, setIsNewSku] = useState(false);
   
@@ -124,7 +126,16 @@ function RecipeForm({
       }
     }
 
-    const res = await onSave(fm.values);
+    const inv = santaData?.inventory || [];
+    const normalized = {
+      ...fm.values,
+      items: (fm.values.items || []).map(it => ({
+        ...it,
+        unit: canonicalUomForMaterial(it.materialId, inv, materials), // fuerza canónica
+      })),
+    };
+
+    const res = await onSave(normalized as RecipeBom);
     fm.setSaving(false);
 
     if (res.ok) {
@@ -223,12 +234,11 @@ function RecipeForm({
                  <Field label="Cantidad" name={`items[${i}].quantity`} required error={fm.fieldErrors?.[`items.${i}.quantity`]}>
                     <input type="number" className="w-full h-10 px-3 rounded-lg border" value={line.quantity} onChange={e => fm.set(`items[${i}].quantity`, Number(e.target.value))} />
                  </Field>
-                 <Field label="UoM" name={`items[${i}].unit`}>
-                    <select className="w-full h-10 px-3 rounded-lg border" value={line.unit || ""} onChange={e => fm.set(`items[${i}].unit`, e.target.value)}>
-                        <option value="">—</option>
-                        {uomOptions.map(uom => <option key={uom} value={uom}>{uom}</option>)}
-                    </select>
-                 </Field>
+                 <div className="text-xs text-zinc-600">
+                  UoM: <span className="px-2 py-0.5 rounded-full border bg-zinc-50">
+                    {line.materialId ? canonicalUomForMaterial(line.materialId, santaData?.inventory || [], materials) : '-'}
+                  </span>
+                 </div>
                  <button onClick={() => removeLine(i)} className="h-10 px-2 border bg-white hover:bg-red-50 text-red-600 rounded-lg" aria-label={`Eliminar línea ${i+1}`}><Trash2 size={16}/></button>
               </div>
           ))}
@@ -275,22 +285,30 @@ export default function BomPage() {
     };
 
     const handleSave = async (values: RecipeBom) => {
-      const result = await upsertBOM(values);
-      if (result.ok) {
-        // Actualizar el estado local directamente
-        if (santaData) {
-            const updatedBoms = [...(santaData.billOfMaterials || [])];
-            const index = updatedBoms.findIndex(b => b.id === values.id);
-            if (index > -1) {
-                updatedBoms[index] = values;
-            } else {
-                updatedBoms.unshift(values);
+        const inv = santaData?.inventory || [];
+        const normalized = {
+            ...values,
+            items: (values.items || []).map(it => ({
+                ...it,
+                unit: canonicalUomForMaterial(it.materialId, inv, materials), // fuerza canónica
+            })),
+        };
+        const result = await upsertBOM(normalized);
+        if (result.ok) {
+            // Actualizar el estado local directamente
+            if (santaData) {
+                const updatedBoms = [...(santaData.billOfMaterials || [])];
+                const index = updatedBoms.findIndex(b => b.id === values.id);
+                if (index > -1) {
+                    updatedBoms[index] = normalized as RecipeBom;
+                } else {
+                    updatedBoms.unshift(normalized as RecipeBom);
+                }
+                saveAllCollections({ billOfMaterials: updatedBoms });
             }
-            saveAllCollections({ billOfMaterials: updatedBoms });
+            setOpenRecipe(null);
         }
-        setOpenRecipe(null);
-      }
-      return result;
+        return result;
     };
 
     return (

@@ -20,32 +20,40 @@ import { SB_COLORS } from "@/domain/ssot";
 import { useToaster } from "@/components/ui/Toaster";
 import { Banner } from "@/components/ui/Banner";
 import { SpinnerButton } from "@/components/ui/SpinnerButton";
+import { canonicalUomForMaterial, canonicalUomForFinished } from "@/domain/uom";
 
 
 // ---------------------- Utilidades de cálculo ----------------------
 function scaleQty(qtyPerBatch: number, base: number, target: number) { return (qtyPerBatch * target) / base; }
 
-function planFromRecipe(recipe: RecipeBom, targetBatchSize: number, materials: Material[]): { lines: ActualConsumption[], plannedBottles: number } {
+function planFromRecipe(
+  recipe: RecipeBom,
+  targetBatchSize: number,
+  materials: Material[],
+  inventory?: InventoryItem[],
+): { lines: ActualConsumption[], plannedBottles: number, finishedUom: Uom } {
   if (!recipe || !recipe.items) {
-    return { lines: [], plannedBottles: 0 };
+    return { lines: [], plannedBottles: 0, finishedUom: "uds" as Uom };
   }
   const materialMap = new Map(materials.map(m => [m.id, m]));
   const lines: ActualConsumption[] = recipe.items.map((l) => {
     const theoreticalQty = scaleQty(l.quantity, recipe.batchSize, targetBatchSize);
     const material = materialMap.get(l.materialId);
+    const uom = canonicalUomForMaterial(l.materialId, inventory || [], materials);
     return {
         materialId: l.materialId,
         name: material?.name || 'Unknown',
         fromLot: undefined, // Se determinará al iniciar
         theoreticalQty,
         actualQty: theoreticalQty, // Por defecto, lo real es lo teórico
-        uom: (l.unit || 'uds') as Uom,
+        uom, // 👈 manda inventario/material
         costPerUom: material?.standardCost || 0
     };
   });
   const bottlesPerLiter = recipe.sku.includes('700') ? 1.42 : 1.33;
   const plannedBottles = Math.floor(bottlesPerLiter * targetBatchSize);
-  return { lines, plannedBottles };
+  const finishedUom = canonicalUomForFinished(recipe.sku, inventory || []);
+  return { lines, plannedBottles, finishedUom };
 }
 
 function round2(n: number) { return Math.round(n * 100) / 100; }
@@ -116,7 +124,6 @@ export default function ProduccionPage() {
     const [lastError, setLastError] = useState<string | null>(null);
     const [busyOp, setBusyOp] = useState<null | "create" | "start" | "update" | "finish">(null);
     const { push } = useToaster();
-    const [notification, setNotification] = useState<string | null>(null);
     const [editingOrder, setEditingOrder] = useState<ProdOrder | null>(null);
 
     const orders = useMemo(() => santaData?.productionOrders || [], [santaData]);
@@ -127,24 +134,12 @@ export default function ProduccionPage() {
 
 
     useEffect(() => {
-        if (notification) {
-            const timer = setTimeout(() => setNotification(null), 5000);
-            return () => clearTimeout(timer);
-        }
-    }, [notification]);
-    
-    useEffect(() => {
         if (!santaData) return;
         setLoading(true);
         setRecipes(santaData.billOfMaterials as RecipeBom[] || []);
         setLoading(false);
   }, [santaData]);
   
-  const showNotification = (message: string) => {
-    setNotification(message);
-    push({ kind: "ok", text: message });
-  };
-
   const createOrder = useCallback(async (args: {
     recipe: RecipeBom; targetBatchSize: number; whenISO: string; responsibleId?: string
   }) => {
@@ -152,24 +147,25 @@ export default function ProduccionPage() {
     setBusyOp("create");
     setLastError(null);
     const { recipe, targetBatchSize, whenISO, responsibleId } = args;
-    const { lines: actuals } = planFromRecipe(recipe, targetBatchSize, allMaterials);
+    const { lines: actuals, finishedUom } = planFromRecipe(recipe, targetBatchSize, allMaterials, warehouseInventory);
   
     const shortages: Shortage[] = [];
     const reservations: Reservation[] = [];
   
     for (const line of actuals) {
-      const avail = availableForMaterial(line.materialId, warehouseInventory, allMaterials, "RM/MAIN");
-      if (avail < line.theoreticalQty) {
-        shortages.push({
-          materialId: line.materialId,
-          required: line.theoreticalQty,
-          available: avail,
-          uom: line.uom,
-        });
-      } else {
-        const picks = fifoReserveLots(line.materialId, line.theoreticalQty, warehouseInventory, allMaterials, "RM/MAIN");
-        picks.forEach(p => reservations.push({ materialId: line.materialId, fromLot: p.fromLot, reservedQty: p.reservedQty, uom: p.uom }));
-      }
+        const avail = availableForMaterial(line.materialId, warehouseInventory, allMaterials, 'RM/MAIN') + availableForMaterial(line.materialId, warehouseInventory, allMaterials, 'PKG/MAIN');
+        if (avail < line.theoreticalQty) {
+          shortages.push({
+            materialId: line.materialId,
+            required: line.theoreticalQty,
+            available: avail,
+            uom: line.uom,
+          });
+        } else {
+            const locationPrefix = allMaterials.find(m => m.id === line.materialId)?.category === 'raw' ? 'RM/MAIN' : 'PKG/MAIN';
+            const picks = fifoReserveLots(line.materialId, line.theoreticalQty, warehouseInventory, allMaterials, locationPrefix);
+            picks.forEach(p => reservations.push({ materialId: line.materialId, fromLot: p.fromLot, reservedQty: p.reservedQty, uom: p.uom }));
+        }
     }
   
     const id = `po_${Math.random().toString(36).slice(2, 8)}`;
@@ -195,10 +191,9 @@ export default function ProduccionPage() {
         productionOrders: [newOrder, ...((santaData.productionOrders) || [])]
       });
       if (shortages.length) {
-        showNotification(`Orden creada con faltantes: ${shortages.map(s => allMaterials.find(m => m.id === s.materialId)?.name).join(", ")}.`);
-        push({ kind: "warn", text: "Orden creada con faltantes de stock." });
+        push({ kind: "warn", text: `Orden creada con faltantes: ${shortages.map(s => allMaterials.find(m => m.id === s.materialId)?.name).join(", ")}.` });
       } else {
-        showNotification("Orden creada con stock reservado.");
+        push({ kind: "ok", text: "Orden creada con stock reservado." });
       }
     } catch (e: any) {
       const msg = e?.message ?? "No se pudo crear la orden.";
@@ -207,7 +202,7 @@ export default function ProduccionPage() {
     } finally {
       setBusyOp(null);
     }
-  }, [warehouseInventory, saveAllCollections, allMaterials, santaData, push, showNotification]);
+  }, [warehouseInventory, saveAllCollections, allMaterials, santaData, push]);
   
 
   const updateOrder = useCallback(async (id: string, patch: Partial<ProdOrder>) => {
@@ -256,8 +251,9 @@ export default function ProduccionPage() {
     if (!order) return;
   
     if (!order.reservations?.length) {
-      showNotification("No hay reservas. No se puede consumir.");
-      return;
+        push({ kind: "err", text: "No hay reservas. No se puede consumir." });
+        setBusyOp(null);
+        return;
     }
   
     const moves = buildConsumptionMoves({
@@ -280,7 +276,7 @@ export default function ProduccionPage() {
         stockMoves: [ ...(santaData.stockMoves || []), ...moves ],
         productionOrders: updatedOrders,
       });
-      showNotification("Orden iniciada y materias primas descontadas.");
+      push({ kind: "ok", text: "Orden iniciada y materias primas descontadas." });
     } catch (e: any) {
       const msg = e?.message ?? "No se pudo iniciar la orden.";
       setLastError(msg);
@@ -288,10 +284,10 @@ export default function ProduccionPage() {
     } finally {
       setBusyOp(null);
     }
-  }, [santaData, saveAllCollections, warehouseInventory, products, allMaterials, showNotification, push]);
+  }, [santaData, saveAllCollections, warehouseInventory, products, allMaterials, push]);
   
 
-  const finishOrder = useCallback(async (o: ProdOrder, finalYield: number, yieldUom: 'L' | 'ud') => {
+  const finishOrder = useCallback(async (o: ProdOrder, finalYield: number, yieldUom: 'L' | 'ud' | 'uds') => {
     if (!santaData) return;
     setBusyOp("finish");
     setLastError(null);
@@ -303,7 +299,7 @@ export default function ProduccionPage() {
     const durationHours = durationMs / (1000 * 60 * 60);
 
     const bottlesPerLiter = 1.33;
-    const goodBottles = yieldUom === 'ud' ? finalYield : Math.floor(finalYield * bottlesPerLiter);
+    const goodBottles = (yieldUom === 'ud' || yieldUom === 'uds') ? finalYield : Math.floor(finalYield * bottlesPerLiter);
 
     const finalExecution = {
         ...(o.execution),
@@ -339,7 +335,7 @@ export default function ProduccionPage() {
           : po
       );
       await saveAllCollections({ lots: newLots as any, productionOrders: updatedOrders });
-      showNotification(`Orden ${o.id} completada. Lote ${newLotId} creado (QC: hold).`);
+      push({ kind: "ok", text: `Orden ${o.id} completada. Lote ${newLotId} creado (QC: hold).` });
     } catch (e: any) {
       const msg = e?.message ?? "No se pudo finalizar la orden.";
       setLastError(msg);
@@ -347,7 +343,7 @@ export default function ProduccionPage() {
     } finally {
       setBusyOp(null);
     }
-  }, [recipes, santaData, saveAllCollections, showNotification, push]);
+  }, [recipes, santaData, saveAllCollections, push]);
 
 
   if (loading || !santaData) return <div className="p-6">Cargando producción…</div>;
@@ -357,12 +353,6 @@ export default function ProduccionPage() {
     <div className="p-6 flex flex-col gap-6" style={{ ['--line' as any]: '#E6E4DD' }}>
       {lastError && (
         <Banner kind="err" text={lastError} />
-      )}
-       {notification && (
-        <div className="fixed top-5 right-5 z-50 p-4 rounded-lg shadow-lg bg-yellow-400 text-zinc-900 border border-yellow-500">
-          <p className="font-semibold">Notificación</p>
-          <p className="whitespace-pre-wrap">{notification}</p>
-        </div>
       )}
       <header className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
@@ -391,7 +381,7 @@ export default function ProduccionPage() {
         </div>
       </header>
 
-      <OrdersList orders={orders} recipes={recipes} onStart={startOrder} onFinish={finishOrder} onUpdate={updateOrder} onDelete={deleteOrder} onEdit={setEditingOrder} inventory={warehouseInventory} allMaterials={allMaterials} busyOp={busyOp}/>
+      <OrdersList orders={orders} recipes={recipes} onStart={startOrder} onFinish={finishOrder} onUpdate={updateOrder} onDelete={deleteOrder} onEdit={setEditingOrder} inventory={warehouseInventory} allMaterials={allMaterials} busyOp={busyOp} />
     </div>
   );
 }
@@ -408,6 +398,7 @@ function CreateOrderCard({ recipes, onCreate, onEdit, editingOrder, onCloseEdit,
   const [selectedRecipeId, setSelectedRecipeId] = useState<string>("");
   const { data: santaData } = useData();
   const allMaterials = useMemo(() => santaData?.materials || [], [santaData]);
+  const allInventory = useMemo(() => santaData?.inventory || [], [santaData]);
 
   const selectedRecipe = useMemo(() => recipes.find(r => r.id === selectedRecipeId), [recipes, selectedRecipeId]);
 
@@ -429,7 +420,7 @@ function CreateOrderCard({ recipes, onCreate, onEdit, editingOrder, onCloseEdit,
     }
   }, [editingOrder, recipes]);
 
-  const plan = useMemo(() => selectedRecipe ? planFromRecipe(selectedRecipe, target, allMaterials) : null, [selectedRecipe, target, allMaterials]);
+  const plan = useMemo(() => selectedRecipe ? planFromRecipe(selectedRecipe, target, allMaterials, allInventory) : null, [selectedRecipe, target, allMaterials, allInventory]);
   
   const [isSaving, setIsSaving] = useState(false);
 
@@ -553,7 +544,7 @@ function OrdersList({ orders, recipes, onStart, onFinish, onUpdate, onDelete, on
     orders: ProdOrder[]; 
     recipes: RecipeBom[]; 
     onStart: (id: string)=>void; 
-    onFinish: (o: ProdOrder, finalYield: number, yieldUom: 'L' | 'ud')=>void; 
+    onFinish: (o: ProdOrder, finalYield: number, yieldUom: 'L' | 'ud' | 'uds')=>void; 
     onUpdate: (id:string, patch: Partial<ProdOrder>)=>Promise<void>; 
     onDelete: (id: string) => Promise<void>;
     onEdit: (order: ProdOrder) => void;
@@ -637,13 +628,16 @@ function OrderDetail({ order, recipe, onClose, onStart, onFinish, onUpdate, inve
     recipe: RecipeBom; 
     onClose: ()=>void; 
     onStart: (id: string)=>void; 
-    onFinish: (o: ProdOrder, finalYield: number, yieldUom: 'L' | 'ud')=>void; 
+    onFinish: (o: ProdOrder, finalYield: number, yieldUom: 'L' | 'ud' | 'uds')=>void; 
     onUpdate: (id:string, patch: Partial<ProdOrder>)=>Promise<void>; 
     inventory: any[], allMaterials: Material[], busyOp: string | null 
 }) {
-  
+  const defaultYieldUom = useMemo(
+    () => canonicalUomForFinished(recipe.sku, inventory),
+    [recipe.sku, inventory]
+  ) as 'L'|'ud'|'uds';
   const [finalYield, setFinalYield] = useState<number | ''>('');
-  const [yieldUom, setYieldUom] = useState<'L' | 'ud'>('ud');
+  const [yieldUom, setYieldUom] = useState<'L' | 'ud' | 'uds'>(defaultYieldUom === 'L' ? 'L' : 'uds');
   const [incidentNote, setIncidentNote] = useState("");
   const [showDiagnostics, setShowDiagnostics] = useState(false);
 
@@ -816,7 +810,7 @@ function OrderDetail({ order, recipe, onClose, onStart, onFinish, onUpdate, inve
                           <div className="flex">
                             <input type="number" min={0} value={finalYield} onChange={e=>setFinalYield(e.target.value===''? '' : parseFloat(e.target.value))} className="px-2 py-1.5 w-full rounded-l-lg border border-zinc-300"/>
                             <select value={yieldUom} onChange={e => setYieldUom(e.target.value as any)} className="px-2 py-1.5 rounded-r-lg border-t border-b border-r border-zinc-300 bg-zinc-100">
-                                <option value="ud">botellas</option>
+                                <option value="uds">botellas</option>
                                 <option value="L">Litros</option>
                             </select>
                           </div>
@@ -981,5 +975,6 @@ function UpcomingScheduleCard({ orders, recipes, allMaterials }: { orders: ProdO
 
 
     
+
 
 
