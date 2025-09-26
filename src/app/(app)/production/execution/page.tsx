@@ -14,8 +14,8 @@ import { AlertCircle, Check, Hourglass, X, Thermometer, FlaskConical, Beaker, Te
 import { SBCard, SBButton } from '@/components/ui/ui-primitives';
 import { useData } from "@/lib/dataprovider";
 import type { ProductionOrder as ProdOrder, Uom, Material, Shortage, ActualConsumption, InventoryItem, Product, SantaData, ExecCheck, BillOfMaterial as RecipeBom, Reservation, SB_THEME } from '@/domain/ssot';
-import { availableForMaterial, fifoReserveLots, buildConsumptionMoves, consumeForOrder } from "@/domain/inventory.helpers";
-import { generateNextLot } from "@/lib/codes";
+import { availableForMaterial, fifoReserveLots, buildConsumptionMoves, consumeForOrder } from '@/domain/inventory.helpers';
+import { generateNextLot } from '@/lib/codes';
 import { SB_COLORS } from "@/domain/ssot";
 import { useToaster } from "@/components/ui/Toaster";
 import { Banner } from "@/components/ui/Banner";
@@ -153,7 +153,7 @@ export default function ProduccionPage() {
     const reservations: Reservation[] = [];
   
     for (const line of actuals) {
-        const avail = availableForMaterial(line.materialId, warehouseInventory, allMaterials, 'RM/MAIN') + availableForMaterial(line.materialId, warehouseInventory, allMaterials, 'PKG/MAIN');
+        const avail = availableForMaterial(line.materialId, warehouseInventory, allMaterials, line.uom === 'uds' ? 'PKG/MAIN' : 'RM/MAIN');
         if (avail < line.theoreticalQty) {
           shortages.push({
             materialId: line.materialId,
@@ -445,7 +445,6 @@ function CreateOrderCard({ recipes, onCreate, onEdit, editingOrder, onCloseEdit,
                 scheduledFor: new Date(when).toISOString(),
                 responsibleId: resp || undefined
             });
-            // showNotification(`Orden ${editingOrder.id} actualizada.`);
         } else {
             await onCreate({ recipe: recipeToUse, targetBatchSize: target, whenISO: new Date(when).toISOString(), responsibleId: resp||undefined });
         }
@@ -975,6 +974,7 @@ function UpcomingScheduleCard({ orders, recipes, allMaterials }: { orders: ProdO
 
 
     
+
 
 
 
