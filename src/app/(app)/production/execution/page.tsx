@@ -14,7 +14,7 @@ import { AlertCircle, Check, Hourglass, X, Thermometer, FlaskConical, Beaker, Te
 import { SBCard, SBButton } from '@/components/ui/ui-primitives';
 import { useData } from "@/lib/dataprovider";
 import type { ProductionOrder as ProdOrder, Uom, Material, Shortage, ActualConsumption, InventoryItem, Product, SantaData, ExecCheck, BillOfMaterial as RecipeBom, Reservation, SB_THEME } from '@/domain/ssot';
-import { availableForMaterial, fifoReserveLots, buildConsumptionMoves, consumeForOrder } from '@/domain/inventory.helpers';
+import { availableForMaterial, fifoReserveLots, buildConsumptionMoves, consumeForOrder } from "@/domain/inventory.helpers";
 import { generateNextLot } from "@/lib/codes";
 import { SB_COLORS } from "@/domain/ssot";
 
@@ -106,7 +106,7 @@ function Pill({ children, tone = "zinc" }: { children: React.ReactNode; tone?: "
 
 // ---------------------- Página /produccion ----------------------
 export default function ProduccionPage() {
-    const { data: santaData, setData, saveAllCollections } = useData();
+    const { data: santaData, saveAllCollections } = useData();
     const [recipes, setRecipes] = useState<RecipeBom[]>([]);
     
     const [loading, setLoading] = useState(true);
@@ -184,56 +184,47 @@ export default function ProduccionPage() {
       actuals,
     };
   
-    setData(prev => prev ? ({ ...prev, productionOrders: [newOrder, ...prev.productionOrders] }) : prev);
-    saveAllCollections({ productionOrders: [newOrder] });
+    await saveAllCollections({
+        productionOrders: [newOrder, ...((santaData.productionOrders) || [])]
+    });
   
     if (shortages.length) {
       showNotification(`Orden creada con faltantes: ${shortages.map(s => allMaterials.find(m => m.id === s.materialId)?.name).join(", ")}.`);
     } else {
       showNotification("Orden creada con stock reservado.");
     }
-  }, [warehouseInventory, setData, allMaterials, santaData, saveAllCollections]);
+  }, [warehouseInventory, allMaterials, santaData, saveAllCollections]);
   
 
   const updateOrder = useCallback(async (id: string, patch: Partial<ProdOrder>) => {
-      setData((prevData) => {
-          if (!prevData) return prevData;
-          const updatedOrders = prevData.productionOrders.map((o: ProdOrder) => {
-              if (o.id === id) {
-                  const updatedOrder = { ...o, ...patch } as ProdOrder;
-                  if ((patch.execution && !patch.costing) || patch.actuals) {
-                      const recipe = recipes.find(r => r.id === updatedOrder.bomId);
-                      if (recipe) {
-                        const c = computeCosting(recipe, updatedOrder);
-                        updatedOrder.costing = c as any;
-                      }
+      if (!santaData) return;
+      const updatedOrders = (santaData.productionOrders || []).map((o: ProdOrder) => {
+          if (o.id === id) {
+              const updatedOrder = { ...o, ...patch } as ProdOrder;
+              if ((patch.execution && !patch.costing) || patch.actuals) {
+                  const recipe = recipes.find(r => r.id === updatedOrder.bomId);
+                  if (recipe) {
+                    const c = computeCosting(recipe, updatedOrder);
+                    updatedOrder.costing = c as any;
                   }
-                  return updatedOrder;
               }
-              return o;
-          });
-          saveAllCollections({ productionOrders: updatedOrders });
-          return { ...prevData, productionOrders: updatedOrders };
+              return updatedOrder;
+          }
+          return o;
       });
+      await saveAllCollections({ productionOrders: updatedOrders });
       setEditingOrder(null);
-  }, [setData, recipes, saveAllCollections]);
+  }, [saveAllCollections, recipes, santaData]);
   
     const deleteOrder = useCallback(async (id: string) => {
-        setData(prev => {
-            if (!prev) return null;
-            const updatedOrders = prev.productionOrders.filter(o => o.id !== id);
-            return { ...prev, productionOrders: updatedOrders };
-        });
-        
         if (santaData) {
             const updatedOrders = santaData.productionOrders.filter(o => o.id !== id);
             await saveAllCollections({ productionOrders: updatedOrders });
         }
-        
         showNotification(`Orden ${id} eliminada.`);
-    }, [setData, santaData, saveAllCollections]);
+    }, [santaData, saveAllCollections]);
 
-  const startOrder = useCallback((orderId: string) => {
+  const startOrder = useCallback(async (orderId: string) => {
     if(!santaData) return;
     const order = santaData.productionOrders.find(o => o.id === orderId);
     if (!order) return;
@@ -252,26 +243,19 @@ export default function ProduccionPage() {
   
     const updatedInventory = consumeForOrder(warehouseInventory, products, moves);
   
-    setData(prev => {
-        if(!prev) return prev;
-        const updated = {
-            ...prev,
-            inventory: updatedInventory,
-            stockMoves: [...(prev.stockMoves || []), ...moves],
-            productionOrders: prev.productionOrders.map(o =>
-                o.id === orderId ? { ...o, status: "wip", execution: { ...(o.execution || {}), startedAt: new Date().toISOString() } } : o
-            ),
-        };
-        saveAllCollections({
-            inventory: updated.inventory,
-            stockMoves: updated.stockMoves,
-            productionOrders: updated.productionOrders,
-        });
-        return updated;
+    const updatedOrders = (santaData.productionOrders || []).map(o =>
+      o.id === orderId
+        ? { ...o, status: "wip", execution: { ...(o.execution || {}), startedAt: new Date().toISOString() } }
+        : o
+    );
+    await saveAllCollections({
+      inventory: updatedInventory,
+      stockMoves: [ ...(santaData.stockMoves || []), ...moves ],
+      productionOrders: updatedOrders,
     });
   
     showNotification("Orden iniciada y materias primas descontadas.");
-  }, [santaData, setData, warehouseInventory, products, allMaterials, saveAllCollections]);
+  }, [santaData, warehouseInventory, products, allMaterials, saveAllCollections]);
   
 
   const finishOrder = useCallback(async (o: ProdOrder, finalYield: number, yieldUom: 'L' | 'ud') => {
@@ -312,18 +296,16 @@ export default function ProduccionPage() {
         quality: { qcStatus: 'hold', results: {} },
     };
     
-    setData((prevData: SantaData | null) => {
-        if (!prevData) return prevData;
-        const newLots = [...(prevData.lots || []), newLot];
-        const updatedOrders = prevData.productionOrders.map((po: any) => 
-            po.id === o.id ? { ...po, status: "done" as const, execution: finalExecution, lotId: newLotId, costing: newLotCosting } : po
-        );
-        saveAllCollections({ lots: newLots as any, productionOrders: updatedOrders });
-        return { ...prevData, lots: newLots as any, productionOrders: updatedOrders };
-    });
+    const newLots = [ ...(santaData.lots || []), newLot ];
+    const updatedOrders = (santaData.productionOrders || []).map((po: any) =>
+      po.id === o.id
+        ? { ...po, status: "done" as const, execution: finalExecution, lotId: newLotId, costing: newLotCosting }
+        : po
+    );
+    await saveAllCollections({ lots: newLots as any, productionOrders: updatedOrders });
     
     showNotification(`Orden ${o.id} completada. Lote ${newLotId} creado y en estado 'hold'.`);
-  }, [recipes, santaData, setData, saveAllCollections]);
+  }, [recipes, santaData, saveAllCollections]);
 
 
   if (loading || !santaData) return <div className="p-6">Cargando producción…</div>;
@@ -455,7 +437,7 @@ function CreateOrderCard({ recipes, onCreate, onEdit, editingOrder, onCloseEdit 
       </div>
       <div className="grid grid-cols-2 gap-3">
         <label className="text-sm">
-          <span className="block text-zinc-500 text-xs mb-1">Tamaño de lote ({recipeToUse.baseUnit})</span>
+          <span className="block text-zinc-500 text-xs mb-1">Tamaño de lote ({(recipeToUse as any).baseUnit ?? 'L'})</span>
           <input type="number" min={10} step={10} value={target} onChange={e=>setTarget(parseFloat(e.target.value||"0"))} className="px-2 py-1.5 w-full rounded-lg border border-zinc-300" />
         </label>
         <label className="text-sm">
@@ -773,7 +755,7 @@ function OrderDetail({ order, recipe, onClose, onStart, onFinish, onUpdate, inve
                           <div className="flex">
                             <input type="number" min={0} value={finalYield} onChange={e=>setFinalYield(e.target.value===''? '' : parseFloat(e.target.value))} className="px-2 py-1.5 w-full rounded-l-lg border border-zinc-300"/>
                             <select value={yieldUom} onChange={e => setYieldUom(e.target.value as any)} className="px-2 py-1.5 rounded-r-lg border-t border-b border-r border-zinc-300 bg-zinc-100">
-                                <option value="uds">botellas</option>
+                                <option value="ud">botellas</option>
                                 <option value="L">Litros</option>
                             </select>
                           </div>
@@ -933,3 +915,6 @@ function UpcomingScheduleCard({ orders, recipes, allMaterials }: { orders: ProdO
 
 
 
+
+
+    
