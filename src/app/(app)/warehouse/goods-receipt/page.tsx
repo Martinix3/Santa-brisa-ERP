@@ -1,4 +1,5 @@
 
+
 "use client";
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import { useData } from '@/lib/dataprovider';
@@ -51,7 +52,7 @@ function SearchableSelect<T extends {id: string, name: string}>({
             setSuggestions([]);
             setIsOpen(false);
         }
-    }, [query, items, onFreeText]);
+    }, [query, items]); // Removed onFreeText from dependencies to break loop
 
     const handleSelect = (item: T) => {
         setQuery(item.name);
@@ -102,7 +103,7 @@ export default function GoodsReceiptPage() {
         return data?.materials || [];
     }, [data?.materials]);
     
-    const handleLineChange = (index: number, field: keyof LineItem, value: any) => {
+    const handleLineChange = useCallback((index: number, field: keyof LineItem, value: any) => {
         const newLines = [...lines];
         const line = newLines[index];
         (line as any)[field] = value;
@@ -117,7 +118,7 @@ export default function GoodsReceiptPage() {
         }
 
         setLines(newLines);
-    };
+    }, [lines, materials]);
 
     const addLine = () => {
         setLines([...lines, { supplierLot: '', qty: 0, unitCost: 0, newMaterialCategory: 'raw' }]);
