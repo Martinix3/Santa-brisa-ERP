@@ -122,7 +122,9 @@ export default function InventoryPage() {
         { id: 'raw', label: 'Materias Primas' },
         { id: 'intermediate', label: 'Intermedios' },
         { id: 'packaging', label: 'Packaging' },
+        { id: 'label', label: 'Etiquetas' },
         { id: 'merchandising', label: 'Merchandising' },
+        { id: 'consumable', label: 'Consumibles' },
     ];
 
     return (

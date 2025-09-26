@@ -449,7 +449,7 @@ export interface InventoryItem {
   id: string;
   sku: string;
   materialId?: string;
-  category: 'finished_good' | 'raw' | 'intermediate' | 'packaging' | 'merchandising';
+  category: 'finished_good' | 'raw' | 'intermediate' | 'packaging' | 'merchandising' | 'label' | 'consumable';
   qty: number;
   uom: Uom;
   locationId: string;
