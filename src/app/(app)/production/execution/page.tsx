@@ -17,6 +17,9 @@ import type { ProductionOrder as ProdOrder, Uom, Material, Shortage, ActualConsu
 import { availableForMaterial, fifoReserveLots, buildConsumptionMoves, consumeForOrder } from "@/domain/inventory.helpers";
 import { generateNextLot } from "@/lib/codes";
 import { SB_COLORS } from "@/domain/ssot";
+import { useToaster } from "@/components/ui/Toaster";
+import { Banner } from "@/components/ui/Banner";
+import { SpinnerButton } from "@/components/ui/SpinnerButton";
 
 
 // ---------------------- Utilidades de cálculo ----------------------
@@ -111,6 +114,9 @@ export default function ProduccionPage() {
     
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [lastError, setLastError] = useState<string | null>(null);
+    const [busyOp, setBusyOp] = useState<null | "create" | "start" | "update" | "finish">(null);
+    const { push } = useToaster();
     const [notification, setNotification] = useState<string | null>(null);
     const [editingOrder, setEditingOrder] = useState<ProdOrder | null>(null);
 
@@ -137,22 +143,23 @@ export default function ProduccionPage() {
   
   const showNotification = (message: string) => {
     setNotification(message);
+    push({ kind: "ok", text: message });
   };
 
   const createOrder = useCallback(async (args: {
     recipe: RecipeBom; targetBatchSize: number; whenISO: string; responsibleId?: string
   }) => {
     if (!santaData) return;
-  
+    setBusyOp("create");
+    setLastError(null);
     const { recipe, targetBatchSize, whenISO, responsibleId } = args;
-  
     const { lines: actuals } = planFromRecipe(recipe, targetBatchSize, allMaterials);
   
     const shortages: Shortage[] = [];
     const reservations: Reservation[] = [];
   
     for (const line of actuals) {
-      const avail = availableForMaterial(line.materialId, warehouseInventory, allMaterials, "RM/");
+      const avail = availableForMaterial(line.materialId, warehouseInventory, allMaterials, "RM/MAIN");
       if (avail < line.theoreticalQty) {
         shortages.push({
           materialId: line.materialId,
@@ -161,7 +168,7 @@ export default function ProduccionPage() {
           uom: line.uom,
         });
       } else {
-        const picks = fifoReserveLots(line.materialId, line.theoreticalQty, warehouseInventory, allMaterials, "RM/");
+        const picks = fifoReserveLots(line.materialId, line.theoreticalQty, warehouseInventory, allMaterials, "RM/MAIN");
         picks.forEach(p => reservations.push({ materialId: line.materialId, fromLot: p.fromLot, reservedQty: p.reservedQty, uom: p.uom }));
       }
     }
@@ -184,24 +191,35 @@ export default function ProduccionPage() {
       actuals,
     };
   
-    await saveAllCollections({
+    try {
+      await saveAllCollections({
         productionOrders: [newOrder, ...((santaData.productionOrders) || [])]
-    });
-  
-    if (shortages.length) {
-      showNotification(`Orden creada con faltantes: ${shortages.map(s => allMaterials.find(m => m.id === s.materialId)?.name).join(", ")}.`);
-    } else {
-      showNotification("Orden creada con stock reservado.");
+      });
+      if (shortages.length) {
+        showNotification(`Orden creada con faltantes: ${shortages.map(s => allMaterials.find(m => m.id === s.materialId)?.name).join(", ")}.`);
+        push({ kind: "warn", text: "Orden creada con faltantes de stock." });
+      } else {
+        showNotification("Orden creada con stock reservado.");
+      }
+    } catch (e: any) {
+      const msg = e?.message ?? "No se pudo crear la orden.";
+      setLastError(msg);
+      push({ kind: "err", text: msg });
+    } finally {
+      setBusyOp(null);
     }
-  }, [warehouseInventory, allMaterials, santaData, saveAllCollections]);
+  }, [warehouseInventory, saveAllCollections, allMaterials, santaData, push]);
   
 
   const updateOrder = useCallback(async (id: string, patch: Partial<ProdOrder>) => {
-      if (!santaData) return;
+    if (!santaData) return;
+    setBusyOp("update");
+    setLastError(null);
+    try {
       const updatedOrders = (santaData.productionOrders || []).map((o: ProdOrder) => {
           if (o.id === id) {
               const updatedOrder = { ...o, ...patch } as ProdOrder;
-              if ((patch.execution && !patch.costing) || patch.actuals) {
+              if (patch.execution && !patch.costing) {
                   const recipe = recipes.find(r => r.id === updatedOrder.bomId);
                   if (recipe) {
                     const c = computeCosting(recipe, updatedOrder);
@@ -213,8 +231,15 @@ export default function ProduccionPage() {
           return o;
       });
       await saveAllCollections({ productionOrders: updatedOrders });
-      setEditingOrder(null);
-  }, [saveAllCollections, recipes, santaData]);
+      if (patch.status) push({ kind: "ok", text: `Orden ${id} → ${patch.status.toUpperCase()}` });
+    } catch (e: any) {
+      const msg = e?.message ?? "No se pudo actualizar la orden.";
+      setLastError(msg);
+      push({ kind: "err", text: msg });
+    } finally {
+      setBusyOp(null);
+    }
+  }, [saveAllCollections, recipes, santaData, push]);
   
     const deleteOrder = useCallback(async (id: string) => {
         if (santaData) {
@@ -222,10 +247,12 @@ export default function ProduccionPage() {
             await saveAllCollections({ productionOrders: updatedOrders });
         }
         showNotification(`Orden ${id} eliminada.`);
-    }, [santaData, saveAllCollections]);
+    }, [santaData, saveAllCollections, showNotification]);
 
   const startOrder = useCallback(async (orderId: string) => {
     if(!santaData) return;
+    setBusyOp("start");
+    setLastError(null);
     const order = santaData.productionOrders.find(o => o.id === orderId);
     if (!order) return;
   
@@ -243,23 +270,32 @@ export default function ProduccionPage() {
   
     const updatedInventory = consumeForOrder(warehouseInventory, products, moves);
   
-    const updatedOrders = (santaData.productionOrders || []).map(o =>
-      o.id === orderId
-        ? { ...o, status: "wip", execution: { ...(o.execution || {}), startedAt: new Date().toISOString() } }
-        : o
-    );
-    await saveAllCollections({
-      inventory: updatedInventory,
-      stockMoves: [ ...(santaData.stockMoves || []), ...moves ],
-      productionOrders: updatedOrders,
-    });
-  
-    showNotification("Orden iniciada y materias primas descontadas.");
-  }, [santaData, warehouseInventory, products, allMaterials, saveAllCollections]);
+    try {
+      const updatedOrders = (santaData.productionOrders || []).map(o =>
+        o.id === orderId
+          ? { ...o, status: "wip", execution: { ...(o.execution || {}), startedAt: new Date().toISOString() } }
+          : o
+      );
+      await saveAllCollections({
+        inventory: updatedInventory,
+        stockMoves: [ ...(santaData.stockMoves || []), ...moves ],
+        productionOrders: updatedOrders,
+      });
+      showNotification("Orden iniciada y materias primas descontadas.");
+    } catch (e: any) {
+      const msg = e?.message ?? "No se pudo iniciar la orden.";
+      setLastError(msg);
+      push({ kind: "err", text: msg });
+    } finally {
+      setBusyOp(null);
+    }
+  }, [santaData, saveAllCollections, warehouseInventory, products, allMaterials, showNotification, push]);
   
 
   const finishOrder = useCallback(async (o: ProdOrder, finalYield: number, yieldUom: 'L' | 'ud') => {
     if (!santaData) return;
+    setBusyOp("finish");
+    setLastError(null);
     const recipe = recipes.find(r => r.id === o.bomId);
     if (!recipe || !o.execution?.startedAt) return;
 
@@ -296,16 +332,23 @@ export default function ProduccionPage() {
         quality: { qcStatus: 'hold', results: {} },
     };
     
-    const newLots = [ ...(santaData.lots || []), newLot ];
-    const updatedOrders = (santaData.productionOrders || []).map((po: any) =>
-      po.id === o.id
-        ? { ...po, status: "done" as const, execution: finalExecution, lotId: newLotId, costing: newLotCosting }
-        : po
-    );
-    await saveAllCollections({ lots: newLots as any, productionOrders: updatedOrders });
-    
-    showNotification(`Orden ${o.id} completada. Lote ${newLotId} creado y en estado 'hold'.`);
-  }, [recipes, santaData, saveAllCollections]);
+    try {
+      const newLots = [ ...(santaData.lots || []), newLot ];
+      const updatedOrders = (santaData.productionOrders || []).map((po: any) =>
+        po.id === o.id
+          ? { ...po, status: "done" as const, execution: finalExecution, lotId: newLotId, costing: newLotCosting }
+          : po
+      );
+      await saveAllCollections({ lots: newLots as any, productionOrders: updatedOrders });
+      showNotification(`Orden ${o.id} completada. Lote ${newLotId} creado (QC: hold).`);
+    } catch (e: any) {
+      const msg = e?.message ?? "No se pudo finalizar la orden.";
+      setLastError(msg);
+      push({ kind: "err", text: msg });
+    } finally {
+      setBusyOp(null);
+    }
+  }, [recipes, santaData, saveAllCollections, showNotification, push]);
 
 
   if (loading || !santaData) return <div className="p-6">Cargando producción…</div>;
@@ -313,6 +356,9 @@ export default function ProduccionPage() {
 
   return (
     <div className="p-6 flex flex-col gap-6" style={{ ['--line' as any]: '#E6E4DD' }}>
+      {lastError && (
+        <Banner kind="err" text={lastError} />
+      )}
        {notification && (
         <div className="fixed top-5 right-5 z-50 p-4 rounded-lg shadow-lg bg-yellow-400 text-zinc-900 border border-yellow-500">
           <p className="font-semibold">Notificación</p>
@@ -325,7 +371,7 @@ export default function ProduccionPage() {
             <h1 className="text-2xl font-semibold text-zinc-900">Producción</h1>
             <p className="text-sm text-zinc-500">Órdenes, faltantes y programaciones</p>
           </div>
-          <CreateOrderCard recipes={recipes} onCreate={createOrder} onEdit={updateOrder} editingOrder={editingOrder} onCloseEdit={() => setEditingOrder(null)} />
+          <CreateOrderCard recipes={recipes} onCreate={createOrder} onEdit={updateOrder} editingOrder={editingOrder} onCloseEdit={() => setEditingOrder(null)} busy={busyOp === "create"}/>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -346,18 +392,19 @@ export default function ProduccionPage() {
         </div>
       </header>
 
-      <OrdersList orders={orders} recipes={recipes} onStart={startOrder} onFinish={finishOrder} onUpdate={updateOrder} onDelete={deleteOrder} onEdit={setEditingOrder} inventory={warehouseInventory} allMaterials={allMaterials} />
+      <OrdersList orders={orders} recipes={recipes} onStart={startOrder} onFinish={finishOrder} onUpdate={updateOrder} onDelete={deleteOrder} onEdit={setEditingOrder} inventory={warehouseInventory} allMaterials={allMaterials} busyOp={busyOp}/>
     </div>
   );
 }
 
 // ---------------------- UI: creación de orden ----------------------
-function CreateOrderCard({ recipes, onCreate, onEdit, editingOrder, onCloseEdit }: { 
+function CreateOrderCard({ recipes, onCreate, onEdit, editingOrder, onCloseEdit, busy }: { 
     recipes: RecipeBom[]; 
     onCreate: (p: { recipe: RecipeBom; targetBatchSize: number; whenISO: string; responsibleId?: string }) => Promise<void>;
     onEdit: (id: string, patch: Partial<ProdOrder>) => Promise<void>;
     editingOrder: ProdOrder | null;
     onCloseEdit: () => void;
+    busy: boolean;
 }) {
   const [selectedRecipeId, setSelectedRecipeId] = useState<string>("");
   const { data: santaData } = useData();
@@ -385,7 +432,7 @@ function CreateOrderCard({ recipes, onCreate, onEdit, editingOrder, onCloseEdit 
 
   const plan = useMemo(() => selectedRecipe ? planFromRecipe(selectedRecipe, target, allMaterials) : null, [selectedRecipe, target, allMaterials]);
   
-  const [busy, setBusy] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (selectedRecipe && !editingOrder) {
@@ -400,7 +447,7 @@ function CreateOrderCard({ recipes, onCreate, onEdit, editingOrder, onCloseEdit 
   const { plannedBottles } = plan || { plannedBottles: 0 };
   
   const handleSave = async () => {
-    setBusy(true);
+    setIsSaving(true);
     try {
         if (editingOrder) {
             await onEdit(editingOrder.id, {
@@ -413,7 +460,7 @@ function CreateOrderCard({ recipes, onCreate, onEdit, editingOrder, onCloseEdit 
             await onCreate({ recipe: recipeToUse, targetBatchSize: target, whenISO: new Date(when).toISOString(), responsibleId: resp||undefined });
         }
     } finally {
-        setBusy(false);
+        setIsSaving(false);
     }
   };
 
@@ -437,7 +484,9 @@ function CreateOrderCard({ recipes, onCreate, onEdit, editingOrder, onCloseEdit 
       </div>
       <div className="grid grid-cols-2 gap-3">
         <label className="text-sm">
-          <span className="block text-zinc-500 text-xs mb-1">Tamaño de lote ({(recipeToUse as any).baseUnit ?? 'L'})</span>
+          <span className="block text-zinc-500 text-xs mb-1">
+            Tamaño de lote ({(recipeToUse as any).baseUnit ?? 'L'})
+          </span>
           <input type="number" min={10} step={10} value={target} onChange={e=>setTarget(parseFloat(e.target.value||"0"))} className="px-2 py-1.5 w-full rounded-lg border border-zinc-300" />
         </label>
         <label className="text-sm">
@@ -451,9 +500,14 @@ function CreateOrderCard({ recipes, onCreate, onEdit, editingOrder, onCloseEdit 
       </div>
       <div className="mt-3 flex items-center justify-between text-sm">
         <div className="text-zinc-600">Botellas planificadas: <b>{plannedBottles}</b></div>
-        <button disabled={busy} onClick={handleSave} className="px-3 py-1.5 rounded-lg bg-zinc-900 text-white hover:bg-zinc-800">
-          {busy ? 'Guardando…' : (editingOrder ? 'Actualizar orden' : 'Crear orden')}
-        </button>
+        <SpinnerButton
+          loading={isSaving || busy}
+          onClick={handleSave}
+          className="bg-zinc-900 text-white"
+          disabled={isSaving || busy}
+        >
+          {editingOrder ? 'Actualizar orden' : (isSaving ? 'Creando…':'Crear orden')}
+        </SpinnerButton>
       </div>
     </div>
   );
@@ -496,7 +550,7 @@ function ConfirmDeleteButton({ onClick, orderId }: { onClick: (id: string) => vo
 }
 
 // ---------------------- UI: listado + detalle ----------------------
-function OrdersList({ orders, recipes, onStart, onFinish, onUpdate, onDelete, onEdit, inventory, allMaterials }: { 
+function OrdersList({ orders, recipes, onStart, onFinish, onUpdate, onDelete, onEdit, inventory, allMaterials, busyOp }: { 
     orders: ProdOrder[]; 
     recipes: RecipeBom[]; 
     onStart: (id: string)=>void; 
@@ -504,7 +558,7 @@ function OrdersList({ orders, recipes, onStart, onFinish, onUpdate, onDelete, on
     onUpdate: (id:string, patch: Partial<ProdOrder>)=>Promise<void>; 
     onDelete: (id: string) => Promise<void>;
     onEdit: (order: ProdOrder) => void;
-    inventory: any[], allMaterials: Material[] 
+    inventory: any[], allMaterials: Material[], busyOp: string | null
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const openOrder = orders.find(o => o.id === openId) || null;
@@ -572,14 +626,22 @@ function OrdersList({ orders, recipes, onStart, onFinish, onUpdate, onDelete, on
 
       {openOrder && openRecipe && (
         <div className="border-t border-[var(--line)] p-4 bg-zinc-50/60">
-          <OrderDetail order={openOrder} recipe={openRecipe} onClose={()=>setOpenId(null)} onStart={onStart} onFinish={onFinish} onUpdate={onUpdate} inventory={inventory} allMaterials={allMaterials}/>
+          <OrderDetail order={openOrder} recipe={openRecipe} onClose={()=>setOpenId(null)} onStart={onStart} onFinish={onFinish} onUpdate={onUpdate} inventory={inventory} allMaterials={allMaterials} busyOp={busyOp} />
         </div>
       )}
     </div>
   );
 }
 
-function OrderDetail({ order, recipe, onClose, onStart, onFinish, onUpdate, inventory, allMaterials }: { order: ProdOrder; recipe: RecipeBom; onClose: ()=>void; onStart: (id: string)=>void; onFinish: (o: ProdOrder, finalYield: number, yieldUom: 'L' | 'ud')=>void; onUpdate: (id:string, patch: Partial<ProdOrder>)=>Promise<void>; inventory: any[], allMaterials: Material[] }) {
+function OrderDetail({ order, recipe, onClose, onStart, onFinish, onUpdate, inventory, allMaterials, busyOp }: { 
+    order: ProdOrder; 
+    recipe: RecipeBom; 
+    onClose: ()=>void; 
+    onStart: (id: string)=>void; 
+    onFinish: (o: ProdOrder, finalYield: number, yieldUom: 'L' | 'ud')=>void; 
+    onUpdate: (id:string, patch: Partial<ProdOrder>)=>Promise<void>; 
+    inventory: any[], allMaterials: Material[], busyOp: string | null 
+}) {
   
   const [finalYield, setFinalYield] = useState<number | ''>('');
   const [yieldUom, setYieldUom] = useState<'L' | 'ud'>('ud');
@@ -733,7 +795,7 @@ function OrderDetail({ order, recipe, onClose, onStart, onFinish, onUpdate, inve
         <div className="md:col-span-2">
             {order.status === "planned" && (
                 <div className="flex justify-end gap-2 p-3 bg-zinc-50 rounded-lg">
-                    <SBButton disabled={!!order.shortages?.length} onClick={() => onUpdate(order.id, { status: "released" } )}>
+                    <SBButton disabled={!!order.shortages?.length || busyOp !== null} onClick={() => onUpdate(order.id, { status: "released" } )}>
                         Liberar para Producción <ChevronRight size={16} className="sb-icon"/>
                     </SBButton>
                 </div>
@@ -742,7 +804,7 @@ function OrderDetail({ order, recipe, onClose, onStart, onFinish, onUpdate, inve
             {order.status === "released" && (
                 <div className="flex justify-end gap-2 p-3 bg-zinc-50 rounded-lg">
                     <div className="text-sm text-zinc-600 mr-auto">Protocolos: {protocolsOk ? <b className="text-green-600">OK</b> : <b className="text-red-600">Faltan ✓</b>}</div>
-                    <SBButton disabled={!protocolsOk} onClick={() => onStart(order.id)}>Iniciar Producción <ChevronRight size={16} className="sb-icon"/></SBButton>
+                    <SBButton disabled={!protocolsOk || busyOp !== null} onClick={() => onStart(order.id)}>Iniciar Producción <ChevronRight size={16} className="sb-icon"/></SBButton>
                 </div>
             )}
 
@@ -774,7 +836,9 @@ function OrderDetail({ order, recipe, onClose, onStart, onFinish, onUpdate, inve
                         </div>
                     </div>
                      <div className="flex justify-end">
-                        <SBButton onClick={handleFinish} disabled={finalYield === ''}>Finalizar Producción</SBButton>
+                        <SpinnerButton loading={busyOp === "finish"} onClick={handleFinish} disabled={finalYield === '' || busyOp !== null}>
+                           Finalizar Producción
+                        </SpinnerButton>
                      </div>
                 </div>
              )}
@@ -835,14 +899,14 @@ function MissingMaterialsCard({ orders, allMaterials }: { orders: ProdOrder[]; a
       .filter(o => (o.status === 'planned' || o.status === 'released') && o.shortages?.length)
       .forEach(o => o.shortages!.forEach(s => {
         const cur = m.get(s.materialId);
-        if (!cur) m.set(s.materialId, { required: s.required - s.available, available: s.available, uom: s.uom });
-        else m.set(s.materialId, { required: cur.required + (s.required - s.available), available: cur.available + s.available, uom: s.uom });
+        if (!cur) m.set(s.materialId, { required: s.required, available: s.available, uom: s.uom });
+        else m.set(s.materialId, { required: cur.required + s.required, available: s.available, uom: s.uom });
       }));
     return m;
   }, [orders]);
 
   const items = [...shortagesMap.entries()]
-    .map(([materialId, v]) => ({ materialId, missing: Math.max(0, v.required), uom: v.uom }))
+    .map(([materialId, v]) => ({ materialId, missing: Math.max(0, v.required - v.available), uom: v.uom }))
     .filter(x => x.missing > 0)
     .sort((a,b)=> b.missing - a.missing)
     .slice(0, 8); // top 8
