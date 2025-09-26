@@ -1,4 +1,5 @@
 
+
 "use client";
 import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -9,7 +10,7 @@ import { motion, AnimatePresence } from "framer-motion";
 // con los datos de prueba en memoria.
 // =============================================================
 
-import { AlertCircle, Check, Hourglass, X, Thermometer, FlaskConical, Beaker, TestTube2, Paperclip, Upload, Trash2, ChevronRight, ChevronDown, Save, Bug } from "lucide-react";
+import { AlertCircle, Check, Hourglass, X, Thermometer, FlaskConical, Beaker, TestTube2, Paperclip, Upload, Trash2, ChevronRight, ChevronDown, Save, Bug, Edit } from "lucide-react";
 import { SBCard, SBButton } from '@/components/ui/ui-primitives';
 import { useData } from "@/lib/dataprovider";
 import type { ProductionOrder as ProdOrder, Uom, Material, Shortage, ActualConsumption, InventoryItem, Product, SantaData, ExecCheck, BillOfMaterial as RecipeBom, Reservation, SB_THEME } from '@/domain/ssot';
@@ -105,12 +106,13 @@ function Pill({ children, tone = "zinc" }: { children: React.ReactNode; tone?: "
 
 // ---------------------- Página /produccion ----------------------
 export default function ProduccionPage() {
-    const { data: santaData, setData } = useData();
+    const { data: santaData, setData, saveAllCollections } = useData();
     const [recipes, setRecipes] = useState<RecipeBom[]>([]);
     
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [notification, setNotification] = useState<string | null>(null);
+    const [editingOrder, setEditingOrder] = useState<ProdOrder | null>(null);
 
     const orders = useMemo(() => santaData?.productionOrders || [], [santaData]);
     
@@ -183,35 +185,57 @@ export default function ProduccionPage() {
     };
   
     setData(prev => prev ? ({ ...prev, productionOrders: [newOrder, ...prev.productionOrders] }) : prev);
+    saveAllCollections({ productionOrders: [newOrder] });
   
     if (shortages.length) {
       showNotification(`Orden creada con faltantes: ${shortages.map(s => allMaterials.find(m => m.id === s.materialId)?.name).join(", ")}.`);
     } else {
       showNotification("Orden creada con stock reservado.");
     }
-  }, [warehouseInventory, setData, allMaterials, santaData]);
+  }, [warehouseInventory, setData, allMaterials, santaData, saveAllCollections]);
   
 
   const updateOrder = useCallback(async (id: string, patch: Partial<ProdOrder>) => {
-    setData((prevData) => {
-        if (!prevData) return prevData;
-        const updatedOrders = prevData.productionOrders.map((o: ProdOrder) => {
-            if (o.id === id) {
-                const updatedOrder = { ...o, ...patch } as ProdOrder;
-                if (patch.execution && !patch.costing) {
-                    const recipe = recipes.find(r => r.id === updatedOrder.bomId);
-                    if (recipe) {
-                      const c = computeCosting(recipe, updatedOrder);
-                      updatedOrder.costing = c as any;
-                    }
-                }
-                return updatedOrder;
-            }
-            return o;
+      setData((prevData) => {
+          if (!prevData) return prevData;
+          const updatedOrders = prevData.productionOrders.map((o: ProdOrder) => {
+              if (o.id === id) {
+                  const updatedOrder = { ...o, ...patch } as ProdOrder;
+                  if ((patch.execution && !patch.costing) || patch.actuals) {
+                      const recipe = recipes.find(r => r.id === updatedOrder.bomId);
+                      if (recipe) {
+                        const c = computeCosting(recipe, updatedOrder);
+                        updatedOrder.costing = c as any;
+                      }
+                  }
+                  return updatedOrder;
+              }
+              return o;
+          });
+          saveAllCollections({ productionOrders: updatedOrders });
+          return { ...prevData, productionOrders: updatedOrders };
+      });
+      setEditingOrder(null);
+  }, [setData, recipes, saveAllCollections]);
+  
+    const deleteOrder = useCallback(async (id: string) => {
+        if (!confirm(`¿Seguro que quieres eliminar la orden de producción ${id}? Esta acción no se puede deshacer.`)) return;
+
+        setData(prev => {
+            if (!prev) return null;
+            const updatedOrders = prev.productionOrders.filter(o => o.id !== id);
+            return { ...prev, productionOrders: updatedOrders };
         });
-        return { ...prevData, productionOrders: updatedOrders };
-    });
-  }, [setData, recipes]);
+        
+        // In a real backend, you would make an API call to delete.
+        // With local persistence, we can filter out and save.
+        if (santaData) {
+            const updatedOrders = santaData.productionOrders.filter(o => o.id !== id);
+            await saveAllCollections({ productionOrders: updatedOrders });
+        }
+        
+        showNotification(`Orden ${id} eliminada.`);
+    }, [setData, santaData, saveAllCollections]);
 
   const startOrder = useCallback((orderId: string) => {
     if(!santaData) return;
@@ -232,17 +256,26 @@ export default function ProduccionPage() {
   
     const updatedInventory = consumeForOrder(warehouseInventory, products, moves);
   
-    setData(prev => prev ? ({
-      ...prev,
-      inventory: updatedInventory,
-      stockMoves: [...(prev.stockMoves || []), ...moves],
-      productionOrders: prev.productionOrders.map(o =>
-        o.id === orderId ? { ...o, status: "wip", execution: { ...(o.execution || {}), startedAt: new Date().toISOString() } } : o
-      ),
-    }) : prev);
+    setData(prev => {
+        if(!prev) return prev;
+        const updated = {
+            ...prev,
+            inventory: updatedInventory,
+            stockMoves: [...(prev.stockMoves || []), ...moves],
+            productionOrders: prev.productionOrders.map(o =>
+                o.id === orderId ? { ...o, status: "wip", execution: { ...(o.execution || {}), startedAt: new Date().toISOString() } } : o
+            ),
+        };
+        saveAllCollections({
+            inventory: updated.inventory,
+            stockMoves: updated.stockMoves,
+            productionOrders: updated.productionOrders,
+        });
+        return updated;
+    });
   
     showNotification("Orden iniciada y materias primas descontadas.");
-  }, [santaData, setData, warehouseInventory, products, allMaterials]);
+  }, [santaData, setData, warehouseInventory, products, allMaterials, saveAllCollections]);
   
 
   const finishOrder = useCallback(async (o: ProdOrder, finalYield: number, yieldUom: 'L' | 'ud') => {
@@ -289,11 +322,12 @@ export default function ProduccionPage() {
         const updatedOrders = prevData.productionOrders.map((po: any) => 
             po.id === o.id ? { ...po, status: "done" as const, execution: finalExecution, lotId: newLotId, costing: newLotCosting } : po
         );
+        saveAllCollections({ lots: newLots as any, productionOrders: updatedOrders });
         return { ...prevData, lots: newLots as any, productionOrders: updatedOrders };
     });
     
     showNotification(`Orden ${o.id} completada. Lote ${newLotId} creado y en estado 'hold'.`);
-  }, [recipes, santaData, setData]);
+  }, [recipes, santaData, setData, saveAllCollections]);
 
 
   if (loading || !santaData) return <div className="p-6">Cargando producción…</div>;
@@ -312,58 +346,101 @@ export default function ProduccionPage() {
           <h1 className="text-2xl font-semibold text-zinc-900">Producción</h1>
           <p className="text-sm text-zinc-500">Órdenes desde receta (BOM), stock, ejecución y costes</p>
         </div>
-        <CreateOrderCard recipes={recipes} onCreate={createOrder} />
+        <CreateOrderCard recipes={recipes} onCreate={createOrder} onEdit={updateOrder} editingOrder={editingOrder} onCloseEdit={() => setEditingOrder(null)} />
       </header>
 
-      <OrdersList orders={orders} recipes={recipes} onStart={startOrder} onFinish={finishOrder} onUpdate={updateOrder} inventory={warehouseInventory} allMaterials={allMaterials} />
+      <OrdersList orders={orders} recipes={recipes} onStart={startOrder} onFinish={finishOrder} onUpdate={updateOrder} onDelete={deleteOrder} onEdit={setEditingOrder} inventory={warehouseInventory} allMaterials={allMaterials} />
     </div>
   );
 }
 
 // ---------------------- UI: creación de orden ----------------------
-function CreateOrderCard({ recipes, onCreate }: { recipes: RecipeBom[]; onCreate: (p: { recipe: RecipeBom; targetBatchSize: number; whenISO: string; responsibleId?: string }) => Promise<void> }) {
-  const [selectedRecipeId, setSelectedRecipeId] = useState<string>(recipes[0]?.id || "");
+function CreateOrderCard({ recipes, onCreate, onEdit, editingOrder, onCloseEdit }: { 
+    recipes: RecipeBom[]; 
+    onCreate: (p: { recipe: RecipeBom; targetBatchSize: number; whenISO: string; responsibleId?: string }) => Promise<void>;
+    onEdit: (id: string, patch: Partial<ProdOrder>) => Promise<void>;
+    editingOrder: ProdOrder | null;
+    onCloseEdit: () => void;
+}) {
+  const [selectedRecipeId, setSelectedRecipeId] = useState<string>("");
   const { data: santaData } = useData();
   const allMaterials = useMemo(() => santaData?.materials || [], [santaData]);
 
   const selectedRecipe = useMemo(() => recipes.find(r => r.id === selectedRecipeId), [recipes, selectedRecipeId]);
 
-  const [target, setTarget] = useState<number>(selectedRecipe?.batchSize || 100);
+  const [target, setTarget] = useState<number>(100);
   const [when, setWhen] = useState<string>(() => new Date().toISOString().slice(0,16));
   const [resp, setResp] = useState<string>("");
   
+  useEffect(() => {
+    if (editingOrder) {
+      setSelectedRecipeId(editingOrder.bomId);
+      setTarget(editingOrder.targetQuantity);
+      setWhen(editingOrder.scheduledFor ? new Date(editingOrder.scheduledFor).toISOString().slice(0, 16) : '');
+      setResp(editingOrder.responsibleId || '');
+    } else {
+        setSelectedRecipeId(recipes[0]?.id || "");
+        setTarget(recipes[0]?.batchSize || 100);
+        setWhen(new Date().toISOString().slice(0,16));
+        setResp("");
+    }
+  }, [editingOrder, recipes]);
+
   const plan = useMemo(() => selectedRecipe ? planFromRecipe(selectedRecipe, target, allMaterials) : null, [selectedRecipe, target, allMaterials]);
   
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (selectedRecipe) {
+    if (selectedRecipe && !editingOrder) {
         setTarget(selectedRecipe.batchSize);
     }
-  }, [selectedRecipe]);
+  }, [selectedRecipe, editingOrder]);
   
-  if (!selectedRecipe || !plan) return null;
-  const { plannedBottles } = plan;
+  if (!selectedRecipe && !editingOrder) return null;
+  const recipeToUse = editingOrder ? recipes.find(r => r.id === editingOrder.bomId) : selectedRecipe;
+  if (!recipeToUse) return null;
+
+  const { plannedBottles } = plan || { plannedBottles: 0 };
+  
+  const handleSave = async () => {
+    setBusy(true);
+    try {
+        if (editingOrder) {
+            await onEdit(editingOrder.id, {
+                targetQuantity: target,
+                scheduledFor: new Date(when).toISOString(),
+                responsibleId: resp || undefined
+            });
+            showNotification(`Orden ${editingOrder.id} actualizada.`);
+        } else {
+            await onCreate({ recipe: recipeToUse, targetBatchSize: target, whenISO: new Date(when).toISOString(), responsibleId: resp||undefined });
+        }
+    } finally {
+        setBusy(false);
+    }
+  };
 
   return (
     <div className="rounded-2xl border border-[var(--line)] bg-white p-4 w-full max-w-xl">
-      <div className="mb-2">
-        <label className="text-sm">
-          <span className="block text-zinc-500 text-xs mb-1">Receta (BOM)</span>
-          <select 
-            value={selectedRecipeId}
-            onChange={(e) => setSelectedRecipeId(e.target.value)}
-            className="font-medium px-2 py-1.5 w-full rounded-lg border border-zinc-300 bg-white"
-          >
-            {recipes.map(r => (
-              <option key={r.id} value={r.id}>{r.name}</option>
-            ))}
-          </select>
-        </label>
+      <div className="flex justify-between items-start mb-2">
+          <label className="text-sm">
+            <span className="block text-zinc-500 text-xs mb-1">Receta (BOM)</span>
+            <select 
+              value={selectedRecipeId}
+              onChange={(e) => setSelectedRecipeId(e.target.value)}
+              disabled={!!editingOrder}
+              className="font-medium px-2 py-1.5 w-full rounded-lg border border-zinc-300 bg-white"
+            >
+              {recipes.map(r => (
+                <option key={r.id} value={r.id}>{r.name}</option>
+              ))}
+            </select>
+          </label>
+           {editingOrder && <SBButton variant="secondary" size="sm" onClick={onCloseEdit}>Cerrar Edición</SBButton>}
       </div>
       <div className="grid grid-cols-2 gap-3">
         <label className="text-sm">
-          <span className="block text-zinc-500 text-xs mb-1">Tamaño de lote ({selectedRecipe.baseUnit})</span>
+          <span className="block text-zinc-500 text-xs mb-1">Tamaño de lote ({recipeToUse.baseUnit})</span>
           <input type="number" min={10} step={10} value={target} onChange={e=>setTarget(parseFloat(e.target.value||"0"))} className="px-2 py-1.5 w-full rounded-lg border border-zinc-300" />
         </label>
         <label className="text-sm">
@@ -377,8 +454,8 @@ function CreateOrderCard({ recipes, onCreate }: { recipes: RecipeBom[]; onCreate
       </div>
       <div className="mt-3 flex items-center justify-between text-sm">
         <div className="text-zinc-600">Botellas planificadas: <b>{plannedBottles}</b></div>
-        <button disabled={busy} onClick={async ()=>{ setBusy(true); try{ await onCreate({ recipe: selectedRecipe, targetBatchSize: target, whenISO: new Date(when).toISOString(), responsibleId: resp||undefined }); } finally { setBusy(false);} }} className="px-3 py-1.5 rounded-lg bg-zinc-900 text-white hover:bg-zinc-800">
-          {busy? 'Creando…':'Crear orden'}
+        <button disabled={busy} onClick={handleSave} className="px-3 py-1.5 rounded-lg bg-zinc-900 text-white hover:bg-zinc-800">
+          {busy ? 'Guardando…' : (editingOrder ? 'Actualizar orden' : 'Crear orden')}
         </button>
       </div>
     </div>
@@ -386,7 +463,16 @@ function CreateOrderCard({ recipes, onCreate }: { recipes: RecipeBom[]; onCreate
 }
 
 // ---------------------- UI: listado + detalle ----------------------
-function OrdersList({ orders, recipes, onStart, onFinish, onUpdate, inventory, allMaterials }: { orders: ProdOrder[]; recipes: RecipeBom[]; onStart: (id: string)=>void; onFinish: (o: ProdOrder, finalYield: number, yieldUom: 'L' | 'ud')=>void; onUpdate: (id:string, patch: Partial<ProdOrder>)=>Promise<void>; inventory: any[], allMaterials: Material[] }) {
+function OrdersList({ orders, recipes, onStart, onFinish, onUpdate, onDelete, onEdit, inventory, allMaterials }: { 
+    orders: ProdOrder[]; 
+    recipes: RecipeBom[]; 
+    onStart: (id: string)=>void; 
+    onFinish: (o: ProdOrder, finalYield: number, yieldUom: 'L' | 'ud')=>void; 
+    onUpdate: (id:string, patch: Partial<ProdOrder>)=>Promise<void>; 
+    onDelete: (id: string) => Promise<void>;
+    onEdit: (order: ProdOrder) => void;
+    inventory: any[], allMaterials: Material[] 
+}) {
   const [openId, setOpenId] = useState<string | null>(null);
   const openOrder = orders.find(o => o.id === openId) || null;
   const openRecipe = openOrder ? recipes.find(r => r.id === openOrder.bomId) : null;
@@ -436,7 +522,15 @@ function OrdersList({ orders, recipes, onStart, onFinish, onUpdate, inventory, a
               <td className="px-3 py-2">{o.responsibleId || '—'}</td>
               <td className="px-3 py-2">{plan}</td>
               <td className="px-3 py-2 text-right">
-                <button onClick={()=>setOpenId(o.id)} className="px-3 py-1.5 rounded-lg border border-zinc-300 hover:bg-zinc-50">Abrir</button>
+                <div className="flex gap-1 justify-end">
+                    <button onClick={()=>setOpenId(o.id)} className="px-3 py-1.5 rounded-lg border border-zinc-300 hover:bg-zinc-50">Abrir</button>
+                    {o.status === 'planned' && (
+                        <>
+                            <button onClick={() => onEdit(o)} className="p-2 rounded-lg border border-zinc-300 text-zinc-600 hover:bg-blue-50 hover:text-blue-700" title="Editar"><Edit size={14} /></button>
+                            <button onClick={() => onDelete(o.id)} className="p-2 rounded-lg border border-zinc-300 text-zinc-600 hover:bg-red-50 hover:text-red-700" title="Eliminar"><Trash2 size={14} /></button>
+                        </>
+                    )}
+                </div>
               </td>
             </tr>
           )})}
@@ -701,3 +795,4 @@ function ActualsBlock({ actuals, onChange }: { actuals: ActualConsumption[], onC
 }
 
   
+
