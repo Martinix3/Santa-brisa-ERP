@@ -1,9 +1,8 @@
 
-
 "use client";
 
 import React, { useMemo, useState, useTransition } from "react";
-import type { OrderStatus, Account, OrderSellOut, Party, PartyRole, CustomerData, User, Shipment, SantaData, AccountType } from '@/domain/ssot';
+import type { OrderStatus, Account, OrderSellOut, Party, PartyRole, CustomerData, User, Shipment, SantaData, AccountType, Item } from '@/domain/ssot';
 import { SBButton, STATUS_STYLES, EmptyState } from '@/components/ui/ui-primitives';
 import { useData } from "@/lib/dataprovider";
 import { updateOrderStatus, createSalesInvoice, recordPayment } from "@/app/(app)/orders/actions";
@@ -16,7 +15,7 @@ import { normalizeOrderStatus } from '@/lib/status';
 import { CreateOrderForm } from '@/features/quicklog/components/SBFlows';
 import { SBFlowModal } from '@/features/quicklog/components/SBFlows';
 import { upsertMany } from '@/lib/dataprovider/actions';
-import { generateNextOrder } from '@/lib/codes';
+import { makeSellOutOrderCode } from '@/lib/codes';
 import { DEPT_META } from "@/domain/ssot";
 
 
@@ -202,6 +201,7 @@ export default function OrdersDashboard() {
       if (normalizedStatus === "open") k.toConfirm++;
       if (normalizedStatus === "confirmed") k.toShip++;
       if (normalizedStatus === "shipped") k.toInvoice++;
+      if (normalizedStatus === "invoiced") k.toInvoice++;
       if (normalizedStatus === "invoiced") k.toCollect++;
     }
     k.consignmentUnits = Object.values(consTotals).reduce((a, b) => a + b, 0);
@@ -243,7 +243,7 @@ export default function OrdersDashboard() {
         paymentTerms?: string;
         shipTo?: string;
         note?: string;
-        items: { sku: string; qty: number; unit: "uds"; priceUnit: number, lotNumber?: string }[];
+        items: { itemId: string; qty: number; uom: 'unit'; priceUnit: number, lotNumber?: string }[];
     }) => {
         if (!data || !currentUser) return;
         if (!payload.account && !payload.newAccount) {
@@ -272,7 +272,7 @@ export default function OrdersDashboard() {
 
         const newOrder: OrderSellOut = {
             id: `ord_${Date.now()}`,
-            docNumber: generateNextOrder((data.ordersSellOut || []).map(o => o.docNumber || ''), payload.channel, new Date()),
+            docNumber: makeSellOutOrderCode((data.ordersSellOut || []).map(o => o.docNumber || ''), new Date()),
             accountId: accountId,
             partyId: partyId,
             source: 'MANUAL',
@@ -280,7 +280,7 @@ export default function OrdersDashboard() {
             billingStatus: 'PENDING',
             currency: 'EUR',
             createdAt: payload.requestedDate || new Date().toISOString(),
-            lines: payload.items.map(item => ({ ...item, name: data.inventory.find(p => p.sku === item.sku)?.name || item.sku })),
+            lines: payload.items.map(item => ({ ...item, name: data.items.find(p => p.id === item.itemId)?.name || item.itemId })),
             notes: payload.note,
         };
 
@@ -447,3 +447,5 @@ export default function OrdersDashboard() {
     </div>
   );
 }
+
+    
