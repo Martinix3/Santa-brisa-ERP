@@ -1,3 +1,4 @@
+
 // src/features/dashboard-ventas/components/TaskCompletionDialog.tsx
 "use client";
 import React, { useMemo, useState, useEffect } from 'react';
@@ -84,8 +85,8 @@ export function TaskCompletionDialog({
         executionScore: 80, // Default value, can be refined.
         items: [{
           description: posTacticData.description || posTacticData.tacticCode || 'Táctica POS',
-          actualCost: posTacticData.actualCost || 0,
-          qty: 1
+          qty: 1,
+          unitCost: posTacticData.actualCost || 0,
         }],
         ...posTacticData,
       }, currentUser?.id || 'unknown');
