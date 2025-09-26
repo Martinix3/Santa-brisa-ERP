@@ -6,18 +6,18 @@ import type { InventoryItem, StockMove, Product, Uom, Material } from './ssot';
 const getMaterialSku = (materialId: string, materials: Material[]) =>
   materials.find(m => m.id === materialId)?.sku ?? materialId;
 
-/** Suma disponible en InventoryItem[] (qty), opcionalmente por ubicación (ej. RM/) */
+/** Suma disponible en InventoryItem[] (qty), opcionalmente por ubicación (ej. RM/MAIN) */
 export function availableForMaterial(
   materialId: string,
   inventory: InventoryItem[],
   materials: Material[],
-  locationPrefix?: string
+  locationPrefix: 'RM/MAIN' | 'PKG/MAIN' | 'FG/MAIN'
 ): number {
   const sku = getMaterialSku(materialId, materials);
   return inventory
     .filter(i =>
       i.sku === sku &&
-      (locationPrefix ? (i.locationId || "").startsWith(locationPrefix) : true)
+      (locationPrefix ? (i.locationId || "") === locationPrefix : true)
     )
     .reduce((s, i) => s + (i.qty ?? 0), 0);
 }
@@ -28,13 +28,13 @@ export function fifoReserveLots(
   requiredQty: number,
   inventory: InventoryItem[],
   materials: Material[],
-  locationPrefix = "RM/" // materias primas
+  locationPrefix: 'RM/MAIN' | 'PKG/MAIN' | 'FG/MAIN'
 ): Array<{ fromLot: string; reservedQty: number; uom: Uom }> {
   if (requiredQty <= 0) return [];
   const sku = getMaterialSku(materialId, materials);
 
   const lots = inventory
-    .filter(i => i.sku === sku && (i.locationId || "").startsWith(locationPrefix) && (i.qty ?? 0) > 0)
+    .filter(i => i.sku === sku && (i.locationId || "") === locationPrefix && (i.qty ?? 0) > 0)
     .sort((a, b) => +new Date(a.updatedAt) - +new Date(b.updatedAt)); // FIFO
 
   const picks: Array<{ fromLot: string; reservedQty: number; uom: Uom }> = [];
@@ -179,4 +179,3 @@ export function applyStockMoves(items: InventoryItem[], moves: StockMove[], prod
   }
   return stateToArray(state);
 }
-
