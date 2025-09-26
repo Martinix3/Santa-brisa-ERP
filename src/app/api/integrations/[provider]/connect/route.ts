@@ -1,6 +1,6 @@
 // src/app/api/integrations/[provider]/connect/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { adminDb } from '@/server/firebaseAdmin';
+import { adminDb } from '@/server/firebase';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';

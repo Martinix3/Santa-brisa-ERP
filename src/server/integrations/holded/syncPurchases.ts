@@ -1,5 +1,5 @@
 // src/server/integrations/holded/syncPurchases.ts
-import { adminDb } from '@/server/firebaseAdmin';
+import { adminDb as db } from '@/server/firebase';
 import { callHoldedApi } from '@/server/integrations/holded/client';
 import { Timestamp } from 'firebase-admin/firestore';
 
@@ -20,8 +20,8 @@ function mapStatus(s?: string): 'DRAFT'|'APPROVED'|'PAID'|'CANCELLED' {
 
 async function upsertSupplierParty(p: { contactId: string; name?: string; vat?: string; email?: string }) {
   // Por holdedContactId
-  const q = await adminDb.collection('parties').where('external.holdedContactId', '==', p.contactId).limit(1).get();
-  const ref = q.empty ? adminDb.collection('parties').doc() : q.docs[0].ref;
+  const q = await db.collection('parties').where('external.holdedContactId', '==', p.contactId).limit(1).get();
+  const ref = q.empty ? db.collection('parties').doc() : q.docs[0].ref;
   const data = q.empty ? {} as any : q.docs[0].data();
 
   const roles = new Set<string>([...(data.roles || [])]);
@@ -30,7 +30,7 @@ async function upsertSupplierParty(p: { contactId: string; name?: string; vat?: 
   await ref.set({
     legalName: p.name || p.vat || 'Proveedor',
     vat: p.vat || data.vat || null,
-    emails: p.email ? [p.email] : (data.emails || []),
+    emails: p.email ? [{ value: p.email, isPrimary: true, source:'HOLDED', verified: true, updatedAt: new Date().toISOString() }] : (data.emails || []),
     roles: Array.from(roles),
     external: { ...(data.external||{}), holdedContactId: p.contactId },
     updatedAt: Timestamp.now(),
@@ -60,7 +60,7 @@ export async function handleSyncHoldedPurchases({ page = 1, dryRun = false }: { 
 
     const expenseId = `holded-${p.id}`;
     if (!dryRun) {
-        await adminDb.collection('expenses').doc(expenseId).set({
+        await db.collection('expenses').doc(expenseId).set({
             id: expenseId,
             partyId: supplierPartyId,
             date: p.date || new Date().toISOString(),
@@ -77,5 +77,6 @@ export async function handleSyncHoldedPurchases({ page = 1, dryRun = false }: { 
     }
   }
 
-  return { ok: true, count: purchases.length, nextPage: purchases.length === 50 ? page + 1 : null, dryRun };
+  const processedNames = purchases.map(c => c.contactName || 'Sin Nombre').filter(Boolean);
+  return { ok: true, count: purchases.length, nextPage: purchases.length === 50 ? page + 1 : null, dryRun, processedNames };
 }

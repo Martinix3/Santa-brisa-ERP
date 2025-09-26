@@ -2,7 +2,7 @@
 'use server';
 
 import type { SantaData } from '@/domain/ssot';
-import { adminDb } from '@/server/firebaseAdmin';
+import { adminDb, FieldDocId } from '@/server/firebase';
 
 /**
  * Inserts or updates multiple documents in a collection.
@@ -12,40 +12,35 @@ import { adminDb } from '@/server/firebaseAdmin';
  * @returns An object with the count of inserted/updated documents.
  */
 export async function upsertMany(collectionName: keyof SantaData, items: any[]): Promise<{ inserted: number, updated: number, ids: string[] }> {
-  if (!items || items.length === 0) return { inserted: 0, updated: 0, ids: [] };
+  if (!items?.length) return { inserted: 0, updated: 0, ids: [] };
 
-  const collectionRef = adminDb.collection(collectionName);
-  const existingDocIds = new Set((await collectionRef.select().get()).docs.map(d => d.id));
-  
-  let inserted = 0;
-  let updated = 0;
-  const ids: string[] = [];
+  try {
+    const colRef = adminDb.collection(String(collectionName));
+    const snap = await colRef.select(FieldDocId).get();
+    const existing = new Set(snap.docs.map(d => d.id));
 
-  // Firestore allows a maximum of 500 operations in a single batch.
-  const batchSize = 500;
-  for (let i = 0; i < items.length; i += batchSize) {
-    const batch = adminDb.batch();
-    const chunk = items.slice(i, i + batchSize);
+    const ids: string[] = [];
+    let inserted = 0, updated = 0;
+    const batchSize = 500;
 
-    for (const item of chunk) {
-      if (!item.id) {
-          console.warn(`Skipping item in ${collectionName} due to missing ID:`, item);
-          continue;
+    for (let i = 0; i < items.length; i += batchSize) {
+      const batch = adminDb.batch();
+      for (const it of items.slice(i, i + batchSize)) {
+        if (!it?.id) continue;
+        const ref = colRef.doc(it.id);
+        const clean = JSON.parse(JSON.stringify(it, (k, v) => (v === undefined ? null : v)));
+        batch.set(ref, clean, { merge: true });
+        ids.push(it.id);
+        existing.has(it.id) ? updated++ : inserted++;
       }
-      const docRef = collectionRef.doc(item.id);
-      // Clean undefined values before sending to Firestore
-      const cleanItem = JSON.parse(JSON.stringify(item, (k,v) => v === undefined ? null : v));
-      batch.set(docRef, cleanItem, { merge: true });
-      ids.push(item.id);
-      
-      if (existingDocIds.has(item.id)) {
-        updated++;
-      } else {
-        inserted++;
-      }
+      await batch.commit();
     }
-    await batch.commit();
+    return { inserted, updated, ids };
+  } catch (err: any) {
+    console.error('[upsertMany] Firestore error', {
+      code: err?.code, message: err?.message,
+      projectId: adminDb.app.options.projectId, collectionName
+    });
+    throw err;
   }
-
-  return { inserted, updated, ids };
 }

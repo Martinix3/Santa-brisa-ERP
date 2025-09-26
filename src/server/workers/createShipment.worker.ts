@@ -1,27 +1,27 @@
 // src/server/workers/createShipment.worker.ts
 'use server';
-import { adminDb } from '@/server/firebaseAdmin';
+import { adminDb as db } from '@/server/firebase';
 import type { OrderSellOut, Shipment, Account, Party } from '@/domain/ssot';
 
 export async function run({ orderId }: { orderId: string }) {
-    const orderSnap = await adminDb.collection('ordersSellOut').doc(orderId).get();
+    const orderSnap = await db.collection('ordersSellOut').doc(orderId).get();
     if (!orderSnap.exists) {
         throw new Error(`Order ${orderId} not found.`);
     }
     const order = orderSnap.data() as OrderSellOut;
 
     // Idempotency check: if a shipment already exists for this order, do nothing.
-    const existingShipmentQuery = await adminDb.collection('shipments').where('orderId', '==', orderId).limit(1).get();
+    const existingShipmentQuery = await db.collection('shipments').where('orderId', '==', orderId).limit(1).get();
     if (!existingShipmentQuery.empty) {
         console.log(`Shipment already exists for order ${orderId}. Skipping creation.`);
         return;
     }
 
-    const accountSnap = await adminDb.collection('accounts').doc(order.accountId).get();
+    const accountSnap = await db.collection('accounts').doc(order.accountId).get();
     if (!accountSnap.exists) throw new Error(`Account ${order.accountId} for order ${orderId} not found.`);
     const account = accountSnap.data() as Account;
 
-    const partySnap = await adminDb.collection('parties').doc(account.partyId).get();
+    const partySnap = await db.collection('parties').doc(account.partyId).get();
     if (!partySnap.exists) throw new Error(`Party ${account.partyId} for account ${account.id} not found.`);
     const party = partySnap.data() as Party;
 
@@ -30,7 +30,7 @@ export async function run({ orderId }: { orderId: string }) {
     const totalUnits = (order.lines || []).reduce((sum, line) => sum + line.qty, 0);
     const mode: 'PARCEL' | 'PALLET' = isOnlineOrPrivate || totalUnits < 12 ? 'PARCEL' : 'PALLET';
 
-    const shipmentId = adminDb.collection('shipments').doc().id;
+    const shipmentId = db.collection('shipments').doc().id;
     
     const newShipment: Shipment = {
         id: shipmentId,
@@ -54,8 +54,6 @@ export async function run({ orderId }: { orderId: string }) {
         updatedAt: new Date().toISOString(),
     };
 
-    await adminDb.collection('shipments').doc(shipmentId).set(newShipment);
+    await db.collection('shipments').doc(shipmentId).set(newShipment);
     console.log(`Successfully created shipment ${shipmentId} for order ${orderId}.`);
 }
-
-    

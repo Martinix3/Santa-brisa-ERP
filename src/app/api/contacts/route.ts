@@ -1,6 +1,6 @@
 // /src/app/api/contacts/route.ts
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase/admin';
+import { adminDb as db } from '@/server/firebase';
 
 type Row = {
   id: string;
@@ -22,19 +22,14 @@ export async function GET() {
       const p = d.data() as any;
       const emails: any[] = p.emails ?? [];
       const phones: any[] = p.phones ?? [];
-      const contacts: any[] = p.contacts ?? [];   // legacy read-only
       const addr0: any = (p.addresses ?? [])[0] || {};
       const primaryEmail =
         emails.find((e) => e?.isPrimary)?.value ??
-        emails[0]?.value ??
-        contacts.find((c) => c.type === 'email' && c.isPrimary)?.value ??
-        contacts.find((c) => c.type === 'email')?.value;
+        emails[0]?.value;
 
       const primaryPhone =
         phones.find((t) => t?.isPrimary)?.value ??
-        phones[0]?.value ??
-        contacts.find((c) => c.type === 'phone' && c.isPrimary)?.value ??
-        contacts.find((c) => c.type === 'phone')?.value;
+        phones[0]?.value;
 
       const city =
         p.billingAddress?.city ?? p.shippingAddress?.city ?? addr0?.city ?? undefined;

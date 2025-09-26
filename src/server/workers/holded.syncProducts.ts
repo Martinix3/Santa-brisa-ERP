@@ -1,4 +1,4 @@
-import { adminDb } from '@/server/firebaseAdmin';
+import { adminDb as db } from '@/server/firebase';
 import { callHoldedApi } from '@/server/integrations/holded/client';
 import { Timestamp } from 'firebase-admin/firestore';
 
@@ -18,7 +18,7 @@ export async function handleSyncHoldedProducts({ page = 1, dryRun = false }: { p
 
   for (const it of items) {
     const sku = it.reference || it.id;
-    const ref = adminDb.collection('products').doc(sku);
+    const ref = db.collection('products').doc(sku);
 
     const product = {
       id: sku,

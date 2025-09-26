@@ -1,11 +1,11 @@
 // src/server/workers/createInhouseLabel.worker.ts
 'use server';
-import { adminDb } from '@/server/firebaseAdmin';
+import { adminDb as db } from '@/server/firebase';
 import { Timestamp } from 'firebase-admin/firestore';
 // import { renderPalletLabelPdf } from '@/server/pdf/palletLabel'; // si generas un PDF propio
 
 export async function run({ shipmentId }: { shipmentId: string }) {
-  const ref = adminDb.collection('shipments').doc(shipmentId);
+  const ref = db.collection('shipments').doc(shipmentId);
   const snap = await ref.get();
   if (!snap.exists) throw new Error('Shipment not found');
   const s = snap.data()!;

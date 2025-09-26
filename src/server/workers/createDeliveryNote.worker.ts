@@ -1,6 +1,6 @@
 // src/server/workers/createDeliveryNote.worker.ts
 'use server';
-import { adminDb } from '@/server/firebaseAdmin';
+import { adminDb as db } from '@/server/firebase';
 import type { DeliveryNote, Shipment, OrderSellOut, Party } from '@/domain/ssot';
 import { Timestamp } from 'firebase-admin/firestore';
 
@@ -11,7 +11,7 @@ function nextDnId(series: 'ONLINE'|'B2B'|'INTERNAL' = 'B2B') {
 }
 
 export async function run({ shipmentId }: { shipmentId: string }) {
-    const shipmentRef = adminDb.collection('shipments').doc(shipmentId);
+    const shipmentRef = db.collection('shipments').doc(shipmentId);
     const shipmentSnap = await shipmentRef.get();
     if (!shipmentSnap.exists) throw new Error(`Shipment ${shipmentId} not found.`);
     const shipment = shipmentSnap.data() as Shipment;
@@ -24,11 +24,11 @@ export async function run({ shipmentId }: { shipmentId: string }) {
         return;
     }
 
-    const orderSnap = await adminDb.collection('ordersSellOut').doc(shipment.orderId).get();
+    const orderSnap = await db.collection('ordersSellOut').doc(shipment.orderId).get();
     if (!orderSnap.exists) throw new Error(`Order ${shipment.orderId} not found.`);
     const order = orderSnap.data() as OrderSellOut;
 
-    const partySnap = await adminDb.collection('parties').doc(shipment.partyId).get();
+    const partySnap = await db.collection('parties').doc(shipment.partyId).get();
     if (!partySnap.exists) throw new Error(`Party ${shipment.partyId} not found.`);
     const party = partySnap.data() as Party;
 
@@ -60,7 +60,7 @@ export async function run({ shipmentId }: { shipmentId: string }) {
         company: { name: 'Santa Brisa', vat: 'B00000000', address: 'C/ Olivos 10', city: 'Madrid', zip: '28010', country: 'España' }
     };
     
-    await adminDb.collection('deliveryNotes').doc(dnId).set({ 
+    await db.collection('deliveryNotes').doc(dnId).set({ 
         ...deliveryNoteData,
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),

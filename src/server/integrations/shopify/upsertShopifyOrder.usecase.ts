@@ -1,5 +1,5 @@
 // src/server/integrations/shopify/upsertShopifyOrder.usecase.ts
-import { adminDb } from '@/server/firebaseAdmin';
+import { adminDb as db } from '@/server/firebase';
 import { FieldValue } from 'firebase-admin/firestore';
 import { enqueue } from '@/server/queue/queue';
 import { mapShopifyToSSOT } from './map';
@@ -9,7 +9,7 @@ async function upsertAccount(accountData: Partial<Account>, shopifyCustomer: any
   const email = shopifyCustomer.email;
   if (!email) throw new Error("Customer email is required to upsert account");
 
-  const q = await adminDb.collection('accounts').where('external.shopifyCustomerId', '==', String(shopifyCustomer.id)).limit(1).get();
+  const q = await db.collection('accounts').where('external.shopifyCustomerId', '==', String(shopifyCustomer.id)).limit(1).get();
   
   if (!q.empty) {
     const docRef = q.docs[0].ref;
@@ -18,7 +18,7 @@ async function upsertAccount(accountData: Partial<Account>, shopifyCustomer: any
   }
   
   // Si no se encuentra por ID, busca por email
-  const qByEmail = await adminDb.collection('accounts').where('mainContactEmail', '==', email).limit(1).get();
+  const qByEmail = await db.collection('accounts').where('mainContactEmail', '==', email).limit(1).get();
   if(!qByEmail.empty){
     const docRef = qByEmail.docs[0].ref;
     await docRef.set(accountData, { merge: true });
@@ -26,7 +26,7 @@ async function upsertAccount(accountData: Partial<Account>, shopifyCustomer: any
   }
 
   // Si no existe, crea uno nuevo
-  const docRef = adminDb.collection('accounts').doc();
+  const docRef = db.collection('accounts').doc();
   await docRef.set({
     ...accountData,
     id: docRef.id,
@@ -44,7 +44,7 @@ export async function upsertShopifyOrder(shopifyOrder: any) {
 
   const accRef = await upsertAccount(accountData, shopifyOrder.customer);
 
-  const orderRef = adminDb.collection('ordersSellOut').doc(`shopify-${shopifyOrder.id}`);
+  const orderRef = db.collection('ordersSellOut').doc(`shopify-${shopifyOrder.id}`);
   await orderRef.set({
     ...orderData,
     id: orderRef.id,

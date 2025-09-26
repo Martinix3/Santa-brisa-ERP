@@ -1,6 +1,6 @@
 // src/server/workers/createSendcloudLabel.worker.ts
 'use server';
-import { adminDb } from '@/server/firebaseAdmin';
+import { adminDb as db } from '@/server/firebase';
 import type { Shipment } from '@/domain/ssot';
 import { Timestamp } from 'firebase-admin/firestore';
 // import { callSendcloudApi } from '../integrations/sendcloud/client';
@@ -8,7 +8,7 @@ import { Timestamp } from 'firebase-admin/firestore';
 export async function run({ shipmentId }: { shipmentId: string }) {
     console.log(`[WORKER] Received job to create Sendcloud label for shipment ${shipmentId}`);
     
-    const shipmentRef = adminDb.collection('shipments').doc(shipmentId);
+    const shipmentRef = db.collection('shipments').doc(shipmentId);
     const shipmentSnap = await shipmentRef.get();
     if (!shipmentSnap.exists) {
         throw new Error(`Shipment ${shipmentId} not found.`);

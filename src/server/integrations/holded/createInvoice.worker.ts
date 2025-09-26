@@ -1,13 +1,12 @@
-
 // src/server/integrations/holded/createInvoice.worker.ts
-import { adminDb } from '@/server/firebaseAdmin';
+import { adminDb as db } from '@/server/firebase';
 import type { OrderSellOut, Party } from '@/domain/ssot';
 import { callHoldedApi } from './client';
 import { Timestamp } from 'firebase-admin/firestore';
 
 
 export async function handleCreateHoldedInvoice({ orderId }: { orderId: string }) {
-  const orderRef = adminDb.collection('ordersSellOut').doc(orderId);
+  const orderRef = db.collection('ordersSellOut').doc(orderId);
   const snap = await orderRef.get();
   if (!snap.exists) throw new Error(`Order ${orderId} not found`);
   const order = snap.data() as OrderSellOut;
@@ -19,7 +18,7 @@ export async function handleCreateHoldedInvoice({ orderId }: { orderId: string }
   if (!order.partyId) throw new Error(`Order ${order.id} is missing partyId`);
 
   // 1) Party (cliente)
-  const partySnap = await adminDb.collection('parties').doc(order.partyId).get();
+  const partySnap = await db.collection('parties').doc(order.partyId).get();
   if (!partySnap.exists) throw new Error(`Party ${order.partyId} not found`);
   const party = partySnap.data() as Party;
 
@@ -37,7 +36,7 @@ export async function handleCreateHoldedInvoice({ orderId }: { orderId: string }
       type: 'client',
     });
     contactId = created.id;
-    await adminDb.collection('parties').doc(order.partyId).set({
+    await db.collection('parties').doc(order.partyId).set({
       roles: (party.roles ?? []).includes('CUSTOMER') ? party.roles : [...(party.roles||[]), 'CUSTOMER'],
       external: { ...(party.external||{}), holdedContactId: contactId },
       updatedAt: Timestamp.now(),

@@ -1,5 +1,5 @@
 // src/server/integrations/shopify/process.ts
-import { adminDb } from '@/server/firebaseAdmin';
+import { adminDb as db } from '@/server/firebase';
 import { FieldValue } from 'firebase-admin/firestore';
 import { enqueue } from '@/server/queue/queue';
 import { mapShopifyToSSOT } from '@/server/integrations/shopify/map';
@@ -18,7 +18,7 @@ async function upsertAccount(accountData: Partial<Account>, shopifyCustomer: any
     throw new Error("Customer email is required to upsert an account from Shopify.");
   }
 
-  const accountsRef = adminDb.collection('accounts');
+  const accountsRef = db.collection('accounts');
   
   // 1. Try to find by Shopify Customer ID
   const qById = await accountsRef.where('external.shopifyCustomerId', '==', String(shopifyCustomer.id)).limit(1).get();
@@ -56,7 +56,7 @@ export async function processShopifyEvent(params: WebhookParams) {
   }
 
   const payload = JSON.parse(params.rawBody);
-  const eventRef = adminDb.collection('integrations').doc('shopify').collection('events').doc(String(payload.id));
+  const eventRef = db.collection('integrations').doc('shopify').collection('events').doc(String(payload.id));
   
   const snap = await eventRef.get();
   if (snap.exists && snap.data()?.processedAt) {
@@ -77,7 +77,7 @@ export async function processShopifyEvent(params: WebhookParams) {
       
       const accRef = await upsertAccount(accountData, payload.customer);
 
-      const orderRef = adminDb.collection('ordersSellOut').doc(`shopify-${payload.id}`);
+      const orderRef = db.collection('ordersSellOut').doc(`shopify-${payload.id}`);
       await orderRef.set({
         ...orderData,
         id: orderRef.id,

@@ -1,11 +1,9 @@
-
-
 // src/features/marketing/services/posTactics.service.ts
 'use server';
 
 import { z } from 'zod';
 import { PosTactic, PosTacticItem, PosCostCatalogEntry, PlvMaterial, PosResult } from '@/domain/ssot';
-import { adminDb as db } from '@/server/firebaseAdmin';
+import { adminDb as db } from '@/server/firebase';
 import { Timestamp } from 'firebase-admin/firestore';
 import { computePosResult } from './pos.service';
 

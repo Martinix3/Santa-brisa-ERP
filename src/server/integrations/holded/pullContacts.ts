@@ -1,4 +1,4 @@
-import { db } from '@/lib/firebase/admin';
+import { adminDb as db } from '@/server/firebase';
 import { callHoldedApi } from '@/server/integrations/holded/client';
 import type { Party } from '@/domain/ssot';
 

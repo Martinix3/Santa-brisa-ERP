@@ -1,15 +1,15 @@
 // src/server/workers/invoicing.createFromOrder.ts
-import { adminDb } from '@/server/firebaseAdmin';
+import { adminDb as db } from '@/server/firebase';
 import { Timestamp } from 'firebase-admin/firestore';
 
 export async function run({ orderId }: { orderId:string }) {
-  const orderRef = adminDb.collection('ordersSellOut').doc(orderId);
+  const orderRef = db.collection('ordersSellOut').doc(orderId);
   const orderSnap = await orderRef.get();
   if (!orderSnap.exists) return;
 
   const order = orderSnap.data()!;
   // Generar nº factura, totales, etc. (mock):
-  const invoiceRef = adminDb.collection('invoices').doc();
+  const invoiceRef = db.collection('invoices').doc();
   const invoice = {
     id: invoiceRef.id,
     orderId,
@@ -34,8 +34,8 @@ export async function run({ orderId }: { orderId:string }) {
   });
 
   // Propaga a shipments del pedido (si quieres enlazar):
-  const shps = await adminDb.collection('shipments').where('orderId','==',orderId).get();
-  const batch = adminDb.batch();
+  const shps = await db.collection('shipments').where('orderId','==',orderId).get();
+  const batch = db.batch();
   shps.docs.forEach(d => {
     batch.update(d.ref, { invoiceId: invoice.id, updatedAt: Timestamp.now() });
   });

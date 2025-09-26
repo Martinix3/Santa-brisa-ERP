@@ -1,10 +1,8 @@
-
-
 // src/features/marketing/services/pos.service.ts
 'use server';
 
 import type { OrderSellOut, PosResult } from "@/domain/ssot";
-import { adminDb as db } from '@/server/firebaseAdmin';
+import { adminDb as db } from '@/server/firebase';
 
 // Esta función ahora es una 'server action' que puede ser llamada desde el servidor.
 

@@ -1,7 +1,7 @@
 // src/server/workers/validateShipment.worker.ts
 'use server';
-import { adminDb } from '@/server/firebaseAdmin';
-import { Timestamp } from 'firebase-admin/firestore'; // Importar Timestamp
+import { adminDb as db } from '@/server/firebase';
+import { Timestamp } from 'firebase-admin/firestore';
 import type { Shipment, ShipmentLine } from '@/domain/ssot';
 
 export async function run(payload: {
@@ -13,7 +13,7 @@ export async function run(payload: {
     lotMap?: Record<string, { lotId: string; qty: number }[]>;
 }) {
     const { shipmentId, ...updateData } = payload;
-    const shipmentRef = adminDb.collection('shipments').doc(shipmentId);
+    const shipmentRef = db.collection('shipments').doc(shipmentId);
     const shipmentSnap = await shipmentRef.get();
     if (!shipmentSnap.exists) {
         throw new Error(`Shipment ${shipmentId} not found.`);

@@ -1,6 +1,5 @@
-
 'use server';
-import { db } from '@/lib/firebase/admin';
+import { adminDb as db } from '@/server/firebase';
 import type { Party } from '@/domain/ssot';
 
 export async function findPartyByVat(vat: string) {

@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { db } from '@/lib/firebase/admin';
+import { adminDb as db } from '@/server/firebase';
 import type { Party, PartyDuplicate } from '@/domain/ssot';
 import { mergeParties } from '@/features/contacts/merge/mergeParties';
 import { withDerived } from '@/server/contacts/derive';

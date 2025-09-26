@@ -1,4 +1,4 @@
-import { adminDb } from '@/server/firebaseAdmin';
+import { adminDb as db } from '@/server/firebase';
 import { callHoldedApi } from '@/server/integrations/holded/client';
 import { Timestamp } from 'firebase-admin/firestore';
 import type { Party, PartyDuplicate, Address } from '@/domain/ssot';
@@ -39,7 +39,7 @@ function toRole(t?: string): Array<'CUSTOMER'|'SUPPLIER'|'OTHER'> {
 
 async function recordDuplicate(primaryPartyId: string, duplicatePartyId: string, reason: PartyDuplicate['reason'], score: number) {
     const id = `dup_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-    await adminDb.collection('partyDuplicates').doc(id).set({
+    await db.collection('partyDuplicates').doc(id).set({
         id,
         primaryPartyId,
         duplicatePartyId,
@@ -61,13 +61,13 @@ export async function handleSyncHoldedContacts({ page = 1, dryRun = false }: { p
     const contactTaxId = (c.code || '').trim().toUpperCase();
     let existingParty: Party | null = null;
     if (contactTaxId) {
-        const querySnapshot = await adminDb.collection('parties').where('taxId', '==', contactTaxId).limit(1).get();
+        const querySnapshot = await db.collection('parties').where('taxId', '==', contactTaxId).limit(1).get();
         if (!querySnapshot.empty) {
             existingParty = querySnapshot.docs[0].data() as Party;
         }
     }
     if (!existingParty) {
-        const querySnapshot = await adminDb.collection('parties').where('name', '==', c.name.trim()).limit(1).get();
+        const querySnapshot = await db.collection('parties').where('name', '==', c.name.trim()).limit(1).get();
         if (!querySnapshot.empty) {
             existingParty = querySnapshot.docs[0].data() as Party;
         }
@@ -94,9 +94,9 @@ export async function handleSyncHoldedContacts({ page = 1, dryRun = false }: { p
       
       if (!dryRun) {
         if(existingParty) {
-            await adminDb.collection('parties').doc(existingParty.id).set(proposedData, { merge: true });
+            await db.collection('parties').doc(existingParty.id).set(proposedData, { merge: true });
         } else {
-            const newPartyRef = adminDb.collection('parties').doc();
+            const newPartyRef = db.collection('parties').doc();
             await newPartyRef.set({ ...proposedData, id: newPartyRef.id, createdAt: Timestamp.now() });
         }
       }

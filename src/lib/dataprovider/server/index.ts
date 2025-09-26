@@ -1,4 +1,4 @@
-import { db } from '@/lib/firebase/admin';
+import { adminDb as db } from '@/server/firebase';
 import { assertCollection } from '@/lib/ssot/collections';
 import { SANTA_DATA_COLLECTIONS, type SantaData } from '@/domain/ssot';
 

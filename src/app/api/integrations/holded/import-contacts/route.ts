@@ -1,6 +1,6 @@
 // src/app/api/integrations/holded/import-contacts/route.ts
 import { NextResponse } from 'next/server';
-import { adminDb } from '@/server/firebaseAdmin';
+import { adminDb as db } from '@/server/firebase';
 import { fetchContacts } from '@/features/integrations/holded/service';
 import type { Account, Party } from '@/domain/ssot';
 
@@ -16,8 +16,6 @@ const getContactUniqueKey = (contact: any): string => {
 };
 
 export async function POST(req: Request) {
-  const db = adminDb;
-  
   try {
     const holdedApiKey = process.env.HOLDED_API_KEY;
 

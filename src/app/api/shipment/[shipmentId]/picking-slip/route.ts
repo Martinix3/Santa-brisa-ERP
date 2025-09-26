@@ -1,6 +1,6 @@
 // src/app/api/shipment/[shipmentId]/picking-slip/route.ts
 import { NextResponse, type NextRequest } from 'next/server';
-import { adminDb } from '@/server/firebaseAdmin';
+import { adminDb as db } from '@/server/firebase';
 import type { Shipment, OrderSellOut, Party } from '@/domain/ssot';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 
@@ -95,7 +95,7 @@ export async function GET(
   const { shipmentId } = await params;
 
   try {
-    const shipmentSnap = await adminDb.collection('shipments').doc(shipmentId).get();
+    const shipmentSnap = await db.collection('shipments').doc(shipmentId).get();
     if (!shipmentSnap.exists) {
       return new NextResponse('Shipment not found', { status: 404 });
     }

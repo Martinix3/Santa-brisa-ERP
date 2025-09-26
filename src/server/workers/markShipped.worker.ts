@@ -1,11 +1,10 @@
-
-import { adminDb } from '@/server/firebaseAdmin';
+import { adminDb as db } from '@/server/firebase';
 import { Timestamp } from 'firebase-admin/firestore';
 import type { Shipment, OrderSellOut } from '@/domain/ssot';
 import { enqueue } from '../queue/queue';
 
 export async function run({ shipmentId }: { shipmentId: string }) {
-    const shipmentRef = adminDb.collection('shipments').doc(shipmentId);
+    const shipmentRef = db.collection('shipments').doc(shipmentId);
     const shipmentSnap = await shipmentRef.get();
     if (!shipmentSnap.exists) {
         throw new Error(`Shipment ${shipmentId} not found.`);
@@ -34,7 +33,7 @@ export async function run({ shipmentId }: { shipmentId: string }) {
     console.log(`Shipment ${shipmentId} marked as shipped.`);
 
     // If it's a Shopify order, enqueue a job to update Shopify
-    const orderSnap = await adminDb.collection('ordersSellOut').doc(shipment.orderId).get();
+    const orderSnap = await db.collection('ordersSellOut').doc(shipment.orderId).get();
     if (orderSnap.exists) {
         const order = orderSnap.data() as OrderSellOut;
         if (order.source === 'SHOPIFY' && order.external?.shopifyOrderId) {

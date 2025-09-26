@@ -1,5 +1,5 @@
 // src/server/queue/queue.ts
-import { adminDb } from '@/server/firebaseAdmin';
+import { adminDb as db } from '@/server/firebase';
 import { Timestamp } from 'firebase-admin/firestore';
 import type { Job, JobPayloads } from './types';
 
@@ -9,7 +9,7 @@ import type { Job, JobPayloads } from './types';
  * @returns The ID of the newly created job document in Firestore.
  */
 export async function enqueue(job: JobPayloads & { correlationId?: string, maxAttempts?: number, delaySec?: number }) {
-  const ref = adminDb.collection('jobs').doc();
+  const ref = db.collection('jobs').doc();
   const payload: Job = {
     id: ref.id,
     ...job,

@@ -1,6 +1,6 @@
 // src/server/queue/runner.local.ts
 import { processJob } from './dispatcher';
-import { adminDb } from '../firebaseAdmin';
+import { adminDb as db } from '../firebase';
 import { Timestamp } from 'firebase-admin/firestore';
 import type { Job } from './types';
 
@@ -8,7 +8,7 @@ const WORKER_ID = `local_${process.pid}`;
 const INTERVAL_MS = 5_000; // cada 5s
 
 async function dispatchOnce(workerId: string): Promise<number> {
-    const q = adminDb.collection('jobs')
+    const q = db.collection('jobs')
         .where('status', 'in', ['QUEUED', 'RETRY'])
         .where('nextRunAt', '<=', Timestamp.now())
         .orderBy('nextRunAt')
@@ -21,7 +21,7 @@ async function dispatchOnce(workerId: string): Promise<number> {
     const promises = snap.docs.map(async (doc) => {
         const job = doc.data() as Job;
         try {
-            await adminDb.runTransaction(async (tx) => {
+            await db.runTransaction(async (tx) => {
                 const latest = await tx.get(doc.ref);
                 if (latest.data()?.status !== job.status) return; // Alguien lo ha cogido
                 tx.update(doc.ref, {

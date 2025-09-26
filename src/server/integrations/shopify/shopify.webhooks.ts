@@ -1,6 +1,6 @@
 // src/server/integrations/shopify/shopify.webhooks.ts
 import crypto from 'crypto';
-import { adminDb } from '@/server/firebaseAdmin';
+import { adminDb as db } from '@/server/firebase';
 import { FieldValue } from 'firebase-admin/firestore';
 import { upsertShopifyOrder } from './upsertShopifyOrder.usecase';
 
@@ -34,7 +34,7 @@ export async function processShopifyWebhook(params: WebhookParams) {
   }
 
   const payload = JSON.parse(params.rawBody);
-  const eventRef = adminDb.collection('integrations').doc('shopify').collection('events').doc(String(payload.id));
+  const eventRef = db.collection('integrations').doc('shopify').collection('events').doc(String(payload.id));
   
   const snap = await eventRef.get();
   if (snap.exists && snap.data()?.processedAt) {

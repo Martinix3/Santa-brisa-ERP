@@ -1,6 +1,4 @@
-
-
-import { adminDb } from '@/server/firebaseAdmin';
+import { adminDb as db } from '@/server/firebase';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import type { Job, JobKind } from './types';
 import { enqueue } from './queue';
@@ -27,7 +25,7 @@ const LEASE_MS = 60_000;
 const BASE_BACKOFF_MS = 30_000;
 
 export async function processJob(workerId: string, job: Job): Promise<void> {
-  const jobRef = adminDb.collection('jobs').doc(job.id);
+  const jobRef = db.collection('jobs').doc(job.id);
   const handler = HANDLERS[job.kind];
 
   if (!handler) {

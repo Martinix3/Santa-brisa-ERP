@@ -1,6 +1,6 @@
 // src/app/api/integrations/job-runs/route.ts
 import { NextResponse } from 'next/server';
-import { adminDb } from '@/server/firebaseAdmin';
+import { adminDb } from '@/server/firebase';
 
 export async function GET() {
     try {

@@ -1,5 +1,4 @@
-
-import { db } from '@/lib/firebase/admin';
+import { adminDb as db } from '@/server/firebase';
 import type { Party, PartyDuplicate } from '@/domain/ssot';
 import { normEmail } from '@/lib/norm/email';
 import { normPhone } from '@/lib/norm/phone';

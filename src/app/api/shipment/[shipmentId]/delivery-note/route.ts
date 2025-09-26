@@ -5,7 +5,7 @@ import { NextRequest } from 'next/server';
 import { getOne, upsertMany } from '@/lib/dataprovider/server';
 import type { Shipment, DeliveryNote, OrderSellOut, Account, Party } from '@/domain/ssot';
 import { renderDeliveryNotePdf } from '@/server/pdf/deliveryNote';
-import { bucket } from '@/lib/firebase/admin';
+import { bucket } from '@/server/firebase';
 
 export async function GET(_req: NextRequest, ctx: { params: Promise<{ shipmentId: string }> }) {
   try {
@@ -31,7 +31,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ shipmentId
 
     // Persistir partyId resuelto en el shipment si no lo tenía
     if (!shp.partyId && resolvedPartyId) {
-      await upsertMany('shipments', [{ id: shp.id, partyId: resolvedPartyId, updatedAt: new Date().toISOString() }]);
+      await upsertMany('shipments', [{ id: shp.id, partyId: resolvedPartyId, updatedAt: new Date().toISOString() } as any]);
       shp.partyId = resolvedPartyId;
     }
 
@@ -99,9 +99,9 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ shipmentId
     });
 
     // Guarda metadatos e incorpora pdfUrl
-    await upsertMany('deliveryNotes', [{ ...dn, pdfUrl: signedUrl }]);
+    await upsertMany('deliveryNotes', [{ ...dn, pdfUrl: signedUrl }] as any);
     if (!shp.deliveryNoteId) {
-      await upsertMany('shipments', [{ id: shp.id, deliveryNoteId: dnId, updatedAt: now }]);
+      await upsertMany('shipments', [{ id: shp.id, deliveryNoteId: dnId, updatedAt: now } as any]);
     }
 
     // Redirige al PDF en Storage (mejor UX y cacheable)
@@ -122,5 +122,3 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ shipmentId
     return new Response(`Error generating delivery note: ${msg}`, { status: 500 });
   }
 }
-
-    
