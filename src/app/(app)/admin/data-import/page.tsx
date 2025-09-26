@@ -10,8 +10,8 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useDropzone } from 'react-dropzone';
 import { UploadCloud } from 'lucide-react';
-import { SANTA_DATA_COLLECTIONS, type SantaData } from "@/domain/ssot";
-import { POLICIES, type CodeEntity } from "@/lib/codes";
+import { SANTA_DATA_COLLECTIONS, type SantaData, type CodeEntity } from "@/domain/ssot";
+import { POLICIES } from "@/lib/codes";
 import { importPreview, importCommit } from "./actions";
 
 // ----------------- helpers (cliente) -----------------

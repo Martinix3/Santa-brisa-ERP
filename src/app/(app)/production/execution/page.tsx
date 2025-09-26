@@ -609,7 +609,7 @@ function OrdersList({ orders, recipes, onStart, onFinish, onUpdate, onDelete, on
 
       {openOrder && openRecipe && (
         <div className="border-t border-[var(--line)] p-4 bg-zinc-50/60">
-          <OrderDetail order={openOrder} recipe={openRecipe} onClose={()=>setOpenId(null)} onStart={onStart} onFinish={finishOrder} onUpdate={updateOrder} inventory={inventory} allItems={allItems} busyOp={busyOp} />
+          <OrderDetail order={openOrder} recipe={openRecipe} onClose={()=>setOpenId(null)} onStart={startOrder} onFinish={onFinish} onUpdate={onUpdate} inventory={inventory} allItems={allItems} busyOp={busyOp} />
         </div>
       )}
     </div>

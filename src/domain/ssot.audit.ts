@@ -1,5 +1,3 @@
-
-
 // src/domain/ssot.audit.ts
 import {
   // Tipos/constantes del SSOT
@@ -10,10 +8,7 @@ import {
   type SantaData, type AccountType, type OrderStatus, type ShipmentStatus,
   type PartyRoleType, type TraceEventPhase
 } from "@/domain/ssot";
-import { POLICIES } from '@/lib/codes';
-
-// Deriva el tipo CodeEntity a partir de las claves del objeto POLICIES
-export type CodeEntity = keyof typeof POLICIES;
+import { POLICIES, type CodeEntity } from '@/lib/codes';
 
 // ----------------------------
 // Helpers de exhaustividad
@@ -70,7 +65,7 @@ const ALL_ORDER_STATUS  = ["open","confirmed","shipped","invoiced","paid","cance
 const ALL_SHIP_STATUS   = ["pending","picking","ready_to_ship","shipped","delivered","exception","cancelled"] as const satisfies readonly ShipmentStatus[];
 const ALL_PARTY_ROLES   = ["CUSTOMER","SUPPLIER","DISTRIBUTOR","IMPORTER","INFLUENCER","CREATOR","EMPLOYEE","BRAND_AMBASSADOR","OTHER"] as const satisfies readonly PartyRoleType[];
 const ALL_PHASES        = ["SOURCE","RECEIPT","QC","PRODUCTION","PACK","WAREHOUSE","SALE","DELIVERY"] as const satisfies readonly TraceEventPhase[];
-const ALL_CODE_ENTITIES = Object.keys(POLICIES) as readonly CodeEntity[];
+const ALL_CODE_ENTITIES = Object.keys(POLICIES) as readonly (keyof typeof POLICIES)[];
 
 function auditMeta() {
   assertHasAllKeys(ACCOUNT_TYPE_META as Record<AccountType, any>, ALL_ACCOUNT_TYPES, "ACCOUNT_TYPE_META");
@@ -79,7 +74,7 @@ function auditMeta() {
   assertHasAllKeys(PARTY_ROLE_META as Record<PartyRoleType, any>, ALL_PARTY_ROLES, "PARTY_ROLE_META");
   assertHasAllKeys(PHASE_DEPT as Record<TraceEventPhase, any>, ALL_PHASES, "PHASE_DEPT");
   assertHasAllKeys(PHASE_NAME_ES as Record<TraceEventPhase, any>, ALL_PHASES, "PHASE_NAME_ES");
-  assertHasAllKeys(POLICIES as Record<CodeEntity, any>, ALL_CODE_ENTITIES, "CODE_POLICIES");
+  assertHasAllKeys(POLICIES as Record<keyof typeof POLICIES, any>, ALL_CODE_ENTITIES, "CODE_POLICIES");
   // LOT_QC_META es un alias de SB_COLORS.lotQC; no es un enum pero comprobamos campos mínimos
   for (const k of ["release","hold","reject"] as const) {
     if (!(k in LOT_QC_META)) throw new Error(`❌ LOT_QC_META falta clave: ${k}`);
