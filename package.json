@@ -13,6 +13,7 @@
     "smoke:run": "tsx src/smoke.ts",
     "smoke:admin": "tsx scripts/smoke-admin.ts",
     "test": "vitest",
+    "test:ssot-audit": "tsx src/domain/ssot.audit.ts",
     "test:exports": "vitest run tests/ssot-exports.test.ts",
     "clean": "rm -rf .next",
     "genkit:start": "genkit start",

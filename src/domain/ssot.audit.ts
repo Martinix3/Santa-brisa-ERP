@@ -48,19 +48,19 @@ const SantaDataLiteralKeys = [
   "codeAliases","integrations","jobs","dead_letters","expenses",
 ] as const satisfies readonly SantaDataKeys[];
 
-(function auditCollections() {
+function auditCollections() {
   // (a) ¿Lista exportada coincide con literal?
-  const collectionsAsObject = SANTA_DATA_COLLECTIONS.reduce((acc, key) => {
-    acc[key as SantaDataKeys] = true;
+  const collectionsAsObject = Array.from(SANTA_DATA_COLLECTIONS).reduce((acc, key) => {
+    (acc as any)[key as SantaDataKeys] = true;
     return acc;
   }, {} as Record<SantaDataKeys, boolean>);
-  
+
   assertHasAllKeys(
     collectionsAsObject,
     SantaDataLiteralKeys,
     "SANTA_DATA_COLLECTIONS"
   );
-})();
+}
 
 // ----------------------------
 // 2) Exhaustividad de metadatos sobre enums
@@ -72,7 +72,7 @@ const ALL_PARTY_ROLES   = ["CUSTOMER","SUPPLIER","DISTRIBUTOR","IMPORTER","INFLU
 const ALL_PHASES        = ["SOURCE","RECEIPT","QC","PRODUCTION","PACK","WAREHOUSE","SALE","DELIVERY"] as const satisfies readonly TraceEventPhase[];
 const ALL_CODE_ENTITIES = ["PRODUCT","ACCOUNT","PARTY","SUPPLIER","LOT","PROD_ORDER","SHIPMENT","GOODS_RECEIPT","LOCATION","PRICE_LIST","PROMOTION"] as const satisfies readonly CodeEntity[];
 
-(function auditMeta() {
+function auditMeta() {
   assertHasAllKeys(ACCOUNT_TYPE_META as Record<AccountType, any>, ALL_ACCOUNT_TYPES, "ACCOUNT_TYPE_META");
   assertHasAllKeys(ORDER_STATUS_META  as Record<OrderStatus, any>, ALL_ORDER_STATUS,  "ORDER_STATUS_META");
   assertHasAllKeys(SHIPMENT_STATUS_META as Record<ShipmentStatus, any>, ALL_SHIP_STATUS, "SHIPMENT_STATUS_META");
@@ -84,7 +84,7 @@ const ALL_CODE_ENTITIES = ["PRODUCT","ACCOUNT","PARTY","SUPPLIER","LOT","PROD_OR
   for (const k of ["release","hold","reject"] as const) {
     if (!(k in LOT_QC_META)) throw new Error(`❌ LOT_QC_META falta clave: ${k}`);
   }
-})();
+}
 
 // ----------------------------
 // 3) Tipos sospechosos
@@ -108,9 +108,27 @@ export function softDesignWarnings() {
 
 // Exporta una función que puedes llamar en cualquier boot para lanzar el chequeo
 export function runStaticAudit() {
-  const hints = softDesignWarnings();
-  if (hints.length) {
-    console.warn("⚠️  SSOT design warnings:\n - " + hints.join("\n - "));
-  }
-  return true;
+    try {
+        // Ejecuta las auditorías que lanzan excepciones
+        auditCollections();
+        auditMeta();
+        
+        // Muestra las advertencias suaves
+        const hints = softDesignWarnings();
+        if (hints.length) {
+            console.warn("\n⚠️  SSOT design warnings:\n" + hints.map(h => ` - ${h}`).join("\n"));
+        }
+
+        console.log("\n✅ Auditoría estática del SSOT completada. Todo en orden.");
+        return true;
+
+    } catch (error: any) {
+        console.error("\n" + error.message);
+        return false;
+    }
+}
+
+// Autoejecutar si se llama como script
+if (typeof process !== 'undefined' && (process.argv[1].endsWith('ssot.audit.ts') || process.argv[1].endsWith('tsx'))) {
+    runStaticAudit();
 }
