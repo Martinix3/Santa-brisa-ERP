@@ -1,8 +1,7 @@
-// src/lib/dataprovider/actions.ts
 'use server';
 
 import type { SantaData } from '@/domain/ssot';
-import { adminDb, FieldDocId } from '@/server/firebase';
+import { adminDb, FieldDocId, infoAdmin } from '@/server/firebase';
 
 /**
  * Inserts or updates multiple documents in a collection.
@@ -16,7 +15,7 @@ export async function upsertMany(collectionName: keyof SantaData, items: any[]):
 
   try {
     const colRef = adminDb.collection(String(collectionName));
-    const snap = await colRef.select(FieldDocId).get();
+    const snap = await colRef.select(FieldDocId()).get();
     const existing = new Set(snap.docs.map(d => d.id));
 
     const ids: string[] = [];
@@ -37,9 +36,9 @@ export async function upsertMany(collectionName: keyof SantaData, items: any[]):
     }
     return { inserted, updated, ids };
   } catch (err: any) {
+    const { projectId } = infoAdmin();
     console.error('[upsertMany] Firestore error', {
-      code: err?.code, message: err?.message,
-      projectId: adminDb.app.options.projectId, collectionName
+      code: err?.code, message: err?.message, projectId, collectionName
     });
     throw err;
   }

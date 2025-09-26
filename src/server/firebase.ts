@@ -34,7 +34,7 @@ try {
 
 export const adminAuth = getAuth(app);
 export const adminStorage = getStorage(app);
-export const FieldDocId = FieldPath.documentId();
+export const FieldDocId = FieldPath.documentId;
 
 // Helpers útiles
 export function infoAdmin() {
