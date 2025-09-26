@@ -63,7 +63,7 @@ export function buildConsumptionMoves(args: {
     lotNumber: r.fromLotNumber,
     uom: r.uom,
     qty: -r.reservedQty, // Negativo para salida
-    fromLocation: fromLocation,
+    fromLocationId: fromLocation,
     reason: "production_out",
     occurredAt: at,
     createdAt: at,

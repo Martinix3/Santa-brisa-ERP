@@ -7,8 +7,8 @@ export function consignmentOnHandByAccount(stockMoves: StockMove[]) {
   const byAcc: Record<string, Record<string, number>> = {};
   for (const m of stockMoves || []) {
     const itemId = m.itemId;
-    const accFrom = m.fromLocation;   // cuando sale de consigna (venta/retorno)
-    const accTo = m.toLocation;       // cuando se envía a consigna
+    const accFrom = m.fromLocationId ?? m.fromLocation;   // cuando sale de consigna (venta/retorno)
+    const accTo = m.toLocationId ?? m.toLocation;       // cuando se envía a consigna
 
     if (m.reason === "consignment_send" && accTo) {
       byAcc[accTo] ||= {};
@@ -80,12 +80,12 @@ export function samplesSentSummary({
     if (m.reason !== "sample_send") continue;
     const t = new Date(m.occurredAt).getTime();
     if (cutoff && t < cutoff) continue;
-
-    const accId = m.toLocation || m.fromLocation || "N/A";
+    
+    const accId = (m.toLocationId ?? m.toLocation) || (m.fromLocationId ?? m.fromLocation) || "N/A";
     const name = byId.get(accId)?.name || accId;
     const row = (accRows[accId] ||= { units: 0, shipments: 0, last: null, name });
     row.units += Math.abs(m.qty || 0);
-    row.last = !row.last || new Date(m.occurredAt) > new Date(row.last) ? m.occurredAt : row.last;
+    row.last = !row.last || new Date(m.occurredAt) > new Date(row.last) ? m.occurredAt : m.occurredAt;
   }
 
   // salida ordenada por unidades desc

@@ -63,21 +63,24 @@ export type StockReason =
 export interface StockMove {
   id: string;
   itemId: string;
-  qty: number;          // signo positivo/negativo según reason
+  qty: number;
   uom: Uom;
   lotNumber?: LotNumber;
+
+  // NUEVO — ids normalizados
+  fromLocationId?: string;
+  toLocationId?: string;
+
+  /** @deprecated usar fromLocationId */
   fromLocation?: string;
+  /** @deprecated usar toLocationId */
   toLocation?: string;
+
   reason: StockReason;
   occurredAt: Timestamp;
   createdAt: Timestamp;
-  unitCost?: number;    // capa valuación (fifo/avg se calcula fuera)
-  ref?: {               // trazas a documentos/órdenes
-    prodOrderId?: string;
-    goodsReceiptId?: string;
-    shipmentId?: string;
-    orderId?: string;
-  };
+  unitCost?: number;
+  ref?: { prodOrderId?: string; goodsReceiptId?: string; shipmentId?: string; orderId?: string };
 }
 
 // 2) Vistas/Materializaciones (derivadas del libro)

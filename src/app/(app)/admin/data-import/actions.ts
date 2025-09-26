@@ -47,7 +47,7 @@ const TEMPLATE_FIELDS: Partial<Record<keyof SantaData, readonly string[]>> = {
   shipments: ['id','orderId','accountId','shipmentNumber','createdAt','status','isSample','samplePurpose','lines','customerName','city','postalCode','country'],
   paymentLinks: ['id','financeLinkId','amount','date','method'],
   financeLinks: ['id','docType','status','grossAmount','currency','issueDate','dueDate','partyId'],
-  stockMoves: ['id','itemId','lotNumber','uom','qty','fromLocation','toLocation','reason','occurredAt','createdAt'],
+  stockMoves: ['id','itemId','lotNumber','uom','qty','fromLocationId','toLocationId','reason','occurredAt','createdAt'],
   materialCosts: ['id','itemId','currency','costPerUom','effectiveFrom'],
 };
 
@@ -146,13 +146,25 @@ async function resolveAndNormalize(coll: keyof SantaData, rows: any[], data: San
     if (coll==='stockMoves'){
       row.qty = nNumComma(row.qty);
       row.reason = REASON_ALIASES[row.reason] ?? row.reason;
-      if (row.toLocation && !reg.accountsById.has(row.toLocation)) {
-        const acc = reg.accountsByName.get(String(row.toLocation).toLowerCase());
-        if (acc) row.toLocation = acc.id;
+      if (row.toLocationId || row.toLocation) {
+        const loc = (row.toLocationId ?? row.toLocation) as string;
+        if (!reg.accountsById.has(loc)) {
+            const acc = reg.accountsByName.get(loc.toLowerCase());
+            if (acc) row.toLocationId = acc.id;
+        } else {
+            row.toLocationId = loc;
+        }
+        delete row.toLocation;
       }
-      if (row.fromLocation && !reg.accountsById.has(row.fromLocation)) {
-        const acc = reg.accountsByName.get(String(row.fromLocation).toLowerCase());
-        if (acc) row.fromLocation = acc.id;
+      if (row.fromLocationId || row.fromLocation) {
+        const loc = (row.fromLocationId ?? row.fromLocation) as string;
+        if (!reg.accountsById.has(loc)) {
+            const acc = reg.accountsByName.get(loc.toLowerCase());
+            if (acc) row.fromLocationId = acc.id;
+        } else {
+            row.fromLocationId = loc;
+        }
+        delete row.fromLocation;
       }
       out.push(row); continue;
     }
