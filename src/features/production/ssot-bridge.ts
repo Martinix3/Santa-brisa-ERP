@@ -1,14 +1,13 @@
 
 // src/features/production/ssot-bridge.ts
 import { useData } from '@/lib/dataprovider';
-import type { BillOfMaterial, Material, ProductionOrder, Lot, InfluencerCollab, MarketingEvent, OnlineCampaign, Product, InventoryItem } from '@/domain/ssot';
+import type { BillOfMaterial, ProductionOrder, Lot, InfluencerCollab, MarketingEvent, OnlineCampaign, InventoryItem } from '@/domain/ssot';
 
 export function useBridge() {
     const { data } = useData();
     return {
         data: data,
         recipes: (data?.billOfMaterials || []) as BillOfMaterial[],
-        materials: (data?.materials || []) as Material[],
         inventory: (data?.inventory || []) as InventoryItem[],
         orders: (data?.productionOrders || []) as ProductionOrder[],
         lots: (data?.lots || []) as Lot[],
@@ -28,18 +27,18 @@ export async function listRecipes(boms: BillOfMaterial[]): Promise<BillOfMateria
     return listBoms(boms);
 }
 
-export async function listMaterials(materials: Material[]): Promise<Material[]> {
-  return materials;
+export async function listMaterials(inventory: InventoryItem[]): Promise<InventoryItem[]> {
+  return inventory.filter(item => item.category !== 'finished_good');
 }
 
-export function listFinishedSkus(products: Product[]): { sku: string; name: string; packSizeMl: number; bottlesPerCase?: number }[] {
-  return products
-      .filter((p: Product) => p.active)
-      .map((p: Product) => ({
+export function listFinishedSkus(inventory: InventoryItem[]): { sku: string; name: string; packSizeMl: number; bottlesPerCase?: number }[] {
+  return inventory
+      .filter((p: InventoryItem) => p.category === 'finished_good')
+      .map((p: InventoryItem) => ({
           sku: p.sku,
           name: p.name,
-          packSizeMl: p.bottleMl || 0,
-          bottlesPerCase: p.caseUnits
+          packSizeMl: 0, // This field was in Product, need to decide if it moves to InventoryItem
+          bottlesPerCase: 0 // This field was in Product, need to decide if it moves to InventoryItem
       }));
 }
 
@@ -54,9 +53,9 @@ export async function getTrace(lotId: string) {
     return {};
 }
 
-export async function updateMaterial(id: string, patch: Partial<Material>): Promise<Material> {
+export async function updateMaterial(id: string, patch: Partial<InventoryItem>): Promise<InventoryItem> {
     console.warn("updateMaterial is not implemented on the client-side bridge yet.");
-    return { id, sku: '', name: 'Updated Material', category: 'raw', ...patch };
+    return { id, sku: '', name: 'Updated Material', category: 'raw', qty: 0, uom: 'uds', locationId: '', createdAt: '', ...patch };
 }
 
 export async function createRecipe(data: { billOfMaterials: BillOfMaterial[] }, recipe: BillOfMaterial): Promise<void> {

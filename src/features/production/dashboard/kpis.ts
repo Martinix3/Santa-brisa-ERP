@@ -1,12 +1,12 @@
-import type { Material, ProductionOrder, BillOfMaterial, InventoryItem, Lot } from "@/domain/ssot";
+import type { ProductionOrder, BillOfMaterial, InventoryItem, Lot } from "@/domain/ssot";
 import { isSameDay, seriesDays } from "./utils";
 
-type Input = { orders: ProductionOrder[]; recipes: BillOfMaterial[]; inventory: InventoryItem[]; lots: Lot[]; materials: Material[] };
+type Input = { orders: ProductionOrder[]; recipes: BillOfMaterial[]; inventory: InventoryItem[]; lots: Lot[] };
 
 const sum = (a:number[]) => a.reduce((x,y)=>x+y,0);
 const avg = (a:number[]) => a.length? sum(a)/a.length : 0;
 
-export function computeKpis({ orders, recipes, inventory, lots, materials }: Input){
+export function computeKpis({ orders, recipes, inventory, lots }: Input){
   const now = new Date();
   const last30 = new Date(now.getTime() - 30*24*60*60*1000);
 
@@ -28,7 +28,7 @@ export function computeKpis({ orders, recipes, inventory, lots, materials }: Inp
   }
   const criticalInventory = Object.entries(byMaterial)
     .map(([sku, qty]) => {
-        const mat = materials.find(m => m.sku === sku);
+        const mat = inventory.find(m => m.sku === sku);
         if (!mat) return null;
         let isCritical = false;
         if (mat.category === 'raw' && qty <= 10) isCritical = true;
@@ -46,7 +46,7 @@ export function computeKpis({ orders, recipes, inventory, lots, materials }: Inp
         const recipe = recipes.find(r => r.id === po.bomId);
         if (!recipe) return 0;
         const bottleLine = recipe.items.find(i => {
-            const material = materials.find(m => m.id === i.materialId);
+            const material = inventory.find(m => m.id === i.materialId);
             return material?.category === 'packaging' && material.name.toLowerCase().includes('botella');
         });
         if (!bottleLine) return 0;

@@ -264,6 +264,7 @@ export interface Interaction {
 
 // ... Resto de tipos del SSOT sin cambios ...
 
+/** @deprecated Use InventoryItem for all physical stock. */
 export interface Material {
   id: string;
   sku: string;
@@ -272,6 +273,7 @@ export interface Material {
   uom?: Uom;
   standardCost?: number;
 }
+/** @deprecated Use InventoryItem for all physical stock. */
 export interface Product {
   id: string;
   sku: string;
@@ -448,8 +450,10 @@ export type InventorySource =
 export interface InventoryItem {
   id: string;
   sku: string;
+  name: string;
+  description?: string;
   materialId?: string;
-  category: 'finished_good' | 'raw' | 'intermediate' | 'packaging' | 'merchandising' | 'label' | 'consumable';
+  category: 'finished_good' | 'raw' | 'intermediate' | 'packaging' | 'label' | 'consumable' | 'merchandising';
   qty: number;
   uom: Uom;
   locationId: string;
@@ -870,8 +874,6 @@ export interface SantaData {
   accounts: Account[];
   ordersSellOut: OrderSellOut[];
   interactions: Interaction[];
-  products: Product[];
-  materials: Material[];
   billOfMaterials: BillOfMaterial[];
   productionOrders: ProductionOrder[];
   lots: Lot[];
@@ -903,7 +905,7 @@ export interface SantaData {
 
 export const SANTA_DATA_COLLECTIONS: (keyof SantaData)[] = [
     'parties', 'partyRoles', 'users', 'accounts', 'ordersSellOut', 'interactions',
-    'products', 'materials', 'billOfMaterials', 'productionOrders', 'lots', 'qaChecks',
+    'billOfMaterials', 'productionOrders', 'lots', 'qaChecks',
     'inventory', 'stockMoves', 'shipments', 'goodsReceipts', 'activations', 'promotions',
     'marketingEvents', 'onlineCampaigns', 'influencerCollabs', 'materialCosts', 'financeLinks',
     'paymentLinks', 'traceEvents', 'incidents', 'codeAliases',

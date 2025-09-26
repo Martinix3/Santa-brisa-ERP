@@ -5,8 +5,8 @@ import { Plus, Search, Droplets, Package2, Coins, Info, Trash2 } from "lucide-re
 import { SBCard } from '@/components/ui/ui-primitives';
 import { SB_COLORS } from "@/domain/ssot";
 import { useData } from "@/lib/dataprovider";
-import { listMaterials, listFinishedSkus } from "@/features/production/ssot-bridge";
-import type { Material, BillOfMaterial as RecipeBom, Uom } from "@/domain/ssot";
+import { listFinishedSkus } from "@/features/production/ssot-bridge";
+import type { BillOfMaterial as RecipeBom, Uom, InventoryItem } from "@/domain/ssot";
 import { canonicalUomForMaterial } from '@/domain/uom';
 
 // Nuevos imports para el formulario mejorado
@@ -50,13 +50,13 @@ function RecipeForm({
   initialValues,
   onSave,
   onCancel,
-  materials,
+  inventoryItems,
   finishedSkus,
 }: {
   initialValues: RecipeBom;
   onSave: (values: RecipeBom) => Promise<any>;
   onCancel: () => void;
-  materials: Material[];
+  inventoryItems: InventoryItem[];
   finishedSkus: FinishedSku[];
 }) {
   const fm = useBomForm(initialValues);
@@ -131,7 +131,7 @@ function RecipeForm({
       ...fm.values,
       items: (fm.values.items || []).map(it => ({
         ...it,
-        unit: canonicalUomForMaterial(it.materialId, inv, materials), // fuerza canónica
+        unit: canonicalUomForMaterial(it.materialId, inv, inventoryItems), // fuerza canónica
       })),
     };
 
@@ -228,7 +228,7 @@ function RecipeForm({
                 <Field label="Material" name={`items[${i}].materialId`} required error={fm.fieldErrors?.[`items.${i}.materialId`]}>
                      <select className="w-full h-10 px-3 rounded-lg border" value={line.materialId} onChange={e => fm.set(`items[${i}].materialId`, e.target.value)}>
                         <option value="">Selecciona material</option>
-                        {materials.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                        {inventoryItems.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                      </select>
                 </Field>
                  <Field label="Cantidad" name={`items[${i}].quantity`} required error={fm.fieldErrors?.[`items.${i}.quantity`]}>
@@ -236,7 +236,7 @@ function RecipeForm({
                  </Field>
                  <div className="text-xs text-zinc-600">
                   UoM: <span className="px-2 py-0.5 rounded-full border bg-zinc-50">
-                    {line.materialId ? canonicalUomForMaterial(line.materialId, santaData?.inventory || [], materials) : '-'}
+                    {line.materialId ? canonicalUomForMaterial(line.materialId, santaData?.inventory || [], inventoryItems) : '-'}
                   </span>
                  </div>
                  <button onClick={() => removeLine(i)} className="h-10 px-2 border bg-white hover:bg-red-50 text-red-600 rounded-lg" aria-label={`Eliminar línea ${i+1}`}><Trash2 size={16}/></button>
@@ -245,11 +245,6 @@ function RecipeForm({
           <button onClick={() => addLine()} className="px-3 py-1.5 text-sm border bg-white rounded-lg">
             <Plus size={14} className="inline mr-1" /> Añadir línea
           </button>
-          {/* Alternativa: botones separados */}
-          {/* <div className="flex gap-2 mt-2">
-            <button onClick={() => addLine('FORMULA')} className="px-3 py-1.5 text-sm border bg-white rounded-lg"><Plus size={14} className="inline mr-1" /> Añadir fórmula</button>
-            <button onClick={() => addLine('PACKAGING')} className="px-3 py-1.5 text-sm border bg-white rounded-lg"><Plus size={14} className="inline mr-1" /> Añadir packaging</button>
-          </div> */}
         </div>
       </div>
       <div className="p-4 bg-zinc-50 border-t flex justify-end gap-2">
@@ -272,8 +267,8 @@ export default function BomPage() {
     const [openRecipe, setOpenRecipe] = useState<RecipeBom | null>(null);
 
     const recipes = useMemo(() => santaData?.billOfMaterials || [], [santaData]);
-    const materials = useMemo(() => santaData?.materials || [], [santaData]);
-    const finishedSkus = useMemo(() => listFinishedSkus(santaData?.products || []), [santaData]);
+    const inventoryItems = useMemo(() => santaData?.inventory || [], [santaData]);
+    const finishedSkus = useMemo(() => listFinishedSkus(santaData?.inventory || []), [santaData]);
     
     const select = (id: string) => {
         const recipe = recipes.find((r) => r.id === id);
@@ -290,7 +285,7 @@ export default function BomPage() {
             ...values,
             items: (values.items || []).map(it => ({
                 ...it,
-                unit: canonicalUomForMaterial(it.materialId, inv, materials), // fuerza canónica
+                unit: canonicalUomForMaterial(it.materialId, inv, inventoryItems), // fuerza canónica
             })),
         };
         const result = await upsertBOM(normalized);
@@ -358,7 +353,7 @@ export default function BomPage() {
                             initialValues={openRecipe}
                             onSave={handleSave}
                             onCancel={() => setOpenRecipe(null)}
-                            materials={materials}
+                            inventoryItems={inventoryItems}
                             finishedSkus={finishedSkus}
                         />
                     )}

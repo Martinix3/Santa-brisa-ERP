@@ -1,8 +1,8 @@
 "use client";
 import React from "react";
-import type { Material } from "@/domain/ssot";
+import type { InventoryItem } from "@/domain/ssot";
 
-export function ShortagesPanel({ shortages, materials }:{ shortages: any[]; materials: Material[] }){
+export function ShortagesPanel({ shortages, materials: inventoryItems }:{ shortages: any[]; materials: InventoryItem[] }){
   return (
     <div className="rounded-2xl border border-zinc-200 bg-white p-4">
       <div className="text-sm text-zinc-500 mb-3">Faltantes en órdenes planificadas</div>
@@ -11,7 +11,7 @@ export function ShortagesPanel({ shortages, materials }:{ shortages: any[]; mate
       ) : (
         <ul className="space-y-2">
           {shortages.slice(0,12).map((s,i)=>{
-            const mat = materials.find(m=>m.id===s.materialId);
+            const mat = inventoryItems.find(m=>m.id===s.materialId);
             return (
               <li key={i} className="flex items-center justify-between gap-2 border-b last:border-b-0 py-2">
                 <div className="text-sm">

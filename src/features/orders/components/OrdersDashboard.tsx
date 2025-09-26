@@ -280,7 +280,7 @@ export default function OrdersDashboard() {
             billingStatus: 'PENDING',
             currency: 'EUR',
             createdAt: payload.requestedDate || new Date().toISOString(),
-            lines: payload.items.map(item => ({ ...item, name: data.products.find(p => p.sku === item.sku)?.name || item.sku })),
+            lines: payload.items.map(item => ({ ...item, name: data.inventory.find(p => p.sku === item.sku)?.name || item.sku })),
             notes: payload.note,
         };
 
