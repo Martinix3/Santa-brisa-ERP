@@ -1,3 +1,4 @@
+
 // domain/production.exec.ts - Overlay de ejecución de Producción
 import type { Uom, QCResult } from './ssot';
 
@@ -14,11 +15,11 @@ export type BomLineExec = {
 export type RecipeBomExec = {
   id: string;
   name: string;
-  finishedSku: string;
+  finishedItemId: string;
   finishedName: string;
   baseBatchSize: number;
   baseUnit: Uom;
-  commercialSku: string;
+  commercialItemId: string;
   bottlesPerLitre?: number;
   lines: BomLineExec[];
   protocolChecklist: { id: string; text: string }[];
@@ -85,11 +86,11 @@ export interface StageDetail {
 export type ProductionOrderExec = {
   id: string;
   bomId: string;
-  outputItemId: string; // en lugar de sku
+  outputItemId: string;
   targetQuantity: number;
   status: 'pending' | 'released' | 'wip' | 'done' | 'cancelled';
   createdAt: string;
-  batchCode?: string; // en lugar de lotId
+  batchCode?: string;
   // Overlay/UI specific fields
   execStatus?: ProdExecStatus;
   scheduledFor?: string;
@@ -99,4 +100,5 @@ export type ProductionOrderExec = {
   shortages?: MaterialShortage[];
   actuals?: ActualConsumption[];
   execution?: ProdExecution;
-  incidents?: { id: string; when: string; severity: "BAJA" | "MEDIA" | "ALTA"; text:
+  incidents?: { id: string; when: string; severity: "BAJA" | "MEDIA" | "ALTA"; text: string }[];
+};
