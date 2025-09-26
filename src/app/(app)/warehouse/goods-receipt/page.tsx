@@ -7,6 +7,29 @@ import { SBButton, SBCard, Input, Select, Textarea } from '@/components/ui/ui-pr
 import { Plus, Trash2, Box, Truck, Search, Building } from 'lucide-react';
 import type { Party, Material, GoodsReceipt, Lot, StockMove, Uom } from '@/domain/ssot';
 
+const norm = (s: string) =>
+  s.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+
+const uniqueSku = (base: string, existingSkus: string[]) => {
+  let candidate = base;
+  let i = 1;
+  while (existingSkus.includes(candidate)) {
+    i += 1;
+    candidate = `${base}-${i}`;
+  }
+  return candidate;
+};
+
+const makeSku = (name: string, category: string, existingSkus: string[]) => {
+  const cat = (category || 'raw').toUpperCase().slice(0, 3);
+  const slug = norm(name).replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').toUpperCase().slice(0, 12);
+  const base = `${cat}-${slug || 'ITEM'}`;
+  return uniqueSku(base, existingSkus);
+};
+
+const uid = (prefix: string) => `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+
+
 const MATERIAL_CATEGORIES: Material['category'][] = ['raw', 'packaging', 'label', 'consumable', 'intermediate', 'merchandising'];
 
 type LineItem = {
@@ -16,6 +39,7 @@ type LineItem = {
     supplierLot: string;
     qty: number;
     unitCost: number;
+    uom?: Uom;
 };
 
 // Autocomplete/Search component
@@ -40,19 +64,22 @@ function SearchableSelect<T extends {id: string, name: string}>({
         setQuery(initialValue || '');
     }, [initialValue]);
 
+    const handleFreeText = useCallback(onFreeText, []);
+
     useEffect(() => {
         if (query.length > 1) {
             const filtered = items.filter(item => item.name.toLowerCase().includes(query.toLowerCase()));
             setSuggestions(filtered);
             setIsOpen(true);
-            if(filtered.length === 0) {
-              onFreeText(query);
+            if (filtered.length === 0) {
+              const exact = items.some(i => i.name.toLowerCase() === query.toLowerCase());
+              if (!exact) handleFreeText(query);
             }
         } else {
             setSuggestions([]);
             setIsOpen(false);
         }
-    }, [query, items]); // Removed onFreeText from dependencies to break loop
+    }, [query, items, handleFreeText]);
 
     const handleSelect = (item: T) => {
         setQuery(item.name);
@@ -66,7 +93,12 @@ function SearchableSelect<T extends {id: string, name: string}>({
                 value={query}
                 onChange={e => {
                     setQuery(e.target.value);
-                    onFreeText(e.target.value);
+                }}
+                onBlur={() => {
+                  setTimeout(() => setIsOpen(false), 150);
+                }}
+                onFocus={() => {
+                  if (query.length > 1) setIsOpen(true);
                 }}
                 placeholder={placeholder}
             />
@@ -92,7 +124,7 @@ export default function GoodsReceiptPage() {
     const [supplierId, setSupplierId] = useState<string | undefined>();
     const [newSupplierName, setNewSupplierName] = useState<string | undefined>();
     const [deliveryNote, setDeliveryNote] = useState('');
-    const [lines, setLines] = useState<LineItem[]>([{ supplierLot: '', qty: 0, unitCost: 0, newMaterialCategory: 'raw' }]);
+    const [lines, setLines] = useState<LineItem[]>([{ supplierLot: '', qty: 0, unitCost: 0, newMaterialCategory: 'raw', uom: 'uds' }]);
     const [sendToQc, setSendToQc] = useState(true);
 
     const suppliers = useMemo(() => {
@@ -111,6 +143,7 @@ export default function GoodsReceiptPage() {
         if (field === 'materialId') {
             const material = materials.find(m => m.id === value);
             line.unitCost = material?.standardCost ?? 0;
+            line.uom = material?.uom ?? 'uds';
             line.newMaterialName = undefined;
         }
         if (field === 'newMaterialName') {
@@ -121,7 +154,7 @@ export default function GoodsReceiptPage() {
     }, [lines, materials]);
 
     const addLine = () => {
-        setLines([...lines, { supplierLot: '', qty: 0, unitCost: 0, newMaterialCategory: 'raw' }]);
+        setLines([...lines, { supplierLot: '', qty: 0, unitCost: 0, newMaterialCategory: 'raw', uom: 'uds' }]);
     };
     
     const removeLine = (index: number) => {
@@ -135,7 +168,7 @@ export default function GoodsReceiptPage() {
         }
 
         const now = new Date();
-        const receiptId = `gr_${now.getTime()}`;
+        const receiptId = uid('gr');
         
         const newLots: Lot[] = [];
         const newStockMoves: StockMove[] = [];
@@ -147,43 +180,55 @@ export default function GoodsReceiptPage() {
 
         // Create new supplier if needed
         if (newSupplierName && !supplierId) {
-            const newPartyId = `party_${Date.now()}`;
-            const newParty: Party = {
-                id: newPartyId,
-                name: newSupplierName,
-                legalName: newSupplierName,
-                kind: 'ORG',
-                roles: ['SUPPLIER'],
-                createdAt: now.toISOString(),
-                updatedAt: now.toISOString(),
-            } as Party;
-            newParties.push(newParty);
-            finalSupplierId = newPartyId;
+          const newPartyId = uid('party');
+          const nowIso = now.toISOString();
+          const newParty: Party = {
+            id: newPartyId,
+            name: newSupplierName,
+            legalName: newSupplierName,
+            kind: 'ORG',
+            roles: ['SUPPLIER'],
+            createdAt: nowIso,
+            updatedAt: nowIso,
+          } as Party;
+          newParties.push(newParty);
+          finalSupplierId = newPartyId;
         }
+
+        const existingSkus = materials.map(m => m.sku);
 
         for (const [index, line] of lines.entries()) {
             let materialId = line.materialId;
             let sku = '';
+            let uom: Uom = line.uom || 'uds';
 
             // Create new material if needed
             if (line.newMaterialName && !line.materialId) {
-                const newMaterialId = `mat_${now.getTime()}_${index}`;
-                const newSku = `${(line.newMaterialCategory || 'RAW').substring(0,3).toUpperCase()}-${line.newMaterialName.substring(0, 5).toUpperCase().replace(/ /g,'-')}`;
-                const newMaterial: Material = {
-                    id: newMaterialId,
-                    sku: newSku,
-                    name: line.newMaterialName,
-                    category: line.newMaterialCategory || 'raw',
-                    uom: 'uds',
-                };
-                newMaterials.push(newMaterial);
-                materialId = newMaterialId;
-                sku = newSku;
-            } else {
-                sku = materials.find(m => m.id === materialId)?.sku || '';
-            }
+              const newMaterialId = uid('mat');
+              const cat = line.newMaterialCategory || 'raw';
+              const newSku = makeSku(line.newMaterialName, cat, existingSkus);
 
-            const newLotId = `lot_${receiptId}_${index}`;
+              const newMaterial: Material = {
+                id: newMaterialId,
+                sku: newSku,
+                name: line.newMaterialName,
+                category: cat,
+                uom: ((line.uom as Uom) || 'uds') as Uom,
+                standardCost: line.unitCost || 0,
+              } as any;
+
+              newMaterials.push(newMaterial);
+              existingSkus.push(newSku);
+              materialId = newMaterialId;
+              sku = newSku;
+              uom = newMaterial.uom as Uom;
+            } else {
+              const m = materials.find(mm => mm.id === materialId);
+              sku = m?.sku || '';
+              uom = (m?.uom as Uom) || ('uds' as Uom);
+            }
+            
+            const newLotId = uid(`lot_${receiptId}_${index}`);
             
             const newLot: Lot = {
                 id: newLotId,
@@ -201,7 +246,7 @@ export default function GoodsReceiptPage() {
                 sku: newLot.sku,
                 lotId: newLot.id,
                 qty: newLot.quantity,
-                uom: 'uds', // Assume UOM for now
+                uom: uom,
                 reason: 'receipt',
                 toLocation: sendToQc ? 'QC/AREA' : 'RM/MAIN',
                 occurredAt: now.toISOString(),
@@ -215,7 +260,7 @@ export default function GoodsReceiptPage() {
                 sku: sku,
                 lotId: newLotId,
                 qty: line.qty,
-                uom: 'uds', // Assume UOM for now
+                uom: uom,
                 unitCost: line.unitCost
             });
         }
@@ -244,7 +289,7 @@ export default function GoodsReceiptPage() {
         setSupplierId(undefined);
         setNewSupplierName(undefined);
         setDeliveryNote('');
-        setLines([{ supplierLot: '', qty: 0, unitCost: 0, newMaterialCategory: 'raw' }]);
+        setLines([{ supplierLot: '', qty: 0, unitCost: 0, newMaterialCategory: 'raw', uom: 'uds' }]);
     };
 
     return (
@@ -262,8 +307,17 @@ export default function GoodsReceiptPage() {
                             <span className="font-medium">Proveedor</span>
                              <SearchableSelect<Party>
                                 items={suppliers}
-                                onSelect={item => { setSupplierId(item.id); setNewSupplierName(undefined); }}
-                                onFreeText={text => { if (!suppliers.some(s => s.name === text)) { setNewSupplierName(text); setSupplierId(undefined); } }}
+                                onSelect={item => { 
+                                  setSupplierId(item.id); 
+                                  setNewSupplierName(undefined);
+                                }}
+                                onFreeText={text => { 
+                                    const exact = suppliers.some(s => s.name.toLowerCase() === text.toLowerCase());
+                                    if (!exact) { 
+                                      setNewSupplierName(text); 
+                                      setSupplierId(undefined); 
+                                    }
+                                }}
                                 placeholder="Buscar o crear proveedor..."
                             />
                         </label>
@@ -323,3 +377,4 @@ export default function GoodsReceiptPage() {
         </div>
     );
 }
+
