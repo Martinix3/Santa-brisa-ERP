@@ -2,13 +2,15 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { adminDb as db } from '@/server/firebase';
+import { adminDb as db, infoAdmin } from '@/server/firebase';
 import { Timestamp } from 'firebase-admin/firestore';
 import type { Party, Material, GoodsReceipt, Lot, StockMove, Uom } from '@/domain/ssot';
 import { normText } from '@/lib/norm/text';
-import { listMaterials } from '@/features/production/ssot-bridge'; // We can use this to get materials
 
 const uid = (prefix: string) => `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+
+const norm = (s: string) =>
+  s.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 
 const uniqueSku = (base: string, existingSkus: string[]) => {
   let candidate = base;
@@ -22,7 +24,7 @@ const uniqueSku = (base: string, existingSkus: string[]) => {
 
 const makeSku = (name: string, category: string, existingSkus: string[]) => {
   const cat = (category || 'raw').toUpperCase().slice(0, 3);
-  const slug = normText(name).replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').toUpperCase().slice(0, 12);
+  const slug = norm(name).replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').toUpperCase().slice(0, 12);
   const base = `${cat}-${slug || 'ITEM'}`;
   return uniqueSku(base, existingSkus);
 };
@@ -43,27 +45,36 @@ export async function createGoodsReceipt(payload: {
     }[];
     sendToQc: boolean;
 }) {
+    // Smoke write for debugging permissions
+    try {
+        await db.collection('_perm_test').doc('ping').set({ t: Date.now() });
+    } catch (e: any) {
+        console.error('[SMOKE] write failed', { code: e?.code, message: e?.message, projectId: infoAdmin().projectId });
+        throw e;
+    }
+
     const { supplierId, newSupplierName, deliveryNote, lines, sendToQc } = payload;
     const now = new Date();
     const batch = db.batch();
 
     let finalSupplierId = supplierId;
+    const newParties: Party[] = [];
 
     // 1. Create new supplier if needed
     if (newSupplierName && !supplierId) {
-        const newPartyRef = db.collection('parties').doc();
-        const nowIso = now.toISOString();
-        const newParty: Party = {
-            id: newPartyRef.id,
-            name: newSupplierName,
-            legalName: newSupplierName,
-            kind: 'ORG',
-            roles: ['SUPPLIER'],
-            createdAt: nowIso,
-            updatedAt: nowIso,
-        } as Party;
-        batch.set(newPartyRef, newParty);
-        finalSupplierId = newPartyRef.id;
+      const newPartyId = uid('party');
+      const nowIso = now.toISOString();
+      const newParty: Party = {
+        id: newPartyId,
+        name: newSupplierName,
+        legalName: newSupplierName,
+        kind: 'ORG',
+        roles: ['SUPPLIER'],
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      } as Party;
+      newParties.push(newParty);
+      finalSupplierId = newPartyId;
     }
 
     if (!finalSupplierId) {
@@ -77,6 +88,7 @@ export async function createGoodsReceipt(payload: {
     const existingSkus = existingMaterials.map(m => m.sku);
 
     const finalLines: GoodsReceipt['lines'] = [];
+    const newMaterials: Material[] = [];
 
     // 2. Process all lines: create materials, lots, and stock moves
     for (const [index, line] of lines.entries()) {
@@ -85,33 +97,34 @@ export async function createGoodsReceipt(payload: {
         let uom: Uom = line.uom || 'uds';
 
         if (line.newMaterialName && !line.materialId) {
-            const newMaterialRef = db.collection('materials').doc();
+            const newMaterialId = uid('mat');
             const cat = line.newMaterialCategory || 'raw';
             const newSku = makeSku(line.newMaterialName, cat, existingSkus);
 
             const newMaterial: Material = {
-                id: newMaterialRef.id,
+                id: newMaterialId,
                 sku: newSku,
                 name: line.newMaterialName,
                 category: cat,
-                uom: line.uom || 'uds',
+                uom: ((line.uom as Uom) || 'uds') as Uom,
                 standardCost: line.unitCost || 0,
             };
-            batch.set(newMaterialRef, { ...newMaterial, createdAt: Timestamp.fromDate(now), updatedAt: Timestamp.fromDate(now) });
-            existingSkus.push(newSku);
-            materialId = newMaterialRef.id;
+
+            newMaterials.push(newMaterial);
+            existingSkus.push(newSku); // evita colisiones en siguientes líneas
+            materialId = newMaterialId;
             sku = newSku;
             uom = newMaterial.uom as Uom;
         } else if (materialId) {
             const m = existingMaterials.find(mm => mm.id === materialId);
             sku = m?.sku || '';
-            uom = m?.uom as Uom || 'uds';
+            uom = (m?.uom as Uom) || 'uds';
         }
 
         if (!materialId) continue;
 
         const newLotRef = db.collection('lots').doc();
-        const newLot: Lot = {
+        const newLot: Partial<Lot> = {
             id: newLotRef.id,
             sku: sku,
             quantity: line.qty,
@@ -120,14 +133,14 @@ export async function createGoodsReceipt(payload: {
             quality: { qcStatus: sendToQc ? 'hold' : 'release', results: {} },
             supplierBatch: line.supplierLot,
         };
-        batch.set(newLotRef, { ...newLot, createdAt: Timestamp.fromDate(now) });
+        batch.set(newLotRef.collection('lots'), { ...newLot, createdAt: now.toISOString() });
 
         const newStockMoveRef = db.collection('stockMoves').doc();
         const stockMove: StockMove = {
             id: newStockMoveRef.id,
-            sku: newLot.sku,
+            sku: newLot.sku!,
             lotId: newLot.id,
-            qty: newLot.quantity,
+            qty: newLot.quantity!,
             uom: uom,
             reason: 'receipt',
             toLocation: sendToQc ? 'QC/AREA' : 'RM/MAIN',
@@ -136,16 +149,28 @@ export async function createGoodsReceipt(payload: {
             ref: { goodsReceiptId: receiptRef.id },
             unitCost: line.unitCost,
         };
-        batch.set(newStockMoveRef, { ...stockMove, createdAt: Timestamp.fromDate(now), occurredAt: Timestamp.fromDate(now) });
+        batch.set(newStockMoveRef.collection('stockMoves'), { ...stockMove, createdAt: now.toISOString(), occurredAt: now.toISOString() });
         
         finalLines.push({
             materialId: materialId!,
             sku: sku,
-            lotId: newLot.id,
+            lotId: newLot.id!,
             qty: line.qty,
             uom: uom,
             unitCost: line.unitCost,
         });
+    }
+
+    // Create new entities if any
+    if (newParties.length > 0) {
+      for(const p of newParties) {
+        batch.set(db.collection('parties').doc(p.id), { ...p, createdAt: now.toISOString(), updatedAt: now.toISOString() });
+      }
+    }
+    if (newMaterials.length > 0) {
+      for(const m of newMaterials) {
+        batch.set(db.collection('materials').doc(m.id), { ...m, createdAt: now.toISOString(), updatedAt: now.toISOString() });
+      }
     }
 
     // 3. Create the Goods Receipt document
@@ -158,7 +183,7 @@ export async function createGoodsReceipt(payload: {
         status: sendToQc ? 'pending_qc' : 'completed',
         lines: finalLines,
     };
-    batch.set(receiptRef, { ...receipt, createdAt: Timestamp.fromDate(now) });
+    batch.set(receiptRef, { ...receipt, createdAt: now.toISOString() });
 
     await batch.commit();
     revalidatePath('/warehouse/inventory');

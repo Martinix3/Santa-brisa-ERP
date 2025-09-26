@@ -1,79 +1,79 @@
 
 "use client";
-import React, { useMemo, useState, useCallback, useEffect } from 'react';
+import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { useData } from '@/lib/dataprovider';
 import { SBButton, SBCard, Input, Select } from '@/components/ui/ui-primitives';
 import { Plus, Trash2, Truck, Search, Info, X } from 'lucide-react';
 import type { Party, Material, GoodsReceipt, Lot, StockMove, Uom } from '@/domain/ssot';
 import { createGoodsReceipt } from './actions';
 
-function SearchableSelect<T extends {id: string, name: string}>({
-    items,
-    onSelect,
-    onFreeText,
-    placeholder,
-    initialValue
+function SearchableSelect<T extends { id: string; name: string }>({
+  items, onSelect, onFreeText, placeholder, initialValue
 }: {
-    items: T[];
-    onSelect: (item: T) => void;
-    onFreeText: (text: string) => void;
-    placeholder: string;
-    initialValue?: string;
+  items: T[];
+  onSelect: (item: T) => void;
+  onFreeText: (text: string) => void;
+  placeholder: string;
+  initialValue?: string;
 }) {
-    const [query, setQuery] = useState(initialValue || '');
-    const [suggestions, setSuggestions] = useState<T[]>([]);
-    const [isOpen, setIsOpen] = useState(false);
+  const [query, setQuery] = useState(initialValue || '');
+  const [suggestions, setSuggestions] = useState<T[]>([]);
+  const [isOpen, setIsOpen] = useState(false);
+  const debRef = useRef<number | null>(null);
 
-    useEffect(() => {
-        setQuery(initialValue || '');
-    }, [initialValue]);
+  useEffect(() => { setQuery(initialValue || ''); }, [initialValue]);
 
-    useEffect(() => {
-        if (query.length > 1) {
-            const filtered = items.filter(item => item.name.toLowerCase().includes(query.toLowerCase()));
-            setSuggestions(filtered);
-            setIsOpen(true);
-            if (filtered.length === 0) {
-              const exact = items.some(i => i.name.toLowerCase() === query.toLowerCase());
-              if (!exact) onFreeText(query);
-            }
-        } else {
-            setSuggestions([]);
-            setIsOpen(false);
-            onFreeText('');
+  useEffect(() => {
+    if (debRef.current) clearTimeout(debRef.current);
+    debRef.current = window.setTimeout(() => {
+      const q = query.trim();
+      if (q.length > 1) {
+        const filtered = items.filter(it => it.name.toLowerCase().includes(q.toLowerCase()));
+        setSuggestions(filtered);
+        setIsOpen(true);
+        if (filtered.length === 0) {
+          const exact = items.some(i => i.name.toLowerCase() === q.toLowerCase());
+          if (!exact) onFreeText(q);
         }
-    }, [query, items, onFreeText]);
-
-    const handleSelect = (item: T) => {
-        setQuery(item.name);
-        onSelect(item);
+      } else {
+        setSuggestions([]);
         setIsOpen(false);
-    };
+        onFreeText(''); // limpiar “nuevo”
+      }
+    }, 120);
+    return () => { if (debRef.current) clearTimeout(debRef.current); };
+  }, [query, items]); // ← sin onFreeText
 
-    return (
-        <div className="relative">
-            <Input
-                value={query}
-                onChange={e => setQuery(e.target.value)}
-                onBlur={() => setTimeout(() => setIsOpen(false), 150)}
-                onFocus={() => { if (query.length > 1) setIsOpen(true); }}
-                placeholder={placeholder}
-            />
-            {isOpen && suggestions.length > 0 && (
-                <ul className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-48 overflow-auto">
-                    {suggestions.map(item => (
-                        <li key={item.id}
-                            className="px-3 py-2 cursor-pointer hover:bg-zinc-100"
-                            onMouseDown={() => handleSelect(item)}
-                        >
-                            <p className="font-medium text-sm">{item.name}</p>
-                        </li>
-                    ))}
-                </ul>
-            )}
-        </div>
-    );
+  const handleSelect = (item: T) => {
+    setQuery(item.name);
+    onSelect(item);
+    setIsOpen(false);
+  };
+
+  return (
+    <div className="relative">
+      <Input
+        value={query}
+        onChange={e => setQuery(e.target.value)}
+        onBlur={() => setTimeout(() => setIsOpen(false), 120)}
+        onFocus={() => { if ((query?.trim()?.length || 0) > 1) setIsOpen(true); }}
+        placeholder={placeholder}
+      />
+      {isOpen && suggestions.length > 0 && (
+        <ul className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-48 overflow-auto">
+          {suggestions.map(item => (
+            <li key={item.id}
+                className="px-3 py-2 cursor-pointer hover:bg-zinc-100"
+                onMouseDown={() => handleSelect(item)}>
+              <p className="font-medium text-sm">{item.name}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
 }
+
 
 function Notification({ message, type, onClose }: { message: string, type: 'success' | 'error', onClose: () => void }) {
     const baseClasses = "flex items-center gap-3 p-3 rounded-lg border";
@@ -121,7 +121,7 @@ export default function GoodsReceiptPage() {
     const suppliers = useMemo(() => (data?.parties || []).filter(p => (p.roles || []).includes('SUPPLIER')), [data?.parties]);
     const materials = useMemo(() => data?.materials || [], [data?.materials]);
     
-    const handleLineChange = useCallback((index: number, field: keyof LineItem, value: any) => {
+    const handleLineChange = (index: number, field: keyof LineItem, value: any) => {
         setLines(currentLines => {
             const newLines = [...currentLines];
             const line = { ...newLines[index] };
@@ -139,7 +139,7 @@ export default function GoodsReceiptPage() {
             newLines[index] = line;
             return newLines;
         });
-    }, [materials]);
+    };
 
     const addLine = () => setLines([...lines, { key: `line_${Date.now()}`, supplierLot: '', qty: 0, unitCost: 0, newMaterialCategory: 'raw', uom: 'uds' }]);
     const removeLine = (index: number) => setLines(lines.filter((_, i) => i !== index));
@@ -198,7 +198,13 @@ export default function GoodsReceiptPage() {
                                   setSupplierId(item.id); 
                                   setNewSupplierName(undefined);
                                 }}
-                                onFreeText={useCallback(text => setNewSupplierName(text), [])}
+                                onFreeText={text => { 
+                                    const exact = suppliers.some(s => s.name.toLowerCase() === text.toLowerCase());
+                                    if (!exact) { 
+                                      setNewSupplierName(text); 
+                                      setSupplierId(undefined); 
+                                    }
+                                  }}
                                 placeholder="Buscar o crear proveedor..."
                                 initialValue={supplierId ? suppliers.find(s => s.id === supplierId)?.name : newSupplierName}
                             />
@@ -224,8 +230,8 @@ export default function GoodsReceiptPage() {
                                     <div className="space-y-1">
                                         <SearchableSelect<Material>
                                             items={materials}
-                                            onSelect={item => handleLineChange(index, 'materialId', item.id)}
-                                            onFreeText={useCallback((text) => handleLineChange(index, 'newMaterialName', text), [handleLineChange, index])}
+                                            onSelect={(item) => handleLineChange(index, 'materialId', item.id)}
+                                            onFreeText={(text) => handleLineChange(index, 'newMaterialName', text)}
                                             placeholder="Buscar o crear material..."
                                             initialValue={line.materialId ? materials.find(m=>m.id === line.materialId)?.name : line.newMaterialName}
                                         />
@@ -241,8 +247,8 @@ export default function GoodsReceiptPage() {
                                         )}
                                     </div>
                                     <Input value={line.supplierLot} onChange={e => handleLineChange(index, 'supplierLot', e.target.value)} placeholder="Lote del proveedor" required/>
-                                    <Input type="number" value={line.qty || ''} onChange={e => handleLineChange(index, 'qty', e.target.value)} className="text-right" required/>
-                                    <Input type="number" step="0.01" value={line.unitCost || ''} onChange={e => handleLineChange(index, 'unitCost', e.target.value)} className="text-right" required/>
+                                    <Input type="number" value={line.qty || ''} onChange={e => handleLineChange(index, 'qty', Number(e.target.value) || 0)} className="text-right" required/>
+                                    <Input type="number" step="0.01" value={line.unitCost || ''} onChange={e => handleLineChange(index, 'unitCost', Number(e.target.value) || 0)} className="text-right" required/>
                                     <SBButton variant="ghost" size="sm" onClick={() => removeLine(index)}><Trash2 className="h-4 w-4 text-red-500" /></SBButton>
                                 </div>
                             ))}
@@ -264,4 +270,3 @@ export default function GoodsReceiptPage() {
         </div>
     );
 }
-
