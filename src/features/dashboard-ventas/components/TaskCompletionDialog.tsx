@@ -1,4 +1,3 @@
-
 // src/features/dashboard-ventas/components/TaskCompletionDialog.tsx
 "use client";
 import React, { useMemo, useState, useEffect } from 'react';
@@ -84,7 +83,6 @@ export function TaskCompletionDialog({
         status: 'active', // If we are completing a task, it means it happened.
         executionScore: 80, // Default value, can be refined.
         items: [{
-          id: `item_${Date.now()}`,
           description: posTacticData.description || posTacticData.tacticCode || 'Táctica POS',
           actualCost: posTacticData.actualCost || 0,
           qty: 1

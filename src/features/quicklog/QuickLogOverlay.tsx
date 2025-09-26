@@ -1,5 +1,3 @@
-
-
 // src/features/quicklog/QuickLogOverlay.tsx
 "use client";
 import React, { useState, useCallback, useEffect } from 'react';
@@ -77,8 +75,9 @@ export default function QuickLogOverlay() {
       name: d.name,
       legalName: d.name,
       kind: 'ORG',
-      addresses: d.city ? [{ type: 'main', street: '', city: d.city, country: 'España', postalCode: '' }] : [],
-      contacts: [],
+      billingAddress: d.city ? { street: '', city: d.city, country: 'España', zip: '' } : undefined,
+      emails: [],
+      phones: [],
       createdAt: new Date().toISOString(),
     };
 

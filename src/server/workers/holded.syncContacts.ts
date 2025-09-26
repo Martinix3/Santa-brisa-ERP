@@ -74,21 +74,21 @@ export async function handleSyncHoldedContacts({ page = 1, dryRun = false }: { p
     }
       
       const billAddress = c.billAddress;
-      const proposedAddresses: Address[] =
-        billAddress && (billAddress.address || billAddress.city || billAddress.country) ? [{
+      const proposedBillingAddress: Address | undefined =
+        billAddress && (billAddress.address || billAddress.city || billAddress.country) ? {
           address: billAddress.address ?? '',
           city: billAddress.city ?? '',
           zip: billAddress.postalCode ?? '',
           province: billAddress.province ?? '',
           country: billAddress.country ?? '',
           countryCode: billAddress.countryCode ?? undefined,
-        }] : [];
+        } : undefined;
       
       const proposedData: Partial<Party> = {
         name: c.name,
         taxId: c.code || undefined,
-        addresses: proposedAddresses as any,
-        contacts: c.phone ? [{ type: 'phone', value: c.phone, isPrimary: true, description: 'Principal' }] : [],
+        billingAddress: proposedBillingAddress,
+        phones: c.phone ? [{ value: c.phone, isPrimary: true, source: 'CRM', verified: false, updatedAt: new Date().toISOString() }] : [],
         kind: 'ORG',
       };
       

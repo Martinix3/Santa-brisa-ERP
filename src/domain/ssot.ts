@@ -1,4 +1,3 @@
-
 // src/domain/ssot.ts
 
 // =================================================================
@@ -84,9 +83,6 @@ export interface Party {
   createdAt: any;
   updatedAt: any;
   // DEPRECATED: campos legacy usados por UI actual; se eliminarán cuando migremos a emails/phones/people
-  contacts?: { type: 'email' | 'phone' | 'whatsapp' | 'web'; value: string; isPrimary?: boolean; description?: string; }[];
-  addresses?: { type: 'main' | 'billing' | 'shipping'; street: string; city: string; postalCode?: string; country: string; isPrimary?: boolean; }[];
-  // Campos del modelo anterior para compatibilidad temporal. Serán eliminados.
   name: string; // Mantener por ahora, pero usar legalName/tradeName
   kind: 'ORG' | 'PERSON';
   taxId?: string; // CIF/NIF opcional para compatibilidad
@@ -377,11 +373,15 @@ export interface Lot {
   sku: string;
   quantity: number;
   createdAt: Timestamp;
-  orderId?: string;
-  supplierId?: string;
+  orderId?: string; // Production Order ID
+  supplierId?: string; // For raw materials
   quality: { qcStatus: 'hold' | 'release' | 'reject', results: Record<string, QCResult> };
   expDate?: string;
   receivedAt?: string;
+  supplierBatch?: string;
+  coaUrl?: string;
+  allergens?: string[];
+  notes?: string;
 }
 
 export interface Incident {
@@ -434,6 +434,7 @@ export interface StockMove {
   occurredAt: string;
   createdAt: string;
   ref?: { orderId?: string; shipmentId?: string; prodOrderId?: string; goodsReceiptId?: string; };
+  unitCost?: number;
 }
 
 export interface InventoryItem {
@@ -455,17 +456,33 @@ export interface GoodsReceipt {
   holdedBillId?: string;
   holdedDeliveryId?: string;
   receivedAt: Timestamp;
-  lines: { materialId: string; sku: string; lotId: string; qty: number; uom: Uom; }[];
+  lines: { 
+    materialId: string;
+    sku: string;
+    lotId: string;
+    qty: number;
+    uom: Uom;
+    unitCost: number;
+    overTolerancePct?: number;
+    underTolerancePct?: number;
+  }[];
   status: 'pending_qc' | 'completed' | 'partial';
   incidentIds?: string[];
   notes?: string;
+  currency?: Currency;
+  fxRate?: number;
   landedCosts?: {
     kind: 'freight' | 'duty' | 'insurance' | 'other';
     amount: number;
     allocation: 'by_value' | 'by_weight' | 'by_qty';
     notes?: string;
   }[];
+  attachments?: string[];
+  createdById?: string;
+  approvedById?: string;
+  auditLog?: { at: string; userId: string; action: string; details?: any }[];
 }
+
 
 export interface ShipmentLine {
   sku: string;

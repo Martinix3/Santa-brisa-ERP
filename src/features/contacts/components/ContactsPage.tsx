@@ -1,5 +1,4 @@
-
-
+// src/features/contacts/components/ContactsPage.tsx
 "use client";
 
 import React, { useMemo, useState } from 'react';
@@ -60,7 +59,8 @@ export function ContactsPageContent() {
         const matchesSearch = !searchTerm ||
             party.name.toLowerCase().includes(lowerCaseSearch) ||
             party.taxId?.toLowerCase().includes(lowerCaseSearch) ||
-            (party.contacts ?? []).some(c => c.value.toLowerCase().includes(lowerCaseSearch));
+            (party.emails ?? []).some(c => c.value.toLowerCase().includes(lowerCaseSearch)) ||
+            (party.phones ?? []).some(c => c.value.toLowerCase().includes(lowerCaseSearch));
 
         const matchesRole = !roleFilter || roles.some((r: { role: PartyRoleType; }) => r.role === roleFilter);
         const matchesKind = !kindFilter || party.kind === kindFilter;
@@ -119,7 +119,7 @@ export function ContactsPageContent() {
                 </div>
                 {filteredParties.map(party => {
                     const roles = partyRolesByPartyId.get(party.id) || [];
-                    const primaryContact = (party.contacts ?? []).find(c => c.isPrimary) || (party.contacts ?? [])[0];
+                    const primaryEmail = (party.emails ?? []).find(c => c.isPrimary) || (party.emails ?? [])[0];
                     const account = data.accounts.find(a => a.partyId === party.id);
                     
                     return (
@@ -139,12 +139,10 @@ export function ContactsPageContent() {
                                 {roles.length === 0 && <span className="text-xs text-zinc-400">Sin rol asignado</span>}
                             </div>
                             <div>
-                                {primaryContact ? (
+                                {primaryEmail ? (
                                     <div className="text-sm text-zinc-600 flex items-center gap-2">
-                                        {primaryContact.type === 'email' && <Mail size={14} className="sb-icon text-zinc-400" />}
-                                        {primaryContact.type === 'phone' && <Phone size={14} className="sb-icon text-zinc-400" />}
-                                        {primaryContact.type === 'web' && <Globe size={14} className="sb-icon text-zinc-400" />}
-                                        <span>{primaryContact.value}</span>
+                                        <Mail size={14} className="sb-icon text-zinc-400" />
+                                        <span>{primaryEmail.value}</span>
                                     </div>
                                 ) : (
                                     <span className="text-xs text-zinc-400">Sin contacto</span>
@@ -166,5 +164,3 @@ export function ContactsPageContent() {
     </div>
 );
 }
-
-    

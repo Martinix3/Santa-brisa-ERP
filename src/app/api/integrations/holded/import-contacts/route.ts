@@ -1,4 +1,3 @@
-
 // src/app/api/integrations/holded/import-contacts/route.ts
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/server/firebaseAdmin';
@@ -60,14 +59,13 @@ export async function POST(req: Request) {
       const proposedData: Partial<Party> = {
         name: contact.name,
         taxId: contact.code || undefined,
-        addresses: contact.billAddress ? [{
-            type: 'billing',
-            street: contact.billAddress.address,
+        billingAddress: contact.billAddress ? {
+            address: contact.billAddress.address,
             city: contact.billAddress.city,
-            postalCode: contact.billAddress.postalCode,
+            zip: contact.billAddress.postalCode,
             country: contact.billAddress.country,
-        }] : [],
-        contacts: contact.phone ? [{ type: 'phone', value: contact.phone, isPrimary: true, description: 'Principal' }] : [],
+        } : undefined,
+        phones: contact.phone ? [{ value: contact.phone, isPrimary: true, source: 'CRM', verified: false, updatedAt: new Date().toISOString() }] : [],
         kind: 'ORG',
       };
       
