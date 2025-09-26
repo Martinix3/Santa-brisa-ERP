@@ -219,16 +219,12 @@ export default function ProduccionPage() {
   }, [setData, recipes, saveAllCollections]);
   
     const deleteOrder = useCallback(async (id: string) => {
-        if (!confirm(`¿Seguro que quieres eliminar la orden de producción ${id}? Esta acción no se puede deshacer.`)) return;
-
         setData(prev => {
             if (!prev) return null;
             const updatedOrders = prev.productionOrders.filter(o => o.id !== id);
             return { ...prev, productionOrders: updatedOrders };
         });
         
-        // In a real backend, you would make an API call to delete.
-        // With local persistence, we can filter out and save.
         if (santaData) {
             const updatedOrders = santaData.productionOrders.filter(o => o.id !== id);
             await saveAllCollections({ productionOrders: updatedOrders });
@@ -411,7 +407,7 @@ function CreateOrderCard({ recipes, onCreate, onEdit, editingOrder, onCloseEdit 
                 scheduledFor: new Date(when).toISOString(),
                 responsibleId: resp || undefined
             });
-            showNotification(`Orden ${editingOrder.id} actualizada.`);
+            // showNotification(`Orden ${editingOrder.id} actualizada.`);
         } else {
             await onCreate({ recipe: recipeToUse, targetBatchSize: target, whenISO: new Date(when).toISOString(), responsibleId: resp||undefined });
         }
@@ -460,6 +456,42 @@ function CreateOrderCard({ recipes, onCreate, onEdit, editingOrder, onCloseEdit 
       </div>
     </div>
   );
+}
+
+// ------ Componente de botón de borrado con confirmación ------
+function ConfirmDeleteButton({ onClick, orderId }: { onClick: (id: string) => void; orderId: string }) {
+    const [confirming, setConfirming] = useState(false);
+    const timerRef = useRef<NodeJS.Timeout>();
+
+    const handleClick = () => {
+        if (confirming) {
+            clearTimeout(timerRef.current);
+            onClick(orderId);
+            setConfirming(false);
+        } else {
+            setConfirming(true);
+            timerRef.current = setTimeout(() => setConfirming(false), 3000);
+        }
+    };
+    
+    useEffect(() => {
+        return () => clearTimeout(timerRef.current);
+    }, []);
+
+    return (
+        <button
+            onClick={handleClick}
+            onBlur={() => { clearTimeout(timerRef.current); setConfirming(false); }}
+            className={`p-2 rounded-lg border text-zinc-600 transition-colors ${
+                confirming
+                    ? 'bg-red-500 text-white border-red-600'
+                    : 'border-zinc-300 hover:bg-red-50 hover:text-red-700'
+            }`}
+            title={confirming ? `Confirmar borrado de ${orderId}`: `Eliminar ${orderId}`}
+        >
+            {confirming ? <Check size={14} /> : <Trash2 size={14} />}
+        </button>
+    );
 }
 
 // ---------------------- UI: listado + detalle ----------------------
@@ -527,7 +559,7 @@ function OrdersList({ orders, recipes, onStart, onFinish, onUpdate, onDelete, on
                     {o.status === 'planned' && (
                         <>
                             <button onClick={() => onEdit(o)} className="p-2 rounded-lg border border-zinc-300 text-zinc-600 hover:bg-blue-50 hover:text-blue-700" title="Editar"><Edit size={14} /></button>
-                            <button onClick={() => onDelete(o.id)} className="p-2 rounded-lg border border-zinc-300 text-zinc-600 hover:bg-red-50 hover:text-red-700" title="Eliminar"><Trash2 size={14} /></button>
+                            <ConfirmDeleteButton onClick={onDelete} orderId={o.id} />
                         </>
                     )}
                 </div>
@@ -795,4 +827,5 @@ function ActualsBlock({ actuals, onChange }: { actuals: ActualConsumption[], onC
 }
 
   
+
 
