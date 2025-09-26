@@ -1,6 +1,11 @@
 import { adminDb as db } from '@/server/firebase';
-import { assertCollection } from '@/lib/ssot/collections';
 import { SANTA_DATA_COLLECTIONS, type SantaData } from '@/domain/ssot';
+
+function assertCollection(col: string): asserts col is keyof SantaData {
+  if (!(SANTA_DATA_COLLECTIONS as readonly string[]).includes(col)) {
+    throw new Error(`Invalid collection name: ${col}`);
+  }
+}
 
 
 type AnyDoc = Record<string, any>;

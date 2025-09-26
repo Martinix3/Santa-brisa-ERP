@@ -50,13 +50,8 @@ const SantaDataLiteralKeys = [
 
 function auditCollections() {
   // (a) ¿Lista exportada coincide con literal?
-  const collectionsAsObject = Array.from(SANTA_DATA_COLLECTIONS).reduce((acc, key) => {
-    (acc as any)[key as SantaDataKeys] = true;
-    return acc;
-  }, {} as Record<SantaDataKeys, boolean>);
-
   assertHasAllKeys(
-    collectionsAsObject,
+    Object.fromEntries(SANTA_DATA_COLLECTIONS.map(k => [k, true])) as Record<SantaDataKeys, true>,
     SantaDataLiteralKeys,
     "SANTA_DATA_COLLECTIONS"
   );

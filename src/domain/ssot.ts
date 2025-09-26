@@ -64,7 +64,6 @@ export interface Party {
   phones?: CommItem[];              // listas (E.164)
   billingAddress?: Address;
   shippingAddress?: Address;
-  roles?: Array<'CUSTOMER'|'SUPPLIER'|'OTHER'>; // mantener sólo como denormalizado
   external?: {
     holdedContactId?: string;
     holdedUpdatedAt?: Timestamp;    // incremental idempotente
@@ -80,8 +79,8 @@ export interface Party {
     lastAuditAt?: string;
     score?: number;                 // 0..100
   };
-  createdAt: any;
-  updatedAt: any;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
   // DEPRECATED: campos legacy usados por UI actual; se eliminarán cuando migremos a emails/phones/people
   name: string; // Mantener por ahora, pero usar legalName/tradeName
   kind: 'ORG' | 'PERSON';
@@ -106,7 +105,8 @@ export interface PartyDuplicate {
   reason: 'SAME_VAT'|'SAME_EMAIL'|'FUZZY_NAME_CITY'|'SAME_PHONE';
   score: number;
   status: 'OPEN'|'MERGED'|'IGNORED';
-  createdAt: any; resolvedAt?: any;
+  createdAt: Timestamp;
+  resolvedAt?: Timestamp;
 }
 
 
@@ -187,8 +187,8 @@ export interface OrderSellOut {
   accountId: string;
   source: 'CRM'|'SHOPIFY'|'OTHER' | 'MANUAL' | 'HOLDED';
   createdAt: Timestamp;
-  currency: 'EUR' | string;
-  lines: Array<{ sku: string; name?: string; qty: number; priceUnit: number; taxRate?: number; discountPct?: number; uom?: 'uds'; lotIds?: string[] }>;
+  currency: Currency;
+  lines: Array<{ sku: string; name?: string; qty: number; priceUnit: number; taxRate?: number; discountPct?: number; uom?: Uom; lotIds?: string[] }>;
   notes?: string;
   billingStatus?: BillingStatus;
   status: OrderStatus;
@@ -208,7 +208,7 @@ export type Expense = {
   status: 'DRAFT'|'APPROVED'|'PAID'|'CANCELLED';
   amountTotal: number;
   amountTax: number;
-  currency: 'EUR' | string;
+  currency: Currency;
   lines: Array<{ description: string; qty: number; unitPrice: number; taxRate?: number }>;
   external: { holdedPurchaseId: string };
   createdAt: Timestamp;
@@ -488,7 +488,7 @@ export interface ShipmentLine {
   sku: string;
   name: string;
   qty: number;
-  uom: 'uds';
+  uom: Uom;
   lotNumber?: string;
 }
 
@@ -538,8 +538,8 @@ export interface DeliveryNote {
   lines: Array<{ sku:string; description:string; qty:number; uom?:string; lotNumbers?:string[] }>;
   pdfUrl?: string;
   company: { name: string; vat: string; address?: string; city?: string; zip?: string; country?: string };
-  createdAt: any;
-  updatedAt: any;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
 }
 
 export type TraceEventPhase = 'SOURCE' | 'RECEIPT' | 'QC' | 'PRODUCTION' | 'PACK' | 'WAREHOUSE' | 'SALE' | 'DELIVERY';
