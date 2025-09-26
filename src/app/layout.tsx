@@ -3,6 +3,7 @@ import ClientProviders from "./ClientProviders";
 import "./globals.css";
 import MonitoringBoot from '@/components/monitoring/MonitoringBoot';
 import { Inter } from 'next/font/google';
+import { ToasterProvider } from '@/components/ui/Toaster';
 
 const inter = Inter({ 
     subsets: ['latin'],
@@ -23,8 +24,10 @@ export default function RootLayout({
   return (
     <html lang="es" className={inter.variable}>
       <body>
-        <MonitoringBoot />
-        <ClientProviders>{children}</ClientProviders>
+        <ToasterProvider>
+          <MonitoringBoot />
+          <ClientProviders>{children}</ClientProviders>
+        </ToasterProvider>
       </body>
     </html>
   );
