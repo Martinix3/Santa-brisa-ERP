@@ -240,13 +240,13 @@ export default function ProduccionPage() {
     }
   }, [saveAllCollections, recipes, santaData, push]);
   
-    const deleteOrder = useCallback(async (id: string) => {
-        if (santaData) {
-            const updatedOrders = santaData.productionOrders.filter(o => o.id !== id);
-            await saveAllCollections({ productionOrders: updatedOrders });
-            showNotification(`Orden ${id} eliminada.`);
-        }
-    }, [santaData, saveAllCollections, showNotification]);
+  const deleteOrder = useCallback(async (id: string) => {
+    if (santaData) {
+        const updatedOrders = santaData.productionOrders.filter(o => o.id !== id);
+        await saveAllCollections({ productionOrders: updatedOrders });
+        push({kind: "ok", text: `Orden ${id} eliminada.`});
+    }
+}, [santaData, saveAllCollections, push]);
 
   const startOrder = useCallback(async (orderId: string) => {
     if(!santaData) return;
@@ -981,4 +981,5 @@ function UpcomingScheduleCard({ orders, recipes, allMaterials }: { orders: ProdO
 
 
     
+
 
