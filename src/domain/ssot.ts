@@ -1,3 +1,4 @@
+
 // src/domain/ssot.ts
 
 // =================================================================
@@ -61,7 +62,7 @@ export type StockReason =
 
 export interface StockMove {
   id: string;
-  itemId: string;       // ← SIEMPRE itemId
+  itemId: string;
   qty: number;          // signo positivo/negativo según reason
   uom: Uom;
   lotNumber?: LotNumber;
@@ -159,8 +160,8 @@ export interface ProductionOrder {
     durationHours?: number;
     finalYield?: number;
     yieldUom?: 'L' | 'unit' | UomLegacy;
-    goodUnits?: number;
-    scrapUnits?: number;
+    goodUnits?: number;    // antes goodBottles
+    scrapUnits?: number;   // antes scrapBottles
   };
 
   costing?: {
@@ -253,8 +254,6 @@ export interface DeliveryNote {
     description:string;
     qty:number;
     uom?:string;
-    /** @deprecated usar lotNumbers */
-    lotIds?: LotNumber[]; 
     lotNumbers?: LotNumber[]; 
   }>;
   pdfUrl?: string;
@@ -333,8 +332,6 @@ export interface OrderSellOut {
     taxRate?: number;
     discountPct?: number;
     uom?: Uom;
-    /** @deprecated usar lotNumbers */
-    lotIds?: LotNumber[];
     lotNumbers?: LotNumber[];
   }>;
   notes?: string; 
