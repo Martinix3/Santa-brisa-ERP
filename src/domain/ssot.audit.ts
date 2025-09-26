@@ -2,13 +2,14 @@
 // src/domain/ssot.audit.ts
 import {
   // Tipos/constantes del SSOT
-  SB_COLORS, SANTA_DATA_COLLECTIONS, POLICIES,
+  SB_COLORS, SANTA_DATA_COLLECTIONS,
   ACCOUNT_TYPE_META, ORDER_STATUS_META, SHIPMENT_STATUS_META,
   PARTY_ROLE_META, LOT_QC_META, PHASE_DEPT, PHASE_NAME_ES,
   // Tipos para derivar literales
   type SantaData, type AccountType, type OrderStatus, type ShipmentStatus,
   type PartyRoleType, type TraceEventPhase, type CodeEntity
 } from "@/domain/ssot";
+import { POLICIES } from '@/lib/codes';
 
 // ----------------------------
 // Helpers de exhaustividad

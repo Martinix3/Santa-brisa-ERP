@@ -1,5 +1,4 @@
-
-
+// src/app/(app)/production/execution/page.tsx
 "use client";
 import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -386,7 +385,7 @@ export default function ProduccionPage() {
         </div>
       </header>
 
-      <OrdersList orders={orders} recipes={recipes} onStart={startOrder} onFinish={onFinish} onUpdate={updateOrder} onDelete={deleteOrder} onEdit={setEditingOrder} inventory={onHand} allItems={allItems} busyOp={busyOp} />
+      <OrdersList orders={orders} recipes={recipes} onStart={startOrder} onFinish={finishOrder} onUpdate={updateOrder} onDelete={deleteOrder} onEdit={setEditingOrder} inventory={onHand} allItems={allItems} busyOp={busyOp} />
     </div>
   );
 }

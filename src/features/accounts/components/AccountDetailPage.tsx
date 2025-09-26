@@ -5,7 +5,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useParams, useRouter, notFound } from 'next/navigation';
 import { useData } from '@/lib/dataprovider';
-import type { SantaData, Interaction as InteractionType, OrderSellOut, User as UserType, Party, InteractionKind, Account, CustomerData, PartyRole, Activation, Promotion, AccountRollup, AccountType, PosTactic, PosCostCatalogEntry, PlvMaterial, PosTacticItem, Item } from '@/domain/ssot';
+import type { SantaData, Interaction as InteractionType, OrderSellOut, User as UserType, Party, InteractionKind, Account, CustomerData, PartyRole, Activation, Promotion, AccountType, PosTactic, PosCostCatalogEntry, PlvMaterial, PosTacticItem, Item } from '@/domain/ssot';
 import { computeAccountKPIs, accountOwnerDisplay, orderTotal, getDistributorForAccount, computeAccountRollup } from '@/lib/sb-core';
 import { ArrowUpRight, ArrowDownRight, Phone, Mail, MapPin, User, Factory, Boxes, Megaphone, Briefcase, Banknote, Calendar, FileText, ShoppingCart, Star, Building2, CreditCard, ChevronRight, ChevronLeft, MessageSquare, Sparkles, Tag, Clock, Edit, Plus } from "lucide-react";
 import Link from 'next/link';
@@ -275,7 +275,7 @@ export function AccountDetailPageContent(){
                               <div className="text-sm text-zinc-800 font-semibold">{formatEUR(orderTotal(order))}</div>
                               <div className="text-xs text-zinc-500">{formatDate(String(order.createdAt))}</div>
                           </div>
-                          <div className="text-sm text-zinc-800 col-span-2">{(order.lines || []).map(l => `${l.qty} ${l.uom || 'uds'} de ${santaData.items.find(p=>p.id === l.itemId)?.name}`).join(', ')}</div>
+                          <div className="text-sm text-zinc-800 col-span-2">{(order.lines || []).map(l => `${l.qty} ${l.uom || 'unit'} de ${santaData.items.find(p=>p.id === l.itemId)?.name}`).join(', ')}</div>
                       </div>
                     )
                   }

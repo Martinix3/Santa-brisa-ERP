@@ -1,3 +1,4 @@
+// src/features/production/dashboard/components/OrdersTimeline.tsx
 "use client";
 import React from "react";
 import type { ProductionOrder } from "@/domain/ssot";
@@ -19,7 +20,7 @@ export function OrdersTimeline({ orders }:{ orders: ProductionOrder[] }){
         {sorted.slice(0,12).map(o => (
           <li key={o.id} className="flex items-center justify-between gap-3 border-b last:border-b-0 py-2">
             <div className="min-w-0">
-              <div className="font-medium truncate">{o.orderNumber || o.id} · {o.sku}</div>
+              <div className="font-medium truncate">{o.orderNumber || o.id} · {o.outputItemId}</div>
               <div className="text-xs text-zinc-500">{o.scheduledFor ? new Date(o.scheduledFor).toLocaleString() : new Date(o.createdAt).toLocaleDateString()}</div>
             </div>
             <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${badge(o.status)}`}>{o.status.toUpperCase()}</span>

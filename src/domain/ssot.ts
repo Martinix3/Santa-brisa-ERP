@@ -1,6 +1,5 @@
-
 // src/domain/ssot.ts
-
+import type { Interaction } from './ssot.common';
 // =================================================================
 // == SINGLE SOURCE OF TRUTH (SSOT) - KERNEL V2
 // =================================================================
@@ -349,8 +348,6 @@ export * from './ssot.common'; // Importa el resto de tipos que no han cambiado
 // 7. DEPRECATED - Entidades Antiguas (marcar para eliminar)
 // -----------------------------------------------------------------
 
-/** @deprecated Use `Item` instead. This will be removed. */
-export interface Product {}
 
 // -----------------------------------------------------------------
 // 8. Lista de Colecciones de la Base de Datos

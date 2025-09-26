@@ -1,8 +1,8 @@
-
+// src/app/(app)/quality/release/page.tsx
 "use client";
 import React, { useState, useMemo } from 'react';
 import { useData } from '@/lib/dataprovider';
-import type { OnHandView, QACheck, QCResult, SB_THEME } from '@/domain/ssot';
+import type { OnHandView, QACheck, QCResult } from '@/domain/ssot';
 import { SBCard, SBButton, Input, Textarea, LotQualityStatusPill } from '@/components/ui/ui-primitives';
 import { QC_PARAMS } from '@/domain/production.qc';
 import type { QCKey } from '@/domain/production.qc';
@@ -37,7 +37,7 @@ function AnalysisInput({ paramKey, spec, value, onChange }: { paramKey: string, 
         return (
             <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
-                    <Icon className="sb-icon h-5 w-5 text-zinc-500" />
+                    <Icon className="h-5 w-5 text-zinc-500" />
                     <span className="font-medium text-zinc-800">{spec.label}</span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -54,7 +54,7 @@ function AnalysisInput({ paramKey, spec, value, onChange }: { paramKey: string, 
     return (
         <div className="flex items-center gap-3">
              <div className="flex items-center gap-2 w-40">
-                <Icon className="sb-icon h-5 w-5 text-zinc-500" />
+                <Icon className="h-5 w-5 text-zinc-500" />
                 <span className="font-medium text-zinc-800">{spec.label}</span>
             </div>
             <Input
@@ -114,7 +114,7 @@ export default function LotReleasePage() {
             id: `qc_${Date.now()}`,
             subject: { kind: 'LOT', id: selectedItem.lotNumber! },
             summaryStatus: decision === 'release' ? 'ok' : 'ko',
-            checklist: Object.entries(analysisResults).map(([key, res]) => ({ name: key, ...res })),
+            checklist: Object.entries(analysisResults).map(([key, res]) => ({ name: key, result: res.status, ...res })),
             reviewedById: 'system', // Replace with current user ID
             reviewedAt: new Date().toISOString(),
             createdAt: new Date().toISOString(),
