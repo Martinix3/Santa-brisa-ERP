@@ -367,6 +367,8 @@ export interface ProductionOrder {
 }
 
 export type QCResult = { value?: number | string | boolean; notes?: string; status: 'ok' | 'ko'; };
+
+/** @deprecated Use InventoryItem for all physical stock. Lots are now a logical concept within Production Orders. */
 export interface Lot {
   id: string;
   lotCode?: string;
@@ -437,15 +439,28 @@ export interface StockMove {
   unitCost?: number;
 }
 
+export type InventorySource =
+  | { type: "PRODUCTION_ORDER"; id: string }
+  | { type: "PURCHASE_ORDER"; id: string }
+  | { type: "ADJUSTMENT"; reason?: string }
+  | { type: "RETURN"; ref?: string };
+
 export interface InventoryItem {
-    id: string;
-    sku: string;
-    lotNumber?: string;
-    uom: Uom;
-    qty: number;
-    locationId: string;
-    expDate?: string;
-    updatedAt: Timestamp;
+  id: string;
+  sku: string;
+  materialId?: string;
+  category: 'finished_good' | 'raw' | 'intermediate' | 'packaging' | 'merchandising';
+  qty: number;
+  uom: Uom;
+  locationId: string;
+  lotNumber?: string;
+  createdAt: string;
+  updatedAt?: string;
+  expDate?: string;
+  quality?: { qcStatus: 'hold' | 'release' | 'reject'; results?: Record<string, any> };
+  cost?: { std?: number; actual?: number; layer?: 'fifo' | 'avg' };
+  source?: InventorySource;
+  orderId?: string;
 }
 
 export interface GoodsReceipt {

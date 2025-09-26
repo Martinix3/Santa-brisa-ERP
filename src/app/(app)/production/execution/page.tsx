@@ -122,7 +122,7 @@ export default function ProduccionPage() {
     
     const [loading, setLoading] = useState(true);
     const [lastError, setLastError] = useState<string | null>(null);
-    const [busyOp, setBusyOp] = useState<null | "create" | "start" | "update" | "finish">(null);
+    const [busyOp, setBusyOp] = useState<null | "create" | "start" | "update" | "finish" | "delete">(null);
     const { push } = useToaster();
     const [editingOrder, setEditingOrder] = useState<ProdOrder | null>(null);
 
@@ -187,9 +187,9 @@ export default function ProduccionPage() {
     };
   
     try {
-      await saveAllCollections({
-        productionOrders: [newOrder, ...((santaData.productionOrders) || [])]
-      });
+        await saveAllCollections({
+            productionOrders: [newOrder, ...((santaData.productionOrders) || [])]
+        });
       if (shortages.length) {
         push({ kind: "warn", text: `Orden creada con faltantes: ${shortages.map(s => allMaterials.find(m => m.id === s.materialId)?.name).join(", ")}.` });
       } else {
@@ -210,7 +210,7 @@ export default function ProduccionPage() {
     setBusyOp("update");
     setLastError(null);
     try {
-      const updatedOrders = (santaData.productionOrders || []).map((o: ProdOrder) => {
+        const updatedOrders = (santaData.productionOrders || []).map((o: ProdOrder) => {
           if (o.id === id) {
               const updatedOrder = { ...o, ...patch } as ProdOrder;
               if (patch.execution && !patch.costing) {
@@ -223,8 +223,9 @@ export default function ProduccionPage() {
               return updatedOrder;
           }
           return o;
-      });
-      await saveAllCollections({ productionOrders: updatedOrders });
+        });
+        await saveAllCollections({ productionOrders: updatedOrders });
+
       if (patch.status) push({ kind: "ok", text: `Orden ${id} → ${patch.status.toUpperCase()}` });
     } catch (e: any) {
       const msg = e?.message ?? "No se pudo actualizar la orden.";
@@ -235,115 +236,131 @@ export default function ProduccionPage() {
     }
   }, [saveAllCollections, recipes, santaData, push]);
   
-  const deleteOrder = useCallback(async (id: string) => {
-    if (santaData) {
-        const updatedOrders = santaData.productionOrders.filter(o => o.id !== id);
-        await saveAllCollections({ productionOrders: updatedOrders });
-        push({kind: "ok", text: `Orden ${id} eliminada.`});
-    }
-}, [santaData, saveAllCollections, push]);
+    const deleteOrder = useCallback(async (id: string) => {
+        setBusyOp("delete");
+        setLastError(null);
+        if (santaData) {
+            try {
+                const updatedOrders = santaData.productionOrders.filter(o => o.id !== id);
+                await saveAllCollections({ productionOrders: updatedOrders });
+                push({kind: "ok", text: `Orden ${id} eliminada.`});
+            } catch(e: any) {
+                const msg = e?.message ?? "No se pudo eliminar la orden.";
+                setLastError(msg);
+                push({ kind: "err", text: msg });
+            } finally {
+                setBusyOp(null);
+            }
+        }
+    }, [santaData, saveAllCollections, push]);
 
-  const startOrder = useCallback(async (orderId: string) => {
-    if(!santaData) return;
-    setBusyOp("start");
-    setLastError(null);
-    const order = santaData.productionOrders.find(o => o.id === orderId);
-    if (!order) return;
-  
-    if (!order.reservations?.length) {
-        push({ kind: "err", text: "No hay reservas. No se puede consumir." });
+    const startOrder = useCallback(async (orderId: string) => {
+        if(!santaData) return;
+        setBusyOp("start");
+        setLastError(null);
+        const order = santaData.productionOrders.find(o => o.id === orderId);
+        if (!order) return;
+    
+        if (!order.reservations?.length) {
+            push({ kind: "err", text: "No hay reservas. No se puede consumir." });
+            setBusyOp(null);
+            return;
+        }
+    
+        const moves = buildConsumptionMoves({
+        orderId: order.id,
+        reservations: order.reservations as any,
+        materials: allMaterials,
+        fromLocation: "RM/MAIN",
+        });
+    
+        const updatedInventory = consumeForOrder(warehouseInventory, products, moves);
+    
+        try {
+            const updatedOrders = (santaData.productionOrders || []).map(o =>
+                o.id === orderId
+                ? { ...o, status: "wip", execution: { ...(o.execution || {}), startedAt: new Date().toISOString() } }
+                : o
+            );
+            await saveAllCollections({
+                inventory: updatedInventory,
+                stockMoves: [ ...(santaData.stockMoves || []), ...moves ],
+                productionOrders: updatedOrders,
+            });
+            push({ kind: "ok", text: "Orden iniciada y materias primas descontadas." });
+        } catch (e: any) {
+        const msg = e?.message ?? "No se pudo iniciar la orden.";
+        setLastError(msg);
+        push({ kind: "err", text: msg });
+        } finally {
         setBusyOp(null);
-        return;
-    }
-  
-    const moves = buildConsumptionMoves({
-      orderId: order.id,
-      reservations: order.reservations as any,
-      materials: allMaterials,
-      fromLocation: "RM/MAIN",
-    });
-  
-    const updatedInventory = consumeForOrder(warehouseInventory, products, moves);
-  
-    try {
-      const updatedOrders = (santaData.productionOrders || []).map(o =>
-        o.id === orderId
-          ? { ...o, status: "wip", execution: { ...(o.execution || {}), startedAt: new Date().toISOString() } }
-          : o
-      );
-      await saveAllCollections({
-        inventory: updatedInventory,
-        stockMoves: [ ...(santaData.stockMoves || []), ...moves ],
-        productionOrders: updatedOrders,
-      });
-      push({ kind: "ok", text: "Orden iniciada y materias primas descontadas." });
-    } catch (e: any) {
-      const msg = e?.message ?? "No se pudo iniciar la orden.";
-      setLastError(msg);
-      push({ kind: "err", text: msg });
-    } finally {
-      setBusyOp(null);
-    }
-  }, [santaData, saveAllCollections, warehouseInventory, products, allMaterials, push]);
+        }
+    }, [santaData, saveAllCollections, warehouseInventory, products, allMaterials, push]);
   
 
-  const finishOrder = useCallback(async (o: ProdOrder, finalYield: number, yieldUom: 'L' | 'ud' | 'uds') => {
-    if (!santaData) return;
-    setBusyOp("finish");
-    setLastError(null);
-    const recipe = recipes.find(r => r.id === o.bomId);
-    if (!recipe || !o.execution?.startedAt) return;
-
-    const finishedAt = new Date().toISOString();
-    const durationMs = new Date(finishedAt).getTime() - new Date(o.execution.startedAt).getTime();
-    const durationHours = durationMs / (1000 * 60 * 60);
-
-    const bottlesPerLiter = 1.33;
-    const goodBottles = (yieldUom === 'ud' || yieldUom === 'uds') ? finalYield : Math.floor(finalYield * bottlesPerLiter);
-
-    const finalExecution = {
-        ...(o.execution),
-        finalYield,
-        yieldUom,
-        goodBottles,
-        finishedAt,
-        durationHours: round2(durationHours),
-    };
+    const finishOrder = useCallback(async (o: ProdOrder, finalYield: number, yieldUom: 'L' | 'ud' | 'uds') => {
+        if (!santaData) return;
+        setBusyOp("finish");
+        setLastError(null);
+        const recipe = recipes.find(r => r.id === o.bomId);
+        if (!recipe || !o.execution?.startedAt) return;
     
-    const newLotId = generateNextLot(
-        (santaData.lots || []).map(l => l.id),
-        new Date(),
-        recipe.sku
-    );
-
-    const newLotCosting = computeCosting(recipe!, { ...o, execution: finalExecution });
-
-    const newLot = {
-        id: newLotId,
-        sku: recipe.sku,
-        quantity: finalExecution.goodBottles || 0,
-        createdAt: new Date().toISOString(),
-        orderId: o.id,
-        quality: { qcStatus: 'hold', results: {} },
-    };
+        const finishedAt = new Date().toISOString();
+        const durationMs = new Date(finishedAt).getTime() - new Date(o.execution.startedAt).getTime();
+        const durationHours = durationMs / (1000 * 60 * 60);
     
-    try {
-      const newLots = [ ...(santaData.lots || []), newLot ];
-      const updatedOrders = (santaData.productionOrders || []).map((po: any) =>
-        po.id === o.id
-          ? { ...po, status: "done" as const, execution: finalExecution, lotId: newLotId, costing: newLotCosting }
-          : po
-      );
-      await saveAllCollections({ lots: newLots as any, productionOrders: updatedOrders });
-      push({ kind: "ok", text: `Orden ${o.id} completada. Lote ${newLotId} creado (QC: hold).` });
-    } catch (e: any) {
-      const msg = e?.message ?? "No se pudo finalizar la orden.";
-      setLastError(msg);
-      push({ kind: "err", text: msg });
-    } finally {
-      setBusyOp(null);
-    }
-  }, [recipes, santaData, saveAllCollections, push]);
+        const bottlesPerLiter = 1.33;
+        const goodBottles = (yieldUom === 'ud' || yieldUom === 'uds') ? finalYield : Math.floor(finalYield * bottlesPerLiter);
+    
+        const finalExecution = {
+            ...(o.execution),
+            finalYield,
+            yieldUom,
+            goodBottles,
+            finishedAt,
+            durationHours: round2(durationHours),
+        };
+        
+        const newLotId = generateNextLot(
+            (santaData.inventory || []).map(l => l.id),
+            new Date(),
+            recipe.sku
+        );
+    
+        const newLotCosting = computeCosting(recipe!, { ...o, execution: finalExecution });
+
+        const newInventoryItem: InventoryItem = {
+            id: newLotId,
+            sku: recipe.sku,
+            category: "finished_good",
+            qty: finalExecution.goodBottles || 0,
+            uom: "uds",
+            createdAt: new Date().toISOString(),
+            quality: { qcStatus: "hold", results: {} },
+            source: { type: "PRODUCTION_ORDER", id: o.id },
+            orderId: o.id,
+            locationId: "FG/QA",
+        };
+        
+        try {
+            const updatedOrders = (santaData.productionOrders || []).map((po: any) =>
+                po.id === o.id
+                ? { ...po, status: "done" as const, execution: finalExecution, lotId: newLotId, costing: newLotCosting }
+                : po
+            );
+            await saveAllCollections({ 
+                inventory: [ ...(santaData.inventory || []), newInventoryItem ],
+                productionOrders: updatedOrders 
+            });
+            push({ kind: "ok", text: `Orden ${o.id} completada. Lote ${newLotId} creado (QC: hold).` });
+        } catch (e: any) {
+            const msg = e?.message ?? "No se pudo finalizar la orden.";
+            setLastError(msg);
+            push({ kind: "err", text: msg });
+        } finally {
+            setBusyOp(null);
+        }
+    }, [recipes, santaData, saveAllCollections, push]);
 
 
   if (loading || !santaData) return <div className="p-6">Cargando producción…</div>;
@@ -503,11 +520,12 @@ function CreateOrderCard({ recipes, onCreate, onEdit, editingOrder, onCloseEdit,
 }
 
 // ------ Componente de botón de borrado con confirmación ------
-function ConfirmDeleteButton({ onClick, orderId }: { onClick: (id: string) => void; orderId: string }) {
+function ConfirmDeleteButton({ onClick, orderId, isBusy }: { onClick: (id: string) => void; orderId: string, isBusy: boolean }) {
     const [confirming, setConfirming] = useState(false);
     const timerRef = useRef<NodeJS.Timeout>();
 
     const handleClick = () => {
+        if (isBusy) return;
         if (confirming) {
             clearTimeout(timerRef.current);
             onClick(orderId);
@@ -532,6 +550,7 @@ function ConfirmDeleteButton({ onClick, orderId }: { onClick: (id: string) => vo
                     : 'border-zinc-300 hover:bg-red-50 hover:text-red-700'
             }`}
             title={confirming ? `Confirmar borrado de ${orderId}`: `Eliminar ${orderId}`}
+            disabled={isBusy}
         >
             {confirming ? <Check size={14} /> : <Trash2 size={14} />}
         </button>
@@ -603,7 +622,7 @@ function OrdersList({ orders, recipes, onStart, onFinish, onUpdate, onDelete, on
                     {o.status === 'planned' && (
                         <>
                             <button onClick={() => onEdit(o)} className="p-2 rounded-lg border border-zinc-300 text-zinc-600 hover:bg-blue-50 hover:text-blue-700" title="Editar"><Edit size={14} /></button>
-                            <ConfirmDeleteButton onClick={onDelete} orderId={o.id} />
+                            <ConfirmDeleteButton onClick={onDelete} orderId={o.id} isBusy={busyOp === 'delete'}/>
                         </>
                     )}
                 </div>
@@ -974,6 +993,7 @@ function UpcomingScheduleCard({ orders, recipes, allMaterials }: { orders: ProdO
 
 
     
+
 
 
 
