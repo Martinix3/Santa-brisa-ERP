@@ -17,10 +17,8 @@ export function computeKpis({ orders, recipes, onHand, items }: Input){
   const avgCostUnit30 = avg(doneLast30.map(o => o.costing?.actual?.perUnit || 0));
   const avgYield30 = avg(doneLast30.map(o => o.costing?.actual?.yieldLossPct ? 100 - o.costing.actual.yieldLossPct : 100));
 
-  // Shortages: logic would need to be re-implemented based on reservations and on-hand stock.
   const currentShortages: any[] = []; 
 
-  // Inventario crítico
   const byItem: Record<string, number> = {};
   for(const it of onHand){
     if(!it?.itemId) continue;
@@ -38,21 +36,18 @@ export function computeKpis({ orders, recipes, onHand, items }: Input){
     .filter(Boolean)
     .slice(0, 12) as { sku: string; name: string; qty: number }[];
 
-  // Series para progress (unidades por día plan vs real)
   const daysBack = 30;
   const progressSeries = seriesDays(daysBack).map(d => {
     const plannedOrders = orders.filter(o=>o.scheduledFor && isSameDay(new Date(o.scheduledFor), d));
     const plannedUnits = sum(plannedOrders.map(po => {
         const recipe = recipes.find(r => r.id === po.bomId);
         if (!recipe) return 0;
-        // This logic is simplified; a real version would calculate expected output units.
         return po.targetQuantity;
     }));
     const real = orders.filter(o=>o.status==='done' && o.execution?.finishedAt && isSameDay(new Date(o.execution.finishedAt), d)).reduce((a,o)=>a+(o.execution?.goodUnits||0),0);
     return { date: d.toISOString().slice(5,10).replace('-', '/'), planned: plannedUnits, real };
   });
 
-  // Series de eficiencia
   const laborSeries = seriesDays(daysBack).map(d => {
     const dayOrders = doneLast30.filter(o => o.execution?.finishedAt && isSameDay(new Date(o.execution.finishedAt), d));
     const hours = sum(dayOrders.map(o => o.execution?.durationHours || 0));
@@ -65,7 +60,7 @@ export function computeKpis({ orders, recipes, onHand, items }: Input){
   });
   
   const overdueOrders = orders.filter(o => {
-      const isLate = o.createdAt && new Date(o.createdAt) < new Date(Date.now() - 3 * 86400000); // >3 days old
+      const isLate = o.createdAt && new Date(o.createdAt) < new Date(Date.now() - 3 * 86400000);
       return (o.status === 'planned' || o.status === 'released') && isLate;
   }).length;
   

@@ -84,7 +84,7 @@ function PersonalDashboardContent() {
     const taskToUpdate = userInteractions.find(i => i.id === id);
     if (!taskToUpdate) return;
   
-    if (newStatus === 'done') {
+    if (newStatus === 'done' && data.marketingEvents) {
       if (taskToUpdate.dept === 'MARKETING' && taskToUpdate.linkedEntity?.type === 'EVENT' && data.marketingEvents) {
         const event = data.marketingEvents.find(e => e.id === taskToUpdate.linkedEntity?.id);
         if (event) {

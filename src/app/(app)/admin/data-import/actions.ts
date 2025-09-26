@@ -2,7 +2,7 @@
 // FILE: src/app/(app)/admin/data-import/actions.ts
 // PURPOSE: Server actions — CSV templates, preview (FK resolve), commit (upsert)
 // NOTES: Implement getServerData/upsertMany en '@/lib/dataprovider/server'
-//        Incluye: consigna y muestras, itemSku → itemId
+//        Incluye: consigna y muestras, itemId
 // ================================================================
 
 'use server';
@@ -10,7 +10,7 @@
 import { randomUUID } from 'crypto';
 import {
   SANTA_DATA_COLLECTIONS,
-  CODE_POLICIES,
+  POLICIES,
   type SantaData,
   type Account,
   type OrderSellOut,
@@ -40,10 +40,6 @@ const TEMPLATE_FIELDS: Partial<Record<keyof SantaData, readonly string[]>> = {
   items: ['id','sku','name','category','uom','bottleMl','caseUnits','casesPerPallet','active','stdCost'],
   ordersSellOut: ['id','docNumber','accountId','accountName','status','createdAt','currency','totalAmount','source','terms','lines','itemId','qty','priceUnit'],
   interactions: ['id','accountId','accountName','userId','userEmail','dept','kind','status','createdAt','note'],
-  plv_material: ['id','sku','kind','status','accountId','installedAt','photoUrl'],
-  promotions: ['id','code','name','type','value','validFrom','validTo'],
-  marketingEvents: ['id','title','kind','status','startAt','endAt','accountId','kpis','links'],
-  influencerCollabs: ['id','creatorId','creatorName','platform','tier','status','ownerUserId','couponCode','utmCampaign','tracking'],
   posTactics: ['id','accountId','tacticCode','actualCost','executionScore','status','createdAt','items'],
   productionOrders: ['id','orderNumber','outputItemId','bomId','targetQuantity','status','createdAt','execution'],
   onHand: ['id','itemId','lotNumber','qty','uom','locationId', 'quality', 'createdAt', 'updatedAt', 'expDate'],
@@ -52,7 +48,7 @@ const TEMPLATE_FIELDS: Partial<Record<keyof SantaData, readonly string[]>> = {
   paymentLinks: ['id','financeLinkId','amount','date','method'],
   financeLinks: ['id','docType','status','grossAmount','currency','issueDate','dueDate','partyId'],
   stockMoves: ['id','itemId','lotNumber','uom','qty','fromLocation','toLocation','reason','occurredAt','createdAt'],
-  materialCosts: ['id','itemId','itemSku','currency','costPerUom','effectiveFrom'],
+  materialCosts: ['id','itemId','currency','costPerUom','effectiveFrom'],
 };
 
 export async function generateCsvTemplate(coll: keyof SantaData){
@@ -94,7 +90,7 @@ const REASON_ALIASES: Record<string, StockReason> = {
 function nBool(x:any){ if (typeof x==='boolean') return x; if (typeof x==='string') return ['true','1','yes','y','si','sí'].includes(x.trim().toLowerCase()); return Boolean(x); }
 const nNumComma = (x:any) => { if (typeof x === 'string') x = x.replace(',', '.'); const n = Number(x); return Number.isFinite(n) ? n : 0; };
 function j(x:any){ if (x==null||x==='') return undefined; if (typeof x!=='string') return x; try{ return JSON.parse(x);}catch{ return x; } }
-function newId(prefix: keyof typeof CODE_POLICIES | 'GEN'){ const now=new Date(); const y=now.getFullYear(), m=String(now.getMonth()+1).padStart(2,'0'), d=String(now.getDate()).padStart(2,'0'); const rnd=randomUUID().slice(0,6).toUpperCase(); switch(prefix){ case 'ACCOUNT': return `ACC-${rnd}`; case 'SHIPMENT': return `SHP-${y}${m}${d}-${rnd.slice(0,3)}`; case 'GOODS_RECEIPT': return `GR-${y}${m}${d}-${rnd.slice(0,3)}`; case 'PROD_ORDER': return `PO-${y}${m}-${rnd.slice(0,4)}`; case 'LOT': return `${String(y).slice(2)}${m}${d}-GEN-${rnd.slice(0,3)}`; default: return `${prefix}-${rnd}`; } }
+function newId(prefix: keyof typeof POLICIES | 'GEN'){ const now=new Date(); const y=now.getFullYear(), m=String(now.getMonth()+1).padStart(2,'0'), d=String(now.getDate()).padStart(2,'0'); const rnd=randomUUID().slice(0,6).toUpperCase(); switch(prefix){ case 'ACCOUNT': return `ACC-${rnd}`; case 'SHIPMENT': return `SH-${y}${m}${d}-${rnd.slice(0,3)}`; case 'GR': return `GR-${y}${m}${d}-${rnd.slice(0,3)}`; case 'PO': return `PO-${y}${m}-${rnd.slice(0,4)}`; default: return `${String(prefix)}-${rnd}`; } }
 
 async function resolveAndNormalize(coll: keyof SantaData, rows: any[], data: SantaData, opts?: { allowCreateAccounts?: boolean }){
   const reg = buildRegistry(data); const info = { createdAccounts: 0, linked: 0, warnings: [] as string[] }; const out:any[]=[];
@@ -117,9 +113,9 @@ async function resolveAndNormalize(coll: keyof SantaData, rows: any[], data: San
       let lines = j(row.lines);
       if (!Array.isArray(lines) || lines.length === 0){
         const itemId = row.itemId; const qty = nNumComma(row.qty); const pu = nNumComma(row.priceUnit);
-        lines = itemId ? [{ itemId, qty, uom:'uds', priceUnit: pu }] : [];
+        lines = itemId ? [{ itemId, qty, uom:'unit', priceUnit: pu }] : [];
       }
-      row.lines = (lines as any[]).map(l=> ({ itemId: l.itemId, qty: nNumComma(l.qty), uom: l.uom || l.unit || 'uds', priceUnit: nNumComma(l.priceUnit ?? l.unitPrice ?? 0), discount: l.discount? Number(l.discount): undefined }));
+      row.lines = (lines as any[]).map(l=> ({ itemId: l.itemId, qty: nNumComma(l.qty), uom: l.uom || l.unit || 'unit', priceUnit: nNumComma(l.priceUnit ?? l.unitPrice ?? 0), discount: l.discount? Number(l.discount): undefined }));
       out.push(row); continue;
     }
 
@@ -132,16 +128,16 @@ async function resolveAndNormalize(coll: keyof SantaData, rows: any[], data: San
     if (coll==='goodsReceipts'){
       const lines = Array.isArray(row.lines) ? row.lines : j(row.lines);
       if (Array.isArray(lines)){
-        row.lines = lines.map((ln:any)=> ({ itemId: reg.itemsById.get(ln.itemId)?.id ?? ln.itemId, qty: nNumComma(ln.qty), uom: ln.uom ?? 'uds' }));
+        row.lines = lines.map((ln:any)=> ({ itemId: reg.itemsById.get(ln.itemId)?.id ?? ln.itemId, qty: nNumComma(ln.qty), uom: ln.uom ?? 'unit' }));
       }
       out.push(row); continue;
     }
 
-    if (coll==='onHand'){ const code = String(row.lotNumber ?? row.id ?? '').trim(); if (code && !LOT_RE.test(code)) row.lotNumber = code; out.push(row); continue; }
+    if (coll==='onHand'){ out.push(row); continue; }
 
     if (coll==='shipments'){
       const lines = Array.isArray(row.lines) ? row.lines : j(row.lines);
-      if (Array.isArray(lines)) row.lines = lines.map((ln:any)=> ({ itemId: ln.itemId, name: ln.name ?? '', qty: nNumComma(ln.qty), uom: ln.uom ?? 'uds', lotNumber: ln.lotNumber }));
+      if (Array.isArray(lines)) row.lines = lines.map((ln:any)=> ({ itemId: ln.itemId, name: ln.name ?? '', qty: nNumComma(ln.qty), uom: ln.uom ?? 'unit', lotNumber: ln.lotNumber }));
       row.isSample = nBool(row.isSample);
       out.push(row); continue;
     }

@@ -10,7 +10,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useDropzone } from 'react-dropzone';
 import { UploadCloud } from 'lucide-react';
-import { SANTA_DATA_COLLECTIONS, type SantaData, CODE_POLICIES, SB_THEME } from "@/domain/ssot";
+import { SANTA_DATA_COLLECTIONS, type SantaData, POLICIES, SB_THEME } from "@/domain/ssot";
 import { importPreview, importCommit } from "./actions";
 
 // ----------------- helpers (cliente) -----------------
@@ -24,9 +24,9 @@ function parseCsv(text: string): { headers: string[]; rows: string[][] }{
 }
 function csvToObjects(headers: string[], rows: string[][]){ return rows.map(r => Object.fromEntries(headers.map((h,i)=>[h, r[i] ?? ""]))); }
 const isoNow = () => new Date().toISOString();
-function genId(prefix: keyof typeof CODE_POLICIES | 'GEN'){ 
+function genId(prefix: keyof typeof POLICIES | 'GEN'){ 
   const now = new Date(); const YYYY = String(now.getFullYear()); const YY = YYYY.slice(2); const MM = String(now.getMonth()+1).padStart(2,'0'); const DD = String(now.getDate()).padStart(2,'0'); const rnd = Math.random().toString(36).slice(2,8).toUpperCase();
-  switch(prefix){ case 'ACCOUNT': return `ACC-${rnd}`; case 'PARTY': return `PTY-${rnd}`; case 'PROD_ORDER': return `PO-${YYYY}${MM}-${rnd.slice(0,4)}`; case 'GOODS_RECEIPT': return `GR-${YYYY}${MM}${DD}-${rnd.slice(0,3)}`; case 'SHIPMENT': return `SHP-${YYYY}${MM}${DD}-${rnd.slice(0,3)}`; case 'LOT': return `${YY}${MM}${DD}-GEN-${rnd.slice(0,3)}`; default: return `${prefix}-${rnd}`; }
+  switch(prefix){ case 'ACCOUNT': return `ACC-${rnd}`; case 'PO': return `PO-${YYYY}${MM}-${rnd.slice(0,4)}`; case 'GR': return `GR-${YYYY}${MM}${DD}-${rnd.slice(0,3)}`; case 'SH': return `SH-${YYYY}${MM}${DD}-${rnd.slice(0,3)}`; default: return `${String(prefix)}-${rnd}`; }
 }
 function slugToSKU(name: string){ if (!name) return ''; const cleaned = name.normalize('NFD').replace(/[^\w\s-]/g,'').replace(/\s+/g,' '); const words = cleaned.trim().split(' '); const base = words.map(w=> w.slice(0,3)).join('-'); return base.toUpperCase().replace(/-+/g,'-').slice(0,16) || `SKU-${Math.random().toString(36).slice(2,6).toUpperCase()}`; }
 
@@ -84,7 +84,7 @@ export default function DataImportPage(){
   // ---------- SHEET ----------
   function setCell(r:number, k:string, v:string){ setRows(prev=>{ const copy=[...prev]; copy[r] = { ...copy[r], [k]: v }; return copy; }); }
   function addRow(){ setRows(prev=> [...prev, Object.fromEntries(headers.map(h=>[h,'']))]); }
-  function autoFill(){ setRows(prev => prev.map((r)=>{ const out = { ...r } as any; if (autoId && !out.id){ const pref = coll==='accounts'? 'ACCOUNT' : coll==='goodsReceipts'? 'GOODS_RECEIPT' : coll==='shipments'? 'SHIPMENT' : coll==='productionOrders'? 'PROD_ORDER' : coll==='lots'? 'LOT' : 'GEN'; out.id = genId(pref as any); } if (autoSku && 'sku' in out && !out.sku && out.name) out.sku = slugToSKU(String(out.name)); if ('createdAt' in out && !out.createdAt) out.createdAt = isoNow(); if ('currency' in out && !out.currency) out.currency = 'EUR'; return out; })); }
+  function autoFill(){ setRows(prev => prev.map((r)=>{ const out = { ...r } as any; if (autoId && !out.id){ const pref = coll==='accounts'? 'ACCOUNT' : coll==='goodsReceipts'? 'GR' : coll==='shipments'? 'SH' : coll==='productionOrders'? 'PO' : 'GEN'; out.id = genId(pref as any); } if (autoSku && 'sku' in out && !out.sku && out.name) out.sku = slugToSKU(String(out.name)); if ('createdAt' in out && !out.createdAt) out.createdAt = isoNow(); if ('currency' in out && !out.currency) out.currency = 'EUR'; return out; })); }
   async function doPreviewSheet(){ if (!coll) return; const res = await importPreview({ coll, rows }); setPreview(res.sample || rows); }
   async function doCommitSheet(){ if (!coll) return; const res = await importCommit({ coll, rows }); setReport(`Importados ${res.inserted + res.updated} docs en ${coll}`); }
 

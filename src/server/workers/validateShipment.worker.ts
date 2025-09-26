@@ -10,7 +10,7 @@ export async function run(payload: {
     carrier?: string;
     weightKg?: number;
     dimsCm?: { l: number; w: number; h: number };
-    lotMap?: Record<string, { lotId: string; qty: number }[]>;
+    lotMap?: Record<string, { lotNumber: string; qty: number }[]>;
 }) {
     const { shipmentId, ...updateData } = payload;
     const shipmentRef = db.collection('shipments').doc(shipmentId);
@@ -25,8 +25,7 @@ export async function run(payload: {
         for (const line of updatedLines) {
             const lotsForSku = updateData.lotMap[line.itemId];
             if (lotsForSku && lotsForSku.length > 0) {
-                // For simplicity, we'll just take the first lot. A real system might handle multiple lots per line.
-                line.lotNumber = lotsForSku[0].lotId;
+                line.lotNumber = lotsForSku[0].lotNumber;
             }
         }
     }
@@ -37,7 +36,7 @@ export async function run(payload: {
         weightKg: updateData.weightKg || shipment.weightKg,
         dimsCm: updateData.dimsCm || shipment.dimsCm,
         lines: updatedLines as ShipmentLine[],
-        updatedAt: Timestamp.now() as any, // <-- CORRECCIÓN APLICADA
+        updatedAt: Timestamp.now() as any,
     };
 
     if (updateData.visualOk) {
@@ -45,6 +44,6 @@ export async function run(payload: {
     }
 
 
-    await shipmentRef.update(patch as any); // Cast to any to avoid deep type issues
+    await shipmentRef.update(patch as any);
     console.log(`Shipment ${shipmentId} validated. New status: ${patch.status}`);
 }

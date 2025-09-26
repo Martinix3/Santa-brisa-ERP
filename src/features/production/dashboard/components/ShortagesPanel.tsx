@@ -3,7 +3,7 @@
 import React from "react";
 import type { Item } from "@/domain/ssot";
 
-export function ShortagesPanel({ shortages, items }:{ shortages: any[]; items: Item[] }){
+export function ShortagesPanel({ shortages, items }: { shortages: any[]; items: Item[] }){
   return (
     <div className="rounded-2xl border border-zinc-200 bg-white p-4">
       <div className="text-sm text-zinc-500 mb-3">Faltantes en órdenes planificadas</div>

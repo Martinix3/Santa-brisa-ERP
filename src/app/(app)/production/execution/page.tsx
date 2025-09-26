@@ -3,19 +3,12 @@
 "use client";
 import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-
-// =============================================================
-// SB Producción — SSOT/Firestore (orden + stock + costes)
-// Se eliminó la lógica de adaptadores para conectar directamente
-// con los datos de prueba en memoria.
-// =============================================================
-
 import { AlertCircle, Check, Hourglass, X, Thermometer, FlaskConical, Beaker, TestTube2, Paperclip, Upload, Trash2, ChevronRight, ChevronDown, Save, Bug, Edit } from "lucide-react";
 import { SBCard, SBButton } from '@/components/ui/ui-primitives';
 import { useData } from "@/lib/dataprovider";
-import type { ProductionOrder as ProdOrder, Uom, Item, Shortage, ActualConsumption, InventoryItem, SantaData, ExecCheck, BillOfMaterial as RecipeBom, Reservation, SB_THEME } from '@/domain/ssot';
-import { availableForItem, fifoReserveLots, buildConsumptionMoves, consumeForOrder } from '@/domain/inventory.helpers';
-import { makeLot, makeProdOrderCode } from '@/lib/codes';
+import type { ProductionOrder as ProdOrder, Uom, Item, ExecCheck, BillOfMaterial as RecipeBom, OnHandView, ReservationView, StockMove, SantaData, SB_THEME } from '@/domain/ssot';
+import { availableForItem, fifoReserveLots, buildConsumptionMoves } from '@/domain/inventory.helpers';
+import { makeLot, makeProdOrderCode, nextLotSeqForDate } from '@/lib/codes';
 import { SB_COLORS } from "@/domain/ssot";
 import { useToaster } from "@/components/ui/Toaster";
 import { Banner } from "@/components/ui/Banner";
@@ -30,20 +23,20 @@ function planFromRecipe(
   recipe: RecipeBom,
   targetBatchSize: number,
   items: Item[],
-  inventory?: InventoryItem[],
-): { lines: ActualConsumption[], plannedBottles: number, finishedUom: Uom } {
+  inventory?: OnHandView[],
+): { lines: ProdOrder['actuals'], plannedBottles: number, finishedUom: Uom } {
   if (!recipe || !recipe.items) {
     return { lines: [], plannedBottles: 0, finishedUom: "unit" as Uom };
   }
   const itemMap = new Map(items.map(m => [m.id, m]));
-  const lines: ActualConsumption[] = recipe.items.map((l) => {
+  const lines: ProdOrder['actuals'] = (recipe.items || []).map((l) => {
     const theoreticalQty = scaleQty(l.qty, recipe.batchSize, targetBatchSize);
     const item = itemMap.get(l.itemId);
     const uom = canonicalUomForItem(l.itemId, inventory || [], items);
     return {
         itemId: l.itemId,
         name: item?.name || 'Unknown',
-        fromLotNumber: undefined, // Se determinará al iniciar
+        lotNumber: undefined, // Se determinará al iniciar
         theoreticalQty,
         actualQty: theoreticalQty, // Por defecto, lo real es lo teórico
         uom, // 👈 manda inventario/item
@@ -64,10 +57,8 @@ function computeCosting(recipe: RecipeBom, po: ProdOrder) {
     if (!po.execution) return undefined;
     const { durationHours = 0, goodUnits = 0 } = po.execution;
     
-    let allItems: Item[] = []; // This will be populated from context
+    let allItems: Item[] = [];
     if (po.actuals && po.actuals.length > 0) {
-        // A bit of a hack, we should get allItems from context.
-        // For now, this is a placeholder.
     }
     
     const { plannedBottles } = planFromRecipe(recipe, po.targetQuantity, allItems);
@@ -76,12 +67,12 @@ function computeCosting(recipe: RecipeBom, po: ProdOrder) {
     
     if(po.actuals && po.actuals.length > 0) {
         for(const act of po.actuals) {
-            materials += act.actualQty * (act.costPerUom || 0);
+            materials += (act.actualQty || 0) * (act.costPerUom || 0);
         }
     } else {
         const plan = planFromRecipe(recipe, po.targetQuantity, allItems);
-        for (const l of plan.lines) {
-            materials += l.theoreticalQty * l.costPerUom;
+        for (const l of plan.lines || []) {
+            materials += l.theoreticalQty * (l.costPerUom || 0);
         }
     }
     
@@ -149,11 +140,11 @@ export default function ProduccionPage() {
     const { recipe, targetBatchSize, whenISO, responsibleId } = args;
     const { lines: actuals, finishedUom } = planFromRecipe(recipe, targetBatchSize, allItems, onHand);
   
-    const shortages: Shortage[] = [];
-    const reservations: Reservation[] = [];
+    const shortages: { itemId: string; required: number; available: number; uom: Uom }[] = [];
+    const reservations: ReservationView[] = [];
   
-    for (const line of actuals) {
-        const avail = availableForItem(line.itemId, onHand, allItems, line.uom === 'unit' ? 'PKG/MAIN' : 'RM/MAIN');
+    for (const line of actuals || []) {
+        const avail = availableForItem(line.itemId, onHand, allItems);
         if (avail < line.theoreticalQty) {
           shortages.push({
             itemId: line.itemId,
@@ -163,8 +154,8 @@ export default function ProduccionPage() {
           });
         } else {
             const locationPrefix = allItems.find(m => m.id === line.itemId)?.category === 'raw' ? 'RM/MAIN' : 'PKG/MAIN';
-            const picks = fifoReserveLots(line.itemId, line.theoreticalQty, onHand, allItems, locationPrefix);
-            picks.forEach(p => reservations.push({ itemId: line.itemId, fromLotNumber: p.fromLotNumber, reservedQty: p.reservedQty, uom: p.uom }));
+            const picks = fifoReserveLots(line.itemId, line.theoreticalQty, onHand, locationPrefix);
+            picks.forEach(p => reservations.push({ id: `${p.fromLotNumber}-${args.recipe.id}`, itemId: line.itemId, lotNumber: p.fromLotNumber, qty: p.reservedQty, uom: p.uom, ref: { kind: 'PROD', id: ''}, createdAt: new Date().toISOString() }));
         }
     }
   
@@ -182,7 +173,7 @@ export default function ProduccionPage() {
       scheduledFor: whenISO,
       responsibleId,
       checks: ((recipe as any).protocolChecklist || []).map((p: any) => ({ id: p.id, done: false })),
-      reservations: reservations.length ? reservations as any[] : undefined,
+      reservations: reservations.length ? reservations : undefined,
       actuals,
     };
   
@@ -191,7 +182,7 @@ export default function ProduccionPage() {
             productionOrders: [newOrder, ...((santaData.productionOrders) || [])]
         });
       if (shortages.length) {
-        push({ kind: "warn", text: `Orden creada con faltantes: ${shortages.map(s => allItems.find(m => m.id === s.itemId)?.name).join(", ")}.` });
+        push({ kind: "info", text: `Orden creada con faltantes: ${shortages.map(s => allItems.find(m => m.id === s.itemId)?.name).join(", ")}.` });
       } else {
         push({ kind: "ok", text: "Orden creada con stock reservado." });
       }
@@ -273,16 +264,15 @@ export default function ProduccionPage() {
         fromLocation: "RM/MAIN",
         });
     
-        const updatedOnHand = consumeForOrder(onHand, moves);
-    
+        const updatedOnHand = onHand; // This should be updated by a worker, not on client.
+
         try {
             const updatedOrders = (santaData.productionOrders || []).map(o =>
                 o.id === orderId
-                ? { ...o, status: "wip", execution: { ...(o.execution || {}), startedAt: new Date().toISOString() } }
+                ? { ...o, status: "wip", execution: { ...(o.execution || {}), startedAt: new Date().toISOString() } } as ProdOrder
                 : o
             );
             await saveAllCollections({
-                onHand: updatedOnHand as OnHandView[],
                 stockMoves: [ ...(santaData.stockMoves || []), ...moves ],
                 productionOrders: updatedOrders,
             });
@@ -517,7 +507,6 @@ function CreateOrderCard({ recipes, onCreate, onEdit, editingOrder, onCloseEdit,
   );
 }
 
-// ------ Componente de botón de borrado con confirmación ------
 function ConfirmDeleteButton({ onClick, orderId, isBusy }: { onClick: (id: string) => void; orderId: string, isBusy: boolean }) {
     const [confirming, setConfirming] = useState(false);
     const timerRef = useRef<NodeJS.Timeout>();
@@ -525,7 +514,7 @@ function ConfirmDeleteButton({ onClick, orderId, isBusy }: { onClick: (id: strin
     const handleClick = () => {
         if (isBusy) return;
         if (confirming) {
-            clearTimeout(timerRef.current);
+            clearTimeout(timerRef.current!);
             onClick(orderId);
             setConfirming(false);
         } else {
@@ -535,13 +524,13 @@ function ConfirmDeleteButton({ onClick, orderId, isBusy }: { onClick: (id: strin
     };
     
     useEffect(() => {
-        return () => clearTimeout(timerRef.current);
+        return () => clearTimeout(timerRef.current!);
     }, []);
 
     return (
         <button
             onClick={handleClick}
-            onBlur={() => { clearTimeout(timerRef.current); setConfirming(false); }}
+            onBlur={() => { clearTimeout(timerRef.current!); setConfirming(false); }}
             className={`p-2 rounded-lg border text-zinc-600 transition-colors ${
                 confirming
                     ? 'bg-red-500 text-white border-red-600'
@@ -555,7 +544,6 @@ function ConfirmDeleteButton({ onClick, orderId, isBusy }: { onClick: (id: strin
     );
 }
 
-// ---------------------- UI: listado + detalle ----------------------
 function OrdersList({ orders, recipes, onStart, onFinish, onUpdate, onDelete, onEdit, inventory, allItems, busyOp }: { 
     orders: ProdOrder[]; 
     recipes: RecipeBom[]; 
@@ -564,7 +552,7 @@ function OrdersList({ orders, recipes, onStart, onFinish, onUpdate, onDelete, on
     onUpdate: (id:string, patch: Partial<ProdOrder>)=>Promise<void>; 
     onDelete: (id: string) => Promise<void>;
     onEdit: (order: ProdOrder) => void;
-    inventory: any[], allItems: Item[], busyOp: string | null 
+    inventory: OnHandView[], allItems: Item[], busyOp: string | null 
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const openOrder = orders.find(o => o.id === openId) || null;
@@ -634,7 +622,7 @@ function OrderDetail({ order, recipe, onClose, onStart, onFinish, onUpdate, inve
     onStart: (id: string)=>void; 
     onFinish: (o: ProdOrder, finalYield: number, yieldUom: 'L' | 'unit' | 'uds')=>void; 
     onUpdate: (id:string, patch: Partial<ProdOrder>)=>Promise<void>; 
-    inventory: any[], allItems: Item[], busyOp: string | null 
+    inventory: OnHandView[], allItems: Item[], busyOp: string | null 
 }) {
   const defaultYieldUom = useMemo(
     () => canonicalUomForFinished(recipe.outputItemId, inventory),
@@ -849,15 +837,15 @@ function ProtocolsBlock({ order, recipe, onToggle }: { order: ProdOrder; recipe:
   );
 }
 
-function ActualsBlock({ actuals, onChange }: { actuals: ActualConsumption[], onChange: (index: number, newQty: number) => void }) {
+function ActualsBlock({ actuals, onChange }: { actuals: ProdOrder['actuals'], onChange: (index: number, newQty: number) => void }) {
     return (
         <div className="rounded-xl border border-[var(--line)]">
             <div className="px-4 py-3 border-b border-[var(--line)] text-sm text-zinc-500">Consumos Reales</div>
             <div className="p-3 space-y-2">
-                {actuals.map((item, index) => (
+                {(actuals || []).map((item, index) => (
                     <div key={item.itemId + index} className="grid grid-cols-[1fr_1fr_1fr] items-center gap-2 text-sm">
                         <div className="font-medium text-zinc-800">{item.name} <span className="text-xs text-zinc-500 font-mono">({item.itemId})</span></div>
-                        <div className="text-center">{item.theoreticalQty.toFixed(2)} {item.uom} <span className="text-xs text-zinc-500">(Teórico)</span></div>
+                        <div className="text-center">{(item.theoreticalQty || 0).toFixed(2)} {item.uom} <span className="text-xs text-zinc-500">(Teórico)</span></div>
                         <input
                             type="number"
                             value={item.actualQty}
@@ -872,12 +860,11 @@ function ActualsBlock({ actuals, onChange }: { actuals: ActualConsumption[], onC
 }
 
 function MissingMaterialsCard({ orders, allItems }: { orders: ProdOrder[]; allItems: Item[] }) {
-  // Junta faltantes de órdenes planned/released
   const shortagesMap = useMemo(() => {
     const m = new Map<string, { required: number; available: number; uom: Uom }>();
     orders
       .filter(o => (o.status === 'planned' || o.status === 'released') && o.shortages?.length)
-      .forEach(o => o.shortages!.forEach(s => {
+      .forEach(o => o.shortages!.forEach((s: any) => {
         const cur = m.get(s.itemId);
         if (!cur) m.set(s.itemId, { required: s.required, available: s.available, uom: s.uom });
         else m.set(s.itemId, { required: cur.required + s.required, available: s.available, uom: s.uom });
@@ -889,7 +876,7 @@ function MissingMaterialsCard({ orders, allItems }: { orders: ProdOrder[]; allIt
     .map(([itemId, v]) => ({ itemId, missing: Math.max(0, v.required - v.available), uom: v.uom }))
     .filter(x => x.missing > 0)
     .sort((a,b)=> b.missing - a.missing)
-    .slice(0, 8); // top 8
+    .slice(0, 8);
 
   const hasShortages = items.length > 0;
 
@@ -956,16 +943,3 @@ function UpcomingScheduleCard({ orders, recipes, allItems }: { orders: ProdOrder
     </div>
   );
 }
-  
-
-
-
-
-
-    
-
-
-
-
-
-

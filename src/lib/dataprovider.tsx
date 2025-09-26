@@ -52,7 +52,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [authReady, setAuthReady] = useState(false);
-  const [isPersistenceEnabled, setIsPersistenceEnabled] = useState(true); // Persistencia ON por defecto
+  const [isPersistenceEnabled, setIsPersistenceEnabled] = useState(true);
   const [loadingData, setLoadingData] = useState(true);
   const router = useRouter();
   
@@ -95,7 +95,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             setData(null);
         }
     } else {
-        // If persistence is off, we now start with an empty state instead of mock data.
         const emptyData: Partial<SantaData> = {};
         for (const name of Array.from(SANTA_DATA_COLLECTIONS)) {
             (emptyData as any)[name] = [];
@@ -105,7 +104,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setLoadingData(false);
   }, [authReady, firebaseUser, isPersistenceEnabled]);
 
-  // Load Firestore data on initial mount or when persistence changes
   useEffect(() => {
     if (!authReady) return;
     if (!firebaseUser) {
@@ -115,7 +113,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     loadInitialData().catch(console.error);
   }, [authReady, firebaseUser, isPersistenceEnabled, loadInitialData]);
 
-  // Handle auth state changes
   useEffect(() => {
     if (!firebaseAuth) return;
     console.log('[DataProvider] Setting up Firebase auth listener.');
@@ -127,7 +124,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     return () => unsub();
   }, []);
 
-  // Sync currentUser with firebaseUser and local data
   useEffect(() => {
     if (loadingData || !authReady) {
         console.log(`[DataProvider] Skipping user sync: loadingData=${loadingData}, authReady=${authReady}`);
@@ -173,7 +169,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [data?.users]);
 
   const saveAllCollections = useCallback(async (collectionsToSave: Partial<SantaData>) => {
-    // 1. Optimistically update local state
     setData(prevData => {
       if (!prevData) return null;
       const updatedData = { ...prevData };
@@ -198,7 +193,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       return hasChanges ? updatedData : prevData;
     });
 
-    // 2. If persistence is enabled, save to backend
     if (isPersistenceEnabled) {
       console.log("Saving to backend:", Object.keys(collectionsToSave));
       const promises = [];
@@ -206,7 +200,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         const collectionName = key as keyof SantaData;
         const items = collectionsToSave[collectionName];
         if (Array.isArray(items) && items.length > 0) {
-          // This now calls the server action directly
           promises.push(upsertMany(collectionName, items));
         }
       }
@@ -216,7 +209,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         console.log("Save successful.");
       } catch (e: any) {
         console.error("Error saving to backend:", e);
-        // Optionally, revert local state or show an error
         throw e;
       }
     } else {
@@ -312,10 +304,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [data, currentUser, authReady, saveCollection, saveAllCollections, login, loginWithEmail, signupWithEmail, logout, togglePersistence, isPersistenceEnabled, setCurrentUserById]
   );
 
-  // Mostrar loader solo si:
-  // 1) ya sabemos el estado de auth (authReady)
-  // 2) hay un usuario autenticado (firebaseUser)
-  // 3) la persistencia está ON y seguimos cargando/esperando data
   const isBlocking =
     !authReady || (firebaseUser && isPersistenceEnabled && (loadingData || !data));
 

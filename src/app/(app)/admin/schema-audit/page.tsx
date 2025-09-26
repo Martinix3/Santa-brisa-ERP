@@ -7,21 +7,21 @@ import { BadgeCheck, FileJson, ShieldAlert, CheckCircle, XCircle } from 'lucide-
 import { SBCard, SBButton } from '@/components/ui/ui-primitives';
 import type { SantaData, SB_THEME } from '@/domain/ssot';
 import { SANTA_DATA_COLLECTIONS } from '@/domain/ssot';
-import { CODE_POLICIES } from "@/domain/ssot"; // para validar patrones de códigos
+import { POLICIES } from "@/lib/codes";
 
 // =====================================================
 // DEFINICIONES DEL ESQUEMA ESPERADO (SSOT)
 // =====================================================
 
 const ALLOWED_KEYS: Partial<Record<keyof SantaData, string[]>> = {
-    accounts: ['id', 'partyId', 'name', 'type', 'stage', 'ownerId', 'createdAt', 'subType', 'notes'],
-    ordersSellOut: ['id', 'accountId', 'lines', 'status', 'createdAt', 'currency', 'totalAmount', 'source', 'notes'],
+    accounts: ['id', 'partyId', 'name', 'type', 'stage', 'ownerId', 'createdAt', 'subType', 'notes', 'code', 'updatedAt', 'lastInteractionAt', 'external'],
+    ordersSellOut: ['id', 'accountId', 'lines', 'status', 'createdAt', 'currency', 'totalAmount', 'source', 'notes', 'docNumber', 'partyId', 'billingStatus', 'external'],
     interactions: ['id', 'userId', 'accountId', 'kind', 'note', 'createdAt', 'status', 'plannedFor', 'resultNote', 'dept', 'involvedUserIds', 'linkedEntity'],
-    shipments: ['id', 'orderId', 'accountId', 'status', 'createdAt', 'lines', 'customerName', 'city', 'carrier', 'tracking', 'labelUrl', 'holdedDeliveryId'],
-    productionOrders: ['id', 'outputItemId', 'bomId', 'targetQuantity', 'status', 'createdAt', 'batchCode', 'execution', 'costing', 'shortages', 'reservations', 'actuals', 'checks', 'incidents'],
-    onHand: ['id', 'itemId', 'lotNumber', 'qty', 'uom', 'locationId', 'createdAt', 'updatedAt', 'expDate', 'quality'],
-    users: ['id', 'name', 'email', 'role', 'active', 'kpiBaseline'],
-    parties: ['id', 'name', 'kind', 'createdAt', 'taxId', 'contacts', 'addresses', 'handles', 'tags'],
+    shipments: ['id', 'orderId', 'accountId', 'status', 'createdAt', 'lines', 'customerName', 'city', 'carrier', 'tracking', 'labelUrl', 'holdedDeliveryId', 'shipmentNumber', 'partyId', 'mode', 'updatedAt', 'addressLine1', 'addressLine2', 'postalCode', 'country', 'trackingCode', 'notes', 'packedById', 'checks', 'isSample', 'samplePurpose', 'sampleNotes', 'weightKg', 'dimsCm', 'pallets', 'trackingUrl', 'deliveryNoteId', 'holdedInvoiceId', 'validatedById', 'validatedAt', 'validationNotes', 'shippedAt'],
+    productionOrders: ['id', 'outputItemId', 'bomId', 'targetQuantity', 'status', 'createdAt', 'batchCode', 'execution', 'costing', 'shortages', 'reservations', 'actuals', 'checks', 'incidents', 'orderNumber', 'scheduledFor', 'responsibleId'],
+    onHand: ['id', 'itemId', 'lotNumber', 'qty', 'uom', 'locationId', 'createdAt', 'updatedAt'],
+    users: ['id', 'name', 'email', 'role', 'active', 'kpiBaseline', 'managerId'],
+    parties: ['id', 'name', 'kind', 'createdAt', 'taxId', 'contacts', 'addresses', 'handles', 'tags', 'legalName', 'tradeName', 'vat', 'emails', 'phones', 'billingAddress', 'shippingAddress', 'external', 'people', 'flags', 'quality', 'status', 'updatedAt'],
     items: ['id', 'sku', 'name', 'category', 'active', 'bottleMl', 'caseUnits', 'casesPerPallet', 'stdCost', 'uom'],
 };
 
@@ -30,7 +30,6 @@ const ENUMS: Record<string, Set<any>> = {
     orderStatus: new Set(['open', 'confirmed', 'shipped', 'invoiced', 'paid', 'cancelled', 'lost']),
     shipmentStatus: new Set(['pending', 'picking', 'ready_to_ship', 'shipped', 'delivered', 'exception', 'cancelled']),
     prodStatus: new Set(['planned', 'released', 'wip', 'done', 'cancelled']),
-    lotQuality: new Set(['hold', 'release', 'reject']),
     userRole: new Set(['comercial', 'admin', 'ops', 'owner']),
 };
 
@@ -39,13 +38,10 @@ const ENUM_CHECKS: Partial<Record<keyof SantaData, { path: string, enum: keyof t
     ordersSellOut: [{ path: 'status', enum: 'orderStatus' }],
     shipments: [{ path: 'status', enum: 'shipmentStatus' }],
     productionOrders: [{ path: 'status', enum: 'prodStatus' }],
-    onHand: [{ path: 'quality.qcStatus', enum: 'lotQuality' }],
     users: [{ path: 'role', enum: 'userRole' }],
 };
 
-// === KPI TRACE — ampliar cobertura a Ventas/Marketing/Producción/Logística/Finanzas ===
 const KPI_TRACE: Record<string, { label: string; needs: Array<{ coll: keyof SantaData; fields: string[] }> }> = {
-  // --- VENTAS ---
   sales_open_orders: { label: 'Pedidos abiertos', needs: [ { coll: 'ordersSellOut', fields: ['status','createdAt','accountId'] } ] },
   sales_confirmed_to_shipped_leadtime: { label: 'Lead time (confirm → ship)', needs: [ { coll: 'ordersSellOut', fields: ['status','createdAt'] }, { coll: 'shipments', fields: ['orderId','createdAt'] } ] },
   sales_month_amount: { label: 'Importe mensual', needs: [ { coll: 'ordersSellOut', fields: ['totalAmount','createdAt','status','accountId'] } ] },
@@ -53,38 +49,15 @@ const KPI_TRACE: Record<string, { label: string; needs: Array<{ coll: keyof Sant
   sales_repeat_rate: { label: '% Recompra', needs: [ { coll: 'ordersSellOut', fields: ['accountId','createdAt'] } ] },
   sales_sku_mix: { label: 'Mix por SKU', needs: [ { coll: 'ordersSellOut', fields: ['lines','createdAt'] }, { coll: 'items', fields: ['sku','name'] } ] },
   sales_conversion_rate: { label: 'Conversión visita→pedido', needs: [ { coll: 'interactions', fields: ['kind','status','createdAt','accountId'] }, { coll: 'ordersSellOut', fields: ['accountId','createdAt'] } ] },
-
-  // --- MARKETING ---
-  mkt_plv_penetration: { label: 'Penetración PLV (%)', needs: [ { coll: 'plv_material', fields: ['status','accountId','installedAt'] }, { coll: 'accounts', fields: ['id','stage'] } ] },
-  mkt_promo_adoption: { label: 'Adopción Promos (%)', needs: [ { coll: 'ordersSellOut', fields: ['lines','createdAt'] }, { coll: 'promotions', fields: ['id','validFrom','validTo'] } ] },
-  mkt_event_roi: { label: 'ROI Eventos', needs: [ { coll: 'marketingEvents', fields: ['spend','kpis','links'] }, { coll: 'ordersSellOut', fields: ['totalAmount','createdAt','accountId'] } ] },
-  mkt_influencers_roi: { label: 'ROI Influencers', needs: [ { coll: 'influencerCollabs', fields: ['tracking','costs','couponCode','utmCampaign'] }, { coll: 'ordersSellOut', fields: ['createdAt','accountId','totalAmount'] } ] },
-  mkt_pos_cost_per_account: { label: 'Coste POS por cuenta', needs: [ { coll: 'posTactics', fields: ['accountId','actualCost','createdAt'] } ] },
-
-  // --- PRODUCCIÓN ---
   prod_yield: { label: 'Rendimiento de producción (%)', needs: [ { coll: 'productionOrders', fields: ['targetQuantity','execution.goodUnits'] } ] },
   prod_variance_cost: { label: 'Varianza de coste', needs: [ { coll: 'productionOrders', fields: ['costing.actual.total','costing.stdCostPerUom','execution.goodUnits'] } ] },
   prod_oee_simplified: { label: 'OEE (simple)', needs: [ { coll: 'productionOrders', fields: ['execution.durationHours','execution.goodUnits','targetQuantity'] } ] },
   prod_bom_compliance: { label: 'Cumplimiento BOM', needs: [ { coll: 'billOfMaterials', fields: ['items','batchSize'] }, { coll: 'productionOrders', fields: ['actuals','outputItemId','bomId'] } ] },
-
-  // --- CALIDAD / TRAZABILIDAD ---
-  qa_hold_ratio: { label: '% Lotes en HOLD', needs: [ { coll: 'onHand', fields: ['quality.qcStatus','createdAt'] } ] },
-  qa_incidents_rate: { label: 'Incidencias / mes', needs: [ { coll: 'incidents', fields: ['kind','openedAt','status'] } ] },
-  trace_lot_genealogy: { label: 'Genealogía de lotes (cobertura)', needs: [ { coll: 'traceEvents', fields: ['subject','links','phase','kind','occurredAt'] }, { coll: 'onHand', fields: ['id','itemId'] } ] },
-
-  // --- LOGÍSTICA / ALMACÉN ---
   wh_stock_turnover: { label: 'Stock Turnover', needs: [ { coll: 'stockMoves', fields: ['itemId','qty','reason','occurredAt'] }, { coll: 'onHand', fields: ['itemId','qty','updatedAt'] } ] },
-  wh_lot_allocation_rate: { label: 'Pedidos con lote asignado (%)', needs: [ { coll: 'ordersSellOut', fields: ['lines'] } ] },
   wh_otif: { label: 'OTIF (On Time In Full)', needs: [ { coll: 'shipments', fields: ['createdAt','status','orderId'] }, { coll: 'ordersSellOut', fields: ['createdAt','id'] } ] },
-
-  // --- FINANZAS ---
-  fin_cash_collected: { label: 'Cobros del mes', needs: [ { coll: 'paymentLinks', fields: ['amount','date'] } ] },
-  fin_dso: { label: 'DSO (Days Sales Outstanding)', needs: [ { coll: 'financeLinks', fields: ['docType','issueDate','dueDate','status','grossAmount','currency','partyId'] } ] },
-  fin_cogs_per_sku: { label: 'COGS por SKU', needs: [ { coll: 'materialCosts', fields: ['itemId','costPerUom','effectiveFrom'] }, { coll: 'items', fields: ['id','sku'] } ] },
 };
 
 
-// === 1) Claves REQUERIDAS (subset crítico que NO debe faltar) ===
 const REQUIRED_KEYS: Partial<Record<keyof SantaData, readonly string[]>> = {
   parties: ['id','kind','name','createdAt'],
   users: ['id','name','role','active'],
@@ -104,11 +77,9 @@ const REQUIRED_KEYS: Partial<Record<keyof SantaData, readonly string[]>> = {
   incidents: ['id','kind','status','openedAt'],
 };
 
-// === 2) Validadores de formato / rango ===
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}T?\d{0,2}:?\d{0,2}:?\d{0,2}(?:\.\d+)?Z?$/i;
 const isISODate = (v:any)=> typeof v==='string' && (/\d{4}-\d{2}-\d{2}/.test(v) || ISO_DATE.test(v));
 const nonNeg = (n:any)=> typeof n==='number' && n>=0;
-const isPct = (n:any)=> typeof n==='number' && n>=0 && n<=100;
 const isEUR = (c:any)=> c==='EUR';
 
 type Sev = 'UNKNOWN_KEY'|'MISSING_KEY'|'ENUM'|'REF'|'FORMAT'|'RANGE';
@@ -124,11 +95,9 @@ type Violation = {
 };
 type ViolationX = Violation & { sev?: Sev };
 
-// === 3) Índices rápidos para FKs ===
 function buildIndexes(data: SantaData | null){
   const idx = {
     account: new Set<string>(),
-    lot: new Set<string>(),
     itemSku: new Set<string>(),
     itemId: new Set<string>(),
     bomId: new Set<string>(),
@@ -136,7 +105,6 @@ function buildIndexes(data: SantaData | null){
   };
   if (!data) return idx;
   for (const a of data.accounts ?? []) idx.account.add(a.id);
-  for (const l of data.onHand ?? []) if(l.lotNumber) idx.lot.add(l.lotNumber);
   for (const p of data.items ?? []) idx.itemSku.add(p.sku);
   for (const m of data.items ?? []) idx.itemId.add(m.id);
   for (const b of data.billOfMaterials ?? []) idx.bomId.add(b.id);
@@ -144,14 +112,12 @@ function buildIndexes(data: SantaData | null){
   return idx;
 }
 
-// === 4) Chequeos por colección (referencias, formatos, rangos, códigos) ===
 function auditDocument(coll: keyof SantaData, doc: any, idx: ReturnType<typeof buildIndexes>): ViolationX[] {
   const v: ViolationX[] = [];
   const id = doc?.id || doc?.code;
 
   // Required keys
   for (const k of (REQUIRED_KEYS[coll] ?? [])){
-    // soportar nested "a.b.c"
     const val = k.split('.').reduce((a,kk)=> (a? a[kk] : undefined), doc);
     if (val === undefined) v.push({ collection: coll, id, kind:'MISSING_KEY', key:k, sev:'MISSING_KEY' });
   }
@@ -164,15 +130,8 @@ function auditDocument(coll: keyof SantaData, doc: any, idx: ReturnType<typeof b
   }
 
   if (coll==='shipments'){
-    // códigos: SHIPMENT_NUMBER si usas CODE_POLICIES.SHIPMENT
-    if (doc?.shipmentNumber && !new RegExp(CODE_POLICIES.SHIPMENT.regex).test(doc.shipmentNumber)){
-      v.push({ collection: coll, id, kind:'FORMAT', at:'shipmentNumber', value:doc.shipmentNumber, expected:CODE_POLICIES.SHIPMENT.regex, sev:'FORMAT' });
-    }
-  }
-
-  if (coll==='onHand'){
-    if (doc?.lotNumber && !new RegExp(CODE_POLICIES.LOT.regex).test(doc.lotNumber)){
-      v.push({ collection: coll, id, kind:'FORMAT', at:'lotNumber', value:doc.lotNumber, expected:CODE_POLICIES.LOT.regex, sev:'FORMAT' });
+    if (doc?.shipmentNumber && !new RegExp(POLICIES.SH.re).test(doc.shipmentNumber)){
+      v.push({ collection: coll, id, kind:'FORMAT', at:'shipmentNumber', value:doc.shipmentNumber, expected:POLICIES.SH.re.source, sev:'FORMAT' });
     }
   }
 
@@ -182,27 +141,18 @@ function auditDocument(coll: keyof SantaData, doc: any, idx: ReturnType<typeof b
     }
   }
 
-  // Referential integrity
   if (coll==='ordersSellOut'){
     if (doc?.accountId && !idx.account.has(doc.accountId)){
       v.push({ collection: coll, id, kind:'REF', at:'accountId', value:doc.accountId, sev:'REF' });
     }
     for (const ln of (doc?.lines ?? [])){
-      if (ln?.sku && !idx.itemSku.has(ln.sku)) v.push({ collection: coll, id, kind:'REF', at:'lines[].sku', value:ln.sku, sev:'REF' });
-      for (const lid of (ln?.lotIds ?? [])){
-        if (!idx.lot.has(lid)) v.push({ collection: coll, id, kind:'REF', at:'lines[].lotIds[]', value:lid, sev:'REF' });
-      }
+      if (ln?.itemId && !idx.itemId.has(ln.itemId)) v.push({ collection: coll, id, kind:'REF', at:'lines[].itemId', value:ln.itemId, sev:'REF' });
     }
   }
 
   if (coll==='shipments'){
     if (doc?.orderId && !idx.orderId.has(doc.orderId)) v.push({ collection: coll, id, kind:'REF', at:'orderId', value:doc.orderId, sev:'REF' });
     if (doc?.accountId && !idx.account.has(doc.accountId)) v.push({ collection: coll, id, kind:'REF', at:'accountId', value:doc.accountId, sev:'REF' });
-    for (const ln of (doc?.lines ?? [])){
-      if (ln?.lotNumber && !idx.lot.has(ln.lotNumber)){
-        v.push({ collection: coll, id, kind:'REF', at:'lines[].lotNumber', value:ln.lotNumber, sev:'REF' });
-      }
-    }
   }
 
   if (coll==='productionOrders'){
@@ -225,24 +175,11 @@ function auditDocument(coll: keyof SantaData, doc: any, idx: ReturnType<typeof b
     if (doc?.dueDate && !isISODate(doc.dueDate)) v.push({ collection: coll, id, kind:'FORMAT', at:'dueDate', value:doc.dueDate, sev:'FORMAT' });
   }
 
-  if (coll==='posTactics'){
-    if (typeof doc?.executionScore==='number' && !isPct(doc.executionScore)){
-      v.push({ collection: coll, id, kind:'RANGE', at:'executionScore', value:doc.executionScore, sev:'RANGE' });
-    }
-    for (const it of (doc?.items ?? [])){
-      if (it?.actualCost!=null && !nonNeg(it.actualCost)) v.push({ collection: coll, id, kind:'RANGE', at:'items[].actualCost', value:it.actualCost, sev:'RANGE' });
-    }
-  }
-
   return v;
 }
 
 
 type KpiReadiness = Record<string, { ok: boolean; missing: string[] }>;
-
-// =====================================================
-// COMPONENTES DE UI
-// =====================================================
 
 function ResultCard({ title, violations, icon: Icon, color }: { title: string, violations: Violation[], icon: React.ElementType, color: string }) {
     const hasIssues = violations.length > 0;
@@ -284,10 +221,6 @@ function KpiCard({ name, readiness }: { name: string; readiness: KpiReadiness[st
     );
 }
 
-// =====================================================
-// PÁGINA PRINCIPAL
-// =====================================================
-
 export default function SchemaAuditPage() {
     const { data } = useData();
 
@@ -298,10 +231,8 @@ export default function SchemaAuditPage() {
 
         if (!data) return { violations, kpiReadiness, scannedDocs };
 
-        // Índices para FKs
         const idx = buildIndexes(data);
 
-        // A) Unknown keys + enums + required + formatos/rangos/refs
         for (const coll of Array.from(SANTA_DATA_COLLECTIONS) as (keyof SantaData)[]){
             const arr = (data as any)[coll] as any[] | undefined;
             if (!Array.isArray(arr)) continue;
@@ -311,14 +242,12 @@ export default function SchemaAuditPage() {
             scannedDocs++;
             const id = doc?.id || doc?.code || undefined;
 
-            // unknown keys
             if (allowed){
                 for (const k of Object.keys(doc)){
                 if (!allowed.includes(k)) violations.push({ collection: coll, id, kind:'UNKNOWN_KEY', key:k, sev:'UNKNOWN_KEY' });
                 }
             }
 
-            // enum checks
             const specs = (ENUM_CHECKS[coll] || []);
             for (const s of specs){
                 const v = s.path.split('.').reduce((a,k)=> (a? a[k] : undefined), doc);
@@ -327,12 +256,10 @@ export default function SchemaAuditPage() {
                 if (set && !set.has(v)) violations.push({ collection: coll, id, kind:'ENUM', at:s.path, expected:s.enum, value:v, sev:'ENUM' });
             }
 
-            // required/format/range/fk checks
             violations.push(...auditDocument(coll, doc, idx));
             }
         }
 
-        // B) KPI readiness — ahora sobre el nuevo `KPI_TRACE`
         for (const [kpiId, meta] of Object.entries(KPI_TRACE)){
             const missing: string[] = [];
             for (const need of meta.needs){

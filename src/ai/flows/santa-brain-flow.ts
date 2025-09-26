@@ -16,11 +16,11 @@ import { gemini15Flash } from '@genkit-ai/googleai';
 import type {
   Account,
   Party,
-  Product,
+  Item,
   SantaData,
   OrderSellOut,
   Interaction,
-  InventoryItem,
+  OnHandView,
   User,
 } from '@/domain/ssot';
 
@@ -61,8 +61,8 @@ const registeredTools = [
       inputSchema: z.object({
         accountName: z.string().describe('The name of the account for the order.'),
         items: z
-          .array(z.object({ sku: z.string(), quantity: z.number() }))
-          .describe('An array of items to include in the order. If the user mentions "botellas" or "bottles" without specifying a product, assume the SKU is "SB-750".'),
+          .array(z.object({ itemId: z.string(), quantity: z.number() }))
+          .describe('An array of items to include in the order. If the user mentions "botellas" or "bottles" without specifying a product, assume the itemId corresponds to "SB-750".'),
       }) as any,
       outputSchema: z.any() as any,
     },
@@ -71,7 +71,7 @@ const registeredTools = [
       status: 'open',
       createdAt: new Date().toISOString(),
       currency: 'EUR',
-      lines: input.items.map((item: any) => ({ ...item, uom: 'uds', priceUnit: 0 })),
+      lines: input.items.map((item: any) => ({ ...item, uom: 'unit', priceUnit: 0 })),
       ...input,
     })
   ),
@@ -210,7 +210,7 @@ const santaBrainFlow = ai.defineFlow(
                 currency: 'EUR',
                 lines: (Array.isArray(input.items) ? input.items : []).map((item: any) => ({
                     ...item,
-                    uom: 'uds',
+                    uom: 'unit',
                     priceUnit: Number(item?.priceUnit ?? 0),
                 })),
                 accountId: targetAccount.id,
@@ -236,9 +236,8 @@ const santaBrainFlow = ai.defineFlow(
                 id: `party_${Date.now()}`,
                 legalName: inputData.name,
                 name: inputData.name,
-                roles: ['CUSTOMER'],
                 kind: 'ORG',
-                billingAddress: inputData.city ? { city: inputData.city, street: '', country: 'España', postalCode: '' } : undefined,
+                billingAddress: inputData.city ? { city: inputData.city, address: '', country: 'España', zip: '' } : undefined,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
             } as Party;
@@ -274,5 +273,3 @@ export async function runSantaBrain(
       newEntities: result.newEntities || {},
   }
 }
-
-    

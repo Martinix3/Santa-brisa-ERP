@@ -3,15 +3,9 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
 import { Input, Select, Textarea } from '@/components/ui/ui-primitives';
-import type { Interaction, InteractionKind, Payload, PosTactic, PosTacticItem, Item } from '@/domain/ssot';
-import { ShoppingCart, MessageSquare, Plus, X, Star } from 'lucide-react';
+import type { Interaction, InteractionKind, Payload, Item } from '@/domain/ssot';
+import { ShoppingCart, MessageSquare, Plus, X } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
-import { upsertPosTactic } from '@/features/marketing/services/posTactics.client';
-
-const TACTIC_CODES = [
-    "ICE_BUCKET", "GLASSWARE", "BARTENDER_INCENTIVE", "MENU_PLACEMENT",
-    "CHALKBOARD", "TWO_FOR_ONE", "HAPPY_HOUR", "SECONDARY_PLACEMENT", "OTHER"
-];
 
 export function TaskCompletionDialog({
   task,
@@ -24,7 +18,7 @@ export function TaskCompletionDialog({
   onClose: () => void;
   onComplete: (taskId: string, payload: Payload) => void;
 }) {
-  const { data, currentUser } = useData();
+  const { data } = useData();
 
   const itemOptions = useMemo(
     () => (data?.items || []).filter((p) => p.active && p.category === 'fg'),
@@ -36,9 +30,6 @@ export function TaskCompletionDialog({
   const [note, setNote] = useState('');
   const [nextActionDate, setNextActionDate] = useState('');
   const [items, setItems] = useState<{ itemId: string; qty: number }[]>([{ itemId: defaultItemId, qty: 1 }]);
-  
-  const [showPosTacticForm, setShowPosTacticForm] = useState(false);
-  const [posTacticData, setPosTacticData] = useState<Partial<Omit<PosTactic, 'id' | 'items'>>>({ tacticCode: 'OTHER', actualCost: 0 });
 
   useEffect(() => {
     if (open) {
@@ -46,11 +37,8 @@ export function TaskCompletionDialog({
       setNote('');
       setNextActionDate('');
       setItems([{ itemId: defaultItemId, qty: 1 }]);
-      setShowPosTacticForm(false);
-      setPosTacticData({ tacticCode: 'OTHER', actualCost: 0 });
     }
   }, [open, defaultItemId]);
-
 
   const addLine = () => setItems((prev) => [...prev, { itemId: defaultItemId, qty: 1 }]);
   const updateLine = (index: number, field: 'itemId' | 'qty', value: string | number) => {
@@ -65,7 +53,7 @@ export function TaskCompletionDialog({
   };
   const removeLine = (index: number) => setItems((prev) => prev.filter((_, i) => i !== index));
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     let payload: Payload | null = null;
     
     if (mode === 'interaccion') {
@@ -74,21 +62,6 @@ export function TaskCompletionDialog({
     } else {
         if (items.length === 0 || items.some(it => !it.itemId || it.qty <=0)) return alert("Revisa las líneas del pedido.");
         payload = { type: 'venta', items };
-    }
-    
-    if (showPosTacticForm && posTacticData.tacticCode && posTacticData.actualCost !== undefined && posTacticData.actualCost >= 0) {
-      await upsertPosTactic({
-        accountId: task.accountId!,
-        interactionId: task.id,
-        status: 'active',
-        executionScore: 80,
-        items: [{
-          description: posTacticData.description || posTacticData.tacticCode || 'Táctica POS',
-          qty: 1,
-          unitCost: posTacticData.actualCost || 0,
-        }],
-        ...posTacticData,
-      }, currentUser?.id || 'unknown');
     }
     
     if (payload) {
@@ -116,38 +89,6 @@ export function TaskCompletionDialog({
               <button type="button" onClick={addLine} className="text-sm flex items-center gap-1 text-blue-600 hover:underline"><Plus size={14} /> Añadir línea</button>
             </div>
           )}
-
-          {/* Táctica POS siempre visible */}
-          <div className="pt-2">
-            {!showPosTacticForm ? (
-                <button type="button" onClick={() => setShowPosTacticForm(true)} className="w-full text-sm flex items-center justify-center gap-2 p-2 rounded-lg border border-dashed hover:bg-yellow-50">
-                    <Star size={16} className="text-yellow-500" />
-                    Añadir Táctica POS a esta interacción
-                </button>
-            ) : (
-              <div className="p-3 border rounded-lg bg-zinc-50 space-y-3">
-                 <div className="flex justify-between items-center">
-                    <h4 className="font-semibold text-sm">Detalles de Táctica POS</h4>
-                    <button type="button" onClick={() => setShowPosTacticForm(false)} className="text-xs text-zinc-500 hover:text-zinc-800">Cancelar</button>
-                 </div>
-                 <div className="grid grid-cols-2 gap-2">
-                    <label className="grid gap-1.5"><span className="text-xs font-medium">Táctica</span>
-                        <Select value={posTacticData.tacticCode || ''} onChange={e => setPosTacticData(p => ({...p, tacticCode: e.target.value}))} className="h-9">
-                          {TACTIC_CODES.map(c => <option key={c} value={c}>{c.replace(/_/g, ' ')}</option>)}
-                        </Select>
-                    </label>
-                    <label className="grid gap-1.5"><span className="text-xs font-medium">Coste Total (€)</span>
-                        <Input type="number" min="0" value={posTacticData.actualCost ?? ''} onChange={e => setPosTacticData(p => ({...p, actualCost: Number(e.target.value)}))} className="h-9"/>
-                    </label>
-                 </div>
-                 {posTacticData.tacticCode === 'OTHER' && (
-                    <label className="grid gap-1.5"><span className="text-xs font-medium">Descripción (si es "OTRO")</span>
-                        <Input value={posTacticData.description ?? ''} onChange={e => setPosTacticData(p => ({...p, description: e.target.value}))} className="h-9"/>
-                    </label>
-                 )}
-              </div>
-            )}
-          </div>
         </div>
       );
   }
