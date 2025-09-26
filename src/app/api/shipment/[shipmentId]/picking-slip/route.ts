@@ -1,10 +1,10 @@
 // src/app/api/shipment/[shipmentId]/picking-slip/route.ts
 import { NextResponse, type NextRequest } from 'next/server';
 import { adminDb as db } from '@/server/firebase';
-import type { Shipment, OrderSellOut, Party } from '@/domain/ssot';
+import type { Shipment, OrderSellOut, Party, Item } from '@/domain/ssot';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 
-async function renderPickingSlipPdf(shipment: Shipment, order?: OrderSellOut, party?: Party): Promise<Uint8Array> {
+async function renderPickingSlipPdf(shipment: Shipment, itemsById: Map<string, Item>, order?: OrderSellOut, party?: Party): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   const page = doc.addPage([595.28, 841.89]); // A4
   const { width, height } = page.getSize();
@@ -19,7 +19,7 @@ async function renderPickingSlipPdf(shipment: Shipment, order?: OrderSellOut, pa
 
   // Header
   drawText('Hoja de Picking', 50, y, 18, true);
-  drawText(`Envío: ${shipment.id}`, 50, y - 20, 12);
+  drawText(`Envío: ${shipment.shipmentNumber || shipment.id}`, 50, y - 20, 12);
   drawText(`Fecha: ${new Date(shipment.createdAt).toLocaleDateString('es-ES')}`, width - 150, y, 12);
   y -= 50;
 
@@ -36,7 +36,7 @@ async function renderPickingSlipPdf(shipment: Shipment, order?: OrderSellOut, pa
   y -= 30;
 
   // Lines Header
-  drawText('SKU', 50, y, 10, true);
+  drawText('ItemID', 50, y, 10, true);
   drawText('Producto', 150, y, 10, true);
   drawText('Cantidad', 350, y, 10, true);
   drawText('Lote Asignado', 420, y, 10, true);
@@ -46,8 +46,9 @@ async function renderPickingSlipPdf(shipment: Shipment, order?: OrderSellOut, pa
 
   // Lines
   for (const line of shipment.lines) {
-    drawText(line.sku, 50, y, 10);
-    drawText(line.name, 150, y, 10);
+    const item = itemsById.get(line.itemId);
+    drawText(line.itemId, 50, y, 10);
+    drawText(item?.name || line.name || line.itemId, 150, y, 10);
     drawText(String(line.qty), 360, y, 10);
     // Draw an empty box for lot number
     page.drawRectangle({
@@ -101,7 +102,10 @@ export async function GET(
     }
     const shipment = shipmentSnap.data() as Shipment;
 
-    const pdfBytes = await renderPickingSlipPdf(shipment);
+    const itemsSnap = await db.collection('items').get();
+    const itemsById = new Map(itemsSnap.docs.map(d => [d.id, d.data() as Item]));
+
+    const pdfBytes = await renderPickingSlipPdf(shipment, itemsById);
     
     return new NextResponse(Buffer.from(pdfBytes), {
       status: 200,
