@@ -1,7 +1,8 @@
 // src/features/bom/useBomForm.ts
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import type { FieldErrors } from "@/lib/result";
+
+type FieldErrors = Record<string, string>;
 
 function toDotPath(p: string) {
   // "items[0].quantity" -> "items.0.quantity"
@@ -28,7 +29,7 @@ export function useBomForm<T = any>(initial: T) {
   const [lastError, setLastError] = useState<string | undefined>();
   const [initialSnapshot, setInitialSnapshot] = useState<T>(initial);
 
-  // 🔄 si cambian los initialValues (abrir otra receta), resetea el formulario
+  // if initialValues changes (opening a different recipe), reset the form
   useEffect(() => {
     setValues(initial);
     setInitialSnapshot(initial);
@@ -45,7 +46,7 @@ export function useBomForm<T = any>(initial: T) {
     setFieldErrors(e => {
       if (!e) return e;
       const copy = { ...e };
-      delete copy[toDotPath(path)]; // ✅ borra el error asociado a este campo
+      delete copy[toDotPath(path)]; // clear error associated with this field
       return copy;
     });
   }

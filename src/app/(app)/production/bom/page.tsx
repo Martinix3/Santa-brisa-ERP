@@ -1,7 +1,7 @@
-
+// src/app/(app)/production/bom/page.tsx
 "use client";
-import React, { useMemo, useState, useEffect } from "react";
-import { Plus, Check, X } from "lucide-react";
+import React, { useMemo, useState } from "react";
+import { Plus } from "lucide-react";
 import { useData } from "@/lib/dataprovider";
 import { upsertBOM, upsertMinimalProduct, upsertMinimalMaterial } from "./actions";
 import type { BillOfMaterial as RecipeBom, Item } from "@/domain/ssot";
@@ -22,13 +22,19 @@ export default function BomPage() {
 
   const handleSave = async (values: BomWithStage) => {
     setLastError(null);
-    const result = await upsertBOM(values);
-    if (result.ok) {
-      setOpenRecipe(null);
-    } else {
-      setLastError(result.message);
-      // Los fieldErrors se manejan dentro del useBomForm, no es necesario pasarlos aquí.
-      throw result;
+    try {
+      const result = await upsertBOM(values);
+      if (result.ok) {
+        setOpenRecipe(null);
+      } else {
+        setLastError(result.message);
+        throw result; // Lanza para que useBomForm lo capture si es necesario
+      }
+    } catch(err: any) {
+        if (!err.fieldErrors) {
+            setLastError(err.message || 'An unexpected error occurred.');
+        }
+        throw err;
     }
   };
 
@@ -50,7 +56,7 @@ export default function BomPage() {
     throw new Error(result.message);
   };
   
-  const handleCreateMaterial = async (data: { sku: string; name: string }) => {
+  const handleCreateMaterial = async (data: { sku: string; name: string; }) => {
     const result = await upsertMinimalMaterial(data);
     if (result.ok) return result.data;
     throw new Error(result.message);
