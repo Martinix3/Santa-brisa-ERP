@@ -10,10 +10,10 @@ const zBOM = z.object({
   id: z.string().min(1),
   sku: z.string().min(1, "SKU requerido"),
   name: z.string().min(1, "Nombre requerido"),
-  batchSize: z.number().positive("Debe ser > 0"),
+  batchSize: z.coerce.number().positive("Debe ser > 0"),
   items: z.array(z.object({
     materialId: z.string().min(1, "Material requerido"),
-    quantity: z.number().positive("Cantidad > 0"),
+    quantity: z.coerce.number().positive("Cantidad > 0"),
     role: z.string().optional(),
     unit: z.string().optional(),
   })).min(1, "Añade al menos una línea"),
