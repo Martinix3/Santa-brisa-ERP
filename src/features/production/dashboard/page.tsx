@@ -1,3 +1,4 @@
+
 // src/features/production/dashboard/page.tsx
 "use client";
 import React, { useMemo } from "react";
@@ -51,12 +52,12 @@ export default function ProductionDashboardPage() {
       </div>
       
        <SBCard title="Análisis de Eficiencia (Últimos 30 días)">
-         <EfficiencyWidget laborSeries={kpis.laborSeries} costPerBottleSeries={kpis.costPerBottleSeries} />
+         <EfficiencyWidget laborSeries={kpis.laborSeries} costPerUnitSeries={kpis.costPerUnitSeries} />
        </SBCard>
        
        {/* Botón de acción flotante, sin acción por ahora */}
        <button className="fixed bottom-6 right-6 h-14 w-14 rounded-full bg-zinc-900 text-white shadow-lg flex items-center justify-center z-40 hover:bg-zinc-800 transition-colors">
-            <Plus size={24} className="sb-icon"/>
+            <Plus size={24} />
        </button>
     </div>
   );

@@ -2,7 +2,7 @@
 // src/domain/ssot.audit.ts
 import {
   // Tipos/constantes del SSOT
-  SB_COLORS, SANTA_DATA_COLLECTIONS, CODE_POLICIES,
+  SB_COLORS, SANTA_DATA_COLLECTIONS, POLICIES,
   ACCOUNT_TYPE_META, ORDER_STATUS_META, SHIPMENT_STATUS_META,
   PARTY_ROLE_META, LOT_QC_META, PHASE_DEPT, PHASE_NAME_ES,
   // Tipos para derivar literales
@@ -41,7 +41,7 @@ type SantaDataKeys = keyof SantaData;
 const SantaDataLiteralKeys = [
   // Derivado manualmente por TS no es posible; mantenemos esta lista por build-fail temprano
   "parties","partyRoles","partyDuplicates","users","accounts","ordersSellOut","interactions",
-  "products","materials","billOfMaterials","productionOrders","lots","qaChecks","inventory",
+  "items","billOfMaterials","productionOrders","qaChecks","onHand",
   "stockMoves","shipments","deliveryNotes","goodsReceipts","activations","promotions",
   "marketingEvents","onlineCampaigns","influencerCollabs","posTactics","posCostCatalog",
   "plv_material","materialCosts","financeLinks","paymentLinks","traceEvents","incidents",
@@ -74,7 +74,7 @@ function auditMeta() {
   assertHasAllKeys(PARTY_ROLE_META as Record<PartyRoleType, any>, ALL_PARTY_ROLES, "PARTY_ROLE_META");
   assertHasAllKeys(PHASE_DEPT as Record<TraceEventPhase, any>, ALL_PHASES, "PHASE_DEPT");
   assertHasAllKeys(PHASE_NAME_ES as Record<TraceEventPhase, any>, ALL_PHASES, "PHASE_NAME_ES");
-  assertHasAllKeys(CODE_POLICIES as Record<CodeEntity, any>, ALL_CODE_ENTITIES, "CODE_POLICIES");
+  assertHasAllKeys(POLICIES as Record<CodeEntity, any>, ALL_CODE_ENTITIES, "CODE_POLICIES");
   // LOT_QC_META es un alias de SB_COLORS.lotQC; no es un enum pero comprobamos campos mínimos
   for (const k of ["release","hold","reject"] as const) {
     if (!(k in LOT_QC_META)) throw new Error(`❌ LOT_QC_META falta clave: ${k}`);
@@ -93,7 +93,7 @@ export function softDesignWarnings() {
   // b) Currency
   warns.push("Currency = 'EUR' pero hay campos 'EUR | string' (OrderSellOut.currency, Expense.currency…). Define 'Currency' como union ampliable y úsala.");
   // c) UoM
-  warns.push("UoM incluye 'uds' pero en tipos específicos usas literales 'uom: \"uds\"'. Reemplaza por 'uom: Uom' para consistencia.");
+  warns.push("UoM incluye 'unit' pero en tipos específicos usas literales 'uom: \"uds\"'. Reemplaza por 'uom: Uom' para consistencia.");
   // d) Party.roles
   warns.push("Party.roles = Array<'CUSTOMER'|'SUPPLIER'|'OTHER'> pero PartyRoleType tiene más valores. O lo amplías o eliminas ese denormalizado.");
   // e) Doble fuente de colecciones

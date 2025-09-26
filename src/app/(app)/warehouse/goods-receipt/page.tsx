@@ -9,7 +9,7 @@ import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react'
 import { useData } from '@/lib/dataprovider';
 import { SBButton, Input, Select } from '@/components/ui/ui-primitives';
 import { Plus, Trash2, Truck, Search, Info, X } from 'lucide-react';
-import type { Party, Material, GoodsReceipt, Lot, StockMove, Uom } from '@/domain/ssot';
+import type { Party, Item, GoodsReceipt, Uom } from '@/domain/ssot';
 // PASO 2: Se importa la Server Action desde el archivo de acciones.
 import { createGoodsReceipt } from './actions';
 
@@ -108,9 +108,9 @@ function Notification({ message, type, onClose }: { message: string, type: 'succ
 
 type LineItem = {
     key: string;
-    materialId?: string;
-    newMaterialName?: string;
-    newMaterialCategory?: Material['category'];
+    itemId?: string;
+    newItemName?: string;
+    newItemCategory?: Item['category'];
     supplierLot: string;
     qty: number;
     unitCost: number;
@@ -122,7 +122,7 @@ export default function GoodsReceiptPage() {
     const [supplierId, setSupplierId] = useState<string | undefined>();
     const [newSupplierName, setNewSupplierName] = useState<string | undefined>();
     const [deliveryNote, setDeliveryNote] = useState('');
-    const [lines, setLines] = useState<LineItem[]>([{ key: `line_${Date.now()}`, supplierLot: '', qty: 0, unitCost: 0, newMaterialCategory: 'raw', uom: 'uds' }]);
+    const [lines, setLines] = useState<LineItem[]>([{ key: `line_${Date.now()}`, supplierLot: '', qty: 0, unitCost: 0, newItemCategory: 'raw', uom: 'unit' }]);
     const [sendToQc, setSendToQc] = useState(true);
     const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
     const [isSaving, setIsSaving] = useState(false);
@@ -135,7 +135,7 @@ export default function GoodsReceiptPage() {
         return data.parties.filter(p => supplierPartyIds.has(p.id));
     }, [data?.parties, data?.partyRoles]);
 
-    const materials = useMemo(() => data?.materials || [], [data?.materials]);
+    const items = useMemo(() => data?.items || [], [data?.items]);
     
     const handleLineChange = (index: number, field: keyof LineItem, value: any) => {
         setLines(currentLines => {
@@ -143,27 +143,27 @@ export default function GoodsReceiptPage() {
             const line = { ...newLines[index] };
             (line as any)[field] = value;
 
-            if (field === 'materialId') {
-                const material = materials.find(m => m.id === value);
-                line.unitCost = material?.standardCost ?? 0;
-                line.uom = material?.uom ?? 'uds';
-                line.newMaterialName = undefined;
+            if (field === 'itemId') {
+                const item = items.find(m => m.id === value);
+                line.unitCost = item?.stdCost ?? 0;
+                line.uom = item?.uom ?? 'unit';
+                line.newItemName = undefined;
             }
-            if (field === 'newMaterialName') {
-                line.materialId = undefined;
+            if (field === 'newItemName') {
+                line.itemId = undefined;
             }
             newLines[index] = line;
             return newLines;
         });
     };
 
-    const addLine = () => setLines([...lines, { key: `line_${Date.now()}`, supplierLot: '', qty: 0, unitCost: 0, newMaterialCategory: 'raw', uom: 'uds' }]);
+    const addLine = () => setLines([...lines, { key: `line_${Date.now()}`, supplierLot: '', qty: 0, unitCost: 0, newItemCategory: 'raw', uom: 'unit' }]);
     const removeLine = (index: number) => setLines(lines.filter((_, i) => i !== index));
 
     const handleSave = async () => {
         setNotification(null);
         setIsSaving(true);
-        if ((!supplierId && !newSupplierName) || !deliveryNote || lines.some(l => (!l.materialId && !l.newMaterialName) || !l.qty || !l.supplierLot)) {
+        if ((!supplierId && !newSupplierName) || !deliveryNote || lines.some(l => (!l.itemId && !l.newItemName) || !l.qty || !l.supplierLot)) {
             setNotification({ message: 'Por favor, completa Proveedor, Albarán y todas las líneas de producto.', type: 'error' });
             setIsSaving(false);
             return;
@@ -186,7 +186,7 @@ export default function GoodsReceiptPage() {
             setSupplierId(undefined);
             setNewSupplierName(undefined);
             setDeliveryNote('');
-            setLines([{ key: `line_${Date.now()}`, supplierLot: '', qty: 0, unitCost: 0, newMaterialCategory: 'raw', uom: 'uds' }]);
+            setLines([{ key: `line_${Date.now()}`, supplierLot: '', qty: 0, unitCost: 0, newItemCategory: 'raw', uom: 'unit' }]);
         } catch (error) {
             console.error("Failed to save goods receipt:", error);
             setNotification({ message: (error as Error).message || 'Error al guardar la recepción.', type: 'error' });
@@ -204,7 +204,7 @@ export default function GoodsReceiptPage() {
     }, [suppliers]);
     
     const handleLineFreeText = (index: number, text: string) => {
-        handleLineChange(index, 'newMaterialName', text);
+        handleLineChange(index, 'newItemName', text);
     };
 
     return (
@@ -251,21 +251,21 @@ export default function GoodsReceiptPage() {
                         {lines.map((line, index) => (
                             <div key={line.key} className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] gap-3 items-start">
                                 <div className="space-y-1">
-                                    <SearchableSelect<Material>
-                                        items={materials}
-                                        onSelect={(item) => handleLineChange(index, 'materialId', item.id)}
-                                        onFreeText={(text) => handleLineChange(index, 'newMaterialName', text)}
-                                        placeholder="Buscar o crear material..."
-                                        initialValue={line.materialId ? materials.find(m=>m.id === line.materialId)?.name : line.newMaterialName}
+                                    <SearchableSelect<Item>
+                                        items={items}
+                                        onSelect={(item) => handleLineChange(index, 'itemId', item.id)}
+                                        onFreeText={(text) => handleLineChange(index, 'newItemName', text)}
+                                        placeholder="Buscar o crear item..."
+                                        initialValue={line.itemId ? items.find(m=>m.id === line.itemId)?.name : line.newItemName}
                                     />
-                                    {line.newMaterialName && !line.materialId && (
-                                        <Select value={line.newMaterialCategory} onChange={e => handleLineChange(index, 'newMaterialCategory', e.target.value as Material['category'])}>
+                                    {line.newItemName && !line.itemId && (
+                                        <Select value={line.newItemCategory} onChange={e => handleLineChange(index, 'newItemCategory', e.target.value as Item['category'])}>
                                             <option value="raw">Materia Prima</option>
-                                            <option value="packaging">Packaging</option>
+                                            <option value="pack">Packaging</option>
                                             <option value="label">Etiqueta</option>
                                             <option value="consumable">Consumible</option>
                                             <option value="intermediate">Intermedio</option>
-                                            <option value="merchandising">Merchandising</option>
+                                            <option value="merch">Merchandising</option>
                                         </Select>
                                     )}
                                 </div>
