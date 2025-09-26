@@ -90,7 +90,8 @@ const REASON_ALIASES: Record<string, StockReason> = {
 function nBool(x:any){ if (typeof x==='boolean') return x; if (typeof x==='string') return ['true','1','yes','y','si','sí'].includes(x.trim().toLowerCase()); return Boolean(x); }
 const nNumComma = (x:any) => { if (typeof x === 'string') x = x.replace(',', '.'); const n = Number(x); return Number.isFinite(n) ? n : 0; };
 function j(x:any){ if (x==null||x==='') return undefined; if (typeof x!=='string') return x; try{ return JSON.parse(x);}catch{ return x; } }
-function newId(prefix: keyof typeof POLICIES | 'GEN'){ const now=new Date(); const y=now.getFullYear(), m=String(now.getMonth()+1).padStart(2,'0'), d=String(now.getDate()).padStart(2,'0'); const rnd=randomUUID().slice(0,6).toUpperCase(); switch(prefix){ case 'ACCOUNT': return `ACC-${rnd}`; case 'SHIPMENT': return `SHP-${y}${m}${d}-${rnd.slice(0,3)}`; case 'GOODS_RECEIPT': return `GR-${y}${m}${d}-${rnd.slice(0,3)}`; case 'PROD_ORDER': return `PO-${y}${m}-${rnd.slice(0,4)}`; default: return `${String(prefix)}-${rnd}`; } }
+
+function newId(prefix: keyof typeof POLICIES | 'GEN'){ const now=new Date(); const y=now.getFullYear(), m=String(now.getMonth()+1).padStart(2,'0'), d=String(now.getDate()).padStart(2,'0'); const rnd=randomUUID().slice(0,6).toUpperCase(); switch(String(prefix)){ case 'ACCOUNT': return `ACC-${rnd}`; case 'SH': return `SHP-${y}${m}${d}-${rnd.slice(0,3)}`; case 'GR': return `GR-${y}${m}${d}-${rnd.slice(0,3)}`; case 'PO': return `PO-${y}${m}-${rnd.slice(0,4)}`; case 'LOT': return `${String(y).slice(2)}${m}${d}-GEN-${rnd.slice(0,3)}`; default: return `${String(prefix)}-${rnd}`; } }
 
 async function resolveAndNormalize(coll: keyof SantaData, rows: any[], data: SantaData, opts?: { allowCreateAccounts?: boolean }){
   const reg = buildRegistry(data); const info = { createdAccounts: 0, linked: 0, warnings: [] as string[] }; const out:any[]=[];
