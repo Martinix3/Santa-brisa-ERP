@@ -1,16 +1,17 @@
-
+// src/app/(app)/warehouse/goods-receipt/actions.ts
 'use server';
 
+// PASO 4: Esta Server Action se ejecuta en el servidor.
+// Contiene toda la lógica de negocio para crear las entidades necesarias.
+
 import { revalidatePath } from 'next/cache';
-import { adminDb as db, infoAdmin } from '@/server/firebase';
+// PASO 5: Se importa la instancia del SDK de Admin, ya autenticada con la cuenta de servicio.
+import { adminDb as db } from '@/server/firebase';
 import { Timestamp } from 'firebase-admin/firestore';
 import type { Party, Material, GoodsReceipt, Lot, StockMove, Uom } from '@/domain/ssot';
-import { normText } from '@/lib/norm/text';
 
 const uid = (prefix: string) => `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-
-const norm = (s: string) =>
-  s.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+const norm = (s: string) => s.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 
 const uniqueSku = (base: string, existingSkus: string[]) => {
   let candidate = base;
@@ -45,74 +46,66 @@ export async function createGoodsReceipt(payload: {
     }[];
     sendToQc: boolean;
 }) {
-    // Smoke write for debugging permissions
-    try {
-        await db.collection('_perm_test').doc('ping').set({ t: Date.now() });
-    } catch (e: any) {
-        console.error('[SMOKE] write failed', { code: e?.code, message: e?.message, projectId: infoAdmin().projectId });
-        throw e;
-    }
-
     const { supplierId, newSupplierName, deliveryNote, lines, sendToQc } = payload;
     const now = new Date();
+    // PASO 6: Se crea un "batch" de Firestore para realizar todas las escrituras
+    // de forma atómica. O se hacen todas, o no se hace ninguna.
     const batch = db.batch();
 
     let finalSupplierId = supplierId;
-    const newParties: Party[] = [];
+    const newPartiesRefs: FirebaseFirestore.DocumentReference[] = [];
 
-    // 1. Create new supplier if needed
+    // 1. Crear nuevo proveedor si es necesario
     if (newSupplierName && !supplierId) {
-      const newPartyId = uid('party');
-      const nowIso = now.toISOString();
-      const newParty: Party = {
-        id: newPartyId,
+      const newPartyRef = db.collection('parties').doc();
+      const newParty: Partial<Party> = {
+        id: newPartyRef.id,
         name: newSupplierName,
         legalName: newSupplierName,
         kind: 'ORG',
         roles: ['SUPPLIER'],
-        createdAt: nowIso,
-        updatedAt: nowIso,
-      } as Party;
-      newParties.push(newParty);
-      finalSupplierId = newPartyId;
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString(),
+      };
+      batch.set(newPartyRef, newParty as any);
+      finalSupplierId = newPartyRef.id;
     }
 
     if (!finalSupplierId) {
-        throw new Error('Supplier ID is missing.');
+        throw new Error('El proveedor es obligatorio.');
     }
 
     const receiptRef = db.collection('goodsReceipts').doc();
     
     const materialsSnap = await db.collection('materials').get();
     const existingMaterials = materialsSnap.docs.map(d => d.data() as Material);
-    const existingSkus = existingMaterials.map(m => m.sku);
+    const existingSkus = existingMaterials.map(m => m.sku).filter(Boolean);
 
     const finalLines: GoodsReceipt['lines'] = [];
-    const newMaterials: Material[] = [];
 
-    // 2. Process all lines: create materials, lots, and stock moves
-    for (const [index, line] of lines.entries()) {
+    // 2. Procesar todas las líneas: crear materiales, lotes y movimientos de stock
+    for (const line of lines) {
         let materialId = line.materialId;
         let sku = '';
         let uom: Uom = line.uom || 'uds';
 
+        // Si es un nuevo material...
         if (line.newMaterialName && !line.materialId) {
-            const newMaterialId = uid('mat');
+            const newMaterialRef = db.collection('materials').doc();
             const cat = line.newMaterialCategory || 'raw';
             const newSku = makeSku(line.newMaterialName, cat, existingSkus);
 
-            const newMaterial: Material = {
-                id: newMaterialId,
+            const newMaterial: Partial<Material> = {
+                id: newMaterialRef.id,
                 sku: newSku,
                 name: line.newMaterialName,
                 category: cat,
-                uom: ((line.uom as Uom) || 'uds') as Uom,
+                uom: (line.uom || 'uds') as Uom,
                 standardCost: line.unitCost || 0,
             };
-
-            newMaterials.push(newMaterial);
-            existingSkus.push(newSku); // evita colisiones en siguientes líneas
-            materialId = newMaterialId;
+            batch.set(newMaterialRef, { ...newMaterial, createdAt: now.toISOString(), updatedAt: now.toISOString() } as any);
+            existingSkus.push(newSku);
+            materialId = newMaterialRef.id;
             sku = newSku;
             uom = newMaterial.uom as Uom;
         } else if (materialId) {
@@ -123,6 +116,7 @@ export async function createGoodsReceipt(payload: {
 
         if (!materialId) continue;
 
+        // Crear Lote y Movimiento de Stock
         const newLotRef = db.collection('lots').doc();
         const newLot: Partial<Lot> = {
             id: newLotRef.id,
@@ -133,7 +127,7 @@ export async function createGoodsReceipt(payload: {
             quality: { qcStatus: sendToQc ? 'hold' : 'release', results: {} },
             supplierBatch: line.supplierLot,
         };
-        batch.set(newLotRef.collection('lots'), { ...newLot, createdAt: now.toISOString() });
+        batch.set(newLotRef, { ...newLot, createdAt: now.toISOString() } as any);
 
         const newStockMoveRef = db.collection('stockMoves').doc();
         const stockMove: StockMove = {
@@ -149,7 +143,7 @@ export async function createGoodsReceipt(payload: {
             ref: { goodsReceiptId: receiptRef.id },
             unitCost: line.unitCost,
         };
-        batch.set(newStockMoveRef.collection('stockMoves'), { ...stockMove, createdAt: now.toISOString(), occurredAt: now.toISOString() });
+        batch.set(newStockMoveRef, { ...stockMove, createdAt: now.toISOString(), occurredAt: now.toISOString() } as any);
         
         finalLines.push({
             materialId: materialId!,
@@ -158,22 +152,10 @@ export async function createGoodsReceipt(payload: {
             qty: line.qty,
             uom: uom,
             unitCost: line.unitCost,
-        });
+        } as GoodsReceipt['lines'][number]);
     }
 
-    // Create new entities if any
-    if (newParties.length > 0) {
-      for(const p of newParties) {
-        batch.set(db.collection('parties').doc(p.id), { ...p, createdAt: now.toISOString(), updatedAt: now.toISOString() });
-      }
-    }
-    if (newMaterials.length > 0) {
-      for(const m of newMaterials) {
-        batch.set(db.collection('materials').doc(m.id), { ...m, createdAt: now.toISOString(), updatedAt: now.toISOString() });
-      }
-    }
-
-    // 3. Create the Goods Receipt document
+    // 3. Crear el documento de Goods Receipt
     const receipt: GoodsReceipt = {
         id: receiptRef.id,
         receiptNumber: `GR-${now.getFullYear()}-${String(now.getTime()).slice(-5)}`,
@@ -183,9 +165,13 @@ export async function createGoodsReceipt(payload: {
         status: sendToQc ? 'pending_qc' : 'completed',
         lines: finalLines,
     };
-    batch.set(receiptRef, { ...receipt, createdAt: now.toISOString() });
+    batch.set(receiptRef, { ...receipt, createdAt: now.toISOString() } as any);
 
+    // PASO 7: Se confirma el batch, escribiendo todos los documentos a la vez.
     await batch.commit();
+
+    // PASO 8: Se invalida la caché de Next.js para que las páginas relevantes
+    // muestren los datos actualizados la próxima vez que se carguen.
     revalidatePath('/warehouse/inventory');
     revalidatePath('/warehouse/goods-receipt');
 }

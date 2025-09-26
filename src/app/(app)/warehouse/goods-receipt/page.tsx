@@ -1,11 +1,19 @@
-
+// src/app/(app)/warehouse/goods-receipt/page.tsx
 "use client";
+
+// PASO 1: El usuario interactúa con este componente de cliente.
+// Rellena el formulario y hace clic en "Guardar".
+
 import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { useData } from '@/lib/dataprovider';
-import { SBButton, SBCard, Input, Select } from '@/components/ui/ui-primitives';
+import { SBButton, Input, Select } from '@/components/ui/ui-primitives';
 import { Plus, Trash2, Truck, Search, Info, X } from 'lucide-react';
 import type { Party, Material, GoodsReceipt, Lot, StockMove, Uom } from '@/domain/ssot';
+// PASO 2: Se importa la Server Action desde el archivo de acciones.
 import { createGoodsReceipt } from './actions';
+
+const norm = (s: string) =>
+  s.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 
 function SearchableSelect<T extends { id: string; name: string }>({
   items, onSelect, onFreeText, placeholder, initialValue
@@ -38,11 +46,11 @@ function SearchableSelect<T extends { id: string; name: string }>({
       } else {
         setSuggestions([]);
         setIsOpen(false);
-        onFreeText(''); // limpiar “nuevo”
+        onFreeText('');
       }
     }, 120);
     return () => { if (debRef.current) clearTimeout(debRef.current); };
-  }, [query, items]); // ← sin onFreeText
+  }, [query, items, onFreeText]);
 
   const handleSelect = (item: T) => {
     setQuery(item.name);
@@ -98,7 +106,7 @@ function Notification({ message, type, onClose }: { message: string, type: 'succ
 }
 
 type LineItem = {
-    key: string; // Add a key for stable rendering
+    key: string;
     materialId?: string;
     newMaterialName?: string;
     newMaterialCategory?: Material['category'];
@@ -162,6 +170,8 @@ export default function GoodsReceiptPage() {
         };
 
         try {
+            // PASO 3: Se llama a la Server Action con el payload del formulario.
+            // Esta función se ejecutará en el servidor.
             await createGoodsReceipt(payload);
             setNotification({ message: 'Recepción de mercancía guardada con éxito.', type: 'success' });
             // Reset form
@@ -176,9 +186,21 @@ export default function GoodsReceiptPage() {
             setIsSaving(false);
         }
     };
+    
+    const handleFreeTextSupplier = useCallback((text: string) => {
+      const exact = suppliers.some(s => s.name.toLowerCase() === text.toLowerCase());
+      if (!exact) { 
+        setNewSupplierName(text); 
+        setSupplierId(undefined); 
+      }
+    }, [suppliers]);
+    
+    const handleLineFreeText = useCallback((index: number, text: string) => {
+        handleLineChange(index, 'newMaterialName', text);
+    }, []);
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 max-w-4xl mx-auto">
             <div className="flex justify-between items-center">
                 <h1 className="text-2xl font-semibold text-zinc-800 flex items-center gap-3">
                     <Truck /> Recepción de Mercancía
@@ -187,86 +209,78 @@ export default function GoodsReceiptPage() {
             
             {notification && <Notification message={notification.message} type={notification.type} onClose={() => setNotification(null)} />}
 
-            <SBCard title="Registrar Entrada de Material">
-                <div className="p-6 space-y-6">
-                    <div className="grid md:grid-cols-2 gap-6">
-                        <label className="grid gap-1.5">
-                            <span className="font-medium">Proveedor</span>
-                             <SearchableSelect<Party>
-                                items={suppliers}
-                                onSelect={item => { 
-                                  setSupplierId(item.id); 
-                                  setNewSupplierName(undefined);
-                                }}
-                                onFreeText={text => { 
-                                    const exact = suppliers.some(s => s.name.toLowerCase() === text.toLowerCase());
-                                    if (!exact) { 
-                                      setNewSupplierName(text); 
-                                      setSupplierId(undefined); 
-                                    }
-                                  }}
-                                placeholder="Buscar o crear proveedor..."
-                                initialValue={supplierId ? suppliers.find(s => s.id === supplierId)?.name : newSupplierName}
-                            />
-                        </label>
-                         <label className="grid gap-1.5">
-                            <span className="font-medium">Nº de Albarán del Proveedor</span>
-                            <Input value={deliveryNote} onChange={e => setDeliveryNote(e.target.value)} placeholder="Ej: 2024/ABC-123" required />
-                        </label>
-                    </div>
+            <div className="bg-white border rounded-xl shadow-sm p-6 space-y-6">
+                <div className="grid md:grid-cols-2 gap-6">
+                    <label className="grid gap-1.5">
+                        <span className="font-medium">Proveedor</span>
+                         <SearchableSelect<Party>
+                            items={suppliers}
+                            onSelect={item => { 
+                              setSupplierId(item.id); 
+                              setNewSupplierName(undefined);
+                            }}
+                            onFreeText={handleFreeTextSupplier}
+                            placeholder="Buscar o crear proveedor..."
+                            initialValue={supplierId ? suppliers.find(s => s.id === supplierId)?.name : newSupplierName}
+                        />
+                    </label>
+                     <label className="grid gap-1.5">
+                        <span className="font-medium">Nº de Albarán del Proveedor</span>
+                        <Input value={deliveryNote} onChange={e => setDeliveryNote(e.target.value)} placeholder="Ej: 2024/ABC-123" required />
+                    </label>
+                </div>
 
-                    <div>
-                        <h4 className="font-medium mb-2">Líneas de Producto</h4>
-                        <div className="space-y-3 rounded-lg border p-4">
-                            <div className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] gap-3 text-sm font-semibold text-zinc-600 px-2">
-                                <span>Material</span>
-                                <span>Lote Proveedor</span>
-                                <span className="text-right">Cantidad Recibida</span>
-                                <span className="text-right">Coste Unitario</span>
-                                <div />
-                            </div>
-                            {lines.map((line, index) => (
-                                <div key={line.key} className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] gap-3 items-start">
-                                    <div className="space-y-1">
-                                        <SearchableSelect<Material>
-                                            items={materials}
-                                            onSelect={(item) => handleLineChange(index, 'materialId', item.id)}
-                                            onFreeText={(text) => handleLineChange(index, 'newMaterialName', text)}
-                                            placeholder="Buscar o crear material..."
-                                            initialValue={line.materialId ? materials.find(m=>m.id === line.materialId)?.name : line.newMaterialName}
-                                        />
-                                        {line.newMaterialName && !line.materialId && (
-                                            <Select value={line.newMaterialCategory} onChange={e => handleLineChange(index, 'newMaterialCategory', e.target.value as Material['category'])}>
-                                                <option value="raw">Materia Prima</option>
-                                                <option value="packaging">Packaging</option>
-                                                <option value="label">Etiqueta</option>
-                                                <option value="consumable">Consumible</option>
-                                                <option value="intermediate">Intermedio</option>
-                                                <option value="merchandising">Merchandising</option>
-                                            </Select>
-                                        )}
-                                    </div>
-                                    <Input value={line.supplierLot} onChange={e => handleLineChange(index, 'supplierLot', e.target.value)} placeholder="Lote del proveedor" required/>
-                                    <Input type="number" value={line.qty || ''} onChange={e => handleLineChange(index, 'qty', Number(e.target.value) || 0)} className="text-right" required/>
-                                    <Input type="number" step="0.01" value={line.unitCost || ''} onChange={e => handleLineChange(index, 'unitCost', Number(e.target.value) || 0)} className="text-right" required/>
-                                    <SBButton variant="ghost" size="sm" onClick={() => removeLine(index)}><Trash2 className="h-4 w-4 text-red-500" /></SBButton>
-                                </div>
-                            ))}
-                             <SBButton variant="secondary" size="sm" onClick={addLine}><Plus className="h-4 w-4 mr-2" />Añadir Línea</SBButton>
+                <div>
+                    <h4 className="font-medium mb-2">Líneas de Producto</h4>
+                    <div className="space-y-3 rounded-lg border p-4">
+                        <div className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] gap-3 text-sm font-semibold text-zinc-600 px-2">
+                            <span>Material</span>
+                            <span>Lote Proveedor</span>
+                            <span className="text-right">Cantidad Recibida</span>
+                            <span className="text-right">Coste Unitario</span>
+                            <div />
                         </div>
-                    </div>
-                    
-                    <div className="flex items-center justify-between pt-4 border-t">
-                        <label className="flex items-center gap-2">
-                            <input type="checkbox" checked={sendToQc} onChange={e => setSendToQc(e.target.checked)} />
-                            <span>Enviar lotes a cuarentena (QC)</span>
-                        </label>
-                        <SBButton onClick={handleSave} disabled={isSaving}>
-                            {isSaving ? 'Guardando...' : 'Guardar Recepción'}
-                        </SBButton>
+                        {lines.map((line, index) => (
+                            <div key={line.key} className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] gap-3 items-start">
+                                <div className="space-y-1">
+                                    <SearchableSelect<Material>
+                                        items={materials}
+                                        onSelect={(item) => handleLineChange(index, 'materialId', item.id)}
+                                        onFreeText={(text) => handleLineChange(index, 'newMaterialName', text)}
+                                        placeholder="Buscar o crear material..."
+                                        initialValue={line.materialId ? materials.find(m=>m.id === line.materialId)?.name : line.newMaterialName}
+                                    />
+                                    {line.newMaterialName && !line.materialId && (
+                                        <Select value={line.newMaterialCategory} onChange={e => handleLineChange(index, 'newMaterialCategory', e.target.value as Material['category'])}>
+                                            <option value="raw">Materia Prima</option>
+                                            <option value="packaging">Packaging</option>
+                                            <option value="label">Etiqueta</option>
+                                            <option value="consumable">Consumible</option>
+                                            <option value="intermediate">Intermedio</option>
+                                            <option value="merchandising">Merchandising</option>
+                                        </Select>
+                                    )}
+                                </div>
+                                <Input value={line.supplierLot} onChange={e => handleLineChange(index, 'supplierLot', e.target.value)} placeholder="Lote del proveedor" required/>
+                                <Input type="number" value={line.qty || ''} onChange={e => handleLineChange(index, 'qty', Number(e.target.value) || 0)} className="text-right" required/>
+                                <Input type="number" step="0.01" value={line.unitCost || ''} onChange={e => handleLineChange(index, 'unitCost', Number(e.target.value) || 0)} className="text-right" required/>
+                                <SBButton variant="ghost" size="sm" onClick={() => removeLine(index)}><Trash2 className="h-4 w-4 text-red-500" /></SBButton>
+                            </div>
+                        ))}
+                         <SBButton variant="secondary" size="sm" onClick={addLine}><Plus className="h-4 w-4 mr-2" />Añadir Línea</SBButton>
                     </div>
                 </div>
-            </SBCard>
+                
+                <div className="flex items-center justify-between pt-4 border-t">
+                    <label className="flex items-center gap-2">
+                        <input type="checkbox" checked={sendToQc} onChange={e => setSendToQc(e.target.checked)} />
+                        <span>Enviar lotes a cuarentena (QC)</span>
+                    </label>
+                    <SBButton onClick={handleSave} disabled={isSaving}>
+                        {isSaving ? 'Guardando...' : 'Guardar Recepción'}
+                    </SBButton>
+                </div>
+            </div>
         </div>
     );
 }
