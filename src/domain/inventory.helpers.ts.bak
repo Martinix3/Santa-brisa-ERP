@@ -53,7 +53,7 @@ export function buildConsumptionMoves(args: {
   orderId: string;
   reservations: Array<{ itemId: string; fromLotNumber: string; reservedQty: number; uom: Uom }>;
   at?: string;
-  fromLocationId?: string; // ej. "RM/MAIN"
+  fromLocation?: string; // ej. "RM/MAIN"
 }): StockMove[] {
   const { orderId, reservations, at = new Date().toISOString(), fromLocationId = "RM/MAIN" } = args;
 
@@ -63,7 +63,7 @@ export function buildConsumptionMoves(args: {
     lotNumber: r.fromLotNumber,
     uom: r.uom,
     qty: -r.reservedQty, // Negativo para salida
-    fromLocationId: fromLocationId,
+    fromLocationId: fromLocation,
     reason: "production_out",
     occurredAt: at,
     createdAt: at,

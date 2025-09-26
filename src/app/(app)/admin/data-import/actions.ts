@@ -47,7 +47,7 @@ const TEMPLATE_FIELDS: Partial<Record<keyof SantaData, readonly string[]>> = {
   shipments: ['id','orderId','accountId','shipmentNumber','createdAt','status','isSample','samplePurpose','lines','customerName','city','postalCode','country'],
   paymentLinks: ['id','financeLinkId','amount','date','method'],
   financeLinks: ['id','docType','status','grossAmount','currency','issueDate','dueDate','partyId'],
-  stockMoves: ['id','itemId','lotNumber','uom','qty','fromLocationId','toLocationId','reason','occurredAt','createdAt'],
+  stockMoves: ['id','itemId','lotNumber','uom','qty','fromLocation','toLocation','reason','occurredAt','createdAt'],
   materialCosts: ['id','itemId','currency','costPerUom','effectiveFrom'],
 };
 
@@ -91,7 +91,7 @@ function nBool(x:any){ if (typeof x==='boolean') return x; if (typeof x==='strin
 const nNumComma = (x:any) => { if (typeof x === 'string') x = x.replace(',', '.'); const n = Number(x); return Number.isFinite(n) ? n : 0; };
 function j(x:any){ if (x==null||x==='') return undefined; if (typeof x!=='string') return x; try{ return JSON.parse(x);}catch{ return x; } }
 
-function newId(prefix: keyof typeof POLICIES | 'GEN'){ const now=new Date(); const y=now.getFullYear(), m=String(now.getMonth()+1).padStart(2,'0'), d=String(now.getDate()).padStart(2,'0'); const rnd=randomUUID().slice(0,6).toUpperCase(); switch(String(prefix)){ case 'ACCOUNT': return `ACC-${rnd}`; case 'SH': return `SHP-${y}${m}${d}-${rnd.slice(0,3)}`; case 'GR': return `GR-${y}${m}${d}-${rnd.slice(0,3)}`; case 'PO': return `PO-${y}${m}-${rnd.slice(0,4)}`; case 'LOT': return `${String(y).slice(2)}${m}${d}-GEN-${rnd.slice(0,3)}`; default: return `${String(prefix)}-${rnd}`; } }
+function newId(prefix: keyof typeof POLICIES | 'GEN'){ const now=new Date(); const y=now.getFullYear(), m=String(now.getMonth()+1).padStart(2,'0'), d=String(now.getDate()).padStart(2,'0'); const rnd=randomUUID().slice(0,6).toUpperCase(); switch(String(prefix)){ case 'ACCOUNT': return `ACC-${rnd}`; case 'PARTY': return `PTY-${rnd}`; case 'PO': return `PO-${y}${m}-${rnd.slice(0,4)}`; case 'GR': return `GR-${y}${m}${d}-${rnd.slice(0,3)}`; case 'SH': return `SH-${y}${m}${d}-${rnd.slice(0,3)}`; case 'LOT': return `${String(y).slice(2)}${m}${d}-GEN-${rnd.slice(0,3)}`; default: return `${String(prefix)}-${rnd}`; } }
 
 async function resolveAndNormalize(coll: keyof SantaData, rows: any[], data: SantaData, opts?: { allowCreateAccounts?: boolean }){
   const reg = buildRegistry(data); const info = { createdAccounts: 0, linked: 0, warnings: [] as string[] }; const out:any[]=[];
@@ -146,23 +146,27 @@ async function resolveAndNormalize(coll: keyof SantaData, rows: any[], data: San
     if (coll==='stockMoves'){
       row.qty = nNumComma(row.qty);
       row.reason = REASON_ALIASES[row.reason] ?? row.reason;
-      if (row.toLocationId || row.toLocation) {
-        const loc = (row.toLocationId ?? row.toLocation) as string;
-        if (!reg.accountsById.has(loc)) {
-            const acc = reg.accountsByName.get(loc.toLowerCase());
+      
+      const toLoc = row.toLocationId || row.toLocation;
+      if (toLoc) {
+        if (!reg.accountsById.has(toLoc)) {
+            const acc = reg.accountsByName.get(toLoc.toLowerCase());
             if (acc) row.toLocationId = acc.id;
+            else row.toLocationId = toLoc; // keep original if no match
         } else {
-            row.toLocationId = loc;
+            row.toLocationId = toLoc;
         }
         delete row.toLocation;
       }
-      if (row.fromLocationId || row.fromLocation) {
-        const loc = (row.fromLocationId ?? row.fromLocation) as string;
-        if (!reg.accountsById.has(loc)) {
-            const acc = reg.accountsByName.get(loc.toLowerCase());
+
+      const fromLoc = row.fromLocationId || row.fromLocation;
+      if (fromLoc) {
+        if (!reg.accountsById.has(fromLoc)) {
+            const acc = reg.accountsByName.get(fromLoc.toLowerCase());
             if (acc) row.fromLocationId = acc.id;
+            else row.fromLocationId = fromLoc;
         } else {
-            row.fromLocationId = loc;
+            row.fromLocationId = fromLoc;
         }
         delete row.fromLocation;
       }

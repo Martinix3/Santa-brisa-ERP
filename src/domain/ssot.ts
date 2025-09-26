@@ -257,7 +257,7 @@ export interface DeliveryNote {
     itemId:string;
     description:string;
     qty:number;
-    uom?:string;
+    uom?: Uom;
     lotNumbers?: LotNumber[]; 
   }>;
   pdfUrl?: string;

@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { AlertCircle, Check, Hourglass, X, Thermometer, FlaskConical, Beaker, TestTube2, Paperclip, Upload, Trash2, ChevronRight, ChevronDown, Save, Bug, Edit } from "lucide-react";
 import { SBCard, SBButton } from '@/components/ui/ui-primitives';
 import { useData } from "@/lib/dataprovider";
-import type { ProductionOrder as ProdOrder, Uom, Item, ExecCheck, BillOfMaterial as RecipeBom, OnHandView, ReservationView, StockMove, SantaData, SB_THEME } from '@/domain/ssot';
+import type { ProductionOrder as ProdOrder, Uom, Item, ExecCheck, BillOfMaterial as RecipeBom, OnHandView, ReservationView, StockMove, SantaData } from '@/domain/ssot';
 import { availableForItem, fifoReserveLots, buildConsumptionMoves } from '@/domain/inventory.helpers';
 import { makeLot, makeProdOrderCode } from '@/lib/codes';
 import { SB_COLORS } from "@/domain/ssot";
@@ -260,7 +260,7 @@ export default function ProduccionPage() {
         const moves = buildConsumptionMoves({
         orderId: order.id,
         reservations: order.reservations as any,
-        fromLocation: "RM/MAIN",
+        fromLocationId: "RM/MAIN",
         });
     
         const updatedOnHand = onHand; // This should be updated by a worker, not on client.
@@ -609,7 +609,7 @@ function OrdersList({ orders, recipes, onStart, onFinish, onUpdate, onDelete, on
 
       {openOrder && openRecipe && (
         <div className="border-t border-[var(--line)] p-4 bg-zinc-50/60">
-          <OrderDetail order={openOrder} recipe={openRecipe} onClose={()=>setOpenId(null)} onStart={onStart} onFinish={onFinish} onUpdate={onUpdate} inventory={inventory} allItems={allItems} busyOp={busyOp} />
+          <OrderDetail order={openOrder} recipe={openRecipe} onClose={()=>setOpenId(null)} onStart={onStart} onFinish={finishOrder} onUpdate={updateOrder} inventory={inventory} allItems={allItems} busyOp={busyOp} />
         </div>
       )}
     </div>

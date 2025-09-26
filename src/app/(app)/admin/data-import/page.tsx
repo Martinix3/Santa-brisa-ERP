@@ -10,8 +10,8 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useDropzone } from 'react-dropzone';
 import { UploadCloud } from 'lucide-react';
-import { SANTA_DATA_COLLECTIONS, type SantaData, SB_THEME } from "@/domain";
-import { POLICIES } from "@/lib/codes";
+import { SANTA_DATA_COLLECTIONS, type SantaData } from "@/domain/ssot";
+import { POLICIES, type CodeEntity } from "@/lib/codes";
 import { importPreview, importCommit } from "./actions";
 
 // ----------------- helpers (cliente) -----------------
@@ -27,7 +27,7 @@ function csvToObjects(headers: string[], rows: string[][]){ return rows.map(r =>
 const isoNow = () => new Date().toISOString();
 function genId(prefix: keyof typeof POLICIES | 'GEN'){ 
   const now = new Date(); const YYYY = String(now.getFullYear()); const YY = YYYY.slice(2); const MM = String(now.getMonth()+1).padStart(2,'0'); const DD = String(now.getDate()).padStart(2,'0'); const rnd = Math.random().toString(36).slice(2,8).toUpperCase();
-  switch(String(prefix)){ case 'ACCOUNT': return `ACC-${rnd}`; case 'PARTY': return `PTY-${rnd}`; case 'PO': return `PO-${YYYY}${MM}-${rnd.slice(0,4)}`; case 'GR': return `GR-${YYYY}${MM}${DD}-${rnd.slice(0,3)}`; case 'SH': return `SHP-${YYYY}${MM}${DD}-${rnd.slice(0,3)}`; case 'LOT': return `${YY}${MM}${DD}-GEN-${rnd.slice(0,3)}`; default: return `${String(prefix)}-${rnd}`; }
+  switch(String(prefix)){ case 'ACCOUNT': return `ACC-${rnd}`; case 'PARTY': return `PTY-${rnd}`; case 'PO': return `PO-${YYYY}${MM}-${rnd.slice(0,4)}`; case 'GR': return `GR-${YYYY}${MM}${DD}-${rnd.slice(0,3)}`; case 'SH': return `SH-${YYYY}${MM}${DD}-${rnd.slice(0,3)}`; case 'LOT': return `${YY}${MM}${DD}-GEN-${rnd.slice(0,3)}`; default: return `${String(prefix)}-${rnd}`; }
 }
 function slugToSKU(name: string){ if (!name) return ''; const cleaned = name.normalize('NFD').replace(/[^\w\s-]/g,'').replace(/\s+/g,' '); const words = cleaned.trim().split(' '); const base = words.map(w=> w.slice(0,3)).join('-'); return base.toUpperCase().replace(/-+/g,'-').slice(0,16) || `SKU-${Math.random().toString(36).slice(2,6).toUpperCase()}`; }
 

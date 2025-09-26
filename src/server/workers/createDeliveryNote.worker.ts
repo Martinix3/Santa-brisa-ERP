@@ -1,7 +1,7 @@
 // src/server/workers/createDeliveryNote.worker.ts
 'use server';
 import { adminDb as db } from '@/server/firebase';
-import type { DeliveryNote, Shipment, OrderSellOut, Party } from '@/domain/ssot';
+import type { DeliveryNote, Shipment, OrderSellOut, Party, Uom } from '@/domain/ssot';
 import { Timestamp } from 'firebase-admin/firestore';
 import { makeDeliveryNoteCode } from '@/lib/codes';
 
@@ -51,7 +51,7 @@ export async function run({ shipmentId }: { shipmentId: string }) {
             itemId: l.itemId,
             description: l.name ?? '',
             qty: l.qty,
-            uom: 'uds',
+            uom: 'unit' as Uom,
             lotNumbers: l.lotNumber ? [l.lotNumber] : [],
         })),
         company: { name: 'Santa Brisa', vat: 'B00000000', address: 'C/ Olivos 10', city: 'Madrid', zip: '28010', country: 'España' }
