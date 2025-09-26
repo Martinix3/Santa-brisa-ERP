@@ -1,14 +1,20 @@
+
 // src/domain/ssot.ts
 
 // =================================================================
 // == SINGLE SOURCE OF TRUTH (SSOT) - KERNEL V2
 // =================================================================
-export type Timestamp = string; // ISO string
+export type Timestamp = string; // ISO string for full date-time
+export type ISO = string;       // ISO string, can be just date
+export type LotNumber = string; // Alias for Lot identifiers
 
 // -----------------------------------------------------------------
 // 1. Tipos Primitivos y Enums Transversales
 // -----------------------------------------------------------------
-export type Uom = 'bottle' | 'case' | 'pallet' | 'uds' | 'kg' | 'g' | 'L' | 'mL';
+export type Uom = 'bottle' | 'case' | 'pallet' | 'unit' | 'kg' | 'g' | 'L' | 'mL';
+/** @deprecated use 'unit' */
+export type UomLegacy = 'ud' | 'uds';
+
 export type Currency = 'EUR';
 export type Department = 'VENTAS' | 'MARKETING' | 'PRODUCCION' | 'ALMACEN' | 'FINANZAS' | 'CALIDAD' | 'PERSONAL';
 export type PartyRoleType = 'CUSTOMER' | 'SUPPLIER' | 'DISTRIBUTOR' | 'IMPORTER' | 'INFLUENCER' | 'CREATOR' | 'EMPLOYEE' | 'BRAND_AMBASSADOR' | 'OTHER';
@@ -54,16 +60,16 @@ export type StockReason =
 
 export interface StockMove {
   id: string;
-  itemId: string;       // ← SIEMPRE itemId
-  qty: number;          // signo positivo/negativo según reason
+  itemId: string;
+  qty: number;
   uom: Uom;
-  lotNumber?: string;   // texto; la “lote” ya no es entidad
+  lotNumber?: LotNumber;
   locationId?: string;
   reason: StockReason;
-  occurredAt: string;   // ISO
-  createdAt: string;    // ISO
-  unitCost?: number;    // capa valuación (fifo/avg se calcula fuera)
-  ref?: {               // trazas a documentos/órdenes
+  occurredAt: Timestamp;
+  createdAt: Timestamp;
+  unitCost?: number;
+  ref?: {
     prodOrderId?: string;
     goodsReceiptId?: string;
     shipmentId?: string;
@@ -75,24 +81,22 @@ export interface StockMove {
 export interface OnHandView {
   id: string;           // itemId|lotNumber|locationId
   itemId: string;
-  lotNumber?: string;
+  lotNumber?: LotNumber;
   locationId?: string;
   qty: number;
   uom: Uom;
-  updatedAt: string;
-  createdAt: string; 
-  quality?: { qcStatus: "hold" | "release" | "reject" }; 
-  expDate?: string; 
+  updatedAt: Timestamp;
+  createdAt: Timestamp; 
 }
 
 export interface ReservationView {
-  id: string;                   // itemId|lotNumber|refId
+  id: string;           // itemId|lotNumber|refId
   itemId: string;
-  lotNumber?: string;
-  qty: number;                  // reservado (+)
+  lotNumber?: LotNumber;
+  qty: number;
   uom: Uom;
   ref: { kind: 'ORDER'|'PROD'|'SHIP'; id: string };
-  createdAt: string;
+  createdAt: Timestamp;
 }
 
 // 3) Producción
@@ -100,10 +104,10 @@ export type BomLineRole = 'FORMULA'|'PACKAGING';
 
 export interface BillOfMaterial {
   id: string;
-  outputItemId: string;         // ← en vez de sku
+  outputItemId: string;
   name: string;
-  batchSize: number;            // en baseUnit
-  baseUnit: Uom;                // ← obligatorio
+  batchSize: number;
+  baseUnit: Uom;
   items: Array<{
     itemId: string;
     qty: number;
@@ -123,25 +127,22 @@ export type ExecCheck = { id:string; done:boolean; checkedBy?:string; checkedAt?
 export interface ProductionOrder {
   id: string;
   bomId: string;
-  outputItemId: string;     // ← sustituye sku
-  targetQuantity: number;   // en baseUnit
+  outputItemId: string;
+  targetQuantity: number;
   status: ProductionStatus;
   createdAt: Timestamp;
-  scheduledFor?: string;
-  batchCode?: string;       // en lugar de “lotId” entidad
+  scheduledFor?: Timestamp;
+  batchCode?: LotNumber;
   responsibleId?: string;
-
-  // Operativo (opcionales)
   checks?: ExecCheck[];
-  incidents?: { id: string; when: string; severity: 'BAJA'|'MEDIA'|'ALTA'; text: string }[];
+  incidents?: { id: string; when: Timestamp; severity: 'BAJA'|'MEDIA'|'ALTA'; text: string }[];
   reservations?: ReservationView[];
-  shortages?: any[]; // Placeholder
+  shortages?: any[];
 
-  // Consumos/outputs reales (pueden venir del libro o duplicar para auditoría)
   actuals?: Array<{
     itemId: string;
     name?: string;
-    lotNumber?: string;
+    lotNumber?: LotNumber;
     theoreticalQty: number;
     actualQty: number;
     uom: Uom;
@@ -149,20 +150,20 @@ export interface ProductionOrder {
   }>;
 
   execution?: {
-    startedAt?: string;
-    finishedAt?: string;
+    startedAt?: Timestamp;
+    finishedAt?: Timestamp;
     durationHours?: number;
     finalYield?: number;
-    yieldUom?: 'L'|'ud' | 'uds';
-    goodUnits?: number;    // antes goodBottles
-    scrapUnits?: number;   // antes scrapBottles
+    yieldUom?: 'L' | 'unit' | UomLegacy;
+    goodUnits?: number;
+    scrapUnits?: number;
   };
 
   costing?: {
     stdCostPerUom?: number;
     actual?: { materials: number; labor?: number; overhead?: number; other?: number; total: number; perUnit?: number; yieldLossPct?: number; };
     variance?: { materials?: number; labor?: number; overhead?: number; total?: number; };
-    updatedAt?: string;
+    updatedAt?: Timestamp;
   };
 }
 
@@ -175,7 +176,7 @@ export interface QACheck {
   checklist?: Array<{ name: string; result: 'ok' | 'ko'; value?: number|string|boolean; notes?: string }>;
   summaryStatus: 'ok' | 'ko';
   reviewedById?: string;
-  reviewedAt?: string;
+  reviewedAt?: Timestamp;
   notes?: string;
   links?: { goodsReceiptId?: string; traceEventId?: string };
   createdAt: Timestamp;
@@ -195,7 +196,7 @@ export interface GoodsReceipt {
     itemId: string;
     qty: number; uom: Uom;
     unitCost: number;
-    lotNumber?: string;
+    lotNumber?: LotNumber;
     overTolerancePct?: number; underTolerancePct?: number;
   }>;
   landedCosts?: Array<{ kind: 'freight'|'duty'|'insurance'|'other'; amount: number; allocation: 'by_value'|'by_weight'|'by_qty'; notes?: string }>;
@@ -203,15 +204,15 @@ export interface GoodsReceipt {
   incidentIds?: string[];
   notes?: string;
   createdById?: string; approvedById?: string;
-  auditLog?: Array<{ at: string; userId: string; action: string; details?: any }>;
+  auditLog?: Array<{ at: Timestamp; userId: string; action: string; details?: any }>;
 }
 
 export interface ShipmentLine {
   itemId: string;
-  name?: string; // Denormalized from Item for convenience
+  name?: string;
   qty: number;
   uom: Uom;
-  lotNumber?: string;
+  lotNumber?: LotNumber;
 }
 
 export interface Shipment {
@@ -238,10 +239,18 @@ export interface DeliveryNote {
   shipmentId: string;
   partyId: string;
   series: 'ONLINE'|'B2B'|'INTERNAL';
-  date: string; // ISO
+  date: ISO;
   soldTo: { name: string; vat?: string };
   shipTo: { name: string; address: string; zip: string; city: string; country: string };
-  lines: Array<{ itemId:string; description:string; qty:number; uom?:string; lotNumbers?:string[] }>;
+  lines: Array<{ 
+    itemId:string;
+    description:string;
+    qty:number;
+    uom?:string;
+    /** @deprecated use lotNumbers */
+    lotIds?: LotNumber[];
+    lotNumbers?: LotNumber[];
+  }>;
   pdfUrl?: string;
   company: { name: string; vat: string; address?: string; city?: string; zip?: string; country?: string };
   createdAt: Timestamp; updatedAt: Timestamp;
@@ -267,7 +276,7 @@ export interface Party {
   status?: PartyStatus;
   people?: PartyPerson[];
   flags?: { needsReview?: boolean; issues?: string[]; };
-  quality?: { lastAuditAt?: string; score?: number; };
+  quality?: { lastAuditAt?: Timestamp; score?: number; };
   createdAt: Timestamp;
   updatedAt: Timestamp;
   name: string; // Mantener por ahora
@@ -289,7 +298,7 @@ export interface PartyDuplicate {
 export interface CustomerData { priceListId?: string; paymentTermsDays?: number; salesRepId: string; billerId: string; }
 export interface SupplierData { paymentTermsDays?: number; bankAccountNumber?: string; }
 export interface InfluencerData { tier: 'nano' | 'micro' | 'mid' | 'macro'; audienceSize?: number; }
-export interface EmployeeData { department: Department; managerId?: string; startDate: string; }
+export interface EmployeeData { department: Department; managerId?: string; startDate: ISO; }
 
 export interface User {
   id: string; name: string; email?: string; role: UserRole; active: boolean; managerId?: string;
@@ -305,7 +314,18 @@ export type BillingStatus = 'PENDING'|'INVOICING'|'INVOICED'|'PAID'|'FAILED';
 export interface OrderSellOut {
   id: string; partyId: string; accountId: string; source: 'CRM'|'SHOPIFY'|'OTHER' | 'MANUAL' | 'HOLDED';
   createdAt: Timestamp; currency: Currency;
-  lines: Array<{ itemId: string; name?: string; qty: number; priceUnit: number; taxRate?: number; discountPct?: number; uom?: Uom; lotIds?: string[] }>;
+  lines: Array<{
+    itemId: string;
+    name?: string;
+    qty: number;
+    priceUnit: number;
+    taxRate?: number;
+    discountPct?: number;
+    uom?: Uom;
+    /** @deprecated use lotNumbers */
+    lotIds?: LotNumber[];
+    lotNumbers?: LotNumber[];
+  }>;
   notes?: string; billingStatus?: BillingStatus; status: OrderStatus; docNumber?: string; totalAmount?: number;
   external?: { shopifyOrderId?: string; holdedInvoiceId?: string; };
 }
@@ -316,14 +336,12 @@ export * from './ssot.common'; // Importa el resto de tipos que no han cambiado
 // 7. DEPRECATED - Entidades Antiguas (marcar para eliminar)
 // -----------------------------------------------------------------
 
-/** @deprecated Use `Item` instead. */
+/** @deprecated Use `Item` instead. This will be removed. */
 export interface Product {}
-/** @deprecated Use `Item` instead. */
+/** @deprecated Use `Item` instead. This will be removed. */
 export interface Material {}
-/** @deprecated Lot is now a string (`lotNumber`). Metadata can be stored in a separate optional collection if needed. */
+/** @deprecated Lot is now a string (`lotNumber`). Metadata can be stored in a separate optional collection if needed. This will be removed. */
 export interface Lot {}
-/** @deprecated Use `OnHandView` which is derived from `StockMove`s. This will be removed. */
-export interface InventoryItem {}
 
 
 // -----------------------------------------------------------------

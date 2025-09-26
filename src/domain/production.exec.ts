@@ -1,6 +1,6 @@
 
 // domain/production.exec.ts - Overlay de ejecución de Producción
-import type { Uom, QCResult } from './ssot';
+import type { Uom, QCResult, Timestamp, ProductionOrder } from './ssot';
 
 // --- Tipos para la UI y Lógica de Ejecución ---
 
@@ -56,11 +56,11 @@ export type ActualConsumption = {
 export type ProdExecStatus = "PROGRAMADA" | "EN_PROCESO" | "COMPLETADA" | "CANCELADA";
 
 export type ProdExecution = {
-  startedAt?: string;
-  finishedAt?: string;
+  startedAt?: Timestamp;
+  finishedAt?: Timestamp;
   durationHours?: number;
   finalYield?: number;
-  yieldUom?: 'L' | 'ud' | 'uds';
+  yieldUom?: 'L' | 'unit';
   goodUnits?: number;
   scrapUnits?: number;
 };
@@ -89,16 +89,16 @@ export type ProductionOrderExec = {
   outputItemId: string;
   targetQuantity: number;
   status: 'pending' | 'released' | 'wip' | 'done' | 'cancelled';
-  createdAt: string;
+  createdAt: Timestamp;
   batchCode?: string;
   // Overlay/UI specific fields
   execStatus?: ProdExecStatus;
-  scheduledFor?: string;
+  scheduledFor?: Timestamp;
   responsibleId?: string;
   checks?: ExecCheck[];
   reservations?: Reservation[];
   shortages?: MaterialShortage[];
   actuals?: ActualConsumption[];
   execution?: ProdExecution;
-  incidents?: { id: string; when: string; severity: "BAJA" | "MEDIA" | "ALTA"; text: string }[];
+  incidents?: { id: string; when: Timestamp; severity: "BAJA" | "MEDIA" | "ALTA"; text: string }[];
 };
