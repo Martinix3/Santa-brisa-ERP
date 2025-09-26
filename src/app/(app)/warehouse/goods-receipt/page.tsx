@@ -1,23 +1,97 @@
 
 "use client";
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import { useData } from '@/lib/dataprovider';
 import { SBButton, SBCard, Input, Select, Textarea } from '@/components/ui/ui-primitives';
-import { Plus, Trash2, Box, Truck } from 'lucide-react';
-import type { Party, Material, GoodsReceipt, Lot, StockMove } from '@/domain/ssot';
+import { Plus, Trash2, Box, Truck, Search, Building } from 'lucide-react';
+import type { Party, Material, GoodsReceipt, Lot, StockMove, Uom } from '@/domain/ssot';
+
+const MATERIAL_CATEGORIES: Material['category'][] = ['raw', 'packaging', 'label', 'consumable', 'intermediate', 'merchandising'];
 
 type LineItem = {
-    materialId: string;
+    materialId?: string;
+    newMaterialName?: string;
+    newMaterialCategory?: Material['category'];
     supplierLot: string;
     qty: number;
     unitCost: number;
 };
 
+// Autocomplete/Search component
+function SearchableSelect<T extends {id: string, name: string}>({
+    items,
+    onSelect,
+    onFreeText,
+    placeholder,
+    initialValue
+}: {
+    items: T[];
+    onSelect: (item: T) => void;
+    onFreeText: (text: string) => void;
+    placeholder: string;
+    initialValue?: string;
+}) {
+    const [query, setQuery] = useState(initialValue || '');
+    const [suggestions, setSuggestions] = useState<T[]>([]);
+    const [isOpen, setIsOpen] = useState(false);
+
+    useEffect(() => {
+        setQuery(initialValue || '');
+    }, [initialValue]);
+
+    useEffect(() => {
+        if (query.length > 1) {
+            const filtered = items.filter(item => item.name.toLowerCase().includes(query.toLowerCase()));
+            setSuggestions(filtered);
+            setIsOpen(true);
+            if(filtered.length === 0) {
+              onFreeText(query);
+            }
+        } else {
+            setSuggestions([]);
+            setIsOpen(false);
+        }
+    }, [query, items, onFreeText]);
+
+    const handleSelect = (item: T) => {
+        setQuery(item.name);
+        onSelect(item);
+        setIsOpen(false);
+    };
+
+    return (
+        <div className="relative">
+            <Input
+                value={query}
+                onChange={e => {
+                    setQuery(e.target.value);
+                    onFreeText(e.target.value);
+                }}
+                placeholder={placeholder}
+            />
+            {isOpen && suggestions.length > 0 && (
+                <ul className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-48 overflow-auto">
+                    {suggestions.map(item => (
+                        <li key={item.id}
+                            className="px-3 py-2 cursor-pointer hover:bg-zinc-100"
+                            onMouseDown={() => handleSelect(item)}
+                        >
+                            <p className="font-medium text-sm">{item.name}</p>
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </div>
+    );
+}
+
+
 export default function GoodsReceiptPage() {
     const { data, currentUser, saveAllCollections } = useData();
-    const [supplierId, setSupplierId] = useState('');
+    const [supplierId, setSupplierId] = useState<string | undefined>();
+    const [newSupplierName, setNewSupplierName] = useState<string | undefined>();
     const [deliveryNote, setDeliveryNote] = useState('');
-    const [lines, setLines] = useState<LineItem[]>([{ materialId: '', supplierLot: '', qty: 0, unitCost: 0 }]);
+    const [lines, setLines] = useState<LineItem[]>([{ supplierLot: '', qty: 0, unitCost: 0, newMaterialCategory: 'raw' }]);
     const [sendToQc, setSendToQc] = useState(true);
 
     const suppliers = useMemo(() => {
@@ -25,22 +99,28 @@ export default function GoodsReceiptPage() {
     }, [data?.parties]);
 
     const materials = useMemo(() => {
-        return (data?.materials || []).filter(m => m.category === 'raw' || m.category === 'packaging' || m.category === 'consumable');
+        return data?.materials || [];
     }, [data?.materials]);
     
-    const handleLineChange = (index: number, field: keyof LineItem, value: string | number) => {
+    const handleLineChange = (index: number, field: keyof LineItem, value: any) => {
         const newLines = [...lines];
         const line = newLines[index];
         (line as any)[field] = value;
-        if(field === 'materialId') {
+
+        if (field === 'materialId') {
             const material = materials.find(m => m.id === value);
             line.unitCost = material?.standardCost ?? 0;
+            line.newMaterialName = undefined;
         }
+        if (field === 'newMaterialName') {
+            line.materialId = undefined;
+        }
+
         setLines(newLines);
     };
 
     const addLine = () => {
-        setLines([...lines, { materialId: '', supplierLot: '', qty: 0, unitCost: 0 }]);
+        setLines([...lines, { supplierLot: '', qty: 0, unitCost: 0, newMaterialCategory: 'raw' }]);
     };
     
     const removeLine = (index: number) => {
@@ -48,74 +128,122 @@ export default function GoodsReceiptPage() {
     };
 
     const handleSave = async () => {
-        if (!supplierId || !deliveryNote || lines.some(l => !l.materialId || !l.qty || !l.supplierLot)) {
+        if ((!supplierId && !newSupplierName) || !deliveryNote || lines.some(l => (!l.materialId && !l.newMaterialName) || !l.qty || !l.supplierLot)) {
             alert('Por favor, completa Proveedor, Albarán y todas las líneas de producto (incluyendo lote del proveedor).');
             return;
         }
 
         const now = new Date();
         const receiptId = `gr_${now.getTime()}`;
+        
         const newLots: Lot[] = [];
         const newStockMoves: StockMove[] = [];
+        const newMaterials: Material[] = [];
+        const newParties: Party[] = [];
+        const finalLines: GoodsReceipt['lines'] = [];
 
+        let finalSupplierId = supplierId;
+
+        // Create new supplier if needed
+        if (newSupplierName && !supplierId) {
+            const newPartyId = `party_${Date.now()}`;
+            const newParty: Party = {
+                id: newPartyId,
+                name: newSupplierName,
+                legalName: newSupplierName,
+                kind: 'ORG',
+                roles: ['SUPPLIER'],
+                createdAt: now.toISOString(),
+                updatedAt: now.toISOString(),
+            } as Party;
+            newParties.push(newParty);
+            finalSupplierId = newPartyId;
+        }
+
+        for (const [index, line] of lines.entries()) {
+            let materialId = line.materialId;
+            let sku = '';
+
+            // Create new material if needed
+            if (line.newMaterialName && !line.materialId) {
+                const newMaterialId = `mat_${now.getTime()}_${index}`;
+                const newSku = `${(line.newMaterialCategory || 'RAW').substring(0,3).toUpperCase()}-${line.newMaterialName.substring(0, 5).toUpperCase().replace(/ /g,'-')}`;
+                const newMaterial: Material = {
+                    id: newMaterialId,
+                    sku: newSku,
+                    name: line.newMaterialName,
+                    category: line.newMaterialCategory || 'raw',
+                    uom: 'uds',
+                };
+                newMaterials.push(newMaterial);
+                materialId = newMaterialId;
+                sku = newSku;
+            } else {
+                sku = materials.find(m => m.id === materialId)?.sku || '';
+            }
+
+            const newLotId = `lot_${receiptId}_${index}`;
+            
+            const newLot: Lot = {
+                id: newLotId,
+                sku: sku,
+                quantity: line.qty,
+                createdAt: now.toISOString(),
+                supplierId: finalSupplierId,
+                supplierBatch: line.supplierLot,
+                quality: { qcStatus: sendToQc ? 'hold' : 'release', results: {} },
+            };
+            newLots.push(newLot);
+
+            newStockMoves.push({
+                id: `sm_rcpt_${newLot.id}`,
+                sku: newLot.sku,
+                lotId: newLot.id,
+                qty: newLot.quantity,
+                uom: 'uds', // Assume UOM for now
+                reason: 'receipt',
+                toLocation: sendToQc ? 'QC/AREA' : 'RM/MAIN',
+                occurredAt: now.toISOString(),
+                createdAt: now.toISOString(),
+                ref: { goodsReceiptId: receiptId },
+                unitCost: line.unitCost
+            });
+
+            finalLines.push({
+                materialId: materialId!,
+                sku: sku,
+                lotId: newLotId,
+                qty: line.qty,
+                uom: 'uds', // Assume UOM for now
+                unitCost: line.unitCost
+            });
+        }
+        
         const receipt: GoodsReceipt = {
             id: receiptId,
             receiptNumber: `GR-${now.getFullYear()}-${String(now.getTime()).slice(-5)}`,
-            supplierPartyId: supplierId,
+            supplierPartyId: finalSupplierId!,
             deliveryNote,
             receivedAt: now.toISOString(),
             status: sendToQc ? 'pending_qc' : 'completed',
             createdById: currentUser?.id,
-            lines: lines.map((line, index) => {
-                const material = materials.find(m => m.id === line.materialId)!;
-                const newLotId = `lot_${receiptId}_${index}`;
-                
-                const newLot: Lot = {
-                    id: newLotId,
-                    sku: material.sku,
-                    quantity: line.qty,
-                    createdAt: now.toISOString(),
-                    supplierId: supplierId,
-                    supplierBatch: line.supplierLot,
-                    quality: { qcStatus: sendToQc ? 'hold' : 'release', results: {} },
-                };
-                newLots.push(newLot);
-
-                newStockMoves.push({
-                    id: `sm_rcpt_${newLot.id}`,
-                    sku: newLot.sku,
-                    lotId: newLot.id,
-                    qty: newLot.quantity,
-                    uom: material.uom || 'uds',
-                    reason: 'receipt',
-                    toLocation: sendToQc ? 'QC/AREA' : 'RM/MAIN',
-                    occurredAt: now.toISOString(),
-                    createdAt: now.toISOString(),
-                    ref: { goodsReceiptId: receiptId }
-                });
-
-                return {
-                    materialId: line.materialId,
-                    sku: material.sku,
-                    lotId: newLotId,
-                    qty: line.qty,
-                    uom: material.uom || 'uds',
-                    unitCost: line.unitCost,
-                };
-            }),
+            lines: finalLines,
         };
 
         await saveAllCollections({
             goodsReceipts: [...(data?.goodsReceipts || []), receipt],
             lots: [...(data?.lots || []), ...newLots],
             stockMoves: [...(data?.stockMoves || []), ...newStockMoves],
+            materials: [...(data?.materials || []), ...newMaterials],
+            parties: [...(data?.parties || []), ...newParties],
         });
 
         alert('Recepción de mercancía guardada con éxito. El stock ha sido actualizado.');
         // Reset form
-        setSupplierId('');
+        setSupplierId(undefined);
+        setNewSupplierName(undefined);
         setDeliveryNote('');
-        setLines([{ materialId: '', supplierLot: '', qty: 0, unitCost: 0 }]);
+        setLines([{ supplierLot: '', qty: 0, unitCost: 0, newMaterialCategory: 'raw' }]);
     };
 
     return (
@@ -131,10 +259,12 @@ export default function GoodsReceiptPage() {
                     <div className="grid md:grid-cols-2 gap-6">
                         <label className="grid gap-1.5">
                             <span className="font-medium">Proveedor</span>
-                            <Select value={supplierId} onChange={e => setSupplierId(e.target.value)} required>
-                                <option value="" disabled>Selecciona un proveedor</option>
-                                {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                            </Select>
+                             <SearchableSelect<Party>
+                                items={suppliers}
+                                onSelect={item => { setSupplierId(item.id); setNewSupplierName(undefined); }}
+                                onFreeText={text => { if (!suppliers.some(s => s.name === text)) { setNewSupplierName(text); setSupplierId(undefined); } }}
+                                placeholder="Buscar o crear proveedor..."
+                            />
                         </label>
                          <label className="grid gap-1.5">
                             <span className="font-medium">Nº de Albarán del Proveedor</span>
@@ -153,11 +283,21 @@ export default function GoodsReceiptPage() {
                                 <div />
                             </div>
                             {lines.map((line, index) => (
-                                <div key={index} className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] gap-3 items-center">
-                                    <Select value={line.materialId} onChange={e => handleLineChange(index, 'materialId', e.target.value)} required>
-                                        <option value="">Selecciona material...</option>
-                                        {materials.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-                                    </Select>
+                                <div key={index} className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] gap-3 items-start">
+                                    <div className="space-y-1">
+                                        <SearchableSelect<Material>
+                                            items={materials}
+                                            onSelect={item => handleLineChange(index, 'materialId', item.id)}
+                                            onFreeText={text => handleLineChange(index, 'newMaterialName', text)}
+                                            placeholder="Buscar o crear material..."
+                                            initialValue={line.materialId ? materials.find(m=>m.id === line.materialId)?.name : line.newMaterialName}
+                                        />
+                                        {line.newMaterialName && !line.materialId && (
+                                            <Select value={line.newMaterialCategory} onChange={e => handleLineChange(index, 'newMaterialCategory', e.target.value as Material['category'])}>
+                                                {MATERIAL_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                            </Select>
+                                        )}
+                                    </div>
                                     <Input value={line.supplierLot} onChange={e => handleLineChange(index, 'supplierLot', e.target.value)} placeholder="Lote del proveedor" required/>
                                     <Input type="number" value={line.qty || ''} onChange={e => handleLineChange(index, 'qty', e.target.value)} className="text-right" required/>
                                     <Input type="number" step="0.01" value={line.unitCost || ''} onChange={e => handleLineChange(index, 'unitCost', e.target.value)} className="text-right" required/>
