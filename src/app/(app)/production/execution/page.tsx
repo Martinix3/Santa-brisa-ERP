@@ -1,3 +1,4 @@
+
 // src/app/(app)/production/execution/page.tsx
 "use client";
 import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
@@ -52,13 +53,9 @@ function planFromRecipe(
 function round2(n: number) { return Math.round(n * 100) / 100; }
 function round1(n: number) { return Math.round(n * 10) / 10; }
 
-function computeCosting(recipe: RecipeBom, po: ProdOrder) {
+function computeCosting(recipe: RecipeBom, po: ProdOrder, allItems: Item[]) {
     if (!po.execution) return undefined;
     const { durationHours = 0, goodUnits = 0 } = po.execution;
-    
-    let allItems: Item[] = [];
-    if (po.actuals && po.actuals.length > 0) {
-    }
     
     const { plannedBottles } = planFromRecipe(recipe, po.targetQuantity, allItems);
 
@@ -206,7 +203,7 @@ export default function ProduccionPage() {
               if (patch.execution && !patch.costing) {
                   const recipe = recipes.find(r => r.id === updatedOrder.bomId);
                   if (recipe) {
-                    const c = computeCosting(recipe, updatedOrder);
+                    const c = computeCosting(recipe, updatedOrder, allItems);
                     updatedOrder.costing = c as any;
                   }
               }
@@ -224,7 +221,7 @@ export default function ProduccionPage() {
     } finally {
       setBusyOp(null);
     }
-  }, [saveAllCollections, recipes, santaData, push]);
+  }, [saveAllCollections, recipes, santaData, push, allItems]);
   
     const deleteOrder = useCallback(async (id: string) => {
         setBusyOp("delete");
@@ -316,7 +313,7 @@ export default function ProduccionPage() {
             seq: 1 // This should be calculated based on existing lots
         });
     
-        const newLotCosting = computeCosting(recipe!, { ...o, execution: finalExecution });
+        const newLotCosting = computeCosting(recipe!, { ...o, execution: finalExecution }, allItems);
 
         const newOnHandItem: OnHandView = {
             id: `onhand_${newLotNumber}`,
@@ -609,7 +606,7 @@ function OrdersList({ orders, recipes, onStart, onFinish, onUpdate, onDelete, on
 
       {openOrder && openRecipe && (
         <div className="border-t border-[var(--line)] p-4 bg-zinc-50/60">
-          <OrderDetail order={openOrder} recipe={openRecipe} onClose={()=>setOpenId(null)} onStart={startOrder} onFinish={onFinish} onUpdate={onUpdate} inventory={inventory} allItems={allItems} busyOp={busyOp} />
+          <OrderDetail order={openOrder} recipe={openRecipe} onClose={()=>setOpenId(null)} onStart={onStart} onFinish={onFinish} onUpdate={onUpdate} inventory={inventory} allItems={allItems} busyOp={busyOp} />
         </div>
       )}
     </div>

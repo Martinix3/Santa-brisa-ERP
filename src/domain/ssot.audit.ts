@@ -1,3 +1,4 @@
+
 // src/domain/ssot.audit.ts
 import {
   // Tipos/constantes del SSOT
@@ -6,9 +7,9 @@ import {
   PARTY_ROLE_META, LOT_QC_META, PHASE_DEPT, PHASE_NAME_ES,
   // Tipos para derivar literales
   type SantaData, type AccountType, type OrderStatus, type ShipmentStatus,
-  type PartyRoleType, type TraceEventPhase
-} from "@/domain/ssot";
-import { POLICIES, type CodeEntity } from '@/lib/codes';
+  type PartyRoleType, type TraceEventPhase, type CodeEntity
+} from "@/domain";
+import { POLICIES } from '@/lib/codes';
 
 // ----------------------------
 // Helpers de exhaustividad
@@ -39,7 +40,6 @@ function assertHasAllKeys<K extends string>(
 
 type SantaDataKeys = keyof SantaData;
 const SantaDataLiteralKeys = [
-  // Derivado manualmente por TS no es posible; mantenemos esta lista por build-fail temprano
   "parties","partyRoles","partyDuplicates","users","accounts","ordersSellOut","interactions",
   "items","billOfMaterials","productionOrders","qaChecks","onHand",
   "stockMoves","shipments","deliveryNotes","goodsReceipts","activations","promotions",
@@ -74,7 +74,7 @@ function auditMeta() {
   assertHasAllKeys(PARTY_ROLE_META as Record<PartyRoleType, any>, ALL_PARTY_ROLES, "PARTY_ROLE_META");
   assertHasAllKeys(PHASE_DEPT as Record<TraceEventPhase, any>, ALL_PHASES, "PHASE_DEPT");
   assertHasAllKeys(PHASE_NAME_ES as Record<TraceEventPhase, any>, ALL_PHASES, "PHASE_NAME_ES");
-  assertHasAllKeys(POLICIES as Record<keyof typeof POLICIES, any>, ALL_CODE_ENTITIES, "CODE_POLICIES");
+  assertHasAllKeys(POLICIES as Record<keyof typeof POLICIES, any>, ALL_CODE_ENTITIES as any, "CODE_POLICIES");
   // LOT_QC_META es un alias de SB_COLORS.lotQC; no es un enum pero comprobamos campos mínimos
   for (const k of ["release","hold","reject"] as const) {
     if (!(k in LOT_QC_META)) throw new Error(`❌ LOT_QC_META falta clave: ${k}`);

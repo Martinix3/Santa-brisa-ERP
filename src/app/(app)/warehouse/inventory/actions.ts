@@ -1,9 +1,10 @@
+
 'use server';
 import { revalidatePath } from 'next/cache';
 import { ok, fail, type ActionResult } from '@/lib/result';
-import { upsertMany } from '@/lib/dataprovider/actions'; // usa tus helpers reales
+import { upsertMany } from '@/lib/dataprovider/actions';
 import { getServerData } from '@/lib/dataprovider/server';
-import type { StockMove, OnHandView } from '@/domain/ssot';
+import type { StockMove, OnHandView, SantaData } from '@/domain/ssot';
 import { deriveOnHand } from '@/domain/onhand.recalc';
 
 async function getCollection<T>(collectionName: keyof SantaData): Promise<T[]> {
