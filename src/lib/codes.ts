@@ -1,218 +1,154 @@
+// src/lib/codes.ts
+// === Códigos canónicos Santa Brisa ===================================
 
-/**
- * Santa Brisa — Codes Helpers (SKUs, Lotes, Pedidos, PLV)
- * --------------------------------------------------------
- * Reglas resumidas:
- *  - SKU:    [CATEG]-[PRODUCTO]-[PRESENTACION?]         (p.ej. PT-GIN-0700, PT-MARG-0330-6PK, RM-LIME-CONC, PLV-GLASS)
- *  - LOTE:   [YYMMDD]-[SKU]-[NN]                         (p.ej. 250915-PT-GIN-0700-01)
- *  - PEDIDO: ORD-[CANAL]-[YYYYMMDD]-[####]               (p.ej. ORD-SB-20250915-0042)
- *  - PLV:    PLV-[TIPO]-[YYYY]-[####]                    (p.ej. PLV-KIT-2025-0031)
- *
- *  Todo en MAYÚSCULAS, separadores '-'; secuenciales con padding fijo.
- */
-import type { AccountType } from '@/domain/ssot';
+export type ISODate = string; // '2025-09-26'
+const pad = (n: number, len = 4) => String(n).padStart(len, '0');
+const toYYMMDD = (d: Date) =>
+  `${String(d.getFullYear()).slice(-2)}${pad(d.getMonth() + 1, 2)}${pad(d.getDate(), 2)}`;
+const toYYYYMM = (d: Date) =>
+  `${d.getFullYear()}${pad(d.getMonth() + 1, 2)}`;
+const toYYYYMMDD = (d: Date) =>
+  `${d.getFullYear()}${pad(d.getMonth() + 1, 2)}${pad(d.getDate(), 2)}`;
 
-// =====================================================
-// Types
-// =====================================================
-export type Category = 'PT' | 'RM' | 'PLV';
-export type PlvType = 'GLASS' | 'POSTER' | 'KIT' | 'MUESTRA' | 'STAND' | 'ROLLUP' | 'OTRO';
+const UPPER = (s: string) => s.normalize("NFKD").replace(/\p{Diacritic}/gu, "").toUpperCase();
+const SEG = (s: string) => UPPER(s).replace(/[^A-Z0-9]/g, '').slice(0, 6); // segmento SKU
 
-export type SkuParts = { category: Category; product: string; presentation?: string };
-export type LotParts = { date: Date; sku: string; seq: number };
-export type OrderParts = { channel: AccountType; date: Date; seq: number };
-export type PlvParts = { type: PlvType; year: number; seq: number };
+// ---------------------------------------------------------------------
+// 1) SKU  CAT-PROD-PRESENT  (3 × segmentos alfanum de 1–6)
+//    Ej: SB-MARG-0700, PT-GIN-0700, TV-VERM-1000
+// ---------------------------------------------------------------------
+export type SkuParts = { category: string; product: string; presentation: string };
 
-// =====================================================
-// Utilities
-// =====================================================
-const pad = (n: number, w: number) => n.toString().padStart(w, '0');
-const onlyAscii = (s: string) => s
-  .normalize('NFD')
-  .replace(/\p{Diacritic}+/gu, '')
-  .replace(/[^A-Za-z0-9-]/g, '-')
-  .replace(/-+/g, '-')
-  .replace(/^-|-$/g, '');
-const upper = (s: string) => onlyAscii(s).toUpperCase();
+export const SKU_RE = /^[A-Z0-9]{1,6}-[A-Z0-9]{1,6}-[A-Z0-9]{1,6}$/;
 
-const toYYMMDD = (d: Date) => `${pad(d.getFullYear() % 100, 2)}${pad(d.getMonth() + 1, 2)}${pad(d.getDate(), 2)}`;
-const toYYYYMMDD = (d: Date) => `${d.getFullYear()}${pad(d.getMonth() + 1, 2)}${pad(d.getDate(), 2)}`;
-
-// Generic prefix-based next sequence calculator
-export function nextSeq(existing: string[], prefix: string, width = 2): number {
-  const re = new RegExp(`^${prefix}(\\d{${width}})$`);
-  const max = existing.reduce((m, code) => {
-    const mm = code.match(re);
-    if (!mm) return m;
-    const n = parseInt(mm[1], 10);
-    return n > m ? n : m;
-  }, 0);
-  return max + 1;
+export function makeSku(p: SkuParts): string {
+  return `${SEG(p.category)}-${SEG(p.product)}-${SEG(p.presentation)}`;
 }
-
-// =====================================================
-// SKU
-// =====================================================
-export const SKU_RE = /^(PT|RM|PLV)-([A-Z0-9]+)(?:-([A-Z0-9]+))?$/;
-
-export function makeSku({ category, product, presentation }: SkuParts): string {
-  const cat = category;
-  const prod = upper(product);
-  const pres = presentation ? upper(presentation) : undefined;
-  return pres ? `${cat}-${prod}-${pres}` : `${cat}-${prod}`;
-}
-
 export function parseSku(sku: string): SkuParts | null {
-  const m = upper(sku).match(SKU_RE);
-  if (!m) return null;
-  const [, category, product, presentation] = m;
-  return { category: category as Category, product, presentation };
+  if (!SKU_RE.test(UPPER(sku))) return null;
+  const [category, product, presentation] = UPPER(sku).split('-');
+  return { category, product, presentation };
+}
+export const isValidSku = (sku: string) => SKU_RE.test(UPPER(sku));
+
+// Helpers de presentación (p.ej. asegurar 0700)
+export function ensureSkuPresentation(sku: string, presentation: string): string {
+  const p = parseSku(sku); if (!p) throw new Error(`SKU inválido: ${sku}`);
+  return makeSku({ ...p, presentation: SEG(presentation) });
 }
 
-export const isValidSku = (sku: string) => SKU_RE.test(upper(sku));
+// ---------------------------------------------------------------------
+// 2) LOTE  YYMMDD-SKU-####  (fecha compacta + SKU + secuencia diaria)
+//    Ej: 250926-SB-MARG-0700-0001
+// ---------------------------------------------------------------------
+export type LotParts = { date: Date; sku: string; seq: number };
 
-// =====================================================
-// Lote
-// =====================================================
-export const LOT_RE = /^(\d{6})-((?:PT|RM|PLV)-[A-Z0-9-]+)-(\d{2})$/;
-
-export function makeLot({ date, sku, seq }: LotParts): string {
-  const d = toYYMMDD(date);
-  const s = upper(sku);
-  if (!isValidSku(s)) throw new Error(`SKU inválido: ${sku}`);
-  return `${d}-${s}-${pad(seq, 2)}`;
+export function makeLot({ date, sku, seq }: LotParts) {
+  if (!isValidSku(sku)) throw new Error(`SKU inválido: ${sku}`);
+  return `${toYYMMDD(date)}-${UPPER(sku)}-${pad(seq, 4)}`;
 }
+export const LOT_RE =
+  new RegExp(`^[0-9]{6}-(${SKU_RE.source.slice(1, -1)})-[0-9]{4}$`);
 
 export function parseLot(code: string): { date: Date; sku: string; seq: number } | null {
-  const m = upper(code).match(LOT_RE);
+  const m = UPPER(code).match(LOT_RE);
   if (!m) return null;
-  const [, yymmdd, sku, seq] = m;
+  const [yymmdd, sku, seq] = [code.slice(0, 6), code.slice(7, code.length - 5), code.slice(-4)];
   const yy = parseInt(yymmdd.slice(0, 2), 10);
   const mm = parseInt(yymmdd.slice(2, 4), 10) - 1;
   const dd = parseInt(yymmdd.slice(4, 6), 10);
-  const fullYear = 2000 + yy + (yy < 50 ? 0 : 0); // simple pivot; ajustar si se necesita 1950–2049
-  const date = new Date(fullYear, mm, dd);
-  return { date, sku, seq: parseInt(seq, 10) };
+  const year = 2000 + yy;
+  return { date: new Date(year, mm, dd), sku: UPPER(sku), seq: parseInt(seq, 10) };
 }
-
-export const isValidLot = (code: string) => LOT_RE.test(upper(code));
+export const isValidLot = (code: string) => LOT_RE.test(UPPER(code));
 
 export function nextLotSeqForDate(existingLotCodes: string[], date: Date, sku: string): number {
-  const prefix = `${toYYMMDD(date)}-${upper(sku)}-`;
-  return nextSeq(existingLotCodes, prefix, 2);
+  const prefix = `${toYYMMDD(date)}-${UPPER(sku)}-`;
+  const seqs = existingLotCodes
+    .filter(code => code.startsWith(prefix))
+    .map(code => parseInt(code.slice(-4), 10))
+    .filter(n => Number.isFinite(n));
+  return (seqs.length ? Math.max(...seqs) : 0) + 1;
 }
 
-// =====================================================
-// Pedido (Order Code)
-// =====================================================
-export const ORDER_RE = /^ORD-([A-Z]+)-(\d{8})-(\d{4})$/;
+// ---------------------------------------------------------------------
+// 3) Documentos numéricos con prefijo + fecha + secuencia
+//    SO (Sell-Out Order), PO (Production Order), SH (Shipment),
+//    DN (Delivery Note), GR (Goods Receipt)
+// ---------------------------------------------------------------------
+type SeqCtx = { prefix: string; date: Date; width?: number; granularity?: 'YYYYMM'|'YYYYMMDD' };
+const fmt = (g: 'YYYYMM'|'YYYYMMDD', d: Date) => g === 'YYYYMM' ? toYYYYMM(d) : toYYYYMMDD(d);
 
-export function makeOrderCode({ channel, date, seq }: OrderParts): string {
-  return `ORD-${channel.substring(0,4).toUpperCase()}-${toYYYYMMDD(date)}-${pad(seq, 4)}`;
+export function makeCode({ prefix, date, seq, width = 4, granularity = 'YYYYMM' }:
+  { prefix: string; date: Date; seq: number; width?: number; granularity?: 'YYYYMM'|'YYYYMMDD' }) {
+  return `${prefix}-${fmt(granularity, date)}-${pad(seq, width)}`;
+}
+export function codeRe(prefix: string, granularity: 'YYYYMM'|'YYYYMMDD' = 'YYYYMM', width = 4) {
+  const datePart = granularity === 'YYYYMM' ? `[0-9]{6}` : `[0-9]{8}`;
+  return new RegExp(`^${prefix}-${datePart}-[0-9]{${width}}$`);
 }
 
-export function parseOrderCode(code: string): { channel: string; date: Date; seq: number } | null {
-  const m = upper(code).match(ORDER_RE);
-  if (!m) return null;
-  const [, channel, yyyymmdd, seq] = m;
-  const yyyy = parseInt(yyyymmdd.slice(0, 4), 10);
-  const mm = parseInt(yyyymmdd.slice(4, 6), 10) - 1;
-  const dd = parseInt(yyyymmdd.slice(6, 8), 10);
-  return { channel: channel, date: new Date(yyyy, mm, dd), seq: parseInt(seq, 10) };
-}
-
-export const isValidOrderCode = (code: string) => ORDER_RE.test(upper(code));
-
-export function nextOrderSeqForDay(existingOrderCodes: string[], channel: AccountType, date: Date): number {
-  const prefix = `ORD-${channel.substring(0,4).toUpperCase()}-${toYYYYMMDD(date)}-`;
-  return nextSeq(existingOrderCodes, prefix, 4);
-}
-
-// =====================================================
-// PLV Codes
-// =====================================================
-export const PLV_RE = /^PLV-([A-Z0-9]+)-(\d{4})-(\d{4})$/;
-
-export function makePlvCode({ type, year, seq }: PlvParts): string {
-  return `PLV-${type}-${year}-${pad(seq, 4)}`;
-}
-
-export function parsePlvCode(code: string): { type: PlvType | string; year: number; seq: number } | null {
-  const m = upper(code).match(PLV_RE);
-  if (!m) return null;
-  const [, type, yyyy, seq] = m;
-  return { type: type as PlvType, year: parseInt(yyyy, 10), seq: parseInt(seq, 10) };
-}
-
-export const isValidPlvCode = (code: string) => PLV_RE.test(upper(code));
-
-export function nextPlvSeqForYear(existingPlvCodes: string[], type: PlvType, year: number): number {
-  const prefix = `PLV-${type}-${year}-`;
-  return nextSeq(existingPlvCodes, prefix, 4);
-}
-
-// =====================================================
-// Convenience: Generadores deterministas con listas existentes
-// =====================================================
-export function generateNextLot(existingLots: string[], date: Date, sku: string) {
-  const seq = nextLotSeqForDate(existingLots, date, sku);
-  return makeLot({ date, sku, seq });
-}
-
-export function generateNextOrder(existingOrders: string[], channel: AccountType, date: Date) {
-  const seq = nextOrderSeqForDay(existingOrders, channel, date);
-  return makeOrderCode({ channel, date, seq });
-}
-
-export function generateNextPlv(existingPlv: string[], type: PlvType, year: number) {
-  const seq = nextPlvSeqForYear(existingPlv, type, year);
-  return makePlvCode({ type, year, seq });
-}
-
-// =====================================================
-// Quick self-tests (dev time)
-// =====================================================
-export function __selfTest() {
-  const sku1 = makeSku({ category: 'PT', product: 'gin', presentation: '0700' });
-  if (sku1 !== 'PT-GIN-0700') throw new Error('SKU fail');
-  if (!isValidSku(sku1) || !parseSku(sku1)) throw new Error('SKU parse fail');
-
-  const lot = makeLot({ date: new Date(2025, 8, 15), sku: sku1, seq: 1 });
-  if (lot !== '250915-PT-GIN-0700-01') throw new Error('LOT fail');
-  if (!isValidLot(lot) || !parseLot(lot)) throw new Error('LOT parse fail');
-
-  const ord = makeOrderCode({ channel: 'HORECA', date: new Date(2025, 8, 15), seq: 42 });
-  if (ord !== 'ORD-HORE-20250915-0042') throw new Error('ORDER fail');
-  if (!isValidOrderCode(ord) || !parseOrderCode(ord)) throw new Error('ORDER parse fail');
-
-  const plv = makePlvCode({ type: 'KIT', year: 2025, seq: 31 });
-  if (plv !== 'PLV-KIT-2025-0031') throw new Error('PLV fail');
-  if (!isValidPlvCode(plv) || !parsePlvCode(plv)) throw new Error('PLV parse fail');
-
-  return true;
-}
-
-// =====================================================
-// Adaptadores (opcional): helpers para SSOT
-// =====================================================
-export function suggestSkuForProduct(name: string, category: Category): string {
-  // Heurística simple: toma primeras 6 letras del token más informativo
-  const tokens = upper(name).split(/[-\s_]+/).filter(Boolean);
-  const base = (tokens.find(t => t.length >= 3) || tokens[0] || 'SKU').slice(0, 6);
-  return makeSku({ category, product: base });
-}
-
-export function ensureSkuPresentation(sku: string, presentation: string): string {
-  const p = parseSku(sku);
-  if (!p) throw new Error('SKU inválido');
-  return makeSku({ category: p.category, product: p.product, presentation });
-}
-
-// Pretty-print utilities
-export const formatLotHuman = (code: string) => {
-  const p = parseLot(code);
-  if (!p) return code;
-  return `${code} (fecha ${p.date.toISOString().slice(0,10)}, sku ${p.sku}, seq ${p.seq})`;
+// Esquemas predefinidos
+export const POLICIES = {
+  SO: { prefix: 'SO', granularity: 'YYYYMM' as const, width: 4, re: codeRe('SO', 'YYYYMM', 4) },
+  PO: { prefix: 'PO', granularity: 'YYYYMM' as const, width: 4, re: codeRe('PO', 'YYYYMM', 4) },
+  SH: { prefix: 'SH', granularity: 'YYYYMMDD' as const, width: 4, re: codeRe('SH', 'YYYYMMDD', 4) },
+  DN: { prefix: 'DN', granularity: 'YYYYMMDD' as const, width: 4, re: codeRe('DN', 'YYYYMMDD', 4) },
+  GR: { prefix: 'GR', granularity: 'YYYYMMDD' as const, width: 4, re: codeRe('GR', 'YYYYMMDD', 4) },
 };
 
-// End of file
+// Parsers genéricos
+export function parseDatedCode(code: string, policy = POLICIES.SO):
+  { prefix: string; period: string; seq: number } | null {
+  const re = policy.re; if (!re.test(code)) return null;
+  const [, period, seq] = code.split('-');
+  return { prefix: policy.prefix, period, seq: parseInt(seq, 10) };
+}
+export const isValidCode = (code: string, policy = POLICIES.SO) => policy.re.test(code);
+
+// Secuenciador (en memoria, DB vacía). Cambiable a Firestore counters.
+export function nextSeq(existingCodes: string[], ctx: SeqCtx): number {
+  const period = fmt(ctx.granularity ?? 'YYYYMM', ctx.date);
+  const prefix = `${ctx.prefix}-${period}-`;
+  const seqs = existingCodes
+    .filter(c => c.startsWith(prefix))
+    .map(c => parseInt(c.slice(- (ctx.width ?? 4)), 10))
+    .filter(Number.isFinite);
+  return (seqs.length ? Math.max(...seqs) : 0) + 1;
+}
+
+// Azúcares para cada documento
+export function makeSellOutOrderCode(existing: string[], date = new Date()) {
+  const seq = nextSeq(existing, { prefix: 'SO', date, granularity: 'YYYYMM', width: 4 });
+  return makeCode({ prefix: 'SO', date, seq, granularity: 'YYYYMM', width: 4 });
+}
+export function makeProdOrderCode(existing: string[], date = new Date()) {
+  const seq = nextSeq(existing, { prefix: 'PO', date, granularity: 'YYYYMM', width: 4 });
+  return makeCode({ prefix: 'PO', date, seq, granularity: 'YYYYMM', width: 4 });
+}
+export function makeShipmentCode(existing: string[], date = new Date()) {
+  const seq = nextSeq(existing, { prefix: 'SH', date, granularity: 'YYYYMMDD', width: 4 });
+  return makeCode({ prefix: 'SH', date, seq, granularity: 'YYYYMMDD', width: 4 });
+}
+export function makeDeliveryNoteCode(existing: string[], date = new Date()) {
+  const seq = nextSeq(existing, { prefix: 'DN', date, granularity: 'YYYYMMDD', width: 4 });
+  return makeCode({ prefix: 'DN', date, seq, granularity: 'YYYYMMDD', width: 4 });
+}
+export function makeGoodsReceiptCode(existing: string[], date = new Date()) {
+  const seq = nextSeq(existing, { prefix: 'GR', date, granularity: 'YYYYMMDD', width: 4 });
+  return makeCode({ prefix: 'GR', date, seq, granularity: 'YYYYMMDD', width: 4 });
+}
+
+// ---------------------------------------------------------------------
+// Mini tests (opcional: puedes quitarlos si molesta en build)
+function __selftest() {
+  const sku = makeSku({ category: 'SB', product: 'MARG', presentation: '0700' });
+  if (!isValidSku(sku)) throw new Error('SKU inválido');
+  const lot = makeLot({ date: new Date(2025, 8, 26), sku, seq: 1 });
+  if (!isValidLot(lot)) throw new Error('LOT inválido');
+
+  const so1 = makeSellOutOrderCode([]);
+  const so2 = makeSellOutOrderCode([so1]);
+  if (!POLICIES.SO.re.test(so2)) throw new Error('SO inválido');
+}
+// __selftest();

@@ -13,14 +13,14 @@ import { motion, AnimatePresence } from "framer-motion";
 import { AlertCircle, Check, Hourglass, X, Thermometer, FlaskConical, Beaker, TestTube2, Paperclip, Upload, Trash2, ChevronRight, ChevronDown, Save, Bug, Edit } from "lucide-react";
 import { SBCard, SBButton } from '@/components/ui/ui-primitives';
 import { useData } from "@/lib/dataprovider";
-import type { ProductionOrder as ProdOrder, Uom, Material, Shortage, ActualConsumption, InventoryItem, Product, SantaData, ExecCheck, BillOfMaterial as RecipeBom, Reservation, SB_THEME } from '@/domain/ssot';
-import { availableForMaterial, fifoReserveLots, buildConsumptionMoves, consumeForOrder } from '@/domain/inventory.helpers';
-import { generateNextLot } from '@/lib/codes';
+import type { ProductionOrder as ProdOrder, Uom, Item, Shortage, ActualConsumption, InventoryItem, SantaData, ExecCheck, BillOfMaterial as RecipeBom, Reservation, SB_THEME } from '@/domain/ssot';
+import { availableForItem, fifoReserveLots, buildConsumptionMoves, consumeForOrder } from '@/domain/inventory.helpers';
+import { makeLot, makeProdOrderCode } from '@/lib/codes';
 import { SB_COLORS } from "@/domain/ssot";
 import { useToaster } from "@/components/ui/Toaster";
 import { Banner } from "@/components/ui/Banner";
 import { SpinnerButton } from "@/components/ui/SpinnerButton";
-import { canonicalUomForMaterial, canonicalUomForFinished } from "@/domain/uom";
+import { canonicalUomForItem, canonicalUomForFinished } from "@/domain/uom";
 
 
 // ---------------------- Utilidades de cálculo ----------------------
@@ -29,30 +29,31 @@ function scaleQty(qtyPerBatch: number, base: number, target: number) { return (q
 function planFromRecipe(
   recipe: RecipeBom,
   targetBatchSize: number,
-  materials: Material[],
+  items: Item[],
   inventory?: InventoryItem[],
 ): { lines: ActualConsumption[], plannedBottles: number, finishedUom: Uom } {
   if (!recipe || !recipe.items) {
-    return { lines: [], plannedBottles: 0, finishedUom: "uds" as Uom };
+    return { lines: [], plannedBottles: 0, finishedUom: "unit" as Uom };
   }
-  const materialMap = new Map(materials.map(m => [m.id, m]));
+  const itemMap = new Map(items.map(m => [m.id, m]));
   const lines: ActualConsumption[] = recipe.items.map((l) => {
-    const theoreticalQty = scaleQty(l.quantity, recipe.batchSize, targetBatchSize);
-    const material = materialMap.get(l.materialId);
-    const uom = canonicalUomForMaterial(l.materialId, inventory || [], materials);
+    const theoreticalQty = scaleQty(l.qty, recipe.batchSize, targetBatchSize);
+    const item = itemMap.get(l.itemId);
+    const uom = canonicalUomForItem(l.itemId, inventory || [], items);
     return {
-        materialId: l.materialId,
-        name: material?.name || 'Unknown',
-        fromLot: undefined, // Se determinará al iniciar
+        itemId: l.itemId,
+        name: item?.name || 'Unknown',
+        fromLotNumber: undefined, // Se determinará al iniciar
         theoreticalQty,
         actualQty: theoreticalQty, // Por defecto, lo real es lo teórico
-        uom, // 👈 manda inventario/material
-        costPerUom: material?.standardCost || 0
+        uom, // 👈 manda inventario/item
+        costPerUom: item?.stdCost || 0
     };
   });
-  const bottlesPerLiter = recipe.sku.includes('700') ? 1.42 : 1.33;
+  const outputItem = items.find(i => i.id === recipe.outputItemId);
+  const bottlesPerLiter = outputItem?.sku.includes('700') ? 1.42 : 1.33;
   const plannedBottles = Math.floor(bottlesPerLiter * targetBatchSize);
-  const finishedUom = canonicalUomForFinished(recipe.sku, inventory || []);
+  const finishedUom = canonicalUomForFinished(recipe.outputItemId, inventory || []);
   return { lines, plannedBottles, finishedUom };
 }
 
@@ -61,24 +62,24 @@ function round1(n: number) { return Math.round(n * 10) / 10; }
 
 function computeCosting(recipe: RecipeBom, po: ProdOrder) {
     if (!po.execution) return undefined;
-    const { durationHours = 0, goodBottles = 0 } = po.execution;
+    const { durationHours = 0, goodUnits = 0 } = po.execution;
     
-    let allMaterials: Material[] = []; // This will be populated from context
+    let allItems: Item[] = []; // This will be populated from context
     if (po.actuals && po.actuals.length > 0) {
-        // A bit of a hack, we should get allMaterials from context.
+        // A bit of a hack, we should get allItems from context.
         // For now, this is a placeholder.
     }
     
-    const { plannedBottles } = planFromRecipe(recipe, po.targetQuantity, allMaterials);
+    const { plannedBottles } = planFromRecipe(recipe, po.targetQuantity, allItems);
 
     let materials = 0;
     
     if(po.actuals && po.actuals.length > 0) {
         for(const act of po.actuals) {
-            materials += act.actualQty * act.costPerUom;
+            materials += act.actualQty * (act.costPerUom || 0);
         }
     } else {
-        const plan = planFromRecipe(recipe, po.targetQuantity, allMaterials);
+        const plan = planFromRecipe(recipe, po.targetQuantity, allItems);
         for (const l of plan.lines) {
             materials += l.theoreticalQty * l.costPerUom;
         }
@@ -90,9 +91,9 @@ function computeCosting(recipe: RecipeBom, po: ProdOrder) {
     const labor = stdLaborCostPerHour * (durationHours || 0);
     const overhead = stdOverheadPerBatch;
     const total = materials + labor + overhead;
-    const costPerBottle = goodBottles > 0 ? total / goodBottles : 0;
-    const yieldPct = plannedBottles > 0 ? (goodBottles / plannedBottles) * 100 : 0;
-    const scrapBottles = po.execution.scrapBottles ?? Math.max(0, plannedBottles - goodBottles);
+    const costPerBottle = goodUnits > 0 ? total / goodUnits : 0;
+    const yieldPct = plannedBottles > 0 ? (goodUnits / plannedBottles) * 100 : 0;
+    const scrapBottles = po.execution.scrapUnits ?? Math.max(0, plannedBottles - goodUnits);
     const scrapPct = plannedBottles > 0 ? (scrapBottles / plannedBottles) * 100 : 0;
     
     return {
@@ -128,9 +129,8 @@ export default function ProduccionPage() {
 
     const orders = useMemo(() => santaData?.productionOrders || [], [santaData]);
     
-    const warehouseInventory = useMemo(()=> (santaData?.inventory || []) as InventoryItem[], [santaData?.inventory])
-    const products = useMemo(()=> (santaData?.products || []) as Product[], [santaData?.products])
-    const allMaterials = useMemo(() => santaData?.materials || [], [santaData]);
+    const onHand = useMemo(()=> (santaData?.onHand || []) as OnHandView[], [santaData?.onHand])
+    const allItems = useMemo(() => santaData?.items || [], [santaData]);
 
 
     useEffect(() => {
@@ -147,42 +147,42 @@ export default function ProduccionPage() {
     setBusyOp("create");
     setLastError(null);
     const { recipe, targetBatchSize, whenISO, responsibleId } = args;
-    const { lines: actuals, finishedUom } = planFromRecipe(recipe, targetBatchSize, allMaterials, warehouseInventory);
+    const { lines: actuals, finishedUom } = planFromRecipe(recipe, targetBatchSize, allItems, onHand);
   
     const shortages: Shortage[] = [];
     const reservations: Reservation[] = [];
   
     for (const line of actuals) {
-        const avail = availableForMaterial(line.materialId, warehouseInventory, allMaterials, line.uom === 'uds' ? 'PKG/MAIN' : 'RM/MAIN');
+        const avail = availableForItem(line.itemId, onHand, allItems, line.uom === 'unit' ? 'PKG/MAIN' : 'RM/MAIN');
         if (avail < line.theoreticalQty) {
           shortages.push({
-            materialId: line.materialId,
+            itemId: line.itemId,
             required: line.theoreticalQty,
             available: avail,
             uom: line.uom,
           });
         } else {
-            const locationPrefix = allMaterials.find(m => m.id === line.materialId)?.category === 'raw' ? 'RM/MAIN' : 'PKG/MAIN';
-            const picks = fifoReserveLots(line.materialId, line.theoreticalQty, warehouseInventory, allMaterials, locationPrefix);
-            picks.forEach(p => reservations.push({ materialId: line.materialId, fromLot: p.fromLot, reservedQty: p.reservedQty, uom: p.uom }));
+            const locationPrefix = allItems.find(m => m.id === line.itemId)?.category === 'raw' ? 'RM/MAIN' : 'PKG/MAIN';
+            const picks = fifoReserveLots(line.itemId, line.theoreticalQty, onHand, allItems, locationPrefix);
+            picks.forEach(p => reservations.push({ itemId: line.itemId, fromLotNumber: p.fromLotNumber, reservedQty: p.reservedQty, uom: p.uom }));
         }
     }
   
-    const id = `po_${Math.random().toString(36).slice(2, 8)}`;
+    const id = makeProdOrderCode((santaData.productionOrders || []).map(o => o.orderNumber || ''), new Date());
     const now = new Date().toISOString();
   
     const newOrder: ProdOrder = {
-      id,
+      id: `po_${Date.now()}`,
+      orderNumber: id,
       bomId: recipe.id,
-      sku: recipe.sku,
+      outputItemId: recipe.outputItemId,
       targetQuantity: targetBatchSize,
       status: "planned",
       createdAt: now,
       scheduledFor: whenISO,
       responsibleId,
       checks: ((recipe as any).protocolChecklist || []).map((p: any) => ({ id: p.id, done: false })),
-      shortages: shortages.length ? shortages : undefined,
-      reservations: reservations.length ? reservations : undefined,
+      reservations: reservations.length ? reservations as any[] : undefined,
       actuals,
     };
   
@@ -191,7 +191,7 @@ export default function ProduccionPage() {
             productionOrders: [newOrder, ...((santaData.productionOrders) || [])]
         });
       if (shortages.length) {
-        push({ kind: "warn", text: `Orden creada con faltantes: ${shortages.map(s => allMaterials.find(m => m.id === s.materialId)?.name).join(", ")}.` });
+        push({ kind: "warn", text: `Orden creada con faltantes: ${shortages.map(s => allItems.find(m => m.id === s.itemId)?.name).join(", ")}.` });
       } else {
         push({ kind: "ok", text: "Orden creada con stock reservado." });
       }
@@ -202,7 +202,7 @@ export default function ProduccionPage() {
     } finally {
       setBusyOp(null);
     }
-  }, [warehouseInventory, saveAllCollections, allMaterials, santaData, push]);
+  }, [onHand, saveAllCollections, allItems, santaData, push]);
   
 
   const updateOrder = useCallback(async (id: string, patch: Partial<ProdOrder>) => {
@@ -270,11 +270,10 @@ export default function ProduccionPage() {
         const moves = buildConsumptionMoves({
         orderId: order.id,
         reservations: order.reservations as any,
-        materials: allMaterials,
         fromLocation: "RM/MAIN",
         });
     
-        const updatedInventory = consumeForOrder(warehouseInventory, products, moves);
+        const updatedOnHand = consumeForOrder(onHand, moves);
     
         try {
             const updatedOrders = (santaData.productionOrders || []).map(o =>
@@ -283,7 +282,7 @@ export default function ProduccionPage() {
                 : o
             );
             await saveAllCollections({
-                inventory: updatedInventory,
+                onHand: updatedOnHand as OnHandView[],
                 stockMoves: [ ...(santaData.stockMoves || []), ...moves ],
                 productionOrders: updatedOrders,
             });
@@ -295,10 +294,10 @@ export default function ProduccionPage() {
         } finally {
         setBusyOp(null);
         }
-    }, [santaData, saveAllCollections, warehouseInventory, products, allMaterials, push]);
+    }, [santaData, saveAllCollections, onHand, push]);
   
 
-    const finishOrder = useCallback(async (o: ProdOrder, finalYield: number, yieldUom: 'L' | 'ud' | 'uds') => {
+    const finishOrder = useCallback(async (o: ProdOrder, finalYield: number, yieldUom: 'L' | 'unit' | 'uds') => {
         if (!santaData) return;
         setBusyOp("finish");
         setLastError(null);
@@ -309,50 +308,49 @@ export default function ProduccionPage() {
         const durationMs = new Date(finishedAt).getTime() - new Date(o.execution.startedAt).getTime();
         const durationHours = durationMs / (1000 * 60 * 60);
     
-        const bottlesPerLiter = 1.33;
-        const goodBottles = (yieldUom === 'ud' || yieldUom === 'uds') ? finalYield : Math.floor(finalYield * bottlesPerLiter);
+        const outputItem = allItems.find(i => i.id === recipe.outputItemId);
+        const bottlesPerLiter = outputItem?.sku.includes('700') ? 1.42 : 1.33;
+        const goodUnits = (yieldUom === 'unit' || yieldUom === 'uds') ? finalYield : Math.floor(finalYield * bottlesPerLiter);
     
         const finalExecution = {
             ...(o.execution),
             finalYield,
             yieldUom,
-            goodBottles,
+            goodUnits,
             finishedAt,
             durationHours: round2(durationHours),
         };
         
-        const newLotId = generateNextLot(
-            (santaData.inventory || []).map(l => l.id),
-            new Date(),
-            recipe.sku
-        );
+        const newLotNumber = makeLot({
+            date: new Date(),
+            sku: outputItem!.sku,
+            seq: nextLotSeqForDate((santaData.onHand || []).map(l => l.lotNumber || ''), new Date(), outputItem!.sku)
+        });
     
         const newLotCosting = computeCosting(recipe!, { ...o, execution: finalExecution });
 
-        const newInventoryItem: InventoryItem = {
-            id: newLotId,
-            sku: recipe.sku,
-            category: "finished_good",
-            qty: finalExecution.goodBottles || 0,
-            uom: "uds",
+        const newOnHandItem: OnHandView = {
+            id: `onhand_${newLotNumber}`,
+            itemId: recipe.outputItemId,
+            lotNumber: newLotNumber,
+            qty: finalExecution.goodUnits || 0,
+            uom: "unit",
+            updatedAt: new Date().toISOString(),
             createdAt: new Date().toISOString(),
-            quality: { qcStatus: "hold", results: {} },
-            source: { type: "PRODUCTION_ORDER", id: o.id },
-            orderId: o.id,
             locationId: "FG/QA",
         };
         
         try {
             const updatedOrders = (santaData.productionOrders || []).map((po: any) =>
                 po.id === o.id
-                ? { ...po, status: "done" as const, execution: finalExecution, lotId: newLotId, costing: newLotCosting }
+                ? { ...po, status: "done" as const, execution: finalExecution, batchCode: newLotNumber, costing: newLotCosting }
                 : po
             );
             await saveAllCollections({ 
-                inventory: [ ...(santaData.inventory || []), newInventoryItem ],
+                onHand: [ ...(santaData.onHand || []), newOnHandItem ],
                 productionOrders: updatedOrders 
             });
-            push({ kind: "ok", text: `Orden ${o.id} completada. Lote ${newLotId} creado (QC: hold).` });
+            push({ kind: "ok", text: `Orden ${o.id} completada. Lote ${newLotNumber} creado.` });
         } catch (e: any) {
             const msg = e?.message ?? "No se pudo finalizar la orden.";
             setLastError(msg);
@@ -360,7 +358,7 @@ export default function ProduccionPage() {
         } finally {
             setBusyOp(null);
         }
-    }, [recipes, santaData, saveAllCollections, push]);
+    }, [recipes, santaData, saveAllCollections, push, allItems]);
 
 
   if (loading || !santaData) return <div className="p-6">Cargando producción…</div>;
@@ -382,9 +380,9 @@ export default function ProduccionPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Tarjeta de faltantes globales */}
-          <MissingMaterialsCard orders={orders} allMaterials={allMaterials} />
+          <MissingMaterialsCard orders={orders} allItems={allItems} />
           {/* Próximas producciones programadas */}
-          <UpcomingScheduleCard orders={orders} recipes={recipes} allMaterials={allMaterials} />
+          <UpcomingScheduleCard orders={orders} recipes={recipes} allItems={allItems} />
           {/* Puedes dejar un hueco para KPIs o un mini-ratio stock/consumo */}
           <div className="rounded-2xl border border-[var(--line)] bg-white p-4">
             <div className="text-xs text-zinc-500 mb-2">Resumen rápido</div>
@@ -398,7 +396,7 @@ export default function ProduccionPage() {
         </div>
       </header>
 
-      <OrdersList orders={orders} recipes={recipes} onStart={startOrder} onFinish={finishOrder} onUpdate={updateOrder} onDelete={deleteOrder} onEdit={setEditingOrder} inventory={warehouseInventory} allMaterials={allMaterials} busyOp={busyOp} />
+      <OrdersList orders={orders} recipes={recipes} onStart={startOrder} onFinish={finishOrder} onUpdate={updateOrder} onDelete={deleteOrder} onEdit={setEditingOrder} inventory={onHand} allItems={allItems} busyOp={busyOp} />
     </div>
   );
 }
@@ -414,8 +412,8 @@ function CreateOrderCard({ recipes, onCreate, onEdit, editingOrder, onCloseEdit,
 }) {
   const [selectedRecipeId, setSelectedRecipeId] = useState<string>("");
   const { data: santaData } = useData();
-  const allMaterials = useMemo(() => santaData?.materials || [], [santaData]);
-  const allInventory = useMemo(() => santaData?.inventory || [], [santaData]);
+  const allItems = useMemo(() => santaData?.items || [], [santaData]);
+  const allOnHand = useMemo(() => santaData?.onHand || [], [santaData]);
 
   const selectedRecipe = useMemo(() => recipes.find(r => r.id === selectedRecipeId), [recipes, selectedRecipeId]);
 
@@ -437,7 +435,7 @@ function CreateOrderCard({ recipes, onCreate, onEdit, editingOrder, onCloseEdit,
     }
   }, [editingOrder, recipes]);
 
-  const plan = useMemo(() => selectedRecipe ? planFromRecipe(selectedRecipe, target, allMaterials, allInventory) : null, [selectedRecipe, target, allMaterials, allInventory]);
+  const plan = useMemo(() => selectedRecipe ? planFromRecipe(selectedRecipe, target, allItems, allOnHand) : null, [selectedRecipe, target, allItems, allOnHand]);
   
   const [isSaving, setIsSaving] = useState(false);
 
@@ -558,15 +556,15 @@ function ConfirmDeleteButton({ onClick, orderId, isBusy }: { onClick: (id: strin
 }
 
 // ---------------------- UI: listado + detalle ----------------------
-function OrdersList({ orders, recipes, onStart, onFinish, onUpdate, onDelete, onEdit, inventory, allMaterials, busyOp }: { 
+function OrdersList({ orders, recipes, onStart, onFinish, onUpdate, onDelete, onEdit, inventory, allItems, busyOp }: { 
     orders: ProdOrder[]; 
     recipes: RecipeBom[]; 
     onStart: (id: string)=>void; 
-    onFinish: (o: ProdOrder, finalYield: number, yieldUom: 'L' | 'ud' | 'uds')=>void; 
+    onFinish: (o: ProdOrder, finalYield: number, yieldUom: 'L' | 'unit' | 'uds')=>void; 
     onUpdate: (id:string, patch: Partial<ProdOrder>)=>Promise<void>; 
     onDelete: (id: string) => Promise<void>;
     onEdit: (order: ProdOrder) => void;
-    inventory: any[], allMaterials: Material[], busyOp: string | null 
+    inventory: any[], allItems: Item[], busyOp: string | null 
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const openOrder = orders.find(o => o.id === openId) || null;
@@ -588,7 +586,7 @@ function OrdersList({ orders, recipes, onStart, onFinish, onUpdate, onDelete, on
         <tbody>
           {orders.map(o => {
             const recipe = recipes.find(r => r.id === o.bomId);
-            const { plannedBottles: plan } = recipe ? planFromRecipe(recipe, o.targetQuantity, allMaterials) : { plannedBottles: 0 };
+            const { plannedBottles: plan } = recipe ? planFromRecipe(recipe, o.targetQuantity, allItems) : { plannedBottles: 0 };
             return (
             <tr key={o.id} className="border-t border-[var(--line)]">
               <td className="px-3 py-2 font-medium">{o.orderNumber || o.id}</td>
@@ -599,18 +597,6 @@ function OrdersList({ orders, recipes, onStart, onFinish, onUpdate, onDelete, on
                     {o.status === 'wip' && <Pill tone="blue">EN PROCESO</Pill>}
                     {o.status === 'done' && <Pill tone="green">COMPLETADA</Pill>}
                     {o.status === 'cancelled' && <Pill tone="slate">CANCELADA</Pill>}
-                    {o.shortages && o.shortages.length > 0 && o.status === 'planned' && (
-                        <div className="relative group">
-                            <AlertCircle className="h-4 w-4 text-red-500 cursor-pointer"/>
-                            <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-64 bg-zinc-800 text-white text-xs rounded-lg p-2 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                                <p className="font-bold mb-1">Falta de stock:</p>
-                                <ul className="list-disc list-inside">
-                                    {o.shortages.map(s => <li key={s.materialId}>{allMaterials.find(m => m.id === s.materialId)?.name}: falta {(s.required - s.available).toFixed(2)} {s.uom}</li>)}
-                                </ul>
-                                <div className="absolute left-1/2 -translate-x-1/2 bottom-[-4px] w-2 h-2 bg-zinc-800 rotate-45"/>
-                            </div>
-                        </div>
-                    )}
                 </div>
               </td>
               <td className="px-3 py-2">{o.scheduledFor ? new Date(o.scheduledFor).toLocaleString() : '—'}</td>
@@ -634,33 +620,33 @@ function OrdersList({ orders, recipes, onStart, onFinish, onUpdate, onDelete, on
 
       {openOrder && openRecipe && (
         <div className="border-t border-[var(--line)] p-4 bg-zinc-50/60">
-          <OrderDetail order={openOrder} recipe={openRecipe} onClose={()=>setOpenId(null)} onStart={onStart} onFinish={onFinish} onUpdate={onUpdate} inventory={inventory} allMaterials={allMaterials} busyOp={busyOp} />
+          <OrderDetail order={openOrder} recipe={openRecipe} onClose={()=>setOpenId(null)} onStart={onStart} onFinish={onFinish} onUpdate={onUpdate} inventory={inventory} allItems={allItems} busyOp={busyOp} />
         </div>
       )}
     </div>
   );
 }
 
-function OrderDetail({ order, recipe, onClose, onStart, onFinish, onUpdate, inventory, allMaterials, busyOp }: { 
+function OrderDetail({ order, recipe, onClose, onStart, onFinish, onUpdate, inventory, allItems, busyOp }: { 
     order: ProdOrder; 
     recipe: RecipeBom; 
     onClose: ()=>void; 
     onStart: (id: string)=>void; 
-    onFinish: (o: ProdOrder, finalYield: number, yieldUom: 'L' | 'ud' | 'uds')=>void; 
+    onFinish: (o: ProdOrder, finalYield: number, yieldUom: 'L' | 'unit' | 'uds')=>void; 
     onUpdate: (id:string, patch: Partial<ProdOrder>)=>Promise<void>; 
-    inventory: any[], allMaterials: Material[], busyOp: string | null 
+    inventory: any[], allItems: Item[], busyOp: string | null 
 }) {
   const defaultYieldUom = useMemo(
-    () => canonicalUomForFinished(recipe.sku, inventory),
-    [recipe.sku, inventory]
-  ) as 'L'|'ud'|'uds';
+    () => canonicalUomForFinished(recipe.outputItemId, inventory),
+    [recipe.outputItemId, inventory]
+  ) as 'L'|'unit'|'uds';
   const [finalYield, setFinalYield] = useState<number | ''>('');
-  const [yieldUom, setYieldUom] = useState<'L' | 'ud' | 'uds'>(defaultYieldUom === 'L' ? 'L' : 'uds');
+  const [yieldUom, setYieldUom] = useState<'L' | 'unit' | 'uds'>(defaultYieldUom === 'L' ? 'L' : 'unit');
   const [incidentNote, setIncidentNote] = useState("");
   const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   const protocolsOk = (order.checks || []).every(c => c.done);
-  const { plannedBottles } = planFromRecipe(recipe, order.targetQuantity, allMaterials);
+  const { plannedBottles } = planFromRecipe(recipe, order.targetQuantity, allItems);
 
   const handleFinish = () => {
     if (finalYield === '') return;
@@ -679,7 +665,7 @@ function OrderDetail({ order, recipe, onClose, onStart, onFinish, onUpdate, inve
       if (!execution) return null;
       
       const plannedYield = (recipe.baseUnit === 'L' ? order.targetQuantity : plannedBottles);
-      const plannedUom = recipe.baseUnit === 'L' ? 'L' : 'uds';
+      const plannedUom = recipe.baseUnit === 'L' ? 'L' : 'unit';
       const actualYield = execution.finalYield ?? 0;
       const merma = plannedYield > 0 ? plannedYield - actualYield : 0;
       const mermaPct = plannedYield > 0 ? (merma / plannedYield) * 100 : 0;
@@ -721,23 +707,6 @@ function OrderDetail({ order, recipe, onClose, onStart, onFinish, onUpdate, inve
       <div className="flex items-center justify-between mb-3">
         <div className="font-medium flex items-center gap-2">
           Orden {order.orderNumber || order.id}
-          {order.shortages && order.shortages.length > 0 && order.status === 'planned' && (
-              <div className="relative group">
-                  <AlertCircle className="h-5 w-5 text-red-500 cursor-pointer"/>
-                  <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-72 bg-zinc-800 text-white text-xs rounded-lg p-3 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                      <p className="font-bold mb-1 border-b border-zinc-600 pb-1">⚠️ Alerta de falta de stock</p>
-                      <ul className="mt-1 space-y-1">
-                          {order.shortages.map((s: any) => (
-                            <li key={s.materialId} className="flex justify-between">
-                              <span>{allMaterials.find(m => m.id === s.materialId)?.name}:</span>
-                              <span className="font-mono">Req: {s.required.toFixed(2)} / Disp: {s.available.toFixed(2)} {s.uom}</span>
-                            </li>
-                          ))}
-                      </ul>
-                      <div className="absolute left-1/2 -translate-x-1/2 bottom-[-4px] w-2 h-2 bg-zinc-800 rotate-45"/>
-                  </div>
-              </div>
-          )}
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => setShowDiagnostics(!showDiagnostics)} className="px-3 py-1.5 rounded-lg border border-zinc-300 text-sm flex items-center gap-2 hover:bg-zinc-100">
@@ -773,7 +742,7 @@ function OrderDetail({ order, recipe, onClose, onStart, onFinish, onUpdate, inve
                                     <thead className="sticky top-0 bg-zinc-100">
                                         <tr className="text-left">
                                             <th>ID Lote</th>
-                                            <th>SKU</th>
+                                            <th>ItemID</th>
                                             <th>Cant.</th>
                                         </tr>
                                     </thead>
@@ -781,7 +750,7 @@ function OrderDetail({ order, recipe, onClose, onStart, onFinish, onUpdate, inve
                                         {inventory.map((item: any) => (
                                             <tr key={item.id} className="border-t">
                                                 <td className="py-1 font-mono">{item.lotNumber?.substring(0, 12) || item.id.substring(0,12)}...</td>
-                                                <td>{item.sku}</td>
+                                                <td>{item.itemId}</td>
                                                 <td className="text-right font-bold">{item.qty}</td>
                                             </tr>
                                         ))}
@@ -828,7 +797,7 @@ function OrderDetail({ order, recipe, onClose, onStart, onFinish, onUpdate, inve
                           <div className="flex">
                             <input type="number" min={0} value={finalYield} onChange={e=>setFinalYield(e.target.value===''? '' : parseFloat(e.target.value))} className="px-2 py-1.5 w-full rounded-l-lg border border-zinc-300"/>
                             <select value={yieldUom} onChange={e => setYieldUom(e.target.value as any)} className="px-2 py-1.5 rounded-r-lg border-t border-b border-r border-zinc-300 bg-zinc-100">
-                                <option value="uds">botellas</option>
+                                <option value="unit">botellas</option>
                                 <option value="L">Litros</option>
                             </select>
                           </div>
@@ -886,8 +855,8 @@ function ActualsBlock({ actuals, onChange }: { actuals: ActualConsumption[], onC
             <div className="px-4 py-3 border-b border-[var(--line)] text-sm text-zinc-500">Consumos Reales</div>
             <div className="p-3 space-y-2">
                 {actuals.map((item, index) => (
-                    <div key={item.materialId + index} className="grid grid-cols-[1fr_1fr_1fr] items-center gap-2 text-sm">
-                        <div className="font-medium text-zinc-800">{item.name} <span className="text-xs text-zinc-500 font-mono">({item.materialId})</span></div>
+                    <div key={item.itemId + index} className="grid grid-cols-[1fr_1fr_1fr] items-center gap-2 text-sm">
+                        <div className="font-medium text-zinc-800">{item.name} <span className="text-xs text-zinc-500 font-mono">({item.itemId})</span></div>
                         <div className="text-center">{item.theoreticalQty.toFixed(2)} {item.uom} <span className="text-xs text-zinc-500">(Teórico)</span></div>
                         <input
                             type="number"
@@ -902,22 +871,22 @@ function ActualsBlock({ actuals, onChange }: { actuals: ActualConsumption[], onC
     );
 }
 
-function MissingMaterialsCard({ orders, allMaterials }: { orders: ProdOrder[]; allMaterials: Material[] }) {
+function MissingMaterialsCard({ orders, allItems }: { orders: ProdOrder[]; allItems: Item[] }) {
   // Junta faltantes de órdenes planned/released
   const shortagesMap = useMemo(() => {
     const m = new Map<string, { required: number; available: number; uom: Uom }>();
     orders
       .filter(o => (o.status === 'planned' || o.status === 'released') && o.shortages?.length)
       .forEach(o => o.shortages!.forEach(s => {
-        const cur = m.get(s.materialId);
-        if (!cur) m.set(s.materialId, { required: s.required, available: s.available, uom: s.uom });
-        else m.set(s.materialId, { required: cur.required + s.required, available: s.available, uom: s.uom });
+        const cur = m.get(s.itemId);
+        if (!cur) m.set(s.itemId, { required: s.required, available: s.available, uom: s.uom });
+        else m.set(s.itemId, { required: cur.required + s.required, available: s.available, uom: s.uom });
       }));
     return m;
   }, [orders]);
 
   const items = [...shortagesMap.entries()]
-    .map(([materialId, v]) => ({ materialId, missing: Math.max(0, v.required - v.available), uom: v.uom }))
+    .map(([itemId, v]) => ({ itemId, missing: Math.max(0, v.required - v.available), uom: v.uom }))
     .filter(x => x.missing > 0)
     .sort((a,b)=> b.missing - a.missing)
     .slice(0, 8); // top 8
@@ -935,8 +904,8 @@ function MissingMaterialsCard({ orders, allMaterials }: { orders: ProdOrder[]; a
       {hasShortages ? (
         <ul className="space-y-1 text-sm">
           {items.map(it => (
-            <li key={it.materialId} className="flex justify-between">
-              <span className="truncate">{allMaterials.find(m => m.id === it.materialId)?.name || it.materialId}</span>
+            <li key={it.itemId} className="flex justify-between">
+              <span className="truncate">{allItems.find(m => m.id === it.itemId)?.name || it.itemId}</span>
               <span className="font-mono">-{it.missing.toFixed(2)} {it.uom}</span>
             </li>
           ))}
@@ -948,7 +917,7 @@ function MissingMaterialsCard({ orders, allMaterials }: { orders: ProdOrder[]; a
   );
 }
 
-function UpcomingScheduleCard({ orders, recipes, allMaterials }: { orders: ProdOrder[]; recipes: RecipeBom[]; allMaterials: Material[] }) {
+function UpcomingScheduleCard({ orders, recipes, allItems }: { orders: ProdOrder[]; recipes: RecipeBom[]; allItems: Item[] }) {
   const upcoming = useMemo(() => {
     return orders
       .filter(o => o.status === 'planned' || o.status === 'released')
@@ -957,10 +926,11 @@ function UpcomingScheduleCard({ orders, recipes, allMaterials }: { orders: ProdO
       .slice(0, 3)
       .map(o => {
         const recipe = recipes.find(r => r.id === o.bomId);
-        const { plannedBottles } = recipe ? planFromRecipe(recipe, o.targetQuantity, allMaterials) : { plannedBottles: 0 };
-        return { id: o.id, when: o.scheduledFor!, status: o.status, plannedBottles, sku: recipe?.sku, name: recipe?.name };
+        const outputItem = allItems.find(i => i.id === recipe?.outputItemId);
+        const { plannedBottles } = recipe ? planFromRecipe(recipe, o.targetQuantity, allItems) : { plannedBottles: 0 };
+        return { id: o.id, when: o.scheduledFor!, status: o.status, plannedBottles, sku: outputItem?.sku, name: recipe?.name };
       });
-  }, [orders, recipes, allMaterials]);
+  }, [orders, recipes, allItems]);
 
   return (
     <div className="rounded-2xl border border-[var(--line)] bg-white p-4">
@@ -993,6 +963,7 @@ function UpcomingScheduleCard({ orders, recipes, allMaterials }: { orders: ProdO
 
 
     
+
 
 
 

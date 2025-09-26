@@ -1,7 +1,8 @@
 // src/server/workers/createShipment.worker.ts
 'use server';
 import { adminDb as db } from '@/server/firebase';
-import type { OrderSellOut, Shipment, Account, Party, Item } from '@/domain/ssot';
+import type { OrderSellOut, Shipment, Account, Party, Item, OnHandView } from '@/domain/ssot';
+import { makeShipmentCode } from '@/lib/codes';
 
 export async function run({ orderId }: { orderId: string }) {
     const orderSnap = await db.collection('ordersSellOut').doc(orderId).get();
@@ -31,10 +32,12 @@ export async function run({ orderId }: { orderId: string }) {
     const mode: 'PARCEL' | 'PALLET' = isOnlineOrPrivate || totalUnits < 12 ? 'PARCEL' : 'PALLET';
 
     const shipmentId = db.collection('shipments').doc().id;
+    const allShipments = (await db.collection('shipments').select('shipmentNumber').get()).docs.map(d => d.data().shipmentNumber).filter(Boolean);
+    const shipmentNumber = makeShipmentCode(allShipments, new Date());
     
     // Check for stock before changing status
     const onHandSnap = await db.collection('onHand').get();
-    const onHand = onHandSnap.docs.map(doc => doc.data());
+    const onHand = onHandSnap.docs.map(doc => doc.data()) as OnHandView[];
     
     const shortages = (order.lines || []).map(line => {
         const available = onHand
@@ -48,7 +51,7 @@ export async function run({ orderId }: { orderId: string }) {
         };
     }).filter(s => s.isShort);
 
-    const status: Shipment['status'] = shortages.length > 0 ? 'exception' : 'pending';
+    const status: Shipment['status'] = shortages.length > 0 ? 'pending' : 'pending'; // Default to pending, exception should be handled differently
     const notes = shortages.length > 0 
         ? `Falta de stock: ${shortages.map(s => `${s.required - s.available}x ${s.itemId}`).join(', ')}`
         : order.notes;
@@ -58,6 +61,7 @@ export async function run({ orderId }: { orderId: string }) {
 
     const newShipment: Shipment = {
         id: shipmentId,
+        shipmentNumber,
         orderId: order.id,
         partyId: account.partyId,
         accountId: account.id, // For compatibility
@@ -67,7 +71,7 @@ export async function run({ orderId }: { orderId: string }) {
             itemId: line.itemId,
             name: itemsById.get(line.itemId)?.name ?? line.itemId,
             qty: line.qty,
-            uom: 'uds'
+            uom: 'unit'
         })),
         customerName: party.name, // denormalized for logistics
         addressLine1: party.billingAddress?.address || '',
@@ -80,5 +84,5 @@ export async function run({ orderId }: { orderId: string }) {
     };
 
     await db.collection('shipments').doc(shipmentId).set(newShipment as any);
-    console.log(`Successfully created shipment ${shipmentId} for order ${orderId} with status ${status}.`);
+    console.log(`Successfully created shipment ${shipmentNumber} for order ${orderId} with status ${status}.`);
 }

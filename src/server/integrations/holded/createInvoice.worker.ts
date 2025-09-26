@@ -1,7 +1,7 @@
 
 // src/server/integrations/holded/createInvoice.worker.ts
 import { adminDb as db } from '@/server/firebase';
-import type { OrderSellOut, Party, PartyRole } from '@/domain/ssot';
+import type { OrderSellOut, Party, PartyRole, Item } from '@/domain/ssot';
 import { callHoldedApi } from './client';
 import { Timestamp } from 'firebase-admin/firestore';
 
@@ -60,14 +60,21 @@ export async function handleCreateHoldedInvoice({ orderId }: { orderId: string }
   }
 
   // 3) Líneas con impuestos
-  const items = (order.lines || []).map(l => ({
-    name: l.name || l.sku,
-    sku: l.sku,
-    units: l.qty,
-    price: l.priceUnit,
-    tax: l.taxRate ?? 21,
-    discount: l.discountPct ?? 0,
-  }));
+  const itemIds = (order.lines || []).map(l => l.itemId);
+  const itemsSnap = await db.collection('items').where('id', 'in', itemIds).get();
+  const itemsById = new Map(itemsSnap.docs.map(doc => [doc.id, doc.data() as Item]));
+
+  const items = (order.lines || []).map(l => {
+    const itemData = itemsById.get(l.itemId);
+    return {
+      name: l.name || itemData?.name || l.itemId,
+      sku: itemData?.sku,
+      units: l.qty,
+      price: l.priceUnit,
+      tax: l.taxRate ?? 21,
+      discount: l.discountPct ?? 0,
+    };
+  });
 
   // 4) Fecha a epoch segundos
   const issuedAtSec = Math.floor((typeof order.createdAt === 'number' ? order.createdAt : new Date(order.createdAt).getTime()) / 1000);

@@ -3,12 +3,7 @@
 import { adminDb as db } from '@/server/firebase';
 import type { DeliveryNote, Shipment, OrderSellOut, Party } from '@/domain/ssot';
 import { Timestamp } from 'firebase-admin/firestore';
-
-function nextDnId(series: 'ONLINE'|'B2B'|'INTERNAL' = 'B2B') {
-  const y = new Date().getFullYear();
-  const rnd = Math.floor(Math.random()*90000 + 10000);
-  return `DN-${series}-${y}-${rnd}`;
-}
+import { makeDeliveryNoteCode } from '@/lib/codes';
 
 export async function run({ shipmentId }: { shipmentId: string }) {
     const shipmentRef = db.collection('shipments').doc(shipmentId);
@@ -33,7 +28,9 @@ export async function run({ shipmentId }: { shipmentId: string }) {
     const party = partySnap.data() as Party;
 
     const series: 'ONLINE'|'B2B'|'INTERNAL' = order.source === 'SHOPIFY' ? 'ONLINE' : 'B2B';
-    const dnId = nextDnId(series);
+    const allDeliveryNotes = (await db.collection('deliveryNotes').select('id').get()).docs.map(d => d.id);
+    const dnId = makeDeliveryNoteCode(allDeliveryNotes, new Date());
+
 
     const deliveryNoteData: Omit<DeliveryNote, 'pdfUrl'|'createdAt'|'updatedAt'> = {
         id: dnId,
@@ -52,7 +49,7 @@ export async function run({ shipmentId }: { shipmentId: string }) {
         },
         lines: shipment.lines.map(l => ({
             itemId: l.itemId,
-            description: l.name,
+            description: l.name ?? '',
             qty: l.qty,
             uom: 'uds',
             lotNumbers: l.lotNumber ? [l.lotNumber] : [],
