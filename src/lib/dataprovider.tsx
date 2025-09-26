@@ -8,7 +8,7 @@ import type { User as FirebaseUser } from "firebase/auth";
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
 import { getFirestore, collection, getDocs } from "firebase/firestore";
 import { useRouter } from "next/navigation";
-import { SANTA_DATA_COLLECTIONS } from "@/lib/ssot/collections";
+import { SANTA_DATA_COLLECTIONS } from "@/domain/ssot";
 import { INITIAL_MOCK_DATA } from "@/lib/mock-data";
 import { upsertMany } from './dataprovider/actions';
 import { firebaseApp, firebaseAuth, firestoreDb } from "@/lib/firebaseClient";
