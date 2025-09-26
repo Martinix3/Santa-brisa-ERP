@@ -58,8 +58,7 @@ export interface StockMove {
   qty: number;          // signo positivo/negativo según reason
   uom: Uom;
   lotNumber?: string;   // texto; la “lote” ya no es entidad
-  fromLocation?: string;
-  toLocation?: string;
+  locationId?: string;
   reason: StockReason;
   occurredAt: string;   // ISO
   createdAt: string;    // ISO
@@ -129,7 +128,7 @@ export interface ProductionOrder {
   status: ProductionStatus;
   createdAt: Timestamp;
   scheduledFor?: string;
-  batchCode?: string;       // en lugar de “lotNumber”
+  batchCode?: string;       // en lugar de “lotId” entidad
   responsibleId?: string;
 
   // Operativo (opcionales)
@@ -209,7 +208,7 @@ export interface GoodsReceipt {
 
 export interface ShipmentLine {
   itemId: string;
-  name?: string;
+  name?: string; // Denormalized from Item for convenience
   qty: number;
   uom: Uom;
   lotNumber?: string;
@@ -306,7 +305,7 @@ export type BillingStatus = 'PENDING'|'INVOICING'|'INVOICED'|'PAID'|'FAILED';
 export interface OrderSellOut {
   id: string; partyId: string; accountId: string; source: 'CRM'|'SHOPIFY'|'OTHER' | 'MANUAL' | 'HOLDED';
   createdAt: Timestamp; currency: Currency;
-  lines: Array<{ sku: string; name?: string; qty: number; priceUnit: number; taxRate?: number; discountPct?: number; uom?: Uom; lotIds?: string[] }>;
+  lines: Array<{ itemId: string; name?: string; qty: number; priceUnit: number; taxRate?: number; discountPct?: number; uom?: Uom; lotIds?: string[] }>;
   notes?: string; billingStatus?: BillingStatus; status: OrderStatus; docNumber?: string; totalAmount?: number;
   external?: { shopifyOrderId?: string; holdedInvoiceId?: string; };
 }
@@ -318,9 +317,9 @@ export * from './ssot.common'; // Importa el resto de tipos que no han cambiado
 // -----------------------------------------------------------------
 
 /** @deprecated Use `Item` instead. */
-export interface Material {}
-/** @deprecated Use `Item` instead. */
 export interface Product {}
+/** @deprecated Use `Item` instead. */
+export interface Material {}
 /** @deprecated Lot is now a string (`lotNumber`). Metadata can be stored in a separate optional collection if needed. */
 export interface Lot {}
 /** @deprecated Use `OnHandView` which is derived from `StockMove`s. This will be removed. */

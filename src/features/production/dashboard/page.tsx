@@ -17,7 +17,7 @@ import { SB_THEME } from "@/domain/ssot";
 
 export default function ProductionDashboardPage() {
   const { data } = useData();
-  const { billOfMaterials: recipes, items, onHand: inventory, productionOrders: orders, lots } = data || {};
+  const { billOfMaterials: recipes, items, onHand: inventory, productionOrders: orders } = data || {};
   
   const kpis = useMemo(()=> {
       if (!orders || !recipes || !inventory || !items) return null;
@@ -43,8 +43,7 @@ export default function ProductionDashboardPage() {
           <OrdersTimeline orders={orders as any} />
         </div>
         <div className="space-y-6">
-          {/* ShortagesPanel and InventorySnapshot need to be adapted to the new `Item` model if they rely on Material-specific fields */}
-          <ShortagesPanel shortages={kpis.currentShortages} materials={items || []} />
+          <ShortagesPanel shortages={kpis.currentShortages} items={items || []} />
           <InventorySnapshot critical={kpis.criticalInventory} items={items || []}/>
           <QCPanel lots={inventory || []} />
           <UpcomingTasks department="PRODUCCION" />
@@ -52,7 +51,7 @@ export default function ProductionDashboardPage() {
       </div>
       
        <SBCard title="Análisis de Eficiencia (Últimos 30 días)">
-         <EfficiencyWidget laborSeries={kpis.laborSeries} costPerUnitSeries={kpis.costPerUnitSeries} />
+         <EfficiencyWidget laborSeries={kpis.laborSeries} costPerBottleSeries={kpis.costPerBottleSeries} />
        </SBCard>
        
        {/* Botón de acción flotante, sin acción por ahora */}

@@ -23,7 +23,7 @@ export async function run(payload: {
     const updatedLines = [...shipment.lines];
     if (updateData.lotMap) {
         for (const line of updatedLines) {
-            const lotsForSku = updateData.lotMap[line.sku];
+            const lotsForSku = updateData.lotMap[line.itemId];
             if (lotsForSku && lotsForSku.length > 0) {
                 // For simplicity, we'll just take the first lot. A real system might handle multiple lots per line.
                 line.lotNumber = lotsForSku[0].lotId;

@@ -1,7 +1,7 @@
 // src/server/workers/createShipment.worker.ts
 'use server';
 import { adminDb as db } from '@/server/firebase';
-import type { OrderSellOut, Shipment, Account, Party } from '@/domain/ssot';
+import type { OrderSellOut, Shipment, Account, Party, Item } from '@/domain/ssot';
 
 export async function run({ orderId }: { orderId: string }) {
     const orderSnap = await db.collection('ordersSellOut').doc(orderId).get();
@@ -33,15 +33,15 @@ export async function run({ orderId }: { orderId: string }) {
     const shipmentId = db.collection('shipments').doc().id;
     
     // Check for stock before changing status
-    const inventorySnap = await db.collection('inventory').get();
-    const inventory = inventorySnap.docs.map(doc => doc.data());
+    const onHandSnap = await db.collection('onHand').get();
+    const onHand = onHandSnap.docs.map(doc => doc.data());
     
     const shortages = (order.lines || []).map(line => {
-        const available = inventory
-            .filter(item => item.sku === line.sku && item.locationId === 'FG/MAIN')
+        const available = onHand
+            .filter(item => item.itemId === line.itemId && item.locationId === 'FG/MAIN')
             .reduce((sum, item) => sum + item.qty, 0);
         return {
-            sku: line.sku,
+            itemId: line.itemId,
             required: line.qty,
             available: available,
             isShort: available < line.qty,
@@ -50,8 +50,11 @@ export async function run({ orderId }: { orderId: string }) {
 
     const status: Shipment['status'] = shortages.length > 0 ? 'exception' : 'pending';
     const notes = shortages.length > 0 
-        ? `Falta de stock: ${shortages.map(s => `${s.required - s.available}x ${s.sku}`).join(', ')}`
+        ? `Falta de stock: ${shortages.map(s => `${s.required - s.available}x ${s.itemId}`).join(', ')}`
         : order.notes;
+    
+    const itemsSnap = await db.collection('items').get();
+    const itemsById = new Map(itemsSnap.docs.map(doc => [doc.id, doc.data() as Item]));
 
     const newShipment: Shipment = {
         id: shipmentId,
@@ -61,8 +64,8 @@ export async function run({ orderId }: { orderId: string }) {
         mode,
         status: status,
         lines: (order.lines || []).map(line => ({
-            sku: line.sku,
-            name: line.name ?? line.sku, // Ensure name is always a string
+            itemId: line.itemId,
+            name: itemsById.get(line.itemId)?.name ?? line.itemId,
             qty: line.qty,
             uom: 'uds'
         })),

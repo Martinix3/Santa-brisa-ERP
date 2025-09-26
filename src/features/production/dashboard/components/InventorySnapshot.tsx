@@ -1,7 +1,8 @@
 "use client";
 import React from "react";
+import type { Item } from "@/domain/ssot";
 
-export function InventorySnapshot({ critical, items: allItems }: { critical: { sku: string; name: string, qty: number }[], items: any[] }) {
+export function InventorySnapshot({ critical, items: allItems }: { critical: { sku: string; name: string, qty: number }[], items: Item[] }) {
   return (
     <div className="rounded-2xl border border-zinc-200 bg-white p-4">
       <div className="text-sm text-zinc-500 mb-3">Inventario crítico (RM/PACK)</div>

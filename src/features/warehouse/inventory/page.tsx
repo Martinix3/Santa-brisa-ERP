@@ -50,6 +50,24 @@ function Tabs({ active, setActive, tabs }: { active: string; setActive: (id: str
   );
 }
 
+function ExpirationPill({ date }: { date?: string }) {
+    if (!date) return <span className="text-zinc-400">—</span>;
+
+    const expDate = new Date(date);
+    const now = new Date();
+    const diffDays = Math.ceil((expDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    
+    let color = 'text-green-700 bg-green-100';
+    if (diffDays <= 0) color = 'text-red-700 bg-red-100';
+    else if (diffDays <= 30) color = 'text-yellow-700 bg-yellow-100';
+
+    return (
+        <span className={`text-xs font-semibold px-2 py-1 rounded-full ${color}`}>
+            {expDate.toLocaleDateString('es-ES')} ({diffDays > 0 ? `en ${diffDays}d` : 'Caducado'})
+        </span>
+    );
+}
+
 export default function InventoryPage() {
     const { data: santaData } = useData();
     const [activeTab, setActiveTab] = useState<ItemCategory>('fg');
@@ -74,6 +92,10 @@ export default function InventoryPage() {
         return onHand.filter(oh => {
             const item = itemsById.get(oh.itemId);
             if (!item) return false;
+            
+            if (activeTab === 'pack') {
+              return item.category === 'pack' || item.category === 'label';
+            }
             return item.category === activeTab;
         });
     }, [onHand, itemsById, activeTab]);
@@ -101,8 +123,8 @@ export default function InventoryPage() {
     const TABS: { id: ItemCategory, label: string }[] = [
         { id: 'fg', label: 'Producto Terminado' },
         { id: 'raw', label: 'Materias Primas' },
-        { id: 'pack', label: 'Packaging' },
         { id: 'intermediate', label: 'Intermedios' },
+        { id: 'pack', label: 'Packaging y Etiquetas' },
         { id: 'merch', label: 'Merchandising' },
         { id: 'consumable', label: 'Consumibles' },
     ];

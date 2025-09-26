@@ -15,14 +15,14 @@ const zNewProduct = z.object({
 
 const zBOM = z.object({
   id: z.string().min(1),
-  sku: z.string().min(1, "SKU requerido"),
+  outputItemId: z.string().min(1, "Producto de salida requerido"),
   name: z.string().min(1, "Nombre requerido"),
   batchSize: z.coerce.number().positive("Debe ser > 0"),
   items: z.array(z.object({
-    materialId: z.string().min(1, "Material requerido"),
-    quantity: z.coerce.number().positive("Cantidad > 0"),
+    itemId: z.string().min(1, "Item requerido"),
+    qty: z.coerce.number().positive("Cantidad > 0"),
     role: z.string().optional(),
-    unit: z.string().optional(),
+    uom: z.string().optional(),
   })).min(1, "Añade al menos una línea"),
 });
 
@@ -47,24 +47,25 @@ export async function upsertBOM(input: unknown): Promise<ActionResult<{id:string
   }
 }
 
-export async function upsertMinimalProduct(input: unknown): Promise<ActionResult<{sku: string}>> {
+export async function upsertMinimalProduct(input: unknown): Promise<ActionResult<{itemId: string}>> {
   try {
     const p = zNewProduct.parse(input);
-    // Ajusta al shape de tu SSOT si difiere
     const now = new Date().toISOString();
+    const itemId = `item_${Date.now()}`;
     const productDoc = {
-      id: p.sku,            // si tu SSOT usa otro id, cámbialo aquí
+      id: itemId,
       sku: p.sku,
       name: p.name,
       bottleMl: p.packSizeMl ?? 0,
       active: true,
-      category: 'finished_good',
+      category: 'fg',
       createdAt: now,
       updatedAt: now,
+      uom: 'uds'
     };
-    await upsertMany('products', [productDoc as any]);
-    revalidatePath('/production/bom'); // revalida por si el selector de SKUs necesita refrescarse
-    return ok({ sku: p.sku });
+    await upsertMany('items', [productDoc as any]);
+    revalidatePath('/production/bom');
+    return ok({ itemId });
   } catch (e: any) {
     if (e?.name === "ZodError") {
       const fieldErrors = Object.fromEntries(

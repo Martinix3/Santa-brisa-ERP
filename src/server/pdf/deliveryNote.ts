@@ -1,9 +1,7 @@
-
-
 // runtime: Node (no Edge) cuando se use en route/actions
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 
-export type DeliveryLine = { sku: string; description: string; qty: number; uom?: string };
+export type DeliveryLine = { itemId: string; description: string; qty: number; uom?: string };
 export type DeliveryNoteInput = {
   id: string;                          // DN-2025-000123
   dateISO: string;                     // new Date().toISOString()
@@ -68,7 +66,7 @@ export async function renderDeliveryNotePdf(input: DeliveryNoteInput): Promise<U
   page.drawLine({ start: { x: left, y }, end: { x: right, y }, thickness: 1, color: rgb(0.8,0.8,0.8) }); y -= 12;
 
   // Tabla líneas
-  const headers = ['SKU', 'Descripción', 'Uds', 'Ud.'];
+  const headers = ['ItemID', 'Descripción', 'Uds', 'Ud.'];
   const colX = [left, left+100, left+420, left+460];
   headers.forEach((h, i) => drawText(h, colX[i], y, { bold: true })); 
   y -= 12;
@@ -80,7 +78,7 @@ export async function renderDeliveryNotePdf(input: DeliveryNoteInput): Promise<U
       y = top;
       doc.addPage(page);
     }
-    drawText(line.sku, colX[0], y);
+    drawText(line.itemId, colX[0], y);
     drawText(line.description ?? '', colX[1], y);
     drawText(String(line.qty), colX[2], y);
     drawText(line.uom ?? 'ud', colX[3], y);

@@ -27,7 +27,7 @@ export function normalizeShopifyOrder(order: ShopifyOrder): OrderSellOut {
   const taxRateGuess = subtotal > 0 ? (totalTax / subtotal) * 100 : undefined;
 
   const lines = (order.line_items || []).map((li: any) => ({
-    sku: li.sku || li.variant_sku || String(li.variant_id || li.product_id || ''),
+    itemId: li.sku || li.variant_sku || String(li.variant_id || li.product_id || ''),
     name: li.name,
     qty: Number(li.quantity || 0),
     priceUnit: Number(li.price || 0),
@@ -83,7 +83,7 @@ export function mapShopifyToSSOT(shopifyOrder: any): {
   const orderData: Partial<OrderSellOut> = {
     totalAmount: parseFloat(shopifyOrder.total_price),
     lines: shopifyOrder.line_items.map((item: any) => ({
-      sku: item.sku || `SHOPIFY_${item.variant_id}`,
+      itemId: item.sku || `SHOPIFY_${item.variant_id}`,
       qty: item.quantity,
       priceUnit: parseFloat(item.price),
       uom: 'uds'

@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
 import { Input, Select, SBButton } from '@/components/ui/ui-primitives';
-import type { Shipment, Account, Product, Party, SB_THEME } from '@/domain/ssot';
+import type { Shipment, Account, Item, Party, SB_THEME } from '@/domain/ssot';
 import { Plus, X } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
 
@@ -14,15 +14,15 @@ interface NewShipmentDialogProps {
     onClose: () => void;
     onSave: (payload: NewShipmentPayload) => void;
     accounts: Account[];
-    products: Product[];
+    items: Item[];
 }
 
-export function NewShipmentDialog({ open, onClose, onSave, accounts, products }: NewShipmentDialogProps) {
+export function NewShipmentDialog({ open, onClose, onSave, accounts, items }: NewShipmentDialogProps) {
     const { data } = useData();
     const [accountId, setAccountId] = useState('');
     const [address, setAddress] = useState('');
     const [city, setCity] = useState('');
-    const [lines, setLines] = useState<{ sku: string; qty: number; name: string, uom: 'uds' }[]>([{ sku: '', qty: 1, name: '', uom: 'uds' }]);
+    const [lines, setLines] = useState<{ itemId: string; qty: number; name: string, uom: 'uds' }[]>([{ itemId: '', qty: 1, name: '', uom: 'uds' }]);
     const [notes, setNotes] = useState('');
 
     useEffect(() => {
@@ -30,7 +30,7 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, products }:
             setAccountId('');
             setAddress('');
             setCity('');
-            setLines([{ sku: '', qty: 1, name: '', uom: 'uds' }]);
+            setLines([{ itemId: '', qty: 1, name: '', uom: 'uds' }]);
             setNotes('');
         }
     }, [open]);
@@ -48,19 +48,19 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, products }:
         }
     };
 
-    const handleLineChange = (index: number, field: 'sku' | 'qty', value: string) => {
+    const handleLineChange = (index: number, field: 'itemId' | 'qty', value: string) => {
         const newLines = [...lines];
-        if (field === 'sku') {
-            const product = products.find(p => p.sku === value);
-            newLines[index].sku = value;
-            newLines[index].name = product?.name || 'Producto Desconocido';
+        if (field === 'itemId') {
+            const item = items.find(p => p.id === value);
+            newLines[index].itemId = value;
+            newLines[index].name = item?.name || 'Producto Desconocido';
         } else {
             newLines[index].qty = parseInt(value, 10) || 1;
         }
         setLines(newLines);
     };
 
-    const addLine = () => setLines([...lines, { sku: '', qty: 1, name: '', uom: 'uds' }]);
+    const addLine = () => setLines([...lines, { itemId: '', qty: 1, name: '', uom: 'uds' }]);
     const removeLine = (index: number) => setLines(lines.filter((_, i) => i !== index));
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -119,9 +119,9 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, products }:
                         <div className="mt-2 space-y-2 border rounded-lg p-3 bg-zinc-50/50">
                             {lines.map((line, index) => (
                                 <div key={index} className="grid grid-cols-[1fr_auto_auto] gap-2 items-center">
-                                    <Select value={line.sku} onChange={e => handleLineChange(index, 'sku', e.target.value)} required>
+                                    <Select value={line.itemId} onChange={e => handleLineChange(index, 'itemId', e.target.value)} required>
                                         <option value="">Selecciona producto</option>
-                                        {products.map(p => <option key={p.sku} value={p.sku}>{p.name} ({p.sku})</option>)}
+                                        {items.map(p => <option key={p.id} value={p.id}>{p.name} ({p.sku})</option>)}
                                     </Select>
                                     <Input type="number" min="1" value={line.qty} onChange={e => handleLineChange(index, 'qty', e.target.value)} className="w-20" required />
                                     <button type="button" onClick={() => removeLine(index)} className="sb-btn-primary p-2 text-red-500 hover:bg-red-50 rounded-md">
@@ -144,5 +144,3 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, products }:
         </SBDialog>
     );
 }
-
-    

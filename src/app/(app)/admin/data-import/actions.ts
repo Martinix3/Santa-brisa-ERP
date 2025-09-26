@@ -38,7 +38,7 @@ const TEMPLATE_FIELDS: Partial<Record<keyof SantaData, readonly string[]>> = {
   accounts: ['id','code','name','partyId','type','stage','ownerId','createdAt','subType','notes'],
   users: ['id','name','email','role','active','managerId'],
   items: ['id','sku','name','category','uom','bottleMl','caseUnits','casesPerPallet','active','stdCost'],
-  ordersSellOut: ['id','docNumber','accountId','accountName','status','createdAt','currency','totalAmount','source','terms','lines','sku','qty','priceUnit'],
+  ordersSellOut: ['id','docNumber','accountId','accountName','status','createdAt','currency','totalAmount','source','terms','lines','itemId','qty','priceUnit'],
   interactions: ['id','accountId','accountName','userId','userEmail','dept','kind','status','createdAt','note'],
   plv_material: ['id','sku','kind','status','accountId','installedAt','photoUrl'],
   promotions: ['id','code','name','type','value','validFrom','validTo'],
@@ -67,9 +67,8 @@ type FKRegistry = {
   accountsByCode: Map<string, Account>;
   usersById: Map<string, User>;
   usersByEmail: Map<string, User>;
-  itemsBySku: Map<string, Item>;
-  onHandById: Map<string, OnHandView>;
   itemsById: Map<string, Item>;
+  onHandById: Map<string, OnHandView>;
   ordersById: Map<string, OrderSellOut>;
 };
 function buildRegistry(data: SantaData): FKRegistry {
@@ -79,9 +78,8 @@ function buildRegistry(data: SantaData): FKRegistry {
     accountsByCode: new Map(data.accounts.filter(a=>a.code).map(a=>[String(a.code).toLowerCase(),a])),
     usersById: new Map(data.users.map(u=>[u.id,u])),
     usersByEmail: new Map(data.users.filter(u=>u.email).map(u=>[String(u.email).toLowerCase(),u])),
-    itemsBySku: new Map(data.items.map(p=>[p.sku,p])),
-    onHandById: new Map(data.onHand.map(l=>[l.id,l])),
     itemsById: new Map(data.items.map(m=>[m.id,m])),
+    onHandById: new Map(data.onHand.map(l=>[l.id,l])),
     ordersById: new Map(data.ordersSellOut.map(o=>[o.id,o])),
   };
 }
@@ -118,10 +116,10 @@ async function resolveAndNormalize(coll: keyof SantaData, rows: any[], data: San
       // lines
       let lines = j(row.lines);
       if (!Array.isArray(lines) || lines.length === 0){
-        const sku = row.sku ?? row.productSku; const qty = nNumComma(row.qty); const pu = nNumComma(row.priceUnit);
-        lines = sku ? [{ sku, qty, uom:'uds', priceUnit: pu }] : [];
+        const itemId = row.itemId; const qty = nNumComma(row.qty); const pu = nNumComma(row.priceUnit);
+        lines = itemId ? [{ itemId, qty, uom:'uds', priceUnit: pu }] : [];
       }
-      row.lines = (lines as any[]).map(l=> ({ sku: l.sku, qty: nNumComma(l.qty), uom: l.uom || l.unit || 'uds', priceUnit: nNumComma(l.priceUnit ?? l.unitPrice ?? 0), discount: l.discount? Number(l.discount): undefined }));
+      row.lines = (lines as any[]).map(l=> ({ itemId: l.itemId, qty: nNumComma(l.qty), uom: l.uom || l.unit || 'uds', priceUnit: nNumComma(l.priceUnit ?? l.unitPrice ?? 0), discount: l.discount? Number(l.discount): undefined }));
       out.push(row); continue;
     }
 
@@ -134,7 +132,7 @@ async function resolveAndNormalize(coll: keyof SantaData, rows: any[], data: San
     if (coll==='goodsReceipts'){
       const lines = Array.isArray(row.lines) ? row.lines : j(row.lines);
       if (Array.isArray(lines)){
-        row.lines = lines.map((ln:any)=> ({ itemId: reg.itemsById.get(ln.itemId)?.id ?? reg.itemsBySku.get(ln.itemSku)?.id ?? ln.itemId, sku: ln.sku, lotId: ln.lotId, qty: nNumComma(ln.qty), uom: ln.uom ?? 'uds' }));
+        row.lines = lines.map((ln:any)=> ({ itemId: reg.itemsById.get(ln.itemId)?.id ?? ln.itemId, qty: nNumComma(ln.qty), uom: ln.uom ?? 'uds' }));
       }
       out.push(row); continue;
     }
@@ -143,7 +141,7 @@ async function resolveAndNormalize(coll: keyof SantaData, rows: any[], data: San
 
     if (coll==='shipments'){
       const lines = Array.isArray(row.lines) ? row.lines : j(row.lines);
-      if (Array.isArray(lines)) row.lines = lines.map((ln:any)=> ({ sku: ln.sku, name: ln.name ?? '', qty: nNumComma(ln.qty), uom: ln.uom ?? 'uds', lotNumber: ln.lotNumber }));
+      if (Array.isArray(lines)) row.lines = lines.map((ln:any)=> ({ itemId: ln.itemId, name: ln.name ?? '', qty: nNumComma(ln.qty), uom: ln.uom ?? 'uds', lotNumber: ln.lotNumber }));
       row.isSample = nBool(row.isSample);
       out.push(row); continue;
     }
@@ -163,7 +161,7 @@ async function resolveAndNormalize(coll: keyof SantaData, rows: any[], data: San
     }
 
     if (coll==='materialCosts'){
-      if (row.itemSku && !row.itemId) row.itemId = reg.itemsBySku.get(row.itemSku)?.id ?? row.itemId;
+      if (!row.itemId) info.warnings.push(`materialCost: missing itemId`);
       out.push(row); continue;
     }
 

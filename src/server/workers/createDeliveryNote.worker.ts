@@ -51,7 +51,7 @@ export async function run({ shipmentId }: { shipmentId: string }) {
             country: shipment.country || 'España',
         },
         lines: shipment.lines.map(l => ({
-            sku: l.sku,
+            itemId: l.itemId,
             description: l.name,
             qty: l.qty,
             uom: 'uds',

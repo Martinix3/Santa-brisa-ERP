@@ -25,7 +25,7 @@ export function fifoReserveLots(
   itemId: string,
   requiredQty: number,
   onHand: OnHandView[],
-  locationPrefix: 'RM/MAIN' | 'PKG/MAIN' | 'FG/MAIN'
+  locationPrefix: string
 ): Array<{ fromLotNumber: string; reservedQty: number; uom: Uom }> {
   if (requiredQty <= 0) return [];
 
@@ -44,7 +44,7 @@ export function fifoReserveLots(
         console.warn(`fifoReserveLots: OnHand item ${it.id} for item ${it.itemId} has no lotNumber.`);
         continue;
       }
-      picks.push({ fromLotNumber: it.lotNumber, reservedQty: take, uom: it.uom });
+      picks.push({ fromLotNumber: it.lotNumber!, reservedQty: take, uom: it.uom });
       rem -= take;
     }
   }
@@ -56,11 +56,10 @@ export function fifoReserveLots(
 export function buildConsumptionMoves(args: {
   orderId: string;
   reservations: Array<{ itemId: string; fromLotNumber: string; reservedQty: number; uom: Uom }>;
-  items: Item[];
   at?: string;
   fromLocation?: string; // ej. "RM/MAIN"
 }): StockMove[] {
-  const { orderId, reservations, items, at = new Date().toISOString(), fromLocation = "RM/MAIN" } = args;
+  const { orderId, reservations, at = new Date().toISOString(), fromLocation = "RM/MAIN" } = args;
 
   return reservations.map((r, idx) => ({
     id: `mv_cons_${orderId}_${idx}`,

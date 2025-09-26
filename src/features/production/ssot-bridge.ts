@@ -1,17 +1,15 @@
-
 // src/features/production/ssot-bridge.ts
 import { useData } from '@/lib/dataprovider';
-import type { BillOfMaterial, ProductionOrder, Lot, Item } from '@/domain/ssot';
+import type { BillOfMaterial, ProductionOrder, OnHandView, Item } from '@/domain/ssot';
 
 export function useBridge() {
     const { data } = useData();
     return {
         data: data,
         recipes: (data?.billOfMaterials || []) as BillOfMaterial[],
-        inventory: (data?.inventory || []) as any[], // Now onHand
+        inventory: (data?.onHand || []) as OnHandView[],
         items: (data?.items || []) as Item[],
         orders: (data?.productionOrders || []) as ProductionOrder[],
-        lots: (data?.lots || []) as Lot[],
     };
 }
 
@@ -28,8 +26,8 @@ export async function listRecipes(boms: BillOfMaterial[]): Promise<BillOfMateria
     return listBoms(boms);
 }
 
-export async function listMaterials(items: Item[]): Promise<Item[]> {
-  return items.filter(item => item.category !== 'fg');
+export async function listItems(items: Item[]): Promise<Item[]> {
+  return items;
 }
 
 export function listFinishedSkus(items: Item[]): { sku: string; name: string; packSizeMl: number; bottlesPerCase?: number }[] {
@@ -43,19 +41,19 @@ export function listFinishedSkus(items: Item[]): { sku: string; name: string; pa
       }));
 }
 
-export async function listLots(lots: Lot[]): Promise<Lot[]> {
-  return lots;
+export async function listLots(onHand: OnHandView[]): Promise<OnHandView[]> {
+  return onHand;
 }
 
-export async function getTrace(lotId: string) {
+export async function getTrace(lotNumber: string) {
     // This function needs a more complex implementation, likely on the server side.
     // For now, it returns an empty object as a placeholder.
     console.warn("getTrace is not fully implemented on the client-side bridge yet.");
     return {};
 }
 
-export async function updateMaterial(id: string, patch: Partial<Item>): Promise<Item> {
-    console.warn("updateMaterial is not implemented on the client-side bridge yet.");
+export async function updateItem(id: string, patch: Partial<Item>): Promise<Item> {
+    console.warn("updateItem is not implemented on the client-side bridge yet.");
     return { id, sku: '', name: 'Updated Item', category: 'raw', uom: 'uds', active: true, ...patch };
 }
 

@@ -1,6 +1,6 @@
 // --- Santa Brisa: lógica de negocio (sell-out a botellas, agregados y KPIs) ---
 import type {
-  Account, Party, PartyRole, CustomerData, OrderSellOut, User, SantaData, Activation, Interaction, AccountRollup, InventoryItem
+  Account, Party, PartyRole, CustomerData, OrderSellOut, User, SantaData, Activation, Interaction, AccountRollup, Item
 } from '@/domain/ssot';
 
 export const inWindow = (dateStr: string, start: Date, end: Date): boolean => {
@@ -77,10 +77,10 @@ export type BottlesOpts = {
 
 type OrderLine = NonNullable<OrderSellOut['lines']>[number];
 
-function lineToBottles(line: OrderLine, product: InventoryItem | undefined, opts: BottlesOpts = {}): number {
+function lineToBottles(line: OrderLine, item: Item | undefined, opts: BottlesOpts = {}): number {
   if(!line) return 0;
-  const isBottleSku = !!product?.category.includes('finished_good');
-  if (!isBottleSku) return opts.countNonBottleSkusAsZero === false ? line.qty : 0;
+  const isBottleItem = !!item?.category.includes('fg');
+  if (!isBottleItem) return opts.countNonBottleSkusAsZero === false ? line.qty : 0;
 
   switch (line.uom) {
     case 'uds':   return line.qty;
@@ -88,9 +88,9 @@ function lineToBottles(line: OrderLine, product: InventoryItem | undefined, opts
   }
 }
 
-export function orderToBottles(order: OrderSellOut, products: InventoryItem[], opts?: BottlesOpts): number {
+export function orderToBottles(order: OrderSellOut, items: Item[], opts?: BottlesOpts): number {
   return (order.lines || []).reduce((s, l) => {
-    const p = products.find(x => x.sku === l.sku);
+    const p = items.find(x => x.id === l.itemId);
     return s + lineToBottles(l, p, opts);
   }, 0);
 }
@@ -127,7 +127,7 @@ export function computeAccountKPIs(params: {
   const user = ownerId ? data.users.find(u => u.id === ownerId) : undefined;
   const baseline = user?.kpiBaseline;
 
-  const unitsSold = (baseline?.unitsSold || 0) + orders.reduce((s, o) => s + orderToBottles(o, data.inventory), 0);
+  const unitsSold = (baseline?.unitsSold || 0) + orders.reduce((s, o) => s + orderToBottles(o, data.items), 0);
   const orderCount = orders.length;
   
   const revenueFromOrders = orders.map(o => orderTotal(o)).reduce((a, b) => a + b, 0);
@@ -208,7 +208,7 @@ export type FleetKPIs = {
 };
 
 export function computeFleetKPIs(params: {
-  data: { inventory: InventoryItem[]; ordersSellOut: OrderSellOut[]; accounts: Account[]; };
+  data: { items: Item[]; ordersSellOut: OrderSellOut[]; accounts: Account[]; };
   startIso: string; endIso: string;
 }): FleetKPIs {
   const { data, startIso, endIso } = params;
@@ -226,7 +226,7 @@ export function computeFleetKPIs(params: {
 
   const activeWithOrders = Array.from(byAccOrders.values()).filter(arr => (arr?.length || 0) > 0).length;
 
-  const totalUnits = ordersInWin.reduce((s, o) => s + orderToBottles(o, data.inventory), 0);
+  const totalUnits = ordersInWin.reduce((s, o) => s + orderToBottles(o, data.items), 0);
   const totalOrders = ordersInWin.length;
   const avgTicketAll = totalOrders ? ordersInWin.map(o => orderTotal(o)).reduce((a: number, b: number) => a + b, 0) / totalOrders : 0;
 

@@ -7,7 +7,7 @@ export type InteractionKind = 'VISITA' | 'LLAMADA' | 'EMAIL' | 'WHATSAPP' | 'OTR
 export type EventKind = 'DEMO'|'FERIA'|'FORMACION'|'OTRO';
 
 export type Payload =
-    | { type: 'venta', items: { sku: string; qty: number }[] }
+    | { type: 'venta', items: { itemId: string; qty: number }[] }
     | { type: 'interaccion', note: string, nextActionDate?: string }
     | { type: 'visita_plv', note: string, nextActionDate?: string, plvInstalled: boolean, plvNotes?: string }
     | { type: 'cobro', amount: number, notes?: string }
@@ -248,7 +248,7 @@ export type PosCostCatalogEntry = {
 export type PlvStatus = 'IN_STOCK'|'INSTALLED'|'DAMAGED'|'RETIRED';
 export type PlvMaterial = {
   id: string;
-  sku?: string;
+  itemId?: string;
   kind: 'SHELF_TALKER'|'STANDEE'|'FRIDGE_STICKER'|'HANGING'|'GONDOLA'|'OTHER';
   purchaseCost?: number;
   purchaseDate?: string;
@@ -295,7 +295,7 @@ export type PosTactic = {
   orderId?: string;
   tacticCode: string;
   description?: string;
-  appliesToSkuIds?: string[];
+  appliesToItemIds?: string[];
   items: PosTacticItem[];
   plannedCost?: number;
   actualCost: number;
@@ -337,7 +337,7 @@ export interface Incident {
   closedAt?: string;
   dept?: Department;
   partyId?: string;
-  lotId?: string;
+  lotNumber?: string;
   goodsReceiptId?: string;
   shipmentId?: string;
   orderId?: string;
@@ -356,6 +356,6 @@ export interface TraceEvent {
     kind: TraceEventKind;
     occurredAt: string;
     actorId?: string;
-    links?: { lotId?: string; batchId?: string; orderId?: string; shipmentId?: string; receiptId?: string; qaCheckId?: string; };
+    links?: { lotNumber?: string; batchId?: string; orderId?: string; shipmentId?: string; receiptId?: string; qaCheckId?: string; };
     data?: any;
 }
