@@ -65,10 +65,10 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ shipmentId
         country: 'ES',
       },
       lines: (shp.lines || []).map((l: Shipment['lines'][number]) => ({
-        sku: l.sku,
-        description: l.name ?? l.sku,
+        itemId: l.itemId,
+        description: l.name ?? l.itemId,
         qty: l.qty,
-        uom: 'uds',
+        uom: 'unit',
         lotNumbers: l.lotNumber ? [l.lotNumber] : []
       })),
       company: { name: 'Santa Brisa', vat: 'ESB00000000', address: 'C/ Olivos 10', zip: '28010', city: 'Madrid', country: 'España' },
