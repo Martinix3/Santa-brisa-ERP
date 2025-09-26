@@ -4,8 +4,6 @@
 // PASO 1: Esta Server Action se ejecuta en el servidor.
 // Contiene toda la lógica de negocio para crear las entidades necesarias.
 
-export const runtime = 'nodejs';
-
 import { revalidatePath } from 'next/cache';
 // PASO 2: Se importa la instancia del SDK de Admin, ya autenticada con la cuenta de servicio.
 import { adminDb as db, infoAdmin } from '@/server/firebase';
@@ -81,7 +79,7 @@ export async function createGoodsReceipt(payload: {
     
     const materialsSnap = await db.collection('materials').get();
     const existingMaterials = materialsSnap.docs.map(d => d.data() as Material);
-    const existingSkus = existingMaterials.map(m => m.sku).filter(Boolean);
+    const existingSkus = existingMaterials.map(m => m.sku).filter(Boolean) as string[];
 
     const finalLines: GoodsReceipt['lines'] = [];
 
