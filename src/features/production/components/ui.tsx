@@ -1,7 +1,7 @@
 
 "use client";
 import React, { useMemo } from "react";
-import type { ProductionOrder, Lot, QCResult, Interaction } from "@/domain";
+import type { ProductionOrder, QACheck, Interaction } from "@/domain";
 import { SBCard, SBButton, LotQualityStatusPill } from "@/components/ui/ui-primitives";
 import { SB_COLORS, SB_THEME } from "@/domain/ssot";
 import { Factory, Cpu, BookOpen, Waypoints, AlertCircle, Hourglass, MoreVertical, Check, X, Thermometer, FlaskConical, Beaker, TestTube2, Paperclip, Upload, Trash2, Calendar, Clock } from "lucide-react";
@@ -86,11 +86,11 @@ function UpcomingEvents() {
     );
 }
 
-export function ProductionDashboard({ orders, lots }: { orders: ProductionOrder[], lots: Lot[] }) {
+export function ProductionDashboard({ orders, lots }: { orders: ProductionOrder[], lots: QACheck[] }) {
 
     const kpis = useMemo(() => {
         const activeOrders = orders.filter(o => o.status === 'wip' || o.status === 'released');
-        const pendingQCLots = lots.filter(l => l.quality?.qcStatus === 'hold');
+        const pendingQCLots = lots.filter(l => l.summaryStatus === 'ko'); // Assuming 'ko' means pending
         const overdueOrders = orders.filter(o => {
             const isLate = new Date(o.createdAt) < new Date(Date.now() - 3 * 86400000); // >3 days old
             return (o.status === 'planned' || o.status === 'released') && isLate;
@@ -105,7 +105,7 @@ export function ProductionDashboard({ orders, lots }: { orders: ProductionOrder[
 
     const orderCols: { key: keyof ProductionOrder | 'actions', header: string, render?: (r:ProductionOrder) => React.ReactNode, className?: string }[] = [
       { key: 'id', header: 'Orden', render: r => <span className="font-mono text-xs font-semibold">{r.id}</span> },
-      { key: 'sku', header: 'SKU' },
+      { key: 'outputItemId', header: 'ItemID' },
       { key: 'targetQuantity', header: 'Cantidad', className:"text-right", render: r => <span className="font-semibold">{r.targetQuantity}</span> },
       { key: 'status', header: 'Estado', render: r => <StatusPill status={r.status as any} /> },
       { key: 'createdAt', header: 'F. Creación', render: r => new Date(r.createdAt).toLocaleDateString('es-ES') },
@@ -164,9 +164,9 @@ export function ProductionDashboard({ orders, lots }: { orders: ProductionOrder[
                                 <div key={lot.id} className="flex justify-between items-center p-2 rounded-lg hover:bg-sb-neutral-50">
                                     <div>
                                         <p className="font-mono text-sm font-semibold">{lot.id}</p>
-                                        <p className="text-xs text-sb-neutral-500">{lot.quantity} uds · {new Date(lot.createdAt).toLocaleDateString()}</p>
+                                        <p className="text-xs text-sb-neutral-500">{new Date(lot.createdAt).toLocaleDateString()}</p>
                                     </div>
-                                    <LotQualityStatusPill status={lot.quality?.qcStatus} />
+                                    <LotQualityStatusPill status={(lot as any).quality?.qcStatus} />
                                 </div>
                             ))}
                         </div>

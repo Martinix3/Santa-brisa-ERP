@@ -69,7 +69,7 @@ export function computeKpis({ orders, recipes, inventory, items }: Input){
       return (o.status === 'planned' || o.status === 'released') && isLate;
   }).length;
   
-  const pendingQCLots = inventory.filter(l => l.quality?.qcStatus === 'hold').length;
+  const pendingQCLots = inventory.filter(l => (l as any).quality?.qcStatus === 'hold').length;
 
   return {
     counters: {

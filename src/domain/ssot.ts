@@ -12,7 +12,7 @@ export type LotNumber = string; // Alias for Lot identifiers
 // 1. Tipos Primitivos y Enums Transversales
 // -----------------------------------------------------------------
 export type Uom = 'bottle' | 'case' | 'pallet' | 'unit' | 'kg' | 'g' | 'L' | 'mL';
-/** @deprecated use 'unit' */
+/** @deprecated usar 'unit' */
 export type UomLegacy = 'ud' | 'uds';
 
 export type Currency = 'EUR';
@@ -60,16 +60,16 @@ export type StockReason =
 
 export interface StockMove {
   id: string;
-  itemId: string;
-  qty: number;
+  itemId: string;       // ← SIEMPRE itemId (olvidar “sku + materialId”)
+  qty: number;          // signo positivo/negativo según reason
   uom: Uom;
   lotNumber?: LotNumber;
   locationId?: string;
   reason: StockReason;
   occurredAt: Timestamp;
   createdAt: Timestamp;
-  unitCost?: number;
-  ref?: {
+  unitCost?: number;    // capa valuación (fifo/avg se calcula fuera)
+  ref?: {               // trazas a documentos/órdenes
     prodOrderId?: string;
     goodsReceiptId?: string;
     shipmentId?: string;
@@ -93,7 +93,7 @@ export interface ReservationView {
   id: string;           // itemId|lotNumber|refId
   itemId: string;
   lotNumber?: LotNumber;
-  qty: number;
+  qty: number;                  // reservado (+)
   uom: Uom;
   ref: { kind: 'ORDER'|'PROD'|'SHIP'; id: string };
   createdAt: Timestamp;
@@ -104,10 +104,10 @@ export type BomLineRole = 'FORMULA'|'PACKAGING';
 
 export interface BillOfMaterial {
   id: string;
-  outputItemId: string;
+  outputItemId: string;         // ← en vez de sku
   name: string;
-  batchSize: number;
-  baseUnit: Uom;
+  batchSize: number;            // en baseUnit
+  baseUnit: Uom;                // ← obligatorio
   items: Array<{
     itemId: string;
     qty: number;
@@ -127,13 +127,15 @@ export type ExecCheck = { id:string; done:boolean; checkedBy?:string; checkedAt?
 export interface ProductionOrder {
   id: string;
   bomId: string;
-  outputItemId: string;
-  targetQuantity: number;
+  outputItemId: string;     // ← sustituye sku
+  targetQuantity: number;   // en baseUnit
   status: ProductionStatus;
   createdAt: Timestamp;
   scheduledFor?: Timestamp;
-  batchCode?: LotNumber;
+  batchCode?: LotNumber;       // en lugar de “lotId” entidad
   responsibleId?: string;
+
+  // Operativo (opcionales)
   checks?: ExecCheck[];
   incidents?: { id: string; when: Timestamp; severity: 'BAJA'|'MEDIA'|'ALTA'; text: string }[];
   reservations?: ReservationView[];
@@ -155,8 +157,8 @@ export interface ProductionOrder {
     durationHours?: number;
     finalYield?: number;
     yieldUom?: 'L' | 'unit' | UomLegacy;
-    goodUnits?: number;
-    scrapUnits?: number;
+    goodUnits?: number;    // antes goodBottles
+    scrapUnits?: number;   // antes scrapBottles
   };
 
   costing?: {
@@ -247,7 +249,7 @@ export interface DeliveryNote {
     description:string;
     qty:number;
     uom?:string;
-    /** @deprecated use lotNumbers */
+    /** @deprecated usar lotNumbers */
     lotIds?: LotNumber[];
     lotNumbers?: LotNumber[];
   }>;
@@ -322,7 +324,7 @@ export interface OrderSellOut {
     taxRate?: number;
     discountPct?: number;
     uom?: Uom;
-    /** @deprecated use lotNumbers */
+    /** @deprecated usar lotNumbers */
     lotIds?: LotNumber[];
     lotNumbers?: LotNumber[];
   }>;
