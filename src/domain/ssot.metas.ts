@@ -1,5 +1,5 @@
 // src/domain/ssot.metas.ts
-import type { AccountType, OrderStatus, ShipmentStatus, PartyRoleType, TraceEventPhase, DeptKey, Department } from './ssot';
+import type { AccountType, OrderStatus, ShipmentStatus, PartyRoleType, TraceEventPhase, Department } from './ssot';
 
 export const SB_COLORS = {
   // === Paleta de marca (hex alineado a HSL del globals.css) ===
@@ -116,7 +116,7 @@ export const PHASE_NAME_ES: Record<TraceEventPhase, string> = {
   DELIVERY:  'Entrega (Almacén)',
 };
 
-export const PHASE_DEPT: Record<TraceEventPhase, DeptKey> = {
+export const PHASE_DEPT: Record<TraceEventPhase, Department> = {
   SOURCE:     'ALMACEN',
   RECEIPT:    'ALMACEN',
   QC:         'CALIDAD',

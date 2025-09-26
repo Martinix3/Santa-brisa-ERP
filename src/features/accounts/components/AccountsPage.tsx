@@ -5,7 +5,7 @@
 "use client"
 import React, { useMemo, useState, useEffect, useCallback } from 'react'
 import { ChevronDown, Search, Plus, Phone, Mail, MessageSquare, Calendar, History, ShoppingCart, Info, BarChart3, UserPlus, Users, MoreVertical, Ticket, Clock, Edit, FileText } from 'lucide-react'
-import type { Stage, User, Interaction, OrderSellOut, SantaData, CustomerData, Party, PartyRole, InteractionKind, Payload, Account, AccountType } from '@/domain/ssot'
+import type { Stage, User, Interaction, OrderSellOut, SantaData, CustomerData, Party, PartyRole, InteractionKind, Payload, Account, AccountType, Uom } from '@/domain/ssot'
 import { accountOwnerDisplay, computeAccountKPIs, getDistributorForAccount, orderTotal } from '@/lib/sb-core';
 import Link from 'next/link'
 import { useData } from '@/lib/dataprovider'
@@ -325,7 +325,7 @@ export function AccountsPageContent() {
                 billingStatus: 'PENDING',
                 currency: 'EUR',
                 createdAt: new Date().toISOString(),
-                lines: payload.items.map(item => ({ sku: item.sku, qty: item.qty, uom: 'uds', priceUnit: 0 })),
+                lines: payload.items.map(item => ({ itemId: item.itemId, qty: item.qty, uom: 'unit', priceUnit: 0 })),
                 notes: `Pedido rápido creado desde lista de cuentas`,
             };
             collectionsToSave.ordersSellOut = [...(santaData.ordersSellOut || []), newOrder];

@@ -2,13 +2,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { validateShipment } from '@/app/(app)/warehouse/logistics/actions';
 import { createSalesInvoice } from '@/app/(app)/orders/actions';
-import type { Shipment, OrderSellOut, FinanceLink, SantaData } from '@/domain/ssot';
+import type { Shipment, OrderSellOut, FinanceLink, SantaData, Uom } from '@/domain/ssot';
 import { getServerData } from '@/lib/dataprovider/server';
 import { upsertMany } from '@/lib/dataprovider/actions';
 
 // Mock del data provider del servidor
 vi.mock('@/lib/dataprovider/server', () => ({
-  getServerData: vi.fn(),
+  getOne: vi.fn(),
 }));
 
 vi.mock('@/lib/dataprovider/actions', () => ({
@@ -20,7 +20,7 @@ vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
 }));
 
-const getServerDataMock = getServerData as any;
+const getOneMock = (getServerData as any).getOne;
 const upsertManyMock = upsertMany as any;
 
 describe('Server Actions', () => {
@@ -40,11 +40,11 @@ describe('Server Actions', () => {
         id: MOCK_SHIPMENT_ID,
         orderId: MOCK_ORDER_ID,
         status: 'pending',
-        lines: [{ sku: 'SKU1', qty: 1, name: 'Test Product', uom: 'uds' }],
+        lines: [{ itemId: 'item_1', qty: 1, name: 'Test Product', uom: 'unit' }],
       };
 
       // Simular que getServerData devuelve nuestro envío de prueba
-      getServerDataMock.mockResolvedValue({ shipments: [mockShipment] } as Partial<SantaData>);
+      getOneMock.mockResolvedValue(mockShipment);
       upsertManyMock.mockResolvedValue({ inserted: 0, updated: 1, ids: [] });
 
       await validateShipment({
@@ -83,11 +83,11 @@ describe('Server Actions', () => {
         id: MOCK_ORDER_ID,
         partyId: MOCK_PARTY_ID,
         status: 'shipped',
-        lines: [{ sku: 'SKU1', qty: 2, priceUnit: 10, uom: 'uds' }],
+        lines: [{ itemId: 'item_1', qty: 2, priceUnit: 10, uom: 'unit' }],
         currency: 'EUR',
       };
 
-      getServerDataMock.mockResolvedValue({ ordersSellOut: [mockOrder] });
+      getOneMock.mockResolvedValue(mockOrder);
       upsertManyMock.mockResolvedValue({ inserted: 1, updated: 0, ids: [] });
 
       const result = await createSalesInvoice({ orderId: MOCK_ORDER_ID });
