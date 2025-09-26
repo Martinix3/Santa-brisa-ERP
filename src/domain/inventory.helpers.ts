@@ -1,5 +1,5 @@
 // domain/inventory.helpers.ts - Helpers de stock
-import type { InventoryItem, StockMove, Uom, Item } from './ssot';
+import type { OnHandView, StockMove, Uom, Item } from './ssot';
 
 /** Devuelve el SKU de un item (fallback a id si no tiene sku) */
 const getItemSku = (itemId: string, items: Item[]) =>
@@ -26,14 +26,14 @@ export function fifoReserveLots(
   requiredQty: number,
   onHand: OnHandView[],
   locationPrefix: 'RM/MAIN' | 'PKG/MAIN' | 'FG/MAIN'
-): Array<{ fromLot: string; reservedQty: number; uom: Uom }> {
+): Array<{ fromLotNumber: string; reservedQty: number; uom: Uom }> {
   if (requiredQty <= 0) return [];
 
   const lots = onHand
     .filter(i => i.itemId === itemId && (i.locationId || "").startsWith(locationPrefix) && (i.qty ?? 0) > 0)
     .sort((a, b) => +new Date(a.updatedAt) - +new Date(b.updatedAt)); // FIFO
 
-  const picks: Array<{ fromLot: string; reservedQty: number; uom: Uom }> = [];
+  const picks: Array<{ fromLotNumber: string; reservedQty: number; uom: Uom }> = [];
   let rem = requiredQty;
 
   for (const it of lots) {
@@ -44,7 +44,7 @@ export function fifoReserveLots(
         console.warn(`fifoReserveLots: OnHand item ${it.id} for item ${it.itemId} has no lotNumber.`);
         continue;
       }
-      picks.push({ fromLot: it.lotNumber, reservedQty: take, uom: it.uom });
+      picks.push({ fromLotNumber: it.lotNumber, reservedQty: take, uom: it.uom });
       rem -= take;
     }
   }
@@ -55,7 +55,7 @@ export function fifoReserveLots(
 /** Genera movimientos de consumo (production_out) a partir de reservas */
 export function buildConsumptionMoves(args: {
   orderId: string;
-  reservations: Array<{ itemId: string; fromLot: string; reservedQty: number; uom: Uom }>;
+  reservations: Array<{ itemId: string; fromLotNumber: string; reservedQty: number; uom: Uom }>;
   items: Item[];
   at?: string;
   fromLocation?: string; // ej. "RM/MAIN"
@@ -65,10 +65,10 @@ export function buildConsumptionMoves(args: {
   return reservations.map((r, idx) => ({
     id: `mv_cons_${orderId}_${idx}`,
     itemId: r.itemId,
-    lotNumber: r.fromLot,
+    lotNumber: r.fromLotNumber,
     uom: r.uom,
     qty: -r.reservedQty, // Negativo para salida
-    locationId: fromLocation,
+    fromLocation: fromLocation,
     reason: "production_out",
     occurredAt: at,
     createdAt: at,
@@ -79,4 +79,4 @@ export function buildConsumptionMoves(args: {
 // NOTE: La lógica de `applyStockMoves` se ha simplificado, ya que los workers/triggers
 // serán los responsables de recalcular las vistas `onHand` y `reservations`.
 // Las funciones de validación de stock y aplicación de movimientos ya no son necesarias
-// en el frontend si se asume que los datos de las vistas son correctos.
+// en el frontend si se asume que los datos de las vistas son correctos

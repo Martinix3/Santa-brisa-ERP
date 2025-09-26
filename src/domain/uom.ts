@@ -13,7 +13,7 @@ export function canonicalUomForItem(
   // 1) buscar en inventario por itemId
   const candidates = onHand.filter(oh => oh.itemId === itemId);
   if (candidates.length) {
-    // Mayoría simple
+    // mayoría simple
     const tally = new Map<string, number>();
     for (const c of candidates) {
       const u = (c as any).uom as string | undefined;
@@ -29,14 +29,10 @@ export function canonicalUomForItem(
 
 /** Para producto terminado: sugiere la UoM dominante en inventario; si no, 'uds' por defecto. */
 export function canonicalUomForFinished(
-  sku: string,
+  itemId: string,
   onHand: OnHandView[]
 ): Uom {
-  // Nota: Deberíamos usar itemId en vez de sku, pero mantenemos por compatibilidad temporal
-  const candidates = onHand.filter(oh => {
-    // Suponemos que podemos buscar el `item` para obtener el sku, aunque lo ideal es que OnHandView lo tenga
-    return oh.itemId.includes(sku); // Heurística débil
-  });
+  const candidates = onHand.filter(oh => oh.itemId === itemId);
 
   if (candidates.length) {
     const tally = new Map<string, number>();

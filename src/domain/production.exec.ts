@@ -4,7 +4,7 @@ import type { Uom, QCResult } from './ssot';
 // --- Tipos para la UI y Lógica de Ejecución ---
 
 export type BomLineExec = {
-  materialId: string;
+  itemId: string;
   name: string;
   qtyPerBatch: number;
   uom: Uom;
@@ -28,7 +28,7 @@ export type RecipeBomExec = {
 };
 
 export type MaterialShortage = {
-  materialId: string;
+  itemId: string;
   name: string;
   required: number;
   available: number;
@@ -36,16 +36,16 @@ export type MaterialShortage = {
 };
 
 export type Reservation = {
-  materialId: string;
-  fromLot: string;
+  itemId: string;
+  fromLotNumber: string;
   reservedQty: number;
   uom: Uom;
 };
 
 export type ActualConsumption = {
-  materialId: string;
+  itemId: string;
   name: string;
-  fromLot?: string;
+  fromLotNumber?: string;
   theoreticalQty: number;
   actualQty: number;
   uom: Uom;
@@ -59,9 +59,9 @@ export type ProdExecution = {
   finishedAt?: string;
   durationHours?: number;
   finalYield?: number;
-  yieldUom?: 'L' | 'ud';
-  goodBottles?: number;
-  scrapBottles?: number;
+  yieldUom?: 'L' | 'ud' | 'uds';
+  goodUnits?: number;
+  scrapUnits?: number;
 };
 
 export type ProdCosting = {
@@ -84,12 +84,12 @@ export interface StageDetail {
 
 export type ProductionOrderExec = {
   id: string;
-  bomId: string; // Changed from recipeId
-  sku: string; // finished good SKU
+  bomId: string;
+  outputItemId: string; // en lugar de sku
   targetQuantity: number;
   status: 'pending' | 'released' | 'wip' | 'done' | 'cancelled';
   createdAt: string;
-  lotId?: string;
+  batchCode?: string; // en lugar de lotId
   // Overlay/UI specific fields
   execStatus?: ProdExecStatus;
   scheduledFor?: string;
@@ -99,7 +99,4 @@ export type ProductionOrderExec = {
   shortages?: MaterialShortage[];
   actuals?: ActualConsumption[];
   execution?: ProdExecution;
-  incidents?: { id: string; when: string; severity: "BAJA" | "MEDIA" | "ALTA"; text: string }[];
-  costing?: ProdCosting;
-  updatedAt?: string;
-};
+  incidents?: { id: string; when: string; severity: "BAJA" | "MEDIA" | "ALTA"; text:

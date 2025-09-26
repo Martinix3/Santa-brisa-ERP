@@ -1,7 +1,7 @@
 // src/domain/ssot.ts
 
 // =================================================================
-// == SINGLE SOURCE OF TRUTH (SSOT) - KERNEL V1
+// == SINGLE SOURCE OF TRUTH (SSOT) - KERNEL V2
 // =================================================================
 export type Timestamp = string; // ISO string
 
@@ -23,14 +23,14 @@ export type IncidentKind = 'QC_INBOUND' | 'QC_PROCESS' | 'QC_RELEASE' | 'LOGISTI
 export type IncidentStatus = 'OPEN' | 'UNDER_REVIEW' | 'CONTAINED' | 'CLOSED';
 export type ActivationStatus = 'active' | 'inactive' | 'pending_renewal';
 export type PartyStatus = 'PROVISIONAL'|'ENRIQUECIDO'|'VINCULADO'|'CONFIABLE';
+export type ItemCategory = 'fg'|'raw'|'pack'|'label'|'intermediate'|'consumable'|'merch';
+
 
 // -----------------------------------------------------------------
 // 2. KERNEL MÍNIMO
 // -----------------------------------------------------------------
 
 // 0) Catálogos
-export type ItemCategory = 'fg'|'raw'|'pack'|'label'|'intermediate'|'consumable'|'merch';
-
 export interface Item {
   id: string;           // ← clave única estable
   sku: string;          // ← redundante para mostrar/buscar
@@ -58,7 +58,8 @@ export interface StockMove {
   qty: number;          // signo positivo/negativo según reason
   uom: Uom;
   lotNumber?: string;   // texto; la “lote” ya no es entidad
-  locationId?: string;
+  fromLocation?: string;
+  toLocation?: string;
   reason: StockReason;
   occurredAt: string;   // ISO
   createdAt: string;    // ISO
@@ -80,9 +81,9 @@ export interface OnHandView {
   qty: number;
   uom: Uom;
   updatedAt: string;
-  createdAt: string; // Añadido para consistencia
-  quality?: { qcStatus: "hold" | "release" | "reject" }; // Añadido para consistencia
-  expDate?: string; // Añadido para consistencia
+  createdAt: string; 
+  quality?: { qcStatus: "hold" | "release" | "reject" }; 
+  expDate?: string; 
 }
 
 export interface ReservationView {
@@ -128,7 +129,7 @@ export interface ProductionOrder {
   status: ProductionStatus;
   createdAt: Timestamp;
   scheduledFor?: string;
-  batchCode?: string;       // en lugar de “lotId” entidad
+  batchCode?: string;       // en lugar de “lotNumber”
   responsibleId?: string;
 
   // Operativo (opcionales)
@@ -153,7 +154,7 @@ export interface ProductionOrder {
     finishedAt?: string;
     durationHours?: number;
     finalYield?: number;
-    yieldUom?: 'L'|'ud';
+    yieldUom?: 'L'|'ud' | 'uds';
     goodUnits?: number;    // antes goodBottles
     scrapUnits?: number;   // antes scrapBottles
   };
@@ -172,7 +173,6 @@ export type QCResult = { value?: number | string | boolean; notes?: string; stat
 export interface QACheck {
   id: string;
   subject: QCSubject;
-  lotId?: string; // Provisional para compatibilidad
   checklist?: Array<{ name: string; result: 'ok' | 'ko'; value?: number|string|boolean; notes?: string }>;
   summaryStatus: 'ok' | 'ko';
   reviewedById?: string;
@@ -183,7 +183,7 @@ export interface QACheck {
 }
 
 // -----------------------------------------------------------------
-// 3. Documentos Operativos (Generan `StockMove`s)
+// 5. Documentos Operativos (Generan `StockMove`s)
 // -----------------------------------------------------------------
 export interface GoodsReceipt {
   id: string;
@@ -249,7 +249,7 @@ export interface DeliveryNote {
 }
 
 // -----------------------------------------------------------------
-// 4. Entidades de CRM, Marketing y otras (Sin cambios grandes)
+// 6. Entidades de CRM, Marketing y otras (Sin cambios grandes)
 // -----------------------------------------------------------------
 export type Address = { address?: string; city?: string; zip?: string; province?: string; country?: string; countryCode?: string };
 export type CommItem = { value: string; isPrimary?: boolean; verified?: boolean; source?: 'CRM'|'HOLDED'|'IMPORT'|'USER'; updatedAt?: Timestamp; optOut?: boolean; };
@@ -314,7 +314,7 @@ export interface OrderSellOut {
 export * from './ssot.common'; // Importa el resto de tipos que no han cambiado
 
 // -----------------------------------------------------------------
-// 5. DEPRECATED - Entidades Antiguas (marcar para eliminar)
+// 7. DEPRECATED - Entidades Antiguas (marcar para eliminar)
 // -----------------------------------------------------------------
 
 /** @deprecated Use `Item` instead. */
@@ -328,7 +328,7 @@ export interface InventoryItem {}
 
 
 // -----------------------------------------------------------------
-// 6. Lista de Colecciones de la Base de Datos
+// 8. Lista de Colecciones de la Base de Datos
 // -----------------------------------------------------------------
 export interface SantaData {
   // Catálogos
