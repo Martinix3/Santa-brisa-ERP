@@ -179,8 +179,9 @@ const ManualAdjustmentDialog = ({ open, onClose, onSave }: { open: boolean; onCl
                     </div>
                 </div>
             </SBDialogContent>
-    )
-}
+        </SBDialog>
+    );
+};
 
 export default function InventoryPage() {
     const { data: santaData, setData, saveAllCollections } = useData();
@@ -196,8 +197,8 @@ export default function InventoryPage() {
             setLoading(true);
 
             const { lots, materials, inventory: rawInventory } = santaData;
-            const materialMap = new Map(materials.map(m => [m.id, m]));
-            const materialBySkuMap = new Map(materials.map(m => [m.sku, m]));
+            const materialMap = new Map((materials || []).map(m => [m.id, m]));
+            const materialBySkuMap = new Map((materials || []).map(m => [m.sku, m]));
 
             const finishedGoods: UnifiedInventoryItem[] = (lots || []).map(lot => {
                 const material = materialMap.get(lot.sku) || materialBySkuMap.get(lot.sku);

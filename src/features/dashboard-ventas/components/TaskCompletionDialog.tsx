@@ -1,4 +1,3 @@
-
 // src/features/dashboard-ventas/components/TaskCompletionDialog.tsx
 "use client";
 import React, { useMemo, useState, useEffect } from 'react';
@@ -39,7 +38,7 @@ export function TaskCompletionDialog({
   const [items, setItems] = useState<{ sku: string; qty: number }[]>([{ sku: defaultSku, qty: 1 }]);
   
   const [showPosTacticForm, setShowPosTacticForm] = useState(false);
-  const [posTacticData, setPosTacticData] = useState<Partial<Omit<PosTactic, 'id' | 'items'>>>({ tacticCode: 'OTHER', status: 'planned', actualCost: 0 });
+  const [posTacticData, setPosTacticData] = useState<Partial<Omit<PosTactic, 'id' | 'items'>>>({ tacticCode: 'OTHER', actualCost: 0 });
 
   useEffect(() => {
     if (open) {
@@ -48,7 +47,7 @@ export function TaskCompletionDialog({
       setNextActionDate('');
       setItems([{ sku: defaultSku, qty: 1 }]);
       setShowPosTacticForm(false);
-      setPosTacticData({ tacticCode: 'OTHER', status: 'planned', actualCost: 0 });
+      setPosTacticData({ tacticCode: 'OTHER', actualCost: 0 });
     }
   }, [open, defaultSku]);
 
@@ -77,12 +76,12 @@ export function TaskCompletionDialog({
         payload = { type: 'venta', items };
     }
     
-    if (showPosTacticForm && posTacticData.tacticCode && posTacticData.actualCost !== undefined && posTacticData.actualCost > 0) {
+    if (showPosTacticForm && posTacticData.tacticCode && posTacticData.actualCost !== undefined && posTacticData.actualCost >= 0) {
       await upsertPosTactic({
         accountId: task.accountId!,
         interactionId: task.id,
-        status: 'active', // If we are completing a task, it means it happened.
-        executionScore: 80, // Default value, can be refined.
+        status: 'active',
+        executionScore: 80,
         items: [{
           description: posTacticData.description || posTacticData.tacticCode || 'Táctica POS',
           qty: 1,

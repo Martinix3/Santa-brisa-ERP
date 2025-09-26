@@ -1,4 +1,3 @@
-
 // src/features/quicklog/QuickLogOverlay.tsx
 "use client";
 import React, { useState, useCallback, useEffect } from 'react';
@@ -76,7 +75,7 @@ export default function QuickLogOverlay() {
       name: d.name,
       legalName: d.name,
       kind: 'ORG',
-      billingAddress: d.city ? { address: '', city: d.city, country: 'España', zip: '' } : undefined,
+      billingAddress: d.city ? { address: '', city: d.city, country: 'España', postalCode: '' } : undefined,
       emails: [],
       phones: [],
       createdAt: new Date().toISOString(),
@@ -100,8 +99,7 @@ export default function QuickLogOverlay() {
   const handleQuickSubmit = useCallback((payload: any) => {
     console.log("Quick form submitted:", payload);
 
-    const acc =
-      (data?.accounts || []).find((a: Account) => a.id === payload.accountId);
+    const acc = (data?.accounts || []).find(a => a.id === payload.accountId);
 
     const accountId = acc?.id;
 
