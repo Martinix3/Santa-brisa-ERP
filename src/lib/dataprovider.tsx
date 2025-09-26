@@ -9,7 +9,6 @@ import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signO
 import { getFirestore, collection, getDocs } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { SANTA_DATA_COLLECTIONS } from "@/domain/ssot";
-import { INITIAL_MOCK_DATA } from "@/lib/mock-data";
 import { upsertMany } from './dataprovider/actions';
 import { firebaseApp, firebaseAuth, firestoreDb } from "@/lib/firebaseClient";
 
@@ -90,18 +89,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (isPersistenceEnabled) {
         try {
             const [firestoreData, report] = await loadAllCollections();
-            if (report.totalDocs > 0) {
-                setData(firestoreData);
-            } else {
-                console.warn("[DataProvider] Firestore is empty or failed to load, using mock data.");
-                setData(INITIAL_MOCK_DATA);
-            }
+            setData(firestoreData);
         } catch (e) {
-            console.error("[DataProvider] Failed to load Firestore data, using mock data:", e);
-            setData(INITIAL_MOCK_DATA);
+            console.error("[DataProvider] Failed to load Firestore data, setting data to null:", e);
+            setData(null);
         }
     } else {
-        setData(INITIAL_MOCK_DATA);
+        // If persistence is off, we now start with an empty state instead of mock data.
+        const emptyData: Partial<SantaData> = {};
+        for (const name of Array.from(SANTA_DATA_COLLECTIONS)) {
+            (emptyData as any)[name] = [];
+        }
+        setData(emptyData as SantaData);
     }
     setLoadingData(false);
   }, [authReady, firebaseUser, isPersistenceEnabled]);
