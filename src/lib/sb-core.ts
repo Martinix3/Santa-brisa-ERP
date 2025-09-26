@@ -1,6 +1,6 @@
 // --- Santa Brisa: lógica de negocio (sell-out a botellas, agregados y KPIs) ---
 import type {
-  Account, Party, PartyRole, CustomerData, OrderSellOut, User, SantaData, Activation, Interaction, AccountRollup, Item
+  Account, Party, PartyRole, CustomerData, OrderSellOut, User, SantaData, Activation, Interaction, Item
 } from '@/domain/ssot';
 
 export const inWindow = (dateStr: string, start: Date, end: Date): boolean => {
@@ -83,7 +83,7 @@ function lineToBottles(line: OrderLine, item: Item | undefined, opts: BottlesOpt
   if (!isBottleItem) return opts.countNonBottleSkusAsZero === false ? line.qty : 0;
 
   switch (line.uom) {
-    case 'uds':   return line.qty;
+    case 'unit':   return line.qty;
     default: return 0;
   }
 }
@@ -162,11 +162,23 @@ export function computeAccountKPIs(params: {
 }
 
 // 4) Rollup por cuenta
+export type AccountRollup = {
+    accountId: string;
+    hasPLVInstalled: boolean;
+    lastPLVInstalledAt?: string;
+    activeActivations: number;
+    lastActivationAt?: string;
+    activePromotions: number;
+    activePosTactics: number;
+    lastTacticAt?: string;
+}
+
+
 export function computeAccountRollup(accountId: string, data: SantaData): AccountRollup {
     const accountInteractions = (data.interactions || []).filter(i => i.accountId === accountId);
     
-    const accountActivations = (data.activations || []).filter(a => a.accountId === accountId);
-    const activeActivations = accountActivations.filter(a => a.status === 'active');
+    const accountActivations = (data.activations || []).filter((a: Activation) => a.accountId === accountId);
+    const activeActivations = accountActivations.filter((a: Activation) => a.status === 'active');
     
     const sortedPlvVisits = accountInteractions
         .filter(i => i.note?.toLowerCase().includes('plv'))
@@ -175,9 +187,9 @@ export function computeAccountRollup(accountId: string, data: SantaData): Accoun
 
     const promotions = data.promotions || [];
     const now = new Date();
-    const activePromotions = promotions.filter(p => now >= new Date(p.validFrom) && now <= new Date(p.validTo));
+    const activePromotions = promotions.filter((p: any) => now >= new Date(p.validFrom) && now <= new Date(p.validTo));
 
-    const posTactics = accountInteractions.filter(i => i.posTactic && i.status === 'open');
+    const posTactics = accountInteractions.filter(i => (i as any).posTactic && i.status === 'open');
     const sortedPosTactics = posTactics.sort((a, b) => +(typeof b.createdAt === 'string' ? new Date(b.createdAt) : new Date(Number(b.createdAt))) - +(typeof a.createdAt === 'string' ? new Date(a.createdAt) : new Date(Number(a.createdAt))));
     const lastTactic = sortedPosTactics.length > 0 ? sortedPosTactics[0] : undefined;
     

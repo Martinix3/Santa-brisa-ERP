@@ -1,7 +1,7 @@
 // src/components/ui/ui-primitives.tsx
 "use client";
 import React from 'react';
-import type { Lot } from '@/domain/ssot';
+import type { OnHandView } from '@/domain/ssot';
 
 // ===================================
 // Tarjeta Genérica (Card)

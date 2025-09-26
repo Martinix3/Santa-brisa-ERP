@@ -10,7 +10,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useDropzone } from 'react-dropzone';
 import { UploadCloud } from 'lucide-react';
-import { SANTA_DATA_COLLECTIONS, type SantaData, POLICIES, SB_THEME } from "@/domain/ssot";
+import { SANTA_DATA_COLLECTIONS, type SantaData, SB_THEME, POLICIES } from "@/domain";
 import { importPreview, importCommit } from "./actions";
 
 // ----------------- helpers (cliente) -----------------
@@ -36,7 +36,7 @@ export default function DataImportPage(){
   const [csvText, setCsvText] = useState('');
   const [fileName, setFileName] = useState('');
   const [preview, setPreview] = useState<any[] | null>(null);
-  const [report, setReport] = useState<string>('');
+  const [report, setReport] = useState('');
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
@@ -84,7 +84,7 @@ export default function DataImportPage(){
   // ---------- SHEET ----------
   function setCell(r:number, k:string, v:string){ setRows(prev=>{ const copy=[...prev]; copy[r] = { ...copy[r], [k]: v }; return copy; }); }
   function addRow(){ setRows(prev=> [...prev, Object.fromEntries(headers.map(h=>[h,'']))]); }
-  function autoFill(){ setRows(prev => prev.map((r)=>{ const out = { ...r } as any; if (autoId && !out.id){ const pref = coll==='accounts'? 'ACCOUNT' : coll==='goodsReceipts'? 'GR' : coll==='shipments'? 'SH' : coll==='productionOrders'? 'PO' : 'GEN'; out.id = genId(pref as any); } if (autoSku && 'sku' in out && !out.sku && out.name) out.sku = slugToSKU(String(out.name)); if ('createdAt' in out && !out.createdAt) out.createdAt = isoNow(); if ('currency' in out && !out.currency) out.currency = 'EUR'; return out; })); }
+  function autoFill(){ setRows(prev => prev.map((r)=>{ const out = { ...r } as any; if (autoId && !out.id){ const pref = coll==='accounts'? 'ACCOUNT' : coll==='goodsReceipts'? 'GR' : coll==='shipments'? 'SH' : coll==='productionOrders'? 'PO' : 'GEN'; out.id = genId(pref as any); } if ('createdAt' in out && !out.createdAt) out.createdAt = isoNow(); if ('currency' in out && !out.currency) out.currency = 'EUR'; return out; })); }
   async function doPreviewSheet(){ if (!coll) return; const res = await importPreview({ coll, rows }); setPreview(res.sample || rows); }
   async function doCommitSheet(){ if (!coll) return; const res = await importCommit({ coll, rows }); setReport(`Importados ${res.inserted + res.updated} docs en ${coll}`); }
 

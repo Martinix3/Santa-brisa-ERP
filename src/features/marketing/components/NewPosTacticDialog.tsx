@@ -116,7 +116,7 @@ const TacticItemRow = ({
                     {costCatalog.map(c => <option key={c.code} value={`cat_${c.code}`}>{c.label}</option>)}
                 </optgroup>
                  <optgroup label="Material PLV (Inventario)">
-                    {plvInventory.map(p => <option key={p.id} value={`plv_${p.id}`}>{p.kind} (SKU: {p.sku})</option>)}
+                    {plvInventory.map(p => <option key={p.id} value={`plv_${p.id}`}>{p.kind}</option>)}
                 </optgroup>
             </Select>
             <Input type="number" placeholder="Cantidad" value={item.qty ?? 1} onChange={e => onChange(index, { qty: Number(e.target.value), actualCost: (item.unitCost || 0) * Number(e.target.value) })}/>

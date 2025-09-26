@@ -14,7 +14,6 @@ type HoldedItem = {
 };
 
 export async function handleSyncHoldedProducts({ page = 1, dryRun = false }: { page?: number; dryRun?: boolean }) {
-  // ⚠️ Ajusta la ruta si tu tenant usa otra (documentación Holded inventario).
   const items: HoldedItem[] = await callHoldedApi(`/inventory/v1/items?limit=200&page=${page}`, 'GET') as HoldedItem[];
 
   for (const it of items) {
@@ -40,5 +39,6 @@ export async function handleSyncHoldedProducts({ page = 1, dryRun = false }: { p
     }
   }
 
-  return { ok: true, count: items.length, nextPage: items.length === 200 ? page + 1 : null };
+  const processedNames = items.map(it => it.name || it.id).filter(Boolean);
+  return { ok: true, count: items.length, nextPage: items.length === 200 ? page + 1 : null, dryRun, processedNames };
 }

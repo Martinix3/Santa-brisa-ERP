@@ -6,6 +6,7 @@ import { adminDb as db } from '@/server/firebase';
 import { Timestamp } from 'firebase-admin/firestore';
 import type { Party, Item, GoodsReceipt, OnHandView, StockMove, Uom } from '@/domain/ssot';
 import { normText } from '@/lib/norm/text';
+import { makeGoodsReceiptCode } from '@/lib/codes';
 
 const uniqueSku = (base: string, existingSkus: string[]) => {
   let candidate = base;
@@ -32,7 +33,7 @@ export async function createGoodsReceipt(payload: {
         key: string;
         itemId?: string;
         newMaterialName?: string;
-        newMaterialCategory?: Item['category'];
+        newItemCategory?: Item['category'];
         supplierLot: string;
         qty: number;
         unitCost: number;
@@ -66,6 +67,8 @@ export async function createGoodsReceipt(payload: {
         throw new Error('El proveedor es obligatorio.');
     }
 
+    const allReceipts = (await db.collection('goodsReceipts').select('receiptNumber').get()).docs.map(d => d.data().receiptNumber).filter(Boolean);
+    const receiptNumber = makeGoodsReceiptCode(allReceipts, new Date());
     const receiptRef = db.collection('goodsReceipts').doc();
     
     const itemsSnap = await db.collection('items').get();
@@ -79,11 +82,11 @@ export async function createGoodsReceipt(payload: {
         let itemId = line.itemId;
         let sku = '';
         let uom: Uom = line.uom || 'unit';
-        let category: Item['category'] = line.newMaterialCategory || 'raw';
+        let category: Item['category'] = line.newItemCategory || 'raw';
 
         if (line.newMaterialName && !line.itemId) {
             const newItemRef = db.collection('items').doc();
-            category = line.newMaterialCategory || 'raw';
+            category = line.newItemCategory || 'raw';
             const newSku = makeSku(line.newMaterialName, category, existingSkus);
 
             const newItem: Item = {
@@ -152,6 +155,7 @@ export async function createGoodsReceipt(payload: {
 
     const receipt: GoodsReceipt = {
         id: receiptRef.id,
+        receiptNumber: receiptNumber,
         supplierPartyId: finalSupplierId!,
         deliveryNote,
         receivedAt: now.toISOString(),

@@ -97,6 +97,14 @@ export const POLICIES = {
   SH: { prefix: 'SH', granularity: 'YYYYMMDD' as const, width: 4, re: codeRe('SH', 'YYYYMMDD', 4) },
   DN: { prefix: 'DN', granularity: 'YYYYMMDD' as const, width: 4, re: codeRe('DN', 'YYYYMMDD', 4) },
   GR: { prefix: 'GR', granularity: 'YYYYMMDD' as const, width: 4, re: codeRe('GR', 'YYYYMMDD', 4) },
+  LOT: { regex: LOT_RE },
+  PRODUCT: { regex: SKU_RE },
+  ACCOUNT: { regex: /.*/ },
+  PARTY: { regex: /.*/ },
+  SUPPLIER: { regex: /.*/ },
+  LOCATION: { regex: /.*/ },
+  PRICE_LIST: { regex: /.*/ },
+  PROMOTION: { regex: /.*/ },
 };
 
 // Parsers genéricos
@@ -139,4 +147,7 @@ export function makeDeliveryNoteCode(existing: string[], date = new Date()) {
 export function makeGoodsReceiptCode(existing: string[], date = new Date()) {
   const seq = nextSeq(existing, { prefix: 'GR', date, granularity: 'YYYYMMDD', width: 4 });
   return makeCode({ prefix: 'GR', date, seq, granularity: 'YYYYMMDD', width: 4 });
+}
+export function generateNextOrder(existing: string[], channel: string, date: Date) {
+    return makeSellOutOrderCode(existing, date);
 }

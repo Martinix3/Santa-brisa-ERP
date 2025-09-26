@@ -20,7 +20,6 @@ import type {
   SantaData,
   OrderSellOut,
   Interaction,
-  OnHandView,
   User,
 } from '@/domain/ssot';
 
@@ -237,7 +236,7 @@ const santaBrainFlow = ai.defineFlow(
                 legalName: inputData.name,
                 name: inputData.name,
                 kind: 'ORG',
-                billingAddress: inputData.city ? { city: inputData.city, address: '', country: 'España', zip: '' } : undefined,
+                billingAddress: inputData.city ? { city: inputData.city, address: '', zip: '' } : undefined,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
             } as Party;

@@ -6,30 +6,30 @@ import type { StockMove, Shipment, Account, SantaData } from "@/domain/ssot";
 export function consignmentOnHandByAccount(stockMoves: StockMove[]) {
   const byAcc: Record<string, Record<string, number>> = {};
   for (const m of stockMoves || []) {
-    const sku = m.sku;
+    const itemId = m.itemId;
     const accFrom = m.fromLocation;   // cuando sale de consigna (venta/retorno)
     const accTo = m.toLocation;       // cuando se envía a consigna
 
     if (m.reason === "consignment_send" && accTo) {
       byAcc[accTo] ||= {};
-      byAcc[accTo][sku] = (byAcc[accTo][sku] || 0) + (m.qty || 0);
+      byAcc[accTo][itemId] = (byAcc[accTo][itemId] || 0) + (m.qty || 0);
     }
     if (m.reason === "consignment_sell" && accFrom) {
       byAcc[accFrom] ||= {};
-      byAcc[accFrom][sku] = (byAcc[accFrom][sku] || 0) + (m.qty || 0); // normalmente qty negativa
+      byAcc[accFrom][itemId] = (byAcc[accFrom][itemId] || 0) + (m.qty || 0); // normalmente qty negativa
     }
     if (m.reason === "consignment_return" && accFrom) {
       byAcc[accFrom] ||= {};
-      byAcc[accFrom][sku] = (byAcc[accFrom][sku] || 0) + (m.qty || 0); // suele ser negativa (vuelve al HQ)
+      byAcc[accFrom][itemId] = (byAcc[accFrom][itemId] || 0) + (m.qty || 0); // suele ser negativa (vuelve al HQ)
     }
   }
   // normaliza a enteros
   Object.values(byAcc).forEach(map => {
-    Object.keys(map).forEach(sku => {
-      map[sku] = Number(map[sku]) || 0;
+    Object.keys(map).forEach(itemId => {
+      map[itemId] = Number(map[itemId]) || 0;
     });
   });
-  return byAcc; // { [accountId]: { [sku]: onHand } }
+  return byAcc; // { [accountId]: { [itemId]: onHand } }
 }
 
 // Total por cuenta (sum de todos los SKUs)
