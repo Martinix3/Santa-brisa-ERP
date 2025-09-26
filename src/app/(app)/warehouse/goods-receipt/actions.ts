@@ -1,14 +1,10 @@
 // src/app/(app)/warehouse/goods-receipt/actions.ts
 'use server';
 
-// PASO 1: Esta Server Action se ejecuta en el servidor.
-// Contiene toda la lógica de negocio para crear las entidades necesarias.
-
 import { revalidatePath } from 'next/cache';
-// PASO 2: Se importa la instancia del SDK de Admin, ya autenticada con la cuenta de servicio.
-import { adminDb as db, infoAdmin } from '@/server/firebase';
+import { adminDb as db } from '@/server/firebase';
 import { Timestamp } from 'firebase-admin/firestore';
-import type { Party, Material, GoodsReceipt, Lot, StockMove, Uom, InventoryItem } from '@/domain/ssot';
+import type { Party, Material, GoodsReceipt, InventoryItem, StockMove, Uom } from '@/domain/ssot';
 import { normText } from '@/lib/norm/text';
 
 const uid = (prefix: string) => `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
@@ -48,8 +44,6 @@ export async function createGoodsReceipt(payload: {
 }) {
     const { supplierId, newSupplierName, deliveryNote, lines, sendToQc } = payload;
     const now = new Date();
-    // PASO 3: Se crea un "batch" de Firestore para realizar todas las escrituras
-    // de forma atómica. O se hacen todas, o no se hace ninguna.
     const batch = db.batch();
 
     let finalSupplierId = supplierId;
@@ -83,23 +77,23 @@ export async function createGoodsReceipt(payload: {
 
     const finalLines: GoodsReceipt['lines'] = [];
 
-    // 2. Procesar todas las líneas: crear materiales, lotes, movimientos de stock e inventario
+    // 2. Procesar todas las líneas
     for (const line of lines) {
         let materialId = line.materialId;
         let sku = '';
         let uom: Uom = line.uom || 'uds';
+        let category: Material['category'] = line.newMaterialCategory || 'raw';
 
-        // Si es un nuevo material...
         if (line.newMaterialName && !line.materialId) {
             const newMaterialRef = db.collection('materials').doc();
-            const cat = line.newMaterialCategory || 'raw';
-            const newSku = makeSku(line.newMaterialName, cat, existingSkus);
+            category = line.newMaterialCategory || 'raw';
+            const newSku = makeSku(line.newMaterialName, category, existingSkus);
 
             const newMaterial: Material = {
                 id: newMaterialRef.id,
                 sku: newSku,
                 name: line.newMaterialName,
-                category: cat,
+                category: category,
                 uom: (line.uom || 'uds'),
                 standardCost: line.unitCost || 0,
             };
@@ -112,66 +106,59 @@ export async function createGoodsReceipt(payload: {
             const m = existingMaterials.find(mm => mm.id === materialId);
             sku = m?.sku || '';
             uom = (m?.uom as Uom) || 'uds';
+            category = m?.category || 'raw';
         }
 
         if (!materialId) continue;
+        
+        const newLotId = `lot_${now.getTime()}_${Math.random().toString(36).substring(2, 6)}`;
+        const inventoryItemRef = db.collection('inventory').doc(newLotId);
+        const locationId = sendToQc ? 'QC/AREA' : (category === 'raw' ? 'RM/MAIN' : 'PKG/MAIN');
 
-        // Crear Lote
-        const newLotRef = db.collection('lots').doc();
-        const newLot: Partial<Lot> = {
-            id: newLotRef.id,
+        // Crear InventoryItem en lugar de Lot
+        const inventoryItem: InventoryItem = {
+            id: inventoryItemRef.id,
             sku: sku,
-            quantity: line.qty,
+            materialId: materialId,
+            category: category,
+            lotNumber: line.supplierLot,
+            qty: line.qty,
+            uom: uom,
+            locationId: locationId,
             createdAt: now.toISOString(),
-            supplierId: finalSupplierId,
-            quality: { qcStatus: sendToQc ? 'hold' : 'release', results: {} },
-            supplierBatch: line.supplierLot,
+            updatedAt: now.toISOString(),
+            quality: { qcStatus: sendToQc ? 'hold' : 'release' },
+            source: { type: "PURCHASE_ORDER", id: receiptRef.id },
         };
-        batch.set(newLotRef, { ...newLot, createdAt: now.toISOString() } as any);
+        batch.set(inventoryItemRef, inventoryItem);
 
-        const location = sendToQc ? 'QC/AREA' : 'RM/MAIN';
-
-        // Crear Movimiento de Stock (el "ledger")
+        // Crear Movimiento de Stock (ledger)
         const newStockMoveRef = db.collection('stockMoves').doc();
         const stockMove: StockMove = {
             id: newStockMoveRef.id,
-            sku: newLot.sku!,
-            lotId: newLot.id,
-            qty: newLot.quantity!,
+            sku: sku,
+            lotId: inventoryItemRef.id, // Usa el ID del nuevo item de inventario como referencia de lote
             uom: uom,
+            qty: line.qty,
             reason: 'receipt',
-            toLocation: location,
+            toLocation: locationId,
             occurredAt: now.toISOString(),
             createdAt: now.toISOString(),
             ref: { goodsReceiptId: receiptRef.id },
             unitCost: line.unitCost,
         };
-        batch.set(newStockMoveRef, { ...stockMove, createdAt: now.toISOString(), occurredAt: now.toISOString() } as any);
-        
-        // Crear/Actualizar el Inventario (el "balance")
-        const inventoryItemRef = db.collection('inventory').doc(); // Firestore generará un ID único
-        const inventoryItem: InventoryItem = {
-            id: inventoryItemRef.id,
-            sku: newLot.sku!,
-            lotNumber: newLot.id,
-            uom: uom,
-            qty: newLot.quantity!,
-            locationId: location,
-            updatedAt: now.toISOString(),
-        };
-        batch.set(inventoryItemRef, inventoryItem);
+        batch.set(newStockMoveRef, stockMove as any);
 
         finalLines.push({
             materialId: materialId!,
             sku: sku,
-            lotId: newLot.id!,
+            lotId: inventoryItemRef.id,
             qty: line.qty,
             uom: uom,
             unitCost: line.unitCost,
         } as GoodsReceipt['lines'][number]);
     }
 
-    // 3. Crear el documento de Goods Receipt
     const receipt: GoodsReceipt = {
         id: receiptRef.id,
         receiptNumber: `GR-${now.getFullYear()}-${String(now.getTime()).slice(-5)}`,
@@ -183,11 +170,8 @@ export async function createGoodsReceipt(payload: {
     };
     batch.set(receiptRef, { ...receipt, createdAt: now.toISOString() } as any);
 
-    // PASO 4: Se confirma el batch, escribiendo todos los documentos a la vez.
     await batch.commit();
 
-    // PASO 5: Se invalida la caché de Next.js para que las páginas relevantes
-    // muestren los datos actualizados la próxima vez que se carguen.
     revalidatePath('/warehouse/inventory');
     revalidatePath('/warehouse/goods-receipt');
 }
