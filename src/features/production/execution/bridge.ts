@@ -7,9 +7,8 @@ export function useBridge() {
     return {
         data: data,
         recipes: data?.billOfMaterials || [],
-        materials: data?.materials || [],
-        inventory: data?.inventory || [],
+        items: data?.items || [],
+        onHand: data?.onHand || [],
         orders: data?.productionOrders || [],
-        lots: data?.lots || [],
     };
 }

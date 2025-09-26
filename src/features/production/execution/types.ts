@@ -4,11 +4,9 @@
 export type {
   ProductionOrder,
   BillOfMaterial,
-  Material,
-  InventoryItem,
-  Lot,
-  Shortage,
-  Reservation,
-  ActualConsumption,
+  Item,
+  OnHandView,
+  ReservationView,
+  StockMove,
   ExecCheck
 } from '@/domain/ssot';

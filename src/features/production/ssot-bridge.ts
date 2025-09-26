@@ -1,14 +1,15 @@
 
 // src/features/production/ssot-bridge.ts
 import { useData } from '@/lib/dataprovider';
-import type { BillOfMaterial, ProductionOrder, Lot, InfluencerCollab, MarketingEvent, OnlineCampaign, InventoryItem } from '@/domain/ssot';
+import type { BillOfMaterial, ProductionOrder, Lot, Item } from '@/domain/ssot';
 
 export function useBridge() {
     const { data } = useData();
     return {
         data: data,
         recipes: (data?.billOfMaterials || []) as BillOfMaterial[],
-        inventory: (data?.inventory || []) as InventoryItem[],
+        inventory: (data?.inventory || []) as any[], // Now onHand
+        items: (data?.items || []) as Item[],
         orders: (data?.productionOrders || []) as ProductionOrder[],
         lots: (data?.lots || []) as Lot[],
     };
@@ -27,18 +28,18 @@ export async function listRecipes(boms: BillOfMaterial[]): Promise<BillOfMateria
     return listBoms(boms);
 }
 
-export async function listMaterials(inventory: InventoryItem[]): Promise<InventoryItem[]> {
-  return inventory.filter(item => item.category !== 'finished_good');
+export async function listMaterials(items: Item[]): Promise<Item[]> {
+  return items.filter(item => item.category !== 'fg');
 }
 
-export function listFinishedSkus(inventory: InventoryItem[]): { sku: string; name: string; packSizeMl: number; bottlesPerCase?: number }[] {
-  return inventory
-      .filter((p: InventoryItem) => p.category === 'finished_good')
-      .map((p: InventoryItem) => ({
+export function listFinishedSkus(items: Item[]): { sku: string; name: string; packSizeMl: number; bottlesPerCase?: number }[] {
+  return items
+      .filter((p: Item) => p.category === 'fg')
+      .map((p: Item) => ({
           sku: p.sku,
           name: p.name,
-          packSizeMl: 0, // This field was in Product, need to decide if it moves to InventoryItem
-          bottlesPerCase: 0 // This field was in Product, need to decide if it moves to InventoryItem
+          packSizeMl: p.bottleMl || 0,
+          bottlesPerCase: p.caseUnits
       }));
 }
 
@@ -53,9 +54,9 @@ export async function getTrace(lotId: string) {
     return {};
 }
 
-export async function updateMaterial(id: string, patch: Partial<InventoryItem>): Promise<InventoryItem> {
+export async function updateMaterial(id: string, patch: Partial<Item>): Promise<Item> {
     console.warn("updateMaterial is not implemented on the client-side bridge yet.");
-    return { id, sku: '', name: 'Updated Material', category: 'raw', qty: 0, uom: 'uds', locationId: '', createdAt: '', ...patch };
+    return { id, sku: '', name: 'Updated Item', category: 'raw', uom: 'uds', active: true, ...patch };
 }
 
 export async function createRecipe(data: { billOfMaterials: BillOfMaterial[] }, recipe: BillOfMaterial): Promise<void> {

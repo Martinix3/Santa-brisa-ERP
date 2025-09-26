@@ -17,12 +17,12 @@ import { SB_THEME } from "@/domain/ssot";
 
 export default function ProductionDashboardPage() {
   const { data } = useData();
-  const { billOfMaterials: recipes, materials, inventory, productionOrders: orders, lots } = data || {};
+  const { billOfMaterials: recipes, items, onHand: inventory, productionOrders: orders, lots } = data || {};
   
   const kpis = useMemo(()=> {
-      if (!orders || !recipes || !inventory || !lots || !materials) return null;
-      return computeKpis({ orders: orders as any, recipes: recipes as any, inventory: inventory as any, lots: lots as any, materials });
-  }, [orders, recipes, inventory, lots, materials]);
+      if (!orders || !recipes || !inventory || !items) return null;
+      return computeKpis({ orders: orders as any, recipes: recipes as any, inventory: inventory as any, items });
+  }, [orders, recipes, inventory, items]);
 
   if (!data || !kpis) return <div className="p-6">Cargando dashboard…</div>;
 
@@ -43,15 +43,16 @@ export default function ProductionDashboardPage() {
           <OrdersTimeline orders={orders as any} />
         </div>
         <div className="space-y-6">
-          <ShortagesPanel shortages={kpis.currentShortages} materials={materials as any} />
-          <InventorySnapshot critical={kpis.criticalInventory} materials={materials as any} />
-          <QCPanel lots={lots as any} />
+          {/* ShortagesPanel and InventorySnapshot need to be adapted to the new `Item` model if they rely on Material-specific fields */}
+          <ShortagesPanel shortages={kpis.currentShortages} materials={items || []} />
+          <InventorySnapshot critical={kpis.criticalInventory} items={items || []}/>
+          <QCPanel lots={inventory || []} />
           <UpcomingTasks department="PRODUCCION" />
         </div>
       </div>
       
        <SBCard title="Análisis de Eficiencia (Últimos 30 días)">
-         <EfficiencyWidget laborSeries={kpis.laborSeries} costPerBottleSeries={kpis.costPerBottleSeries} />
+         <EfficiencyWidget laborSeries={kpis.laborSeries} costPerUnitSeries={kpis.costPerUnitSeries} />
        </SBCard>
        
        {/* Botón de acción flotante, sin acción por ahora */}

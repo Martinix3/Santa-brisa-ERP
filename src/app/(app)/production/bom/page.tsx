@@ -5,8 +5,7 @@ import { Plus, Search, Droplets, Package2, Coins, Info, Trash2 } from "lucide-re
 import { SBCard } from '@/components/ui/ui-primitives';
 import { SB_COLORS } from "@/domain/ssot";
 import { useData } from "@/lib/dataprovider";
-import { listFinishedSkus } from "@/features/production/ssot-bridge";
-import type { BillOfMaterial as RecipeBom, Uom, InventoryItem } from "@/domain/ssot";
+import type { BillOfMaterial as RecipeBom, Uom, Item } from "@/domain/ssot";
 import { canonicalUomForMaterial } from '@/domain/uom';
 
 // Nuevos imports para el formulario mejorado
@@ -19,7 +18,6 @@ import { upsertBOM, upsertMinimalProduct } from "./actions";
 
 // Tipos y helpers que ya estaban
 type BomLine = RecipeBom['items'][0];
-type FinishedSku = { sku: string; name: string; packSizeMl: number; };
 
 function remapArrayFieldErrors(
   errs: Record<string,string>|undefined,
@@ -50,22 +48,22 @@ function RecipeForm({
   initialValues,
   onSave,
   onCancel,
-  inventoryItems,
-  finishedSkus,
+  allItems,
 }: {
   initialValues: RecipeBom;
   onSave: (values: RecipeBom) => Promise<any>;
   onCancel: () => void;
-  inventoryItems: InventoryItem[];
-  finishedSkus: FinishedSku[];
+  allItems: Item[];
 }) {
   const fm = useBomForm(initialValues);
   const { data: santaData } = useData();
   const { push } = useToaster();
   const [isNewSku, setIsNewSku] = useState(false);
   
+  const finishedGoods = useMemo(() => allItems.filter(it => it.category === 'fg'), [allItems]);
+
   const addLine = (role: 'FORMULA' | 'PACKAGING' = 'FORMULA') => {
-    const newItems = [...(fm.values.items || []), { materialId: "", quantity: 0, unit: "uds", role }];
+    const newItems = [...(fm.values.items || []), { itemId: "", qty: 0, uom: "uds" as Uom, role }];
     fm.set("items", newItems);
   };
 
@@ -79,8 +77,8 @@ function RecipeForm({
     const errs: Record<string,string> = {};
     if (!values.items?.length) errs["items"] = "Añade al menos una línea";
     values.items?.forEach((it, idx) => {
-      if (!it.materialId) errs[`items.${idx}.materialId`] = "Material requerido";
-      if (!(it.quantity > 0)) errs[`items.${idx}.quantity`] = "Cantidad > 0";
+      if (!it.itemId) errs[`items.${idx}.itemId`] = "Material requerido";
+      if (!(it.qty > 0)) errs[`items.${idx}.qty`] = "Cantidad > 0";
     });
     return errs;
   }
@@ -89,7 +87,7 @@ function RecipeForm({
     fm.setSaving(true);
     fm.setLastError(undefined);
     fm.setFieldErrors(undefined);
-    // ✅ validación ligera cliente
+
     const clientErrs = validateClient(fm.values as RecipeBom);
     if (Object.keys(clientErrs).length) {
       fm.setSaving(false);
@@ -98,40 +96,15 @@ function RecipeForm({
       setTimeout(() => focusFirstError(clientErrs), 0);
       return;
     }
-
-    // 1) si el producto es nuevo, créalo antes
-    if (isNewSku) {
-      const errs: Record<string,string> = {};
-      if (!fm.values.sku) errs["sku"] = "SKU requerido";
-      if (!fm.values.name) errs["name"] = "Nombre requerido";
-      if (Object.keys(errs).length) {
-        fm.setSaving(false);
-        fm.setFieldErrors(errs);
-        push({ kind: "err", text: "Revisa los campos del nuevo producto" });
-        setTimeout(() => focusFirstError(errs), 0);
-        return;
-      }
-      const pRes = await upsertMinimalProduct({
-        sku: fm.values.sku,
-        name: fm.values.name,
-        packSizeMl: (fm.values as any).packSizeMl ?? undefined,
-      });
-      if (!pRes.ok) {
-        fm.setSaving(false);
-        fm.setLastError(pRes.message);
-        fm.setFieldErrors(pRes.fieldErrors);
-        push({ kind: "err", text: pRes.message });
-        setTimeout(() => focusFirstError(pRes.fieldErrors), 0);
-        return;
-      }
-    }
-
-    const inv = santaData?.inventory || [];
+    
+    // Al guardar, normalizamos la UoM para asegurar consistencia
+    const inventory = santaData?.inventory || [];
+    const items = santaData?.items || [];
     const normalized = {
       ...fm.values,
       items: (fm.values.items || []).map(it => ({
         ...it,
-        unit: canonicalUomForMaterial(it.materialId, inv, inventoryItems), // fuerza canónica
+        uom: canonicalUomForMaterial(it.itemId, inventory, items), // fuerza canónica
       })),
     };
 
@@ -147,8 +120,6 @@ function RecipeForm({
       setTimeout(() => focusFirstError(res.fieldErrors), 0);
     }
   }
-
-  const uomOptions: Uom[] = ['uds', 'kg', 'g', 'L', 'mL', 'bottle', 'case', 'pallet'];
 
   // ⚠️ Confirmación al salir con cambios
   useEffect(() => {
@@ -184,59 +155,48 @@ function RecipeForm({
         <Field label="ID" name="id" required error={fm.fieldErrors?.id}>
           <input className="w-full h-10 px-3 rounded-lg border" value={fm.values.id} onChange={e => fm.set("id", e.target.value)} />
         </Field>
-        {/* Toggle nuevo producto */}
-        <div className="flex items-center gap-2">
-          <input id="new-sku" type="checkbox" className="h-4 w-4"
-                 checked={isNewSku} onChange={e => setIsNewSku(e.target.checked)} />
-          <label htmlFor="new-sku" className="text-sm text-zinc-700">Producto nuevo</label>
-        </div>
-        {!isNewSku ? (
-          <Field label="SKU Producto Terminado" name="sku" required error={fm.fieldErrors?.sku}>
-            <select className="w-full h-10 px-3 rounded-lg border" value={fm.values.sku} onChange={e => fm.set("sku", e.target.value)}>
-              <option value="">Selecciona SKU</option>
-              {finishedSkus.map(s => <option key={s.sku} value={s.sku}>{s.name}</option>)}
-            </select>
-          </Field>
-        ) : (
-          <>
-            <Field label="SKU nuevo" name="sku" required error={fm.fieldErrors?.sku}>
-              <input className="w-full h-10 px-3 rounded-lg border" placeholder="p.ej. SB-MARG-700"
-                     value={fm.values.sku} onChange={e => fm.set("sku", e.target.value)} />
-            </Field>
-            <Field label="Nombre del producto" name="name" required error={fm.fieldErrors?.name}>
-              <input className="w-full h-10 px-3 rounded-lg border" placeholder="p.ej. Santa Brisa Margarita 700ml"
-                     value={fm.values.name} onChange={e => fm.set("name", e.target.value)} />
-            </Field>
-            <Field label="Contenido (mL)" name="packSizeMl" error={fm.fieldErrors?.packSizeMl}>
-              <input type="number" className="w-full h-10 px-3 rounded-lg border"
-                     value={(fm.values as any).packSizeMl ?? ""} onChange={e => fm.set("packSizeMl" as any, Number(e.target.value))} />
-            </Field>
-          </>
-        )}
+        
+        <Field label="Producto Terminado (Output)" name="outputItemId" required error={fm.fieldErrors?.outputItemId}>
+          <select className="w-full h-10 px-3 rounded-lg border" value={fm.values.outputItemId} onChange={e => fm.set("outputItemId", e.target.value)}>
+            <option value="">Selecciona Producto</option>
+            {finishedGoods.map(s => <option key={s.id} value={s.id}>{s.name} ({s.sku})</option>)}
+          </select>
+        </Field>
+
         <Field label="Nombre Receta" name="name" required error={fm.fieldErrors?.name}>
           <input className="w-full h-10 px-3 rounded-lg border" value={fm.values.name} onChange={e => fm.set("name", e.target.value)} />
         </Field>
-        <Field label="Tamaño de Lote" name="batchSize" required error={fm.fieldErrors?.batchSize}>
-          <input type="number" className="w-full h-10 px-3 rounded-lg border" value={fm.values.batchSize} onChange={e => fm.set("batchSize", Number(e.target.value))} />
-        </Field>
+        
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Tamaño de Lote" name="batchSize" required error={fm.fieldErrors?.batchSize}>
+            <input type="number" className="w-full h-10 px-3 rounded-lg border" value={fm.values.batchSize} onChange={e => fm.set("batchSize", Number(e.target.value))} />
+          </Field>
+          <Field label="Unidad Base" name="baseUnit" required error={fm.fieldErrors?.baseUnit}>
+             <select className="w-full h-10 px-3 rounded-lg border" value={fm.values.baseUnit} onChange={e => fm.set("baseUnit", e.target.value as Uom)}>
+                <option value="L">Litros (L)</option>
+                <option value="kg">Kilogramos (kg)</option>
+                <option value="uds">Unidades (uds)</option>
+              </select>
+          </Field>
+        </div>
         
         <div className="space-y-2">
           <h4 className="font-semibold text-zinc-700">Líneas de la receta</h4>
           {fm.fieldErrors?.items && <Banner kind="warn" text={fm.fieldErrors.items} />}
           {(fm.values.items || []).map((line: BomLine, i: number) => (
              <div key={i} className="grid grid-cols-[2fr_1fr_1fr_auto] gap-2 items-end p-2 border rounded-md">
-                <Field label="Material" name={`items[${i}].materialId`} required error={fm.fieldErrors?.[`items.${i}.materialId`]}>
-                     <select className="w-full h-10 px-3 rounded-lg border" value={line.materialId} onChange={e => fm.set(`items[${i}].materialId`, e.target.value)}>
+                <Field label="Material" name={`items[${i}].itemId`} required error={fm.fieldErrors?.[`items.${i}.itemId`]}>
+                     <select className="w-full h-10 px-3 rounded-lg border" value={line.itemId} onChange={e => fm.set(`items[${i}].itemId`, e.target.value)}>
                         <option value="">Selecciona material</option>
-                        {inventoryItems.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                        {allItems.filter(it => it.category !== 'fg').map(m => <option key={m.id} value={m.id}>{m.name} ({m.sku})</option>)}
                      </select>
                 </Field>
-                 <Field label="Cantidad" name={`items[${i}].quantity`} required error={fm.fieldErrors?.[`items.${i}.quantity`]}>
-                    <input type="number" className="w-full h-10 px-3 rounded-lg border" value={line.quantity} onChange={e => fm.set(`items[${i}].quantity`, Number(e.target.value))} />
+                 <Field label="Cantidad" name={`items[${i}].qty`} required error={fm.fieldErrors?.[`items.${i}.qty`]}>
+                    <input type="number" className="w-full h-10 px-3 rounded-lg border" value={line.qty} onChange={e => fm.set(`items[${i}].qty`, Number(e.target.value))} />
                  </Field>
                  <div className="text-xs text-zinc-600">
                   UoM: <span className="px-2 py-0.5 rounded-full border bg-zinc-50">
-                    {line.materialId ? canonicalUomForMaterial(line.materialId, santaData?.inventory || [], inventoryItems) : '-'}
+                    {line.itemId ? canonicalUomForMaterial(line.itemId, santaData?.inventory || [], allItems) : '-'}
                   </span>
                  </div>
                  <button onClick={() => removeLine(i)} className="h-10 px-2 border bg-white hover:bg-red-50 text-red-600 rounded-lg" aria-label={`Eliminar línea ${i+1}`}><Trash2 size={16}/></button>
@@ -267,8 +227,7 @@ export default function BomPage() {
     const [openRecipe, setOpenRecipe] = useState<RecipeBom | null>(null);
 
     const recipes = useMemo(() => santaData?.billOfMaterials || [], [santaData]);
-    const inventoryItems = useMemo(() => santaData?.inventory || [], [santaData]);
-    const finishedSkus = useMemo(() => listFinishedSkus(santaData?.inventory || []), [santaData]);
+    const allItems = useMemo(() => santaData?.items || [], [santaData]);
     
     const select = (id: string) => {
         const recipe = recipes.find((r) => r.id === id);
@@ -276,28 +235,19 @@ export default function BomPage() {
     };
 
     const createNew = () => {
-        setOpenRecipe({ id: `bom_${Date.now()}`, sku: "", name: "", batchSize: 100, items: [] } as RecipeBom);
+        setOpenRecipe({ id: `bom_${Date.now()}`, outputItemId: "", name: "", batchSize: 100, baseUnit: "L", items: [] } as RecipeBom);
     };
 
     const handleSave = async (values: RecipeBom) => {
-        const inv = santaData?.inventory || [];
-        const normalized = {
-            ...values,
-            items: (values.items || []).map(it => ({
-                ...it,
-                unit: canonicalUomForMaterial(it.materialId, inv, inventoryItems), // fuerza canónica
-            })),
-        };
-        const result = await upsertBOM(normalized);
+        const result = await upsertBOM(values);
         if (result.ok) {
-            // Actualizar el estado local directamente
             if (santaData) {
                 const updatedBoms = [...(santaData.billOfMaterials || [])];
                 const index = updatedBoms.findIndex(b => b.id === values.id);
                 if (index > -1) {
-                    updatedBoms[index] = normalized as RecipeBom;
+                    updatedBoms[index] = values as RecipeBom;
                 } else {
-                    updatedBoms.unshift(normalized as RecipeBom);
+                    updatedBoms.unshift(values as RecipeBom);
                 }
                 saveAllCollections({ billOfMaterials: updatedBoms });
             }
@@ -324,12 +274,14 @@ export default function BomPage() {
                 <div className="lg:col-span-1">
                     <SBCard title="Recetas" accent={SB_COLORS.primary.teal}>
                         <div className="p-2 space-y-1">
-                            {recipes.map((r) => (
+                            {recipes.map((r) => {
+                                const outputItem = allItems.find(it => it.id === r.outputItemId);
+                                return (
                                 <div key={r.id} className={`rounded-lg p-3 border transition-colors ${openRecipe?.id === r.id ? "bg-yellow-50 border-yellow-200" : "border-transparent hover:bg-zinc-50"}`}>
                                     <div className="flex justify-between items-start">
                                         <div>
                                             <p className="font-semibold text-zinc-800">{r.name || "—"}</p>
-                                            <p className="text-xs text-zinc-500 font-mono">{r.sku || "—"}</p>
+                                            <p className="text-xs text-zinc-500 font-mono">{outputItem?.name || r.outputItemId || "—"}</p>
                                         </div>
                                     </div>
                                     <div className="mt-2 flex justify-end gap-2">
@@ -338,7 +290,7 @@ export default function BomPage() {
                                         </button>
                                     </div>
                                 </div>
-                            ))}
+                            )})}
                         </div>
                     </SBCard>
                 </div>
@@ -353,8 +305,7 @@ export default function BomPage() {
                             initialValues={openRecipe}
                             onSave={handleSave}
                             onCancel={() => setOpenRecipe(null)}
-                            inventoryItems={inventoryItems}
-                            finishedSkus={finishedSkus}
+                            allItems={allItems}
                         />
                     )}
                 </div>

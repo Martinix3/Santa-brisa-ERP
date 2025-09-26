@@ -1,27 +1,20 @@
 // src/domain/ssot.ts
 
 // =================================================================
-// == SINGLE SOURCE OF TRUTH (SSOT) - V5
+// == SINGLE SOURCE OF TRUTH (SSOT) - KERNEL V1
 // =================================================================
 export type Timestamp = string; // ISO string
 
 // -----------------------------------------------------------------
 // 1. Tipos Primitivos y Enums Transversales
 // -----------------------------------------------------------------
-
 export type Uom = 'bottle' | 'case' | 'pallet' | 'uds' | 'kg' | 'g' | 'L' | 'mL';
 export type Currency = 'EUR';
-
-// Departamentos internos
 export type Department = 'VENTAS' | 'MARKETING' | 'PRODUCCION' | 'ALMACEN' | 'FINANZAS' | 'CALIDAD' | 'PERSONAL';
-
-// --- Roles y Estados ---
 export type PartyRoleType = 'CUSTOMER' | 'SUPPLIER' | 'DISTRIBUTOR' | 'IMPORTER' | 'INFLUENCER' | 'CREATOR' | 'EMPLOYEE' | 'BRAND_AMBASSADOR' | 'OTHER';
 export type AccountType = 'HORECA' | 'RETAIL' | 'PRIVADA' | 'ONLINE' | 'OTRO' | 'DISTRIBUIDOR';
 export type Stage = 'POTENCIAL' | 'ACTIVA' | 'SEGUIMIENTO' | 'FALLIDA' | 'CERRADA' | 'BAJA';
 export type UserRole = 'comercial' | 'admin' | 'ops' | 'owner';
-
-// Estados para flujos de trabajo
 export type InteractionStatus = 'open' | 'done' | 'processing' | 'closed' | 'cancelled';
 export type OrderStatus = 'open' | 'confirmed' | 'shipped' | 'invoiced' | 'paid' | 'cancelled' | 'lost';
 export type ShipmentStatus = 'pending' | 'picking' | 'ready_to_ship' | 'shipped' | 'delivered' | 'exception' | 'cancelled';
@@ -31,387 +24,150 @@ export type IncidentStatus = 'OPEN' | 'UNDER_REVIEW' | 'CONTAINED' | 'CLOSED';
 export type ActivationStatus = 'active' | 'inactive' | 'pending_renewal';
 export type PartyStatus = 'PROVISIONAL'|'ENRIQUECIDO'|'VINCULADO'|'CONFIABLE';
 
-
 // -----------------------------------------------------------------
-// 2. Entidades Centrales: Party y Roles
+// 2. KERNEL MÍNIMO
 // -----------------------------------------------------------------
-export type Address = { address?: string; city?: string; zip?: string; province?: string; country?: string; countryCode?: string };
 
-// Comunicación normalizada (email/teléfono)
-export type CommItem = {
-  value: string;              // "+34999111222" | "bar@x.com"
-  isPrimary?: boolean;
-  verified?: boolean;
-  source?: 'CRM'|'HOLDED'|'IMPORT'|'USER';
-  updatedAt?: Timestamp;
-  optOut?: boolean;           // aplica a emails
-};
+// 0) Catálogos
+export type ItemCategory = 'fg'|'raw'|'pack'|'label'|'intermediate'|'consumable'|'merch';
 
-export interface PartyPerson {
+export interface Item {
+  id: string;           // ← clave única estable
+  sku: string;          // ← redundante para mostrar/buscar
   name: string;
-  role?: string;
-  email?: CommItem;
-  phone?: CommItem;
-  updatedAt?: Timestamp;
-}
-
-export interface Party {
-  id: string;
-  legalName: string;
-  tradeName?: string;
-  vat?: string;                     // NIF/CIF normalizado
-  emails?: CommItem[];              // listas (no borramos, marcamos principal)
-  phones?: CommItem[];              // listas (E.164)
-  billingAddress?: Address;
-  shippingAddress?: Address;
-  external?: {
-    holdedContactId?: string;
-    holdedUpdatedAt?: Timestamp;    // incremental idempotente
-    shopifyCustomerId?: string;
-  };
-  status?: PartyStatus;
-  people?: PartyPerson[];           // personas de contacto si es empresa
-  flags?: {
-    needsReview?: boolean;
-    issues?: string[];              // ej: ['MISSING_VAT','POSSIBLE_DUP']
-  };
-  quality?: {
-    lastAuditAt?: string;
-    score?: number;                 // 0..100
-  };
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
-  // DEPRECATED: campos legacy usados por UI actual; se eliminarán cuando migremos a emails/phones/people
-  name: string; // Mantener por ahora, pero usar legalName/tradeName
-  kind: 'ORG' | 'PERSON';
-  taxId?: string; // CIF/NIF opcional para compatibilidad
-  handles?: Partial<Record<'instagram' | 'tiktok' | 'linkedin' | 'twitter', string>>;
-  tags?: string[];
-}
-
-export interface PartyRole {
-    id: string;
-    partyId: string;
-    role: PartyRoleType;
-    isActive: boolean;
-    data: CustomerData | SupplierData | InfluencerData | EmployeeData;
-    createdAt: Timestamp;
-}
-
-export interface PartyDuplicate {
-  id: string;
-  primaryPartyId: string;
-  duplicatePartyId: string;
-  reason: 'SAME_VAT'|'SAME_EMAIL'|'FUZZY_NAME_CITY'|'SAME_PHONE';
-  score: number;
-  status: 'OPEN'|'MERGED'|'IGNORED';
-  createdAt: Timestamp;
-  resolvedAt?: Timestamp;
-}
-
-
-// --- Interfaces para los datos de cada rol ---
-export interface CustomerData {
-    priceListId?: string;
-    paymentTermsDays?: number;
-    salesRepId: string;
-    billerId: string;
-}
-export interface SupplierData {
-    paymentTermsDays?: number;
-    bankAccountNumber?: string;
-}
-export interface InfluencerData {
-    tier: 'nano' | 'micro' | 'mid' | 'macro';
-    audienceSize?: number;
-}
-export interface EmployeeData {
-    department: Department;
-    managerId?: string;
-    startDate: string;
-}
-
-export interface User {
-  id: string;
-  name: string;
-  email?: string;
-  role: UserRole;
+  category: ItemCategory;
+  uom: Uom;             // ← siempre obligatorio
   active: boolean;
-  managerId?: string;
-  kpiBaseline?: {
-    revenue?: number;
-    unitsSold?: number;
-    visits?: number;
-  }
-}
-
-export interface AccountRollup {
-    accountId: string;
-    hasPLVInstalled?: boolean;
-    lastPLVInstalledAt?: Timestamp;
-    activeActivations: number;
-    lastActivationAt?: Timestamp;
-    activePromotions: number;
-    activePosTactics: number;
-    lastTacticAt?: Timestamp;
-}
-
-// -----------------------------------------------------------------
-// 3. Entidades de Negocio (CRM y Ventas)
-// -----------------------------------------------------------------
-export interface Account {
-  id: string;
-  code?: string;
-  partyId: string;
-  name: string;
-  type: AccountType;
-  stage: Stage;
-  subType?: string;
-  ownerId: string;
-  createdAt: Timestamp;
-  updatedAt?: Timestamp;
-  lastInteractionAt?: Timestamp;
-  notes?: string;
-  external?: {
-    shopifyCustomerId?: string;
-    holdedContactId?: string;
-    vat?: string;
-  }
-}
-
-export type BillingStatus = 'PENDING'|'INVOICING'|'INVOICED'|'PAID'|'FAILED';
-
-export interface OrderSellOut {
-  id: string;
-  partyId: string;
-  accountId: string;
-  source: 'CRM'|'SHOPIFY'|'OTHER' | 'MANUAL' | 'HOLDED';
-  createdAt: Timestamp;
-  currency: Currency;
-  lines: Array<{ sku: string; name?: string; qty: number; priceUnit: number; taxRate?: number; discountPct?: number; uom?: Uom; lotIds?: string[] }>;
-  notes?: string;
-  billingStatus?: BillingStatus;
-  status: OrderStatus;
-  docNumber?: string;
-  totalAmount?: number;
-  external?: {
-    shopifyOrderId?: string;
-    holdedInvoiceId?: string;
-  };
-}
-
-export type Expense = {
-  id: string;
-  partyId: string;
-  date: string;
-  dueDate?: string;
-  status: 'DRAFT'|'APPROVED'|'PAID'|'CANCELLED';
-  amountTotal: number;
-  amountTax: number;
-  currency: Currency;
-  lines: Array<{ description: string; qty: number; unitPrice: number; taxRate?: number }>;
-  external: { holdedPurchaseId: string };
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
-}
-
-export type InteractionKind = 'VISITA' | 'LLAMADA' | 'EMAIL' | 'WHATSAPP' | 'OTRO' | 'COBRO' | 'EVENTO_MKT';
-export type EventKind = 'DEMO'|'FERIA'|'FORMACION'|'OTRO';
-
-export type Payload =
-    | { type: 'venta', items: { sku: string; qty: number }[] }
-    | { type: 'interaccion', note: string, nextActionDate?: string }
-    | { type: 'visita_plv', note: string, nextActionDate?: string, plvInstalled: boolean, plvNotes?: string }
-    | { type: 'cobro', amount: number, notes?: string }
-    | { type: 'evento_mkt', kpis: { cost: number; attendees: number; leads: number }, notes?: string };
-
-
-export interface Interaction {
-  id: string;
-  partyId?: string;
-  accountId?: string;
-  userId: string;
-  dept?: Department;
-  kind: InteractionKind;
-  note?: string;
-  plannedFor?: string;
-  createdAt: Timestamp;
-  status: InteractionStatus;
-  resultNote?: string;
-  involvedUserIds?: string[];
-  location?: string;
-  linkedEntity?: {
-    type: 'Order' | 'Account' | 'EVENT' | 'Collab' | 'Shipment' | 'ProductionOrder' | 'Interaction' | 'PosTactic';
-    id: string;
-  };
-  tags?: string[];
-  posTactic?: {
-    tacticCode: string;
-    startDate: string;
-    endDate?: string;
-    costTotal: number;
-    executionScore: number;
-    exposure?: {
-      unitsGiven?: number;
-      staffIncentivized?: number;
-    };
-    appliesToSkuIds?: string[];
-    photos?: string[];
-  };
-  posTacticResult?: PosResult;
-}
-
-
-// ... Resto de tipos del SSOT sin cambios ...
-
-/** @deprecated Use InventoryItem for all physical stock. */
-export interface Material {
-  id: string;
-  sku: string;
-  name: string;
-  category: 'raw' | 'packaging' | 'label' | 'consumable' | 'intermediate' | 'finished_good' | 'merchandising';
-  uom?: Uom;
-  standardCost?: number;
-}
-/** @deprecated Use InventoryItem for all physical stock. */
-export interface Product {
-  id: string;
-  sku: string;
-  name: string;
-  category?: string;
+  // Opcionales propios de SB (solo si aplica al ítem)
   bottleMl?: number;
   caseUnits?: number;
   casesPerPallet?: number;
-  active: boolean;
-  materialId?: string;
+  stdCost?: number;     // coste estándar (para variances)
 }
 
-export type BomLineRole = "FORMULA" | "PACKAGING";
+// 1) Libro de movimientos (append-only)
+export type StockReason =
+  | 'receipt' | 'production_in' | 'production_out' | 'sale' | 'transfer'
+  | 'adjustment' | 'return_in' | 'return_out' | 'ship'
+  | 'consignment_send' | 'consignment_return' | 'consignment_sell'
+  | 'sample_send' | 'sample_consume' | 'reserve' | 'unreserve';
+
+export interface StockMove {
+  id: string;
+  itemId: string;       // ← SIEMPRE itemId (olvidar “sku + materialId”)
+  qty: number;          // signo positivo/negativo según reason
+  uom: Uom;
+  lotNumber?: string;   // texto; la “lote” ya no es entidad
+  locationId?: string;
+  reason: StockReason;
+  occurredAt: string;   // ISO
+  createdAt: string;    // ISO
+  unitCost?: number;    // capa valuación (fifo/avg se calcula fuera)
+  ref?: {               // trazas a documentos/órdenes
+    prodOrderId?: string;
+    goodsReceiptId?: string;
+    shipmentId?: string;
+    orderId?: string;
+  };
+}
+
+// 2) Vistas/Materializaciones (derivadas del libro)
+export interface OnHandView {
+  id: string;           // itemId|lotNumber|locationId
+  itemId: string;
+  lotNumber?: string;
+  locationId?: string;
+  qty: number;
+  uom: Uom;
+  updatedAt: string;
+}
+
+export interface ReservationView {
+  id: string;                   // itemId|lotNumber|refId
+  itemId: string;
+  lotNumber?: string;
+  qty: number;                  // reservado (+)
+  uom: Uom;
+  ref: { kind: 'ORDER'|'PROD'|'SHIP'; id: string };
+  createdAt: string;
+}
+
+// 3) Producción
+export type BomLineRole = 'FORMULA'|'PACKAGING';
+
 export interface BillOfMaterial {
   id: string;
-  sku: string;
+  outputItemId: string;         // ← en vez de sku
   name: string;
-  items: {
-    materialId: string;
-    quantity: number;
-    unit?: string;
+  batchSize: number;            // en baseUnit
+  baseUnit: Uom;                // ← obligatorio
+  items: Array<{
+    itemId: string;
+    qty: number;
+    uom: Uom;
     role?: BomLineRole;
-  }[];
-  batchSize: number;
-  baseUnit?: string;
+  }>;
+  yieldPct?: number;
   stdLaborCostPerBatch?: number;
   stdOverheadPerBatch?: number;
   currency?: Currency;
-  yieldPct?: number;
-  wastePctProduction?: number;
-  wastePctPackaging?: number;
+  status?: 'ACTIVA'|'BORRADOR'|'ARCHIVADA';
   version?: number;
-  status?: "ACTIVA" | "BORRADOR" | "ARCHIVADA";
 }
 
-export type Shortage = { materialId: string; required: number; available: number; uom: Uom };
-export type Reservation = { materialId: string; fromLot: string; reservedQty: number; uom: Uom };
-export type ActualConsumption = {
-  materialId: string;
-  name: string;
-  fromLot?: string;
-  theoreticalQty: number;
-  actualQty: number;
-  uom: Uom;
-  costPerUom: number;
-};
 export type ExecCheck = { id:string; done:boolean; checkedBy?:string; checkedAt?:string };
 
 export interface ProductionOrder {
   id: string;
-  orderNumber?: string;
-  sku: string;
   bomId: string;
-  targetQuantity: number;
+  outputItemId: string;     // ← sustituye sku
+  targetQuantity: number;   // en baseUnit
   status: ProductionStatus;
   createdAt: Timestamp;
   scheduledFor?: string;
-  lotId?: string;
+  batchCode?: string;       // en lugar de “lotId” entidad
   responsibleId?: string;
-  shortages?: Shortage[];
-  reservations?: Reservation[];
-  actuals?: ActualConsumption[];
+
+  // Operativo (opcionales)
   checks?: ExecCheck[];
+  incidents?: { id: string; when: string; severity: 'BAJA'|'MEDIA'|'ALTA'; text: string }[];
+
+  // Consumos/outputs reales (pueden venir del libro o duplicar para auditoría)
+  actuals?: Array<{
+    itemId: string;
+    name?: string;
+    lotNumber?: string;
+    theoreticalQty: number;
+    actualQty: number;
+    uom: Uom;
+    costPerUom?: number;
+  }>;
+
   execution?: {
     startedAt?: string;
     finishedAt?: string;
     durationHours?: number;
     finalYield?: number;
-    yieldUom?: 'L' | 'ud';
-    goodBottles?: number;
-    scrapBottles?: number;
+    yieldUom?: 'L'|'ud';
+    goodUnits?: number;    // antes goodBottles
+    scrapUnits?: number;   // antes scrapBottles
   };
-  incidents?: { id: string; when: string; severity: "BAJA" | "MEDIA" | "ALTA"; text: string }[];
+
   costing?: {
     stdCostPerUom?: number;
-    actual?: {
-      materials: number;
-      labor?: number;
-      overhead?: number;
-      other?: number;
-      total: number;
-      perUnit?: number;
-      yieldLossPct?: number;
-    };
-    variance?: {
-      materials?: number;
-      labor?: number;
-      overhead?: number;
-      total?: number;
-    };
+    actual?: { materials: number; labor?: number; overhead?: number; other?: number; total: number; perUnit?: number; yieldLossPct?: number; };
+    variance?: { materials?: number; labor?: number; overhead?: number; total?: number; };
     updatedAt?: string;
   };
 }
 
-export type QCResult = { value?: number | string | boolean; notes?: string; status: 'ok' | 'ko'; };
-
-/** @deprecated Use InventoryItem for all physical stock. Lots are now a logical concept within Production Orders. */
-export interface Lot {
-  id: string;
-  lotCode?: string;
-  sku: string;
-  quantity: number;
-  createdAt: Timestamp;
-  orderId?: string; // Production Order ID
-  supplierId?: string; // For raw materials
-  quality: { qcStatus: 'hold' | 'release' | 'reject', results: Record<string, QCResult> };
-  expDate?: string;
-  receivedAt?: string;
-  supplierBatch?: string;
-  coaUrl?: string;
-  allergens?: string[];
-  notes?: string;
-}
-
-export interface Incident {
-  id: string;
-  kind: IncidentKind;
-  status: IncidentStatus;
-  openedAt: string;
-  closedAt?: string;
-  dept?: Department;
-  partyId?: string;
-  lotId?: string;
-  goodsReceiptId?: string;
-  shipmentId?: string;
-  orderId?: string;
-  description?: string;
-  photos?: string[];
-  correctiveActions?: { note: string; at: string; byUserId?: string }[];
-  notes?: string;
-}
+// 4) Calidad (unifica QACheck/Lot/QCResult en un sujeto genérico)
+export type QCSubject = { kind: 'RECEIPT'|'PROCESS'|'RELEASE'|'PROD_BATCH'|'LOT'; id: string };
 
 export interface QACheck {
   id: string;
-  lotId?: string;
-  prodOrderId?: string;
-  phase: 'INBOUND' | 'PROCESS' | 'RELEASE';
-  checklist?: Array<{ name: string; result: 'ok' | 'ko'; value?: number | string | boolean; notes?: string }>;
+  subject: QCSubject;
+  checklist?: Array<{ name: string; result: 'ok' | 'ko'; value?: number|string|boolean; notes?: string }>;
   summaryStatus: 'ok' | 'ko';
   reviewedById?: string;
   reviewedAt?: string;
@@ -420,92 +176,35 @@ export interface QACheck {
   createdAt: Timestamp;
 }
 
-export type StockReason =
-  | 'receipt' | 'production_in' | 'production_out' | 'sale' | 'transfer'
-  | 'adjustment' | 'return_in' | 'return_out' | 'ship'
-  | 'consignment_send' | 'consignment_return' | 'consignment_sell'
-  | 'sample_send' | 'sample_consume';
 
-export interface StockMove {
-  id: string;
-  sku: string;
-  lotId?: string;
-  uom: Uom;
-  qty: number;
-  fromLocation?: string;
-  toLocation?: string;
-  reason: StockReason;
-  occurredAt: string;
-  createdAt: string;
-  ref?: { orderId?: string; shipmentId?: string; prodOrderId?: string; goodsReceiptId?: string; };
-  unitCost?: number;
-}
-
-export type InventorySource =
-  | { type: "PRODUCTION_ORDER"; id: string }
-  | { type: "PURCHASE_ORDER"; id: string }
-  | { type: "ADJUSTMENT"; reason?: string }
-  | { type: "RETURN"; ref?: string };
-
-export interface InventoryItem {
-  id: string;
-  sku: string;
-  name: string;
-  description?: string;
-  materialId?: string;
-  category: 'finished_good' | 'raw' | 'intermediate' | 'packaging' | 'label' | 'consumable' | 'merchandising';
-  qty: number;
-  uom: Uom;
-  locationId: string;
-  lotNumber?: string;
-  createdAt: string;
-  updatedAt?: string;
-  expDate?: string;
-  quality?: { qcStatus: 'hold' | 'release' | 'reject'; results?: Record<string, any> };
-  cost?: { std?: number; actual?: number; layer?: 'fifo' | 'avg' };
-  source?: InventorySource;
-  orderId?: string;
-}
-
+// -----------------------------------------------------------------
+// 3. Documentos Operativos (Generan `StockMove`s)
+// -----------------------------------------------------------------
 export interface GoodsReceipt {
   id: string;
-  receiptNumber?: string;
   supplierPartyId: string;
-  deliveryNote: string;
-  holdedBillId?: string;
-  holdedDeliveryId?: string;
   receivedAt: Timestamp;
-  lines: { 
-    materialId: string;
-    sku: string;
-    lotId: string;
-    qty: number;
-    uom: Uom;
+  deliveryNote?: string;
+  status: 'pending_qc'|'completed'|'partial';
+  currency?: Currency; fxRate?: number;
+  lines: Array<{
+    itemId: string;
+    qty: number; uom: Uom;
     unitCost: number;
-    overTolerancePct?: number;
-    underTolerancePct?: number;
-  }[];
-  status: 'pending_qc' | 'completed' | 'partial';
+    lotNumber?: string;
+    overTolerancePct?: number; underTolerancePct?: number;
+  }>;
+  landedCosts?: Array<{ kind: 'freight'|'duty'|'insurance'|'other'; amount: number; allocation: 'by_value'|'by_weight'|'by_qty'; notes?: string }>;
+  attachments?: string[];
   incidentIds?: string[];
   notes?: string;
-  currency?: Currency;
-  fxRate?: number;
-  landedCosts?: {
-    kind: 'freight' | 'duty' | 'insurance' | 'other';
-    amount: number;
-    allocation: 'by_value' | 'by_weight' | 'by_qty';
-    notes?: string;
-  }[];
-  attachments?: string[];
-  createdById?: string;
-  approvedById?: string;
-  auditLog?: { at: string; userId: string; action: string; details?: any }[];
+  createdById?: string; approvedById?: string;
+  auditLog?: Array<{ at: string; userId: string; action: string; details?: any }>;
 }
 
-
 export interface ShipmentLine {
-  sku: string;
-  name: string;
+  itemId: string;
+  name?: string;
   qty: number;
   uom: Uom;
   lotNumber?: string;
@@ -516,33 +215,17 @@ export interface Shipment {
   orderId: string;
   accountId: string;
   partyId: string;
-  mode: 'PARCEL' | 'PALLET';
-  shipmentNumber?: string;
-  deliveryNoteId?: string;
-  holdedDeliveryId?: string;
-  holdedInvoiceId?: string;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
+  mode: 'PARCEL'|'PALLET';
+  createdAt: Timestamp; updatedAt: Timestamp;
   status: ShipmentStatus;
   lines: ShipmentLine[];
-  customerName: string;
-  city: string;
-  addressLine1?: string; addressLine2?: string; postalCode?: string; country?: string;
-  carrier?: string;
-  labelUrl?: string;
-  trackingCode?: string;
-  tracking?: string;
-  notes?: string;
-  packedById?: string;
-  checks?: { visualOk?: boolean };
-  isSample?: boolean;
-  samplePurpose?: 'sales'|'qc'|'mkt'|'other';
-  sampleNotes?: string;
-  weightKg?: number;
-  dimsCm?: { l:number; w:number; h:number };
-  parcels?: Array<{ weightKg?:number; dimsCm?:{l:number;w:number;h:number} }>;
-  pallets?: Array<{ type:'EURO'|'AMERICAN'|'OTHER'; count:number; notes?:string }>;
-  trackingUrl?: string;
+  // Resto de campos que ya tenías
+  customerName: string; city: string; addressLine1?: string; addressLine2?: string; postalCode?: string; country?: string;
+  carrier?: string; labelUrl?: string; trackingCode?: string; tracking?: string; notes?: string;
+  packedById?: string; checks?: { visualOk?: boolean }; isSample?: boolean; samplePurpose?: 'sales'|'qc'|'mkt'|'other';
+  sampleNotes?: string; weightKg?: number; dimsCm?: { l:number; w:number; h:number };
+  pallets?: Array<{ type:'EURO'|'AMERICAN'|'OTHER'; count:number; notes?:string }>; trackingUrl?: string;
+  deliveryNoteId?: string; holdedDeliveryId?: string; holdedInvoiceId?: string;
 }
 
 export interface DeliveryNote {
@@ -554,522 +237,143 @@ export interface DeliveryNote {
   date: string; // ISO
   soldTo: { name: string; vat?: string };
   shipTo: { name: string; address: string; zip: string; city: string; country: string };
-  lines: Array<{ sku:string; description:string; qty:number; uom?:string; lotNumbers?:string[] }>;
+  lines: Array<{ itemId:string; description:string; qty:number; uom?:string; lotNumbers?:string[] }>;
   pdfUrl?: string;
   company: { name: string; vat: string; address?: string; city?: string; zip?: string; country?: string };
+  createdAt: Timestamp; updatedAt: Timestamp;
+}
+
+// -----------------------------------------------------------------
+// 4. Entidades de CRM, Marketing y otras (Sin cambios grandes)
+// -----------------------------------------------------------------
+export type Address = { address?: string; city?: string; zip?: string; province?: string; country?: string; countryCode?: string };
+export type CommItem = { value: string; isPrimary?: boolean; verified?: boolean; source?: 'CRM'|'HOLDED'|'IMPORT'|'USER'; updatedAt?: Timestamp; optOut?: boolean; };
+export interface PartyPerson { name: string; role?: string; email?: CommItem; phone?: CommItem; updatedAt?: Timestamp; }
+
+export interface Party {
+  id: string;
+  legalName: string;
+  tradeName?: string;
+  vat?: string;
+  emails?: CommItem[];
+  phones?: CommItem[];
+  billingAddress?: Address;
+  shippingAddress?: Address;
+  external?: { holdedContactId?: string; holdedUpdatedAt?: Timestamp; shopifyCustomerId?: string; };
+  status?: PartyStatus;
+  people?: PartyPerson[];
+  flags?: { needsReview?: boolean; issues?: string[]; };
+  quality?: { lastAuditAt?: string; score?: number; };
   createdAt: Timestamp;
   updatedAt: Timestamp;
+  name: string; // Mantener por ahora
+  kind: 'ORG' | 'PERSON';
+  taxId?: string;
+  handles?: Partial<Record<'instagram' | 'tiktok' | 'linkedin' | 'twitter', string>>;
+  tags?: string[];
 }
 
-export type TraceEventPhase = 'SOURCE' | 'RECEIPT' | 'QC' | 'PRODUCTION' | 'PACK' | 'WAREHOUSE' | 'SALE' | 'DELIVERY';
-export type TraceEventKind = 'FARM_DATA' | 'SUPPLIER_PO' | 'ARRIVED' | 'BOOKED' | 'CHECK_PASS' | 'CHECK_FAIL' | 'BATCH_PLANNED' | 'BATCH_RELEASED' | 'BATCH_START' | 'CONSUME' | 'BATCH_END' | 'OUTPUT' | 'PACK_START' | 'PACK_END' | 'MOVE' | 'RESERVE' | 'ORDER_ALLOC' | 'SHIPMENT_PICKED' | 'SHIPPED' | 'DELIVERED';
-export interface TraceEvent {
-    id: string;
-    subject: { type: 'LOT' | 'BATCH' | 'ORDER' | 'SHIPMENT'; id: string; };
-    phase: TraceEventPhase;
-    kind: TraceEventKind;
-    occurredAt: Timestamp;
-    actorId?: string;
-    links?: { lotId?: string; batchId?: string; orderId?: string; shipmentId?: string; receiptId?: string; qaCheckId?: string; };
-    data?: any;
+export interface PartyRole {
+    id: string; partyId: string; role: PartyRoleType; isActive: boolean;
+    data: CustomerData | SupplierData | InfluencerData | EmployeeData; createdAt: Timestamp;
+}
+export interface PartyDuplicate {
+  id: string; primaryPartyId: string; duplicatePartyId: string;
+  reason: 'SAME_VAT'|'SAME_EMAIL'|'FUZZY_NAME_CITY'|'SAME_PHONE';
+  score: number; status: 'OPEN'|'MERGED'|'IGNORED'; createdAt: Timestamp; resolvedAt?: Timestamp;
+}
+export interface CustomerData { priceListId?: string; paymentTermsDays?: number; salesRepId: string; billerId: string; }
+export interface SupplierData { paymentTermsDays?: number; bankAccountNumber?: string; }
+export interface InfluencerData { tier: 'nano' | 'micro' | 'mid' | 'macro'; audienceSize?: number; }
+export interface EmployeeData { department: Department; managerId?: string; startDate: string; }
+
+export interface User {
+  id: string; name: string; email?: string; role: UserRole; active: boolean; managerId?: string;
+  kpiBaseline?: { revenue?: number; unitsSold?: number; visits?: number; }
+}
+export interface Account {
+  id: string; code?: string; partyId: string; name: string; type: AccountType; stage: Stage; subType?: string;
+  ownerId: string; createdAt: Timestamp; updatedAt?: Timestamp; lastInteractionAt?: Timestamp; notes?: string;
+  external?: { shopifyCustomerId?: string; holdedContactId?: string; vat?: string; }
 }
 
-export type ActivationType = 'bartender_day' | 'tasting' | 'event' | 'other_experience';
-export interface Activation {
-    id: string;
-    accountId: string;
-    type: ActivationType;
-    cost: number;
-    description: string;
-    status: 'active' | 'inactive' | 'pending_renewal';
-    startDate: Timestamp;
-    endDate?: Timestamp;
-    ownerId: string;
+export type BillingStatus = 'PENDING'|'INVOICING'|'INVOICED'|'PAID'|'FAILED';
+export interface OrderSellOut {
+  id: string; partyId: string; accountId: string; source: 'CRM'|'SHOPIFY'|'OTHER' | 'MANUAL' | 'HOLDED';
+  createdAt: Timestamp; currency: Currency;
+  lines: Array<{ sku: string; name?: string; qty: number; priceUnit: number; taxRate?: number; discountPct?: number; uom?: Uom; lotIds?: string[] }>;
+  notes?: string; billingStatus?: BillingStatus; status: OrderStatus; docNumber?: string; totalAmount?: number;
+  external?: { shopifyOrderId?: string; holdedInvoiceId?: string; };
 }
+// ... Resto de interfaces como Interaction, etc. se mantienen igual pero referenciarán `itemId` donde sea necesario ...
+export * from './ssot.common'; // Importa el resto de tipos que no han cambiado
 
-export interface Promotion {
-    id: string;
-    code?: string;
-    name: string;
-    type: '5+1' | 'BOGO' | 'DISCOUNT_PERCENT' | 'DISCOUNT_FIXED';
-    value: number;
-    validFrom: Timestamp;
-    validTo: Timestamp;
-}
+// -----------------------------------------------------------------
+// 5. DEPRECATED - Entidades Antiguas (marcar para eliminar)
+// -----------------------------------------------------------------
 
-export interface MarketingEvent {
-    id: string;
-    title: string;
-    kind: EventKind;
-    status: 'planned' | 'active' | 'closed' | 'cancelled';
-    startAt: Timestamp;
-    endAt?: Timestamp;
-    ownerUserId?: string;
-    accountId?: string;
-    city?: string;
-    location?: string;
-    budget?: number;
-    spend?: number;
-    goal?: {
-        leads?: number;
-        sampling?: number;
-        impressions?: number;
-        interactions?: number
-    };
-    kpis?: {
-        leads?: number;
-        sampling?: number;
-        impressions?: number;
-        interactions?: number;
-        revenueAttributed?: number;
-        roi?: number;
-        completedAt?: string;
-    };
-    links?: {
-        activationId?: string;
-        plvIds?: string[];
-        promotionId?: string;
-    };
-    notes?: string;
-    createdAt: Timestamp;
-    updatedAt: Timestamp;
-}
+/** @deprecated Use `Item` instead. */
+export interface Material {}
+/** @deprecated Use `Item` instead. */
+export interface Product {}
+/** @deprecated Lot is now a string (`lotNumber`). Metadata can be stored in a separate optional collection if needed. */
+export interface Lot {}
+/** @deprecated Use `OnHandView` which is derived from `StockMove`s. */
+export interface InventoryItem {}
 
-export interface OnlineCampaign {
-    id: string;
-    title: string;
-    channel: 'IG' | 'FB' | 'TikTok' | 'Google' | 'YouTube' | 'Email' | 'Other';
-    status: 'planned' | 'active' | 'closed' | 'cancelled';
-    startAt: Timestamp;
-    endAt?: Timestamp;
-    budget: number;
-    spend: number;
-    metrics?: any;
-    createdAt: Timestamp;
-    updatedAt: Timestamp;
-    ownerUserId?: string;
-    tracking?: {
-        utmCampaign?: string;
-        couponCode?: string;
-        landingUrl?: string;
-    };
-}
 
-export type Platform = 'Instagram' | 'TikTok' | 'YouTube' | 'Twitch' | 'Blog' | 'Otro';
-export type Deliverable = 'post' | 'story' | 'reel' | 'short' | 'video_long' | 'stream' | 'blogpost';
-export type CompType = 'gift' | 'flat' | 'cpa' | 'cpc' | 'revshare';
-export type CollabStatus = 'PROSPECT' | 'OUTREACH' | 'NEGOTIATING' | 'AGREED' | 'LIVE' | 'COMPLETED' | 'PAUSED' | 'DECLINED';
-export type Tier = 'nano' | 'micro' | 'mid' | 'macro';
-
-export interface InfluencerCollab {
-  id: string;
-  creatorId: string;
-  creatorName: string;
-  handle?: string;
-  platform: Platform;
-  tier: Tier;
-  status: CollabStatus;
-  ownerUserId?: string;
-  couponCode?: string;
-  utmCampaign?: string;
-  deliverables: {
-    kind: Deliverable;
-    qty: number;
-    dueAt?: string;
-  }[];
-  compensation: {
-    type: CompType;
-    amount?: number;
-    notes?: string;
-  };
-  costs?: {
-    productCost?: number;
-    shippingCost?: number;
-    cashPaid?: number;
-    otherCost?: number;
-  };
-  tracking?: {
-    views?: number;
-    impressions?: number;
-    likes?: number;
-    comments?: number;
-    saves?: number;
-    shares?: number;
-    clicks?: number;
-    orders?: number;
-    revenue?: number;
-    updatedAt?: string;
-    couponCode?: string;
-    utmCampaign?: string;
-  };
-  metrics?: {
-    impressions?: number;
-    clicks?: number;
-    engagements?: number;
-    orders?: number;
-    ctr?: number;
-    cpm?: number;
-    cpc?: number;
-    cpe?: number;
-    cac?: number;
-  };
-  dates?: {
-    agreedAt?: string;
-    goLiveAt?: string;
-    completedAt?: string;
-    endAt?: string;
-  };
-  notes?: string;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
-  supplierPartyId: string;
-}
-
-export interface MaterialCost {
-  id: string;
-  materialId: string;
-  currency: 'EUR';
-  costPerUom: number;
-  effectiveFrom: Timestamp;
-  effectiveTo?: Timestamp;
-  notes?: string;
-}
-
-export type HoldedDocType = 'SALES_INVOICE' | 'PURCHASE_BILL' | 'CREDIT_NOTE' | 'EXPENSE';
-export type CostObjectKind = 'NONE' | 'PRODUCT' | 'LOT' | 'PROD_ORDER' | 'ACCOUNT' | 'ORDER' | 'SHIPMENT' | 'EVENT' | 'CAMPAIGN' | 'COLLAB' | 'DEPARTMENT';
-export type ExpenseCategory = 'COGS_MATERIAL' | 'COGS_FREIGHT' | 'COGS_DUTY' | 'PLV' | 'MARKETING_MEDIA' | 'INFLUENCER' | 'EVENT' | 'TRAVEL' | 'MEALS' | 'ACCOMMODATION' | 'TRANSPORT' | 'SALARIES' | 'SOCIAL_SECURITY' | 'SUBCONTRACTING' | 'OTHER_OPEX';
-
-export interface FinanceLink {
-  id: string;
-  docType: HoldedDocType;
-  externalId: string;
-  status: 'paid' | 'pending' | 'overdue';
-  netAmount: number; taxAmount: number; grossAmount: number;
-  currency: Currency;
-  issueDate: Timestamp;
-  dueDate: Timestamp;
-  docNumber?: string;
-  partyId?: string;
-  expenseCategory?: ExpenseCategory;
-  costObject?: { kind: CostObjectKind; id: string };
-  allocationPct?: number;
-  campaignId?: string; eventId?: string; collabId?: string;
-}
-export interface PaymentLink { id: string; financeLinkId: string; externalId?: string; amount: number; date: Timestamp; method?: string; }
-
-export type PosUom = 'UNIT'|'HOUR'|'BATCH';
-export type PosCostCatalogEntry = {
-  id: string;
-  code: string;
-  label: string;
-  defaultUnitCost?: number;
-  uom?: PosUom;
-  vendor?: string;
-  status?: 'ACTIVE'|'DRAFT'|'ARCHIVED';
-  createdAt?: string; createdById?: string;
-  updatedAt?: string;
-};
-
-export type PlvStatus = 'IN_STOCK'|'INSTALLED'|'DAMAGED'|'RETIRED';
-export type PlvMaterial = {
-  id: string;
-  sku?: string;
-  kind: 'SHELF_TALKER'|'STANDEE'|'FRIDGE_STICKER'|'HANGING'|'GONDOLA'|'OTHER';
-  purchaseCost?: number;
-  purchaseDate?: string;
-  expectedLifespanMonths?: number;
-  expectedUses?: number;
-  usesCount?: number;
-  status: PlvStatus;
-  accountId?: string;
-  installedAt?: string;
-  photoUrl?: string;
-  createdAt?: string; updatedAt?: string;
-};
-
-export type PosTacticItem = {
-  id: string;
-  catalogCode?: string;
-  description: string;
-  qty?: number;
-  unitCost?: number;
-  actualCost: number;
-  uom?: PosUom;
-  vendor?: string;
-  assetId?: string;
-  attachments?: string[];
-};
-
-export type PosTacticKind = 'PLV'|'MENU'|'INCENTIVE'|'PROMO'|'OTHER';
-
-export type PosTacticStatus = 'planned'|'active'|'closed'|'cancelled';
-
-export type PosResult = {
-  roi?: number;
-  liftPct?: number;
-  upliftUnits?: number;
-  confidence?: 'LOW'|'MEDIUM'|'HIGH';
-  revenueAttributed?: number;
-};
-
-export type PosTactic = {
-  id: string;
-  accountId: string;
-  eventId?: string;
-  interactionId?: string;
-  orderId?: string;
-  tacticCode: string;
-  description?: string;
-  appliesToSkuIds?: string[];
-  items: PosTacticItem[];
-  plannedCost?: number;
-  actualCost: number;
-  executionScore: number;
-  status: PosTacticStatus;
-  createdAt: string; createdById: string;
-  updatedAt?: string;
-  result?: PosResult;
-};
-
-export type CodeEntity = 'PRODUCT' | 'ACCOUNT' | 'PARTY' | 'SUPPLIER' | 'LOT' | 'PROD_ORDER' | 'SHIPMENT' | 'GOODS_RECEIPT' | 'LOCATION' | 'PRICE_LIST' | 'PROMOTION';
-
-export interface CodePolicy {
-  entity: CodeEntity;
-  template: string;
-  regex: string;
-  seqScope?: 'GLOBAL' | 'YEAR' | 'MONTH' | 'DAY';
-  pad?: number;
-}
-
-export const CODE_POLICIES: Record<CodeEntity, CodePolicy> = {
-  PRODUCT:    { entity:'PRODUCT', template:'{SKU}', regex:'^[A-Z0-9_-]{3,32}$'},
-  ACCOUNT:    { entity:'ACCOUNT', template:'ACC-{SEQ#6}', regex:'^ACC-\\d{6}$', seqScope:'GLOBAL', pad:6 },
-  PARTY:      { entity:'PARTY', template:'PTY-{SEQ#6}', regex:'^PTY-\\d{6}$', seqScope:'GLOBAL', pad:6 },
-  SUPPLIER:   { entity:'SUPPLIER', template:'SUP-{SEQ#5}', regex:'^SUP-\\d{5}$', seqScope:'GLOBAL', pad:5 },
-  LOT:        { entity:'LOT', template:'{YY}{MM}{DD}-{SKU}-{SEQ#3}', regex:'^\\d{6}-.+-\\d{3}$', seqScope:'DAY', pad:3 },
-  PROD_ORDER: { entity:'PROD_ORDER', template:'PO-{YYYY}{MM}-{SEQ#4}', regex:'^PO-\\d{6}-\\d{4}$', seqScope:'MONTH', pad:4 },
-  SHIPMENT:   { entity:'SHIPMENT', template:'SHP-{YYYY}{MM}{DD}-{SEQ#3}', regex:'^SHP-\\d{8}-\\d{3}$', seqScope:'DAY', pad:3 },
-  GOODS_RECEIPT:{ entity:'GOODS_RECEIPT', template:'GR-{YYYY}{MM}{DD}-{SEQ#3}', regex:'^GR-\\d{8}-\\d{3}$', seqScope:'DAY', pad:3 },
-  LOCATION:   { entity:'LOCATION', template:'{ZONE}-{SEQ#3}', regex:'^[A-Z]{2,6}-\\d{3}$', seqScope:'GLOBAL', pad:3 },
-  PRICE_LIST: { entity:'PRICE_LIST', template:'PL-{YYYY}-{SEQ#2}', regex:'^PL-\\d{4}-\\d{2}$', seqScope:'YEAR', pad:2 },
-  PROMOTION:  { entity:'PROMOTION', template:'PRM-{YY}{MM}-{SEQ#3}', regex:'^PRM-\\d{4}-\\d{3}$', seqScope:'MONTH', pad:3 },
-};
-
-export type ExternalSystem = 'HOLDED'|'SHOPIFY'|'EAN'|'GTIN'|'CUSTOMER_REF'|'SUPPLIER_REF';
-
-export interface CodeAlias {
-  id: string;
-  entity: CodeEntity;
-  entityId: string;
-  system: ExternalSystem;
-  code: string;
-  createdAt: string;
-}
-
+// -----------------------------------------------------------------
+// 6. Lista de Colecciones de la Base de Datos
+// -----------------------------------------------------------------
 export interface SantaData {
+  // Catálogos
+  items: Item[];
+  // Transacciones
+  stockMoves: StockMove[];
+  productionOrders: ProductionOrder[];
+  ordersSellOut: OrderSellOut[];
+  shipments: Shipment[];
+  goodsReceipts: GoodsReceipt[];
+  qaChecks: QACheck[];
+  // Vistas (Materializaciones)
+  onHand: OnHandView[];
+  reservations: ReservationView[];
+  // CRM y otros
   parties: Party[];
   partyRoles: PartyRole[];
-  partyDuplicates: PartyDuplicate[];
-  users: User[];
   accounts: Account[];
-  ordersSellOut: OrderSellOut[];
+  users: User[];
   interactions: Interaction[];
   billOfMaterials: BillOfMaterial[];
-  productionOrders: ProductionOrder[];
-  lots: Lot[];
-  qaChecks: QACheck[];
-  inventory: InventoryItem[];
-  stockMoves: StockMove[];
-  shipments: Shipment[];
   deliveryNotes: DeliveryNote[];
-  goodsReceipts: GoodsReceipt[];
-  activations: Activation[];
-  promotions: Promotion[];
-  marketingEvents: MarketingEvent[];
-  onlineCampaigns: OnlineCampaign[];
-  influencerCollabs: InfluencerCollab[];
-  posTactics: PosTactic[];
-  posCostCatalog: PosCostCatalogEntry[];
-  plv_material: PlvMaterial[];
-  materialCosts: MaterialCost[];
-  financeLinks: FinanceLink[];
-  paymentLinks: PaymentLink[];
-  traceEvents: TraceEvent[];
-  incidents: Incident[];
-  codeAliases: CodeAlias[];
+  // ... resto de colecciones de marketing, finanzas, etc.
+  partyDuplicates: PartyDuplicate[];
+  activations: any[]; // Placeholder, replace with actual type
+  promotions: any[]; // Placeholder
+  marketingEvents: any[]; // Placeholder
+  onlineCampaigns: any[]; // Placeholder
+  influencerCollabs: any[]; // Placeholder
+  posTactics: any[]; // Placeholder
+  posCostCatalog: any[]; // Placeholder
+  plv_material: any[]; // Placeholder
+  materialCosts: any[]; // Placeholder
+  financeLinks: any[]; // Placeholder
+  paymentLinks: any[]; // Placeholder
+  traceEvents: any[]; // Placeholder
+  incidents: any[]; // Placeholder
+  codeAliases: any[]; // Placeholder
   integrations?: any;
   jobs?: any[];
   dead_letters?: any[];
-  expenses: Expense[];
+  expenses: any[];
 }
 
 export const SANTA_DATA_COLLECTIONS: (keyof SantaData)[] = [
-    'parties', 'partyRoles', 'users', 'accounts', 'ordersSellOut', 'interactions',
-    'billOfMaterials', 'productionOrders', 'lots', 'qaChecks',
-    'inventory', 'stockMoves', 'shipments', 'goodsReceipts', 'activations', 'promotions',
-    'marketingEvents', 'onlineCampaigns', 'influencerCollabs', 'materialCosts', 'financeLinks',
-    'paymentLinks', 'traceEvents', 'incidents', 'codeAliases',
-    'posTactics', 'posCostCatalog', 'plv_material', 'integrations', 'jobs', 'dead_letters', 'expenses',
-    'deliveryNotes', 'partyDuplicates'
+    'items', 'stockMoves', 'productionOrders', 'ordersSellOut', 'shipments', 'goodsReceipts', 'qaChecks',
+    'onHand', 'reservations', 'parties', 'partyRoles', 'accounts', 'users', 'interactions', 'billOfMaterials',
+    'deliveryNotes', 'partyDuplicates', 'activations', 'promotions', 'marketingEvents', 'onlineCampaigns',
+    'influencerCollabs', 'posTactics', 'posCostCatalog', 'plv_material', 'materialCosts', 'financeLinks',
+    'paymentLinks', 'traceEvents', 'incidents', 'codeAliases', 'integrations', 'jobs', 'dead_letters', 'expenses'
 ];
 
-
-export const SB_COLORS = {
-  // === Paleta de marca (hex alineado a HSL del globals.css) ===
-  brand: {
-    sun:       '#fff5a9', // --sb-sun       (54 100% 83%)
-    sunStrong: '#fecb46', // --sb-sun-strong(45 99%  63%)
-    agua:      '#99d9d9', // --sb-agua      (180 46% 72%)
-    cobre:     '#c56a3c', // --sb-cobre     ( 19 53% 51%)
-    naranja:   '#ed6a36', // --sb-naranja   ( 17 85% 57%)
-    verdeMar:  '#5a9496', // --sb-verde-mar (182 25% 47%) ≈ teal SB
-    neutral50 : '#FAFAFA',
-    neutral900: '#111111',
-  },
-
-  // === Alias "primary" (mantengo tu API previa) ===
-  primary: {
-    sun   : '#fff5a9',
-    copper: '#c56a3c',
-    aqua  : '#99d9d9',
-    teal  : '#5a9496',   // antes #618E8F → ahora matchea --sb-verde-mar
-    neutral50 : '#FAFAFA',
-    neutral900: '#111111',
-  },
-
-  // === Estados (puedes afinar más tarde si quieres que warning use el dorado) ===
-  state: {
-    success: '#22c55e',
-    warning: '#fecb46',  // antes #f59e0b; usamos dorado de marca para coherencia
-    danger : '#ef4444',
-    info   : '#3b82f6',
-  },
-
-  // === Departamentos (usamos brand y garantizamos contraste de texto) ===
-  dept: {
-    VENTAS:     { bg: '#f2ca67', text: '#3f3414' }, // ventas: dorado
-    PRODUCCION: { bg: '#ea945e', text: '#ffffff' }, // produc: naranja
-    ALMACEN:    { bg: '#996947', text: '#ffffff' }, // logistica: cobre-oscuro
-    MARKETING:  { bg: '#9dd4d6', text: '#2F5D5D' }, // mkt: agua-claro
-    FINANZAS:   { bg: '#fecb46', text: '#412c00' }, // finanzas: amarillo intenso
-    CALIDAD:    { bg: '#829fce', text: '#ffffff' }, // calidad: azul corporativo
-  },
-
-  // === Calidad de lote (reuso brand/state para coherencia) ===
-  lotQC: {
-    release: { label: 'LIBERADO',  bg: '#22c55e', text: '#ffffff' },
-    hold:    { label: 'RETENIDO',  bg: '#fff5a9', text: '#111111' }, // sun
-    reject:  { label: 'RECHAZADO', bg: '#ef4444', text: '#ffffff' },
-  },
-
-  // === Tokens visuales (sin cambios funcionales) ===
-  tokens: {
-    radius: { sm: 6, md: 10, lg: 14, xl: 18, full: 9999 },
-    shadow: {
-      sm: '0 1px 2px rgba(0,0,0,0.04)',
-      md: '0 2px 4px rgba(0,0,0,0.08)',
-      lg: '0 6px 12px rgba(0,0,0,0.08)',
-      xl: '0 20px 25px rgba(0,0,0,0.08)',
-    },
-    spacing: { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 },
-  },
-} as const;
-// === Tema para gráficos (fuera de SB_COLORS) ===
-export const SB_THEME = {
-  chart: {
-    line:  ['#c56a3c', '#ed6a36', '#5a9496', '#99d9d9', '#fecb46'],
-    donut: ['#fecb46', '#c56a3c', '#5a9496', '#99d9d9', '#ed6a36'],
-    grid:  'hsl(240 6% 90%)',
-  },
-} as const;
-
-// ===== Tipos y metadatos que ya usas (actualizados a nueva paleta) =====
-
-export type DeptKey = keyof typeof SB_COLORS.dept;
-export type QCVisual = keyof typeof SB_COLORS.lotQC; // 'release'|'hold'|'reject'
-
-export const PARTY_ROLE_META: Record<PartyRoleType, { label: string; accent: string }> = {
-  CUSTOMER: { label: 'Cliente',      accent: SB_COLORS.primary.copper },
-  SUPPLIER: { label: 'Proveedor',    accent: SB_COLORS.primary.aqua   },
-  DISTRIBUTOR: { label: 'Distribuidor', accent: SB_COLORS.primary.teal  },
-  IMPORTER:    { label: 'Importador',   accent: SB_COLORS.primary.teal  },
-  INFLUENCER:  { label: 'Influencer',   accent: '#f472b6' },
-  CREATOR:     { label: 'Creator',      accent: '#ec4899' },
-  EMPLOYEE:    { label: 'Empleado',     accent: '#6366f1' },
-  BRAND_AMBASSADOR: { label: 'Brand Ambassador', accent: '#8b5cf6' },
-  OTHER:       { label: 'Otro',          accent: '#9ca3af' },
-};
-
-export const ORDER_STATUS_META: Record<OrderStatus, { label: string; accent: string }> = {
-  open:      { label: 'Abierto',    accent: SB_COLORS.state.info     },
-  confirmed: { label: 'Confirmado', accent: SB_COLORS.primary.teal   },
-  shipped:   { label: 'Enviado',    accent: SB_COLORS.state.success  },
-  invoiced:  { label: 'Facturado',  accent: SB_COLORS.primary.copper },
-  paid:      { label: 'Pagado',     accent: SB_COLORS.state.success  },
-  cancelled: { label: 'Cancelado',  accent: SB_COLORS.state.danger   },
-  lost:      { label: 'Perdido',    accent: SB_COLORS.state.danger   },
-};
-
-export const SHIPMENT_STATUS_META: Record<ShipmentStatus, { label: string; accent: string }> = {
-  pending:       { label: 'Pendiente',  accent: SB_COLORS.state.info    },
-  picking:       { label: 'Picking',    accent: SB_COLORS.primary.teal  },
-  ready_to_ship: { label: 'Validado',   accent: SB_COLORS.primary.teal  },
-  shipped:       { label: 'Enviado',    accent: SB_COLORS.state.success },
-  delivered:     { label: 'Entregado',  accent: SB_COLORS.state.success },
-  cancelled:     { label: 'Cancelado',  accent: SB_COLORS.state.danger  },
-  exception:     { label: 'Incidencia', accent: SB_COLORS.state.warning },
-};
-
-export const LOT_QC_META = SB_COLORS.lotQC;
-
-export const PHASE_NAME_ES: Record<TraceEventPhase, string> = {
-  SOURCE:    'Origen (Almacén)',
-  RECEIPT:   'Recepción (Almacén)',
-  QC:        'Calidad',
-  PRODUCTION:'Producción',
-  PACK:      'Embalaje',
-  WAREHOUSE:  'Almacén',
-  SALE:      'Venta',
-  DELIVERY:  'Entrega (Almacén)',
-};
-
-export const PHASE_DEPT: Record<TraceEventPhase, DeptKey> = {
-  SOURCE:     'ALMACEN',
-  RECEIPT:    'ALMACEN',
-  QC:         'CALIDAD',
-  PRODUCTION: 'PRODUCCION',
-  PACK:       'PRODUCCION',
-  WAREHOUSE:  'ALMACEN',
-  SALE:       'VENTAS',
-  DELIVERY:   'ALMACEN',
-};
-
-export const phaseStyle = (phase: TraceEventPhase) => {
-  const dept = PHASE_DEPT[phase];
-  const c = SB_COLORS.dept[dept];
-  return { bg: c.bg, text: c.text };
-};
-
-export const ACCOUNT_TYPE_META: Record<AccountType, { label: string; accent: string }> = {
-  HORECA:       { label: 'HORECA',       accent: SB_COLORS.primary.teal   },
-  RETAIL:       { label: 'Retail',       accent: SB_COLORS.primary.copper },
-  PRIVADA:      { label: 'Privada',      accent: SB_COLORS.state.info     },
-  ONLINE:       { label: 'Online',       accent: SB_COLORS.state.info     },
-  OTRO:         { label: 'Otro',         accent: '#9CA3AF'                },
-  DISTRIBUIDOR: { label: 'Distribuidor', accent: SB_COLORS.primary.aqua   },
-};
-
-// Metadatos de departamento → apuntan a tokens de globals.css
-export const DEPT_META: Record<Department, { label: string; token: string; color: string; textColor: string }> = {
-  VENTAS:     { label: 'Ventas',     token: '--sb-accent-ventas',   color: '#ea945e', textColor: '#ffffff' },
-  MARKETING:  { label: 'Marketing',  token: '--sb-accent-marketing',color: '#9dd4d6', textColor: '#2F5D5D' },
-  PRODUCCION: { label: 'Producción', token: '--sb-accent-produc',   color: '#638c8d', textColor: '#ffffff' },
-  CALIDAD:    { label: 'Calidad',    token: '--sb-accent-calidad',  color: '#829fce', textColor: '#ffffff' },
-  ALMACEN:    { label: 'Almacén',    token: '--sb-accent-logistica',color: '#996947', textColor: '#ffffff' },
-  FINANZAS:   { label: 'Finanzas',   token: '--sb-sun-strong',      color: '#fecb46', textColor: '#412c00' },
-  PERSONAL:   { label: 'Personal',   token: '--sb-accent-personal', color: 'hsl(var(--sb-accent-personal))', textColor: 'hsl(var(--sb-neutral-900))' },
-};
-
-// Helper opcional para UI
-export const tokenToHsl = (token: string, alpha?: number) =>
-  alpha == null ? `hsl(var(${token}))` : `hsl(var(${token}) / ${alpha})`;
+export * from './ssot.metas';
