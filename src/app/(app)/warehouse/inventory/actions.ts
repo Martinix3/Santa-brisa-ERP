@@ -1,10 +1,10 @@
 'use server';
 
-export const runtime = 'nodejs'; // 🔧 Asegura que use Node (no edge)
+const runtime = 'nodejs'; // 🔧 Asegura que use Node (no edge)
 
 import { revalidatePath } from 'next/cache';
 import { adminDb as db } from '@/server/firebase';
-import type { StockMove, OnHandView, Uom } from '@/domain/ssot';
+import type { StockMove, OnHandView, Uom, SantaData } from '@/domain/ssot';
 
 type RebuildInput = { dryRun?: boolean };
 
