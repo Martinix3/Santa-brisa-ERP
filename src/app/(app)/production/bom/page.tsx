@@ -1,4 +1,3 @@
-
 // src/app/(app)/production/bom/page.tsx
 "use client";
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -68,19 +67,19 @@ function RecipeForm({
       <div className="p-4 space-y-4">
         {fm.lastError && <Banner kind="err" text={fm.lastError} />}
         <Field label="ID" name="id" required error={fm.fieldErrors?.id}>
-          <input className="sb-input" value={fm.values.id} onChange={e => fm.set("id", e.target.value)} />
+          <input className="w-full h-10 px-3 rounded-lg border" value={fm.values.id} onChange={e => fm.set("id", e.target.value)} />
         </Field>
         <Field label="SKU Producto Terminado" name="sku" required error={fm.fieldErrors?.sku}>
-          <select className="sb-input" value={fm.values.sku} onChange={e => fm.set("sku", e.target.value)}>
+          <select className="w-full h-10 px-3 rounded-lg border" value={fm.values.sku} onChange={e => fm.set("sku", e.target.value)}>
             <option value="">Selecciona SKU</option>
             {finishedSkus.map(s => <option key={s.sku} value={s.sku}>{s.name}</option>)}
           </select>
         </Field>
         <Field label="Nombre Receta" name="name" required error={fm.fieldErrors?.name}>
-          <input className="sb-input" value={fm.values.name} onChange={e => fm.set("name", e.target.value)} />
+          <input className="w-full h-10 px-3 rounded-lg border" value={fm.values.name} onChange={e => fm.set("name", e.target.value)} />
         </Field>
         <Field label="Tamaño de Lote" name="batchSize" required error={fm.fieldErrors?.batchSize}>
-          <input type="number" className="sb-input" value={fm.values.batchSize} onChange={e => fm.set("batchSize", Number(e.target.value))} />
+          <input type="number" className="w-full h-10 px-3 rounded-lg border" value={fm.values.batchSize} onChange={e => fm.set("batchSize", Number(e.target.value))} />
         </Field>
         
         <div className="space-y-2">
@@ -89,15 +88,15 @@ function RecipeForm({
           {(fm.values.items || []).map((line: BomLine, i: number) => (
              <div key={i} className="grid grid-cols-[2fr_1fr_auto] gap-2 items-end p-2 border rounded-md">
                 <Field label="Material" name={`items[${i}].materialId`} required error={fm.fieldErrors?.[`items.${i}.materialId`]}>
-                     <input className="sb-input" value={line.materialId} onChange={e => fm.set(`items[${i}].materialId`, e.target.value)} />
+                     <input className="w-full h-10 px-3 rounded-lg border" value={line.materialId} onChange={e => fm.set(`items[${i}].materialId`, e.target.value)} />
                 </Field>
                  <Field label="Cantidad" name={`items[${i}].quantity`} required error={fm.fieldErrors?.[`items.${i}.quantity`]}>
-                    <input type="number" className="sb-input" value={line.quantity} onChange={e => fm.set(`items[${i}].quantity`, Number(e.target.value))} />
+                    <input type="number" className="w-full h-10 px-3 rounded-lg border" value={line.quantity} onChange={e => fm.set(`items[${i}].quantity`, Number(e.target.value))} />
                  </Field>
-                 <button onClick={() => removeLine(i)} className="sb-btn-primary p-2 h-10 border bg-white hover:bg-red-50 text-red-600"><Trash2 size={16}/></button>
+                 <button onClick={() => removeLine(i)} className="h-10 px-2 border bg-white hover:bg-red-50 text-red-600 rounded-lg"><Trash2 size={16}/></button>
              </div>
           ))}
-          <button onClick={() => addLine("FORMULA")} className="sb-btn-primary px-3 py-1.5 text-sm border bg-white">
+          <button onClick={() => addLine("FORMULA")} className="px-3 py-1.5 text-sm border bg-white rounded-lg">
             <Plus size={14} className="inline mr-1" /> Añadir línea
           </button>
         </div>
@@ -130,9 +129,20 @@ export default function BomPage() {
     const handleSave = async (values: RecipeBom) => {
         const result = await upsertBOM(values);
         if (result.ok) {
+            // Actualizar el estado local directamente
+            if (santaData) {
+                const updatedBoms = [...(santaData.billOfMaterials || [])];
+                const index = updatedBoms.findIndex(b => b.id === values.id);
+                if (index > -1) {
+                    updatedBoms[index] = values;
+                } else {
+                    updatedBoms.unshift(values);
+                }
+                saveAllCollections({ billOfMaterials: updatedBoms });
+            }
             setOpenRecipe(null);
         }
-        return result; // Devuelve el resultado para que el formulario lo maneje
+        return result;
     };
 
     return (
