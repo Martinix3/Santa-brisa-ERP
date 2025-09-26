@@ -5,8 +5,9 @@
 // == SINGLE SOURCE OF TRUTH (SSOT) - KERNEL V2
 // =================================================================
 export type Timestamp = string; // ISO string for full date-time
-export type ISO = string;       // ISO string, can be just date
 export type LotNumber = string;      // alias semántico
+export type ISO = string;            // si quieres usarlo en campos no Timestamp
+
 
 // -----------------------------------------------------------------
 // 1. Tipos Primitivos y Enums Transversales
@@ -66,7 +67,8 @@ export interface StockMove {
   qty: number;          // signo positivo/negativo según reason
   uom: Uom;
   lotNumber?: LotNumber;
-  locationId?: string;
+  fromLocation?: string;
+  toLocation?: string;
   reason: StockReason;
   occurredAt: Timestamp;
   createdAt: Timestamp;
@@ -160,8 +162,8 @@ export interface ProductionOrder {
     durationHours?: number;
     finalYield?: number;
     yieldUom?: 'L' | 'unit' | UomLegacy;
-    goodUnits?: number;    // antes goodBottles
-    scrapUnits?: number;   // antes scrapBottles
+    goodUnits?: number;
+    scrapUnits?: number;
   };
 
   costing?: {
@@ -231,7 +233,7 @@ export interface Shipment {
   createdAt: Timestamp; updatedAt: Timestamp;
   status: ShipmentStatus;
   lines: ShipmentLine[];
-  // Resto de campos que ya tenías
+  // Resto de metadatos que ya tenías
   customerName: string; city: string; addressLine1?: string; addressLine2?: string; postalCode?: string; country?: string;
   carrier?: string; labelUrl?: string; trackingCode?: string; tracking?: string; notes?: string;
   packedById?: string; checks?: { visualOk?: boolean }; isSample?: boolean; samplePurpose?: 'sales'|'qc'|'mkt'|'other';
@@ -349,11 +351,6 @@ export * from './ssot.common'; // Importa el resto de tipos que no han cambiado
 
 /** @deprecated Use `Item` instead. This will be removed. */
 export interface Product {}
-/** @deprecated Use `Item` instead. This will be removed. */
-export interface Material {}
-/** @deprecated Lot is now a string (`lotNumber`). Metadata can be stored in a separate optional collection if needed. This will be removed. */
-export interface Lot {}
-
 
 // -----------------------------------------------------------------
 // 8. Lista de Colecciones de la Base de Datos
