@@ -28,8 +28,17 @@ const DIRECT_SIGN: Record<StockMove['reason'], number> = {
   unreserve: 0,
 };
 
+function sanitizeIdPart(s?: string | null) {
+  if (!s) return '';
+  return s.replace(/[\/.#$\[\]]/g, '_');
+}
+
 function key(itemId: string, lot?: string | null, loc?: string | null) {
-  return [itemId, lot || '', loc || ''].join('|');
+  return [
+    sanitizeIdPart(itemId),
+    sanitizeIdPart(lot),
+    sanitizeIdPart(loc),
+  ].join('|');
 }
 
 function num(x: any): number {
