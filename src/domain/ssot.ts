@@ -1,4 +1,3 @@
-
 // src/domain/ssot.ts
 
 // =================================================================
@@ -60,7 +59,7 @@ export type StockReason =
 
 export interface StockMove {
   id: string;
-  itemId: string;       // ← SIEMPRE itemId (olvidar “sku + materialId”)
+  itemId: string;       // ← SIEMPRE itemId (olvidar “sku + itemId”)
   qty: number;          // signo positivo/negativo según reason
   uom: Uom;
   lotNumber?: LotNumber;
@@ -126,6 +125,7 @@ export type ExecCheck = { id:string; done:boolean; checkedBy?:string; checkedAt?
 
 export interface ProductionOrder {
   id: string;
+  orderNumber?: string;
   bomId: string;
   outputItemId: string;     // ← sustituye sku
   targetQuantity: number;   // en baseUnit
@@ -189,6 +189,7 @@ export interface QACheck {
 // -----------------------------------------------------------------
 export interface GoodsReceipt {
   id: string;
+  receiptNumber?: string;
   supplierPartyId: string;
   receivedAt: Timestamp;
   deliveryNote?: string;
@@ -219,6 +220,7 @@ export interface ShipmentLine {
 
 export interface Shipment {
   id: string;
+  shipmentNumber?: string;
   orderId: string;
   accountId: string;
   partyId: string;
@@ -250,8 +252,8 @@ export interface DeliveryNote {
     qty:number;
     uom?:string;
     /** @deprecated usar lotNumbers */
-    lotIds?: LotNumber[];
-    lotNumbers?: LotNumber[];
+    lotIds?: LotNumber[]; 
+    lotNumbers?: LotNumber[]; 
   }>;
   pdfUrl?: string;
   company: { name: string; vat: string; address?: string; city?: string; zip?: string; country?: string };
@@ -314,8 +316,13 @@ export interface Account {
 
 export type BillingStatus = 'PENDING'|'INVOICING'|'INVOICED'|'PAID'|'FAILED';
 export interface OrderSellOut {
-  id: string; partyId: string; accountId: string; source: 'CRM'|'SHOPIFY'|'OTHER' | 'MANUAL' | 'HOLDED';
-  createdAt: Timestamp; currency: Currency;
+  id: string; 
+  docNumber?: string;
+  partyId: string; 
+  accountId: string; 
+  source: 'CRM'|'SHOPIFY'|'OTHER' | 'MANUAL' | 'HOLDED';
+  createdAt: Timestamp; 
+  currency: Currency;
   lines: Array<{
     itemId: string;
     name?: string;
@@ -325,10 +332,13 @@ export interface OrderSellOut {
     discountPct?: number;
     uom?: Uom;
     /** @deprecated usar lotNumbers */
-    lotIds?: LotNumber[];
-    lotNumbers?: LotNumber[];
+    lotIds?: LotNumber[]; 
+    lotNumbers?: LotNumber[]; 
   }>;
-  notes?: string; billingStatus?: BillingStatus; status: OrderStatus; docNumber?: string; totalAmount?: number;
+  notes?: string; 
+  billingStatus?: BillingStatus; 
+  status: OrderStatus; 
+  totalAmount?: number;
   external?: { shopifyOrderId?: string; holdedInvoiceId?: string; };
 }
 // ... Resto de interfaces como Interaction, etc. se mantienen igual pero referenciarán `itemId` donde sea necesario ...

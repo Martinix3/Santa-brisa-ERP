@@ -43,17 +43,19 @@ export function ensureSkuPresentation(sku: string, presentation: string): string
 // ---------------------------------------------------------------------
 export type LotParts = { date: Date; sku: string; seq: number };
 
-export function makeLot({ date, sku, seq }: LotParts) {
+export function makeLot({ date, sku, seq }: LotParts): string {
   if (!isValidSku(sku)) throw new Error(`SKU inválido: ${sku}`);
   return `${toYYMMDD(date)}-${UPPER(sku)}-${pad(seq, 4)}`;
 }
+
+// FIX: La regex anterior era demasiado específica. Esta usa el SKU_RE para ser flexible.
 export const LOT_RE =
-  new RegExp(`^[0-9]{6}-(${SKU_RE.source.slice(1, -1)})-[0-9]{4}$`);
+  new RegExp(`^([0-9]{6})-(${SKU_RE.source.slice(1, -1)})-([0-9]{4})$`);
 
 export function parseLot(code: string): { date: Date; sku: string; seq: number } | null {
   const m = UPPER(code).match(LOT_RE);
   if (!m) return null;
-  const [yymmdd, sku, seq] = [code.slice(0, 6), code.slice(7, code.length - 5), code.slice(-4)];
+  const [, yymmdd, sku, seq] = m;
   const yy = parseInt(yymmdd.slice(0, 2), 10);
   const mm = parseInt(yymmdd.slice(2, 4), 10) - 1;
   const dd = parseInt(yymmdd.slice(4, 6), 10);
@@ -138,17 +140,3 @@ export function makeGoodsReceiptCode(existing: string[], date = new Date()) {
   const seq = nextSeq(existing, { prefix: 'GR', date, granularity: 'YYYYMMDD', width: 4 });
   return makeCode({ prefix: 'GR', date, seq, granularity: 'YYYYMMDD', width: 4 });
 }
-
-// ---------------------------------------------------------------------
-// Mini tests (opcional: puedes quitarlos si molesta en build)
-function __selftest() {
-  const sku = makeSku({ category: 'SB', product: 'MARG', presentation: '0700' });
-  if (!isValidSku(sku)) throw new Error('SKU inválido');
-  const lot = makeLot({ date: new Date(2025, 8, 26), sku, seq: 1 });
-  if (!isValidLot(lot)) throw new Error('LOT inválido');
-
-  const so1 = makeSellOutOrderCode([]);
-  const so2 = makeSellOutOrderCode([so1]);
-  if (!POLICIES.SO.re.test(so2)) throw new Error('SO inválido');
-}
-// __selftest();
