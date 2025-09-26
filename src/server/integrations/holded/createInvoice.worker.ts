@@ -1,6 +1,7 @@
+
 // src/server/integrations/holded/createInvoice.worker.ts
 import { adminDb as db } from '@/server/firebase';
-import type { OrderSellOut, Party } from '@/domain/ssot';
+import type { OrderSellOut, Party, PartyRole } from '@/domain/ssot';
 import { callHoldedApi } from './client';
 import { Timestamp } from 'firebase-admin/firestore';
 
@@ -36,8 +37,23 @@ export async function handleCreateHoldedInvoice({ orderId }: { orderId: string }
       type: 'client',
     });
     contactId = created.id;
+
+    // Ensure Party has CUSTOMER role in PartyRole collection
+    const partyRolesSnap = await db.collection('partyRoles').where('partyId', '==', order.partyId).where('role', '==', 'CUSTOMER').limit(1).get();
+    if (partyRolesSnap.empty) {
+        const newRoleRef = db.collection('partyRoles').doc();
+        const newRole: Omit<PartyRole, 'data'> = {
+            id: newRoleRef.id,
+            partyId: order.partyId,
+            role: 'CUSTOMER',
+            isActive: true,
+            createdAt: Timestamp.now().toMillis().toString(),
+            data: {} as any
+        };
+        await newRoleRef.set(newRole);
+    }
+    
     await db.collection('parties').doc(order.partyId).set({
-      roles: (party.roles ?? []).includes('CUSTOMER') ? party.roles : [...(party.roles||[]), 'CUSTOMER'],
       external: { ...(party.external||{}), holdedContactId: contactId },
       updatedAt: Timestamp.now(),
     }, { merge: true });

@@ -1,3 +1,4 @@
+
 // src/app/(app)/production/bom/page.tsx
 "use client";
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -20,31 +21,6 @@ import { upsertBOM } from "./actions";
 type BomLine = RecipeBom['items'][0];
 type FinishedSku = { sku: string; name: string; packSizeMl: number; };
 
-function MaterialSearch({ query, onQueryChange, onSelect, materials }: { query: string; onQueryChange: (q: string) => void; onSelect: (mat: Material) => void; materials: Material[]; }) {
-  const [open, setOpen] = useState(false);
-  const results = useMemo(() => {
-    if (!query) return [];
-    const q = query.toLowerCase();
-    return materials.filter(m => m.name.toLowerCase().includes(q) || (m.sku || "").toLowerCase().includes(q)).slice(0, 20);
-  }, [query, materials]);
-
-  return (
-    <div className="relative">
-      <input value={query} onChange={e => { onQueryChange(e.target.value); setOpen(true); }} onFocus={() => setOpen(true)} onBlur={() => setTimeout(() => setOpen(false), 150)} className="px-2 py-1.5 w-full rounded-lg border border-zinc-300" placeholder="Buscar material..." />
-      {open && results.length > 0 && (
-        <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-60 overflow-auto">
-          {results.map(mat => (
-            <button type="button" key={mat.id} onClick={() => { onSelect(mat); setOpen(false); }} className="w-full text-left px-3 py-2 hover:bg-zinc-50">
-              <p className="font-medium text-sm">{mat.name}</p>
-              <p className="text-xs text-zinc-500">{mat.sku}</p>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 function RecipeForm({
   initialValues,
   onSave,
@@ -66,7 +42,7 @@ function RecipeForm({
     fm.set("items", newItems);
   };
   const removeLine = (i: number) => {
-    const newItems = (fm.values.items || []).filter((_, idx) => idx !== i);
+    const newItems = (fm.values.items || []).filter((_: any, idx: number) => idx !== i);
     fm.set("items", newItems);
   };
 
@@ -135,7 +111,7 @@ function RecipeForm({
 }
 
 export default function BomPage() {
-    const { data: santaData } = useData();
+    const { data: santaData, saveAllCollections } = useData();
     const [openRecipe, setOpenRecipe] = useState<RecipeBom | null>(null);
 
     const recipes = useMemo(() => santaData?.billOfMaterials || [], [santaData]);
@@ -154,7 +130,6 @@ export default function BomPage() {
     const handleSave = async (values: RecipeBom) => {
         const result = await upsertBOM(values);
         if (result.ok) {
-            // Data will be revalidated by the server action
             setOpenRecipe(null);
         }
         return result; // Devuelve el resultado para que el formulario lo maneje

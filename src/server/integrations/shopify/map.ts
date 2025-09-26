@@ -1,4 +1,5 @@
-import type { OrderSellOut, Timestamp } from '@/domain/ssot';
+
+import type { OrderSellOut, Timestamp, Currency } from '@/domain/ssot';
 
 type ShopifyOrder = any; // si quieres, añade tipos de Shopify más adelante
 
@@ -13,7 +14,7 @@ export function mapFinancialStatusToOrderStatus(financial?: string): OrderSellOu
 
 export function normalizeShopifyOrder(order: ShopifyOrder): OrderSellOut {
   const id = `shopify:${order.id}`;
-  const currency: string = order.currency || 'EUR';
+  const currency: Currency = (order.currency || 'EUR') as Currency;
   const financial = order.financial_status as string | undefined;
   const status = mapFinancialStatusToOrderStatus(financial);
 

@@ -1,3 +1,4 @@
+
 // src/app/(app)/warehouse/goods-receipt/page.tsx
 "use client";
 
@@ -41,12 +42,12 @@ function SearchableSelect<T extends { id: string; name: string }>({
         setIsOpen(true);
         if (filtered.length === 0) {
           const exact = items.some(i => i.name.toLowerCase() === q.toLowerCase());
-          if (!exact) onFreeText(q);
+          if (!exact) onFreeText(q); // ⚠️ sin onFreeText en deps
         }
       } else {
         setSuggestions([]);
         setIsOpen(false);
-        onFreeText('');
+        onFreeText(''); // limpiar “nuevo”
       }
     }, 120);
     return () => { if (debRef.current) clearTimeout(debRef.current); };
@@ -126,7 +127,14 @@ export default function GoodsReceiptPage() {
     const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
     const [isSaving, setIsSaving] = useState(false);
 
-    const suppliers = useMemo(() => (data?.parties || []).filter(p => (p.roles || []).includes('SUPPLIER')), [data?.parties]);
+    const suppliers = useMemo(() => {
+        if (!data?.parties || !data?.partyRoles) return [];
+        const supplierPartyIds = new Set(
+            data.partyRoles.filter(r => r.role === 'SUPPLIER').map(r => r.partyId)
+        );
+        return data.parties.filter(p => supplierPartyIds.has(p.id));
+    }, [data?.parties, data?.partyRoles]);
+
     const materials = useMemo(() => data?.materials || [], [data?.materials]);
     
     const handleLineChange = (index: number, field: keyof LineItem, value: any) => {
@@ -195,9 +203,9 @@ export default function GoodsReceiptPage() {
       }
     }, [suppliers]);
     
-    const handleLineFreeText = useCallback((index: number, text: string) => {
+    const handleLineFreeText = (index: number, text: string) => {
         handleLineChange(index, 'newMaterialName', text);
-    }, []);
+    };
 
     return (
         <div className="space-y-6 max-w-4xl mx-auto">
