@@ -113,7 +113,6 @@ export default function ProduccionPage() {
     const [recipes, setRecipes] = useState<RecipeBom[]>([]);
     
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
     const [lastError, setLastError] = useState<string | null>(null);
     const [busyOp, setBusyOp] = useState<null | "create" | "start" | "update" | "finish">(null);
     const { push } = useToaster();
@@ -208,7 +207,7 @@ export default function ProduccionPage() {
     } finally {
       setBusyOp(null);
     }
-  }, [warehouseInventory, saveAllCollections, allMaterials, santaData, push]);
+  }, [warehouseInventory, saveAllCollections, allMaterials, santaData, push, showNotification]);
   
 
   const updateOrder = useCallback(async (id: string, patch: Partial<ProdOrder>) => {
@@ -245,8 +244,8 @@ export default function ProduccionPage() {
         if (santaData) {
             const updatedOrders = santaData.productionOrders.filter(o => o.id !== id);
             await saveAllCollections({ productionOrders: updatedOrders });
+            showNotification(`Orden ${id} eliminada.`);
         }
-        showNotification(`Orden ${id} eliminada.`);
     }, [santaData, saveAllCollections, showNotification]);
 
   const startOrder = useCallback(async (orderId: string) => {
@@ -558,7 +557,7 @@ function OrdersList({ orders, recipes, onStart, onFinish, onUpdate, onDelete, on
     onUpdate: (id:string, patch: Partial<ProdOrder>)=>Promise<void>; 
     onDelete: (id: string) => Promise<void>;
     onEdit: (order: ProdOrder) => void;
-    inventory: any[], allMaterials: Material[], busyOp: string | null
+    inventory: any[], allMaterials: Material[], busyOp: string | null 
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const openOrder = orders.find(o => o.id === openId) || null;
@@ -982,3 +981,4 @@ function UpcomingScheduleCard({ orders, recipes, allMaterials }: { orders: ProdO
 
 
     
+
