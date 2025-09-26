@@ -160,9 +160,6 @@ export async function upsertMinimalMaterial(
     }
     if (e?.code === "permission-denied")
       return fail("Sin permisos para crear material.", { code: e.code });
-    return fail("No se pudo crear el material.", {
-      code: e?.code,
-      retryable: true,
-    });
+    return fail("No se pudo crear el material.", { code: e?.code, retryable: true });
   }
 }
