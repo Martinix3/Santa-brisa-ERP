@@ -14,11 +14,36 @@ import { Banner } from "@/components/ui/Banner";
 import { SpinnerButton } from "@/components/ui/SpinnerButton";
 import { Field, focusFirstError } from "@/components/forms/Field";
 import { useBomForm } from "@/features/bom/useBomForm";
-import { upsertBOM } from "./actions";
+import { upsertBOM, upsertMinimalProduct } from "./actions";
 
 // Tipos y helpers que ya estaban
 type BomLine = RecipeBom['items'][0];
 type FinishedSku = { sku: string; name: string; packSizeMl: number; };
+
+function remapArrayFieldErrors(
+  errs: Record<string,string>|undefined,
+  base: string,
+  removedIndex: number
+) {
+  if (!errs) return errs;
+  const out: Record<string,string> = {};
+  const prefix = base + ".";
+  for (const [k, v] of Object.entries(errs)) {
+    if (!k.startsWith(prefix)) { out[k] = v; continue; }
+    const rest = k.slice(prefix.length); // "3.quantity"
+    const [idxStr, ...tail] = rest.split(".");
+    const idx = Number(idxStr);
+    if (Number.isNaN(idx)) { out[k] = v; continue; }
+    if (idx === removedIndex) continue;             // elimina errores de la fila borrada
+    if (idx > removedIndex) {
+      const nk = `${base}.${idx - 1}.${tail.join(".")}`; // reindexa
+      out[nk] = v;
+    } else {
+      out[k] = v;
+    }
+  }
+  return out;
+}
 
 function RecipeForm({
   initialValues,
@@ -35,6 +60,7 @@ function RecipeForm({
 }) {
   const fm = useBomForm(initialValues);
   const { push } = useToaster();
+  const [isNewSku, setIsNewSku] = useState(false);
   
   const addLine = (role: 'FORMULA' | 'PACKAGING' = 'FORMULA') => {
     const newItems = [...(fm.values.items || []), { materialId: "", quantity: 0, unit: "uds", role }];
@@ -44,12 +70,60 @@ function RecipeForm({
   const removeLine = (i: number) => {
     const newItems = (fm.values.items || []).filter((_: any, idx: number) => idx !== i);
     fm.set("items", newItems);
+    fm.setFieldErrors(e => remapArrayFieldErrors(e, "items", i)); // ✅ reindexa errores
   };
+
+  function validateClient(values: RecipeBom) {
+    const errs: Record<string,string> = {};
+    if (!values.items?.length) errs["items"] = "Añade al menos una línea";
+    values.items?.forEach((it, idx) => {
+      if (!it.materialId) errs[`items.${idx}.materialId`] = "Material requerido";
+      if (!(it.quantity > 0)) errs[`items.${idx}.quantity`] = "Cantidad > 0";
+    });
+    return errs;
+  }
 
   async function handleSave() {
     fm.setSaving(true);
     fm.setLastError(undefined);
     fm.setFieldErrors(undefined);
+    // ✅ validación ligera cliente
+    const clientErrs = validateClient(fm.values as RecipeBom);
+    if (Object.keys(clientErrs).length) {
+      fm.setSaving(false);
+      fm.setFieldErrors(clientErrs);
+      push({ kind: "err", text: "Revisa los campos marcados" });
+      setTimeout(() => focusFirstError(clientErrs), 0);
+      return;
+    }
+
+    // 1) si el producto es nuevo, créalo antes
+    if (isNewSku) {
+      const errs: Record<string,string> = {};
+      if (!fm.values.sku) errs["sku"] = "SKU requerido";
+      if (!fm.values.name) errs["name"] = "Nombre requerido";
+      if (Object.keys(errs).length) {
+        fm.setSaving(false);
+        fm.setFieldErrors(errs);
+        push({ kind: "err", text: "Revisa los campos del nuevo producto" });
+        setTimeout(() => focusFirstError(errs), 0);
+        return;
+      }
+      const pRes = await upsertMinimalProduct({
+        sku: fm.values.sku,
+        name: fm.values.name,
+        packSizeMl: (fm.values as any).packSizeMl ?? undefined,
+      });
+      if (!pRes.ok) {
+        fm.setSaving(false);
+        fm.setLastError(pRes.message);
+        fm.setFieldErrors(pRes.fieldErrors);
+        push({ kind: "err", text: pRes.message });
+        setTimeout(() => focusFirstError(pRes.fieldErrors), 0);
+        return;
+      }
+    }
+
     const res = await onSave(fm.values);
     fm.setSaving(false);
 
@@ -65,6 +139,33 @@ function RecipeForm({
 
   const uomOptions: Uom[] = ['uds', 'kg', 'g', 'L', 'mL', 'bottle', 'case', 'pallet'];
 
+  // ⚠️ Confirmación al salir con cambios
+  useEffect(() => {
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!fm.dirty) return;
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [fm.dirty]);
+
+  // ⌘/Ctrl+S para guardar
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        if (!fm.saving && fm.dirty) handleSave();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [fm.saving, fm.dirty, fm.values]);
+
+  const onSafeCancel = () => {
+    if (!fm.dirty || confirm("Hay cambios sin guardar. ¿Descartar?")) onCancel();
+  };
+
   return (
     <SBCard title={fm.values.id ? `Editando: ${fm.values.name}` : "Nueva Receta"} accent={SB_COLORS.primary.teal}>
       <div className="p-4 space-y-4">
@@ -72,12 +173,35 @@ function RecipeForm({
         <Field label="ID" name="id" required error={fm.fieldErrors?.id}>
           <input className="w-full h-10 px-3 rounded-lg border" value={fm.values.id} onChange={e => fm.set("id", e.target.value)} />
         </Field>
-        <Field label="SKU Producto Terminado" name="sku" required error={fm.fieldErrors?.sku}>
-          <select className="w-full h-10 px-3 rounded-lg border" value={fm.values.sku} onChange={e => fm.set("sku", e.target.value)}>
-            <option value="">Selecciona SKU</option>
-            {finishedSkus.map(s => <option key={s.sku} value={s.sku}>{s.name}</option>)}
-          </select>
-        </Field>
+        {/* Toggle nuevo producto */}
+        <div className="flex items-center gap-2">
+          <input id="new-sku" type="checkbox" className="h-4 w-4"
+                 checked={isNewSku} onChange={e => setIsNewSku(e.target.checked)} />
+          <label htmlFor="new-sku" className="text-sm text-zinc-700">Producto nuevo</label>
+        </div>
+        {!isNewSku ? (
+          <Field label="SKU Producto Terminado" name="sku" required error={fm.fieldErrors?.sku}>
+            <select className="w-full h-10 px-3 rounded-lg border" value={fm.values.sku} onChange={e => fm.set("sku", e.target.value)}>
+              <option value="">Selecciona SKU</option>
+              {finishedSkus.map(s => <option key={s.sku} value={s.sku}>{s.name}</option>)}
+            </select>
+          </Field>
+        ) : (
+          <>
+            <Field label="SKU nuevo" name="sku" required error={fm.fieldErrors?.sku}>
+              <input className="w-full h-10 px-3 rounded-lg border" placeholder="p.ej. SB-MARG-700"
+                     value={fm.values.sku} onChange={e => fm.set("sku", e.target.value)} />
+            </Field>
+            <Field label="Nombre del producto" name="name" required error={fm.fieldErrors?.name}>
+              <input className="w-full h-10 px-3 rounded-lg border" placeholder="p.ej. Santa Brisa Margarita 700ml"
+                     value={fm.values.name} onChange={e => fm.set("name", e.target.value)} />
+            </Field>
+            <Field label="Contenido (mL)" name="packSizeMl" error={fm.fieldErrors?.packSizeMl}>
+              <input type="number" className="w-full h-10 px-3 rounded-lg border"
+                     value={(fm.values as any).packSizeMl ?? ""} onChange={e => fm.set("packSizeMl" as any, Number(e.target.value))} />
+            </Field>
+          </>
+        )}
         <Field label="Nombre Receta" name="name" required error={fm.fieldErrors?.name}>
           <input className="w-full h-10 px-3 rounded-lg border" value={fm.values.name} onChange={e => fm.set("name", e.target.value)} />
         </Field>
@@ -105,16 +229,21 @@ function RecipeForm({
                         {uomOptions.map(uom => <option key={uom} value={uom}>{uom}</option>)}
                     </select>
                  </Field>
-                 <button onClick={() => removeLine(i)} className="h-10 px-2 border bg-white hover:bg-red-50 text-red-600 rounded-lg"><Trash2 size={16}/></button>
-             </div>
+                 <button onClick={() => removeLine(i)} className="h-10 px-2 border bg-white hover:bg-red-50 text-red-600 rounded-lg" aria-label={`Eliminar línea ${i+1}`}><Trash2 size={16}/></button>
+              </div>
           ))}
           <button onClick={() => addLine()} className="px-3 py-1.5 text-sm border bg-white rounded-lg">
             <Plus size={14} className="inline mr-1" /> Añadir línea
           </button>
+          {/* Alternativa: botones separados */}
+          {/* <div className="flex gap-2 mt-2">
+            <button onClick={() => addLine('FORMULA')} className="px-3 py-1.5 text-sm border bg-white rounded-lg"><Plus size={14} className="inline mr-1" /> Añadir fórmula</button>
+            <button onClick={() => addLine('PACKAGING')} className="px-3 py-1.5 text-sm border bg-white rounded-lg"><Plus size={14} className="inline mr-1" /> Añadir packaging</button>
+          </div> */}
         </div>
       </div>
       <div className="p-4 bg-zinc-50 border-t flex justify-end gap-2">
-        <button type="button" onClick={onCancel} className="px-3 py-1.5 rounded-lg border border-zinc-300 bg-white">Cancelar</button>
+        <button type="button" onClick={onSafeCancel} className="px-3 py-1.5 rounded-lg border border-zinc-300 bg-white">Cancelar</button>
         <SpinnerButton 
           loading={fm.saving} 
           onClick={handleSave} 
@@ -146,22 +275,22 @@ export default function BomPage() {
     };
 
     const handleSave = async (values: RecipeBom) => {
-        const result = await upsertBOM(values);
-        if (result.ok) {
-            // Actualizar el estado local directamente
-            if (santaData) {
-                const updatedBoms = [...(santaData.billOfMaterials || [])];
-                const index = updatedBoms.findIndex(b => b.id === values.id);
-                if (index > -1) {
-                    updatedBoms[index] = values;
-                } else {
-                    updatedBoms.unshift(values);
-                }
-                saveAllCollections({ billOfMaterials: updatedBoms });
+      const result = await upsertBOM(values);
+      if (result.ok) {
+        // Actualizar el estado local directamente
+        if (santaData) {
+            const updatedBoms = [...(santaData.billOfMaterials || [])];
+            const index = updatedBoms.findIndex(b => b.id === values.id);
+            if (index > -1) {
+                updatedBoms[index] = values;
+            } else {
+                updatedBoms.unshift(values);
             }
-            setOpenRecipe(null);
+            saveAllCollections({ billOfMaterials: updatedBoms });
         }
-        return result;
+        setOpenRecipe(null);
+      }
+      return result;
     };
 
     return (
