@@ -119,7 +119,7 @@ export default function InventoryPage() {
 
     const TABS = [
         { id: 'finished_good', label: 'Producto Terminado' },
-        { id: 'raw', label: 'Materia Prima' },
+        { id: 'raw', label: 'Materias Primas' },
         { id: 'intermediate', label: 'Intermedios' },
         { id: 'packaging', label: 'Packaging' },
         { id: 'merchandising', label: 'Merchandising' },
