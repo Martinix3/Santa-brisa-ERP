@@ -2,7 +2,7 @@
 "use client";
 import React, { useMemo, useState } from 'react';
 import { useData } from '@/lib/dataprovider';
-import type { Lot, QACheck, SB_THEME } from '@/domain/ssot';
+import type { OnHandView, QACheck, SB_THEME } from '@/domain/ssot';
 import { SBCard, SBButton, LotQualityStatusPill } from '@/components/ui/ui-primitives';
 import { Hourglass, CheckCircle, XCircle, FileText, BrainCircuit } from 'lucide-react';
 import { generateInsights } from '@/ai/flows/generate-insights-flow';
@@ -37,8 +37,8 @@ function AIInsightsCard() {
         setInsights("");
         try {
             const relevantData = {
-                lotsInQuarantine: data.lots?.filter(l => l.quality?.qcStatus === 'hold').map(l => ({ id: l.id, sku: l.sku, date: l.createdAt })),
-                recentChecks: data.qaChecks?.slice(0, 20).map(c => ({ lotId: c.lotId, result: c.summaryStatus, date: c.reviewedAt })),
+                lotsInQuarantine: data.onHand?.filter(l => l.locationId === 'FG/QA').map(l => ({ lotNumber: l.lotNumber, itemId: l.itemId, date: l.createdAt })),
+                recentChecks: data.qaChecks?.slice(0, 20).map(c => ({ subjectId: c.subject.id, result: c.summaryStatus, date: c.reviewedAt })),
             };
             const result = await generateInsights({ 
                 jsonData: JSON.stringify(relevantData),
@@ -75,15 +75,17 @@ function AIInsightsCard() {
 export default function QualityDashboardPage() {
     const { data } = useData();
 
-    const lots = useMemo(() => data?.lots || [], [data]);
+    const onHand = useMemo(() => data?.onHand || [], [data]);
     const qaChecks = useMemo(() => data?.qaChecks || [], [data]);
 
     const kpis = useMemo(() => {
-        const pending = lots.filter(l => l.quality?.qcStatus === 'hold').length;
-        const released = lots.filter(l => l.quality?.qcStatus === 'release').length;
-        const rejected = lots.filter(l => l.quality?.qcStatus === 'reject').length;
+        const pending = onHand.filter(l => l.locationId === 'FG/QA').length;
+        // This is a simplification. A real implementation would need a proper way
+        // to distinguish released/rejected from the onHand view or another collection.
+        const released = onHand.filter(l => l.locationId === 'FG/MAIN').length;
+        const rejected = 0; // Cannot determine from onHand view alone
         return { pending, released, rejected };
-    }, [lots]);
+    }, [onHand]);
 
     const recentChecks = useMemo(() => {
         return qaChecks.sort((a, b) => (new Date(b.reviewedAt || 0)).getTime() - (new Date(a.reviewedAt || 0)).getTime()).slice(0, 5);
@@ -105,14 +107,14 @@ export default function QualityDashboardPage() {
                 <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
                     <SBCard title="Lotes Pendientes de Revisión (en cuarentena)">
                         <div className="divide-y divide-zinc-100">
-                            {lots.filter(l => l.quality?.qcStatus === 'hold').map(lot => (
+                            {onHand.filter(l => l.locationId === 'FG/QA').map(lot => (
                                 <div key={lot.id} className="p-3 flex justify-between items-center">
                                     <div>
-                                        <p className="font-mono text-sm font-semibold">{lot.id}</p>
-                                        <p className="text-xs text-zinc-500">{lot.sku}</p>
+                                        <p className="font-mono text-sm font-semibold">{lot.lotNumber}</p>
+                                        <p className="text-xs text-zinc-500">{lot.itemId}</p>
                                     </div>
                                     <div className="text-right">
-                                        <p className="text-sm font-bold">{lot.quantity} uds</p>
+                                        <p className="text-sm font-bold">{lot.qty} uds</p>
                                         <p className="text-xs text-zinc-500">{new Date(lot.createdAt).toLocaleDateString()}</p>
                                     </div>
                                 </div>
@@ -125,7 +127,7 @@ export default function QualityDashboardPage() {
                         {recentChecks.map(check => (
                             <div key={check.id} className="p-3 flex justify-between items-center">
                                 <div>
-                                    <p className="font-mono text-sm font-semibold">{check.lotId}</p>
+                                    <p className="font-mono text-sm font-semibold">{check.subject.id}</p>
                                     <p className="text-xs text-zinc-500">
                                         Revisado por {data?.users.find(u => u.id === check.reviewedById)?.name || 'N/A'}
                                     </p>

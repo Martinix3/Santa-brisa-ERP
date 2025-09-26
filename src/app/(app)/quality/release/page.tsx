@@ -2,7 +2,7 @@
 "use client";
 import React, { useState, useMemo } from 'react';
 import { useData } from '@/lib/dataprovider';
-import type { Lot, QACheck, QCResult, SB_THEME } from '@/domain/ssot';
+import type { OnHandView, QACheck, QCResult, SB_THEME } from '@/domain/ssot';
 import { SBCard, SBButton, Input, Textarea, LotQualityStatusPill } from '@/components/ui/ui-primitives';
 import { QC_PARAMS } from '@/domain/production.qc';
 import type { QCKey } from '@/domain/production.qc';
@@ -10,7 +10,7 @@ import { CheckCircle, XCircle, Hourglass, FlaskConical, Thermometer, Beaker, Tes
 
 const ICONS: Record<string, React.ElementType> = { TestTube2, Thermometer, FlaskConical, Beaker };
 
-function LotListItem({ lot, onSelect, isSelected }: { lot: Lot, onSelect: () => void, isSelected: boolean }) {
+function LotListItem({ item, onSelect, isSelected }: { item: OnHandView, onSelect: () => void, isSelected: boolean }) {
     return (
         <button
             onClick={onSelect}
@@ -18,12 +18,12 @@ function LotListItem({ lot, onSelect, isSelected }: { lot: Lot, onSelect: () => 
         >
             <div className="flex justify-between items-center">
                 <div>
-                    <p className="font-mono text-sm font-semibold">{lot.id}</p>
-                    <p className="text-xs text-zinc-500">{lot.sku}</p>
+                    <p className="font-mono text-sm font-semibold">{item.lotNumber}</p>
+                    <p className="text-xs text-zinc-500">{item.itemId}</p>
                 </div>
                 <div className="text-right">
-                    <p className="text-sm font-bold">{lot.quantity} uds</p>
-                    <p className="text-xs text-zinc-500">{new Date(lot.createdAt).toLocaleDateString()}</p>
+                    <p className="text-sm font-bold">{item.qty} {item.uom}</p>
+                    <p className="text-xs text-zinc-500">{new Date(item.createdAt).toLocaleDateString()}</p>
                 </div>
             </div>
         </button>
@@ -74,17 +74,17 @@ function AnalysisInput({ paramKey, spec, value, onChange }: { paramKey: string, 
 
 export default function LotReleasePage() {
     const { data: santaData, setData, isPersistenceEnabled, saveCollection } = useData();
-    const [selectedLot, setSelectedLot] = useState<Lot | null>(null);
+    const [selectedItem, setSelectedItem] = useState<OnHandView | null>(null);
     const [analysisResults, setAnalysisResults] = useState<Record<string, QCResult>>({});
 
-    const pendingLots = useMemo(() => {
-        return (santaData?.lots || []).filter(l => l.quality?.qcStatus === 'hold')
+    const pendingItems = useMemo(() => {
+        return (santaData?.onHand || []).filter(l => l.locationId === 'FG/QA')
             .sort((a,b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-    }, [santaData?.lots]);
+    }, [santaData?.onHand]);
 
-    const handleSelectLot = (lot: Lot) => {
-        setSelectedLot(lot);
-        setAnalysisResults(lot.quality?.results || {});
+    const handleSelectItem = (item: OnHandView) => {
+        setSelectedItem(item);
+        setAnalysisResults({});
     };
 
     const handleResultChange = (paramKey: string, value: QCResult) => {
@@ -95,30 +95,45 @@ export default function LotReleasePage() {
     };
     
     const handleDecision = async (decision: 'release' | 'reject') => {
-        if (!selectedLot || !santaData) return;
+        if (!selectedItem || !santaData) return;
 
-        const updatedLot = {
-            ...selectedLot,
-            quality: {
-                ...selectedLot.quality,
-                qcStatus: decision,
-                results: analysisResults,
-            }
+        // In a real app, this logic would likely be in a server action or worker
+        // to handle stock moves transactionally.
+
+        // 1. Move from QA to FG (or REJECT) location
+        const updatedItem = {
+            ...selectedItem,
+            locationId: decision === 'release' ? 'FG/MAIN' : 'REJECT',
+            updatedAt: new Date().toISOString(),
         };
 
-        const updatedLots = santaData.lots.map(l => l.id === selectedLot.id ? updatedLot : l);
+        const updatedOnHand = santaData.onHand.map(l => l.id === selectedItem.id ? updatedItem : l);
         
-        setData({ ...santaData, lots: updatedLots });
+        // 2. Create a QACheck record
+        const newQACheck: QACheck = {
+            id: `qc_${Date.now()}`,
+            subject: { kind: 'LOT', id: selectedItem.lotNumber! },
+            summaryStatus: decision === 'release' ? 'ok' : 'ko',
+            checklist: Object.entries(analysisResults).map(([key, res]) => ({ name: key, ...res })),
+            reviewedById: 'system', // Replace with current user ID
+            reviewedAt: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
+        };
+
+        const updatedQAChecks = [...(santaData.qaChecks || []), newQACheck];
+        
+        setData({ ...santaData, onHand: updatedOnHand, qaChecks: updatedQAChecks });
 
         if (isPersistenceEnabled) {
-            await saveCollection('lots', updatedLots);
+            await saveCollection('onHand', updatedOnHand);
+            await saveCollection('qaChecks', updatedQAChecks);
         }
 
-        setSelectedLot(null);
+        setSelectedItem(null);
         setAnalysisResults({});
     };
 
-    const currentSpec = selectedLot ? QC_PARAMS[selectedLot.sku] || {} : {};
+    const currentSpec = selectedItem ? QC_PARAMS[selectedItem.itemId] || {} : {};
     const paramKeys = Object.keys(currentSpec);
     
     const allChecksDone = paramKeys.every(key => analysisResults[key]?.value !== undefined && analysisResults[key]?.value !== '');
@@ -126,15 +141,15 @@ export default function LotReleasePage() {
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
             <div className="lg:col-span-1">
-                <SBCard title={`Lotes en Cuarentena (${pendingLots.length})`}>
+                <SBCard title={`Lotes en Cuarentena (${pendingItems.length})`}>
                     <div className="max-h-[75vh] overflow-y-auto">
-                        {pendingLots.length > 0 ? (
-                            pendingLots.map(lot => (
+                        {pendingItems.length > 0 ? (
+                            pendingItems.map(item => (
                                 <LotListItem 
-                                    key={lot.id} 
-                                    lot={lot}
-                                    onSelect={() => handleSelectLot(lot)}
-                                    isSelected={selectedLot?.id === lot.id}
+                                    key={item.id} 
+                                    item={item}
+                                    onSelect={() => handleSelectItem(item)}
+                                    isSelected={selectedItem?.id === item.id}
                                 />
                             ))
                         ) : (
@@ -144,13 +159,13 @@ export default function LotReleasePage() {
                 </SBCard>
             </div>
             <div className="lg:col-span-2">
-                {selectedLot ? (
-                    <SBCard title={`Revisión del Lote: ${selectedLot.id}`}>
+                {selectedItem ? (
+                    <SBCard title={`Revisión del Lote: ${selectedItem.lotNumber}`}>
                         <div className="p-4 space-y-4">
                             <div className="grid grid-cols-3 gap-4 text-sm p-4 bg-zinc-50 rounded-lg border">
-                                <div><span className="font-semibold">SKU:</span> {selectedLot.sku}</div>
-                                <div><span className="font-semibold">Cantidad:</span> {selectedLot.quantity} uds</div>
-                                <div><span className="font-semibold">Creado:</span> {new Date(selectedLot.createdAt).toLocaleDateString()}</div>
+                                <div><span className="font-semibold">ItemID:</span> {selectedItem.itemId}</div>
+                                <div><span className="font-semibold">Cantidad:</span> {selectedItem.qty} {selectedItem.uom}</div>
+                                <div><span className="font-semibold">Creado:</span> {new Date(selectedItem.createdAt).toLocaleDateString()}</div>
                             </div>
                             
                             <div className="space-y-3">

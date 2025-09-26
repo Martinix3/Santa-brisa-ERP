@@ -11,7 +11,7 @@ export function ShortagesPanel({ shortages, items }: { shortages: any[]; items: 
         <div className="text-sm text-zinc-600 text-center p-4">Sin faltantes pendientes 🎉</div>
       ) : (
         <ul className="space-y-2">
-          {shortages.slice(0,12).map((s,i)=>{
+          {shortages.slice(0,12).map((s: any,i: number)=>{
             const item = items.find(m=>m.id===s.itemId);
             return (
               <li key={i} className="flex items-center justify-between gap-2 border-b last:border-b-0 py-2">

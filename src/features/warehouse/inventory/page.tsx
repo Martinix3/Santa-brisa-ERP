@@ -1,3 +1,4 @@
+
 // src/features/warehouse/inventory/page.tsx
 
 "use client";

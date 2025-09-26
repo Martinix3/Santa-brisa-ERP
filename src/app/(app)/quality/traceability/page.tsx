@@ -2,7 +2,7 @@
 "use client";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useData } from "@/lib/dataprovider";
-import type { Lot, OrderSellOut as SaleDoc, QACheck, ProductionOrder, User, TraceEvent, Account, SantaData, SB_THEME } from "@/domain/ssot";
+import type { LotNumber, OrderSellOut as SaleDoc, QACheck, ProductionOrder, User, TraceEvent, Account, SantaData, SB_THEME } from "@/domain/ssot";
 import {
     Archive, FileText, CheckCircle2, XCircle, FlaskConical, Recycle, PackagePlus, Flag,
     Package as PackageIcon, PackageCheck, Truck, Pin, Paperclip, Send, Download,
@@ -14,8 +14,7 @@ import {
 // ======================================================================
 
 // -------------------------- Tipos Locales --------------------------
-type GenealogyLink = { fromLotId: string; toLotId: string; };
-type LotStatus = Lot['quality']['qcStatus'];
+type GenealogyLink = { fromLotNumber: string; toLotNumber: string; };
 
 
 // -------------------------- Utils --------------------------
@@ -24,14 +23,14 @@ function buildIndex<T extends { id: string }>(rows: T[] | undefined) {
   (rows || []).forEach((r) => m.set(r.id, r));
   return m;
 }
-function backtrace(links: GenealogyLink[], targetLotId: string): string[] {
-  const p = links.filter((l) => l.toLotId === targetLotId).map((l) => l.fromLotId);
+function backtrace(links: GenealogyLink[], targetLotNumber: string): string[] {
+  const p = links.filter((l) => l.toLotNumber === targetLotNumber).map((l) => l.fromLotNumber);
   const all = new Set<string>(p);
   for (const x of p) for (const up of backtrace(links, x)) all.add(up);
   return Array.from(all);
 }
-function forwardtrace(links: GenealogyLink[], sourceLotId: string): string[] {
-  const c = links.filter((l) => l.fromLotId === sourceLotId).map((l) => l.toLotId);
+function forwardtrace(links: GenealogyLink[], sourceLotNumber: string): string[] {
+  const c = links.filter((l) => l.fromLotNumber === sourceLotNumber).map((l) => l.toLotNumber);
   const all = new Set<string>(c);
   for (const x of c) for (const dn of forwardtrace(links, x)) all.add(dn);
   return Array.from(all);
@@ -60,9 +59,9 @@ namespace TraceUI {
 }
 const { Badge, Field } = TraceUI;
 
-function StatusPill({ s }: { s?: LotStatus }) {
+function StatusPill({ s }: { s?: 'hold' | 'release' | 'reject' }) {
     if (!s) return null;
-    const toneMap: Record<LotStatus, "green" | "red" | "amber" | "blue" | "zinc"> = {
+    const toneMap: Record<string, "green" | "red" | "amber" | "blue" | "zinc"> = {
         'release': 'green',
         'reject': 'red',
         'hold': 'amber',
@@ -89,8 +88,8 @@ function KindTag({ kind }: { kind: TraceEvent["kind"] }) {
   return <span className="px-1.5 py-0.5 rounded-md text-[10px] bg-zinc-100 text-zinc-700 border border-zinc-200">{kind}</span>;
 }
 
-// ----------------брь--------------- Search Bar -------------------------------
-function SearchBar({ lots, onPick }: { lots: Lot[]; onPick: (id: string) => void }) {
+// ----------------br----------------- Search Bar -------------------------------
+function SearchBar({ items, onPick }: { items: any[]; onPick: (id: string) => void }) {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -98,9 +97,9 @@ function SearchBar({ lots, onPick }: { lots: Lot[]; onPick: (id: string) => void
     const query = q.trim().toLowerCase();
     if (!query) return [] as { id: string; label: string; aux: string }[];
     const out: { id: string; label: string; aux: string }[] = [];
-    for (const l of lots) {
-      if (l.id.toLowerCase().includes(query)) out.push({ id: l.id, label: l.id, aux: l.sku });
-      if (l.sku && l.sku.toLowerCase().includes(query)) out.push({ id: l.id, label: l.sku, aux: l.id });
+    for (const l of items) {
+      if (l.lotNumber?.toLowerCase().includes(query)) out.push({ id: l.id, label: l.lotNumber, aux: l.itemId });
+      if (l.itemId.toLowerCase().includes(query)) out.push({ id: l.id, label: l.itemId, aux: l.lotNumber });
     }
     const seen = new Set<string>();
     return out
@@ -111,7 +110,7 @@ function SearchBar({ lots, onPick }: { lots: Lot[]; onPick: (id: string) => void
         return true;
       })
       .slice(0, 8);
-  }, [lots, q]);
+  }, [items, q]);
 
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
@@ -130,7 +129,7 @@ function SearchBar({ lots, onPick }: { lots: Lot[]; onPick: (id: string) => void
           setQ(e.target.value);
           setOpen(true);
         }}
-        placeholder="Buscar por código de lote o SKU…"
+        placeholder="Buscar por código de lote o Item ID…"
         className="w-full pl-3 pr-8 py-2 text-sm bg-white border border-zinc-300 rounded-xl outline-none focus:ring-2 focus:ring-amber-400"
       />
       {q && (
@@ -210,23 +209,23 @@ function groupByPhase(events: TraceEvent[]) {
   return { order, map: m };
 }
 
-// Given an open lot + genealogy, pick relevant events
-function eventsForLot(traceEvents: TraceEvent[], lotId: string, relatedLotIds: string[]) {
-  const set = new Set([lotId, ...relatedLotIds]);
+// Given an open item + genealogy, pick relevant events
+function eventsForLot(traceEvents: TraceEvent[], lotNumber: string, relatedLotNumbers: string[]) {
+  const set = new Set([lotNumber, ...relatedLotNumbers]);
   return traceEvents.filter((e) => {
     const L = e.links || ({} as any);
-    return L.lotId && set.has(L.lotId);
+    return L.lotNumber && set.has(L.lotNumber);
   });
 }
 
 // ------------------------------- Página principal -------------------------------
 export default function TraceabilityTimelinePage() {
   const { data: santaData } = useData();
-  const [openLotId, setOpenLotId] = useState<string | null>(null);
+  const [openItemId, setOpenItemId] = useState<string | null>(null);
 
-  const { lots, sales, accounts, traceEvents, batches, qaChecks, users, links } = useMemo(
+  const { onHand, sales, accounts, traceEvents, batches, qaChecks, users, links } = useMemo(
     () => ({
-      lots: santaData?.lots || [],
+      onHand: santaData?.onHand || [],
       sales: santaData?.ordersSellOut || [],
       accounts: santaData?.accounts || [],
       traceEvents: (santaData?.traceEvents || []) as TraceEvent[],
@@ -235,8 +234,8 @@ export default function TraceabilityTimelinePage() {
       users: santaData?.users || [],
       links: (santaData?.productionOrders || []).reduce((acc, b) => {
           (b.actuals || []).forEach((i: any) => {
-            if (b.lotId && i.fromLot) {
-                acc.push({ fromLotId: i.fromLot, toLotId: b.lotId });
+            if (b.batchCode && i.lotNumber) {
+                acc.push({ fromLotNumber: i.lotNumber, toLotNumber: b.batchCode });
             }
           });
           return acc;
@@ -245,23 +244,24 @@ export default function TraceabilityTimelinePage() {
     [santaData]
   );
   
-  const lotIndex = useMemo(() => buildIndex(lots), [lots]);
+  const onHandIndex = useMemo(() => buildIndex(onHand), [onHand]);
   const accountIndex = useMemo(() => buildIndex(accounts), [accounts]);
   const userIndex = useMemo(() => buildIndex(users), [users]);
   const prodOrderIndex = useMemo(() => buildIndex(batches), [batches]);
 
-  const openLot = openLotId ? lotIndex.get(openLotId) || null : null;
-  const parents = useMemo(() => (openLot ? backtrace(links, openLot.id).map((id) => lotIndex.get(id)!).filter(Boolean) : []), [links, openLot, lotIndex]);
-  const children = useMemo(() => (openLot ? forwardtrace(links, openLot.id).map((id) => lotIndex.get(id)!).filter(Boolean) : []), [links, openLot, lotIndex]);
-  const lotTests = useMemo(() => qaChecks.filter((t) => t.lotId === openLot?.id), [qaChecks, openLot?.id]);
-  const lotSales = useMemo(() => sales.filter((s) => s.lines?.some((l) => l.lotIds?.includes(openLot?.id || ''))), [sales, openLot?.id]);
+  const openItem = openItemId ? onHandIndex.get(openItemId) || null : null;
+  const parents = useMemo(() => (openItem?.lotNumber ? backtrace(links, openItem.lotNumber).map((lotNum) => onHand.find(oh => oh.lotNumber === lotNum)!).filter(Boolean) : []), [links, openItem, onHand]);
+  const children = useMemo(() => (openItem?.lotNumber ? forwardtrace(links, openItem.lotNumber).map((lotNum) => onHand.find(oh => oh.lotNumber === lotNum)!).filter(Boolean) : []), [links, openItem, onHand]);
+  
+  const lotTests = useMemo(() => qaChecks.filter((t) => t.subject.kind === 'LOT' && t.subject.id === openItem?.lotNumber), [qaChecks, openItem?.lotNumber]);
+  const lotSales = useMemo(() => sales.filter((s) => s.lines?.some((l) => l.lotNumbers?.includes(openItem?.lotNumber || ''))), [sales, openItem?.lotNumber]);
 
 
   const salesByCustomer = useMemo(() => {
-    if (!openLot) return [];
+    if (!openItem?.lotNumber) return [];
     const map = new Map<string, { customerId: string; customerName: string; total: number; docs: SaleDoc[] }>();
     for (const s of lotSales) {
-      const qty = (s.lines || []).filter((l) => l.lotIds?.includes(openLot.id)).reduce((a, b) => a + (b.qty || 0), 0);
+      const qty = (s.lines || []).filter((l) => l.lotNumbers?.includes(openItem.lotNumber!)).reduce((a, b) => a + (b.qty || 0), 0);
       const key = s.accountId;
       const account = accountIndex.get(key);
       if (!account) continue;
@@ -271,19 +271,19 @@ export default function TraceabilityTimelinePage() {
       rec.docs.push(s);
     }
     return Array.from(map.values()).sort((a, b) => a.customerName.localeCompare(b.customerName));
-  }, [lotSales, openLot, accountIndex]);
+  }, [lotSales, openItem, accountIndex]);
 
-  const openLotProdOrder = openLot?.orderId ? prodOrderIndex.get(openLot.orderId) : null;
+  const openItemProdOrder = openItem ? batches.find(b => b.batchCode === openItem.lotNumber) : null;
 
-  const relatedLotIds = useMemo(() => {
-    if (!openLot) return [] as string[];
-    return [...parents.map((p) => p.id), ...children.map((c) => c.id)];
-  }, [openLot, parents, children]);
+  const relatedLotNumbers = useMemo(() => {
+    if (!openItem) return [] as string[];
+    return [...parents.map((p) => p.lotNumber!), ...children.map((c) => c.lotNumber!)].filter(Boolean) as string[];
+  }, [openItem, parents, children]);
 
   const lotEvents = useMemo(() => {
-    if (!openLot) return [] as TraceEvent[];
-    return eventsForLot(traceEvents, openLot.id, relatedLotIds);
-  }, [traceEvents, openLot, relatedLotIds]);
+    if (!openItem?.lotNumber) return [] as TraceEvent[];
+    return eventsForLot(traceEvents, openItem.lotNumber, relatedLotNumbers);
+  }, [traceEvents, openItem, relatedLotNumbers]);
 
   if (!santaData) return <div className="p-6">Cargando datos de trazabilidad…</div>;
 
@@ -294,7 +294,7 @@ export default function TraceabilityTimelinePage() {
           <h1 className="text-2xl font-semibold text-zinc-900">Trazabilidad · Timeline & Auditoría</h1>
           <p className="text-sm text-zinc-500">Solo lectura · Personas implicadas y datos históricos por lote</p>
         </div>
-        <SearchBar lots={lots} onPick={setOpenLotId} />
+        <SearchBar items={onHand} onPick={setOpenItemId} />
       </header>
 
       <div className="grid lg:grid-cols-3 gap-6">
@@ -304,21 +304,17 @@ export default function TraceabilityTimelinePage() {
             <thead className="bg-zinc-50 text-zinc-600">
               <tr>
                 <th className="px-3 py-2 text-left">Lote</th>
-                <th className="px-3 py-2 text-left">SKU</th>
-                <th className="px-3 py-2 text-left">Estado</th>
+                <th className="px-3 py-2 text-left">ItemID</th>
                 <th className="px-3 py-2 text-right"> </th>
               </tr>
             </thead>
             <tbody>
-              {lots.map((l) => (
+              {onHand.filter(i => i.lotNumber).map((l) => (
                 <tr key={l.id} className="border-t border-zinc-200">
-                  <td className="px-3 py-2 font-medium">{l.id}</td>
-                  <td className="px-3 py-2">{l.sku}</td>
-                  <td className="px-3 py-2">
-                    <StatusPill s={l.quality?.qcStatus} />
-                  </td>
+                  <td className="px-3 py-2 font-medium">{l.lotNumber}</td>
+                  <td className="px-3 py-2">{l.itemId}</td>
                   <td className="px-3 py-2 text-right">
-                    <button onClick={() => setOpenLotId(l.id)} className="px-3 py-1.5 rounded-lg border border-zinc-300 hover:bg-zinc-50">
+                    <button onClick={() => setOpenItemId(l.id)} className="px-3 py-1.5 rounded-lg border border-zinc-300 hover:bg-zinc-50">
                       Abrir
                     </button>
                   </td>
@@ -330,16 +326,13 @@ export default function TraceabilityTimelinePage() {
 
         {/* PANEL DERECHO */}
         <div className="lg:col-span-2 rounded-2xl border border-zinc-200 bg-white p-4 min-h-[320px]">
-          {!openLot ? (
+          {!openItem ? (
             <div className="text-zinc-500">Selecciona un lote para ver el timeline y la auditoría.</div>
           ) : (
             <div className="flex flex-col gap-4">
               {/* Header ficha */}
               <div className="flex items-center justify-between">
-                <div className="text-lg font-medium">Lote {openLot.id}</div>
-                <div className="flex items-center gap-2">
-                  <StatusPill s={openLot.quality?.qcStatus} />
-                </div>
+                <div className="text-lg font-medium">Lote {openItem.lotNumber}</div>
               </div>
 
               {/* Ficha básica */}
@@ -347,11 +340,11 @@ export default function TraceabilityTimelinePage() {
                 <div className="rounded-xl border border-zinc-200 p-4">
                   <div className="text-sm text-zinc-500 mb-3">Ficha</div>
                   <div className="grid gap-2">
-                    <Field label="ID Lote">{openLot.id}</Field>
-                    <Field label="SKU">{openLot.sku}</Field>
-                    <Field label="Cantidad">{openLot.quantity ?? "—"} uds</Field>
-                    <Field label="Creado">{new Date(openLot.createdAt).toLocaleString()}</Field>
-                    <Field label="Orden Prod.">{openLot.orderId || "—"}</Field>
+                    <Field label="ID Inventario">{openItem.id}</Field>
+                    <Field label="ItemID">{openItem.itemId}</Field>
+                    <Field label="Cantidad">{openItem.qty ?? "—"} {openItem.uom}</Field>
+                    <Field label="Ubicación">{openItem.locationId || "—"}</Field>
+                    <Field label="Creado">{new Date(openItem.createdAt).toLocaleString()}</Field>
                   </div>
                 </div>
 
@@ -365,9 +358,8 @@ export default function TraceabilityTimelinePage() {
                         parents.map((p) => (
                           <div key={p.id} className="flex items-center justify-between border border-zinc-200 rounded-lg px-2 py-1 mb-1">
                             <div>
-                              <b>{p.id}</b> · <span className="text-zinc-600">{p.sku}</span>
+                              <b>{p.lotNumber}</b> · <span className="text-zinc-600">{p.itemId}</span>
                             </div>
-                            <StatusPill s={p.quality?.qcStatus} />
                           </div>
                         ))
                       ) : (
@@ -380,9 +372,8 @@ export default function TraceabilityTimelinePage() {
                         children.map((c) => (
                           <div key={c.id} className="flex items-center justify-between border border-zinc-200 rounded-lg px-2 py-1 mb-1">
                             <div>
-                              <b>{c.id}</b> · <span className="text-zinc-600">{c.sku}</span>
+                              <b>{c.lotNumber}</b> · <span className="text-zinc-600">{c.itemId}</span>
                             </div>
-                            <StatusPill s={c.quality?.qcStatus} />
                           </div>
                         ))
                       ) : (
@@ -403,13 +394,13 @@ export default function TraceabilityTimelinePage() {
               </section>
 
               {/* Producción (protocolos/incidencias) */}
-              {openLotProdOrder && <ProductionPanel prodOrder={openLotProdOrder} users={users} />}
+              {openItemProdOrder && <ProductionPanel prodOrder={openItemProdOrder} users={users} />}
 
               {/* QC */}
               <QCTable tests={lotTests} users={userIndex} />
 
               {/* Clientes/Ventas */}
-              <SalesByCustomer lot={openLot} groups={salesByCustomer} accountIndex={accountIndex} santaData={santaData} />
+              <SalesByCustomer item={openItem} groups={salesByCustomer} accountIndex={accountIndex} santaData={santaData} />
             </div>
           )}
         </div>
@@ -538,7 +529,7 @@ function QCTable({ tests, users }: { tests: QACheck[]; users: Map<string, User> 
   );
 }
 
-function SalesByCustomer({ lot, groups, accountIndex, santaData }: { lot: Lot; groups: { customerId: string; customerName: string; total: number; docs: SaleDoc[] }[]; accountIndex: Map<string, Account>, santaData: SantaData }) {
+function SalesByCustomer({ item, groups, accountIndex, santaData }: { item: any, groups: { customerId: string; customerName: string; total: number; docs: SaleDoc[] }[]; accountIndex: Map<string, Account>, santaData: SantaData }) {
   return (
     <div className="rounded-2xl border border-zinc-200 p-4">
       <div className="text-sm text-zinc-500 mb-2">Clientes a los que se ha vendido este lote</div>
@@ -563,7 +554,7 @@ function SalesByCustomer({ lot, groups, accountIndex, santaData }: { lot: Lot; g
                         <span className="text-zinc-600"> {user?.name || "—"}</span>
                       </div>
                       <div>
-                        {(d.lines || []).filter((l) => l.lotIds?.includes(lot.id)).reduce((a, b) => a + b.qty, 0)} {(d.lines || []).find((l) => l.lotIds?.includes(lot.id))?.uom || "uds"}
+                        {(d.lines || []).filter((l) => l.lotNumbers?.includes(item.lotNumber)).reduce((a, b) => a + b.qty, 0)} {(d.lines || []).find((l) => l.lotNumbers?.includes(item.lotNumber))?.uom || "unit"}
                       </div>
                     </div>
                   );

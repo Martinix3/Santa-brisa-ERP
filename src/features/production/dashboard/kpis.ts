@@ -1,3 +1,4 @@
+
 import type { ProductionOrder, BillOfMaterial, OnHandView, Item } from "@/domain/ssot";
 import { isSameDay, seriesDays } from "./utils";
 
@@ -64,7 +65,7 @@ export function computeKpis({ orders, recipes, onHand, items }: Input){
       return (o.status === 'planned' || o.status === 'released') && isLate;
   }).length;
   
-  const pendingQCLots = onHand.filter(l => (l as any).quality?.qcStatus === 'hold').length;
+  const pendingQCLots = onHand.filter(l => l.locationId === 'FG/QA').length;
 
   return {
     counters: {

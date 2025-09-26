@@ -32,7 +32,7 @@ type ValidateShipmentInput = {
   shipmentId: string;
   userId: string;
   notes?: string;
-  lots?: Array<{ sku: string; lotNumber?: string; qty: number }>;
+  lots?: Array<{ itemId: string; lotNumber?: string; qty: number }>;
 };
 
 export async function validateShipment(input: ValidateShipmentInput) {
@@ -50,7 +50,7 @@ export async function validateShipment(input: ValidateShipmentInput) {
       validatedAt: now,
       validationNotes: notes ?? null,
       lines: lots?.length
-        ? lots.map((l) => ({ sku: l.sku, qty: l.qty, uom: 'uds' as const, lotNumber: l.lotNumber }))
+        ? lots.map((l) => ({ itemId: l.itemId, qty: l.qty, uom: 'unit' as const, lotNumber: l.lotNumber }))
         : (shp.lines || []),
     },
   ]);

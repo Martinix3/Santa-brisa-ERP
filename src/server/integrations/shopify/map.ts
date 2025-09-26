@@ -1,3 +1,4 @@
+
 import type { OrderSellOut, Timestamp, Currency } from '@/domain/ssot';
 
 type ShopifyOrder = any; // si quieres, añade tipos de Shopify más adelante
