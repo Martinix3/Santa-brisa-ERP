@@ -3,7 +3,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
 import { Input, Select, Textarea } from '@/components/ui/ui-primitives';
-import type { Interaction, InteractionKind, Payload, PosTactic, PosTacticItem } from '@/domain/ssot';
+import type { Interaction, InteractionKind, Payload, PosTactic, PosTacticItem, Item } from '@/domain/ssot';
 import { ShoppingCart, MessageSquare, Plus, X, Star } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
 import { upsertPosTactic } from '@/features/marketing/services/posTactics.client';
@@ -112,7 +112,7 @@ export function TaskCompletionDialog({
           ) : (
             <div className="space-y-3 animate-in fade-in">
               <span className="text-sm font-medium text-zinc-700">Líneas del Pedido</span>
-              <div className="space-y-2 max-h-60 overflow-y-auto pr-2">{items.map((item, index) => (<div key={index} className="grid grid-cols-[1fr_auto_auto] gap-2 items-center"><Select id={`item-${index}`} value={item.itemId} onChange={(e) => updateLine(index, 'itemId', e.target.value)}><option value="" disabled>Selecciona producto</option>{itemOptions.map((p) => (<option key={p.id} value={p.id}>{p.name}</option>))}</Select><Input id={`qty-${index}`} type="number" min="1" value={item.qty} onChange={(e) => updateLine(index, 'qty', parseInt(e.target.value, 10))} className="w-20" /><button type="button" aria-label="Eliminar línea" onClick={() => removeLine(index)} className="p-2 text-red-500 hover:bg-red-50 rounded-md"><X size={16} /></button></div>))}</div>
+              <div className="space-y-2 max-h-60 overflow-y-auto pr-2">{items.map((item, index) => (<div key={index} className="grid grid-cols-[1fr_auto_auto] gap-2 items-center"><Select id={`item-${index}`} value={item.itemId} onChange={(e) => updateLine(index, 'itemId', e.target.value)}><option value="" disabled>Selecciona producto</option>{itemOptions.map((p: Item) => (<option key={p.id} value={p.id}>{p.name}</option>))}</Select><Input id={`qty-${index}`} type="number" min="1" value={item.qty} onChange={(e) => updateLine(index, 'qty', parseInt(e.target.value, 10))} className="w-20" /><button type="button" aria-label="Eliminar línea" onClick={() => removeLine(index)} className="p-2 text-red-500 hover:bg-red-50 rounded-md"><X size={16} /></button></div>))}</div>
               <button type="button" onClick={addLine} className="text-sm flex items-center gap-1 text-blue-600 hover:underline"><Plus size={14} /> Añadir línea</button>
             </div>
           )}

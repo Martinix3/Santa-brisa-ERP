@@ -5,13 +5,13 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useParams, useRouter, notFound } from 'next/navigation';
 import { useData } from '@/lib/dataprovider';
-import type { SantaData, Interaction as InteractionType, OrderSellOut, User as UserType, Party, InteractionKind, Account, CustomerData, PartyRole, Activation, Promotion, AccountRollup, AccountType, PosTactic, PosCostCatalogEntry, PlvMaterial, PosTacticItem } from '@/domain/ssot';
+import type { SantaData, Interaction as InteractionType, OrderSellOut, User as UserType, Party, InteractionKind, Account, CustomerData, PartyRole, Activation, Promotion, AccountRollup, AccountType, PosTactic, PosCostCatalogEntry, PlvMaterial, PosTacticItem, Item } from '@/domain/ssot';
 import { computeAccountKPIs, accountOwnerDisplay, orderTotal, getDistributorForAccount, computeAccountRollup } from '@/lib/sb-core';
 import { ArrowUpRight, ArrowDownRight, Phone, Mail, MapPin, User, Factory, Boxes, Megaphone, Briefcase, Banknote, Calendar, FileText, ShoppingCart, Star, Building2, CreditCard, ChevronRight, ChevronLeft, MessageSquare, Sparkles, Tag, Clock, Edit, Plus } from "lucide-react";
 import Link from 'next/link';
 import { enrichAccount } from '@/ai/flows/enrich-account-flow';
 import { NewPosTacticDialog } from '@/features/marketing/components/NewPosTacticDialog';
-import { upsertPosTactic } from '@/features/marketing/services/posTactics.service';
+import { upsertPosTactic } from '@/features/marketing/services/posTactics.client';
 import { listPosCostCatalog, listPlvInStock } from '@/features/marketing/services/posTactics.service';
 
 import { SBFlowModal } from '@/features/quicklog/components/SBFlows';
@@ -135,8 +135,8 @@ export function AccountDetailPageContent(){
 
     const rollupData = computeAccountRollup(acc.id, santaData);
 
-    const own = accountOwnerDisplay(acc, santaData.users, santaData.partyRoles);
-    const dist = getDistributorForAccount(acc, santaData.partyRoles, santaData.parties);
+    const own = accountOwnerDisplay(acc, santaData.users || [], santaData.partyRoles || []);
+    const dist = getDistributorForAccount(acc, santaData.partyRoles || [], santaData.parties || []);
 
     return { account: acc, party: pty, unifiedActivity: unified, kpis: kpiData, owner: own, distributor: dist, rollup: rollupData };
   }, [accountId, santaData]);

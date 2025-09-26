@@ -124,8 +124,7 @@ export default function InventoryPage() {
         { id: 'fg', label: 'Producto Terminado' },
         { id: 'raw', label: 'Materias Primas' },
         { id: 'intermediate', label: 'Intermedios' },
-        { id: 'pack', label: 'Packaging' },
-        { id: 'label', label: 'Etiquetas' },
+        { id: 'pack', label: 'Packaging y Etiquetas' },
         { id: 'merch', label: 'Merchandising' },
         { id: 'consumable', label: 'Consumibles' },
     ];

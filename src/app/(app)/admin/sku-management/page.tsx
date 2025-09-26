@@ -2,22 +2,22 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { listLots, listMaterials, updateMaterial } from '@/features/production/ssot-bridge';
-import type { Lot, Material, SB_THEME } from '@/domain/ssot';
-import { SBCard, SBButton, LotQualityStatusPill } from '@/components/ui/ui-primitives';
+import { useData } from '@/lib/dataprovider';
+import type { OnHandView, Item } from '@/domain/ssot';
+import { SBCard, SBButton } from '@/components/ui/ui-primitives';
 import { ChevronDown, Save, Tags } from 'lucide-react';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
-import { useData } from '@/lib/dataprovider';
+import { upsertMany } from '@/lib/dataprovider/actions';
 
-const MATERIAL_CATEGORIES: Material['category'][] = ['raw', 'packaging', 'label', 'consumable', 'intermediate', 'finished_good', 'merchandising'];
+const ITEM_CATEGORIES: Item['category'][] = ['raw', 'pack', 'label', 'consumable', 'intermediate', 'fg', 'merch'];
 
 type SkuWithLots = {
     sku: string;
-    material: Material;
-    lots: Lot[];
+    item: Item;
+    lots: OnHandView[];
 };
 
-function SkuRow({ item, onUpdateCategory }: { item: SkuWithLots; onUpdateCategory: (sku: string, newCategory: Material['category']) => void; }) {
+function SkuRow({ item, onUpdateCategory }: { item: SkuWithLots; onUpdateCategory: (itemId: string, newCategory: Item['category']) => void; }) {
     const [isOpen, setIsOpen] = useState(false);
     
     return (
@@ -28,22 +28,22 @@ function SkuRow({ item, onUpdateCategory }: { item: SkuWithLots; onUpdateCategor
             >
                 <ChevronDown size={16} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                 <div>
-                    <p className="font-bold text-sm text-zinc-800">{item.material?.name || 'Nombre Desconocido'}</p>
+                    <p className="font-bold text-sm text-zinc-800">{item.item?.name || 'Nombre Desconocido'}</p>
                     <p className="font-mono text-xs bg-zinc-100 px-2 py-0.5 rounded-full inline-block mt-1">{item.sku}</p>
                 </div>
                 <div onClick={e => e.stopPropagation()}>
                    <select 
-                        value={item.material.category}
-                        onChange={(e) => onUpdateCategory(item.sku, e.target.value as Material['category'])}
+                        value={item.item.category}
+                        onChange={(e) => onUpdateCategory(item.item.id, e.target.value as Item['category'])}
                         className="w-full h-9 rounded-md border border-zinc-200 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400"
                     >
-                        {(MATERIAL_CATEGORIES || []).map((cat: Material['category']) => (
+                        {(ITEM_CATEGORIES || []).map((cat: Item['category']) => (
                             <option key={cat} value={cat}>{cat}</option>
                         ))}
                     </select>
                 </div>
                 <div className="text-sm font-semibold">{item.lots.length} lotes</div>
-                <div className="text-sm font-semibold text-right">{item.lots.reduce((acc, lot) => acc + lot.quantity, 0)} uds.</div>
+                <div className="text-sm font-semibold text-right">{item.lots.reduce((acc, lot) => acc + lot.qty, 0)} uds.</div>
             </div>
             {isOpen && (
                 <div className="bg-zinc-50/70 p-4 pl-12">
@@ -51,11 +51,11 @@ function SkuRow({ item, onUpdateCategory }: { item: SkuWithLots; onUpdateCategor
                     <div className="space-y-2">
                         {item.lots.map(lot => (
                             <div key={lot.id} className="grid grid-cols-[2fr_1fr_1fr_1.5fr] gap-4 items-center text-xs p-2 bg-white rounded-md border">
-                                <p className="font-mono">{lot.id}</p>
-                                <p>{lot.quantity} uds.</p>
+                                <p className="font-mono">{lot.lotNumber || lot.id}</p>
+                                <p>{lot.qty} {lot.uom}</p>
                                 <p>{new Date(lot.createdAt).toLocaleDateString('es-ES')}</p>
                                 <div className="text-right">
-                                    <LotQualityStatusPill status={lot.quality.qcStatus} />
+                                    {/* Placeholder for quality status pill */}
                                 </div>
                             </div>
                         ))}
@@ -68,33 +68,28 @@ function SkuRow({ item, onUpdateCategory }: { item: SkuWithLots; onUpdateCategor
 
 
 function SkuManagementPageContent() {
-    const { data: santaData } = useData();
+    const { data: santaData, saveCollection } = useData();
     const [skuData, setSkuData] = useState<SkuWithLots[]>([]);
     const [loading, setLoading] = useState(true);
     const [hasChanges, setHasChanges] = useState(false);
 
     useEffect(() => {
-        async function fetchData() {
+        function fetchData() {
             if (!santaData) return;
             setLoading(true);
-            const [materialsRes, lotsRes] = await Promise.all([
-                listMaterials(santaData.materials || []),
-                listLots(santaData.lots || [])
-            ]);
-            
-            const materials = materialsRes || [];
-            const lots = lotsRes || [];
+            const items = santaData.items || [];
+            const onHand = santaData.onHand || [];
     
-            const lotsBySku = new Map<string, Lot[]>();
-            lots.forEach(lot => {
-                const existing = lotsBySku.get(lot.sku) || [];
-                lotsBySku.set(lot.sku, [...existing, lot]);
+            const lotsByItemId = new Map<string, OnHandView[]>();
+            onHand.forEach(lot => {
+                const existing = lotsByItemId.get(lot.itemId) || [];
+                lotsByItemId.set(lot.itemId, [...existing, lot]);
             });
     
-            const enrichedData: SkuWithLots[] = materials.map(mat => ({
-                sku: mat.sku || mat.id,
-                material: mat,
-                lots: lotsBySku.get(mat.sku || mat.id) || []
+            const enrichedData: SkuWithLots[] = items.map(item => ({
+                sku: item.sku,
+                item: item,
+                lots: lotsByItemId.get(item.id) || []
             })).sort((a,b) => a.sku.localeCompare(b.sku));
             
             setSkuData(enrichedData);
@@ -104,11 +99,11 @@ function SkuManagementPageContent() {
         fetchData();
     }, [santaData]);
 
-    const handleUpdateCategory = (sku: string, newCategory: Material['category']) => {
+    const handleUpdateCategory = (itemId: string, newCategory: Item['category']) => {
         setSkuData(prevData =>
             prevData.map(item =>
-                item.sku === sku
-                    ? { ...item, material: { ...item.material, category: newCategory } }
+                item.item.id === itemId
+                    ? { ...item, item: { ...item.item, category: newCategory } }
                     : item
             )
         );
@@ -116,12 +111,16 @@ function SkuManagementPageContent() {
     };
 
     const handleSaveChanges = async () => {
-        for (const item of skuData) {
-            // En una app real, compararías con el original para solo enviar cambios
-            await updateMaterial(item.material.id, { category: item.material.category });
+        const changedItems = skuData.map(d => d.item).filter(i => {
+            const originalItem = santaData?.items.find(orig => orig.id === i.id);
+            return originalItem?.category !== i.category;
+        });
+
+        if (changedItems.length > 0) {
+            await upsertMany('items', changedItems);
+            alert('¡Categorías guardadas!');
+            setHasChanges(false);
         }
-        alert('¡Categorías guardadas!');
-        setHasChanges(false);
     };
 
     return (
@@ -147,7 +146,7 @@ function SkuManagementPageContent() {
                         <SBButton
                             onClick={handleSaveChanges}
                         >
-                            <Save size={16} className="sb-icon" /> Guardar Cambios
+                            <Save size={16} /> Guardar Cambios
                         </SBButton>
                     </div>
                 )}

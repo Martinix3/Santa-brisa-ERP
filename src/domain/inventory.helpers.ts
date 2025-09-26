@@ -26,7 +26,7 @@ export function fifoReserveLots(
   if (requiredQty <= 0) return [];
 
   const lots = onHand
-    .filter(i => i.itemId === itemId && (i.locationId || "").startsWith(locationPrefix) && (i.qty ?? 0) > 0)
+    .filter(i => i.itemId === itemId && (i.locationId || "").startsWith(locationPrefix) && (i.qty ?? 0) > 0 && i.lotNumber)
     .sort((a, b) => +new Date(a.updatedAt) - +new Date(b.updatedAt)); // FIFO
 
   const picks: Array<{ fromLotNumber: string; reservedQty: number; uom: Uom }> = [];
@@ -68,7 +68,7 @@ export function buildConsumptionMoves(args: {
     occurredAt: at,
     createdAt: at,
     ref: { prodOrderId: orderId },
-  }));
+  } as StockMove));
 }
 
 // NOTE: La lógica de `applyStockMoves` se ha simplificado, ya que los workers/triggers

@@ -85,7 +85,7 @@ function PersonalDashboardContent() {
     if (!taskToUpdate) return;
   
     if (newStatus === 'done') {
-      if (taskToUpdate.dept === 'MARKETING') {
+      if (taskToUpdate.dept === 'MARKETING' && taskToUpdate.linkedEntity?.type === 'EVENT' && data.marketingEvents) {
         const event = data.marketingEvents.find(e => e.id === taskToUpdate.linkedEntity?.id);
         if (event) {
           setCompletingMarketingEvent(event);
@@ -145,7 +145,7 @@ function PersonalDashboardContent() {
           collectionsToSave.interactions.push(newFollowUp);
       }
 
-      if (payload.type === 'venta') {
+      if (payload.type === 'venta' && data.accounts) {
           const originalTask = data.interactions.find(i => i.id === taskId);
           const account = data.accounts.find(a => a.id === originalTask?.accountId);
           if (account) {
@@ -155,10 +155,9 @@ function PersonalDashboardContent() {
                   partyId: account.partyId,
                   source: 'MANUAL',
                   status: 'open',
-                  billingStatus: 'PENDING',
                   currency: 'EUR',
                   createdAt: new Date().toISOString(),
-                  lines: payload.items.map(item => ({ sku: item.sku, qty: item.qty, uom: 'uds', priceUnit: 0 })),
+                  lines: payload.items.map(item => ({ itemId: item.itemId, qty: item.qty, uom: 'unit', priceUnit: 0 })),
                   notes: `Pedido rápido creado desde tarea ${taskId}`,
               };
               collectionsToSave.ordersSellOut = [...(data.ordersSellOut || []), newOrder];
@@ -173,7 +172,7 @@ function PersonalDashboardContent() {
   };
   
   const handleSaveMarketingEventTask = async (eventId: string, payload: any) => {
-    if (!data) return;
+    if (!data || !data.marketingEvents) return;
     
     const updatedMktEvents = data.marketingEvents.map(me => {
         if (me.id === eventId) {
@@ -220,7 +219,7 @@ function PersonalDashboardContent() {
                 style={{ backgroundColor: 'hsl(var(--sb-accent-personal))', color: 'hsl(var(--sb-neutral-900))' }}
                 className="hover:brightness-110"
               >
-                  <Plus size={16} className="sb-icon mr-2" /> Nueva Tarea
+                  <Plus size={16} className="mr-2" /> Nueva Tarea
               </SBButton>
           </div>
         </div>

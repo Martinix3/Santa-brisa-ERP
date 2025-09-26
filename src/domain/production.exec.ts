@@ -82,7 +82,7 @@ export interface StageDetail {
   instructions?: string;
 }
 
-export type ProductionOrderExec = {
+export interface ProductionOrderExec {
   id: string;
   bomId: string;
   outputItemId: string;
@@ -99,5 +99,5 @@ export type ProductionOrderExec = {
   shortages?: MaterialShortage[];
   actuals?: ActualConsumption[];
   execution?: ProdExecution;
-  incidents?: { id: string; when: Timestamp; severity: "BAJA" | "MEDIA" | "ALTA"; text: string }[];
+  incidents?: { id: string; when: string; severity: "BAJA" | "MEDIA" | "ALTA"; text: string }[];
 };
