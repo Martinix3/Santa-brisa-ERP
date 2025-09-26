@@ -1,4 +1,5 @@
 
+
 // src/domain/ssot.audit.ts
 import {
   // Tipos/constantes del SSOT
@@ -7,9 +8,12 @@ import {
   PARTY_ROLE_META, LOT_QC_META, PHASE_DEPT, PHASE_NAME_ES,
   // Tipos para derivar literales
   type SantaData, type AccountType, type OrderStatus, type ShipmentStatus,
-  type PartyRoleType, type TraceEventPhase, type CodeEntity
+  type PartyRoleType, type TraceEventPhase
 } from "@/domain/ssot";
 import { POLICIES } from '@/lib/codes';
+
+// Deriva el tipo CodeEntity a partir de las claves del objeto POLICIES
+export type CodeEntity = keyof typeof POLICIES;
 
 // ----------------------------
 // Helpers de exhaustividad
@@ -66,7 +70,7 @@ const ALL_ORDER_STATUS  = ["open","confirmed","shipped","invoiced","paid","cance
 const ALL_SHIP_STATUS   = ["pending","picking","ready_to_ship","shipped","delivered","exception","cancelled"] as const satisfies readonly ShipmentStatus[];
 const ALL_PARTY_ROLES   = ["CUSTOMER","SUPPLIER","DISTRIBUTOR","IMPORTER","INFLUENCER","CREATOR","EMPLOYEE","BRAND_AMBASSADOR","OTHER"] as const satisfies readonly PartyRoleType[];
 const ALL_PHASES        = ["SOURCE","RECEIPT","QC","PRODUCTION","PACK","WAREHOUSE","SALE","DELIVERY"] as const satisfies readonly TraceEventPhase[];
-const ALL_CODE_ENTITIES = ["PRODUCT","ACCOUNT","PARTY","SUPPLIER","LOT","PROD_ORDER","SHIPMENT","GOODS_RECEIPT","LOCATION","PRICE_LIST","PROMOTION"] as const satisfies readonly CodeEntity[];
+const ALL_CODE_ENTITIES = Object.keys(POLICIES) as readonly CodeEntity[];
 
 function auditMeta() {
   assertHasAllKeys(ACCOUNT_TYPE_META as Record<AccountType, any>, ALL_ACCOUNT_TYPES, "ACCOUNT_TYPE_META");

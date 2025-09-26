@@ -10,7 +10,7 @@ import { useData } from "@/lib/dataprovider";
 import { ModuleHeader } from "@/components/ui/ModuleHeader";
 import { SBCard, SBButton, KPI } from "@/components/ui/ui-primitives";
 import { SB_COLORS, SB_THEME } from '@/domain/ssot';
-import type { User as UserType, OrderSellOut, Account, Interaction, Product, Party, UserRole, Stage, OrderStatus, AccountType } from '@/domain/ssot';
+import type { User as UserType, OrderSellOut, Account, Interaction, Item, Party, UserRole, Stage, OrderStatus, AccountType } from '@/domain/ssot';
 import { inWindow, orderTotal } from '@/lib/sb-core';
 import { generateInsights } from '@/ai/flows/generate-insights-flow';
 import { Avatar } from "@/components/ui/Avatar";
