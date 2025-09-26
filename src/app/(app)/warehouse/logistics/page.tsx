@@ -80,7 +80,7 @@ const getChannelInfo = (order?: OrderSellOut, account?: Account) => {
 // ===============================
 const ValidateDialog: React.FC<{ open: boolean; onOpenChange: (v: boolean) => void; shipment: Shipment | null; onSave: (payload: any) => void; }> = ({ open, onOpenChange, shipment: shipment, onSave }) => {
   const [visualOk, setVisualOk] = React.useState(false);
-  const [lotMap, setLotMap] = React.useState<Record<string, { lotId: string; qty: number }[]>>({});
+  const [lotMap, setLotMap] = React.useState<Record<string, { lotNumber: string; qty: number }[]>>({});
   const [weight, setWeight] = React.useState<number | "">(0);
   const [dims, setDims] = React.useState<{ l: number | ""; w: number | ""; h: number | "" }>({ l: "", w: "", h: "" });
   const [picker, setPicker] = React.useState<string>("");
@@ -94,11 +94,12 @@ const ValidateDialog: React.FC<{ open: boolean; onOpenChange: (v: boolean) => vo
         setPacker(shipment.packedById || "");
         setCarrier(shipment.carrier || "");
         // Simplified lotMap initialization
-        const initialLotMap: Record<string, { lotId: string; qty: number }[]> = {};
+        const initialLotMap: Record<string, { lotNumber: string; qty: number }[]> = {};
         shipment.lines.forEach((line: ShipmentLine) => {
-            if(!initialLotMap[line.sku]) initialLotMap[line.sku] = [];
+            const itemKey = line.itemId;
+            if(!initialLotMap[itemKey]) initialLotMap[itemKey] = [];
             if (line.lotNumber) {
-                initialLotMap[line.sku].push({lotId: line.lotNumber, qty: line.qty});
+                initialLotMap[itemKey].push({lotNumber: line.lotNumber, qty: line.qty});
             }
         })
         setLotMap(initialLotMap);
@@ -106,20 +107,20 @@ const ValidateDialog: React.FC<{ open: boolean; onOpenChange: (v: boolean) => vo
   }, [shipment]);
 
 
-  const setLot = (sku: string, index: number, field: "lotId" | "qty", value: string) => {
+  const setLot = (itemId: string, index: number, field: "lotNumber" | "qty", value: string) => {
     setLotMap((prev) => {
-      const rows = prev[sku] ? [...prev[sku]] : [];
-      while (rows.length <= index) rows.push({ lotId: "", qty: 0 });
+      const rows = prev[itemId] ? [...prev[itemId]] : [];
+      while (rows.length <= index) rows.push({ lotNumber: "", qty: 0 });
       const nextRow = { ...rows[index], [field]: field === "qty" ? Number(value) : value } as any;
-      const next = { ...prev, [sku]: rows.map((r, i) => (i === index ? nextRow : r)) };
+      const next = { ...prev, [itemId]: rows.map((r, i) => (i === index ? nextRow : r)) };
       return next;
     });
   };
 
-  const addLotRow = (sku: string) => {
-    setLotMap((p) => ({ ...p, [sku]: [...(p[sku] ?? []), { lotId: "", qty: 0 }] }));
+  const addLotRow = (itemId: string) => {
+    setLotMap((p) => ({ ...p, [itemId]: [...(p[itemId] ?? []), { lotNumber: "", qty: 0 }] }));
   };
-  const removeEmpty = (m: typeof lotMap) => Object.fromEntries(Object.entries(m).map(([k, arr]) => [k, arr.filter((r) => r.lotId && r.qty > 0)]));
+  const removeEmpty = (m: typeof lotMap) => Object.fromEntries(Object.entries(m).map(([k, arr]) => [k, arr.filter((r) => r.lotNumber && r.qty > 0)]));
 
   const handleSave = () => {
     onSave({ 
@@ -190,22 +191,22 @@ const ValidateDialog: React.FC<{ open: boolean; onOpenChange: (v: boolean) => vo
               <p className="font-medium mb-2">Asignación de lotes</p>
               <div className="space-y-4">
                 {shipment?.lines?.map((it: any) => (
-                  <div key={it.sku} className="border rounded-lg p-3">
+                  <div key={it.itemId} className="border rounded-lg p-3">
                     <div className="flex items-center justify-between mb-2">
                       <div>
-                        <p className="font-medium">{it.name || it.sku}</p>
-                        <p className="text-xs text-zinc-500">SKU {it.sku} · Cantidad solicitada: {it.qty} {it.uom}</p>
+                        <p className="font-medium">{it.name || it.itemId}</p>
+                        <p className="text-xs text-zinc-500">ItemID {it.itemId} · Cantidad solicitada: {it.qty} {it.uom}</p>
                       </div>
-                      <SBButton type="button" onClick={(e) => { e.stopPropagation(); addLotRow(it.sku); }}><Plus className="w-4 h-4 mr-2"/>Añadir lote</SBButton>
+                      <SBButton type="button" onClick={(e) => { e.stopPropagation(); addLotRow(it.itemId); }}><Plus className="w-4 h-4 mr-2"/>Añadir lote</SBButton>
                     </div>
                     <div className="space-y-2">
-                      {(lotMap[it.sku] ?? [{ lotId: "", qty: 0 }]).map((row, idx) => (
+                      {(lotMap[it.itemId] ?? [{ lotNumber: "", qty: 0 }]).map((row, idx) => (
                         <div key={idx} className="grid grid-cols-5 gap-2 items-center">
                           <div className="col-span-3">
-                            <Input placeholder="ID Lote (escanea o escribe)" value={row.lotId} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLot(it.sku, idx, "lotId", e.target.value)} />
+                            <Input placeholder="ID Lote (escanea o escribe)" value={row.lotNumber} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLot(it.itemId, idx, "lotNumber", e.target.value)} />
                           </div>
                           <div>
-                            <Input placeholder="Qty" type="number" value={row.qty || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLot(it.sku, idx, "qty", e.target.value)} />
+                            <Input placeholder="Qty" type="number" value={row.qty || ""} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLot(it.itemId, idx, "qty", e.target.value)} />
                           </div>
                         </div>
                       ))}
@@ -247,11 +248,12 @@ export default function LogisticsPage() {
   const [pendingJobs, setPendingJobs] = useState<Record<string, boolean>>({});
   const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
 
-  const { shipments, orders, accounts, parties } = useMemo(() => ({
+  const { shipments, orders, accounts, parties, items } = useMemo(() => ({
       shipments: santaData?.shipments || [],
       orders: santaData?.ordersSellOut || [],
       accounts: santaData?.accounts || [],
       parties: santaData?.parties || [],
+      items: santaData?.items || []
   }), [santaData]);
 
   const orderMap = useMemo(() => {
@@ -526,7 +528,7 @@ export default function LogisticsPage() {
             onClose={() => setOpenNewShipment(false)} 
             onSave={handleSaveNewShipment}
             accounts={accounts || []}
-            products={santaData?.products || []}
+            items={items || []}
         />
     </div>
   );
