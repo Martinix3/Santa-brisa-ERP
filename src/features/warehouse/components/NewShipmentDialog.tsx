@@ -1,3 +1,4 @@
+// src/features/warehouse/components/NewShipmentDialog.tsx
 
 "use client";
 import React, { useState, useEffect, useCallback } from 'react';
@@ -22,7 +23,7 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, items }: Ne
     const [accountId, setAccountId] = useState('');
     const [address, setAddress] = useState('');
     const [city, setCity] = useState('');
-    const [lines, setLines] = useState<{ itemId: string; qty: number; name: string, uom: 'uds' }[]>([{ itemId: '', qty: 1, name: '', uom: 'uds' }]);
+    const [lines, setLines] = useState<{ itemId: string; qty: number; name: string, uom: 'unit' }[]>([{ itemId: '', qty: 1, name: '', uom: 'unit' }]);
     const [notes, setNotes] = useState('');
 
     useEffect(() => {
@@ -30,7 +31,7 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, items }: Ne
             setAccountId('');
             setAddress('');
             setCity('');
-            setLines([{ itemId: '', qty: 1, name: '', uom: 'uds' }]);
+            setLines([{ itemId: '', qty: 1, name: '', uom: 'unit' }]);
             setNotes('');
         }
     }, [open]);
@@ -60,7 +61,7 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, items }: Ne
         setLines(newLines);
     };
 
-    const addLine = () => setLines([...lines, { itemId: '', qty: 1, name: '', uom: 'uds' }]);
+    const addLine = () => setLines([...lines, { itemId: '', qty: 1, name: '', uom: 'unit' }]);
     const removeLine = (index: number) => setLines(lines.filter((_, i) => i !== index));
 
     const handleSubmit = (e: React.FormEvent) => {

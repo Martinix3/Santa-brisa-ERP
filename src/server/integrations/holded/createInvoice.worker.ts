@@ -1,4 +1,3 @@
-
 // src/server/integrations/holded/createInvoice.worker.ts
 import { adminDb as db } from '@/server/firebase';
 import type { OrderSellOut, Party, PartyRole, Item } from '@/domain/ssot';

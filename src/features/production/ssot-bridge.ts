@@ -7,7 +7,7 @@ export function useBridge() {
     return {
         data: data,
         recipes: (data?.billOfMaterials || []) as BillOfMaterial[],
-        inventory: (data?.onHand || []) as OnHandView[],
+        onHand: (data?.onHand || []) as OnHandView[],
         items: (data?.items || []) as Item[],
         orders: (data?.productionOrders || []) as ProductionOrder[],
     };
@@ -41,7 +41,7 @@ export function listFinishedSkus(items: Item[]): { sku: string; name: string; pa
       }));
 }
 
-export async function listLots(onHand: OnHandView[]): Promise<OnHandView[]> {
+export async function listOnHand(onHand: OnHandView[]): Promise<OnHandView[]> {
   return onHand;
 }
 
@@ -54,7 +54,7 @@ export async function getTrace(lotNumber: string) {
 
 export async function updateItem(id: string, patch: Partial<Item>): Promise<Item> {
     console.warn("updateItem is not implemented on the client-side bridge yet.");
-    return { id, sku: '', name: 'Updated Item', category: 'raw', uom: 'uds', active: true, ...patch };
+    return { id, sku: '', name: 'Updated Item', category: 'raw', uom: 'unit', active: true, ...patch };
 }
 
 export async function createRecipe(data: { billOfMaterials: BillOfMaterial[] }, recipe: BillOfMaterial): Promise<void> {

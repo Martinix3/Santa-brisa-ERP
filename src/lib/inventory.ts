@@ -1,4 +1,3 @@
-
 // src/lib/inventory.ts
 import type { OrderSellOut, OnHandView, Item } from '@/domain/ssot';
 
@@ -12,15 +11,15 @@ type StockShortage = {
 /**
  * Checks the stock availability for a given order against the current inventory.
  * @param order The sales order to check.
- * @param inventory The current inventory items (on hand view).
+ * @param onHand The current inventory items (on hand view).
  * @param items The list of all items.
  * @returns An array of stock shortages. Returns an empty array if stock is sufficient.
  */
-export function checkOrderStock(order: OrderSellOut, inventory: OnHandView[], items: Item[]): StockShortage[] {
+export function checkOrderStock(order: OrderSellOut, onHand: OnHandView[], items: Item[]): StockShortage[] {
     if (!order.lines) return [];
 
     const shortages: StockShortage[] = [];
-    const fgInventory = inventory.filter(i => i.locationId === 'FG/MAIN');
+    const fgInventory = onHand.filter(i => i.locationId === 'FG/MAIN');
 
     for (const line of order.lines) {
         const { itemId, qty } = line;

@@ -5,14 +5,16 @@
 // =================================================================
 export type Timestamp = string; // ISO string for full date-time
 export type ISO = string;       // ISO string, can be just date
-export type LotNumber = string; // Alias for Lot identifiers
+export type LotNumber = string;      // alias semántico
 
 // -----------------------------------------------------------------
 // 1. Tipos Primitivos y Enums Transversales
 // -----------------------------------------------------------------
 export type Uom = 'bottle' | 'case' | 'pallet' | 'unit' | 'kg' | 'g' | 'L' | 'mL';
+
 /** @deprecated usar 'unit' */
 export type UomLegacy = 'ud' | 'uds';
+
 
 export type Currency = 'EUR';
 export type Department = 'VENTAS' | 'MARKETING' | 'PRODUCCION' | 'ALMACEN' | 'FINANZAS' | 'CALIDAD' | 'PERSONAL';
@@ -59,7 +61,7 @@ export type StockReason =
 
 export interface StockMove {
   id: string;
-  itemId: string;       // ← SIEMPRE itemId (olvidar “sku + itemId”)
+  itemId: string;       // ← SIEMPRE itemId
   qty: number;          // signo positivo/negativo según reason
   uom: Uom;
   lotNumber?: LotNumber;
@@ -103,7 +105,7 @@ export type BomLineRole = 'FORMULA'|'PACKAGING';
 
 export interface BillOfMaterial {
   id: string;
-  outputItemId: string;         // ← en vez de sku
+  outputItemId: string;
   name: string;
   batchSize: number;            // en baseUnit
   baseUnit: Uom;                // ← obligatorio
@@ -127,12 +129,12 @@ export interface ProductionOrder {
   id: string;
   orderNumber?: string;
   bomId: string;
-  outputItemId: string;     // ← sustituye sku
+  outputItemId: string;
   targetQuantity: number;   // en baseUnit
   status: ProductionStatus;
   createdAt: Timestamp;
   scheduledFor?: Timestamp;
-  batchCode?: LotNumber;       // en lugar de “lotId” entidad
+  batchCode?: LotNumber;
   responsibleId?: string;
 
   // Operativo (opcionales)
@@ -157,8 +159,8 @@ export interface ProductionOrder {
     durationHours?: number;
     finalYield?: number;
     yieldUom?: 'L' | 'unit' | UomLegacy;
-    goodUnits?: number;    // antes goodBottles
-    scrapUnits?: number;   // antes scrapBottles
+    goodUnits?: number;
+    scrapUnits?: number;
   };
 
   costing?: {
@@ -332,8 +334,8 @@ export interface OrderSellOut {
     discountPct?: number;
     uom?: Uom;
     /** @deprecated usar lotNumbers */
-    lotIds?: LotNumber[]; 
-    lotNumbers?: LotNumber[]; 
+    lotIds?: LotNumber[];
+    lotNumbers?: LotNumber[];
   }>;
   notes?: string; 
   billingStatus?: BillingStatus; 

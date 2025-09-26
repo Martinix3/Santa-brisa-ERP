@@ -1,4 +1,4 @@
-
+// src/app/(app)/warehouse/inventory/page.tsx
 
 "use client";
 import React, { useState, useEffect, useMemo } from 'react';
@@ -7,8 +7,7 @@ import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
 import { SBCard, Input, Select, DataTableSB } from '@/components/ui/ui-primitives';
 import Link from 'next/link';
 
-import { listLots, listMaterials } from "@/features/production/ssot-bridge";
-import type { Lot, Material, InventoryItem, Uom, StockMove, SB_THEME } from '@/domain/ssot';
+import type { OnHandView, Item, ItemCategory, SB_THEME } from '@/domain/ssot';
 import { useData } from '@/lib/dataprovider';
 
 function LotQualityStatusPill({ status }: { status?: 'hold' | 'release' | 'reject' }) {
@@ -71,66 +70,70 @@ function ExpirationPill({ date }: { date?: string }) {
 
 export default function InventoryPage() {
     const { data: santaData } = useData();
-    const [activeTab, setActiveTab] = useState('finished_good');
+    const [activeTab, setActiveTab] = useState<ItemCategory>('fg');
     const [loading, setLoading] = useState(true);
 
-    const inventory = useMemo(() => {
-        if (!santaData?.inventory) return [];
-        return [...santaData.inventory].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    }, [santaData?.inventory]);
+    const onHand = useMemo(() => {
+        if (!santaData?.onHand) return [];
+        return [...santaData.onHand].sort((a,b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+    }, [santaData?.onHand]);
 
     useEffect(() => {
-        if(santaData?.inventory) setLoading(false);
-    }, [santaData?.inventory])
+        if(santaData?.onHand) setLoading(false);
+    }, [santaData?.onHand])
     
-    const filteredInventory = inventory.filter(item => {
-        if (activeTab === 'packaging') return item.category === 'packaging' || item.category === 'label';
-        return item.category === activeTab;
-    });
-    
-    const materialBySkuMap = useMemo(() => {
-      const map = new Map<string, Material>();
-      (santaData?.materials || []).forEach(m => map.set(m.sku, m));
-      return map;
-    }, [santaData?.materials]);
+    const itemsById = useMemo(() => {
+        const map = new Map<string, Item>();
+        (santaData?.items || []).forEach(it => map.set(it.id, it));
+        return map;
+    }, [santaData?.items]);
 
-    const cols: Col<InventoryItem>[] = [
-        { key: 'id', header: 'Lote', render: r => <span className="font-mono text-xs bg-zinc-100 px-2 py-1 rounded-md">{r.id.substring(0, 12)}...</span> },
+    const filteredInventory = useMemo(() => {
+        return onHand.filter(oh => {
+            const item = itemsById.get(oh.itemId);
+            if (!item) return false;
+            
+            if (activeTab === 'pack') {
+              return item.category === 'pack' || item.category === 'label';
+            }
+            return item.category === activeTab;
+        });
+    }, [onHand, itemsById, activeTab]);
+
+    const cols: Col<OnHandView>[] = [
+        { key: 'lotNumber', header: 'Lote', render: r => <span className="font-mono text-xs bg-zinc-100 px-2 py-1 rounded-md">{r.lotNumber || r.id.substring(0, 12)}</span> },
         { 
-            key: 'sku', 
+            key: 'itemId', 
             header: 'Producto (SKU)',
-            render: r => (
-                <div>
-                    <span className="font-medium text-zinc-800">{materialBySkuMap.get(r.sku)?.name || r.sku}</span>
-                    <p className="text-xs text-zinc-500">{r.sku}</p>
-                </div>
-            )
+            render: r => {
+                const item = itemsById.get(r.itemId);
+                return (
+                    <div>
+                        <span className="font-medium text-zinc-800">{item?.name || r.itemId}</span>
+                        <p className="text-xs text-zinc-500">{item?.sku}</p>
+                    </div>
+                );
+            }
         },
         { key: 'qty', header: 'Cantidad', className: "text-right", render: r => <span className="font-semibold">{r.qty} {r.uom}</span> },
-        { key: 'createdAt', header: 'Fecha', render: r => new Date(r.createdAt).toLocaleDateString('es-ES') },
-        { key: 'expDate', header: 'Caducidad', render: r => <ExpirationPill date={r.expDate} /> },
-        { 
-            key: 'quality', 
-            header: 'Estado Calidad', 
-            render: r => r.quality?.qcStatus ? <LotQualityStatusPill status={r.quality.qcStatus} /> : <span className="text-zinc-400">—</span>
-        },
-        { key: 'actions', header: 'Acciones', render: r => (<div className="relative"><MoreVertical size={16} className="cursor-pointer" /></div>) }
+        { key: 'locationId', header: 'Ubicación', render: r => r.locationId },
+        { key: 'updatedAt', header: 'Fecha', render: r => new Date(r.updatedAt).toLocaleDateString('es-ES') },
     ];
 
-    const TABS = [
-        { id: 'finished_good', label: 'Producto Terminado' },
+    const TABS: { id: ItemCategory, label: string }[] = [
+        { id: 'fg', label: 'Producto Terminado' },
         { id: 'raw', label: 'Materias Primas' },
         { id: 'intermediate', label: 'Intermedios' },
-        { id: 'packaging', label: 'Packaging' },
+        { id: 'pack', label: 'Packaging' },
         { id: 'label', label: 'Etiquetas' },
-        { id: 'merchandising', label: 'Merchandising' },
+        { id: 'merch', label: 'Merchandising' },
         { id: 'consumable', label: 'Consumibles' },
     ];
 
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
-                <h1 className="text-2xl font-semibold text-zinc-800">Inventario por Lotes</h1>
+                <h1 className="text-2xl font-semibold text-zinc-800">Inventario</h1>
                 <div className="flex gap-2">
                     <button className="flex items-center gap-2 text-sm bg-white border border-zinc-200 rounded-md px-3 py-1.5 outline-none hover:bg-zinc-50 focus:ring-2 focus:ring-cyan-400">
                         <Download size={14} /> Exportar
@@ -141,7 +144,7 @@ export default function InventoryPage() {
                 </div>
             </div>
 
-            <Tabs active={activeTab} setActive={setActiveTab} tabs={TABS} />
+            <Tabs active={activeTab} setActive={(tabId) => setActiveTab(tabId as ItemCategory)} tabs={TABS} />
             
             <SBCard title="">
             {loading ? (

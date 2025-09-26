@@ -7,7 +7,7 @@ export type HoldedContact = {
   id: string;
   name?: string;          // legalName
   tradeName?: string;     // puede venir como display
-  vat?: string;
+  code?: string; // vat
   email?: string;
   phone?: string;
   billing?: { address?: string; city?: string; zip?: string; country?: string };
@@ -22,7 +22,7 @@ export function toPartyPartial(c: HoldedContact): Partial<Party> {
   return {
     legalName: c.name || c.tradeName || '',
     tradeName: c.tradeName,
-    vat: c.vat ? normVat(c.vat) : undefined,
+    vat: c.code ? normVat(c.code) : undefined,
     emails,
     phones,
     billingAddress: c.billing,

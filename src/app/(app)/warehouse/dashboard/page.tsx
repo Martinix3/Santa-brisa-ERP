@@ -1,4 +1,4 @@
-
+// src/app/(app)/warehouse/dashboard/page.tsx
 
 "use client";
 import React, { useMemo, useState } from 'react';
@@ -7,7 +7,7 @@ import { generateInsights } from '@/ai/flows/generate-insights-flow';
 import { SBCard, SBButton, DataTableSB } from '@/components/ui/ui-primitives';
 import type { Col } from '@/components/ui/ui-primitives';
 import { BrainCircuit, Package, DollarSign, Truck, AlertCircle, Clock } from 'lucide-react';
-import type { InventoryItem, Shipment, Interaction, StockMove, Account, ShipmentStatus, SB_THEME } from '@/domain/ssot';
+import type { OnHandView, Shipment, Interaction, StockMove, Account, ShipmentStatus, SB_THEME } from '@/domain/ssot';
 import { DEPT_META, SB_COLORS } from '@/domain/ssot';
 import Link from 'next/link';
 import { samplesSentSummary } from "@/lib/consignment-and-samples";
@@ -87,10 +87,10 @@ function SamplesSentCard({ shipments, stockMoves, accounts }: { shipments: Shipm
 }
 
 
-function WarehouseDashboardContent({ inventory, shipments, stockMoves, accounts }: { inventory: InventoryItem[], shipments: Shipment[], stockMoves: StockMove[], accounts: Account[] }) {
+function WarehouseDashboardContent({ onHand, shipments, stockMoves, accounts }: { onHand: OnHandView[], shipments: Shipment[], stockMoves: StockMove[], accounts: Account[] }) {
     const kpis = useMemo(() => {
-        const stockUnits = inventory.reduce((sum, item) => sum + item.qty, 0);
-        const stockValue = inventory.reduce((sum, item) => sum + (item.qty * 8.5), 0); // Precio coste estimado
+        const stockUnits = onHand.reduce((sum, item) => sum + item.qty, 0);
+        const stockValue = onHand.reduce((sum, item) => sum + (item.qty * 8.5), 0); // Precio coste estimado
         const pendingShipments = shipments.filter(s => s.status === 'pending' || s.status === 'picking').length;
 
         return {
@@ -98,10 +98,10 @@ function WarehouseDashboardContent({ inventory, shipments, stockMoves, accounts 
             stockValue: stockValue.toLocaleString('es-ES', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 }),
             pendingShipments,
         }
-    }, [inventory, shipments]);
+    }, [onHand, shipments]);
 
     const shipmentCols: Col<Shipment>[] = [
-        { key: 'id', header: 'Envío', render: r => <Link href={`/warehouse/logistics/${r.id}`} className="font-mono text-xs font-semibold text-sb-verde-mar hover:underline">{r.id}</Link> },
+        { key: 'id', header: 'Envío', render: r => <Link href={`/warehouse/logistics/${r.id}`} className="font-mono text-xs font-semibold text-sb-verde-mar hover:underline">{r.shipmentNumber || r.id}</Link> },
         { key: 'customerName', header: 'Cliente' },
         { key: 'city', header: 'Destino' },
         { key: 'status', header: 'Estado', render: r => <StatusPill status={r.status} /> },
@@ -117,7 +117,7 @@ function WarehouseDashboardContent({ inventory, shipments, stockMoves, accounts 
         }
     ];
 
-    const lowStockItems = inventory.filter(item => item.qty < 50 && item.sku.startsWith('SB-'));
+    const lowStockItems = onHand.filter(item => item.qty < 50 && item.itemId.startsWith('item_')); // Assuming SB- items are finished goods
 
     return (
         <div className="space-y-6">
@@ -140,7 +140,7 @@ function WarehouseDashboardContent({ inventory, shipments, stockMoves, accounts 
                              {lowStockItems.length > 0 ? lowStockItems.map(item => (
                                  <div key={item.id} className="flex items-center justify-between p-2 rounded-lg bg-amber-50 border border-amber-100">
                                      <div>
-                                         <p className="font-semibold text-sm text-amber-900">{item.sku}</p>
+                                         <p className="font-semibold text-sm text-amber-900">{item.itemId}</p>
                                          <p className="text-xs text-amber-700">{item.lotNumber}</p>
                                      </div>
                                      <div className="text-right">
@@ -173,7 +173,7 @@ function AIInsightsCard() {
         setInsights("");
         try {
             const relevantData = {
-                inventory: data.inventory?.slice(0, 30).map(i => ({ sku: i.sku, lot: i.lotNumber, qty: i.qty, loc: i.locationId, exp: i.expDate })),
+                onHand: data.onHand?.slice(0, 30).map(i => ({ itemId: i.itemId, lot: i.lotNumber, qty: i.qty, loc: i.locationId, exp: (i as any).expDate })),
                 shipments: data.shipments?.slice(0, 20).map(s => ({ id: s.id, status: s.status, city: s.city, lines: s.lines.length })),
             };
             const result = await generateInsights({ 
@@ -211,9 +211,9 @@ function AIInsightsCard() {
 export default function Dashboard() {
     const { data: santaData } = useData();
 
-    const { inventory, shipments, stockMoves, accounts } = useMemo(() => {
+    const { onHand, shipments, stockMoves, accounts } = useMemo(() => {
         return {
-            inventory: santaData?.inventory || [],
+            onHand: santaData?.onHand || [],
             shipments: santaData?.shipments || [],
             stockMoves: santaData?.stockMoves || [],
             accounts: santaData?.accounts || [],
@@ -226,7 +226,7 @@ export default function Dashboard() {
     
     return (
         <div className="space-y-6">
-            <WarehouseDashboardContent inventory={inventory} shipments={shipments} stockMoves={stockMoves} accounts={accounts} />
+            <WarehouseDashboardContent onHand={onHand} shipments={shipments} stockMoves={stockMoves} accounts={accounts} />
             <div className="pt-6">
                 <AIInsightsCard />
             </div>

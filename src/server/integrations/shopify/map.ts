@@ -1,4 +1,3 @@
-
 import type { OrderSellOut, Timestamp, Currency } from '@/domain/ssot';
 
 type ShopifyOrder = any; // si quieres, añade tipos de Shopify más adelante
@@ -33,7 +32,7 @@ export function normalizeShopifyOrder(order: ShopifyOrder): OrderSellOut {
     priceUnit: Number(li.price || 0),
     discountPct: discountPct || undefined,
     taxRate: taxRateGuess,
-    uom: 'uds' as const,
+    uom: 'unit' as const,
   }));
 
   const createdAt: Timestamp = new Date(order.created_at || Date.now()).toISOString();
@@ -86,7 +85,7 @@ export function mapShopifyToSSOT(shopifyOrder: any): {
       itemId: item.sku || `SHOPIFY_${item.variant_id}`,
       qty: item.quantity,
       priceUnit: parseFloat(item.price),
-      uom: 'uds'
+      uom: 'unit'
     })),
     createdAt: shopifyOrder.created_at,
     // La dirección y otros detalles se podrían mapear aquí también

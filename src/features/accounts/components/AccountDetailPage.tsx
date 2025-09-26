@@ -1,4 +1,4 @@
-
+// src/features/accounts/components/AccountDetailPage.tsx
 
 "use client";
 
@@ -11,7 +11,7 @@ import { ArrowUpRight, ArrowDownRight, Phone, Mail, MapPin, User, Factory, Boxes
 import Link from 'next/link';
 import { enrichAccount } from '@/ai/flows/enrich-account-flow';
 import { NewPosTacticDialog } from '@/features/marketing/components/NewPosTacticDialog';
-import { upsertPosTactic } from '@/features/marketing/services/posTactics.client';
+import { upsertPosTactic } from '@/features/marketing/services/posTactics.service';
 import { listPosCostCatalog, listPlvInStock } from '@/features/marketing/services/posTactics.service';
 
 import { SBFlowModal } from '@/features/quicklog/components/SBFlows';
@@ -275,7 +275,7 @@ export function AccountDetailPageContent(){
                               <div className="text-sm text-zinc-800 font-semibold">{formatEUR(orderTotal(order))}</div>
                               <div className="text-xs text-zinc-500">{formatDate(String(order.createdAt))}</div>
                           </div>
-                          <div className="text-sm text-zinc-800 col-span-2">{(order.lines || []).map(l => `${l.qty} ${l.uom || 'uds'} de ${santaData.products.find(p=>p.sku === l.sku)?.name}`).join(', ')}</div>
+                          <div className="text-sm text-zinc-800 col-span-2">{(order.lines || []).map(l => `${l.qty} ${l.uom || 'uds'} de ${santaData.items.find(p=>p.id === l.itemId)?.name}`).join(', ')}</div>
                       </div>
                     )
                   }

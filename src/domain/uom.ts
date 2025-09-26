@@ -1,4 +1,3 @@
-
 // src/domain/uom.ts
 import type { OnHandView, Item, Uom } from "@/domain/ssot";
 
@@ -45,5 +44,5 @@ export function canonicalUomForFinished(
     const best = [...tally.entries()].sort((a,b)=>b[1]-a[1])[0]?.[0];
     if (best) return best as Uom;
   }
-  return "unit" as Uom;
+  return "unit";
 }

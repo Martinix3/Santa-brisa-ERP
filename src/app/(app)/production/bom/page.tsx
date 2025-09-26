@@ -6,7 +6,7 @@ import { SBCard } from '@/components/ui/ui-primitives';
 import { SB_COLORS } from "@/domain/ssot";
 import { useData } from "@/lib/dataprovider";
 import type { BillOfMaterial as RecipeBom, Uom, Item } from "@/domain/ssot";
-import { canonicalUomForMaterial } from '@/domain/uom';
+import { canonicalUomForItem } from '@/domain/uom';
 
 // Nuevos imports para el formulario mejorado
 import { useToaster } from "@/components/ui/Toaster";
@@ -63,7 +63,7 @@ function RecipeForm({
   const finishedGoods = useMemo(() => allItems.filter(it => it.category === 'fg'), [allItems]);
 
   const addLine = (role: 'FORMULA' | 'PACKAGING' = 'FORMULA') => {
-    const newItems = [...(fm.values.items || []), { itemId: "", qty: 0, uom: "uds" as Uom, role }];
+    const newItems = [...(fm.values.items || []), { itemId: "", qty: 0, uom: "unit" as Uom, role }];
     fm.set("items", newItems);
   };
 
@@ -98,13 +98,13 @@ function RecipeForm({
     }
     
     // Al guardar, normalizamos la UoM para asegurar consistencia
-    const inventory = santaData?.inventory || [];
+    const onHand = santaData?.onHand || [];
     const items = santaData?.items || [];
     const normalized = {
       ...fm.values,
       items: (fm.values.items || []).map(it => ({
         ...it,
-        uom: canonicalUomForMaterial(it.itemId, inventory, items), // fuerza canónica
+        uom: canonicalUomForItem(it.itemId, onHand, items), // fuerza canónica
       })),
     };
 
@@ -175,7 +175,7 @@ function RecipeForm({
              <select className="w-full h-10 px-3 rounded-lg border" value={fm.values.baseUnit} onChange={e => fm.set("baseUnit", e.target.value as Uom)}>
                 <option value="L">Litros (L)</option>
                 <option value="kg">Kilogramos (kg)</option>
-                <option value="uds">Unidades (uds)</option>
+                <option value="unit">Unidades (unit)</option>
               </select>
           </Field>
         </div>
@@ -196,7 +196,7 @@ function RecipeForm({
                  </Field>
                  <div className="text-xs text-zinc-600">
                   UoM: <span className="px-2 py-0.5 rounded-full border bg-zinc-50">
-                    {line.itemId ? canonicalUomForMaterial(line.itemId, santaData?.inventory || [], allItems) : '-'}
+                    {line.itemId ? canonicalUomForItem(line.itemId, santaData?.onHand || [], allItems) : '-'}
                   </span>
                  </div>
                  <button onClick={() => removeLine(i)} className="h-10 px-2 border bg-white hover:bg-red-50 text-red-600 rounded-lg" aria-label={`Eliminar línea ${i+1}`}><Trash2 size={16}/></button>

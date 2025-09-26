@@ -1,4 +1,3 @@
-
 // domain/production.exec.ts - Overlay de ejecución de Producción
 import type { Uom, QCResult, Timestamp, ProductionOrder } from './ssot';
 

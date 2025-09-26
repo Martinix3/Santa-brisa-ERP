@@ -1,12 +1,12 @@
 import type { ProductionOrder, BillOfMaterial, OnHandView, Item } from "@/domain/ssot";
 import { isSameDay, seriesDays } from "./utils";
 
-type Input = { orders: ProductionOrder[]; recipes: BillOfMaterial[]; inventory: OnHandView[]; items: Item[] };
+type Input = { orders: ProductionOrder[]; recipes: BillOfMaterial[]; onHand: OnHandView[]; items: Item[] };
 
 const sum = (a:number[]) => a.reduce((x,y)=>x+y,0);
 const avg = (a:number[]) => a.length? sum(a)/a.length : 0;
 
-export function computeKpis({ orders, recipes, inventory, items }: Input){
+export function computeKpis({ orders, recipes, onHand, items }: Input){
   const now = new Date();
   const last30 = new Date(now.getTime() - 30*24*60*60*1000);
 
@@ -22,7 +22,7 @@ export function computeKpis({ orders, recipes, inventory, items }: Input){
 
   // Inventario crítico
   const byItem: Record<string, number> = {};
-  for(const it of inventory){
+  for(const it of onHand){
     if(!it?.itemId) continue;
     byItem[it.itemId] = (byItem[it.itemId]||0) + (it.qty || 0);
   }
@@ -69,7 +69,7 @@ export function computeKpis({ orders, recipes, inventory, items }: Input){
       return (o.status === 'planned' || o.status === 'released') && isLate;
   }).length;
   
-  const pendingQCLots = inventory.filter(l => (l as any).quality?.qcStatus === 'hold').length;
+  const pendingQCLots = onHand.filter(l => (l as any).quality?.qcStatus === 'hold').length;
 
   return {
     counters: {

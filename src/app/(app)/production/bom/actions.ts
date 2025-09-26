@@ -61,7 +61,7 @@ export async function upsertMinimalProduct(input: unknown): Promise<ActionResult
       category: 'fg',
       createdAt: now,
       updatedAt: now,
-      uom: 'uds'
+      uom: 'unit'
     };
     await upsertMany('items', [productDoc as any]);
     revalidatePath('/production/bom');

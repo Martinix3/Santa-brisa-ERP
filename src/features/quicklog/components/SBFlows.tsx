@@ -1,4 +1,3 @@
-
 // src/features/quicklog/components/SBFlows.tsx
 "use client";
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
@@ -6,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Plus, CalendarDays, ClipboardList, UserPlus2, Briefcase, Search, Check, MapPin, Pencil, Save, MessageSquare, Zap, Mail, Phone, History, ShoppingCart, Building, CreditCard, Star, Loader2 } from "lucide-react";
 import { useData } from "@/lib/dataprovider";
 import { generateNextOrder } from '@/lib/codes';
-import type { AccountType, Account, OrderSellOut, Product, Party, SB_THEME, InteractionKind, PosTactic, PosTacticItem, PartyRole, CustomerData, PosCostCatalogEntry } from '@/domain/ssot';
+import type { AccountType, Account, OrderSellOut, Item, Party, SB_THEME, InteractionKind, PosTactic, PosTacticItem, PartyRole, CustomerData, PosCostCatalogEntry } from '@/domain/ssot';
 import { SB_COLORS } from "@/domain/ssot";
 import { TimePicker } from "@/components/ui/TimePicker";
 
@@ -30,7 +29,7 @@ function AgaveEdge(){
 export type Variant = "quick" | "editAccount" | "createAccount" | "createOrder";
 type QuickMode = "interaction" | "order";
 
-type QuickOrderPayload = { mode:"order"; accountId?:string; newAccount?: Partial<Account>; newParty?: Partial<Party>; items:{ sku:string; qty:number, lotNumber?: string }[]; note?:string; isVentaPropia: boolean; posTactic?: Partial<Omit<PosTactic, 'id' | 'items'>> & { items?: Partial<PosTacticItem>[] } };
+type QuickOrderPayload = { mode:"order"; accountId?:string; newAccount?: Partial<Account>; newParty?: Partial<Party>; items:{ itemId:string; qty:number, lotNumber?: string }[]; note?:string; isVentaPropia: boolean; posTactic?: Partial<Omit<PosTactic, 'id' | 'items'>> & { items?: Partial<PosTacticItem>[] } };
 type QuickInteractionPayload = { mode:"interaction"; accountId?:string; newAccount?: Partial<Account>; newParty?: Partial<Party>; kind:InteractionKind; note:string; nextActionNote?: string, plannedFor?:string; posTactic?: Partial<Omit<PosTactic, 'id' | 'items'>> & { items?: Partial<PosTacticItem>[] } };
 
 type EditAccountPayload = {
@@ -47,7 +46,7 @@ type EditAccountPayload = {
 
 type CreateAccountPayload = { name:string; city:string; type:AccountType; mainContactName?:string; mainContactEmail?:string };
 
-type CreateOrderPayload = { accountId?:string; newAccount?: Partial<Account>; newParty?: Partial<Party>; requestedDate?:string; deliveryDate?:string; channel:AccountType; paymentTerms?:string; shipTo?:string; note?:string; items:{ sku:string; qty:number; unit:"uds", priceUnit: number, lotNumber?: string }[] };
+type CreateOrderPayload = { accountId?:string; newAccount?: Partial<Account>; newParty?: Partial<Party>; requestedDate?:string; deliveryDate?:string; channel:AccountType; paymentTerms?:string; shipTo?:string; note?:string; items:{ itemId:string; qty:number; unit:"unit", priceUnit: number, lotNumber?: string }[] };
 
 // ===== UI Primitives =====
 function Row({children, className}:{children:React.ReactNode, className?: string}){ return <div className={`flex flex-col gap-1.5 ${className || ''}`}>{children}</div>; }
@@ -94,12 +93,12 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
   const searchAbortRef = useRef<AbortController | null>(null);
   const searchCache = useRef<Map<string, Account[]>>(new Map());
 
-  const addOrderLine = useCallback(() => { setItems(v => [...v, { sku: "SB-750", qty: 1, lotNumber: '' }]); }, []);
-  const setOrderLine = useCallback((i: number, patch: Partial<{ sku: string; qty: number; lotNumber?: string }>) => { setItems(v => v.map((it, idx) => (idx === i ? { ...it, ...patch } : it))); }, []);
+  const addOrderLine = useCallback(() => { setItems(v => [...v, { itemId: "item_1", qty: 1, lotNumber: '' }]); }, []);
+  const setOrderLine = useCallback((i: number, patch: Partial<{ itemId: string; qty: number; lotNumber?: string }>) => { setItems(v => v.map((it, idx) => (idx === i ? { ...it, ...patch } : it))); }, []);
   const removeOrderLine = useCallback((i: number) => { setItems(v => v.filter((_, idx) => idx !== i)); }, []);
   
   // quick order state
-  const [items, setItems] = useState<{sku:string; qty:number, lotNumber?: string }[]>([{sku:"SB-750", qty:1, lotNumber: ''}]);
+  const [items, setItems] = useState<{itemId:string; qty:number, lotNumber?: string }[]>([{itemId:"item_1", qty:1, lotNumber: ''}]);
   
   // quick interaction state
   const [interactionNote, setInteractionNote] = useState("");
@@ -212,7 +211,7 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
         newErrors.interactionNote = 'El resumen es obligatorio.';
     }
     if (mode === 'order') {
-        if (!items.length || items.some(it => !it.sku || it.qty <= 0)) {
+        if (!items.length || items.some(it => !it.itemId || it.qty <= 0)) {
             newErrors.items = 'Añade al menos un producto con cantidad válida.';
         }
     }
@@ -275,7 +274,7 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
     }
   };
   
-  const availableInventory = useMemo(() => (santaData?.inventory || []).filter(i => i.locationId && i.locationId.startsWith('FG/')), [santaData]);
+  const availableInventory = useMemo(() => (santaData?.onHand || []).filter(i => i.locationId && i.locationId.startsWith('FG/')), [santaData]);
 
   const posTacticSection = (
     <div className="pt-2">
@@ -316,7 +315,7 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
   const isSaveDisabled = 
       isSaving ||
       (mode === 'interaction' && !interactionNote.trim()) ||
-      (mode === 'order' && (!items.length || items.some(it => !it.sku || it.qty <= 0)));
+      (mode === 'order' && (!items.length || items.some(it => !it.itemId || it.qty <= 0)));
 
   return (
     <div className="p-4 space-y-4">
@@ -383,13 +382,13 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
           <Label htmlFor="order-items">Pedido</Label>
           <div className="border rounded-xl p-2 space-y-2">
             {items.map((it, i) => {
-              const lotsForSku = availableInventory.filter(inv => inv.sku === it.sku);
+              const lotsForSku = availableInventory.filter(inv => inv.itemId === it.itemId);
               return (
                 <div key={i} className="grid grid-cols-[2fr_1.5fr_1fr_auto] gap-2 items-center">
-                  <Select value={it.sku} onChange={e => setOrderLine(i, { sku: e.target.value })}>
+                  <Select value={it.itemId} onChange={e => setOrderLine(i, { itemId: e.target.value })}>
                     <option value="">Producto...</option>
-                    {(santaData?.products || []).filter(p => p.category === 'finished_good').map(p => (
-                      <option key={p.sku} value={p.sku}>{p.name}</option>
+                    {(santaData?.items || []).filter(p => p.category === 'fg').map(p => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
                     ))}
                   </Select>
                   <Select value={it.lotNumber || ''} onChange={e => setOrderLine(i, { lotNumber: e.target.value })}>
@@ -538,9 +537,9 @@ export function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, on
   const [channel, setChannel] = useState<CreateOrderPayload["channel"]>("HORECA");
   const [paymentTerms, setTerms] = useState("Contado");
   const [shipTo, setShipTo] = useState("");
-  const [items, setItems] = useState<CreateOrderPayload["items"]>(defaults?.items || [{sku:"SB-750", qty:1, unit:"uds", priceUnit: 12, lotNumber: ''}]);
+  const [items, setItems] = useState<CreateOrderPayload["items"]>(defaults?.items || [{itemId:"item_1", qty:1, unit:"unit", priceUnit: 12, lotNumber: ''}]);
   
-  const availableInventory = useMemo(() => (santaData?.inventory || []).filter(i => i.locationId && i.locationId.startsWith('FG/')), [santaData]);
+  const availableInventory = useMemo(() => (santaData?.onHand || []).filter(i => i.locationId && i.locationId.startsWith('FG/')), [santaData]);
   
   const handleAccountChange = (id?: string, newAccount?: Partial<Account>, newParty?: Partial<Party>) => {
     if (newAccount && newParty) {
@@ -553,10 +552,10 @@ export function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, on
   };
 
 
-  function addLine(){ setItems(v=>[...v,{sku:"", qty:1, unit:"uds", priceUnit: 0, lotNumber: ''}]); }
+  function addLine(){ setItems(v=>[...v,{itemId:"", qty:1, unit:"unit", priceUnit: 0, lotNumber: ''}]); }
   function setLine(i:number, patch:Partial<CreateOrderPayload["items"][number]>){
     const newItems = items.map((it,idx)=> idx===i? {...it,...patch}: it);
-    if(patch.sku) {
+    if(patch.itemId) {
         newItems[i].priceUnit = 0;
     }
     setItems(newItems);
@@ -564,7 +563,7 @@ export function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, on
   function removeLine(i:number){ setItems(v=> v.filter((_,idx)=> idx!==i)); }
   function submit(){ 
       if(!accountId && !newAccountData) return alert("Selecciona una cuenta"); 
-      if(items.length===0 || items.some(it=>!it.sku || it.qty<=0)) return alert("Revisa las líneas"); 
+      if(items.length===0 || items.some(it=>!it.itemId || it.qty<=0)) return alert("Revisa las líneas"); 
       
       const payload: CreateOrderPayload = {
           accountId: accountId || undefined,
@@ -600,13 +599,13 @@ export function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, on
       <div className="rounded-xl border border-zinc-200 overflow-hidden">
         <div className="px-3 py-2 text-xs uppercase tracking-wide text-zinc-500 border-b bg-zinc-50">Líneas</div>
         {items.map((it,i)=> {
-            const lotsForSku = availableInventory.filter(inv => inv.sku === it.sku);
+            const lotsForSku = availableInventory.filter(inv => inv.itemId === it.itemId);
             return (
               <div key={i} className="grid grid-cols-[2fr_1.5fr_1fr_0.5fr_1fr_1fr_40px] gap-2 items-center px-3 py-2 border-b last:border-b-0">
-                <Select value={it.sku} onChange={e => setLine(i, { sku: e.target.value })}>
+                <Select value={it.itemId} onChange={e => setLine(i, { itemId: e.target.value })}>
                     <option value="">Seleccionar producto...</option>
-                    {santaData?.products.filter(p => p.category === 'finished_good').map(p => (
-                        <option key={p.sku} value={p.sku}>{p.name}</option>
+                    {santaData?.items.filter(p => p.category === 'fg').map(p => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
                     ))}
                 </Select>
                 <Select value={it.lotNumber || ''} onChange={e => setLine(i, { lotNumber: e.target.value })}>
@@ -619,7 +618,7 @@ export function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, on
                 </Select>
                 <Input type="number" min={1} value={it.qty} onChange={e=>setLine(i,{qty: Number(e.target.value)})}/>
                 <Select value={it.unit} onChange={e=>setLine(i,{unit:e.target.value as any})}>
-                  <option value="uds">uds</option>
+                  <option value="unit">unit</option>
                 </Select>
                 <Input type="number" value={it.priceUnit} onChange={e=>setLine(i, {priceUnit: Number(e.target.value)})} placeholder="Precio Unit."/>
                 <div className="text-right font-medium pr-2">{(it.qty * it.priceUnit).toFixed(2)}€</div>

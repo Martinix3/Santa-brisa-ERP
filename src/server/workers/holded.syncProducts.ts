@@ -26,6 +26,7 @@ export async function handleSyncHoldedProducts({ page = 1, dryRun = false }: { p
       sku,
       name: it.name || sku,
       // category and uom would need to be mapped or defaulted
+      uom: 'unit',
       active: true,
       stdCost: Number(it.price || 0),
     };

@@ -1,10 +1,6 @@
 // domain/inventory.helpers.ts - Helpers de stock
 import type { OnHandView, StockMove, Uom, Item } from './ssot';
 
-/** Devuelve el SKU de un item (fallback a id si no tiene sku) */
-const getItemSku = (itemId: string, items: Item[]) =>
-  items.find(i => i.id === itemId)?.sku ?? itemId;
-
 /** Suma disponible en OnHandView[] (qty), opcionalmente por ubicación (ej. RM/MAIN) */
 export function availableForItem(
   itemId: string,

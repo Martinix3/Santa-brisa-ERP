@@ -17,12 +17,12 @@ import { SB_THEME } from "@/domain/ssot";
 
 export default function ProductionDashboardPage() {
   const { data } = useData();
-  const { billOfMaterials: recipes, items, onHand: inventory, productionOrders: orders } = data || {};
+  const { billOfMaterials: recipes, items, onHand, productionOrders: orders } = data || {};
   
   const kpis = useMemo(()=> {
-      if (!orders || !recipes || !inventory || !items) return null;
-      return computeKpis({ orders: orders as any, recipes: recipes as any, inventory: inventory as any, items });
-  }, [orders, recipes, inventory, items]);
+      if (!orders || !recipes || !onHand || !items) return null;
+      return computeKpis({ orders: orders as any, recipes: recipes as any, onHand: onHand as any, items });
+  }, [orders, recipes, onHand, items]);
 
   if (!data || !kpis) return <div className="p-6">Cargando dashboard…</div>;
 
@@ -45,7 +45,7 @@ export default function ProductionDashboardPage() {
         <div className="space-y-6">
           <ShortagesPanel shortages={kpis.currentShortages} items={items || []} />
           <InventorySnapshot critical={kpis.criticalInventory} items={items || []}/>
-          <QCPanel lots={inventory || []} />
+          <QCPanel lots={onHand || []} />
           <UpcomingTasks department="PRODUCCION" />
         </div>
       </div>
