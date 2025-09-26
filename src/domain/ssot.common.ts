@@ -202,7 +202,7 @@ export interface InfluencerCollab {
 
 export interface MaterialCost {
   id: string;
-  materialId: string;
+  itemId: string;
   currency: 'EUR';
   costPerUom: number;
   effectiveFrom: string;

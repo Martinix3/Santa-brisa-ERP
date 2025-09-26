@@ -54,7 +54,7 @@ export type StockReason =
 
 export interface StockMove {
   id: string;
-  itemId: string;       // ← SIEMPRE itemId (olvidar “sku + materialId”)
+  itemId: string;       // ← SIEMPRE itemId
   qty: number;          // signo positivo/negativo según reason
   uom: Uom;
   lotNumber?: string;   // texto; la “lote” ya no es entidad
@@ -80,6 +80,9 @@ export interface OnHandView {
   qty: number;
   uom: Uom;
   updatedAt: string;
+  createdAt: string; // Añadido para consistencia
+  quality?: { qcStatus: "hold" | "release" | "reject" }; // Añadido para consistencia
+  expDate?: string; // Añadido para consistencia
 }
 
 export interface ReservationView {
@@ -131,6 +134,8 @@ export interface ProductionOrder {
   // Operativo (opcionales)
   checks?: ExecCheck[];
   incidents?: { id: string; when: string; severity: 'BAJA'|'MEDIA'|'ALTA'; text: string }[];
+  reservations?: ReservationView[];
+  shortages?: any[]; // Placeholder
 
   // Consumos/outputs reales (pueden venir del libro o duplicar para auditoría)
   actuals?: Array<{
@@ -163,10 +168,11 @@ export interface ProductionOrder {
 
 // 4) Calidad (unifica QACheck/Lot/QCResult en un sujeto genérico)
 export type QCSubject = { kind: 'RECEIPT'|'PROCESS'|'RELEASE'|'PROD_BATCH'|'LOT'; id: string };
-
+export type QCResult = { value?: number | string | boolean; notes?: string; status: 'ok' | 'ko'; };
 export interface QACheck {
   id: string;
   subject: QCSubject;
+  lotId?: string; // Provisional para compatibilidad
   checklist?: Array<{ name: string; result: 'ok' | 'ko'; value?: number|string|boolean; notes?: string }>;
   summaryStatus: 'ok' | 'ko';
   reviewedById?: string;
@@ -175,7 +181,6 @@ export interface QACheck {
   links?: { goodsReceiptId?: string; traceEventId?: string };
   createdAt: Timestamp;
 }
-
 
 // -----------------------------------------------------------------
 // 3. Documentos Operativos (Generan `StockMove`s)
@@ -318,7 +323,7 @@ export interface Material {}
 export interface Product {}
 /** @deprecated Lot is now a string (`lotNumber`). Metadata can be stored in a separate optional collection if needed. */
 export interface Lot {}
-/** @deprecated Use `OnHandView` which is derived from `StockMove`s. */
+/** @deprecated Use `OnHandView` which is derived from `StockMove`s. This will be removed. */
 export interface InventoryItem {}
 
 

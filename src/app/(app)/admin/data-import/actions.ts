@@ -2,7 +2,7 @@
 // FILE: src/app/(app)/admin/data-import/actions.ts
 // PURPOSE: Server actions — CSV templates, preview (FK resolve), commit (upsert)
 // NOTES: Implement getServerData/upsertMany en '@/lib/dataprovider/server'
-//        Incluye: consigna y muestras, materialSku → materialId
+//        Incluye: consigna y muestras, itemSku → itemId
 // ================================================================
 
 'use server';
@@ -15,10 +15,9 @@ import {
   type Account,
   type OrderSellOut,
   type Interaction,
-  type Product,
+  type Item,
   type GoodsReceipt,
-  type Lot,
-  type Material,
+  type OnHandView,
   type Shipment,
   type User,
   type StockReason,
@@ -38,8 +37,7 @@ async function persist(coll: keyof SantaData, docs: any[]) {
 const TEMPLATE_FIELDS: Partial<Record<keyof SantaData, readonly string[]>> = {
   accounts: ['id','code','name','partyId','type','stage','ownerId','createdAt','subType','notes'],
   users: ['id','name','email','role','active','managerId'],
-  products: ['id','sku','name','category','bottleMl','caseUnits','casesPerPallet','active','materialId'],
-  materials: ['id','sku','name','category','uom','standardCost'],
+  items: ['id','sku','name','category','uom','bottleMl','caseUnits','casesPerPallet','active','stdCost'],
   ordersSellOut: ['id','docNumber','accountId','accountName','status','createdAt','currency','totalAmount','source','terms','lines','sku','qty','priceUnit'],
   interactions: ['id','accountId','accountName','userId','userEmail','dept','kind','status','createdAt','note'],
   plv_material: ['id','sku','kind','status','accountId','installedAt','photoUrl'],
@@ -47,14 +45,14 @@ const TEMPLATE_FIELDS: Partial<Record<keyof SantaData, readonly string[]>> = {
   marketingEvents: ['id','title','kind','status','startAt','endAt','accountId','kpis','links'],
   influencerCollabs: ['id','creatorId','creatorName','platform','tier','status','ownerUserId','couponCode','utmCampaign','tracking'],
   posTactics: ['id','accountId','tacticCode','actualCost','executionScore','status','createdAt','items'],
-  productionOrders: ['id','orderNumber','sku','bomId','targetQuantity','status','createdAt','execution'],
-  lots: ['id','lotCode','sku','quantity','createdAt','orderId','supplierId','quality'],
+  productionOrders: ['id','orderNumber','outputItemId','bomId','targetQuantity','status','createdAt','execution'],
+  onHand: ['id','itemId','lotNumber','qty','uom','locationId', 'quality', 'createdAt', 'updatedAt', 'expDate'],
   goodsReceipts: ['id','receiptNumber','supplierPartyId','deliveryNote','receivedAt','lines'],
   shipments: ['id','orderId','accountId','shipmentNumber','createdAt','status','isSample','samplePurpose','lines','customerName','city','postalCode','country'],
   paymentLinks: ['id','financeLinkId','amount','date','method'],
   financeLinks: ['id','docType','status','grossAmount','currency','issueDate','dueDate','partyId'],
-  stockMoves: ['id','sku','lotId','uom','qty','fromLocation','toLocation','reason','occurredAt','createdAt'],
-  materialCosts: ['id','materialId','materialSku','currency','costPerUom','effectiveFrom'],
+  stockMoves: ['id','itemId','lotNumber','uom','qty','fromLocation','toLocation','reason','occurredAt','createdAt'],
+  materialCosts: ['id','itemId','itemSku','currency','costPerUom','effectiveFrom'],
 };
 
 export async function generateCsvTemplate(coll: keyof SantaData){
@@ -69,10 +67,9 @@ type FKRegistry = {
   accountsByCode: Map<string, Account>;
   usersById: Map<string, User>;
   usersByEmail: Map<string, User>;
-  productsBySku: Map<string, Product>;
-  lotsById: Map<string, Lot>;
-  materialsById: Map<string, Material>;
-  materialsBySku: Map<string, Material>;
+  itemsBySku: Map<string, Item>;
+  onHandById: Map<string, OnHandView>;
+  itemsById: Map<string, Item>;
   ordersById: Map<string, OrderSellOut>;
 };
 function buildRegistry(data: SantaData): FKRegistry {
@@ -82,10 +79,9 @@ function buildRegistry(data: SantaData): FKRegistry {
     accountsByCode: new Map(data.accounts.filter(a=>a.code).map(a=>[String(a.code).toLowerCase(),a])),
     usersById: new Map(data.users.map(u=>[u.id,u])),
     usersByEmail: new Map(data.users.filter(u=>u.email).map(u=>[String(u.email).toLowerCase(),u])),
-    productsBySku: new Map(data.products.map(p=>[p.sku,p])),
-    lotsById: new Map(data.lots.map(l=>[l.id,l])),
-    materialsById: new Map(data.materials.map(m=>[m.id,m])),
-    materialsBySku: new Map(data.materials.filter(m=>m.sku).map(m=>[String(m.sku),m])),
+    itemsBySku: new Map(data.items.map(p=>[p.sku,p])),
+    onHandById: new Map(data.onHand.map(l=>[l.id,l])),
+    itemsById: new Map(data.items.map(m=>[m.id,m])),
     ordersById: new Map(data.ordersSellOut.map(o=>[o.id,o])),
   };
 }
@@ -107,7 +103,7 @@ async function resolveAndNormalize(coll: keyof SantaData, rows: any[], data: San
   for (const r of rows){ const row = { ...r }; for (const k of Object.keys(row)) if (typeof row[k]==='string') row[k] = row[k].trim();
 
     if (coll==='accounts'){ row.id ||= newId('ACCOUNT'); row.createdAt ||= new Date().toISOString(); out.push(row); continue; }
-    if (coll==='products'){ row.active = nBool(row.active ?? true); out.push(row); continue; }
+    if (coll==='items'){ row.active = nBool(row.active ?? true); out.push(row); continue; }
 
     if (coll==='ordersSellOut'){
       let acc: Account | undefined;
@@ -138,12 +134,12 @@ async function resolveAndNormalize(coll: keyof SantaData, rows: any[], data: San
     if (coll==='goodsReceipts'){
       const lines = Array.isArray(row.lines) ? row.lines : j(row.lines);
       if (Array.isArray(lines)){
-        row.lines = lines.map((ln:any)=> ({ materialId: reg.materialsById.get(ln.materialId)?.id ?? reg.materialsBySku.get(ln.materialSku)?.id ?? ln.materialId, sku: ln.sku, lotId: ln.lotId, qty: nNumComma(ln.qty), uom: ln.uom ?? 'uds' }));
+        row.lines = lines.map((ln:any)=> ({ itemId: reg.itemsById.get(ln.itemId)?.id ?? reg.itemsBySku.get(ln.itemSku)?.id ?? ln.itemId, sku: ln.sku, lotId: ln.lotId, qty: nNumComma(ln.qty), uom: ln.uom ?? 'uds' }));
       }
       out.push(row); continue;
     }
 
-    if (coll==='lots'){ const code = String(row.lotCode ?? row.id ?? '').trim(); if (code && !LOT_RE.test(code)) row.lotCode = code; out.push(row); continue; }
+    if (coll==='onHand'){ const code = String(row.lotNumber ?? row.id ?? '').trim(); if (code && !LOT_RE.test(code)) row.lotNumber = code; out.push(row); continue; }
 
     if (coll==='shipments'){
       const lines = Array.isArray(row.lines) ? row.lines : j(row.lines);
@@ -167,7 +163,7 @@ async function resolveAndNormalize(coll: keyof SantaData, rows: any[], data: San
     }
 
     if (coll==='materialCosts'){
-      if (row.materialSku && !row.materialId) row.materialId = reg.materialsBySku.get(row.materialSku)?.id ?? row.materialId;
+      if (row.itemSku && !row.itemId) row.itemId = reg.itemsBySku.get(row.itemSku)?.id ?? row.itemId;
       out.push(row); continue;
     }
 

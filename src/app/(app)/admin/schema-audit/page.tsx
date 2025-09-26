@@ -18,18 +18,17 @@ const ALLOWED_KEYS: Partial<Record<keyof SantaData, string[]>> = {
     ordersSellOut: ['id', 'accountId', 'lines', 'status', 'createdAt', 'currency', 'totalAmount', 'source', 'notes'],
     interactions: ['id', 'userId', 'accountId', 'kind', 'note', 'createdAt', 'status', 'plannedFor', 'resultNote', 'dept', 'involvedUserIds', 'linkedEntity'],
     shipments: ['id', 'orderId', 'accountId', 'status', 'createdAt', 'lines', 'customerName', 'city', 'carrier', 'tracking', 'labelUrl', 'holdedDeliveryId'],
-    productionOrders: ['id', 'sku', 'bomId', 'targetQuantity', 'status', 'createdAt', 'lotId', 'execution', 'costing', 'shortages', 'reservations', 'actuals', 'checks', 'incidents'],
-    lots: ['id', 'sku', 'quantity', 'createdAt', 'quality', 'expDate', 'orderId', 'supplierId', 'lotCode'],
+    productionOrders: ['id', 'outputItemId', 'bomId', 'targetQuantity', 'status', 'createdAt', 'batchCode', 'execution', 'costing', 'shortages', 'reservations', 'actuals', 'checks', 'incidents'],
+    onHand: ['id', 'itemId', 'lotNumber', 'qty', 'uom', 'locationId', 'createdAt', 'updatedAt', 'expDate', 'quality'],
     users: ['id', 'name', 'email', 'role', 'active', 'kpiBaseline'],
     parties: ['id', 'name', 'kind', 'createdAt', 'taxId', 'contacts', 'addresses', 'handles', 'tags'],
-    products: ['id', 'sku', 'name', 'category', 'active', 'bottleMl', 'caseUnits', 'casesPerPallet', 'materialId'],
-    materials: ['id', 'sku', 'name', 'category', 'uom', 'standardCost'],
+    items: ['id', 'sku', 'name', 'category', 'active', 'bottleMl', 'caseUnits', 'casesPerPallet', 'stdCost', 'uom'],
 };
 
 const ENUMS: Record<string, Set<any>> = {
     accountStage: new Set(['POTENCIAL', 'ACTIVA', 'SEGUIMIENTO', 'FALLIDA', 'CERRADA', 'BAJA']),
     orderStatus: new Set(['open', 'confirmed', 'shipped', 'invoiced', 'paid', 'cancelled', 'lost']),
-    shipmentStatus: new Set(['pending', 'picking', 'ready_to_ship', 'shipped', 'delivered', 'cancelled']),
+    shipmentStatus: new Set(['pending', 'picking', 'ready_to_ship', 'shipped', 'delivered', 'exception', 'cancelled']),
     prodStatus: new Set(['planned', 'released', 'wip', 'done', 'cancelled']),
     lotQuality: new Set(['hold', 'release', 'reject']),
     userRole: new Set(['comercial', 'admin', 'ops', 'owner']),
@@ -40,7 +39,7 @@ const ENUM_CHECKS: Partial<Record<keyof SantaData, { path: string, enum: keyof t
     ordersSellOut: [{ path: 'status', enum: 'orderStatus' }],
     shipments: [{ path: 'status', enum: 'shipmentStatus' }],
     productionOrders: [{ path: 'status', enum: 'prodStatus' }],
-    lots: [{ path: 'quality.qcStatus', enum: 'lotQuality' }],
+    onHand: [{ path: 'quality.qcStatus', enum: 'lotQuality' }],
     users: [{ path: 'role', enum: 'userRole' }],
 };
 
@@ -52,7 +51,7 @@ const KPI_TRACE: Record<string, { label: string; needs: Array<{ coll: keyof Sant
   sales_month_amount: { label: 'Importe mensual', needs: [ { coll: 'ordersSellOut', fields: ['totalAmount','createdAt','status','accountId'] } ] },
   sales_avg_ticket: { label: 'Ticket medio', needs: [ { coll: 'ordersSellOut', fields: ['totalAmount','createdAt'] } ] },
   sales_repeat_rate: { label: '% Recompra', needs: [ { coll: 'ordersSellOut', fields: ['accountId','createdAt'] } ] },
-  sales_sku_mix: { label: 'Mix por SKU', needs: [ { coll: 'ordersSellOut', fields: ['lines','createdAt'] }, { coll: 'products', fields: ['sku','name'] } ] },
+  sales_sku_mix: { label: 'Mix por SKU', needs: [ { coll: 'ordersSellOut', fields: ['lines','createdAt'] }, { coll: 'items', fields: ['sku','name'] } ] },
   sales_conversion_rate: { label: 'Conversión visita→pedido', needs: [ { coll: 'interactions', fields: ['kind','status','createdAt','accountId'] }, { coll: 'ordersSellOut', fields: ['accountId','createdAt'] } ] },
 
   // --- MARKETING ---
@@ -63,25 +62,25 @@ const KPI_TRACE: Record<string, { label: string; needs: Array<{ coll: keyof Sant
   mkt_pos_cost_per_account: { label: 'Coste POS por cuenta', needs: [ { coll: 'posTactics', fields: ['accountId','actualCost','createdAt'] } ] },
 
   // --- PRODUCCIÓN ---
-  prod_yield: { label: 'Rendimiento de producción (%)', needs: [ { coll: 'productionOrders', fields: ['targetQuantity','execution.goodBottles'] } ] },
-  prod_variance_cost: { label: 'Varianza de coste', needs: [ { coll: 'productionOrders', fields: ['costing.actual.total','costing.stdCostPerUom','execution.goodBottles'] } ] },
-  prod_oee_simplified: { label: 'OEE (simple)', needs: [ { coll: 'productionOrders', fields: ['execution.durationHours','execution.goodBottles','targetQuantity'] } ] },
-  prod_bom_compliance: { label: 'Cumplimiento BOM', needs: [ { coll: 'billOfMaterials', fields: ['items','batchSize'] }, { coll: 'productionOrders', fields: ['actuals','sku','bomId'] } ] },
+  prod_yield: { label: 'Rendimiento de producción (%)', needs: [ { coll: 'productionOrders', fields: ['targetQuantity','execution.goodUnits'] } ] },
+  prod_variance_cost: { label: 'Varianza de coste', needs: [ { coll: 'productionOrders', fields: ['costing.actual.total','costing.stdCostPerUom','execution.goodUnits'] } ] },
+  prod_oee_simplified: { label: 'OEE (simple)', needs: [ { coll: 'productionOrders', fields: ['execution.durationHours','execution.goodUnits','targetQuantity'] } ] },
+  prod_bom_compliance: { label: 'Cumplimiento BOM', needs: [ { coll: 'billOfMaterials', fields: ['items','batchSize'] }, { coll: 'productionOrders', fields: ['actuals','outputItemId','bomId'] } ] },
 
   // --- CALIDAD / TRAZABILIDAD ---
-  qa_hold_ratio: { label: '% Lotes en HOLD', needs: [ { coll: 'lots', fields: ['quality.qcStatus','createdAt'] } ] },
+  qa_hold_ratio: { label: '% Lotes en HOLD', needs: [ { coll: 'onHand', fields: ['quality.qcStatus','createdAt'] } ] },
   qa_incidents_rate: { label: 'Incidencias / mes', needs: [ { coll: 'incidents', fields: ['kind','openedAt','status'] } ] },
-  trace_lot_genealogy: { label: 'Genealogía de lotes (cobertura)', needs: [ { coll: 'traceEvents', fields: ['subject','links','phase','kind','occurredAt'] }, { coll: 'lots', fields: ['id','sku'] } ] },
+  trace_lot_genealogy: { label: 'Genealogía de lotes (cobertura)', needs: [ { coll: 'traceEvents', fields: ['subject','links','phase','kind','occurredAt'] }, { coll: 'onHand', fields: ['id','itemId'] } ] },
 
   // --- LOGÍSTICA / ALMACÉN ---
-  wh_stock_turnover: { label: 'Stock Turnover', needs: [ { coll: 'stockMoves', fields: ['sku','qty','reason','occurredAt'] }, { coll: 'inventory', fields: ['sku','qty','updatedAt'] } ] },
+  wh_stock_turnover: { label: 'Stock Turnover', needs: [ { coll: 'stockMoves', fields: ['itemId','qty','reason','occurredAt'] }, { coll: 'onHand', fields: ['itemId','qty','updatedAt'] } ] },
   wh_lot_allocation_rate: { label: 'Pedidos con lote asignado (%)', needs: [ { coll: 'ordersSellOut', fields: ['lines'] } ] },
   wh_otif: { label: 'OTIF (On Time In Full)', needs: [ { coll: 'shipments', fields: ['createdAt','status','orderId'] }, { coll: 'ordersSellOut', fields: ['createdAt','id'] } ] },
 
   // --- FINANZAS ---
   fin_cash_collected: { label: 'Cobros del mes', needs: [ { coll: 'paymentLinks', fields: ['amount','date'] } ] },
   fin_dso: { label: 'DSO (Days Sales Outstanding)', needs: [ { coll: 'financeLinks', fields: ['docType','issueDate','dueDate','status','grossAmount','currency','partyId'] } ] },
-  fin_cogs_per_sku: { label: 'COGS por SKU', needs: [ { coll: 'materialCosts', fields: ['materialId','costPerUom','effectiveFrom'] }, { coll: 'products', fields: ['materialId','sku'] } ] },
+  fin_cogs_per_sku: { label: 'COGS por SKU', needs: [ { coll: 'materialCosts', fields: ['itemId','costPerUom','effectiveFrom'] }, { coll: 'items', fields: ['id','sku'] } ] },
 };
 
 
@@ -92,13 +91,11 @@ const REQUIRED_KEYS: Partial<Record<keyof SantaData, readonly string[]>> = {
   accounts: ['id','partyId','name','type','stage','ownerId','createdAt'],
   ordersSellOut: ['id','accountId','status','createdAt','currency'],
   interactions: ['id','userId','kind','status','createdAt'],
-  products: ['id','sku','name','active'],
-  materials: ['id','sku','name','category'],
-  billOfMaterials: ['id','sku','items','batchSize'],
-  productionOrders: ['id','sku','bomId','targetQuantity','status','createdAt'],
-  lots: ['id','sku','quantity','quality.qcStatus','createdAt'],
-  inventory: ['id','sku','qty','uom','locationId','updatedAt'],
-  stockMoves: ['id','sku','qty','uom','reason','occurredAt','createdAt'],
+  items: ['id','sku','name','category', 'uom', 'active'],
+  billOfMaterials: ['id','outputItemId','items','batchSize', 'baseUnit'],
+  productionOrders: ['id','outputItemId','bomId','targetQuantity','status','createdAt'],
+  onHand: ['id','itemId','qty','uom','locationId','updatedAt'],
+  stockMoves: ['id','itemId','qty','uom','reason','occurredAt','createdAt'],
   shipments: ['id','orderId','accountId','status','createdAt','lines'],
   goodsReceipts: ['id','supplierPartyId','receivedAt','lines','status'],
   financeLinks: ['id','docType','status','grossAmount','currency','issueDate'],
@@ -132,16 +129,16 @@ function buildIndexes(data: SantaData | null){
   const idx = {
     account: new Set<string>(),
     lot: new Set<string>(),
-    productSku: new Set<string>(),
-    materialId: new Set<string>(),
+    itemSku: new Set<string>(),
+    itemId: new Set<string>(),
     bomId: new Set<string>(),
     orderId: new Set<string>(),
   };
   if (!data) return idx;
   for (const a of data.accounts ?? []) idx.account.add(a.id);
-  for (const l of data.lots ?? []) idx.lot.add(l.id);
-  for (const p of data.products ?? []) idx.productSku.add(p.sku);
-  for (const m of data.materials ?? []) idx.materialId.add(m.id);
+  for (const l of data.onHand ?? []) if(l.lotNumber) idx.lot.add(l.lotNumber);
+  for (const p of data.items ?? []) idx.itemSku.add(p.sku);
+  for (const m of data.items ?? []) idx.itemId.add(m.id);
   for (const b of data.billOfMaterials ?? []) idx.bomId.add(b.id);
   for (const o of data.ordersSellOut ?? []) idx.orderId.add(o.id);
   return idx;
@@ -173,9 +170,9 @@ function auditDocument(coll: keyof SantaData, doc: any, idx: ReturnType<typeof b
     }
   }
 
-  if (coll==='lots'){
-    if (doc?.lotCode && !new RegExp(CODE_POLICIES.LOT.regex).test(doc.lotCode)){
-      v.push({ collection: coll, id, kind:'FORMAT', at:'lotCode', value:doc.lotCode, expected:CODE_POLICIES.LOT.regex, sev:'FORMAT' });
+  if (coll==='onHand'){
+    if (doc?.lotNumber && !new RegExp(CODE_POLICIES.LOT.regex).test(doc.lotNumber)){
+      v.push({ collection: coll, id, kind:'FORMAT', at:'lotNumber', value:doc.lotNumber, expected:CODE_POLICIES.LOT.regex, sev:'FORMAT' });
     }
   }
 
@@ -191,7 +188,7 @@ function auditDocument(coll: keyof SantaData, doc: any, idx: ReturnType<typeof b
       v.push({ collection: coll, id, kind:'REF', at:'accountId', value:doc.accountId, sev:'REF' });
     }
     for (const ln of (doc?.lines ?? [])){
-      if (ln?.sku && !idx.productSku.has(ln.sku)) v.push({ collection: coll, id, kind:'REF', at:'lines[].sku', value:ln.sku, sev:'REF' });
+      if (ln?.sku && !idx.itemSku.has(ln.sku)) v.push({ collection: coll, id, kind:'REF', at:'lines[].sku', value:ln.sku, sev:'REF' });
       for (const lid of (ln?.lotIds ?? [])){
         if (!idx.lot.has(lid)) v.push({ collection: coll, id, kind:'REF', at:'lines[].lotIds[]', value:lid, sev:'REF' });
       }
@@ -210,15 +207,13 @@ function auditDocument(coll: keyof SantaData, doc: any, idx: ReturnType<typeof b
 
   if (coll==='productionOrders'){
     if (doc?.bomId && !idx.bomId.has(doc.bomId)) v.push({ collection: coll, id, kind:'REF', at:'bomId', value:doc.bomId, sev:'REF' });
-    // sku debe existir en products
-    if (doc?.sku && !idx.productSku.has(doc.sku)) v.push({ collection: coll, id, kind:'REF', at:'sku', value:doc.sku, sev:'REF' });
-    if (doc?.lotId && !idx.lot.has(doc.lotId)) v.push({ collection: coll, id, kind:'REF', at:'lotId', value:doc.lotId, sev:'REF' });
+    if (doc?.outputItemId && !idx.itemId.has(doc.outputItemId)) v.push({ collection: coll, id, kind:'REF', at:'outputItemId', value:doc.outputItemId, sev:'REF' });
   }
 
   if (coll==='goodsReceipts'){
     for (const ln of (doc?.lines ?? [])){
-      if (ln?.materialId && !idx.materialId.has(ln.materialId)){
-        v.push({ collection: coll, id, kind:'REF', at:'lines[].materialId', value:ln.materialId, sev:'REF' });
+      if (ln?.itemId && !idx.itemId.has(ln.itemId)){
+        v.push({ collection: coll, id, kind:'REF', at:'lines[].itemId', value:ln.itemId, sev:'REF' });
       }
     }
   }

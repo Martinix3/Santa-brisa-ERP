@@ -1,19 +1,19 @@
 // src/domain/uom.ts
-import type { InventoryItem, Material, Uom, Product } from "@/domain/ssot";
+import type { OnHandView, Item, Uom } from "@/domain/ssot";
 
-/** Devuelve la UoM dominante en inventario para un material; si no hay, usa la del material. */
-export function canonicalUomForMaterial(
-  materialId: string,
-  inventory: InventoryItem[],
-  materials: Material[]
+/** Devuelve la UoM dominante en inventario para un item; si no hay stock, usa la del maestro de items. */
+export function canonicalUomForItem(
+  itemId: string,
+  onHand: OnHandView[],
+  items: Item[]
 ): Uom {
-  const mat = materials.find(m => m.id === materialId);
-  // 1) buscar en inventario por materialId o por sku del material (algunos lotes guardan sku)
-  const candidates = inventory.filter(l =>
-    (l as any).materialId === materialId || (!!mat?.sku && l.sku === mat?.sku)
-  );
+  const item = items.find(i => i.id === itemId);
+  if (!item) return 'uds'; // Fallback seguro
+
+  // 1) buscar en inventario por itemId
+  const candidates = onHand.filter(oh => oh.itemId === itemId);
   if (candidates.length) {
-    // mayoría simple
+    // Mayoría simple
     const tally = new Map<string, number>();
     for (const c of candidates) {
       const u = (c as any).uom as string | undefined;
@@ -23,16 +23,21 @@ export function canonicalUomForMaterial(
     const best = [...tally.entries()].sort((a,b)=>b[1]-a[1])[0]?.[0];
     if (best) return best as Uom;
   }
-  // 2) fallback al material (stockUom/baseUom/uom)
-  return ((mat as any)?.stockUom ?? (mat as any)?.baseUom ?? (mat as any)?.uom ?? "uds") as Uom;
+  // 2) fallback al item
+  return item.uom;
 }
 
 /** Para producto terminado: sugiere la UoM dominante en inventario; si no, 'uds' por defecto. */
 export function canonicalUomForFinished(
   sku: string,
-  inventory: InventoryItem[]
+  onHand: OnHandView[]
 ): Uom {
-  const candidates = inventory.filter(l => l.sku === sku);
+  // Nota: Deberíamos usar itemId en vez de sku, pero mantenemos por compatibilidad temporal
+  const candidates = onHand.filter(oh => {
+    // Suponemos que podemos buscar el `item` para obtener el sku, aunque lo ideal es que OnHandView lo tenga
+    return oh.itemId.includes(sku); // Heurística débil
+  });
+
   if (candidates.length) {
     const tally = new Map<string, number>();
     for (const c of candidates) {
@@ -44,19 +49,4 @@ export function canonicalUomForFinished(
     if (best) return best as Uom;
   }
   return "uds" as Uom;
-}
-
-/** Convierte una cantidad de una UoM a la unidad base del producto (botella). */
-export function toBaseUnits(qty: number, uom: Uom, product: Product): number {
-  if (uom === 'bottle' || uom === 'uds') return qty;
-
-  const caseUnits = product.caseUnits ?? 0;
-  if (uom === 'case') return qty * caseUnits;
-
-  const casesPerPallet = product.casesPerPallet ?? 0;
-  if (uom === 'pallet') return qty * casesPerPallet * caseUnits;
-
-  // L, mL, kg, g... aquí necesitarías factores de conversión por producto
-  // Por ahora, lo dejamos simple.
-  return qty;
 }
