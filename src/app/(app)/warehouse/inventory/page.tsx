@@ -1,7 +1,7 @@
 // src/app/(app)/warehouse/inventory/page.tsx
 
 "use client";
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useTransition } from 'react';
 import { Truck, PackageCheck, AlertCircle, ChevronDown, Printer, FileText, Plus, Download, MoreVertical, Package, Tag, Calendar, CheckCircle, XCircle, Hourglass } from "lucide-react";
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
 import { SBCard, Input, Select, DataTableSB } from '@/components/ui/ui-primitives';
@@ -9,6 +9,7 @@ import Link from 'next/link';
 
 import type { OnHandView, Item, ItemCategory, SB_THEME } from '@/domain/ssot';
 import { useData } from '@/lib/dataprovider';
+import { rebuildOnHand } from './actions';
 
 function LotQualityStatusPill({ status }: { status?: 'hold' | 'release' | 'reject' }) {
   const map: Record<string, string> = {
@@ -72,6 +73,7 @@ export default function InventoryPage() {
     const { data: santaData } = useData();
     const [activeTab, setActiveTab] = useState<ItemCategory>('fg');
     const [loading, setLoading] = useState(true);
+    const [pending, startTransition] = useTransition();
 
     const onHand = useMemo(() => {
         if (!santaData?.onHand) return [];
@@ -134,6 +136,13 @@ export default function InventoryPage() {
             <div className="flex justify-between items-center">
                 <h1 className="text-2xl font-semibold text-zinc-800">Inventario</h1>
                 <div className="flex gap-2">
+                    <button
+                        onClick={() => startTransition(async () => { await rebuildOnHand(); })}
+                        className="flex items-center gap-2 text-sm bg-white border border-zinc-200 rounded-md px-3 py-1.5 hover:bg-zinc-50"
+                        disabled={pending}
+                    >
+                        {pending ? 'Recalculando...' : 'Recalcular on-hand'}
+                    </button>
                     <button className="flex items-center gap-2 text-sm bg-white border border-zinc-200 rounded-md px-3 py-1.5 outline-none hover:bg-zinc-50 focus:ring-2 focus:ring-cyan-400">
                         <Download size={14} /> Exportar
                     </button>
