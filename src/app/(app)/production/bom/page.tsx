@@ -36,10 +36,11 @@ function RecipeForm({
   const fm = useBomForm(initialValues);
   const { push } = useToaster();
   
-  const addLine = (role: 'FORMULA' | 'PACKAGING') => {
+  const addLine = (role: 'FORMULA' | 'PACKAGING' = 'FORMULA') => {
     const newItems = [...(fm.values.items || []), { materialId: "", quantity: 0, unit: "uds", role }];
     fm.set("items", newItems);
   };
+
   const removeLine = (i: number) => {
     const newItems = (fm.values.items || []).filter((_: any, idx: number) => idx !== i);
     fm.set("items", newItems);
@@ -61,6 +62,8 @@ function RecipeForm({
       setTimeout(() => focusFirstError(res.fieldErrors), 0);
     }
   }
+
+  const uomOptions: Uom[] = ['uds', 'kg', 'g', 'L', 'mL', 'bottle', 'case', 'pallet'];
 
   return (
     <SBCard title={fm.values.id ? `Editando: ${fm.values.name}` : "Nueva Receta"} accent={SB_COLORS.primary.teal}>
@@ -86,24 +89,40 @@ function RecipeForm({
           <h4 className="font-semibold text-zinc-700">Líneas de la receta</h4>
           {fm.fieldErrors?.items && <Banner kind="warn" text={fm.fieldErrors.items} />}
           {(fm.values.items || []).map((line: BomLine, i: number) => (
-             <div key={i} className="grid grid-cols-[2fr_1fr_auto] gap-2 items-end p-2 border rounded-md">
+             <div key={i} className="grid grid-cols-[2fr_1fr_1fr_auto] gap-2 items-end p-2 border rounded-md">
                 <Field label="Material" name={`items[${i}].materialId`} required error={fm.fieldErrors?.[`items.${i}.materialId`]}>
-                     <input className="w-full h-10 px-3 rounded-lg border" value={line.materialId} onChange={e => fm.set(`items[${i}].materialId`, e.target.value)} />
+                     <select className="w-full h-10 px-3 rounded-lg border" value={line.materialId} onChange={e => fm.set(`items[${i}].materialId`, e.target.value)}>
+                        <option value="">Selecciona material</option>
+                        {materials.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                     </select>
                 </Field>
                  <Field label="Cantidad" name={`items[${i}].quantity`} required error={fm.fieldErrors?.[`items.${i}.quantity`]}>
                     <input type="number" className="w-full h-10 px-3 rounded-lg border" value={line.quantity} onChange={e => fm.set(`items[${i}].quantity`, Number(e.target.value))} />
                  </Field>
+                 <Field label="UoM" name={`items[${i}].unit`}>
+                    <select className="w-full h-10 px-3 rounded-lg border" value={line.unit || ""} onChange={e => fm.set(`items[${i}].unit`, e.target.value)}>
+                        <option value="">—</option>
+                        {uomOptions.map(uom => <option key={uom} value={uom}>{uom}</option>)}
+                    </select>
+                 </Field>
                  <button onClick={() => removeLine(i)} className="h-10 px-2 border bg-white hover:bg-red-50 text-red-600 rounded-lg"><Trash2 size={16}/></button>
              </div>
           ))}
-          <button onClick={() => addLine("FORMULA")} className="px-3 py-1.5 text-sm border bg-white rounded-lg">
+          <button onClick={() => addLine()} className="px-3 py-1.5 text-sm border bg-white rounded-lg">
             <Plus size={14} className="inline mr-1" /> Añadir línea
           </button>
         </div>
       </div>
       <div className="p-4 bg-zinc-50 border-t flex justify-end gap-2">
         <button type="button" onClick={onCancel} className="px-3 py-1.5 rounded-lg border border-zinc-300 bg-white">Cancelar</button>
-        <SpinnerButton loading={fm.saving} onClick={handleSave} className="bg-zinc-900 text-white">Guardar</SpinnerButton>
+        <SpinnerButton 
+          loading={fm.saving} 
+          onClick={handleSave} 
+          className="bg-zinc-900 text-white"
+          disabled={!fm.dirty || fm.saving}
+        >
+          Guardar
+        </SpinnerButton>
       </div>
     </SBCard>
   );
