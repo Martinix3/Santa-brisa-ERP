@@ -1,5 +1,4 @@
 
-
 import type { SantaData } from '@/domain/ssot';
 
 export const INITIAL_MOCK_DATA: SantaData = {
@@ -107,12 +106,121 @@ export const INITIAL_MOCK_DATA: SantaData = {
     { id: '240801-SB-750-01', sku: 'SB-750', createdAt: '2024-08-01T10:00:00Z', quantity: 100, quality: { qcStatus: 'release', results: {} }, lotCode: '240801-SB-750-01' },
   ],
   inventory: [
-    { id: 'inv_1', sku: 'SB-750', lotNumber: '230215-SB-750-01', uom: 'uds', qty: 150, locationId: 'FG/MAIN', updatedAt: '2023-02-15T09:00:00Z' },
-    { id: 'inv_2', sku: 'RM-AGAVE-MV', lotNumber: '230105-RM-AGAVE-01', uom: 'kg', qty: 500, locationId: 'RM/MAIN', updatedAt: '2023-01-05T10:00:00Z' },
-    { id: 'inv_3', sku: 'RM-LEMON-UI', lotNumber: '230105-RM-LEMON-01', uom: 'L', qty: 1000, locationId: 'RM/MAIN', updatedAt: '2023-01-05T10:00:00Z' },
-    { id: 'inv_4', sku: 'PKG-BOTTLE-PILOT', uom: 'uds', qty: 2000, locationId: 'PKG/MAIN', updatedAt: '2023-01-01T10:00:00Z' },
-    { id: 'inv_5', sku: 'SB-750', lotNumber: '230520-SB-750-01', uom: 'uds', qty: 300, locationId: 'QC/AREA', updatedAt: '2023-05-20T10:00:00Z' },
-    { id: 'inv_6', sku: 'SB-750', lotNumber: '240801-SB-750-01', uom: 'uds', qty: 100, locationId: 'FG/MAIN', updatedAt: '2024-08-01T10:00:00Z' },
+    {
+      id: "inv_fg_001",
+      sku: "SB-MARG-700",
+      category: "finished_good",
+      qty: 1200,
+      uom: "uds",
+      lotNumber: "L250901-SB-MARG-700-A",
+      createdAt: "2025-09-01T10:00:00Z",
+      expDate: "2026-09-01T00:00:00Z",
+      quality: { qcStatus: "release" },
+      locationId: "FG/MAIN",
+      source: {
+        type: "PRODUCTION_ORDER",
+        id: "po_001",
+      }
+    },
+    {
+      id: "inv_raw_001",
+      sku: "RM-AGAVE-JUICE",
+      materialId: "mat_agave",
+      category: "raw",
+      qty: 1500,
+      uom: "L",
+      lotNumber: "L-AGAVE-2508-B",
+      createdAt: "2025-08-25T09:00:00Z",
+      expDate: "2025-12-01T00:00:00Z",
+      quality: { qcStatus: "release" },
+      locationId: "RM/MAIN",
+      source: {
+        type: "PURCHASE_ORDER",
+        id: "po_sup_001"
+      }
+    },
+    {
+      id: "inv_raw_002",
+      sku: "RM-SUGAR",
+      materialId: "mat_sugar",
+      category: "raw",
+      qty: 800,
+      uom: "kg",
+      lotNumber: "L-SUGAR-2507-A",
+      createdAt: "2025-07-15T12:00:00Z",
+      expDate: "2026-07-15T00:00:00Z",
+      quality: { qcStatus: "release" },
+      locationId: "RM/MAIN",
+      source: {
+        type: "PURCHASE_ORDER",
+        id: "po_sup_002"
+      }
+    },
+    {
+      id: "inv_raw_003",
+      sku: "RM-LIME-JUICE",
+      materialId: "mat_lime",
+      category: "raw",
+      qty: 200,
+      uom: "L",
+      lotNumber: "L-LIME-2509-C",
+      createdAt: "2025-09-15T08:00:00Z",
+      expDate: "2025-10-15T00:00:00Z",
+      quality: { qcStatus: "reject" },
+      locationId: "RM/QA",
+      source: {
+        type: "PURCHASE_ORDER",
+        id: "po_sup_003"
+      }
+    },
+    {
+      id: "inv_pack_001",
+      sku: "PKG-BOTTLE-700ML",
+      materialId: "mat_bottle_700",
+      category: "packaging",
+      qty: 5000,
+      uom: "uds",
+      lotNumber: "L-BOTTLE-2506",
+      createdAt: "2025-06-20T10:00:00Z",
+      quality: { qcStatus: "release" },
+      locationId: "PKG/MAIN",
+      source: {
+        type: "PURCHASE_ORDER",
+        id: "po_sup_004"
+      }
+    },
+    {
+      id: "inv_int_001",
+      sku: "INT-BASE-TEQUILA",
+      materialId: "mat_base_tequila",
+      category: "intermediate",
+      qty: 300,
+      uom: "L",
+      lotNumber: "L-TEQ-BASE-2508-A",
+      createdAt: "2025-08-10T13:00:00Z",
+      quality: { qcStatus: "hold" },
+      locationId: "INT/QA",
+      source: {
+        type: "PRODUCTION_ORDER",
+        id: "po_003",
+      }
+    },
+    {
+      id: "inv_merch_001",
+      sku: "MERCH-ICE-BUCKET",
+      materialId: "mat_bucket",
+      category: "merchandising",
+      qty: 50,
+      uom: "uds",
+      lotNumber: "L-MERCH-2505-A",
+      createdAt: "2025-05-20T10:00:00Z",
+      quality: { qcStatus: "release" },
+      locationId: "MERCH/MAIN",
+      source: {
+        type: "ADJUSTMENT",
+        reason: "Marketing stock inicial"
+      }
+    }
   ],
   stockMoves: [],
   productionOrders: [
