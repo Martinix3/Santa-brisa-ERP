@@ -179,7 +179,6 @@ const ManualAdjustmentDialog = ({ open, onClose, onSave }: { open: boolean; onCl
                     </div>
                 </div>
             </SBDialogContent>
-        </SBDialog>
     )
 }
 
@@ -299,7 +298,7 @@ export default function InventoryPage() {
                     <button 
                         onClick={() => setIsAdjustmentDialogOpen(true)}
                         className="flex items-center gap-2 text-sm bg-cyan-600 text-white rounded-md px-3 py-1.5 outline-none hover:bg-cyan-700 focus:ring-2 focus:ring-cyan-400">
-                        <Plus size={14} className="sb-icon" /> Ajuste Manual
+                        <Plus size={14} className="sb-icon" /> Añadir Entrada de Stock
                     </button>
                 </div>
             </div>
