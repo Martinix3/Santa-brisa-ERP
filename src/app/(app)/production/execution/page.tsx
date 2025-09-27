@@ -34,15 +34,15 @@ type ProductionOrder = any; // Usa tu tipo real si lo tienes exportado desde el 
 
 // ===== Tablero de planificación en vivo =====
 function PlanningBoard({ bom, onPlanned }: { bom: any; onPlanned: (id: string) => void }) {
-  const [qty, setQty] = useState<number>(0);
-  const [date, setDate] = useState<string>("");
+  const [qty, setQty] = React.useState<number>(0);
+  const [date, setDate] = React.useState<string>("");
   const [preview, setPreview] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(false);
   const [creating, setCreating] = useState(false);
 
   // --- helpers de componentes del BOM ---
   const baseComponents = React.useMemo(() => {
-    const raw = bom?.components ?? bom?.lines ?? bom?.materials ?? bom?.items ?? [];
+    const raw = bom?.components ?? bom?.lines ?? bom?.materials ?? [];
     // Normaliza a { itemId, qty, uom, role }
     return (raw as any[]).map((c) => ({
       itemId: c.itemId ?? c.componentId ?? c.item ?? c.sku ?? "—",
@@ -59,18 +59,16 @@ function PlanningBoard({ bom, onPlanned }: { bom: any; onPlanned: (id: string) =
       // Aunque no haya qty, seguimos mostrando fórmula base
       return;
     }
-    let active = true;
+    let alive = true;
     setLoading(true);
     previewPlanning({ bomId: bom.id, plannedQty: qty })
       .then((res) => {
-        if (!active) return;
-        if (res.ok) setPreview(res.data);
+        if (!alive) return;
+        if (res?.ok) setPreview(res.data);
         else setPreview(null);
       })
-      .finally(() => active && setLoading(false));
-    return () => {
-      active = false;
-    };
+      .finally(() => alive && setLoading(false));
+    return () => { alive = false; };
   }, [bom?.id, qty, date]);
 
   async function handlePlan() {
@@ -111,7 +109,7 @@ function PlanningBoard({ bom, onPlanned }: { bom: any; onPlanned: (id: string) =
         {/* Controles básicos */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div>
-            <label className="block text-sm mb-1">Cantidad a producir</label>
+            <label className="block text-sm mb-1">Cantidad a producir ({bom.baseUnit ?? "UoM"})</label>
             <input
               type="number"
               min={1}
@@ -197,7 +195,6 @@ function PlanningBoard({ bom, onPlanned }: { bom: any; onPlanned: (id: string) =
           </div>
         )}
 
-
         {/* Botón principal */}
         <SpinnerButton
           loading={creating}
@@ -210,6 +207,7 @@ function PlanningBoard({ bom, onPlanned }: { bom: any; onPlanned: (id: string) =
     </SBCard>
   );
 }
+
 
 // ===== Helpers visuales reutilizables =====
 function SectionCard({ title, hint, badge, children }: { title: string; hint?: string; badge?: string; children: React.ReactNode }) {
