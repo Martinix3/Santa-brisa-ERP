@@ -1,3 +1,5 @@
+"// smoke-test: si ves este comentario, el git apply funciona"
+
 "use client";
 
 import React, { useMemo, useState, useCallback, useEffect, useTransition } from "react";
