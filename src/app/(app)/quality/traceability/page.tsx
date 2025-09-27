@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import type {
   Lot, LotNumber, StockMove, LotGenealogyEdge, ProductionOrder,
-  QcTest, QcBatchResult, Inspection, GoodsReceipt, Shipment, Item, ProtocolAcknowledgement, Incident
+  QcTest, QcBatchResult, Inspection, GoodsReceipt, Shipment, Item, ProtocolAcknowledgement, Incident, QcPoint
 } from "@/domain/ssot";
 
 /* =========================
@@ -48,7 +48,7 @@ type TraceEvent = {
   details?: string;
   refs?: Array<{ type: RefType; id: string }>;
   qty?: number; uom?: string; locationFrom?: string; locationTo?: string;
-  qc?: { point?: "PRE_PROD"|"IPQC"|"FINAL_QC"; status?: string; decision?: string };
+  qc?: { point?: QcPoint; status?: string; decision?: string };
   severity?: "LOW"|"MEDIUM"|"HIGH"|"CRITICAL";
 };
 
@@ -104,7 +104,7 @@ function normalizeEvents(params: {
 
   const includeLot = (ln?: string) => !lotNumbers || (ln && lotNumbers.has(ln));
 
-  const itemUom = (itemId?: string) => items.find(i => i.id === itemId)?.uom ?? "";
+  const itemUom = (itemId?: string) => items.find(i => i.id === itemId)?.uom;
 
   const evs: TraceEvent[] = [];
 
@@ -603,3 +603,4 @@ export default function TraceabilityPage() {
     </div>
   );
 }
+```
