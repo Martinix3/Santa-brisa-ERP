@@ -26,6 +26,7 @@ import {
   addIncident,
   setCalculatorInput,
   closeProduction,
+  previewPlanning,          // ⬅️ volvemos a usar previsualización en el tablero
 } from "../actions";
 
 // ===== Tipos locales mínimos (alineados a actions.ts) =====
@@ -54,79 +55,48 @@ function Row({ children, className = "" }: { children: React.ReactNode; classNam
 }
 
 // ======================================================
-// Cards de producto (grid)
+// Lista compacta de productos
 // ======================================================
-function ProductCard({ product, onClick }: { product: Item; onClick: () => void }) {
-  const badge =
-    product.category === "fg"
-      ? "Producto final"
-      : product.category === "intermediate"
-      ? "Intermedio"
-      : product.category === "pack"
-      ? "Packaging"
-      : "Materia prima";
+function ProductRow({ product, onClick }: { product: Item; onClick: () => void }) {
+  const badge = product.category === "fg" ? "Producto final" :
+                product.category === "intermediate" ? "Intermedio" :
+                product.category === "pack" ? "Packaging" : "Materia prima";
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="group relative flex flex-col items-start w-full rounded-xl border bg-white hover:bg-zinc-50 transition-colors overflow-hidden"
-      title={product.name}
-    >
-      <div className="w-full aspect-[4/3] bg-zinc-100 overflow-hidden">
-        {product.imageUrl ? (
-          <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
-        ) : (
-          <div className="w-full h-full grid place-items-center text-zinc-400">Sin foto</div>
-        )}
+    <li className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg border bg-white hover:bg-zinc-50">
+      <div className="min-w-0">
+        <p className="font-medium truncate">{product.name}</p>
+        <span className="text-[11px] px-2 py-0.5 rounded-full border bg-white text-zinc-600">{badge}</span>
       </div>
-      <div className="w-full p-3">
-        <div className="flex items-center justify-between gap-2">
-          <p className="font-medium text-left line-clamp-2">{product.name}</p>
-          <span className="text-[11px] px-2 py-0.5 rounded-full border bg-white text-zinc-600 shrink-0">{badge}</span>
-        </div>
-      </div>
-    </button>
+      <button onClick={onClick} className="px-3 h-8 rounded-lg border bg-zinc-50 hover:bg-zinc-100 text-sm">Añadir al tablero</button>
+    </li>
   );
 }
 
 // ======================================================
-// Diálogo de acción: Producir intermedio / Envasar final
+// Diálogo: solo elegir acción → añade al tablero (no pide cantidad)
 // ======================================================
 function ProductActionDialog({
   product,
   onClose,
-  onCreated,
+  onAddDraft,
 }: {
   product: Item | null;
   onClose: () => void;
-  onCreated: (newId: string) => void;
+  onAddDraft: (payload: { product: Item; mode: "produce" | "pack" }) => void;
 }) {
-  const [qty, setQty] = useState<number>(1);
-  const [pending, startTransition] = useTransition();
   if (!product) return null;
   const canProduce = !!product.bomProduccionId;
   const canPack = !!product.bomEnvasadoId;
-  const run = (mode: "produce" | "pack") =>
-    startTransition(async () => {
-      const bomId = mode === "produce" ? product.bomProduccionId : product.bomEnvasadoId;
-      if (!bomId) { toast.error("Este producto no tiene BOM configurado para esa acción."); return; }
-      if (qty <= 0) { toast.error("Cantidad debe ser > 0"); return; }
-      const res = await planProduction({ bomId, plannedQty: qty });
-      if (res.ok) { toast.success("Orden planificada"); onCreated(res.data.id); onClose(); }
-      else { toast.error(res.message ?? "No se pudo planificar"); }
-    });
   return (
     <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 grid place-items-center p-4 bg-black/20" onClick={onClose}>
       <div className="w-full max-w-md rounded-2xl border bg-white shadow-xl p-4" onClick={(e) => e.stopPropagation()}>
         <h3 className="text-lg font-semibold">¿Qué quieres hacer con {product.name}?</h3>
-        <p className="text-sm text-zinc-600 mt-1">Elige la acción y cantidad para crear una nueva orden.</p>
-        <div className="mt-4">
-          <label className="block text-sm mb-1">Cantidad</label>
-          <input type="number" min={1} value={qty} onChange={(e) => setQty(Number(e.target.value))} className="w-32 h-10 px-3 rounded-lg border" />
-        </div>
+        <p className="text-sm text-zinc-600 mt-1">Selecciona la acción. La cantidad y la fecha se definen en el tablero.</p>
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <SpinnerButton disabled={!canProduce} loading={pending} onClick={() => run("produce")} className={`sb-btn-primary ${!canProduce ? "opacity-50 cursor-not-allowed" : ""}`}>Producir intermedio</SpinnerButton>
-          <SpinnerButton disabled={!canPack} loading={pending} onClick={() => run("pack")} className={`sb-btn-secondary ${!canPack ? "opacity-50 cursor-not-allowed" : ""}`}>Envasar / embotellar</SpinnerButton>
+          <button disabled={!canProduce} onClick={() => { if (canProduce) { onAddDraft({ product, mode: "produce" }); onClose(); } }}
+                  className={`h-10 rounded-lg border ${!canProduce ? "opacity-50 cursor-not-allowed" : "bg-yellow-50 hover:bg-yellow-100"}`}>Producir intermedio</button>
+          <button disabled={!canPack} onClick={() => { if (canPack) { onAddDraft({ product, mode: "pack" }); onClose(); } }}
+                  className={`h-10 rounded-lg border ${!canPack ? "opacity-50 cursor-not-allowed" : "bg-white hover:bg-zinc-50"}`}>Envasar / embotellar</button>
         </div>
         <div className="mt-4 flex justify-end">
           <button className="px-3 py-2 text-sm rounded-lg border bg-white hover:bg-zinc-50" onClick={onClose}>Cerrar</button>
@@ -136,7 +106,94 @@ function ProductActionDialog({
   );
 }
 
+// ======================================================
+// Tablero de producción (editable)
+// ======================================================
+type DraftRow = {
+  id: string;
+  productId: string;
+  productName: string;
+  mode: "produce" | "pack";
+  bomId: string;
+  qty: number;
+  date: string; // ISO (solo fecha)
+  preview?: any; // resultado de previewPlanning
+};
 
+function PlanningBoard({ rows, setRows }: { rows: DraftRow[]; setRows: React.Dispatch<React.SetStateAction<DraftRow[]>> }) {
+  const update = (id: string, patch: Partial<DraftRow>) => setRows(list => list.map(r => r.id === id ? { ...r, ...patch } : r));
+  const remove = (id: string) => setRows(list => list.filter(r => r.id !== id));
+
+  const doPreview = async (row: DraftRow) => {
+    if (row.qty <= 0) { toast.error("Cantidad > 0"); return; }
+    const res = await previewPlanning({ bomId: row.bomId, plannedQty: row.qty });
+    if (res.ok) update(row.id, { preview: res.data });
+    else toast.error(res.message ?? "No se pudo previsualizar");
+  };
+
+  const doPlan = async (row: DraftRow) => {
+    if (row.qty <= 0) { toast.error("Cantidad > 0"); return; }
+    const res = await planProduction({ bomId: row.bomId, plannedQty: row.qty });
+    if (res.ok) { toast.success("Orden planificada"); remove(row.id); }
+    else toast.error(res.message ?? "No se pudo planificar");
+  };
+
+  if (rows.length === 0) return (
+    <div className="text-sm text-zinc-500 px-3 py-6 text-center border rounded-xl bg-zinc-50">Añade productos desde la lista para planificar.</div>
+  );
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-left text-zinc-600">
+            <th className="py-2 px-2">Producto</th>
+            <th className="py-2 px-2">Acción</th>
+            <th className="py-2 px-2 w-28">Cantidad</th>
+            <th className="py-2 px-2 w-40">Fecha</th>
+            <th className="py-2 px-2">Preview</th>
+            <th className="py-2 px-2 w-56">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(r => (
+            <tr key={r.id} className="border-t align-top">
+              <td className="py-2 px-2">{r.productName}</td>
+              <td className="py-2 px-2">{r.mode === "produce" ? "Producir intermedio" : "Envasar/embotellar"}</td>
+              <td className="py-2 px-2">
+                <input type="number" min={1} value={r.qty} onChange={e => update(r.id, { qty: Number(e.target.value) })}
+                       className="h-9 w-24 border rounded-lg px-2" />
+              </td>
+              <td className="py-2 px-2">
+                <input type="date" value={r.date} onChange={e => update(r.id, { date: e.target.value })}
+                       className="h-9 border rounded-lg px-2"/>
+              </td>
+              <td className="py-2 px-2">
+                {r.preview ? (
+                  <div className="text-xs">
+                    {r.preview.inSpec ? <span className="px-2 py-0.5 rounded-full border bg-emerald-50 text-emerald-700">En spec</span>
+                                      : <span className="px-2 py-0.5 rounded-full border bg-amber-50 text-amber-800">Fuera de spec</span>}
+                    {r.preview.shortages?.length > 0 && (
+                      <div className="mt-1 text-rose-700">Faltantes: {r.preview.shortages.length}</div>
+                    )}
+                  </div>
+                ) : (
+                  <button onClick={() => doPreview(r)} className="h-9 px-3 rounded-lg border bg-zinc-50 hover:bg-zinc-100">Previsualizar</button>
+                )}
+              </td>
+              <td className="py-2 px-2">
+                <div className="flex gap-2">
+                  <button onClick={() => doPlan(r)} className="h-9 px-3 rounded-lg border bg-yellow-50 hover:bg-yellow-100">Planificar</button>
+                  <button onClick={() => remove(r.id)} className="h-9 px-3 rounded-lg border bg-white hover:bg-zinc-50">Quitar</button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 // ===== Detalle de Orden (panel derecho) =====
 function OrderDetail({ order, allItems, onRefresh }: { order: ProductionOrder; allItems: Item[]; onRefresh: () => void }) {
   const [pending, startTransition] = useTransition();
@@ -639,12 +696,13 @@ export default function ProductionPage() {
   const { data: santaData } = useData();
   const [openOrder, setOpenOrder] = useState<ProductionOrder | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Item | null>(null);
+  const [boardRows, setBoardRows] = useState<DraftRow[]>([]);
 
   // Orígenes
   const ordersAll = useMemo(() => (santaData?.productionOrders ?? []) as ProductionOrder[], [santaData]);
   const orders = useMemo(() => ordersAll, [ordersAll]);
   const allItems = useMemo(() => (santaData?.items ?? []) as Item[], [santaData]);
-  const products = useMemo(() => allItems.filter(i => i.category === "intermediate" || i.category === "fg"), [allItems]);
+  const items = useMemo(() => allItems.filter(i => i.category === "intermediate" || i.category === "fg"), [allItems]);
 
   const select = useCallback(
     (id: string) => {
@@ -678,111 +736,105 @@ export default function ProductionPage() {
               </div>
               <div>
                 <h1 className="text-2xl font-semibold text-zinc-900 leading-tight">Producción</h1>
-                <p className="text-xs text-zinc-600">Elige producto para crear orden. Consulta órdenes activas y terminadas.</p>
+                <p className="text-xs text-zinc-600">Añade productos al tablero, ajusta cantidades/fechas, previsualiza y planifica.</p>
               </div>
             </div>
           </div>
         </div>
       </header>
 
-      {/* SUBHEADER */}
-      <div className="mx-auto max-w-screen-2xl px-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 py-6">
-          <div>
-            <h2 className="text-xl font-semibold text-zinc-900">Órdenes de producción</h2>
-            <p className="text-sm text-zinc-500">Estados: PLANNED, IN_PROGRESS, PAUSED, QC_HOLD, CLOSED</p>
-          </div>
-        </div>
-      </div>
-
-      {/* MAIN */}
       <main className="mx-auto max-w-screen-2xl px-6 pb-24">
-        {/* === Grid de productos (entrada visual) === */}
-        <section className="mb-6">
-          <SBCard title="Productos" accent={(SB_COLORS as any).module?.produccion ?? SB_COLORS.primary.teal}>
-            <div className="p-3 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-              {products.map((p) => (
-                <ProductCard key={p.id} product={p} onClick={() => setSelectedProduct(p)} />
-              ))}
-              {products.length === 0 && (
-                <div className="col-span-full text-sm text-zinc-500 px-3 py-8 text-center border rounded-xl bg-zinc-50">
-                  No hay productos configurados (intermediate/fg).
+        <div className="grid lg:grid-cols-2 gap-6">
+          {/* Columna izquierda: lista de productos */}
+          <section>
+            <SBCard title="Productos" accent={(SB_COLORS as any).module?.produccion ?? SB_COLORS.primary.teal}>
+              <ul className="p-3 space-y-2">
+                {items.map(p => <ProductRow key={p.id} product={p} onClick={() => setSelectedProduct(p)} />)}
+                {items.length === 0 && <li className="text-sm text-zinc-500 px-3 py-8 text-center border rounded-xl bg-zinc-50">No hay productos configurados.</li>}
+              </ul>
+            </SBCard>
+
+            <div className="mt-6">
+              <SBCard title="Tablero de producción" accent={(SB_COLORS as any).module?.produccion ?? SB_COLORS.primary.teal}>
+                <div className="p-3">
+                  <PlanningBoard rows={boardRows} setRows={setBoardRows} />
                 </div>
-              )}
+              </SBCard>
             </div>
-          </SBCard>
-        </section>
+          </section>
 
-        <div className="grid lg:grid-cols-3 gap-6">
-          {/* Lista */}
-          <div className="lg:col-span-1">
-            <SBCard title="Órdenes" accent={(SB_COLORS as any).module?.produccion ?? SB_COLORS.primary.teal}>
-              <div className="px-2 pt-2 pb-1">
-                <span className="text-[11px] px-2 py-0.5 rounded-full border bg-white text-zinc-600">{orders.length}</span>
-              </div>
-
+          {/* Columna derecha: órdenes (activas y terminadas) */}
+          <section className="space-y-6">
+            <SBCard title={`Órdenes activas`} accent={(SB_COLORS as any).module?.produccion ?? SB_COLORS.primary.teal}>
               <div className="p-2 space-y-1">
-                {orders.map((o: any) => {
-                  const isActive = openOrder?.id === o.id;
-                  return (
+                {orders
+                  .filter((o: any) => ["planned", "released", "wip"].includes(o.status))
+                  .map((o: any) => (
                     <div
                       key={o.id}
                       role="button"
                       tabIndex={0}
                       onClick={() => select(o.id)}
-                      onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && select(o.id)}
-                      className={`rounded-lg p-3 border transition-colors outline-none cursor-pointer ${
-                        isActive
-                          ? "bg-yellow-50 border-yellow-200"
-                          : `border-transparent hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-[hsl(var(--sb-accent-produc))] focus-visible:ring-offset-2`
-                      }`}
+                      className={`rounded-lg p-3 border transition-colors outline-none cursor-pointer ${openOrder?.id === o.id ? "bg-yellow-50 border-yellow-200" : "border-transparent hover:bg-zinc-50"}`}
                       aria-label={`Abrir orden ${o.name || o.id}`}
                     >
                       <div className="flex justify-between items-start">
                         <div>
                           <p className="font-semibold text-zinc-800">{o.name || o.id}</p>
-                          <p className="text-xs text-zinc-500">
-                            {o.stage} • {o.plannedQty} {o.baseUnit}
-                          </p>
-                          <span className="mt-1 inline-block text-[11px] px-2 py-0.5 rounded-full border bg-white text-zinc-700">
-                            {o.status}
-                          </span>
-                          {o.lotNumber && (
-                            <span className="ml-2 text-[11px] px-2 py-0.5 rounded-full border bg-white text-zinc-700">
-                              Lote: {o.lotNumber}
-                            </span>
-                          )}
+                          <p className="text-xs text-zinc-500">{o.stage} • {o.plannedQty} {o.baseUnit}</p>
                         </div>
                       </div>
                     </div>
-                  );
-                })}
+                  ))}
               </div>
             </SBCard>
-          </div>
-
-          {/* Detalle */}
-          <div className="lg:col-span-2">
-            {!openOrder ? (
-              <div className="h-full min-h-[240px] flex items-center justify-center text-zinc-500 bg-zinc-50 rounded-2xl border">
-                Selecciona una orden.
+            <SBCard title={`Órdenes terminadas`} accent={(SB_COLORS as any).module?.produccion ?? SB_COLORS.primary.teal}>
+              <div className="p-2 space-y-1">
+                {orders
+                  .filter((o: any) => ["done", "cancelled"].includes(o.status))
+                  .map((o: any) => (
+                    <div
+                      key={o.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => select(o.id)}
+                      className={`rounded-lg p-3 border transition-colors outline-none cursor-pointer ${openOrder?.id === o.id ? "bg-yellow-50 border-yellow-200" : "border-transparent hover:bg-zinc-50"}`}
+                      aria-label={`Abrir orden ${o.name || o.id}`}
+                    >
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-semibold text-zinc-800">{o.name || o.id}</p>
+                          <p className="text-xs text-zinc-500">{o.stage} • {o.plannedQty} {o.baseUnit}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
               </div>
-            ) : (
-              <OrderDetail order={openOrder} allItems={allItems} onRefresh={refresh} />
-            )}
-          </div>
+            </SBCard>
+          </section>
         </div>
-
-        {/* FAB crear (abre el plan rápido del header) */}
-        {/* Ya no necesitamos el FAB porque creamos desde el grid */}
+        <div className="mt-6">
+          {openOrder && <OrderDetail order={openOrder} allItems={allItems} onRefresh={refresh} />}
+        </div>
       </main>
 
       {/* Diálogo de acción por producto */}
       <ProductActionDialog
         product={selectedProduct}
         onClose={() => setSelectedProduct(null)}
-        onCreated={(id) => {
-          // Opcional: autoseleccionar cuando aparezca en la lista
+        onAddDraft={({ product, mode }) => {
+          const bomId = mode === "produce" ? product.bomProduccionId! : product.bomEnvasadoId!;
+          if (!bomId) { toast.error("El producto no tiene BOM para esa acción."); return; }
+          const today = new Date().toISOString().slice(0,10);
+          setBoardRows(r => [...r, {
+            id: `draft_${Date.now()}`,
+            productId: product.id,
+            productName: product.name,
+            mode,
+            bomId,
+            qty: 1,
+            date: today,
+          }]);
         }}
       />
     </>
