@@ -5,10 +5,10 @@ import { Plus, Trash2, Factory as FactoryIcon, Pause, Play, CheckCircle2, AlertT
 import { SBCard } from "@/components/ui/ui-primitives";
 import { SB_COLORS } from "@/domain/ssot";
 import { useData } from "@/lib/dataprovider";
-import type { Item } from "@/domain/ssot";
 import { SpinnerButton } from "@/components/ui/SpinnerButton";
 import { Field } from "@/components/forms/Field";
 import { toast } from "sonner";
+import type { Item } from "@/domain/ssot";
 
 // Acciones del módulo Producción (previas en actions.ts)
 import {
@@ -38,90 +38,169 @@ function PlanningBoard({ bom, onPlanned }: { bom: any; onPlanned: (id: string) =
   const [date, setDate] = React.useState<string>("");
   const [preview, setPreview] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(false);
+  const [creating, setCreating] = useState(false);
 
-  // recalcula preview en vivo cada vez que cambian qty/date
-  React.useEffect(() => {
+  // Recalcula preview al cambiar qty o fecha
+  useEffect(() => {
     if (!bom?.id || qty <= 0) {
       setPreview(null);
       return;
     }
-    let active = true;
+    let alive = true;
     setLoading(true);
     previewPlanning({ bomId: bom.id, plannedQty: qty })
       .then((res) => {
-        if (!active) return;
-        if (res.ok) setPreview(res.data);
+        if (!alive) return;
+        if (res?.ok) setPreview(res.data);
         else setPreview(null);
       })
-      .finally(() => active && setLoading(false));
-    return () => {
-      active = false;
-    };
+      .finally(() => alive && setLoading(false));
+    return () => { alive = false; };
   }, [bom?.id, qty, date]);
 
   async function handlePlan() {
-    if (!bom?.id || qty <= 0) return;
-    const res = await planProduction({ bomId: bom.id, plannedQty: qty, name: bom.name });
-    if (res.ok) {
+    if (!bom?.id || qty <= 0) {
+      toast.error("Indica una cantidad > 0");
+      return;
+    }
+    setCreating(true);
+    const res = await planProduction({
+      bomId: bom.id,
+      plannedQty: qty,
+      plannedDate: date || undefined,
+      name: bom.name,
+    });
+    setCreating(false);
+    if (res?.ok) {
+      toast.success("Producción planificada");
       onPlanned(res.data.id);
+    } else {
+      toast.error(res?.message ?? "No se pudo planificar");
     }
   }
 
+  // Etiquetas visuales según spec
+  const specBadge =
+    preview?.inSpec === true
+      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+      : preview?.inSpec === false
+      ? "bg-amber-50 text-amber-800 border-amber-200"
+      : "bg-white text-zinc-700";
+
   return (
-    <div className="rounded-xl border bg-white p-4 space-y-4">
-      <h3 className="font-semibold text-zinc-800">Planificación: {bom.name}</h3>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div>
-          <label className="block text-sm mb-1">Cantidad a producir</label>
-          <input
-            type="number"
-            min={1}
-            className="w-full h-10 px-2 rounded-lg border"
-            value={qty}
-            onChange={(e) => setQty(Number(e.target.value))}
-          />
-        </div>
-        <div>
-          <label className="block text-sm mb-1">Fecha prevista</label>
-          <input
-            type="date"
-            className="w-full h-10 px-2 rounded-lg border"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-          />
-        </div>
-      </div>
-
-      {loading && <div className="text-sm text-zinc-500">Calculando disponibilidad…</div>}
-
-      {preview && (
-        <div className="space-y-3">
-          <div className="text-sm">
-            <b>COA estimado</b>: {preview.estimates?.abvPct ?? "—"}% ABV,{" "}
-            {preview.estimates?.acidity_gpl ?? "—"} g/L acidez,{" "}
-            {preview.estimates?.sugar_gpl ?? "—"} g/L azúcares
+    <SBCard
+      title={`Planificación: ${bom?.name ?? bom?.id ?? "—"}`}
+      accent={(SB_COLORS as any).module?.produccion ?? SB_COLORS.primary.teal}
+    >
+      <div className="p-4 space-y-6">
+        {/* Controles básicos */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div>
+            <label className="block text-sm mb-1">Cantidad a producir</label>
+            <input
+              type="number"
+              min={1}
+              className="w-full h-10 px-3 rounded-lg border"
+              value={qty}
+              onChange={(e) => setQty(Number(e.target.value))}
+            />
           </div>
-          {preview.shortages?.length > 0 && (
-            <div className="text-sm text-rose-700">
-              ⚠️ Faltantes:{" "}
-              {preview.shortages.map((s: any, i: number) => (
-                <span key={i}>
-                  {s.itemId} ({s.missing} {s.uom}){" "}
-                </span>
-              ))}
-            </div>
-          )}
+          <div>
+            <label className="block text-sm mb-1">Fecha prevista</label>
+            <input
+              type="date"
+              className="w-full h-10 px-3 rounded-lg border"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+            />
+          </div>
         </div>
-      )}
 
-      <button
-        onClick={handlePlan}
-        className="mt-4 w-full h-12 rounded-lg bg-sky-600 text-white font-semibold hover:bg-sky-700"
-      >
-        Planificar producción
-      </button>
-    </div>
+        {loading && <div className="text-sm text-zinc-500">Calculando disponibilidad…</div>}
+
+        {/* Vista previa: COA + faltantes + reservas */}
+        {preview && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {/* COA teórico */}
+            <div className="rounded-lg border p-3">
+              <div className="flex items-center justify-between">
+                <h4 className="font-medium">COA teórico</h4>
+                <span className={`text-[11px] px-2 py-0.5 rounded-full border ${specBadge}`}>
+                  {preview.inSpec ? "Dentro de spec" : "Fuera de spec"}
+                </span>
+              </div>
+              <ul className="mt-2 text-sm text-zinc-700 space-y-1">
+                <li>
+                  Grado alcohólico: <b>{preview.estimates?.abvPct ?? "—"}%</b>
+                </li>
+                <li>
+                  Acidez: <b>{preview.estimates?.acidity_gpl ?? "—"} g/L</b>
+                </li>
+                <li>
+                  Azúcares: <b>{preview.estimates?.sugar_gpl ?? "—"} g/L</b>
+                </li>
+              </ul>
+              {Array.isArray(preview.suggestions) && preview.suggestions.length > 0 && (
+                <>
+                  <div className="mt-3 text-xs text-zinc-500">Sugerencias de ajuste:</div>
+                  <ul className="mt-1 text-sm text-zinc-700 list-disc pl-5 space-y-1">
+                    {preview.suggestions.map((s: any, i: number) => (
+                      <li key={i}>
+                        {s.kind}: <b>{s.amount}</b> {s.uom ?? ""} <span className="text-xs text-zinc-500">— {s.reason}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </div>
+
+            {/* Disponibilidad / faltantes */}
+            <div className="rounded-lg border p-3">
+              <h4 className="font-medium">Disponibilidad</h4>
+              {Array.isArray(preview.shortages) && preview.shortages.length > 0 ? (
+                <div className="mt-2 space-y-1">
+                  {preview.shortages.map((s: any, idx: number) => (
+                    <div key={idx} className="text-xs rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-rose-700">
+                      ⚠️ Falta {s.missing} {s.uom} de {s.itemId} (Req {s.required}, Disp {s.available})
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-2 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-2 py-1">Todo cubre</div>
+              )}
+            </div>
+
+            {/* Reservas sugeridas */}
+            <div className="rounded-lg border p-3">
+              <h4 className="font-medium">Reservas sugeridas (FIFO)</h4>
+              {Array.isArray(preview.allocations) && preview.allocations.length > 0 ? (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {preview.allocations.map((a: any, idx: number) => (
+                    <span key={idx} className="text-[11px] px-2 py-0.5 rounded-full border bg-sky-50 text-sky-800 border-sky-200">
+                      {a.itemId} {a.qty}{a.uom} (Lote {a.lotNumber})
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-2 text-sm text-zinc-500">Sin reservas</div>
+              )}
+              {preview.lotNumberPlanned && (
+                <div className="mt-3 text-xs text-zinc-600">Lote planificado de salida: <b>{preview.lotNumberPlanned}</b></div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Botón principal */}
+        <SpinnerButton
+          loading={creating}
+          onClick={handlePlan}
+          className="sb-btn-primary w-full h-12 text-base font-semibold"
+        >
+          Planificar producción
+        </SpinnerButton>
+      </div>
+    </SBCard>
   );
 }
 
