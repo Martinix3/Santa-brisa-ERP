@@ -19,9 +19,10 @@ import type {
 // TIPOS Y CONSTANTES
 // ============================================================================
 
-type BucketKey = "HOLD" | "RELEASED" | "REJECTED" | "UNDEFINED";
+type BucketKey = "ALL" | "HOLD" | "RELEASED" | "REJECTED" | "UNDEFINED";
 
 const TABS_CONFIG = [
+  { id: "ALL" as BucketKey, label: "Todos", icon: ListOrdered },
   { id: "UNDEFINED" as BucketKey, label: "Sin Estado", icon: FileQuestion },
   { id: "HOLD" as BucketKey, label: "En Hold", icon: Hourglass },
   { id: "RELEASED" as BucketKey, label: "Liberados", icon: CheckCircle2 },
@@ -136,7 +137,7 @@ export default function LabReleasePage() {
   
   const [query, setQuery] = useState("");
   const [selectedSku, setSelectedSku] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<BucketKey>("HOLD");
+  const [activeTab, setActiveTab] = useState<BucketKey>("ALL");
   const [selectedLot, setSelectedLot] = useState<string | null>(null);
 
   const itemMap = useMemo(() => new Map(items.map(i => [i.id, i])), [items]);
@@ -165,17 +166,35 @@ export default function LabReleasePage() {
     for (const l of lotsToFilter) {
       const item = itemMap.get(l.itemId);
       const matchesQuery = !lowerQuery || l.lotNumber.toLowerCase().includes(lowerQuery) || (item?.name || '').toLowerCase().includes(lowerQuery);
-      
       if (!matchesQuery) continue;
 
-      const status = l.qcStatus;
-      if (status === "RELEASED") released.push(l);
-      else if (status === "REJECTED") rejected.push(l);
-      else if (status === "PENDING" || status === "IN_PROGRESS" || status === "CONDITIONAL_RELEASE" || status === "WAIVED") hold.push(l);
-      else undefinedState.push(l);
+      // Normaliza el estado desde qcStatus o status
+      const raw = (l as any)?.qcStatus ?? (l as any)?.status ?? "";
+      const status = String(raw).toUpperCase();
+      if (status === "RELEASED") {
+        released.push(l);
+      } else if (status === "REJECTED") {
+        rejected.push(l);
+      } else if (
+        status === "HOLD" ||
+        status === "PENDING" ||
+        status === "IN_PROGRESS" ||
+        status === "CONDITIONAL_RELEASE" ||
+        status === "WAIVED"
+      ) {
+        hold.push(l);
+      } else {
+        undefinedState.push(l);
+      }
     }
     const byDateDesc = (a: Lot, b: Lot) => new Date(b.receivedAt ?? b.createdAt ?? 0).getTime() - new Date(a.receivedAt ?? a.createdAt ?? 0).getTime();
-    return { HOLD: hold.sort(byDateDesc), RELEASED: released.sort(byDateDesc), REJECTED: rejected.sort(byDateDesc), UNDEFINED: undefinedState.sort(byDateDesc) };
+    const HOLD = hold.sort(byDateDesc);
+    const RELEASED = released.sort(byDateDesc);
+    const REJECTED = rejected.sort(byDateDesc);
+    const UNDEFINED = undefinedState.sort(byDateDesc);
+    // “Todos” = unión de todos, ordenada por fecha
+    const ALL = [...HOLD, ...RELEASED, ...REJECTED, ...UNDEFINED].sort(byDateDesc);
+    return { ALL, HOLD, RELEASED, REJECTED, UNDEFINED };
   }, [lots, itemMap, query, selectedSku, lotsBySku]);
 
   const visibleLots = buckets[activeTab];
@@ -189,6 +208,7 @@ export default function LabReleasePage() {
     setSelectedSku(skuId);
     setQuery(''); // Reset manual search
     setSelectedLot(null); // Reset lot selection
+    setActiveTab("ALL"); // Al cambiar SKU, mostrar todos por claridad
   };
 
   const handleLotChange = (lotNumber: string) => {
@@ -246,7 +266,7 @@ export default function LabReleasePage() {
             </Select>
              <Select value={selectedLot || ''} onChange={(e) => handleLotChange(e.target.value)} disabled={!selectedSku}>
                 <option value="">Todos los lotes</option>
-                {lotsForSelectedSku.map(lot => (
+                {lots.filter(l => l.itemId === selectedSku).map(lot => (
                     <option key={lot.lotNumber} value={lot.lotNumber}>{lot.lotNumber}</option>
                 ))}
             </Select>
@@ -355,7 +375,7 @@ export default function LabReleasePage() {
                   {selectedLotData.history.map(ev => (
                     <li key={ev.id} className="flex gap-3">
                       <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: `hsl(var(--sb-${ev.tone}-soft))`}}>
-                          {React.cloneElement(<ev.icon />, { className: 'h-4 w-4', style: { color: `hsl(var(--sb-${ev.tone}-strong))` }})}
+                          {React.cloneElement(ev.icon, { className: 'h-4 w-4', style: { color: `hsl(var(--sb-${ev.tone}-strong))` }})}
                       </div>
                       <div>
                         <p className="font-semibold text-sm">{ev.title}</p>
