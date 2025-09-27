@@ -35,7 +35,8 @@ const QC_STATUS_TEXT: Record<string, string> = {
   CONDITIONAL_RELEASE: "Liberado Condicional",
   RELEASED: "Liberado",
   REJECTED: "Rechazado",
-  WAIVED: "Eximido"
+  WAIVED: "Eximido",
+  ON_HOLD_QC: "En Hold"
 };
 
 const QC_STATUS_TONE: Record<string, "emerald" | "amber" | "rose" | "zinc"> = {
@@ -44,6 +45,7 @@ const QC_STATUS_TONE: Record<string, "emerald" | "amber" | "rose" | "zinc"> = {
   IN_PROGRESS: "amber",
   CONDITIONAL_RELEASE: "amber",
   WAIVED: "amber",
+  ON_HOLD_QC: "amber",
   REJECTED: "rose",
 };
 const qcTone = (s?: string): "emerald" | "amber" | "rose" | "zinc" => (s ? (QC_STATUS_TONE[s] || "amber") : "zinc");
@@ -184,7 +186,8 @@ export default function LabReleasePage() {
         status === "PENDING" ||
         status === "IN_PROGRESS" ||
         status === "CONDITIONAL_RELEASE" ||
-        status === "WAIVED"
+        status === "WAIVED" ||
+        status === "ON_HOLD_QC"
       ) {
         hold.push(l);
       } else {
@@ -243,8 +246,8 @@ export default function LabReleasePage() {
 
   const handleAnalysisChange = (parameterId: string, value: string) => setAnalysisResults(prev => ({ ...prev, [parameterId]: value }));
   
-  const handleSaveDecision = (decision: "RELEASED" | "REJECTED") => {
-    if (!selectedLotData || !selectedLotData.plan) return;
+  const handleSaveDecision = (decision: "RELEASED" | "REJECTED" | "ON_HOLD_QC") => {
+    if (!selectedLotData) return;
     console.log({
       action: "SAVE_QC_DECISION",
       lotNumber: selectedLotData.lot.lotNumber,
@@ -253,7 +256,7 @@ export default function LabReleasePage() {
       results: analysisResults,
       timestamp: new Date().toISOString()
     });
-    alert(`Decisión '${decision}' guardada para el lote ${selectedLotData.lot.lotNumber} por ${reviewer}.`);
+    alert(`Decisión '${QC_STATUS_TEXT[decision] || decision}' guardada para el lote ${selectedLotData.lot.lotNumber} por ${reviewer}.`);
     setAnalysisResults({});
   };
 
@@ -373,9 +376,12 @@ export default function LabReleasePage() {
                            <option value="lab.tech">Técnico de Lab</option>
                          </Select>
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-3 gap-2">
                         <SBButton onClick={() => handleSaveDecision('RELEASED')} disabled={!allRequiredResultsEntered}>
                             <CheckCircle2 size={16}/> Aprobar Lote
+                        </SBButton>
+                        <SBButton variant="secondary" onClick={() => handleSaveDecision('ON_HOLD_QC')}>
+                            <Hourglass size={16}/> Poner en Hold
                         </SBButton>
                          <SBButton variant="destructive" onClick={() => handleSaveDecision('REJECTED')} disabled={!allRequiredResultsEntered}>
                             <XCircle size={16}/> Rechazar Lote
@@ -410,7 +416,6 @@ export default function LabReleasePage() {
               )}
             </div>
           </SBCard>
-
         </>
         ) : ( <div className="h-full flex items-center justify-center text-zinc-500 border-2 border-dashed rounded-xl">Selecciona un lote para ver su dossier.</div> )}
       </div>
