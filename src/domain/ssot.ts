@@ -1,3 +1,4 @@
+
 // src/domain/ssot.ts
 import type { Interaction } from './ssot.common';
 // =================================================================
@@ -438,6 +439,8 @@ export interface QcBatchResult {
   reviewedAt?: Timestamp;
   reviewedById?: string;
   remarks?: string;
+  createdAt: Timestamp; 
+  updatedAt: Timestamp;
 }
 
 /** Certificate of Analysis por lote */
@@ -628,7 +631,7 @@ export interface SantaData {
   dead_letters?: any[];
   expenses: any[];
   // QC
-  parameter_catalog: ParameterCatalog[];
+  qcParameters: ParameterCatalog[];
   qc_plans: QcPlan[];
   safety_protocols: SafetyProtocol[];
   inspections: Inspection[];
@@ -641,7 +644,7 @@ export const SANTA_DATA_COLLECTIONS: (keyof SantaData)[] = [
     'partyDuplicates', 'activations', 'promotions', 'marketingEvents', 'onlineCampaigns',
     'influencerCollabs', 'posTactics', 'posCostCatalog', 'plv_material', 'materialCosts', 'financeLinks',
     'paymentLinks', 'traceEvents', 'incidents', 'codeAliases', 'integrations', 'jobs', 'dead_letters', 'expenses',
-    'parameter_catalog', 'qc_plans', 'safety_protocols', 'inspections'
+    'qcParameters', 'qc_plans', 'safety_protocols', 'inspections'
 ];
 
 export * from './ssot.metas';
