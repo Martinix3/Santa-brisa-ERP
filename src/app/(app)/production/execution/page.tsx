@@ -177,9 +177,7 @@ function PlanningBoard({
                       ) : (
                         <span className="px-2 py-0.5 rounded-full border bg-amber-50 text-amber-800">Fuera de spec</span>
                       )}
-                      {r.preview.shortages?.length > 0 && (
-                        <div className="mt-1 text-rose-700">Faltantes: {r.preview.shortages.length}</div>
-                      )}
+                      {r.preview.shortages?.length > 0 && <div className="mt-1 text-rose-700">Faltantes: {r.preview.shortages.length}</div>}
                     </div>
                   ) : (
                     <button type="button" onClick={() => doPreview(r)} className="h-9 px-3 rounded-lg border bg-zinc-50 hover:bg-zinc-100">

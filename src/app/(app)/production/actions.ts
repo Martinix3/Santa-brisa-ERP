@@ -34,6 +34,7 @@ type ProductionOrder = {
   outputItemId: string;
   name?: string;
   plannedQty: number;
+  plannedDate?: string; // YYYY-MM-DD
   baseUnit: Extract<Uom, 'L' | 'unit'>;
   status: ProductionStatus;
 
@@ -145,9 +146,14 @@ export async function explodeBOM(bomId: string, plannedQty: number): Promise<Act
 
 // ===== Planificar orden =====
 export async function planProduction(input: unknown): Promise<ActionResult<{ id: string }>> {
-  const zPlan = z.object({ bomId: z.string().min(1), plannedQty: z.coerce.number().positive(), name: z.string().optional() });
+  const zPlan = z.object({
+    bomId: z.string().min(1),
+    plannedQty: z.coerce.number().positive(),
+    plannedDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    name: z.string().optional()
+  });
   try {
-    const { bomId, plannedQty, name } = zPlan.parse(input);
+    const { bomId, plannedQty, plannedDate, name } = zPlan.parse(input);
 
     // Reutilizamos la lógica de explosión + FIFO + spec de preview
     const prev = await previewPlanning({ bomId, plannedQty });
@@ -162,11 +168,12 @@ export async function planProduction(input: unknown): Promise<ActionResult<{ id:
       stage: prev.data.stage,
       outputItemId: prev.data.outputItemId,
       plannedQty,
+      plannedDate,
       baseUnit: prev.data.baseUnit,
       status: 'PLANNED',
       name,
       nominal: prev.data.nominal,
-      // planificación:
+      // añadimos visibilidad de planificación:
       allocations: prev.data.allocations,
       shortages: prev.data.shortages,
       allocationStatus: 'SOFT',
