@@ -1,3 +1,4 @@
+
 // src/app/(app)/quality/release/page.tsx
 "use client";
 
@@ -6,7 +7,7 @@ import { SBCard, SBButton, Select } from '@/components/ui/ui-primitives';
 import { useData } from "@/lib/dataprovider";
 import {
   CheckCircle2, XCircle, Hourglass, Search, FlaskConical, Filter, ChevronDown, GitBranch,
-  FileQuestion, Package, AlertTriangle, ClipboardCheck, User, Save, FilePlus2, ListOrdered, FileCheck2
+  FileQuestion, Package, AlertTriangle, ClipboardCheck, User, Save, FilePlus2, ListOrdered, FileCheck2, MoveRight
 } from "lucide-react";
 import type {
   Lot, QcTest, QcBatchResult, Item, ParameterCatalog, QcPlan, Incident, Coa,
@@ -266,7 +267,7 @@ export default function LabReleasePage() {
             </Select>
              <Select value={selectedLot || ''} onChange={(e) => handleLotChange(e.target.value)} disabled={!selectedSku}>
                 <option value="">Todos los lotes</option>
-                {(lots || []).filter(l => l.itemId === selectedSku).map(lot => (
+                {(data?.lots || []).filter(l => l.itemId === selectedSku).map(lot => (
                     <option key={lot.lotNumber} value={lot.lotNumber}>{lot.lotNumber}</option>
                 ))}
             </Select>
@@ -372,18 +373,21 @@ export default function LabReleasePage() {
               {selectedLotData.history.length === 0 ? <p className="text-sm text-zinc-500 text-center">No hay eventos registrados para este lote.</p>
               : (
                 <ul className="space-y-4">
-                  {selectedLotData.history.map(ev => (
-                    <li key={ev.id} className="flex gap-3">
-                      <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: `hsl(var(--sb-${ev.tone}-soft))`}}>
-                          {React.cloneElement(ev.icon, { className: 'h-4 w-4', style: { color: `hsl(var(--sb-${ev.tone}-strong))` } })}
-                      </div>
-                      <div>
-                        <p className="font-semibold text-sm">{ev.title}</p>
-                        <p className="text-xs text-zinc-600">{ev.details}</p>
-                        <time className="text-xs text-zinc-400">{new Date(ev.at).toLocaleString('es-ES')}</time>
-                      </div>
-                    </li>
-                  ))}
+                  {selectedLotData.history.map(ev => {
+                    const Icon = ev.icon;
+                    return (
+                      <li key={ev.id} className="flex gap-3">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: `hsl(var(--sb-${ev.tone}-soft))`}}>
+                          <Icon className='h-4 w-4' style={{ color: `hsl(var(--sb-${ev.tone}-strong))` }} />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-sm">{ev.title}</p>
+                          <p className="text-xs text-zinc-600">{ev.details}</p>
+                          <time className="text-xs text-zinc-400">{new Date(ev.at).toLocaleString('es-ES')}</time>
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </div>
