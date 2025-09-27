@@ -7,7 +7,7 @@ import { SBCard, SBButton, Select } from '@/components/ui/ui-primitives';
 import { useData } from "@/lib/dataprovider";
 import {
   CheckCircle, XCircle, Hourglass, Search, FlaskConical, Filter, ChevronDown, GitBranch,
-  FileQuestion, Package, AlertTriangle, ClipboardCheck, User, Save, FilePlus2, ListOrdered, FileCheck, ArrowRight
+  FileQuestion, Package, AlertTriangle, ClipboardCheck, User, Save, FilePlus2, ListOrdered, FileCheck, ArrowRight, Truck, Factory as FactoryIcon
 } from "lucide-react";
 import type {
   Lot, QcTest, QcBatchResult, Item, ParameterCatalog, QcPlan, Incident, Coa,
@@ -73,72 +73,200 @@ type TraceEvent = {
   tone: "zinc" | "sky" | "amber" | "rose" | "emerald";
 };
 
-function normalizeLotHistory(lot: Lot, data: {
-  qcTests: QcTest[], qcBatchResults: QcBatchResult[], incidents: Incident[],
-  stockMoves: StockMove[], protocolAcks: ProtocolAcknowledgement[], orders: ProductionOrder[]
-}): TraceEvent[] {
+type NormalizeCtx = {
+  qcTests: QcTest[];
+  qcBatchResults: QcBatchResult[];
+  incidents: Incident[];
+  stockMoves: StockMove[];
+  protocolAcks: ProtocolAcknowledgement[];
+  orders: ProductionOrder[];
+  genealogy?: LotGenealogyEdge[]; // opcional si lo tienes
+};
+
+function normalizeLotHistory(lot: Lot, data: NormalizeCtx): TraceEvent[] {
   const events: TraceEvent[] = [];
   const lotNumber = lot.lotNumber;
-  const orderId = lot.producedByOrderId;
+  const orderId = lot.producedByOrderId ?? lot.orderId ?? undefined;
 
-  data.stockMoves.filter(m => m.lotNumber === lotNumber && m.reason === 'receipt').forEach(m => {
-    events.push({
-      id: `sm-${m.id}`, at: m.occurredAt || new Date().toISOString(), kind: 'RECEIPT', title: `Lote recibido en almacén`,
-      details: `Cantidad: ${m.qty} ${m.uom}. Ubicación: ${(m as any).toLocation ?? ''}`,
-      icon: Package, tone: 'sky'
-    });
-  });
+  const safeWhen = (...candidates: (string | undefined | null)[]) => {
+    for (const c of candidates) {
+      if (!c) continue;
+      const t = new Date(c);
+      if (!Number.isNaN(t.getTime())) return c;
+    }
+    // fallback: ahora mismo para evitar NaN
+    return new Date().toISOString();
+  };
 
-  data.qcTests.filter(t => t.lotNumber === lotNumber).forEach(t => {
-    const value = t.valueNumeric != null ? t.valueNumeric.toFixed(2) : t.valueText ?? (t.valueBool ? 'OK' : 'KO');
-    events.push({
-      id: `qct-${t.id}`, at: t.testedAt, kind: 'QC_TEST', title: `Análisis: ${t.parameterId}`,
-      details: `Resultado: ${value}. ${t.inSpec ? 'Dentro de spec.' : 'Fuera de spec.'}`,
-      icon: FlaskConical, tone: t.inSpec ? 'emerald' : 'rose'
-    });
-  });
+  const push = (e: Omit<TraceEvent, "id" | "tone"> & { id?: string; tone?: TraceEvent["tone"] }) => {
+    const tone = e.tone ?? "zinc";
+    const id = e.id ?? `${e.kind}-${e.at}-${e.title}`; // estable
+    events.push({ ...e, id, tone });
+  };
 
-  data.qcBatchResults.filter(r => r.lotNumber === lotNumber).forEach(r => {
-    events.push({
-      id: `qcb-${r.id}`, at: r.reviewedAt!, kind: 'QC_DECISION', title: `Decisión: ${prettyStatus(r.status)}`,
-      details: `Revisado por ${r.reviewedById}. ${r.remarks ? `"${r.remarks}"` : ''}`,
-      icon: FileCheck, tone: qcTone(r.status)
-    });
-  });
+  // === INVENTARIO / MOVIMIENTOS ===
+  // Nota: algunos datos reales usan toLocationId/fromLocationId y reason: 'receipt'|'move'|'pick'|'ship'|'adjust'
+  data.stockMoves
+    .filter(m => m.lotNumber === lotNumber)
+    .forEach(m => {
+      const reason = (m.reason || "").toLowerCase();
+      const at = safeWhen(m.occurredAt, (m as any).createdAt as string);
+      const qty = typeof m.qty === "number" ? m.qty : (m as any).quantity;
+      const uom = (m as any).uom || (m as any).unit || "";
+      const toLoc = (m as any).toLocationId || (m as any).toLocation || "";
+      const fromLoc = (m as any).fromLocationId || (m as any).fromLocation || "";
+      const base = {
+        at,
+        details: `Cantidad: ${qty ?? "?"} ${uom ?? ""} · ${fromLoc ? `De: ${fromLoc} ` : ""}${toLoc ? `→ A: ${toLoc}` : ""}`.trim(),
+      };
 
-  data.incidents.filter(i => i.lotNumber === lotNumber).forEach(i => {
-    events.push({
-      id: `inc-${i.id}`, at: (i as any).at, kind: 'INCIDENT', title: `Incidente: ${i.summary}`,
-      details: `Severidad: ${(i as any).severity ?? 'N/A'}. Estado: ${i.status}`,
-      icon: AlertTriangle, tone: 'amber'
+      if (reason === "receipt") {
+        push({ ...base, kind: "RECEIPT", title: "Entrada en almacén", icon: Package, tone: "sky" });
+      } else if (reason === "move" || reason === "transfer") {
+        push({ ...base, kind: "MOVE", title: "Movimiento interno", icon: GitBranch, tone: "zinc" });
+      } else if (reason === "pick") {
+        push({ ...base, kind: "PICK", title: "Preparación de pedido", icon: ClipboardCheck, tone: "amber" });
+      } else if (reason === "ship" || (m as any).shipmentId) {
+        push({ ...base, kind: "SHIP", title: "Envío/Salida", icon: Truck, tone: "rose" });
+      } else if (reason === "adjust") {
+        push({ ...base, kind: "ADJUST", title: "Ajuste de inventario", icon: AlertTriangle, tone: "amber" });
+      } else {
+        push({ ...base, kind: reason.toUpperCase() || "MOVE", title: "Movimiento de stock", icon: Package, tone: "zinc" });
+      }
     });
-  });
-  
+
+  // === QC TESTS (mediciones) ===
+  data.qcTests
+    .filter(t => t.lotNumber === lotNumber)
+    .forEach(t => {
+      const at = safeWhen((t as any).testedAt, (t as any).createdAt);
+      const value =
+        t.valueNumeric != null
+          ? t.valueNumeric.toFixed(2)
+          : t.valueText ?? (t.valueBool != null ? (t.valueBool ? "OK" : "KO") : "—");
+      const inSpec = t.inSpec === true;
+      push({
+        id: `qct-${t.id}`,
+        at,
+        kind: "QC_TEST",
+        title: `Análisis: ${t.parameterId}`,
+        details: `Resultado: ${value}${inSpec != null ? ` · ${inSpec ? "En spec" : "Fuera de spec"}` : ""}`,
+        icon: FlaskConical,
+        tone: inSpec ? "emerald" : "rose",
+      });
+    });
+
+  // === QC DECISIONES (batch results) ===
+  data.qcBatchResults
+    .filter(r => r.lotNumber === lotNumber)
+    .forEach(r => {
+      const at = safeWhen((r as any).reviewedAt, (r as any).decidedAt, (r as any).createdAt);
+      push({
+        id: `qcb-${r.id}`,
+        at,
+        kind: "QC_DECISION",
+        title: `Decisión: ${prettyStatus(r.status)}`,
+        details: `Revisado por ${r.reviewedById ?? "—"}${r.remarks ? ` · "${r.remarks}"` : ""}`,
+        icon: FileCheck,
+        tone: qcTone(r.status),
+      });
+    });
+
+  // === PROTOCOLOS (seguridad/personal) ligados a la orden (si existe) ===
   if (orderId) {
-    data.protocolAcks.filter(p => p.orderId === orderId).forEach(p => {
-        events.push({
-            id: `pa-${p.id}`, at: p.at, kind: 'PROTOCOL', title: `Protocolo Confirmado`,
-            details: `Confirmado por ${p.acknowledgedByUserId} para la orden ${orderId}`,
-            icon: ClipboardCheck, tone: 'emerald'
-        })
-    })
+    data.protocolAcks
+      .filter(p => p.orderId === orderId)
+      .forEach(p => {
+        push({
+          id: `pa-${p.id}`,
+          at: safeWhen((p as any).at, (p as any).createdAt),
+          kind: "PROTOCOL",
+          title: "Protocolo confirmado",
+          details: `Confirmado por ${p.acknowledgedByUserId} · Orden ${orderId}`,
+          icon: ClipboardCheck,
+          tone: "emerald",
+        });
+      });
   }
-  
-  return events.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
-}
 
+  // === ESTADOS DE PRODUCCIÓN (si tenemos la orden) ===
+  if (orderId) {
+    const po = data.orders.find(o => (o as any).id === orderId);
+    if (po) {
+      const st = (po as any).statusHistory as Array<{ at: string; status: string }> | undefined;
+      if (Array.isArray(st)) {
+        st.forEach(s =>
+          push({
+            id: `po-${orderId}-${s.status}-${s.at}`,
+            at: safeWhen(s.at),
+            kind: "PRODUCTION",
+            title: `Producción: ${s.status}`,
+            details: `Orden ${orderId}`,
+            icon: FactoryIcon,
+            tone: s.status === "CLOSED" ? "emerald" : s.status === "PAUSED" ? "amber" : "sky",
+          }),
+        );
+      }
+    }
+  }
+
+  // === INCIDENTES ===
+  data.incidents
+    .filter(i => i.lotNumber === lotNumber)
+    .forEach(i => {
+      push({
+        id: `inc-${i.id}`,
+        at: safeWhen((i as any).at, (i as any).createdAt, (i as any).updatedAt),
+        kind: "INCIDENT",
+        title: `Incidente: ${i.summary ?? i.id}`,
+        details: `Severidad: ${(i as any).severity ?? "N/A"} · Estado: ${i.status ?? "—"}`,
+        icon: AlertTriangle,
+        tone: "amber",
+      });
+    });
+
+  // === GENEALOGÍA (opcional) ===
+  (data.genealogy ?? [])
+    .filter(e => e.childLot === lotNumber || e.parentLot === lotNumber)
+    .forEach(e => {
+      const isParent = e.parentLot === lotNumber;
+      push({
+        id: `gen-${e.id}`,
+        at: safeWhen((e as any).at, (e as any).createdAt),
+        kind: "GENEALOGY",
+        title: isParent ? `Usado en ${e.childLot}` : `Origen: ${e.parentLot}`,
+        details: (e as any).note ?? "",
+        icon: GitBranch,
+        tone: "zinc",
+      });
+    });
+
+  // === ORDENAR + DEDUP ===
+  const uniq = new Map<string, TraceEvent>();
+  for (const ev of events) uniq.set(ev.id, ev);
+  return Array.from(uniq.values()).sort(
+    (a, b) => new Date(b.at).getTime() - new Date(a.at).getTime(),
+  );
+}
 // ============================================================================
 // COMPONENTE PRINCIPAL: LabReleasePage
 // ============================================================================
 export default function LabReleasePage() {
   const { data } = useData();
 
-  const lots: Lot[] = data?.lots ?? []; const items: Item[] = data?.items ?? [];
-  const qcTests: QcTest[] = data?.qcTests ?? []; const qcBatchResults: QcBatchResult[] = data?.qcBatchResults ?? [];
-  const qcParameters: ParameterCatalog[] = data?.qcParameters ?? []; const qcPlans: QcPlan[] = data?.qc_plans ?? [];
-  const incidents: Incident[] = data?.incidents ?? []; const stockMoves: StockMove[] = data?.stockMoves ?? [];
-  const protocolAcks: ProtocolAcknowledgement[] = data?.protocolAcks ?? []; const orders: ProductionOrder[] = data?.productionOrders ?? [];
-  const onHand: OnHandView[] = data?.onHand ?? [];
+  const {lots, items, qcTests, qcBatchResults, qcParameters, qcPlans, incidents, stockMoves, protocolAcks, orders, onHand} = useMemo(()=> ({
+    lots: data?.lots ?? [],
+    items: data?.items ?? [],
+    qcTests: data?.qcTests ?? [],
+    qcBatchResults: data?.qcBatchResults ?? [],
+    qcParameters: data?.qcParameters ?? [],
+    qcPlans: data?.qc_plans ?? [],
+    incidents: data?.incidents ?? [],
+    stockMoves: data?.stockMoves ?? [],
+    protocolAcks: data?.protocolAcks ?? [],
+    orders: data?.productionOrders ?? [],
+    onHand: data?.onHand ?? [],
+  }), [data]);
   
   const [query, setQuery] = useState("");
   const [selectedSku, setSelectedSku] = useState<string>('');
@@ -161,6 +289,22 @@ export default function LabReleasePage() {
     }
     return map;
   }, [onHand]);
+  
+  const latestDecisionByLot = useMemo(() => {
+    const map = new Map<string, string>(); // lotNumber -> status
+    for (const r of qcBatchResults) {
+      if (!r.lotNumber) continue;
+      const key = r.lotNumber;
+      const when = new Date((r as any).reviewedAt ?? (r as any).decidedAt ?? (r as any).createdAt ?? 0).getTime();
+      const prev = map.get(key);
+      if (!prev || when > ((map as any)[`__t_${key}`] || 0)) {
+        map.set(key, String(r.status).toUpperCase());
+        (map as any)[`__t_${key}`] = when;
+      }
+    }
+    return map;
+  }, [qcBatchResults]);
+
 
   const buckets = useMemo(() => {
     const hold: OnHandView[] = []; const released: OnHandView[] = []; const rejected: OnHandView[] = []; const undefinedState: OnHandView[] = [];
@@ -174,7 +318,7 @@ export default function LabReleasePage() {
       const matchesQuery = !lowerQuery || l.lotNumber.toLowerCase().includes(lowerQuery) || (item?.name || '').toLowerCase().includes(lowerQuery);
       if (!matchesQuery) continue;
 
-      const raw = l.qcStatus ?? (lots.find(master => master.lotNumber === l.lotNumber)?.qcStatus) ?? '';
+      const raw = l.qcStatus ?? latestDecisionByLot.get(l.lotNumber!) ?? (lots.find(master => master.lotNumber === l.lotNumber)?.qcStatus) ?? '';
       const status = String(raw).toUpperCase();
       
       if (status === "RELEASED") {
@@ -202,7 +346,7 @@ export default function LabReleasePage() {
 
     const ALL = [...HOLD, ...RELEASED, ...REJECTED, ...UNDEFINED].sort(byDateDesc);
     return { ALL, HOLD, RELEASED, REJECTED, UNDEFINED };
-  }, [onHand, lots, itemMap, query, selectedSku, lotsBySku]);
+  }, [onHand, lots, itemMap, query, selectedSku, lotsBySku, latestDecisionByLot]);
 
   const visibleLots = buckets[activeTab];
 
@@ -273,6 +417,21 @@ export default function LabReleasePage() {
     });
     return Array.from(lotNumbers);
   }, [selectedSku, lotsBySku]);
+  
+  const toneBg: Record<TraceEvent["tone"], string> = {
+    zinc: "bg-zinc-100",
+    sky: "bg-sky-100",
+    amber: "bg-amber-100",
+    rose: "bg-rose-100",
+    emerald: "bg-emerald-100",
+  };
+  const toneFg: Record<TraceEvent["tone"], string> = {
+    zinc: "text-zinc-700",
+    sky: "text-sky-700",
+    amber: "text-amber-700",
+    rose: "text-rose-700",
+    emerald: "text-emerald-700",
+  };
 
   return (
     <>
@@ -309,11 +468,12 @@ export default function LabReleasePage() {
             {visibleLots.map(lot => {
                 const item = itemMap.get(lot.itemId);
                 const isSelected = selectedLot === lot.lotNumber;
+                const status = (lot.qcStatus ?? latestDecisionByLot.get(lot.lotNumber!) ?? '').toUpperCase() as QcStatus;
                 return (
                     <button key={lot.id} onClick={() => setSelectedLot(lot.lotNumber!)} className={`w-full text-left p-3 ${isSelected ? 'bg-blue-50' : 'hover:bg-zinc-50'}`}>
                         <div className="flex justify-between items-center">
                             <span className="font-mono text-sm font-semibold text-zinc-800">{lot.lotNumber}</span>
-                            <Badge tone={qcTone(lot.qcStatus)}>{prettyStatus(lot.qcStatus)}</Badge>
+                            <Badge tone={qcTone(status)}>{prettyStatus(status)}</Badge>
                         </div>
                         <p className="text-xs text-zinc-600">{item?.name ?? lot.itemId}</p>
                         <p className="text-xs text-zinc-400 mt-1">{new Date(lot.updatedAt ?? lot.createdAt ?? 0).toLocaleDateString()}</p>
@@ -393,22 +553,32 @@ export default function LabReleasePage() {
           </SBCard>
            <SBCard title={<><ListOrdered size={16}/><span>Historial del Lote</span></>}>
             <div className="p-4">
-              {selectedLotData.history.length === 0 ? <p className="text-sm text-zinc-500 text-center">No hay eventos registrados para este lote.</p>
-              : (
+              {selectedLotData.history.length === 0 ? (
+                <div className="text-sm text-zinc-500 text-center space-y-2">
+                  <p>No hay eventos registrados para este lote.</p>
+                  <ul className="text-xs list-disc list-inside text-zinc-400">
+                    <li>¿Existen <code>stockMoves</code> con <code>lotNumber="{selectedLotData.lot.lotNumber}"</code>?</li>
+                    <li>¿Se han guardado <code>qcTests</code> / <code>qcBatchResults</code>?</li>
+                    <li>Si el lote viene de orden, ¿hay <code>protocolAcks</code> o <code>statusHistory</code>?</li>
+                  </ul>
+                </div>
+              ) : (
                 <ul className="space-y-4">
                   {selectedLotData.history.map(ev => {
                     const Icon = ev.icon ?? FileQuestion;
                     return (
-                      <li key={ev.id} className="flex gap-3">
-                        <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: `hsl(var(--sb-${ev.tone}-soft))`}}>
-                           <Icon className="h-4 w-4" style={{ color: `hsl(var(--sb-${ev.tone}-strong))` }} />
-                        </div>
-                        <div>
-                          <p className="font-semibold text-sm">{ev.title}</p>
-                          <p className="text-xs text-zinc-600">{ev.details}</p>
-                          <time className="text-xs text-zinc-400">{new Date(ev.at).toLocaleString('es-ES')}</time>
-                        </div>
-                      </li>
+                        <li key={ev.id} className="flex gap-3">
+                            <div className={`flex-shrink-0 w-8 h-8 rounded-full grid place-items-center ${toneBg[ev.tone]}`}>
+                                <Icon className={`h-4 w-4 ${toneFg[ev.tone]}`} />
+                            </div>
+                            <div>
+                                <p className="font-semibold text-sm">{ev.title}</p>
+                                {ev.details && <p className="text-xs text-zinc-600">{ev.details}</p>}
+                                <time className="text-xs text-zinc-400">
+                                {new Date(ev.at).toLocaleString("es-ES")}
+                                </time>
+                            </div>
+                        </li>
                     );
                   })}
                 </ul>
