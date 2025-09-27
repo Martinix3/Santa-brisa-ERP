@@ -65,20 +65,20 @@ type SafetyProtocol = {
 // ==========================
 // Card local (estética SB)
 // ==========================
-function Card(props: { title?: string; icon?: React.ReactNode; children?: React.ReactNode; subtitle?: string }) {
-  return (
-    <div className="sb-card">
-      <div className="sb-card__header">
-        {props.icon && <span className="sb-icon">{props.icon}</span>}
-        <div>
-          {props.title && <div className="sb-card__title">{props.title}</div>}
-          {props.subtitle && <div className="text-xs text-zinc-600 mt-0.5">{props.subtitle}</div>}
-        </div>
+function Card({ title, icon, children, subtitle }: { title?: string; icon?: React.ReactNode; children?: React.ReactNode; subtitle?: string }) {
+    return (
+      <div className="sb-card rounded-2xl border bg-white shadow-sm">
+          <div className="sb-card__header px-4 py-3 border-b flex items-center justify-between">
+              <div>
+                  {title && <div className="sb-card__title text-base font-semibold">{title}</div>}
+                  {subtitle && <div className="text-xs text-zinc-600 mt-0.5">{subtitle}</div>}
+              </div>
+              {icon && <span className="sb-icon text-zinc-500">{icon}</span>}
+          </div>
+          <div className="sb-card__content p-4">{children}</div>
       </div>
-      <div className="sb-card__content">{props.children}</div>
-    </div>
-  );
-}
+    );
+  }
 
 function Section({ title, subtitle, icon, children }: React.PropsWithChildren<{ title: string; subtitle?: string; icon?: React.ReactNode }>) {
   return (
@@ -133,13 +133,13 @@ export default function QualityParametersPage() {
 
   // Estado local (seeding mínimo si no hay data real)
   const [parameters, setParameters] = useState<ParameterCatalog[]>(
-    data?.quality?.parameters ?? [
+    data?.qcParameters ?? [
       { id: "pH", name: "pH", unit: "pH", method: "LAB", target: 3.4, tolerance: 0.2 },
       { id: "vol_alcohol", name: "% Vol. Alcohol", unit: "% vol", method: "LAB", target: 12.5, tolerance: 0.3 },
     ]
   );
   const [plans, setPlans] = useState<QcPlan[]>(
-    data?.quality?.plans ?? [
+    data?.qc_plans ?? [
       {
         id: "plan_fg_std",
         name: "Plan FG Estándar",
@@ -152,7 +152,7 @@ export default function QualityParametersPage() {
     ]
   );
   const [protocols, setProtocols] = useState<SafetyProtocol[]>(
-    data?.quality?.protocols ?? [
+    data?.safety_protocols ?? [
       { id: "prot_limpieza", title: "Limpieza de tanques", code: "SEC-001", checklist: ["Desinfectar", "Enjuagar", "Verificar"], active: true },
       { id: "prot_epi", title: "EPI obligatorio", code: "SEC-002", checklist: ["Guantes", "Gafas", "Botas"], active: true },
     ]
