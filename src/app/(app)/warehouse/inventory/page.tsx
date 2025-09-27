@@ -8,7 +8,7 @@ import { SBCard, Input, Select, DataTableSB } from "@/components/ui/ui-primitive
 import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog";
 import type { OnHandView, Item, ItemCategory, StockMove } from "@/domain/ssot";
 import { useData } from "@/lib/dataprovider";
-import { rebuildOnHand } from "../actions";
+import { createManualOnHand, rebuildOnHand } from "../actions";
 
 // ---- Tema logística (usa tu token CSS) ----
 const ACCENT = "var(--sb-accent-logistica)";
@@ -34,89 +34,99 @@ const QCPill = ({ status }: { status?: "hold" | "release" | "reject" }) => {
   return <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${cls}`}>{s}</span>;
 };
 
-// ---------- Dialog Movimientos ----------
-function MovementsDialog({
-  open, onClose, item, lot, location, moves, itemsById
-}: {
-  open: boolean; onClose: () => void; item: string; lot?: string; location?: string;
-  moves: StockMove[]; itemsById: Map<string, Item>;
-}) {
-  const filtered = useMemo(() =>
-    moves
-      .filter(m => m.itemId === item && m.lotNumber === lot)
-      .sort((a,b) => new Date((b as any).occurredAt || b.createdAt).getTime() - new Date((a as any).occurredAt || a.createdAt).getTime())
-  , [moves, item, lot]);
-  const it = itemsById.get(item);
-  const pretty = (m: StockMove) => {
-    const pos = ["receipt","production_in","return_in"].includes(m.reason);
-    const neg = ["ship","sale","production_out","return_out","consignment_send","consignment_sell","sample_send","sample_consume"].includes(m.reason);
-    return `${pos ? "＋" : neg ? "−" : m.reason === "transfer" ? "↔︎" : "±"}${m.qty} ${m.uom}`;
+type FormState = {
+  itemId: string;
+  lotNumber: string;
+  qty: number | "";
+  uom: string;
+  locationId: string;
+  occurredAt: string;
+  note?: string;
+  supplier?: string;     // Proveedor (accountId o texto)
+  invoiceRef?: string;   // Nº albarán / factura
+  amount?: number | "";  // Importe
+  currency?: string;     // Moneda (ej. EUR)
+  category?: string;     // ItemCategory
+};
+
+function NewOnHandDialog({
+  open, onClose, onCreate, items, locations, defaultLocation
+}:{
+  open: boolean; onClose:()=>void; onCreate:(p:any)=>Promise<void>;
+  items:Item[]; locations:string[]; defaultLocation?: string;
+}){
+  const [fm, setFm] = useState<FormState>({
+    itemId: "", lotNumber: "", qty: "", uom: "unit", locationId: defaultLocation||"",
+    occurredAt: new Date().toISOString().slice(0,16), note: "", supplier: "",
+    invoiceRef: "", amount: "", currency: "EUR", category: ""
+  });
+  const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
+
+  const validate = () => {
+    const e:Partial<Record<keyof FormState, string>> = {};
+    if (!fm.itemId) e.itemId = "Selecciona un producto";
+    if (!fm.qty || fm.qty <= 0) e.qty = "Cantidad debe ser > 0";
+    if (!fm.locationId) e.locationId = "Ubicación requerida";
+    if (!fm.category) e.category = "Categoría obligatoria";
+    if (fm.amount !== "" && !(Number(fm.amount) >= 0)) e.amount = "Importe >= 0";
+    setErrors(e);
+    return Object.keys(e).length === 0;
   };
 
+  const handleCreate = async () => {
+    if (!validate()) return;
+    await onCreate({
+      itemId: fm.itemId,
+      lotNumber: fm.lotNumber.trim(),
+      qty: Number(fm.qty),
+      uom: fm.uom.trim(),
+      locationId: fm.locationId.trim(),
+      occurredAt: fm.occurredAt ? new Date(fm.occurredAt).toISOString() : undefined,
+      note: fm.note?.trim() || undefined,
+      supplier: fm.supplier?.trim() || undefined,
+      invoiceRef: fm.invoiceRef?.trim() || undefined,
+      amount: fm.amount === "" ? undefined : Number(fm.amount),
+      currency: fm.currency,
+      category: fm.category as any,
+    });
+  };
+
+  const FieldRow = ({ label, children, error, htmlFor }:{label:string; children:React.ReactNode; error?:string; htmlFor?:string}) => (
+    <div className="grid grid-cols-[120px_1fr] items-center gap-3">
+        <label className="text-xs text-zinc-600 font-medium" htmlFor={htmlFor}>{label}</label>
+        <div className="flex-1">{children}</div>
+        {error && <div className="col-start-2 text-xs text-red-500 -mt-2">{error}</div>}
+    </div>
+  );
+
   return (
-    <SBDialog open={open} onOpenChange={(v)=>{ if(!v) onClose(); }}>
-      <SBDialogContent maxWidth="3xl">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-2">
-            <History size={18} style={{ color: `hsl(${ACCENT})` as any }} />
-            <h3 className="text-lg font-semibold">Movimientos del lote</h3>
+    <SBDialog open={open} onOpenChange={onClose}>
+      <SBDialogContent title="Añadir Stock Manual" maxWidth="36rem">
+        <div className="space-y-3">
+          <FieldRow label="Producto" error={errors.itemId}><Select value={fm.itemId} onChange={e=>setFm(s=>({...s,itemId:e.target.value, uom: items.find(i=>i.id===e.target.value)?.uom || 'unit'}))}>{items.map(i=><option key={i.id} value={i.id}>{i.name}</option>)}</Select></FieldRow>
+          <FieldRow label="Lote (auto si vacío)"><Input value={fm.lotNumber} onChange={e=>setFm(s=>({...s,lotNumber:e.target.value}))} placeholder="SKU-YYMM-XX"/></FieldRow>
+          <FieldRow label="Cantidad" error={errors.qty}><div className="flex gap-2"><Input type="number" value={fm.qty} onChange={e=>setFm(s=>({...s,qty:e.target.value===""?"":Number(e.target.value)}))} min={1}/><Select value={fm.uom} onChange={e=>setFm(s=>({...s,uom:e.target.value}))}>{['unit','kg','L','case'].map(u=><option key={u} value={u}>{u}</option>)}</Select></div></FieldRow>
+          <FieldRow label="Ubicación" error={errors.locationId}><Select value={fm.locationId} onChange={e=>setFm(s=>({...s,locationId:e.target.value}))}>{locations.map(l=><option key={l} value={l}>{l}</option>)}</Select></FieldRow>
+          <FieldRow label="Fecha/hora"><Input type="datetime-local" value={fm.occurredAt} onChange={e=>setFm(s=>({...s,occurredAt:e.target.value}))}/></FieldRow>
+          <FieldRow label="Notas"><Input value={fm.note} onChange={e=>setFm(s=>({...s,note:e.target.value}))} placeholder="Ajuste anual, promo, etc."/></FieldRow>
+          
+          <div className="border-t pt-4 space-y-3">
+            <FieldRow label="Proveedor (texto o ID)"><Input value={fm.supplier} onChange={e => setFm(s => ({ ...s, supplier: e.target.value }))} placeholder="Nombre proveedor o accountId"/></FieldRow>
+            <FieldRow label="Nº albarán / doc. ref."><Input value={fm.invoiceRef} onChange={e => setFm(s => ({ ...s, invoiceRef: e.target.value }))} placeholder="p.ej. ALB-2509-123"/></FieldRow>
+            <FieldRow label="Importe"><div className="flex gap-2"><Input type="number" step="0.01" min="0" value={fm.amount} onChange={e => setFm(s => ({ ...s, amount: e.target.value === "" ? "" : Number(e.target.value) }))}/><Select value={fm.currency} onChange={e => setFm(s => ({ ...s, currency: e.target.value }))}><option value="EUR">EUR</option><option value="USD">USD</option></Select></div></FieldRow>
+            <FieldRow label="Categoría" error={errors.category}><Select value={fm.category} onChange={e => setFm(s => ({ ...s, category: e.target.value }))}><option value="">— Selecciona —</option><option value="fg">Producto Terminado</option><option value="raw">Materia Prima</option><option value="intermediate">Intermedio</option><option value="pack">Packaging / Etiqueta</option><option value="merch">Merchandising</option><option value="consumable">Consumible</option></Select></FieldRow>
           </div>
-          <button
-            className="rounded-md p-1 hover:bg-zinc-100"
-            aria-label="Cerrar"
-            onClick={onClose}
-          >
-            <X size={18}/>
-          </button>
-        </div>
-        <div className="text-xs text-zinc-600 space-y-0.5">
-          <div>Producto: <span className="font-medium">{it?.name || item}</span> <span className="text-zinc-400">({it?.sku})</span></div>
-          <div>Lote: <span className="font-mono">{lot || "—"}</span></div>
-          {location ? <div>Ubicación (actual): <span className="font-mono">{location}</span></div> : null}
-        </div>
 
-        <div className="mt-3 border rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="text-left" style={{ background: `hsl(${ACCENT} / 0.08)` as any }}>
-              <tr className="text-zinc-700">
-                <th className="py-2 px-3">Fecha</th>
-                <th className="py-2 px-3">Razón</th>
-                <th className="py-2 px-3">Cantidad</th>
-                <th className="py-2 px-3">Desde</th>
-                <th className="py-2 px-3">Hacia</th>
-                <th className="py-2 px-3">Ref</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(m => (
-                <tr key={m.id} className="border-t">
-                  <td className="py-2 px-3">{new Date((m as any).occurredAt || m.createdAt).toLocaleString("es-ES")}</td>
-                  <td className="py-2 px-3 font-mono">{m.reason}</td>
-                  <td className="py-2 px-3">{pretty(m)}</td>
-                  <td className="py-2 px-3">{(m as any).fromLocationId || (m as any).fromLocation || "—"}</td>
-                  <td className="py-2 px-3">{(m as any).toLocationId || (m as any).toLocation || "—"}</td>
-                  <td className="py-2 px-3 text-xs text-zinc-500">
-                    {(m as any).ref?.goodsReceiptId ? `GR:${(m as any).ref.goodsReceiptId} ` : ""}
-                    {(m as any).ref?.prodOrderId ? `PO:${(m as any).ref.prodOrderId} ` : ""}
-                    {(m as any).ref?.shipmentId ? `SH:${(m as any).ref.shipmentId} ` : ""}
-                    {(m as any).ref?.orderId ? `ORD:${(m as any).ref.orderId} ` : ""}
-                  </td>
-                </tr>
-              ))}
-              {filtered.length === 0 && (
-                <tr><td colSpan={6} className="py-6 text-center text-zinc-500">Sin movimientos.</td></tr>
-              )}
-            </tbody>
-          </table>
         </div>
-
-        <div className="mt-4 flex justify-end">
-          <button onClick={onClose} className={`px-3 py-1.5 rounded-md ${BTN_OUTLINE}`}>Cerrar</button>
+        <div className="mt-6 flex justify-end gap-2">
+          <button onClick={onClose} className="px-3 py-1.5 border rounded-lg bg-white">Cancelar</button>
+          <button onClick={handleCreate} className="px-3 py-1.5 border rounded-lg" style={{backgroundColor:`hsl(${ACCENT})`, color: 'white'}}>Guardar</button>
         </div>
       </SBDialogContent>
     </SBDialog>
   );
 }
+
 
 // ---------- Página ----------
 export default function InventoryPage() {
@@ -132,6 +142,7 @@ export default function InventoryPage() {
   const [query, setQuery] = useState("");
   const [locationFilter, setLocationFilter] = useState<string>("ALL");
   const [showZeros, setShowZeros] = useState(false);
+  const [openNew, setOpenNew] = useState(false);
 
   const itemsById = useMemo(() => {
     const map = new Map<string, Item>();
@@ -216,6 +227,12 @@ export default function InventoryPage() {
     });
     download(`inventory_${activeTab}_${new Date().toISOString().slice(0,10)}.csv`, toCsv(rows, headers));
   };
+  
+  async function handleCreate(payload: any) {
+    await createManualOnHand(payload);
+    setOpenNew(false);
+    router.refresh();
+  }
 
   return (
     <div className="space-y-6">
@@ -258,13 +275,13 @@ export default function InventoryPage() {
             <Download size={14} /> Exportar
           </button>
 
-          <Link
-            href="/warehouse/goods-receipt"
+          <button
+            onClick={() => setOpenNew(true)}
             className={`flex items-center gap-2 text-sm rounded-md px-3 py-1.5 ${BTN_SOLID}`}
             style={{ backgroundColor: `hsl(${ACCENT})` } as any}
           >
             <Plus size={14} /> Añadir Entrada
-          </Link>
+          </button>
         </div>
       </div>
 
@@ -307,6 +324,8 @@ export default function InventoryPage() {
           <DataTableSB rows={filteredInventory} cols={cols as any} />
         )}
       </SBCard>
+      
+      {openNew && <NewOnHandDialog open={openNew} onClose={()=>setOpenNew(false)} onCreate={handleCreate} items={santaData?.items||[]} locations={locations.filter(l=>l!=='ALL')} defaultLocation={locationFilter==='ALL'?undefined:locationFilter} />}
 
       {/* Dialog movimientos (controlado) */}
       {movCtx && (

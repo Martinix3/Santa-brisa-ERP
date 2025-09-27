@@ -108,46 +108,44 @@ export async function createManualOnHand(
     lotNumber = await findNextLotNumber(p.itemId, sku);
   }
 
-  // 2) Construir stockMove adjustment_in
+  // 2) Construir stockMove adjustment
   const stockMoveId = simpleId("sm");
   const occurredAtIso = p.occurredAt ? new Date(p.occurredAt).toISOString() : new Date().toISOString();
 
-  const stockMove: StockMove = {
+  const stockMove = {
     id: stockMoveId,
     itemId: p.itemId,
     lotNumber,
     qty: p.qty,
-    uom: p.uom as Uom,
-    reason: "adjustment", // A neutral reason, qty determines direction
-    toLocation: p.locationId,
+    uom: p.uom,
+    reason: "adjustment",                 // clave neutra
+    toLocation: p.locationId,              // entra en esta ubicación
     occurredAt: occurredAtIso,
     createdAt: new Date().toISOString(),
     ref: {
-      orderId: p.invoiceRef || undefined,
-      // supplier: p.supplier || undefined,
-      // amount: p.amount ?? undefined,
-      // currency: p.currency || "EUR",
-      // note: p.note || undefined,
-      // category: p.category,
+      source: "manual_new_onhand",
+      invoiceRef: p.invoiceRef || undefined,
+      supplier: p.supplier || undefined,
+      amount: p.amount ?? undefined,
+      currency: p.currency || "EUR",
+      note: p.note || undefined,
+      category: p.category,
     },
-  } as unknown as StockMove;
-
+  };
 
   // 3) (Opcional) upsert del lote, si manejas colección lots
   const lot = {
-    id: lotNumber,                // o un id propio si prefieres
+    id: lotNumber,
     lotNumber,
     itemId: p.itemId,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-    // Campos extra si los usas: qcStatus, status, supplierLot, supplierId, etc.
   };
 
   try {
-    // Escribe primero el lote (no pasa nada si ya existe y tu upsert lo tolera)
     await upsertMany("lots", [lot as any]);
   } catch {
-    // Si tu capa no tiene lots o ya existe, seguimos sin romper
+    // si no existe, no pasa nada
   }
 
   // 4) Guardar el movimiento
@@ -161,7 +159,7 @@ export async function createManualOnHand(
   }
 
   // 6) Revalidate UI
-  revalidatePath("/warehouse"); // ajusta rutas si procede
+  revalidatePath("/warehouse");
 
   return ok({ stockMoveId, lotNumber });
 }
@@ -182,7 +180,6 @@ const DIRECT_SIGN: Record<StockMove['reason'], number> = {
   consignment_return: +1,
   sample_send: -1,
   sample_consume: -1,
-  // tratados aparte:
   transfer: 0,
   adjustment: 0,
   reserve: 0,
@@ -207,13 +204,11 @@ function num(x: any): number {
   return Number.isFinite(n) ? n : NaN;
 }
 
-// ⚙️ Chunks de 450 para ir holgados del límite de 500
 async function commitInChunks(ops: Array<(batch: FirebaseFirestore.WriteBatch) => void>) {
   const CHUNK = 450;
   for (let i = 0; i < ops.length; i += CHUNK) {
     const batch = db.batch();
     const slice = ops.slice(i, i + CHUNK);
-    // cada op recibe el batch vía closure
     slice.forEach(fn => fn.call(undefined, batch));
     await batch.commit();
   }
@@ -222,11 +217,9 @@ async function commitInChunks(ops: Array<(batch: FirebaseFirestore.WriteBatch) =
 export async function rebuildOnHand(input?: RebuildInput) {
   const dryRun = !!input?.dryRun;
 
-  // 1) Leer todos los movimientos
   const mvSnap = await db.collection('stockMoves').get();
   const moves = mvSnap.docs.map(d => d.data() as any as StockMove);
 
-  // 2) Normalizar y acumular
   const acc = new Map<
     string,
     { qty: number; uom: Uom; itemId: string; lot?: string; loc?: string; createdAt?: string; updatedAt?: string }
@@ -274,7 +267,7 @@ export async function rebuildOnHand(input?: RebuildInput) {
       acc.set(k, next);
     }
 
-    if (DIRECT_SIGN[reason] && DIRECT_SIGN[reason] !== 0) {
+    if (DIRECT_SIGN[reason] !== 0) {
       const loc = DIRECT_SIGN[reason] > 0 ? toLoc : fromLoc;
       add(loc, DIRECT_SIGN[reason] * qty);
     } else if (reason === 'transfer') {
@@ -282,12 +275,9 @@ export async function rebuildOnHand(input?: RebuildInput) {
       if (toLoc) add(toLoc, qty);
     } else if (reason === 'adjustment') {
       add(toLoc ?? fromLoc, qty);
-    } else {
-      // reserve/unreserve/no-op → no afectan onHand
     }
   }
 
-  // Chequeo rápido: ¿hay algo que escribir?
   const rows: OnHandView[] = [];
   for (const [id, v] of acc.entries()) {
     if (Math.abs(v.qty) < 1e-9) continue;
@@ -307,12 +297,11 @@ export async function rebuildOnHand(input?: RebuildInput) {
     return {
       ok: true,
       ...stats,
-      preview: rows.slice(0, 10), // primeras filas para inspección
+      preview: rows.slice(0, 10),
       keys: rows.slice(0, 10).map(r => r.id),
     };
   }
 
-  // 3) Borrar onHand actual en chunks
   const ohColl = db.collection('onHand');
   const existing = await ohColl.get();
   const deleteOps: Array<(batch: FirebaseFirestore.WriteBatch) => void> = [];
@@ -323,7 +312,6 @@ export async function rebuildOnHand(input?: RebuildInput) {
   });
   if (deleteOps.length) await commitInChunks(deleteOps);
 
-  // 4) Escribir onHand nuevo en chunks
   const writeOps: Array<(batch: FirebaseFirestore.WriteBatch) => void> = [];
   for (const row of rows) {
     const ref = ohColl.doc(row.id);
@@ -334,9 +322,6 @@ export async function rebuildOnHand(input?: RebuildInput) {
   if (writeOps.length) await commitInChunks(writeOps);
 
   stats.written = rows.length;
-
-  // 5) Revalidate (por si tienes segmentos server)
   revalidatePath('/warehouse/inventory');
-
   return { ok: true, ...stats };
 }
