@@ -81,6 +81,18 @@ async function reads() {
   };
 }
 
+// Lee una colección completa con compatibilidad hacia atrás con distintas APIs
+async function readAll(collection: string): Promise<any[]> {
+  const mod = await import("@/lib/dataprovider/reads").catch(() => null as any);
+  const fn =
+    mod?.getAll ??
+    mod?.list ??
+    mod?.getCollection ??
+    mod?.getDocs ??
+    null;
+  return fn ? await fn(collection) : [];
+}
+
 function newLot(prefix='SB'): string { return `${prefix}-${Date.now()}`; }
 
 async function readBOM(bomId: string): Promise<any> {
@@ -112,7 +124,7 @@ export async function explodeBOM(bomId: string, plannedQty: number): Promise<Act
 
     const ids = [bom.outputItemId, ...bom.items.map((i: any) => i.itemId)];
     const docs = await readItems(ids);
-    const map = new Map(docs.map(d => [d.id, d]));
+    const map = new Map(docs.map((d: any) => [d.id, d]));
 
     const nominal: ProductionIOLine[] = bom.items.map((l: any) => ({
       itemId: l.itemId,
@@ -132,29 +144,31 @@ export async function planProduction(input: unknown): Promise<ActionResult<{ id:
   const zPlan = z.object({ bomId: z.string().min(1), plannedQty: z.coerce.number().positive(), name: z.string().optional() });
   try {
     const { bomId, plannedQty, name } = zPlan.parse(input);
-    const res = await explodeBOM(bomId, plannedQty);
-    if (!res.ok) return res;
+
+    // Reutilizamos la lógica de explosión + FIFO + spec de preview
+    const prev = await previewPlanning({ bomId, plannedQty });
+    if (!prev.ok) return fail(prev.message);
 
     const now = new Date().toISOString();
     const id = `po_${Date.now()}`;
 
-    const po: ProductionOrder = {
+    const po = {
       id,
       bomId,
-      stage: res.data.stage,
-      outputItemId: res.data.outputItemId,
+      stage: prev.data.stage,
+      outputItemId: prev.data.outputItemId,
       plannedQty,
-      baseUnit: res.data.baseUnit,
+      baseUnit: prev.data.baseUnit,
       status: 'PLANNED',
       name,
-      nominal: res.data.nominal,
-      consumption: [],
-      output: [],
-      incidents: [],
-      scrap: [],
-      pauseLog: [],
+      nominal: prev.data.nominal,
+      // planificación:
+      allocations: prev.data.allocations,
+      shortages: prev.data.shortages,
+      allocationStatus: 'SOFT',
+      lotNumberPlanned: prev.data.lotNumberPlanned,
       createdAt: now,
-      createdById: 'auto', // TODO: user real
+      createdById: 'auto',
     };
 
     await upsertMany('productionOrders', [po as any]);
@@ -190,7 +204,7 @@ export async function resumeProduction(id: string) {
   try {
     const now = new Date().toISOString();
     const po = await readOrder(id);
-    const log = [...(po?.pauseLog ?? [])];
+    const log: Array<{ pausedAt: string; resumedAt?: string }> = [...(po?.pauseLog ?? [])] as any;
     // Completa el último registro sin resumedAt
     for (let i = log.length - 1; i >= 0; i--) {
       if (log[i].resumedAt == null) { log[i].resumedAt = now; break; }
@@ -307,6 +321,8 @@ export async function cancelProduction(id: string) {
 }
 
 // ===== Calculadora de ajustes (estimación simple) =====
+type RawLine = { itemId: string; abvPct?: number; acidity_gpl?: number; sugar_gpl?: number; uom: 'L'|'kg'|'unit'; qty: number };
+
 const zCalc = z.object({
   raws: z.array(z.object({
     itemId: z.string(),
@@ -320,13 +336,24 @@ const zCalc = z.object({
 
 export async function setCalculatorInput(id: string, input: unknown) {
   try {
-    const { raws } = zCalc.parse(input);
+    const parsed = zCalc.parse(input) as { raws: RawLine[] };
+    const raws: RawLine[] = parsed.raws;
+
     // Promedios ponderados por volumen (L) como primera aproximación
-    const volRows = raws.filter(r => r.uom === 'L');
-    const volTotal = volRows.reduce((s,r)=> s + r.qty, 0);
-    const estAbv = volTotal>0 ? volRows.reduce((s,r)=> s + (r.abvPct ?? 0)*r.qty, 0)/volTotal : undefined;
-    const estAc  = volTotal>0 ? volRows.reduce((s,r)=> s + (r.acidity_gpl ?? 0)*r.qty, 0)/volTotal : undefined;
-    const estSug = volTotal>0 ? volRows.reduce((s,r)=> s + (r.sugar_gpl ?? 0)*r.qty, 0)/volTotal : undefined;
+    const volRows: RawLine[] = raws.filter((r: RawLine) => r.uom === 'L');
+    const volTotal: number = volRows.reduce((s: number, r: RawLine) => s + r.qty, 0);
+    const estAbv: number | undefined =
+      volTotal > 0
+        ? volRows.reduce((s: number, r: RawLine) => s + ((r.abvPct ?? 0) * r.qty), 0) / volTotal
+        : undefined;
+    const estAc: number | undefined =
+      volTotal > 0
+        ? volRows.reduce((s: number, r: RawLine) => s + ((r.acidity_gpl ?? 0) * r.qty), 0) / volTotal
+        : undefined;
+    const estSug: number | undefined =
+      volTotal > 0
+        ? volRows.reduce((s: number, r: RawLine) => s + ((r.sugar_gpl ?? 0) * r.qty), 0) / volTotal
+        : undefined;
 
     await upsertMany('productionOrders', [{
       id,
@@ -338,5 +365,140 @@ export async function setCalculatorInput(id: string, input: unknown) {
     return ok({ id });
   } catch (e:any) {
     return fail('Entrada inválida para la calculadora.', { code: e?.code });
+  }
+}
+
+// ====== PREVIEW: disponibilidad + COA teórico + sugerencias de ajuste ======
+type SpecRange = { min?: number; max?: number };
+type CoaEstimates = { abvPct?: number; acidity_gpl?: number; sugar_gpl?: number };
+type Adjustment = { kind: 'WATER' | 'ALCOHOL96' | 'CITRIC'; amount: number; uom: 'L' | 'kg' | 'g'; reason: string };
+
+export async function previewPlanning(input: {
+  bomId: string;
+  plannedQty: number;
+  alcoholStrengthForAdjustment?: number; // % v/v del alcohol corrector (por defecto 96)
+}): Promise<ActionResult<{
+  stage: 'PRODUCCION'|'ENVASADO';
+  baseUnit: 'L'|'unit';
+  outputItemId: string;
+  nominal: Array<{ itemId: string; role: 'FORMULA'|'PACKAGING'|'COST_ONLY'; uom: Uom; qty: number }>;
+  allocations: Array<{ itemId: string; lotNumber: string; uom: Uom; qty: number }>;
+  shortages: Array<{ itemId: string; uom: Uom; required: number; available: number; missing: number }>;
+  lotNumberPlanned: string;
+  spec?: { abv?: SpecRange; acidity?: SpecRange; sugar?: SpecRange };
+  estimates: CoaEstimates;
+  suggestions: Adjustment[];
+  inSpec: boolean;
+}>> {
+  try {
+    const { bomId, plannedQty, alcoholStrengthForAdjustment = 96 } = input;
+    if (!bomId || plannedQty <= 0) return fail("Falta BOM o cantidad inválida.");
+
+    const bom = await readBOM(bomId);
+    if (!bom) return fail("BOM inexistente.");
+
+    const stage: 'PRODUCCION'|'ENVASADO' = bom.stage ?? 'PRODUCCION';
+    const baseUnit: 'L'|'unit' = stage === 'PRODUCCION' ? 'L' : 'unit';
+
+    // 1) Nominal
+    const nominal: Array<{ itemId: string; role: 'FORMULA'|'PACKAGING'|'COST_ONLY'; uom: Uom; qty: number }> =
+      (bom.items || []).map((it: any) => ({
+        itemId: it.itemId,
+        role: (it.role ?? 'FORMULA') as 'FORMULA'|'PACKAGING'|'COST_ONLY',
+        uom: (it.uom ?? baseUnit) as Uom,
+        qty: Number(((it.qty ?? 0) * plannedQty).toFixed(6)),
+      }));
+
+    // 2) FIFO disponibilidad
+    const onHand: Array<{itemId:string; lotNumber:string; qty:number; uom:Uom; receivedAt:string}> = await readAll("onHand") as any;
+    const allocations: Array<{ itemId: string; lotNumber: string; uom: Uom; qty: number }> = [];
+    const shortages: Array<{ itemId: string; uom: Uom; required: number; available: number; missing: number }> = [];
+    for (const line of nominal.filter((l) => l.role !== 'PACKAGING' || stage === 'ENVASADO')) {
+      let remaining: number = line.qty;
+      let available: number = 0;
+      const lots = (onHand as Array<{itemId:string; lotNumber:string; qty:number; uom:Uom; receivedAt:string}>)
+        .filter((l) => l.itemId === line.itemId && l.qty > 0)
+        .sort((a, b) => new Date(a.receivedAt).getTime() - new Date(b.receivedAt).getTime());
+
+      for (const lot of lots) {
+        if (remaining <= 0) break;
+        const take = Math.min(lot.qty, remaining);
+        allocations.push({ itemId: line.itemId, lotNumber: lot.lotNumber, uom: lot.uom, qty: take });
+        remaining -= take;
+        available += take;
+      }
+      if (remaining > 0) {
+        shortages.push({ itemId: line.itemId, uom: line.uom, required: line.qty, available, missing: remaining });
+      }
+    }
+
+    // 3) COA teórico (ponderado por L)
+    const coas: Array<{itemId:string; measuredAt:string; abvPct?:number; acidity_gpl?:number; sugar_gpl?:number}> = await readAll('coas') as any;
+    const latestCoaByItem = new Map<string, {itemId:string; measuredAt:string; abvPct?:number; acidity_gpl?:number; sugar_gpl?:number}>();
+    for (const c of coas) {
+      const cur = latestCoaByItem.get(c.itemId);
+      if (!cur || new Date(c.measuredAt).getTime() > new Date(cur.measuredAt).getTime()) {
+        latestCoaByItem.set(c.itemId, c);
+      }
+    }
+    const liquidLines = nominal.filter((l) => l.uom === 'L' && l.role !== 'PACKAGING');
+    const V: number = liquidLines.reduce((s: number, l) => s + (l.qty || 0), 0);
+    const est: CoaEstimates = {};
+    if (V > 0) {
+      const w = (fn: (c: {abvPct?:number; acidity_gpl?:number; sugar_gpl?:number} | undefined) => number | undefined) =>
+        liquidLines.reduce(
+          (s: number, l) => s + ((fn(latestCoaByItem.get(l.itemId)) ?? 0) * (l.qty || 0)),
+          0
+        ) / V;
+
+      const estAbv = w(c => c?.abvPct);
+      const estAc  = w(c => c?.acidity_gpl);
+      const estSu  = w(c => c?.sugar_gpl);
+      if (!Number.isNaN(estAbv)) est.abvPct = Number((estAbv as number).toFixed(2));
+      if (!Number.isNaN(estAc))  est.acidity_gpl = Number((estAc as number).toFixed(1));
+      if (!Number.isNaN(estSu))  est.sugar_gpl = Number((estSu as number).toFixed(1));
+    }
+
+    // 4) Spec desde el BOM (si la tienes ahí)
+    const spec = bom.spec ? {
+      abv:     { min: bom.spec.abvMin,     max: bom.spec.abvMax } as SpecRange,
+      acidity: { min: bom.spec.acidityMin, max: bom.spec.acidityMax } as SpecRange,
+      sugar:   { min: bom.spec.sugarMin,   max: bom.spec.sugarMax } as SpecRange,
+    } : undefined;
+
+    // 5) Sugerencias básicas
+    const sugg: Adjustment[] = [];
+    if (spec?.abv?.max != null && est.abvPct != null && V > 0 && est.abvPct > spec.abv.max) {
+      const x = V * (est.abvPct / spec.abv.max - 1);
+      if (x > 1e-4) sugg.push({ kind: 'WATER', amount: Number(x.toFixed(3)), uom: 'L', reason: `Diluir ABV a ≤ ${spec.abv.max}%` });
+    }
+    if (spec?.acidity?.max != null && est.acidity_gpl != null && V > 0 && est.acidity_gpl > spec.acidity.max) {
+      const x = V * (est.acidity_gpl / spec.acidity.max - 1);
+      if (x > 1e-4) sugg.push({ kind: 'WATER', amount: Number(x.toFixed(3)), uom: 'L', reason: `Diluir acidez a ≤ ${spec.acidity.max} g/L` });
+    }
+    if (spec?.abv?.min != null && est.abvPct != null && V > 0 && est.abvPct < spec.abv.min) {
+      const S = alcoholStrengthForAdjustment; const T = spec.abv.min;
+      const A = ((T - est.abvPct) * V) / (S - T);
+      if (A > 1e-4) sugg.push({ kind: 'ALCOHOL96', amount: Number(A.toFixed(3)), uom: 'L', reason: `Subir ABV a ≥ ${T}% con alcohol ${S}%` });
+    }
+    if (spec?.acidity?.min != null && est.acidity_gpl != null && V > 0 && est.acidity_gpl < spec.acidity.min) {
+      const grams = (spec.acidity.min - est.acidity_gpl) * V;
+      if (grams > 0.1) sugg.push({ kind: 'CITRIC', amount: Math.round(grams), uom: 'g', reason: `Subir acidez a ≥ ${spec.acidity.min} g/L` });
+    }
+
+    const inSpec: boolean =
+      (!spec?.abv     || (est.abvPct       == null) || ((spec.abv.min ?? -Infinity) <= est.abvPct && est.abvPct <= (spec.abv.max ?? Infinity))) &&
+      (!spec?.acidity || (est.acidity_gpl  == null) || ((spec.acidity.min ?? -Infinity) <= est.acidity_gpl && est.acidity_gpl <= (spec.acidity.max ?? Infinity))) &&
+      (!spec?.sugar   || (est.sugar_gpl    == null) || ((spec.sugar.min ?? -Infinity) <= est.sugar_gpl && est.sugar_gpl <= (spec.sugar.max ?? Infinity)));
+
+    const lotNumberPlanned = `SB-${new Date().toISOString().slice(2,10).replace(/-/g,'')}-MAIN-${Math.floor(Math.random()*900+100)}`;
+
+    return ok({
+      stage, baseUnit, outputItemId: bom.outputItemId,
+      nominal, allocations, shortages, lotNumberPlanned,
+      spec, estimates: est, suggestions: sugg, inSpec
+    });
+  } catch (e:any) {
+    return fail("No se pudo previsualizar la planificación.", { code: e?.code });
   }
 }

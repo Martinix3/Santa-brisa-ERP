@@ -44,6 +44,9 @@ export interface Item {
   sku: string;          // ← redundante para mostrar/buscar
   name: string;
   category: ItemCategory;
+  imageUrl?: string;
+  bomProduccionId?: string; // fabricar intermedio
+  bomEnvasadoId?: string;   // embotellar final
   uom: Uom;             // ← siempre obligatorio
   active: boolean;
   // Opcionales propios de SB (solo si aplica al ítem)
