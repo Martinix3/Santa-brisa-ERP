@@ -1,5 +1,3 @@
-"// smoke-test: si ves este comentario, el git apply funciona"
-
 "use client";
 
 import React, { useMemo, useState, useCallback, useEffect, useTransition } from "react";
@@ -634,7 +632,23 @@ export default function ProductionPage() {
   const [openOrder, setOpenOrder] = useState<ProductionOrder | null>(null);
   const [openBom, setOpenBom] = useState<any>(null); // For PlanningBoard
 
-  const boms = useMemo(() => ((santaData?.billOfMaterials ?? []) as any[]).map(b => ({ id: b.id, name: b.name ?? b.id })), [santaData]);
+  const boms = useMemo(() => {
+    const raw = (santaData?.billOfMaterials ?? []) as any[];
+    return raw.map((b) => {
+      // Intentamos deducir el "tipo" de BOM: PRODUCCION o ENVASADO
+      const kind =
+        (b.kind as string) ??
+        (b.stage as string) ??
+        (b.output?.isFinal ? "ENVASADO" : "PRODUCCION");
+      const baseUnit = b.baseUnit ?? b.uom ?? "L";
+      return {
+        id: b.id,
+        name: b.name ?? b.id,
+        kind,
+        baseUnit,
+      };
+    });
+  }, [santaData]);
   const ordersAll = useMemo(() => (santaData?.productionOrders ?? []) as ProductionOrder[], [santaData]);
   const orders = useMemo(() => ordersAll, [ordersAll]);
   const allItems = useMemo(() => (santaData?.items ?? []) as Item[], [santaData]);
