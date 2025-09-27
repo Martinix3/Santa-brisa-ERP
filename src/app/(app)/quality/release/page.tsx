@@ -1,3 +1,4 @@
+
 // src/app/(app)/quality/release/page.tsx
 "use client";
 
@@ -6,7 +7,7 @@ import { SBCard, SBButton, Select } from '@/components/ui/ui-primitives';
 import { useData } from "@/lib/dataprovider";
 import {
   CheckCircle2, XCircle, Hourglass, Search, FlaskConical, Filter, ChevronDown, GitBranch,
-  FileQuestion, Package, AlertTriangle, ClipboardCheck, User, Save, FilePlus2, ListOrdered, FileCheck2, MoveRight
+  FileQuestion, Package, AlertTriangle, ClipboardCheck, User, Save, FilePlus2, ListOrdered, FileCheck, MoveRight
 } from "lucide-react";
 import type {
   Lot, QcTest, QcBatchResult, Item, ParameterCatalog, QcPlan, Incident, Coa,
@@ -99,7 +100,7 @@ function normalizeLotHistory(lot: Lot, data: {
     events.push({
       id: `qcb-${r.id}`, at: r.reviewedAt!, kind: 'QC_DECISION', title: `Decisión: ${prettyStatus(r.status)}`,
       details: `Revisado por ${r.reviewedById}. ${r.remarks ? `"${r.remarks}"` : ''}`,
-      icon: FileCheck2, tone: qcTone(r.status)
+      icon: FileCheck, tone: qcTone(r.status)
     });
   });
 
@@ -225,6 +226,13 @@ export default function LabReleasePage() {
     const history = normalizeLotHistory(lot, { qcTests, qcBatchResults, incidents, stockMoves, protocolAcks, orders });
     return { lot, item: itemMap.get(lot.itemId), plan, history };
   }, [selectedLot, lots, itemMap, qcPlans, qcTests, qcBatchResults, incidents, stockMoves, protocolAcks, orders, qcPlanMap]);
+
+  useEffect(() => {
+    const bad = selectedLotData?.history.filter(h => !h.icon);
+    if (bad && bad.length) {
+      console.warn("Eventos sin icono:", bad.map(b => ({ id: b.id, kind: b.kind, title: b.title })));
+    }
+  }, [selectedLotData]);
 
   const [analysisResults, setAnalysisResults] = useState<Record<string, string>>({});
   const [reviewer, setReviewer] = useState("default.user");
@@ -379,7 +387,7 @@ export default function LabReleasePage() {
                       <li key={ev.id} className="flex gap-3">
                         <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: `hsl(var(--sb-${ev.tone}-soft))`}}>
                            {(() => {
-                              const Icon = ev.icon;
+                              const Icon = ev.icon ?? FileQuestion; // fallback seguro
                               return <Icon className="h-4 w-4" style={{ color: `hsl(var(--sb-${ev.tone}-strong))` }} />;
                            })()}
                         </div>
