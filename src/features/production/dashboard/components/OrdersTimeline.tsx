@@ -1,17 +1,14 @@
-
 // src/features/production/dashboard/components/OrdersTimeline.tsx
 "use client";
 import React from "react";
 import type { ProductionOrder, ProductionStatus } from "@/domain/ssot";
 
-const badge = (s: ProductionStatus) => ({
-  PLANNED: 'bg-amber-100 text-amber-800',
-  IN_PROGRESS: 'bg-blue-100 text-blue-800',
-  PAUSED: 'bg-yellow-100 text-yellow-800',
-  QC_HOLD: 'bg-purple-100 text-purple-800',
-  CLOSED: 'bg-green-100 text-green-800',
-  CANCELLED: 'bg-zinc-100 text-zinc-600',
-  PACKAGING: 'bg-cyan-100 text-cyan-800',
+const badge = (s:ProductionOrder['status'])=> ({
+  planned: 'bg-amber-100 text-amber-800',
+  released: 'bg-blue-100 text-blue-800',
+  wip: 'bg-blue-100 text-blue-800',
+  done: 'bg-green-100 text-green-800',
+  cancelled: 'bg-zinc-100 text-zinc-600',
 }[s] || 'bg-zinc-100 text-zinc-600');
 
 export function OrdersTimeline({ orders }:{ orders: ProductionOrder[] }){

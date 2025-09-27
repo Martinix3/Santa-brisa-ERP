@@ -1,4 +1,3 @@
-
 // src/domain/ssot.ts
 import type { Interaction } from './ssot.common';
 // =================================================================
@@ -28,9 +27,7 @@ export type InteractionStatus = 'open' | 'done' | 'processing' | 'closed' | 'can
 export type OrderStatus = 'open' | 'confirmed' | 'shipped' | 'invoiced' | 'paid' | 'cancelled' | 'lost';
 export type ShipmentStatus = 'pending' | 'picking' | 'ready_to_ship' | 'shipped' | 'delivered' | 'exception' | 'cancelled';
 export type ProductionStatus =
-  | 'PLANNED' | 'IN_PROGRESS' | 'PAUSED'
-  | 'PACKAGING' | 'QC_HOLD'
-  | 'CLOSED' | 'CANCELLED';
+  | 'planned' | 'released' | 'wip' | 'done' | 'cancelled';
 
 export type ProductionStage = 'PRODUCCION' | 'ENVASADO';
 export type IncidentKind = 'QC_INBOUND' | 'QC_PROCESS' | 'QC_RELEASE' | 'LOGISTICS' | 'CUSTOMER_RETURN';
@@ -659,5 +656,3 @@ export const SANTA_DATA_COLLECTIONS: (keyof SantaData)[] = [
 ];
 
 export * from './ssot.metas';
-
-    
