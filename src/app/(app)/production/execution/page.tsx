@@ -164,7 +164,7 @@ function OrderDetail({ order, allItems, onRefresh }: { order: ProductionOrder; a
 
           {status === "QC_HOLD" && (
             <div className="text-xs px-2 py-1 rounded border bg-amber-50 text-amber-800 flex items-center gap-1">
-              <AlertTriangle size={12}/>En espera de QC
+              <AlertTriangle size={12}/> En espera de QC
             </div>
           )}
         </div>
@@ -533,9 +533,8 @@ function OrderDetail({ order, allItems, onRefresh }: { order: ProductionOrder; a
 export default function ProductionPage() {
   const { data: santaData } = useData();
   const [openOrder, setOpenOrder] = useState<ProductionOrder | null>(null);
-  const [boardRows, setBoardRows] = useState<DraftRow[]>([]);
+  const [boardRows, setBoardRows] = useState<any[]>([]);
 
-  // Orígenes
   const boms = useMemo(() => ((santaData?.billOfMaterials ?? []) as any[]).map(b => ({ id: b.id, name: b.name ?? b.id })), [santaData]);
   const ordersAll = useMemo(() => (santaData?.productionOrders ?? []) as ProductionOrder[], [santaData]);
   const orders = useMemo(() => ordersAll, [ordersAll]);
@@ -554,11 +553,7 @@ export default function ProductionPage() {
 
   const accent = "[--sb-accent-produc:182_25%_47%]";
 
-  // Panel lateral: Activas + Programadas y Partes de producción
-  const active = useMemo(() => orders.filter((o: any) => ["IN_PROGRESS", "PAUSED", "QC_HOLD"].includes(o.status)), [orders]);
-  const scheduled = useMemo(() => orders.filter((o: any) => o.status === "PLANNED"), [orders]);
-  const hasAlert = (o: any) => o.status === "QC_HOLD" || (o.incidents?.length ?? 0) > 0;
-
+  // Panel lateral izquierdo
   return (
     <>
       {/* HEADER sticky */}
@@ -587,70 +582,92 @@ export default function ProductionPage() {
 
       <main className="mx-auto max-w-screen-2xl px-6 pb-24">
         <div className="grid lg:grid-cols-3 gap-6">
-          {/* Panel principal: tablero por BOM */}
-          <div className="lg:col-span-2">
-            <SBCard title="Tablero de producción" accent={(SB_COLORS as any).module?.produccion ?? SB_COLORS.primary.teal}>
-              <div className="p-3">
-                <PlanningBoard boms={boms} rows={boardRows} setRows={setBoardRows} />
-              </div>
-            </SBCard>
-
-            {/* Detalle (ejecución) */}
-            <div className="mt-6">
-              {!openOrder ? (
-                <div className="h-full min-h-[240px] flex items-center justify-center text-zinc-500 bg-zinc-50 rounded-2xl border">
-                  Selecciona una orden en el panel derecho.
-                </div>
-              ) : (
-                <OrderDetail order={openOrder} allItems={allItems} onRefresh={refresh} />
-              )}
-            </div>
-          </div>
-
-          {/* Panel lateral */}
+          {/* Panel lateral izquierdo */}
           <div className="lg:col-span-1 space-y-6">
-            {/* Activas y Programadas en una sola tarjeta */}
-            <SBCard title={`Órdenes (activas ${active.length} / programadas ${scheduled.length})`} accent={(SB_COLORS as any).module?.produccion ?? SB_COLORS.primary.teal}>
-              <div className="p-2 space-y-2">
-                {[...active, ...scheduled].map((o: any) => (
-                  <button key={o.id} onClick={() => select(o.id)} className="w-full text-left rounded-lg p-3 border hover:bg-zinc-50">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="font-medium truncate">{o.name || o.id}</div>
-                        <div className="text-xs text-zinc-500 truncate">{o.stage} • {o.plannedQty} {o.baseUnit}{o.plannedDate ? ` • ${o.plannedDate}` : ""}</div>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <span className="text-[11px] px-2 py-0.5 rounded-full border bg-white text-zinc-700">{o.status}</span>
-                        {hasAlert(o) && <div className="text-[11px] text-amber-700 mt-1">⚠️ alerta</div>}
-                      </div>
-                    </div>
-                  </button>
-                ))}
-                {active.length + scheduled.length === 0 && (
-                  <div className="text-sm text-zinc-500 px-2 py-6 text-center">Sin órdenes activas o programadas.</div>
-                )}
-              </div>
-            </SBCard>
-
-            {/* Partes de producción (detalle breve de cada orden) */}
-            <SBCard title="Partes de producción" accent={(SB_COLORS as any).module?.produccion ?? SB_COLORS.primary.teal}>
-              <div className="p-2 space-y-2">
-                {orders.map((o:any) => (
-                  <div key={o.id} className="rounded-lg border p-3 bg-white">
-                    <div className="flex items-center justify-between">
-                      <div className="font-medium truncate">{o.name || o.id}</div>
-                      <span className="text-[11px] px-2 py-0.5 rounded-full border bg-white text-zinc-700">{o.status}</span>
-                    </div>
-                    <div className="text-xs text-zinc-500 mt-1">{o.stage} • {o.plannedQty} {o.baseUnit}{o.plannedDate ? ` • ${o.plannedDate}` : ""}{o.lotNumber ? ` • Lote ${o.lotNumber}` : ""}{o.startedAt ? ` • Inicio ${o.startedAt}` : ""}{o.endedAt ? ` • Fin ${o.endedAt}` : ""}</div>
+            {/* Recetas BOM */}
+            <SBCard title="Recetas (BOM)" accent={(SB_COLORS as any).module?.produccion ?? SB_COLORS.primary.teal}>
+              <div className="p-2 space-y-1">
+                {boms.map((b: any) => (
+                  <div
+                    key={b.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setOpenOrder({ stage: "PRODUCCION", bomId: b.id, bomName: b.name })}
+                    onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && setOpenOrder({ stage: "PRODUCCION", bomId: b.id, bomName: b.name })}
+                    className="rounded-lg p-3 border transition-colors outline-none cursor-pointer hover:bg-zinc-50"
+                    aria-label={`Abrir tablero para ${b.name}`}
+                  >
+                    <p className="font-semibold text-zinc-800">{b.name}</p>
+                    <p className="text-xs text-zinc-500">Receta base</p>
                   </div>
                 ))}
-                {orders.length === 0 && <div className="text-sm text-zinc-500 px-2 py-6 text-center">Sin registros.</div>}
               </div>
             </SBCard>
+
+            {/* Producciones activas / planificadas */}
+            <SBCard title="Producciones en curso" accent={(SB_COLORS as any).module?.produccion ?? SB_COLORS.primary.teal}>
+              <div className="p-2 space-y-1">
+                {orders
+                  .filter((o: any) => ["PLANNED", "IN_PROGRESS"].includes(o.status))
+                  .map((o: any) => (
+                    <div
+                      key={o.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => select(o.id)}
+                      onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && select(o.id)}
+                      className="rounded-lg p-3 border transition-colors outline-none cursor-pointer hover:bg-zinc-50"
+                      aria-label={`Abrir orden ${o.name || o.id}`}
+                    >
+                      <p className="font-semibold text-zinc-800">{o.name || o.id}</p>
+                      <p className="text-xs text-zinc-500">
+                        {o.stage} • {o.plannedQty} {o.baseUnit}
+                      </p>
+                      <span className="mt-1 inline-block text-[11px] px-2 py-0.5 rounded-full border bg-white text-zinc-700">
+                        {o.status}
+                      </span>
+                      {o.lotNumber && (
+                        <span className="ml-2 text-[11px] px-2 py-0.5 rounded-full border bg-white text-zinc-700">
+                          Lote: {o.lotNumber}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+              </div>
+            </SBCard>
+
+            {/* Partes pasados (excluye programadas) */}
+            <SBCard title="Partes de producción (histórico)" accent={(SB_COLORS as any).module?.produccion ?? SB_COLORS.primary.teal}>
+              <div className="p-2 space-y-1">
+                {orders
+                  .filter((o: any) => o.status === "CLOSED")
+                  .map((o: any) => (
+                    <div key={o.id} className="rounded-lg p-3 border bg-zinc-50">
+                      <p className="font-semibold text-zinc-800">{o.name || o.id}</p>
+                      <p className="text-xs text-zinc-500">
+                        {o.stage} • {o.plannedQty} {o.baseUnit}
+                      </p>
+                      <span className="mt-1 inline-block text-[11px] px-2 py-0.5 rounded-full border bg-white text-zinc-700">
+                        {o.status}
+                      </span>
+                    </div>
+                  ))}
+              </div>
+            </SBCard>
+          </div>
+
+          {/* Panel principal: detalle de la orden seleccionada */}
+          <div className="lg:col-span-2">
+            {!openOrder ? (
+              <div className="h-full min-h-[240px] flex items-center justify-center text-zinc-500 bg-zinc-50 rounded-2xl border">
+                Selecciona una orden o una receta para empezar.
+              </div>
+            ) : (
+              <OrderDetail order={openOrder} allItems={allItems} onRefresh={refresh} />
+            )}
           </div>
         </div>
       </main>
     </>
   );
 }
-```
