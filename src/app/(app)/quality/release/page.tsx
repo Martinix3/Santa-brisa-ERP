@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import type {
   Lot, QcTest, QcBatchResult, Item, ParameterCatalog, QcPlan, Incident, Coa,
-  QcTestSpec, ProductionOrder, LotGenealogyEdge, StockMove, ProtocolAcknowledgement, QcStatus
+  QcTestSpec, ProductionOrder, LotGenealogyEdge, StockMove, ProtocolAcknowledgement, QcStatus, OnHandView
 } from "@/domain/ssot";
 
 
@@ -82,7 +82,7 @@ function normalizeLotHistory(lot: Lot, data: {
   data.stockMoves.filter(m => m.lotNumber === lotNumber && m.reason === 'receipt').forEach(m => {
     events.push({
       id: `sm-${m.id}`, at: m.occurredAt || new Date().toISOString(), kind: 'RECEIPT', title: `Lote recibido en almacén`,
-      details: `Cantidad: ${m.qty} ${m.uom}. Ubicación: ${m.toLocation ?? ''}`,
+      details: `Cantidad: ${m.qty} ${m.uom}. Ubicación: ${(m as any).toLocation ?? ''}`,
       icon: Package, tone: 'sky'
     });
   });
@@ -106,8 +106,8 @@ function normalizeLotHistory(lot: Lot, data: {
 
   data.incidents.filter(i => i.lotNumber === lotNumber).forEach(i => {
     events.push({
-      id: `inc-${i.id}`, at: i.at, kind: 'INCIDENT', title: `Incidente: ${i.summary}`,
-      details: `Severidad: ${i.severity ?? 'N/A'}. Estado: ${i.status}`,
+      id: `inc-${i.id}`, at: (i as any).at, kind: 'INCIDENT', title: `Incidente: ${i.summary}`,
+      details: `Severidad: ${(i as any).severity ?? 'N/A'}. Estado: ${i.status}`,
       icon: AlertTriangle, tone: 'amber'
     });
   });
@@ -136,6 +136,7 @@ export default function LabReleasePage() {
   const qcParameters: ParameterCatalog[] = data?.qcParameters ?? []; const qcPlans: QcPlan[] = data?.qc_plans ?? [];
   const incidents: Incident[] = data?.incidents ?? []; const stockMoves: StockMove[] = data?.stockMoves ?? [];
   const protocolAcks: ProtocolAcknowledgement[] = data?.protocolAcks ?? []; const orders: ProductionOrder[] = data?.productionOrders ?? [];
+  const onHand: OnHandView[] = data?.onHand ?? [];
   
   const [query, setQuery] = useState("");
   const [selectedSku, setSelectedSku] = useState<string>('');
@@ -147,9 +148,9 @@ export default function LabReleasePage() {
   const qcPlanMap = useMemo(() => new Map(qcPlans.map(p => [p.id, p])), [qcPlans]);
 
   const lotsBySku = useMemo(() => {
-    const map = new Map<string, Lot[]>();
-    for (const lot of lots) {
-        if (lot.itemId) {
+    const map = new Map<string, OnHandView[]>();
+    for (const lot of onHand) {
+        if (lot.itemId && lot.lotNumber) {
             if (!map.has(lot.itemId)) {
                 map.set(lot.itemId, []);
             }
@@ -157,22 +158,23 @@ export default function LabReleasePage() {
         }
     }
     return map;
-}, [lots]);
+  }, [onHand]);
 
   const buckets = useMemo(() => {
-    const hold: Lot[] = []; const released: Lot[] = []; const rejected: Lot[] = []; const undefinedState: Lot[] = [];
+    const hold: OnHandView[] = []; const released: OnHandView[] = []; const rejected: OnHandView[] = []; const undefinedState: OnHandView[] = [];
     const lowerQuery = query.trim().toLowerCase();
 
-    const lotsToFilter = selectedSku ? (lotsBySku.get(selectedSku) || []) : lots;
+    const lotsToFilter = selectedSku ? (lotsBySku.get(selectedSku) || []) : onHand;
 
     for (const l of lotsToFilter) {
+      if(!l.lotNumber) continue;
       const item = itemMap.get(l.itemId);
       const matchesQuery = !lowerQuery || l.lotNumber.toLowerCase().includes(lowerQuery) || (item?.name || '').toLowerCase().includes(lowerQuery);
       if (!matchesQuery) continue;
 
-      // Normaliza el estado desde qcStatus o status
-      const raw = (l as any)?.qcStatus ?? (l as any)?.status ?? "";
+      const raw = l.qcStatus ?? (lots.find(master => master.lotNumber === l.lotNumber)?.qcStatus) ?? '';
       const status = String(raw).toUpperCase();
+      
       if (status === "RELEASED") {
         released.push(l);
       } else if (status === "REJECTED") {
@@ -189,15 +191,15 @@ export default function LabReleasePage() {
         undefinedState.push(l);
       }
     }
-    const byDateDesc = (a: Lot, b: Lot) => new Date(b.receivedAt ?? b.createdAt ?? 0).getTime() - new Date(a.receivedAt ?? a.createdAt ?? 0).getTime();
+    const byDateDesc = (a: OnHandView, b: OnHandView) => new Date(b.updatedAt ?? b.createdAt ?? 0).getTime() - new Date(a.updatedAt ?? a.createdAt ?? 0).getTime();
     const HOLD = hold.sort(byDateDesc);
     const RELEASED = released.sort(byDateDesc);
     const REJECTED = rejected.sort(byDateDesc);
     const UNDEFINED = undefinedState.sort(byDateDesc);
-    // “Todos” = unión de todos, ordenada por fecha
+
     const ALL = [...HOLD, ...RELEASED, ...REJECTED, ...UNDEFINED].sort(byDateDesc);
     return { ALL, HOLD, RELEASED, REJECTED, UNDEFINED };
-  }, [lots, itemMap, query, selectedSku, lotsBySku]);
+  }, [onHand, lots, itemMap, query, selectedSku, lotsBySku]);
 
   const visibleLots = buckets[activeTab];
 
@@ -208,14 +210,14 @@ export default function LabReleasePage() {
   
   const handleSkuChange = (skuId: string) => {
     setSelectedSku(skuId);
-    setQuery(''); // Reset manual search
-    setSelectedLot(null); // Reset lot selection
-    setActiveTab("ALL"); // Al cambiar SKU, mostrar todos por claridad
+    setQuery('');
+    setSelectedLot(null);
+    setActiveTab("ALL");
   };
 
   const handleLotChange = (lotNumber: string) => {
     setSelectedLot(lotNumber);
-    setQuery(lotNumber); // Set query to focus on the selected lot
+    setQuery(lotNumber);
   };
 
   const selectedLotData = useMemo(() => {
@@ -276,7 +278,7 @@ export default function LabReleasePage() {
             </Select>
              <Select value={selectedLot || ''} onChange={(e) => handleLotChange(e.target.value)} disabled={!selectedSku}>
                 <option value="">Todos los lotes</option>
-                {(data?.lots || []).filter(l => l.itemId === selectedSku).map(lot => (
+                {(data?.onHand || []).filter(l => l.itemId === selectedSku).map(lot => (
                     <option key={lot.lotNumber} value={lot.lotNumber}>{lot.lotNumber}</option>
                 ))}
             </Select>
@@ -298,13 +300,13 @@ export default function LabReleasePage() {
                 const item = itemMap.get(lot.itemId);
                 const isSelected = selectedLot === lot.lotNumber;
                 return (
-                    <button key={lot.id} onClick={() => setSelectedLot(lot.lotNumber)} className={`w-full text-left p-3 ${isSelected ? 'bg-blue-50' : 'hover:bg-zinc-50'}`}>
+                    <button key={lot.id} onClick={() => setSelectedLot(lot.lotNumber!)} className={`w-full text-left p-3 ${isSelected ? 'bg-blue-50' : 'hover:bg-zinc-50'}`}>
                         <div className="flex justify-between items-center">
                             <span className="font-mono text-sm font-semibold text-zinc-800">{lot.lotNumber}</span>
                             <Badge tone={qcTone(lot.qcStatus)}>{prettyStatus(lot.qcStatus)}</Badge>
                         </div>
                         <p className="text-xs text-zinc-600">{item?.name ?? lot.itemId}</p>
-                        <p className="text-xs text-zinc-400 mt-1">{new Date(lot.receivedAt ?? lot.createdAt ?? 0).toLocaleDateString()}</p>
+                        <p className="text-xs text-zinc-400 mt-1">{new Date(lot.updatedAt ?? lot.createdAt ?? 0).toLocaleDateString()}</p>
                     </button>
                 )
             })}
@@ -383,13 +385,11 @@ export default function LabReleasePage() {
               : (
                 <ul className="space-y-4">
                   {selectedLotData.history.map(ev => {
+                    const Icon = ev.icon ?? FileQuestion;
                     return (
                       <li key={ev.id} className="flex gap-3">
                         <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: `hsl(var(--sb-${ev.tone}-soft))`}}>
-                           {(() => {
-                              const Icon = ev.icon ?? FileQuestion; // fallback seguro
-                              return <Icon className="h-4 w-4" style={{ color: `hsl(var(--sb-${ev.tone}-strong))` }} />;
-                           })()}
+                           <Icon className="h-4 w-4" style={{ color: `hsl(var(--sb-${ev.tone}-strong))` }} />
                         </div>
                         <div>
                           <p className="font-semibold text-sm">{ev.title}</p>
