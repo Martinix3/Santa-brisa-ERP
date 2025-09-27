@@ -28,7 +28,7 @@ import {
 } from "../actions";
 
 
-// ---- Aliases para evitar choques de tipos SSOT ----
+// ---- Aliases para evitar choques de tipos SSOT
 type Uom = "L" | "kg" | "unit";
 type ProductionOrderUI = any;
 type BillOfMaterialUI = any;
@@ -313,7 +313,8 @@ function IncidentsSection({ order, onRefresh }: { order: any; onRefresh: () => v
   );
 }
 
-function PlanningBoard({ bom, onPlanned, allItems }: { bom: any; onPlanned: (id: string) => void; allItems: Item[] }) {
+
+function PlanningBoard({ bom, allItems, allBoms, onBomChange, onPlanned }: { bom: any; allItems: Item[], allBoms: any[], onBomChange: (bomId: string) => void; onPlanned: (id: string) => void; }) {
     const [qty, setQty] = React.useState<number>(1);
     const [date, setDate] = React.useState<string>("");
     const [preview, setPreview] = React.useState<any>(null);
@@ -351,17 +352,27 @@ function PlanningBoard({ bom, onPlanned, allItems }: { bom: any; onPlanned: (id:
       if (r?.ok) { toast.success("Planificada"); onPlanned(r.data.id); } else { toast.error(r?.message ?? "No se pudo planificar"); }
     }
   
+    const accent = SB_COLORS.primary.teal;
+
     return (
       <div className="rounded-xl border p-3 bg-white">
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div>
-            <label className="block text-sm mb-1">Cantidad a producir ({bom?.baseUnit ?? "u"})</label>
-            <input type="number" min={1} className="w-full h-10 px-3 rounded-lg border" value={qty} onChange={e=>setQty(Number(e.target.value))}/>
-          </div>
-          <div>
-            <label className="block text-sm mb-1">Fecha prevista</label>
-            <input type="date" className="w-full h-10 px-3 rounded-lg border" value={date} onChange={e=>setDate(e.target.value)}/>
-          </div>
+            <div>
+                <label className="block text-sm mb-1">Receta a producir</label>
+                <select className="w-full h-10 px-3 rounded-lg border" value={bom?.id || ''} onChange={(e) => onBomChange(e.target.value)}>
+                    <option value="" disabled>Selecciona una receta...</option>
+                    {allBoms.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </select>
+            </div>
+            <div>
+                <label className="block text-sm mb-1">Cantidad a producir ({bom?.baseUnit ?? "u"})</label>
+                <input type="number" min={1} className="w-full h-10 px-3 rounded-lg border" value={qty} onChange={e=>setQty(Number(e.target.value))}/>
+            </div>
+            <div>
+                <label className="block text-sm mb-1">Fecha prevista</label>
+                <input type="date" className="w-full h-10 px-3 rounded-lg border" value={date} onChange={e=>setDate(e.target.value)}/>
+            </div>
         </div>
   
         <div className="mt-4">
@@ -413,7 +424,7 @@ function PlanningBoard({ bom, onPlanned, allItems }: { bom: any; onPlanned: (id:
         <SpinnerButton
           onClick={handlePlan}
           loading={creating}
-          style={{ backgroundColor: SB_COLORS.primary.teal }}
+          style={{ backgroundColor: accent }}
           className="text-white w-full h-12 text-base font-semibold mt-4"
         >
           Planificar producción
@@ -566,12 +577,14 @@ export default function ExecutionPage() {
               // === PLANIFICACIÓN ===
               <PlanningBoard
                 bom={openBom}
+                allItems={allItems}
+                allBoms={boms}
+                onBomChange={setOpenBomId}
                 onPlanned={(newOrderId: string) => {
                   setOpenOrderId(newOrderId);
                   setOpenBomId(null);
                   loadInitialData();
                 }}
-                allItems={allItems}
               />
             ) : (
               <EmptyCenter onPickBom={pickBom} />
