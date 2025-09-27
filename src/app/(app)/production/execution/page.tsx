@@ -1,4 +1,3 @@
-
 // src/app/(app)/production/execution/page.tsx
 "use client";
 
@@ -97,46 +96,6 @@ function computeTheoretical(bom: RecipeBom, qty: number, itemsMap: Map<string, I
   }));
 }
 
-// Asignación simple por FIFO (sin fechas) de lots disponibles por itemId
-function allocateFromLots(
-  theory: Array<{ itemId: string; qty: number; uom: Uom; itemName?: string }>,
-  lots: Lot[],
-  onHand: OnHandView[]
-) {
-  const byItem = new Map<string, OnHandView[]>();
-  for (const oh of onHand) {
-    if (!byItem.has(oh.itemId)) byItem.set(oh.itemId, []);
-    byItem.get(oh.itemId)!.push(oh);
-  }
-  
-  for (const list of byItem.values()) {
-    list.sort((a, b) => new Date(a.createdAt ?? 0).getTime() - new Date(b.createdAt ?? 0).getTime());
-  }
-
-  const shortages: Array<{ itemId: string; itemName: string; missing: number; uom: Uom }> = [];
-  const picks: Array<{ itemId: string; lotNumber: string; qty: number; uom: Uom }> = [];
-
-  for (const t of theory) {
-    let remain = t.qty;
-    const availableLots = byItem.get(t.itemId) ?? [];
-    let totalAvailable = availableLots.reduce((sum, lot) => sum + (lot.qty ?? 0), 0);
-
-    for (const lot of availableLots) {
-      if (remain <= 0) break;
-      const take = Math.min(lot.qty ?? 0, remain);
-      if (take > 0) {
-        picks.push({ itemId: t.itemId, lotNumber: lot.lotNumber ?? '', qty: +take.toFixed(3), uom: t.uom });
-        remain -= take;
-      }
-    }
-    if (remain > 1e-6) {
-      shortages.push({ itemId: t.itemId, itemName: t.itemName!, missing: +remain.toFixed(3), uom: t.uom });
-    }
-  }
-  return { shortages, picks };
-}
-
-
 function computeKPIs(order: LocalProductionOrder, itemsMap: Map<string, Item>) {
   // Rendimiento: (output real / teoría esperada output) * 100
   // Costes: suma teorías (estimado) vs suma reales (real) * costStd
@@ -201,16 +160,44 @@ function computeKPIs(order: LocalProductionOrder, itemsMap: Map<string, Item>) {
 
 // ================== Componentes funcionales ==================
 function StockCheckPanel({
-  bom, qty, items, onHand, lots, onReadyChange, shortagesOut, requiredLotsOut
+  bom, qty, items, onHand, onReadyChange, shortagesOut, requiredLotsOut
 }: {
-  bom: RecipeBom; qty: number; items: Item[]; onHand: OnHandView[]; lots: Lot[];
+  bom: RecipeBom; qty: number; items: Item[]; onHand: Array<{itemId:string; lotNumber?:string; qty:number; uom:string; receivedAt?:string; createdAt?:string}>;
   onReadyChange: (ok: boolean) => void;
   shortagesOut: (s: Array<{ itemId: string; itemName: string; missing: number; uom: Uom }>) => void;
   requiredLotsOut: (r: Array<{ itemId: string; lotNumber: string; qty: number; uom: Uom }>) => void;
 }) {
   const itemsMap = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
   const theory = useMemo(() => computeTheoretical(bom, qty, itemsMap), [bom, qty, itemsMap]);
-  const { shortages, picks } = useMemo(() => allocateFromLots(theory, lots, onHand), [theory, lots, onHand]);
+  
+  const { shortages, picks } = useMemo(() => {
+    // asigna desde onHand por FIFO
+    const byItem = new Map<string, any[]>();
+    for (const r of onHand) {
+      if (!byItem.has(r.itemId)) byItem.set(r.itemId, []);
+      byItem.get(r.itemId)!.push(r);
+    }
+    for (const rows of byItem.values()) {
+      rows.sort((a,b)=> new Date(a.receivedAt||a.createdAt||0).getTime() - new Date(b.receivedAt||b.createdAt||0).getTime());
+    }
+    const shortages: Array<{itemId:string; itemName:string; missing:number; uom:Uom}> = [];
+    const picks: Array<{itemId:string; lotNumber:string; qty:number; uom:Uom}> = [];
+    for (const t of theory) {
+      let remain = t.qty;
+      const rows = byItem.get(t.itemId) ?? [];
+      for (const r of rows) {
+        if (remain <= 0) break;
+        const take = Math.min(r.qty ?? 0, remain);
+        if (take > 0) {
+          picks.push({ itemId: t.itemId, lotNumber: r.lotNumber || '', qty: +take.toFixed(3), uom: t.uom });
+          remain -= take;
+        }
+      }
+      if (remain > 1e-6) shortages.push({ itemId: t.itemId, itemName: itemsMap.get(t.itemId)?.name ?? t.itemId, missing: +remain.toFixed(3), uom: t.uom });
+    }
+    return { shortages, picks };
+  }, [theory, onHand, itemsMap]);
+
 
   useEffect(() => {
     onReadyChange(shortages.length === 0);
@@ -221,14 +208,31 @@ function StockCheckPanel({
   return (
     <div className="border rounded-lg p-3 bg-zinc-50">
       <h4 className="text-sm font-semibold mb-2">Disponibilidad y lotes de insumo</h4>
-      <ul className="text-xs space-y-1">
-        {theory.map((line) => (
-          <li key={line.itemId} className="flex justify-between">
-            <span>{line.itemName}</span>
-            <span className="font-mono">{line.qty} {line.uom}</span>
-          </li>
-        ))}
-      </ul>
+      <div className="text-xs">
+        <div className="grid grid-cols-[1fr,90px,90px] font-semibold mb-1">
+          <span>Material</span><span className="text-right">Req.</span><span className="text-right">Propuesto</span>
+        </div>
+        {theory.map((line) => {
+          const proposed = picks.filter(p => p.itemId === line.itemId).reduce((s,p)=>s+p.qty,0);
+          return (
+            <div key={line.itemId} className="grid grid-cols-[1fr,90px,90px] items-start py-0.5">
+              <span>{line.itemName}</span>
+              <span className="text-right font-mono">{line.qty} {line.uom}</span>
+              <span className={`text-right font-mono ${proposed>=line.qty?'text-emerald-700':'text-rose-700'}`}>
+                {+proposed.toFixed(3)} {line.uom}
+              </span>
+              {/* Lotes sugeridos debajo */}
+              <div className="col-span-3 text-[11px] text-zinc-600 mt-0.5">
+                {picks.filter(p=>p.itemId===line.itemId).map(p=>(
+                  <span key={`${p.itemId}-${p.lotNumber}`} className="inline-block mr-1 mb-1 px-1.5 py-0.5 rounded border bg-white">
+                    {p.lotNumber} · {p.qty} {p.uom}
+                  </span>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
       {shortages.length > 0 ? (
         <p className="text-xs text-rose-600 mt-2">Faltan materiales: {shortages.map(s => `${s.itemName} (${s.missing} ${s.uom})`).join(", ")}</p>
       ) : <p className="text-xs text-emerald-700 mt-2">OK — stock suficiente. Se propondrán reservas al programar.</p>}
@@ -299,7 +303,7 @@ function MaterialsEditor({
                 type="text"
                 className="border rounded-md p-1 w-[150px] font-mono"
                 placeholder="LT-YYYY-XX (opcional)"
-                value={r.lotNumber ?? ""}
+                value={r.lotNumber ?? ''}
                 onChange={(e) => setLot(r.itemId, e.target.value)}
                 disabled={readOnly}
               />
@@ -415,10 +419,6 @@ export default function ProductionExecutionPage() {
   // ======= Programar =======
   const handleProgram = () => {
     if (!planningBom) return;
-    if (!stockOk) {
-      toast.error("Faltan materiales: no se puede programar.");
-      return;
-    }
     const idempotencyKey = crypto.randomUUID();
     startProgramTransition(async () => {
       const r = await planProduction({
@@ -662,7 +662,7 @@ export default function ProductionExecutionPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-medium">Cantidad (multiplicador)</label>
+                  <label className="text-xs font-medium">Cantidad (lotes de receta)</label>
                   <input type="number" min={1} step={1} className="mt-1 w-full border rounded-md p-2" value={planQty} onChange={(e) => setPlanQty(Number(e.target.value) || 1)} />
                 </div>
                 <div>
@@ -675,7 +675,6 @@ export default function ProductionExecutionPage() {
                 bom={planningBom}
                 qty={planQty}
                 items={items}
-                lots={lots}
                 onHand={onHand}
                 onReadyChange={setStockOk}
                 shortagesOut={setShortages}
@@ -683,7 +682,7 @@ export default function ProductionExecutionPage() {
               />
 
               <div className="flex gap-2">
-                <SpinnerButton onClick={handleProgram} disabled={!stockOk || isPendingAny} loading={isPendingProgram}>
+                <SpinnerButton onClick={handleProgram} disabled={isPendingAny} loading={isPendingProgram}>
                   Programar producción
                 </SpinnerButton>
                 <SBButton variant="ghost" onClick={resetPlanning} disabled={isPendingAny}>
@@ -691,11 +690,6 @@ export default function ProductionExecutionPage() {
                 </SBButton>
               </div>
 
-              {shortages.length > 0 && (
-                <div className="text-xs text-rose-600">
-                  Faltan materiales: {shortages.map((s) => `${s.itemName} (${s.missing} ${s.uom})`).join(", ")}
-                </div>
-              )}
             </div>
           </SBCard>
         )}
@@ -778,7 +772,7 @@ export default function ProductionExecutionPage() {
                         <label className="text-xs font-medium">Responsable</label>
                         <input
                           className="mt-1 w-full border rounded-md p-2"
-                          value={responsible ?? ''}
+                          value={responsible ?? ""}
                           onChange={(e) => setResponsible(e.target.value)}
                           placeholder="Nombre"
                           readOnly={currentOrder.status !== "PLANNED"}
