@@ -2,8 +2,8 @@
 "use client";
 
 /* ============================================================================
- * /quality/traceability — Timeline end-to-end + Genealogía + Resumen
- * Integrado con tu SSOT y acento azul (--sb-accent-calidad).
+ * /quality/traceability — Timeline e2e + Genealogía + Resumen
+ * Integrado con SSOT. Acento Calidad (amarillo SB) y badges SB.
  * ==========================================================================*/
 
 import React, { useMemo, useState } from "react";
@@ -19,17 +19,29 @@ import type {
 } from "@/domain/ssot";
 
 /* =========================
+ * Util: formato de fechas (Europe/Madrid) + fallback
+ * ========================= */
+function fmt(at?: string) {
+  if (!at) return "—";
+  const d = new Date(at);
+  return new Intl.DateTimeFormat("es-ES", {
+    timeZone: "Europe/Madrid",
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(d);
+}
+
+/* =========================
  * Helpers UI
  * ========================= */
-function Badge({ children, tone="zinc" }: { children: React.ReactNode; tone?: "zinc"|"sky"|"amber"|"rose"|"emerald" }) {
-  const color = {
-    zinc: "border-zinc-200 bg-white text-zinc-700",
-    sky: "border-sky-200 bg-sky-50 text-sky-700",
-    amber: "border-amber-200 bg-amber-50 text-amber-700",
-    rose: "border-rose-200 bg-rose-50 text-rose-700",
-    emerald: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  }[tone];
-  return <span className={`text-[11px] px-2 py-0.5 rounded-full border ${color}`}>{children}</span>;
+function Badge({ children, tone = "info", className = "" }: { children: React.ReactNode; tone?: "info"|"ok"|"warn"|"danger"|"calidad"; className?: string }) {
+  const toneClass =
+    tone === "ok" ? "sb-badge sb-badge--ok" :
+    tone === "warn" ? "sb-badge sb-badge--warn" :
+    tone === "danger" ? "sb-badge sb-badge--danger" :
+    tone === "calidad" ? "sb-badge sb-badge--calidad" :
+    "sb-badge sb-badge--info";
+  return <span className={`${toneClass} ${className}`}>{children}</span>;
 }
 
 type TraceEventKind =
@@ -54,29 +66,35 @@ type TraceEvent = {
 
 function kindIcon(kind: TraceEvent["kind"]) {
   switch (kind) {
-    case "RECEIPT": return <Package size={14} />;
-    case "SHIPMENT": return <Truck size={14} />;
-    case "QC_TEST": return <FlaskConical size={14} />;
-    case "QC_DECISION": return <FlaskConical size={14} />;
-    case "PROTOCOL_ACK": return <ClipboardCheck size={14} />;
-    case "INCIDENT": return <AlertTriangle size={14} />;
-    default: return <Share2 size={14} />;
+    case "RECEIPT": return <Package size={14} className="sb-icon" aria-hidden />;
+    case "SHIPMENT": return <Truck size={14} className="sb-icon" aria-hidden />;
+    case "QC_TEST": return <FlaskConical size={14} className="sb-icon" aria-hidden />;
+    case "QC_DECISION": return <FlaskConical size={14} className="sb-icon sb-icon--ok" aria-hidden />;
+    case "PROTOCOL_ACK": return <ClipboardCheck size={14} className="sb-icon" aria-hidden />;
+    case "INCIDENT": return <AlertTriangle size={14} className="sb-icon sb-icon--warn" aria-hidden />;
+    case "MOVE": return <Share2 size={14} className="sb-icon" aria-hidden />;
+    case "ADJUSTMENT": return <Share2 size={14} className="sb-icon" aria-hidden />;
+    case "PRODUCTION_CONSUMPTION": return <Share2 size={14} className="sb-icon" aria-hidden />;
+    case "PRODUCTION_OUTPUT": return <Share2 size={14} className="sb-icon" aria-hidden />;
+    default: return <Share2 size={14} className="sb-icon" aria-hidden />;
   }
 }
 
-function qcStatusTone(s?: string): "emerald"|"amber"|"rose"|"zinc" {
-  if (!s) return "zinc";
-  if (s === "PASSED" || s === "RELEASED") return "emerald";
-  if (s === "WAIVED" || s === "CONDITIONAL_RELEASE") return "amber";
-  if (s === "FAILED" || s === "REJECTED") return "rose";
-  return "zinc";
+function qcStatusTone(s?: string): "ok"|"warn"|"danger"|"info" {
+  if (!s) return "info";
+  if (s === "PASSED" || s === "RELEASED") return "ok";
+  if (s === "WAIVED" || s === "CONDITIONAL_RELEASE") return "warn";
+  if (s === "FAILED" || s === "REJECTED") return "danger";
+  return "info";
 }
 
 /* =========================
  * Util: construir refs evitando undefined
  * ========================= */
 function makeRefs(list: Array<{ type: RefType; id?: string | null | undefined }>): { type: RefType; id: string }[] {
-  return list.filter((x): x is { type: RefType; id: string } => !!x.id);
+  const out: { type: RefType; id: string }[] = [];
+  for (const it of list) if (it?.id) out.push({ type: it.type, id: String(it.id) });
+  return out;
 }
 
 /* =========================
@@ -102,27 +120,30 @@ function normalizeEvents(params: {
     qcTests, qcBatchResults, inspections, incidents, protocolAcks, shipments, receipts
   } = params;
 
-  const includeLot = (ln?: string) => !lotNumbers || (ln && lotNumbers.has(ln));
-
-  const itemUom = (itemId?: string) => items.find(i => i.id === itemId)?.uom ?? "";
+  const includeLot = (ln?: string | null) => !lotNumbers || (!!ln && lotNumbers.has(ln as LotNumber));
+  const itemUom = (itemId?: string | null) => (items.find(i => i.id === itemId)?.uom) ?? "";
 
   const evs: TraceEvent[] = [];
 
-  // 1) Libro mayor de stock (StockMove)
+  // 1) Libro mayor de stock
   for (const t of stockMoves) {
     if (!includeLot(t.lotNumber)) continue;
 
-    // Razón -> evento
-    let k: TraceEventKind = "ADJUSTMENT";
-    if (t.reason === "receipt" || t.reason === "return_in") k = "RECEIPT";
-    else if (t.reason === "transfer") k = "MOVE";
-    else if (t.reason === "adjustment") k = "ADJUSTMENT";
-    else if (t.reason === "production_out") k = "PRODUCTION_CONSUMPTION";
-    else if (t.reason === "production_in") k = "PRODUCTION_OUTPUT";
-    else if (t.reason === "ship") k = "SHIPMENT";
-    else if (t.reason === "return_out" || t.reason === "sample_consume") k = "SCRAP";
+    let k: TraceEventKind;
+    switch (t.reason) {
+      case "receipt":
+      case "return_in": k = "RECEIPT"; break;
+      case "transfer": k = "MOVE"; break;
+      case "adjustment": k = "ADJUSTMENT"; break;
+      case "production_out": k = "PRODUCTION_CONSUMPTION"; break;
+      case "production_in": k = "PRODUCTION_OUTPUT"; break;
+      case "ship": k = "SHIPMENT"; break;
+      case "return_out":
+      case "sample_consume": k = "SCRAP"; break;
+      default: k = "ADJUSTMENT";
+    }
 
-    const orderId = t.ref?.prodOrderId ?? t.ref?.orderId;
+    const orderId = (t as any)?.ref?.prodOrderId ?? (t as any)?.ref?.orderId;
     const baseRefs = makeRefs([
       { type: "txn", id: t.id },
       { type: "lot", id: t.lotNumber },
@@ -131,7 +152,7 @@ function normalizeEvents(params: {
 
     evs.push({
       id: `txn:${t.id}`,
-      at: t.occurredAt,
+      at: t.occurredAt ?? t.createdAt ?? new Date().toISOString(),
       kind: k,
       title:
         k === "RECEIPT" ? "Recepción / Entrada" :
@@ -141,19 +162,27 @@ function normalizeEvents(params: {
         k === "PRODUCTION_OUTPUT" ? `Salida de producción ${orderId ?? ""}` :
         k === "SHIPMENT" ? "Expedición" :
         "Baja / Merma",
-      details: t.ref?.shipmentId ? `Envío ${t.ref.shipmentId}` : t.ref?.goodsReceiptId ? `Recepción ${t.ref.goodsReceiptId}` : t.reason,
+      details: (t as any)?.ref?.shipmentId
+        ? `Envío ${(t as any).ref.shipmentId}`
+        : (t as any)?.ref?.goodsReceiptId
+          ? `Recepción ${(t as any).ref.goodsReceiptId}`
+          : t.reason,
       refs: baseRefs,
       qty: t.qty,
-      uom: t.uom,
-      locationFrom: (t as any).fromLocationId ?? t.fromLocation,
-      locationTo: (t as any).toLocationId ?? t.toLocation,
+      uom: (t as any)?.uom ?? itemUom((t as any)?.itemId),
+      locationFrom: (t as any).fromLocationId ?? (t as any).fromLocation,
+      locationTo: (t as any).toLocationId ?? (t as any).toLocation,
     });
   }
 
-  // 2) Genealogía (por si quieres redundar salida/consumo)
+  // 2) Genealogía
   for (const edge of lotGenealogy) {
     const ord = orders.find(o => o.id === edge.orderId);
-    const outTime = (ord as any)?.execution?.finishedAt ?? ord?.createdAt ?? lots.find(l => l.lotNumber === edge.childLot)?.createdAt ?? new Date().toISOString();
+    const outTime =
+      (ord as any)?.execution?.finishedAt ??
+      (ord as any)?.finishedAt ??
+      lots.find(l => l.lotNumber === edge.childLot)?.createdAt ??
+      new Date().toISOString();
 
     if (includeLot(edge.childLot)) {
       evs.push({
@@ -189,17 +218,16 @@ function normalizeEvents(params: {
     }
   }
 
-  // 3) Inspecciones/Protocolos (si quieres verlas en timeline)
+  // 3) Inspecciones/Checklist
   for (const ins of inspections) {
-    // Si hay foco, filtra por lote u orden
     if (lotNumbers) {
       const touchesLot = ins.entity?.kind === "lot" && ins.entity?.id && lotNumbers.has(ins.entity.id as LotNumber);
-      const touchesOrder = ins.entity?.kind === "order" && ins.entity?.id && orders.some(o => o.id === ins.entity.id && (o.lotNumber === undefined || lotNumbers.has(o.lotNumber as LotNumber)));
+      const touchesOrder = ins.entity?.kind === "order" && ins.entity?.id && orders.some(o => o.id === ins.entity!.id);
       if (!touchesLot && !touchesOrder) continue;
     }
     evs.push({
       id: `ins:${ins.id}`,
-      at: ins.updatedAt ?? ins.createdAt,
+      at: ins.updatedAt ?? ins.createdAt ?? new Date().toISOString(),
       kind: ins.point === "PRE_PROD" ? "PROTOCOL_ACK" : "QC_TEST",
       title: ins.point === "PRE_PROD" ? "Checklist / Protocolo" : `Inspección ${ins.point}`,
       details: ins.status,
@@ -208,19 +236,20 @@ function normalizeEvents(params: {
     });
   }
 
-  // 4) Tests QC individuales
+  // 4) Tests QC
   for (const t of qcTests) {
     const ln = t.lotNumber;
     if (lotNumbers && ln && !lotNumbers.has(ln)) continue;
+    const detail =
+      t.valueNumeric != null ? `Valor: ${t.valueNumeric} ${t.unit ?? ""}` :
+      t.valueText ? `Valor: ${t.valueText}` :
+      t.valueBool != null ? `Valor: ${t.valueBool ? "Sí" : "No"}` : "";
     evs.push({
       id: `qct:${t.id}`,
-      at: t.testedAt,
+      at: t.testedAt ?? t.createdAt ?? new Date().toISOString(),
       kind: "QC_TEST",
       title: `Test ${t.parameterId}`,
-      details:
-        t.valueNumeric != null ? `Valor: ${t.valueNumeric} ${t.unit ?? ""}` :
-        t.valueText ? `Valor: ${t.valueText}` :
-        t.valueBool != null ? `Valor: ${t.valueBool ? "Sí" : "No"}` : "",
+      details: detail,
       refs: makeRefs([
         { type:"lot", id: ln },
         { type:"order", id: t.orderId }
@@ -228,7 +257,7 @@ function normalizeEvents(params: {
     });
   }
 
-  // 5) Decisiones QC agregadas
+  // 5) Decisiones QC
   for (const r of qcBatchResults) {
     const ln = r.lotNumber;
     if (lotNumbers && ln && !lotNumbers.has(ln)) continue;
@@ -246,17 +275,17 @@ function normalizeEvents(params: {
     });
   }
 
-  // 6) Acks de protocolos (explícitos)
+  // 6) Protocol Acks explícitos
   for (const a of protocolAcks) {
     const ord = orders.find(o => o.id === a.orderId);
     const ln = ord?.lotNumber;
     if (lotNumbers && ln && !lotNumbers.has(ln)) continue;
     evs.push({
       id: `ack:${a.id}`,
-      at: a.at,
+      at: a.at ?? new Date().toISOString(),
       kind: "PROTOCOL_ACK",
       title: "Protocolo confirmado",
-      details: `Protocol ${a.protocolId} por usuario ${a.acknowledgedByUserId}`,
+      details: `Protocol ${a.protocolId} · user ${a.acknowledgedByUserId}`,
       refs: makeRefs([{ type:"order", id: a.orderId }]),
       qc: { point: "PRE_PROD", status: "ACK" },
     });
@@ -267,7 +296,7 @@ function normalizeEvents(params: {
     if (lotNumbers && z.lotNumber && !lotNumbers.has(z.lotNumber)) continue;
     evs.push({
       id: `inc:${z.id}`,
-      at: z.at,
+      at: z.at ?? new Date().toISOString(),
       kind: "INCIDENT",
       title: `Incidencia (${z.severity ?? "LOW"})`,
       details: z.summary,
@@ -279,13 +308,13 @@ function normalizeEvents(params: {
     });
   }
 
-  // 8) Recepciones (GoodsReceipt)
+  // 8) Recepciones
   for (const r of receipts) {
     const touches = (r.lines ?? []).some(ln => includeLot(ln.lotNumber));
     if (lotNumbers && !touches) continue;
     evs.push({
       id: `rcp:${r.id}`,
-      at: r.receivedAt,
+      at: r.receivedAt ?? r.createdAt ?? new Date().toISOString(),
       kind: "RECEIPT",
       title: `Recepción proveedor`,
       details: r.deliveryNote ?? "",
@@ -293,16 +322,16 @@ function normalizeEvents(params: {
     });
   }
 
-  // 9) Envíos (Shipment)
+  // 9) Envíos
   for (const s of shipments) {
     const touches = (s.lines ?? []).some(ln => includeLot(ln.lotNumber));
     if (lotNumbers && !touches) continue;
     evs.push({
       id: `shp:${s.id}`,
-      at: s.updatedAt ?? s.createdAt,
+      at: s.updatedAt ?? s.createdAt ?? new Date().toISOString(),
       kind: "SHIPMENT",
       title: `Expedición a ${s.customerName ?? s.accountId ?? "cliente"}`,
-      details: s.trackingCode ?? s.tracking ?? "",
+      details: (s as any).trackingCode ?? (s as any).tracking ?? "",
       refs: makeRefs([{ type:"shipment", id:s.id }]),
     });
   }
@@ -352,6 +381,12 @@ export default function TraceabilityPage() {
   const [focusKind, setFocusKind] = useState<"lot"|"order"|"shipment"|"receipt">("lot");
   const [query, setQuery] = useState("");
 
+  // Sugerencias para el datalist
+  const lotIds = useMemo(()=> lots.map(l => l.lotNumber).filter(Boolean) as string[], [lots]);
+  const orderIds = useMemo(()=> orders.map(o => o.id), [orders]);
+  const shipmentIds = useMemo(()=> shipments.map(s => s.id), [shipments]);
+  const receiptIds = useMemo(()=> receipts.map(r => r.id), [receipts]);
+
   // Resolver lot(es) en foco desde la selección
   const focusedLots: Set<LotNumber> | undefined = useMemo(() => {
     const id = query.trim();
@@ -362,8 +397,8 @@ export default function TraceabilityPage() {
     if (focusKind === "order") {
       const o = orders.find(x => x.id === id);
       const acc = new Set<LotNumber>();
-      if (o?.batchCode) acc.add(o.batchCode);
-      if (o?.lotNumber) acc.add(o.lotNumber);
+      if ((o as any)?.batchCode) acc.add((o as any).batchCode);
+      if ((o as any)?.lotNumber) acc.add((o as any).lotNumber);
       return acc.size ? acc : undefined;
     }
 
@@ -402,7 +437,6 @@ export default function TraceabilityPage() {
     return lots.find(l => l.lotNumber === ln) || null;
   }, [focusedLots, lots]);
 
-  // UoM a mostrar para un lote (desde catálogo)
   const lotUom = (l?: Lot | null) => items.find(i => i.id === l?.itemId)?.uom ?? "";
 
   return (
@@ -411,26 +445,37 @@ export default function TraceabilityPage() {
         title={
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
             <h2 className="text-xl font-semibold text-zinc-800">Trazabilidad — seguimiento end-to-end</h2>
-            <div className="flex items-center gap-3">
-              <select className="h-10 border rounded-lg px-2 text-sm bg-white" value={focusKind} onChange={e=>setFocusKind(e.target.value as any)}>
+            <div className="flex items-center gap-3 w-full md:w-auto">
+              <label className="sr-only" htmlFor="focusKind">Tipo de búsqueda</label>
+              <select id="focusKind" className="h-10 border rounded-lg px-2 text-sm bg-white"
+                      value={focusKind} onChange={e=>setFocusKind(e.target.value as any)}>
                 <option value="lot">Lote</option>
                 <option value="order">Orden</option>
                 <option value="shipment">Envío</option>
                 <option value="receipt">Recepción</option>
               </select>
-              <div className="relative flex-grow">
-                 <Search size={16} className="text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
+
+              <div className="relative flex-1 min-w-64">
+                 <Search size={16} className="text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" aria-hidden />
                  <input
+                  list="trace-ids"
                   className="h-10 border rounded-lg px-3 pl-9 w-full text-sm bg-white"
-                  placeholder={`Buscar por ID de ${focusKind}...`}
+                  placeholder={`Buscar por ID de ${focusKind}…`}
                   value={query}
                   onChange={e=>setQuery(e.target.value)}
+                  aria-label={`Buscar por identificador de ${focusKind}`}
                 />
+                <datalist id="trace-ids">
+                  {(focusKind==="lot" ? lotIds
+                    : focusKind==="order" ? orderIds
+                    : focusKind==="shipment" ? shipmentIds
+                    : receiptIds).slice(0,200).map(v => <option key={v} value={v} />)}
+                </datalist>
               </div>
             </div>
           </div>
         }
-        accent="hsl(var(--sb-accent-calidad))"
+        accent="hsl(var(--sb-sun-strong))"
       >
         <div className="grid lg:grid-cols-[1.3fr_1fr] gap-6 p-4">
           {/* Timeline */}
@@ -441,38 +486,42 @@ export default function TraceabilityPage() {
                 Introduce un identificador para ver la trazabilidad.
               </div>
             ) : (
-              <ol className="relative border-s ml-2">
+              <ol className="relative border-s ml-2" role="list" aria-label="Timeline de eventos de trazabilidad">
                 {events.map((ev) => (
                   <li key={ev.id} className="mb-6 ms-4">
-                    <div className="absolute w-3 h-3 bg-white rounded-full -start-1.5 border" />
+                    <div className="absolute w-3 h-3 bg-white rounded-full -start-1.5 border" aria-hidden />
                     <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-600 mb-1">
-                      <span>{new Date(ev.at).toLocaleString()}</span>
-                      <Badge>
+                      <time dateTime={ev.at}>{fmt(ev.at)}</time>
+                      <Badge tone="calidad">
                         <span className="inline-flex items-center gap-1">
-                          {kindIcon(ev.kind)}{ev.kind}
+                          {kindIcon(ev.kind)}<span className="uppercase tracking-wide">{ev.kind.replaceAll("_"," ")}</span>
                         </span>
                       </Badge>
-                      {ev.qc?.point && <Badge tone="sky">{ev.qc.point}</Badge>}
+                      {ev.qc?.point && <Badge>{ev.qc.point}</Badge>}
                       {ev.qc?.decision && <Badge tone={qcStatusTone(ev.qc.decision)}>{ev.qc.decision}</Badge>}
-                      {ev.severity && <Badge tone={ev.severity==="HIGH"||ev.severity==="CRITICAL"?"rose":"amber"}>INC {ev.severity}</Badge>}
+                      {ev.severity && <Badge tone={ev.severity==="HIGH"||ev.severity==="CRITICAL"?"danger":"warn"}>INC {ev.severity}</Badge>}
                     </div>
+
                     <div className="font-medium">{ev.title}</div>
                     {ev.details && <div className="text-sm text-zinc-700">{ev.details}</div>}
-                    <div className="text-xs text-zinc-500 mt-1 flex flex-wrap gap-x-2 gap-y-1">
-                      {ev.qty!=null && <>Cantidad: <b>{ev.qty}</b> {ev.uom ?? ""}</>}
+
+                    <div className="text-xs text-zinc-500 mt-1 flex flex-wrap gap-x-3 gap-y-1">
+                      {ev.qty!=null && (
+                        <span>Qty: <b>{ev.qty}</b> {ev.uom ?? ""}</span>
+                      )}
                       {(ev.locationFrom || ev.locationTo) && (
                         <span className="inline-flex items-center gap-1">
-                          <MoveRight size={12} /> {ev.locationFrom ?? "—"} → {ev.locationTo ?? "—"}
+                          <MoveRight size={12} aria-hidden /> {ev.locationFrom ?? "—"} → {ev.locationTo ?? "—"}
                         </span>
                       )}
                       {ev.refs?.map(r => (
                         <a key={`${r.type}:${r.id}`} className="underline text-sky-700"
                            href={
-                             r.type==="lot" ? `/lots/${r.id}/dossier` :
-                             r.type==="order" ? `/production/orders/${r.id}` :
-                             r.type==="shipment" ? `/shipments/${r.id}` :
-                             r.type==="receipt" ? `/receiving/${r.id}` :
-                             `/inspections/${r.id}`
+                             r.type==="lot" ? `/lots/${encodeURIComponent(r.id)}/dossier` :
+                             r.type==="order" ? `/production/orders/${encodeURIComponent(r.id)}` :
+                             r.type==="shipment" ? `/shipments/${encodeURIComponent(r.id)}` :
+                             r.type==="receipt" ? `/receiving/${encodeURIComponent(r.id)}` :
+                             `/inspections/${encodeURIComponent(r.id)}`
                            }>
                           {r.type}:{r.id}
                         </a>
@@ -486,34 +535,37 @@ export default function TraceabilityPage() {
 
           {/* Lateral derecho: Resumen + Genealogía */}
           <div className="space-y-6">
-            <SBCard title="Lotes Disponibles (para Debug)">
-                <div className="p-4 space-y-1 text-xs font-mono max-h-48 overflow-y-auto">
-                    {(data?.lots || []).map(l => <div key={l.id}>{l.lotNumber}</div>)}
-                    {(!data?.lots || data.lots.length === 0) && <div className="font-sans text-sm text-zinc-500">No hay lotes en la base de datos.</div>}
-                </div>
+            <SBCard title="Lotes disponibles (debug rápido)">
+              <div className="sb-card__content space-y-1 text-xs font-mono max-h-48 overflow-y-auto">
+                {(data?.lots || []).length
+                  ? (data!.lots as Lot[]).map(l => <div key={l.id}>{l.lotNumber}</div>)
+                  : <div className="font-sans text-sm text-zinc-500">No hay lotes en la base de datos.</div>}
+              </div>
             </SBCard>
-          
+
             <SBCard title="Resumen del foco">
-              <div className="p-4 text-sm">
+              <div className="sb-card__content text-sm">
                 {!focusedLots && <div className="text-zinc-500">Selecciona un identificador para ver el resumen.</div>}
 
-                {/* Resumen cuando hay 1 solo lote */}
+                {/* Resumen 1 lote */}
                 {singleLot && (
                   <div className="space-y-1">
-                    <div><b>Lote:</b> {singleLot.lotNumber}</div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold">{singleLot.lotNumber}</span>
+                      <Badge tone={singleLot.qcStatus === "PASSED" ? "ok" : singleLot.qcStatus === "FAILED" ? "danger" : "warn"}>
+                        QC {singleLot.qcStatus ?? "PENDING"}
+                      </Badge>
+                    </div>
                     <div className="text-zinc-600">
                       Item: {singleLot.itemId} · Disponible: {singleLot.quantity} {lotUom(singleLot)}
                     </div>
                     <div className="text-zinc-600">
-                      QC: {singleLot.qcStatus ?? "PENDING"} · Estado: {singleLot.status ?? "OPEN"}
+                      Estado: {singleLot.status ?? "OPEN"} {singleLot.locationId ? `· Ubicación: ${singleLot.locationId}` : ""}
                     </div>
-                    {singleLot.locationId && (
-                      <div className="text-zinc-600">Ubicación: {singleLot.locationId}</div>
-                    )}
                   </div>
                 )}
 
-                {/* Resumen cuando hay varios lotes */}
+                {/* Resumen varios lotes */}
                 {focusedLots && !singleLot && (
                   <div className="space-y-2">
                     {Array.from(focusedLots).map(ln => {
@@ -542,7 +594,7 @@ export default function TraceabilityPage() {
             </SBCard>
 
             <SBCard title="Genealogía">
-              <div className="p-4 space-y-4">
+              <div className="sb-card__content space-y-4">
                 {(!focusedLots || (parents.size===0 && children.size===0)) && (
                   <div className="text-sm text-zinc-500">No hay relaciones de genealogía para el foco actual.</div>
                 )}
@@ -550,12 +602,14 @@ export default function TraceabilityPage() {
                 {parents.size>0 && (
                   <div>
                     <div className="flex items-center gap-2 text-sm font-semibold mb-2">
-                      <GitBranch size={16}/> Upstream (lotes padres)
+                      <GitBranch size={16} className="sb-icon" aria-hidden/> Upstream (lotes padres)
                     </div>
                     <div className="space-y-1">
                       {Array.from(parents.entries()).map(([child, set])=>(
                         <div key={`p-${child}`} className="text-sm">
-                          <span className="font-medium">{child}</span> ⇐ {Array.from(set).map(p=>(<a key={p} className="underline text-sky-700 mr-2" href={`/lots/${p}/dossier`}>{p}</a>))}
+                          <span className="font-medium">{child}</span> ⇐ {Array.from(set).map(p=>(
+                            <a key={p} className="underline text-sky-700 mr-2" href={`/lots/${encodeURIComponent(p)}/dossier`}>{p}</a>
+                          ))}
                         </div>
                       ))}
                     </div>
@@ -565,12 +619,14 @@ export default function TraceabilityPage() {
                 {children.size>0 && (
                   <div>
                     <div className="flex items-center gap-2 text-sm font-semibold mb-2">
-                      <GitBranch size={16}/> Downstream (lotes hijos)
+                      <GitBranch size={16} className="sb-icon" aria-hidden/> Downstream (lotes hijos)
                     </div>
                     <div className="space-y-1">
                       {Array.from(children.entries()).map(([parent, set])=>(
                         <div key={`c-${parent}`} className="text-sm">
-                          <span className="font-medium">{parent}</span> ⇒ {Array.from(set).map(c=>(<a key={c} className="underline text-sky-700 mr-2" href={`/lots/${c}/dossier`}>{c}</a>))}
+                          <span className="font-medium">{parent}</span> ⇒ {Array.from(set).map(c=>(
+                            <a key={c} className="underline text-sky-700 mr-2" href={`/lots/${encodeURIComponent(c)}/dossier`}>{c}</a>
+                          ))}
                         </div>
                       ))}
                     </div>
@@ -580,10 +636,10 @@ export default function TraceabilityPage() {
             </SBCard>
 
             <SBCard title="Acciones rápidas">
-              <div className="p-4 grid grid-cols-2 gap-2">
+              <div className="sb-card__content grid grid-cols-2 gap-2">
                 {singleLot ? (
                   <>
-                    <a className="border rounded-lg p-3 text-sm hover:bg-zinc-50" href={`/lots/${singleLot.lotNumber}/dossier`}>Abrir dossier del lote</a>
+                    <a className="border rounded-lg p-3 text-sm hover:bg-zinc-50" href={`/lots/${encodeURIComponent(singleLot.lotNumber)}/dossier`}>Abrir dossier del lote</a>
                     <a className="border rounded-lg p-3 text-sm hover:bg-zinc-50" href="/quality/release">Ir a laboratorio</a>
                   </>
                 ) : (
