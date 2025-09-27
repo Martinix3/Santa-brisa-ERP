@@ -1,3 +1,4 @@
+
 // src/server/integrations/holded/createInvoice.worker.ts
 import { adminDb as db } from '@/server/firebase';
 import type { OrderSellOut, Party, PartyRole, Item } from '@/domain/ssot';
@@ -60,7 +61,7 @@ export async function handleCreateHoldedInvoice({ orderId }: { orderId: string }
 
   // 3) Líneas con impuestos
   const itemIds = (order.lines || []).map(l => l.itemId);
-  const itemsSnap = await db.collection('items').where('id', 'in', itemIds).get();
+  const itemsSnap = itemIds.length ? await db.collection('items').where('id', 'in', itemIds).get() : { docs: [] };
   const itemsById = new Map(itemsSnap.docs.map(doc => [doc.id, doc.data() as Item]));
 
   const items = (order.lines || []).map(l => {

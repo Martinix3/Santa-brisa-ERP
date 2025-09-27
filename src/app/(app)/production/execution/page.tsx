@@ -1,3 +1,4 @@
+
 // src/app/(app)/production/execution/page.tsx
 "use client";
 
@@ -96,6 +97,37 @@ function computeTheoretical(bom: RecipeBom, qty: number, itemsMap: Map<string, I
   }));
 }
 
+function allocateFromLots(
+  theory: Array<{ itemId: string; qty: number; uom: Uom; itemName?: string }>,
+  onHand: Array<{itemId:string; lotNumber?:string; qty:number; uom:string; receivedAt?:string; createdAt?:string}>,
+) {
+    const byItem = new Map<string, any[]>();
+    for (const r of onHand) {
+      if (!byItem.has(r.itemId)) byItem.set(r.itemId, []);
+      byItem.get(r.itemId)!.push(r);
+    }
+    for (const rows of byItem.values()) {
+      rows.sort((a,b)=> new Date(a.receivedAt||a.createdAt||0).getTime() - new Date(b.receivedAt||b.createdAt||0).getTime());
+    }
+    const shortages: Array<{itemId:string; itemName:string; missing:number; uom:Uom}> = [];
+    const picks: Array<{itemId:string; lotNumber:string; qty:number; uom:Uom}> = [];
+    for (const t of theory) {
+      let remain = t.qty;
+      const rows = byItem.get(t.itemId) ?? [];
+      for (const r of rows) {
+        if (remain <= 0) break;
+        const take = Math.min(r.qty ?? 0, remain);
+        if (take > 0) {
+          picks.push({ itemId: t.itemId, lotNumber: r.lotNumber || '', qty: +take.toFixed(3), uom: t.uom });
+          remain -= take;
+        }
+      }
+      if (remain > 1e-6) shortages.push({ itemId: t.itemId, itemName: t.itemName || t.itemId, missing: +remain.toFixed(3), uom: t.uom });
+    }
+    return { shortages, picks };
+}
+
+
 function computeKPIs(order: LocalProductionOrder, itemsMap: Map<string, Item>) {
   // Rendimiento: (output real / teoría esperada output) * 100
   // Costes: suma teorías (estimado) vs suma reales (real) * costStd
@@ -170,33 +202,7 @@ function StockCheckPanel({
   const itemsMap = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
   const theory = useMemo(() => computeTheoretical(bom, qty, itemsMap), [bom, qty, itemsMap]);
   
-  const { shortages, picks } = useMemo(() => {
-    // asigna desde onHand por FIFO
-    const byItem = new Map<string, any[]>();
-    for (const r of onHand) {
-      if (!byItem.has(r.itemId)) byItem.set(r.itemId, []);
-      byItem.get(r.itemId)!.push(r);
-    }
-    for (const rows of byItem.values()) {
-      rows.sort((a,b)=> new Date(a.receivedAt||a.createdAt||0).getTime() - new Date(b.receivedAt||b.createdAt||0).getTime());
-    }
-    const shortages: Array<{itemId:string; itemName:string; missing:number; uom:Uom}> = [];
-    const picks: Array<{itemId:string; lotNumber:string; qty:number; uom:Uom}> = [];
-    for (const t of theory) {
-      let remain = t.qty;
-      const rows = byItem.get(t.itemId) ?? [];
-      for (const r of rows) {
-        if (remain <= 0) break;
-        const take = Math.min(r.qty ?? 0, remain);
-        if (take > 0) {
-          picks.push({ itemId: t.itemId, lotNumber: r.lotNumber || '', qty: +take.toFixed(3), uom: t.uom });
-          remain -= take;
-        }
-      }
-      if (remain > 1e-6) shortages.push({ itemId: t.itemId, itemName: itemsMap.get(t.itemId)?.name ?? t.itemId, missing: +remain.toFixed(3), uom: t.uom });
-    }
-    return { shortages, picks };
-  }, [theory, onHand, itemsMap]);
+  const { shortages, picks } = useMemo(() => allocateFromLots(theory, onHand), [theory, onHand]);
 
 
   useEffect(() => {
@@ -653,213 +659,92 @@ export default function ProductionExecutionPage() {
       <div className="lg:col-span-9 space-y-4">
         {/* Modo Planificación */}
         {planningBom && !currentOrder && (
-          <SBCard title={<span className="flex items-center gap-2"><Calendar className="h-4 w-4" /> Planificación de orden</span>} accent="hsl(var(--sb-accent-produc))">
+          <SBCard
+            title="Planificar Nueva Orden"
+            accent="hsl(var(--sb-accent-produc))"
+          >
             <div className="p-4 space-y-4">
-              <div className="p-3 bg-sky-50 border border-sky-200 rounded-lg text-sm space-y-1">
-                <p className="font-bold">{planningBom.name}</p>
-                <p><b>Etapa:</b> {planningBom.stage === "ENVASADO" ? "Envasado" : "Producción"}</p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-4">
+                <div className="col-span-2">
+                  <label className="text-xs font-medium">Receta base</label>
+                  <p className="font-semibold">{planningBom.name}</p>
+                </div>
                 <div>
                   <label className="text-xs font-medium">Cantidad (lotes de receta)</label>
-                  <input type="number" min={1} step={1} className="mt-1 w-full border rounded-md p-2" value={planQty} onChange={(e) => setPlanQty(Number(e.target.value) || 1)} />
+                  <input type="number" className="mt-1 w-full border rounded-md p-2" value={planQty} onChange={e => setPlanQty(Number(e.target.value) || 0)} />
                 </div>
                 <div>
                   <label className="text-xs font-medium">Fecha prevista</label>
-                  <input type="date" className="mt-1 w-full border rounded-md p-2" value={planDate} onChange={(e) => setPlanDate(e.target.value)} />
+                  <input type="date" className="mt-1 w-full border rounded-md p-2" value={planDate} onChange={e => setPlanDate(e.target.value)} />
                 </div>
               </div>
 
-              <StockCheckPanel
-                bom={planningBom}
-                qty={planQty}
-                items={items}
-                onHand={onHand}
-                onReadyChange={setStockOk}
-                shortagesOut={setShortages}
-                requiredLotsOut={setRequiredLots}
-              />
+              <StockCheckPanel bom={planningBom} qty={planQty} items={items} onHand={onHand} onReadyChange={setStockOk} shortagesOut={setShortages} requiredLotsOut={setRequiredLots} />
 
-              <div className="flex gap-2">
-                <SpinnerButton onClick={handleProgram} disabled={isPendingAny} loading={isPendingProgram}>
-                  Programar producción
-                </SpinnerButton>
-                <SBButton variant="ghost" onClick={resetPlanning} disabled={isPendingAny}>
-                  Cancelar
-                </SBButton>
+              <div className="flex justify-end gap-2">
+                <SBButton variant="secondary" onClick={resetPlanning}>Cancelar</SBButton>
+                <SpinnerButton onClick={handleProgram} disabled={isPendingAny} loading={isPendingProgram}>Programar producción</SpinnerButton>
               </div>
-
             </div>
           </SBCard>
         )}
 
-        {/* Modo Ejecución / Visualización de Orden */}
+        {/* Modo Ejecución */}
         {currentOrder && (
           <>
             <SBCard
               title={
-                <div className="flex items-center justify-between w-full">
-                  <span className="flex items-center gap-2">
-                    <FactoryIcon className="h-4 w-4" />
-                    {currentOrder.name ?? `Orden ${currentOrder.id.slice(-4)}`}
-                  </span>
-                  <span className="flex items-center gap-2">
-                    <Badge tone={mapStatusTone(currentOrder.status)}>{currentOrder.status}</Badge>
-                    <Badge tone="sky">{currentOrder.stage === "ENVASADO" ? "Envasado" : "Producción"}</Badge>
-                  </span>
+                <div className="flex items-center gap-2">
+                  <Calendar size={16} />
+                  <span>{currentOrder.name || 'Orden de Producción'}</span>
+                  <Badge tone={mapStatusTone(currentOrder.status)}>{currentOrder.status}</Badge>
                 </div>
               }
               accent="hsl(var(--sb-accent-produc))"
             >
               <div className="p-4 space-y-4">
-                {/* Datos planificados (bloqueables al iniciar) */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-medium">Cantidad planificada</label>
-                    <input
-                      type="number"
-                      className="mt-1 w-full border rounded-md p-2"
-                      value={currentOrder.targetQuantity}
-                      readOnly={currentOrder.locked || currentOrder.status !== "PLANNED"}
-                      onChange={(e) => {
-                        // solo si no está bloqueado; si quieres persistir en server añade action
-                        if (!currentOrder.locked && currentOrder.status === "PLANNED") {
-                          setCurrentOrder({ ...currentOrder, targetQuantity: Number(e.target.value) || currentOrder.targetQuantity });
-                        }
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium">Fecha prevista</label>
-                    <input
-                      type="date"
-                      className="mt-1 w-full border rounded-md p-2"
-                      value={(currentOrder.scheduledFor ?? "").slice(0, 10)}
-                      readOnly={currentOrder.locked || currentOrder.status !== "PLANNED"}
-                      onChange={(e) => {
-                        if (!currentOrder.locked && currentOrder.status === "PLANNED") {
-                          setCurrentOrder({ ...currentOrder, scheduledFor: e.target.value });
-                        }
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {/* Materiales */}
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <h4 className="text-sm font-semibold mb-2">Materiales</h4>
-                    {/* realConsumption se bloquea tras iniciar */}
-                    <MaterialsEditor
-                      bom={{ id: currentOrder.bomId, name: currentOrder.name ?? "", outputItemId: currentOrder.outputItemId, stage: currentOrder.stage, batchSize: 1, baseUnit: "L", items: (currentOrder as any).nominal } as any}
-                      qty={currentOrder.targetQuantity}
-                      real={realConsumption}
-                      onChange={setRealConsumption}
-                      readOnly={currentOrder.status !== "PLANNED"}
-                    />
-                    <p className="text-xs text-zinc-500 mt-1">En planificación puedes editar consumos y lotes. Al iniciar se bloquean.</p>
-                  </div>
-
-                  {/* Calidad y personal */}
-                  <div className="space-y-3">
-                    <div className="border rounded-lg p-3">
-                      <label className="flex items-center gap-2 text-sm">
-                        <input type="checkbox" checked={protocolsAck} onChange={(e) => setProtocolsAck(e.target.checked)} />
-                        He leído los protocolos
-                      </label>
-                      <div className="mt-2">
-                        <label className="text-xs font-medium">Responsable</label>
-                        <input
-                          className="mt-1 w-full border rounded-md p-2"
-                          value={responsible ?? ''}
-                          onChange={(e) => setResponsible(e.target.value)}
-                          placeholder="Nombre"
-                          readOnly={currentOrder.status !== "PLANNED"}
-                        />
-                      </div>
+                {/* Panel de estado y gating */}
+                {(currentOrder.status === "PLANNED" || currentOrder.status === "RELEASED") && (
+                  <div className="p-3 bg-zinc-50 border rounded-lg space-y-3">
+                    <div className="flex items-center gap-2">
+                      <input id="protocols-ack" type="checkbox" checked={protocolsAck} onChange={e => setProtocolsAck(e.target.checked)} />
+                      <label htmlFor="protocols-ack" className="text-sm">Confirmo que he leído los protocolos de seguridad.</label>
                     </div>
-
-                    {/* KPIs live (previos o finales) */}
-                    {kpis && (
-                      <div className="grid grid-cols-2 gap-2 text-sm">
-                        <div className="border rounded-lg p-2 bg-zinc-50">
-                          <div className="text-xs text-zinc-500">Rendimiento</div>
-                          <div className="font-semibold">{kpis.rendimientoPct}%</div>
-                        </div>
-                        <div className="border rounded-lg p-2 bg-zinc-50">
-                          <div className="text-xs text-zinc-500">Mermas</div>
-                          <div className="font-semibold">{kpis.mermaPct}%</div>
-                        </div>
-                        <div className="border rounded-lg p-2 bg-zinc-50">
-                          <div className="text-xs text-zinc-500">Coste estimado</div>
-                          <div className="font-semibold">{kpis.costeEstimado}</div>
-                        </div>
-                        <div className="border rounded-lg p-2 bg-zinc-50">
-                          <div className="text-xs text-zinc-500">Coste real</div>
-                          <div className="font-semibold">{kpis.costeReal}</div>
-                        </div>
-                        {currentOrder.stage === "ENVASADO" && (
-                          <div className="border rounded-lg p-2 bg-zinc-50 col-span-2">
-                            <div className="text-xs text-zinc-500">Botellas/hora</div>
-                            <div className="font-semibold">{kpis.botellasHora}</div>
-                          </div>
-                        )}
-                      </div>
-                    )}
+                    <div>
+                      <label htmlFor="responsible-id" className="text-sm">Responsable de producción</label>
+                      <input id="responsible-id" value={responsible ?? ''} onChange={e => setResponsible(e.target.value)} className="w-full mt-1 border rounded-md p-2" placeholder="Tu nombre..." />
+                    </div>
                   </div>
-                </div>
-
-                {/* Botonera por estado */}
-                <div className="pt-3 border-t flex flex-wrap gap-2">
-                  {currentOrder.status === "PLANNED" && (
-                    <>
-                      <SpinnerButton
-                        onClick={handleStart}
-                        disabled={!protocolsAck || !responsible || isPendingAny}
-                        loading={isPendingStart}
-                      >
-                        <Play className="h-4 w-4 mr-1" /> Iniciar
-                      </SpinnerButton>
-                      <SBButton
-                        variant="destructive"
-                        onClick={() => confirmAndCancel(currentOrder.id)}
-                        disabled={isPendingAny}
-                      >
-                        <XCircle className="h-4 w-4 mr-1" /> Cancelar
-                      </SBButton>
-                    </>
-                  )}
-                  {currentOrder.status === "IN_PROGRESS" && (
-                    <>
-                      <SBButton onClick={handlePause} disabled={isPendingAny}>
-                        <Pause className="h-4 w-4 mr-1" /> Pausar
-                      </SBButton>
-                      <SpinnerButton onClick={handleFinish} loading={isPendingFinish} disabled={isPendingAny}>
-                        <CheckCircle className="h-4 w-4 mr-1" /> Finalizar
-                      </SpinnerButton>
-                    </>
-                  )}
-                  {currentOrder.status === "PAUSED" && (
-                    <>
-                      <SBButton onClick={handleResume} disabled={isPendingAny}>
-                        <Play className="h-4 w-4 mr-1" /> Reanudar
-                      </SBButton>
-                      <SpinnerButton onClick={handleFinish} loading={isPendingFinish} disabled={isPendingAny}>
-                        <CheckCircle className="h-4 w-4 mr-1" /> Finalizar
-                      </SpinnerButton>
-                    </>
-                  )}
+                )}
+                
+                {/* Botonera de acción principal */}
+                <div className="flex flex-wrap gap-2">
+                  {(currentOrder.status === 'PLANNED' || currentOrder.status === 'RELEASED') && <SpinnerButton onClick={handleStart} loading={isPendingStart} disabled={!protocolsAck || !responsible || isPendingAny}><Play size={16}/> Iniciar</SpinnerButton>}
+                  {currentOrder.status === 'IN_PROGRESS' && <SpinnerButton onClick={handlePause} loading={isPendingOther} disabled={isPendingAny}><Pause size={16}/> Pausar</SpinnerButton>}
+                  {currentOrder.status === 'PAUSED' && <SpinnerButton onClick={handleResume} loading={isPendingOther} disabled={isPendingAny}><Play size={16}/> Reanudar</SpinnerButton>}
+                  {(currentOrder.status === 'IN_PROGRESS' || currentOrder.status === 'QC_HOLD') && <SpinnerButton onClick={handleFinish} loading={isPendingFinish} disabled={isPendingAny}><CheckCircle size={16}/> Finalizar</SpinnerButton>}
+                  {currentOrder.status !== 'DONE' && currentOrder.status !== 'CANCELLED' && <SpinnerButton variant='destructive' onClick={() => confirmAndCancel(currentOrder.id)} loading={isPendingOther} disabled={isPendingAny}><XCircle size={16}/> Cancelar</SpinnerButton>}
                 </div>
               </div>
             </SBCard>
-
-            {/* Bitácora — siempre visible, incidencias abiertas */}
-            <JournalCard
-              journal={journal}
-              onAdd={handleAddJournal}
-              readOnly={false}
+            
+            {/* Panel de consumo real */}
+            <MaterialsEditor
+              bom={recipes.find(b => b.id === currentOrder.bomId)!}
+              qty={currentOrder.targetQuantity}
+              real={realConsumption}
+              onChange={setRealConsumption}
+              readOnly={currentOrder.status !== "PLANNED" && currentOrder.status !== "RELEASED"}
             />
+            
+            <>
+              {/* Bitácora — siempre visible, incidencias abiertas */}
+              <JournalCard
+                journal={journal}
+                onAdd={handleAddJournal}
+                readOnly={false}
+              />
+            </>
           </>
         )}
 
