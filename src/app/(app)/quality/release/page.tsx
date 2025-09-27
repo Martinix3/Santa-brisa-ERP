@@ -136,7 +136,7 @@ export default function LabReleasePage() {
   
   const [query, setQuery] = useState("");
   const [selectedSku, setSelectedSku] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<BucketKey>("UNDEFINED");
+  const [activeTab, setActiveTab] = useState<BucketKey>("HOLD");
   const [selectedLot, setSelectedLot] = useState<string | null>(null);
 
   const itemMap = useMemo(() => new Map(items.map(i => [i.id, i])), [items]);
@@ -228,6 +228,8 @@ export default function LabReleasePage() {
   const allRequiredResultsEntered = requiredSpecs.every(spec =>
     analysisResults[spec.parameterId] && analysisResults[spec.parameterId].trim() !== ""
   );
+  
+  const lotsForSelectedSku = selectedSku ? (lotsBySku.get(selectedSku) || []) : [];
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-200px)]">
@@ -242,7 +244,7 @@ export default function LabReleasePage() {
             </Select>
              <Select value={selectedLot || ''} onChange={(e) => handleLotChange(e.target.value)} disabled={!selectedSku}>
                 <option value="">Todos los lotes</option>
-                {(lotsBySku.get(selectedSku) || []).map(lot => (
+                {lotsForSelectedSku.map(lot => (
                     <option key={lot.lotNumber} value={lot.lotNumber}>{lot.lotNumber}</option>
                 ))}
             </Select>
