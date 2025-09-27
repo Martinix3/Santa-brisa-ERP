@@ -8,7 +8,7 @@ import type { OnHandView } from '@/domain/ssot';
 // ===================================
 
 interface SBCardProps {
-  title: string;
+  title: React.ReactNode;
   accent?: string;
   children: React.ReactNode;
 }

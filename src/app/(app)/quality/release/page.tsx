@@ -1,21 +1,22 @@
 "use client";
 
 /* ============================================================================
- * /quality/laboratorio — Registro de tests QC + Decisión de lote/orden
- * Integra: lots, qcParameters, qcTests, qcBatchResults, protocolAcks
- * Acento: hsl(var(--sb-accent-calidad))
+ * /quality/laboratorio — Liberación de Lotes
+ * - NO crea lotes. Solo lista y permite revisar/decidir sobre lotes que vienen
+ *   desde inventario/producción.
+ * - Paneles: En hold / Liberados / Rechazados
+ * - Detalle: resumen + QcTests + QcBatchResults
+ * - Acento: --sb-accent-calidad
  * ==========================================================================*/
 
 import React, { useMemo, useState } from "react";
 import { SBCard } from "@/components/ui/ui-primitives";
 import { useData } from "@/lib/dataprovider";
-import { Search, FlaskConical, CheckCircle2, XCircle, ShieldCheck, AlertTriangle } from "lucide-react";
+import { CheckCircle2, XCircle, Hourglass, Search, FlaskConical, FileCheck2, Filter } from "lucide-react";
+import type { Lot, QcTest, QcBatchResult, Item } from "@/domain/ssot";
 
-import type {
-  Lot, LotNumber, QcTest, QcBatchResult, SantaData, ProductionOrder
-} from "@/domain/ssot";
+type BucketKey = "HOLD" | "RELEASED" | "REJECTED";
 
-/* ===== Helpers UI ===== */
 function Badge({ children, tone="zinc" }: { children: React.ReactNode; tone?: "zinc"|"sky"|"amber"|"rose"|"emerald" }) {
   const color = {
     zinc: "border-zinc-200 bg-white text-zinc-700",
@@ -27,365 +28,280 @@ function Badge({ children, tone="zinc" }: { children: React.ReactNode; tone?: "z
   return <span className={`text-[11px] px-2 py-0.5 rounded-full border ${color}`}>{children}</span>;
 }
 
-function qcDecisionTone(s?: string): "emerald"|"amber"|"rose"|"zinc" {
+function qcTone(s?: string): "emerald"|"amber"|"rose"|"zinc" {
   if (!s) return "zinc";
-  if (s === "RELEASED" || s === "PASSED") return "emerald";
-  if (s === "WAIVED" || s === "CONDITIONAL_RELEASE") return "amber";
-  if (s === "REJECTED" || s === "FAILED") return "rose";
+  if (s === "RELEASED") return "emerald";
+  if (s === "CONDITIONAL_RELEASE" || s === "WAIVED" || s === "IN_PROGRESS") return "amber";
+  if (s === "REJECTED") return "rose";
   return "zinc";
 }
 
-/* ===== Página ===== */
-export default function LabPage() {
+export default function LabReleasePage() {
   const { data } = useData();
 
-  // Datos SSOT
   const lots = (data?.lots ?? []) as Lot[];
-  const orders = (data?.productionOrders ?? []) as ProductionOrder[];
-  const qcParams = (data?.qcParameters ?? []) as Array<{ id:string; name:string; unit?:string; target?:number; min?:number; max?:number; kind?: "NUM"|"BOOL"|"TEXT" }>;
+  const items = (data?.items ?? []) as Item[];
   const qcTests = (data?.qcTests ?? []) as QcTest[];
   const qcBatchResults = (data?.qcBatchResults ?? []) as QcBatchResult[];
-  const protocolAcks = (data?.protocolAcks ?? []) as SantaData["protocolAcks"];
 
-  // Foco: por defecto por lote
-  const [focusKind, setFocusKind] = useState<"lot"|"order">("lot");
   const [query, setQuery] = useState("");
+  const [selectedLot, setSelectedLot] = useState<string | null>(null);
+  const [filterItem, setFilterItem] = useState<string>("");
 
-  // Resolver lotes en foco
-  const focusedLots: Lot[] | null = useMemo(()=>{
-    const id = query.trim();
-    if (!id) return null;
-    if (focusKind === "lot") {
-      const l = lots.find(x=>x.lotNumber===id);
-      return l ? [l] : [];
+  const matchQuery = (l: Lot) => {
+    const q = query.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      l.lotNumber.toLowerCase().includes(q) ||
+      l.itemId.toLowerCase().includes(q)
+    );
+  };
+
+  const matchItem = (l: Lot) => {
+    if (!filterItem) return true;
+    return l.itemId === filterItem;
+  };
+
+  // Reglas de bucket:
+  // - HOLD: lotStatus==='ON_HOLD_QC' o qcStatus in ['PENDING','IN_PROGRESS','WAIVED','CONDITIONAL_RELEASE']
+  // - RELEASED: qcStatus==='RELEASED'
+  // - REJECTED: qcStatus==='REJECTED'
+  const buckets = useMemo(() => {
+    const hold: Lot[] = [];
+    const released: Lot[] = [];
+    const rejected: Lot[] = [];
+    for (const l of lots) {
+      if (!matchQuery(l) || !matchItem(l)) continue;
+      const isHold =
+        l.status === "ON_HOLD_QC" ||
+        ["PENDING", "IN_PROGRESS", "WAIVED", "CONDITIONAL_RELEASE"].includes(l.qcStatus as any);
+      if (l.qcStatus === "RELEASED") released.push(l);
+      else if (l.qcStatus === "REJECTED") rejected.push(l);
+      else if (isHold) hold.push(l);
+      // Si no tiene qcStatus, lo consideramos HOLD por defecto
+      else if (!l.qcStatus) hold.push(l);
     }
-    // order → lotes producidos por esa orden
-    const o = orders.find(x=>x.id===id);
-    if (!o) return [];
-    return lots.filter(l => l.producedByOrderId === o.id);
-  }, [focusKind, query, lots, orders]);
+    // Ordena por fecha (más recientes arriba si tienen createdAt)
+    const byDateDesc = (a: Lot, b: Lot) =>
+      new Date(b.receivedAt ?? b.createdAt ?? 0).getTime() -
+      new Date(a.receivedAt ?? a.createdAt ?? 0).getTime();
+    return {
+      HOLD: hold.sort(byDateDesc),
+      RELEASED: released.sort(byDateDesc),
+      REJECTED: rejected.sort(byDateDesc),
+    } as Record<BucketKey, Lot[]>;
+  }, [lots, query, filterItem]);
 
-  const singleLot = focusedLots && focusedLots.length===1 ? focusedLots[0] : null;
+  const selected = useMemo(
+    () => (selectedLot ? lots.find(l => l.lotNumber === selectedLot) ?? null : null),
+    [selectedLot, lots]
+  );
 
-  // Tests y resultados filtrados
-  const testsForFocus = useMemo(()=>{
-    if (!focusedLots) return [];
-    const set = new Set(focusedLots.map(l=>l.lotNumber));
-    return qcTests.filter(t=> t.lotNumber ? set.has(t.lotNumber) : false)
-                  .sort((a,b)=> new Date(a.testedAt).getTime() - new Date(b.testedAt).getTime());
-  }, [focusedLots, qcTests]);
+  const selectedItem = useMemo(
+    () => (selected ? items.find(i => i.id === selected.itemId) ?? null : null),
+    [selected, items]
+  );
 
-  const decisionsForFocus = useMemo(()=>{
-    if (!focusedLots) return [];
-    const set = new Set(focusedLots.map(l=>l.lotNumber));
-    return qcBatchResults.filter(r => r.lotNumber ? set.has(r.lotNumber) : false)
-                         .sort((a,b)=> new Date(a.reviewedAt ?? a.createdAt ?? a.updatedAt ?? a.id).getTime()
-                                   - new Date(b.reviewedAt ?? b.createdAt ?? b.updatedAt ?? b.id).getTime());
-  }, [focusedLots, qcBatchResults]);
+  const testsForSelected = useMemo(
+    () => (selected ? qcTests.filter(t => t.lotNumber === selected.lotNumber).sort((a,b)=> new Date(b.testedAt).getTime()-new Date(a.testedAt).getTime()) : []),
+    [selected, qcTests]
+  );
 
-  const lastDecision = decisionsForFocus[decisionsForFocus.length-1];
+  const decisionsForSelected = useMemo(
+    () => (selected ? qcBatchResults.filter(r => r.lotNumber === selected.lotNumber).sort((a,b)=> new Date(b.reviewedAt ?? 0).getTime()-new Date(a.reviewedAt ?? 0).getTime()) : []),
+    [selected, qcBatchResults]
+  );
 
-  // ===== Formularios (acciones stub: conecta con tus server actions reales) =====
-  const [form, setForm] = useState<{ lotNumber?: LotNumber; paramId?: string; valueText?: string; valueNumeric?: string; valueBool?: boolean }>({});
-  const [savingTest, setSavingTest] = useState(false);
-
-  async function onSaveTest() {
-    if (!singleLot && !(form.lotNumber && form.lotNumber.length>0)) return;
-    if (!form.paramId) return;
-
-    // 💡 Conecta aquí tu server action real: recordQcTest()
-    // await recordQcTest({ lotNumber: singleLot?.lotNumber ?? form.lotNumber!, parameterId: form.paramId, ... });
-    setSavingTest(true);
-    try {
-      // Simulación optimista (el dataprovider refrescará en la navegación real)
-      console.info("[recordQcTest] ->", form);
-    } finally {
-      setSavingTest(false);
-    }
-  }
-
-  const [decision, setDecision] = useState<"PASSED"|"FAILED"|"WAIVED"|"CONDITIONAL_RELEASE" | "">("");
-  const [remarks, setRemarks] = useState("");
-  const [savingDecision, setSavingDecision] = useState(false);
-
-  const canDecide = (focusedLots && focusedLots.length>0) && testsForFocus.length>0;
-
-  async function onSaveDecision() {
-    if (!canDecide || !decision) return;
-    // 💡 Conecta aquí tu server action real: setQcDecision()
-    // await setQcDecision({ lotNumbers: focusedLots!.map(l=>l.lotNumber), status: decision, remarks })
-    setSavingDecision(true);
-    try {
-      console.info("[setQcDecision] lots=", focusedLots!.map(l=>l.lotNumber), "status=", decision, "remarks=", remarks);
-    } finally {
-      setSavingDecision(false);
-    }
-  }
+  const itemOptions = useMemo(() => {
+    const ids = Array.from(new Set(lots.map(l => l.itemId)));
+    return ids.map(id => ({ id, name: items.find(i => i.id === id)?.name ?? id }));
+  }, [lots, items]);
 
   return (
     <div className="mx-auto max-w-screen-2xl p-6 space-y-6">
-      {/* Filtro de foco */}
-      <SBCard title="Laboratorio — Registro QC" accent="hsl(var(--sb-accent-calidad))">
-        <div className="p-4 grid md:grid-cols-[160px_1fr_220px] gap-3">
-          <div className="flex gap-2">
-            <select className="h-10 border rounded-lg px-2" value={focusKind} onChange={e=>setFocusKind(e.target.value as any)}>
-              <option value="lot">Lote</option>
-              <option value="order">Orden</option>
-            </select>
-          </div>
+      <SBCard title="Laboratorio — Liberación de lotes" accent="hsl(var(--sb-accent-calidad))">
+        <div className="p-4 grid md:grid-cols-[1fr_240px] gap-3">
           <div className="flex items-center gap-2">
             <Search size={16} className="text-zinc-500" />
             <input
               className="h-10 border rounded-lg px-3 w-full"
-              placeholder={`Buscar ${focusKind}…`}
+              placeholder="Buscar por lote o ítem…"
               value={query}
               onChange={e=>setQuery(e.target.value)}
             />
           </div>
-          <div className="flex items-center justify-end gap-2">
-            {singleLot?.qcStatus && <Badge tone={qcDecisionTone(singleLot.qcStatus)}>{singleLot.qcStatus}</Badge>}
-            {singleLot?.status && <Badge>{singleLot.status}</Badge>}
+          <div className="flex items-center gap-2">
+            <Filter size={16} className="text-zinc-500" />
+            <select className="h-10 border rounded-lg px-2 w-full" value={filterItem} onChange={e=>setFilterItem(e.target.value)}>
+              <option value="">Todos los ítems</option>
+              {itemOptions.map(opt => (
+                <option key={opt.id} value={opt.id}>{opt.name}</option>
+              ))}
+            </select>
           </div>
         </div>
       </SBCard>
 
-      <div className="grid lg:grid-cols-[1.2fr_1fr] gap-6">
-        {/* IZQ: Registrar test + tabla de tests */}
+      <div className="grid xl:grid-cols-[1.1fr_1fr] gap-6">
+        {/* Columna izquierda: Listas */}
         <div className="space-y-6">
-          <SBCard title="Registrar test" accent="hsl(var(--sb-accent-calidad))">
-            <div className="p-4 grid md:grid-cols-4 gap-3 items-end">
-              {/* Lote seleccionado (si no hay single, habilita input manual) */}
-              <div className="md:col-span-2">
-                <label className="block text-xs text-zinc-600 mb-1">Lote</label>
-                <input
-                  className="h-10 border rounded-lg px-3 w-full"
-                  value={singleLot?.lotNumber ?? (form.lotNumber ?? "")}
-                  onChange={e=>setForm(f=>({...f, lotNumber: e.target.value as LotNumber}))}
-                  disabled={!!singleLot}
-                  placeholder="LTEQ-2509-01…"
-                />
-              </div>
-
-              {/* Parámetro */}
-              <div>
-                <label className="block text-xs text-zinc-600 mb-1">Parámetro</label>
-                <select
-                  className="h-10 border rounded-lg px-2 w-full"
-                  value={form.paramId ?? ""}
-                  onChange={e=>setForm(f=>({...f, paramId: e.target.value}))}
-                >
-                  <option value="">— Selecciona —</option>
-                  {qcParams.map(p=>(
-                    <option key={p.id} value={p.id}>
-                      {p.name}{p.unit?` (${p.unit})`:""}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Valor (auto UI por tipo simple) */}
-              <ParamValueField
-                param={qcParams.find(p=>p.id===form.paramId)}
-                form={form}
-                setForm={setForm}
-              />
-
-              <div className="md:col-span-4 flex justify-end">
-                <button
-                  onClick={onSaveTest}
-                  disabled={savingTest || !(form.paramId && (singleLot?.lotNumber || form.lotNumber))}
-                  className="sb-btn-primary px-4 py-2 text-sm"
-                >
-                  {savingTest ? "Guardando…" : "Guardar test"}
-                </button>
-              </div>
+          {/* HOLD */}
+          <SBCard title={<div className="flex items-center gap-2"><Hourglass size={16}/> En hold</div>} accent="hsl(var(--sb-accent-calidad))">
+            <div className="p-4">
+              {buckets.HOLD.length === 0 && <div className="text-sm text-zinc-500">Sin lotes en hold.</div>}
+              <ul className="divide-y">
+                {buckets.HOLD.map(l => (
+                  <li key={l.lotNumber} className="py-2">
+                    <button
+                      onClick={()=>setSelectedLot(l.lotNumber)}
+                      className="w-full text-left rounded-lg p-2 hover:bg-zinc-50 border"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="min-w-0">
+                          <div className="font-medium truncate">{l.lotNumber}</div>
+                          <div className="text-xs text-zinc-600 truncate">
+                            {l.itemId} · {l.quantity} {items.find(i=>i.id===l.itemId)?.uom ?? ""} · QC {l.qcStatus ?? "PENDING"}
+                          </div>
+                        </div>
+                        <Badge tone={qcTone(l.qcStatus)}>{l.qcStatus ?? "PENDING"}</Badge>
+                      </div>
+                    </button>
+                  </li>
+                ))}
+              </ul>
             </div>
           </SBCard>
 
-          <SBCard title="Tests del foco" accent="hsl(var(--sb-accent-calidad))">
+          {/* RELEASED */}
+          <SBCard title={<div className="flex items-center gap-2"><CheckCircle2 size={16}/> Liberados</div>} accent="hsl(var(--sb-accent-calidad))">
             <div className="p-4">
-              {(!focusedLots || focusedLots.length===0) && (
-                <div className="text-sm text-zinc-500">Busca un lote u orden para ver sus tests.</div>
-              )}
-              {focusedLots && focusedLots.length>0 && testsForFocus.length===0 && (
-                <div className="text-sm text-zinc-500">Sin tests aún. Registra el primero arriba.</div>
-              )}
-              {testsForFocus.length>0 && (
-                <table className="w-full text-sm">
-                  <thead className="text-xs text-zinc-600">
-                    <tr>
-                      <th className="text-left py-2">Fecha</th>
-                      <th className="text-left">Lote</th>
-                      <th className="text-left">Parámetro</th>
-                      <th className="text-left">Valor</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {testsForFocus.map(t=>{
-                      const p = qcParams.find(x=>x.id===t.parameterId);
-                      const val =
-                        t.valueNumeric!=null ? `${t.valueNumeric} ${t.unit ?? p?.unit ?? ""}` :
-                        t.valueText ?? (t.valueBool!=null ? (t.valueBool?"Sí":"No") : "—");
-                      return (
-                        <tr key={t.id} className="border-t">
-                          <td className="py-2">{new Date(t.testedAt).toLocaleString()}</td>
-                          <td>{t.lotNumber}</td>
-                          <td>{p?.name ?? t.parameterId}</td>
-                          <td>{val}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              )}
+              {buckets.RELEASED.length === 0 && <div className="text-sm text-zinc-500">Sin lotes liberados.</div>}
+              <ul className="grid md:grid-cols-2 gap-2">
+                {buckets.RELEASED.map(l => (
+                  <li key={l.lotNumber} className="border rounded-lg p-2 bg-white">
+                    <div className="font-medium">{l.lotNumber}</div>
+                    <div className="text-xs text-zinc-600">{l.itemId} · {l.quantity} {items.find(i=>i.id===l.itemId)?.uom ?? ""}</div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </SBCard>
+
+          {/* REJECTED */}
+          <SBCard title={<div className="flex items-center gap-2"><XCircle size={16}/> Rechazados</div>} accent="hsl(var(--sb-accent-calidad))">
+            <div className="p-4">
+              {buckets.REJECTED.length === 0 && <div className="text-sm text-zinc-500">Sin lotes rechazados.</div>}
+              <ul className="grid md:grid-cols-2 gap-2">
+                {buckets.REJECTED.map(l => (
+                  <li key={l.lotNumber} className="border rounded-lg p-2 bg-white">
+                    <div className="font-medium">{l.lotNumber}</div>
+                    <div className="text-xs text-zinc-600">{l.itemId} · {l.quantity} {items.find(i=>i.id===l.itemId)?.uom ?? ""}</div>
+                  </li>
+                ))}
+              </ul>
             </div>
           </SBCard>
         </div>
 
-        {/* DER: Decisión y resumen */}
+        {/* Columna derecha: Detalle */}
         <div className="space-y-6">
-          <SBCard title="Decisión QC" accent="hsl(var(--sb-accent-calidad))">
-            <div className="p-4 space-y-3">
-              <div className="text-sm text-zinc-600">
-                Selecciona <b>Lote</b> u <b>Orden</b>, registra al menos un test y emite decisión de liberación.
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={()=>setDecision("PASSED")}
-                  className={`border rounded-lg p-3 text-sm flex items-center gap-2 ${decision==="PASSED"?"ring-2 ring-emerald-400":""}`}
-                >
-                  <CheckCircle2 className="text-emerald-600" size={18}/> Liberar
-                </button>
-                <button
-                  onClick={()=>setDecision("FAILED")}
-                  className={`border rounded-lg p-3 text-sm flex items-center gap-2 ${decision==="FAILED"?"ring-2 ring-rose-400":""}`}
-                >
-                  <XCircle className="text-rose-600" size={18}/> Rechazar
-                </button>
-                <button
-                  onClick={()=>setDecision("WAIVED")}
-                  className={`border rounded-lg p-3 text-sm flex items-center gap-2 ${decision==="WAIVED"?"ring-2 ring-amber-400":""}`}
-                >
-                  <ShieldCheck className="text-amber-600" size={18}/> Exento
-                </button>
-                <button
-                  onClick={()=>setDecision("CONDITIONAL_RELEASE")}
-                  className={`border rounded-lg p-3 text-sm flex items-center gap-2 ${decision==="CONDITIONAL_RELEASE"?"ring-2 ring-amber-400":""}`}
-                >
-                  <AlertTriangle className="text-amber-600" size={18}/> Liberación condicional
-                </button>
-              </div>
-
-              <div>
-                <label className="block text-xs text-zinc-600 mb-1">Observaciones</label>
-                <textarea
-                  className="border rounded-lg w-full p-2 text-sm"
-                  rows={3}
-                  value={remarks}
-                  onChange={e=>setRemarks(e.target.value)}
-                  placeholder="Notas de revisión, límites, criterios de aceptación…"
-                />
-              </div>
-
-              <div className="flex justify-between items-center text-xs text-zinc-600">
-                <div className="flex items-center gap-2">
-                  <span>Estado actual:</span>
-                  <Badge tone={qcDecisionTone(lastDecision?.status)}>{lastDecision?.status ?? "PENDING"}</Badge>
+          <SBCard title="Detalle del lote" accent="hsl(var(--sb-accent-calidad))">
+            <div className="p-4 text-sm">
+              {!selected && <div className="text-zinc-500">Selecciona un lote en hold para revisar y decidir.</div>}
+              {selected && (
+                <div className="space-y-2">
+                  <div className="text-base font-semibold">{selected.lotNumber}</div>
+                  <div className="text-zinc-600">
+                    Ítem: {selectedItem?.name ?? selected.itemId} · Cantidad: {selected.quantity} {selectedItem?.uom ?? ""}
+                  </div>
+                  <div className="text-zinc-600">
+                    QC: <Badge tone={qcTone(selected.qcStatus)}>{selected.qcStatus ?? "PENDING"}</Badge>
+                    {selected.status ? <> · Estado: {selected.status}</> : null}
+                    {selected.locationId ? <> · Ubicación: {selected.locationId}</> : null}
+                  </div>
                 </div>
-                <button
-                  disabled={!canDecide || !decision || savingDecision}
-                  onClick={onSaveDecision}
-                  className="sb-btn-primary px-4 py-2 text-sm"
-                >
-                  {savingDecision ? "Guardando…" : "Guardar decisión"}
-                </button>
-              </div>
+              )}
             </div>
           </SBCard>
 
-          <SBCard title="Resumen del foco" accent="hsl(var(--sb-accent-calidad))">
-            <div className="p-4 text-sm space-y-2">
-              {(!focusedLots || focusedLots.length===0) && (
-                <div className="text-zinc-500">Busca un identificador para ver el resumen.</div>
-              )}
-              {focusedLots && focusedLots.map(l=>(
-                <div key={l.lotNumber} className="border rounded-lg p-2 flex items-center justify-between">
-                  <div>
-                    <div className="font-medium">{l.lotNumber}</div>
-                    <div className="text-xs text-zinc-600">
-                      Item {l.itemId} · {l.quantity} {/** uom: derivable si lo necesitas */}
-                      {" · QC "}
-                      <Badge tone={qcDecisionTone(l.qcStatus)}>{l.qcStatus ?? "PENDING"}</Badge>
-                    </div>
+          <SBCard title="Resultados analíticos" accent="hsl(var(--sb-accent-calidad))">
+            <div className="p-4 space-y-3">
+              {(!selected || testsForSelected.length === 0) && <div className="text-sm text-zinc-500">Sin tests registrados para este lote.</div>}
+              {testsForSelected.map(t => (
+                <div key={t.id} className="border rounded-lg p-2">
+                  <div className="flex items-center justify-between">
+                    <div className="font-medium inline-flex items-center gap-2"><FlaskConical size={14}/> {t.parameterId}</div>
+                    <div className="text-xs text-zinc-500">{new Date(t.testedAt).toLocaleString()}</div>
                   </div>
-                  <a className="text-sky-700 text-sm underline" href={`/lots/${encodeURIComponent(l.lotNumber)}/dossier`}>Abrir dossier</a>
+                  <div className="text-sm text-zinc-700">
+                    {t.valueNumeric!=null ? <>Valor: <b>{t.valueNumeric}</b> {t.unit ?? ""}</> :
+                     t.valueText ? <>Valor: <b>{t.valueText}</b></> :
+                     t.valueBool!=null ? <>Valor: <b>{t.valueBool ? "Sí" : "No"}</b></> : "—"}
+                  </div>
+                  {t.inSpec!=null && <div className="text-xs">{t.inSpec ? <Badge tone="emerald">En especificación</Badge> : <Badge tone="rose">Fuera de espec.</Badge>}</div>}
                 </div>
               ))}
             </div>
           </SBCard>
+
+          <SBCard title="Histórico de decisiones" accent="hsl(var(--sb-accent-calidad))">
+            <div className="p-4 space-y-2">
+              {(!selected || decisionsForSelected.length === 0) && <div className="text-sm text-zinc-500">Sin decisiones registradas.</div>}
+              {decisionsForSelected.map(d => (
+                <div key={d.id} className="border rounded-lg p-2 bg-white">
+                  <div className="flex items-center justify-between">
+                    <div className="font-medium inline-flex items-center gap-2"><FileCheck2 size={14}/> Decisión</div>
+                    <div className="text-xs text-zinc-500">{d.reviewedAt ? new Date(d.reviewedAt).toLocaleString() : "—"}</div>
+                  </div>
+                  <div className="text-sm">
+                    <Badge tone={qcTone(d.status)}>{d.status}</Badge>
+                    {d.remarks ? <span className="ml-2 text-zinc-700">{d.remarks}</span> : null}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </SBCard>
+
+          {/* Botonera de decisión (placeholders; conecta a tu API para persistir) */}
+          <SBCard title="Acción de liberación" accent="hsl(var(--sb-accent-calidad))">
+            <div className="p-4 flex flex-col gap-2 text-sm">
+              {!selected && <div className="text-zinc-500">Selecciona un lote para decidir.</div>}
+              {selected && (
+                <>
+                  <button
+                    className="h-10 rounded-lg border bg-white hover:bg-emerald-50"
+                    onClick={() => {
+                      // TODO: POST /api/quality/release { lotNumber, status:'RELEASED' }
+                      // y actualizar inventario/ubicación si procede
+                      console.log("RELEASED", selected.lotNumber);
+                    }}
+                  >
+                    Liberar (RELEASED)
+                  </button>
+                  <button
+                    className="h-10 rounded-lg border bg-white hover:bg-amber-50"
+                    onClick={() => {
+                      // TODO: POST /api/quality/release { lotNumber, status:'CONDITIONAL_RELEASE' }
+                      console.log("CONDITIONAL_RELEASE", selected.lotNumber);
+                    }}
+                  >
+                    Liberación condicional
+                  </button>
+                  <button
+                    className="h-10 rounded-lg border bg-white hover:bg-rose-50"
+                    onClick={() => {
+                      // TODO: POST /api/quality/release { lotNumber, status:'REJECTED' }
+                      console.log("REJECTED", selected.lotNumber);
+                    }}
+                  >
+                    Rechazar (REJECTED)
+                  </button>
+                </>
+              )}
+            </div>
+          </SBCard>
         </div>
       </div>
-    </div>
-  );
-}
-
-/* ===== Campo de valor según tipo de parámetro ===== */
-function ParamValueField({
-  param, form, setForm
-}:{
-  param?: { id:string; name:string; unit?:string; target?:number; min?:number; max?:number; kind?: "NUM"|"BOOL"|"TEXT" };
-  form: any;
-  setForm: React.Dispatch<React.SetStateAction<any>>;
-}) {
-  const kind = param?.kind ?? (param?.min!=null || param?.max!=null || param?.target!=null ? "NUM" : "TEXT");
-  if (kind === "BOOL") {
-    return (
-      <div>
-        <label className="block text-xs text-zinc-600 mb-1">Valor</label>
-        <select
-          className="h-10 border rounded-lg px-2 w-full"
-          value={form.valueBool===true ? "true" : form.valueBool===false ? "false" : ""}
-          onChange={(e)=>setForm((f:any)=>({...f, valueBool: e.target.value===""? undefined : e.target.value==="true"}))}
-        >
-          <option value="">—</option>
-          <option value="true">Sí</option>
-          <option value="false">No</option>
-        </select>
-      </div>
-    );
-  }
-  if (kind === "NUM") {
-    return (
-      <div>
-        <label className="block text-xs text-zinc-600 mb-1">
-          Valor {param?.unit ? `(${param.unit})` : ""}
-        </label>
-        <input
-          type="number"
-          step="any"
-          className="h-10 border rounded-lg px-3 w-full"
-          value={form.valueNumeric ?? ""}
-          onChange={e=>setForm((f:any)=>({...f, valueNumeric: e.target.value}))}
-          placeholder={param?.target!=null ? `objetivo ${param.target}` : ""}
-        />
-        {(param?.min!=null || param?.max!=null) && (
-          <div className="text-[11px] text-zinc-500 mt-1">
-            {param?.min!=null ? `Min ${param.min}` : ""} {param?.max!=null ? `· Max ${param.max}` : ""}
-          </div>
-        )}
-      </div>
-    );
-  }
-  return (
-    <div>
-      <label className="block text-xs text-zinc-600 mb-1">Valor</label>
-      <input
-        className="h-10 border rounded-lg px-3 w-full"
-        value={form.valueText ?? ""}
-        onChange={e=>setForm((f:any)=>({...f, valueText: e.target.value}))}
-        placeholder="pH correcto / aspecto / olor…"
-      />
     </div>
   );
 }
