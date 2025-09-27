@@ -34,28 +34,43 @@ type ProductionOrder = any; // Usa tu tipo real si lo tienes exportado desde el 
 
 // ===== Tablero de planificación en vivo =====
 function PlanningBoard({ bom, onPlanned }: { bom: any; onPlanned: (id: string) => void }) {
-  const [qty, setQty] = React.useState<number>(0);
-  const [date, setDate] = React.useState<string>("");
+  const [qty, setQty] = useState<number>(0);
+  const [date, setDate] = useState<string>("");
   const [preview, setPreview] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(false);
   const [creating, setCreating] = useState(false);
 
-  // Recalcula preview al cambiar qty o fecha
-  useEffect(() => {
+  // --- helpers de componentes del BOM ---
+  const baseComponents = React.useMemo(() => {
+    const raw = bom?.components ?? bom?.lines ?? bom?.materials ?? bom?.items ?? [];
+    // Normaliza a { itemId, qty, uom, role }
+    return (raw as any[]).map((c) => ({
+      itemId: c.itemId ?? c.componentId ?? c.item ?? c.sku ?? "—",
+      qty: typeof c.qty === "number" ? c.qty : c.quantityPerBase ?? c.quantity ?? 0,
+      uom: c.uom ?? c.unit ?? c.baseUnit ?? c.measure ?? "",
+      role: c.role ?? c.kind ?? c.type ?? undefined,
+    }));
+  }, [bom]);
+
+  // recalcula preview en vivo cada vez que cambian qty/date
+  React.useEffect(() => {
     if (!bom?.id || qty <= 0) {
       setPreview(null);
+      // Aunque no haya qty, seguimos mostrando fórmula base
       return;
     }
-    let alive = true;
+    let active = true;
     setLoading(true);
     previewPlanning({ bomId: bom.id, plannedQty: qty })
       .then((res) => {
-        if (!alive) return;
-        if (res?.ok) setPreview(res.data);
+        if (!active) return;
+        if (res.ok) setPreview(res.data);
         else setPreview(null);
       })
-      .finally(() => alive && setLoading(false));
-    return () => { alive = false; };
+      .finally(() => active && setLoading(false));
+    return () => {
+      active = false;
+    };
   }, [bom?.id, qty, date]);
 
   async function handlePlan() {
@@ -118,78 +133,70 @@ function PlanningBoard({ bom, onPlanned }: { bom: any; onPlanned: (id: string) =
 
         {loading && <div className="text-sm text-zinc-500">Calculando disponibilidad…</div>}
 
-        {/* Vista previa: COA + faltantes + reservas */}
-        {preview && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {/* COA teórico */}
-            <div className="rounded-lg border p-3">
-              <div className="flex items-center justify-between">
-                <h4 className="font-medium">COA teórico</h4>
-                <span className={`text-[11px] px-2 py-0.5 rounded-full border ${specBadge}`}>
-                  {preview.inSpec ? "Dentro de spec" : "Fuera de spec"}
-                </span>
-              </div>
-              <ul className="mt-2 text-sm text-zinc-700 space-y-1">
-                <li>
-                  Grado alcohólico: <b>{preview.estimates?.abvPct ?? "—"}%</b>
+        {/* === Fórmula base por 1 unidad === */}
+        <div className="rounded-lg border p-3">
+          <h4 className="font-medium">Fórmula (por 1 {bom?.baseUnit ?? "unidad"})</h4>
+          {baseComponents.length === 0 ? (
+            <div className="text-sm text-zinc-500 mt-2">Esta receta no tiene componentes definidos.</div>
+          ) : (
+            <ul className="mt-2 text-sm space-y-1">
+              {baseComponents.map((c, i) => (
+                <li key={i} className="flex items-center justify-between">
+                  <span className="truncate">{c.itemId}</span>
+                  <span className="shrink-0 tabular-nums">{c.qty} {c.uom}</span>
                 </li>
-                <li>
-                  Acidez: <b>{preview.estimates?.acidity_gpl ?? "—"} g/L</b>
-                </li>
-                <li>
-                  Azúcares: <b>{preview.estimates?.sugar_gpl ?? "—"} g/L</b>
-                </li>
-              </ul>
-              {Array.isArray(preview.suggestions) && preview.suggestions.length > 0 && (
-                <>
-                  <div className="mt-3 text-xs text-zinc-500">Sugerencias de ajuste:</div>
-                  <ul className="mt-1 text-sm text-zinc-700 list-disc pl-5 space-y-1">
-                    {preview.suggestions.map((s: any, i: number) => (
-                      <li key={i}>
-                        {s.kind}: <b>{s.amount}</b> {s.uom ?? ""} <span className="text-xs text-zinc-500">— {s.reason}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              )}
-            </div>
+              ))}
+            </ul>
+          )}
+        </div>
 
-            {/* Disponibilidad / faltantes */}
-            <div className="rounded-lg border p-3">
-              <h4 className="font-medium">Disponibilidad</h4>
-              {Array.isArray(preview.shortages) && preview.shortages.length > 0 ? (
-                <div className="mt-2 space-y-1">
-                  {preview.shortages.map((s: any, idx: number) => (
-                    <div key={idx} className="text-xs rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-rose-700">
-                      ⚠️ Falta {s.missing} {s.uom} de {s.itemId} (Req {s.required}, Disp {s.available})
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="mt-2 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-2 py-1">Todo cubre</div>
-              )}
-            </div>
-
-            {/* Reservas sugeridas */}
-            <div className="rounded-lg border p-3">
-              <h4 className="font-medium">Reservas sugeridas (FIFO)</h4>
-              {Array.isArray(preview.allocations) && preview.allocations.length > 0 ? (
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {preview.allocations.map((a: any, idx: number) => (
-                    <span key={idx} className="text-[11px] px-2 py-0.5 rounded-full border bg-sky-50 text-sky-800 border-sky-200">
-                      {a.itemId} {a.qty}{a.uom} (Lote {a.lotNumber})
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <div className="mt-2 text-sm text-zinc-500">Sin reservas</div>
-              )}
-              {preview.lotNumberPlanned && (
-                <div className="mt-3 text-xs text-zinc-600">Lote planificado de salida: <b>{preview.lotNumberPlanned}</b></div>
-              )}
-            </div>
+        {/* === Necesario para la cantidad === */}
+        {qty > 0 && baseComponents.length > 0 && (
+          <div className="rounded-lg border p-3">
+            <h4 className="font-medium">Necesario para {qty} {bom?.baseUnit ?? "u"}</h4>
+            <ul className="mt-2 text-sm space-y-1">
+              {baseComponents.map((c, i) => {
+                const need = (c.qty || 0) * qty;
+                return (
+                  <li key={i} className="flex items-center justify-between">
+                    <span className="truncate">{c.itemId}</span>
+                    <span className="shrink-0 tabular-nums">{need} {c.uom}</span>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
         )}
+
+        {/* === Disponibilidad / COA estimado (preview) === */}
+        {qty > 0 && (
+          <div className="space-y-3">
+            {preview && (
+              <>
+                <div className="text-sm">
+                  <b>COA estimado</b>: {preview.estimates?.abvPct ?? "—"}% ABV,{" "}
+                  {preview.estimates?.acidity_gpl ?? "—"} g/L acidez,{" "}
+                  {preview.estimates?.sugar_gpl ?? "—"} g/L azúcares
+                </div>
+                {Array.isArray(preview.shortages) && preview.shortages.length > 0 ? (
+                  <div className="text-sm text-rose-700">
+                    ⚠️ Faltantes:
+                    <ul className="list-disc pl-5 mt-1 space-y-0.5">
+                      {preview.shortages.map((s: any, i: number) => (
+                        <li key={i}>
+                          {s.itemId}: falta {s.missing} {s.uom} (req {s.required}, disp {s.available})
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : (
+                  <div className="text-sm text-emerald-700">✅ Todo cubre según stock reservado.</div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
 
         {/* Botón principal */}
         <SpinnerButton
@@ -203,7 +210,6 @@ function PlanningBoard({ bom, onPlanned }: { bom: any; onPlanned: (id: string) =
     </SBCard>
   );
 }
-
 
 // ===== Helpers visuales reutilizables =====
 function SectionCard({ title, hint, badge, children }: { title: string; hint?: string; badge?: string; children: React.ReactNode }) {
@@ -711,23 +717,11 @@ export default function ProductionPage() {
   const [openOrder, setOpenOrder] = useState<ProductionOrder | null>(null);
   const [openBom, setOpenBom] = useState<any>(null); // For PlanningBoard
 
-  const boms = useMemo(() => {
-    const raw = (santaData?.billOfMaterials ?? []) as any[];
-    return raw.map((b) => {
-      // Intentamos deducir el "tipo" de BOM: PRODUCCION o ENVASADO
-      const kind =
-        (b.kind as string) ??
-        (b.stage as string) ??
-        (b.output?.isFinal ? "ENVASADO" : "PRODUCCION");
-      const baseUnit = b.baseUnit ?? b.uom ?? "L";
-      return {
-        id: b.id,
-        name: b.name ?? b.id,
-        kind,
-        baseUnit,
-      };
-    });
-  }, [santaData]);
+  const boms = useMemo(
+    () =>
+      ((santaData?.billOfMaterials ?? []) as any[]).map((b) => ({ ...b, name: b.name ?? b.id })),
+    [santaData]
+  );
   const ordersAll = useMemo(() => (santaData?.productionOrders ?? []) as ProductionOrder[], [santaData]);
   const orders = useMemo(() => ordersAll, [ordersAll]);
   const allItems = useMemo(() => (santaData?.items ?? []) as Item[], [santaData]);
@@ -872,3 +866,4 @@ export default function ProductionPage() {
     </>
   );
 }
+```
