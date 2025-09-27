@@ -78,7 +78,7 @@ function normalizeLotHistory(lot: Lot, data: {
 
   data.stockMoves.filter(m => m.lotNumber === lotNumber && m.reason === 'receipt').forEach(m => {
     events.push({
-      id: `sm-${m.id}`, at: m.occurredAt, kind: 'RECEIPT', title: `Lote recibido en almacén`,
+      id: `sm-${m.id}`, at: m.occurredAt || new Date().toISOString(), kind: 'RECEIPT', title: `Lote recibido en almacén`,
       details: `Cantidad: ${m.qty} ${m.uom}. Ubicación: ${m.toLocation ?? ''}`,
       icon: <Package size={14} />, tone: 'sky'
     });
@@ -146,13 +146,15 @@ export default function LabReleasePage() {
   const lotsBySku = useMemo(() => {
     const map = new Map<string, Lot[]>();
     for (const lot of lots) {
-        if (!map.has(lot.itemId)) {
-            map.set(lot.itemId, []);
+        if (lot.itemId) { // Ensure itemId exists
+            if (!map.has(lot.itemId)) {
+                map.set(lot.itemId, []);
+            }
+            map.get(lot.itemId)!.push(lot);
         }
-        map.get(lot.itemId)!.push(lot);
     }
     return map;
-  }, [lots]);
+}, [lots]);
 
   const buckets = useMemo(() => {
     const hold: Lot[] = []; const released: Lot[] = []; const rejected: Lot[] = []; const undefinedState: Lot[] = [];
@@ -353,7 +355,7 @@ export default function LabReleasePage() {
                   {selectedLotData.history.map(ev => (
                     <li key={ev.id} className="flex gap-3">
                       <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: `hsl(var(--sb-${ev.tone}-soft))`}}>
-                        {React.cloneElement(ev.icon, { className: 'h-4 w-4', style: { color: `hsl(var(--sb-${ev.tone}-strong))` }})}
+                        {ev.icon && React.cloneElement(ev.icon as React.ReactElement, { className: 'h-4 w-4', style: { color: `hsl(var(--sb-${ev.tone}-strong))` }})}
                       </div>
                       <div>
                         <p className="font-semibold text-sm">{ev.title}</p>
@@ -373,5 +375,7 @@ export default function LabReleasePage() {
     </div>
   );
 }
+
+    
 
     
