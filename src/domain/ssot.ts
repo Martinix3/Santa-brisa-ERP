@@ -200,12 +200,15 @@ export interface ProductionOrder {
   scheduledFor?: Timestamp;
   batchCode?: LotNumber;
   responsibleId?: string;
+  name?: string;
+  baseUnit?: Uom;
 
   // Operativo (opcionales)
   checks?: ExecCheck[];
   incidents?: { id: string; when: Timestamp; severity: 'BAJA'|'MEDIA'|'ALTA'; text: string }[];
   reservations?: ReservationView[];
   shortages?: any[];
+  pauseLog?: Array<{ pausedAt: Timestamp; resumedAt?: Timestamp }>;
 
   actuals?: Array<{
     itemId: string;
@@ -215,6 +218,13 @@ export interface ProductionOrder {
     actualQty: number;
     uom: Uom;
     costPerUom?: number;
+  }>;
+  
+  output?: Array<{
+    itemId: string;
+    uom: 'L' | 'unit';
+    qty: number;
+    lotNumber: string;
   }>;
 
   execution?: {

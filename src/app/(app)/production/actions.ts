@@ -1,3 +1,4 @@
+
 // ============================================================================
 // src/app/(app)/production/actions.ts
 // Server actions del módulo de Producción (ejecución)
@@ -235,7 +236,7 @@ export async function recordOutput(id: string, qty: number, lotPrefix?: string) 
     }];
     
     // -----[[ ✨ FIX: Crear registro maestro de Lote ]]-----
-    const newLot: Lot = {
+    const lotDoc: Lot = {
         id: lotNumber,
         lotNumber: lotNumber,
         itemId: po.outputItemId,
@@ -248,7 +249,7 @@ export async function recordOutput(id: string, qty: number, lotPrefix?: string) 
         parentLotNumber: po.parentLotNumber
     };
     // Usamos `upsertMany` que ya tienes importado
-    await upsertMany('lots', [newLot as any]);
+    await upsertMany('lots', [lotDoc as any]);
     // ----------------------------------------------------
 
     await upsertMany('productionOrders', [{ id, lotNumber, output: out as any, updatedAt: now, status: 'QC_HOLD' } as any]);
@@ -257,7 +258,7 @@ export async function recordOutput(id: string, qty: number, lotPrefix?: string) 
     
     return ok({ id, lotNumber });
   } catch (e:any) {
-    return fail('No se pudo registrar el output.', { code: e.code });
+    return fail('No se pudo registrar el output.', { code: (e as any).code });
   }
 }
 
