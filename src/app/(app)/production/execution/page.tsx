@@ -1,89 +1,46 @@
+// src/app/(app)/production/execution/page.tsx
 "use client";
 
 import React, { useMemo, useState, useCallback, useEffect, useTransition } from "react";
-import { Factory as FactoryIcon, Plus, Trash2 } from "lucide-react";
-import {
-  type BillOfMaterial,
-  type ProductionOrder,
-  type Item,
-  type Uom,
-  type CalcRow,
-  type CalcResult,
-} from "@/domain/ssot";
-
-// UI y datos REALES
-import { SBCard } from "@/components/ui/ui-primitives";
+import { Factory as FactoryIcon, Plus, Trash2, Calendar } from "lucide-react";
 import { useData } from "@/lib/dataprovider";
-
-// Acciones REALES del módulo Producción
+import type { BillOfMaterial, ProductionOrder, Item, Uom, CalcRow, CalcResult } from "@/domain/ssot";
 import {
-  planProduction,
-  startProduction,
-  pauseProduction,
-  resumeProduction,
-  closeProduction,
-  cancelProduction,
-  toggleProtocolsAcknowledged,
-  setOperatorsCount,
-  addIncident,
-  recordConsumption,
-  setCalculatorInput,
+  planProduction, startProduction, pauseProduction, resumeProduction,
+  closeProduction, cancelProduction, toggleProtocolsAcknowledged,
+  setOperatorsCount, addIncident, recordConsumption, setCalculatorInput,
 } from "@/app/(app)/production/actions";
+import { SBScaffold, SBCardBox, SBBtn } from "@/components/sb-funda/SBScaffold";
 
-/* ============================================================================
- * Funda visual Santa Brisa (estilo BOM) para EJECUCIÓN
- * - Usa tu token global: --sb-accent-produc (182 20% 47%)
- * - Botones ghost/principales, chips, header sticky, tablas densas
- * ==========================================================================*/
+// ===== Helpers UI =====
+const ACCENT: "produc" = "produc";
+const mono = "font-mono tabular-nums";
 
-const ACCENT_VAR = "--sb-accent-produc";
-const accentText = `text-[hsl(var(${ACCENT_VAR}))]`;
-const accentBgSoft = `bg-[hsl(var(${ACCENT_VAR})/0.10)]`;
-const accentRingSoft = `ring-1 ring-[hsl(var(${ACCENT_VAR})/0.25)]`;
-const accentBtn = `bg-[hsl(var(${ACCENT_VAR}))] text-white hover:brightness-110`;
-const accentGhost = `text-[hsl(var(${ACCENT_VAR}))] border border-[hsl(var(${ACCENT_VAR})/0.30)] hover:bg-[hsl(var(${ACCENT_VAR})/0.06)]`;
-const numClass = "tabular-nums font-mono";
-
-/* ====== Badges de estado ====== */
 function StatusBadge({ status }: { status?: ProductionOrder["status"] }) {
-  const map: Record<string, string> = {
-    PLANNED: "bg-sky-100 text-sky-700 ring-sky-200",
-    IN_PROGRESS: "bg-emerald-100 text-emerald-700 ring-emerald-200",
-    PAUSED: "bg-amber-100 text-amber-800 ring-amber-200",
-    QC_HOLD: "bg-purple-100 text-purple-700 ring-purple-200",
-    CLOSED: "bg-zinc-100 text-zinc-700 ring-zinc-200",
-    CANCELLED: "bg-rose-100 text-rose-700 ring-rose-200",
-  };
-  const cls = map[status ?? ""] ?? "bg-zinc-100 text-zinc-700 ring-zinc-200";
-  return <span className={`px-2 py-0.5 text-xs rounded-full ring-1 ${cls}`}>{status}</span>;
+  const cls =
+    status === "PLANNED" ? "bg-sky-100 text-sky-700 ring-sky-200" :
+    status === "IN_PROGRESS" ? "bg-emerald-100 text-emerald-700 ring-emerald-200" :
+    status === "PAUSED" ? "bg-amber-100 text-amber-800 ring-amber-200" :
+    status === "QC_HOLD" ? "bg-purple-100 text-purple-700 ring-purple-200" :
+    status === "CLOSED" ? "bg-zinc-100 text-zinc-700 ring-zinc-200" :
+    status === "CANCELLED" ? "bg-rose-100 text-rose-700 ring-rose-200" :
+    "bg-zinc-100 text-zinc-700 ring-zinc-200";
+  return <span className={`px-2 py-0.5 text-[11px] rounded-full ring-1 ${cls}`}>{status ?? "—"}</span>;
 }
 
-/* ====== Botón con spinner (UI local, sin dependencias) ====== */
-const SpinnerButton: React.FC<
-  React.ButtonHTMLAttributes<HTMLButtonElement> & { loading?: boolean }
-> = ({ children, loading, className = "", ...props }) => (
-  <button
-    {...props}
-    disabled={loading || props.disabled}
-    className={`relative flex items-center justify-center gap-2 h-10 px-4 rounded-md font-semibold text-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${className}`}
-  >
-    {loading && (
-      <span className="absolute inset-0 grid place-items-center">
-        <span className="animate-spin rounded-full h-5 w-5 border-b-2 border-current" />
-      </span>
-    )}
-    <span className={loading ? "opacity-0" : "opacity-100"}>{children}</span>
-  </button>
-);
+function SpinnerButton(props: React.ComponentProps<typeof SBBtn> & { loading?: boolean }) {
+  const { loading, children, ...rest } = props;
+  return (
+    <SBBtn {...rest} disabled={loading || rest.disabled} className="relative">
+      {loading && <span className="absolute inset-0 grid place-items-center"><span className="h-4 w-4 border-2 border-current border-b-transparent rounded-full animate-spin" /></span>}
+      <span className={loading ? "opacity-0" : "opacity-100"}>{children}</span>
+    </SBBtn>
+  );
+}
 
-/* ====== Workstation (mantiene tu lógica real) ====== */
+// ====== Workstation (misma lógica, nueva composición) =======================
 function ProductionWorkstation({
-  order,
-  bom,
-  onRefresh,
-  onPlanned,
-  allItems,
-  allBoms,
+  order, bom, onRefresh, onPlanned, allItems, allBoms,
 }: {
   order: ProductionOrder | null;
   bom: BillOfMaterial | null;
@@ -102,15 +59,10 @@ function ProductionWorkstation({
   const [calcRows, setCalcRows] = useState<CalcRow[]>([]);
   const [calcResult, setCalcResult] = useState<CalcResult | null>(null);
 
-  const itemById = useMemo(() => new Map(allItems.map((i) => [i.id, i])), [allItems]);
-  const workstationBom = useMemo(
-    () => (order ? allBoms.find((b) => b.id === order.bomId) ?? null : bom),
-    [order, bom, allBoms]
-  );
-  const outputItem = useMemo(
-    () => (workstationBom ? itemById.get(workstationBom.outputItemId) ?? null : null),
-    [workstationBom, itemById]
-  );
+  const itemById = useMemo(() => new Map(allItems.map(i => [i.id, i])), [allItems]);
+  const workstationBom = useMemo(() => (order ? allBoms.find(b => b.id === order.bomId) ?? null : bom), [order, bom, allBoms]);
+  const outputItem = useMemo(() => (workstationBom ? itemById.get(workstationBom.outputItemId) ?? null : null), [workstationBom, itemById]);
+
   const inferredStage: "PRODUCCION" | "ENVASADO" | "DESCONOCIDA" = useMemo(() => {
     if (!outputItem) return "DESCONOCIDA";
     if ((outputItem as any).category === "intermediate") return "PRODUCCION";
@@ -121,7 +73,7 @@ function ProductionWorkstation({
   useEffect(() => {
     setQty(order?.targetQuantity ?? 1);
     setDate(order?.scheduledFor ?? "");
-    setAck(Boolean(order?.checks?.find((c) => c.id === "prot")?.done));
+    setAck(Boolean(order?.checks?.find(c => c.id === "prot")?.done));
     setOps((order as any)?.operatorsCount ?? 0);
 
     if (order?.actuals?.length) {
@@ -129,7 +81,7 @@ function ProductionWorkstation({
     } else if (workstationBom) {
       const scale = (q: number) => (q * (order?.targetQuantity ?? qty ?? 1)) / (workstationBom.batchSize || 1);
       setActuals(
-        workstationBom.items.map((c) => ({
+        workstationBom.items.map(c => ({
           itemId: c.itemId,
           theoreticalQty: scale(c.qty || 0),
           actualQty: 0,
@@ -146,12 +98,8 @@ function ProductionWorkstation({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [order, workstationBom]);
 
-  // Calculadora (server action real)
   useEffect(() => {
-    if (!calcRows.length || !order?.id) {
-      setCalcResult(null);
-      return;
-    }
+    if (!calcRows.length || !order?.id) { setCalcResult(null); return; }
     const t = setTimeout(() => {
       startTransition(async () => {
         const res = await setCalculatorInput(order!.id, { raws: calcRows });
@@ -159,45 +107,34 @@ function ProductionWorkstation({
       });
     }, 250);
     return () => clearTimeout(t);
-  }, [calcRows, order?.id, startTransition]);
+  }, [calcRows, order?.id]);
 
   if (!order && !bom) {
     return (
-      <SBCard className="grid place-content-center min-h-[60vh]">
-        <div className="text-center">
-          <FactoryIcon size={40} className="mx-auto text-zinc-300 mb-4" />
-          <p className="text-zinc-600">Selecciona una receta para planificar o una orden para ejecutar.</p>
+      <SBCardBox accentTone={ACCENT} title="Puesto de trabajo" subtitle="Selecciona una receta para planificar o una orden para ejecutar">
+        <div className="grid place-content-center min-h-[40vh] text-center text-zinc-600">
+          <FactoryIcon className="mx-auto mb-4 text-zinc-300" size={40}/>
+          <p>Sin selección.</p>
         </div>
-      </SBCard>
+      </SBCardBox>
     );
   }
 
   const isExecuting = !!order;
+  const bomToUse = workstationBom!;
   const hasShortages = (order?.shortages?.length ?? 0) > 0;
   const canStart = ack && !hasShortages;
-  const bomToUse = workstationBom!;
+
+  const doAndRefresh = (fn: () => Promise<any>) =>
+    startTransition(async () => { await fn(); onRefresh(); });
 
   const handlePlan = () =>
     startTransition(async () => {
       const res = await planProduction({
-        bomId: bomToUse.id,
-        plannedQty: qty,
-        plannedDate: date || undefined,
-        name: bomToUse.name,
+        bomId: bomToUse.id, plannedQty: qty, plannedDate: date || undefined, name: bomToUse.name,
       } as any);
       if ((res as any)?.ok) onPlanned((res as any).data.id);
     });
-
-  const doAndRefresh = (fn: () => Promise<any>) =>
-    startTransition(async () => {
-      await fn();
-      onRefresh();
-    });
-
-  const updateActual = (idx: number, v: number) =>
-    setActuals((rows) =>
-      rows.map((r, i) => (i === idx ? { ...r, actualQty: Number.isFinite(v) ? v : 0 } : r))
-    );
 
   const stageHint =
     inferredStage === "PRODUCCION"
@@ -206,437 +143,264 @@ function ProductionWorkstation({
       ? "Etapa: ENVASADO — insumos intermediate + pack. Salida: fg."
       : "Etapa no inferida por categoría del output.";
 
-  const handleRecordConsumption = () => {
-    const consumptionPayload = actuals.map((a) => ({
-      itemId: a.itemId,
-      uom: a.uom,
-      qty: a.actualQty,
-      role: "FORMULA" as const,
-    }));
-    doAndRefresh(() => recordConsumption(order!.id, consumptionPayload));
+  const updateActual = (idx: number, v: number) =>
+    setActuals(rows => rows.map((r, i) => (i === idx ? { ...r, actualQty: Number.isFinite(v) ? v : 0 } : r)));
+
+  const recordNow = () => {
+    const payload = actuals.map(a => ({ itemId: a.itemId, uom: a.uom, qty: a.actualQty, role: "FORMULA" as const }));
+    doAndRefresh(() => recordConsumption(order!.id, payload));
   };
 
   return (
-    <SBCard>
-      {/* Header acentuado estilo BOM */}
-      <div className={`flex items-center justify-between px-4 py-3 ${accentBgSoft} ${accentRingSoft} rounded-t-xl`}>
-        <div className="flex items-center gap-3">
-          <div className={`h-8 w-8 rounded-lg grid place-items-center ${accentText}`}>
-            <FactoryIcon size={18} />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-semibold text-zinc-900">
-                {order?.id ? bomToUse?.name ?? order.id : bomToUse?.name ?? "Puesto de Trabajo"}
-              </h2>
-              {order?.status && <StatusBadge status={order.status} />}
-            </div>
-            <p className="text-xs text-zinc-600">
-              {order?.id ? `Orden: ${order.id}` : "Planificación de lote"} ·{" "}
-              <span className={accentText}>
-                {(() => {
-                  const out = (order?.outputItemId ?? bomToUse?.outputItemId) ?? "";
-                  const cat = out ? (allItems.find((i) => i.id === out) as any)?.category ?? "" : "";
-                  return cat === "fg" ? "Etapa: ENVASADO" : cat === "intermediate" ? "Etapa: PRODUCCIÓN" : "Etapa: —";
-                })()}
-              </span>
-            </p>
-          </div>
-        </div>
-
-        {/* CTAs de estado */}
-        {order && (
-          <div className="flex flex-wrap items-center gap-2 p-2">
-            {order.status === "PLANNED" && (
-              <>
-                <SpinnerButton className={`${accentBtn}`} loading={pending} disabled={!canStart}
-                  onClick={() => doAndRefresh(() => startProduction(order.id))}>
-                  Iniciar
-                </SpinnerButton>
-                <SpinnerButton className="bg-rose-600 text-white hover:brightness-110" loading={pending}
-                  onClick={() => doAndRefresh(() => cancelProduction(order.id))}>
-                  Cancelar
-                </SpinnerButton>
-              </>
-            )}
-            {order.status === "IN_PROGRESS" && (
-              <>
-                <SpinnerButton className={`${accentGhost}`} loading={pending}
-                  onClick={() => doAndRefresh(() => pauseProduction(order.id))}>
-                  Pausar
-                </SpinnerButton>
-                <SpinnerButton className={`${accentBtn}`} loading={pending}
-                  onClick={() => doAndRefresh(() => closeProduction(order.id))}>
-                  Finalizar
-                </SpinnerButton>
-              </>
-            )}
-            {order.status === "PAUSED" && (
-              <>
-                <SpinnerButton className={`${accentBtn}`} loading={pending}
-                  onClick={() => doAndRefresh(() => resumeProduction(order.id))}>
-                  Reanudar
-                </SpinnerButton>
-                <SpinnerButton className={`${accentGhost}`} loading={pending}
-                  onClick={() => doAndRefresh(() => closeProduction(order.id))}>
-                  Finalizar
-                </SpinnerButton>
-              </>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Cuerpo */}
-      <div className="p-4 space-y-8">
-        {/* Planificación */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-xs font-semibold text-zinc-600 mb-1">Cantidad ({bomToUse.baseUnit})</label>
-            <input
-              type="number"
-              value={qty}
-              onChange={(e) => setQty(Number(e.target.value))}
-              disabled={isExecuting}
-              className={`w-full h-10 px-3 rounded-lg border ${numClass} focus:outline-none focus:ring-2 focus:ring-[hsl(var(${ACCENT_VAR})/0.45)]`}
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-zinc-600 mb-1">Fecha prevista</label>
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              disabled={isExecuting}
-              className={`w-full h-10 px-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-[hsl(var(${ACCENT_VAR})/0.45)]`}
-            />
-          </div>
-          <div className="text-sm text-zinc-600 flex items-end">{stageHint}</div>
-        </div>
-
-        {/* Parte de materiales */}
+    <SBCardBox
+      accentTone={ACCENT}
+      title={order?.id ? (bomToUse?.name ?? order.id) : (bomToUse?.name ?? "Puesto de trabajo")}
+      subtitle={order?.id ? <>Orden: <span className="font-medium">{order.id}</span></> : "Planificación de lote"}
+      right={order?.status && <StatusBadge status={order.status} />}
+    >
+      {/* Subcabecera — cantidad, fecha, etapa */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-2">
         <div>
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-semibold text-zinc-800">Parte de Producción (Materiales)</h3>
-            {isExecuting && (
-              <SpinnerButton loading={pending} className={`${accentGhost}`} onClick={handleRecordConsumption}>
-                Guardar consumo
-              </SpinnerButton>
-            )}
-          </div>
-
-          {/* Header tabla */}
-          <div className="hidden md:grid grid-cols-[1.2fr,0.8fr,0.6fr,0.6fr,0.5fr] text-xs font-semibold text-zinc-600 px-3 py-2">
-            <div>Material</div>
-            <div>Categoría / Rol</div>
-            <div className="text-right">Teórico</div>
-            <div className="text-right">Real</div>
-            <div>UoM</div>
-          </div>
-
-          <div className="rounded-lg border overflow-hidden">
-            {bomToUse.items.map((c, i) => {
-              const item = itemById.get(c.itemId) as any;
-              const theoretical = ((c.qty || 0) * (order?.targetQuantity ?? qty ?? 1)) / (bomToUse.batchSize || 1);
-              return (
-                <div key={c.itemId} className="grid grid-cols-1 md:grid-cols-[1.2fr,0.8fr,0.6fr,0.6fr,0.5fr] items-center px-3 py-2 border-t first:border-t-0 odd:bg-white even:bg-zinc-50/60">
-                  {/* Material */}
-                  <div className="py-1">
-                    <div className="font-medium text-zinc-900">{item?.name ?? c.itemId}</div>
-                    <div className="text-[11px] text-zinc-500">{c.itemId}</div>
-                  </div>
-
-                  {/* Cat / Rol */}
-                  <div className="text-sm text-zinc-700">{(item?.category ?? "-")} · <span className="uppercase">{c.role ?? "FORMULA"}</span></div>
-
-                  {/* Teórico */}
-                  <div className={`text-right text-sm text-zinc-700 ${numClass}`}>{theoretical.toFixed(3)}</div>
-
-                  {/* Real (solo ejecución) */}
-                  <div className="md:text-right">
-                    {isExecuting ? (
-                      <input
-                        type="number"
-                        className={`w-full md:w-28 h-9 px-2 rounded-lg border text-right ${numClass}
-                                    focus:outline-none focus:ring-2 focus:ring-[hsl(var(${ACCENT_VAR})/0.45)]`}
-                        placeholder="0"
-                        value={actuals[i]?.actualQty ?? 0}
-                        onChange={(e) => updateActual(i, Number(e.target.value))}
-                      />
-                    ) : (
-                      <span className="text-zinc-400 text-sm">—</span>
-                    )}
-                  </div>
-
-                  {/* UoM */}
-                  <div className="text-sm text-zinc-600">{c.uom}</div>
-                </div>
-              );
-            })}
+          <label className="block text-xs font-semibold text-zinc-600 mb-1">Cantidad ({bomToUse.baseUnit})</label>
+          <input type="number" value={qty} onChange={(e)=>setQty(Number(e.target.value))}
+                 disabled={isExecuting}
+                 className={`w-full h-10 px-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-[hsl(var(--sb-accent-produc)/0.45)] ${mono}`} />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-zinc-600 mb-1">Fecha prevista</label>
+          <div className="relative">
+            <Calendar size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+            <input type="date" value={date} onChange={(e)=>setDate(e.target.value)}
+                   disabled={isExecuting}
+                   className="w-full h-10 pl-9 pr-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-[hsl(var(--sb-accent-produc)/0.45)]" />
           </div>
         </div>
+        <div className="text-sm text-zinc-600 flex items-end">{stageHint}</div>
+      </div>
 
-        {/* Calidad + Personal */}
-        {isExecuting && (
-          <div className="space-y-6 pt-6 border-t">
-            <div>
-              <h3 className={`text-sm font-semibold mb-2 ${accentText}`}>Calidad y Personal</h3>
-              <label className="flex items-center gap-3 mb-4">
-                <input
-                  type="checkbox"
-                  checked={ack}
-                  onChange={(e) => doAndRefresh(() => toggleProtocolsAcknowledged(order!.id, e.target.checked))}
-                />
-                He leído los protocolos.
-              </label>
-              <div className="flex items-end gap-2">
-                <input
-                  type="number"
-                  value={ops}
-                  onChange={(e) => setOps(Number(e.target.value))}
-                  className={`w-28 h-9 px-2 rounded-lg border ${numClass} focus:outline-none focus:ring-2 focus:ring-[hsl(var(${ACCENT_VAR})/0.45)]`}
-                  placeholder="Operarios"
-                />
-                <SpinnerButton loading={pending} className={`${accentGhost}`} onClick={() => doAndRefresh(() => setOperatorsCount(order!.id, ops))}>
-                  Guardar operarios
-                </SpinnerButton>
+      {/* Acciones por estado (alineado a BOM: botones ligeros) */}
+      {order && (
+        <div className="flex flex-wrap gap-2 py-2">
+          {order.status === "PLANNED" && (
+            <>
+              <SpinnerButton variant="solid" tone={ACCENT} loading={pending} disabled={!canStart}
+                onClick={()=>doAndRefresh(()=>startProduction(order.id))}>Iniciar</SpinnerButton>
+              <SpinnerButton variant="danger" loading={pending}
+                onClick={()=>doAndRefresh(()=>cancelProduction(order.id))}>Cancelar</SpinnerButton>
+            </>
+          )}
+          {order.status === "IN_PROGRESS" && (
+            <>
+              <SpinnerButton variant="ghost" tone={ACCENT} loading={pending}
+                onClick={()=>doAndRefresh(()=>pauseProduction(order.id))}>Pausar</SpinnerButton>
+              <SpinnerButton variant="solid" tone={ACCENT} loading={pending}
+                onClick={()=>doAndRefresh(()=>closeProduction(order.id))}>Finalizar</SpinnerButton>
+            </>
+          )}
+          {order.status === "PAUSED" && (
+            <>
+              <SpinnerButton variant="solid" tone={ACCENT} loading={pending}
+                onClick={()=>doAndRefresh(()=>resumeProduction(order.id))}>Reanudar</SpinnerButton>
+              <SpinnerButton variant="ghost" tone={ACCENT} loading={pending}
+                onClick={()=>doAndRefresh(()=>closeProduction(order.id))}>Finalizar</SpinnerButton>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* === Sección: Materiales (igual patrón visual BOM) === */}
+      <div className="mt-4">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-semibold text-zinc-800">Parte de Producción (Materiales)</h3>
+          {isExecuting && (
+            <SpinnerButton variant="ghost" tone={ACCENT} loading={pending} onClick={recordNow}>Guardar consumo</SpinnerButton>
+          )}
+        </div>
+
+        <div className="hidden md:grid grid-cols-[1.2fr,0.8fr,0.6fr,0.6fr,0.5fr] text-xs font-semibold text-zinc-600 px-3 py-2">
+          <div>Material</div><div>Categoría / Rol</div><div className="text-right">Teórico</div><div className="text-right">Real</div><div>UoM</div>
+        </div>
+
+        <div className="rounded-xl border overflow-hidden">
+          {bomToUse.items.map((c, i) => {
+            const item = itemById.get(c.itemId);
+            const theoretical = ((c.qty || 0) * (order?.targetQuantity ?? qty ?? 1)) / (bomToUse.batchSize || 1);
+            return (
+              <div key={c.itemId} className="grid grid-cols-1 md:grid-cols-[1.2fr,0.8fr,0.6fr,0.6fr,0.5fr] items-center px-3 py-2 border-t first:border-t-0 odd:bg-white even:bg-zinc-50/60">
+                <div className="py-1">
+                  <div className="font-medium text-zinc-900">{item?.name ?? c.itemId}</div>
+                  <div className="text-[11px] text-zinc-500">{c.itemId}</div>
+                </div>
+                <div className="text-sm text-zinc-700">{(item as any)?.category ?? "-"} · <span className="uppercase">{c.role ?? "FORMULA"}</span></div>
+                <div className={`text-right text-sm text-zinc-700 ${mono}`}>{theoretical.toFixed(3)}</div>
+                <div className="md:text-right">
+                  {isExecuting ? (
+                    <input
+                      type="number"
+                      className={`w-full md:w-28 h-9 px-2 rounded-lg border text-right focus:outline-none focus:ring-2 focus:ring-[hsl(var(--sb-accent-produc)/0.45)] ${mono}`}
+                      placeholder="0"
+                      value={actuals[i]?.actualQty ?? 0}
+                      onChange={(e) => updateActual(i, Number(e.target.value))}
+                    />
+                  ) : <span className="text-zinc-400 text-sm">—</span>}
+                </div>
+                <div className="text-sm text-zinc-600">{c.uom}</div>
               </div>
-            </div>
-            <div>
-              <h3 className={`text-sm font-semibold mb-2 ${accentText}`}>Incidencias</h3>
-              <div className="flex items-center gap-2">
-                <input
-                  value={incidentSummary}
-                  onChange={(e) => setIncidentSummary(e.target.value)}
-                  className="w-full h-9 px-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-[hsl(var(--sb-accent-produc)/0.45)]"
-                  placeholder="Añadir incidencia..."
-                />
-                <SpinnerButton
-                  loading={pending}
-                  className={`${accentGhost}`}
-                  onClick={() => doAndRefresh(() => addIncident(order!.id, { summary: incidentSummary, severity: "LOW" } as any))}
-                >
-                  Añadir
-                </SpinnerButton>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* === Sección: Calidad & Personal === */}
+      {isExecuting && (
+        <div className="grid md:grid-cols-2 gap-4 mt-6 border-t pt-4">
+          <div>
+            <h3 className="text-sm font-semibold text-zinc-800 mb-2">Calidad y Personal</h3>
+            <label className="flex items-center gap-3 mb-3">
+              <input type="checkbox" checked={ack} onChange={(e)=>doAndRefresh(()=>toggleProtocolsAcknowledged(order!.id, e.target.checked))} />
+              He leído los protocolos.
+            </label>
+            <div className="flex items-end gap-2">
+              <div className="grow max-w-[160px]">
+                <label className="block text-xs font-semibold text-zinc-600 mb-1">Operarios</label>
+                <input type="number" value={ops} onChange={(e)=>setOps(Number(e.target.value))}
+                       className={`w-full h-9 px-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-[hsl(var(--sb-accent-produc)/0.45)] ${mono}`} />
               </div>
+              <SpinnerButton variant="ghost" tone={ACCENT} loading={pending}
+                onClick={()=>doAndRefresh(()=>setOperatorsCount(order!.id, ops))}>
+                Guardar operarios
+              </SpinnerButton>
             </div>
           </div>
-        )}
-
-        {/* Calculadora (solo en planificación) */}
-        {!isExecuting && (
-          <>
-            <div className="space-y-4 pt-6 border-t">
-              <h3 className="font-medium">Calculadora de Ajustes</h3>
-              <div className="space-y-2">
-                {calcRows.map((r, idx) => (
-                  <div key={idx} className="grid grid-cols-[2fr,1fr,1fr,1fr,1fr,auto] gap-2 items-center">
-                    <input
-                      className="h-9 px-2 rounded-lg border"
-                      placeholder="Item ID"
-                      value={r.itemId}
-                      onChange={(e) =>
-                        setCalcRows((rows) => rows.map((x, i) => (i === idx ? { ...x, itemId: e.target.value } : x)))
-                      }
-                    />
-                    <input
-                      type="number"
-                      className="h-9 px-2 rounded-lg border"
-                      placeholder="ABV %"
-                      value={r.abvPct ?? ""}
-                      onChange={(e) =>
-                        setCalcRows((rows) => rows.map((x, i) => (i === idx ? { ...x, abvPct: Number(e.target.value) } : x)))
-                      }
-                    />
-                    <input
-                      type="number"
-                      className="h-9 px-2 rounded-lg border"
-                      placeholder="Acidez g/L"
-                      value={r.acidity_gpl ?? ""}
-                      onChange={(e) =>
-                        setCalcRows((rows) => rows.map((x, i) => (i === idx ? { ...x, acidity_gpl: Number(e.target.value) } : x)))
-                      }
-                    />
-                    <input
-                      type="number"
-                      className="h-9 px-2 rounded-lg border"
-                      placeholder="Azúcar g/L"
-                      value={r.sugar_gpl ?? ""}
-                      onChange={(e) =>
-                        setCalcRows((rows) => rows.map((x, i) => (i === idx ? { ...x, sugar_gpl: Number(e.target.value) } : x)))
-                      }
-                    />
-                    <input
-                      type="number"
-                      className="h-9 px-2 rounded-lg border"
-                      placeholder="Cantidad"
-                      value={r.qty ?? ""}
-                      onChange={(e) =>
-                        setCalcRows((rows) => rows.map((x, i) => (i === idx ? { ...x, qty: Number(e.target.value) } : x)))
-                      }
-                    />
-                    <button
-                      onClick={() => setCalcRows((rows) => rows.filter((_, i) => i !== idx))}
-                      className="h-9 w-9 grid place-content-center rounded-lg border hover:bg-red-50 text-zinc-500 hover:text-red-600"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <button
-                onClick={() => setCalcRows((rows) => [...rows, { itemId: "", uom: "L" as Uom, qty: 0 }])}
-                className="text-sm font-semibold text-zinc-700 hover:text-zinc-900 flex items-center gap-1"
-              >
-                <Plus size={14} />
-                Añadir fila
-              </button>
-              {calcResult && (
-                <div className="text-sm p-3 bg-zinc-50 rounded-lg border">
-                  <h4 className="font-semibold mb-1">Resultado estimado</h4>
-                  <p>
-                    ABV: <b>{calcResult.estimatedAbvPct}%</b> · Acidez: <b>{calcResult.estimatedAcidity_gpl} g/L</b> · Azúcar:{" "}
-                    <b>{calcResult.estimatedSugar_gpl} g/L</b>
-                  </p>
-                </div>
-              )}
+          <div>
+            <h3 className="text-sm font-semibold text-zinc-800 mb-2">Incidencias</h3>
+            <div className="flex items-center gap-2">
+              <input
+                value={incidentSummary}
+                onChange={(e)=>setIncidentSummary(e.target.value)}
+                className="w-full h-9 px-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-[hsl(var(--sb-accent-produc)/0.45)]"
+                placeholder="Añadir incidencia…"
+              />
+              <SpinnerButton variant="ghost" tone={ACCENT} loading={pending}
+                onClick={()=>doAndRefresh(()=>addIncident(order!.id, { summary: incidentSummary, severity: "LOW" } as any))}>
+                Añadir
+              </SpinnerButton>
             </div>
-            <SpinnerButton onClick={handlePlan} loading={pending}
-              className={`w-full h-12 text-base font-semibold mt-2 ${accentBtn}`}>
-              Planificar producción
-            </SpinnerButton>
-          </>
-        )}
-      </div>
-    </SBCard>
+          </div>
+        </div>
+      )}
+
+      {/* === Sección: Calculadora (solo planificación) === */}
+      {!isExecuting && (
+        <div className="mt-6 border-t pt-4">
+          <h3 className="text-sm font-semibold text-zinc-800 mb-3">Calculadora de Ajustes</h3>
+          <div className="space-y-2">
+            {calcRows.map((r, idx) => (
+              <div key={idx} className="grid grid-cols-[2fr,1fr,1fr,1fr,1fr,auto] gap-2 items-center">
+                <input className="h-9 px-2 rounded-lg border" placeholder="Item ID" value={r.itemId}
+                  onChange={(e)=>setCalcRows(rows=>rows.map((x,i)=>i===idx?{...x,itemId:e.target.value}:x))}/>
+                <input type="number" className="h-9 px-2 rounded-lg border" placeholder="ABV %" value={r.abvPct ?? ""}
+                  onChange={(e)=>setCalcRows(rows=>rows.map((x,i)=>i===idx?{...x,abvPct:Number(e.target.value)}:x))}/>
+                <input type="number" className="h-9 px-2 rounded-lg border" placeholder="Acidez g/L" value={r.acidity_gpl ?? ""}
+                  onChange={(e)=>setCalcRows(rows=>rows.map((x,i)=>i===idx?{...x,acidity_gpl:Number(e.target.value)}:x))}/>
+                <input type="number" className="h-9 px-2 rounded-lg border" placeholder="Azúcar g/L" value={r.sugar_gpl ?? ""}
+                  onChange={(e)=>setCalcRows(rows=>rows.map((x,i)=>i===idx?{...x,sugar_gpl:Number(e.target.value)}:x))}/>
+                <input type="number" className="h-9 px-2 rounded-lg border" placeholder="Cantidad" value={r.qty ?? ""}
+                  onChange={(e)=>setCalcRows(rows=>rows.map((x,i)=>i===idx?{...x,qty:Number(e.target.value)}:x))}/>
+                <button onClick={()=>setCalcRows(rows=>rows.filter((_,i)=>i!==idx))}
+                        className="h-9 w-9 grid place-content-center rounded-lg border hover:bg-red-50 text-zinc-500 hover:text-red-600">
+                  <Trash2 size={16}/>
+                </button>
+              </div>
+            ))}
+          </div>
+          <button onClick={()=>setCalcRows(rows=>[...rows,{ itemId:"", uom:"L" as Uom, qty:0 }])}
+                  className="text-sm font-semibold text-zinc-700 hover:text-zinc-900 flex items-center gap-1 mt-2">
+            <Plus size={14}/> Añadir fila
+          </button>
+          {calcResult && (
+            <div className="text-sm p-3 bg-zinc-50 rounded-lg border mt-3">
+              <p>
+                ABV: <b>{calcResult.estimatedAbvPct}%</b> · Acidez: <b>{calcResult.estimatedAcidity_gpl} g/L</b> · Azúcar: <b>{calcResult.estimatedSugar_gpl} g/L</b>
+              </p>
+            </div>
+          )}
+          <div className="mt-4">
+            <SpinnerButton variant="solid" tone={ACCENT} onClick={handlePlan} className="w-full h-12 text-base font-semibold">Planificar producción</SpinnerButton>
+          </div>
+        </div>
+      )}
+    </SBCardBox>
   );
 }
 
-/* ====== Página: sin SBPageShell, solo funda BOM + grid 3/9 ====== */
+// ======================== PAGE =============================================
 export default function ExecutionPage() {
   const { data, loadInitialData } = useData();
   const [openOrderId, setOpenOrderId] = useState<string | null>(null);
   const [openBomId, setOpenBomId] = useState<string | null>(null);
 
-  const openOrder = useMemo(
-    () => (data?.productionOrders ?? []).find((o) => o.id === openOrderId) ?? null,
-    [data, openOrderId]
-  );
-  const openBom = useMemo(
-    () => (data?.billOfMaterials ?? []).find((b) => b.id === openBomId) ?? null,
-    [data, openBomId]
-  );
+  const openOrder = useMemo(() => (data?.productionOrders ?? []).find(o => o.id === openOrderId) ?? null, [data, openOrderId]);
+  const openBom   = useMemo(() => (data?.billOfMaterials ?? []).find(b => b.id === openBomId) ?? null, [data, openBomId]);
 
-  const selectOrder = useCallback((id: string) => {
-    setOpenBomId(null);
-    setOpenOrderId(id);
-  }, []);
-  const selectBom = useCallback((id: string) => {
-    setOpenOrderId(null);
-    setOpenBomId(id);
-  }, []);
-  const handlePlanned = (orderId: string) => {
-    loadInitialData?.();
-    selectOrder(orderId);
-  };
+  const selectOrder = useCallback((id: string) => { setOpenBomId(null); setOpenOrderId(id); }, []);
+  const selectBom   = useCallback((id: string) => { setOpenOrderId(null); setOpenBomId(id); }, []);
+  const handlePlanned = (orderId: string) => { loadInitialData?.(); selectOrder(orderId); };
+
+  // Sidebar BOM-like
+  const sidebar = (
+    <div className="space-y-4">
+      <SBCardBox title="Planificar nueva orden">
+        <div className="p-1 space-y-1">
+          {(data?.billOfMaterials ?? []).map(b => (
+            <button key={b.id} onClick={()=>selectBom(b.id)}
+              className={`w-full text-left p-2 rounded-md transition-colors text-sm font-medium ${
+                openBomId === b.id ? "bg-zinc-100 text-zinc-900" : "text-zinc-700 hover:bg-zinc-50"
+              }`}>
+              {b.name}
+            </button>
+          ))}
+        </div>
+      </SBCardBox>
+
+      <SBCardBox title="Órdenes activas">
+        <div className="p-1 space-y-1">
+          {(data?.productionOrders ?? [])
+            .filter(o => o.status !== "CLOSED" && o.status !== "CANCELLED")
+            .map(o => (
+              <button key={o.id} onClick={()=>selectOrder(o.id)}
+                className={`w-full text-left p-2 rounded-md transition-colors text-sm ${
+                  openOrderId === o.id ? "bg-zinc-100" : "hover:bg-zinc-50"
+                }`}>
+                <span className="font-mono">{o.id}</span> — <span className="font-semibold">{o.status}</span>
+              </button>
+            ))}
+        </div>
+      </SBCardBox>
+    </div>
+  );
 
   return (
-    <div className="mx-auto max-w-screen-2xl px-6 pb-24" style={{ [ACCENT_VAR]: "182 20% 47%" } as React.CSSProperties}>
-      {/* HEADER sticky con acento producción */}
-      <header className="sticky top-0 z-30 border-b bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60">
-        <div className="flex items-center justify-between gap-4 py-4">
-          <div className="flex items-center gap-3">
-            <div
-              className={`h-10 w-10 rounded-xl grid place-items-center ring-1 ring-black/5
-                          bg-[hsl(var(${ACCENT_VAR})/0.12)]
-                          text-[hsl(var(${ACCENT_VAR}))]`}
-              aria-hidden="true"
-              title="Producción"
-            >
-              <FactoryIcon size={20} />
-            </div>
-            <div>
-              <h1 className="text-2xl font-semibold text-zinc-900 leading-tight">Producción</h1>
-              <p className="text-xs text-zinc-600">Puesto de trabajo — estilo unificado BOM</p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => openBomId ? selectBom(openBomId) : null}
-            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border
-                        ${accentText}
-                        bg-[hsl(var(${ACCENT_VAR})/0.08)]
-                        hover:bg-[hsl(var(${ACCENT_VAR})/0.12)]`}
-            aria-label="Nueva orden"
-            title="Nueva orden"
-          >
-            <Plus size={16} />
-            <span className="hidden sm:inline">Nueva orden</span>
-          </button>
-        </div>
-      </header>
-
-      {/* GRID principal (3/9) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 pt-6">
-        <aside className="lg:col-span-3 space-y-4">
-          <SBCard title="Planificar nueva orden">
-            <div className="p-2 space-y-1">
-              {(data?.billOfMaterials ?? []).map((b) => (
-                <button
-                  key={b.id}
-                  onClick={() => selectBom(b.id)}
-                  className={`w-full text-left p-2 rounded-md transition-colors text-sm font-medium ${
-                    openBomId === b.id ? "bg-zinc-100 text-zinc-900" : "text-zinc-700 hover:bg-zinc-50"
-                  }`}
-                >
-                  {b.name}
-                </button>
-              ))}
-            </div>
-          </SBCard>
-
-          <SBCard title="Órdenes activas">
-            <div className="p-2 space-y-1">
-              {(data?.productionOrders ?? [])
-                .filter((o) => o.status !== "CLOSED" && o.status !== "CANCELLED")
-                .map((o) => (
-                  <button
-                    key={o.id}
-                    onClick={() => selectOrder(o.id)}
-                    className={`w-full text-left p-2 rounded-md transition-colors text-sm ${
-                      openOrderId === o.id ? "bg-zinc-100" : "hover:bg-zinc-50"
-                    }`}
-                  >
-                    <span className="font-mono">{o.id}</span> — <span className="font-semibold">{o.status}</span>
-                  </button>
-                ))}
-            </div>
-          </SBCard>
-        </aside>
-
-        <main className="lg:col-span-9 min-h-[70vh]">
-          <ProductionWorkstation
-            order={openOrder}
-            bom={openBom}
-            onRefresh={() => loadInitialData?.()}
-            onPlanned={handlePlanned}
-            allItems={data?.items ?? []}
-            allBoms={data?.billOfMaterials ?? []}
-          />
-        </main>
-      </div>
-
-      {/* FAB */}
-      <button
-        type="button"
-        aria-label="Nueva orden"
-        className={`fixed bottom-6 right-6 z-40 h-14 w-14 rounded-full shadow-lg hover:shadow-xl grid place-items-center
-                    border ${accentText} bg-[hsl(var(${ACCENT_VAR})/0.10)]`}
-        title="Nueva orden"
-      >
-        <Plus />
-      </button>
-    </div>
+    <SBScaffold
+      module="produc"
+      title="Producción"
+      subtitle="Puesto de trabajo — estilo unificado BOM"
+      headerRight={
+        <SBBtn variant="solid" tone="produc" onClick={()=>openBomId && selectBom(openBomId)}>
+          Nueva orden
+        </SBBtn>
+      }
+      sidebar={sidebar}
+      density="compact"
+    >
+      <ProductionWorkstation
+        order={openOrder}
+        bom={openBom}
+        onRefresh={()=>loadInitialData?.()}
+        onPlanned={handlePlanned}
+        allItems={data?.items ?? []}
+        allBoms={data?.billOfMaterials ?? []}
+      />
+    </SBScaffold>
   );
 }
