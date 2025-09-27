@@ -79,7 +79,7 @@ function mapStatusTone(s: ProductionStatus) {
 // ================== Cálculos negocio (teoría/stock) ==================
 function computeTheoretical(bom: RecipeBom, qty: number, itemsMap: Map<string, Item>) {
   // qty es el multiplicador del batch
-  const lines = (bom.items || []).filter((l:any) => l.role !== "COST_ONLY");
+  const lines = (bom.lines || bom.items || []).filter((l:any) => l.role !== "COST_ONLY");
   return lines.map((l:any) => ({
     itemId: l.itemId,
     itemName: itemsMap.get(l.itemId)?.name ?? l.itemId,
@@ -92,10 +92,10 @@ function computeTheoretical(bom: RecipeBom, qty: number, itemsMap: Map<string, I
 // Asignación simple por FIFO (sin fechas) de lots disponibles por itemId
 function allocateFromLots(
   theory: Array<{ itemId: string; qty: number; uom: Uom; itemName?: string }>,
-  lots: Lot[]
+  onHand: Lot[]
 ) {
   const byItem = new Map<string, Lot[]>();
-  for (const lot of lots) {
+  for (const lot of onHand) {
     if (!byItem.has(lot.itemId)) byItem.set(lot.itemId, []);
     byItem.get(lot.itemId)!.push(lot);
   }
@@ -111,10 +111,10 @@ function allocateFromLots(
     let remain = t.qty;
     const availableLots = byItem.get(t.itemId) ?? [];
     for (const lot of availableLots) {
-      const onHand = (lot as any).qtyOnHand ?? 0;
-      if (onHand <= 0) continue;
+      const onHandQty = (lot as any).quantity ?? 0;
+      if (onHandQty <= 0) continue;
       if (remain <= 0) break;
-      const take = Math.min(onHand, remain);
+      const take = Math.min(onHandQty, remain);
       if (take > 0 && lot.lotNumber) {
         picks.push({ itemId: t.itemId, lotNumber: lot.lotNumber, qty: +take.toFixed(3), uom: t.uom });
         remain -= take;
@@ -191,16 +191,16 @@ function computeKPIs(order: LocalProductionOrder, itemsMap: Map<string, Item>) {
 
 // ================== Componentes funcionales ==================
 function StockCheckPanel({
-  bom, qty, items, lots, onReadyChange, shortagesOut, requiredLotsOut
+  bom, qty, items, onHand, onReadyChange, shortagesOut, requiredLotsOut
 }: {
-  bom: RecipeBom; qty: number; items: Item[]; lots: Lot[];
+  bom: RecipeBom; qty: number; items: Item[]; onHand: Lot[];
   onReadyChange: (ok: boolean) => void;
   shortagesOut: (s: Array<{ itemId: string; itemName: string; missing: number; uom: Uom }>) => void;
   requiredLotsOut: (r: Array<{ itemId: string; lotNumber: string; qty: number; uom: Uom }>) => void;
 }) {
   const itemsMap = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
   const theory = useMemo(() => computeTheoretical(bom, qty, itemsMap), [bom, qty, itemsMap]);
-  const { shortages, picks } = useMemo(() => allocateFromLots(theory, lots), [theory, lots]);
+  const { shortages, picks } = useMemo(() => allocateFromLots(theory, onHand), [theory, onHand]);
 
   useEffect(() => {
     onReadyChange(shortages.length === 0);
@@ -278,7 +278,7 @@ function MaterialsEditor({
               <input
                 type="number" step="0.01" min={0}
                 className="border rounded-md p-1 w-[110px] text-right font-mono"
-                value={r.realQty}
+                value={r.realQty ?? ''}
                 onChange={(e) => setRealQty(r.itemId, Number(e.target.value) || 0)}
                 disabled={readOnly}
               />
@@ -341,7 +341,7 @@ function JournalCard({
 export default function ProductionExecutionPage() {
   const { data } = useData();
   const items: Item[] = data?.items ?? [];
-  const lots: Lot[] = data?.lots ?? [];
+  const onHand: Lot[] = data?.onHand ?? [];
   const recipes: RecipeBom[] = (data?.billOfMaterials ?? []) as any;
   const ordersRaw: ProductionOrder[] = (data?.productionOrders ?? []) as any;
 
@@ -663,7 +663,7 @@ export default function ProductionExecutionPage() {
                 bom={planningBom}
                 qty={planQty}
                 items={items}
-                lots={lots}
+                onHand={onHand}
                 onReadyChange={setStockOk}
                 shortagesOut={setShortages}
                 requiredLotsOut={setRequiredLots}
@@ -745,7 +745,7 @@ export default function ProductionExecutionPage() {
                     <h4 className="text-sm font-semibold mb-2">Materiales</h4>
                     {/* realConsumption se bloquea tras iniciar */}
                     <MaterialsEditor
-                      bom={{ id: currentOrder.bomId, name: currentOrder.name ?? "", outputItemId: currentOrder.outputItemId, stage: currentOrder.stage, batchSize: 1, baseUnit: "L", items: [] } as any}
+                      bom={{ id: currentOrder.bomId, name: currentOrder.name ?? "", outputItemId: currentOrder.outputItemId, stage: currentOrder.stage, batchSize: 1, baseUnit: "L", lines: (currentOrder as any).nominal } as any}
                       qty={currentOrder.targetQuantity}
                       real={realConsumption}
                       onChange={setRealConsumption}
