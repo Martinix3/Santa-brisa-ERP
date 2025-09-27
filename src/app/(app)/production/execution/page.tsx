@@ -1,943 +1,428 @@
-
-// src/app/(app)/production/execution/page.tsx
 "use client";
-import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { AlertCircle, Check, Hourglass, X, Thermometer, FlaskConical, Beaker, TestTube2, Paperclip, Upload, Trash2, ChevronRight, ChevronDown, Save, Bug, Edit } from "lucide-react";
-import { SBCard, SBButton } from '@/components/ui/ui-primitives';
-import { useData } from "@/lib/dataprovider";
-import type { ProductionOrder as ProdOrder, Uom, Item, ExecCheck, BillOfMaterial as RecipeBom, OnHandView, ReservationView, StockMove, SantaData } from '@/domain/ssot';
-import { availableForItem, fifoReserveLots, buildConsumptionMoves } from '@/domain/inventory.helpers';
-import { makeLot, makeProdOrderCode } from '@/lib/codes';
+
+import React, { useMemo, useState, useCallback, useEffect, useTransition } from "react";
+import { Plus, Trash2, Factory as FactoryIcon, Pause, Play, CheckCircle2, AlertTriangle } from "lucide-react";
+import { SBCard } from "@/components/ui/ui-primitives";
 import { SB_COLORS } from "@/domain/ssot";
+import { useData } from "@/lib/dataprovider";
+import type { Item } from "@/domain/ssot";
 import { useToaster } from "@/components/ui/Toaster";
 import { Banner } from "@/components/ui/Banner";
 import { SpinnerButton } from "@/components/ui/SpinnerButton";
-import { canonicalUomForItem, canonicalUomForFinished } from "@/domain/uom";
+import { Field } from "@/components/forms/Field";
+import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog";
+import { toast } from "sonner";
 
+// Acciones del módulo Producción (previas en actions.ts)
+import {
+  planProduction,
+  startProduction,
+  pauseProduction,
+  resumeProduction,
+  setOperatorsCount,
+  toggleProtocolsAcknowledged,
+  recordConsumption,
+  recordOutput,
+  recordPackagingParent,
+  setQcResult,
+  addIncident,
+  setCalculatorInput,
+  closeProduction,
+} from '../actions';
 
-// ---------------------- Utilidades de cálculo ----------------------
-function scaleQty(qtyPerBatch: number, base: number, target: number) { return (qtyPerBatch * target) / base; }
+// ===== Tipos locales mínimos (alineados a actions.ts) =====
+type ProductionOrder = any; // Usa tu tipo real si lo tienes exportado desde el SSOT
 
-function planFromRecipe(
-  recipe: RecipeBom,
-  targetBatchSize: number,
-  items: Item[],
-  inventory?: OnHandView[],
-): { lines: ProdOrder['actuals'], plannedBottles: number, finishedUom: Uom } {
-  if (!recipe || !recipe.items) {
-    return { lines: [], plannedBottles: 0, finishedUom: "unit" as Uom };
-  }
-  const itemMap = new Map(items.map(m => [m.id, m]));
-  const lines: ProdOrder['actuals'] = (recipe.items || []).map((l) => {
-    const theoreticalQty = scaleQty(l.qty, recipe.batchSize, targetBatchSize);
-    const item = itemMap.get(l.itemId);
-    const uom = canonicalUomForItem(l.itemId, inventory || [], items);
-    return {
-        itemId: l.itemId,
-        name: item?.name || 'Unknown',
-        lotNumber: undefined, // Se determinará al iniciar
-        theoreticalQty,
-        actualQty: theoreticalQty, // Por defecto, lo real es lo teórico
-        uom, // 👈 manda inventario/item
-        costPerUom: item?.stdCost || 0
-    };
-  });
-  const outputItem = items.find(i => i.id === recipe.outputItemId);
-  const bottlesPerLiter = outputItem?.sku.includes('700') ? 1.42 : 1.33;
-  const plannedBottles = Math.floor(bottlesPerLiter * targetBatchSize);
-  const finishedUom = canonicalUomForFinished(recipe.outputItemId, inventory || []);
-  return { lines, plannedBottles, finishedUom };
+type QuickCreatePayload = { name: string; sku?: string; category: "sf" | "fg" };
+
+// ===== Helpers visuales reutilizables =====
+function SectionCard({ title, hint, badge, children }: { title: string; hint?: string; badge?: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-xl border p-3 bg-white">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-base font-semibold text-zinc-900">{title}</h3>
+          {hint && <p className="text-xs text-zinc-600">{hint}</p>}
+        </div>
+        {badge && (
+          <span className="text-[11px] px-2 py-0.5 rounded-full border bg-white">{badge}</span>
+        )}
+      </div>
+      <div className="mt-3">{children}</div>
+    </div>
+  );
 }
 
-function round2(n: number) { return Math.round(n * 100) / 100; }
-function round1(n: number) { return Math.round(n * 10) / 10; }
-
-function computeCosting(recipe: RecipeBom, po: ProdOrder, allItems: Item[]) {
-    if (!po.execution) return undefined;
-    const { durationHours = 0, goodUnits = 0 } = po.execution;
-    
-    const { plannedBottles } = planFromRecipe(recipe, po.targetQuantity, allItems);
-
-    let materials = 0;
-    
-    if(po.actuals && po.actuals.length > 0) {
-        for(const act of po.actuals) {
-            materials += (act.actualQty || 0) * (act.costPerUom || 0);
-        }
-    } else {
-        const plan = planFromRecipe(recipe, po.targetQuantity, allItems);
-        for (const l of plan.lines || []) {
-            materials += l.theoreticalQty * (l.costPerUom || 0);
-        }
-    }
-    
-    const stdLaborCostPerHour = 25;
-    const stdOverheadPerBatch = 50;
-
-    const labor = stdLaborCostPerHour * (durationHours || 0);
-    const overhead = stdOverheadPerBatch;
-    const total = materials + labor + overhead;
-    const costPerBottle = goodUnits > 0 ? total / goodUnits : 0;
-    const yieldPct = plannedBottles > 0 ? (goodUnits / plannedBottles) * 100 : 0;
-    const scrapBottles = po.execution.scrapUnits ?? Math.max(0, plannedBottles - goodUnits);
-    const scrapPct = plannedBottles > 0 ? (scrapBottles / plannedBottles) * 100 : 0;
-    
-    return {
-        materialsEUR: round2(materials), laborEUR: round2(labor), overheadEUR: round2(overhead),
-        totalEUR: round2(total), costPerBottleEUR: round2(costPerBottle), yieldPct: round1(yieldPct), scrapPct: round1(scrapPct)
-    };
+function Row({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return <div className={`grid grid-cols-[2fr_1fr_1fr_auto] gap-2 items-end p-2 border rounded-md bg-white ${className}`}>{children}</div>;
 }
 
+// ===== Detalle de Orden (panel derecho) =====
+function OrderDetail({ order, allItems, onRefresh }: { order: ProductionOrder; allItems: Item[]; onRefresh: () => void }) {
+  const [pending, startTransition] = useTransition();
+  const [ops, setOps] = useState<number>(order?.operatorsCount ?? 0);
+  const [ack, setAck] = useState<boolean>(!!order?.protocolsAcknowledged);
+  const [parentLot, setParentLot] = useState<string>(order?.parentLotNumber ?? "");
 
-// ---------------------- UI auxiliares ----------------------
-function Pill({ children, tone = "zinc" }: { children: React.ReactNode; tone?: "zinc"|"green"|"red"|"blue"|"amber"|"slate" }) {
-  const map: any = {
-    zinc: "bg-zinc-100 text-zinc-800 border border-zinc-200",
-    green:"bg-green-100 text-green-800 border border-green-200",
-    red:  "bg-red-100 text-red-800 border border-red-200",
-    blue: "bg-blue-100 text-blue-800 border-blue-200",
-    amber:"bg-amber-100 text-amber-800 border border-amber-200",
-    slate:"bg-slate-200 text-slate-800 border border-slate-300",
-  };
-  return <span className={`px-2 py-0.5 rounded-full text-xs ${map[tone]}`}>{children}</span>;
-}
+  // consumo
+  const [consLines, setConsLines] = useState<Array<{ itemId: string; uom: "L" | "kg" | "unit"; qty: number; role?: "FORMULA" | "PACKAGING" | "COST_ONLY" }>>(order?.consumption ?? []);
+  const [outputQty, setOutputQty] = useState<number>(order?.output?.[0]?.qty ?? order?.plannedQty ?? 0);
 
-// ---------------------- Página /produccion ----------------------
-export default function ProduccionPage() {
-    const { data: santaData, saveAllCollections } = useData();
-    const [recipes, setRecipes] = useState<RecipeBom[]>([]);
-    
-    const [loading, setLoading] = useState(true);
-    const [lastError, setLastError] = useState<string | null>(null);
-    const [busyOp, setBusyOp] = useState<null | "create" | "start" | "update" | "finish" | "delete">(null);
-    const { push } = useToaster();
-    const [editingOrder, setEditingOrder] = useState<ProdOrder | null>(null);
+  // incidencias
+  const [incSeverity, setIncSeverity] = useState<"LOW" | "MEDIUM" | "HIGH">("LOW");
+  const [incSummary, setIncSummary] = useState("");
+  const [incDetails, setIncDetails] = useState("");
 
-    const orders = useMemo(() => santaData?.productionOrders || [], [santaData]);
-    
-    const onHand = useMemo(()=> (santaData?.onHand || []), [santaData?.onHand])
-    const allItems = useMemo(() => santaData?.items || [], [santaData]);
+  // calculadora
+  const [calcRows, setCalcRows] = useState<Array<{ itemId: string; abvPct?: number; acidity_gpl?: number; sugar_gpl?: number; uom: "L" | "kg" | "unit"; qty: number }>>(order?.calcInput?.raws ?? []);
 
+  useEffect(() => { setOps(order?.operatorsCount ?? 0); setAck(!!order?.protocolsAcknowledged); }, [order?.operatorsCount, order?.protocolsAcknowledged]);
 
-    useEffect(() => {
-        if (!santaData) return;
-        setLoading(true);
-        setRecipes(santaData.billOfMaterials as RecipeBom[] || []);
-        setLoading(false);
-  }, [santaData]);
-  
-  const createOrder = useCallback(async (args: {
-    recipe: RecipeBom; targetBatchSize: number; whenISO: string; responsibleId?: string
-  }) => {
-    if (!santaData) return;
-    setBusyOp("create");
-    setLastError(null);
-    const { recipe, targetBatchSize, whenISO, responsibleId } = args;
-    const { lines: actuals, finishedUom } = planFromRecipe(recipe, targetBatchSize, allItems, onHand);
-  
-    const shortages: { itemId: string; required: number; available: number; uom: Uom }[] = [];
-    const reservations: ReservationView[] = [];
-  
-    for (const line of actuals || []) {
-        const avail = availableForItem(line.itemId, onHand);
-        if (avail < line.theoreticalQty) {
-          shortages.push({
-            itemId: line.itemId,
-            required: line.theoreticalQty,
-            available: avail,
-            uom: line.uom,
-          });
-        } else {
-            const locationPrefix = allItems.find(m => m.id === line.itemId)?.category === 'raw' ? 'RM/MAIN' : 'PKG/MAIN';
-            const picks = fifoReserveLots(line.itemId, line.theoreticalQty, onHand, locationPrefix);
-            picks.forEach(p => reservations.push({ id: `${p.fromLotNumber}-${args.recipe.id}`, itemId: line.itemId, lotNumber: p.fromLotNumber, qty: p.reservedQty, uom: p.uom, ref: { kind: 'PROD', id: ''}, createdAt: new Date().toISOString() }));
-        }
-    }
-  
-    const id = makeProdOrderCode((santaData.productionOrders || []).map(o => o.orderNumber || ''), new Date());
-    const now = new Date().toISOString();
-  
-    const newOrder: ProdOrder = {
-      id: `po_${Date.now()}`,
-      orderNumber: id,
-      bomId: recipe.id,
-      outputItemId: recipe.outputItemId,
-      targetQuantity: targetBatchSize,
-      status: "planned",
-      createdAt: now,
-      scheduledFor: whenISO,
-      responsibleId,
-      checks: ((recipe as any).protocolChecklist || []).map((p: any) => ({ id: p.id, done: false })),
-      reservations: reservations.length ? reservations : undefined,
-      actuals,
-    };
-  
-    try {
-        await saveAllCollections({
-            productionOrders: [newOrder, ...((santaData.productionOrders) || [])]
-        });
-      if (shortages.length) {
-        push({ kind: "info", text: `Orden creada con faltantes: ${shortages.map(s => allItems.find(m => m.id === s.itemId)?.name).join(", ")}.` });
-      } else {
-        push({ kind: "ok", text: "Orden creada con stock reservado." });
-      }
-    } catch (e: any) {
-      const msg = e?.message ?? "No se pudo crear la orden.";
-      setLastError(msg);
-      push({ kind: "err", text: msg });
-    } finally {
-      setBusyOp(null);
-    }
-  }, [onHand, saveAllCollections, allItems, santaData, push]);
-  
+  const accent = "[--sb-accent-produc:182_25%_47%]";
 
-  const updateOrder = useCallback(async (id: string, patch: Partial<ProdOrder>) => {
-    if (!santaData) return;
-    setBusyOp("update");
-    setLastError(null);
-    try {
-        const updatedOrders = (santaData.productionOrders || []).map((o: ProdOrder) => {
-          if (o.id === id) {
-              const updatedOrder = { ...o, ...patch } as ProdOrder;
-              if (patch.execution && !patch.costing) {
-                  const recipe = recipes.find(r => r.id === updatedOrder.bomId);
-                  if (recipe) {
-                    const c = computeCosting(recipe, updatedOrder, allItems);
-                    updatedOrder.costing = c as any;
-                  }
-              }
-              return updatedOrder;
-          }
-          return o;
-        });
-        await saveAllCollections({ productionOrders: updatedOrders });
+  function updateCons(idx: number, v: any) { setConsLines(l => l.map((x, i) => i === idx ? v : x)); }
+  function updateCalc(idx: number, v: any) { setCalcRows(l => l.map((x, i) => i === idx ? v : x)); }
 
-      if (patch.status) push({ kind: "ok", text: `Orden ${id} → ${patch.status.toUpperCase()}` });
-    } catch (e: any) {
-      const msg = e?.message ?? "No se pudo actualizar la orden.";
-      setLastError(msg);
-      push({ kind: "err", text: msg });
-    } finally {
-      setBusyOp(null);
-    }
-  }, [saveAllCollections, recipes, santaData, push, allItems]);
-  
-    const deleteOrder = useCallback(async (id: string) => {
-        setBusyOp("delete");
-        setLastError(null);
-        if (santaData) {
-            try {
-                const updatedOrders = santaData.productionOrders.filter(o => o.id !== id);
-                await saveAllCollections({ productionOrders: updatedOrders });
-                push({kind: "ok", text: `Orden ${id} eliminada.`});
-            } catch(e: any) {
-                const msg = e?.message ?? "No se pudo eliminar la orden.";
-                setLastError(msg);
-                push({ kind: "err", text: msg });
-            } finally {
-                setBusyOp(null);
-            }
-        }
-    }, [santaData, saveAllCollections, push]);
+  if (!order) return <div className="h-full min-h-[240px] flex items-center justify-center text-zinc-500 bg-zinc-50 rounded-2xl border">Selecciona una orden.</div>
 
-    const startOrder = useCallback(async (orderId: string) => {
-        if(!santaData) return;
-        setBusyOp("start");
-        setLastError(null);
-        const order = santaData.productionOrders.find(o => o.id === orderId);
-        if (!order) return;
-    
-        if (!order.reservations?.length) {
-            push({ kind: "err", text: "No hay reservas. No se puede consumir." });
-            setBusyOp(null);
-            return;
-        }
-    
-        const moves = buildConsumptionMoves({
-        orderId: order.id,
-        reservations: order.reservations as any,
-        fromLocationId: "RM/MAIN",
-        });
-    
-        const updatedOnHand = onHand; // This should be updated by a worker, not on client.
-
-        try {
-            const updatedOrders = (santaData.productionOrders || []).map(o =>
-                o.id === orderId
-                ? { ...o, status: "wip", execution: { ...(o.execution || {}), startedAt: new Date().toISOString() } } as ProdOrder
-                : o
-            );
-            await saveAllCollections({
-                stockMoves: [ ...(santaData.stockMoves || []), ...moves ],
-                productionOrders: updatedOrders,
-            });
-            push({ kind: "ok", text: "Orden iniciada y materias primas descontadas." });
-        } catch (e: any) {
-        const msg = e?.message ?? "No se pudo iniciar la orden.";
-        setLastError(msg);
-        push({ kind: "err", text: msg });
-        } finally {
-        setBusyOp(null);
-        }
-    }, [santaData, saveAllCollections, onHand, push]);
-  
-
-    const finishOrder = useCallback(async (o: ProdOrder, finalYield: number, yieldUom: 'L' | 'unit') => {
-        if (!santaData) return;
-        setBusyOp("finish");
-        setLastError(null);
-        const recipe = recipes.find(r => r.id === o.bomId);
-        if (!recipe || !o.execution?.startedAt) return;
-    
-        const finishedAt = new Date().toISOString();
-        const durationMs = new Date(finishedAt).getTime() - new Date(o.execution.startedAt).getTime();
-        const durationHours = durationMs / (1000 * 60 * 60);
-    
-        const outputItem = allItems.find(i => i.id === recipe.outputItemId);
-        const bottlesPerLiter = outputItem?.sku.includes('700') ? 1.42 : 1.33;
-        const goodUnits = yieldUom === 'unit' ? finalYield : Math.floor(finalYield * bottlesPerLiter);
-    
-        const finalExecution = {
-            ...(o.execution),
-            finalYield,
-            yieldUom,
-            goodUnits,
-            finishedAt,
-            durationHours: round2(durationHours),
-        };
-        
-        const newLotNumber = makeLot({
-            date: new Date(),
-            sku: outputItem!.sku,
-            seq: 1 // This should be calculated based on existing lots
-        });
-    
-        const newLotCosting = computeCosting(recipe!, { ...o, execution: finalExecution }, allItems);
-
-        const newOnHandItem: OnHandView = {
-            id: `onhand_${newLotNumber}`,
-            itemId: recipe.outputItemId,
-            lotNumber: newLotNumber,
-            qty: finalExecution.goodUnits || 0,
-            uom: "unit",
-            updatedAt: new Date().toISOString(),
-            createdAt: new Date().toISOString(),
-            locationId: "FG/QA",
-        };
-        
-        try {
-            const updatedOrders = (santaData.productionOrders || []).map((po: any) =>
-                po.id === o.id
-                ? { ...po, status: "done" as const, execution: finalExecution, batchCode: newLotNumber, costing: newLotCosting }
-                : po
-            );
-            await saveAllCollections({ 
-                onHand: [ ...(santaData.onHand || []), newOnHandItem ],
-                productionOrders: updatedOrders 
-            });
-            push({ kind: "ok", text: `Orden ${o.id} completada. Lote ${newLotNumber} creado.` });
-        } catch (e: any) {
-            const msg = e?.message ?? "No se pudo finalizar la orden.";
-            setLastError(msg);
-            push({ kind: "err", text: msg });
-        } finally {
-            setBusyOp(null);
-        }
-    }, [recipes, santaData, saveAllCollections, push, allItems]);
-
-
-  if (loading || !santaData) return <div className="p-6">Cargando producción…</div>;
-  if (!recipes.length) return <div className="p-6">No hay recetas disponibles.</div>;
+  const status = order.status as string;
+  const isProd = order.stage === "PRODUCCION";
 
   return (
-    <div className="p-6 flex flex-col gap-6" style={{ ['--line' as any]: '#E6E4DD' }}>
-      {lastError && (
-        <Banner kind="err" text={lastError} />
-      )}
-      <header className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold text-zinc-900">Producción</h1>
-            <p className="text-sm text-zinc-500">Órdenes, faltantes y programaciones</p>
-          </div>
-          <CreateOrderCard recipes={recipes} onCreate={createOrder} onEdit={updateOrder} editingOrder={editingOrder} onCloseEdit={() => setEditingOrder(null)} busy={busyOp === "create"}/>
+    <SBCard title={order.name ?? order.id} accent={(SB_COLORS as any).module?.produccion ?? SB_COLORS.primary.teal}>
+      {/* Header acciones rápidas */}
+      <div className="p-4 border-b rounded-t-2xl bg-white">
+        <div className="flex flex-wrap items-center gap-2">
+          {status === 'PLANNED' && (
+            <SpinnerButton loading={pending} onClick={() => startTransition(async () => { const r = await startProduction(order.id); r?.ok ? toast.success('Orden iniciada') : toast.error(r?.message ?? 'Error'); onRefresh(); })} className={`sb-btn-primary ${accent}`}>Iniciar</SpinnerButton>
+          )}
+          {status === 'IN_PROGRESS' && (
+            <>
+              <SpinnerButton className="sb-btn-secondary" loading={pending} onClick={() => startTransition(async () => { const r = await pauseProduction(order.id); r?.ok ? toast.message('Orden pausada') : toast.error(r?.message ?? 'Error'); onRefresh(); })}><Pause size={14} className="mr-1 inline"/>Pausar</SpinnerButton>
+              <SpinnerButton loading={pending} onClick={() => startTransition(async () => { const r = await closeProduction(order.id); r?.ok ? toast.success('Orden cerrada') : toast.error(r?.message ?? 'Error'); onRefresh(); })} className={`sb-btn-primary ${accent}`}><CheckCircle2 size={14} className="mr-1 inline"/>Cerrar</SpinnerButton>
+            </>
+          )}
+          {status === 'PAUSED' && (
+            <SpinnerButton loading={pending} onClick={() => startTransition(async () => { const r = await resumeProduction(order.id); r?.ok ? toast.success('Orden reanudada') : toast.error(r?.message ?? 'Error'); onRefresh(); })} className={`sb-btn-primary ${accent}`}><Play size={14} className="mr-1 inline"/>Reanudar</SpinnerButton>
+          )}
+          {status === 'QC_HOLD' && (
+            <div className="text-xs px-2 py-1 rounded border bg-amber-50 text-amber-800 flex items-center gap-1"><AlertTriangle size={12}/>En espera de QC</div>
+          )}
         </div>
+      </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {/* Tarjeta de faltantes globales */}
-          <MissingMaterialsCard orders={orders} allItems={allItems} />
-          {/* Próximas producciones programadas */}
-          <UpcomingScheduleCard orders={orders} recipes={recipes} allItems={allItems} />
-          {/* Puedes dejar un hueco para KPIs o un mini-ratio stock/consumo */}
-          <div className="rounded-2xl border border-[var(--line)] bg-white p-4">
-            <div className="text-xs text-zinc-500 mb-2">Resumen rápido</div>
-            <div className="text-sm grid grid-cols-2 gap-2">
-              <div>Órdenes abiertas: <b>{orders.filter(o => o.status!=='done' && o.status!=='cancelled').length}</b></div>
-              <div>Con faltantes: <b className={orders.some(o=>o.shortages?.length)?'text-red-600':'text-zinc-800'}>
-                {orders.filter(o => o.shortages?.length).length}
-              </b></div>
+      {/* Cuerpo */}
+      <div className="p-4 space-y-6">
+        {/* Protocolos + Operarios */}
+        <SectionCard title="Seguridad y personal" hint="Confirmación de protocolos y dotación de operarios" badge="QA">
+          <label className="flex items-center gap-3">
+            <input type="checkbox" checked={ack} onChange={(e) => { const v = e.target.checked; setAck(v); startTransition(async () => { const r = await toggleProtocolsAcknowledged(order.id, v); r?.ok ? toast.success(v ? 'Protocolos confirmados' : 'Protocolos desmarcados') : toast.error(r?.message ?? 'Error'); onRefresh(); }); }} />
+            <span>He leído y cumplo los protocolos de Calidad para esta orden</span>
+          </label>
+          <div className="flex items-end gap-3 mt-3">
+            <div>
+              <label className="block text-sm mb-1">N.º de operarios</label>
+              <input type="number" min={0} className="w-32 h-10 px-3 rounded-lg border" value={ops} onChange={(e) => setOps(Number(e.target.value))} />
+            </div>
+            <SpinnerButton className="sb-btn-secondary" loading={pending} onClick={() => startTransition(async () => { const r = await setOperatorsCount(order.id, ops); r?.ok ? toast.success('Operarios guardados') : toast.error(r?.message ?? 'Error'); onRefresh(); })}>Guardar</SpinnerButton>
+          </div>
+        </SectionCard>
+
+        {/* Consumo */}
+        <SectionCard title="Consumo real" hint="Registra el consumo real por línea" badge="IN">
+          <div className="space-y-2">
+            {consLines.map((l, idx) => (
+              <Row key={idx}>
+                <Field label="Ítem" name={`in.${idx}.itemId`}>
+                  <input className="w-full h-10 px-3 rounded-lg border" value={l.itemId} onChange={(e) => updateCons(idx, { ...l, itemId: e.target.value })} placeholder="itemId o SKU" />
+                </Field>
+                <Field label="UoM" name={`in.${idx}.uom`}>
+                  <select className="w-full h-10 px-3 rounded-lg border" value={l.uom} onChange={(e) => updateCons(idx, { ...l, uom: e.target.value as any })}>
+                    <option value="L">L</option>
+                    <option value="kg">kg</option>
+                    <option value="unit">unit</option>
+                  </select>
+                </Field>
+                <Field label="Cantidad" name={`in.${idx}.qty`}>
+                  <input type="number" className="w-full h-10 px-3 rounded-lg border" value={l.qty} onChange={(e) => updateCons(idx, { ...l, qty: Number(e.target.value) })} />
+                </Field>
+                <button type="button" onClick={() => setConsLines(list => list.filter((_, i) => i !== idx))} className="h-10 px-2 border rounded-lg bg-zinc-50 hover:bg-zinc-100" title="Eliminar"><Trash2 size={16} /></button>
+              </Row>
+            ))}
+            <button type="button" onClick={() => setConsLines([...consLines, { itemId: "", uom: "L", qty: 0, role: "FORMULA" }])} className="mt-2 px-3 py-1.5 text-sm rounded-lg border bg-zinc-50 hover:bg-zinc-100">
+              <Plus size={14} className="inline mr-1" /> Añadir línea
+            </button>
+            <div className="flex gap-2">
+              <SpinnerButton className="sb-btn-secondary" loading={pending} onClick={() => startTransition(async () => { const r = await recordConsumption(order.id, consLines); r?.ok ? toast.success('Consumo guardado') : toast.error(r?.message ?? 'Error'); onRefresh(); })}>Guardar consumo</SpinnerButton>
+            </div>
+          </div>
+        </SectionCard>
+
+        {/* Output y Lote */}
+        <SectionCard title="Resultado" hint={isProd ? "Salida de Producto Intermedio" : "Salida de Producto Final"} badge="OUT">
+          {!isProd && (
+            <div className="flex items-end gap-2 mb-3">
+              <div className="flex-1">
+                <label className="block text-sm mb-1">Lote SF (padre)</label>
+                <input className="w-full h-10 px-3 rounded-lg border" value={parentLot} onChange={(e) => setParentLot(e.target.value)} />
+              </div>
+              <SpinnerButton className="sb-btn-secondary" loading={pending} onClick={() => startTransition(async () => { const r = await recordPackagingParent(order.id, parentLot); r?.ok ? toast.success('Lote SF asignado') : toast.error(r?.message ?? 'Error'); onRefresh(); })}>Usar lote SF</SpinnerButton>
+            </div>
+          )}
+          <div className="flex items-end gap-2">
+            <div>
+              <label className="block text-sm mb-1">Cantidad salida</label>
+              <input type="number" className="w-40 h-10 px-3 rounded-lg border" value={outputQty} onChange={(e) => setOutputQty(Number(e.target.value))} />
+            </div>
+            <SpinnerButton loading={pending} onClick={() => startTransition(async () => { const r = await recordOutput(order.id, outputQty); r?.ok ? toast.success('Output registrado') : toast.error(r?.message ?? 'Error'); onRefresh(); })} className={`sb-btn-primary ${accent}`}>Registrar output</SpinnerButton>
+          </div>
+          {order.lotNumber && <div className="text-xs mt-2">Lote generado: <b>{order.lotNumber}</b></div>}
+        </SectionCard>
+
+        {/* QC */}
+        <SectionCard title="Control de Calidad" hint="Aprobación, rechazo o exención" badge="QC">
+          <div className="flex gap-2">
+            <SpinnerButton className="sb-btn-secondary" loading={pending} onClick={() => startTransition(async () => { const r = await setQcResult(order.id, { status: 'PASSED' }); r?.ok ? toast.success('QC OK') : toast.error(r?.message ?? 'Error'); onRefresh(); })}>Aprobar</SpinnerButton>
+            <SpinnerButton className="sb-btn-destructive" loading={pending} onClick={() => startTransition(async () => { const r = await setQcResult(order.id, { status: 'FAILED', remarks: 'KO' }); r?.ok ? toast.message('QC KO') : toast.error(r?.message ?? 'Error'); onRefresh(); })}>Rechazar</SpinnerButton>
+            <SpinnerButton className="sb-btn-ghost" loading={pending} onClick={() => startTransition(async () => { const r = await setQcResult(order.id, { status: 'WAIVED', remarks: 'Exento' }); r?.ok ? toast.message('QC Exento') : toast.error(r?.message ?? 'Error'); onRefresh(); })}>Exento</SpinnerButton>
+          </div>
+        </SectionCard>
+
+        {/* Incidencias */}
+        <SectionCard title="Incidencias" hint="Registra y consulta incidencias de la orden" badge="INC">
+          <div className="grid sm:grid-cols-3 gap-2">
+            <div>
+              <label className="block text-sm mb-1">Severidad</label>
+              <select className="w-full h-10 px-3 rounded-lg border" value={incSeverity} onChange={e => setIncSeverity(e.target.value as any)}>
+                <option value="LOW">Baja</option>
+                <option value="MEDIUM">Media</option>
+                <option value="HIGH">Alta</option>
+              </select>
+            </div>
+            <div className="sm:col-span-2">
+              <label className="block text-sm mb-1">Resumen</label>
+              <input className="w-full h-10 px-3 rounded-lg border" value={incSummary} onChange={e => setIncSummary(e.target.value)} />
+            </div>
+            <div className="sm:col-span-3">
+              <label className="block text-sm mb-1">Detalles</label>
+              <textarea className="w-full min-h-[80px] px-3 py-2 rounded-lg border" value={incDetails} onChange={e => setIncDetails(e.target.value)} />
+            </div>
+          </div>
+          <div className="flex gap-2 mt-2">
+            <SpinnerButton className="sb-btn-secondary" disabled={!incSummary} loading={pending} onClick={() => startTransition(async () => {
+              const r = await addIncident(order.id, { severity: incSeverity, summary: incSummary, details: incDetails });
+              r?.ok ? toast.success('Incidencia añadida') : toast.error(r?.message ?? 'Error');
+              setIncSummary(""); setIncDetails(""); onRefresh();
+            })}>Añadir incidencia</SpinnerButton>
+          </div>
+          <div className="text-sm opacity-80 mt-2">
+            {(order.incidents ?? []).length ? (
+              <ul className="list-disc pl-6 space-y-1">
+                {order.incidents.map((x: any) => (
+                  <li key={x.id}><b>{x.severity}</b> · {x.summary} <span className="opacity-70">({x.at})</span></li>
+                ))}
+              </ul>
+            ) : 'Sin incidencias registradas.'}
+          </div>
+        </SectionCard>
+
+        {/* Calculadora (stub) */}
+        <SectionCard title="Calculadora de ajustes (estimación)" hint="Promedios ponderados por volumen" badge="CALC">
+          <div className="space-y-2">
+            {calcRows.map((r, idx) => (
+              <Row key={idx}>
+                <Field label="Item" name={`calc.${idx}.itemId`}>
+                  <input className="w-full h-10 px-3 rounded-lg border" value={r.itemId} onChange={e => updateCalc(idx, { ...r, itemId: e.target.value })} />
+                </Field>
+                <Field label="ABV %" name={`calc.${idx}.abv`}>
+                  <input type="number" className="w-full h-10 px-3 rounded-lg border" value={r.abvPct ?? ''} onChange={e => updateCalc(idx, { ...r, abvPct: Number(e.target.value) })} />
+                </Field>
+                <Field label="Acidez g/L" name={`calc.${idx}.ac`}>
+                  <input type="number" className="w-full h-10 px-3 rounded-lg border" value={r.acidity_gpl ?? ''} onChange={e => updateCalc(idx, { ...r, acidity_gpl: Number(e.target.value) })} />
+                </Field>
+                <Field label="Azúcar g/L" name={`calc.${idx}.sug`}>
+                  <input type="number" className="w-full h-10 px-3 rounded-lg border" value={r.sugar_gpl ?? ''} onChange={e => updateCalc(idx, { ...r, sugar_gpl: Number(e.target.value) })} />
+                </Field>
+                <Field label="UoM" name={`calc.${idx}.uom`}>
+                  <select className="w-full h-10 px-3 rounded-lg border" value={r.uom} onChange={e => updateCalc(idx, { ...r, uom: e.target.value as any })}>
+                    <option value="L">L</option>
+                    <option value="kg">kg</option>
+                    <option value="unit">unit</option>
+                  </select>
+                </Field>
+                <Field label="Cant." name={`calc.${idx}.qty`}>
+                  <input type="number" className="w-full h-10 px-3 rounded-lg border" value={r.qty} onChange={e => updateCalc(idx, { ...r, qty: Number(e.target.value) })} />
+                </Field>
+                <button type="button" onClick={() => setCalcRows(list => list.filter((_, i) => i !== idx))} className="h-10 px-2 border rounded-lg bg-zinc-50 hover:bg-zinc-100" title="Eliminar"><Trash2 size={16} /></button>
+              </Row>
+            ))}
+            <button type="button" onClick={() => setCalcRows([...calcRows, { itemId: '', uom: 'L', qty: 0 } as any])} className="mt-2 px-3 py-1.5 text-sm rounded-lg border bg-zinc-50 hover:bg-zinc-100">
+              <Plus size={14} className="inline mr-1" /> Añadir fila
+            </button>
+            <div className="flex gap-2">
+              <SpinnerButton className="sb-btn-secondary" loading={pending} onClick={() => startTransition(async () => { const r = await setCalculatorInput(order.id, { raws: calcRows }); r?.ok ? toast.success('Cálculo actualizado') : toast.error(r?.message ?? 'Error'); onRefresh(); })}>Calcular</SpinnerButton>
+            </div>
+            {order.calcResult && (
+              <div className="text-sm">
+                <div>ABV estimado: <b>{order.calcResult.estimatedAbvPct ?? '—'}%</b></div>
+                <div>Acidez estimada: <b>{order.calcResult.estimatedAcidity_gpl ?? '—'} g/L</b></div>
+                <div>Azúcares estimados: <b>{order.calcResult.estimatedSugar_gpl ?? '—'} g/L</b></div>
+              </div>
+            )}
+          </div>
+        </SectionCard>
+      </div>
+
+      {/* Footer */}
+      <div className="p-4 bg-zinc-50 border-t flex justify-end gap-2">
+        {status !== 'CLOSED' && (
+          <SpinnerButton loading={pending} onClick={() => startTransition(async () => { const r = await closeProduction(order.id); r?.ok ? toast.success('Orden cerrada') : toast.error(r?.message ?? 'Error'); onRefresh(); })} className="sb-btn-primary">Cerrar orden</SpinnerButton>
+        )}
+      </div>
+    </SBCard>
+  )
+}
+
+// ===== Página =====
+export default function ProductionPage() {
+  const { data: santaData, saveAllCollections } = useData();
+  const { push } = useToaster();
+  const [openOrder, setOpenOrder] = useState<ProductionOrder | null>(null);
+  const [isPlanning, setIsPlanning] = useState(false);
+  const [archivingId, setArchivingId] = useState<string | null>(null);
+  const [plannedBomId, setPlannedBomId] = useState<string>("");
+  const [plannedQty, setPlannedQty] = useState<number>(1);
+
+  // Orígenes
+  const ordersAll = useMemo(() => (santaData?.productionOrders ?? []) as ProductionOrder[], [santaData]);
+  const orders = useMemo(() => ordersAll, [ordersAll]);
+  const allItems = useMemo(() => (santaData?.items ?? []) as Item[], [santaData]);
+  const boms = useMemo(() => (santaData?.billOfMaterials ?? []) as any[], [santaData]);
+
+  const select = useCallback((id: string) => {
+    const o = ordersAll.find((x: any) => x.id === id);
+    if (o) setOpenOrder(o);
+  }, [ordersAll]);
+
+  const createNew = useCallback(async () => {
+    setIsPlanning(true);
+    try {
+      if (!plannedBomId || plannedQty <= 0) { toast.error('Elige BOM y cantidad > 0'); return; }
+      const res = await planProduction({ bomId: plannedBomId, plannedQty });
+      if (res.ok) {
+        toast.success('Orden creada');
+      } else {
+        toast.error(res.message ?? 'No se pudo crear la orden');
+      }
+    } finally { setIsPlanning(false); }
+  }, [plannedBomId, plannedQty]);
+
+  // Refresco (simple): vuelve a leer de useData() que ya está in-memory
+  const refresh = useCallback(() => {
+    // Si tu dataprovider no autopropaga, aquí podrías forzar un fetch; en este mock confiamos en revalidatePath server-side
+  }, []);
+
+  const accent = "[--sb-accent-produc:182_25%_47%]";
+
+  return (
+    <>
+      {/* HEADER sticky */}
+      <header aria-label="Sección Producción" className="sticky top-0 z-30 border-b bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+        <div className="mx-auto max-w-screen-2xl px-6 py-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className={`h-10 w-10 rounded-xl grid place-items-center ring-1 ring-black/5 bg-[hsl(var(--sb-accent-produc)/0.12)] text-[hsl(var(--sb-accent-produc))] ${accent}`} aria-hidden="true" title="Producción">
+                <FactoryIcon size={20} />
+              </div>
+              <div>
+                <h1 className="text-2xl font-semibold text-zinc-900 leading-tight">Producción</h1>
+                <p className="text-xs text-zinc-600">Planifica, ejecuta, registra QC e incidencias.</p>
+              </div>
+            </div>
+
+            {/* Plan rápido */}
+            <div className="flex items-end gap-2">
+              <div>
+                <label className="block text-xs text-zinc-600">Receta/BOM</label>
+                <select className="h-9 px-2 rounded-lg border" value={plannedBomId} onChange={e => setPlannedBomId(e.target.value)}>
+                  <option value="">— Selecciona —</option>
+                  {boms.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-600">Cantidad</label>
+                <input type="number" min={1} className="h-9 w-24 px-2 rounded-lg border" value={plannedQty} onChange={e => setPlannedQty(Number(e.target.value))} />
+              </div>
+              <SpinnerButton loading={isPlanning} onClick={createNew} className={`sb-btn-primary ${accent}`}>
+                <Plus size={14} className="inline mr-1"/> Nueva orden
+              </SpinnerButton>
             </div>
           </div>
         </div>
       </header>
 
-      <OrdersList orders={orders} recipes={recipes} onStart={startOrder} onFinish={finishOrder} onUpdate={updateOrder} onDelete={deleteOrder} onEdit={setEditingOrder} inventory={onHand} allItems={allItems} busyOp={busyOp} />
-    </div>
-  );
-}
-
-// ---------------------- UI: creación de orden ----------------------
-function CreateOrderCard({ recipes, onCreate, onEdit, editingOrder, onCloseEdit, busy }: { 
-    recipes: RecipeBom[]; 
-    onCreate: (p: { recipe: RecipeBom; targetBatchSize: number; whenISO: string; responsibleId?: string }) => Promise<void>;
-    onEdit: (id: string, patch: Partial<ProdOrder>) => Promise<void>;
-    editingOrder: ProdOrder | null;
-    onCloseEdit: () => void;
-    busy: boolean;
-}) {
-  const [selectedRecipeId, setSelectedRecipeId] = useState<string>("");
-  const { data: santaData } = useData();
-  const allItems = useMemo(() => santaData?.items || [], [santaData]);
-  const allOnHand = useMemo(() => santaData?.onHand || [], [santaData]);
-
-  const selectedRecipe = useMemo(() => recipes.find(r => r.id === selectedRecipeId), [recipes, selectedRecipeId]);
-
-  const [target, setTarget] = useState<number>(100);
-  const [when, setWhen] = useState<string>(() => new Date().toISOString().slice(0,16));
-  const [resp, setResp] = useState<string>("");
-  
-  useEffect(() => {
-    if (editingOrder) {
-      setSelectedRecipeId(editingOrder.bomId);
-      setTarget(editingOrder.targetQuantity);
-      setWhen(editingOrder.scheduledFor ? new Date(editingOrder.scheduledFor).toISOString().slice(0, 16) : '');
-      setResp(editingOrder.responsibleId || '');
-    } else {
-        setSelectedRecipeId(recipes[0]?.id || "");
-        setTarget(recipes[0]?.batchSize || 100);
-        setWhen(new Date().toISOString().slice(0,16));
-        setResp("");
-    }
-  }, [editingOrder, recipes]);
-
-  const plan = useMemo(() => selectedRecipe ? planFromRecipe(selectedRecipe, target, allItems, allOnHand) : null, [selectedRecipe, target, allItems, allOnHand]);
-  
-  const [isSaving, setIsSaving] = useState(false);
-
-  useEffect(() => {
-    if (selectedRecipe && !editingOrder) {
-        setTarget(selectedRecipe.batchSize);
-    }
-  }, [selectedRecipe, editingOrder]);
-  
-  if (!selectedRecipe && !editingOrder) return null;
-  const recipeToUse = editingOrder ? recipes.find(r => r.id === editingOrder.bomId) : selectedRecipe;
-  if (!recipeToUse) return null;
-
-  const { plannedBottles } = plan || { plannedBottles: 0 };
-  
-  const handleSave = async () => {
-    setIsSaving(true);
-    try {
-        if (editingOrder) {
-            await onEdit(editingOrder.id, {
-                targetQuantity: target,
-                scheduledFor: new Date(when).toISOString(),
-                responsibleId: resp || undefined
-            });
-        } else {
-            await onCreate({ recipe: recipeToUse, targetBatchSize: target, whenISO: new Date(when).toISOString(), responsibleId: resp||undefined });
-        }
-    } finally {
-        setIsSaving(false);
-    }
-  };
-
-  return (
-    <div className="rounded-2xl border border-[var(--line)] bg-white p-4 w-full max-w-xl">
-      <div className="flex justify-between items-start mb-2">
-          <label className="text-sm">
-            <span className="block text-zinc-500 text-xs mb-1">Receta (BOM)</span>
-            <select 
-              value={selectedRecipeId}
-              onChange={(e) => setSelectedRecipeId(e.target.value)}
-              disabled={!!editingOrder}
-              className="font-medium px-2 py-1.5 w-full rounded-lg border border-zinc-300 bg-white"
-            >
-              {recipes.map(r => (
-                <option key={r.id} value={r.id}>{r.name}</option>
-              ))}
-            </select>
-          </label>
-           {editingOrder && <SBButton variant="secondary" size="sm" onClick={onCloseEdit}>Cerrar Edición</SBButton>}
+      {/* SUBHEADER */}
+      <div className="mx-auto max-w-screen-2xl px-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 py-6">
+          <div>
+            <h2 className="text-xl font-semibold text-zinc-900">Órdenes de producción</h2>
+            <p className="text-sm text-zinc-500">Estados: PLANNED, IN_PROGRESS, PAUSED, QC_HOLD, CLOSED</p>
+          </div>
+        </div>
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        <label className="text-sm">
-          <span className="block text-zinc-500 text-xs mb-1">
-            Tamaño de lote ({(recipeToUse as any).baseUnit ?? 'L'})
-          </span>
-          <input type="number" min={10} step={10} value={target} onChange={e=>setTarget(parseFloat(e.target.value||"0"))} className="px-2 py-1.5 w-full rounded-lg border border-zinc-300" />
-        </label>
-        <label className="text-sm">
-          <span className="block text-zinc-500 text-xs mb-1">Programar para</span>
-          <input type="datetime-local" value={when} onChange={e=>setWhen(e.target.value)} className="px-2 py-1.5 w-full rounded-lg border border-zinc-300" />
-        </label>
-        <label className="text-sm col-span-2">
-          <span className="block text-zinc-500 text-xs mb-1">Responsable (opcional)</span>
-          <input value={resp} onChange={e=>setResp(e.target.value)} placeholder="userId / email" className="px-2 py-1.5 w-full rounded-lg border border-zinc-300" />
-        </label>
-      </div>
-      <div className="mt-3 flex items-center justify-between text-sm">
-        <div className="text-zinc-600">Botellas planificadas: <b>{plannedBottles}</b></div>
-        <SpinnerButton
-          loading={isSaving || busy}
-          onClick={handleSave}
-          className="bg-zinc-900 text-white"
-          disabled={isSaving || busy}
-        >
-          {editingOrder ? 'Actualizar orden' : (isSaving ? 'Creando…':'Crear orden')}
-        </SpinnerButton>
-      </div>
-    </div>
-  );
-}
 
-function ConfirmDeleteButton({ onClick, orderId, isBusy }: { onClick: (id: string) => void; orderId: string, isBusy: boolean }) {
-    const [confirming, setConfirming] = useState(false);
-    const timerRef = useRef<NodeJS.Timeout | null>(null);
+      {/* MAIN */}
+      <main className="mx-auto max-w-screen-2xl px-6 pb-24">
+        <div className="grid lg:grid-cols-3 gap-6">
+          {/* Lista */}
+          <div className="lg:col-span-1">
+            <SBCard title="Órdenes" accent={(SB_COLORS as any).module?.produccion ?? SB_COLORS.primary.teal}>
+              <div className="px-2 pt-2 pb-1">
+                <span className="text-[11px] px-2 py-0.5 rounded-full border bg-white text-zinc-600">{orders.length}</span>
+              </div>
 
-    const handleClick = () => {
-        if (isBusy) return;
-        if (confirming) {
-            if (timerRef.current) clearTimeout(timerRef.current);
-            onClick(orderId);
-            setConfirming(false);
-        } else {
-            setConfirming(true);
-            timerRef.current = setTimeout(() => setConfirming(false), 3000);
-        }
-    };
-    
-    useEffect(() => {
-        return () => {
-            if (timerRef.current) clearTimeout(timerRef.current);
-        };
-    }, []);
+              <div className="p-2 space-y-1">
+                {orders.map((o: any) => {
+                  const isActive = openOrder?.id === o.id;
+                  return (
+                    <div key={o.id}
+                         role="button" tabIndex={0}
+                         onClick={() => select(o.id)}
+                         onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && select(o.id)}
+                         className={`rounded-lg p-3 border transition-colors outline-none cursor-pointer ${isActive ? "bg-yellow-50 border-yellow-200" : `border-transparent hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-[hsl(var(--sb-accent-produc))] focus-visible:ring-offset-2`}`}
+                         aria-label={`Abrir orden ${o.name || o.id}`}>
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-semibold text-zinc-800">{o.name || o.id}</p>
+                          <p className="text-xs text-zinc-500">{o.stage} • {o.plannedQty} {o.baseUnit}</p>
+                          <span className="mt-1 inline-block text-[11px] px-2 py-0.5 rounded-full border bg-white text-zinc-700">{o.status}</span>
+                          {o.lotNumber && <span className="ml-2 text-[11px] px-2 py-0.5 rounded-full border bg-white text-zinc-700">Lote: {o.lotNumber}</span>}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </SBCard>
+          </div>
 
-    return (
-        <button
-            onClick={handleClick}
-            onBlur={() => { if (timerRef.current) clearTimeout(timerRef.current); setConfirming(false); }}
-            className={`p-2 rounded-lg border text-zinc-600 transition-colors ${
-                confirming
-                    ? 'bg-red-500 text-white border-red-600'
-                    : 'border-zinc-300 hover:bg-red-50 hover:text-red-700'
-            }`}
-            title={confirming ? `Confirmar borrado de ${orderId}`: `Eliminar ${orderId}`}
-            disabled={isBusy}
-        >
-            {confirming ? <Check size={14} /> : <Trash2 size={14} />}
+          {/* Detalle */}
+          <div className="lg:col-span-2">
+            {!openOrder ? (
+              <div className="h-full min-h-[240px] flex items-center justify-center text-zinc-500 bg-zinc-50 rounded-2xl border">
+                Selecciona una orden o crea una nueva.
+              </div>
+            ) : (
+              <OrderDetail order={openOrder} allItems={allItems} onRefresh={refresh} />
+            )}
+          </div>
+        </div>
+
+        {/* FAB crear (abre el plan rápido del header) */}
+        <button type="button" onClick={() => { /* scroll al header */ window.scrollTo({ top: 0, behavior: 'smooth' }); }} aria-label="Nueva orden" className={`fixed bottom-6 right-6 z-40 h-14 w-14 rounded-full shadow-lg hover:shadow-xl grid place-items-center border text-[hsl(var(--sb-accent-produc))] bg-[hsl(var(--sb-accent-produc)/0.10)] ${accent}`} title="Nueva orden">
+          <Plus />
         </button>
-    );
-}
-
-function OrdersList({ orders, recipes, onStart, onFinish, onUpdate, onDelete, onEdit, inventory, allItems, busyOp }: { 
-    orders: ProdOrder[]; 
-    recipes: RecipeBom[]; 
-    onStart: (id: string)=>void; 
-    onFinish: (o: ProdOrder, finalYield: number, yieldUom: 'L' | 'unit')=>void; 
-    onUpdate: (id:string, patch: Partial<ProdOrder>)=>Promise<void>; 
-    onDelete: (id: string) => Promise<void>;
-    onEdit: (order: ProdOrder) => void;
-    inventory: OnHandView[], allItems: Item[], busyOp: string | null 
-}) {
-  const [openId, setOpenId] = useState<string | null>(null);
-  const openOrder = orders.find(o => o.id === openId) || null;
-  const openRecipe = openOrder ? recipes.find(r => r.id === openOrder.bomId) : null;
-  
-  return (
-    <div className="overflow-hidden rounded-2xl border border-[var(--line)] bg-white">
-      <table className="min-w-full text-sm">
-        <thead className="bg-zinc-50 text-zinc-600">
-          <tr>
-            <th className="px-3 py-2 text-left">Orden</th>
-            <th className="px-3 py-2 text-left">Estado</th>
-            <th className="px-3 py-2 text-left">Programada</th>
-            <th className="px-3 py-2 text-left">Resp.</th>
-            <th className="px-3 py-2 text-left">Plan botellas</th>
-            <th className="px-3 py-2 text-right"> </th>
-          </tr>
-        </thead>
-        <tbody>
-          {orders.map(o => {
-            const recipe = recipes.find(r => r.id === o.bomId);
-            const { plannedBottles: plan } = recipe ? planFromRecipe(recipe, o.targetQuantity, allItems) : { plannedBottles: 0 };
-            return (
-            <tr key={o.id} className="border-t border-[var(--line)]">
-              <td className="px-3 py-2 font-medium">{o.orderNumber || o.id}</td>
-              <td className="px-3 py-2">
-                <div className="flex items-center gap-2">
-                    {o.status === 'planned' && <Pill tone="amber">PROGRAMADA</Pill>}
-                    {o.status === 'released' && <Pill tone="blue">LIBERADA</Pill>}
-                    {o.status === 'wip' && <Pill tone="blue">EN PROCESO</Pill>}
-                    {o.status === 'done' && <Pill tone="green">COMPLETADA</Pill>}
-                    {o.status === 'cancelled' && <Pill tone="slate">CANCELADA</Pill>}
-                </div>
-              </td>
-              <td className="px-3 py-2">{o.scheduledFor ? new Date(o.scheduledFor).toLocaleString() : '—'}</td>
-              <td className="px-3 py-2">{o.responsibleId || '—'}</td>
-              <td className="px-3 py-2">{plan}</td>
-              <td className="px-3 py-2 text-right">
-                <div className="flex gap-1 justify-end">
-                    <button onClick={()=>setOpenId(o.id)} className="px-3 py-1.5 rounded-lg border border-zinc-300 hover:bg-zinc-50">Abrir</button>
-                    {o.status === 'planned' && (
-                        <>
-                            <button onClick={() => onEdit(o)} className="p-2 rounded-lg border border-zinc-300 text-zinc-600 hover:bg-blue-50 hover:text-blue-700" title="Editar"><Edit size={14} /></button>
-                            <ConfirmDeleteButton onClick={onDelete} orderId={o.id} isBusy={busyOp === 'delete'}/>
-                        </>
-                    )}
-                </div>
-              </td>
-            </tr>
-          )})}
-        </tbody>
-      </table>
-
-      {openOrder && openRecipe && (
-        <div className="border-t border-[var(--line)] p-4 bg-zinc-50/60">
-          <OrderDetail order={openOrder} recipe={openRecipe} onClose={()=>setOpenId(null)} onStart={onStart} onFinish={onFinish} onUpdate={onUpdate} inventory={inventory} allItems={allItems} busyOp={busyOp} />
-        </div>
-      )}
-    </div>
-  );
-}
-
-function OrderDetail({ order, recipe, onClose, onStart, onFinish, onUpdate, inventory, allItems, busyOp }: { 
-    order: ProdOrder; 
-    recipe: RecipeBom; 
-    onClose: ()=>void; 
-    onStart: (id: string)=>void; 
-    onFinish: (o: ProdOrder, finalYield: number, yieldUom: 'L' | 'unit')=>void; 
-    onUpdate: (id:string, patch: Partial<ProdOrder>)=>Promise<void>; 
-    inventory: OnHandView[], allItems: Item[], busyOp: string | null 
-}) {
-  const defaultYieldUom = useMemo(
-    () => canonicalUomForFinished(recipe.outputItemId, inventory),
-    [recipe.outputItemId, inventory]
-  ) as 'L'|'unit';
-  const [finalYield, setFinalYield] = useState<number | ''>('');
-  const [yieldUom, setYieldUom] = useState<'L' | 'unit'>(defaultYieldUom === 'L' ? 'L' : 'unit');
-  const [incidentNote, setIncidentNote] = useState("");
-  const [showDiagnostics, setShowDiagnostics] = useState(false);
-
-  const protocolsOk = (order.checks || []).every(c => c.done);
-  const { plannedBottles } = planFromRecipe(recipe, order.targetQuantity, allItems);
-
-  const handleFinish = () => {
-    if (finalYield === '') return;
-    onFinish(order, finalYield, yieldUom);
-  };
-  
-  const handleActualsChange = (index: number, newQty: number) => {
-    const updatedActuals = [...(order.actuals || [])];
-    updatedActuals[index].actualQty = newQty;
-    onUpdate(order.id, { actuals: updatedActuals });
-  };
-
-  const Summary = useMemo(() => {
-      if (!order.costing) return null;
-      const { execution, costing } = order;
-      if (!execution) return null;
-      
-      const plannedYield = (recipe.baseUnit === 'L' ? order.targetQuantity : plannedBottles);
-      const plannedUom = recipe.baseUnit === 'L' ? 'L' : 'unit';
-      const actualYield = execution.finalYield ?? 0;
-      const merma = plannedYield > 0 ? plannedYield - actualYield : 0;
-      const mermaPct = plannedYield > 0 ? (merma / plannedYield) * 100 : 0;
-      
-      let durationStr = '0m';
-      if (execution.durationHours) {
-          const hours = Math.floor(execution.durationHours);
-          const minutes = Math.round((execution.durationHours - hours) * 60);
-          durationStr = `${hours > 0 ? `${hours}h ` : ''}${minutes}m`;
-      }
-      
-      return (
-        <div className="md:col-span-2 rounded-xl border border-[var(--line)] bg-white">
-            <div className="px-4 py-3 border-b border-[var(--line)] text-sm text-zinc-500">Resumen de Producción</div>
-            <div className="p-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-              <div>Total lote: <b>{(costing as any).totalEUR.toFixed(2)} €</b></div>
-              <div>Coste/botella: <b>{(costing as any).costPerBottleEUR.toFixed(3)} €</b></div>
-              <div>Duración: <b>{durationStr}</b></div>
-              <div>Rendimiento: <b>{(costing as any).yieldPct.toFixed(1)}%</b></div>
-              <div>Merma: <b>{merma.toFixed(2)} {plannedUom} ({mermaPct.toFixed(1)}%)</b></div>
-              <div className="col-span-full mt-2">
-                <p className="font-bold">Incidencias Registradas:</p>
-                {order.incidents?.length ? (
-                    <ul className="list-disc list-inside text-xs">
-                        {order.incidents.map((i: any) => <li key={i.id}>{i.text}</li>)}
-                    </ul>
-                ) : <p className="text-xs text-zinc-500">Ninguna.</p>}
-              </div>
-            </div>
-             <div className="p-3 border-t flex justify-end">
-                <SBButton onClick={() => onUpdate(order.id, { costing: order.costing })}><Save size={16} className="sb-icon"/> Guardar Resultados</SBButton>
-             </div>
-        </div>
-      );
-  }, [order, recipe, plannedBottles, onUpdate]);
-
-  return (
-    <div className="rounded-xl border border-[var(--line)] bg-white p-4">
-      <div className="flex items-center justify-between mb-3">
-        <div className="font-medium flex items-center gap-2">
-          Orden {order.orderNumber || order.id}
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setShowDiagnostics(!showDiagnostics)} className="px-3 py-1.5 rounded-lg border border-zinc-300 text-sm flex items-center gap-2 hover:bg-zinc-100">
-              <Bug size={14} className="sb-icon"/> Diagnóstico
-          </button>
-          <button onClick={onClose} className="px-3 py-1.5 rounded-lg border border-zinc-300">Cerrar</button>
-        </div>
-      </div>
-
-      <AnimatePresence>
-        {showDiagnostics && (
-            <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="overflow-hidden"
-            >
-                <div className="mb-4 p-3 border-2 border-dashed border-red-300 bg-red-50 rounded-lg text-xs">
-                    <h4 className="font-bold text-red-800 mb-2">PANEL DE DIAGNÓSTICO</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                            <h5 className="font-semibold">Orden Abierta</h5>
-                            <pre className="whitespace-pre-wrap text-[10px] bg-white p-2 rounded max-h-60 overflow-auto">{JSON.stringify(order, null, 2)}</pre>
-                        </div>
-                        <div>
-                            <h5 className="font-semibold">Receta (BOM)</h5>
-                            <pre className="whitespace-pre-wrap text-[10px] bg-white p-2 rounded max-h-60 overflow-auto">{JSON.stringify(recipe, null, 2)}</pre>
-                        </div>
-                        <div>
-                            <h5 className="font-semibold">Inventario Completo (Almacén)</h5>
-                            <div className="bg-white p-2 rounded max-h-60 overflow-auto">
-                                <table className="w-full text-[10px]">
-                                    <thead className="sticky top-0 bg-zinc-100">
-                                        <tr className="text-left">
-                                            <th>ID Lote</th>
-                                            <th>ItemID</th>
-                                            <th>Cant.</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {inventory.map((item: any) => (
-                                            <tr key={item.id} className="border-t">
-                                                <td className="py-1 font-mono">{item.lotNumber?.substring(0, 12) || item.id.substring(0,12)}...</td>
-                                                <td>{item.itemId}</td>
-                                                <td className="text-right font-bold">{item.qty}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </motion.div>
-        )}
-      </AnimatePresence>
-
-      <div className="grid md:grid-cols-2 gap-4">
-        <ProtocolsBlock order={order} recipe={recipe} onToggle={async (id)=>{
-          const next = (order.checks || []).map((c: ExecCheck) => c.id===id ? { ...c, done: !c.done, checkedAt: new Date().toISOString() } : c);
-          await onUpdate(order.id, { checks: next });
-        }} />
-        
-        <ActualsBlock actuals={order.actuals || []} onChange={handleActualsChange} />
-        
-        <div className="md:col-span-2">
-            {order.status === "planned" && (
-                <div className="flex justify-end gap-2 p-3 bg-zinc-50 rounded-lg">
-                    <SBButton disabled={!!order.shortages?.length || busyOp !== null} onClick={() => onUpdate(order.id, { status: "released" } )}>
-                        Liberar para Producción <ChevronRight size={16} className="sb-icon"/>
-                    </SBButton>
-                </div>
-            )}
-
-            {order.status === "released" && (
-                <div className="flex justify-end gap-2 p-3 bg-zinc-50 rounded-lg">
-                    <div className="text-sm text-zinc-600 mr-auto">Protocolos: {protocolsOk ? <b className="text-green-600">OK</b> : <b className="text-red-600">Faltan ✓</b>}</div>
-                    <SBButton disabled={!protocolsOk || busyOp !== null} onClick={() => onStart(order.id)}>Iniciar Producción <ChevronRight size={16} className="sb-icon"/></SBButton>
-                </div>
-            )}
-
-             {order.status === "wip" && (
-                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-3">
-                    <h3 className="font-semibold text-blue-800">Finalizar Producción</h3>
-                     <div className="grid grid-cols-2 gap-3 text-sm">
-                         <label>
-                          <div className="text-xs text-zinc-500">Resultado Final</div>
-                          <div className="flex">
-                            <input type="number" min={0} value={finalYield} onChange={e=>setFinalYield(e.target.value===''? '' : parseFloat(e.target.value))} className="px-2 py-1.5 w-full rounded-l-lg border border-zinc-300"/>
-                            <select value={yieldUom} onChange={e => setYieldUom(e.target.value as any)} className="px-2 py-1.5 rounded-r-lg border-t border-b border-r border-zinc-300 bg-zinc-100">
-                                <option value="unit">botellas</option>
-                                <option value="L">Litros</option>
-                            </select>
-                          </div>
-                        </label>
-                        <div>
-                          <div className="text-xs text-zinc-500 mb-1">Incidencias</div>
-                          <div className="flex gap-2">
-                            <input value={incidentNote} onChange={e=>setIncidentNote(e.target.value)} placeholder="Describe la incidencia" className="flex-1 px-2 py-1.5 rounded-lg border border-zinc-300"/>
-                            <SBButton variant="secondary" onClick={async ()=>{
-                              if (!incidentNote.trim()) return;
-                              const incidents = [ ...(order.incidents||[]), { id: Math.random().toString(36).slice(2,8), when: new Date().toISOString(), severity: 'MEDIA', text: incidentNote.trim() } ];
-                              await onUpdate(order.id, { incidents: incidents as any });
-                              setIncidentNote("");
-                            }}>Añadir</SBButton>
-                          </div>
-                        </div>
-                    </div>
-                     <div className="flex justify-end">
-                        <SpinnerButton loading={busyOp === "finish"} onClick={handleFinish} disabled={finalYield === '' || busyOp !== null}>
-                           Finalizar Producción
-                        </SpinnerButton>
-                     </div>
-                </div>
-             )}
-
-            {order.status === 'done' && Summary}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ProtocolsBlock({ order, recipe, onToggle }: { order: ProdOrder; recipe: RecipeBom; onToggle: (id: string)=>void }) {
-  return (
-    <div className="rounded-xl border border-[var(--line)]">
-      <div className="px-4 py-3 border-b border-[var(--line)] text-sm text-zinc-500">Protocolos previos</div>
-      <ul className="p-3 divide-y divide-[var(--line)]">
-        {(order.checks || []).map((c: any) => (
-          <li key={c.id} className="py-2 flex items-center justify-between text-sm">
-            <div className="flex items-center gap-2">
-              <button onClick={()=>onToggle(c.id)} className={`w-5 h-5 rounded border flex items-center justify-center ${c.done ? 'bg-green-500 border-green-600 text-white' : 'border-zinc-300'}`}>{c.done ? '✓' : ''}</button>
-              <span>{((recipe as any).protocolChecklist || []).find((pc: any) => pc.id === c.id)?.text || c.id}</span>
-            </div>
-            <div className="text-xs text-zinc-500">{c.checkedAt ? new Date(c.checkedAt).toLocaleString() : '—'}</div>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function ActualsBlock({ actuals, onChange }: { actuals: ProdOrder['actuals'], onChange: (index: number, newQty: number) => void }) {
-    return (
-        <div className="rounded-xl border border-[var(--line)]">
-            <div className="px-4 py-3 border-b border-[var(--line)] text-sm text-zinc-500">Consumos Reales</div>
-            <div className="p-3 space-y-2">
-                {(actuals || []).map((item, index) => (
-                    <div key={item.itemId + index} className="grid grid-cols-[1fr_1fr_1fr] items-center gap-2 text-sm">
-                        <div className="font-medium text-zinc-800">{item.name} <span className="text-xs text-zinc-500 font-mono">({item.itemId})</span></div>
-                        <div className="text-center">{(item.theoreticalQty || 0).toFixed(2)} {item.uom} <span className="text-xs text-zinc-500">(Teórico)</span></div>
-                        <input
-                            type="number"
-                            value={item.actualQty}
-                            onChange={e => onChange(index, parseFloat(e.target.value || '0'))}
-                            className="w-full px-2 py-1 rounded-md border border-zinc-300 bg-white"
-                        />
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-}
-
-function MissingMaterialsCard({ orders, allItems }: { orders: ProdOrder[]; allItems: Item[] }) {
-  const shortagesMap = useMemo(() => {
-    const m = new Map<string, { required: number; available: number; uom: Uom }>();
-    orders
-      .filter(o => (o.status === 'planned' || o.status === 'released') && o.shortages?.length)
-      .forEach(o => o.shortages!.forEach((s: any) => {
-        const cur = m.get(s.itemId);
-        if (!cur) m.set(s.itemId, { required: s.required, available: s.available, uom: s.uom });
-        else m.set(s.itemId, { required: cur.required + s.required, available: s.available, uom: s.uom });
-      }));
-    return m;
-  }, [orders]);
-
-  const items = [...shortagesMap.entries()]
-    .map(([itemId, v]) => ({ itemId, missing: Math.max(0, v.required - v.available), uom: v.uom }))
-    .filter(x => x.missing > 0)
-    .sort((a,b)=> b.missing - a.missing)
-    .slice(0, 8);
-
-  const hasShortages = items.length > 0;
-
-  return (
-    <div className={`rounded-2xl border p-4 ${hasShortages ? 'border-red-300 bg-red-50' : 'border-[var(--line)] bg-white'}`}>
-      <div className="flex items-center justify-between mb-2">
-        <div className={`text-sm ${hasShortages ? 'text-red-800' : 'text-zinc-500'}`}>
-          {hasShortages ? 'Materiales faltantes' : 'Sin faltantes'}
-        </div>
-        {hasShortages && <Pill tone="red">ALERTA</Pill>}
-      </div>
-      {hasShortages ? (
-        <ul className="space-y-1 text-sm">
-          {items.map(it => (
-            <li key={it.itemId} className="flex justify-between">
-              <span className="truncate">{allItems.find(m => m.id === it.itemId)?.name || it.itemId}</span>
-              <span className="font-mono">-{it.missing.toFixed(2)} {it.uom}</span>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="text-sm text-zinc-600">Todo listo para producir.</p>
-      )}
-    </div>
-  );
-}
-
-function UpcomingScheduleCard({ orders, recipes, allItems }: { orders: ProdOrder[]; recipes: RecipeBom[]; allItems: Item[] }) {
-  const upcoming = useMemo(() => {
-    return orders
-      .filter(o => o.status === 'planned' || o.status === 'released')
-      .filter(o => o.scheduledFor)
-      .sort((a,b) => new Date(a.scheduledFor!).getTime() - new Date(b.scheduledFor!).getTime())
-      .slice(0, 3)
-      .map(o => {
-        const recipe = recipes.find(r => r.id === o.bomId);
-        const outputItem = allItems.find(i => i.id === recipe?.outputItemId);
-        const { plannedBottles } = recipe ? planFromRecipe(recipe, o.targetQuantity, allItems) : { plannedBottles: 0 };
-        return { id: o.id, when: o.scheduledFor!, status: o.status, plannedBottles, sku: outputItem?.sku, name: recipe?.name };
-      });
-  }, [orders, recipes, allItems]);
-
-  return (
-    <div className="rounded-2xl border border-[var(--line)] bg-white p-4">
-      <div className="text-xs text-zinc-500 mb-2">Próximas producciones</div>
-      {upcoming.length ? (
-        <ul className="text-sm space-y-2">
-          {upcoming.map(u => (
-            <li key={u.id} className="flex items-center justify-between">
-              <div className="min-w-0">
-                <div className="font-medium truncate">{u.name || u.sku || u.id}</div>
-                <div className="text-xs text-zinc-500">{new Date(u.when).toLocaleString()}</div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Pill tone={u.status === 'released' ? 'blue' : 'amber'}>{u.status === 'released' ? 'LIBERADA' : 'PROGRAMADA'}</Pill>
-                <span className="text-xs text-zinc-600">Plan: <b>{u.plannedBottles}</b></span>
-              </div>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="text-sm text-zinc-600">No hay órdenes próximas.</p>
-      )}
-    </div>
+      </main>
+    </>
   );
 }

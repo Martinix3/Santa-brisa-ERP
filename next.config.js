@@ -24,6 +24,10 @@ const nextConfig = {
             }
         ],
     },
+    // Añadir una configuración de experimental para mejorar el rendimiento de compilación.
+    experimental: {
+        turbo: true,
+    }
 };
 
 export default nextConfig;

@@ -1,4 +1,3 @@
-
 'use server';
 
 import { ok, fail, type ActionResult } from "@/lib/result";
@@ -64,48 +63,50 @@ export async function upsertBOM(input: unknown): Promise<ActionResult<{ id: stri
       items: bom.items.map(l => ({ ...l, uom: l.uom ?? "unit" })),
     };
 
-    // 💡 (Opcional) Validación fuerte con lectura de items
+    // (Opcional) Validación fuerte con lectura de items (cuando tengas reads)
     // try {
-    //   const { getManyByIds } = await import("@/lib/dataprovider/reads"); // cuando exista
+    //   const { getManyByIds } = await import("@/lib/dataprovider/reads");
     //   const ids = [normalized.outputItemId, ...normalized.items.map(i => i.itemId)];
-    //   type ItemLite = { id: string; category?: string; uom?: "L"|"kg"|"unit"; active?: boolean };
+    //   type ItemLite = { id: string; category?: "rm"|"pack"|"aux"|"sf"|"fg"; uom?: "L"|"kg"|"unit"; active?: boolean };
     //   const docs = await getManyByIds<ItemLite>("items", ids);
-    //   const idx = new Map<string, ItemLite>(docs.map(d => [d.id, d]));
+    //   const idx = new Map(docs.map(d => [d.id, d]));
     //   const out = idx.get(normalized.outputItemId);
     //   if (!out) return fail("El producto de salida no existe.");
-    //   if (stage === "PRODUCCION" && out.category !== "sf")
-    //     return fail("En Producción el output debe ser un Producto Intermedio (sf).");
-    //   if (stage === "ENVASADO" && out.category !== "fg")
-    //     return fail("En Envasado el output debe ser un Producto Final (fg).");
-    //   // Completa UoM canónica desde maestro
-    //   normalized.items = normalized.items.map(l => {
-    //     const it = idx.get(l.itemId);
-    //     return { ...l, uom: (it?.uom ?? l.uom ?? "unit") as "L"|"kg"|"unit" };
-    //   });
-    // } catch { /* sin helper de lectura, seguimos con la mínima */ }
+    //   if (stage === "PRODUCCION" && out.category !== "sf") return fail("En Producción el output debe ser PI (sf).");
+    //   if (stage === "ENVASADO" && out.category !== "fg") return fail("En Envasado el output debe ser FG (fg).");
+    //   normalized.items = normalized.items.map(l => ({ ...l, uom: (idx.get(l.itemId)?.uom ?? l.uom ?? "unit") as any }));
+    // } catch { /* sin helper de lectura, seguimos */ }
 
     await upsertMany("billOfMaterials", [normalized as any]);
     revalidatePath("/production/bom");
     return ok({ id: normalized.id });
   } catch (e: any) {
     if (e?.name === "ZodError") {
-      const fieldErrors = Object.fromEntries(
-        e.issues.map((i: any) => [i.path.join("."), i.message])
-      );
+      const fieldErrors = Object.fromEntries(e.issues.map((i: any) => [i.path.join("."), i.message]));
       return fail("Revisa los campos marcados", { fieldErrors });
     }
     if (e?.code === "permission-denied")
       return fail("Sin permisos para guardar.", { code: e.code });
-    return fail("No se pudo guardar. Inténtalo de nuevo.", {
-      code: e?.code,
-      retryable: true,
-    });
+    return fail("No se pudo guardar. Inténtalo de nuevo.", { code: e?.code, retryable: true });
   }
 }
 
-export async function upsertMinimalProduct(
-  input: unknown
-): Promise<ActionResult<{ itemId: string }>> {
+/** 🗂️ Archivar (eliminar lógico) una receta */
+export async function archiveBOM(id: string): Promise<ActionResult<{ id: string }>> {
+  try {
+    if (!id) return fail("Falta id de receta.");
+    // Soft delete: isActive=false (mantiene histórico)
+    await upsertMany("billOfMaterials", [{ id, isActive: false } as any]);
+    revalidatePath("/production/bom");
+    return ok({ id });
+  } catch (e: any) {
+    if (e?.code === "permission-denied")
+      return fail("Sin permisos para eliminar receta.", { code: e.code });
+    return fail("No se pudo eliminar la receta.", { code: e?.code, retryable: true });
+  }
+}
+
+export async function upsertMinimalProduct(input: unknown): Promise<ActionResult<{ itemId: string }>> {
   try {
     const p = zNewProduct.parse(input);
     const now = new Date().toISOString();
@@ -126,36 +127,26 @@ export async function upsertMinimalProduct(
     return ok({ itemId });
   } catch (e: any) {
     if (e?.name === "ZodError") {
-      const fieldErrors = Object.fromEntries(
-        e.issues.map((i: any) => [i.path.join("."), i.message])
-      );
+      const fieldErrors = Object.fromEntries(e.issues.map((i: any) => [i.path.join("."), i.message]));
       return fail("Revisa los campos del nuevo producto", { fieldErrors });
     }
     if (e?.code === "permission-denied")
       return fail("Sin permisos para crear producto.", { code: e.code });
-    return fail("No se pudo crear el producto.", {
-      code: e?.code,
-      retryable: true,
-    });
+    return fail("No se pudo crear el producto.", { code: e?.code, retryable: true });
   }
 }
 
-export async function upsertMinimalMaterial(
-  input: unknown
-): Promise<ActionResult<{ itemId: string }>> {
+export async function upsertMinimalMaterial(input: unknown): Promise<ActionResult<{ itemId: string }>> {
   try {
     const m = zNewMaterial.parse(input);
     const now = new Date().toISOString();
     const id = `item_${Date.now()}`;
-    await upsertMany("items", [
-      { id, ...m, active: true, createdAt: now, updatedAt: now } as any,
-    ]);
+    await upsertMany("items", [{ id, ...m, active: true, createdAt: now, updatedAt: now } as any]);
     revalidatePath("/production/bom");
     return ok({ itemId: id });
   } catch (e: any) {
     if (e?.name === "ZodError") {
-      const fieldErrors = Object.fromEntries(
-        e.issues.map((i: any) => [i.path.join("."), i.message]));
+      const fieldErrors = Object.fromEntries(e.issues.map((i: any) => [i.path.join("."), i.message]));
       return fail("Revisa los campos del nuevo material", { fieldErrors });
     }
     if (e?.code === "permission-denied")
