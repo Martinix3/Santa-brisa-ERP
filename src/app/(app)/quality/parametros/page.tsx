@@ -1,91 +1,54 @@
+// src/app/(app)/quality/parametros/page.tsx
 "use client";
 
 /* ============================================================================
- * /quality/parametros — Configuración de Calidad (versión autosuficiente)
- * - Evita dependencias frágiles: no usa SBCard; monta <Card> local.
- * - Tipos locales mínimos para no depender del SSOT en build.
- * - Stubs de persistencia (reemplazar por server actions reales).
- * - UI con 3 bloques: Parámetros, Planes de QC, Protocolos de Seguridad.
+ * /quality/parametros — Configuración de Calidad
+ * - Parámetros analíticos por SKU
+ * - Planes de QC por SKU
+ * - Protocolos APPCC
+ * - Estilado con --sb-accent-calidad (#8298ce)
  * ==========================================================================*/
 
-import React, { useMemo, useState } from "react";
-import { Plus, Trash2, Save, Wrench, FlaskConical, ShieldCheck, Settings } from "lucide-react";
-// Si tu hook existe, úsalo; si no, no rompe.
+import React, { useEffect, useState } from "react";
+import {
+  listParametersBySku,
+  upsertParameterBySku,
+  deleteParameterBySku,
+  listPlansBySku,
+  upsertPlanBySku,
+  deletePlanBySku,
+  listProtocols,
+  upsertProtocol,
+  deleteProtocol,
+  type ParameterBySku,
+  type QcPlanBySku as QcPlan, // Alias a tu tipo local
+  type QcSpecSchema as QcTestSpec, // Alias
+  type Protocol as SafetyProtocol,
+} from "./actions";
+
+import { Plus, Trash2, Save, Wrench, FlaskConical, ShieldCheck, Settings, Search } from "lucide-react";
 import { useData as useDataMaybe } from "@/lib/dataprovider";
 
 // ==========================
-// Tipos locales mínimos (opcionales)
+// Card local con acento Calidad
 // ==========================
-type Unit = string; // p.ej. "°C" | "g/L" | "pH"
-type Range = { min?: number; max?: number; inclusiveMin?: boolean; inclusiveMax?: boolean; };
-type QcMethod = "SENSORIAL" | "LAB" | "INSTRUMENTAL" | string;
-type QcPoint = "RECEPCION" | "PROCESO" | "ENVASADO" | "ALMACEN" | "PRE-ENVIO" | string;
-
-type ParameterCatalog = {
-  id: string;
-  name: string;
-  code?: string;
-  unit?: Unit;
-  method?: QcMethod;
-  target?: number;
-  tolerance?: number;
-  range?: Range;
-  notes?: string;
-  createdAt?: string; updatedAt?: string;
-};
-
-type QcTestSpec = {
-  id: string;
-  parameterId: string;
-  point: QcPoint;
-  method?: QcMethod;
-  unit?: Unit;
-  target?: number;
-  tolerance?: number;
-  range?: Range;
-};
-
-type QcPlan = {
-  id: string;
-  name: string;
-  itemCategory?: "raw" | "intermediate" | "fg" | "pack" | string;
-  specs: QcTestSpec[];
-  createdAt?: string; updatedAt?: string;
-};
-
-type SafetyProtocol = {
-  id: string;
-  title: string;
-  code?: string;
-  checklist: string[];
-  active?: boolean;
-  createdAt?: string; updatedAt?: string;
-};
-
-// ==========================
-// Card local (estética SB)
-// ==========================
-function Card({ title, icon, children, subtitle }: { title?: string; icon?: React.ReactNode; children?: React.ReactNode; subtitle?: string }) {
-    return (
-      <div className="sb-card rounded-2xl border bg-white shadow-sm">
-          <div className="sb-card__header px-4 py-3 border-b flex items-center justify-between">
-              <div>
-                  {title && <div className="sb-card__title text-base font-semibold">{title}</div>}
-                  {subtitle && <div className="text-xs text-zinc-600 mt-0.5">{subtitle}</div>}
-              </div>
-              {icon && <span className="sb-icon text-zinc-500">{icon}</span>}
-          </div>
-          <div className="sb-card__content p-4">{children}</div>
-      </div>
-    );
-  }
-
-function Section({ title, subtitle, icon, children }: React.PropsWithChildren<{ title: string; subtitle?: string; icon?: React.ReactNode }>) {
+function Card(props: { title?: string; icon?: React.ReactNode; children?: React.ReactNode; subtitle?: string }) {
   return (
-    <Card title={title} subtitle={subtitle} icon={icon}>
-      <div className="space-y-4">{children}</div>
-    </Card>
+    <div className="sb-card sb-card--calidad">
+      <div className="sb-card__header">
+        {props.icon && <span className="sb-icon sb-icon--calidad">{props.icon}</span>}
+        <div>
+          {props.title && <div className="sb-card__title">{props.title}</div>}
+          {props.subtitle && <div className="text-xs text-zinc-600">{props.subtitle}</div>}
+        </div>
+      </div>
+      <div className="sb-card__content">{props.children}</div>
+    </div>
   );
+}
+
+function Section(props: React.PropsWithChildren<{ title: string; subtitle?: string; icon?: React.ReactNode }>) {
+  return <Card title={props.title} subtitle={props.subtitle} icon={props.icon}>{props.children}</Card>;
 }
 
 function Field({ label, children, className = "" }: React.PropsWithChildren<{ label: string; className?: string }>) {
@@ -97,114 +60,80 @@ function Field({ label, children, className = "" }: React.PropsWithChildren<{ la
   );
 }
 
-function TinyBadge({ children }: React.PropsWithChildren) {
-  return <span className="text-[11px] px-2 py-0.5 rounded-full border bg-white text-zinc-700">{children}</span>;
-}
-
-// ==========================
-// Stubs de persistencia (reemplaza por server actions reales)
-// ==========================
-async function createParameter(p: Omit<ParameterCatalog, "id" | "createdAt" | "updatedAt"> & Partial<Pick<ParameterCatalog, "notes">>) {
-  const id = `param_${Date.now()}`;
-  return { ok: true, data: { ...p, id } as ParameterCatalog };
-}
-async function deleteParameter(id: string) {
-  return { ok: true, id };
-}
-async function upsertPlan(plan: QcPlan) {
-  return { ok: true, data: { ...plan, updatedAt: new Date().toISOString() } as QcPlan };
-}
-async function upsertProtocol(proto: SafetyProtocol) {
-  return { ok: true, data: { ...proto, updatedAt: new Date().toISOString() } as SafetyProtocol };
-}
-
 // ==========================
 // Página
 // ==========================
 export default function QualityParametersPage() {
-  // Hook de datos (opcional). Si no está disponible, usa arrays vacíos.
   let useData: typeof useDataMaybe | undefined;
-  try {
-    useData = useDataMaybe;
-  } catch {
-    // noop
+  try { useData = useDataMaybe; } catch {}
+  const items = useData?.().data?.items as Array<{ id: string; sku?: string; name: string }> | undefined;
+
+  // SKU seleccionado
+  const [sku, setSku] = useState<string>(items?.[0]?.id ?? "");
+  useEffect(() => { if (!sku && items?.length) setSku(items[0].id); }, [items, sku]);
+
+  // ==========================
+  // Parámetros por SKU
+  // ==========================
+  const [params, setParams] = useState<ParameterBySku[]>([]);
+  async function refreshParams() {
+    if (!sku) return;
+    const rows = await listParametersBySku(sku);
+    setParams(rows);
   }
-  const data = useData ? useData().data : undefined;
+  useEffect(() => { refreshParams(); }, [sku]);
 
-  // Estado local (seeding mínimo si no hay data real)
-  const [parameters, setParameters] = useState<ParameterCatalog[]>(
-    data?.qcParameters ?? [
-      { id: "pH", name: "pH", unit: "pH", method: "LAB", target: 3.4, tolerance: 0.2 },
-      { id: "vol_alcohol", name: "% Vol. Alcohol", unit: "% vol", method: "LAB", target: 12.5, tolerance: 0.3 },
-    ]
-  );
-  const [plans, setPlans] = useState<QcPlan[]>(
-    data?.qc_plans ?? [
-      {
-        id: "plan_fg_std",
-        name: "Plan FG Estándar",
-        itemCategory: "fg",
-        specs: [
-          { id: "sp1", parameterId: "pH", point: "ENVASADO", method: "LAB", unit: "pH", target: 3.4, tolerance: 0.2 },
-          { id: "sp2", parameterId: "vol_alcohol", point: "ENVASADO", method: "LAB", unit: "% vol", target: 12.5, tolerance: 0.3 },
-        ],
-      },
-    ]
-  );
-  const [protocols, setProtocols] = useState<SafetyProtocol[]>(
-    data?.safety_protocols ?? [
-      { id: "prot_limpieza", title: "Limpieza de tanques", code: "SEC-001", checklist: ["Desinfectar", "Enjuagar", "Verificar"], active: true },
-      { id: "prot_epi", title: "EPI obligatorio", code: "SEC-002", checklist: ["Guantes", "Gafas", "Botas"], active: true },
-    ]
-  );
+  const [newParam, setNewParam] = useState<Partial<ParameterBySku>>({ name: "", unit: "", method: "LAB" });
 
-  // ==========================
-  // Handlers — Parámetros
-  // ==========================
-  const [newParam, setNewParam] = useState<Partial<ParameterCatalog>>({ name: "", unit: "", method: "LAB", target: undefined, tolerance: undefined });
-  async function handleAddParameter() {
-    if (!newParam.name) return;
-    const res = await createParameter({
+  async function handleAddParam(): Promise<void> {
+    if (!sku || !newParam.name) return;
+    const id = `param_${sku}_${newParam.code || newParam.name.toLowerCase().replace(/\s/g, '_')}`;
+    await upsertParameterBySku({
+      id,
+      sku,
+      code: newParam.code || newParam.name.toLowerCase().replace(/\s/g, '_'),
       name: newParam.name!,
       unit: newParam.unit,
-      method: (newParam.method as QcMethod) ?? "LAB",
-      target: (newParam.target as number) ?? undefined,
-      tolerance: (newParam.tolerance as number) ?? undefined,
-      code: newParam.code,
-      notes: newParam.notes,
-    });
-    if (res.ok && res.data) {
-      setParameters((prev) => [...prev, res.data!]);
-      setNewParam({ name: "", unit: "", method: "LAB", target: undefined, tolerance: undefined });
-    }
+      method: (newParam.method as string) ?? "LAB",
+      target: newParam.target as number | undefined,
+      tolerance: newParam.tolerance as number | undefined,
+    } as ParameterBySku);
+    setNewParam({ name: "", unit: "", method: "LAB" });
+    await refreshParams();
   }
-  async function handleDeleteParameter(id: string) {
-    const res = await deleteParameter(id);
-    if (res.ok) setParameters((prev) => prev.filter((p) => p.id !== id));
+
+  async function handleDeleteParam(id: string): Promise<void> {
+    await deleteParameterBySku(id);
+    await refreshParams();
   }
 
   // ==========================
-  // Handlers — Planes QC
+  // Qc Plans por SKU
   // ==========================
-  function addEmptyPlan() {
-    const p: QcPlan = { id: `plan_${Date.now()}`, name: "Nuevo plan", itemCategory: "fg", specs: [] };
-    setPlans((prev) => [p, ...prev]);
+  const [plans, setPlans] = useState<QcPlan[]>([]);
+  async function refreshPlans() { if(sku) setPlans(await listPlansBySku(sku)); }
+  useEffect(() => { refreshPlans(); }, [sku]);
+
+  function addPlan() {
+    if (!sku) return;
+    const plan: QcPlan = { id: `plan_${Date.now()}`, name: "Nuevo plan", sku: sku, specs: [] };
+    setPlans((p) => [plan, ...p]);
   }
-  async function savePlan(plan: QcPlan) {
-    const res = await upsertPlan(plan);
-    if (res.ok && res.data) {
-      setPlans((prev) => prev.map((p) => (p.id === plan.id ? res.data! : p)));
-    }
-  }
-  function addSpec(planId: string) {
+  async function savePlan(plan: QcPlan) { await upsertPlanBySku(plan); await refreshPlans(); }
+  async function removePlan(id: string) { await deletePlanBySku(id); await refreshPlans(); }
+  function addSpec(planId: string): void {
     setPlans((prev) =>
-      prev.map((p) =>
+      prev.map((p): QcPlan =>
         p.id === planId
           ? {
               ...p,
               specs: [
                 ...p.specs,
-                { id: `spec_${Date.now()}`, parameterId: parameters[0]?.id ?? "pH", point: "ENVASADO", method: "LAB", unit: parameters[0]?.unit ?? "pH" },
+                {
+                  id: `spec_${Date.now()}`,
+                  parameterId: params[0]?.id ?? "",
+                  point: "ENVASADO",
+                } as any,
               ],
             }
           : p
@@ -212,457 +141,113 @@ export default function QualityParametersPage() {
     );
   }
   function removeSpec(planId: string, specId: string) {
-    setPlans((prev) => prev.map((p) => (p.id === planId ? { ...p, specs: p.specs.filter((s) => s.id !== specId) } : p)));
+    setPlans((prev) => prev.map((p) => (p.id === planId ? { ...p, specs: p.specs.filter((s:any) => s.id !== specId) } : p)));
   }
 
   // ==========================
-  // Handlers — Protocolos
+  // Protocolos APPCC
   // ==========================
-  function addProtocol() {
-    const pr: SafetyProtocol = { id: `prot_${Date.now()}`, title: "Nuevo protocolo", code: "SEC-XXX", checklist: [], active: true };
-    setProtocols((prev) => [pr, ...prev]);
+  const [protocols, setProtocols] = useState<SafetyProtocol[]>([]);
+  async function refreshProtocols() {
+    setProtocols(await listProtocols());
   }
-  async function saveProtocol(proto: SafetyProtocol) {
-    const res = await upsertProtocol(proto);
-    if (res.ok && res.data) {
-      setProtocols((prev) => prev.map((p) => (p.id === proto.id ? res.data! : p)));
-    }
-  }
+  useEffect(() => { refreshProtocols(); }, []);
+  async function saveProtocol(proto: SafetyProtocol) { await upsertProtocol(proto); await refreshProtocols(); }
+  async function removeProtocol(id: string) { await deleteProtocol(id); await refreshProtocols(); }
 
-  // ==========================
-  // UI
-  // ==========================
   return (
     <div className="mx-auto max-w-6xl p-4 space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">
-          Parámetros de Calidad
-          <span className="ml-2 align-middle text-sm font-normal text-zinc-600">— Configuración</span>
-        </h1>
-        <div className="flex items-center gap-2 text-[hsl(var(--foreground))]">
-          <TinyBadge><span className="sb-icon"><Settings size={14} /></span> Admin Calidad</TinyBadge>
-          <TinyBadge>v1 (no persistente)</TinyBadge>
-        </div>
+        <h1 className="text-2xl font-semibold text-[hsl(var(--sb-accent-calidad))]">Calidad — Configuración</h1>
+        <div className="sb-badge sb-badge--calidad">Admin Calidad</div>
       </div>
 
-      {/* Parámetros */}
-      <Section
-        title="Catálogo de parámetros"
-        subtitle="Definición base de cada variable a controlar"
-        icon={<FlaskConical size={18} />}
-      >
-        {/* Form alta rápida */}
+      {/* ================= Parámetros analíticos ================= */}
+      <Section title="Parámetros analíticos por SKU" subtitle="Define variables específicas de cada producto" icon={<FlaskConical size={18}/>}>
         <div className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
+          <Field label="SKU">
+            <select className="w-full rounded-lg border px-3 py-2" value={sku} onChange={(e) => setSku(e.target.value)}>
+              {(items ?? [{ id:"sb_fg_70", name:"Santa Brisa FG 70cl" }]).map(i => (
+                <option key={i.id} value={i.id}>{i.name}</option>
+              ))}
+            </select>
+          </Field>
           <Field label="Nombre" className="md:col-span-2">
-            <input
-              className="w-full rounded-lg border px-3 py-2"
-              value={newParam.name ?? ""}
-              onChange={(e) => setNewParam((s) => ({ ...s, name: e.target.value }))}
-              placeholder="pH, Alcohol, °Brix…"
-            />
+            <input className="w-full rounded-lg border px-3 py-2" value={newParam.name ?? ""} onChange={(e) => setNewParam(s => ({ ...s, name: e.target.value }))}/>
           </Field>
           <Field label="Unidad">
-            <input
-              className="w-full rounded-lg border px-3 py-2"
-              value={newParam.unit ?? ""}
-              onChange={(e) => setNewParam((s) => ({ ...s, unit: e.target.value }))}
-              placeholder="pH, % vol, g/L…"
-            />
+            <input className="w-full rounded-lg border px-3 py-2" value={newParam.unit ?? ""} onChange={(e) => setNewParam(s => ({ ...s, unit: e.target.value }))}/>
           </Field>
           <Field label="Método">
-            <select
-              className="w-full rounded-lg border px-3 py-2"
-              value={(newParam.method as string) ?? "LAB"}
-              onChange={(e) => setNewParam((s) => ({ ...s, method: e.target.value as QcMethod }))}
-            >
+            <select className="w-full rounded-lg border px-3 py-2" value={(newParam.method as string) ?? "LAB"} onChange={(e) => setNewParam(s => ({ ...s, method: e.target.value }))}>
               <option value="LAB">LAB</option>
               <option value="SENSORIAL">Sensorial</option>
               <option value="INSTRUMENTAL">Instrumental</option>
             </select>
           </Field>
-          <Field label="Target">
-            <input
-              type="number"
-              className="w-full rounded-lg border px-3 py-2"
-              value={newParam.target ?? ""}
-              onChange={(e) => setNewParam((s) => ({ ...s, target: e.target.value === "" ? undefined : Number(e.target.value) }))}
-              placeholder="3.4"
-            />
-          </Field>
-          <Field label="Tolerancia">
-            <input
-              type="number"
-              className="w-full rounded-lg border px-3 py-2"
-              value={newParam.tolerance ?? ""}
-              onChange={(e) => setNewParam((s) => ({ ...s, tolerance: e.target.value === "" ? undefined : Number(e.target.value) }))}
-              placeholder="0.2"
-            />
-          </Field>
-          <button
-            onClick={handleAddParameter}
-            className="sb-btn-primary h-[38px] inline-flex items-center justify-center gap-2 px-3"
-            title="Añadir parámetro"
-          >
-            <Plus size={16} /> Añadir
+          <button onClick={handleAddParam} className="sb-btn-calidad h-[38px] inline-flex items-center justify-center gap-2 px-3">
+            <Plus size={16}/> Añadir
           </button>
         </div>
 
-        {/* Tabla */}
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm mt-3">
-            <thead>
-              <tr className="text-left text-zinc-600">
-                <th className="py-2 pr-4">Nombre</th>
-                <th className="py-2 pr-4">Unidad</th>
-                <th className="py-2 pr-4">Método</th>
-                <th className="py-2 pr-4">Target ± Tol</th>
-                <th className="py-2 pr-4">Acciones</th>
+        {/* Tabla de parámetros */}
+        <table className="min-w-full text-sm mt-3">
+          <thead><tr className="text-left text-zinc-600"><th>Nombre</th><th>Unidad</th><th>Método</th><th>Acciones</th></tr></thead>
+          <tbody>
+            {params.map((p) => (
+              <tr key={p.id} className="border-t">
+                <td className="py-2">{p.name}</td>
+                <td className="py-2">{p.unit ?? "-"}</td>
+                <td className="py-2">{p.method ?? "-"}</td>
+                <td className="py-2">
+                  <button onClick={() => handleDeleteParam(p.id)} className="text-red-600 hover:underline inline-flex items-center gap-1"><Trash2 size={14}/> borrar</button>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {parameters.map((p) => (
-                <tr key={p.id} className="border-t">
-                  <td className="py-2 pr-4">{p.name}</td>
-                  <td className="py-2 pr-4">{p.unit ?? "-"}</td>
-                  <td className="py-2 pr-4">{p.method ?? "-"}</td>
-                  <td className="py-2 pr-4">
-                    {p.target != null ? `${p.target}` : "-"}
-                    {p.tolerance != null ? ` ± ${p.tolerance}` : ""}
-                  </td>
-                  <td className="py-2 pr-4">
-                    <button
-                      onClick={() => handleDeleteParameter(p.id)}
-                      className="inline-flex items-center gap-1 text-red-600 hover:underline"
-                    >
-                      <Trash2 size={14} /> borrar
-                    </button>
-                  </td>
-                </tr>
+            ))}
+            {params.length === 0 && <tr><td colSpan={4} className="py-3 text-zinc-500">Sin parámetros definidos.</td></tr>}
+          </tbody>
+        </table>
+      </Section>
+
+      {/* ================= Planes QC ================= */}
+      <Section title="Planes de QC" subtitle="Control por SKU en cada punto crítico" icon={<Wrench size={18}/>}>
+        <button onClick={addPlan} className="sb-btn-calidad inline-flex items-center gap-2 px-3 py-1.5 mb-3"><Plus size={16}/> Nuevo plan</button>
+        {plans.filter(p => !sku || p.sku === sku).map((plan) => (
+          <div key={plan.id} className="rounded-xl border p-3 mb-3">
+            <div className="flex justify-between items-center mb-2">
+              <input className="rounded-lg border px-2 py-1 font-medium" value={plan.name} onChange={(e) => setPlans(prev => prev.map(p => p.id===plan.id?{...p,name:e.target.value}:p))}/>
+              <div className="flex gap-2">
+                <button onClick={() => savePlan(plan)} className="sb-btn-calidad px-2 py-1 flex items-center gap-1"><Save size={14}/> Guardar</button>
+                <button onClick={() => removePlan(plan.id)} className="text-red-600 flex items-center gap-1"><Trash2 size={14}/> Eliminar</button>
+              </div>
+            </div>
+            <button onClick={() => addSpec(plan.id)} className="text-[hsl(var(--sb-accent-calidad))] flex items-center gap-1"><Plus size={14}/> añadir especificación</button>
+            <ul className="mt-2 space-y-1">
+              {(plan.specs as any[]).map((sp: QcTestSpec) => (
+                <li key={(sp as any).id} className="flex justify-between text-sm border-t py-1">
+                  <span>{sp.parameterId}</span>
+                  <button onClick={() => removeSpec(plan.id, (sp as any).id)} className="text-red-600 flex items-center gap-1"><Trash2 size={12}/> quitar</button>
+                </li>
               ))}
-              {parameters.length === 0 && (
-                <tr><td className="py-3 text-zinc-500" colSpan={5}>Sin parámetros aún.</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+            </ul>
+          </div>
+        ))}
       </Section>
 
-      {/* Planes de QC */}
-      <Section
-        title="Planes de QC"
-        subtitle="Qué parámetros se controlan, dónde (punto de control) y con qué método"
-        icon={<Wrench size={18} />}
-      >
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-zinc-600">Define especificaciones por categoría de ítem (raw/intermediate/fg/pack).</div>
-          <button onClick={addEmptyPlan} className="sb-btn-primary inline-flex items-center gap-2 px-3 py-1.5">
-            <Plus size={16} /> Nuevo plan
-          </button>
-        </div>
-
-        <div className="grid gap-4 mt-3">
-          {plans.map((plan) => (
-            <div key={plan.id} className="rounded-xl border p-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <input
-                    className="rounded-lg border px-2 py-1 font-medium"
-                    value={plan.name}
-                    onChange={(e) => setPlans((prev) => prev.map((p) => (p.id === plan.id ? { ...p, name: e.target.value } : p)))}
-                  />
-                  <select
-                    className="rounded-lg border px-2 py-1"
-                    value={plan.itemCategory ?? ""}
-                    onChange={(e) => setPlans((prev) => prev.map((p) => (p.id === plan.id ? { ...p, itemCategory: e.target.value as any } : p)))}
-                    title="Categoría"
-                  >
-                    <option value="raw">raw</option>
-                    <option value="intermediate">intermediate</option>
-                    <option value="fg">fg</option>
-                    <option value="pack">pack</option>
-                  </select>
-                </div>
-                <button onClick={() => savePlan(plan)} className="inline-flex items-center gap-2 text-teal-700 hover:underline">
-                  <Save size={16} /> guardar
-                </button>
-              </div>
-
-              <div className="mt-3 overflow-x-auto">
-                <table className="min-w-full text-sm">
-                  <thead>
-                    <tr className="text-left text-zinc-600">
-                      <th className="py-2 pr-3">Parámetro</th>
-                      <th className="py-2 pr-3">Punto</th>
-                      <th className="py-2 pr-3">Método</th>
-                      <th className="py-2 pr-3">Unidad</th>
-                      <th className="py-2 pr-3">Target ± Tol</th>
-                      <th className="py-2 pr-3">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {plan.specs.map((sp) => (
-                      <tr key={sp.id} className="border-t">
-                        <td className="py-2 pr-3">
-                          <select
-                            className="rounded-lg border px-2 py-1"
-                            value={sp.parameterId}
-                            onChange={(e) =>
-                              setPlans((prev) =>
-                                prev.map((p) =>
-                                  p.id === plan.id
-                                    ? {
-                                        ...p,
-                                        specs: p.specs.map((s) => (s.id === sp.id ? { ...s, parameterId: e.target.value } : s)),
-                                      }
-                                    : p
-                                )
-                              )
-                            }
-                          >
-                            {parameters.map((p) => (
-                              <option key={p.id} value={p.id}>{p.name}</option>
-                            ))}
-                          </select>
-                        </td>
-                        <td className="py-2 pr-3">
-                          <select
-                            className="rounded-lg border px-2 py-1"
-                            value={sp.point}
-                            onChange={(e) =>
-                              setPlans((prev) =>
-                                prev.map((p) =>
-                                  p.id === plan.id
-                                    ? {
-                                        ...p,
-                                        specs: p.specs.map((s) => (s.id === sp.id ? { ...s, point: e.target.value as QcPoint } : s)),
-                                      }
-                                    : p
-                                )
-                              )
-                            }
-                          >
-                            <option value="RECEPCION">Recepción</option>
-                            <option value="PROCESO">Proceso</option>
-                            <option value="ENVASADO">Envasado</option>
-                            <option value="ALMACEN">Almacén</option>
-                            <option value="PRE-ENVIO">Pre-envío</option>
-                          </select>
-                        </td>
-                        <td className="py-2 pr-3">
-                          <select
-                            className="rounded-lg border px-2 py-1"
-                            value={sp.method ?? "LAB"}
-                            onChange={(e) =>
-                              setPlans((prev) =>
-                                prev.map((p) =>
-                                  p.id === plan.id
-                                    ? {
-                                        ...p,
-                                        specs: p.specs.map((s) => (s.id === sp.id ? { ...s, method: e.target.value as QcMethod } : s)),
-                                      }
-                                    : p
-                                )
-                              )
-                            }
-                          >
-                            <option value="LAB">LAB</option>
-                            <option value="SENSORIAL">Sensorial</option>
-                            <option value="INSTRUMENTAL">Instrumental</option>
-                          </select>
-                        </td>
-                        <td className="py-2 pr-3">
-                          <input
-                            className="w-24 rounded-lg border px-2 py-1"
-                            value={sp.unit ?? ""}
-                            onChange={(e) =>
-                              setPlans((prev) =>
-                                prev.map((p) =>
-                                  p.id === plan.id
-                                    ? {
-                                        ...p,
-                                        specs: p.specs.map((s) => (s.id === sp.id ? { ...s, unit: e.target.value } : s)),
-                                      }
-                                    : p
-                                )
-                              )
-                            }
-                          />
-                        </td>
-                        <td className="py-2 pr-3">
-                          <div className="flex items-center gap-1">
-                            <input
-                              type="number"
-                              className="w-20 rounded-lg border px-2 py-1"
-                              placeholder="target"
-                              value={sp.target ?? ""}
-                              onChange={(e) =>
-                                setPlans((prev) =>
-                                  prev.map((p) =>
-                                    p.id === plan.id
-                                      ? {
-                                          ...p,
-                                          specs: p.specs.map((s) => (s.id === sp.id ? { ...s, target: e.target.value === "" ? undefined : Number(e.target.value) } : s)),
-                                        }
-                                      : p
-                                  )
-                                )
-                              }
-                            />
-                            <span className="text-zinc-500">±</span>
-                            <input
-                              type="number"
-                              className="w-16 rounded-lg border px-2 py-1"
-                              placeholder="tol"
-                              value={sp.tolerance ?? ""}
-                              onChange={(e) =>
-                                setPlans((prev) =>
-                                  prev.map((p) =>
-                                    p.id === plan.id
-                                      ? {
-                                          ...p,
-                                          specs: p.specs.map((s) => (s.id === sp.id ? { ...s, tolerance: e.target.value === "" ? undefined : Number(e.target.value) } : s)),
-                                        }
-                                      : p
-                                  )
-                                )
-                              }
-                            />
-                          </div>
-                        </td>
-                        <td className="py-2 pr-3">
-                          <button onClick={() => removeSpec(plan.id, sp.id)} className="inline-flex items-center gap-1 text-red-600 hover:underline">
-                            <Trash2 size={14} /> quitar
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                    {plan.specs.length === 0 && (
-                      <tr><td className="py-3 text-zinc-500" colSpan={6}>Sin especificaciones. Añade la primera abajo.</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="mt-2">
-                <button onClick={() => addSpec(plan.id)} className="inline-flex items-center gap-2 text-teal-700 hover:underline">
-                  <Plus size={16} /> añadir especificación
-                </button>
-              </div>
+      {/* ================= Protocolos APPCC ================= */}
+      <Section title="Protocolos APPCC" subtitle="Planes obligatorios de seguridad alimentaria" icon={<ShieldCheck size={18}/>}>
+        {protocols.map((pr: SafetyProtocol) => (
+          <div key={pr.id} className="rounded-xl border p-3 mb-2">
+            <div className="flex justify-between items-center">
+              <span className="font-medium">{pr.title}</span>
+              <button onClick={() => saveProtocol(pr)} className="sb-btn-calidad px-2 py-1 flex items-center gap-1"><Save size={14}/> Guardar</button>
             </div>
-          ))}
-          {plans.length === 0 && <div className="text-sm text-zinc-500">No hay planes definidos.</div>}
-        </div>
+            <ul className="text-sm mt-2 list-disc pl-5 space-y-1">
+              {pr.checklist.map((c: string, i: number) => <li key={i}>{c}</li>)}
+            </ul>
+          </div>
+        ))}
       </Section>
-
-      {/* Protocolos de seguridad */}
-      <Section
-        title="Protocolos de seguridad"
-        subtitle="Checklist de seguridad y cumplimiento por proceso"
-        icon={<ShieldCheck size={18} />}
-      >
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-zinc-600">Crea protocolos y marca si están activos.</div>
-          <button onClick={addProtocol} className="sb-btn-primary inline-flex items-center gap-2 px-3 py-1.5">
-            <Plus size={16} /> Nuevo protocolo
-          </button>
-        </div>
-
-        <div className="grid gap-3 mt-3">
-          {protocols.map((pr) => (
-            <div key={pr.id} className="rounded-xl border p-3">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <input
-                    className="rounded-lg border px-2 py-1 font-medium"
-                    value={pr.title}
-                    onChange={(e) => setProtocols((prev) => prev.map((p) => (p.id === pr.id ? { ...p, title: e.target.value } : p)))}
-                  />
-                  <input
-                    className="w-28 rounded-lg border px-2 py-1"
-                    placeholder="Código"
-                    value={pr.code ?? ""}
-                    onChange={(e) => setProtocols((prev) => prev.map((p) => (p.id === pr.id ? { ...p, code: e.target.value } : p)))}
-                  />
-                  <label className="inline-flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={!!pr.active}
-                      onChange={(e) => setProtocols((prev) => prev.map((p) => (p.id === pr.id ? { ...p, active: e.target.checked } : p)))}
-                    />
-                    Activo
-                  </label>
-                </div>
-                <button onClick={() => saveProtocol(pr)} className="inline-flex items-center gap-2 text-teal-700 hover:underline">
-                  <Save size={16} /> guardar
-                </button>
-              </div>
-
-              {/* Checklist */}
-              <div className="mt-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-zinc-600">Checklist</span>
-                  <button
-                    className="inline-flex items-center gap-1 text-zinc-700 hover:underline"
-                    onClick={() =>
-                      setProtocols((prev) =>
-                        prev.map((p) =>
-                          p.id === pr.id ? { ...p, checklist: [...p.checklist, `Nuevo paso ${p.checklist.length + 1}`] } : p
-                        )
-                      )
-                    }
-                  >
-                    <Plus size={14} /> añadir punto
-                  </button>
-                </div>
-                <ul className="mt-2 space-y-1">
-                  {pr.checklist.map((step, idx) => (
-                    <li key={idx} className="flex items-center gap-2">
-                      <input
-                        className="flex-1 rounded-lg border px-2 py-1"
-                        value={step}
-                        onChange={(e) =>
-                          setProtocols((prev) =>
-                            prev.map((p) =>
-                              p.id === pr.id
-                                ? {
-                                    ...p,
-                                    checklist: p.checklist.map((s, i) => (i === idx ? e.target.value : s)),
-                                  }
-                                : p
-                            )
-                          )
-                        }
-                      />
-                      <button
-                        className="inline-flex items-center gap-1 text-red-600 hover:underline"
-                        onClick={() =>
-                          setProtocols((prev) =>
-                            prev.map((p) =>
-                              p.id === pr.id
-                                ? { ...p, checklist: p.checklist.filter((_, i) => i !== idx) }
-                                : p
-                            )
-                          )
-                        }
-                      >
-                        <Trash2 size={14} /> quitar
-                      </button>
-                    </li>
-                  ))}
-                  {pr.checklist.length === 0 && <li className="text-sm text-zinc-500">Checklist vacío.</li>}
-                </ul>
-              </div>
-            </div>
-          ))}
-        </div>
-      </Section>
-
-      {/* Pie de página context info */}
-      <div className="text-xs text-zinc-500">
-        <span className="sb-icon" data-muted="true"><Settings size={12} /></span> Tip:
-        cuando conectes persistencia, mueve los stubs a server actions en `src/app/(app)/quality/parametros/actions.ts`.
-      </div>
     </div>
   );
 }
