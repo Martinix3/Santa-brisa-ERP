@@ -23,15 +23,16 @@ export function KPI({ icon: Icon, label, value, color }: { icon: React.ElementTy
     )
 }
 
-function StatusPill({status}:{status: 'pending'|'released'|'wip'|'done'|'cancelled'}){
+function StatusPill({status}:{status: ProductionOrder['status']}){
   const map:any = {
-    planned: { txt:'Planificada', bg:'bg-sb-neutral-100 text-sb-neutral-700' },
-    released: { txt:'Liberada', bg:'bg-blue-100 text-blue-800' },
-    wip: { txt:'En curso', bg:'bg-amber-100 text-amber-800' },
-    done: { txt:'Cerrada', bg:'bg-green-100 text-green-800' },
-    cancelled: { txt:'Cancelada', bg:'bg-red-100 text-red-700' },
+    PLANNED: { txt:'Planificada', bg:'bg-sb-neutral-100 text-sb-neutral-700' },
+    IN_PROGRESS: { txt:'En curso', bg:'bg-blue-100 text-blue-800' },
+    PAUSED: { txt:'Pausada', bg:'bg-amber-100 text-amber-800' },
+    QC_HOLD: { txt:'En QC', bg:'bg-purple-100 text-purple-800' },
+    CLOSED: { txt:'Cerrada', bg:'bg-green-100 text-green-800' },
+    CANCELLED: { txt:'Cancelada', bg:'bg-red-100 text-red-700' },
   };
-  const s = map[status] || map.planned;
+  const s = map[status] || map.PLANNED;
   return <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-medium ${s.bg}`}>{s.txt}</span>;
 }
 
@@ -89,11 +90,11 @@ function UpcomingEvents() {
 export function ProductionDashboard({ orders, lots }: { orders: ProductionOrder[], lots: QACheck[] }) {
 
     const kpis = useMemo(() => {
-        const activeOrders = orders.filter(o => o.status === 'wip' || o.status === 'released');
+        const activeOrders = orders.filter(o => o.status === 'IN_PROGRESS');
         const pendingQCLots = lots.filter(l => l.summaryStatus === 'ko'); // Assuming 'ko' means pending
         const overdueOrders = orders.filter(o => {
             const isLate = new Date(o.createdAt) < new Date(Date.now() - 3 * 86400000); // >3 days old
-            return (o.status === 'planned' || o.status === 'released') && isLate;
+            return (o.status === 'PLANNED' || o.status === 'IN_PROGRESS') && isLate;
         });
 
         return {

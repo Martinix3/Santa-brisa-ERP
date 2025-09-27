@@ -96,7 +96,7 @@ export function searchLots(data: SantaData, p: LotSearchParams): LotHit[] {
     const q = p.text.trim().toLowerCase();
     out = out.filter(h => h.lotNumber.toLowerCase().includes(q));
   }
-  if (p.minAvailableQty != null) out = out.filter(h => h.availableQty >= p.minAvailableQty);
+  if (p.minAvailableQty != null) out = out.filter(h => h.availableQty >= (p.minAvailableQty ?? 0));
   if (p.qcStatuses?.length) out = out.filter(h => h.qcStatus && p.qcStatuses!.includes(h.qcStatus));
   if (p.lotStatuses?.length) out = out.filter(h => h.lotStatus && p.lotStatuses!.includes(h.lotStatus));
   if (!p.includeConsumed) out = out.filter(h => h.lotStatus !== 'CONSUMED' && h.lotStatus !== 'SCRAPPED' && h.lotStatus !== 'BLOCKED');

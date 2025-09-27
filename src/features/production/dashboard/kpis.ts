@@ -13,7 +13,7 @@ export function computeKpis({ orders, recipes, onHand, items }: Input){
 
   const count = (s: ProductionOrder["status"]) => orders.filter(o=>o.status===s).length;
 
-  const doneLast30 = orders.filter(o=>o.status==='done' && o.execution?.finishedAt && new Date(o.execution.finishedAt) >= last30);
+  const doneLast30 = orders.filter(o=>o.status==='CLOSED' && o.execution?.finishedAt && new Date(o.execution.finishedAt) >= last30);
   const totalUnits30 = sum(doneLast30.map(o => o.execution?.goodUnits || 0));
   const avgCostUnit30 = avg(doneLast30.map(o => o.costing?.actual?.perUnit || 0));
   const avgYield30 = avg(doneLast30.map(o => o.costing?.actual?.yieldLossPct ? 100 - o.costing.actual.yieldLossPct : 100));
@@ -45,7 +45,7 @@ export function computeKpis({ orders, recipes, onHand, items }: Input){
         if (!recipe) return 0;
         return po.targetQuantity;
     }));
-    const real = orders.filter(o=>o.status==='done' && o.execution?.finishedAt && isSameDay(new Date(o.execution.finishedAt), d)).reduce((a,o)=>a+(o.execution?.goodUnits||0),0);
+    const real = orders.filter(o=>o.status==='CLOSED' && o.execution?.finishedAt && isSameDay(new Date(o.execution.finishedAt), d)).reduce((a,o)=>a+(o.execution?.goodUnits||0),0);
     return { date: d.toISOString().slice(5,10).replace('-', '/'), planned: plannedUnits, real };
   });
 
@@ -62,18 +62,19 @@ export function computeKpis({ orders, recipes, onHand, items }: Input){
   
   const overdueOrders = orders.filter(o => {
       const isLate = o.createdAt && new Date(o.createdAt) < new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
-      return (o.status === 'planned' || o.status === 'released') && isLate;
+      return (o.status === 'PLANNED' || o.status === 'IN_PROGRESS') && isLate;
   }).length;
   
   const pendingQCLots = onHand.filter(l => l.locationId === 'FG/QA').length;
 
   return {
     counters: {
-      planned: count('planned'),
-      released: count('released'),
-      wip: count('wip'),
-      done: count('done'),
-      cancelled: count('cancelled')
+      planned: count('PLANNED'),
+      wip: count('IN_PROGRESS'),
+      done: count('CLOSED'),
+      cancelled: count('CANCELLED'),
+      paused: count('PAUSED'),
+      qc_hold: count('QC_HOLD'),
     },
     doneLast30: doneLast30.length,
     overdueOrders,
