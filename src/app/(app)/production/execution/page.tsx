@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useMemo, useState, useCallback, useEffect, useTransition } from "react";
@@ -30,6 +29,31 @@ import {
   recordConsumption,
   setCalculatorInput,
 } from "@/app/(app)/production/actions";
+
+// ==== Accent Producción (usa tu design token global) =========================
+const ACCENT_VAR = "--sb-accent-produc"; // ya lo usas en otros módulos
+const accentText = `text-[hsl(var(${ACCENT_VAR}))]`;
+const accentBgSoft = `bg-[hsl(var(${ACCENT_VAR})/0.10)]`;
+const accentRingSoft = `ring-1 ring-[hsl(var(${ACCENT_VAR})/0.25)]`;
+const accentBtn = `bg-[hsl(var(${ACCENT_VAR}))] text-white hover:brightness-110`;
+const accentGhost = `text-[hsl(var(${ACCENT_VAR}))] border border-[hsl(var(${ACCENT_VAR})/0.30)] hover:bg-[hsl(var(${ACCENT_VAR})/0.06)]`;
+
+// Numería bonita para cantidades
+const numClass = "tabular-nums font-mono";
+
+function StatusBadge({ status }: { status?: ProductionOrder["status"] }) {
+  const map: Record<string, string> = {
+    PLANNED: "bg-sky-100 text-sky-700 ring-sky-200",
+    IN_PROGRESS: "bg-emerald-100 text-emerald-700 ring-emerald-200",
+    PAUSED: "bg-amber-100 text-amber-800 ring-amber-200",
+    QC_HOLD: "bg-purple-100 text-purple-700 ring-purple-200",
+    CLOSED: "bg-zinc-100 text-zinc-700 ring-zinc-200",
+    CANCELLED: "bg-rose-100 text-rose-700 ring-rose-200",
+  };
+  const cls = map[status ?? ""] ?? "bg-zinc-100 text-zinc-700 ring-zinc-200";
+  return <span className={`px-2 py-0.5 text-xs rounded-full ring-1 ${cls}`}>{status}</span>;
+}
+
 
 const SpinnerButton: React.FC<
   React.ButtonHTMLAttributes<HTMLButtonElement> & { loading?: boolean }
@@ -127,7 +151,7 @@ function ProductionWorkstation({
     }
     const t = setTimeout(() => {
       startTransition(async () => {
-        const res = await setCalculatorInput(order.id, { raws: calcRows });
+        const res = await setCalculatorInput(order!.id, { raws: calcRows });
         if ((res as any)?.ok) setCalcResult((res as any).data?.calcResult ?? null);
       });
     }, 250);
@@ -136,12 +160,10 @@ function ProductionWorkstation({
 
   if (!order && !bom) {
     return (
-      <SBCard title="Puesto de Trabajo">
-        <div className="grid place-content-center min-h-[60vh]">
-            <div className="text-center">
-                <FactoryIcon size={40} className="mx-auto text-slate-300 mb-4" />
-                <p className="text-slate-600">Selecciona una receta para planificar o una orden para ejecutar.</p>
-            </div>
+      <SBCard className="grid place-content-center min-h-[60vh]">
+        <div className="text-center">
+          <FactoryIcon size={40} className="mx-auto text-slate-300 mb-4" />
+          <p className="text-slate-600">Selecciona una receta para planificar o una orden para ejecutar.</p>
         </div>
       </SBCard>
     );
@@ -192,118 +214,172 @@ function ProductionWorkstation({
   };
 
   return (
-    <SBCard title={order?.id ? `${order?.id} — ${order?.status}` : bomToUse?.name}>
-      <div className="p-4 space-y-6">
-        {/* Estado */}
-        {isExecuting && (
-          <div className="flex flex-wrap items-center gap-2">
-            {order!.status === "PLANNED" && (
-              <SpinnerButton
-                className="bg-slate-900 text-white hover:bg-slate-700"
-                loading={pending}
-                disabled={!canStart}
-                onClick={() => doAndRefresh(() => startProduction(order!.id))}
-              >
+    <SBCard>
+    {/* Header acentuado */}
+    <div className={`flex items-center justify-between px-4 py-3 ${accentBgSoft} ${accentRingSoft} rounded-t-xl`}>
+      <div className="flex items-center gap-3">
+        <div className={`h-8 w-8 rounded-lg grid place-items-center ${accentText}`}>
+          <FactoryIcon size={18} />
+        </div>
+        <div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-semibold text-zinc-900">
+              {order?.id ? (bomToUse?.name ?? order.id) : (bomToUse?.name ?? "Puesto de Trabajo")}
+            </h2>
+            {order?.status && <StatusBadge status={order.status} />}
+          </div>
+          <p className="text-xs text-zinc-600">
+            {order?.id ? `Orden: ${order.id}` : "Planificación de lote"} ·{" "}
+            <span className={accentText}>
+              {(() => {
+                const out = (order?.outputItemId ?? bomToUse?.outputItemId) ?? "";
+                const cat = out ? (allItems.find(i => i.id === out)?.category ?? "") : "";
+                return cat === "fg" ? "Etapa: ENVASADO" : cat === "intermediate" ? "Etapa: PRODUCCIÓN" : "Etapa: —";
+              })()}
+            </span>
+          </p>
+        </div>
+      </div>
+
+      {/* CTA de estado */}
+      {order && (
+        <div className="flex flex-wrap items-center gap-2">
+          {order.status === "PLANNED" && (
+            <>
+              <SpinnerButton className={`${accentBtn}`} loading={pending}
+                disabled={!canStart} onClick={() => doAndRefresh(() => startProduction(order.id))}>
                 Iniciar
               </SpinnerButton>
-            )}
-            {order!.status === "IN_PROGRESS" && (
-              <SpinnerButton className="border" loading={pending} onClick={() => doAndRefresh(() => pauseProduction(order!.id))}>
-                Pausar
-              </SpinnerButton>
-            )}
-            {order!.status === "PAUSED" && (
-              <SpinnerButton className="bg-slate-900 text-white hover:bg-slate-700" loading={pending} onClick={() => doAndRefresh(() => resumeProduction(order!.id))}>
-                Reanudar
-              </SpinnerButton>
-            )}
-            {order!.status === "PLANNED" && (
-              <SpinnerButton className="bg-rose-600 text-white hover:bg-rose-700" loading={pending} onClick={() => doAndRefresh(() => cancelProduction(order!.id))}>
+              <SpinnerButton className="bg-rose-600 text-white hover:brightness-110" loading={pending}
+                onClick={() => doAndRefresh(() => cancelProduction(order.id))}>
                 Cancelar
               </SpinnerButton>
-            )}
-            {(order!.status === "IN_PROGRESS" || order!.status === "PAUSED") && (
-              <SpinnerButton className="bg-slate-900 text-white hover:bg-slate-700" loading={pending} onClick={() => doAndRefresh(() => closeProduction(order!.id))}>
+            </>
+          )}
+          {order.status === "IN_PROGRESS" && (
+            <>
+              <SpinnerButton className={`${accentGhost}`} loading={pending}
+                onClick={() => doAndRefresh(() => pauseProduction(order.id))}>
+                Pausar
+              </SpinnerButton>
+              <SpinnerButton className={`${accentBtn}`} loading={pending}
+                onClick={() => doAndRefresh(() => closeProduction(order.id))}>
                 Finalizar
               </SpinnerButton>
-            )}
-          </div>
-        )}
+            </>
+          )}
+          {order.status === "PAUSED" && (
+            <>
+              <SpinnerButton className={`${accentBtn}`} loading={pending}
+                onClick={() => doAndRefresh(() => resumeProduction(order.id))}>
+                Reanudar
+              </SpinnerButton>
+              <SpinnerButton className={`${accentGhost}`} loading={pending}
+                onClick={() => doAndRefresh(() => closeProduction(order.id))}>
+                Finalizar
+              </SpinnerButton>
+            </>
+          )}
+        </div>
+      )}
+    </div>
 
-        {/* Planificación */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Cantidad ({bomToUse.baseUnit})</label>
-            <input
-              type="number"
-              value={qty}
-              onChange={(e) => setQty(Number(e.target.value))}
-              disabled={isExecuting}
-              className="w-full h-10 px-3 rounded-lg border"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Fecha prevista</label>
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              disabled={isExecuting}
-              className="w-full h-10 px-3 rounded-lg border"
-            />
-          </div>
-          <div className="text-sm text-slate-600 flex items-end">{stageHint}</div>
+    <div className="p-4 space-y-8">
+      {/* Planificación */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <label className="block text-xs font-semibold text-zinc-600 mb-1">Cantidad ({bomToUse.baseUnit})</label>
+          <input
+            type="number"
+            value={qty}
+            onChange={(e) => setQty(Number(e.target.value))}
+            disabled={isExecuting}
+            className={`w-full h-10 px-3 rounded-lg border ${numClass} focus:outline-none focus:ring-2 focus:ring-[hsl(var(${ACCENT_VAR})/0.45)]`}
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-zinc-600 mb-1">Fecha prevista</label>
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            disabled={isExecuting}
+            className={`w-full h-10 px-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-[hsl(var(${ACCENT_VAR})/0.45)]`}
+          />
+        </div>
+        <div className="text-sm text-zinc-600 flex items-end">
+          {stageHint}
+        </div>
+      </div>
+
+      {/* Parte de materiales */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-semibold text-zinc-800">Parte de Producción (Materiales)</h3>
+          {isExecuting && (
+            <SpinnerButton loading={pending} className={`${accentGhost}`} onClick={handleRecordConsumption}>
+              Guardar consumo
+            </SpinnerButton>
+          )}
         </div>
 
-        {/* Parte de materiales */}
-        <div>
-          <div className="flex justify-between items-center mb-2">
-            <h3 className="font-medium">Parte de Producción (Materiales)</h3>
-            {isExecuting && (
-              <SpinnerButton
-                loading={pending}
-                className="border"
-                onClick={handleRecordConsumption}
-              >
-                Guardar consumo
-              </SpinnerButton>
-            )}
-          </div>
-          <div className="rounded-lg border divide-y">
-            {bomToUse.items.map((c, i) => {
-              const item = itemById.get(c.itemId);
-              const theoretical = ((c.qty || 0) * (order?.targetQuantity ?? qty ?? 1)) / (bomToUse.batchSize || 1);
-              return (
-                <div key={c.itemId} className="grid grid-cols-[1fr_auto] p-3 items-center gap-3">
-                  <div>
-                    <p className="font-semibold">{item?.name ?? c.itemId}</p>
-                    <p className="text-xs text-slate-500">
-                      Cat: <b>{item?.category ?? "-"}</b> · Rol: <b>{c.role ?? "FORMULA"}</b>
-                    </p>
-                    <p className="text-sm text-slate-500">
-                      Teórico: {theoretical.toFixed(2)} {c.uom}
-                    </p>
-                  </div>
-                  {isExecuting && (
+        {/* Header tabla */}
+        <div className="hidden md:grid grid-cols-[1.2fr,0.8fr,0.6fr,0.6fr,0.5fr] text-xs font-semibold text-zinc-600 px-3 py-2">
+          <div>Material</div>
+          <div>Categoría / Rol</div>
+          <div className="text-right">Teórico</div>
+          <div className="text-right">Real</div>
+          <div>UoM</div>
+        </div>
+
+        <div className="rounded-lg border overflow-hidden">
+          {bomToUse.items.map((c, i) => {
+            const item = itemById.get(c.itemId);
+            const theoretical = ((c.qty || 0) * (order?.targetQuantity ?? qty ?? 1)) / (bomToUse.batchSize || 1);
+            return (
+              <div key={c.itemId} className="grid grid-cols-1 md:grid-cols-[1.2fr,0.8fr,0.6fr,0.6fr,0.5fr] items-center px-3 py-2 border-t first:border-t-0 odd:bg-white even:bg-zinc-50/60">
+                {/* Material */}
+                <div className="py-1">
+                  <div className="font-medium text-zinc-900">{item?.name ?? c.itemId}</div>
+                  <div className="text-[11px] text-zinc-500">{c.itemId}</div>
+                </div>
+
+                {/* Cat / Rol */}
+                <div className="text-sm text-zinc-700">{(item?.category ?? "-")} · <span className="uppercase">{c.role ?? "FORMULA"}</span></div>
+
+                {/* Teórico */}
+                <div className={`text-right text-sm text-zinc-700 ${numClass}`}>{theoretical.toFixed(3)}</div>
+
+                {/* Real (solo ejecución) */}
+                <div className="md:text-right">
+                  {isExecuting ? (
                     <input
                       type="number"
-                      className="w-28 h-9 px-2 rounded-lg border text-right"
-                      placeholder="Cant. real"
+                      className={`w-full md:w-28 h-9 px-2 rounded-lg border text-right ${numClass}
+                                  focus:outline-none focus:ring-2 focus:ring-[hsl(var(${ACCENT_VAR})/0.45)]`}
+                      placeholder="0"
                       value={actuals[i]?.actualQty ?? 0}
                       onChange={(e) => updateActual(i, Number(e.target.value))}
                     />
+                  ) : (
+                    <span className="text-zinc-400 text-sm">—</span>
                   )}
                 </div>
-              );
-            })}
-          </div>
+
+                {/* UoM */}
+                <div className="text-sm text-zinc-600">{c.uom}</div>
+              </div>
+            );
+          })}
         </div>
+      </div>
+
 
         {/* Calidad + Personal */}
         {isExecuting && (
           <div className="space-y-6 pt-6 border-t">
             <div>
-              <h3 className="font-medium mb-2">Calidad y Personal</h3>
+              <h3 className={`text-sm font-semibold mb-2 ${accentText}`}>Calidad y Personal</h3>
               <label className="flex items-center gap-3 mb-4">
                 <input
                   type="checkbox"
@@ -317,26 +393,26 @@ function ProductionWorkstation({
                   type="number"
                   value={ops}
                   onChange={(e) => setOps(Number(e.target.value))}
-                  className="w-28 h-9 px-2 rounded-lg border"
+                  className={`w-28 h-9 px-2 rounded-lg border ${numClass} focus:outline-none focus:ring-2 focus:ring-[hsl(var(${ACCENT_VAR})/0.45)]`}
                   placeholder="Operarios"
                 />
-                <SpinnerButton loading={pending} className="border" onClick={() => doAndRefresh(() => setOperatorsCount(order!.id, ops))}>
+                <SpinnerButton loading={pending} className={`${accentGhost}`} onClick={() => doAndRefresh(() => setOperatorsCount(order!.id, ops))}>
                   Guardar operarios
                 </SpinnerButton>
               </div>
             </div>
             <div>
-              <h3 className="font-medium mb-2">Incidencias</h3>
+              <h3 className={`text-sm font-semibold mb-2 ${accentText}`}>Incidencias</h3>
               <div className="flex items-center gap-2">
                 <input
                   value={incidentSummary}
                   onChange={(e) => setIncidentSummary(e.target.value)}
-                  className="w-full h-9 px-2 rounded-lg border"
+                  className="w-full h-9 px-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-[hsl(var(--sb-accent-produc)/0.45)]"
                   placeholder="Añadir incidencia..."
                 />
                 <SpinnerButton
                   loading={pending}
-                  className="border"
+                  className={`${accentGhost}`}
                   onClick={() => doAndRefresh(() => addIncident(order!.id, { summary: incidentSummary, severity: "LOW" } as any))}
                 >
                   Añadir
@@ -424,7 +500,8 @@ function ProductionWorkstation({
                 </div>
               )}
             </div>
-            <SpinnerButton onClick={handlePlan} loading={pending} className="w-full h-12 text-base font-semibold mt-2 bg-slate-900 text-white hover:bg-slate-700">
+            <SpinnerButton onClick={handlePlan} loading={pending}
+              className={`w-full h-12 text-base font-semibold mt-2 ${accentBtn}`}>
               Planificar producción
             </SpinnerButton>
           </>
