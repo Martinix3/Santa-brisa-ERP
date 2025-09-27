@@ -1,3 +1,4 @@
+
 // src/app/(app)/production/execution/page.tsx
 "use client";
 
@@ -20,6 +21,7 @@ import type {
   BillOfMaterial as RecipeBom,
   ProductionStatus,
   JournalEntry,
+  OnHandView,
 } from "@/domain/ssot";
 
 
@@ -85,7 +87,7 @@ function mapStatusTone(s: ProductionStatus) {
 // ================== Cálculos negocio (teoría/stock) ==================
 function computeTheoretical(bom: RecipeBom, qty: number, itemsMap: Map<string, Item>) {
   // qty es el multiplicador del batch
-  const lines = (bom.lines || bom.items || []).filter((l:any) => (l.role ?? 'FORMULA') !== "COST_ONLY");
+  const lines = (bom.items || []).filter((l:any) => (l.role ?? 'FORMULA') !== "COST_ONLY");
   return lines.map((l:any) => ({
     itemId: l.itemId,
     itemName: itemsMap.get(l.itemId)?.name ?? l.itemId,
@@ -242,7 +244,8 @@ function MaterialsEditor({
   onChange: (rows: Array<{ itemId: string; qty: number; uom: Uom; lotNumber?: string }>) => void;
   readOnly?: boolean;
 }) {
-  const itemsMap = useMemo(() => new Map<string, Item>(), []);
+  const { data } = useData();
+  const itemsMap = useMemo(() => new Map<string, Item>((data?.items || []).map(i => [i.id, i])), [data?.items]);
   const theory = useMemo(() => computeTheoretical(bom, qty, itemsMap), [bom, qty, itemsMap]);
 
   // merge real con teoría para pintar filas
@@ -404,8 +407,8 @@ export default function ProductionExecutionPage() {
     setCurrentOrder(order);
     setPlanningBom(null);
     setProtocolsAck(false);
-    setResponsible("");
-    setRealConsumption((order as LocalProductionOrder).real ?? []);
+    setResponsible(order.responsibleId ?? "");
+    setRealConsumption((order as LocalProductionOrder).actuals ?? []);
     setJournal((order as any).journal ?? []);
   };
 
@@ -431,7 +434,7 @@ export default function ProductionExecutionPage() {
           toast.success("Orden planificada");
           setCurrentOrder(newOrder);
           setPlanningBom(null);
-          setRealConsumption((newOrder as LocalProductionOrder).real ?? []); // si server devuelve snapshot
+          setRealConsumption((newOrder as LocalProductionOrder).actuals ?? []); // si server devuelve snapshot
           setJournal((newOrder as any).journal ?? []);
         } else {
           toast.success("Orden planificada (sin payload). Refresca datos si no aparece.");
@@ -755,7 +758,7 @@ export default function ProductionExecutionPage() {
                     <h4 className="text-sm font-semibold mb-2">Materiales</h4>
                     {/* realConsumption se bloquea tras iniciar */}
                     <MaterialsEditor
-                      bom={{ id: currentOrder.bomId, name: currentOrder.name ?? "", outputItemId: currentOrder.outputItemId, stage: currentOrder.stage, batchSize: 1, baseUnit: "L", lines: (currentOrder as any).nominal } as any}
+                      bom={{ id: currentOrder.bomId, name: currentOrder.name ?? "", outputItemId: currentOrder.outputItemId, stage: currentOrder.stage, batchSize: 1, baseUnit: "L", items: (currentOrder as any).nominal } as any}
                       qty={currentOrder.targetQuantity}
                       real={realConsumption}
                       onChange={setRealConsumption}
@@ -775,7 +778,7 @@ export default function ProductionExecutionPage() {
                         <label className="text-xs font-medium">Responsable</label>
                         <input
                           className="mt-1 w-full border rounded-md p-2"
-                          value={responsible}
+                          value={responsible ?? ''}
                           onChange={(e) => setResponsible(e.target.value)}
                           placeholder="Nombre"
                           readOnly={currentOrder.status !== "PLANNED"}
