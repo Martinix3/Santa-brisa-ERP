@@ -1,3 +1,4 @@
+
 // ============================================================================
 // src/app/(app)/production/actions.ts
 // Server actions del módulo de Producción (ejecución)
@@ -10,6 +11,7 @@ import { upsertMany } from "@/lib/dataprovider/actions";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { adminDb } from '@/server/firebase';
+import type { Lot } from '@/domain/ssot';
 
 
 // Si tienes estos tipos en tu SSOT, impórtalos desde '@/domain/ssot'.
@@ -272,19 +274,40 @@ export async function recordOutput(id: string, qty: number, lotPrefix?: string) 
     const now = new Date().toISOString();
     const po = await readOrder(id);
     if (!po) return fail('Orden inexistente');
-    const lot = po.lotNumber ?? newLot(lotPrefix ?? 'SB');
-
+    
+    const lotNumber = po.lotNumber ?? newLot(lotPrefix ?? 'SB');
     const out: ProductionOutput[] = [{
-      itemId: po.outputItemId,
-      uom: po.baseUnit, // 'L' o 'unit' ya validado por etapa/BOM
-      qty: Number(qty),
-      lotNumber: lot,
+        itemId: po.outputItemId,
+        uom: po.baseUnit, // 'L' o 'unit' ya validado por etapa/BOM
+        qty: Number(qty),
+        lotNumber: lotNumber,
     }];
+    
+    // -----[[ ✨ FIX: Crear registro maestro de Lote ]]-----
+    const newLot: Lot = {
+        id: lotNumber,
+        lotNumber: lotNumber,
+        itemId: po.outputItemId,
+        quantity: Number(qty),
+        createdAt: now,
+        orderId: po.id,
+        qcStatus: 'PENDING', // Siempre entra en pendiente de QC
+        status: 'ON_HOLD_QC',
+        producedByOrderId: po.id,
+        parentLotNumber: po.parentLotNumber
+    };
+    // Usamos `upsertMany` que ya tienes importado
+    await upsertMany('lots', [newLot as any]);
+    // ----------------------------------------------------
 
-    await upsertMany('productionOrders', [{ id, lotNumber: lot, output: out as any, updatedAt: now } as any]);
+    await upsertMany('productionOrders', [{ id, lotNumber, output: out as any, updatedAt: now, status: 'QC_HOLD' } as any]);
     revalidatePath(`/production/execution`);
-    return ok({ id, lotNumber: lot });
-  } catch (e:any) { return fail('No se pudo registrar el output.'); }
+    revalidatePath(`/quality/release`);
+    
+    return ok({ id, lotNumber });
+  } catch (e:any) {
+    return fail('No se pudo registrar el output.', { code: e.code });
+  }
 }
 
 // ===== QC =====
