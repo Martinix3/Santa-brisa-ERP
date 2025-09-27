@@ -1,0 +1,74 @@
+*** Begin Patch
+*** Update File: src/app/(app)/production/execution/page.tsx
+@@
+ function PlanningBoard({ bom, onPlanned }: { bom: any; onPlanned: (id: string) => void }) {
+   const [qty, setQty] = React.useState<number>(0);
+   const [date, setDate] = React.useState<string>("");
+   const [preview, setPreview] = React.useState<any>(null);
+   const [loading, setLoading] = React.useState(false);
+@@
+-  React.useEffect(() => {
++  React.useEffect(() => {
+     if (!bom?.id || qty <= 0) {
+       setPreview(null);
+       return;
+     }
+     let active = true;
+     setLoading(true);
+     previewPlanning({ bomId: bom.id, plannedQty: qty })
+       .then((res) => {
+         if (!active) return;
+         if (res.ok) setPreview(res.data);
+         else setPreview(null);
+       })
+       .finally(() => active && setLoading(false));
+     return () => {
+       active = false;
+     };
+   }, [bom?.id, qty, date]);
+@@
+-  async function handlePlan() {
+-    if (!bom?.id || qty <= 0) return;
+-    const res = await planProduction({ bomId: bom.id, plannedQty: qty, name: bom.name });
++  async function handlePlan() {
++    if (!bom?.id || qty <= 0 || !date) return;
++    const plannedDate = new Date(date).toISOString().slice(0, 10);
++    const res = await planProduction({
++      bomId: bom.id,
++      plannedQty: qty,
++      plannedDate,
++      name: bom.name,
++    });
+     if (res.ok) {
+       onPlanned(res.data.id);
+     }
+   }
+@@
+-          <label className="block text-sm mb-1">Cantidad a producir</label>
++          <label className="block text-sm mb-1">Cantidad a producir ({bom.baseUnit ?? "UoM"})</label>
+           <input
+             type="number"
+             min={1}
+             className="w-full h-10 px-2 rounded-lg border"
+             value={qty}
+             onChange={(e) => setQty(Number(e.target.value))}
+           />
+@@
+-      <button
+-        onClick={handlePlan}
+-        className="mt-4 w-full h-12 rounded-lg bg-sky-600 text-white font-semibold hover:bg-sky-700"
+-      >
+-        Planificar producción
+-      </button>
++      <button
++        onClick={handlePlan}
++        disabled={!bom?.id || qty <= 0 || !date}
++        className={`mt-4 w-full h-12 rounded-lg font-semibold ${
++          !bom?.id || qty <= 0 || !date
++            ? "bg-zinc-200 text-zinc-500 cursor-not-allowed"
++            : "bg-sky-600 text-white hover:bg-sky-700"
++        }`}
++      >
++        Planificar producción
++      </button>
+*** End Patch

@@ -1,0 +1,21 @@
+*** Begin Patch
+*** Update File: src/app/(app)/production/execution/page.tsx
+@@
+-  const boms = useMemo(() => ((santaData?.billOfMaterials ?? []) as any[]).map(b => ({ id: b.id, name: b.name ?? b.id })), [santaData]);
++  const boms = useMemo(() => {
++    const raw = (santaData?.billOfMaterials ?? []) as any[];
++    return raw.map((b) => {
++      const kind =
++        (b as any).kind ??
++        (b as any).stage ??
++        ((b as any).output?.isFinal ? "ENVASADO" : "PRODUCCION");
++      const baseUnit = (b as any).baseUnit ?? (b as any).uom ?? "L";
++      return {
++        id: b.id,
++        name: b.name ?? b.id,
++        kind,
++        baseUnit,
++      };
++    });
++  }, [santaData]);
+*** End Patch
