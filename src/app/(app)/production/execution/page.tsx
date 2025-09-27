@@ -1,3 +1,4 @@
+// src/app/(app)/production/execution/page.tsx
 "use client";
 
 import React, { useMemo, useState, useCallback, useEffect, useTransition } from "react";
@@ -13,7 +14,6 @@ import { toast } from "sonner";
 // Acciones del módulo Producción (previas en actions.ts)
 import {
   // estas siguen usándose desde OrderDetail (server-side mutaciones por fetch interno)
-  planProduction, // <- solo lo usa OrderDetail? Si no, puedes dejarlo también; el tablero NO lo usa directo
   startProduction,
   pauseProduction,
   resumeProduction,
@@ -26,6 +26,7 @@ import {
   addIncident,
   setCalculatorInput,
   closeProduction,
+  cancelProduction,     // ⬅️ lo usamos para “Cancelar” en PLANNED
 } from "../actions";
 
 // ===== Tipos locales mínimos (alineados a actions.ts) =====
@@ -61,7 +62,7 @@ type DraftRow = {
   bomId: string | "";
   bomName: string;
   qty: number;
-  date: string;     // ISO (YYYY-MM-DD)
+  date: string;     // ISO (solo fecha)
   preview?: any;    // resultado de previewPlanning
 };
 
@@ -116,85 +117,90 @@ function PlanningBoard({
     }
   };
 
-  if (rows.length === 0) return (
-    <div className="text-sm text-zinc-500 px-3 py-6 text-center border rounded-xl bg-zinc-50">Añade líneas de planificación.</div>
-  );
-
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-left text-zinc-600">
-            <th className="py-2 px-2 w-[320px]">Receta / BOM</th>
-            <th className="py-2 px-2 w-28">Cantidad</th>
-            <th className="py-2 px-2 w-40">Fecha</th>
-            <th className="py-2 px-2">Preview</th>
-            <th className="py-2 px-2 w-56">Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.id} className="border-t align-top">
-              <td className="py-2 px-2">
-                <select
-                  className="h-9 w-full border rounded-lg px-2"
-                  value={r.bomId}
-                  onChange={(e) => {
-                    const id = e.target.value;
-                    const bom = boms.find((b) => b.id === id);
-                    update(r.id, { bomId: id, bomName: bom?.name ?? "" });
-                  }}
-                >
-                  <option value="">— Selecciona receta/BOM —</option>
-                  {boms.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name}
-                    </option>
-                  ))}
-                </select>
-              </td>
-              <td className="py-2 px-2">
-                <input
-                  type="number"
-                  min={0}
-                  value={r.qty}
-                  onChange={(e) => update(r.id, { qty: Number(e.target.value) })}
-                  className="h-9 w-24 border rounded-lg px-2"
-                />
-              </td>
-              <td className="py-2 px-2">
-                <input type="date" value={r.date} onChange={(e) => update(r.id, { date: e.target.value })} className="h-9 border rounded-lg px-2"/>
-              </td>
-              <td className="py-2 px-2">
-                {r.preview ? (
-                  <div className="text-xs">
-                    {r.preview.inSpec ? (
-                      <span className="px-2 py-0.5 rounded-full border bg-emerald-50 text-emerald-700">En spec</span>
-                    ) : (
-                      <span className="px-2 py-0.5 rounded-full border bg-amber-50 text-amber-800">Fuera de spec</span>
-                    )}
-                    {r.preview.shortages?.length > 0 && <div className="mt-1 text-rose-700">Faltantes: {r.preview.shortages.length}</div>}
-                  </div>
-                ) : (
-                  <button type="button" onClick={() => doPreview(r)} className="h-9 px-3 rounded-lg border bg-zinc-50 hover:bg-zinc-100">
-                    Previsualizar
-                  </button>
-                )}
-              </td>
-              <td className="py-2 px-2">
-                <div className="flex gap-2">
-                  <button type="button" onClick={() => doPlan(r)} className="h-9 px-3 rounded-lg border bg-[hsl(var(--sb-accent-produc)/0.12)] hover:bg-[hsl(var(--sb-accent-produc)/0.18)]">
-                    Planificar
-                  </button>
-                  <button type="button" onClick={() => remove(r.id)} className="h-9 px-3 rounded-lg border bg-white hover:bg-zinc-50">
-                    Quitar
-                  </button>
-                </div>
-              </td>
+    <div className="space-y-3">
+      <div className="flex justify-between items-center">
+        <p className="text-sm text-zinc-600">Añade líneas de planificación y ajústalas según disponibilidad y specs.</p>
+        <button type="button" onClick={addRow} className="h-9 px-3 rounded-lg border bg-zinc-50 hover:bg-zinc-100 text-sm">
+          <Plus className="inline mr-1" size={14} /> Añadir línea
+        </button>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-zinc-600">
+              <th className="py-2 px-2 w-[320px]">Receta / BOM</th>
+              <th className="py-2 px-2 w-28">Cantidad</th>
+              <th className="py-2 px-2 w-40">Fecha</th>
+              <th className="py-2 px-2">Preview</th>
+              <th className="py-2 px-2 w-56">Acciones</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.id} className="border-t align-top">
+                <td className="py-2 px-2">
+                  <select
+                    className="h-9 w-full border rounded-lg px-2"
+                    value={r.bomId}
+                    onChange={(e) => {
+                      const id = e.target.value;
+                      const bom = boms.find((b) => b.id === id);
+                      update(r.id, { bomId: id, bomName: bom?.name ?? "" });
+                    }}
+                  >
+                    <option value="">— Selecciona receta/BOM —</option>
+                    {boms.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td className="py-2 px-2">
+                  <input
+                    type="number"
+                    min={0}
+                    value={r.qty}
+                    onChange={(e) => update(r.id, { qty: Number(e.target.value) })}
+                    className="h-9 w-24 border rounded-lg px-2"
+                  />
+                </td>
+                <td className="py-2 px-2">
+                  <input type="date" value={r.date} onChange={(e) => update(r.id, { date: e.target.value })} className="h-9 border rounded-lg px-2"/>
+                </td>
+                <td className="py-2 px-2">
+                  {r.preview ? (
+                    <div className="text-xs">
+                      {r.preview.inSpec ? (
+                        <span className="px-2 py-0.5 rounded-full border bg-emerald-50 text-emerald-700">En spec</span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full border bg-amber-50 text-amber-800">Fuera de spec</span>
+                      )}
+                      {r.preview.shortages?.length > 0 && <div className="mt-1 text-rose-700">Faltantes: {r.preview.shortages.length}</div>}
+                    </div>
+                  ) : (
+                    <button type="button" onClick={() => doPreview(r)} className="h-9 px-3 rounded-lg border bg-zinc-50 hover:bg-zinc-100">
+                      Previsualizar
+                    </button>
+                  )}
+                </td>
+                <td className="py-2 px-2">
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => doPlan(r)} className="h-9 px-3 rounded-lg border bg-[hsl(var(--sb-accent-produc)/0.12)] hover:bg-[hsl(var(--sb-accent-produc)/0.18)]">
+                      Planificar
+                    </button>
+                    <button type="button" onClick={() => remove(r.id)} className="h-9 px-3 rounded-lg border bg-white hover:bg-zinc-50">
+                      Quitar
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -241,57 +247,74 @@ function OrderDetail({ order, allItems, onRefresh }: { order: ProductionOrder; a
   const status = order.status as string;
   const isProd = order.stage === "PRODUCCION";
   const hasShortages = (order.shortages?.length ?? 0) > 0;
-  const hasOutput = (order.output?.[0]?.qty ?? 0) > 0;
-  const hasQc = !!order.qc?.status;
   const hasParentLotIfNeeded = isProd ? true : (order.parentLotNumber || parentLot).trim().length > 0;
 
+  // Reglas de habilitación
   const canStart = status === "PLANNED" && ack && !hasShortages && hasParentLotIfNeeded;
   const canPause = status === "IN_PROGRESS";
-  const canFinish = status === "IN_PROGRESS" && hasOutput; // el QC lo puedes registrar antes; si quieres hacerlo obligatorio, usa: && hasQc
+  const canResume = status === "PAUSED";
+  const canCancel = status === "PLANNED";
+  const canFinish = status === "IN_PROGRESS" || status === "PAUSED"; // finalizar siempre disponible una vez iniciada
+
+  // Labels según estado
+  const primaryLabel =
+    status === "PLANNED" ? "Iniciar" :
+    status === "IN_PROGRESS" ? "Pausar" :
+    status === "PAUSED" ? "Reanudar" : "Iniciar";
+  const secondaryLabel = status === "PLANNED" ? "Cancelar" : "Terminar";
 
   return (
     <SBCard title={order.name ?? order.id} accent={(SB_COLORS as any).module?.produccion ?? SB_COLORS.primary.teal}>
-      {/* Header acciones rápidas */}
+      {/* Header acciones rápidas → 2 botones grandes contextuales */}
       <div className="p-4 border-b rounded-t-2xl bg-white">
-        <div className="flex flex-wrap items-center gap-2">
-          {status === "PLANNED" && (
-            <SpinnerButton disabled={!canStart} loading={pending}
-              onClick={() => startTransition(async () => { const r = await startProduction(order.id); r?.ok ? toast.success('Orden iniciada') : toast.error(r?.message ?? 'Error'); onRefresh(); })}
-              className={`sb-btn-primary ${accent}`}>Iniciar</SpinnerButton>
-          )}
-          {status === "IN_PROGRESS" && (
-            <>
-              <SpinnerButton disabled={!canPause} className="sb-btn-secondary" loading={pending}
-                onClick={() => startTransition(async () => { const r = await pauseProduction(order.id); r?.ok ? toast.message('Orden pausada') : toast.error(r?.message ?? 'Error'); onRefresh(); })}>
-                <Pause size={14} className="mr-1 inline"/>Pausar
-              </SpinnerButton>
-              <SpinnerButton disabled={!canFinish} loading={pending}
-                onClick={() => startTransition(async () => { const r = await closeProduction(order.id); r?.ok ? toast.success('Orden cerrada') : toast.error(r?.message ?? 'Error'); onRefresh(); })}
-                className={`sb-btn-primary ${accent}`}>
-                <CheckCircle2 size={14} className="mr-1 inline"/>Finalizar
-              </SpinnerButton>
-            </>
-          )}
-          {status === "PAUSED" && (
-            <SpinnerButton
-              loading={pending}
-              onClick={() =>
-                startTransition(async () => {
-                  const r = await resumeProduction(order.id);
-                  r?.ok ? toast.success("Orden reanudada") : toast.error(r?.message ?? "Error");
-                  onRefresh();
-                })
-              }
-              className={`sb-btn-primary ${accent}`}
-            >
-              <Play size={14} className="mr-1 inline" />
-              Reanudar
-            </SpinnerButton>
-          )}
+        <div className="flex flex-wrap items-center gap-3">
+          <SpinnerButton
+            loading={pending}
+            disabled={
+              (status === "PLANNED" && !canStart) ||
+              (status === "IN_PROGRESS" && !canPause) ||
+              (status === "PAUSED" && !canResume)
+            }
+            onClick={() =>
+              startTransition(async () => {
+                let r;
+                if (status === "PLANNED") r = await startProduction(order.id);
+                else if (status === "IN_PROGRESS") r = await pauseProduction(order.id);
+                else if (status === "PAUSED") r = await resumeProduction(order.id);
+                if (r?.ok) toast.success(primaryLabel);
+                else toast.error(r?.message ?? "Acción no completada");
+                onRefresh();
+              })
+            }
+            className={`sb-btn-primary ${accent} min-w-[140px]`}
+          >
+            {primaryLabel}
+          </SpinnerButton>
+
+          <SpinnerButton
+            loading={pending}
+            disabled={status !== "PLANNED" && !canFinish}
+            onClick={() =>
+              startTransition(async () => {
+                let r;
+                if (status === "PLANNED") {
+                  r = await cancelProduction(order.id);
+                } else {
+                  r = await closeProduction(order.id);
+                }
+                if (r?.ok) toast.success(secondaryLabel);
+                else toast.error(r?.message ?? "Acción no completada");
+                onRefresh();
+              })
+            }
+            className="sb-btn-secondary min-w-[140px]"
+          >
+            {secondaryLabel}
+          </SpinnerButton>
+
           {status === "QC_HOLD" && (
             <div className="text-xs px-2 py-1 rounded border bg-amber-50 text-amber-800 flex items-center gap-1">
-              <AlertTriangle size={12} />
-              En espera de QC
+              <AlertTriangle size={12}/> En espera de QC
             </div>
           )}
         </div>
@@ -652,25 +675,6 @@ function OrderDetail({ order, allItems, onRefresh }: { order: ProductionOrder; a
           </div>
         </SectionCard>
       </div>
-
-      {/* Footer */}
-      <div className="p-4 bg-zinc-50 border-t flex justify-end gap-2">
-        {status !== "CLOSED" && (
-          <SpinnerButton
-            loading={pending}
-            onClick={() =>
-              startTransition(async () => {
-                const r = await closeProduction(order.id);
-                r?.ok ? toast.success("Orden cerrada") : toast.error(r?.message ?? "Error");
-                onRefresh();
-              })
-            }
-            className="sb-btn-primary"
-          >
-            Cerrar orden
-          </SpinnerButton>
-        )}
-      </div>
     </SBCard>
   );
 }
@@ -724,7 +728,7 @@ export default function ProductionPage() {
               </div>
               <div>
                 <h1 className="text-2xl font-semibold text-zinc-900 leading-tight">Producción</h1>
-                <p className="text-xs text-zinc-600">Tablero de planificación por receta/BOM. Ajusta cantidades y fechas según stocks y previsiones.</p>
+                <p className="text-xs text-zinc-600">Tablero de planificación por receta/BOM. Ajusta cantidades/fechas, previsualiza y planifica.</p>
               </div>
             </div>
           </div>
@@ -763,7 +767,9 @@ export default function ProductionPage() {
                     <div className="flex items-center justify-between gap-2">
                       <div className="min-w-0">
                         <div className="font-medium truncate">{o.name || o.id}</div>
-                        <div className="text-xs text-zinc-500 truncate">{o.stage} • {o.plannedQty} {o.baseUnit}{o.plannedDate ? ` • ${o.plannedDate}` : ""}</div>
+                        <div className="text-xs text-zinc-500 truncate">
+                          {o.stage} • {o.plannedQty} {o.baseUnit}{o.plannedDate ? ` • ${o.plannedDate}` : ""}
+                        </div>
                       </div>
                       <div className="text-right shrink-0">
                         <span className="text-[11px] px-2 py-0.5 rounded-full border bg-white text-zinc-700">{o.status}</span>
@@ -799,3 +805,17 @@ export default function ProductionPage() {
     </>
   );
 }
+
+Con esto:
+
+El tablero por BOMs llama a la API.
+
+La botonera principal de acción de la orden se simplifica a 2 botones contextuales.
+
+Las validaciones (protocolos, faltantes, etc.) deshabilitan el botón de Iniciar.
+
+Se elimina el footer con el botón de cerrar duplicado.
+
+El panel derecho se simplifica a las dos tarjetas pedidas.
+
+El resto de paneles (consumo, QC, incidencias, calculadora) se mantienen igual en el detalle.
