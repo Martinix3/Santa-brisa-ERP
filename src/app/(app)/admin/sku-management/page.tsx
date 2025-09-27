@@ -3,13 +3,13 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useData } from '@/lib/dataprovider';
-import type { OnHandView, Item } from '@/domain/ssot';
+import type { OnHandView, Item, ItemCategory } from '@/domain/ssot';
 import { SBCard, SBButton } from '@/components/ui/ui-primitives';
 import { ChevronDown, Save, Tags } from 'lucide-react';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
 import { upsertMany } from '@/lib/dataprovider/actions';
 
-const ITEM_CATEGORIES: Item['category'][] = ['raw', 'pack', 'label', 'consumable', 'intermediate', 'fg', 'merch'];
+const ITEM_CATEGORIES: Item['category'][] = ['raw', 'pack', 'consumable', 'intermediate', 'fg', 'merch'];
 
 type SkuWithLots = {
     sku: string;

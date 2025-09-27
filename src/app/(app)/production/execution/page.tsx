@@ -2,13 +2,13 @@
 
 import React, { useMemo, useState, useCallback, useEffect, useTransition } from "react";
 import { Plus, Trash2, Factory as FactoryIcon, Pause, Play, CheckCircle2, AlertTriangle, ListFilter } from "lucide-react";
-import { SBCard, SpinnerButton } from "@/components/ui/ui-primitives";
-import { SB_COLORS } from "@/domain/ssot";
+import { SBCard } from "@/components/ui/ui-primitives";
+import { SpinnerButton } from "@/components/ui/SpinnerButton";
 import { useData } from "@/lib/dataprovider";
+import { SB_COLORS } from "@/domain/ssot";
 import { Field } from "@/components/forms/Field";
 import { toast } from "sonner";
 import type { Item } from "@/domain/ssot";
-
 
 // Acciones del módulo Producción (previas en actions.ts)
 import {
@@ -25,22 +25,46 @@ import {
   addIncident,
   setCalculatorInput,
   closeProduction,
-  previewPlanning,
   cancelProduction,
+  previewPlanning,
 } from "../actions";
 
 // ===== Tipos locales mínimos (alineados a actions.ts) =====
 type ProductionOrder = any; // Usa tu tipo real si lo tienes exportado desde el SSOT
 
-// ===== Tablero de planificación en vivo =====
-function PlanningBoard({ bom, onPlanned }: { bom: any; onPlanned: (id: string) => void }) {
-  const [qty, setQty] = React.useState<number>(0);
-  const [date, setDate] = React.useState<string>("");
-  const [preview, setPreview] = React.useState<any>(null);
-  const [loading, setLoading] = React.useState(false);
-  const [creating, setCreating] = React.useState(false);
+// ===== Helpers visuales reutilizables =====
+function SectionCard({ title, hint, badge, children }: { title: string; hint?: string; badge?: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-xl border p-3 bg-white">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-base font-semibold text-zinc-900">{title}</h3>
+          {hint && <p className="text-xs text-zinc-600">{hint}</p>}
+        </div>
+        {badge && (
+          <span className="text-[11px] px-2 py-0.5 rounded-full border bg-white">{badge}</span>
+        )}
+      </div>
+      <div className="mt-3">{children}</div>
+    </div>
+  );
+}
 
-    // --- helpers de componentes del BOM ---
+function Row({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return <div className={`grid grid-cols-[2fr_1fr_1fr_auto] gap-2 items-end p-2 border rounded-md bg-white ${className}`}>{children}</div>;
+}
+
+// ======================================================
+// PLANNING BOARD (planificación en vivo por BOM)
+// ======================================================
+function PlanningBoard({ bom, onPlanned }: { bom: any; onPlanned: (id: string) => void }) {
+  const [qty, setQty] = useState<number>(0);
+  const [date, setDate] = useState<string>("");
+  const [loading, setLoading] = useState(false);
+  const [preview, setPreview] = useState<any>(null);
+  const [creating, setCreating] = useState(false);
+
+  // --- helpers de componentes del BOM ---
   const baseComponents = React.useMemo(() => {
     const raw = bom?.components ?? bom?.lines ?? bom?.materials ?? [];
     // Normaliza a { itemId, qty, uom, role }
@@ -52,26 +76,23 @@ function PlanningBoard({ bom, onPlanned }: { bom: any; onPlanned: (id: string) =
     }));
   }, [bom]);
 
-
-  // recalcula preview en vivo cada vez que cambian qty/date
-  React.useEffect(() => {
+  // Recalcula preview al cambiar qty o fecha
+  useEffect(() => {
     if (!bom?.id || qty <= 0) {
       setPreview(null);
       // Aunque no haya qty, seguimos mostrando fórmula base
       return;
     }
-    let active = true;
+    let alive = true;
     setLoading(true);
     previewPlanning({ bomId: bom.id, plannedQty: qty })
       .then((res) => {
-        if (!active) return;
-        if (res.ok) setPreview(res.data);
+        if (!alive) return;
+        if (res?.ok) setPreview(res.data);
         else setPreview(null);
       })
-      .finally(() => active && setLoading(false));
-    return () => {
-      active = false;
-    };
+      .finally(() => alive && setLoading(false));
+    return () => { alive = false; };
   }, [bom?.id, qty, date]);
 
   async function handlePlan() {
@@ -103,7 +124,6 @@ function PlanningBoard({ bom, onPlanned }: { bom: any; onPlanned: (id: string) =
       ? "bg-amber-50 text-amber-800 border-amber-200"
       : "bg-white text-zinc-700";
 
-
   return (
     <SBCard
       title={`Planificación: ${bom?.name ?? bom?.id ?? "—"}`}
@@ -113,7 +133,7 @@ function PlanningBoard({ bom, onPlanned }: { bom: any; onPlanned: (id: string) =
         {/* Controles básicos */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div>
-            <label className="block text-sm mb-1">Cantidad a producir ({bom.baseUnit ?? "UoM"})</label>
+            <label className="block text-sm mb-1">Cantidad a producir</label>
             <input
               type="number"
               min={1}
@@ -175,25 +195,73 @@ function PlanningBoard({ bom, onPlanned }: { bom: any; onPlanned: (id: string) =
           <div className="space-y-3">
             {preview && (
               <>
-                <div className="text-sm">
-                  <b>COA estimado</b>: {preview.estimates?.abvPct ?? "—"}% ABV,{" "}
-                  {preview.estimates?.acidity_gpl ?? "—"} g/L acidez,{" "}
-                  {preview.estimates?.sugar_gpl ?? "—"} g/L azúcares
-                </div>
-                {Array.isArray(preview.shortages) && preview.shortages.length > 0 ? (
-                  <div className="text-sm text-rose-700">
-                    ⚠️ Faltantes:
-                    <ul className="list-disc pl-5 mt-1 space-y-0.5">
-                      {preview.shortages.map((s: any, i: number) => (
-                        <li key={i}>
-                          {s.itemId}: falta {s.missing} {s.uom} (req {s.required}, disp {s.available})
-                        </li>
-                      ))}
-                    </ul>
+                {/* COA teórico */}
+                <div className="rounded-lg border p-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-medium">COA teórico</h4>
+                    <span className={`text-[11px] px-2 py-0.5 rounded-full border ${specBadge}`}>
+                      {preview.inSpec ? "Dentro de spec" : "Fuera de spec"}
+                    </span>
                   </div>
-                ) : (
-                  <div className="text-sm text-emerald-700">✅ Todo cubre según stock reservado.</div>
-                )}
+                  <ul className="mt-2 text-sm text-zinc-700 space-y-1">
+                    <li>
+                      Grado alcohólico: <b>{preview.estimates?.abvPct ?? "—"}%</b>
+                    </li>
+                    <li>
+                      Acidez: <b>{preview.estimates?.acidity_gpl ?? "—"} g/L</b>
+                    </li>
+                    <li>
+                      Azúcares: <b>{preview.estimates?.sugar_gpl ?? "—"} g/L</b>
+                    </li>
+                  </ul>
+                  {Array.isArray(preview.suggestions) && preview.suggestions.length > 0 && (
+                    <>
+                      <div className="mt-3 text-xs text-zinc-500">Sugerencias de ajuste:</div>
+                      <ul className="mt-1 text-sm text-zinc-700 list-disc pl-5 space-y-1">
+                        {preview.suggestions.map((s: any, i: number) => (
+                          <li key={i}>
+                            {s.kind}: <b>{s.amount}</b> {s.uom ?? ""} <span className="text-xs text-zinc-500">— {s.reason}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+                </div>
+
+                {/* Disponibilidad / faltantes */}
+                <div className="rounded-lg border p-3">
+                  <h4 className="font-medium">Disponibilidad</h4>
+                  {Array.isArray(preview.shortages) && preview.shortages.length > 0 ? (
+                    <div className="mt-2 space-y-1">
+                      {preview.shortages.map((s: any, idx: number) => (
+                        <div key={idx} className="text-xs rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-rose-700">
+                          ⚠️ Falta {s.missing} {s.uom} de {s.itemId} (Req {s.required}, Disp {s.available})
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="mt-2 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-2 py-1">Todo cubre</div>
+                  )}
+                </div>
+
+                {/* Reservas sugeridas */}
+                <div className="rounded-lg border p-3">
+                  <h4 className="font-medium">Reservas sugeridas (FIFO)</h4>
+                  {Array.isArray(preview.allocations) && preview.allocations.length > 0 ? (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {preview.allocations.map((a: any, idx: number) => (
+                        <span key={idx} className="text-[11px] px-2 py-0.5 rounded-full border bg-sky-50 text-sky-800 border-sky-200">
+                          {a.itemId} {a.qty}{a.uom} (Lote {a.lotNumber})
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="mt-2 text-sm text-zinc-500">Sin reservas</div>
+                  )}
+                  {preview.lotNumberPlanned && (
+                    <div className="mt-3 text-xs text-zinc-600">Lote planificado de salida: <b>{preview.lotNumberPlanned}</b></div>
+                  )}
+                </div>
               </>
             )}
           </div>
@@ -211,30 +279,6 @@ function PlanningBoard({ bom, onPlanned }: { bom: any; onPlanned: (id: string) =
     </SBCard>
   );
 }
-
-
-// ===== Helpers visuales reutilizables =====
-function SectionCard({ title, hint, badge, children }: { title: string; hint?: string; badge?: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-xl border p-3 bg-white">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-base font-semibold text-zinc-900">{title}</h3>
-          {hint && <p className="text-xs text-zinc-600">{hint}</p>}
-        </div>
-        {badge && (
-          <span className="text-[11px] px-2 py-0.5 rounded-full border bg-white">{badge}</span>
-        )}
-      </div>
-      <div className="mt-3">{children}</div>
-    </div>
-  );
-}
-
-function Row({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return <div className={`grid grid-cols-[2fr_1fr_1fr_auto] gap-2 items-end p-2 border rounded-md bg-white ${className}`}>{children}</div>;
-}
-
 // ======================================================
 // Detalle de Orden (panel derecho)
 // ======================================================
@@ -719,11 +763,26 @@ export default function ProductionPage() {
   const [openOrder, setOpenOrder] = useState<ProductionOrder | null>(null);
   const [openBom, setOpenBom] = useState<any>(null); // For PlanningBoard
 
-  const boms = useMemo(
-    () =>
-      ((santaData?.billOfMaterials ?? []) as any[]).map((b) => ({ ...b, name: b.name ?? b.id })),
-    [santaData]
-  );
+  const boms = useMemo(() => {
+    const raw = (santaData?.billOfMaterials ?? []) as any[];
+    return raw.map((b) => {
+      // Intentamos deducir el "tipo" de BOM: PRODUCCION o ENVASADO
+      const kind =
+        (b.kind as string) ??
+        (b.stage as string) ??
+        (b.output?.isFinal ? "ENVASADO" : "PRODUCCION");
+      const baseUnit = b.baseUnit ?? b.uom ?? "L";
+      return {
+        id: b.id,
+        name: b.name ?? b.id,
+        kind,
+        baseUnit,
+        // ⚠️ Mantener el objeto BOM completo (para leer componentes)
+        ...b,
+      };
+    });
+  }, [santaData]);
+
   const ordersAll = useMemo(() => (santaData?.productionOrders ?? []) as ProductionOrder[], [santaData]);
   const orders = useMemo(() => ordersAll, [ordersAll]);
   const allItems = useMemo(() => (santaData?.items ?? []) as Item[], [santaData]);
@@ -868,5 +927,3 @@ export default function ProductionPage() {
     </>
   );
 }
-
-    

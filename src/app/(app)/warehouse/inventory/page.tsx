@@ -158,7 +158,7 @@ export default function InventoryPage() {
     return onHandAll.filter(oh => {
       const item = itemsById.get(oh.itemId);
       if (!item) return false;
-      return activeTab === "pack" ? (item.category === "pack" || item.category === "label") : item.category === activeTab;
+      return activeTab === "pack" ? (item.category === "pack") : item.category === activeTab;
     });
   }, [onHandAll, itemsById, activeTab]);
 
