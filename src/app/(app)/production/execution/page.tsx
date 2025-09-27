@@ -1,57 +1,50 @@
-
 // src/app/(app)/production/execution/page.tsx
 "use client";
 
-import React, { useMemo, useState, useEffect, useTransition, useCallback } from "react";
+import React, { useMemo, useState, useEffect, useTransition } from "react";
 import {
-  Play, Pause, CheckCircle, XCircle, Factory as FactoryIcon, Calendar, ChevronDown,
-  AlertTriangle, ClipboardList, Package, Timer, ListOrdered
+  Play, Pause, CheckCircle2, XCircle, Factory as FactoryIcon, Calendar as CalendarIcon,
+  ChevronDown, ClipboardList
 } from "lucide-react";
 import { SBCard, SBButton } from "@/components/ui/ui-primitives";
-import { SpinnerButton } from "@/components/ui/SpinnerButton";
 import { useData } from "@/lib/dataprovider";
 import { toast } from "sonner";
 
-// Usa tipos reales del SSOT
+// Tipos SSOT
 import type {
-  Uom,
-  Item,
-  Lot,
-  ProductionOrder,
-  BillOfMaterial as RecipeBom,
-  ProductionStatus,
-  JournalEntry,
-  OnHandView,
+  Uom, Item, Lot, ProductionOrder, BillOfMaterial as RecipeBom, ProductionStatus, JournalEntry, OnHandView
 } from "@/domain/ssot";
 
-
-// ======= Acciones server (ajusta la ruta si difiere) =======
+// Acciones (server)
 import {
-  planProduction,
-  startProduction,
-  pauseProduction,
-  resumeProduction,
-  closeProduction,
-  cancelProduction,
-  addIncident,
+  planProduction, startProduction, pauseProduction, resumeProduction, closeProduction, cancelProduction, addIncident
 } from "../actions";
 
-type LocalProductionOrder = ProductionOrder & {
-  locked?: boolean;
-  theory?: Array<{ itemId: string; qty: number; uom: Uom }>;
-  real?: Array<{ itemId: string; qty: number; uom: Uom; lotNumber?: string }>;
-};
-
-
-// ====================== Helpers UI ======================
-function Collapsible({ title, count, defaultOpen = true, children }: { title: string; count?: number; defaultOpen?: boolean; children: React.ReactNode }) {
+// --------------------------- Helpers UI ---------------------------
+function Badge({ children, tone = "zinc" }:{children:React.ReactNode; tone?: "zinc"|"sky"|"amber"|"rose"|"emerald"}) {
+  const toneClasses = {
+    zinc: "bg-zinc-100 text-zinc-800",
+    sky: "bg-sky-100 text-sky-800",
+    amber: "bg-amber-100 text-amber-800",
+    rose: "bg-rose-100 text-rose-800",
+    emerald: "bg-emerald-100 text-emerald-800",
+  };
+  return <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${toneClasses[tone]}`}>{children}</span>;
+}
+function mapStatusTone(s: ProductionStatus) {
+  if (s === "IN_PROGRESS") return "sky";
+  if (s === "PLANNED") return "amber";
+  if (s === "PAUSED") return "rose";
+  if (s === "CLOSED" || s === "DONE") return "emerald";
+  return "zinc" as const;
+}
+function Collapsible({ title, count, defaultOpen = true, children }:{
+  title: string; count?: number; defaultOpen?: boolean; children: React.ReactNode;
+}) {
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div className="border rounded-xl bg-white">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center justify-between p-3 text-sm font-semibold"
-      >
+      <button onClick={()=>setOpen(o=>!o)} className="w-full flex items-center justify-between p-3 text-sm font-semibold">
         <span className="flex items-center gap-2">{title}</span>
         <span className="flex items-center gap-2">
           {typeof count === "number" && (
@@ -65,268 +58,203 @@ function Collapsible({ title, count, defaultOpen = true, children }: { title: st
   );
 }
 
-function Badge({ children, tone = "zinc" }: { children: React.ReactNode; tone?: "zinc" | "sky" | "amber" | "rose" | "emerald" }) {
-  const toneClasses = {
-    zinc: "bg-zinc-100 text-zinc-800",
-    sky: "bg-sky-100 text-sky-800",
-    amber: "bg-amber-100 text-amber-800",
-    rose: "bg-rose-100 text-rose-800",
-    emerald: "bg-emerald-100 text-emerald-800",
-  };
-  return <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${toneClasses[tone]}`}>{children}</span>;
-}
+// --------------------------- Negocio ---------------------------
+type RealLine = { itemId: string; qty: number; uom: Uom; lotNumber?: string };
+type OutputReal = { qty: number; uom: Uom; lotNumber?: string };
 
-function mapStatusTone(s: ProductionStatus) {
-  if (s === "IN_PROGRESS") return "sky";
-  if (s === "PLANNED") return "amber";
-  if (s === "PAUSED") return "rose";
-  if (s === "DONE") return "emerald";
-  return "zinc" as const;
-}
+const canEditPlan   = (s: ProductionStatus|undefined) => s === "PLANNED" || s == null;
+const canEditReal   = (s: ProductionStatus|undefined) => s === "PLANNED" || s === "IN_PROGRESS" || s === "PAUSED";
+const canStart      = (s: ProductionStatus|undefined) => s === "PLANNED";
+const canPause      = (s: ProductionStatus|undefined) => s === "IN_PROGRESS";
+const canResume     = (s: ProductionStatus|undefined) => s === "PAUSED";
+const canFinish     = (s: ProductionStatus|undefined) => s === "IN_PROGRESS" || s === "PAUSED";
+const isClosedLike  = (s: ProductionStatus|undefined) => s === "CLOSED" || s === "DONE" || s === "CANCELLED";
 
-// ================== Cálculos negocio (teoría/stock) ==================
 function computeTheoretical(bom: RecipeBom, qty: number, itemsMap: Map<string, Item>) {
-  // qty es el multiplicador del batch
-  const lines = (bom.items || []).filter((l:any) => (l.role ?? 'FORMULA') !== "COST_ONLY");
+  const lines = (bom.items || []).filter((l:any) => (l.role ?? "FORMULA") !== "COST_ONLY");
   return lines.map((l:any) => ({
     itemId: l.itemId,
     itemName: itemsMap.get(l.itemId)?.name ?? l.itemId,
-    qty: +(l.qty * qty).toFixed(3),
-    uom: l.uom,
+    qty: +(Number(l.qty || 0) * Number(qty || 0)).toFixed(3),
+    uom: (l.uom || "unit") as Uom,
     role: l.role,
   }));
 }
 
-function allocateFromLots(
-  theory: Array<{ itemId: string; qty: number; uom: Uom; itemName?: string }>,
-  onHand: Array<{itemId:string; lotNumber?:string; qty:number; uom:string; receivedAt?:string; createdAt?:string}>,
-) {
+// --------------------------- Panel Materiales (único) ---------------------------
+function StockCheckPanel({
+  bom, qty, items, onHand,
+  real, onChangeReal,
+  outputReal, onChangeOutputReal,
+  status = "PLANNED",
+  showAvailability = true,
+}: {
+  bom: RecipeBom; qty: number; items: Item[];
+  onHand: Array<{ itemId: string; lotNumber: string; qty: number; uom: string; receivedAt?: string; createdAt?: string }>;
+  real: RealLine[]; onChangeReal: (rows: RealLine[]) => void;
+  outputReal: OutputReal; onChangeOutputReal: (val: OutputReal) => void;
+  status?: ProductionStatus; showAvailability?: boolean;
+}) {
+  const itemsMap = useMemo(()=> new Map(items.map(i=>[i.id,i])), [items]);
+  const theory = useMemo(()=> computeTheoretical(bom, qty, itemsMap), [bom, qty, itemsMap]);
+
+  // Propuesto FIFO (solo informativo: total + chips por lote)
+  const proposedMap = useMemo(() => {
     const byItem = new Map<string, any[]>();
-    for (const r of onHand) {
-      if (!byItem.has(r.itemId)) byItem.set(r.itemId, []);
-      byItem.get(r.itemId)!.push(r);
-    }
-    for (const rows of byItem.values()) {
-      rows.sort((a,b)=> new Date(a.receivedAt||a.createdAt||0).getTime() - new Date(b.receivedAt||b.createdAt||0).getTime());
-    }
-    const shortages: Array<{itemId:string; itemName:string; missing:number; uom:Uom}> = [];
-    const picks: Array<{itemId:string; lotNumber:string; qty:number; uom:Uom}> = [];
+    onHand.forEach(r => { if (!byItem.has(r.itemId)) byItem.set(r.itemId, []); byItem.get(r.itemId)!.push(r); });
+    byItem.forEach(list => list.sort((a,b)=> new Date(a.receivedAt||a.createdAt||0).getTime() - new Date(b.receivedAt||b.createdAt||0).getTime()));
+    const map = new Map<string, { qty: number; lots: Array<{ lotNumber: string; qty: number; uom: Uom }> }>();
     for (const t of theory) {
-      let remain = t.qty;
+      let remain = t.qty, taken = 0;
       const rows = byItem.get(t.itemId) ?? [];
+      const lots: Array<{ lotNumber: string; qty: number; uom: Uom }> = [];
       for (const r of rows) {
         if (remain <= 0) break;
-        const take = Math.min(r.qty ?? 0, remain);
-        if (take > 0) {
-          picks.push({ itemId: t.itemId, lotNumber: r.lotNumber || '', qty: +take.toFixed(3), uom: t.uom });
-          remain -= take;
-        }
+        const take = Math.min(Number(r.qty||0), remain);
+        if (take > 0) { lots.push({ lotNumber: r.lotNumber, qty: +take.toFixed(3), uom: t.uom as Uom }); remain -= take; taken += take; }
       }
-      if (remain > 1e-6) shortages.push({ itemId: t.itemId, itemName: t.itemName || t.itemId, missing: +remain.toFixed(3), uom: t.uom });
+      map.set(t.itemId, { qty: +taken.toFixed(3), lots });
     }
-    return { shortages, picks };
-}
+    return map;
+  }, [theory, onHand]);
 
-
-function computeKPIs(order: LocalProductionOrder, itemsMap: Map<string, Item>) {
-  // Rendimiento: (output real / teoría esperada output) * 100
-  // Costes: suma teorías (estimado) vs suma reales (real) * costStd
-  // Mermas: (consumo teórico - real consumo) en %
-  // Botellas/hora: si FG y tiene bottleSizeMl, usar elapsed y qty output
-  const theory = order.theory ?? [];
-  const real = order.real ?? [];
-
-  const sumBy = (arr: Array<{ itemId: string; qty: number }>) =>
-    arr.reduce((acc, x) => acc + (x.qty || 0), 0);
-
-  // estimado y real en coste
-  let costEst = 0;
-  let costReal = 0;
-  for (const t of theory) {
-    const it = itemsMap.get(t.itemId);
-    costEst += (it?.stdCost || 0) * (t.qty || 0);
-  }
-  for (const r of real) {
-    const it = itemsMap.get(r.itemId);
-    costReal += (it?.stdCost || 0) * (r.qty || 0);
-  }
-
-  // mermas: consideramos sólo FORMULA (si hay metadata en theory)
-  // Como no la conservamos aquí, aproximamos: si real<theory ⇒ merma
-  const theoTotal = sumBy(theory);
-  const realTotal = sumBy(real);
-  let mermaPct = 0;
-  if (theoTotal > 0) {
-    mermaPct = ((theoTotal - realTotal) / theoTotal) * 100;
-  }
-
-  // rendimiento: si tenemos output real en order.real con item outputItemId
-  const outputReal = real.find((x) => x.itemId === order.outputItemId)?.qty ?? 0;
-  // teoría esperada para output ≈ plannedQty * 1 (si batch produce 1 unidad base)
-  // Esto depende de tu modelado. Aquí usamos plannedQty como "unidades de salida base".
-  const outputTheo = order.targetQuantity || 1;
-  const rendimientoPct = outputTheo > 0 ? (outputReal / outputTheo) * 100 : 0;
-
-  // botellas/hora: si FG y bottleSizeMl definido
-  let botellasHora = 0;
-  if (order.stage === "ENVASADO" && order.execution?.startedAt && order.execution?.finishedAt) {
-    const elapsedHours = (new Date(order.execution.finishedAt).getTime() - new Date(order.execution.startedAt).getTime()) / 3600000;
-    const fg = itemsMap.get(order.outputItemId);
-    if (elapsedHours > 0 && fg?.bottleMl && outputReal > 0) {
-      // si outputReal está en L, convertir a botellas (L -> mL / bottleSizeMl)
-      // aquí asumimos UoM del output en L (ajusta si usas unit)
-      const ml = outputReal * 1000;
-      const bottles = ml / fg.bottleMl;
-      botellasHora = bottles / elapsedHours;
+  // Faltantes (una sola línea roja si aplica)
+  const shortagesMsg = useMemo(()=>{
+    if (!showAvailability) return "";
+    const missing: string[] = [];
+    for (const t of theory) {
+      const prop = proposedMap.get(t.itemId)?.qty ?? 0;
+      const miss = +(t.qty - prop).toFixed(3);
+      if (miss > 1e-6) missing.push(`${itemsMap.get(t.itemId)?.name ?? t.itemId} (${miss} ${t.uom})`);
     }
-  }
+    return missing.join(", ");
+  }, [showAvailability, theory, proposedMap, itemsMap]);
 
-  return {
-    rendimientoPct: +rendimientoPct.toFixed(1),
-    costeEstimado: +costEst.toFixed(2),
-    costeReal: +costReal.toFixed(2),
-    mermaPct: +mermaPct.toFixed(1),
-    botellasHora: +botellasHora.toFixed(1),
+  const canEdit = canEditReal(status);
+  const upsertReal = (patch: RealLine) => {
+    const next = [...real];
+    const ix = next.findIndex(r => r.itemId === patch.itemId);
+    if (ix >= 0) next[ix] = { ...next[ix], ...patch };
+    else next.push(patch);
+    onChangeReal(next);
   };
-}
 
-// ================== Componentes funcionales ==================
-function StockCheckPanel({
-  bom, qty, items, onHand, onReadyChange, shortagesOut, requiredLotsOut
-}: {
-  bom: RecipeBom; qty: number; items: Item[]; onHand: Array<{itemId:string; lotNumber?:string; qty:number; uom:string; receivedAt?:string; createdAt?:string}>;
-  onReadyChange: (ok: boolean) => void;
-  shortagesOut: (s: Array<{ itemId: string; itemName: string; missing: number; uom: Uom }>) => void;
-  requiredLotsOut: (r: Array<{ itemId: string; lotNumber: string; qty: number; uom: Uom }>) => void;
-}) {
-  const itemsMap = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
-  const theory = useMemo(() => computeTheoretical(bom, qty, itemsMap), [bom, qty, itemsMap]);
-  
-  const { shortages, picks } = useMemo(() => allocateFromLots(theory, onHand), [theory, onHand]);
-
-
-  useEffect(() => {
-    onReadyChange(shortages.length === 0);
-    shortagesOut(shortages);
-    requiredLotsOut(picks);
-  }, [shortages, picks, onReadyChange, shortagesOut, requiredLotsOut]);
+  const ReqPropHeader = () => (
+    <div className="flex items-center justify-end gap-2 pr-0.5">
+      <span className="text-right">Req.</span>
+      <span className="w-1 h-1 rounded-full bg-zinc-300" />
+      <span className="text-right">Propuesto</span>
+    </div>
+  );
 
   return (
     <div className="border rounded-lg p-3 bg-zinc-50">
-      <h4 className="text-sm font-semibold mb-2">Disponibilidad y lotes de insumo</h4>
-      <div className="text-xs">
-        <div className="grid grid-cols-[1fr,90px,90px] font-semibold mb-1">
-          <span>Material</span><span className="text-right">Req.</span><span className="text-right">Propuesto</span>
-        </div>
-        {theory.map((line) => {
-          const proposed = picks.filter(p => p.itemId === line.itemId).reduce((s,p)=>s+p.qty,0);
+      <h4 className="text-sm font-semibold mb-3">Disponibilidad y lotes de insumo</h4>
+
+      <div className="grid grid-cols-[1fr,150px,140px,80px] font-semibold text-xs text-zinc-600 border-b pb-2 mb-2">
+        <span className="pl-1">Material</span>
+        <ReqPropHeader />
+        <span>REAL</span>
+        <span className="text-right pr-1">DIFF</span>
+      </div>
+
+      <div className="divide-y">
+        {theory.map(t => {
+          const itemName = itemsMap.get(t.itemId)?.name ?? t.itemId;
+          const proposed = proposedMap.get(t.itemId)?.qty ?? 0;
+          const propLots = proposedMap.get(t.itemId)?.lots ?? [];
+          const realRow = real.find(r => r.itemId === t.itemId);
+          const realQty = Number.isFinite(realRow?.qty as any) ? (realRow?.qty ?? 0) : 0;
+          const realLot = realRow?.lotNumber ?? "";
+          const diff = +(realQty - t.qty).toFixed(3);
+          const diffTone = diff === 0 ? "text-emerald-700" : diff > 0 ? "text-amber-700" : "text-rose-700";
+
           return (
-            <div key={line.itemId} className="grid grid-cols-[1fr,90px,90px] items-start py-0.5">
-              <span>{line.itemName}</span>
-              <span className="text-right font-mono">{line.qty} {line.uom}</span>
-              <span className={`text-right font-mono ${proposed>=line.qty?'text-emerald-700':'text-rose-700'}`}>
-                {+proposed.toFixed(3)} {line.uom}
-              </span>
-              {/* Lotes sugeridos debajo */}
-              <div className="col-span-3 text-[11px] text-zinc-600 mt-0.5">
-                {picks.filter(p=>p.itemId===line.itemId).map(p=>(
-                  <span key={`${p.itemId}-${p.lotNumber}`} className="inline-block mr-1 mb-1 px-1.5 py-0.5 rounded border bg-white">
-                    {p.lotNumber} · {p.qty} {p.uom}
-                  </span>
-                ))}
+            <div key={t.itemId} className="grid grid-cols-[1fr,150px,140px,80px] items-start text-sm py-2 px-1 hover:bg-zinc-50 rounded-md">
+              {/* Material + chips propuestos */}
+              <div>
+                <div className="truncate">{itemName}</div>
+                <div className="mt-1">
+                  {propLots.map(p => (
+                    <span key={`${t.itemId}-${p.lotNumber}`} className="inline-block mr-1 mb-1 px-2 py-0.5 rounded-lg border bg-zinc-100 text-[11px] font-mono">
+                      {p.lotNumber} · {p.qty} {p.uom}
+                    </span>
+                  ))}
+                </div>
               </div>
+
+              {/* Req · Propuesto */}
+              <div className="text-right font-mono pr-1">
+                <div>{t.qty} {t.uom}</div>
+                <div className="text-emerald-700">{proposed} {t.uom}</div>
+              </div>
+
+              {/* REAL (pill qty + lote) */}
+              <div className="flex gap-2 items-center">
+                <input
+                  className="w-[85px] border rounded-full px-3 py-1 text-right font-mono bg-white"
+                  type="number" step="0.01" min={0}
+                  value={realQty}
+                  onChange={e => {
+                    const n = e.target.value === "" ? 0 : Number(e.target.value);
+                    upsertReal({ itemId: t.itemId, qty: Number.isFinite(n) ? n : 0, lotNumber: realLot || undefined, uom: t.uom as Uom });
+                  }}
+                  disabled={!canEdit}
+                />
+                <input
+                  className="w-[120px] border rounded-md p-1 font-mono bg-white"
+                  placeholder="Lote real"
+                  value={realLot}
+                  onChange={e => upsertReal({ itemId: t.itemId, lotNumber: e.target.value, qty: realQty, uom: t.uom as Uom })}
+                  disabled={!canEdit}
+                />
+              </div>
+
+              {/* DIFF */}
+              <div className={`text-right font-mono ${diffTone}`}>{diff}</div>
             </div>
           );
         })}
-      </div>
-      {shortages.length > 0 ? (
-        <p className="text-xs text-rose-600 mt-2">Faltan materiales: {shortages.map(s => `${s.itemName} (${s.missing} ${s.uom})`).join(", ")}</p>
-      ) : <p className="text-xs text-emerald-700 mt-2">OK — stock suficiente. Se propondrán reservas al programar.</p>}
-    </div>
-  );
-}
 
-function MaterialsEditor({
-  bom, qty, real, onChange, readOnly
-}: {
-  bom: RecipeBom; qty: number;
-  real: Array<{ itemId: string; qty: number; uom: Uom; lotNumber?: string }>;
-  onChange: (rows: Array<{ itemId: string; qty: number; uom: Uom; lotNumber?: string }>) => void;
-  readOnly?: boolean;
-}) {
-  const { data } = useData();
-  const itemsMap = useMemo(() => new Map<string, Item>((data?.items || []).map(i => [i.id, i])), [data?.items]);
-  const theory = useMemo(() => computeTheoretical(bom, qty, itemsMap), [bom, qty, itemsMap]);
-
-  // merge real con teoría para pintar filas
-  const rows = useMemo(() => {
-    return theory.map((t) => {
-      const r = real.find((x) => x.itemId === t.itemId);
-      return { ...t, realQty: r?.qty ?? 0, lotNumber: r?.lotNumber ?? '' };
-    });
-  }, [theory, real]);
-
-  const setRealQty = (itemId: string, val: number) => {
-    const next = [...real];
-    const ix = next.findIndex((x) => x.itemId === itemId);
-    if (ix >= 0) { next[ix] = { ...next[ix], qty: val }; }
-    else { next.push({ itemId, qty: val, uom: theory.find(t => t.itemId === itemId)?.uom || "kg" }); }
-    onChange(next);
-  };
-
-  const setLot = (itemId: string, lotNumber: string) => {
-    const next = [...real];
-    const ix = next.findIndex((x) => x.itemId === itemId);
-    if (ix >= 0) { next[ix] = { ...next[ix], lotNumber }; }
-    else { next.push({ itemId, qty: 0, uom: theory.find(t => t.itemId === itemId)?.uom || "kg", lotNumber }); }
-    onChange(next);
-  };
-
-  return (
-    <div className="border rounded-lg">
-      <div className="grid grid-cols-[1fr,120px,120px,160px] px-3 py-2 text-xs font-semibold bg-zinc-50 rounded-t-lg">
-        <span>Material</span>
-        <span className="text-right">Teórico</span>
-        <span className="text-right">Real</span>
-        <span>Lote real</span>
-      </div>
-      <div className="divide-y">
-        {rows.map((r) => (
-          <div key={r.itemId} className="grid grid-cols-[1fr,120px,120px,160px] items-center px-3 py-2 text-sm">
-            <span className="truncate">{r.itemName}</span>
-            <span className="text-right font-mono">{r.qty} {r.uom}</span>
-            <span className="text-right">
-              <input
-                type="number" step="0.01" min={0}
-                className="border rounded-md p-1 w-[110px] text-right font-mono"
-                value={r.realQty ?? ''}
-                onChange={(e) => setRealQty(r.itemId, Number(e.target.value) || 0)}
-                disabled={readOnly}
-              />
-            </span>
-            <span>
-              <input
-                type="text"
-                className="border rounded-md p-1 w-[150px] font-mono"
-                placeholder="LT-YYYY-XX (opcional)"
-                value={r.lotNumber ?? ''}
-                onChange={(e) => setLot(r.itemId, e.target.value)}
-                disabled={readOnly}
-              />
-            </span>
+        {/* PRODUCCIÓN FINAL */}
+        <div className="grid grid-cols-[1fr,150px,140px,80px] items-center text-sm py-2 px-1">
+          <div className="font-semibold uppercase text-zinc-700">Producción final</div>
+          <div className="text-right font-mono pr-1">
+            <div>{qty} unit</div>
           </div>
-        ))}
+          <div className="flex gap-2 items-center">
+            <input
+              className="w-[85px] border rounded-full px-3 py-1 text-right font-mono bg-white"
+              type="number" step="0.01" min={0}
+              value={outputReal.qty ?? 0}
+              onChange={e => {
+                const n = e.target.value === "" ? 0 : Number(e.target.value);
+                onChangeOutputReal({ ...outputReal, qty: Number.isFinite(n) ? n : 0 });
+              }}
+              disabled={!canEdit}
+            />
+            <input
+              className="w-[120px] border rounded-md p-1 font-mono bg-white"
+              placeholder="Lote final"
+              value={outputReal.lotNumber ?? ""}
+              onChange={e => onChangeOutputReal({ ...outputReal, lotNumber: e.target.value })}
+              disabled={!canEdit}
+            />
+          </div>
+          <div />
+        </div>
       </div>
+
+      {showAvailability && shortagesMsg && (
+        <p className="text-xs text-rose-600 mt-3">Faltan materiales: {shortagesMsg}</p>
+      )}
     </div>
   );
 }
 
-function JournalCard({
-  journal, onAdd, readOnly
-}: {
-  journal: JournalEntry[];
-  onAdd: (text: string) => void;
-  readOnly?: boolean;
+// --------------------------- Bitácora ---------------------------
+function JournalCard({ journal, onAdd, readOnly }:{
+  journal: JournalEntry[]; onAdd: (text:string)=>void; readOnly?: boolean;
 }) {
   const [draft, setDraft] = useState("");
   return (
@@ -358,268 +286,296 @@ function JournalCard({
   );
 }
 
-// ======================= Página principal =======================
+// --------------------------- Panel derecho ---------------------------
+function RightControlPanel({
+  skuName, lot, startedAt, endedAt,
+  responsible, setResponsible,
+  checks, setChecks,
+  notes, setNotes,
+  kpis
+}:{
+  skuName: string; lot?: string; startedAt?: string; endedAt?: string;
+  responsible: string; setResponsible: (v:string)=>void;
+  checks: boolean[]; setChecks: (next:boolean[])=>void;
+  notes: string; setNotes: (v:string)=>void;
+  kpis: { rendimientoPct:number; mermaPct:number; costeEstimado:number; costeReal:number; botellasHora:number };
+}) {
+  return (
+    <div className="border rounded-xl bg-white p-3 space-y-3">
+      <div className="p-3 bg-zinc-50 border rounded-lg text-sm">
+        <div className="font-mono">SKU: <b>{skuName || "-"}</b></div>
+        <div className="font-mono">LOT: <b>{lot ?? "-"}</b></div>
+        <div className="flex justify-between text-xs mt-1">
+          <span className="text-emerald-700">FECHA INICIO {startedAt ? new Date(startedAt).toLocaleDateString('es-ES') : ""}</span>
+          <span className="text-rose-700">FECHA FIN {endedAt ? new Date(endedAt).toLocaleDateString('es-ES') : ""}</span>
+        </div>
+      </div>
+
+      <input
+        className="w-full border rounded-md p-2" placeholder="Nombre responsable"
+        value={responsible ?? ""} onChange={e=>setResponsible(e.target.value)}
+      />
+
+      <div className="grid grid-cols-2 gap-2 text-sm">
+        {checks.map((v, i) => (
+          <label key={i} className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={!!v}
+              onChange={() => {
+                const next = [...checks]; next[i] = !next[i]; setChecks(next);
+              }}
+            />
+            He leído los protocolos
+          </label>
+        ))}
+      </div>
+
+      <textarea
+        className="w-full min-h-24 border rounded-md p-2"
+        placeholder="REGISTRA TUS INCIDENCIAS"
+        value={notes ?? ""} onChange={e=>setNotes(e.target.value)}
+      />
+
+      <div className="grid grid-cols-2 gap-2 text-sm">
+        <div className="border rounded-lg p-2 bg-zinc-50">
+          <div className="text-xs text-zinc-500">Rendimiento</div>
+          <div className="font-semibold">{kpis.rendimientoPct}%</div>
+        </div>
+        <div className="border rounded-lg p-2 bg-zinc-50">
+          <div className="text-xs text-zinc-500">Mermas</div>
+          <div className="font-semibold">{kpis.mermaPct}%</div>
+        </div>
+        <div className="border rounded-lg p-2 bg-zinc-50">
+          <div className="text-xs text-zinc-500">Coste estimado</div>
+          <div className="font-semibold">{kpis.costeEstimado}</div>
+        </div>
+        <div className="border rounded-lg p-2 bg-zinc-50">
+          <div className="text-xs text-zinc-500">Coste real</div>
+          <div className="font-semibold">{kpis.costeReal}</div>
+        </div>
+        {/* Extra KPI sugerido */}
+        <div className="border rounded-lg p-2 bg-zinc-50 col-span-2">
+          <div className="text-xs text-zinc-500">Botellas / hora</div>
+          <div className="font-semibold">{kpis.botellasHora}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --------------------------- Página ---------------------------
 export default function ProductionExecutionPage() {
   const { data } = useData();
   const items: Item[] = data?.items ?? [];
   const onHand: OnHandView[] = data?.onHand ?? [];
-  const lots: Lot[] = data?.lots ?? [];
   const recipes: RecipeBom[] = (data?.billOfMaterials ?? []) as any;
   const ordersRaw: ProductionOrder[] = (data?.productionOrders ?? []) as any;
 
-  const itemsMap = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
+  const itemsMap = useMemo(()=> new Map(items.map(i=>[i.id,i])), [items]);
 
-  const activeOrders = useMemo(
-    () => ordersRaw.filter((o) => o.status !== "DONE" && o.status !== "CANCELLED"),
-    [ordersRaw]
-  );
+  const activeOrders = useMemo(()=> ordersRaw.filter(o=> o.status !== "CANCELLED" && o.status !== "CLOSED" && o.status !== "DONE"), [ordersRaw]);
 
-  // UI: selección
-  const [planningBom, setPlanningBom] = useState<RecipeBom | null>(null);
-  const [currentOrder, setCurrentOrder] = useState<LocalProductionOrder | null>(null);
+  // Selección
+  const [planningBom, setPlanningBom] = useState<RecipeBom|null>(null);
+  const [currentOrder, setCurrentOrder] = useState<ProductionOrder|null>(null);
 
-  // Planificación
+  // Plan
   const [planQty, setPlanQty] = useState<number>(1);
-  const [planDate, setPlanDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
-  const [stockOk, setStockOk] = useState<boolean>(false);
-  const [shortages, setShortages] = useState<Array<{ itemId: string; itemName: string; missing: number; uom: Uom }>>([]);
-  const [requiredLots, setRequiredLots] = useState<Array<{ itemId: string; lotNumber: string; qty: number; uom: Uom }>>([]);
+  const [planDate, setPlanDate] = useState<string>(() => new Date().toISOString().slice(0,10));
 
-  // Ejecución (gating)
-  const [protocolsAck, setProtocolsAck] = useState<boolean>(false);
+  // Real
+  const [realConsumption, setRealConsumption] = useState<RealLine[]>([]);
+  const [outputReal, setOutputReal] = useState<OutputReal>({ qty: 0, uom: "unit" as Uom });
+
+  // Control panel
   const [responsible, setResponsible] = useState<string>("");
+  const [checks, setChecks] = useState([false,false,false,false]);
+  const [notes, setNotes] = useState("");
 
-  // Consumo real editable (se bloquea tras iniciar)
-  const [realConsumption, setRealConsumption] = useState<Array<{ itemId: string; qty: number; uom: Uom; lotNumber?: string }>>([]);
-
-  // Bitácora local (si el order trae, la copiamos y seguimos añadiendo)
+  // Bitácora
   const [journal, setJournal] = useState<JournalEntry[]>([]);
 
-  // Pending states
-  const [isPendingProgram, startProgramTransition] = useTransition();
-  const [isPendingStart, startStartTransition] = useTransition();
-  const [isPendingFinish, startFinishTransition] = useTransition();
-  const [isPendingOther, startOtherTransition] = useTransition();
-  const isPendingAny = isPendingProgram || isPendingStart || isPendingFinish || isPendingOther;
+  // Cargas
+  const [isPendingProgram, startProgram] = useTransition();
+  const [isPendingStart, startStart] = useTransition();
+  const [isPendingFinish, startFinish] = useTransition();
+  const [isPendingOther, startOther] = useTransition();
 
-  // ======= Handlers selección =======
   const openPlanningFromBom = (bom: RecipeBom) => {
     setPlanningBom(bom);
     setCurrentOrder(null);
     setPlanQty(1);
-    setPlanDate(new Date().toISOString().slice(0, 10));
-    setShortages([]);
-    setRequiredLots([]);
-    setStockOk(false);
+    setPlanDate(new Date().toISOString().slice(0,10));
+    setRealConsumption([]);
+    setOutputReal({ qty: 0, uom: (bom.stage==="ENVASADO" ? "unit" : "L") as Uom });
+    setResponsible("");
+    setChecks([false,false,false,false]);
+    setNotes("");
+    setJournal([]);
   };
 
   const openExecution = (order: ProductionOrder) => {
     setCurrentOrder(order);
     setPlanningBom(null);
-    setProtocolsAck(false);
-    setResponsible(order.responsibleId ?? "");
-    setRealConsumption((order as LocalProductionOrder).actuals ?? []);
-    setJournal((order as any).journal ?? []);
+    setPlanQty(order.plannedQty ?? 1);
+    setPlanDate(order.plannedDate?.slice(0,10) ?? new Date().toISOString().slice(0,10));
+    setRealConsumption(((order as any).actuals ?? []) as RealLine[]);
+    setOutputReal({ qty: (order as any)?.output?.[0]?.qty ?? 0, uom: ((order as any)?.output?.[0]?.uom ?? "unit") as Uom, lotNumber: (order as any)?.output?.[0]?.lotNumber });
+    setResponsible((order as any).responsibleId ?? "");
+    setChecks([false,false,false,false]);
+    setNotes("");
+    setJournal(((order as any).journal ?? []) as JournalEntry[]);
   };
 
-  // ======= Programar =======
+  // PREVIEW faltantes por orden (para “‼️”)
+  const hasShortagesFor = (o: ProductionOrder) => {
+    const bom = recipes.find(b=> b.id === o.bomId);
+    if (!bom) return false;
+    const theory = computeTheoretical(bom, o.plannedQty ?? 1, itemsMap);
+    const byItem = new Map<string, number>();
+    onHand.forEach(r=> byItem.set(r.itemId, (byItem.get(r.itemId) ?? 0) + (r.qty ?? 0)));
+    for (const t of theory) {
+      const avail = byItem.get(t.itemId) ?? 0;
+      if (avail + 1e-6 < t.qty) return true;
+    }
+    return false;
+  };
+
+  // Acciones
   const handleProgram = () => {
     if (!planningBom) return;
-    const idempotencyKey = crypto.randomUUID();
-    startProgramTransition(async () => {
+    startProgram(async () => {
       const r = await planProduction({
         bomId: planningBom.id,
-        qty: planQty,
+        plannedQty: planQty,
         plannedDate: planDate,
-        reservations: requiredLots, // reserva sugerida
-        idempotencyKey,
       } as any);
       if ((r as any)?.ok) {
-        const newOrder: ProductionOrder = (r as any).data?.order ?? (r as any).order ?? null;
-        if (newOrder) {
-          toast.success("Orden planificada");
-          setCurrentOrder(newOrder);
-          setPlanningBom(null);
-          setRealConsumption((newOrder as LocalProductionOrder).actuals ?? []); // si server devuelve snapshot
-          setJournal((newOrder as any).journal ?? []);
-        } else {
-          toast.success("Orden planificada (sin payload). Refresca datos si no aparece.");
-        }
+        toast.success("Orden planificada");
+        // según tu action, puede devolver { id } únicamente; pedimos al usuario refrescar si no llega payload
+        setPlanningBom(null);
       } else {
-        toast.error((r as any)?.error ?? "No se pudo planificar");
+        toast.error((r as any)?.message ?? "No se pudo planificar");
       }
     });
   };
 
-  const resetPlanning = () => {
-    setPlanningBom(null);
-  };
-
-  // ======= Iniciar / Pausar / Reanudar / Finalizar / Cancelar =======
   const handleStart = () => {
     if (!currentOrder) return;
-    if (!protocolsAck || !responsible) {
-      toast.error("Debes aceptar protocolos y asignar responsable antes de iniciar.");
+    if (!checks.some(Boolean) || !responsible) {
+      toast.error("Debes aceptar protocolos (al menos uno) y asignar responsable.");
       return;
     }
-    const idempotencyKey = crypto.randomUUID();
-    startStartTransition(async () => {
-      const r = await startProduction({
-        orderId: currentOrder.id,
-        responsible,
-        // al iniciar bloqueamos qty y fecha (lo hará el server), y anotación "START"
-        idempotencyKey,
-      } as any);
+    startStart(async () => {
+      const r = await startProduction(currentOrder.id);
       if ((r as any)?.ok) {
         toast.success("Producción iniciada");
-        const upd: ProductionOrder = (r as any).data?.order ?? currentOrder;
-        // bloqueamos edición localmente
-        setCurrentOrder({ ...upd, locked: true, status: "IN_PROGRESS" });
-        setJournal([...((upd as any).journal ?? []), { id: crypto.randomUUID(), at: new Date().toISOString(), summary: "Inicio de producción", kind: "START" }]);
-      } else {
-        toast.error((r as any)?.error ?? "Error al iniciar");
-      }
+        setCurrentOrder({ ...currentOrder, status: "IN_PROGRESS", execution: { ...(currentOrder.execution||{}), startedAt: new Date().toISOString() } });
+        setJournal(j => [...j, { id: crypto.randomUUID(), at: new Date().toISOString(), summary: "Inicio de producción", kind: "START" } as any]);
+      } else toast.error((r as any)?.message ?? "Error al iniciar");
     });
   };
 
   const handlePause = () => {
     if (!currentOrder) return;
-    const idempotencyKey = crypto.randomUUID();
-    startOtherTransition(async () => {
-      const r = await pauseProduction({ orderId: currentOrder.id, idempotencyKey});
+    startOther(async () => {
+      const r = await pauseProduction(currentOrder.id);
       if ((r as any)?.ok) {
         toast.message("Producción en pausa");
         setCurrentOrder({ ...currentOrder, status: "PAUSED" });
-        setJournal([...((currentOrder as any).journal ?? []), { id: crypto.randomUUID(), at: new Date().toISOString(), summary: "Pausa", kind: "PAUSE" }]);
-      } else {
-        toast.error((r as any)?.error ?? "No se pudo pausar");
-      }
+        setJournal(j => [...j, { id: crypto.randomUUID(), at: new Date().toISOString(), summary: "Pausa", kind: "PAUSE" } as any]);
+      } else toast.error((r as any)?.message ?? "No se pudo pausar");
     });
   };
 
   const handleResume = () => {
     if (!currentOrder) return;
-    const idempotencyKey = crypto.randomUUID();
-    startOtherTransition(async () => {
-      const r = await resumeProduction({ orderId: currentOrder.id, idempotencyKey });
+    startOther(async () => {
+      const r = await resumeProduction(currentOrder.id);
       if ((r as any)?.ok) {
         toast.success("Producción reanudada");
         setCurrentOrder({ ...currentOrder, status: "IN_PROGRESS" });
-        setJournal([...((currentOrder as any).journal ?? []), { id: crypto.randomUUID(), at: new Date().toISOString(), summary: "Reanudación", kind: "RESUME" }]);
-      } else {
-        toast.error((r as any)?.error ?? "No se pudo reanudar");
-      }
-    });
-  };
-
-  const confirmAndCancel = (orderId: string) => {
-    if (!confirm("¿Cancelar la orden? Esta acción no se puede deshacer.")) return;
-    const idempotencyKey = crypto.randomUUID();
-    startOtherTransition(async () => {
-      const r = await cancelProduction({ orderId, idempotencyKey });
-      if ((r as any)?.ok) {
-        toast.success("Orden cancelada");
-        setCurrentOrder(null);
-      } else {
-        toast.error((r as any)?.error ?? "No se pudo cancelar");
-      }
+        setJournal(j => [...j, { id: crypto.randomUUID(), at: new Date().toISOString(), summary: "Reanudación", kind: "RESUME" } as any]);
+      } else toast.error((r as any)?.message ?? "No se pudo reanudar");
     });
   };
 
   const handleFinish = () => {
     if (!currentOrder) return;
-
-    // Resumen final: mostramos un confirm con puntos clave (puedes reemplazar por modal real)
-    const kpisPrev = computeKPIs(
-      {
-        ...currentOrder,
-        real: realConsumption,
-        execution: {
-            ...currentOrder.execution,
-            finishedAt: new Date().toISOString(),
-            startedAt: currentOrder.execution?.startedAt ?? new Date(Date.now() - 3600000).toISOString(), // fallback 1h
-        }
-      },
-      itemsMap
-    );
-
-    const resumen =
-      `Vas a finalizar la orden.\n` +
-      `Rendimiento: ${kpisPrev.rendimientoPct}%\n` +
-      `Mermas: ${kpisPrev.mermaPct}%\n` +
-      `Coste Estimado: ${kpisPrev.costeEstimado} vs Real: ${kpisPrev.costeReal}\n` +
-      (currentOrder.stage === "ENVASADO" ? `Botellas/h: ${kpisPrev.botellasHora}\n` : "");
-
-    if (!confirm(resumen + "\n¿Confirmar y registrar inventario?")) return;
-
-    const idempotencyKey = crypto.randomUUID();
-    startFinishTransition(async () => {
-      const r = await closeProduction({
-        orderId: currentOrder.id,
-        realConsumption,
-        // rectificación final de lotes/cantidades
-        journal: [
-          ...((currentOrder as any).journal ?? []),
-          ...journal,
-          { id: crypto.randomUUID(), at: new Date().toISOString(), summary: "Cierre de orden", kind: "FINISH" },
-        ],
-        idempotencyKey,
-      } as any);
+    startFinish(async () => {
+      const r = await closeProduction(currentOrder.id);
       if ((r as any)?.ok) {
         toast.success("Orden finalizada y archivada");
-        const upd: ProductionOrder = (r as any).data?.order ?? { ...currentOrder, status: "DONE", execution: { ...currentOrder.execution, finishedAt: new Date().toISOString() } };
-        setCurrentOrder(upd);
-      } else {
-        toast.error((r as any)?.error ?? "No se pudo finalizar");
-      }
+        setCurrentOrder({ ...currentOrder, status: "CLOSED", execution: { ...(currentOrder.execution||{}), finishedAt: new Date().toISOString() } });
+        setJournal(j => [...j, { id: crypto.randomUUID(), at: new Date().toISOString(), summary: "Cierre de orden", kind: "FINISH" } as any]);
+      } else toast.error((r as any)?.message ?? "No se pudo finalizar");
     });
   };
 
-  // ======= Añadir nota/Incidencia a la bitácora =======
-  const handleAddJournal = (text: string) => {
-    if (!currentOrder) {
-      // estamos en planificación, simplemente añadimos a local
-      setJournal((j) => [...j, { id: crypto.randomUUID(), at: new Date().toISOString(), summary: text, kind: "NOTE" }]);
-      return;
-    }
-    const idempotencyKey = crypto.randomUUID();
-    startOtherTransition(async () => {
-      const r = await addIncident({
-        orderId: currentOrder.id,
-        summary: text,
-        severity: "LOW",
-        idempotencyKey,
-      });
+  const handleCancel = () => {
+    if (!currentOrder) return;
+    if (!confirm("¿Cancelar la orden? Esta acción no se puede deshacer.")) return;
+    startOther(async () => {
+      const r = await cancelProduction(currentOrder.id);
       if ((r as any)?.ok) {
-        const newEntry: JournalEntry = { id: crypto.randomUUID(), at: new Date().toISOString(), summary: text, kind: "INCIDENT" };
-        setJournal((j) => [...j, newEntry]);
+        toast.success("Orden cancelada");
+        setCurrentOrder(null);
+      } else toast.error((r as any)?.message ?? "No se pudo cancelar");
+    });
+  };
+
+  const handleAddJournal = (text: string) => {
+    if (!currentOrder) { setJournal(j => [...j, { id: crypto.randomUUID(), at: new Date().toISOString(), summary: text, kind: "NOTE" } as any]); return; }
+    (async () => {
+      const r = await addIncident(currentOrder.id, { severity: "LOW", summary: text });
+      if ((r as any)?.ok) {
+        setJournal(j => [...j, { id: crypto.randomUUID(), at: new Date().toISOString(), summary: text, kind: "INCIDENT" } as any]);
         toast.success("Anotado en bitácora");
       } else {
-        // aunque falle server, mantenemos nota local
-        setJournal((j) => [...j, { id: crypto.randomUUID(), at: new Date().toISOString(), summary: text, kind: "NOTE" }]);
-        toast.error("No se pudo registrar la incidencia en server; guardada localmente.");
+        setJournal(j => [...j, { id: crypto.randomUUID(), at: new Date().toISOString(), summary: text, kind: "NOTE" } as any]);
+        toast.error("No se pudo registrar en server; guardada localmente.");
       }
-    });
+    })();
   };
 
-  // KPI live cuando hay orden cerrada (o para mostrar preview al cerrar)
-  const kpis = useMemo(() => {
-    if (!currentOrder) return null;
-    const base = { ...currentOrder, real: realConsumption };
-    return computeKPIs(base, itemsMap);
-  }, [currentOrder, realConsumption, itemsMap]);
+  // KPIs (ligeros)
+  const kpis = useMemo(()=>{
+    // calculamos con lo que tengamos (preview simple)
+    const cost = (lines:RealLine[]) => lines.reduce((s,l)=> s + ((itemsMap.get(l.itemId)?.stdCost ?? 0)*(l.qty??0)), 0);
+    const costeEstimado = cost(computeTheoretical(recipes.find(b=>b.id === (currentOrder?.bomId ?? planningBom?.id)) ?? ({} as any), currentOrder?.plannedQty ?? planQty, itemsMap) as any);
+    const costeReal = cost(realConsumption);
+    const theoTotal = computeTheoretical(recipes.find(b=>b.id === (currentOrder?.bomId ?? planningBom?.id)) ?? ({} as any), currentOrder?.plannedQty ?? planQty, itemsMap).reduce((s,t)=>s+t.qty,0);
+    const realTotal = realConsumption.reduce((s,r)=>s+r.qty,0);
+    const mermaPct = theoTotal>0 ? +(((theoTotal - realTotal)/theoTotal)*100).toFixed(1) : 0;
+    const rendimientoPct = (outputReal.qty ?? 0) > 0 && (currentOrder?.plannedQty ?? planQty) > 0
+      ? +(((outputReal.qty ?? 0) / (currentOrder?.plannedQty ?? planQty))*100).toFixed(1) : 0;
+    // botella/h estimado si hay started/finished
+    let botellasHora = 0;
+    const started = currentOrder?.execution?.startedAt; const finished = currentOrder?.execution?.finishedAt;
+    const fg = itemsMap.get(currentOrder?.outputItemId ?? "");
+    if (started && finished && fg?.bottleMl && outputReal.qty) {
+      const elapsedH = (new Date(finished).getTime() - new Date(started).getTime())/3600000;
+      if (elapsedH>0) { const bottles = (outputReal.qty*1000)/fg.bottleMl; botellasHora = +(bottles/elapsedH).toFixed(1); }
+    }
+    return {
+      rendimientoPct, mermaPct,
+      costeEstimado: +costeEstimado.toFixed(2),
+      costeReal: +costeReal.toFixed(2),
+      botellasHora
+    };
+  }, [currentOrder, planningBom, planQty, itemsMap, realConsumption, outputReal]);
 
-  // ======= Render =======
-  // Listas colapsables en la izquierda
+  // Render
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-200px)]">
       {/* Columna izquierda: listas */}
       <div className="lg:col-span-3 flex flex-col space-y-4">
         <Collapsible title="Planificar nueva orden" count={recipes.length} defaultOpen>
           <ul className="max-h-56 overflow-y-auto divide-y">
-            {recipes.map((b) => (
+            {recipes.map(b=>(
               <li key={b.id}>
-                <button className="w-full px-3 py-2 hover:bg-zinc-50 text-left" onClick={() => openPlanningFromBom(b)}>
+                <button className="w-full px-3 py-2 hover:bg-zinc-50 text-left" onClick={()=>openPlanningFromBom(b)}>
                   <div className="flex items-center justify-between">
                     <span className="font-medium">{b.name}</span>
                     <Badge tone="sky">BOM</Badge>
@@ -631,128 +587,146 @@ export default function ProductionExecutionPage() {
                 </button>
               </li>
             ))}
-            {recipes.length === 0 && <li className="px-3 py-4 text-sm text-zinc-500">No hay recetas.</li>}
+            {recipes.length===0 && <li className="px-3 py-4 text-sm text-zinc-500">No hay recetas.</li>}
           </ul>
         </Collapsible>
 
-        <Collapsible title="En curso" count={activeOrders.length} defaultOpen>
+        <Collapsible title="Órdenes activas" count={activeOrders.length} defaultOpen>
           <ul className="max-h-56 overflow-y-auto divide-y">
-            {activeOrders.map((o) => (
-              <li key={o.id}>
-                <button className="w-full px-3 py-2 hover:bg-zinc-50 text-left" onClick={() => openExecution(o)}>
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">{o.name ?? `Orden ${o.id.slice(-4)}`}</span>
-                    <Badge tone={mapStatusTone(o.status)}>{o.status}</Badge>
-                  </div>
-                  <p className="text-xs text-zinc-500">
-                    {o.stage === "ENVASADO" ? "Envasado" : "Producción"} · {o.scheduledFor ? new Date(o.scheduledFor).toLocaleDateString() : "-"}
-                  </p>
-                </button>
-              </li>
-            ))}
-            {activeOrders.length === 0 && <li className="px-3 py-4 text-sm text-zinc-500">No hay órdenes activas.</li>}
+            {activeOrders.map(o=>{
+              const warn = hasShortagesFor(o);
+              return (
+                <li key={o.id}>
+                  <button className="w-full px-3 py-2 hover:bg-zinc-50 text-left" onClick={()=>openExecution(o)}>
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">
+                        {o.name ?? `Orden ${o.id.slice(-4)}`} {warn && <span className="ml-1 text-rose-600 font-bold">‼️</span>}
+                      </span>
+                      <Badge tone={mapStatusTone(o.status)}>{o.status}</Badge>
+                    </div>
+                    <p className="text-xs text-zinc-500">
+                      {(o.stage === "ENVASADO" ? "Envasado" : "Producción")} · {o.plannedDate ? new Date(o.plannedDate).toLocaleDateString('es-ES') : "-"}
+                    </p>
+                  </button>
+                </li>
+              );
+            })}
+            {activeOrders.length===0 && <li className="px-3 py-4 text-sm text-zinc-500">No hay órdenes activas.</li>}
           </ul>
         </Collapsible>
       </div>
 
-      {/* Columna central + derecha: contenido */}
-      <div className="lg:col-span-9 space-y-4">
-        {/* Modo Planificación */}
-        {planningBom && !currentOrder && (
-          <SBCard
-            title="Planificar Nueva Orden"
-            accent="hsl(var(--sb-accent-produc))"
-          >
+      {/* Columna central (panel único) + derecha (control) */}
+      <div className="lg:col-span-9 grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Centro: 2/3 */}
+        <div className="lg:col-span-2 space-y-4">
+          {/* Card cabecera plan/exec */}
+          <SBCard title={<><CalendarIcon size={16}/><span>Planificación / Ejecución de orden</span></>}>
             <div className="p-4 space-y-4">
-              <div className="grid grid-cols-3 gap-4">
-                <div className="col-span-2">
-                  <label className="text-xs font-medium">Receta base</label>
-                  <p className="font-semibold">{planningBom.name}</p>
-                </div>
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm space-y-1">
+                <p className="font-bold font-mono text-base">
+                  {currentOrder?.name ?? planningBom?.name ?? "Nueva orden"}
+                </p>
+                <p><b>Etapa:</b> {currentOrder?.stage ?? planningBom?.stage ?? "-"}</p>
+                {currentOrder?.status && (<p><b>Status:</b> <Badge tone="sky">{currentOrder.status}</Badge></p>)}
+              </div>
+
+              {/* Inputs plan */}
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-medium">Cantidad (lotes de receta)</label>
-                  <input type="number" className="mt-1 w-full border rounded-md p-2" value={planQty} onChange={e => setPlanQty(Number(e.target.value) || 0)} />
+                  <input
+                    type="number" className="mt-1 w-full border rounded-md p-2"
+                    value={currentOrder?.plannedQty ?? planQty}
+                    readOnly={!canEditPlan(currentOrder?.status)}
+                    onChange={e=> canEditPlan(currentOrder?.status) ? setPlanQty(Number(e.target.value)||0) : void 0}
+                  />
                 </div>
                 <div>
                   <label className="text-xs font-medium">Fecha prevista</label>
-                  <input type="date" className="mt-1 w-full border rounded-md p-2" value={planDate} onChange={e => setPlanDate(e.target.value)} />
+                  <input
+                    type="date" className="mt-1 w-full border rounded-md p-2"
+                    value={currentOrder?.plannedDate?.slice(0,10) ?? planDate}
+                    readOnly={!canEditPlan(currentOrder?.status)}
+                    onChange={e=> canEditPlan(currentOrder?.status) ? setPlanDate(e.target.value) : void 0}
+                  />
                 </div>
               </div>
 
-              <StockCheckPanel bom={planningBom} qty={planQty} items={items} onHand={onHand} onReadyChange={setStockOk} shortagesOut={setShortages} requiredLotsOut={setRequiredLots} />
+              {/* Panel único materiales */}
+              { (planningBom || (currentOrder && recipes.find(b=>b.id===currentOrder.bomId))) ? (
+                <StockCheckPanel
+                  bom={planningBom ?? (recipes.find(b=>b.id===currentOrder!.bomId) as RecipeBom)}
+                  qty={currentOrder?.plannedQty ?? planQty}
+                  items={items}
+                  onHand={onHand as any}
+                  real={realConsumption}
+                  onChangeReal={setRealConsumption}
+                  outputReal={outputReal}
+                  onChangeOutputReal={setOutputReal}
+                  status={currentOrder?.status ?? "PLANNED"}
+                  showAvailability={true}
+                />
+              ) : (
+                <div className="border rounded-lg p-3 text-sm text-zinc-500">Selecciona una receta u orden.</div>
+              )}
 
-              <div className="flex justify-end gap-2">
-                <SBButton variant="secondary" onClick={resetPlanning}>Cancelar</SBButton>
-                <SpinnerButton onClick={handleProgram} disabled={isPendingAny} loading={isPendingProgram}>Programar producción</SpinnerButton>
+              {/* Botonera azul (estado) */}
+              <div className="flex flex-wrap gap-2 pt-2">
+                {(!currentOrder && planningBom) && (
+                  <SBButton className="bg-blue-600 text-white" onClick={handleProgram} disabled={isPendingProgram}>
+                    <Play size={16}/> Programar
+                  </SBButton>
+                )}
+                {currentOrder && canStart(currentOrder.status) && (
+                  <SBButton className="bg-blue-600 text-white" onClick={handleStart} disabled={isPendingStart}>
+                    <Play size={16}/> Iniciar producción
+                  </SBButton>
+                )}
+                {currentOrder && canPause(currentOrder.status) && (
+                  <SBButton className="bg-blue-600 text-white" onClick={handlePause} disabled={isPendingOther}>
+                    <Pause size={16}/> Pausar
+                  </SBButton>
+                )}
+                {currentOrder && canResume(currentOrder.status) && (
+                  <SBButton className="bg-blue-600 text-white" onClick={handleResume} disabled={isPendingOther}>
+                    <Play size={16}/> Reanudar
+                  </SBButton>
+                )}
+                {currentOrder && canFinish(currentOrder.status) && (
+                  <SBButton className="bg-blue-600 text-white" onClick={handleFinish} disabled={isPendingFinish}>
+                    <CheckCircle2 size={16}/> Finalizar
+                  </SBButton>
+                )}
+                {currentOrder && canEditPlan(currentOrder.status) && (
+                  <SBButton variant="secondary" onClick={handleCancel} disabled={isClosedLike(currentOrder.status)}>
+                    <XCircle size={16}/> Cancelar
+                  </SBButton>
+                )}
               </div>
             </div>
           </SBCard>
-        )}
 
-        {/* Modo Ejecución */}
-        {currentOrder && (
-          <>
-            <SBCard
-              title={
-                <div className="flex items-center gap-2">
-                  <Calendar size={16} />
-                  <span>{currentOrder.name || 'Orden de Producción'}</span>
-                  <Badge tone={mapStatusTone(currentOrder.status)}>{currentOrder.status}</Badge>
-                </div>
-              }
-              accent="hsl(var(--sb-accent-produc))"
-            >
-              <div className="p-4 space-y-4">
-                {/* Panel de estado y gating */}
-                {(currentOrder.status === "PLANNED" || currentOrder.status === "RELEASED") && (
-                  <div className="p-3 bg-zinc-50 border rounded-lg space-y-3">
-                    <div className="flex items-center gap-2">
-                      <input id="protocols-ack" type="checkbox" checked={protocolsAck} onChange={e => setProtocolsAck(e.target.checked)} />
-                      <label htmlFor="protocols-ack" className="text-sm">Confirmo que he leído los protocolos de seguridad.</label>
-                    </div>
-                    <div>
-                      <label htmlFor="responsible-id" className="text-sm">Responsable de producción</label>
-                      <input id="responsible-id" value={responsible ?? ''} onChange={e => setResponsible(e.target.value)} className="w-full mt-1 border rounded-md p-2" placeholder="Tu nombre..." />
-                    </div>
-                  </div>
-                )}
-                
-                {/* Botonera de acción principal */}
-                <div className="flex flex-wrap gap-2">
-                  {(currentOrder.status === 'PLANNED' || currentOrder.status === 'RELEASED') && <SpinnerButton onClick={handleStart} loading={isPendingStart} disabled={!protocolsAck || !responsible || isPendingAny}><Play size={16}/> Iniciar</SpinnerButton>}
-                  {currentOrder.status === 'IN_PROGRESS' && <SpinnerButton onClick={handlePause} loading={isPendingOther} disabled={isPendingAny}><Pause size={16}/> Pausar</SpinnerButton>}
-                  {currentOrder.status === 'PAUSED' && <SpinnerButton onClick={handleResume} loading={isPendingOther} disabled={isPendingAny}><Play size={16}/> Reanudar</SpinnerButton>}
-                  {(currentOrder.status === 'IN_PROGRESS' || currentOrder.status === 'QC_HOLD') && <SpinnerButton onClick={handleFinish} loading={isPendingFinish} disabled={isPendingAny}><CheckCircle size={16}/> Finalizar</SpinnerButton>}
-                  {currentOrder.status !== 'DONE' && currentOrder.status !== 'CANCELLED' && <SpinnerButton variant='destructive' onClick={() => confirmAndCancel(currentOrder.id)} loading={isPendingOther} disabled={isPendingAny}><XCircle size={16}/> Cancelar</SpinnerButton>}
-                </div>
-              </div>
-            </SBCard>
-            
-            {/* Panel de consumo real */}
-            <MaterialsEditor
-              bom={recipes.find(b => b.id === currentOrder.bomId)!}
-              qty={currentOrder.targetQuantity}
-              real={realConsumption}
-              onChange={setRealConsumption}
-              readOnly={currentOrder.status !== "PLANNED" && currentOrder.status !== "RELEASED"}
-            />
-            
-            <>
-              {/* Bitácora — siempre visible, incidencias abiertas */}
-              <JournalCard
-                journal={journal}
-                onAdd={handleAddJournal}
-                readOnly={false}
-              />
-            </>
-          </>
-        )}
+          {/* Bitácora siempre visible */}
+          <JournalCard journal={journal} onAdd={handleAddJournal} readOnly={isClosedLike(currentOrder?.status)} />
+        </div>
 
-        {!planningBom && !currentOrder && (
-          <div className="border-2 border-dashed rounded-xl h-[60vh] grid place-items-center text-zinc-500">
-            Selecciona una receta para planificar o una orden en curso para ejecutar.
-          </div>
-        )}
+        {/* Derecha: control */}
+        <div className="lg:col-span-1">
+          <RightControlPanel
+            skuName={ itemsMap.get(currentOrder?.outputItemId ?? planningBom?.outputItemId ?? "")?.name ?? "-" }
+            lot={ (currentOrder as any)?.lotNumber ?? outputReal.lotNumber }
+            startedAt={ currentOrder?.execution?.startedAt }
+            endedAt={ currentOrder?.execution?.finishedAt }
+            responsible={responsible}
+            setResponsible={setResponsible}
+            checks={checks}
+            setChecks={setChecks}
+            notes={notes}
+            setNotes={setNotes}
+            kpis={kpis}
+          />
+        </div>
       </div>
     </div>
   );

@@ -59,7 +59,7 @@ function Badge({ children, tone = "zinc" }: { children: React.ReactNode; tone?: 
     sky: 'bg-sky-100 text-sky-800',
     amber: 'bg-amber-100 text-amber-800',
     rose: 'bg-rose-100 text-rose-800',
-    emerald: 'bg-green-100 text-green-800',
+    emerald: 'bg-emerald-100 text-emerald-800',
   };
   return <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${toneClasses[tone]}`}>{children}</span>;
 }

@@ -13,7 +13,6 @@ function QualityNav() {
     const navItems = [
         { href: '/quality/dashboard', label: 'Dashboard' },
         { href: '/quality/release', label: 'Laboratorio (Liberación)' },
-        { href: '/quality/traceability', label: 'Trazabilidad' },
         { href: '/quality/autocontrol', label: 'Autocontrol' },
         { href: '/quality/parametros', label: 'Parámetros y Planes' },
     ];
