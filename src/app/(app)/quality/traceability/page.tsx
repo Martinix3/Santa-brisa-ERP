@@ -104,7 +104,7 @@ function normalizeEvents(params: {
 
   const includeLot = (ln?: string) => !lotNumbers || (ln && lotNumbers.has(ln));
 
-  const itemUom = (itemId?: string) => items.find(i => i.id === itemId)?.uom;
+  const itemUom = (itemId?: string) => items.find(i => i.id === itemId)?.uom ?? "";
 
   const evs: TraceEvent[] = [];
 
@@ -145,15 +145,15 @@ function normalizeEvents(params: {
       refs: baseRefs,
       qty: t.qty,
       uom: t.uom,
-      locationFrom: t.fromLocationId ?? t.fromLocation,
-      locationTo: t.toLocationId ?? t.toLocation,
+      locationFrom: (t as any).fromLocationId ?? t.fromLocation,
+      locationTo: (t as any).toLocationId ?? t.toLocation,
     });
   }
 
   // 2) Genealogía (por si quieres redundar salida/consumo)
   for (const edge of lotGenealogy) {
     const ord = orders.find(o => o.id === edge.orderId);
-    const outTime = ord?.execution?.finishedAt ?? ord?.createdAt ?? lots.find(l => l.lotNumber === edge.childLot)?.createdAt ?? new Date().toISOString();
+    const outTime = (ord as any)?.execution?.finishedAt ?? ord?.createdAt ?? lots.find(l => l.lotNumber === edge.childLot)?.createdAt ?? new Date().toISOString();
 
     if (includeLot(edge.childLot)) {
       evs.push({
@@ -203,8 +203,8 @@ function normalizeEvents(params: {
       kind: ins.point === "PRE_PROD" ? "PROTOCOL_ACK" : "QC_TEST",
       title: ins.point === "PRE_PROD" ? "Checklist / Protocolo" : `Inspección ${ins.point}`,
       details: ins.status,
-      refs: makeRefs([{ type: ins.entity?.kind ?? "inspection", id: ins.entity?.id ?? ins.id }]),
-      qc: { point: ins.point, status: ins.status, decision: ins.decision },
+      refs: makeRefs([{ type: (ins.entity?.kind as RefType) ?? "inspection", id: ins.entity?.id ?? ins.id }]),
+      qc: { point: ins.point, status: ins.status, decision: (ins as any).decision },
     });
   }
 
@@ -408,48 +408,40 @@ export default function TraceabilityPage() {
   return (
     <div className="mx-auto max-w-screen-2xl p-6 space-y-6">
       <SBCard
-        title="Trazabilidad — seguimiento end-to-end"
+        title={
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <h2 className="text-xl font-semibold text-zinc-800">Trazabilidad — seguimiento end-to-end</h2>
+            <div className="flex items-center gap-3">
+              <select className="h-10 border rounded-lg px-2 text-sm bg-white" value={focusKind} onChange={e=>setFocusKind(e.target.value as any)}>
+                <option value="lot">Lote</option>
+                <option value="order">Orden</option>
+                <option value="shipment">Envío</option>
+                <option value="receipt">Recepción</option>
+              </select>
+              <div className="relative flex-grow">
+                 <Search size={16} className="text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                 <input
+                  className="h-10 border rounded-lg px-3 pl-9 w-full text-sm bg-white"
+                  placeholder={`Buscar por ID de ${focusKind}...`}
+                  value={query}
+                  onChange={e=>setQuery(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+        }
         accent="hsl(var(--sb-accent-calidad))"
       >
-        <div className="p-4 grid md:grid-cols-[160px_1fr_220px] gap-3">
-          <div className="flex gap-2">
-            <select className="h-10 border rounded-lg px-2" value={focusKind} onChange={e=>setFocusKind(e.target.value as any)}>
-              <option value="lot">Lote</option>
-              <option value="order">Orden</option>
-              <option value="shipment">Envío</option>
-              <option value="receipt">Recepción</option>
-            </select>
-          </div>
-          <div className="flex items-center gap-2">
-            <Search size={16} className="text-zinc-500" />
-            <input
-              className="h-10 border rounded-lg px-3 w-full"
-              placeholder={`Buscar ${focusKind}…`}
-              value={query}
-              onChange={e=>setQuery(e.target.value)}
-            />
-          </div>
-          <div className="flex items-center justify-end gap-2">
-            {singleLot?.qcStatus && (
-              <Badge tone={qcStatusTone(singleLot.qcStatus)}>{singleLot.qcStatus}</Badge>
-            )}
-            {singleLot?.status && <Badge>{singleLot.status}</Badge>}
-          </div>
-        </div>
-      </SBCard>
-
-      <div className="grid lg:grid-cols-[1.3fr_1fr] gap-6">
-        {/* Timeline */}
-        <SBCard title="Timeline" accent="hsl(var(--sb-accent-calidad))">
-          <div className="p-4">
-            {(!focusedLots || events.length === 0) && (
-              <div className="p-10 text-zinc-500 text-sm">
-                Introduce un identificador (lote / orden / envío / recepción) para ver la trazabilidad.
+        <div className="grid lg:grid-cols-[1.3fr_1fr] gap-6 p-4">
+          {/* Timeline */}
+          <div>
+            <h3 className="text-lg font-semibold mb-3">Timeline</h3>
+            {(!focusedLots || events.length === 0) ? (
+              <div className="p-10 text-zinc-500 text-sm text-center border-2 border-dashed rounded-xl">
+                Introduce un identificador para ver la trazabilidad.
               </div>
-            )}
-
-            {events.length > 0 && (
-              <ol className="relative border-s">
+            ) : (
+              <ol className="relative border-s ml-2">
                 {events.map((ev) => (
                   <li key={ev.id} className="mb-6 ms-4">
                     <div className="absolute w-3 h-3 bg-white rounded-full -start-1.5 border" />
@@ -491,115 +483,115 @@ export default function TraceabilityPage() {
               </ol>
             )}
           </div>
-        </SBCard>
 
-        {/* Lateral derecho: Resumen + Genealogía */}
-        <div className="space-y-6">
-          <SBCard title="Resumen del foco" accent="hsl(var(--sb-accent-calidad))">
-            <div className="p-4 text-sm">
-              {!focusedLots && <div className="text-zinc-500">Selecciona un identificador para ver el resumen.</div>}
+          {/* Lateral derecho: Resumen + Genealogía */}
+          <div className="space-y-6">
+            <SBCard title="Resumen del foco">
+              <div className="p-4 text-sm">
+                {!focusedLots && <div className="text-zinc-500">Selecciona un identificador para ver el resumen.</div>}
 
-              {/* Resumen cuando hay 1 solo lote */}
-              {singleLot && (
-                <div className="space-y-1">
-                  <div><b>Lote:</b> {singleLot.lotNumber}</div>
-                  <div className="text-zinc-600">
-                    Item: {singleLot.itemId} · Disponible: {singleLot.quantity} {lotUom(singleLot)}
+                {/* Resumen cuando hay 1 solo lote */}
+                {singleLot && (
+                  <div className="space-y-1">
+                    <div><b>Lote:</b> {singleLot.lotNumber}</div>
+                    <div className="text-zinc-600">
+                      Item: {singleLot.itemId} · Disponible: {singleLot.quantity} {lotUom(singleLot)}
+                    </div>
+                    <div className="text-zinc-600">
+                      QC: {singleLot.qcStatus ?? "PENDING"} · Estado: {singleLot.status ?? "OPEN"}
+                    </div>
+                    {singleLot.locationId && (
+                      <div className="text-zinc-600">Ubicación: {singleLot.locationId}</div>
+                    )}
                   </div>
-                  <div className="text-zinc-600">
-                    QC: {singleLot.qcStatus ?? "PENDING"} · Estado: {singleLot.status ?? "OPEN"}
-                  </div>
-                  {singleLot.locationId && (
-                    <div className="text-zinc-600">Ubicación: {singleLot.locationId}</div>
-                  )}
-                </div>
-              )}
+                )}
 
-              {/* Resumen cuando hay varios lotes */}
-              {focusedLots && !singleLot && (
-                <div className="space-y-2">
-                  {Array.from(focusedLots).map(ln => {
-                    const l = lots.find(x => x.lotNumber === ln);
-                    if (!l) return (
-                      <div key={ln} className="border rounded-lg p-2">
-                        <div className="font-medium">{ln}</div>
-                        <div className="text-xs text-zinc-600">Lote no localizado en datos.</div>
-                      </div>
-                    );
-                    return (
-                      <div key={ln} className="border rounded-lg p-2 flex items-center justify-between">
-                        <div>
-                          <div className="font-medium">{l.lotNumber}</div>
-                          <div className="text-xs text-zinc-600">
-                            {l.itemId} · {l.quantity} {lotUom(l)} · QC {l.qcStatus ?? "PENDING"}
-                          </div>
+                {/* Resumen cuando hay varios lotes */}
+                {focusedLots && !singleLot && (
+                  <div className="space-y-2">
+                    {Array.from(focusedLots).map(ln => {
+                      const l = lots.find(x => x.lotNumber === ln);
+                      if (!l) return (
+                        <div key={ln} className="border rounded-lg p-2">
+                          <div className="font-medium">{ln}</div>
+                          <div className="text-xs text-zinc-600">Lote no localizado en datos.</div>
                         </div>
-                        <a className="text-sky-700 text-sm underline" href={`/lots/${encodeURIComponent(l.lotNumber)}/dossier`}>Abrir dossier</a>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </SBCard>
-
-          <SBCard title="Genealogía" accent="hsl(var(--sb-accent-calidad))">
-            <div className="p-4 space-y-4">
-              {(!focusedLots || (parents.size===0 && children.size===0)) && (
-                <div className="text-sm text-zinc-500">No hay relaciones de genealogía para el foco actual.</div>
-              )}
-
-              {parents.size>0 && (
-                <div>
-                  <div className="flex items-center gap-2 text-sm font-semibold mb-2">
-                    <GitBranch size={16}/> Upstream (lotes padres)
+                      );
+                      return (
+                        <div key={ln} className="border rounded-lg p-2 flex items-center justify-between">
+                          <div>
+                            <div className="font-medium">{l.lotNumber}</div>
+                            <div className="text-xs text-zinc-600">
+                              {l.itemId} · {l.quantity} {lotUom(l)} · QC {l.qcStatus ?? "PENDING"}
+                            </div>
+                          </div>
+                          <a className="text-sky-700 text-sm underline" href={`/lots/${encodeURIComponent(l.lotNumber)}/dossier`}>Abrir dossier</a>
+                        </div>
+                      );
+                    })}
                   </div>
-                  <div className="space-y-1">
-                    {Array.from(parents.entries()).map(([child, set])=>(
-                      <div key={`p-${child}`} className="text-sm">
-                        <span className="font-medium">{child}</span> ⇐ {Array.from(set).map(p=>(<a key={p} className="underline text-sky-700 mr-2" href={`/lots/${p}/dossier`}>{p}</a>))}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+                )}
+              </div>
+            </SBCard>
 
-              {children.size>0 && (
-                <div>
-                  <div className="flex items-center gap-2 text-sm font-semibold mb-2">
-                    <GitBranch size={16}/> Downstream (lotes hijos)
-                  </div>
-                  <div className="space-y-1">
-                    {Array.from(children.entries()).map(([parent, set])=>(
-                      <div key={`c-${parent}`} className="text-sm">
-                        <span className="font-medium">{parent}</span> ⇒ {Array.from(set).map(c=>(<a key={c} className="underline text-sky-700 mr-2" href={`/lots/${c}/dossier`}>{c}</a>))}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </SBCard>
+            <SBCard title="Genealogía">
+              <div className="p-4 space-y-4">
+                {(!focusedLots || (parents.size===0 && children.size===0)) && (
+                  <div className="text-sm text-zinc-500">No hay relaciones de genealogía para el foco actual.</div>
+                )}
 
-          <SBCard title="Acciones rápidas" accent="hsl(var(--sb-accent-calidad))">
-            <div className="p-4 grid grid-cols-2 gap-2">
-              {singleLot ? (
-                <>
-                  <a className="border rounded-lg p-3 text-sm hover:bg-zinc-50" href={`/lots/${singleLot.lotNumber}/dossier`}>Abrir dossier del lote</a>
-                  <a className="border rounded-lg p-3 text-sm hover:bg-zinc-50" href="/quality/laboratorio">Ir a laboratorio</a>
-                </>
-              ) : (
-                <>
-                  <a className="border rounded-lg p-3 text-sm hover:bg-zinc-50" href="/quality/laboratorio">Ir a laboratorio</a>
-                  <a className="border rounded-lg p-3 text-sm hover:bg-zinc-50" href="/quality/parametros">Configurar parámetros</a>
-                </>
-              )}
-              <a className="border rounded-lg p-3 text-sm hover:bg-zinc-50" href="/quality/autocontrol">Ver autocontrol</a>
-              <a className="border rounded-lg p-3 text-sm hover:bg-zinc-50" href="/quality">Dashboard de Calidad</a>
-            </div>
-          </SBCard>
+                {parents.size>0 && (
+                  <div>
+                    <div className="flex items-center gap-2 text-sm font-semibold mb-2">
+                      <GitBranch size={16}/> Upstream (lotes padres)
+                    </div>
+                    <div className="space-y-1">
+                      {Array.from(parents.entries()).map(([child, set])=>(
+                        <div key={`p-${child}`} className="text-sm">
+                          <span className="font-medium">{child}</span> ⇐ {Array.from(set).map(p=>(<a key={p} className="underline text-sky-700 mr-2" href={`/lots/${p}/dossier`}>{p}</a>))}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {children.size>0 && (
+                  <div>
+                    <div className="flex items-center gap-2 text-sm font-semibold mb-2">
+                      <GitBranch size={16}/> Downstream (lotes hijos)
+                    </div>
+                    <div className="space-y-1">
+                      {Array.from(children.entries()).map(([parent, set])=>(
+                        <div key={`c-${parent}`} className="text-sm">
+                          <span className="font-medium">{parent}</span> ⇒ {Array.from(set).map(c=>(<a key={c} className="underline text-sky-700 mr-2" href={`/lots/${c}/dossier`}>{c}</a>))}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </SBCard>
+
+            <SBCard title="Acciones rápidas">
+              <div className="p-4 grid grid-cols-2 gap-2">
+                {singleLot ? (
+                  <>
+                    <a className="border rounded-lg p-3 text-sm hover:bg-zinc-50" href={`/lots/${singleLot.lotNumber}/dossier`}>Abrir dossier del lote</a>
+                    <a className="border rounded-lg p-3 text-sm hover:bg-zinc-50" href="/quality/release">Ir a laboratorio</a>
+                  </>
+                ) : (
+                  <>
+                    <a className="border rounded-lg p-3 text-sm hover:bg-zinc-50" href="/quality/release">Ir a laboratorio</a>
+                    <a className="border rounded-lg p-3 text-sm hover:bg-zinc-50" href="/quality/parametros">Configurar parámetros</a>
+                  </>
+                )}
+                <a className="border rounded-lg p-3 text-sm hover:bg-zinc-50" href="/quality/autocontrol">Ver autocontrol</a>
+                <a className="border rounded-lg p-3 text-sm hover:bg-zinc-50" href="/quality/dashboard">Dashboard de Calidad</a>
+              </div>
+            </SBCard>
+          </div>
         </div>
-      </div>
+      </SBCard>
     </div>
   );
 }
