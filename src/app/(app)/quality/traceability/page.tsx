@@ -486,6 +486,13 @@ export default function TraceabilityPage() {
 
           {/* Lateral derecho: Resumen + Genealogía */}
           <div className="space-y-6">
+            <SBCard title="Lotes Disponibles (para Debug)">
+                <div className="p-4 space-y-1 text-xs font-mono max-h-48 overflow-y-auto">
+                    {(data?.lots || []).map(l => <div key={l.id}>{l.lotNumber}</div>)}
+                    {(!data?.lots || data.lots.length === 0) && <div className="font-sans text-sm text-zinc-500">No hay lotes en la base de datos.</div>}
+                </div>
+            </SBCard>
+          
             <SBCard title="Resumen del foco">
               <div className="p-4 text-sm">
                 {!focusedLots && <div className="text-zinc-500">Selecciona un identificador para ver el resumen.</div>}
@@ -595,3 +602,5 @@ export default function TraceabilityPage() {
     </div>
   );
 }
+
+    
