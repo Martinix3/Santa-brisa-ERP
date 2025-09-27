@@ -12,11 +12,12 @@ interface SBCardProps {
   title: React.ReactNode;
   accent?: string;
   children: React.ReactNode;
+  className?: string;
 }
 
-export function SBCard({ title, accent, children }: SBCardProps) {
+export function SBCard({ title, accent, children, className }: SBCardProps) {
   return (
-    <div className="bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden">
+    <div className={`bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden ${className}`}>
       {title && (
         <div className="p-4 border-b border-zinc-200">
           <h3 className="font-semibold text-zinc-800" style={{ borderLeft: accent ? `3px solid ${accent}` : undefined, paddingLeft: accent ? '8px' : '0' }}>

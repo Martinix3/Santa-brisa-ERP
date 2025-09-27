@@ -121,25 +121,27 @@ function ProductionWorkstation({
 
   // Calculadora (server action real)
   useEffect(() => {
-    if (!calcRows.length) {
+    if (!calcRows.length || !order?.id) {
       setCalcResult(null);
       return;
     }
     const t = setTimeout(() => {
       startTransition(async () => {
-        const res = await setCalculatorInput({ raws: calcRows });
+        const res = await setCalculatorInput(order.id, { raws: calcRows });
         if ((res as any)?.ok) setCalcResult((res as any).data?.calcResult ?? null);
       });
     }, 250);
     return () => clearTimeout(t);
-  }, [calcRows]);
+  }, [calcRows, order?.id]);
 
   if (!order && !bom) {
     return (
-      <SBCard title="Puesto de Trabajo" className="grid place-content-center min-h-[60vh]">
-        <div className="text-center">
-          <FactoryIcon size={40} className="mx-auto text-slate-300 mb-4" />
-          <p className="text-slate-600">Selecciona una receta para planificar o una orden para ejecutar.</p>
+      <SBCard title="Puesto de Trabajo">
+        <div className="grid place-content-center min-h-[60vh]">
+            <div className="text-center">
+                <FactoryIcon size={40} className="mx-auto text-slate-300 mb-4" />
+                <p className="text-slate-600">Selecciona una receta para planificar o una orden para ejecutar.</p>
+            </div>
         </div>
       </SBCard>
     );
@@ -178,6 +180,16 @@ function ProductionWorkstation({
       : inferredStage === "ENVASADO"
       ? "Etapa: ENVASADO — insumos intermediate + pack. Salida: fg."
       : "Etapa no inferida por categoría del output.";
+      
+  const handleRecordConsumption = () => {
+      const consumptionPayload = actuals.map(a => ({
+          itemId: a.itemId,
+          uom: a.uom,
+          qty: a.actualQty,
+          role: 'FORMULA' as const
+      }));
+      doAndRefresh(() => recordConsumption(order!.id, consumptionPayload));
+  };
 
   return (
     <SBCard title={order?.id ? `${order?.id} — ${order?.status}` : bomToUse?.name}>
@@ -251,7 +263,7 @@ function ProductionWorkstation({
               <SpinnerButton
                 loading={pending}
                 className="border"
-                onClick={() => doAndRefresh(() => recordConsumption(order!.id, actuals))}
+                onClick={handleRecordConsumption}
               >
                 Guardar consumo
               </SpinnerButton>
