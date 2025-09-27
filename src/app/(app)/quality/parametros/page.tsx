@@ -52,4 +52,8 @@ function TinyBadge({ children }: React.PropsWithChildren) {
 // ==========================
 async function createParameter(p: Omit<ParameterCatalog,"id"|"createdAt"|"updatedAt"> & Partial<Pick<ParameterCatalog,"notes">>) {
   // TODO: POST → /api/quality/parameters
-  return { ok: true, data: { ...p, id
+  const id = `param_${Date.now()}`;
+  return { ok: true, data: { ...p, id } };
+}
+
+// ... (El resto del archivo permanece igual)
