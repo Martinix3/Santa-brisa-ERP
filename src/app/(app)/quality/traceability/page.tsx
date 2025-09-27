@@ -1,8 +1,9 @@
+
 "use client";
 
 /* ============================================================================
- * /quality/trazabilidad — Timeline end-to-end + Genealogía + Resumen
- * Integrado con SSOT (tipos reales) y acento azul de calidad.
+ * /quality/traceability — Timeline end-to-end + Genealogía + Resumen
+ * Integrado con tu SSOT y acento azul (--sb-accent-calidad).
  * ==========================================================================*/
 
 import React, { useMemo, useState } from "react";
@@ -10,11 +11,11 @@ import { SBCard } from "@/components/ui/ui-primitives";
 import { useData } from "@/lib/dataprovider";
 import {
   Search, Share2, Truck, Package, FlaskConical, AlertTriangle,
-  ClipboardCheck, Diagram3, MoveRight
+  ClipboardCheck, GitBranch, MoveRight
 } from "lucide-react";
 import type {
-  Lot, LotNumber, InventoryTransaction, InventoryTxnKind, LotGenealogyEdge,
-  ProductionOrder, QcTest, QcBatchResult, Incident, ProtocolAcknowledgement
+  Lot, LotNumber, StockMove, LotGenealogyEdge, ProductionOrder,
+  QcTest, QcBatchResult, Inspection, GoodsReceipt, Shipment, Item, ProtocolAcknowledgement, Incident
 } from "@/domain/ssot";
 
 /* =========================
@@ -72,188 +73,240 @@ function qcStatusTone(s?: string): "emerald"|"amber"|"rose"|"zinc" {
 }
 
 /* =========================
+ * Util: construir refs evitando undefined
+ * ========================= */
+function makeRefs(list: Array<{ type: RefType; id?: string | null | undefined }>): { type: RefType; id: string }[] {
+  return list.filter((x): x is { type: RefType; id: string } => !!x.id);
+}
+
+/* =========================
  * Normalizadores a TraceEvent[]
  * ========================= */
 function normalizeEvents(params: {
-  lotNumbers?: Set<LotNumber>;         // si no se pasa → muestra todo (pero en UI pedimos foco)
+  lotNumbers?: Set<LotNumber>;
+  items: Item[];
   lots: Lot[];
-  inventoryTxns: InventoryTransaction[];
+  stockMoves: StockMove[];
   orders: ProductionOrder[];
   lotGenealogy: LotGenealogyEdge[];
   qcTests: QcTest[];
   qcBatchResults: QcBatchResult[];
+  inspections: Inspection[];
   incidents: Incident[];
   protocolAcks: ProtocolAcknowledgement[];
-  shipments: any[];    // estructura: { id, accountName, shippedAt?, createdAt?, lines:[{lotNumber, qty, uom}] }
-  receipts: any[];     // estructura: { id, supplierName, createdAt, receivedLots:[{lotNumber, qty, uom}] }
+  shipments: Shipment[];
+  receipts: GoodsReceipt[];
 }): TraceEvent[] {
   const {
-    lotNumbers, lots, inventoryTxns, orders, lotGenealogy,
-    qcTests, qcBatchResults, incidents, protocolAcks, shipments, receipts
+    lotNumbers, items, lots, stockMoves, orders, lotGenealogy,
+    qcTests, qcBatchResults, inspections, incidents, protocolAcks, shipments, receipts
   } = params;
 
   const includeLot = (ln?: string) => !lotNumbers || (ln && lotNumbers.has(ln));
 
+  const itemUom = (itemId?: string) => items.find(i => i.id === itemId)?.uom ?? "";
+
   const evs: TraceEvent[] = [];
 
-  // 1) Inventario (RECEIPT / MOVE / ADJUSTMENT / CONSUMPTION / SCRAP)
-  for (const t of inventoryTxns) {
+  // 1) Libro mayor de stock (StockMove)
+  for (const t of stockMoves) {
     if (!includeLot(t.lotNumber)) continue;
-    const base = {
-      id: `txn:${t.id}`,
-      at: t.at,
-      qty: t.qty,
-      uom: t.uom,
-      locationFrom: t.fromLocationId,
-      locationTo: t.toLocationId,
-      refs: [{ type: "txn" as RefType, id: t.id }, { type: "lot" as RefType, id: t.lotNumber }],
-      details: t.reason ?? "",
-    };
-    const kindMap: Record<InventoryTxnKind, TraceEventKind> = {
-      RECEIPT: "RECEIPT",
-      MOVE: "MOVE",
-      ADJUSTMENT: "ADJUSTMENT",
-      CONSUMPTION: "PRODUCTION_CONSUMPTION",
-      SCRAP: "SCRAP",
-    };
-    const k = kindMap[t.kind];
+
+    // Razón -> evento
+    let k: TraceEventKind = "ADJUSTMENT";
+    if (t.reason === "receipt" || t.reason === "return_in") k = "RECEIPT";
+    else if (t.reason === "transfer") k = "MOVE";
+    else if (t.reason === "adjustment") k = "ADJUSTMENT";
+    else if (t.reason === "production_out") k = "PRODUCTION_CONSUMPTION";
+    else if (t.reason === "production_in") k = "PRODUCTION_OUTPUT";
+    else if (t.reason === "ship") k = "SHIPMENT";
+    else if (t.reason === "return_out" || t.reason === "sample_consume") k = "SCRAP";
+
+    const orderId = t.ref?.prodOrderId ?? t.ref?.orderId;
+    const baseRefs = makeRefs([
+      { type: "txn", id: t.id },
+      { type: "lot", id: t.lotNumber },
+      { type: "order", id: orderId }
+    ]);
+
     evs.push({
-      ...base,
+      id: `txn:${t.id}`,
+      at: t.occurredAt,
       kind: k,
       title:
         k === "RECEIPT" ? "Recepción / Entrada" :
         k === "MOVE" ? "Movimiento de ubicación" :
         k === "ADJUSTMENT" ? "Ajuste de inventario" :
-        k === "PRODUCTION_CONSUMPTION" ? `Consumo para orden ${t.orderId ?? ""}` :
+        k === "PRODUCTION_CONSUMPTION" ? `Consumo para orden ${orderId ?? ""}` :
+        k === "PRODUCTION_OUTPUT" ? `Salida de producción ${orderId ?? ""}` :
+        k === "SHIPMENT" ? "Expedición" :
         "Baja / Merma",
-      refs: t.orderId ? [...base.refs!, { type:"order", id: t.orderId }] : base.refs,
+      details: t.ref?.shipmentId ? `Envío ${t.ref.shipmentId}` : t.ref?.goodsReceiptId ? `Recepción ${t.ref.goodsReceiptId}` : t.reason,
+      refs: baseRefs,
+      qty: t.qty,
+      uom: t.uom,
+      locationFrom: t.fromLocationId ?? t.fromLocation,
+      locationTo: t.toLocationId ?? t.toLocation,
     });
   }
 
-  // 2) Genealogía → evento de salida de producción (si no queda claro por inventario)
+  // 2) Genealogía (por si quieres redundar salida/consumo)
   for (const edge of lotGenealogy) {
+    const ord = orders.find(o => o.id === edge.orderId);
+    const outTime = ord?.execution?.finishedAt ?? ord?.createdAt ?? lots.find(l => l.lotNumber === edge.childLot)?.createdAt ?? new Date().toISOString();
+
     if (includeLot(edge.childLot)) {
-      const ord = orders.find(o => o.id === edge.orderId);
       evs.push({
         id: `gen:${edge.id}`,
-        at: (ord?.endedAt ?? ord?.createdAt ?? lots.find(l => l.id === edge.childLot)?.createdAt) || new Date().toISOString(),
+        at: outTime,
         kind: "PRODUCTION_OUTPUT",
-        title: "Salida de producción",
+        title: "Salida de producción (genealogía)",
         details: `Orden ${edge.orderId}`,
-        refs: [{ type:"order", id: edge.orderId }, { type:"lot", id: edge.childLot }, { type:"lot", id: edge.parentLot }],
-        qty: edge.qty, uom: edge.uom,
+        refs: makeRefs([
+          { type:"order", id: edge.orderId },
+          { type:"lot", id: edge.childLot },
+          { type:"lot", id: edge.parentLot }
+        ]),
+        qty: edge.qty,
+        uom: edge.uom ?? itemUom(lots.find(l=>l.lotNumber===edge.childLot)?.itemId),
       });
     }
     if (includeLot(edge.parentLot)) {
       evs.push({
         id: `genC:${edge.id}`,
-        at: new Date((lots.find(l => l.id === edge.parentLot)?.updatedAt ?? lots.find(l => l.id === edge.parentLot)?.createdAt) || Date.now()).toISOString(),
+        at: outTime,
         kind: "PRODUCTION_CONSUMPTION",
-        title: "Consumo en producción",
+        title: "Consumo en producción (genealogía)",
         details: `Hacia lote ${edge.childLot} (orden ${edge.orderId})`,
-        refs: [{ type:"order", id: edge.orderId }, { type:"lot", id: edge.parentLot }, { type:"lot", id: edge.childLot }],
-        qty: edge.qty, uom: edge.uom,
+        refs: makeRefs([
+          { type:"order", id: edge.orderId },
+          { type:"lot", id: edge.parentLot },
+          { type:"lot", id: edge.childLot }
+        ]),
+        qty: edge.qty,
+        uom: edge.uom ?? itemUom(lots.find(l=>l.lotNumber===edge.parentLot)?.itemId),
       });
     }
   }
 
-  // 3) Tests QC individuales
+  // 3) Inspecciones/Protocolos (si quieres verlas en timeline)
+  for (const ins of inspections) {
+    // Si hay foco, filtra por lote u orden
+    if (lotNumbers) {
+      const touchesLot = ins.entity?.kind === "lot" && ins.entity?.id && lotNumbers.has(ins.entity.id as LotNumber);
+      const touchesOrder = ins.entity?.kind === "order" && ins.entity?.id && orders.some(o => o.id === ins.entity.id && (o.lotNumber === undefined || lotNumbers.has(o.lotNumber as LotNumber)));
+      if (!touchesLot && !touchesOrder) continue;
+    }
+    evs.push({
+      id: `ins:${ins.id}`,
+      at: ins.updatedAt ?? ins.createdAt,
+      kind: ins.point === "PRE_PROD" ? "PROTOCOL_ACK" : "QC_TEST",
+      title: ins.point === "PRE_PROD" ? "Checklist / Protocolo" : `Inspección ${ins.point}`,
+      details: ins.status,
+      refs: makeRefs([{ type: ins.entity?.kind ?? "inspection", id: ins.entity?.id ?? ins.id }]),
+      qc: { point: ins.point, status: ins.status, decision: ins.decision },
+    });
+  }
+
+  // 4) Tests QC individuales
   for (const t of qcTests) {
     const ln = t.lotNumber;
-    if (!includeLot(ln)) continue;
+    if (lotNumbers && ln && !lotNumbers.has(ln)) continue;
     evs.push({
       id: `qct:${t.id}`,
-      at: t.at,
+      at: t.testedAt,
       kind: "QC_TEST",
       title: `Test ${t.parameterId}`,
       details:
         t.valueNumeric != null ? `Valor: ${t.valueNumeric} ${t.unit ?? ""}` :
         t.valueText ? `Valor: ${t.valueText}` :
         t.valueBool != null ? `Valor: ${t.valueBool ? "Sí" : "No"}` : "",
-      refs: ln ? [{ type:"lot", id: ln }] : t.orderId ? [{ type:"order", id: t.orderId }] : [],
+      refs: makeRefs([
+        { type:"lot", id: ln },
+        { type:"order", id: t.orderId }
+      ]),
     });
   }
 
-  // 4) Decisiones de lote (QcBatchResult)
+  // 5) Decisiones QC agregadas
   for (const r of qcBatchResults) {
     const ln = r.lotNumber;
-    if (!includeLot(ln)) continue;
+    if (lotNumbers && ln && !lotNumbers.has(ln)) continue;
     evs.push({
       id: `qcr:${r.id}`,
-      at: r.testedAt,
+      at: r.reviewedAt ?? new Date().toISOString(),
       kind: "QC_DECISION",
       title: `Decisión QC: ${r.status}`,
       details: r.remarks ?? "",
-      refs: ln ? [{ type:"lot", id: ln }] : r.orderId ? [{ type:"order", id: r.orderId }] : [],
+      refs: makeRefs([
+        { type:"lot", id: ln },
+        { type:"order", id: r.orderId }
+      ]),
       qc: { decision: r.status },
     });
   }
 
-  // 5) Protocolos (acknowledgements)
+  // 6) Acks de protocolos (explícitos)
   for (const a of protocolAcks) {
-    // mapeamos a lot si la order genera ese lot
-    const order = orders.find(o => o.id === a.orderId);
-    const ln = order?.lotNumber ?? order?.output?.[0]?.lotNumber;
-    if (ln && !includeLot(ln)) continue;
+    const ord = orders.find(o => o.id === a.orderId);
+    const ln = ord?.lotNumber;
+    if (lotNumbers && ln && !lotNumbers.has(ln)) continue;
     evs.push({
       id: `ack:${a.id}`,
       at: a.at,
       kind: "PROTOCOL_ACK",
-      title: `Protocolo confirmado`,
+      title: "Protocolo confirmado",
       details: `Protocol ${a.protocolId} por usuario ${a.acknowledgedByUserId}`,
-      refs: [{ type:"order", id: a.orderId }],
+      refs: makeRefs([{ type:"order", id: a.orderId }]),
       qc: { point: "PRE_PROD", status: "ACK" },
     });
   }
 
-  // 6) Incidencias
+  // 7) Incidencias
   for (const z of incidents) {
-    if (z.lotNumber && !includeLot(z.lotNumber)) continue;
+    if (lotNumbers && z.lotNumber && !lotNumbers.has(z.lotNumber)) continue;
     evs.push({
       id: `inc:${z.id}`,
       at: z.at,
       kind: "INCIDENT",
-      title: `Incidencia (${z.severity})`,
+      title: `Incidencia (${z.severity ?? "LOW"})`,
       details: z.summary,
-      refs: [
-        ...(z.lotNumber ? [{ type:"lot", id: z.lotNumber }] as any : []),
-        ...(z.orderId ? [{ type:"order", id: z.orderId }] as any : []),
-      ],
+      refs: makeRefs([
+        { type:"lot", id: z.lotNumber },
+        { type:"order", id: z.orderId }
+      ]),
       severity: z.severity as any,
     });
   }
 
-  // 7) Recepciones (si existen como entidad aparte)
+  // 8) Recepciones (GoodsReceipt)
   for (const r of receipts) {
-    const lines = Array.isArray(r.receivedLots) ? r.receivedLots : [];
-    const touches = lines.some((ln:any)=> includeLot(ln?.lotNumber));
+    const touches = (r.lines ?? []).some(ln => includeLot(ln.lotNumber));
     if (lotNumbers && !touches) continue;
     evs.push({
       id: `rcp:${r.id}`,
-      at: r.createdAt ?? new Date().toISOString(),
+      at: r.receivedAt,
       kind: "RECEIPT",
-      title: `Recepción proveedor ${r.supplierName ?? ""}`,
-      details: r.ref ?? "",
-      refs: [{ type:"receipt", id:r.id }],
+      title: `Recepción proveedor`,
+      details: r.deliveryNote ?? "",
+      refs: makeRefs([{ type:"receipt", id:r.id }]),
     });
   }
 
-  // 8) Envíos (si existen)
+  // 9) Envíos (Shipment)
   for (const s of shipments) {
-    const lines = Array.isArray(s.lines) ? s.lines : [];
-    const touches = lines.some((ln:any)=> includeLot(ln?.lotNumber));
+    const touches = (s.lines ?? []).some(ln => includeLot(ln.lotNumber));
     if (lotNumbers && !touches) continue;
     evs.push({
       id: `shp:${s.id}`,
-      at: s.shippedAt ?? s.createdAt ?? new Date().toISOString(),
+      at: s.updatedAt ?? s.createdAt,
       kind: "SHIPMENT",
-      title: `Expedición a ${s.accountName ?? s.accountId ?? "cliente"}`,
-      details: s.ref ?? "",
-      refs: [{ type:"shipment", id:s.id }],
+      title: `Expedición a ${s.customerName ?? s.accountId ?? "cliente"}`,
+      details: s.trackingCode ?? s.tracking ?? "",
+      refs: makeRefs([{ type:"shipment", id:s.id }]),
     });
   }
 
-  // Orden temporal
   evs.sort((a,b)=> new Date(a.at).getTime() - new Date(b.at).getTime());
   return evs;
 }
@@ -282,17 +335,18 @@ function computeGenealogy(lotNumbers: Set<LotNumber> | undefined, edges: LotGene
 export default function TraceabilityPage() {
   const { data } = useData();
 
-  // Lee arrays reales del dataprovider, con fallbacks de nombres
+  const items = (data?.items ?? []) as Item[];
   const lots = (data?.lots ?? []) as Lot[];
-  const inventoryTxns = (data?.inventoryTxns ?? data?.inventoryMovements ?? []) as InventoryTransaction[];
+  const stockMoves = (data?.stockMoves ?? []) as StockMove[];
   const orders = (data?.productionOrders ?? []) as ProductionOrder[];
   const lotGenealogy = (data?.lotGenealogy ?? []) as LotGenealogyEdge[];
   const qcTests = (data?.qcTests ?? []) as QcTest[];
   const qcBatchResults = (data?.qcBatchResults ?? []) as QcBatchResult[];
-  const incidents = (data?.incidents ?? data?.nonconformances ?? []) as Incident[];
+  const inspections = (data?.inspections ?? []) as Inspection[];
+  const incidents = (data?.incidents ?? []) as Incident[];
   const protocolAcks = (data?.protocolAcks ?? []) as ProtocolAcknowledgement[];
-  const shipments = (data?.shipments ?? []) as any[];
-  const receipts = (data?.receipts ?? []) as any[];
+  const shipments = (data?.shipments ?? []) as Shipment[];
+  const receipts = (data?.goodsReceipts ?? []) as GoodsReceipt[];
 
   // Control de foco
   const [focusKind, setFocusKind] = useState<"lot"|"order"|"shipment"|"receipt">("lot");
@@ -307,24 +361,24 @@ export default function TraceabilityPage() {
 
     if (focusKind === "order") {
       const o = orders.find(x => x.id === id);
-      const lotsOut = new Set<LotNumber>();
-      if (o?.lotNumber) lotsOut.add(o.lotNumber);
-      (o?.output ?? []).forEach(x => x?.lotNumber && lotsOut.add(x.lotNumber));
-      return lotsOut.size ? lotsOut : undefined;
+      const acc = new Set<LotNumber>();
+      if (o?.batchCode) acc.add(o.batchCode);
+      if (o?.lotNumber) acc.add(o.lotNumber);
+      return acc.size ? acc : undefined;
     }
 
     if (focusKind === "shipment") {
       const s = shipments.find(x => x.id === id);
-      const lotsOut = new Set<LotNumber>();
-      (s?.lines ?? []).forEach((ln:any)=> ln?.lotNumber && lotsOut.add(ln.lotNumber));
-      return lotsOut.size ? lotsOut : undefined;
+      const acc = new Set<LotNumber>();
+      (s?.lines ?? []).forEach(ln => ln?.lotNumber && acc.add(ln.lotNumber));
+      return acc.size ? acc : undefined;
     }
 
     if (focusKind === "receipt") {
       const r = receipts.find(x => x.id === id);
-      const lotsOut = new Set<LotNumber>();
-      (r?.receivedLots ?? []).forEach((ln:any)=> ln?.lotNumber && lotsOut.add(ln.lotNumber));
-      return lotsOut.size ? lotsOut : undefined;
+      const acc = new Set<LotNumber>();
+      (r?.lines ?? []).forEach(ln => ln?.lotNumber && acc.add(ln.lotNumber));
+      return acc.size ? acc : undefined;
     }
 
     return undefined;
@@ -332,9 +386,9 @@ export default function TraceabilityPage() {
 
   const events = useMemo(() => normalizeEvents({
     lotNumbers: focusedLots,
-    lots, inventoryTxns, orders, lotGenealogy,
-    qcTests, qcBatchResults, incidents, protocolAcks, shipments, receipts
-  }), [focusedLots, lots, inventoryTxns, orders, lotGenealogy, qcTests, qcBatchResults, incidents, protocolAcks, shipments, receipts]);
+    items, lots, stockMoves, orders, lotGenealogy,
+    qcTests, qcBatchResults, inspections, incidents, protocolAcks, shipments, receipts
+  }), [focusedLots, items, lots, stockMoves, orders, lotGenealogy, qcTests, qcBatchResults, inspections, incidents, protocolAcks, shipments, receipts]);
 
   const { parents, children } = useMemo(
     () => computeGenealogy(focusedLots, lotGenealogy),
@@ -345,8 +399,11 @@ export default function TraceabilityPage() {
   const singleLot = useMemo(() => {
     if (!focusedLots || focusedLots.size !== 1) return null;
     const ln = Array.from(focusedLots)[0];
-    return lots.find(l => l.id === ln || l.id === (l as any)?.lotNumber) || null;
+    return lots.find(l => l.lotNumber === ln) || null;
   }, [focusedLots, lots]);
+
+  // UoM a mostrar para un lote (desde catálogo)
+  const lotUom = (l?: Lot | null) => items.find(i => i.id === l?.itemId)?.uom ?? "";
 
   return (
     <div className="mx-auto max-w-screen-2xl p-6 space-y-6">
@@ -445,13 +502,12 @@ export default function TraceabilityPage() {
               {/* Resumen cuando hay 1 solo lote */}
               {singleLot && (
                 <div className="space-y-1">
-                  <div><b>Lote:</b> {singleLot.id}</div>
+                  <div><b>Lote:</b> {singleLot.lotNumber}</div>
                   <div className="text-zinc-600">
-                    Item: {singleLot.itemName ?? singleLot.itemId} ·
-                    {" "}Disponible: {singleLot.qtyOnHand} {singleLot.uom}
+                    Item: {singleLot.itemId} · Disponible: {singleLot.quantity} {lotUom(singleLot)}
                   </div>
                   <div className="text-zinc-600">
-                    QC: {singleLot.qcStatus ?? "PENDING"} · Estado: {singleLot.status}
+                    QC: {singleLot.qcStatus ?? "PENDING"} · Estado: {singleLot.status ?? "OPEN"}
                   </div>
                   {singleLot.locationId && (
                     <div className="text-zinc-600">Ubicación: {singleLot.locationId}</div>
@@ -463,7 +519,7 @@ export default function TraceabilityPage() {
               {focusedLots && !singleLot && (
                 <div className="space-y-2">
                   {Array.from(focusedLots).map(ln => {
-                    const l = lots.find(x => x.id === ln);
+                    const l = lots.find(x => x.lotNumber === ln);
                     if (!l) return (
                       <div key={ln} className="border rounded-lg p-2">
                         <div className="font-medium">{ln}</div>
@@ -473,12 +529,12 @@ export default function TraceabilityPage() {
                     return (
                       <div key={ln} className="border rounded-lg p-2 flex items-center justify-between">
                         <div>
-                          <div className="font-medium">{l.id}</div>
+                          <div className="font-medium">{l.lotNumber}</div>
                           <div className="text-xs text-zinc-600">
-                            {l.itemName ?? l.itemId} · {l.qtyOnHand} {l.uom} · QC {l.qcStatus ?? "PENDING"}
+                            {l.itemId} · {l.quantity} {lotUom(l)} · QC {l.qcStatus ?? "PENDING"}
                           </div>
                         </div>
-                        <a className="text-sky-700 text-sm underline" href={`/lots/${encodeURIComponent(l.id)}/dossier`}>Abrir dossier</a>
+                        <a className="text-sky-700 text-sm underline" href={`/lots/${encodeURIComponent(l.lotNumber)}/dossier`}>Abrir dossier</a>
                       </div>
                     );
                   })}
@@ -496,7 +552,7 @@ export default function TraceabilityPage() {
               {parents.size>0 && (
                 <div>
                   <div className="flex items-center gap-2 text-sm font-semibold mb-2">
-                    <Diagram3 size={16}/> Upstream (lotes padres)
+                    <GitBranch size={16}/> Upstream (lotes padres)
                   </div>
                   <div className="space-y-1">
                     {Array.from(parents.entries()).map(([child, set])=>(
@@ -511,7 +567,7 @@ export default function TraceabilityPage() {
               {children.size>0 && (
                 <div>
                   <div className="flex items-center gap-2 text-sm font-semibold mb-2">
-                    <Diagram3 size={16}/> Downstream (lotes hijos)
+                    <GitBranch size={16}/> Downstream (lotes hijos)
                   </div>
                   <div className="space-y-1">
                     {Array.from(children.entries()).map(([parent, set])=>(
@@ -529,7 +585,7 @@ export default function TraceabilityPage() {
             <div className="p-4 grid grid-cols-2 gap-2">
               {singleLot ? (
                 <>
-                  <a className="border rounded-lg p-3 text-sm hover:bg-zinc-50" href={`/lots/${singleLot.id}/dossier`}>Abrir dossier del lote</a>
+                  <a className="border rounded-lg p-3 text-sm hover:bg-zinc-50" href={`/lots/${singleLot.lotNumber}/dossier`}>Abrir dossier del lote</a>
                   <a className="border rounded-lg p-3 text-sm hover:bg-zinc-50" href="/quality/laboratorio">Ir a laboratorio</a>
                 </>
               ) : (
