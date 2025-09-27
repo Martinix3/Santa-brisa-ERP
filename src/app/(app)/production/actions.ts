@@ -1,5 +1,3 @@
-
-
 // ============================================================================
 // src/app/(app)/production/actions.ts
 // Server actions del módulo de Producción (ejecución)
@@ -9,7 +7,7 @@
 
 import { ok, fail, type ActionResult } from "@/lib/result";
 import { upsertMany } from "@/lib/dataprovider/actions";
-import { revalidatePath } from "next/cache";
+import { FieldPath } from "firebase-admin/firestore";
 import { z } from "zod";
 import { adminDb } from '@/server/firebase';
 import type { Lot, Uom, ProductionOrder, BillOfMaterial, OnHandView, Item, StockMove } from '@/domain/ssot';
@@ -41,7 +39,7 @@ async function reads() {
     },
     getManyByIds: async (collection: string, ids: string[]) => {
         if (!ids || ids.length === 0) return [];
-        const snaps = await adminDb.collection(collection).where('id', 'in', ids).get();
+        const snaps = await adminDb.collection(collection).where(FieldPath.documentId(), 'in', ids).get();
         return snaps.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     },
   };
@@ -80,7 +78,9 @@ export async function explodeBOM(bomId: string, plannedQty: number): Promise<Act
     if (!bom) return fail('BOM inexistente');
     const stage: ProductionStage = bom.stage ?? 'PRODUCCION';
     const baseUnit: 'L'|'unit' = stage === 'PRODUCCION' ? 'L' : 'unit';
-    if (bom.baseUnit !== baseUnit) return fail('Unidad base del BOM no coincide con la etapa.');
+    if (bom.baseUnit !== baseUnit) {
+        console.warn(`[explodeBOM] BOM ${bomId} tiene baseUnit ${bom.baseUnit} pero la etapa es ${stage}. Se usará ${baseUnit}.`);
+    }
 
     const ids = [bom.outputItemId, ...bom.items.map((i: any) => i.itemId)];
     const docs = await readItems(ids);
@@ -100,15 +100,23 @@ export async function explodeBOM(bomId: string, plannedQty: number): Promise<Act
 }
 
 // ===== Planificar orden =====
-export async function planProduction(input: unknown): Promise<ActionResult<{ id: string }>> {
-  const zPlan = z.object({
-    bomId: z.string().min(1),
-    plannedQty: z.coerce.number().positive(),
-    plannedDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-    name: z.string().optional()
-  });
+export async function planProduction(input: unknown): Promise<ActionResult<{ order: ProductionOrder }>> {
+    const zPlan = z.object({
+        bomId: z.string().min(1),
+        qty: z.coerce.number().positive().optional(),
+        plannedQty: z.coerce.number().positive().optional(),
+        plannedDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+        name: z.string().optional(),
+        reservations: z.array(z.object({
+          itemId: z.string(), lotNumber: z.string(), uom: z.string(), qty: z.number().positive()
+        })).optional(),
+        idempotencyKey: z.string().uuid().optional(),
+      }).refine(v => (v.qty ?? v.plannedQty) != null, { message: "qty o plannedQty requerido" });
+
   try {
-    const { bomId, plannedQty, plannedDate, name } = zPlan.parse(input);
+    const parsed = zPlan.parse(input);
+    const plannedQty = parsed.plannedQty ?? parsed.qty!;
+    const { bomId, plannedDate, name, reservations, idempotencyKey } = parsed;
 
     // Reutilizamos la lógica de explosión + FIFO + spec de preview
     const prev = await previewPlanning({ bomId, plannedQty });
@@ -117,7 +125,7 @@ export async function planProduction(input: unknown): Promise<ActionResult<{ id:
     const now = new Date().toISOString();
     const id = `po_${Date.now()}`;
 
-    const po = {
+    const po: any = {
       id,
       bomId,
       stage: prev.data.stage,
@@ -127,57 +135,59 @@ export async function planProduction(input: unknown): Promise<ActionResult<{ id:
       baseUnit: prev.data.baseUnit,
       status: 'PLANNED',
       name,
-      nominal: prev.data.nominal,
-      // añadimos visibilidad de planificación:
-      reservations: prev.data.allocations,
+      nominal: prev.data.nominal, // teoría
+      reservations: reservations ?? prev.data.allocations, // reservas confirmadas o sugeridas
       shortages: prev.data.shortages,
       allocationStatus: 'SOFT',
       lotNumber: prev.data.lotNumberPlanned,
       createdAt: now,
       createdById: 'auto',
+      idempotency: idempotencyKey ? [idempotencyKey] : []
     };
 
     await upsertMany('productionOrders', [po as any]);
-    revalidatePath('/production/execution');
-    return ok({ id });
+    return ok({ order: po as ProductionOrder });
   } catch (e:any) {
     return fail('No se pudo planificar la orden.', { code: e?.code, retryable: true });
   }
 }
 
 // ===== Iniciar / Pausar / Reanudar =====
-export async function startProduction(id: string) {
+export async function startProduction(input: { orderId: string; responsible?: string; idempotencyKey?: string }) {
   try {
+    const { orderId, responsible, idempotencyKey } = input;
     const now = new Date().toISOString();
-    await upsertMany('productionOrders', [{ id, status: 'IN_PROGRESS', startedAt: now, updatedAt: now } as any]);
-    revalidatePath(`/production/execution`);
-    return ok({ id });
+    const patch: any = { id: orderId, status: 'IN_PROGRESS', startedAt: now, updatedAt: now, locked: true };
+    if (responsible) patch.responsible = responsible;
+    if (idempotencyKey) patch.idempotencyKey = idempotencyKey;
+    await upsertMany('productionOrders', [patch]);
+    return ok({ order: patch });
   } catch (e:any) { return fail('No se pudo iniciar la orden.'); }
 }
 
-export async function pauseProduction(id: string) {
+export async function pauseProduction(input: { orderId: string; idempotencyKey?: string }) {
   try {
+    const { orderId } = input;
     const now = new Date().toISOString();
-    const po = await readOrder(id);
+    const po = await readOrder(orderId);
     const newPauseLog = [...(po?.pauseLog ?? []), { pausedAt: now }];
-    await upsertMany('productionOrders', [{ id, status: 'PAUSED', pauseLog: newPauseLog, updatedAt: now } as any]);
-    revalidatePath(`/production/execution`);
-    return ok({ id });
+    await upsertMany('productionOrders', [{ id: orderId, status: 'PAUSED', pauseLog: newPauseLog, updatedAt: now } as any]);
+    return ok({ order: { id: orderId, status: 'PAUSED', pauseLog: newPauseLog } as any });
   } catch (e:any) { return fail('No se pudo pausar la orden.'); }
 }
 
-export async function resumeProduction(id: string) {
+export async function resumeProduction(input: { orderId: string; idempotencyKey?: string }) {
   try {
+    const { orderId } = input;
     const now = new Date().toISOString();
-    const po = await readOrder(id);
+    const po = await readOrder(orderId);
     const log: Array<{ pausedAt: string; resumedAt?: string }> = [...(po?.pauseLog ?? [])] as any;
     // Completa el último registro sin resumedAt
     for (let i = log.length - 1; i >= 0; i--) {
       if (log[i].resumedAt == null) { log[i].resumedAt = now; break; }
     }
-    await upsertMany('productionOrders', [{ id, status: 'IN_PROGRESS', pauseLog: log, updatedAt: now } as any]);
-    revalidatePath(`/production/execution`);
-    return ok({ id });
+    await upsertMany('productionOrders', [{ id: orderId, status: 'IN_PROGRESS', pauseLog: log, updatedAt: now } as any]);
+    return ok({ order: { id: orderId, status: 'IN_PROGRESS', pauseLog: log } as any });
   } catch (e:any) { return fail('No se pudo reanudar la orden.'); }
 }
 
@@ -185,7 +195,6 @@ export async function resumeProduction(id: string) {
 export async function setOperatorsCount(id: string, count: number) {
   try {
     await upsertMany('productionOrders', [{ id, operatorsCount: Math.max(0, Math.floor(count)), updatedAt: new Date().toISOString() } as any]);
-    revalidatePath(`/production/execution`);
     return ok({ id });
   } catch (e:any) { return fail('No se pudo actualizar el número de operarios.'); }
 }
@@ -198,7 +207,6 @@ export async function toggleProtocolsAcknowledged(id: string, acknowledged: bool
       protocolsAckAt: acknowledged ? new Date().toISOString() : undefined,
       updatedAt: new Date().toISOString()
     } as any]);
-    revalidatePath(`/production/execution`);
     return ok({ id });
   } catch (e:any) { return fail('No se pudo actualizar el check de protocolos.'); }
 }
@@ -209,7 +217,6 @@ export async function recordConsumption(id: string, lines: Array<{itemId:string;
     const now = new Date().toISOString();
     const sanitized = lines.map(l => ({ ...l, role: l.role ?? 'FORMULA', qty: Number(l.qty) }));
     await upsertMany('productionOrders', [{ id, consumption: sanitized as any, updatedAt: now } as any]);
-    revalidatePath(`/production/execution`);
     return ok({ id });
   } catch (e:any) { return fail('No se pudo registrar el consumo.'); }
 }
@@ -217,7 +224,6 @@ export async function recordConsumption(id: string, lines: Array<{itemId:string;
 export async function recordPackagingParent(id: string, parentLotNumber: string) {
   try {
     await upsertMany('productionOrders', [{ id, parentLotNumber, updatedAt: new Date().toISOString(), status: 'PACKAGING' } as any]);
-    revalidatePath(`/production/execution`);
     return ok({ id });
   } catch (e:any) { return fail('No se pudo asignar el lote padre.'); }
 }
@@ -236,26 +242,29 @@ export async function recordOutput(id: string, qty: number, lotPrefix?: string) 
         lotNumber: lotNumber,
     }];
     
-    // -----[[ ✨ FIX: Crear registro maestro de Lote ]]-----
-    const lotDoc: Lot = {
-        id: lotNumber,
-        lotNumber: lotNumber,
-        itemId: po.outputItemId,
-        quantity: Number(qty),
-        createdAt: now,
-        orderId: po.id,
-        qcStatus: 'PENDING', // Siempre entra en pendiente de QC
-        status: 'ON_HOLD_QC',
-        producedByOrderId: po.id,
-        parentLotNumber: po.parentLotNumber
-    } as Lot;
-    // Usamos `upsertMany` que ya tienes importado
-    await upsertMany('lots', [lotDoc]);
-    // ----------------------------------------------------
+    // (Opcional) crear el registro maestro del lote (sin cantidades)
+    const lotDoc: Partial<Lot> = {
+      lotNumber,
+      itemId: (po as any).outputItemId,
+      producedByOrderId: po.id,
+      qcStatus: 'PENDING' as any,
+      createdAt: now,
+    };
+    await upsertMany('lots', [lotDoc as any]);
+
+    // Registra stockMove IN por el output
+    const inMove: StockMove = {
+      id: `sm_${po.id}_IN_${Date.now()}`,
+      itemId: po.outputItemId,
+      lotNumber,
+      qty: Number(qty),
+      uom: (po as any).baseUnit || 'L',
+      reason: 'production_in',
+      occurredAt: now
+    } as any;
+    await upsertMany('stockMoves', [inMove] as any);
 
     await upsertMany('productionOrders', [{ id, lotNumber, output: out as any, updatedAt: now, status: 'QC_HOLD' } as any]);
-    revalidatePath(`/production/execution`);
-    revalidatePath(`/quality/release`);
     
     return ok({ id, lotNumber });
   } catch (e:any) {
@@ -272,40 +281,65 @@ export async function setQcResult(id: string, qc: { status:'PASSED'|'FAILED'|'WA
     const patch: any = { id, qc: { ...qc, measuredAt: now }, updatedAt: now, status: nextStatus };
     if (nextStatus === 'CLOSED') patch.endedAt = now;
     await upsertMany('productionOrders', [patch]);
-    revalidatePath(`/production/execution`);
     return ok({ id });
   } catch (e:any) { return fail('No se pudo registrar el QC.'); }
 }
 
 // ===== Incidencias =====
-export async function addIncident(id: string, data: { severity: 'LOW'|'MEDIUM'|'HIGH'; summary: string; details?: string }) {
+export async function addIncident(input: { orderId: string; severity: 'LOW'|'MEDIUM'|'HIGH'; summary: string; details?: string; idempotencyKey?: string }) {
   try {
-    const po = await readOrder(id);
+    const { orderId, ...data } = input;
+    const po = await readOrder(orderId);
     if (!po) return fail('Orden inexistente');
     const inc: Incident = { id: `inc_${Date.now()}`, at: new Date().toISOString(), ...data };
     const newList = [...((po as any).incidents ?? []), inc];
-    await upsertMany('productionOrders', [{ id, incidents: newList as any, updatedAt: new Date().toISOString() } as any]);
-    revalidatePath(`/production/execution`);
-    return ok({ id, incidentId: inc.id });
+    await upsertMany('productionOrders', [{ id: orderId, incidents: newList as any, updatedAt: new Date().toISOString() } as any]);
+    return ok({ orderId, incidentId: inc.id });
   } catch (e:any) { return fail('No se pudo registrar la incidencia.'); }
 }
 
 // ===== Cerrar / Cancelar =====
-export async function closeProduction(id: string) {
-  try {
-    const now = new Date().toISOString();
-    await upsertMany('productionOrders', [{ id, status: 'CLOSED', endedAt: now, updatedAt: now } as any]);
-    revalidatePath(`/production/execution`);
-    return ok({ id });
-  } catch (e:any) { return fail('No se pudo cerrar la orden.'); }
+export async function closeProduction(input: { orderId: string; realConsumption: Array<{itemId:string; uom:Uom; qty:number; lotNumber?:string}>; journal?: any[]; idempotencyKey?: string }) {
+    try {
+        const { orderId, realConsumption, journal } = input;
+        const now = new Date().toISOString();
+        const po = await readOrder(orderId);
+        if (!po) return fail('Orden inexistente');
+    
+        // 1) StockMoves consumo (OUT)
+        const outMoves: StockMove[] = realConsumption
+          .filter(l => l.qty > 0)
+          .map(l => ({
+            id: `sm_${orderId}_OUT_${l.itemId}_${Date.now()}`,
+            itemId: l.itemId, lotNumber: l.lotNumber, qty: l.qty, uom: l.uom,
+            reason: 'production_out', occurredAt: now
+          })) as any;
+    
+        // 2) StockMove producción (IN) — usa po.outputItemId y po.lotNumber (ya asignado en plan)
+        const outputQty = realConsumption.find(x => x.itemId === po.outputItemId)?.qty ?? po['targetQuantity'] ?? 0;
+        const inMove: StockMove = {
+          id: `sm_${orderId}_IN_${Date.now()}`,
+          itemId: po.outputItemId,
+          lotNumber: (po as any).lotNumber ?? `SB-${new Date().toISOString().slice(2,10).replace(/-/g,'')}-MAIN`,
+          qty: Number(outputQty) || 0,
+          uom: (po as any).baseUnit || 'L',
+          reason: 'production_in',
+          occurredAt: now
+        } as any;
+    
+        await upsertMany('stockMoves', [...outMoves, inMove] as any);
+    
+        const patch: any = { id: orderId, status: 'CLOSED', endedAt: now, updatedAt: now, actuals: realConsumption, journal };
+        await upsertMany('productionOrders', [patch]);
+        return ok({ order: patch });
+      } catch (e:any) { return fail('No se pudo cerrar la orden.'); }
 }
 
-export async function cancelProduction(id: string) {
-  try {
-    await upsertMany('productionOrders', [{ id, status: 'CANCELLED', updatedAt: new Date().toISOString() } as any]);
-    revalidatePath(`/production/execution`);
-    return ok({ id });
-  } catch (e:any) { return fail('No se pudo cancelar la orden.'); }
+export async function cancelProduction(input: { orderId: string; idempotencyKey?: string }) {
+    try {
+        await upsertMany('productionOrders', [{ id: input.orderId, status: 'CANCELLED', updatedAt: new Date().toISOString() } as any]);
+        return ok({ order: { id: input.orderId, status: 'CANCELLED' } as any });
+      } catch (e:any) { return fail('No se pudo cancelar la orden.'); }
 }
 
 // ===== Calculadora de ajustes (estimación simple) =====
@@ -358,7 +392,6 @@ export async function setCalculatorInput(id: string, input: unknown) {
       calcResult: { estimatedAbvPct: estAbv, estimatedAcidity_gpl: estAc, estimatedSugar_gpl: estSug },
       updatedAt: new Date().toISOString()
     } as any]);
-    revalidatePath(`/production/execution`);
     return ok({ id });
   } catch (e:any) {
     return fail('Entrada inválida para la calculadora.', { code: e?.code });
@@ -394,7 +427,7 @@ export async function previewPlanning(input: {
     if (!bom) return fail("BOM inexistente.");
 
     const stage: 'PRODUCCION'|'ENVASADO' = bom.stage ?? 'PRODUCCION';
-    const baseUnit: 'L'|'unit' = stage === 'PRODUCCION' ? 'L' : 'unit';
+    const baseUnit: 'L'|'unit' = (stage === 'PRODUCCION' ? 'L' : 'unit');
 
     // 1) Nominal
     const nominal: Array<{ itemId: string; role: 'FORMULA'|'PACKAGING'|'COST_ONLY'; uom: Uom; qty: number }> =
@@ -453,4 +486,3 @@ export async function previewPlanning(input: {
     return fail("No se pudo previsualizar la planificación.", { code: e?.code });
   }
 }
-
