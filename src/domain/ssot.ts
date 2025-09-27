@@ -33,6 +33,12 @@ export type ActivationStatus = 'active' | 'inactive' | 'pending_renewal';
 export type PartyStatus = 'PROVISIONAL'|'ENRIQUECIDO'|'VINCULADO'|'CONFIABLE';
 export type ItemCategory = 'fg'|'raw'|'pack'|'intermediate'|'consumable'|'merch';
 
+// Enums para Módulo de Calidad
+export type QcPoint = "PRE_PROD" | "RECEIVING" | "IPQC" | "FINAL_QC";
+export type QcStatus = "PENDING" | "IN_PROGRESS" | "CONDITIONAL_RELEASE" | "RELEASED" | "REJECTED" | "WAIVED";
+export type QcMethod = "DENSIMETER" | "TITRATION" | "HPLC" | "MICROBIO" | "SENSORIAL" | "OTHER";
+export type Unit = "pct" | "gpl" | "cfu_ml" | "ntu" | "ph" | "unit";
+
 
 // -----------------------------------------------------------------
 // 2. KERNEL MÍNIMO
@@ -95,7 +101,9 @@ export interface OnHandView {
   qty: number;
   uom: Uom;
   updatedAt: Timestamp;
-  createdAt: Timestamp; 
+  createdAt: Timestamp;
+  // Extensión para Calidad
+  qcStatus?: QcStatus;
 }
 
 export interface ReservationView {
@@ -129,6 +137,9 @@ export interface BillOfMaterial {
   currency?: Currency;
   status?: 'ACTIVA'|'BORRADOR'|'ARCHIVADA';
   version?: number;
+  // Extensión para Calidad
+  qcPlanId?: string;
+  safetyProtocolId?: string;
 }
 
 export type ExecCheck = { id:string; done:boolean; checkedBy?:string; checkedAt?:string };
@@ -177,6 +188,10 @@ export interface ProductionOrder {
     variance?: { materials?: number; labor?: number; overhead?: number; total?: number; };
     updatedAt?: Timestamp;
   };
+  // Extensión para Calidad
+  qcStatus?: QcStatus;
+  qcPlanOverrideId?: string;
+  protocolOverrideId?: string;
 }
 
 // 4) Calidad (unifica QACheck/Lot/QCResult en un sujeto genérico)
@@ -192,6 +207,19 @@ export interface QACheck {
   notes?: string;
   links?: { goodsReceiptId?: string; traceEventId?: string };
   createdAt: Timestamp;
+}
+export interface Lot {
+  lotNumber: string;
+  itemId: string;
+  quantity: number;
+  createdAt: Timestamp;
+  orderId?: string; // Production Order ID
+  supplierId?: string; // For raw materials
+  qcStatus: QcStatus;
+  qcPlanId?: string; // plan final usado para ese lote
+  evidenceIds?: string[];
+  expDate?: Timestamp;
+  receivedAt?: Timestamp;
 }
 
 // -----------------------------------------------------------------
@@ -256,12 +284,12 @@ export interface DeliveryNote {
   date: ISO;
   soldTo: { name: string; vat?: string };
   shipTo: { name: string; address: string; zip: string; city: string; country: string };
-  lines: Array<{ 
+  lines: Array<{
     itemId:string;
     description:string;
     qty:number;
     uom?: Uom;
-    lotNumbers?: LotNumber[]; 
+    lotNumbers?: LotNumber[];
   }>;
   pdfUrl?: string;
   company: { name: string; vat: string; address?: string; city?: string; zip?: string; country?: string };
@@ -269,7 +297,49 @@ export interface DeliveryNote {
 }
 
 // -----------------------------------------------------------------
-// 6. Entidades de CRM, Marketing y otras (Sin cambios grandes)
+// 6. Entidades de Calidad (Nuevas)
+// -----------------------------------------------------------------
+export type ParameterCatalog = { id: string; label: string; unit: Unit; method: QcMethod; notes?: string };
+export type Range = { min?: number; max?: number; target?: number; tolerance?: number };
+export type QcTestSpec = {
+  parameterId: string;   // FK -> ParameterCatalog
+  required: boolean;
+  point: QcPoint;        // dónde se mide
+  targetRange: Range;    // validación
+};
+export type QcPlan = {
+  id: string; name: string; specs: QcTestSpec[]; active: boolean; notes?: string;
+  createdAt: Timestamp; updatedAt: Timestamp;
+};
+export type SafetyProtocol = {
+  id: string; title: string; category: "PRODUCCION"|"HIGIENE"|"LIMPIEZA"|"OTRO";
+  items: Array<{ id: string; text: string; mandatory: boolean }>;
+  active: boolean;
+  createdAt: Timestamp; updatedAt: Timestamp;
+};
+export type QcTestResult = {
+  specId: string;        // “parameterId@point” para unicidad o {parameterId, point}
+  value: number | null; unit: Unit; passed: boolean | null;
+  testedAt?: Timestamp; testedBy?: string; notes?: string; evidenceIds?: string[];
+};
+export type Inspection = {
+  id: string;
+  point: QcPoint;
+  entity: { kind: "order"|"lot"|"shipment"; id: string };
+  planId?: string;                 // plan efectivo en ese punto
+  protocolId?: string;
+  status: "OPEN"|"IN_PROGRESS"|"DONE"|"BLOCKING";
+  results?: QcTestResult[];        // para puntos con analítica
+  checklist?: Array<{ itemId: string; checked: boolean; mandatory: boolean }>;
+  decision?: "RELEASED"|"CONDITIONAL"|"REJECTED"|"NA";
+  decisionNote?: string;
+  evidenceIds?: string[];
+  createdAt: Timestamp; createdBy?: string; updatedAt: Timestamp;
+};
+
+
+// -----------------------------------------------------------------
+// 7. Entidades de CRM, Marketing y otras (Sin cambios grandes)
 // -----------------------------------------------------------------
 export type Address = { address?: string; city?: string; zip?: string; province?: string; country?: string; countryCode?: string };
 export type CommItem = { value: string; isPrimary?: boolean; verified?: boolean; source?: 'CRM'|'HOLDED'|'IMPORT'|'USER'; updatedAt?: Timestamp; optOut?: boolean; };
@@ -324,12 +394,12 @@ export interface Account {
 
 export type BillingStatus = 'PENDING'|'INVOICING'|'INVOICED'|'PAID'|'FAILED';
 export interface OrderSellOut {
-  id: string; 
+  id: string;
   docNumber?: string;
-  partyId: string; 
-  accountId: string; 
+  partyId: string;
+  accountId: string;
   source: 'CRM'|'SHOPIFY'|'OTHER' | 'MANUAL' | 'HOLDED';
-  createdAt: Timestamp; 
+  createdAt: Timestamp;
   currency: Currency;
   lines: Array<{
     itemId: string;
@@ -341,9 +411,9 @@ export interface OrderSellOut {
     uom?: Uom;
     lotNumbers?: LotNumber[];
   }>;
-  notes?: string; 
-  billingStatus?: BillingStatus; 
-  status: OrderStatus; 
+  notes?: string;
+  billingStatus?: BillingStatus;
+  status: OrderStatus;
   totalAmount?: number;
   external?: { shopifyOrderId?: string; holdedInvoiceId?: string; };
 }
@@ -351,15 +421,10 @@ export interface OrderSellOut {
 export * from './ssot.common'; // Importa el resto de tipos que no han cambiado
 
 // -----------------------------------------------------------------
-// 7. DEPRECATED - Entidades Antiguas (marcar para eliminar)
-// -----------------------------------------------------------------
-
-
-// -----------------------------------------------------------------
 // 8. Lista de Colecciones de la Base de Datos
 // -----------------------------------------------------------------
 export interface SantaData {
-  // Catálogos
+  // Catálogos principales
   items: Item[];
   // Transacciones
   stockMoves: StockMove[];
@@ -379,7 +444,8 @@ export interface SantaData {
   interactions: Interaction[];
   billOfMaterials: BillOfMaterial[];
   deliveryNotes: DeliveryNote[];
-  // ... resto de colecciones de marketing, finanzas, etc.
+  lots: Lot[]; // Añadida por coherencia, aunque puede ser una vista
+  // Marketing
   partyDuplicates: PartyDuplicate[];
   activations: any[]; // Placeholder, replace with actual type
   promotions: any[]; // Placeholder
@@ -399,6 +465,11 @@ export interface SantaData {
   jobs?: any[];
   dead_letters?: any[];
   expenses: any[];
+  // QC
+  parameter_catalog: ParameterCatalog[];
+  qc_plans: QcPlan[];
+  safety_protocols: SafetyProtocol[];
+  inspections: Inspection[];
 }
 
 export const SANTA_DATA_COLLECTIONS: (keyof SantaData)[] = [
@@ -406,7 +477,8 @@ export const SANTA_DATA_COLLECTIONS: (keyof SantaData)[] = [
     'onHand', 'reservations', 'parties', 'partyRoles', 'accounts', 'users', 'interactions', 'billOfMaterials',
     'deliveryNotes', 'partyDuplicates', 'activations', 'promotions', 'marketingEvents', 'onlineCampaigns',
     'influencerCollabs', 'posTactics', 'posCostCatalog', 'plv_material', 'materialCosts', 'financeLinks',
-    'paymentLinks', 'traceEvents', 'incidents', 'codeAliases', 'integrations', 'jobs', 'dead_letters', 'expenses'
+    'paymentLinks', 'traceEvents', 'incidents', 'codeAliases', 'integrations', 'jobs', 'dead_letters', 'expenses',
+    'lots', 'parameter_catalog', 'qc_plans', 'safety_protocols', 'inspections'
 ];
 
 export * from './ssot.metas';

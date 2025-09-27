@@ -89,7 +89,38 @@
     { "collectionGroup": "partyDuplicates", "queryScope": "COLLECTION", "fields": [
       { "fieldPath": "status", "order": "ASCENDING" },
       { "fieldPath": "score", "order": "DESCENDING" }
-    ]}
+    ]},
+    {
+      "collectionGroup": "inspections",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "point", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "inspections",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "entity.kind", "order": "ASCENDING" },
+        { "fieldPath": "entity.id", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "lots",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "qcStatus", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "lots",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "itemId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "ASCENDING" }
+      ]
+    }
   ],
   "fieldOverrides": [
     { "collectionGroup": "parties", "fieldPath": "emails", "indexes": [ { "order": "CONTAINS" } ] },
