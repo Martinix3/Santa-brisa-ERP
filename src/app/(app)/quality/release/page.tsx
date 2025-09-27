@@ -1,4 +1,3 @@
-
 // src/app/(app)/quality/release/page.tsx
 "use client";
 
@@ -254,6 +253,7 @@ export default function LabReleasePage() {
   const lotsForSelectedSku = useMemo(() => (selectedSku ? (lotsBySku.get(selectedSku) || []) : []), [selectedSku, lotsBySku]);
 
   return (
+    <>
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-200px)]">
       {/* Columna 1: Filtros y Tabs */}
       <div className="lg:col-span-3 flex flex-col space-y-4">
@@ -266,7 +266,7 @@ export default function LabReleasePage() {
             </Select>
              <Select value={selectedLot || ''} onChange={(e) => handleLotChange(e.target.value)} disabled={!selectedSku}>
                 <option value="">Todos los lotes</option>
-                {lots.filter(l => l.itemId === selectedSku).map(lot => (
+                {(lots || []).filter(l => l.itemId === selectedSku).map(lot => (
                     <option key={lot.lotNumber} value={lot.lotNumber}>{lot.lotNumber}</option>
                 ))}
             </Select>
@@ -375,7 +375,7 @@ export default function LabReleasePage() {
                   {selectedLotData.history.map(ev => (
                     <li key={ev.id} className="flex gap-3">
                       <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: `hsl(var(--sb-${ev.tone}-soft))`}}>
-                          {React.cloneElement(ev.icon, { className: 'h-4 w-4', style: { color: `hsl(var(--sb-${ev.tone}-strong))` }})}
+                          {React.cloneElement(ev.icon, { className: 'h-4 w-4', style: { color: `hsl(var(--sb-${ev.tone}-strong))` } })}
                       </div>
                       <div>
                         <p className="font-semibold text-sm">{ev.title}</p>
@@ -393,5 +393,39 @@ export default function LabReleasePage() {
         ) : ( <div className="h-full flex items-center justify-center text-zinc-500 border-2 border-dashed rounded-xl">Selecciona un lote para ver su dossier.</div> )}
       </div>
     </div>
+    
+    <div className="mt-8">
+        <SBCard title="Lotes en Crudo (Debug)">
+            <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                    <thead className="bg-zinc-100">
+                        <tr>
+                            <th className="p-2 text-left">ID Lote</th>
+                            <th className="p-2 text-left">Nº Lote</th>
+                            <th className="p-2 text-left">Item ID</th>
+                            <th className="p-2 text-left">Estado QC</th>
+                            <th className="p-2 text-left">Estado</th>
+                            <th className="p-2 text-right">Cantidad</th>
+                            <th className="p-2 text-left">Fecha Creación</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                        {(data?.lots || []).map((lot: Lot) => (
+                            <tr key={lot.id}>
+                                <td className="p-2 font-mono">{lot.id}</td>
+                                <td className="p-2 font-mono">{lot.lotNumber}</td>
+                                <td className="p-2 font-mono">{lot.itemId}</td>
+                                <td className="p-2">{lot.qcStatus || 'N/A'}</td>
+                                <td className="p-2">{lot.status || 'N/A'}</td>
+                                <td className="p-2 text-right font-semibold">{lot.quantity}</td>
+                                <td className="p-2">{new Date(lot.createdAt).toLocaleString('es-ES')}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </SBCard>
+    </div>
+    </>
   );
 }
