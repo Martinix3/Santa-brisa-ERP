@@ -1,9 +1,10 @@
+
 // src/app/(app)/production/execution/page.tsx
 "use client";
 
 import React, { useMemo, useState, useCallback, useEffect, useTransition } from "react";
 import { Plus, Trash2, Factory as FactoryIcon, Pause, Play, CheckCircle2, AlertTriangle } from "lucide-react";
-import { SBCard, SBButton } from "@/components/ui/ui-primitives";
+import { SBCard } from "@/components/ui/ui-primitives";
 import { SB_COLORS } from "@/domain/ssot";
 import { useData } from "@/lib/dataprovider";
 import type { Item } from "@/domain/ssot";
@@ -26,7 +27,7 @@ import {
   addIncident,
   setCalculatorInput,
   closeProduction,
-  previewPlanning,          // ⬅️ volvemos a usar previsualización en el tablero
+  previewPlanning,          // ⬅️ seguimos usando la previsualización
 } from "../actions";
 
 // ===== Tipos locales mínimos (alineados a actions.ts) =====
@@ -55,145 +56,148 @@ function Row({ children, className = "" }: { children: React.ReactNode; classNam
 }
 
 // ======================================================
-// Lista compacta de productos
-// ======================================================
-function ProductRow({ product, onClick }: { product: Item; onClick: () => void }) {
-  const badge = product.category === "fg" ? "Producto final" :
-                product.category === "intermediate" ? "Intermedio" :
-                product.category === "pack" ? "Packaging" : "Materia prima";
-  return (
-    <li className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg border bg-white hover:bg-zinc-50">
-      <div className="min-w-0">
-        <p className="font-medium truncate">{product.name}</p>
-        <span className="text-[11px] px-2 py-0.5 rounded-full border bg-white text-zinc-600">{badge}</span>
-      </div>
-      <button onClick={onClick} className="px-3 h-8 rounded-lg border bg-zinc-50 hover:bg-zinc-100 text-sm">Añadir al tablero</button>
-    </li>
-  );
-}
-
-// ======================================================
-// Diálogo: solo elegir acción → añade al tablero (no pide cantidad)
-// ======================================================
-function ProductActionDialog({
-  product,
-  onClose,
-  onAddDraft,
-}: {
-  product: Item | null;
-  onClose: () => void;
-  onAddDraft: (payload: { product: Item; mode: "produce" | "pack" }) => void;
-}) {
-  if (!product) return null;
-  const canProduce = !!product.bomProduccionId;
-  const canPack = !!product.bomEnvasadoId;
-  return (
-    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 grid place-items-center p-4 bg-black/20" onClick={onClose}>
-      <div className="w-full max-w-md rounded-2xl border bg-white shadow-xl p-4" onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-lg font-semibold">¿Qué quieres hacer con {product.name}?</h3>
-        <p className="text-sm text-zinc-600 mt-1">Selecciona la acción. La cantidad y la fecha se definen en el tablero.</p>
-        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <button disabled={!canProduce} onClick={() => { if (canProduce) { onAddDraft({ product, mode: "produce" }); onClose(); } }}
-                  className={`h-10 rounded-lg border ${!canProduce ? "opacity-50 cursor-not-allowed" : "bg-yellow-50 hover:bg-yellow-100"}`}>Producir intermedio</button>
-          <button disabled={!canPack} onClick={() => { if (canPack) { onAddDraft({ product, mode: "pack" }); onClose(); } }}
-                  className={`h-10 rounded-lg border ${!canPack ? "opacity-50 cursor-not-allowed" : "bg-white hover:bg-zinc-50"}`}>Envasar / embotellar</button>
-        </div>
-        <div className="mt-4 flex justify-end">
-          <button className="px-3 py-2 text-sm rounded-lg border bg-white hover:bg-zinc-50" onClick={onClose}>Cerrar</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ======================================================
-// Tablero de producción (editable)
+// Tablero de producción basado en receta/BOM
 // ======================================================
 type DraftRow = {
   id: string;
-  productId: string;
-  productName: string;
-  mode: "produce" | "pack";
-  bomId: string;
+  bomId: string | "";
+  bomName: string;
   qty: number;
-  date: string; // ISO (solo fecha)
-  preview?: any; // resultado de previewPlanning
+  date: string;     // ISO (YYYY-MM-DD)
+  preview?: any;    // resultado de previewPlanning
 };
 
-function PlanningBoard({ rows, setRows }: { rows: DraftRow[]; setRows: React.Dispatch<React.SetStateAction<DraftRow[]>> }) {
-  const update = (id: string, patch: Partial<DraftRow>) => setRows(list => list.map(r => r.id === id ? { ...r, ...patch } : r));
-  const remove = (id: string) => setRows(list => list.filter(r => r.id !== id));
+function PlanningBoard({
+  boms,
+  rows,
+  setRows,
+}: {
+  boms: Array<{ id: string; name: string }>;
+  rows: DraftRow[];
+  setRows: React.Dispatch<React.SetStateAction<DraftRow[]>>;
+}) {
+  const addRow = () =>
+    setRows((r) => [
+      ...r,
+      {
+        id: `draft_${Date.now()}`,
+        bomId: "",
+        bomName: "",
+        qty: 0,
+        date: new Date().toISOString().slice(0, 10),
+      },
+    ]);
+  const update = (id: string, patch: Partial<DraftRow>) => setRows((list) => list.map((r) => (r.id === id ? { ...r, ...patch, preview: patch.bomId !== undefined ? undefined : r.preview } : r)));
+  const remove = (id: string) => setRows((list) => list.filter((r) => r.id !== id));
 
   const doPreview = async (row: DraftRow) => {
-    if (row.qty <= 0) { toast.error("Cantidad > 0"); return; }
+    if (!row.bomId) return toast.error("Selecciona una receta/BOM.");
+    if (row.qty <= 0) return toast.error("Cantidad debe ser > 0.");
     const res = await previewPlanning({ bomId: row.bomId, plannedQty: row.qty });
     if (res.ok) update(row.id, { preview: res.data });
     else toast.error(res.message ?? "No se pudo previsualizar");
   };
 
   const doPlan = async (row: DraftRow) => {
-    if (row.qty <= 0) { toast.error("Cantidad > 0"); return; }
+    if (!row.bomId) return toast.error("Selecciona una receta/BOM.");
+    if (row.qty <= 0) return toast.error("Cantidad debe ser > 0.");
     const res = await planProduction({ bomId: row.bomId, plannedQty: row.qty });
-    if (res.ok) { toast.success("Orden planificada"); remove(row.id); }
-    else toast.error(res.message ?? "No se pudo planificar");
+    if (res.ok) {
+      toast.success("Orden planificada");
+      remove(row.id);
+    } else {
+      toast.error(res.message ?? "No se pudo planificar");
+    }
   };
 
-  if (rows.length === 0) return (
-    <div className="text-sm text-zinc-500 px-3 py-6 text-center border rounded-xl bg-zinc-50">Añade productos desde la lista para planificar.</div>
-  );
-
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-left text-zinc-600">
-            <th className="py-2 px-2">Producto</th>
-            <th className="py-2 px-2">Acción</th>
-            <th className="py-2 px-2 w-28">Cantidad</th>
-            <th className="py-2 px-2 w-40">Fecha</th>
-            <th className="py-2 px-2">Preview</th>
-            <th className="py-2 px-2 w-56">Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(r => (
-            <tr key={r.id} className="border-t align-top">
-              <td className="py-2 px-2">{r.productName}</td>
-              <td className="py-2 px-2">{r.mode === "produce" ? "Producir intermedio" : "Envasar/embotellar"}</td>
-              <td className="py-2 px-2">
-                <input type="number" min={1} value={r.qty} onChange={e => update(r.id, { qty: Number(e.target.value) })}
-                       className="h-9 w-24 border rounded-lg px-2" />
-              </td>
-              <td className="py-2 px-2">
-                <input type="date" value={r.date} onChange={e => update(r.id, { date: e.target.value })}
-                       className="h-9 border rounded-lg px-2"/>
-              </td>
-              <td className="py-2 px-2">
-                {r.preview ? (
-                  <div className="text-xs">
-                    {r.preview.inSpec ? <span className="px-2 py-0.5 rounded-full border bg-emerald-50 text-emerald-700">En spec</span>
-                                      : <span className="px-2 py-0.5 rounded-full border bg-amber-50 text-amber-800">Fuera de spec</span>}
-                    {r.preview.shortages?.length > 0 && (
-                      <div className="mt-1 text-rose-700">Faltantes: {r.preview.shortages.length}</div>
-                    )}
-                  </div>
-                ) : (
-                  <button onClick={() => doPreview(r)} className="h-9 px-3 rounded-lg border bg-zinc-50 hover:bg-zinc-100">Previsualizar</button>
-                )}
-              </td>
-              <td className="py-2 px-2">
-                <div className="flex gap-2">
-                  <button onClick={() => doPlan(r)} className="h-9 px-3 rounded-lg border bg-yellow-50 hover:bg-yellow-100">Planificar</button>
-                  <button onClick={() => remove(r.id)} className="h-9 px-3 rounded-lg border bg-white hover:bg-zinc-50">Quitar</button>
-                </div>
-              </td>
+    <div className="space-y-3">
+      <div className="flex justify-between items-center">
+        <p className="text-sm text-zinc-600">Añade líneas de planificación y ajústalas según disponibilidad y specs.</p>
+        <button type="button" onClick={addRow} className="h-9 px-3 rounded-lg border bg-zinc-50 hover:bg-zinc-100 text-sm">
+          <Plus className="inline mr-1" size={14} /> Añadir línea
+        </button>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-zinc-600">
+              <th className="py-2 px-2 w-[320px]">Receta / BOM</th>
+              <th className="py-2 px-2 w-28">Cantidad</th>
+              <th className="py-2 px-2 w-40">Fecha</th>
+              <th className="py-2 px-2">Preview</th>
+              <th className="py-2 px-2 w-56">Acciones</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.id} className="border-t align-top">
+                <td className="py-2 px-2">
+                  <select
+                    className="h-9 w-full border rounded-lg px-2"
+                    value={r.bomId}
+                    onChange={(e) => {
+                      const id = e.target.value;
+                      const bom = boms.find((b) => b.id === id);
+                      update(r.id, { bomId: id, bomName: bom?.name ?? "" });
+                    }}
+                  >
+                    <option value="">— Selecciona receta/BOM —</option>
+                    {boms.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td className="py-2 px-2">
+                  <input
+                    type="number"
+                    min={0}
+                    value={r.qty}
+                    onChange={(e) => update(r.id, { qty: Number(e.target.value) })}
+                    className="h-9 w-24 border rounded-lg px-2"
+                  />
+                </td>
+                <td className="py-2 px-2">
+                  <input type="date" value={r.date} onChange={(e) => update(r.id, { date: e.target.value })} className="h-9 border rounded-lg px-2" />
+                </td>
+                <td className="py-2 px-2">
+                  {r.preview ? (
+                    <div className="text-xs">
+                      {r.preview.inSpec ? (
+                        <span className="px-2 py-0.5 rounded-full border bg-emerald-50 text-emerald-700">En spec</span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full border bg-amber-50 text-amber-800">Fuera de spec</span>
+                      )}
+                      {r.preview.shortages?.length > 0 && <div className="mt-1 text-rose-700">Faltantes: {r.preview.shortages.length}</div>}
+                    </div>
+                  ) : (
+                    <button onClick={() => doPreview(r)} className="h-9 px-3 rounded-lg border bg-zinc-50 hover:bg-zinc-100">
+                      Previsualizar
+                    </button>
+                  )}
+                </td>
+                <td className="py-2 px-2">
+                  <div className="flex gap-2">
+                    <button onClick={() => doPlan(r)} className="h-9 px-3 rounded-lg border bg-yellow-50 hover:bg-yellow-100">
+                      Planificar
+                    </button>
+                    <button onClick={() => remove(r.id)} className="h-9 px-3 rounded-lg border bg-white hover:bg-zinc-50">
+                      Quitar
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
+
 // ===== Detalle de Orden (panel derecho) =====
 function OrderDetail({ order, allItems, onRefresh }: { order: ProductionOrder; allItems: Item[]; onRefresh: () => void }) {
   const [pending, startTransition] = useTransition();
@@ -695,14 +699,13 @@ function OrderDetail({ order, allItems, onRefresh }: { order: ProductionOrder; a
 export default function ProductionPage() {
   const { data: santaData } = useData();
   const [openOrder, setOpenOrder] = useState<ProductionOrder | null>(null);
-  const [selectedProduct, setSelectedProduct] = useState<Item | null>(null);
   const [boardRows, setBoardRows] = useState<DraftRow[]>([]);
 
   // Orígenes
+  const boms = useMemo(() => ((santaData?.billOfMaterials ?? []) as any[]).map(b => ({ id: b.id, name: b.name ?? b.id })), [santaData]);
   const ordersAll = useMemo(() => (santaData?.productionOrders ?? []) as ProductionOrder[], [santaData]);
   const orders = useMemo(() => ordersAll, [ordersAll]);
   const allItems = useMemo(() => (santaData?.items ?? []) as Item[], [santaData]);
-  const items = useMemo(() => allItems.filter(i => i.category === "intermediate" || i.category === "fg"), [allItems]);
 
   const select = useCallback(
     (id: string) => {
@@ -716,6 +719,12 @@ export default function ProductionPage() {
   const refresh = useCallback(() => {}, []);
 
   const accent = "[--sb-accent-produc:182_25%_47%]";
+
+  // Particiones para panel de órdenes compactas
+  const active = useMemo(() => orders.filter((o: any) => ["IN_PROGRESS", "PAUSED", "QC_HOLD"].includes(o.status)), [orders]);
+  const scheduled = useMemo(() => orders.filter((o: any) => o.status === "PLANNED"), [orders]);
+  const past = useMemo(() => orders.filter((o: any) => ["CLOSED", "CANCELLED"].includes(o.status)), [orders]);
+  const hasAlert = (o: any) => o.status === "QC_HOLD" || (o.incidents?.length ?? 0) > 0;
 
   return (
     <>
@@ -736,7 +745,7 @@ export default function ProductionPage() {
               </div>
               <div>
                 <h1 className="text-2xl font-semibold text-zinc-900 leading-tight">Producción</h1>
-                <p className="text-xs text-zinc-600">Añade productos al tablero, ajusta cantidades/fechas, previsualiza y planifica.</p>
+                <p className="text-xs text-zinc-600">Tablero de planificación por receta/BOM. Ajusta cantidades y fechas según stocks y previsiones.</p>
               </div>
             </div>
           </div>
@@ -744,99 +753,92 @@ export default function ProductionPage() {
       </header>
 
       <main className="mx-auto max-w-screen-2xl px-6 pb-24">
-        <div className="grid lg:grid-cols-2 gap-6">
-          {/* Columna izquierda: lista de productos */}
-          <section>
-            <SBCard title="Productos" accent={(SB_COLORS as any).module?.produccion ?? SB_COLORS.primary.teal}>
-              <ul className="p-3 space-y-2">
-                {items.map(p => <ProductRow key={p.id} product={p} onClick={() => setSelectedProduct(p)} />)}
-                {items.length === 0 && <li className="text-sm text-zinc-500 px-3 py-8 text-center border rounded-xl bg-zinc-50">No hay productos configurados.</li>}
-              </ul>
+        <div className="grid lg:grid-cols-3 gap-6">
+          {/* Panel principal: tablero por BOM */}
+          <div className="lg:col-span-2">
+            <SBCard title="Tablero de producción" accent={(SB_COLORS as any).module?.produccion ?? SB_COLORS.primary.teal}>
+              <div className="p-3">
+                <PlanningBoard boms={boms} rows={boardRows} setRows={setBoardRows} />
+              </div>
             </SBCard>
 
+            {/* Detalle (ejecución) */}
             <div className="mt-6">
-              <SBCard title="Tablero de producción" accent={(SB_COLORS as any).module?.produccion ?? SB_COLORS.primary.teal}>
-                <div className="p-3">
-                  <PlanningBoard rows={boardRows} setRows={setBoardRows} />
+              {!openOrder ? (
+                <div className="h-full min-h-[240px] flex items-center justify-center text-zinc-500 bg-zinc-50 rounded-2xl border">
+                  Selecciona una orden en el panel derecho.
                 </div>
-              </SBCard>
+              ) : (
+                <OrderDetail order={openOrder} allItems={allItems} onRefresh={refresh} />
+              )}
             </div>
-          </section>
+          </div>
 
-          {/* Columna derecha: órdenes (activas y terminadas) */}
-          <section className="space-y-6">
-            <SBCard title={`Órdenes activas`} accent={(SB_COLORS as any).module?.produccion ?? SB_COLORS.primary.teal}>
+          {/* Panel lateral: órdenes compactas */}
+          <div className="lg:col-span-1 space-y-6">
+            <SBCard title={`Activas (${active.length})`} accent={(SB_COLORS as any).module?.produccion ?? SB_COLORS.primary.teal}>
               <div className="p-2 space-y-1">
-                {orders
-                  .filter((o: any) => ["planned", "released", "wip"].includes(o.status))
-                  .map((o: any) => (
-                    <div
-                      key={o.id}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => select(o.id)}
-                      className={`rounded-lg p-3 border transition-colors outline-none cursor-pointer ${openOrder?.id === o.id ? "bg-yellow-50 border-yellow-200" : "border-transparent hover:bg-zinc-50"}`}
-                      aria-label={`Abrir orden ${o.name || o.id}`}
-                    >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <p className="font-semibold text-zinc-800">{o.name || o.id}</p>
-                          <p className="text-xs text-zinc-500">{o.stage} • {o.plannedQty} {o.baseUnit}</p>
+                {active.map((o: any) => (
+                  <button
+                    key={o.id}
+                    onClick={() => select(o.id)}
+                    className="w-full text-left rounded-lg p-3 border hover:bg-zinc-50"
+                    title={o.name || o.id}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium truncate">{o.name || o.id}</div>
+                        <div className="text-xs text-zinc-500">
+                          {o.stage} • {o.plannedQty} {o.baseUnit}
                         </div>
                       </div>
-                    </div>
-                  ))}
-              </div>
-            </SBCard>
-            <SBCard title={`Órdenes terminadas`} accent={(SB_COLORS as any).module?.produccion ?? SB_COLORS.primary.teal}>
-              <div className="p-2 space-y-1">
-                {orders
-                  .filter((o: any) => ["done", "cancelled"].includes(o.status))
-                  .map((o: any) => (
-                    <div
-                      key={o.id}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => select(o.id)}
-                      className={`rounded-lg p-3 border transition-colors outline-none cursor-pointer ${openOrder?.id === o.id ? "bg-yellow-50 border-yellow-200" : "border-transparent hover:bg-zinc-50"}`}
-                      aria-label={`Abrir orden ${o.name || o.id}`}
-                    >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <p className="font-semibold text-zinc-800">{o.name || o.id}</p>
-                          <p className="text-xs text-zinc-500">{o.stage} • {o.plannedQty} {o.baseUnit}</p>
-                        </div>
+                      <div className="text-right">
+                        <span className="text-[11px] px-2 py-0.5 rounded-full border bg-white text-zinc-700">{o.status}</span>
+                        {hasAlert(o) && <div className="text-[11px] text-amber-700 mt-1">⚠️ alerta</div>}
                       </div>
                     </div>
-                  ))}
+                  </button>
+                ))}
+                {active.length === 0 && <div className="text-sm text-zinc-500 px-2 py-6 text-center">Sin órdenes activas.</div>}
               </div>
             </SBCard>
-          </section>
-        </div>
-        <div className="mt-6">
-          {openOrder && <OrderDetail order={openOrder} allItems={allItems} onRefresh={refresh} />}
+
+            <SBCard title={`Programadas (${scheduled.length})`} accent={(SB_COLORS as any).module?.produccion ?? SB_COLORS.primary.teal}>
+              <div className="p-2 space-y-1">
+                {scheduled.map((o: any) => (
+                  <div key={o.id} className="rounded-lg p-3 border bg-white">
+                    <div className="flex items-center justify-between">
+                      <div className="font-medium truncate">{o.name || o.id}</div>
+                      <span className="text-[11px] px-2 py-0.5 rounded-full border bg-white text-zinc-700">{o.status}</span>
+                    </div>
+                    <div className="text-xs text-zinc-500 mt-1">
+                      {o.stage} • {o.plannedQty} {o.baseUnit}
+                    </div>
+                  </div>
+                ))}
+                {scheduled.length === 0 && <div className="text-sm text-zinc-500 px-2 py-6 text-center">No hay órdenes programadas.</div>}
+              </div>
+            </SBCard>
+
+            <SBCard title={`Pasadas (${past.length})`} accent={(SB_COLORS as any).module?.produccion ?? SB_COLORS.primary.teal}>
+              <div className="p-2 space-y-1">
+                {past.map((o: any) => (
+                  <div key={o.id} className="rounded-lg p-3 border bg-white">
+                    <div className="flex items-center justify-between">
+                      <div className="font-medium truncate">{o.name || o.id}</div>
+                      <span className="text-[11px] px-2 py-0.5 rounded-full border bg-white text-zinc-700">{o.status}</span>
+                    </div>
+                    <div className="text-xs text-zinc-500 mt-1">
+                      {o.stage} • {o.plannedQty} {o.baseUnit} {o.lotNumber ? `• Lote ${o.lotNumber}` : ""}
+                    </div>
+                  </div>
+                ))}
+                {past.length === 0 && <div className="text-sm text-zinc-500 px-2 py-6 text-center">Aún no hay histórico.</div>}
+              </div>
+            </SBCard>
+          </div>
         </div>
       </main>
-
-      {/* Diálogo de acción por producto */}
-      <ProductActionDialog
-        product={selectedProduct}
-        onClose={() => setSelectedProduct(null)}
-        onAddDraft={({ product, mode }) => {
-          const bomId = mode === "produce" ? product.bomProduccionId! : product.bomEnvasadoId!;
-          if (!bomId) { toast.error("El producto no tiene BOM para esa acción."); return; }
-          const today = new Date().toISOString().slice(0,10);
-          setBoardRows(r => [...r, {
-            id: `draft_${Date.now()}`,
-            productId: product.id,
-            productName: product.name,
-            mode,
-            bomId,
-            qty: 1,
-            date: today,
-          }]);
-        }}
-      />
     </>
   );
 }
