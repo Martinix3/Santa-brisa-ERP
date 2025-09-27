@@ -19,7 +19,7 @@ type ProductionStage = 'PRODUCCION' | 'ENVASADO';
 type ProductionStatus =
   | 'DRAFT' | 'PLANNED' | 'IN_PROGRESS'
   | 'PAUSED' | 'QC_HOLD'
-  | 'CLOSED' | 'CANCELLED';
+  | 'DONE' | 'CANCELLED';
 type QcStatus = 'PENDING' | 'PASSED' | 'FAILED' | 'WAIVED';
 
 type ProductionIOLine = { itemId: string; role: 'FORMULA' | 'PACKAGING' | 'COST_ONLY'; uom: Uom; qty: number };
@@ -130,15 +130,15 @@ export async function planProduction(input: unknown): Promise<ActionResult<{ ord
       bomId,
       stage: prev.data.stage,
       outputItemId: prev.data.outputItemId,
-      plannedQty,
-      plannedDate,
+      targetQuantity: plannedQty,
+      scheduledFor: plannedDate,
       baseUnit: prev.data.baseUnit,
       status: 'PLANNED',
       name,
       nominal: prev.data.nominal, // teoría
       reservations: reservations ?? prev.data.allocations, // reservas confirmadas o sugeridas
       shortages: prev.data.shortages,
-      allocationStatus: 'SOFT',
+      allocationStatus: prev.data.shortages.length ? 'PARTIAL' : 'SOFT',
       lotNumber: prev.data.lotNumberPlanned,
       createdAt: now,
       createdById: 'auto',
@@ -277,9 +277,9 @@ export async function recordOutput(id: string, qty: number, lotPrefix?: string) 
 export async function setQcResult(id: string, qc: { status:'PASSED'|'FAILED'|'WAIVED'; checks?: any[]; remarks?: string; }) {
   try {
     const now = new Date().toISOString();
-    const nextStatus: ProductionStatus = qc.status === 'PASSED' ? 'CLOSED' : (qc.status === 'FAILED' ? 'QC_HOLD' : 'QC_HOLD');
+    const nextStatus: ProductionStatus = qc.status === 'PASSED' ? 'DONE' : (qc.status === 'FAILED' ? 'QC_HOLD' : 'QC_HOLD');
     const patch: any = { id, qc: { ...qc, measuredAt: now }, updatedAt: now, status: nextStatus };
-    if (nextStatus === 'CLOSED') patch.endedAt = now;
+    if (nextStatus === 'DONE') patch.endedAt = now;
     await upsertMany('productionOrders', [patch]);
     return ok({ id });
   } catch (e:any) { return fail('No se pudo registrar el QC.'); }
@@ -311,25 +311,26 @@ export async function closeProduction(input: { orderId: string; realConsumption:
           .filter(l => l.qty > 0)
           .map(l => ({
             id: `sm_${orderId}_OUT_${l.itemId}_${Date.now()}`,
-            itemId: l.itemId, lotNumber: l.lotNumber, qty: l.qty, uom: l.uom,
-            reason: 'production_out', occurredAt: now
+            itemId: l.itemId, lotNumber: l.lotNumber, qty: -l.qty, uom: l.uom,
+            reason: 'production_out', occurredAt: now, fromLocation: 'RM/MAIN' // Asume ubicación
           })) as any;
     
-        // 2) StockMove producción (IN) — usa po.outputItemId y po.lotNumber (ya asignado en plan)
-        const outputQty = realConsumption.find(x => x.itemId === po.outputItemId)?.qty ?? po['targetQuantity'] ?? 0;
+        // 2) StockMove producción (IN)
+        const outputQty = (po.output || []).find(x => x.itemId === po.outputItemId)?.qty ?? po.targetQuantity ?? 0;
         const inMove: StockMove = {
           id: `sm_${orderId}_IN_${Date.now()}`,
           itemId: po.outputItemId,
-          lotNumber: (po as any).lotNumber ?? `SB-${new Date().toISOString().slice(2,10).replace(/-/g,'')}-MAIN`,
+          lotNumber: (po as any).lotNumber,
           qty: Number(outputQty) || 0,
           uom: (po as any).baseUnit || 'L',
           reason: 'production_in',
-          occurredAt: now
+          occurredAt: now,
+          toLocation: 'FG/MAIN'
         } as any;
     
         await upsertMany('stockMoves', [...outMoves, inMove] as any);
     
-        const patch: any = { id: orderId, status: 'CLOSED', endedAt: now, updatedAt: now, actuals: realConsumption, journal };
+        const patch: any = { id: orderId, status: 'DONE', endedAt: now, updatedAt: now, actuals: realConsumption, journal };
         await upsertMany('productionOrders', [patch]);
         return ok({ order: patch });
       } catch (e:any) { return fail('No se pudo cerrar la orden.'); }

@@ -1,4 +1,3 @@
-
 // src/server/integrations/holded/createInvoice.worker.ts
 import { adminDb as db } from '@/server/firebase';
 import type { OrderSellOut, Party, PartyRole, Item } from '@/domain/ssot';
@@ -33,7 +32,7 @@ export async function handleCreateHoldedInvoice({ orderId }: { orderId: string }
       address: party.billingAddress?.address,
       city: party.billingAddress?.city,
       postalCode: party.billingAddress?.zip,
-      country: party.billingAddress?.countryCode || 'ES',
+      country: (party.billingAddress as any)?.countryCode || 'ES',
       type: 'client',
     });
     contactId = created.id;

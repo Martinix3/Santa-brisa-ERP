@@ -1,4 +1,3 @@
-
 // This file can contain additional types that are shared across the domain
 // but are not part of the core SSOT definition, for better organization.
 // For now, it's empty as we've consolidated everything in ssot.ts.
@@ -14,7 +13,7 @@ export type Payload =
     | { type: 'cobro', amount: number, notes?: string }
     | { type: 'evento_mkt', kpis: { cost: number; attendees: number; leads: number }, notes?: string };
 
-export type JournalEntry = { id:string; at:string; kind:string; summary:string };
+export type JournalEntry = { id:string; at:string; kind: 'START' | 'PAUSE' | 'RESUME' | 'NOTE' | 'INCIDENT' | 'FINISH'; summary:string };
 
 export interface Interaction {
   id: string;
