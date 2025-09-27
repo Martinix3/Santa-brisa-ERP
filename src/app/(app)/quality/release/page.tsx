@@ -6,7 +6,7 @@ import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { SBCard, SBButton, Select } from '@/components/ui/ui-primitives';
 import { useData } from "@/lib/dataprovider";
 import {
-  CheckCircle2, XCircle, Hourglass, Search, FlaskConical, Filter, ChevronDown, GitBranch,
+  CheckCircle, XCircle, Hourglass, Search, FlaskConical, Filter, ChevronDown, GitBranch,
   FileQuestion, Package, AlertTriangle, ClipboardCheck, User, Save, FilePlus2, ListOrdered, FileCheck, ArrowRight
 } from "lucide-react";
 import type {
@@ -25,7 +25,7 @@ const TABS_CONFIG = [
   { id: "ALL" as BucketKey, label: "Todos", icon: ListOrdered },
   { id: "UNDEFINED" as BucketKey, label: "Sin Estado", icon: FileQuestion },
   { id: "HOLD" as BucketKey, label: "En Hold", icon: Hourglass },
-  { id: "RELEASED" as BucketKey, label: "Liberados", icon: CheckCircle2 },
+  { id: "RELEASED" as BucketKey, label: "Liberados", icon: CheckCircle },
   { id: "REJECTED" as BucketKey, label: "Rechazados", icon: XCircle },
 ];
 
@@ -378,7 +378,7 @@ export default function LabReleasePage() {
                     </div>
                     <div className="grid grid-cols-3 gap-2">
                         <SBButton onClick={() => handleSaveDecision('RELEASED')} disabled={!allRequiredResultsEntered}>
-                            <CheckCircle2 size={16}/> Aprobar Lote
+                            <CheckCircle size={16}/> Aprobar Lote
                         </SBButton>
                         <SBButton variant="secondary" onClick={() => handleSaveDecision('ON_HOLD_QC')}>
                             <Hourglass size={16}/> Poner en Hold
@@ -391,8 +391,7 @@ export default function LabReleasePage() {
               )}
             </div>
           </SBCard>
-
-          <SBCard title={<><ListOrdered size={16}/><span>Historial del Lote</span></>}>
+           <SBCard title={<><ListOrdered size={16}/><span>Historial del Lote</span></>}>
             <div className="p-4">
               {selectedLotData.history.length === 0 ? <p className="text-sm text-zinc-500 text-center">No hay eventos registrados para este lote.</p>
               : (
