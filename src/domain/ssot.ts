@@ -297,7 +297,7 @@ export interface GoodsReceipt {
     itemId: string;
     qty: number; uom: Uom;
     unitCost: number;
-    lotNumber?: LotNumber;
+    lotNumber: LotNumber;
     overTolerancePct?: number; underTolerancePct?: number;
   }>;
   landedCosts?: Array<{ kind: 'freight'|'duty'|'insurance'|'other'; amount: number; allocation: 'by_value'|'by_weight'|'by_qty'; notes?: string }>;
