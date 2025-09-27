@@ -16,12 +16,6 @@ import type {
   Uom, Item, Lot, ProductionOrder, BillOfMaterial as RecipeBom, ProductionStatus, JournalEntry
 } from "@/domain/ssot";
 
-type LocalProductionOrder = ProductionOrder & {
-  locked?: boolean;
-  theory?: Array<{ itemId: string; qty: number; uom: Uom }>;
-  real?: Array<{ itemId: string; qty: number; uom: Uom; lotNumber?: string }>;
-};
-
 
 // ======= Acciones server (ajusta la ruta si difiere) =======
 import {
@@ -31,8 +25,15 @@ import {
   resumeProduction,
   closeProduction,
   cancelProduction,
-  addIncident, // usaremos para añadir entradas a bitácora tipo incidente
+  addIncident,
 } from "../actions";
+
+type LocalProductionOrder = ProductionOrder & {
+  locked?: boolean;
+  theory?: Array<{ itemId: string; qty: number; uom: Uom }>;
+  real?: Array<{ itemId: string; qty: number; uom: Uom; lotNumber?: string }>;
+};
+
 
 // ====================== Helpers UI ======================
 function Collapsible({ title, count, defaultOpen = true, children }: { title: string; count?: number; defaultOpen?: boolean; children: React.ReactNode }) {
@@ -71,14 +72,14 @@ function mapStatusTone(s: ProductionStatus) {
   if (s === "IN_PROGRESS") return "sky";
   if (s === "PLANNED") return "amber";
   if (s === "PAUSED") return "rose";
-  if (s === "CLOSED") return "emerald";
+  if (s === "DONE") return "emerald";
   return "zinc" as const;
 }
 
 // ================== Cálculos negocio (teoría/stock) ==================
 function computeTheoretical(bom: RecipeBom, qty: number, itemsMap: Map<string, Item>) {
   // qty es el multiplicador del batch
-  const lines = bom.items.filter((l:any) => l.role !== "COST_ONLY");
+  const lines = (bom.items || []).filter((l:any) => l.role !== "COST_ONLY");
   return lines.map((l:any) => ({
     itemId: l.itemId,
     itemName: itemsMap.get(l.itemId)?.name ?? l.itemId,
@@ -162,7 +163,7 @@ function computeKPIs(order: LocalProductionOrder, itemsMap: Map<string, Item>) {
   const outputReal = real.find((x) => x.itemId === order.outputItemId)?.qty ?? 0;
   // teoría esperada para output ≈ plannedQty * 1 (si batch produce 1 unidad base)
   // Esto depende de tu modelado. Aquí usamos plannedQty como "unidades de salida base".
-  const outputTheo = order.plannedQty || 1;
+  const outputTheo = order.targetQuantity || 1;
   const rendimientoPct = outputTheo > 0 ? (outputReal / outputTheo) * 100 : 0;
 
   // botellas/hora: si FG y bottleSizeMl definido
@@ -347,7 +348,7 @@ export default function ProductionExecutionPage() {
   const itemsMap = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
 
   const activeOrders = useMemo(
-    () => ordersRaw.filter((o) => o.status !== "CLOSED" && o.status !== "CANCELLED"),
+    () => ordersRaw.filter((o) => o.status !== "DONE" && o.status !== "CANCELLED"),
     [ordersRaw]
   );
 
@@ -467,7 +468,7 @@ export default function ProductionExecutionPage() {
     if (!currentOrder) return;
     const idempotencyKey = crypto.randomUUID();
     startOtherTransition(async () => {
-      const r = await pauseProduction(currentOrder.id);
+      const r = await pauseProduction({ orderId: currentOrder.id, idempotencyKey});
       if ((r as any)?.ok) {
         toast.message("Producción en pausa");
         setCurrentOrder({ ...currentOrder, status: "PAUSED" });
@@ -482,7 +483,7 @@ export default function ProductionExecutionPage() {
     if (!currentOrder) return;
     const idempotencyKey = crypto.randomUUID();
     startOtherTransition(async () => {
-      const r = await resumeProduction(currentOrder.id);
+      const r = await resumeProduction({ orderId: currentOrder.id, idempotencyKey });
       if ((r as any)?.ok) {
         toast.success("Producción reanudada");
         setCurrentOrder({ ...currentOrder, status: "IN_PROGRESS" });
@@ -497,7 +498,7 @@ export default function ProductionExecutionPage() {
     if (!confirm("¿Cancelar la orden? Esta acción no se puede deshacer.")) return;
     const idempotencyKey = crypto.randomUUID();
     startOtherTransition(async () => {
-      const r = await cancelProduction(orderId);
+      const r = await cancelProduction({ orderId, idempotencyKey });
       if ((r as any)?.ok) {
         toast.success("Orden cancelada");
         setCurrentOrder(null);
@@ -548,7 +549,7 @@ export default function ProductionExecutionPage() {
       } as any);
       if ((r as any)?.ok) {
         toast.success("Orden finalizada y archivada");
-        const upd: ProductionOrder = (r as any).data?.order ?? { ...currentOrder, status: "CLOSED", execution: { ...currentOrder.execution, finishedAt: new Date().toISOString() } };
+        const upd: ProductionOrder = (r as any).data?.order ?? { ...currentOrder, status: "DONE", execution: { ...currentOrder.execution, finishedAt: new Date().toISOString() } };
         setCurrentOrder(upd);
       } else {
         toast.error((r as any)?.error ?? "No se pudo finalizar");
@@ -565,9 +566,11 @@ export default function ProductionExecutionPage() {
     }
     const idempotencyKey = crypto.randomUUID();
     startOtherTransition(async () => {
-      const r = await addIncident(currentOrder.id, {
+      const r = await addIncident({
+        orderId: currentOrder.id,
         summary: text,
         severity: "LOW",
+        idempotencyKey,
       });
       if ((r as any)?.ok) {
         const newEntry: JournalEntry = { id: crypto.randomUUID(), at: new Date().toISOString(), summary: text, kind: "INCIDENT" };
