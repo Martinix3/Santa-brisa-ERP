@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useMemo, useState, useCallback, useEffect, useTransition } from "react";
@@ -6,7 +5,7 @@ import { Factory as FactoryIcon, Plus, ListFilter, Pause, Play, CheckCircle2, Al
 import { SBCard } from "@/components/ui/ui-primitives";
 import { SpinnerButton } from "@/components/ui/SpinnerButton";
 import { useData } from "@/lib/dataprovider";
-import { SB_COLORS, type Item } from "@/domain/ssot";
+import { SB_COLORS, type Item, type CalcRow, type CalcResult } from "@/domain/ssot";
 import { toast } from "sonner";
 import { Field } from "@/components/forms/Field";
 import {
@@ -310,111 +309,114 @@ function IncidentsSection({ order, onRefresh }: { order: any; onRefresh: () => v
   );
 }
 
-function PlanningBoard({ bom, allItems, allBoms, onBomChange, onPlanned }: { bom: any; allItems: Item[], allBoms: any[], onBomChange: (bomId: string) => void; onPlanned: (id: string) => void; }) {
+function PlanningBoard({ bom, allItems, allBoms, onBomChange, onPlanned, onCancel }: { bom: any; allItems: Item[]; allBoms: any[]; onBomChange: (bomId: string) => void; onPlanned: (id: string, start?: boolean) => void; onCancel: () => void; }) {
     const [qty, setQty] = React.useState<number>(1);
     const [date, setDate] = React.useState<string>("");
     const [preview, setPreview] = React.useState<any>(null);
     const [loading, setLoading] = React.useState(false);
-    const [creating, setCreating] = React.useState(false);
-
+    const [creating, setCreating] = React.useState<false | 'plan' | 'start'>(false);
+    
     const itemsById = useMemo(() => new Map(allItems.map(it => [it.id, it])), [allItems]);
-  
-    // preview simple (guard)
+    
     const last = React.useRef<string>("");
     React.useEffect(() => {
-      const payload = JSON.stringify({ bomId:bom?.id, plannedQty:qty });
-      if (!bom?.id || qty<=0) { setPreview(null); last.current = payload; return; }
-      if (payload===last.current) return;
-      last.current = payload;
-      setLoading(true);
-      previewPlanning({ bomId:bom.id, plannedQty:qty }).then(res => setPreview(res?.ok? res.data : null)).finally(()=>setLoading(false));
+        const payload = JSON.stringify({ bomId: bom?.id, plannedQty: qty });
+        if (!bom?.id || qty <= 0) { setPreview(null); last.current = payload; return; }
+        if (payload === last.current) return;
+        last.current = payload;
+        setLoading(true);
+        previewPlanning({ bomId: bom.id, plannedQty: qty }).then(res => setPreview(res?.ok ? res.data : null)).finally(() => setLoading(false));
     }, [bom?.id, qty]);
-  
-    async function handlePlan() {
-      setCreating(true);
-      const r = await planProduction({ bomId:bom.id, plannedQty:qty, plannedDate: date||undefined, name:bom.name });
-      setCreating(false);
-      if (r?.ok) { toast.success("Planificada"); onPlanned(r.data.id); } else { toast.error(r?.message ?? "No se pudo planificar"); }
+
+    async function handleAction(startNow: boolean) {
+        setCreating(startNow ? 'start' : 'plan');
+        const r = await planProduction({ bomId: bom.id, plannedQty: qty, plannedDate: date || undefined, name: bom.name });
+        if (r?.ok) {
+            toast.success("Orden planificada");
+            if (startNow) {
+                const startRes = await startProduction(r.data.id);
+                if (startRes.ok) toast.success("Producción iniciada");
+                else toast.error(startRes.message ?? "No se pudo iniciar");
+            }
+            onPlanned(r.data.id, startNow);
+        } else {
+            toast.error(r?.message ?? "No se pudo planificar");
+        }
+        setCreating(false);
     }
-  
+    
+    const canStart = preview && !(preview.shortages?.length > 0);
     const accent = SB_COLORS.primary.teal;
 
     return (
-      <div className="rounded-xl border p-3 bg-white">
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div>
-                <label className="block text-sm mb-1">Receta a producir</label>
-                <select className="w-full h-10 px-3 rounded-lg border" value={bom?.id || ''} onChange={(e) => onBomChange(e.target.value)}>
-                    <option value="" disabled>Selecciona una receta...</option>
-                    {allBoms.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
-                </select>
-            </div>
-            <div>
-                <label className="block text-sm mb-1">Cantidad a producir ({bom?.baseUnit ?? "u"})</label>
-                <input type="number" min={1} className="w-full h-10 px-3 rounded-lg border" value={qty} onChange={e=>setQty(Number(e.target.value))}/>
-            </div>
-            <div>
-                <label className="block text-sm mb-1">Fecha prevista</label>
-                <input type="date" className="w-full h-10 px-3 rounded-lg border" value={date} onChange={e=>setDate(e.target.value)}/>
-            </div>
-        </div>
-  
-        <div className="mt-4">
-          <h4 className="font-medium">Materiales Requeridos</h4>
-          <div className="mt-2 rounded-lg border">
-            <div className="grid grid-cols-[1fr_auto_auto] gap-2 px-3 py-2 text-xs text-zinc-500">
-              <span>Componente</span><span>Cant. Teórica</span><span>Cant. Real</span>
-            </div>
-            <div className="divide-y">
-              {(preview?.nominal ?? []).map((c: any,i: number)=>(
-                <div key={i} className="grid grid-cols-[1fr_auto_auto] gap-2 px-3 py-2 items-center">
-                  <div>
-                    <div className="font-medium text-sm">{itemsById.get(c.itemId)?.name || c.itemId}</div>
-                    <div className="text-[11px] text-zinc-500">Lotes: {
-                      (preview.allocations || []).filter((a:any) => a.itemId === c.itemId).map((a: any) => 
-                        <b key={a.lotNumber}>{a.lotNumber} ({a.qty}{a.uom})</b>
-                      )
-                    }</div>
-                  </div>
-                  <div className="text-sm tabular-nums">{(c.qty||0)} {c.uom}</div>
-                  <div><input defaultValue={(c.qty||0)} className="w-24 h-9 px-2 rounded-lg border"/></div>
+        <div className="rounded-xl border p-3 bg-white">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                    <label className="block text-sm mb-1">Receta a producir</label>
+                    <select className="w-full h-10 px-3 rounded-lg border" value={bom?.id || ''} onChange={(e) => onBomChange(e.target.value)}>
+                        <option value="" disabled>Selecciona una receta...</option>
+                        {allBoms.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                    </select>
                 </div>
-              ))}
+                <div>
+                    <label className="block text-sm mb-1">Cantidad a producir ({bom?.baseUnit ?? "u"})</label>
+                    <input type="number" min={1} className="w-full h-10 px-3 rounded-lg border" value={qty} onChange={e => setQty(Number(e.target.value))} />
+                </div>
+                <div>
+                    <label className="block text-sm mb-1">Fecha prevista</label>
+                    <input type="date" className="w-full h-10 px-3 rounded-lg border" value={date} onChange={e => setDate(e.target.value)} />
+                </div>
             </div>
-          </div>
+
+            <div className="mt-4">
+                <h4 className="font-medium">Materiales Requeridos</h4>
+                <div className="mt-2 rounded-lg border">
+                    <div className="grid grid-cols-[1fr_auto_auto] gap-2 px-3 py-2 text-xs text-zinc-500">
+                        <span>Componente</span><span>Cant. Teórica</span><span>Lotes</span>
+                    </div>
+                    <div className="divide-y">
+                        {(preview?.nominal ?? []).map((c: any, i: number) => (
+                            <div key={i} className="grid grid-cols-[1fr_auto_auto] gap-2 px-3 py-2 items-center">
+                                <div className="font-medium text-sm">{itemsById.get(c.itemId)?.name || c.itemId}</div>
+                                <div className="text-sm tabular-nums">{c.qty || 0} {c.uom}</div>
+                                <div className="text-xs text-zinc-500">
+                                    {(preview.allocations || []).filter((a: any) => a.itemId === c.itemId).map((a: any) =>
+                                        <b key={a.lotNumber}>{a.lotNumber} ({a.qty}{a.uom})</b>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            {loading && <div className="text-sm text-zinc-500 mt-3">Calculando disponibilidad…</div>}
+
+            {preview && (
+                <div className="mt-3 grid gap-3">
+                    <div className="rounded-lg border p-3">
+                        <h4 className="font-medium">Lote de Salida Previsto</h4>
+                        <div className="mt-2 font-mono text-sm">{preview.lotNumberPlanned || '—'}</div>
+                    </div>
+                    <div className="rounded-lg border p-3">
+                        <h4 className="font-medium">Disponibilidad</h4>
+                        {Array.isArray(preview.shortages) && preview.shortages.length > 0 ? (
+                            <ul className="mt-2 text-sm space-y-1">
+                                {preview.shortages.map((s: any, i: number) => (
+                                    <li key={i} className="text-rose-700">⚠️ Falta {s.missing} {s.uom} de {itemsById.get(s.itemId)?.name || s.itemId} (Req {s.required}, Disp {s.available})</li>
+                                ))}
+                            </ul>
+                        ) : <div className="mt-2 text-sm text-emerald-700">Todo el material disponible.</div>}
+                    </div>
+                </div>
+            )}
+            
+            <div className="mt-4 flex justify-end gap-2">
+                <SpinnerButton onClick={onCancel} className="sb-btn-secondary">Cancelar</SpinnerButton>
+                <SpinnerButton onClick={() => handleAction(false)} loading={creating === 'plan'} disabled={!!creating || !preview} className="sb-btn-secondary">Programar</SpinnerButton>
+                <SpinnerButton onClick={() => handleAction(true)} loading={creating === 'start'} disabled={!!creating || !canStart} style={{ backgroundColor: `hsl(${accent})` } as any} className="text-white">Iniciar Producción</SpinnerButton>
+            </div>
         </div>
-  
-        {loading && <div className="text-sm text-zinc-500 mt-3">Calculando disponibilidad…</div>}
-  
-        {preview && (
-          <div className="mt-3 grid gap-3">
-            <div className="rounded-lg border p-3">
-              <h4 className="font-medium">Lote de Salida Previsto</h4>
-              <div className="mt-2 font-mono text-sm">{preview.lotNumberPlanned || '—'}</div>
-            </div>
-            <div className="rounded-lg border p-3">
-              <h4 className="font-medium">Disponibilidad</h4>
-              {Array.isArray(preview.shortages) && preview.shortages.length>0 ? (
-                <ul className="mt-2 text-sm space-y-1">
-                  {preview.shortages.map((s:any,i:number)=>(
-                    <li key={i} className="text-rose-700">⚠️ Falta {s.missing} {s.uom} de {itemsById.get(s.itemId)?.name || s.itemId} (Req {s.required}, Disp {s.available})</li>
-                  ))}
-                </ul>
-              ): <div className="mt-2 text-sm text-emerald-700">Todo el material disponible.</div>}
-            </div>
-          </div>
-        )}
-  
-        <SpinnerButton
-          onClick={handlePlan}
-          loading={creating}
-          style={{ backgroundColor: `hsl(${accent})` } as any}
-          className="text-white w-full h-12 text-base font-semibold mt-4"
-        >
-          Planificar producción
-        </SpinnerButton>
-      </div>
     );
 }
 
@@ -523,7 +525,7 @@ export default function ExecutionPage() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-zinc-800 truncate">{o.name || o.id}</p>
-                    <p className="text-xs text-zinc-500 truncate">{o.plannedQty} {o.baseUnit} {o.stage ? `• ${o.stage}` : ''}</p>
+                    <p className="text-xs text-zinc-500 truncate">{o.targetQuantity} {o.baseUnit} {o.stage ? `• ${o.stage}` : ''}</p>
                   </div>
                   <div className="shrink-0">
                     {o.status === 'IN_PROGRESS' && <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">En curso</span>}
@@ -570,6 +572,7 @@ export default function ExecutionPage() {
                   setOpenBomId(null);
                   loadInitialData();
                 }}
+                onCancel={() => setOpenBomId(null)}
               />
             ) : (
               <EmptyCenter onPickBom={pickBom} />
@@ -580,10 +583,8 @@ export default function ExecutionPage() {
 
       {/* Derecha: Inspectores contextuales (como el panel derecho del playground) */}
       <aside className="lg:col-span-3 space-y-4">
-        {/*
-        <ShortagesPanel shortages={[]} items={data?.items ?? []} />
-        <QCPanel lots={data?.onHand ?? []} />
-        */}
+        {/* <ShortagesPanel shortages={openOrder?.shortages ?? openBom?.shortages ?? []} /> */}
+        {/* <QCPanel outputLots={openOrder?.outputLots ?? []} /> */}
       </aside>
     </div>
   );
