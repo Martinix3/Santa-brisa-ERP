@@ -2,7 +2,7 @@
 // src/app/(app)/production/execution/page.tsx
 "use client";
 
-import React, { useMemo, useState, useTransition } from "react";
+import React, { useMemo, useState, useTransition, useEffect } from "react";
 import {
   Play, Pause, CheckCircle, XCircle,
   Factory as FactoryIcon, Calendar, ChevronDown
@@ -452,7 +452,7 @@ export default function ProductionExecutionPage() {
                 <p className="font-bold font-mono text-base">
                   {currentOrder?.orderNumber ?? currentOrder?.name ?? activeBom?.name ?? "Nueva orden"}
                 </p>
-                <p><b>Etapa:</b> {(planningBom ?? recipes.find(b=>b.id===currentOrder?.bomId))?.stage ?? "-"}</p>
+                <p><b>Etapa:</b> {(activeBom)?.stage ?? "-"}</p>
                 {currentOrder?.status && (<p><b>Status:</b> <Badge tone={mapStatusTone(currentOrder.status)}>{currentOrder.status}</Badge></p>)}
               </div>
 
@@ -543,7 +543,7 @@ export default function ProductionExecutionPage() {
               <input
                 className="w-full border rounded-md p-2"
                 placeholder="Nombre responsable"
-                value={responsible}
+                value={responsible ?? ''}
                 onChange={e=>setResponsible(e.target.value)}
                 readOnly={isClosedLike(currentOrder?.status)}
               />
