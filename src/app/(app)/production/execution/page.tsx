@@ -772,7 +772,7 @@ export default function ProductionExecutionPage() {
                         <label className="text-xs font-medium">Responsable</label>
                         <input
                           className="mt-1 w-full border rounded-md p-2"
-                          value={responsible ?? ""}
+                          value={responsible ?? ''}
                           onChange={(e) => setResponsible(e.target.value)}
                           placeholder="Nombre"
                           readOnly={currentOrder.status !== "PLANNED"}
