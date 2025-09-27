@@ -65,7 +65,7 @@ function Badge({ children, tone = "zinc" }: { children: React.ReactNode; tone?: 
 
 type TraceEvent = {
   id: string; at: string; kind: string; title: string;
-  details?: string; icon: React.ReactNode; tone: "zinc" | "sky" | "amber" | "rose" | "emerald";
+  details?: string; icon: React.ElementType<{ className?: string }>; tone: "zinc" | "sky" | "amber" | "rose" | "emerald";
 };
 
 function normalizeLotHistory(lot: Lot, data: {
@@ -80,7 +80,7 @@ function normalizeLotHistory(lot: Lot, data: {
     events.push({
       id: `sm-${m.id}`, at: m.occurredAt || new Date().toISOString(), kind: 'RECEIPT', title: `Lote recibido en almacén`,
       details: `Cantidad: ${m.qty} ${m.uom}. Ubicación: ${m.toLocation ?? ''}`,
-      icon: <Package size={14} />, tone: 'sky'
+      icon: Package, tone: 'sky'
     });
   });
 
@@ -89,7 +89,7 @@ function normalizeLotHistory(lot: Lot, data: {
     events.push({
       id: `qct-${t.id}`, at: t.testedAt, kind: 'QC_TEST', title: `Análisis: ${t.parameterId}`,
       details: `Resultado: ${value}. ${t.inSpec ? 'Dentro de spec.' : 'Fuera de spec.'}`,
-      icon: <FlaskConical size={14} />, tone: t.inSpec ? 'emerald' : 'rose'
+      icon: FlaskConical, tone: t.inSpec ? 'emerald' : 'rose'
     });
   });
 
@@ -97,7 +97,7 @@ function normalizeLotHistory(lot: Lot, data: {
     events.push({
       id: `qcb-${r.id}`, at: r.reviewedAt!, kind: 'QC_DECISION', title: `Decisión: ${prettyStatus(r.status)}`,
       details: `Revisado por ${r.reviewedById}. ${r.remarks ? `"${r.remarks}"` : ''}`,
-      icon: <FileCheck2 size={14} />, tone: qcTone(r.status)
+      icon: FileCheck2, tone: qcTone(r.status)
     });
   });
 
@@ -105,7 +105,7 @@ function normalizeLotHistory(lot: Lot, data: {
     events.push({
       id: `inc-${i.id}`, at: i.at, kind: 'INCIDENT', title: `Incidente: ${i.summary}`,
       details: `Severidad: ${i.severity ?? 'N/A'}. Estado: ${i.status}`,
-      icon: <AlertTriangle size={14} />, tone: 'amber'
+      icon: AlertTriangle, tone: 'amber'
     });
   });
   
@@ -114,7 +114,7 @@ function normalizeLotHistory(lot: Lot, data: {
         events.push({
             id: `pa-${p.id}`, at: p.at, kind: 'PROTOCOL', title: `Protocolo Confirmado`,
             details: `Confirmado por ${p.acknowledgedByUserId} para la orden ${orderId}`,
-            icon: <ClipboardCheck size={14} />, tone: 'emerald'
+            icon: ClipboardCheck, tone: 'emerald'
         })
     })
   }
@@ -146,7 +146,7 @@ export default function LabReleasePage() {
   const lotsBySku = useMemo(() => {
     const map = new Map<string, Lot[]>();
     for (const lot of lots) {
-        if (lot.itemId) { // Ensure itemId exists
+        if (lot.itemId) {
             if (!map.has(lot.itemId)) {
                 map.set(lot.itemId, []);
             }
@@ -160,7 +160,7 @@ export default function LabReleasePage() {
     const hold: Lot[] = []; const released: Lot[] = []; const rejected: Lot[] = []; const undefinedState: Lot[] = [];
     const lowerQuery = query.trim().toLowerCase();
 
-    const lotsToFilter = selectedSku ? lotsBySku.get(selectedSku) || [] : lots;
+    const lotsToFilter = selectedSku ? (lotsBySku.get(selectedSku) || []) : lots;
 
     for (const l of lotsToFilter) {
       const item = itemMap.get(l.itemId);
@@ -231,7 +231,7 @@ export default function LabReleasePage() {
     analysisResults[spec.parameterId] && analysisResults[spec.parameterId].trim() !== ""
   );
   
-  const lotsForSelectedSku = selectedSku ? (lotsBySku.get(selectedSku) || []) : [];
+  const lotsForSelectedSku = useMemo(() => (selectedSku ? (lotsBySku.get(selectedSku) || []) : []), [selectedSku, lotsBySku]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-200px)]">
@@ -355,7 +355,7 @@ export default function LabReleasePage() {
                   {selectedLotData.history.map(ev => (
                     <li key={ev.id} className="flex gap-3">
                       <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: `hsl(var(--sb-${ev.tone}-soft))`}}>
-                        {ev.icon && React.cloneElement(ev.icon as React.ReactElement, { className: 'h-4 w-4', style: { color: `hsl(var(--sb-${ev.tone}-strong))` }})}
+                          {React.cloneElement(<ev.icon />, { className: 'h-4 w-4', style: { color: `hsl(var(--sb-${ev.tone}-strong))` }})}
                       </div>
                       <div>
                         <p className="font-semibold text-sm">{ev.title}</p>
@@ -375,7 +375,3 @@ export default function LabReleasePage() {
     </div>
   );
 }
-
-    
-
-    
