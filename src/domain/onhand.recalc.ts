@@ -1,3 +1,4 @@
+
 // src/domain/onhand.recalc.ts
 import type { StockMove, OnHandView, Uom } from '@/domain/ssot';
 
