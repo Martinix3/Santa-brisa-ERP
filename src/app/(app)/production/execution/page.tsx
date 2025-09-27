@@ -25,7 +25,7 @@ import {
   addIncident,
   setCalculatorInput,
   closeProduction,
-  cancelProduction,     // ⬅️ lo usamos para “Cancelar” en PLANNED
+  cancelProduction,
 } from "../actions";
 
 // ===== Tipos locales mínimos (alineados a actions.ts) =====
@@ -54,159 +54,8 @@ function Row({ children, className = "" }: { children: React.ReactNode; classNam
 }
 
 // ======================================================
-// Tablero de producción basado en receta/BOM
+// Detalle de Orden (panel derecho)
 // ======================================================
-type DraftRow = {
-  id: string;
-  bomId: string | "";
-  bomName: string;
-  qty: number;
-  date: string;     // ISO (YYYY-MM-DD)
-  preview?: any;    // resultado de previewPlanning
-};
-
-function PlanningBoard({
-  boms,
-  rows,
-  setRows,
-}: {
-  boms: Array<{ id: string; name: string }>;
-  rows: DraftRow[];
-  setRows: React.Dispatch<React.SetStateAction<DraftRow[]>>;
-}) {
-  const addRow = () =>
-    setRows((r) => [
-      ...r,
-      {
-        id: `draft_${Date.now()}`,
-        bomId: "",
-        bomName: "",
-        qty: 0,
-        date: new Date().toISOString().slice(0, 10),
-      },
-    ]);
-  const update = (id: string, patch: Partial<DraftRow>) => setRows((list) => list.map((r) => (r.id === id ? { ...r, ...patch, preview: patch.bomId !== undefined ? undefined : r.preview } : r)));
-  const remove = (id: string) => setRows((list) => list.filter((r) => r.id !== id));
-
-  const doPreview = async (row: DraftRow) => {
-    if (!row.bomId) return toast.error("Selecciona una receta/BOM.");
-    if (row.qty <= 0) return toast.error("Cantidad debe ser > 0.");
-    const r = await fetch("/api/production/preview", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ bomId: row.bomId, plannedQty: row.qty }),
-    }).then(res => res.json());
-    if (r?.ok) update(row.id, { preview: r.data });
-    else toast.error(r?.message ?? "No se pudo previsualizar");
-  };
-
-  const doPlan = async (row: DraftRow) => {
-    if (!row.bomId) return toast.error("Selecciona una receta/BOM.");
-    if (row.qty <= 0) return toast.error("Cantidad debe ser > 0.");
-    const r = await fetch("/api/production/plan", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ bomId: row.bomId, plannedQty: row.qty, plannedDate: row.date, name: row.bomName }),
-    }).then(res => res.json());
-    if (r?.ok) {
-      toast.success("Orden planificada");
-      remove(row.id);
-    } else {
-      toast.error(r?.message ?? "No se pudo planificar");
-    }
-  };
-
-  return (
-    <div className="space-y-3">
-      <div className="flex justify-between items-center">
-        <p className="text-sm text-zinc-600">Añade líneas de planificación y ajústalas según disponibilidad y specs.</p>
-        <button type="button" onClick={addRow} className="h-9 px-3 rounded-lg border bg-zinc-50 hover:bg-zinc-100 text-sm">
-          <Plus className="inline mr-1" size={14} /> Añadir línea
-        </button>
-      </div>
-
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-zinc-600">
-              <th className="py-2 px-2 w-[320px]">Receta / BOM</th>
-              <th className="py-2 px-2 w-28">Cantidad</th>
-              <th className="py-2 px-2 w-40">Fecha</th>
-              <th className="py-2 px-2">Preview</th>
-              <th className="py-2 px-2 w-56">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.id} className="border-t align-top">
-                <td className="py-2 px-2">
-                  <select
-                    className="h-9 w-full border rounded-lg px-2"
-                    value={r.bomId}
-                    onChange={(e) => {
-                      const id = e.target.value;
-                      const bom = boms.find((b) => b.id === id);
-                      update(r.id, { bomId: id, bomName: bom?.name ?? "" });
-                    }}
-                  >
-                    <option value="">— Selecciona receta/BOM —</option>
-                    {boms.map((b) => (
-                      <option key={b.id} value={b.id}>
-                        {b.name}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <td className="py-2 px-2">
-                  <input
-                    type="number"
-                    min={0}
-                    value={r.qty}
-                    onChange={(e) => update(r.id, { qty: Number(e.target.value) })}
-                    className="h-9 w-24 border rounded-lg px-2"
-                  />
-                </td>
-                <td className="py-2 px-2">
-                  <input type="date" value={r.date} onChange={(e) => update(r.id, { date: e.target.value })} className="h-9 border rounded-lg px-2"/>
-                </td>
-                <td className="py-2 px-2">
-                  {r.preview ? (
-                    <div className="text-xs">
-                      {r.preview.inSpec ? (
-                        <span className="px-2 py-0.5 rounded-full border bg-emerald-50 text-emerald-700">En spec</span>
-                      ) : (
-                        <span className="px-2 py-0.5 rounded-full border bg-amber-50 text-amber-800">Fuera de spec</span>
-                      )}
-                      {r.preview.shortages?.length > 0 && (
-                        <div className="mt-1 text-rose-700">Faltantes: {r.preview.shortages.length}</div>
-                      )}
-                    </div>
-                  ) : (
-                    <button type="button" onClick={() => doPreview(r)} className="h-9 px-3 rounded-lg border bg-zinc-50 hover:bg-zinc-100">
-                      Previsualizar
-                    </button>
-                  )}
-                </td>
-                <td className="py-2 px-2">
-                  <div className="flex gap-2">
-                    <button type="button" onClick={() => doPlan(r)} className="h-9 px-3 rounded-lg border bg-[hsl(var(--sb-accent-produc)/0.12)] hover:bg-[hsl(var(--sb-accent-produc)/0.18)]">
-                      Planificar
-                    </button>
-                    <button type="button" onClick={() => remove(r.id)} className="h-9 px-3 rounded-lg border bg-white hover:bg-zinc-50">
-                      Quitar
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-// ===== Detalle de Orden (panel derecho) =====
 function OrderDetail({ order, allItems, onRefresh }: { order: ProductionOrder; allItems: Item[]; onRefresh: () => void }) {
   const [pending, startTransition] = useTransition();
   const [ops, setOps] = useState<number>(order?.operatorsCount ?? 0);
@@ -248,8 +97,6 @@ function OrderDetail({ order, allItems, onRefresh }: { order: ProductionOrder; a
   const status = order.status as string;
   const isProd = order.stage === "PRODUCCION";
   const hasShortages = (order.shortages?.length ?? 0) > 0;
-  const hasOutput = (order.output?.[0]?.qty ?? 0) > 0;
-  const hasQc = !!order.qc?.status;
   const hasParentLotIfNeeded = isProd ? true : (order.parentLotNumber || parentLot).trim().length > 0;
 
   // Reglas de habilitación
@@ -762,7 +609,6 @@ export default function ProductionPage() {
 
           {/* Panel lateral */}
           <div className="lg:col-span-1 space-y-6">
-            {/* Activas y Programadas en una sola tarjeta (muestra fecha si está) */}
             <SBCard title={`Órdenes (activas ${active.length} / programadas ${scheduled.length})`} accent={(SB_COLORS as any).module?.produccion ?? SB_COLORS.primary.teal}>
               <div className="p-2 space-y-2">
                 {[...active, ...scheduled].map((o: any) => (
@@ -785,7 +631,6 @@ export default function ProductionPage() {
               </div>
             </SBCard>
 
-            {/* Partes de producción (detalle breve de cada orden) */}
             <SBCard title="Partes de producción" accent={(SB_COLORS as any).module?.produccion ?? SB_COLORS.primary.teal}>
               <div className="p-2 space-y-2">
                 {orders.map((o:any) => (
@@ -806,3 +651,4 @@ export default function ProductionPage() {
     </>
   );
 }
+```
