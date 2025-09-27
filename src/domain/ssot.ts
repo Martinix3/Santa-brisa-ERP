@@ -1,3 +1,4 @@
+
 // src/domain/ssot.ts
 import type { Interaction } from './ssot.common';
 // =================================================================
@@ -39,7 +40,7 @@ export type ItemCategory = 'fg'|'raw'|'pack'|'intermediate'|'consumable'|'merch'
 
 // Enums para Módulo de Calidad
 export type QcPoint = "PRE_PROD" | "RECEIVING" | "IPQC" | "FINAL_QC";
-export type QcStatus = "PENDING" | "IN_PROGRESS" | "CONDITIONAL_RELEASE" | "RELEASED" | "REJECTED" | "WAIVED";
+export type QcStatus = "PENDING" | "IN_PROGRESS" | "CONDITIONAL_RELEASE" | "RELEASED" | "REJECTED" | "WAIVED" | "ON_HOLD_QC";
 export type QcMethod = "DENSIMETER" | "TITRATION" | "HPLC" | "MICROBIO" | "SENSORIAL" | "OTHER";
 export type Unit = "pct" | "gpl" | "cfu_ml" | "ntu" | "ph" | "unit";
 
@@ -51,8 +52,8 @@ export type LotStatus = 'OPEN' | 'ON_HOLD_QC' | 'RELEASED' | 'CONSUMED' | 'SCRAP
 /** Enlaces de genealogía: input(parent) -> output(child) por orden */
 export interface LotGenealogyEdge {
   id: string;
-  parentLot: LotNumber;   // input
-  childLot: LotNumber;    // output
+  parentLotNumber: LotNumber;   // input
+  childLotNumber: LotNumber;    // output
   orderId: string;
   qty?: number;
   uom?: Uom;
@@ -272,7 +273,7 @@ export interface Lot {
   id: string; // Es el lotNumber
   itemName?: string; // denormalizado
   qtyOnHand?: number; // denormalizado
-  lotNumber: string;
+  lotNumber: LotNumber;
   itemId: string;
   quantity: number;
   createdAt: Timestamp;
@@ -493,7 +494,7 @@ export type CalcResult = {
 // -----------------------------------------------------------------
 // 7. Entidades de CRM, Marketing y otras (Sin cambios grandes)
 // -----------------------------------------------------------------
-export type Address = { address?: string; city?: string; zip?: string; province?: string; country?: string; countryCode?: string };
+export type Address = { address?: string; city?: string; zip?: string; province?: string; country?: string; countryCode?: string; };
 export type CommItem = { value: string; isPrimary?: boolean; verified?: boolean; source?: 'CRM'|'HOLDED'|'IMPORT'|'USER'; updatedAt?: Timestamp; optOut?: boolean; };
 export interface PartyPerson { name: string; role?: string; email?: CommItem; phone?: CommItem; updatedAt?: Timestamp; }
 
@@ -570,20 +571,6 @@ export interface OrderSellOut {
   external?: { shopifyOrderId?: string; holdedInvoiceId?: string; };
 }
 
-export interface Incident {
-  id: string;
-  kind: IncidentKind;                // 'QC_INBOUND' | 'QC_PROCESS' | ...
-  status: IncidentStatus;            // 'OPEN' | 'UNDER_REVIEW' | ...
-  severity?: 'LOW'|'MEDIUM'|'HIGH'|'CRITICAL';
-  summary: string;
-  details?: string;
-  at: Timestamp;
-  orderId?: string;
-  lotNumber?: LotNumber;
-  createdById?: string;
-  capaId?: string;
-}
-
 // ... Resto de interfaces como Interaction, etc. se mantienen igual pero referenciarán `itemId` donde sea necesario ...
 export * from './ssot.common'; // Importa el resto de tipos que no han cambiado
 
@@ -657,3 +644,4 @@ export const SANTA_DATA_COLLECTIONS: (keyof SantaData)[] = [
 ];
 
 export * from './ssot.metas';
+

@@ -3,7 +3,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { SBCard, SBButton, Select } from '@/components/ui/ui-primitives';
+import { SBCard, SBButton } from '@/components/ui/ui-primitives';
 import { useData } from "@/lib/dataprovider";
 import {
   CheckCircle, XCircle, Hourglass, Search, FlaskConical, Filter, ChevronDown, GitBranch,
@@ -105,7 +105,6 @@ function normalizeLotHistory(lot: Lot, data: NormalizeCtx): TraceEvent[] {
   };
 
   // === INVENTARIO / MOVIMIENTOS ===
-  // Nota: algunos datos reales usan toLocationId/fromLocationId y reason: 'receipt'|'move'|'pick'|'ship'|'adjust'
   data.stockMoves
     .filter(m => m.lotNumber === lotNumber)
     .forEach(m => {
@@ -113,8 +112,10 @@ function normalizeLotHistory(lot: Lot, data: NormalizeCtx): TraceEvent[] {
       const at = safeWhen(m.occurredAt, (m as any).createdAt as string);
       const qty = typeof m.qty === "number" ? m.qty : (m as any).quantity;
       const uom = (m as any).uom || (m as any).unit || "";
-      const toLoc = (m as any).toLocationId || (m as any).toLocation || "";
-      const fromLoc = (m as any).fromLocationId || (m as any).fromLocation || "";
+      const toLoc = (m as any).toLocationId || (m as any).toLocation || (m as any).to || "";
+      const fromLoc = (m as any).fromLocationId || (m as any).fromLocation || (m as any).from || "";
+      const isShip = (m.reason || "").toLowerCase() === "ship" || !!(m as any).ref?.shipmentId;
+
       const base = {
         at,
         details: `Cantidad: ${qty ?? "?"} ${uom ?? ""} · ${fromLoc ? `De: ${fromLoc} ` : ""}${toLoc ? `→ A: ${toLoc}` : ""}`.trim(),
@@ -126,7 +127,7 @@ function normalizeLotHistory(lot: Lot, data: NormalizeCtx): TraceEvent[] {
         push({ ...base, kind: "MOVE", title: "Movimiento interno", icon: GitBranch, tone: "zinc" });
       } else if (reason === "pick") {
         push({ ...base, kind: "PICK", title: "Preparación de pedido", icon: ClipboardCheck, tone: "amber" });
-      } else if (reason === "ship" || (m as any).shipmentId) {
+      } else if (isShip) {
         push({ ...base, kind: "SHIP", title: "Envío/Salida", icon: Truck, tone: "rose" });
       } else if (reason === "adjust") {
         push({ ...base, kind: "ADJUST", title: "Ajuste de inventario", icon: AlertTriangle, tone: "amber" });
@@ -227,14 +228,20 @@ function normalizeLotHistory(lot: Lot, data: NormalizeCtx): TraceEvent[] {
 
   // === GENEALOGÍA (opcional) ===
   (data.genealogy ?? [])
-    .filter(e => e.childLot === lotNumber || e.parentLot === lotNumber)
+    .filter(e => {
+      const child = (e as any).childLotNumber ?? (e as any).childLot;
+      const parent = (e as any).parentLotNumber ?? (e as any).parentLot;
+      return child === lotNumber || parent === lotNumber;
+    })
     .forEach(e => {
-      const isParent = e.parentLot === lotNumber;
+      const child = (e as any).childLotNumber ?? (e as any).childLot;
+      const parent = (e as any).parentLotNumber ?? (e as any).parentLot;
+      const isParent = parent === lotNumber;
       push({
         id: `gen-${e.id}`,
         at: safeWhen((e as any).at, (e as any).createdAt),
         kind: "GENEALOGY",
-        title: isParent ? `Usado en ${e.childLot}` : `Origen: ${e.parentLot}`,
+        title: isParent ? `Usado en ${child}` : `Origen: ${parent}`,
         details: (e as any).note ?? "",
         icon: GitBranch,
         tone: "zinc",
@@ -351,8 +358,10 @@ export default function LabReleasePage() {
   const visibleLots = buckets[activeTab];
 
   useEffect(() => {
-    const currentLotIsVisible = visibleLots.some(l => l.lotNumber === selectedLot);
-    if (!currentLotIsVisible) setSelectedLot(visibleLots[0]?.lotNumber ?? null);
+    if (!selectedLot && visibleLots.length) setSelectedLot(visibleLots[0].lotNumber!);
+    if (selectedLot && !visibleLots.some(l => l.lotNumber === selectedLot)) {
+      setSelectedLot(visibleLots[0]?.lotNumber ?? null);
+    }
   }, [visibleLots, selectedLot]);
   
   const handleSkuChange = (skuId: string) => {
@@ -369,12 +378,35 @@ export default function LabReleasePage() {
 
   const selectedLotData = useMemo(() => {
     if (!selectedLot) return null;
-    const lot = lots.find((l) => l.lotNumber === selectedLot);
-    if (!lot) return null;
+
+    // 1) Intenta encontrar el lote "master"
+    const lotMaster = lots.find(l => l.lotNumber === selectedLot) ?? null;
+
+    // 2) Fallback a onHand si no hay master
+    const oh = onHand.find(l => l.lotNumber === selectedLot) ?? null;
+
+    if (!lotMaster && !oh) return null; // nada que mostrar
+
+    // 3) Construye un "virtual lot" mínimamente viable (para timeline) si falta el master
+    const lot: Lot = lotMaster ?? ({
+      id: `virtual-${selectedLot}`,
+      lotNumber: selectedLot,
+      itemId: oh?.itemId ?? "",  // <- importante para mapear nombre
+      producedByOrderId: (oh as any)?.prodOrderId ?? undefined,
+      qcPlanId: lotMaster?.qcPlanId ?? undefined,
+      qcStatus: lotMaster?.qcStatus ?? undefined,
+      status: lotMaster?.status ?? undefined,
+      quantity: (oh as any)?.qty ?? (oh as any)?.quantity ?? 0,
+      uom: (oh as any)?.uom ?? "",
+      createdAt: oh?.createdAt ?? new Date().toISOString(),
+      updatedAt: oh?.updatedAt ?? oh?.createdAt ?? new Date().toISOString(),
+    } as any);
+
     const plan = lot.qcPlanId ? qcPlanMap.get(lot.qcPlanId) : undefined;
     const history = normalizeLotHistory(lot, { qcTests, qcBatchResults, incidents, stockMoves, protocolAcks, orders });
     return { lot, item: itemMap.get(lot.itemId), plan, history };
-  }, [selectedLot, lots, itemMap, qcPlans, qcTests, qcBatchResults, incidents, stockMoves, protocolAcks, orders, qcPlanMap]);
+  }, [selectedLot, lots, onHand, itemMap, qcPlanMap, qcTests, qcBatchResults, incidents, stockMoves, protocolAcks, orders]);
+
 
   useEffect(() => {
     const bad = selectedLotData?.history.filter(h => !h.icon);
@@ -439,18 +471,18 @@ export default function LabReleasePage() {
       {/* Columna 1: Filtros y Tabs */}
       <div className="lg:col-span-3 flex flex-col space-y-4">
         <div className="flex items-center gap-2">
-            <Select value={selectedSku} onChange={(e) => handleSkuChange(e.target.value)} className="flex-grow">
+            <select value={selectedSku} onChange={(e) => handleSkuChange(e.target.value)} className="flex-grow h-9 rounded-md border border-zinc-200 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400">
                 <option value="">Todos los SKUs</option>
                 {items.map(item => (
                     <option key={item.id} value={item.id}>{item.name}</option>
                 ))}
-            </Select>
-             <Select value={selectedLot || ''} onChange={(e) => handleLotChange(e.target.value)} disabled={!selectedSku}>
+            </select>
+             <select value={selectedLot || ''} onChange={(e) => handleLotChange(e.target.value)} disabled={!selectedSku} className="h-9 rounded-md border border-zinc-200 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400">
                 <option value="">Todos los lotes</option>
                 {lotsForSelectedSku.map(lotNumber => (
                     <option key={lotNumber} value={lotNumber}>{lotNumber}</option>
                 ))}
-            </Select>
+            </select>
         </div>
          <div className="space-y-1">
           {TABS_CONFIG.map(tab => (
@@ -530,11 +562,11 @@ export default function LabReleasePage() {
                 <div className="border-t pt-4 space-y-3">
                     <div className="grid grid-cols-[100px,1fr] gap-2 items-center text-xs">
                         <label htmlFor="reviewer" className="font-medium">Responsable</label>
-                         <Select id="reviewer" value={reviewer} onChange={e => setReviewer(e.target.value)} className="w-full border rounded-md p-1 h-7 bg-white">
+                         <select id="reviewer" value={reviewer} onChange={e => setReviewer(e.target.value)} className="w-full border rounded-md p-1 h-7 bg-white">
                            <option value="default.user">Usuario por Defecto</option>
                            <option value="qc.manager">Manager de Calidad</option>
                            <option value="lab.tech">Técnico de Lab</option>
-                         </Select>
+                         </select>
                     </div>
                     <div className="grid grid-cols-3 gap-2">
                         <SBButton onClick={() => handleSaveDecision('RELEASED')} disabled={!allRequiredResultsEntered}>
@@ -551,8 +583,16 @@ export default function LabReleasePage() {
               )}
             </div>
           </SBCard>
-           <SBCard title={<><ListOrdered size={16}/><span>Historial del Lote</span></>}>
+          <SBCard title={<><ListOrdered size={16}/><span>Historial del Lote</span></>}>
             <div className="p-4">
+              {selectedLotData && (
+                <div className="mb-2 text-[11px] text-zinc-500">
+                  <span className="mr-3">sm:{stockMoves.filter(m=>m.lotNumber===selectedLotData.lot.lotNumber).length}</span>
+                  <span className="mr-3">qct:{qcTests.filter(t=>t.lotNumber===selectedLotData.lot.lotNumber).length}</span>
+                  <span className="mr-3">qcb:{qcBatchResults.filter(r=>r.lotNumber===selectedLotData.lot.lotNumber).length}</span>
+                  <span>inc:{incidents.filter(i=>i.lotNumber===selectedLotData.lot.lotNumber).length}</span>
+                </div>
+              )}
               {selectedLotData.history.length === 0 ? (
                 <div className="text-sm text-zinc-500 text-center space-y-2">
                   <p>No hay eventos registrados para este lote.</p>
@@ -625,3 +665,4 @@ export default function LabReleasePage() {
     </>
   );
 }
+
