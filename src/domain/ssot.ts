@@ -104,10 +104,22 @@ export interface Item {
 
 // 1) Libro de movimientos (append-only)
 export type StockReason =
-  | 'receipt' | 'production_in' | 'production_out' | 'sale' | 'transfer'
-  | 'adjustment' | 'return_in' | 'return_out' | 'ship'
-  | 'consignment_send' | 'consignment_return' | 'consignment_sell'
-  | 'sample_send' | 'sample_consume' | 'reserve' | 'unreserve';
+  | 'receipt'
+  | 'production_in'
+  | 'production_out'
+  | 'sale'
+  | 'transfer'
+  | 'adjustment'
+  | 'return_in'
+  | 'return_out'
+  | 'ship'
+  | 'consignment_send'
+  | 'consignment_return'
+  | 'consignment_sell'
+  | 'sample_send'
+  | 'sample_consume'
+  | 'reserve'
+  | 'unreserve';
 
 export interface StockMove {
   id: string;
@@ -644,4 +656,3 @@ export const SANTA_DATA_COLLECTIONS: (keyof SantaData)[] = [
 ];
 
 export * from './ssot.metas';
-

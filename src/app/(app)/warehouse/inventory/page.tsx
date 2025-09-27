@@ -8,7 +8,7 @@ import { SBCard, Input, Select, DataTableSB } from "@/components/ui/ui-primitive
 import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog";
 import type { OnHandView, Item, ItemCategory, StockMove } from "@/domain/ssot";
 import { useData } from "@/lib/dataprovider";
-import { rebuildOnHand } from "./actions";
+import { rebuildOnHand } from "../actions";
 
 // ---- Tema logística (usa tu token CSS) ----
 const ACCENT = "var(--sb-accent-logistica)";
@@ -44,7 +44,7 @@ function MovementsDialog({
   const filtered = useMemo(() =>
     moves
       .filter(m => m.itemId === item && m.lotNumber === lot)
-      .sort((a,b) => new Date(b.occurredAt || b.createdAt).getTime() - new Date(a.occurredAt || a.createdAt).getTime())
+      .sort((a,b) => new Date((b as any).occurredAt || b.createdAt).getTime() - new Date((a as any).occurredAt || a.createdAt).getTime())
   , [moves, item, lot]);
   const it = itemsById.get(item);
   const pretty = (m: StockMove) => {
@@ -90,16 +90,16 @@ function MovementsDialog({
             <tbody>
               {filtered.map(m => (
                 <tr key={m.id} className="border-t">
-                  <td className="py-2 px-3">{new Date(m.occurredAt || m.createdAt).toLocaleString("es-ES")}</td>
+                  <td className="py-2 px-3">{new Date((m as any).occurredAt || m.createdAt).toLocaleString("es-ES")}</td>
                   <td className="py-2 px-3 font-mono">{m.reason}</td>
                   <td className="py-2 px-3">{pretty(m)}</td>
                   <td className="py-2 px-3">{(m as any).fromLocationId || (m as any).fromLocation || "—"}</td>
                   <td className="py-2 px-3">{(m as any).toLocationId || (m as any).toLocation || "—"}</td>
                   <td className="py-2 px-3 text-xs text-zinc-500">
-                    {m.ref?.goodsReceiptId ? `GR:${m.ref.goodsReceiptId} ` : ""}
-                    {m.ref?.prodOrderId ? `PO:${m.ref.prodOrderId} ` : ""}
-                    {m.ref?.shipmentId ? `SH:${m.ref.shipmentId} ` : ""}
-                    {m.ref?.orderId ? `ORD:${m.ref.orderId} ` : ""}
+                    {(m as any).ref?.goodsReceiptId ? `GR:${(m as any).ref.goodsReceiptId} ` : ""}
+                    {(m as any).ref?.prodOrderId ? `PO:${(m as any).ref.prodOrderId} ` : ""}
+                    {(m as any).ref?.shipmentId ? `SH:${(m as any).ref.shipmentId} ` : ""}
+                    {(m as any).ref?.orderId ? `ORD:${(m as any).ref.orderId} ` : ""}
                   </td>
                 </tr>
               ))}
@@ -178,7 +178,7 @@ export default function InventoryPage() {
   const totalQty = useMemo(() => filteredInventory.reduce((a,r)=> a + (Number(r.qty)||0), 0), [filteredInventory]);
 
   const cols: Col<OnHandView>[] = [
-    { key: "lotNumber", header: "Lote", render: r => <span className="font-mono text-xs bg-zinc-100 px-2 py-1 rounded-md">{r.lotNumber || r.id.substring(0,12)}</span> },
+    { key: "lotNumber", header: "Lote", render: r => <span className="font-mono text-xs bg-zinc-100 px-2 py-1 rounded-md">{r.lotNumber || (r as any).id.substring(0,12)}</span> },
     { key: "itemId", header: "Producto (SKU)", render: r => {
         const it = itemsById.get(r.itemId);
         return (<div><span className="font-medium text-zinc-800">{it?.name || r.itemId}</span><p className="text-xs text-zinc-500">{it?.sku}</p></div>);
@@ -187,7 +187,7 @@ export default function InventoryPage() {
     { key: "qty", header: "Cantidad", className: "text-right", render: r => <span className="font-semibold">{r.qty} <span className="text-xs text-zinc-500">{r.uom}</span></span> },
     { key: "qcStatus", header: "QC", render: r => <QCPill status={qcFromRow(r)} /> },
     { key: "locationId", header: "Ubicación", render: r => r.locationId || "—" },
-    { key: "updatedAt", header: "Fecha", render: r => r.updatedAt ? new Date(r.updatedAt).toLocaleDateString("es-ES") : "—" },
+    { key: "updatedAt", header: "Fecha", render: r => (r as any).updatedAt ? new Date((r as any).updatedAt).toLocaleDateString("es-ES") : "—" },
     { key: "actions", header: "", className: "text-right", render: r => (
         <button
           className={`text-xs px-2 py-1 rounded-md ${BTN_OUTLINE}`}
@@ -229,7 +229,7 @@ export default function InventoryPage() {
         <div className="flex flex-col sm:flex-row gap-2">
           <div className="flex items-center gap-2">
             <label className="text-xs text-zinc-600">Ubicación</label>
-            <Select value={locationFilter} onChange={e => setLocationFilter(e.target.value)}>
+            <Select value={locationFilter} onChange={(e) => setLocationFilter(e.target.value)}>
               {locations.map(loc => <option key={loc} value={loc}>{loc === "ALL" ? "Todas" : loc}</option>)}
             </Select>
           </div>
