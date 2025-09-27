@@ -1,4 +1,3 @@
-
 // src/app/(app)/quality/release/page.tsx
 "use client";
 
@@ -284,18 +283,16 @@ export default function LabReleasePage() {
   const parameterMap = useMemo(() => new Map(qcParameters.map(p => [p.id, p])), [qcParameters]);
   const qcPlanMap = useMemo(() => new Map(qcPlans.map(p => [p.id, p])), [qcPlans]);
 
-  const lotsBySku = useMemo(() => {
-    const map = new Map<string, OnHandView[]>();
-    for (const lot of onHand) {
-        if (lot.itemId && lot.lotNumber) {
-            if (!map.has(lot.itemId)) {
-                map.set(lot.itemId, []);
-            }
-            map.get(lot.itemId)!.push(lot);
-        }
-    }
-    return map;
-  }, [onHand]);
+  const lotsForSelectedSku = useMemo(() => {
+    if (!selectedSku) return [];
+    const uniqueLotNumbers = new Set<string>();
+    onHand.forEach(l => {
+      if (l.itemId === selectedSku && l.lotNumber) {
+        uniqueLotNumbers.add(l.lotNumber);
+      }
+    });
+    return Array.from(uniqueLotNumbers);
+  }, [selectedSku, onHand]);
   
   const latestDecisionByLot = useMemo(() => {
     const map = new Map<string, string>(); // lotNumber -> status
@@ -317,7 +314,7 @@ export default function LabReleasePage() {
     const hold: OnHandView[] = []; const released: OnHandView[] = []; const rejected: OnHandView[] = []; const undefinedState: OnHandView[] = [];
     const lowerQuery = query.trim().toLowerCase();
 
-    const lotsToFilter = selectedSku ? (lotsBySku.get(selectedSku) || []) : onHand;
+    const lotsToFilter = selectedSku ? onHand.filter(l => l.itemId === selectedSku) : onHand;
 
     for (const l of lotsToFilter) {
       if(!l.lotNumber) continue;
@@ -353,7 +350,7 @@ export default function LabReleasePage() {
 
     const ALL = [...HOLD, ...RELEASED, ...REJECTED, ...UNDEFINED].sort(byDateDesc);
     return { ALL, HOLD, RELEASED, REJECTED, UNDEFINED };
-  }, [onHand, lots, itemMap, query, selectedSku, lotsBySku, latestDecisionByLot]);
+  }, [onHand, lots, itemMap, query, selectedSku, latestDecisionByLot]);
 
   const visibleLots = buckets[activeTab];
 
@@ -436,19 +433,11 @@ export default function LabReleasePage() {
     setAnalysisResults({});
   };
 
-  const requiredSpecs = selectedLotData?.plan?.specs.filter(s => s.required) ?? [];
+  const requiredSpecs = selectedLotData?.plan?.specs.filter(s => (s as any).required) ?? [];
   const allRequiredResultsEntered = requiredSpecs.every(spec =>
     analysisResults[spec.parameterId] && analysisResults[spec.parameterId].trim() !== ""
   );
   
-  const lotsForSelectedSku = useMemo(() => {
-    if (!selectedSku) return [];
-    const lotNumbers = new Set<string>();
-    (lotsBySku.get(selectedSku) || []).forEach(l => {
-      if (l.lotNumber) lotNumbers.add(l.lotNumber);
-    });
-    return Array.from(lotNumbers);
-  }, [selectedSku, lotsBySku]);
   
   const toneBg: Record<TraceEvent["tone"], string> = {
     zinc: "bg-zinc-100",
@@ -539,14 +528,17 @@ export default function LabReleasePage() {
                     const numValue = parseFloat(value);
                     let inSpec: boolean | null = null;
                     if (!isNaN(numValue)) {
-                      inSpec = (numValue >= (spec.targetRange.min ?? -Infinity)) && (numValue <= (spec.targetRange.max ?? Infinity));
+                      const range = (spec as any).targetRange;
+                      if (range) {
+                        inSpec = (numValue >= (range.min ?? -Infinity)) && (numValue <= (range.max ?? Infinity));
+                      }
                     }
                     return (
                     <div key={spec.parameterId} className="grid grid-cols-[1fr,120px,80px] gap-2 items-center text-xs">
-                        <label htmlFor={spec.parameterId} className="font-medium truncate">{parameterMap.get(spec.parameterId)?.label ?? spec.parameterId}</label>
+                        <label htmlFor={spec.parameterId} className="font-medium truncate">{(parameterMap.get(spec.parameterId) as any)?.label ?? spec.parameterId}</label>
                         <input
                           id={spec.parameterId} type="number" step="0.01"
-                          placeholder={`${spec.targetRange.min ?? '...'} - ${spec.targetRange.max ?? '...'}`}
+                          placeholder={`${(spec as any).targetRange.min ?? '...'} - ${(spec as any).targetRange.max ?? '...'}`}
                           value={value} onChange={e => handleAnalysisChange(spec.parameterId, e.target.value)}
                           className={`w-full border rounded-md p-1 h-7 text-center font-mono ${
                             value && (inSpec === true ? 'border-emerald-500' : inSpec === false ? 'border-rose-500' : 'border-zinc-300')
@@ -665,4 +657,3 @@ export default function LabReleasePage() {
     </>
   );
 }
-
