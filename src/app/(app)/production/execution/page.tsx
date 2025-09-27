@@ -30,6 +30,7 @@ import {
   recordConsumption,
   setCalculatorInput,
 } from "@/app/(app)/production/actions";
+import { SBPageShell } from "@/components/ui/SBPageShell";
 
 // ==== Accent Producción (usa tu design token global) =========================
 const ACCENT_VAR = "--sb-accent-produc"; // ya lo usas en otros módulos
@@ -152,7 +153,7 @@ function ProductionWorkstation({
     }
     const t = setTimeout(() => {
       startTransition(async () => {
-        const res = await setCalculatorInput(order.id, { raws: calcRows });
+        const res = await setCalculatorInput(order!.id, { raws: calcRows });
         if ((res as any)?.ok) setCalcResult((res as any).data?.calcResult ?? null);
       });
     }, 250);
@@ -538,52 +539,54 @@ export default function ExecutionPage() {
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 p-4">
-      <aside className="lg:col-span-3 space-y-4">
-        <SBCard title="Planificar nueva orden">
-          <div className="p-2 space-y-1">
-            {(data?.billOfMaterials ?? []).map((b) => (
-              <button
-                key={b.id}
-                onClick={() => selectBom(b.id)}
-                className={`w-full text-left p-2 rounded-md transition-colors text-sm font-medium ${
-                  openBomId === b.id ? "bg-slate-100 text-slate-900" : "text-slate-700 hover:bg-slate-50"
-                }`}
-              >
-                {b.name}
-              </button>
-            ))}
-          </div>
-        </SBCard>
-        <SBCard title="Órdenes activas">
-          <div className="p-2 space-y-1">
-            {(data?.productionOrders ?? [])
-              .filter((o) => o.status !== "CLOSED" && o.status !== "CANCELLED")
-              .map((o) => (
+    <SBPageShell module="produc" title="Ejecución de Producción" subtitle="Puesto de trabajo para planificar y ejecutar órdenes" density="compact">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <aside className="lg:col-span-3 space-y-4">
+          <SBCard title="Planificar nueva orden">
+            <div className="p-2 space-y-1">
+              {(data?.billOfMaterials ?? []).map((b) => (
                 <button
-                  key={o.id}
-                  onClick={() => selectOrder(o.id)}
-                  className={`w-full text-left p-2 hover:bg-slate-50 rounded-md ${
-                    openOrderId === o.id ? "bg-slate-100" : ""
+                  key={b.id}
+                  onClick={() => selectBom(b.id)}
+                  className={`w-full text-left p-2 rounded-md transition-colors text-sm font-medium ${
+                    openBomId === b.id ? "bg-slate-100 text-slate-900" : "text-slate-700 hover:bg-slate-50"
                   }`}
                 >
-                  {o.id} — <span className="font-semibold">{o.status}</span>
+                  {b.name}
                 </button>
               ))}
-          </div>
-        </SBCard>
-      </aside>
+            </div>
+          </SBCard>
+          <SBCard title="Órdenes activas">
+            <div className="p-2 space-y-1">
+              {(data?.productionOrders ?? [])
+                .filter((o) => o.status !== "CLOSED" && o.status !== "CANCELLED")
+                .map((o) => (
+                  <button
+                    key={o.id}
+                    onClick={() => selectOrder(o.id)}
+                    className={`w-full text-left p-2 hover:bg-slate-50 rounded-md ${
+                      openOrderId === o.id ? "bg-slate-100" : ""
+                    }`}
+                  >
+                    {o.id} — <span className="font-semibold">{o.status}</span>
+                  </button>
+                ))}
+            </div>
+          </SBCard>
+        </aside>
 
-      <main className="lg:col-span-9 min-h-[70vh]">
-        <ProductionWorkstation
-          order={openOrder}
-          bom={openBom}
-          onRefresh={() => loadInitialData?.()}
-          onPlanned={handlePlanned}
-          allItems={data?.items ?? []}
-          allBoms={data?.billOfMaterials ?? []}
-        />
-      </main>
-    </div>
+        <main className="lg:col-span-9 min-h-[70vh]">
+          <ProductionWorkstation
+            order={openOrder}
+            bom={openBom}
+            onRefresh={() => loadInitialData?.()}
+            onPlanned={handlePlanned}
+            allItems={data?.items ?? []}
+            allBoms={data?.billOfMaterials ?? []}
+          />
+        </main>
+      </div>
+    </SBPageShell>
   );
 }
