@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useMemo, useState, useCallback, useEffect, useTransition } from "react";
@@ -151,7 +152,7 @@ function ProductionWorkstation({
     }
     const t = setTimeout(() => {
       startTransition(async () => {
-        const res = await setCalculatorInput(order!.id, { raws: calcRows });
+        const res = await setCalculatorInput(order.id, { raws: calcRows });
         if ((res as any)?.ok) setCalcResult((res as any).data?.calcResult ?? null);
       });
     }, 250);
@@ -243,7 +244,7 @@ function ProductionWorkstation({
 
       {/* CTA de estado */}
       {order && (
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 p-4 border-b">
           {order.status === "PLANNED" && (
             <>
               <SpinnerButton className={`${accentBtn}`} loading={pending}
@@ -307,9 +308,7 @@ function ProductionWorkstation({
             className={`w-full h-10 px-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-[hsl(var(${ACCENT_VAR})/0.45)]`}
           />
         </div>
-        <div className="text-sm text-zinc-600 flex items-end">
-          {stageHint}
-        </div>
+        <div className="text-sm text-zinc-600 flex items-end">{stageHint}</div>
       </div>
 
       {/* Parte de materiales */}
