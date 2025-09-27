@@ -9,6 +9,8 @@ import { ok, fail, type ActionResult } from "@/lib/result";
 import { upsertMany } from "@/lib/dataprovider/actions";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { adminDb } from '@/server/firebase';
+
 
 // Si tienes estos tipos en tu SSOT, impórtalos desde '@/domain/ssot'.
 // Aquí definimos mínimos para no romper si aún no están exportados.
@@ -74,23 +76,25 @@ type ProductionOrder = {
 
 // ===== Helpers de lectura (usa tu dataprovider/reads real) =====
 async function reads() {
-  const mod = await import("@/lib/dataprovider/reads").catch(() => null as any);
+  // Mock 'reads' since it does not exist
   return {
-    getOne: mod?.getOne ?? mod?.getDoc,
-    getManyByIds: mod?.getManyByIds ?? mod?.getDocsByIds,
+    getOne: async (collection: string, id: string) => {
+        const doc = await adminDb.collection(collection).doc(id).get();
+        if (!doc.exists) return null;
+        return { id: doc.id, ...doc.data() };
+    },
+    getManyByIds: async (collection: string, ids: string[]) => {
+        if (!ids || ids.length === 0) return [];
+        const snaps = await adminDb.collection(collection).where('id', 'in', ids).get();
+        return snaps.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    },
   };
 }
 
 // Lee una colección completa con compatibilidad hacia atrás con distintas APIs
 async function readAll(collection: string): Promise<any[]> {
-  const mod = await import("@/lib/dataprovider/reads").catch(() => null as any);
-  const fn =
-    mod?.getAll ??
-    mod?.list ??
-    mod?.getCollection ??
-    mod?.getDocs ??
-    null;
-  return fn ? await fn(collection) : [];
+    const snap = await adminDb.collection(collection).get();
+    return snap.docs.map(d => d.data());
 }
 
 function newLot(prefix='SB'): string { return `${prefix}-${Date.now()}`; }
@@ -110,7 +114,7 @@ async function readItems(ids: string[]): Promise<any[]> {
 async function readOrder(id: string): Promise<ProductionOrder | null> {
   const { getOne } = await reads();
   if (!getOne) return null as any;
-  return await getOne('productionOrders', id);
+  return await getOne('productionOrders', id) as ProductionOrder | null;
 }
 
 // ===== Explosión de BOM por cantidad planeada =====
@@ -422,10 +426,16 @@ export async function previewPlanning(input: {
 
       for (const lot of lots) {
         if (remaining <= 0) break;
-        const take = Math.min(lot.qty, remaining);
-        allocations.push({ itemId: line.itemId, lotNumber: lot.lotNumber, uom: lot.uom, qty: take });
-        remaining -= take;
-        available += take;
+        const take = Math.min(lot.qty ?? 0, remaining);
+        if (take > 0) {
+          if (!lot.lotNumber) {
+            console.warn(`fifoReserveLots: OnHand item ${lot.id} for item ${lot.itemId} has no lotNumber.`);
+            continue;
+          }
+          allocations.push({ itemId: line.itemId, lotNumber: lot.lotNumber!, uom: lot.uom, qty: take });
+          remaining -= take;
+          available += take;
+        }
       }
       if (remaining > 0) {
         shortages.push({ itemId: line.itemId, uom: line.uom, required: line.qty, available, missing: remaining });

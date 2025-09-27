@@ -12,7 +12,8 @@ import { toast } from "sonner";
 
 // Acciones del módulo Producción (previas en actions.ts)
 import {
-  planProduction,
+  // estas siguen usándose desde OrderDetail (server-side mutaciones por fetch interno)
+  planProduction, // <- solo lo usa OrderDetail? Si no, puedes dejarlo también; el tablero NO lo usa directo
   startProduction,
   pauseProduction,
   resumeProduction,
@@ -25,7 +26,6 @@ import {
   addIncident,
   setCalculatorInput,
   closeProduction,
-  previewPlanning,          // ⬅️ volvemos a usar previsualización en el tablero
 } from "../actions";
 
 // ===== Tipos locales mínimos (alineados a actions.ts) =====
@@ -61,8 +61,8 @@ type DraftRow = {
   bomId: string | "";
   bomName: string;
   qty: number;
-  date: string; // ISO (solo fecha)
-  preview?: any; // resultado de previewPlanning
+  date: string;     // ISO (YYYY-MM-DD)
+  preview?: any;    // resultado de previewPlanning
 };
 
 function PlanningBoard({
@@ -90,21 +90,29 @@ function PlanningBoard({
 
   const doPreview = async (row: DraftRow) => {
     if (!row.bomId) return toast.error("Selecciona una receta/BOM.");
-    if (row.qty <= 0) return toast.error("Cantidad > 0.");
-    const res = await previewPlanning({ bomId: row.bomId, plannedQty: row.qty });
-    if (res.ok) update(row.id, { preview: res.data });
-    else toast.error(res.message ?? "No se pudo previsualizar");
+    if (row.qty <= 0) return toast.error("Cantidad debe ser > 0.");
+    const r = await fetch("/api/production/preview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bomId: row.bomId, plannedQty: row.qty }),
+    }).then(res => res.json());
+    if (r?.ok) update(row.id, { preview: r.data });
+    else toast.error(r?.message ?? "No se pudo previsualizar");
   };
 
   const doPlan = async (row: DraftRow) => {
     if (!row.bomId) return toast.error("Selecciona una receta/BOM.");
-    if (row.qty <= 0) return toast.error("Cantidad > 0.");
-    const res = await planProduction({ bomId: row.bomId, plannedQty: row.qty });
-    if (res.ok) {
+    if (row.qty <= 0) return toast.error("Cantidad debe ser > 0.");
+    const r = await fetch("/api/production/plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bomId: row.bomId, plannedQty: row.qty, name: row.bomName }),
+    }).then(res => res.json());
+    if (r?.ok) {
       toast.success("Orden planificada");
       remove(row.id);
     } else {
-      toast.error(res.message ?? "No se pudo planificar");
+      toast.error(r?.message ?? "No se pudo planificar");
     }
   };
 
@@ -169,20 +177,22 @@ function PlanningBoard({
                       ) : (
                         <span className="px-2 py-0.5 rounded-full border bg-amber-50 text-amber-800">Fuera de spec</span>
                       )}
-                      {r.preview.shortages?.length > 0 && <div className="mt-1 text-rose-700">Faltantes: {r.preview.shortages.length}</div>}
+                      {r.preview.shortages?.length > 0 && (
+                        <div className="mt-1 text-rose-700">Faltantes: {r.preview.shortages.length}</div>
+                      )}
                     </div>
                   ) : (
-                    <button onClick={() => doPreview(r)} className="h-9 px-3 rounded-lg border bg-zinc-50 hover:bg-zinc-100">
+                    <button type="button" onClick={() => doPreview(r)} className="h-9 px-3 rounded-lg border bg-zinc-50 hover:bg-zinc-100">
                       Previsualizar
                     </button>
                   )}
                 </td>
                 <td className="py-2 px-2">
                   <div className="flex gap-2">
-                    <button onClick={() => doPlan(r)} className="h-9 px-3 rounded-lg border bg-yellow-50 hover:bg-yellow-100">
+                    <button type="button" onClick={() => doPlan(r)} className="h-9 px-3 rounded-lg border bg-yellow-50 hover:bg-yellow-100">
                       Planificar
                     </button>
-                    <button onClick={() => remove(r.id)} className="h-9 px-3 rounded-lg border bg-white hover:bg-zinc-50">
+                    <button type="button" onClick={() => remove(r.id)} className="h-9 px-3 rounded-lg border bg-white hover:bg-zinc-50">
                       Quitar
                     </button>
                   </div>
@@ -718,10 +728,9 @@ export default function ProductionPage() {
 
   const accent = "[--sb-accent-produc:182_25%_47%]";
 
-  // Particiones para panel de órdenes compactas
+  // Panel derecho: Activas + Programadas y Partes de producción
   const active = useMemo(() => orders.filter((o: any) => ["IN_PROGRESS", "PAUSED", "QC_HOLD"].includes(o.status)), [orders]);
   const scheduled = useMemo(() => orders.filter((o: any) => o.status === "PLANNED"), [orders]);
-  const past = useMemo(() => orders.filter((o: any) => ["CLOSED", "CANCELLED"].includes(o.status)), [orders]);
   const hasAlert = (o: any) => o.status === "QC_HOLD" || (o.incidents?.length ?? 0) > 0;
 
   return (
@@ -772,66 +781,51 @@ export default function ProductionPage() {
             </div>
           </div>
 
-          {/* Panel lateral: órdenes compactas */}
+          {/* Panel lateral */}
           <div className="lg:col-span-1 space-y-6">
-            <SBCard title={`Activas (${active.length})`} accent={(SB_COLORS as any).module?.produccion ?? SB_COLORS.primary.teal}>
-              <div className="p-2 space-y-1">
-                {active.map((o: any) => (
-                  <button
-                    key={o.id}
-                    onClick={() => select(o.id)}
-                    className="w-full text-left rounded-lg p-3 border hover:bg-zinc-50"
-                    title={o.name || o.id}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
+            {/* Activas y Programadas en una sola tarjeta */}
+            <SBCard title={`Órdenes (activas ${active.length} / programadas ${scheduled.length})`} accent={(SB_COLORS as any).module?.produccion ?? SB_COLORS.primary.teal}>
+              <div className="p-2 space-y-2">
+                {[...active, ...scheduled].map((o: any) => (
+                  <button key={o.id} onClick={() => select(o.id)} className="w-full text-left rounded-lg p-3 border hover:bg-zinc-50">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
                         <div className="font-medium truncate">{o.name || o.id}</div>
-                        <div className="text-xs text-zinc-500">
+                        <div className="text-xs text-zinc-500 truncate">
                           {o.stage} • {o.plannedQty} {o.baseUnit}
                         </div>
                       </div>
-                      <div className="text-right">
+                      <div className="text-right shrink-0">
                         <span className="text-[11px] px-2 py-0.5 rounded-full border bg-white text-zinc-700">{o.status}</span>
                         {hasAlert(o) && <div className="text-[11px] text-amber-700 mt-1">⚠️ alerta</div>}
                       </div>
                     </div>
                   </button>
                 ))}
-                {active.length === 0 && <div className="text-sm text-zinc-500 px-2 py-6 text-center">Sin órdenes activas.</div>}
+                {active.length + scheduled.length === 0 && (
+                  <div className="text-sm text-zinc-500 px-2 py-6 text-center">Sin órdenes activas o programadas.</div>
+                )}
               </div>
             </SBCard>
 
-            <SBCard title={`Programadas (${scheduled.length})`} accent={(SB_COLORS as any).module?.produccion ?? SB_COLORS.primary.teal}>
-              <div className="p-2 space-y-1">
-                {scheduled.map((o: any) => (
-                  <div key={o.id} className="rounded-lg p-3 border bg-white">
+            {/* Partes de producción (detalle breve de cada orden) */}
+            <SBCard title="Partes de producción" accent={(SB_COLORS as any).module?.produccion ?? SB_COLORS.primary.teal}>
+              <div className="p-2 space-y-2">
+                {orders.map((o:any) => (
+                  <div key={o.id} className="rounded-lg border p-3 bg-white">
                     <div className="flex items-center justify-between">
                       <div className="font-medium truncate">{o.name || o.id}</div>
                       <span className="text-[11px] px-2 py-0.5 rounded-full border bg-white text-zinc-700">{o.status}</span>
                     </div>
                     <div className="text-xs text-zinc-500 mt-1">
                       {o.stage} • {o.plannedQty} {o.baseUnit}
+                      {o.lotNumber ? ` • Lote ${o.lotNumber}` : ""}
+                      {o.startedAt ? ` • Inicio ${o.startedAt}` : ""}
+                      {o.endedAt ? ` • Fin ${o.endedAt}` : ""}
                     </div>
                   </div>
                 ))}
-                {scheduled.length === 0 && <div className="text-sm text-zinc-500 px-2 py-6 text-center">No hay órdenes programadas.</div>}
-              </div>
-            </SBCard>
-
-            <SBCard title={`Pasadas (${past.length})`} accent={(SB_COLORS as any).module?.produccion ?? SB_COLORS.primary.teal}>
-              <div className="p-2 space-y-1">
-                {past.map((o: any) => (
-                  <div key={o.id} className="rounded-lg p-3 border bg-white">
-                    <div className="flex items-center justify-between">
-                      <div className="font-medium truncate">{o.name || o.id}</div>
-                      <span className="text-[11px] px-2 py-0.5 rounded-full border bg-white text-zinc-700">{o.status}</span>
-                    </div>
-                    <div className="text-xs text-zinc-500 mt-1">
-                      {o.stage} • {o.plannedQty} {o.baseUnit} {o.lotNumber ? `• Lote ${o.lotNumber}` : ""}
-                    </div>
-                  </div>
-                ))}
-                {past.length === 0 && <div className="text-sm text-zinc-500 px-2 py-6 text-center">Aún no hay histórico.</div>}
+                {orders.length === 0 && <div className="text-sm text-zinc-500 px-2 py-6 text-center">Sin registros.</div>}
               </div>
             </SBCard>
           </div>
