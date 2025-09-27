@@ -39,6 +39,7 @@ type DataContextType = {
   setCurrentUserById: (userId: string) => void;
   isPersistenceEnabled: boolean;
   togglePersistence: () => void;
+  loadInitialData: () => Promise<void>;
 };
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -300,8 +301,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       togglePersistence,
       isPersistenceEnabled,
       setCurrentUserById,
+      loadInitialData,
     }),
-    [data, currentUser, authReady, saveCollection, saveAllCollections, login, loginWithEmail, signupWithEmail, logout, togglePersistence, isPersistenceEnabled, setCurrentUserById]
+    [data, currentUser, authReady, saveCollection, saveAllCollections, login, loginWithEmail, signupWithEmail, logout, togglePersistence, isPersistenceEnabled, setCurrentUserById, loadInitialData]
   );
 
   const isBlocking =
