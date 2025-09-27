@@ -170,6 +170,7 @@ export interface BillOfMaterial {
   name: string;
   batchSize: number;            // en baseUnit
   baseUnit: Uom;                // ← obligatorio
+  stage?: ProductionStage;
   items: Array<{
     itemId: string;
     qty: number;
@@ -658,3 +659,5 @@ export const SANTA_DATA_COLLECTIONS: (keyof SantaData)[] = [
 ];
 
 export * from './ssot.metas';
+
+    

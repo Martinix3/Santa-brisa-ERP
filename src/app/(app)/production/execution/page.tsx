@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useMemo, useState, useCallback, useEffect, useTransition } from "react";
@@ -10,7 +11,7 @@ import type {
   CalcRow,
   CalcResult,
 } from "@/domain/ssot";
-import { SBCard } from "@/components/ui/ui-primitives";
+import { SBCardBox as SBCard, SBBtn, SpinnerButton } from "@/components/sb-funda/SBScaffold";
 import { useData } from "@/lib/dataprovider";
 
 /* ======================
@@ -32,23 +33,6 @@ function StatusBadge({ status }: { status?: ProductionOrder["status"] }) {
   };
   return <span className={`px-2 py-0.5 text-[11px] rounded-full ring-1 ${m[status ?? "PLANNED"]}`}>{status}</span>;
 }
-
-const SpinnerButton: React.FC<
-  React.ButtonHTMLAttributes<HTMLButtonElement> & { loading?: boolean }
-> = ({ children, loading, className = "", ...props }) => (
-  <button
-    {...props}
-    disabled={loading || props.disabled}
-    className={`relative inline-flex items-center justify-center gap-2 h-10 px-4 rounded-lg font-semibold text-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${className}`}
-  >
-    {loading && (
-      <span className="absolute inset-0 grid place-content-center">
-        <span className="h-5 w-5 animate-spin rounded-full border-2 border-current border-b-transparent" />
-      </span>
-    )}
-    <span className={loading ? "opacity-0" : "opacity-100"}>{children}</span>
-  </button>
-);
 
 /* ======================
    Lateral: listas limpias
@@ -217,7 +201,7 @@ function ProductionWorkstation({
               value={qty}
               onChange={e => setQty(Number(e.target.value))}
               disabled={isExecuting}
-              className={`w-full h-10 px-3 rounded-lg border bg-white ${num} focus:outline-none focus:ring-2 focus:ring-[hsl(var(${ACCENT_VAR})/0.45)]`}
+              className={`w-full h-10 px-3 rounded-lg border bg-white font-mono tabular-nums focus:outline-none focus:ring-2 focus:ring-[hsl(var(${ACCENT_VAR})/0.45)]`}
             />
           </div>
           <div>
@@ -283,7 +267,7 @@ function ProductionWorkstation({
 
                     {/* números alineados a la derecha */}
                     <div className="md:w-28 text-right text-sm text-zinc-700">
-                      <span className={num}>{theoretical.toFixed(3)}</span>
+                      <span className="font-mono tabular-nums">{theoretical.toFixed(3)}</span>
                     </div>
 
                     <div className="md:w-32">
@@ -294,7 +278,7 @@ function ProductionWorkstation({
                           onChange={e => setActuals(rows =>
                             rows.map((r, idx) => idx === i ? { ...r, actualQty: Number(e.target.value) || 0 } : r)
                           )}
-                          className={`w-full h-9 px-2 rounded-lg border text-right ${num}
+                          className={`w-full h-9 px-2 rounded-lg border text-right font-mono tabular-nums
                                       focus:outline-none focus:ring-2 focus:ring-[hsl(var(${ACCENT_VAR})/0.45)]`}
                         />
                       ) : (
@@ -414,3 +398,5 @@ export default function ExecutionPage() {
     </div>
   );
 }
+
+    
