@@ -13,7 +13,13 @@ import { toast } from "sonner";
 
 // Usa tipos reales del SSOT
 import type {
-  Uom, Item, Lot, ProductionOrder, BillOfMaterial as RecipeBom, ProductionStatus, JournalEntry
+  Uom,
+  Item,
+  Lot,
+  ProductionOrder,
+  BillOfMaterial as RecipeBom,
+  ProductionStatus,
+  JournalEntry,
 } from "@/domain/ssot";
 
 
@@ -79,7 +85,7 @@ function mapStatusTone(s: ProductionStatus) {
 // ================== Cálculos negocio (teoría/stock) ==================
 function computeTheoretical(bom: RecipeBom, qty: number, itemsMap: Map<string, Item>) {
   // qty es el multiplicador del batch
-  const lines = (bom.lines || bom.items || []).filter((l:any) => l.role !== "COST_ONLY");
+  const lines = (bom.lines || bom.items || []).filter((l:any) => (l.role ?? 'FORMULA') !== "COST_ONLY");
   return lines.map((l:any) => ({
     itemId: l.itemId,
     itemName: itemsMap.get(l.itemId)?.name ?? l.itemId,
@@ -92,14 +98,15 @@ function computeTheoretical(bom: RecipeBom, qty: number, itemsMap: Map<string, I
 // Asignación simple por FIFO (sin fechas) de lots disponibles por itemId
 function allocateFromLots(
   theory: Array<{ itemId: string; qty: number; uom: Uom; itemName?: string }>,
-  onHand: Lot[]
+  lots: Lot[],
+  onHand: OnHandView[]
 ) {
-  const byItem = new Map<string, Lot[]>();
-  for (const lot of onHand) {
-    if (!byItem.has(lot.itemId)) byItem.set(lot.itemId, []);
-    byItem.get(lot.itemId)!.push(lot);
+  const byItem = new Map<string, OnHandView[]>();
+  for (const oh of onHand) {
+    if (!byItem.has(oh.itemId)) byItem.set(oh.itemId, []);
+    byItem.get(oh.itemId)!.push(oh);
   }
-  // (Opcional) ordenar por createdAt
+  
   for (const list of byItem.values()) {
     list.sort((a, b) => new Date(a.createdAt ?? 0).getTime() - new Date(b.createdAt ?? 0).getTime());
   }
@@ -110,13 +117,13 @@ function allocateFromLots(
   for (const t of theory) {
     let remain = t.qty;
     const availableLots = byItem.get(t.itemId) ?? [];
+    let totalAvailable = availableLots.reduce((sum, lot) => sum + (lot.qty ?? 0), 0);
+
     for (const lot of availableLots) {
-      const onHandQty = (lot as any).quantity ?? 0;
-      if (onHandQty <= 0) continue;
       if (remain <= 0) break;
-      const take = Math.min(onHandQty, remain);
-      if (take > 0 && lot.lotNumber) {
-        picks.push({ itemId: t.itemId, lotNumber: lot.lotNumber, qty: +take.toFixed(3), uom: t.uom });
+      const take = Math.min(lot.qty ?? 0, remain);
+      if (take > 0) {
+        picks.push({ itemId: t.itemId, lotNumber: lot.lotNumber ?? '', qty: +take.toFixed(3), uom: t.uom });
         remain -= take;
       }
     }
@@ -126,6 +133,7 @@ function allocateFromLots(
   }
   return { shortages, picks };
 }
+
 
 function computeKPIs(order: LocalProductionOrder, itemsMap: Map<string, Item>) {
   // Rendimiento: (output real / teoría esperada output) * 100
@@ -191,16 +199,16 @@ function computeKPIs(order: LocalProductionOrder, itemsMap: Map<string, Item>) {
 
 // ================== Componentes funcionales ==================
 function StockCheckPanel({
-  bom, qty, items, onHand, onReadyChange, shortagesOut, requiredLotsOut
+  bom, qty, items, onHand, lots, onReadyChange, shortagesOut, requiredLotsOut
 }: {
-  bom: RecipeBom; qty: number; items: Item[]; onHand: Lot[];
+  bom: RecipeBom; qty: number; items: Item[]; onHand: OnHandView[]; lots: Lot[];
   onReadyChange: (ok: boolean) => void;
   shortagesOut: (s: Array<{ itemId: string; itemName: string; missing: number; uom: Uom }>) => void;
   requiredLotsOut: (r: Array<{ itemId: string; lotNumber: string; qty: number; uom: Uom }>) => void;
 }) {
   const itemsMap = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
   const theory = useMemo(() => computeTheoretical(bom, qty, itemsMap), [bom, qty, itemsMap]);
-  const { shortages, picks } = useMemo(() => allocateFromLots(theory, onHand), [theory, onHand]);
+  const { shortages, picks } = useMemo(() => allocateFromLots(theory, lots, onHand), [theory, lots, onHand]);
 
   useEffect(() => {
     onReadyChange(shortages.length === 0);
@@ -241,7 +249,7 @@ function MaterialsEditor({
   const rows = useMemo(() => {
     return theory.map((t) => {
       const r = real.find((x) => x.itemId === t.itemId);
-      return { ...t, realQty: r?.qty ?? 0, lotNumber: r?.lotNumber };
+      return { ...t, realQty: r?.qty ?? 0, lotNumber: r?.lotNumber ?? '' };
     });
   }, [theory, real]);
 
@@ -341,7 +349,8 @@ function JournalCard({
 export default function ProductionExecutionPage() {
   const { data } = useData();
   const items: Item[] = data?.items ?? [];
-  const onHand: Lot[] = data?.onHand ?? [];
+  const onHand: OnHandView[] = data?.onHand ?? [];
+  const lots: Lot[] = data?.lots ?? [];
   const recipes: RecipeBom[] = (data?.billOfMaterials ?? []) as any;
   const ordersRaw: ProductionOrder[] = (data?.productionOrders ?? []) as any;
 
@@ -663,6 +672,7 @@ export default function ProductionExecutionPage() {
                 bom={planningBom}
                 qty={planQty}
                 items={items}
+                lots={lots}
                 onHand={onHand}
                 onReadyChange={setStockOk}
                 shortagesOut={setShortages}
