@@ -25,7 +25,7 @@ import {
   addIncident,
   setCalculatorInput,
   closeProduction,
-  cancelProduction,
+  cancelProduction,     // ⬅️ lo usamos para “Cancelar” en PLANNED
 } from "../actions";
 
 // ===== Tipos locales mínimos (alineados a actions.ts) =====
@@ -164,7 +164,7 @@ function OrderDetail({ order, allItems, onRefresh }: { order: ProductionOrder; a
 
           {status === "QC_HOLD" && (
             <div className="text-xs px-2 py-1 rounded border bg-amber-50 text-amber-800 flex items-center gap-1">
-              <AlertTriangle size={12}/> En espera de QC
+              <AlertTriangle size={12}/>En espera de QC
             </div>
           )}
         </div>
@@ -554,7 +554,7 @@ export default function ProductionPage() {
 
   const accent = "[--sb-accent-produc:182_25%_47%]";
 
-  // Panel derecho: Activas + Programadas y Partes de producción
+  // Panel lateral: Activas + Programadas y Partes de producción
   const active = useMemo(() => orders.filter((o: any) => ["IN_PROGRESS", "PAUSED", "QC_HOLD"].includes(o.status)), [orders]);
   const scheduled = useMemo(() => orders.filter((o: any) => o.status === "PLANNED"), [orders]);
   const hasAlert = (o: any) => o.status === "QC_HOLD" || (o.incidents?.length ?? 0) > 0;
@@ -609,6 +609,7 @@ export default function ProductionPage() {
 
           {/* Panel lateral */}
           <div className="lg:col-span-1 space-y-6">
+            {/* Activas y Programadas en una sola tarjeta */}
             <SBCard title={`Órdenes (activas ${active.length} / programadas ${scheduled.length})`} accent={(SB_COLORS as any).module?.produccion ?? SB_COLORS.primary.teal}>
               <div className="p-2 space-y-2">
                 {[...active, ...scheduled].map((o: any) => (
@@ -631,6 +632,7 @@ export default function ProductionPage() {
               </div>
             </SBCard>
 
+            {/* Partes de producción (detalle breve de cada orden) */}
             <SBCard title="Partes de producción" accent={(SB_COLORS as any).module?.produccion ?? SB_COLORS.primary.teal}>
               <div className="p-2 space-y-2">
                 {orders.map((o:any) => (
