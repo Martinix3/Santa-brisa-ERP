@@ -27,7 +27,8 @@ export type InteractionStatus = 'open' | 'done' | 'processing' | 'closed' | 'can
 export type OrderStatus = 'open' | 'confirmed' | 'shipped' | 'invoiced' | 'paid' | 'cancelled' | 'lost';
 export type ShipmentStatus = 'pending' | 'picking' | 'ready_to_ship' | 'shipped' | 'delivered' | 'exception' | 'cancelled';
 export type ProductionStatus =
-  | 'planned' | 'released' | 'wip' | 'done' | 'cancelled';
+  | 'PLANNED' | 'RELEASED' | 'IN_PROGRESS' | 'PAUSED' | 'QC_HOLD' | 'DONE' | 'CANCELLED';
+
 
 export type ProductionStage = 'PRODUCCION' | 'ENVASADO';
 export type IncidentKind = 'QC_INBOUND' | 'QC_PROCESS' | 'QC_RELEASE' | 'LOGISTICS' | 'CUSTOMER_RETURN';
@@ -200,13 +201,13 @@ export interface ProductionOrder {
   responsibleId?: string;
   name?: string;
   baseUnit?: Uom;
+  pauseLog?: Array<{ pausedAt: Timestamp; resumedAt?: Timestamp }>;
 
   // Operativo (opcionales)
   checks?: ExecCheck[];
   incidents?: { id: string; when: Timestamp; severity: 'BAJA'|'MEDIA'|'ALTA'; text: string }[];
   reservations?: ReservationView[];
   shortages?: any[];
-  pauseLog?: Array<{ pausedAt: Timestamp; resumedAt?: Timestamp }>;
 
   actuals?: Array<{
     itemId: string;
