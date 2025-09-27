@@ -18,7 +18,7 @@ type Uom = 'L' | 'kg' | 'unit';
 type ProductionStage = 'PRODUCCION' | 'ENVASADO';
 type ProductionStatus =
   | 'DRAFT' | 'PLANNED' | 'IN_PROGRESS'
-  | 'PAUSED' | 'PACKAGING' | 'QC_HOLD'
+  | 'PAUSED' | 'QC_HOLD'
   | 'CLOSED' | 'CANCELLED';
 type QcStatus = 'PENDING' | 'PASSED' | 'FAILED' | 'WAIVED';
 
@@ -424,25 +424,19 @@ export async function previewPlanning(input: {
     const onHand: Array<{itemId:string; lotNumber:string; qty:number; uom:Uom; receivedAt:string}> = await readAll("onHand") as any;
     const allocations: Array<{ itemId: string; lotNumber: string; uom: Uom; qty: number }> = [];
     const shortages: Array<{ itemId: string; uom: Uom; required: number; available: number; missing: number }> = [];
-    for (const line of nominal.filter((l) => l.role !== 'PACKAGING' || stage === 'ENVASADO')) {
-      let remaining: number = line.qty;
-      let available: number = 0;
-      const lots = (onHand as Array<{itemId:string; lotNumber:string; qty:number; uom:Uom; receivedAt:string}>)
-        .filter((l) => l.itemId === line.itemId && l.qty > 0)
-        .sort((a, b) => new Date(a.receivedAt).getTime() - new Date(b.receivedAt).getTime());
+    for (const line of nominal.filter((l:any)=> l.role !== 'PACKAGING' || stage === 'ENVASADO')) {
+      let remaining = line.qty;
+      let available = 0;
+      const lots = (onHand as any[])
+        .filter((l:any) => l.itemId === line.itemId && l.qty > 0)
+        .sort((a:any,b:any) => new Date(a.receivedAt).getTime() - new Date(b.receivedAt).getTime());
 
       for (const lot of lots) {
         if (remaining <= 0) break;
-        const take = Math.min(lot.qty ?? 0, remaining);
-        if (take > 0) {
-          if (!lot.lotNumber) {
-            console.warn(`fifoReserveLots: OnHand item ${lot.id} for item ${lot.itemId} has no lotNumber.`);
-            continue;
-          }
-          allocations.push({ itemId: line.itemId, lotNumber: lot.lotNumber!, uom: lot.uom, qty: take });
-          remaining -= take;
-          available += take;
-        }
+        const take = Math.min(lot.qty, remaining);
+        allocations.push({ itemId: line.itemId, lotNumber: lot.lotNumber, uom: lot.uom, qty: take });
+        remaining -= take;
+        available += take;
       }
       if (remaining > 0) {
         shortages.push({ itemId: line.itemId, uom: line.uom, required: line.qty, available, missing: remaining });

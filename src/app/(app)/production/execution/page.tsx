@@ -1,4 +1,4 @@
-// src/app/(app)/production/execution/page.tsx
+
 "use client";
 
 import React, { useMemo, useState, useCallback, useEffect, useTransition } from "react";
@@ -13,7 +13,6 @@ import { toast } from "sonner";
 
 // Acciones del módulo Producción (previas en actions.ts)
 import {
-  // estas siguen usándose desde OrderDetail (server-side mutaciones por fetch interno)
   startProduction,
   pauseProduction,
   resumeProduction,
@@ -62,7 +61,7 @@ type DraftRow = {
   bomId: string | "";
   bomName: string;
   qty: number;
-  date: string;     // ISO (solo fecha)
+  date: string;     // ISO (YYYY-MM-DD)
   preview?: any;    // resultado de previewPlanning
 };
 
@@ -178,7 +177,9 @@ function PlanningBoard({
                       ) : (
                         <span className="px-2 py-0.5 rounded-full border bg-amber-50 text-amber-800">Fuera de spec</span>
                       )}
-                      {r.preview.shortages?.length > 0 && <div className="mt-1 text-rose-700">Faltantes: {r.preview.shortages.length}</div>}
+                      {r.preview.shortages?.length > 0 && (
+                        <div className="mt-1 text-rose-700">Faltantes: {r.preview.shortages.length}</div>
+                      )}
                     </div>
                   ) : (
                     <button type="button" onClick={() => doPreview(r)} className="h-9 px-3 rounded-lg border bg-zinc-50 hover:bg-zinc-100">
@@ -247,6 +248,8 @@ function OrderDetail({ order, allItems, onRefresh }: { order: ProductionOrder; a
   const status = order.status as string;
   const isProd = order.stage === "PRODUCCION";
   const hasShortages = (order.shortages?.length ?? 0) > 0;
+  const hasOutput = (order.output?.[0]?.qty ?? 0) > 0;
+  const hasQc = !!order.qc?.status;
   const hasParentLotIfNeeded = isProd ? true : (order.parentLotNumber || parentLot).trim().length > 0;
 
   // Reglas de habilitación
@@ -728,7 +731,7 @@ export default function ProductionPage() {
               </div>
               <div>
                 <h1 className="text-2xl font-semibold text-zinc-900 leading-tight">Producción</h1>
-                <p className="text-xs text-zinc-600">Tablero de planificación por receta/BOM. Ajusta cantidades/fechas, previsualiza y planifica.</p>
+                <p className="text-xs text-zinc-600">Tablero de planificación por receta/BOM. Ajusta cantidades y fechas según stocks y previsiones.</p>
               </div>
             </div>
           </div>
@@ -759,7 +762,7 @@ export default function ProductionPage() {
 
           {/* Panel lateral */}
           <div className="lg:col-span-1 space-y-6">
-            {/* Activas y Programadas en una sola tarjeta */}
+            {/* Activas y Programadas en una sola tarjeta (muestra fecha si está) */}
             <SBCard title={`Órdenes (activas ${active.length} / programadas ${scheduled.length})`} accent={(SB_COLORS as any).module?.produccion ?? SB_COLORS.primary.teal}>
               <div className="p-2 space-y-2">
                 {[...active, ...scheduled].map((o: any) => (
@@ -767,9 +770,7 @@ export default function ProductionPage() {
                     <div className="flex items-center justify-between gap-2">
                       <div className="min-w-0">
                         <div className="font-medium truncate">{o.name || o.id}</div>
-                        <div className="text-xs text-zinc-500 truncate">
-                          {o.stage} • {o.plannedQty} {o.baseUnit}{o.plannedDate ? ` • ${o.plannedDate}` : ""}
-                        </div>
+                        <div className="text-xs text-zinc-500 truncate">{o.stage} • {o.plannedQty} {o.baseUnit}{o.plannedDate ? ` • ${o.plannedDate}` : ""}</div>
                       </div>
                       <div className="text-right shrink-0">
                         <span className="text-[11px] px-2 py-0.5 rounded-full border bg-white text-zinc-700">{o.status}</span>
@@ -805,17 +806,3 @@ export default function ProductionPage() {
     </>
   );
 }
-
-Con esto:
-
-El tablero por BOMs llama a la API.
-
-La botonera principal de acción de la orden se simplifica a 2 botones contextuales.
-
-Las validaciones (protocolos, faltantes, etc.) deshabilitan el botón de Iniciar.
-
-Se elimina el footer con el botón de cerrar duplicado.
-
-El panel derecho se simplifica a las dos tarjetas pedidas.
-
-El resto de paneles (consumo, QC, incidencias, calculadora) se mantienen igual en el detalle.
