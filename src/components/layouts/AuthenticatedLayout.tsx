@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
@@ -47,7 +48,13 @@ const navSections: NavSection[] = [
   { title: "Producción", module: "production", icon: Factory,
     items: [{ href: "/production/dashboard", label: "Dashboard" }, { href: "/production/bom", label: "BOMs" }, { href: "/production/execution", label: "Elaboración/Envasado" }] },
   { title: "Calidad", module: "quality", icon: ClipboardCheck,
-    items: [{ href: "/quality/dashboard", label: "Dashboard QC" }, { href: "/quality/release", label: "Liberación de Lotes" }, { href: "/quality/traceability", label: "Trazabilidad" }] },
+    items: [
+        { href: "/quality/dashboard", label: "Dashboard QC" }, 
+        { href: "/quality/release", label: "Liberación de Lotes" }, 
+        { href: "/quality/traceability", label: "Trazabilidad" },
+        { href: "/quality/autocontrol", label: "Autocontrol" },
+        { href: "/quality/parametros", label: "Parámetros" },
+    ] },
   { title: "Logística", module: "warehouse", icon: Truck,
     items: [{ href: "/warehouse/dashboard", label: "Dashboard" }, { href: "/warehouse/logistics", label: "Envíos" }, { href: "/warehouse/inventory", label: "Inventario" }] },
   { title: "Financiera", module: "finance", icon: LineChart,
