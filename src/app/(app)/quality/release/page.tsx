@@ -1,8 +1,9 @@
+
 // src/app/(app)/quality/release/page.tsx
 "use client";
 
 import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { SBCard, SBButton } from "@/components/ui/ui-primitives";
+import { SBCard, SBButton, Select } from '@/components/ui/ui-primitives';
 import { useData } from "@/lib/dataprovider";
 import {
   CheckCircle2, XCircle, Hourglass, Search, FlaskConical, Filter, ChevronDown, GitBranch,
@@ -134,26 +135,36 @@ export default function LabReleasePage() {
   const protocolAcks: ProtocolAcknowledgement[] = data?.protocolAcks ?? []; const orders: ProductionOrder[] = data?.productionOrders ?? [];
   
   const [query, setQuery] = useState("");
-  const [skuQuery, setSkuQuery] = useState("");
+  const [selectedSku, setSelectedSku] = useState<string>('');
   const [activeTab, setActiveTab] = useState<BucketKey>("UNDEFINED");
   const [selectedLot, setSelectedLot] = useState<string | null>(null);
 
   const itemMap = useMemo(() => new Map(items.map(i => [i.id, i])), [items]);
-  const itemBySku = useMemo(() => new Map(items.map(i => [i.sku.toLowerCase(), i])), [items]);
   const parameterMap = useMemo(() => new Map(qcParameters.map(p => [p.id, p])), [qcParameters]);
   const qcPlanMap = useMemo(() => new Map(qcPlans.map(p => [p.id, p])), [qcPlans]);
+
+  const lotsBySku = useMemo(() => {
+    const map = new Map<string, Lot[]>();
+    for (const lot of lots) {
+        if (!map.has(lot.itemId)) {
+            map.set(lot.itemId, []);
+        }
+        map.get(lot.itemId)!.push(lot);
+    }
+    return map;
+  }, [lots]);
 
   const buckets = useMemo(() => {
     const hold: Lot[] = []; const released: Lot[] = []; const rejected: Lot[] = []; const undefinedState: Lot[] = [];
     const lowerQuery = query.trim().toLowerCase();
-    const lowerSkuQuery = skuQuery.trim().toLowerCase();
 
-    for (const l of lots) {
+    const lotsToFilter = selectedSku ? lotsBySku.get(selectedSku) || [] : lots;
+
+    for (const l of lotsToFilter) {
       const item = itemMap.get(l.itemId);
       const matchesQuery = !lowerQuery || l.lotNumber.toLowerCase().includes(lowerQuery) || (item?.name || '').toLowerCase().includes(lowerQuery);
-      const matchesSku = !lowerSkuQuery || item?.sku.toLowerCase().includes(lowerSkuQuery);
-
-      if (!matchesQuery || !matchesSku) continue;
+      
+      if (!matchesQuery) continue;
 
       const status = l.qcStatus;
       if (status === "RELEASED") released.push(l);
@@ -163,7 +174,7 @@ export default function LabReleasePage() {
     }
     const byDateDesc = (a: Lot, b: Lot) => new Date(b.receivedAt ?? b.createdAt ?? 0).getTime() - new Date(a.receivedAt ?? a.createdAt ?? 0).getTime();
     return { HOLD: hold.sort(byDateDesc), RELEASED: released.sort(byDateDesc), REJECTED: rejected.sort(byDateDesc), UNDEFINED: undefinedState.sort(byDateDesc) };
-  }, [lots, itemMap, query, skuQuery]);
+  }, [lots, itemMap, query, selectedSku, lotsBySku]);
 
   const visibleLots = buckets[activeTab];
 
@@ -171,6 +182,17 @@ export default function LabReleasePage() {
     const currentLotIsVisible = visibleLots.some(l => l.lotNumber === selectedLot);
     if (!currentLotIsVisible) setSelectedLot(visibleLots[0]?.lotNumber ?? null);
   }, [visibleLots, selectedLot]);
+  
+  const handleSkuChange = (skuId: string) => {
+    setSelectedSku(skuId);
+    setQuery(''); // Reset manual search
+    setSelectedLot(null); // Reset lot selection
+  };
+
+  const handleLotChange = (lotNumber: string) => {
+    setSelectedLot(lotNumber);
+    setQuery(lotNumber); // Set query to focus on the selected lot
+  };
 
   const selectedLotData = useMemo(() => {
     if (!selectedLot) return null;
@@ -211,13 +233,20 @@ export default function LabReleasePage() {
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-200px)]">
       {/* Columna 1: Filtros y Tabs */}
       <div className="lg:col-span-3 flex flex-col space-y-4">
-        <div className="relative">
-            <Search className="h-4 w-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar lote o producto..." className="w-full pl-9 pr-3 py-2 text-sm border rounded-md" />
-        </div>
-        <div className="relative">
-            <Search className="h-4 w-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input value={skuQuery} onChange={e => setSkuQuery(e.target.value)} placeholder="Filtrar por SKU..." className="w-full pl-9 pr-3 py-2 text-sm border rounded-md" />
+        <div className="flex items-center gap-2">
+            <Select value={selectedSku} onChange={(e) => handleSkuChange(e.target.value)} className="flex-grow">
+                <option value="">Todos los SKUs</option>
+                {Array.from(lotsBySku.keys()).map(skuId => {
+                    const item = itemMap.get(skuId);
+                    return <option key={skuId} value={skuId}>{item?.name || skuId}</option>;
+                })}
+            </Select>
+             <Select value={query} onChange={(e) => handleLotChange(e.target.value)} disabled={!selectedSku}>
+                <option value="">Todos los lotes</option>
+                {(lotsBySku.get(selectedSku) || []).map(lot => (
+                    <option key={lot.lotNumber} value={lot.lotNumber}>{lot.lotNumber}</option>
+                ))}
+            </Select>
         </div>
          <div className="space-y-1">
           {TABS_CONFIG.map(tab => (
@@ -296,11 +325,11 @@ export default function LabReleasePage() {
                 <div className="border-t pt-4 space-y-3">
                     <div className="grid grid-cols-[100px,1fr] gap-2 items-center text-xs">
                         <label htmlFor="reviewer" className="font-medium">Responsable</label>
-                         <select id="reviewer" value={reviewer} onChange={e => setReviewer(e.target.value)} className="w-full border rounded-md p-1 h-7 bg-white">
+                         <Select id="reviewer" value={reviewer} onChange={e => setReviewer(e.target.value)} className="w-full border rounded-md p-1 h-7 bg-white">
                            <option value="default.user">Usuario por Defecto</option>
                            <option value="qc.manager">Manager de Calidad</option>
                            <option value="lab.tech">Técnico de Lab</option>
-                         </select>
+                         </Select>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                         <SBButton onClick={() => handleSaveDecision('RELEASED')} disabled={!allRequiredResultsEntered}>
@@ -343,5 +372,7 @@ export default function LabReleasePage() {
     </div>
   );
 }
+
+    
 
     
