@@ -26,7 +26,12 @@ export type UserRole = 'comercial' | 'admin' | 'ops' | 'owner';
 export type InteractionStatus = 'open' | 'done' | 'processing' | 'closed' | 'cancelled';
 export type OrderStatus = 'open' | 'confirmed' | 'shipped' | 'invoiced' | 'paid' | 'cancelled' | 'lost';
 export type ShipmentStatus = 'pending' | 'picking' | 'ready_to_ship' | 'shipped' | 'delivered' | 'exception' | 'cancelled';
-export type ProductionStatus = 'planned' | 'released' | 'wip' | 'done' | 'cancelled';
+export type ProductionStatus =
+  | 'PLANNED' | 'IN_PROGRESS' | 'PAUSED'
+  | 'PACKAGING' | 'QC_HOLD'
+  | 'CLOSED' | 'CANCELLED';
+
+export type ProductionStage = 'PRODUCCION' | 'ENVASADO';
 export type IncidentKind = 'QC_INBOUND' | 'QC_PROCESS' | 'QC_RELEASE' | 'LOGISTICS' | 'CUSTOMER_RETURN';
 export type IncidentStatus = 'OPEN' | 'UNDER_REVIEW' | 'CONTAINED' | 'CLOSED';
 export type ActivationStatus = 'active' | 'inactive' | 'pending_renewal';
@@ -54,6 +59,25 @@ export interface LotGenealogyEdge {
   uom?: Uom;
   createdAt: Timestamp;
 }
+
+export type TraceEventKind =
+  | 'RECEIPT' | 'MOVE' | 'ADJUSTMENT' | 'SCRAP'
+  | 'PRODUCTION_CONSUMPTION' | 'PRODUCTION_OUTPUT'
+  | 'QC_TEST' | 'QC_DECISION' | 'PROTOCOL_ACK'
+  | 'INCIDENT' | 'SHIPMENT';
+
+export const mapStockReasonToTraceKind = (r: StockReason): TraceEventKind => {
+  switch (r) {
+    case 'receipt': return 'RECEIPT';
+    case 'transfer': return 'MOVE';
+    case 'adjustment': return 'ADJUSTMENT';
+    case 'production_out': return 'PRODUCTION_CONSUMPTION';
+    case 'production_in': return 'PRODUCTION_OUTPUT';
+    case 'ship': return 'SHIPMENT';
+    case 'return_out': return 'SCRAP';
+    default: return 'ADJUSTMENT';
+  }
+};
 
 
 // -----------------------------------------------------------------
@@ -107,6 +131,9 @@ export interface StockMove {
   unitCost?: number;
   ref?: { prodOrderId?: string; goodsReceiptId?: string; shipmentId?: string; orderId?: string };
 }
+
+
+export type InventoryTransaction = StockMove;
 
 // 2) Vistas/Materializaciones (derivadas del libro)
 export interface OnHandView {
@@ -232,6 +259,9 @@ export interface QACheck {
   createdAt: Timestamp;
 }
 export interface Lot {
+  id: string; // Es el lotNumber
+  itemName?: string; // denormalizado
+  qtyOnHand?: number; // denormalizado
   lotNumber: string;
   itemId: string;
   quantity: number;
@@ -351,6 +381,15 @@ export type QcTestResult = {
   value: number | null; unit: Unit; passed: boolean | null;
   testedAt?: Timestamp; testedBy?: string; notes?: string; evidenceIds?: string[];
 };
+
+export interface ProtocolAcknowledgement {
+  id: string;
+  orderId: string;
+  protocolId: string;
+  acknowledgedByUserId: string;
+  at: Timestamp;
+}
+
 export interface Inspection {
   id: string;
   point: QcPoint;
@@ -518,6 +557,21 @@ export interface OrderSellOut {
   totalAmount?: number;
   external?: { shopifyOrderId?: string; holdedInvoiceId?: string; };
 }
+
+export interface Incident {
+  id: string;
+  kind: IncidentKind;                // 'QC_INBOUND' | 'QC_PROCESS' | ...
+  status: IncidentStatus;            // 'OPEN' | 'UNDER_REVIEW' | ...
+  severity?: 'LOW'|'MEDIUM'|'HIGH'|'CRITICAL';
+  summary: string;
+  details?: string;
+  at: Timestamp;
+  orderId?: string;
+  lotNumber?: LotNumber;
+  createdById?: string;
+  capaId?: string;
+}
+
 // ... Resto de interfaces como Interaction, etc. se mantienen igual pero referenciarán `itemId` donde sea necesario ...
 export * from './ssot.common'; // Importa el resto de tipos que no han cambiado
 
@@ -548,6 +602,8 @@ export interface SantaData {
   lots: Lot[]; // Añadida por coherencia, aunque puede ser una vista
   // Trazabilidad y Calidad extendidas
   lotGenealogy?: LotGenealogyEdge[];
+  inventoryTxns: InventoryTransaction[];
+  protocolAcks?: ProtocolAcknowledgement[];
   qcTests?: QcTest[];
   qcBatchResults?: QcBatchResult[];
   coas?: Coa[];
@@ -565,7 +621,7 @@ export interface SantaData {
   financeLinks: any[]; // Placeholder
   paymentLinks: any[]; // Placeholder
   traceEvents: any[]; // Placeholder
-  incidents: any[]; // Placeholder
+  incidents: Incident[];
   codeAliases: any[]; // Placeholder
   integrations?: any;
   jobs?: any[];
@@ -581,7 +637,7 @@ export interface SantaData {
 export const SANTA_DATA_COLLECTIONS: (keyof SantaData)[] = [
     'items', 'stockMoves', 'productionOrders', 'ordersSellOut', 'shipments', 'goodsReceipts', 'qaChecks',
     'onHand', 'reservations', 'parties', 'partyRoles', 'accounts', 'users', 'interactions', 'billOfMaterials',
-    'deliveryNotes', 'lots', 'lotGenealogy', 'qcTests', 'qcBatchResults', 'coas',
+    'deliveryNotes', 'lots', 'lotGenealogy', 'inventoryTxns', 'protocolAcks', 'qcTests', 'qcBatchResults', 'coas',
     'partyDuplicates', 'activations', 'promotions', 'marketingEvents', 'onlineCampaigns',
     'influencerCollabs', 'posTactics', 'posCostCatalog', 'plv_material', 'materialCosts', 'financeLinks',
     'paymentLinks', 'traceEvents', 'incidents', 'codeAliases', 'integrations', 'jobs', 'dead_letters', 'expenses',
