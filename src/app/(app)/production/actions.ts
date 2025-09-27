@@ -1,4 +1,5 @@
 
+
 // ============================================================================
 // src/app/(app)/production/actions.ts
 // Server actions del módulo de Producción (ejecución)
@@ -247,9 +248,9 @@ export async function recordOutput(id: string, qty: number, lotPrefix?: string) 
         status: 'ON_HOLD_QC',
         producedByOrderId: po.id,
         parentLotNumber: po.parentLotNumber
-    };
+    } as Lot;
     // Usamos `upsertMany` que ya tienes importado
-    await upsertMany('lots', [lotDoc as any]);
+    await upsertMany('lots', [lotDoc]);
     // ----------------------------------------------------
 
     await upsertMany('productionOrders', [{ id, lotNumber, output: out as any, updatedAt: now, status: 'QC_HOLD' } as any]);
@@ -261,6 +262,7 @@ export async function recordOutput(id: string, qty: number, lotPrefix?: string) 
     return fail('No se pudo registrar el output.', { code: (e as any).code });
   }
 }
+
 
 // ===== QC =====
 export async function setQcResult(id: string, qc: { status:'PASSED'|'FAILED'|'WAIVED'; checks?: any[]; remarks?: string; }) {
@@ -281,7 +283,7 @@ export async function addIncident(id: string, data: { severity: 'LOW'|'MEDIUM'|'
     const po = await readOrder(id);
     if (!po) return fail('Orden inexistente');
     const inc: Incident = { id: `inc_${Date.now()}`, at: new Date().toISOString(), ...data };
-    const newList = [...(po.incidents ?? []), inc];
+    const newList = [...((po as any).incidents ?? []), inc];
     await upsertMany('productionOrders', [{ id, incidents: newList as any, updatedAt: new Date().toISOString() } as any]);
     revalidatePath(`/production/execution`);
     return ok({ id, incidentId: inc.id });
@@ -451,3 +453,4 @@ export async function previewPlanning(input: {
     return fail("No se pudo previsualizar la planificación.", { code: e?.code });
   }
 }
+

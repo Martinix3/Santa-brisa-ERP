@@ -1,4 +1,3 @@
-
 // src/components/sb-funda/SBScaffold.tsx
 "use client";
 import React from "react";
@@ -144,5 +143,15 @@ export function SBBtn({
     >
       {children}
     </button>
+  );
+}
+
+export function SpinnerButton(props: React.ComponentProps<typeof SBBtn> & { loading?: boolean }) {
+  const { loading, children, ...rest } = props;
+  return (
+    <SBBtn {...rest} disabled={loading || rest.disabled} className="relative">
+      {loading && <span className="absolute inset-0 grid place-items-center"><span className="h-4 w-4 border-2 border-current border-b-transparent rounded-full animate-spin" /></span>}
+      <span className={loading ? "opacity-0" : "opacity-100"}>{children}</span>
+    </SBBtn>
   );
 }

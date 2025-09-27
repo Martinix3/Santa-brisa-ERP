@@ -10,7 +10,7 @@ import {
   closeProduction, cancelProduction, toggleProtocolsAcknowledged,
   setOperatorsCount, addIncident, recordConsumption, setCalculatorInput,
 } from "@/app/(app)/production/actions";
-import { SBScaffold, SBCardBox, SBBtn } from "@/components/sb-funda/SBScaffold";
+import { SBScaffold, SBCardBox, SBBtn, SpinnerButton } from "@/components/sb-funda/SBScaffold";
 
 // ===== Helpers UI =====
 const ACCENT: "produc" = "produc";
@@ -26,16 +26,6 @@ function StatusBadge({ status }: { status?: ProductionOrder["status"] }) {
     status === "CANCELLED" ? "bg-rose-100 text-rose-700 ring-rose-200" :
     "bg-zinc-100 text-zinc-700 ring-zinc-200";
   return <span className={`px-2 py-0.5 text-[11px] rounded-full ring-1 ${cls}`}>{status ?? "—"}</span>;
-}
-
-function SpinnerButton(props: React.ComponentProps<typeof SBBtn> & { loading?: boolean }) {
-  const { loading, children, ...rest } = props;
-  return (
-    <SBBtn {...rest} disabled={loading || rest.disabled} className="relative">
-      {loading && <span className="absolute inset-0 grid place-items-center"><span className="h-4 w-4 border-2 border-current border-b-transparent rounded-full animate-spin" /></span>}
-      <span className={loading ? "opacity-0" : "opacity-100"}>{children}</span>
-    </SBBtn>
-  );
 }
 
 // ====== Workstation (misma lógica, nueva composición) =======================
