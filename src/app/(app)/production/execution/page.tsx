@@ -8,7 +8,6 @@ import { useData } from "@/lib/dataprovider";
 import { SB_COLORS } from "@/domain/ssot";
 import { Field } from "@/components/forms/Field";
 import { toast } from "sonner";
-import type { Item } from "@/domain/ssot";
 
 // Acciones del módulo Producción (previas en actions.ts)
 import {
@@ -31,38 +30,18 @@ import {
 
 // ===== Tipos locales mínimos (alineados a actions.ts) =====
 type ProductionOrder = any; // Usa tu tipo real si lo tienes exportado desde el SSOT
+type BillOfMaterial = any;
+type Item = any;
 
-// ===== Helpers visuales reutilizables =====
-function SectionCard({ title, hint, badge, children }: { title: string; hint?: string; badge?: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-xl border p-3 bg-white">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-base font-semibold text-zinc-900">{title}</h3>
-          {hint && <p className="text-xs text-zinc-600">{hint}</p>}
-        </div>
-        {badge && (
-          <span className="text-[11px] px-2 py-0.5 rounded-full border bg-white">{badge}</span>
-        )}
-      </div>
-      <div className="mt-3">{children}</div>
-    </div>
-  );
-}
-
-function Row({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return <div className={`grid grid-cols-[2fr_1fr_1fr_auto] gap-2 items-end p-2 border rounded-md bg-white ${className}`}>{children}</div>;
-}
-
-// ======================================================
-// PLANNING BOARD (planificación en vivo por BOM)
-// ======================================================
+// ===== Tablero de planificación en vivo =====
 function PlanningBoard({ bom, onPlanned }: { bom: any; onPlanned: (id: string) => void }) {
-  const [qty, setQty] = useState<number>(0);
-  const [date, setDate] = useState<string>("");
-  const [loading, setLoading] = useState(false);
-  const [preview, setPreview] = useState<any>(null);
-  const [creating, setCreating] = useState(false);
+  const [qty, setQty] = React.useState<number>(0);
+  const [date, setDate] = React.useState<string>("");
+  const [loading, setLoading] = React.useState(false);
+  const [preview, setPreview] = React.useState<any>(null);
+  const [creating, setCreating] = React.useState(false);
+  
+  const lastPreviewPayload = React.useRef<string>("");
 
   // --- helpers de componentes del BOM ---
   const baseComponents = React.useMemo(() => {
@@ -76,23 +55,31 @@ function PlanningBoard({ bom, onPlanned }: { bom: any; onPlanned: (id: string) =
     }));
   }, [bom]);
 
-  // Recalcula preview al cambiar qty o fecha
-  useEffect(() => {
-    if (!bom?.id || qty <= 0) {
-      setPreview(null);
-      // Aunque no haya qty, seguimos mostrando fórmula base
+  // recalcula preview en vivo cada vez que cambian qty/date
+  React.useEffect(() => {
+    const payload = JSON.stringify({ bomId: bom?.id, qty });
+    if (!bom?.id || qty <= 0 || payload === lastPreviewPayload.current) {
+      if (!bom?.id || qty <= 0) setPreview(null);
       return;
     }
-    let alive = true;
+    lastPreviewPayload.current = payload;
+    
+    const ctrl = new AbortController();
     setLoading(true);
-    previewPlanning({ bomId: bom.id, plannedQty: qty })
-      .then((res) => {
-        if (!alive) return;
-        if (res?.ok) setPreview(res.data);
+    
+    previewPlanning({ bomId: bom.id, plannedQty: qty } as any)
+      .then((res: any) => {
+        if (ctrl.signal.aborted) return;
+        if (res.ok) setPreview(res.data);
         else setPreview(null);
       })
-      .finally(() => alive && setLoading(false));
-    return () => { alive = false; };
+      .finally(() => {
+        if (!ctrl.signal.aborted) setLoading(false);
+      });
+      
+    return () => {
+      ctrl.abort();
+    };
   }, [bom?.id, qty, date]);
 
   async function handlePlan() {
@@ -154,7 +141,7 @@ function PlanningBoard({ bom, onPlanned }: { bom: any; onPlanned: (id: string) =
         </div>
 
         {loading && <div className="text-sm text-zinc-500">Calculando disponibilidad…</div>}
-
+        
         {/* === Fórmula base por 1 unidad === */}
         <div className="rounded-lg border p-3">
           <h4 className="font-medium">Fórmula (por 1 {bom?.baseUnit ?? "unidad"})</h4>
@@ -189,7 +176,7 @@ function PlanningBoard({ bom, onPlanned }: { bom: any; onPlanned: (id: string) =
             </ul>
           </div>
         )}
-
+        
         {/* === Disponibilidad / COA estimado (preview) === */}
         {qty > 0 && (
           <div className="space-y-3">
@@ -279,14 +266,40 @@ function PlanningBoard({ bom, onPlanned }: { bom: any; onPlanned: (id: string) =
     </SBCard>
   );
 }
+
+
+// ===== Helpers visuales reutilizables =====
+function SectionCard({ title, hint, badge, children }: { title: string; hint?: string; badge?: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-xl border p-3 bg-white">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-base font-semibold text-zinc-900">{title}</h3>
+          {hint && <p className="text-xs text-zinc-600">{hint}</p>}
+        </div>
+        {badge && (
+          <span className="text-[11px] px-2 py-0.5 rounded-full border bg-white">{badge}</span>
+        )}
+      </div>
+      <div className="mt-3">{children}</div>
+    </div>
+  );
+}
+
+function Row({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return <div className={`grid grid-cols-[2fr_1fr_1fr_auto] gap-2 items-end p-2 border rounded-md bg-white ${className}`}>{children}</div>;
+}
+
 // ======================================================
 // Detalle de Orden (panel derecho)
 // ======================================================
-function OrderDetail({ order, allItems, onRefresh }: { order: ProductionOrder; allItems: Item[]; onRefresh: () => void }) {
+function OrderDetail({ order, allItems, onRefresh, onClose }: { order: ProductionOrder; allItems: Item[]; onRefresh: () => void; onClose: () => void; }) {
   const [pending, startTransition] = useTransition();
   const [ops, setOps] = useState<number>(order?.operatorsCount ?? 0);
   const [ack, setAck] = useState<boolean>(!!order?.protocolsAcknowledged);
   const [parentLot, setParentLot] = useState<string>(order?.parentLotNumber ?? "");
+  const [calcResult, setCalcResult] = useState<any>(order?.calcResult ?? null);
+  const debounceRef = React.useRef<any>(null);
 
   // consumo
   const [consLines, setConsLines] = useState<
@@ -308,6 +321,24 @@ function OrderDetail({ order, allItems, onRefresh }: { order: ProductionOrder; a
     setOps(order?.operatorsCount ?? 0);
     setAck(!!order?.protocolsAcknowledged);
   }, [order?.operatorsCount, order?.protocolsAcknowledged]);
+
+  useEffect(() => {
+    if (calcRows.length === 0) return;
+    const rows = calcRows.filter(r => r.itemId && r.qty > 0);
+    if (!rows.length) return;
+
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+        const res = await setCalculatorInput(order.id, { raws: rows });
+        if (res.ok) {
+            // @ts-ignore
+            setCalcResult(res.data?.calcResult ?? null);
+            onRefresh();
+        }
+    }, 400);
+
+    return () => clearTimeout(debounceRef.current);
+  }, [calcRows, order.id, onRefresh]);
 
   const accent = "[--sb-accent-produc:182_25%_47%]";
 
@@ -737,16 +768,16 @@ function OrderDetail({ order, allItems, onRefresh }: { order: ProductionOrder; a
                 Calcular
               </SpinnerButton>
             </div>
-            {order.calcResult && (
+            {calcResult && (
               <div className="text-sm">
                 <div>
-                  ABV estimado: <b>{order.calcResult.estimatedAbvPct ?? "—"}%</b>
+                  ABV estimado: <b>{calcResult.estimatedAbvPct ?? "—"}%</b>
                 </div>
                 <div>
-                  Acidez estimada: <b>{order.calcResult.estimatedAcidity_gpl ?? "—"} g/L</b>
+                  Acidez estimada: <b>{calcResult.estimatedAcidity_gpl ?? "—"} g/L</b>
                 </div>
                 <div>
-                  Azúcares estimados: <b>{order.calcResult.estimatedSugar_gpl ?? "—"} g/L</b>
+                  Azúcares estimados: <b>{calcResult.estimatedSugar_gpl ?? "—"} g/L</b>
                 </div>
               </div>
             )}
@@ -907,7 +938,7 @@ export default function ProductionPage() {
           {/* Panel principal: detalle de la orden seleccionada o tablero de planificación */}
           <div className="lg:col-span-2">
             {openOrder ? (
-              <OrderDetail order={openOrder} allItems={allItems} onRefresh={refresh} />
+              <OrderDetail order={openOrder} allItems={allItems} onRefresh={refresh} onClose={() => setOpenOrderId(null)} />
             ) : openBom ? (
               <PlanningBoard
                 bom={openBom}
