@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import type {
   Lot, LotNumber, StockMove, LotGenealogyEdge, ProductionOrder,
-  QcTest, QcBatchResult, Inspection, GoodsReceipt, Shipment, Item, ProtocolAcknowledgement, Incident, QcPoint
+  QcTest, QcBatchResult, Inspection, GoodsReceipt, Shipment, Item, ProtocolAcknowledgement, Incident, QcPoint, QcStatus
 } from "@/domain/ssot";
 
 /* =========================
@@ -246,7 +246,7 @@ function normalizeEvents(params: {
       t.valueBool != null ? `Valor: ${t.valueBool ? "Sí" : "No"}` : "";
     evs.push({
       id: `qct:${t.id}`,
-      at: t.testedAt ?? t.createdAt ?? new Date().toISOString(),
+      at: t.testedAt ?? new Date().toISOString(),
       kind: "QC_TEST",
       title: `Test ${t.parameterId}`,
       details: detail,
@@ -314,7 +314,7 @@ function normalizeEvents(params: {
     if (lotNumbers && !touches) continue;
     evs.push({
       id: `rcp:${r.id}`,
-      at: r.receivedAt ?? r.createdAt ?? new Date().toISOString(),
+      at: r.receivedAt ?? new Date().toISOString(),
       kind: "RECEIPT",
       title: `Recepción proveedor`,
       details: r.deliveryNote ?? "",
@@ -552,7 +552,7 @@ export default function TraceabilityPage() {
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <span className="font-semibold">{singleLot.lotNumber}</span>
-                      <Badge tone={singleLot.qcStatus === "PASSED" ? "ok" : singleLot.qcStatus === "FAILED" ? "danger" : "warn"}>
+                      <Badge tone={qcStatusTone(singleLot.qcStatus)}>
                         QC {singleLot.qcStatus ?? "PENDING"}
                       </Badge>
                     </div>
@@ -658,5 +658,3 @@ export default function TraceabilityPage() {
     </div>
   );
 }
-
-    
