@@ -6,7 +6,7 @@ import { Factory as FactoryIcon, Plus, ListFilter, Pause, Play, CheckCircle2, Al
 import { SBCard } from "@/components/ui/ui-primitives";
 import { SpinnerButton } from "@/components/ui/SpinnerButton";
 import { useData } from "@/lib/dataprovider";
-import { SB_COLORS, type Item, type CalcRow, type CalcResult } from "@/domain/ssot";
+import { SB_COLORS, type Item } from "@/domain/ssot";
 import { toast } from "sonner";
 import { Field } from "@/components/forms/Field";
 import {
@@ -26,7 +26,6 @@ import {
   cancelProduction,
   previewPlanning,
 } from "../actions";
-
 
 // ---- Aliases para evitar choques de tipos SSOT
 type Uom = "L" | "kg" | "unit";
@@ -178,7 +177,6 @@ function HeaderExecutionControls({
     </div>
   );
 }
-
 // ── Sección Seguridad & Personal ─────────────────────────────────
 // acciones: toggleProtocolsAcknowledged, setOperatorsCount
 function SafetyAndPersonal({
@@ -247,7 +245,6 @@ function SafetyAndPersonal({
     </div>
   );
 }
-
 // ── Sección Incidencias ──────────────────────────────────────────
 // acción: addIncident(orderId, {severity, summary, details})
 function IncidentsSection({ order, onRefresh }: { order: any; onRefresh: () => void }) {
@@ -313,7 +310,6 @@ function IncidentsSection({ order, onRefresh }: { order: any; onRefresh: () => v
   );
 }
 
-
 function PlanningBoard({ bom, allItems, allBoms, onBomChange, onPlanned }: { bom: any; allItems: Item[], allBoms: any[], onBomChange: (bomId: string) => void; onPlanned: (id: string) => void; }) {
     const [qty, setQty] = React.useState<number>(1);
     const [date, setDate] = React.useState<string>("");
@@ -322,17 +318,6 @@ function PlanningBoard({ bom, allItems, allBoms, onBomChange, onPlanned }: { bom
     const [creating, setCreating] = React.useState(false);
 
     const itemsById = useMemo(() => new Map(allItems.map(it => [it.id, it])), [allItems]);
-  
-    // fórmula base
-    const base = React.useMemo(() => {
-      const raw = bom?.items ?? bom?.components ?? [];
-      return (raw as any[]).map(c => ({
-        itemId: c.itemId ?? c.sku ?? "—",
-        name: itemsById.get(c.itemId)?.name || c.itemId,
-        qty: c.qty ?? c.quantityPerBase ?? 0,
-        uom: c.uom ?? "L",
-      }));
-    }, [bom, itemsById]);
   
     // preview simple (guard)
     const last = React.useRef<string>("");
@@ -382,14 +367,18 @@ function PlanningBoard({ bom, allItems, allBoms, onBomChange, onPlanned }: { bom
               <span>Componente</span><span>Cant. Teórica</span><span>Cant. Real</span>
             </div>
             <div className="divide-y">
-              {base.map((c,i)=>(
+              {(preview?.nominal ?? []).map((c: any,i: number)=>(
                 <div key={i} className="grid grid-cols-[1fr_auto_auto] gap-2 px-3 py-2 items-center">
                   <div>
-                    <div className="font-medium text-sm">{c.name}</div>
-                    <div className="text-[11px] text-zinc-500">Lot: <b>SB-NAoT</b></div>
+                    <div className="font-medium text-sm">{itemsById.get(c.itemId)?.name || c.itemId}</div>
+                    <div className="text-[11px] text-zinc-500">Lotes: {
+                      (preview.allocations || []).filter((a:any) => a.itemId === c.itemId).map((a: any) => 
+                        <b key={a.lotNumber}>{a.lotNumber} ({a.qty}{a.uom})</b>
+                      )
+                    }</div>
                   </div>
-                  <div className="text-sm tabular-nums">{(c.qty||0)*qty} {c.uom}</div>
-                  <div><input defaultValue={1} className="w-24 h-9 px-2 rounded-lg border"/></div>
+                  <div className="text-sm tabular-nums">{(c.qty||0)} {c.uom}</div>
+                  <div><input defaultValue={(c.qty||0)} className="w-24 h-9 px-2 rounded-lg border"/></div>
                 </div>
               ))}
             </div>
@@ -401,22 +390,18 @@ function PlanningBoard({ bom, allItems, allBoms, onBomChange, onPlanned }: { bom
         {preview && (
           <div className="mt-3 grid gap-3">
             <div className="rounded-lg border p-3">
-              <h4 className="font-medium">COA teórico</h4>
-              <ul className="mt-2 text-sm space-y-1">
-                <li>Grado: <b>{preview.estimates?.abvPct ?? "—"}%</b></li>
-                <li>Acidez: <b>{preview.estimates?.acidity_gpl ?? "—"} g/L</b></li>
-                <li>Azúcar: <b>{preview.estimates?.sugar_gpl ?? "—"} g/L</b></li>
-              </ul>
+              <h4 className="font-medium">Lote de Salida Previsto</h4>
+              <div className="mt-2 font-mono text-sm">{preview.lotNumberPlanned || '—'}</div>
             </div>
             <div className="rounded-lg border p-3">
               <h4 className="font-medium">Disponibilidad</h4>
               {Array.isArray(preview.shortages) && preview.shortages.length>0 ? (
                 <ul className="mt-2 text-sm space-y-1">
                   {preview.shortages.map((s:any,i:number)=>(
-                    <li key={i} className="text-rose-700">⚠️ Falta {s.missing} {s.uom} de {s.itemId} (Req {s.required}, Disp {s.available})</li>
+                    <li key={i} className="text-rose-700">⚠️ Falta {s.missing} {s.uom} de {itemsById.get(s.itemId)?.name || s.itemId} (Req {s.required}, Disp {s.available})</li>
                   ))}
                 </ul>
-              ): <div className="mt-2 text-sm text-emerald-700">Todo cubre</div>}
+              ): <div className="mt-2 text-sm text-emerald-700">Todo el material disponible.</div>}
             </div>
           </div>
         )}
@@ -424,7 +409,7 @@ function PlanningBoard({ bom, allItems, allBoms, onBomChange, onPlanned }: { bom
         <SpinnerButton
           onClick={handlePlan}
           loading={creating}
-          style={{ backgroundColor: accent }}
+          style={{ backgroundColor: `hsl(${accent})` } as any}
           className="text-white w-full h-12 text-base font-semibold mt-4"
         >
           Planificar producción
@@ -603,5 +588,3 @@ export default function ExecutionPage() {
     </div>
   );
 }
-
-    

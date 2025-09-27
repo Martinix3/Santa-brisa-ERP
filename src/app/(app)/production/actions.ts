@@ -433,10 +433,12 @@ export async function previewPlanning(input: {
 
       for (const lot of lots) {
         if (remaining <= 0) break;
-        const take = Math.min(lot.qty, remaining);
-        allocations.push({ itemId: line.itemId, lotNumber: lot.lotNumber, uom: lot.uom, qty: take });
-        remaining -= take;
-        available += take;
+        const take = Math.min(lot.qty ?? 0, remaining);
+        if (take > 0) {
+          allocations.push({ itemId: line.itemId, lotNumber: lot.lotNumber, uom: lot.uom, qty: take });
+          remaining -= take;
+          available += take;
+        }
       }
       if (remaining > 0) {
         shortages.push({ itemId: line.itemId, uom: line.uom, required: line.qty, available, missing: remaining });
