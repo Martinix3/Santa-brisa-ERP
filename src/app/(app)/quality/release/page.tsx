@@ -262,7 +262,14 @@ export default function LabReleasePage() {
     analysisResults[spec.parameterId] && analysisResults[spec.parameterId].trim() !== ""
   );
   
-  const lotsForSelectedSku = useMemo(() => (selectedSku ? (lotsBySku.get(selectedSku) || []) : []), [selectedSku, lotsBySku]);
+  const lotsForSelectedSku = useMemo(() => {
+    if (!selectedSku) return [];
+    const lotNumbers = new Set<string>();
+    (lotsBySku.get(selectedSku) || []).forEach(l => {
+      if (l.lotNumber) lotNumbers.add(l.lotNumber);
+    });
+    return Array.from(lotNumbers);
+  }, [selectedSku, lotsBySku]);
 
   return (
     <>
@@ -278,8 +285,8 @@ export default function LabReleasePage() {
             </Select>
              <Select value={selectedLot || ''} onChange={(e) => handleLotChange(e.target.value)} disabled={!selectedSku}>
                 <option value="">Todos los lotes</option>
-                {(data?.onHand || []).filter(l => l.itemId === selectedSku).map(lot => (
-                    <option key={lot.lotNumber} value={lot.lotNumber}>{lot.lotNumber}</option>
+                {lotsForSelectedSku.map(lotNumber => (
+                    <option key={lotNumber} value={lotNumber}>{lotNumber}</option>
                 ))}
             </Select>
         </div>
