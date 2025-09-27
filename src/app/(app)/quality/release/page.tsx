@@ -1,4 +1,3 @@
-
 // src/app/(app)/quality/release/page.tsx
 "use client";
 
@@ -236,12 +235,11 @@ export default function LabReleasePage() {
         <div className="flex items-center gap-2">
             <Select value={selectedSku} onChange={(e) => handleSkuChange(e.target.value)} className="flex-grow">
                 <option value="">Todos los SKUs</option>
-                {Array.from(lotsBySku.keys()).map(skuId => {
-                    const item = itemMap.get(skuId);
-                    return <option key={skuId} value={skuId}>{item?.name || skuId}</option>;
-                })}
+                {items.map(item => (
+                    <option key={item.id} value={item.id}>{item.name}</option>
+                ))}
             </Select>
-             <Select value={query} onChange={(e) => handleLotChange(e.target.value)} disabled={!selectedSku}>
+             <Select value={selectedLot || ''} onChange={(e) => handleLotChange(e.target.value)} disabled={!selectedSku}>
                 <option value="">Todos los lotes</option>
                 {(lotsBySku.get(selectedSku) || []).map(lot => (
                     <option key={lot.lotNumber} value={lot.lotNumber}>{lot.lotNumber}</option>
@@ -372,7 +370,3 @@ export default function LabReleasePage() {
     </div>
   );
 }
-
-    
-
-    
