@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import type {
   Lot, QcTest, QcBatchResult, Item, ParameterCatalog, QcPlan, Incident, Coa,
-  QcTestSpec, ProductionOrder, LotGenealogyEdge, StockMove, ProtocolAcknowledgement
+  QcTestSpec, ProductionOrder, LotGenealogyEdge, StockMove, ProtocolAcknowledgement, QcStatus
 } from "@/domain/ssot";
 
 
@@ -18,37 +18,55 @@ import type {
 // TIPOS Y CONSTANTES
 // ============================================================================
 
-// MEJORA 2: Se añade la clave "UNDEFINED" para lotes legacy
 type BucketKey = "HOLD" | "RELEASED" | "REJECTED" | "UNDEFINED";
 
 const TABS_CONFIG = [
-  // MEJORA 2: Nuevo tab para lotes sin estado definido
   { id: "UNDEFINED" as BucketKey, label: "Sin Estado", icon: FileQuestion },
   { id: "HOLD" as BucketKey, label: "En Hold", icon: Hourglass },
   { id: "RELEASED" as BucketKey, label: "Liberados", icon: CheckCircle2 },
   { id: "REJECTED" as BucketKey, label: "Rechazados", icon: XCircle },
 ];
 
-// Mapeos de estado y color (sin cambios)
-const QC_STATUS_TEXT: Record<string, string> = { /* ... */ };
-const QC_STATUS_TONE: Record<string, "emerald" | "amber" | "rose" | "zinc"> = { /* ... */ };
-const qcTone = (s?: string) => s ? (QC_STATUS_TONE[s] || "amber") : "zinc";
+const QC_STATUS_TEXT: Record<string, string> = {
+  PENDING: "Pendiente",
+  IN_PROGRESS: "En Progreso",
+  CONDITIONAL_RELEASE: "Liberado Condicional",
+  RELEASED: "Liberado",
+  REJECTED: "Rechazado",
+  WAIVED: "Eximido"
+};
+
+const QC_STATUS_TONE: Record<string, "emerald" | "amber" | "rose" | "zinc"> = {
+  RELEASED: "emerald",
+  PENDING: "amber",
+  IN_PROGRESS: "amber",
+  CONDITIONAL_RELEASE: "amber",
+  WAIVED: "amber",
+  REJECTED: "rose",
+};
+const qcTone = (s?: string): "emerald" | "amber" | "rose" | "zinc" => (s ? (QC_STATUS_TONE[s] || "amber") : "zinc");
 const prettyStatus = (s?: string) => s ? (QC_STATUS_TEXT[s] || s) : "SIN ESTADO";
 
 // ============================================================================
 // COMPONENTES DE UI Y HELPERS
 // ============================================================================
 
-// Badge (sin cambios)
-function Badge({ children, tone = "zinc" }: { children: React.ReactNode; tone?: "zinc" | "sky" | "amber" | "rose" | "emerald" }) { /* ... */ }
+function Badge({ children, tone = "zinc" }: { children: React.ReactNode; tone?: "zinc" | "sky" | "amber" | "rose" | "emerald" }) {
+  const toneClasses = {
+    zinc: 'bg-zinc-100 text-zinc-800',
+    sky: 'bg-sky-100 text-sky-800',
+    amber: 'bg-amber-100 text-amber-800',
+    rose: 'bg-rose-100 text-rose-800',
+    emerald: 'bg-green-100 text-green-800',
+  };
+  return <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${toneClasses[tone]}`}>{children}</span>;
+}
 
-// MEJORA 1: Tipo unificado para eventos del timeline
 type TraceEvent = {
   id: string; at: string; kind: string; title: string;
   details?: string; icon: React.ReactNode; tone: "zinc" | "sky" | "amber" | "rose" | "emerald";
 };
 
-// MEJORA 1: Lógica para normalizar y crear el historial del lote
 function normalizeLotHistory(lot: Lot, data: {
   qcTests: QcTest[], qcBatchResults: QcBatchResult[], incidents: Incident[],
   stockMoves: StockMove[], protocolAcks: ProtocolAcknowledgement[], orders: ProductionOrder[]
@@ -57,16 +75,14 @@ function normalizeLotHistory(lot: Lot, data: {
   const lotNumber = lot.lotNumber;
   const orderId = lot.producedByOrderId;
 
-  // Entradas de stock
   data.stockMoves.filter(m => m.lotNumber === lotNumber && m.reason === 'receipt').forEach(m => {
     events.push({
       id: `sm-${m.id}`, at: m.occurredAt, kind: 'RECEIPT', title: `Lote recibido en almacén`,
-      details: `Cantidad: ${m.qty} ${m.uom}. Ubicación: ${m.toLocationId}`,
+      details: `Cantidad: ${m.qty} ${m.uom}. Ubicación: ${m.toLocation ?? ''}`,
       icon: <Package size={14} />, tone: 'sky'
     });
   });
 
-  // Tests analíticos realizados
   data.qcTests.filter(t => t.lotNumber === lotNumber).forEach(t => {
     const value = t.valueNumeric != null ? t.valueNumeric.toFixed(2) : t.valueText ?? (t.valueBool ? 'OK' : 'KO');
     events.push({
@@ -76,7 +92,6 @@ function normalizeLotHistory(lot: Lot, data: {
     });
   });
 
-  // Decisiones de calidad
   data.qcBatchResults.filter(r => r.lotNumber === lotNumber).forEach(r => {
     events.push({
       id: `qcb-${r.id}`, at: r.reviewedAt!, kind: 'QC_DECISION', title: `Decisión: ${prettyStatus(r.status)}`,
@@ -85,7 +100,6 @@ function normalizeLotHistory(lot: Lot, data: {
     });
   });
 
-  // Incidentes
   data.incidents.filter(i => i.lotNumber === lotNumber).forEach(i => {
     events.push({
       id: `inc-${i.id}`, at: i.at, kind: 'INCIDENT', title: `Incidente: ${i.summary}`,
@@ -94,7 +108,6 @@ function normalizeLotHistory(lot: Lot, data: {
     });
   });
   
-  // Protocolos
   if (orderId) {
     data.protocolAcks.filter(p => p.orderId === orderId).forEach(p => {
         events.push({
@@ -114,7 +127,6 @@ function normalizeLotHistory(lot: Lot, data: {
 export default function LabReleasePage() {
   const { data } = useData();
 
-  // Extracción de datos completa del SSOT
   const lots: Lot[] = data?.lots ?? []; const items: Item[] = data?.items ?? [];
   const qcTests: QcTest[] = data?.qcTests ?? []; const qcBatchResults: QcBatchResult[] = data?.qcBatchResults ?? [];
   const qcParameters: ParameterCatalog[] = data?.qcParameters ?? []; const qcPlans: QcPlan[] = data?.qc_plans ?? [];
@@ -122,34 +134,36 @@ export default function LabReleasePage() {
   const protocolAcks: ProtocolAcknowledgement[] = data?.protocolAcks ?? []; const orders: ProductionOrder[] = data?.productionOrders ?? [];
   
   const [query, setQuery] = useState("");
-  const [filterItem, setFilterItem] = useState<string>("");
-  // MEJORA 2: El tab por defecto es el de lotes sin estado
+  const [skuQuery, setSkuQuery] = useState("");
   const [activeTab, setActiveTab] = useState<BucketKey>("UNDEFINED");
   const [selectedLot, setSelectedLot] = useState<string | null>(null);
 
   const itemMap = useMemo(() => new Map(items.map(i => [i.id, i])), [items]);
+  const itemBySku = useMemo(() => new Map(items.map(i => [i.sku.toLowerCase(), i])), [items]);
   const parameterMap = useMemo(() => new Map(qcParameters.map(p => [p.id, p])), [qcParameters]);
   const qcPlanMap = useMemo(() => new Map(qcPlans.map(p => [p.id, p])), [qcPlans]);
 
-  // MEJORA 2: Lógica de bucketing actualizada para manejar lotes sin estado
   const buckets = useMemo(() => {
     const hold: Lot[] = []; const released: Lot[] = []; const rejected: Lot[] = []; const undefinedState: Lot[] = [];
     const lowerQuery = query.trim().toLowerCase();
+    const lowerSkuQuery = skuQuery.trim().toLowerCase();
+
     for (const l of lots) {
       const item = itemMap.get(l.itemId);
       const matchesQuery = !lowerQuery || l.lotNumber.toLowerCase().includes(lowerQuery) || (item?.name || '').toLowerCase().includes(lowerQuery);
-      const matchesItem = !filterItem || l.itemId === filterItem;
-      if (!matchesQuery || !matchesItem) continue;
+      const matchesSku = !lowerSkuQuery || item?.sku.toLowerCase().includes(lowerSkuQuery);
+
+      if (!matchesQuery || !matchesSku) continue;
 
       const status = l.qcStatus;
       if (status === "RELEASED") released.push(l);
       else if (status === "REJECTED") rejected.push(l);
       else if (status === "PENDING" || status === "IN_PROGRESS" || status === "CONDITIONAL_RELEASE" || status === "WAIVED") hold.push(l);
-      else undefinedState.push(l); // Lotes con qcStatus null, undefined, o no reconocido
+      else undefinedState.push(l);
     }
     const byDateDesc = (a: Lot, b: Lot) => new Date(b.receivedAt ?? b.createdAt ?? 0).getTime() - new Date(a.receivedAt ?? a.createdAt ?? 0).getTime();
     return { HOLD: hold.sort(byDateDesc), RELEASED: released.sort(byDateDesc), REJECTED: rejected.sort(byDateDesc), UNDEFINED: undefinedState.sort(byDateDesc) };
-  }, [lots, itemMap, query, filterItem]);
+  }, [lots, itemMap, query, skuQuery]);
 
   const visibleLots = buckets[activeTab];
 
@@ -165,24 +179,17 @@ export default function LabReleasePage() {
     const plan = lot.qcPlanId ? qcPlanMap.get(lot.qcPlanId) : undefined;
     const history = normalizeLotHistory(lot, { qcTests, qcBatchResults, incidents, stockMoves, protocolAcks, orders });
     return { lot, item: itemMap.get(lot.itemId), plan, history };
-  }, [selectedLot, lots, itemMap, qcPlans, qcTests, qcBatchResults, incidents, stockMoves, protocolAcks, orders]);
+  }, [selectedLot, lots, itemMap, qcPlans, qcTests, qcBatchResults, incidents, stockMoves, protocolAcks, orders, qcPlanMap]);
 
-  // MEJORA 3: Estado y lógica para el módulo de análisis interactivo
   const [analysisResults, setAnalysisResults] = useState<Record<string, string>>({});
-  const [reviewer, setReviewer] = useState("default.user"); // Simulación de usuario logueado
+  const [reviewer, setReviewer] = useState("default.user");
 
-  // Resetea los inputs cuando cambia el lote
-  useEffect(() => {
-    setAnalysisResults({});
-  }, [selectedLot]);
+  useEffect(() => { setAnalysisResults({}); }, [selectedLot]);
 
-  const handleAnalysisChange = (parameterId: string, value: string) => {
-    setAnalysisResults(prev => ({ ...prev, [parameterId]: value }));
-  };
-
+  const handleAnalysisChange = (parameterId: string, value: string) => setAnalysisResults(prev => ({ ...prev, [parameterId]: value }));
+  
   const handleSaveDecision = (decision: "RELEASED" | "REJECTED") => {
     if (!selectedLotData || !selectedLotData.plan) return;
-    // Simulación de una mutación a la base de datos
     console.log({
       action: "SAVE_QC_DECISION",
       lotNumber: selectedLotData.lot.lotNumber,
@@ -193,7 +200,6 @@ export default function LabReleasePage() {
     });
     alert(`Decisión '${decision}' guardada para el lote ${selectedLotData.lot.lotNumber} por ${reviewer}.`);
     setAnalysisResults({});
-    // Aquí se debería re-validar la data de `useData` para refrescar la UI.
   };
 
   const requiredSpecs = selectedLotData?.plan?.specs.filter(s => s.required) ?? [];
@@ -205,7 +211,14 @@ export default function LabReleasePage() {
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-200px)]">
       {/* Columna 1: Filtros y Tabs */}
       <div className="lg:col-span-3 flex flex-col space-y-4">
-         {/* ... inputs de búsqueda y filtro sin cambios ... */}
+        <div className="relative">
+            <Search className="h-4 w-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar lote o producto..." className="w-full pl-9 pr-3 py-2 text-sm border rounded-md" />
+        </div>
+        <div className="relative">
+            <Search className="h-4 w-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input value={skuQuery} onChange={e => setSkuQuery(e.target.value)} placeholder="Filtrar por SKU..." className="w-full pl-9 pr-3 py-2 text-sm border rounded-md" />
+        </div>
          <div className="space-y-1">
           {TABS_CONFIG.map(tab => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`w-full flex items-center justify-between p-3 rounded-lg text-sm font-semibold transition-colors ${activeTab === tab.id ? 'bg-zinc-800 text-white' : 'hover:bg-zinc-100 text-zinc-700'}`}>
@@ -218,15 +231,30 @@ export default function LabReleasePage() {
 
       {/* Columna 2: Lista de Lotes */}
       <div className="lg:col-span-4 h-full overflow-y-auto border rounded-xl bg-white">
-          {/* ... lista de lotes sin cambios ... */}
+        <div className="divide-y">
+            {visibleLots.map(lot => {
+                const item = itemMap.get(lot.itemId);
+                const isSelected = selectedLot === lot.lotNumber;
+                return (
+                    <button key={lot.id} onClick={() => setSelectedLot(lot.lotNumber)} className={`w-full text-left p-3 ${isSelected ? 'bg-blue-50' : 'hover:bg-zinc-50'}`}>
+                        <div className="flex justify-between items-center">
+                            <span className="font-mono text-sm font-semibold text-zinc-800">{lot.lotNumber}</span>
+                            <Badge tone={qcTone(lot.qcStatus)}>{prettyStatus(lot.qcStatus)}</Badge>
+                        </div>
+                        <p className="text-xs text-zinc-600">{item?.name ?? lot.itemId}</p>
+                        <p className="text-xs text-zinc-400 mt-1">{new Date(lot.receivedAt ?? lot.createdAt ?? 0).toLocaleDateString()}</p>
+                    </button>
+                )
+            })}
+             {visibleLots.length === 0 && <div className="p-8 text-center text-sm text-zinc-500">No hay lotes en esta categoría.</div>}
+        </div>
       </div>
 
       {/* Columna 3: Dossier de Lote Interactivo */}
       <div className="lg:col-span-5 h-full overflow-y-auto space-y-4">
         {selectedLotData ? (
         <>
-          {/* MEJORA 3: Módulo Interactivo de Análisis y Decisión */}
-          <SBCard title={<><FlaskConical size={16}/><span>Análisis y Decisión de Calidad</span></>} accent="hsl(var(--sb-sun-strong))">
+          <SBCard title={<><FlaskConical size={16}/><span>Análisis y Decisión de Calidad</span></>} accent="hsl(var(--sb-accent-calidad))">
             <div className="p-4 space-y-4">
               <div className="p-3 bg-sky-50 border border-sky-200 rounded-lg text-sm space-y-1">
                   <p className="font-bold font-mono text-base">{selectedLotData.lot.lotNumber}</p>
@@ -287,7 +315,6 @@ export default function LabReleasePage() {
             </div>
           </SBCard>
 
-          {/* MEJORA 1: Timeline / Historial del Lote */}
           <SBCard title={<><ListOrdered size={16}/><span>Historial del Lote</span></>}>
             <div className="p-4">
               {selectedLotData.history.length === 0 ? <p className="text-sm text-zinc-500 text-center">No hay eventos registrados para este lote.</p>
@@ -316,3 +343,5 @@ export default function LabReleasePage() {
     </div>
   );
 }
+
+    

@@ -20,7 +20,7 @@
   --sb-accent-marketing: 182 40% 70%; /* #9dd4d6 - más suave */
   --sb-accent-logistica: 22 40% 44%; /* #996947 - más suave */
   --sb-accent-produc: 182 20% 47%; /* #638c8d - verde mar oscuro */
-  --sb-accent-calidad: 45 99% 63%; /* #fecb46 - amarillo/dorado */
+  --sb-accent-calidad: 214 35% 65%; /* #8298ce - azulado suave */
   --sb-accent-finance: var(--sb-sun-strong);
   --sb-accent-admin: 240 5% 55%; /* #8a8c92 - neutro */
 
@@ -217,3 +217,5 @@
   color: hsl(var(--sb-cobre));
   border: 1px solid hsl(var(--sb-cobre));
 }
+
+    
