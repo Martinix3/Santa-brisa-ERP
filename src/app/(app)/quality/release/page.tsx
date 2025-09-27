@@ -1,4 +1,3 @@
-
 // src/app/(app)/quality/release/page.tsx
 "use client";
 
@@ -66,7 +65,9 @@ function Badge({ children, tone = "zinc" }: { children: React.ReactNode; tone?: 
 
 type TraceEvent = {
   id: string; at: string; kind: string; title: string;
-  details?: string; icon: React.ElementType<{ className?: string }>; tone: "zinc" | "sky" | "amber" | "rose" | "emerald";
+  details?: string;
+  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
+  tone: "zinc" | "sky" | "amber" | "rose" | "emerald";
 };
 
 function normalizeLotHistory(lot: Lot, data: {
@@ -374,11 +375,13 @@ export default function LabReleasePage() {
               : (
                 <ul className="space-y-4">
                   {selectedLotData.history.map(ev => {
-                    const Icon = ev.icon;
                     return (
                       <li key={ev.id} className="flex gap-3">
                         <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: `hsl(var(--sb-${ev.tone}-soft))`}}>
-                          <Icon className='h-4 w-4' style={{ color: `hsl(var(--sb-${ev.tone}-strong))` }} />
+                           {(() => {
+                              const Icon = ev.icon;
+                              return <Icon className="h-4 w-4" style={{ color: `hsl(var(--sb-${ev.tone}-strong))` }} />;
+                           })()}
                         </div>
                         <div>
                           <p className="font-semibold text-sm">{ev.title}</p>
