@@ -1,28 +1,20 @@
 // src/app/(app)/quality/parametros/page.tsx
 "use client";
 
-/* ============================================================================
- * /quality/parametros — Configuración de Calidad
- * - Parámetros analíticos por SKU
- * - Planes de QC por SKU
- * - Protocolos APPCC
- * - Estilado con --sb-accent-calidad (#8298ce)
- * ==========================================================================*/
-
 import React, { useEffect, useState } from "react";
 import {
   listParametersBySku,
   upsertParameterBySku,
   deleteParameterBySku,
-  listPlansBySku,
-  upsertPlanBySku,
-  deletePlanBySku,
+  listPlans,
+  upsertPlan,
+  deletePlan,
   listProtocols,
   upsertProtocol,
   deleteProtocol,
   type ParameterBySku,
-  type QcPlanBySku as QcPlan, // Alias a tu tipo local
-  type QcSpecSchema as QcTestSpec, // Alias
+  type QcPlanBySku as QcPlan,
+  type QcSpec,
   type Protocol as SafetyProtocol,
 } from "./actions";
 
@@ -32,17 +24,19 @@ import { useData as useDataMaybe } from "@/lib/dataprovider";
 // ==========================
 // Card local con acento Calidad
 // ==========================
-function Card(props: { title?: string; icon?: React.ReactNode; children?: React.ReactNode; subtitle?: string }) {
+function Card({ title, icon: Icon, children, subtitle }: { title?: string; icon?: React.ReactNode; children?: React.ReactNode; subtitle?: string }) {
   return (
-    <div className="sb-card sb-card--calidad">
-      <div className="sb-card__header">
-        {props.icon && <span className="sb-icon sb-icon--calidad">{props.icon}</span>}
-        <div>
-          {props.title && <div className="sb-card__title">{props.title}</div>}
-          {props.subtitle && <div className="text-xs text-zinc-600">{props.subtitle}</div>}
+    <div className="rounded-2xl border bg-white shadow-sm">
+      <div className="px-4 py-3 border-b flex items-center justify-between">
+        <div className="flex items-center gap-2">
+            {Icon && <span className="text-sky-700">{Icon}</span>}
+            {title && <h3 className="text-sm font-semibold">{title}</h3>}
         </div>
       </div>
-      <div className="sb-card__content">{props.children}</div>
+      <div className="p-4">
+        {subtitle && <p className="text-sm text-zinc-600 mb-3">{subtitle}</p>}
+        {children}
+      </div>
     </div>
   );
 }
@@ -69,7 +63,7 @@ export default function QualityParametersPage() {
   const items = useData?.().data?.items as Array<{ id: string; sku?: string; name: string }> | undefined;
 
   // SKU seleccionado
-  const [sku, setSku] = useState<string>(items?.[0]?.id ?? "");
+  const [sku, setSku] = useState<string>("");
   useEffect(() => { if (!sku && items?.length) setSku(items[0].id); }, [items, sku]);
 
   // ==========================
@@ -78,8 +72,8 @@ export default function QualityParametersPage() {
   const [params, setParams] = useState<ParameterBySku[]>([]);
   async function refreshParams() {
     if (!sku) return;
-    const rows = await listParametersBySku(sku);
-    setParams(rows);
+    const res = await listParametersBySku(sku);
+    if(res.ok) setParams(res.data);
   }
   useEffect(() => { refreshParams(); }, [sku]);
 
@@ -111,7 +105,12 @@ export default function QualityParametersPage() {
   // Qc Plans por SKU
   // ==========================
   const [plans, setPlans] = useState<QcPlan[]>([]);
-  async function refreshPlans() { if(sku) setPlans(await listPlansBySku(sku)); }
+  async function refreshPlans() { 
+      if(sku) {
+        const res = await listPlans(sku);
+        if(res.ok) setPlans(res.data);
+      }
+  }
   useEffect(() => { refreshPlans(); }, [sku]);
 
   function addPlan() {
@@ -119,8 +118,9 @@ export default function QualityParametersPage() {
     const plan: QcPlan = { id: `plan_${Date.now()}`, name: "Nuevo plan", sku: sku, specs: [] };
     setPlans((p) => [plan, ...p]);
   }
-  async function savePlan(plan: QcPlan) { await upsertPlanBySku(plan); await refreshPlans(); }
-  async function removePlan(id: string) { await deletePlanBySku(id); await refreshPlans(); }
+  async function savePlan(plan: QcPlan) { await upsertPlan(plan); await refreshPlans(); }
+  async function removePlan(id: string) { await deletePlan(id); await refreshPlans(); }
+  
   function addSpec(planId: string): void {
     setPlans((prev) =>
       prev.map((p): QcPlan =>
@@ -133,7 +133,7 @@ export default function QualityParametersPage() {
                   id: `spec_${Date.now()}`,
                   parameterId: params[0]?.id ?? "",
                   point: "ENVASADO",
-                } as any,
+                } as QcSpec,
               ],
             }
           : p
@@ -149,7 +149,8 @@ export default function QualityParametersPage() {
   // ==========================
   const [protocols, setProtocols] = useState<SafetyProtocol[]>([]);
   async function refreshProtocols() {
-    setProtocols(await listProtocols());
+    const res = await listProtocols();
+    if(res.ok) setProtocols(res.data);
   }
   useEffect(() => { refreshProtocols(); }, []);
   async function saveProtocol(proto: SafetyProtocol) { await upsertProtocol(proto); await refreshProtocols(); }
@@ -223,8 +224,8 @@ export default function QualityParametersPage() {
             </div>
             <button onClick={() => addSpec(plan.id)} className="text-[hsl(var(--sb-accent-calidad))] flex items-center gap-1"><Plus size={14}/> añadir especificación</button>
             <ul className="mt-2 space-y-1">
-              {(plan.specs as any[]).map((sp: QcTestSpec) => (
-                <li key={(sp as any).id} className="flex justify-between text-sm border-t py-1">
+              {(plan.specs as any[]).map((sp: QcSpec, i: number) => (
+                <li key={(sp as any).id || i} className="flex justify-between text-sm border-t py-1">
                   <span>{sp.parameterId}</span>
                   <button onClick={() => removeSpec(plan.id, (sp as any).id)} className="text-red-600 flex items-center gap-1"><Trash2 size={12}/> quitar</button>
                 </li>
