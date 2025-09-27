@@ -39,6 +39,22 @@ export type QcStatus = "PENDING" | "IN_PROGRESS" | "CONDITIONAL_RELEASE" | "RELE
 export type QcMethod = "DENSIMETER" | "TITRATION" | "HPLC" | "MICROBIO" | "SENSORIAL" | "OTHER";
 export type Unit = "pct" | "gpl" | "cfu_ml" | "ntu" | "ph" | "unit";
 
+// -------------------------------
+// Extensiones para Trazabilidad
+// -------------------------------
+export type LotStatus = 'OPEN' | 'ON_HOLD_QC' | 'RELEASED' | 'CONSUMED' | 'SCRAPPED' | 'BLOCKED';
+
+/** Enlaces de genealogía: input(parent) -> output(child) por orden */
+export interface LotGenealogyEdge {
+  id: string;
+  parentLot: LotNumber;   // input
+  childLot: LotNumber;    // output
+  orderId: string;
+  qty?: number;
+  uom?: Uom;
+  createdAt: Timestamp;
+}
+
 
 // -----------------------------------------------------------------
 // 2. KERNEL MÍNIMO
@@ -104,6 +120,7 @@ export interface OnHandView {
   createdAt: Timestamp;
   // Extensión para Calidad
   qcStatus?: QcStatus;
+  lotStatus?: LotStatus;
 }
 
 export interface ReservationView {
@@ -192,6 +209,12 @@ export interface ProductionOrder {
   qcStatus?: QcStatus;
   qcPlanOverrideId?: string;
   protocolOverrideId?: string;
+  /** Datos de calculadora de ajustes (plan/ejecución) */
+  calcInput?: { raws: CalcRow[] };
+  calcResult?: CalcResult;
+  /** Trazabilidad de lotes */
+  parentLotNumber?: LotNumber;  // lote padre (ENVASADO)
+  lotNumber?: LotNumber;        // lote salida principal
 }
 
 // 4) Calidad (unifica QACheck/Lot/QCResult en un sujeto genérico)
@@ -220,6 +243,12 @@ export interface Lot {
   evidenceIds?: string[];
   expDate?: Timestamp;
   receivedAt?: Timestamp;
+  /** Nuevos campos para trazabilidad/calidad */
+  status?: LotStatus;           // estado operativo del lote
+  locationId?: string;          // almacén/ubicación actual
+  producedByOrderId?: string;   // equivalente semántico de orderId
+  parentLotNumber?: LotNumber;  // para ENVASADO (SF -> FG)
+  qcReleasedAt?: Timestamp;     // cuándo pasó a 'RELEASED'
 }
 
 // -----------------------------------------------------------------
@@ -322,7 +351,7 @@ export type QcTestResult = {
   value: number | null; unit: Unit; passed: boolean | null;
   testedAt?: Timestamp; testedBy?: string; notes?: string; evidenceIds?: string[];
 };
-export type Inspection = {
+export interface Inspection {
   id: string;
   point: QcPoint;
   entity: { kind: "order"|"lot"|"shipment"; id: string };
@@ -335,8 +364,80 @@ export type Inspection = {
   decisionNote?: string;
   evidenceIds?: string[];
   createdAt: Timestamp; createdBy?: string; updatedAt: Timestamp;
-};
+}
 
+// -----------------------------------------------------------------
+// 6. QC avanzado (Tests por parámetro y COA)
+// -----------------------------------------------------------------
+export type QcTestId = string;
+export type CoaId = string;
+
+/** Medición individual de un parámetro (lote u orden) */
+export interface QcTest {
+  id: QcTestId;
+  testedAt: Timestamp;
+  method: QcMethod;
+  parameterId: string;          // FK -> ParameterCatalog.id
+  unit?: Unit;
+  valueNumeric?: number;
+  valueText?: string;
+  valueBool?: boolean;
+  lotNumber?: LotNumber;
+  orderId?: string;
+  inSpec?: boolean;             // calculado vs plan/spec efectivo
+  notes?: string;
+  testedBy?: string;
+  evidenceIds?: string[];
+}
+
+/** Resultado agregado por lote/orden (estado del batch) */
+export interface QcBatchResult {
+  id: string;
+  lotNumber?: LotNumber;
+  orderId?: string;
+  status: QcStatus;             // usa tu QcStatus
+  reviewedAt?: Timestamp;
+  reviewedById?: string;
+  remarks?: string;
+}
+
+/** Certificate of Analysis por lote */
+export interface Coa {
+  id: CoaId;
+  lotNumber: LotNumber;
+  itemId: string;
+  issuedAt: Timestamp;
+  specPlanId?: string;          // QcPlan aplicado (o spec concreta)
+  results: Array<{
+    parameterId: string;
+    unit?: Unit;
+    valueNumeric?: number;
+    valueText?: string;
+    valueBool?: boolean;
+    inSpec?: boolean;
+  }>;
+  pdfUrl?: string;
+  createdById?: string;
+}
+
+// -----------------------------------------------------------------
+// 7. Calculadora (alineada con UI)
+// -----------------------------------------------------------------
+export type CalcRow = {
+  itemId: string;
+  lotNumber?: LotNumber;
+  abvPct?: number;          // % v/v
+  acidity_gpl?: number;     // g/L
+  sugar_gpl?: number;       // g/L
+  uom: Uom;
+  qty: number;
+  lockedItem?: boolean;
+};
+export type CalcResult = {
+  estimatedAbvPct?: number;
+  estimatedAcidity_gpl?: number;
+  estimatedSugar_gpl?: number;
+};
 
 // -----------------------------------------------------------------
 // 7. Entidades de CRM, Marketing y otras (Sin cambios grandes)
@@ -445,6 +546,11 @@ export interface SantaData {
   billOfMaterials: BillOfMaterial[];
   deliveryNotes: DeliveryNote[];
   lots: Lot[]; // Añadida por coherencia, aunque puede ser una vista
+  // Trazabilidad y Calidad extendidas
+  lotGenealogy?: LotGenealogyEdge[];
+  qcTests?: QcTest[];
+  qcBatchResults?: QcBatchResult[];
+  coas?: Coa[];
   // Marketing
   partyDuplicates: PartyDuplicate[];
   activations: any[]; // Placeholder, replace with actual type
@@ -475,10 +581,11 @@ export interface SantaData {
 export const SANTA_DATA_COLLECTIONS: (keyof SantaData)[] = [
     'items', 'stockMoves', 'productionOrders', 'ordersSellOut', 'shipments', 'goodsReceipts', 'qaChecks',
     'onHand', 'reservations', 'parties', 'partyRoles', 'accounts', 'users', 'interactions', 'billOfMaterials',
-    'deliveryNotes', 'partyDuplicates', 'activations', 'promotions', 'marketingEvents', 'onlineCampaigns',
+    'deliveryNotes', 'lots', 'lotGenealogy', 'qcTests', 'qcBatchResults', 'coas',
+    'partyDuplicates', 'activations', 'promotions', 'marketingEvents', 'onlineCampaigns',
     'influencerCollabs', 'posTactics', 'posCostCatalog', 'plv_material', 'materialCosts', 'financeLinks',
     'paymentLinks', 'traceEvents', 'incidents', 'codeAliases', 'integrations', 'jobs', 'dead_letters', 'expenses',
-    'lots', 'parameter_catalog', 'qc_plans', 'safety_protocols', 'inspections'
+    'parameter_catalog', 'qc_plans', 'safety_protocols', 'inspections'
 ];
 
 export * from './ssot.metas';

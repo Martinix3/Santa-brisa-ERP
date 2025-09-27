@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useMemo, useState, useCallback, useEffect, useTransition } from "react";
@@ -8,6 +9,7 @@ import { useData } from "@/lib/dataprovider";
 import { SB_COLORS } from "@/domain/ssot";
 import { Field } from "@/components/forms/Field";
 import { toast } from "sonner";
+import type { Item } from "@/domain/ssot";
 
 // Acciones del módulo Producción (previas en actions.ts)
 import {
@@ -28,20 +30,65 @@ import {
   previewPlanning,
 } from "../actions";
 
-// ===== Tipos locales mínimos (alineados a actions.ts) =====
-type ProductionOrder = any; // Usa tu tipo real si lo tienes exportado desde el SSOT
-type BillOfMaterial = any;
-type Item = any;
+// ---- Aliases para evitar choques de tipos SSOT
+type Uom = "L" | "kg" | "unit";
+type ProductionOrderUI = any;
+type BillOfMaterialUI = any;
 
-// ===== Tablero de planificación en vivo =====
+
+// ===== Helpers visuales reutilizables =====
+function SectionHeader({ icon, title, subtitle }: { icon?: React.ReactNode; title: string; subtitle?: string }) {
+  return (
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <div
+          className={`h-8 w-8 rounded-lg grid place-items-center ring-1 ring-black/5
+                      bg-[hsl(var(--sb-accent-produc)/0.12)]
+                      text-[hsl(var(--sb-accent-produc))]`}
+        >
+          {icon ?? <FactoryIcon size={16} />}
+        </div>
+        <div>
+          <h2 className="text-base font-semibold text-zinc-900">{title}</h2>
+          {subtitle ? <p className="text-xs text-zinc-600">{subtitle}</p> : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EmptyCenter({ onPickBom }: { onPickBom: () => void }) {
+  return (
+    <div className="h-full grid place-items-center">
+      <div className="text-center max-w-sm">
+        <div className="mx-auto mb-3 h-12 w-12 rounded-full bg-zinc-100 text-zinc-700 grid place-items-center">
+          <svg width="22" height="22" viewBox="0 0 24 24" className="opacity-80"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </div>
+        <h3 className="text-lg font-semibold text-zinc-800">Nada abierto</h3>
+        <p className="text-sm text-zinc-500 mt-1">Selecciona una orden a la izquierda o crea una nueva desde un BOM.</p>
+        <div className="mt-4">
+          <SpinnerButton onClick={onPickBom}>
+            <Plus className="mr-2" size={16} /> Planificar desde BOM
+          </SpinnerButton>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Row({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return <div className={`grid grid-cols-[2fr_1fr_1fr_auto] gap-2 items-end p-2 border rounded-md bg-white ${className}`}>{children}</div>;
+}
+
+// ======================================================
+// PLANNING BOARD (planificación en vivo por BOM)
+// ======================================================
 function PlanningBoard({ bom, onPlanned }: { bom: any; onPlanned: (id: string) => void }) {
-  const [qty, setQty] = React.useState<number>(0);
-  const [date, setDate] = React.useState<string>("");
-  const [loading, setLoading] = React.useState(false);
-  const [preview, setPreview] = React.useState<any>(null);
-  const [creating, setCreating] = React.useState(false);
-  
-  const lastPreviewPayload = React.useRef<string>("");
+  const [qty, setQty] = useState<number>(0);
+  const [date, setDate] = useState<string>("");
+  const [loading, setLoading] = useState(false);
+  const [preview, setPreview] = useState<any>(null);
+  const [creating, setCreating] = useState(false);
 
   // --- helpers de componentes del BOM ---
   const baseComponents = React.useMemo(() => {
@@ -56,31 +103,29 @@ function PlanningBoard({ bom, onPlanned }: { bom: any; onPlanned: (id: string) =
   }, [bom]);
 
   // recalcula preview en vivo cada vez que cambian qty/date
+  const lastPreviewPayload = React.useRef<string>("");
   React.useEffect(() => {
-    const payload = JSON.stringify({ bomId: bom?.id, qty });
-    if (!bom?.id || qty <= 0 || payload === lastPreviewPayload.current) {
-      if (!bom?.id || qty <= 0) setPreview(null);
+    const payload = JSON.stringify({ bomId: bom?.id, plannedQty: qty });
+
+    if (!bom?.id || qty <= 0) {
+      setPreview(null);
       return;
     }
+    if (payload === lastPreviewPayload.current) return;
     lastPreviewPayload.current = payload;
-    
+
     const ctrl = new AbortController();
+    let active = true;
     setLoading(true);
-    
-    previewPlanning({ bomId: bom.id, plannedQty: qty } as any)
-      .then((res: any) => {
-        if (ctrl.signal.aborted) return;
-        if (res.ok) setPreview(res.data);
+    previewPlanning({ bomId: bom.id, plannedQty: qty })
+      .then((res) => {
+        if (!active) return;
+        if (res?.ok) setPreview(res.data);
         else setPreview(null);
       })
-      .finally(() => {
-        if (!ctrl.signal.aborted) setLoading(false);
-      });
-      
-    return () => {
-      ctrl.abort();
-    };
-  }, [bom?.id, qty, date]);
+      .finally(() => active && setLoading(false));
+    return () => { active = false; ctrl.abort(); };
+  }, [bom?.id, qty]);
 
   async function handlePlan() {
     if (!bom?.id || qty <= 0) {
@@ -141,7 +186,7 @@ function PlanningBoard({ bom, onPlanned }: { bom: any; onPlanned: (id: string) =
         </div>
 
         {loading && <div className="text-sm text-zinc-500">Calculando disponibilidad…</div>}
-        
+
         {/* === Fórmula base por 1 unidad === */}
         <div className="rounded-lg border p-3">
           <h4 className="font-medium">Fórmula (por 1 {bom?.baseUnit ?? "unidad"})</h4>
@@ -176,79 +221,31 @@ function PlanningBoard({ bom, onPlanned }: { bom: any; onPlanned: (id: string) =
             </ul>
           </div>
         )}
-        
+
         {/* === Disponibilidad / COA estimado (preview) === */}
         {qty > 0 && (
           <div className="space-y-3">
             {preview && (
               <>
-                {/* COA teórico */}
-                <div className="rounded-lg border p-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-medium">COA teórico</h4>
-                    <span className={`text-[11px] px-2 py-0.5 rounded-full border ${specBadge}`}>
-                      {preview.inSpec ? "Dentro de spec" : "Fuera de spec"}
-                    </span>
+                <div className="text-sm">
+                  <b>COA estimado</b>: {preview.estimates?.abvPct ?? "—"}% ABV,{" "}
+                  {preview.estimates?.acidity_gpl ?? "—"} g/L acidez,{" "}
+                  {preview.estimates?.sugar_gpl ?? "—"} g/L azúcares
+                </div>
+                {Array.isArray(preview.shortages) && preview.shortages.length > 0 ? (
+                  <div className="text-sm text-rose-700">
+                    ⚠️ Faltantes:
+                    <ul className="list-disc pl-5 mt-1 space-y-0.5">
+                      {preview.shortages.map((s: any, i: number) => (
+                        <li key={i}>
+                          {s.itemId}: falta {s.missing} {s.uom} (req {s.required}, disp {s.available})
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                  <ul className="mt-2 text-sm text-zinc-700 space-y-1">
-                    <li>
-                      Grado alcohólico: <b>{preview.estimates?.abvPct ?? "—"}%</b>
-                    </li>
-                    <li>
-                      Acidez: <b>{preview.estimates?.acidity_gpl ?? "—"} g/L</b>
-                    </li>
-                    <li>
-                      Azúcares: <b>{preview.estimates?.sugar_gpl ?? "—"} g/L</b>
-                    </li>
-                  </ul>
-                  {Array.isArray(preview.suggestions) && preview.suggestions.length > 0 && (
-                    <>
-                      <div className="mt-3 text-xs text-zinc-500">Sugerencias de ajuste:</div>
-                      <ul className="mt-1 text-sm text-zinc-700 list-disc pl-5 space-y-1">
-                        {preview.suggestions.map((s: any, i: number) => (
-                          <li key={i}>
-                            {s.kind}: <b>{s.amount}</b> {s.uom ?? ""} <span className="text-xs text-zinc-500">— {s.reason}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </>
-                  )}
-                </div>
-
-                {/* Disponibilidad / faltantes */}
-                <div className="rounded-lg border p-3">
-                  <h4 className="font-medium">Disponibilidad</h4>
-                  {Array.isArray(preview.shortages) && preview.shortages.length > 0 ? (
-                    <div className="mt-2 space-y-1">
-                      {preview.shortages.map((s: any, idx: number) => (
-                        <div key={idx} className="text-xs rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-rose-700">
-                          ⚠️ Falta {s.missing} {s.uom} de {s.itemId} (Req {s.required}, Disp {s.available})
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="mt-2 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-2 py-1">Todo cubre</div>
-                  )}
-                </div>
-
-                {/* Reservas sugeridas */}
-                <div className="rounded-lg border p-3">
-                  <h4 className="font-medium">Reservas sugeridas (FIFO)</h4>
-                  {Array.isArray(preview.allocations) && preview.allocations.length > 0 ? (
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {preview.allocations.map((a: any, idx: number) => (
-                        <span key={idx} className="text-[11px] px-2 py-0.5 rounded-full border bg-sky-50 text-sky-800 border-sky-200">
-                          {a.itemId} {a.qty}{a.uom} (Lote {a.lotNumber})
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="mt-2 text-sm text-zinc-500">Sin reservas</div>
-                  )}
-                  {preview.lotNumberPlanned && (
-                    <div className="mt-3 text-xs text-zinc-600">Lote planificado de salida: <b>{preview.lotNumberPlanned}</b></div>
-                  )}
-                </div>
+                ) : (
+                  <div className="text-sm text-emerald-700">✅ Todo cubre según stock reservado.</div>
+                )}
               </>
             )}
           </div>
@@ -267,39 +264,14 @@ function PlanningBoard({ bom, onPlanned }: { bom: any; onPlanned: (id: string) =
   );
 }
 
-
-// ===== Helpers visuales reutilizables =====
-function SectionCard({ title, hint, badge, children }: { title: string; hint?: string; badge?: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-xl border p-3 bg-white">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-base font-semibold text-zinc-900">{title}</h3>
-          {hint && <p className="text-xs text-zinc-600">{hint}</p>}
-        </div>
-        {badge && (
-          <span className="text-[11px] px-2 py-0.5 rounded-full border bg-white">{badge}</span>
-        )}
-      </div>
-      <div className="mt-3">{children}</div>
-    </div>
-  );
-}
-
-function Row({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return <div className={`grid grid-cols-[2fr_1fr_1fr_auto] gap-2 items-end p-2 border rounded-md bg-white ${className}`}>{children}</div>;
-}
-
 // ======================================================
 // Detalle de Orden (panel derecho)
 // ======================================================
-function OrderDetail({ order, allItems, onRefresh, onClose }: { order: ProductionOrder; allItems: Item[]; onRefresh: () => void; onClose: () => void; }) {
+function OrderDetail({ order, allItems, onRefresh, onClose }: { order: ProductionOrderUI; allItems: Item[]; onRefresh: () => void; onClose: () => void }) {
   const [pending, startTransition] = useTransition();
   const [ops, setOps] = useState<number>(order?.operatorsCount ?? 0);
   const [ack, setAck] = useState<boolean>(!!order?.protocolsAcknowledged);
   const [parentLot, setParentLot] = useState<string>(order?.parentLotNumber ?? "");
-  const [calcResult, setCalcResult] = useState<any>(order?.calcResult ?? null);
-  const debounceRef = React.useRef<any>(null);
 
   // consumo
   const [consLines, setConsLines] = useState<
@@ -313,9 +285,14 @@ function OrderDetail({ order, allItems, onRefresh, onClose }: { order: Productio
   const [incDetails, setIncDetails] = useState("");
 
   // calculadora
-  const [calcRows, setCalcRows] = useState<
-    Array<{ itemId: string; abvPct?: number; acidity_gpl?: number; sugar_gpl?: number; uom: "L" | "kg" | "unit"; qty: number }>
-  >(order?.calcInput?.raws ?? []);
+  const [calcRows, setCalcRows] = useState<CalcRow[]>(order?.calcInput?.raws ?? []);
+  const debounceRef = React.useRef<any>(null);
+  type CalcResult = {
+    estimatedAbvPct?: number;
+    estimatedAcidity_gpl?: number;
+    estimatedSugar_gpl?: number;
+  } | null;
+  const [calcResult, setCalcResult] = useState<CalcResult>(null);
 
   useEffect(() => {
     setOps(order?.operatorsCount ?? 0);
@@ -323,22 +300,18 @@ function OrderDetail({ order, allItems, onRefresh, onClose }: { order: Productio
   }, [order?.operatorsCount, order?.protocolsAcknowledged]);
 
   useEffect(() => {
-    if (calcRows.length === 0) return;
     const rows = calcRows.filter(r => r.itemId && r.qty > 0);
-    if (!rows.length) return;
-
     clearTimeout(debounceRef.current);
+    if (rows.length === 0) {
+      setCalcResult(null);
+      return;
+    }
     debounceRef.current = setTimeout(async () => {
-        const res = await setCalculatorInput(order.id, { raws: rows });
-        if (res.ok) {
-            // @ts-ignore
-            setCalcResult(res.data?.calcResult ?? null);
-            onRefresh();
-        }
-    }, 400);
-
+      const res: any = await setCalculatorInput("planning-" + (order?.id ?? "temp"), { raws: rows } as any);
+      if (res?.ok) setCalcResult((res.data?.calcResult as CalcResult) ?? null);
+    }, 300);
     return () => clearTimeout(debounceRef.current);
-  }, [calcRows, order.id, onRefresh]);
+  }, [calcRows, order?.id]);
 
   const accent = "[--sb-accent-produc:182_25%_47%]";
 
@@ -394,7 +367,7 @@ function OrderDetail({ order, allItems, onRefresh, onClose }: { order: Productio
                 onRefresh();
               })
             }
-            className={`sb-btn-primary ${accent} min-w-[140px]`}
+            className={`min-w-[140px]`}
           >
             {primaryLabel}
           </SpinnerButton>
@@ -415,7 +388,6 @@ function OrderDetail({ order, allItems, onRefresh, onClose }: { order: Productio
                 onRefresh();
               })
             }
-            className="sb-btn-secondary min-w-[140px]"
           >
             {secondaryLabel}
           </SpinnerButton>
@@ -455,7 +427,6 @@ function OrderDetail({ order, allItems, onRefresh, onClose }: { order: Productio
               <input type="number" min={0} className="w-32 h-10 px-3 rounded-lg border" value={ops} onChange={(e) => setOps(Number(e.target.value))} />
             </div>
             <SpinnerButton
-              className="sb-btn-secondary"
               loading={pending}
               onClick={() =>
                 startTransition(async () => {
@@ -521,7 +492,6 @@ function OrderDetail({ order, allItems, onRefresh, onClose }: { order: Productio
             </button>
             <div className="flex gap-2">
               <SpinnerButton
-                className="sb-btn-secondary"
                 loading={pending}
                 onClick={() =>
                   startTransition(async () => {
@@ -546,7 +516,6 @@ function OrderDetail({ order, allItems, onRefresh, onClose }: { order: Productio
                 <input className="w-full h-10 px-3 rounded-lg border" value={parentLot} onChange={(e) => setParentLot(e.target.value)} />
               </div>
               <SpinnerButton
-                className="sb-btn-secondary"
                 loading={pending}
                 onClick={() =>
                   startTransition(async () => {
@@ -579,7 +548,6 @@ function OrderDetail({ order, allItems, onRefresh, onClose }: { order: Productio
                   onRefresh();
                 })
               }
-              className="sb-btn-primary"
             >
               Registrar output
             </SpinnerButton>
@@ -595,7 +563,6 @@ function OrderDetail({ order, allItems, onRefresh, onClose }: { order: Productio
         <SectionCard title="Control de Calidad" hint="Aprobación, rechazo o exención" badge="QC">
           <div className="flex gap-2">
             <SpinnerButton
-              className="sb-btn-secondary"
               loading={pending}
               onClick={() =>
                 startTransition(async () => {
@@ -608,7 +575,6 @@ function OrderDetail({ order, allItems, onRefresh, onClose }: { order: Productio
               Aprobar
             </SpinnerButton>
             <SpinnerButton
-              className="sb-btn-destructive"
               loading={pending}
               onClick={() =>
                 startTransition(async () => {
@@ -621,7 +587,6 @@ function OrderDetail({ order, allItems, onRefresh, onClose }: { order: Productio
               Rechazar
             </SpinnerButton>
             <SpinnerButton
-              className="sb-btn-ghost"
               loading={pending}
               onClick={() =>
                 startTransition(async () => {
@@ -658,7 +623,6 @@ function OrderDetail({ order, allItems, onRefresh, onClose }: { order: Productio
           </div>
           <div className="flex gap-2 mt-2">
             <SpinnerButton
-              className="sb-btn-secondary"
               disabled={!incSummary}
               loading={pending}
               onClick={() =>
@@ -755,7 +719,6 @@ function OrderDetail({ order, allItems, onRefresh, onClose }: { order: Productio
             </button>
             <div className="flex gap-2">
               <SpinnerButton
-                className="sb-btn-secondary"
                 loading={pending}
                 onClick={() =>
                   startTransition(async () => {
@@ -768,16 +731,16 @@ function OrderDetail({ order, allItems, onRefresh, onClose }: { order: Productio
                 Calcular
               </SpinnerButton>
             </div>
-            {calcResult && (
+            {order.calcResult && (
               <div className="text-sm">
                 <div>
-                  ABV estimado: <b>{calcResult.estimatedAbvPct ?? "—"}%</b>
+                  ABV estimado: <b>{order.calcResult.estimatedAbvPct ?? "—"}%</b>
                 </div>
                 <div>
-                  Acidez estimada: <b>{calcResult.estimatedAcidity_gpl ?? "—"} g/L</b>
+                  Acidez estimada: <b>{order.calcResult.estimatedAcidity_gpl ?? "—"} g/L</b>
                 </div>
                 <div>
-                  Azúcares estimados: <b>{calcResult.estimatedSugar_gpl ?? "—"} g/L</b>
+                  Azúcares estimados: <b>{order.calcResult.estimatedSugar_gpl ?? "—"} g/L</b>
                 </div>
               </div>
             )}
@@ -788,173 +751,192 @@ function OrderDetail({ order, allItems, onRefresh, onClose }: { order: Productio
   );
 }
 
+
 // ===== Página =====
-export default function ProductionPage() {
-  const { data: santaData } = useData();
-  const [openOrder, setOpenOrder] = useState<ProductionOrder | null>(null);
-  const [openBom, setOpenBom] = useState<any>(null); // For PlanningBoard
+export default function ExecutionPage() {
+  const { data, refresh } = useData();
+  const accent = (SB_COLORS as any).module?.produccion ?? SB_COLORS.primary.teal;
 
-  const boms = useMemo(() => {
-    const raw = (santaData?.billOfMaterials ?? []) as any[];
-    return raw.map((b) => {
-      // Intentamos deducir el "tipo" de BOM: PRODUCCION o ENVASADO
-      const kind =
-        (b.kind as string) ??
-        (b.stage as string) ??
-        (b.output?.isFinal ? "ENVASADO" : "PRODUCCION");
-      const baseUnit = b.baseUnit ?? b.uom ?? "L";
-      return {
-        id: b.id,
-        name: b.name ?? b.id,
-        kind,
-        baseUnit,
-        // ⚠️ Mantener el objeto BOM completo (para leer componentes)
-        ...b,
-      };
-    });
-  }, [santaData]);
-
-  const ordersAll = useMemo(() => (santaData?.productionOrders ?? []) as ProductionOrder[], [santaData]);
-  const orders = useMemo(() => ordersAll, [ordersAll]);
-  const allItems = useMemo(() => (santaData?.items ?? []) as Item[], [santaData]);
-
-  const select = useCallback(
-    (id: string) => {
-      const found = ordersAll.find((x: any) => x.id === id);
-      if (found) {
-        setOpenOrder(found);
-        setOpenBom(null);
-      }
-    },
-    [ordersAll]
-  );
-  
-  const selectBom = (bom:any) => {
-    setOpenBom(bom);
-    setOpenOrder(null);
+  // ===== Tipado SSOT =====
+  // Ajusta estos imports si tus nombres difieren en '@/domain/ssot'
+  // type ProductionOrder, ProductionStatus, ProductionStage, BillOfMaterial, Item, Uom deben existir en tu kernel.
+  // Si en tu repo los tipos tienen otro nombre, cambia aquí los alias.
+  type Uom = 'L' | 'kg' | 'unit';
+  type ProductionStage = 'PRODUCCION' | 'ENVASADO';
+  type ProductionStatus = 'DRAFT' | 'PLANNED' | 'IN_PROGRESS' | 'PAUSED' | 'PACKAGING' | 'QC_HOLD' | 'CLOSED' | 'CANCELLED';
+  type ItemCategory = 'fg' | 'raw' | 'pack' | 'intermediate';
+  type BillOfMaterial = {
+    id: string;
+    name: string;
+    stage: ProductionStage;
+    outputItemId: string; // 'intermediate' si stage=PRODUCCION, 'fg' si stage=ENVASADO
+    baseUnit: Uom;
+    batchSize: number;
+    items: Array<{ itemId: string; qty: number; role: 'FORMULA' | 'PACKAGING' | 'COST_ONLY' }>;
+  };
+  type ProductionOrder = {
+    id: string;
+    name?: string;
+    stage: ProductionStage;
+    status: ProductionStatus;
+    plannedQty: number;
+    baseUnit: Uom;
+    bomId?: string;
+    outputItemId: string;
+    plannedDate?: string; // ISO
   };
 
-  // Refresco (si tu dataprovider no autopropaga, aquí forzarías un fetch)
-  const refresh = useCallback(() => {}, []);
+  // ===== Datos base (SSOT) =====
+  const boms: BillOfMaterialUI[] = useMemo(() => {
+      const raw = (data?.billOfMaterials ?? []) as BillOfMaterialUI[];
+      return raw.map((b: any) => ({
+        id: b.id,
+        name: b.name ?? b.id,
+        kind: (b.kind as string) ?? (b.stage as string) ?? (b.output?.isFinal ? "ENVASADO" : "PRODUCCION"),
+        baseUnit: (b.baseUnit ?? b.uom ?? "L") as Uom,
+        ...b,
+      }));
+    }, [data]);
+  const orders: ProductionOrderUI[] = useMemo(() => (data?.productionOrders ?? []) as ProductionOrderUI[], [data]);
 
-  const accent = "[--sb-accent-produc:182_25%_47%]";
+  // Helpers de estado compatibles con SSOT
+  const isActiveStatus = (s: ProductionStatus) => ['IN_PROGRESS','PAUSED','QC_HOLD','PACKAGING'].includes(s);
+  const isScheduledStatus = (s: ProductionStatus) => s === 'PLANNED';
 
-  // Panel lateral izquierdo
-  const active = useMemo(() => orders.filter((o: any) => ["IN_PROGRESS", "PAUSED", "QC_HOLD"].includes(o.status)), [orders]);
-  const scheduled = useMemo(() => orders.filter((o: any) => o.status === "PLANNED"), [orders]);
-  const hasAlert = (o: any) => o.status === "QC_HOLD" || (o.incidents?.length ?? 0) > 0;
+  // Agrupación "playground": izquierda (source), centro (workstation), derecha (inspectores)
+  const active: ProductionOrderUI[] = useMemo(() => orders.filter((o) => isActiveStatus(o.status)), [orders]);
+  const scheduled: ProductionOrderUI[] = useMemo(() => orders.filter((o) => isScheduledStatus(o.status)), [orders]);
 
+  // Estado de selección (uno u otro)
+  const [openOrderId, setOpenOrderId] = useState<string | null>(null);
+  const [openBomId, setOpenBomId] = useState<string | null>(null);
 
+  const openOrder: ProductionOrderUI | null = useMemo(() => orders.find((o) => o.id === openOrderId) ?? null, [orders, openOrderId]);
+  const openBom: BillOfMaterialUI | null = useMemo(() => boms.find((b) => b.id === openBomId) ?? null, [boms, openBomId]);
+
+  const pickBom = useCallback(() => {
+    if (!boms?.length) return;
+    setOpenOrderId(null);
+    setOpenBomId(boms[0].id);
+  }, [boms]);
+
+  const selectOrder = useCallback((id: string) => {
+    setOpenBomId(null);
+    setOpenOrderId(id);
+  }, []);
+
+  // ===== Layout =====
   return (
-    <>
-      {/* HEADER sticky */}
-      <header
-        aria-label="Sección Producción"
-        className="sticky top-0 z-30 border-b bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60"
-      >
-        <div className="mx-auto max-w-screen-2xl px-6 py-4">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div
-                className={`h-10 w-10 rounded-xl grid place-items-center ring-1 ring-black/5 bg-[hsl(var(--sb-accent-produc)/0.12)] text-[hsl(var(--sb-accent-produc))] ${accent}`}
-                aria-hidden="true"
-                title="Producción"
-              >
-                <FactoryIcon size={20} />
-              </div>
-              <div>
-                <h1 className="text-2xl font-semibold text-zinc-900 leading-tight">Producción</h1>
-                <p className="text-xs text-zinc-600">Tablero de planificación por receta/BOM. Ajusta cantidades y fechas según stocks y previsiones.</p>
-              </div>
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 p-4">
+      {/* Izquierda: "Fuentes" → Órdenes y Nuevo desde BOM */}
+      <aside className="lg:col-span-3 space-y-4">
+        <SBCard
+          title="Órdenes"
+          accent={accent}
+        >
+          <div className="p-3 flex items-center justify-between">
+            <div className="text-sm text-zinc-600">Activas ({active.length}) · Planificadas ({scheduled.length})</div>
+            <div className="flex items-center gap-2">
+              <details className="relative group">
+                <summary className="cursor-pointer list-none sb-btn-secondary px-2 py-1 rounded-md border text-xs flex items-center gap-1">
+                  <Plus size={14} /> Nuevo
+                </summary>
+                <div className="absolute right-0 mt-2 w-64 rounded-md bg-white shadow-lg ring-1 ring-black/5 z-10 max-h-72 overflow-auto">
+                  {boms.map((b) => (
+                    <button
+                      key={b.id}
+                      onClick={() => { setOpenOrderId(null); setOpenBomId(b.id); }}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-zinc-50"
+                    >
+                      {/* Reglas SSOT: mostrar sólo BOMs con output correcto según etapa */}
+                      {b.name} {b.stage === 'PRODUCCION' ? '• OUT: intermediate' : '• OUT: fg'}
+                    </button>
+                  ))}
+                  {!boms?.length && (
+                    <div className="px-3 py-2 text-sm text-zinc-500">No hay BOMs.</div>
+                  )}
+                </div>
+              </details>
+              <button className="px-2 py-1 rounded-md border text-xs" title="Filtrar"><ListFilter size={14} /></button>
             </div>
           </div>
-        </div>
-      </header>
 
-      <main className="mx-auto max-w-screen-2xl px-6 pb-24">
-        <div className="grid lg:grid-cols-3 gap-6">
-          {/* Panel lateral izquierdo */}
-          <div className="lg:col-span-1 space-y-6">
-            {/* Recetas BOM */}
-            <SBCard title="Recetas (BOM)" accent={(SB_COLORS as any).module?.produccion ?? SB_COLORS.primary.teal}>
-              <div className="p-2 space-y-1">
-                {boms.map((b: any) => (
-                  <div
-                    key={b.id}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => selectBom(b)}
-                    onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && selectBom(b)}
-                    className="rounded-lg p-3 border transition-colors outline-none cursor-pointer hover:bg-zinc-50"
-                    aria-label={`Abrir tablero para ${b.name}`}
-                  >
-                    <p className="font-semibold text-zinc-800">{b.name}</p>
-                    <p className="text-xs text-zinc-500">Receta base</p>
+          <div className="px-2 pb-2 space-y-1 max-h-[55vh] overflow-y-auto">
+            {[...active, ...scheduled].map((o) => (
+              <button
+                key={o.id}
+                onClick={() => selectOrder(o.id)}
+                className={`w-full text-left rounded-md p-2 hover:bg-zinc-50 transition-colors ${openOrderId === o.id ? 'ring-1 ring-[hsl(var(--sb-accent-produc))]/30 bg-[hsl(var(--sb-accent-produc)/0.05)]' : ''}`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-zinc-800 truncate">{o.name || o.id}</p>
+                    <p className="text-xs text-zinc-500 truncate">{o.plannedQty} {o.baseUnit} {o.stage ? `• ${o.stage}` : ''}</p>
                   </div>
-                ))}
-              </div>
-            </SBCard>
-
-            {/* Producciones activas / planificadas */}
-            <SBCard title={`Órdenes (activas ${active.length} / programadas ${scheduled.length})`} accent={(SB_COLORS as any).module?.produccion ?? SB_COLORS.primary.teal}>
-              <div className="p-2 space-y-2">
-                {[...active, ...scheduled].map((o: any) => (
-                  <button key={o.id} onClick={() => select(o.id)} className="w-full text-left rounded-lg p-3 border hover:bg-zinc-50">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="font-medium truncate">{o.name || o.id}</div>
-                        <div className="text-xs text-zinc-500 truncate">{o.stage} • {o.plannedQty} {o.baseUnit}{o.plannedDate ? ` • ${o.plannedDate}` : ""}</div>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <span className="text-[11px] px-2 py-0.5 rounded-full border bg-white text-zinc-700">{o.status}</span>
-                        {hasAlert(o) && <div className="text-[11px] text-amber-700 mt-1">⚠️ alerta</div>}
-                      </div>
-                    </div>
-                  </button>
-                ))}
-                {active.length + scheduled.length === 0 && (
-                  <div className="text-sm text-zinc-500 px-2 py-6 text-center">Sin órdenes activas o programadas.</div>
-                )}
-              </div>
-            </SBCard>
-
-            {/* Partes de producción (detalle breve de cada orden) */}
-            <SBCard title="Partes de producción" accent={(SB_COLORS as any).module?.produccion ?? SB_COLORS.primary.teal}>
-              <div className="p-2 space-y-2">
-                {orders.map((o:any) => (
-                  <div key={o.id} className="rounded-lg border p-3 bg-white">
-                    <div className="flex items-center justify-between">
-                      <div className="font-medium truncate">{o.name || o.id}</div>
-                      <span className="text-[11px] px-2 py-0.5 rounded-full border bg-white text-zinc-700">{o.status}</span>
-                    </div>
-                    <div className="text-xs text-zinc-500 mt-1">{o.stage} • {o.plannedQty} {o.baseUnit}{o.plannedDate ? ` • ${o.plannedDate}` : ""}{o.lotNumber ? ` • Lote ${o.lotNumber}` : ""}{o.startedAt ? ` • Inicio ${o.startedAt}` : ""}{o.endedAt ? ` • Fin ${o.endedAt}` : ""}</div>
+                  <div className="shrink-0">
+                    {o.status === 'IN_PROGRESS' && <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">En curso</span>}
+                    {o.status === 'PAUSED' && <span className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-200 text-zinc-800">Pausada</span>}
+                    {o.status === 'PLANNED' && <span className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-700 border">Planificada</span>}
+                    {o.status === 'QC_HOLD' && <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">QC Hold</span>}
+                    {o.status === 'PACKAGING' && <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Envasado</span>}
                   </div>
-                ))}
-                {orders.length === 0 && <div className="text-sm text-zinc-500 px-2 py-6 text-center">Sin registros.</div>}
-              </div>
-            </SBCard>
+                </div>
+              </button>
+            ))}
+
+            {!active.length && !scheduled.length && (
+              <div className="text-sm text-zinc-500 px-2 py-6 text-center">Sin órdenes. Crea una desde BOM.</div>
+            )}
           </div>
+        </SBCard>
+      </aside>
 
-          {/* Panel principal: detalle de la orden seleccionada o tablero de planificación */}
-          <div className="lg:col-span-2">
+      {/* Centro: Workstation (Plan → Ejecutar) */}
+      <main className="lg:col-span-6 min-h-[70vh]">
+        <SBCard
+          title={openOrder ? (openOrder.name || openOrder.id) : openBom ? (openBom.name || 'Planificación') : 'Workstation'}
+          accent={accent}
+        >
+          <div className="p-4 min-h-[60vh]">
             {openOrder ? (
-              <OrderDetail order={openOrder} allItems={allItems} onRefresh={refresh} onClose={() => setOpenOrderId(null)} />
+              // === EJECUCIÓN ===
+              <OrderDetail
+                order={openOrder}
+                allItems={(data?.items ?? []) as Item[]}
+                onRefresh={refresh}
+                onClose={() => setOpenOrderId(null)}
+              />
             ) : openBom ? (
+              // === PLANIFICACIÓN ===
               <PlanningBoard
                 bom={openBom}
-                onPlanned={(id) => {
-                  select(id);
-                  setOpenBom(null);
+                onPlanned={(newOrderId: string) => {
+                  setOpenBomId(null);
+                  setOpenOrderId(newOrderId);
+                  refresh();
                 }}
               />
             ) : (
-              <div className="h-full min-h-[240px] flex items-center justify-center text-zinc-500 bg-zinc-50 rounded-2xl border">
-                Selecciona una orden o una receta para empezar.
-              </div>
+              <EmptyCenter onPickBom={pickBom} />
             )}
           </div>
-        </div>
+        </SBCard>
       </main>
-    </>
+
+      {/* Derecha: Inspectores contextuales (como el panel derecho del playground) */}
+      <aside className="lg:col-span-3 space-y-4">
+        <SBCard title="Disponibilidades / Roturas" accent={accent}>
+          <div className="p-3">
+             {/* <ShortagesPanel shortages={openOrder?.shortages ?? openBom?.shortages ?? []} /> */}
+          </div>
+        </SBCard>
+
+        <SBCard title="Calidad (QC)" accent={accent}>
+          <div className="p-3">
+             {/* <QCPanel outputLots={openOrder?.outputLots ?? []} /> */}
+          </div>
+        </SBCard>
+      </aside>
+    </div>
   );
 }
