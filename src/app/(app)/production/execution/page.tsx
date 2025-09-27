@@ -1,14 +1,14 @@
 "use client";
 
 import React, { useMemo, useState, useCallback, useEffect, useTransition } from "react";
-import { Plus, Trash2, Factory as FactoryIcon, Pause, Play, CheckCircle2, AlertTriangle } from "lucide-react";
-import { SBCard } from "@/components/ui/ui-primitives";
+import { Plus, Trash2, Factory as FactoryIcon, Pause, Play, CheckCircle2, AlertTriangle, ListFilter } from "lucide-react";
+import { SBCard, SpinnerButton } from "@/components/ui/ui-primitives";
 import { SB_COLORS } from "@/domain/ssot";
 import { useData } from "@/lib/dataprovider";
-import { SpinnerButton } from "@/components/ui/SpinnerButton";
 import { Field } from "@/components/forms/Field";
 import { toast } from "sonner";
 import type { Item } from "@/domain/ssot";
+
 
 // Acciones del módulo Producción (previas en actions.ts)
 import {
@@ -25,8 +25,8 @@ import {
   addIncident,
   setCalculatorInput,
   closeProduction,
-  cancelProduction,
   previewPlanning,
+  cancelProduction,
 } from "../actions";
 
 // ===== Tipos locales mínimos (alineados a actions.ts) =====
@@ -38,9 +38,9 @@ function PlanningBoard({ bom, onPlanned }: { bom: any; onPlanned: (id: string) =
   const [date, setDate] = React.useState<string>("");
   const [preview, setPreview] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(false);
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = React.useState(false);
 
-  // --- helpers de componentes del BOM ---
+    // --- helpers de componentes del BOM ---
   const baseComponents = React.useMemo(() => {
     const raw = bom?.components ?? bom?.lines ?? bom?.materials ?? [];
     // Normaliza a { itemId, qty, uom, role }
@@ -52,6 +52,7 @@ function PlanningBoard({ bom, onPlanned }: { bom: any; onPlanned: (id: string) =
     }));
   }, [bom]);
 
+
   // recalcula preview en vivo cada vez que cambian qty/date
   React.useEffect(() => {
     if (!bom?.id || qty <= 0) {
@@ -59,16 +60,18 @@ function PlanningBoard({ bom, onPlanned }: { bom: any; onPlanned: (id: string) =
       // Aunque no haya qty, seguimos mostrando fórmula base
       return;
     }
-    let alive = true;
+    let active = true;
     setLoading(true);
     previewPlanning({ bomId: bom.id, plannedQty: qty })
       .then((res) => {
-        if (!alive) return;
-        if (res?.ok) setPreview(res.data);
+        if (!active) return;
+        if (res.ok) setPreview(res.data);
         else setPreview(null);
       })
-      .finally(() => alive && setLoading(false));
-    return () => { alive = false; };
+      .finally(() => active && setLoading(false));
+    return () => {
+      active = false;
+    };
   }, [bom?.id, qty, date]);
 
   async function handlePlan() {
@@ -99,6 +102,7 @@ function PlanningBoard({ bom, onPlanned }: { bom: any; onPlanned: (id: string) =
       : preview?.inSpec === false
       ? "bg-amber-50 text-amber-800 border-amber-200"
       : "bg-white text-zinc-700";
+
 
   return (
     <SBCard
@@ -864,3 +868,5 @@ export default function ProductionPage() {
     </>
   );
 }
+
+    
