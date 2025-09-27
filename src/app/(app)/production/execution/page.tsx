@@ -6,7 +6,7 @@ import { Factory as FactoryIcon, Plus, ListFilter, Pause, Play, CheckCircle2, Al
 import { SBCard } from "@/components/ui/ui-primitives";
 import { SpinnerButton } from "@/components/ui/SpinnerButton";
 import { useData } from "@/lib/dataprovider";
-import { SB_COLORS } from "@/domain/ssot";
+import { SB_COLORS, type Item, type CalcRow, type CalcResult } from "@/domain/ssot";
 import { toast } from "sonner";
 import { Field } from "@/components/forms/Field";
 import {
@@ -27,12 +27,12 @@ import {
   previewPlanning,
 } from "../actions";
 
-import type { Item, CalcRow, CalcResult } from "@/domain/ssot";
 
 // ---- Aliases para evitar choques de tipos SSOT ----
 type Uom = "L" | "kg" | "unit";
 type ProductionOrderUI = any;
 type BillOfMaterialUI = any;
+
 
 // ===== Helpers compactos (no tocan estética global) =====
 function SectionHeader({ icon, title, subtitle }: { icon?: React.ReactNode; title: string; subtitle?: string }) {
@@ -313,105 +313,113 @@ function IncidentsSection({ order, onRefresh }: { order: any; onRefresh: () => v
   );
 }
 
-function PlanningBoard({ bom, onPlanned }: { bom:any; onPlanned:(id:string)=>void }) {
-  const [qty, setQty] = React.useState<number>(1);
-  const [date, setDate] = React.useState<string>("");
-  const [preview, setPreview] = React.useState<any>(null);
-  const [loading, setLoading] = React.useState(false);
-  const [creating, setCreating] = React.useState(false);
+function PlanningBoard({ bom, onPlanned, allItems }: { bom: any; onPlanned: (id: string) => void; allItems: Item[] }) {
+    const [qty, setQty] = React.useState<number>(1);
+    const [date, setDate] = React.useState<string>("");
+    const [preview, setPreview] = React.useState<any>(null);
+    const [loading, setLoading] = React.useState(false);
+    const [creating, setCreating] = React.useState(false);
 
-  // fórmula base
-  const base = React.useMemo(() => {
-    const raw = bom?.items ?? bom?.components ?? [];
-    return (raw as any[]).map(c => ({
-      itemId: c.itemId ?? c.sku ?? "—",
-      qty: c.qty ?? c.quantityPerBase ?? 0,
-      uom: c.uom ?? "L",
-    }));
-  }, [bom]);
-
-  // preview simple (guard)
-  const last = React.useRef<string>("");
-  React.useEffect(() => {
-    const payload = JSON.stringify({ bomId:bom?.id, plannedQty:qty });
-    if (!bom?.id || qty<=0) { setPreview(null); last.current = payload; return; }
-    if (payload===last.current) return;
-    last.current = payload;
-    setLoading(true);
-    previewPlanning({ bomId:bom.id, plannedQty:qty }).then(res => setPreview(res?.ok? res.data : null)).finally(()=>setLoading(false));
-  }, [bom?.id, qty]);
-
-  async function handlePlan() {
-    setCreating(true);
-    const r = await planProduction({ bomId:bom.id, plannedQty:qty, plannedDate: date||undefined, name:bom.name });
-    setCreating(false);
-    if (r?.ok) { toast.success("Planificada"); onPlanned(r.data.id); } else { toast.error(r?.message ?? "No se pudo planificar"); }
-  }
-
-  return (
-    <div className="rounded-xl border p-3 bg-white">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div>
-          <label className="block text-sm mb-1">Cantidad a producir ({bom?.baseUnit ?? "u"})</label>
-          <input type="number" min={1} className="w-full h-10 px-3 rounded-lg border" value={qty} onChange={e=>setQty(Number(e.target.value))}/>
-        </div>
-        <div>
-          <label className="block text-sm mb-1">Fecha prevista</label>
-          <input type="date" className="w-full h-10 px-3 rounded-lg border" value={date} onChange={e=>setDate(e.target.value)}/>
-        </div>
-      </div>
-
-      <div className="mt-4">
-        <h4 className="font-medium">Materiales Requeridos</h4>
-        <div className="mt-2 rounded-lg border">
-          <div className="grid grid-cols-[1fr_auto_auto] gap-2 px-3 py-2 text-xs text-zinc-500">
-            <span>Componente</span><span>Cant. Teórica</span><span>Cant. Real</span>
+    const itemsById = useMemo(() => new Map(allItems.map(it => [it.id, it])), [allItems]);
+  
+    // fórmula base
+    const base = React.useMemo(() => {
+      const raw = bom?.items ?? bom?.components ?? [];
+      return (raw as any[]).map(c => ({
+        itemId: c.itemId ?? c.sku ?? "—",
+        name: itemsById.get(c.itemId)?.name || c.itemId,
+        qty: c.qty ?? c.quantityPerBase ?? 0,
+        uom: c.uom ?? "L",
+      }));
+    }, [bom, itemsById]);
+  
+    // preview simple (guard)
+    const last = React.useRef<string>("");
+    React.useEffect(() => {
+      const payload = JSON.stringify({ bomId:bom?.id, plannedQty:qty });
+      if (!bom?.id || qty<=0) { setPreview(null); last.current = payload; return; }
+      if (payload===last.current) return;
+      last.current = payload;
+      setLoading(true);
+      previewPlanning({ bomId:bom.id, plannedQty:qty }).then(res => setPreview(res?.ok? res.data : null)).finally(()=>setLoading(false));
+    }, [bom?.id, qty]);
+  
+    async function handlePlan() {
+      setCreating(true);
+      const r = await planProduction({ bomId:bom.id, plannedQty:qty, plannedDate: date||undefined, name:bom.name });
+      setCreating(false);
+      if (r?.ok) { toast.success("Planificada"); onPlanned(r.data.id); } else { toast.error(r?.message ?? "No se pudo planificar"); }
+    }
+  
+    return (
+      <div className="rounded-xl border p-3 bg-white">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div>
+            <label className="block text-sm mb-1">Cantidad a producir ({bom?.baseUnit ?? "u"})</label>
+            <input type="number" min={1} className="w-full h-10 px-3 rounded-lg border" value={qty} onChange={e=>setQty(Number(e.target.value))}/>
           </div>
-          <div className="divide-y">
-            {base.map((c:any,i:number)=>(
-              <div key={i} className="grid grid-cols-[1fr_auto_auto] gap-2 px-3 py-2 items-center">
-                <div>
-                  <div className="font-medium text-sm">{c.itemId}</div>
-                  <div className="text-[11px] text-zinc-500">Lot: <b>SB-NAoT</b></div>
+          <div>
+            <label className="block text-sm mb-1">Fecha prevista</label>
+            <input type="date" className="w-full h-10 px-3 rounded-lg border" value={date} onChange={e=>setDate(e.target.value)}/>
+          </div>
+        </div>
+  
+        <div className="mt-4">
+          <h4 className="font-medium">Materiales Requeridos</h4>
+          <div className="mt-2 rounded-lg border">
+            <div className="grid grid-cols-[1fr_auto_auto] gap-2 px-3 py-2 text-xs text-zinc-500">
+              <span>Componente</span><span>Cant. Teórica</span><span>Cant. Real</span>
+            </div>
+            <div className="divide-y">
+              {base.map((c,i)=>(
+                <div key={i} className="grid grid-cols-[1fr_auto_auto] gap-2 px-3 py-2 items-center">
+                  <div>
+                    <div className="font-medium text-sm">{c.name}</div>
+                    <div className="text-[11px] text-zinc-500">Lot: <b>SB-NAoT</b></div>
+                  </div>
+                  <div className="text-sm tabular-nums">{(c.qty||0)*qty} {c.uom}</div>
+                  <div><input defaultValue={1} className="w-24 h-9 px-2 rounded-lg border"/></div>
                 </div>
-                <div className="text-sm tabular-nums">{(c.qty||0)*qty} {c.uom}</div>
-                <div><input defaultValue={1} className="w-24 h-9 px-2 rounded-lg border"/></div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
-      </div>
-
-      {loading && <div className="text-sm text-zinc-500 mt-3">Calculando disponibilidad…</div>}
-
-      {preview && (
-        <div className="mt-3 grid gap-3">
-          <div className="rounded-lg border p-3">
-            <h4 className="font-medium">COA teórico</h4>
-            <ul className="mt-2 text-sm space-y-1">
-              <li>Grado: <b>{preview.estimates?.abvPct ?? "—"}%</b></li>
-              <li>Acidez: <b>{preview.estimates?.acidity_gpl ?? "—"} g/L</b></li>
-              <li>Azúcar: <b>{preview.estimates?.sugar_gpl ?? "—"} g/L</b></li>
-            </ul>
-          </div>
-          <div className="rounded-lg border p-3">
-            <h4 className="font-medium">Disponibilidad</h4>
-            {Array.isArray(preview.shortages) && preview.shortages.length>0 ? (
+  
+        {loading && <div className="text-sm text-zinc-500 mt-3">Calculando disponibilidad…</div>}
+  
+        {preview && (
+          <div className="mt-3 grid gap-3">
+            <div className="rounded-lg border p-3">
+              <h4 className="font-medium">COA teórico</h4>
               <ul className="mt-2 text-sm space-y-1">
-                {preview.shortages.map((s:any,i:number)=>(
-                  <li key={i} className="text-rose-700">⚠️ Falta {s.missing} {s.uom} de {s.itemId} (Req {s.required}, Disp {s.available})</li>
-                ))}
+                <li>Grado: <b>{preview.estimates?.abvPct ?? "—"}%</b></li>
+                <li>Acidez: <b>{preview.estimates?.acidity_gpl ?? "—"} g/L</b></li>
+                <li>Azúcar: <b>{preview.estimates?.sugar_gpl ?? "—"} g/L</b></li>
               </ul>
-            ): <div className="mt-2 text-sm text-emerald-700">Todo cubre</div>}
+            </div>
+            <div className="rounded-lg border p-3">
+              <h4 className="font-medium">Disponibilidad</h4>
+              {Array.isArray(preview.shortages) && preview.shortages.length>0 ? (
+                <ul className="mt-2 text-sm space-y-1">
+                  {preview.shortages.map((s:any,i:number)=>(
+                    <li key={i} className="text-rose-700">⚠️ Falta {s.missing} {s.uom} de {s.itemId} (Req {s.required}, Disp {s.available})</li>
+                  ))}
+                </ul>
+              ): <div className="mt-2 text-sm text-emerald-700">Todo cubre</div>}
+            </div>
           </div>
-        </div>
-      )}
-
-      <SpinnerButton onClick={handlePlan} loading={creating} className="sb-btn-primary w-full h-12 text-base font-semibold mt-4">
-        Planificar producción
-      </SpinnerButton>
-    </div>
-  );
+        )}
+  
+        <SpinnerButton
+          onClick={handlePlan}
+          loading={creating}
+          style={{ backgroundColor: SB_COLORS.primary.teal }}
+          className="text-white w-full h-12 text-base font-semibold mt-4"
+        >
+          Planificar producción
+        </SpinnerButton>
+      </div>
+    );
 }
 
 function OrderDetail({ order, allItems, onRefresh, onClose }: { order: ProductionOrderUI; allItems: Item[]; onRefresh: () => void; onClose:()=>void }) {
@@ -433,6 +441,8 @@ function OrderDetail({ order, allItems, onRefresh, onClose }: { order: Productio
 export default function ExecutionPage() {
   const { data, loadInitialData } = useData();
   const accent = (SB_COLORS as any).module?.produccion ?? SB_COLORS.primary.teal;
+
+  const allItems = useMemo(() => (data?.items || []) as Item[], [data]);
 
   const boms: BillOfMaterialUI[] = useMemo(() => {
       const raw = (data?.billOfMaterials ?? []) as BillOfMaterialUI[];
@@ -548,7 +558,7 @@ export default function ExecutionPage() {
               // === EJECUCIÓN ===
               <OrderDetail
                 order={openOrder}
-                allItems={(data?.items ?? []) as Item[]}
+                allItems={allItems}
                 onRefresh={loadInitialData}
                 onClose={() => setOpenOrderId(null)}
               />
@@ -557,10 +567,11 @@ export default function ExecutionPage() {
               <PlanningBoard
                 bom={openBom}
                 onPlanned={(newOrderId: string) => {
-                  setOpenBomId(null);
                   setOpenOrderId(newOrderId);
+                  setOpenBomId(null);
                   loadInitialData();
                 }}
+                allItems={allItems}
               />
             ) : (
               <EmptyCenter onPickBom={pickBom} />
@@ -579,3 +590,5 @@ export default function ExecutionPage() {
     </div>
   );
 }
+
+    
