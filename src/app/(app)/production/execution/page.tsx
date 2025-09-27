@@ -1,29 +1,13 @@
 "use client";
 
 import React, { useMemo, useState, useCallback, useEffect, useTransition } from "react";
-import { Factory as FactoryIcon, Plus, ListFilter, Pause, Play, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Factory as FactoryIcon, Plus, ListFilter } from "lucide-react";
 import { SBCard } from "@/components/ui/ui-primitives";
-import { SpinnerButton } from "@/components/ui/SpinnerButton";
 import { useData } from "@/lib/dataprovider";
-import { SB_COLORS, type Item, type CalcRow, type CalcResult } from "@/domain/ssot";
+import { SB_COLORS, type Item } from "@/domain/ssot";
 import { toast } from "sonner";
-import { Field } from "@/components/forms/Field";
 import {
   planProduction,
-  startProduction,
-  pauseProduction,
-  resumeProduction,
-  setOperatorsCount,
-  toggleProtocolsAcknowledged,
-  recordConsumption,
-  recordOutput,
-  recordPackagingParent,
-  setQcResult,
-  addIncident,
-  setCalculatorInput,
-  closeProduction,
-  cancelProduction,
-  previewPlanning,
 } from "../actions";
 
 // ---- Aliases para evitar choques de tipos SSOT
@@ -33,26 +17,6 @@ type BillOfMaterialUI = any;
 
 
 // ===== Helpers compactos (no tocan estética global) =====
-function SectionHeader({ icon, title, subtitle }: { icon?: React.ReactNode; title: string; subtitle?: string }) {
-  return (
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-3">
-        <div
-          className={`h-8 w-8 rounded-lg grid place-items-center ring-1 ring-black/5
-                      bg-[hsl(var(--sb-accent-produc)/0.12)]
-                      text-[hsl(var(--sb-accent-produc))]`}
-        >
-          {icon ?? <FactoryIcon size={16} />}
-        </div>
-        <div>
-          <h2 className="text-base font-semibold text-zinc-900">{title}</h2>
-          {subtitle ? <p className="text-xs text-zinc-600">{subtitle}</p> : null}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function EmptyCenter({ onPickBom }: { onPickBom: () => void }) {
   return (
     <div className="h-full grid place-items-center">
@@ -62,373 +26,6 @@ function EmptyCenter({ onPickBom }: { onPickBom: () => void }) {
         </div>
         <h3 className="text-lg font-semibold text-zinc-800">Nada abierto</h3>
         <p className="text-sm text-zinc-500 mt-1">Selecciona una orden a la izquierda o crea una nueva desde un BOM.</p>
-        <div className="mt-4">
-          <SpinnerButton onClick={onPickBom}>
-            <Plus className="mr-2" size={16} /> Planificar desde BOM
-          </SpinnerButton>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Cabecera de control contextual de la ORDEN ───────────────────
-// props esperadas: order {id,status,stage,plannedQty,baseUnit,shortages?,protocolsAcknowledged?,parentLotNumber?,lotNumber?}
-// acciones importadas: startProduction, pauseProduction, resumeProduction, closeProduction, cancelProduction, planProduction
-// util: toast, SpinnerButton (o Button)
-function HeaderExecutionControls({
-  order,
-  canStartExtraCheck = true,   // por si quieres inyectar lógica adicional (p.ej. operarios > 0)
-  onRefresh,
-}: {
-  order: any;
-  canStartExtraCheck?: boolean;
-  onRefresh: () => void;
-}) {
-  const [pending, startTransition] = React.useTransition();
-
-  const status = order?.status as string;
-  const isProd = order?.stage === "PRODUCCION";
-  const hasShortages = (order?.shortages?.length ?? 0) > 0;
-  const hasParentLotIfNeeded = isProd ? true : (order?.parentLotNumber ?? "").trim().length > 0;
-
-  const canStart = status === "planned" || status === "PLANNED"
-    ? !!order?.protocolsAcknowledged && !hasShortages && hasParentLotIfNeeded && canStartExtraCheck
-    : false;
-
-  const canPause = status === "wip" || status === "IN_PROGRESS";
-  const canResume = status === "PAUSED" || status === "paused";
-  const canFinish = canPause || canResume;
-  const canCancel = status === "planned" || status === "PLANNED";
-
-  const primaryLabel =
-    status === "PLANNED" || status === "planned" ? "iniciar" :
-    status === "IN_PROGRESS" || status === "wip" ? "pausa" :
-    status === "PAUSED" || status === "paused" ? "reanudar" : "iniciar";
-
-  const secondaryLabel =
-    status === "PLANNED" || status === "planned" ? "cancelar" : "finalizar";
-
-  return (
-    <div className="flex flex-wrap items-center gap-3">
-      {/* Botón principal */}
-      <SpinnerButton
-        loading={pending}
-        disabled={
-          (status === "PLANNED" || status === "planned") ? !canStart :
-          (status === "IN_PROGRESS" || status === "wip") ? !canPause :
-          (status === "PAUSED" || status === "paused") ? !canResume : false
-        }
-        onClick={() =>
-          startTransition(async () => {
-            let r;
-            if (status === "PLANNED" || status === "planned") r = await startProduction(order.id);
-            else if (status === "IN_PROGRESS" || status === "wip") r = await pauseProduction(order.id);
-            else if (status === "PAUSED" || status === "paused") r = await resumeProduction(order.id);
-            if (r?.ok) toast.success(primaryLabel);
-            else toast.error(r?.message ?? "Acción no completada");
-            onRefresh();
-          })
-        }
-        className="sb-btn-primary min-w-[140px] capitalize"
-      >
-        {primaryLabel}
-      </SpinnerButton>
-
-      {/* Botón secundario */}
-      <SpinnerButton
-        loading={pending}
-        disabled={(status !== "PLANNED" && status !== "planned") && !canFinish}
-        onClick={() =>
-          startTransition(async () => {
-            let r;
-            if (status === "PLANNED" || status === "planned") {
-              r = await cancelProduction(order.id);
-            } else {
-              r = await closeProduction(order.id);
-            }
-            if (r?.ok) toast.success(secondaryLabel);
-            else toast.error(r?.message ?? "Acción no completada");
-            onRefresh();
-          })
-        }
-        className="sb-btn-secondary min-w-[140px] capitalize"
-      >
-        {secondaryLabel}
-      </SpinnerButton>
-
-      {/* Badges informativos */}
-      {hasShortages && (
-        <span className="text-xs px-2 py-1 rounded border bg-amber-50 text-amber-800">
-          ⚠️ faltantes de material
-        </span>
-      )}
-      {(status === "QC_HOLD" || status === "qc_hold") && (
-        <span className="text-xs px-2 py-1 rounded border bg-amber-50 text-amber-800">
-          ⏸ en espera de QC
-        </span>
-      )}
-      {order?.lotNumber && (
-        <span className="text-xs px-2 py-1 rounded border bg-slate-50 text-slate-700">
-          Lote salida: <b>{order.lotNumber}</b>
-        </span>
-      )}
-    </div>
-  );
-}
-// ── Sección Seguridad & Personal ─────────────────────────────────
-// acciones: toggleProtocolsAcknowledged, setOperatorsCount
-function SafetyAndPersonal({
-  order,
-  onRefresh,
-}: {
-  order: any;
-  onRefresh: () => void;
-}) {
-  const [pending, startTransition] = React.useTransition();
-  const [ack, setAck] = React.useState(!!order?.protocolsAcknowledged);
-  const [ops, setOps] = React.useState<number>(order?.operatorsCount ?? 0);
-
-  React.useEffect(() => {
-    setAck(!!order?.protocolsAcknowledged);
-    setOps(order?.operatorsCount ?? 0);
-  }, [order?.protocolsAcknowledged, order?.operatorsCount]);
-
-  return (
-    <div className="rounded-xl border p-3 bg-white">
-      <h3 className="text-base font-semibold">Seguridad y Personal</h3>
-      <div className="mt-3 space-y-3">
-        <label className="flex items-center gap-3">
-          <input
-            type="checkbox"
-            checked={ack}
-            onChange={(e) => {
-              const v = e.target.checked;
-              setAck(v);
-              startTransition(async () => {
-                const r = await toggleProtocolsAcknowledged(order.id, v);
-                r?.ok ? toast.success(v ? "Protocolos confirmados" : "Protocolos desmarcados") : toast.error(r?.message ?? "Error");
-                onRefresh();
-              });
-            }}
-          />
-          <span>He leído y cumplo los protocolos de Calidad para esta orden</span>
-        </label>
-
-        <div className="flex items-end gap-3">
-          <div>
-            <label className="block text-sm mb-1">N.º de operarios</label>
-            <input
-              type="number"
-              min={0}
-              className="w-32 h-10 px-3 rounded-lg border"
-              value={ops}
-              onChange={(e) => setOps(Number(e.target.value))}
-            />
-          </div>
-          <SpinnerButton
-            className="sb-btn-secondary"
-            loading={pending}
-            onClick={() =>
-              startTransition(async () => {
-                const r = await setOperatorsCount(order.id, ops);
-                r?.ok ? toast.success("Operarios guardados") : toast.error(r?.message ?? "Error");
-                onRefresh();
-              })
-            }
-          >
-            Guardar
-          </SpinnerButton>
-        </div>
-      </div>
-    </div>
-  );
-}
-// ── Sección Incidencias ──────────────────────────────────────────
-// acción: addIncident(orderId, {severity, summary, details})
-function IncidentsSection({ order, onRefresh }: { order: any; onRefresh: () => void }) {
-  const [pending, startTransition] = React.useTransition();
-  const [severity, setSeverity] = React.useState<"LOW" | "MEDIUM" | "HIGH">("LOW");
-  const [summary, setSummary] = React.useState("");
-  const [details, setDetails] = React.useState("");
-
-  return (
-    <div className="rounded-xl border p-3 bg-white">
-      <h3 className="text-base font-semibold">Incidencias</h3>
-      <div className="mt-3 grid sm:grid-cols-3 gap-2">
-        <div>
-          <label className="block text-sm mb-1">Severidad</label>
-          <select className="w-full h-10 px-3 rounded-lg border" value={severity} onChange={(e) => setSeverity(e.target.value as any)}>
-            <option value="LOW">Baja</option>
-            <option value="MEDIUM">Media</option>
-            <option value="HIGH">Alta</option>
-          </select>
-        </div>
-        <div className="sm:col-span-2">
-          <label className="block text-sm mb-1">Resumen</label>
-          <input className="w-full h-10 px-3 rounded-lg border" value={summary} onChange={(e) => setSummary(e.target.value)} />
-        </div>
-        <div className="sm:col-span-3">
-          <label className="block text-sm mb-1">Detalles</label>
-          <textarea className="w-full min-h-[80px] px-3 py-2 rounded-lg border" value={details} onChange={(e) => setDetails(e.target.value)} />
-        </div>
-      </div>
-
-      <div className="flex gap-2 mt-2">
-        <SpinnerButton
-          className="sb-btn-secondary"
-          disabled={!summary}
-          loading={pending}
-          onClick={() =>
-            startTransition(async () => {
-              const r = await addIncident(order.id, { severity, summary, details });
-              r?.ok ? toast.success("Incidencia añadida") : toast.error(r?.message ?? "Error");
-              setSummary(""); setDetails("");
-              onRefresh();
-            })
-          }
-        >
-          Añadir incidencia
-        </SpinnerButton>
-      </div>
-
-      <div className="text-sm opacity-80 mt-3">
-        {(order?.incidents ?? []).length ? (
-          <ul className="list-disc pl-6 space-y-1">
-            {order.incidents.map((x: any) => (
-              <li key={x.id}>
-                <b>{x.severity}</b> · {x.summary} <span className="opacity-70">({x.at})</span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          "Sin incidencias registradas."
-        )}
-      </div>
-    </div>
-  );
-}
-
-function PlanningBoard({ bom, allItems, allBoms, onBomChange, onPlanned, onCancel }: { bom: any; allItems: Item[]; allBoms: any[]; onBomChange: (bomId: string) => void; onPlanned: (id: string, start?: boolean) => void; onCancel: () => void; }) {
-    const [qty, setQty] = React.useState<number>(1);
-    const [date, setDate] = React.useState<string>("");
-    const [preview, setPreview] = React.useState<any>(null);
-    const [loading, setLoading] = React.useState(false);
-    const [creating, setCreating] = React.useState<false | 'plan' | 'start'>(false);
-    
-    const itemsById = useMemo(() => new Map(allItems.map(it => [it.id, it])), [allItems]);
-    
-    const last = React.useRef<string>("");
-    React.useEffect(() => {
-        const payload = JSON.stringify({ bomId: bom?.id, plannedQty: qty });
-        if (!bom?.id || qty <= 0) { setPreview(null); last.current = payload; return; }
-        if (payload === last.current) return;
-        last.current = payload;
-        setLoading(true);
-        previewPlanning({ bomId: bom.id, plannedQty: qty }).then(res => setPreview(res?.ok ? res.data : null)).finally(() => setLoading(false));
-    }, [bom?.id, qty]);
-
-    async function handleAction(startNow: boolean) {
-        setCreating(startNow ? 'start' : 'plan');
-        const r = await planProduction({ bomId: bom.id, plannedQty: qty, plannedDate: date || undefined, name: bom.name });
-        if (r?.ok) {
-            toast.success("Orden planificada");
-            if (startNow) {
-                const startRes = await startProduction(r.data.id);
-                if (startRes.ok) toast.success("Producción iniciada");
-                else toast.error(startRes.message ?? "No se pudo iniciar");
-            }
-            onPlanned(r.data.id, startNow);
-        } else {
-            toast.error(r?.message ?? "No se pudo planificar");
-        }
-        setCreating(false);
-    }
-    
-    const canStart = preview && !(preview.shortages?.length > 0);
-    const accent = SB_COLORS.primary.teal;
-
-    return (
-        <div className="rounded-xl border p-3 bg-white">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div>
-                    <label className="block text-sm mb-1">Receta a producir</label>
-                    <select className="w-full h-10 px-3 rounded-lg border" value={bom?.id || ''} onChange={(e) => onBomChange(e.target.value)}>
-                        <option value="" disabled>Selecciona una receta...</option>
-                        {allBoms.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
-                    </select>
-                </div>
-                <div>
-                    <label className="block text-sm mb-1">Cantidad a producir ({bom?.baseUnit ?? "u"})</label>
-                    <input type="number" min={1} className="w-full h-10 px-3 rounded-lg border" value={qty} onChange={e => setQty(Number(e.target.value))} />
-                </div>
-                <div>
-                    <label className="block text-sm mb-1">Fecha prevista</label>
-                    <input type="date" className="w-full h-10 px-3 rounded-lg border" value={date} onChange={e => setDate(e.target.value)} />
-                </div>
-            </div>
-
-            <div className="mt-4">
-                <h4 className="font-medium">Materiales Requeridos</h4>
-                <div className="mt-2 rounded-lg border">
-                    <div className="grid grid-cols-[1fr_auto_auto] gap-2 px-3 py-2 text-xs text-zinc-500">
-                        <span>Componente</span><span>Cant. Teórica</span><span>Lotes</span>
-                    </div>
-                    <div className="divide-y">
-                        {(preview?.nominal ?? []).map((c: any, i: number) => (
-                            <div key={i} className="grid grid-cols-[1fr_auto_auto] gap-2 px-3 py-2 items-center">
-                                <div className="font-medium text-sm">{itemsById.get(c.itemId)?.name || c.itemId}</div>
-                                <div className="text-sm tabular-nums">{c.qty || 0} {c.uom}</div>
-                                <div className="text-xs text-zinc-500">
-                                    {(preview.allocations || []).filter((a: any) => a.itemId === c.itemId).map((a: any) =>
-                                        <b key={a.lotNumber}>{a.lotNumber} ({a.qty}{a.uom})</b>
-                                    )}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </div>
-
-            {loading && <div className="text-sm text-zinc-500 mt-3">Calculando disponibilidad…</div>}
-
-            {preview && (
-                <div className="mt-3 grid gap-3">
-                    <div className="rounded-lg border p-3">
-                        <h4 className="font-medium">Lote de Salida Previsto</h4>
-                        <div className="mt-2 font-mono text-sm">{preview.lotNumberPlanned || '—'}</div>
-                    </div>
-                    <div className="rounded-lg border p-3">
-                        <h4 className="font-medium">Disponibilidad</h4>
-                        {Array.isArray(preview.shortages) && preview.shortages.length > 0 ? (
-                            <ul className="mt-2 text-sm space-y-1">
-                                {preview.shortages.map((s: any, i: number) => (
-                                    <li key={i} className="text-rose-700">⚠️ Falta {s.missing} {s.uom} de {itemsById.get(s.itemId)?.name || s.itemId} (Req {s.required}, Disp {s.available})</li>
-                                ))}
-                            </ul>
-                        ) : <div className="mt-2 text-sm text-emerald-700">Todo el material disponible.</div>}
-                    </div>
-                </div>
-            )}
-            
-            <div className="mt-4 flex justify-end gap-2">
-                <SpinnerButton onClick={onCancel} className="sb-btn-secondary">Cancelar</SpinnerButton>
-                <SpinnerButton onClick={() => handleAction(false)} loading={creating === 'plan'} disabled={!!creating || !preview} className="sb-btn-secondary">Programar</SpinnerButton>
-                <SpinnerButton onClick={() => handleAction(true)} loading={creating === 'start'} disabled={!!creating || !canStart} style={{ backgroundColor: `hsl(${accent})` } as any} className="text-white">Iniciar Producción</SpinnerButton>
-            </div>
-        </div>
-    );
-}
-
-function OrderDetail({ order, allItems, onRefresh, onClose }: { order: ProductionOrderUI; allItems: Item[]; onRefresh: () => void; onClose:()=>void }) {
-  return (
-    <div className="space-y-4">
-      <HeaderExecutionControls order={order} onRefresh={onRefresh} />
-      <div className="mt-4">
-        <SafetyAndPersonal order={order} onRefresh={onRefresh} />
-      </div>
-      <div className="mt-4">
-        <IncidentsSection order={order} onRefresh={onRefresh} />
       </div>
     </div>
   );
@@ -545,46 +142,21 @@ export default function ExecutionPage() {
         </SBCard>
       </aside>
 
-      {/* Centro: Workstation (Plan → Ejecutar) */}
+      {/* Centro: Workstation */}
       <main className="lg:col-span-6 min-h-[70vh]">
         <SBCard
-          title={openOrder ? (openOrder.name || openOrder.id) : openBom ? (openBom.name || 'Planificación') : 'Workstation'}
-          accent={accent}
+            title={"Workstation"}
+            accent={accent}
         >
-          <div className="p-4 min-h-[60vh]">
-            {openOrder ? (
-              // === EJECUCIÓN ===
-              <OrderDetail
-                order={openOrder}
-                allItems={allItems}
-                onRefresh={loadInitialData}
-                onClose={() => setOpenOrderId(null)}
-              />
-            ) : openBom ? (
-              // === PLANIFICACIÓN ===
-              <PlanningBoard
-                bom={openBom}
-                allItems={allItems}
-                allBoms={boms}
-                onBomChange={setOpenBomId}
-                onPlanned={(newOrderId: string) => {
-                  setOpenOrderId(newOrderId);
-                  setOpenBomId(null);
-                  loadInitialData();
-                }}
-                onCancel={() => setOpenBomId(null)}
-              />
-            ) : (
-              <EmptyCenter onPickBom={pickBom} />
-            )}
-          </div>
+            <div className="p-4 min-h-[60vh]">
+                <EmptyCenter onPickBom={pickBom} />
+            </div>
         </SBCard>
       </main>
 
       {/* Derecha: Inspectores contextuales (como el panel derecho del playground) */}
       <aside className="lg:col-span-3 space-y-4">
-        {/* <ShortagesPanel shortages={openOrder?.shortages ?? openBom?.shortages ?? []} /> */}
-        {/* <QCPanel outputLots={openOrder?.outputLots ?? []} /> */}
+        {/* Próximamente: <ShortagesPanel/>, <QCPanel/>, etc. */}
       </aside>
     </div>
   );
