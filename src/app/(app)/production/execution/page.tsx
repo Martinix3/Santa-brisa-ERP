@@ -1,5 +1,3 @@
-
-// src/app/(app)/production/execution/page.tsx
 "use client";
 
 import React, { useMemo, useState, useCallback, useEffect, useTransition } from "react";
@@ -27,7 +25,7 @@ import {
   addIncident,
   setCalculatorInput,
   closeProduction,
-  previewPlanning,          // ⬅️ seguimos usando la previsualización
+  previewPlanning,          // ⬅️ volvemos a usar previsualización en el tablero
 } from "../actions";
 
 // ===== Tipos locales mínimos (alineados a actions.ts) =====
@@ -63,8 +61,8 @@ type DraftRow = {
   bomId: string | "";
   bomName: string;
   qty: number;
-  date: string;     // ISO (YYYY-MM-DD)
-  preview?: any;    // resultado de previewPlanning
+  date: string; // ISO (solo fecha)
+  preview?: any; // resultado de previewPlanning
 };
 
 function PlanningBoard({
@@ -92,7 +90,7 @@ function PlanningBoard({
 
   const doPreview = async (row: DraftRow) => {
     if (!row.bomId) return toast.error("Selecciona una receta/BOM.");
-    if (row.qty <= 0) return toast.error("Cantidad debe ser > 0.");
+    if (row.qty <= 0) return toast.error("Cantidad > 0.");
     const res = await previewPlanning({ bomId: row.bomId, plannedQty: row.qty });
     if (res.ok) update(row.id, { preview: res.data });
     else toast.error(res.message ?? "No se pudo previsualizar");
@@ -100,7 +98,7 @@ function PlanningBoard({
 
   const doPlan = async (row: DraftRow) => {
     if (!row.bomId) return toast.error("Selecciona una receta/BOM.");
-    if (row.qty <= 0) return toast.error("Cantidad debe ser > 0.");
+    if (row.qty <= 0) return toast.error("Cantidad > 0.");
     const res = await planProduction({ bomId: row.bomId, plannedQty: row.qty });
     if (res.ok) {
       toast.success("Orden planificada");
@@ -161,7 +159,7 @@ function PlanningBoard({
                   />
                 </td>
                 <td className="py-2 px-2">
-                  <input type="date" value={r.date} onChange={(e) => update(r.id, { date: e.target.value })} className="h-9 border rounded-lg px-2" />
+                  <input type="date" value={r.date} onChange={(e) => update(r.id, { date: e.target.value })} className="h-9 border rounded-lg px-2"/>
                 </td>
                 <td className="py-2 px-2">
                   {r.preview ? (
