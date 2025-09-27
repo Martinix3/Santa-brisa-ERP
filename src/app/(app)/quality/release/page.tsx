@@ -105,10 +105,10 @@ export default function LabReleasePage() {
   const qcBatchResults: QcBatchResult[] = data?.qcBatchResults ?? [];
   const qcParameters: ParameterCatalog[] = data?.qcParameters ?? [];
   // NUEVOS DATOS para funcionalidades extendidas
-  const qcPlans: QcPlan[] = data?.qc_plans ?? [];
+  const qcPlans: QcPlan[] = (data as any)?.qc_plans ?? [];
   const incidents: Incident[] = data?.incidents ?? [];
   const lotGenealogy: LotGenealogyEdge[] = data?.lotGenealogy ?? [];
-  const coas: Coa[] = data?.coas ?? [];
+  const coas: Coa[] = (data as any)?.coas ?? [];
 
 
   // === Estado local (añadido estado para el modal) ===
@@ -159,7 +159,7 @@ export default function LabReleasePage() {
         item: itemMap.get(lot.itemId),
         plan,
         tests: qcTests.filter((t) => t.lotNumber === selectedLot).sort((a, b) => new Date(b.testedAt).getTime() - new Date(a.testedAt).getTime()),
-        decisions: qcBatchResults.filter((r) => r.lotNumber === selectedLot).sort((a, b) => new Date(b.reviewedAt ?? 0).getTime() - new Date(a.reviewedAt ?? 0).getTime()),
+        decisions: qcBatchResults.filter((r) => r.lotNumber === selectedLot).sort((a, b) => new Date(r.reviewedAt ?? 0).getTime() - new Date(a.reviewedAt ?? 0).getTime()),
         incidents: incidents.filter(i => i.lotNumber === selectedLot),
         coa: coas.find(c => c.lotNumber === selectedLot),
         genealogy: {
