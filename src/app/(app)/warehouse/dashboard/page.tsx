@@ -92,8 +92,8 @@ function SamplesSentCard({ shipments, stockMoves, accounts }: { shipments: Shipm
 
 function WarehouseDashboardContent() {
     const { data } = useData();
-    const { onHand = [], shipments = [], stockMoves = [], accounts = [] } = data || {};
     const [openReceipt, setOpenReceipt] = useState(false);
+    const { onHand = [], shipments = [], stockMoves = [], accounts = [] } = data || {};
 
     const kpis = useMemo(() => {
         const released = (onHand as OnHandView[])
@@ -155,7 +155,7 @@ function WarehouseDashboardContent() {
                  <div className="space-y-6">
                      <button onClick={() => setOpenReceipt(true)} className="w-full flex items-center justify-center gap-2 p-4 rounded-xl border-2 border-dashed border-zinc-300 text-zinc-600 hover:bg-white hover:border-zinc-400 transition-colors">
                         <Plus size={18}/>
-                        <span className="font-semibold">Nueva Entrada Rápida</span>
+                        <span className="font-semibold">Nueva Entrada de Mercancía</span>
                      </button>
                      <UpcomingTasks department="ALMACEN" />
                      <SBCard title="Alertas de Stock Bajo">
