@@ -18,7 +18,9 @@ export function computeKpis({ orders, recipes, onHand, items }: Input){
   const avgCostUnit30 = avg(doneLast30.map(o => o.costing?.actual?.perUnit || 0));
   const avgYield30 = avg(doneLast30.map(o => o.costing?.actual?.yieldLossPct ? 100 - o.costing.actual.yieldLossPct : 100));
 
-  const currentShortages: any[] = []; 
+  const currentShortages: any[] = (orders || [])
+    .filter(o => o.status === 'PLANNED')
+    .flatMap(o => o.shortages || []);
 
   const byItem: Record<string, number> = {};
   for(const it of onHand){
@@ -65,7 +67,7 @@ export function computeKpis({ orders, recipes, onHand, items }: Input){
       return (o.status === 'PLANNED' || o.status === 'RELEASED') && isLate;
   }).length;
   
-  const pendingQCLots = onHand.filter(l => l.locationId === 'FG/QA').length;
+  const pendingQCLots = onHand.filter(l => (l.qcStatus === 'PENDING' || l.qcStatus === ('HOLD' as any)) && l.locationId && !l.locationId.startsWith('RM/')).length;
 
   return {
     counters: {

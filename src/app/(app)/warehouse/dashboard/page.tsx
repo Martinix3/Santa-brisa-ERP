@@ -119,8 +119,8 @@ function WarehouseDashboardContent({ onHand, shipments, stockMoves, accounts }: 
 
     const shipmentCols: Col<Shipment>[] = [
         { key: 'id', header: 'Envío', render: r => <Link href={`/warehouse/logistics/${r.id}`} className="font-mono text-xs font-semibold text-sb-verde-mar hover:underline">{r.shipmentNumber || r.id}</Link> },
-        { key: 'customerName', header: 'Cliente' },
-        { key: 'city', header: 'Destino' },
+        { key: 'customerName', header: 'Cliente', render: (r: Shipment) => r.customerName || "N/A" },
+        { key: 'city', header: 'Destino', render: (r: Shipment) => r.city || "N/A" },
         { key: 'status', header: 'Estado', render: r => <StatusPill status={r.status} /> },
         { key: 'createdAt', header: 'F. Creación', render: r => new Date(r.createdAt).toLocaleDateString('es-ES') },
         { 
@@ -153,7 +153,7 @@ function WarehouseDashboardContent({ onHand, shipments, stockMoves, accounts }: 
                  <div className="space-y-6">
                      <button onClick={() => setOpenReceipt(true)} className="w-full flex items-center justify-center gap-2 p-4 rounded-xl border-2 border-dashed border-zinc-300 text-zinc-600 hover:bg-white hover:border-zinc-400 transition-colors">
                         <Plus size={18}/>
-                        <span className="font-semibold">Entrada Rápida</span>
+                        <span className="font-semibold">Nueva Entrada de Mercancía</span>
                      </button>
                      <UpcomingTasks department="ALMACEN" />
                      <SBCard title="Alertas de Stock Bajo">
