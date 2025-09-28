@@ -1,27 +1,37 @@
 // src/app/(app)/quality/traceability/page.tsx
 "use client";
 
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useTransition } from "react";
 import { useData } from "@/lib/dataprovider";
 import { searchLots, type LotHit } from "@/services/lots/searchLots";
-import { Package, Search, ChevronsRight, GitBranch } from "lucide-react";
+import { Package, Search, GitBranch, ChevronsRight } from "lucide-react";
 import type { SantaData } from "@/domain/ssot";
+import { getLotTraceability, type TraceEvent } from "./actions"; // <-- Importa la nueva acción
+import { toast } from "sonner";
+
 
 // ===========================================
 // Traceability UI Components
 // ===========================================
 
-function TraceEventCard({ event }: { event: any }) {
+function TraceEventCard({ event }: { event: TraceEvent }) {
+    const isPositive = (event.qty || 0) > 0;
+    const isAdjustment = event.kind === 'adjustment';
+
     return (
-        <div className="flex items-start gap-3 p-3 border-b">
-            <div className="p-2 bg-zinc-100 rounded-lg mt-1">
-                <GitBranch size={16} className="text-zinc-600" />
+        <div className="flex items-start gap-3 p-3 border-b last:border-b-0">
+            <div className={`p-2 rounded-lg mt-1 ${isPositive ? 'bg-green-100' : 'bg-red-100'}`}>
+                <GitBranch size={16} className={isPositive ? 'text-green-600' : 'text-red-600'} />
             </div>
-            <div>
-                <p className="font-semibold text-sm capitalize">{event.kind.toLowerCase().replace(/_/g, ' ')}</p>
+            <div className="flex-1">
+                <div className="flex justify-between items-center">
+                    <p className="font-semibold text-sm">{event.title}</p>
+                    {event.qty && <span className={`font-mono text-xs font-semibold ${isPositive && !isAdjustment ? 'text-green-700' : 'text-red-700'}`}>
+                        {isPositive ? '+' : ''}{event.qty} {event.uom}
+                    </span>}
+                </div>
                 <p className="text-xs text-zinc-500">{new Date(event.at).toLocaleString('es-ES')}</p>
-                <p className="text-sm text-zinc-700 mt-1">{event.title}</p>
-                {event.details && <p className="text-xs text-zinc-500 mt-1">{event.details}</p>}
+                <p className="text-sm text-zinc-700 mt-1">{event.details}</p>
             </div>
         </div>
     );
@@ -35,13 +45,12 @@ export default function TraceabilityPage() {
     const { data } = useData();
     const [itemId, setItemId] = useState<string>('');
     const [lotNumber, setLotNumber] = useState<string>('');
-    const [lotHits, setLotHits] = useState<LotHit[]>([]);
     const [selectedLot, setSelectedLot] = useState<LotHit | null>(null);
-    const [traceEvents, setTraceEvents] = useState<any[]>([]);
+    const [traceEvents, setTraceEvents] = useState<TraceEvent[]>([]);
+    const [isTracing, startTraceTransition] = useTransition();
 
     const items = useMemo(() => {
         if (!data?.items) return [];
-        // Quitamos el filtro para que se pueda trazar cualquier cosa
         return data.items.sort((a,b) => a.name.localeCompare(b.name));
     }, [data?.items]);
 
@@ -57,20 +66,27 @@ export default function TraceabilityPage() {
     }, [items, itemId]);
 
     useEffect(() => {
-        if (lotsForItem.length > 0) {
+        if (lotsForItem.length > 0 && !lotNumber) {
             setLotNumber(lotsForItem[0].lotNumber);
-        } else {
+        } else if (lotsForItem.length === 0) {
             setLotNumber('');
         }
-    }, [lotsForItem]);
+    }, [lotsForItem, lotNumber]);
 
     useEffect(() => {
-        if (data && lotNumber) {
+        if (lotNumber) {
             const hit = searchLots(data, { text: lotNumber })[0];
             setSelectedLot(hit);
-            // Re-implementar normalizeLotHistory si es necesario, o usar una nueva función
-            // const history = normalizeLotHistory(hit, data);
-            // setTraceEvents(history);
+            
+            startTraceTransition(async () => {
+                const result = await getLotTraceability(lotNumber);
+                if (result.ok) {
+                    setTraceEvents(result.data);
+                } else {
+                    toast.error(result.message);
+                    setTraceEvents([]);
+                }
+            });
         } else {
             setSelectedLot(null);
             setTraceEvents([]);
@@ -86,7 +102,10 @@ export default function TraceabilityPage() {
                     <select
                         id="item-select"
                         value={itemId}
-                        onChange={(e) => setItemId(e.target.value)}
+                        onChange={(e) => {
+                            setItemId(e.target.value);
+                            setLotNumber(''); // Reset lot selection when item changes
+                        }}
                         className="mt-2 w-full h-10 rounded-md border border-zinc-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                     >
                         <option value="">Selecciona un producto</option>
@@ -120,13 +139,14 @@ export default function TraceabilityPage() {
                     <div>
                         <h2 className="text-lg font-bold">Trazabilidad del Lote: {selectedLot.lotNumber}</h2>
                         <div className="mt-4">
-                            {traceEvents.length > 0 ? (
-                                traceEvents.map(event => <TraceEventCard key={event.id} event={event} />)
-                            ) : (
-                                <div className="text-center text-zinc-500 p-8">
-                                    <p>No hay eventos de trazabilidad para este lote.</p>
-                                    <p className="text-xs mt-2">(La función de historial detallado está en construcción)</p>
+                            {isTracing ? (
+                                <p className="text-zinc-500 text-center py-8">Buscando historial...</p>
+                            ) : traceEvents.length > 0 ? (
+                                <div className="border-t">
+                                    {traceEvents.map(event => <TraceEventCard key={event.id} event={event} />)}
                                 </div>
+                            ) : (
+                                <p className="text-zinc-500 text-center py-8">No se encontraron eventos de trazabilidad para este lote.</p>
                             )}
                         </div>
                     </div>
