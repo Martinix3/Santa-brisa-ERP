@@ -1,5 +1,6 @@
 // src/domain/ssot.ts
-import type { Interaction } from './ssot.common';
+import type { Incident } from './ssot.common';
+
 
 // =================================================================
 // == SINGLE SOURCE OF TRUTH (SSOT) - KERNEL V2
@@ -41,6 +42,8 @@ export type ItemCategory = 'fg'|'raw'|'pack'|'intermediate'|'consumable'|'merch'
 // Enums para Módulo de Calidad
 export type QcPoint = "PRE_PROD" | "RECEIVING" | "IPQC" | "FINAL_QC";
 export type QcStatus = "PENDING" | "PASSED" | "FAILED" | "WAIVED";
+export const qcToBucket = (s: QcStatus) => (s==='PASSED'||s==='WAIVED') ? 'RELEASED' : (s==='FAILED'?'REJECTED':'HOLD');
+
 export type QcMethod = "DENSIMETER" | "TITRATION" | "HPLC" | "MICROBIO" | "SENSORIAL" | "OTHER";
 export type Unit = "pct" | "gpl" | "cfu_ml" | "ntu" | "ph" | "unit";
 
@@ -607,7 +610,7 @@ export interface SantaData {
   partyRoles: PartyRole[];
   accounts: Account[];
   users: User[];
-  interactions: Interaction[];
+  interactions: any[]; // Placeholder
   billOfMaterials: BillOfMaterial[];
   deliveryNotes: DeliveryNote[];
   lots: Lot[]; // Añadida por coherencia, aunque puede ser una vista

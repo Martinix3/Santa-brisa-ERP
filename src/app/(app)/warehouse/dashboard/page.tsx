@@ -12,6 +12,8 @@ import { DEPT_META, SB_COLORS } from '@/domain/ssot';
 import Link from 'next/link';
 import { samplesSentSummary } from "@/lib/consignment-and-samples";
 import { UpcomingTasks } from '@/features/agenda/components/UpcomingTasks';
+import { qcToBucket } from '@/domain/ssot';
+
 
 function KPI({ icon: Icon, label, value, color }: { icon: React.ElementType, label: string, value: string | number, color: string }) {
     return (
@@ -89,8 +91,20 @@ function SamplesSentCard({ shipments, stockMoves, accounts }: { shipments: Shipm
 
 function WarehouseDashboardContent({ onHand, shipments, stockMoves, accounts }: { onHand: OnHandView[], shipments: Shipment[], stockMoves: StockMove[], accounts: Account[] }) {
     const kpis = useMemo(() => {
-        const stockUnits = onHand.reduce((sum, item) => sum + item.qty, 0);
-        const stockValue = onHand.reduce((sum, item) => sum + (item.qty * 8.5), 0); // Precio coste estimado
+        const released = (onHand as OnHandView[])
+          .filter(r => qcToBucket((r.qcStatus ?? "PENDING") as any) === "RELEASED");
+
+        const stockUnits = released.reduce((sum, r) => {
+          const free = Math.max(0, r.qty - ((r as any).reservedQty ?? 0));
+          return sum + free;
+        }, 0);
+
+        const assumedCost = 8.5;
+        const stockValue = released.reduce((sum, r) => {
+          const free = Math.max(0, r.qty - ((r as any).reservedQty ?? 0));
+          return sum + free * assumedCost;
+        }, 0);
+        
         const pendingShipments = shipments.filter(s => s.status === 'pending' || s.status === 'picking').length;
 
         return {
