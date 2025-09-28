@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useEffect, useMemo, useState, useCallback } from "react";
@@ -331,7 +332,7 @@ function RecipeForm({
                         onChange={(e) => fm.set(`items.${idx}.itemId`, e.target.value)}
                       >
                         <option value="">Selecciona material</option>
-                        {[...itemsRaw, ...itemsIntermediate].map((m) => (
+                        {itemsIntermediate.map((m) => (
                           <option key={m.id} value={m.id}>{m.name} ({m.sku})</option>
                         ))}
                       </select>
