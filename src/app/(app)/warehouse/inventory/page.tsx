@@ -1,238 +1,349 @@
 // src/app/(app)/warehouse/inventory/page.tsx
 "use client";
-import React, { useMemo, useState, useEffect, useTransition } from "react";
-import { useRouter } from "next/navigation";
-import { Download, Plus, History, X, Truck } from "lucide-react";
-import { SBCard, Input, Select, DataTableSB, SBButton } from '@/components/ui/ui-primitives';
-import type { Col } from '@/components/ui/ui-primitives';
+
+import React, { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { SBCard, SBButton, Input, Select } from "@/components/ui/ui-primitives";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useData } from "@/lib/dataprovider";
-import type { OnHandView, Item, ItemCategory, StockMove, Lot, GoodsReceipt, Party } from "@/domain/ssot";
+import type { ItemCategory, OnHandView, Lot } from "@/domain/ssot";
+import {
+  computeSkuRollup, computeStockAlerts, computeCoverage, suggestReplenishment,
+  computeExpiryBuckets, detectQcStuck, auditOnHandVsLots,
+  stockStatusBadgeClass, stockStatusLabel, type SkuStockSummary,
+} from "@/lib/inventory";
+import {
+  exportReplenishmentCsvServer,
+  createManualOnHand,
+} from "./actions";
+import { getLotTraceability as getLotDossierServer } from "@/app/(app)/quality/traceability/actions";
+import { Plus, Download, Search } from "lucide-react";
+import { QuickGoodsReceiptDialog } from "@/features/warehouse/components/QuickGoodsReceiptDialog";
 import { NewOnHandDialog } from "./components/NewOnHandDialog";
-import { QuickGoodsReceiptDialog } from '@/features/warehouse/components/QuickGoodsReceiptDialog';
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
-// --- Helpers ---
-const toCsv = (rows: Record<string, any>[], headers: string[]) => {
-  const esc = (v: any) => v == null ? "" : /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v);
-  return `${headers.join(",")}\n${rows.map(r => headers.map(h => esc(r[h])).join(",")).join("\n")}`;
-};
 
-const download = (fn: string, content: string) => {
-  const url = URL.createObjectURL(new Blob([content], { type: "text/csv;charset=utf-8" }));
-  const a = document.createElement("a"); a.href = url; a.download = fn; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-};
+const CATEGORY_ORDER: { value: ItemCategory; label: string }[] = [
+  { value: "fg",            label: "Producto Terminado" },
+  { value: "raw",           label: "Materias Primas" },
+  { value: "intermediate",  label: "Intermedios" },
+  { value: "pack",          label: "Packaging y Etiquetas" },
+  { value: "merch",         label: "Merchandising" },
+  { value: "consumable",    label: "Consumibles" },
+];
 
-const isItemInCategory = (itemCategory: ItemCategory, activeTab: string) => {
-  if (activeTab === 'pack') {
-    return itemCategory === 'pack' || itemCategory === 'label';
+function Empty({ hint }: { hint: string }) {
+  return (
+    <div className="py-10 text-center text-sm text-zinc-500">{hint}</div>
+  );
+}
+
+function InspectorSku({ itemId, summary, coverage, suggested }: any) {
+  if (!summary) return <div className="text-sm text-zinc-500">Sin datos</div>;
+  return (
+    <div className="text-sm space-y-3">
+      <div className="font-medium">{itemId}</div>
+      <div className="grid grid-cols-2 gap-2">
+        <div>Disponible: <b>{summary.totalReleasedFree}</b></div>
+        <div>Cuarentena: <b>{summary.totalOnHold}</b></div>
+        <div>1ª Caducidad: <b>{summary.earliestExpiryAt ?? "—"}</b></div>
+        <div>Cobertura (d): <b>{coverage?.daysCover?.toFixed?.(1) ?? "—"}</b></div>
+      </div>
+      <div>Estado: <span className={stockStatusBadgeClass(summary.status)}>{stockStatusLabel(summary.status)}</span></div>
+      <div className="pt-2 border-t border-zinc-200/60">
+        Reposición sugerida: <b>{Math.ceil(suggested ?? 0)}</b>
+      </div>
+    </div>
+  );
+}
+
+function InspectorLot({ lotNumber, dossier }: any) {
+  if (!dossier) {
+    return <div className="text-sm text-zinc-500">Cargando dossier de {lotNumber}…</div>;
   }
-  return itemCategory === activeTab;
-};
-
-// --- Sub-components ---
-
-function InventoryHeader({ onNew, onExport, onNewReceipt }: {
-  onNew: () => void;
-  onExport: () => void;
-  onNewReceipt: () => void;
-}) {
+  const { lot, qcBadge, currentStock, producedBy, receivedFrom, expDate, events } = dossier;
   return (
-    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-      <div>
-        <h1 className="text-2xl font-semibold text-zinc-800">Inventario y Recepciones</h1>
-        <p className="text-xs text-zinc-500">Vista en tiempo real del stock y registro de entradas.</p>
+    <div className="text-sm space-y-3">
+      <div className="font-medium">{lot.lotNumber}</div>
+      <div className="grid grid-cols-2 gap-2">
+        <div>Estado QC: <b>{qcBadge}</b></div>
+        <div>Caducidad: <b>{expDate ? new Date(expDate).toLocaleDateString() : "—"}</b></div>
+        <div>Ubicación/Stock:</div>
+        <div className="space-y-1">
+          {currentStock?.length
+            ? currentStock.map((s:any, i:number)=> <div key={i}>{s.locationId} ({s.qty} {s.uom})</div>)
+            : <span className="text-zinc-500">—</span>}
+        </div>
+        <div>Origen:</div>
+        <div className="space-y-1">
+          {producedBy && <div>Producido en orden: {producedBy.orderId}</div>}
+          {receivedFrom && <div>Recepción: {receivedFrom.grId} — Albarán: {receivedFrom.deliveryNote ?? "—"}</div>}
+          {!producedBy && !receivedFrom && <span className="text-zinc-500">—</span>}
+        </div>
       </div>
-      <div className="flex items-center gap-2">
-        <SBButton variant="secondary" onClick={onExport}>
-          <Download className="w-4 h-4 mr-2" />
-          Exportar
-        </SBButton>
-         <SBButton variant="secondary" onClick={onNewReceipt}>
-          <Truck className="w-4 h-4 mr-2" />
-          Nueva Recepción
-        </SBButton>
-        <SBButton onClick={onNew}>
-          <Plus className="w-4 h-4 mr-2" />
-          Ajuste Manual
-        </SBButton>
+
+      <div className="pt-2 border-t border-zinc-200/60">
+        <div className="font-medium mb-1">Movimientos</div>
+        <div className="space-y-2 max-h-[320px] overflow-auto pr-1">
+          {events?.map((e:any, i:number)=>(
+            <div key={i} className="rounded-md border border-zinc-200/60 p-2">
+              <div className="flex justify-between">
+                <div className="font-medium">{e.title}</div>
+                <div className="text-xs text-zinc-500">{new Date(e.at).toLocaleString()}</div>
+              </div>
+              {e.subtitle && <div className="text-xs text-zinc-600">{e.subtitle}</div>}
+              {e.refId && <div className="text-[11px] text-zinc-500">Ref: {e.refId}</div>}
+            </div>
+          ))}
+          {!events?.length && <div className="text-xs text-zinc-500">Sin movimientos.</div>}
+        </div>
       </div>
     </div>
   );
 }
-
-function InventoryFilters({
-  query, setQuery, location, setLocation, locations, showZeros, setShowZeros,
-}: {
-  query: string; setQuery: (q: string) => void;
-  location: string; setLocation: (l: string) => void;
-  locations: string[];
-  showZeros: boolean; setShowZeros: (s: boolean) => void;
-}) {
-  return (
-    <div className="flex items-center gap-3">
-      <Input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar por SKU, nombre, lote..." />
-      <Select value={location} onChange={e => setLocation(e.target.value)}>
-        {locations.map(loc => <option key={loc} value={loc}>{loc === "ALL" ? "Todas Ubicaciones" : loc}</option>)}
-      </Select>
-      <label className="text-sm flex items-center gap-2 whitespace-nowrap">
-        <input type="checkbox" checked={showZeros} onChange={e => setShowZeros(e.target.checked)} className="h-4 w-4" />
-        Mostrar Lotes sin Stock
-      </label>
-    </div>
-  );
-}
-
-const TABS = [
-  { id: "fg", label: "Producto Terminado" },
-  { id: "raw", label: "Materias Primas" },
-  { id: "intermediate", label: "Intermedios" },
-  { id: "pack", label: "Packaging y Etiquetas" },
-  { id: "merch", label: "Merchandising" },
-  { id: "consumable", label: "Consumibles" },
-] as const;
-
-function InventoryTabs({ activeTab, tabsWithCounts, onChange }: {
-  activeTab: ItemCategory;
-  tabsWithCounts: typeof TABS;
-  onChange: (tab: ItemCategory) => void;
-}) {
-  return (
-    <div className="border-b border-zinc-200">
-      <nav className="-mb-px flex flex-wrap gap-4" aria-label="Tabs">
-        {TABS.map(tab => {
-          const count = (tabsWithCounts.find(t => t.id === tab.id) as any)?.count || 0;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => onChange(tab.id as ItemCategory)}
-              className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
-                activeTab === tab.id
-                  ? "border-yellow-500 text-yellow-600"
-                  : "border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300"
-              }`}
-            >
-              {tab.label} <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-xs ${activeTab === tab.id ? 'bg-yellow-100 text-yellow-700' : 'bg-zinc-100'}`}>{count}</span>
-            </button>
-          )
-        })}
-      </nav>
-    </div>
-  );
-}
-
-// --- Main Page Component ---
 
 export default function InventoryPage() {
+  const { data } = useData();
+  const onHand = (data?.onHand ?? []) as OnHandView[];
+  const lotsMaster = (data?.lots ?? []) as Lot[];
+  const items = data?.items ?? [];
+
+  // ───────────────── toolbar state
+  const [isPending, startTransition] = useTransition();
+  const [globalSearch, setGlobalSearch] = useState("");
+  const [locationFilter, setLocationFilter] = useState<string>("ALL");
+  const [onlyWithStock, setOnlyWithStock] = useState<boolean>(false);
+  const [cat, setCat] = useState<ItemCategory>("fg");
+  const [viewMode, setViewMode] = useState<"sku" | "lot">("lot");
+  const [selectedKey, setSelectedKey] = useState<string | null>(null); // itemId o lotNumber
+  const searchRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
-  const { data: santaData } = useData();
-  const [activeTab, setActiveTab] = useState<ItemCategory>("fg");
-  const [loading, setLoading] = useState(true);
-  const [pending, startTransition] = useTransition();
+  
   const [openNew, setOpenNew] = useState(false);
   const [openReceipt, setOpenReceipt] = useState(false);
-  const [query, setQuery] = useState("");
-  const [locationFilter, setLocationFilter] = useState<string>("ALL");
-  const [showZeros, setShowZeros] = useState(false);
 
-  const { itemsById, lotMap, onHandAll, stockMoves, goodsReceipts } = useMemo(() => {
-    if (!santaData) return { itemsById: new Map(), lotMap: new Map(), onHandAll: [], stockMoves: [], goodsReceipts: [] };
-    const itemsMap = new Map<string, Item>();
-    (santaData.items || []).forEach(it => itemsMap.set(it.id, it));
-    const lotsMap = new Map<string, Lot>();
-    (santaData.lots || []).forEach(l => { if (l.lotNumber) lotsMap.set(l.lotNumber, l); });
-    const onHand = [...(santaData.onHand || [])].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-    const receipts = [...(santaData.goodsReceipts || [])].sort((a,b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime());
-    return { itemsById: itemsMap, lotMap: lotsMap, onHandAll: onHand, stockMoves: santaData.stockMoves || [], goodsReceipts: receipts };
-  }, [santaData]);
-
+  // ⌘/Ctrl+K → foco en búsqueda
   useEffect(() => {
-    const ready = santaData && 'onHand' in santaData && 'items' in santaData;
-    if (ready) setLoading(false);
-  }, [santaData]);
-
-  const locations = useMemo(() => {
-    const set = new Set<string>();
-    onHandAll.forEach(oh => { if (oh.locationId) set.add(oh.locationId); });
-    return ["ALL", ...Array.from(set).sort()];
-  }, [onHandAll]);
-
-  const filteredInventory = useMemo(() => {
-    return onHandAll.filter(oh => {
-      if (locationFilter !== "ALL" && (oh.locationId || "") !== locationFilter) return false;
-      if (!showZeros && !(oh.qty > 0)) return false;
-      const q = query.trim().toLowerCase();
-      if (!q) return true;
-      const item = itemsById.get(oh.itemId);
-      const hay = [item?.name || "", item?.sku || "", oh.lotNumber || "", oh.locationId || ""].join(" ").toLowerCase();
-      return hay.includes(q);
-    });
-  }, [onHandAll, itemsById, locationFilter, showZeros, query]);
-
-  const tabsWithCounts = useMemo(() => {
-    const counts: Record<string, number> = { fg: 0, raw: 0, intermediate: 0, pack: 0, label: 0, merch: 0, consumable: 0 };
-    for (const item of filteredInventory) {
-      const category = itemsById.get(item.itemId)?.category;
-      if (category && counts[category] !== undefined) {
-        counts[category]++;
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        searchRef.current?.focus();
       }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // ───────────────── filtros base
+  const onHandFiltered = useMemo(() => {
+    let rows = onHand;
+    if (cat) rows = rows.filter(r => r.category === cat);
+    if (locationFilter !== "ALL") rows = rows.filter(r => r.locationId === locationFilter);
+    if (onlyWithStock) rows = rows.filter(r => (r.qty - (r.reservedQty ?? 0)) > 0);
+    if (globalSearch.trim()) {
+      const q = globalSearch.trim().toLowerCase();
+      rows = rows.filter(r =>
+        r.itemId.toLowerCase().includes(q) ||
+        r.lotNumber.toLowerCase().includes(q) ||
+        (items.find(i => i.id === r.itemId)?.name?.toLowerCase().includes(q) ?? false)
+      );
     }
-    return TABS.map(tab => ({ ...tab, count: counts[tab.id] || (tab.id === 'pack' ? (counts.pack || 0) + (counts.label || 0) : 0) }));
-  }, [filteredInventory, itemsById]);
+    return rows;
+  }, [onHand, items, cat, locationFilter, onlyWithStock, globalSearch]);
 
-  const currentTabData = useMemo(() => {
-    return filteredInventory.filter(oh => {
-      const itemCategory = itemsById.get(oh.itemId)?.category;
-      return itemCategory && isItemInCategory(itemCategory, activeTab);
-    });
-  }, [filteredInventory, activeTab, itemsById]);
+  // ───────────────── KPIs y derivados
+  const summaries = useMemo(() => computeSkuRollup(onHandFiltered, { nearExpiryDays: 45 }), [onHandFiltered]);
+  const alerts = useMemo(() => computeStockAlerts(summaries), [summaries]);
+  const coverage = useMemo(() => computeCoverage(summaries, [], 30), [summaries]); // si tienes velocityHistory, pásalo aquí
+  const replen = useMemo(() => suggestReplenishment(summaries, coverage as any, {
+    minStockByItem: {}, safetyByItem: {}, targetDaysOfCover: 14
+  }), [summaries, coverage]);
+  const expiryBuckets = useMemo(() => computeExpiryBuckets(onHandFiltered, 7, 45), [onHandFiltered]);
+  const qcStuck = useMemo(() => detectQcStuck(onHandFiltered, new Date(), 3), [onHandFiltered]);
+  const audit = useMemo(() => auditOnHandVsLots(onHandFiltered, lotsMaster), [onHandFiltered, lotsMaster]);
 
-  const onHandCols: Col<OnHandView>[] = [
-    { key: "lotNumber", header: "Lote", render: (r: OnHandView) => <span className="font-mono text-xs">{r.lotNumber || "-"}</span> },
-    { key: "itemId", header: "Producto (SKU)", render: (r: OnHandView) => {
-        const it = itemsById.get(r.itemId);
-        return (<div><span className="font-medium text-zinc-800">{it?.name || r.itemId}</span><p className="text-xs text-zinc-500">{it?.sku}</p></div>);
-      }
-    },
-    { key: "qty", header: "Cantidad", className: "text-right", render: (r: OnHandView) => <span className="font-semibold">{r.qty} <span className="text-xs text-zinc-500">{r.uom}</span></span> },
-    { key: "locationId", header: "Ubicación", render: (r: OnHandView) => r.locationId || "—" },
-    { key: "updatedAt", header: "Fecha", render: (r: OnHandView) => (r.updatedAt ? new Date(r.updatedAt).toLocaleDateString("es-ES") : "—") },
+  // ───────────────── contadores por categoría (badges en tabs)
+  const countsByCat = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const r of onHand) {
+        if(r.category) {
+            map[r.category] = (map[r.category] ?? 0) + 1;
+        }
+    }
+    return map;
+  }, [onHand]);
+
+  // ───────────────── listas para las tablas
+  const skuRows = useMemo(() => Object.keys(summaries).map(itemId => ({ itemId })), [summaries]);
+  const lotRows = useMemo(() => onHandFiltered
+    .sort((a, b) => a.lotNumber.localeCompare(b.lotNumber))
+    .map(r => ({
+      id: r.id,
+      lotNumber: r.lotNumber,
+      itemId: r.itemId,
+      name: items.find(i => i.id === r.itemId)?.name ?? r.itemId,
+      qty: r.qty,
+      free: Math.max(0, r.qty - (r.reservedQty ?? 0)),
+      uom: r.uom,
+      locationId: r.locationId,
+      expiryAt: r.expiryAt ?? null,
+      updatedAt: r.updatedAt,
+  })), [onHandFiltered, items]);
+
+
+  const skuCols: any[] = [
+    { key: "itemId", header: "SKU" },
+    { key: "released", header: "Disponible", render: (r:any)=> summaries[r.itemId].totalReleasedFree },
+    { key: "hold", header: "Cuarentena", render: (r:any)=> summaries[r.itemId].totalOnHold },
+    { key: "expiry", header: "1ª Caducidad", render: (r:any)=> summaries[r.itemId].earliestExpiryAt ?? "—" },
+    { key: "coverage", header: "Cobertura (d)", render: (r:any)=> (coverage as any)[r.itemId]?.daysCover?.toFixed?.(1) ?? "—" },
+    { key: "status", header: "Estado", render: (r:any)=> {
+      const st = summaries[r.itemId].status as SkuStockSummary["status"];
+      return <span className={stockStatusBadgeClass(st)}>{stockStatusLabel(st)}</span>;
+    }},
+    { key: "replen", header: "Reposición", render: (r:any)=> replen[r.itemId] ?? 0 },
   ];
 
-  const exportCsv = () => {
-    const headers = ["itemId", "sku", "name", "lotNumber", "qty", "uom", "qcStatus", "locationId", "updatedAt", "id"];
-    const rows = currentTabData.map(r => {
-      const it = itemsById.get(r.itemId);
-      const lot = r.lotNumber ? lotMap.get(r.lotNumber) : undefined;
-      return { itemId: r.itemId, sku: it?.sku || "", name: it?.name || "", lotNumber: r.lotNumber || "", qty: r.qty, uom: r.uom, qcStatus: lot?.qcStatus, locationId: r.locationId || "", updatedAt: r.updatedAt || "", id: r.id };
-    });
-    download(`inventory_${activeTab}_${new Date().toISOString().slice(0, 10)}.csv`, toCsv(rows, headers));
+  const lotCols: any[] = [
+    { key: "lotNumber", header: "Lote", render: (r: any) => <span className="font-mono text-xs">{r.lotNumber}</span> },
+    { key: "name", header: "Producto (SKU)", render: (r:any)=> (
+        <div className="leading-tight">
+          <div className="font-medium">{r.name}</div>
+          <div className="text-xs text-zinc-500">{r.itemId}</div>
+        </div>
+      )
+    },
+    { key: "free", header: "Cantidad", render: (r:any)=> (<>{r.free} <span className="text-xs text-zinc-500">{r.uom}</span></>) },
+    { key: "locationId", header: "Ubicación" },
+    { key: "expiryAt", header: "Fecha", render: (r:any)=> r.expiryAt ? new Date(r.expiryAt).toLocaleDateString() : "—" },
+  ];
+
+  // ───────────────── acciones
+  const onExportReplen = async () => {
+    const url = await exportReplenishmentCsvServer(replen);
+    const a = document.createElement("a");
+    a.href = url; a.download = "replenishment.csv"; a.click();
   };
+  
+  // ───────────────── dossier lote (inspector)
+  const [dossier, setDossier] = useState<any>(null);
+  useEffect(() => {
+    if (viewMode === "lot" && selectedKey) {
+      getLotDossierServer(selectedKey).then((res) => {
+        if(res.ok) setDossier(res.data);
+        else setDossier(null);
+      });
+    } else {
+      setDossier(null);
+    }
+  }, [viewMode, selectedKey]);
+
+  // ───────────────── ubicaciones únicas (select)
+  const locations = useMemo(() => {
+    const set = new Set<string>();
+    onHand.forEach(o => { if (o.locationId) set.add(o.locationId); });
+    return ["ALL", ...Array.from(set)];
+  }, [onHand]);
 
   return (
-    <div className="space-y-6">
-      <InventoryHeader
-        onNew={() => setOpenNew(true)}
-        onExport={exportCsv}
-        onNewReceipt={() => setOpenReceipt(true)}
-      />
-      
-      <SBCard title="Inventario por Lote">
-        <div className="p-4 border-b">
-          <InventoryFilters
-            query={query} setQuery={setQuery}
-            location={locationFilter} setLocation={setLocationFilter} locations={locations}
-            showZeros={showZeros} setShowZeros={setShowZeros}
+    <div className="space-y-4" style={{'--sb-accent': 'var(--sb-accent-logistica)'} as React.CSSProperties}>
+      {/* HEADER */}
+      <div>
+        <h1 className="text-xl font-semibold">Inventario y Recepciones</h1>
+        <p className="text-sm text-zinc-500">Vista en tiempo real del stock y registro de entradas.</p>
+      </div>
+
+      {/* TOOLBAR (sticky) */}
+      <div className="sticky top-[64px] z-30 bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/60 border rounded-xl p-3 flex flex-wrap gap-2 items-center">
+        <div className="flex-1 flex gap-2 min-w-[260px]">
+          <Input
+            ref={searchRef}
+            placeholder="Buscar por SKU, nombre, lote… (⌘/Ctrl+K)"
+            value={globalSearch}
+            onChange={e=>setGlobalSearch(e.target.value)}
           />
+          <Select value={locationFilter} onChange={(e) => setLocationFilter(e.target.value)}>
+            {locations.map(loc => <option key={loc} value={loc}>{loc === "ALL" ? "Todas Ubicaciones" : loc}</option>)}
+          </Select>
+          <label className="flex items-center gap-2 pl-2 text-sm">
+            <input type="checkbox" checked={onlyWithStock} onChange={e=>setOnlyWithStock(e.target.checked)} />
+            Mostrar Lotes con Stock
+          </label>
         </div>
-        <InventoryTabs activeTab={activeTab} tabsWithCounts={tabsWithCounts as any} onChange={setActiveTab} />
-        {loading ? (
-          <div className="text-center py-12 text-zinc-500">Cargando inventario…</div>
-        ) : currentTabData.length === 0 ? (
-          <div className="text-center py-12 text-zinc-500">No hay resultados para los filtros actuales.</div>
-        ) : (
-          <DataTableSB rows={currentTabData} cols={onHandCols as any} />
-        )}
-      </SBCard>
+        <div className="flex gap-2">
+          <SBButton variant="outline" className="sb-btn-outline-accent" onClick={onExportReplen}>Exportar</SBButton>
+          <SBButton variant="outline" className="sb-btn-outline-accent" onClick={() => setOpenReceipt(true)}>Nueva Recepción</SBButton>
+          <SBButton className="sb-btn-solid-accent" onClick={() => setOpenNew(true)}>Ajuste Manual</SBButton>
+        </div>
+      </div>
+
+      {/* CONTENIDO PRINCIPAL */}
+      <div className="grid grid-cols-1 xl:grid-cols-[320px_minmax(0,1fr)_360px] gap-4">
+        {/* Panel Izquierdo: Alertas + Categorías */}
+        <div className="space-y-4">
+          <SBCard title="Alertas de Inventario">
+            {(alerts.length === 0 && qcStuck.length === 0 && (audit.inOnHandNotLots.length + audit.inLotsNotOnHand.length) === 0) ? (
+              <div className="text-sm text-zinc-500 p-4">Sin alertas</div>
+            ) : (
+              <div className="p-2 flex flex-col gap-2">
+                {alerts.map((a,i)=> <span key={i} className="sb-badge sb-badge--warn">{a.itemId}: {a.message}</span>)}
+                {qcStuck.map(q=> <span key={q.lotNumber} className="sb-badge sb-badge--info">QC {q.itemId}/{q.lotNumber}</span>)}
+                {audit.inOnHandNotLots.length > 0 && <span className="sb-badge sb-badge--danger">OnHand sin lote maestro: {audit.inOnHandNotLots.length}</span>}
+                {audit.inLotsNotOnHand.length > 0 && <span className="sb-badge sb-badge--danger">Lotes sin onHand: {audit.inLotsNotOnHand.length}</span>}
+              </div>
+            )}
+          </SBCard>
+
+          <SBCard title="Categorías">
+             <div className="p-2 flex flex-wrap gap-2">
+              {CATEGORY_ORDER.map(c => (
+                <button
+                  key={c.value}
+                  onClick={()=>setCat(c.value)}
+                  className={`sb-badge ${cat===c.value ? 'sb-badge--info' : ''}`}
+                >
+                  {c.label} <span className="ml-1 rounded bg-black/10 px-1 text-[11px]">{countsByCat[c.value] ?? 0}</span>
+                </button>
+              ))}
+            </div>
+          </SBCard>
+        </div>
+
+        {/* Panel Central: Tabla + tabs de vista */}
+        <div className="space-y-4">
+          <SBCard title="Inventario" noPadding>
+              <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)}>
+                <div className="flex justify-between items-center p-4">
+                  <TabsList className="relative">
+                    <TabsTrigger value="lot" className="data-[state=active]:text-[color:var(--sb-accent)]">Por Lote</TabsTrigger>
+                    <TabsTrigger value="sku" className="data-[state=active]:text-[color:var(--sb-accent)]">Por SKU</TabsTrigger>
+                  </TabsList>
+                  <div className="text-xs text-zinc-500 pr-1">Cat: {CATEGORY_ORDER.find(x=>x.value===cat)?.label}</div>
+                </div>
+
+                <TabsContent value="lot">
+                  {lotRows.length === 0 ? <Empty hint="No hay lotes que cumplan los filtros." /> : <DataTableSB rows={lotRows} cols={lotCols} onRowClick={(r:any)=> setSelectedKey(r.lotNumber)} />}
+                </TabsContent>
+                <TabsContent value="sku">
+                  {skuRows.length === 0 ? <Empty hint="No hay stock agrupado por SKU para esta vista." /> : <DataTableSB rows={skuRows} cols={skuCols} onRowClick={(r:any)=> setSelectedKey(r.itemId)} />}
+                </TabsContent>
+              </Tabs>
+          </SBCard>
+        </div>
+
+        {/* Panel Derecho: Inspector */}
+        <div className="space-y-4">
+          <SBCard title="Inspector">
+            {!selectedKey ? (
+              <div className="text-sm text-zinc-500 p-4">Selecciona un {viewMode === "sku" ? "SKU" : "Lote"}…</div>
+            ) : viewMode === "sku" ? (
+              <div className="p-4"><InspectorSku itemId={selectedKey} summary={summaries[selectedKey]} coverage={(coverage as any)[selectedKey]} suggested={replen[selectedKey] ?? 0} /></div>
+            ) : (
+              <div className="p-4"><InspectorLot lotNumber={selectedKey} dossier={dossier} /></div>
+            )}
+          </SBCard>
+        </div>
+      </div>
 
       <NewOnHandDialog
         open={openNew}
@@ -243,7 +354,7 @@ export default function InventoryPage() {
             setOpenNew(false);
         }}
         onError={(msg) => toast.error(`Error: ${msg}`)}
-        items={santaData?.items || []}
+        items={items || []}
         locations={locations.filter(l => l !== 'ALL')}
         defaultLocation={locationFilter === 'ALL' ? undefined : locationFilter}
       />
