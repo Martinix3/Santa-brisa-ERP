@@ -1,4 +1,3 @@
-
 // src/features/quicklog/components/SBFlows.tsx
 "use client";
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
@@ -384,21 +383,12 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
           <Label htmlFor="order-items">Pedido</Label>
           <div className="border rounded-xl p-2 space-y-2">
             {items.map((it, i) => {
-              const lotsForSku = availableInventory.filter(inv => inv.itemId === it.itemId);
               return (
-                <div key={i} className="grid grid-cols-[2fr_1.5fr_1fr_auto] gap-2 items-center">
+                <div key={i} className="grid grid-cols-[3fr_1fr_auto] gap-2 items-center">
                   <Select value={it.itemId} onChange={e => setOrderLine(i, { itemId: e.target.value })}>
                     <option value="">Producto...</option>
                     {(santaData?.items || []).filter(p => p.category === 'fg').map(p => (
                       <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </Select>
-                  <Select value={it.lotNumber || ''} onChange={e => setOrderLine(i, { lotNumber: e.target.value })}>
-                    <option value="">Lote...</option>
-                    {lotsForSku.map(lot => (
-                      <option key={lot.lotNumber} value={lot.lotNumber || ''}>
-                        {lot.lotNumber} ({lot.qty} uds)
-                      </option>
                     ))}
                   </Select>
                   <Input type="number" min="1" value={it.qty} onChange={e => setOrderLine(i, { qty: Number(e.target.value) })} />
@@ -541,7 +531,7 @@ export function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, on
   const [channel, setChannel] = useState<CreateOrderPayload["channel"]>("HORECA");
   const [paymentTerms, setTerms] = useState("Contado");
   const [shipTo, setShipTo] = useState("");
-  const [items, setItems] = useState<CreateOrderPayload["items"]>(defaults?.items || [{itemId:"item_1", qty:1, unit:"unit", priceUnit: 12, lotNumber: ''}]);
+  const [items, setItems] = useState<CreateOrderPayload["items"]>(defaults?.items || [{itemId:"item_1", qty:1, uom:"unit", priceUnit: 12, lotNumber: ''}]);
   
   const availableInventory = useMemo(() => (santaData?.onHand || []).filter(i => i.locationId && i.locationId.startsWith('FG/')), [santaData]);
   
@@ -562,7 +552,7 @@ export function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, on
     }
   }, [accounts, santaData?.parties]);
 
-  function addLine(){ setItems(v=>[...v,{itemId:"", qty:1, unit:"unit", priceUnit: 0, lotNumber: ''}]); }
+  function addLine(){ setItems(v=>[...v,{itemId:"", qty:1, uom:"unit", priceUnit: 0, lotNumber: ''}]); }
   function setLine(i:number, patch:Partial<CreateOrderPayload["items"][number]>){
     const newItems = items.map((it,idx)=> idx===i? {...it,...patch}: it);
     if(patch.itemId) {
@@ -632,23 +622,15 @@ export function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, on
         {items.map((it,i)=> {
             const lotsForSku = availableInventory.filter(inv => inv.itemId === it.itemId);
             return (
-              <div key={i} className="grid grid-cols-[2fr_1.5fr_1fr_0.5fr_1fr_1fr_40px] gap-2 items-center px-3 py-2 border-b last:border-b-0">
+              <div key={i} className="grid grid-cols-[2fr_1fr_0.5fr_1fr_1fr_40px] gap-2 items-center px-3 py-2 border-b last:border-b-0">
                 <Select value={it.itemId} onChange={e => setLine(i, { itemId: e.target.value })}>
                     <option value="">Seleccionar producto...</option>
                     {santaData?.items.filter(p => p.category === 'fg').map(p => (
                         <option key={p.id} value={p.id}>{p.name}</option>
                     ))}
                 </Select>
-                <Select value={it.lotNumber || ''} onChange={e => setLine(i, { lotNumber: e.target.value })}>
-                    <option value="">Seleccionar lote...</option>
-                    {lotsForSku.map(lot => (
-                        <option key={lot.lotNumber} value={lot.lotNumber || ''}>
-                            {lot.lotNumber} ({lot.qty} uds)
-                        </option>
-                    ))}
-                </Select>
                 <Input type="number" min={1} value={it.qty} onChange={e=>setLine(i,{qty: Number(e.target.value)})}/>
-                <Select value={it.unit} onChange={e=>setLine(i,{unit:e.target.value as any})}>
+                <Select value={it.uom} onChange={e=>setLine(i,{uom:e.target.value as any})}>
                   <option value="unit">unit</option>
                 </Select>
                 <Input type="number" value={it.priceUnit} onChange={e=>setLine(i, {priceUnit: Number(e.target.value)})} placeholder="Precio Unit."/>
