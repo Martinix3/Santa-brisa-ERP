@@ -4,7 +4,7 @@
 import React, { useMemo, useState, useEffect, useTransition } from "react";
 import { useData } from "@/lib/dataprovider";
 import { searchLots, type LotHit } from "@/services/lots/searchLots";
-import { Package, Search, GitBranch, ChevronsRight } from "lucide-react";
+import { Package, Search, GitBranch, Truck, Factory, FlaskConical, ArrowLeftRight, AlertTriangle } from "lucide-react";
 import type { SantaData } from "@/domain/ssot";
 import { getLotTraceability, type TraceEvent } from "./actions"; // <-- Importa la nueva acción
 import { toast } from "sonner";
@@ -14,23 +14,33 @@ import { toast } from "sonner";
 // Traceability UI Components
 // ===========================================
 
+const EVENT_CONFIG: Record<string, { icon: React.ElementType; color: string; }> = {
+    receipt: { icon: Truck, color: 'text-sky-600 bg-sky-100' },
+    production_in: { icon: Factory, color: 'text-emerald-600 bg-emerald-100' },
+    production_out: { icon: Factory, color: 'text-amber-600 bg-amber-100' },
+    shipment: { icon: Truck, color: 'text-rose-600 bg-rose-100' },
+    sale: { icon: Truck, color: 'text-rose-600 bg-rose-100' },
+    ship: { icon: Truck, color: 'text-rose-600 bg-rose-100' },
+    adjustment: { icon: AlertTriangle, color: 'text-yellow-600 bg-yellow-100' },
+    transfer: { icon: ArrowLeftRight, color: 'text-zinc-600 bg-zinc-100' },
+    qc_test: { icon: FlaskConical, color: 'text-indigo-600 bg-indigo-100' },
+    genealogy_parent: { icon: GitBranch, color: 'text-slate-600 bg-slate-100' },
+    genealogy_child: { icon: GitBranch, color: 'text-slate-600 bg-slate-100' },
+    DEFAULT: { icon: Package, color: 'text-zinc-600 bg-zinc-100' },
+};
+
 function TraceEventCard({ event }: { event: TraceEvent }) {
-    const isPositive = (event.qty || 0) > 0;
-    const isAdjustment = event.kind === 'adjustment';
+    const config = EVENT_CONFIG[event.kind] || EVENT_CONFIG.DEFAULT;
+    const Icon = config.icon;
 
     return (
-        <div className="flex items-start gap-3 p-3 border-b last:border-b-0">
-            <div className={`p-2 rounded-lg mt-1 ${isPositive ? 'bg-green-100' : 'bg-red-100'}`}>
-                <GitBranch size={16} className={isPositive ? 'text-green-600' : 'text-red-600'} />
+        <div className="flex items-start gap-4 p-3 border-b last:border-b-0">
+            <div className={`flex-shrink-0 w-10 h-10 rounded-lg grid place-items-center mt-1 ${config.color}`}>
+                <Icon size={20} />
             </div>
-            <div className="flex-1">
-                <div className="flex justify-between items-center">
-                    <p className="font-semibold text-sm">{event.title}</p>
-                    {event.qty && <span className={`font-mono text-xs font-semibold ${isPositive && !isAdjustment ? 'text-green-700' : 'text-red-700'}`}>
-                        {isPositive ? '+' : ''}{event.qty} {event.uom}
-                    </span>}
-                </div>
-                <p className="text-xs text-zinc-500">{new Date(event.at).toLocaleString('es-ES')}</p>
+            <div>
+                <p className="font-semibold text-sm">{event.title}</p>
+                <p className="text-xs text-zinc-500">{new Date(event.at).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })}</p>
                 <p className="text-sm text-zinc-700 mt-1">{event.details}</p>
             </div>
         </div>
