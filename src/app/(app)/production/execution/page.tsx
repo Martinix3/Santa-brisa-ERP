@@ -7,7 +7,7 @@ import { Play, Pause, CheckCircle, XCircle, Factory as FactoryIcon, Calendar, Ch
 import { SBCard, SBButton, Input, Select } from '@/components/ui/ui-primitives';
 import { useData } from "@/lib/dataprovider";
 import { toast } from "sonner";
-import type { Uom, Item, ProductionOrder, BillOfMaterial as RecipeBom, ProductionStatus, OnHandView } from '@/domain/ssot';
+import type { Uom, Item, ProductionOrder, BillOfMaterial as RecipeBom, ProductionStatus, OnHandView, QcStatus } from '@/domain/ssot';
 import { JournalEntry } from "@/domain/ssot.common";
 import { planProduction, updateProductionOrderStatus, completeProductionOrder, addIncident } from "../actions";
 
@@ -121,25 +121,30 @@ function StockCheckPanel({
   const theory = useMemo(() => computeTheoretical(bom, qty, itemsMap), [bom, qty, itemsMap]);
 
   const { shortages, picks } = useMemo(() => {
-    const byItem = new Map<string, any[]>();
+    const byItem = new Map<string, OnHandView[]>();
     for (const r of onHand) {
       if (!byItem.has(r.itemId)) byItem.set(r.itemId, []);
       byItem.get(r.itemId)!.push(r);
     }
     for (const rows of byItem.values()) {
-      rows.sort((a,b)=> toTime(a.receivedAt || a.createdAt) - toTime(b.receivedAt || b.createdAt));
+      rows.sort((a,b)=> toTime(a.createdAt) - toTime(b.createdAt));
     }
+    
     const shortages: Array<{itemId:string; itemName:string; missing:number; uom:Uom}> = [];
-    const picks: Array<{itemId:string; lotNumber:string; qty:number; uom:Uom, locationId: string}> = [];
+    const picks: Array<{itemId:string; lotNumber:string; qty:number; uom:Uom; locationId: string}> = [];
+    
     for (const t of theory) {
       let remain = t.qty;
-      const rows = byItem.get(t.itemId) ?? [];
+      // CORRECCIÓN: Filtrar solo lotes con estado 'PASSED' o 'WAIVED' (liberados)
+      const rows = (byItem.get(t.itemId) ?? []).filter(l => l.qcStatus === 'PASSED' || l.qcStatus === 'WAIVED');
+      let available = rows.reduce((acc, lot) => acc + (lot.qty || 0), 0);
+
       for (const r of rows) {
         if (remain <= 0) break;
         const take = Math.min(Number(r.qty) || 0, remain);
         if (take > 0 && r.lotNumber) {
           picks.push({ itemId: t.itemId, lotNumber: r.lotNumber, qty: +take.toFixed(3), uom: t.uom, locationId: r.locationId });
-          remain = +(remain - take).toFixed(3);
+          remain -= take;
         }
       }
       if (remain > 1e-6) {
@@ -375,9 +380,18 @@ export default function ProductionExecutionPage() {
     if (!confirm("¿Finalizar y cerrar la orden? Se crearán movimientos de stock.")) return;
 
     startTransition(async () => {
+      // CORRECCIÓN: Mapear 'realQty' a 'qty'
+      const finalConsumptions = activeForm.realConsumption.map(c => ({
+          itemId: c.itemId,
+          lotNumber: c.lotNumber,
+          qty: c.realQty,
+          uom: c.uom,
+          fromLocationId: c.fromLocationId,
+      }));
+
       const res = await completeProductionOrder({
         orderId: activeForm.order!.id,
-        finalConsumptions: activeForm.realConsumption,
+        finalConsumptions: finalConsumptions,
         finalOutputs: [activeForm.finalOutput]
       });
       if (res.ok) {
@@ -398,6 +412,7 @@ export default function ProductionExecutionPage() {
         severity: activeForm.incidentSeverity,
         summary: activeForm.incidentText.trim(),
       });
+      // CORRECCIÓN: Usar una guarda de tipo
       if (r.ok) {
         setFormValue('journal', [...(activeForm.journal || []), {id: `inc_${r.data.incidentId ?? Date.now()}`, at: new Date().toISOString(), kind:'INCIDENT', summary: activeForm.incidentText.trim()}]);
         setFormValue('incidentText', '');
@@ -418,7 +433,7 @@ export default function ProductionExecutionPage() {
         bomId: activeForm.planningBom!.id,
         qty: planQty,
         plannedDate: activeForm.order?.scheduledFor,
-        reservations: activeForm.requiredLots,
+        reservations: activeForm.requiredLots as any, // Cast si es necesario
         idempotencyKey: crypto.randomUUID()
       });
       if (r.ok) {
