@@ -1,42 +1,47 @@
 // src/lib/inventory.ts
-import type { OrderSellOut, OnHandView, Item } from '@/domain/ssot';
+import type { OrderSellOut, QcStatus } from '@/domain/ssot';
+import type { OnHandView } from './onhand_view';
 
-type StockShortage = {
-    itemId: string;
-    qtyRequired: number;
-    qtyAvailable: number;
-    qtyShort: number;
-};
+export type StockShortage = { itemId: string; qtyRequired: number; qtyAvailable: number; qtyShort: number; };
+export type AllocationLine = { itemId: string; lotNumber: string; locationId: string; qtyPicked: number; expiryAt?: string|null; };
+export type StockCheckResult = { shortages: StockShortage[]; allocations: AllocationLine[]; };
 
-/**
- * Checks the stock availability for a given order against the current inventory.
- * @param order The sales order to check.
- * @param onHand The current inventory items (on hand view).
- * @param items The list of all items.
- * @returns An array of stock shortages. Returns an empty array if stock is sufficient.
- */
-export function checkOrderStock(order: OrderSellOut, onHand: OnHandView[], items: Item[]): StockShortage[] {
-    if (!order.lines) return [];
+function isReleased(v: OnHandView) {
+  const qc = v.qcStatus ?? 'PENDING';
+  return qc === 'PASSED';
+}
+const byExpiryFEFO = (a?: string|null,b?:string|null)=>(!a&&!b?0:!a?1:!b?-1:(new Date(a).getTime()-new Date(b).getTime()));
 
-    const shortages: StockShortage[] = [];
-    const fgInventory = onHand.filter(i => i.locationId === 'FG/MAIN');
+export function checkOrderStock(order: OrderSellOut, onHand: OnHandView[], opts?: { locationId?: string }): StockCheckResult {
+  if (!order?.lines?.length) return { shortages: [], allocations: [] };
+  const location = opts?.locationId;
 
-    for (const line of order.lines) {
-        const { itemId, qty } = line;
+  const eligible = onHand
+    .filter(v => (!location || v.locationId === location))
+    .filter(isReleased)
+    .map(v => ({ ...v, freeQty: Math.max(0, v.qty - (v.reservedQty ?? 0)) }))
+    .filter(v => v.freeQty > 0)
+    .sort((a,b)=>byExpiryFEFO(a.expiryAt??null, b.expiryAt??null));
 
-        const totalAvailable = fgInventory
-            .filter(item => item.itemId === itemId)
-            .reduce((sum, item) => sum + item.qty, 0);
+  const byItem: Record<string, typeof eligible> = {};
+  for (const e of eligible) (byItem[e.itemId] ??= []).push(e);
 
-        if (totalAvailable < qty) {
-            shortages.push({
-                itemId,
-                qtyRequired: qty,
-                qtyAvailable: totalAvailable,
-                qtyShort: qty - totalAvailable,
-            });
-        }
+  const allocations: AllocationLine[] = [];
+  const shortages: StockShortage[] = [];
+
+  for (const line of order.lines) {
+    let remaining = line.qty;
+    for (const lot of (byItem[line.itemId] ?? [])) {
+      if (remaining <= 0) break;
+      const take = Math.min(lot.freeQty, remaining);
+      if (take > 0) {
+        allocations.push({ itemId: line.itemId, lotNumber: lot.lotNumber, locationId: lot.locationId, qtyPicked: take, expiryAt: lot.expiryAt ?? null });
+        lot.freeQty -= take;
+        remaining -= take;
+      }
     }
+    if (remaining > 0) shortages.push({ itemId: line.itemId, qtyRequired: line.qty, qtyAvailable: line.qty - remaining, qtyShort: remaining });
+  }
 
-    return shortages;
+  return { shortages, allocations };
 }

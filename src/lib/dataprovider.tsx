@@ -70,8 +70,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         const data: Partial<SantaData> = {};
         const report: LoadReport = { ok: [], errors: [], totalDocs: 0 };
         
-        for (const name of Array.from(SANTA_DATA_COLLECTIONS)) {
+        const collectionsToLoad: (keyof SantaData)[] = [...SANTA_DATA_COLLECTIONS, 'reservations'];
+
+        for (const name of collectionsToLoad) {
             try {
+                if (!(SANTA_DATA_COLLECTIONS as readonly string[]).includes(name)) continue;
                 const querySnapshot = await getDocs(collection(firestoreDb!, name as string));
                 const docs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 (data as any)[name] = docs;
