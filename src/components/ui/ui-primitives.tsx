@@ -148,7 +148,7 @@ export function DataTableSB<T extends { id: any }>({ rows, cols, onRowClick }: {
                             {cols.map(c => (
                                 <td key={String(c.key)} className={`p-3 ${c.className || ''}`}>
                                     {c.render ? c.render(row) : String((row as any)[c.key] ?? '—')}
-                                d>
+                                </td>
                             ))}
                         </tr>
                     ))}
@@ -321,3 +321,65 @@ export const CommandItem = React.forwardRef<HTMLDivElement, React.HTMLAttributes
   />
 ));
 CommandItem.displayName = "CommandItem";
+
+
+// ===================================
+// Tabs (shadcn/ui stub)
+// ===================================
+export const Tabs = React.forwardRef<
+  React.ElementRef<typeof React.Component>,
+  React.ComponentPropsWithoutRef<typeof React.Component> & { onValueChange: (v: string) => void, value: string }
+>(({ onValueChange, value, children, ...props }, ref) => {
+  const kids = React.Children.toArray(children);
+  const list = kids.find((c: any) => c.type?.displayName === "TabsList");
+  const content = kids.filter((c: any) => c.type?.displayName === "TabsContent" && c.props.value === value);
+
+  return (
+    <div ref={ref as any} {...props}>
+      {React.cloneElement(list as React.ReactElement, { onValueChange, value })}
+      {content}
+    </div>
+  );
+});
+Tabs.displayName = "Tabs";
+
+export const TabsList = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement> & { onValueChange: (v: string) => void, value: string }
+>(({ onValueChange, value, children, className, ...props }, ref) => {
+  const kids = React.Children.toArray(children);
+  return (
+    <div ref={ref} {...props} className={`inline-flex items-center gap-1 rounded-lg bg-zinc-100 p-1 text-sm ${className}`}>
+      {kids.map((k: any, i) => React.cloneElement(k, {
+        key: i,
+        "data-state": k.props.value === value ? "active" : "inactive",
+        onClick: () => onValueChange(k.props.value),
+      }))}
+    </div>
+  );
+});
+TabsList.displayName = "TabsList";
+
+export const TabsTrigger = React.forwardRef<
+  HTMLButtonElement,
+  React.ButtonHTMLAttributes<HTMLButtonElement>
+>(({ className, ...props }, ref) => (
+  <button
+    ref={ref}
+    {...props}
+    className={`px-3 py-1.5 rounded-md data-[state=active]:bg-white data-[state=active]:shadow text-zinc-600 data-[state=active]:text-[color:var(--sb-accent)] ${className}`}
+  />
+));
+TabsTrigger.displayName = "TabsTrigger";
+
+export const TabsContent = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement>
+>(({ className, ...props }, ref) => (
+  <div
+    ref={ref}
+    {...props}
+    className={`mt-2 focus:outline-none ${className}`}
+  />
+));
+TabsContent.displayName = "TabsContent";

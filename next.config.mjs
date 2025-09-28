@@ -1,22 +1,16 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: false, // Recommended for framer-motion
-  swcMinify: true,
+  reactStrictMode: false, // puedes dejarlo en true si no da problemas con framer-motion
   compiler: {
     styledComponents: true,
   },
   eslint: {
-    // Warning: This allows production builds to successfully complete even if
+    // Warning: This allows production builds to complete even if
     // your project has ESLint errors.
     ignoreDuringBuilds: true,
   },
   typescript: {
     ignoreBuildErrors: true,
-  },
-  experimental: {
-    // `appDir` is a required flag for the experimental `app` directory feature.
-    // You can remove this flag when `app` directory is stable.
-    appDir: true,
   },
   webpack: (config) => {
     config.externals.push({
