@@ -6,13 +6,14 @@ import { useData } from '@/lib/dataprovider';
 import { generateInsights } from '@/ai/flows/generate-insights-flow';
 import { SBCard, SBButton, DataTableSB } from '@/components/ui/ui-primitives';
 import type { Col } from '@/components/ui/ui-primitives';
-import { BrainCircuit, Package, DollarSign, Truck, AlertCircle, Clock } from 'lucide-react';
+import { BrainCircuit, Package, DollarSign, Truck, AlertCircle, Clock, Plus } from 'lucide-react';
 import type { OnHandView, Shipment, Interaction, StockMove, Account, ShipmentStatus, SB_THEME } from '@/domain/ssot';
 import { DEPT_META, SB_COLORS } from '@/domain/ssot';
 import Link from 'next/link';
 import { samplesSentSummary } from "@/lib/consignment-and-samples";
 import { UpcomingTasks } from '@/features/agenda/components/UpcomingTasks';
 import { qcToBucket } from '@/domain/ssot';
+import { QuickGoodsReceiptDialog } from '@/features/warehouse/components/QuickGoodsReceiptDialog';
 
 
 function KPI({ icon: Icon, label, value, color }: { icon: React.ElementType, label: string, value: string | number, color: string }) {
@@ -90,6 +91,8 @@ function SamplesSentCard({ shipments, stockMoves, accounts }: { shipments: Shipm
 
 
 function WarehouseDashboardContent({ onHand, shipments, stockMoves, accounts }: { onHand: OnHandView[], shipments: Shipment[], stockMoves: StockMove[], accounts: Account[] }) {
+    const [openReceipt, setOpenReceipt] = useState(false);
+
     const kpis = useMemo(() => {
         const released = (onHand as OnHandView[])
           .filter(r => qcToBucket((r.qcStatus ?? "PENDING") as any) === "RELEASED");
@@ -148,6 +151,10 @@ function WarehouseDashboardContent({ onHand, shipments, stockMoves, accounts }: 
                     </SBCard>
                 </div>
                  <div className="space-y-6">
+                     <button onClick={() => setOpenReceipt(true)} className="w-full flex items-center justify-center gap-2 p-4 rounded-xl border-2 border-dashed border-zinc-300 text-zinc-600 hover:bg-white hover:border-zinc-400 transition-colors">
+                        <Plus size={18}/>
+                        <span className="font-semibold">Nueva Entrada de Mercancía</span>
+                     </button>
                      <UpcomingTasks department="ALMACEN" />
                      <SBCard title="Alertas de Stock Bajo">
                          <div className="p-2 space-y-1">
@@ -172,6 +179,7 @@ function WarehouseDashboardContent({ onHand, shipments, stockMoves, accounts }: 
                     <SamplesSentCard shipments={shipments} stockMoves={stockMoves} accounts={accounts} />
                 </div>
             </div>
+            <QuickGoodsReceiptDialog open={openReceipt} onOpenChange={setOpenReceipt} />
         </div>
     )
 }

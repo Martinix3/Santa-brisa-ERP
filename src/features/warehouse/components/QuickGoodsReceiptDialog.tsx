@@ -1,4 +1,4 @@
-
+// src/features/warehouse/components/QuickGoodsReceiptDialog.tsx
 "use client";
 import React, { useMemo, useState } from "react";
 import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog";
@@ -41,7 +41,7 @@ export function QuickGoodsReceiptDialog({
     if (!supplierId || !deliveryNote || lines.some(l => !l.itemId || !l.qty || !l.supplierLot)) return;
     setSaving(true);
     try {
-      const res = await createGoodsReceipt({ supplierId, deliveryNote, lines, sendToQc });
+      const res = await createGoodsReceipt({ supplierId, deliveryNote, lines, sendToQc } as any);
       onSuccess?.(res);
       onOpenChange(false);
       // reset rápido
@@ -52,7 +52,7 @@ export function QuickGoodsReceiptDialog({
 
   return (
     <SBDialog open={open} onOpenChange={onOpenChange}>
-      <SBDialogContent title="Entrada rápida de mercancía"
+      <SBDialogContent title={<div className="flex items-center gap-2"><Truck/> Entrada rápida de mercancía</div>}
                        maxWidth="40rem">
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
@@ -72,22 +72,42 @@ export function QuickGoodsReceiptDialog({
           <div className="space-y-2 rounded-md border p-3">
             {lines.map((ln, i) => (
               <div key={ln.key} className="grid grid-cols-[1.4fr_1fr_.8fr_.8fr_.9fr_auto] gap-2 items-center">
-                <Select value={ln.itemId} onChange={e => setLines(arr => { const n=[...arr]; n[i]={...n[i], itemId:e.target.value}; return n; })}>
+                <Select value={ln.itemId} onChange={e => {
+                  const newLines = [...lines];
+                  newLines[i] = {...newLines[i], itemId: e.target.value};
+                  setLines(newLines);
+                }}>
                   <option value="">Item…</option>
                   {items.map(it => <option key={it.id} value={it.id}>{it.name}</option>)}
                 </Select>
                 <Input placeholder="Lote prov."
                        value={ln.supplierLot}
-                       onChange={e => setLines(arr => { const n=[...arr]; n[i]={...n[i], supplierLot:e.target.value}; return n; })}/>
+                       onChange={e => {
+                         const newLines = [...lines];
+                         newLines[i] = {...newLines[i], supplierLot: e.target.value};
+                         setLines(newLines);
+                       }}/>
                 <Input type="number" placeholder="Qty"
                        value={ln.qty || ''}
-                       onChange={e => setLines(arr => { const n=[...arr]; n[i]={...n[i], qty:Number(e.target.value)||0}; return n; })}/>
+                       onChange={e => {
+                         const newLines = [...lines];
+                         newLines[i] = {...newLines[i], qty: Number(e.target.value) || 0};
+                         setLines(newLines);
+                       }}/>
                 <Input type="number" step="0.01" placeholder="€/u"
                        value={ln.unitCost || ''}
-                       onChange={e => setLines(arr => { const n=[...arr]; n[i]={...n[i], unitCost:Number(e.target.value)||0}; return n; })}/>
+                       onChange={e => {
+                         const newLines = [...lines];
+                         newLines[i] = {...newLines[i], unitCost: Number(e.target.value) || 0};
+                         setLines(newLines);
+                       }}/>
                 <Input type="date"
                        value={ln.expiryAt ?? ''}
-                       onChange={e => setLines(arr => { const n=[...arr]; n[i]={...n[i], expiryAt:e.target.value||null}; return n; })}/>
+                       onChange={e => {
+                         const newLines = [...lines];
+                         newLines[i] = {...newLines[i], expiryAt: e.target.value || null};
+                         setLines(newLines);
+                       }}/>
                 <button className="p-2 hover:bg-zinc-100 rounded" onClick={() => rmLine(i)}>
                   <Trash2 className="w-4 h-4 text-red-500"/>
                 </button>
