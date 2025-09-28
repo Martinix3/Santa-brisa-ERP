@@ -76,7 +76,7 @@ export function searchLots(data: SantaData, p: LotSearchParams): LotHit[] {
       name: meta?.itemName,
       locationId: r.locationId,
       qcStatus: r.qcStatus ?? meta?.qcStatus,
-      lotStatus: r.lotStatus ?? meta?.status,
+      lotStatus: meta?.status,
       expDate: meta?.expDate,
       createdAt: meta?.createdAt,
       receivedAt: meta?.receivedAt,

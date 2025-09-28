@@ -53,7 +53,7 @@ function SkuRow({ item, onUpdateCategory }: { item: SkuWithLots; onUpdateCategor
                             <div key={lot.id} className="grid grid-cols-[2fr_1fr_1fr_1.5fr] gap-4 items-center text-xs p-2 bg-white rounded-md border">
                                 <p className="font-mono">{lot.lotNumber || lot.id}</p>
                                 <p>{lot.qty} {lot.uom}</p>
-                                <p>{new Date(lot.createdAt).toLocaleDateString('es-ES')}</p>
+                                <p>{new Date(lot.updatedAt).toLocaleDateString('es-ES')}</p>
                                 <div className="text-right">
                                     {/* Placeholder for quality status pill */}
                                 </div>

@@ -1,3 +1,4 @@
+
 // src/app/(app)/warehouse/actions.ts
 'use server';
 
@@ -301,6 +302,7 @@ export async function rebuildOnHand(input?: RebuildInput) {
       locationId: v.loc,
       qty: Number(v.qty.toFixed(6)),
       uom: v.uom,
+      qcStatus: 'PENDING', // Placeholder, real status comes from 'lots' collection
       createdAt: v.createdAt || new Date().toISOString(),
       updatedAt: v.updatedAt || new Date().toISOString(),
     } as OnHandView);

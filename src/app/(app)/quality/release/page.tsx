@@ -331,7 +331,7 @@ export default function LabReleasePage() {
         hold.push(l);
       }
     }
-    const byDateDesc = (a: OnHandView, b: OnHandView) => new Date(b.updatedAt ?? b.createdAt ?? 0).getTime() - new Date(a.updatedAt ?? a.createdAt ?? 0).getTime();
+    const byDateDesc = (a: OnHandView, b: OnHandView) => new Date(b.updatedAt ?? 0).getTime() - new Date(a.updatedAt ?? 0).getTime();
     const HOLD = hold.sort(byDateDesc);
     const RELEASED = released.sort(byDateDesc);
     const REJECTED = rejected.sort(byDateDesc);
@@ -486,7 +486,7 @@ export default function LabReleasePage() {
                             <Badge tone={qcTone(status)}>{prettyStatus(status)}</Badge>
                         </div>
                         <p className="text-xs text-zinc-600">{item?.name ?? lot.itemId}</p>
-                        <p className="text-xs text-zinc-400 mt-1">{new Date(lot.updatedAt ?? lot.createdAt ?? 0).toLocaleDateString()}</p>
+                        <p className="text-xs text-zinc-400 mt-1">{new Date(lot.updatedAt ?? 0).toLocaleDateString()}</p>
                     </button>
                 )
             })}

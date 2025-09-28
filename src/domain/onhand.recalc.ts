@@ -71,10 +71,11 @@ export function deriveOnHand(stockMoves: StockMove[], nowIso = new Date().toISOS
     out.push({
       id,
       itemId: v.itemId,
-      lotNumber: v.lot,
-      locationId: v.loc,
+      lotNumber: v.lot || '',
+      locationId: v.loc || '',
       qty: Number(v.qty.toFixed(6)),
-      uom: v.uom,
+      uom: v.uom as 'kg'|'L'|'unit',
+      qcStatus: 'PENDING', // Placeholder, real status from 'lots'
       createdAt: v.createdAt || nowIso,
       updatedAt: v.updatedAt || nowIso,
     });

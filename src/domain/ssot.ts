@@ -1,5 +1,6 @@
+
 // src/domain/ssot.ts
-import type { Incident } from './ssot.common';
+import type { Incident, Interaction } from './ssot.common';
 
 
 // =================================================================
@@ -59,10 +60,11 @@ export type OnHandView = {
   lotNumber: string;
   locationId: string;         // p.ej. 'FG/MAIN', 'RM/MAIN'
   qty: number;
-  uom: 'kg'|'L'|'unit';
+  uom: Uom;
   qcStatus: QcStatus;
   expiryAt?: string | null;   // ISO
   reservedQty?: number;       // default 0
+  createdAt: string;          // ISO
   updatedAt: string;          // ISO
 };
 
@@ -619,7 +621,7 @@ export interface SantaData {
   partyRoles: PartyRole[];
   accounts: Account[];
   users: User[];
-  interactions: any[]; // Placeholder
+  interactions: Interaction[];
   billOfMaterials: BillOfMaterial[];
   deliveryNotes: DeliveryNote[];
   lots: Lot[]; // Añadida por coherencia, aunque puede ser una vista
