@@ -1,4 +1,3 @@
-
 // src/server/workers/createShipment.worker.ts
 'use server';
 import { adminDb as db } from '@/server/firebase';
@@ -51,7 +50,7 @@ export async function run({ orderId }: { orderId: string }) {
                 const lot = item.lotNumber ? lotsById.get(item.lotNumber) : undefined;
                 return item.itemId === line.itemId && 
                        item.locationId === 'FG/MAIN' && 
-                       lot?.qcStatus === 'RELEASED';
+                       lot?.qcStatus === 'PASSED';
             })
             .reduce((sum, item) => sum + item.qty, 0);
         return {

@@ -32,8 +32,8 @@ const download = (fn: string, content: string) => {
 
 const QCPill = ({ status }: { status?: QcStatus }) => {
   const s = status || 'PENDING';
-  const cls = s === "PASSED" ? "bg-green-100 text-green-800" : s === "REJECTED" ? "bg-red-100 text-red-800" : "bg-yellow-100 text-yellow-800";
-  const text = s === "PASSED" ? 'Liberado' : s === 'REJECTED' ? 'Rechazado' : 'Pendiente';
+  const cls = s === "PASSED" ? "bg-green-100 text-green-800" : s === "FAILED" ? "bg-red-100 text-red-800" : "bg-yellow-100 text-yellow-800";
+  const text = s === "PASSED" ? 'Liberado' : s === 'FAILED' ? 'Rechazado' : 'Pendiente';
   return <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${cls}`}>{text}</span>;
 };
 

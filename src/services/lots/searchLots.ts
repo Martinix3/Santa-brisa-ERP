@@ -10,7 +10,7 @@ export type LotSearchParams = {
   locationIds?: string[];             // filtra ubicaciones
   minAvailableQty?: number;           // disponibilidad (onHand - reservas)
   uom?: Uom;                          // opcional: asegura misma UoM
-  qcStatuses?: QcStatus[];            // p.ej. ['RELEASED']
+  qcStatuses?: QcStatus[];            // p.ej. ['PASSED']
   lotStatuses?: LotStatus[];          // p.ej. ['OPEN','RELEASED']
   producedByOrderId?: string;         // lotes salida de una orden
   parentLotNumber?: LotNumber;        // para ENVASADO (hijos de un intermedio)
@@ -122,7 +122,7 @@ export function searchLots(data: SantaData, p: LotSearchParams): LotHit[] {
   }
 
   // Scoring para ranking práctico:
-  // + preferimos RELEASED
+  // + preferimos PASSED
   // + preferimos ubicaciones “preferLocations”
   // + FEFO (expDate) o FIFO (createdAt/receivedAt)
   const preferLoc = new Map<string, number>();
@@ -130,7 +130,7 @@ export function searchLots(data: SantaData, p: LotSearchParams): LotHit[] {
 
   for (const h of out) {
     let s = 0;
-    if (h.qcStatus === 'RELEASED') s += 10;
+    if (h.qcStatus === 'PASSED') s += 10;
     if (h.lotStatus === 'OPEN' || h.lotStatus === 'RELEASED') s += 2;
     if (h.locationId && preferLoc.has(h.locationId)) s += (2 + preferLoc.get(h.locationId)!);
     // disponibilidad ayuda a desempatar
