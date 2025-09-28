@@ -7,7 +7,7 @@ import { SBCard, SBButton } from '@/components/ui/ui-primitives';
 import { useData } from "@/lib/dataprovider";
 import {
   CheckCircle, XCircle, Hourglass, Search, FlaskConical, Filter, ChevronDown, GitBranch,
-  FileQuestion, Package, AlertCircle, ClipboardCheck, User, Save, FilePlus2, ListOrdered, FileCheck, ArrowRight, Truck, Factory as FactoryIcon
+  FileQuestion, Package, AlertTriangle, ClipboardCheck, User, Save, FilePlus2, ListOrdered, FileCheck, ArrowRight, Truck, Factory as FactoryIcon
 } from "lucide-react";
 import type {
   Lot, QcTest, QcBatchResult, Item, ParameterCatalog, QcPlan, Incident, Coa,
@@ -394,7 +394,9 @@ export default function LabReleasePage() {
             uom: (oh as any)?.uom ?? "",
             createdAt: oh?.createdAt ?? new Date().toISOString(),
             updatedAt: oh?.updatedAt ?? oh?.createdAt ?? new Date().toISOString(),
-            qcStatus: 'PENDING', // Default state for virtual lots
+            qcPlanId: undefined,
+            qcStatus: undefined,
+            status: undefined,
         } as any;
         const plan = undefined;
         const history = normalizeLotHistory(virtualLot, { qcTests, qcBatchResults, incidents, stockMoves, protocolAcks, orders, genealogy: data?.lotGenealogy });

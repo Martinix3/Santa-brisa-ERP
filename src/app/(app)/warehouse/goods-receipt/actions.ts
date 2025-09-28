@@ -4,7 +4,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { adminDb as db } from '@/server/firebase';
-import { Timestamp } from 'firebase-admin/firestore';
+import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import type { Party, Item, GoodsReceipt, OnHandView, StockMove, Uom, Lot, QcStatus } from '@/domain/ssot';
 import { normText } from '@/lib/norm/text';
 import { makeGoodsReceiptCode } from '@/lib/codes';
