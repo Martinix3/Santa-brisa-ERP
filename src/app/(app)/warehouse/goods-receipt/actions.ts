@@ -10,6 +10,7 @@ import { LotSchema } from '@/domain/validators';
 import { normText } from '@/lib/norm/text';
 import { makeGoodsReceiptCode } from '@/lib/codes';
 import { findNextLotNumber } from '../inventory/actions';
+import { makeOnHandId } from '@/domain/id-helpers';
 
 // --- Helpers ---
 const uniqueSku = (base: string, existingSkus: string[]) => {
@@ -96,7 +97,11 @@ export async function createItem(payload: { name: string; sku?: string; uom: Uom
         active: true,
     };
     
-    await itemRef.set({ ...newItem, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as any);
+    batch.set(
+      itemRef,
+      { ...newItem, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as any,
+      { merge: true }
+    );
     revalidatePath('/items');
     revalidatePath('/warehouse/goods-receipt');
     return newItem;
@@ -165,7 +170,7 @@ export async function createGoodsReceipt(payload: {
                 active: true,
             };
             batch.set(itemRef, { ...newItem, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as any, { merge: true });
-            existingItemsMap.set(itemId, newItem); 
+            existingItemsMap.set(itemId, newItem); // Add to local map for subsequent lines
             currentItem = newItem;
         }
         
@@ -190,7 +195,7 @@ export async function createGoodsReceipt(payload: {
         batch.set(lotRef, { ...lotData, supplierId: finalSupplierId }, { merge: true });
 
         const locationId = line.locationId || landingLocationFor(currentItem.category);
-        const onHandId = `${itemId}|${lotNumber}|${locationId}`;
+        const onHandId = makeOnHandId(itemId, lotNumber, locationId);
         const onHandRef = db.collection('onHand').doc(onHandId);
         batch.set(onHandRef, {
             id: onHandId, itemId, lotNumber, locationId,

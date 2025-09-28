@@ -1,3 +1,4 @@
+
 // src/server/workers/inventory.rebuildOnHand.worker.ts
 'use server';
 
@@ -117,7 +118,7 @@ export async function run() {
     const writer = db.bulkWriter();
     const existingSnap = await db.collection('onHand').select().get();
     existingSnap.docs.forEach(doc => writer.delete(doc.ref));
-    finalOnHandDocs.forEach(doc => writer.set(db.collection('onHand').doc(doc.id), doc));
+    finalOnHandDocs.forEach(doc => writer.set(db.collection('onHand').doc(doc.id), doc as any));
     await writer.close();
 
     console.log(`[Worker/rebuildOnHand] Finished. Deleted ${existingSnap.size}, wrote ${finalOnHandDocs.length}.`);

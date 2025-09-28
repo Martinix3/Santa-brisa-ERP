@@ -1,3 +1,4 @@
+
 // ============================================================================
 // src/app/(app)/production/actions.ts
 // Server actions del módulo de Producción (ejecución)
@@ -14,6 +15,7 @@ import type { Lot as SsotLot, Uom, ProductionOrder, BillOfMaterial, OnHandView, 
 import { LotSchema, type Lot } from '@/domain/validators';
 import { explodeBOM } from '@/server/production/bom.service';
 import { findNextLotNumber } from '../warehouse/inventory/actions';
+import { makeOnHandId } from '@/domain/id-helpers';
 
 
 // Si tienes estos tipos en tu SSOT, impórtalos desde '@/domain/ssot'.
