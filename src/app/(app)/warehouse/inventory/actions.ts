@@ -2,8 +2,8 @@
 'use server';
 
 import { adminDb as db } from '@/server/firebase';
-import { upsertMany } from '@/lib/dataprovider/actions';
-import type { StockMove, Item, QcStatus, SantaData, Uom, ItemCategory } from '@/domain/ssot';
+import { FieldValue } from 'firebase-admin/firestore';
+import type { StockMove, Item, QcStatus, SantaData, Uom } from '@/domain/ssot';
 import { makeOnHandId } from '@/domain/id-helpers';
 import { z } from "zod";
 import { ok, fail, type ActionResult } from "@/lib/result";
@@ -34,7 +34,7 @@ function simpleId(prefix="sm"): string {
 }
 
 function lotPrefixFromSku(sku?: string, fallback?: string) {
-  const base = (sku || fallback || 'LOT').trim();
+  const base = (sku || fallback || 'LOT').trim().toUpperCase();
   const d = new Date();
   const yy = String(d.getUTCFullYear()).slice(-2);
   const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
@@ -63,7 +63,6 @@ export async function findNextLotNumber(itemId: string, sku?: string): Promise<s
   return `${prefix}${next}`;                  // SKU-YYMM-XX
 }
 
-
 async function loadItem(itemId: string): Promise<Item | null> {
     const doc = await db.collection('items').doc(itemId).get();
     return doc.exists ? (doc.data() as Item) : null;
@@ -75,7 +74,7 @@ function initialQcStatusFor(item: Item, opts: { sendToQc: boolean }): QcStatus {
   return criticalCategories.includes(item.category) ? 'PENDING' : 'PASSED';
 }
 
-// --- Action Refactorizada ---
+// --- Action Refactorizada y Corregida ---
 export async function createManualOnHand(
   input: CreateManualPayload
 ): Promise<ActionResult<{ stockMoveId: string; lotNumber: string }>> {
@@ -99,7 +98,6 @@ export async function createManualOnHand(
     const occurredAtIso = p.occurredAt ? new Date(p.occurredAt).toISOString() : new Date().toISOString();
     const nowIso = new Date().toISOString();
     
-    // Usar el validador de Zod para asegurar la consistencia del lote
     const lotData = LotSchema.parse({
       lotNumber: lotNumber,
       itemId: p.itemId,
@@ -116,7 +114,7 @@ export async function createManualOnHand(
       lotNumber,
       qty: p.qty,
       uom: p.uom,
-      reason: "adjustment",
+      reason: "adjustment" as const,
       toLocationId: p.locationId,
       occurredAt: occurredAtIso,
       createdAt: nowIso,
@@ -129,7 +127,22 @@ export async function createManualOnHand(
     batch.set(lotRef, lotData, { merge: true });
 
     const stockMoveRef = db.collection('stockMoves').doc(stockMove.id);
-    batch.set(stockMoveRef, stockMove as any);
+    batch.set(stockMoveRef, stockMove);
+    
+    // --- Actualización de onHand ---
+    const onHandId = makeOnHandId(p.itemId, lotNumber, p.locationId);
+    const onHandRef = db.collection('onHand').doc(onHandId);
+
+    batch.set(onHandRef, {
+      id: onHandId,
+      itemId: p.itemId,
+      lotNumber: lotNumber,
+      locationId: p.locationId,
+      uom: p.uom,
+      qty: FieldValue.increment(p.qty), // Incrementa el stock
+      updatedAt: nowIso,
+    }, { merge: true });
+    // ------------------------------------
 
     await batch.commit();
 
@@ -150,14 +163,15 @@ async function getAll<T>(coll: keyof SantaData): Promise<T[]> {
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as T));
   } catch (e) {
     console.error(`Error loading collection ${coll}:`, e);
-    return [];
+    // Para mayor robustez, propagamos el error en lugar de devolver un array vacío
+    throw new Error(`Failed to fetch collection ${coll}: ${e}`);
   }
 }
 
 export async function rebuildOnHand() {
     console.log("[Worker/rebuildOnHand] Starting rebuild...");
     const [moves, items, lots] = await Promise.all([
-      getAll<any>("stockMoves"),
+      getAll<StockMove>("stockMoves"),
       getAll<Item>("items"),
       getAll<any>("lots"),
     ]);
@@ -192,7 +206,7 @@ export async function rebuildOnHand() {
 
       if (DIRECT_SIGN[m.reason] !== undefined) {
         const sign = DIRECT_SIGN[m.reason];
-        const loc = sign > 0 ? (m.toLocationId || m.toLocation) : (m.fromLocationId || m.fromLocation);
+        const loc = sign > 0 ? m.toLocationId : m.fromLocationId;
         if (loc) {
             const key = makeOnHandId(m.itemId, m.lotNumber, loc);
             const entry = onHandAgg[key] || { qty: 0, uom, itemId: m.itemId, lotNumber: m.lotNumber, locationId: loc, updatedAt: '1970-01-01T00:00:00Z' };
@@ -203,27 +217,24 @@ export async function rebuildOnHand() {
             onHandAgg[key] = entry;
         }
       } else if (m.reason === 'transfer') {
-        const from = m.fromLocationId || m.fromLocation;
-        const to = m.toLocationId || m.toLocation;
-        if (from) {
-            const key = makeOnHandId(m.itemId, m.lotNumber, from);
-            const entry = onHandAgg[key] || { qty: 0, uom, itemId: m.itemId, lotNumber: m.lotNumber, locationId: from, updatedAt: '1970-01-01T00:00:00Z' };
+        if (m.fromLocationId) {
+            const key = makeOnHandId(m.itemId, m.lotNumber, m.fromLocationId);
+            const entry = onHandAgg[key] || { qty: 0, uom, itemId: m.itemId, lotNumber: m.lotNumber, locationId: m.fromLocationId, updatedAt: '1970-01-01T00:00:00Z' };
             entry.qty -= qty;
             if (new Date(updatedAt) > new Date(entry.updatedAt)) entry.updatedAt = updatedAt;
             onHandAgg[key] = entry;
         }
-        if (to) {
-            const key = makeOnHandId(m.itemId, m.lotNumber, to);
-            const entry = onHandAgg[key] || { qty: 0, uom, itemId: m.itemId, lotNumber: m.lotNumber, locationId: to, updatedAt: '1970-01-01T00:00:00Z' };
+        if (m.toLocationId) {
+            const key = makeOnHandId(m.itemId, m.lotNumber, m.toLocationId);
+            const entry = onHandAgg[key] || { qty: 0, uom, itemId: m.itemId, lotNumber: m.lotNumber, locationId: m.toLocationId, updatedAt: '1970-01-01T00:00:00Z' };
             entry.qty += qty;
             if (new Date(updatedAt) > new Date(entry.updatedAt)) entry.updatedAt = updatedAt;
             onHandAgg[key] = entry;
         }
       } else if (m.reason === 'adjustment') {
-          const loc = m.toLocationId || m.toLocation || m.fromLocationId || m.fromLocation;
-          if (loc) {
-            const key = makeOnHandId(m.itemId, m.lotNumber, loc);
-            const entry = onHandAgg[key] || { qty: 0, uom, itemId: m.itemId, lotNumber: m.lotNumber, locationId: loc, updatedAt: '1970-01-01T00:00:00Z' };
+          if (m.toLocationId) {
+            const key = makeOnHandId(m.itemId, m.lotNumber, m.toLocationId);
+            const entry = onHandAgg[key] || { qty: 0, uom, itemId: m.itemId, lotNumber: m.lotNumber, locationId: m.toLocationId, updatedAt: '1970-01-01T00:00:00Z' };
             entry.qty += qty;
             if (new Date(updatedAt) > new Date(entry.updatedAt)) entry.updatedAt = updatedAt;
             onHandAgg[key] = entry;
@@ -232,7 +243,7 @@ export async function rebuildOnHand() {
     }
     
     const finalOnHandDocs = Object.values(onHandAgg)
-      .filter(doc => Math.abs(doc.qty) > 1e-6)
+      .filter(doc => Math.abs(doc.qty) > 1e-6) // Filtra cantidades muy cercanas a cero
       .map(doc => {
         const item = itemMap.get(doc.itemId);
         const lot = lotMap.get(doc.lotNumber);
@@ -241,7 +252,7 @@ export async function rebuildOnHand() {
           ...doc,
           category: item?.category,
           qcStatus: lot?.qcStatus || 'PENDING',
-          qty: Math.round(doc.qty * 1000) / 1000,
+          qty: Math.round(doc.qty * 1000) / 1000, // Redondea a 3 decimales
         };
       });
       
@@ -250,7 +261,7 @@ export async function rebuildOnHand() {
     const writer = db.bulkWriter();
     const existingSnap = await db.collection('onHand').select().get();
     existingSnap.docs.forEach(doc => writer.delete(doc.ref));
-    finalOnHandDocs.forEach(doc => writer.set(db.collection('onHand').doc(doc.id), doc as any));
+    finalOnHandDocs.forEach(doc => writer.set(db.collection('onHand').doc(doc.id), doc));
     await writer.close();
 
     console.log(`[Worker/rebuildOnHand] Finished. Deleted ${existingSnap.size}, wrote ${finalOnHandDocs.length}.`);

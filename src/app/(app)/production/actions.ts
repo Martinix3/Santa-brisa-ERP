@@ -1,3 +1,4 @@
+
 // ============================================================================
 // src/app/(app)/production/actions.ts
 // Server actions del módulo de Producción (ejecución)
@@ -259,13 +260,13 @@ type CloseInput = {
 
 export async function closeProduction(input: CloseInput) {
     const nowIso = new Date().toISOString();
-    const batch = db.batch();
+    const batch = adminDb.batch();
 
-    const orderRef = db.collection('productionOrders').doc(input.prodOrderId);
+    const orderRef = adminDb.collection('productionOrders').doc(input.prodOrderId);
 
     // 1) CONSUMO de materias primas (salida)
     for (const c of input.consumptions) {
-        const smRef = db.collection('stockMoves').doc();
+        const smRef = adminDb.collection('stockMoves').doc();
         const fromLoc = c.fromLocationId ?? 'RM/MAIN';
         batch.set(smRef, {
             id: smRef.id,
@@ -288,7 +289,7 @@ export async function closeProduction(input: CloseInput) {
     const lotNumber = out.lotNumber ?? (await findNextLotNumber(out.itemId, out.sku));
 
     // Asegura que el lote FG exista
-    const lotRef = db.collection('lots').doc(lotNumber);
+    const lotRef = adminDb.collection('lots').doc(lotNumber);
     batch.set(lotRef, {
         id: lotNumber,
         lotNumber,
@@ -298,7 +299,7 @@ export async function closeProduction(input: CloseInput) {
         createdAt: nowIso, updatedAt: nowIso,
     }, { merge: true });
 
-    const smFGRef = db.collection('stockMoves').doc();
+    const smFGRef = adminDb.collection('stockMoves').doc();
     batch.set(smFGRef, {
         id: smFGRef.id,
         ref: { prodOrderId: input.prodOrderId },
@@ -314,11 +315,11 @@ export async function closeProduction(input: CloseInput) {
     });
 
     // 3) Estado de la orden
-    batch.set(orderRef, {
+    batch.update(orderRef, {
         status: input.finalizeStatus ?? 'DONE',
         closedAt: nowIso,
         updatedAt: nowIso,
-    }, { merge: true });
+    });
 
     await batch.commit();
     return ok({ prodOrderId: input.prodOrderId, lotNumber });

@@ -1,3 +1,4 @@
+
 // src/app/(app)/warehouse/goods-receipt/actions.ts
 'use server';
 
@@ -97,7 +98,7 @@ export async function createItem(payload: { name: string; sku?: string; uom: Uom
     };
     
     await itemRef.set(
-      { ...newItem, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as any,
+      { ...newItem, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
       { merge: true }
     );
     revalidatePath('/items');
@@ -167,7 +168,7 @@ export async function createGoodsReceipt(payload: {
                 stdCost: line.unitCost || 0,
                 active: true,
             };
-            batch.set(itemRef, { ...newItem, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as any, { merge: true });
+            batch.set(itemRef, { ...newItem, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }, { merge: true });
             existingItemsMap.set(itemId, newItem); // Add to local map for subsequent lines
             currentItem = newItem;
         }
