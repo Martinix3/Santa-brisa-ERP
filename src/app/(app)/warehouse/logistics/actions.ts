@@ -44,8 +44,12 @@ export async function confirmOrderShipment(orderId: string) {
 
   const onHandSnap = await db.collection('onHand').get();
   const onHand = onHandSnap.docs.map(doc => doc.data() as OnHandView);
+  
+  const lotsSnap = await db.collection('lots').get();
+  const lots = lotsSnap.docs.map(doc => doc.data() as Lot);
 
-  const { allocations, shortages } = checkOrderStock(order, onHand);
+
+  const { allocations, shortages } = checkOrderStock(order, onHand, lots);
   if (shortages.length > 0) {
     const shortageDetails = shortages.map(s => `${s.qtyShort}x ${s.itemId}`).join(', ');
     throw new Error(`Stock insufficient. Shortages: ${shortageDetails}`);

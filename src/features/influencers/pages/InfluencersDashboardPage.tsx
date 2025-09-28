@@ -1,4 +1,3 @@
-
 // src/features/influencers/pages/InfluencersDashboardPage.tsx
 "use client";
 import React, { useMemo, useState } from "react";
@@ -78,7 +77,7 @@ export default function InfluencersDashboardPage({ components }:{ components:any
         />
       </SBCard>
 
-      <NewCollabDialog open={openNew} onClose={()=>setOpenNew(false)} onSuccess={createCollab} components={components} />
+      <NewCollabDialog open={openNew} onClose={()=>setOpenNew(false)} onSave={createCollab} components={components} />
       {closing && (
         <MarketingTaskCompletionDialog 
             entity={closing}

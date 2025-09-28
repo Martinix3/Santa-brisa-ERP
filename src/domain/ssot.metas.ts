@@ -1,5 +1,5 @@
 // src/domain/ssot.metas.ts
-import type { AccountType, OrderStatus, ShipmentStatus, PartyRoleType, TraceEventPhase, Department } from './ssot';
+import type { AccountType, OrderStatus, ShipmentStatus, PartyRoleType, Department, TraceEventPhase } from './ssot';
 
 export const SB_COLORS = {
   brand: {

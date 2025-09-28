@@ -2,7 +2,7 @@ import { adminDb as db } from '@/server/firebase';
 import { SANTA_DATA_COLLECTIONS, type SantaData } from '@/domain/ssot';
 
 function assertCollection(col: string): asserts col is keyof SantaData {
-  if (!(SANTA_DATA_COLLECTIONS as readonly string[]).includes(col)) {
+  if (!SANTA_DATA_COLLECTIONS.map(String).includes(col)) {
     throw new Error(`Invalid collection name: ${col}`);
   }
 }
@@ -46,7 +46,7 @@ export async function upsertMany<T extends { id: string }>(
     count++;
   }
   await writer.close();
-  return { ok: true, count };
+  return { ok: true, count: 0 };
 }
 
 /**
@@ -58,7 +58,7 @@ export async function getServerData(): Promise<SantaData> {
   const data: Partial<SantaData> = {};
   const promises = Array.from(SANTA_DATA_COLLECTIONS).map(async (name) => {
     try {
-      const querySnapshot = await db.collection(name).get();
+      const querySnapshot = await db.collection(String(name)).get();
       (data as any)[name] = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     } catch (e) {
       console.error(`Error loading server collection ${name}:`, e);

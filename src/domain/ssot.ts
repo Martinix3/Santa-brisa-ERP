@@ -120,7 +120,8 @@ export interface ProductionOrder {
   createdAt: Timestamp; scheduledFor?: Timestamp; batchCode?: LotNumber; responsibleId?: string; name?: string; baseUnit?: Uom;
   checks?: ExecCheck[];
   incidents?: { id: string; when: Timestamp; severity: 'BAJA' | 'MEDIA' | 'ALTA'; text: string }[];
-  reservations?: any[]; shortages?: any[]; actuals?: any[]; output?: any[]; execution?: any; costing?: any; pauseLog?: any[];
+  reservations?: any[]; shortages?: any[]; actuals?: any[]; output?: any[]; execution?: any; costing?: any;
+  pauseLog?: { pausedAt: Timestamp; resumedAt?: Timestamp }[];
 }
 
 
@@ -185,13 +186,23 @@ export interface LotGenealogyEdge {
     createdAt: Timestamp;
 }
 
+export type TraceEventPhase = 'SOURCE' | 'RECEIPT' | 'QC' | 'PRODUCTION' | 'PACK' | 'WAREHOUSE' | 'SALE' | 'DELIVERY';
 export type TraceEventKind = 'RECEIPT' | 'PRODUCTION_OUT' | 'PRODUCTION_IN' | 'CONSUME' | 'OUTPUT' | 'QC_TEST' | 'SHIPMENT' | 'ADJUSTMENT' | 'MOVE' | 'ARRIVED' | 'GENEALOGY_PARENT' | 'GENEALOGY_CHILD';
 export interface TraceEvent {
   id: string; at: string; kind: TraceEventKind; title: string; details: string;
   data?: Record<string, any>;
   subject?: { type: 'LOT' | 'BATCH' | 'ORDER' | 'SHIPMENT'; id: string; };
-  phase?: string;
+  phase?: TraceEventPhase;
   links?: { lotNumber?: LotNumber; prodOrderId?: string; lotId?: string; batchId?: string; orderId?: string; shipmentId?: string; receiptId?: string; qaCheckId?: string; };
+}
+
+export type QCResult = { value?: number | string | boolean; notes?: string; status: 'ok' | 'ko'; };
+export interface QACheck {
+  id: string;
+  lotId: LotNumber;
+  summaryStatus: 'ok' | 'ko';
+  createdAt: Timestamp;
+  results: Record<string, QCResult>; // { "param_id_1": { value: 1.2, status: 'ok' } }
 }
 
 export interface QcTest {
@@ -549,77 +560,77 @@ export interface FinanceLink {
   campaignId?: string; eventId?: string; collabId?: string;
 }
 export interface PaymentLink { id: string; financeLinkId: string; externalId?: string; amount: number; date: string; method?: string; }
-
-export type PosUom = 'UNIT' | 'HOUR' | 'BATCH';
-export type PosCostCatalogEntry = {
-  id: string;
-  code: string;
-  label: string;
-  defaultUnitCost?: number;
-  uom?: PosUom;
-  vendor?: string;
-  status?: 'ACTIVE' | 'DRAFT' | 'ARCHIVED';
-  createdAt?: string; createdById?: string;
-  updatedAt?: string;
-};
-
-export type PlvStatus = 'IN_STOCK' | 'INSTALLED' | 'DAMAGED' | 'RETIRED';
-export type PlvMaterial = {
-  id: string;
-  itemId?: string;
-  kind: 'SHELF_TALKER' | 'STANDEE' | 'FRIDGE_STICKER' | 'HANGING' | 'GONDOLA' | 'OTHER';
-  purchaseCost?: number;
-  purchaseDate?: string;
-  expectedLifespanMonths?: number;
-  expectedUses?: number;
-  usesCount?: number;
-  status: PlvStatus;
-  accountId?: string;
-  installedAt?: string;
-  photoUrl?: string;
-  createdAt?: string; updatedAt?: string;
-};
-
-export type PosTacticItem = {
-  id: string;
-  catalogCode?: string;
-  description: string;
-  qty?: number;
-  unitCost?: number;
-  actualCost: number;
-  uom?: PosUom;
-  vendor?: string;
-  assetId?: string;
-  attachments?: string[];
-};
-
-export type PosTacticKind = 'PLV' | 'MENU' | 'INCENTIVE' | 'PROMO' | 'OTHER';
-export type PosTacticStatus = 'planned' | 'active' | 'closed' | 'cancelled';
-export type PosResult = {
-  roi?: number;
-  liftPct?: number;
-  upliftUnits?: number;
-  confidence?: 'LOW' | 'MEDIUM' | 'HIGH';
-  revenueAttributed?: number;
-};
-export type PosTactic = {
-  id: string;
-  accountId: string;
-  eventId?: string;
-  interactionId?: string;
-  orderId?: string;
-  tacticCode: string;
-  description?: string;
-  appliesToItemIds?: string[];
-  items: PosTacticItem[];
-  plannedCost?: number;
-  actualCost: number;
-  executionScore: number;
-  status: PosTacticStatus;
-  createdAt: string; createdById: string;
-  updatedAt?: string;
-  result?: PosResult;
-};
+export type VelocityInput = { itemId: string; qty: number; date: string; };
+export interface PosUom {
+    id: string;
+    // Add other properties if needed
+}
+export interface PosCostCatalogEntry {
+    id: string;
+    code: string;
+    label: string;
+    defaultUnitCost?: number;
+    uom?: 'UNIT' | 'HOUR' | 'BATCH'; // Adjust as needed
+    vendor?: string;
+    status?: 'ACTIVE' | 'DRAFT' | 'ARCHIVED';
+    createdAt?: string;
+    createdById?: string;
+    updatedAt?: string;
+}
+export interface PlvMaterial {
+    id: string;
+    itemId?: string;
+    kind: 'SHELF_TALKER' | 'STANDEE' | 'FRIDGE_STICKER' | 'HANGING' | 'GONDOLA' | 'OTHER';
+    purchaseCost?: number;
+    purchaseDate?: string;
+    expectedLifespanMonths?: number;
+    expectedUses?: number;
+    usesCount?: number;
+    status: 'IN_STOCK' | 'INSTALLED' | 'DAMAGED' | 'RETIRED';
+    accountId?: string;
+    installedAt?: string;
+    photoUrl?: string;
+    createdAt?: string;
+    updatedAt?: string;
+}
+export interface PosTacticItem {
+    id: string;
+    catalogCode?: string;
+    description: string;
+    qty?: number;
+    unitCost?: number;
+    actualCost: number;
+    uom?: 'UNIT' | 'HOUR' | 'BATCH';
+    vendor?: string;
+    assetId?: string; // Links to PlvMaterial.id
+    attachments?: string[];
+}
+export interface PosResult {
+    roi?: number;
+    liftPct?: number;
+    upliftUnits?: number;
+    confidence?: 'LOW' | 'MEDIUM' | 'HIGH';
+    revenueAttributed?: number;
+}
+export interface PosTactic {
+    id: string;
+    accountId: string;
+    eventId?: string;
+    interactionId?: string;
+    orderId?: string;
+    tacticCode: string;
+    description?: string;
+    appliesToItemIds?: string[];
+    items: PosTacticItem[];
+    plannedCost?: number;
+    actualCost: number;
+    executionScore: number;
+    status: 'planned' | 'active' | 'closed' | 'cancelled';
+    createdAt: string;
+    createdById: string;
+    updatedAt?: string;
+    result?: PosResult;
+}
 
 export type CodeEntity = 'PRODUCT' | 'ACCOUNT' | 'PARTY' | 'SUPPLIER' | 'LOT' | 'PROD_ORDER' | 'SHIPMENT' | 'GOODS_RECEIPT' | 'LOCATION' | 'PRICE_LIST' | 'PROMOTION';
 
@@ -660,12 +671,6 @@ export interface Incident {
   photos?: string[];
   correctiveActions?: { note: string; at: string; byUserId?: string }[];
   notes?: string;
-}
-
-export type VelocityInput = {
-    itemId: string;
-    qty: number;
-    date: string; // ISO date string
 }
 
 // -----------------------------------------------------------------

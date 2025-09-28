@@ -378,13 +378,13 @@ export default function OnlineCampaignsPage() {
   }
 
   async function handleUpdate(updated: OnlineCampaign) {
-    const next = campaigns.map(c => c.id === updated.id ? { ...updated, updatedAt: new Date().toISOString() } : c);
+    const next = campaigns.map((c: OnlineCampaign) => c.id === updated.id ? { ...updated, updatedAt: new Date().toISOString() } : c);
     await persist(next);
   }
 
   const handleSuccess = (result: {entityId: string, payload: any}) => {
     const { entityId, payload } = result;
-    const next = campaigns.map(c => {
+    const next = campaigns.map((c: OnlineCampaign) => {
         if (c.id !== entityId) return c;
         const ctr = payload.impressions! > 0 ? payload.clicks! / payload.impressions! : 0;
         const cpc = payload.clicks! > 0 ? payload.spend! / payload.clicks! : 0;
@@ -490,7 +490,7 @@ export default function OnlineCampaignsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">
-                {campaigns.map(c => (
+                {campaigns.map((c: OnlineCampaign) => (
                   <CampaignRow
                     key={c.id}
                     campaign={c}

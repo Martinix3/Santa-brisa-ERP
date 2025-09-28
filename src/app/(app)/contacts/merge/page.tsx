@@ -6,7 +6,7 @@ import type { PartyDuplicate, Party, SB_THEME } from '@/domain/ssot';
 import { mergePartyDuplicateAction } from '../actions';
 
 export default function MergeSuggestionsPage(){
-  const { data } = useData() as { data: { partyDuplicates: PartyDuplicate[]; parties: Party[] } };
+  const { data } = useData();
   const partyDuplicates = data?.partyDuplicates || [];
   const parties = data?.parties || [];
   const [isPending, start] = useTransition();

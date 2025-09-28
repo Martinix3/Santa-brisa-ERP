@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { getFirestore, onSnapshot, collection, query, QueryConstraint } from "firebase/firestore";
+import { getFirestore, onSnapshot, collection, query, QueryConstraint, QuerySnapshot, DocumentData } from "firebase/firestore";
 import { firestoreDb } from "@/lib/firebaseClient";
 
 export function useLiveCollection<T = any>(
@@ -17,12 +17,12 @@ export function useLiveCollection<T = any>(
            : build ? (build(col) as any).q
            : query(col);
 
-    const unsub = onSnapshot(q, (snap) => {
+    const unsub = onSnapshot(q, (snap: QuerySnapshot<DocumentData>) => {
       const rows: any[] = [];
-      snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
+      snap.forEach((d: DocumentData) => rows.push({ id: d.id, ...d.data() }));
       setData(rows as T[]);
       setLoading(false);
-    }, (error) => {
+    }, (error: Error) => {
       console.error(`Error fetching collection ${path}:`, error);
       setLoading(false);
     });

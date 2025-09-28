@@ -1,5 +1,3 @@
-
-
 // src/features/accounts/components/AccountsPage.tsx
 
 "use client"
@@ -129,8 +127,8 @@ function AccountBar({ a, party, santaData, onAddActivity, userMap, shortDate }: 
                         <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">Actividad Reciente</h4>
                         <ul className="space-y-1 text-sm text-zinc-700 max-h-40 overflow-y-auto pr-2">
                             {unifiedActivity.length > 0 ? unifiedActivity.slice(0, 5).map((act, i) => {
-                                if ('kind' in act) {
-                                    const int = act as Interaction;
+                                if (act.type === 'interaction') {
+                                    const int = act.data;
                                     const Icon = interactionIcons[int.kind] || History;
                                     return (
                                         <li key={`act_${i}`} className="flex items-start gap-3 text-xs">
@@ -143,8 +141,8 @@ function AccountBar({ a, party, santaData, onAddActivity, userMap, shortDate }: 
                                         </li>
                                     )
                                 }
-                                if ('lines' in act) {
-                                    const order = act as OrderSellOut;
+                                if (act.type === 'order') {
+                                    const order = act.data;
                                     return (
                                         <li key={`act_${i}`} className="flex items-start gap-3 text-xs">
                                             <ShoppingCart className="h-4 w-4 mt-0.5 text-emerald-600 flex-shrink-0" />

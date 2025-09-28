@@ -10,7 +10,7 @@ import { upsertMany } from "@/lib/dataprovider/actions";
 import { FieldPath, FieldValue } from "firebase-admin/firestore";
 import { z } from "zod";
 import { adminDb } from '@/server/firebase';
-import type { Lot as SsotLot, Uom, ProductionOrder, BillOfMaterial as RecipeBom, OnHandView, Item, StockMove, TraceEvent, QcPlan, QcPlanBySku } from '@/domain/ssot';
+import type { Lot as SsotLot, Uom, ProductionOrder, BillOfMaterial as RecipeBom, OnHandView, Item, StockMove, TraceEvent, QcPlanBySku } from '@/domain/ssot';
 import { LotSchema, type Lot } from '@/domain/validators';
 import { explodeBOM } from '@/server/production/bom.service';
 import { findNextLotNumber } from '../warehouse/inventory/actions';
