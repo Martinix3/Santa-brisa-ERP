@@ -1,15 +1,16 @@
-
 // src/features/warehouse/components/NewShipmentDialog.tsx
 
 "use client";
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
 import { Input, Select, SBButton } from '@/components/ui/ui-primitives';
 import type { Shipment, Account, Item, Party, SB_THEME } from '@/domain/ssot';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, Search } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
 
-type NewShipmentPayload = Omit<Shipment, 'id' | 'createdAt' | 'updatedAt'>;
+type NewShipmentPayload = Omit<Shipment, 'id' | 'createdAt' | 'updatedAt'> & {
+    newCustomerName?: string;
+};
 
 interface NewShipmentDialogProps {
     open: boolean;
@@ -19,9 +20,65 @@ interface NewShipmentDialogProps {
     items: Item[];
 }
 
+function AccountSearch({
+    accounts,
+    onSelect,
+    onFreeText,
+}: {
+    accounts: Account[];
+    onSelect: (account: Account) => void;
+    onFreeText: (text: string) => void;
+}) {
+    const [query, setQuery] = useState('');
+    const [suggestions, setSuggestions] = useState<Account[]>([]);
+    
+    useEffect(() => {
+        if (query.length > 1) {
+            const lowerQuery = query.toLowerCase();
+            const filtered = accounts.filter(acc => acc.name.toLowerCase().includes(lowerQuery));
+            setSuggestions(filtered);
+            if(filtered.length === 0) {
+                onFreeText(query);
+            }
+        } else {
+            setSuggestions([]);
+            onFreeText('');
+        }
+    }, [query, accounts, onFreeText]);
+
+    return (
+        <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+            <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Buscar cliente por nombre..."
+            />
+            {suggestions.length > 0 && (
+                <ul className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-48 overflow-auto">
+                    {suggestions.map((acc) => (
+                        <li
+                            key={acc.id}
+                            className="px-3 py-2 cursor-pointer hover:bg-zinc-100"
+                            onMouseDown={() => {
+                                setQuery(acc.name);
+                                onSelect(acc);
+                                setSuggestions([]);
+                            }}
+                        >
+                            {acc.name}
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </div>
+    );
+}
+
 export function NewShipmentDialog({ open, onClose, onSave, accounts, items }: NewShipmentDialogProps) {
     const { data } = useData();
-    const [accountId, setAccountId] = useState('');
+    const [accountId, setAccountId] = useState<string | undefined>();
+    const [newCustomerName, setNewCustomerName] = useState<string | undefined>();
     const [address, setAddress] = useState('');
     const [city, setCity] = useState('');
     const [lines, setLines] = useState<{ itemId: string; qty: number; name: string, uom: 'unit' }[]>([{ itemId: '', qty: 1, name: '', uom: 'unit' }]);
@@ -29,7 +86,8 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, items }: Ne
 
     useEffect(() => {
         if (open) {
-            setAccountId('');
+            setAccountId(undefined);
+            setNewCustomerName(undefined);
             setAddress('');
             setCity('');
             setLines([{ itemId: '', qty: 1, name: '', uom: 'unit' }]);
@@ -37,9 +95,9 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, items }: Ne
         }
     }, [open]);
 
-    const handleAccountChange = (selectedAccountId: string) => {
-        setAccountId(selectedAccountId);
-        const account = accounts.find(a => a.id === selectedAccountId);
+    const handleAccountSelect = (account: Account) => {
+        setAccountId(account.id);
+        setNewCustomerName(undefined);
         const party = data?.parties.find(p => p.id === account?.partyId);
         if (party) {
             const mainAddress = (party.billingAddress ?? undefined);
@@ -49,6 +107,11 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, items }: Ne
             }
         }
     };
+    
+    const handleFreeText = (text: string) => {
+        setAccountId(undefined);
+        setNewCustomerName(text);
+    }
 
     const handleLineChange = (index: number, field: 'itemId' | 'qty', value: string) => {
         const newLines = [...lines];
@@ -68,18 +131,21 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, items }: Ne
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         const account = accounts.find(a => a.id === accountId);
-        if (!account) {
-            alert('Selecciona un cliente válido.');
+
+        if (!account && !newCustomerName) {
+            alert('Selecciona un cliente o introduce un nombre para crearlo.');
             return;
         }
+
         const payload: NewShipmentPayload = {
             orderId: `manual_${Date.now()}`,
-            accountId,
-            partyId: account.partyId,
+            accountId: accountId!,
+            partyId: account?.partyId!,
             mode: 'PARCEL',
             status: 'pending',
             lines,
-            customerName: account.name,
+            customerName: account?.name || newCustomerName!,
+            newCustomerName: newCustomerName && !account ? newCustomerName : undefined,
             addressLine1: address,
             city,
             notes,
@@ -101,10 +167,11 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, items }: Ne
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <label className="grid gap-1.5">
                             <span className="text-sm font-medium">Cliente</span>
-                            <Select value={accountId} onChange={e => handleAccountChange(e.target.value)} required>
-                                <option value="" disabled>Selecciona un cliente</option>
-                                {accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
-                            </Select>
+                             <AccountSearch 
+                                accounts={accounts} 
+                                onSelect={handleAccountSelect} 
+                                onFreeText={handleFreeText} 
+                            />
                         </label>
                         <label className="grid gap-1.5">
                             <span className="text-sm font-medium">Ciudad</span>
