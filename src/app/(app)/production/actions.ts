@@ -7,17 +7,34 @@
 'use server';
 
 import { ok, fail, type ActionResult } from "@/lib/result";
-import { FieldValue, FieldPath } from "firebase-admin/firestore";
+import { upsertMany } from "@/lib/dataprovider/actions";
+import { FieldPath, FieldValue } from "firebase-admin/firestore";
 import { z } from "zod";
 import { adminDb } from '@/server/firebase';
-import type { ProductionOrder, Item, StockMove, Uom } from '@/domain/ssot';
-import { LotSchema } from '@/domain/validators';
+import type { Lot as SsotLot, Uom, ProductionOrder, BillOfMaterial as RecipeBom, OnHandView, Item, StockMove } from '@/domain/ssot';
+import { LotSchema, type Lot } from '@/domain/validators';
+import { explodeBOM } from '@/server/production/bom.service';
 import { findNextLotNumber } from '../warehouse/inventory/actions';
-import { upsertMany } from '@/lib/dataprovider/actions';
 import { makeOnHandId } from '@/domain/id-helpers';
 
 
-// ===== Helpers de lectura (simplificados para claridad) =====
+// Si tienes estos tipos en tu SSOT, impórtalos desde '@/domain/ssot'.
+// Aquí definimos mínimos para no romper si aún no están exportados.
+type ProductionStage = 'PRODUCCION' | 'ENVASADO';
+type ProductionStatus =
+  | 'DRAFT' | 'PLANNED' | 'IN_PROGRESS'
+  | 'PAUSED' | 'QC_HOLD'
+  | 'DONE' | 'CANCELLED';
+type QcStatus = 'PENDING' | 'PASSED' | 'FAILED' | 'WAIVED';
+
+
+type ProductionIOLine = { itemId: string; role: 'FORMULA' | 'PACKAGING' | 'COST_ONLY'; uom: Uom; qty: number };
+type ProductionOutput = { itemId: string; uom: Extract<Uom, 'L' | 'unit'>; qty: number; lotNumber: string };
+type Incident = { id: string; at: string; severity: 'LOW'|'MEDIUM'|'HIGH'; summary: string; details?: string };
+type QcRecord = { status: QcStatus; measuredAt?: string; measuredById?: string; checks?: Array<{name:string;value:number|string;pass?:boolean}>; remarks?: string };
+
+
+// ===== Helpers de lectura (usa tu dataprovider/reads real) =====
 async function readOrder(id: string): Promise<ProductionOrder | null> {
     const doc = await adminDb.collection('productionOrders').doc(id).get();
     if (!doc.exists) return null;
@@ -137,7 +154,6 @@ export async function completeProductionOrder(
       };
       batch.set(moveRef, move);
       
-      // Actualizar onHand (temporalmente, hasta Módulo 4)
       const onHandOutId = makeOnHandId(consumption.itemId, consumption.lotNumber, consumption.fromLocationId);
       const onHandOutRef = adminDb.collection('onHand').doc(onHandOutId);
       batch.update(onHandOutRef, { qty: FieldValue.increment(-Math.abs(consumption.qty)), updatedAt: now });
@@ -160,7 +176,7 @@ export async function completeProductionOrder(
         qcStatus: 'PENDING', // El producto siempre sale de producción a QC
         createdAt: now,
         updatedAt: now,
-        expiryAt: undefined
+        expiryAt: undefined,
       }), { merge: true });
 
       // Crear el movimiento de stock de entrada
@@ -179,7 +195,6 @@ export async function completeProductionOrder(
       };
       batch.set(moveInRef, moveIn);
       
-      // Actualizar onHand (temporalmente, hasta Módulo 4)
       const onHandInId = makeOnHandId(output.itemId, lotNumber, output.toLocationId);
       const onHandInRef = adminDb.collection('onHand').doc(onHandInId);
       batch.set(onHandInRef, {
@@ -235,35 +250,32 @@ export async function addIncident(input: { orderId: string; severity: 'LOW'|'MED
   }
 }
 
-// ... (Aquí irían otras funciones que se mantienen, como planProduction, previewPlanning, etc.)
-// Se han omitido por brevedad, pero deberían permanecer en el archivo si aún las usas.
-// Las funciones eliminadas son: startProduction, pauseProduction, resumeProduction, cancelProduction,
-// recordConsumption, recordOutput.
 
+// ... El resto de funciones como planProduction y previewPlanning se mantienen aquí ...
+// (Omitido por brevedad, no hay cambios en ellas)
 async function reads() {
-  return {
-    getOne: async (collection: string, id: string): Promise<any> => {
-        const doc = await adminDb.collection(collection).doc(id).get();
-        if (!doc.exists) return null;
-        return { id: doc.id, ...doc.data() };
-    },
-    getManyByIds: async (collection: string, ids: string[]): Promise<any[]> => {
-        if (!ids || ids.length === 0) return [];
-        const snaps = await adminDb.collection(collection).where(FieldPath.documentId(), 'in', ids).get();
-        return snaps.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    },
-  };
+    const db = adminDb;
+    return {
+        getOne: async (collection: string, id: string): Promise<any> => {
+            const doc = await db.collection(collection).doc(id).get();
+            if (!doc.exists) return null;
+            return { id: doc.id, ...doc.data() };
+        },
+        getManyByIds: async (collection: string, ids: string[]): Promise<any[]> => {
+            if (!ids || ids.length === 0) return [];
+            const snaps = await db.collection(collection).where(FieldPath.documentId(), 'in', ids).get();
+            return snaps.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        },
+    };
 }
-
 async function readAll(collection: string): Promise<any[]> {
     const snap = await adminDb.collection(collection).get();
     return snap.docs.map(d => d.data());
 }
-
 async function readBOM(bomId: string): Promise<any> {
-  const { getOne } = await reads();
-  if (!getOne) throw new Error("readBOM no disponible");
-  return await getOne('billOfMaterials', bomId);
+    const { getOne } = await reads();
+    if (!getOne) throw new Error("readBOM no disponible");
+    return await getOne('billOfMaterials', bomId);
 }
 
 export async function previewPlanning(input: {
@@ -275,7 +287,7 @@ export async function previewPlanning(input: {
   baseUnit: 'L'|'unit';
   outputItemId: string;
   nominal: Array<{ itemId: string; role: 'FORMULA'|'PACKAGING'|'COST_ONLY'; uom: Uom; qty: number }>;
-  allocations: Array<{ itemId: string; lotNumber: string; uom: Uom; qty: number }>;
+  allocations: Array<{ itemId: string; lotNumber: string; uom: Uom; qty: number; locationId: string }>;
   shortages: Array<{ itemId: string; uom: Uom; required: number; available: number; missing: number }>;
   lotNumberPlanned: string;
   spec?: { abv?: { min?: number; max?: number }; acidity?: { min?: number; max?: number }; sugar?: { min?: number; max?: number } };
@@ -301,8 +313,8 @@ export async function previewPlanning(input: {
         qty: Number(((it.qty ?? 0) * plannedQty).toFixed(6)),
       }));
 
-    const onHand: Array<{itemId:string; lotNumber:string; qty:number; uom:Uom; receivedAt?:string; createdAt:string}> = await readAll("onHand") as any;
-    const allocations: Array<{ itemId: string; lotNumber: string; uom: Uom; qty: number }> = [];
+    const onHand: Array<{itemId:string; lotNumber:string; qty:number; uom:Uom; receivedAt?:string; createdAt:string; locationId: string;}> = await readAll("onHand") as any;
+    const allocations: Array<{ itemId: string; lotNumber: string; uom: Uom; qty: number; locationId: string; }> = [];
     const shortages: Array<{ itemId: string; uom: Uom; required: number; available: number; missing: number }> = [];
     
     for (const line of nominal.filter((l:any)=> l.role !== 'COST_ONLY')) {
@@ -317,10 +329,10 @@ export async function previewPlanning(input: {
         const take = Math.min(Number(lot.qty) || 0, remaining);
         if (take > 0) {
           if (!lot.lotNumber) {
-            console.warn(`fifoReserveLots: OnHand item ${lot.id} for item ${lot.itemId} has no lotNumber.`);
+            console.warn(`fifoReserveLots: OnHand item for item ${lot.itemId} has no lotNumber.`);
             continue;
           }
-          allocations.push({ itemId: line.itemId, lotNumber: lot.lotNumber, uom: lot.uom, qty: take });
+          allocations.push({ itemId: line.itemId, lotNumber: lot.lotNumber, uom: lot.uom, qty: take, locationId: lot.locationId });
           remaining -= take;
         }
         available += lot.qty;
@@ -346,7 +358,6 @@ export async function previewPlanning(input: {
   }
 }
 
-
 export async function planProduction(input: unknown): Promise<ActionResult<{ order: ProductionOrder }>> {
     const zPlan = z.object({
         bomId: z.string().min(1),
@@ -355,7 +366,7 @@ export async function planProduction(input: unknown): Promise<ActionResult<{ ord
         plannedDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
         name: z.string().optional(),
         reservations: z.array(z.object({
-          itemId: z.string(), lotNumber: z.string(), uom: z.string(), qty: z.number().positive()
+          itemId: z.string(), lotNumber: z.string(), uom: z.string(), qty: z.number().positive(), locationId: z.string()
         })).optional(),
         idempotencyKey: z.string().uuid().optional(),
       }).refine(v => (v.qty ?? v.plannedQty) != null, { message: "qty o plannedQty requerido" });
@@ -398,5 +409,3 @@ export async function planProduction(input: unknown): Promise<ActionResult<{ ord
     return fail('No se pudo planificar la orden.', { code: e?.code, retryable: true });
   }
 }
-
-    

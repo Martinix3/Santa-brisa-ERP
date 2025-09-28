@@ -8,7 +8,7 @@ import {
   Play, Pause, CheckCircle, XCircle,
   Factory as FactoryIcon, Calendar, ChevronDown, AlertTriangle
 } from "lucide-react";
-import { SBCard, SBButton } from '@/components/ui/ui-primitives';
+import { SBCard, SBButton, Input, Select } from '@/components/ui/ui-primitives';
 import { useData } from "@/lib/dataprovider";
 import { toast } from "sonner";
 
@@ -24,24 +24,15 @@ import {
   updateProductionOrderStatus,
   completeProductionOrder,
   addIncident,
-  previewPlanning // Assuming previewPlanning is still needed
 } from "../actions";
 
-type LocalProductionOrder = ProductionOrder & {
-  locked?: boolean;
-  theory?: Array<{ itemId: string; qty: number; uom: Uom }>;
-  real?: Array<{ itemId: string; qty: number; uom: Uom; lotNumber?: string }>;
-  journal?: JournalEntry[];
-};
-
+// Tipos locales para el estado del formulario
+type LocalProductionOrder = ProductionOrder & { locked?: boolean; };
 type RealLine = { itemId: string; qty: number; uom: Uom; lotNumber: string; fromLocationId: string; };
-type OutputReal = { itemId: string; qty: number; uom: Uom; lotNumber?: string; sku?:string; toLocationId: string; };
-
-// ==== New State Management ====
+type OutputReal = { itemId: string; qty: number; uom: Uom; lotNumber?: string; sku?: string; toLocationId: string; };
 type ActiveOrderForm = {
     order: LocalProductionOrder | null;
     planningBom: RecipeBom | null;
-    isNew: boolean;
     responsibleId: string;
     finalOutput: OutputReal;
     realConsumption: RealLine[];
@@ -51,7 +42,7 @@ type ActiveOrderForm = {
     protocolChecks: boolean[];
     stockOk: boolean;
     shortages: Array<{ itemId: string; itemName: string; missing: number; uom: Uom }>;
-    requiredLots: Array<{ itemId: string; lotNumber: string; qty: number; uom: string, locationId?: string }>;
+    requiredLots: Array<{ itemId: string; lotNumber: string; qty: number; uom: string; locationId: string }>;
 };
 
 // ---------- Helpers UI ----------
@@ -120,27 +111,26 @@ function computeTheoretical(bom: RecipeBom, qty: number, itemsMap: Map<string, I
   }));
 }
 
-function picksToRealLines(picks: Array<{itemId:string; lotNumber:string; qty:number; uom:string, locationId?: string}>): RealLine[] {
+function picksToRealLines(picks: Array<{itemId:string; lotNumber:string; qty:number; uom:string, locationId: string}>): RealLine[] {
   const bucket = new Map<string, RealLine>();
   for (const p of picks) {
     const k = `${p.itemId}|${p.lotNumber}|${p.uom}`;
-    const cur = bucket.get(k) ?? { itemId: p.itemId, lotNumber: p.lotNumber, qty: 0, uom: p.uom as Uom, fromLocationId: p.locationId || 'RM/MAIN' };
+    const cur = bucket.get(k) ?? { itemId: p.itemId, lotNumber: p.lotNumber, qty: 0, uom: p.uom as Uom, fromLocationId: p.locationId };
     cur.qty = +(cur.qty + Number(p.qty || 0)).toFixed(3);
     bucket.set(k, cur);
   }
   return [...bucket.values()];
 }
 
-// ---------- Panel único: Material | Propuesto | REAL | DIFF ----------
+// ---------- Panel de Disponibilidad ----------
 function StockCheckPanel({
-  bom, qty, items, onHand,
-  onReadyChange, shortagesOut, requiredLotsOut
+  bom, qty, items, onHand, onReadyChange, shortagesOut, requiredLotsOut
 }:{
   bom: RecipeBom; qty: number; items: Item[];
-  onHand: Array<{itemId:string; lotNumber?:string; qty:number; uom:string; receivedAt?:string; createdAt?:string; locationId?: string;}>;
+  onHand: OnHandView[];
   onReadyChange: (ok:boolean)=>void;
   shortagesOut: (s: Array<{itemId:string; itemName:string; missing:number; uom:Uom}>)=>void;
-  requiredLotsOut: (r: Array<{itemId:string; lotNumber:string; qty:number; uom:string, locationId?: string}>)=>void;
+  requiredLotsOut: (r: Array<{itemId:string; lotNumber:string; qty:number; uom:string; locationId: string}>)=>void;
 }) {
   const itemsMap = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
   const theory = useMemo(() => computeTheoretical(bom, qty, itemsMap), [bom, qty, itemsMap]);
@@ -155,7 +145,7 @@ function StockCheckPanel({
       rows.sort((a,b)=> toTime(a.receivedAt || a.createdAt) - toTime(b.receivedAt || b.createdAt));
     }
     const shortages: Array<{itemId:string; itemName:string; missing:number; uom:Uom}> = [];
-    const picks: Array<{itemId:string; lotNumber:string; qty:number; uom:Uom, locationId?: string}> = [];
+    const picks: Array<{itemId:string; lotNumber:string; qty:number; uom:Uom, locationId: string}> = [];
     for (const t of theory) {
       let remain = t.qty;
       const rows = byItem.get(t.itemId) ?? [];
@@ -175,7 +165,7 @@ function StockCheckPanel({
   useEffect(() => {
     onReadyChange(shortages.length === 0);
     shortagesOut(shortages);
-    requiredLotsOut(picks as any);
+    requiredLotsOut(picks);
   }, [shortages, picks, onReadyChange, shortagesOut, requiredLotsOut]);
 
   return (
@@ -214,59 +204,74 @@ function StockCheckPanel({
   );
 }
 
-// ---------- Página ----------
+// ---------- Página Principal (Refactorizada) ----------
 export default function ProductionExecutionPage() {
   const router = useRouter();
   const { data } = useData();
-  const items: Item[] = data?.items ?? [];
-  const onHand: OnHandView[] = data?.onHand ?? [];
-  const recipes: RecipeBom[] = (data?.billOfMaterials ?? []) as any;
-  const ordersRaw: ProductionOrder[] = (data?.productionOrders ?? []) as any;
-  const itemsMap = useMemo(()=> new Map(items.map(i=>[i.id,i])), [items]);
-  const activeOrders = useMemo(() => ordersRaw.filter(o => o.status !== "DONE" && o.status !== "CANCELLED"), [ordersRaw]);
+  const items = data?.items ?? [];
+  const onHand = data?.onHand ?? [];
+  const recipes = (data?.billOfMaterials ?? []) as RecipeBom[];
+  const ordersRaw = (data?.productionOrders ?? []) as ProductionOrder[];
   
-  // ==== Centralized State ====
-  const [activeForm, setActiveForm] = useState<ActiveOrderForm | null>(null);
+  const itemsMap = useMemo(() => new Map(items.map(i => [i.id, i])), [items]);
+  const activeOrders = useMemo(() => ordersRaw.filter(o => o.status !== "DONE" && o.status !== "CANCELLED"), [ordersRaw]);
 
+  // ==== Estado Centralizado y Único ====
+  const [activeForm, setActiveForm] = useState<ActiveOrderForm | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const openPlanningFromBom = (bom: RecipeBom) => {
+  // Función para actualizar el estado de forma segura
+  const setFormValue = useCallback((field: keyof ActiveOrderForm, value: any) => {
+    setActiveForm(form => form ? ({ ...form, [field]: value }) : null);
+  }, []);
+
+  const openPlanningFromBom = useCallback((bom: RecipeBom) => {
     const outputItem = itemsMap.get(bom.outputItemId);
     setActiveForm({
         order: null,
         planningBom: bom,
-        isNew: true,
         responsibleId: "",
-        finalOutput: { itemId: bom.outputItemId, sku: outputItem?.sku, qty: 0, uom: (bom.stage === "ENVASADO" ? "unit" : "L"), toLocationId: 'FG/MAIN' },
+        finalOutput: {
+            itemId: bom.outputItemId,
+            sku: outputItem?.sku,
+            qty: 1, // Cantidad por defecto
+            uom: (bom.stage === "ENVASADO" ? "unit" : "L"),
+            toLocationId: 'FG/MAIN'
+        },
         realConsumption: [],
         journal: [],
         incidentText: "",
         incidentSeverity: 'LOW',
-        protocolChecks: [false,false,false,false],
+        protocolChecks: [false, false, false, false],
         stockOk: false,
         shortages: [],
         requiredLots: [],
     });
-  };
+  }, [itemsMap]);
 
-  const openExecution = (order: ProductionOrder) => {
+  const openExecution = useCallback((order: ProductionOrder) => {
     const outputItem = itemsMap.get(order.outputItemId);
     setActiveForm({
         order: order as LocalProductionOrder,
         planningBom: null,
-        isNew: false,
         responsibleId: (order as any).responsibleId ?? "",
-        finalOutput: (order as any).output?.[0] ?? { itemId: order.outputItemId, sku: outputItem?.sku, qty: 0, uom: "unit", toLocationId: 'FG/MAIN' },
-        realConsumption: ((order as any).actuals ?? []).map((r:any)=>({ ...r, qty: Number(r.qty)||0 })),
+        finalOutput: (order as any).finalOutputs?.[0] ?? {
+            itemId: order.outputItemId,
+            sku: outputItem?.sku,
+            qty: order.targetQuantity,
+            uom: order.baseUnit,
+            toLocationId: 'FG/MAIN'
+        },
+        realConsumption: picksToRealLines((order.reservations as any) || []),
         journal: (order as any).journal ?? [],
         incidentText: "",
         incidentSeverity: 'LOW',
-        protocolChecks: [false,false,false,false],
+        protocolChecks: [false, false, false, false],
         stockOk: true,
-        shortages: [],
-        requiredLots: [],
+        shortages: (order as any).shortages ?? [],
+        requiredLots: (order as any).reservations ?? [],
     });
-  };
+  }, [itemsMap]);
 
   const hasShortagesFor = (o: ProductionOrder) => {
     const bom = recipes.find(b => b.id === (o as any).bomId);
@@ -281,13 +286,13 @@ export default function ProductionExecutionPage() {
   };
   
   const handleUpdateStatus = (status: 'IN_PROGRESS' | 'PAUSED' | 'CANCELLED') => {
-      if(!activeForm?.order) return;
+      if (!activeForm?.order) return;
       if (status === 'CANCELLED' && !confirm('¿Cancelar la orden? Esta acción no se puede deshacer.')) return;
       startTransition(async () => {
           const res = await updateProductionOrderStatus({ orderId: activeForm.order!.id, status, responsibleId: activeForm.responsibleId });
           if(res.ok) {
               toast.success(`Orden ${status === 'CANCELLED' ? 'cancelada' : 'actualizada'}`);
-              setActiveForm(null); // Reset form and let router refresh show updated list
+              setActiveForm(null); // Limpia el formulario
               router.refresh();
           } else {
               toast.error(res.message);
@@ -297,20 +302,25 @@ export default function ProductionExecutionPage() {
 
   const handleFinish = () => {
     if (!activeForm?.order) return;
-    if (!confirm("¿Finalizar y cerrar la orden? Se crearán movimientos de stock. Esta acción no se puede deshacer.")) return;
-    if (activeForm.finalOutput.qty <= 0) { toast.error("La cantidad final debe ser mayor que cero."); return; }
+    if (activeForm.finalOutput.qty <= 0) {
+      toast.error("La cantidad final de producción debe ser mayor a cero.");
+      return;
+    }
+    if (!confirm("¿Finalizar y cerrar la orden? Se crearán movimientos de stock.")) return;
 
-    startTransition(async ()=>{
-      const r = await completeProductionOrder({
+    startTransition(async () => {
+      const res = await completeProductionOrder({
         orderId: activeForm.order!.id,
         finalConsumptions: activeForm.realConsumption,
         finalOutputs: [activeForm.finalOutput]
       });
-      if (r.ok) {
-        toast.success("Orden finalizada");
+      if (res.ok) {
+        toast.success("Orden finalizada con éxito");
         setActiveForm(null);
         router.refresh();
-      } else toast.error(r.message ?? "No se pudo finalizar");
+      } else {
+        toast.error(res.message ?? "No se pudo finalizar la orden");
+      }
     });
   };
 
@@ -323,7 +333,6 @@ export default function ProductionExecutionPage() {
         summary: activeForm.incidentText.trim(),
       });
       if (r.ok) {
-        // No actualizamos estado local, dejamos que refresh lo haga
         setActiveForm(null);
         router.refresh();
         toast.success("Incidencia registrada");
@@ -334,7 +343,7 @@ export default function ProductionExecutionPage() {
   };
   
   const handleProgram = () => {
-    if (!activeForm?.planningBom) return;
+    if (!activeForm?.planningBom || !activeForm.order) return;
     const planQty = (activeForm.order as any)?.targetQuantity ?? 1;
     if (planQty <= 0) { toast.error("La cantidad debe ser mayor que cero."); return; }
 
@@ -355,14 +364,11 @@ export default function ProductionExecutionPage() {
       }
     });
   };
-  
-  const setFormValue = useCallback((field: keyof ActiveOrderForm, value: any) => {
-      setActiveForm(form => form ? ({...form, [field]: value}) : null);
-  }, []);
-  
-  const activeBom = activeForm?.planningBom ?? (activeForm?.order ? (recipes.find(b=> b.id === (activeForm.order as any).bomId) as RecipeBom|undefined) : undefined);
-  const orderIsLocked = activeForm?.order ? isClosedLike(activeForm.order.status) : false;
 
+  // Derivación de estado: siempre se calcula en cada render a partir de la fuente de verdad (`activeForm`)
+  const activeBom = activeForm?.planningBom ?? (activeForm?.order ? recipes.find(b => b.id === (activeForm.order as any).bomId) : undefined);
+  const orderIsLocked = activeForm?.order ? isClosedLike(activeForm.order.status) : false;
+  
   const missingForStart = useMemo(()=>{
     const msgs:string[] = [];
     if (!activeForm?.order) return [];
@@ -373,6 +379,7 @@ export default function ProductionExecutionPage() {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      {/* Columna Izquierda (Listas) */}
       <div className="lg:col-span-3 flex flex-col space-y-4">
         <Collapsible title="Planificar nueva orden" count={recipes.length} defaultOpen>
           <ul className="divide-y">
@@ -418,96 +425,105 @@ export default function ProductionExecutionPage() {
         </Collapsible>
       </div>
 
+      {/* Panel Central y Derecha (Formulario Activo) */}
       <div className="lg:col-span-9 grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 space-y-4">
-          <SBCard title={<><Calendar/><span>Planificación / Ejecución de orden</span></>}>
-            <div className="p-4 space-y-4">
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm space-y-1">
-                <p className="font-bold font-mono text-base">
-                  {activeForm?.order?.orderNumber ?? activeForm?.order?.name ?? activeBom?.name ?? "Nueva orden"}
-                </p>
-                <p><b>Etapa:</b> {(activeBom)?.stage ?? "-"}</p>
-                {activeForm?.order?.status && (<p><b>Status:</b> <Badge tone={mapStatusTone(activeForm.order.status)}>{activeForm.order.status}</Badge></p>)}
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                  <input type="number" className="mt-1 w-full border rounded-md p-2" value={activeForm?.order?.targetQuantity || 1} readOnly={!canEditPlan(activeForm?.order?.status)} onChange={e => setFormValue('order', {...activeForm?.order, targetQuantity: Number(e.target.value) || 0} )} />
-                  <input type="date" className="mt-1 w-full border rounded-md p-2" value={activeForm?.order?.scheduledFor?.slice(0, 10) || new Date().toISOString().slice(0, 10)} readOnly={!canEditPlan(activeForm?.order?.status)} onChange={e => setFormValue('order', {...activeForm?.order, scheduledFor: e.target.value} )} />
-              </div>
-              
-              {activeBom ? (
-                <StockCheckPanel bom={activeBom} qty={activeForm?.order?.targetQuantity || 1} items={items} onHand={onHand}
-                  onReadyChange={(ok) => setFormValue('stockOk', ok)}
-                  shortagesOut={(s) => setFormValue('shortages', s)}
-                  requiredLotsOut={(r) => setFormValue('requiredLots', r)} />
-              ) : (
-                <div className="border rounded-lg p-3 text-sm text-zinc-500">Selecciona una receta u orden.</div>
-              )}
-              
-              <div className="flex justify-end"><button className="text-xs px-2 py-1 rounded border bg-white hover:bg-zinc-50" onClick={() => setFormValue('realConsumption', picksToRealLines(activeForm?.requiredLots || []))} disabled={!activeForm?.requiredLots.length}>Usar propuesta en Consumo REAL</button></div>
-              
-              <div className="flex flex-wrap gap-2 pt-2">
-                {(!activeForm?.order && activeForm?.planningBom) && <SBButton className="bg-blue-600 text-white" onClick={handleProgram} disabled={isPending}><Play size={16}/> Programar producción</SBButton>}
-                {(activeForm?.order && canStart(activeForm.order.status)) && <SBButton className="bg-blue-600 text-white" onClick={() => handleUpdateStatus('IN_PROGRESS')} disabled={isPending || missingForStart.length > 0}><Play size={16}/> Iniciar</SBButton>}
-                {(activeForm?.order && canPause(activeForm.order.status)) && <SBButton className="bg-blue-600 text-white" onClick={() => handleUpdateStatus('PAUSED')} disabled={isPending}><Pause size={16}/> Pausar</SBButton>}
-                {(activeForm?.order && canResume(activeForm.order.status)) && <SBButton className="bg-blue-600 text-white" onClick={() => handleUpdateStatus('IN_PROGRESS')} disabled={isPending}><Play size={16}/> Reanudar</SBButton>}
-                {(activeForm?.order && canFinish(activeForm.order.status)) && <SBButton className="bg-emerald-600 text-white" onClick={handleFinish} disabled={isPending}><CheckCircle size={16}/> Finalizar</SBButton>}
-                {activeForm?.order && <SBButton variant="destructive" onClick={() => handleUpdateStatus('CANCELLED')} disabled={isClosedLike(activeForm?.order?.status) || isPending}><XCircle size={16}/> Cancelar</SBButton>}
-              </div>
-              
-              {(missingForStart.length > 0 && activeForm?.order?.status === 'PLANNED') && (
-                <div className="mt-2 rounded-md border border-rose-200 bg-rose-50 p-2 text-xs space-y-1">
-                  {missingForStart.map((m,i)=><div key={`ms-${i}`}>• {m}</div>)}
+        {!activeForm ? (
+            <div className="lg:col-span-3 flex items-center justify-center h-96 bg-zinc-50 rounded-xl">
+                <p className="text-zinc-500">Selecciona una receta para planificar o una orden activa para ejecutar.</p>
+            </div>
+        ) : (
+            <>
+                {/* Columna Central (2/3) */}
+                <div className="lg:col-span-2 space-y-4">
+                  <SBCard title={<><Calendar/><span>Planificación / Ejecución de orden</span></>}>
+                    <div className="p-4 space-y-4">
+                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm space-y-1">
+                        <p className="font-bold font-mono text-base">
+                          {activeForm?.order?.orderNumber ?? activeForm?.order?.name ?? activeBom?.name ?? "Nueva orden"}
+                        </p>
+                        <p><b>Etapa:</b> {(activeBom)?.stage ?? "-"}</p>
+                        {activeForm?.order?.status && (<p><b>Status:</b> <Badge tone={mapStatusTone(activeForm.order.status)}>{activeForm.order.status}</Badge></p>)}
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                          <Input type="number" className="mt-1 w-full" value={activeForm?.order?.targetQuantity || 1} readOnly={!canEditPlan(activeForm?.order?.status)} onChange={e => setFormValue('order', {...activeForm?.order, targetQuantity: Number(e.target.value) || 0} )} />
+                          <Input type="date" className="mt-1 w-full" value={activeForm?.order?.scheduledFor?.slice(0, 10) || new Date().toISOString().slice(0, 10)} readOnly={!canEditPlan(activeForm?.order?.status)} onChange={e => setFormValue('order', {...activeForm?.order, scheduledFor: e.target.value} )} />
+                      </div>
+                      
+                      {activeBom ? (
+                        <StockCheckPanel bom={activeBom} qty={activeForm.order?.targetQuantity || 1} items={items} onHand={onHand}
+                          onReadyChange={(ok) => setFormValue('stockOk', ok)}
+                          shortagesOut={(s) => setFormValue('shortages', s)}
+                          requiredLotsOut={(r) => setFormValue('requiredLots', r)} />
+                      ) : (
+                        <div className="border rounded-lg p-3 text-sm text-zinc-500">Selecciona una receta u orden.</div>
+                      )}
+                      
+                      <div className="flex justify-end"><button className="text-xs px-2 py-1 rounded border bg-white hover:bg-zinc-50" onClick={() => setFormValue('realConsumption', picksToRealLines(activeForm.requiredLots || []))} disabled={!activeForm.requiredLots.length}>Usar propuesta en Consumo REAL</button></div>
+                      
+                      <div className="flex flex-wrap gap-2 pt-2">
+                        {(!activeForm.order && activeForm.planningBom) && <SBButton className="bg-blue-600 text-white" onClick={handleProgram} disabled={isPending}><Play size={16}/> Programar producción</SBButton>}
+                        {(activeForm.order && canStart(activeForm.order.status)) && <SBButton className="bg-blue-600 text-white" onClick={() => handleUpdateStatus('IN_PROGRESS')} disabled={isPending || missingForStart.length > 0}><Play size={16}/> Iniciar</SBButton>}
+                        {(activeForm.order && canPause(activeForm.order.status)) && <SBButton className="bg-blue-600 text-white" onClick={() => handleUpdateStatus('PAUSED')} disabled={isPending}><Pause size={16}/> Pausar</SBButton>}
+                        {(activeForm.order && canResume(activeForm.order.status)) && <SBButton className="bg-blue-600 text-white" onClick={() => handleUpdateStatus('IN_PROGRESS')} disabled={isPending}><Play size={16}/> Reanudar</SBButton>}
+                        {(activeForm.order && canFinish(activeForm.order.status)) && <SBButton className="bg-emerald-600 text-white" onClick={handleFinish} disabled={isPending}><CheckCircle size={16}/> Finalizar</SBButton>}
+                        {activeForm.order && <SBButton variant="destructive" onClick={() => handleUpdateStatus('CANCELLED')} disabled={isClosedLike(activeForm.order?.status) || isPending}><XCircle size={16}/> Cancelar</SBButton>}
+                      </div>
+                      
+                      {(missingForStart.length > 0 && activeForm.order?.status === 'PLANNED') && (
+                        <div className="mt-2 rounded-md border border-rose-200 bg-rose-50 p-2 text-xs space-y-1">
+                          {missingForStart.map((m,i)=><div key={`ms-${i}`}>• {m}</div>)}
+                        </div>
+                      )}
+                    </div>
+                  </SBCard>
                 </div>
-              )}
-            </div>
-          </SBCard>
-        </div>
-        <div className="lg:col-span-1 space-y-4">
-          <SBCard title="Control de orden">
-            {activeForm && <div className="p-4 space-y-3">
-              <div className="p-3 bg-zinc-50 border rounded-lg text-sm">
-                <div className="font-mono">SKU: <b>{ itemsMap.get(activeForm.finalOutput?.itemId ?? "")?.name ?? "-" }</b></div>
-                <div className="font-mono">LOT: <b>{ activeForm.finalOutput.lotNumber ?? "-" }</b></div>
-              </div>
-              <input className="w-full border rounded-md p-2" placeholder="Nombre responsable" value={activeForm.responsibleId ?? ''} onChange={e=>setFormValue('responsibleId', e.target.value)} readOnly={orderIsLocked} />
-              <div className="grid grid-cols-2 gap-2 text-sm">{activeForm.protocolChecks.map((v,i)=>(<label key={i} className="flex items-center gap-2"><input type="checkbox" checked={v} onChange={()=> setFormValue('protocolChecks', activeForm.protocolChecks.map((c,ci)=> i===ci?!c:c))} disabled={orderIsLocked}/>Protocolos OK</label>))}</div>
-              <div className="grid grid-cols-2 gap-3 mt-2">
-                <input type="number" className="mt-1 w-full border rounded-md p-2" value={activeForm.finalOutput.qty} onChange={e => setFormValue('finalOutput', {...activeForm.finalOutput, qty: Number(e.target.value) || 0})} readOnly={orderIsLocked}/>
-                <input className="mt-1 w-full border rounded-md p-2" placeholder="Ej. LFG-2509-01" value={activeForm.finalOutput.lotNumber ?? ""} onChange={e => setFormValue('finalOutput', {...activeForm.finalOutput, lotNumber: e.target.value})} readOnly={orderIsLocked} />
-              </div>
-            </div>}
-          </SBCard>
-          <SBCard title={<div className="flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-amber-600"/><span>Incidencias</span></div>}>
-            <div className="p-4 space-y-3">
-              <textarea className="w-full border rounded-md p-2 text-sm" rows={3} placeholder="Descripción breve..." value={activeForm?.incidentText || ''} onChange={e=>setFormValue('incidentText', e.target.value)} disabled={!activeForm?.order || orderIsLocked || isPending} />
-              <div className="flex items-center gap-2">
-                <Select value={activeForm?.incidentSeverity || 'LOW'} onChange={e=>setFormValue('incidentSeverity', e.target.value)} disabled={!activeForm?.order || orderIsLocked || isPending}>
-                  <option value="LOW">Baja</option><option value="MEDIUM">Media</option><option value="HIGH">Alta</option>
-                </Select>
-                <SBButton className="bg-amber-600 text-white" onClick={handleAddIncident} disabled={!activeForm?.order || orderIsLocked || isPending || !activeForm?.incidentText.trim()}><AlertTriangle size={16}/> Añadir incidencia</SBButton>
-              </div>
-              <div className="mt-2 border-t pt-2 max-h-40 overflow-y-auto">
-                <ul className="space-y-2">
-                    {(activeForm?.journal || []).filter(j => j.kind === 'INCIDENT').slice().reverse().map((inc) => {
-                      const m = inc.summary?.match(/^\[(LOW|MEDIUM|HIGH)\]\s*(.*)$/i);
-                      const sev = (m?.[1]?.toUpperCase?.() as "LOW"|"MEDIUM"|"HIGH"|undefined) ?? "LOW";
-                      const text = m ? m[2] : inc.summary;
-                      const tone = sev === "HIGH" ? "rose" : sev === "MEDIUM" ? "amber" : "zinc";
-                      return (
-                        <li key={inc.id} className="rounded-md border bg-white p-2">
-                          <div className="flex items-center justify-between"><Badge tone={tone}>{sev}</Badge><span className="text-[10px] text-zinc-500 font-mono">{inc.at ? new Date(inc.at).toLocaleString('es-ES') : ""}</span></div>
-                          <p className="mt-1 text-xs text-zinc-800">{text}</p>
-                        </li>
-                      );
-                    })}
-                </ul>
-              </div>
-            </div>
-          </SBCard>
-        </div>
+                {/* Columna Derecha (1/3) */}
+                <div className="lg:col-span-1 space-y-4">
+                  <SBCard title="Control de orden">
+                    {activeForm && <div className="p-4 space-y-3">
+                      <div className="p-3 bg-zinc-50 border rounded-lg text-sm">
+                        <div className="font-mono">SKU: <b>{ itemsMap.get(activeForm.finalOutput?.itemId ?? "")?.name ?? "-" }</b></div>
+                        <div className="font-mono">LOT: <b>{ activeForm.finalOutput.lotNumber ?? "-" }</b></div>
+                      </div>
+                      <Input placeholder="Nombre responsable" value={activeForm.responsibleId ?? ''} onChange={e=>setFormValue('responsibleId', e.target.value)} readOnly={orderIsLocked} />
+                      <div className="grid grid-cols-2 gap-2 text-sm">{activeForm.protocolChecks.map((v,i)=>(<label key={i} className="flex items-center gap-2"><input type="checkbox" checked={v} onChange={()=> setFormValue('protocolChecks', activeForm.protocolChecks.map((c,ci)=> i===ci?!c:c))} disabled={orderIsLocked}/>Protocolos OK</label>))}</div>
+                      <div className="grid grid-cols-2 gap-3 mt-2">
+                        <Input type="number" value={activeForm.finalOutput.qty} onChange={e => setFormValue('finalOutput', {...activeForm.finalOutput, qty: Number(e.target.value) || 0})} readOnly={orderIsLocked}/>
+                        <Input placeholder="Ej. LFG-2509-01" value={activeForm.finalOutput.lotNumber ?? ""} onChange={e => setFormValue('finalOutput', {...activeForm.finalOutput, lotNumber: e.target.value})} readOnly={orderIsLocked} />
+                      </div>
+                    </div>}
+                  </SBCard>
+                  <SBCard title={<div className="flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-amber-600"/><span>Incidencias</span></div>}>
+                    <div className="p-4 space-y-3">
+                      <textarea className="w-full border rounded-md p-2 text-sm" rows={3} placeholder="Descripción breve..." value={activeForm.incidentText || ''} onChange={e=>setFormValue('incidentText', e.target.value)} disabled={!activeForm.order || orderIsLocked || isPending} />
+                      <div className="flex items-center gap-2">
+                        <Select value={activeForm.incidentSeverity || 'LOW'} onChange={e=>setFormValue('incidentSeverity', e.target.value)} disabled={!activeForm.order || orderIsLocked || isPending}>
+                          <option value="LOW">Baja</option><option value="MEDIUM">Media</option><option value="HIGH">Alta</option>
+                        </Select>
+                        <SBButton className="bg-amber-600 text-white" onClick={handleAddIncident} disabled={!activeForm.order || orderIsLocked || isPending || !activeForm.incidentText.trim()}><AlertTriangle size={16}/> Añadir incidencia</SBButton>
+                      </div>
+                      <div className="mt-2 border-t pt-2 max-h-40 overflow-y-auto">
+                        <ul className="space-y-2">
+                            {(activeForm.journal || []).filter(j => j.kind === 'INCIDENT').slice().reverse().map((inc) => {
+                              const m = inc.summary?.match(/^\[(LOW|MEDIUM|HIGH)\]\s*(.*)$/i);
+                              const sev = (m?.[1]?.toUpperCase?.() as "LOW"|"MEDIUM"|"HIGH"|undefined) ?? "LOW";
+                              const text = m ? m[2] : inc.summary;
+                              const tone = sev === "HIGH" ? "rose" : sev === "MEDIUM" ? "amber" : "zinc";
+                              return (
+                                <li key={inc.id} className="rounded-md border bg-white p-2">
+                                  <div className="flex items-center justify-between"><Badge tone={tone}>{sev}</Badge><span className="text-[10px] text-zinc-500 font-mono">{inc.at ? new Date(inc.at).toLocaleString('es-ES') : ""}</span></div>
+                                  <p className="mt-1 text-xs text-zinc-800">{text}</p>
+                                </li>
+                              );
+                            })}
+                        </ul>
+                      </div>
+                    </div>
+                  </SBCard>
+                </div>
+            </>
+        )}
       </div>
     </div>
   );
 }
-
-    
