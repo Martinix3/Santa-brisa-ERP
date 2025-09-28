@@ -2,8 +2,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { SBCard, SBButton, Input, Select, DataTableSB } from "@/components/ui/ui-primitives";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { SBCard, SBButton, Input, Select, DataTableSB, Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/ui-primitives";
 import { useData } from "@/lib/dataprovider";
 import type { ItemCategory, OnHandView, Lot, Item } from "@/domain/ssot";
 import {
@@ -14,10 +13,9 @@ import {
 import {
   exportReplenishmentCsvServer,
   createManualOnHand,
-  rebuildOnHand,
 } from "./actions";
 import { getLotTraceability as getLotDossierServer } from "@/app/(app)/quality/traceability/actions";
-import { Plus, Download, Search, AlertCircle } from "lucide-react";
+import { Plus, Download, Search, AlertCircle, ChevronDown } from "lucide-react";
 import { QuickGoodsReceiptDialog } from "@/features/warehouse/components/QuickGoodsReceiptDialog";
 import { NewOnHandDialog } from "./components/NewOnHandDialog";
 import { toast } from "sonner";
@@ -103,6 +101,52 @@ function InspectorLot({ lotNumber, dossier }: any) {
   );
 }
 
+
+function SkuAccordionRow({ sku, summary, lots, items, onSelect }: { sku: SkuStockSummary; summary: SkuStockSummary; lots: OnHandView[]; items: Item[]; onSelect: (key: string) => void; }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const item = items.find(i => i.id === sku.itemId);
+
+  return (
+    <div className="border-b last:border-b-0">
+      <div
+        className="grid grid-cols-[auto_2fr_1fr_1fr_1fr_1fr_auto] items-center gap-4 p-3 cursor-pointer hover:bg-zinc-50"
+        onClick={() => setIsOpen(!isOpen)}
+        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && setIsOpen(!isOpen)}
+        role="button"
+        tabIndex={0}
+        aria-expanded={isOpen}
+      >
+        <ChevronDown size={16} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <div onClick={(e)=>{e.stopPropagation(); onSelect(sku.itemId)}}>
+            <p className="font-bold text-sm text-zinc-800">{item?.name || 'Nombre Desconocido'}</p>
+            <p className="font-mono text-xs bg-zinc-100 px-2 py-0.5 rounded-full inline-block mt-1">{item?.sku || sku.itemId}</p>
+        </div>
+        <div className="text-sm font-semibold">{summary.totalReleasedFree}</div>
+        <div className="text-sm font-semibold">{summary.totalOnHold}</div>
+        <div className="text-sm">{summary.earliestExpiryAt ? new Date(summary.earliestExpiryAt).toLocaleDateString('es-ES') : '—'}</div>
+        <div><span className={stockStatusBadgeClass(summary.status)}>{stockStatusLabel(summary.status)}</span></div>
+        <SBButton variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); onSelect(sku.itemId)}}>Ver detalles</SBButton>
+      </div>
+      {isOpen && (
+        <div className="bg-zinc-50/70 p-4 pl-12">
+            <DataTableSB
+                rows={lots}
+                cols={[
+                  { key: "lotNumber", header: "Lote", render: (r: any) => <span className="font-mono text-xs">{r.lotNumber}</span> },
+                  { key: "qty", header: "Cantidad", render: (r:any)=> (<>{r.qty} <span className="text-xs text-zinc-500">{r.uom}</span></>) },
+                  { key: "locationId", header: "Ubicación" },
+                  { key: "expiryAt", header: "Caducidad", render: (r:any)=> r.expiryAt ? new Date(r.expiryAt).toLocaleDateString() : "—" },
+                  { key: 'actions', header: 'Acciones', render: (r:any) => <SBButton size="sm" variant="subtle" onClick={() => { setViewMode('lot'); setSelectedKey(r.lotNumber)}}>Inspeccionar</SBButton> }
+                ]}
+                onRowClick={(r:any)=> { setViewMode('lot'); setSelectedKey(r.lotNumber)}}
+            />
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 export default function InventoryPage() {
   const { data } = useData();
   const onHand = (data?.onHand ?? []) as OnHandView[];
@@ -113,7 +157,7 @@ export default function InventoryPage() {
   const [isPending, startTransition] = useTransition();
   const [globalSearch, setGlobalSearch] = useState("");
   const [locationFilter, setLocationFilter] = useState<string>("ALL");
-  const [onlyWithStock, setOnlyWithStock] = useState<boolean>(false);
+  const [onlyWithStock, setOnlyWithStock] = useState<boolean>(true);
   const [cat, setCat] = useState<ItemCategory>("fg");
   const [viewMode, setViewMode] = useState<"sku" | "lot">("lot");
   const [selectedKey, setSelectedKey] = useState<string | null>(null); // itemId o lotNumber
@@ -175,7 +219,13 @@ export default function InventoryPage() {
   }, [onHand]);
 
   // ───────────────── listas para las tablas
-  const skuRows = useMemo(() => Object.keys(summaries).map(itemId => ({ id: itemId, itemId })), [summaries]);
+  const skusWithLots = useMemo(() => {
+      return Object.values(summaries).map(summary => ({
+          summary,
+          lots: onHandFiltered.filter(lot => lot.itemId === summary.itemId)
+      })).sort((a,b) => (items.find(i => i.id === a.summary.itemId)?.name || '').localeCompare(items.find(i => i.id === b.summary.itemId)?.name || ''));
+  }, [summaries, onHandFiltered, items]);
+
   const lotRows = useMemo(() => onHandFiltered
     .sort((a, b) => (a.lotNumber || '').localeCompare(b.lotNumber || ''))
     .map(r => ({
@@ -191,19 +241,6 @@ export default function InventoryPage() {
       updatedAt: r.updatedAt,
   })), [onHandFiltered, items]);
 
-
-  const skuCols: any[] = [
-    { key: "itemId", header: "SKU" },
-    { key: "released", header: "Disponible", render: (r:any)=> summaries[r.itemId].totalReleasedFree },
-    { key: "hold", header: "Cuarentena", render: (r:any)=> summaries[r.itemId].totalOnHold },
-    { key: "expiry", header: "1ª Caducidad", render: (r:any)=> summaries[r.itemId].earliestExpiryAt ?? "—" },
-    { key: "coverage", header: "Cobertura (d)", render: (r:any)=> (coverage as any)[r.itemId]?.daysCover?.toFixed?.(1) ?? "—" },
-    { key: "status", header: "Estado", render: (r:any)=> {
-      const st = summaries[r.itemId].status as SkuStockSummary["status"];
-      return <span className={stockStatusBadgeClass(st)}>{stockStatusLabel(st)}</span>;
-    }},
-    { key: "replen", header: "Reposición", render: (r:any)=> replen[r.itemId] ?? 0 },
-  ];
 
   const lotCols: any[] = [
     { key: "lotNumber", header: "Lote", render: (r: any) => <span className="font-mono text-xs">{r.lotNumber}</span> },
@@ -224,22 +261,6 @@ export default function InventoryPage() {
     const url = await exportReplenishmentCsvServer(replen);
     const a = document.createElement("a");
     a.href = url; a.download = "replenishment.csv"; a.click();
-  };
-
-  const onRebuildOnHand = () => {
-    startTransition(async () => {
-        try {
-            const result = await rebuildOnHand();
-            if (result.ok) {
-                toast.success(`Inventario reconstruido: ${result.data.count} registros actualizados.`);
-                router.refresh();
-            } else {
-                toast.error(`Error al reconstruir: ${result.message}`);
-            }
-        } catch (e: any) {
-            toast.error(`Error inesperado: ${e.message}`);
-        }
-    });
   };
   
   // ───────────────── dossier lote (inspector)
@@ -292,7 +313,6 @@ export default function InventoryPage() {
           </label>
         </div>
         <div className="flex gap-2">
-          <SBButton variant="outline" className={BTN_OUTLINE} onClick={onRebuildOnHand} disabled={isPending}>Recalcular on-hand</SBButton>
           <SBButton variant="outline" className={BTN_OUTLINE} onClick={onExportReplen}>Exportar</SBButton>
           <SBButton variant="outline" className={BTN_OUTLINE} onClick={() => setOpenReceipt(true)}>Nueva Recepción</SBButton>
           <SBButton className={BTN_SOLID} onClick={() => setOpenNew(true)}>Ajuste Manual</SBButton>
@@ -303,28 +323,28 @@ export default function InventoryPage() {
       <div className="grid grid-cols-1 xl:grid-cols-[320px_minmax(0,1fr)_360px] gap-4">
         {/* Panel Izquierdo: Alertas + Categorías */}
         <div className="space-y-4">
-          <SBCard title="Alertas de Inventario">
+          <SBCard title="Alertas de Inventario" noPadding>
             {(alerts.length === 0 && qcStuck.length === 0 && (audit.inOnHandNotLots.length + audit.inLotsNotOnHand.length) === 0) ? (
               <div className="text-sm text-zinc-500 p-4">Sin alertas</div>
             ) : (
-              <div className="flex flex-wrap gap-2">
-                {alerts.map((a,i)=> <span key={i} className="sb-badge sb-badge--warn">{a.itemId}: {a.message}</span>)}
-                {qcStuck.map(q=> <span key={q.lotNumber} className="sb-badge sb-badge--info">QC {q.itemId}/{q.lotNumber}</span>)}
-                {audit.inOnHandNotLots.length > 0 && <span className="sb-badge sb-badge--danger">Lotes sin onHand: {audit.inOnHandNotLots.length}</span>}
-                {audit.inLotsNotOnHand.length > 0 && <span className="sb-badge sb-badge--danger">Lotes sin onHand: {audit.inLotsNotOnHand.length}</span>}
+              <div className="p-2 space-y-1">
+                {alerts.map((a,i)=> <div key={i} className="text-xs p-1.5 rounded-md bg-amber-50 text-amber-800 flex items-center gap-2"><AlertCircle size={14}/> {a.itemId}: {a.message}</div>)}
+                {qcStuck.map(q=> <div key={q.lotNumber} className="text-xs p-1.5 rounded-md bg-blue-50 text-blue-800 flex items-center gap-2"><AlertCircle size={14}/> QC {q.itemId}/{q.lotNumber}</div>)}
+                {audit.inOnHandNotLots.length > 0 && <div className="text-xs p-1.5 rounded-md bg-red-50 text-red-800 flex items-center gap-2"><AlertCircle size={14}/> Lotes sin onHand: {audit.inOnHandNotLots.length}</div>}
+                {audit.inLotsNotOnHand.length > 0 && <div className="text-xs p-1.5 rounded-md bg-red-50 text-red-800 flex items-center gap-2"><AlertCircle size={14}/> onHand sin Lote: {audit.inLotsNotOnHand.length}</div>}
               </div>
             )}
           </SBCard>
 
-          <SBCard title="Categorías">
+          <SBCard title="Categorías" noPadding>
              <div className="p-2 flex flex-wrap gap-2">
               {CATEGORY_ORDER.map(c => (
                 <button
                   key={c.value}
                   onClick={()=>setCat(c.value)}
-                  className={`sb-badge ${cat===c.value ? 'sb-badge--info' : ''}`}
+                  className={`px-2 py-1 text-xs rounded-md border transition-colors ${cat===c.value ? 'bg-zinc-800 text-white border-zinc-800' : 'bg-white hover:bg-zinc-50'}`}
                 >
-                  {c.label} <span className="ml-1 rounded bg-black/10 px-1 text-[11px]">{countsByCat[c.value] ?? 0}</span>
+                  {c.label} <span className="ml-1 rounded bg-black/10 px-1 text-[10px]">{countsByCat[c.value] ?? 0}</span>
                 </button>
               ))}
             </div>
@@ -334,7 +354,7 @@ export default function InventoryPage() {
         {/* Panel Central: Tabla + tabs de vista */}
         <div className="space-y-4">
           <SBCard title="Inventario" noPadding>
-              <Tabs value={viewMode} onValueChange={(v: string) => setViewMode(v as any)}>
+              <Tabs value={viewMode} onValueChange={(v: string) => { setViewMode(v as any); setSelectedKey(null); }}>
                 <div className="flex justify-between items-center p-4">
                   <TabsList className="relative">
                     <TabsTrigger value="lot" className="data-[state=active]:text-[color:var(--sb-accent)]">Por Lote</TabsTrigger>
@@ -347,7 +367,20 @@ export default function InventoryPage() {
                   {lotRows.length === 0 ? <Empty hint="No hay lotes que cumplan los filtros." /> : <DataTableSB rows={lotRows} cols={lotCols} onRowClick={(r:any)=> setSelectedKey(r.lotNumber)} />}
                 </TabsContent>
                 <TabsContent value="sku">
-                  {skuRows.length === 0 ? <Empty hint="No hay stock agrupado por SKU para esta vista." /> : <DataTableSB rows={skuRows} cols={skuCols} onRowClick={(r:any)=> setSelectedKey(r.itemId)} />}
+                  <div className="divide-y">
+                     <div className="grid grid-cols-[auto_2fr_1fr_1fr_1fr_1fr_auto] items-center gap-4 p-3 bg-zinc-50 text-xs font-semibold uppercase text-zinc-500 tracking-wider">
+                        <div/>
+                        <span>Producto</span>
+                        <span>Disp.</span>
+                        <span>En QC</span>
+                        <span>Cad. Próx.</span>
+                        <span>Estado</span>
+                        <div/>
+                    </div>
+                    {skusWithLots.length === 0 ? <Empty hint="No hay stock agrupado por SKU para esta vista." /> : (
+                        skusWithLots.map(s => <SkuAccordionRow key={s.summary.itemId} sku={s.summary} summary={s.summary} lots={s.lots} items={items} onSelect={setSelectedKey} />)
+                    )}
+                  </div>
                 </TabsContent>
               </Tabs>
           </SBCard>
