@@ -74,11 +74,11 @@ export async function createSupplier(payload: { name: string; taxId?: string }):
     return newParty;
 }
 
-export async function createItem(payload: { name: string; sku?: string; uom: Uom; categoryId?: string; stdCost?: number }): Promise<Item> {
-    const { name, sku, uom, categoryId, stdCost } = payload;
+export async function createItem(payload: { name: string; sku?: string; uom: Uom; category?: ItemCategory; stdCost?: number }): Promise<Item> {
+    const { name, sku, uom, category, stdCost } = payload;
     const itemsSnap = await db.collection('items').get();
     const existingSkus = itemsSnap.docs.map(d => d.data().sku).filter(Boolean);
-    const catCode = categoryId || 'raw';
+    const catCode = category || 'raw';
 
     const itemRef = db.collection('items').doc();
     const newItem: Item = {
@@ -86,7 +86,7 @@ export async function createItem(payload: { name: string; sku?: string; uom: Uom
         name,
         sku: sku || makeSku(name, catCode, existingSkus),
         uom,
-        category: catCode as ItemCategory,
+        category: catCode,
         stdCost: stdCost || 0,
         active: true,
     };
@@ -104,8 +104,8 @@ export async function createGoodsReceipt(payload: {
     supplierLot: string;
     qty: number;
     uom: Uom;
-    unitCost: number;
-    locationId: string;
+    unitCost?: number;
+    locationId?: string;
     expiryAt?: string | null;
   }>;
 }) {
@@ -124,7 +124,7 @@ export async function createGoodsReceipt(payload: {
   const receiptRef = db.collection('goodsReceipts').doc();
 
   const itemIds = lines.map(l => l.itemId);
-  const itemsSnap = await db.collection('items').where('id', 'in', itemIds).get();
+  const itemsSnap = await db.collection('items').where(FieldPath.documentId(), 'in', itemIds).get();
   const itemsById = new Map(itemsSnap.docs.map(d => [d.id, d.data() as Item]));
 
   const finalLines: GoodsReceipt['lines'] = [];

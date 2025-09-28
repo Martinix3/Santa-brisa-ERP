@@ -1,4 +1,3 @@
-
 // src/app/(app)/warehouse/dashboard/page.tsx
 
 "use client";
@@ -91,7 +90,9 @@ function SamplesSentCard({ shipments, stockMoves, accounts }: { shipments: Shipm
 }
 
 
-function WarehouseDashboardContent({ onHand, shipments, stockMoves, accounts }: { onHand: OnHandView[], shipments: Shipment[], stockMoves: StockMove[], accounts: Account[] }) {
+function WarehouseDashboardContent() {
+    const { data } = useData();
+    const { onHand = [], shipments = [], stockMoves = [], accounts = [] } = data || {};
     const [openReceipt, setOpenReceipt] = useState(false);
 
     const kpis = useMemo(() => {
@@ -154,7 +155,7 @@ function WarehouseDashboardContent({ onHand, shipments, stockMoves, accounts }: 
                  <div className="space-y-6">
                      <button onClick={() => setOpenReceipt(true)} className="w-full flex items-center justify-center gap-2 p-4 rounded-xl border-2 border-dashed border-zinc-300 text-zinc-600 hover:bg-white hover:border-zinc-400 transition-colors">
                         <Plus size={18}/>
-                        <span className="font-semibold">Nueva Entrada de Mercancía</span>
+                        <span className="font-semibold">Nueva Entrada Rápida</span>
                      </button>
                      <UpcomingTasks department="ALMACEN" />
                      <SBCard title="Alertas de Stock Bajo">
@@ -234,22 +235,13 @@ function AIInsightsCard() {
 export default function Dashboard() {
     const { data: santaData } = useData();
 
-    const { onHand, shipments, stockMoves, accounts } = useMemo(() => {
-        return {
-            onHand: santaData?.onHand || [],
-            shipments: santaData?.shipments || [],
-            stockMoves: santaData?.stockMoves || [],
-            accounts: santaData?.accounts || [],
-        };
-    }, [santaData]);
-
     if (!santaData) {
         return <div className="p-6 text-center">Cargando datos de almacén...</div>;
     }
     
     return (
         <div className="space-y-6">
-            <WarehouseDashboardContent onHand={onHand} shipments={shipments} stockMoves={stockMoves} accounts={accounts} />
+            <WarehouseDashboardContent />
             <div className="pt-6">
                 <AIInsightsCard />
             </div>
