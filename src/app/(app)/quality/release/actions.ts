@@ -1,4 +1,4 @@
-// src/app/(app)/quality/actions.ts
+// src/app/(app)/quality/release/actions.ts
 'use server';
 
 import { adminDb as db } from '@/server/firebase';
