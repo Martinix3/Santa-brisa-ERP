@@ -1,11 +1,11 @@
 
-// src/app/(app)/production/execution/page.tsx
 "use client";
 
-import React, { useMemo, useState, useTransition, useEffect } from "react";
+import React, { useMemo, useState, useTransition, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import {
   Play, Pause, CheckCircle, XCircle,
-  Factory as FactoryIcon, Calendar, ChevronDown
+  Factory as FactoryIcon, Calendar, ChevronDown, AlertTriangle
 } from "lucide-react";
 import { SBCard, SBButton } from '@/components/ui/ui-primitives';
 import { useData } from "@/lib/dataprovider";
@@ -13,7 +13,7 @@ import { toast } from "sonner";
 
 // Tipos SSOT (no asumimos campos que no existan realmente en ProductionOrder)
 import type {
-  Uom, Item, Lot, ProductionOrder, BillOfMaterial as RecipeBom, ProductionStatus, OnHandView
+  Uom, Item, ProductionOrder, BillOfMaterial as RecipeBom, ProductionStatus, OnHandView
 } from "@/domain/ssot";
 import { JournalEntry } from "@/domain/ssot.common";
 
@@ -35,7 +35,6 @@ type LocalProductionOrder = ProductionOrder & {
   journal?: JournalEntry[];
 };
 
-
 // ---------- Helpers UI ----------
 function Badge({ children, tone = "zinc" }:{
   children: React.ReactNode; tone?: "zinc"|"sky"|"amber"|"rose"|"emerald";
@@ -51,12 +50,11 @@ function Badge({ children, tone = "zinc" }:{
 }
 
 const mapStatusTone = (s?: ProductionStatus): "emerald" | "amber" | "rose" | "zinc" => {
-    if (s === "DONE") return "emerald";
-    if (s === "CANCELLED") return "zinc";
-    if (s === "PAUSED" || s === "QC_HOLD") return "rose";
-    return "amber";
+  if (s === "DONE") return "emerald";
+  if (s === "CANCELLED") return "zinc";
+  if (s === "PAUSED" || s === "QC_HOLD") return "rose";
+  return "amber";
 };
-
 
 function Collapsible({ title, count, defaultOpen = true, children }:{
   title: string; count?: number; defaultOpen?: boolean; children: React.ReactNode;
@@ -80,17 +78,20 @@ function Collapsible({ title, count, defaultOpen = true, children }:{
 
 // ---------- Estado / Reglas ----------
 const canEditPlan = (s?: ProductionStatus) => s === "PLANNED" || s == null;
-const canEditReal = (s?: ProductionStatus) => s === "PLANNED" || s === "IN_PROGRESS" || s === "PAUSED";
 const canStart    = (s?: ProductionStatus) => s === "PLANNED";
 const canPause    = (s?: ProductionStatus) => s === "IN_PROGRESS";
 const canResume   = (s?: ProductionStatus) => s === "PAUSED";
 const canFinish   = (s?: ProductionStatus) => s === "IN_PROGRESS" || s === "PAUSED";
 const isClosedLike = (s?: ProductionStatus) => s === "DONE" || s === "CANCELLED";
 
-
-// ---------- Cálculos ----------
+// ---------- Cálculos y helpers ----------
 type RealLine = { itemId: string; qty: number; uom: Uom; lotNumber?: string };
 type OutputReal = { qty: number; uom: Uom; lotNumber?: string };
+
+const toTime = (s?: string) => {
+  const t = s ? Date.parse(s) : NaN;
+  return Number.isFinite(t) ? t : 0;
+};
 
 function computeTheoretical(bom: RecipeBom, qty: number, itemsMap: Map<string, Item>) {
   const lines = (bom.items || []).filter((l:any) => (l.role ?? "FORMULA") !== "COST_ONLY");
@@ -102,29 +103,39 @@ function computeTheoretical(bom: RecipeBom, qty: number, itemsMap: Map<string, I
   }));
 }
 
+function picksToRealLines(picks: Array<{itemId:string; lotNumber:string; qty:number; uom:string}>): RealLine[] {
+  const bucket = new Map<string, RealLine>();
+  for (const p of picks) {
+    const k = `${p.itemId}|${p.lotNumber}|${p.uom}`;
+    const cur = bucket.get(k) ?? { itemId: p.itemId, lotNumber: p.lotNumber, qty: 0, uom: p.uom as Uom };
+    cur.qty = +(cur.qty + Number(p.qty || 0)).toFixed(3);
+    bucket.set(k, cur);
+  }
+  return [...bucket.values()];
+}
+
 // ---------- Panel único: Material | Propuesto | REAL | DIFF ----------
 function StockCheckPanel({
   bom, qty, items, onHand,
   onReadyChange, shortagesOut, requiredLotsOut
 }:{
   bom: RecipeBom; qty: number; items: Item[];
-  onHand: Array<{itemId:string; lotNumber?:string; qty:number; uom:string; receivedAt?:string; createdAt?:string}>;
+  onHand: Array<{itemId:string; lotNumber?:string; qty:number; uom:string; receivedAt?:string; createdAt?:string; locationId?: string;}>;
   onReadyChange: (ok:boolean)=>void;
   shortagesOut: (s: Array<{itemId:string; itemName:string; missing:number; uom:Uom}>)=>void;
   requiredLotsOut: (r: Array<{itemId:string; lotNumber:string; qty:number; uom:string}>)=>void;
 }) {
   const itemsMap = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
   const theory = useMemo(() => computeTheoretical(bom, qty, itemsMap), [bom, qty, itemsMap]);
-  
+
   const { shortages, picks } = useMemo(() => {
-    // asigna desde onHand por FIFO
     const byItem = new Map<string, any[]>();
     for (const r of onHand) {
       if (!byItem.has(r.itemId)) byItem.set(r.itemId, []);
       byItem.get(r.itemId)!.push(r);
     }
     for (const rows of byItem.values()) {
-      rows.sort((a,b)=> new Date(a.receivedAt||a.createdAt||0).getTime() - new Date(b.receivedAt||b.createdAt||0).getTime());
+      rows.sort((a,b)=> toTime(a.receivedAt || a.createdAt) - toTime(b.receivedAt || b.createdAt));
     }
     const shortages: Array<{itemId:string; itemName:string; missing:number; uom:Uom}> = [];
     const picks: Array<{itemId:string; lotNumber:string; qty:number; uom:Uom}> = [];
@@ -133,10 +144,10 @@ function StockCheckPanel({
       const rows = byItem.get(t.itemId) ?? [];
       for (const r of rows) {
         if (remain <= 0) break;
-        const take = Math.min(r.qty ?? 0, remain);
+        const take = Math.min(Number(r.qty) || 0, remain);
         if (take > 0 && r.lotNumber) {
           picks.push({ itemId: t.itemId, lotNumber: r.lotNumber, qty: +take.toFixed(3), uom: t.uom });
-          remain -= take;
+          remain = +(remain - take).toFixed(3);
         }
       }
       if (remain > 1e-6) shortages.push({ itemId: t.itemId, itemName: itemsMap.get(t.itemId)?.name ?? t.itemId, missing: +remain.toFixed(3), uom: t.uom });
@@ -150,11 +161,18 @@ function StockCheckPanel({
     requiredLotsOut(picks as any);
   }, [shortages, picks, onReadyChange, shortagesOut, requiredLotsOut]);
 
-
   return (
     <div className="border rounded-lg p-3 bg-zinc-50">
       <h4 className="text-sm font-semibold mb-3">Disponibilidad y lotes de insumo</h4>
-       <div className="text-xs">
+
+      {/* Banner de faltantes */}
+      {shortages.length > 0 && (
+        <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 p-2 text-xs">
+          <b>Faltantes:</b> {shortages.map(s => `${s.itemName}: ${s.missing} ${s.uom}`).join(" · ")}
+        </div>
+      )}
+
+      <div className="text-xs">
         <div className="grid grid-cols-[1fr,90px,90px] font-semibold mb-1">
           <span>Material</span><span className="text-right">Req.</span><span className="text-right">Propuesto</span>
         </div>
@@ -185,6 +203,7 @@ function StockCheckPanel({
 
 // ---------- Página ----------
 export default function ProductionExecutionPage() {
+  const router = useRouter();
   const { data } = useData();
   const items: Item[] = data?.items ?? [];
   const onHand: OnHandView[] = data?.onHand ?? [];
@@ -208,16 +227,18 @@ export default function ProductionExecutionPage() {
   const [shortages, setShortages] = useState<Array<{itemId:string; itemName:string; missing:number; uom:Uom}>>([]);
   const [requiredLots, setRequiredLots] = useState<Array<{itemId:string; lotNumber:string; qty:number; uom:string}>>([]);
 
-
   // Reales
   const [realConsumption, setRealConsumption] = useState<RealLine[]>([]);
   const [outputReal, setOutputReal] = useState<OutputReal>({ qty: 0, uom: "unit" as Uom });
   const [journal, setJournal] = useState<JournalEntry[]>([]);
 
-
   // Control básico
   const [responsible, setResponsible] = useState("");
   const [protocolChecks, setProtocolChecks] = useState([false,false,false,false]);
+
+  // Incidencias (panel nuevo)
+  const [incidentText, setIncidentText] = useState("");
+  const [incidentSeverity, setIncidentSeverity] = useState<"LOW"|"MEDIUM"|"HIGH">("LOW");
 
   // Loading states
   const [isPendingProgram, startProgramTransition] = useTransition();
@@ -225,7 +246,6 @@ export default function ProductionExecutionPage() {
   const [isPendingFinish, startFinishTransition] = useTransition();
   const [isPendingOther, startOtherTransition] = useTransition();
   const isPendingAny = isPendingProgram || isPendingStart || isPendingFinish || isPendingOther;
-
 
   // Aperturas
   const openPlanningFromBom = (bom: RecipeBom) => {
@@ -238,6 +258,7 @@ export default function ProductionExecutionPage() {
     setResponsible("");
     setProtocolChecks([false,false,false,false]);
     setJournal([]);
+    setIncidentText("");
   };
 
   const openExecution = (order: ProductionOrder) => {
@@ -251,6 +272,7 @@ export default function ProductionExecutionPage() {
     setResponsible((order as any).responsibleId ?? "");
     setProtocolChecks([false,false,false,false]);
     setJournal((order as any).journal ?? []);
+    setIncidentText("");
   };
 
   // Shortages (para “‼️”)
@@ -259,7 +281,10 @@ export default function ProductionExecutionPage() {
     if (!bom) return false;
     const theory = computeTheoretical(bom, ((o as any).targetQuantity ?? 1), itemsMap);
     const byItem = new Map<string, number>();
-    (onHand as any[]).forEach(r => byItem.set(r.itemId, (byItem.get(r.itemId) ?? 0) + (r.qty ?? 0)));
+    (onHand as any[]).forEach(r => {
+      const q = Number(r.qty) || 0;
+      byItem.set(r.itemId, +(((byItem.get(r.itemId) ?? 0) + q).toFixed(3)));
+    });
     return theory.some(t => (byItem.get(t.itemId) ?? 0) + 1e-6 < t.qty);
   };
 
@@ -288,6 +313,11 @@ export default function ProductionExecutionPage() {
   }, [currentOrder, outputReal]);
 
   // Actions
+  const applyProposalToReal = useCallback(() => {
+    setRealConsumption(picksToRealLines(requiredLots));
+    toast.success("Propuesta aplicada al consumo real");
+  }, [requiredLots]);
+
   const handleProgram = () => {
     if (!planningBom) return;
     if (missingForProgram.length) { toast.error("Revisa avisos para programar."); return; }
@@ -300,8 +330,9 @@ export default function ProductionExecutionPage() {
         idempotencyKey: crypto.randomUUID()
       });
       if ((r as any)?.ok) {
-        toast.success("Orden planificada. Refrescando datos…");
+        toast.success("Orden planificada");
         setPlanningBom(null);
+        router.refresh();
       } else {
         toast.error((r as any)?.message ?? "No se pudo planificar");
       }
@@ -316,6 +347,7 @@ export default function ProductionExecutionPage() {
       if ((r as any)?.ok) {
         toast.success("Producción iniciada");
         setCurrentOrder({ ...currentOrder, status: "IN_PROGRESS" as ProductionStatus });
+        router.refresh();
       } else toast.error((r as any)?.message ?? "Error al iniciar");
     });
   };
@@ -327,6 +359,7 @@ export default function ProductionExecutionPage() {
       if ((r as any)?.ok) {
         toast.message("Producción en pausa");
         setCurrentOrder({ ...currentOrder, status: "PAUSED" as ProductionStatus });
+        router.refresh();
       } else toast.error((r as any)?.message ?? "No se pudo pausar");
     });
   };
@@ -338,6 +371,7 @@ export default function ProductionExecutionPage() {
       if ((r as any)?.ok) {
         toast.success("Producción reanudada");
         setCurrentOrder({ ...currentOrder, status: "IN_PROGRESS" as ProductionStatus });
+        router.refresh();
       } else toast.error((r as any)?.message ?? "No se pudo reanudar");
     });
   };
@@ -356,6 +390,7 @@ export default function ProductionExecutionPage() {
       if ((r as any)?.ok) {
         toast.success("Orden finalizada");
         setCurrentOrder({ ...currentOrder, status: "DONE" as ProductionStatus });
+        router.refresh();
       } else toast.error((r as any)?.message ?? "No se pudo finalizar");
     });
   };
@@ -368,22 +403,31 @@ export default function ProductionExecutionPage() {
       if ((r as any)?.ok) {
         toast.success("Orden cancelada");
         setCurrentOrder(null);
+        router.refresh();
       } else toast.error((r as any)?.message ?? "No se pudo cancelar");
     });
   };
 
-  const handleAddJournal = async (text: string) => {
+  const handleAddIncident = async () => {
     if (!currentOrder) return;
-    // Esto debería ser una server action también
-    const newEntry: JournalEntry = { id: `j_${Date.now()}`, at: new Date().toISOString(), kind: 'NOTE', summary: text };
-    setJournal(j => [...j, newEntry]);
-  };
-  const handleAddIncident = async (text: string) => {
-    if (!currentOrder) return;
+    const text = incidentText.trim();
+    if (!text) { toast.error("Describe la incidencia."); return; }
     startOtherTransition(async () => {
-      const r = await addIncident({ orderId: currentOrder.id, severity: "LOW", summary: text, idempotencyKey: crypto.randomUUID() });
+      const r = await addIncident({
+        orderId: currentOrder.id,
+        severity: incidentSeverity,
+        summary: text,
+        idempotencyKey: crypto.randomUUID()
+      });
       if ((r as any).ok) {
-        setJournal(j => [...j, { id: `inc_${(r as any).incidentId}`, at: new Date().toISOString(), kind: 'INCIDENT', summary: text } as JournalEntry]);
+        // Añadimos al journal para reflejo inmediato
+        setJournal(j => [
+          ...j,
+          { id: `inc_${(r as any).incidentId ?? Date.now()}`, at: new Date().toISOString(), kind: 'INCIDENT', summary: `[${incidentSeverity}] ${text}` } as JournalEntry
+        ]);
+        setIncidentText("");
+        toast.success("Incidencia registrada");
+        router.refresh();
       } else {
         toast.error((r as any).message ?? 'Error al añadir incidencia');
       }
@@ -392,6 +436,10 @@ export default function ProductionExecutionPage() {
 
   // Render
   const activeBom = planningBom ?? (currentOrder ? (recipes.find(b=> b.id === (currentOrder as any).bomId) as RecipeBom|undefined) : undefined);
+
+  // Derivados panel incidencias
+  const incidentEntries = (journal ?? []).filter(j => j.kind === 'INCIDENT');
+  const orderIsLocked = isClosedLike(currentOrder?.status);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -493,6 +541,17 @@ export default function ProductionExecutionPage() {
                 <div className="border rounded-lg p-3 text-sm text-zinc-500">Selecciona una receta u orden.</div>
               )}
 
+              {/* Volcar propuesta a REAL */}
+              <div className="flex items-center justify-end">
+                <button
+                  className="text-xs px-2 py-1 rounded border bg-white hover:bg-zinc-50"
+                  onClick={applyProposalToReal}
+                  disabled={requiredLots.length === 0}
+                >
+                  Usar propuesta en Consumo REAL
+                </button>
+              </div>
+
               {/* Botonera azul (estado) */}
               <div className="flex flex-wrap gap-2 pt-2">
                 {(!currentOrder && planningBom) && (
@@ -526,11 +585,20 @@ export default function ProductionExecutionPage() {
                   </SBButton>
                 )}
               </div>
+
+              {/* Avisos contextuales */}
+              {(missingForProgram.length || missingForStart.length || missingForFinish.length) > 0 && (
+                <div className="mt-2 rounded-md border border-rose-200 bg-rose-50 p-2 text-xs space-y-1">
+                  {missingForProgram.map((m,i)=><div key={`mp-${i}`}>• {m}</div>)}
+                  {missingForStart.map((m,i)=><div key={`ms-${i}`}>• {m}</div>)}
+                  {missingForFinish.map((m,i)=><div key={`mf-${i}`}>• {m}</div>)}
+                </div>
+              )}
             </div>
           </SBCard>
         </div>
 
-        {/* Derecha: panel simple (responsable + checks) */}
+        {/* Derecha: control + incidencias */}
         <div className="lg:col-span-1 space-y-4">
           <SBCard title="Control de orden">
             <div className="p-4 space-y-3">
@@ -548,6 +616,7 @@ export default function ProductionExecutionPage() {
                 readOnly={isClosedLike(currentOrder?.status)}
               />
 
+              {/* Checks de protocolos */}
               <div className="grid grid-cols-2 gap-2 text-sm">
                 {protocolChecks.map((v,i)=>(
                   <label key={i} className="flex items-center gap-2">
@@ -563,9 +632,100 @@ export default function ProductionExecutionPage() {
                   </label>
                 ))}
               </div>
+
+              {/* Edición de salida real */}
+              <div className="grid grid-cols-2 gap-3 mt-2">
+                <div>
+                  <label className="text-xs font-medium">Salida (qty)</label>
+                  <input
+                    type="number"
+                    className="mt-1 w-full border rounded-md p-2"
+                    value={outputReal.qty}
+                    onChange={e => setOutputReal(o => ({ ...o, qty: Number(e.target.value) || 0 }))}
+                    readOnly={isClosedLike(currentOrder?.status)}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium">Lote final</label>
+                  <input
+                    className="mt-1 w-full border rounded-md p-2"
+                    placeholder="Ej. LFG-2509-01"
+                    value={outputReal.lotNumber ?? ""}
+                    onChange={e => setOutputReal(o => ({ ...o, lotNumber: e.target.value }))}
+                    readOnly={isClosedLike(currentOrder?.status)}
+                  />
+                </div>
+              </div>
             </div>
           </SBCard>
 
+          {/* ====== Panel de Incidencias ====== */}
+          <SBCard title={<div className="flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-amber-600"/><span>Incidencias</span></div>}>
+            <div className="p-4 space-y-3">
+              {/* Alta de incidencia */}
+              <div className="space-y-2">
+                <label className="text-xs font-medium">Nueva incidencia</label>
+                <textarea
+                  className="w-full border rounded-md p-2 text-sm"
+                  rows={3}
+                  placeholder="Descripción breve (qué, dónde, por qué, impacto)"
+                  value={incidentText}
+                  onChange={e=>setIncidentText(e.target.value)}
+                  disabled={!currentOrder || orderIsLocked || isPendingAny}
+                />
+                <div className="flex items-center gap-2">
+                  <select
+                    className="border rounded-md p-2 text-xs"
+                    value={incidentSeverity}
+                    onChange={e=>setIncidentSeverity(e.target.value as any)}
+                    disabled={!currentOrder || orderIsLocked || isPendingAny}
+                  >
+                    <option value="LOW">Baja</option>
+                    <option value="MEDIUM">Media</option>
+                    <option value="HIGH">Alta</option>
+                  </select>
+                  <SBButton
+                    className="bg-amber-600 text-white"
+                    onClick={handleAddIncident}
+                    disabled={!currentOrder || orderIsLocked || isPendingAny || !incidentText.trim()}
+                  >
+                    <AlertTriangle size={16}/> Añadir incidencia
+                  </SBButton>
+                </div>
+              </div>
+
+              {/* Listado de incidencias */}
+              <div className="mt-2 border-t pt-2">
+                {incidentEntries.length === 0 ? (
+                  <p className="text-xs text-zinc-500">No hay incidencias registradas.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {incidentEntries.slice().reverse().map((inc) => {
+                      // Esperamos formato "[SEVERITY] texto" en summary si viene del addIncident de arriba
+                      const m = inc.summary?.match(/^\[(LOW|MEDIUM|HIGH)\]\s*(.*)$/i);
+                      const sev = (m?.[1]?.toUpperCase?.() as "LOW"|"MEDIUM"|"HIGH"|undefined) ?? "LOW";
+                      const text = m ? m[2] : inc.summary;
+                      const sevTone = sev === "HIGH" ? "rose" : sev === "MEDIUM" ? "amber" : "zinc";
+                      const sevClass = sevTone === "rose"
+                        ? "bg-rose-100 text-rose-800"
+                        : sevTone === "amber"
+                        ? "bg-amber-100 text-amber-800"
+                        : "bg-zinc-100 text-zinc-800";
+                      return (
+                        <li key={inc.id} className="rounded-md border bg-white p-2">
+                          <div className="flex items-center justify-between">
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded ${sevClass}`}>{sev}</span>
+                            <span className="text-[10px] text-zinc-500 font-mono">{inc.at ? new Date(inc.at).toLocaleString('es-ES') : ""}</span>
+                          </div>
+                          <p className="mt-1 text-xs text-zinc-800">{text}</p>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </SBCard>
         </div>
       </div>
     </div>
