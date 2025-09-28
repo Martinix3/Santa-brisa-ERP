@@ -29,7 +29,6 @@ const landingLocationFor = (category: Item['category'], sendToQc: boolean) => {
   switch (category) {
     case 'raw': return 'RM/MAIN';
     case 'pack': return 'PKG/MAIN';
-    case 'label': return 'PKG/MAIN';
     case 'consumable': return 'RM/MAIN';
     case 'intermediate': return 'WIP/MAIN';
     case 'merch': return 'PKG/MAIN';

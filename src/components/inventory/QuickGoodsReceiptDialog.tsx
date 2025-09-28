@@ -52,7 +52,7 @@ export function QuickGoodsReceiptDialog({
 
   return (
     <SBDialog open={open} onOpenChange={onOpenChange}>
-      <SBDialogContent title={<div className="flex items-center gap-2"><Truck/> Entrada rápida</div>}
+      <SBDialogContent title="Entrada rápida de mercancía"
                        className="max-w-2xl">
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
