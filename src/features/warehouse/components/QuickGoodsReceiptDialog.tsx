@@ -10,12 +10,9 @@ import { Plus, Trash2, Truck } from "lucide-react";
 
 type Line = {
   key: string;
-  itemId?: string;
+  itemId: string;
   supplierLot: string;
   qty: number;
-  unitCost: number;
-  uom?: Uom;
-  expiryAt?: string | null;
 };
 
 export function QuickGoodsReceiptDialog({
@@ -27,26 +24,51 @@ export function QuickGoodsReceiptDialog({
     const supplierIds = new Set(data.partyRoles.filter(r => r.role === 'SUPPLIER').map(r => r.partyId));
     return data.parties.filter(p => supplierIds.has(p.id));
   }, [data?.parties, data?.partyRoles]);
+
   const items = useMemo(() => data?.items || [], [data?.items]);
 
-  const [supplierId, setSupplierId] = useState<string | undefined>();
+  const [supplierId, setSupplierId] = useState<string>('');
   const [deliveryNote, setDeliveryNote] = useState('');
-  const [lines, setLines] = useState<Line[]>([{ key: `q_${Date.now()}`, supplierLot: '', qty: 0, unitCost: 0, uom: 'unit', expiryAt: null }]);
+  const [lines, setLines] = useState<Line[]>([{ key: `q_${Date.now()}`, itemId: '', supplierLot: '', qty: 0 }]);
   const [saving, setSaving] = useState(false);
-  const addLine = () => setLines(l => [...l, { key: `q_${Date.now()}`, supplierLot:'', qty:0, unitCost:0, uom:'unit', expiryAt:null }]);
+
+  const addLine = () => setLines(l => [...l, { key: `q_${Date.now()}`, itemId: '', supplierLot: '', qty: 0 }]);
   const rmLine = (i:number) => setLines(l => l.filter((_,idx)=>idx!==i));
+  const updateLine = (index: number, field: keyof Line, value: any) => {
+    setLines(curr => {
+        const next = [...curr];
+        (next[index] as any)[field] = value;
+        return next;
+    });
+  };
 
   const save = async () => {
-    if (!supplierId || !deliveryNote || lines.some(l => !l.itemId || !l.qty || !l.supplierLot)) return;
+    if (!supplierId || !deliveryNote || lines.some(l => !l.itemId || !l.qty || !l.supplierLot)) {
+      alert("Por favor, completa todos los campos.");
+      return;
+    }
     setSaving(true);
     try {
-      const res = await createGoodsReceipt({ supplierId, deliveryNote, lines });
+      // Adaptamos el payload al formato esperado por createGoodsReceipt
+      const payloadLines = lines.map(l => ({
+        ...l,
+        unitCost: items.find(it => it.id === l.itemId)?.stdCost || 0,
+        uom: items.find(it => it.id === l.itemId)?.uom || 'unit',
+      }));
+
+      const res = await createGoodsReceipt({ supplierId, deliveryNote, lines: payloadLines });
+
       onSuccess?.(res);
       onOpenChange(false);
-      // reset rápido
-      setSupplierId(undefined); setDeliveryNote('');
-      setLines([{ key: `q_${Date.now()}`, supplierLot: '', qty: 0, unitCost: 0, uom: 'unit', expiryAt: null }]);
-    } finally { setSaving(false); }
+      // reset
+      setSupplierId(''); setDeliveryNote('');
+      setLines([{ key: `q_${Date.now()}`, itemId: '', supplierLot: '', qty: 0 }]);
+    } catch (e) {
+      console.error(e);
+      alert((e as Error).message || "Error al guardar");
+    } finally { 
+      setSaving(false); 
+    }
   };
 
   return (
@@ -57,56 +79,30 @@ export function QuickGoodsReceiptDialog({
           <div className="grid grid-cols-2 gap-3">
             <label className="grid gap-1.5">
               <span className="text-sm font-medium">Proveedor</span>
-              <Select value={supplierId} onChange={e => setSupplierId(e.target.value)}>
+              <Select value={supplierId} onChange={e => setSupplierId(e.target.value)} required>
                 <option value="">Selecciona proveedor…</option>
                 {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </Select>
             </label>
             <label className="grid gap-1.5">
               <span className="text-sm font-medium">Albarán</span>
-              <Input value={deliveryNote} onChange={e => setDeliveryNote(e.target.value)} placeholder="Ej: 2025/ABC-001" />
+              <Input value={deliveryNote} onChange={e => setDeliveryNote(e.target.value)} placeholder="Ej: 2025/ABC-001" required/>
             </label>
           </div>
 
           <div className="space-y-2 rounded-md border p-3">
             {lines.map((ln, i) => (
-              <div key={ln.key} className="grid grid-cols-[1.4fr_1fr_.8fr_.8fr_.9fr_auto] gap-2 items-center">
-                <Select value={ln.itemId} onChange={e => {
-                  const newLines = [...lines];
-                  newLines[i] = {...newLines[i], itemId: e.target.value};
-                  setLines(newLines);
-                }}>
-                  <option value="">Item…</option>
+              <div key={ln.key} className="grid grid-cols-[2fr_1.5fr_1fr_auto] gap-2 items-center">
+                <Select value={ln.itemId} onChange={e => updateLine(i, 'itemId', e.target.value)} required>
+                  <option value="">Selecciona un ítem...</option>
                   {items.map(it => <option key={it.id} value={it.id}>{it.name}</option>)}
                 </Select>
-                <Input placeholder="Lote prov."
+                <Input placeholder="Lote del proveedor"
                        value={ln.supplierLot}
-                       onChange={e => {
-                         const newLines = [...lines];
-                         newLines[i] = {...newLines[i], supplierLot: e.target.value};
-                         setLines(newLines);
-                       }}/>
-                <Input type="number" placeholder="Qty"
+                       onChange={e => updateLine(i, 'supplierLot', e.target.value)} required />
+                <Input type="number" placeholder="Cantidad"
                        value={ln.qty || ''}
-                       onChange={e => {
-                         const newLines = [...lines];
-                         newLines[i] = {...newLines[i], qty: Number(e.target.value) || 0};
-                         setLines(newLines);
-                       }}/>
-                <Input type="number" step="0.01" placeholder="€/u"
-                       value={ln.unitCost || ''}
-                       onChange={e => {
-                         const newLines = [...lines];
-                         newLines[i] = {...newLines[i], unitCost: Number(e.target.value) || 0};
-                         setLines(newLines);
-                       }}/>
-                <Input type="date"
-                       value={ln.expiryAt ?? ''}
-                       onChange={e => {
-                         const newLines = [...lines];
-                         newLines[i] = {...newLines[i], expiryAt: e.target.value || null};
-                         setLines(newLines);
-                       }}/>
+                       onChange={e => updateLine(i, 'qty', Number(e.target.value) || 0)} required />
                 <button className="p-2 hover:bg-zinc-100 rounded" onClick={() => rmLine(i)}>
                   <Trash2 className="w-4 h-4 text-red-500"/>
                 </button>

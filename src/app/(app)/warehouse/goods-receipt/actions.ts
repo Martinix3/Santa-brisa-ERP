@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { adminDb as db } from '@/server/firebase';
 import { FieldValue } from 'firebase-admin/firestore';
 import type { Party, Item, GoodsReceipt, StockMove, Uom, QcStatus } from '@/domain/ssot';
-import { LotSchema } from '@/domain/validators'; // <- Zod del plan
+import { LotSchema } from '@/domain/validators';
 import { normText } from '@/lib/norm/text';
 import { makeGoodsReceiptCode } from '@/lib/codes';
 
@@ -36,7 +36,6 @@ const landingLocationFor = (category: Item['category']) => {
   }
 };
 
-// Decide el estado QC inicial basado en la categoría.
 const initialQcStatusFor = (category: Item['category']): QcStatus => {
   const criticalCategories: Item['category'][] = ['raw', 'pack', 'fg'];
   return criticalCategories.includes(category) ? 'PENDING' : 'PASSED';
@@ -55,12 +54,11 @@ export async function createGoodsReceipt(payload: {
     qty: number;
     unitCost: number;
     uom?: Uom;
-    expiryAt?: string | null; // opcional para FEFO
+    expiryAt?: string | null;
   }>;
 }) {
   const { supplierId, newSupplierName, deliveryNote, lines } = payload;
 
-  // Validación mínima UI
   if ((!supplierId && !newSupplierName) || !deliveryNote || !lines?.length) {
     throw new Error('Proveedor, albarán y al menos una línea son obligatorios.');
   }
@@ -71,7 +69,6 @@ export async function createGoodsReceipt(payload: {
   const nowIso = new Date().toISOString();
   const batch = db.batch();
 
-  // 1) Proveedor (alta si es nuevo)
   let finalSupplierId = supplierId;
   if (newSupplierName && !supplierId) {
     const newPartyRef = db.collection('parties').doc();
@@ -88,7 +85,6 @@ export async function createGoodsReceipt(payload: {
   }
   if (!finalSupplierId) throw new Error('El proveedor es obligatorio.');
 
-  // 2) Items existentes + generar código de recibo
   const allReceipts = (await db.collection('goodsReceipts').select('receiptNumber').get())
     .docs.map(d => d.data().receiptNumber).filter(Boolean);
   const receiptNumber = makeGoodsReceiptCode(allReceipts, new Date());
@@ -98,11 +94,9 @@ export async function createGoodsReceipt(payload: {
   const existingItems = itemsSnap.docs.map(d => d.data() as Item);
   const existingSkus = existingItems.map(m => m.sku).filter(Boolean) as string[];
 
-  // 3) Procesar líneas: crear item si procede, crear lot, onHand, stockMove
   const finalLines: GoodsReceipt['lines'] = [];
 
   for (const line of lines) {
-    // 3.1 Item
     let itemId = line.itemId;
     let item: Item | undefined;
     let uom: Uom = line.uom || 'unit';
@@ -131,11 +125,9 @@ export async function createGoodsReceipt(payload: {
     }
     if (!itemId) continue;
 
-    // 3.2 Lote (SSOT: qcStatus nace aquí; sin "status" operativo)
     const lotNumber = line.supplierLot.trim();
-    const qcStatus: QcStatus = initialQcStatusFor(category);
+    const qcStatus = initialQcStatusFor(category);
 
-    // Valida/normaliza con Zod (LotSchema del plan: qty, uom, qcStatus, expiryAt, created/updated)
     const lotDoc = LotSchema.parse({
       lotNumber,
       itemId,
@@ -147,11 +139,9 @@ export async function createGoodsReceipt(payload: {
       updatedAt: nowIso,
     });
 
-    // Usamos el lotNumber como id documental (opcional, o doc() auto)
     const lotRef = db.collection('lots').doc(lotNumber);
     batch.set(lotRef, { ...lotDoc, supplierId: finalSupplierId } as any, { merge: true });
 
-    // 3.3 OnHand (clave: item|lot|location)
     const locationId = landingLocationFor(category);
     const onHandId = `${itemId}|${lotNumber}|${locationId}`;
     const onHandRef = db.collection('onHand').doc(onHandId);
@@ -163,14 +153,13 @@ export async function createGoodsReceipt(payload: {
       createdAt: nowIso, updatedAt: nowIso,
     }, { merge: true });
 
-    // 3.4 Movimiento de stock (ledger)
     const smRef = db.collection('stockMoves').doc();
     const stockMove: StockMove = {
       id: smRef.id,
       itemId, lotNumber, uom,
       qty: line.qty,
       reason: 'receipt',
-      toLocationId: locationId,
+      toLocation: locationId,
       occurredAt: nowIso,
       createdAt: nowIso,
       ref: { goodsReceiptId: receiptRef.id },
@@ -178,7 +167,6 @@ export async function createGoodsReceipt(payload: {
     };
     batch.set(smRef, stockMove as any);
 
-    // 3.5 Línea para el documento de recibo
     finalLines.push({
       itemId,
       qty: line.qty,
@@ -188,19 +176,17 @@ export async function createGoodsReceipt(payload: {
     } as GoodsReceipt['lines'][number]);
   }
 
-  // 4) Documento de recibo
   const receipt: GoodsReceipt = {
     id: receiptRef.id,
     receiptNumber,
     supplierPartyId: finalSupplierId!,
     deliveryNote,
     receivedAt: nowIso,
-    status: 'completed', // El estado de QC del lote individual es lo que importa
+    status: 'completed',
     lines: finalLines,
   };
   batch.set(receiptRef, { ...receipt, createdAt: nowIso } as any);
 
-  // 5) Persistir + revalidar
   await batch.commit();
   revalidatePath('/warehouse/inventory');
   revalidatePath('/warehouse/goods-receipt');

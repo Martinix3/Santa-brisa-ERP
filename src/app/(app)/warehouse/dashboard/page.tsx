@@ -134,7 +134,7 @@ function WarehouseDashboardContent({ onHand, shipments, stockMoves, accounts }: 
         }
     ];
 
-    const lowStockItems = onHand.filter(item => item.qty < 50 && item.itemId.startsWith('item_')); // Assuming SB- items are finished goods
+    const lowStockItems = onHand.filter(item => item.qty < 50 && item.itemId.startsWith('item_'));
 
     return (
         <div className="space-y-6">
@@ -153,7 +153,7 @@ function WarehouseDashboardContent({ onHand, shipments, stockMoves, accounts }: 
                  <div className="space-y-6">
                      <button onClick={() => setOpenReceipt(true)} className="w-full flex items-center justify-center gap-2 p-4 rounded-xl border-2 border-dashed border-zinc-300 text-zinc-600 hover:bg-white hover:border-zinc-400 transition-colors">
                         <Plus size={18}/>
-                        <span className="font-semibold">Nueva Entrada de Mercancía</span>
+                        <span className="font-semibold">Entrada Rápida</span>
                      </button>
                      <UpcomingTasks department="ALMACEN" />
                      <SBCard title="Alertas de Stock Bajo">
