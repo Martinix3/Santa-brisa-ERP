@@ -127,7 +127,7 @@ export async function createManualOnHand(
     batch.set(lotRef, lotData, { merge: true });
 
     const stockMoveRef = db.collection('stockMoves').doc(stockMove.id);
-    batch.set(stockMoveRef, stockMove);
+    batch.set(stockMoveRef, stockMove as any);
     
     // --- Actualización de onHand ---
     const onHandId = makeOnHandId(p.itemId, lotNumber, p.locationId);
@@ -261,7 +261,7 @@ export async function rebuildOnHand() {
     const writer = db.bulkWriter();
     const existingSnap = await db.collection('onHand').select().get();
     existingSnap.docs.forEach(doc => writer.delete(doc.ref));
-    finalOnHandDocs.forEach(doc => writer.set(db.collection('onHand').doc(doc.id), doc));
+    finalOnHandDocs.forEach(doc => writer.set(db.collection('onHand').doc(doc.id), doc as any));
     await writer.close();
 
     console.log(`[Worker/rebuildOnHand] Finished. Deleted ${existingSnap.size}, wrote ${finalOnHandDocs.length}.`);

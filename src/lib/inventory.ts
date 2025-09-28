@@ -1,5 +1,5 @@
 // src/lib/inventory.ts
-import type { OrderSellOut, QcStatus, OnHandView, Lot } from '@/domain/ssot';
+import type { OrderSellOut, QcStatus, OnHandView, Lot, StockMove, VelocityInput } from '@/domain/ssot';
 import { qcToBucket } from '@/domain/ssot';
 import type { Item } from '@/domain/ssot';
 
@@ -72,7 +72,7 @@ export function checkOrderStock(
         const masterLot = lotMasterMap.get(lot.lotNumber);
         const originInfo = masterLot?.producedByOrderId 
             ? `Prod: ${masterLot.producedByOrderId}`
-            : (masterLot as any)?.createdByGoodsReceiptId
+            : (masterLot as any).createdByGoodsReceiptId
             ? `Recep: ${(masterLot as any).createdByGoodsReceiptId}`
             : 'Ajuste manual';
 
@@ -130,8 +130,8 @@ export type SkuStockSummary = {
   status:
     | 'OK'
     | 'LOW'
-    | 'HOLD'
     | 'OOS'
+    | 'HOLD'
     | 'NEAR_EXPIRY'
     | 'EXPIRED';
 
@@ -317,6 +317,7 @@ export function stockStatusBadgeClass(
     case 'NEAR_EXPIRY': return 'sb-badge sb-badge--warn';
     case 'EXPIRED':     return 'sb-badge sb-badge--danger';
     case 'HOLD':        return 'sb-badge sb-badge--info';
+    default:            return 'sb-badge';
   }
 }
 
@@ -336,4 +337,69 @@ export function stockStatusLabel(
       EXPIRED: 'Caducado',
     }[s] ?? s
   );
+}
+
+// ===========================================
+// ANÁLISIS ADICIONALES
+// ===========================================
+export function computeCoverage(summaries: Record<string, SkuStockSummary>, velocity: VelocityInput[], lookbackDays: number) {
+  const byItem: Record<string, { total: number; daily: number; daysCover: number | null }> = {};
+  for(const v of velocity) {
+    byItem[v.itemId] ||= { total: 0, daily: 0, daysCover: null };
+    byItem[v.itemId].total += v.qty;
+  }
+  for(const [id, s] of Object.entries(byItem)) {
+    s.daily = s.total / lookbackDays;
+    const stock = summaries[id]?.totalReleasedFree;
+    if (stock != null && s.daily > 0) {
+      s.daysCover = stock / s.daily;
+    }
+  }
+  return byItem;
+}
+
+export function suggestReplenishment(summaries: Record<string, SkuStockSummary>, coverage: Record<string, { daily: number; daysCover: number | null }>, opts: { minStockByItem: Record<string, number>, safetyByItem: Record<string, number>, targetDaysOfCover: number }) {
+  const replen: Record<string, number> = {};
+  for (const [itemId, s] of Object.entries(summaries)) {
+    const cov = coverage[itemId];
+    const min = opts.minStockByItem[itemId] ?? 0;
+    const safety = opts.safetyByItem[itemId] ?? (cov?.daily ? cov.daily * 7 : 0);
+    const target = Math.max(min, safety, (cov?.daily ?? 0) * opts.targetDaysOfCover);
+    const deficit = target - s.totalReleasedFree;
+    if (deficit > 0) replen[itemId] = deficit;
+  }
+  return replen;
+}
+
+export function computeExpiryBuckets(onHand: OnHandView[], stepDays: number, numSteps: number) {
+  const buckets: { label: string; from: Date; to: Date; items: OnHandView[] }[] = [];
+  const now = new Date();
+  for(let i=0; i<numSteps; i++) {
+    const from = new Date(now.getTime() + i*stepDays*86400000);
+    const to = new Date(from.getTime() + stepDays*86400000);
+    buckets.push({ label: `+${i*stepDays}d`, from, to, items: [] });
+  }
+  for(const oh of onHand) {
+    if (!oh.expiryAt) continue;
+    const exp = new Date(oh.expiryAt);
+    const b = buckets.find(b => exp >= b.from && exp < b.to);
+    if(b) b.items.push(oh);
+  }
+  return buckets;
+}
+
+export function detectQcStuck(onHand: OnHandView[], now: Date, daysStuck: number) {
+  return onHand.filter(oh =>
+    isHold(oh.qcStatus) &&
+    diffDays(now, new Date(oh.createdAt)) > daysStuck
+  );
+}
+
+export function auditOnHandVsLots(onHand: OnHandView[], lots: Lot[]) {
+  const onHandLots = new Set(onHand.map(oh => oh.lotNumber));
+  const masterLots = new Set(lots.map(l => l.lotNumber));
+  return {
+    inOnHandNotLots: [...onHandLots].filter(l => !masterLots.has(l)),
+    inLotsNotOnHand: [...masterLots].filter(l => !onHandLots.has(l)),
+  };
 }
