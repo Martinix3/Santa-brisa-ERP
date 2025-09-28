@@ -1,11 +1,16 @@
 
+// src/app/(app)/warehouse/logistics/actions.ts
 'use server';
 import 'server-only';
 
 import { revalidatePath } from 'next/cache';
+import { adminDb as db } from '@/server/firebase';
+import { FieldValue } from 'firebase-admin/firestore';
 import { getOne, upsertMany } from '@/lib/dataprovider/server';
-import type { Shipment, OrderSellOut } from '@/domain/ssot';
+import type { Shipment, OrderSellOut, OnHandView, StockMove, Lot } from '@/domain/ssot';
 import { enqueue } from '@/server/queue/queue';
+import { checkOrderStock } from '@/lib/inventory';
+import { makeOnHandId } from '@/domain/id-helpers';
 
 
 /**
@@ -27,6 +32,65 @@ export async function createShipmentFromOrder(orderId: string) {
   console.log(`[Action] Enqueued job to create shipment for order ${orderId}.`);
   return { ok:true };
 }
+
+/**
+ * Confirms an order and atomically reserves stock.
+ * If successful, it also enqueues jobs to create the shipment and invoice.
+ */
+export async function confirmOrderShipment(orderId: string) {
+  const order = await getOne<OrderSellOut>('ordersSellOut', orderId);
+  if (!order) throw new Error('Order not found');
+  if (order.status !== 'open') throw new Error('Order must be in "open" status to confirm.');
+
+  const onHandSnap = await db.collection('onHand').get();
+  const onHand = onHandSnap.docs.map(doc => doc.data() as OnHandView);
+
+  const { allocations, shortages } = checkOrderStock(order, onHand);
+  if (shortages.length > 0) {
+    const shortageDetails = shortages.map(s => `${s.qtyShort}x ${s.itemId}`).join(', ');
+    throw new Error(`Stock insufficient. Shortages: ${shortageDetails}`);
+  }
+
+  const batch = db.batch();
+  const now = new Date().toISOString();
+
+  // 1. Atomically reserve stock by incrementing reservedQty
+  for (const alloc of allocations) {
+    if (!alloc.lotNumber) continue;
+    const onHandId = makeOnHandId(alloc.itemId, alloc.lotNumber, 'FG/MAIN');
+    const onHandRef = db.collection('onHand').doc(onHandId);
+    batch.update(onHandRef, {
+      reservedQty: FieldValue.increment(alloc.qty),
+      updatedAt: now,
+    });
+  }
+
+  // 2. Update order status
+  const orderRef = db.collection('ordersSellOut').doc(orderId);
+  batch.update(orderRef, { status: 'confirmed', updatedAt: now });
+
+  // 3. Commit atomic operation
+  await batch.commit();
+
+  // 4. Enqueue follow-up jobs only if the transaction was successful
+  await enqueue({
+      kind: 'CREATE_SHIPMENT_FROM_ORDER',
+      payload: { orderId: order.id },
+      correlationId: `order-${order.id}-shipment`,
+  });
+  
+  await enqueue({
+      kind: 'CREATE_HOLDED_INVOICE',
+      payload: { orderId: order.id },
+      correlationId: `order-${order.id}-invoice`,
+  });
+
+  revalidatePath('/orders');
+  revalidatePath('/warehouse/inventory');
+
+  return { ok: true, orderId };
+}
+
 
 type ValidateShipmentInput = {
   shipmentId: string;
