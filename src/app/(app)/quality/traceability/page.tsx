@@ -4,7 +4,7 @@
 import React, { useMemo, useState, useEffect, useTransition } from "react";
 import { useData } from "@/lib/dataprovider";
 import { Package, Search, GitBranch, Truck, Factory, FlaskConical, ArrowLeftRight, AlertTriangle, User as UserIcon, FileText, CheckCircle, XCircle } from "lucide-react";
-import type { Lot, Item } from "@/domain/ssot";
+import type { Lot, Item, ItemCategory } from "@/domain/ssot";
 import { getLotTraceability, type TraceEvent, type TraceData } from "./actions";
 import { toast } from "sonner";
 import Link from 'next/link';
@@ -25,6 +25,19 @@ const EVENT_CONFIG: Record<string, { icon: React.ElementType; color: string; }> 
     GENEALOGY_PARENT: { icon: GitBranch, color: 'text-slate-600 bg-slate-100' },
     GENEALOGY_CHILD: { icon: GitBranch, color: 'text-slate-600 bg-slate-100' },
     DEFAULT: { icon: Package, color: 'text-zinc-600 bg-zinc-100' },
+};
+
+// ===========================================
+// NUEVO: Mapa de etiquetas para categorías
+// ===========================================
+const CATEGORY_LABELS: Record<ItemCategory, string> = {
+    fg: "Producto Terminado",
+    raw: "Materia Prima",
+    pack: "Packaging",
+    label: "Etiqueta",
+    intermediate: "Producto Intermedio",
+    consumable: "Consumible",
+    merch: "Merchandising",
 };
 
 // ===========================================
@@ -110,7 +123,9 @@ function LotSummaryCard({ traceData }: { traceData: TraceData }) {
     if (!lot) return null;
 
     const item = data?.items.find(i => i.id === lot.itemId);
-    const categoryName = item?.category ? item.category.charAt(0).toUpperCase() + item.category.slice(1) : 'N/A';
+    
+    // CORRECCIÓN: Usar el mapa de etiquetas para obtener el nombre legible
+    const categoryName = item?.category ? (CATEGORY_LABELS[item.category] || item.category) : 'N/A';
     
     const locations = (onHandSummary || [])
         .filter(oh => oh.qty > 0)
@@ -119,7 +134,7 @@ function LotSummaryCard({ traceData }: { traceData: TraceData }) {
 
     const supplierName = data?.parties.find(p => p.id === receiptInfo?.supplierPartyId)?.name;
 
-    const protocolCompliance = productionInfo?.protocols.every(p => (p as any).status === 'COMPLETED');
+    const protocolCompliance = productionInfo?.protocols.every((p: any) => p.status === 'COMPLETED');
 
     return (
         <div className="mb-6 p-4 bg-zinc-50 rounded-xl border">
