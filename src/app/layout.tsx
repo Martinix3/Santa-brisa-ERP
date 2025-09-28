@@ -5,6 +5,9 @@ import "./globals.css";
 import MonitoringBoot from '@/components/monitoring/MonitoringBoot';
 import { Inter } from 'next/font/google';
 import { ToasterProvider } from '@/components/ui/Toaster';
+import React from 'react';
+import AuthenticatedLayout from '@/components/layouts/AuthenticatedLayout';
+
 
 const inter = Inter({ 
     subsets: ['latin'],
@@ -27,7 +30,11 @@ export default function RootLayout({
       <body>
         <ToasterProvider>
           <MonitoringBoot />
-          <ClientProviders>{children}</ClientProviders>
+          <ClientProviders>
+            <AuthenticatedLayout>
+              {children}
+            </AuthenticatedLayout>
+          </ClientProviders>
         </ToasterProvider>
       </body>
     </html>
