@@ -286,7 +286,12 @@ export default function ProductionExecutionPage() {
   const ordersRaw = (data?.productionOrders ?? []) as ProductionOrder[];
   
   const itemsMap = useMemo(() => new Map(items.map(i => [i.id, i])), [items]);
-  const activeOrders = useMemo(() => ordersRaw.filter(o => o.status !== "DONE" && o.status !== "CANCELLED"), [ordersRaw]);
+  
+  const { activeOrders, closedOrders } = useMemo(() => {
+    const active = ordersRaw.filter(o => o.status !== "DONE" && o.status !== "CANCELLED");
+    const closed = ordersRaw.filter(o => o.status === "DONE" || o.status === "CANCELLED");
+    return { activeOrders: active, closedOrders: closed };
+  }, [ordersRaw]);
 
   // ==== Estado Centralizado y Único ====
   const [activeForm, setActiveForm] = useState<ActiveOrderForm | null>(null);
@@ -363,9 +368,7 @@ export default function ProductionExecutionPage() {
   
   const handleUpdateStatus = (status: 'IN_PROGRESS' | 'PAUSED' | 'CANCELLED') => {
       if (!activeForm?.order) return;
-      if (status === 'CANCELLED') {
-        // No confirmation dialog
-      }
+      if (status === 'CANCELLED' && !confirm('¿Cancelar la orden? Esta acción no se puede deshacer.')) return;
       startTransition(async () => {
           const res = await updateProductionOrderStatus({ orderId: activeForm.order!.id, status, responsibleId: activeForm.responsibleId });
           if(res.ok) {
@@ -383,7 +386,7 @@ export default function ProductionExecutionPage() {
       toast.error("Faltan datos obligatorios para finalizar la orden.");
       return;
     }
-    // No confirmation dialog
+    if (!confirm("¿Finalizar y cerrar la orden? Se crearán movimientos de stock.")) return;
 
     startTransition(async () => {
       const res = await completeProductionOrder({
@@ -501,11 +504,11 @@ export default function ProductionExecutionPage() {
         </Collapsible>
         <Collapsible title="Órdenes activas" count={activeOrders.length} defaultOpen>
           <ul className="divide-y">
-            {activeOrders.map(o=>{
+            {activeOrders.map(o => {
               const warn = hasShortagesFor(o);
               return (
                 <li key={o.id}>
-                  <button className="w-full px-3 py-2 hover:bg-zinc-50 text-left" onClick={()=>openExecution(o)}>
+                  <button className="w-full px-3 py-2 hover:bg-zinc-50 text-left" onClick={() => openExecution(o)}>
                     <div className="flex items-center justify-between">
                       <span className="font-medium">
                         {o.orderNumber ?? o.name ?? `Orden ${o.id.slice(-4)}`} {warn && <span className="ml-1 text-rose-600 font-bold">‼️</span>}
@@ -513,13 +516,41 @@ export default function ProductionExecutionPage() {
                       <Badge tone={mapStatusTone(o.status)}>{o.status}</Badge>
                     </div>
                     <p className="text-xs text-zinc-500">
-                      {(recipes.find(b=>b.id === (o as any).bomId)?.stage === "ENVASADO" ? "Envasado" : "Producción")} · {(o as any).scheduledFor ? new Date((o as any).scheduledFor).toLocaleDateString('es-ES') : "-"}
+                      {(recipes.find(b => b.id === (o as any).bomId)?.stage === "ENVASADO" ? "Envasado" : "Producción")} · {(o as any).scheduledFor ? new Date((o as any).scheduledFor).toLocaleDateString('es-ES') : "-"}
                     </p>
                   </button>
                 </li>
               );
             })}
-            {activeOrders.length===0 && <li className="px-3 py-4 text-sm text-zinc-500">No hay órdenes activas.</li>}
+            {activeOrders.length === 0 && <li className="px-3 py-4 text-sm text-zinc-500">No hay órdenes activas.</li>}
+          </ul>
+        </Collapsible>
+        <Collapsible title="Histórico de órdenes" count={closedOrders.length} defaultOpen={false}>
+          <ul className="divide-y">
+            {closedOrders.map(o => {
+              const outputQty = (o.output as any)?.[0]?.qty;
+              const yieldPct = o.targetQuantity > 0 && outputQty ? (outputQty / o.targetQuantity) * 100 : 0;
+              const costPerUnit = (o.costing as any)?.actual?.perUnit;
+              return (
+                <li key={o.id}>
+                  <button className="w-full px-3 py-2 hover:bg-zinc-50 text-left" onClick={() => openExecution(o)}>
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">
+                        {o.orderNumber ?? o.name ?? `Orden ${o.id.slice(-4)}`}
+                      </span>
+                      <Badge tone={mapStatusTone(o.status)}>{o.status}</Badge>
+                    </div>
+                    <div className="text-xs text-zinc-500 mt-1 flex items-center gap-4">
+                      <span>{(o as any).completedAt ? new Date((o as any).completedAt).toLocaleDateString('es-ES') : new Date(o.createdAt).toLocaleDateString('es-ES')}</span>
+                      {outputQty && <span><b>{outputQty.toFixed(2)}</b> uds</span>}
+                      {yieldPct > 0 && <span>Yield: <b>{yieldPct.toFixed(1)}%</b></span>}
+                      {costPerUnit && <span>Coste: <b>{costPerUnit.toFixed(3)}€/ud</b></span>}
+                    </div>
+                  </button>
+                </li>
+              );
+            })}
+            {closedOrders.length === 0 && <li className="px-3 py-4 text-sm text-zinc-500">No hay órdenes completadas.</li>}
           </ul>
         </Collapsible>
       </div>
