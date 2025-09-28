@@ -13,13 +13,13 @@ import { toast } from "sonner";
 // ============================================================================
 // TIPOS Y CONSTANTES
 // ============================================================================
+
+// Tipo enriquecido para la UI, combinando datos de varias colecciones.
 type LotForQc = Lot & {
     itemName: string;
-    plan?: QcPlanBySku;
+    plan?: QcPlanBySku; // El plan de calidad asociado a este lote.
     totalStock: number;
 };
-
-// ... (Componente `Badge` y helpers de formato como `qcTone` y `prettyStatus` se mantienen)
 
 // ============================================================================
 // COMPONENTE DE PÁGINA
@@ -29,30 +29,36 @@ export default function LabReleasePage() {
     const { data } = useData();
     const [isPending, startTransition] = useTransition();
 
-    // Estado local simplificado
+    // Estado local para gestionar la UI
     const [selectedLot, setSelectedLot] = useState<LotForQc | null>(null);
     const [analysisResults, setAnalysisResults] = useState<Record<string, string>>({});
     const [reviewerId, setReviewerId] = useState("mj@santabrisa.co"); // Debería venir del usuario autenticado
 
-    // Procesamiento de datos centralizado
-    const { lotsForReview, parameterMap, planMap } = useMemo(() => {
+    // Procesamiento de datos centralizado para evitar recálculos innecesarios.
+    const { lotsForReview, parameterMap } = useMemo(() => {
         if (!data) return { lotsForReview: [], parameterMap: new Map(), planMap: new Map() };
 
-        const iMap = new Map(data.items.map(i => [i.id, i]));
-        const qpMap = new Map((data.qcPlans || []).map(p => [p.id, p]));
+        // 1. Crear mapas para búsqueda rápida de ítems, planes y parámetros.
+        const itemMap = new Map(data.items.map(i => [i.id, i]));
+        const planMap = new Map((data.qcPlans || []).map(p => [p.id, p]));
+        const paramMap = new Map((data.qcParameters || []).map(p => [p.id, p]));
+
+        // 2. Calcular el stock total por lote desde la vista `onHand`.
         const onHandByLot = (data.onHand ?? []).reduce((acc, oh) => {
             if (oh.lotNumber) acc.set(oh.lotNumber, (acc.get(oh.lotNumber) || 0) + oh.qty);
             return acc;
         }, new Map<string, number>());
 
+        // 3. Filtrar y enriquecer los lotes que están pendientes de revisión.
         const lotsWithDetails: LotForQc[] = (data.lots ?? [])
-            .filter(lot => lot.qcStatus === 'PENDING') // ¡Solo mostramos lotes que necesitan acción!
+            .filter(lot => lot.qcStatus === 'PENDING') // Solo mostramos lotes que necesitan acción.
             .map(lot => {
-                const item = iMap.get(lot.itemId);
+                const item = itemMap.get(lot.itemId);
                 return {
                     ...lot,
                     itemName: item?.name ?? 'Ítem Desconocido',
-                    plan: lot.qcPlanId ? qpMap.get(lot.qcPlanId) : undefined,
+                    // **AQUÍ ESTÁ LA CLAVE**: Se busca el plan de calidad (`QcPlanBySku`) usando el `qcPlanId` del lote.
+                    plan: lot.qcPlanId ? planMap.get(lot.qcPlanId) : undefined,
                     totalStock: onHandByLot.get(lot.lotNumber) || 0,
                 };
             })
@@ -60,8 +66,7 @@ export default function LabReleasePage() {
 
         return {
             lotsForReview: lotsWithDetails,
-            parameterMap: new Map((data.qcParameters || []).map(p => [p.id, p])),
-            planMap: qpMap,
+            parameterMap: paramMap,
         };
     }, [data]);
 
@@ -87,7 +92,9 @@ export default function LabReleasePage() {
     
     // El "Parte de Análisis" solo se muestra si hay un lote seleccionado
     if (selectedLot) {
+        // Las especificaciones requeridas vienen del PLAN DE CALIDAD (`QcPlanBySku`) del lote.
         const requiredSpecs = selectedLot.plan?.specs ?? [];
+        
         const allRequiredResultsEntered = requiredSpecs.every(spec =>
             analysisResults[spec.parameterId] && analysisResults[spec.parameterId].trim() !== ""
         );
@@ -104,6 +111,7 @@ export default function LabReleasePage() {
                     <div className="space-y-3">
                         <h4 className="text-md font-semibold">Parámetros a Medir</h4>
                         {requiredSpecs.length > 0 ? requiredSpecs.map(spec => {
+                            // Para cada especificación del plan, se busca el `ParameterBySku` para obtener sus detalles (nombre, unidad, etc.).
                             const parameter = parameterMap.get(spec.parameterId);
                             if (!parameter) return null;
                             return (
@@ -140,7 +148,7 @@ export default function LabReleasePage() {
         );
     }
 
-    // Esta es la vista principal: la lista de trabajo
+    // Esta es la vista principal: la lista de trabajo con los lotes pendientes.
     return (
         <SBCard title="Lotes Pendientes de Revisión de Calidad" noPadding>
             <div className="divide-y">
