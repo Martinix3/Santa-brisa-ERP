@@ -2,7 +2,7 @@
 'use server';
 
 import { adminDb as db } from '@/server/firebase';
-import type { StockMove, QcTest, LotGenealogyEdge, ProductionOrder } from '@/domain/ssot';
+import type { StockMove, QcTest, LotGenealogyEdge, ProductionOrder, GoodsReceipt, Party, Lot, ProtocolLog } from '@/domain/ssot';
 import { ActionResult, ok, fail } from '@/lib/result';
 
 export type TraceEvent = {
@@ -27,50 +27,98 @@ const PRETTY_LOCATIONS: Record<string, string> = {
 
 const prettyLocation = (locId?: string | null) => locId ? (PRETTY_LOCATIONS[locId] || locId) : 'N/A';
 
+export type TraceData = {
+    lot: Lot | null;
+    events: TraceEvent[];
+    receiptInfo?: { supplierName: string; deliveryNote: string; receivedBy: string; };
+    productionInfo?: { orderId: string; orderName?: string; responsible: string; incidentCount: number; protocols: any[] };
+    saleInfo?: { customerName: string; orderNumber: string; };
+};
 
-export async function getLotTraceability(lotNumber: string): Promise<ActionResult<TraceEvent[]>> {
+
+export async function getLotTraceability(lotNumber: string): Promise<ActionResult<TraceData>> {
     if (!lotNumber) return fail("Número de lote no proporcionado.");
 
     try {
         const events: TraceEvent[] = [];
+        let receiptInfo, productionInfo, saleInfo;
 
-        // 1. Buscar movimientos de stock
+        const lotSnap = await db.collection('lots').doc(lotNumber).get();
+        const lot = lotSnap.exists ? lotSnap.data() as Lot : null;
+
         const movesSnap = await db.collection('stockMoves').where('lotNumber', '==', lotNumber).get();
+        
+        // Creamos un caché simple para no buscar el mismo usuario/proveedor varias veces
+        const partyCache = new Map<string, Party>();
+        const getPartyName = async (id: string) => {
+            if (!id) return '';
+            if (partyCache.has(id)) return partyCache.get(id)?.name || id;
+            const snap = await db.collection('parties').doc(id).get();
+            if (snap.exists) {
+                const party = snap.data() as Party;
+                partyCache.set(id, party);
+                return party.name;
+            }
+            return id;
+        };
+
         for (const doc of movesSnap.docs) {
             const move = doc.data() as StockMove;
             let title = `Movimiento: ${move.reason}`;
             let details = `Cantidad: ${move.qty} ${move.uom}. De: ${prettyLocation(move.fromLocationId)} a ${prettyLocation(move.toLocationId)}.`;
             let data: Record<string, any> = {};
 
-            if (move.reason === 'production_out' && move.ref?.prodOrderId) {
+            if (move.reason === 'receipt' && move.ref?.goodsReceiptId) {
+                const rSnap = await db.collection('goodsReceipts').doc(move.ref.goodsReceiptId).get();
+                if (rSnap.exists) {
+                    const r = rSnap.data() as GoodsReceipt;
+                    receiptInfo = {
+                        supplierName: await getPartyName(r.supplierPartyId),
+                        deliveryNote: r.deliveryNote || 'N/A',
+                        receivedBy: await getPartyName((r as any).userId || ''),
+                    };
+                    title = 'Recepción de Mercancía';
+                    details = `Recibido de ${receiptInfo.supplierName} con albarán ${receiptInfo.deliveryNote}.`;
+                    data = { goodsReceiptId: r.id, supplierName: receiptInfo.supplierName, deliveryNote: receiptInfo.deliveryNote };
+                }
+            }
+            if (move.ref?.prodOrderId) {
                 const poSnap = await db.collection('productionOrders').doc(move.ref.prodOrderId).get();
                 if (poSnap.exists) {
                     const po = poSnap.data() as ProductionOrder;
-                    title = 'Consumo en Producción';
-                    details = `Usado en la orden ${po.orderNumber || po.name}`;
-                    data = {
+                    const logsSnap = await db.collection('protocolLogs').where('productionOrderId', '==', po.id).get();
+                    productionInfo = {
                         orderId: po.id,
                         orderName: po.orderNumber || po.name,
-                        responsibleId: (po as any).responsibleId,
-                        incidents: po.incidents || [],
+                        responsible: await getPartyName((po as any).responsibleId || ''),
+                        incidentCount: (po.incidents || []).length,
+                        protocols: logsSnap.docs.map(d => d.data() as ProtocolLog),
                     };
+                    if (move.reason === 'production_out') {
+                       title = 'Consumo en Producción';
+                       details = `Usado en la orden ${productionInfo.orderName || productionInfo.orderId}`;
+                    } else if (move.reason === 'production_in') {
+                       title = 'Salida de Producción';
+                       details = `Producido en la orden ${productionInfo.orderName || productionInfo.orderId}`;
+                    }
+                    data = { ...productionInfo };
                 }
             }
-             if (move.reason === 'receipt' && move.ref?.goodsReceiptId) {
-                const grSnap = await db.collection('goodsReceipts').doc(move.ref.goodsReceiptId).get();
-                if (grSnap.exists) {
-                    const gr = grSnap.data() as any;
-                    const supplierSnap = await db.collection('parties').doc(gr.supplierPartyId).get();
-                    title = 'Recepción de Mercancía';
-                    details = `Recibido de ${supplierSnap.data()?.name || 'proveedor desconocido'} con albarán ${gr.deliveryNote}.`;
-                    data = {
-                        goodsReceiptId: gr.id,
-                        supplierName: supplierSnap.data()?.name,
-                        deliveryNote: gr.deliveryNote,
+             if (move.reason === 'sale' && move.ref?.orderId) {
+                const orderSnap = await db.collection('ordersSellOut').doc(move.ref.orderId).get();
+                if (orderSnap.exists) {
+                    const order = orderSnap.data() as any;
+                    const accountSnap = await db.collection('accounts').doc(order.accountId).get();
+                    const account = accountSnap.data() as any;
+                    saleInfo = {
+                        customerName: account?.name || 'N/A',
+                        orderNumber: order.docNumber || order.id,
                     };
+                    title = 'Venta a Cliente';
+                    details = `Vendido a ${saleInfo.customerName} en pedido ${saleInfo.orderNumber}`;
+                    data = { ...saleInfo, orderId: order.id };
                 }
             }
-
 
             events.push({
                 id: move.id,
@@ -126,14 +174,10 @@ export async function getLotTraceability(lotNumber: string): Promise<ActionResul
             });
         });
         
-        if (events.length === 0) {
-            return ok([]); // Si después de buscar en TODAS partes no hay nada, devolvemos vacío.
-        }
-
         // 4. Ordenar todos los eventos juntos al final
         events.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
 
-        return ok(events);
+        return ok({ lot, events, receiptInfo, productionInfo, saleInfo });
 
     } catch (error: any) {
         return fail(error.message || "Error al obtener la trazabilidad.");
