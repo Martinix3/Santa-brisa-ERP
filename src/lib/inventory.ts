@@ -1,67 +1,99 @@
-
 // src/lib/inventory.ts
-import type { OrderSellOut, QcStatus } from '@/domain/ssot';
-import type { OnHandView } from '@/domain/ssot';
+import type { OrderSellOut, QcStatus, OnHandView, Lot } from '@/domain/ssot';
 import { qcToBucket } from '@/domain/ssot';
 
-export type StockShortage = {
+// ===========================================
+// TIPOS DE DATOS ENRIQUECIDOS
+// ===========================================
+
+export type StockShortageDetail = {
   itemId: string;
   qtyRequired: number;
-  qtyAvailable: number;
+  qtyAvailable: number; // Stock que cumple con QC
   qtyShort: number;
+  qtyOnHold: number; // NUEVO: Stock pendiente de QC
 };
 
-export type Allocation = { itemId: string; lotNumber: string; qty: number; expiryAt?: string|null };
+export type AllocationDetail = {
+  itemId: string;
+  lotNumber: string;
+  qty: number;
+  expiryAt?: string | null;
+  originInfo: string; // NUEVO: Origen del lote (producción, recepción)
+};
 
-type OrderLine = { itemId: string; qty: number };
+// ===========================================
+// FUNCIÓN checkOrderStock MEJORADA
+// ===========================================
 
 export function checkOrderStock(
   order: OrderSellOut,
   onHand: OnHandView[],
-  itemsCatalog?: { id: string; uom?: string }[]
-): { allocations: Allocation[]; shortages: StockShortage[] } {
+  lotsMaster: Lot[] // NUEVO: Necesitamos el maestro de lotes para obtener el origen
+): { allocations: AllocationDetail[]; shortages: StockShortageDetail[] } {
   if (!order?.lines?.length) return { allocations: [], shortages: [] };
 
-  // Solo consideramos FG y lotes RELEASED (PASSED|WAIVED)
-  const isReleased = (qc: QcStatus) => qcToBucket(qc) === 'RELEASED';
-  const fg = onHand.filter(r => r.locationId?.startsWith('FG/') && isReleased(r.qcStatus));
+  const lotMasterMap = new Map((lotsMaster || []).map(l => [l.lotNumber, l]));
 
-  const allocations: Allocation[] = [];
-  const shortages: StockShortage[] = [];
+  const allocations: AllocationDetail[] = [];
+  const shortages: StockShortageDetail[] = [];
 
   for (const line of order.lines) {
-    const itemId = line.itemId;
-    const qty = line.qty;
+    const { itemId, qty } = line;
     if (!qty || qty <= 0) continue;
 
-    // Lotes de ese item, ordenados FEFO (expiry nulos al final)
-    const lots = fg
-      .filter(r => r.itemId === itemId)
+    // 1. Obtenemos TODO el stock físico para este item
+    const allStockForThisItem = onHand.filter(r => r.itemId === itemId);
+
+    // 2. Calculamos el stock disponible (RELEASED) y en cuarentena (HOLD)
+    const availableStock = allStockForThisItem
+      .filter(r => qcToBucket(r.qcStatus) === 'RELEASED')
       .map(r => ({ ...r, free: Math.max(0, r.qty - (r.reservedQty ?? 0)) }))
-      .filter(r => r.free > 0)
-      .sort((a, b) => {
+      .filter(r => r.free > 0);
+      
+    const onHoldQty = allStockForThisItem
+      .filter(r => qcToBucket(r.qcStatus) === 'HOLD')
+      .reduce((sum, r) => sum + r.qty, 0);
+
+    // 3. Ordenamos el stock disponible por FEFO (First-Expiry, First-Out)
+    const sortedLots = [...availableStock].sort((a, b) => {
         const ax = a.expiryAt ? Date.parse(a.expiryAt) : Number.POSITIVE_INFINITY;
         const bx = b.expiryAt ? Date.parse(b.expiryAt) : Number.POSITIVE_INFINITY;
         return ax - bx;
-      });
+    });
 
     let remaining = qty;
-    for (const lot of lots) {
+    for (const lot of sortedLots) {
       if (remaining <= 0) break;
       const take = Math.min(remaining, lot.free);
       if (take > 0) {
-        allocations.push({ itemId, lotNumber: lot.lotNumber, qty: take, expiryAt: lot.expiryAt ?? undefined });
+        // 4. Buscamos el origen del lote en el maestro de lotes
+        const masterLot = lotMasterMap.get(lot.lotNumber);
+        const originInfo = masterLot?.producedByOrderId 
+            ? `Prod: ${masterLot.producedByOrderId}`
+            : (masterLot as any)?.createdByGoodsReceiptId
+            ? `Recep: ${(masterLot as any).createdByGoodsReceiptId}`
+            : 'Ajuste manual';
+
+        allocations.push({
+          itemId,
+          lotNumber: lot.lotNumber,
+          qty: take,
+          expiryAt: lot.expiryAt,
+          originInfo, // Añadimos la información de origen
+        });
         remaining -= take;
       }
     }
 
     if (remaining > 0) {
-      const available = lots.reduce((s, l) => s + l.free, 0);
+      const totalAvailable = sortedLots.reduce((s, l) => s + l.free, 0);
       shortages.push({
         itemId,
         qtyRequired: qty,
-        qtyAvailable: available,
-        qtyShort: Math.max(0, qty - available),
+        qtyAvailable: totalAvailable,
+        qtyShort: Math.max(0, qty - totalAvailable),
+        qtyOnHold: onHoldQty, // Añadimos el stock en cuarentena
       });
     }
   }
