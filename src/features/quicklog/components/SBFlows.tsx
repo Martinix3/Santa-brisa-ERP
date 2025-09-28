@@ -530,6 +530,8 @@ export function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, on
   const { data: santaData } = useData();
   const [accountId, setAccountId] = useState(defaults?.accountId || "");
   const [newAccountData, setNewAccountData] = useState<{account: Partial<Account>, party: Partial<Party>} | null>(null);
+  const [accountName, setAccountName] = useState("");
+  const [accountCity, setAccountCity] = useState("");
 
   const [note, setNote] = useState(defaults?.note || "");
   const [requestedDate, setRequestedDate] = useState(new Date().toISOString().slice(0,16));
@@ -541,16 +543,22 @@ export function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, on
   
   const availableInventory = useMemo(() => (santaData?.onHand || []).filter(i => i.locationId && i.locationId.startsWith('FG/')), [santaData]);
   
-  const handleAccountChange = (id?: string, newAccount?: Partial<Account>, newParty?: Partial<Party>) => {
+  const handleAccountChange = useCallback((id?: string, newAccount?: Partial<Account>, newParty?: Partial<Party>) => {
     if (newAccount && newParty) {
         setNewAccountData({ account: newAccount, party: newParty });
         setAccountId("");
+        setAccountName(newAccount.name || "");
     } else {
-        setAccountId(id || "");
-        setNewAccountData(null);
+        const selectedAccount = accounts.find(a => a.id === id);
+        if (selectedAccount) {
+            setAccountId(id || "");
+            setNewAccountData(null);
+            setAccountName(selectedAccount.name);
+            const party = santaData?.parties.find(p => p.id === selectedAccount.partyId);
+            setAccountCity(party?.billingAddress?.city || "");
+        }
     }
-  };
-
+  }, [accounts, santaData?.parties]);
 
   function addLine(){ setItems(v=>[...v,{itemId:"", qty:1, unit:"unit", priceUnit: 0, lotNumber: ''}]); }
   function setLine(i:number, patch:Partial<CreateOrderPayload["items"][number]>){
@@ -561,19 +569,31 @@ export function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, on
     setItems(newItems);
   }
   function removeLine(i:number){ setItems(v=> v.filter((_,idx)=> idx!==i)); }
-  function submit(){ 
-      if(!accountId && !newAccountData) return alert("Selecciona una cuenta"); 
-      if(items.length===0 || items.some(it=>!it.itemId || it.qty<=0)) return alert("Revisa las líneas"); 
-      
+  
+  async function submit() {
+      if (!accountId && !accountName) return alert("Selecciona o crea una cuenta");
+      if (items.length === 0 || items.some(it => !it.itemId || it.qty <= 0)) return alert("Revisa las líneas del pedido");
+
+      let finalAccountId = accountId;
+      let finalNewAccount = newAccountData?.account;
+      let finalNewParty = newAccountData?.party;
+
+      if (!finalAccountId && accountName) {
+        const createdAccount = await onCreateAccount({ name: accountName, city: accountCity, type: 'HORECA' });
+        finalAccountId = createdAccount.id;
+        finalNewAccount = createdAccount;
+        finalNewParty = { id: `party_for_${finalAccountId}` };
+      }
+
       const payload: CreateOrderPayload = {
-          accountId: accountId || undefined,
-          newAccount: newAccountData?.account,
-          newParty: newAccountData?.party,
+          accountId: finalAccountId,
+          newAccount: finalNewAccount,
+          newParty: finalNewParty,
           requestedDate,
-          deliveryDate: deliveryDate||undefined,
+          deliveryDate: deliveryDate || undefined,
           channel,
           paymentTerms,
-          shipTo: shipTo||undefined,
+          shipTo: shipTo || undefined,
           note,
           items
       };
@@ -584,7 +604,16 @@ export function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, on
 
   return (
     <div className="p-4 space-y-3">
-       {/* AccountPicker is not used here, the parent modal handles the account selection */}
+        <Row>
+            <Label>Cliente</Label>
+            <AccountSearch 
+                accounts={accounts}
+                onSelect={handleAccountChange}
+                onNewAccount={(name, city) => handleAccountChange(undefined, {name, type: 'HORECA'}, {name, billingAddress: {city}})}
+                initialAccountName={accountName}
+            />
+        </Row>
+
       <div className="grid grid-cols-2 gap-3">
         <Row><Label>Fecha pedido</Label><Input type="datetime-local" value={requestedDate} onChange={e=>setRequestedDate(e.target.value)}/></Row>
         <Row><Label>Entrega deseada</Label><Input type="datetime-local" value={deliveryDate} onChange={e=>setDeliveryDate(e.target.value)}/></Row>
@@ -641,28 +670,6 @@ export function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, on
   );
 }
 
-// ===== Modal base =====
-export function BaseModal({open, onClose, color="#A7D8D9", title, icon:Icon=ClipboardList, children}:{open:boolean; onClose:()=>void; color?:string; title:string; icon?:any; children:React.ReactNode}){
-  if(!open) return null;
-  return (
-    <AnimatePresence>
-      <motion.div className="fixed inset-0 z-50 flex items-center justify-center" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
-        <div className="absolute inset-0" onClick={onClose}/>
-        <motion.div role="dialog" aria-modal="true" aria-labelledby="sb-modal-title"
-          initial={{opacity:0, y:12, scale:0.98}} animate={{opacity:1, y:0, scale:1}} exit={{opacity:0, y:12, scale:0.98}}
-          transition={{type:"spring", stiffness:260, damping:22}}
-          className="relative w-[95vw] max-w-2xl h-[85vh] rounded-2xl border border-zinc-200 bg-white shadow-xl overflow-hidden flex flex-col">
-          <Header title={title} color={color} icon={Icon}/>
-          <div className="absolute right-2 top-2 z-10"><button onClick={onClose} className="p-2 rounded-full hover:bg-zinc-100" aria-label="Cerrar"><X className="h-4 w-4"/></button></div>
-          <div className="flex-grow overflow-y-auto">
-            {children}
-          </div>
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
-  );
-}
-
 // ===== Orquestador: SBFlowModal =====
 export function SBFlowModal({
   open,
@@ -714,5 +721,85 @@ export function SBFlowModal({
     <BaseModal open title="Crear pedido" color={SB_COLORS.primary.copper} icon={Briefcase} onClose={onClose}>
       <CreateOrderForm accounts={accounts} onSearchAccounts={onSearchAccounts} onCreateAccount={onCreateAccount} onCancel={onClose} onSubmit={(p)=>{ onSubmit(p); }} defaults={defaults}/>
     </BaseModal>
+  );
+}
+
+
+function AccountSearch({
+    accounts,
+    onSelect,
+    onNewAccount,
+    initialAccountName
+}: {
+    accounts: Account[],
+    onSelect: (accountId: string, accountName: string, city?: string) => void,
+    onNewAccount: (name: string, city?: string) => void,
+    initialAccountName?: string
+}) {
+    const [query, setQuery] = useState(initialAccountName || '');
+    const debouncedQuery = useDebounced(query);
+    const [results, setResults] = useState<Account[]>([]);
+    
+    useEffect(() => {
+        if (debouncedQuery.length > 2) {
+            setResults(accounts.filter(a => a.name.toLowerCase().includes(debouncedQuery.toLowerCase())));
+        } else {
+            setResults([]);
+        }
+    }, [debouncedQuery, accounts]);
+
+    const handleSelect = (acc: Account) => {
+        setQuery(acc.name);
+        onSelect(acc.id, acc.name, (acc as any).city);
+        setResults([]);
+    };
+
+    const handleCreate = () => {
+        onNewAccount(query);
+        setResults([]);
+    };
+
+    return (
+        <div className="relative">
+            <Input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar o crear..."/>
+            {results.length > 0 && (
+                <ul className="absolute z-10 w-full bg-white border rounded-md shadow-lg max-h-60 overflow-auto">
+                    {results.map(acc => (
+                        <li key={acc.id} onClick={() => handleSelect(acc)} className="px-4 py-2 hover:bg-zinc-100 cursor-pointer">
+                            {acc.name}
+                        </li>
+                    ))}
+                </ul>
+            )}
+             {query.length > 2 && results.length === 0 && (
+                <div className="absolute z-10 w-full bg-white border rounded-md shadow-lg p-2">
+                    <button onClick={handleCreate} className="w-full text-left">
+                        Crear nueva cuenta: "{query}"
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ===== Modal base =====
+export function BaseModal({open, onClose, color="#A7D8D9", title, icon:Icon=ClipboardList, children}:{open:boolean; onClose:()=>void; color?:string; title:string; icon?:any; children:React.ReactNode}){
+  if(!open) return null;
+  return (
+    <AnimatePresence>
+      <motion.div className="fixed inset-0 z-50 flex items-center justify-center" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
+        <div className="absolute inset-0" onClick={onClose}/>
+        <motion.div role="dialog" aria-modal="true" aria-labelledby="sb-modal-title"
+          initial={{opacity:0, y:12, scale:0.98}} animate={{opacity:1, y:0, scale:1}} exit={{opacity:0, y:12, scale:0.98}}
+          transition={{type:"spring", stiffness:260, damping:22}}
+          className="relative w-[95vw] max-w-2xl h-[85vh] rounded-2xl border border-zinc-200 bg-white shadow-xl overflow-hidden flex flex-col">
+          <Header title={title} color={color} icon={Icon}/>
+          <div className="absolute right-2 top-2 z-10"><button onClick={onClose} className="p-2 rounded-full hover:bg-zinc-100" aria-label="Cerrar"><X className="h-4 w-4"/></button></div>
+          <div className="flex-grow overflow-y-auto">
+            {children}
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
   );
 }
