@@ -35,7 +35,7 @@ export type LotBucket = 'HOLD' | 'RELEASED' | 'REJECTED';
 export type InteractionKind = 'VISITA' | 'LLAMADA' | 'EMAIL' | 'WHATSAPP' | 'OTRO' | 'COBRO' | 'EVENTO_MKT';
 export type EventKind = 'DEMO' | 'FERIA' | 'FORMACION' | 'OTRO';
 export type PosTacticStatus = 'planned' | 'active' | 'closed' | 'cancelled';
-export type TraceEventKind = 'RECEIPT' | 'PRODUCTION_OUT' | 'PRODUCTION_IN' | 'CONSUME' | 'OUTPUT' | 'QC_TEST' | 'SHIPMENT' | 'ADJUSTMENT' | 'MOVE' | 'ARRIVED' | 'GENEALOGY_PARENT' | 'GENEALOGY_CHILD';
+export type TraceEventKind = 'RECEIPT' | 'PRODUCTION_OUT' | 'PRODUCTION_IN' | 'SHIPMENT' | 'ADJUSTMENT' | 'MOVE';
 export type TraceEventPhase = 'SOURCE' | 'RECEIPT' | 'QC' | 'PRODUCTION' | 'PACK' | 'WAREHOUSE' | 'SALE' | 'DELIVERY';
 
 
@@ -47,6 +47,16 @@ export function qcToBucket(qc: QcStatus): LotBucket {
     default: return 'HOLD';
   }
 }
+
+export const ITEM_CATEGORY_META: Record<ItemCategory, { label: string; }> = {
+  fg: { label: "Producto Terminado" },
+  raw: { label: "Materia Prima" },
+  pack: { label: "Packaging" },
+  label: { label: "Etiqueta" },
+  intermediate: { label: "Producto Intermedio" },
+  consumable: { label: "Consumible" },
+  merch: { label: "Merchandising" },
+};
 
 // -----------------------------------------------------------------
 // 2. Modelo Party / Role (Contacto Unificado)
