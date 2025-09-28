@@ -66,8 +66,14 @@ export function NewOnHandDialog({
 
   return (
     <SBDialog open={open} onOpenChange={onClose}>
-      <SBDialogContent title="Añadir Stock Manual" maxWidth="36rem">
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
+      <SBDialogContent 
+        title="Añadir Stock Manual" 
+        maxWidth="36rem"
+        onSubmit={handleSubmit(onSubmit)}
+        primaryAction={{ label: "Guardar", type: "submit" }}
+        secondaryAction={{ label: "Cancelar", onClick: () => { onClose(); reset(); } }}
+      >
+        <div className="space-y-3">
           <FieldRow label="Producto" error={errors.itemId?.message} htmlFor="itemId">
             <Select id="itemId" {...register("itemId", { required: "Selecciona un producto" })}>
               <option value="">-- Selecciona --</option>
@@ -117,11 +123,7 @@ export function NewOnHandDialog({
               <label htmlFor="sendToQc" className="text-sm">Enviar a cuarentena (QC)</label>
             </div>
           </div>
-          <div className="mt-6 flex justify-end gap-2">
-            <SBButton type="button" variant="secondary" onClick={() => { onClose(); reset(); }}>Cancelar</SBButton>
-            <SBButton type="submit">Guardar</SBButton>
-          </div>
-        </form>
+        </div>
       </SBDialogContent>
     </SBDialog>
   );

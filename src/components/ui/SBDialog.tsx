@@ -1,3 +1,4 @@
+
 "use client";
 import * as React from "react";
 import { SB_THEME } from "@/domain/ssot";
@@ -41,8 +42,8 @@ export function SBDialogContent({
   maxWidth?: string;
 }) {
   return (
-    <form onSubmit={onSubmit} className="w-full" style={{ maxWidth }}>
-      <div className="sb-card w-full bg-white border p-4 md:p-6">
+    <div className="sb-card w-full bg-white border p-4 md:p-6" style={{ maxWidth }} onClick={(e) => e.stopPropagation()}>
+      <form onSubmit={onSubmit}>
         {(title || description) && (
           <header className="mb-4">
             {title && <h3 className="text-lg font-semibold text-zinc-900">{title}</h3>}
@@ -74,7 +75,7 @@ export function SBDialogContent({
             )}
           </footer>
         )}
-      </div>
-    </form>
+      </form>
+    </div>
   );
 }
