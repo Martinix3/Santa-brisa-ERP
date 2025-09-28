@@ -1,3 +1,4 @@
+
 // src/lib/consignment-and-samples.ts
 import type { StockMove, Shipment, Account, SantaData } from "@/domain/ssot";
 
@@ -7,8 +8,8 @@ export function consignmentOnHandByAccount(stockMoves: StockMove[]) {
   const byAcc: Record<string, Record<string, number>> = {};
   for (const m of stockMoves || []) {
     const itemId = m.itemId;
-    const accFrom = m.fromLocationId ?? m.fromLocation;   // cuando sale de consigna (venta/retorno)
-    const accTo = m.toLocationId ?? m.toLocation;       // cuando se envía a consigna
+    const accFrom = m.fromLocationId;   // cuando sale de consigna (venta/retorno)
+    const accTo = m.toLocationId;       // cuando se envía a consigna
 
     if (m.reason === "consignment_send" && accTo) {
       byAcc[accTo] ||= {};
@@ -81,7 +82,7 @@ export function samplesSentSummary({
     const t = new Date(m.occurredAt).getTime();
     if (cutoff && t < cutoff) continue;
     
-    const accId = (m.toLocationId ?? m.toLocation) || (m.fromLocationId ?? m.fromLocation) || "N/A";
+    const accId = (m.toLocationId) || (m.fromLocationId) || "N/A";
     const name = byId.get(accId)?.name || accId;
     const row = (accRows[accId] ||= { units: 0, shipments: 0, last: null, name });
     row.units += Math.abs(m.qty || 0);
@@ -93,3 +94,5 @@ export function samplesSentSummary({
     .map(([accountId, r]) => ({ accountId, ...r }))
     .sort((a, b) => b.units - a.units);
 }
+
+    

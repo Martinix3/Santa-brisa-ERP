@@ -1,3 +1,4 @@
+
 // ============================================================================
 // src/app/(app)/production/actions.ts
 // Server actions del módulo de Producción (REFACTORIZADO)
@@ -159,7 +160,9 @@ export async function completeProductionOrder(
           subject: { type: 'LOT', id: consumption.lotNumber },
           phase: 'PRODUCTION',
           kind: 'CONSUME',
-          occurredAt: now,
+          at: now,
+          title: `Consumo en orden ${order.orderNumber || orderId}`,
+          details: `Consumido ${-Math.abs(consumption.qty)} ${consumption.uom} del lote ${consumption.lotNumber}.`,
           links: { prodOrderId: orderId, lotNumber: consumption.lotNumber },
           data: {
               orderNumber: order.orderNumber,
@@ -221,7 +224,9 @@ export async function completeProductionOrder(
           subject: { type: 'LOT', id: lotNumber },
           phase: 'PRODUCTION',
           kind: 'OUTPUT',
-          occurredAt: now,
+          at: now,
+          title: `Producción de lote ${lotNumber}`,
+          details: `Generado ${output.qty} ${output.uom} desde orden ${order.orderNumber || orderId}.`,
           links: { prodOrderId: orderId, lotNumber: lotNumber },
           data: {
               orderNumber: order.orderNumber,
@@ -446,3 +451,5 @@ export async function planProduction(input: unknown): Promise<ActionResult<{ ord
     return fail('No se pudo planificar la orden.', { code: e?.code, retryable: true });
   }
 }
+
+    
