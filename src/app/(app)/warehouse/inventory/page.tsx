@@ -1,4 +1,6 @@
 
+// src/app/(app)/warehouse/inventory/page.tsx
+
 "use client";
 import React, { useMemo, useState, useEffect, useTransition } from "react";
 import Link from "next/link";
@@ -43,11 +45,11 @@ type FormState = {
   locationId: string;
   occurredAt: string;
   note?: string;
-  supplier?: string;     // Proveedor (accountId o texto)
-  invoiceRef?: string;   // Nº albarán / factura
-  amount?: number | "";  // Importe
-  currency?: string;     // Moneda (ej. EUR)
-  category?: string;     // ItemCategory
+  supplier?: string;
+  invoiceRef?: string;
+  amount?: number | "";
+  currency?: string;
+  category?: string;
 };
 
 function NewOnHandDialog({
@@ -104,20 +106,18 @@ function NewOnHandDialog({
     <SBDialog open={open} onOpenChange={onClose}>
       <SBDialogContent title="Añadir Stock Manual" maxWidth="36rem">
         <div className="space-y-3">
-          <FieldRow label="Producto" error={errors.itemId}><Select value={fm.itemId} onChange={e=>setFm(s=>({...s,itemId:e.target.value, uom: items.find(i=>i.id===e.target.value)?.uom || 'unit'}))}>{items.map(i=><option key={i.id} value={i.id}>{i.name}</option>)}</Select></FieldRow>
-          <FieldRow label="Lote (auto si vacío)"><Input value={fm.lotNumber} onChange={e=>setFm(s=>({...s,lotNumber:e.target.value}))} placeholder="SKU-YYMM-XX"/></FieldRow>
-          <FieldRow label="Cantidad" error={errors.qty}><div className="flex gap-2"><Input type="number" value={fm.qty} onChange={e=>setFm(s=>({...s,qty:e.target.value===""?"":Number(e.target.value)}))} min={1}/><Select value={fm.uom} onChange={e=>setFm(s=>({...s,uom:e.target.value}))}>{['unit','kg','L','case'].map(u=><option key={u} value={u}>{u}</option>)}</Select></div></FieldRow>
-          <FieldRow label="Ubicación" error={errors.locationId}><Select value={fm.locationId} onChange={e=>setFm(s=>({...s,locationId:e.target.value}))}>{locations.map(l=><option key={l} value={l}>{l}</option>)}</Select></FieldRow>
-          <FieldRow label="Fecha/hora"><Input type="datetime-local" value={fm.occurredAt} onChange={e=>setFm(s=>({...s,occurredAt:e.target.value}))}/></FieldRow>
-          <FieldRow label="Notas"><Input value={fm.note} onChange={e=>setFm(s=>({...s,note:e.target.value}))} placeholder="Ajuste anual, promo, etc."/></Row>
-          
-          <div className="border-t pt-4 space-y-3">
-            <FieldRow label="Proveedor (texto o ID)"><Input value={fm.supplier} onChange={e => setFm(s => ({ ...s, supplier: e.target.value }))} placeholder="Nombre proveedor o accountId"/></FieldRow>
-            <FieldRow label="Nº albarán / doc. ref."><Input value={fm.invoiceRef} onChange={e => setFm(s => ({ ...s, invoiceRef: e.target.value }))} placeholder="p.ej. ALB-2509-123"/></FieldRow>
-            <FieldRow label="Importe"><div className="flex gap-2"><Input type="number" step="0.01" min="0" value={fm.amount} onChange={e => setFm(s => ({ ...s, amount: e.target.value === "" ? "" : Number(e.target.value) }))}/><Select value={fm.currency} onChange={e => setFm(s => ({ ...s, currency: e.target.value }))}><option value="EUR">EUR</option><option value="USD">USD</option></Select></div></FieldRow>
-            <FieldRow label="Categoría" error={errors.category}><Select value={fm.category} onChange={e => setFm(s => ({ ...s, category: e.target.value }))}><option value="">— Selecciona —</option><option value="fg">Producto Terminado</option><option value="raw">Materia Prima</option><option value="intermediate">Intermedio</option><option value="pack">Packaging / Etiqueta</option><option value="merch">Merchandising</option><option value="consumable">Consumible</option></Select></FieldRow>
-          </div>
-
+            <FieldRow label="Producto" error={errors.itemId}><Select value={fm.itemId} onChange={e=>setFm(s=>({...s,itemId:e.target.value, uom: items.find(i=>i.id===e.target.value)?.uom || 'unit'}))}>{items.map(i=><option key={i.id} value={i.id}>{i.name}</option>)}</Select></FieldRow>
+            <FieldRow label="Lote (auto si vacío)"><Input value={fm.lotNumber} onChange={e=>setFm(s=>({...s,lotNumber:e.target.value}))} placeholder="SKU-YYMM-XX"/></FieldRow>
+              <FieldRow label="Cantidad" error={errors.qty}><div className="flex gap-2"><Input type="number" value={fm.qty} onChange={e=>setFm(s=>({...s,qty:e.target.value===""?"":Number(e.target.value)}))} min={1}/><Select value={fm.uom} onChange={e=>setFm(s=>({...s,uom:e.target.value}))}>{['unit','kg','L','case'].map(u=><option key={u} value={u}>{u}</option>)}</Select></div></FieldRow>
+              <FieldRow label="Ubicación" error={errors.locationId}><Select value={fm.locationId} onChange={e=>setFm(s=>({...s,locationId:e.target.value}))}>{locations.map(l=><option key={l} value={l}>{l}</option>)}</Select></FieldRow>
+              <FieldRow label="Fecha/hora"><Input type="datetime-local" value={fm.occurredAt} onChange={e=>setFm(s=>({...s,occurredAt:e.target.value}))}/></FieldRow>
+              <FieldRow label="Notas"><Input value={fm.note} onChange={e=>setFm(s=>({...s,note:e.target.value}))} placeholder="Ajuste anual, promo, etc."/></FieldRow>
+              <div className="border-t pt-4 space-y-3">
+                <FieldRow label="Proveedor (texto o ID)"><Input value={fm.supplier} onChange={e => setFm(s => ({ ...s, supplier: e.target.value }))} placeholder="Nombre proveedor o accountId"/></FieldRow>
+                <FieldRow label="Nº albarán / doc. ref."><Input value={fm.invoiceRef} onChange={e => setFm(s => ({ ...s, invoiceRef: e.target.value }))} placeholder="p.ej. ALB-2509-123"/></FieldRow>
+                <FieldRow label="Importe"><div className="flex gap-2"><Input type="number" step="0.01" min="0" value={fm.amount} onChange={e => setFm(s => ({ ...s, amount: e.target.value === "" ? "" : Number(e.target.value) }))}/><Select value={fm.currency} onChange={e => setFm(s => ({ ...s, currency: e.target.value }))}><option value="EUR">EUR</option><option value="USD">USD</option></Select></div></FieldRow>
+                <FieldRow label="Categoría" error={errors.category}><Select value={fm.category} onChange={e => setFm(s => ({ ...s, category: e.target.value }))}><option value="">— Selecciona —</option><option value="fg">Producto Terminado</option><option value="raw">Materia Prima</option><option value="intermediate">Intermedio</option><option value="pack">Packaging / Etiqueta</option><option value="merch">Merchandising</option><option value="consumable">Consumible</option></Select></FieldRow>
+              </div>
         </div>
         <div className="mt-6 flex justify-end gap-2">
           <button onClick={onClose} className="px-3 py-1.5 border rounded-lg bg-white">Cancelar</button>
