@@ -79,6 +79,9 @@ export async function createSupplier(payload: { name: string; taxId?: string }):
     batch.set(roleRef, newRole);
     await batch.commit();
 
+    revalidatePath('/contacts');
+    revalidatePath('/warehouse/goods-receipt');
+
     return newParty;
 }
 
@@ -100,6 +103,8 @@ export async function createItem(payload: { name: string; sku?: string; uom: Uom
     };
     
     await itemRef.set({ ...newItem, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as any);
+    revalidatePath('/items');
+    revalidatePath('/warehouse/goods-receipt');
     return newItem;
 }
 
@@ -138,6 +143,10 @@ export async function createGoodsReceipt(payload: {
     }
     if (!finalSupplierId) throw new Error('El proveedor es obligatorio.');
 
+    const allItemsSnap = await db.collection('items').get();
+    const existingItems = allItemsSnap.docs.map(doc => doc.data() as Item);
+    const existingItemsMap = new Map(existingItems.map(it => [it.id, it]));
+
     const allReceipts = (await db.collection('goodsReceipts').select('receiptNumber').get())
       .docs.map(d => d.data().receiptNumber).filter(Boolean);
     const receiptNumber = makeGoodsReceiptCode(allReceipts, new Date(receiptDate));
@@ -146,45 +155,39 @@ export async function createGoodsReceipt(payload: {
     const finalLines: GoodsReceipt['lines'] = [];
 
     for (const line of lines) {
-      let currentItem: Item | undefined;
+      let currentItem: Item | undefined = line.itemId ? existingItemsMap.get(line.itemId) : undefined;
+      let itemId = line.itemId;
 
-      if (line.itemId) {
-        const itemSnap = await db.collection('items').doc(line.itemId).get();
-        currentItem = itemSnap.data() as Item;
-      } else if (line.newItemName) {
-        const itemsSnap = await db.collection('items').get();
-        const existingSkus = itemsSnap.docs.map(d => d.data().sku).filter(Boolean);
+      if (!itemId && line.newItemName) {
         const itemRef = db.collection('items').doc();
-        const uom = line.uom || 'unit'; // <-- GUARANTEE UOM
+        itemId = itemRef.id;
+        const uom = line.uom || 'unit';
         currentItem = {
-            id: itemRef.id,
+            id: itemId,
             name: line.newItemName,
-            sku: makeSku(line.newItemName, line.newItemCategory || 'raw', existingSkus),
+            sku: makeSku(line.newItemName, line.newItemCategory || 'raw', existingItems.map(it => it.sku)),
             uom: uom,
             category: line.newItemCategory || 'raw',
             stdCost: line.unitCost || 0,
             active: true,
         };
         batch.set(itemRef, { ...currentItem, createdAt: nowIso, updatedAt: nowIso });
+        existingItemsMap.set(itemId, currentItem); // Add to local map for subsequent lines
       }
 
-      if (!currentItem) continue;
-      const item = currentItem; // Shadow to make it non-optional
-      const itemId = item.id;
+      if (!currentItem || !itemId) continue;
       
-      const lotNumber = line.supplierLot.trim() || (line.autoLot ? generateLotNumber(item) : "");
-      if (!lotNumber) throw new Error(`El lote de proveedor es obligatorio para la línea con ${item.name}.`);
-
-      const qcStatus = initialQcStatusForItemCategory(item.category);
-      if (!item.uom) throw new Error(`Item ${item.id} no tiene UOM definida.`);
+      const lotNumber = line.supplierLot.trim() || (line.autoLot ? generateLotNumber(currentItem) : "");
+      if (!lotNumber) throw new Error(`El lote de proveedor es obligatorio para la línea con ${currentItem.name}.`);
+      if (!currentItem.uom) throw new Error(`El item ${currentItem.id} no tiene una unidad de medida (uom) definida.`);
 
 
       const lotData = LotSchema.parse({
         lotNumber: lotNumber,
         itemId: itemId,
         quantity: line.qty,
-        uom: item.uom,
-        qcStatus: qcStatus,
+        uom: currentItem.uom,
+        qcStatus: initialQcStatusForItemCategory(currentItem.category),
         expiryAt: line.expiryAt ?? null,
         createdAt: nowIso,
         updatedAt: nowIso,
@@ -192,20 +195,20 @@ export async function createGoodsReceipt(payload: {
       const lotRef = db.collection('lots').doc(lotNumber);
       batch.set(lotRef, { ...lotData, supplierId: finalSupplierId }, { merge: true });
 
-      const locationId = line.locationId || landingLocationFor(item.category);
+      const locationId = line.locationId || landingLocationFor(currentItem.category);
       const onHandId = `${itemId}|${lotNumber}|${locationId}`;
       const onHandRef = db.collection('onHand').doc(onHandId);
       batch.set(onHandRef, {
         id: onHandId, itemId, lotNumber, locationId,
         qty: FieldValue.increment(line.qty),
-        uom: item.uom, qcStatus,
+        uom: currentItem.uom, qcStatus: lotData.qcStatus,
         createdAt: nowIso, updatedAt: nowIso,
       }, { merge: true });
 
       const smRef = db.collection('stockMoves').doc();
       const stockMove: StockMove = {
         id: smRef.id,
-        itemId, lotNumber, uom: item.uom,
+        itemId, lotNumber, uom: currentItem.uom,
         qty: line.qty,
         reason: 'receipt',
         toLocationId: locationId,
@@ -219,17 +222,14 @@ export async function createGoodsReceipt(payload: {
       finalLines.push({
         itemId,
         qty: line.qty,
-        uom: item.uom,
+        uom: currentItem.uom,
         unitCost: line.unitCost,
         lotNumber,
       } as any);
     }
     
-    const itemsForQcCheck = await db.collection('items').where('id', 'in', finalLines.map(l => (l as any).itemId)).get();
-    const itemsMap = new Map(itemsForQcCheck.docs.map(d => [d.id, d.data() as Item]));
-
-    const requiresQc = finalLines.some(l => {
-        const item = itemsMap.get((l as any).itemId);
+    const itemsForQcCheck = finalLines.map(l => (l as any).itemId).map(id => existingItemsMap.get(id));
+    const requiresQc = itemsForQcCheck.some(item => {
         const cat = item?.category;
         return cat === 'raw' || cat === 'pack' || cat === 'fg';
     });
