@@ -1,4 +1,3 @@
-
 // src/app/(app)/warehouse/inventory/page.tsx
 
 "use client";
@@ -8,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { Download, Plus, History, X } from "lucide-react";
 import { SBCard, Input, Select, DataTableSB } from "@/components/ui/ui-primitives";
 import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog";
-import type { OnHandView, Item, ItemCategory, StockMove, Lot } from "@/domain/ssot";
+import type { OnHandView, Item, ItemCategory, StockMove, Lot, QcStatus } from "@/domain/ssot";
 import { useData } from "@/lib/dataprovider";
 import { createManualOnHand, rebuildOnHand } from "../actions";
 import { qcFromRow } from '@/lib/sb-core';
@@ -31,10 +30,11 @@ const download = (fn: string, content: string) => {
   const a = document.createElement("a"); a.href = url; a.download = fn; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
 };
 
-const QCPill = ({ status }: { status?: "hold" | "release" | "reject" }) => {
-  const s = status || "hold";
-  const cls = s === "release" ? "bg-green-100 text-green-800" : s === "reject" ? "bg-red-100 text-red-800" : "bg-yellow-100 text-yellow-800";
-  return <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${cls}`}>{s}</span>;
+const QCPill = ({ status }: { status?: QcStatus }) => {
+  const s = status || 'PENDING';
+  const cls = s === "PASSED" ? "bg-green-100 text-green-800" : s === "REJECTED" ? "bg-red-100 text-red-800" : "bg-yellow-100 text-yellow-800";
+  const text = s === "PASSED" ? 'Liberado' : s === 'REJECTED' ? 'Rechazado' : 'Pendiente';
+  return <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${cls}`}>{text}</span>;
 };
 
 type FormState = {
@@ -50,6 +50,7 @@ type FormState = {
   amount?: number | "";
   currency?: string;
   category?: string;
+  sendToQc: boolean;
 };
 
 function NewOnHandDialog({
@@ -61,7 +62,7 @@ function NewOnHandDialog({
   const [fm, setFm] = useState<FormState>({
     itemId: "", lotNumber: "", qty: "", uom: "unit", locationId: defaultLocation||"",
     occurredAt: new Date().toISOString().slice(0,16), note: "", supplier: "",
-    invoiceRef: "", amount: "", currency: "EUR", category: ""
+    invoiceRef: "", amount: "", currency: "EUR", category: "", sendToQc: false,
   });
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
 
@@ -91,6 +92,7 @@ function NewOnHandDialog({
       amount: fm.amount === "" ? undefined : Number(fm.amount),
       currency: fm.currency,
       category: fm.category as any,
+      sendToQc: fm.sendToQc,
     });
   };
 
@@ -117,6 +119,10 @@ function NewOnHandDialog({
                 <FieldRow label="Nº albarán / doc. ref."><Input value={fm.invoiceRef || ''} onChange={e => setFm(s => ({ ...s, invoiceRef: e.target.value }))} placeholder="p.ej. ALB-2509-123"/></FieldRow>
                 <FieldRow label="Importe"><div className="flex gap-2"><Input type="number" step="0.01" min="0" value={fm.amount} onChange={e => setFm(s => ({ ...s, amount: e.target.value === "" ? "" : Number(e.target.value) }))}/><Select value={fm.currency} onChange={e => setFm(s => ({ ...s, currency: e.target.value }))}><option value="EUR">EUR</option><option value="USD">USD</option></Select></div></FieldRow>
                 <FieldRow label="Categoría" error={errors.category}><Select value={fm.category} onChange={e => setFm(s => ({ ...s, category: e.target.value }))}><option value="">— Selecciona —</option><option value="fg">Producto Terminado</option><option value="raw">Materia Prima</option><option value="intermediate">Intermedio</option><option value="pack">Packaging / Etiqueta</option><option value="merch">Merchandising</option><option value="consumable">Consumible</option></Select></FieldRow>
+                <div className="flex items-center gap-2 pl-[132px]">
+                    <input type="checkbox" id="sendToQc" checked={fm.sendToQc} onChange={e => setFm(s => ({...s, sendToQc: e.target.checked}))} />
+                    <label htmlFor="sendToQc" className="text-sm">Enviar a cuarentena (QC)</label>
+                </div>
             </div>
         </div>
         <div className="mt-6 flex justify-end gap-2">
@@ -153,7 +159,11 @@ export default function InventoryPage() {
   
   const lotMap = useMemo(() => {
     const map = new Map<string, Lot>();
-    (santaData?.lots || []).forEach(l => map.set(l.lotNumber, l));
+    (santaData?.lots || []).forEach(l => {
+      if (l.lotNumber) {
+        map.set(l.lotNumber, l);
+      }
+    });
     return map;
   }, [santaData?.lots]);
 
@@ -206,7 +216,7 @@ export default function InventoryPage() {
     { key: "qty", header: "Cantidad", className: "text-right", render: r => <span className="font-semibold">{r.qty} <span className="text-xs text-zinc-500">{r.uom}</span></span> },
     { key: "qcStatus", header: "QC", render: r => {
         const lot = r.lotNumber ? lotMap.get(r.lotNumber) : undefined;
-        return <QCPill status={lot?.qcStatus as any} />;
+        return <QCPill status={lot?.qcStatus} />;
       } 
     },
     { key: "locationId", header: "Ubicación", render: r => r.locationId || "—" },

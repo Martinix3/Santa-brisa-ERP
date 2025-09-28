@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { upsertMany } from "@/lib/dataprovider/actions";
 import { ok, fail, type ActionResult } from "@/lib/result";
 import { adminDb as db } from '@/server/firebase';
-import type { StockMove, OnHandView, Uom, SantaData } from '@/domain/ssot';
+import type { StockMove, OnHandView, Uom, SantaData, QcStatus } from '@/domain/ssot';
 
 
 const CreateManualOnHandSchema = z.object({
@@ -22,6 +22,7 @@ const CreateManualOnHandSchema = z.object({
   amount: z.number().nonnegative().optional(),
   currency: z.string().default("EUR").optional(),
   category: z.enum(["fg","raw","intermediate","pack","merch","consumable"]),
+  sendToQc: z.boolean().default(false),
 });
 
 type CreateManualPayload = z.infer<typeof CreateManualOnHandSchema>;
@@ -39,7 +40,7 @@ const pad2 = (n: number) => String(n).padStart(2, "0");
 function lotPrefixFromSku(sku?: string) {
   const base = (sku || "SKU").toUpperCase().replace(/[^A-Z0-9_-]/g, "");
   const d = new Date();
-  const yymm = `${String(d.getFullYear()).slice(2)}${pad2(d.getMonth()+1)}`;
+  const yymm = `${String(d.getFullYear()).slice(-2)}${pad2(d.getMonth() + 1)}`;
   return `${base}-${yymm}`;
 }
 
@@ -89,6 +90,13 @@ async function loadItemSku(itemId: string): Promise<string | undefined> {
   return undefined;
 }
 
+function initialQcStatusFor(item?: { requiresQc?: boolean }, opts?: { sendToQc?: boolean }): QcStatus {
+  if (opts?.sendToQc === true) return 'PENDING';
+  if (opts?.sendToQc === false) return 'PASSED';
+  // @ts-ignore
+  return item?.requiresQc ? 'PENDING' : 'PASSED';
+}
+
 // -------------------------
 // Action principal
 // -------------------------
@@ -134,12 +142,17 @@ export async function createManualOnHand(
   };
 
   // 3) (Opcional) upsert del lote, si manejas colección lots
+  const now = new Date().toISOString();
+  const qcStatus = initialQcStatusFor(undefined, { sendToQc: p.sendToQc });
   const lot = {
     id: lotNumber,
     lotNumber,
     itemId: p.itemId,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    qcStatus: qcStatus,
+    createdAt: now,
+    updatedAt: now,
+    quantity: p.qty,
+    uom: p.uom,
   };
 
   try {
