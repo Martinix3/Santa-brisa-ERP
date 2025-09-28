@@ -1,4 +1,3 @@
-
 // src/app/(app)/quality/actions.ts
 'use server';
 
