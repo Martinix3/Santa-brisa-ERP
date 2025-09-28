@@ -1,3 +1,4 @@
+
 // ============================================================================
 // src/app/(app)/production/actions.ts
 // Server actions del módulo de Producción (REFACTORIZADO)
@@ -397,3 +398,5 @@ export async function planProduction(input: unknown): Promise<ActionResult<{ ord
     return fail('No se pudo planificar la orden.', { code: e?.code, retryable: true });
   }
 }
+
+    
