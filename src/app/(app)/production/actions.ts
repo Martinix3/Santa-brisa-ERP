@@ -13,6 +13,7 @@ import { adminDb } from '@/server/firebase';
 import type { Lot as SsotLot, Uom, ProductionOrder, BillOfMaterial, OnHandView, Item, StockMove } from '@/domain/ssot';
 import { LotSchema, type Lot } from '@/domain/validators';
 import { explodeBOM } from '@/server/production/bom.service';
+import { findNextLotNumber } from '../warehouse/inventory/actions';
 
 
 // Si tienes estos tipos en tu SSOT, impórtalos desde '@/domain/ssot'.
@@ -248,56 +249,80 @@ export async function addIncident(input: { orderId: string; severity: 'LOW'|'MED
 }
 
 // ===== Cerrar / Cancelar =====
-export async function closeProduction(input: { orderId: string; realConsumption: Array<{itemId:string; uom:Uom; qty:number; lotNumber?:string}>; journal?: any[]; idempotencyKey?: string }) {
-    try {
-        const { orderId, realConsumption, journal } = input;
-        const orderRef = adminDb.collection('productionOrders').doc(orderId);
-        const poSnap = await orderRef.get();
-        if (!poSnap.exists) return fail('Orden inexistente');
-        const po = poSnap.data() as ProductionOrder;
+type CloseInput = {
+  prodOrderId: string;
+  output: { itemId: string; uom: string; qty: number; lotNumber?: string; sku?: string; toLocationId?: string };
+  consumptions: Array<{ itemId: string; uom: string; qty: number; lotNumber: string; fromLocationId?: string }>;
+  finalizeStatus?: 'DONE'|'CLOSED';
+};
 
-        const now = new Date().toISOString();
-        const batch = adminDb.batch();
+export async function closeProduction(input: CloseInput) {
+    const nowIso = new Date().toISOString();
+    const batch = adminDb.batch();
 
-        // 1) StockMoves consumo (OUT)
-        const outMoves: StockMove[] = realConsumption
-          .filter(l => l.qty > 0)
-          .map(l => ({
-            id: `sm_${orderId}_OUT_${l.itemId}_${Date.now()}`,
-            itemId: l.itemId, lotNumber: l.lotNumber, qty: -l.qty, uom: l.uom,
-            reason: 'production_out', occurredAt: now, fromLocationId: 'RM/MAIN', createdAt: now,
-            ref: { prodOrderId: orderId }
-          })) as any;
-    
-        // 2) StockMove producción (IN)
-        const outputQty = (po.output || []).find(x => x.itemId === po.outputItemId)?.qty ?? po.targetQuantity ?? 0;
-        const inMove: StockMove = {
-          id: `sm_${orderId}_IN_${Date.now()}`,
-          itemId: po.outputItemId,
-          lotNumber: (po as any).lotNumber,
-          qty: Number(outputQty) || 0,
-          uom: (po as any).baseUnit || 'L',
-          reason: 'production_in',
-          occurredAt: now,
-          toLocationId: 'FG/MAIN',
-          createdAt: now,
-          ref: { prodOrderId: orderId },
-        } as any;
+    const orderRef = adminDb.collection('productionOrders').doc(input.prodOrderId);
 
-        [...outMoves, inMove].forEach(move => {
-            const ref = adminDb.collection('stockMoves').doc(move.id);
-            batch.set(ref, move);
+    // 1) CONSUMO de materias primas (salida)
+    for (const c of input.consumptions) {
+        const smRef = adminDb.collection('stockMoves').doc();
+        const fromLoc = c.fromLocationId ?? 'RM/MAIN';
+        batch.set(smRef, {
+            id: smRef.id,
+            prodOrderId: input.prodOrderId,
+            itemId: c.itemId,
+            lotNumber: c.lotNumber,
+            qty: -Math.abs(c.qty),
+            uom: c.uom,
+            reason: 'production_out', // Usar 'production_out'
+            fromLocationId: fromLoc,
+            toLocationId: '',
+            occurredAt: nowIso,
+            createdAt: nowIso,
         });
+    }
 
-        // 3) Actualizar la orden de producción
-        const patch: any = { status: 'DONE', endedAt: now, updatedAt: now, actuals: realConsumption, journal };
-        batch.set(orderRef, patch, { merge: true });
+    // 2) EMISIÓN de producto final (entrada)
+    const out = input.output;
+    const toLoc = out.toLocationId ?? 'FG/MAIN';
+    const lotNumber = out.lotNumber ?? (await findNextLotNumber(out.itemId, out.sku));
 
-        await batch.commit();
+    // Asegura que el lote FG exista
+    const lotRef = adminDb.collection('lots').doc(lotNumber);
+    batch.set(lotRef, {
+        id: lotNumber,
+        lotNumber,
+        itemId: out.itemId,
+        uom: out.uom,
+        qcStatus: 'HOLD', // Los lotes nuevos entran en Hold para QC
+        createdAt: nowIso, updatedAt: nowIso,
+    }, { merge: true });
 
-        return ok({ order: { id: orderId, ...patch } });
-      } catch (e:any) { return fail('No se pudo cerrar la orden.'); }
+    const smFGRef = adminDb.collection('stockMoves').doc();
+    batch.set(smFGRef, {
+        id: smFGRef.id,
+        prodOrderId: input.prodOrderId,
+        itemId: out.itemId,
+        lotNumber,
+        qty: Math.abs(out.qty),
+        uom: out.uom,
+        reason: 'production_in', // Usar 'production_in'
+        fromLocationId: '',
+        toLocationId: toLoc,
+        occurredAt: nowIso,
+        createdAt: nowIso,
+    });
+
+    // 3) Estado de la orden
+    batch.update(orderRef, {
+        status: input.finalizeStatus ?? 'DONE',
+        closedAt: nowIso,
+        updatedAt: nowIso,
+    });
+
+    await batch.commit();
+    return { ok: true, prodOrderId: input.prodOrderId, lotNumber };
 }
+
 
 export async function cancelProduction(input: { orderId: string; idempotencyKey?: string }) {
     try {
@@ -450,5 +475,7 @@ export async function previewPlanning(input: {
     return fail("No se pudo previsualizar la planificación.", { code: e?.code });
   }
 }
+
+    
 
     
