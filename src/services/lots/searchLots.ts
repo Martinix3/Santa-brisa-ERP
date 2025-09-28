@@ -2,6 +2,8 @@
 // src/services/lots/searchLots.ts
 import type {
   SantaData, LotStatus, QcStatus, LotNumber, Uom,
+  Lot,
+  LotGenealogyEdge,
 } from "@/domain/ssot";
 
 export type LotSearchParams = {
@@ -49,7 +51,7 @@ export function searchLots(data: SantaData, p: LotSearchParams): LotHit[] {
   } = data;
 
   // Index rápidos
-  const lotMeta = new Map<string, typeof lots[number]>();
+  const lotMeta = new Map<string, Lot>();
   for (const L of (lots ?? [])) lotMeta.set(L.lotNumber, L);
 
   const reservedByLot = new Map<string, number>();
@@ -112,11 +114,11 @@ export function searchLots(data: SantaData, p: LotSearchParams): LotHit[] {
     const edges = lotGenealogy;
     if (p.genealogyMode === "PARENTS") {
       const childSet = new Set(out.map(h => h.lotNumber));
-      const parents = new Set(edges.filter(e => childSet.has(e.childLotNumber)).map(e => e.parentLotNumber));
+      const parents = new Set(edges.filter((e: LotGenealogyEdge) => childSet.has(e.childLotNumber)).map((e: LotGenealogyEdge) => e.parentLotNumber));
       out = out.filter(h => parents.has(h.lotNumber));
     } else if (p.genealogyMode === "CHILDREN") {
       const parentSet = new Set(out.map(h => h.lotNumber));
-      const children = new Set(edges.filter(e => parentSet.has(e.parentLotNumber)).map(e => e.childLotNumber));
+      const children = new Set(edges.filter((e: LotGenealogyEdge) => parentSet.has(e.parentLotNumber)).map((e: LotGenealogyEdge) => e.childLotNumber));
       out = out.filter(h => children.has(h.lotNumber));
     }
   }

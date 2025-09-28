@@ -27,6 +27,7 @@ export type ProductionStatus =
 export type ProductionStage = 'PRODUCCION' | 'ENVASADO';
 export type ItemCategory = 'fg'|'raw'|'pack'|'label'|'intermediate'|'consumable'|'merch';
 export type QcStatus = 'PENDING'|'PASSED'|'FAILED'|'WAIVED';
+export type LotStatus = 'OPEN' | 'RELEASED' | 'BLOCKED' | 'CONSUMED' | 'SCRAPPED';
 export type LotBucket = 'HOLD'|'RELEASED'|'REJECTED';
 
 export function qcToBucket(qc: QcStatus): LotBucket {
@@ -133,10 +134,24 @@ export interface OnHandView {
 }
 
 export interface Lot {
-  id: string; lotNumber: LotNumber; itemId: string; quantity: number;
-  createdAt: Timestamp; orderId?: string; supplierId?: string; qcStatus: QcStatus; qcPlanId?: string;
-  expDate?: Timestamp; receivedAt?: Timestamp; producedByOrderId?: string; createdByGoodsReceiptId?: string;
+  id: string;
+  lotNumber: LotNumber;
+  itemId: string;
+  itemName?: string; // Denormalized from Item
+  quantity: number;
+  status?: LotStatus; // Lifecycle status
+  createdAt: Timestamp;
+  orderId?: string;
+  supplierId?: string;
+  qcStatus: QcStatus;
+  qcPlanId?: string;
+  expDate?: Timestamp;
+  receivedAt?: Timestamp;
+  producedByOrderId?: string;
+  createdByGoodsReceiptId?: string;
+  parentLotNumber?: LotNumber; // For genealogy
 }
+
 
 export type TraceEventKind = 'RECEIPT' | 'PRODUCTION_OUT' | 'PRODUCTION_IN' | 'QC_TEST' | 'SHIPMENT' | 'ADJUSTMENT' | 'MOVE';
 export interface TraceEvent {
