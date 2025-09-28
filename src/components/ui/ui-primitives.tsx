@@ -36,7 +36,7 @@ export function SBCard({ title, accent, children, className, noPadding }: SBCard
 // ===================================
 
 interface SBButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement | HTMLAnchorElement> {
-    variant?: 'primary' | 'secondary' | 'destructive' | 'ghost' | 'subtle';
+    variant?: 'primary' | 'secondary' | 'destructive' | 'ghost' | 'subtle' | 'outline';
     size?: 'sm' | 'md' | 'lg';
     as?: 'button' | 'a';
 }
@@ -52,6 +52,7 @@ export const SBButton = React.forwardRef<HTMLButtonElement | HTMLAnchorElement, 
             destructive: "bg-red-500 text-white hover:bg-red-600",
             ghost: "hover:bg-zinc-100 hover:text-zinc-900",
             subtle: "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100",
+            outline: "border border-zinc-300 bg-transparent hover:bg-zinc-50"
         };
         const sizes = {
             sm: "h-8 px-3 text-xs",
@@ -223,3 +224,103 @@ export const STATUS_STYLES: Record<string, { label: string; bg: string; color: s
   lost: { label: "Perdido", bg: "bg-red-50", color: "text-red-800", border: "border-red-200" },
   exception: { label: "Incidencia", bg: "bg-orange-50", color: "text-orange-800", border: "border-orange-200" },
 };
+
+// ===================================
+// Popover (Shadcn/ui stub)
+// ===================================
+
+const PopoverContext = React.createContext<{ open: boolean, setOpen: (open: boolean) => void }>({ open: false, setOpen: () => {} });
+
+export const Popover: React.FC<{ open: boolean, onOpenChange: (open: boolean) => void, children: React.ReactNode }> = ({ open, onOpenChange, children }) => {
+  return <PopoverContext.Provider value={{ open, setOpen: onOpenChange }}>{children}</PopoverContext.Provider>;
+};
+
+export const PopoverTrigger = React.forwardRef<HTMLButtonElement, React.HTMLAttributes<HTMLButtonElement> & { asChild?: boolean }>(({ children, asChild = false, ...props }, ref) => {
+  const { setOpen } = React.useContext(PopoverContext);
+  const child = asChild ? React.Children.only(children) : <SBButton {...props}>{children}</SBButton>;
+  return React.cloneElement(child as React.ReactElement, {
+    ref,
+    onClick: (e: React.MouseEvent<HTMLButtonElement>) => {
+      setOpen(true);
+      (child as React.ReactElement).props.onClick?.(e);
+    },
+  });
+});
+PopoverTrigger.displayName = "PopoverTrigger";
+
+export const PopoverContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(({ children, className, ...props }, ref) => {
+  const { open } = React.useContext(PopoverContext);
+  if (!open) return null;
+  return (
+    <div ref={ref} {...props} className={`z-50 bg-white border rounded-md shadow-lg animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 ${className}`}>
+      {children}
+    </div>
+  );
+});
+PopoverContent.displayName = "PopoverContent";
+
+
+// ===================================
+// Command (Shadcn/ui stub)
+// ===================================
+
+const CommandContext = React.createContext<{ search: string, onValueChange: (search: string) => void }>({ search: '', onValueChange: () => {} });
+
+export const Command = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement> & { children: React.ReactNode }>(({ children, ...props }, ref) => {
+  const [search, setSearch] = useState('');
+  return (
+    <CommandContext.Provider value={{ search, onValueChange: setSearch }}>
+      <div ref={ref} {...props} className="flex h-full w-full flex-col overflow-hidden rounded-md bg-white text-zinc-950">
+        {children}
+      </div>
+    </CommandContext.Provider>
+  );
+});
+Command.displayName = "Command";
+
+
+export const CommandInput = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(({ className, ...props }, ref) => {
+  const { onValueChange } = React.useContext(CommandContext);
+  return (
+    <div className="flex items-center border-b px-3" cmdk-input-wrapper="">
+      <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+      <input
+        ref={ref}
+        onChange={(e) => onValueChange(e.target.value)}
+        className={`flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-zinc-500 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+        {...props}
+      />
+    </div>
+  );
+});
+CommandInput.displayName = "CommandInput";
+
+export const CommandList = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(({ children, ...props }, ref) => (
+  <div ref={ref} {...props} className="max-h-[300px] overflow-y-auto overflow-x-hidden">{children}</div>
+));
+CommandList.displayName = "CommandList";
+
+export const CommandEmpty = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>((props, ref) => (
+  <div ref={ref} {...props} className="py-6 text-center text-sm" />
+));
+CommandEmpty.displayName = "CommandEmpty";
+
+export const CommandGroup = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(({ className, ...props }, ref) => (
+  <div ref={ref} {...props} className={`overflow-hidden p-1 text-zinc-950 ${className}`} />
+));
+CommandGroup.displayName = "CommandGroup";
+
+export const CommandItem = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement> & { onSelect?: () => void; value?: string }>(({ className, onSelect, ...props }, ref) => (
+  <div
+    ref={ref}
+    onMouseDown={(e) => {
+      e.preventDefault();
+      onSelect?.();
+    }}
+    {...props}
+    className={`relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-zinc-100 data-[disabled]:pointer-events-none data-[disabled]:opacity-50 ${className}`}
+  />
+));
+CommandItem.displayName = "CommandItem";
+
+    

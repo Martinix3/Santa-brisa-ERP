@@ -1,16 +1,96 @@
 
+// src/features/warehouse/components/QuickGoodsReceiptDialog.tsx
 "use client";
-import React, { useMemo, useState, useEffect } from "react";
+
+import React, { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog";
 import { SBButton, Input, Select } from "@/components/ui/ui-primitives";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/ui-primitives"; 
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/ui-primitives"; 
 import { useData } from "@/lib/dataprovider";
 import type { Party, Item, Uom, ItemCategory, PartyRole } from "@/domain/ssot";
-import { createGoodsReceipt, createSupplier, createItem, reportIncident } from "@/app/(app)/warehouse/goods-receipt/actions";
-import { Plus, Trash2, Truck, AlertTriangle, Factory, PackagePlus, UserPlus } from "lucide-react";
+import { createGoodsReceipt, createSupplier, createItem } from "@/app/(app)/warehouse/goods-receipt/actions";
+import { Plus, Trash2, Truck, Check, ChevronsUpDown, Factory, UserPlus } from "lucide-react";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
-// --- Tipos para el Formulario ---
+// ============================================================================
+// NUEVO COMPONENTE REUTILIZABLE: SearchableCombobox
+// ============================================================================
+type ComboboxOption = { value: string; label: string; };
 
+function SearchableCombobox({
+  options,
+  value,
+  onChange,
+  onCreate,
+  placeholder,
+}: {
+  options: ComboboxOption[];
+  value: string;
+  onChange: (value: string) => void;
+  onCreate?: (inputValue: string) => void;
+  placeholder: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [inputValue, setInputValue] = useState("");
+
+  const currentLabel = options.find((opt) => opt.value === value)?.label || "";
+
+  const filteredOptions = options.filter(opt =>
+    opt.label.toLowerCase().includes(inputValue.toLowerCase())
+  );
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <SBButton variant="secondary" role="combobox" aria-expanded={open} className="w-full justify-between">
+          {value ? currentLabel : placeholder}
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </SBButton>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+        <Command>
+          <CommandInput placeholder="Buscar..." onValueChange={setInputValue} />
+          <CommandList>
+            <CommandEmpty>
+              {onCreate ? (
+                <button
+                  className="w-full text-left p-2 text-sm hover:bg-zinc-100"
+                  onMouseDown={() => {
+                    onCreate(inputValue);
+                    setOpen(false);
+                  }}
+                >
+                  <Plus className="inline h-4 w-4 mr-2" /> Crear "{inputValue}"
+                </button>
+              ) : "No se encontraron resultados."}
+            </CommandEmpty>
+            <CommandGroup>
+              {filteredOptions.map((option) => (
+                <CommandItem
+                  key={option.value}
+                  value={option.label}
+                  onSelect={() => {
+                    onChange(option.value);
+                    setOpen(false);
+                  }}
+                >
+                  <Check className={`mr-2 h-4 w-4 ${value === option.value ? "opacity-100" : "opacity-0"}`} />
+                  {option.label}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+
+// --- Tipos y Helpers (sin cambios) ---
 type LineFormData = {
   itemId: string;
   supplierLot: string;
@@ -21,27 +101,14 @@ type LineFormData = {
   autoLot: boolean;
   expiryAt?: string | null;
 };
-
 type FormValues = {
   supplierId: string;
   deliveryNote: string;
   date: string;
   lines: LineFormData[];
-  incident: {
-    hasIncident: boolean;
-    kind: "DAMAGED" | "MISSING" | "DOCUMENT" | "OTHER";
-    severity: "LOW" | "MEDIUM" | "HIGH";
-    notes: string;
-  };
 };
-
-// --- Funciones Helper ---
-
-function nowIsoDate() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function generateLotNumber(item: Item | undefined) {
+function nowIsoDate() { return new Date().toISOString().slice(0,10) };
+function generateLotNumber(item?: Item) { 
   const dt = new Date();
   const y = String(dt.getUTCFullYear()).slice(2);
   const m = String(dt.getUTCMonth() + 1).padStart(2, "0");
@@ -50,113 +117,90 @@ function generateLotNumber(item: Item | undefined) {
   const prefix = item?.category?.startsWith("raw") ? "L" + base : "FG-" + base;
   const rand = Math.floor(Math.random() * 89) + 10;
   return `${prefix}-${y}${m}${d}-${rand}`;
-}
+ };
 
-// --- Componente Placeholder (Sustituir por uno real con búsqueda) ---
-const ItemCombobox = ({ value, onChange, options }: { value: string; onChange: (id: string) => void; options: Item[] }) => (
-  <Select value={value} onChange={e => onChange(e.target.value)} className="w-full">
-    <option value="">Selecciona un ítem…</option>
-    {options.map((it) => (<option key={it.id} value={it.id}>{it.name}</option>))}
-  </Select>
-);
 
-// --- Componente Principal ---
-
-export function QuickGoodsReceiptDialog({
-  open,
-  onOpenChange,
-  onSuccess,
-  onError,
-}: {
+// ============================================================================
+// COMPONENTE PRINCIPAL REFACTORIZADO
+// ============================================================================
+export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   onSuccess?: (info: { receiptId: string; receiptNumber: string }) => void;
   onError?: (message: string) => void;
 }) {
   const { data, setData } = useData();
-  const { parties, partyRoles, items: itemsAll } = (data || {}) as any;
+  const router = useRouter(); 
 
-  const suppliers = useMemo(() => {
-    if (!parties || !partyRoles) return [];
-    const supplierIds = new Set(partyRoles.filter((r: PartyRole) => r.role === "SUPPLIER").map((r: PartyRole) => r.partyId));
-    return parties.filter((p: Party) => supplierIds.has(p.id));
-  }, [parties, partyRoles]);
-
-  const items = useMemo(() => itemsAll ?? [], [itemsAll]);
-
-  const [newSupplierOpen, setNewSupplierOpen] = useState(false);
-  const [newItemOpen, setNewItemOpen] = useState<null | number>(null);
+  const { suppliers, items } = useMemo(() => {
+    if (!data) return { suppliers: [], items: [] };
+    const supplierIds = new Set((data.partyRoles || []).filter((r: PartyRole) => r.role === 'SUPPLIER').map((r: PartyRole) => r.partyId));
+    const supplierList = (data.parties || []).filter((p: Party) => supplierIds.has(p.id));
+    return { suppliers: supplierList, items: data.items || [] };
+  }, [data]);
 
   const {
-    register,
-    control,
-    handleSubmit,
-    reset,
+    register, control, handleSubmit, reset,
     formState: { errors, isSubmitting },
-    watch,
-    setValue,
+    watch, setValue, getValues
   } = useForm<FormValues>({
     defaultValues: {
       date: nowIsoDate(),
       supplierId: "",
       deliveryNote: "",
-      lines: [{ itemId: "", supplierLot: "", qty: 0, uom: "unit", unitCost: 0, autoLot: true, locationId: "RM/MAIN" }],
-      incident: { hasIncident: false, kind: "OTHER", severity: "LOW", notes: "" },
+      lines: [{ itemId: "", supplierLot: "", qty: 0, uom: "unit", unitCost: 0, autoLot: true, locationId: "ALMACEN_MATERIAS_PRIMAS" }],
     },
   });
 
-  useEffect(() => {
-    if(open) {
-        reset({ date: nowIsoDate(), lines: [{ itemId: "", supplierLot: "", qty: 0, uom: "unit", unitCost: 0, autoLot: true, locationId: "RM/MAIN" }] });
-    }
-  }, [open, reset]);
-
+  useEffect(() => { if (open) reset({ date: nowIsoDate(), lines: [{ itemId: "", supplierLot: "", qty: 0, uom: "unit", unitCost: 0, autoLot: true, locationId: "ALMACEN_MATERIAS_PRIMAS" }] }); }, [open, reset]);
   const { fields, append, remove } = useFieldArray({ control, name: "lines" });
-  const watchLines = watch("lines");
-  
-  const selectedItem = (id?: string) => items.find((it: Item) => it.id === id);
-  
-  const suggestLocationForItem = (it?: Item) => {
-    if (!it) return "RM/MAIN";
-    const catCode = (it.category || '').toUpperCase();
-    if (catCode.startsWith("RAW")) return "RM/MAIN";
-    if (catCode.startsWith("FG")) return "FG/MAIN";
-    if (catCode.startsWith("PACK")) return "PKG/MAIN";
-    return "RM/MAIN";
-  };
+
+  const supplierOptions = useMemo(() => suppliers.map((s: Party) => ({ value: s.id, label: s.name })), [suppliers]);
+  const itemOptions = useMemo(() => items.map((i: Item) => ({ value: i.id, label: i.name })), [items]);
   
   const onSubmit = async (formData: FormValues) => {
-    try {
-      const payloadLines = formData.lines.map((l) => {
-        const it = selectedItem(l.itemId);
-        return {
-          itemId: l.itemId,
-          supplierLot: l.supplierLot?.trim() || (l.autoLot ? generateLotNumber(it) : ""),
-          qty: Number(l.qty),
-          uom: l.uom,
-          unitCost: l.unitCost,
-          locationId: l.locationId,
-          expiryAt: l.expiryAt,
-        };
-      });
+     try {
+        const payloadLines = formData.lines.map((l) => {
+          const it = items.find(i => i.id === l.itemId);
+          return {
+            itemId: l.itemId,
+            supplierLot: l.supplierLot?.trim() || (l.autoLot ? generateLotNumber(it) : ""),
+            qty: Number(l.qty),
+            uom: l.uom,
+            unitCost: l.unitCost,
+            locationId: l.locationId,
+            expiryAt: l.expiryAt,
+          };
+        });
 
-      const res = await createGoodsReceipt({
-        supplierId: formData.supplierId,
-        deliveryNote: formData.deliveryNote.trim(),
-        receiptDate: formData.date,
-        lines: payloadLines,
-      });
+        const res = await createGoodsReceipt({
+            supplierId: formData.supplierId,
+            deliveryNote: formData.deliveryNote.trim(),
+            receiptDate: formData.date,
+            lines: payloadLines,
+        });
 
-      onSuccess?.(res);
-      onOpenChange(false);
+        onSuccess?.(res);
+        onOpenChange(false);
+        router.refresh();
+        toast.success(`Recepción #${res.receiptNumber} creada con éxito.`);
     } catch (e: any) {
-      console.error(e);
-      onError?.(e?.message ?? "Error al guardar recepción.");
+        console.error(e);
+        toast.error(e?.message ?? "Error al guardar la recepción.");
     }
   };
 
   const addLine = () => {
-    append({ itemId: "", supplierLot: "", qty: 0, uom: "unit", unitCost: 0, autoLot: true, locationId: "RM/MAIN" });
+    const lastLine = getValues("lines")[fields.length - 1];
+    append({
+      itemId: lastLine?.itemId || "", 
+      supplierLot: "",
+      qty: 0,
+      uom: lastLine?.uom || "unit",
+      unitCost: lastLine?.unitCost || 0,
+      autoLot: true,
+      locationId: lastLine?.locationId || "ALMACEN_MATERIAS_PRIMAS",
+    });
   };
   
   return (
@@ -164,244 +208,93 @@ export function QuickGoodsReceiptDialog({
       <SBDialog open={open} onOpenChange={onOpenChange}>
         <SBDialogContent
           title={<div className="flex items-center gap-2"><Truck className="h-5 w-5" /> Nueva Recepción de Mercancía</div>}
-          maxWidth="60rem"
+          maxWidth="70rem"
           onSubmit={handleSubmit(onSubmit)}
           primaryAction={{ label: isSubmitting ? "Guardando…" : "Guardar Recepción", type: "submit", disabled: isSubmitting }}
           secondaryAction={{ label: "Cancelar", onClick: () => onOpenChange(false) }}
         >
-            {/* Cabecera */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <label className="grid gap-1.5">
                 <span className="text-sm font-medium">Proveedor</span>
-                <div className="flex gap-2">
-                  <Select {...register("supplierId", { required: "El proveedor es obligatorio" })} aria-invalid={!!errors.supplierId}>
-                    <option value="">Selecciona proveedor…</option>
-                    {suppliers.map((s: Party) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </Select>
-                  <button type="button" className="sb-btn text-[color:var(--sb-accent-logistica)] border border-[color:var(--sb-accent-logistica)] hover:bg-[color:var(--sb-accent-logistica)/0.08]" onClick={() => setNewSupplierOpen(true)} title="Crear proveedor"><UserPlus className="h-4 w-4" /></button>
-                </div>
-                 {errors.supplierId && <p className="text-xs text-red-500">{errors.supplierId.message}</p>}
+                <Controller
+                  name="supplierId"
+                  control={control}
+                  rules={{ required: "El proveedor es obligatorio" }}
+                  render={({ field }) => (
+                    <SearchableCombobox
+                      placeholder="Buscar o crear proveedor..."
+                      options={supplierOptions}
+                      value={field.value}
+                      onChange={field.onChange}
+                      onCreate={async (name) => {
+                        const newParty = await createSupplier({ name });
+                        setData(d => d ? ({ ...d, parties: [...(d.parties || []), newParty], partyRoles: [...(d.partyRoles || []), {id:`role_${Date.now()}`, partyId: newParty.id, role:'SUPPLIER'}] as PartyRole[]}) : d);
+                        setValue("supplierId", newParty.id, { shouldValidate: true });
+                      }}
+                    />
+                  )}
+                />
+                {errors.supplierId && <p className="text-xs text-red-500">{errors.supplierId.message}</p>}
               </label>
-              
-              <label className="grid gap-1.5">
-                <span className="text-sm font-medium">Albarán</span>
-                <Input {...register("deliveryNote", { required: "El albarán es obligatorio" })} placeholder="Ej: 2025/ABC-001" aria-invalid={!!errors.deliveryNote} />
-                 {errors.deliveryNote && <p className="text-xs text-red-500">{errors.deliveryNote.message}</p>}
-              </label>
-
-              <label className="grid gap-1.5">
-                <span className="text-sm font-medium">Fecha</span>
-                <Input type="date" {...register("date", { required: true })} />
-              </label>
+              <label className="grid gap-1.5"><span className="text-sm font-medium">Albarán</span><Input {...register("deliveryNote", { required: "El albarán es obligatorio" })}/></label>
+              <label className="grid gap-1.5"><span className="text-sm font-medium">Fecha</span><Input type="date" {...register("date", { required: true })}/></label>
             </div>
             
-            {/* Líneas */}
-            <div className="space-y-4 rounded-md border p-3">
-              <div className="text-sm font-medium">Líneas</div>
-              {fields.map((field, i) => {
-                const line = watchLines[i];
-                const item = selectedItem(line.itemId);
-                return (
-                  <div key={field.id} className="grid grid-cols-1 md:grid-cols-[2fr_1.5fr_1fr_1fr_1fr_1fr_auto] gap-2 items-start">
-                    <div className="flex w-full gap-2">
-                      <Controller
-                        name={`lines.${i}.itemId`}
-                        control={control}
-                        rules={{ required: true }}
-                        render={({ field: { onChange, value } }) => (
-                           <ItemCombobox
-                            options={items}
-                            value={value}
-                            onChange={(itemId) => {
-                              const itSel = selectedItem(itemId);
-                              onChange(itemId);
-                              setValue(`lines.${i}.uom`, itSel?.uom ?? 'unit');
-                              setValue(`lines.${i}.unitCost`, itSel?.stdCost ?? 0);
-                              setValue(`lines.${i}.locationId`, suggestLocationForItem(itSel));
-                            }}
+            <div className="mt-4 space-y-2">
+              <h3 className="text-sm font-medium">Líneas de la Recepción</h3>
+              <div className="overflow-x-auto border rounded-lg">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-zinc-50 text-left">
+                    <tr>
+                      <th className="p-2 w-2/5">Producto</th>
+                      <th className="p-2">Lote Proveedor</th>
+                      <th className="p-2">Cantidad</th>
+                      <th className="p-2">UdM</th>
+                      <th className="p-2">Coste/Ud</th>
+                      <th className="p-2">Ubicación</th>
+                      <th className="p-2"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {fields.map((field, i) => (
+                      <tr key={field.id}>
+                        <td className="p-2">
+                          <Controller name={`lines.${i}.itemId`} control={control} rules={{ required: true }}
+                            render={({ field: controllerField }) => (
+                              <SearchableCombobox placeholder="Buscar o crear SKU..." options={itemOptions} value={controllerField.value}
+                                onChange={(itemId) => {
+                                    const itSel = items.find((it: Item) => it.id === itemId);
+                                    controllerField.onChange(itemId);
+                                    setValue(`lines.${i}.uom`, itSel?.uom ?? 'unit');
+                                    setValue(`lines.${i}.unitCost`, itSel?.stdCost ?? 0);
+                                    setValue(`lines.${i}.locationId`, itSel?.category?.startsWith('fg') ? 'ALMACEN_TERMINADO' : 'ALMACEN_MATERIAS_PRIMAS');
+                                }}
+                                onCreate={async (name) => {
+                                    const newItem = await createItem({ name, uom:'unit', category:'raw' });
+                                    setData(d => d ? ({...d, items: [...(d.items || []), newItem]}) : d);
+                                    setValue(`lines.${i}.itemId`, newItem.id, {shouldValidate: true});
+                                }}
+                              />
+                            )}
                           />
-                        )}
-                      />
-                       <button type="button" className="sb-btn border text-[color:var(--sb-accent-logistica)] border-[color:var(--sb-accent-logistica)] hover:bg-[color:var(--sb-accent-logistica)/0.08]" onClick={() => setNewItemOpen(i)} title="Crear SKU"><PackagePlus className="h-4 w-4" /></button>
-                    </div>
-
-                    <div className="grid gap-1">
-                      <Input
-                        placeholder={line.autoLot ? "Se generará automáticamente" : "Lote del proveedor"}
-                        {...register(`lines.${i}.supplierLot`)}
-                        disabled={line.autoLot}
-                        onChange={(e) => {
-                            setValue(`lines.${i}.supplierLot`, e.target.value);
-                            if (e.target.value) setValue(`lines.${i}.autoLot`, false);
-                        }}
-                      />
-                    </div>
-                    
-                    <Input type="number" placeholder="Cantidad" step="any" {...register(`lines.${i}.qty`, { valueAsNumber: true, required: true, min: { value: 0.001, message: ">0" } })} aria-invalid={!!errors.lines?.[i]?.qty} />
-                    <Select {...register(`lines.${i}.uom`)}>
-                      <option value="unit">unit</option><option value="kg">kg</option><option value="L">L</option><option value="g">g</option><option value="mL">mL</option>
-                    </Select>
-                    
-                    <Input type="number" placeholder="Coste" step="any" {...register(`lines.${i}.unitCost`, { valueAsNumber: true })} />
-                    <Input placeholder="Ubicación" {...register(`lines.${i}.locationId`)} />
-
-                    <div className="flex h-full items-center justify-self-end">
-                      <button type="button" className="p-2 hover:bg-zinc-100 rounded" onClick={() => remove(i)} title="Eliminar línea"><Trash2 className="w-4 h-4 text-red-500" /></button>
-                    </div>
-                  </div>
-                );
-              })}
+                        </td>
+                        <td className="p-2"><Input placeholder="Lote del proveedor" {...register(`lines.${i}.supplierLot`)} /></td>
+                        <td className="p-2"><Input type="number" step="any" {...register(`lines.${i}.qty`, { valueAsNumber: true, required: true, min: 0.001 })} /></td>
+                        <td className="p-2"><Select {...register(`lines.${i}.uom`)}><option value="unit">unit</option><option value="kg">kg</option><option value="L">L</option></Select></td>
+                        <td className="p-2"><Input type="number" step="any" {...register(`lines.${i}.unitCost`, { valueAsNumber: true })} /></td>
+                        <td className="p-2"><Input {...register(`lines.${i}.locationId`)} /></td>
+                        <td className="p-2"><button type="button" onClick={() => remove(i)}><Trash2 className="h-4 w-4 text-red-500" /></button></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
               <SBButton type="button" variant="secondary" size="sm" onClick={addLine}><Plus className="w-4 h-4 mr-1" /> Añadir línea</SBButton>
-            </div>
-
-            <div className="pt-2 text-xs text-zinc-500">
-                Los lotes de material crítico (raw, pack, fg) se pondrán en estado 'PENDING' para QC.
             </div>
         </SBDialogContent>
       </SBDialog>
-
-      {newSupplierOpen && (
-        <CreateSupplierDialog
-          open={newSupplierOpen}
-          onOpenChange={setNewSupplierOpen}
-          onSuccess={(party) => {
-            setData(d => d ? ({ ...d, parties: [...(d.parties || []), party], partyRoles: [...(d.partyRoles || []), {id: `role_${Date.now()}`, partyId: party.id, role: 'SUPPLIER'}] as PartyRole[]}) : d);
-            setValue("supplierId", party.id, { shouldValidate: true });
-          }}
-        />
-      )}
-
-      {newItemOpen != null && (
-        <CreateItemDialog
-          open={newItemOpen != null}
-          onOpenChange={() => setNewItemOpen(null)}
-          onSuccess={(it) => {
-            const lineIndex = newItemOpen;
-            setData(d => d ? ({ ...d, items: [...(d.items || []), it] }) : d);
-            setValue(`lines.${lineIndex}.itemId`, it.id, { shouldValidate: true });
-            setValue(`lines.${lineIndex}.uom`, it.uom);
-            setValue(`lines.${lineIndex}.unitCost`, it.stdCost ?? 0);
-            setValue(`lines.${lineIndex}.locationId`, suggestLocationForItem(it));
-          }}
-        />
-      )}
     </>
   );
 }
 
-
-/* -------------------------------------------------------------
- * Dialogs de Alta Rápida
- * ----------------------------------------------------------- */
-
-function CreateSupplierDialog({ open, onOpenChange, onSuccess, onError }: { 
-    open: boolean; onOpenChange: (v: boolean) => void; onSuccess: (party: Party) => void; onError?: (msg: string) => void; 
-}) {
-  
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<{ name: string; taxId: string }>();
-
-  useEffect(() => {
-    if(open) reset();
-  }, [open, reset]);
-
-  const onSubmit = async (data: { name: string; taxId: string }) => {
-    try {
-      const party = await createSupplier({ name: data.name.trim(), taxId: data.taxId.trim() || undefined });
-      onSuccess(party);
-      onOpenChange(false);
-    } catch (e: any) {
-      onError?.(e?.message ?? "No se pudo crear el proveedor.");
-    }
-  };
-
-  return (
-    <SBDialog open={open} onOpenChange={onOpenChange}>
-      <SBDialogContent title={<div className="flex items-center gap-2"><UserPlus className="h-5 w-5" /> Nuevo proveedor</div>} maxWidth="28rem"
-        onSubmit={handleSubmit(onSubmit)}
-        primaryAction={{ label: isSubmitting ? "Creando…" : "Crear Proveedor", type: 'submit', disabled: isSubmitting }}
-      >
-          <label className="grid gap-1.5">
-            <span className="text-sm">Nombre</span>
-            <Input {...register("name", { required: "El nombre es obligatorio" })} placeholder="Ej: Productos del Valle, S.L." aria-invalid={!!errors.name} />
-            {errors.name && <p className="text-xs text-red-500">{errors.name.message}</p>}
-          </label>
-          <label className="grid gap-1.5">
-            <span className="text-sm">CIF/NIF (opcional)</span>
-            <Input {...register("taxId")} placeholder="Ej: B12345678" />
-          </label>
-      </SBDialogContent>
-    </SBDialog>
-  );
-}
-
-function CreateItemDialog({ open, onOpenChange, onSuccess, onError }: { 
-    open: boolean; onOpenChange: (v: boolean) => void; onSuccess: (item: Item) => void; onError?: (msg: string) => void; 
-}) {
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<
-    { name: string; sku: string; uom: Uom; category: ItemCategory; stdCost: number }
-  >({
-    defaultValues: { uom: "unit", stdCost: 0, category: "raw" }
-  });
-
-  useEffect(() => {
-    if(open) reset();
-  }, [open, reset]);
-
-  const onSubmit = async (data: { name: string; sku: string; uom: Uom; category: ItemCategory; stdCost: number }) => {
-    try {
-      const item = await createItem({
-        name: data.name.trim(),
-        sku: data.sku.trim() || undefined,
-        uom: data.uom,
-        category: data.category,
-        stdCost: data.stdCost,
-      });
-      onSuccess(item);
-      onOpenChange(false);
-    } catch (e: any) {
-      onError?.(e?.message ?? "No se pudo crear el SKU.");
-    }
-  };
-
-  return (
-    <SBDialog open={open} onOpenChange={onOpenChange}>
-      <SBDialogContent title={<div className="flex items-center gap-2"><Factory className="h-5 w-5" /> Nuevo SKU</div>} maxWidth="34rem"
-          onSubmit={handleSubmit(onSubmit)}
-          primaryAction={{ label: isSubmitting ? "Creando…" : "Crear SKU", type: 'submit', disabled: isSubmitting }}
-      >
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <label className="grid gap-1.5 md:col-span-2">
-              <span className="text-sm">Nombre</span>
-              <Input {...register("name", { required: "El nombre es obligatorio" })} placeholder="Ej: Tequila Blanco 20L" aria-invalid={!!errors.name} />
-              {errors.name && <p className="text-xs text-red-500">{errors.name.message}</p>}
-            </label>
-            <label className="grid gap-1.5">
-              <span className="text-sm">SKU (opcional)</span>
-              <Input {...register("sku")} placeholder="Ej: ITEM-TEQ-20L" />
-            </label>
-            <label className="grid gap-1.5">
-              <span className="text-sm">UdM</span>
-              <Select {...register("uom")}>
-                <option value="unit">unit</option><option value="kg">kg</option><option value="L">L</option><option value="g">g</option><option value="mL">mL</option>
-              </Select>
-            </label>
-            <label className="grid gap-1.5">
-              <span className="text-sm">Categoría</span>
-              <Select {...register("category")}>
-                <option value="raw">Materia Prima</option>
-                <option value="pack">Packaging</option>
-                <option value="intermediate">Intermedio</option>
-                <option value="fg">Producto Terminado</option>
-                <option value="consumable">Consumible</option>
-                <option value="merch">Merchandising</option>
-              </Select>
-            </label>
-            <label className="grid gap-1.5">
-              <span className="text-sm">Coste estándar</span>
-              <Input type="number" min={0} step="any" {...register("stdCost", { valueAsNumber: true })} />
-            </label>
-          </div>
-      </SBDialogContent>
-    </SBDialog>
-  );
-}
+    
