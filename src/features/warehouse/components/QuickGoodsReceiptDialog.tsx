@@ -2,7 +2,7 @@
 // src/features/warehouse/components/QuickGoodsReceiptDialog.tsx
 "use client";
 
-import React, { useMemo, useState, useEffect, useCallback, useRef } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog";
 import { SBButton, Input, Select } from "@/components/ui/ui-primitives";
@@ -11,7 +11,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { useData } from "@/lib/dataprovider";
 import type { Party, Item, Uom, ItemCategory, PartyRole } from "@/domain/ssot";
 import { createGoodsReceipt, createSupplier, createItem } from "@/app/(app)/warehouse/goods-receipt/actions";
-import { Plus, Trash2, Truck, Check, ChevronsUpDown, Factory, UserPlus } from "lucide-react";
+import { Plus, Trash2, Truck, Check, ChevronsUpDown } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
@@ -90,14 +90,13 @@ function SearchableCombobox({
 }
 
 
-// --- Tipos y Helpers (sin cambios) ---
+// --- Tipos para el Formulario (ACTUALIZADOS) ---
 type LineFormData = {
   itemId: string;
   supplierLot: string;
   qty: number;
   unitCost: number;
   uom: Uom;
-  locationId: string;
   autoLot: boolean;
   expiryAt?: string | null;
 };
@@ -105,8 +104,10 @@ type FormValues = {
   supplierId: string;
   deliveryNote: string;
   date: string;
+  notes?: string; // <-- Campo de notas añadido
   lines: LineFormData[];
 };
+
 function nowIsoDate() { return new Date().toISOString().slice(0,10) };
 function generateLotNumber(item?: Item) { 
   const dt = new Date();
@@ -148,18 +149,18 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
       date: nowIsoDate(),
       supplierId: "",
       deliveryNote: "",
-      lines: [{ itemId: "", supplierLot: "", qty: 0, uom: "unit", unitCost: 0, autoLot: true, locationId: "ALMACEN_MATERIAS_PRIMAS" }],
+      lines: [{ itemId: "", supplierLot: "", qty: 0, uom: "unit", unitCost: 0, autoLot: true }],
     },
   });
 
-  useEffect(() => { if (open) reset({ date: nowIsoDate(), lines: [{ itemId: "", supplierLot: "", qty: 0, uom: "unit", unitCost: 0, autoLot: true, locationId: "ALMACEN_MATERIAS_PRIMAS" }] }); }, [open, reset]);
+  useEffect(() => { if (open) reset({ date: nowIsoDate(), lines: [{ itemId: "", supplierLot: "", qty: 0, uom: "unit", unitCost: 0, autoLot: true }] }); }, [open, reset]);
   const { fields, append, remove } = useFieldArray({ control, name: "lines" });
 
   const supplierOptions = useMemo(() => suppliers.map((s: Party) => ({ value: s.id, label: s.name })), [suppliers]);
   const itemOptions = useMemo(() => items.map((i: Item) => ({ value: i.id, label: i.name })), [items]);
   
   const onSubmit = async (formData: FormValues) => {
-     try {
+    try {
         const payloadLines = formData.lines.map((l) => {
           const it = items.find(i => i.id === l.itemId);
           return {
@@ -168,7 +169,6 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
             qty: Number(l.qty),
             uom: l.uom,
             unitCost: l.unitCost,
-            locationId: l.locationId,
             expiryAt: l.expiryAt,
           };
         });
@@ -177,6 +177,7 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
             supplierId: formData.supplierId,
             deliveryNote: formData.deliveryNote.trim(),
             receiptDate: formData.date,
+            notes: formData.notes, // <-- Pasa las notas a la acción
             lines: payloadLines,
         });
 
@@ -186,7 +187,7 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
         toast.success(`Recepción #${res.receiptNumber} creada con éxito.`);
     } catch (e: any) {
         console.error(e);
-        toast.error(e?.message ?? "Error al guardar la recepción.");
+        toast.error(e?.message ?? "Error al guardar recepción.");
     }
   };
 
@@ -199,7 +200,6 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
       uom: lastLine?.uom || "unit",
       unitCost: lastLine?.unitCost || 0,
       autoLot: true,
-      locationId: lastLine?.locationId || "ALMACEN_MATERIAS_PRIMAS",
     });
   };
   
@@ -228,7 +228,7 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
                       onChange={field.onChange}
                       onCreate={async (name) => {
                         const newParty = await createSupplier({ name });
-                        setData(d => d ? ({ ...d, parties: [...(d.parties || []), newParty], partyRoles: [...(d.partyRoles || []), {id:`role_${Date.now()}`, partyId: newParty.id, role:'SUPPLIER'}] as PartyRole[]}) : d);
+                        setData(d => d ? ({ ...d, parties: [...(d.parties || []), newParty], partyRoles: [...(d.partyRoles || []), {id:`role_${Date.now()}`, partyId: newParty.id, role:'SUPPLIER'} as PartyRole]}) : d);
                         setValue("supplierId", newParty.id, { shouldValidate: true });
                       }}
                     />
@@ -238,6 +238,18 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
               </label>
               <label className="grid gap-1.5"><span className="text-sm font-medium">Albarán</span><Input {...register("deliveryNote", { required: "El albarán es obligatorio" })}/></label>
               <label className="grid gap-1.5"><span className="text-sm font-medium">Fecha</span><Input type="date" {...register("date", { required: true })}/></label>
+            </div>
+
+            {/* ===== CAMPO DE NOTAS AÑADIDO ===== */}
+            <div className="mt-4">
+              <label htmlFor="receipt-notes" className="text-sm font-medium">Notas (opcional)</label>
+              <textarea
+                id="receipt-notes"
+                {...register("notes")}
+                rows={2}
+                className="mt-1 w-full border rounded-md p-2 text-sm"
+                placeholder="Ej: El palet llegó dañado, el conductor tuvo que esperar, etc."
+              />
             </div>
             
             <div className="mt-4 space-y-2">
@@ -251,7 +263,6 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
                       <th className="p-2">Cantidad</th>
                       <th className="p-2">UdM</th>
                       <th className="p-2">Coste/Ud</th>
-                      <th className="p-2">Ubicación</th>
                       <th className="p-2"></th>
                     </tr>
                   </thead>
@@ -267,7 +278,6 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
                                     controllerField.onChange(itemId);
                                     setValue(`lines.${i}.uom`, itSel?.uom ?? 'unit');
                                     setValue(`lines.${i}.unitCost`, itSel?.stdCost ?? 0);
-                                    setValue(`lines.${i}.locationId`, itSel?.category?.startsWith('fg') ? 'ALMACEN_TERMINADO' : 'ALMACEN_MATERIAS_PRIMAS');
                                 }}
                                 onCreate={async (name) => {
                                     const newItem = await createItem({ name, uom:'unit', category:'raw' });
@@ -282,7 +292,6 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
                         <td className="p-2"><Input type="number" step="any" {...register(`lines.${i}.qty`, { valueAsNumber: true, required: true, min: 0.001 })} /></td>
                         <td className="p-2"><Select {...register(`lines.${i}.uom`)}><option value="unit">unit</option><option value="kg">kg</option><option value="L">L</option></Select></td>
                         <td className="p-2"><Input type="number" step="any" {...register(`lines.${i}.unitCost`, { valueAsNumber: true })} /></td>
-                        <td className="p-2"><Input {...register(`lines.${i}.locationId`)} /></td>
                         <td className="p-2"><button type="button" onClick={() => remove(i)}><Trash2 className="h-4 w-4 text-red-500" /></button></td>
                       </tr>
                     ))}
@@ -296,5 +305,3 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
     </>
   );
 }
-
-    

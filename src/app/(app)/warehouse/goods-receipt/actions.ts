@@ -29,17 +29,17 @@ const initialQcStatusForItemCategory = (category?: ItemCategory): QcStatus => {
   return criticalCategories.includes(category) ? 'PENDING' : 'PASSED';
 };
 
-const landingLocationFor = (category?: ItemCategory) => {
-  switch (category) {
-    case 'raw': return 'ALMACEN_MATERIAS_PRIMAS';
-    case 'pack': return 'ALMACEN_PACKAGING';
-    case 'consumable': return 'ALMACEN_MATERIAS_PRIMAS';
-    case 'intermediate': return 'WIP/MAIN';
-    case 'merch': return 'ALMACEN_PACKAGING';
-    case 'fg': return 'ALMACEN_TERMINADO';
-    default: return 'ALMACEN_MATERIAS_PRIMAS';
-  }
-};
+// NUEVA FUNCIÓN HELPER: Centraliza la lógica de negocio del almacén
+function getLocationForCategory(category?: ItemCategory): string {
+    if (!category) return 'DEFAULT/UNKNOWN';
+    
+    const cat = category.toUpperCase();
+    if (cat.startsWith('RAW')) return 'RM/MAIN';
+    if (cat.startsWith('PACK')) return 'PKG/MAIN';
+    if (cat.startsWith('FG')) return 'FG/MAIN';
+    
+    return 'DEFAULT/GENERAL';
+}
 
 // === Server Actions ===
 
@@ -106,11 +106,13 @@ export async function createItem(payload: { name: string; sku?: string; uom: Uom
     return newItem;
 }
 
+// Acción createGoodsReceipt MODIFICADA
 export async function createGoodsReceipt(payload: {
   supplierId?: string;
   newSupplierName?: string;
   deliveryNote: string;
   receiptDate: string;
+  notes?: string; // <-- Campo de notas añadido
   lines: Array<{
     itemId?: string;
     newItemName?: string;
@@ -121,10 +123,10 @@ export async function createGoodsReceipt(payload: {
     uom?: Uom;
     expiryAt?: string | null;
     autoLot?: boolean;
-    locationId?: string;
+    // locationId ya no se recibe
   }>;
 }) {
-  const { supplierId, newSupplierName, deliveryNote, receiptDate, lines } = payload;
+  const { supplierId, newSupplierName, deliveryNote, receiptDate, notes, lines } = payload;
 
   if ((!supplierId && !newSupplierName) || !deliveryNote || !lines?.length) {
     throw new Error('Proveedor, albarán y al menos una línea son obligatorios.');
@@ -143,7 +145,7 @@ export async function createGoodsReceipt(payload: {
 
     const allItemsSnap = await db.collection('items').get();
     const existingItems = allItemsSnap.docs.map(doc => doc.data() as Item);
-    const existingItemsMap = new Map(existingItems.map(it => [it.id, it]));
+    const itemsById = new Map(existingItems.map(it => [it.id, it]));
 
     const allReceipts = (await db.collection('goodsReceipts').select('receiptNumber').get())
       .docs.map(d => d.data().receiptNumber).filter(Boolean);
@@ -154,7 +156,7 @@ export async function createGoodsReceipt(payload: {
 
     for (const line of lines) {
         let itemId = line.itemId;
-        let currentItem = itemId ? existingItemsMap.get(itemId) : undefined;
+        let currentItem = itemId ? itemsById.get(itemId) : undefined;
 
         if (!itemId && line.newItemName) {
             const itemRef = db.collection('items').doc();
@@ -169,7 +171,7 @@ export async function createGoodsReceipt(payload: {
                 active: true,
             };
             batch.set(itemRef, { ...newItem, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }, { merge: true });
-            existingItemsMap.set(itemId, newItem); // Add to local map for subsequent lines
+            itemsById.set(itemId, newItem); // Add to local map for subsequent lines
             currentItem = newItem;
         }
         
@@ -193,7 +195,7 @@ export async function createGoodsReceipt(payload: {
         const lotRef = db.collection('lots').doc(lotNumber);
         batch.set(lotRef, { ...lotData, supplierId: finalSupplierId }, { merge: true });
 
-        const locationId = line.locationId || landingLocationFor(currentItem.category);
+        const locationId = getLocationForCategory(currentItem.category); // El backend determina la ubicación
         const onHandId = makeOnHandId(itemId, lotNumber, locationId);
         const onHandRef = db.collection('onHand').doc(onHandId);
         batch.set(onHandRef, {
@@ -244,13 +246,13 @@ export async function createGoodsReceipt(payload: {
         } as any);
     }
     
-    const itemsForQcCheck = finalLines.map(l => (l as any).itemId).map(id => existingItemsMap.get(id));
+    const itemsForQcCheck = finalLines.map(l => (l as any).itemId).map(id => itemsById.get(id));
     const requiresQc = itemsForQcCheck.some(item => {
         const cat = item?.category;
         return cat === 'raw' || cat === 'pack' || cat === 'fg';
     });
 
-    const receipt: GoodsReceipt = {
+    const receipt: Omit<GoodsReceipt, 'createdAt'|'updatedAt'> & {notes: string | null} = {
         id: receiptRef.id,
         receiptNumber,
         supplierPartyId: finalSupplierId!,
@@ -258,6 +260,7 @@ export async function createGoodsReceipt(payload: {
         receivedAt: nowIso,
         status: requiresQc ? 'pending_qc' : 'completed',
         lines: finalLines,
+        notes: notes || null,
     };
     batch.set(receiptRef, { ...receipt, createdAt: nowIso } as any);
 
