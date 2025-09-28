@@ -32,7 +32,7 @@ export const TabsTrigger = React.forwardRef<
     ref={ref}
     className={cn(
       "px-3 py-1.5 rounded-md data-[state=active]:bg-white data-[state=active]:shadow " +
-      "data-[state=active]:text-[color:var(--sb-accent, _#6b4f3f)] text-zinc-600",
+      "data-[state=active]:text-[color:var(--sb-accent,var(--sb-cobre))] text-zinc-600",
       className
     )}
     {...props}
