@@ -9,7 +9,7 @@ import { SBCard, Input, Select, DataTableSB } from '@/components/ui/ui-primitive
 import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog";
 import type { OnHandView, Item, ItemCategory, StockMove, Lot, QcStatus } from "@/domain/ssot";
 import { useData } from "@/lib/dataprovider";
-import { createManualOnHand, rebuildOnHand } from "../actions";
+import { createManualOnHand, rebuildOnHand } from "./actions";
 
 
 // ---- Tema logística (usa tu token CSS) ----
@@ -53,7 +53,6 @@ type FormState = {
   sendToQc: boolean;
 };
 
-// alias ligero para no cambiar JSX existente
 const FieldRow: React.FC<React.PropsWithChildren<{ label:string; error?:string; htmlFor?:string }>> = ({ children, label, error, htmlFor }) => (
     <div className="grid grid-cols-[120px_1fr] items-center gap-3">
         <label className="text-xs text-zinc-600 font-medium" htmlFor={htmlFor}>{label}</label>
@@ -177,7 +176,6 @@ export default function InventoryPage() {
   }, [santaData?.onHand]);
 
   useEffect(() => {
-    // consideramos “listo” cuando onHand e items están definidos (aunque estén vacíos)
     const ready = santaData && 'onHand' in santaData && 'items' in santaData;
     if (ready) setLoading(false);
   }, [santaData]);
@@ -202,19 +200,10 @@ export default function InventoryPage() {
     });
   }, [onHandAll, itemsById, locationFilter, showZeros, query]);
   
-  const inferCategoryFromLocation = (loc?: string): Item['category'] | undefined => {
-    if (!loc) return undefined;
-    if (loc.startsWith('FG/')) return 'fg';
-    if (loc.startsWith('RM/')) return 'raw';
-    if (loc.startsWith('PKG/')) return 'pack';
-    if (loc.startsWith('WIP/')) return 'intermediate';
-    return undefined;
-  };
-  
   const tabsWithCounts = useMemo(() => {
     const counts: Record<string, number> = { fg: 0, raw: 0, intermediate: 0, pack: 0, merch: 0, consumable: 0 };
     for (const item of filteredInventory) {
-      const category = itemsById.get(item.itemId)?.category ?? inferCategoryFromLocation(item.locationId);
+      const category = (item as any).category;
       if (category === 'pack' || category === 'label') {
         counts.pack = (counts.pack || 0) + 1;
       } else if (category && counts[category] !== undefined) {
@@ -230,15 +219,15 @@ export default function InventoryPage() {
       { id: "merch", label: "Merchandising", count: counts.merch },
       { id: "consumable", label: "Consumibles", count: counts.consumable },
     ];
-  }, [filteredInventory, itemsById]);
+  }, [filteredInventory]);
   
   const currentTabData = useMemo(() => {
     return filteredInventory.filter(oh => {
-        const category = itemsById.get(oh.itemId)?.category ?? inferCategoryFromLocation(oh.locationId);
+        const category = (oh as any).category;
         if (activeTab === 'pack') return category === 'pack' || category === 'label';
         return category === activeTab;
     });
-}, [filteredInventory, activeTab, itemsById]);
+}, [filteredInventory, activeTab]);
 
   const totalQty = useMemo(() => currentTabData.reduce((a,r)=> a + (Number(r.qty)||0), 0), [currentTabData]);
 
