@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -14,7 +14,7 @@ import QuickLogOverlay from "@/features/quicklog/QuickLogOverlay";
 
 /* ===== 0) Tokens ===== */
 const MODULE_ACCENTS: Record<string, string> = {
-  personal: "var(--sb-accent-personal)",     // amarillo
+  personal: "var(--sb-accent-personal)",
   sales: "var(--sb-accent-ventas)",
   marketing: "var(--sb-accent-marketing)",
   production: "var(--sb-accent-produc)",
@@ -26,7 +26,7 @@ const MODULE_ACCENTS: Record<string, string> = {
 const hsl = (cssVar: string, alpha?: number) =>
   alpha == null ? `hsl(${cssVar})` : `hsl(${cssVar} / ${alpha})`;
 
-/** Fix contraste: en "personal" usamos un foreground más oscuro y un fondo con tinte. */
+/** Mejor contraste para "personal" */
 function getReadableColors(module: keyof typeof MODULE_ACCENTS, state: "idle" | "hover" | "active") {
   const accent = MODULE_ACCENTS[module];
   const isPersonal = module === "personal";
@@ -44,26 +44,21 @@ function getReadableColors(module: keyof typeof MODULE_ACCENTS, state: "idle" | 
       br: isPersonal ? hsl(accent, 0.28) : "transparent",
     };
   }
-  // idle
-  return {
-    fg: "hsl(var(--sb-neutral-600))",
-    bg: "transparent",
-    br: "transparent",
-  };
+  return { fg: "hsl(var(--sb-neutral-600))", bg: "transparent", br: "transparent" };
 }
 
 /* ===== 1) Navegación ===== */
 type NavItem = { href: string; label: string };
 type NavSection = { title: string; module: keyof typeof MODULE_ACCENTS; icon: React.ElementType; items: NavItem[] };
 
+/** IMPORTANTE: sin 'Dashboard' en items (lo mostramos como "Ver dashboard" en el header de sección) */
 const navSections: NavSection[] = [
   { title: "Personal", module: "personal", icon: Home,
-    items: [{ href: "/dashboard-personal", label: "Dashboard" }, { href: "/agenda", label: "Agenda" }, { href: "/contacts", label: "Contactos" }] },
+    items: [{ href: "/agenda", label: "Agenda" }, { href: "/contacts", label: "Contactos" }] },
   { title: "Ventas", module: "sales", icon: BarChart3,
-    items: [{ href: "/dashboard-ventas", label: "Dashboard de Ventas" }, { href: "/accounts", label: "Cuentas" }, { href: "/orders", label: "Pedidos" }] },
+    items: [{ href: "/accounts", label: "Cuentas" }, { href: "/orders", label: "Pedidos" }] },
   { title: "Marketing", module: "marketing", icon: Megaphone,
     items: [
-      { href: "/marketing/dashboard", label: "Dashboard" },
       { href: "/marketing/events", label: "Eventos" },
       { href: "/marketing/online", label: "Ads" },
       { href: "/marketing/influencers", label: "Influencers" },
@@ -71,19 +66,18 @@ const navSections: NavSection[] = [
       { href: "/marketing/pos-catalog", label: "Catálogo Tácticas" },
     ] },
   { title: "Producción", module: "production", icon: Factory,
-    items: [{ href: "/production/dashboard", label: "Dashboard" }, { href: "/production/bom", label: "BOMs" }, { href: "/production/execution", label: "Elaboración/Envasado" }] },
+    items: [{ href: "/production/bom", label: "BOMs" }, { href: "/production/execution", label: "Elaboración/Envasado" }] },
   { title: "Calidad", module: "quality", icon: ClipboardCheck,
     items: [
-        { href: "/quality/dashboard", label: "Dashboard QC" }, 
-        { href: "/quality/release", label: "Liberación de Lotes" }, 
-        { href: "/quality/traceability", label: "Trazabilidad" },
-        { href: "/quality/autocontrol", label: "Autocontrol" },
-        { href: "/quality/parametros", label: "Parámetros" },
+      { href: "/quality/release", label: "Liberación de Lotes" },
+      { href: "/quality/traceability", label: "Trazabilidad" },
+      { href: "/quality/autocontrol", label: "Autocontrol" },
+      { href: "/quality/parametros", label: "Parámetros" },
     ] },
   { title: "Logística", module: "warehouse", icon: Truck,
-    items: [{ href: "/warehouse/dashboard", label: "Dashboard" }, { href: "/warehouse/logistics", label: "Envíos" }, { href: "/warehouse/inventory", label: "Inventario" }] },
+    items: [{ href: "/warehouse/logistics", label: "Envíos" }, { href: "/warehouse/inventory", label: "Inventario" }] },
   { title: "Financiera", module: "finance", icon: LineChart,
-    items: [{ href: "/cashflow/dashboard", label: "Dashboard" }, { href: "/cashflow/payments", label: "Pagos" }, { href: "/cashflow/collections", label: "Cobros" }] },
+    items: [{ href: "/cashflow/payments", label: "Pagos" }, { href: "/cashflow/collections", label: "Cobros" }] },
   { title: "Admin", module: "admin", icon: SlidersHorizontal,
     items: [
       { href: "/admin/kpi-settings", label: "Ajustes de KPIs" },
@@ -98,7 +92,7 @@ const navSections: NavSection[] = [
     ] },
 ];
 
-/* ===== 2) Persistencia mínima ===== */
+/* ===== 2) Persistencia ===== */
 const LS_COLLAPSED = "sb.nav.collapsed";
 
 /* ===== Helpers ===== */
@@ -158,7 +152,6 @@ function ModuleRail({
                 cursor: "pointer",
               }}
             >
-              {/* barrita lateral */}
               <span
                 aria-hidden
                 className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-full"
@@ -182,7 +175,7 @@ function ModuleRail({
   );
 }
 
-/* ===== 4) MegaFlyout (todas las secciones) ===== */
+/* ===== 4) MegaFlyout — SOLO la sección hovered abierta ===== */
 function MegaFlyout({
   sections, hoveredModule, pathname, onMouseEnter, onMouseLeave,
 }: {
@@ -199,57 +192,57 @@ function MegaFlyout({
     >
       <div className="flex-1 overflow-y-auto px-2 py-3 space-y-3">
         {sections.map((section) => {
+          const open = hoveredModule === section.module;
           const accent = MODULE_ACCENTS[section.module];
-          const isHovered = hoveredModule === section.module;
           return (
             <div
               key={section.module}
-              className={`rounded-lg border transition-colors ${
-                isHovered
-                  ? "border-[color:hsl(var(--sb-neutral-300))] bg-[color:hsl(var(--sb-neutral-50))]"
-                  : "border-transparent"
-              }`}
+              className={`rounded-lg border transition-all ${open ? "border-[color:hsl(var(--sb-neutral-300))] bg-[color:hsl(var(--sb-neutral-50))]" : "border-transparent"}`}
             >
               <div
                 className="px-3 py-2 flex items-center justify-between rounded-t-lg"
-                style={{ background: isHovered ? `hsl(${accent} / 0.08)` : "transparent" }}
+                style={{ background: open ? `hsl(${accent} / 0.08)` : "transparent" }}
               >
                 <div className="font-medium">{section.title}</div>
-                {section.items[0] && (
-                  <Link href={section.items[0].href} className="text-xs text-sb-neutral-600 hover:underline">
-                    Ver dashboard
-                  </Link>
-                )}
+                {/* Dashboard como enlace lateral */}
+                <Link
+                  href={dashboardHrefFor(section.module)}
+                  className="text-xs text-sb-neutral-600 hover:underline"
+                >
+                  Ver dashboard
+                </Link>
               </div>
 
-              <nav className="px-1 py-1">
-                {section.items.map((it) => {
-                  const active = it.href !== "/" && pathname.startsWith(it.href);
-                  const isPersonal = section.module === "personal";
-                  const fg = active
-                    ? (isPersonal ? "hsl(var(--sb-neutral-900))" : hsl(accent))
-                    : "hsl(var(--sb-neutral-800))";
-                  const bg = active ? (isPersonal ? hsl(accent, 0.18) : hsl(accent, 0.10)) : "transparent";
-                  const br = active ? (isPersonal ? hsl(accent, 0.28) : hsl(accent, 0.28)) : "transparent";
-                  return (
-                    <Link
-                      key={it.href}
-                      href={it.href}
-                      aria-current={active ? "page" : undefined}
-                      className="group flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors"
-                      style={{ color: fg, background: bg, border: `1px solid ${br}` }}
-                    >
-                      <span
-                        aria-hidden
-                        className="h-1.5 w-1.5 rounded-full"
-                        style={{ background: active ? fg : `hsl(${accent} / 0.6)` }}
-                      />
-                      <span className="flex-1">{it.label}</span>
-                      <span className="opacity-0 group-hover:opacity-100 text-xs text-sb-neutral-400">→</span>
-                    </Link>
-                  );
-                })}
-              </nav>
+              {open && (
+                <nav className="px-1 py-1">
+                  {section.items.map((it) => {
+                    const active = it.href !== "/" && pathname.startsWith(it.href);
+                    const isPersonal = section.module === "personal";
+                    const fg = active
+                      ? (isPersonal ? "hsl(var(--sb-neutral-900))" : hsl(accent))
+                      : "hsl(var(--sb-neutral-800))";
+                    const bg = active ? (isPersonal ? hsl(accent, 0.18) : hsl(accent, 0.10)) : "transparent";
+                    const br = active ? (isPersonal ? hsl(accent, 0.28) : hsl(accent, 0.28)) : "transparent";
+                    return (
+                      <Link
+                        key={it.href}
+                        href={it.href}
+                        aria-current={active ? "page" : undefined}
+                        className="group flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors"
+                        style={{ color: fg, background: bg, border: `1px solid ${br}` }}
+                      >
+                        <span
+                          aria-hidden
+                          className="h-1.5 w-1.5 rounded-full"
+                          style={{ background: active ? fg : `hsl(${accent} / 0.6)` }}
+                        />
+                        <span className="flex-1">{it.label}</span>
+                        <span className="opacity-0 group-hover:opacity-100 text-xs text-sb-neutral-400">→</span>
+                      </Link>
+                    );
+                  })}
+                </nav>
+              )}
             </div>
           );
         })}
@@ -258,29 +251,58 @@ function MegaFlyout({
   );
 }
 
-/* ===== 5) Header con breadcrumbs + buscador + quicklog ===== */
+/** Ruta de dashboard por módulo (usada en “Ver dashboard”) */
+function dashboardHrefFor(module: keyof typeof MODULE_ACCENTS) {
+  switch (module) {
+    case "personal": return "/dashboard-personal";
+    case "sales": return "/dashboard-ventas";
+    case "marketing": return "/marketing/dashboard";
+    case "production": return "/production/dashboard";
+    case "quality": return "/quality/dashboard";
+    case "warehouse": return "/warehouse/dashboard";
+    case "finance": return "/cashflow/dashboard";
+    case "admin": return "/admin/kpi-settings"; // o tu landing de admin
+  }
+}
+
+/* ===== 5) Header con breadcrumbs + buscador + quicklog + user menu dinámico ===== */
 function HeaderPro({
-  userName, userEmail, onLogout, pathname, onOpenQuickLog,
+  userName, userEmail, onLogout, pathname, onOpenQuickLog, tasksToday, tasksOverdue,
 }: {
   userName?: string; userEmail?: string; onLogout: () => void;
   pathname: string; onOpenQuickLog: () => void;
+  tasksToday: number; tasksOverdue: number;
 }) {
   const crumbs = useBreadcrumbs(pathname);
   const [openCmd, setOpenCmd] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  // Cmd+K y Esc
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); setOpenCmd(true); }
-      if (e.key === "Escape") setOpenCmd(false);
+      if (e.key === "Escape") { setOpenCmd(false); setUserMenuOpen(false); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // Cerrar menú usuario al click fuera
+  useEffect(() => {
+    const onDocClick = (e: MouseEvent) => {
+      if (!userMenuOpen) return;
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setUserMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [userMenuOpen]);
+
+  // Cerrar al navegar
+  useEffect(() => { setUserMenuOpen(false); }, [pathname]);
+
   return (
-    <header
-      className="h-14 sticky top-0 z-40 border-b border-sb-neutral-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80"
-      role="banner"
-    >
+    <header className="h-14 sticky top-0 z-40 border-b border-sb-neutral-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80" role="banner">
       <div className="h-full px-3 md:px-4 flex items-center gap-3">
         <Link href="/" className="shrink-0" aria-label="Ir al inicio">
           <span className="inline-flex p-1 rounded-md bg-white ring-1 ring-black/5">
@@ -321,7 +343,7 @@ function HeaderPro({
           <kbd className="ml-auto text-xs text-sb-neutral-400">⌘K</kbd>
         </button>
 
-        <div className="ml-auto md:ml-2 flex items-center gap-1">
+        <div className="ml-auto md:ml-2 flex items-center gap-1" ref={menuRef}>
           <button
             onClick={onOpenQuickLog}
             className="px-2 py-1.5 rounded-md sb-btn-primary"
@@ -331,30 +353,40 @@ function HeaderPro({
             +
           </button>
 
-          <div className="relative group">
-            <button
-              className="px-2 py-1.5 rounded-md hover:bg-sb-neutral-100 flex items-center gap-2"
-              aria-haspopup="menu"
-              aria-expanded="false"
-              title="Cuenta"
-            >
-              <Avatar name={userName} size="md" className="sb-icon" />
-              <div className="hidden md:block leading-tight text-left">
-                <div className="text-sm font-medium">{userName}</div>
-                <div className="text-xs text-sb-neutral-500">{userEmail}</div>
+          <button
+            className="px-2 py-1.5 rounded-md hover:bg-sb-neutral-100 flex items-center gap-2"
+            aria-haspopup="menu"
+            aria-expanded={userMenuOpen}
+            title="Cuenta"
+            onClick={() => setUserMenuOpen((v) => !v)}
+          >
+            <Avatar name={userName} size="md" className="sb-icon" />
+            <div className="hidden md:block leading-tight text-left">
+              <div className="text-sm font-medium">{userName}</div>
+              <div className="text-xs text-sb-neutral-500">{userEmail}</div>
+            </div>
+          </button>
+
+          {userMenuOpen && (
+            <div role="menu" className="sb-menu absolute right-3 top-12 w-64 p-1">
+              <div className="px-3 py-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <span>Tareas hoy</span>
+                  <span className="font-semibold">{tasksToday}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Tareas atrasadas</span>
+                  <span className="font-semibold text-rose-600">{tasksOverdue}</span>
+                </div>
               </div>
-            </button>
-            <div
-              role="menu"
-              className="sb-menu absolute right-0 mt-2 w-56 p-1 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"
-            >
+              <hr className="my-1" />
               <Link href="/profile" role="menuitem" className="block px-3 py-2 rounded-md hover:bg-sb-neutral-50">Perfil</Link>
               <Link href="/settings" role="menuitem" className="block px-3 py-2 rounded-md hover:bg-sb-neutral-50">Preferencias</Link>
               <button onClick={onLogout} role="menuitem" className="w-full text-left px-3 py-2 rounded-md hover:bg-sb-neutral-50">
                 Cerrar sesión
               </button>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
@@ -408,7 +440,7 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
 /* ===== 7) Layout principal ===== */
 export default function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? "/";
-  const { currentUser, logout } = useData();
+  const { currentUser, logout, data } = useData();
 
   const isPrivilegedUser =
     currentUser?.role?.toLowerCase() === "admin" || currentUser?.role?.toLowerCase() === "owner";
@@ -421,7 +453,12 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
 
   const activeModule = useMemo(() => {
     const hit = visibleSections.find((sec) => sec.items.some((i) => pathname.startsWith(i.href) && i.href !== "/"));
-    return hit?.module ?? "personal";
+    // si estás justo en el dashboard de un módulo, marcamos ese
+    if (!hit) {
+      const mod = moduleFromDashboard(pathname);
+      if (mod) return mod;
+    }
+    return (hit?.module ?? "personal") as keyof typeof MODULE_ACCENTS;
   }, [pathname, visibleSections]);
 
   const [hoveredModule, setHoveredModule] = useState<string | null>(null);
@@ -439,6 +476,42 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
     target.addEventListener("scroll", onScroll);
     return () => target.removeEventListener("scroll", onScroll);
   }, []);
+
+  // === KPIs del menú de usuario: tareas hoy / atrasadas (DB real vía useData) ===
+  const { tasksToday, tasksOverdue } = useMemo(() => {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+    // 1) Preferimos data.tasks si existe (schema típico: {dueAt,status,completed?,doneAt?})
+    const tasks = (data as any)?.tasks as Array<any> | undefined;
+
+    const fromTasks = tasks
+      ? {
+          today: tasks.filter(t => t?.dueAt && !t?.completed && new Date(t.dueAt) >= startOfToday && new Date(t.dueAt) <= endOfToday).length,
+          overdue: tasks.filter(t => t?.dueAt && !t?.completed && new Date(t.dueAt) < startOfToday).length,
+        }
+      : null;
+
+    if (fromTasks) return { tasksToday: fromTasks.today, tasksOverdue: fromTasks.overdue };
+
+    // 2) Fallback: derivar de events como “tareas” (p. ej. kind === 'OTRO' | 'TASK' | 'DEMO' etc.)
+    const events = (data as any)?.events as Array<any> | undefined;
+    const asTasks = (events ?? []).filter(e => !e?.endAt && !/feria|demo|formacion/i.test(String(e?.kind ?? "")));
+    const today = asTasks.filter(e => {
+      const when = new Date(e?.startAt ?? e?.start ?? e?.date ?? 0);
+      const done = !!e?.done || e?.status === "COMPLETADA";
+      return !done && when >= startOfToday && when <= endOfToday;
+    }).length;
+
+    const overdue = asTasks.filter(e => {
+      const when = new Date(e?.startAt ?? e?.start ?? e?.date ?? 0);
+      const done = !!e?.done || e?.status === "COMPLETADA";
+      return !done && when < startOfToday;
+    }).length;
+
+    return { tasksToday: today, tasksOverdue: overdue };
+  }, [(useData() as any).data]); // fuerza recálculo si cambia
 
   return (
     <div className="h-screen flex bg-white">
@@ -468,10 +541,24 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
           onLogout={logout}
           pathname={pathname}
           onOpenQuickLog={() => window.dispatchEvent(new CustomEvent("sb:quicklog:open"))}
+          tasksToday={tasksToday}
+          tasksOverdue={tasksOverdue}
         />
         <div className="overflow-y-auto">{children}</div>
         <QuickLogOverlay />
       </main>
     </div>
   );
+}
+
+/* util: detectar módulo desde la ruta de dashboard */
+function moduleFromDashboard(path: string): keyof typeof MODULE_ACCENTS | null {
+  if (path.startsWith("/dashboard-personal")) return "personal";
+  if (path.startsWith("/dashboard-ventas")) return "sales";
+  if (path.startsWith("/marketing/dashboard")) return "marketing";
+  if (path.startsWith("/production/dashboard")) return "production";
+  if (path.startsWith("/quality/dashboard")) return "quality";
+  if (path.startsWith("/warehouse/dashboard")) return "warehouse";
+  if (path.startsWith("/cashflow/dashboard")) return "finance";
+  return null;
 }

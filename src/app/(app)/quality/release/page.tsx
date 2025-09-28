@@ -13,7 +13,7 @@ import type {
   Lot, QcTest, QcBatchResult, Item, ParameterCatalog, QcPlan, Incident, Coa,
   QcTestSpec, ProductionOrder, LotGenealogyEdge, StockMove, ProtocolAcknowledgement, QcStatus, OnHandView
 } from "@/domain/ssot";
-import { qcFromRow } from "@/lib/sb-core";
+import { qcFromRow } from '@/lib/sb-core';
 
 
 // ============================================================================
@@ -235,23 +235,23 @@ function normalizeLotHistory(lot: Lot, data: NormalizeCtx): TraceEvent[] {
 
   // === GENEALOGÍA (opcional) ===
   (data.genealogy ?? [])
-    .filter(e => {
-      const child = e.childLotNumber;
-      const parent = e.parentLotNumber;
-      return child === lotNumber || parent === lotNumber;
-    })
-    .forEach(e => {
-      const isParent = e.parentLotNumber === lotNumber;
-      push({
-        id: `gen-${e.id}`,
-        at: safeWhen((e as any).at, (e as any).createdAt),
-        kind: "GENEALOGY",
-        title: isParent ? `Usado en ${e.childLotNumber}` : `Origen: ${e.parentLotNumber}`,
-        details: (e as any).note ?? "",
-        icon: GitBranch,
-        tone: "zinc",
-      });
+  .filter(e => {
+    const child = e.childLotNumber;
+    const parent = e.parentLotNumber;
+    return child === lotNumber || parent === lotNumber;
+  })
+  .forEach(e => {
+    const isParent = e.parentLotNumber === lotNumber;
+    push({
+      id: `gen-${e.id}`,
+      at: safeWhen((e as any).at, (e as any).createdAt),
+      kind: "GENEALOGY",
+      title: isParent ? `Usado en ${e.childLotNumber}` : `Origen: ${e.parentLotNumber}`,
+      details: (e as any).note ?? "",
+      icon: GitBranch,
+      tone: "zinc",
     });
+  });
 
   // === ORDENAR + DEDUP ===
   const uniq = new Map<string, TraceEvent>();
@@ -381,30 +381,30 @@ export default function LabReleasePage() {
 
   const selectedLotData = useMemo(() => {
     if (!selectedLot) return null;
-
+  
     // 1) Intenta encontrar el lote "master"
-    const lotMaster: Lot | null = lots.find(l => l.lotNumber === selectedLot) ?? null;
-
+    const lotMaster = lots.find(l => l.lotNumber === selectedLot) ?? null;
+  
     // 2) Fallback a onHand si no hay master
     const oh = onHand.find(l => l.lotNumber === selectedLot) ?? null;
-
+  
     if (!lotMaster && !oh) return null; // nada que mostrar
-
+  
     // 3) Construye un "virtual lot" mínimamente viable (para timeline) si falta el master
     const lot: Lot = lotMaster ?? ({
       id: `virtual-${selectedLot}`,
       lotNumber: selectedLot,
       itemId: oh?.itemId ?? "",
       producedByOrderId: (oh as any)?.prodOrderId ?? undefined,
-      qcPlanId: lotMaster?.qcPlanId ?? undefined,
-      qcStatus: lotMaster?.qcStatus ?? undefined,
-      status: lotMaster?.status ?? undefined,
+      qcPlanId: undefined, // En la rama donde lotMaster es null, esto debe ser undefined
+      qcStatus: undefined, // Igual aquí
+      status: undefined,   // E igual aquí
       quantity: (oh as any)?.qty ?? (oh as any)?.quantity ?? 0,
       uom: (oh as any)?.uom ?? "",
       createdAt: oh?.createdAt ?? new Date().toISOString(),
       updatedAt: oh?.updatedAt ?? oh?.createdAt ?? new Date().toISOString(),
     } as any);
-
+  
     const plan = lot.qcPlanId ? qcPlanMap.get(lot.qcPlanId) : undefined;
     const history = normalizeLotHistory(lot, { qcTests, qcBatchResults, incidents, stockMoves, protocolAcks, orders, genealogy: data?.lotGenealogy });
     return { lot, item: itemMap.get(lot.itemId), plan, history };
@@ -472,7 +472,7 @@ export default function LabReleasePage() {
                     <option key={item.id} value={item.id}>{item.name}</option>
                 ))}
             </select>
-             <select value={selectedLot || ''} onChange={(e) => handleLotChange(e.target.value)} disabled={!selectedSku} className="h-9 rounded-md border border-zinc-200 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400">
+            <select value={selectedLot || ''} onChange={(e) => handleLotChange(e.target.value)} disabled={!selectedSku} className="h-9 rounded-md border border-zinc-200 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400">
                 <option value="">Todos los lotes</option>
                 {lotsForSelectedSku.map(lotNumber => (
                     <option key={lotNumber} value={lotNumber}>{lotNumber}</option>
@@ -663,3 +663,4 @@ export default function LabReleasePage() {
     </>
   );
 }
+
