@@ -1,4 +1,3 @@
-
 // ============================================================================
 // src/app/(app)/production/actions.ts
 // Server actions del módulo de Producción (REFACTORIZADO)
@@ -11,7 +10,7 @@ import { upsertMany } from "@/lib/dataprovider/actions";
 import { FieldPath, FieldValue } from "firebase-admin/firestore";
 import { z } from "zod";
 import { adminDb } from '@/server/firebase';
-import type { Lot as SsotLot, Uom, ProductionOrder, BillOfMaterial as RecipeBom, OnHandView, Item, StockMove, TraceEvent } from '@/domain/ssot';
+import type { Lot as SsotLot, Uom, ProductionOrder, BillOfMaterial as RecipeBom, OnHandView, Item, StockMove, TraceEvent, QcPlan, QcPlanBySku } from '@/domain/ssot';
 import { LotSchema, type Lot } from '@/domain/validators';
 import { explodeBOM } from '@/server/production/bom.service';
 import { findNextLotNumber } from '../warehouse/inventory/actions';
@@ -154,7 +153,7 @@ export async function completeProductionOrder(
       };
       batch.set(moveRef, move);
       
-      const traceEventRef = db.collection('traceEvents').doc();
+      const traceEventRef = adminDb.collection('traceEvents').doc();
       const traceEvent: TraceEvent = {
           id: traceEventRef.id,
           subject: { type: 'LOT', id: consumption.lotNumber },
@@ -168,7 +167,7 @@ export async function completeProductionOrder(
               uom: consumption.uom
           }
       };
-      batch.set(traceEventRef, traceEvent);
+      batch.set(traceEventRef, traceEvent as any);
 
 
       const onHandOutId = makeOnHandId(consumption.itemId, consumption.lotNumber, consumption.fromLocationId);
@@ -183,14 +182,18 @@ export async function completeProductionOrder(
       const lotNumber = output.lotNumber || (await findNextLotNumber(output.itemId, output.sku));
       newLotNumbers.push(lotNumber);
 
+      const qcPlanSnap = await adminDb.collection('qcPlans').where('sku', '==', output.sku).limit(1).get();
+      const qcPlanId = qcPlanSnap.empty ? undefined : qcPlanSnap.docs[0].id;
+
       // Crear o actualizar el lote
-      const lotRef = db.collection('lots').doc(lotNumber);
+      const lotRef = adminDb.collection('lots').doc(lotNumber);
       batch.set(lotRef, LotSchema.parse({
         lotNumber,
         itemId: output.itemId,
         quantity: output.qty,
         uom: output.uom,
         qcStatus: 'PENDING', // El producto siempre sale de producción a QC
+        qcPlanId: qcPlanId,
         createdAt: now,
         updatedAt: now,
         expiryAt: undefined,
@@ -212,7 +215,7 @@ export async function completeProductionOrder(
       };
       batch.set(moveInRef, moveIn);
       
-      const traceEventInRef = db.collection('traceEvents').doc();
+      const traceEventInRef = adminDb.collection('traceEvents').doc();
       const traceEventIn: TraceEvent = {
           id: traceEventInRef.id,
           subject: { type: 'LOT', id: lotNumber },
@@ -226,7 +229,7 @@ export async function completeProductionOrder(
               uom: output.uom
           }
       };
-      batch.set(traceEventInRef, traceEventIn);
+      batch.set(traceEventInRef, traceEventIn as any);
 
 
       const onHandInId = makeOnHandId(output.itemId, lotNumber, output.toLocationId);

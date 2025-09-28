@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { SBCard, SBButton, Input } from '@/components/ui/ui-primitives';
 import { useData } from "@/lib/dataprovider";
 import { CheckCircle, XCircle, Hourglass, FlaskConical, ChevronRight } from "lucide-react";
-import type { Lot, Item, ParameterCatalog, QcPlan, QcStatus } from "@/domain/ssot";
+import type { Lot, Item, QcPlanBySku, QcStatus, ParameterBySku } from "@/domain/ssot";
 import { saveQcDecision } from '@/app/(app)/quality/actions';
 import { toast } from "sonner";
 
@@ -15,7 +15,7 @@ import { toast } from "sonner";
 // ============================================================================
 type LotForQc = Lot & {
     itemName: string;
-    plan?: QcPlan;
+    plan?: QcPlanBySku;
     totalStock: number;
 };
 
@@ -35,11 +35,11 @@ export default function LabReleasePage() {
     const [reviewerId, setReviewerId] = useState("mj@santabrisa.co"); // Debería venir del usuario autenticado
 
     // Procesamiento de datos centralizado
-    const { lotsForReview, parameterMap } = useMemo(() => {
-        if (!data) return { lotsForReview: [], parameterMap: new Map() };
+    const { lotsForReview, parameterMap, planMap } = useMemo(() => {
+        if (!data) return { lotsForReview: [], parameterMap: new Map(), planMap: new Map() };
 
         const iMap = new Map(data.items.map(i => [i.id, i]));
-        const qpMap = new Map((data.qc_plans || []).map(p => [p.id, p]));
+        const qpMap = new Map((data.qcPlans || []).map(p => [p.id, p]));
         const onHandByLot = (data.onHand ?? []).reduce((acc, oh) => {
             if (oh.lotNumber) acc.set(oh.lotNumber, (acc.get(oh.lotNumber) || 0) + oh.qty);
             return acc;
@@ -61,6 +61,7 @@ export default function LabReleasePage() {
         return {
             lotsForReview: lotsWithDetails,
             parameterMap: new Map((data.qcParameters || []).map(p => [p.id, p])),
+            planMap: qpMap,
         };
     }, [data]);
 
@@ -86,7 +87,7 @@ export default function LabReleasePage() {
     
     // El "Parte de Análisis" solo se muestra si hay un lote seleccionado
     if (selectedLot) {
-        const requiredSpecs = selectedLot.plan?.specs.filter(s => (s as any).required) ?? [];
+        const requiredSpecs = selectedLot.plan?.specs ?? [];
         const allRequiredResultsEntered = requiredSpecs.every(spec =>
             analysisResults[spec.parameterId] && analysisResults[spec.parameterId].trim() !== ""
         );
@@ -102,19 +103,23 @@ export default function LabReleasePage() {
 
                     <div className="space-y-3">
                         <h4 className="text-md font-semibold">Parámetros a Medir</h4>
-                        {requiredSpecs.length > 0 ? requiredSpecs.map(spec => (
-                            <div key={spec.parameterId} className="grid grid-cols-[1fr_150px] gap-4 items-center">
-                                <label htmlFor={spec.parameterId} className="font-medium text-sm">
-                                    {parameterMap.get(spec.parameterId)?.label ?? spec.parameterId}
-                                </label>
-                                <Input
-                                    id={spec.parameterId}
-                                    placeholder="Resultado..."
-                                    value={analysisResults[spec.parameterId] ?? ""}
-                                    onChange={e => setAnalysisResults(prev => ({...prev, [spec.parameterId]: e.target.value}))}
-                                />
-                            </div>
-                        )) : <p className="text-sm text-zinc-500">Este plan no tiene análisis requeridos.</p>}
+                        {requiredSpecs.length > 0 ? requiredSpecs.map(spec => {
+                            const parameter = parameterMap.get(spec.parameterId);
+                            if (!parameter) return null;
+                            return (
+                                <div key={spec.parameterId} className="grid grid-cols-[1fr_150px] gap-4 items-center">
+                                    <label htmlFor={spec.parameterId} className="font-medium text-sm">
+                                        {parameter.name ?? spec.parameterId}
+                                    </label>
+                                    <Input
+                                        id={spec.parameterId}
+                                        placeholder={parameter.unit || 'Resultado...'}
+                                        value={analysisResults[spec.parameterId] ?? ""}
+                                        onChange={e => setAnalysisResults(prev => ({...prev, [spec.parameterId]: e.target.value}))}
+                                    />
+                                </div>
+                            )
+                        }) : <p className="text-sm text-zinc-500">Este plan no tiene análisis requeridos.</p>}
                     </div>
 
                     <div className="border-t pt-4 flex justify-between items-center">
