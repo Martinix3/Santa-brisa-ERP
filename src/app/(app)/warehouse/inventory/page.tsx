@@ -8,10 +8,10 @@ import { useRouter } from "next/navigation";
 import { Download, Plus, History, X } from "lucide-react";
 import { SBCard, Input, Select, DataTableSB } from "@/components/ui/ui-primitives";
 import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog";
-import type { OnHandView, Item, ItemCategory, StockMove } from "@/domain/ssot";
+import type { OnHandView, Item, ItemCategory, StockMove, Lot } from "@/domain/ssot";
 import { useData } from "@/lib/dataprovider";
 import { createManualOnHand, rebuildOnHand } from "../actions";
-import { qcFromRow } from "@/lib/sb-core";
+import { qcFromRow } from '@/lib/sb-core';
 
 // ---- Tema logística (usa tu token CSS) ----
 const ACCENT = "var(--sb-accent-logistica)";
@@ -108,16 +108,16 @@ function NewOnHandDialog({
         <div className="space-y-3">
             <FieldRow label="Producto" error={errors.itemId}><Select value={fm.itemId} onChange={e=>setFm(s=>({...s,itemId:e.target.value, uom: items.find(i=>i.id===e.target.value)?.uom || 'unit'}))}>{items.map(i=><option key={i.id} value={i.id}>{i.name}</option>)}</Select></FieldRow>
             <FieldRow label="Lote (auto si vacío)"><Input value={fm.lotNumber} onChange={e=>setFm(s=>({...s,lotNumber:e.target.value}))} placeholder="SKU-YYMM-XX"/></FieldRow>
-              <FieldRow label="Cantidad" error={errors.qty}><div className="flex gap-2"><Input type="number" value={fm.qty} onChange={e=>setFm(s=>({...s,qty:e.target.value===""?"":Number(e.target.value)}))} min={1}/><Select value={fm.uom} onChange={e=>setFm(s=>({...s,uom:e.target.value}))}>{['unit','kg','L','case'].map(u=><option key={u} value={u}>{u}</option>)}</Select></div></FieldRow>
-              <FieldRow label="Ubicación" error={errors.locationId}><Select value={fm.locationId} onChange={e=>setFm(s=>({...s,locationId:e.target.value}))}>{locations.map(l=><option key={l} value={l}>{l}</option>)}</Select></FieldRow>
-              <FieldRow label="Fecha/hora"><Input type="datetime-local" value={fm.occurredAt} onChange={e=>setFm(s=>({...s,occurredAt:e.target.value}))}/></FieldRow>
-              <FieldRow label="Notas"><Input value={fm.note} onChange={e=>setFm(s=>({...s,note:e.target.value}))} placeholder="Ajuste anual, promo, etc."/></FieldRow>
-              <div className="border-t pt-4 space-y-3">
-                <FieldRow label="Proveedor (texto o ID)"><Input value={fm.supplier} onChange={e => setFm(s => ({ ...s, supplier: e.target.value }))} placeholder="Nombre proveedor o accountId"/></FieldRow>
-                <FieldRow label="Nº albarán / doc. ref."><Input value={fm.invoiceRef} onChange={e => setFm(s => ({ ...s, invoiceRef: e.target.value }))} placeholder="p.ej. ALB-2509-123"/></FieldRow>
+            <FieldRow label="Cantidad" error={errors.qty}><div className="flex gap-2"><Input type="number" value={fm.qty} onChange={e=>setFm(s=>({...s,qty:e.target.value===""?"":Number(e.target.value)}))} min={1}/><Select value={fm.uom} onChange={e=>setFm(s=>({...s,uom:e.target.value}))}>{['unit','kg','L','case'].map(u=><option key={u} value={u}>{u}</option>)}</Select></div></FieldRow>
+            <FieldRow label="Ubicación" error={errors.locationId}><Select value={fm.locationId} onChange={e=>setFm(s=>({...s,locationId:e.target.value}))}>{locations.map(l=><option key={l} value={l}>{l}</option>)}</Select></FieldRow>
+            <FieldRow label="Fecha/hora"><Input type="datetime-local" value={fm.occurredAt} onChange={e=>setFm(s=>({...s,occurredAt:e.target.value}))}/></FieldRow>
+            <FieldRow label="Notas"><Input value={fm.note || ''} onChange={e=>setFm(s=>({...s,note:e.target.value}))} placeholder="Ajuste anual, promo, etc."/></FieldRow>
+            <div className="border-t pt-4 space-y-3">
+                <FieldRow label="Proveedor (texto o ID)"><Input value={fm.supplier || ''} onChange={e => setFm(s => ({ ...s, supplier: e.target.value }))} placeholder="Nombre proveedor o accountId"/></FieldRow>
+                <FieldRow label="Nº albarán / doc. ref."><Input value={fm.invoiceRef || ''} onChange={e => setFm(s => ({ ...s, invoiceRef: e.target.value }))} placeholder="p.ej. ALB-2509-123"/></FieldRow>
                 <FieldRow label="Importe"><div className="flex gap-2"><Input type="number" step="0.01" min="0" value={fm.amount} onChange={e => setFm(s => ({ ...s, amount: e.target.value === "" ? "" : Number(e.target.value) }))}/><Select value={fm.currency} onChange={e => setFm(s => ({ ...s, currency: e.target.value }))}><option value="EUR">EUR</option><option value="USD">USD</option></Select></div></FieldRow>
                 <FieldRow label="Categoría" error={errors.category}><Select value={fm.category} onChange={e => setFm(s => ({ ...s, category: e.target.value }))}><option value="">— Selecciona —</option><option value="fg">Producto Terminado</option><option value="raw">Materia Prima</option><option value="intermediate">Intermedio</option><option value="pack">Packaging / Etiqueta</option><option value="merch">Merchandising</option><option value="consumable">Consumible</option></Select></FieldRow>
-              </div>
+            </div>
         </div>
         <div className="mt-6 flex justify-end gap-2">
           <button onClick={onClose} className="px-3 py-1.5 border rounded-lg bg-white">Cancelar</button>
@@ -150,6 +150,13 @@ export default function InventoryPage() {
     (santaData?.items || []).forEach(it => map.set(it.id, it));
     return map;
   }, [santaData?.items]);
+  
+  const lotMap = useMemo(() => {
+    const map = new Map<string, Lot>();
+    (santaData?.lots || []).forEach(l => map.set(l.lotNumber, l));
+    return map;
+  }, [santaData?.lots]);
+
 
   const stockMoves = useMemo(() => (santaData?.stockMoves || []) as StockMove[], [santaData?.stockMoves]);
 
@@ -197,7 +204,11 @@ export default function InventoryPage() {
       }
     },
     { key: "qty", header: "Cantidad", className: "text-right", render: r => <span className="font-semibold">{r.qty} <span className="text-xs text-zinc-500">{r.uom}</span></span> },
-    { key: "qcStatus", header: "QC", render: r => <QCPill status={qcFromRow(r)} /> },
+    { key: "qcStatus", header: "QC", render: r => {
+        const lot = r.lotNumber ? lotMap.get(r.lotNumber) : undefined;
+        return <QCPill status={lot?.qcStatus as any} />;
+      } 
+    },
     { key: "locationId", header: "Ubicación", render: r => r.locationId || "—" },
     { key: "updatedAt", header: "Fecha", render: r => (r as any).updatedAt ? new Date((r as any).updatedAt).toLocaleDateString("es-ES") : "—" },
     { key: "actions", header: "", className: "text-right", render: r => (
@@ -224,7 +235,8 @@ export default function InventoryPage() {
     const headers = ["itemId","sku","name","lotNumber","qty","uom","qcStatus","locationId","updatedAt","id"];
     const rows = filteredInventory.map(r => {
       const it = itemsById.get(r.itemId);
-      return { itemId:r.itemId, sku:it?.sku||"", name:it?.name||"", lotNumber:r.lotNumber||"", qty:r.qty, uom:r.uom, qcStatus:qcFromRow(r), locationId:r.locationId||"", updatedAt:r.updatedAt||"", id:r.id };
+      const lot = r.lotNumber ? lotMap.get(r.lotNumber) : undefined;
+      return { itemId:r.itemId, sku:it?.sku||"", name:it?.name||"", lotNumber:r.lotNumber||"", qty:r.qty, uom:r.uom, qcStatus:lot?.qcStatus, locationId:r.locationId||"", updatedAt:r.updatedAt||"", id:r.id };
     });
     download(`inventory_${activeTab}_${new Date().toISOString().slice(0,10)}.csv`, toCsv(rows, headers));
   };

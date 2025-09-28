@@ -1,7 +1,7 @@
 
 // src/domain/ssot.ts
-import type { Interaction } from './ssot.common';
-import { Incident } from './ssot.common';
+import type { Incident } from './ssot.common';
+
 // =================================================================
 // == SINGLE SOURCE OF TRUTH (SSOT) - KERNEL V2
 // =================================================================

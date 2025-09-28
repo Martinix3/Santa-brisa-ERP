@@ -1,6 +1,7 @@
+
 // --- Santa Brisa: lógica de negocio (sell-out a botellas, agregados y KPIs) ---
 import type {
-  Account, Party, PartyRole, CustomerData, OrderSellOut, User, SantaData, Activation, Interaction, Item, OnHandView
+  Account, Party, PartyRole, CustomerData, OrderSellOut, User, SantaData, Activation, Interaction, Item, OnHandView, QcStatus
 } from '@/domain/ssot';
 
 export const inWindow = (dateStr: string, start: Date, end: Date): boolean => {
@@ -266,4 +267,4 @@ export function computeFleetKPIs(params: {
   };
 }
 
-export const qcFromRow = (r: OnHandView): "hold" | "release" | "reject" | undefined => (r as any).qcStatus || ((r.locationId||"").startsWith("QC/") ? "hold" : ((r.locationId||"").startsWith("FG/") || (r.locationId||"").startsWith("RM/")) ? "release" : undefined);
+export const qcFromRow = (r: OnHandView): QcStatus => (r as any).qcStatus;

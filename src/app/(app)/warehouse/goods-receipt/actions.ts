@@ -1,10 +1,11 @@
+
 // src/app/(app)/warehouse/goods-receipt/actions.ts
 'use server';
 
 import { revalidatePath } from 'next/cache';
 import { adminDb as db } from '@/server/firebase';
 import { Timestamp } from 'firebase-admin/firestore';
-import type { Party, Item, GoodsReceipt, OnHandView, StockMove, Uom, Lot } from '@/domain/ssot';
+import type { Party, Item, GoodsReceipt, OnHandView, StockMove, Uom, Lot, QcStatus } from '@/domain/ssot';
 import { normText } from '@/lib/norm/text';
 import { makeGoodsReceiptCode } from '@/lib/codes';
 
@@ -115,6 +116,7 @@ export async function createGoodsReceipt(payload: {
         const lotNumber = line.supplierLot;
 
         const lotRef = db.collection('lots').doc(lotNumber);
+        const qcStatus: QcStatus = sendToQc ? 'PENDING' : 'RELEASED';
         const newLot: Lot = {
             id: lotNumber,
             lotNumber: lotNumber,
@@ -123,26 +125,25 @@ export async function createGoodsReceipt(payload: {
             createdAt: now.toISOString(),
             receivedAt: now.toISOString(),
             supplierId: finalSupplierId,
-            qcStatus: sendToQc ? 'PENDING' : 'RELEASED',
+            qcStatus: qcStatus,
             status: sendToQc ? 'ON_HOLD_QC' : 'RELEASED',
             locationId: sendToQc ? 'QC/AREA' : (category === 'raw' ? 'RM/MAIN' : 'PKG/MAIN')
         };
         batch.set(lotRef, newLot, { merge: true });
         
-        const onHandItemRef = db.collection('onHand').doc();
-        const locationId = sendToQc ? 'QC/AREA' : (category === 'raw' ? 'RM/MAIN' : 'PKG/MAIN');
-
-        const onHandItem: OnHandView = {
-            id: onHandItemRef.id,
+        const onHandId = `${itemId}|${lotNumber}|${sendToQc ? 'QC/AREA' : (category === 'raw' ? 'RM/MAIN' : 'PKG/MAIN')}`;
+        const onHandItemRef = db.collection('onHand').doc(onHandId);
+        
+        batch.set(onHandItemRef, { 
+            qty: FieldValue.increment(line.qty),
             itemId: itemId,
             lotNumber: lotNumber,
-            qty: line.qty,
+            locationId: sendToQc ? 'QC/AREA' : (category === 'raw' ? 'RM/MAIN' : 'PKG/MAIN'),
             uom: uom,
-            locationId: locationId,
-            createdAt: now.toISOString(),
+            qcStatus: qcStatus,
             updatedAt: now.toISOString(),
-        };
-        batch.set(onHandItemRef, onHandItem);
+            createdAt: now.toISOString(),
+        }, { merge: true });
 
         // Crear Movimiento de Stock (ledger)
         const newStockMoveRef = db.collection('stockMoves').doc();
@@ -153,7 +154,7 @@ export async function createGoodsReceipt(payload: {
             uom: uom,
             qty: line.qty,
             reason: 'receipt',
-            toLocation: locationId,
+            toLocation: sendToQc ? 'QC/AREA' : (category === 'raw' ? 'RM/MAIN' : 'PKG/MAIN'),
             occurredAt: now.toISOString(),
             createdAt: now.toISOString(),
             ref: { goodsReceiptId: receiptRef.id },

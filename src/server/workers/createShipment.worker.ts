@@ -1,7 +1,8 @@
+
 // src/server/workers/createShipment.worker.ts
 'use server';
 import { adminDb as db } from '@/server/firebase';
-import type { OrderSellOut, Shipment, Account, Party, Item, OnHandView } from '@/domain/ssot';
+import type { OrderSellOut, Shipment, Account, Party, Item, OnHandView, Lot } from '@/domain/ssot';
 import { makeShipmentCode } from '@/lib/codes';
 
 export async function run({ orderId }: { orderId: string }) {
@@ -36,12 +37,22 @@ export async function run({ orderId }: { orderId: string }) {
     const shipmentNumber = makeShipmentCode(allShipments, new Date());
     
     // Check for stock before changing status
-    const onHandSnap = await db.collection('onHand').get();
+    const itemIds = order.lines.map(l => l.itemId);
+    const onHandSnap = itemIds.length > 0 ? await db.collection('onHand').where('itemId', 'in', itemIds).get() : { docs: [] };
     const onHand = onHandSnap.docs.map(doc => doc.data()) as OnHandView[];
+    
+    const lotsSnap = itemIds.length > 0 ? await db.collection('lots').where('itemId', 'in', itemIds).get() : { docs: [] };
+    const lots = lotsSnap.docs.map(doc => doc.data() as Lot);
+    const lotsById = new Map(lots.map(l => [l.lotNumber, l]));
     
     const shortages = (order.lines || []).map(line => {
         const available = onHand
-            .filter(item => item.itemId === line.itemId && item.locationId === 'FG/MAIN')
+            .filter(item => {
+                const lot = item.lotNumber ? lotsById.get(item.lotNumber) : undefined;
+                return item.itemId === line.itemId && 
+                       item.locationId === 'FG/MAIN' && 
+                       lot?.qcStatus === 'RELEASED';
+            })
             .reduce((sum, item) => sum + item.qty, 0);
         return {
             itemId: line.itemId,
