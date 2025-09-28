@@ -1,3 +1,4 @@
+
 // src/app/(app)/quality/traceability/actions.ts
 'use server';
 
@@ -37,29 +38,29 @@ export async function getLotTraceability(lotNumber: string): Promise<ActionResul
             let title = `Movimiento: ${move.reason}`;
             let details = '';
 
-            switch(move.reason) {
-                case 'receipt':
+            switch(move.reason.toUpperCase()) {
+                case 'RECEIPT':
                     title = 'Recepción de Mercancía';
                     details = `Recibido en ${move.toLocationId || 'ubicación desconocida'}.`;
                     break;
-                case 'production_in':
+                case 'PRODUCTION_IN':
                     title = 'Entrada desde Producción';
                     details = `Producido y movido a ${move.toLocationId || 'almacén'}.`;
                     break;
-                case 'transfer':
+                case 'TRANSFER':
                     title = 'Transferencia Interna';
                     details = `Movido de ${move.fromLocationId} a ${move.toLocationId}.`;
                     break;
-                case 'ship':
-                case 'sale':
+                case 'SHIP':
+                case 'SALE':
                     title = 'Salida por Venta/Envío';
                     details = `Enviado desde ${move.fromLocationId} para el pedido ${move.ref?.orderId || 'N/A'}.`;
                     break;
-                case 'production_out':
+                case 'PRODUCTION_OUT':
                     title = 'Consumo en Producción';
                     details = `Consumido desde ${move.fromLocationId} para la orden ${move.ref?.prodOrderId || 'N/A'}.`;
                     break;
-                case 'adjustment':
+                case 'ADJUSTMENT':
                     title = 'Ajuste de Inventario';
                     details = `Ajuste de ${move.qty} ${move.uom} en ${move.toLocationId || move.fromLocationId}.`;
                     break;
@@ -67,7 +68,7 @@ export async function getLotTraceability(lotNumber: string): Promise<ActionResul
 
             return {
                 id: move.id,
-                kind: move.reason,
+                kind: move.reason.toUpperCase() as any, // <-- Enviar en mayúsculas
                 title,
                 details,
                 at: move.occurredAt,
@@ -75,6 +76,8 @@ export async function getLotTraceability(lotNumber: string): Promise<ActionResul
                 uom: move.uom,
             };
         });
+        
+        events.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
 
         return ok(events);
 

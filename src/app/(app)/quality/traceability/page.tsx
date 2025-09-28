@@ -1,35 +1,33 @@
+
 // src/app/(app)/quality/traceability/page.tsx
 "use client";
 
 import React, { useMemo, useState, useEffect, useTransition } from "react";
 import { useData } from "@/lib/dataprovider";
-import { searchLots, type LotHit } from "@/services/lots/searchLots";
 import { Package, Search, GitBranch, Truck, Factory, FlaskConical, ArrowLeftRight, AlertTriangle } from "lucide-react";
-import type { SantaData } from "@/domain/ssot";
-import { getLotTraceability, type TraceEvent } from "./actions"; // <-- Importa la nueva acción
+import type { Lot, Item } from "@/domain/ssot";
+import { getLotTraceability, type TraceEvent } from "./actions";
 import { toast } from "sonner";
 
-
 // ===========================================
-// Traceability UI Components
+// CONFIGURACIÓN DE ICONOS (CORREGIDA)
 // ===========================================
-
 const EVENT_CONFIG: Record<string, { icon: React.ElementType; color: string; }> = {
-    receipt: { icon: Truck, color: 'text-sky-600 bg-sky-100' },
-    production_in: { icon: Factory, color: 'text-emerald-600 bg-emerald-100' },
-    production_out: { icon: Factory, color: 'text-amber-600 bg-amber-100' },
-    ship: { icon: Truck, color: 'text-rose-600 bg-rose-100' },
-    sale: { icon: Truck, color: 'text-rose-600 bg-rose-100' },
-    adjustment: { icon: AlertTriangle, color: 'text-yellow-600 bg-yellow-100' },
-    transfer: { icon: ArrowLeftRight, color: 'text-zinc-600 bg-zinc-100' },
-    qc_test: { icon: FlaskConical, color: 'text-indigo-600 bg-indigo-100' },
-    genealogy_parent: { icon: GitBranch, color: 'text-slate-600 bg-slate-100' },
-    genealogy_child: { icon: GitBranch, color: 'text-slate-600 bg-slate-100' },
+    RECEIPT: { icon: Truck, color: 'text-sky-600 bg-sky-100' },
+    PRODUCTION_IN: { icon: Factory, color: 'text-emerald-600 bg-emerald-100' },
+    PRODUCTION_OUT: { icon: Factory, color: 'text-amber-600 bg-amber-100' },
+    SHIP: { icon: Truck, color: 'text-rose-600 bg-rose-100' },
+    SALE: { icon: Truck, color: 'text-rose-600 bg-rose-100' },
+    ADJUSTMENT: { icon: AlertTriangle, color: 'text-yellow-600 bg-yellow-100' },
+    TRANSFER: { icon: ArrowLeftRight, color: 'text-zinc-600 bg-zinc-100' },
+    QC_TEST: { icon: FlaskConical, color: 'text-indigo-600 bg-indigo-100' },
+    GENEALOGY_PARENT: { icon: GitBranch, color: 'text-slate-600 bg-slate-100' },
+    GENEALOGY_CHILD: { icon: GitBranch, color: 'text-slate-600 bg-slate-100' },
     DEFAULT: { icon: Package, color: 'text-zinc-600 bg-zinc-100' },
 };
 
 function TraceEventCard({ event }: { event: TraceEvent }) {
-    const config = EVENT_CONFIG[event.kind] || EVENT_CONFIG.DEFAULT;
+    const config = EVENT_CONFIG[event.kind.toUpperCase()] || EVENT_CONFIG.DEFAULT;
     const Icon = config.icon;
 
     return (
@@ -47,26 +45,29 @@ function TraceEventCard({ event }: { event: TraceEvent }) {
 }
 
 // ===========================================
-// Main Traceability Page Component
+// PÁGINA PRINCIPAL
 // ===========================================
-
 export default function TraceabilityPage() {
     const { data } = useData();
     const [itemId, setItemId] = useState<string>('');
     const [lotNumber, setLotNumber] = useState<string>('');
-    const [selectedLot, setSelectedLot] = useState<LotHit | null>(null);
     const [traceEvents, setTraceEvents] = useState<TraceEvent[]>([]);
     const [isTracing, startTraceTransition] = useTransition();
 
     const items = useMemo(() => {
-        if (!data?.items) return [];
-        return data.items.sort((a,b) => a.name.localeCompare(b.name));
+        return (data?.items || []).sort((a,b) => a.name.localeCompare(b.name));
     }, [data?.items]);
 
+    // ================================================================
+    // LÓGICA DE BÚSQUEDA DE LOTES (CORREGIDA)
+    // ================================================================
     const lotsForItem = useMemo(() => {
-        if (!itemId || !data) return [];
-        return searchLots(data, { itemIds: [itemId], includeConsumed: true, sort: "CREATED_AT" });
-    }, [itemId, data]);
+        if (!itemId || !data?.lots) return [];
+        // La fuente de verdad es la colección `lots`, no el inventario `onHand`.
+        return data.lots
+            .filter(lot => lot.itemId === itemId)
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }, [itemId, data?.lots]);
 
     useEffect(() => {
         if (items.length > 0 && !itemId) {
@@ -75,18 +76,16 @@ export default function TraceabilityPage() {
     }, [items, itemId]);
 
     useEffect(() => {
+        // Selecciona el primer lote de la lista si no hay ninguno seleccionado
         if (lotsForItem.length > 0 && !lotNumber) {
             setLotNumber(lotsForItem[0].lotNumber);
         } else if (lotsForItem.length === 0) {
             setLotNumber('');
         }
     }, [lotsForItem, lotNumber]);
-
+    
     useEffect(() => {
-        if (lotNumber && data) {
-            const hit = searchLots(data, { text: lotNumber })[0];
-            setSelectedLot(hit);
-            
+        if (lotNumber) {
             startTraceTransition(async () => {
                 const result = await getLotTraceability(lotNumber);
                 if (result.ok) {
@@ -97,10 +96,13 @@ export default function TraceabilityPage() {
                 }
             });
         } else {
-            setSelectedLot(null);
             setTraceEvents([]);
         }
-    }, [lotNumber, data]);
+    }, [lotNumber]);
+    
+    const selectedLot = useMemo(() => {
+        return data?.lots.find(l => l.lotNumber === lotNumber) || null;
+    }, [lotNumber, data?.lots]);
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[calc(100vh-200px)]">
