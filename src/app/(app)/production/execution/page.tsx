@@ -28,6 +28,9 @@ type ActiveOrderForm = {
     incidentText: string;
     incidentSeverity: 'LOW' | 'MEDIUM' | 'HIGH';
     protocolChecks: boolean[];
+    stockOk: boolean;
+    shortages: Array<{ itemId: string; itemName: string; missing: number; uom: Uom }>;
+    requiredLots: Array<{ itemId: string; lotNumber: string; qty: number; uom: string; locationId: string }>;
 };
 
 // --- Componentes helpers como Badge, Collapsible se mantienen igual ---
@@ -294,15 +297,9 @@ export default function ProductionExecutionPage() {
     setActiveForm(form => form ? ({ ...form, [field]: value }) : null);
   }, []);
   
-  const onReadyChange = useCallback((ok: boolean) => {
-    setActiveForm(form => form ? { ...form, stockOk: ok } : null);
-  }, []);
-  const shortagesOut = useCallback((s: ActiveOrderForm['shortages']) => {
-    setActiveForm(form => form ? { ...form, shortages: s } : null);
-  }, []);
-  const requiredLotsOut = useCallback((r: ActiveOrderForm['requiredLots']) => {
-    setActiveForm(form => form ? { ...form, requiredLots: r } : null);
-  }, []);
+  const onReadyChange = useCallback((ok: boolean) => setFormValue('stockOk', ok), [setFormValue]);
+  const shortagesOut = useCallback((s: ActiveOrderForm['shortages']) => setFormValue('shortages', s), [setFormValue]);
+  const requiredLotsOut = useCallback((r: ActiveOrderForm['requiredLots']) => setFormValue('requiredLots', r), [setFormValue]);
 
   const openPlanningFromBom = useCallback((bom: RecipeBom) => {
     const outputItem = itemsMap.get(bom.outputItemId);
@@ -322,6 +319,9 @@ export default function ProductionExecutionPage() {
         incidentText: "",
         incidentSeverity: 'LOW',
         protocolChecks: [false, false, false, false],
+        stockOk: false,
+        shortages: [],
+        requiredLots: [],
     });
   }, [itemsMap]);
 
@@ -343,6 +343,9 @@ export default function ProductionExecutionPage() {
         incidentText: "",
         incidentSeverity: 'LOW',
         protocolChecks: (order as any).checks ?? [false,false,false,false],
+        stockOk: true,
+        shortages: (order as any).shortages ?? [],
+        requiredLots: (order as any).reservations ?? [],
     });
   }, [itemsMap]);
   
@@ -351,7 +354,7 @@ export default function ProductionExecutionPage() {
     if (!bom) return false;
     const theory = computeTheoretical(bom, ((o as any).targetQuantity ?? 1), itemsMap);
     const byItem = new Map<string, number>();
-    (onHand as any[]).forEach(r => {
+    (onHand as any[]).filter((l: OnHandView) => l.qcStatus === 'PASSED' || l.qcStatus === 'WAIVED').forEach((r: OnHandView) => {
       const q = Number(r.qty) || 0;
       byItem.set(r.itemId, +(((byItem.get(r.itemId) ?? 0) + q).toFixed(3)));
     });
@@ -381,17 +384,9 @@ export default function ProductionExecutionPage() {
     if (!confirm("¿Finalizar y cerrar la orden? Se crearán movimientos de stock.")) return;
 
     startTransition(async () => {
-      const finalConsumptions = activeForm.realConsumption.map(c => ({
-          itemId: c.itemId,
-          lotNumber: c.lotNumber,
-          qty: c.realQty,
-          uom: c.uom,
-          fromLocationId: c.fromLocationId,
-      }));
-
       const res = await completeProductionOrder({
         orderId: activeForm.order!.id,
-        finalConsumptions: finalConsumptions,
+        finalConsumptions: activeForm.realConsumption.map(c => ({itemId: c.itemId, lotNumber: c.lotNumber, fromLocationId: c.fromLocationId, qty: c.realQty, uom: c.uom})),
         finalOutputs: [activeForm.finalOutput]
       });
       if (res.ok) {
@@ -424,7 +419,7 @@ export default function ProductionExecutionPage() {
   };
   
   const handleProgram = () => {
-    if (!activeForm?.planningBom || !activeForm?.requiredLots) return;
+    if (!activeForm?.planningBom) return;
     const planQty = (activeForm.finalOutput)?.qty ?? 1;
     if (planQty <= 0) { toast.error("La cantidad debe ser mayor que cero."); return; }
 

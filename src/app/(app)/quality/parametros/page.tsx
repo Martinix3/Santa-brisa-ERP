@@ -145,7 +145,7 @@ export default function QualityParametersPage() {
         toast.success("Plan eliminado.");
         await loadDataForSku(sku);
       } else {
-        toast.error(`Error: ${res.message}`);
+        toast.error(`Error al eliminar: ${res.message}`);
       }
     });
   };
@@ -289,7 +289,7 @@ export default function QualityParametersPage() {
                 </ul>
             </div>
         ))}
-        <SBButton onClick={() => setProtocols(p => [{ id: `proto_${Date.now()}`, title: 'Nuevo Protocolo', checklist: [] }, ...p])}>
+        <SBButton onClick={() => setProtocols(p => [{ id: `proto_${Date.now()}`, title: 'Nuevo Protocolo', priority: 'PRP', active: true, checklist: [] }, ...p])}>
             <Plus size={16}/> Nuevo Protocolo
         </SBButton>
       </Section>
