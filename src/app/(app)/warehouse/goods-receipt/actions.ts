@@ -54,6 +54,8 @@ export async function createSupplier(payload: { name: string; taxId?: string }):
     const { name, taxId } = payload;
     const nowIso = new Date().toISOString();
     
+    const batch = db.batch();
+
     const partyRef = db.collection('parties').doc();
     const newParty: Party = {
         id: partyRef.id,
@@ -75,7 +77,6 @@ export async function createSupplier(payload: { name: string; taxId?: string }):
         data: {} as any
     };
 
-    const batch = db.batch();
     batch.set(partyRef, newParty);
     batch.set(roleRef, newRole);
     await batch.commit();
@@ -139,6 +140,8 @@ export async function createGoodsReceipt(payload: {
 
     let finalSupplierId = supplierId;
     if (newSupplierName && !supplierId) {
+      // Esta función ya es atómica, pero se ejecuta fuera del batch principal.
+      // Para un sistema de misión crítica, se podría refactorizar para devolver las operaciones del batch.
       const newParty = await createSupplier({ name: newSupplierName });
       finalSupplierId = newParty.id;
     }
@@ -157,6 +160,7 @@ export async function createGoodsReceipt(payload: {
 
     for (const line of lines) {
         let itemId = line.itemId;
+        let currentItem = itemId ? existingItemsMap.get(itemId) : undefined;
 
         if (!itemId && line.newItemName) {
             const itemRef = db.collection('items').doc();
@@ -170,15 +174,15 @@ export async function createGoodsReceipt(payload: {
                 stdCost: line.unitCost || 0,
                 active: true,
             };
+            // Se añade la creación del item al BATCH principal
             batch.set(itemRef, { ...newItem, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as any, { merge: true });
             existingItemsMap.set(itemId, newItem); // Add to local map for subsequent lines
+            currentItem = newItem;
         }
         
-        if (!itemId) continue;
+        if (!itemId || !currentItem) continue;
 
-        const currentItem = existingItemsMap.get(itemId);
-        if (!currentItem) throw new Error(`Item con ID ${itemId} no encontrado.`);
-        if (!currentItem.uom) throw new Error(`El item ${currentItem.id} no tiene una unidad de medida (uom) definida.`);
+        if (!currentItem.uom) throw new Error(`El item ${currentItem.id} (${currentItem.name}) no tiene una unidad de medida (uom) definida.`);
         
         const lotNumber = line.supplierLot.trim() || (line.autoLot ? generateLotNumber(currentItem) : "");
         if (!lotNumber) throw new Error(`El lote de proveedor es obligatorio para la línea con ${currentItem.name}.`);
@@ -267,5 +271,6 @@ export async function reportIncident(payload: {
 }) {
   // Logic to report an incident
 }
+
 
 
