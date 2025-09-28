@@ -1,4 +1,3 @@
-
 // src/components/ui/ui-primitives.tsx
 "use client";
 import React, { useState } from 'react';
@@ -280,8 +279,7 @@ export const Command = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTM
 Command.displayName = "Command";
 
 
-export const CommandInput = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(({ className, ...props }, ref) => {
-  const { onValueChange } = React.useContext(CommandContext);
+export const CommandInput = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement> & { onValueChange: (value: string) => void }>(({ className, onValueChange, ...props }, ref) => {
   return (
     <div className="flex items-center border-b px-3" cmdk-input-wrapper="">
       <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
