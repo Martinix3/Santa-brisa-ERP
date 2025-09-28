@@ -51,7 +51,7 @@ function Badge({ children, tone = "zinc" }:{
 }
 
 const mapStatusTone = (s?: ProductionStatus): "emerald" | "amber" | "rose" | "zinc" => {
-    if (s === "DONE" || s === "RELEASED") return "emerald";
+    if (s === "DONE") return "emerald";
     if (s === "CANCELLED") return "zinc";
     if (s === "PAUSED" || s === "QC_HOLD") return "rose";
     return "amber";
@@ -85,7 +85,7 @@ const canStart    = (s?: ProductionStatus) => s === "PLANNED";
 const canPause    = (s?: ProductionStatus) => s === "IN_PROGRESS";
 const canResume   = (s?: ProductionStatus) => s === "PAUSED";
 const canFinish   = (s?: ProductionStatus) => s === "IN_PROGRESS" || s === "PAUSED";
-const isClosedLike = (s?: ProductionStatus) => s === "DONE" || s === "CANCELLED" || s === "RELEASED";
+const isClosedLike = (s?: ProductionStatus) => s === "DONE" || s === "CANCELLED";
 
 
 // ---------- Cálculos ----------
@@ -521,7 +521,7 @@ export default function ProductionExecutionPage() {
                   </SBButton>
                 )}
                 {currentOrder && (
-                  <SBButton variant="destructive" onClick={handleCancel} disabled={isClosedLike(currentOrder.status) || isPendingAny}>
+                  <SBButton variant="destructive" onClick={handleCancel} disabled={isClosedLike(currentOrder?.status) || isPendingAny}>
                     <XCircle size={16}/> Cancelar
                   </SBButton>
                 )}

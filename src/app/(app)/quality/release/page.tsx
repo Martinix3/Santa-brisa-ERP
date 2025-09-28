@@ -140,7 +140,7 @@ function normalizeLotHistory(lot: Lot, data: NormalizeCtx): TraceEvent[] {
         push({ ...base, kind: "PICK", title: "Preparación de pedido", icon: ClipboardCheck, tone: "amber" });
       } else if (isShip) {
         push({ ...base, kind: "SHIP", title: "Envío/Salida", icon: Truck, tone: "rose" });
-      } else if (reason === "adjust") {
+      } else if (reason === "adjustment") {
         push({ ...base, kind: "ADJUST", title: "Ajuste de inventario", icon: AlertTriangle, tone: "amber" });
       } else {
         push({ ...base, kind: reason.toUpperCase() || "MOVE", title: "Movimiento de stock", icon: Package, tone: "zinc" });
@@ -478,7 +478,6 @@ export default function LabReleasePage() {
                 const isSelected = selectedLot === lot.lotNumber;
                 const masterLot = lots.find(l => l.lotNumber === lot.lotNumber);
                 const qc = (masterLot?.qcStatus ?? 'PENDING') as QcStatus;
-                const bucket = qcToBucket(qc);
                 const status = masterLot?.qcStatus ?? 'PENDING';
                 return (
                     <button key={lot.id} onClick={() => setSelectedLot(lot.lotNumber!)} className={`w-full text-left p-3 ${isSelected ? 'bg-blue-50' : 'hover:bg-zinc-50'}`}>
