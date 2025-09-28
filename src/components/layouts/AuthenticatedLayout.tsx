@@ -109,152 +109,6 @@ function useBreadcrumbs(pathname: string | null) {
 const paletteItems: Array<{ href: string; label: string; module: keyof typeof MODULE_ACCENTS }> =
   navSections.flatMap((s) => s.items.map(it => ({ ...it, module: s.module })));
 
-/* ===== 3) Rail ===== */
-function ModuleRail({
-  sections, activeModule, onHover, onLeave, collapsed, setCollapsed,
-}: {
-  sections: NavSection[]; activeModule: string; onHover: (m: string) => void; onLeave: () => void;
-  collapsed: boolean; setCollapsed: (v: boolean) => void;
-}) {
-  return (
-    <aside
-      role="navigation"
-      aria-label="Módulos"
-      className={`h-full ${collapsed ? "w-12" : "w-16"} border-r border-sb-neutral-200 bg-white flex flex-col items-center py-3`}
-      onMouseLeave={onLeave}
-    >
-      <div className="mb-3 p-1 rounded-lg bg-white ring-1 ring-black/5">
-        <Image
-          src="https://santabrisa.es/cdn/shop/files/clavista_300x_36b708f6-4606-4a51-9f65-e4b379531ff8_300x.svg?v=1752413726"
-          alt="Santa Brisa"
-          width={collapsed ? 24 : 32}
-          height={collapsed ? 24 : 32}
-          className="opacity-90"
-          style={{ width: 'auto', height: 'auto' }}
-          priority
-        />
-      </div>
-
-      <nav className="flex-1 w-full flex flex-col items-center gap-2">
-        {sections.map((s) => {
-          const Icon = s.icon;
-          const isActive = activeModule === s.module;
-          const colors = getReadableColors(s.module, isActive ? "active" : "idle");
-          return (
-            <button
-              key={s.module}
-              onMouseEnter={() => onHover(s.module)}
-              className="relative w-10 h-10 rounded-lg flex items-center justify-center transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))] hover:bg-sb-neutral-50"
-              title={s.title}
-              aria-label={s.title}
-              aria-current={isActive ? "true" : undefined}
-              style={{
-                color: colors.fg,
-                background: isActive ? colors.bg : undefined,
-                border: `1px solid ${isActive ? colors.br : "transparent"}`,
-                cursor: "pointer",
-              }}
-            >
-              <span
-                aria-hidden
-                className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-full"
-                style={{ background: isActive ? colors.fg : "transparent" }}
-              />
-              <Icon size={18} />
-            </button>
-          );
-        })}
-      </nav>
-
-      <button
-        onClick={() => setCollapsed(!collapsed)}
-        title={collapsed ? "Expandir rail" : "Colapsar rail"}
-        className="w-10 h-10 mb-1 rounded-lg flex items-center justify-center text-sb-neutral-600 hover:bg-sb-neutral-50"
-        aria-label={collapsed ? "Expandir rail" : "Colapsar rail"}
-      >
-        {collapsed ? <PanelRightClose size={18} /> : <PanelLeftClose size={18} />}
-      </button>
-    </aside>
-  );
-}
-
-/* ===== 4) MegaFlyout — SOLO la sección hovered abierta ===== */
-function MegaFlyout({
-  sections, hoveredModule, pathname, onMouseEnter, onMouseLeave,
-}: {
-  sections: NavSection[]; hoveredModule: string | null; pathname: string;
-  onMouseEnter?: () => void; onMouseLeave?: () => void;
-}) {
-  return (
-    <aside
-      className="h-full w-72 border-r border-sb-neutral-200 bg-white flex flex-col shadow-[0_8px_24px_rgba(0,0,0,0.08)]"
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
-      role="navigation"
-      aria-label="Navegación de áreas"
-    >
-      <div className="flex-1 overflow-y-auto px-2 py-3 space-y-3">
-        {sections.map((section) => {
-          const open = hoveredModule === section.module;
-          const accent = MODULE_ACCENTS[section.module];
-          return (
-            <div
-              key={section.module}
-              className={`rounded-lg border transition-all ${open ? "border-[color:hsl(var(--sb-neutral-300))] bg-[color:hsl(var(--sb-neutral-50))]" : "border-transparent"}`}
-            >
-              <div
-                className="px-3 py-2 flex items-center justify-between rounded-t-lg"
-                style={{ background: open ? `hsl(${accent} / 0.08)` : "transparent" }}
-              >
-                <div className="font-medium">{section.title}</div>
-                {/* Dashboard como enlace lateral */}
-                <Link
-                  href={dashboardHrefFor(section.module)}
-                  className="text-xs text-sb-neutral-600 hover:underline"
-                >
-                  Ver dashboard
-                </Link>
-              </div>
-
-              {open && (
-                <nav className="px-1 py-1">
-                  {section.items.map((it) => {
-                    const active = it.href !== "/" && pathname.startsWith(it.href);
-                    const isPersonal = section.module === "personal";
-                    const fg = active
-                      ? (isPersonal ? "hsl(var(--sb-neutral-900))" : hsl(accent))
-                      : "hsl(var(--sb-neutral-800))";
-                    const bg = active ? (isPersonal ? hsl(accent, 0.18) : hsl(accent, 0.10)) : "transparent";
-                    const br = active ? (isPersonal ? hsl(accent, 0.28) : hsl(accent, 0.28)) : "transparent";
-                    return (
-                      <Link
-                        key={it.href}
-                        href={it.href}
-                        aria-current={active ? "page" : undefined}
-                        className="group flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors"
-                        style={{ color: fg, background: bg, border: `1px solid ${br}` }}
-                      >
-                        <span
-                          aria-hidden
-                          className="h-1.5 w-1.5 rounded-full"
-                          style={{ background: active ? fg : `hsl(${accent} / 0.6)` }}
-                        />
-                        <span className="flex-1">{it.label}</span>
-                        <span className="opacity-0 group-hover:opacity-100 text-xs text-sb-neutral-400">→</span>
-                      </Link>
-                    );
-                  })}
-                </nav>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </aside>
-  );
-}
-
-/** Ruta de dashboard por módulo (usada en “Ver dashboard”) */
 function dashboardHrefFor(module: keyof typeof MODULE_ACCENTS): string {
   switch (module) {
     case "personal": return "/dashboard-personal";
@@ -269,7 +123,112 @@ function dashboardHrefFor(module: keyof typeof MODULE_ACCENTS): string {
   return "/";
 }
 
-/* ===== 5) Header con breadcrumbs + buscador + quicklog + user menu dinámico ===== */
+/* ===== 3) Layout principal ===== */
+export default function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname() ?? "/";
+  const { currentUser, logout, data } = useData();
+  const [open, setOpen] = useState(false);
+
+  const isPrivilegedUser =
+    currentUser?.role?.toLowerCase() === "admin" || currentUser?.role?.toLowerCase() === "owner";
+  const visibleSections = navSections.filter((s) => (s.title === "Admin" ? isPrivilegedUser : true));
+
+  const [collapsed, setCollapsed] = useState<boolean>(() =>
+    (typeof window !== "undefined" ? localStorage.getItem(LS_COLLAPSED) === "1" : false)
+  );
+  useEffect(() => { if (typeof window !== "undefined") localStorage.setItem(LS_COLLAPSED, collapsed ? "1" : "0"); }, [collapsed]);
+
+  const activeModule = useMemo(() => {
+    const hit = visibleSections.find((sec) => sec.items.some((i) => pathname.startsWith(i.href) && i.href !== "/"));
+    if (!hit) {
+      const mod = moduleFromDashboard(pathname);
+      if (mod) return mod;
+    }
+    return (hit?.module ?? "personal") as keyof typeof MODULE_ACCENTS;
+  }, [pathname, visibleSections]);
+  
+  const activeSection = navSections.find(s => s.module === activeModule);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const target = document.querySelector("main > div.overflow-y-auto");
+    if (!target) return;
+    const onScroll = () => {
+      if ((target as HTMLElement).scrollTop > 2) root.classList.add("scrolled");
+      else root.classList.remove("scrolled");
+    };
+    target.addEventListener("scroll", onScroll);
+    return () => target.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const { tasksToday, tasksOverdue } = useMemo(() => {
+    if (!data?.interactions) return { tasksToday: 0, tasksOverdue: 0 };
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const tasks = (data.interactions || []).filter(i => i.status === 'open' && i.plannedFor);
+    return {
+      tasksToday: tasks.filter(t => { const d = new Date(t.plannedFor!); return d >= startOfToday; }).length,
+      tasksOverdue: tasks.filter(t => new Date(t.plannedFor!) < startOfToday).length,
+    }
+  }, [data]);
+
+  return (
+    <div className="h-screen flex bg-white">
+      {/* Sidebar */}
+      <aside className={`h-full border-r border-sb-neutral-200 bg-white flex flex-col transition-all duration-300 ${collapsed ? "w-16" : "w-64"}`}>
+        <Link href="/" className={`h-14 flex items-center border-b px-4 ${collapsed ? 'justify-center' : ''}`}>
+          <Image src="https://santabrisa.es/cdn/shop/files/clavista_300x_36b708f6-4606-4a51-9f65-e4b379531ff8_300x.svg?v=1752413726" alt="Santa Brisa" width={collapsed ? 32 : 112} height={24} style={{width: 'auto', height: 'auto'}} priority />
+        </Link>
+        <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-1">
+          {visibleSections.map(section => {
+            const isActiveModule = section.module === activeModule;
+            const accent = MODULE_ACCENTS[section.module];
+            return (
+              <div key={section.module} style={{'--accent': accent} as React.CSSProperties}>
+                <Link href={dashboardHrefFor(section.module)} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors font-semibold ${isActiveModule ? 'bg-[hsl(var(--accent)/0.12)] text-[hsl(var(--accent))]' : 'text-zinc-700 hover:bg-zinc-100'}`}>
+                  <section.icon size={20} />
+                  {!collapsed && <span>{section.title}</span>}
+                </Link>
+                {!collapsed && isActiveModule && (
+                  <div className="pl-6 mt-1 space-y-0.5 border-l-2 ml-4" style={{borderColor: `hsl(${accent}/.2)`}}>
+                    {section.items.map(item => {
+                      const isActiveItem = pathname.startsWith(item.href);
+                      return (
+                        <Link key={item.href} href={item.href} className={`block px-4 py-1.5 text-sm rounded-md transition-colors ${isActiveItem ? 'font-semibold text-[hsl(var(--accent))]' : 'text-zinc-600 hover:bg-zinc-100'}`}>
+                          {item.label}
+                        </Link>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </nav>
+        <div className="p-2 border-t">
+          <button onClick={() => setCollapsed(!collapsed)} className="w-full flex items-center justify-center gap-2 h-10 rounded-md text-zinc-600 hover:bg-zinc-100">
+            {collapsed ? <PanelRightClose size={18}/> : <PanelLeftClose size={18}/>}
+          </button>
+        </div>
+      </aside>
+
+      <main className="flex-1 min-w-0 grid grid-rows-[auto_1fr]">
+        <HeaderPro
+          userName={currentUser?.name}
+          userEmail={currentUser?.email}
+          onLogout={logout}
+          pathname={pathname}
+          onOpenQuickLog={() => setOpen(true)}
+          tasksToday={tasksToday}
+          tasksOverdue={tasksOverdue}
+        />
+        <div className="overflow-y-auto">{children}</div>
+        <QuickLogOverlay />
+      </main>
+    </div>
+  );
+}
+
 function HeaderPro({
   userName, userEmail, onLogout, pathname, onOpenQuickLog, tasksToday, tasksOverdue,
 }: {
@@ -308,21 +267,7 @@ function HeaderPro({
   return (
     <header className="h-14 sticky top-0 z-40 border-b border-sb-neutral-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80" role="banner">
       <div className="h-full px-3 md:px-4 flex items-center gap-3">
-        <Link href="/" className="shrink-0" aria-label="Ir al inicio">
-          <span className="inline-flex p-1 rounded-md bg-white ring-1 ring-black/5">
-            <Image
-              src="https://santabrisa.es/cdn/shop/files/clavista_300x_36b708f6-4606-4a51-9f65-e4b379531ff8_300x.svg?v=1752413726"
-              alt="Santa Brisa"
-              width={112}
-              height={24}
-              className="opacity-90"
-              style={{ width: 'auto', height: 'auto' }}
-              priority
-            />
-          </span>
-        </Link>
-
-        <nav aria-label="Breadcrumb" className="hidden md:flex items-center gap-1 text-sm text-sb-neutral-500">
+        <nav aria-label="Breadcrumb" className="flex items-center gap-1 text-sm text-sb-neutral-500">
           {crumbs.map((c, i) => (
             <span key={c.href} className="flex items-center">
               {i > 0 && <span className="mx-1 text-sb-neutral-400">/</span>}
@@ -365,7 +310,7 @@ function HeaderPro({
             title="Cuenta"
             onClick={() => setUserMenuOpen((v) => !v)}
           >
-            <Avatar name={userName} size="md" className="sb-icon" />
+            <Avatar name={userName} size="md" />
             <div className="hidden md:block leading-tight text-left">
               <div className="text-sm font-medium">{userName}</div>
               <div className="text-xs text-sb-neutral-500">{userEmail}</div>
@@ -442,120 +387,6 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
   );
 }
 
-/* ===== 7) Layout principal ===== */
-export default function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname() ?? "/";
-  const { currentUser, logout, data } = useData();
-
-  const isPrivilegedUser =
-    currentUser?.role?.toLowerCase() === "admin" || currentUser?.role?.toLowerCase() === "owner";
-  const visibleSections = navSections.filter((s) => (s.title === "Admin" ? isPrivilegedUser : true));
-
-  const [collapsed, setCollapsed] = useState<boolean>(() =>
-    (typeof window !== "undefined" ? localStorage.getItem(LS_COLLAPSED) === "1" : false)
-  );
-  useEffect(() => { if (typeof window !== "undefined") localStorage.setItem(LS_COLLAPSED, collapsed ? "1" : "0"); }, [collapsed]);
-
-  const activeModule = useMemo(() => {
-    const hit = visibleSections.find((sec) => sec.items.some((i) => pathname.startsWith(i.href) && i.href !== "/"));
-    // si estás justo en el dashboard de un módulo, marcamos ese
-    if (!hit) {
-      const mod = moduleFromDashboard(pathname);
-      if (mod) return mod;
-    }
-    return (hit?.module ?? "personal") as keyof typeof MODULE_ACCENTS;
-  }, [pathname, visibleSections]);
-
-  const [hoveredModule, setHoveredModule] = useState<string | null>(null);
-  const showFlyout = hoveredModule !== null;
-
-  // sombra header al hacer scroll
-  useEffect(() => {
-    const root = document.documentElement;
-    const target = document.querySelector("main > div.overflow-y-auto");
-    if (!target) return;
-    const onScroll = () => {
-      if ((target as HTMLElement).scrollTop > 2) root.classList.add("scrolled");
-      else root.classList.remove("scrolled");
-    };
-    target.addEventListener("scroll", onScroll);
-    return () => target.removeEventListener("scroll", onScroll);
-  }, []);
-
-  // === KPIs del menú de usuario: tareas hoy / atrasadas (DB real vía useData) ===
-  const { tasksToday, tasksOverdue } = useMemo(() => {
-    const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-
-    // 1) Preferimos data.tasks si existe (schema típico: {dueAt,status,completed?,doneAt?})
-    const tasks = (data as any)?.tasks as Array<any> | undefined;
-
-    const fromTasks = tasks
-      ? {
-          today: tasks.filter(t => t?.dueAt && !t?.completed && new Date(t.dueAt) >= startOfToday && new Date(t.dueAt) <= endOfToday).length,
-          overdue: tasks.filter(t => t?.dueAt && !t?.completed && new Date(t.dueAt) < startOfToday).length,
-        }
-      : null;
-
-    if (fromTasks) return { tasksToday: fromTasks.today, tasksOverdue: fromTasks.overdue };
-
-    // 2) Fallback: derivar de events como “tareas” (p. ej. kind === 'OTRO' | 'TASK' | 'DEMO' etc.)
-    const events = (data as any)?.events as Array<any> | undefined;
-    const asTasks = (events ?? []).filter(e => !e?.endAt && !/feria|demo|formacion/i.test(String(e?.kind ?? "")));
-    const today = asTasks.filter(e => {
-      const when = new Date(e?.startAt ?? e?.start ?? e?.date ?? 0);
-      const done = !!e?.done || e?.status === "COMPLETADA";
-      return !done && when >= startOfToday && when <= endOfToday;
-    }).length;
-
-    const overdue = asTasks.filter(e => {
-      const when = new Date(e?.startAt ?? e?.start ?? e?.date ?? 0);
-      const done = !!e?.done || e?.status === "COMPLETADA";
-      return !done && when < startOfToday;
-    }).length;
-
-    return { tasksToday: today, tasksOverdue: overdue };
-  }, [(useData() as any).data]); // fuerza recálculo si cambia
-
-  return (
-    <div className="h-screen flex bg-white">
-      <ModuleRail
-        sections={visibleSections}
-        activeModule={activeModule}
-        onHover={(m) => setHoveredModule(m)}
-        onLeave={() => setHoveredModule(null)}
-        collapsed={collapsed}
-        setCollapsed={setCollapsed}
-      />
-
-      {showFlyout && (
-        <MegaFlyout
-          sections={visibleSections}
-          hoveredModule={hoveredModule}
-          pathname={pathname}
-          onMouseEnter={() => setHoveredModule(hoveredModule)}
-          onMouseLeave={() => setHoveredModule(null)}
-        />
-      )}
-
-      <main className="flex-1 min-w-0 grid grid-rows-[auto_1fr]">
-        <HeaderPro
-          userName={currentUser?.name}
-          userEmail={currentUser?.email}
-          onLogout={logout}
-          pathname={pathname}
-          onOpenQuickLog={() => window.dispatchEvent(new CustomEvent("sb:quicklog:open"))}
-          tasksToday={tasksToday}
-          tasksOverdue={tasksOverdue}
-        />
-        <div className="overflow-y-auto">{children}</div>
-        <QuickLogOverlay />
-      </main>
-    </div>
-  );
-}
-
 /* util: detectar módulo desde la ruta de dashboard */
 function moduleFromDashboard(path: string): keyof typeof MODULE_ACCENTS | null {
   if (path.startsWith("/dashboard-personal")) return "personal";
@@ -567,3 +398,5 @@ function moduleFromDashboard(path: string): keyof typeof MODULE_ACCENTS | null {
   if (path.startsWith("/cashflow/dashboard")) return "finance";
   return null;
 }
+
+    
