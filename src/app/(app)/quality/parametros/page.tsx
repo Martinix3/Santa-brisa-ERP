@@ -12,11 +12,9 @@ import {
   listProtocols,
   upsertProtocol,
   deleteProtocol,
-  type ParameterBySku,
-  type QcPlanBySku as QcPlan,
-  type QcSpec,
-  type Protocol as SafetyProtocol,
 } from "./actions";
+
+import type { ParameterBySku, QcPlanBySku as QcPlan, QcSpec, Protocol as SafetyProtocol } from './schemas';
 
 import { Plus, Trash2, Save, Wrench, FlaskConical, ShieldCheck, Settings, Search } from "lucide-react";
 import { useData as useDataMaybe } from "@/lib/dataprovider";
