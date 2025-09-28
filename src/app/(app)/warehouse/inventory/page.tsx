@@ -1,21 +1,24 @@
 
+
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { SBCard, SBButton, Input, Select, DataTableSB } from "@/components/ui/ui-primitives";
+import { SBCard, DataTableSB, SBButton, Input, Select } from "@/components/ui/ui-primitives";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useData } from "@/lib/dataprovider";
-import type { ItemCategory, OnHandView, Lot, Item, SkuStockSummary } from "@/domain/ssot";
+import type { ItemCategory, OnHandView, Lot, QcStatus } from "@/domain/ssot";
 import {
   computeSkuRollup, computeStockAlerts, computeCoverage, suggestReplenishment,
   computeExpiryBuckets, detectQcStuck, auditOnHandVsLots,
-  stockStatusBadgeClass, stockStatusLabel,
+  stockStatusBadgeClass, stockStatusLabel, type SkuStockSummary,
 } from "@/lib/inventory";
 import {
   exportReplenishmentCsvServer,
+  rebuildOnHand as rebuildOnHandAction
 } from "./actions";
 import { getLotTraceability as getLotDossierServer } from "@/app/(app)/quality/traceability/actions";
-import { Plus, Download, Search, AlertCircle, ChevronDown } from "lucide-react";
+
+import { Plus, Download, Search, AlertCircle, ChevronDown, CheckCircle, PackageSearch, Hourglass, XCircle, FileClock } from "lucide-react";
 import { QuickGoodsReceiptDialog } from "@/features/warehouse/components/QuickGoodsReceiptDialog";
 import { NewOnHandDialog } from "./components/NewOnHandDialog";
 import { toast } from "sonner";
@@ -109,6 +112,15 @@ function SkuAccordionRow({ sku, summary, lots, items, onSelect, setViewMode, set
     const [isOpen, setIsOpen] = useState(false);
     const item = items.find(i => i.id === sku.itemId);
   
+    const lotCols: any[] = [
+        { key: "lotNumber", header: "Lote", render: (r: any) => <span className="font-mono text-xs">{r.lotNumber}</span> },
+        { key: "qty", header: "Cantidad", render: (r:any)=> (<>{r.qty} <span className="text-xs text-zinc-500">{r.uom}</span></>) },
+        { key: "locationId", header: "Ubicación" },
+        { key: "qcStatus", header: "Estado QC", render: (r:any) => <QcStatusPill status={r.qcStatus} /> },
+        { key: "expiryAt", header: "Caducidad", render: (r:any)=> r.expiryAt ? new Date(r.expiryAt).toLocaleDateString() : "—" },
+        { key: 'actions', header: 'Acciones', render: (r:any) => <SBButton size="sm" variant="subtle" onClick={() => { setViewMode('lot'); setSelectedKey(r.lotNumber)}}>Inspeccionar</SBButton> }
+    ];
+
     return (
       <div className="border-b last:border-b-0">
         <div
@@ -132,15 +144,9 @@ function SkuAccordionRow({ sku, summary, lots, items, onSelect, setViewMode, set
         </div>
         {isOpen && (
           <div className="bg-zinc-50/70 p-4 pl-12">
-              <DataTableSB
+              <DataTableSB<OnHandView>
                   rows={lots}
-                  cols={[
-                    { key: "lotNumber", header: "Lote", render: (r: any) => <span className="font-mono text-xs">{r.lotNumber}</span> },
-                    { key: "qty", header: "Cantidad", render: (r:any)=> (<>{r.qty} <span className="text-xs text-zinc-500">{r.uom}</span></>) },
-                    { key: "locationId", header: "Ubicación" },
-                    { key: "expiryAt", header: "Caducidad", render: (r:any)=> r.expiryAt ? new Date(r.expiryAt).toLocaleDateString() : "—" },
-                    { key: 'actions', header: 'Acciones', render: (r:any) => <SBButton size="sm" variant="subtle" onClick={() => { setViewMode('lot'); setSelectedKey(r.lotNumber)}}>Inspeccionar</SBButton> }
-                  ]}
+                  cols={lotCols}
                   onRowClick={(r:any)=> { setViewMode('lot'); setSelectedKey(r.lotNumber)}}
               />
           </div>
@@ -149,30 +155,37 @@ function SkuAccordionRow({ sku, summary, lots, items, onSelect, setViewMode, set
     );
   }
 
+  function QcStatusPill({ status }: { status: QcStatus }) {
+    const styles: Record<QcStatus, string> = {
+        PENDING: "bg-yellow-100 text-yellow-800",
+        PASSED: "bg-green-100 text-green-800",
+        FAILED: "bg-red-100 text-red-800",
+        WAIVED: "bg-blue-100 text-blue-800",
+    };
+    return <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${styles[status]}`}>{status}</span>;
+}
+
 
 export default function InventoryPage() {
   const { data } = useData();
   const onHand = (data?.onHand ?? []) as OnHandView[];
   const lotsMaster = (data?.lots ?? []) as Lot[];
   const items = data?.items ?? [];
+  const router = useRouter();
+  const mutate = useMutate();
 
-  // ───────────────── toolbar state
   const [isPending, startTransition] = useTransition();
   const [globalSearch, setGlobalSearch] = useState("");
   const [locationFilter, setLocationFilter] = useState<string>("ALL");
-  const [onlyWithStock, setOnlyWithStock] = useState<boolean>(true);
+  const [onlyWithStock, setOnlyWithStock] = useState<boolean>(false);
   const [cat, setCat] = useState<ItemCategory>("fg");
   const [viewMode, setViewMode] = useState<"sku" | "lot">("lot");
-  const [selectedKey, setSelectedKey] = useState<string | null>(null); // itemId o lotNumber
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
-  const router = useRouter();
-  
+
   const [openNew, setOpenNew] = useState(false);
   const [openReceipt, setOpenReceipt] = useState(false);
-  
-  const mutate = useMutate();
 
-  // ⌘/Ctrl+K → foco en búsqueda
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
@@ -184,7 +197,6 @@ export default function InventoryPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // ───────────────── filtros base
   const onHandFiltered = useMemo(() => {
     let rows = onHand;
     if (cat) rows = rows.filter(r => r.category === cat);
@@ -201,10 +213,9 @@ export default function InventoryPage() {
     return rows;
   }, [onHand, items, cat, locationFilter, onlyWithStock, globalSearch]);
 
-  // ───────────────── KPIs y derivados
   const summaries = useMemo(() => computeSkuRollup(onHandFiltered, { nearExpiryDays: 45 }), [onHandFiltered]);
   const alerts = useMemo(() => computeStockAlerts(summaries), [summaries]);
-  const coverage = useMemo(() => computeCoverage(summaries, [], 30), [summaries]); // si tienes velocityHistory, pásalo aquí
+  const coverage = useMemo(() => computeCoverage(summaries, [], 30), [summaries]); 
   const replen = useMemo(() => suggestReplenishment(summaries, coverage as any, {
     minStockByItem: {}, safetyByItem: {}, targetDaysOfCover: 14
   }), [summaries, coverage]);
@@ -212,7 +223,6 @@ export default function InventoryPage() {
   const qcStuck = useMemo(() => detectQcStuck(onHandFiltered, new Date(), 3), [onHandFiltered]);
   const audit = useMemo(() => auditOnHandVsLots(onHandFiltered, lotsMaster), [onHandFiltered, lotsMaster]);
 
-  // ───────────────── contadores por categoría (badges en tabs)
   const countsByCat = useMemo(() => {
     const map: Partial<Record<ItemCategory, number>> = {};
     for (const r of onHand) {
@@ -223,7 +233,6 @@ export default function InventoryPage() {
     return map;
   }, [onHand]);
 
-  // ───────────────── listas para las tablas
   const skusWithLots = useMemo(() => {
       return Object.values(summaries).map(summary => ({
           summary,
@@ -242,6 +251,7 @@ export default function InventoryPage() {
       free: Math.max(0, r.qty - (r.reservedQty ?? 0)),
       uom: r.uom,
       locationId: r.locationId,
+      qcStatus: r.qcStatus,
       expiryAt: r.expiryAt ?? null,
       updatedAt: r.updatedAt,
   })), [onHandFiltered, items]);
@@ -258,17 +268,23 @@ export default function InventoryPage() {
     },
     { key: "free", header: "Cantidad", render: (r:any)=> (<>{r.free} <span className="text-xs text-zinc-500">{r.uom}</span></>) },
     { key: "locationId", header: "Ubicación" },
+    { key: "qcStatus", header: "Estado QC", render: (r:any) => <QcStatusPill status={r.qcStatus} /> },
     { key: "expiryAt", header: "Fecha", render: (r:any)=> r.expiryAt ? new Date(r.expiryAt).toLocaleDateString() : "—" },
   ];
 
-  // ───────────────── acciones
   const onExportReplen = async () => {
     const url = await exportReplenishmentCsvServer(replen);
     const a = document.createElement("a");
     a.href = url; a.download = "replenishment.csv"; a.click();
   };
 
-  // ───────────────── dossier lote (inspector)
+  const onRebuildOnHand = async () => {
+    await mutate(rebuildOnHandAction, {
+        label: "Recalcular On-Hand",
+        onSuccess: () => router.refresh(),
+    });
+  };
+
   const [dossier, setDossier] = useState<any>(null);
   useEffect(() => {
     if (viewMode === "lot" && selectedKey) {
@@ -281,7 +297,6 @@ export default function InventoryPage() {
     }
   }, [viewMode, selectedKey]);
 
-  // ───────────────── ubicaciones únicas (select)
   const locations = useMemo(() => {
     const set = new Set<string>();
     onHand.forEach(o => { if (o.locationId) set.add(o.locationId); });
@@ -294,7 +309,6 @@ export default function InventoryPage() {
 
   return (
     <div className="space-y-4" style={{'--sb-accent': 'var(--sb-accent-logistica)'} as React.CSSProperties}>
-      {/* HEADER */}
       <div>
         <h1 className="text-xl font-semibold flex items-center gap-2">
             Inventario y Recepciones
@@ -303,7 +317,6 @@ export default function InventoryPage() {
         <p className="text-sm text-zinc-500">Vista en tiempo real del stock y registro de entradas.</p>
       </div>
 
-      {/* TOOLBAR (sticky) */}
       <div className="sticky top-[64px] z-30 bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/60 border rounded-xl p-3 flex flex-wrap gap-2 items-center">
         <div className="flex-1 flex gap-2 min-w-[260px]">
           <Input
@@ -317,29 +330,29 @@ export default function InventoryPage() {
           </Select>
           <label className="flex items-center gap-2 pl-2 text-sm">
             <input type="checkbox" checked={onlyWithStock} onChange={e=>setOnlyWithStock(e.target.checked)} />
-            Mostrar Lotes con Stock
+            Solo con Stock
           </label>
         </div>
         <div className="flex gap-2">
+            <SBButton variant="outline" className={BTN_OUTLINE} onClick={onRebuildOnHand} disabled={isPending}>
+                Recalcular on-hand
+            </SBButton>
           <SBButton variant="outline" className={BTN_OUTLINE} onClick={onExportReplen}>Exportar</SBButton>
           <SBButton variant="outline" className={BTN_OUTLINE} onClick={() => setOpenReceipt(true)}>Nueva Recepción</SBButton>
           <SBButton className={BTN_SOLID} onClick={() => setOpenNew(true)}>Ajuste Manual</SBButton>
         </div>
       </div>
 
-      {/* CONTENIDO PRINCIPAL */}
       <div className="grid grid-cols-1 xl:grid-cols-[320px_minmax(0,1fr)_360px] gap-4">
-        {/* Panel Izquierdo: Alertas + Categorías */}
         <div className="space-y-4">
-          <SBCard title="Alertas de Inventario">
+          <SBCard title="Alertas de Inventario" noPadding>
             {(alerts.length === 0 && qcStuck.length === 0 && (audit.inOnHandNotLots.length + audit.inLotsNotOnHand.length) === 0) ? (
               <div className="text-sm text-zinc-500 p-4">Sin alertas</div>
             ) : (
               <div className="p-2 space-y-1">
                 {alerts.map((a,i)=> <div key={i} className="text-xs p-1.5 rounded-md bg-amber-50 text-amber-800 flex items-center gap-2"><AlertCircle size={14}/> {a.itemId}: {a.message}</div>)}
-                {qcStuck.map(q=> <div key={q.lotNumber} className="text-xs p-1.5 rounded-md bg-blue-50 text-blue-800 flex items-center gap-2"><AlertCircle size={14}/> QC {q.itemId}/{q.lotNumber}</div>)}
-                {audit.inOnHandNotLots.length > 0 && <div className="text-xs p-1.5 rounded-md bg-red-50 text-red-800 flex items-center gap-2"><AlertCircle size={14}/> Lotes sin onHand: {audit.inOnHandNotLots.length}</div>}
-                {audit.inLotsNotOnHand.length > 0 && <div className="text-xs p-1.5 rounded-md bg-red-50 text-red-800 flex items-center gap-2"><AlertCircle size={14}/> onHand sin Lote: {audit.inLotsNotOnHand.length}</div>}
+                {qcStuck.map(q=> <div key={q.lotNumber} className="text-xs p-1.5 rounded-md bg-blue-50 text-blue-800 flex items-center gap-2"><FileClock size={14}/> QC {q.itemId}/{q.lotNumber}</div>)}
+                {audit.inOnHandNotLots.length > 0 && <div className="text-xs p-1.5 rounded-md bg-red-50 text-red-800 flex items-center gap-2"><PackageSearch size={14}/> Lotes sin onHand: {audit.inOnHandNotLots.length}</div>}
               </div>
             )}
           </SBCard>
@@ -359,10 +372,9 @@ export default function InventoryPage() {
           </SBCard>
         </div>
 
-        {/* Panel Central: Tabla + tabs de vista */}
         <div className="space-y-4">
           <SBCard title="Inventario" noPadding>
-              <Tabs value={viewMode} onValueChange={(v: string) => { setViewMode(v as any); setSelectedKey(null); }}>
+              <Tabs value={viewMode} onValueChange={(v) => { setViewMode(v as any); setSelectedKey(null); }}>
                 <div className="flex justify-between items-center p-4">
                   <TabsList className="relative">
                     <TabsTrigger value="lot" className="data-[state=active]:text-[color:var(--sb-accent)]">Por Lote</TabsTrigger>
@@ -386,7 +398,7 @@ export default function InventoryPage() {
                         <div/>
                     </div>
                     {skusWithLots.length === 0 ? <Empty hint="No hay stock agrupado por SKU para esta vista." /> : (
-                        skusWithLots.map(s => <SkuAccordionRow key={s.summary.itemId} sku={s.summary} summary={s.summary} lots={s.lots} items={items} onSelect={setSelectedKey} setViewMode={setViewMode} setSelectedKey={setSelectedKey} />)
+                        skusWithLots.map(({summary, lots}) => <SkuAccordionRow key={summary.itemId} sku={summary} summary={summary} lots={lots} items={items} onSelect={setSelectedKey} setViewMode={setViewMode} setSelectedKey={setSelectedKey} />)
                     )}
                   </div>
                 </TabsContent>
@@ -394,7 +406,6 @@ export default function InventoryPage() {
           </SBCard>
         </div>
 
-        {/* Panel Derecho: Inspector */}
         <div className="space-y-4">
           <SBCard title="Inspector">
             <div className="p-4">
@@ -434,3 +445,6 @@ export default function InventoryPage() {
     </div>
   );
 }
+
+
+    
