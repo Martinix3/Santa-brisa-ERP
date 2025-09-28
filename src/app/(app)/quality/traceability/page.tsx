@@ -3,7 +3,7 @@
 
 import React, { useMemo, useState, useEffect, useTransition } from "react";
 import { useData } from "@/lib/dataprovider";
-import { Package, Search, GitBranch, Truck, Factory, FlaskConical, ArrowLeftRight, AlertTriangle, User as UserIcon, FileText } from "lucide-react";
+import { Package, Search, GitBranch, Truck, Factory, FlaskConical, ArrowLeftRight, AlertTriangle, User as UserIcon, FileText, CheckCircle, XCircle } from "lucide-react";
 import type { Lot, Item } from "@/domain/ssot";
 import { getLotTraceability, type TraceEvent } from "./actions";
 import { toast } from "sonner";
@@ -116,8 +116,12 @@ export default function TraceabilityPage() {
         return (data?.items || []).sort((a,b) => a.name.localeCompare(b.name));
     }, [data?.items]);
 
+    // ================================================================
+    // LÓGICA DE BÚSQUEDA DE LOTES (CORREGIDA)
+    // ================================================================
     const lotsForItem = useMemo(() => {
         if (!itemId || !data?.lots) return [];
+        // La fuente de verdad es la colección `lots`, no el inventario `onHand`.
         return data.lots
             .filter(lot => lot.itemId === itemId)
             .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -130,6 +134,7 @@ export default function TraceabilityPage() {
     }, [items, itemId]);
 
     useEffect(() => {
+        // Selecciona el primer lote de la lista si no hay ninguno seleccionado
         if (lotsForItem.length > 0 && !lotNumber) {
             setLotNumber(lotsForItem[0].lotNumber);
         } else if (lotsForItem.length === 0) {
