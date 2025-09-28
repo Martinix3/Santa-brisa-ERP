@@ -56,6 +56,7 @@
     "react": "latest",
     "react-dom": "latest",
     "react-dropzone": "latest",
+    "react-hook-form": "latest",
     "recharts": "latest",
     "server-only": "latest",
     "sonner": "2.0.7",
