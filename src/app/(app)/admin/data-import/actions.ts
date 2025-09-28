@@ -47,7 +47,7 @@ const TEMPLATE_FIELDS: Partial<Record<keyof SantaData, readonly string[]>> = {
   shipments: ['id','orderId','accountId','shipmentNumber','createdAt','status','isSample','samplePurpose','lines','customerName','city','postalCode','country'],
   paymentLinks: ['id','financeLinkId','amount','date','method'],
   financeLinks: ['id','docType','status','grossAmount','currency','issueDate','dueDate','partyId'],
-  stockMoves: ['id','itemId','lotNumber','uom','qty','fromLocation','toLocation','reason','occurredAt','createdAt'],
+  stockMoves: ['id','itemId','lotNumber','uom','qty','fromLocation','toLocationId','reason','occurredAt','createdAt','goodsReceiptId','prodOrderId','orderId','shipmentId'],
   materialCosts: ['id','itemId','currency','costPerUom','effectiveFrom'],
 };
 
@@ -86,6 +86,8 @@ const REASON_ALIASES: Record<string, StockReason> = {
   consign_return: 'consignment_return',
   sample_out: 'sample_send',
   sample_use: 'sample_consume',
+  consumption: 'production_out',
+  production_output: 'production_in',
 } as any;
 function nBool(x:any){ if (typeof x==='boolean') return x; if (typeof x==='string') return ['true','1','yes','y','si','sí'].includes(x.trim().toLowerCase()); return Boolean(x); }
 const nNumComma = (x:any) => { if (typeof x === 'string') x = x.replace(',', '.'); const n = Number(x); return Number.isFinite(n) ? n : 0; };
@@ -170,6 +172,19 @@ async function resolveAndNormalize(coll: keyof SantaData, rows: any[], data: San
         }
         delete row.fromLocation;
       }
+      
+      // Group reference fields
+      row.ref = {
+        goodsReceiptId: row.goodsReceiptId || undefined,
+        prodOrderId: row.prodOrderId || undefined,
+        orderId: row.orderId || undefined,
+        shipmentId: row.shipmentId || undefined,
+      };
+      delete row.goodsReceiptId;
+      delete row.prodOrderId;
+      delete row.orderId;
+      delete row.shipmentId;
+      
       out.push(row); continue;
     }
 
