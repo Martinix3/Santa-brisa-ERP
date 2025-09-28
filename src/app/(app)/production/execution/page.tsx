@@ -363,7 +363,9 @@ export default function ProductionExecutionPage() {
   
   const handleUpdateStatus = (status: 'IN_PROGRESS' | 'PAUSED' | 'CANCELLED') => {
       if (!activeForm?.order) return;
-      if (status === 'CANCELLED' && !confirm('¿Cancelar la orden? Esta acción no se puede deshacer.')) return;
+      if (status === 'CANCELLED') {
+        // No confirmation dialog
+      }
       startTransition(async () => {
           const res = await updateProductionOrderStatus({ orderId: activeForm.order!.id, status, responsibleId: activeForm.responsibleId });
           if(res.ok) {
@@ -381,7 +383,7 @@ export default function ProductionExecutionPage() {
       toast.error("Faltan datos obligatorios para finalizar la orden.");
       return;
     }
-    if (!confirm("¿Finalizar y cerrar la orden? Se crearán movimientos de stock.")) return;
+    // No confirmation dialog
 
     startTransition(async () => {
       const res = await completeProductionOrder({
