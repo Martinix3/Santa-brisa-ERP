@@ -4,7 +4,7 @@ import React, { useMemo } from "react";
 import type { ProductionOrder, QACheck, Interaction } from "@/domain/ssot";
 import { SBCard, SBButton, LotQualityStatusPill } from "@/components/ui/ui-primitives";
 import { SB_COLORS, SB_THEME } from "@/domain/ssot";
-import { Factory, Cpu, BookOpen, Waypoints, AlertCircle, Hourglass, MoreVertical, Check, X, Thermometer, FlaskConical, Beaker, TestTube2, Paperclip, Upload, Trash2, Calendar, Clock } from "lucide-react";
+import { Factory, Cpu, BookOpen, Waypoints, AlertCircle, Hourglass, MoreVertical, Check, X, Thermometer, FlaskConical, Beaker, TestTube2, Paperclip, Upload, Trash2, Calendar, Clock, Building2 } from "lucide-react";
 import Link from 'next/link';
 import { useData } from '@/lib/dataprovider';
 import { DEPT_META } from '@/domain/ssot';
@@ -89,7 +89,7 @@ function UpcomingEvents() {
                                         </div>
                                         {account && (
                                             <div className="flex items-center gap-1">
-                                                <Building size={12} className="sb-icon" />
+                                                <Building2 size={12} className="sb-icon" />
                                                 <span>{account.name}</span>
                                             </div>
                                         )}

@@ -1,4 +1,3 @@
-
 // src/app/(app)/warehouse/goods-receipt/actions.ts
 'use server';
 
@@ -223,7 +222,9 @@ export async function createGoodsReceipt(payload: {
             subject: { type: 'LOT', id: lotNumber },
             phase: 'RECEIPT',
             kind: 'ARRIVED',
-            occurredAt: nowIso,
+            at: nowIso,
+            title: `Recepción de Lote ${lotNumber}`,
+            details: `Recibido de proveedor ${finalSupplierId}`,
             links: { lotNumber: lotNumber, receiptId: receiptRef.id },
             data: {
                 supplierId: finalSupplierId,

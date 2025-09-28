@@ -6,7 +6,7 @@ import React, { useEffect, useMemo, useRef, useState, useTransition } from "reac
 import { SBCard, DataTableSB, SBButton, Input, Select } from "@/components/ui/ui-primitives";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useData } from "@/lib/dataprovider";
-import type { ItemCategory, OnHandView, Lot, QcStatus } from "@/domain/ssot";
+import type { ItemCategory, OnHandView, Lot, QcStatus, Item } from "@/domain/ssot";
 import {
   computeSkuRollup, computeStockAlerts, computeCoverage, suggestReplenishment,
   computeExpiryBuckets, detectQcStuck, auditOnHandVsLots,
@@ -281,7 +281,7 @@ export default function InventoryPage() {
   const onRebuildOnHand = async () => {
     await mutate(rebuildOnHandAction, {
         label: "Recalcular On-Hand",
-        onSuccess: () => router.refresh(),
+        success: () => router.refresh(),
     });
   };
 

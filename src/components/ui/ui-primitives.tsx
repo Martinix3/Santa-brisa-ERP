@@ -236,20 +236,21 @@ export const Popover: React.FC<{ open: boolean, onOpenChange: (open: boolean) =>
 };
 
 export const PopoverTrigger = React.forwardRef<HTMLButtonElement, React.HTMLAttributes<HTMLButtonElement> & { asChild?: boolean }>(({ children, asChild = false, ...props }, ref) => {
-  const { setOpen } = React.useContext(PopoverContext);
-  const child = asChild ? React.Children.only(children) : <SBButton {...props}>{children}</SBButton>;
-  
-  const childWithRef = React.cloneElement(child as React.ReactElement, {
-      ...props,
-      onClick: (e: React.MouseEvent<HTMLButtonElement>) => {
-        setOpen(true);
-        if((child as React.ReactElement).props.onClick) {
-          (child as React.ReactElement).props.onClick(e);
-        }
-      },
-  });
+    const { setOpen } = React.useContext(PopoverContext);
+    const child = asChild ? React.Children.only(children) : <SBButton {...props}>{children}</SBButton>;
+    
+    const childProps = {
+        ...props,
+        ref: ref,
+        onClick: (e: React.MouseEvent<HTMLButtonElement>) => {
+            setOpen(true);
+            if(child && React.isValidElement(child) && typeof (child.props as any).onClick === 'function') {
+                (child.props as any).onClick(e);
+            }
+        },
+    };
 
-  return React.cloneElement(childWithRef, { ref });
+    return React.cloneElement(child as React.ReactElement, childProps);
 });
 PopoverTrigger.displayName = "PopoverTrigger";
 

@@ -21,7 +21,7 @@ const CreateManualOnHandSchema = z.object({
   invoiceRef: z.string().optional(),
   amount: z.number().nonnegative().optional(),
   currency: z.string().default("EUR").optional(),
-  category: z.enum(["fg","raw","intermediate","pack","merch","consumable"]),
+  category: z.enum(["fg","raw","intermediate","pack","merch","consumable", "label"]),
   sendToQc: z.boolean().default(false),
 });
 

@@ -4,7 +4,7 @@ import type { Party } from '@/domain/ssot';
 
 export async function findPartyByVat(vat: string) {
   const snap = await db.collection('parties').where('vat','==',vat).limit(1).get();
-  return snap.empty ? undefined : ({ id: snap.docs[0].id, ...(snap.data() as any) } as Party);
+  return snap.empty ? undefined : ({ id: snap.docs[0].id, ...snap.docs[0].data() } as Party);
 }
 
 export async function findPartiesByPhone(phone: string) {
