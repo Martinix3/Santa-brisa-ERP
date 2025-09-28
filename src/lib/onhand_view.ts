@@ -1,20 +1,9 @@
 // src/lib/onhand_view.ts
-import type { QcStatus, SantaData, Uom } from '@/domain/ssot';
+import type { QcStatus, SantaData, Uom, OnHandView as OnHandViewType } from '@/domain/ssot';
 import { adminDb } from '@/server/firebase';
 
 // Vista unificada de disponibilidad por LOTE
-export type OnHandView = {
-  id: string;                // itemId|lotNumber|locationId
-  itemId: string;
-  lotNumber: string;
-  locationId: string;        // p.ej. 'FG/MAIN'
-  qty: number;
-  reservedQty?: number;      // reservas/allocations confirmadas
-  uom: 'kg'|'L'|'unit';
-  qcStatus: QcStatus | null; // null => tratar como 'PENDING' en UI mientras limpias
-  expiryAt?: string | null;
-  updatedAt?: string;
-};
+export type OnHandView = OnHandViewType;
 
 async function getAll<T>(coll: keyof SantaData): Promise<T[]> {
   try {
@@ -52,7 +41,7 @@ export async function buildOnHandView(): Promise<OnHandView[]> {
       locationId: r.locationId,
       qty: r.qty,
       uom: r.uom as any,
-      qcStatus: lot?.qcStatus ?? null,
+      qcStatus: lot?.qcStatus ?? 'PENDING',
       expiryAt: lot?.expiryAt ?? null,
       reservedQty: resMap.get(id) ?? 0,
       updatedAt: r.updatedAt,

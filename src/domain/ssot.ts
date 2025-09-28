@@ -39,11 +39,34 @@ export type ActivationStatus = 'active' | 'inactive' | 'pending_renewal';
 export type PartyStatus = 'PROVISIONAL'|'ENRIQUECIDO'|'VINCULADO'|'CONFIABLE';
 export type ItemCategory = 'fg'|'raw'|'pack'|'intermediate'|'consumable'|'merch';
 
-// Enums para Módulo de Calidad
-export type QcPoint = "PRE_PROD" | "RECEIVING" | "IPQC" | "FINAL_QC";
-export type QcStatus = "PENDING" | "PASSED" | "FAILED" | "WAIVED";
-export const qcToBucket = (s: QcStatus) => (s==='PASSED'||s==='WAIVED') ? 'RELEASED' : (s==='FAILED'?'REJECTED':'HOLD');
+// === QC core (invariantes) ===
+export type QcStatus = 'PENDING'|'PASSED'|'FAILED'|'WAIVED';
+export type LotBucket = 'HOLD'|'RELEASED'|'REJECTED';
 
+export function qcToBucket(qc: QcStatus): LotBucket {
+  switch (qc) {
+    case 'PASSED':
+    case 'WAIVED': return 'RELEASED';
+    case 'FAILED': return 'REJECTED';
+    default: return 'HOLD';
+  }
+}
+
+// === Vista de inventario por lote (enriquecida) ===
+export type OnHandView = {
+  id: string;                 // itemId|lotNumber|locationId
+  itemId: string;
+  lotNumber: string;
+  locationId: string;         // p.ej. 'FG/MAIN', 'RM/MAIN'
+  qty: number;
+  uom: 'kg'|'L'|'unit';
+  qcStatus: QcStatus;
+  expiryAt?: string | null;   // ISO
+  reservedQty?: number;       // default 0
+  updatedAt: string;          // ISO
+};
+
+export type QcPoint = "PRE_PROD" | "RECEIVING" | "IPQC" | "FINAL_QC";
 export type QcMethod = "DENSIMETER" | "TITRATION" | "HPLC" | "MICROBIO" | "SENSORIAL" | "OTHER";
 export type Unit = "pct" | "gpl" | "cfu_ml" | "ntu" | "ph" | "unit";
 
@@ -151,20 +174,6 @@ export interface StockMove {
 export type InventoryTransaction = StockMove;
 
 // 2) Vistas/Materializaciones (derivadas del libro)
-export interface OnHandView {
-  id: string;           // itemId|lotNumber|locationId
-  itemId: string;
-  lotNumber?: LotNumber;
-  locationId?: string;
-  qty: number;
-  uom: Uom;
-  updatedAt: Timestamp;
-  createdAt: Timestamp;
-  // Extensión para Calidad
-  qcStatus?: QcStatus;
-  lotStatus?: LotStatus;
-}
-
 export interface ReservationView {
   id: string;           // itemId|lotNumber|refId
   itemId: string;

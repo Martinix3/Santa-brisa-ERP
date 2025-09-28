@@ -10,7 +10,8 @@ import { upsertMany } from "@/lib/dataprovider/actions";
 import { FieldPath } from "firebase-admin/firestore";
 import { z } from "zod";
 import { adminDb } from '@/server/firebase';
-import type { Lot, Uom, ProductionOrder, BillOfMaterial, OnHandView, Item, StockMove } from '@/domain/ssot';
+import type { Lot as SsotLot, Uom, ProductionOrder, BillOfMaterial, OnHandView, Item, StockMove } from '@/domain/ssot';
+import { LotSchema, type Lot } from '@/domain/validators';
 
 
 // Si tienes estos tipos en tu SSOT, impórtalos desde '@/domain/ssot'.
@@ -25,7 +26,7 @@ type QcStatus = 'PENDING' | 'PASSED' | 'FAILED' | 'WAIVED';
 type ProductionIOLine = { itemId: string; role: 'FORMULA' | 'PACKAGING' | 'COST_ONLY'; uom: Uom; qty: number };
 type ProductionOutput = { itemId: string; uom: Extract<Uom, 'L' | 'unit'>; qty: number; lotNumber: string };
 type Incident = { id: string; at: string; severity: 'LOW'|'MEDIUM'|'HIGH'; summary: string; details?: string };
-type QcRecord = { status: QcStatus; measuredAt?: string; measuredById?: string; checks?: Array<{name:string;value:number|string;spec?:string;pass?:boolean}>; remarks?: string };
+type QcRecord = { status: QcStatus; measuredAt?: string; measuredById?: string; checks?: Array<{name:string;value:number|string;pass?:boolean}>; remarks?: string };
 
 
 // ===== Helpers de lectura (usa tu dataprovider/reads real) =====
@@ -228,48 +229,23 @@ export async function recordPackagingParent(id: string, parentLotNumber: string)
   } catch (e:any) { return fail('No se pudo asignar el lote padre.'); }
 }
 
-export async function recordOutput(id: string, qty: number, lotPrefix?: string) {
-  try {
+export async function recordOutput(args: {
+    prodOrderId: string;
+    outputs: Array<{ itemId: string; lotNumber: string; qty: number; uom: 'kg'|'L'|'unit'; expiryAt?: string|null; locationId?: string }>;
+}) {
     const now = new Date().toISOString();
-    const po = await readOrder(id);
-    if (!po) return fail('Orden inexistente');
-    
-    const lotNumber = po.lotNumber ?? newLot(lotPrefix ?? 'SB');
-    const out: ProductionOutput[] = [{
-        itemId: po.outputItemId,
-        uom: po.baseUnit as 'L' | 'unit', // 'L' o 'unit' ya validado por etapa/BOM
-        qty: Number(qty),
-        lotNumber: lotNumber,
-    }];
-    
-    // (Opcional) crear el registro maestro del lote (sin cantidades)
-    const lotDoc: Partial<Lot> = {
-      lotNumber,
-      itemId: (po as any).outputItemId,
-      producedByOrderId: po.id,
-      qcStatus: 'PENDING' as any,
-      createdAt: now,
-    };
-    await upsertMany('lots', [lotDoc as any]);
-
-    // Registra stockMove IN por el output
-    const inMove: StockMove = {
-      id: `sm_${po.id}_IN_${Date.now()}`,
-      itemId: po.outputItemId,
-      lotNumber,
-      qty: Number(qty),
-      uom: (po as any).baseUnit || 'L',
-      reason: 'production_in',
-      occurredAt: now
-    } as any;
-    await upsertMany('stockMoves', [inMove] as any);
-
-    await upsertMany('productionOrders', [{ id, lotNumber, output: out as any, updatedAt: now, status: 'QC_HOLD' } as any]);
-    
-    return ok({ id, lotNumber });
-  } catch (e:any) {
-    return fail('No se pudo registrar el output.', { code: (e as any).code });
-  }
+    const lots = args.outputs.map(o => LotSchema.parse({
+        lotNumber: o.lotNumber,
+        itemId: o.itemId,
+        qty: o.qty,
+        uom: o.uom,
+        qcStatus: 'PENDING', // SIEMPRE PENDING al salir de producción
+        expiryAt: o.expiryAt ?? null,
+        createdAt: now,
+        updatedAt: now,
+    }));
+    await upsertMany('lots', lots as any);
+    return ok({ lotNumbers: lots.map(l => l.lotNumber) });
 }
 
 
