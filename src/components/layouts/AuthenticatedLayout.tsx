@@ -97,7 +97,7 @@ const navSections: NavSection[] = [
 const LS_COLLAPSED = "sb.nav.collapsed";
 
 /* ===== Helpers ===== */
-function useBreadcrumbs(pathname: string | null) {
+function useBreadcrumbs(pathname: string) {
   if (!pathname) return [{ href: "/", label: "Inicio" }];
   const parts = pathname.split("/").filter(Boolean);
   const segs = parts.map((p, i) => ({
@@ -254,17 +254,18 @@ function MegaFlyout({
 }
 
 /** Ruta de dashboard por módulo (usada en “Ver dashboard”) */
-function dashboardHrefFor(module: keyof typeof MODULE_ACCENTS) {
+function dashboardHrefFor(module: keyof typeof MODULE_ACCENTS): string {
   switch (module) {
-    case "personal": return "/dashboard-personal";
-    case "sales": return "/dashboard-ventas";
-    case "marketing": return "/marketing/dashboard";
+    case "personal":   return "/dashboard-personal";
+    case "sales":      return "/dashboard-ventas";
+    case "marketing":  return "/marketing/dashboard";
     case "production": return "/production/dashboard";
-    case "quality": return "/quality/dashboard";
-    case "warehouse": return "/warehouse/dashboard";
-    case "finance": return "/cashflow/dashboard";
-    case "admin": return "/admin/kpi-settings"; // o tu landing de admin
+    case "quality":    return "/quality/dashboard";
+    case "warehouse":  return "/warehouse/dashboard";
+    case "finance":    return "/cashflow/dashboard";
+    case "admin":      return "/admin/kpi-settings"; // o tu landing de admin
   }
+  return "/";
 }
 
 /* ===== 5) Header con breadcrumbs + buscador + quicklog + user menu dinámico ===== */
