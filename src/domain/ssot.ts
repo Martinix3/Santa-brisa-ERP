@@ -1,6 +1,5 @@
-
 // src/domain/ssot.ts
-import type { Incident, Interaction } from './ssot.common';
+import type { Interaction } from './ssot.common';
 
 // =================================================================
 // == SINGLE SOURCE OF TRUTH (SSOT) - KERNEL V2
@@ -41,7 +40,7 @@ export type ItemCategory = 'fg'|'raw'|'pack'|'intermediate'|'consumable'|'merch'
 
 // Enums para Módulo de Calidad
 export type QcPoint = "PRE_PROD" | "RECEIVING" | "IPQC" | "FINAL_QC";
-export type QcStatus = "PENDING" | "IN_PROGRESS" | "CONDITIONAL_RELEASE" | "RELEASED" | "REJECTED" | "WAIVED" | "ON_HOLD_QC";
+export type QcStatus = "PENDING" | "PASSED" | "FAILED" | "WAIVED";
 export type QcMethod = "DENSIMETER" | "TITRATION" | "HPLC" | "MICROBIO" | "SENSORIAL" | "OTHER";
 export type Unit = "pct" | "gpl" | "cfu_ml" | "ntu" | "ph" | "unit";
 

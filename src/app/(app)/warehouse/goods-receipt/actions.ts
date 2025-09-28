@@ -1,4 +1,3 @@
-
 // src/app/(app)/warehouse/goods-receipt/actions.ts
 'use server';
 
@@ -116,7 +115,7 @@ export async function createGoodsReceipt(payload: {
         const lotNumber = line.supplierLot;
 
         const lotRef = db.collection('lots').doc(lotNumber);
-        const qcStatus: QcStatus = sendToQc ? 'PENDING' : 'RELEASED';
+        const qcStatus: QcStatus = sendToQc ? 'PENDING' : 'PASSED';
         const newLot: Lot = {
             id: lotNumber,
             lotNumber: lotNumber,
