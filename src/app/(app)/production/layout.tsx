@@ -1,13 +1,13 @@
+
 "use client";
 import React from 'react';
-import { ProductionLayout } from '@/features/production/components/ui';
 
-export default function Layout({ children }: { children: React.ReactNode }) {
+// Se ha simplificado este layout para evitar importaciones circulares y problemas de renderizado.
+// La lógica de presentación ahora reside en las páginas específicas del módulo.
+export default function ProductionLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <div className="flex-grow">
-          {children}
-      </div>
+      {children}
     </>
   );
 }
