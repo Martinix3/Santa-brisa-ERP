@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -96,7 +97,8 @@ const navSections: NavSection[] = [
 const LS_COLLAPSED = "sb.nav.collapsed";
 
 /* ===== Helpers ===== */
-function useBreadcrumbs(pathname: string) {
+function useBreadcrumbs(pathname: string | null) {
+  if (!pathname) return [{ href: "/", label: "Inicio" }];
   const parts = pathname.split("/").filter(Boolean);
   const segs = parts.map((p, i) => ({
     href: "/" + parts.slice(0, i + 1).join("/"),
