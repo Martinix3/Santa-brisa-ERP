@@ -304,22 +304,6 @@ export default function LabReleasePage() {
     return Array.from(uniqueLotNumbers);
   }, [selectedSku, onHand]);
   
-  const latestDecisionByLot = useMemo(() => {
-    const map = new Map<string, QcStatus>(); // lotNumber -> status
-    for (const r of qcBatchResults) {
-      if (!r.lotNumber) continue;
-      const key = r.lotNumber;
-      const when = new Date((r as any).reviewedAt ?? (r as any).decidedAt ?? (r as any).createdAt ?? 0).getTime();
-      const prev = map.get(key);
-      if (!prev || when > ((map as any)[`__t_${key}`] || 0)) {
-        map.set(key, (r.status as any as QcStatus));
-        (map as any)[`__t_${key}`] = when;
-      }
-    }
-    return map;
-  }, [qcBatchResults]);
-
-
   const buckets = useMemo(() => {
     const hold: OnHandView[] = [];
     const released: OnHandView[] = [];
@@ -335,18 +319,16 @@ export default function LabReleasePage() {
       const matchesQuery = !lowerQuery || l.lotNumber.toLowerCase().includes(lowerQuery) || (item?.name || '').toLowerCase().includes(lowerQuery);
       if (!matchesQuery) continue;
 
-      const masterLot = lots.find(master => master.lotNumber === l.lotNumber!);
-      const status: QcStatus = masterLot?.qcStatus ?? latestDecisionByLot.get(l.lotNumber!) ?? 'PENDING';
-      const bucket = qcToBucket(status);
+      const lot = lots.find(master => master.lotNumber === l.lotNumber!);
+      const qc = (lot?.qcStatus ?? 'PENDING') as QcStatus;
+      const bucket = qcToBucket(qc);
       
       if (bucket === "RELEASED") {
         released.push(l);
       } else if (bucket === "REJECTED") {
         rejected.push(l);
-      } else if (bucket === "HOLD") {
+      } else { // HOLD
         hold.push(l);
-      } else {
-        undefinedState.push(l);
       }
     }
     const byDateDesc = (a: OnHandView, b: OnHandView) => new Date(b.updatedAt ?? b.createdAt ?? 0).getTime() - new Date(a.updatedAt ?? a.createdAt ?? 0).getTime();
@@ -357,7 +339,7 @@ export default function LabReleasePage() {
 
     const ALL = [...HOLD, ...RELEASED, ...REJECTED, ...UNDEFINED].sort(byDateDesc);
     return { ALL, HOLD, RELEASED, REJECTED, UNDEFINED };
-  }, [onHand, lots, itemMap, query, selectedSku, latestDecisionByLot]);
+  }, [onHand, lots, itemMap, query, selectedSku]);
 
   const visibleLots = buckets[activeTab];
 
@@ -495,7 +477,9 @@ export default function LabReleasePage() {
                 const item = itemMap.get(lot.itemId);
                 const isSelected = selectedLot === lot.lotNumber;
                 const masterLot = lots.find(l => l.lotNumber === lot.lotNumber);
-                const status = masterLot?.qcStatus ?? latestDecisionByLot.get(lot.lotNumber!) ?? 'PENDING';
+                const qc = (masterLot?.qcStatus ?? 'PENDING') as QcStatus;
+                const bucket = qcToBucket(qc);
+                const status = masterLot?.qcStatus ?? 'PENDING';
                 return (
                     <button key={lot.id} onClick={() => setSelectedLot(lot.lotNumber!)} className={`w-full text-left p-3 ${isSelected ? 'bg-blue-50' : 'hover:bg-zinc-50'}`}>
                         <div className="flex justify-between items-center">
@@ -663,3 +647,5 @@ export default function LabReleasePage() {
     </>
   );
 }
+
+    
