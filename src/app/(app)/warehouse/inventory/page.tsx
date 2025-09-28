@@ -3,7 +3,7 @@
 import React, { useMemo, useState, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Download, Plus, History, X, Truck } from "lucide-react";
-import { SBCard, Input, Select, DataTableSB } from '@/components/ui/ui-primitives';
+import { SBCard, Input, Select, DataTableSB, SBButton } from '@/components/ui/ui-primitives';
 import type { Col } from '@/components/ui/ui-primitives';
 import { useData } from "@/lib/dataprovider";
 import type { OnHandView, Item, ItemCategory, StockMove, Lot, QcStatus, GoodsReceipt, Party } from "@/domain/ssot";
@@ -178,16 +178,20 @@ export default function InventoryPage() {
   const tabsWithCounts = useMemo(() => {
     const counts: Record<string, number> = { fg: 0, raw: 0, intermediate: 0, pack: 0, label: 0, merch: 0, consumable: 0 };
     for (const item of filteredInventory) {
-      if (item.category && counts[item.category] !== undefined) {
-        counts[item.category]++;
+      const category = itemMap.get(item.itemId)?.category;
+      if (category && counts[category] !== undefined) {
+        counts[category]++;
       }
     }
     return TABS.map(tab => ({ ...tab, count: counts[tab.id] || (tab.id === 'pack' ? (counts.pack || 0) + (counts.label || 0) : 0) }));
-  }, [filteredInventory]);
+  }, [filteredInventory, itemMap]);
 
   const currentTabData = useMemo(() => {
-    return filteredInventory.filter(oh => isItemInCategory(oh.category, activeTab));
-  }, [filteredInventory, activeTab]);
+    return filteredInventory.filter(oh => {
+      const itemCategory = itemsById.get(oh.itemId)?.category;
+      return itemCategory && isItemInCategory(itemCategory, activeTab);
+    });
+  }, [filteredInventory, activeTab, itemsById]);
 
   const onHandCols: Col<OnHandView>[] = [
     { key: "lotNumber", header: "Lote", render: (r: OnHandView) => <span className="font-mono text-xs">{r.lotNumber || "-"}</span> },
@@ -199,15 +203,6 @@ export default function InventoryPage() {
     { key: "qty", header: "Cantidad", className: "text-right", render: (r: OnHandView) => <span className="font-semibold">{r.qty} <span className="text-xs text-zinc-500">{r.uom}</span></span> },
     { key: "locationId", header: "Ubicación", render: (r: OnHandView) => r.locationId || "—" },
     { key: "updatedAt", header: "Fecha", render: (r: OnHandView) => (r.updatedAt ? new Date(r.updatedAt).toLocaleDateString("es-ES") : "—") },
-  ];
-
-  const receiptCols: Col<GoodsReceipt>[] = [
-    { key: 'receiptNumber', header: 'Nº Recepción', render: r => <span className="font-mono text-xs">{r.receiptNumber}</span> },
-    { key: 'supplier', header: 'Proveedor', render: r => <span>{santaData?.parties.find((p: Party) => p.id === r.supplierPartyId)?.name || 'N/A'}</span> },
-    { key: 'deliveryNote', header: 'Albarán Proveedor', render: r => <span>{r.deliveryNote}</span> },
-    { key: 'receivedAt', header: 'Fecha', render: r => <span>{new Date(r.receivedAt).toLocaleDateString('es-ES')}</span> },
-    { key: 'lines', header: 'Líneas', className: "text-right", render: r => <span>{r.lines.length}</span> },
-    { key: 'status', header: 'Estado', render: r => <span className={`px-2 py-0.5 text-xs rounded-full ${r.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>{r.status}</span> },
   ];
 
   const exportCsv = () => {
@@ -252,10 +247,6 @@ export default function InventoryPage() {
         ) : (
           <DataTableSB rows={currentTabData} cols={onHandCols as any} />
         )}
-      </SBCard>
-
-      <SBCard title="Historial de Recepciones">
-        <DataTableSB rows={goodsReceipts} cols={receiptCols as any[]} />
       </SBCard>
 
       <NewOnHandDialog

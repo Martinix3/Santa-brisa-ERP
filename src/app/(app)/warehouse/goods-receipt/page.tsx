@@ -1,275 +1,339 @@
-// src/app/(app)/warehouse/inventory/page.tsx
+// src/app/(app)/warehouse/goods-receipt/page.tsx
 "use client";
-import React, { useMemo, useState, useEffect, useTransition } from "react";
-import { useRouter } from "next/navigation";
-import { Download, Plus, History, X, Truck } from "lucide-react";
-import { SBCard, Input, Select, DataTableSB } from '@/components/ui/ui-primitives';
+
+import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
+import { useData } from '@/lib/dataprovider';
+import { SBButton, Input, Select, DataTableSB } from '@/components/ui/ui-primitives';
 import type { Col } from '@/components/ui/ui-primitives';
-import { useData } from "@/lib/dataprovider";
-import type { OnHandView, Item, ItemCategory, StockMove, Lot, QcStatus, GoodsReceipt, Party } from "@/domain/ssot";
-import { createManualOnHand, rebuildOnHand } from "./actions";
-import { NewOnHandDialog } from "./components/NewOnHandDialog";
-import { QuickGoodsReceiptDialog } from "@/features/warehouse/components/QuickGoodsReceiptDialog";
+import { Plus, Trash2, Truck, Search, Info, X } from 'lucide-react';
+import type { Party, Item, GoodsReceipt, Uom, ItemCategory } from '@/domain/ssot';
+import { createGoodsReceipt } from './actions';
+import { toast } from 'sonner';
 
-
-// --- Helpers ---
-const toCsv = (rows: Record<string, any>[], headers: string[]) => {
-  const esc = (v: any) => v == null ? "" : /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v);
-  return `${headers.join(",")}\n${rows.map(r => headers.map(h => esc(r[h])).join(",")).join("\n")}`;
+type LineItem = {
+  key: string;
+  itemId?: string;
+  newItemName?: string;
+  newItemCategory?: ItemCategory;
+  supplierLot: string;
+  qty: number;
+  unitCost: number;
+  uom?: Uom;
+  expiryAt?: string | null;
 };
 
-const download = (fn: string, content: string) => {
-  const url = URL.createObjectURL(new Blob([content], { type: "text/csv;charset=utf-8" }));
-  const a = document.createElement("a"); a.href = url; a.download = fn; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-};
+const norm = (s: string) =>
+  s.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 
-const isItemInCategory = (itemCategory: ItemCategory, activeTab: string) => {
-  if (activeTab === 'pack') {
-    return itemCategory === 'pack' || itemCategory === 'label';
-  }
-  return itemCategory === activeTab;
-};
-
-// --- Sub-components ---
-
-function InventoryHeader({ onNew, onRebuild, onExport, isRebuilding, onNewReceipt }: {
-  onNew: () => void;
-  onRebuild: () => void;
-  onExport: () => void;
-  isRebuilding: boolean;
-  onNewReceipt: () => void;
-}) {
-  return (
-    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-      <div>
-        <h1 className="text-2xl font-semibold text-zinc-800">Inventario y Recepciones</h1>
-        <p className="text-xs text-zinc-500">Vista en tiempo real del stock y registro de entradas.</p>
-      </div>
-      <div className="flex items-center gap-2">
-        <SBButton variant="secondary" onClick={onRebuild} disabled={isRebuilding}>
-          <History className="w-4 h-4 mr-2" />
-          {isRebuilding ? "Recalculando..." : "Recalcular on-hand"}
-        </SBButton>
-        <SBButton variant="secondary" onClick={onExport}>
-          <Download className="w-4 h-4 mr-2" />
-          Exportar
-        </SBButton>
-         <SBButton variant="secondary" onClick={onNewReceipt}>
-          <Truck className="w-4 h-4 mr-2" />
-          Nueva Recepción
-        </SBButton>
-        <SBButton onClick={onNew}>
-          <Plus className="w-4 h-4 mr-2" />
-          Ajuste Manual
-        </SBButton>
-      </div>
-    </div>
-  );
-}
-
-function InventoryFilters({
-  query, setQuery, location, setLocation, locations, showZeros, setShowZeros,
+function SearchableSelect<T extends { id: string; name: string }>({
+  items, onSelect, onFreeText, placeholder, initialValue
 }: {
-  query: string; setQuery: (q: string) => void;
-  location: string; setLocation: (l: string) => void;
-  locations: string[];
-  showZeros: boolean; setShowZeros: (s: boolean) => void;
+  items: T[]; onSelect: (item: T) => void; onFreeText: (text: string) => void;
+  placeholder: string; initialValue?: string;
 }) {
-  return (
-    <div className="flex items-center gap-3">
-      <Input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar por SKU, nombre, lote..." />
-      <Select value={location} onChange={e => setLocation(e.target.value)}>
-        {locations.map(loc => <option key={loc} value={loc}>{loc === "ALL" ? "Todas Ubicaciones" : loc}</option>)}
-      </Select>
-      <label className="text-sm flex items-center gap-2 whitespace-nowrap">
-        <input type="checkbox" checked={showZeros} onChange={e => setShowZeros(e.target.checked)} className="h-4 w-4" />
-        Mostrar Lotes sin Stock
-      </label>
-    </div>
-  );
-}
+  const [query, setQuery] = useState(initialValue || '');
+  const [suggestions, setSuggestions] = useState<T[]>([]);
+  const [isOpen, setIsOpen] = useState(false);
+  const debRef = useRef<number | null>(null);
 
-const TABS = [
-  { id: "fg", label: "Producto Terminado" },
-  { id: "raw", label: "Materias Primas" },
-  { id: "intermediate", label: "Intermedios" },
-  { id: "pack", label: "Packaging y Etiquetas" },
-  { id: "merch", label: "Merchandising" },
-  { id: "consumable", label: "Consumibles" },
-] as const;
-
-function InventoryTabs({ activeTab, tabsWithCounts, onChange }: {
-  activeTab: ItemCategory;
-  tabsWithCounts: typeof TABS;
-  onChange: (tab: ItemCategory) => void;
-}) {
-  return (
-    <div className="border-b border-zinc-200">
-      <nav className="-mb-px flex flex-wrap gap-4" aria-label="Tabs">
-        {TABS.map(tab => {
-          const count = (tabsWithCounts.find(t => t.id === tab.id) as any)?.count || 0;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => onChange(tab.id as ItemCategory)}
-              className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
-                activeTab === tab.id
-                  ? "border-yellow-500 text-yellow-600"
-                  : "border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300"
-              }`}
-            >
-              {tab.label} <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-xs ${activeTab === tab.id ? 'bg-yellow-100 text-yellow-700' : 'bg-zinc-100'}`}>{count}</span>
-            </button>
-          )
-        })}
-      </nav>
-    </div>
-  );
-}
-
-// --- Main Page Component ---
-
-export default function InventoryPage() {
-  const router = useRouter();
-  const { data: santaData } = useData();
-  const [activeTab, setActiveTab] = useState<ItemCategory>("fg");
-  const [loading, setLoading] = useState(true);
-  const [pending, startTransition] = useTransition();
-  const [openNew, setOpenNew] = useState(false);
-  const [openReceipt, setOpenReceipt] = useState(false);
-  const [query, setQuery] = useState("");
-  const [locationFilter, setLocationFilter] = useState<string>("ALL");
-  const [showZeros, setShowZeros] = useState(false);
-
-  const { itemsById, lotMap, onHandAll, stockMoves, goodsReceipts } = useMemo(() => {
-    if (!santaData) return { itemsById: new Map(), lotMap: new Map(), onHandAll: [], stockMoves: [], goodsReceipts: [] };
-    const itemsMap = new Map<string, Item>();
-    (santaData.items || []).forEach(it => itemsMap.set(it.id, it));
-    const lotsMap = new Map<string, Lot>();
-    (santaData.lots || []).forEach(l => { if (l.lotNumber) lotsMap.set(l.lotNumber, l); });
-    const onHand = [...(santaData.onHand || [])].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-    const receipts = [...(santaData.goodsReceipts || [])].sort((a,b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime());
-    return { itemsById: itemsMap, lotMap: lotsMap, onHandAll: onHand, stockMoves: santaData.stockMoves || [], goodsReceipts: receipts };
-  }, [santaData]);
-
+  useEffect(() => { setQuery(initialValue || ''); }, [initialValue]);
   useEffect(() => {
-    const ready = santaData && 'onHand' in santaData && 'items' in santaData;
-    if (ready) setLoading(false);
-  }, [santaData]);
+    if (debRef.current) clearTimeout(debRef.current);
+    debRef.current = window.setTimeout(() => {
+      const q = query.trim();
+      if (q.length > 1) {
+        const filtered = items.filter(it => norm(it.name).includes(norm(q)));
+        setSuggestions(filtered);
+        setIsOpen(true);
+        if (filtered.length === 0) {
+          const exact = items.some(i => norm(i.name) === norm(q));
+          if (!exact) onFreeText(q);
+        }
+      } else { setSuggestions([]); setIsOpen(false); onFreeText(''); }
+    }, 120);
+    return () => { if (debRef.current) clearTimeout(debRef.current); };
+  }, [query, items, onFreeText]);
 
-  const locations = useMemo(() => {
-    const set = new Set<string>();
-    onHandAll.forEach(oh => { if (oh.locationId) set.add(oh.locationId); });
-    return ["ALL", ...Array.from(set).sort()];
-  }, [onHandAll]);
+  const handleSelect = (item: T) => { setQuery(item.name); onSelect(item); setIsOpen(false); };
 
-  const filteredInventory = useMemo(() => {
-    return onHandAll.filter(oh => {
-      if (locationFilter !== "ALL" && (oh.locationId || "") !== locationFilter) return false;
-      if (!showZeros && !(oh.qty > 0)) return false;
-      const q = query.trim().toLowerCase();
-      if (!q) return true;
-      const item = itemsById.get(oh.itemId);
-      const hay = [item?.name || "", item?.sku || "", oh.lotNumber || "", oh.locationId || ""].join(" ").toLowerCase();
-      return hay.includes(q);
-    });
-  }, [onHandAll, itemsById, locationFilter, showZeros, query]);
+  return (
+    <div className="relative">
+      <Input value={query}
+             onChange={e => setQuery(e.target.value)}
+             onBlur={() => setTimeout(() => setIsOpen(false), 120)}
+             onFocus={() => { if ((query?.trim()?.length || 0) > 1) setIsOpen(true); }}
+             placeholder={placeholder}/>
+      {isOpen && suggestions.length > 0 && (
+        <ul className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-48 overflow-auto">
+          {suggestions.map(item => (
+            <li key={item.id} className="px-3 py-2 cursor-pointer hover:bg-zinc-100"
+                onMouseDown={() => handleSelect(item)}>
+              <p className="font-medium text-sm">{item.name}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
-  const tabsWithCounts = useMemo(() => {
-    const counts: Record<string, number> = { fg: 0, raw: 0, intermediate: 0, pack: 0, label: 0, merch: 0, consumable: 0 };
-    for (const item of filteredInventory) {
-      if (item.category && counts[item.category] !== undefined) {
-        counts[item.category]++;
-      }
-    }
-    return TABS.map(tab => ({ ...tab, count: counts[tab.id] || (tab.id === 'pack' ? (counts.pack || 0) + (counts.label || 0) : 0) }));
-  }, [filteredInventory]);
+function Notification({ message, type, onClose }: { message: string, type: 'success' | 'error', onClose: () => void }) {
+  const base = "flex items-center gap-3 p-3 rounded-lg border";
+  const tone = type === 'success' ? "bg-green-50 border-green-200 text-green-800"
+                                  : "bg-red-50 border-red-200 text-red-800";
+  useEffect(() => { const t = setTimeout(onClose, 5000); return () => clearTimeout(t); }, [onClose]);
+  return (
+    <div className={`${base} ${tone}`}>
+      <Info size={16} className="flex-shrink-0" />
+      <p className="text-sm font-medium flex-grow">{message}</p>
+      <button onClick={onClose} className="p-1 rounded-full hover:bg-black/10"><X size={14} /></button>
+    </div>
+  );
+}
 
-  const currentTabData = useMemo(() => {
-    return filteredInventory.filter(oh => isItemInCategory(oh.category, activeTab));
-  }, [filteredInventory, activeTab]);
-
-  const onHandCols: Col<OnHandView>[] = [
-    { key: "lotNumber", header: "Lote", render: (r: OnHandView) => <span className="font-mono text-xs">{r.lotNumber || "-"}</span> },
-    { key: "itemId", header: "Producto (SKU)", render: (r: OnHandView) => {
-        const it = itemsById.get(r.itemId);
-        return (<div><span className="font-medium text-zinc-800">{it?.name || r.itemId}</span><p className="text-xs text-zinc-500">{it?.sku}</p></div>);
-      }
-    },
-    { key: "qty", header: "Cantidad", className: "text-right", render: (r: OnHandView) => <span className="font-semibold">{r.qty} <span className="text-xs text-zinc-500">{r.uom}</span></span> },
-    { key: "locationId", header: "Ubicación", render: (r: OnHandView) => r.locationId || "—" },
-    { key: "updatedAt", header: "Fecha", render: (r: OnHandView) => (r.updatedAt ? new Date(r.updatedAt).toLocaleDateString("es-ES") : "—") },
-  ];
-
-  const receiptCols: Col<GoodsReceipt>[] = [
-    { key: 'receiptNumber', header: 'Nº Recepción', render: r => <span className="font-mono text-xs">{r.receiptNumber}</span> },
-    { key: 'supplier', header: 'Proveedor', render: r => <span>{santaData?.parties.find((p: Party) => p.id === r.supplierPartyId)?.name || 'N/A'}</span> },
-    { key: 'deliveryNote', header: 'Albarán Proveedor', render: r => <span>{r.deliveryNote}</span> },
-    { key: 'receivedAt', header: 'Fecha', render: r => <span>{new Date(r.receivedAt).toLocaleDateString('es-ES')}</span> },
-    { key: 'lines', header: 'Líneas', className: "text-right", render: r => <span>{r.lines.length}</span> },
-    { key: 'status', header: 'Estado', render: r => <span className={`px-2 py-0.5 text-xs rounded-full ${r.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>{r.status}</span> },
-  ];
-
-  const exportCsv = () => {
-    const headers = ["itemId", "sku", "name", "lotNumber", "qty", "uom", "qcStatus", "locationId", "updatedAt", "id"];
-    const rows = currentTabData.map(r => {
-      const it = itemsById.get(r.itemId);
-      const lot = r.lotNumber ? lotMap.get(r.lotNumber) : undefined;
-      return { itemId: r.itemId, sku: it?.sku || "", name: it?.name || "", lotNumber: r.lotNumber || "", qty: r.qty, uom: r.uom, qcStatus: lot?.qcStatus, locationId: r.locationId || "", updatedAt: r.updatedAt || "", id: r.id };
-    });
-    download(`inventory_${activeTab}_${new Date().toISOString().slice(0, 10)}.csv`, toCsv(rows, headers));
-  };
+function GoodsReceiptForm({ onSaveSuccess, onCancel }: { onSaveSuccess: (info: { receiptId: string; receiptNumber: string, supplierId?: string }) => void, onCancel: () => void }) {
+  const { data } = useData();
+  const [supplierId, setSupplierId] = useState<string | undefined>();
+  const [newSupplierName, setNewSupplierName] = useState<string | undefined>();
+  const [deliveryNote, setDeliveryNote] = useState('');
+  const [receiptDate, setReceiptDate] = useState(new Date().toISOString().split('T')[0]);
+  const [lines, setLines] = useState<LineItem[]>([{
+    key: `line_${Date.now()}`, supplierLot: '', qty: 0, unitCost: 0, newItemCategory: 'raw', uom: 'unit', expiryAt: null
+  }]);
   
-  async function handleCreate(payload: any) {
-    await createManualOnHand(payload);
-    setOpenNew(false);
-    router.refresh();
-  }
+  const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const suppliers = useMemo(() => {
+    if (!data?.parties || !data?.partyRoles) return [];
+    const supplierIds = new Set(data.partyRoles.filter(r => r.role === 'SUPPLIER').map(r => r.partyId));
+    return data.parties.filter(p => supplierIds.has(p.id));
+  }, [data?.parties, data?.partyRoles]);
+
+  const items = useMemo(() => data?.items || [], [data?.items]);
+
+  const handleLineChange = (index: number, field: keyof LineItem, value: any) => {
+    setLines(curr => {
+      const next = [...curr]; const line = { ...next[index] } as any;
+      line[field] = value;
+      if (field === 'itemId') {
+        const it = items.find(m => m.id === value);
+        line.unitCost = it?.stdCost ?? 0;
+        line.uom = it?.uom ?? 'unit';
+        line.newItemName = undefined;
+      }
+      if (field === 'newItemName') { line.itemId = undefined; }
+      next[index] = line;
+      return next;
+    });
+  };
+
+  const addLine = () => setLines([...lines, {
+    key: `line_${Date.now()}`, supplierLot: '', qty: 0, unitCost: 0, newItemCategory: 'raw', uom: 'unit', expiryAt: null
+  }]);
+  const removeLine = (i: number) => setLines(lines.filter((_, idx) => idx !== i));
+
+  const handleSave = async () => {
+    setNotification(null); setIsSaving(true);
+    if ((!supplierId && !newSupplierName) || !deliveryNote || !receiptDate ||
+        lines.some(l => (!l.itemId && !l.newItemName) || !l.qty || l.qty <= 0 || !l.supplierLot)) {
+      setNotification({ message: 'Proveedor, albarán, fecha y todas las líneas completas.', type: 'error' });
+      setIsSaving(false); return;
+    }
+    try {
+      // Re-map lines to ensure data consistency before sending to server action
+      const payloadLines = lines.map(l => {
+          const item = items.find(i => i.id === l.itemId);
+          return {
+              key: l.key,
+              itemId: l.itemId,
+              newItemName: l.newItemName,
+              newItemCategory: l.newItemCategory,
+              supplierLot: l.supplierLot,
+              qty: l.qty,
+              unitCost: l.unitCost || item?.stdCost || 0,
+              uom: l.uom || item?.uom || 'unit',
+              expiryAt: l.expiryAt
+          };
+      });
+
+      const res = await createGoodsReceipt({
+        supplierId,
+        newSupplierName: newSupplierName && !supplierId ? newSupplierName : undefined,
+        deliveryNote,
+        receiptDate,
+        lines: payloadLines,
+      });
+      setNotification({ message: `Recepción guardada (#${res.receiptNumber}).`, type: 'success' });
+      onSaveSuccess({ ...res, supplierId: supplierId || res.supplierId });
+    } catch (e:any) {
+      console.error(e);
+      setNotification({ message: e?.message || 'Error al guardar la recepción.', type: 'error' });
+    } finally { setIsSaving(false); }
+  };
+
+  const handleFreeTextSupplier = useCallback((text: string) => {
+    const exact = suppliers.some(s => norm(s.name) === norm(text));
+    if (!exact) { setNewSupplierName(text); setSupplierId(undefined); }
+  }, [suppliers]);
 
   return (
     <div className="space-y-6">
-      <InventoryHeader
-        onNew={() => setOpenNew(true)}
-        onRebuild={() => startTransition(async () => { await rebuildOnHand(); router.refresh(); })}
-        onExport={exportCsv}
-        isRebuilding={pending}
-        onNewReceipt={() => setOpenReceipt(true)}
-      />
-      
-      <SBCard title="Inventario por Lote">
-        <div className="p-4 border-b">
-          <InventoryFilters
-            query={query} setQuery={setQuery}
-            location={locationFilter} setLocation={setLocationFilter} locations={locations}
-            showZeros={showZeros} setShowZeros={setShowZeros}
-          />
+      {notification && <Notification {...notification} onClose={() => setNotification(null)} />}
+      <div className="bg-white border rounded-xl shadow-sm p-6 space-y-6">
+        <div className="grid md:grid-cols-3 gap-6">
+          <label className="grid gap-1.5">
+            <span className="font-medium">Proveedor</span>
+            <SearchableSelect<Party>
+              items={suppliers}
+              onSelect={it => { setSupplierId(it.id); setNewSupplierName(undefined); }}
+              onFreeText={handleFreeTextSupplier}
+              placeholder="Buscar o crear proveedor..."
+              initialValue={supplierId ? suppliers.find(s => s.id === supplierId)?.name : newSupplierName}
+            />
+          </label>
+          <label className="grid gap-1.5">
+            <span className="font-medium">Nº de Albarán del Proveedor</span>
+            <Input value={deliveryNote} onChange={e => setDeliveryNote(e.target.value)} placeholder="Ej: 2025/ABC-123" required />
+          </label>
+          <label className="grid gap-1.5">
+            <span className="font-medium">Fecha de Recepción</span>
+            <Input type="date" value={receiptDate} onChange={e => setReceiptDate(e.target.value)} required />
+          </label>
         </div>
-        <InventoryTabs activeTab={activeTab} tabsWithCounts={tabsWithCounts as any} onChange={setActiveTab} />
-        {loading ? (
-          <div className="text-center py-12 text-zinc-500">Cargando inventario…</div>
-        ) : currentTabData.length === 0 ? (
-          <div className="text-center py-12 text-zinc-500">No hay resultados para los filtros actuales.</div>
-        ) : (
-          <DataTableSB rows={currentTabData} cols={onHandCols as any} />
-        )}
-      </SBCard>
 
-      <SBCard title="Historial de Recepciones">
-        <DataTableSB rows={goodsReceipts} cols={receiptCols as any[]} />
-      </SBCard>
+        <div>
+          <h4 className="font-medium mb-2">Líneas de Producto</h4>
+          <div className="space-y-3 rounded-lg border p-4">
+            <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_auto] gap-3 text-sm font-semibold text-zinc-600 px-2">
+              <span>Material</span>
+              <span>Lote Proveedor</span>
+              <span className="text-right">Cantidad</span>
+              <span className="text-right">Coste Unit.</span>
+              <span>Caducidad</span>
+              <div />
+            </div>
 
-      <NewOnHandDialog
-        open={openNew}
-        onClose={() => setOpenNew(false)}
-        onCreate={handleCreate}
-        items={santaData?.items || []}
-        locations={locations.filter(l => l !== 'ALL')}
-        defaultLocation={locationFilter === 'ALL' ? undefined : locationFilter}
-      />
-      <QuickGoodsReceiptDialog
-        open={openReceipt}
-        onOpenChange={setOpenReceipt}
-      />
+            {lines.map((line, index) => (
+              <div key={line.key} className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_auto] gap-3 items-start">
+                <div className="space-y-1">
+                  <SearchableSelect<Item>
+                    items={items}
+                    onSelect={it => handleLineChange(index, 'itemId', it.id)}
+                    onFreeText={txt => handleLineChange(index, 'newItemName', txt)}
+                    placeholder="Buscar o crear item..."
+                    initialValue={line.itemId ? items.find(m => m.id === line.itemId)?.name : line.newItemName}
+                  />
+                  {line.newItemName && !line.itemId && (
+                    <Select value={line.newItemCategory}
+                            onChange={e => handleLineChange(index, 'newItemCategory', e.target.value as ItemCategory)}>
+                      <option value="raw">Materia Prima</option>
+                      <option value="pack">Packaging</option>
+                      <option value="label">Etiqueta</option>
+                      <option value="consumable">Consumible</option>
+                      <option value="intermediate">Intermedio</option>
+                      <option value="merch">Merchandising</option>
+                    </Select>
+                  )}
+                </div>
+
+                <Input value={line.supplierLot}
+                       onChange={e => handleLineChange(index, 'supplierLot', e.target.value)}
+                       placeholder="Lote del proveedor" required/>
+
+                <Input type="number" value={line.qty || ''}
+                       onChange={e => handleLineChange(index, 'qty', Number(e.target.value) || 0)}
+                       className="text-right" required/>
+
+                <Input type="number" step="0.01" value={line.unitCost || ''}
+                       onChange={e => handleLineChange(index, 'unitCost', Number(e.target.value) || 0)}
+                       className="text-right" required/>
+
+                <Input type="date" value={line.expiryAt ?? ''}
+                       onChange={e => handleLineChange(index, 'expiryAt', e.target.value || null)}
+                       placeholder="AAAA-MM-DD" />
+
+                <SBButton variant="ghost" size="sm" onClick={() => removeLine(index)}>
+                  <Trash2 className="h-4 w-4 text-red-500" />
+                </SBButton>
+              </div>
+            ))}
+
+            <SBButton variant="secondary" size="sm" onClick={addLine}>
+              <Plus className="h-4 w-4 mr-2" /> Añadir Línea
+            </SBButton>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between pt-4 border-t">
+            <div></div>
+            <div className="flex items-center gap-2">
+                <SBButton variant="secondary" onClick={onCancel}>Cancelar</SBButton>
+                <SBButton onClick={handleSave} disabled={isSaving}>
+                    {isSaving ? 'Guardando...' : 'Guardar Recepción'}
+                </SBButton>
+            </div>
+        </div>
+      </div>
     </div>
   );
+}
+
+export default function GoodsReceiptPage() {
+    const { data } = useData();
+    const [showForm, setShowForm] = useState(false);
+    const [receipts, setReceipts] = useState<GoodsReceipt[]>([]);
+    
+    useEffect(() => {
+        if(data?.goodsReceipts) {
+            const sorted = [...data.goodsReceipts].sort((a,b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime());
+            setReceipts(sorted);
+        }
+    }, [data?.goodsReceipts]);
+
+    const handleSaveSuccess = (info: { receiptId: string; receiptNumber: string, supplierId?: string }) => {
+        // Optimistically update the list
+        const newReceipt = { 
+            id: info.receiptId, 
+            receiptNumber: info.receiptNumber, 
+            supplierPartyId: info.supplierId || 'unknown',
+            receivedAt: new Date().toISOString(), 
+            lines: [], 
+            status: 'pending_qc' as const 
+        };
+        setReceipts(prev => [newReceipt as GoodsReceipt, ...prev]);
+        setShowForm(false);
+    };
+
+    const cols: Col<GoodsReceipt>[] = [
+        { key: 'receiptNumber', header: 'Nº Recepción', render: r => <span className="font-mono text-xs">{r.receiptNumber}</span> },
+        { key: 'supplierPartyId', header: 'Proveedor', render: r => <span>{data?.parties.find(p => p.id === r.supplierPartyId)?.name || 'N/A'}</span> },
+        { key: 'deliveryNote', header: 'Albarán Proveedor', render: r => <span>{r.deliveryNote}</span> },
+        { key: 'receivedAt', header: 'Fecha', render: r => <span>{new Date(r.receivedAt).toLocaleDateString('es-ES')}</span> },
+        { key: 'lines', header: 'Líneas', className: "text-right", render: r => <span>{r.lines.length}</span> },
+        { key: 'status', header: 'Estado', render: r => <span className={`px-2 py-0.5 text-xs rounded-full ${r.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>{r.status}</span> },
+    ];
+
+    if (showForm) {
+        return (
+            <div className="space-y-6 max-w-5xl mx-auto">
+                <div className="flex justify-between items-center">
+                    <h1 className="text-2xl font-semibold text-zinc-800 flex items-center gap-3"><Truck /> Nueva Recepción de Mercancía</h1>
+                </div>
+                <GoodsReceiptForm onSaveSuccess={handleSaveSuccess} onCancel={() => setShowForm(false)} />
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-6">
+            <div className="flex justify-between items-center">
+                <h1 className="text-2xl font-semibold text-zinc-800 flex items-center gap-3"><Truck /> Historial de Recepciones</h1>
+                <SBButton onClick={() => setShowForm(true)}>
+                    <Plus className="h-4 w-4 mr-2" /> Nueva Recepción
+                </SBButton>
+            </div>
+            <DataTableSB rows={receipts} cols={cols as any[]} />
+        </div>
+    );
 }

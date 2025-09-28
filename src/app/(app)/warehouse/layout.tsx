@@ -1,3 +1,4 @@
+
 "use client";
 import React from "react";
 import { ModuleHeader } from "@/components/ui/ModuleHeader";
@@ -12,8 +13,7 @@ function WarehouseNav() {
   const pathname = usePathname();
   const navItems = [
     { href: "/warehouse/dashboard", label: "Dashboard" },
-    { href: "/warehouse/inventory", label: "Inventario" },
-    { href: "/warehouse/goods-receipt", label: "Recepción de Mercancía" },
+    { href: "/warehouse/inventory", label: "Inventario y Recepciones" },
     { href: "/warehouse/logistics", label: "Logística" },
   ];
 
