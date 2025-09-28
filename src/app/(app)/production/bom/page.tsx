@@ -9,7 +9,7 @@ import { SB_COLORS } from "@/domain/ssot";
 import { useData } from "@/lib/dataprovider";
 import type { BillOfMaterial as RecipeBom, Uom, Item } from "@/domain/ssot";
 import { canonicalUomForItem } from "@/domain/uom";
-import { useToaster } from "@/components/ui/Toaster";
+import { toast } from "sonner";
 import { Banner } from "@/components/ui/Banner";
 import { SpinnerButton } from "@/components/ui/SpinnerButton";
 import { Field, focusFirstError } from "@/components/forms/Field";
@@ -88,7 +88,7 @@ function RecipeForm({
 }) {
   const fm = useBomForm(initialValues);
   const { data: santaData } = useData();
-  const { push } = useToaster();
+
   const isProd = (fm.values as BomWithStage).stage === "PRODUCCION";
 
   // Quick create
@@ -165,12 +165,12 @@ function RecipeForm({
     fm.setSaving(false);
 
     if (res.ok) {
-      push({ kind: "ok", text: "Receta guardada con éxito" });
+      toast.success("Receta guardada con éxito");
       onCancel();
     } else {
       fm.setLastError(res.message);
       fm.setFieldErrors(res.fieldErrors);
-      push({ kind: "err", text: res.message });
+      toast.error(res.message);
       setTimeout(() => focusFirstError(res.fieldErrors), 0);
     }
   }
