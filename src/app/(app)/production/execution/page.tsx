@@ -17,14 +17,11 @@ import type {
 } from "@/domain/ssot";
 import { JournalEntry } from "@/domain/ssot.common";
 
-// Server actions (tu versión que recibe OBJETO)
+// Server actions (NUEVAS ACCIONES CENTRALIZADAS)
 import {
   planProduction,
-  startProduction,
-  pauseProduction,
-  resumeProduction,
-  closeProduction,
-  cancelProduction,
+  updateProductionOrderStatus,
+  completeProductionOrder,
   addIncident,
 } from "../actions";
 
@@ -53,6 +50,7 @@ const mapStatusTone = (s?: ProductionStatus): "emerald" | "amber" | "rose" | "zi
   if (s === "DONE") return "emerald";
   if (s === "CANCELLED") return "zinc";
   if (s === "PAUSED" || s === "QC_HOLD") return "rose";
+  if (s === "IN_PROGRESS") return "sky";
   return "amber";
 };
 
@@ -85,8 +83,8 @@ const canFinish   = (s?: ProductionStatus) => s === "IN_PROGRESS" || s === "PAUS
 const isClosedLike = (s?: ProductionStatus) => s === "DONE" || s === "CANCELLED";
 
 // ---------- Cálculos y helpers ----------
-type RealLine = { itemId: string; qty: number; uom: Uom; lotNumber?: string };
-type OutputReal = { qty: number; uom: Uom; lotNumber?: string };
+type RealLine = { itemId: string; qty: number; uom: Uom; lotNumber: string };
+type OutputReal = { itemId: string; qty: number; uom: Uom; lotNumber?: string; sku?:string };
 
 const toTime = (s?: string) => {
   const t = s ? Date.parse(s) : NaN;
@@ -229,7 +227,7 @@ export default function ProductionExecutionPage() {
 
   // Reales
   const [realConsumption, setRealConsumption] = useState<RealLine[]>([]);
-  const [outputReal, setOutputReal] = useState<OutputReal>({ qty: 0, uom: "unit" as Uom });
+  const [outputReal, setOutputReal] = useState<OutputReal>({ itemId: '', qty: 0, uom: "unit" });
   const [journal, setJournal] = useState<JournalEntry[]>([]);
 
   // Control básico
@@ -241,11 +239,7 @@ export default function ProductionExecutionPage() {
   const [incidentSeverity, setIncidentSeverity] = useState<"LOW"|"MEDIUM"|"HIGH">("LOW");
 
   // Loading states
-  const [isPendingProgram, startProgramTransition] = useTransition();
-  const [isPendingStart, startStartTransition] = useTransition();
-  const [isPendingFinish, startFinishTransition] = useTransition();
-  const [isPendingOther, startOtherTransition] = useTransition();
-  const isPendingAny = isPendingProgram || isPendingStart || isPendingFinish || isPendingOther;
+  const [isPending, startTransition] = useTransition();
 
   // Aperturas
   const openPlanningFromBom = (bom: RecipeBom) => {
@@ -254,7 +248,7 @@ export default function ProductionExecutionPage() {
     setPlanQty(1);
     setPlanDate(new Date().toISOString().slice(0,10));
     setRealConsumption([]);
-    setOutputReal({ qty: 0, uom: (bom.stage === "ENVASADO" ? "unit" : "L") as Uom });
+    setOutputReal({ itemId: bom.outputItemId, sku: itemsMap.get(bom.outputItemId)?.sku, qty: 0, uom: (bom.stage === "ENVASADO" ? "unit" : "L") as any });
     setResponsible("");
     setProtocolChecks([false,false,false,false]);
     setJournal([]);
@@ -268,7 +262,7 @@ export default function ProductionExecutionPage() {
     setPlanDate((((order as any).scheduledFor ?? (order as any).plannedDate) ?? new Date().toISOString()).slice(0,10));
     setRealConsumption((((order as any).actuals ?? []) as RealLine[]).map(r=>({ ...r, qty: Number(r.qty)||0 })));
     const out = (order as any)?.output?.[0];
-    setOutputReal({ qty: Number(out?.qty)||0, uom: (out?.uom ?? "unit") as Uom, lotNumber: out?.lotNumber });
+    setOutputReal({ itemId: order.outputItemId, sku: itemsMap.get(order.outputItemId)?.sku, qty: Number(out?.qty)||0, uom: (out?.uom ?? "unit") as any, lotNumber: out?.lotNumber });
     setResponsible((order as any).responsibleId ?? "");
     setProtocolChecks([false,false,false,false]);
     setJournal((order as any).journal ?? []);
@@ -308,7 +302,6 @@ export default function ProductionExecutionPage() {
     const msgs:string[] = [];
     if (!currentOrder) return [];
     if (!(outputReal.qty > 0)) msgs.push("Cantidad de producción final debe ser > 0.");
-    if (!outputReal.lotNumber?.trim()) msgs.push("Lote final obligatorio.");
     return msgs;
   }, [currentOrder, outputReal]);
 
@@ -321,7 +314,7 @@ export default function ProductionExecutionPage() {
   const handleProgram = () => {
     if (!planningBom) return;
     if (missingForProgram.length) { toast.error("Revisa avisos para programar."); return; }
-    startProgramTransition(async ()=>{
+    startTransition(async ()=>{
       const r = await planProduction({
         bomId: planningBom.id,
         qty: planQty,
@@ -339,72 +332,37 @@ export default function ProductionExecutionPage() {
     });
   };
 
-  const handleStart = () => {
-    if (!currentOrder) return;
-    if (missingForStart.length) { toast.error("Revisa avisos para iniciar."); return; }
-    startStartTransition(async ()=>{
-      const r = await startProduction({ orderId: currentOrder.id, responsible, idempotencyKey: crypto.randomUUID() });
-      if ((r as any)?.ok) {
-        toast.success("Producción iniciada");
-        setCurrentOrder({ ...currentOrder, status: "IN_PROGRESS" as ProductionStatus });
-        router.refresh();
-      } else toast.error((r as any)?.message ?? "Error al iniciar");
-    });
-  };
-
-  const handlePause = () => {
-    if (!currentOrder) return;
-    startOtherTransition(async ()=>{
-      const r = await pauseProduction({ orderId: currentOrder.id, idempotencyKey: crypto.randomUUID() });
-      if ((r as any)?.ok) {
-        toast.message("Producción en pausa");
-        setCurrentOrder({ ...currentOrder, status: "PAUSED" as ProductionStatus });
-        router.refresh();
-      } else toast.error((r as any)?.message ?? "No se pudo pausar");
-    });
-  };
-
-  const handleResume = () => {
-    if (!currentOrder) return;
-    startOtherTransition(async ()=>{
-      const r = await resumeProduction({ orderId: currentOrder.id, idempotencyKey: crypto.randomUUID() });
-      if ((r as any)?.ok) {
-        toast.success("Producción reanudada");
-        setCurrentOrder({ ...currentOrder, status: "IN_PROGRESS" as ProductionStatus });
-        router.refresh();
-      } else toast.error((r as any)?.message ?? "No se pudo reanudar");
-    });
-  };
+  const handleUpdateStatus = (status: 'IN_PROGRESS' | 'PAUSED' | 'CANCELLED') => {
+      if(!currentOrder) return;
+      if (status === 'CANCELLED' && !confirm('¿Cancelar la orden? Esta acción no se puede deshacer.')) return;
+      startTransition(async () => {
+          const res = await updateProductionOrderStatus({ orderId: currentOrder.id, status, responsibleId: responsible });
+          if(res.ok) {
+              toast.success(`Orden ${status === 'CANCELLED' ? 'cancelada' : 'actualizada'}`);
+              setCurrentOrder(o => o ? ({...o, status: res.data.order.status as any }) : null);
+              if (status === 'CANCELLED') setCurrentOrder(null);
+              router.refresh();
+          } else {
+              toast.error(res.message);
+          }
+      });
+  }
 
   const handleFinish = () => {
     if (!currentOrder) return;
     if (!confirm("¿Finalizar y cerrar la orden? Se crearán movimientos de stock. Esta acción no se puede deshacer.")) return;
     if (missingForFinish.length) { toast.error("Revisa avisos para finalizar."); return; }
-    startFinishTransition(async ()=>{
-      const r = await closeProduction({
+    startTransition(async ()=>{
+      const r = await completeProductionOrder({
         orderId: currentOrder.id,
-        realConsumption: realConsumption,
-        journal: journal,
-        idempotencyKey: crypto.randomUUID()
+        finalConsumptions: realConsumption,
+        finalOutputs: [outputReal]
       });
-      if ((r as any)?.ok) {
+      if (r.ok) {
         toast.success("Orden finalizada");
         setCurrentOrder({ ...currentOrder, status: "DONE" as ProductionStatus });
         router.refresh();
-      } else toast.error((r as any)?.message ?? "No se pudo finalizar");
-    });
-  };
-
-  const handleCancel = () => {
-    if (!currentOrder) return;
-    if (!confirm("¿Cancelar la orden? Esta acción no se puede deshacer.")) return;
-    startOtherTransition(async ()=>{
-      const r = await cancelProduction({ orderId: currentOrder.id, idempotencyKey: crypto.randomUUID() });
-      if ((r as any)?.ok) {
-        toast.success("Orden cancelada");
-        setCurrentOrder(null);
-        router.refresh();
-      } else toast.error((r as any)?.message ?? "No se pudo cancelar");
+      } else toast.error(r.message ?? "No se pudo finalizar");
     });
   };
 
@@ -412,18 +370,16 @@ export default function ProductionExecutionPage() {
     if (!currentOrder) return;
     const text = incidentText.trim();
     if (!text) { toast.error("Describe la incidencia."); return; }
-    startOtherTransition(async () => {
+    startTransition(async () => {
       const r = await addIncident({
         orderId: currentOrder.id,
         severity: incidentSeverity,
         summary: text,
-        idempotencyKey: crypto.randomUUID()
       });
       if ((r as any).ok) {
-        // Añadimos al journal para reflejo inmediato
         setJournal(j => [
           ...j,
-          { id: `inc_${(r as any).incidentId ?? Date.now()}`, at: new Date().toISOString(), kind: 'INCIDENT', summary: `[${incidentSeverity}] ${text}` } as JournalEntry
+          { id: `inc_${(r.data as any).incidentId ?? Date.now()}`, at: new Date().toISOString(), kind: 'INCIDENT', summary: `[${incidentSeverity}] ${text}` } as JournalEntry
         ]);
         setIncidentText("");
         toast.success("Incidencia registrada");
@@ -555,32 +511,32 @@ export default function ProductionExecutionPage() {
               {/* Botonera azul (estado) */}
               <div className="flex flex-wrap gap-2 pt-2">
                 {(!currentOrder && planningBom) && (
-                  <SBButton className="bg-blue-600 text-white" onClick={handleProgram} disabled={isPendingAny || missingForProgram.length > 0}>
+                  <SBButton className="bg-blue-600 text-white" onClick={handleProgram} disabled={isPending || missingForProgram.length > 0}>
                     <Play size={16}/> Programar producción
                   </SBButton>
                 )}
                 {currentOrder && canStart(currentOrder.status) && (
-                  <SBButton className="bg-blue-600 text-white" onClick={handleStart} disabled={isPendingAny || missingForStart.length > 0}>
+                  <SBButton className="bg-blue-600 text-white" onClick={() => handleUpdateStatus('IN_PROGRESS')} disabled={isPending || missingForStart.length > 0}>
                     <Play size={16}/> Iniciar
                   </SBButton>
                 )}
                 {currentOrder && canPause(currentOrder.status) && (
-                  <SBButton className="bg-blue-600 text-white" onClick={handlePause} disabled={isPendingAny}>
+                  <SBButton className="bg-blue-600 text-white" onClick={() => handleUpdateStatus('PAUSED')} disabled={isPending}>
                     <Pause size={16}/> Pausar
                   </SBButton>
                 )}
                 {currentOrder && canResume(currentOrder.status) && (
-                  <SBButton className="bg-blue-600 text-white" onClick={handleResume} disabled={isPendingAny}>
+                  <SBButton className="bg-blue-600 text-white" onClick={() => handleUpdateStatus('IN_PROGRESS')} disabled={isPending}>
                     <Play size={16}/> Reanudar
                   </SBButton>
                 )}
                 {currentOrder && canFinish(currentOrder.status) && (
-                  <SBButton className="bg-emerald-600 text-white" onClick={handleFinish} disabled={isPendingAny || missingForFinish.length > 0}>
+                  <SBButton className="bg-emerald-600 text-white" onClick={handleFinish} disabled={isPending || missingForFinish.length > 0}>
                     <CheckCircle size={16}/> Finalizar
                   </SBButton>
                 )}
                 {currentOrder && (
-                  <SBButton variant="destructive" onClick={handleCancel} disabled={isClosedLike(currentOrder?.status) || isPendingAny}>
+                  <SBButton variant="destructive" onClick={() => handleUpdateStatus('CANCELLED')} disabled={isClosedLike(currentOrder?.status) || isPending}>
                     <XCircle size={16}/> Cancelar
                   </SBButton>
                 )}
@@ -603,8 +559,8 @@ export default function ProductionExecutionPage() {
           <SBCard title="Control de orden">
             <div className="p-4 space-y-3">
               <div className="p-3 bg-zinc-50 border rounded-lg text-sm">
-                <div className="font-mono">SKU: <b>{ itemsMap.get((currentOrder as any)?.outputItemId ?? activeBom?.outputItemId ?? "")?.name ?? "-" }</b></div>
-                <div className="font-mono">LOT: <b>{ (currentOrder as any)?.lotNumber ?? outputReal.lotNumber ?? "-" }</b></div>
+                <div className="font-mono">SKU: <b>{ itemsMap.get(outputReal?.itemId ?? "")?.name ?? "-" }</b></div>
+                <div className="font-mono">LOT: <b>{ outputReal.lotNumber ?? "-" }</b></div>
               </div>
 
               <label className="text-xs font-medium">Responsable</label>
@@ -671,14 +627,14 @@ export default function ProductionExecutionPage() {
                   placeholder="Descripción breve (qué, dónde, por qué, impacto)"
                   value={incidentText}
                   onChange={e=>setIncidentText(e.target.value)}
-                  disabled={!currentOrder || orderIsLocked || isPendingAny}
+                  disabled={!currentOrder || orderIsLocked || isPending}
                 />
                 <div className="flex items-center gap-2">
                   <select
                     className="border rounded-md p-2 text-xs"
                     value={incidentSeverity}
                     onChange={e=>setIncidentSeverity(e.target.value as any)}
-                    disabled={!currentOrder || orderIsLocked || isPendingAny}
+                    disabled={!currentOrder || orderIsLocked || isPending}
                   >
                     <option value="LOW">Baja</option>
                     <option value="MEDIUM">Media</option>
@@ -687,7 +643,7 @@ export default function ProductionExecutionPage() {
                   <SBButton
                     className="bg-amber-600 text-white"
                     onClick={handleAddIncident}
-                    disabled={!currentOrder || orderIsLocked || isPendingAny || !incidentText.trim()}
+                    disabled={!currentOrder || orderIsLocked || isPending || !incidentText.trim()}
                   >
                     <AlertTriangle size={16}/> Añadir incidencia
                   </SBButton>

@@ -1,4 +1,3 @@
-
 // ============================================================================
 // src/app/(app)/production/actions.ts
 // Server actions del módulo de Producción (REFACTORIZADO)
@@ -7,16 +6,18 @@
 'use server';
 
 import { ok, fail, type ActionResult } from "@/lib/result";
-import { FieldValue } from "firebase-admin/firestore";
+import { FieldValue, FieldPath } from "firebase-admin/firestore";
 import { z } from "zod";
-import { adminDb as db } from '@/server/firebase';
+import { adminDb } from '@/server/firebase';
 import type { ProductionOrder, Item, StockMove, Uom } from '@/domain/ssot';
 import { LotSchema } from '@/domain/validators';
 import { findNextLotNumber } from '../warehouse/inventory/actions';
+import { upsertMany } from '@/lib/dataprovider/actions';
+
 
 // ===== Helpers de lectura (simplificados para claridad) =====
 async function readOrder(id: string): Promise<ProductionOrder | null> {
-    const doc = await db.collection('productionOrders').doc(id).get();
+    const doc = await adminDb.collection('productionOrders').doc(id).get();
     if (!doc.exists) return null;
     return { id: doc.id, ...doc.data() } as ProductionOrder;
 }
@@ -45,7 +46,7 @@ export async function updateProductionOrderStatus(
   const now = new Date().toISOString();
 
   try {
-    const orderRef = db.collection('productionOrders').doc(orderId);
+    const orderRef = adminDb.collection('productionOrders').doc(orderId);
     const order = await readOrder(orderId);
     if (!order) return fail("La orden de producción no existe.");
     
@@ -114,12 +115,12 @@ export async function completeProductionOrder(
   }
   
   // Inicia un batch para asegurar que todas las operaciones sean atómicas
-  const batch = db.batch();
+  const batch = adminDb.batch();
 
   try {
     // 1. Salida de stock de materias primas consumidas
     for (const consumption of finalConsumptions) {
-      const moveRef = db.collection('stockMoves').doc();
+      const moveRef = adminDb.collection('stockMoves').doc();
       const move: Omit<StockMove, 'uom'> & { uom: string } = {
         id: moveRef.id,
         ref: { prodOrderId: orderId },
@@ -143,7 +144,7 @@ export async function completeProductionOrder(
       newLotNumbers.push(lotNumber);
 
       // Crear o actualizar el lote
-      const lotRef = db.collection('lots').doc(lotNumber);
+      const lotRef = adminDb.collection('lots').doc(lotNumber);
       batch.set(lotRef, LotSchema.parse({
         lotNumber,
         itemId: output.itemId,
@@ -156,7 +157,7 @@ export async function completeProductionOrder(
       }), { merge: true });
 
       // Crear el movimiento de stock de entrada
-      const moveRef = db.collection('stockMoves').doc();
+      const moveRef = adminDb.collection('stockMoves').doc();
       const moveIn: Omit<StockMove, 'uom'> & { uom: string } = {
         id: moveRef.id,
         ref: { prodOrderId: orderId },
@@ -173,7 +174,7 @@ export async function completeProductionOrder(
     }
 
     // 3. Actualizar la orden de producción a 'DONE'
-    const orderRef = db.collection('productionOrders').doc(orderId);
+    const orderRef = adminDb.collection('productionOrders').doc(orderId);
     batch.update(orderRef, {
       status: 'DONE',
       completedAt: now,
@@ -201,7 +202,7 @@ export async function completeProductionOrder(
 export async function addIncident(input: { orderId: string; severity: 'LOW'|'MEDIUM'|'HIGH'; summary: string; details?: string; }) {
   const { orderId, ...data } = input;
   try {
-    const orderRef = db.collection('productionOrders').doc(orderId);
+    const orderRef = adminDb.collection('productionOrders').doc(orderId);
     await orderRef.update({
       incidents: FieldValue.arrayUnion({ id: `inc_${Date.now()}`, at: new Date().toISOString(), ...data }),
       updatedAt: new Date().toISOString(),
@@ -220,20 +221,20 @@ export async function addIncident(input: { orderId: string; severity: 'LOW'|'MED
 async function reads() {
   return {
     getOne: async (collection: string, id: string): Promise<any> => {
-        const doc = await db.collection(collection).doc(id).get();
+        const doc = await adminDb.collection(collection).doc(id).get();
         if (!doc.exists) return null;
         return { id: doc.id, ...doc.data() };
     },
     getManyByIds: async (collection: string, ids: string[]): Promise<any[]> => {
         if (!ids || ids.length === 0) return [];
-        const snaps = await db.collection(collection).where(FieldPath.documentId(), 'in', ids).get();
+        const snaps = await adminDb.collection(collection).where(FieldPath.documentId(), 'in', ids).get();
         return snaps.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     },
   };
 }
 
 async function readAll(collection: string): Promise<any[]> {
-    const snap = await db.collection(collection).get();
+    const snap = await adminDb.collection(collection).get();
     return snap.docs.map(d => d.data());
 }
 
@@ -369,7 +370,7 @@ export async function planProduction(input: unknown): Promise<ActionResult<{ ord
       idempotency: idempotencyKey ? [idempotencyKey] : []
     };
 
-    await db.collection('productionOrders').doc(id).set(po);
+    await upsertMany('productionOrders', [po as any]);
     return ok({ order: po as ProductionOrder });
   } catch (e:any) {
     return fail('No se pudo planificar la orden.', { code: e?.code, retryable: true });
