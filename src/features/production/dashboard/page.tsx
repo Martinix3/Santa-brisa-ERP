@@ -1,3 +1,4 @@
+
 // src/features/production/dashboard/page.tsx
 "use client";
 import React, { useMemo } from "react";
@@ -13,7 +14,7 @@ import { EfficiencyWidget } from "@/features/production/dashboard/components/Eff
 import { Plus } from "lucide-react";
 import { SBCard } from "@/components/ui/ui-primitives";
 import { UpcomingTasks } from "@/features/agenda/components/UpcomingTasks";
-import { SB_THEME } from "@/domain/ssot";
+import { SB_THEME, type ProductionOrder } from "@/domain/ssot";
 
 export default function ProductionDashboardPage() {
   const { data } = useData();
@@ -40,7 +41,7 @@ export default function ProductionDashboardPage() {
           <SBCard title="Avance de Producción vs. Planificado (Últimos 30 días)">
             <BottlingProgress data={kpis.progressSeries} />
           </SBCard>
-          <OrdersTimeline orders={orders as any} />
+          <OrdersTimeline orders={orders as ProductionOrder[]} />
         </div>
         <div className="space-y-6">
           <ShortagesPanel shortages={kpis.currentShortages} items={items || []} />

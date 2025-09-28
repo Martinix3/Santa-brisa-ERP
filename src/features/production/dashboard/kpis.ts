@@ -1,4 +1,5 @@
 
+
 import type { ProductionOrder, BillOfMaterial, OnHandView, Item, ProductionStatus } from "@/domain/ssot";
 import { isSameDay, seriesDays } from "./utils";
 
@@ -11,9 +12,9 @@ export function computeKpis({ orders, recipes, onHand, items }: Input){
   const now = new Date();
   const last30 = new Date(now.getTime() - 30*24*60*60*1000);
 
-  const count = (s: ProductionStatus) => orders.filter(o=>o.status===s).length;
+  const count = (s: ProductionStatus) => (orders || []).filter(o=>o.status===s).length;
 
-  const doneLast30 = orders.filter(o=>o.status==='DONE' && o.execution?.finishedAt && new Date(o.execution.finishedAt) >= last30);
+  const doneLast30 = (orders || []).filter(o=>o.status==='DONE' && o.execution?.finishedAt && new Date(o.execution.finishedAt) >= last30);
   const totalUnits30 = sum(doneLast30.map(o => o.execution?.goodUnits || 0));
   const avgCostUnit30 = avg(doneLast30.map(o => o.costing?.actual?.perUnit || 0));
   const avgYield30 = avg(doneLast30.map(o => o.costing?.actual?.yieldLossPct ? 100 - o.costing.actual.yieldLossPct : 100));
@@ -23,13 +24,13 @@ export function computeKpis({ orders, recipes, onHand, items }: Input){
     .flatMap(o => o.shortages || []);
 
   const byItem: Record<string, number> = {};
-  for(const it of onHand){
+  for(const it of (onHand || [])){
     if(!it?.itemId) continue;
     byItem[it.itemId] = (byItem[it.itemId]||0) + (it.qty || 0);
   }
   const criticalInventory = Object.entries(byItem)
     .map(([itemId, qty]) => {
-        const item = items.find(m => m.id === itemId);
+        const item = (items || []).find(m => m.id === itemId);
         if (!item) return null;
         let isCritical = false;
         if (item.category === 'raw' && qty <= 10) isCritical = true;
@@ -41,13 +42,13 @@ export function computeKpis({ orders, recipes, onHand, items }: Input){
 
   const daysBack = 30;
   const progressSeries = seriesDays(daysBack).map(d => {
-    const plannedOrders = orders.filter(o=>o.scheduledFor && isSameDay(new Date(o.scheduledFor), d));
+    const plannedOrders = (orders || []).filter(o=>o.scheduledFor && isSameDay(new Date(o.scheduledFor), d));
     const plannedUnits = sum(plannedOrders.map(po => {
-        const recipe = recipes.find(r => r.id === po.bomId);
+        const recipe = (recipes || []).find(r => r.id === po.bomId);
         if (!recipe) return 0;
         return po.targetQuantity;
     }));
-    const real = orders.filter(o=>o.status==='DONE' && o.execution?.finishedAt && isSameDay(new Date(o.execution.finishedAt), d)).reduce((a,o)=>a+(o.execution?.goodUnits||0),0);
+    const real = (orders || []).filter(o=>o.status==='DONE' && o.execution?.finishedAt && isSameDay(new Date(o.execution.finishedAt), d)).reduce((a,o)=>a+(o.execution?.goodUnits||0),0);
     return { date: d.toISOString().slice(5,10).replace('-', '/'), planned: plannedUnits, real };
   });
 
@@ -62,12 +63,12 @@ export function computeKpis({ orders, recipes, onHand, items }: Input){
     return { date: d.toISOString().slice(5,10).replace('-', '/'), cpu };
   });
   
-  const overdueOrders = orders.filter(o => {
+  const overdueOrders = (orders || []).filter(o => {
       const isLate = o.createdAt && new Date(o.createdAt) < new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
       return (o.status === 'PLANNED' || o.status === 'RELEASED') && isLate;
   }).length;
   
-  const pendingQCLots = onHand.filter(l => (l.qcStatus === 'PENDING' || l.qcStatus === ('HOLD' as any)) && l.locationId && !l.locationId.startsWith('RM/')).length;
+  const pendingQCLots = (onHand || []).filter(l => (l.qcStatus === 'PENDING' || l.qcStatus === ('HOLD' as any)) && l.locationId && !l.locationId.startsWith('RM/')).length;
 
   return {
     counters: {
