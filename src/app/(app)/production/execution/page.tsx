@@ -1,3 +1,4 @@
+
 // src/app/(app)/production/execution/page.tsx
 "use client";
 
@@ -14,7 +15,7 @@ import { planProduction, updateProductionOrderStatus, completeProductionOrder, a
 // Tipos locales para el estado del formulario
 type LocalProductionOrder = ProductionOrder & { locked?: boolean; };
 type RealLine = { itemId: string; qty: number; uom: Uom; lotNumber: string; fromLocationId: string; };
-type OutputReal = { itemId: string; qty: number; uom: Uom; lotNumber?: string; sku?: string; toLocationId: string };
+type OutputReal = { itemId: string; qty: number; uom: Uom; lotNumber?: string; sku?: string; toLocationId: string; };
 type ActiveOrderForm = {
     order: LocalProductionOrder | null;
     planningBom: RecipeBom | null;
@@ -143,7 +144,10 @@ function StockCheckPanel({
           remain = +(remain - take).toFixed(3);
         }
       }
-      if (remain > 1e-6) shortages.push({ itemId: t.itemId, itemName: itemsMap.get(t.itemId)?.name ?? t.itemId, missing: +remain.toFixed(3), uom: t.uom });
+      if (remain > 1e-6) {
+        const available = (byItem.get(t.itemId) ?? []).reduce((sum, lot) => sum + (lot.qty || 0), 0);
+        shortages.push({ itemId: t.itemId, itemName: itemsMap.get(t.itemId)?.name ?? t.itemId, missing: +remain.toFixed(3), uom: t.uom });
+      }
     }
     return { shortages, picks };
   }, [theory, onHand, itemsMap]);
@@ -255,7 +259,7 @@ export default function ProductionExecutionPage() {
             uom: order.baseUnit,
             toLocationId: 'FG/MAIN'
         },
-        realConsumption: [],
+        realConsumption: [], // Iniciar vacío, el operario debe introducir lo real
         journal: (order as any).journal ?? [],
         incidentText: "",
         incidentSeverity: 'LOW',

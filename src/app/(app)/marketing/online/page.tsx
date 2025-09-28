@@ -11,6 +11,19 @@ import { MarketingTaskCompletionDialog } from "@/features/marketing/components/M
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 
+type NewCampaignData = {
+  title: string;
+  channel: OnlineCampaign["channel"];
+  startAt: string;
+  endAt?: string;
+  budget?: number;
+  ownerUserId?: string;
+  tracking?: {
+    utmCampaign?: string;
+    couponCode?: string;
+    landingUrl?: string;
+  };
+};
 
 /* =========================
    Utils de formato
@@ -29,7 +42,7 @@ function NewCampaignDialog({
 }: {
   open: boolean;
   onClose: () => void;
-  onSuccess: (data: any) => void;
+  onSuccess: (data: NewCampaignData) => void;
 }) {
   const [title, setTitle] = useState("");
   const [channel, setChannel] = useState<OnlineCampaign["channel"]>("IG");
@@ -271,8 +284,7 @@ function CampaignRow({
 
   const roas = (edited.spend||0)>0 ? (edited.metrics?.revenue||0)/(edited.spend||0) : 0;
 
-  const save = ()=> { onUpdate(edited); setIsEditing(false); };
-  const cancel = ()=> { setEdited(campaign); setIsEditing(false); };
+  const Input=(p:any)=><input {...p} className={"h-9 w-full rounded-md border border-zinc-200 bg-white px-2 text-sm "+(p.className||"")} />;
 
   if (isEditing) {
     return (
@@ -296,8 +308,8 @@ function CampaignRow({
         <td className="px-2 py-2 text-right font-semibold">{roas ? `${roas.toFixed(2)}x` : "—"}</td>
         <td className="px-2 py-2">
           <div className="flex items-center gap-1 justify-end">
-            <SBButton size="sm" onClick={save} className="sb-icon"><Save size={14} className="sb-icon" /></SBButton>
-            <SBButton size="sm" variant="secondary" onClick={cancel} className="sb-icon"><X size={14} /></SBButton>
+            <SBButton size="sm" onClick={() => { onUpdate(edited); setIsEditing(false); }} className="sb-icon"><Save size={14} className="sb-icon" /></SBButton>
+            <SBButton size="sm" variant="secondary" onClick={() => { setEdited(campaign); setIsEditing(false); }} className="sb-icon"><X size={14} /></SBButton>
           </div>
         </td>
       </tr>
@@ -344,7 +356,7 @@ export default function OnlineCampaignsPage() {
     if (isPersistenceEnabled) await saveCollection("onlineCampaigns", next);
   }
 
-  async function handleCreate(input: Parameters<typeof NewCampaignDialog["onSuccess"]>[0]) {
+  async function handleCreate(input: NewCampaignData) {
     if (!santaData) return;
     const now = new Date().toISOString();
     const doc: OnlineCampaign = {
@@ -369,6 +381,40 @@ export default function OnlineCampaignsPage() {
     const next = campaigns.map(c => c.id === updated.id ? { ...updated, updatedAt: new Date().toISOString() } : c);
     await persist(next);
   }
+
+  const handleSuccess = (result: {entityId: string, payload: any}) => {
+    const { entityId, payload } = result;
+    const next = campaigns.map(c => {
+        if (c.id !== entityId) return c;
+        const ctr = payload.impressions! > 0 ? payload.clicks! / payload.impressions! : 0;
+        const cpc = payload.clicks! > 0 ? payload.spend! / payload.clicks! : 0;
+        const cpm = payload.impressions! > 0 ? payload.spend! / (payload.impressions! / 1000) : 0;
+
+        return {
+            ...c,
+            status: "closed",
+            spend: payload.spend,
+            metrics: {
+            ...c.metrics,
+            impressions: payload.impressions,
+            clicks: payload.clicks,
+            revenue: payload.spend! * payload.roas!,
+            roas: payload.roas,
+            ctr, cpc, cpm,
+            updatedAt: new Date().toISOString(),
+            },
+            updatedAt: new Date().toISOString(),
+        } as OnlineCampaign;
+    });
+    persist(next);
+    toast.success('Resultados de la campaña guardados.');
+    router.refresh();
+    setClosing(null);
+  };
+
+  const handleError = (msg: string) => {
+    toast.error(`Error: ${msg}`);
+  };
 
   const insights = useMemo(()=> buildPaidInsights(campaigns, 300), [campaigns]);
 
@@ -465,37 +511,4 @@ export default function OnlineCampaignsPage() {
           entity={closing}
           open={!!closing}
           onClose={() => setClosing(null)}
-          onSuccess={({entityId, payload}) => {
-            const next = campaigns.map(c => {
-                if (c.id !== entityId) return c;
-                const ctr = payload.impressions! > 0 ? payload.clicks! / payload.impressions! : 0;
-                const cpc = payload.clicks! > 0 ? payload.spend! / payload.clicks! : 0;
-                const cpm = payload.impressions! > 0 ? payload.spend! / (payload.impressions! / 1000) : 0;
-
-                return {
-                    ...c,
-                    status: "closed",
-                    spend: payload.spend,
-                    metrics: {
-                    ...c.metrics,
-                    impressions: payload.impressions,
-                    clicks: payload.clicks,
-                    revenue: payload.spend! * payload.roas!,
-                    roas: payload.roas,
-                    ctr, cpc, cpm,
-                    updatedAt: new Date().toISOString(),
-                    },
-                    updatedAt: new Date().toISOString(),
-                } as OnlineCampaign;
-            });
-            persist(next);
-            toast.success('Resultados de la campaña guardados.');
-            router.refresh();
-            setClosing(null);
-          }}
-          onError={(msg) => toast.error(`Error: ${msg}`)}
-        />
-      )}
-    </>
-  );
-}
+          onSuccess={handleSuccess}
