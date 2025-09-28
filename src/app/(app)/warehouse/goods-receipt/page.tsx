@@ -1,4 +1,3 @@
-
 // src/app/(app)/warehouse/goods-receipt/page.tsx
 "use client";
 
