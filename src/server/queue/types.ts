@@ -1,4 +1,3 @@
-
 import type { Timestamp } from 'firebase-admin/firestore';
 import type { Shipment } from '@/domain/ssot';
 
@@ -6,7 +5,6 @@ export type JobStatus = 'QUEUED' | 'RUNNING' | 'DONE' | 'RETRY' | 'DEAD' | 'FAIL
 
 export type JobPayloads =
  | { kind:'CREATE_MANUAL_SHIPMENT'; payload: Omit<Shipment, 'id' | 'createdAt' | 'updatedAt'> }
- | { kind:'CREATE_SHIPMENT_FROM_ORDER'; payload:{ orderId: string }; }
  | { kind:'VALIDATE_SHIPMENT'; payload: { shipmentId: string, visualOk: boolean, carrier?: string, weightKg?: number, dimsCm?: any, lotMap?: any }; }
  | { kind:'CREATE_DELIVERY_NOTE_CRM'; payload:{ shipmentId: string }; }
  | { kind:'CREATE_SENDCLOUD_LABEL'; payload:{ shipmentId: string }; }

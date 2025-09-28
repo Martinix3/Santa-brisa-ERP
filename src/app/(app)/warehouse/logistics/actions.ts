@@ -1,4 +1,3 @@
-
 // src/app/(app)/warehouse/logistics/actions.ts
 'use server';
 import 'server-only';
@@ -7,11 +6,11 @@ import { revalidatePath } from 'next/cache';
 import { adminDb as db } from '@/server/firebase';
 import { FieldValue } from 'firebase-admin/firestore';
 import { getOne, upsertMany } from '@/lib/dataprovider/server';
-import type { Shipment, OrderSellOut, OnHandView, StockMove, Lot } from '@/domain/ssot';
+import type { Shipment, OrderSellOut, OnHandView, StockMove, Lot, Item, Party, Account } from '@/domain/ssot';
 import { enqueue } from '@/server/queue/queue';
 import { checkOrderStock } from '@/lib/inventory';
 import { makeOnHandId } from '@/domain/id-helpers';
-
+import { makeShipmentCode } from '@/lib/codes';
 
 /**
  * Creates a shipment document directly in Firestore from manual input.
@@ -25,64 +24,94 @@ export async function createManualShipment(payload: any) {
 }
 
 /**
- * Enqueues a job to create a shipment from an existing order.
+ * Confirms an order, atomically reserves stock, and creates the corresponding shipment.
+ * If successful, it also enqueues a job to create the invoice.
  */
-export async function createShipmentFromOrder(orderId: string) {
-  await enqueue({ kind:'CREATE_SHIPMENT_FROM_ORDER', payload:{ orderId }, maxAttempts:3 });
-  console.log(`[Action] Enqueued job to create shipment for order ${orderId}.`);
-  return { ok:true };
-}
-
-/**
- * Confirms an order and atomically reserves stock.
- * If successful, it also enqueues jobs to create the shipment and invoice.
- */
-export async function confirmOrderShipment(orderId: string) {
+export async function confirmOrderShipment(orderId: string): Promise<Shipment> {
   const order = await getOne<OrderSellOut>('ordersSellOut', orderId);
   if (!order) throw new Error('Order not found');
   if (order.status !== 'open') throw new Error('Order must be in "open" status to confirm.');
 
-  const onHandSnap = await db.collection('onHand').get();
-  const onHand = onHandSnap.docs.map(doc => doc.data() as OnHandView);
-  
-  const lotsSnap = await db.collection('lots').get();
-  const lots = lotsSnap.docs.map(doc => doc.data() as Lot);
+  const [onHandSnap, lotsSnap, itemsSnap] = await Promise.all([
+    db.collection('onHand').get(),
+    db.collection('lots').get(),
+    db.collection('items').get()
+  ]);
 
+  const onHand = onHandSnap.docs.map(doc => doc.data() as OnHandView);
+  const lots = lotsSnap.docs.map(doc => doc.data() as Lot);
+  const itemsById = new Map(itemsSnap.docs.map(d => [d.id, d.data() as Item]));
 
   const { allocations, shortages } = checkOrderStock(order, onHand, lots);
   if (shortages.length > 0) {
-    const shortageDetails = shortages.map(s => `${s.qtyShort}x ${s.itemId}`).join(', ');
+    const shortageDetails = shortages.map(s => `${s.qtyShort}x ${itemsById.get(s.itemId)?.name ?? s.itemId}`).join(', ');
     throw new Error(`Stock insufficient. Shortages: ${shortageDetails}`);
   }
 
-  const batch = db.batch();
+  const account = await getOne<Account>('accounts', order.accountId);
+  if (!account) throw new Error(`Account ${order.accountId} not found.`);
+  const party = await getOne<Party>('parties', account.partyId);
+  if (!party) throw new Error(`Party ${account.partyId} not found.`);
+
+  // --- Start Transaction ---
+  const shipmentRef = db.collection('shipments').doc(); // Auto-generate ID
+  const orderRef = db.collection('ordersSellOut').doc(orderId);
   const now = new Date().toISOString();
 
-  // 1. Atomically reserve stock by incrementing reservedQty
-  for (const alloc of allocations) {
-    if (!alloc.lotNumber) continue;
-    const onHandId = makeOnHandId(alloc.itemId, alloc.lotNumber, 'FG/MAIN');
-    const onHandRef = db.collection('onHand').doc(onHandId);
-    batch.update(onHandRef, {
-      reservedQty: FieldValue.increment(alloc.qty),
-      updatedAt: now,
-    });
-  }
+  await db.runTransaction(async (transaction) => {
+    // 1. Atomically reserve stock by incrementing reservedQty
+    for (const alloc of allocations) {
+      if (!alloc.lotNumber) continue; // Should not happen if checkOrderStock is correct
+      const onHandId = makeOnHandId(alloc.itemId, alloc.lotNumber, 'FG/MAIN'); // Assuming stock is in FG/MAIN
+      const onHandRef = db.collection('onHand').doc(onHandId);
+      transaction.update(onHandRef, {
+        reservedQty: FieldValue.increment(alloc.qty),
+        updatedAt: now,
+      });
+    }
 
-  // 2. Update order status
-  const orderRef = db.collection('ordersSellOut').doc(orderId);
-  batch.update(orderRef, { status: 'confirmed', updatedAt: now });
+    // 2. Update order status
+    transaction.update(orderRef, { status: 'confirmed', updatedAt: now });
 
-  // 3. Commit atomic operation
-  await batch.commit();
+    // 3. Create the new shipment document
+    const allShipments = (await transaction.get(db.collection('shipments').select('shipmentNumber'))).docs.map(d => d.data().shipmentNumber).filter(Boolean);
+    const shipmentNumber = makeShipmentCode(allShipments, new Date());
+    const isOnlineOrPrivate = account.type === 'ONLINE' || account.type === 'PRIVADA';
+    const totalUnits = order.lines.reduce((sum, line) => sum + line.qty, 0);
+    const mode: 'PARCEL' | 'PALLET' = isOnlineOrPrivate || totalUnits < 12 ? 'PARCEL' : 'PALLET';
+
+    const newShipment: Shipment = {
+        id: shipmentRef.id,
+        shipmentNumber,
+        orderId: order.id,
+        partyId: account.partyId,
+        accountId: account.id,
+        mode,
+        status: 'pending', // Starts as pending, to be picked
+        lines: order.lines.map(line => {
+            const alloc = allocations.find(a => a.itemId === line.itemId);
+            return {
+                itemId: line.itemId,
+                name: itemsById.get(line.itemId)?.name ?? line.itemId,
+                qty: line.qty,
+                uom: 'unit',
+                lotNumber: alloc?.lotNumber, // Pre-assign lot if possible
+            };
+        }),
+        customerName: party.name,
+        addressLine1: party.billingAddress?.address || '',
+        city: party.billingAddress?.city || '',
+        postalCode: party.billingAddress?.zip || '',
+        country: party.billingAddress?.country || 'España',
+        createdAt: now,
+        updatedAt: now,
+        notes: order.notes,
+    };
+    transaction.set(shipmentRef, newShipment as any);
+  });
+  // --- End Transaction ---
 
   // 4. Enqueue follow-up jobs only if the transaction was successful
-  await enqueue({
-      kind: 'CREATE_SHIPMENT_FROM_ORDER',
-      payload: { orderId: order.id },
-      correlationId: `order-${order.id}-shipment`,
-  });
-  
   await enqueue({
       kind: 'CREATE_HOLDED_INVOICE',
       payload: { orderId: order.id },
@@ -91,8 +120,9 @@ export async function confirmOrderShipment(orderId: string) {
 
   revalidatePath('/orders');
   revalidatePath('/warehouse/inventory');
+  revalidatePath('/warehouse/logistics');
 
-  return { ok: true, orderId };
+  return { id: shipmentRef.id, ...await getOne<Shipment>('shipments', shipmentRef.id) } as Shipment;
 }
 
 

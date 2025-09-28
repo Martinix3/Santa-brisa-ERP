@@ -6,7 +6,6 @@ import { enqueue } from './queue';
 // --- Registro de handlers ---
 const HANDLERS: Record<JobKind, (payload: any) => Promise<any>> = {
   CREATE_MANUAL_SHIPMENT: async (payload) => (await import('../workers/createManualShipment.worker')).run(payload),
-  CREATE_SHIPMENT_FROM_ORDER: async (payload) => (await import('../workers/createShipment.worker')).run(payload),
   VALIDATE_SHIPMENT: async (payload) => (await import('../workers/validateShipment.worker')).run(payload),
   CREATE_DELIVERY_NOTE_CRM: async (payload) => (await import('../workers/createDeliveryNote.worker')).run(payload),
   CREATE_SENDCLOUD_LABEL: async (payload) => (await import('../workers/createSendcloudLabel.worker')).run(payload),
