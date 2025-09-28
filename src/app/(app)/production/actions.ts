@@ -228,7 +228,7 @@ export async function addIncident(input: { orderId: string; severity: 'LOW'|'MED
       incidents: FieldValue.arrayUnion({ id: `inc_${Date.now()}`, at: new Date().toISOString(), ...data }),
       updatedAt: new Date().toISOString(),
     });
-    return ok({ orderId });
+    return ok({ orderId, incidentId: `inc_${Date.now()}` });
   } catch (e:any) { 
     return fail('No se pudo registrar la incidencia.');
   }

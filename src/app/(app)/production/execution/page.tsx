@@ -1,4 +1,4 @@
-
+// src/app/(app)/production/execution/page.tsx
 "use client";
 
 import React, { useMemo, useState, useTransition, useEffect, useCallback } from "react";
@@ -14,7 +14,7 @@ import { toast } from "sonner";
 // Tipos SSOT (no asumimos campos que no existan realmente en ProductionOrder)
 import type {
   Uom, Item, ProductionOrder, BillOfMaterial as RecipeBom, ProductionStatus, OnHandView
-} from "@/domain/ssot";
+} from '@/domain/ssot';
 import { JournalEntry } from "@/domain/ssot.common";
 
 // Server actions (NUEVAS ACCIONES CENTRALIZADAS)
@@ -33,8 +33,8 @@ type LocalProductionOrder = ProductionOrder & {
   journal?: JournalEntry[];
 };
 
-type RealLine = { itemId: string; qty: number; uom: Uom; lotNumber: string };
-type OutputReal = { itemId: string; qty: number; uom: Uom; lotNumber?: string; sku?:string };
+type RealLine = { itemId: string; qty: number; uom: Uom; lotNumber: string; fromLocationId: string; };
+type OutputReal = { itemId: string; qty: number; uom: Uom; lotNumber?: string; sku?:string; toLocationId: string; };
 
 // ==== New State Management ====
 type ActiveOrderForm = {
@@ -50,7 +50,7 @@ type ActiveOrderForm = {
     protocolChecks: boolean[];
     stockOk: boolean;
     shortages: Array<{ itemId: string; itemName: string; missing: number; uom: Uom }>;
-    requiredLots: Array<{ itemId: string; lotNumber: string; qty: number; uom: string }>;
+    requiredLots: Array<{ itemId: string; lotNumber: string; qty: number; uom: string, locationId?: string }>;
 };
 
 // ---------- Helpers UI ----------
@@ -119,11 +119,11 @@ function computeTheoretical(bom: RecipeBom, qty: number, itemsMap: Map<string, I
   }));
 }
 
-function picksToRealLines(picks: Array<{itemId:string; lotNumber:string; qty:number; uom:string}>): RealLine[] {
+function picksToRealLines(picks: Array<{itemId:string; lotNumber:string; qty:number; uom:string, locationId?: string}>): RealLine[] {
   const bucket = new Map<string, RealLine>();
   for (const p of picks) {
     const k = `${p.itemId}|${p.lotNumber}|${p.uom}`;
-    const cur = bucket.get(k) ?? { itemId: p.itemId, lotNumber: p.lotNumber, qty: 0, uom: p.uom as Uom };
+    const cur = bucket.get(k) ?? { itemId: p.itemId, lotNumber: p.lotNumber, qty: 0, uom: p.uom as Uom, fromLocationId: p.locationId || 'RM/MAIN' };
     cur.qty = +(cur.qty + Number(p.qty || 0)).toFixed(3);
     bucket.set(k, cur);
   }
@@ -139,7 +139,7 @@ function StockCheckPanel({
   onHand: Array<{itemId:string; lotNumber?:string; qty:number; uom:string; receivedAt?:string; createdAt?:string; locationId?: string;}>;
   onReadyChange: (ok:boolean)=>void;
   shortagesOut: (s: Array<{itemId:string; itemName:string; missing:number; uom:Uom}>)=>void;
-  requiredLotsOut: (r: Array<{itemId:string; lotNumber:string; qty:number; uom:string}>)=>void;
+  requiredLotsOut: (r: Array<{itemId:string; lotNumber:string; qty:number; uom:string, locationId?: string}>)=>void;
 }) {
   const itemsMap = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
   const theory = useMemo(() => computeTheoretical(bom, qty, itemsMap), [bom, qty, itemsMap]);
@@ -154,7 +154,7 @@ function StockCheckPanel({
       rows.sort((a,b)=> toTime(a.receivedAt || a.createdAt) - toTime(b.receivedAt || b.createdAt));
     }
     const shortages: Array<{itemId:string; itemName:string; missing:number; uom:Uom}> = [];
-    const picks: Array<{itemId:string; lotNumber:string; qty:number; uom:Uom}> = [];
+    const picks: Array<{itemId:string; lotNumber:string; qty:number; uom:Uom, locationId?: string}> = [];
     for (const t of theory) {
       let remain = t.qty;
       const rows = byItem.get(t.itemId) ?? [];
@@ -162,7 +162,7 @@ function StockCheckPanel({
         if (remain <= 0) break;
         const take = Math.min(Number(r.qty) || 0, remain);
         if (take > 0 && r.lotNumber) {
-          picks.push({ itemId: t.itemId, lotNumber: r.lotNumber, qty: +take.toFixed(3), uom: t.uom });
+          picks.push({ itemId: t.itemId, lotNumber: r.lotNumber, qty: +take.toFixed(3), uom: t.uom, locationId: r.locationId });
           remain = +(remain - take).toFixed(3);
         }
       }
@@ -230,12 +230,13 @@ export default function ProductionExecutionPage() {
   const [isPending, startTransition] = useTransition();
 
   const openPlanningFromBom = (bom: RecipeBom) => {
+    const outputItem = itemsMap.get(bom.outputItemId);
     setActiveForm({
         order: null,
         planningBom: bom,
         isNew: true,
         responsibleId: "",
-        finalOutput: { itemId: bom.outputItemId, sku: itemsMap.get(bom.outputItemId)?.sku, qty: 0, uom: (bom.stage === "ENVASADO" ? "unit" : "L") },
+        finalOutput: { itemId: bom.outputItemId, sku: outputItem?.sku, qty: 0, uom: (bom.stage === "ENVASADO" ? "unit" : "L"), toLocationId: 'FG/MAIN' },
         realConsumption: [],
         journal: [],
         incidentText: "",
@@ -248,12 +249,13 @@ export default function ProductionExecutionPage() {
   };
 
   const openExecution = (order: ProductionOrder) => {
+    const outputItem = itemsMap.get(order.outputItemId);
     setActiveForm({
         order: order as LocalProductionOrder,
         planningBom: null,
         isNew: false,
         responsibleId: (order as any).responsibleId ?? "",
-        finalOutput: (order as any).output?.[0] ?? { itemId: order.outputItemId, sku: itemsMap.get(order.outputItemId)?.sku, qty: 0, uom: "unit" },
+        finalOutput: (order as any).output?.[0] ?? { itemId: order.outputItemId, sku: outputItem?.sku, qty: 0, uom: "unit", toLocationId: 'FG/MAIN' },
         realConsumption: ((order as any).actuals ?? []).map((r:any)=>({ ...r, qty: Number(r.qty)||0 })),
         journal: (order as any).journal ?? [],
         incidentText: "",
@@ -320,9 +322,10 @@ export default function ProductionExecutionPage() {
         summary: activeForm.incidentText.trim(),
       });
       if (r.ok) {
-        setActiveForm(f => f ? ({ ...f, incidentText: "" }) : null);
+        // No actualizamos estado local, dejamos que refresh lo haga
+        setActiveForm(null);
+        router.refresh();
         toast.success("Incidencia registrada");
-        router.refresh(); // Or optimistically update local state
       } else {
         toast.error(r.message ?? 'Error al añadir incidencia');
       }
