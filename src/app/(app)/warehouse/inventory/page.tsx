@@ -2,17 +2,17 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { SBCard, SBButton, Input, Select, DataTableSB, Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/ui-primitives";
+import { SBCard, SBButton, Input, Select, DataTableSB } from "@/components/ui/ui-primitives";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useData } from "@/lib/dataprovider";
-import type { ItemCategory, OnHandView, Lot, Item } from "@/domain/ssot";
+import type { ItemCategory, OnHandView, Lot, Item, SkuStockSummary } from "@/domain/ssot";
 import {
   computeSkuRollup, computeStockAlerts, computeCoverage, suggestReplenishment,
   computeExpiryBuckets, detectQcStuck, auditOnHandVsLots,
-  stockStatusBadgeClass, stockStatusLabel, type SkuStockSummary,
+  stockStatusBadgeClass, stockStatusLabel,
 } from "@/lib/inventory";
 import {
   exportReplenishmentCsvServer,
-  createManualOnHand,
 } from "./actions";
 import { getLotTraceability as getLotDossierServer } from "@/app/(app)/quality/traceability/actions";
 import { Plus, Download, Search, AlertCircle, ChevronDown } from "lucide-react";
@@ -20,6 +20,9 @@ import { QuickGoodsReceiptDialog } from "@/features/warehouse/components/QuickGo
 import { NewOnHandDialog } from "./components/NewOnHandDialog";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { RealtimeBadge } from "@/components/RealtimeBadge";
+import { useLiveCollection } from "@/hooks/useLiveCollection";
+import { useMutate } from "@/lib/mutate";
 
 
 const CATEGORY_ORDER: { value: ItemCategory; label: string }[] = [
@@ -102,56 +105,56 @@ function InspectorLot({ lotNumber, dossier }: any) {
 }
 
 
-function SkuAccordionRow({ sku, summary, lots, items, onSelect }: { sku: SkuStockSummary; summary: SkuStockSummary; lots: OnHandView[]; items: Item[]; onSelect: (key: string) => void; }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const item = items.find(i => i.id === sku.itemId);
-
-  return (
-    <div className="border-b last:border-b-0">
-      <div
-        className="grid grid-cols-[auto_2fr_1fr_1fr_1fr_1fr_auto] items-center gap-4 p-3 cursor-pointer hover:bg-zinc-50"
-        onClick={() => setIsOpen(!isOpen)}
-        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && setIsOpen(!isOpen)}
-        role="button"
-        tabIndex={0}
-        aria-expanded={isOpen}
-      >
-        <ChevronDown size={16} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-        <div onClick={(e)=>{e.stopPropagation(); onSelect(sku.itemId)}}>
-            <p className="font-bold text-sm text-zinc-800">{item?.name || 'Nombre Desconocido'}</p>
-            <p className="font-mono text-xs bg-zinc-100 px-2 py-0.5 rounded-full inline-block mt-1">{item?.sku || sku.itemId}</p>
+function SkuAccordionRow({ sku, summary, lots, items, onSelect, setViewMode, setSelectedKey }: { sku: SkuStockSummary; summary: SkuStockSummary; lots: OnHandView[]; items: Item[]; onSelect: (key: string) => void; setViewMode: (mode: 'sku' | 'lot') => void; setSelectedKey: (key: string | null) => void; }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const item = items.find(i => i.id === sku.itemId);
+  
+    return (
+      <div className="border-b last:border-b-0">
+        <div
+          className="grid grid-cols-[auto_2fr_1fr_1fr_1fr_1fr_auto] items-center gap-4 p-3 cursor-pointer hover:bg-zinc-50"
+          onClick={() => setIsOpen(!isOpen)}
+          onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && setIsOpen(!isOpen)}
+          role="button"
+          tabIndex={0}
+          aria-expanded={isOpen}
+        >
+          <ChevronDown size={16} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+          <div onClick={(e)=>{e.stopPropagation(); onSelect(sku.itemId)}}>
+              <p className="font-bold text-sm text-zinc-800">{item?.name || 'Nombre Desconocido'}</p>
+              <p className="font-mono text-xs bg-zinc-100 px-2 py-0.5 rounded-full inline-block mt-1">{item?.sku || sku.itemId}</p>
+          </div>
+          <div className="text-sm font-semibold">{summary.totalReleasedFree}</div>
+          <div className="text-sm font-semibold">{summary.totalOnHold}</div>
+          <div className="text-sm">{summary.earliestExpiryAt ? new Date(summary.earliestExpiryAt).toLocaleDateString('es-ES') : '—'}</div>
+          <div><span className={stockStatusBadgeClass(summary.status)}>{stockStatusLabel(summary.status)}</span></div>
+          <SBButton variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); onSelect(sku.itemId)}}>Ver detalles</SBButton>
         </div>
-        <div className="text-sm font-semibold">{summary.totalReleasedFree}</div>
-        <div className="text-sm font-semibold">{summary.totalOnHold}</div>
-        <div className="text-sm">{summary.earliestExpiryAt ? new Date(summary.earliestExpiryAt).toLocaleDateString('es-ES') : '—'}</div>
-        <div><span className={stockStatusBadgeClass(summary.status)}>{stockStatusLabel(summary.status)}</span></div>
-        <SBButton variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); onSelect(sku.itemId)}}>Ver detalles</SBButton>
+        {isOpen && (
+          <div className="bg-zinc-50/70 p-4 pl-12">
+              <DataTableSB
+                  rows={lots}
+                  cols={[
+                    { key: "lotNumber", header: "Lote", render: (r: any) => <span className="font-mono text-xs">{r.lotNumber}</span> },
+                    { key: "qty", header: "Cantidad", render: (r:any)=> (<>{r.qty} <span className="text-xs text-zinc-500">{r.uom}</span></>) },
+                    { key: "locationId", header: "Ubicación" },
+                    { key: "expiryAt", header: "Caducidad", render: (r:any)=> r.expiryAt ? new Date(r.expiryAt).toLocaleDateString() : "—" },
+                    { key: 'actions', header: 'Acciones', render: (r:any) => <SBButton size="sm" variant="subtle" onClick={() => { setViewMode('lot'); setSelectedKey(r.lotNumber)}}>Inspeccionar</SBButton> }
+                  ]}
+                  onRowClick={(r:any)=> { setViewMode('lot'); setSelectedKey(r.lotNumber)}}
+              />
+          </div>
+        )}
       </div>
-      {isOpen && (
-        <div className="bg-zinc-50/70 p-4 pl-12">
-            <DataTableSB
-                rows={lots}
-                cols={[
-                  { key: "lotNumber", header: "Lote", render: (r: any) => <span className="font-mono text-xs">{r.lotNumber}</span> },
-                  { key: "qty", header: "Cantidad", render: (r:any)=> (<>{r.qty} <span className="text-xs text-zinc-500">{r.uom}</span></>) },
-                  { key: "locationId", header: "Ubicación" },
-                  { key: "expiryAt", header: "Caducidad", render: (r:any)=> r.expiryAt ? new Date(r.expiryAt).toLocaleDateString() : "—" },
-                  { key: 'actions', header: 'Acciones', render: (r:any) => <SBButton size="sm" variant="subtle" onClick={() => { setViewMode('lot'); setSelectedKey(r.lotNumber)}}>Inspeccionar</SBButton> }
-                ]}
-                onRowClick={(r:any)=> { setViewMode('lot'); setSelectedKey(r.lotNumber)}}
-            />
-        </div>
-      )}
-    </div>
-  );
-}
+    );
+  }
 
 
 export default function InventoryPage() {
   const { data } = useData();
   const onHand = (data?.onHand ?? []) as OnHandView[];
   const lotsMaster = (data?.lots ?? []) as Lot[];
-  const items = (data?.items ?? []) as Item[];
+  const items = data?.items ?? [];
 
   // ───────────────── toolbar state
   const [isPending, startTransition] = useTransition();
@@ -166,6 +169,8 @@ export default function InventoryPage() {
   
   const [openNew, setOpenNew] = useState(false);
   const [openReceipt, setOpenReceipt] = useState(false);
+  
+  const mutate = useMutate();
 
   // ⌘/Ctrl+K → foco en búsqueda
   useEffect(() => {
@@ -262,7 +267,7 @@ export default function InventoryPage() {
     const a = document.createElement("a");
     a.href = url; a.download = "replenishment.csv"; a.click();
   };
-  
+
   // ───────────────── dossier lote (inspector)
   const [dossier, setDossier] = useState<any>(null);
   useEffect(() => {
@@ -291,7 +296,10 @@ export default function InventoryPage() {
     <div className="space-y-4" style={{'--sb-accent': 'var(--sb-accent-logistica)'} as React.CSSProperties}>
       {/* HEADER */}
       <div>
-        <h1 className="text-xl font-semibold">Inventario y Recepciones</h1>
+        <h1 className="text-xl font-semibold flex items-center gap-2">
+            Inventario y Recepciones
+            <RealtimeBadge />
+        </h1>
         <p className="text-sm text-zinc-500">Vista en tiempo real del stock y registro de entradas.</p>
       </div>
 
@@ -323,7 +331,7 @@ export default function InventoryPage() {
       <div className="grid grid-cols-1 xl:grid-cols-[320px_minmax(0,1fr)_360px] gap-4">
         {/* Panel Izquierdo: Alertas + Categorías */}
         <div className="space-y-4">
-          <SBCard title="Alertas de Inventario" noPadding>
+          <SBCard title="Alertas de Inventario">
             {(alerts.length === 0 && qcStuck.length === 0 && (audit.inOnHandNotLots.length + audit.inLotsNotOnHand.length) === 0) ? (
               <div className="text-sm text-zinc-500 p-4">Sin alertas</div>
             ) : (
@@ -364,7 +372,7 @@ export default function InventoryPage() {
                 </div>
 
                 <TabsContent value="lot">
-                  {lotRows.length === 0 ? <Empty hint="No hay lotes que cumplan los filtros." /> : <DataTableSB rows={lotRows} cols={lotCols} onRowClick={(r:any)=> setSelectedKey(r.lotNumber)} />}
+                  {lotRows.length === 0 ? <Empty hint="No hay lotes que cumplan los filtros." /> : <DataTableSB rows={lotRows} cols={lotCols} onRowClick={(r:any)=> {setViewMode('lot'); setSelectedKey(r.lotNumber)}} />}
                 </TabsContent>
                 <TabsContent value="sku">
                   <div className="divide-y">
@@ -378,7 +386,7 @@ export default function InventoryPage() {
                         <div/>
                     </div>
                     {skusWithLots.length === 0 ? <Empty hint="No hay stock agrupado por SKU para esta vista." /> : (
-                        skusWithLots.map(s => <SkuAccordionRow key={s.summary.itemId} sku={s.summary} summary={s.summary} lots={s.lots} items={items} onSelect={setSelectedKey} />)
+                        skusWithLots.map(s => <SkuAccordionRow key={s.summary.itemId} sku={s.summary} summary={s.summary} lots={s.lots} items={items} onSelect={setSelectedKey} setViewMode={setViewMode} setSelectedKey={setSelectedKey} />)
                     )}
                   </div>
                 </TabsContent>
@@ -404,8 +412,8 @@ export default function InventoryPage() {
        <NewOnHandDialog
         open={openNew}
         onClose={() => setOpenNew(false)}
-        onSuccess={() => {
-            toast.success("Entrada manual creada con éxito.");
+        onSuccess={(result) => {
+            mutate(() => Promise.resolve({ ok: true, id: result.lotNumber }), { label: "Ajuste manual" });
             router.refresh();
             setOpenNew(false);
         }}
@@ -417,8 +425,8 @@ export default function InventoryPage() {
       <QuickGoodsReceiptDialog
         open={openReceipt}
         onOpenChange={setOpenReceipt}
-        onSuccess={() => {
-          toast.success("Recepción de mercancía guardada.");
+        onSuccess={(info) => {
+          mutate(() => Promise.resolve({ ok: true, id: info.receiptNumber }), { label: "Recepción de mercancía" });
           router.refresh();
         }}
         onError={(msg) => toast.error(`Error: ${msg}`)}
@@ -426,5 +434,3 @@ export default function InventoryPage() {
     </div>
   );
 }
-
-    
