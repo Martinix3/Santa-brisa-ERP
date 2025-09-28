@@ -41,6 +41,7 @@
     "@genkit-ai/ai": "latest",
     "@genkit-ai/googleai": "latest",
     "@google-cloud/firestore": "latest",
+    "@radix-ui/react-tabs": "latest",
     "clsx": "^2.1.1",
     "firebase": "latest",
     "firebase-admin": "latest",
