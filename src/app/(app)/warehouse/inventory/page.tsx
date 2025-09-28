@@ -1,8 +1,9 @@
-
+// src/app/(app)/warehouse/inventory/page.tsx
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { SBCard, SBButton, Input, Select, DataTableSB, Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/ui-primitives";
+import { SBCard, SBButton, Input, Select, DataTableSB } from "@/components/ui/ui-primitives";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useData } from "@/lib/dataprovider";
 import type { ItemCategory, OnHandView, Lot, Item } from "@/domain/ssot";
 import {
@@ -13,9 +14,10 @@ import {
 import {
   exportReplenishmentCsvServer,
   createManualOnHand,
+  rebuildOnHand,
 } from "./actions";
 import { getLotTraceability as getLotDossierServer } from "@/app/(app)/quality/traceability/actions";
-import { Plus, Download, Search } from "lucide-react";
+import { Plus, Download, Search, AlertCircle } from "lucide-react";
 import { QuickGoodsReceiptDialog } from "@/features/warehouse/components/QuickGoodsReceiptDialog";
 import { NewOnHandDialog } from "./components/NewOnHandDialog";
 import { toast } from "sonner";
@@ -105,7 +107,7 @@ export default function InventoryPage() {
   const { data } = useData();
   const onHand = (data?.onHand ?? []) as OnHandView[];
   const lotsMaster = (data?.lots ?? []) as Lot[];
-  const items = data?.items ?? [];
+  const items = (data?.items ?? []) as Item[];
 
   // ───────────────── toolbar state
   const [isPending, startTransition] = useTransition();
@@ -143,7 +145,7 @@ export default function InventoryPage() {
       const q = globalSearch.trim().toLowerCase();
       rows = rows.filter(r =>
         r.itemId.toLowerCase().includes(q) ||
-        r.lotNumber.toLowerCase().includes(q) ||
+        (r.lotNumber && r.lotNumber.toLowerCase().includes(q)) ||
         (items.find(i => i.id === r.itemId)?.name?.toLowerCase().includes(q) ?? false)
       );
     }
@@ -163,19 +165,19 @@ export default function InventoryPage() {
 
   // ───────────────── contadores por categoría (badges en tabs)
   const countsByCat = useMemo(() => {
-    const map: Record<string, number> = {};
+    const map: Partial<Record<ItemCategory, number>> = {};
     for (const r of onHand) {
-        if(r.category) {
-            map[r.category] = (map[r.category] ?? 0) + 1;
-        }
+      if (r.category) {
+        map[r.category] = (map[r.category] ?? 0) + 1;
+      }
     }
     return map;
   }, [onHand]);
 
   // ───────────────── listas para las tablas
-  const skuRows = useMemo(() => Object.keys(summaries).map(itemId => ({ itemId })), [summaries]);
+  const skuRows = useMemo(() => Object.keys(summaries).map(itemId => ({ id: itemId, itemId })), [summaries]);
   const lotRows = useMemo(() => onHandFiltered
-    .sort((a, b) => a.lotNumber.localeCompare(b.lotNumber))
+    .sort((a, b) => (a.lotNumber || '').localeCompare(b.lotNumber || ''))
     .map(r => ({
       id: r.id,
       lotNumber: r.lotNumber,
@@ -285,18 +287,16 @@ export default function InventoryPage() {
         {/* Panel Izquierdo: Alertas + Categorías */}
         <div className="space-y-4">
           <SBCard title="Alertas de Inventario">
-            <div className="p-2 flex flex-col gap-2">
-              {(alerts.length === 0 && qcStuck.length === 0 && (audit.inOnHandNotLots.length + audit.inLotsNotOnHand.length) === 0) ? (
-                <div className="text-sm text-zinc-500 p-4">Sin alertas</div>
-              ) : (
-                <>
-                  {alerts.map((a,i)=> <span key={i} className="sb-badge sb-badge--warn">{a.itemId}: {a.message}</span>)}
-                  {qcStuck.map(q=> <span key={q.lotNumber} className="sb-badge sb-badge--info">QC {q.itemId}/{q.lotNumber}</span>)}
-                  {audit.inOnHandNotLots.length > 0 && <span className="sb-badge sb-badge--danger">OnHand sin lote maestro: {audit.inOnHandNotLots.length}</span>}
-                  {audit.inLotsNotOnHand.length > 0 && <span className="sb-badge sb-badge--danger">Lotes sin onHand: {audit.inLotsNotOnHand.length}</span>}
-                </>
-              )}
-            </div>
+            {(alerts.length === 0 && qcStuck.length === 0 && (audit.inOnHandNotLots.length + audit.inLotsNotOnHand.length) === 0) ? (
+              <div className="text-sm text-zinc-500 p-4">Sin alertas</div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {alerts.map((a,i)=> <span key={i} className="sb-badge sb-badge--warn">{a.itemId}: {a.message}</span>)}
+                {qcStuck.map(q=> <span key={q.lotNumber} className="sb-badge sb-badge--info">QC {q.itemId}/{q.lotNumber}</span>)}
+                {audit.inOnHandNotLots.length > 0 && <span className="sb-badge sb-badge--danger">OnHand sin lote maestro: {audit.inOnHandNotLots.length}</span>}
+                {audit.inLotsNotOnHand.length > 0 && <span className="sb-badge sb-badge--danger">Lotes sin onHand: {audit.inLotsNotOnHand.length}</span>}
+              </div>
+            )}
           </SBCard>
 
           <SBCard title="Categorías">
@@ -317,7 +317,7 @@ export default function InventoryPage() {
         {/* Panel Central: Tabla + tabs de vista */}
         <div className="space-y-4">
           <SBCard title="Inventario" noPadding>
-              <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)}>
+              <Tabs value={viewMode} onValueChange={(v: string) => setViewMode(v as any)}>
                 <div className="flex justify-between items-center p-4">
                   <TabsList className="relative">
                     <TabsTrigger value="lot" className="data-[state=active]:text-[color:var(--sb-accent)]">Por Lote</TabsTrigger>

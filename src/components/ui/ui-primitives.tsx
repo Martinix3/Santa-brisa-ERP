@@ -1,7 +1,7 @@
 // src/components/ui/ui-primitives.tsx
 "use client";
 import React, { useState } from 'react';
-import { Search } from 'lucide-react';
+import { Search, ChevronsUpDown, Check } from 'lucide-react';
 import type { OnHandView } from '@/domain/ssot';
 
 // ===================================
@@ -133,7 +133,7 @@ export type Col<T> = {
     render?: (row: T) => React.ReactNode;
 };
 
-export function DataTableSB<T extends { id: any }>({ rows, cols }: { rows: T[], cols: Col<T>[] }) {
+export function DataTableSB<T extends { id: any }>({ rows, cols, onRowClick }: { rows: T[], cols: Col<T>[], onRowClick?: (row: T) => void }) {
     return (
         <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -144,11 +144,11 @@ export function DataTableSB<T extends { id: any }>({ rows, cols }: { rows: T[], 
                 </thead>
                 <tbody className="divide-y divide-zinc-100">
                     {rows.map(row => (
-                        <tr key={row.id} className="hover:bg-zinc-50/50">
+                        <tr key={row.id} className={`hover:bg-zinc-50/50 ${onRowClick ? 'cursor-pointer' : ''}`} onClick={() => onRowClick?.(row)}>
                             {cols.map(c => (
                                 <td key={String(c.key)} className={`p-3 ${c.className || ''}`}>
                                     {c.render ? c.render(row) : String((row as any)[c.key] ?? '—')}
-                                </td>
+                                d>
                             ))}
                         </tr>
                     ))}

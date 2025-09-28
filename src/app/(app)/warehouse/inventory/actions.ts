@@ -156,3 +156,74 @@ export async function createManualOnHand(
     return fail(error.message || "Ocurrió un error inesperado en el servidor.");
   }
 }
+
+export async function exportReplenishmentCsvServer(replen: Record<string, number>) {
+  const header = 'itemId,qty\n';
+  const body = Object.entries(replen).filter(([, q]) => q > 0).map(([k, v]) => `${k},${v}`).join('\n');
+  const csv = header + body + '\n';
+  const base64 = Buffer.from(csv, 'utf8').toString('base64');
+  return `data:text/csv;base64,${base64}`;
+}
+
+
+export async function rebuildOnHand(): Promise<ActionResult<{ count: number }>> {
+  try {
+    const onHandSnap = await db.collection('onHand').get();
+    const batch = db.batch();
+    onHandSnap.docs.forEach(doc => batch.delete(doc.ref));
+    await batch.commit();
+
+    const movesSnap = await db.collection('stockMoves').get();
+    const newOnHand: Record<string, any> = {};
+
+    movesSnap.forEach(doc => {
+      const move = doc.data() as StockMove;
+      const { itemId, lotNumber, qty, uom, reason, fromLocationId, toLocationId, occurredAt } = move;
+      
+      if (!itemId || !lotNumber) return;
+
+      const sign = (reason === 'receipt' || reason === 'production_in') ? 1 :
+                   (reason === 'sale' || reason === 'production_out') ? -1 : 0;
+      
+      if (sign !== 0) {
+        const locationId = sign > 0 ? toLocationId : fromLocationId;
+        if (locationId) {
+            const key = makeOnHandId(itemId, lotNumber, locationId);
+            if (!newOnHand[key]) {
+                newOnHand[key] = { itemId, lotNumber, locationId, qty: 0, uom, updatedAt: occurredAt };
+            }
+            newOnHand[key].qty += qty * sign;
+            if (new Date(occurredAt) > new Date(newOnHand[key].updatedAt)) {
+                newOnHand[key].updatedAt = occurredAt;
+            }
+        }
+      }
+      
+      if(reason === 'transfer') {
+        if(fromLocationId) {
+             const key = makeOnHandId(itemId, lotNumber, fromLocationId);
+             if(!newOnHand[key]) newOnHand[key] = { qty: 0 };
+             newOnHand[key].qty -= qty;
+        }
+        if(toLocationId) {
+             const key = makeOnHandId(itemId, lotNumber, toLocationId);
+             if(!newOnHand[key]) newOnHand[key] = { qty: 0 };
+             newOnHand[key].qty += qty;
+        }
+      }
+
+    });
+
+    const finalDocs = Object.values(newOnHand).filter(doc => doc.qty > 0);
+    const writeBatch = db.batch();
+    finalDocs.forEach(doc => {
+      const ref = db.collection('onHand').doc(makeOnHandId(doc.itemId, doc.lotNumber, doc.locationId));
+      writeBatch.set(ref, doc);
+    });
+    await writeBatch.commit();
+    
+    return ok({ count: finalDocs.length });
+  } catch (e: any) {
+    return fail(e.message || "Error al reconstruir el inventario.");
+  }
+}
