@@ -1,9 +1,10 @@
+
 // src/app/(app)/warehouse/inventory/actions.ts
 'use server';
 
 import { adminDb as db } from '@/server/firebase';
 import { upsertMany } from '@/lib/dataprovider/actions';
-import type { StockMove, Item, QcStatus, SantaData } from '@/domain/ssot';
+import type { StockMove, Item, QcStatus, SantaData, Uom } from '@/domain/ssot';
 import { makeOnHandId } from '@/domain/id-helpers';
 
 async function getAll<T>(coll: keyof SantaData): Promise<T[]> {
@@ -34,6 +35,21 @@ export async function rebuildOnHand() {
     const lots: Record<string, any> = {};         // key = lotNumber
     const reservations: Record<string, any> = {}; // key = item|lot|location
 
+    const DIRECT_SIGN: Record<string, number> = {
+      receipt: +1,
+      production_in: +1,
+      return_in: +1,
+      ship: -1,
+      sale: -1,
+      production_out: -1,
+      return_out: -1,
+      consignment_send: -1,
+      consignment_sell: -1,
+      consignment_return: +1,
+      sample_send: -1,
+      sample_consume: -1,
+    };
+
     for (const m of moves) {
       const qty = Number(m.qty ?? 0) || 0;
       const absQty = Math.abs(qty);
@@ -55,34 +71,36 @@ export async function rebuildOnHand() {
       if (new Date(ts) < new Date(lot.createdAt)) lot.createdAt = ts;
       if (new Date(ts) > new Date(lot.updatedAt)) lot.updatedAt = ts;
 
-      // from → resta
-      if (from) {
-        const k = makeOnHandId(m.itemId, m.lotNumber, from);
-        const cur = (onHand[k] ||= { id: k, itemId: m.itemId, lotNumber: m.lotNumber, locationId: from, qty: 0, uom, updatedAt: ts });
-        cur.qty -= absQty; // movimiento físico sale de 'from'
-        cur.updatedAt = ts;
-      }
-      // to → suma
-      if (to) {
-        const k = makeOnHandId(m.itemId, m.lotNumber, to);
-        const cur = (onHand[k] ||= { id: k, itemId: m.itemId, lotNumber: m.lotNumber, locationId: to, qty: 0, uom, updatedAt: ts });
-        cur.qty += absQty; // movimiento físico entra a 'to'
-        cur.updatedAt = ts;
+      const reason = m.reason as string;
+
+      function add(loc: string | undefined | null, delta: number) {
+        if (!loc) return;
+        const k = makeOnHandId(m.itemId, m.lotNumber, loc);
+        const cur = (onHand[k] ||= { id: k, itemId: m.itemId, lotNumber: m.lotNumber, locationId: loc, qty: 0, uom, updatedAt: ts, createdAt: ts });
+        cur.qty += delta;
+        if (new Date(ts) > new Date(cur.updatedAt)) cur.updatedAt = ts;
       }
 
-      // reservas (reserva = +qty, liberación = -qty) – clave en el lado destino si existe, si no, fuente
-      if (m.reason === "reservation") {
-        const loc = to ?? from; // dónde "vive" la reserva
+      if (DIRECT_SIGN[reason] !== undefined) {
+        const loc = DIRECT_SIGN[reason] > 0 ? to : from;
+        add(loc, DIRECT_SIGN[reason] * qty);
+      } else if (reason === 'transfer') {
+        if (from) add(from, -absQty);
+        if (to) add(to, absQty);
+      } else if (reason === 'adjustment') {
+        add(to ?? from, qty); // qty ya tiene signo
+      } else if (reason === "reservation") {
+        const loc = to ?? from;
         if (loc) {
           const rk = makeOnHandId(m.itemId, m.lotNumber, loc);
           const cur = (reservations[rk] ||= { id: rk, itemId: m.itemId, lotNumber: m.lotNumber, locationId: loc, qty: 0, updatedAt: ts });
-          cur.qty += sign * absQty; // respeta signo: reservar (+), desreservar (-)
+          cur.qty += sign * absQty;
           cur.updatedAt = ts;
         }
       }
     }
 
-    // Deriva qcStatus inicial (si no existe en DB; aquí usamos la heurística de "firstReason + requiresQc")
+    // Deriva qcStatus inicial
     const lotsDocs = Object.values(lots).map((l: any) => {
       const item = itemMap.get(l.itemId);
       const requiresQc = !!(item as any)?.requiresQc;
@@ -97,20 +115,16 @@ export async function rebuildOnHand() {
       };
     });
 
-    // Mapa rápido de qcStatus por lote para denormalizar en onHand (solo lectura/UX)
     const qcByLot = new Map<string, QcStatus>(lotsDocs.map((l: any) => [l.lotNumber, l.qcStatus as QcStatus]));
 
-    // Filtra onHand con qty > 0
     const onHandDocs = Object.values(onHand)
       .map((o: any) => ({
         ...o,
-        // redondeo suave por flotantes
         qty: Math.round((Number(o.qty) || 0) * 1000) / 1000,
-        qcStatus: qcByLot.get(o.lotNumber) ?? 'PENDING', // denormalizado
+        qcStatus: qcByLot.get(o.lotNumber) ?? 'PENDING',
       }))
       .filter((o: any) => Math.round(o.qty * 1000) !== 0);
 
-    // Integra reservas como 'reservedQty' denormalizado en onHand
     const resMap = new Map<string, number>();
     for (const r of Object.values(reservations)) {
       const qty = Math.round((Number((r as any).qty) || 0) * 1000) / 1000;
@@ -119,15 +133,13 @@ export async function rebuildOnHand() {
     }
     for (const oh of onHandDocs as any[]) {
       oh.reservedQty = resMap.get(oh.id) ?? 0;
-      // sanidad: no más reservas que stock (no lo corregimos aquí, solo informamos)
       if (oh.reservedQty < 0) oh.reservedQty = 0;
     }
 
-    // Persiste
     await Promise.all([
       upsertMany("onHand", onHandDocs),
       upsertMany("lots", lotsDocs),
-      upsertMany("reservations", Object.values(reservations)), // si usas colección separada
+      upsertMany("reservations", Object.values(reservations)),
     ]);
 
     return { ok: true, onHand: onHandDocs.length, lots: lotsDocs.length, reservations: resMap.size };
