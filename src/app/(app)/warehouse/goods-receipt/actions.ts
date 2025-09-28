@@ -22,7 +22,7 @@ const makeSku = (name: string, category: string, existingSkus: string[]) => {
 };
 
 const initialQcStatusForItemCategory = (category?: ItemCategory): QcStatus => {
-  const criticalCategories: (ItemCategory | undefined)[] = ['raw', 'pack', 'fg'];
+  const criticalCategories: (ItemCategory | undefined)[] = ['raw', 'pack', 'fg', 'intermediate'];
   return criticalCategories.includes(category) ? 'PENDING' : 'PASSED';
 };
 
@@ -205,13 +205,19 @@ export async function createGoodsReceipt(payload: {
     } as any);
   }
 
+  const requiresQc = finalLines.some(l => {
+      const item = existingItems.find(i => i.id === l.itemId);
+      const cat = item?.category;
+      return cat === 'raw' || cat === 'pack' || cat === 'fg';
+  });
+
   const receipt: GoodsReceipt = {
     id: receiptRef.id,
     receiptNumber,
     supplierPartyId: finalSupplierId!,
     deliveryNote,
     receivedAt: nowIso,
-    status: 'completed', // Simplified, QC status is on the lot
+    status: requiresQc ? 'pending_qc' : 'completed',
     lines: finalLines,
   };
   batch.set(receiptRef, { ...receipt, createdAt: nowIso } as any);

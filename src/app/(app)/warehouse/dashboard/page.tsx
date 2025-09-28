@@ -7,7 +7,7 @@ import { generateInsights } from '@/ai/flows/generate-insights-flow';
 import { SBCard, SBButton, DataTableSB } from '@/components/ui/ui-primitives';
 import type { Col } from '@/components/ui/ui-primitives';
 import { BrainCircuit, Package, DollarSign, Truck, AlertCircle, Clock, Plus } from 'lucide-react';
-import type { OnHandView, Shipment, Interaction, StockMove, Account, ShipmentStatus, SB_THEME } from '@/domain/ssot';
+import type { OnHandView, Shipment, Interaction, StockMove, Account, ShipmentStatus } from '@/domain/ssot';
 import { DEPT_META, SB_COLORS } from '@/domain/ssot';
 import Link from 'next/link';
 import { samplesSentSummary } from "@/lib/consignment-and-samples";
@@ -136,7 +136,7 @@ function WarehouseDashboardContent() {
         }
     ];
 
-    const lowStockItems = onHand.filter(item => item.qty < 50 && item.itemId.startsWith('item_'));
+    const lowStockItems = onHand.filter(item => item.qty < 50 && (item.itemId.startsWith('RM') || item.itemId.startsWith('PKG')));
 
     return (
         <div className="space-y-6">
