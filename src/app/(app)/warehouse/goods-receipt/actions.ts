@@ -182,7 +182,7 @@ export async function createGoodsReceipt(payload: {
     supplierPartyId: finalSupplierId!,
     deliveryNote,
     receivedAt: nowIso,
-    status: lines.some(l => initialQcStatusFor(items.find(i => i.id === l.itemId)?.category || 'raw') === 'PENDING') ? 'pending_qc' : 'completed',
+    status: lines.some(l => initialQcStatusFor(existingItems.find((i: Item) => i.id === l.itemId)?.category || 'raw') === 'PENDING') ? 'pending_qc' : 'completed',
     lines: finalLines,
   };
   batch.set(receiptRef, { ...receipt, createdAt: nowIso } as any);
