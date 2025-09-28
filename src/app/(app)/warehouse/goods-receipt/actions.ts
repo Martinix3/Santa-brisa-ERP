@@ -145,7 +145,7 @@ export async function createGoodsReceipt(payload: {
     const receiptRef = db.collection('goodsReceipts').doc();
 
     const itemIdsInPayload = lines.map(l => l.itemId).filter(Boolean) as string[];
-    const itemsData = itemIdsInPayload.length ? await db.collection('items').where('id', 'in', itemIdsInPayload).get() : { docs: [] };
+    const itemsData = itemIdsInPayload.length ? await db.collection('items').where(FieldPath.documentId(), 'in', itemIdsInPayload).get() : { docs: [] };
     const existingItems = itemsData.docs.map(d => d.data() as Item);
 
 
@@ -153,20 +153,19 @@ export async function createGoodsReceipt(payload: {
 
     for (const line of lines) {
       let itemId = line.itemId;
-      let item: Item | undefined;
       
       if (line.newItemName && !itemId) {
-        item = await createItem({
+        const newItem = await createItem({
           name: line.newItemName,
           category: line.newItemCategory || 'raw',
           uom: line.uom || 'unit',
           stdCost: line.unitCost || 0,
         });
-        itemId = item.id;
-      } else {
-        item = existingItems.find(it => it.id === itemId);
+        itemId = newItem.id;
+        existingItems.push(newItem); // Add to local cache
       }
       
+      const item = existingItems.find(it => it.id === itemId);
       if (!item || !itemId) continue;
 
       const lotNumber = line.supplierLot.trim() || (line.autoLot ? generateLotNumber(item) : "");
@@ -219,9 +218,9 @@ export async function createGoodsReceipt(payload: {
         lotNumber,
       } as any);
     }
-
+    
     const requiresQc = finalLines.some(l => {
-        const item = existingItems.find(i => i.id === l.itemId) || items.find(i => i.id === l.itemId);
+        const item = existingItems.find(i => i.id === (l as any).itemId);
         const cat = item?.category;
         return cat === 'raw' || cat === 'pack' || cat === 'fg';
     });
@@ -241,7 +240,7 @@ export async function createGoodsReceipt(payload: {
     revalidatePath('/warehouse/inventory');
     revalidatePath('/warehouse/goods-receipt');
 
-    return { ...receipt, id: receiptRef.id };
+    return { ...receipt, id: receiptRef.id, supplierId: finalSupplierId };
   } catch(e: any) {
       console.error(`[ACTION:createGoodsReceipt] Failed. Payload:`, JSON.stringify(payload, null, 2), `Error:`, e);
       throw new Error(e.message || "Error interno del servidor al crear la recepción.");
