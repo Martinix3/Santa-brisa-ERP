@@ -1,9 +1,10 @@
+
 // src/app/(app)/warehouse/goods-receipt/page.tsx
 "use client";
 
 import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { useData } from '@/lib/dataprovider';
-import { SBButton, Input, Select, SBCard, DataTableSB } from '@/components/ui/ui-primitives';
+import { SBButton, Input, Select, DataTableSB } from '@/components/ui/ui-primitives';
 import type { Col } from '@/components/ui/ui-primitives';
 import { Plus, Trash2, Truck, Search, Info, X } from 'lucide-react';
 import type { Party, Item, GoodsReceipt, Uom } from '@/domain/ssot';
@@ -90,7 +91,7 @@ function Notification({ message, type, onClose }: { message: string, type: 'succ
   );
 }
 
-function GoodsReceiptForm() {
+function GoodsReceiptForm({ onSaveSuccess }: { onSaveSuccess: (info: { receiptId: string; receiptNumber: string }) => void }) {
   const { data } = useData();
   const [supplierId, setSupplierId] = useState<string | undefined>();
   const [newSupplierName, setNewSupplierName] = useState<string | undefined>();
@@ -147,6 +148,7 @@ function GoodsReceiptForm() {
       setNotification({ message: `Recepción guardada (#${res.receiptNumber}).`, type: 'success' });
       setSupplierId(undefined); setNewSupplierName(undefined); setDeliveryNote('');
       setLines([{ key: `line_${Date.now()}`, supplierLot: '', qty: 0, unitCost: 0, newItemCategory: 'raw', uom: 'unit', expiryAt: null }]);
+      onSaveSuccess(res);
     } catch (e:any) {
       console.error(e);
       setNotification({ message: e?.message || 'Error al guardar la recepción.', type: 'error' });
@@ -161,7 +163,6 @@ function GoodsReceiptForm() {
   return (
     <div className="space-y-6">
       {notification && <Notification {...notification} onClose={() => setNotification(null)} />}
-
       <div className="bg-white border rounded-xl shadow-sm p-6 space-y-6">
         <div className="grid md:grid-cols-2 gap-6">
           <label className="grid gap-1.5">
@@ -253,13 +254,24 @@ function GoodsReceiptForm() {
   );
 }
 
-export default function GoodsReceiptHistoryPage() {
+export default function GoodsReceiptPage() {
     const { data } = useData();
     const [showForm, setShowForm] = useState(false);
-
-    const receipts = useMemo(() => {
-        return (data?.goodsReceipts || []).sort((a,b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime());
+    const [receipts, setReceipts] = useState<GoodsReceipt[]>([]);
+    
+    useEffect(() => {
+        if(data?.goodsReceipts) {
+            const sorted = [...data.goodsReceipts].sort((a,b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime());
+            setReceipts(sorted);
+        }
     }, [data?.goodsReceipts]);
+
+    const handleSaveSuccess = (info: { receiptId: string; receiptNumber: string }) => {
+        // Optimistically update the list
+        const newReceipt = { id: info.receiptId, receiptNumber: info.receiptNumber, receivedAt: new Date().toISOString(), lines: [], status: 'completed' };
+        setReceipts(prev => [newReceipt as GoodsReceipt, ...prev]);
+        setShowForm(false);
+    };
 
     const cols: Col<GoodsReceipt>[] = [
         { key: 'receiptNumber', header: 'Nº Recepción', render: r => <span className="font-mono text-xs">{r.receiptNumber}</span> },
@@ -272,12 +284,12 @@ export default function GoodsReceiptHistoryPage() {
 
     if (showForm) {
         return (
-            <div className="space-y-6">
+            <div className="space-y-6 max-w-5xl mx-auto">
                 <div className="flex justify-between items-center">
                     <h1 className="text-2xl font-semibold text-zinc-800 flex items-center gap-3"><Truck /> Nueva Recepción de Mercancía</h1>
                     <SBButton variant="secondary" onClick={() => setShowForm(false)}>Cancelar</SBButton>
                 </div>
-                <GoodsReceiptForm />
+                <GoodsReceiptForm onSaveSuccess={handleSaveSuccess} />
             </div>
         );
     }
@@ -290,9 +302,8 @@ export default function GoodsReceiptHistoryPage() {
                     <Plus className="h-4 w-4 mr-2" /> Nueva Recepción
                 </SBButton>
             </div>
-            <SBCard title="Últimas Entradas">
-                <DataTableSB rows={receipts} cols={cols as any[]} />
-            </SBCard>
+            <DataTableSB rows={receipts} cols={cols as any[]} />
         </div>
     );
 }
+

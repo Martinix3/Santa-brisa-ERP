@@ -1,3 +1,4 @@
+
 // src/app/(app)/warehouse/goods-receipt/actions.ts
 'use server';
 
@@ -31,7 +32,6 @@ const landingLocationFor = (category: Item['category']) => {
     case 'consumable': return 'RM/MAIN';
     case 'intermediate': return 'WIP/MAIN';
     case 'merch': return 'PKG/MAIN';
-    case 'fg': return 'FG/MAIN';
     default: return 'RM/MAIN';
   }
 };
@@ -182,7 +182,7 @@ export async function createGoodsReceipt(payload: {
     supplierPartyId: finalSupplierId!,
     deliveryNote,
     receivedAt: nowIso,
-    status: 'completed',
+    status: lines.some(l => initialQcStatusFor(items.find(i => i.id === l.itemId)?.category || 'raw') === 'PENDING') ? 'pending_qc' : 'completed',
     lines: finalLines,
   };
   batch.set(receiptRef, { ...receipt, createdAt: nowIso } as any);
