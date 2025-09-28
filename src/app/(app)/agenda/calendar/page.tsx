@@ -95,7 +95,7 @@ function CalendarPageContent() {
     setSelectedEvent(null);
     if (newStatus === 'done' && taskToUpdate) {
         if (taskToUpdate.dept === 'MARKETING' && taskToUpdate.linkedEntity?.type === 'EVENT' && santaData.marketingEvents) {
-            const event = santaData.marketingEvents.find(e => e.id === taskToUpdate.linkedEntity?.id);
+            const event = santaData.marketingEvents.find((e: MarketingEvent) => e.id === taskToUpdate.linkedEntity?.id);
             if (event) {
                 setCompletingMarketingEvent(event);
             } else {

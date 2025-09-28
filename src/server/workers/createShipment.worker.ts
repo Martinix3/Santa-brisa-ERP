@@ -3,6 +3,7 @@
 import { adminDb as db } from '@/server/firebase';
 import type { OrderSellOut, Shipment, Account, Party, Item, OnHandView, Lot } from '@/domain/ssot';
 import { makeShipmentCode } from '@/lib/codes';
+import { checkOrderStock } from '@/lib/inventory';
 
 export async function run({ orderId }: { orderId: string }) {
     const orderSnap = await db.collection('ordersSellOut').doc(orderId).get();
@@ -42,28 +43,12 @@ export async function run({ orderId }: { orderId: string }) {
     
     const lotsSnap = itemIds.length > 0 ? await db.collection('lots').where('itemId', 'in', itemIds).get() : { docs: [] };
     const lots = lotsSnap.docs.map(doc => doc.data() as Lot);
-    const lotsById = new Map(lots.map(l => [l.lotNumber, l]));
     
-    const shortages = (order.lines || []).map(line => {
-        const available = onHand
-            .filter(item => {
-                const lot = item.lotNumber ? lotsById.get(item.lotNumber) : undefined;
-                return item.itemId === line.itemId && 
-                       item.locationId === 'FG/MAIN' && 
-                       lot?.qcStatus === 'PASSED';
-            })
-            .reduce((sum, item) => sum + item.qty, 0);
-        return {
-            itemId: line.itemId,
-            required: line.qty,
-            available: available,
-            isShort: available < line.qty,
-        };
-    }).filter(s => s.isShort);
+    const { shortages } = checkOrderStock(order, onHand, lots);
 
     const status: Shipment['status'] = shortages.length > 0 ? 'pending' : 'pending'; // Default to pending, exception should be handled differently
     const notes = shortages.length > 0 
-        ? `Falta de stock: ${shortages.map(s => `${s.required - s.available}x ${s.itemId}`).join(', ')}`
+        ? `Falta de stock: ${shortages.map(s => `${s.qtyShort}x ${s.itemId}`).join(', ')}`
         : order.notes;
     
     const itemsSnap = await db.collection('items').get();

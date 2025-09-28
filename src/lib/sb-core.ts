@@ -1,7 +1,7 @@
 
 // --- Santa Brisa: lógica de negocio (sell-out a botellas, agregados y KPIs) ---
 import type {
-  Account, Party, PartyRole, CustomerData, OrderSellOut, User, SantaData, Activation, Interaction, Item, OnHandView, QcStatus
+  Account, Party, PartyRole, CustomerData, OrderSellOut, User, SantaData, Activation, Interaction, Item, QcStatus
 } from '@/domain/ssot';
 
 export const inWindow = (dateStr: string, start: Date, end: Date): boolean => {
@@ -12,7 +12,7 @@ export const inWindow = (dateStr: string, start: Date, end: Date): boolean => {
 
 export const orderTotal = (order: OrderSellOut): number => {
     if (!order || !order.lines) return 0;
-    return (order.lines || []).reduce((sum, line) => sum + (line.qty * line.priceUnit * (1 - (line.discountPct || 0) / 100)), 0);
+    return (order.lines || []).reduce((sum, line) => sum + (line.qty * line.priceUnit * (1 - ((line as any).discountPct || 0) / 100)), 0);
 }
 
 export type ResolvedAccountMode = 'PROPIA_SB' | 'COLOCACION' | 'DISTRIB_PARTNER';
@@ -194,7 +194,7 @@ export function computeAccountRollup(accountId: string, data: SantaData): Accoun
     const sortedPosTactics = posTactics.sort((a, b) => +(typeof b.createdAt === 'string' ? new Date(b.createdAt) : new Date(Number(b.createdAt))) - +(typeof a.createdAt === 'string' ? new Date(a.createdAt) : new Date(Number(a.createdAt))));
     const lastTactic = sortedPosTactics.length > 0 ? sortedPosTactics[0] : undefined;
     
-    const sortedActiveActivations = activeActivations.sort((a,b) => +new Date(b.startDate) - +new Date(a.startDate));
+    const sortedActiveActivations = activeActivations.sort((a: Activation,b: Activation) => +new Date(b.startDate) - +new Date(a.startDate));
     const lastActiveActivation = sortedActiveActivations.length > 0 ? sortedActiveActivations[0] : undefined;
 
     return {
@@ -267,4 +267,4 @@ export function computeFleetKPIs(params: {
   };
 }
 
-export const qcFromRow = (r: OnHandView): QcStatus => (r as any).qcStatus;
+export const qcFromRow = (r: { qcStatus?: QcStatus }): QcStatus => r?.qcStatus || 'PENDING';

@@ -71,7 +71,7 @@ export async function handleCreateHoldedInvoice({ orderId }: { orderId: string }
       units: l.qty,
       price: l.priceUnit,
       tax: l.taxRate ?? 21,
-      discount: l.discountPct ?? 0,
+      discount: (l as any).discountPct ?? 0,
     };
   });
 

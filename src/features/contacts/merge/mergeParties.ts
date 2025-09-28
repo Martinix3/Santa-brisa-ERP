@@ -42,9 +42,6 @@ export function mergeParties(primary: Party, duplicate: Party): Party {
       shopifyCustomerId: primary.external?.shopifyCustomerId || duplicate.external?.shopifyCustomerId,
     },
     people: primary.people?.length ? primary.people : duplicate.people,
-    flags: { ...primary.flags },
-    quality: primary.quality ?? duplicate.quality,
-    status: primary.status ?? duplicate.status,
     updatedAt: new Date().toISOString(),
   };
 }

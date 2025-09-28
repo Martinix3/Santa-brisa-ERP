@@ -3,7 +3,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
-import type { SantaData, User, UserRole, OnHandView, ReservationView } from '@/domain/ssot';
+import type { SantaData, User, UserRole } from '@/domain/ssot';
 import type { User as FirebaseUser } from "firebase/auth";
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
 import { getFirestore, collection, getDocs } from "firebase/firestore";
@@ -70,7 +70,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         const data: Partial<SantaData> = {};
         const report: LoadReport = { ok: [], errors: [], totalDocs: 0 };
         
-        const collectionsToLoad: (keyof SantaData)[] = [...SANTA_DATA_COLLECTIONS, 'reservations'];
+        const collectionsToLoad = SANTA_DATA_COLLECTIONS;
 
         for (const name of collectionsToLoad) {
             try {
