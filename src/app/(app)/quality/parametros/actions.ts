@@ -25,7 +25,14 @@ export async function upsertParameterBySku(p: ParameterBySku): Promise<ActionRes
     return ok({ id: parsed.id });
   } catch(e:any) { return fail(e.message); }
 }
-// ... (deleteParameterBySku funcionaría de forma similar, con db.collection('qcParameters').doc(id).delete())
+
+export async function deleteParameterBySku(id: string): Promise<ActionResult<{ id: string }>> {
+    try {
+        await db.collection('qcParameters').doc(id).delete();
+        revalidatePath(PATH);
+        return ok({ id });
+    } catch(e:any) { return fail(e.message); }
+}
 
 // ---------- QC Plans by SKU ----------
 export async function listPlans(sku: string): Promise<ActionResult<QcPlanBySku[]>> {
@@ -43,11 +50,18 @@ export async function upsertPlan(plan: QcPlanBySku): Promise<ActionResult<{ id: 
     return ok({ id: parsed.id });
   } catch(e:any) { return fail(e.message); }
 }
-// ... (deletePlan similar)
+
+export async function deletePlan(id: string): Promise<ActionResult<{ id: string }>> {
+    try {
+        await db.collection('qcPlans').doc(id).delete();
+        revalidatePath(PATH);
+        return ok({ id });
+    } catch(e:any) { return fail(e.message); }
+}
 
 // ---------- Protocolos APPCC ----------
 export async function listProtocols(): Promise<ActionResult<Protocol[]>> {
-  const snap = await db.collection('qcProtocols').get(); // Usaremos 'qcProtocols' como nombre de colección
+  const snap = await db.collection('qcProtocols').get();
   const data = snap.docs.map(doc => doc.data() as Protocol);
   return ok(data);
 }
@@ -60,4 +74,11 @@ export async function upsertProtocol(proto: Protocol): Promise<ActionResult<{ id
     return ok({ id: parsed.id });
   } catch(e:any) { return fail(e.message); }
 }
-// ... (deleteProtocol similar)
+
+export async function deleteProtocol(id: string): Promise<ActionResult<{ id: string }>> {
+    try {
+        await db.collection('qcProtocols').doc(id).delete();
+        revalidatePath(PATH);
+        return ok({ id });
+    } catch(e:any) { return fail(e.message); }
+}
