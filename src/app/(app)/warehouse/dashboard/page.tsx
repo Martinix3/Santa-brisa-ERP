@@ -1,3 +1,4 @@
+
 // src/app/(app)/warehouse/dashboard/page.tsx
 
 "use client";
