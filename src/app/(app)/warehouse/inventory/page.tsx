@@ -1,4 +1,4 @@
-// src/app/(app)/warehouse/inventory/page.tsx
+
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState, useTransition } from "react";
@@ -225,6 +225,22 @@ export default function InventoryPage() {
     const a = document.createElement("a");
     a.href = url; a.download = "replenishment.csv"; a.click();
   };
+
+  const onRebuildOnHand = () => {
+    startTransition(async () => {
+        try {
+            const result = await rebuildOnHand();
+            if (result.ok) {
+                toast.success(`Inventario reconstruido: ${result.data.count} registros actualizados.`);
+                router.refresh();
+            } else {
+                toast.error(`Error al reconstruir: ${result.message}`);
+            }
+        } catch (e: any) {
+            toast.error(`Error inesperado: ${e.message}`);
+        }
+    });
+  };
   
   // ───────────────── dossier lote (inspector)
   const [dossier, setDossier] = useState<any>(null);
@@ -276,6 +292,7 @@ export default function InventoryPage() {
           </label>
         </div>
         <div className="flex gap-2">
+          <SBButton variant="outline" className={BTN_OUTLINE} onClick={onRebuildOnHand} disabled={isPending}>Recalcular on-hand</SBButton>
           <SBButton variant="outline" className={BTN_OUTLINE} onClick={onExportReplen}>Exportar</SBButton>
           <SBButton variant="outline" className={BTN_OUTLINE} onClick={() => setOpenReceipt(true)}>Nueva Recepción</SBButton>
           <SBButton className={BTN_SOLID} onClick={() => setOpenNew(true)}>Ajuste Manual</SBButton>
@@ -293,7 +310,7 @@ export default function InventoryPage() {
               <div className="flex flex-wrap gap-2">
                 {alerts.map((a,i)=> <span key={i} className="sb-badge sb-badge--warn">{a.itemId}: {a.message}</span>)}
                 {qcStuck.map(q=> <span key={q.lotNumber} className="sb-badge sb-badge--info">QC {q.itemId}/{q.lotNumber}</span>)}
-                {audit.inOnHandNotLots.length > 0 && <span className="sb-badge sb-badge--danger">OnHand sin lote maestro: {audit.inOnHandNotLots.length}</span>}
+                {audit.inOnHandNotLots.length > 0 && <span className="sb-badge sb-badge--danger">Lotes sin onHand: {audit.inOnHandNotLots.length}</span>}
                 {audit.inLotsNotOnHand.length > 0 && <span className="sb-badge sb-badge--danger">Lotes sin onHand: {audit.inLotsNotOnHand.length}</span>}
               </div>
             )}
@@ -376,3 +393,5 @@ export default function InventoryPage() {
     </div>
   );
 }
+
+    
