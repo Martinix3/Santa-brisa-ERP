@@ -1,10 +1,9 @@
-
 // src/app/(app)/production/execution/page.tsx
 "use client";
 
-import React, { useMemo, useState, useTransition, useEffect, useCallback } from "react";
+import React, { useMemo, useState, useTransition, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Play, Pause, CheckCircle, XCircle, Factory as FactoryIcon, Calendar, ChevronDown, AlertTriangle, Info } from "lucide-react";
+import { Play, Pause, CheckCircle, XCircle, Factory as FactoryIcon, Calendar, ChevronDown, AlertTriangle, Info, ArrowRight } from "lucide-react";
 import { SBCard, SBButton, Input, Select } from '@/components/ui/ui-primitives';
 import { useData } from "@/lib/dataprovider";
 import { toast } from "sonner";
@@ -14,14 +13,15 @@ import { planProduction, updateProductionOrderStatus, completeProductionOrder, a
 
 // Tipos locales para el estado del formulario
 type LocalProductionOrder = ProductionOrder & { locked?: boolean; };
-type RealLine = { itemId: string; qty: number; uom: Uom; lotNumber: string; fromLocationId: string; };
-type OutputReal = { itemId: string; qty: number; uom: Uom; lotNumber?: string; sku?: string; toLocationId: string; };
+type TheoreticalLine = { itemId: string; itemName: string; qty: number; uom: Uom };
+type RealConsumptionLine = { itemId: string; itemName: string; lotNumber: string; theoreticalQty: number; realQty: number; uom: Uom; fromLocationId: string };
+type FinalOutput = { itemId: string; qty: number; uom: Uom; lotNumber?: string; sku?: string; toLocationId: string };
 type ActiveOrderForm = {
     order: LocalProductionOrder | null;
     planningBom: RecipeBom | null;
     responsibleId: string;
-    finalOutput: OutputReal;
-    realConsumption: RealLine[];
+    finalOutput: FinalOutput;
+    realConsumption: RealConsumptionLine[];
     journal: JournalEntry[];
     incidentText: string;
     incidentSeverity: 'LOW' | 'MEDIUM' | 'HIGH';
@@ -31,7 +31,7 @@ type ActiveOrderForm = {
     requiredLots: Array<{ itemId: string; lotNumber: string; qty: number; uom: string; locationId: string }>;
 };
 
-// ---------- Componentes helpers como Badge, Collapsible se mantienen igual ----------
+// --- Componentes helpers como Badge, Collapsible se mantienen igual ---
 function Badge({ children, tone = "zinc" }:{
   children: React.ReactNode; tone?: "zinc"|"sky"|"amber"|"rose"|"emerald";
 }) {
@@ -73,7 +73,11 @@ function Collapsible({ title, count, defaultOpen = true, children }:{
   );
 }
 
-// ---------- Estado / Reglas ----------
+// --- Funciones helper ---
+const toTime = (s?: string) => {
+  const t = s ? Date.parse(s) : NaN;
+  return Number.isFinite(t) ? t : 0;
+};
 const canEditPlan = (s?: ProductionStatus) => s === "PLANNED" || s == null;
 const canStart    = (s?: ProductionStatus) => s === "PLANNED";
 const canPause    = (s?: ProductionStatus) => s === "IN_PROGRESS";
@@ -81,13 +85,7 @@ const canResume   = (s?: ProductionStatus) => s === "PAUSED";
 const canFinish   = (s?: ProductionStatus) => s === "IN_PROGRESS" || s === "PAUSED";
 const isClosedLike = (s?: ProductionStatus) => s === "DONE" || s === "CANCELLED";
 
-// ---------- Cálculos y helpers ----------
-const toTime = (s?: string) => {
-  const t = s ? Date.parse(s) : NaN;
-  return Number.isFinite(t) ? t : 0;
-};
-
-function computeTheoretical(bom: RecipeBom, qty: number, itemsMap: Map<string, Item>) {
+function computeTheoretical(bom: RecipeBom, qty: number, itemsMap: Map<string, Item>): TheoreticalLine[] {
   const lines = (bom.items || []).filter((l:any) => (l.role ?? "FORMULA") !== "COST_ONLY");
   return lines.map((l:any) => ({
     itemId: l.itemId,
@@ -97,17 +95,17 @@ function computeTheoretical(bom: RecipeBom, qty: number, itemsMap: Map<string, I
   }));
 }
 
-function picksToRealLines(picks: Array<{itemId:string; lotNumber:string; qty:number; uom:string; locationId: string}>): RealLine[] {
-  const bucket = new Map<string, RealLine>();
+function picksToRealLines(picks: Array<{itemId:string; lotNumber:string; qty:number; uom:string; locationId: string}>, itemsMap: Map<string, Item>): RealConsumptionLine[] {
+  const bucket = new Map<string, RealConsumptionLine>();
   for (const p of picks) {
     const k = `${p.itemId}|${p.lotNumber}|${p.uom}`;
-    const cur = bucket.get(k) ?? { itemId: p.itemId, lotNumber: p.lotNumber, qty: 0, uom: p.uom as Uom, fromLocationId: p.locationId };
-    cur.qty = +(cur.qty + Number(p.qty || 0)).toFixed(3);
+    const cur = bucket.get(k) ?? { itemId: p.itemId, itemName: itemsMap.get(p.itemId)?.name || p.itemId, lotNumber: p.lotNumber, theoreticalQty: 0, realQty: 0, uom: p.uom as Uom, fromLocationId: p.locationId };
+    cur.theoreticalQty = +(cur.theoreticalQty + Number(p.qty || 0)).toFixed(3);
+    cur.realQty = cur.theoreticalQty; // Default real to theoretical
     bucket.set(k, cur);
   }
   return [...bucket.values()];
 }
-
 
 // ---------- Panel de Disponibilidad ----------
 function StockCheckPanel({
@@ -145,7 +143,6 @@ function StockCheckPanel({
         }
       }
       if (remain > 1e-6) {
-        const available = (byItem.get(t.itemId) ?? []).reduce((sum, lot) => sum + (lot.qty || 0), 0);
         shortages.push({ itemId: t.itemId, itemName: itemsMap.get(t.itemId)?.name ?? t.itemId, missing: +remain.toFixed(3), uom: t.uom });
       }
     }
@@ -194,6 +191,81 @@ function StockCheckPanel({
   );
 }
 
+// ============================================================================
+// NUEVO COMPONENTE: Panel de Consumo Real y Desviaciones
+// ============================================================================
+function RealConsumptionPanel({
+  activeForm,
+  setFormValue,
+  itemsMap,
+  orderIsLocked
+}: {
+  activeForm: ActiveOrderForm;
+  setFormValue: (field: keyof ActiveOrderForm, value: any) => void;
+  itemsMap: Map<string, Item>;
+  orderIsLocked: boolean;
+}) {
+  const { theoreticalTotal, realTotal, deviation } = useMemo(() => {
+    const theoreticalTotal = activeForm.realConsumption.reduce((sum, line) => sum + line.theoreticalQty, 0);
+    const realTotal = activeForm.realConsumption.reduce((sum, line) => sum + line.realQty, 0);
+    const deviation = realTotal - theoreticalTotal;
+    return { theoreticalTotal, realTotal, deviation };
+  }, [activeForm.realConsumption]);
+
+  return (
+    <Collapsible title="Consumo Real y Mermas" count={activeForm.realConsumption.length} defaultOpen>
+      <div className="p-3 space-y-3">
+        {/* Encabezados de la tabla */}
+        <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-3 text-xs font-semibold text-zinc-600 px-2">
+          <span>Material (Lote)</span>
+          <span className="text-right">Teórico</span>
+          <span className="text-right">Real</span>
+          <span className="text-right">UoM</span>
+        </div>
+        
+        {/* Filas de consumo */}
+        {(activeForm.realConsumption || []).map((line, i) => (
+          <div key={`${line.itemId}-${line.lotNumber}`} className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-3 items-center">
+            <div>
+              <p className="text-sm font-medium">{line.itemName}</p>
+              <p className="text-xs font-mono bg-zinc-100 px-2 py-0.5 rounded-full inline-block">{line.lotNumber}</p>
+            </div>
+            <Input type="number" readOnly value={line.theoreticalQty} className="text-right bg-zinc-50" />
+            <Input
+              type="number"
+              value={line.realQty}
+              onChange={(e) => {
+                const newConsumption = [...activeForm.realConsumption];
+                newConsumption[i].realQty = Number(e.target.value) || 0;
+                setFormValue('realConsumption', newConsumption);
+              }}
+              className="text-right"
+              disabled={orderIsLocked}
+            />
+            <span className="text-xs text-zinc-500 text-right pr-2">{line.uom}</span>
+          </div>
+        ))}
+
+        {/* Totales y Desviación */}
+        <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-3 text-sm font-bold border-t pt-2 mt-2 px-2">
+          <span>TOTALES</span>
+          <span className="text-right">{theoreticalTotal.toFixed(3)}</span>
+          <span className="text-right">{realTotal.toFixed(3)}</span>
+          <span />
+        </div>
+        <div className="text-right text-xs font-semibold pr-2">
+            MERMA / DESVIACIÓN: 
+            <span className={`ml-2 ${deviation < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                {deviation.toFixed(3)}
+            </span>
+        </div>
+
+        {activeForm.realConsumption.length === 0 && <p className="text-xs text-zinc-500 text-center py-2">Usa la propuesta para rellenar el consumo inicial.</p>}
+      </div>
+    </Collapsible>
+  );
+}
+
 
 // ---------- Página Principal (Refactorizada) ----------
 export default function ProductionExecutionPage() {
@@ -218,9 +290,7 @@ export default function ProductionExecutionPage() {
   
   const onReadyChange = useCallback((ok: boolean) => setFormValue('stockOk', ok), [setFormValue]);
   const shortagesOut = useCallback((s: ActiveOrderForm['shortages']) => setFormValue('shortages', s), [setFormValue]);
-  const requiredLotsOut = useCallback((r: ActiveOrderForm['requiredLots']) => {
-      setFormValue('requiredLots', r);
-  }, [setFormValue]);
+  const requiredLotsOut = useCallback((r: ActiveOrderForm['requiredLots']) => setFormValue('requiredLots', r), [setFormValue]);
 
   const openPlanningFromBom = useCallback((bom: RecipeBom) => {
     const outputItem = itemsMap.get(bom.outputItemId);
@@ -256,20 +326,20 @@ export default function ProductionExecutionPage() {
             itemId: order.outputItemId,
             sku: outputItem?.sku,
             qty: order.targetQuantity,
-            uom: order.baseUnit,
+            uom: order.baseUnit as Uom,
             toLocationId: 'FG/MAIN'
         },
-        realConsumption: [], // Iniciar vacío, el operario debe introducir lo real
+        realConsumption: picksToRealLines((order as any).reservations || [], itemsMap),
         journal: (order as any).journal ?? [],
         incidentText: "",
         incidentSeverity: 'LOW',
-        protocolChecks: [false, false, false, false],
+        protocolChecks: (order as any).checks ?? [false,false,false,false],
         stockOk: true,
         shortages: (order as any).shortages ?? [],
         requiredLots: (order as any).reservations ?? [],
     });
   }, [itemsMap]);
-
+  
   const hasShortagesFor = (o: ProductionOrder) => {
     const bom = recipes.find(b => b.id === (o as any).bomId);
     if (!bom) return false;
@@ -298,9 +368,8 @@ export default function ProductionExecutionPage() {
   }
 
   const handleFinish = () => {
-    if (!activeForm?.order) return;
-    if (activeForm.finalOutput.qty <= 0) {
-      toast.error("La cantidad final de producción debe ser mayor a cero.");
+    if (!activeForm?.order || missingForFinish.length > 0) {
+      toast.error("Faltan datos obligatorios para finalizar la orden.");
       return;
     }
     if (!confirm("¿Finalizar y cerrar la orden? Se crearán movimientos de stock.")) return;
@@ -361,8 +430,17 @@ export default function ProductionExecutionPage() {
       }
     });
   };
+  
+  const applyProposalToReal = useCallback(() => {
+    if (!activeForm || activeForm.requiredLots.length === 0) return;
 
-  // Derivación de estado: siempre se calcula en cada render a partir de la fuente de verdad (`activeForm`)
+    const proposalAsReal: RealConsumptionLine[] = picksToRealLines(activeForm.requiredLots, itemsMap);
+    
+    setFormValue('realConsumption', proposalAsReal);
+    toast.success("Propuesta aplicada al consumo real. Ahora puedes editar las cantidades.");
+  }, [activeForm, itemsMap, setFormValue]);
+
+  // Derivación de estado
   const activeBom = activeForm?.planningBom ?? (activeForm?.order ? recipes.find(b => b.id === (activeForm.order as any).bomId) : undefined);
   const orderIsLocked = activeForm?.order ? isClosedLike(activeForm.order.status) : false;
   
@@ -371,6 +449,18 @@ export default function ProductionExecutionPage() {
     if (!activeForm?.order) return [];
     if (!activeForm.responsibleId.trim()) msgs.push("Responsable obligatorio.");
     if (!activeForm.protocolChecks.some(Boolean)) msgs.push("Debes marcar al menos un check de protocolos.");
+    return msgs;
+  }, [activeForm]);
+
+  const missingForFinish = useMemo(() => {
+    const msgs: string[] = [];
+    if (!activeForm?.order) return ["No hay orden activa"];
+    if (activeForm.realConsumption.length === 0 || activeForm.realConsumption.some(l => l.realQty <= 0)) {
+        msgs.push("Debes registrar el consumo real de todas las materias primas.");
+    }
+    if (activeForm.finalOutput.qty <= 0) {
+        msgs.push("La cantidad de producción final debe ser mayor que cero.");
+    }
     return msgs;
   }, [activeForm]);
 
@@ -455,43 +545,43 @@ export default function ProductionExecutionPage() {
                         <div className="border rounded-lg p-3 text-sm text-zinc-500">Selecciona una receta u orden.</div>
                       )}
                       
-                      <div className="flex justify-end"><button className="text-xs px-2 py-1 rounded border bg-white hover:bg-zinc-50" onClick={() => setFormValue('realConsumption', picksToRealLines(activeForm.requiredLots || []))} disabled={!activeForm.requiredLots.length}>Usar propuesta en Consumo REAL</button></div>
-                      
-                      <Collapsible title="Consumo Real" count={activeForm.realConsumption.length}>
-                        <div className="p-3 space-y-2">
-                           {(activeForm.realConsumption || []).map((line, i) => (
-                            <div key={`${line.itemId}-${line.lotNumber}`} className="grid grid-cols-[1.5fr_1fr_0.8fr_auto] gap-2 items-center">
-                              <span className="text-sm font-medium">{itemsMap.get(line.itemId)?.name}</span>
-                              <span className="text-xs font-mono bg-zinc-100 px-2 py-1 rounded-full">{line.lotNumber}</span>
-                              <Input
-                                type="number"
-                                value={line.qty}
-                                onChange={(e) => {
-                                  const newConsumption = [...activeForm.realConsumption];
-                                  newConsumption[i].qty = Number(e.target.value);
-                                  setFormValue('realConsumption', newConsumption);
-                                }}
-                                disabled={orderIsLocked}
-                              />
-                               <span className="text-xs text-zinc-500">{line.uom}</span>
-                            </div>
-                           ))}
-                           {activeForm.realConsumption.length === 0 && <p className="text-xs text-zinc-500 text-center py-2">Usa la propuesta o añade líneas manualmente.</p>}
-                        </div>
-                      </Collapsible>
+                      <div className="flex justify-end">
+                        <button 
+                          className="text-xs px-2 py-1 rounded border bg-white hover:bg-zinc-50 disabled:opacity-50"
+                          onClick={applyProposalToReal}
+                          disabled={orderIsLocked || !activeForm.requiredLots.length}
+                        >
+                          <ArrowRight className="inline h-3 w-3 mr-1" /> Usar propuesta en Consumo REAL
+                        </button>
+                      </div>
+
+                      <RealConsumptionPanel
+                          activeForm={activeForm}
+                          setFormValue={setFormValue}
+                          itemsMap={itemsMap}
+                          orderIsLocked={orderIsLocked}
+                      />
                       
                       <div className="flex flex-wrap gap-2 pt-2">
                         {(!activeForm.order && activeForm.planningBom) && <SBButton className="bg-blue-600 text-white" onClick={handleProgram} disabled={isPending}><Play size={16}/> Programar producción</SBButton>}
                         {(activeForm.order && canStart(activeForm.order.status)) && <SBButton className="bg-blue-600 text-white" onClick={() => handleUpdateStatus('IN_PROGRESS')} disabled={isPending || missingForStart.length > 0}><Play size={16}/> Iniciar</SBButton>}
                         {(activeForm.order && canPause(activeForm.order.status)) && <SBButton className="bg-blue-600 text-white" onClick={() => handleUpdateStatus('PAUSED')} disabled={isPending}><Pause size={16}/> Pausar</SBButton>}
                         {(activeForm.order && canResume(activeForm.order.status)) && <SBButton className="bg-blue-600 text-white" onClick={() => handleUpdateStatus('IN_PROGRESS')} disabled={isPending}><Play size={16}/> Reanudar</SBButton>}
-                        {(activeForm.order && canFinish(activeForm.order.status)) && <SBButton className="bg-emerald-600 text-white" onClick={handleFinish} disabled={isPending}><CheckCircle size={16}/> Finalizar</SBButton>}
+                        {(activeForm.order && canFinish(activeForm.order.status)) && <SBButton className="bg-emerald-600 text-white" onClick={handleFinish} disabled={isPending || missingForFinish.length > 0}><CheckCircle size={16}/> Finalizar</SBButton>}
                         {activeForm.order && <SBButton variant="destructive" onClick={() => handleUpdateStatus('CANCELLED')} disabled={isClosedLike(activeForm.order?.status) || isPending}><XCircle size={16}/> Cancelar</SBButton>}
                       </div>
                       
                       {(missingForStart.length > 0 && activeForm.order?.status === 'PLANNED') && (
                         <div className="mt-2 rounded-md border border-rose-200 bg-rose-50 p-2 text-xs space-y-1">
+                          <p className="font-bold">Para iniciar la orden:</p>
                           {missingForStart.map((m,i)=><div key={`ms-${i}`}>• {m}</div>)}
+                        </div>
+                      )}
+
+                      {(missingForFinish.length > 0 && canFinish(activeForm.order?.status)) && (
+                        <div className="mt-2 rounded-md border border-rose-200 bg-rose-50 p-2 text-xs space-y-1">
+                          <p className="font-bold">Para finalizar la orden:</p>
+                          {missingForFinish.map((m,i) => <div key={`mf-${i}`}>• {m}</div>)}
                         </div>
                       )}
                     </div>
@@ -508,8 +598,24 @@ export default function ProductionExecutionPage() {
                       <Input placeholder="Nombre responsable" value={activeForm.responsibleId ?? ''} onChange={e=>setFormValue('responsibleId', e.target.value)} readOnly={orderIsLocked} />
                       <div className="grid grid-cols-2 gap-2 text-sm">{activeForm.protocolChecks.map((v,i)=>(<label key={i} className="flex items-center gap-2"><input type="checkbox" checked={v} onChange={()=> setFormValue('protocolChecks', activeForm.protocolChecks.map((c,ci)=> i===ci?!c:c))} disabled={orderIsLocked}/>Protocolos OK</label>))}</div>
                       <div className="grid grid-cols-2 gap-3 mt-2">
-                        <Input type="number" value={activeForm.finalOutput.qty} onChange={e => setFormValue('finalOutput', {...activeForm.finalOutput, qty: Number(e.target.value) || 0})} readOnly={orderIsLocked}/>
-                        <Input placeholder="Ej. LFG-2509-01" value={activeForm.finalOutput.lotNumber ?? ""} onChange={e => setFormValue('finalOutput', {...activeForm.finalOutput, lotNumber: e.target.value})} readOnly={orderIsLocked} />
+                         <div>
+                            <label className="text-xs font-medium">Producción Final (Qty)</label>
+                            <Input 
+                              type="number"
+                              value={activeForm.finalOutput.qty}
+                              onChange={e => setFormValue('finalOutput', {...activeForm.finalOutput, qty: Number(e.target.value) || 0})}
+                              readOnly={orderIsLocked || !canFinish(activeForm.order?.status)} // Solo editable al final
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs font-medium">Lote Final</label>
+                            <Input
+                              placeholder="Ej. LFG-2509-01"
+                              value={activeForm.finalOutput.lotNumber ?? ""}
+                              onChange={e => setFormValue('finalOutput', {...activeForm.finalOutput, lotNumber: e.target.value})}
+                              readOnly={orderIsLocked || !canFinish(activeForm.order?.status)} // Solo editable al final
+                            />
+                          </div>
                       </div>
                     </div>}
                   </SBCard>
