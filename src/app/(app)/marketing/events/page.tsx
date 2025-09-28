@@ -13,6 +13,8 @@ import { Calendar, Megaphone, Target, Euro, Plus } from 'lucide-react';
 import { NewPosTacticDialog } from '@/features/marketing/components/NewPosTacticDialog';
 import { upsertPosTactic } from '@/features/marketing/services/posTactics.client';
 import { listPosCostCatalog, listPlvInStock } from '@/features/marketing/services/posTactics.service';
+import { toast } from 'sonner';
+import { useRouter } from 'next/navigation';
 
 function StatusPill({ status }: { status: MarketingEvent['status'] }) {
     const styles: Record<MarketingEvent['status'], string> = {
@@ -33,6 +35,7 @@ const formatCurrency = (num?: number) => num?.toLocaleString('es-ES', { style: '
 
 export default function Page(){
   const { data: santaData, currentUser, saveAllCollections } = useData();
+  const router = useRouter();
   const [catalog, setCatalog] = useState<PosCostCatalogEntry[]>([]);
   const [plv, setPlv] = useState<PlvMaterial[]>([]);
 
@@ -104,35 +107,6 @@ export default function Page(){
       setIsNewEventDialogOpen(false);
   };
   
-  const handleSaveCompletedTask = async (eventId: string, payload: any) => {
-    if (!santaData) return;
-    
-    const updatedMktEvents = santaData.marketingEvents.map(me => {
-        if (me.id === eventId) {
-            return {
-                ...me,
-                status: 'closed',
-                spend: payload.spend,
-                kpis: {
-                    leads: payload.leads,
-                    sampling: payload.sampling,
-                    impressions: payload.impressions,
-                    interactions: payload.interactions,
-                    completedAt: new Date().toISOString(),
-                }
-            } as MarketingEvent;
-        }
-        return me;
-    });
-
-    const interactionToClose = santaData.interactions.find(i => i.linkedEntity?.id === eventId);
-    const updatedInteractions = interactionToClose ? santaData.interactions.map(i => i.id === interactionToClose.id ? {...i, status: 'done' as const} : i) : santaData.interactions;
-
-    await saveAllCollections({ marketingEvents: updatedMktEvents, interactions: updatedInteractions });
-
-    setCompletingEvent(null);
-  };
-  
   const openTacticDialog = (event: MarketingEvent) => {
       setTacticEventContext({ eventId: event.id, accountId: event.accountId });
       setIsNewTacticOpen(true);
@@ -198,7 +172,12 @@ export default function Page(){
         <NewEventDialog
             open={isNewEventDialogOpen}
             onOpenChange={setIsNewEventDialogOpen}
-            onSave={handleAddOrUpdateEvent as any}
+            onSuccess={() => {
+                toast.success('Evento creado con éxito.');
+                router.refresh();
+                setIsNewEventDialogOpen(false);
+            }}
+            onError={(msg) => toast.error(`Error: ${msg}`)}
             accentColor={SB_COLORS.primary.teal}
             initialEventData={{dept: 'MARKETING', kind: 'EVENTO_MKT' as InteractionKind} as any}
         />
@@ -209,7 +188,12 @@ export default function Page(){
             entity={completingEvent}
             open={!!completingEvent}
             onClose={() => setCompletingEvent(null)}
-            onComplete={handleSaveCompletedTask}
+            onSuccess={() => {
+              toast.success('Resultados del evento guardados.');
+              router.refresh();
+              setCompletingEvent(null);
+            }}
+            onError={(msg) => toast.error(`Error: ${msg}`)}
         />
     )}
     

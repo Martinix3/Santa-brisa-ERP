@@ -9,21 +9,18 @@ import { buildCollabInsights } from "../insights/buildCollabInsights";
 import { NewCollabDialog } from "../dialogs/NewCollabDialog";
 import { MarketingTaskCompletionDialog } from "@/features/marketing/components/MarketingTaskCompletionDialog";
 import type { InfluencerCollab } from "@/domain/ssot";
+import { toast } from 'sonner';
+import { useRouter } from 'next/navigation';
+
 
 export default function InfluencersDashboardPage({ components }:{ components:any }) {
   const { SBButton, SBCard } = components;
+  const router = useRouter();
   const { collabs, createCollab, updateCollab, closeCollab } = useCollabsService();
   const [openNew,setOpenNew]=useState(false);
   const [closing,setClosing]=useState<InfluencerCollab | null>(null);
 
   const insights = useMemo(()=> buildCollabInsights(collabs, 200), [collabs]);
-
-  async function handleClose(collabId: string, k: any) {
-    const collab = collabs.find(c => c.id === collabId);
-    if (!collab) return;
-    await closeCollab(collab, k);
-    setClosing(null);
-  }
 
   return (
     <div className="space-y-6">
@@ -81,13 +78,19 @@ export default function InfluencersDashboardPage({ components }:{ components:any
         />
       </SBCard>
 
-      <NewCollabDialog open={openNew} onClose={()=>setOpenNew(false)} onSave={createCollab} components={components} />
+      <NewCollabDialog open={openNew} onClose={()=>setOpenNew(false)} onSuccess={createCollab} components={components} />
       {closing && (
         <MarketingTaskCompletionDialog 
             entity={closing}
             open={!!closing} 
             onClose={()=>setClosing(null)} 
-            onComplete={handleClose}
+            onSuccess={({ entityId, payload }) => {
+                closeCollab(closing, payload);
+                toast.success('Resultados de la colaboración guardados.');
+                router.refresh();
+                setClosing(null);
+            }}
+            onError={(msg) => toast.error(`Error: ${msg}`)}
         />
       )}
     </div>

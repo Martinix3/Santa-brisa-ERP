@@ -1,4 +1,5 @@
 
+
 // src/app/(app)/agenda/calendar/page.tsx
 "use client";
 import React, { useMemo, useState, useEffect } from "react";
@@ -14,7 +15,8 @@ import { Filter, Calendar } from "lucide-react";
 import { SB_COLORS, DEPT_META, SB_THEME } from "@/domain/ssot";
 import type { Department, Interaction, SantaData, InteractionStatus, MarketingEvent } from '@/domain/ssot';
 import { sbAsISO } from "@/features/agenda/helpers";
-
+import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { NewEventDialog } from "@/features/agenda/components/NewEventDialog";
 import { EventDetailDialog } from "@/features/agenda/components/EventDetailDialog";
 import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/TaskCompletionDialog';
@@ -34,7 +36,8 @@ const hexToRgba = (hex: string, a: number) => {
 function CalendarPageContent() {
   useFullCalendarStyles();
   const { data: santaData, setData, currentUser, isPersistenceEnabled, saveCollection, saveAllCollections } = useData();
-  
+  const router = useRouter();
+
   const [selectedEvent, setSelectedEvent] = useState<Interaction | null>(null);
   const [editingEvent, setEditingEvent] = useState<Interaction | null>(null);
   const [isNewEventDialogOpen, setIsNewEventDialogOpen] = useState(false);
@@ -86,21 +89,12 @@ function CalendarPageContent() {
       });
   }, [allInteractions]);
   
-  const updateAndPersistInteractions = (updatedSubset: Interaction[]) => {
-    if (!santaData) return;
-    const map = new Map((santaData.interactions || []).map(i => [i.id, i]));
-    for (const it of updatedSubset) map.set(it.id, it);
-    const fullList = Array.from(map.values());
-    setData(prev => prev ? { ...prev, interactions: fullList } : null);
-    if (isPersistenceEnabled) saveCollection('interactions', fullList);
-  }
-  
   const handleUpdateStatus = (id: string, newStatus: InteractionStatus) => {
     if (!santaData) return;
     const taskToUpdate = allInteractions.find(i => i.id === id);
     setSelectedEvent(null);
     if (newStatus === 'done' && taskToUpdate) {
-        if (taskToUpdate.dept === 'MARKETING' && taskToUpdate.linkedEntity?.type === 'EVENT') {
+        if (taskToUpdate.dept === 'MARKETING' && taskToUpdate.linkedEntity?.type === 'EVENT' && santaData.marketingEvents) {
             const event = santaData.marketingEvents.find(e => e.id === taskToUpdate.linkedEntity?.id);
             if (event) {
                 setCompletingMarketingEvent(event);
@@ -111,32 +105,6 @@ function CalendarPageContent() {
             setCompletingTask(taskToUpdate);
         }
     }
-  };
-  
-  const handleAddOrUpdateEvent = async (eventData: any) => {
-      if (!currentUser || !santaData) return;
-      
-      const { ...event } = eventData;
-      let updatedInteractions;
-
-      if (event.id) {
-          updatedInteractions = santaData.interactions.map(i => i.id === event.id ? { ...i, ...event } as Interaction : i);
-      } else {
-          const newInteraction: Interaction = {
-              id: `int_${Date.now()}`,
-              createdAt: new Date().toISOString(),
-              status: 'open',
-              userId: currentUser.id,
-              ...event,
-          };
-          updatedInteractions = [...(santaData.interactions || []), newInteraction];
-      }
-      
-      setData({ ...santaData, interactions: updatedInteractions });
-      await saveCollection('interactions', updatedInteractions);
-
-      setEditingEvent(null);
-      setIsNewEventDialogOpen(false);
   };
   
   const handleEventClick = (clickInfo: EventClickArg) => {
@@ -150,48 +118,13 @@ function CalendarPageContent() {
   const handleEventDrop = (dropInfo: EventDropArg) => {
     const { event } = dropInfo;
     const { id, start } = event;
-    if (!start) return;
+    if (!start || !santaData) return;
 
     const updatedInteractions = allInteractions.map(i =>
         i.id === id ? { ...i, plannedFor: sbAsISO(start) } : i
     );
-    updateAndPersistInteractions(updatedInteractions as Interaction[]);
-  };
-
-  const handleSaveCompletedTask = async (taskId: string, payload: any) => {
-    if (!santaData || !currentUser) return;
-    const updatedInteractions = santaData.interactions.map(i => i.id === taskId ? { ...i, status: 'done' as InteractionStatus, resultNote: payload.note } : i);
-    setData(prev => prev ? ({ ...prev, interactions: updatedInteractions }) : null);
-    await saveCollection('interactions', updatedInteractions);
-    setCompletingTask(null);
-  };
-
-  const handleSaveMarketingEventTask = async (eventId: string, payload: any) => {
-    if (!santaData) return;
-    
-    const updatedMktEvents = santaData.marketingEvents.map(me => {
-        if (me.id === eventId) {
-            return {
-                ...me,
-                status: 'closed',
-                spend: payload.spend,
-                kpis: {
-                    leads: payload.leads,
-                    sampling: payload.sampling,
-                    impressions: payload.impressions,
-                    interactions: payload.interactions,
-                    completedAt: new Date().toISOString(),
-                }
-            } as MarketingEvent;
-        }
-        return me;
-    });
-
-    const interactionToClose = santaData.interactions.find(i => i.linkedEntity?.id === eventId);
-    const updatedInteractions = interactionToClose ? santaData.interactions.map(i => i.id === interactionToClose.id ? {...i, status: 'done' as InteractionStatus} : i) : santaData.interactions;
-
-    await saveAllCollections({ marketingEvents: updatedMktEvents, interactions: updatedInteractions });
-    setCompletingMarketingEvent(null);
+    setData(d => d ? ({ ...d, interactions: updatedInteractions }) : null);
+    if(isPersistenceEnabled) saveCollection('interactions', updatedInteractions as Interaction[]);
   };
   
   const userOptions = useMemo(() => (santaData?.users || []).map(u => ({ value: u.id, label: u.name })), [santaData?.users]);
@@ -269,7 +202,13 @@ function CalendarPageContent() {
           <NewEventDialog
             open={isNewEventDialogOpen}
             onOpenChange={setIsNewEventDialogOpen}
-            onSave={handleAddOrUpdateEvent as any}
+            onSuccess={() => {
+              toast.success(`Tarea ${editingEvent ? 'actualizada' : 'creada'}.`);
+              router.refresh();
+              setIsNewEventDialogOpen(false);
+              setEditingEvent(null);
+            }}
+            onError={(msg) => toast.error(`Error: ${msg}`)}
             accentColor={'hsl(var(--sb-sun-strong))'}
             initialEventData={editingEvent}
           />
@@ -291,7 +230,12 @@ function CalendarPageContent() {
             task={completingTask}
             open={!!completingTask}
             onClose={() => setCompletingTask(null)}
-            onComplete={handleSaveCompletedTask}
+            onSuccess={() => {
+              toast.success('Tarea completada con éxito.');
+              router.refresh();
+              setCompletingTask(null);
+            }}
+            onError={(msg) => toast.error(`Error: ${msg}`)}
           />
         )}
 
@@ -300,7 +244,12 @@ function CalendarPageContent() {
                 entity={completingMarketingEvent}
                 open={!!completingMarketingEvent}
                 onClose={() => setCompletingMarketingEvent(null)}
-                onComplete={handleSaveMarketingEventTask}
+                onSuccess={() => {
+                  toast.success('Resultados del evento de marketing guardados.');
+                  router.refresh();
+                  setCompletingMarketingEvent(null);
+                }}
+                onError={(msg) => toast.error(`Error: ${msg}`)}
             />
         )}
       </div>

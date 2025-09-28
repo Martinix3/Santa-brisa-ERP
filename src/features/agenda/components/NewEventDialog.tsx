@@ -5,7 +5,7 @@
 import React, { useState, useEffect } from 'react';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
 import { Plus, User as UserIcon, Search } from 'lucide-react';
-import type { Department, User, Interaction, InteractionKind, Account } from '@/domain/ssot';
+import type { Department, User, Interaction, InteractionKind, Account, SantaData } from '@/domain/ssot';
 import { DEPT_META } from '@/domain/ssot'; // usa el canónico
 import { useData } from '@/lib/dataprovider';
 import { Avatar } from '@/components/ui/Avatar';
@@ -170,7 +170,9 @@ export function NewEventDialog({
                 interactions: [newInteraction]
             };
             
-            await saveAllCollections(collectionToSave);
+            if (saveAllCollections) {
+                await saveAllCollections(collectionToSave);
+            }
             onSuccess(newInteraction);
 
         } catch (error: any) {

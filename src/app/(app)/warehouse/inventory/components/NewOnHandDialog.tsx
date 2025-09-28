@@ -11,16 +11,16 @@ import { createManualOnHand } from '../actions';
 type FormState = {
   itemId: string;
   lotNumber: string;
-  qty: number | "";
+  qty: number;
   uom: string;
   locationId: string;
   occurredAt: string;
   note?: string;
   supplier?: string;
   invoiceRef?: string;
-  amount?: number | "";
+  amount?: number;
   currency?: string;
-  category?: ItemCategory;
+  category: ItemCategory;
   sendToQc: boolean;
 };
 
@@ -43,7 +43,7 @@ export function NewOnHandDialog({
 }) {
   const { register, handleSubmit, formState: { errors }, reset, watch, setValue } = useForm<FormState>({
     defaultValues: {
-      qty: "",
+      qty: 0,
       uom: "unit",
       locationId: defaultLocation || "",
       occurredAt: new Date().toISOString().slice(0, 16),

@@ -4,10 +4,9 @@
 import React, { useState, useEffect } from 'react';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
 import { Input, Select, Textarea } from '@/components/ui/ui-primitives';
-import type { Interaction, Payload, Item } from '@/domain/ssot';
+import type { Interaction, Payload, Item, SantaData } from '@/domain/ssot';
 import { ShoppingCart, MessageSquare, Plus, X } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
-import { saveAllCollections } from '@/lib/dataprovider/actions';
 
 export function TaskCompletionDialog({
   task,
@@ -103,7 +102,9 @@ export function TaskCompletionDialog({
             collectionsToSave.ordersSellOut = [...(data.ordersSellOut || []), newOrder as any];
         }
 
-        await saveAllCollections(collectionsToSave);
+        if(saveAllCollections) {
+          await saveAllCollections(collectionsToSave);
+        }
         onSuccess(collectionsToSave);
 
     } catch (error: any) {

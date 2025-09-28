@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useMemo, useState } from 'react';
@@ -11,7 +12,8 @@ import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/Tas
 import { MarketingTaskCompletionDialog } from '@/features/marketing/components/MarketingTaskCompletionDialog';
 import { FilterSelect } from '@/components/ui/FilterSelect';
 import { DEPT_META } from '@/domain/ssot';
-
+import { toast } from 'sonner';
+import { useRouter } from 'next/navigation';
 
 function mapInteractionsToTasks(
   interactions: Interaction[] | undefined,
@@ -42,6 +44,7 @@ function mapInteractionsToTasks(
 
 export default function GlobalTasksPage() {
     const { data, setData, saveAllCollections } = useData();
+    const router = useRouter();
     const [completingTask, setCompletingTask] = useState<Interaction | null>(null);
     const [completingMarketingEvent, setCompletingMarketingEvent] = useState<MarketingEvent | null>(null);
 
@@ -64,11 +67,11 @@ export default function GlobalTasksPage() {
     }, [data?.interactions, data?.accounts, responsibleFilter, departmentFilter]);
     
     const handleUpdateStatus = (id: string, newStatus: InteractionStatus) => {
-        if (!data) return;
-        const taskToUpdate = data?.interactions.find(i => i.id === id);
+        if (!data || !data.interactions) return;
+        const taskToUpdate = data.interactions.find(i => i.id === id);
         if (newStatus === 'done' && taskToUpdate) {
-            if (taskToUpdate.dept === 'MARKETING' && taskToUpdate.linkedEntity?.type === 'EVENT') {
-                const event = data?.marketingEvents.find(e => e.id === taskToUpdate.linkedEntity?.id);
+            if (taskToUpdate.dept === 'MARKETING' && taskToUpdate.linkedEntity?.type === 'EVENT' && data.marketingEvents) {
+                const event = data.marketingEvents.find(e => e.id === taskToUpdate.linkedEntity?.id);
                 if (event) {
                     setCompletingMarketingEvent(event);
                 } else {
@@ -78,72 +81,6 @@ export default function GlobalTasksPage() {
                 setCompletingTask(taskToUpdate);
             }
         }
-    };
-
-    const handleSaveCompletedTask = async (
-        taskId: string,
-        payload: Payload
-    ) => {
-        if (!data) return;
-        
-        const collectionsToSave: Partial<SantaData> = {};
-
-        const updatedInteractions = data.interactions.map(i =>
-            i.id === taskId ? { ...i, status: 'done' as InteractionStatus, resultNote: (payload as any).note } : i
-        );
-        collectionsToSave.interactions = updatedInteractions;
-
-        if (payload.type === 'interaccion' && payload.nextActionDate) {
-            const originalTask = data.interactions.find(i => i.id === taskId);
-            const newFollowUp: Interaction = {
-                id: `int_${Date.now()}`,
-                userId: originalTask?.userId || '',
-                accountId: originalTask?.accountId,
-                kind: 'OTRO', 
-                note: `Seguimiento de: ${(payload as any).note}`,
-                plannedFor: payload.nextActionDate,
-                createdAt: new Date().toISOString(),
-                dept: originalTask?.dept || 'VENTAS',
-                status: 'open',
-            };
-            collectionsToSave.interactions.push(newFollowUp);
-        }
-
-        // Venta no se maneja aquí directamente, pero se podría
-        
-        setData(prevData => prevData ? { ...prevData, ...collectionsToSave } : null);
-
-        await saveAllCollections(collectionsToSave);
-        
-        setCompletingTask(null);
-    };
-
-    const handleSaveMarketingEventTask = async (eventId: string, payload: any) => {
-        if (!data) return;
-        
-        const updatedMktEvents = data.marketingEvents.map(me => {
-            if (me.id === eventId) {
-                return {
-                    ...me,
-                    status: 'closed',
-                    spend: payload.spend,
-                    kpis: {
-                        leads: payload.leads,
-                        sampling: payload.sampling,
-                        impressions: payload.impressions,
-                        interactions: payload.interactions,
-                        completedAt: new Date().toISOString(),
-                    }
-                } as MarketingEvent;
-            }
-            return me;
-        });
-    
-        const interactionToClose = data.interactions.find(i => i.linkedEntity?.id === eventId);
-        const updatedInteractions = interactionToClose ? data.interactions.map(i => i.id === interactionToClose.id ? {...i, status: 'done' as InteractionStatus} : i) : data.interactions;
-    
-        await saveAllCollections({ marketingEvents: updatedMktEvents, interactions: updatedInteractions });
-        setCompletingMarketingEvent(null);
     };
 
     if (!data) {
@@ -174,7 +111,12 @@ export default function GlobalTasksPage() {
                     task={completingTask}
                     open={!!completingTask}
                     onClose={() => setCompletingTask(null)}
-                    onComplete={handleSaveCompletedTask}
+                    onSuccess={() => {
+                      toast.success('Tarea completada con éxito.');
+                      router.refresh();
+                      setCompletingTask(null);
+                    }}
+                    onError={(msg) => toast.error(`Error: ${msg}`)}
                 />
             )}
             {completingMarketingEvent && (
@@ -182,7 +124,12 @@ export default function GlobalTasksPage() {
                     entity={completingMarketingEvent}
                     open={!!completingMarketingEvent}
                     onClose={() => setCompletingMarketingEvent(null)}
-                    onComplete={handleSaveMarketingEventTask}
+                    onSuccess={() => {
+                        toast.success('Resultados del evento de marketing guardados.');
+                        router.refresh();
+                        setCompletingMarketingEvent(null);
+                    }}
+                    onError={(msg) => toast.error(`Error: ${msg}`)}
                 />
             )}
         </>

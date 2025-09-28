@@ -4,6 +4,7 @@
 
 "use client"
 import React, { useMemo, useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation';
 import { ChevronDown, Search, Plus, Phone, Mail, MessageSquare, Calendar, History, ShoppingCart, Info, BarChart3, UserPlus, Users, MoreVertical, Ticket, Clock, Edit, FileText } from 'lucide-react'
 import type { Stage, User, Interaction, OrderSellOut, SantaData, CustomerData, Party, PartyRole, InteractionKind, Payload, Account, AccountType, Uom } from '@/domain/ssot'
 import { accountOwnerDisplay, computeAccountKPIs, getDistributorForAccount, orderTotal } from '@/lib/sb-core';
@@ -15,6 +16,7 @@ import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/Tas
 import { Avatar } from '@/components/ui/Avatar';
 import { NewAccountDialog } from './NewAccountDialog';
 import { DEPT_META } from '@/domain/ssot';
+import { toast } from 'sonner';
 
 const STAGE: Record<string, { label:string; tint:string; text:string }> = {
   ACTIVA: { label:'Activas', tint:'#A7D8D9', text:'#17383a' },
@@ -127,8 +129,8 @@ function AccountBar({ a, party, santaData, onAddActivity, userMap, shortDate }: 
                         <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">Actividad Reciente</h4>
                         <ul className="space-y-1 text-sm text-zinc-700 max-h-40 overflow-y-auto pr-2">
                             {unifiedActivity.length > 0 ? unifiedActivity.slice(0, 5).map((act, i) => {
-                                if (act.type === 'interaction') {
-                                    const int = act.data as Interaction;
+                                if ('kind' in act) {
+                                    const int = act as Interaction;
                                     const Icon = interactionIcons[int.kind] || History;
                                     return (
                                         <li key={`act_${i}`} className="flex items-start gap-3 text-xs">
@@ -141,8 +143,8 @@ function AccountBar({ a, party, santaData, onAddActivity, userMap, shortDate }: 
                                         </li>
                                     )
                                 }
-                                if (act.type === 'order') {
-                                    const order = act.data as OrderSellOut;
+                                if ('lines' in act) {
+                                    const order = act as OrderSellOut;
                                     return (
                                         <li key={`act_${i}`} className="flex items-start gap-3 text-xs">
                                             <ShoppingCart className="h-4 w-4 mt-0.5 text-emerald-600 flex-shrink-0" />
@@ -192,6 +194,7 @@ function AccountBar({ a, party, santaData, onAddActivity, userMap, shortDate }: 
 }
 
 export function AccountsPageContent() {
+  const router = useRouter();
   const { data: santaData, setData, currentUser, saveAllCollections } = useData();
   
   const [q,setQ]=useState('');
@@ -304,78 +307,6 @@ export function AccountsPageContent() {
         }
     }
   }, [expanded]);
-
-    const handleSaveCompletedTask = async (
-        accountId: string,
-        payload: Payload
-    ) => {
-        if (!santaData || !currentUser) return;
-    
-        const collectionsToSave: Partial<SantaData> = {};
-        const account = santaData.accounts.find(a => a.id === accountId);
-        if (!account) return;
-
-        if (payload.type === 'venta') {
-            const newOrder: OrderSellOut = {
-                id: `ord_${Date.now()}`,
-                accountId: accountId,
-                partyId: account.partyId,
-                source: 'MANUAL',
-                status: 'open',
-                billingStatus: 'PENDING',
-                currency: 'EUR',
-                createdAt: new Date().toISOString(),
-                lines: payload.items.map(item => ({ itemId: item.itemId, qty: item.qty, uom: 'unit', priceUnit: 0 })),
-                notes: `Pedido rápido creado desde lista de cuentas`,
-            };
-            collectionsToSave.ordersSellOut = [...(santaData.ordersSellOut || []), newOrder];
-        } else { 
-            const newInteraction: Partial<Interaction> = {
-                id: `int_${Date.now()}`,
-                userId: currentUser.id,
-                accountId: accountId,
-                kind: 'OTRO',
-                note: (payload as any).note,
-                createdAt: new Date().toISOString(),
-                dept: 'VENTAS',
-                status: 'done',
-            };
-            
-            if (payload.type === 'interaccion' && payload.nextActionDate) {
-                 const newFollowUp: Interaction = {
-                    id: `int_${Date.now() + 1}`,
-                    userId: currentUser.id,
-                    accountId: accountId,
-                    kind: 'OTRO', 
-                    note: `Seguimiento de: ${(payload as any).note}`,
-                    plannedFor: payload.nextActionDate,
-                    createdAt: new Date().toISOString(),
-                    dept: 'VENTAS',
-                    status: 'open',
-                };
-                collectionsToSave.interactions = [...(santaData.interactions || []), newInteraction as Interaction, newFollowUp];
-            } else {
-                collectionsToSave.interactions = [...(santaData.interactions || []), newInteraction as Interaction];
-            }
-        }
-    
-        setData(prevData => prevData ? { ...prevData, ...collectionsToSave } : null);
-        await saveAllCollections(collectionsToSave);
-    
-        setCompletingTaskForAccount(null);
-    };
-
-    const handleSaveNewAccount = async (newParty: Party, newAccount: Account, newRole: PartyRole) => {
-        if (!santaData) return;
-        
-        await saveAllCollections({
-            parties: [...(santaData.parties || []), newParty],
-            accounts: [...(santaData.accounts || []), newAccount],
-            partyRoles: [...(santaData.partyRoles || []), newRole],
-        });
-        
-        setIsNewAccountOpen(false);
-    };
   
   if (!santaData) {
     return <div className="p-6">Cargando datos...</div>;
@@ -452,14 +383,26 @@ export function AccountsPageContent() {
             }}
             open={!!completingTaskForAccount}
             onClose={() => setCompletingTaskForAccount(null)}
-            onComplete={(taskId, payload) => handleSaveCompletedTask(completingTaskForAccount.id, payload as Payload)}
+            onSuccess={() => {
+                toast.success('Actividad registrada con éxito.');
+                router.refresh();
+                setCompletingTaskForAccount(null);
+            }}
+            onError={(msg) => {
+                toast.error(`Error: ${msg}`);
+            }}
         />
       )}
       {isNewAccountOpen && santaData && (
         <NewAccountDialog
           open={isNewAccountOpen}
           onClose={() => setIsNewAccountOpen(false)}
-          onSave={handleSaveNewAccount}
+          onSuccess={() => {
+            toast.success('Nueva cuenta creada con éxito.');
+            router.refresh();
+            setIsNewAccountOpen(false);
+          }}
+          onError={(msg) => toast.error(`Error al crear cuenta: ${msg}`)}
           users={santaData.users}
           distributors={distOptions}
         />

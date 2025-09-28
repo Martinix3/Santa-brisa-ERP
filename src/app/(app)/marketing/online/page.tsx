@@ -1,3 +1,4 @@
+
 // src/app/(app)/marketing/online/page.tsx
 "use client";
 
@@ -7,6 +8,8 @@ import type { OnlineCampaign, SB_THEME } from "@/domain/ssot";
 import { SBButton, SBCard, Input, Select } from "@/components/ui/ui-primitives";
 import { Plus, Edit, Save, X } from "lucide-react";
 import { MarketingTaskCompletionDialog } from "@/features/marketing/components/MarketingTaskCompletionDialog";
+import { toast } from 'sonner';
+import { useRouter } from 'next/navigation';
 
 
 /* =========================
@@ -22,19 +25,11 @@ const fmtNum = (n?: number) => new Intl.NumberFormat("es-ES").format(n || 0);
 function NewCampaignDialog({
   open,
   onClose,
-  onSave,
+  onSuccess,
 }: {
   open: boolean;
   onClose: () => void;
-  onSave: (data: {
-    title: string;
-    channel: OnlineCampaign["channel"];
-    startAt: string;
-    endAt?: string;
-    budget?: number;
-    ownerUserId?: string;
-    tracking?: { utmCampaign?: string; couponCode?: string; landingUrl?: string };
-  }) => void;
+  onSuccess: (data: any) => void;
 }) {
   const [title, setTitle] = useState("");
   const [channel, setChannel] = useState<OnlineCampaign["channel"]>("IG");
@@ -56,7 +51,7 @@ function NewCampaignDialog({
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!title || !startAt) return;
-    onSave({
+    onSuccess({
       title,
       channel,
       startAt,
@@ -207,7 +202,7 @@ function buildPaidInsights(campaigns: OnlineCampaign[], minSpendToJudge=300): Ro
     const roasArr = group.map(g=>g._stats.roas);
     const cpcArr  = group.map(g=>g._stats.cpc);
     const cpmArr  = group.map(g=>g._stats.cpm);
-    const ctrArr  = group.map(g=>g._stats.ctr);
+    const ctrArr  = group.map(g=>g._stats.ctr ?? 0);
     const cvrArr  = group.map(g=>g._stats.cvr ?? 0);
 
     const m = { roas:mean(roasArr), cpc:mean(cpcArr), cpm:mean(cpmArr), ctr:mean(ctrArr), cvr:mean(cvrArr) };
@@ -338,6 +333,7 @@ function CampaignRow({
 ========================= */
 export default function OnlineCampaignsPage() {
   const { data: santaData, setData, isPersistenceEnabled, saveCollection } = useData();
+  const router = useRouter();
   const [openCreate, setOpenCreate] = useState(false);
   const [closing, setClosing] = useState<OnlineCampaign | null>(null);
 
@@ -348,7 +344,7 @@ export default function OnlineCampaignsPage() {
     if (isPersistenceEnabled) await saveCollection("onlineCampaigns", next);
   }
 
-  async function handleCreate(input: Parameters<React.ComponentProps<typeof NewCampaignDialog>["onSave"]>[0]) {
+  async function handleCreate(input: Parameters<typeof NewCampaignDialog["onSuccess"]>[0]) {
     if (!santaData) return;
     const now = new Date().toISOString();
     const doc: OnlineCampaign = {
@@ -372,33 +368,6 @@ export default function OnlineCampaignsPage() {
   async function handleUpdate(updated: OnlineCampaign) {
     const next = campaigns.map(c => c.id === updated.id ? { ...updated, updatedAt: new Date().toISOString() } : c);
     await persist(next);
-  }
-
-  async function handleComplete(campaignId: string, payload: any) {
-    const next = campaigns.map(c => {
-      if (c.id !== campaignId) return c;
-      const ctr = payload.impressions > 0 ? payload.clicks / payload.impressions : 0;
-      const cpc = payload.clicks > 0 ? payload.spend / payload.clicks : 0;
-      const cpm = payload.impressions > 0 ? payload.spend / (payload.impressions / 1000) : 0;
-
-      return {
-        ...c,
-        status: "closed",
-        spend: payload.spend,
-        metrics: {
-          ...c.metrics,
-          impressions: payload.impressions,
-          clicks: payload.clicks,
-          revenue: payload.spend * payload.roas,
-          roas: payload.roas,
-          ctr, cpc, cpm,
-          updatedAt: new Date().toISOString(),
-        },
-        updatedAt: new Date().toISOString(),
-      } as OnlineCampaign;
-    });
-    await persist(next);
-    setClosing(null);
   }
 
   const insights = useMemo(()=> buildPaidInsights(campaigns, 300), [campaigns]);
@@ -490,13 +459,41 @@ export default function OnlineCampaignsPage() {
       </div>
 
       {/* Dialogos */}
-      <NewCampaignDialog open={openCreate} onClose={()=>setOpenCreate(false)} onSave={handleCreate} />
+      <NewCampaignDialog open={openCreate} onClose={()=>setOpenCreate(false)} onSuccess={handleCreate} />
       {closing && (
         <MarketingTaskCompletionDialog
           entity={closing}
           open={!!closing}
           onClose={() => setClosing(null)}
-          onComplete={handleComplete}
+          onSuccess={({entityId, payload}) => {
+            const next = campaigns.map(c => {
+                if (c.id !== entityId) return c;
+                const ctr = payload.impressions! > 0 ? payload.clicks! / payload.impressions! : 0;
+                const cpc = payload.clicks! > 0 ? payload.spend! / payload.clicks! : 0;
+                const cpm = payload.impressions! > 0 ? payload.spend! / (payload.impressions! / 1000) : 0;
+
+                return {
+                    ...c,
+                    status: "closed",
+                    spend: payload.spend,
+                    metrics: {
+                    ...c.metrics,
+                    impressions: payload.impressions,
+                    clicks: payload.clicks,
+                    revenue: payload.spend! * payload.roas!,
+                    roas: payload.roas,
+                    ctr, cpc, cpm,
+                    updatedAt: new Date().toISOString(),
+                    },
+                    updatedAt: new Date().toISOString(),
+                } as OnlineCampaign;
+            });
+            persist(next);
+            toast.success('Resultados de la campaña guardados.');
+            router.refresh();
+            setClosing(null);
+          }}
+          onError={(msg) => toast.error(`Error: ${msg}`)}
         />
       )}
     </>

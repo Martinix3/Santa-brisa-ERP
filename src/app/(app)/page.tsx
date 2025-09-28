@@ -15,6 +15,8 @@ import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/Tas
 import { MarketingTaskCompletionDialog } from '@/features/marketing/components/MarketingTaskCompletionDialog';
 import { NewEventDialog } from '@/features/agenda/components/NewEventDialog';
 import { sbAsISO } from '@/features/agenda/helpers';
+import { toast } from 'sonner';
+import { useRouter } from 'next/navigation';
 
 
 function mapInteractionsToTasks(
@@ -46,6 +48,7 @@ function mapInteractionsToTasks(
 
 function PersonalDashboardContent() {
   const { currentUser, data, setData, saveAllCollections, saveCollection } = useData();
+  const router = useRouter();
   const [completingTask, setCompletingTask] = useState<Interaction | null>(null);
   const [isNewEventDialogOpen, setIsNewEventDialogOpen] = useState(false);
   const [completingMarketingEvent, setCompletingMarketingEvent] = useState<MarketingEvent | null>(null);
@@ -98,109 +101,6 @@ function PersonalDashboardContent() {
     }
   };
 
-  const handleSaveNewTask = async (eventData: Omit<Interaction, 'createdAt' | 'status' | 'id'> & { id?: string }) => {
-      if (!currentUser || !data) return;
-      
-      const newInteraction: Interaction = {
-          id: eventData.id || `int_${Date.now()}`,
-          ...(eventData as Omit<Interaction, 'id' | 'createdAt' | 'status'>),
-          createdAt: new Date().toISOString(),
-          status: 'open',
-          userId: currentUser.id,
-      };
-
-      const updatedInteractions = [...(data.interactions || []).filter(i => i.id !== newInteraction.id), newInteraction];
-      
-      setData({ ...data, interactions: updatedInteractions });
-      await saveCollection('interactions', updatedInteractions);
-
-      setIsNewEventDialogOpen(false);
-  };
-  
-   const handleSaveCompletedTask = async (
-    taskId: string,
-    payload: Payload
-  ) => {
-      if (!data || !currentUser) return;
-      
-      const collectionsToSave: Partial<SantaData> = {};
-
-      const updatedInteractions = data.interactions.map(i =>
-          i.id === taskId ? { ...i, status: 'done' as InteractionStatus, resultNote: (payload as any).note } : i
-      );
-      collectionsToSave.interactions = updatedInteractions;
-
-      if (payload.type === 'interaccion' && payload.nextActionDate) {
-          const originalTask = data.interactions.find(i => i.id === taskId);
-          const newFollowUp: Interaction = {
-              id: `int_${Date.now()}`,
-              userId: currentUser.id,
-              accountId: originalTask?.accountId,
-              kind: 'OTRO', 
-              note: `Seguimiento de: ${(payload as any).note}`,
-              plannedFor: payload.nextActionDate,
-              createdAt: new Date().toISOString(),
-              dept: originalTask?.dept || 'VENTAS',
-              status: 'open',
-          };
-          collectionsToSave.interactions.push(newFollowUp);
-      }
-
-      if (payload.type === 'venta' && data.accounts) {
-          const originalTask = data.interactions.find(i => i.id === taskId);
-          const account = data.accounts.find(a => a.id === originalTask?.accountId);
-          if (account) {
-              const newOrder: OrderSellOut = {
-                  id: `ord_${Date.now()}`,
-                  accountId: account.id,
-                  partyId: account.partyId,
-                  source: 'MANUAL',
-                  status: 'open',
-                  currency: 'EUR',
-                  createdAt: new Date().toISOString(),
-                  lines: payload.items.map(item => ({ itemId: item.itemId, qty: item.qty, uom: 'unit', priceUnit: 0 })),
-                  notes: `Pedido rápido creado desde tarea ${taskId}`,
-              };
-              collectionsToSave.ordersSellOut = [...(data.ordersSellOut || []), newOrder];
-          }
-      }
-    
-      setData(prevData => prevData ? { ...prevData, ...collectionsToSave } : null);
-
-      await saveAllCollections(collectionsToSave);
-    
-      setCompletingTask(null);
-  };
-  
-  const handleSaveMarketingEventTask = async (eventId: string, payload: any) => {
-    if (!data || !data.marketingEvents) return;
-    
-    const updatedMktEvents = data.marketingEvents.map(me => {
-        if (me.id === eventId) {
-            return {
-                ...me,
-                status: 'closed',
-                spend: payload.spend,
-                kpis: {
-                    leads: payload.leads,
-                    sampling: payload.sampling,
-                    impressions: payload.impressions,
-                    interactions: payload.interactions,
-                    completedAt: new Date().toISOString(),
-                }
-            } as MarketingEvent;
-        }
-        return me;
-    });
-
-    const interactionToClose = data.interactions.find(i => i.linkedEntity?.id === eventId);
-    const updatedInteractions = interactionToClose ? data.interactions.map(i => i.id === interactionToClose.id ? {...i, status: 'done' as InteractionStatus} : i) : data.interactions;
-
-    await saveAllCollections({ marketingEvents: updatedMktEvents, interactions: updatedInteractions });
-    setCompletingMarketingEvent(null);
-  };
-
-
   if (!currentUser || !data) {
     return <div className="p-6">Cargando...</div>;
   }
@@ -247,7 +147,12 @@ function PersonalDashboardContent() {
           <NewEventDialog
             open={isNewEventDialogOpen}
             onOpenChange={setIsNewEventDialogOpen}
-            onSave={handleSaveNewTask}
+            onSuccess={() => {
+              toast.success('Tarea creada con éxito.');
+              router.refresh();
+              setIsNewEventDialogOpen(false);
+            }}
+            onError={(msg) => toast.error(`Error: ${msg}`)}
             accentColor={SB_COLORS.primary.sun}
           />
       )}
@@ -257,7 +162,12 @@ function PersonalDashboardContent() {
               task={completingTask}
               open={!!completingTask}
               onClose={() => setCompletingTask(null)}
-              onComplete={handleSaveCompletedTask}
+              onSuccess={() => {
+                toast.success('Tarea completada con éxito.');
+                router.refresh();
+                setCompletingTask(null);
+              }}
+              onError={(msg) => toast.error(`Error: ${msg}`)}
           />
       )}
 
@@ -266,7 +176,12 @@ function PersonalDashboardContent() {
                 entity={completingMarketingEvent}
                 open={!!completingMarketingEvent}
                 onClose={() => setCompletingMarketingEvent(null)}
-                onComplete={handleSaveMarketingEventTask}
+                onSuccess={() => {
+                  toast.success('Resultados del evento guardados.');
+                  router.refresh();
+                  setCompletingMarketingEvent(null);
+                }}
+                onError={(msg) => toast.error(`Error: ${msg}`)}
             />
         )}
     </>
