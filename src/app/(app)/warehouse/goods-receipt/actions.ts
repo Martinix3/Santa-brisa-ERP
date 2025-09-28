@@ -127,8 +127,9 @@ export async function createGoodsReceipt(payload: {
     if ((!supplierId && !newSupplierName) || !deliveryNote || !lines?.length) {
       throw new Error('Proveedor, albarán y al menos una línea son obligatorios.');
     }
-  const batch = db.batch();
+  
   try {
+    const batch = db.batch();
     const nowIso = new Date(receiptDate).toISOString();
 
     let finalSupplierId = supplierId;
@@ -144,10 +145,9 @@ export async function createGoodsReceipt(payload: {
     const receiptRef = db.collection('goodsReceipts').doc();
 
     const itemIdsInPayload = lines.map(l => l.itemId).filter(Boolean) as string[];
-    const existingItemsData = itemIdsInPayload.length > 0 
-        ? await db.collection('items').where('id', 'in', itemIdsInPayload).get()
-        : { docs: [] };
-    const existingItems = existingItemsData.docs.map(d => d.data() as Item);
+    const itemsData = itemIdsInPayload.length ? await db.collection('items').where('id', 'in', itemIdsInPayload).get() : { docs: [] };
+    const existingItems = itemsData.docs.map(d => d.data() as Item);
+
 
     const finalLines: GoodsReceipt['lines'] = [];
 
@@ -221,7 +221,7 @@ export async function createGoodsReceipt(payload: {
     }
 
     const requiresQc = finalLines.some(l => {
-        const item = existingItems.find(i => i.id === l.itemId);
+        const item = existingItems.find(i => i.id === l.itemId) || items.find(i => i.id === l.itemId);
         const cat = item?.category;
         return cat === 'raw' || cat === 'pack' || cat === 'fg';
     });
@@ -241,7 +241,7 @@ export async function createGoodsReceipt(payload: {
     revalidatePath('/warehouse/inventory');
     revalidatePath('/warehouse/goods-receipt');
 
-    return { receiptId: receiptRef.id, receiptNumber, supplierId: finalSupplierId };
+    return { ...receipt, id: receiptRef.id };
   } catch(e: any) {
       console.error(`[ACTION:createGoodsReceipt] Failed. Payload:`, JSON.stringify(payload, null, 2), `Error:`, e);
       throw new Error(e.message || "Error interno del servidor al crear la recepción.");

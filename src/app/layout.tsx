@@ -1,3 +1,4 @@
+
 import type { Metadata } from "next";
 import ClientProviders from "./ClientProviders";
 import "./globals.css";

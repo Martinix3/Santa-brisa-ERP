@@ -92,7 +92,7 @@ function Notification({ message, type, onClose }: { message: string, type: 'succ
   );
 }
 
-function GoodsReceiptForm({ onSaveSuccess, onCancel }: { onSaveSuccess: (info: { receiptId: string; receiptNumber: string, supplierId?: string }) => void, onCancel: () => void }) {
+function GoodsReceiptForm({ onSaveSuccess, onCancel }: { onSaveSuccess: (receipt: GoodsReceipt) => void, onCancel: () => void }) {
   const { data } = useData();
   const [supplierId, setSupplierId] = useState<string | undefined>();
   const [newSupplierName, setNewSupplierName] = useState<string | undefined>();
@@ -165,7 +165,7 @@ function GoodsReceiptForm({ onSaveSuccess, onCancel }: { onSaveSuccess: (info: {
         lines: payloadLines,
       });
       setNotification({ message: `Recepción guardada (#${res.receiptNumber}).`, type: 'success' });
-      onSaveSuccess({ ...res, supplierId: supplierId || res.supplierId });
+      onSaveSuccess(res);
     } catch (e:any) {
       console.error(e);
       setNotification({ message: e?.message || 'Error al guardar la recepción.', type: 'error' });
@@ -291,15 +291,7 @@ export default function GoodsReceiptPage() {
         }
     }, [data?.goodsReceipts]);
 
-    const handleSaveSuccess = (info: { receiptId: string; receiptNumber: string, supplierId?: string }) => {
-        const newReceipt: GoodsReceipt = { 
-            id: info.receiptId, 
-            receiptNumber: info.receiptNumber, 
-            supplierPartyId: info.supplierId || 'unknown',
-            receivedAt: new Date().toISOString(), 
-            lines: [], 
-            status: 'pending_qc'
-        };
+    const handleSaveSuccess = (newReceipt: GoodsReceipt) => {
         setReceipts(prev => [newReceipt, ...prev]);
         setShowForm(false);
     };
@@ -332,7 +324,7 @@ export default function GoodsReceiptPage() {
                     <Plus className="h-4 w-4 mr-2" /> Nueva Recepción
                 </SBButton>
             </div>
-            <DataTableSB rows={receipts} cols={cols as any[]} />
+            <DataTableSB<GoodsReceipt> rows={receipts} cols={cols} />
         </div>
     );
 }

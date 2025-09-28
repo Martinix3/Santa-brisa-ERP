@@ -131,7 +131,7 @@ export type Col<T> = {
     render?: (row: T) => React.ReactNode;
 };
 
-export function DataTableSB<T extends { id: string }>({ rows, cols }: { rows: T[], cols: Col<T>[] }) {
+export function DataTableSB<T extends { id: any }>({ rows, cols }: { rows: T[], cols: Col<T>[] }) {
     return (
         <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -145,7 +145,7 @@ export function DataTableSB<T extends { id: string }>({ rows, cols }: { rows: T[
                         <tr key={row.id} className="hover:bg-zinc-50/50">
                             {cols.map(c => (
                                 <td key={String(c.key)} className={`p-3 ${c.className || ''}`}>
-                                    {c.render ? c.render(row) : String(row[c.key as keyof T] ?? '—')}
+                                    {c.render ? c.render(row) : String((row as any)[c.key] ?? '—')}
                                 </td>
                             ))}
                         </tr>
