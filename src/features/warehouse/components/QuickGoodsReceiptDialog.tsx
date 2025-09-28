@@ -45,7 +45,7 @@ function SearchableCombobox({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <SBButton variant="secondary" role="combobox" aria-expanded={open} className="w-full justify-between">
+        <SBButton variant="outline" role="combobox" aria-expanded={open} className="w-full justify-between">
           {value ? currentLabel : placeholder}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </SBButton>
@@ -104,7 +104,7 @@ type FormValues = {
   supplierId: string;
   deliveryNote: string;
   date: string;
-  notes?: string; // <-- Campo de notas añadido
+  notes?: string;
   lines: LineFormData[];
 };
 
@@ -149,11 +149,11 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
       date: nowIsoDate(),
       supplierId: "",
       deliveryNote: "",
-      lines: [{ itemId: "", supplierLot: "", qty: 0, uom: "unit", unitCost: 0, autoLot: true }],
+      lines: [{ itemId: "", supplierLot: "", qty: 0, uom: "unit", unitCost: 0, autoLot: true, expiryAt: null }],
     },
   });
 
-  useEffect(() => { if (open) reset({ date: nowIsoDate(), lines: [{ itemId: "", supplierLot: "", qty: 0, uom: "unit", unitCost: 0, autoLot: true }] }); }, [open, reset]);
+  useEffect(() => { if (open) reset({ date: nowIsoDate(), lines: [{ itemId: "", supplierLot: "", qty: 0, uom: "unit", unitCost: 0, autoLot: true, expiryAt: null }] }); }, [open, reset]);
   const { fields, append, remove } = useFieldArray({ control, name: "lines" });
 
   const supplierOptions = useMemo(() => suppliers.map((s: Party) => ({ value: s.id, label: s.name })), [suppliers]);
@@ -177,7 +177,7 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
             supplierId: formData.supplierId,
             deliveryNote: formData.deliveryNote.trim(),
             receiptDate: formData.date,
-            notes: formData.notes, // <-- Pasa las notas a la acción
+            notes: formData.notes,
             lines: payloadLines,
         });
 
@@ -200,6 +200,7 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
       uom: lastLine?.uom || "unit",
       unitCost: lastLine?.unitCost || 0,
       autoLot: true,
+      expiryAt: null,
     });
   };
   
@@ -240,7 +241,6 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
               <label className="grid gap-1.5"><span className="text-sm font-medium">Fecha</span><Input type="date" {...register("date", { required: true })}/></label>
             </div>
 
-            {/* ===== CAMPO DE NOTAS AÑADIDO ===== */}
             <div className="mt-4">
               <label htmlFor="receipt-notes" className="text-sm font-medium">Notas (opcional)</label>
               <textarea
@@ -263,6 +263,7 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
                       <th className="p-2">Cantidad</th>
                       <th className="p-2">UdM</th>
                       <th className="p-2">Coste/Ud</th>
+                      <th className="p-2">Caducidad</th>
                       <th className="p-2"></th>
                     </tr>
                   </thead>
@@ -292,6 +293,7 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
                         <td className="p-2"><Input type="number" step="any" {...register(`lines.${i}.qty`, { valueAsNumber: true, required: true, min: 0.001 })} /></td>
                         <td className="p-2"><Select {...register(`lines.${i}.uom`)}><option value="unit">unit</option><option value="kg">kg</option><option value="L">L</option></Select></td>
                         <td className="p-2"><Input type="number" step="any" {...register(`lines.${i}.unitCost`, { valueAsNumber: true })} /></td>
+                        <td className="p-2"><Input type="date" {...register(`lines.${i}.expiryAt`)} /></td>
                         <td className="p-2"><button type="button" onClick={() => remove(i)}><Trash2 className="h-4 w-4 text-red-500" /></button></td>
                       </tr>
                     ))}

@@ -29,14 +29,13 @@ const initialQcStatusForItemCategory = (category?: ItemCategory): QcStatus => {
   return criticalCategories.includes(category) ? 'PENDING' : 'PASSED';
 };
 
-// NUEVA FUNCIÓN HELPER: Centraliza la lógica de negocio del almacén
 function getLocationForCategory(category?: ItemCategory): string {
     if (!category) return 'DEFAULT/UNKNOWN';
     
     const cat = category.toUpperCase();
-    if (cat.startsWith('RAW')) return 'RM/MAIN';
-    if (cat.startsWith('PACK')) return 'PKG/MAIN';
-    if (cat.startsWith('FG')) return 'FG/MAIN';
+    if (cat.startsWith('RAW')) return 'ALMACEN_MATERIAS_PRIMAS';
+    if (cat.startsWith('PACK')) return 'ALMACEN_PACKAGING';
+    if (cat.startsWith('FG')) return 'ALMACEN_TERMINADO';
     
     return 'DEFAULT/GENERAL';
 }
@@ -106,13 +105,12 @@ export async function createItem(payload: { name: string; sku?: string; uom: Uom
     return newItem;
 }
 
-// Acción createGoodsReceipt MODIFICADA
 export async function createGoodsReceipt(payload: {
   supplierId?: string;
   newSupplierName?: string;
   deliveryNote: string;
   receiptDate: string;
-  notes?: string; // <-- Campo de notas añadido
+  notes?: string;
   lines: Array<{
     itemId?: string;
     newItemName?: string;
@@ -123,7 +121,6 @@ export async function createGoodsReceipt(payload: {
     uom?: Uom;
     expiryAt?: string | null;
     autoLot?: boolean;
-    // locationId ya no se recibe
   }>;
 }) {
   const { supplierId, newSupplierName, deliveryNote, receiptDate, notes, lines } = payload;
@@ -195,7 +192,7 @@ export async function createGoodsReceipt(payload: {
         const lotRef = db.collection('lots').doc(lotNumber);
         batch.set(lotRef, { ...lotData, supplierId: finalSupplierId }, { merge: true });
 
-        const locationId = getLocationForCategory(currentItem.category); // El backend determina la ubicación
+        const locationId = getLocationForCategory(currentItem.category);
         const onHandId = makeOnHandId(itemId, lotNumber, locationId);
         const onHandRef = db.collection('onHand').doc(onHandId);
         batch.set(onHandRef, {
