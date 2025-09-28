@@ -13,6 +13,7 @@ import type {
   Lot, QcTest, QcBatchResult, Item, ParameterCatalog, QcPlan, Incident, Coa,
   QcTestSpec, ProductionOrder, LotGenealogyEdge, StockMove, ProtocolAcknowledgement, QcStatus, OnHandView
 } from "@/domain/ssot";
+import { qcToBucket } from "@/domain/ssot";
 
 
 // ============================================================================
@@ -33,16 +34,19 @@ const QC_STATUS_TEXT: Record<string, string> = {
   PENDING: "Pendiente",
   IN_PROGRESS: "En Progreso",
   CONDITIONAL_RELEASE: "Liberado Condicional",
+  PASSED: "Liberado",
   RELEASED: "Liberado",
+  release: "Liberado",
   REJECTED: "Rechazado",
+  FAILED: "Rechazado",
+  reject: "Rechazado",
   WAIVED: "Eximido",
   ON_HOLD_QC: "En Hold",
   hold: "Retenido",
-  release: "Liberado",
-  reject: "Rechazado",
 };
 
 const QC_STATUS_TONE: Record<string, "emerald" | "amber" | "rose" | "zinc"> = {
+  PASSED: "emerald",
   RELEASED: "emerald",
   release: "emerald",
   PENDING: "amber",
@@ -51,6 +55,7 @@ const QC_STATUS_TONE: Record<string, "emerald" | "amber" | "rose" | "zinc"> = {
   WAIVED: "amber",
   ON_HOLD_QC: "amber",
   hold: "amber",
+  FAILED: "rose",
   REJECTED: "rose",
   reject: "rose",
 };
@@ -300,14 +305,14 @@ export default function LabReleasePage() {
   }, [selectedSku, onHand]);
   
   const latestDecisionByLot = useMemo(() => {
-    const map = new Map<string, string>(); // lotNumber -> status
+    const map = new Map<string, QcStatus>(); // lotNumber -> status
     for (const r of qcBatchResults) {
       if (!r.lotNumber) continue;
       const key = r.lotNumber;
       const when = new Date((r as any).reviewedAt ?? (r as any).decidedAt ?? (r as any).createdAt ?? 0).getTime();
       const prev = map.get(key);
       if (!prev || when > ((map as any)[`__t_${key}`] || 0)) {
-        map.set(key, String(r.status).toUpperCase());
+        map.set(key, (r.status as any as QcStatus));
         (map as any)[`__t_${key}`] = when;
       }
     }
@@ -316,7 +321,10 @@ export default function LabReleasePage() {
 
 
   const buckets = useMemo(() => {
-    const hold: OnHandView[] = []; const released: OnHandView[] = []; const rejected: OnHandView[] = []; const undefinedState: OnHandView[] = [];
+    const hold: OnHandView[] = [];
+    const released: OnHandView[] = [];
+    const rejected: OnHandView[] = [];
+    const undefinedState: OnHandView[] = [];
     const lowerQuery = query.trim().toLowerCase();
 
     const lotsToFilter = selectedSku ? onHand.filter(l => l.itemId === selectedSku) : onHand;
@@ -328,21 +336,14 @@ export default function LabReleasePage() {
       if (!matchesQuery) continue;
 
       const masterLot = lots.find(master => master.lotNumber === l.lotNumber!);
-      const raw = masterLot?.qcStatus ?? latestDecisionByLot.get(l.lotNumber!);
-      const status = String(raw).toUpperCase();
+      const status: QcStatus = masterLot?.qcStatus ?? latestDecisionByLot.get(l.lotNumber!) ?? 'PENDING';
+      const bucket = qcToBucket(status);
       
-      if (status === "RELEASED" || status === "RELEASE") {
+      if (bucket === "RELEASED") {
         released.push(l);
-      } else if (status === "REJECTED" || status === "REJECT") {
+      } else if (bucket === "REJECTED") {
         rejected.push(l);
-      } else if (
-        status === "HOLD" ||
-        status === "PENDING" ||
-        status === "IN_PROGRESS" ||
-        status === "CONDITIONAL_RELEASE" ||
-        status === "WAIVED" ||
-        status === "ON_HOLD_QC"
-      ) {
+      } else if (bucket === "HOLD") {
         hold.push(l);
       } else {
         undefinedState.push(l);
@@ -395,7 +396,7 @@ export default function LabReleasePage() {
             createdAt: oh?.createdAt ?? new Date().toISOString(),
             updatedAt: oh?.updatedAt ?? oh?.createdAt ?? new Date().toISOString(),
             qcPlanId: undefined,
-            qcStatus: undefined,
+            qcStatus: 'PENDING',
             status: undefined,
         } as any;
         const plan = undefined;
@@ -423,7 +424,7 @@ export default function LabReleasePage() {
 
   const handleAnalysisChange = (parameterId: string, value: string) => setAnalysisResults(prev => ({ ...prev, [parameterId]: value }));
   
-  const handleSaveDecision = (decision: "RELEASED" | "REJECTED" | "ON_HOLD_QC") => {
+  const handleSaveDecision = (decision: "PASSED" | "FAILED" | "PENDING") => {
     if (!selectedLotData) return;
     console.log({
       action: "SAVE_QC_DECISION",
@@ -494,7 +495,7 @@ export default function LabReleasePage() {
                 const item = itemMap.get(lot.itemId);
                 const isSelected = selectedLot === lot.lotNumber;
                 const masterLot = lots.find(l => l.lotNumber === lot.lotNumber);
-                const status = (masterLot?.qcStatus ?? latestDecisionByLot.get(lot.lotNumber!) ?? '').toUpperCase() as QcStatus;
+                const status = masterLot?.qcStatus ?? latestDecisionByLot.get(lot.lotNumber!) ?? 'PENDING';
                 return (
                     <button key={lot.id} onClick={() => setSelectedLot(lot.lotNumber!)} className={`w-full text-left p-3 ${isSelected ? 'bg-blue-50' : 'hover:bg-zinc-50'}`}>
                         <div className="flex justify-between items-center">
@@ -566,13 +567,13 @@ export default function LabReleasePage() {
                          </select>
                     </div>
                     <div className="grid grid-cols-3 gap-2">
-                        <SBButton onClick={() => handleSaveDecision('RELEASED')} disabled={!allRequiredResultsEntered}>
+                        <SBButton onClick={() => handleSaveDecision('PASSED')} disabled={!allRequiredResultsEntered}>
                             <CheckCircle size={16}/> Aprobar Lote
                         </SBButton>
-                        <SBButton variant="secondary" onClick={() => handleSaveDecision('ON_HOLD_QC')}>
+                        <SBButton variant="secondary" onClick={() => handleSaveDecision('PENDING')}>
                             <Hourglass size={16}/> Poner en Hold
                         </SBButton>
-                         <SBButton variant="destructive" onClick={() => handleSaveDecision('REJECTED')} disabled={!allRequiredResultsEntered}>
+                         <SBButton variant="destructive" onClick={() => handleSaveDecision('FAILED')} disabled={!allRequiredResultsEntered}>
                             <XCircle size={16}/> Rechazar Lote
                         </SBButton>
                     </div>
