@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useMemo, useState, useEffect } from "react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
@@ -172,8 +173,13 @@ export function QuickGoodsReceiptDialog({
   return (
     <>
       <SBDialog open={open} onOpenChange={onOpenChange}>
-        <SBDialogContent title={<><Truck className="h-5 w-5" /> Nueva Recepción de Mercancía</>} maxWidth="60rem">
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+        <SBDialogContent
+          title={<div className="flex items-center gap-2"><Truck className="h-5 w-5" /> Nueva Recepción de Mercancía</div>}
+          maxWidth="60rem"
+          onSubmit={handleSubmit(onSubmit)}
+          primaryAction={{ label: isSubmitting ? "Guardando…" : "Guardar Recepción", type: "submit", disabled: isSubmitting }}
+          secondaryAction={{ label: "Cancelar", onClick: () => onOpenChange(false) }}
+        >
             {/* Cabecera */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <label className="grid gap-1.5">
@@ -259,13 +265,9 @@ export function QuickGoodsReceiptDialog({
               <SBButton type="button" variant="secondary" size="sm" onClick={addLine}><Plus className="w-4 h-4 mr-1" /> Añadir línea</SBButton>
             </div>
 
-            <div className="flex items-center justify-between pt-2">
-                <div className="text-xs text-zinc-500">
+            <div className="pt-2 text-xs text-zinc-500">
                 Los lotes de material crítico (raw, pack, fg) se pondrán en estado 'PENDING' para QC.
-                </div>
-                <SBButton type="submit" disabled={isSubmitting}>{isSubmitting ? "Guardando…" : "Guardar Recepción"}</SBButton>
             </div>
-          </form>
         </SBDialogContent>
       </SBDialog>
 
@@ -323,8 +325,10 @@ function CreateSupplierDialog({ open, onOpenChange, onCreated }: { open: boolean
 
   return (
     <SBDialog open={open} onOpenChange={onOpenChange}>
-      <SBDialogContent title={<><UserPlus className="h-5 w-5" /> Nuevo proveedor</>} maxWidth="28rem">
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <SBDialogContent title={<div className="flex items-center gap-2"><UserPlus className="h-5 w-5" /> Nuevo proveedor</div>} maxWidth="28rem"
+        onSubmit={handleSubmit(onSubmit)}
+        primaryAction={{ label: isSubmitting ? "Creando…" : "Crear Proveedor", type: 'submit', disabled: isSubmitting }}
+      >
           <label className="grid gap-1.5">
             <span className="text-sm">Nombre</span>
             <Input {...register("name", { required: "El nombre es obligatorio" })} placeholder="Ej: Productos del Valle, S.L." aria-invalid={!!errors.name} />
@@ -334,10 +338,6 @@ function CreateSupplierDialog({ open, onOpenChange, onCreated }: { open: boolean
             <span className="text-sm">CIF/NIF (opcional)</span>
             <Input {...register("taxId")} placeholder="Ej: B12345678" />
           </label>
-          <div className="flex justify-end pt-2">
-            <SBButton type="submit" disabled={isSubmitting}>{isSubmitting ? "Creando…" : "Crear Proveedor"}</SBButton>
-          </div>
-        </form>
       </SBDialogContent>
     </SBDialog>
   );
@@ -370,8 +370,10 @@ function CreateItemDialog({ open, onOpenChange, onCreated }: { open: boolean; on
 
   return (
     <SBDialog open={open} onOpenChange={onOpenChange}>
-      <SBDialogContent title={<><Factory className="h-5 w-5" /> Nuevo SKU</>} maxWidth="34rem">
-        <form onSubmit={handleSubmit(onSubmit)}>
+      <SBDialogContent title={<div className="flex items-center gap-2"><Factory className="h-5 w-5" /> Nuevo SKU</div>} maxWidth="34rem"
+          onSubmit={handleSubmit(onSubmit)}
+          primaryAction={{ label: isSubmitting ? "Creando…" : "Crear SKU", type: 'submit', disabled: isSubmitting }}
+      >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <label className="grid gap-1.5 md:col-span-2">
               <span className="text-sm">Nombre</span>
@@ -404,10 +406,6 @@ function CreateItemDialog({ open, onOpenChange, onCreated }: { open: boolean; on
               <Input type="number" min={0} step="any" {...register("stdCost", { valueAsNumber: true })} />
             </label>
           </div>
-          <div className="flex justify-end pt-4">
-            <SBButton type="submit" disabled={isSubmitting}>{isSubmitting ? "Creando…" : "Crear SKU"}</SBButton>
-          </div>
-        </form>
       </SBDialogContent>
     </SBDialog>
   );

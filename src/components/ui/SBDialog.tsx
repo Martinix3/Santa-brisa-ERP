@@ -4,7 +4,7 @@ import * as React from "react";
 import { SB_THEME } from "@/domain/ssot";
 
 type Action =
-  | { label: string; onClick?: () => void; type?: "button" | "submit"; disabled?: boolean }
+  | { label: string; onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void; type?: "button" | "submit"; disabled?: boolean }
   | undefined;
 
 export function SBDialog({
@@ -42,8 +42,9 @@ export function SBDialogContent({
   maxWidth?: string;
 }) {
   return (
-    <div className="sb-card w-full bg-white border p-4 md:p-6" style={{ maxWidth }} onClick={(e) => e.stopPropagation()}>
+    <div className="sb-card w-full bg-white border" style={{ maxWidth }} onClick={(e) => e.stopPropagation()}>
       <form onSubmit={onSubmit}>
+        <div className="p-4 md:p-6">
         {(title || description) && (
           <header className="mb-4">
             {title && <h3 className="text-lg font-semibold text-zinc-900">{title}</h3>}
@@ -51,8 +52,9 @@ export function SBDialogContent({
           </header>
         )}
         <div className="space-y-4">{children}</div>
+        </div>
         {(primaryAction || secondaryAction) && (
-          <footer className="mt-6 flex items-center justify-end gap-2">
+          <footer className="mt-6 flex items-center justify-end gap-2 p-4 bg-zinc-50 border-t">
             {secondaryAction && (
               <button
                 type={secondaryAction.type ?? "button"}
