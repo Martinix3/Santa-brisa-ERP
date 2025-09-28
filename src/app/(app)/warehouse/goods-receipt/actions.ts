@@ -1,3 +1,4 @@
+
 // src/app/(app)/warehouse/goods-receipt/actions.ts
 'use server';
 
@@ -173,7 +174,7 @@ export async function createGoodsReceipt(payload: {
             existingItemsMap.set(itemId, newItem); // Add to local map for subsequent lines
         }
         
-        if (!itemId) continue; // Skip if no item can be determined
+        if (!itemId) continue;
 
         const currentItem = existingItemsMap.get(itemId);
         if (!currentItem) throw new Error(`Item con ID ${itemId} no encontrado.`);
@@ -266,3 +267,4 @@ export async function reportIncident(payload: {
 }) {
   // Logic to report an incident
 }
+
