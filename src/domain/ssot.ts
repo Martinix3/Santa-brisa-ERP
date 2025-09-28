@@ -29,6 +29,8 @@ export type LotBucket = 'HOLD' | 'RELEASED' | 'REJECTED';
 export type InteractionKind = 'VISITA' | 'LLAMADA' | 'EMAIL' | 'WHATSAPP' | 'OTRO' | 'COBRO' | 'EVENTO_MKT';
 export type EventKind = 'DEMO' | 'FERIA' | 'FORMACION' | 'OTRO';
 export type PosTacticStatus = 'planned' | 'active' | 'closed' | 'cancelled';
+export type TraceEventKind = 'RECEIPT' | 'PRODUCTION_OUT' | 'PRODUCTION_IN' | 'CONSUME' | 'OUTPUT' | 'QC_TEST' | 'SHIPMENT' | 'ADJUSTMENT' | 'MOVE' | 'ARRIVED' | 'GENEALOGY_PARENT' | 'GENEALOGY_CHILD';
+export type TraceEventPhase = 'SOURCE' | 'RECEIPT' | 'QC' | 'PRODUCTION' | 'PACK' | 'WAREHOUSE' | 'SALE' | 'DELIVERY';
 
 
 export function qcToBucket(qc: QcStatus): LotBucket {
@@ -187,8 +189,6 @@ export interface LotGenealogyEdge {
     createdAt: Timestamp;
 }
 
-export type TraceEventPhase = 'SOURCE' | 'RECEIPT' | 'QC' | 'PRODUCTION' | 'PACK' | 'WAREHOUSE' | 'SALE' | 'DELIVERY';
-export type TraceEventKind = 'RECEIPT' | 'PRODUCTION_OUT' | 'PRODUCTION_IN' | 'CONSUME' | 'OUTPUT' | 'QC_TEST' | 'SHIPMENT' | 'ADJUSTMENT' | 'MOVE' | 'ARRIVED' | 'GENEALOGY_PARENT' | 'GENEALOGY_CHILD';
 export interface TraceEvent {
   id: string; at: string; kind: TraceEventKind; title: string; details: string;
   data?: Record<string, any>;

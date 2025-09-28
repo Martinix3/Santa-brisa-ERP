@@ -9,6 +9,7 @@ import { getLotTraceability, type TraceEvent, type TraceData } from "./actions";
 import { toast } from "sonner";
 import Link from 'next/link';
 import { Avatar } from '@/components/ui/Avatar';
+import { ITEM_CATEGORY_META } from "@/domain/ssot";
 
 // ===========================================
 // CONFIGURACIÓN DE ICONOS (CORREGIDA)
@@ -25,19 +26,6 @@ const EVENT_CONFIG: Record<string, { icon: React.ElementType; color: string; }> 
     GENEALOGY_PARENT: { icon: GitBranch, color: 'text-slate-600 bg-slate-100' },
     GENEALOGY_CHILD: { icon: GitBranch, color: 'text-slate-600 bg-slate-100' },
     DEFAULT: { icon: Package, color: 'text-zinc-600 bg-zinc-100' },
-};
-
-// ===========================================
-// NUEVO: Mapa de etiquetas para categorías
-// ===========================================
-const CATEGORY_LABELS: Record<ItemCategory, string> = {
-    fg: "Producto Terminado",
-    raw: "Materia Prima",
-    pack: "Packaging",
-    label: "Etiqueta",
-    intermediate: "Producto Intermedio",
-    consumable: "Consumible",
-    merch: "Merchandising",
 };
 
 // ===========================================
@@ -124,8 +112,7 @@ function LotSummaryCard({ traceData }: { traceData: TraceData }) {
 
     const item = data?.items.find(i => i.id === lot.itemId);
     
-    // CORRECCIÓN: Usar el mapa de etiquetas para obtener el nombre legible
-    const categoryName = item?.category ? (CATEGORY_LABELS[item.category] || item.category) : 'N/A';
+    const categoryName = item?.category ? (ITEM_CATEGORY_META[item.category]?.label || item.category) : 'N/A';
     
     const locations = (onHandSummary || [])
         .filter(oh => oh.qty > 0)

@@ -8,14 +8,7 @@ import { SBCard, SBButton } from '@/components/ui/ui-primitives';
 import { ChevronDown, Save, Tags } from 'lucide-react';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
 import { upsertMany } from '@/lib/dataprovider/actions';
-
-const ITEM_CATEGORIES: Item['category'][] = ['raw', 'pack', 'consumable', 'intermediate', 'fg', 'merch'];
-
-type SkuWithLots = {
-    sku: string;
-    item: Item;
-    lots: OnHandView[];
-};
+import { ITEM_CATEGORY_META } from '@/domain/ssot';
 
 function SkuRow({ item, onUpdateCategory }: { item: SkuWithLots; onUpdateCategory: (itemId: string, newCategory: Item['category']) => void; }) {
     const [isOpen, setIsOpen] = useState(false);
@@ -37,8 +30,8 @@ function SkuRow({ item, onUpdateCategory }: { item: SkuWithLots; onUpdateCategor
                         onChange={(e) => onUpdateCategory(item.item.id, e.target.value as Item['category'])}
                         className="w-full h-9 rounded-md border border-zinc-200 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400"
                     >
-                        {(ITEM_CATEGORIES || []).map((cat: Item['category']) => (
-                            <option key={cat} value={cat}>{cat}</option>
+                        {Object.entries(ITEM_CATEGORY_META).map(([key, meta]) => (
+                            <option key={key} value={key}>{meta.label}</option>
                         ))}
                     </select>
                 </div>
@@ -66,6 +59,11 @@ function SkuRow({ item, onUpdateCategory }: { item: SkuWithLots; onUpdateCategor
     );
 }
 
+type SkuWithLots = {
+    sku: string;
+    item: Item;
+    lots: OnHandView[];
+};
 
 function SkuManagementPageContent() {
     const { data: santaData, saveCollection } = useData();
