@@ -1,3 +1,4 @@
+
 // src/app/(app)/warehouse/inventory/page.tsx
 "use client";
 import React, { useMemo, useState, useEffect, useTransition } from "react";
@@ -9,7 +10,7 @@ import { useData } from "@/lib/dataprovider";
 import type { OnHandView, Item, ItemCategory, StockMove, Lot, GoodsReceipt, Party } from "@/domain/ssot";
 import { createManualOnHand, rebuildOnHand } from "./actions";
 import { NewOnHandDialog } from "./components/NewOnHandDialog";
-import { QuickGoodsReceiptDialog } from "@/features/warehouse/components/QuickGoodsReceiptDialog";
+import { QuickGoodsReceiptDialog } from '@/features/warehouse/components/QuickGoodsReceiptDialog';
 
 
 // --- Helpers ---

@@ -38,7 +38,16 @@ const landingLocationFor = (category?: ItemCategory) => {
     default: return 'RM/MAIN';
   }
 };
-
+const generateLotNumber = (item: Item | undefined) => {
+  const dt = new Date();
+  const y = String(dt.getUTCFullYear()).slice(2);
+  const m = String(dt.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(dt.getUTCDate()).padStart(2, "0");
+  const base = item?.id?.split("_").pop()?.toUpperCase().slice(0, 3) ?? "ITM";
+  const prefix = item?.category?.startsWith("raw") ? "L" + base : "FG-" + base;
+  const rand = Math.floor(Math.random() * 89) + 10;
+  return `${prefix}-${y}${m}${d}-${rand}`;
+}
 // === Server Actions ===
 
 export async function createSupplier(payload: { name: string; taxId?: string }): Promise<Party> {
@@ -109,17 +118,18 @@ export async function createGoodsReceipt(payload: {
     unitCost?: number;
     uom?: Uom;
     expiryAt?: string | null;
+    autoLot?: boolean;
+    locationId?: string;
   }>;
 }) {
-  try {
     const { supplierId, newSupplierName, deliveryNote, receiptDate, lines } = payload;
 
     if ((!supplierId && !newSupplierName) || !deliveryNote || !lines?.length) {
       throw new Error('Proveedor, albarán y al menos una línea son obligatorios.');
     }
-
+  const batch = db.batch();
+  try {
     const nowIso = new Date(receiptDate).toISOString();
-    const batch = db.batch();
 
     let finalSupplierId = supplierId;
     if (newSupplierName && !supplierId) {
@@ -159,7 +169,7 @@ export async function createGoodsReceipt(payload: {
       
       if (!item || !itemId) continue;
 
-      const lotNumber = line.supplierLot.trim();
+      const lotNumber = line.supplierLot.trim() || (line.autoLot ? generateLotNumber(item) : "");
       if (!lotNumber) throw new Error(`El lote de proveedor es obligatorio para la línea con ${item.name}.`);
 
       const qcStatus = initialQcStatusForItemCategory(item.category);
@@ -177,7 +187,7 @@ export async function createGoodsReceipt(payload: {
       const lotRef = db.collection('lots').doc(lotNumber);
       batch.set(lotRef, { ...lotData, supplierId: finalSupplierId }, { merge: true });
 
-      const locationId = landingLocationFor(item.category);
+      const locationId = line.locationId || landingLocationFor(item.category);
       const onHandId = `${itemId}|${lotNumber}|${locationId}`;
       const onHandRef = db.collection('onHand').doc(onHandId);
       batch.set(onHandRef, {
@@ -247,4 +257,3 @@ export async function reportIncident(payload: {
 }) {
   // Logic to report an incident
 }
-

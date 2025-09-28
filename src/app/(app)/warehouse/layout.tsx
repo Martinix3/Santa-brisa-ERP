@@ -13,7 +13,7 @@ function WarehouseNav() {
   const pathname = usePathname();
   const navItems = [
     { href: "/warehouse/dashboard", label: "Dashboard" },
-    { href: "/warehouse/inventory", label: "Inventario y Recepciones" },
+    { href: "/warehouse/goods-receipt", label: "Inventario y Recepciones" },
     { href: "/warehouse/logistics", label: "Logística" },
   ];
 
