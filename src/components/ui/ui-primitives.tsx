@@ -13,9 +13,10 @@ interface SBCardProps {
   accent?: string;
   children: React.ReactNode;
   className?: string;
+  noPadding?: boolean;
 }
 
-export function SBCard({ title, accent, children, className }: SBCardProps) {
+export function SBCard({ title, accent, children, className, noPadding }: SBCardProps) {
   return (
     <div className={`bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden ${className || ''}`}>
       {title && (
@@ -25,7 +26,7 @@ export function SBCard({ title, accent, children, className }: SBCardProps) {
           </h3>
         </div>
       )}
-      <div>{children}</div>
+      <div className={!noPadding ? "p-4" : ""}>{children}</div>
     </div>
   );
 }

@@ -1,3 +1,4 @@
+
 // src/app/(app)/quality/release/page.tsx
 "use client";
 
@@ -10,7 +11,7 @@ import {
 } from "lucide-react";
 import type { Lot, QcTest, QcBatchResult, Item, ParameterCatalog, QcPlan, StockMove, QcStatus, OnHandView } from "@/domain/ssot";
 import { qcToBucket } from "@/domain/ssot";
-import { saveQcDecision } from '../actions';
+import { saveQcDecision } from './actions';
 import { toast } from 'sonner';
 
 // ============================================================================
@@ -180,7 +181,7 @@ export default function LabReleasePage() {
                     <h4 className="text-sm font-semibold">Resultados requeridos</h4>
                     {requiredSpecs.map(spec => (
                       <div key={spec.parameterId} className="grid grid-cols-[1fr_120px_80px] gap-2 items-center text-xs">
-                          <label htmlFor={spec.parameterId} className="font-medium truncate">{parameterMap.get(spec.parameterId)?.name ?? spec.parameterId}</label>
+                          <label htmlFor={spec.parameterId} className="font-medium truncate">{parameterMap.get(spec.parameterId)?.label ?? spec.parameterId}</label>
                           <Input
                             id={spec.parameterId} type="text"
                             placeholder="Valor medido..."
