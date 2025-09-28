@@ -257,3 +257,5 @@ export async function rebuildOnHand() {
     console.log(`[Worker/rebuildOnHand] Finished. Deleted ${existingSnap.size}, wrote ${finalOnHandDocs.length}.`);
     return { ok: true, onHand: finalOnHandDocs.length, lots: lots.length };
 }
+
+    
