@@ -10,7 +10,13 @@ export type Timestamp = string; // ISO string for full date-time
 export type LotNumber = string;      // alias semántico
 export type ISO = string;            // si quieres usarlo en campos no Timestamp
 
-export type Uom = 'bottle' | 'case' | 'pallet' | 'unit' | 'kg' | 'g' | 'L' | 'mL';
+// --- Refactorización de Unidades de Medida ---
+export type UnitOfMass = 'kg' | 'g';
+export type UnitOfVolume = 'L' | 'mL';
+export type SalesUnit = 'bottle' | 'case' | 'pallet' | 'uds'; // 'unit' estandarizado a 'uds'
+
+export type Uom = UnitOfMass | UnitOfVolume | SalesUnit; // Tipo unificado
+
 export type Currency = 'EUR';
 export type Department = 'VENTAS' | 'MARKETING' | 'PRODUCCION' | 'ALMACEN' | 'FINANZAS' | 'CALIDAD' | 'PERSONAL';
 export type PartyRoleType = 'CUSTOMER' | 'SUPPLIER' | 'DISTRIBUTOR' | 'IMPORTER' | 'INFLUENCER' | 'CREATOR' | 'EMPLOYEE' | 'BRAND_AMBASSADOR' | 'OTHER';
@@ -190,7 +196,11 @@ export interface LotGenealogyEdge {
 }
 
 export interface TraceEvent {
-  id: string; at: string; kind: TraceEventKind; title: string; details: string;
+  id: string;
+  at: string;
+  kind: TraceEventKind;
+  title: string;
+  details: string;
   data?: Record<string, any>;
   subject?: { type: 'LOT' | 'BATCH' | 'ORDER' | 'SHIPMENT'; id: string; };
   phase?: TraceEventPhase;
