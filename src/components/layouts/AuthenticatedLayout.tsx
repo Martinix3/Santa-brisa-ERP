@@ -97,9 +97,9 @@ const navSections: NavSection[] = [
 const LS_COLLAPSED = "sb.nav.collapsed";
 
 /* ===== Helpers ===== */
-function useBreadcrumbs(pathname: string) {
-  if (!pathname) return [{ href: "/", label: "Inicio" }];
-  const parts = pathname.split("/").filter(Boolean);
+function useBreadcrumbs(pathname: string | null) {
+  const safePath = pathname || "";
+  const parts = safePath.split("/").filter(Boolean);
   const segs = parts.map((p, i) => ({
     href: "/" + parts.slice(0, i + 1).join("/"),
     label: p.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
@@ -256,14 +256,14 @@ function MegaFlyout({
 /** Ruta de dashboard por módulo (usada en “Ver dashboard”) */
 function dashboardHrefFor(module: keyof typeof MODULE_ACCENTS): string {
   switch (module) {
-    case "personal":   return "/dashboard-personal";
-    case "sales":      return "/dashboard-ventas";
-    case "marketing":  return "/marketing/dashboard";
+    case "personal": return "/dashboard-personal";
+    case "sales": return "/dashboard-ventas";
+    case "marketing": return "/marketing/dashboard";
     case "production": return "/production/dashboard";
-    case "quality":    return "/quality/dashboard";
-    case "warehouse":  return "/warehouse/dashboard";
-    case "finance":    return "/cashflow/dashboard";
-    case "admin":      return "/admin/kpi-settings"; // o tu landing de admin
+    case "quality": return "/quality/dashboard";
+    case "warehouse": return "/warehouse/dashboard";
+    case "finance": return "/cashflow/dashboard";
+    case "admin": return "/admin/kpi-settings"; // o tu landing de admin
   }
   return "/";
 }
