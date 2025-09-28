@@ -5,7 +5,7 @@
 import { revalidatePath } from 'next/cache';
 import { adminDb as db } from '@/server/firebase';
 import { FieldValue } from 'firebase-admin/firestore';
-import type { Party, Item, GoodsReceipt, StockMove, Uom, ItemCategory, PartyRole, Lot, QcStatus } from '@/domain/ssot';
+import type { Party, Item, GoodsReceipt, StockMove, Uom, ItemCategory, PartyRole, Lot, QcStatus, TraceEvent } from '@/domain/ssot';
 import { LotSchema } from '@/domain/validators';
 import { normText } from '@/lib/norm/text';
 import { makeGoodsReceiptCode } from '@/lib/codes';
@@ -31,13 +31,13 @@ const initialQcStatusForItemCategory = (category?: ItemCategory): QcStatus => {
 
 const landingLocationFor = (category?: ItemCategory) => {
   switch (category) {
-    case 'raw': return 'RM/MAIN';
-    case 'pack': return 'PKG/MAIN';
-    case 'consumable': return 'RM/MAIN';
+    case 'raw': return 'ALMACEN_MATERIAS_PRIMAS';
+    case 'pack': return 'ALMACEN_PACKAGING';
+    case 'consumable': return 'ALMACEN_MATERIAS_PRIMAS';
     case 'intermediate': return 'WIP/MAIN';
-    case 'merch': return 'PKG/MAIN';
-    case 'fg': return 'FG/MAIN';
-    default: return 'RM/MAIN';
+    case 'merch': return 'ALMACEN_PACKAGING';
+    case 'fg': return 'ALMACEN_TERMINADO';
+    default: return 'ALMACEN_MATERIAS_PRIMAS';
   }
 };
 
@@ -216,6 +216,24 @@ export async function createGoodsReceipt(payload: {
             unitCost: line.unitCost,
         };
         batch.set(smRef, stockMove as any);
+
+        const traceEventRef = db.collection('traceEvents').doc();
+        const traceEvent: TraceEvent = {
+            id: traceEventRef.id,
+            subject: { type: 'LOT', id: lotNumber },
+            phase: 'RECEIPT',
+            kind: 'ARRIVED',
+            occurredAt: nowIso,
+            links: { lotNumber: lotNumber, receiptId: receiptRef.id },
+            data: {
+                supplierId: finalSupplierId,
+                deliveryNote: deliveryNote,
+                qty: line.qty,
+                uom: currentItem.uom
+            }
+        };
+        batch.set(traceEventRef, traceEvent);
+
 
         finalLines.push({
             itemId,

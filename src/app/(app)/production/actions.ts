@@ -11,7 +11,7 @@ import { upsertMany } from "@/lib/dataprovider/actions";
 import { FieldPath, FieldValue } from "firebase-admin/firestore";
 import { z } from "zod";
 import { adminDb } from '@/server/firebase';
-import type { Lot as SsotLot, Uom, ProductionOrder, BillOfMaterial as RecipeBom, OnHandView, Item, StockMove } from '@/domain/ssot';
+import type { Lot as SsotLot, Uom, ProductionOrder, BillOfMaterial as RecipeBom, OnHandView, Item, StockMove, TraceEvent } from '@/domain/ssot';
 import { LotSchema, type Lot } from '@/domain/validators';
 import { explodeBOM } from '@/server/production/bom.service';
 import { findNextLotNumber } from '../warehouse/inventory/actions';
@@ -107,14 +107,14 @@ const CompleteOrderSchema = z.object({
     sku: z.string().optional(), // Para generar lote si no viene
     qty: z.number().positive(),
     uom: z.enum(['kg', 'L', 'unit', 'g', 'mL', 'case', 'bottle', 'pallet']),
-    toLocationId: z.string().default('FG/MAIN'),
+    toLocationId: z.string().default('ALMACEN_TERMINADO'),
   })).min(1),
   finalConsumptions: z.array(z.object({
     itemId: z.string(),
     lotNumber: z.string(),
     qty: z.number().positive(),
     uom: z.string(),
-    fromLocationId: z.string().default('RM/MAIN'),
+    fromLocationId: z.string().default('ALMACEN_MATERIAS_PRIMAS'),
   })),
 });
 
@@ -154,6 +154,23 @@ export async function completeProductionOrder(
       };
       batch.set(moveRef, move);
       
+      const traceEventRef = db.collection('traceEvents').doc();
+      const traceEvent: TraceEvent = {
+          id: traceEventRef.id,
+          subject: { type: 'LOT', id: consumption.lotNumber },
+          phase: 'PRODUCTION',
+          kind: 'CONSUME',
+          occurredAt: now,
+          links: { prodOrderId: orderId, lotNumber: consumption.lotNumber },
+          data: {
+              orderNumber: order.orderNumber,
+              qty: -Math.abs(consumption.qty),
+              uom: consumption.uom
+          }
+      };
+      batch.set(traceEventRef, traceEvent);
+
+
       const onHandOutId = makeOnHandId(consumption.itemId, consumption.lotNumber, consumption.fromLocationId);
       const onHandOutRef = adminDb.collection('onHand').doc(onHandOutId);
       batch.update(onHandOutRef, { qty: FieldValue.increment(-Math.abs(consumption.qty)), updatedAt: now });
@@ -167,7 +184,7 @@ export async function completeProductionOrder(
       newLotNumbers.push(lotNumber);
 
       // Crear o actualizar el lote
-      const lotRef = adminDb.collection('lots').doc(lotNumber);
+      const lotRef = db.collection('lots').doc(lotNumber);
       batch.set(lotRef, LotSchema.parse({
         lotNumber,
         itemId: output.itemId,
@@ -195,6 +212,23 @@ export async function completeProductionOrder(
       };
       batch.set(moveInRef, moveIn);
       
+      const traceEventInRef = db.collection('traceEvents').doc();
+      const traceEventIn: TraceEvent = {
+          id: traceEventInRef.id,
+          subject: { type: 'LOT', id: lotNumber },
+          phase: 'PRODUCTION',
+          kind: 'OUTPUT',
+          occurredAt: now,
+          links: { prodOrderId: orderId, lotNumber: lotNumber },
+          data: {
+              orderNumber: order.orderNumber,
+              qty: output.qty,
+              uom: output.uom
+          }
+      };
+      batch.set(traceEventInRef, traceEventIn);
+
+
       const onHandInId = makeOnHandId(output.itemId, lotNumber, output.toLocationId);
       const onHandInRef = adminDb.collection('onHand').doc(onHandInId);
       batch.set(onHandInRef, {
@@ -287,7 +321,7 @@ export async function previewPlanning(input: {
   baseUnit: 'L'|'unit';
   outputItemId: string;
   nominal: Array<{ itemId: string; role: 'FORMULA'|'PACKAGING'|'COST_ONLY'; uom: Uom; qty: number }>;
-  allocations: Array<{ itemId: string; lotNumber: string; uom: Uom; qty: number; locationId: string }>;
+  allocations: Array<{ itemId: string; lotNumber: string; uom: Uom; qty: number; locationId: string; }>;
   shortages: Array<{ itemId: string; uom: Uom; required: number; available: number; missing: number }>;
   lotNumberPlanned: string;
   spec?: { abv?: { min?: number; max?: number }; acidity?: { min?: number; max?: number }; sugar?: { min?: number; max?: number } };
@@ -354,7 +388,7 @@ export async function previewPlanning(input: {
       spec, estimates: est, suggestions: sugg, inSpec
     });
   } catch (e:any) {
-    return fail("No se pudo previsualizar la planificación.", { code: e?.code });
+    return fail('No se pudo previsualizar la planificación.', { code: e?.code });
   }
 }
 
