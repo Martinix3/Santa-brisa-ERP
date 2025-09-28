@@ -1,10 +1,9 @@
-
 // src/app/(app)/production/execution/page.tsx
 "use client";
 
 import React, { useMemo, useState, useTransition, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Play, Pause, CheckCircle, XCircle, Factory as FactoryIcon, Calendar, ChevronDown, AlertTriangle } from "lucide-react";
+import { Play, Pause, CheckCircle, XCircle, Factory as FactoryIcon, Calendar, ChevronDown, AlertTriangle, Info } from "lucide-react";
 import { SBCard, SBButton, Input, Select } from '@/components/ui/ui-primitives';
 import { useData } from "@/lib/dataprovider";
 import { toast } from "sonner";
@@ -14,7 +13,7 @@ import { planProduction, updateProductionOrderStatus, completeProductionOrder, a
 
 // Tipos locales para el estado del formulario
 type LocalProductionOrder = ProductionOrder & { locked?: boolean; };
-type RealLine = { itemId: string; qty: number; uom: Uom; lotNumber: string; fromLocationId: string };
+type RealLine = { itemId: string; qty: number; uom: Uom; lotNumber: string; fromLocationId: string; };
 type OutputReal = { itemId: string; qty: number; uom: Uom; lotNumber?: string; sku?: string; toLocationId: string };
 type ActiveOrderForm = {
     order: LocalProductionOrder | null;
@@ -215,11 +214,12 @@ export default function ProductionExecutionPage() {
   
   const onReadyChange = useCallback((ok: boolean) => setFormValue('stockOk', ok), [setFormValue]);
   const shortagesOut = useCallback((s: ActiveOrderForm['shortages']) => setFormValue('shortages', s), [setFormValue]);
-  const requiredLotsOut = useCallback((r: ActiveOrderForm['requiredLots']) => setFormValue('requiredLots', r), [setFormValue]);
+  const requiredLotsOut = useCallback((r: ActiveOrderForm['requiredLots']) => {
+      setFormValue('requiredLots', r);
+  }, [setFormValue]);
 
   const openPlanningFromBom = useCallback((bom: RecipeBom) => {
     const outputItem = itemsMap.get(bom.outputItemId);
-    const suggestedLot = `LOTE-${new Date().toISOString().slice(5, 10).replace('-', '')}-${Math.floor(Math.random() * 900) + 100}`;
     setActiveForm({
         order: null,
         planningBom: bom,
@@ -229,8 +229,7 @@ export default function ProductionExecutionPage() {
             sku: outputItem?.sku,
             qty: 1, // Cantidad por defecto
             uom: (bom.stage === "ENVASADO" ? "unit" : "L"),
-            toLocationId: 'FG/MAIN',
-            lotNumber: suggestedLot,
+            toLocationId: 'FG/MAIN'
         },
         realConsumption: [],
         journal: [],
@@ -245,7 +244,6 @@ export default function ProductionExecutionPage() {
 
   const openExecution = useCallback((order: ProductionOrder) => {
     const outputItem = itemsMap.get(order.outputItemId);
-    const suggestedLot = order.lotNumber ?? `LOTE-${new Date().toISOString().slice(5, 10).replace('-', '')}-${Math.floor(Math.random() * 900) + 100}`;
     setActiveForm({
         order: order as LocalProductionOrder,
         planningBom: null,
@@ -255,10 +253,9 @@ export default function ProductionExecutionPage() {
             sku: outputItem?.sku,
             qty: order.targetQuantity,
             uom: order.baseUnit,
-            toLocationId: 'FG/MAIN',
-            lotNumber: suggestedLot,
+            toLocationId: 'FG/MAIN'
         },
-        realConsumption: picksToRealLines((order.reservations as any) || []),
+        realConsumption: [],
         journal: (order as any).journal ?? [],
         incidentText: "",
         incidentSeverity: 'LOW',
@@ -329,7 +326,7 @@ export default function ProductionExecutionPage() {
         summary: activeForm.incidentText.trim(),
       });
       if (r.ok) {
-        setFormValue('journal', [...(activeForm.journal || []), {id: `inc_${Date.now()}`, at: new Date().toISOString(), kind:'INCIDENT', summary: activeForm.incidentText.trim()}]);
+        setFormValue('journal', [...(activeForm.journal || []), {id: `inc_${r.data.incidentId ?? Date.now()}`, at: new Date().toISOString(), kind:'INCIDENT', summary: activeForm.incidentText.trim()}]);
         setFormValue('incidentText', '');
         toast.success("Incidencia registrada");
       } else {
@@ -431,7 +428,7 @@ export default function ProductionExecutionPage() {
             <>
                 {/* Columna Central (2/3) */}
                 <div className="lg:col-span-2 space-y-4">
-                  <SBCard title={<><Calendar/><span>Planificación / Ejecución de orden</span></>}>
+                  <SBCard title={<div className="flex items-center gap-2"><Calendar/><span>Planificación / Ejecución de orden</span></div>}>
                     <div className="p-4 space-y-4">
                       <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm space-y-1">
                         <p className="font-bold font-mono text-base">
@@ -455,6 +452,29 @@ export default function ProductionExecutionPage() {
                       )}
                       
                       <div className="flex justify-end"><button className="text-xs px-2 py-1 rounded border bg-white hover:bg-zinc-50" onClick={() => setFormValue('realConsumption', picksToRealLines(activeForm.requiredLots || []))} disabled={!activeForm.requiredLots.length}>Usar propuesta en Consumo REAL</button></div>
+                      
+                      <Collapsible title="Consumo Real" count={activeForm.realConsumption.length}>
+                        <div className="p-3 space-y-2">
+                           {(activeForm.realConsumption || []).map((line, i) => (
+                            <div key={`${line.itemId}-${line.lotNumber}`} className="grid grid-cols-[1.5fr_1fr_0.8fr_auto] gap-2 items-center">
+                              <span className="text-sm font-medium">{itemsMap.get(line.itemId)?.name}</span>
+                              <span className="text-xs font-mono bg-zinc-100 px-2 py-1 rounded-full">{line.lotNumber}</span>
+                              <Input
+                                type="number"
+                                value={line.qty}
+                                onChange={(e) => {
+                                  const newConsumption = [...activeForm.realConsumption];
+                                  newConsumption[i].qty = Number(e.target.value);
+                                  setFormValue('realConsumption', newConsumption);
+                                }}
+                                disabled={orderIsLocked}
+                              />
+                               <span className="text-xs text-zinc-500">{line.uom}</span>
+                            </div>
+                           ))}
+                           {activeForm.realConsumption.length === 0 && <p className="text-xs text-zinc-500 text-center py-2">Usa la propuesta o añade líneas manualmente.</p>}
+                        </div>
+                      </Collapsible>
                       
                       <div className="flex flex-wrap gap-2 pt-2">
                         {(!activeForm.order && activeForm.planningBom) && <SBButton className="bg-blue-600 text-white" onClick={handleProgram} disabled={isPending}><Play size={16}/> Programar producción</SBButton>}
