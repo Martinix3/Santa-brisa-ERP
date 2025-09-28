@@ -1,3 +1,4 @@
+
 // src/app/(app)/warehouse/inventory/page.tsx
 
 "use client";
@@ -119,7 +120,7 @@ function NewOnHandDialog({
                 <FieldRow label="Proveedor (texto o ID)"><Input value={fm.supplier || ''} onChange={e => setFm(s => ({ ...s, supplier: e.target.value }))} placeholder="Nombre proveedor o accountId"/></FieldRow>
                 <FieldRow label="Nº albarán / doc. ref."><Input value={fm.invoiceRef || ''} onChange={e => setFm(s => ({ ...s, invoiceRef: e.target.value }))} placeholder="p.ej. ALB-2509-123"/></FieldRow>
                 <FieldRow label="Importe"><div className="flex gap-2"><Input type="number" step="0.01" min="0" value={fm.amount} onChange={e => setFm(s => ({ ...s, amount: e.target.value === "" ? "" : Number(e.target.value) }))}/><Select value={fm.currency} onChange={e => setFm(s => ({ ...s, currency: e.target.value }))}><option value="EUR">EUR</option><option value="USD">USD</option></Select></div></FieldRow>
-                <FieldRow label="Categoría" error={errors.category}><Select value={fm.category} onChange={e => setFm(s => ({ ...s, category: e.target.value }))}><option value="">— Selecciona —</option><option value="fg">Producto Terminado</option><option value="raw">Materia Prima</option><option value="intermediate">Intermedio</option><option value="pack">Packaging / Etiqueta</option><option value="merch">Merchandising</option><option value="consumable">Consumible</option></Select></FieldRow>
+                <FieldRow label="Categoría" error={errors.category}><Select value={fm.category} onChange={e => setFm(s => ({ ...s, category: e.target.value }))}><option value="">— Selecciona —</option><option value="fg">Producto Terminado</option><option value="raw">Materia Prima</option><option value="intermediate">Intermedio</option><option value="pack">Packaging</option><option value="merch">Merchandising</option><option value="consumable">Consumible</option></Select></FieldRow>
                 <div className="flex items-center gap-2 pl-[132px]">
                     <input type="checkbox" id="sendToQc" checked={fm.sendToQc} onChange={e => setFm(s => ({...s, sendToQc: e.target.checked}))} />
                     <label htmlFor="sendToQc" className="text-sm">Enviar a cuarentena (QC)</label>
@@ -135,6 +136,14 @@ function NewOnHandDialog({
   );
 }
 
+const inferCategoryFromLocation = (loc?: string): Item['category'] | undefined => {
+  if (!loc) return undefined;
+  if (loc.startsWith('FG/')) return 'fg';
+  if (loc.startsWith('RM/')) return 'raw';
+  if (loc.startsWith('PKG/')) return 'pack';
+  if (loc.startsWith('WIP/')) return 'intermediate';
+  return undefined;
+};
 
 // ---------- Página ----------
 export default function InventoryPage() {
@@ -176,7 +185,11 @@ export default function InventoryPage() {
     return [...src].sort((a,b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
   }, [santaData?.onHand]);
 
-  useEffect(() => { if (santaData) setLoading(false); }, [santaData]);
+  useEffect(() => {
+    // consideramos “listo” cuando onHand e items están definidos (aunque estén vacíos)
+    const ready = santaData && 'onHand' in santaData && 'items' in santaData;
+    if (ready) setLoading(false);
+  }, [santaData]);
 
   const locations = useMemo(() => {
     const set = new Set<string>();
@@ -187,8 +200,10 @@ export default function InventoryPage() {
   const filteredByCategory = useMemo(() => {
     return onHandAll.filter(oh => {
       const item = itemsById.get(oh.itemId);
-      if (!item) return false;
-      return activeTab === "pack" ? (item.category === "pack") : item.category === activeTab;
+      const cat = item?.category ?? inferCategoryFromLocation(oh.locationId);
+      // Si no logramos inferir, mostramos igualmente para no “perder” filas
+      if (!cat) return true;
+      return activeTab === "pack" ? (cat === "pack" || cat === "label") : cat === activeTab;
     });
   }, [onHandAll, itemsById, activeTab]);
 
@@ -208,7 +223,19 @@ export default function InventoryPage() {
   const totalQty = useMemo(() => filteredInventory.reduce((a,r)=> a + (Number(r.qty)||0), 0), [filteredInventory]);
 
   const cols: Col<OnHandView>[] = [
-    { key: "lotNumber", header: "Lote", render: r => <span className="font-mono text-xs bg-zinc-100 px-2 py-1 rounded-md">{r.lotNumber || (r as any).id.substring(0,12)}</span> },
+    { key: "lotNumber", header: "Lote", render: r => {
+        const ln = r.lotNumber || String((r as any).id||'').split('|')[1] || '';
+        return (
+          <button
+            className="font-mono text-xs bg-zinc-100 px-2 py-1 rounded-md hover:bg-zinc-200"
+            title="Ver movimientos"
+            onClick={() => { setMovCtx({ item: r.itemId, lot: ln, location: r.locationId }); setMovOpen(true); }}
+          >
+            {ln || (r as any).id?.substring(0,12) || '—'}
+          </button>
+        );
+      }
+    },
     { key: "itemId", header: "Producto (SKU)", render: r => {
         const it = itemsById.get(r.itemId);
         return (<div><span className="font-medium text-zinc-800">{it?.name || r.itemId}</span><p className="text-xs text-zinc-500">{it?.sku}</p></div>);
@@ -219,7 +246,11 @@ export default function InventoryPage() {
         const reserved = Number((r as any).reservedQty || 0);
         const free = Math.max(0, Number(r.qty) - reserved);
         const strong = free < Number(r.qty);
-        return <span className={strong ? "font-semibold" : ""}>{free.toFixed(3)}</span>;
+        return (
+          <span className={strong ? "font-semibold" : ""} title={reserved ? `Reservado: ${reserved}` : undefined}>
+            {free.toFixed(3)}
+          </span>
+        );
       }
     },
     { key: "qcStatus", header: "QC", render: r => {
@@ -350,7 +381,11 @@ export default function InventoryPage() {
             </button>
           </div>
         ) : filteredInventory.length === 0 ? (
-          <div className="text-center py-12 text-zinc-500">No hay resultados para los filtros actuales.</div>
+          <div className="text-center py-12 text-zinc-500">
+            {onHandAll.length === 0
+              ? 'No hay stock on-hand (aún).'
+              : 'No hay resultados para los filtros actuales.'}
+          </div>
         ) : (
           <DataTableSB rows={filteredInventory} cols={cols as any} />
         )}
