@@ -95,7 +95,6 @@ function TraceEventCard({ event }: { event: TraceEvent }) {
                 {/* ===== LÓGICA DEL DESPACHADOR ===== */}
                 {(event.kind === 'PRODUCTION_OUT' || event.kind === 'PRODUCTION_IN') && <ProductionEventDetails data={event.data} />}
                 {event.kind === 'QC_TEST' && <QcTestEventDetails data={event.data} />}
-                {/* ... puedes añadir más casos para otros tipos de eventos ... */}
             </div>
         </div>
     );
@@ -105,8 +104,20 @@ function TraceEventCard({ event }: { event: TraceEvent }) {
 // EL NUEVO DOSSIER DE LOTE
 // ===========================================
 function LotSummaryCard({ traceData }: { traceData: TraceData }) {
-    const { lot, receiptInfo, productionInfo, saleInfo } = traceData;
+    const { lot, receiptInfo, productionInfo, saleInfo, onHandSummary } = traceData;
+    const { data } = useData();
+    
     if (!lot) return null;
+
+    const item = data?.items.find(i => i.id === lot.itemId);
+    const categoryName = item?.category ? item.category.charAt(0).toUpperCase() + item.category.slice(1) : 'N/A';
+    
+    const locations = (onHandSummary || [])
+        .filter(oh => oh.qty > 0)
+        .map(oh => `${oh.locationId} (${oh.qty} ${oh.uom})`)
+        .join(', ');
+
+    const supplierName = data?.parties.find(p => p.id === receiptInfo?.supplierPartyId)?.name;
 
     const protocolCompliance = productionInfo?.protocols.every(p => (p as any).status === 'COMPLETED');
 
@@ -118,26 +129,32 @@ function LotSummaryCard({ traceData }: { traceData: TraceData }) {
                     <p className="text-xs text-zinc-500">Estado de Calidad</p>
                     <p className="font-medium">{lot.qcStatus}</p>
                 </div>
+                
+                <div>
+                    <p className="text-xs text-zinc-500">Categoría</p>
+                    <p className="font-medium">{categoryName}</p>
+                </div>
 
-                {/* --- Información de Origen --- */}
+                <div>
+                    <p className="text-xs text-zinc-500">Ubicación / Stock Actual</p>
+                    <p className="font-medium">{locations || 'Sin stock'}</p>
+                </div>
+
                 {receiptInfo && (
                     <div>
                         <p className="text-xs text-zinc-500">Origen (Recepción)</p>
-                        <p className="font-medium">{receiptInfo.supplierName}</p>
+                        <p className="font-medium">{supplierName || receiptInfo.supplierPartyId}</p>
                         <p className="text-xs">Albarán: {receiptInfo.deliveryNote}</p>
-                        <p className="text-xs">Recibido por: {receiptInfo.receivedBy}</p>
                     </div>
                 )}
                 
-                {/* --- Información de Producción --- */}
                 {productionInfo && (
-                    <div>
+                     <div>
                         <p className="text-xs text-zinc-500">Producido en Orden</p>
                         <Link href={`/production/execution?orderId=${productionInfo.orderId}`} className="font-medium text-blue-600 hover:underline">
                             {productionInfo.orderName}
                         </Link>
-                        <p className="text-xs">Responsable: {productionInfo.responsible}</p>
-                        {/* Protocolos e Incidencias */}
+                         <p className="text-xs">Responsable: {productionInfo.responsible}</p>
                         <div className="mt-1 flex flex-col gap-1">
                             {protocolCompliance ? (
                                 <span className="text-xs text-emerald-600 font-semibold">✓ Protocolos OK</span>
@@ -153,7 +170,6 @@ function LotSummaryCard({ traceData }: { traceData: TraceData }) {
                     </div>
                 )}
 
-                {/* --- Información de Destino --- */}
                 {saleInfo && (
                     <div>
                         <p className="text-xs text-zinc-500">Destino (Venta)</p>
@@ -180,12 +196,8 @@ export default function TraceabilityPage() {
         return (data?.items || []).sort((a,b) => a.name.localeCompare(b.name));
     }, [data?.items]);
 
-    // ================================================================
-    // LÓGICA DE BÚSQUEDA DE LOTES (CORREGIDA)
-    // ================================================================
     const lotsForItem = useMemo(() => {
         if (!itemId || !data?.lots) return [];
-        // La fuente de verdad es la colección `lots`, no el inventario `onHand`.
         return data.lots
             .filter(lot => lot.itemId === itemId)
             .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -198,7 +210,6 @@ export default function TraceabilityPage() {
     }, [items, itemId]);
 
     useEffect(() => {
-        // Selecciona el primer lote de la lista si no hay ninguno seleccionado
         if (lotsForItem.length > 0 && !lotNumber) {
             setLotNumber(lotsForItem[0].lotNumber);
         } else if (lotsForItem.length === 0) {

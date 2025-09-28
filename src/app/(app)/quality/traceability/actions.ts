@@ -2,7 +2,7 @@
 'use server';
 
 import { adminDb as db } from '@/server/firebase';
-import type { StockMove, QcTest, LotGenealogyEdge, ProductionOrder, GoodsReceipt, Party, Lot, ProtocolLog } from '@/domain/ssot';
+import type { StockMove, QcTest, LotGenealogyEdge, ProductionOrder, GoodsReceipt, Party, Lot, ProtocolLog, OnHandView } from '@/domain/ssot';
 import { ActionResult, ok, fail } from '@/lib/result';
 
 export type TraceEvent = {
@@ -15,22 +15,11 @@ export type TraceEvent = {
 };
 
 
-const PRETTY_LOCATIONS: Record<string, string> = {
-    'WH-FG-MAIN': 'Producto Terminado',
-    'ALMACEN_TERMINADO': 'Producto Terminado',
-    'WH-RM-MAIN': 'Materias Primas',
-    'ALMACEN_MATERIAS_PRIMAS': 'Materias Primas',
-    'WH-PKG-MAIN': 'Packaging',
-    'ALMACEN_PACKAGING': 'Packaging',
-    'QC-AREA-MAIN': 'Área de Calidad',
-};
-
-const prettyLocation = (locId?: string | null) => locId ? (PRETTY_LOCATIONS[locId] || locId) : 'N/A';
-
 export type TraceData = {
     lot: Lot | null;
     events: TraceEvent[];
-    receiptInfo?: { supplierName: string; deliveryNote: string; receivedBy: string; };
+    onHandSummary: OnHandView[];
+    receiptInfo?: { supplierPartyId: string; deliveryNote: string; receivedBy: string; };
     productionInfo?: { orderId: string; orderName?: string; responsible: string; incidentCount: number; protocols: any[] };
     saleInfo?: { customerName: string; orderNumber: string; };
 };
@@ -44,11 +33,10 @@ export async function getLotTraceability(lotNumber: string): Promise<ActionResul
         let receiptInfo, productionInfo, saleInfo;
 
         const lotSnap = await db.collection('lots').doc(lotNumber).get();
-        const lot = lotSnap.exists ? lotSnap.data() as Lot : null;
+        const lot = lotSnap.exists ? { id: lotSnap.id, ...lotSnap.data() } as Lot : null;
 
         const movesSnap = await db.collection('stockMoves').where('lotNumber', '==', lotNumber).get();
         
-        // Creamos un caché simple para no buscar el mismo usuario/proveedor varias veces
         const partyCache = new Map<string, Party>();
         const getPartyName = async (id: string) => {
             if (!id) return '';
@@ -65,21 +53,22 @@ export async function getLotTraceability(lotNumber: string): Promise<ActionResul
         for (const doc of movesSnap.docs) {
             const move = doc.data() as StockMove;
             let title = `Movimiento: ${move.reason}`;
-            let details = `Cantidad: ${move.qty} ${move.uom}. De: ${prettyLocation(move.fromLocationId)} a ${prettyLocation(move.toLocationId)}.`;
+            let details = `Cantidad: ${move.qty} ${move.uom}. De: ${move.fromLocationId || 'N/A'} a ${move.toLocationId || 'N/A'}.`;
             let data: Record<string, any> = {};
 
             if (move.reason === 'receipt' && move.ref?.goodsReceiptId) {
                 const rSnap = await db.collection('goodsReceipts').doc(move.ref.goodsReceiptId).get();
                 if (rSnap.exists) {
                     const r = rSnap.data() as GoodsReceipt;
+                    const receivedBy = (r as any).userId || '';
                     receiptInfo = {
-                        supplierName: await getPartyName(r.supplierPartyId),
+                        supplierPartyId: r.supplierPartyId,
                         deliveryNote: r.deliveryNote || 'N/A',
-                        receivedBy: await getPartyName((r as any).userId || ''),
+                        receivedBy: await getPartyName(receivedBy),
                     };
                     title = 'Recepción de Mercancía';
-                    details = `Recibido de ${receiptInfo.supplierName} con albarán ${receiptInfo.deliveryNote}.`;
-                    data = { goodsReceiptId: r.id, supplierName: receiptInfo.supplierName, deliveryNote: receiptInfo.deliveryNote };
+                    details = `Recibido de ${await getPartyName(r.supplierPartyId)} con albarán ${r.deliveryNote}.`;
+                    data = { goodsReceiptId: r.id, supplierId: r.supplierPartyId, deliveryNote: r.deliveryNote };
                 }
             }
             if (move.ref?.prodOrderId) {
@@ -94,7 +83,7 @@ export async function getLotTraceability(lotNumber: string): Promise<ActionResul
                         incidentCount: (po.incidents || []).length,
                         protocols: logsSnap.docs.map(d => d.data() as ProtocolLog),
                     };
-                    if (move.reason === 'production_out') {
+                     if (move.reason === 'production_out') {
                        title = 'Consumo en Producción';
                        details = `Usado en la orden ${productionInfo.orderName || productionInfo.orderId}`;
                     } else if (move.reason === 'production_in') {
@@ -130,7 +119,6 @@ export async function getLotTraceability(lotNumber: string): Promise<ActionResul
             });
         };
 
-        // 2. Buscar análisis de calidad (se ejecuta siempre)
         const testsSnap = await db.collection('qcTests').where('lotNumber', '==', lotNumber).get();
         testsSnap.docs.forEach(doc => {
             const test = doc.data() as QcTest;
@@ -141,7 +129,7 @@ export async function getLotTraceability(lotNumber: string): Promise<ActionResul
                 kind: 'QC_TEST',
                 title: `Análisis: ${test.parameterId}`,
                 details: `Resultado: ${value}`,
-                data: {
+                 data: {
                     parameterId: test.parameterId,
                     value: value,
                     inSpec: (test as any).inSpec,
@@ -150,12 +138,10 @@ export async function getLotTraceability(lotNumber: string): Promise<ActionResul
             });
         });
         
-        // 3. Buscar la genealogía (se ejecuta siempre)
         const childOfSnap = await db.collection('lotGenealogy').where('parentLotNumber', '==', lotNumber).get();
         childOfSnap.docs.forEach(doc => {
             const edge = doc.data() as LotGenealogyEdge;
             const qty = (edge as any).quantityUsed || edge.qty;
-
             events.push({
                 id: `gen-child-${edge.id}`, at: edge.createdAt, kind: 'GENEALOGY_CHILD',
                 title: `Usado para producir Lote: ${edge.childLotNumber}`,
@@ -173,11 +159,13 @@ export async function getLotTraceability(lotNumber: string): Promise<ActionResul
                 details: `Cantidad usada: ${qty} ${edge.uom}`
             });
         });
+
+        const onHandSnap = await db.collection('onHand').where('lotNumber', '==', lotNumber).get();
+        const onHandSummary = onHandSnap.docs.map(d => d.data() as OnHandView);
         
-        // 4. Ordenar todos los eventos juntos al final
         events.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
 
-        return ok({ lot, events, receiptInfo, productionInfo, saleInfo });
+        return ok({ lot, events, onHandSummary, receiptInfo, productionInfo, saleInfo });
 
     } catch (error: any) {
         return fail(error.message || "Error al obtener la trazabilidad.");
