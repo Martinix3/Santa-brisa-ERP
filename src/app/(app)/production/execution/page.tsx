@@ -1,29 +1,15 @@
-// src/app/(app)/production/execution/page.tsx
+
 "use client";
 
 import React, { useMemo, useState, useTransition, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Play, Pause, CheckCircle, XCircle,
-  Factory as FactoryIcon, Calendar, ChevronDown, AlertTriangle
-} from "lucide-react";
+import { Play, Pause, CheckCircle, XCircle, Factory as FactoryIcon, Calendar, ChevronDown, AlertTriangle } from "lucide-react";
 import { SBCard, SBButton, Input, Select } from '@/components/ui/ui-primitives';
 import { useData } from "@/lib/dataprovider";
 import { toast } from "sonner";
-
-// Tipos SSOT (no asumimos campos que no existan realmente en ProductionOrder)
-import type {
-  Uom, Item, ProductionOrder, BillOfMaterial as RecipeBom, ProductionStatus, OnHandView
-} from '@/domain/ssot';
+import type { Uom, Item, ProductionOrder, BillOfMaterial as RecipeBom, ProductionStatus, OnHandView } from '@/domain/ssot';
 import { JournalEntry } from "@/domain/ssot.common";
-
-// Server actions (NUEVAS ACCIONES CENTRALIZADAS)
-import {
-  planProduction,
-  updateProductionOrderStatus,
-  completeProductionOrder,
-  addIncident,
-} from "../actions";
+import { planProduction, updateProductionOrderStatus, completeProductionOrder, addIncident } from "../actions";
 
 // Tipos locales para el estado del formulario
 type LocalProductionOrder = ProductionOrder & { locked?: boolean; };
@@ -44,7 +30,7 @@ type ActiveOrderForm = {
     requiredLots: Array<{ itemId: string; lotNumber: string; qty: number; uom: string; locationId: string }>;
 };
 
-// ---------- Helpers UI ----------
+// ---------- Componentes helpers como Badge, Collapsible se mantienen igual ----------
 function Badge({ children, tone = "zinc" }:{
   children: React.ReactNode; tone?: "zinc"|"sky"|"amber"|"rose"|"emerald";
 }) {
@@ -110,7 +96,7 @@ function computeTheoretical(bom: RecipeBom, qty: number, itemsMap: Map<string, I
   }));
 }
 
-function picksToRealLines(picks: Array<{itemId:string; lotNumber:string; qty:number; uom:string, locationId: string}>): RealLine[] {
+function picksToRealLines(picks: Array<{itemId:string; lotNumber:string; qty:number; uom:string; locationId: string}>): RealLine[] {
   const bucket = new Map<string, RealLine>();
   for (const p of picks) {
     const k = `${p.itemId}|${p.lotNumber}|${p.uom}`;
@@ -120,6 +106,7 @@ function picksToRealLines(picks: Array<{itemId:string; lotNumber:string; qty:num
   }
   return [...bucket.values()];
 }
+
 
 // ---------- Panel de Disponibilidad ----------
 function StockCheckPanel({
@@ -203,6 +190,7 @@ function StockCheckPanel({
   );
 }
 
+
 // ---------- Página Principal (Refactorizada) ----------
 export default function ProductionExecutionPage() {
   const router = useRouter();
@@ -223,10 +211,11 @@ export default function ProductionExecutionPage() {
   const setFormValue = useCallback((field: keyof ActiveOrderForm, value: any) => {
     setActiveForm(form => form ? ({ ...form, [field]: value }) : null);
   }, []);
-
+  
   const onReadyChange = useCallback((ok: boolean) => setFormValue('stockOk', ok), [setFormValue]);
   const shortagesOut = useCallback((s: ActiveOrderForm['shortages']) => setFormValue('shortages', s), [setFormValue]);
   const requiredLotsOut = useCallback((r: ActiveOrderForm['requiredLots']) => setFormValue('requiredLots', r), [setFormValue]);
+
 
   const openPlanningFromBom = useCallback((bom: RecipeBom) => {
     const outputItem = itemsMap.get(bom.outputItemId);
@@ -530,4 +519,3 @@ export default function ProductionExecutionPage() {
     </div>
   );
 }
-```
