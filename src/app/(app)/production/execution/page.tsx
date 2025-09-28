@@ -11,6 +11,8 @@ import type { Uom, Item, ProductionOrder, BillOfMaterial as RecipeBom, Productio
 import { JournalEntry } from "@/domain/ssot.common";
 import { planProduction, updateProductionOrderStatus, completeProductionOrder, addIncident } from "../actions";
 
+export const dynamic = 'force-dynamic';
+
 // Tipos locales para el estado del formulario
 type LocalProductionOrder = ProductionOrder & { locked?: boolean; };
 type TheoreticalLine = { itemId: string; itemName: string; qty: number; uom: Uom };
@@ -135,7 +137,6 @@ function StockCheckPanel({
     
     for (const t of theory) {
       let remain = t.qty;
-      // CORRECCIÓN: Filtrar solo lotes con estado 'PASSED' o 'WAIVED' (liberados)
       const rows = (byItem.get(t.itemId) ?? []).filter(l => l.qcStatus === 'PASSED' || l.qcStatus === 'WAIVED');
       let available = rows.reduce((acc, lot) => acc + (lot.qty || 0), 0);
 
@@ -380,7 +381,6 @@ export default function ProductionExecutionPage() {
     if (!confirm("¿Finalizar y cerrar la orden? Se crearán movimientos de stock.")) return;
 
     startTransition(async () => {
-      // CORRECCIÓN: Mapear 'realQty' a 'qty'
       const finalConsumptions = activeForm.realConsumption.map(c => ({
           itemId: c.itemId,
           lotNumber: c.lotNumber,
@@ -412,7 +412,6 @@ export default function ProductionExecutionPage() {
         severity: activeForm.incidentSeverity,
         summary: activeForm.incidentText.trim(),
       });
-      // CORRECCIÓN: Usar una guarda de tipo
       if (r.ok) {
         setFormValue('journal', [...(activeForm.journal || []), {id: `inc_${r.data.incidentId ?? Date.now()}`, at: new Date().toISOString(), kind:'INCIDENT', summary: activeForm.incidentText.trim()}]);
         setFormValue('incidentText', '');
@@ -433,7 +432,7 @@ export default function ProductionExecutionPage() {
         bomId: activeForm.planningBom!.id,
         qty: planQty,
         plannedDate: activeForm.order?.scheduledFor,
-        reservations: activeForm.requiredLots as any, // Cast si es necesario
+        reservations: activeForm.requiredLots as any,
         idempotencyKey: crypto.randomUUID()
       });
       if (r.ok) {
@@ -619,7 +618,7 @@ export default function ProductionExecutionPage() {
                               type="number"
                               value={activeForm.finalOutput.qty}
                               onChange={e => setFormValue('finalOutput', {...activeForm.finalOutput, qty: Number(e.target.value) || 0})}
-                              readOnly={orderIsLocked || !canFinish(activeForm.order?.status)} // Solo editable al final
+                              readOnly={orderIsLocked || !canFinish(activeForm.order?.status)}
                             />
                           </div>
                           <div>
@@ -628,7 +627,7 @@ export default function ProductionExecutionPage() {
                               placeholder="Ej. LFG-2509-01"
                               value={activeForm.finalOutput.lotNumber ?? ""}
                               onChange={e => setFormValue('finalOutput', {...activeForm.finalOutput, lotNumber: e.target.value})}
-                              readOnly={orderIsLocked || !canFinish(activeForm.order?.status)} // Solo editable al final
+                              readOnly={orderIsLocked || !canFinish(activeForm.order?.status)}
                             />
                           </div>
                       </div>
