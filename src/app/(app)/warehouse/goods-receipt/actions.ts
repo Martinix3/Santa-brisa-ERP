@@ -155,31 +155,30 @@ export async function createGoodsReceipt(payload: {
     const finalLines: GoodsReceipt['lines'] = [];
 
     for (const line of lines) {
-        let currentItem: Item | undefined = line.itemId ? existingItemsMap.get(line.itemId) : undefined;
         let itemId = line.itemId;
 
         if (!itemId && line.newItemName) {
-            const newItemRef = db.collection('items').doc();
-            itemId = newItemRef.id;
-            const uom = line.uom || 'unit';
-            currentItem = {
+            const itemRef = db.collection('items').doc();
+            itemId = itemRef.id;
+            const newItem: Item = {
                 id: itemId,
                 name: line.newItemName,
                 sku: makeSku(line.newItemName, line.newItemCategory || 'raw', existingItems.map(it => it.sku)),
-                uom: uom,
+                uom: line.uom || 'unit',
                 category: line.newItemCategory || 'raw',
                 stdCost: line.unitCost || 0,
                 active: true,
             };
-            batch.set(newItemRef, { ...currentItem, createdAt: nowIso, updatedAt: nowIso });
-            existingItemsMap.set(itemId, currentItem); // Add to local map for subsequent lines
+            batch.set(itemRef, { ...newItem, createdAt: nowIso, updatedAt: nowIso }, { merge: true });
+            existingItemsMap.set(itemId, newItem); // Add to local map for subsequent lines
         }
 
-        if (!currentItem || !itemId) continue;
+        const currentItem = existingItemsMap.get(itemId!);
+        if (!currentItem) continue;
+        if (!currentItem.uom) throw new Error(`El item ${currentItem.id} no tiene una unidad de medida (uom) definida.`);
         
         const lotNumber = line.supplierLot.trim() || (line.autoLot ? generateLotNumber(currentItem) : "");
         if (!lotNumber) throw new Error(`El lote de proveedor es obligatorio para la línea con ${currentItem.name}.`);
-        if (!currentItem.uom) throw new Error(`El item ${currentItem.id} no tiene una unidad de medida (uom) definida.`);
 
 
         const lotData = LotSchema.parse({
@@ -249,7 +248,7 @@ export async function createGoodsReceipt(payload: {
     revalidatePath('/warehouse/inventory');
     revalidatePath('/warehouse/goods-receipt');
 
-    return { ...receipt, id: receiptRef.id, supplierId: finalSupplierId };
+    return { ...receipt, id: receiptRef.id, supplierId: finalSupplierId, receiptId: receiptRef.id, receiptNumber };
   } catch(e: any) {
       console.error(`[ACTION:createGoodsReceipt] Failed. Payload:`, JSON.stringify(payload, null, 2), `Error:`, e);
       throw new Error(e.message || "Error interno del servidor al crear la recepción.");
