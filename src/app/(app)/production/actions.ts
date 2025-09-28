@@ -13,6 +13,7 @@ import type { ProductionOrder, Item, StockMove, Uom } from '@/domain/ssot';
 import { LotSchema } from '@/domain/validators';
 import { findNextLotNumber } from '../warehouse/inventory/actions';
 import { upsertMany } from '@/lib/dataprovider/actions';
+import { makeOnHandId } from '@/domain/id-helpers';
 
 
 // ===== Helpers de lectura (simplificados para claridad) =====
@@ -134,6 +135,11 @@ export async function completeProductionOrder(
         createdAt: now,
       };
       batch.set(moveRef, move);
+      
+      // Actualizar onHand (temporalmente, hasta Módulo 4)
+      const onHandOutId = makeOnHandId(consumption.itemId, consumption.lotNumber, consumption.fromLocationId);
+      const onHandOutRef = adminDb.collection('onHand').doc(onHandOutId);
+      batch.update(onHandOutRef, { qty: FieldValue.increment(-Math.abs(consumption.qty)), updatedAt: now });
     }
 
     const newLotNumbers: string[] = [];
@@ -157,9 +163,9 @@ export async function completeProductionOrder(
       }), { merge: true });
 
       // Crear el movimiento de stock de entrada
-      const moveRef = adminDb.collection('stockMoves').doc();
+      const moveInRef = adminDb.collection('stockMoves').doc();
       const moveIn: Omit<StockMove, 'uom'> & { uom: string } = {
-        id: moveRef.id,
+        id: moveInRef.id,
         ref: { prodOrderId: orderId },
         itemId: output.itemId,
         lotNumber: lotNumber,
@@ -170,7 +176,22 @@ export async function completeProductionOrder(
         occurredAt: now,
         createdAt: now,
       };
-      batch.set(moveRef, moveIn);
+      batch.set(moveInRef, moveIn);
+      
+      // Actualizar onHand (temporalmente, hasta Módulo 4)
+      const onHandInId = makeOnHandId(output.itemId, lotNumber, output.toLocationId);
+      const onHandInRef = adminDb.collection('onHand').doc(onHandInId);
+      batch.set(onHandInRef, {
+        id: onHandInId,
+        itemId: output.itemId,
+        lotNumber: lotNumber,
+        locationId: output.toLocationId,
+        qty: FieldValue.increment(output.qty),
+        uom: output.uom,
+        qcStatus: 'PENDING',
+        createdAt: now,
+        updatedAt: now,
+      }, { merge: true });
     }
 
     // 3. Actualizar la orden de producción a 'DONE'
