@@ -34,7 +34,7 @@ export async function rebuildOnHand() {
     const onHand: Record<string, any> = {};       // key = item|lot|location (SAFE)
     const lots: Record<string, any> = {};         // key = lotNumber
     const reservations: Record<string, any> = {}; // key = item|lot|location
-
+    
     const DIRECT_SIGN: Record<string, number> = {
       receipt: +1,
       production_in: +1,
@@ -60,16 +60,18 @@ export async function rebuildOnHand() {
       const uom  = m.uom ?? itemMap.get(m.itemId)?.uom ?? "unit";
 
       // track lot
-      const lot = (lots[m.lotNumber] ||= {
-        lotNumber: m.lotNumber,
-        itemId: m.itemId,
-        uom,
-        createdAt: ts,
-        updatedAt: ts,
-        firstReason: m.reason,
-      });
-      if (new Date(ts) < new Date(lot.createdAt)) lot.createdAt = ts;
-      if (new Date(ts) > new Date(lot.updatedAt)) lot.updatedAt = ts;
+      if (m.lotNumber) {
+        const lot = (lots[m.lotNumber] ||= {
+          lotNumber: m.lotNumber,
+          itemId: m.itemId,
+          uom,
+          createdAt: ts,
+          updatedAt: ts,
+          firstReason: m.reason,
+        });
+        if (new Date(ts) < new Date(lot.createdAt)) lot.createdAt = ts;
+        if (new Date(ts) > new Date(lot.updatedAt)) lot.updatedAt = ts;
+      }
 
       const reason = m.reason as string;
 
@@ -80,10 +82,10 @@ export async function rebuildOnHand() {
         cur.qty += delta;
         if (new Date(ts) > new Date(cur.updatedAt)) cur.updatedAt = ts;
       }
-
+      
       if (DIRECT_SIGN[reason] !== undefined && DIRECT_SIGN[reason] !== 0) {
         const loc = DIRECT_SIGN[reason] > 0 ? to : from;
-        add(loc, DIRECT_SIGN[reason] * qty);
+        add(loc, DIRECT_SIGN[reason] * absQty);
       } else if (reason === 'transfer') {
         if (from) add(from, -absQty);
         if (to) add(to, absQty);
@@ -94,13 +96,12 @@ export async function rebuildOnHand() {
         if (loc) {
           const rk = makeOnHandId(m.itemId, m.lotNumber, loc);
           const cur = (reservations[rk] ||= { id: rk, itemId: m.itemId, lotNumber: m.lotNumber, locationId: loc, qty: 0, updatedAt: ts });
-          cur.qty += sign * absQty; // respeta signo: reservar (+), desreservar (-)
+          cur.qty += sign * absQty;
           cur.updatedAt = ts;
         }
       }
     }
 
-    // Deriva qcStatus inicial
     const lotsDocs = Object.values(lots).map((l: any) => {
       const item = itemMap.get(l.itemId);
       const requiresQc = !!(item as any)?.requiresQc;
@@ -144,4 +145,3 @@ export async function rebuildOnHand() {
 
     return { ok: true, onHand: onHandDocs.length, lots: lotsDocs.length, reservations: resMap.size };
 }
-

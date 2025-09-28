@@ -112,11 +112,11 @@ function NewOnHandDialog({
       <SBDialogContent title="Añadir Stock Manual" maxWidth="36rem">
         <div className="space-y-3">
             <FieldRow label="Producto" error={errors.itemId}><Select value={fm.itemId} onChange={e=>setFm(s=>({...s,itemId:e.target.value, uom: items.find(i=>i.id===e.target.value)?.uom || 'unit'}))}>{items.map(i=><option key={i.id} value={i.id}>{i.name}</option>)}</Select></FieldRow>
-            <FieldRow label="Lote (auto si vacío)"><Input value={fm.lotNumber} onChange={e=>setFm(s=>({...s,lotNumber:e.target.value}))} placeholder="SKU-YYMM-XX"/></FieldRow>
+            <FieldRow label="Lote (auto si vacío)"><Input value={fm.lotNumber} onChange={e=>setFm(s=>({...s,lotNumber:e.target.value}))} placeholder="SKU-YYMM-XX"/></Row>
             <FieldRow label="Cantidad" error={errors.qty}><div className="flex gap-2"><Input type="number" value={fm.qty} onChange={e=>setFm(s=>({...s,qty:e.target.value===""?"":Number(e.target.value)}))} min={1}/><Select value={fm.uom} onChange={e=>setFm(s=>({...s,uom:e.target.value}))}>{['unit','kg','L','case'].map(u=><option key={u} value={u}>{u}</option>)}</Select></div></FieldRow>
             <FieldRow label="Ubicación" error={errors.locationId}><Select value={fm.locationId} onChange={e=>setFm(s=>({...s,locationId:e.target.value}))}>{locations.map(l=><option key={l} value={l}>{l}</option>)}</Select></FieldRow>
             <FieldRow label="Fecha/hora"><Input type="datetime-local" value={fm.occurredAt} onChange={e=>setFm(s=>({...s,occurredAt:e.target.value}))}/></FieldRow>
-            <FieldRow label="Notas"><Input value={fm.note || ''} onChange={e=>setFm(s=>({...s,note:e.target.value}))} placeholder="Ajuste anual, promo, etc."/></Row>
+            <FieldRow label="Notas"><Input value={fm.note || ''} onChange={e=>setFm(s=>({...s,note:e.target.value}))} placeholder="Ajuste anual, promo, etc."/></FieldRow>
             <div className="border-t pt-4 space-y-3">
                 <FieldRow label="Proveedor (texto o ID)"><Input value={fm.supplier || ''} onChange={e => setFm(s => ({ ...s, supplier: e.target.value }))} placeholder="Nombre proveedor o accountId"/></FieldRow>
                 <FieldRow label="Nº albarán / doc. ref."><Input value={fm.invoiceRef || ''} onChange={e => setFm(s => ({ ...s, invoiceRef: e.target.value }))} placeholder="p.ej. ALB-2509-123"/></FieldRow>
@@ -198,8 +198,6 @@ export default function InventoryPage() {
   }, [onHandAll]);
 
   const filteredInventory = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    
     let base = onHandAll.map(oh => {
         const item = itemsById.get(oh.itemId);
         const category = item?.category ?? inferCategoryFromLocation(oh.locationId);
@@ -209,21 +207,36 @@ export default function InventoryPage() {
     return base.filter(oh => {
       if (locationFilter !== "ALL" && (oh.locationId || "") !== locationFilter) return false;
       if (!showZeros && !(oh.qty > 0)) return false;
+
+      const q = query.trim().toLowerCase();
       if (!q) return true;
+      
       const hay = [oh._item?.name || "", oh._item?.sku || "", oh.lotNumber || "", oh.locationId || ""].join(" ").toLowerCase();
       return hay.includes(q);
     });
   }, [onHandAll, itemsById, locationFilter, showZeros, query]);
   
-  const TABS: { id: ItemCategory; label: string, count: number }[] = [
-    { id: "fg", label: "Producto Terminado", count: filteredInventory.filter(i => i._category === 'fg').length },
-    { id: "raw", label: "Materias Primas", count: filteredInventory.filter(i => i._category === 'raw').length },
-    { id: "intermediate", label: "Intermedios", count: filteredInventory.filter(i => i._category === 'intermediate').length },
-    { id: "pack", label: "Packaging y Etiquetas", count: filteredInventory.filter(i => i._category === 'pack' || i._category === 'label').length },
-    { id: "merch", label: "Merchandising", count: filteredInventory.filter(i => i._category === 'merch').length },
-    { id: "consumable", label: "Consumibles", count: filteredInventory.filter(i => i._category === 'consumable').length },
-  ];
-  
+  const TABS: { id: ItemCategory; label: string, count: number }[] = useMemo(() => {
+    const counts: Record<string, number> = { fg: 0, raw: 0, intermediate: 0, pack: 0, merch: 0, consumable: 0 };
+    for (const item of filteredInventory) {
+      const category = item._category;
+      if (category === 'pack' || category === 'label') {
+        counts.pack = (counts.pack || 0) + 1;
+      } else if (category && counts[category] !== undefined) {
+        counts[category]++;
+      }
+    }
+    
+    return [
+      { id: "fg", label: "Producto Terminado", count: counts.fg },
+      { id: "raw", label: "Materias Primas", count: counts.raw },
+      { id: "intermediate", label: "Intermedios", count: counts.intermediate },
+      { id: "pack", label: "Packaging y Etiquetas", count: counts.pack },
+      { id: "merch", label: "Merchandising", count: counts.merch },
+      { id: "consumable", label: "Consumibles", count: counts.consumable },
+    ];
+  }, [filteredInventory]);
+
   const tabFilteredRows = useMemo(() => {
     return filteredInventory.filter(oh => {
       const category = oh._category;
@@ -398,5 +411,3 @@ export default function InventoryPage() {
     </div>
   );
 }
-
-```
