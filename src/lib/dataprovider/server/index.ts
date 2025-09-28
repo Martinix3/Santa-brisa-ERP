@@ -3,10 +3,10 @@ import { adminDb as db } from '@/server/firebase';
 import { SANTA_DATA_COLLECTIONS, type SantaData } from '@/domain/ssot';
 
 function assertCollection(col: string): asserts col is (typeof SANTA_DATA_COLLECTIONS)[number] {
-  if (!(SANTA_DATA_COLLECTIONS as readonly string[]).includes(col)) {
-    throw new Error(`Invalid collection name: ${col}`);
+    if (!SANTA_DATA_COLLECTIONS.includes(col as any)) {
+      throw new Error(`Invalid collection name: ${col}`);
+    }
   }
-}
 
 
 type AnyDoc = Record<string, any>;
@@ -57,9 +57,11 @@ export async function upsertMany<T extends { id: string }>(
 export async function getServerData(): Promise<SantaData> {
   console.log('[getServerData] Fetching fresh data from Firestore...');
   const data: Partial<SantaData> = {};
-  const promises = Array.from(SANTA_DATA_COLLECTIONS).map(async (name) => {
+  const collectionsToLoad = Array.from(SANTA_DATA_COLLECTIONS);
+
+  const promises = collectionsToLoad.map(async (name) => {
     try {
-      assertCollection(name); // <-- AÑADIDO: Asegura que 'name' es un string válido para la colección
+      assertCollection(name);
       const querySnapshot = await db.collection(name).get();
       (data as any)[name] = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     } catch (e) {
@@ -67,8 +69,9 @@ export async function getServerData(): Promise<SantaData> {
       (data as any)[name] = []; // Return empty array on error for this collection
     }
   });
-  
+
   await Promise.all(promises);
+
   console.log('[getServerData] Fresh data fetch complete.');
   return data as SantaData;
 }
