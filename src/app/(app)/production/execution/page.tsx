@@ -1,3 +1,4 @@
+
 // src/app/(app)/production/execution/page.tsx
 "use client";
 
@@ -7,8 +8,7 @@ import { Play, Pause, CheckCircle, XCircle, Factory as FactoryIcon, Calendar, Ch
 import { SBCard, SBButton, Input, Select } from '@/components/ui/ui-primitives';
 import { useData } from "@/lib/dataprovider";
 import { toast } from "sonner";
-import type { Uom, Item, ProductionOrder, BillOfMaterial as RecipeBom, ProductionStatus, OnHandView, QcStatus } from '@/domain/ssot';
-import { JournalEntry } from "@/domain/ssot.common";
+import type { Uom, Item, ProductionOrder, BillOfMaterial as RecipeBom, ProductionStatus, OnHandView, QcStatus, JournalEntry } from '@/domain/ssot';
 import { planProduction, updateProductionOrderStatus, completeProductionOrder, addIncident } from "../actions";
 
 export const dynamic = 'force-dynamic';
