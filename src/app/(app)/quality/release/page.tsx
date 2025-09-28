@@ -1,3 +1,4 @@
+
 // src/app/(app)/quality/release/page.tsx
 "use client";
 
@@ -54,7 +55,7 @@ const QC_STATUS_TONE: Record<string, "emerald" | "amber" | "rose" | "zinc"> = {
   REJECTED: "rose",
   reject: "rose",
 };
-const qcTone = (s?: string): "emerald" | "amber" | "rose" | "zinc" => (s ? (QC_STATUS_TONE[s.toLowerCase()] || "amber") : "zinc");
+const qcTone = (s?: string): "emerald" | "amber" | "rose" | "zinc" => (s ? (QC_STATUS_TONE[s.toUpperCase()] || "amber") : "zinc");
 const prettyStatus = (s?: string) => s ? (QC_STATUS_TEXT[s.toUpperCase()] || s) : "SIN ESTADO";
 
 // ============================================================================
@@ -121,7 +122,7 @@ function normalizeLotHistory(lot: Lot, data: NormalizeCtx): TraceEvent[] {
       const toLoc = (m as any).toLocationId || (m as any).toLocation || (m as any).to || "";
       const fromLoc = (m as any).fromLocationId || (m as any).fromLocation || (m as any).from || "";
       const isShip = (m.reason || "").toLowerCase() === "ship" || !!(m as any).ref?.shipmentId;
-
+      
       const base = {
         at,
         details: `Cantidad: ${qty ?? "?"} ${uom ?? ""} · ${fromLoc ? `De: ${fromLoc} ` : ""}${toLoc ? `→ A: ${toLoc}` : ""}`.trim(),
@@ -225,7 +226,7 @@ function normalizeLotHistory(lot: Lot, data: NormalizeCtx): TraceEvent[] {
         id: `inc-${i.id}`,
         at: safeWhen((i as any).at, (i as any).createdAt, (i as any).updatedAt),
         kind: "INCIDENT",
-        title: `Incidente: ${i.summary ?? i.id}`,
+        title: `Incidente: ${i.description ?? i.id}`,
         details: `Severidad: ${(i as any).severity ?? "N/A"} · Estado: ${i.status ?? "—"}`,
         icon: AlertTriangle,
         tone: "amber",
@@ -235,19 +236,17 @@ function normalizeLotHistory(lot: Lot, data: NormalizeCtx): TraceEvent[] {
   // === GENEALOGÍA (opcional) ===
   (data.genealogy ?? [])
     .filter(e => {
-      const child = (e as any).childLotNumber ?? (e as any).childLot;
-      const parent = (e as any).parentLotNumber ?? (e as any).parentLot;
+      const child = e.childLotNumber;
+      const parent = e.parentLotNumber;
       return child === lotNumber || parent === lotNumber;
     })
     .forEach(e => {
-      const child = (e as any).childLotNumber ?? (e as any).childLot;
-      const parent = (e as any).parentLotNumber ?? (e as any).parentLot;
-      const isParent = parent === lotNumber;
+      const isParent = e.parentLotNumber === lotNumber;
       push({
         id: `gen-${e.id}`,
         at: safeWhen((e as any).at, (e as any).createdAt),
         kind: "GENEALOGY",
-        title: isParent ? `Usado en ${child}` : `Origen: ${parent}`,
+        title: isParent ? `Usado en ${e.childLotNumber}` : `Origen: ${e.parentLotNumber}`,
         details: (e as any).note ?? "",
         icon: GitBranch,
         tone: "zinc",
@@ -384,7 +383,7 @@ export default function LabReleasePage() {
     if (!selectedLot) return null;
 
     // 1) Intenta encontrar el lote "master"
-    const lotMaster = lots.find(l => l.lotNumber === selectedLot) ?? null;
+    const lotMaster: Lot | null = lots.find(l => l.lotNumber === selectedLot) ?? null;
 
     // 2) Fallback a onHand si no hay master
     const oh = onHand.find(l => l.lotNumber === selectedLot) ?? null;
@@ -395,7 +394,7 @@ export default function LabReleasePage() {
     const lot: Lot = lotMaster ?? ({
       id: `virtual-${selectedLot}`,
       lotNumber: selectedLot,
-      itemId: oh?.itemId ?? "",  // <- importante para mapear nombre
+      itemId: oh?.itemId ?? "",
       producedByOrderId: (oh as any)?.prodOrderId ?? undefined,
       qcPlanId: lotMaster?.qcPlanId ?? undefined,
       qcStatus: lotMaster?.qcStatus ?? undefined,
@@ -407,9 +406,9 @@ export default function LabReleasePage() {
     } as any);
 
     const plan = lot.qcPlanId ? qcPlanMap.get(lot.qcPlanId) : undefined;
-    const history = normalizeLotHistory(lot, { qcTests, qcBatchResults, incidents, stockMoves, protocolAcks, orders });
+    const history = normalizeLotHistory(lot, { qcTests, qcBatchResults, incidents, stockMoves, protocolAcks, orders, genealogy: data?.lotGenealogy });
     return { lot, item: itemMap.get(lot.itemId), plan, history };
-  }, [selectedLot, lots, onHand, itemMap, qcPlanMap, qcTests, qcBatchResults, incidents, stockMoves, protocolAcks, orders]);
+  }, [selectedLot, lots, onHand, itemMap, qcPlanMap, qcTests, qcBatchResults, incidents, stockMoves, protocolAcks, orders, data?.lotGenealogy]);
 
 
   useEffect(() => {
@@ -594,12 +593,12 @@ export default function LabReleasePage() {
               )}
               {selectedLotData.history.length === 0 ? (
                 <div className="text-sm text-zinc-500 text-center space-y-2">
-                    <p>No hay eventos registrados para este lote.</p>
-                    <ul className="text-xs list-disc list-inside text-zinc-400">
-                      <li>¿Existen <code>stockMoves</code> con <code>lotNumber="{selectedLotData.lot.lotNumber}"</code>?</li>
-                      <li>¿Se han guardado <code>qcTests</code> / <code>qcBatchResults</code>?</li>
-                      <li>Si el lote viene de orden, ¿hay <code>protocolAcks</code> o <code>statusHistory</code>?</li>
-                    </ul>
+                  <p>No hay eventos registrados para este lote.</p>
+                  <ul className="text-xs list-disc list-inside text-zinc-400">
+                    <li>¿Existen <code>stockMoves</code> con <code>lotNumber="{selectedLotData.lot.lotNumber}"</code>?</li>
+                    <li>¿Se han guardado <code>qcTests</code> / <code>qcBatchResults</code>?</li>
+                    <li>Si el lote viene de orden, ¿hay <code>protocolAcks</code> o <code>statusHistory</code>?</li>
+                  </ul>
                 </div>
               ) : (
                 <ul className="space-y-4">

@@ -112,11 +112,11 @@ export function searchLots(data: SantaData, p: LotSearchParams): LotHit[] {
     const edges = lotGenealogy;
     if (p.genealogyMode === "PARENTS") {
       const childSet = new Set(out.map(h => h.lotNumber));
-      const parents = new Set(edges.filter(e => childSet.has(e.childLot)).map(e => e.parentLot));
+      const parents = new Set(edges.filter(e => childSet.has(e.childLotNumber)).map(e => e.parentLotNumber));
       out = out.filter(h => parents.has(h.lotNumber));
     } else if (p.genealogyMode === "CHILDREN") {
       const parentSet = new Set(out.map(h => h.lotNumber));
-      const children = new Set(edges.filter(e => parentSet.has(e.parentLot)).map(e => e.childLot));
+      const children = new Set(edges.filter(e => parentSet.has(e.parentLotNumber)).map(e => e.childLotNumber));
       out = out.filter(h => children.has(h.lotNumber));
     }
   }
