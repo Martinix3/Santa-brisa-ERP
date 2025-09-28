@@ -13,6 +13,7 @@ import { useData } from "@/lib/dataprovider";
 import { createManualOnHand } from "../actions";
 import { rebuildOnHand } from "./actions";
 import { qcFromRow } from '@/lib/sb-core';
+import { makeOnHandId } from "@/domain/id-helpers";
 
 // ---- Tema logística (usa tu token CSS) ----
 const ACCENT = "var(--sb-accent-logistica)";
@@ -136,7 +137,7 @@ function NewOnHandDialog({
   );
 }
 
-const inferCategoryFromLocation = (loc?: string): Item['category'] | undefined => {
+const inferCategoryFromLocation = (loc?: string): ItemCategory | undefined => {
   if (!loc) return undefined;
   if (loc.startsWith('FG/')) return 'fg';
   if (loc.startsWith('RM/')) return 'raw';
@@ -197,32 +198,31 @@ export default function InventoryPage() {
     return ["ALL", ...Array.from(set).sort()];
   }, [onHandAll]);
 
-  const filteredByCategory = useMemo(() => {
-    return onHandAll.filter(oh => {
-      const item = itemsById.get(oh.itemId);
-      const cat = item?.category ?? inferCategoryFromLocation(oh.locationId);
-      // Si no logramos inferir, mostramos igualmente para no “perder” filas
-      if (!cat) return true;
-      return activeTab === "pack" ? (cat === "pack" || cat === "label") : cat === activeTab;
-    });
-  }, [onHandAll, itemsById, activeTab]);
-
   const filteredInventory = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return filteredByCategory.filter(oh => {
-      const item = itemsById.get(oh.itemId);
-      if (!item) return false;
+    
+    let base = onHandAll.map(oh => {
+        const item = itemsById.get(oh.itemId);
+        const category = item?.category ?? inferCategoryFromLocation(oh.locationId);
+        return { ...oh, _category: category, _item: item };
+    });
+    
+    return base.filter(oh => {
+      if (activeTab === 'pack' ? !(oh._category === 'pack' || oh._category === 'label') : oh._category !== activeTab) {
+          if (oh._category) return false;
+      }
+
       if (locationFilter !== "ALL" && (oh.locationId || "") !== locationFilter) return false;
       if (!showZeros && !(oh.qty > 0)) return false;
       if (!q) return true;
-      const hay = [item.name || "", item.sku || "", oh.lotNumber || "", oh.locationId || ""].join(" ").toLowerCase();
+      const hay = [oh._item?.name || "", oh._item?.sku || "", oh.lotNumber || "", oh.locationId || ""].join(" ").toLowerCase();
       return hay.includes(q);
     });
-  }, [filteredByCategory, itemsById, locationFilter, showZeros, query]);
+  }, [onHandAll, itemsById, locationFilter, showZeros, query, activeTab]);
 
   const totalQty = useMemo(() => filteredInventory.reduce((a,r)=> a + (Number(r.qty)||0), 0), [filteredInventory]);
 
-  const cols: Col<OnHandView>[] = [
+  const cols: Col<OnHandView> = [
     { key: "lotNumber", header: "Lote", render: r => {
         const ln = r.lotNumber || String((r as any).id||'').split('|')[1] || '';
         return (
