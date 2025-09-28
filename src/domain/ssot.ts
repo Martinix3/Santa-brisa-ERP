@@ -38,7 +38,7 @@ export type IncidentKind = 'QC_INBOUND' | 'QC_PROCESS' | 'QC_RELEASE' | 'LOGISTI
 export type IncidentStatus = 'OPEN' | 'UNDER_REVIEW' | 'CONTAINED' | 'CLOSED';
 export type ActivationStatus = 'active' | 'inactive' | 'pending_renewal';
 export type PartyStatus = 'PROVISIONAL'|'ENRIQUECIDO'|'VINCULADO'|'CONFIABLE';
-export type ItemCategory = 'fg'|'raw'|'pack'|'intermediate'|'consumable'|'merch';
+export type ItemCategory = 'fg'|'raw'|'pack'|'label'|'intermediate'|'consumable'|'merch';
 
 // === QC core (invariantes) ===
 export type QcStatus = 'PENDING'|'PASSED'|'FAILED'|'WAIVED';
@@ -62,6 +62,7 @@ export type OnHandView = {
   qty: number;
   uom: Uom;
   qcStatus: QcStatus;
+  category: ItemCategory;
   expiryAt?: string | null;   // ISO
   reservedQty?: number;       // default 0
   createdAt: string;          // ISO
@@ -670,3 +671,5 @@ export const SANTA_DATA_COLLECTIONS: (keyof SantaData)[] = [
 ];
 
 export * from './ssot.metas';
+
+    
