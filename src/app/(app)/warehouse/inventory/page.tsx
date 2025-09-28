@@ -1,11 +1,10 @@
-// src/app/(app)/warehouse/inventory/page.tsx
+
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { SBCard, SBButton, Input, Select } from "@/components/ui/ui-primitives";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { SBCard, SBButton, Input, Select, DataTableSB, Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/ui-primitives";
 import { useData } from "@/lib/dataprovider";
-import type { ItemCategory, OnHandView, Lot } from "@/domain/ssot";
+import type { ItemCategory, OnHandView, Lot, Item } from "@/domain/ssot";
 import {
   computeSkuRollup, computeStockAlerts, computeCoverage, suggestReplenishment,
   computeExpiryBuckets, detectQcStuck, auditOnHandVsLots,
@@ -245,6 +244,10 @@ export default function InventoryPage() {
     return ["ALL", ...Array.from(set)];
   }, [onHand]);
 
+  const ACCENT = "var(--sb-accent-logistica)";
+  const BTN_OUTLINE = `border text-[color:${ACCENT}] border-[color:${ACCENT}] hover:bg-[color:${ACCENT}]/10`;
+  const BTN_SOLID = `bg-[color:${ACCENT}] text-white hover:opacity-90`;
+
   return (
     <div className="space-y-4" style={{'--sb-accent': 'var(--sb-accent-logistica)'} as React.CSSProperties}>
       {/* HEADER */}
@@ -271,9 +274,9 @@ export default function InventoryPage() {
           </label>
         </div>
         <div className="flex gap-2">
-          <SBButton variant="outline" className="sb-btn-outline-accent" onClick={onExportReplen}>Exportar</SBButton>
-          <SBButton variant="outline" className="sb-btn-outline-accent" onClick={() => setOpenReceipt(true)}>Nueva Recepción</SBButton>
-          <SBButton className="sb-btn-solid-accent" onClick={() => setOpenNew(true)}>Ajuste Manual</SBButton>
+          <SBButton variant="outline" className={BTN_OUTLINE} onClick={onExportReplen}>Exportar</SBButton>
+          <SBButton variant="outline" className={BTN_OUTLINE} onClick={() => setOpenReceipt(true)}>Nueva Recepción</SBButton>
+          <SBButton className={BTN_SOLID} onClick={() => setOpenNew(true)}>Ajuste Manual</SBButton>
         </div>
       </div>
 
@@ -282,16 +285,18 @@ export default function InventoryPage() {
         {/* Panel Izquierdo: Alertas + Categorías */}
         <div className="space-y-4">
           <SBCard title="Alertas de Inventario">
-            {(alerts.length === 0 && qcStuck.length === 0 && (audit.inOnHandNotLots.length + audit.inLotsNotOnHand.length) === 0) ? (
-              <div className="text-sm text-zinc-500 p-4">Sin alertas</div>
-            ) : (
-              <div className="p-2 flex flex-col gap-2">
-                {alerts.map((a,i)=> <span key={i} className="sb-badge sb-badge--warn">{a.itemId}: {a.message}</span>)}
-                {qcStuck.map(q=> <span key={q.lotNumber} className="sb-badge sb-badge--info">QC {q.itemId}/{q.lotNumber}</span>)}
-                {audit.inOnHandNotLots.length > 0 && <span className="sb-badge sb-badge--danger">OnHand sin lote maestro: {audit.inOnHandNotLots.length}</span>}
-                {audit.inLotsNotOnHand.length > 0 && <span className="sb-badge sb-badge--danger">Lotes sin onHand: {audit.inLotsNotOnHand.length}</span>}
-              </div>
-            )}
+            <div className="p-2 flex flex-col gap-2">
+              {(alerts.length === 0 && qcStuck.length === 0 && (audit.inOnHandNotLots.length + audit.inLotsNotOnHand.length) === 0) ? (
+                <div className="text-sm text-zinc-500 p-4">Sin alertas</div>
+              ) : (
+                <>
+                  {alerts.map((a,i)=> <span key={i} className="sb-badge sb-badge--warn">{a.itemId}: {a.message}</span>)}
+                  {qcStuck.map(q=> <span key={q.lotNumber} className="sb-badge sb-badge--info">QC {q.itemId}/{q.lotNumber}</span>)}
+                  {audit.inOnHandNotLots.length > 0 && <span className="sb-badge sb-badge--danger">OnHand sin lote maestro: {audit.inOnHandNotLots.length}</span>}
+                  {audit.inLotsNotOnHand.length > 0 && <span className="sb-badge sb-badge--danger">Lotes sin onHand: {audit.inLotsNotOnHand.length}</span>}
+                </>
+              )}
+            </div>
           </SBCard>
 
           <SBCard title="Categorías">
@@ -334,18 +339,19 @@ export default function InventoryPage() {
         {/* Panel Derecho: Inspector */}
         <div className="space-y-4">
           <SBCard title="Inspector">
-            {!selectedKey ? (
-              <div className="text-sm text-zinc-500 p-4">Selecciona un {viewMode === "sku" ? "SKU" : "Lote"}…</div>
-            ) : viewMode === "sku" ? (
-              <div className="p-4"><InspectorSku itemId={selectedKey} summary={summaries[selectedKey]} coverage={(coverage as any)[selectedKey]} suggested={replen[selectedKey] ?? 0} /></div>
-            ) : (
-              <div className="p-4"><InspectorLot lotNumber={selectedKey} dossier={dossier} /></div>
-            )}
+            <div className="p-4">
+              {!selectedKey ? (
+                <div className="text-sm text-zinc-500">Selecciona un {viewMode === "sku" ? "SKU" : "Lote"}…</div>
+              ) : viewMode === "sku" ? (
+                <InspectorSku itemId={selectedKey} summary={summaries[selectedKey]} coverage={(coverage as any)[selectedKey]} suggested={replen[selectedKey] ?? 0} />
+              ) : (
+                <InspectorLot lotNumber={selectedKey} dossier={dossier} />
+              )}
+            </div>
           </SBCard>
         </div>
       </div>
-
-      <NewOnHandDialog
+       <NewOnHandDialog
         open={openNew}
         onClose={() => setOpenNew(false)}
         onSuccess={() => {
