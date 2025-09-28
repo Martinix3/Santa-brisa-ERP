@@ -130,6 +130,7 @@ function ModuleRail({
           width={collapsed ? 24 : 32}
           height={collapsed ? 24 : 32}
           className="opacity-90"
+          style={{ width: 'auto', height: 'auto' }}
           priority
         />
       </div>
@@ -315,6 +316,7 @@ function HeaderPro({
               width={112}
               height={24}
               className="opacity-90"
+              style={{ width: 'auto', height: 'auto' }}
               priority
             />
           </span>
