@@ -279,17 +279,22 @@ export async function addIncident(input: { orderId: string; severity: 'LOW'|'MED
 export async function closeProduction(input: { orderId: string; realConsumption: Array<{itemId:string; uom:Uom; qty:number; lotNumber?:string}>; journal?: any[]; idempotencyKey?: string }) {
     try {
         const { orderId, realConsumption, journal } = input;
+        const orderRef = adminDb.collection('productionOrders').doc(orderId);
+        const poSnap = await orderRef.get();
+        if (!poSnap.exists) return fail('Orden inexistente');
+        const po = poSnap.data() as ProductionOrder;
+
         const now = new Date().toISOString();
-        const po = await readOrder(orderId);
-        if (!po) return fail('Orden inexistente');
-    
+        const batch = adminDb.batch();
+
         // 1) StockMoves consumo (OUT)
         const outMoves: StockMove[] = realConsumption
           .filter(l => l.qty > 0)
           .map(l => ({
             id: `sm_${orderId}_OUT_${l.itemId}_${Date.now()}`,
             itemId: l.itemId, lotNumber: l.lotNumber, qty: -l.qty, uom: l.uom,
-            reason: 'production_out', occurredAt: now, fromLocation: 'RM/MAIN' // Asume ubicación
+            reason: 'production_out', occurredAt: now, fromLocationId: 'RM/MAIN', createdAt: now,
+            ref: { prodOrderId: orderId }
           })) as any;
     
         // 2) StockMove producción (IN)
@@ -302,14 +307,23 @@ export async function closeProduction(input: { orderId: string; realConsumption:
           uom: (po as any).baseUnit || 'L',
           reason: 'production_in',
           occurredAt: now,
-          toLocation: 'FG/MAIN'
+          toLocationId: 'FG/MAIN',
+          createdAt: now,
+          ref: { prodOrderId: orderId },
         } as any;
-    
-        await upsertMany('stockMoves', [...outMoves, inMove] as any);
-    
-        const patch: any = { id: orderId, status: 'DONE', endedAt: now, updatedAt: now, actuals: realConsumption, journal };
-        await upsertMany('productionOrders', [patch]);
-        return ok({ order: patch });
+
+        [...outMoves, inMove].forEach(move => {
+            const ref = adminDb.collection('stockMoves').doc(move.id);
+            batch.set(ref, move);
+        });
+
+        // 3) Actualizar la orden de producción
+        const patch: any = { status: 'DONE', endedAt: now, updatedAt: now, actuals: realConsumption, journal };
+        batch.set(orderRef, patch, { merge: true });
+
+        await batch.commit();
+
+        return ok({ order: { id: orderId, ...patch } });
       } catch (e:any) { return fail('No se pudo cerrar la orden.'); }
 }
 
@@ -430,7 +444,7 @@ export async function previewPlanning(input: {
 
       for (const lot of lots) {
         if (remaining <= 0) break;
-        const take = Math.min(lot.qty ?? 0, remaining);
+        const take = Math.min(Number(lot.qty) || 0, remaining);
         if (take > 0) {
           allocations.push({ itemId: line.itemId, lotNumber: lot.lotNumber, uom: lot.uom, qty: take });
           remaining -= take;
@@ -464,3 +478,5 @@ export async function previewPlanning(input: {
     return fail("No se pudo previsualizar la planificación.", { code: e?.code });
   }
 }
+
+    
