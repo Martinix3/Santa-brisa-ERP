@@ -109,7 +109,7 @@ function RecipeForm({
   // Catálogos (inventario) — categorías correctas
   const itemsRaw          = useMemo(() => allItems.filter((it) => (it as any).category === "raw"),          [allItems]);
   const itemsPack         = useMemo(() => allItems.filter((it) => (it as any).category === "pack"),         [allItems]);
-  const itemsIntermediate = useMemo(() => allItems.filter((it) => (it as any).category === "intermediate"), [allItems]);
+  const itemsIntermediate = useMemo(() => allItems.filter((it) => (it as any).category === "intermediate" || (it as any).category === "raw"), [allItems]);
   const itemsFG           = useMemo(() => allItems.filter((it) => (it as any).category === "fg"),           [allItems]);
 
   // Mutaciones de líneas
@@ -223,7 +223,7 @@ function RecipeForm({
     setCreateOpen(false);
   };
 
-  const accent = "[--sb-accent-produc:182_25%_47%]"; // fallback HSL si el token no existe
+  const accent = "[--sb-accent-produc:182_25%_47%]";
 
   return (
     <>
@@ -487,7 +487,7 @@ function RecipeForm({
               <input className="w-full h-10 px-3 rounded-lg border" value={newSku} onChange={(e) => setNewSku(e.target.value)} />
             </div>
             <div className="text-xs text-zinc-600">
-              Se registrará como <b>{( (initialValues.stage ?? "PRODUCCION") === "PRODUCCION") ? "intermediate" : "fg"}</b>.
+              Se registrará como <b>{(fm.values as BomWithStage).stage === "PRODUCCION" ? "intermediate" : "fg"}</b>.
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <button type="button" className="px-3 py-1.5 rounded-lg border bg-white" onClick={() => setCreateOpen(false)}>Cancelar</button>
