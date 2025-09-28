@@ -37,7 +37,7 @@ const pad2 = (n: number) => String(n).padStart(2, "0");
 function lotPrefixFromSku(sku?: string) {
   const base = (sku || "SKU").toUpperCase().replace(/[^A-Z0-9_-]/g, "");
   const d = new Date();
-  const yymm = `${String(d.getFullYear()).slice(-2)}${pad2(d.getMonth() + 1, 2)}`;
+  const yymm = `${String(d.getFullYear()).slice(-2)}${pad2(d.getMonth() + 1)}`;
   return `${base}-${yymm}`;
 }
 

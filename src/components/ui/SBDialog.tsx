@@ -32,7 +32,7 @@ export function SBDialogContent({
   secondaryAction,
   maxWidth = "32rem",
 }: {
-  title?: string;
+  title?: React.ReactNode;
   description?: string;
   children?: React.ReactNode;
   onSubmit?: (e: React.FormEvent<HTMLFormElement>) => void;
