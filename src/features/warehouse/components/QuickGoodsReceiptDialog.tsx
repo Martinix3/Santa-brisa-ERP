@@ -1,5 +1,4 @@
 
-
 "use client";
 import React, { useMemo, useState, useEffect } from "react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
@@ -147,16 +146,6 @@ export function QuickGoodsReceiptDialog({
         receiptDate: formData.date,
         lines: payloadLines,
       });
-
-      if (formData.incident.hasIncident) {
-        await reportIncident({
-            scope: "GOODS_RECEIPT",
-            refId: res.receiptId,
-            kind: formData.incident.kind,
-            severity: formData.incident.severity,
-            notes: formData.incident.notes?.trim(),
-        });
-      }
 
       onSuccess?.(res);
       onOpenChange(false);
