@@ -116,7 +116,7 @@ function NewOnHandDialog({
             <FieldRow label="Cantidad" error={errors.qty}><div className="flex gap-2"><Input type="number" value={fm.qty} onChange={e=>setFm(s=>({...s,qty:e.target.value===""?"":Number(e.target.value)}))} min={1}/><Select value={fm.uom} onChange={e=>setFm(s=>({...s,uom:e.target.value}))}>{['unit','kg','L','case'].map(u=><option key={u} value={u}>{u}</option>)}</Select></div></FieldRow>
             <FieldRow label="Ubicación" error={errors.locationId}><Select value={fm.locationId} onChange={e=>setFm(s=>({...s,locationId:e.target.value}))}>{locations.map(l=><option key={l} value={l}>{l}</option>)}</Select></FieldRow>
             <FieldRow label="Fecha/hora"><Input type="datetime-local" value={fm.occurredAt} onChange={e=>setFm(s=>({...s,occurredAt:e.target.value}))}/></FieldRow>
-            <FieldRow label="Notas"><Input value={fm.note || ''} onChange={e=>setFm(s=>({...s,note:e.target.value}))} placeholder="Ajuste anual, promo, etc."/></FieldRow>
+            <FieldRow label="Notas"><Input value={fm.note || ''} onChange={e=>setFm(s=>({...s,note:e.target.value}))} placeholder="Ajuste anual, promo, etc."/></Row>
             <div className="border-t pt-4 space-y-3">
                 <FieldRow label="Proveedor (texto o ID)"><Input value={fm.supplier || ''} onChange={e => setFm(s => ({ ...s, supplier: e.target.value }))} placeholder="Nombre proveedor o accountId"/></FieldRow>
                 <FieldRow label="Nº albarán / doc. ref."><Input value={fm.invoiceRef || ''} onChange={e => setFm(s => ({ ...s, invoiceRef: e.target.value }))} placeholder="p.ej. ALB-2509-123"/></FieldRow>
@@ -130,7 +130,7 @@ function NewOnHandDialog({
         </div>
         <div className="mt-6 flex justify-end gap-2">
           <button onClick={onClose} className="px-3 py-1.5 border rounded-lg bg-white">Cancelar</button>
-          <button onClick={handleCreate} className="px-3 py-1.5 border rounded-lg" style={{backgroundColor:`hsl(${ACCENT})`, color: 'white'}}>Guardar</button>
+          <button onClick={handleCreate} className="px-3 py-2 text-sm rounded-lg" style={{backgroundColor:`hsl(${ACCENT})`, color: 'white'}}>Guardar</button>
         </div>
       </SBDialogContent>
     </SBDialog>
@@ -187,7 +187,6 @@ export default function InventoryPage() {
   }, [santaData?.onHand]);
 
   useEffect(() => {
-    // consideramos “listo” cuando onHand e items están definidos (aunque estén vacíos)
     const ready = santaData && 'onHand' in santaData && 'items' in santaData;
     if (ready) setLoading(false);
   }, [santaData]);
@@ -208,19 +207,32 @@ export default function InventoryPage() {
     });
     
     return base.filter(oh => {
-      if (activeTab === 'pack' ? !(oh._category === 'pack' || oh._category === 'label') : oh._category !== activeTab) {
-          if (oh._category) return false;
-      }
-
       if (locationFilter !== "ALL" && (oh.locationId || "") !== locationFilter) return false;
       if (!showZeros && !(oh.qty > 0)) return false;
       if (!q) return true;
       const hay = [oh._item?.name || "", oh._item?.sku || "", oh.lotNumber || "", oh.locationId || ""].join(" ").toLowerCase();
       return hay.includes(q);
     });
-  }, [onHandAll, itemsById, locationFilter, showZeros, query, activeTab]);
+  }, [onHandAll, itemsById, locationFilter, showZeros, query]);
+  
+  const TABS: { id: ItemCategory; label: string, count: number }[] = [
+    { id: "fg", label: "Producto Terminado", count: filteredInventory.filter(i => i._category === 'fg').length },
+    { id: "raw", label: "Materias Primas", count: filteredInventory.filter(i => i._category === 'raw').length },
+    { id: "intermediate", label: "Intermedios", count: filteredInventory.filter(i => i._category === 'intermediate').length },
+    { id: "pack", label: "Packaging y Etiquetas", count: filteredInventory.filter(i => i._category === 'pack' || i._category === 'label').length },
+    { id: "merch", label: "Merchandising", count: filteredInventory.filter(i => i._category === 'merch').length },
+    { id: "consumable", label: "Consumibles", count: filteredInventory.filter(i => i._category === 'consumable').length },
+  ];
+  
+  const tabFilteredRows = useMemo(() => {
+    return filteredInventory.filter(oh => {
+      const category = oh._category;
+      if (activeTab === 'pack') return category === 'pack' || category === 'label';
+      return category === activeTab;
+    });
+  }, [filteredInventory, activeTab]);
 
-  const totalQty = useMemo(() => filteredInventory.reduce((a,r)=> a + (Number(r.qty)||0), 0), [filteredInventory]);
+  const totalQty = useMemo(() => tabFilteredRows.reduce((a,r)=> a + (Number(r.qty)||0), 0), [tabFilteredRows]);
 
   const cols: Col<OnHandView> = [
     { key: "lotNumber", header: "Lote", render: r => {
@@ -271,18 +283,9 @@ export default function InventoryPage() {
     },
   ];
 
-  const TABS: { id: ItemCategory; label: string }[] = [
-    { id: "fg", label: "Producto Terminado" },
-    { id: "raw", label: "Materias Primas" },
-    { id: "intermediate", label: "Intermedios" },
-    { id: "pack", label: "Packaging y Etiquetas" },
-    { id: "merch", label: "Merchandising" },
-    { id: "consumable", label: "Consumibles" },
-  ];
-
   const exportCsv = () => {
     const headers = ["itemId","sku","name","lotNumber","qty","uom","qcStatus","locationId","updatedAt","id"];
-    const rows = filteredInventory.map(r => {
+    const rows = tabFilteredRows.map(r => {
       const it = itemsById.get(r.itemId);
       const lot = r.lotNumber ? lotMap.get(r.lotNumber) : undefined;
       return { itemId:r.itemId, sku:it?.sku||"", name:it?.name||"", lotNumber:r.lotNumber||"", qty:r.qty, uom:r.uom, qcStatus:lot?.qcStatus, locationId:r.locationId||"", updatedAt:r.updatedAt||"", id:r.id };
@@ -302,7 +305,7 @@ export default function InventoryPage() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-zinc-800">Inventario</h1>
-          <p className="text-xs text-zinc-500">{filteredInventory.length} líneas · total {totalQty} unidades</p>
+          <p className="text-xs text-zinc-500">{tabFilteredRows.length} líneas · total {totalQty} unidades</p>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-2">
@@ -359,7 +362,7 @@ export default function InventoryPage() {
                     ? "border-[color:var(--sb-accent-logistica)] text-[color:var(--sb-accent-logistica)]"
                     : "border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300"}`}
             >
-              {tab.label}
+              {tab.label} <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-xs ${activeTab === tab.id ? 'bg-[color:var(--sb-accent-logistica)/0.1]':'bg-zinc-100'}`}>{tab.count}</span>
             </button>
           ))}
         </nav>
@@ -380,14 +383,14 @@ export default function InventoryPage() {
               {pending ? "Creando…" : "Crear ahora"}
             </button>
           </div>
-        ) : filteredInventory.length === 0 ? (
+        ) : tabFilteredRows.length === 0 ? (
           <div className="text-center py-12 text-zinc-500">
             {onHandAll.length === 0
               ? 'No hay stock on-hand (aún).'
               : 'No hay resultados para los filtros actuales.'}
           </div>
         ) : (
-          <DataTableSB rows={filteredInventory} cols={cols as any} />
+          <DataTableSB rows={tabFilteredRows} cols={cols as any} />
         )}
       </SBCard>
       
@@ -395,3 +398,5 @@ export default function InventoryPage() {
     </div>
   );
 }
+
+```
