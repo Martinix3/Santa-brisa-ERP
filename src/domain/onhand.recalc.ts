@@ -29,8 +29,8 @@ export function deriveOnHand(stockMoves: StockMove[], items: Item[], nowIso = ne
   const acc = new Map<string, { qty: number; uom: Uom; itemId: string; lot?: string; loc?: string; createdAt?: string; updatedAt?: string }>();
 
   for (const m of stockMoves) {
-    const fromLoc = (m as any).fromLocationId ?? m.fromLocation;
-    const toLoc   = (m as any).toLocationId   ?? m.toLocation;
+    const fromLoc = m.fromLocationId;
+    const toLoc   = m.toLocationId;
 
     // 1) movimientos que suman/restan directamente
     if (SIGN[m.reason] !== 0) {

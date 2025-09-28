@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useEffect, useMemo, useState, useCallback } from "react";
@@ -218,8 +219,8 @@ function RecipeForm({
     if (!newName.trim()) return;
     const category: "intermediate" | "fg" =
       (fm.values as BomWithStage).stage === "PRODUCCION" ? "intermediate" : "fg";
-    const { id } = await onQuickCreateItem({ name: newName.trim(), sku: newSku.trim() || undefined, category });
-    fm.set("outputItemId", id);
+    const { itemId } = await onQuickCreateItem({ name: newName.trim(), sku: newSku.trim() || undefined, category });
+    fm.set("outputItemId", itemId);
     setCreateOpen(false);
   };
 
@@ -574,14 +575,18 @@ export default function BomPage() {
     }
   }, [santaData, saveAllCollections]);
 
-  const onQuickCreateItem = useCallback(async ({ name, sku, category }: QuickCreatePayload) => {
-    const { itemId } = await upsertMinimalProduct({ sku, name, packSizeMl: 700 });
+  const onQuickCreateItem = useCallback(async ({ name, sku, category }: QuickCreatePayload): Promise<{ itemId: string }> => {
+    const result = await upsertMinimalProduct({ sku, name, packSizeMl: 700 });
+    if (!result.ok) {
+        throw new Error(result.message);
+    }
+    const { itemId } = result.data;
     const newItem: Item = { id: itemId, name, sku: sku ?? "" } as Item;
     // @ts-ignore: campo de categoría en tu Item
     newItem.category = category;
     const nextItems = [...(santaData?.items || []), newItem];
     await saveAllCollections({ items: nextItems });
-    return { id: newItem.id };
+    return { itemId };
   }, [santaData, saveAllCollections]);
 
   const accent = "[--sb-accent-produc:182_25%_47%]";

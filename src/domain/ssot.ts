@@ -28,6 +28,7 @@ export type LotStatus = 'OPEN' | 'RELEASED' | 'BLOCKED' | 'CONSUMED' | 'SCRAPPED
 export type LotBucket = 'HOLD' | 'RELEASED' | 'REJECTED';
 export type InteractionKind = 'VISITA' | 'LLAMADA' | 'EMAIL' | 'WHATSAPP' | 'OTRO' | 'COBRO' | 'EVENTO_MKT';
 export type EventKind = 'DEMO' | 'FERIA' | 'FORMACION' | 'OTRO';
+export type PosTacticStatus = 'planned' | 'active' | 'closed' | 'cancelled';
 
 
 export function qcToBucket(qc: QcStatus): LotBucket {
@@ -625,7 +626,7 @@ export interface PosTactic {
     plannedCost?: number;
     actualCost: number;
     executionScore: number;
-    status: 'planned' | 'active' | 'closed' | 'cancelled';
+    status: PosTacticStatus;
     createdAt: string;
     createdById: string;
     updatedAt?: string;
@@ -703,6 +704,7 @@ export interface SantaData {
   posTactics: PosTactic[];
   posCostCatalog: PosCostCatalogEntry[];
   plv_material: PlvMaterial[];
+  reservations?: ReservationView[];
 
   // Deprecated / To be removed
   qaChecks: any[];
@@ -721,7 +723,7 @@ export const SANTA_DATA_COLLECTIONS: (keyof SantaData)[] = [
   'partyDuplicates', 'qcParameters', 'qcPlans', 'qcTests', 'deliveryNotes', 'lotGenealogy', 'marketingEvents', 'onlineCampaigns', 'influencerCollabs',
   'posTactics', 'posCostCatalog', 'plv_material',
   // Deprecated
-  'qaChecks', 'inventory', 'products', 'materials', 'suppliers', 'distributors',
+  'qaChecks', 'inventory', 'products', 'materials', 'suppliers', 'distributors', 'reservations'
 ];
 
 export * from './ssot.metas';

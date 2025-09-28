@@ -82,7 +82,7 @@ export function samplesSentSummary({
     const t = new Date(m.occurredAt).getTime();
     if (cutoff && t < cutoff) continue;
     
-    const accId = (m.toLocationId) || (m.fromLocationId) || "N/A";
+    const accId = m.toLocationId || m.fromLocationId || "N/A";
     const name = byId.get(accId)?.name || accId;
     const row = (accRows[accId] ||= { units: 0, shipments: 0, last: null, name });
     row.units += Math.abs(m.qty || 0);

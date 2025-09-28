@@ -58,7 +58,7 @@ export default function Page(){
   const kpis = useMemo(() => {
         const completedEvents = events.filter((e: MarketingEvent) => e.status === 'closed' && e.spend);
         const totalSpend = completedEvents.reduce((acc, e) => acc + (e.spend || 0), 0);
-        const totalLeads = completedEvents.reduce((acc, e) => acc + (e.kpis?.leads || 0), 0);
+        const totalLeads = completedEvents.reduce((acc: number, e: MarketingEvent) => acc + (e.kpis?.leads || 0), 0);
 
         return {
             activeEvents: events.filter((e: MarketingEvent) => e.status === 'active').length,
