@@ -1,4 +1,3 @@
-
 // src/app/(app)/quality/parametros/page.tsx
 "use client";
 
@@ -6,10 +5,11 @@ import React, { useEffect, useState, useTransition, useCallback } from "react";
 import { useRouter } from 'next/navigation';
 import { listParametersBySku, upsertParameterBySku, deleteParameterBySku, listPlans, upsertPlan, deletePlan, listProtocols, upsertProtocol, deleteProtocol } from "./actions";
 import type { ParameterBySku, QcPlanBySku as QcPlan, QcSpec, Protocol as SafetyProtocol } from './schemas';
-import { Plus, Trash2, Save, FlaskConical, ShieldCheck, Wrench } from "lucide-react";
+import { Plus, Trash2, Save, FlaskConical, ShieldCheck, Wrench, Edit, X } from "lucide-react";
 import { useData } from "@/lib/dataprovider";
 import { SBCard, SBButton, Input, Select } from "@/components/ui/ui-primitives";
 import { toast } from "sonner";
+import { ok } from "@/lib/result";
 
 function Section({ title, icon, children }: { title: string, icon: React.ReactNode, children: React.ReactNode }) {
     return (
@@ -253,7 +253,7 @@ export default function QualityParametersPage() {
       <Section title="Planes de Calidad (Protocolos de Análisis)" icon={<Wrench size={18}/>}>
         <div className="flex justify-between items-center mb-3">
           <p className="text-sm text-zinc-600">Define qué parámetros se miden en cada punto para el SKU: <b>{items.find(i=>i.id===sku)?.name}</b></p>
-          <SBButton onClick={() => setPlans(p => [{ id: `plan_${sku}_${Date.now()}`, name: "Nuevo Plan de Calidad", sku, specs: [] } as QcPlan, ...p])} disabled={!sku}>
+          <SBButton onClick={() => setPlans(p => [{ id: `plan_${sku}_${Date.now()}`, name: "Nuevo Plan de Calidad", sku, specs: [] }, ...p])} disabled={!sku}>
             <Plus size={16}/> Nuevo Plan
           </SBButton>
         </div>
@@ -286,7 +286,7 @@ export default function QualityParametersPage() {
                   </SBButton>
                 </div>
               ))}
-              <button onClick={() => { const newPlans = [...plans]; newPlans[planIndex].specs.push({ id: `spec_${Date.now()}`, parameterId: '', point: 'PROCESO', required: true, targetRange: {} }); setPlans(newPlans); }} className="text-sm text-sky-600 hover:underline">
+              <button onClick={() => { const newPlans = [...plans]; newPlans[planIndex].specs.push({ id: `spec_${Date.now()}`, parameterId: '', point: 'PROCESO' }); setPlans(newPlans); }} className="text-sm text-sky-600 hover:underline">
                 <Plus size={14} className="inline-block mr-1"/> Añadir análisis
               </button>
             </div>

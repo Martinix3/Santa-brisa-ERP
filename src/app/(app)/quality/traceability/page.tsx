@@ -18,9 +18,8 @@ const EVENT_CONFIG: Record<string, { icon: React.ElementType; color: string; }> 
     receipt: { icon: Truck, color: 'text-sky-600 bg-sky-100' },
     production_in: { icon: Factory, color: 'text-emerald-600 bg-emerald-100' },
     production_out: { icon: Factory, color: 'text-amber-600 bg-amber-100' },
-    shipment: { icon: Truck, color: 'text-rose-600 bg-rose-100' },
-    sale: { icon: Truck, color: 'text-rose-600 bg-rose-100' },
     ship: { icon: Truck, color: 'text-rose-600 bg-rose-100' },
+    sale: { icon: Truck, color: 'text-rose-600 bg-rose-100' },
     adjustment: { icon: AlertTriangle, color: 'text-yellow-600 bg-yellow-100' },
     transfer: { icon: ArrowLeftRight, color: 'text-zinc-600 bg-zinc-100' },
     qc_test: { icon: FlaskConical, color: 'text-indigo-600 bg-indigo-100' },
@@ -84,7 +83,7 @@ export default function TraceabilityPage() {
     }, [lotsForItem, lotNumber]);
 
     useEffect(() => {
-        if (lotNumber) {
+        if (lotNumber && data) {
             const hit = searchLots(data, { text: lotNumber })[0];
             setSelectedLot(hit);
             
