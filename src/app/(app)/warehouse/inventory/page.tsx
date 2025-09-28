@@ -1,4 +1,3 @@
-
 // src/app/(app)/warehouse/inventory/page.tsx
 
 "use client";
@@ -6,14 +5,12 @@ import React, { useMemo, useState, useEffect, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Download, Plus, History, X } from "lucide-react";
-import { SBCard, Input, Select, DataTableSB } from "@/components/ui/ui-primitives";
+import { SBCard, Input, Select, DataTableSB } from '@/components/ui/ui-primitives';
 import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog";
 import type { OnHandView, Item, ItemCategory, StockMove, Lot, QcStatus } from "@/domain/ssot";
 import { useData } from "@/lib/dataprovider";
-import { createManualOnHand } from "../actions";
-import { rebuildOnHand } from "./actions";
-import { qcFromRow } from '@/lib/sb-core';
-import { makeOnHandId } from "@/domain/id-helpers";
+import { createManualOnHand, rebuildOnHand } from "../actions";
+
 
 // ---- Tema logística (usa tu token CSS) ----
 const ACCENT = "var(--sb-accent-logistica)";
@@ -23,9 +20,9 @@ const BTN_SOLID =
   "text-white hover:opacity-90 disabled:opacity-60";
 
 // ---------- Helpers ----------
-type Col<T> = { key: keyof T | string; header: string; className?: string; render?: (row: T) => React.ReactNode };
+type Col<T> = { key: string; header: string; className?: string; render: (row: T) => React.ReactNode };
 const toCsv = (rows: Record<string, any>[], headers: string[]) => {
-  const esc = (v: any) => v == null ? "" : /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g,'""')}"` : String(v);
+  const esc = (v: any) => v == null ? "" : /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v);
   return `${headers.join(",")}\n${rows.map(r => headers.map(h => esc(r[h])).join(",")).join("\n")}`;
 };
 const download = (fn: string, content: string) => {
@@ -55,6 +52,16 @@ type FormState = {
   category?: string;
   sendToQc: boolean;
 };
+
+// alias ligero para no cambiar JSX existente
+const FieldRow: React.FC<React.PropsWithChildren<{ label:string; error?:string; htmlFor?:string }>> = ({ children, label, error, htmlFor }) => (
+    <div className="grid grid-cols-[120px_1fr] items-center gap-3">
+        <label className="text-xs text-zinc-600 font-medium" htmlFor={htmlFor}>{label}</label>
+        <div className="flex-1">{children}</div>
+        {error && <div className="col-start-2 text-xs text-red-500 -mt-2">{error}</div>}
+    </div>
+);
+
 
 function NewOnHandDialog({
   open, onClose, onCreate, items, locations, defaultLocation
@@ -99,20 +106,12 @@ function NewOnHandDialog({
     });
   };
 
-  const FieldRow = ({ label, children, error, htmlFor }:{label:string; children:React.ReactNode; error?:string; htmlFor?:string}) => (
-    <div className="grid grid-cols-[120px_1fr] items-center gap-3">
-        <label className="text-xs text-zinc-600 font-medium" htmlFor={htmlFor}>{label}</label>
-        <div className="flex-1">{children}</div>
-        {error && <div className="col-start-2 text-xs text-red-500 -mt-2">{error}</div>}
-    </div>
-  );
-
   return (
     <SBDialog open={open} onOpenChange={onClose}>
       <SBDialogContent title="Añadir Stock Manual" maxWidth="36rem">
         <div className="space-y-3">
             <FieldRow label="Producto" error={errors.itemId}><Select value={fm.itemId} onChange={e=>setFm(s=>({...s,itemId:e.target.value, uom: items.find(i=>i.id===e.target.value)?.uom || 'unit'}))}>{items.map(i=><option key={i.id} value={i.id}>{i.name}</option>)}</Select></FieldRow>
-            <FieldRow label="Lote (auto si vacío)"><Input value={fm.lotNumber} onChange={e=>setFm(s=>({...s,lotNumber:e.target.value}))} placeholder="SKU-YYMM-XX"/></Row>
+            <FieldRow label="Lote (auto si vacío)"><Input value={fm.lotNumber} onChange={e=>setFm(s=>({...s,lotNumber:e.target.value}))} placeholder="SKU-YYMM-XX"/></FieldRow>
             <FieldRow label="Cantidad" error={errors.qty}><div className="flex gap-2"><Input type="number" value={fm.qty} onChange={e=>setFm(s=>({...s,qty:e.target.value===""?"":Number(e.target.value)}))} min={1}/><Select value={fm.uom} onChange={e=>setFm(s=>({...s,uom:e.target.value}))}>{['unit','kg','L','case'].map(u=><option key={u} value={u}>{u}</option>)}</Select></div></FieldRow>
             <FieldRow label="Ubicación" error={errors.locationId}><Select value={fm.locationId} onChange={e=>setFm(s=>({...s,locationId:e.target.value}))}>{locations.map(l=><option key={l} value={l}>{l}</option>)}</Select></FieldRow>
             <FieldRow label="Fecha/hora"><Input type="datetime-local" value={fm.occurredAt} onChange={e=>setFm(s=>({...s,occurredAt:e.target.value}))}/></FieldRow>
@@ -136,15 +135,6 @@ function NewOnHandDialog({
     </SBDialog>
   );
 }
-
-const inferCategoryFromLocation = (loc?: string): ItemCategory | undefined => {
-  if (!loc) return undefined;
-  if (loc.startsWith('FG/')) return 'fg';
-  if (loc.startsWith('RM/')) return 'raw';
-  if (loc.startsWith('PKG/')) return 'pack';
-  if (loc.startsWith('WIP/')) return 'intermediate';
-  return undefined;
-};
 
 // ---------- Página ----------
 export default function InventoryPage() {
@@ -187,6 +177,7 @@ export default function InventoryPage() {
   }, [santaData?.onHand]);
 
   useEffect(() => {
+    // consideramos “listo” cuando onHand e items están definidos (aunque estén vacíos)
     const ready = santaData && 'onHand' in santaData && 'items' in santaData;
     if (ready) setLoading(false);
   }, [santaData]);
@@ -198,28 +189,32 @@ export default function InventoryPage() {
   }, [onHandAll]);
 
   const filteredInventory = useMemo(() => {
-    let base = onHandAll.map(oh => {
-        const item = itemsById.get(oh.itemId);
-        const category = item?.category ?? inferCategoryFromLocation(oh.locationId);
-        return { ...oh, _category: category, _item: item };
-    });
-    
-    return base.filter(oh => {
+    return onHandAll.filter(oh => {
       if (locationFilter !== "ALL" && (oh.locationId || "") !== locationFilter) return false;
       if (!showZeros && !(oh.qty > 0)) return false;
 
       const q = query.trim().toLowerCase();
       if (!q) return true;
       
-      const hay = [oh._item?.name || "", oh._item?.sku || "", oh.lotNumber || "", oh.locationId || ""].join(" ").toLowerCase();
+      const item = itemsById.get(oh.itemId);
+      const hay = [item?.name || "", item?.sku || "", oh.lotNumber || "", oh.locationId || ""].join(" ").toLowerCase();
       return hay.includes(q);
     });
   }, [onHandAll, itemsById, locationFilter, showZeros, query]);
   
-  const TABS: { id: ItemCategory; label: string, count: number }[] = useMemo(() => {
+  const inferCategoryFromLocation = (loc?: string): Item['category'] | undefined => {
+    if (!loc) return undefined;
+    if (loc.startsWith('FG/')) return 'fg';
+    if (loc.startsWith('RM/')) return 'raw';
+    if (loc.startsWith('PKG/')) return 'pack';
+    if (loc.startsWith('WIP/')) return 'intermediate';
+    return undefined;
+  };
+  
+  const tabsWithCounts = useMemo(() => {
     const counts: Record<string, number> = { fg: 0, raw: 0, intermediate: 0, pack: 0, merch: 0, consumable: 0 };
     for (const item of filteredInventory) {
-      const category = item._category;
+      const category = itemsById.get(item.itemId)?.category ?? inferCategoryFromLocation(item.locationId);
       if (category === 'pack' || category === 'label') {
         counts.pack = (counts.pack || 0) + 1;
       } else if (category && counts[category] !== undefined) {
@@ -235,20 +230,20 @@ export default function InventoryPage() {
       { id: "merch", label: "Merchandising", count: counts.merch },
       { id: "consumable", label: "Consumibles", count: counts.consumable },
     ];
-  }, [filteredInventory]);
-
-  const tabFilteredRows = useMemo(() => {
+  }, [filteredInventory, itemsById]);
+  
+  const currentTabData = useMemo(() => {
     return filteredInventory.filter(oh => {
-      const category = oh._category;
-      if (activeTab === 'pack') return category === 'pack' || category === 'label';
-      return category === activeTab;
+        const category = itemsById.get(oh.itemId)?.category ?? inferCategoryFromLocation(oh.locationId);
+        if (activeTab === 'pack') return category === 'pack' || category === 'label';
+        return category === activeTab;
     });
-  }, [filteredInventory, activeTab]);
+}, [filteredInventory, activeTab, itemsById]);
 
-  const totalQty = useMemo(() => tabFilteredRows.reduce((a,r)=> a + (Number(r.qty)||0), 0), [tabFilteredRows]);
+  const totalQty = useMemo(() => currentTabData.reduce((a,r)=> a + (Number(r.qty)||0), 0), [currentTabData]);
 
-  const cols: Col<OnHandView> = [
-    { key: "lotNumber", header: "Lote", render: r => {
+  const cols: Col<OnHandView>[] = [
+    { key: "lotNumber", header: "Lote", render: (r: OnHandView) => {
         const ln = r.lotNumber || String((r as any).id||'').split('|')[1] || '';
         return (
           <button
@@ -261,13 +256,13 @@ export default function InventoryPage() {
         );
       }
     },
-    { key: "itemId", header: "Producto (SKU)", render: r => {
+    { key: "itemId", header: "Producto (SKU)", render: (r: OnHandView) => {
         const it = itemsById.get(r.itemId);
         return (<div><span className="font-medium text-zinc-800">{it?.name || r.itemId}</span><p className="text-xs text-zinc-500">{it?.sku}</p></div>);
       }
     },
-    { key: "qty", header: "Cantidad", className: "text-right", render: r => <span className="font-semibold">{r.qty} <span className="text-xs text-zinc-500">{r.uom}</span></span> },
-    { key: "available", header: "Disponible", className: "text-right", render: r => {
+    { key: "qty", header: "Cantidad", className: "text-right", render: (r: OnHandView) => <span className="font-semibold">{r.qty} <span className="text-xs text-zinc-500">{r.uom}</span></span> },
+    { key: "available", header: "Disponible", className: "text-right", render: (r: OnHandView) => {
         const reserved = Number((r as any).reservedQty || 0);
         const free = Math.max(0, Number(r.qty) - reserved);
         const strong = free < Number(r.qty);
@@ -278,14 +273,14 @@ export default function InventoryPage() {
         );
       }
     },
-    { key: "qcStatus", header: "QC", render: r => {
+    { key: "qcStatus", header: "QC", render: (r: OnHandView) => {
         const lot = r.lotNumber ? lotMap.get(r.lotNumber) : undefined;
         return <QCPill status={lot?.qcStatus} />;
       } 
     },
-    { key: "locationId", header: "Ubicación", render: r => r.locationId || "—" },
-    { key: "updatedAt", header: "Fecha", render: r => (r as any).updatedAt ? new Date((r as any).updatedAt).toLocaleDateString("es-ES") : "—" },
-    { key: "actions", header: "", className: "text-right", render: r => (
+    { key: "locationId", header: "Ubicación", render: (r: OnHandView) => r.locationId || "—" },
+    { key: "updatedAt", header: "Fecha", render: (r: OnHandView) => (r as any).updatedAt ? new Date((r as any).updatedAt).toLocaleDateString("es-ES") : "—" },
+    { key: "actions", header: "", className: "text-right", render: (r: OnHandView) => (
         <button
           className={`text-xs px-2 py-1 rounded-md ${BTN_OUTLINE}`}
           onClick={() => { setMovCtx({ item: r.itemId, lot: r.lotNumber, location: r.locationId }); setMovOpen(true); }}
@@ -298,7 +293,7 @@ export default function InventoryPage() {
 
   const exportCsv = () => {
     const headers = ["itemId","sku","name","lotNumber","qty","uom","qcStatus","locationId","updatedAt","id"];
-    const rows = tabFilteredRows.map(r => {
+    const rows = currentTabData.map(r => {
       const it = itemsById.get(r.itemId);
       const lot = r.lotNumber ? lotMap.get(r.lotNumber) : undefined;
       return { itemId:r.itemId, sku:it?.sku||"", name:it?.name||"", lotNumber:r.lotNumber||"", qty:r.qty, uom:r.uom, qcStatus:lot?.qcStatus, locationId:r.locationId||"", updatedAt:r.updatedAt||"", id:r.id };
@@ -318,7 +313,7 @@ export default function InventoryPage() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-zinc-800">Inventario</h1>
-          <p className="text-xs text-zinc-500">{tabFilteredRows.length} líneas · total {totalQty} unidades</p>
+          <p className="text-xs text-zinc-500">{currentTabData.length} líneas · total {totalQty} unidades</p>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-2">
@@ -366,10 +361,10 @@ export default function InventoryPage() {
       {/* Tabs categorías con acento logística */}
       <div className="border-b border-zinc-200">
         <nav className="-mb-px flex flex-wrap gap-4" aria-label="Tabs">
-          {TABS.map(tab => (
+          {tabsWithCounts.map(tab => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => setActiveTab(tab.id as ItemCategory)}
               className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors
                 ${activeTab === tab.id
                     ? "border-[color:var(--sb-accent-logistica)] text-[color:var(--sb-accent-logistica)]"
@@ -396,14 +391,14 @@ export default function InventoryPage() {
               {pending ? "Creando…" : "Crear ahora"}
             </button>
           </div>
-        ) : tabFilteredRows.length === 0 ? (
+        ) : currentTabData.length === 0 ? (
           <div className="text-center py-12 text-zinc-500">
             {onHandAll.length === 0
               ? 'No hay stock on-hand (aún).'
               : 'No hay resultados para los filtros actuales.'}
           </div>
         ) : (
-          <DataTableSB rows={tabFilteredRows} cols={cols as any} />
+          <DataTableSB rows={currentTabData} cols={cols as any} />
         )}
       </SBCard>
       
