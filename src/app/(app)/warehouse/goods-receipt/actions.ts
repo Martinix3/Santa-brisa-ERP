@@ -24,16 +24,22 @@ const makeSku = (name: string, category: string, existingSkus: string[]) => {
 };
 
 // Dónde aterriza físicamente el material (por categoría)
-const landingLocationFor = (category: Item['category'], sendToQc: boolean) => {
-  if (sendToQc) return 'QC/AREA';
+const landingLocationFor = (category: Item['category']) => {
   switch (category) {
     case 'raw': return 'RM/MAIN';
     case 'pack': return 'PKG/MAIN';
     case 'consumable': return 'RM/MAIN';
     case 'intermediate': return 'WIP/MAIN';
     case 'merch': return 'PKG/MAIN';
+    case 'fg': return 'FG/MAIN';
     default: return 'RM/MAIN';
   }
+};
+
+// Decide el estado QC inicial basado en la categoría.
+const initialQcStatusFor = (category: Item['category']): QcStatus => {
+  const criticalCategories: Item['category'][] = ['raw', 'pack', 'fg'];
+  return criticalCategories.includes(category) ? 'PENDING' : 'PASSED';
 };
 
 export async function createGoodsReceipt(payload: {
@@ -51,9 +57,8 @@ export async function createGoodsReceipt(payload: {
     uom?: Uom;
     expiryAt?: string | null; // opcional para FEFO
   }>;
-  sendToQc: boolean;
 }) {
-  const { supplierId, newSupplierName, deliveryNote, lines, sendToQc } = payload;
+  const { supplierId, newSupplierName, deliveryNote, lines } = payload;
 
   // Validación mínima UI
   if ((!supplierId && !newSupplierName) || !deliveryNote || !lines?.length) {
@@ -128,7 +133,7 @@ export async function createGoodsReceipt(payload: {
 
     // 3.2 Lote (SSOT: qcStatus nace aquí; sin "status" operativo)
     const lotNumber = line.supplierLot.trim();
-    const qcStatus: QcStatus = sendToQc ? 'PENDING' : 'PASSED';
+    const qcStatus: QcStatus = initialQcStatusFor(category);
 
     // Valida/normaliza con Zod (LotSchema del plan: qty, uom, qcStatus, expiryAt, created/updated)
     const lotDoc = LotSchema.parse({
@@ -147,7 +152,7 @@ export async function createGoodsReceipt(payload: {
     batch.set(lotRef, { ...lotDoc, supplierId: finalSupplierId } as any, { merge: true });
 
     // 3.3 OnHand (clave: item|lot|location)
-    const locationId = landingLocationFor(category, sendToQc);
+    const locationId = landingLocationFor(category);
     const onHandId = `${itemId}|${lotNumber}|${locationId}`;
     const onHandRef = db.collection('onHand').doc(onHandId);
     batch.set(onHandRef, {
@@ -165,7 +170,7 @@ export async function createGoodsReceipt(payload: {
       itemId, lotNumber, uom,
       qty: line.qty,
       reason: 'receipt',
-      toLocation: locationId,             // tu tipo actual usa 'toLocation'
+      toLocationId: locationId,
       occurredAt: nowIso,
       createdAt: nowIso,
       ref: { goodsReceiptId: receiptRef.id },
@@ -190,7 +195,7 @@ export async function createGoodsReceipt(payload: {
     supplierPartyId: finalSupplierId!,
     deliveryNote,
     receivedAt: nowIso,
-    status: sendToQc ? 'pending_qc' : 'completed',
+    status: 'completed', // El estado de QC del lote individual es lo que importa
     lines: finalLines,
   };
   batch.set(receiptRef, { ...receipt, createdAt: nowIso } as any);

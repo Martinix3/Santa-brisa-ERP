@@ -4,8 +4,8 @@
 import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { useData } from '@/lib/dataprovider';
 import { SBButton, Input, Select } from '@/components/ui/ui-primitives';
-import { Plus, Trash2, Truck, Search, Info, X, Calendar } from 'lucide-react';
-import type { Party, Item, GoodsReceipt, Uom } from '@/domain/ssot';
+import { Plus, Trash2, Truck, Search, Info, X } from 'lucide-react';
+import type { Party, Item, Uom } from '@/domain/ssot';
 import { createGoodsReceipt } from './actions';
 
 type LineItem = {
@@ -97,7 +97,6 @@ export default function GoodsReceiptPage() {
   const [lines, setLines] = useState<LineItem[]>([{
     key: `line_${Date.now()}`, supplierLot: '', qty: 0, unitCost: 0, newItemCategory: 'raw', uom: 'unit', expiryAt: null
   }]);
-  const [sendToQc, setSendToQc] = useState(true);
   const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -143,7 +142,6 @@ export default function GoodsReceiptPage() {
         newSupplierName: newSupplierName && !supplierId ? newSupplierName : undefined,
         deliveryNote,
         lines,
-        sendToQc,
       });
       setNotification({ message: `Recepción guardada (#${res.receiptNumber}).`, type: 'success' });
       setSupplierId(undefined); setNewSupplierName(undefined); setDeliveryNote('');
@@ -250,11 +248,7 @@ export default function GoodsReceiptPage() {
           </div>
         </div>
 
-        <div className="flex items-center justify-between pt-4 border-t">
-          <label className="flex items-center gap-2">
-            <input type="checkbox" checked={sendToQc} onChange={e => setSendToQc(e.target.checked)} />
-            <span>Enviar lotes a cuarentena (QC)</span>
-          </label>
+        <div className="flex items-center justify-end pt-4 border-t">
           <SBButton onClick={handleSave} disabled={isSaving}>
             {isSaving ? 'Guardando...' : 'Guardar Recepción'}
           </SBButton>

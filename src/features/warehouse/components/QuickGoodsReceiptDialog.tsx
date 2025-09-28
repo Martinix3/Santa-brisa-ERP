@@ -31,7 +31,6 @@ export function QuickGoodsReceiptDialog({
 
   const [supplierId, setSupplierId] = useState<string | undefined>();
   const [deliveryNote, setDeliveryNote] = useState('');
-  const [sendToQc, setSendToQc] = useState(true);
   const [lines, setLines] = useState<Line[]>([{ key: `q_${Date.now()}`, supplierLot: '', qty: 0, unitCost: 0, uom: 'unit', expiryAt: null }]);
   const [saving, setSaving] = useState(false);
   const addLine = () => setLines(l => [...l, { key: `q_${Date.now()}`, supplierLot:'', qty:0, unitCost:0, uom:'unit', expiryAt:null }]);
@@ -41,7 +40,7 @@ export function QuickGoodsReceiptDialog({
     if (!supplierId || !deliveryNote || lines.some(l => !l.itemId || !l.qty || !l.supplierLot)) return;
     setSaving(true);
     try {
-      const res = await createGoodsReceipt({ supplierId, deliveryNote, lines, sendToQc } as any);
+      const res = await createGoodsReceipt({ supplierId, deliveryNote, lines });
       onSuccess?.(res);
       onOpenChange(false);
       // reset rápido
@@ -118,11 +117,7 @@ export function QuickGoodsReceiptDialog({
             </SBButton>
           </div>
 
-          <div className="flex items-center justify-between pt-2">
-            <label className="flex items-center gap-2">
-              <input type="checkbox" checked={sendToQc} onChange={e => setSendToQc(e.target.checked)} />
-              <span className="text-sm">Enviar a QC (cuarentena)</span>
-            </label>
+          <div className="flex items-center justify-end pt-2">
             <SBButton onClick={save} disabled={saving || !supplierId || !deliveryNote}>
               {saving ? 'Guardando…' : 'Guardar'}
             </SBButton>
