@@ -1,8 +1,9 @@
+
 import { adminDb as db } from '@/server/firebase';
 import { SANTA_DATA_COLLECTIONS, type SantaData } from '@/domain/ssot';
 
 function assertCollection(col: string): asserts col is (typeof SANTA_DATA_COLLECTIONS)[number] {
-  if (!SANTA_DATA_COLLECTIONS.map(String).includes(col)) {
+  if (!(SANTA_DATA_COLLECTIONS as readonly string[]).includes(col)) {
     throw new Error(`Invalid collection name: ${col}`);
   }
 }
@@ -58,6 +59,7 @@ export async function getServerData(): Promise<SantaData> {
   const data: Partial<SantaData> = {};
   const promises = Array.from(SANTA_DATA_COLLECTIONS).map(async (name) => {
     try {
+      assertCollection(name); // <-- AÑADIDO: Asegura que 'name' es un string válido para la colección
       const querySnapshot = await db.collection(name).get();
       (data as any)[name] = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     } catch (e) {
