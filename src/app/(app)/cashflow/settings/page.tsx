@@ -58,7 +58,7 @@ export default function CashflowSettingsPage() {
         }
         
         const contentType = response.headers.get('content-type');
-        if (contentType && contentType.indexOf('application/json') !== -1) {
+        if (contentType && contentType.includes('application/json')) {
           const text = await response.text();
           if (text) {
               const data = JSON.parse(text);

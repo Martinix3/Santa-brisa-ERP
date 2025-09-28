@@ -1,4 +1,3 @@
-
 // src/app/(app)/warehouse/goods-receipt/actions.ts
 'use server';
 
@@ -9,6 +8,7 @@ import type { Party, Item, GoodsReceipt, StockMove, Uom, ItemCategory, PartyRole
 import { LotSchema } from '@/domain/validators';
 import { normText } from '@/lib/norm/text';
 import { makeGoodsReceiptCode } from '@/lib/codes';
+import { findNextLotNumber } from '../inventory/actions';
 
 // --- Helpers ---
 const uniqueSku = (base: string, existingSkus: string[]) => {
@@ -38,16 +38,7 @@ const landingLocationFor = (category?: ItemCategory) => {
     default: return 'RM/MAIN';
   }
 };
-const generateLotNumber = (item: Item | undefined) => {
-  const dt = new Date();
-  const y = String(dt.getUTCFullYear()).slice(2);
-  const m = String(dt.getUTCMonth() + 1).padStart(2, "0");
-  const d = String(dt.getUTCDate()).padStart(2, "0");
-  const base = item?.id?.split("_").pop()?.toUpperCase().slice(0, 3) ?? "ITM";
-  const prefix = item?.category?.startsWith("raw") ? "L" + base : "FG-" + base;
-  const rand = Math.floor(Math.random() * 89) + 10;
-  return `${prefix}-${y}${m}${d}-${rand}`;
-}
+
 // === Server Actions ===
 
 export async function createSupplier(payload: { name: string; taxId?: string }): Promise<Party> {
@@ -140,8 +131,6 @@ export async function createGoodsReceipt(payload: {
 
     let finalSupplierId = supplierId;
     if (newSupplierName && !supplierId) {
-      // Esta función ya es atómica, pero se ejecuta fuera del batch principal.
-      // Para un sistema de misión crítica, se podría refactorizar para devolver las operaciones del batch.
       const newParty = await createSupplier({ name: newSupplierName });
       finalSupplierId = newParty.id;
     }
@@ -174,9 +163,8 @@ export async function createGoodsReceipt(payload: {
                 stdCost: line.unitCost || 0,
                 active: true,
             };
-            // Se añade la creación del item al BATCH principal
             batch.set(itemRef, { ...newItem, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as any, { merge: true });
-            existingItemsMap.set(itemId, newItem); // Add to local map for subsequent lines
+            existingItemsMap.set(itemId, newItem); 
             currentItem = newItem;
         }
         
@@ -184,9 +172,8 @@ export async function createGoodsReceipt(payload: {
 
         if (!currentItem.uom) throw new Error(`El item ${currentItem.id} (${currentItem.name}) no tiene una unidad de medida (uom) definida.`);
         
-        const lotNumber = line.supplierLot.trim() || (line.autoLot ? generateLotNumber(currentItem) : "");
+        const lotNumber = line.supplierLot.trim() || (line.autoLot ? await findNextLotNumber(itemId, currentItem.sku) : "");
         if (!lotNumber) throw new Error(`El lote de proveedor es obligatorio para la línea con ${currentItem.name}.`);
-
 
         const lotData = LotSchema.parse({
             lotNumber: lotNumber,
@@ -271,6 +258,3 @@ export async function reportIncident(payload: {
 }) {
   // Logic to report an incident
 }
-
-
-

@@ -1,4 +1,3 @@
-
 // src/app/(app)/warehouse/inventory/actions.ts
 'use server';
 
@@ -34,36 +33,36 @@ function simpleId(prefix="sm"): string {
   return `${prefix}_${r}`;
 }
 
-const lotPrefixFromSku = (sku?: string, itemId?: string) => {
-  const base = (sku || itemId || 'SKU').toUpperCase().replace(/[^A-Z0-9_-]/g, '');
+function lotPrefixFromSku(sku?: string, fallback?: string) {
+  const base = (sku || fallback || 'LOT').trim();
   const d = new Date();
-  const yymm = `${String(d.getFullYear()).slice(-2)}${String(d.getMonth() + 1).padStart(2, '0')}`;
-  return `${base}-${yymm}`;
-};
-
-
-async function findNextLotNumber(itemId: string, sku?: string): Promise<string> {
-    const prefix = lotPrefixFromSku(sku, itemId);
-    const lotsColl = db.collection('lots');
-    const query = lotsColl.where('lotNumber', '>=', prefix).where('lotNumber', '<', prefix + 'z');
-    const snapshot = await query.get();
-
-    if (snapshot.empty) {
-        return `${prefix}-01`;
-    }
-
-    let maxSeq = 0;
-    snapshot.docs.forEach(doc => {
-        const lotNum = doc.data().lotNumber || '';
-        const seq = parseInt(lotNum.split('-').pop() || '0', 10);
-        if (!isNaN(seq) && seq > maxSeq) {
-            maxSeq = seq;
-        }
-    });
-
-    const nextSeq = (maxSeq + 1).toString().padStart(2, '0');
-    return `${prefix}-${nextSeq}`;
+  const yy = String(d.getUTCFullYear()).slice(-2);
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+  return `${base}-${yy}${mm}-`;
 }
+
+export async function findNextLotNumber(itemId: string, sku?: string): Promise<string> {
+  const prefix = lotPrefixFromSku(sku, itemId);
+  const lotsColl = db.collection('lots');
+  // Rango por prefijo: >= prefix y < prefix con 'z' (lexicográfico)
+  const snap = await lotsColl
+    .where('lotNumber', '>=', prefix)
+    .where('lotNumber', '<', `${prefix}z`)
+    .select('lotNumber')
+    .get();
+
+  let maxSeq = 0;
+  snap.forEach(doc => {
+    const ln = String(doc.get('lotNumber') || '');
+    const tail = ln.slice(prefix.length);     // “XX”
+    const n = parseInt(tail.replace(/\D/g, ''), 10);
+    if (!Number.isNaN(n) && n > maxSeq) maxSeq = n;
+  });
+
+  const next = String(maxSeq + 1).padStart(2, '0');
+  return `${prefix}${next}`;                  // SKU-YYMM-XX
+}
+
 
 async function loadItem(itemId: string): Promise<Item | null> {
     const doc = await db.collection('items').doc(itemId).get();
@@ -257,5 +256,3 @@ export async function rebuildOnHand() {
     console.log(`[Worker/rebuildOnHand] Finished. Deleted ${existingSnap.size}, wrote ${finalOnHandDocs.length}.`);
     return { ok: true, onHand: finalOnHandDocs.length, lots: lots.length };
 }
-
-    
