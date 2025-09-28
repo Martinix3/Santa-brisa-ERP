@@ -3,13 +3,10 @@
 
 import { adminDb as db } from '@/server/firebase';
 import { revalidatePath } from 'next/cache';
-import type { QcStatus, QcTest } from '@/domain/ssot';
+import type { QcStatus, QcTest, OnHandView } from '@/domain/ssot';
 import { ActionResult, ok, fail } from '@/lib/result';
+import { FieldValue } from 'firebase-admin/firestore';
 
-/**
- * Guarda la decisión de calidad para un lote específico y opcionalmente
- * registra los resultados de los análisis individuales.
- */
 export async function saveQcDecision(
     lotNumber: string,
     decision: QcStatus,
@@ -26,33 +23,33 @@ export async function saveQcDecision(
 
         // 1. Actualizar el estado del lote maestro
         const lotRef = db.collection('lots').doc(lotNumber);
-        batch.update(lotRef, {
-            qcStatus: decision,
-            updatedAt: now,
+        batch.update(lotRef, { qcStatus: decision, updatedAt: now });
+
+        // 2. Actualizar el estado denormalizado en TODOS los onHand de ese lote
+        const onHandSnap = await db.collection('onHand').where('lotNumber', '==', lotNumber).get();
+        onHandSnap.docs.forEach(doc => {
+            batch.update(doc.ref, { qcStatus: decision, updatedAt: now });
         });
 
-        // 2. Opcional: Guardar cada resultado como un documento en qcTests
-        // Esto crea un historial de análisis muy detallado
+        // 3. Guardar cada resultado como un documento en qcTests
         for (const [parameterId, value] of Object.entries(results)) {
             const testRef = db.collection('qcTests').doc();
-            const testResult: Partial<QcTest> = {
+            const numValue = Number(value);
+            batch.set(testRef, {
                 id: testRef.id,
                 lotNumber,
                 parameterId,
-                valueText: typeof value === 'string' ? value : undefined,
-                valueNumeric: typeof value === 'number' ? value : undefined,
+                valueText: isNaN(numValue) ? String(value) : undefined,
+                valueNumeric: !isNaN(numValue) ? numValue : undefined,
                 testedBy: reviewerId,
                 testedAt: now,
                 createdAt: now,
-            };
-            batch.set(testRef, testResult);
+            });
         }
 
         await batch.commit();
         
-        // Invalida el caché de la ruta para que el cliente vea los datos actualizados
         revalidatePath('/quality/release');
-
         return ok({ lotNumber });
 
     } catch (error: any) {

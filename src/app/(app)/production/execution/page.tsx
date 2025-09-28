@@ -28,9 +28,6 @@ type ActiveOrderForm = {
     incidentText: string;
     incidentSeverity: 'LOW' | 'MEDIUM' | 'HIGH';
     protocolChecks: boolean[];
-    stockOk: boolean;
-    shortages: Array<{ itemId: string; itemName: string; missing: number; uom: Uom }>;
-    requiredLots: Array<{ itemId: string; lotNumber: string; qty: number; uom: string; locationId: string }>;
 };
 
 // --- Componentes helpers como Badge, Collapsible se mantienen igual ---
@@ -137,10 +134,11 @@ function StockCheckPanel({
     
     for (const t of theory) {
       let remain = t.qty;
-      const rows = (byItem.get(t.itemId) ?? []).filter(l => l.qcStatus === 'PASSED' || l.qcStatus === 'WAIVED');
-      let available = rows.reduce((acc, lot) => acc + (lot.qty || 0), 0);
+      const lots = (byItem.get(t.itemId) ?? [])
+          .filter(l => (l.qcStatus === 'PASSED' || l.qcStatus === 'WAIVED') && l.qty > 0)
+          .sort((a,b) => toTime(a.createdAt) - toTime(b.createdAt));
 
-      for (const r of rows) {
+      for (const r of lots) {
         if (remain <= 0) break;
         const take = Math.min(Number(r.qty) || 0, remain);
         if (take > 0 && r.lotNumber) {
@@ -148,6 +146,8 @@ function StockCheckPanel({
           remain -= take;
         }
       }
+      
+      const available = lots.reduce((acc, lot) => acc + (lot.qty || 0), 0);
       if (remain > 1e-6) {
         shortages.push({ itemId: t.itemId, itemName: itemsMap.get(t.itemId)?.name ?? t.itemId, missing: +remain.toFixed(3), uom: t.uom });
       }
@@ -294,9 +294,15 @@ export default function ProductionExecutionPage() {
     setActiveForm(form => form ? ({ ...form, [field]: value }) : null);
   }, []);
   
-  const onReadyChange = useCallback((ok: boolean) => setFormValue('stockOk', ok), [setFormValue]);
-  const shortagesOut = useCallback((s: ActiveOrderForm['shortages']) => setFormValue('shortages', s), [setFormValue]);
-  const requiredLotsOut = useCallback((r: ActiveOrderForm['requiredLots']) => setFormValue('requiredLots', r), [setFormValue]);
+  const onReadyChange = useCallback((ok: boolean) => {
+    setActiveForm(form => form ? { ...form, stockOk: ok } : null);
+  }, []);
+  const shortagesOut = useCallback((s: ActiveOrderForm['shortages']) => {
+    setActiveForm(form => form ? { ...form, shortages: s } : null);
+  }, []);
+  const requiredLotsOut = useCallback((r: ActiveOrderForm['requiredLots']) => {
+    setActiveForm(form => form ? { ...form, requiredLots: r } : null);
+  }, []);
 
   const openPlanningFromBom = useCallback((bom: RecipeBom) => {
     const outputItem = itemsMap.get(bom.outputItemId);
@@ -316,9 +322,6 @@ export default function ProductionExecutionPage() {
         incidentText: "",
         incidentSeverity: 'LOW',
         protocolChecks: [false, false, false, false],
-        stockOk: false,
-        shortages: [],
-        requiredLots: [],
     });
   }, [itemsMap]);
 
@@ -340,13 +343,10 @@ export default function ProductionExecutionPage() {
         incidentText: "",
         incidentSeverity: 'LOW',
         protocolChecks: (order as any).checks ?? [false,false,false,false],
-        stockOk: true,
-        shortages: (order as any).shortages ?? [],
-        requiredLots: (order as any).reservations ?? [],
     });
   }, [itemsMap]);
   
-  const hasShortagesFor = (o: ProductionOrder) => {
+  const hasShortagesFor = useCallback((o: ProductionOrder) => {
     const bom = recipes.find(b => b.id === (o as any).bomId);
     if (!bom) return false;
     const theory = computeTheoretical(bom, ((o as any).targetQuantity ?? 1), itemsMap);
@@ -356,7 +356,7 @@ export default function ProductionExecutionPage() {
       byItem.set(r.itemId, +(((byItem.get(r.itemId) ?? 0) + q).toFixed(3)));
     });
     return theory.some(t => (byItem.get(t.itemId) ?? 0) + 1e-6 < t.qty);
-  };
+  }, [recipes, itemsMap, onHand]);
   
   const handleUpdateStatus = (status: 'IN_PROGRESS' | 'PAUSED' | 'CANCELLED') => {
       if (!activeForm?.order) return;
@@ -413,7 +413,8 @@ export default function ProductionExecutionPage() {
         summary: activeForm.incidentText.trim(),
       });
       if (r.ok) {
-        setFormValue('journal', [...(activeForm.journal || []), {id: `inc_${r.data.incidentId ?? Date.now()}`, at: new Date().toISOString(), kind:'INCIDENT', summary: activeForm.incidentText.trim()}]);
+        const resultData = r.data as { incidentId: string };
+        setFormValue('journal', [...(activeForm.journal || []), {id: `inc_${resultData.incidentId ?? Date.now()}`, at: new Date().toISOString(), kind:'INCIDENT', summary: activeForm.incidentText.trim()}]);
         setFormValue('incidentText', '');
         toast.success("Incidencia registrada");
       } else {
@@ -423,7 +424,7 @@ export default function ProductionExecutionPage() {
   };
   
   const handleProgram = () => {
-    if (!activeForm?.planningBom) return;
+    if (!activeForm?.planningBom || !activeForm?.requiredLots) return;
     const planQty = (activeForm.finalOutput)?.qty ?? 1;
     if (planQty <= 0) { toast.error("La cantidad debe ser mayor que cero."); return; }
 
@@ -446,7 +447,7 @@ export default function ProductionExecutionPage() {
   };
   
   const applyProposalToReal = useCallback(() => {
-    if (!activeForm || activeForm.requiredLots.length === 0) return;
+    if (!activeForm || !activeForm.requiredLots || activeForm.requiredLots.length === 0) return;
 
     const proposalAsReal: RealConsumptionLine[] = picksToRealLines(activeForm.requiredLots, itemsMap);
     
@@ -563,7 +564,7 @@ export default function ProductionExecutionPage() {
                         <button 
                           className="text-xs px-2 py-1 rounded border bg-white hover:bg-zinc-50 disabled:opacity-50"
                           onClick={applyProposalToReal}
-                          disabled={orderIsLocked || !activeForm.requiredLots.length}
+                          disabled={orderIsLocked || !activeForm.requiredLots || activeForm.requiredLots.length === 0}
                         >
                           <ArrowRight className="inline h-3 w-3 mr-1" /> Usar propuesta en Consumo REAL
                         </button>

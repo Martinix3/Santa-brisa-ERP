@@ -1,222 +1,160 @@
-
 // src/app/(app)/quality/release/page.tsx
 "use client";
 
-import React, { useEffect, useMemo, useState, useCallback, useTransition } from "react";
+import React, { useMemo, useState, useTransition } from "react";
 import { useRouter } from 'next/navigation';
-import { SBCard, SBButton, Select, Input } from '@/components/ui/ui-primitives';
+import { SBCard, SBButton, Input } from '@/components/ui/ui-primitives';
 import { useData } from "@/lib/dataprovider";
-import {
-  CheckCircle, XCircle, Hourglass, FlaskConical, ListOrdered, FileQuestion
-} from "lucide-react";
-import type { Lot, QcTest, QcBatchResult, Item, ParameterCatalog, QcPlan, StockMove, QcStatus, OnHandView } from "@/domain/ssot";
-import { qcToBucket } from "@/domain/ssot";
+import { CheckCircle, XCircle, Hourglass, FlaskConical, ChevronRight } from "lucide-react";
+import type { Lot, Item, ParameterCatalog, QcPlan, QcStatus } from "@/domain/ssot";
 import { saveQcDecision } from './actions';
 import { toast } from 'sonner';
 
 // ============================================================================
 // TIPOS Y CONSTANTES
 // ============================================================================
-type BucketKey = "ALL" | "HOLD" | "RELEASED" | "REJECTED";
-type LotDetail = Lot & {
+type LotForQc = Lot & {
     itemName: string;
-    itemSku?: string;
+    plan?: QcPlan;
     totalStock: number;
-    bucket: BucketKey;
 };
 
-// ... (Constantes como TABS_CONFIG, QC_STATUS_TEXT, QC_STATUS_TONE se mantienen igual)
-// ... (Componente `Badge` se mantiene igual)
+// ... (Componente `Badge` y helpers de formato como `qcTone` y `prettyStatus` se mantienen)
 
 // ============================================================================
-// COMPONENTE PRINCIPAL
+// COMPONENTE DE PÁGINA
 // ============================================================================
 export default function LabReleasePage() {
-  const router = useRouter();
-  const { data } = useData();
-  const [isPending, startTransition] = useTransition();
+    const router = useRouter();
+    const { data } = useData();
+    const [isPending, startTransition] = useTransition();
 
-  // ============================================================================
-  // 1. GESTIÓN DE DATOS Y ESTADO
-  // ============================================================================
-  const [query, setQuery] = useState("");
-  const [selectedSku, setSelectedSku] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<BucketKey>("ALL");
-  const [selectedLot, setSelectedLot] = useState<string | null>(null);
-  
-  // Estado para el formulario de análisis
-  const [analysisResults, setAnalysisResults] = useState<Record<string, string>>({});
-  const [reviewerId, setReviewerId] = useState("mj@santabrisa.co"); // Debería venir del usuario autenticado
+    // Estado local simplificado
+    const [selectedLot, setSelectedLot] = useState<LotForQc | null>(null);
+    const [analysisResults, setAnalysisResults] = useState<Record<string, string>>({});
+    const [reviewerId, setReviewerId] = useState("mj@santabrisa.co"); // Debería venir del usuario autenticado
 
-  // Procesamiento de datos centralizado
-  const { lotDetails, items, itemMap, parameterMap, qcPlanMap } = useMemo(() => {
-    const iMap = new Map(data?.items.map(i => [i.id, i]));
-    const pMap = new Map(data?.qcParameters.map(p => [p.id, p]));
-    const qpMap = new Map(data?.qc_plans.map(p => [p.id, p]));
-    const onHandByLot = (data?.onHand ?? []).reduce((acc, oh) => {
-        if (oh.lotNumber) {
-            acc.set(oh.lotNumber, (acc.get(oh.lotNumber) || 0) + oh.qty);
-        }
-        return acc;
-    }, new Map<string, number>());
+    // Procesamiento de datos centralizado
+    const { lotsForReview, parameterMap } = useMemo(() => {
+        if (!data) return { lotsForReview: [], parameterMap: new Map() };
 
-    const details: LotDetail[] = (data?.lots ?? []).map(lot => {
-        const item = iMap.get(lot.itemId);
+        const iMap = new Map(data.items.map(i => [i.id, i]));
+        const qpMap = new Map(data.qc_plans.map(p => [p.id, p]));
+        const onHandByLot = (data.onHand ?? []).reduce((acc, oh) => {
+            if (oh.lotNumber) acc.set(oh.lotNumber, (acc.get(oh.lotNumber) || 0) + oh.qty);
+            return acc;
+        }, new Map<string, number>());
+
+        const lotsWithDetails: LotForQc[] = (data.lots ?? [])
+            .filter(lot => lot.qcStatus === 'PENDING') // ¡Solo mostramos lotes que necesitan acción!
+            .map(lot => {
+                const item = iMap.get(lot.itemId);
+                return {
+                    ...lot,
+                    itemName: item?.name ?? 'Ítem Desconocido',
+                    plan: lot.qcPlanId ? qpMap.get(lot.qcPlanId) : undefined,
+                    totalStock: onHandByLot.get(lot.lotNumber) || 0,
+                };
+            })
+            .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()); // Los más antiguos primero
+
         return {
-            ...lot,
-            itemName: item?.name ?? 'Ítem Desconocido',
-            itemSku: item?.sku,
-            totalStock: onHandByLot.get(lot.lotNumber) || 0,
-            bucket: qcToBucket(lot.qcStatus) as BucketKey,
+            lotsForReview: lotsWithDetails,
+            parameterMap: new Map(data.qcParameters.map(p => [p.id, p])),
         };
-    });
+    }, [data]);
 
-    return { lotDetails: details, items: data?.items ?? [], itemMap: iMap, parameterMap: pMap, qcPlanMap: qpMap };
-  }, [data]);
+    const handleSelectLot = (lot: LotForQc) => {
+        setSelectedLot(lot);
+        setAnalysisResults({}); // Resetea los resultados al cambiar de lote
+    };
 
-  // Lógica de filtrado
-  const filteredLots = useMemo(() => {
-    const lowerQuery = query.trim().toLowerCase();
-    return lotDetails.filter(lot => {
-        if (activeTab !== 'ALL' && lot.bucket !== activeTab) return false;
-        if (selectedSku && lot.itemId !== selectedSku) return false;
-        if (lowerQuery && !lot.lotNumber.toLowerCase().includes(lowerQuery) && !lot.itemName.toLowerCase().includes(lowerQuery)) return false;
-        return true;
-    }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [lotDetails, activeTab, selectedSku, query]);
-
-  // Selección automática y reseteo
-  useEffect(() => {
-    if (filteredLots.length > 0 && !filteredLots.some(l => l.lotNumber === selectedLot)) {
-      setSelectedLot(filteredLots[0].lotNumber);
-    } else if (filteredLots.length === 0) {
-      setSelectedLot(null);
-    }
-  }, [filteredLots, selectedLot]);
-  
-  useEffect(() => {
-    setAnalysisResults({});
-  }, [selectedLot]);
-
-  // Datos para el panel de la derecha
-  const selectedLotData = useMemo(() => {
-    if (!selectedLot) return null;
-    const lot = lotDetails.find(l => l.lotNumber === selectedLot);
-    if (!lot) return null;
-    const plan = lot.qcPlanId ? qcPlanMap.get(lot.qcPlanId) : undefined;
-    return { lot, plan };
-  }, [selectedLot, lotDetails, qcPlanMap]);
-
-  // ============================================================================
-  // 2. HANDLERS Y ACCIONES
-  // ============================================================================
-  const handleAnalysisChange = (parameterId: string, value: string) => {
-    setAnalysisResults(prev => ({ ...prev, [parameterId]: value }));
-  };
-  
-  const handleSaveDecision = (decision: QcStatus) => {
-    if (!selectedLotData) return;
+    const handleSaveDecision = (decision: QcStatus) => {
+        if (!selectedLot) return;
+        
+        startTransition(async () => {
+            const res = await saveQcDecision(selectedLot.lotNumber, decision, analysisResults, reviewerId);
+            if (res.ok) {
+                toast.success(`Decisión '${decision}' guardada para el lote ${selectedLot.lotNumber}.`);
+                setSelectedLot(null); // Vuelve a la lista de trabajo
+                router.refresh();
+            } else {
+                toast.error(res.message);
+            }
+        });
+    };
     
-    startTransition(async () => {
-      const res = await saveQcDecision(selectedLotData.lot.lotNumber, decision, analysisResults, reviewerId);
-      if (res.ok) {
-        toast.success(`Decisión '${decision}' guardada para el lote ${selectedLotData.lot.lotNumber}.`);
-        router.refresh(); // Pide al servidor los datos actualizados
-      } else {
-        toast.error(res.message);
-      }
-    });
-  };
+    // El "Parte de Análisis" solo se muestra si hay un lote seleccionado
+    if (selectedLot) {
+        const requiredSpecs = selectedLot.plan?.specs.filter(s => (s as any).required) ?? [];
+        const allRequiredResultsEntered = requiredSpecs.every(spec =>
+            analysisResults[spec.parameterId] && analysisResults[spec.parameterId].trim() !== ""
+        );
 
-  const requiredSpecs = selectedLotData?.plan?.specs.filter(s => (s as any).required) ?? [];
-  const allRequiredResultsEntered = requiredSpecs.every(spec =>
-    analysisResults[spec.parameterId] && analysisResults[spec.parameterId].trim() !== ""
-  );
+        return (
+            <SBCard title={<><FlaskConical size={16}/><span>Parte de Análisis para Lote: {selectedLot.lotNumber}</span></>} accent="hsl(var(--sb-accent-calidad))">
+                <div className="p-4 space-y-6">
+                    <div className="p-3 bg-sky-50 border border-sky-200 rounded-lg text-sm">
+                        <p><b>Ítem:</b> {selectedLot.itemName}</p>
+                        <p><b>Plan QC:</b> {selectedLot.plan?.name ?? "N/A"}</p>
+                        <p><b>Stock Total:</b> {selectedLot.totalStock.toFixed(2)}</p>
+                    </div>
 
-  // ============================================================================
-  // 3. RENDERIZADO
-  // ============================================================================
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-200px)]">
-      {/* Columna 1: Filtros y Lista de Lotes */}
-      <div className="lg:col-span-4 flex flex-col space-y-4">
-        <SBCard title="Filtros y Lotes" noPadding>
-          <div className="p-4 border-b">
-            <Select value={selectedSku} onChange={(e) => setSelectedSku(e.target.value)}>
-                <option value="">Todos los SKUs</option>
-                {items.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-            </Select>
-            <Input
-              value={query} onChange={e => setQuery(e.target.value)}
-              placeholder="Buscar por lote o nombre..." className="mt-2"
-            />
-          </div>
-          <div className="flex border-b">
-            {/* ... (Tabs de filtrado) ... */}
-          </div>
-          <div className="h-full overflow-y-auto">
-            {filteredLots.map(lot => (
-                <button key={lot.id} onClick={() => setSelectedLot(lot.lotNumber)} className={`w-full text-left p-3 ${selectedLot === lot.lotNumber ? 'bg-blue-50' : 'hover:bg-zinc-50'}`}>
-                    {/* ... (Contenido del botón del lote) ... */}
-                </button>
-            ))}
-            {filteredLots.length === 0 && <div className="p-8 text-center text-sm text-zinc-500">No hay lotes que coincidan.</div>}
-          </div>
-        </SBCard>
-      </div>
+                    <div className="space-y-3">
+                        <h4 className="text-md font-semibold">Parámetros a Medir</h4>
+                        {requiredSpecs.length > 0 ? requiredSpecs.map(spec => (
+                            <div key={spec.parameterId} className="grid grid-cols-[1fr_150px] gap-4 items-center">
+                                <label htmlFor={spec.parameterId} className="font-medium text-sm">
+                                    {parameterMap.get(spec.parameterId)?.name ?? spec.parameterId}
+                                </label>
+                                <Input
+                                    id={spec.parameterId}
+                                    placeholder="Resultado..."
+                                    value={analysisResults[spec.parameterId] ?? ""}
+                                    onChange={e => setAnalysisResults(prev => ({...prev, [spec.parameterId]: e.target.value}))}
+                                />
+                            </div>
+                        )) : <p className="text-sm text-zinc-500">Este plan no tiene análisis requeridos.</p>}
+                    </div>
 
-      {/* Columna 2: Dossier de Lote Interactivo */}
-      <div className="lg:col-span-8 h-full overflow-y-auto">
-        {selectedLotData ? (
-          <SBCard title={<><FlaskConical size={16}/><span>Análisis y Decisión para {selectedLotData.lot.lotNumber}</span></>} accent="hsl(var(--sb-accent-calidad))">
-            <div className="p-4 space-y-4">
-              <div className="p-3 bg-sky-50 border border-sky-200 rounded-lg text-sm space-y-1">
-                  <p><b>Ítem:</b> {selectedLotData.lot.itemName}</p>
-                  <p><b>Plan QC:</b> {selectedLotData.plan?.name ?? <span className="text-amber-600">Sin plan asignado</span>}</p>
-              </div>
+                    <div className="border-t pt-4 flex justify-between items-center">
+                        <SBButton variant="secondary" onClick={() => setSelectedLot(null)}>
+                            Volver a la lista
+                        </SBButton>
+                        <div className="flex gap-2">
+                            <SBButton variant="destructive" onClick={() => handleSaveDecision('FAILED')} disabled={!allRequiredResultsEntered || isPending}>
+                                <XCircle size={16}/> Rechazar
+                            </SBButton>
+                            <SBButton onClick={() => handleSaveDecision('PASSED')} disabled={!allRequiredResultsEntered || isPending}>
+                                <CheckCircle size={16}/> Liberar Lote
+                            </SBButton>
+                        </div>
+                    </div>
+                </div>
+            </SBCard>
+        );
+    }
 
-              {selectedLotData.plan && (
-                <>
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-semibold">Resultados requeridos</h4>
-                    {requiredSpecs.map(spec => (
-                      <div key={spec.parameterId} className="grid grid-cols-[1fr_120px_80px] gap-2 items-center text-xs">
-                          <label htmlFor={spec.parameterId} className="font-medium truncate">{parameterMap.get(spec.parameterId)?.label ?? spec.parameterId}</label>
-                          <Input
-                            id={spec.parameterId} type="text"
-                            placeholder="Valor medido..."
-                            value={analysisResults[spec.parameterId] ?? ""}
-                            onChange={e => handleAnalysisChange(spec.parameterId, e.target.value)}
-                          />
-                          {/* Opcional: mostrar badge de In/Out of Spec */}
-                      </div>
-                    ))}
-                  </div>
-                  <div className="border-t pt-4 space-y-3">
-                      <div className="grid grid-cols-[100px,1fr] gap-2 items-center text-xs">
-                          <label htmlFor="reviewer" className="font-medium">Responsable</label>
-                           <Select id="reviewer" value={reviewerId} onChange={e => setReviewerId(e.target.value)}>
-                             <option value="mj@santabrisa.co">Martín</option>
-                           </Select>
-                      </div>
-                      <div className="grid grid-cols-3 gap-2">
-                          <SBButton onClick={() => handleSaveDecision('PASSED')} disabled={!allRequiredResultsEntered || isPending}>
-                              <CheckCircle size={16}/> Liberar
-                          </SBButton>
-                          <SBButton variant="secondary" onClick={() => handleSaveDecision('PENDING')} disabled={isPending}>
-                              <Hourglass size={16}/> Dejar en Hold
-                          </SBButton>
-                           <SBButton variant="destructive" onClick={() => handleSaveDecision('FAILED')} disabled={!allRequiredResultsEntered || isPending}>
-                              <XCircle size={16}/> Rechazar
-                          </SBButton>
-                      </div>
-                  </div>
-                </>
-              )}
+    // Esta es la vista principal: la lista de trabajo
+    return (
+        <SBCard title="Lotes Pendientes de Revisión de Calidad">
+            <div className="divide-y">
+                {lotsForReview.map(lot => (
+                    <button key={lot.id} onClick={() => handleSelectLot(lot)} className="w-full text-left p-4 hover:bg-zinc-50 flex justify-between items-center">
+                        <div>
+                            <p className="font-mono text-base font-semibold text-zinc-800">{lot.lotNumber}</p>
+                            <p className="text-sm text-zinc-600">{lot.itemName}</p>
+                            <p className="text-xs text-zinc-400 mt-1">Creado: {new Date(lot.createdAt).toLocaleDateString('es-ES')}</p>
+                        </div>
+                        <ChevronRight className="h-5 w-5 text-zinc-400" />
+                    </button>
+                ))}
+                {lotsForReview.length === 0 && (
+                    <div className="p-8 text-center text-sm text-zinc-500">
+                        ¡Buen trabajo! No hay lotes pendientes de revisión.
+                    </div>
+                )}
             </div>
-          </SBCard>
-        ) : ( <div className="h-full flex items-center justify-center text-zinc-500 border-2 border-dashed rounded-xl">Selecciona un lote para ver su dossier.</div> )}
-      </div>
-    </div>
-  );
+        </SBCard>
+    );
 }
