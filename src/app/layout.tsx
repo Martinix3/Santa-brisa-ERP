@@ -4,9 +4,10 @@ import ClientProviders from "./ClientProviders";
 import "./globals.css";
 import MonitoringBoot from '@/components/monitoring/MonitoringBoot';
 import { Inter } from 'next/font/google';
-import { ToasterProvider } from '@/components/ui/Toaster';
+import { Toaster } from "sonner";
 import React from 'react';
 import AuthenticatedLayout from '@/components/layouts/AuthenticatedLayout';
+import { RealtimeProvider } from "./providers/RealtimeProvider";
 
 
 const inter = Inter({ 
@@ -28,14 +29,14 @@ export default function RootLayout({
   return (
     <html lang="es" className={inter.variable}>
       <body>
-        <ToasterProvider>
-          <MonitoringBoot />
-          <ClientProviders>
-            <AuthenticatedLayout>
-              {children}
-            </AuthenticatedLayout>
-          </ClientProviders>
-        </ToasterProvider>
+        <RealtimeProvider>
+            <ClientProviders>
+              <AuthenticatedLayout>
+                {children}
+              </AuthenticatedLayout>
+            </ClientProviders>
+          <Toaster position="bottom-right" />
+        </RealtimeProvider>
       </body>
     </html>
   );
