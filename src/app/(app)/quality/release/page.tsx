@@ -7,8 +7,8 @@ import { SBCard, SBButton, Input } from '@/components/ui/ui-primitives';
 import { useData } from "@/lib/dataprovider";
 import { CheckCircle, XCircle, Hourglass, FlaskConical, ChevronRight } from "lucide-react";
 import type { Lot, Item, ParameterCatalog, QcPlan, QcStatus } from "@/domain/ssot";
-import { saveQcDecision } from './actions';
-import { toast } from 'sonner';
+import { saveQcDecision } from '@/app/(app)/quality/actions';
+import { toast } from "sonner";
 
 // ============================================================================
 // TIPOS Y CONSTANTES
@@ -39,7 +39,7 @@ export default function LabReleasePage() {
         if (!data) return { lotsForReview: [], parameterMap: new Map() };
 
         const iMap = new Map(data.items.map(i => [i.id, i]));
-        const qpMap = new Map(data.qc_plans.map(p => [p.id, p]));
+        const qpMap = new Map((data.qc_plans || []).map(p => [p.id, p]));
         const onHandByLot = (data.onHand ?? []).reduce((acc, oh) => {
             if (oh.lotNumber) acc.set(oh.lotNumber, (acc.get(oh.lotNumber) || 0) + oh.qty);
             return acc;
@@ -60,7 +60,7 @@ export default function LabReleasePage() {
 
         return {
             lotsForReview: lotsWithDetails,
-            parameterMap: new Map(data.qcParameters.map(p => [p.id, p])),
+            parameterMap: new Map((data.qcParameters || []).map(p => [p.id, p])),
         };
     }, [data]);
 
@@ -105,7 +105,7 @@ export default function LabReleasePage() {
                         {requiredSpecs.length > 0 ? requiredSpecs.map(spec => (
                             <div key={spec.parameterId} className="grid grid-cols-[1fr_150px] gap-4 items-center">
                                 <label htmlFor={spec.parameterId} className="font-medium text-sm">
-                                    {parameterMap.get(spec.parameterId)?.name ?? spec.parameterId}
+                                    {parameterMap.get(spec.parameterId)?.label ?? spec.parameterId}
                                 </label>
                                 <Input
                                     id={spec.parameterId}
@@ -137,7 +137,7 @@ export default function LabReleasePage() {
 
     // Esta es la vista principal: la lista de trabajo
     return (
-        <SBCard title="Lotes Pendientes de Revisión de Calidad">
+        <SBCard title="Lotes Pendientes de Revisión de Calidad" noPadding>
             <div className="divide-y">
                 {lotsForReview.map(lot => (
                     <button key={lot.id} onClick={() => handleSelectLot(lot)} className="w-full text-left p-4 hover:bg-zinc-50 flex justify-between items-center">
