@@ -1,9 +1,9 @@
 // src/app/(app)/quality/parametros/page.tsx
 "use client";
 
-import React, { useEffect, useState, useTransition, useCallback } from "react";
+import React, { useEffect, useState, useTransition, useCallback, useMemo } from "react";
 import { useRouter } from 'next/navigation';
-import { listParametersBySku, upsertParameterBySku, deleteParameterBySku, listPlans, upsertPlan, deletePlan, listProtocols, upsertProtocol, deleteProtocol } from "./actions";
+import { upsertParameterBySku, deleteParameterBySku, upsertPlan, deletePlan, upsertProtocol, deleteProtocol } from "./actions";
 import type { ParameterBySku, QcPlanBySku as QcPlan, QcSpec, Protocol as SafetyProtocol } from './schemas';
 import { Plus, Trash2, Save, FlaskConical, ShieldCheck, Wrench, Edit, X } from "lucide-react";
 import { useData } from "@/lib/dataprovider";
@@ -79,126 +79,125 @@ function ParameterRow({ parameter, onSave, onDelete, isPending }: {
 // Página Principal
 // ==========================
 export default function QualityParametersPage() {
-  const router = useRouter();
-  const { data: globalData } = useData();
-  const items = globalData?.items || [];
-  const [isPending, startTransition] = useTransition();
+    const { data: globalData, saveCollection } = useData();
+    const router = useRouter();
+    const [isPending, startTransition] = useTransition();
 
-  const [sku, setSku] = useState<string>("");
-  const [params, setParams] = useState<ParameterBySku[]>([]);
-  const [plans, setPlans] = useState<QcPlan[]>([]);
-  const [protocols, setProtocols] = useState<SafetyProtocol[]>([]);
+    const [sku, setSku] = useState<string>("");
 
-  // ==== Carga de Datos Centralizada ====
-  const loadDataForSku = useCallback(async (currentSku: string) => {
-    startTransition(async () => {
-      const [paramsRes, plansRes, protocolsRes] = await Promise.all([
-        currentSku ? listParametersBySku(currentSku) : Promise.resolve(ok([])),
-        currentSku ? listPlans(currentSku) : Promise.resolve(ok([])),
-        listProtocols(),
-      ]);
-      if (paramsRes.ok) setParams(paramsRes.data);
-      if (plansRes.ok) setPlans(plansRes.data);
-      if (protocolsRes.ok) setProtocols(protocolsRes.data);
-    });
-  }, []);
-  
-  // Inicializa el SKU y carga los datos una sola vez
-  useEffect(() => {
-    if (!sku && items.length > 0) {
-      setSku(items[0].id);
-    }
-  }, [items, sku]);
+    const { items, allParams, allPlans, allProtocols } = useMemo(() => ({
+        items: globalData?.items || [],
+        allParams: globalData?.qcParameters || [],
+        allPlans: globalData?.qcPlans || [],
+        allProtocols: globalData?.qcProtocols || [],
+    }), [globalData]);
 
-  // Recarga TODOS los datos solo cuando el SKU cambia
-  useEffect(() => {
-    loadDataForSku(sku);
-  }, [sku, loadDataForSku]);
-  
-  // --- Handlers de Parámetros ---
-  const [newParam, setNewParam] = useState<Partial<ParameterBySku>>({});
-  const handleAddParameter = () => {
-    if (!sku || !newParam.name) {
-      toast.error("El nombre del análisis es obligatorio.");
-      return;
-    }
-    const id = `param_${sku}_${newParam.name.toLowerCase().replace(/\s+/g, '_').slice(0, 15)}`;
-    handleSaveParameter({ ...newParam, id, sku, code: newParam.name.toLowerCase().replace(/\s+/g, '_').slice(0, 15) } as ParameterBySku);
-    setNewParam({});
-  };
-  const handleSaveParameter = (parameter: ParameterBySku) => {
-    startTransition(async () => {
-      const res = await upsertParameterBySku(parameter);
-      if (res.ok) {
-        toast.success(`Parámetro "${parameter.name}" guardado.`);
-        loadDataForSku(sku);
-      } else {
-        toast.error(`Error al guardar: ${res.message}`);
-      }
-    });
-  };
-  const handleDeleteParameter = (id: string) => {
-    if (!confirm("¿Seguro que quieres eliminar este parámetro?")) return;
-    startTransition(async () => {
-      const res = await deleteParameterBySku(id);
-      if (res.ok) {
-        toast.success("Parámetro eliminado.");
-        loadDataForSku(sku);
-      } else {
-        toast.error(`Error al eliminar: ${res.message}`);
-      }
-    });
-  };
+    const [plans, setPlans] = useState<QcPlan[]>([]);
+    const [protocols, setProtocols] = useState<SafetyProtocol[]>([]);
 
-  // --- Handlers de Planes ---
-  const handleSavePlan = (plan: QcPlan) => {
-    startTransition(async () => {
-      const res = await upsertPlan(plan);
-      if (res.ok) {
-        toast.success(`Plan "${plan.name}" guardado.`);
-        loadDataForSku(sku);
-      } else {
-        toast.error(`Error al guardar: ${res.message}`);
-      }
-    });
-  };
-  const handleDeletePlan = (id: string) => {
-    if (!confirm("¿Seguro que quieres eliminar este plan de calidad?")) return;
-    startTransition(async () => {
-      const res = await deletePlan(id);
-      if (res.ok) {
-        toast.success("Plan eliminado.");
-        loadDataForSku(sku);
-      } else {
-        toast.error(`Error al eliminar: ${res.message}`);
-      }
-    });
-  };
+    useEffect(() => {
+        if (!sku && items.length > 0) {
+            setSku(items[0].id);
+        }
+    }, [items, sku]);
 
-  // --- Handlers de Protocolos ---
-  const handleSaveProtocol = (protocol: SafetyProtocol) => {
-    startTransition(async () => {
-      const res = await upsertProtocol(protocol);
-      if (res.ok) {
-        toast.success(`Protocolo "${protocol.title}" guardado.`);
-        loadDataForSku(sku);
-      } else {
-        toast.error(`Error: ${res.message}`);
-      }
-    });
-  };
-  const handleDeleteProtocol = (id: string) => {
-    if (!confirm("¿Seguro que quieres eliminar este protocolo?")) return;
-    startTransition(async () => {
-      const res = await deleteProtocol(id);
-      if (res.ok) {
-        toast.success("Protocolo eliminado.");
-        loadDataForSku(sku);
-      } else {
-        toast.error(`Error al eliminar: ${res.message}`);
-      }
-    });
-  };
+    const paramsForSku = useMemo(() => allParams.filter((p: ParameterBySku) => p.sku === sku), [allParams, sku]);
+
+    useEffect(() => {
+        setPlans(allPlans.filter((p: QcPlan) => p.sku === sku));
+    }, [allPlans, sku]);
+    
+    useEffect(() => {
+        setProtocols(allProtocols);
+    }, [allProtocols]);
+
+
+    const [newParam, setNewParam] = useState<Partial<ParameterBySku>>({});
+
+    const handleSaveParameter = (parameter: ParameterBySku) => {
+        startTransition(async () => {
+            const res = await upsertParameterBySku(parameter);
+            if (res.ok) {
+                toast.success(`Parámetro "${parameter.name}" guardado.`);
+                await saveCollection('qcParameters', [...allParams.filter((p: ParameterBySku) => p.id !== parameter.id), parameter]);
+                if (Object.keys(newParam).length > 0) setNewParam({});
+            } else {
+                toast.error(`Error al guardar: ${res.message}`);
+            }
+        });
+    };
+
+    const handleAddParameter = () => {
+        if (!sku || !newParam.name) {
+            toast.error("El nombre del análisis es obligatorio.");
+            return;
+        }
+        const id = `param_${sku}_${newParam.name.toLowerCase().replace(/\s+/g, '_').slice(0, 15)}`;
+        handleSaveParameter({ ...newParam, id, sku, code: newParam.name.toLowerCase().replace(/\s+/g, '_').slice(0, 15) } as ParameterBySku);
+    };
+
+    const handleDeleteParameter = (id: string) => {
+        if (!confirm("¿Seguro que quieres eliminar este parámetro?")) return;
+        startTransition(async () => {
+            const res = await deleteParameterBySku(id);
+            if (res.ok) {
+                toast.success("Parámetro eliminado.");
+                await saveCollection('qcParameters', allParams.filter((p: ParameterBySku) => p.id !== id));
+            } else {
+                toast.error(`Error al eliminar: ${res.message}`);
+            }
+        });
+    };
+
+    const handleSavePlan = (plan: QcPlan) => {
+        startTransition(async () => {
+            const res = await upsertPlan(plan);
+            if (res.ok) {
+                toast.success(`Plan "${plan.name}" guardado.`);
+                await saveCollection('qcPlans', [...allPlans.filter((p: QcPlan) => p.id !== plan.id), plan]);
+            } else {
+                toast.error(`Error al guardar: ${res.message}`);
+            }
+        });
+    };
+
+    const handleDeletePlan = (id: string) => {
+        if (!confirm("¿Seguro que quieres eliminar este plan de calidad?")) return;
+        startTransition(async () => {
+            const res = await deletePlan(id);
+            if (res.ok) {
+                toast.success("Plan eliminado.");
+                await saveCollection('qcPlans', allPlans.filter((p: QcPlan) => p.id !== id));
+            } else {
+                toast.error(`Error al eliminar: ${res.message}`);
+            }
+        });
+    };
+
+    const handleSaveProtocol = (protocol: SafetyProtocol) => {
+        startTransition(async () => {
+            const res = await upsertProtocol(protocol);
+            if (res.ok) {
+                toast.success(`Protocolo "${protocol.title}" guardado.`);
+                await saveCollection('qcProtocols', [...allProtocols.filter((p: SafetyProtocol) => p.id !== protocol.id), protocol]);
+            } else {
+                toast.error(`Error: ${res.message}`);
+            }
+        });
+    };
+    
+    const handleDeleteProtocol = (id: string) => {
+        if (!confirm("¿Seguro que quieres eliminar este protocolo?")) return;
+        startTransition(async () => {
+            const res = await deleteProtocol(id);
+            if (res.ok) {
+                toast.success("Protocolo eliminado.");
+                await saveCollection('qcProtocols', allProtocols.filter((p: SafetyProtocol) => p.id !== id));
+            } else {
+                toast.error(`Error al eliminar: ${res.message}`);
+            }
+        });
+    };
   
   return (
     <div className="mx-auto max-w-6xl p-4 space-y-6">
@@ -237,7 +236,7 @@ export default function QualityParametersPage() {
                 </tr>
                 </thead>
                 <tbody>
-                {params.map((p) => (
+                {paramsForSku.map((p: ParameterBySku) => (
                     <ParameterRow
                     key={p.id}
                     parameter={p}
@@ -274,7 +273,7 @@ export default function QualityParametersPage() {
                 <div key={spec.id} className="grid grid-cols-[2fr_1fr_auto] gap-2 p-2 border rounded-md bg-white">
                   <Select value={spec.parameterId} onChange={e => { const newPlans = [...plans]; newPlans[planIndex].specs[specIndex].parameterId = e.target.value; setPlans(newPlans); }}>
                     <option value="">-- Selecciona parámetro --</option>
-                    {params.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    {paramsForSku.map((p: ParameterBySku) => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </Select>
                   <Select value={spec.point} onChange={e => { const newPlans = [...plans]; newPlans[planIndex].specs[specIndex].point = e.target.value as any; setPlans(newPlans); }}>
                      <option value="RECEPCION">Recepción</option>
