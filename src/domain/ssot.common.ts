@@ -1,6 +1,6 @@
-// This file can contain additional types that are shared across the domain
-// but are not part of the core SSOT definition, for better organization.
-// For now, it's empty as we've consolidated everything in ssot.ts.
+// This file is being deprecated. Its contents have been merged into `ssot.ts`.
+// You can safely delete this file in a future step.
+
 import type { Department, InteractionStatus, OrderStatus, AccountType, Stage } from './ssot';
 
 export type InteractionKind = 'VISITA' | 'LLAMADA' | 'EMAIL' | 'WHATSAPP' | 'OTRO' | 'COBRO' | 'EVENTO_MKT';
@@ -346,17 +346,4 @@ export interface Incident {
   photos?: string[];
   correctiveActions?: { note: string; at: string; byUserId?: string }[];
   notes?: string;
-}
-
-export type TraceEventPhase = 'SOURCE' | 'RECEIPT' | 'QC' | 'PRODUCTION' | 'PACK' | 'WAREHOUSE' | 'SALE' | 'DELIVERY';
-export type TraceEventKind = 'FARM_DATA' | 'SUPPLIER_PO' | 'ARRIVED' | 'BOOKED' | 'CHECK_PASS' | 'CHECK_FAIL' | 'BATCH_PLANNED' | 'BATCH_RELEASED' | 'BATCH_START' | 'CONSUME' | 'BATCH_END' | 'OUTPUT' | 'PACK_START' | 'PACK_END' | 'MOVE' | 'RESERVE' | 'ORDER_ALLOC' | 'SHIPMENT_PICKED' | 'SHIPPED' | 'DELIVERED';
-export interface TraceEvent {
-    id: string;
-    subject: { type: 'LOT' | 'BATCH' | 'ORDER' | 'SHIPMENT'; id: string; };
-    phase: TraceEventPhase;
-    kind: TraceEventKind;
-    occurredAt: string;
-    actorId?: string;
-    links?: { lotNumber?: string; batchId?: string; orderId?: string; shipmentId?: string; receiptId?: string; qaCheckId?: string; };
-    data?: any;
 }
