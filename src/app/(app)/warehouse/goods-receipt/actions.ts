@@ -155,77 +155,77 @@ export async function createGoodsReceipt(payload: {
     const finalLines: GoodsReceipt['lines'] = [];
 
     for (const line of lines) {
-      let currentItem: Item | undefined = line.itemId ? existingItemsMap.get(line.itemId) : undefined;
-      let itemId = line.itemId;
+        let currentItem: Item | undefined = line.itemId ? existingItemsMap.get(line.itemId) : undefined;
+        let itemId = line.itemId;
 
-      if (!itemId && line.newItemName) {
-        const itemRef = db.collection('items').doc();
-        itemId = itemRef.id;
-        const uom = line.uom || 'unit';
-        currentItem = {
-            id: itemId,
-            name: line.newItemName,
-            sku: makeSku(line.newItemName, line.newItemCategory || 'raw', existingItems.map(it => it.sku)),
-            uom: uom,
-            category: line.newItemCategory || 'raw',
-            stdCost: line.unitCost || 0,
-            active: true,
+        if (!itemId && line.newItemName) {
+            const newItemRef = db.collection('items').doc();
+            itemId = newItemRef.id;
+            const uom = line.uom || 'unit';
+            currentItem = {
+                id: itemId,
+                name: line.newItemName,
+                sku: makeSku(line.newItemName, line.newItemCategory || 'raw', existingItems.map(it => it.sku)),
+                uom: uom,
+                category: line.newItemCategory || 'raw',
+                stdCost: line.unitCost || 0,
+                active: true,
+            };
+            batch.set(newItemRef, { ...currentItem, createdAt: nowIso, updatedAt: nowIso });
+            existingItemsMap.set(itemId, currentItem); // Add to local map for subsequent lines
+        }
+
+        if (!currentItem || !itemId) continue;
+        
+        const lotNumber = line.supplierLot.trim() || (line.autoLot ? generateLotNumber(currentItem) : "");
+        if (!lotNumber) throw new Error(`El lote de proveedor es obligatorio para la línea con ${currentItem.name}.`);
+        if (!currentItem.uom) throw new Error(`El item ${currentItem.id} no tiene una unidad de medida (uom) definida.`);
+
+
+        const lotData = LotSchema.parse({
+            lotNumber: lotNumber,
+            itemId: itemId,
+            quantity: line.qty,
+            uom: currentItem.uom,
+            qcStatus: initialQcStatusForItemCategory(currentItem.category),
+            expiryAt: line.expiryAt ?? null,
+            createdAt: nowIso,
+            updatedAt: nowIso,
+        });
+        const lotRef = db.collection('lots').doc(lotNumber);
+        batch.set(lotRef, { ...lotData, supplierId: finalSupplierId }, { merge: true });
+
+        const locationId = line.locationId || landingLocationFor(currentItem.category);
+        const onHandId = `${itemId}|${lotNumber}|${locationId}`;
+        const onHandRef = db.collection('onHand').doc(onHandId);
+        batch.set(onHandRef, {
+            id: onHandId, itemId, lotNumber, locationId,
+            qty: FieldValue.increment(line.qty),
+            uom: currentItem.uom, qcStatus: lotData.qcStatus,
+            createdAt: nowIso, updatedAt: nowIso,
+        }, { merge: true });
+
+        const smRef = db.collection('stockMoves').doc();
+        const stockMove: StockMove = {
+            id: smRef.id,
+            itemId, lotNumber, uom: currentItem.uom,
+            qty: line.qty,
+            reason: 'receipt',
+            toLocationId: locationId,
+            occurredAt: nowIso,
+            createdAt: nowIso,
+            ref: { goodsReceiptId: receiptRef.id },
+            unitCost: line.unitCost,
         };
-        batch.set(itemRef, { ...currentItem, createdAt: nowIso, updatedAt: nowIso });
-        existingItemsMap.set(itemId, currentItem); // Add to local map for subsequent lines
-      }
+        batch.set(smRef, stockMove as any);
 
-      if (!currentItem || !itemId) continue;
-      
-      const lotNumber = line.supplierLot.trim() || (line.autoLot ? generateLotNumber(currentItem) : "");
-      if (!lotNumber) throw new Error(`El lote de proveedor es obligatorio para la línea con ${currentItem.name}.`);
-      if (!currentItem.uom) throw new Error(`El item ${currentItem.id} no tiene una unidad de medida (uom) definida.`);
-
-
-      const lotData = LotSchema.parse({
-        lotNumber: lotNumber,
-        itemId: itemId,
-        quantity: line.qty,
-        uom: currentItem.uom,
-        qcStatus: initialQcStatusForItemCategory(currentItem.category),
-        expiryAt: line.expiryAt ?? null,
-        createdAt: nowIso,
-        updatedAt: nowIso,
-      });
-      const lotRef = db.collection('lots').doc(lotNumber);
-      batch.set(lotRef, { ...lotData, supplierId: finalSupplierId }, { merge: true });
-
-      const locationId = line.locationId || landingLocationFor(currentItem.category);
-      const onHandId = `${itemId}|${lotNumber}|${locationId}`;
-      const onHandRef = db.collection('onHand').doc(onHandId);
-      batch.set(onHandRef, {
-        id: onHandId, itemId, lotNumber, locationId,
-        qty: FieldValue.increment(line.qty),
-        uom: currentItem.uom, qcStatus: lotData.qcStatus,
-        createdAt: nowIso, updatedAt: nowIso,
-      }, { merge: true });
-
-      const smRef = db.collection('stockMoves').doc();
-      const stockMove: StockMove = {
-        id: smRef.id,
-        itemId, lotNumber, uom: currentItem.uom,
-        qty: line.qty,
-        reason: 'receipt',
-        toLocationId: locationId,
-        occurredAt: nowIso,
-        createdAt: nowIso,
-        ref: { goodsReceiptId: receiptRef.id },
-        unitCost: line.unitCost,
-      };
-      batch.set(smRef, stockMove as any);
-
-      finalLines.push({
-        itemId,
-        qty: line.qty,
-        uom: currentItem.uom,
-        unitCost: line.unitCost,
-        lotNumber,
-      } as any);
+        finalLines.push({
+            itemId,
+            qty: line.qty,
+            uom: currentItem.uom,
+            unitCost: line.unitCost,
+            lotNumber,
+        } as any);
     }
     
     const itemsForQcCheck = finalLines.map(l => (l as any).itemId).map(id => existingItemsMap.get(id));
@@ -235,13 +235,13 @@ export async function createGoodsReceipt(payload: {
     });
 
     const receipt: GoodsReceipt = {
-      id: receiptRef.id,
-      receiptNumber,
-      supplierPartyId: finalSupplierId!,
-      deliveryNote,
-      receivedAt: nowIso,
-      status: requiresQc ? 'pending_qc' : 'completed',
-      lines: finalLines,
+        id: receiptRef.id,
+        receiptNumber,
+        supplierPartyId: finalSupplierId!,
+        deliveryNote,
+        receivedAt: nowIso,
+        status: requiresQc ? 'pending_qc' : 'completed',
+        lines: finalLines,
     };
     batch.set(receiptRef, { ...receipt, createdAt: nowIso } as any);
 

@@ -1,3 +1,4 @@
+// src/app/(app)/contacts/actions.ts
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -24,12 +25,18 @@ export async function pushPartyToHoldedAction(partyId: string) {
   if (!snap.exists) throw new Error('Party not found');
   const party = { id: snap.id, ...(snap.data() as any) } as Party;
   const { ensureHoldedContact, updateHoldedContact } = await import('@/server/integrations/holded/pushContact');
+  
+  const batch = db.batch();
+  const partyRef = db.collection('parties').doc(party.id);
+
   if (!party.external?.holdedContactId) {
     const { id } = await ensureHoldedContact(party);
-    await db.collection('parties').doc(party.id).set({ external: { ...(party.external ?? {}), holdedContactId: id } }, { merge: true });
+    batch.set(partyRef, { external: { ...(party.external ?? {}), holdedContactId: id } }, { merge: true });
   } else {
     await updateHoldedContact(party);
   }
+  
+  await batch.commit();
   revalidatePath('/contacts');
 }
 
