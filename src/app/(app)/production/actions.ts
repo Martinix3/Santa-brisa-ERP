@@ -1,4 +1,3 @@
-
 // ============================================================================
 // src/app/(app)/production/actions.ts
 // Server actions del módulo de Producción (ejecución)
@@ -13,6 +12,7 @@ import { z } from "zod";
 import { adminDb } from '@/server/firebase';
 import type { Lot as SsotLot, Uom, ProductionOrder, BillOfMaterial, OnHandView, Item, StockMove } from '@/domain/ssot';
 import { LotSchema, type Lot } from '@/domain/validators';
+import { explodeBOM } from '@/server/production/bom.service';
 
 
 // Si tienes estos tipos en tu SSOT, impórtalos desde '@/domain/ssot'.
@@ -71,34 +71,6 @@ async function readOrder(id: string): Promise<ProductionOrder | null> {
   const { getOne } = await reads();
   if (!getOne) return null as any;
   return await getOne('productionOrders', id) as ProductionOrder | null;
-}
-
-// ===== Explosión de BOM por cantidad planeada =====
-export async function explodeBOM(bomId: string, plannedQty: number): Promise<ActionResult<{ stage: ProductionStage; outputItemId: string; baseUnit: 'L'|'unit'; nominal: ProductionIOLine[] }>> {
-  try {
-    const bom = await readBOM(bomId);
-    if (!bom) return fail('BOM inexistente');
-    const stage: ProductionStage = bom.stage ?? 'PRODUCCION';
-    const baseUnit: 'L'|'unit' = stage === 'PRODUCCION' ? 'L' : 'unit';
-    if (bom.baseUnit !== baseUnit) {
-        console.warn(`[explodeBOM] BOM ${bomId} tiene baseUnit ${bom.baseUnit} pero la etapa es ${stage}. Se usará ${baseUnit}.`);
-    }
-
-    const ids = [bom.outputItemId, ...bom.items.map((i: any) => i.itemId)];
-    const docs = await readItems(ids);
-    const map = new Map(docs.map((d: any) => [d.id, d]));
-
-    const nominal: ProductionIOLine[] = bom.items.map((l: any) => ({
-      itemId: l.itemId,
-      role: l.role,
-      uom: (map.get(l.itemId)?.uom ?? l.uom ?? 'unit') as Uom,
-      qty: Number((l.qty * plannedQty).toFixed(6)),
-    }));
-
-    return ok({ stage, outputItemId: bom.outputItemId, baseUnit, nominal });
-  } catch (e:any) {
-    return fail('No se pudo explotar el BOM.', { code: e?.code });
-  }
 }
 
 // ===== Planificar orden =====
