@@ -170,7 +170,7 @@ export async function createGoodsReceipt(payload: {
                 stdCost: line.unitCost || 0,
                 active: true,
             };
-            batch.set(itemRef, { ...newItem, createdAt: nowIso, updatedAt: nowIso }, { merge: true });
+            batch.set(itemRef, { ...newItem, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as any, { merge: true });
             existingItemsMap.set(itemId, newItem); // Add to local map for subsequent lines
         }
         
@@ -267,4 +267,5 @@ export async function reportIncident(payload: {
 }) {
   // Logic to report an incident
 }
+
 
