@@ -1,6 +1,6 @@
 
 
-// src/features/accounts/components/AccountsPage.tsx
+// src/app/(app)/accounts/page.tsx
 
 "use client"
 import React, { useMemo, useState, useEffect, useCallback } from 'react'
@@ -129,8 +129,8 @@ function AccountBar({ a, party, santaData, onAddActivity, userMap, shortDate }: 
                         <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2">Actividad Reciente</h4>
                         <ul className="space-y-1 text-sm text-zinc-700 max-h-40 overflow-y-auto pr-2">
                             {unifiedActivity.length > 0 ? unifiedActivity.slice(0, 5).map((act, i) => {
-                                if (act.type === 'interaction') {
-                                    const int = act.data as Interaction;
+                                if ('kind' in act) {
+                                    const int = act;
                                     const Icon = interactionIcons[int.kind] || History;
                                     return (
                                         <li key={`act_${i}`} className="flex items-start gap-3 text-xs">
@@ -143,8 +143,8 @@ function AccountBar({ a, party, santaData, onAddActivity, userMap, shortDate }: 
                                         </li>
                                     )
                                 }
-                                if (act.type === 'order') {
-                                    const order = act.data as OrderSellOut;
+                                if ('lines' in act) {
+                                    const order = act;
                                     return (
                                         <li key={`act_${i}`} className="flex items-start gap-3 text-xs">
                                             <ShoppingCart className="h-4 w-4 mt-0.5 text-emerald-600 flex-shrink-0" />
@@ -193,7 +193,7 @@ function AccountBar({ a, party, santaData, onAddActivity, userMap, shortDate }: 
   )
 }
 
-export function AccountsPageContent() {
+export default function AccountsPage() {
   const router = useRouter();
   const { data: santaData, setData, currentUser, saveAllCollections } = useData();
   
@@ -390,7 +390,6 @@ export function AccountsPageContent() {
             }}
             onError={(msg) => {
                 toast.error(`Error: ${msg}`);
-                setCompletingTaskForAccount(null);
             }}
         />
       )}
@@ -411,3 +410,5 @@ export function AccountsPageContent() {
     </>
   )
 }
+
+    
