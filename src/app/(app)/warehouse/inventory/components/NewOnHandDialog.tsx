@@ -1,9 +1,8 @@
-
 // src/app/(app)/warehouse/inventory/components/NewOnHandDialog.tsx
 "use client";
 import React from 'react';
 import { useForm } from 'react-hook-form';
-import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog";
+import { SBDialog, SBDialogContent, SBButton } from "@/components/ui/SBDialog";
 import { Input, Select } from '@/components/ui/ui-primitives';
 import { Item, ItemCategory, Uom } from '@/domain/ssot';
 
@@ -119,13 +118,11 @@ export function NewOnHandDialog({
             </div>
           </div>
           <div className="mt-6 flex justify-end gap-2">
-            <button type="button" onClick={() => { onClose(); reset(); }} className="px-3 py-1.5 border rounded-lg bg-white">Cancelar</button>
-            <button type="submit" className="px-3 py-2 text-sm rounded-lg bg-yellow-400 text-black">Guardar</button>
+            <SBButton type="button" variant="secondary" onClick={() => { onClose(); reset(); }}>Cancelar</SBButton>
+            <SBButton type="submit">Guardar</SBButton>
           </div>
         </form>
       </SBDialogContent>
     </SBDialog>
   );
 }
-
-    

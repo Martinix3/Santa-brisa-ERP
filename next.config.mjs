@@ -1,13 +1,13 @@
+// next.config.mjs
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    // Esta opción se deja vacía si no hay otras configuraciones experimentales.
+    // Es mejor usar una variable de entorno
+    allowedDevOrigins: process.env.ALLOWED_DEV_ORIGIN 
+      ? [process.env.ALLOWED_DEV_ORIGIN] 
+      : undefined,
   },
-  // allowedDevOrigins va en el nivel superior, no dentro de 'experimental'.
-  allowedDevOrigins: [
-    "https://*.cloudworkstations.dev",
-    "https://*.firebase.studio",
-  ],
 };
 
 export default nextConfig;

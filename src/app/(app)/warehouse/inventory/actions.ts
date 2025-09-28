@@ -103,11 +103,11 @@ export async function createManualOnHand(
     const lotData = LotSchema.parse({
       lotNumber: lotNumber,
       itemId: p.itemId,
+      quantity: p.qty,
+      uom: p.uom,
       qcStatus: initialQcStatusFor(item, { sendToQc: p.sendToQc }),
       createdAt: nowIso,
       updatedAt: nowIso,
-      qty: p.qty,
-      uom: p.uom,
     });
 
     const stockMove = {
@@ -123,7 +123,6 @@ export async function createManualOnHand(
       ref: { /* ... */ },
     };
 
-    // --- Operación Atómica con Batch Write ---
     const batch = db.batch();
     
     const lotRef = db.collection('lots').doc(lotNumber);

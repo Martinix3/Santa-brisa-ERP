@@ -6,7 +6,7 @@ import { Download, Plus, History, X, Truck } from "lucide-react";
 import { SBCard, Input, Select, DataTableSB, SBButton } from '@/components/ui/ui-primitives';
 import type { Col } from '@/components/ui/ui-primitives';
 import { useData } from "@/lib/dataprovider";
-import type { OnHandView, Item, ItemCategory, StockMove, Lot, QcStatus, GoodsReceipt, Party } from "@/domain/ssot";
+import type { OnHandView, Item, ItemCategory, StockMove, Lot, GoodsReceipt, Party } from "@/domain/ssot";
 import { createManualOnHand, rebuildOnHand } from "./actions";
 import { NewOnHandDialog } from "./components/NewOnHandDialog";
 import { QuickGoodsReceiptDialog } from "@/features/warehouse/components/QuickGoodsReceiptDialog";
@@ -178,13 +178,13 @@ export default function InventoryPage() {
   const tabsWithCounts = useMemo(() => {
     const counts: Record<string, number> = { fg: 0, raw: 0, intermediate: 0, pack: 0, label: 0, merch: 0, consumable: 0 };
     for (const item of filteredInventory) {
-      const category = itemMap.get(item.itemId)?.category;
+      const category = itemsById.get(item.itemId)?.category;
       if (category && counts[category] !== undefined) {
         counts[category]++;
       }
     }
     return TABS.map(tab => ({ ...tab, count: counts[tab.id] || (tab.id === 'pack' ? (counts.pack || 0) + (counts.label || 0) : 0) }));
-  }, [filteredInventory, itemMap]);
+  }, [filteredInventory, itemsById]);
 
   const currentTabData = useMemo(() => {
     return filteredInventory.filter(oh => {

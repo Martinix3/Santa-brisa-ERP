@@ -141,7 +141,6 @@ function GoodsReceiptForm({ onSaveSuccess, onCancel }: { onSaveSuccess: (info: {
       setIsSaving(false); return;
     }
     try {
-      // Re-map lines to ensure data consistency before sending to server action
       const payloadLines = lines.map(l => {
           const item = items.find(i => i.id === l.itemId);
           return {
@@ -292,16 +291,15 @@ export default function GoodsReceiptPage() {
     }, [data?.goodsReceipts]);
 
     const handleSaveSuccess = (info: { receiptId: string; receiptNumber: string, supplierId?: string }) => {
-        // Optimistically update the list
-        const newReceipt = { 
+        const newReceipt: GoodsReceipt = { 
             id: info.receiptId, 
             receiptNumber: info.receiptNumber, 
             supplierPartyId: info.supplierId || 'unknown',
             receivedAt: new Date().toISOString(), 
             lines: [], 
-            status: 'pending_qc' as const 
+            status: 'pending_qc'
         };
-        setReceipts(prev => [newReceipt as GoodsReceipt, ...prev]);
+        setReceipts(prev => [newReceipt, ...prev]);
         setShowForm(false);
     };
 
