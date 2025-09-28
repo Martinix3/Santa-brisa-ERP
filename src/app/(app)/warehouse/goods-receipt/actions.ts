@@ -159,18 +159,18 @@ export async function createGoodsReceipt(payload: {
 
     const qcStatus = initialQcStatusForItemCategory(item.category);
 
-    const lotDoc = LotSchema.parse({
-      lotNumber,
-      itemId,
-      qty: line.qty,
+    const lotData = LotSchema.parse({
+      lotNumber: lotNumber,
+      itemId: itemId,
+      quantity: line.qty,
       uom: item.uom,
-      qcStatus,
+      qcStatus: qcStatus,
       expiryAt: line.expiryAt ?? null,
       createdAt: nowIso,
       updatedAt: nowIso,
     });
     const lotRef = db.collection('lots').doc(lotNumber);
-    batch.set(lotRef, { ...lotDoc, supplierId: finalSupplierId }, { merge: true });
+    batch.set(lotRef, { ...lotData, supplierId: finalSupplierId }, { merge: true });
 
     const locationId = landingLocationFor(item.category);
     const onHandId = `${itemId}|${lotNumber}|${locationId}`;
