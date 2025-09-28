@@ -1,4 +1,3 @@
-
 // src/app/(app)/production/execution/page.tsx
 "use client";
 
@@ -225,6 +224,10 @@ export default function ProductionExecutionPage() {
     setActiveForm(form => form ? ({ ...form, [field]: value }) : null);
   }, []);
 
+  const onReadyChange = useCallback((ok: boolean) => setFormValue('stockOk', ok), [setFormValue]);
+  const shortagesOut = useCallback((s: ActiveOrderForm['shortages']) => setFormValue('shortages', s), [setFormValue]);
+  const requiredLotsOut = useCallback((r: ActiveOrderForm['requiredLots']) => setFormValue('requiredLots', r), [setFormValue]);
+
   const openPlanningFromBom = useCallback((bom: RecipeBom) => {
     const outputItem = itemsMap.get(bom.outputItemId);
     setActiveForm({
@@ -343,8 +346,8 @@ export default function ProductionExecutionPage() {
   };
   
   const handleProgram = () => {
-    if (!activeForm?.planningBom || !activeForm.order) return;
-    const planQty = (activeForm.order as any)?.targetQuantity ?? 1;
+    if (!activeForm?.planningBom) return;
+    const planQty = (activeForm.finalOutput)?.qty ?? 1;
     if (planQty <= 0) { toast.error("La cantidad debe ser mayor que cero."); return; }
 
     startTransition(async ()=>{
@@ -445,15 +448,15 @@ export default function ProductionExecutionPage() {
                         {activeForm?.order?.status && (<p><b>Status:</b> <Badge tone={mapStatusTone(activeForm.order.status)}>{activeForm.order.status}</Badge></p>)}
                       </div>
                       <div className="grid grid-cols-2 gap-4">
-                          <Input type="number" className="mt-1 w-full" value={activeForm?.order?.targetQuantity || 1} readOnly={!canEditPlan(activeForm?.order?.status)} onChange={e => setFormValue('order', {...activeForm?.order, targetQuantity: Number(e.target.value) || 0} )} />
+                          <Input type="number" className="mt-1 w-full" value={activeForm.finalOutput.qty || 1} readOnly={!canEditPlan(activeForm?.order?.status)} onChange={e => setFormValue('finalOutput', {...activeForm.finalOutput, qty: Number(e.target.value) || 0} )} />
                           <Input type="date" className="mt-1 w-full" value={activeForm?.order?.scheduledFor?.slice(0, 10) || new Date().toISOString().slice(0, 10)} readOnly={!canEditPlan(activeForm?.order?.status)} onChange={e => setFormValue('order', {...activeForm?.order, scheduledFor: e.target.value} )} />
                       </div>
                       
                       {activeBom ? (
-                        <StockCheckPanel bom={activeBom} qty={activeForm.order?.targetQuantity || 1} items={items} onHand={onHand}
-                          onReadyChange={(ok) => setFormValue('stockOk', ok)}
-                          shortagesOut={(s) => setFormValue('shortages', s)}
-                          requiredLotsOut={(r) => setFormValue('requiredLots', r)} />
+                        <StockCheckPanel bom={activeBom} qty={activeForm.finalOutput.qty || 1} items={items} onHand={onHand}
+                          onReadyChange={onReadyChange}
+                          shortagesOut={shortagesOut}
+                          requiredLotsOut={requiredLotsOut} />
                       ) : (
                         <div className="border rounded-lg p-3 text-sm text-zinc-500">Selecciona una receta u orden.</div>
                       )}
@@ -527,3 +530,4 @@ export default function ProductionExecutionPage() {
     </div>
   );
 }
+```
