@@ -1,4 +1,5 @@
 
+// src/app/(app)/production/execution/page.tsx
 "use client";
 
 import React, { useMemo, useState, useTransition, useEffect, useCallback } from "react";
@@ -13,8 +14,8 @@ import { planProduction, updateProductionOrderStatus, completeProductionOrder, a
 
 // Tipos locales para el estado del formulario
 type LocalProductionOrder = ProductionOrder & { locked?: boolean; };
-type RealLine = { itemId: string; qty: number; uom: Uom; lotNumber: string; fromLocationId: string; };
-type OutputReal = { itemId: string; qty: number; uom: Uom; lotNumber?: string; sku?: string; toLocationId: string; };
+type RealLine = { itemId: string; qty: number; uom: Uom; lotNumber: string; fromLocationId: string };
+type OutputReal = { itemId: string; qty: number; uom: Uom; lotNumber?: string; sku?: string; toLocationId: string };
 type ActiveOrderForm = {
     order: LocalProductionOrder | null;
     planningBom: RecipeBom | null;
@@ -216,9 +217,9 @@ export default function ProductionExecutionPage() {
   const shortagesOut = useCallback((s: ActiveOrderForm['shortages']) => setFormValue('shortages', s), [setFormValue]);
   const requiredLotsOut = useCallback((r: ActiveOrderForm['requiredLots']) => setFormValue('requiredLots', r), [setFormValue]);
 
-
   const openPlanningFromBom = useCallback((bom: RecipeBom) => {
     const outputItem = itemsMap.get(bom.outputItemId);
+    const suggestedLot = `LOTE-${new Date().toISOString().slice(5, 10).replace('-', '')}-${Math.floor(Math.random() * 900) + 100}`;
     setActiveForm({
         order: null,
         planningBom: bom,
@@ -228,7 +229,8 @@ export default function ProductionExecutionPage() {
             sku: outputItem?.sku,
             qty: 1, // Cantidad por defecto
             uom: (bom.stage === "ENVASADO" ? "unit" : "L"),
-            toLocationId: 'FG/MAIN'
+            toLocationId: 'FG/MAIN',
+            lotNumber: suggestedLot,
         },
         realConsumption: [],
         journal: [],
@@ -243,6 +245,7 @@ export default function ProductionExecutionPage() {
 
   const openExecution = useCallback((order: ProductionOrder) => {
     const outputItem = itemsMap.get(order.outputItemId);
+    const suggestedLot = order.lotNumber ?? `LOTE-${new Date().toISOString().slice(5, 10).replace('-', '')}-${Math.floor(Math.random() * 900) + 100}`;
     setActiveForm({
         order: order as LocalProductionOrder,
         planningBom: null,
@@ -252,7 +255,8 @@ export default function ProductionExecutionPage() {
             sku: outputItem?.sku,
             qty: order.targetQuantity,
             uom: order.baseUnit,
-            toLocationId: 'FG/MAIN'
+            toLocationId: 'FG/MAIN',
+            lotNumber: suggestedLot,
         },
         realConsumption: picksToRealLines((order.reservations as any) || []),
         journal: (order as any).journal ?? [],
@@ -325,8 +329,8 @@ export default function ProductionExecutionPage() {
         summary: activeForm.incidentText.trim(),
       });
       if (r.ok) {
-        setActiveForm(null);
-        router.refresh();
+        setFormValue('journal', [...(activeForm.journal || []), {id: `inc_${Date.now()}`, at: new Date().toISOString(), kind:'INCIDENT', summary: activeForm.incidentText.trim()}]);
+        setFormValue('incidentText', '');
         toast.success("Incidencia registrada");
       } else {
         toast.error(r.message ?? 'Error al añadir incidencia');
@@ -475,7 +479,7 @@ export default function ProductionExecutionPage() {
                     {activeForm && <div className="p-4 space-y-3">
                       <div className="p-3 bg-zinc-50 border rounded-lg text-sm">
                         <div className="font-mono">SKU: <b>{ itemsMap.get(activeForm.finalOutput?.itemId ?? "")?.name ?? "-" }</b></div>
-                        <div className="font-mono">LOT: <b>{ activeForm.finalOutput.lotNumber ?? "-" }</b></div>
+                        <div className="font-mono">LOTE: <b>{ activeForm.finalOutput.lotNumber ?? "-" }</b></div>
                       </div>
                       <Input placeholder="Nombre responsable" value={activeForm.responsibleId ?? ''} onChange={e=>setFormValue('responsibleId', e.target.value)} readOnly={orderIsLocked} />
                       <div className="grid grid-cols-2 gap-2 text-sm">{activeForm.protocolChecks.map((v,i)=>(<label key={i} className="flex items-center gap-2"><input type="checkbox" checked={v} onChange={()=> setFormValue('protocolChecks', activeForm.protocolChecks.map((c,ci)=> i===ci?!c:c))} disabled={orderIsLocked}/>Protocolos OK</label>))}</div>
