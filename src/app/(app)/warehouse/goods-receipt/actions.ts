@@ -172,9 +172,11 @@ export async function createGoodsReceipt(payload: {
             batch.set(itemRef, { ...newItem, createdAt: nowIso, updatedAt: nowIso }, { merge: true });
             existingItemsMap.set(itemId, newItem); // Add to local map for subsequent lines
         }
+        
+        if (!itemId) continue; // Skip if no item can be determined
 
-        const currentItem = existingItemsMap.get(itemId!);
-        if (!currentItem) continue;
+        const currentItem = existingItemsMap.get(itemId);
+        if (!currentItem) throw new Error(`Item con ID ${itemId} no encontrado.`);
         if (!currentItem.uom) throw new Error(`El item ${currentItem.id} no tiene una unidad de medida (uom) definida.`);
         
         const lotNumber = line.supplierLot.trim() || (line.autoLot ? generateLotNumber(currentItem) : "");
