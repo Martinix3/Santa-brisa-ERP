@@ -1,4 +1,3 @@
-
 // src/app/(app)/warehouse/goods-receipt/actions.ts
 'use server';
 
@@ -97,8 +96,7 @@ export async function createItem(payload: { name: string; sku?: string; uom: Uom
         active: true,
     };
     
-    batch.set(
-      itemRef,
+    await itemRef.set(
       { ...newItem, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as any,
       { merge: true }
     );

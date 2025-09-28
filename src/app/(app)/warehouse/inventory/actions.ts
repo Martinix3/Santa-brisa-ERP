@@ -1,4 +1,3 @@
-
 // src/app/(app)/warehouse/inventory/actions.ts
 'use server';
 

@@ -1,4 +1,3 @@
-
 // ============================================================================
 // src/app/(app)/production/actions.ts
 // Server actions del módulo de Producción (ejecución)
@@ -260,22 +259,22 @@ type CloseInput = {
 
 export async function closeProduction(input: CloseInput) {
     const nowIso = new Date().toISOString();
-    const batch = adminDb.batch();
+    const batch = db.batch();
 
-    const orderRef = adminDb.collection('productionOrders').doc(input.prodOrderId);
+    const orderRef = db.collection('productionOrders').doc(input.prodOrderId);
 
     // 1) CONSUMO de materias primas (salida)
     for (const c of input.consumptions) {
-        const smRef = adminDb.collection('stockMoves').doc();
+        const smRef = db.collection('stockMoves').doc();
         const fromLoc = c.fromLocationId ?? 'RM/MAIN';
         batch.set(smRef, {
             id: smRef.id,
-            prodOrderId: input.prodOrderId,
+            ref: { prodOrderId: input.prodOrderId },
             itemId: c.itemId,
             lotNumber: c.lotNumber,
             qty: -Math.abs(c.qty),
             uom: c.uom,
-            reason: 'production_out', // Usar 'production_out'
+            reason: 'production_out',
             fromLocationId: fromLoc,
             toLocationId: '',
             occurredAt: nowIso,
@@ -289,7 +288,7 @@ export async function closeProduction(input: CloseInput) {
     const lotNumber = out.lotNumber ?? (await findNextLotNumber(out.itemId, out.sku));
 
     // Asegura que el lote FG exista
-    const lotRef = adminDb.collection('lots').doc(lotNumber);
+    const lotRef = db.collection('lots').doc(lotNumber);
     batch.set(lotRef, {
         id: lotNumber,
         lotNumber,
@@ -299,15 +298,15 @@ export async function closeProduction(input: CloseInput) {
         createdAt: nowIso, updatedAt: nowIso,
     }, { merge: true });
 
-    const smFGRef = adminDb.collection('stockMoves').doc();
+    const smFGRef = db.collection('stockMoves').doc();
     batch.set(smFGRef, {
         id: smFGRef.id,
-        prodOrderId: input.prodOrderId,
+        ref: { prodOrderId: input.prodOrderId },
         itemId: out.itemId,
         lotNumber,
         qty: Math.abs(out.qty),
         uom: out.uom,
-        reason: 'production_in', // Usar 'production_in'
+        reason: 'production_in',
         fromLocationId: '',
         toLocationId: toLoc,
         occurredAt: nowIso,
@@ -315,14 +314,14 @@ export async function closeProduction(input: CloseInput) {
     });
 
     // 3) Estado de la orden
-    batch.update(orderRef, {
+    batch.set(orderRef, {
         status: input.finalizeStatus ?? 'DONE',
         closedAt: nowIso,
         updatedAt: nowIso,
-    });
+    }, { merge: true });
 
     await batch.commit();
-    return { ok: true, prodOrderId: input.prodOrderId, lotNumber };
+    return ok({ prodOrderId: input.prodOrderId, lotNumber });
 }
 
 
@@ -445,6 +444,10 @@ export async function previewPlanning(input: {
         if (remaining <= 0) break;
         const take = Math.min(Number(lot.qty) || 0, remaining);
         if (take > 0) {
+          if (!lot.lotNumber) {
+            console.warn(`fifoReserveLots: OnHand item ${lot.id} for item ${lot.itemId} has no lotNumber.`);
+            continue;
+          }
           allocations.push({ itemId: line.itemId, lotNumber: lot.lotNumber, uom: lot.uom, qty: take });
           remaining -= take;
         }
@@ -477,7 +480,3 @@ export async function previewPlanning(input: {
     return fail("No se pudo previsualizar la planificación.", { code: e?.code });
   }
 }
-
-    
-
-    
