@@ -1,6 +1,5 @@
-
 // src/domain/onhand.recalc.ts
-import type { StockMove, OnHandView, Uom } from '@/domain/ssot';
+import type { StockMove, OnHandView, Uom, Item, ItemCategory } from '@/domain/ssot';
 
 const SIGN: Record<string, number> = {
   receipt: +1,
@@ -25,7 +24,8 @@ function key(itemId: string, lot?: string, loc?: string) {
   return [itemId, lot || '', loc || ''].join('|');
 }
 
-export function deriveOnHand(stockMoves: StockMove[], nowIso = new Date().toISOString()): OnHandView[] {
+export function deriveOnHand(stockMoves: StockMove[], items: Item[], nowIso = new Date().toISOString()): OnHandView[] {
+  const itemMap = new Map(items.map(i => [i.id, i]));
   const acc = new Map<string, { qty: number; uom: Uom; itemId: string; lot?: string; loc?: string; createdAt?: string; updatedAt?: string }>();
 
   for (const m of stockMoves) {
@@ -68,14 +68,16 @@ export function deriveOnHand(stockMoves: StockMove[], nowIso = new Date().toISOS
   const out: OnHandView[] = [];
   for (const [id, v] of acc.entries()) {
     if (Math.abs(v.qty) < 1e-9) continue;
+    const item = itemMap.get(v.itemId);
     out.push({
       id,
       itemId: v.itemId,
       lotNumber: v.lot || '',
       locationId: v.loc || '',
       qty: Number(v.qty.toFixed(6)),
-      uom: v.uom as 'kg'|'L'|'unit',
+      uom: v.uom as Uom,
       qcStatus: 'PENDING', // Placeholder, real status from 'lots'
+      category: item?.category ?? 'raw', // Get category from itemMap
       createdAt: v.createdAt || nowIso,
       updatedAt: v.updatedAt || nowIso,
     });

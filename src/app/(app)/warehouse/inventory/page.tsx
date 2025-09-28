@@ -1,10 +1,9 @@
-
 // src/app/(app)/warehouse/inventory/page.tsx
 "use client";
 import React, { useMemo, useState, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Download, Plus, History, X } from "lucide-react";
-import { SBCard, Input, Select, DataTableSB } from '@/components/ui/ui-primitives';
+import { SBCard, Input, Select, DataTableSB, SBButton } from '@/components/ui/ui-primitives';
 import { useData } from "@/lib/dataprovider";
 import type { OnHandView, Item, ItemCategory, StockMove, Lot, QcStatus } from "@/domain/ssot";
 import { createManualOnHand, rebuildOnHand } from "./actions";
@@ -244,5 +243,3 @@ export default function InventoryPage() {
     </div>
   );
 }
-
-    

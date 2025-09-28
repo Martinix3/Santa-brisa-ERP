@@ -32,14 +32,14 @@ function simpleId(prefix="sm"): string {
   const r = Math.random().toString(36).slice(2,10);
   return `${prefix}_${r}`;
 }
-const pad2 = (n: number) => String(n).padStart(2, "0");
 
-function lotPrefixFromSku(sku?: string, itemId?: string) {
-  const base = (sku || itemId || "SKU").toUpperCase().replace(/[^A-Z0-9_-]/g, "");
+const lotPrefixFromSku = (sku?: string, itemId?: string) => {
+  const base = (sku || itemId || 'SKU').toUpperCase().replace(/[^A-Z0-9_-]/g, '');
   const d = new Date();
-  const yymm = `${String(d.getFullYear()).slice(-2)}${pad2(d.getMonth() + 1)}`;
+  const yymm = `${String(d.getFullYear()).slice(-2)}${String(d.getMonth() + 1).padStart(2, '0')}`;
   return `${base}-${yymm}`;
-}
+};
+
 
 async function findNextLotNumber(itemId: string, sku?: string): Promise<string> {
     const prefix = lotPrefixFromSku(sku, itemId);
@@ -198,7 +198,7 @@ export async function rebuildOnHand() {
             const key = makeOnHandId(m.itemId, m.lotNumber, loc);
             const entry = onHandAgg[key] || { qty: 0, uom, itemId: m.itemId, lotNumber: m.lotNumber, locationId: loc, updatedAt: '1970-01-01T00:00:00Z' };
             entry.qty += qty * sign;
-            if (new Date(updatedAt) > new Date(entry.updatedat)) {
+            if (new Date(updatedAt) > new Date(entry.updatedAt)) {
                 entry.updatedAt = updatedAt;
             }
             onHandAgg[key] = entry;
@@ -251,7 +251,7 @@ export async function rebuildOnHand() {
     const writer = db.bulkWriter();
     const existingSnap = await db.collection('onHand').select().get();
     existingSnap.docs.forEach(doc => writer.delete(doc.ref));
-    finalOnHandDocs.forEach(doc => writer.set(db.collection('onHand').doc(doc.id), doc));
+    finalOnHandDocs.forEach(doc => writer.set(db.collection('onHand').doc(doc.id), doc as any));
     await writer.close();
 
     console.log(`[Worker/rebuildOnHand] Finished. Deleted ${existingSnap.size}, wrote ${finalOnHandDocs.length}.`);
