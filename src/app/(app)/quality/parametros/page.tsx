@@ -1,36 +1,28 @@
 // src/app/(app)/quality/parametros/page.tsx
 "use client";
 
-import React, { useEffect, useState } from "react";
-import {
-  listParametersBySku,
-  upsertParameterBySku,
-  deleteParameterBySku,
-  listPlans,
-  upsertPlan,
-  deletePlan,
-  listProtocols,
-  upsertProtocol,
-  deleteProtocol,
-} from "./actions";
-
+import React, { useEffect, useState, useTransition, useCallback } from "react";
+import { useRouter } from 'next/navigation';
+import { listParametersBySku, upsertParameterBySku, deleteParameterBySku, listPlans, upsertPlan, deletePlan, listProtocols, upsertProtocol, deleteProtocol } from "./actions";
 import type { ParameterBySku, QcPlanBySku as QcPlan, QcSpec, Protocol as SafetyProtocol } from './schemas';
+import { Plus, Trash2, Save, FlaskConical, ShieldCheck, Wrench } from "lucide-react";
+import { useData } from "@/lib/dataprovider";
+import { SBCard, SBButton, Input, Select } from "@/components/ui/ui-primitives";
+import { toast } from "sonner";
 
-import { Plus, Trash2, Save, Wrench, FlaskConical, ShieldCheck, Settings, Search } from "lucide-react";
-import { useData as useDataMaybe } from "@/lib/dataprovider";
+// --- Componentes UI Locales ---
 
-// ==========================
-// Card local con acento Calidad
-// ==========================
 function Card({ title, icon: Icon, children, subtitle }: { title?: string; icon?: React.ReactNode; children?: React.ReactNode; subtitle?: string }) {
   return (
     <div className="rounded-2xl border bg-white shadow-sm">
-      <div className="px-4 py-3 border-b flex items-center justify-between">
-        <div className="flex items-center gap-2">
-            {Icon && <span className="text-sky-700">{Icon}</span>}
-            {title && <h3 className="text-sm font-semibold">{title}</h3>}
+      {(title || subtitle) && (
+        <div className="px-4 py-3 border-b flex items-center justify-between">
+          <div className="flex items-center gap-2">
+              {Icon && <span className="text-sky-700">{Icon}</span>}
+              {title && <h3 className="text-sm font-semibold">{title}</h3>}
+          </div>
         </div>
-      </div>
+      )}
       <div className="p-4">
         {subtitle && <p className="text-sm text-zinc-600 mb-3">{subtitle}</p>}
         {children}
@@ -43,155 +35,191 @@ function Section(props: React.PropsWithChildren<{ title: string; subtitle?: stri
   return <Card title={props.title} subtitle={props.subtitle} icon={props.icon}>{props.children}</Card>;
 }
 
-function Field({ label, children, className = "" }: React.PropsWithChildren<{ label: string; className?: string }>) {
-  return (
-    <label className={`block ${className}`}>
-      <span className="block text-xs text-zinc-600 mb-1">{label}</span>
-      {children}
-    </label>
-  );
-}
+// --- Página Principal ---
 
-// ==========================
-// Página
-// ==========================
 export default function QualityParametersPage() {
-  let useData: typeof useDataMaybe | undefined;
-  try { useData = useDataMaybe; } catch {}
-  const items = useData?.().data?.items as Array<{ id: string; sku?: string; name: string }> | undefined;
+  const router = useRouter();
+  const { data: globalData } = useData();
+  const items = globalData?.items || [];
+  const [isPending, startTransition] = useTransition();
 
-  // SKU seleccionado
   const [sku, setSku] = useState<string>("");
-  useEffect(() => { if (!sku && items?.length) setSku(items[0].id); }, [items, sku]);
-
-  // ==========================
-  // Parámetros por SKU
-  // ==========================
   const [params, setParams] = useState<ParameterBySku[]>([]);
-  async function refreshParams() {
-    if (!sku) return;
-    const res = await listParametersBySku(sku);
-    if(res.ok) setParams(res.data);
-  }
-  useEffect(() => { refreshParams(); }, [sku]);
-
+  const [plans, setPlans] = useState<QcPlan[]>([]);
+  const [protocols, setProtocols] = useState<SafetyProtocol[]>([]);
+  
   const [newParam, setNewParam] = useState<Partial<ParameterBySku>>({ name: "", unit: "", method: "LAB" });
 
-  async function handleAddParam(): Promise<void> {
-    if (!sku || !newParam.name) return;
-    const id = `param_${sku}_${newParam.code || newParam.name.toLowerCase().replace(/\s/g, '_')}`;
-    await upsertParameterBySku({
-      id,
-      sku,
-      code: newParam.code || newParam.name.toLowerCase().replace(/\s/g, '_'),
-      name: newParam.name!,
-      unit: newParam.unit,
-      method: (newParam.method as string) ?? "LAB",
-      target: newParam.target as number | undefined,
-      tolerance: newParam.tolerance as number | undefined,
-    } as ParameterBySku);
-    setNewParam({ name: "", unit: "", method: "LAB" });
-    await refreshParams();
-  }
+  // ==== Carga de Datos Centralizada ====
+  const loadDataForSku = useCallback(async (currentSku: string) => {
+    if (!currentSku) return;
+    startTransition(async () => {
+      const [paramsRes, plansRes] = await Promise.all([
+        listParametersBySku(currentSku),
+        listPlans(currentSku),
+      ]);
+      if (paramsRes.ok) setParams(paramsRes.data);
+      if (plansRes.ok) setPlans(plansRes.data);
+    });
+  }, []);
 
-  async function handleDeleteParam(id: string): Promise<void> {
-    await deleteParameterBySku(id);
-    await refreshParams();
-  }
-
-  // ==========================
-  // Qc Plans por SKU
-  // ==========================
-  const [plans, setPlans] = useState<QcPlan[]>([]);
-  async function refreshPlans() { 
-      if(sku) {
-        const res = await listPlans(sku);
-        if(res.ok) setPlans(res.data);
-      }
-  }
-  useEffect(() => { refreshPlans(); }, [sku]);
-
-  function addPlan() {
-    if (!sku) return;
-    const plan: QcPlan = { id: `plan_${Date.now()}`, name: "Nuevo plan", sku: sku, specs: [] };
-    setPlans((p) => [plan, ...p]);
-  }
-  async function savePlan(plan: QcPlan) { await upsertPlan(plan); await refreshPlans(); }
-  async function removePlan(id: string) { await deletePlan(id); await refreshPlans(); }
+  const loadGlobalData = useCallback(async () => {
+    startTransition(async () => {
+      const protocolsRes = await listProtocols();
+      if (protocolsRes.ok) setProtocols(protocolsRes.data);
+    });
+  }, []);
   
-  function addSpec(planId: string): void {
-    setPlans((prev) =>
-      prev.map((p): QcPlan =>
-        p.id === planId
-          ? {
-              ...p,
-              specs: [
-                ...p.specs,
-                {
-                  id: `spec_${Date.now()}`,
-                  parameterId: params[0]?.id ?? "",
-                  point: "ENVASADO",
-                } as QcSpec,
-              ],
-            }
-          : p
-      )
-    );
-  }
-  function removeSpec(planId: string, specId: string) {
-    setPlans((prev) => prev.map((p) => (p.id === planId ? { ...p, specs: p.specs.filter((s:any) => s.id !== specId) } : p)));
-  }
+  // Inicializa el SKU y carga los datos
+  useEffect(() => {
+    if (!sku && items.length > 0) {
+      setSku(items[0].id);
+    }
+    if (protocols.length === 0) {
+        loadGlobalData();
+    }
+  }, [items, sku, protocols.length, loadGlobalData]);
 
-  // ==========================
-  // Protocolos APPCC
-  // ==========================
-  const [protocols, setProtocols] = useState<SafetyProtocol[]>([]);
-  async function refreshProtocols() {
-    const res = await listProtocols();
-    if(res.ok) setProtocols(res.data);
-  }
-  useEffect(() => { refreshProtocols(); }, []);
-  async function saveProtocol(proto: SafetyProtocol) { await upsertProtocol(proto); await refreshProtocols(); }
-  async function removeProtocol(id: string) { await deleteProtocol(id); await refreshProtocols(); }
+  // Recarga datos específicos del SKU solo cuando el SKU cambia
+  useEffect(() => {
+    loadDataForSku(sku);
+  }, [sku, loadDataForSku]);
+
+  // --- Handlers de Mutación ---
+
+  const handleAddParam = async () => {
+    if (!sku || !newParam.name) {
+      toast.error("El nombre del parámetro es obligatorio.");
+      return;
+    }
+    startTransition(async () => {
+      const id = `param_${sku}_${(newParam.code || newParam.name!.toLowerCase().replace(/\s/g, '_')).slice(0, 20)}`;
+      const res = await upsertParameterBySku({
+        id,
+        sku,
+        code: newParam.code || newParam.name!.toLowerCase().replace(/\s/g, '_'),
+        name: newParam.name!,
+        unit: newParam.unit,
+        method: (newParam.method as string) ?? "LAB",
+      } as ParameterBySku);
+      if (res.ok) {
+        toast.success("Parámetro añadido.");
+        setNewParam({ name: "", unit: "", method: "LAB" });
+        await loadDataForSku(sku);
+      } else {
+        toast.error(`Error: ${res.message}`);
+      }
+    });
+  };
+
+  const handleDeleteParam = async (id: string) => {
+    if (!confirm("¿Seguro que quieres eliminar este parámetro?")) return;
+    startTransition(async () => {
+      const res = await deleteParameterBySku(id);
+      if (res.ok) {
+        toast.success("Parámetro eliminado.");
+        await loadDataForSku(sku);
+      } else {
+        toast.error(`Error al eliminar: ${res.message}`);
+      }
+    });
+  };
+
+  const handleSavePlan = async (plan: QcPlan) => {
+    startTransition(async () => {
+      const res = await upsertPlan(plan);
+      if (res.ok) {
+        toast.success(`Plan "${plan.name}" guardado.`);
+        await loadDataForSku(sku);
+      } else {
+        toast.error(`Error al guardar: ${res.message}`);
+      }
+    });
+  };
+
+  const handleDeletePlan = async (id: string) => {
+    if (!confirm("¿Seguro que quieres eliminar este plan de calidad?")) return;
+    startTransition(async () => {
+      const res = await deletePlan(id);
+      if (res.ok) {
+        toast.success("Plan eliminado.");
+        await loadDataForSku(sku);
+      } else {
+        toast.error(`Error: ${res.message}`);
+      }
+    });
+  };
+
+  const handleSaveProtocol = async (proto: SafetyProtocol) => {
+    startTransition(async () => {
+        const res = await upsertProtocol(proto);
+        if (res.ok) {
+            toast.success(`Protocolo "${proto.title}" guardado.`);
+            await loadGlobalData();
+        } else {
+            toast.error(`Error al guardar protocolo: ${res.message}`);
+        }
+    });
+  };
+
+  const handleDeleteProtocol = async (id: string) => {
+    if (!confirm("¿Seguro que quieres eliminar este protocolo?")) return;
+    startTransition(async () => {
+        const res = await deleteProtocol(id);
+        if (res.ok) {
+            toast.success("Protocolo eliminado.");
+            await loadGlobalData();
+        } else {
+            toast.error(`Error al eliminar protocolo: ${res.message}`);
+        }
+    });
+  };
+
+  const addSpecToPlan = (planId: string) => {
+    setPlans(prev => prev.map(p => {
+        if (p.id !== planId) return p;
+        const newSpec: QcSpec = { id: `spec_${Date.now()}`, parameterId: params[0]?.id || "", point: "RECEPCION" };
+        return { ...p, specs: [...p.specs, newSpec] };
+    }));
+  };
+
+  const updateSpecInPlan = (planId: string, specIndex: number, field: keyof QcSpec, value: string) => {
+    setPlans(prev => prev.map(p => {
+        if (p.id !== planId) return p;
+        const newSpecs = [...p.specs];
+        (newSpecs[specIndex] as any)[field] = value;
+        return { ...p, specs: newSpecs };
+    }));
+  };
+
+  const removeSpecFromPlan = (planId: string, specIndex: number) => {
+    setPlans(prev => prev.map(p => {
+        if (p.id !== planId) return p;
+        return { ...p, specs: p.specs.filter((_, i) => i !== specIndex) };
+    }));
+  };
+
 
   return (
-    <div className="mx-auto max-w-6xl p-4 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-[hsl(var(--sb-accent-calidad))]">Calidad — Configuración</h1>
-        <div className="sb-badge sb-badge--calidad">Admin Calidad</div>
-      </div>
-
-      {/* ================= Parámetros analíticos ================= */}
+    <div className="mx-auto max-w-6xl space-y-6">
       <Section title="Parámetros analíticos por SKU" subtitle="Define variables específicas de cada producto" icon={<FlaskConical size={18}/>}>
         <div className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
-          <Field label="SKU">
-            <select className="w-full rounded-lg border px-3 py-2" value={sku} onChange={(e) => setSku(e.target.value)}>
-              {(items ?? [{ id:"sb_fg_70", name:"Santa Brisa FG 70cl" }]).map(i => (
-                <option key={i.id} value={i.id}>{i.name}</option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Nombre" className="md:col-span-2">
-            <input className="w-full rounded-lg border px-3 py-2" value={newParam.name ?? ""} onChange={(e) => setNewParam(s => ({ ...s, name: e.target.value }))}/>
-          </Field>
-          <Field label="Unidad">
-            <input className="w-full rounded-lg border px-3 py-2" value={newParam.unit ?? ""} onChange={(e) => setNewParam(s => ({ ...s, unit: e.target.value }))}/>
-          </Field>
-          <Field label="Método">
-            <select className="w-full rounded-lg border px-3 py-2" value={(newParam.method as string) ?? "LAB"} onChange={(e) => setNewParam(s => ({ ...s, method: e.target.value }))}>
-              <option value="LAB">LAB</option>
-              <option value="SENSORIAL">Sensorial</option>
-              <option value="INSTRUMENTAL">Instrumental</option>
-            </select>
-          </Field>
-          <button onClick={handleAddParam} className="sb-btn-calidad h-[38px] inline-flex items-center justify-center gap-2 px-3">
-            <Plus size={16}/> Añadir
-          </button>
+          <label className="grid gap-1.5 md:col-span-2"><span className="text-sm font-medium">SKU</span>
+            <Select value={sku} onChange={(e) => setSku(e.target.value)}>
+              {(items ?? []).map(i => (<option key={i.id} value={i.id}>{i.name}</option>))}
+            </Select>
+          </label>
+          <label className="grid gap-1.5 md:col-span-2"><span className="text-sm font-medium">Nombre Nuevo Parámetro</span>
+            <Input value={newParam.name ?? ""} onChange={(e) => setNewParam(s => ({ ...s, name: e.target.value }))}/>
+          </label>
+          <label className="grid gap-1.5"><span className="text-sm font-medium">Unidad</span>
+            <Input value={newParam.unit ?? ""} onChange={(e) => setNewParam(s => ({ ...s, unit: e.target.value }))}/>
+          </label>
+          <SBButton onClick={handleAddParam} disabled={isPending}><Plus size={16}/> Añadir</SBButton>
         </div>
 
-        {/* Tabla de parámetros */}
         <table className="min-w-full text-sm mt-3">
-          <thead><tr className="text-left text-zinc-600"><th>Nombre</th><th>Unidad</th><th>Método</th><th>Acciones</th></tr></thead>
+          <thead className="text-left"><tr className="text-zinc-600"><th>Nombre</th><th>Unidad</th><th>Método</th><th>Acciones</th></tr></thead>
           <tbody>
             {params.map((p) => (
               <tr key={p.id} className="border-t">
@@ -199,53 +227,71 @@ export default function QualityParametersPage() {
                 <td className="py-2">{p.unit ?? "-"}</td>
                 <td className="py-2">{p.method ?? "-"}</td>
                 <td className="py-2">
-                  <button onClick={() => handleDeleteParam(p.id)} className="text-red-600 hover:underline inline-flex items-center gap-1"><Trash2 size={14}/> borrar</button>
+                  <SBButton variant="ghost" size="sm" onClick={() => handleDeleteParam(p.id)} disabled={isPending}><Trash2 size={14} className="text-red-500" /></SBButton>
                 </td>
               </tr>
             ))}
-            {params.length === 0 && <tr><td colSpan={4} className="py-3 text-zinc-500">Sin parámetros definidos.</td></tr>}
+            {params.length === 0 && <tr><td colSpan={4} className="py-3 text-zinc-500">Sin parámetros definidos para este SKU.</td></tr>}
           </tbody>
         </table>
       </Section>
 
-      {/* ================= Planes QC ================= */}
-      <Section title="Planes de QC" subtitle="Control por SKU en cada punto crítico" icon={<Wrench size={18}/>}>
-        <button onClick={addPlan} className="sb-btn-calidad inline-flex items-center gap-2 px-3 py-1.5 mb-3"><Plus size={16}/> Nuevo plan</button>
-        {plans.filter(p => !sku || p.sku === sku).map((plan) => (
-          <div key={plan.id} className="rounded-xl border p-3 mb-3">
-            <div className="flex justify-between items-center mb-2">
-              <input className="rounded-lg border px-2 py-1 font-medium" value={plan.name} onChange={(e) => setPlans(prev => prev.map(p => p.id===plan.id?{...p,name:e.target.value}:p))}/>
+      <Section title="Planes de Calidad (Protocolos de Análisis)" icon={<Wrench size={18}/>}>
+        <div className="flex justify-between items-center mb-3">
+          <p className="text-sm text-zinc-600">Define qué parámetros se miden para el SKU: <b>{items.find(i=>i.id===sku)?.name}</b></p>
+          <SBButton onClick={() => setPlans(p => [{ id: `plan_${sku}_${Date.now()}`, name: "Nuevo Plan de Calidad", sku, specs: [] }, ...p])} disabled={!sku}>
+            <Plus size={16}/> Nuevo Plan
+          </SBButton>
+        </div>
+        
+        {plans.map((plan, planIndex) => (
+          <div key={plan.id} className="rounded-xl border p-4 mb-3 bg-zinc-50">
+            <div className="flex justify-between items-center mb-3">
+              <Input value={plan.name} onChange={(e) => setPlans(prev => prev.map((p, i) => i === planIndex ? { ...p, name: e.target.value } : p))} className="font-semibold text-lg"/>
               <div className="flex gap-2">
-                <button onClick={() => savePlan(plan)} className="sb-btn-calidad px-2 py-1 flex items-center gap-1"><Save size={14}/> Guardar</button>
-                <button onClick={() => removePlan(plan.id)} className="text-red-600 flex items-center gap-1"><Trash2 size={14}/> Eliminar</button>
+                <SBButton onClick={() => handleSavePlan(plan)} disabled={isPending}><Save size={14}/> Guardar Plan</SBButton>
+                <SBButton variant="destructive" onClick={() => handleDeletePlan(plan.id)} disabled={isPending}><Trash2 size={14}/></SBButton>
               </div>
             </div>
-            <button onClick={() => addSpec(plan.id)} className="text-[hsl(var(--sb-accent-calidad))] flex items-center gap-1"><Plus size={14}/> añadir especificación</button>
-            <ul className="mt-2 space-y-1">
-              {(plan.specs as any[]).map((sp: QcSpec, i: number) => (
-                <li key={(sp as any).id || i} className="flex justify-between text-sm border-t py-1">
-                  <span>{sp.parameterId}</span>
-                  <button onClick={() => removeSpec(plan.id, (sp as any).id)} className="text-red-600 flex items-center gap-1"><Trash2 size={12}/> quitar</button>
-                </li>
+            
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium">Especificaciones:</h4>
+              {plan.specs.map((spec, specIndex) => (
+                <div key={spec.id || specIndex} className="grid grid-cols-[2fr_1fr_auto] gap-2 p-2 border rounded-md bg-white">
+                  <Select value={spec.parameterId} onChange={e => updateSpecInPlan(plan.id, specIndex, 'parameterId', e.target.value)}>
+                    <option value="">-- Parámetro --</option>
+                    {params.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </Select>
+                  <Select value={spec.point} onChange={e => updateSpecInPlan(plan.id, specIndex, 'point', e.target.value)}>
+                     <option value="RECEPCION">Recepción</option><option value="PROCESO">Proceso</option><option value="ENVASADO">Envasado</option>
+                  </Select>
+                  <SBButton variant="ghost" size="sm" onClick={() => removeSpecFromPlan(plan.id, specIndex)}><Trash2 className="h-4 w-4 text-red-500" /></SBButton>
+                </div>
               ))}
-            </ul>
+              <button onClick={() => addSpecToPlan(plan.id)} className="text-sm text-sky-600 hover:underline"><Plus size={14} className="inline-block mr-1"/> Añadir análisis</button>
+            </div>
           </div>
         ))}
       </Section>
-
-      {/* ================= Protocolos APPCC ================= */}
-      <Section title="Protocolos APPCC" subtitle="Planes obligatorios de seguridad alimentaria" icon={<ShieldCheck size={18}/>}>
-        {protocols.map((pr: SafetyProtocol) => (
-          <div key={pr.id} className="rounded-xl border p-3 mb-2">
-            <div className="flex justify-between items-center">
-              <span className="font-medium">{pr.title}</span>
-              <button onClick={() => saveProtocol(pr)} className="sb-btn-calidad px-2 py-1 flex items-center gap-1"><Save size={14}/> Guardar</button>
+      
+      <Section title="Protocolos APPCC" subtitle="Planes globales de seguridad alimentaria" icon={<ShieldCheck size={18} />}>
+        {protocols.map((proto, index) => (
+            <div key={proto.id} className="p-3 mb-2 rounded-lg border bg-zinc-50">
+                 <div className="flex justify-between items-center mb-2">
+                    <Input value={proto.title} onChange={e => setProtocols(p => p.map((pr, i) => i === index ? {...pr, title: e.target.value} : pr))} className="font-semibold" />
+                    <div className="flex gap-2">
+                        <SBButton onClick={() => handleSaveProtocol(proto)} disabled={isPending}><Save size={14} /> Guardar</SBButton>
+                        <SBButton variant="destructive" onClick={() => handleDeleteProtocol(proto.id)} disabled={isPending}><Trash2 size={14} /></SBButton>
+                    </div>
+                </div>
+                <ul className="text-sm list-disc pl-5">
+                    {proto.checklist.map((item, i) => <li key={i}>{item}</li>)}
+                </ul>
             </div>
-            <ul className="text-sm mt-2 list-disc pl-5 space-y-1">
-              {pr.checklist.map((c: string, i: number) => <li key={i}>{c}</li>)}
-            </ul>
-          </div>
         ))}
+        <SBButton onClick={() => setProtocols(p => [{ id: `proto_${Date.now()}`, title: 'Nuevo Protocolo', checklist: [] }, ...p])}>
+            <Plus size={16}/> Nuevo Protocolo
+        </SBButton>
       </Section>
     </div>
   );
