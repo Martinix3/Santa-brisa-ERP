@@ -1,13 +1,15 @@
-
 // src/app/(app)/quality/traceability/page.tsx
 "use client";
 
 import React, { useMemo, useState, useEffect, useTransition } from "react";
 import { useData } from "@/lib/dataprovider";
-import { Package, Search, GitBranch, Truck, Factory, FlaskConical, ArrowLeftRight, AlertTriangle } from "lucide-react";
+import { Package, Search, GitBranch, Truck, Factory, FlaskConical, ArrowLeftRight, AlertTriangle, User as UserIcon, FileText } from "lucide-react";
 import type { Lot, Item } from "@/domain/ssot";
 import { getLotTraceability, type TraceEvent } from "./actions";
 import { toast } from "sonner";
+import Link from 'next/link';
+import { Avatar } from '@/components/ui/Avatar';
+
 
 // ===========================================
 // CONFIGURACIÓN DE ICONOS (CORREGIDA)
@@ -26,6 +28,58 @@ const EVENT_CONFIG: Record<string, { icon: React.ElementType; color: string; }> 
     DEFAULT: { icon: Package, color: 'text-zinc-600 bg-zinc-100' },
 };
 
+
+// ===========================================
+// MINI-COMPONENTES DE DETALLE
+// ===========================================
+function ProductionEventDetails({ data }: { data?: Record<string, any> }) {
+    const { data: santaData } = useData();
+    const responsible = useMemo(() => {
+        if (!data?.responsibleId || !santaData?.users) return null;
+        return santaData.users.find(u => u.id === data.responsibleId);
+    }, [data, santaData?.users]);
+
+    if (!data) return null;
+
+    return (
+        <div className="mt-2 space-y-2 text-xs">
+            <div className="flex items-center gap-2 p-2 bg-zinc-50 rounded-md">
+                <FileText size={14} className="text-zinc-400" />
+                <span>Orden: <Link href={`/production/execution?orderId=${data.orderId}`} className="font-medium text-blue-600 hover:underline">{data.orderName || data.orderId}</Link></span>
+                {responsible && (
+                    <div className="flex items-center gap-2 ml-auto" title={`Responsable: ${responsible.name}`}>
+                       <Avatar name={responsible.name} size="md" />
+                    </div>
+                )}
+            </div>
+            {data.incidents?.length > 0 && (
+                 <div className="flex items-start gap-2 p-2 bg-red-50 text-red-700 rounded-md">
+                    <AlertTriangle size={14} className="mt-0.5" />
+                    <div>
+                        <span className="font-semibold">Incidencias:</span>
+                        <ul className="list-disc list-inside">
+                            {data.incidents.map((inc: any, i: number) => <li key={i}>{inc.summary || 'Incidencia registrada'}</li>)}
+                        </ul>
+                    </div>
+                 </div>
+            )}
+        </div>
+    );
+}
+
+function QcTestEventDetails({ data }: { data?: Record<string, any> }) {
+     if (!data) return null;
+     const inSpec = data.inSpec === true || data.inSpec === undefined; // Consideramos OK si no está explícitamente a false
+     return (
+        <div className={`mt-2 text-xs flex items-center gap-2 p-2 rounded-md ${inSpec ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
+            {inSpec ? <CheckCircle size={14} /> : <XCircle size={14} />}
+            <span className="font-semibold">{data.parameterId}:</span>
+            <span>{data.value}</span>
+            {data.testedBy && <span className="ml-auto text-zinc-500">por {data.testedBy}</span>}
+        </div>
+     );
+}
+
 function TraceEventCard({ event }: { event: TraceEvent }) {
     const config = EVENT_CONFIG[event.kind.toUpperCase()] || EVENT_CONFIG.DEFAULT;
     const Icon = config.icon;
@@ -35,10 +89,14 @@ function TraceEventCard({ event }: { event: TraceEvent }) {
             <div className={`flex-shrink-0 w-10 h-10 rounded-lg grid place-items-center mt-1 ${config.color}`}>
                 <Icon size={20} />
             </div>
-            <div>
+            <div className="flex-1">
                 <p className="font-semibold text-sm">{event.title}</p>
                 <p className="text-xs text-zinc-500">{new Date(event.at).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })}</p>
                 <p className="text-sm text-zinc-700 mt-1">{event.details}</p>
+                
+                {/* ===== LÓGICA DEL DESPACHADOR ===== */}
+                {(event.kind === 'PRODUCTION_OUT' || event.kind === 'PRODUCTION_IN') && <ProductionEventDetails data={event.data} />}
+                {event.kind === 'QC_TEST' && <QcTestEventDetails data={event.data} />}
             </div>
         </div>
     );
@@ -58,12 +116,8 @@ export default function TraceabilityPage() {
         return (data?.items || []).sort((a,b) => a.name.localeCompare(b.name));
     }, [data?.items]);
 
-    // ================================================================
-    // LÓGICA DE BÚSQUEDA DE LOTES (CORREGIDA)
-    // ================================================================
     const lotsForItem = useMemo(() => {
         if (!itemId || !data?.lots) return [];
-        // La fuente de verdad es la colección `lots`, no el inventario `onHand`.
         return data.lots
             .filter(lot => lot.itemId === itemId)
             .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -76,7 +130,6 @@ export default function TraceabilityPage() {
     }, [items, itemId]);
 
     useEffect(() => {
-        // Selecciona el primer lote de la lista si no hay ninguno seleccionado
         if (lotsForItem.length > 0 && !lotNumber) {
             setLotNumber(lotsForItem[0].lotNumber);
         } else if (lotsForItem.length === 0) {
@@ -115,7 +168,7 @@ export default function TraceabilityPage() {
                         value={itemId}
                         onChange={(e) => {
                             setItemId(e.target.value);
-                            setLotNumber(''); // Reset lot selection when item changes
+                            setLotNumber('');
                         }}
                         className="mt-2 w-full h-10 rounded-md border border-zinc-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                     >
