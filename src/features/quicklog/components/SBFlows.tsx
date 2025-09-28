@@ -1,3 +1,4 @@
+
 // src/features/quicklog/components/SBFlows.tsx
 "use client";
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
@@ -8,6 +9,7 @@ import { generateNextOrder } from '@/lib/codes';
 import type { AccountType, Account, OrderSellOut, Item, Party, SB_THEME, InteractionKind, PosTactic, PosTacticItem, PartyRole, CustomerData, PosCostCatalogEntry } from '@/domain/ssot';
 import { SB_COLORS } from "@/domain/ssot";
 import { TimePicker } from "@/components/ui/TimePicker";
+import { toast } from "sonner";
 
 const hexToRgba = (hex: string, a: number) => { const h = hex.replace('#',''); const f = h.length===3? h.split('').map(c=>c+c).join(''):h; const n=parseInt(f,16); const r=(n>>16)&255, g=(n>>8)&255, b=n&255; return `rgba(${r},${g},${b},${a})`; };
 const waterHeader = (seed = "hdr", base = "#A7D8D9") => {
@@ -46,7 +48,7 @@ type EditAccountPayload = {
 
 type CreateAccountPayload = { name:string; city:string; type:AccountType; mainContactName?:string; mainContactEmail?:string };
 
-type CreateOrderPayload = { accountId?:string; newAccount?: Partial<Account>; newParty?: Partial<Party>; requestedDate?:string; deliveryDate?:string; channel:AccountType; paymentTerms?:string; shipTo?:string; note?:string; items:{ itemId:string; qty:number; unit:"unit", priceUnit: number, lotNumber?: string }[] };
+type CreateOrderPayload = { accountId?:string; newAccount?: Partial<Account>; newParty?: Partial<Party>; requestedDate?:string; deliveryDate?:string; channel:AccountType; paymentTerms?:string; shipTo?:string; note?:string; items:{ itemId:string; qty:number; uom: 'unit'; priceUnit: number, lotNumber?: string }[] };
 
 // ===== UI Primitives =====
 function Row({children, className}:{children:React.ReactNode, className?: string}){ return <div className={`flex flex-col gap-1.5 ${className || ''}`}>{children}</div>; }
@@ -456,7 +458,7 @@ function EditAccountForm({defaults, onSubmit, onCancel}:{
 }){
   const [form, setForm] = useState<EditAccountPayload>(defaults);
   function set<K extends keyof EditAccountPayload>(k:K, v:EditAccountPayload[K]){ setForm(f=>({...f,[k]:v})); }
-  function submit(){ if(!form.name) return alert("Falta el nombre"); if(!form.city) return alert("Falta la ciudad"); onSubmit(form); }
+  function submit(){ if(!form.name) return toast.error("Falta el nombre"); if(!form.city) return toast.error("Falta la ciudad"); onSubmit(form); }
   return (
     <div className="p-4 space-y-3">
       <div className="grid grid-cols-2 gap-3">
@@ -493,7 +495,7 @@ function EditAccountForm({defaults, onSubmit, onCancel}:{
 function CreateAccountForm({onSubmit, onCancel}:{ onSubmit:(p:CreateAccountPayload)=>void; onCancel:()=>void; }){
   const [form, setForm] = useState<CreateAccountPayload>({ name:"", city:"", type:"HORECA", mainContactName:"", mainContactEmail:"" });
   function set<K extends keyof CreateAccountPayload>(k:K, v:CreateAccountPayload[K]){ setForm(f=>({...f,[k]:v})); }
-  function submit(){ if(!form.name) return alert("Falta el nombre"); if(!form.city) return alert("Falta la ciudad"); onSubmit(form); }
+  function submit(){ if(!form.name) return toast.error("Falta el nombre"); if(!form.city) return toast.error("Falta la ciudad"); onSubmit(form); }
   return (
     <div className="p-4 space-y-3">
       <div className="grid grid-cols-2 gap-3">
@@ -571,8 +573,8 @@ export function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, on
   function removeLine(i:number){ setItems(v=> v.filter((_,idx)=> idx!==i)); }
   
   async function submit() {
-      if (!accountId && !accountName) return alert("Selecciona o crea una cuenta");
-      if (items.length === 0 || items.some(it => !it.itemId || it.qty <= 0)) return alert("Revisa las líneas del pedido");
+      if (!accountId && !accountName) return toast.error("Selecciona o crea una cuenta");
+      if (items.length === 0 || items.some(it => !it.itemId || it.qty <= 0)) return toast.error("Revisa las líneas del pedido");
 
       let finalAccountId = accountId;
       let finalNewAccount = newAccountData?.account;
@@ -608,8 +610,8 @@ export function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, on
             <Label>Cliente</Label>
             <AccountSearch 
                 accounts={accounts}
-                onSelect={handleAccountChange}
-                onNewAccount={(name, city) => handleAccountChange(undefined, {name, type: 'HORECA'}, {name, billingAddress: {city}})}
+                onSelect={(id, name, city) => { setAccountId(id); setAccountName(name); setAccountCity(city || ""); setNewAccountData(null); }}
+                onNewAccount={(name, city) => { setNewAccountData({ account: {name}, party: {name, billingAddress: {city}} }); setAccountId(""); setAccountName(name); setAccountCity(city || ""); }}
                 initialAccountName={accountName}
             />
         </Row>

@@ -12,11 +12,11 @@ import { orderTotal } from "@/lib/sb-core";
 import { consignmentOnHandByAccount, consignmentTotalUnits } from '@/lib/consignment-and-samples';
 import { AlertCircle, Truck, Boxes, FileText, CreditCard, ShoppingCart } from 'lucide-react';
 import { normalizeOrderStatus } from '@/lib/status';
-import { CreateOrderForm } from '@/features/quicklog/components/SBFlows';
 import { SBFlowModal } from '@/features/quicklog/components/SBFlows';
 import { upsertMany } from '@/lib/dataprovider/actions';
 import { makeSellOutOrderCode } from '@/lib/codes';
 import { DEPT_META } from "@/domain/ssot";
+import { toast } from "sonner";
 
 
 type Tab = "directa" | "colocacion" | "online";
@@ -234,7 +234,7 @@ export default function OrdersDashboard() {
   };
 
   const handleCreateOrder = async (payload: {
-        account?: string;
+        accountId?: string;
         newAccount?: Partial<Account>;
         newParty?: Partial<Party>;
         requestedDate?: string;
@@ -245,28 +245,29 @@ export default function OrdersDashboard() {
         note?: string;
         items: { itemId: string; qty: number; uom: 'unit'; priceUnit: number, lotNumber?: string }[];
     }) => {
-        if (!data || !currentUser) return;
-        if (!payload.account && !payload.newAccount) {
-            alert('Error: Debes seleccionar o crear una cuenta.');
+        if (!data || !currentUser) {
+            toast.error("No se pudo obtener la información del usuario o los datos de la aplicación.");
             return;
         }
-
-        let accountId = payload.account ? data.accounts.find(a => a.name === payload.account)?.id : undefined;
+        
+        let accountId = payload.accountId;
         let partyId: string | undefined;
 
         const collectionsToSave: Partial<SantaData> = {};
 
         if (payload.newAccount && payload.newParty) {
-            accountId = payload.newAccount.id!;
-            partyId = payload.newParty.id!;
-            collectionsToSave.parties = [...(data.parties || []), payload.newParty as Party];
-            collectionsToSave.accounts = [...(data.accounts || []), payload.newAccount as Account];
+            const newParty: Party = { ...payload.newParty as Party, id: `party_${Date.now()}` };
+            const newAccount: Account = { ...payload.newAccount as Account, id: `acc_${Date.now()}`, partyId: newParty.id };
+            accountId = newAccount.id;
+            partyId = newParty.id;
+            collectionsToSave.parties = [...(data.parties || []), newParty];
+            collectionsToSave.accounts = [...(data.accounts || []), newAccount];
         } else if (accountId) {
              partyId = data.accounts.find(a => a.id === accountId)?.partyId;
         }
 
         if (!accountId || !partyId) {
-            alert('Error: No se pudo determinar la cuenta o el contacto.');
+            toast.error("La cuenta o el cliente no son válidos.");
             return;
         }
 
@@ -288,15 +289,19 @@ export default function OrdersDashboard() {
             ...collectionsToSave,
             ordersSellOut: [...(data.ordersSellOut || []), newOrder],
         };
-
+        
         setData(prev => prev ? { ...prev, ...finalCollectionsToSave } : prev);
 
-        const entries = Object.entries(finalCollectionsToSave) as [keyof SantaData, any][];
-        for (const [col, docs] of entries) {
-          await upsertMany(col, docs);
+        try {
+            const entries = Object.entries(finalCollectionsToSave) as [keyof SantaData, any][];
+            for (const [col, docs] of entries) {
+              await upsertMany(col, docs);
+            }
+            toast.success(`Pedido ${newOrder.docNumber} creado con éxito.`);
+            setCreateOpen(false);
+        } catch (e: any) {
+            toast.error("Error al guardar el pedido:", e.message);
         }
-        
-        setCreateOpen(false);
     };
 
     const handleSearchAccounts = async (query: string): Promise<Account[]> => {
@@ -306,6 +311,7 @@ export default function OrdersDashboard() {
     };
 
     const handleCreateAccount = async (accountData: { name: string; city?: string; type?: AccountType }): Promise<Account> => {
+        // This is a simplified version. A real one would hit a server action to create Party+Role+Account
         const tempId = `new_acc_${Date.now()}`;
         return {
             id: tempId,
@@ -447,5 +453,3 @@ export default function OrdersDashboard() {
     </div>
   );
 }
-
-    
