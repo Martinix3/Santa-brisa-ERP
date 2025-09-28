@@ -1,4 +1,3 @@
-
 // src/app/(app)/warehouse/goods-receipt/actions.ts
 'use server';
 
@@ -122,12 +121,12 @@ export async function createGoodsReceipt(payload: {
     locationId?: string;
   }>;
 }) {
-    const { supplierId, newSupplierName, deliveryNote, receiptDate, lines } = payload;
+  const { supplierId, newSupplierName, deliveryNote, receiptDate, lines } = payload;
 
-    if ((!supplierId && !newSupplierName) || !deliveryNote || !lines?.length) {
-      throw new Error('Proveedor, albarán y al menos una línea son obligatorios.');
-    }
-  
+  if ((!supplierId && !newSupplierName) || !deliveryNote || !lines?.length) {
+    throw new Error('Proveedor, albarán y al menos una línea son obligatorios.');
+  }
+
   try {
     const batch = db.batch();
     const nowIso = new Date(receiptDate).toISOString();
@@ -144,34 +143,41 @@ export async function createGoodsReceipt(payload: {
     const receiptNumber = makeGoodsReceiptCode(allReceipts, new Date(receiptDate));
     const receiptRef = db.collection('goodsReceipts').doc();
 
-    const itemIdsInPayload = lines.map(l => l.itemId).filter(Boolean) as string[];
-    const itemsData = itemIdsInPayload.length ? await db.collection('items').where(FieldPath.documentId(), 'in', itemIdsInPayload).get() : { docs: [] };
-    const existingItems = itemsData.docs.map(d => d.data() as Item);
-
-
     const finalLines: GoodsReceipt['lines'] = [];
 
     for (const line of lines) {
-      let itemId = line.itemId;
-      
-      if (line.newItemName && !itemId) {
-        const newItem = await createItem({
-          name: line.newItemName,
-          category: line.newItemCategory || 'raw',
-          uom: line.uom || 'unit',
-          stdCost: line.unitCost || 0,
-        });
-        itemId = newItem.id;
-        existingItems.push(newItem); // Add to local cache
-      }
-      
-      const item = existingItems.find(it => it.id === itemId);
-      if (!item || !itemId) continue;
+      let currentItem: Item | undefined;
 
+      if (line.itemId) {
+        const itemSnap = await db.collection('items').doc(line.itemId).get();
+        currentItem = itemSnap.data() as Item;
+      } else if (line.newItemName) {
+        const itemsSnap = await db.collection('items').get();
+        const existingSkus = itemsSnap.docs.map(d => d.data().sku).filter(Boolean);
+        const itemRef = db.collection('items').doc();
+        const uom = line.uom || 'unit'; // <-- GUARANTEE UOM
+        currentItem = {
+            id: itemRef.id,
+            name: line.newItemName,
+            sku: makeSku(line.newItemName, line.newItemCategory || 'raw', existingSkus),
+            uom: uom,
+            category: line.newItemCategory || 'raw',
+            stdCost: line.unitCost || 0,
+            active: true,
+        };
+        batch.set(itemRef, { ...currentItem, createdAt: nowIso, updatedAt: nowIso });
+      }
+
+      if (!currentItem) continue;
+      const item = currentItem; // Shadow to make it non-optional
+      const itemId = item.id;
+      
       const lotNumber = line.supplierLot.trim() || (line.autoLot ? generateLotNumber(item) : "");
       if (!lotNumber) throw new Error(`El lote de proveedor es obligatorio para la línea con ${item.name}.`);
 
       const qcStatus = initialQcStatusForItemCategory(item.category);
+      if (!item.uom) throw new Error(`Item ${item.id} no tiene UOM definida.`);
+
 
       const lotData = LotSchema.parse({
         lotNumber: lotNumber,
@@ -219,8 +225,11 @@ export async function createGoodsReceipt(payload: {
       } as any);
     }
     
+    const itemsForQcCheck = await db.collection('items').where('id', 'in', finalLines.map(l => (l as any).itemId)).get();
+    const itemsMap = new Map(itemsForQcCheck.docs.map(d => [d.id, d.data() as Item]));
+
     const requiresQc = finalLines.some(l => {
-        const item = existingItems.find(i => i.id === (l as any).itemId);
+        const item = itemsMap.get((l as any).itemId);
         const cat = item?.category;
         return cat === 'raw' || cat === 'pack' || cat === 'fg';
     });
