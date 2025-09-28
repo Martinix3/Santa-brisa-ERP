@@ -9,6 +9,7 @@ import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog";
 import type { OnHandView, Item, ItemCategory, StockMove } from "@/domain/ssot";
 import { useData } from "@/lib/dataprovider";
 import { createManualOnHand, rebuildOnHand } from "../actions";
+import { qcFromRow } from "@/lib/sb-core";
 
 // ---- Tema logística (usa tu token CSS) ----
 const ACCENT = "var(--sb-accent-logistica)";
@@ -27,7 +28,7 @@ const download = (fn: string, content: string) => {
   const url = URL.createObjectURL(new Blob([content], { type: "text/csv;charset=utf-8" }));
   const a = document.createElement("a"); a.href = url; a.download = fn; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
 };
-const qcFromRow = (r: OnHandView): "hold" | "release" | "reject" | undefined => (r as any).qcStatus || ((r.locationId||"").startsWith("QC/") ? "hold" : "release");
+
 const QCPill = ({ status }: { status?: "hold" | "release" | "reject" }) => {
   const s = status || "hold";
   const cls = s === "release" ? "bg-green-100 text-green-800" : s === "reject" ? "bg-red-100 text-red-800" : "bg-yellow-100 text-yellow-800";
@@ -108,7 +109,7 @@ function NewOnHandDialog({
           <FieldRow label="Cantidad" error={errors.qty}><div className="flex gap-2"><Input type="number" value={fm.qty} onChange={e=>setFm(s=>({...s,qty:e.target.value===""?"":Number(e.target.value)}))} min={1}/><Select value={fm.uom} onChange={e=>setFm(s=>({...s,uom:e.target.value}))}>{['unit','kg','L','case'].map(u=><option key={u} value={u}>{u}</option>)}</Select></div></FieldRow>
           <FieldRow label="Ubicación" error={errors.locationId}><Select value={fm.locationId} onChange={e=>setFm(s=>({...s,locationId:e.target.value}))}>{locations.map(l=><option key={l} value={l}>{l}</option>)}</Select></FieldRow>
           <FieldRow label="Fecha/hora"><Input type="datetime-local" value={fm.occurredAt} onChange={e=>setFm(s=>({...s,occurredAt:e.target.value}))}/></FieldRow>
-          <FieldRow label="Notas"><Input value={fm.note} onChange={e=>setFm(s=>({...s,note:e.target.value}))} placeholder="Ajuste anual, promo, etc."/></FieldRow>
+          <FieldRow label="Notas"><Input value={fm.note} onChange={e=>setFm(s=>({...s,note:e.target.value}))} placeholder="Ajuste anual, promo, etc."/></Row>
           
           <div className="border-t pt-4 space-y-3">
             <FieldRow label="Proveedor (texto o ID)"><Input value={fm.supplier} onChange={e => setFm(s => ({ ...s, supplier: e.target.value }))} placeholder="Nombre proveedor o accountId"/></FieldRow>
@@ -326,19 +327,6 @@ export default function InventoryPage() {
       </SBCard>
       
       {openNew && <NewOnHandDialog open={openNew} onClose={()=>setOpenNew(false)} onCreate={handleCreate} items={santaData?.items||[]} locations={locations.filter(l=>l!=='ALL')} defaultLocation={locationFilter==='ALL'?undefined:locationFilter} />}
-
-      {/* Dialog movimientos (controlado) */}
-      {movCtx && (
-        <MovementsDialog
-          open={movOpen}
-          onClose={() => { setMovOpen(false); setMovCtx(null); }}
-          item={movCtx.item}
-          lot={movCtx.lot}
-          location={movCtx.location}
-          moves={stockMoves}
-          itemsById={itemsById}
-        />
-      )}
     </div>
   );
 }

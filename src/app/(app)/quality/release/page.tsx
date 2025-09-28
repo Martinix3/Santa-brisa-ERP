@@ -12,6 +12,7 @@ import type {
   Lot, QcTest, QcBatchResult, Item, ParameterCatalog, QcPlan, Incident, Coa,
   QcTestSpec, ProductionOrder, LotGenealogyEdge, StockMove, ProtocolAcknowledgement, QcStatus, OnHandView
 } from "@/domain/ssot";
+import { qcFromRow } from "@/lib/sb-core";
 
 
 // ============================================================================
@@ -35,20 +36,26 @@ const QC_STATUS_TEXT: Record<string, string> = {
   RELEASED: "Liberado",
   REJECTED: "Rechazado",
   WAIVED: "Eximido",
-  ON_HOLD_QC: "En Hold"
+  ON_HOLD_QC: "En Hold",
+  hold: "Retenido",
+  release: "Liberado",
+  reject: "Rechazado",
 };
 
 const QC_STATUS_TONE: Record<string, "emerald" | "amber" | "rose" | "zinc"> = {
   RELEASED: "emerald",
+  release: "emerald",
   PENDING: "amber",
   IN_PROGRESS: "amber",
   CONDITIONAL_RELEASE: "amber",
   WAIVED: "amber",
   ON_HOLD_QC: "amber",
+  hold: "amber",
   REJECTED: "rose",
+  reject: "rose",
 };
-const qcTone = (s?: string): "emerald" | "amber" | "rose" | "zinc" => (s ? (QC_STATUS_TONE[s] || "amber") : "zinc");
-const prettyStatus = (s?: string) => s ? (QC_STATUS_TEXT[s] || s) : "SIN ESTADO";
+const qcTone = (s?: string): "emerald" | "amber" | "rose" | "zinc" => (s ? (QC_STATUS_TONE[s.toLowerCase()] || "amber") : "zinc");
+const prettyStatus = (s?: string) => s ? (QC_STATUS_TEXT[s.toUpperCase()] || s) : "SIN ESTADO";
 
 // ============================================================================
 // COMPONENTES DE UI Y HELPERS
@@ -322,12 +329,12 @@ export default function LabReleasePage() {
       const matchesQuery = !lowerQuery || l.lotNumber.toLowerCase().includes(lowerQuery) || (item?.name || '').toLowerCase().includes(lowerQuery);
       if (!matchesQuery) continue;
 
-      const raw = l.qcStatus ?? latestDecisionByLot.get(l.lotNumber!) ?? (lots.find(master => master.lotNumber === l.lotNumber)?.qcStatus) ?? '';
+      const raw = qcFromRow(l as any) ?? latestDecisionByLot.get(l.lotNumber!) ?? (lots.find(master => master.lotNumber === l.lotNumber)?.qcStatus) ?? '';
       const status = String(raw).toUpperCase();
       
-      if (status === "RELEASED") {
+      if (status === "RELEASED" || status === "RELEASE") {
         released.push(l);
-      } else if (status === "REJECTED") {
+      } else if (status === "REJECTED" || status === "REJECT") {
         rejected.push(l);
       } else if (
         status === "HOLD" ||
@@ -489,7 +496,7 @@ export default function LabReleasePage() {
             {visibleLots.map(lot => {
                 const item = itemMap.get(lot.itemId);
                 const isSelected = selectedLot === lot.lotNumber;
-                const status = (lot.qcStatus ?? latestDecisionByLot.get(lot.lotNumber!) ?? '').toUpperCase() as QcStatus;
+                const status = (qcFromRow(lot as any) ?? latestDecisionByLot.get(lot.lotNumber!) ?? '').toUpperCase() as QcStatus;
                 return (
                     <button key={lot.id} onClick={() => setSelectedLot(lot.lotNumber!)} className={`w-full text-left p-3 ${isSelected ? 'bg-blue-50' : 'hover:bg-zinc-50'}`}>
                         <div className="flex justify-between items-center">
@@ -534,7 +541,7 @@ export default function LabReleasePage() {
                       }
                     }
                     return (
-                    <div key={spec.parameterId} className="grid grid-cols-[1fr,120px,80px] gap-2 items-center text-xs">
+                    <div key={spec.parameterId} className="grid grid-cols-[1fr_120px_80px] gap-2 items-center text-xs">
                         <label htmlFor={spec.parameterId} className="font-medium truncate">{(parameterMap.get(spec.parameterId) as any)?.label ?? spec.parameterId}</label>
                         <input
                           id={spec.parameterId} type="number" step="0.01"
@@ -587,12 +594,12 @@ export default function LabReleasePage() {
               )}
               {selectedLotData.history.length === 0 ? (
                 <div className="text-sm text-zinc-500 text-center space-y-2">
-                  <p>No hay eventos registrados para este lote.</p>
-                  <ul className="text-xs list-disc list-inside text-zinc-400">
-                    <li>¿Existen <code>stockMoves</code> con <code>lotNumber="{selectedLotData.lot.lotNumber}"</code>?</li>
-                    <li>¿Se han guardado <code>qcTests</code> / <code>qcBatchResults</code>?</li>
-                    <li>Si el lote viene de orden, ¿hay <code>protocolAcks</code> o <code>statusHistory</code>?</li>
-                  </ul>
+                    <p>No hay eventos registrados para este lote.</p>
+                    <ul className="text-xs list-disc list-inside text-zinc-400">
+                      <li>¿Existen <code>stockMoves</code> con <code>lotNumber="{selectedLotData.lot.lotNumber}"</code>?</li>
+                      <li>¿Se han guardado <code>qcTests</code> / <code>qcBatchResults</code>?</li>
+                      <li>Si el lote viene de orden, ¿hay <code>protocolAcks</code> o <code>statusHistory</code>?</li>
+                    </ul>
                 </div>
               ) : (
                 <ul className="space-y-4">
