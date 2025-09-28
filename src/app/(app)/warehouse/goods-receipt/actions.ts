@@ -3,186 +3,203 @@
 
 import { revalidatePath } from 'next/cache';
 import { adminDb as db } from '@/server/firebase';
-import { Timestamp, FieldValue } from 'firebase-admin/firestore';
-import type { Party, Item, GoodsReceipt, OnHandView, StockMove, Uom, Lot, QcStatus } from '@/domain/ssot';
+import { FieldValue } from 'firebase-admin/firestore';
+import type { Party, Item, GoodsReceipt, StockMove, Uom, QcStatus } from '@/domain/ssot';
+import { LotSchema } from '@/domain/validators'; // <- Zod del plan
 import { normText } from '@/lib/norm/text';
 import { makeGoodsReceiptCode } from '@/lib/codes';
 
+// -------------------------
+// Helpers SKU / categoría
+// -------------------------
 const uniqueSku = (base: string, existingSkus: string[]) => {
-  let candidate = base;
-  let i = 1;
-  while (existingSkus.includes(candidate)) {
-    i += 1;
-    candidate = `${base}-${i}`;
-  }
+  let candidate = base, i = 1;
+  while (existingSkus.includes(candidate)) { i += 1; candidate = `${base}-${i}`; }
   return candidate;
 };
-
 const makeSku = (name: string, category: string, existingSkus: string[]) => {
   const cat = (category || 'raw').toUpperCase().slice(0, 3);
   const slug = normText(name).replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').toUpperCase().slice(0, 12);
-  const base = `${cat}-${slug || 'ITEM'}`;
-  return uniqueSku(base, existingSkus);
+  return uniqueSku(`${cat}-${slug || 'ITEM'}`, existingSkus);
+};
+
+// Dónde aterriza físicamente el material (por categoría)
+const landingLocationFor = (category: Item['category'], sendToQc: boolean) => {
+  if (sendToQc) return 'QC/AREA';
+  switch (category) {
+    case 'raw': return 'RM/MAIN';
+    case 'pack': return 'PKG/MAIN';
+    case 'label': return 'PKG/MAIN';
+    case 'consumable': return 'RM/MAIN';
+    case 'intermediate': return 'WIP/MAIN';
+    case 'merch': return 'PKG/MAIN';
+    default: return 'RM/MAIN';
+  }
 };
 
 export async function createGoodsReceipt(payload: {
-    supplierId?: string;
-    newSupplierName?: string;
-    deliveryNote: string;
-    lines: {
-        key: string;
-        itemId?: string;
-        newMaterialName?: string;
-        newItemCategory?: Item['category'];
-        supplierLot: string;
-        qty: number;
-        unitCost: number;
-        uom?: Uom;
-    }[];
-    sendToQc: boolean;
+  supplierId?: string;
+  newSupplierName?: string;
+  deliveryNote: string;
+  lines: Array<{
+    key: string;
+    itemId?: string;
+    newItemName?: string;
+    newItemCategory?: Item['category'];
+    supplierLot: string;
+    qty: number;
+    unitCost: number;
+    uom?: Uom;
+    expiryAt?: string | null; // opcional para FEFO
+  }>;
+  sendToQc: boolean;
 }) {
-    const { supplierId, newSupplierName, deliveryNote, lines, sendToQc } = payload;
-    const now = new Date();
-    const batch = db.batch();
+  const { supplierId, newSupplierName, deliveryNote, lines, sendToQc } = payload;
 
-    let finalSupplierId = supplierId;
+  // Validación mínima UI
+  if ((!supplierId && !newSupplierName) || !deliveryNote || !lines?.length) {
+    throw new Error('Proveedor, albarán y al menos una línea son obligatorios.');
+  }
+  if (lines.some(l => (!l.itemId && !l.newItemName) || !l.qty || !l.supplierLot)) {
+    throw new Error('Completa Material, Lote proveedor y Cantidad en todas las líneas.');
+  }
 
-    // 1. Crear nuevo proveedor si es necesario
-    if (newSupplierName && !supplierId) {
-        const newPartyRef = db.collection('parties').doc();
-        const nowIso = now.toISOString();
-        const newParty: Party = {
-            id: newPartyRef.id,
-            name: newSupplierName,
-            legalName: newSupplierName,
-            kind: 'ORG',
-            createdAt: nowIso,
-            updatedAt: nowIso,
-        } as Party;
-        batch.set(newPartyRef, newParty);
-        finalSupplierId = newPartyRef.id;
+  const nowIso = new Date().toISOString();
+  const batch = db.batch();
+
+  // 1) Proveedor (alta si es nuevo)
+  let finalSupplierId = supplierId;
+  if (newSupplierName && !supplierId) {
+    const newPartyRef = db.collection('parties').doc();
+    const newParty: Party = {
+      id: newPartyRef.id,
+      name: newSupplierName,
+      legalName: newSupplierName,
+      kind: 'ORG',
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    } as Party;
+    batch.set(newPartyRef, newParty);
+    finalSupplierId = newPartyRef.id;
+  }
+  if (!finalSupplierId) throw new Error('El proveedor es obligatorio.');
+
+  // 2) Items existentes + generar código de recibo
+  const allReceipts = (await db.collection('goodsReceipts').select('receiptNumber').get())
+    .docs.map(d => d.data().receiptNumber).filter(Boolean);
+  const receiptNumber = makeGoodsReceiptCode(allReceipts, new Date());
+  const receiptRef = db.collection('goodsReceipts').doc();
+
+  const itemsSnap = await db.collection('items').get();
+  const existingItems = itemsSnap.docs.map(d => d.data() as Item);
+  const existingSkus = existingItems.map(m => m.sku).filter(Boolean) as string[];
+
+  // 3) Procesar líneas: crear item si procede, crear lot, onHand, stockMove
+  const finalLines: GoodsReceipt['lines'] = [];
+
+  for (const line of lines) {
+    // 3.1 Item
+    let itemId = line.itemId;
+    let item: Item | undefined;
+    let uom: Uom = line.uom || 'unit';
+    let category: Item['category'] = line.newItemCategory || 'raw';
+
+    if (line.newItemName && !line.itemId) {
+      const newItemRef = db.collection('items').doc();
+      const newSku = makeSku(line.newItemName, category, existingSkus);
+      const newItem: Item = {
+        id: newItemRef.id,
+        sku: newSku,
+        name: line.newItemName,
+        category,
+        uom: uom,
+        stdCost: line.unitCost || 0,
+        active: true,
+      };
+      batch.set(newItemRef, { ...newItem, createdAt: nowIso, updatedAt: nowIso } as any);
+      existingSkus.push(newSku);
+      itemId = newItemRef.id;
+      item = newItem;
+    } else if (itemId) {
+      item = existingItems.find(mm => mm.id === itemId);
+      uom = (item?.uom as Uom) || uom;
+      category = item?.category || category;
     }
+    if (!itemId) continue;
 
-    if (!finalSupplierId) {
-        throw new Error('El proveedor es obligatorio.');
-    }
+    // 3.2 Lote (SSOT: qcStatus nace aquí; sin "status" operativo)
+    const lotNumber = line.supplierLot.trim();
+    const qcStatus: QcStatus = sendToQc ? 'PENDING' : 'PASSED';
 
-    const allReceipts = (await db.collection('goodsReceipts').select('receiptNumber').get()).docs.map(d => d.data().receiptNumber).filter(Boolean);
-    const receiptNumber = makeGoodsReceiptCode(allReceipts, new Date());
-    const receiptRef = db.collection('goodsReceipts').doc();
-    
-    const itemsSnap = await db.collection('items').get();
-    const existingItems = itemsSnap.docs.map(d => d.data() as Item);
-    const existingSkus = existingItems.map(m => m.sku).filter(Boolean) as string[];
+    // Valida/normaliza con Zod (LotSchema del plan: qty, uom, qcStatus, expiryAt, created/updated)
+    const lotDoc = LotSchema.parse({
+      lotNumber,
+      itemId,
+      qty: line.qty,
+      uom,
+      qcStatus,
+      expiryAt: line.expiryAt ?? null,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    });
 
-    const finalLines: GoodsReceipt['lines'] = [];
+    // Usamos el lotNumber como id documental (opcional, o doc() auto)
+    const lotRef = db.collection('lots').doc(lotNumber);
+    batch.set(lotRef, { ...lotDoc, supplierId: finalSupplierId } as any, { merge: true });
 
-    // 2. Procesar todas las líneas
-    for (const line of lines) {
-        let itemId = line.itemId;
-        let sku = '';
-        let uom: Uom = line.uom || 'unit';
-        let category: Item['category'] = line.newItemCategory || 'raw';
+    // 3.3 OnHand (clave: item|lot|location)
+    const locationId = landingLocationFor(category, sendToQc);
+    const onHandId = `${itemId}|${lotNumber}|${locationId}`;
+    const onHandRef = db.collection('onHand').doc(onHandId);
+    batch.set(onHandRef, {
+      id: onHandId,
+      itemId, lotNumber, locationId,
+      qty: FieldValue.increment(line.qty),
+      uom, qcStatus,
+      createdAt: nowIso, updatedAt: nowIso,
+    }, { merge: true });
 
-        if (line.newMaterialName && !line.itemId) {
-            const newItemRef = db.collection('items').doc();
-            category = line.newItemCategory || 'raw';
-            const newSku = makeSku(line.newMaterialName, category, existingSkus);
-
-            const newItem: Item = {
-                id: newItemRef.id,
-                sku: newSku,
-                name: line.newMaterialName,
-                category: category,
-                uom: (line.uom || 'unit'),
-                stdCost: line.unitCost || 0,
-                active: true,
-            };
-            batch.set(newItemRef, { ...newItem, createdAt: now.toISOString(), updatedAt: now.toISOString() } as any);
-            existingSkus.push(newSku);
-            itemId = newItemRef.id;
-            sku = newSku;
-            uom = newItem.uom as Uom;
-        } else if (itemId) {
-            const m = existingItems.find(mm => mm.id === itemId);
-            sku = m?.sku || '';
-            uom = (m?.uom as Uom) || 'unit';
-            category = m?.category || 'raw';
-        }
-
-        if (!itemId) continue;
-        
-        const lotNumber = line.supplierLot;
-
-        const lotRef = db.collection('lots').doc(lotNumber);
-        const qcStatus: QcStatus = sendToQc ? 'PENDING' : 'PASSED';
-        const newLot: Lot = {
-            id: lotNumber,
-            lotNumber: lotNumber,
-            itemId: itemId,
-            quantity: line.qty,
-            createdAt: now.toISOString(),
-            receivedAt: now.toISOString(),
-            supplierId: finalSupplierId,
-            qcStatus: qcStatus,
-            status: sendToQc ? 'ON_HOLD_QC' : 'RELEASED',
-            locationId: sendToQc ? 'QC/AREA' : (category === 'raw' ? 'RM/MAIN' : 'PKG/MAIN')
-        };
-        batch.set(lotRef, newLot, { merge: true });
-        
-        const onHandId = `${itemId}|${lotNumber}|${sendToQc ? 'QC/AREA' : (category === 'raw' ? 'RM/MAIN' : 'PKG/MAIN')}`;
-        const onHandItemRef = db.collection('onHand').doc(onHandId);
-        
-        batch.set(onHandItemRef, { 
-            qty: FieldValue.increment(line.qty),
-            itemId: itemId,
-            lotNumber: lotNumber,
-            locationId: sendToQc ? 'QC/AREA' : (category === 'raw' ? 'RM/MAIN' : 'PKG/MAIN'),
-            uom: uom,
-            qcStatus: qcStatus,
-            updatedAt: now.toISOString(),
-            createdAt: now.toISOString(),
-        }, { merge: true });
-
-        // Crear Movimiento de Stock (ledger)
-        const newStockMoveRef = db.collection('stockMoves').doc();
-        const stockMove: StockMove = {
-            id: newStockMoveRef.id,
-            itemId: itemId,
-            lotNumber: lotNumber,
-            uom: uom,
-            qty: line.qty,
-            reason: 'receipt',
-            toLocation: sendToQc ? 'QC/AREA' : (category === 'raw' ? 'RM/MAIN' : 'PKG/MAIN'),
-            occurredAt: now.toISOString(),
-            createdAt: now.toISOString(),
-            ref: { goodsReceiptId: receiptRef.id },
-            unitCost: line.unitCost,
-        };
-        batch.set(newStockMoveRef, stockMove as any);
-
-        finalLines.push({
-            itemId: itemId!,
-            qty: line.qty,
-            uom: uom,
-            unitCost: line.unitCost,
-            lotNumber: lotNumber,
-        } as GoodsReceipt['lines'][number]);
-    }
-
-    const receipt: GoodsReceipt = {
-        id: receiptRef.id,
-        receiptNumber: receiptNumber,
-        supplierPartyId: finalSupplierId!,
-        deliveryNote,
-        receivedAt: now.toISOString(),
-        status: sendToQc ? 'pending_qc' : 'completed',
-        lines: finalLines,
+    // 3.4 Movimiento de stock (ledger)
+    const smRef = db.collection('stockMoves').doc();
+    const stockMove: StockMove = {
+      id: smRef.id,
+      itemId, lotNumber, uom,
+      qty: line.qty,
+      reason: 'receipt',
+      toLocation: locationId,             // tu tipo actual usa 'toLocation'
+      occurredAt: nowIso,
+      createdAt: nowIso,
+      ref: { goodsReceiptId: receiptRef.id },
+      unitCost: line.unitCost,
     };
-    batch.set(receiptRef, { ...receipt, createdAt: now.toISOString() } as any);
+    batch.set(smRef, stockMove as any);
 
-    await batch.commit();
+    // 3.5 Línea para el documento de recibo
+    finalLines.push({
+      itemId,
+      qty: line.qty,
+      uom,
+      unitCost: line.unitCost,
+      lotNumber,
+    } as GoodsReceipt['lines'][number]);
+  }
 
-    revalidatePath('/warehouse/inventory');
-    revalidatePath('/warehouse/goods-receipt');
+  // 4) Documento de recibo
+  const receipt: GoodsReceipt = {
+    id: receiptRef.id,
+    receiptNumber,
+    supplierPartyId: finalSupplierId!,
+    deliveryNote,
+    receivedAt: nowIso,
+    status: sendToQc ? 'pending_qc' : 'completed',
+    lines: finalLines,
+  };
+  batch.set(receiptRef, { ...receipt, createdAt: nowIso } as any);
+
+  // 5) Persistir + revalidar
+  await batch.commit();
+  revalidatePath('/warehouse/inventory');
+  revalidatePath('/warehouse/goods-receipt');
+
+  return { receiptId: receiptRef.id, receiptNumber };
 }
