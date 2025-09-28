@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useEffect, useMemo, useState, useCallback } from "react";
@@ -15,7 +14,7 @@ import { SpinnerButton } from "@/components/ui/SpinnerButton";
 import { Field, focusFirstError } from "@/components/forms/Field";
 import { useBomForm } from "@/features/bom/useBomForm";
 import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog";
-import { upsertBOM, archiveBOM } from "./actions";
+import { upsertBOM, archiveBOM, upsertMinimalProduct } from "./actions";
 
 /** Tipos */
 type BomStage = "PRODUCCION" | "ENVASADO";
@@ -84,7 +83,7 @@ function RecipeForm({
   onCancel: () => void;
   allItems: Item[];
   isNew: boolean;
-  onQuickCreateItem: (p: QuickCreatePayload) => Promise<{ id: string }>;
+  onQuickCreateItem: (p: QuickCreatePayload) => Promise<{ itemId: string }>;
 }) {
   const fm = useBomForm(initialValues);
   const { data: santaData } = useData();
@@ -576,7 +575,8 @@ export default function BomPage() {
   }, [santaData, saveAllCollections]);
 
   const onQuickCreateItem = useCallback(async ({ name, sku, category }: QuickCreatePayload) => {
-    const newItem: Item = { id: `it_${Date.now()}`, name, sku: sku ?? "" } as Item;
+    const { itemId } = await upsertMinimalProduct({ sku, name, packSizeMl: 700 });
+    const newItem: Item = { id: itemId, name, sku: sku ?? "" } as Item;
     // @ts-ignore: campo de categoría en tu Item
     newItem.category = category;
     const nextItems = [...(santaData?.items || []), newItem];
@@ -587,69 +587,28 @@ export default function BomPage() {
   const accent = "[--sb-accent-produc:182_25%_47%]";
 
   return (
-    <>
-      {/* HEADER sticky (Factory + var(--sb-accent-produc)) */}
-      <header
-        aria-label="Sección Producción"
-        className="sticky top-0 z-30 border-b bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60"
-      >
-        <div className="mx-auto max-w-screen-2xl px-6 py-4">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div
-                className={`h-10 w-10 rounded-xl grid place-items-center ring-1 ring-black/5
-                           bg-[hsl(var(--sb-accent-produc)/0.12)]
-                           text-[hsl(var(--sb-accent-produc))]
-                           ${accent}`}
-                aria-hidden="true"
-                title="Producción"
-              >
-                <FactoryIcon size={20} />
-              </div>
-              <div>
-                <h1 className="text-2xl font-semibold text-zinc-900 leading-tight">Producción</h1>
-                <p className="text-xs text-zinc-600">Fórmulas, envasado y costes por unidad estándar.</p>
-              </div>
+    <div className="space-y-6">
+        <div className="flex justify-between items-center">
+            <div>
+                <h2 className="text-xl font-semibold text-zinc-900">Recetas (BOM)</h2>
+                <p className="text-sm text-zinc-500">Producción (1 L → PI) y Envasado (1 botella → FG)</p>
             </div>
-
-            <div className="flex items-center gap-3">
-              <nav aria-label="Migas" className="hidden md:block text-xs text-zinc-600">
-                <span className="opacity-70">Operaciones</span>
-                <span className="mx-1">/</span>
-                <span className="font-medium text-zinc-800">Producción</span>
-              </nav>
-              <button
+            <button
                 type="button"
                 onClick={createNew}
                 className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border
-                           text-[hsl(var(--sb-accent-produc))]
-                           bg-[hsl(var(--sb-accent-produc)/0.08)]
-                           hover:bg-[hsl(var(--sb-accent-produc)/0.12)]
-                           ${accent}`}
+                            text-[hsl(var(--sb-accent-produc))]
+                            bg-[hsl(var(--sb-accent-produc)/0.08)]
+                            hover:bg-[hsl(var(--sb-accent-produc)/0.12)]
+                            ${accent}`}
                 aria-label="Crear nueva receta"
                 title="Nueva receta"
-              >
+            >
                 <Plus size={16} />
                 <span className="hidden sm:inline">Nueva receta</span>
-              </button>
-            </div>
-          </div>
+            </button>
         </div>
-      </header>
-
-      {/* Subheader sin CTA duplicado */}
-      <div className="mx-auto max-w-screen-2xl px-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 py-6">
-          <div>
-            <h2 className="text-xl font-semibold text-zinc-900">Recetas (BOM)</h2>
-            <p className="text-sm text-zinc-500">Producción (1 L → PI) y Envasado (1 botella → FG)</p>
-          </div>
-        </div>
-      </div>
-
-      {/* MAIN */}
-      <main className="mx-auto max-w-screen-2xl px-6 pb-24">
-        <div className="grid lg:grid-cols-3 gap-6">
+      <div className="grid lg:grid-cols-3 gap-6">
           <div className="lg:col-span-1">
             <SBCard title="Recetas" accent={(SB_COLORS as any).module?.produccion ?? SB_COLORS.primary.teal}>
               <div className="px-2 pt-2 pb-1">
@@ -725,21 +684,6 @@ export default function BomPage() {
             )}
           </div>
         </div>
-
-        {/* FAB */}
-        <button
-          type="button"
-          onClick={createNew}
-          aria-label="Nueva receta"
-          className={`fixed bottom-6 right-6 z-40 h-14 w-14 rounded-full shadow-lg hover:shadow-xl grid place-items-center
-                     border text-[hsl(var(--sb-accent-produc))]
-                     bg-[hsl(var(--sb-accent-produc)/0.10)]
-                     ${accent}`}
-          title="Nueva receta"
-        >
-          <Plus />
-        </button>
-      </main>
-    </>
+    </div>
   );
 }
