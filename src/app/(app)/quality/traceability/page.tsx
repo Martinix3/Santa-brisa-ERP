@@ -5,11 +5,10 @@ import React, { useMemo, useState, useEffect, useTransition } from "react";
 import { useData } from "@/lib/dataprovider";
 import { Package, Search, GitBranch, Truck, Factory, FlaskConical, ArrowLeftRight, AlertTriangle, User as UserIcon, FileText, CheckCircle, XCircle } from "lucide-react";
 import type { Lot, Item } from "@/domain/ssot";
-import { getLotTraceability, type TraceEvent } from "./actions";
+import { getLotTraceability, type TraceEvent, type TraceData } from "./actions";
 import { toast } from "sonner";
 import Link from 'next/link';
 import { Avatar } from '@/components/ui/Avatar';
-
 
 // ===========================================
 // CONFIGURACIÓN DE ICONOS (CORREGIDA)
@@ -27,7 +26,6 @@ const EVENT_CONFIG: Record<string, { icon: React.ElementType; color: string; }> 
     GENEALOGY_CHILD: { icon: GitBranch, color: 'text-slate-600 bg-slate-100' },
     DEFAULT: { icon: Package, color: 'text-zinc-600 bg-zinc-100' },
 };
-
 
 // ===========================================
 // MINI-COMPONENTES DE DETALLE
@@ -97,6 +95,72 @@ function TraceEventCard({ event }: { event: TraceEvent }) {
                 {/* ===== LÓGICA DEL DESPACHADOR ===== */}
                 {(event.kind === 'PRODUCTION_OUT' || event.kind === 'PRODUCTION_IN') && <ProductionEventDetails data={event.data} />}
                 {event.kind === 'QC_TEST' && <QcTestEventDetails data={event.data} />}
+                {/* ... puedes añadir más casos para otros tipos de eventos ... */}
+            </div>
+        </div>
+    );
+}
+
+// ===========================================
+// EL NUEVO DOSSIER DE LOTE
+// ===========================================
+function LotSummaryCard({ traceData }: { traceData: TraceData }) {
+    const { lot, receiptInfo, productionInfo, saleInfo } = traceData;
+    if (!lot) return null;
+
+    const protocolCompliance = productionInfo?.protocols.every(p => (p as any).status === 'COMPLETED');
+
+    return (
+        <div className="mb-6 p-4 bg-zinc-50 rounded-xl border">
+            <h3 className="text-base font-semibold mb-3">Dossier del Lote</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div>
+                    <p className="text-xs text-zinc-500">Estado de Calidad</p>
+                    <p className="font-medium">{lot.qcStatus}</p>
+                </div>
+
+                {/* --- Información de Origen --- */}
+                {receiptInfo && (
+                    <div>
+                        <p className="text-xs text-zinc-500">Origen (Recepción)</p>
+                        <p className="font-medium">{receiptInfo.supplierName}</p>
+                        <p className="text-xs">Albarán: {receiptInfo.deliveryNote}</p>
+                        <p className="text-xs">Recibido por: {receiptInfo.receivedBy}</p>
+                    </div>
+                )}
+                
+                {/* --- Información de Producción --- */}
+                {productionInfo && (
+                    <div>
+                        <p className="text-xs text-zinc-500">Producido en Orden</p>
+                        <Link href={`/production/execution?orderId=${productionInfo.orderId}`} className="font-medium text-blue-600 hover:underline">
+                            {productionInfo.orderName}
+                        </Link>
+                        <p className="text-xs">Responsable: {productionInfo.responsible}</p>
+                        {/* Protocolos e Incidencias */}
+                        <div className="mt-1 flex flex-col gap-1">
+                            {protocolCompliance ? (
+                                <span className="text-xs text-emerald-600 font-semibold">✓ Protocolos OK</span>
+                            ) : (
+                                <span className="text-xs text-amber-600 font-semibold">✗ Protocolos Pendientes</span>
+                            )}
+                            {productionInfo.incidentCount > 0 && (
+                                <span className="text-xs text-rose-600 font-semibold">
+                                    {productionInfo.incidentCount} Incidencias
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* --- Información de Destino --- */}
+                {saleInfo && (
+                    <div>
+                        <p className="text-xs text-zinc-500">Destino (Venta)</p>
+                        <p className="font-medium">{saleInfo.customerName}</p>
+                        <p className="text-xs">Pedido: {saleInfo.orderNumber}</p>
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -109,7 +173,7 @@ export default function TraceabilityPage() {
     const { data } = useData();
     const [itemId, setItemId] = useState<string>('');
     const [lotNumber, setLotNumber] = useState<string>('');
-    const [traceEvents, setTraceEvents] = useState<TraceEvent[]>([]);
+    const [traceData, setTraceData] = useState<TraceData | null>(null);
     const [isTracing, startTraceTransition] = useTransition();
 
     const items = useMemo(() => {
@@ -147,21 +211,17 @@ export default function TraceabilityPage() {
             startTraceTransition(async () => {
                 const result = await getLotTraceability(lotNumber);
                 if (result.ok) {
-                    setTraceEvents(result.data);
+                    setTraceData(result.data);
                 } else {
                     toast.error(result.message);
-                    setTraceEvents([]);
+                    setTraceData(null);
                 }
             });
         } else {
-            setTraceEvents([]);
+            setTraceData(null);
         }
     }, [lotNumber]);
     
-    const selectedLot = useMemo(() => {
-        return data?.lots.find(l => l.lotNumber === lotNumber) || null;
-    }, [lotNumber, data?.lots]);
-
     return (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[calc(100vh-200px)]">
             {/* Panel de Búsqueda */}
@@ -204,15 +264,16 @@ export default function TraceabilityPage() {
 
             {/* Panel de Resultados */}
             <div className="md:col-span-2 bg-white p-4 rounded-xl border overflow-y-auto">
-                {selectedLot ? (
+                {traceData?.lot ? (
                     <div>
-                        <h2 className="text-lg font-bold">Trazabilidad del Lote: {selectedLot.lotNumber}</h2>
+                        <h2 className="text-lg font-bold">Trazabilidad del Lote: {traceData.lot.lotNumber}</h2>
+                        <LotSummaryCard traceData={traceData} />
                         <div className="mt-4">
                             {isTracing ? (
                                 <p className="text-zinc-500 text-center py-8">Buscando historial...</p>
-                            ) : traceEvents.length > 0 ? (
+                            ) : traceData.events.length > 0 ? (
                                 <div className="border-t">
-                                    {traceEvents.map(event => <TraceEventCard key={event.id} event={event} />)}
+                                    {traceData.events.map(event => <TraceEventCard key={event.id} event={event} />)}
                                 </div>
                             ) : (
                                 <p className="text-zinc-500 text-center py-8">No se encontraron eventos de trazabilidad para este lote.</p>
