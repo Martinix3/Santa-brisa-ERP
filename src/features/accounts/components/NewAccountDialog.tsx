@@ -1,4 +1,5 @@
 
+
 "use client";
 import React, { useState, useEffect } from 'react';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
@@ -8,7 +9,8 @@ import type { Account, Party, PartyRole, User, AccountType } from '@/domain/ssot
 interface NewAccountDialogProps {
   open: boolean;
   onClose: () => void;
-  onSave: (party: Party, account: Account, role: PartyRole) => void;
+  onSuccess: (result: any) => void;
+  onError?: (message: string) => void;
   users: User[];
   distributors: { value: string; label: string }[];
 }
@@ -16,7 +18,8 @@ interface NewAccountDialogProps {
 export function NewAccountDialog({
   open,
   onClose,
-  onSave,
+  onSuccess,
+  onError,
   users,
   distributors,
 }: NewAccountDialogProps) {
@@ -27,6 +30,7 @@ export function NewAccountDialog({
   const [type, setType] = useState<AccountType>('HORECA');
   const [ownerId, setOwnerId] = useState('');
   const [billerId, setBillerId] = useState('SB');
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -37,16 +41,18 @@ export function NewAccountDialog({
       setType('HORECA');
       setOwnerId('');
       setBillerId('SB');
+      setIsSaving(false);
     }
   }, [open]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !ownerId) {
-      alert('Nombre y Responsable son obligatorios.');
+      onError?.('Nombre y Responsable son obligatorios.');
       return;
     }
 
+    setIsSaving(true);
     const now = new Date().toISOString();
     const partyId = `party_${Date.now()}`;
     const accountId = `acc_${Date.now()}`;
@@ -84,8 +90,21 @@ export function NewAccountDialog({
             billerId: billerId
         }
     };
-
-    onSave(newParty, newAccount, newRole);
+    
+    // In a real app, you would call a server action here.
+    // For now, we simulate success and pass the data to the parent.
+    try {
+        // const result = await yourServerAction({ newParty, newAccount, newRole });
+        // if(result.ok) {
+            onSuccess({ party: newParty, account: newAccount, role: newRole });
+        // } else {
+        //     throw new Error(result.message);
+        // }
+    } catch (error: any) {
+        onError?.(error.message || 'Error desconocido al guardar la cuenta.');
+    } finally {
+        setIsSaving(false);
+    }
   };
 
   return (
@@ -94,8 +113,8 @@ export function NewAccountDialog({
         title="Crear Nueva Cuenta"
         description="Introduce los detalles del nuevo cliente potencial."
         onSubmit={handleSubmit}
-        primaryAction={{ label: 'Crear Cuenta', type: 'submit' }}
-        secondaryAction={{ label: 'Cancelar', onClick: onClose }}
+        primaryAction={{ label: isSaving ? 'Guardando...' : 'Crear Cuenta', type: 'submit', disabled: isSaving }}
+        secondaryAction={{ label: 'Cancelar', onClick: onClose, disabled: isSaving }}
         maxWidth="36rem"
       >
         <div className="space-y-4 pt-2">
@@ -116,7 +135,7 @@ export function NewAccountDialog({
                     </Select>
                 </label>
             </div>
-            <label className="grid gap-1.5"><span className="text-sm font-medium">Dirección</span><Input value={address} onChange={e => setAddress(e.target.value)} /></label>
+            <label className="grid gap-1.5"><span className="text-sm font-medium">Dirección</span><Input value={address} onChange={e => setAddress(e.target.value)} placeholder="Calle, número, piso..."/></label>
             <div className="grid grid-cols-2 gap-4">
                 <label className="grid gap-1.5"><span className="text-sm font-medium">Responsable (Comercial)</span>
                     <Select value={ownerId} onChange={e => setOwnerId(e.target.value)} required>

@@ -1,8 +1,9 @@
+
 // src/features/marketing/components/MarketingTaskCompletionDialog.tsx
 "use client";
 import React, { useState, useEffect, useMemo } from 'react';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
-import type { MarketingEvent, OnlineCampaign, InfluencerCollab, SB_THEME } from '@/domain/ssot';
+import type { MarketingEvent, OnlineCampaign, InfluencerCollab } from '@/domain/ssot';
 import { Euro, Users, Target, BarChart3, Heart, MousePointerClick, TrendingUp, DollarSign } from 'lucide-react';
 
 type Entity = MarketingEvent | OnlineCampaign | InfluencerCollab;
@@ -80,15 +81,18 @@ export function MarketingTaskCompletionDialog({
   entity,
   open,
   onClose,
-  onComplete,
+  onSuccess,
+  onError,
 }: {
   entity: Entity;
   open: boolean;
   onClose: () => void;
-  onComplete: (entityId: string, payload: CompleteResultsPayload) => void;
+  onSuccess: (result: any) => void;
+  onError?: (message: string) => void;
 }) {
   const [results, setResults] = useState<CompleteResultsPayload>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [isSaving, setIsSaving] = useState(false);
 
   const entityType = useMemo(() => getEntityType(entity), [entity]);
   const entityTitle = useMemo(() => getEntityTitle(entity), [entity]);
@@ -128,6 +132,7 @@ export function MarketingTaskCompletionDialog({
       }
       setResults(initialResults);
       setTouched({});
+      setIsSaving(false);
     }
   }, [open, entity, entityType]);
 
@@ -137,7 +142,7 @@ export function MarketingTaskCompletionDialog({
     setTouched(prev => ({...prev, [field]: true}));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const requiredFields = kpiFields
         .filter(f => !['engagements', 'orders'].includes(f.key)) // Optional fields
         .map(f => f.key);
@@ -145,18 +150,26 @@ export function MarketingTaskCompletionDialog({
     for (const field of requiredFields) {
         const value = results[field];
         if (value === undefined || Number(value) < 0) {
-            alert(`El campo '${kpiFields.find(f => f.key === field)?.label}' es obligatorio y no puede ser negativo.`);
+            onError?.(`El campo '${kpiFields.find(f => f.key === field)?.label}' es obligatorio y no puede ser negativo.`);
             return;
         }
     }
     
-    // For collabs, we sum up the costs into a single 'spend' field for the payload if needed
+    setIsSaving(true);
     let finalPayload = { ...results };
     if (entityType === 'collab') {
         finalPayload.spend = (results.cashPaid || 0) + (results.productCost || 0) + (results.shippingCost || 0);
     }
     
-    onComplete(entity.id, finalPayload);
+    try {
+        // In a real app, this would be a server action
+        // await serverAction(entity.id, finalPayload);
+        onSuccess({ entityId: entity.id, payload: finalPayload });
+    } catch(e: any) {
+        onError?.(e.message || "Error al guardar los resultados.");
+    } finally {
+        setIsSaving(false);
+    }
   };
   
   const canSubmit = useMemo(() => {
@@ -176,8 +189,8 @@ export function MarketingTaskCompletionDialog({
         title={`Resultados de: ${entityTitle}`}
         description="Registra los KPIs de la acción de marketing para completarla. Todos los campos son obligatorios."
         onSubmit={(e: React.FormEvent<HTMLFormElement>) => { e.preventDefault(); handleSubmit(); }}
-        primaryAction={{ label: 'Guardar y Completar', type: 'submit', disabled: !canSubmit }}
-        secondaryAction={{ label: 'Cancelar', onClick: onClose }}
+        primaryAction={{ label: isSaving ? 'Guardando...' : 'Guardar y Completar', type: 'submit', disabled: !canSubmit || isSaving }}
+        secondaryAction={{ label: 'Cancelar', onClick: onClose, disabled: isSaving }}
       >
         <div className="space-y-4 pt-2">
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">

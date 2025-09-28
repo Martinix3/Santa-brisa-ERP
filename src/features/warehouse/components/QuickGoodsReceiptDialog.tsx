@@ -1,4 +1,5 @@
 
+
 "use client";
 import React, { useMemo, useState, useEffect } from "react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
@@ -8,7 +9,6 @@ import { useData } from "@/lib/dataprovider";
 import type { Party, Item, Uom, ItemCategory, PartyRole } from "@/domain/ssot";
 import { createGoodsReceipt, createSupplier, createItem, reportIncident } from "@/app/(app)/warehouse/goods-receipt/actions";
 import { Plus, Trash2, Truck, AlertTriangle, Factory, PackagePlus, UserPlus } from "lucide-react";
-import { toast } from "sonner";
 
 // --- Tipos para el Formulario ---
 
@@ -67,10 +67,12 @@ export function QuickGoodsReceiptDialog({
   open,
   onOpenChange,
   onSuccess,
+  onError,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   onSuccess?: (info: { receiptId: string; receiptNumber: string }) => void;
+  onError?: (message: string) => void;
 }) {
   const { data, setData } = useData();
   const { parties, partyRoles, items: itemsAll } = (data || {}) as any;
@@ -106,13 +108,12 @@ export function QuickGoodsReceiptDialog({
 
   useEffect(() => {
     if(open) {
-        reset();
+        reset({ date: nowIsoDate(), lines: [{ itemId: "", supplierLot: "", qty: 0, uom: "unit", unitCost: 0, autoLot: true, locationId: "RM/MAIN" }] });
     }
   }, [open, reset]);
 
   const { fields, append, remove } = useFieldArray({ control, name: "lines" });
   const watchLines = watch("lines");
-  const watchIncident = watch("incident.hasIncident");
   
   const selectedItem = (id?: string) => items.find((it: Item) => it.id === id);
   
@@ -157,12 +158,11 @@ export function QuickGoodsReceiptDialog({
         });
       }
 
-      toast.success("Recepción creada correctamente.");
       onSuccess?.(res);
       onOpenChange(false);
     } catch (e: any) {
       console.error(e);
-      toast.error(e?.message ?? "Error al guardar recepción.");
+      onError?.(e?.message ?? "Error al guardar recepción.");
     }
   };
 
@@ -275,8 +275,7 @@ export function QuickGoodsReceiptDialog({
         <CreateSupplierDialog
           open={newSupplierOpen}
           onOpenChange={setNewSupplierOpen}
-          onCreated={(party) => {
-            toast.success("Proveedor creado.");
+          onSuccess={(party) => {
             setData(d => d ? ({ ...d, parties: [...(d.parties || []), party], partyRoles: [...(d.partyRoles || []), {id: `role_${Date.now()}`, partyId: party.id, role: 'SUPPLIER'}] as PartyRole[]}) : d);
             setValue("supplierId", party.id, { shouldValidate: true });
           }}
@@ -287,8 +286,7 @@ export function QuickGoodsReceiptDialog({
         <CreateItemDialog
           open={newItemOpen != null}
           onOpenChange={() => setNewItemOpen(null)}
-          onCreated={(it) => {
-            toast.success("SKU creado.");
+          onSuccess={(it) => {
             const lineIndex = newItemOpen;
             setData(d => d ? ({ ...d, items: [...(d.items || []), it] }) : d);
             setValue(`lines.${lineIndex}.itemId`, it.id, { shouldValidate: true });
@@ -307,19 +305,23 @@ export function QuickGoodsReceiptDialog({
  * Dialogs de Alta Rápida
  * ----------------------------------------------------------- */
 
-function CreateSupplierDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpenChange: (v: boolean) => void; onCreated: (party: Party) => void; }) {
+function CreateSupplierDialog({ open, onOpenChange, onSuccess, onError }: { 
+    open: boolean; onOpenChange: (v: boolean) => void; onSuccess: (party: Party) => void; onError?: (msg: string) => void; 
+}) {
   
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<{ name: string; taxId: string }>();
+
+  useEffect(() => {
+    if(open) reset();
+  }, [open, reset]);
 
   const onSubmit = async (data: { name: string; taxId: string }) => {
     try {
       const party = await createSupplier({ name: data.name.trim(), taxId: data.taxId.trim() || undefined });
-      onCreated(party);
+      onSuccess(party);
       onOpenChange(false);
-      reset();
     } catch (e: any) {
-      console.error(e);
-      toast.error(e?.message ?? "No se pudo crear el proveedor.");
+      onError?.(e?.message ?? "No se pudo crear el proveedor.");
     }
   };
 
@@ -343,12 +345,18 @@ function CreateSupplierDialog({ open, onOpenChange, onCreated }: { open: boolean
   );
 }
 
-function CreateItemDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpenChange: (v: boolean) => void; onCreated: (item: Item) => void; }) {
+function CreateItemDialog({ open, onOpenChange, onSuccess, onError }: { 
+    open: boolean; onOpenChange: (v: boolean) => void; onSuccess: (item: Item) => void; onError?: (msg: string) => void; 
+}) {
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<
     { name: string; sku: string; uom: Uom; category: ItemCategory; stdCost: number }
   >({
     defaultValues: { uom: "unit", stdCost: 0, category: "raw" }
   });
+
+  useEffect(() => {
+    if(open) reset();
+  }, [open, reset]);
 
   const onSubmit = async (data: { name: string; sku: string; uom: Uom; category: ItemCategory; stdCost: number }) => {
     try {
@@ -359,12 +367,10 @@ function CreateItemDialog({ open, onOpenChange, onCreated }: { open: boolean; on
         category: data.category,
         stdCost: data.stdCost,
       });
-      onCreated(item);
+      onSuccess(item);
       onOpenChange(false);
-      reset();
     } catch (e: any) {
-      console.error(e);
-      toast.error(e?.message ?? "No se pudo crear el SKU.");
+      onError?.(e?.message ?? "No se pudo crear el SKU.");
     }
   };
 

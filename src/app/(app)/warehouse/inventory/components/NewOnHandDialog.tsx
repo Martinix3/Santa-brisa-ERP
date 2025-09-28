@@ -1,3 +1,4 @@
+
 // src/app/(app)/warehouse/inventory/components/NewOnHandDialog.tsx
 "use client";
 import React from 'react';
@@ -5,6 +6,7 @@ import { useForm } from 'react-hook-form';
 import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog";
 import { Input, Select, SBButton } from '@/components/ui/ui-primitives';
 import { Item, ItemCategory, Uom } from '@/domain/ssot';
+import { createManualOnHand } from '../actions';
 
 type FormState = {
   itemId: string;
@@ -31,9 +33,12 @@ const FieldRow: React.FC<React.PropsWithChildren<{ label: string; error?: string
 );
 
 export function NewOnHandDialog({
-  open, onClose, onCreate, items, locations, defaultLocation
+  open, onClose, onSuccess, onError, items, locations, defaultLocation
 }: {
-  open: boolean; onClose: () => void; onCreate: (p: any) => Promise<void>;
+  open: boolean;
+  onClose: () => void;
+  onSuccess: (result: any) => void;
+  onError?: (message: string) => void;
   items: Item[]; locations: string[]; defaultLocation?: string;
 }) {
   const { register, handleSubmit, formState: { errors }, reset, watch, setValue } = useForm<FormState>({
@@ -48,6 +53,7 @@ export function NewOnHandDialog({
   });
 
   const selectedItemId = watch('itemId');
+  const [isSaving, setIsSaving] = React.useState(false);
 
   React.useEffect(() => {
     if (selectedItemId) {
@@ -58,10 +64,28 @@ export function NewOnHandDialog({
       }
     }
   }, [selectedItemId, items, setValue]);
+  
+  React.useEffect(() => {
+    if (open) {
+      reset();
+      setIsSaving(false);
+    }
+  }, [open, reset]);
 
   const onSubmit = async (data: FormState) => {
-    await onCreate(data);
-    reset();
+    setIsSaving(true);
+    try {
+        const result = await createManualOnHand(data);
+        if (result.ok) {
+            onSuccess(result.data);
+        } else {
+            throw new Error(result.message);
+        }
+    } catch(e: any) {
+        onError?.(e.message || "Error al crear la entrada de stock.");
+    } finally {
+        setIsSaving(false);
+    }
   };
 
   return (
@@ -70,8 +94,8 @@ export function NewOnHandDialog({
         title="Añadir Stock Manual" 
         maxWidth="36rem"
         onSubmit={handleSubmit(onSubmit)}
-        primaryAction={{ label: "Guardar", type: "submit" }}
-        secondaryAction={{ label: "Cancelar", onClick: () => { onClose(); reset(); } }}
+        primaryAction={{ label: isSaving ? "Guardando..." : "Guardar", type: "submit", disabled: isSaving }}
+        secondaryAction={{ label: "Cancelar", onClick: () => { onClose(); reset(); }, disabled: isSaving }}
       >
         <div className="space-y-3">
           <FieldRow label="Producto" error={errors.itemId?.message} htmlFor="itemId">

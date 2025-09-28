@@ -1,4 +1,5 @@
 
+
 // src/features/agenda/components/NewEventDialog.tsx
 "use client";
 import React, { useState, useEffect } from 'react';
@@ -88,23 +89,26 @@ function AccountSearch({ initialAccountId, initialLocation, onSelectionChange }:
 }
 
 export function NewEventDialog({
-  open, onOpenChange, onSave, accentColor, initialEventData
+  open, onOpenChange, onSuccess, onError, accentColor, initialEventData
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (event: Omit<Interaction, 'id' | 'createdAt' | 'status'> & { id?: string }) => void;
+  onSuccess: (result: any) => void;
+  onError?: (message: string) => void;
   accentColor: string;
   initialEventData?: Partial<Interaction> | null;
 }) {
-    const { data: santaData, currentUser } = useData();
+    const { data: santaData, currentUser, saveAllCollections } = useData();
     const [type, setType] = useState<Department>('PERSONAL');
     const [dateTime, setDateTime] = useState('');
     const [selection, setSelection] = useState<{ accountId?: string, location?: string }>({});
     const [notes, setNotes] = useState('');
     const [involvedUserIds, setInvolvedUserIds] = useState<string[]>([]);
+    const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
         if (open) {
+            setIsSaving(false);
             if (initialEventData) {
                 const planned = initialEventData.plannedFor ? new Date(initialEventData.plannedFor) : null;
                 setType(initialEventData.dept || 'PERSONAL');
@@ -130,32 +134,50 @@ export function NewEventDialog({
         );
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!notes || !type) {
-            alert('La descripción y el departamento son obligatorios.');
+            onError?.('La descripción y el departamento son obligatorios.');
             return;
         }
         
-        const saveData: Omit<Interaction, 'id' | 'createdAt' | 'status'> & { id?: string } = {
-            id: initialEventData?.id,
-            userId: initialEventData?.userId || currentUser!.id,
-            dept: type, 
-            kind: 'OTRO',
-            plannedFor: dateTime || undefined,
-            note: notes,
-            location: selection.location,
-            accountId: selection.accountId,
-            involvedUserIds: involvedUserIds.length > 0 ? involvedUserIds : (currentUser ? [currentUser.id] : []),
-        };
+        setIsSaving(true);
+        try {
+            const saveData: Omit<Interaction, 'id' | 'createdAt' | 'status'> & { id?: string } = {
+                id: initialEventData?.id,
+                userId: initialEventData?.userId || currentUser!.id,
+                dept: type, 
+                kind: 'OTRO',
+                plannedFor: dateTime || undefined,
+                note: notes,
+                location: selection.location,
+                accountId: selection.accountId,
+                involvedUserIds: involvedUserIds.length > 0 ? involvedUserIds : (currentUser ? [currentUser.id] : []),
+            };
 
-        if (!saveData.id) {
-            delete saveData.id;
+            if (!saveData.id) {
+                delete saveData.id;
+            }
+            
+            const newInteraction: Interaction = {
+                ...saveData,
+                id: saveData.id || `int_${Date.now()}`,
+                createdAt: new Date().toISOString(),
+                status: 'open',
+            } as Interaction;
+    
+            const collectionToSave: Partial<SantaData> = {
+                interactions: [newInteraction]
+            };
+            
+            await saveAllCollections(collectionToSave);
+            onSuccess(newInteraction);
+
+        } catch (error: any) {
+            onError?.(error.message || "Error al guardar la tarea.");
+        } finally {
+            setIsSaving(false);
         }
-
-        onSave(saveData);
-
-        onOpenChange(false);
     };
     
     const dialogTitle = initialEventData?.id ? "Editar Tarea" : "Crear Nueva Tarea o Evento";
@@ -168,8 +190,8 @@ export function NewEventDialog({
                     title={dialogTitle}
                     description="Añade o edita una entrada en tu calendario y asigna responsables."
                     onSubmit={handleSubmit}
-                    primaryAction={{ label: initialEventData?.id ? 'Guardar Cambios' : 'Crear Tarea', type: 'submit' }}
-                    secondaryAction={{ label: 'Cancelar', onClick: () => onOpenChange(false) }}
+                    primaryAction={{ label: isSaving ? 'Guardando...' : (initialEventData?.id ? 'Guardar Cambios' : 'Crear Tarea'), type: 'submit', disabled: isSaving }}
+                    secondaryAction={{ label: 'Cancelar', onClick: () => onOpenChange(false), disabled: isSaving }}
                 >
                     <div className="space-y-4 pt-2">
                         <div className="grid gap-1.5">

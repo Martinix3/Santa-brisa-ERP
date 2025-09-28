@@ -1,26 +1,31 @@
+
 // src/features/dashboard-ventas/components/TaskCompletionDialog.tsx
 "use client";
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
 import { Input, Select, Textarea } from '@/components/ui/ui-primitives';
-import type { Interaction, InteractionKind, Payload, Item } from '@/domain/ssot';
+import type { Interaction, Payload, Item } from '@/domain/ssot';
 import { ShoppingCart, MessageSquare, Plus, X } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
+import { saveAllCollections } from '@/lib/dataprovider/actions';
 
 export function TaskCompletionDialog({
   task,
   open,
   onClose,
-  onComplete,
+  onSuccess,
+  onError,
 }: {
   task: Interaction;
   open: boolean;
   onClose: () => void;
-  onComplete: (taskId: string, payload: Payload) => void;
+  onSuccess: (result: any) => void;
+  onError?: (message: string) => void;
 }) {
-  const { data } = useData();
+  const { data, currentUser, saveAllCollections } = useData();
+  const [isSaving, setIsSaving] = useState(false);
 
-  const itemOptions = useMemo(
+  const itemOptions = React.useMemo(
     () => (data?.items || []).filter((p) => p.active && p.category === 'fg'),
     [data?.items]
   );
@@ -37,6 +42,7 @@ export function TaskCompletionDialog({
       setNote('');
       setNextActionDate('');
       setItems([{ itemId: defaultItemId, qty: 1 }]);
+      setIsSaving(false);
     }
   }, [open, defaultItemId]);
 
@@ -53,19 +59,57 @@ export function TaskCompletionDialog({
   };
   const removeLine = (index: number) => setItems((prev) => prev.filter((_, i) => i !== index));
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    if (!data || !currentUser) {
+        onError?.("No se pudo obtener la información del usuario o los datos de la aplicación.");
+        return;
+    }
+
     let payload: Payload | null = null;
-    
     if (mode === 'interaccion') {
-        if (!note) return alert("La nota de la interacción es obligatoria.");
+        if (!note) { onError?.("La nota de la interacción es obligatoria."); return; }
         payload = { type: 'interaccion', note, nextActionDate: nextActionDate || undefined };
     } else {
-        if (items.length === 0 || items.some(it => !it.itemId || it.qty <=0)) return alert("Revisa las líneas del pedido.");
+        if (items.length === 0 || items.some(it => !it.itemId || it.qty <=0)) { onError?.("Revisa las líneas del pedido."); return; }
         payload = { type: 'venta', items };
     }
-    
-    if (payload) {
-      onComplete(task.id, payload);
+    if (!payload) return;
+
+    setIsSaving(true);
+    try {
+        const collectionsToSave: Partial<SantaData> = {};
+        const updatedInteractions = (data.interactions || []).map(i =>
+            i.id === task.id ? { ...i, status: 'done' as const, resultNote: (payload as any).note } : i
+        );
+        collectionsToSave.interactions = updatedInteractions;
+
+        if (payload.type === 'interaccion' && payload.nextActionDate) {
+            const newFollowUp = {
+                id: `int_${Date.now()}`, userId: currentUser.id, accountId: task.accountId,
+                kind: 'OTRO', note: `Seguimiento de: ${(payload as any).note}`,
+                plannedFor: payload.nextActionDate, createdAt: new Date().toISOString(),
+                dept: task.dept || 'VENTAS', status: 'open',
+            };
+            collectionsToSave.interactions.push(newFollowUp as Interaction);
+        }
+
+        if (payload.type === 'venta') {
+            const newOrder = {
+                id: `ord_${Date.now()}`, accountId: task.accountId, partyId: data.accounts.find(a=>a.id===task.accountId)?.partyId,
+                source: 'MANUAL', status: 'open', currency: 'EUR', createdAt: new Date().toISOString(),
+                lines: payload.items.map(item => ({ ...item, uom: 'unit', priceUnit: 0 })),
+                notes: `Pedido rápido creado desde tarea ${task.id}`,
+            };
+            collectionsToSave.ordersSellOut = [...(data.ordersSellOut || []), newOrder as any];
+        }
+
+        await saveAllCollections(collectionsToSave);
+        onSuccess(collectionsToSave);
+
+    } catch (error: any) {
+        onError?.(error.message || 'Error desconocido al guardar.');
+    } finally {
+        setIsSaving(false);
     }
   };
 
@@ -100,8 +144,8 @@ export function TaskCompletionDialog({
           title={`Resultado de: ${task.note}`}
           description="Registra qué ha pasado. Esto completará la tarea."
           onSubmit={(e: React.FormEvent<HTMLFormElement>) => { e.preventDefault(); handleSubmit(); }}
-          primaryAction={{ label: 'Guardar y Completar', type: 'submit' }}
-          secondaryAction={{ label: 'Cancelar', onClick: onClose }}
+          primaryAction={{ label: isSaving ? 'Guardando...' : 'Guardar y Completar', type: 'submit', disabled: isSaving }}
+          secondaryAction={{ label: 'Cancelar', onClick: onClose, disabled: isSaving }}
         >
           {renderContent()}
         </SBDialogContent>

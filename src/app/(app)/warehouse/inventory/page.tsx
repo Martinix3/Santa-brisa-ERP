@@ -1,4 +1,5 @@
 
+
 // src/app/(app)/warehouse/inventory/page.tsx
 "use client";
 import React, { useMemo, useState, useEffect, useTransition } from "react";
@@ -8,10 +9,10 @@ import { SBCard, Input, Select, DataTableSB, SBButton } from '@/components/ui/ui
 import type { Col } from '@/components/ui/ui-primitives';
 import { useData } from "@/lib/dataprovider";
 import type { OnHandView, Item, ItemCategory, StockMove, Lot, GoodsReceipt, Party } from "@/domain/ssot";
-import { createManualOnHand, rebuildOnHand } from "./actions";
+import { rebuildOnHand } from "./actions";
 import { NewOnHandDialog } from "./components/NewOnHandDialog";
 import { QuickGoodsReceiptDialog } from '@/features/warehouse/components/QuickGoodsReceiptDialog';
-
+import { toast } from 'sonner';
 
 // --- Helpers ---
 const toCsv = (rows: Record<string, any>[], headers: string[]) => {
@@ -215,12 +216,6 @@ export default function InventoryPage() {
     });
     download(`inventory_${activeTab}_${new Date().toISOString().slice(0, 10)}.csv`, toCsv(rows, headers));
   };
-  
-  async function handleCreate(payload: any) {
-    await createManualOnHand(payload);
-    setOpenNew(false);
-    router.refresh();
-  }
 
   return (
     <div className="space-y-6">
@@ -253,7 +248,12 @@ export default function InventoryPage() {
       <NewOnHandDialog
         open={openNew}
         onClose={() => setOpenNew(false)}
-        onCreate={handleCreate}
+        onSuccess={() => {
+            toast.success("Entrada manual creada con éxito.");
+            router.refresh();
+            setOpenNew(false);
+        }}
+        onError={(msg) => toast.error(`Error: ${msg}`)}
         items={santaData?.items || []}
         locations={locations.filter(l => l !== 'ALL')}
         defaultLocation={locationFilter === 'ALL' ? undefined : locationFilter}
@@ -261,6 +261,11 @@ export default function InventoryPage() {
       <QuickGoodsReceiptDialog
         open={openReceipt}
         onOpenChange={setOpenReceipt}
+        onSuccess={() => {
+          toast.success("Recepción de mercancía guardada.");
+          router.refresh();
+        }}
+        onError={(msg) => toast.error(`Error: ${msg}`)}
       />
     </div>
   );
