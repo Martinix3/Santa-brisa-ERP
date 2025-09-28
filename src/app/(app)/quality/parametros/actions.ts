@@ -12,10 +12,23 @@ const PATH = '/quality/parametros'; // Ruta para revalidar
 // ---------- Parameters by SKU ----------
 export async function listParametersBySku(sku: string): Promise<ActionResult<ParameterBySku[]>> {
   if (!sku) return ok([]);
-  const snap = await db.collection('qcParameters').where('sku', '==', sku).get();
-  const data = snap.docs.map(doc => doc.data() as ParameterBySku);
+  
+  // 1. Busca el plan de calidad para este SKU.
+  const planSnap = await db.collection('qcPlans').where('sku', '==', sku).limit(1).get();
+  if (planSnap.empty) return ok([]);
+
+  const plan = planSnap.docs[0].data() as QcPlanBySku;
+  const parameterIds = (plan.specs || []).map(spec => spec.parameterId).filter(Boolean);
+
+  if (parameterIds.length === 0) return ok([]);
+  
+  // 2. Obtiene los documentos de los parámetros a partir de sus IDs.
+  const paramsSnap = await db.collection('qcParameters').where('id', 'in', parameterIds).get();
+  const data = paramsSnap.docs.map(doc => doc.data() as ParameterBySku);
+
   return ok(data);
 }
+
 
 export async function upsertParameterBySku(p: ParameterBySku): Promise<ActionResult<{ id: string }>> {
   try {
