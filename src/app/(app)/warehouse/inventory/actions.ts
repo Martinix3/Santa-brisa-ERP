@@ -74,14 +74,14 @@ export async function rebuildOnHand() {
       const reason = m.reason as string;
 
       function add(loc: string | undefined | null, delta: number) {
-        if (!loc) return;
+        if (!loc || !m.itemId || !m.lotNumber) return;
         const k = makeOnHandId(m.itemId, m.lotNumber, loc);
         const cur = (onHand[k] ||= { id: k, itemId: m.itemId, lotNumber: m.lotNumber, locationId: loc, qty: 0, uom, updatedAt: ts, createdAt: ts });
         cur.qty += delta;
         if (new Date(ts) > new Date(cur.updatedAt)) cur.updatedAt = ts;
       }
 
-      if (DIRECT_SIGN[reason] !== undefined) {
+      if (DIRECT_SIGN[reason] !== undefined && DIRECT_SIGN[reason] !== 0) {
         const loc = DIRECT_SIGN[reason] > 0 ? to : from;
         add(loc, DIRECT_SIGN[reason] * qty);
       } else if (reason === 'transfer') {
@@ -94,7 +94,7 @@ export async function rebuildOnHand() {
         if (loc) {
           const rk = makeOnHandId(m.itemId, m.lotNumber, loc);
           const cur = (reservations[rk] ||= { id: rk, itemId: m.itemId, lotNumber: m.lotNumber, locationId: loc, qty: 0, updatedAt: ts });
-          cur.qty += sign * absQty;
+          cur.qty += sign * absQty; // respeta signo: reservar (+), desreservar (-)
           cur.updatedAt = ts;
         }
       }
@@ -144,3 +144,4 @@ export async function rebuildOnHand() {
 
     return { ok: true, onHand: onHandDocs.length, lots: lotsDocs.length, reservations: resMap.size };
 }
+

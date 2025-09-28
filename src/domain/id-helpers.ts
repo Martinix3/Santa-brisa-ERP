@@ -1,3 +1,4 @@
+
 export function safeIdPart(s?: string | null) {
   if (!s) return '';
   return String(s).replaceAll("/", "~");
