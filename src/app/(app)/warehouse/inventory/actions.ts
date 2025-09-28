@@ -3,7 +3,7 @@
 
 import { adminDb as db } from '@/server/firebase';
 import { upsertMany } from '@/lib/dataprovider/actions';
-import type { StockMove, Item, QcStatus, SantaData, Uom } from '@/domain/ssot';
+import type { StockMove, Item, QcStatus, SantaData, Uom, ItemCategory } from '@/domain/ssot';
 import { makeOnHandId } from '@/domain/id-helpers';
 import { z } from "zod";
 import { ok, fail, type ActionResult } from "@/lib/result";
@@ -34,32 +34,48 @@ function simpleId(prefix="sm"): string {
 }
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
-function lotPrefixFromSku(sku?: string) {
-  const base = (sku || "SKU").toUpperCase().replace(/[^A-Z0-9_-]/g, "");
+function lotPrefixFromSku(sku?: string, itemId?: string) {
+  const base = (sku || itemId || "SKU").toUpperCase().replace(/[^A-Z0-9_-]/g, "");
   const d = new Date();
   const yymm = `${String(d.getFullYear()).slice(-2)}${pad2(d.getMonth() + 1)}`;
   return `${base}-${yymm}`;
 }
 
 async function findNextLotNumber(itemId: string, sku?: string): Promise<string> {
-  const prefix = lotPrefixFromSku(sku);
-  return `${prefix}-01`;
+    const prefix = lotPrefixFromSku(sku, itemId);
+    const lotsColl = db.collection('lots');
+    const query = lotsColl.where('lotNumber', '>=', prefix).where('lotNumber', '<', prefix + 'z');
+    const snapshot = await query.get();
+
+    if (snapshot.empty) {
+        return `${prefix}-01`;
+    }
+
+    let maxSeq = 0;
+    snapshot.docs.forEach(doc => {
+        const lotNum = doc.data().lotNumber || '';
+        const seq = parseInt(lotNum.split('-').pop() || '0', 10);
+        if (!isNaN(seq) && seq > maxSeq) {
+            maxSeq = seq;
+        }
+    });
+
+    const nextSeq = (maxSeq + 1).toString().padStart(2, '0');
+    return `${prefix}-${nextSeq}`;
 }
 
-async function loadItemSku(itemId: string): Promise<string | undefined> {
-  return undefined;
+async function loadItem(itemId: string): Promise<Item | null> {
+    const doc = await db.collection('items').doc(itemId).get();
+    return doc.exists ? (doc.data() as Item) : null;
 }
 
-function initialQcStatusFor(item?: { requiresQc?: boolean }, opts?: { sendToQc?: boolean }): QcStatus {
-  if (opts?.sendToQc === true) return 'PENDING';
-  if (opts?.sendToQc === false) return 'PASSED';
-  // @ts-ignore
-  return item?.requiresQc ? 'PENDING' : 'PASSED';
+function initialQcStatusFor(item: Item, opts: { sendToQc: boolean }): QcStatus {
+  if (opts.sendToQc) return 'PENDING';
+  const criticalCategories: (Item['category'] | undefined)[] = ['raw', 'pack', 'fg', 'intermediate'];
+  return criticalCategories.includes(item.category) ? 'PENDING' : 'PASSED';
 }
 
-
-// --- Actions ---
-
+// --- Action Refactorizada ---
 export async function createManualOnHand(
   input: CreateManualPayload
 ): Promise<ActionResult<{ stockMoveId: string; lotNumber: string }>> {
@@ -69,58 +85,65 @@ export async function createManualOnHand(
   }
   const p = parsed.data;
 
-  const sku = await loadItemSku(p.itemId);
-  let lotNumber = (p.lotNumber || "").trim();
-  if (!lotNumber) {
-    lotNumber = await findNextLotNumber(p.itemId, sku);
-  }
-
-  const stockMoveId = simpleId("sm");
-  const occurredAtIso = p.occurredAt ? new Date(p.occurredAt).toISOString() : new Date().toISOString();
-
-  const stockMove = {
-    id: stockMoveId,
-    itemId: p.itemId,
-    lotNumber,
-    qty: p.qty,
-    uom: p.uom,
-    reason: "adjustment",
-    toLocationId: p.locationId,
-    occurredAt: occurredAtIso,
-    createdAt: new Date().toISOString(),
-    ref: {
-      source: "manual_new_onhand",
-      invoiceRef: p.invoiceRef || undefined,
-      supplier: p.supplier || undefined,
-      amount: p.amount ?? undefined,
-      currency: p.currency || "EUR",
-      note: p.note || undefined,
-      category: p.category,
-    },
-  };
-
-  const now = new Date().toISOString();
-  const qcStatus = initialQcStatusFor(undefined, { sendToQc: p.sendToQc });
-  const lot = {
-    id: lotNumber,
-    lotNumber,
-    itemId: p.itemId,
-    qcStatus: qcStatus,
-    createdAt: now,
-    updatedAt: now,
-    quantity: p.qty,
-    uom: p.uom,
-  };
-
   try {
-    await upsertMany("lots", [lot as any]);
-  } catch {}
+    const item = await loadItem(p.itemId);
+    if (!item) {
+        return fail(`El producto con ID ${p.itemId} no existe.`);
+    }
 
-  await upsertMany("stockMoves", [stockMove as any]);
+    let lotNumber = (p.lotNumber || "").trim();
+    if (!lotNumber) {
+      lotNumber = await findNextLotNumber(p.itemId, item.sku);
+    }
 
-  return ok({ stockMoveId, lotNumber });
+    const occurredAtIso = p.occurredAt ? new Date(p.occurredAt).toISOString() : new Date().toISOString();
+    const nowIso = new Date().toISOString();
+    
+    // Usar el validador de Zod para asegurar la consistencia del lote
+    const lotData = LotSchema.parse({
+      lotNumber: lotNumber,
+      itemId: p.itemId,
+      qcStatus: initialQcStatusFor(item, { sendToQc: p.sendToQc }),
+      createdAt: nowIso,
+      updatedAt: nowIso,
+      qty: p.qty,
+      uom: p.uom,
+    });
+
+    const stockMove = {
+      id: simpleId("sm"),
+      itemId: p.itemId,
+      lotNumber,
+      qty: p.qty,
+      uom: p.uom,
+      reason: "adjustment",
+      toLocationId: p.locationId,
+      occurredAt: occurredAtIso,
+      createdAt: nowIso,
+      ref: { /* ... */ },
+    };
+
+    // --- Operación Atómica con Batch Write ---
+    const batch = db.batch();
+    
+    const lotRef = db.collection('lots').doc(lotNumber);
+    batch.set(lotRef, lotData, { merge: true });
+
+    const stockMoveRef = db.collection('stockMoves').doc(stockMove.id);
+    batch.set(stockMoveRef, stockMove as any);
+
+    await batch.commit();
+
+    return ok({ stockMoveId: stockMove.id, lotNumber });
+
+  } catch (error: any) {
+    console.error("Error creando entrada manual de stock:", error);
+     if (error instanceof z.ZodError) {
+        return fail("Error de validación al crear el lote.", { fieldErrors: error.flatten().fieldErrors });
+    }
+    return fail(error.message || "Ocurrió un error inesperado en el servidor.");
+  }
 }
-
 
 async function getAll<T>(coll: keyof SantaData): Promise<T[]> {
   try {
@@ -175,7 +198,7 @@ export async function rebuildOnHand() {
             const key = makeOnHandId(m.itemId, m.lotNumber, loc);
             const entry = onHandAgg[key] || { qty: 0, uom, itemId: m.itemId, lotNumber: m.lotNumber, locationId: loc, updatedAt: '1970-01-01T00:00:00Z' };
             entry.qty += qty * sign;
-            if (new Date(updatedAt) > new Date(entry.updatedAt)) {
+            if (new Date(updatedAt) > new Date(entry.updatedat)) {
                 entry.updatedAt = updatedAt;
             }
             onHandAgg[key] = entry;
