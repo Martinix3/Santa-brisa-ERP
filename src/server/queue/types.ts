@@ -1,3 +1,4 @@
+
 import type { Timestamp } from 'firebase-admin/firestore';
 import type { Shipment } from '@/domain/ssot';
 

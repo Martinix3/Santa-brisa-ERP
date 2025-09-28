@@ -1,3 +1,4 @@
+
 // src/app/(app)/warehouse/logistics/actions.ts
 'use server';
 import 'server-only';
@@ -57,6 +58,7 @@ export async function confirmOrderShipment(orderId: string): Promise<Shipment> {
   const shipmentRef = db.collection('shipments').doc(); // Auto-generate ID
   const orderRef = db.collection('ordersSellOut').doc(orderId);
   const now = new Date().toISOString();
+  let newShipment: Shipment;
 
   await db.runTransaction(async (transaction) => {
     // 1. Atomically reserve stock by incrementing reservedQty
@@ -80,7 +82,7 @@ export async function confirmOrderShipment(orderId: string): Promise<Shipment> {
     const totalUnits = order.lines.reduce((sum, line) => sum + line.qty, 0);
     const mode: 'PARCEL' | 'PALLET' = isOnlineOrPrivate || totalUnits < 12 ? 'PARCEL' : 'PALLET';
 
-    const newShipment: Shipment = {
+    newShipment = {
         id: shipmentRef.id,
         shipmentNumber,
         orderId: order.id,
@@ -122,7 +124,7 @@ export async function confirmOrderShipment(orderId: string): Promise<Shipment> {
   revalidatePath('/warehouse/inventory');
   revalidatePath('/warehouse/logistics');
 
-  return { id: shipmentRef.id, ...await getOne<Shipment>('shipments', shipmentRef.id) } as Shipment;
+  return newShipment!;
 }
 
 

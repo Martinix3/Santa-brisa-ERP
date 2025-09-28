@@ -26,8 +26,8 @@ export async function updateOrderStatus(
 
   if (newStatus === 'confirmed') {
     try {
-      await confirmAndReserve(order.id);
-      return { ok: true, order: { id: order.id, status: 'confirmed' }, shipment: null };
+      const shipment = await confirmAndReserve(order.id);
+      return { ok: true, order: { id: order.id, status: 'confirmed' }, shipment };
     } catch (e: any) {
       console.error(`[ACTION] ERROR CRÍTICO en confirmOrderShipment para el pedido ${order.id}:`, e);
       return { ok: false, order: { id: order.id, status: order.status }, shipment: null, error: e.message };

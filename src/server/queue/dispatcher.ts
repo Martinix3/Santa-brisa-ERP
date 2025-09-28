@@ -1,3 +1,4 @@
+
 import { adminDb as db } from '@/server/firebase';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import type { Job, JobKind } from './types';
@@ -34,7 +35,7 @@ export async function processJob(workerId: string, job: Job): Promise<void> {
 
   try {
     const result = await handler(job.payload);
-    await jobRef.update({ status: 'DONE', finishedAt: Timestamp.now(), updatedAt: Timestamp.now() });
+    await jobRef.update({ status: 'DONE', finishedAt: Timestamp.now(), updatedAt: Timestamp.now(), result });
     console.log(`[${workerId}] Job ${job.id} (${job.kind}) completed successfully.`);
     
     if (result?.nextPage) {
