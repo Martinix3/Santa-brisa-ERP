@@ -2,7 +2,7 @@
 // src/features/warehouse/components/QuickGoodsReceiptDialog.tsx
 "use client";
 
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog";
 import { SBButton, Input, Select } from "@/components/ui/ui-primitives";
@@ -55,7 +55,7 @@ function SearchableCombobox({
           <CommandInput placeholder="Buscar..." onValueChange={setInputValue} />
           <CommandList>
             <CommandEmpty>
-              {onCreate ? (
+              {onCreate && inputValue ? (
                 <button
                   className="w-full text-left p-2 text-sm hover:bg-zinc-100"
                   onMouseDown={() => {
@@ -93,6 +93,8 @@ function SearchableCombobox({
 // --- Tipos para el Formulario (ACTUALIZADOS) ---
 type LineFormData = {
   itemId: string;
+  newItemName?: string; // Para creación on-the-fly
+  newItemCategory?: ItemCategory; // Para creación on-the-fly
   supplierLot: string;
   qty: number;
   unitCost: number;
@@ -149,11 +151,11 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
       date: nowIsoDate(),
       supplierId: "",
       deliveryNote: "",
-      lines: [{ itemId: "", supplierLot: "", qty: 0, uom: "unit", unitCost: 0, autoLot: true, expiryAt: null }],
+      lines: [{ itemId: "", supplierLot: "", qty: 0, uom: "unit", unitCost: 0, autoLot: true, expiryAt: null, newItemCategory: 'raw' }],
     },
   });
 
-  useEffect(() => { if (open) reset({ date: nowIsoDate(), lines: [{ itemId: "", supplierLot: "", qty: 0, uom: "unit", unitCost: 0, autoLot: true, expiryAt: null }] }); }, [open, reset]);
+  useEffect(() => { if (open) reset({ date: nowIsoDate(), lines: [{ itemId: "", supplierLot: "", qty: 0, uom: "unit", unitCost: 0, autoLot: true, expiryAt: null, newItemCategory: 'raw' }] }); }, [open, reset]);
   const { fields, append, remove } = useFieldArray({ control, name: "lines" });
 
   const supplierOptions = useMemo(() => suppliers.map((s: Party) => ({ value: s.id, label: s.name })), [suppliers]);
@@ -165,6 +167,8 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
           const it = items.find(i => i.id === l.itemId);
           return {
             itemId: l.itemId,
+            newItemName: l.newItemName,
+            newItemCategory: l.newItemCategory,
             supplierLot: l.supplierLot?.trim() || (l.autoLot ? generateLotNumber(it) : ""),
             qty: Number(l.qty),
             uom: l.uom,
@@ -194,13 +198,14 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
   const addLine = () => {
     const lastLine = getValues("lines")[fields.length - 1];
     append({
-      itemId: lastLine?.itemId || "", 
+      itemId: "",
       supplierLot: "",
       qty: 0,
       uom: lastLine?.uom || "unit",
-      unitCost: lastLine?.unitCost || 0,
+      unitCost: 0,
       autoLot: true,
       expiryAt: null,
+      newItemCategory: lastLine?.newItemCategory || 'raw'
     });
   };
   
@@ -268,10 +273,12 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {fields.map((field, i) => (
+                    {fields.map((field, i) => {
+                      const currentLine = watch(`lines.${i}`);
+                      return (
                       <tr key={field.id}>
-                        <td className="p-2">
-                          <Controller name={`lines.${i}.itemId`} control={control} rules={{ required: true }}
+                        <td className="p-2 align-top">
+                          <Controller name={`lines.${i}.itemId`} control={control} rules={{ required: !watch(`lines.${i}.newItemName`) }}
                             render={({ field: controllerField }) => (
                               <SearchableCombobox placeholder="Buscar o crear SKU..." options={itemOptions} value={controllerField.value}
                                 onChange={(itemId) => {
@@ -279,24 +286,34 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
                                     controllerField.onChange(itemId);
                                     setValue(`lines.${i}.uom`, itSel?.uom ?? 'unit');
                                     setValue(`lines.${i}.unitCost`, itSel?.stdCost ?? 0);
+                                    setValue(`lines.${i}.newItemName`, undefined); // Limpiar si se selecciona
                                 }}
                                 onCreate={async (name) => {
-                                    const newItem = await createItem({ name, uom:'unit', category:'raw' });
-                                    setData(d => d ? ({...d, items: [...(d.items || []), newItem]}) : d);
-                                    setValue(`lines.${i}.itemId`, newItem.id, {shouldValidate: true});
+                                    setValue(`lines.${i}.itemId`, '');
+                                    setValue(`lines.${i}.newItemName`, name);
                                 }}
                               />
                             )}
                           />
+                          {watch(`lines.${i}.newItemName`) && (
+                                <div className="mt-2">
+                                    <Select {...register(`lines.${i}.newItemCategory`)}>
+                                        <option value="raw">Materia Prima</option>
+                                        <option value="pack">Packaging</option>
+                                        <option value="label">Etiqueta</option>
+                                        <option value="consumable">Consumible</option>
+                                    </Select>
+                                </div>
+                          )}
                         </td>
-                        <td className="p-2"><Input placeholder="Lote del proveedor" {...register(`lines.${i}.supplierLot`)} /></td>
-                        <td className="p-2"><Input type="number" step="any" {...register(`lines.${i}.qty`, { valueAsNumber: true, required: true, min: 0.001 })} /></td>
-                        <td className="p-2"><Select {...register(`lines.${i}.uom`)}><option value="unit">unit</option><option value="kg">kg</option><option value="L">L</option></Select></td>
-                        <td className="p-2"><Input type="number" step="any" {...register(`lines.${i}.unitCost`, { valueAsNumber: true })} /></td>
-                        <td className="p-2"><Input type="date" {...register(`lines.${i}.expiryAt`)} /></td>
-                        <td className="p-2"><button type="button" onClick={() => remove(i)}><Trash2 className="h-4 w-4 text-red-500" /></button></td>
+                        <td className="p-2 align-top"><Input placeholder="Lote del proveedor" {...register(`lines.${i}.supplierLot`)} /></td>
+                        <td className="p-2 align-top"><Input type="number" step="any" {...register(`lines.${i}.qty`, { valueAsNumber: true, required: true, min: 0.001 })} /></td>
+                        <td className="p-2 align-top"><Select {...register(`lines.${i}.uom`)}><option value="unit">unit</option><option value="kg">kg</option><option value="L">L</option></Select></td>
+                        <td className="p-2 align-top"><Input type="number" step="any" {...register(`lines.${i}.unitCost`, { valueAsNumber: true })} /></td>
+                        <td className="p-2 align-top"><Input type="date" {...register(`lines.${i}.expiryAt`)} /></td>
+                        <td className="p-2 align-top"><button type="button" onClick={() => remove(i)}><Trash2 className="h-4 w-4 text-red-500" /></button></td>
                       </tr>
-                    ))}
+                    )})}
                   </tbody>
                 </table>
               </div>

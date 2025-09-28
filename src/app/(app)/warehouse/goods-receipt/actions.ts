@@ -33,9 +33,9 @@ function getLocationForCategory(category?: ItemCategory): string {
     if (!category) return 'DEFAULT/UNKNOWN';
     
     const cat = category.toUpperCase();
-    if (cat.startsWith('RAW')) return 'ALMACEN_MATERIAS_PRIMAS';
-    if (cat.startsWith('PACK')) return 'ALMACEN_PACKAGING';
-    if (cat.startsWith('FG')) return 'ALMACEN_TERMINADO';
+    if (cat.startsWith('RAW')) return 'RM/MAIN';
+    if (cat.startsWith('PACK')) return 'PKG/MAIN';
+    if (cat.startsWith('FG')) return 'FG/MAIN';
     
     return 'DEFAULT/GENERAL';
 }
@@ -200,6 +200,7 @@ export async function createGoodsReceipt(payload: {
             qty: FieldValue.increment(line.qty),
             uom: currentItem.uom, qcStatus: lotData.qcStatus,
             createdAt: nowIso, updatedAt: nowIso,
+            expiryAt: line.expiryAt ?? null,
         }, { merge: true });
 
         const smRef = db.collection('stockMoves').doc();
