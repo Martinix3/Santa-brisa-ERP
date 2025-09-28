@@ -1,4 +1,3 @@
-
 // src/app/(app)/warehouse/inventory/page.tsx
 
 "use client";
@@ -216,6 +215,13 @@ export default function InventoryPage() {
       }
     },
     { key: "qty", header: "Cantidad", className: "text-right", render: r => <span className="font-semibold">{r.qty} <span className="text-xs text-zinc-500">{r.uom}</span></span> },
+    { key: "available", header: "Disponible", className: "text-right", render: r => {
+        const reserved = Number((r as any).reservedQty || 0);
+        const free = Math.max(0, Number(r.qty) - reserved);
+        const strong = free < Number(r.qty);
+        return <span className={strong ? "font-semibold" : ""}>{free.toFixed(3)}</span>;
+      }
+    },
     { key: "qcStatus", header: "QC", render: r => {
         const lot = r.lotNumber ? lotMap.get(r.lotNumber) : undefined;
         return <QCPill status={lot?.qcStatus} />;

@@ -59,9 +59,12 @@ export default function CashflowSettingsPage() {
         
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.indexOf('application/json') !== -1) {
-          const data = await response.json();
-          if (data && Object.keys(data).length > 0) {
-            setS((prev: CashflowSettings) => ({...prev, ...data}));
+          const text = await response.text();
+          if (text) {
+              const data = JSON.parse(text);
+              if (data && Object.keys(data).length > 0) {
+                setS((prev: CashflowSettings) => ({...prev, ...data}));
+              }
           }
         } else {
             console.warn("Received non-JSON response from settings API");
