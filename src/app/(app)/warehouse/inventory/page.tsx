@@ -1,5 +1,3 @@
-
-
 // src/app/(app)/warehouse/inventory/page.tsx
 "use client";
 import React, { useMemo, useState, useEffect, useTransition } from "react";
@@ -9,10 +7,9 @@ import { SBCard, Input, Select, DataTableSB, SBButton } from '@/components/ui/ui
 import type { Col } from '@/components/ui/ui-primitives';
 import { useData } from "@/lib/dataprovider";
 import type { OnHandView, Item, ItemCategory, StockMove, Lot, GoodsReceipt, Party } from "@/domain/ssot";
-import { rebuildOnHand } from "./actions";
 import { NewOnHandDialog } from "./components/NewOnHandDialog";
 import { QuickGoodsReceiptDialog } from '@/features/warehouse/components/QuickGoodsReceiptDialog';
-import { toast } from 'sonner';
+import { toast } from "sonner";
 
 // --- Helpers ---
 const toCsv = (rows: Record<string, any>[], headers: string[]) => {
@@ -34,11 +31,9 @@ const isItemInCategory = (itemCategory: ItemCategory, activeTab: string) => {
 
 // --- Sub-components ---
 
-function InventoryHeader({ onNew, onRebuild, onExport, isRebuilding, onNewReceipt }: {
+function InventoryHeader({ onNew, onExport, onNewReceipt }: {
   onNew: () => void;
-  onRebuild: () => void;
   onExport: () => void;
-  isRebuilding: boolean;
   onNewReceipt: () => void;
 }) {
   return (
@@ -48,10 +43,6 @@ function InventoryHeader({ onNew, onRebuild, onExport, isRebuilding, onNewReceip
         <p className="text-xs text-zinc-500">Vista en tiempo real del stock y registro de entradas.</p>
       </div>
       <div className="flex items-center gap-2">
-        <SBButton variant="secondary" onClick={onRebuild} disabled={isRebuilding}>
-          <History className="w-4 h-4 mr-2" />
-          {isRebuilding ? "Recalculando..." : "Recalcular on-hand"}
-        </SBButton>
         <SBButton variant="secondary" onClick={onExport}>
           <Download className="w-4 h-4 mr-2" />
           Exportar
@@ -221,9 +212,7 @@ export default function InventoryPage() {
     <div className="space-y-6">
       <InventoryHeader
         onNew={() => setOpenNew(true)}
-        onRebuild={() => startTransition(async () => { await rebuildOnHand(); router.refresh(); })}
         onExport={exportCsv}
-        isRebuilding={pending}
         onNewReceipt={() => setOpenReceipt(true)}
       />
       
