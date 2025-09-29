@@ -3,7 +3,7 @@
 import React, { useState, useCallback } from 'react';
 import { Plus, X } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
-import type { SantaData, Account, AccountType, Party, InteractionKind } from '@/domain/ssot';
+import type { SantaData, Account, AccountType, Party, InteractionKind, PosTactic, PosTacticItem, PartyRole, CustomerData, CommercialFlow } from '@/domain/ssot';
 import { SBFlowModal } from './components/SBFlows';
 import { NewCustomerCelebration } from '@/components/ui/NewCustomerCelebration';
 
@@ -15,7 +15,7 @@ export default function QuickLogOverlay() {
   const { data, currentUser, saveAllCollections } = useData();
 
   const onSearchAccounts = useCallback(async (q: string): Promise<Account[]> => {
-    const list = data?.accounts || [];
+    const list = (data?.accounts || []).filter(a => a.flow === 'PLACEMENT');
     const nq = norm(q || '');
     if (!nq) return [];
     return list.filter((a: Account) => norm(a.name).includes(nq)).slice(0, 8);
@@ -54,8 +54,6 @@ export default function QuickLogOverlay() {
   }, [currentUser?.id, saveAllCollections]);
 
   const handleQuickSubmit = useCallback((payload: any) => {
-    console.log("Quick form submitted (Placement):", payload);
-
     if (payload.mode === 'interaction') {
       const newInteraction = {
         id: `int_${Date.now()}`,
@@ -78,7 +76,6 @@ export default function QuickLogOverlay() {
     return (
         <SBFlowModal
           open={true}
-          variant="quick"
           onClose={() => setOpen(false)}
           accounts={data?.accounts || []}
           onSearchAccounts={onSearchAccounts}
@@ -102,7 +99,7 @@ export default function QuickLogOverlay() {
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={() => setOpen(false)}>
           <div
-            className="relative w-[95vw] max-w-2xl h-[85vh] bg-white rounded-2xl shadow-xl flex flex-col overflow-hidden"
+            className="relative w-[95vw] max-w-lg h-auto bg-white rounded-2xl shadow-xl flex flex-col overflow-hidden"
             onClick={e => e.stopPropagation()}
           >
             {renderContent()}

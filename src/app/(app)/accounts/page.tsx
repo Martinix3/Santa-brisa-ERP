@@ -1,11 +1,10 @@
-
 // src/app/(app)/accounts/page.tsx
 
 "use client"
 import React, { useMemo, useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation';
 import { ChevronDown, Search, Plus, Phone, Mail, MessageSquare, Calendar, History, ShoppingCart, Info, BarChart3, UserPlus, Users, MoreVertical, Ticket, Clock, Edit, FileText } from 'lucide-react'
-import type { Stage, User, Interaction, OrderSellOut, SantaData, CustomerData, Party, PartyRole, InteractionKind, Payload, Account, AccountType, Uom } from '@/domain/ssot'
+import type { Stage, User, Interaction, OrderSellOut, SantaData, CustomerData, Party, PartyRole, InteractionKind, Payload, Account, AccountType, Uom, CommercialFlow } from '@/domain/ssot'
 import { accountOwnerDisplay, computeAccountKPIs, getDistributorForAccount, orderTotal } from '@/lib/sb-core';
 import Link from 'next/link'
 import { useData } from '@/lib/dataprovider'
@@ -190,7 +189,7 @@ function AccountBar({ a, party, santaData, onAddActivity, userMap, shortDate }: 
   )
 }
 
-export default function AccountsPage({ searchParams }: { searchParams?: Record<string, any> }) {
+export default function AccountsPage() {
   const flow: 'PLACEMENT' = 'PLACEMENT'; // Forzar vista colocación en esta página
   const router = useRouter();
   const { data: santaData, setData, currentUser, saveAllCollections } = useData();
@@ -233,7 +232,7 @@ export default function AccountsPage({ searchParams }: { searchParams?: Record<s
     const cities = new Set<string>();
     
     data.forEach(a => {
-      reps.add(a.ownerId!);
+      if (a.ownerId) reps.add(a.ownerId);
       const party = pMap[a.partyId];
       if (party?.billingAddress?.city) cities.add(party.billingAddress.city);
     });
@@ -258,11 +257,11 @@ export default function AccountsPage({ searchParams }: { searchParams?: Record<s
     return data.filter(a => {
       if (a.flow !== 'PLACEMENT') return false; // Solo cuentas de colocación
 
-      const ownerName = userMap[a.ownerId!];
+      const ownerName = a.ownerId ? userMap[a.ownerId] : '';
       const party = partyMap[a.partyId];
       const city = party?.billingAddress?.city || '';
 
-      const isPlacement = !!a.distributorPartyId && a.distributorPartyId !== 'SB';
+      const isPlacement = !!a.distributorPartyId;
       if (!isPlacement) return false;
 
       const matchesQuery = !s || [a.name, city, a.stage, ownerName].some(v=> (v||'').toString().toLowerCase().includes(s));

@@ -17,7 +17,7 @@ function Textarea(props:React.TextareaHTMLAttributes<HTMLTextAreaElement>){ retu
 // ===== Utils =====
 function useDebounced<T>(value:T, delay=250){ const [v,setV]=useState(value); useEffect(()=>{ const id=setTimeout(()=>setV(value), delay); return ()=>clearTimeout(id); },[value,delay]); return v; }
 
-// ===== Quick Interaction / Order (Switcher) =====
+// ===== Formulario Simplificado para Colocación =====
 function PlacementFlowForm({accounts, onSearchAccounts, onCreateAccount, onSubmit, onCancel }:{
   accounts: Account[];
   onSearchAccounts:(q:string, options: { signal: AbortSignal })=>Promise<Account[]>;
@@ -35,11 +35,6 @@ function PlacementFlowForm({accounts, onSearchAccounts, onCreateAccount, onSubmi
   
   const [searchSuggestions, setSearchSuggestions] = useState<Account[]>([]);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [activeIdx, setActiveIdx] = useState(-1);
-  const nameInputRef = useRef<HTMLDivElement>(null);
-  const searchAbortRef = useRef<AbortController | null>(null);
-  const searchCache = useRef<Map<string, Account[]>>(new Map());
   
   const [interactionNote, setInteractionNote] = useState("");
   const [nextActionDate, setNextActionDate] = useState("");
@@ -58,15 +53,17 @@ function PlacementFlowForm({accounts, onSearchAccounts, onCreateAccount, onSubmi
   }, [santaData]);
 
   useEffect(() => {
-    const run = async () => {
-      if (debouncedName.length < 1 || selectedAccountId) {
+    const runSearch = async () => {
+      if (debouncedName.length > 1 && !selectedAccountId) {
+        const results = await onSearchAccounts(debouncedName, {});
+        setSearchSuggestions(results);
+        setIsSearchOpen(true);
+      } else {
         setSearchSuggestions([]);
         setIsSearchOpen(false);
-        return;
       }
-      // ... (search logic)
     };
-    run();
+    runSearch();
   }, [debouncedName, onSearchAccounts, selectedAccountId]);
 
   const handleAccountSelect = (account: Account) => {
@@ -93,11 +90,11 @@ function PlacementFlowForm({accounts, onSearchAccounts, onCreateAccount, onSubmi
     if (!distributorPartyId) {
         newErrors.distributorPartyId = 'El distribuidor es obligatorio.';
     }
+    if (!accountName.trim()) {
+      newErrors.accountName = 'El nombre de la cuenta es obligatorio.';
+    }
     if (mode === 'interaction' && !interactionNote.trim()) {
         newErrors.interactionNote = 'El resumen es obligatorio.';
-    }
-     if (mode === 'account' && !accountName.trim()) {
-        newErrors.accountName = 'El nombre de la cuenta es obligatorio.';
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -113,23 +110,30 @@ function PlacementFlowForm({accounts, onSearchAccounts, onCreateAccount, onSubmi
         const newAccount = await onCreateAccount({ name: accountName, city: accountCity, type: 'HORECA', distributorPartyId });
         finalAccountId = newAccount.id;
     }
+
+    if (!finalAccountId) {
+        toast.error("No se pudo determinar la cuenta.");
+        setIsSaving(false);
+        return;
+    }
     
-    if (mode === 'account' && finalAccountId) {
-        toast.success(`Cuenta "${accountName}" creada/seleccionada.`);
-        onCancel(); // Or do something else
-    } else if(mode==="interaction"){
+    if (mode === 'interaction'){
       const plannedFor = nextActionDate && nextActionTime
           ? new Date(`${nextActionDate}T${nextActionTime}`).toISOString()
           : nextActionDate ? new Date(nextActionDate).toISOString() : undefined;
       onSubmit({ mode:"interaction", accountId: finalAccountId, kind: 'OTRO', note: interactionNote, nextActionNote: '', plannedFor });
+    } else { // mode === 'account'
+        toast.success(`Cuenta "${accountName}" lista para usar.`);
+        onCancel();
     }
+
     setIsSaving(false);
   }
   
-  const isSaveDisabled = isSaving || !distributorPartyId || (mode === 'interaction' && !interactionNote.trim()) || (mode === 'account' && !accountName.trim());
+  const isSaveDisabled = isSaving || !distributorPartyId || !accountName.trim() || (mode === 'interaction' && !interactionNote.trim());
 
   return (
-    <div className="p-4 space-y-4">
+    <div className="p-4 space-y-4 flex flex-col h-full">
        <div className="flex items-center gap-2 p-1 bg-zinc-100 rounded-xl">
         <button onClick={()=>setMode("interaction")} className={`flex-1 text-center px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${mode==="interaction"?"bg-white shadow-sm":"text-zinc-600 hover:bg-white/50"}`}>
             <MessageSquare className="h-4 w-4 inline mr-1.5"/> Interacción Rápida
@@ -139,50 +143,58 @@ function PlacementFlowForm({accounts, onSearchAccounts, onCreateAccount, onSubmi
         </button>
       </div>
       
-      <div className="border border-zinc-200 rounded-xl p-3 bg-white space-y-3">
-        <div className="text-xs text-zinc-500 uppercase font-semibold">Detalles de Colocación</div>
-        <div className="relative" ref={nameInputRef}>
-            <Row>
-              <Label>Cuenta</Label>
-              <Input value={accountName} onChange={handleNameChange} placeholder="Buscar o crear cuenta..."/>
-            </Row>
+      <div className="flex-grow space-y-4">
+        <div className="border border-zinc-200 rounded-xl p-3 bg-white space-y-3">
+          <div className="text-xs text-zinc-500 uppercase font-semibold">Detalles de Colocación</div>
+          <div className="relative">
+              <Row>
+                <Label htmlFor="accountName">Cuenta</Label>
+                <Input id="accountName" value={accountName} onChange={handleNameChange} placeholder="Buscar o crear cuenta..."/>
+                {errors.accountName && <p className="text-xs text-red-500">{errors.accountName}</p>}
+                {isSearchOpen && searchSuggestions.length > 0 && (
+                    <ul className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-40 overflow-y-auto">
+                        {searchSuggestions.map(acc => <li key={acc.id} onMouseDown={()=> handleAccountSelect(acc)} className="px-3 py-2 cursor-pointer hover:bg-zinc-100">{acc.name}</li>)}
+                    </ul>
+                )}
+              </Row>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+              <Row><Label htmlFor="accountCity">Ciudad</Label><Input id="accountCity" value={accountCity} onChange={e=>setAccountCity(e.target.value)} /></Row>
+              <Row>
+                <Label htmlFor="distributorId">Distribuidor</Label>
+                <Select id="distributorId" value={distributorPartyId} onChange={e => setDistributorPartyId(e.target.value)}>
+                  <option value="">Selecciona distribuidor…</option>
+                  {distributors.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                </Select>
+                {errors.distributorPartyId && <p className="text-xs text-red-500">{errors.distributorPartyId}</p>}
+              </Row>
+          </div>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-            <Row><Label>Ciudad</Label><Input value={accountCity} onChange={e=>setAccountCity(e.target.value)} /></Row>
-            <Row>
-              <Label>Distribuidor</Label>
-              <Select value={distributorPartyId} onChange={e => setDistributorPartyId(e.target.value)}>
-                <option value="">Selecciona distribuidor…</option>
-                {distributors.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-              </Select>
-              {errors.distributorPartyId && <p className="text-xs text-red-500">{errors.distributorPartyId}</p>}
-            </Row>
-        </div>
-      </div>
 
-      {mode === "interaction" && (
-        <div className="space-y-4">
-          <Row>
-            <Label htmlFor="interaction-note">Resumen de la Interacción</Label>
-            <Textarea
-              id="interaction-note"
-              rows={2}
-              maxLength={200}
-              placeholder="Ej: Cliente interesado, enviar propuesta la semana que viene."
-              value={interactionNote}
-              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => { setInteractionNote(e.target.value); setErrors(e => ({ ...e, interactionNote: '' })) }} />
-            {errors.interactionNote && <p className="text-xs text-red-500">{errors.interactionNote}</p>}
-          </Row>
-          
-          <Row>
-            <Label>Fecha Próxima Acción (opcional)</Label>
-            <div className="flex gap-2">
-              <Input id="next-action-date" type="date" value={nextActionDate} onChange={e => setNextActionDate(e.target.value)} className="flex-1" />
-              <TimePicker value={nextActionTime} onChange={setNextActionTime} step={15} className="flex-1" />
-            </div>
-          </Row>
-        </div>
-      )}
+        {mode === "interaction" && (
+          <div className="space-y-4">
+            <Row>
+              <Label htmlFor="interaction-note">Resumen de la Interacción</Label>
+              <Textarea
+                id="interaction-note"
+                rows={3}
+                maxLength={200}
+                placeholder="Ej: Cliente interesado, enviar propuesta la semana que viene."
+                value={interactionNote}
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => { setInteractionNote(e.target.value); setErrors(e => ({ ...e, interactionNote: '' })) }} />
+              {errors.interactionNote && <p className="text-xs text-red-500">{errors.interactionNote}</p>}
+            </Row>
+            
+            <Row>
+              <Label>Fecha Próxima Acción (opcional)</Label>
+              <div className="flex gap-2">
+                <Input id="next-action-date" type="date" value={nextActionDate} onChange={e => setNextActionDate(e.target.value)} className="flex-1" />
+                <TimePicker value={nextActionTime} onChange={setNextActionTime} step={15} className="flex-1" />
+              </div>
+            </Row>
+          </div>
+        )}
+      </div>
       
       <div className="sticky bottom-0 bg-white/80 backdrop-blur-sm py-3 px-4 -m-4 mt-4 border-t border-zinc-200 flex justify-end gap-2">
         <button type="button" onClick={onCancel} className="px-4 py-2 text-sm rounded-lg border border-zinc-300 bg-white hover:bg-zinc-50">Cancelar</button>

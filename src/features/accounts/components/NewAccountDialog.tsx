@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
 import { Input, Select, Textarea } from '@/components/ui/ui-primitives';
-import type { Account, Party, PartyRole, User, AccountType, CustomerData, CommercialFlow } from '@/domain/ssot';
+import type { Account, Party, PartyRole, User, AccountType, CustomerData, CommercialFlow, Stage, Segment } from '@/domain/ssot';
 import { useData } from '@/lib/dataprovider';
 
 
@@ -30,7 +30,7 @@ export function NewAccountDialog({
   const [cif, setCif] = useState('');
   const [city, setCity] = useState('');
   const [address, setAddress] = useState('');
-  const [segment, setSegment] = useState<AccountType>('HORECA');
+  const [segment, setSegment] = useState<Segment>('HORECA');
   const [ownerId, setOwnerId] = useState('');
   const [distributorPartyId, setDistributorPartyId] = useState<string | undefined>();
   const [isSaving, setIsSaving] = useState(false);
@@ -69,26 +69,25 @@ export function NewAccountDialog({
 
     const newParty: Party = {
       id: partyId,
-      name: name,
       legalName: name,
-      kind: 'ORG',
-      taxId: cif,
-      addresses: [{ type: 'billing', street: address, city: city, country: 'España' }],
+      cif,
+      billingAddress: { street: address, city: city, zip: '', country: 'España' },
       createdAt: now,
       updatedAt: now,
-    } as Party;
+    };
 
     const newAccount: Account = {
       id: accountId,
       partyId: partyId,
       name: name,
-      segment: segment,
-      stage: 'POTENCIAL',
+      segment,
+      stage: 'POTENCIAL' as Stage,
       ownerId: ownerId,
       flow,
       distributorPartyId,
       createdAt: now,
       updatedAt: now,
+      mode: flow === 'DIRECT' ? 'DIRECTA' : 'COLOCACION', // For compatibility
     };
 
     const newRole: PartyRole = {
@@ -134,14 +133,12 @@ export function NewAccountDialog({
             </div>
             <div className="grid grid-cols-2 gap-4">
                 <label className="grid gap-1.5"><span className="text-sm font-medium">Ciudad</span><Input value={city} onChange={e => setCity(e.target.value)} /></label>
-                <label className="grid gap-1.5"><span className="text-sm font-medium">Tipo de Cuenta</span>
-                    <Select value={segment} onChange={e => setSegment(e.target.value as AccountType)}>
+                <label className="grid gap-1.5"><span className="text-sm font-medium">Segmento</span>
+                    <Select value={segment} onChange={e => setSegment(e.target.value as Segment)}>
                         <option value="HORECA">HORECA</option>
                         <option value="RETAIL">Retail</option>
                         <option value="ONLINE">Online</option>
                         <option value="PRIVADA">Privada</option>
-                        <option value="DISTRIBUIDOR">Distribuidor</option>
-                        <option value="OTRO">Otro</option>
                     </Select>
                 </label>
             </div>
