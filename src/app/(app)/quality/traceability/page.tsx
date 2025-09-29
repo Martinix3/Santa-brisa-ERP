@@ -1,4 +1,3 @@
-
 // src/app/(app)/quality/traceability/page.tsx
 "use client";
 
@@ -15,10 +14,17 @@ import { ITEM_CATEGORY_META } from "@/domain/ssot";
 const MOCK_ITEMS: Item[] = [
     { id: 'item_fg_turm_blanco', sku: 'FG-TURM-BL', name: 'Turmeon Blanco', category: 'fg', uom: 'uds', active: true },
     { id: 'item_rm_vino_blanco', sku: 'RM-VINO-BL', name: 'Vino Blanco Base', category: 'raw', uom: 'L', active: true },
+    { id: 'item_rm_alcohol', sku: 'RM-ALCOHOL', name: 'Alcohol Vinico', category: 'raw', uom: 'L', active: true },
+    { id: 'item_rm_aromas', sku: 'RM-AROMAS', name: 'Aromas Naturales', category: 'raw', uom: 'L', active: true },
+    { id: 'item_rm_azucar', sku: 'RM-AZUCAR', name: 'Azúcar', category: 'raw', uom: 'kg', active: true },
+    { id: 'item_fg_turm_velvet', sku: 'FG-TURM-VL', name: 'Turmeon Blue Velvet', category: 'fg', uom: 'uds', active: true },
+    { id: 'item_fg_turm_white', sku: 'FG-TURM-WH', name: 'Turmeon White', category: 'fg', uom: 'uds', active: true },
+    { id: 'item_fg_turm_classic', sku: 'FG-TURM-CL', name: 'Turmeon Clásico', category: 'fg', uom: 'uds', active: true },
 ];
 const MOCK_LOTS: Lot[] = [
     { id: 'TB-2509-01', lotNumber: 'TB-2509-01', itemId: 'item_fg_turm_blanco', qcStatus: 'PASSED', createdAt: '2025-08-22T14:00:00Z', quantity: 1000 },
     { id: 'OPEN-2408-01', lotNumber: 'OPEN-2408-01', itemId: 'item_rm_vino_blanco', qcStatus: 'PASSED', createdAt: '2025-08-15T00:00:00Z', quantity: 20000 },
+    { id: 'VINO-TB-2509-01', lotNumber: 'VINO-TB-2509-01', itemId: 'item_rm_vino_blanco', qcStatus: 'PASSED', createdAt: '2025-08-22T09:00:00Z', quantity: 950 },
 ];
 const MOCK_ON_HAND: OnHandView[] = [
     { id: 'oh_tb', itemId: 'item_fg_turm_blanco', lotNumber: 'TB-2509-01', locationId: 'FG/MAIN', qty: 800, uom: 'uds', qcStatus: 'PASSED', category: 'fg', createdAt: '2025-08-22T14:00:00Z', updatedAt: '2025-08-22T14:00:00Z' },

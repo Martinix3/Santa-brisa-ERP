@@ -1,4 +1,3 @@
-
 // src/app/(app)/warehouse/inventory/page.tsx
 "use client";
 
