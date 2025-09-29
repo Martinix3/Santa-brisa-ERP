@@ -53,12 +53,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [authReady, setAuthReady] = useState(false);
-  const [isPersistenceEnabled, setIsPersistenceEnabled] = useState(true); // Default to true
+  const [isPersistenceEnabled, setIsPersistenceEnabled] = useState(true);
   const [loadingData, setLoadingData] = useState(false);
   const router = useRouter();
 
   const loadInitialData = useCallback(async () => {
     setLoadingData(true);
+    console.log(`[DataProvider] loadInitialData triggered. Persistence: ${isPersistenceEnabled}`);
     if (!isPersistenceEnabled) {
       console.log("[DataProvider] Using MOCK_DATA. Persistence is OFF.");
       setData(MOCK_DATA as unknown as SantaData);
@@ -108,6 +109,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   }, [authReady, firebaseUser, isPersistenceEnabled]);
 
+  // Auth state listener
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(firebaseAuth, user => {
         setFirebaseUser(user);
@@ -116,10 +118,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     return () => unsubscribe();
   }, []);
 
+  // Data loading effect, dependent on auth status
   useEffect(() => {
-    loadInitialData().catch(console.error);
-  }, [isPersistenceEnabled, loadInitialData]);
+    if (authReady) {
+        loadInitialData().catch(console.error);
+    }
+  }, [authReady, isPersistenceEnabled, loadInitialData]);
 
+  // Set currentUser based on loaded data and Firebase user
   useEffect(() => {
     if (loadingData || !authReady) {
         return;
@@ -137,8 +143,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const togglePersistence = useCallback(() => {
     setIsPersistenceEnabled(prev => {
-        setData(null);
-        return !prev;
+        const nextState = !prev;
+        console.log(`[DataProvider] Toggling persistence to ${nextState}`);
+        setData(null); // Clear data on toggle
+        setCurrentUser(null);
+        return nextState;
     });
   }, []);
   
@@ -276,7 +285,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   );
 
   const isBlocking =
-    !authReady || (!data && isPersistenceEnabled);
+    !authReady || (loadingData && isPersistenceEnabled);
 
   if (isBlocking) {
     return (
