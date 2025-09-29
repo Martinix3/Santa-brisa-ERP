@@ -1,3 +1,4 @@
+
 // src/domain/ssot.ts
 
 // =================================================================
@@ -185,6 +186,7 @@ export type {
   AccountMode, // Keep for compatibility
 } from './ssot.v4';
 import type { SantaDataV4, SB_THEME } from './ssot.v4';
+import { SANTA_DATA_COLLECTIONS as SANTA_DATA_COLLECTIONS_V4 } from './ssot.v4';
 
 // Exportar un tipo unificado para la data
 export interface SantaData extends SantaDataV4 {
@@ -203,12 +205,15 @@ export interface SantaData extends SantaDataV4 {
     posTactics: PosTactic[];
 }
 
-export const qcToBucket = (s: QcStatus): 'HOLD' | 'RELEASED' | 'REJECTED' => {
+export function qcToBucket(s: QcStatus): 'HOLD' | 'RELEASED' | 'REJECTED' {
   const norm = String(s ?? 'PENDING').toUpperCase();
   if (norm === 'PASSED' || norm === 'WAIVED' || norm === 'RELEASED' || norm === 'OK' || norm === 'APPROVED') return 'RELEASED';
   if (norm === 'FAILED' || norm === 'REJECTED') return 'REJECTED';
   return 'HOLD'; // PENDING, HOLD, QC_HOLD, etc.
 };
 
+export const SANTA_DATA_COLLECTIONS = SANTA_DATA_COLLECTIONS_V4;
+
 export { SB_THEME };
 export * from './ssot.metas';
+
