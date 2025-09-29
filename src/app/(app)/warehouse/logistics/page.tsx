@@ -1,3 +1,4 @@
+
 // src/app/(app)/warehouse/logistics/page.tsx
 
 "use client";
@@ -11,7 +12,8 @@ import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog";
 import { canGenerateDeliveryNote, canGenerateLabel, canMarkShipped, canInvoice, pendingReasons } from "@/lib/logistics.helpers";
 import { NewShipmentDialog } from "@/features/warehouse/components/NewShipmentDialog";
 import Link from "next/link";
-import { validateShipment, markShipped } from './actions';
+import { validateShipment, markShipped, createManualShipment } from './actions';
+import { toast } from 'sonner';
 
 
 // ===============================
@@ -335,11 +337,12 @@ export default function LogisticsPage() {
   const handleSaveNewShipment = useCallback((shipmentData: Omit<Shipment, 'id'|'createdAt'|'updatedAt'>) => {
     startTransition(async () => {
       try {
-        // await createManualShipment(shipmentData); // This would be the real call
+        await createManualShipment(shipmentData);
+        toast.success("Envío manual encolado para creación.");
         setOpenNewShipment(false);
         router.refresh();
-      } catch(e) {
-        // error handling
+      } catch(e: any) {
+        toast.error(`Error al crear envío: ${e.message}`);
       }
     });
   }, [router]);
@@ -444,7 +447,7 @@ export default function LogisticsPage() {
                 const row = optimistic[shipment.id] ?? shipment;
                 const isValidated = row.status === 'ready_to_ship' || row.validated === true;
 
-                const order = orderMap.get(shipment.orderId || '');
+                const order = orderMap.get(shipment.orderId);
                 const account = accountMap.get(order?.accountId || '');
                 const channelInfo = getChannelInfo(order, account);
                 const style = STATUS_STYLES[shipment.status as keyof typeof STATUS_STYLES] || STATUS_STYLES['pending'];
@@ -533,3 +536,5 @@ export default function LogisticsPage() {
     </div>
   );
 }
+
+    
