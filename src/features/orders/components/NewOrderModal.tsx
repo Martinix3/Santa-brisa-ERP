@@ -1,3 +1,4 @@
+// src/features/orders/components/NewOrderModal.tsx
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -22,7 +23,6 @@ const NewOrderModal: React.FC<NewOrderModalProps> = ({ isOpen, onClose, onSubmit
       { id: 1, sku: '', qty: 1, unitPrice: 0 }
     ]);
 
-    // Resetear el formulario cuando se cierra el modal
     useEffect(() => {
         if (!isOpen) {
             setAccountId('');
@@ -50,7 +50,6 @@ const NewOrderModal: React.FC<NewOrderModalProps> = ({ isOpen, onClose, onSubmit
         onSubmit({
             accountId,
             lines: formattedLines,
-            // createdById: '...obtenido del usuario logueado...' 
         });
         onClose();
     };
@@ -60,8 +59,8 @@ const NewOrderModal: React.FC<NewOrderModalProps> = ({ isOpen, onClose, onSubmit
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-slate-900 bg-opacity-60 flex items-center justify-center z-50 transition-opacity" onClick={onClose}>
-            <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-2xl transform transition-all" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 transition-opacity" onClick={onClose}>
+            <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-2xl transform transition-all" onClick={e => e.stopPropagation()}>
                 <div className="flex items-center justify-between pb-4 border-b border-slate-200">
                     <h2 className="text-xl font-bold text-slate-800">Crear Nuevo Pedido</h2>
                     <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
@@ -70,7 +69,7 @@ const NewOrderModal: React.FC<NewOrderModalProps> = ({ isOpen, onClose, onSubmit
                 </div>
                 
                 <form onSubmit={handleSubmit}>
-                    <div className="py-6 space-y-4">
+                    <div className="py-6 space-y-6">
                         <div>
                             <label htmlFor="customerName" className="block text-sm font-medium text-slate-700 mb-1">Cliente (Account ID)</label>
                             <input 
@@ -78,35 +77,31 @@ const NewOrderModal: React.FC<NewOrderModalProps> = ({ isOpen, onClose, onSubmit
                                 id="customerName" 
                                 value={accountId}
                                 onChange={(e) => setAccountId(e.target.value)}
-                                className="block w-full border border-slate-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                                className="block w-full border border-slate-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#F4C542]" 
                                 placeholder="Buscar cliente por nombre o ID..."
                                 required
                             />
                         </div>
 
-                        {/* Líneas de Pedido */}
                         <div className="space-y-3">
                             <h3 className="text-sm font-medium text-slate-700">Líneas de Producto</h3>
                             {lines.map((line, index) => (
-                                <div key={line.id} className="grid grid-cols-12 gap-3 items-center">
-                                    <input type="text" placeholder="SKU" value={line.sku} onChange={e => handleLineChange(line.id, 'sku', e.target.value)} className="col-span-5 border-slate-300 rounded-lg py-2 px-3 text-sm" required />
-                                    <input type="number" placeholder="Cant." value={line.qty} onChange={e => handleLineChange(line.id, 'qty', parseInt(e.target.value) || 0)} className="col-span-2 border-slate-300 rounded-lg py-2 px-3 text-sm" />
-                                    <input type="number" placeholder="Precio U." value={line.unitPrice} onChange={e => handleLineChange(line.id, 'unitPrice', parseFloat(e.target.value) || 0)} className="col-span-3 border-slate-300 rounded-lg py-2 px-3 text-sm" />
-                                    <div className="col-span-2 flex justify-end">
-                                      {lines.length > 1 && (
-                                        <button type="button" onClick={() => handleRemoveLine(line.id)} className="text-red-500 hover:text-red-700 p-2">
-                                            <Trash2 size={16} />
-                                        </button>
-                                      )}
-                                    </div>
+                                <div key={line.id} className="grid grid-cols-[1fr_90px_110px_auto] gap-3 items-center">
+                                    <input type="text" placeholder="SKU del producto" value={line.sku} onChange={e => handleLineChange(line.id, 'sku', e.target.value)} className="border-slate-300 rounded-lg py-2 px-3 text-sm focus:ring-[#F4C542]" required />
+                                    <input type="number" placeholder="Cant." value={line.qty} onChange={e => handleLineChange(line.id, 'qty', parseInt(e.target.value) || 0)} className="border-slate-300 rounded-lg py-2 px-3 text-sm focus:ring-[#F4C542]" />
+                                    <input type="number" placeholder="Precio U." value={line.unitPrice} onChange={e => handleLineChange(line.id, 'unitPrice', parseFloat(e.target.value) || 0)} className="border-slate-300 rounded-lg py-2 px-3 text-sm focus:ring-[#F4C542]" />
+                                    {lines.length > 1 && (
+                                      <button type="button" onClick={() => handleRemoveLine(line.id)} className="text-red-500 hover:text-red-700 p-2">
+                                          <Trash2 size={16} />
+                                      </button>
+                                    )}
                                 </div>
                             ))}
-                             <button type="button" onClick={handleAddLine} className="text-sm font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1">
+                             <button type="button" onClick={handleAddLine} className="text-sm font-semibold text-[#B25A32] hover:text-[#F26D3D] flex items-center gap-1">
                                 <Plus size={14}/> Añadir línea
                             </button>
                         </div>
                         
-                        {/* Total */}
                         <div className="pt-4 border-t border-slate-200 flex justify-end">
                             <div className="text-right">
                                 <p className="text-sm text-slate-500">Subtotal</p>
@@ -121,7 +116,7 @@ const NewOrderModal: React.FC<NewOrderModalProps> = ({ isOpen, onClose, onSubmit
                         <button type="button" onClick={onClose} className="bg-white py-2 px-4 border border-slate-300 rounded-lg shadow-sm text-sm font-medium text-slate-700 hover:bg-slate-50">
                             Cancelar
                         </button>
-                        <button type="submit" className="bg-blue-600 text-white py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium hover:bg-blue-700">
+                        <button type="submit" style={{backgroundColor: '#F4C542'}} className="text-black py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium hover:opacity-90">
                             Crear Pedido
                         </button>
                     </div>
