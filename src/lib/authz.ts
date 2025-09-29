@@ -1,3 +1,4 @@
+
 // src/lib/authz.ts
 export type UserRole = "comercial" | "admin" | "ops" | "owner";
 export const ROLES = { COMERCIAL:"comercial", ADMIN:"admin" } as const;

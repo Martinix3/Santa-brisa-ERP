@@ -1,3 +1,4 @@
+
 // src/app/(app)/agenda/actions.ts
 "use server";
 import { adminDb as db } from "@/server/firebase";

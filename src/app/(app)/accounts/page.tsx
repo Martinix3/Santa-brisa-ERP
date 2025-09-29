@@ -1,3 +1,4 @@
+
 // src/app/(app)/accounts/page.tsx
 
 "use client"
@@ -16,6 +17,8 @@ import { NewAccountDialog } from '@/features/accounts/components/NewAccountDialo
 import { DEPT_META } from '@/domain/ssot';
 import { toast } from 'sonner';
 import { readFlowFrom } from "@/lib/useFlow";
+import { AccountBarDialog } from '@/features/accounts/components/AccountBarDialog';
+
 
 const STAGE: Record<string, { label:string; tint:string; text:string }> = {
   ACTIVA: { label:'Activas', tint:'#A7D8D9', text:'#17383a' },
@@ -49,7 +52,7 @@ function GroupBar({ stage, count, expanded, onToggle }: { stage: keyof typeof ST
     );
 }
 
-function AccountBar({ a, party, santaData, onAddActivity, userMap, shortDate }: { a: Account, party?: Party, santaData: SantaData, onAddActivity: (acc: Account) => void, userMap: Record<string, string>, shortDate: Intl.DateTimeFormat }) {
+function AccountBar({ a, party, santaData, onAddActivity, onOpenDialog, userMap, shortDate }: { a: Account, party?: Party, santaData: SantaData, onAddActivity: (acc: Account) => void, onOpenDialog: (accountId: string) => void, userMap: Record<string, string>, shortDate: Intl.DateTimeFormat }) {
   const [open, setOpen] = useState(false);
   
   const owner = useMemo(() => accountOwnerDisplay(a, santaData.users, santaData.partyRoles), [a, santaData.users, santaData.partyRoles]);
@@ -109,13 +112,9 @@ function AccountBar({ a, party, santaData, onAddActivity, userMap, shortDate }: 
             <div className="text-sm text-zinc-700 truncate">{party?.billingAddress?.city ||'—'}</div>
             <div className="text-sm text-zinc-700 truncate">{distributorName}</div>
             <div className="text-right relative group focus-within:z-10">
-                <button className="p-1.5 rounded-md border border-zinc-200 bg-white/50 text-zinc-700 inline-flex items-center transition-all hover:bg-white/90 hover:border-zinc-300 hover:scale-105" title="Acciones">
+                <button className="p-1.5 rounded-md border border-zinc-200 bg-white/50 text-zinc-700 inline-flex items-center transition-all hover:bg-white/90 hover:border-zinc-300 hover:scale-105" title="Acciones" onClick={(e) => { e.stopPropagation(); onOpenDialog(a.id); }}>
                     <MoreVertical className="h-3.5 w-3.5"/>
                 </button>
-                <div className="absolute right-0 top-full mt-1 w-48 bg-white border rounded-md shadow-lg invisible group-hover:visible group-focus-within:visible">
-                    <Link href={`/accounts/${a.id}`} className="flex items-center gap-2 w-full text-left px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50"><Info size={14}/> Ver Ficha de Cliente</Link>
-                    <button onClick={(e) => { e.stopPropagation(); onAddActivity(a); }} className="flex items-center gap-2 w-full text-left px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50"><Plus size={14}/> Añadir Actividad</button>
-                </div>
             </div>
         </div>
         {open && kpis && (
@@ -190,7 +189,7 @@ function AccountBar({ a, party, santaData, onAddActivity, userMap, shortDate }: 
 }
 
 export default function AccountsPage() {
-  const flow: 'PLACEMENT' = 'PLACEMENT'; // Forzar vista colocación en esta página
+  const flow: 'PLACEMENT' = 'PLACEMENT';
   const router = useRouter();
   const { data: santaData, setData, currentUser, saveAllCollections } = useData();
   
@@ -200,6 +199,7 @@ export default function AccountsPage() {
   const [fltCity, setFltCity] = useState("");
   const [fltDist, setFltDist] = useState("");
   
+  const [dialogState, setDialogState] = useState<{ open: boolean; accountId: string | null }>({ open: false, accountId: null });
   const [completingTaskForAccount, setCompletingTaskForAccount] = useState<Account | null>(null);
   const [isNewAccountOpen, setIsNewAccountOpen] = useState(false);
 
@@ -232,7 +232,7 @@ export default function AccountsPage() {
     const cities = new Set<string>();
     
     data.forEach(a => {
-      if (a.ownerId) reps.add(a.ownerId);
+      if(a.ownerId) reps.add(a.ownerId);
       const party = pMap[a.partyId];
       if (party?.billingAddress?.city) cities.add(party.billingAddress.city);
     });
@@ -354,7 +354,7 @@ export default function AccountsPage() {
                 <div id={`panel-${k}`} role="region" aria-labelledby={`button-${k}`}>
                     <div className="divide-y divide-zinc-200/60">
                         {grouped[k].map(a=> (
-                            <AccountBar key={a.id} a={a} party={partyMap[a.partyId]} santaData={santaData} onAddActivity={() => setCompletingTaskForAccount(a)} userMap={userMap} shortDate={shortDate}/>
+                            <AccountBar key={a.id} a={a} party={partyMap[a.partyId]} santaData={santaData} onAddActivity={() => setCompletingTaskForAccount(a)} onOpenDialog={(id) => setDialogState({ open: true, accountId: id })} userMap={userMap} shortDate={shortDate}/>
                         ))}
                     </div>
                 </div>
@@ -368,6 +368,17 @@ export default function AccountsPage() {
             </div>
         ) : null}
       </div>
+
+      {dialogState.open && dialogState.accountId && (
+        <AccountBarDialog
+          open={dialogState.open}
+          onOpenChange={(isOpen) => {
+            if (!isOpen) setDialogState({ open: false, accountId: null });
+          }}
+          accountId={dialogState.accountId}
+        />
+      )}
+
       {completingTaskForAccount && (
         <TaskCompletionDialog
             task={{

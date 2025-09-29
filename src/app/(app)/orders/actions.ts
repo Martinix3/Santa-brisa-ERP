@@ -1,3 +1,4 @@
+
 // src/app/(app)/orders/actions.ts
 'use server';
 
@@ -36,6 +37,7 @@ export async function placeOrder({
     createdById,
     createdAt: now,
     updatedAt: now,
+    flow: 'PLACEMENT',
   };
   await ref.set(payload);
   return { id: ref.id };
@@ -102,7 +104,7 @@ export async function createSalesInvoice({ orderId }: { orderId:string }) {
   if (!order) throw new Error('Order not found');
   const amount = (order.lines || []).reduce((a: number, l: OrderSellOut['lines'][number]) => {
      const unit = l.priceUnit ?? 0;
-     const disc = (l.discountPct ?? 0) / 100;
+     const disc = (l as any).discountPct ?? 0 / 100;
      return a + l.qty * unit * (1 - disc);
   }, 0);
 
@@ -119,7 +121,7 @@ export async function createSalesInvoice({ orderId }: { orderId:string }) {
      issueDate: now,
      dueDate: now,
      docNumber: undefined,
-     partyId: order.partyId,
+     partyId: (order as any).partyId,
      costObject: { kind: 'ORDER', id: orderId },
   };
 
