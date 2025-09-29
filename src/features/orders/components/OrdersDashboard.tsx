@@ -34,7 +34,7 @@ export default function OrdersDashboard({ flow }: { flow: any }) {
         <div className="max-w-7xl mx-auto">
             {/* Cabecera con botones de acción */}
             <div className="flex items-center justify-between mb-6">
-                <h1 className="text-3xl font-bold text-slate-900">Gestión de Pedidos (Venta Directa)</h1>
+                <h1 className="text-3xl font-bold text-slate-900">Venta Directa</h1>
                 <div className="flex items-center space-x-3">
                     <button className="bg-white py-2 px-4 border border-slate-300 rounded-lg shadow-sm text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
                         Exportar

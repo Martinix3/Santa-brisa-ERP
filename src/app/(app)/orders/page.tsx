@@ -1,4 +1,3 @@
-
 // src/app/(app)/orders/page.tsx
 
 "use client";
@@ -7,7 +6,8 @@ import { useSearchParams } from 'next/navigation';
 import OrdersDashboard from '@/features/orders/components/OrdersDashboard';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
 import { ShoppingCart } from 'lucide-react';
-import type { Flow } from '@/lib/useFlow';
+
+export type Flow = "DIRECT" | "PLACEMENT";
 
 export default function OrdersPage() {
     const searchParams = useSearchParams();
