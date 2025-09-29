@@ -189,7 +189,7 @@ function AccountBar({ a, party, santaData, onAddActivity, onOpenDialog, userMap,
 }
 
 export default function AccountsPage() {
-  const flow: 'PLACEMENT' = 'PLACEMENT';
+  const flow: 'PLACEMENT' = 'PLACEMENT'; // Forzar vista colocación en esta página
   const router = useRouter();
   const { data: santaData, setData, currentUser, saveAllCollections } = useData();
   

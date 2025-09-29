@@ -14,6 +14,7 @@ export function QuickPlacementOrderCard({ accountId }:{ accountId:string }) {
   const skuOptions = useMemo(() => (data?.items || []).map(i => ({ value: i.sku, label: i.name })), [data?.items]);
 
   const add = ()=> setLines(s=>[...s,{sku:"",qty:1}]);
+  const removeLine = (idx:number)=> setLines(s => s.filter((_,i)=>i!==idx));
 
   const save = async ()=>{
     try {
@@ -38,7 +39,7 @@ export function QuickPlacementOrderCard({ accountId }:{ accountId:string }) {
               onChange={e=>setLines(s=>s.map((x,i)=>i===idx?{...x,qty:Math.max(1, Number(e.target.value)||1)}:x))} />
             <input type="number" step="0.01" placeholder="€ opcional" className="border rounded px-2 py-1 w-28"
               value={l.unitPriceReported ?? ""} onChange={e=>setLines(s=>s.map((x,i)=>i===idx?{...x,unitPriceReported:Number(e.target.value)||undefined}:x))} />
-            <button className="text-xs border rounded px-2" onClick={()=>setLines(s=>s.filter((_,i)=>i!==idx))}>Quitar</button>
+            <button className="text-xs border rounded px-2" onClick={()=>removeLine(idx)}>Quitar</button>
           </div>
         ))}
         <div className="flex justify-between">
