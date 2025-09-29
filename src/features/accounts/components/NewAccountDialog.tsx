@@ -30,7 +30,7 @@ export function NewAccountDialog({
   const [cif, setCif] = useState('');
   const [city, setCity] = useState('');
   const [address, setAddress] = useState('');
-  const [type, setType] = useState<AccountType>('HORECA');
+  const [segment, setSegment] = useState<AccountType>('HORECA');
   const [ownerId, setOwnerId] = useState('');
   const [distributorPartyId, setDistributorPartyId] = useState<string | undefined>();
   const [isSaving, setIsSaving] = useState(false);
@@ -41,7 +41,7 @@ export function NewAccountDialog({
       setCif('');
       setCity('');
       setAddress('');
-      setType('HORECA');
+      setSegment('HORECA');
       setOwnerId('');
       setDistributorPartyId(undefined);
       setIsSaving(false);
@@ -82,7 +82,7 @@ export function NewAccountDialog({
       id: accountId,
       partyId: partyId,
       name: name,
-      segment: type,
+      segment: segment,
       stage: 'POTENCIAL',
       ownerId: ownerId,
       flow,
@@ -94,7 +94,7 @@ export function NewAccountDialog({
     const newRole: PartyRole = {
         id: roleId,
         partyId: partyId,
-        role: type === 'DISTRIBUIDOR' ? 'DISTRIBUTOR' : 'CUSTOMER',
+        role: segment === 'DISTRIBUIDOR' ? 'DISTRIBUTOR' : 'CUSTOMER',
         isActive: true,
         createdAt: now,
         data: {
@@ -135,7 +135,7 @@ export function NewAccountDialog({
             <div className="grid grid-cols-2 gap-4">
                 <label className="grid gap-1.5"><span className="text-sm font-medium">Ciudad</span><Input value={city} onChange={e => setCity(e.target.value)} /></label>
                 <label className="grid gap-1.5"><span className="text-sm font-medium">Tipo de Cuenta</span>
-                    <Select value={type} onChange={e => setType(e.target.value as AccountType)}>
+                    <Select value={segment} onChange={e => setSegment(e.target.value as AccountType)}>
                         <option value="HORECA">HORECA</option>
                         <option value="RETAIL">Retail</option>
                         <option value="ONLINE">Online</option>
