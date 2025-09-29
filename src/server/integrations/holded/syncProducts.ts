@@ -1,8 +1,9 @@
 
+
 import { adminDb as db } from '@/server/firebase';
 import { callHoldedApi } from '@/server/integrations/holded/client';
 import { Timestamp } from 'firebase-admin/firestore';
-import type { Item } from '@/domain/ssot';
+import type { Item, Uom } from '@/domain/ssot';
 
 type HoldedItem = {
   id: string;
@@ -27,7 +28,7 @@ export async function handleSyncHoldedProducts({ page = 1, dryRun = false }: { p
       sku,
       name: it.name || sku,
       // category and uom would need to be mapped or defaulted
-      uom: 'unit',
+      uom: 'uds' as Uom,
       active: true,
       stdCost: Number(it.price || 0),
     };

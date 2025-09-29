@@ -1,4 +1,5 @@
 
+
 import type { Timestamp } from 'firebase-admin/firestore';
 import type { Shipment } from '@/domain/ssot';
 
@@ -16,7 +17,8 @@ export type JobPayloads =
  | { kind:'SYNC_HOLDED_CONTACTS'; payload:{ page?: number; dryRun?: boolean } }
  | { kind:'SYNC_HOLDED_PURCHASES'; payload:{ page?: number; dryRun?: boolean } }
  | { kind:'SYNC_HOLDED_PRODUCTS'; payload:{ page?: number; dryRun?: boolean } }
- | { kind: 'UPDATE_SHOPIFY_FULFILLMENT'; payload: { shipmentId: string; shopifyOrderId: string; trackingNumber?: string; trackingUrl?: string; carrier?: string }};
+ | { kind: 'UPDATE_SHOPIFY_FULFILLMENT'; payload: { shipmentId: string; shopifyOrderId: string; trackingNumber?: string; trackingUrl?: string; carrier?: string } }
+ | { kind: 'CREATE_SHIPMENT_FROM_ORDER'; payload: { orderId: string } };
 
 
 export type JobKind = JobPayloads['kind'];

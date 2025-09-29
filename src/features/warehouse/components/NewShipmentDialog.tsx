@@ -1,10 +1,11 @@
+
 // src/features/warehouse/components/NewShipmentDialog.tsx
 
 "use client";
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
 import { Input, Select, SBButton } from '@/components/ui/ui-primitives';
-import type { Shipment, Account, Item, Party, SB_THEME } from '@/domain/ssot';
+import type { Shipment, Account, Item, Party, SB_THEME, Uom } from '@/domain/ssot';
 import { Plus, X, Search } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
 
@@ -81,7 +82,7 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, items }: Ne
     const [newCustomerName, setNewCustomerName] = useState<string | undefined>();
     const [address, setAddress] = useState('');
     const [city, setCity] = useState('');
-    const [lines, setLines] = useState<{ itemId: string; qty: number; name: string, uom: 'unit' }[]>([{ itemId: '', qty: 1, name: '', uom: 'unit' }]);
+    const [lines, setLines] = useState<{ itemId: string; qty: number; name: string, uom: Uom }[]>([{ itemId: '', qty: 1, name: '', uom: 'uds' }]);
     const [notes, setNotes] = useState('');
 
     useEffect(() => {
@@ -90,7 +91,7 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, items }: Ne
             setNewCustomerName(undefined);
             setAddress('');
             setCity('');
-            setLines([{ itemId: '', qty: 1, name: '', uom: 'unit' }]);
+            setLines([{ itemId: '', qty: 1, name: '', uom: 'uds' }]);
             setNotes('');
         }
     }, [open]);
@@ -125,7 +126,7 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, items }: Ne
         setLines(newLines);
     };
 
-    const addLine = () => setLines([...lines, { itemId: '', qty: 1, name: '', uom: 'unit' }]);
+    const addLine = () => setLines([...lines, { itemId: '', qty: 1, name: '', uom: 'uds' }]);
     const removeLine = (index: number) => setLines(lines.filter((_, i) => i !== index));
 
     const handleSubmit = (e: React.FormEvent) => {

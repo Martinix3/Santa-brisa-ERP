@@ -103,7 +103,7 @@ function RecipeForm({
       if (fm.values.baseUnit !== "L") fm.set("baseUnit", "L" as Uom);
       if (fm.values.batchSize !== 1) fm.set("batchSize", 1);
     } else if ((fm.values as BomWithStage).stage === "ENVASADO") {
-      if (fm.values.baseUnit !== "unit") fm.set("baseUnit", "unit" as Uom);
+      if ((fm.values.baseUnit as any) !== "uds") fm.set("baseUnit", "uds" as Uom);
       if (fm.values.batchSize !== 1) fm.set("batchSize", 1);
     }
   }, [(fm.values as BomWithStage).stage]); // eslint-disable-line
@@ -116,7 +116,7 @@ function RecipeForm({
 
   // Mutaciones de líneas
   const addLine = (role: "FORMULA" | "PACKAGING") => {
-    const newItems = [ ...(fm.values.items || []), { itemId: "", qty: 0, uom: "unit" as Uom, role } ];
+    const newItems = [ ...(fm.values.items || []), { itemId: "", qty: 0, uom: "uds" as Uom, role } ];
     fm.set("items", newItems);
   };
   const removeLine = (idxOrig: number) => {

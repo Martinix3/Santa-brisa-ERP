@@ -1,4 +1,5 @@
 
+
 // src/features/warehouse/components/QuickGoodsReceiptDialog.tsx
 "use client";
 
@@ -151,11 +152,11 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
       date: nowIsoDate(),
       supplierId: "",
       deliveryNote: "",
-      lines: [{ itemId: "", supplierLot: "", qty: 0, uom: "unit", unitCost: 0, autoLot: true, expiryAt: null, newItemCategory: 'raw' }],
+      lines: [{ itemId: "", supplierLot: "", qty: 0, uom: "uds", unitCost: 0, autoLot: true, expiryAt: null, newItemCategory: 'raw' }],
     },
   });
 
-  useEffect(() => { if (open) reset({ date: nowIsoDate(), lines: [{ itemId: "", supplierLot: "", qty: 0, uom: "unit", unitCost: 0, autoLot: true, expiryAt: null, newItemCategory: 'raw' }] }); }, [open, reset]);
+  useEffect(() => { if (open) reset({ date: nowIsoDate(), lines: [{ itemId: "", supplierLot: "", qty: 0, uom: "uds", unitCost: 0, autoLot: true, expiryAt: null, newItemCategory: 'raw' }] }); }, [open, reset]);
   const { fields, append, remove } = useFieldArray({ control, name: "lines" });
 
   const supplierOptions = useMemo(() => suppliers.map((s: Party) => ({ value: s.id, label: s.name })), [suppliers]);
@@ -201,7 +202,7 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
       itemId: "",
       supplierLot: "",
       qty: 0,
-      uom: lastLine?.uom || "unit",
+      uom: lastLine?.uom || "uds",
       unitCost: 0,
       autoLot: true,
       expiryAt: null,
@@ -284,7 +285,7 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
                                 onChange={(itemId) => {
                                     const itSel = items.find((it: Item) => it.id === itemId);
                                     controllerField.onChange(itemId);
-                                    setValue(`lines.${i}.uom`, itSel?.uom ?? 'unit');
+                                    setValue(`lines.${i}.uom`, itSel?.uom ?? 'uds');
                                     setValue(`lines.${i}.unitCost`, itSel?.stdCost ?? 0);
                                     setValue(`lines.${i}.newItemName`, undefined); // Limpiar si se selecciona
                                 }}
@@ -308,7 +309,7 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
                         </td>
                         <td className="p-2 align-top"><Input placeholder="Lote del proveedor" {...register(`lines.${i}.supplierLot`)} /></td>
                         <td className="p-2 align-top"><Input type="number" step="any" {...register(`lines.${i}.qty`, { valueAsNumber: true, required: true, min: 0.001 })} /></td>
-                        <td className="p-2 align-top"><Select {...register(`lines.${i}.uom`)}><option value="unit">unit</option><option value="kg">kg</option><option value="L">L</option></Select></td>
+                        <td className="p-2 align-top"><Select {...register(`lines.${i}.uom`)}><option value="uds">uds</option><option value="kg">kg</option><option value="L">L</option></Select></td>
                         <td className="p-2 align-top"><Input type="number" step="any" {...register(`lines.${i}.unitCost`, { valueAsNumber: true })} /></td>
                         <td className="p-2 align-top"><Input type="date" {...register(`lines.${i}.expiryAt`)} /></td>
                         <td className="p-2 align-top"><button type="button" onClick={() => remove(i)}><Trash2 className="h-4 w-4 text-red-500" /></button></td>

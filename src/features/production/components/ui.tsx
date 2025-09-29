@@ -1,7 +1,8 @@
 
+
 "use client";
 import React, { useMemo } from "react";
-import type { ProductionOrder, QACheck, Interaction } from "@/domain/ssot";
+import type { ProductionOrder, Interaction } from "@/domain/ssot";
 import { SBCard, SBButton, LotQualityStatusPill } from "@/components/ui/ui-primitives";
 import { SB_COLORS, SB_THEME } from "@/domain/ssot";
 import { Factory, Cpu, BookOpen, Waypoints, AlertCircle, Hourglass, MoreVertical, Check, X, Thermometer, FlaskConical, Beaker, TestTube2, Paperclip, Upload, Trash2, Calendar, Clock, Building2 } from "lucide-react";
@@ -104,7 +105,7 @@ function UpcomingEvents() {
     );
 }
 
-export function ProductionDashboard({ orders, lots }: { orders: ProductionOrder[], lots: QACheck[] }) {
+export function ProductionDashboard({ orders, lots }: { orders: ProductionOrder[], lots: any[] }) {
 
     const kpis = useMemo(() => {
         const activeOrders = orders.filter(o => o.status === 'IN_PROGRESS' || o.status === 'RELEASED');

@@ -1,9 +1,10 @@
 
+
 import { adminDb as db } from '@/server/firebase';
 import { SANTA_DATA_COLLECTIONS, type SantaData } from '@/domain/ssot';
 
-function assertCollection(col: string): asserts col is (typeof SANTA_DATA_COLLECTIONS)[number] {
-    if (!SANTA_DATA_COLLECTIONS.includes(col as any)) {
+function assertCollection(col: string): asserts col is keyof SantaData {
+    if (!SANTA_DATA_COLLECTIONS.map(String).includes(col)) {
       throw new Error(`Invalid collection name: ${col}`);
     }
   }

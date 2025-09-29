@@ -1,3 +1,4 @@
+
 // src/features/production/ssot-bridge.ts
 import { useData } from '@/lib/dataprovider';
 import type { BillOfMaterial, ProductionOrder, OnHandView, Item } from '@/domain/ssot';
@@ -47,7 +48,7 @@ export async function getTrace(lotNumber: string) {
 
 export async function updateItem(id: string, patch: Partial<Item>): Promise<Item> {
     console.warn("updateItem is not implemented on the client-side bridge yet.");
-    return { id, sku: '', name: 'Updated Item', category: 'raw', uom: 'unit', active: true, ...patch };
+    return { id, sku: '', name: 'Updated Item', category: 'raw', uom: 'uds', active: true, ...patch };
 }
 
 export async function createRecipe(data: { billOfMaterials: BillOfMaterial[] }, recipe: BillOfMaterial): Promise<void> {

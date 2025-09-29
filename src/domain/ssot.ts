@@ -1,3 +1,4 @@
+
 // src/domain/ssot.ts
 // =================================================================
 // == SINGLE SOURCE OF TRUTH (SSOT) - KERNEL V4
@@ -308,9 +309,10 @@ export type BillingStatus = 'PENDING' | 'INVOICING' | 'INVOICED' | 'PAID' | 'FAI
 export interface OrderSellOut {
   id: string; docNumber?: string; partyId: string; accountId: string; source: 'CRM' | 'SHOPIFY' | 'OTHER' | 'MANUAL' | 'HOLDED';
   createdAt: Timestamp; currency: Currency;
-  lines: Array<{ itemId: string; name?: string; qty: number; priceUnit: number; taxRate?: number; discountPct?: number; uom?: Uom | 'uds'; lotNumbers?: LotNumber[]; }>;
+  lines: Array<{ itemId: string; name?: string; qty: number; priceUnit: number; taxRate?: number; discountPct?: number; uom?: Uom; lotNumbers?: LotNumber[]; }>;
   notes?: string;
   status: OrderStatus;
+  billingStatus?: BillingStatus;
   totalAmount?: number;
   external?: { shopifyOrderId?: string; holdedInvoiceId?: string; };
 }
@@ -322,7 +324,7 @@ export interface GoodsReceipt {
   notes?: string | null;
 }
 
-export interface ShipmentLine { itemId: string; name?: string; qty: number; uom: Uom | 'uds'; lotNumber?: LotNumber; }
+export interface ShipmentLine { itemId: string; name?: string; qty: number; uom: Uom; lotNumber?: LotNumber; }
 export interface Shipment {
   id: string; shipmentNumber?: string; orderId: string; accountId: string; partyId: string; mode: 'PARCEL' | 'PALLET';
   createdAt: Timestamp; updatedAt: Timestamp; status: ShipmentStatus; lines: ShipmentLine[];
@@ -353,8 +355,7 @@ export type Payload =
     | { type: 'venta', items: { itemId: string; qty: number }[] }
     | { type: 'interaccion', note: string, nextActionDate?: string }
     | { type: 'visita_plv', note: string, nextActionDate?: string, plvInstalled: boolean, plvNotes?: string }
-    | { type: 'cobro', amount: number, notes?: string }
-    | { type: 'evento_mkt', kpis: { cost: number; attendees: number; leads: number }, notes?: string };
+    | { type: 'cobro', amount: number, notes?: string };
 
 export type JournalEntry = { id: string; at: string; kind: 'START' | 'PAUSE' | 'RESUME' | 'NOTE' | 'INCIDENT' | 'FINISH'; summary: string };
 
@@ -502,9 +503,9 @@ export interface InfluencerCollab {
     notes?: string;
   };
   costs?: {
+    cashPaid?: number;
     productCost?: number;
     shippingCost?: number;
-    cashPaid?: number;
     otherCost?: number;
   };
   tracking?: {

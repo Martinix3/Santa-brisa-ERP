@@ -1,8 +1,9 @@
+
 // tests/server-actions.test.ts
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { validateShipment } from '@/app/(app)/warehouse/logistics/actions';
 import { createSalesInvoice } from '@/app/(app)/orders/actions';
-import type { Shipment, OrderSellOut, FinanceLink, SantaData } from '@/domain/ssot';
+import type { Shipment, OrderSellOut, FinanceLink, SantaData, Uom } from '@/domain/ssot';
 import { getServerData } from '@/lib/dataprovider/server';
 import { upsertMany } from '@/lib/dataprovider/actions';
 
@@ -40,7 +41,7 @@ describe('Server Actions', () => {
         id: MOCK_SHIPMENT_ID,
         orderId: MOCK_ORDER_ID,
         status: 'pending',
-        lines: [{ itemId: 'item_1', qty: 1, name: 'Test Product', uom: 'unit' }],
+        lines: [{ itemId: 'item_1', qty: 1, name: 'Test Product', uom: 'uds' }],
       };
 
       // Simular que getServerData devuelve nuestro envío de prueba
@@ -83,7 +84,7 @@ describe('Server Actions', () => {
         id: MOCK_ORDER_ID,
         partyId: MOCK_PARTY_ID,
         status: 'shipped',
-        lines: [{ itemId: 'item_1', qty: 2, priceUnit: 10, uom: 'unit' }],
+        lines: [{ itemId: 'item_1', qty: 2, priceUnit: 10, uom: 'uds' }],
         currency: 'EUR',
       };
 

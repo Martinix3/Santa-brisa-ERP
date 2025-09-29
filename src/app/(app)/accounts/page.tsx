@@ -61,11 +61,8 @@ function AccountBar({ a, party, santaData, onAddActivity, userMap, shortDate }: 
     const interactions = santaData.interactions.filter((i: Interaction) => i.accountId === a.id);
     const orders = santaData.ordersSellOut.filter((o: OrderSellOut) => o.accountId === a.id);
 
-    const unified = [
-        ...interactions.map((i: Interaction) => ({ type: 'interaction' as const, date: i.createdAt, data: i })),
-        ...orders.map((o: OrderSellOut) => ({ type: 'order' as const, date: o.createdAt, data: o }))
-    ];
-    unified.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const unified: (Interaction | OrderSellOut)[] = [...interactions, ...orders];
+    unified.sort((a,b) => new Date(String(b.createdAt)).getTime() - new Date(String(a.createdAt)).getTime());
       
     const endDate = new Date();
     const startDate = new Date();
@@ -130,7 +127,7 @@ function AccountBar({ a, party, santaData, onAddActivity, userMap, shortDate }: 
                         <ul className="space-y-1 text-sm text-zinc-700 max-h-40 overflow-y-auto pr-2">
                             {unifiedActivity.length > 0 ? unifiedActivity.slice(0, 5).map((act, i) => {
                                 if ('kind' in act) {
-                                    const int = act;
+                                    const int = act as Interaction;
                                     const Icon = interactionIcons[int.kind] || History;
                                     return (
                                         <li key={`act_${i}`} className="flex items-start gap-3 text-xs">
@@ -144,7 +141,7 @@ function AccountBar({ a, party, santaData, onAddActivity, userMap, shortDate }: 
                                     )
                                 }
                                 if ('lines' in act) {
-                                    const order = act;
+                                    const order = act as OrderSellOut;
                                     return (
                                         <li key={`act_${i}`} className="flex items-start gap-3 text-xs">
                                             <ShoppingCart className="h-4 w-4 mt-0.5 text-emerald-600 flex-shrink-0" />
