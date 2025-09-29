@@ -1,4 +1,3 @@
-
 // src/app/(app)/accounts/page.tsx
 
 "use client"
@@ -254,14 +253,12 @@ export default function AccountsPage() {
     const s = q.trim().toLowerCase();
     
     return data.filter(a => {
-      if (a.flow !== 'PLACEMENT') return false; // Solo cuentas de colocación
+      // Show DIRECT accounts by default, not PLACEMENT
+      if (a.flow !== 'DIRECT') return false;
 
       const ownerName = a.ownerId ? userMap[a.ownerId] : '';
       const party = partyMap[a.partyId];
       const city = party?.billingAddress?.city || '';
-
-      const isPlacement = !!a.distributorPartyId;
-      if (!isPlacement) return false;
 
       const matchesQuery = !s || [a.name, city, a.stage, ownerName].some(v=> (v||'').toString().toLowerCase().includes(s));
       const matchesRep = !fltRep || a.ownerId === fltRep;
@@ -312,7 +309,7 @@ export default function AccountsPage() {
 
   return (
     <>
-      <ModuleHeader title="Cuentas de Colocación" icon={Users}>
+      <ModuleHeader title="Cuentas de Venta Directa" icon={Users}>
         <button onClick={() => setIsNewAccountOpen(true)} className="flex items-center gap-2 text-sm rounded-md px-3 py-1.5 font-semibold transition-colors"
          style={{ backgroundColor: DEPT_META.VENTAS.color, color: DEPT_META.VENTAS.textColor }}>
             <Plus size={16} /> Nueva Cuenta
