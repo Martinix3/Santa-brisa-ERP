@@ -8,12 +8,11 @@ import { NewEventDialog } from "@/features/agenda/components/NewEventDialog";
 import { PosCompleteDialog } from "@/features/pos/PosCompleteDialog";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { finalizeTaskWithOutcome } from "@/features/agenda/server/finalize-actions";
 
 type Props = { open:boolean; onOpenChange:(v:boolean)=>void; task: Interaction|null };
 
 export function SalesOutcomeDialog({ open, onOpenChange, task }: Props) {
-  const { data, currentUser } = useData();
+  const { data, currentUser, saveCollection } = useData();
   const router = useRouter();
   const [mode, setMode] = useState<"PEDIDO"|"INTERACCION"|"POS"|"">("");
   const [lines, setLines] = useState<{sku:string;qty:number;unitPriceReported?:number}[]>([]);
@@ -36,6 +35,12 @@ export function SalesOutcomeDialog({ open, onOpenChange, task }: Props) {
 
   if (!open || !task) return null;
   const close = ()=> { onOpenChange(false); };
+  
+  const finalizeTask = async (outcomeNote: string) => {
+    const updatedTask = { ...task, status: 'done', resultNote: outcomeNote };
+    const updatedInteractions = (data?.interactions || []).map(i => i.id === task.id ? updatedTask : i);
+    await saveCollection('interactions', updatedInteractions);
+  };
 
   const onConfirm = async () => {
     try {
@@ -44,17 +49,16 @@ export function SalesOutcomeDialog({ open, onOpenChange, task }: Props) {
         if (!task.accountId) throw new Error("La tarea no tiene cuenta asociada");
         if (!lines.length || lines.some(l => !l.sku || l.qty <= 0)) throw new Error("Añade al menos una línea válida");
         const created = await placeOrder({ accountId: task.accountId, lines, createdById: currentUser?.id! });
-        await finalizeTaskWithOutcome({ taskId: task.id, outcome: { type:"ORDER", orderId: created.id } });
+        await finalizeTask(`Pedido creado: ${created.id}`);
         toast.success("Pedido colocado y tarea cerrada");
         close(); router.push(`/orders/${created.id}`);
       } else if (mode==="INTERACCION") {
-        setOpenNewEvent(true); // se cierra cuando el NewEventDialog guarde
+        setOpenNewEvent(true);
       } else if (mode==="POS") {
         if (task.linkedEntity?.type === 'POS_TACTIC') {
           setOpenPosComplete(true);
         } else {
-          // Si no está linkeada, quizá quieras crearla primero, pero por ahora cerramos la tarea.
-          await finalizeTaskWithOutcome({ taskId: task.id, outcome: { type:"POS" } });
+          await finalizeTask("Táctica POS ejecutada.");
           toast.info("Tarea marcada como POS. Completa los detalles en el módulo de marketing.");
           close();
         }
@@ -130,7 +134,7 @@ export function SalesOutcomeDialog({ open, onOpenChange, task }: Props) {
           open={openNewEvent}
           onOpenChange={(o)=>{ if(!o){ setOpenNewEvent(false); close(); } }}
           onSuccess={async ()=>{ 
-            await finalizeTaskWithOutcome({ taskId: task!.id, outcome:{ type:"INTERACTION" }});
+            await finalizeTask("Nueva interacción de seguimiento creada.");
             toast.success("Interacción creada y tarea cerrada"); 
             setOpenNewEvent(false); close();
           }}
