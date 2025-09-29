@@ -3,7 +3,7 @@ import { adminDb as db } from '@/server/firebase';
 import { SANTA_DATA_COLLECTIONS, type SantaData } from '@/domain/ssot';
 
 function assertCollection(col: string): asserts col is keyof SantaData {
-    if (!SANTA_DATA_COLLECTIONS.map(String).includes(col)) {
+    if (!(SANTA_DATA_COLLECTIONS as readonly string[]).includes(col)) {
       throw new Error(`Invalid collection name: ${col}`);
     }
   }
@@ -59,7 +59,7 @@ export async function getServerData(): Promise<SantaData> {
   const data: Partial<SantaData> = {};
   const collectionsToLoad = SANTA_DATA_COLLECTIONS;
 
-  const promises = collectionsToLoad.map(async (name: keyof SantaData) => {
+  const promises = collectionsToLoad.map(async (name) => {
     try {
       assertCollection(name);
       const querySnapshot = await db.collection(name).get();

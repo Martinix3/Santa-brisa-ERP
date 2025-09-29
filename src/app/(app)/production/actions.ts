@@ -107,7 +107,7 @@ const CompleteOrderSchema = z.object({
     lotNumber: z.string().optional(),
     sku: z.string().optional(), // Para generar lote si no viene
     qty: z.number().positive(),
-    uom: z.enum(['kg', 'L', 'uds', 'g', 'mL', 'case', 'bottle', 'pallet']),
+    uom: z.enum(['kg', 'g', 'L', 'mL', 'bottle', 'case', 'pallet', 'uds']),
     toLocationId: z.string().default('ALMACEN_TERMINADO'),
   })).min(1),
   finalConsumptions: z.array(z.object({
@@ -190,7 +190,7 @@ export async function completeProductionOrder(
       const qcPlanId = qcPlanSnap.empty ? undefined : qcPlanSnap.docs[0].id;
 
       // Crear o actualizar el lote
-      const lotRef = adminDb.collection('lots').doc(lotNumber);
+      const lotRef = db.collection('lots').doc(lotNumber);
       batch.set(lotRef, LotSchema.parse({
         lotNumber,
         itemId: output.itemId,
