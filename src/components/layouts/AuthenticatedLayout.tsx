@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import { useData } from "@/lib/dataprovider";
 import { Avatar } from "@/components/ui/Avatar";
-import { QuickLogDialog } from "@/features/quicklog/QuickLogDialog";
 import QuickLogOverlay from "@/features/quicklog/QuickLogOverlay";
 import { isSales } from "@/lib/authz";
 
@@ -130,8 +129,7 @@ function dashboardHrefFor(module: keyof typeof MODULE_ACCENTS): string {
 export default function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? "/";
   const { currentUser, logout, data } = useData();
-  const [openQuickLog, setOpenQuickLog] = useState(false);
-
+  
   const isPrivilegedUser =
     currentUser?.role?.toLowerCase() === "admin" || currentUser?.role?.toLowerCase() === "owner";
   const visibleSections = navSections.filter((s) => (s.title === "Admin" ? isPrivilegedUser : true));
@@ -222,25 +220,23 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
           userEmail={currentUser?.email}
           onLogout={logout}
           pathname={pathname}
-          onOpenQuickLog={() => setOpenQuickLog(true)}
           tasksToday={tasksToday}
           tasksOverdue={tasksOverdue}
-          showQuickLogButton={isSales(currentUser?.role) || currentUser?.role === 'admin'}
         />
         <div className="overflow-y-auto">{children}</div>
       </main>
     </div>
-    <QuickLogDialog open={openQuickLog} onOpenChange={setOpenQuickLog} />
+    {isSales(currentUser?.role) || currentUser?.role === 'admin' ? <QuickLogOverlay /> : null}
     </>
   );
 }
 
 function HeaderPro({
-  userName, userEmail, onLogout, pathname, onOpenQuickLog, tasksToday, tasksOverdue, showQuickLogButton
+  userName, userEmail, onLogout, pathname, tasksToday, tasksOverdue
 }: {
   userName?: string; userEmail?: string; onLogout: () => void;
-  pathname: string; onOpenQuickLog: () => void;
-  tasksToday: number; tasksOverdue: number; showQuickLogButton: boolean;
+  pathname: string;
+  tasksToday: number; tasksOverdue: number;
 }) {
   const crumbs = useBreadcrumbs(pathname);
   const [openCmd, setOpenCmd] = useState(false);
@@ -300,17 +296,6 @@ function HeaderPro({
         </button>
 
         <div className="ml-auto md:ml-2 flex items-center gap-1" ref={menuRef}>
-          {showQuickLogButton && (
-            <button
-              onClick={onOpenQuickLog}
-              className="h-9 w-9 flex items-center justify-center rounded-lg text-zinc-700 bg-yellow-400 hover:bg-yellow-500"
-              title="Captura rápida"
-              aria-label="Abrir captura rápida"
-            >
-              <Plus size={20} strokeWidth={2.5} />
-            </button>
-          )}
-
           <button
             className="px-2 py-1.5 rounded-md hover:bg-sb-neutral-100 flex items-center gap-2"
             aria-haspopup="menu"

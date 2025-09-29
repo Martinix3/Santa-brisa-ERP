@@ -7,11 +7,12 @@ import { useData } from "@/lib/dataprovider";
 import { ModuleHeader } from "@/components/ui/ModuleHeader";
 import { SBCard, SBButton, KPI } from "@/components/ui/ui-primitives";
 import { inWindow, orderTotal } from '@/lib/sb-core';
-import { UpcomingTasks } from '@/features/agenda/components/UpcomingTasks';
 import { SalesOutcomeDialog } from "@/features/agenda/components/SalesOutcomeDialog";
 import { PosEventKpisDialog } from "@/features/marketing/components/PosEventKpisDialog";
 import type { Interaction, OrderSellOut } from '@/domain/ssot';
 import { generateInsights } from '@/ai/flows/generate-insights-flow';
+import { TaskBoard } from "@/features/agenda/TaskBoard";
+import { mapInteractionsToTasks } from "@/features/agenda/mappers";
 
 const LineChart = dynamic(() => import('recharts').then(m => m.LineChart), { ssr:false });
 const Line = dynamic(() => import('recharts').then(m => m.Line), { ssr:false });
@@ -82,8 +83,8 @@ export default function SalesDashboardPage() {
 
   const interactions = useMemo(() => {
     const all = data?.interactions ?? [];
-    if (scope==='global') return all;
-    return all.filter(i => i.userId === currentUser?.id);
+    if (scope==='global') return all.filter(i => i.dept === 'VENTAS');
+    return all.filter(i => i.dept === 'VENTAS' && i.userId === currentUser?.id);
   }, [data?.interactions, scope, currentUser?.id]);
 
   const kpis = useMemo(() => {
@@ -104,6 +105,10 @@ export default function SalesDashboardPage() {
     const isPOS = task.dept === 'MARKETING' || task.linkedEntity?.type === 'EVENT';
     isPOS ? setPosDlg({open:true, task}) : setSalesDlg({open:true, task});
   };
+
+  const tasks = useMemo(() => {
+    return mapInteractionsToTasks(interactions, data?.accounts);
+  }, [interactions, data?.accounts]);
 
   return (
     <>
@@ -162,19 +167,21 @@ export default function SalesDashboardPage() {
           </div>
         </SBCard>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* aquí tus widgets (carrera, mix, etc.) */}
-          </div>
-          <div className="space-y-6">
-            <UpcomingTasks
-              scope={scope}                               // ⬅️ nuevo
-              onlyUserId={scope==='personal' ? currentUser?.id : undefined}
-              includeDepartments={scope==='global' ? ['VENTAS','MARKETING'] : ['VENTAS']}
-              onRequestComplete={onRequestComplete}       // ⬅️ nuevo
+        <SBCard title="Tablero de Tareas de Ventas">
+          <div className="p-4">
+            <TaskBoard
+              tasks={tasks}
+              onTaskStatusChange={(id, status) => {
+                const task = interactions.find(t => t.id === id);
+                if (task) onRequestComplete(task);
+              }}
+              onCompleteTask={(id) => {
+                const task = interactions.find(t => t.id === id);
+                if (task) onRequestComplete(task);
+              }}
             />
           </div>
-        </div>
+        </SBCard>
       </div>
 
       <SalesOutcomeDialog open={salesDlg.open} task={salesDlg.task} onOpenChange={(o)=>setSalesDlg(s=>({...s,open:o}))}/>
@@ -182,3 +189,5 @@ export default function SalesDashboardPage() {
     </>
   );
 }
+
+    
