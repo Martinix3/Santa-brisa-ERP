@@ -1,23 +1,24 @@
 // src/features/orders/components/OrdersDashboard.tsx
-
 "use client";
 
 import React, { useMemo, useState, useTransition } from "react";
 import type { OrderStatus, Account, OrderSellOut, Party, PartyRole, CustomerData, User, Shipment, SantaData, AccountType, Item } from '@/domain/ssot';
-import { SBButton, STATUS_STYLES, EmptyState } from '@/components/ui/ui-primitives';
+import { SBButton, STATUS_STYLES, EmptyState, SBCard, Select } from '@/components/ui/ui-primitives';
 import { useData } from "@/lib/dataprovider";
-import { updateOrderStatus, createSalesInvoice, recordPayment } from "@/app/(app)/orders/actions";
+import { updateOrderStatus } from "@/app/(app)/orders/actions";
 import { ImportShopifyOrderButton } from './ImportShopifyOrderButton';
 import Link from "next/link";
 import { orderTotal, computeAccountMode, ResolvedAccountMode } from "@/lib/sb-core";
 import { consignmentOnHandByAccount, consignmentTotalUnits } from '@/lib/consignment-and-samples';
-import { AlertCircle, Truck, Boxes, FileText, CreditCard, ShoppingCart } from 'lucide-react';
+import { AlertCircle, Truck, Boxes, FileText, CreditCard, ShoppingCart, Plus } from 'lucide-react';
 import { normalizeOrderStatus } from '@/lib/status';
 import { SBFlowModal } from '@/features/quicklog/components/SBFlows';
 import { upsertMany } from '@/lib/dataprovider/actions';
 import { makeSellOutOrderCode } from '@/lib/codes';
 import { DEPT_META } from "@/domain/ssot";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+import { Flow } from "@/lib/useFlow";
 
 
 type Tab = "directa" | "colocacion" | "online";
@@ -60,35 +61,19 @@ const STATUS_OPTS: { value: OrderStatus; label: string }[] = [
   { value: "lost", label: "Perdido" },
 ];
 
-function FilterPill({ value, onChange, options, placeholder }: { value: string; onChange: (value: string) => void; options: { value: string; label: string }[]; placeholder: string }) {
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="text-sm bg-white border border-zinc-200 rounded-md pl-3 pr-8 py-2 outline-none focus:ring-2 focus:ring-yellow-300"
-      aria-label={placeholder}
-    >
-      <option value="">{placeholder}</option>
-      {options.map((opt) => (
-        <option key={opt.value} value={opt.value}>
-          {opt.label}
-        </option>
-      ))}
-    </select>
-  );
-}
-
 function KpiCard({ icon: Icon, label, value, color }: { icon: React.ElementType; label: string; value: string | number; color: string }) {
   return (
-    <div className="bg-white p-4 rounded-xl border border-zinc-200 flex items-start gap-4">
-      <div className="h-10 w-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${color}20`, color }}>
-        <Icon size={20} className="sb-icon" />
-      </div>
-      <div>
-        <p className="text-2xl font-bold text-zinc-900">{value}</p>
-        <p className="text-sm text-zinc-600">{label}</p>
-      </div>
-    </div>
+    <SBCard title="">
+        <div className="p-4 flex items-start gap-4">
+            <div className="h-10 w-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${color}20`, color }}>
+                <Icon size={20} />
+            </div>
+            <div>
+                <p className="text-2xl font-bold text-zinc-900">{value}</p>
+                <p className="text-sm text-zinc-600">{label}</p>
+            </div>
+        </div>
+    </SBCard>
   );
 }
 
@@ -131,15 +116,14 @@ function exportToCsv(filename: string, rows: (string | number)[][]) {
   a.click();
 }
 
-export default function OrdersDashboard({ orderVisitMetrics, onNewVisit }: {
+export default function OrdersDashboard({ orderVisitMetrics, flow }: {
     orderVisitMetrics: Record<string, { last: string | null; next: string | null }>;
-    onNewVisit: (orderId: string, accountId?: string) => void;
+    flow: Flow;
 }) {
   const { data, setData, currentUser } = useData();
-  const [isPending, start] = useTransition();
-  const [msg, setMsg] = useState<string | null>(null);
+  const router = useRouter();
 
-  const [tab, setTab] = useState<Tab>("directa");
+  const [tab, setTab] = useState<Tab>(flow === "DIRECT" ? "directa" : "colocacion");
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("");
   const [isCreateOpen, setCreateOpen] = useState(false);
@@ -166,19 +150,14 @@ export default function OrdersDashboard({ orderVisitMetrics, onNewVisit }: {
             const acc = accountsById.get(o.accountId);
             if (!acc) return false;
 
-            const customerRole = rolesByPartyId.get(acc.partyId);
-            const mode = computeAccountMode(acc, customerRole);
+            const mode = acc.flow;
             
-            const isOnline = acc.type === 'ONLINE' || o.source === 'SHOPIFY';
-            const isDirecta = mode === 'PROPIA_SB';
-            const isColocacion = mode === 'COLOCACION';
-
             if (tab === 'online') {
-                if (!isOnline) return false;
+                if (acc.segment !== 'ONLINE' && o.source !== 'SHOPIFY') return false;
             } else if (tab === 'directa') {
-                if (!isDirecta || isOnline) return false;
+                if (mode !== 'DIRECT') return false;
             } else if (tab === 'colocacion') {
-                if (!isColocacion || isOnline) return false;
+                if (mode !== 'PLACEMENT') return false;
             }
 
             const normalizedStatus = normalizeOrderStatus(o.status);
@@ -278,12 +257,14 @@ export default function OrdersDashboard({ orderVisitMetrics, onNewVisit }: {
             id: `ord_${Date.now()}`,
             docNumber: makeSellOutOrderCode((data.ordersSellOut || []).map(o => o.docNumber || ''), new Date()),
             accountId: accountId,
-            partyId: partyId,
-            source: 'MANUAL',
+            flow: 'DIRECT', // QuickLog crea pedidos de colocación, este de venta directa.
+            distributorPartyId: 'SB',
             status: 'open',
             currency: 'EUR',
+            totalAmount: payload.items.reduce((sum, item) => sum + (item.qty * item.priceUnit), 0),
             createdAt: payload.requestedDate || new Date().toISOString(),
-            lines: payload.items.map(item => ({ ...item, name: data.items.find(p => p.id === item.itemId)?.name || item.itemId })),
+            updatedAt: new Date().toISOString(),
+            lines: payload.items.map(item => ({...item, itemId: item.itemId, qty: item.qty, priceUnit: item.priceUnit})),
             notes: payload.note,
         };
 
@@ -313,7 +294,6 @@ export default function OrdersDashboard({ orderVisitMetrics, onNewVisit }: {
     };
 
     const handleCreateAccount = async (accountData: { name: string; city?: string; type?: AccountType }): Promise<Account> => {
-        // This is a simplified version. A real one would hit a server action to create Party+Role+Account
         const tempId = `new_acc_${Date.now()}`;
         return {
             id: tempId,
@@ -337,6 +317,7 @@ export default function OrdersDashboard({ orderVisitMetrics, onNewVisit }: {
                   style={{ backgroundColor: DEPT_META.VENTAS.color, color: DEPT_META.VENTAS.textColor }}
                   className="hover:brightness-110"
                 >
+                    <Plus size={16} className="mr-2"/>
                     Nuevo pedido
                 </SBButton>
                  <SBButton variant="secondary" onClick={onExport} aria-label="Exportar a CSV">
@@ -364,10 +345,13 @@ export default function OrdersDashboard({ orderVisitMetrics, onNewVisit }: {
               aria-label="Buscar pedidos"
             />
           </div>
-          <FilterPill value={status} onChange={setStatus} placeholder="Filtrar por estado" options={STATUS_OPTS} />
+          <Select value={status} onChange={(e) => setStatus(e.target.value)}>
+              <option value="">Todos los estados</option>
+              {STATUS_OPTS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+          </Select>
         </div>
 
-      <div className="bg-white border rounded-2xl overflow-hidden">
+      <SBCard noPadding>
         {visibleOrders.length > 0 ? (
           <table className="w-full text-sm">
             <thead className="bg-zinc-50 text-left">
@@ -376,11 +360,8 @@ export default function OrdersDashboard({ orderVisitMetrics, onNewVisit }: {
                 <th className="p-3 font-semibold text-zinc-600">Cliente</th>
                 <th className="p-3 font-semibold text-zinc-600">Comercial</th>
                 <th className="p-3 font-semibold text-zinc-600">Fecha</th>
-                <th className="p-3 font-semibold text-zinc-600">Última Visita</th>
-                <th className="p-3 font-semibold text-zinc-600">Próx. Visita</th>
                 <th className="p-3 font-semibold text-zinc-600 text-right">Total</th>
                 <th className="p-3 font-semibold text-zinc-600">Estado</th>
-                <th className="p-3 font-semibold text-zinc-600">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
@@ -389,7 +370,6 @@ export default function OrdersDashboard({ orderVisitMetrics, onNewVisit }: {
                 if (!acc) return null;
                 const owner = usersById.get(acc.ownerId);
                 const total = orderTotal(o);
-                const metrics = orderVisitMetrics[o.id] || { last:null, next:null };
 
                 return (
                   <tr key={o.id} className="hover:bg-zinc-50">
@@ -407,18 +387,9 @@ export default function OrdersDashboard({ orderVisitMetrics, onNewVisit }: {
                     </td>
                     <td className="p-3">{owner?.name || "N/A"}</td>
                     <td className="p-3">{new Date(o.createdAt).toLocaleDateString("es-ES")}</td>
-                    <td className="p-3">{metrics.last ? new Date(metrics.last).toLocaleDateString() : '—'}</td>
-                    <td className="p-3">{metrics.next ? new Date(metrics.next).toLocaleDateString() : '—'}</td>
                     <td className="p-3 text-right font-semibold">{total.toLocaleString("es-ES", { style: "currency", currency: "EUR" })}</td>
                     <td className="p-3">
                       <StatusSelector order={o} onChange={onStatusChange} />
-                    </td>
-                    <td className="p-3">
-                      <div className="flex gap-2">
-                          <button onClick={() => onNewVisit(o.id, o.accountId)} className="text-xs px-3 py-1 rounded border hover:bg-zinc-50">
-                              Nueva visita
-                          </button>
-                      </div>
                     </td>
                   </tr>
                 );
@@ -437,7 +408,7 @@ export default function OrdersDashboard({ orderVisitMetrics, onNewVisit }: {
             }
           />
         )}
-      </div>
+      </SBCard>
 
        {isCreateOpen && data && (
         <SBFlowModal
