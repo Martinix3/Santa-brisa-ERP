@@ -1,8 +1,10 @@
+
 // src/features/orders/components/NewOrderModal.tsx
 "use client";
 
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2 } from 'lucide-react';
+import { useData } from '@/lib/dataprovider';
 
 interface OrderLine {
     id: number;
@@ -18,10 +20,14 @@ interface NewOrderModalProps {
 }
 
 const NewOrderModal: React.FC<NewOrderModalProps> = ({ isOpen, onClose, onSubmit }) => {
+    const { data } = useData();
     const [accountId, setAccountId] = useState('');
     const [lines, setLines] = useState<OrderLine[]>([
       { id: 1, sku: '', qty: 1, unitPrice: 0 }
     ]);
+
+    const accounts = data?.accounts || [];
+    const items = data?.items || [];
 
     useEffect(() => {
         if (!isOpen) {
@@ -71,23 +77,27 @@ const NewOrderModal: React.FC<NewOrderModalProps> = ({ isOpen, onClose, onSubmit
                 <form onSubmit={handleSubmit}>
                     <div className="py-6 space-y-6">
                         <div>
-                            <label htmlFor="customerName" className="block text-sm font-medium text-slate-700 mb-1">Cliente (Account ID)</label>
-                            <input 
-                                type="text" 
+                            <label htmlFor="customerName" className="block text-sm font-medium text-slate-700 mb-1">Cliente</label>
+                            <select 
                                 id="customerName" 
                                 value={accountId}
                                 onChange={(e) => setAccountId(e.target.value)}
-                                className="block w-full border border-slate-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#F4C542]" 
-                                placeholder="Buscar cliente por nombre o ID..."
+                                className="block w-full border border-slate-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#F4C542]"
                                 required
-                            />
+                            >
+                                <option value="" disabled>Selecciona un cliente...</option>
+                                {accounts.map((acc: any) => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
+                            </select>
                         </div>
 
                         <div className="space-y-3">
                             <h3 className="text-sm font-medium text-slate-700">Líneas de Producto</h3>
                             {lines.map((line, index) => (
                                 <div key={line.id} className="grid grid-cols-[1fr_90px_110px_auto] gap-3 items-center">
-                                    <input type="text" placeholder="SKU del producto" value={line.sku} onChange={e => handleLineChange(line.id, 'sku', e.target.value)} className="border-slate-300 rounded-lg py-2 px-3 text-sm focus:ring-[#F4C542]" required />
+                                    <select value={line.sku} onChange={e => handleLineChange(line.id, 'sku', e.target.value)} className="border-slate-300 rounded-lg py-2 px-3 text-sm focus:ring-[#F4C542]" required>
+                                        <option value="" disabled>Selecciona producto</option>
+                                        {items.map((item: any) => <option key={item.id} value={item.sku}>{item.name}</option>)}
+                                    </select>
                                     <input type="number" placeholder="Cant." value={line.qty} onChange={e => handleLineChange(line.id, 'qty', parseInt(e.target.value) || 0)} className="border-slate-300 rounded-lg py-2 px-3 text-sm focus:ring-[#F4C542]" />
                                     <input type="number" placeholder="Precio U." value={line.unitPrice} onChange={e => handleLineChange(line.id, 'unitPrice', parseFloat(e.target.value) || 0)} className="border-slate-300 rounded-lg py-2 px-3 text-sm focus:ring-[#F4C542]" />
                                     {lines.length > 1 && (
@@ -127,3 +137,5 @@ const NewOrderModal: React.FC<NewOrderModalProps> = ({ isOpen, onClose, onSubmit
 };
 
 export default NewOrderModal;
+
+    
