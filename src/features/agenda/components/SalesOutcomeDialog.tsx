@@ -5,7 +5,7 @@ import { useData } from "@/lib/dataprovider";
 import type { Interaction } from "@/domain/ssot";
 import { placeOrder } from "@/app/(app)/orders/actions";
 import { NewEventDialog } from "@/features/agenda/components/NewEventDialog";
-import { PosCompleteDialog } from "@/features/pos/PosCompleteDialog"; // IMPORTAMOS EL NUEVO
+import { PosCompleteDialog } from "@/features/pos/PosCompleteDialog";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { finalizeTaskWithOutcome } from "@/features/agenda/server/finalize-actions";
@@ -18,7 +18,7 @@ export function SalesOutcomeDialog({ open, onOpenChange, task }: Props) {
   const [mode, setMode] = useState<"PEDIDO"|"INTERACCION"|"POS"|"">("");
   const [lines, setLines] = useState<{sku:string;qty:number;unitPriceReported?:number}[]>([]);
   const [openNewEvent, setOpenNewEvent] = useState(false);
-  const [openPosComplete, setOpenPosComplete] = useState(false); // ⬅️ NUEVO ESTADO
+  const [openPosComplete, setOpenPosComplete] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const skuOptions = useMemo(() =>
@@ -30,7 +30,7 @@ export function SalesOutcomeDialog({ open, onOpenChange, task }: Props) {
       setMode("");
       setLines([]);
       setOpenNewEvent(false);
-      setOpenPosComplete(false); // ⬅️ RESETEAR
+      setOpenPosComplete(false);
     }
   }, [open]);
 
@@ -50,9 +50,14 @@ export function SalesOutcomeDialog({ open, onOpenChange, task }: Props) {
       } else if (mode==="INTERACCION") {
         setOpenNewEvent(true); // se cierra cuando el NewEventDialog guarde
       } else if (mode==="POS") {
-        // En lugar de finalizar, abrimos el diálogo de completar KPIs
-        setOpenPosComplete(true);
-        // La tarea se cerrará desde PosCompleteDialog
+        if (task.linkedEntity?.type === 'POS_TACTIC') {
+          setOpenPosComplete(true);
+        } else {
+          // Si no está linkeada, quizá quieras crearla primero, pero por ahora cerramos la tarea.
+          await finalizeTaskWithOutcome({ taskId: task.id, outcome: { type:"POS" } });
+          toast.info("Tarea marcada como POS. Completa los detalles en el módulo de marketing.");
+          close();
+        }
       } else {
         toast.error("Selecciona un resultado");
       }
@@ -107,7 +112,7 @@ export function SalesOutcomeDialog({ open, onOpenChange, task }: Props) {
 
           {mode==="POS" && (
             <div className="mb-3 text-sm text-zinc-600">
-              Cierra la tarea como POS. A continuación se abrirá el diálogo de KPIs del evento/POS.
+              Cierra la tarea como POS. A continuación se abrirá el diálogo de KPIs del evento/POS si la tarea está linkeada.
             </div>
           )}
 
@@ -129,13 +134,11 @@ export function SalesOutcomeDialog({ open, onOpenChange, task }: Props) {
             toast.success("Interacción creada y tarea cerrada"); 
             setOpenNewEvent(false); close();
           }}
-          onError={(m)=>toast.error(m)}
+          onError={(m) => toast.error(m)}
           accentColor=""
           initialEventData={{ accountId: task.accountId, dept:'VENTAS' } as any}
         />
       )}
-      
-      {/* ⬇️ NUEVO: mostramos el diálogo de completar POS si es necesario ⬇️ */}
       {openPosComplete && task.linkedEntity?.type === 'POS_TACTIC' && (
         <PosCompleteDialog
           open={openPosComplete}
