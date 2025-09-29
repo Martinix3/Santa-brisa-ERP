@@ -1,3 +1,4 @@
+
 // src/domain/ssot.v4.ts
 // This file contains the previous version of the SSOT for type compatibility.
 
@@ -59,13 +60,6 @@ export interface PaymentLink { id: string; }
 export interface LotGenealogyEdge { id: string; }
 
 export type { SB_THEME } from './ssot.metas';
-
-export const SANTA_DATA_COLLECTIONS: (keyof SantaDataV4)[] = [
-  'items', 'stockMoves', 'productionOrders', 'ordersSellOut', 'shipments', 'goodsReceipts',
-  'onHand', 'parties', 'partyRoles', 'accounts', 'users', 'interactions', 'billOfMaterials', 'lots',
-  'partyDuplicates', 'qcParameters', 'qcPlans', 'qcTests', 'deliveryNotes', 'lotGenealogy', 'marketingEvents', 'onlineCampaigns', 'influencerCollabs',
-  'posTactics', 'posCostCatalog', 'plv_material', 'reservations',
-];
 
 export interface SantaDataV4 {
     items: Item[];

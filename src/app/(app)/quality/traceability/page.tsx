@@ -1,3 +1,4 @@
+
 // src/app/(app)/quality/traceability/page.tsx
 "use client";
 
@@ -90,7 +91,9 @@ function LotSummaryCard({ traceData, items, parties }: { traceData: TraceData, i
     if (!lot) return null;
 
     const item = items.find(i => i.id === lot.itemId);
-    const categoryName = item?.category ? (ITEM_CATEGORY_META[item.category]?.label || item.category) : 'N/A';
+    const categoryMeta = item?.category ? ITEM_CATEGORY_META[item.category] : undefined;
+    const categoryName = categoryMeta?.label || item?.category || 'N/A';
+    
     const locations = (onHandSummary || []).filter(oh => oh.qty > 0).map(oh => `${oh.locationId} (${oh.qty} ${oh.uom})`).join(', ');
     const supplierName = parties.find(p => p.id === receiptInfo?.supplierPartyId)?.name;
 

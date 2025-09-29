@@ -186,7 +186,6 @@ export type {
   AccountMode, // Keep for compatibility
 } from './ssot.v4';
 import type { SantaDataV4 } from './ssot.v4';
-import { SANTA_DATA_COLLECTIONS as SANTA_DATA_COLLECTIONS_V4 } from './ssot.v4';
 
 // Exportar un tipo unificado para la data
 export interface SantaData extends SantaDataV4 {
@@ -205,13 +204,18 @@ export interface SantaData extends SantaDataV4 {
     posTactics: PosTactic[];
 }
 
+export const SANTA_DATA_COLLECTIONS: (keyof SantaData)[] = [
+  "items", "stockMoves", "productionOrders", "ordersSellOut", "shipments", "goodsReceipts",
+  "onHand", "parties", "partyRoles", "accounts", "users", "interactions", "billOfMaterials", "lots",
+  "partyDuplicates", "qcParameters", "qcPlans", "qcTests", "deliveryNotes", "lotGenealogy", "marketingEvents", "onlineCampaigns", "influencerCollabs",
+  "posTactics", "posCostCatalog", "plv_material", "reservations", 'materialCosts', 'financeLinks', 'paymentLinks', 'traceEvents', 'incidents', 'codeAliases'
+];
+
 export function qcToBucket(s: QcStatus): 'HOLD' | 'RELEASED' | 'REJECTED' {
   const norm = String(s ?? 'PENDING').toUpperCase();
   if (norm === 'PASSED' || norm === 'WAIVED' || norm === 'RELEASED' || norm === 'OK' || norm === 'APPROVED') return 'RELEASED';
   if (norm === 'FAILED' || norm === 'REJECTED') return 'REJECTED';
   return 'HOLD'; // PENDING, HOLD, QC_HOLD, etc.
 };
-
-export const SANTA_DATA_COLLECTIONS = SANTA_DATA_COLLECTIONS_V4;
 
 export * from './ssot.metas';

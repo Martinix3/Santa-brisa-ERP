@@ -1,3 +1,4 @@
+
 // src/domain/ssot.metas.ts
 import type { AccountType, OrderStatus, ShipmentStatus, PartyRoleType, Department, TraceEventPhase, ItemCategory } from './ssot';
 
@@ -59,16 +60,6 @@ export const SB_THEME = {
     grid:  'hsl(240 6% 90%)',
   },
 } as const;
-
-export const ITEM_CATEGORY_META: Record<ItemCategory, { label: string; color: string; }> = {
-  fg: { label: "Producto Terminado", color: SB_COLORS.primary.teal },
-  raw: { label: "Materia Prima", color: SB_COLORS.primary.copper },
-  pack: { label: "Packaging", color: SB_COLORS.primary.aqua },
-  label: { label: "Etiqueta", color: SB_COLORS.primary.aqua },
-  intermediate: { label: "Producto Intermedio", color: SB_COLORS.primary.sunStrong },
-  consumable: { label: "Consumible", color: "#a1a1aa" },
-  merch: { label: "Merchandising", color: "#f472b6" },
-};
 
 export const PARTY_ROLE_META: Record<PartyRoleType, { label: string; accent: string }> = {
   CUSTOMER: { label: 'Cliente',      accent: SB_COLORS.primary.copper },
