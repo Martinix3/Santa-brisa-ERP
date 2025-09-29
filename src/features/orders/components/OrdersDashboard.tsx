@@ -18,7 +18,7 @@ import { makeSellOutOrderCode } from '@/lib/codes';
 import { DEPT_META } from "@/domain/ssot";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { Flow } from "@/lib/useFlow";
+import type { Flow } from "@/lib/useFlow";
 
 
 type Tab = "directa" | "colocacion" | "online";
@@ -368,7 +368,7 @@ export default function OrdersDashboard({ orderVisitMetrics, flow }: {
               {visibleOrders.map((o) => {
                 const acc = accountsById.get(o.accountId);
                 if (!acc) return null;
-                const owner = usersById.get(acc.ownerId);
+                const owner = usersById.get(acc.ownerId as string);
                 const total = orderTotal(o);
 
                 return (
