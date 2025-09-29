@@ -8,8 +8,8 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
 // ⬇️ Server actions (adapta a tus rutas reales)
-import { createInteraction } from "@/app/(app)/agenda/actions";               // (accountId, userId, kind, note, plannedFor)
-import { placeOrder } from "@/app/(app)/orders/actions";                      // (accountId, distributorId, lines[], createdById)
+import { createInteraction } from "@/app/(app)/agenda/actions";
+import { placeOrder } from "@/app/(app)/orders/actions";
 import { createPosTacticsBatch, type PosLineInput } from "@/features/pos/server/pos-actions";
 
 // ⬇️ Selector POS multi-líneas
@@ -76,10 +76,11 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
         // 1) Interacción
         await createInteraction({
           accountId: accId,
-          userId: currentUser!.id,
+          createdById: currentUser!.id,
           kind: "VISITA",
           note: note || undefined,
-          plannedFor: plannedFor || undefined
+          plannedFor: plannedFor || undefined,
+          dept: 'VENTAS'
         } as any);
 
         // 2) POS (opcional)
@@ -101,7 +102,7 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
         // 1) Pedido (sell-out)
         const created = await placeOrder({
           accountId: accId,
-          lines,
+          lines: lines as any,
           createdById: currentUser!.id
         });
 
@@ -126,6 +127,8 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
       setSaving(false);
     }
   };
+
+  const skuOptions = useMemo(() => (data?.items || []).map(i => ({ value: i.sku, label: i.name })), [data?.items]);
 
   return (
     <SBDialog open={open} onOpenChange={(v) => { if(!v) resetAll(); onOpenChange(v); }}>
@@ -202,13 +205,11 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
               <div className="text-sm font-medium">Líneas de pedido</div>
               {lines.map((l, idx) => (
                 <div key={idx} className="flex gap-2">
-                  <Input
-                    placeholder="SKU"
-                    value={l.sku}
-                    onChange={(e) =>
-                      setLines((s) => s.map((x, i) => (i === idx ? { ...x, sku: e.target.value } : x)))
-                    }
-                  />
+                  <Select className="flex-1" value={l.sku}
+                    onChange={e => setLines(s=>s.map((x,i)=>i===idx?{...x,sku:e.target.value}:x))}>
+                    <option value="">-- SKU --</option>
+                    {skuOptions.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
+                  </Select>
                   <Input
                     type="number"
                     min={1}
