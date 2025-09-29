@@ -67,7 +67,7 @@ export interface OrderSellOut {
   flow: 'PLACEMENT'; // Fixed value
   distributorPartyId: string; // redundante para filtro rápido
   date: string;
-  status: 'invoiced'|'shipped'|'open'|'cancelled'; // reporte
+  status: 'invoiced'|'shipped'|'open'|'cancelled';
   currency: 'EUR';
   totalAmount: number;
   lines: { itemId: string; qty: number; unitPrice?: number }[];
@@ -130,7 +130,6 @@ export type PosTactic = {
 
   createdAt: string; updatedAt: string; createdById?: string;
 };
-
 
 // --- Otras entidades necesarias para la compilación ---
 export type {
@@ -203,6 +202,13 @@ export interface SantaData extends SantaDataV4 {
     posCatalog: PosCatalogItem[];
     posTactics: PosTactic[];
 }
+
+export const qcToBucket = (s: QcStatus): 'HOLD' | 'RELEASED' | 'REJECTED' => {
+  const norm = String(s ?? 'PENDING').toUpperCase();
+  if (norm === 'PASSED' || norm === 'WAIVED' || norm === 'RELEASED' || norm === 'OK' || norm === 'APPROVED') return 'RELEASED';
+  if (norm === 'FAILED' || norm === 'REJECTED') return 'REJECTED';
+  return 'HOLD'; // PENDING, HOLD, QC_HOLD, etc.
+};
 
 export { SB_THEME };
 export * from './ssot.metas';
