@@ -8,8 +8,8 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
 // ⬇️ Server actions (adapta a tus rutas reales)
-import { createInteraction } from "@/app/(app)/agenda/actions";               // (accountId, userId, kind, note, plannedFor)
-import { placeOrder } from "@/app/(app)/orders/actions";                      // (accountId, distributorId, lines[], createdById)
+import { createInteraction } from "@/app/(app)/agenda/actions";
+import { placeOrder } from "@/app/(app)/orders/actions";
 import { createPosTacticsBatch, type PosLineInput } from "@/features/pos/server/pos-actions";
 
 // ⬇️ Selector POS multi-líneas
@@ -40,7 +40,7 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
 
   // --- PEDIDO (colocación) ---
   const [distributorId, setDistributorId] = useState("SANTA_BRISA");
-  const [lines, setLines] = useState<{ sku: string; qty: number }[]>([{ sku: "", qty: 1 }]);
+  const [lines, setLines] = useState<{ sku: string; qty: number; unitPriceReported?:number }[]>([{ sku: "", qty: 1 }]);
 
   // --- POS (compartido en ambas pestañas) ---
   const [posLines, setPosLines] = useState<PosLineInput[]>([]);
@@ -141,9 +141,10 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
             <Select
               value={selectedAccount}
               onChange={e => setSelectedAccount(e.target.value)}
+              placeholder="Selecciona cuenta"
             >
-              <option value="">Selecciona cuenta</option>
-              {accountOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                <option value="">Selecciona cuenta</option>
+                {accountOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </Select>
           </div>
         )}
@@ -197,7 +198,7 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
                   value={distributorId}
                   onChange={e => setDistributorId(e.target.value)}
                 >
-                    <option value="SANTA_BRISA">Santa Brisa</option>
+                  <option value="SANTA_BRISA">Santa Brisa</option>
                 </Select>
               </div>
             </div>
@@ -223,6 +224,20 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
                       )
                     }
                     className="w-24"
+                  />
+                  <Input
+                    type="number"
+                    step="0.01"
+                    placeholder="€ opcional"
+                    value={l.unitPriceReported ?? ""}
+                    onChange={(e) =>
+                      setLines((s) =>
+                        s.map((x, i) =>
+                          i === idx ? { ...x, unitPriceReported: Number(e.target.value) || undefined } : x
+                        )
+                      )
+                    }
+                    className="w-28"
                   />
                   <SBButton variant="ghost" onClick={() => setLines((s) => s.filter((_, i) => i !== idx))}>
                     Quitar

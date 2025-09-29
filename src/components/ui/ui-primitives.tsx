@@ -110,8 +110,10 @@ export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttribute
 Input.displayName = 'Input';
 
 export const Select = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttributes<HTMLSelectElement>>(
-    ({ className, ...props }, ref) => (
-         <select ref={ref} className={`h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-yellow-400 ${className || ''}`} {...props} />
+    ({ className, children, ...props }, ref) => (
+         <select ref={ref} className={`h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-yellow-400 ${className || ''}`} {...props}>
+            {children}
+         </select>
     )
 );
 Select.displayName = 'Select';
