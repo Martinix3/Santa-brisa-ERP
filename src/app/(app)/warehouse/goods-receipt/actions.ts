@@ -161,7 +161,7 @@ export async function createGoodsReceipt(payload: {
                 id: itemId,
                 name: line.newItemName,
                 sku: makeSku(line.newItemName, line.newItemCategory || 'raw', existingItems.map(it => it.sku)),
-                uom: line.uom || 'unit',
+                uom: line.uom || 'uds',
                 category: line.newItemCategory || 'raw',
                 stdCost: line.unitCost || 0,
                 active: true,

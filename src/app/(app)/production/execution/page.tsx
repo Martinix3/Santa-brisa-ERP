@@ -92,7 +92,7 @@ function computeTheoretical(bom: RecipeBom, qty: number, itemsMap: Map<string, I
     itemId: l.itemId,
     itemName: itemsMap.get(l.itemId)?.name ?? l.itemId,
     qty: +(Number(l.qty || 0) * Number(qty || 0)).toFixed(3),
-    uom: (l.uom || "unit") as Uom,
+    uom: (l.uom || "uds") as Uom,
   }));
 }
 
@@ -315,7 +315,7 @@ export default function ProductionExecutionPage() {
             itemId: bom.outputItemId,
             sku: outputItem?.sku,
             qty: 1, // Cantidad por defecto
-            uom: (bom.stage === "ENVASADO" ? "unit" : "L"),
+            uom: (bom.stage === "ENVASADO" ? "uds" : "L"),
             toLocationId: 'FG/MAIN'
         },
         realConsumption: [],

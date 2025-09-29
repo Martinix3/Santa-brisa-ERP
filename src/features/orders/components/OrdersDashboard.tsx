@@ -1,4 +1,4 @@
-
+// src/features/orders/components/OrdersDashboard.tsx
 
 "use client";
 
@@ -243,7 +243,7 @@ export default function OrdersDashboard() {
         paymentTerms?: string;
         shipTo?: string;
         note?: string;
-        items: { itemId: string; qty: number; uom: 'unit'; priceUnit: number, lotNumber?: string }[];
+        items: { itemId: string; qty: number; uom: 'uds'; priceUnit: number, lotNumber?: string }[];
     }) => {
         if (!data || !currentUser) {
             toast.error("No se pudo obtener la información del usuario o los datos de la aplicación.");

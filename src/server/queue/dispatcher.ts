@@ -1,4 +1,3 @@
-
 import { adminDb as db } from '@/server/firebase';
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import type { Job, JobKind } from './types';
@@ -18,6 +17,7 @@ const HANDLERS: Record<JobKind, (payload: any) => Promise<any>> = {
   SYNC_HOLDED_PURCHASES: async (payload) => (await import('../integrations/holded/syncPurchases')).handleSyncHoldedPurchases(payload),
   SYNC_HOLDED_PRODUCTS: async (payload) => (await import('../workers/holded.syncProducts')).handleSyncHoldedProducts(payload),
   UPDATE_SHOPIFY_FULFILLMENT: async (payload) => (await import('../integrations/shopify/shopify.fulfillment.worker')).handleUpdateShopifyFulfillment(payload),
+  CREATE_SHIPMENT_FROM_ORDER: async (payload) => (await import('../workers/createShipment.worker')).run(payload),
 };
 
 
