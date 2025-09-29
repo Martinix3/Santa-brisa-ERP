@@ -31,7 +31,7 @@ export type AllocationDetail = {
 export function checkOrderStock(
   order: OrderSellOut,
   onHand: OnHandView[],
-  lotsMaster: Lot[] // NUEVO: Necesitamos el maestro de lotes para obtener el origen
+  lotsMaster: Lot[] = []
 ): { allocations: AllocationDetail[]; shortages: StockShortageDetail[] } {
   if (!order?.lines?.length) return { allocations: [], shortages: [] };
 
@@ -101,7 +101,7 @@ export function checkOrderStock(
     }
   }
 
-  return { allocations, shortages };
+  return { allocations: allocations ?? [], shortages: shortages ?? [] };
 }
 
 

@@ -49,7 +49,17 @@ export async function confirmOrderShipment(orderId: string): Promise<Shipment> {
   const lots = lotsSnap.docs.map(doc => doc.data() as Lot);
   const itemsById = new Map(itemsSnap.docs.map(d => [d.id, d.data() as Item]));
   
-  const { allocations, shortages } = checkOrderStock(order, onHand, lots);
+  const result = checkOrderStock(order, onHand, lots);
+  const allocations = result?.allocations ?? [];
+  const shortages = result?.shortages ?? [];
+
+  console.log('[checkOrderStock] lines:', order.lines?.length);
+  console.log('[checkOrderStock] onHand:', onHand.length, 'lots:', lots.length);
+  console.log('[checkOrderStock] result:', {
+    allocationsCount: allocations.length,
+    shortagesCount: shortages.length,
+    sampleAllocation: allocations[0]
+  });
   
   // 0) Validar allocations ANTES de la transacción
   if (!allocations?.length && order.lines.length > 0) {
@@ -78,12 +88,14 @@ export async function confirmOrderShipment(orderId: string): Promise<Shipment> {
   await db.runTransaction(async (transaction) => {
     // 2a. Atomically reserve stock using set + merge
     for (const alloc of allocations) {
-      // locationId viene de la asignación, o fallback a 'FG/MAIN'
-      const loc = alloc.locationId ?? 'FG/MAIN';
+      if (!alloc.lotNumber) {
+        throw new Error(`Asignación sin lote para item ${alloc.itemId}. Recalcula stock/allocations.`);
+      }
+      const loc = alloc.locationId ?? 'FG/MAIN'; // usa la real si viene del allocation
       const onHandId = makeOnHandId(alloc.itemId, alloc.lotNumber, loc);
       const onHandRef = db.collection('onHand').doc(onHandId);
-
-      // set + merge es clave: crea el doc si no existe, y no falla la tx.
+    
+      // set + merge evita que la transacción falle si el doc no existe aún
       transaction.set(onHandRef, {
         itemId: alloc.itemId,
         lotNumber: alloc.lotNumber,
