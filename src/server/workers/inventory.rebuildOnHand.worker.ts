@@ -1,3 +1,4 @@
+
 // src/server/workers/inventory.rebuildOnHand.worker.ts
 'use server';
 
@@ -106,7 +107,7 @@ export async function run() {
         return {
           id: makeOnHandId(doc.itemId, doc.lotNumber, doc.locationId),
           ...doc,
-          category: item?.category, // <-- Aquí se enriquece
+          category: item?.category, // <-- AQUÍ ESTÁ LA CORRECCIÓN
           qcStatus: lot?.qcStatus || 'PENDING',
           qty: Math.round(doc.qty * 1000) / 1000,
         };
