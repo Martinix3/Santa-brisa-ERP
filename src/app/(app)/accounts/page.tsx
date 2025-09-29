@@ -232,7 +232,7 @@ export default function AccountsPage({ searchParams }: { searchParams?: Record<s
     const cities = new Set<string>();
     
     data.forEach(a => {
-      reps.add(a.ownerId);
+      reps.add(a.ownerId!);
       const party = pMap[a.partyId];
       if (party?.billingAddress?.city) cities.add(party.billingAddress.city);
     });
@@ -257,7 +257,7 @@ export default function AccountsPage({ searchParams }: { searchParams?: Record<s
     return data.filter(a => {
       if (a.flow !== 'PLACEMENT') return false; // Solo cuentas de colocación
 
-      const ownerName = userMap[a.ownerId];
+      const ownerName = userMap[a.ownerId!];
       const party = partyMap[a.partyId];
       const city = party?.billingAddress?.city || '';
 

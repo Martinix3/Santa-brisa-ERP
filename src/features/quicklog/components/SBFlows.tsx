@@ -1,4 +1,3 @@
-
 // src/features/quicklog/components/SBFlows.tsx
 "use client";
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
@@ -70,13 +69,14 @@ function Header({title, color="#A7D8D9", icon:Icon=ClipboardList}:{title:string;
 function useDebounced<T>(value:T, delay=250){ const [v,setV]=useState(value); useEffect(()=>{ const id=setTimeout(()=>setV(value), delay); return ()=>clearTimeout(id); },[value,delay]); return v; }
 
 // ===== Quick Interaction / Order (Switcher) =====
-function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, onCancel, onOrderCreated}:{
+function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, onCancel, onOrderCreated, context}:{
   accounts: Account[];
   onSearchAccounts:(q:string, options: { signal: AbortSignal })=>Promise<Account[]>;
   onCreateAccount:(d:{name:string;city?:string;type?:AccountType})=>Promise<Account>;
-  onSubmit:(p: QuickOrderPayload | QuickInteractionPayload)=>void;
+  onSubmit:(p: QuickOrderPayload | QuickInteractionPayload | any)=>void;
   onCancel:()=>void;
   onOrderCreated: (accountName: string) => void;
+  context: 'DIRECT' | 'PLACEMENT';
 }){
   const { currentUser, data: santaData } = useData();
   const [mode, setMode] = useState<QuickMode>("interaction");
@@ -84,7 +84,7 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
   // State for the unified form
   const [accountName, setAccountName] = useState("");
   const [accountCity, setAccountCity] = useState("");
-  const [billerId, setBillerId] = useState("SB");
+  const [billerId, setBillerId] = useState(context === 'PLACEMENT' ? '' : "SB");
   const [selectedAccountId, setSelectedAccountId] = useState<string | undefined>();
   
   const [searchSuggestions, setSearchSuggestions] = useState<Account[]>([]);
@@ -177,7 +177,7 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
       if (selectedAccountId) {
           setSelectedAccountId(undefined);
           setAccountCity("");
-          setBillerId("SB");
+          setBillerId(context === 'PLACEMENT' ? '' : 'SB');
       }
   };
 
@@ -209,6 +209,9 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
+    if (context === 'PLACEMENT' && !billerId) {
+        newErrors.billerId = 'El distribuidor es obligatorio';
+    }
     if (mode === 'interaction' && !interactionNote.trim()) {
         newErrors.interactionNote = 'El resumen es obligatorio.';
     }
@@ -244,13 +247,17 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
     }
 
     if(mode==="order"){
-      onSubmit({ mode:"order", accountId: finalAccountId, items, note: '', posTactic: posPayload, isVentaPropia: billerId === 'SB' });
+      if (context === 'PLACEMENT') {
+        onSubmit({ mode: 'order-placement', accountId: finalAccountId, distributorPartyId: billerId, items, note: '' });
+      } else {
+        onSubmit({ mode:"order", accountId: finalAccountId, items, note: '', posTactic: posPayload, isVentaPropia: true });
+      }
       onOrderCreated(accountName || 'un nuevo cliente');
     } else {
         const plannedFor = nextActionDate && nextActionTime
             ? new Date(`${nextActionDate}T${nextActionTime}`).toISOString()
             : nextActionDate ? new Date(nextActionDate).toISOString() : undefined;
-        onSubmit({ mode:"interaction", accountId: finalAccountId, kind: 'OTRO', note: interactionNote, nextActionNote: '', plannedFor: plannedFor, posTactic: posPayload });
+        onSubmit({ mode:"interaction", accountId: finalAccountId, kind: 'OTRO', note: interactionNote, nextActionNote: '', plannedFor: plannedFor, posTactic: context === 'DIRECT' ? posPayload : undefined });
     }
     setIsSaving(false);
   }
@@ -278,7 +285,7 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
   
   const availableInventory = useMemo(() => (santaData?.onHand || []).filter(i => i.locationId && i.locationId.startsWith('FG/')), [santaData]);
 
-  const posTacticSection = (
+  const posTacticSection = context === 'DIRECT' ? (
     <div className="pt-2">
       {!showPosTacticForm ? (
           <button type="button" onClick={() => setShowPosTacticForm(true)} className="w-full text-sm flex items-center justify-center gap-2 p-2 rounded-lg border border-dashed hover:bg-yellow-50">
@@ -312,10 +319,11 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
         </div>
       )}
     </div>
-  );
+  ) : null;
   
   const isSaveDisabled = 
       isSaving ||
+      (context === 'PLACEMENT' && !billerId) ||
       (mode === 'interaction' && !interactionNote.trim()) ||
       (mode === 'order' && (!items.length || items.some(it => !it.itemId || it.qty <= 0)));
 
@@ -368,12 +376,19 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
         <div className="grid grid-cols-2 gap-3">
             <Row><Label>Ciudad</Label><Input value={accountCity} onChange={e=>setAccountCity(e.target.value)} /></Row>
             <Row>
-              <Label>Canal de venta</Label>
+              <Label>{context === 'PLACEMENT' ? 'Distribuidor' : 'Canal de venta'}</Label>
               <Select value={billerId} onChange={e => setBillerId(e.target.value)}>
-                <option value="SB">Venta Propia (Santa Brisa)</option>
-                {distributors.map(d => (
-                  <option key={d.id} value={d.id}>{d.name}</option>
-                ))}
+                {context === 'PLACEMENT' ? (
+                  <>
+                    <option value="">Selecciona distribuidor…</option>
+                    {distributors.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                  </>
+                ) : (
+                  <>
+                    <option value="SB">Venta Propia (Santa Brisa)</option>
+                    {distributors.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                  </>
+                )}
               </Select>
             </Row>
         </div>
@@ -666,6 +681,7 @@ export function SBFlowModal({
   defaults,
   onSubmit,
   onOrderCreated,
+  context='DIRECT',
 }:{
   open:boolean;
   variant: Variant;
@@ -676,13 +692,14 @@ export function SBFlowModal({
   defaults?: any;
   onSubmit:(payload:any)=>void; // (en real tipa por variante)
   onOrderCreated?: (accountName: string) => void;
+  context?: 'DIRECT'|'PLACEMENT';
 }){
   if(!open) return null;
   if(variant==="quick"){
     return (
       <div className="w-full h-full rounded-2xl flex flex-col">
         <div className="flex-grow overflow-y-auto">
-          <QuickSwitcher accounts={accounts} onSearchAccounts={onSearchAccounts} onCreateAccount={onCreateAccount} onCancel={onClose} onSubmit={(p)=>{ onSubmit(p); }} onOrderCreated={onOrderCreated!} />
+          <QuickSwitcher accounts={accounts} onSearchAccounts={onSearchAccounts} onCreateAccount={onCreateAccount} onCancel={onClose} onSubmit={(p)=>{ onSubmit(p); }} onOrderCreated={onOrderCreated!} context={context} />
         </div>
       </div>
     );
@@ -788,5 +805,3 @@ export function BaseModal({open, onClose, color="#A7D8D9", title, icon:Icon=Clip
     </AnimatePresence>
   );
 }
-
-    
