@@ -9,13 +9,6 @@ import { DEPT_META } from '@/domain/ssot';
 import Link from 'next/link';
 import { Avatar } from '@/components/ui/Avatar';
 
-const MOCK_TASKS: Interaction[] = [
-    { id: 'task1', userId: 'user_1', accountId: 'acc_1', kind: 'VISITA', note: 'Seguimiento propuesta de verano', dept: 'VENTAS', status: 'open', plannedFor: new Date(Date.now() - 2 * 86400000).toISOString(), createdAt: '' },
-    { id: 'task2', userId: 'user_2', accountId: 'acc_2', kind: 'LLAMADA', note: 'Confirmar asistencia a evento', dept: 'MARKETING', status: 'open', plannedFor: new Date(Date.now() + 1 * 86400000).toISOString(), createdAt: '' },
-    { id: 'task3', userId: 'user_1', accountId: 'acc_3', kind: 'OTRO', note: 'Preparar material para feria', dept: 'MARKETING', status: 'open', plannedFor: new Date(Date.now() + 3 * 86400000).toISOString(), createdAt: '' },
-];
-
-
 export function UpcomingTasks({ 
     department,
     scope = 'personal',
@@ -32,7 +25,7 @@ export function UpcomingTasks({
     const { data } = useData();
 
     const { overdue, upcoming } = useMemo(() => {
-        const sourceTasks = data?.interactions || MOCK_TASKS;
+        const sourceTasks = data?.interactions || [];
         
         const now = new Date();
         const openInteractions = sourceTasks
@@ -57,62 +50,58 @@ export function UpcomingTasks({
     
     const title = department ? `Próximas Tareas de ${DEPT_META[department].label}` : 'Próximas Tareas';
 
+    const TaskItem = ({ title, status, initials, color }: { title: string; status: string; initials: string; color: string }) => {
+        const statusColors = {
+          'Vencido': { bg: '#33333320', text: '#333333', border: '#33333335' },
+          'Próxima': { bg: '#2D7FF920', text: '#2D7FF9', border: '#2D7FF935' },
+        };
+        const s = statusColors[status as keyof typeof statusColors] || statusColors['Próxima'];
+      
+        return (
+          <div className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg hover:shadow-md transition-shadow duration-200">
+              <div className="flex items-center">
+                  <div>
+                      <p className="text-sm font-semibold text-gray-800">{title}</p>
+                      <div className="flex items-center space-x-2 mt-1">
+                            <span style={{ display: 'inline-block', padding: '2px 6px', borderRadius: '6px', fontSize: '11px', backgroundColor: s.bg, color: s.text, border: `1px solid ${s.border}`, fontWeight: 600 }}>{status}</span>
+                      </div>
+                  </div>
+              </div>
+              <span style={{ width: 32, height: 32, borderRadius: 999, backgroundColor: color, color: '#FFFFFF', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13 }}>{initials}</span>
+          </div>
+        );
+    };
+
     if (allEvents.length === 0 && data) { // Show empty state only if there's real data
         return (
-            <SBCard title={title}>
+             <div className="bg-white border border-gray-200 rounded-lg p-5 shadow-sm">
+                <h3 className="font-semibold text-gray-900">{title}</h3>
                 <p className="p-4 text-sm text-center text-zinc-500">No hay tareas programadas.</p>
-            </SBCard>
+            </div>
         );
     }
 
     return (
-        <SBCard title={title}>
-            <div className="p-2 space-y-1">
+        <div className="bg-white border border-gray-200 rounded-lg p-5 shadow-sm">
+            <h3 className="font-semibold text-gray-900">{title}</h3>
+            <div className="mt-4 space-y-3">
                 {allEvents.map((event: Interaction) => {
                     const isOverdue = new Date(event.plannedFor!) < new Date();
-                    const Icon = isOverdue ? AlertCircle : Clock;
-                    
-                    const involvedUsers = (event.involvedUserIds && event.involvedUserIds.length > 0 ? event.involvedUserIds : [event.userId])
-                        .map(id => data?.users.find(u => u.id === id))
-                        .filter(Boolean);
-                    
-                    const account = data?.accounts.find(a => a.id === event.accountId);
+                    const owner = data?.users.find(u => u.id === event.userId);
+                    const initials = owner?.name.split(' ').map(n => n[0]).join('') || '?';
                     const deptStyle = event.dept ? DEPT_META[event.dept] : DEPT_META.PERSONAL;
 
                     return (
-                         <div key={event.id} className={`block p-3 rounded-lg border ${isOverdue ? 'bg-rose-50/50 border-rose-200' : 'bg-zinc-50 border-zinc-200 hover:bg-zinc-100'}`}>
-                            <div className="flex items-start gap-3">
-                                <div className="p-2 rounded-full mt-1" style={{ backgroundColor: `${deptStyle.color}22`, color: deptStyle.color }}>
-                                    <Icon size={16} className="sb-icon" />
-                                </div>
-                                <div className="flex-1">
-                                    <p className="font-medium text-sm">{event.note}</p>
-                                    <div className="flex items-center gap-4 mt-2 text-xs text-zinc-500">
-                                        <div className={`flex items-center gap-1 ${isOverdue ? 'text-rose-600 font-semibold' : ''}`}>
-                                            <Clock size={12} className="sb-icon" />
-                                            <span>{new Date(event.plannedFor!).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}</span>
-                                        </div>
-                                        {account && (
-                                            <Link href={`/accounts/${account.id}`} className="flex items-center gap-1 hover:underline">
-                                                <Building size={12} className="sb-icon" />
-                                                <span>{account.name}</span>
-                                            </Link>
-                                        )}
-                                    </div>
-                                </div>
-                                <div className="flex -space-x-2">
-                                    {involvedUsers.map(user => user && <Avatar key={user.id} name={user.name} size="md" className="sb-icon" />)}
-                                </div>
-                            </div>
-                            {onRequestComplete && (
-                                <div className="text-right mt-2">
-                                    <button onClick={() => onRequestComplete(event)} className="text-xs px-2 py-1 rounded border bg-white hover:bg-zinc-100">Completar</button>
-                                </div>
-                            )}
-                        </div>
+                        <TaskItem 
+                            key={event.id}
+                            title={event.note || 'Tarea sin descripción'} 
+                            status={isOverdue ? 'Vencido' : 'Próxima'} 
+                            initials={initials}
+                            color={deptStyle.color}
+                        />
                     );
                 })}
             </div>
-        </SBCard>
+        </div>
     );
 }
