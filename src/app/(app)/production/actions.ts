@@ -29,7 +29,7 @@ type QcStatus = 'PENDING' | 'PASSED' | 'FAILED' | 'WAIVED';
 
 
 type ProductionIOLine = { itemId: string; role: 'FORMULA' | 'PACKAGING' | 'COST_ONLY'; uom: Uom; qty: number };
-type ProductionOutput = { itemId: string; uom: Extract<Uom, 'L' | 'unit'>; qty: number; lotNumber: string };
+type ProductionOutput = { itemId: string; uom: Extract<Uom, 'L' | 'uds'>; qty: number; lotNumber: string };
 type Incident = { id: string; at: string; severity: 'LOW'|'MEDIUM'|'HIGH'; summary: string; details?: string };
 type QcRecord = { status: QcStatus; measuredAt?: string; measuredById?: string; checks?: Array<{name:string;value:number|string;pass?:boolean}>; remarks?: string };
 
@@ -69,7 +69,7 @@ export async function updateProductionOrderStatus(
     const order = await readOrder(orderId);
     if (!order) return fail("La orden de producción no existe.");
     
-    const patch: any = { status, updatedAt: now };
+    let patch: any = { status, updatedAt: now };
 
     if (status === 'IN_PROGRESS') {
       if (order.status === 'PLANNED') {
@@ -79,10 +79,11 @@ export async function updateProductionOrderStatus(
         const log = [...(order.pauseLog || [])];
         const lastPause = log.find(p => !p.resumedAt);
         if (lastPause) lastPause.resumedAt = now;
-        patch.pauseLog = log;
+        patch = { ...patch, pauseLog: log };
       }
     } else if (status === 'PAUSED') {
-      patch.pauseLog = FieldValue.arrayUnion({ pausedAt: now });
+      const newPauseLog = [...(order.pauseLog || []), { pausedAt: now }];
+      patch = { ...patch, pauseLog: newPauseLog };
     } else if (status === 'CANCELLED') {
       patch.cancelledAt = now;
     }
@@ -106,7 +107,7 @@ const CompleteOrderSchema = z.object({
     lotNumber: z.string().optional(),
     sku: z.string().optional(), // Para generar lote si no viene
     qty: z.number().positive(),
-    uom: z.enum(['kg', 'L', 'unit', 'g', 'mL', 'case', 'bottle', 'pallet']),
+    uom: z.enum(['kg', 'L', 'uds', 'g', 'mL', 'case', 'bottle', 'pallet']),
     toLocationId: z.string().default('ALMACEN_TERMINADO'),
   })).min(1),
   finalConsumptions: z.array(z.object({
@@ -326,7 +327,7 @@ export async function previewPlanning(input: {
   alcoholStrengthForAdjustment?: number; // % v/v del alcohol corrector (por defecto 96)
 }): Promise<ActionResult<{
   stage: 'PRODUCCION'|'ENVASADO';
-  baseUnit: 'L'|'unit';
+  baseUnit: 'L'|'uds';
   outputItemId: string;
   nominal: Array<{ itemId: string; role: 'FORMULA'|'PACKAGING'|'COST_ONLY'; uom: Uom; qty: number }>;
   allocations: Array<{ itemId: string; lotNumber: string; uom: Uom; qty: number; locationId: string; }>;
@@ -345,7 +346,7 @@ export async function previewPlanning(input: {
     if (!bom) return fail("BOM inexistente.");
 
     const stage: 'PRODUCCION'|'ENVASADO' = bom.stage ?? 'PRODUCCION';
-    const baseUnit: 'L'|'unit' = (stage === 'PRODUCCION' ? 'L' : 'unit');
+    const baseUnit: 'L'|'uds' = (stage === 'PRODUCCION' ? 'L' : 'uds');
 
     const nominal: Array<{ itemId: string; role: 'FORMULA'|'PACKAGING'|'COST_ONLY'; uom: Uom; qty: number }> =
       (bom.items || []).map((it: any) => ({
@@ -451,5 +452,3 @@ export async function planProduction(input: unknown): Promise<ActionResult<{ ord
     return fail('No se pudo planificar la orden.', { code: e?.code, retryable: true });
   }
 }
-
-    
