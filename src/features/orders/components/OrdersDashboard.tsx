@@ -1,3 +1,4 @@
+// src/features/orders/components/OrdersDashboard.tsx
 
 "use client";
 
@@ -6,28 +7,34 @@ import KpiCard from '@/components/ui/KpiCard';
 import OrdersTable from '@/features/orders/components/OrdersTable';
 import NewOrderModal from '@/features/orders/components/NewOrderModal';
 import { Plus } from 'lucide-react';
+import { useData } from '@/lib/dataprovider';
+import { placeOrder } from '@/app/(app)/orders/actions';
+import { toast } from "sonner";
 
-// Datos de ejemplo para la tabla. En tu caso, vendrían de `props` o `useData`.
-const sampleOrders = [
-    { id: '#SB-0078', client: 'La Terraza del Mar', date: '28/09/2025', status: 'delivered', total: '€ 450.00' },
-    { id: '#SB-0077', client: 'El Chiringuito', date: '27/09/2025', status: 'shipped', total: '€ 320.50' },
-    { id: '#SB-0076', client: 'Distribuciones Sol', date: '25/09/2025', status: 'pending', total: '€ 1,200.00' },
-];
 
 export default function OrdersDashboard({ flow }: { flow: any }) {
+    const { data } = useData();
     const [isModalOpen, setIsModalOpen] = useState(false);
+    
+    // Filtra los pedidos para mostrar solo los de Venta Directa
+    const directOrders = (data?.ordersSellOut || []).filter(o => o.flow === 'DIRECT');
 
     const handleCreateOrder = (orderData: any) => {
-        console.log("Creando nuevo pedido:", orderData);
-        // Aquí llamarías a tu server action `placeOrder`
-        // placeOrder(orderData);
+        placeOrder({
+          ...orderData,
+          createdById: 'u_admin', // Reemplazar con el ID del usuario actual
+        }).then(() => {
+          toast.success("Pedido creado con éxito.");
+        }).catch(e => {
+          toast.error(`Error: ${e.message}`);
+        });
     };
 
     return (
         <div className="max-w-7xl mx-auto">
             {/* Cabecera con botones de acción */}
             <div className="flex items-center justify-between mb-6">
-                <h1 className="text-3xl font-bold text-slate-900">Venta Directa</h1>
+                <h1 className="text-3xl font-bold text-slate-900">Gestión de Pedidos (Venta Directa)</h1>
                 <div className="flex items-center space-x-3">
                     <button className="bg-white py-2 px-4 border border-slate-300 rounded-lg shadow-sm text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
                         Exportar
@@ -61,7 +68,7 @@ export default function OrdersDashboard({ flow }: { flow: any }) {
             </div>
 
             {/* Tabla de Pedidos */}
-            <OrdersTable orders={sampleOrders} />
+            <OrdersTable orders={directOrders as any[]} />
             
             {/* Modal */}
             <NewOrderModal 

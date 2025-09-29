@@ -253,8 +253,8 @@ export default function AccountsPage() {
     const s = q.trim().toLowerCase();
     
     return data.filter(a => {
-      // Show DIRECT accounts by default, not PLACEMENT
-      if (a.flow !== 'DIRECT') return false;
+      // Show PLACEMENT accounts by default, not DIRECT
+      if (a.flow !== 'PLACEMENT') return false;
 
       const ownerName = a.ownerId ? userMap[a.ownerId] : '';
       const party = partyMap[a.partyId];
@@ -309,7 +309,7 @@ export default function AccountsPage() {
 
   return (
     <>
-      <ModuleHeader title="Cuentas de Venta Directa" icon={Users}>
+      <ModuleHeader title="Cuentas de Colocación" icon={Users}>
         <button onClick={() => setIsNewAccountOpen(true)} className="flex items-center gap-2 text-sm rounded-md px-3 py-1.5 font-semibold transition-colors"
          style={{ backgroundColor: DEPT_META.VENTAS.color, color: DEPT_META.VENTAS.textColor }}>
             <Plus size={16} /> Nueva Cuenta
