@@ -1,10 +1,9 @@
-
 // src/app/(app)/dashboard-personal/page.tsx
 "use client";
 import React, { useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
-import type { Interaction, InteractionStatus, Account, OrderSellOut, PosTactic, MarketingEvent } from '@/domain/ssot';
+import type { Interaction, InteractionStatus, Account, OrderSellOut, PosTactic, Item } from '@/domain/ssot';
 import { orderToBottles } from '@/lib/sb-core';
 import { TaskBoard } from '@/features/agenda/TaskBoard';
 import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/TaskCompletionDialog';
@@ -21,14 +20,14 @@ function KpiCard({ title, value, goal, color }: { title: string; value: number; 
             <p className="text-sm font-medium text-gray-600">{title}</p>
             <p className="text-2xl font-bold mt-1">{value} <span className="text-sm font-normal text-gray-500">/ {goal}</span></p>
             <div className="w-full bg-gray-200 rounded-full h-1.5 mt-2">
-                <div className="h-1.5 rounded-full" style={{ width: `${pct}%`, backgroundColor: color }}></div>
+                <div className="h-1.5 rounded-full" style={{ width: `${Math.min(100, progress)}%`, backgroundColor: color }}></div>
             </div>
         </div>
     );
 }
 
 export default function PersonalDashboardPage() {
-    const { currentUser, data, setData, saveCollection, saveAllCollections } = useData();
+    const { currentUser, data, setData, saveAllCollections } = useData();
     const router = useRouter();
     const [completingTask, setCompletingTask] = useState<Interaction | null>(null);
     const [openNewTask, setOpenNewTask] = useState(false);
@@ -39,7 +38,7 @@ export default function PersonalDashboardPage() {
 
         const myInteractions = (data.interactions || []).filter(i => {
             const isAssigned = (i.involvedUserIds || []).includes(currentUser.id);
-            const isSelfAssigned = (i.involvedUserIds === undefined || i.involvedUserIds.length === 0) && i.userId === currentUser.id;
+            const isSelfAssigned = !i.involvedUserIds?.length && i.userId === currentUser.id;
             return isAssigned || isSelfAssigned;
         });
         
@@ -57,9 +56,9 @@ export default function PersonalDashboardPage() {
         const myPosTactics = (data.posTactics || []).filter(t => t.createdById === currentUser.id && new Date(t.createdAt) >= startOfMonth);
 
         const boxesSold = myOrders.reduce((sum, o) => {
-            const item = data.items.find(it => o.lines[0] && it.id === o.lines[0].itemId);
-            const caseUnits = item?.caseUnits ?? 6;
             const bottles = orderToBottles(o, data.items || []);
+            const firstLineItem = o.lines?.[0]?.itemId ? data.items.find(it => it.id === o.lines[0].itemId) : undefined;
+            const caseUnits = firstLineItem?.caseUnits || 6;
             return sum + Math.floor(bottles / caseUnits);
         }, 0);
 
@@ -113,6 +112,7 @@ export default function PersonalDashboardPage() {
                         tasks={personalTasks}
                         onTaskStatusChange={handleUpdateStatus}
                         onCompleteTask={(id) => handleUpdateStatus(id, 'done')}
+                        onNewTask={() => setOpenNewTask(true)}
                     />
 
                 </div>
@@ -153,8 +153,9 @@ export default function PersonalDashboardPage() {
                   onSuccess={() => {
                     toast.success("Tarea creada");
                     setOpenNewTask(false);
+                    router.refresh();
                   }}
-                  onError={toast.error}
+                  onError={(msg) => toast.error(msg)}
                   accentColor="#f5ce3e"
                   initialEventData={{ userId: currentUser.id, dept: 'PERSONAL' }}
                 />

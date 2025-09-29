@@ -3,7 +3,7 @@
 import React, { useMemo } from 'react';
 import { DndContext, useDraggable, useDroppable, closestCorners } from '@dnd-kit/core';
 import type { Department, InteractionStatus, User, Interaction } from '@/domain/ssot';
-import { Check, AlertCircle, Clock } from 'lucide-react';
+import { Check, AlertCircle, Clock, Plus } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
 import { DEPT_META } from '@/domain/ssot';
 import { Avatar } from '@/components/ui/Avatar';
@@ -97,11 +97,13 @@ function StatusColumn({
   tasks,
   onCompleteTask,
   subGroups,
+  onNewTask,
 }: {
   col: (typeof KANBAN_COLS)[number];
   tasks: Task[];
   onCompleteTask: (id: string) => void;
   subGroups?: { title: string; tasks: Task[] }[];
+  onNewTask?: () => void;
 }) {
   const { setNodeRef } = useDroppable({ id: col.id });
 
@@ -120,11 +122,19 @@ function StatusColumn({
 
   return (
     <div ref={setNodeRef} className="bg-zinc-100/70 p-3 rounded-xl w-full" role="list" aria-label={col.label}>
-      <h3 className={`flex items-center gap-2 font-semibold px-1 mb-3 ${col.headerColor}`}>
-        <col.icon size={18} />
-        {col.label}
-        <span className="text-sm font-normal text-zinc-500">{tasks.length}</span>
-      </h3>
+      <div className="flex items-center justify-between px-1 mb-3">
+        <h3 className={`flex items-center gap-2 font-semibold ${col.headerColor}`}>
+            <col.icon size={18} />
+            {col.label}
+            <span className="text-sm font-normal text-zinc-500">{tasks.length}</span>
+        </h3>
+        {onNewTask && (
+            <button onClick={onNewTask} className="w-7 h-7 bg-gray-200 rounded-lg flex items-center justify-center hover:bg-gray-300 transition" title="Añadir nueva tarea">
+                <Plus size={16} strokeWidth={2.5}/>
+            </button>
+        )}
+      </div>
+
 
       <div className="space-y-3 min-h-[100px]">
         {subGroups ? (
@@ -150,10 +160,12 @@ export function TaskBoard({
   tasks,
   onTaskStatusChange,
   onCompleteTask,
+  onNewTask,
 }: {
   tasks: Task[];
   onTaskStatusChange: (id: string, newStatus: InteractionStatus) => void;
   onCompleteTask: (id: string) => void;
+  onNewTask?: () => void;
 }) {
   const categorizedTasks = useMemo(() => {
     const now = new Date();
@@ -213,6 +225,7 @@ export function TaskBoard({
           tasks={categorizedTasks.upcoming}
           onCompleteTask={onCompleteTask}
           subGroups={upcomingSubgroups}
+          onNewTask={onNewTask}
         />
         <StatusColumn
           key="done"
