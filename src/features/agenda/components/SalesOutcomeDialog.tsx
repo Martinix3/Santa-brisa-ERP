@@ -21,8 +21,11 @@ export function SalesOutcomeDialog({ open, onOpenChange, task }: Props) {
   const [saving, setSaving] = useState(false);
 
   const skuOptions = useMemo(() =>
-    (data?.items || []).filter(i => (i as any).active && (i as any).category === 'fg').map(i => ({ value:i.sku, label:i.name })), [data?.items]
+    (data?.items || []).filter(i => (i as any).active && (i as any).category === 'fg').map(i => ({ value: i.sku, label: i.name })), [data?.items]
   );
+  
+  const account = useMemo(() => data?.accounts.find(a => a.id === task?.accountId), [data?.accounts, task]);
+  const distributorId = account?.distributorPartyId;
 
   useEffect(() => {
     if (!open) {
@@ -48,7 +51,12 @@ export function SalesOutcomeDialog({ open, onOpenChange, task }: Props) {
       if (mode==="PEDIDO") {
         if (!task.accountId) throw new Error("La tarea no tiene cuenta asociada");
         if (!lines.length || lines.some(l => !l.sku || l.qty <= 0)) throw new Error("Añade al menos una línea válida");
-        const created = await placeOrder({ accountId: task.accountId, lines, createdById: currentUser?.id! });
+        const created = await placeOrder({ 
+            accountId: task.accountId, 
+            distributorId,
+            lines, 
+            createdById: currentUser?.id! 
+        });
         await finalizeTask(`Pedido creado: ${created.id}`);
         toast.success("Pedido colocado y tarea cerrada");
         close(); router.push(`/orders/${created.id}`);

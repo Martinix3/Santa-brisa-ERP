@@ -27,10 +27,13 @@ export async function placeOrder({
 
   const now = new Date().toISOString();
   const ref = db.collection("ordersSellOut").doc();
-  const payload = {
+  
+  const account = await getOne<Account>('accounts', accountId);
+
+  const payload: Partial<OrderSellOut> = {
     id: ref.id,
     accountId,
-    distributorId: distributorId || SANTA_BRISA_DISTRIB_ID,
+    distributorId: distributorId || account?.distributorPartyId || SANTA_BRISA_DISTRIB_ID,
     isSellOutReported: true,
     status: "open",
     lines,
@@ -39,7 +42,7 @@ export async function placeOrder({
     updatedAt: now,
     flow: 'PLACEMENT',
   };
-  await ref.set(payload);
+  await ref.set(payload as any);
   return { id: ref.id };
 }
 
@@ -109,8 +112,9 @@ export async function createSalesInvoice({ orderId }: { orderId:string }) {
   }, 0);
 
   const now = new Date().toISOString();
+  const finId = `INV-${now.slice(0,10)}-${Math.floor(Math.random()*99999)}`;
   const fin: Partial<FinanceLink> = {
-     id: `INV-${now.slice(0,10)}-${Math.floor(Math.random()*99999)}`,
+     id: finId,
      docType: 'SALES_INVOICE',
      externalId: '', // si sincronizas con Holded, rellena después
      status: 'pending',
@@ -129,6 +133,7 @@ export async function createSalesInvoice({ orderId }: { orderId:string }) {
   await upsertMany('ordersSellOut', [{
      id: orderId,
      status: 'invoiced',
+     billingStatus: 'INVOICED',
      updatedAt: now,
   }]);
 
@@ -141,8 +146,9 @@ export async function recordPayment({ financeLinkId, amount, date, method }: {
   financeLinkId: string; amount: number; date?: string; method?: string;
 }) {
   const now = new Date().toISOString();
+  const paymentId = `PAY-${now}-${Math.floor(Math.random()*1e6)}`;
   const pay: Partial<PaymentLink> = {
-    id: `PAY-${now}-${Math.floor(Math.random()*1e6)}`,
+    id: paymentId,
     financeLinkId,
     externalId: undefined,
     amount,
