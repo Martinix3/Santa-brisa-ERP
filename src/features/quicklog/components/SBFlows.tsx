@@ -2,7 +2,7 @@
 "use client";
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import { useData } from "@/lib/dataprovider";
-import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
+import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog";
 import { SBButton, Input, Select } from '@/components/ui/ui-primitives';
 import { toast } from "sonner";
 import { Search, Plus, X } from 'lucide-react';
@@ -71,7 +71,7 @@ function AccountSelector({
         />
       </div>
       {suggestions.length > 0 && (
-        <ul className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-48 overflow-auto">
+        <ul className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto">
           {suggestions.map((acc) => (
             <li
               key={acc.id}

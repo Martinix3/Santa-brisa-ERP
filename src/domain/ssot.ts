@@ -19,6 +19,9 @@ export type SalesUnit = 'bottle' | 'case' | 'pallet' | 'uds';
 export type Uom = UnitOfMass | UnitOfVolume | SalesUnit;
 export type Currency = 'EUR';
 export type Department = 'VENTAS' | 'MARKETING' | 'PRODUCCION' | 'ALMACEN' | 'FINANZAS' | 'CALIDAD' | 'PERSONAL';
+export type StockReason = 'receipt' | 'production_in' | 'production_out' | 'sale' | 'transfer' | 'adjustment' | 'return_in' | 'return_out' | 'ship' | 'consignment_send' | 'consignment_return' | 'consignment_sell' | 'sample_send' | 'sample_consume';
+export type CodeEntity = 'PRODUCT' | 'ACCOUNT' | 'PARTY' | 'SUPPLIER' | 'LOT' | 'PROD_ORDER' | 'SHIPMENT' | 'GOODS_RECEIPT' | 'LOCATION' | 'PRICE_LIST' | 'PROMOTION';
+
 
 // --- Roles y Estados ---
 export type PartyRoleType = 'CUSTOMER' | 'SUPPLIER' | 'DISTRIBUTOR' | 'IMPORTER' | 'INFLUENCER' | 'CREATOR' | 'EMPLOYEE' | 'BRAND_AMBASSADOR' | 'OTHER';
@@ -45,6 +48,8 @@ export type CollabStatus = 'PROSPECT' | 'OUTREACH' | 'NEGOTIATING' | 'AGREED' | 
 export type Platform = 'Instagram' | 'TikTok' | 'YouTube' | 'Twitch' | 'Blog' | 'Otro';
 export type Tier = 'nano' | 'micro' | 'mid' | 'macro';
 export type PosCatalogItem = PosCostCatalogEntry;
+export type PosResult = { upliftUnits: number; liftPct: number; roi: number; confidence: 'LOW' | 'MEDIUM' | 'HIGH'; revenueAttributed: number };
+export type VelocityInput = { itemId: string; qty: number; date: string; };
 
 // -----------------------------------------------------------------
 // 2. Interfaces de Entidades Principales
@@ -134,6 +139,7 @@ export interface User {
 }
 
 // --- Pedidos y Envíos ---
+export type OrderLine = { itemId: string; name?: string; qty: number; uom: 'unit' | 'uds'; priceUnit: number; discountPct?: number; };
 export interface OrderSellOut {
   id: string;
   docNumber?: string;
@@ -144,7 +150,7 @@ export interface OrderSellOut {
   isSellOutReported?: boolean; // True if from distributor report, false if placed by SB comercial
   status: OrderStatus;
   billingStatus?: 'PENDING' | 'INVOICED' | 'PAID' | 'VOID';
-  lines: { itemId: string; name?: string; qty: number; uom: 'unit' | 'uds'; priceUnit: number; discountPct?: number; }[];
+  lines: OrderLine[];
   totalAmount?: number;
   currency: Currency;
   source?: 'SHOPIFY' | 'B2B' | 'Direct' | 'CRM' | 'MANUAL' | 'HOLDED';
@@ -154,6 +160,7 @@ export interface OrderSellOut {
   updatedAt: Timestamp;
 }
 
+export type ShipmentLine = { itemId: string; name: string; qty: number; uom: 'unit' | 'uds'; lotNumber?: string; locationId?: string; note?: string };
 export interface Shipment {
   id: string;
   shipmentNumber?: string;
@@ -162,7 +169,7 @@ export interface Shipment {
   accountId: string;
   mode: 'PARCEL' | 'PALLET';
   status: ShipmentStatus;
-  lines: { itemId: string; name: string; qty: number; uom: 'unit' | 'uds'; lotNumber?: string; locationId?: string }[];
+  lines: ShipmentLine[];
   customerName: string;
   addressLine1: string;
   addressLine2?: string;
@@ -174,7 +181,7 @@ export interface Shipment {
   trackingUrl?: string;
   labelUrl?: string;
   deliveryNoteId?: string;
-  invoiceId?: string;
+  holdedInvoiceId?: string;
   weightKg?: number;
   dimsCm?: { l: number; w: number; h: number };
   checks?: { visualOk?: boolean };
@@ -215,6 +222,8 @@ export interface BillOfMaterial {
   isActive?: boolean;
 }
 
+export type JournalEntry = { id: string; at: string; kind: 'LOG'|'INCIDENT'; summary: string; data?: any };
+
 export interface ProductionOrder {
   id: string;
   orderNumber?: string;
@@ -222,6 +231,7 @@ export interface ProductionOrder {
   outputItemId: string;
   targetQuantity: number;
   status: ProductionStatus;
+  baseUnit: Uom;
   createdAt: Timestamp;
   scheduledFor?: Timestamp;
   responsibleId?: string;
@@ -235,6 +245,9 @@ export interface ProductionOrder {
   incidents?: any[];
   finalOutputs?: any[];
   finalConsumptions?: any[];
+  journal?: JournalEntry[];
+  checks?: boolean[];
+  updatedAt?: Timestamp;
 }
 
 export interface Lot {
@@ -282,17 +295,17 @@ export interface GoodsReceipt { id: string; receiptNumber?: string; supplierPart
 export interface OnHandView { id: string; itemId: string; lotNumber: string; locationId: string; qty: number; uom: Uom; qcStatus: QcStatus; category: ItemCategory; expiryAt?: string | null; reservedQty?: number; createdAt: string; updatedAt: string; }
 export interface LotGenealogyEdge { id: string; parentLotNumber: string; childLotNumber: string; qty: number; uom: Uom; createdAt: string; }
 export interface ReservationView { id: string; itemId: string; lotNumber: string; locationId: string; qty: number }
-export interface MarketingEvent { id: string; title: string; startAt: string; endAt?: string; spend?: number; kpis?: any; accountId?: string; status: 'planned' | 'active' | 'closed' | 'cancelled'; }
-export interface OnlineCampaign { id: string; title: string; channel: string; startAt: string; endAt?: string; spend?: number; metrics?: any; status: 'planned' | 'active' | 'closed' | 'cancelled'; }
-export interface InfluencerCollab { id: string; creatorName: string; platform: string; tier: string; status: any; dates?: any; costs?: any; tracking?: any; metrics?: any; deliverables?: any; compensation?: any; }
-export interface PosTactic { id: string; accountId: string; tacticCode?: string; description?: string; catalogItemId?: string; qtyPlanned?: number; estCost?: number; actualCost: number; executionScore: number; status: 'planned' | 'active' | 'closed' | 'cancelled'; createdAt: string; items?: any; result?: any; taskId?: string }
+export interface MarketingEvent { id: string; title: string; startAt: string; endAt?: string; spend?: number; kpis?: any; accountId?: string; status: 'planned' | 'active' | 'closed' | 'cancelled'; city?: string; kind: EventKind; createdAt: Timestamp; updatedAt: Timestamp; ownerUserId?: string;}
+export interface OnlineCampaign { id: string; title: string; channel: string; startAt: string; endAt?: string; budget?: number; spend?: number; metrics?: any; status: 'planned' | 'active' | 'closed' | 'cancelled'; createdAt: Timestamp; updatedAt: Timestamp; ownerUserId?: string; tracking?: { utmCampaign?: string; couponCode?: string; landingUrl?: string; }}
+export interface InfluencerCollab { id: string; creatorName: string; platform: string; tier: string; status: any; dates?: any; costs?: any; tracking?: any; metrics?: any; deliverables?: any; compensation?: any; creatorId?:string; supplierPartyId?:string; ownerUserId?:string; createdAt:Timestamp; updatedAt:Timestamp; }
+export interface PosTactic { id: string; accountId: string; tacticCode?: string; description?: string; customDesc?: string; catalogItemId?: string; qtyPlanned?: number; estCost?: number; actualCost: number; executionScore: number; status: 'planned' | 'active' | 'closed' | 'cancelled'|'DELIVERED'|'SCHEDULED'|'APPROVED'; createdAt: string; createdById: string; items?: any; result?: any; taskId?: string; updatedAt:Timestamp }
 export interface PosCostCatalogEntry { id: string; name: string; family: string; defaultCost?: number; fulfillmentMode: string; defaultKpisTemplate?: any; }
-export interface DeliveryNote { id: string; pdfUrl?: string; shipmentId: string; partyId: string; }
+export interface DeliveryNote { id: string; pdfUrl?: string; shipmentId: string; partyId: string; series: 'ONLINE'|'B2B'|'INTERNAL'; date: string; soldTo: any; shipTo: any; lines: any[]; company: any; createdAt: string; updatedAt: string; }
 export interface QcPlanBySku { id: string; name: string; sku: string; specs: any[] }
-export interface ParameterBySku { id: string; name: string; sku: string; }
-export interface Protocol { id: string; title: string; }
+export interface ParameterBySku { id: string; code: string; name: string; sku: string; unit?: string; method?: string; target?: number; tolerance?: number; range?: {min?:number,max?:number}, notes?: string }
+export interface Protocol { id: string; title: string; code?: string; priority: 'PRP' | 'oPRP' | 'CCP'; active: boolean; checklist: string[]; criticalLimits?: string; monitoring?: string; correctiveActions?: string; verification?: string; records?: string; appliesToSkus?: string[]; createdAt?: Timestamp; updatedAt?: Timestamp; }
 export interface QcTest { id: string; lotNumber: string; parameterId: string; valueNumeric?: number; valueText?: string; testedAt: string; testedBy: string; }
-export interface ProtocolLog { productionOrderId: string; }
+export interface ProtocolLog { id: string; productionOrderId: string; }
 export interface PosTacticItem {}
 export interface PlvMaterial {}
 export interface Invoice {}
@@ -301,9 +314,9 @@ export interface AccountPriceOverride {}
 export interface Activation {}
 export interface Promotion {}
 export interface MaterialCost {}
-export interface FinanceLink {}
-export interface PaymentLink {}
-export interface TraceEvent {}
+export interface FinanceLink {id:string}
+export interface PaymentLink {id:string}
+export interface TraceEvent {id:string}
 export interface Incident {}
 export interface CodeAlias {}
 export interface Job {}
@@ -483,4 +496,3 @@ export type Payload =
 
 export type OrderSellIn = any; // Placeholder para compatibilidad
 export type ExecCheck = any; // Placeholder
-

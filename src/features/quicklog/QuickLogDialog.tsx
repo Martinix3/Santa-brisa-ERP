@@ -6,7 +6,7 @@ import { SBButton, Input, Select } from "@/components/ui/ui-primitives";
 import { useData } from "@/lib/dataprovider";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { Search } from 'lucide-react';
+import { Search, Plus, Trash2 } from 'lucide-react';
 
 // ⬇️ Server actions (adapta a tus rutas reales)
 import { createInteraction } from "@/app/(app)/agenda/actions";
@@ -122,6 +122,9 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
   );
   
   const skuOptions = useMemo(() => (data?.items || []).filter(i => (i as any).category === 'fg').map(i => ({ value: i.sku, label: i.name })), [data?.items]);
+
+  const addLine = ()=> setLines(s=>[...s,{sku:"",qty:1}]);
+  const removeLine = (idx:number)=> setLines(s => s.filter((_,i)=>i!==idx));
 
   const resetAll = () => {
     setSelectedAccount(null);
@@ -279,11 +282,11 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
                   <Input type="number" step="0.01" placeholder="€ opcional" className="border rounded px-2 py-1 w-28"
                     value={l.unitPriceReported ?? ""} onChange={e=>setLines(s=>s.map((x,i)=>i===idx?{...x,unitPriceReported:Number(e.target.value)||undefined}:x))} />
                   <SBButton variant="ghost" onClick={() => removeLine(idx)}>
-                    Quitar
+                    <Trash2 className="w-4 h-4 text-red-500"/>
                   </SBButton>
                 </div>
               ))}
-              <SBButton variant="outline" size="sm" onClick={() => setLines((s) => [...s, { sku: "", qty: 1 }])}>
+              <SBButton variant="outline" size="sm" onClick={addLine}>
                 + Añadir línea
               </SBButton>
             </div>
@@ -293,7 +296,7 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
                 <h4 className="text-sm font-semibold">Añadir tácticas POS (opcional)</h4>
                 <span className="text-xs text-zinc-500">Se registran en Marketing</span>
               </div>
-              <PosLinesPicker catalog={posCatalog} lines={posLines} setLines={setPosLines as any} />
+              <PosLinesPicker catalog={posCatalog} lines={posLines} setLines={setPosLines} />
             </div>
           </div>
         )}

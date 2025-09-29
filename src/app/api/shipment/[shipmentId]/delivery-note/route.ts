@@ -49,7 +49,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ shipmentId
     const shipZip = shp.postalCode || '';
     const shipCity = shp.city || '';
 
-    const dn: DeliveryNote = {
+    const dn: Omit<DeliveryNote, 'pdfUrl'|'createdAt'|'updatedAt'> = {
       id: dnId,
       orderId: shp.orderId,
       shipmentId: shp.id,
@@ -59,7 +59,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ shipmentId
       soldTo: { name: soldToName, vat: party?.vat || party?.taxId },
       shipTo: {
         name: soldToName,
-        address: shipAddress || (party?.billingAddress?.address ?? '') || '',
+        address: shipAddress || (party?.billingAddress?.street ?? '') || '',
         zip: shipZip || party?.billingAddress?.zip || '',
         city: shipCity || party?.billingAddress?.city || '',
         country: 'ES',
@@ -72,8 +72,6 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ shipmentId
         lotNumbers: l.lotNumber ? [l.lotNumber] : []
       })),
       company: { name: 'Santa Brisa', vat: 'ESB00000000', address: 'C/ Olivos 10', zip: '28010', city: 'Madrid', country: 'España' },
-      createdAt: now,
-      updatedAt: now,
     };
 
     // Construye el payload que exige el renderer (incluye dateISO)
