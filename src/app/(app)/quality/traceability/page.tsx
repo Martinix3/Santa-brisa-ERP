@@ -7,57 +7,9 @@ import type { Lot, Item, OnHandView, TraceEvent as TraceEventType, StockMove, Pr
 import { getLotTraceability, type TraceData } from "./actions";
 import { toast } from "sonner";
 import Link from 'next/link';
+import { useData } from "@/lib/dataprovider";
 import { Avatar } from '@/components/ui/Avatar';
 import { ITEM_CATEGORY_META } from "@/domain/ssot";
-
-// MOCK DATA
-const MOCK_ITEMS: Item[] = [
-    { id: 'item_fg_turm_blanco', sku: 'FG-TURM-BL', name: 'Turmeon Blanco', category: 'fg', uom: 'uds', active: true },
-    { id: 'item_rm_vino_blanco', sku: 'RM-VINO-BL', name: 'Vino Blanco Base', category: 'raw', uom: 'L', active: true },
-    { id: 'item_rm_alcohol', sku: 'RM-ALCOHOL', name: 'Alcohol Vinico', category: 'raw', uom: 'L', active: true },
-    { id: 'item_rm_aromas', sku: 'RM-AROMAS', name: 'Aromas Naturales', category: 'raw', uom: 'L', active: true },
-    { id: 'item_rm_azucar', sku: 'RM-AZUCAR', name: 'Azúcar', category: 'raw', uom: 'kg', active: true },
-    { id: 'item_fg_turm_velvet', sku: 'FG-TURM-VL', name: 'Turmeon Blue Velvet', category: 'fg', uom: 'uds', active: true },
-    { id: 'item_fg_turm_white', sku: 'FG-TURM-WH', name: 'Turmeon White', category: 'fg', uom: 'uds', active: true },
-    { id: 'item_fg_turm_classic', sku: 'FG-TURM-CL', name: 'Turmeon Clásico', category: 'fg', uom: 'uds', active: true },
-];
-const MOCK_LOTS: Lot[] = [
-    { id: 'TB-2509-01', lotNumber: 'TB-2509-01', itemId: 'item_fg_turm_blanco', qcStatus: 'PASSED', createdAt: '2025-08-22T14:00:00Z', quantity: 1000 },
-    { id: 'OPEN-2408-01', lotNumber: 'OPEN-2408-01', itemId: 'item_rm_vino_blanco', qcStatus: 'PASSED', createdAt: '2025-08-15T00:00:00Z', quantity: 20000 },
-    { id: 'VINO-TB-2509-01', lotNumber: 'VINO-TB-2509-01', itemId: 'item_rm_vino_blanco', qcStatus: 'PASSED', createdAt: '2025-08-22T09:00:00Z', quantity: 950 },
-];
-const MOCK_ON_HAND: OnHandView[] = [
-    { id: 'oh_tb', itemId: 'item_fg_turm_blanco', lotNumber: 'TB-2509-01', locationId: 'FG/MAIN', qty: 800, uom: 'uds', qcStatus: 'PASSED', category: 'fg', createdAt: '2025-08-22T14:00:00Z', updatedAt: '2025-08-22T14:00:00Z' },
-];
-const MOCK_ORDERS: ProductionOrder[] = [
-    { id: 'PO-250822-0001', orderNumber: 'PO-250822-0001', outputItemId: 'item_fg_turm_blanco', targetQuantity: 1000, status: 'DONE', createdAt: '2025-08-22T08:00:00Z', name: 'Producción Turmeon Blanco' },
-];
-const MOCK_PARTIES = [
-    {id: 'supplier_1', name: 'Proveedor Vinos La Mancha'}
-];
-
-const MOCK_TRACE_DATA: Record<string, TraceData> = {
-    'TB-2509-01': {
-        lot: MOCK_LOTS[0],
-        onHandSummary: [MOCK_ON_HAND[0]],
-        productionInfo: { orderId: 'PO-250822-0001', orderName: 'Producción Turmeon Blanco', responsible: 'Nacho', incidentCount: 0, protocols: [] },
-        events: [
-            { id: 'ev4', at: '2025-08-26T10:00:00Z', kind: 'SHIP', title: 'Venta a Cliente', details: 'Vendido a Bar Pepe en pedido ORD-01', data: { customerName: 'Bar Pepe', orderNumber: 'ORD-01' } },
-            { id: 'ev3', at: '2025-08-22T15:00:00Z', kind: 'QC_TEST', title: 'Análisis: Grado Alcohólico', details: 'Resultado: 15.1 %vol', data: { parameterId: 'Grado Alcohólico', value: '15.1 %vol', inSpec: true } },
-            { id: 'ev2', at: '2025-08-22T14:00:00Z', kind: 'PRODUCTION_IN', title: 'Salida de Producción', details: 'Producido en la orden PO-250822-0001', data: { orderId: 'PO-250822-0001', orderName: 'Producción Turmeon Blanco' } },
-            { id: 'ev1', at: '2025-08-22T09:00:00Z', kind: 'GENEALOGY_PARENT', title: 'Producido a partir de Lote: OPEN-2408-01', details: 'Cantidad usada: 950 L' },
-        ] as TraceEventType[],
-    },
-    'OPEN-2408-01': {
-        lot: MOCK_LOTS[1],
-        onHandSummary: [],
-        receiptInfo: { supplierPartyId: 'supplier_1', deliveryNote: 'ALB-2025-XYZ', receivedBy: 'Almacén' },
-        events: [
-            { id: 'ev-p2', at: '2025-08-22T09:00:00Z', kind: 'PRODUCTION_OUT', title: 'Consumo en Producción', details: 'Usado en la orden PO-250822-0001' },
-            { id: 'ev-p1', at: '2025-08-15T10:00:00Z', kind: 'RECEIPT', title: 'Recepción de Mercancía', details: 'Recibido de Proveedor Vinos La Mancha con albarán ALB-2025-XYZ' },
-        ] as TraceEventType[],
-    }
-}
 
 
 // ===========================================
@@ -132,15 +84,15 @@ function TraceEventCard({ event }: { event: TraceEventType }) {
     );
 }
 
-function LotSummaryCard({ traceData }: { traceData: TraceData }) {
+function LotSummaryCard({ traceData, items, parties }: { traceData: TraceData, items: Item[], parties: any[] }) {
     const { lot, receiptInfo, productionInfo, saleInfo, onHandSummary } = traceData;
     
     if (!lot) return null;
 
-    const item = MOCK_ITEMS.find(i => i.id === lot.itemId);
+    const item = items.find(i => i.id === lot.itemId);
     const categoryName = item?.category ? (ITEM_CATEGORY_META[item.category]?.label || item.category) : 'N/A';
     const locations = (onHandSummary || []).filter(oh => oh.qty > 0).map(oh => `${oh.locationId} (${oh.qty} ${oh.uom})`).join(', ');
-    const supplierName = MOCK_PARTIES.find(p => p.id === receiptInfo?.supplierPartyId)?.name;
+    const supplierName = parties.find(p => p.id === receiptInfo?.supplierPartyId)?.name;
 
     return (
         <div className="mb-6 p-4 bg-zinc-50 rounded-xl border">
@@ -158,13 +110,15 @@ function LotSummaryCard({ traceData }: { traceData: TraceData }) {
 }
 
 export default function TraceabilityPage() {
+    const { data } = useData();
     const [itemId, setItemId] = useState<string>('');
     const [lotNumber, setLotNumber] = useState<string>('');
     const [traceData, setTraceData] = useState<TraceData | null>(null);
     const [isTracing, startTraceTransition] = useTransition();
 
-    const items = MOCK_ITEMS;
-    const lots = MOCK_LOTS;
+    const items = data?.items || [];
+    const lots = data?.lots || [];
+    const parties = data?.parties || [];
 
     const lotsForItem = useMemo(() => {
         if (!itemId) return [];
@@ -182,10 +136,10 @@ export default function TraceabilityPage() {
     
     useEffect(() => {
         if (lotNumber) {
-            startTraceTransition(() => {
-                const data = MOCK_TRACE_DATA[lotNumber];
-                if (data) {
-                    setTraceData(data);
+            startTraceTransition(async () => {
+                const res = await getLotTraceability(lotNumber);
+                if (res.ok) {
+                    setTraceData(res.data);
                 } else {
                     toast.error(`No se encontraron datos de trazabilidad para el lote ${lotNumber}.`);
                     setTraceData(null);
@@ -223,7 +177,7 @@ export default function TraceabilityPage() {
                 {traceData?.lot ? (
                     <div>
                         <h2 className="text-lg font-bold">Trazabilidad del Lote: {traceData.lot.lotNumber}</h2>
-                        <LotSummaryCard traceData={traceData} />
+                        <LotSummaryCard traceData={traceData} items={items} parties={parties}/>
                         <div className="mt-4">
                             {isTracing ? (
                                 <p className="text-zinc-500 text-center py-8">Buscando historial...</p>

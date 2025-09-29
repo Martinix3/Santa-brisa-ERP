@@ -1,37 +1,14 @@
-
 // src/app/(app)/quality/release/page.tsx
 "use client";
 
 import React, { useMemo, useState, useTransition } from "react";
 import { useRouter } from 'next/navigation';
+import { useData } from '@/lib/dataprovider';
 import { SBCard, SBButton, Input } from '@/components/ui/ui-primitives';
 import { CheckCircle, XCircle, FlaskConical, ChevronRight } from "lucide-react";
 import type { Lot, Item, QcPlanBySku, QcStatus, ParameterBySku } from "@/domain/ssot";
 import { saveQcDecision } from '@/app/(app)/quality/actions';
 import { toast } from "sonner";
-
-// MOCK DATA for DEMO
-const MOCK_ITEMS: Item[] = [
-  { id: 'item_sb_750', sku: 'SB-750', name: 'Santa Brisa 750ml', category: 'fg', uom: 'uds', active: true },
-];
-
-const MOCK_PARAMETERS: ParameterBySku[] = [
-  { id: 'param_sb750_grado', sku: 'SB-750', code: 'grado_alcoholico', name: 'Grado Alcohólico', unit: '% vol', range: { min: 39.8, max: 40.2 } },
-  { id: 'param_sb750_ph', sku: 'SB-750', code: 'ph', name: 'pH', unit: 'pH' },
-  { id: 'param_sb750_acidez', sku: 'SB-750', code: 'acidez_total', name: 'Acidez Total', unit: 'g/L ac. tartárico' },
-];
-
-const MOCK_PLANS: QcPlanBySku[] = [
-  { id: 'plan_sb750_std', sku: 'SB-750', name: 'Plan Estándar Santa Brisa', specs: [
-    { id: 'spec1', parameterId: 'param_sb750_grado', point: 'ENVASADO' },
-    { id: 'spec2', parameterId: 'param_sb750_ph', point: 'ENVASADO' },
-  ] }
-];
-
-const MOCK_LOTS: Lot[] = [
-  { id: 'lote_sb750_1', lotNumber: 'L240815-A', itemId: 'item_sb_750', quantity: 200, qcStatus: 'PENDING', qcPlanId: 'plan_sb750_std', createdAt: new Date().toISOString() },
-  { id: 'lote_sb750_2', lotNumber: 'L240816-B', itemId: 'item_sb_750', quantity: 150, qcStatus: 'PENDING', qcPlanId: 'plan_sb750_std', createdAt: new Date(Date.now() - 86400000).toISOString() },
-];
 
 // ============================================================================
 // TIPOS Y CONSTANTES
@@ -47,18 +24,22 @@ type LotForQc = Lot & {
 // COMPONENTE DE PÁGINA
 // ============================================================================
 export default function LabReleasePage() {
+    const { data: santaData, currentUser } = useData();
     const router = useRouter();
     const [isPending, startTransition] = useTransition();
     const [selectedLot, setSelectedLot] = useState<LotForQc | null>(null);
     const [analysisResults, setAnalysisResults] = useState<Record<string, string>>({});
-    const [reviewerId, setReviewerId] = useState("mj@santabrisa.co");
 
     const { lotsForReview, parameterMap } = useMemo(() => {
-        const itemMap = new Map(MOCK_ITEMS.map(i => [i.id, i]));
-        const planMap = new Map(MOCK_PLANS.map(p => [p.id, p]));
-        const paramMap = new Map(MOCK_PARAMETERS.map(p => [p.id, p]));
+        if (!santaData) return { lotsForReview: [], parameterMap: new Map() };
 
-        const lotsWithDetails: LotForQc[] = MOCK_LOTS
+        const { lots, items, qcPlans, qcParameters } = santaData;
+
+        const itemMap = new Map((items || []).map(i => [i.id, i]));
+        const planMap = new Map((qcPlans || []).map(p => [p.id, p]));
+        const paramMap = new Map((qcParameters || []).map(p => [p.id, p]));
+
+        const lotsWithDetails: LotForQc[] = (lots || [])
             .filter(lot => lot.qcStatus === 'PENDING')
             .map(lot => ({
                 ...lot,
@@ -72,7 +53,7 @@ export default function LabReleasePage() {
             lotsForReview: lotsWithDetails,
             parameterMap: paramMap,
         };
-    }, []);
+    }, [santaData]);
 
     const handleSelectLot = (lot: LotForQc) => {
         setSelectedLot(lot);
@@ -83,12 +64,14 @@ export default function LabReleasePage() {
         if (!selectedLot) return;
         
         startTransition(async () => {
-            // SIMULATE server action
-            console.log("Simulating saveQcDecision:", { lotNumber: selectedLot.lotNumber, decision, results: analysisResults, reviewerId });
-            // const res = await saveQcDecision(selectedLot.lotNumber, decision, analysisResults, reviewerId);
-            // In a real app, you would handle the response. Here we just assume success.
-            toast.success(`Decisión '${decision}' guardada para el lote ${selectedLot.lotNumber}.`);
-            setSelectedLot(null);
+            const res = await saveQcDecision(selectedLot.lotNumber, decision, analysisResults, currentUser?.id || 'system');
+            if (res.ok) {
+              toast.success(`Decisión '${decision}' guardada para el lote ${selectedLot.lotNumber}.`);
+              setSelectedLot(null);
+              router.refresh();
+            } else {
+              toast.error(`Error al guardar: ${res.message}`);
+            }
         });
     };
     

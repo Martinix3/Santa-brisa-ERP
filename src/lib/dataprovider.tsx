@@ -99,74 +99,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             setData(null);
         }
     } else {
-        const mockData = {
-          items: [
-            { id: 'item_rm_vino_blanco', sku: 'RM-VINO-BL', name: 'Vino Blanco Base', category: 'raw', uom: 'L' },
-            { id: 'item_rm_alcohol', sku: 'RM-ALCOHOL', name: 'Alcohol Vinico', category: 'raw', uom: 'L' },
-            { id: 'item_rm_aromas', sku: 'RM-AROMAS', name: 'Aromas Naturales', category: 'raw', uom: 'L' },
-            { id: 'item_rm_azucar', sku: 'RM-AZUCAR', name: 'Azúcar', category: 'raw', uom: 'kg' },
-            { id: 'item_fg_turm_blanco', sku: 'FG-TURM-BL', name: 'Turmeon Blanco', category: 'fg', uom: 'uds' },
-            { id: 'item_fg_turm_velvet', sku: 'FG-TURM-VL', name: 'Turmeon Blue Velvet', category: 'fg', uom: 'uds' },
-            { id: 'item_fg_turm_white', sku: 'FG-TURM-WH', name: 'Turmeon White', category: 'fg', uom: 'uds' },
-            { id: 'item_fg_turm_classic', sku: 'FG-TURM-CL', name: 'Turmeon Clásico', category: 'fg', uom: 'uds' },
-          ] as Item[],
-          productionOrders: [
-            { id: 'PO-250822-0001', orderNumber: 'PO-250822-0001', bomId: 'bom_turmeon_blanco', outputItemId: 'item_fg_turm_blanco', targetQuantity: 1000, status: 'DONE', createdAt: '2025-08-22T08:00:00Z', batchCode: 'TB-2509-01' },
-            { id: 'PO-250829-0001', orderNumber: 'PO-250829-0001', bomId: 'bom_turmeon_velvet', outputItemId: 'item_fg_turm_velvet', targetQuantity: 1000, status: 'DONE', createdAt: '2025-08-29T08:00:00Z', batchCode: 'TV-2509-02' },
-          ] as ProductionOrder[],
-          qcParameters: [
-            { id: 'param_sb750_grado', sku: 'SB-750', code: 'grado_alcoholico', name: 'Grado Alcohólico', unit: '% vol', range: { min: 39.8, max: 40.2 } },
-            { id: 'param_sb750_ph', sku: 'SB-750', code: 'ph', name: 'pH', unit: 'pH' },
-            { id: 'param_sb750_acidez', sku: 'SB-750', code: 'acidez_total', name: 'Acidez Total', unit: 'g/L ac. tartárico' },
-          ] as ParameterBySku[],
-          qcPlans: [
-            { id: 'plan_sb750_std', sku: 'SB-750', name: 'Plan Estándar Santa Brisa', specs: [
-              { id: 'spec1', parameterId: 'param_sb750_grado', point: 'ENVASADO' },
-              { id: 'spec2', parameterId: 'param_sb750_ph', point: 'ENVASADO' },
-            ] }
-          ] as QcPlanBySku[],
-          stockMoves: [
-              { id: 'SM-OPEN-01', itemId: 'item_rm_vino_blanco', lotNumber: 'OPEN-2408-01', toLocationId: 'RM/MAIN', qty: 20000, uom: 'L', reason: 'receipt', occurredAt: '2025-08-15T00:00:00Z', note: 'Asiento apertura vino blanco', createdBy: 'Nacho', ref: { goodsReceiptId: 'GR-OPEN-01'} },
-              { id: 'SM-OPEN-02', itemId: 'item_rm_alcohol', lotNumber: 'OPEN-ALC-01', toLocationId: 'RM/MAIN', qty: 500, uom: 'L', reason: 'receipt', occurredAt: '2025-08-15T00:00:00Z', note: 'Asiento apertura alcohol', createdBy: 'Nacho', ref: { goodsReceiptId: 'GR-OPEN-01'} },
-              { id: 'SM-OPEN-03', itemId: 'item_rm_aromas', lotNumber: 'OPEN-ARO-01', toLocationId: 'RM/MAIN', qty: 100, uom: 'L', reason: 'receipt', occurredAt: '2025-08-15T00:00:00Z', note: 'Asiento apertura aromas', createdBy: 'Nacho', ref: { goodsReceiptId: 'GR-OPEN-01'} },
-              { id: 'SM-OPEN-04', itemId: 'item_rm_azucar', lotNumber: 'OPEN-AZU-01', toLocationId: 'RM/MAIN', qty: 2000, uom: 'kg', reason: 'receipt', occurredAt: '2025-08-15T00:00:00Z', note: 'Asiento apertura azucar', createdBy: 'Nacho', ref: { goodsReceiptId: 'GR-OPEN-01'} },
-              
-              // Producción Turmeon Blanco
-              { id: 'SM-TB-2509-01-CONS-VINO', itemId: 'item_rm_vino_blanco', lotNumber: 'OPEN-2408-01', fromLocationId: 'RM/MAIN', qty: -950, uom: 'L', reason: 'production_out', occurredAt: '2025-08-22T09:00:00Z', note: 'Consumo vino Turmeon Blanco', createdBy: 'Nacho', ref: { prodOrderId: 'PO-250822-0001' } },
-              { id: 'SM-TB-2509-01-CONS-ALC', itemId: 'item_rm_alcohol', lotNumber: 'OPEN-ALC-01', fromLocationId: 'RM/MAIN', qty: -5, uom: 'L', reason: 'production_out', occurredAt: '2025-08-22T09:00:00Z', note: 'Consumo alcohol Turmeon Blanco', createdBy: 'Nacho', ref: { prodOrderId: 'PO-250822-0001' } },
-              { id: 'SM-TB-2509-01-CONS-ARO', itemId: 'item_rm_aromas', lotNumber: 'OPEN-ARO-01', fromLocationId: 'RM/MAIN', qty: -2, uom: 'L', reason: 'production_out', occurredAt: '2025-08-22T09:00:00Z', note: 'Consumo aromas Turmeon Blanco', createdBy: 'Nacho', ref: { prodOrderId: 'PO-250822-0001' } },
-              { id: 'SM-TB-2509-01-CONS-AZU', itemId: 'item_rm_azucar', lotNumber: 'OPEN-AZU-01', fromLocationId: 'RM/MAIN', qty: -43, uom: 'kg', reason: 'production_out', occurredAt: '2025-08-22T09:00:00Z', note: 'Consumo azúcar Turmeon Blanco', createdBy: 'Nacho', ref: { prodOrderId: 'PO-250822-0001' } },
-              { id: 'SM-TB-2509-01-PROD', itemId: 'item_fg_turm_blanco', lotNumber: 'TB-2509-01', toLocationId: 'FG/MAIN', qty: 1000, uom: 'uds', reason: 'production_in', occurredAt: '2025-08-22T14:00:00Z', note: 'Batch Turmeon Blanco', createdBy: 'Nacho', ref: { prodOrderId: 'PO-250822-0001' } },
-
-              // Venta Turmeon Blanco
-              { id: 'SM-TB-2509-01-SHIP', itemId: 'item_fg_turm_blanco', lotNumber: 'TB-2509-01', fromLocationId: 'FG/MAIN', qty: -200, uom: 'case', reason: 'ship', occurredAt: '2025-08-26T00:00:00Z', note: 'Salida pedido ORD-01', createdBy: 'Nacho', ref: { shipmentId: 'SH-250826-001' } },
-          ] as unknown as StockMove[],
-          lots: [
-              { id: 'lote_sb750_1', lotNumber: 'lote_sb750_1', itemId: 'SB-750', qcStatus: 'PENDING', qcPlanId: 'plan_sb750_std', createdAt: new Date().toISOString() },
-              { id: 'OPEN-2408-01', lotNumber: 'OPEN-2408-01', itemId: 'item_rm_vino_blanco', qcStatus: 'PASSED', createdAt: '2025-08-15T00:00:00Z'},
-              { id: 'OPEN-ALC-01', lotNumber: 'OPEN-ALC-01', itemId: 'item_rm_alcohol', qcStatus: 'PASSED', createdAt: '2025-08-15T00:00:00Z'},
-              { id: 'OPEN-ARO-01', lotNumber: 'OPEN-ARO-01', itemId: 'item_rm_aromas', qcStatus: 'PASSED', createdAt: '2025-08-15T00:00:00Z'},
-              { id: 'OPEN-AZU-01', lotNumber: 'OPEN-AZU-01', itemId: 'item_rm_azucar', qcStatus: 'PASSED', createdAt: '2025-08-15T00:00:00Z'},
-              { id: 'TB-2509-01', lotNumber: 'TB-2509-01', itemId: 'item_fg_turm_blanco', qcStatus: 'PASSED', createdAt: '2025-08-22T14:00:00Z', producedByOrderId: 'PO-250822-0001'},
-          ] as Lot[],
-          lotGenealogy: [
-            { id: 'gene_tb_1', parentLotNumber: 'OPEN-2408-01', childLotNumber: 'TB-2509-01', qty: 950, uom: 'L', createdAt: '2025-08-22T09:00:00Z' },
-            { id: 'gene_tb_2', parentLotNumber: 'OPEN-ALC-01', childLotNumber: 'TB-2509-01', qty: 5, uom: 'L', createdAt: '2025-08-22T09:00:00Z' },
-            { id: 'gene_tb_3', parentLotNumber: 'OPEN-ARO-01', childLotNumber: 'TB-2509-01', qty: 2, uom: 'L', createdAt: '2025-08-22T09:00:00Z' },
-            { id: 'gene_tb_4', parentLotNumber: 'OPEN-AZU-01', childLotNumber: 'TB-2509-01', qty: 43, uom: 'kg', createdAt: '2025-08-22T09:00:00Z' },
-          ] as LotGenealogyEdge[],
-          onHand: [
-            { id: 'onhand_vino', itemId: 'item_rm_vino_blanco', lotNumber: 'OPEN-2408-01', locationId: 'RM/MAIN', qty: 19050, uom: 'L', qcStatus: 'PASSED' },
-            { id: 'onhand_alc', itemId: 'item_rm_alcohol', lotNumber: 'OPEN-ALC-01', locationId: 'RM/MAIN', qty: 495, uom: 'L', qcStatus: 'PASSED' },
-            { id: 'onhand_aro', itemId: 'item_rm_aromas', lotNumber: 'OPEN-ARO-01', locationId: 'RM/MAIN', qty: 98, uom: 'L', qcStatus: 'PASSED' },
-            { id: 'onhand_azu', itemId: 'item_rm_azucar', lotNumber: 'OPEN-AZU-01', locationId: 'RM/MAIN', qty: 1957, uom: 'kg', qcStatus: 'PASSED' },
-            { id: 'onhand_tb', itemId: 'item_fg_turm_blanco', lotNumber: 'TB-2509-01', locationId: 'FG/MAIN', qty: 800, uom: 'uds', qcStatus: 'PASSED' },
-          ] as OnHandView[],
-        };
-
+        // When persistence is off, we ensure all collections exist as empty arrays.
         const emptyData: Partial<SantaData> = {};
         for (const name of Array.from(SANTA_DATA_COLLECTIONS)) {
-            (emptyData as any)[name] = (mockData as any)[name] ?? [];
+            (emptyData as any)[name] = [];
         }
         setData(emptyData as SantaData);
     }

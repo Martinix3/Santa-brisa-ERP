@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useData } from "@/lib/dataprovider";
 import { SBCard, DataTableSB, SBButton, Input, Select } from "@/components/ui/ui-primitives";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import type { ItemCategory, OnHandView, Lot, QcStatus, Item } from "@/domain/ssot";
@@ -12,36 +13,6 @@ import {
 import { Plus, Download, Search, AlertCircle, ChevronDown, PackageSearch, FileClock } from "lucide-react";
 import { RealtimeBadge } from "@/components/RealtimeBadge";
 import { QuickGoodsReceiptDialog } from "@/features/warehouse/components/QuickGoodsReceiptDialog";
-
-// ================================================================
-// DATOS DE PRUEBA (MOCK DATA)
-// ================================================================
-const MOCK_ITEMS: Item[] = [
-  { id: 'item_sb_750', sku: 'SB-750', name: 'Santa Brisa 750ml', category: 'fg', uom: 'uds', active: true, stdCost: 8.5 },
-  { id: 'item_sb_magnum', sku: 'SB-MAGNUM', name: 'Santa Brisa Magnum 1.5L', category: 'fg', uom: 'uds', active: true, stdCost: 15 },
-  { id: 'item_agave', sku: 'RM-AGAVE-01', name: 'Agave Crudo', category: 'raw', uom: 'kg', active: true, stdCost: 2.1 },
-  { id: 'item_botella', sku: 'PKG-BOTELLA-STD', name: 'Botella Vidrio 750ml', category: 'pack', uom: 'uds', active: true, stdCost: 0.8 },
-];
-
-const MOCK_ON_HAND: OnHandView[] = [
-  { id: 'oh_1', itemId: 'item_sb_750', lotNumber: 'L240801-A', locationId: 'FG/MAIN', qty: 120, reservedQty: 20, uom: 'uds', qcStatus: 'PASSED', category: 'fg', expiryAt: '2026-08-01T00:00:00Z', createdAt: '2024-08-01T00:00:00Z', updatedAt: '2024-08-10T00:00:00Z' },
-  { id: 'oh_2', itemId: 'item_sb_750', lotNumber: 'L240715-B', locationId: 'FG/MAIN', qty: 80, reservedQty: 0, uom: 'uds', qcStatus: 'PASSED', category: 'fg', expiryAt: '2026-07-15T00:00:00Z', createdAt: '2024-07-15T00:00:00Z', updatedAt: '2024-08-01T00:00:00Z' },
-  { id: 'oh_3', itemId: 'item_sb_750', lotNumber: 'L240815-A', locationId: 'QC/AREA', qty: 200, reservedQty: 0, uom: 'uds', qcStatus: 'PENDING', category: 'fg', createdAt: '2024-08-15T00:00:00Z', updatedAt: '2024-08-15T00:00:00Z' },
-  { id: 'oh_4', itemId: 'item_agave', lotNumber: 'RM-AG-240805', locationId: 'RM/MAIN', qty: 500, reservedQty: 150, uom: 'kg', qcStatus: 'PASSED', category: 'raw', createdAt: '2024-08-05T00:00:00Z', updatedAt: '2024-08-05T00:00:00Z' },
-  { id: 'oh_5', itemId: 'item_botella', lotNumber: 'PKG-B-240720', locationId: 'PKG/MAIN', qty: 2500, reservedQty: 1200, uom: 'uds', qcStatus: 'PASSED', category: 'pack', createdAt: '2024-07-20T00:00:00Z', updatedAt: '2024-07-20T00:00:00Z' },
-  { id: 'oh_6', itemId: 'item_sb_magnum', lotNumber: 'L240810-M', locationId: 'FG/MAIN', qty: 30, reservedQty: 0, uom: 'uds', qcStatus: 'PASSED', category: 'fg', expiryAt: '2026-08-10T00:00:00Z', createdAt: '2024-08-10T00:00:00Z', updatedAt: '2024-08-10T00:00:00Z' },
-];
-
-const MOCK_LOTS: Lot[] = MOCK_ON_HAND.map(oh => ({
-  id: oh.lotNumber,
-  lotNumber: oh.lotNumber,
-  itemId: oh.itemId,
-  qcStatus: oh.qcStatus,
-  quantity: oh.qty,
-  createdAt: oh.createdAt,
-  expDate: oh.expiryAt,
-} as Lot));
-
 
 // ================================================================
 // COMPONENTES UI (Mantenidos igual, pero ahora consumen mock data)
@@ -121,11 +92,11 @@ function SkuAccordionRow({ sku, summary, lots, items, onSelect, setViewMode, set
 // ================================================================
 
 export default function InventoryPage() {
-  // Usamos los datos de prueba
-  const onHand = MOCK_ON_HAND;
-  const lotsMaster = MOCK_LOTS;
-  const items = MOCK_ITEMS;
-
+  const { data } = useData();
+  const onHand = data?.onHand || [];
+  const lotsMaster = data?.lots || [];
+  const items = data?.items || [];
+  
   const [globalSearch, setGlobalSearch] = useState("");
   const [locationFilter, setLocationFilter] = useState<string>("ALL");
   const [onlyWithStock, setOnlyWithStock] = useState<boolean>(true);
