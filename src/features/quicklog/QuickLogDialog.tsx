@@ -82,7 +82,7 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
           kind: "VISITA",
           note: note || undefined,
           plannedFor: plannedFor || undefined,
-          dept: 'VENTAS'
+          dept: 'VENTAS',
         });
 
         // 2) POS (opcional)
@@ -138,10 +138,7 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
         {!accountId && (
           <div className="mb-3">
             <label className="text-xs text-zinc-600">Cuenta</label>
-            <Select
-              value={selectedAccount}
-              onChange={(e) => setSelectedAccount(e.target.value)}
-            >
+            <Select value={selectedAccount} onChange={e => setSelectedAccount(e.target.value)}>
               <option value="">Selecciona cuenta</option>
               {accountOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </Select>
@@ -193,11 +190,8 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
             <div className="grid grid-cols-3 gap-2">
               <div className="col-span-3">
                 <label className="text-xs text-zinc-600">Distribuidor</label>
-                <Select
-                  value={distributorId}
-                  onChange={(e) => setDistributorId(e.target.value)}
-                >
-                  <option value="SANTA_BRISA">Santa Brisa</option>
+                <Select value={distributorId} onChange={e => setDistributorId(e.target.value)}>
+                    <option value="SANTA_BRISA">Santa Brisa</option>
                 </Select>
               </div>
             </div>
@@ -206,7 +200,7 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
               <div className="text-sm font-medium">Líneas de pedido</div>
               {lines.map((l, idx) => (
                 <div key={idx} className="flex gap-2">
-                  <Select className="border rounded px-2 py-1 flex-1" value={l.sku}
+                   <Select className="border rounded px-2 py-1 flex-1" value={l.sku}
                     onChange={e=>setLines(s=>s.map((x,i)=>i===idx?{...x,sku:e.target.value}:x))}>
                     <option value="">SKU</option>
                     {skuOptions.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
@@ -224,7 +218,7 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
                     }
                     className="w-24"
                   />
-                   <Input
+                  <Input
                     type="number"
                     step="0.01"
                     placeholder="€ opcional"
