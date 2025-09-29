@@ -1,16 +1,16 @@
 
-
 "use client";
 
 import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
-import type { SantaData, User, UserRole, QcPlanBySku, ParameterBySku, StockMove, Item, ProductionOrder, Lot, LotGenealogyEdge, OnHandView } from '@/domain/ssot';
+import type { SantaData, User, UserRole, QcPlanBySku, ParameterBySku, StockMove, Item, ProductionOrder, Lot, OnHandView, OrderSellIn, Account } from '@/domain/ssot.v4';
 import type { User as FirebaseUser } from "firebase/auth";
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
 import { getFirestore, collection, getDocs } from "firebase/firestore";
 import { useRouter } from "next/navigation";
-import { SANTA_DATA_COLLECTIONS } from "@/domain/ssot";
+import { SANTA_DATA_COLLECTIONS } from '@/domain/ssot.v4';
 import { upsertMany } from './dataprovider/actions';
 import { firebaseApp, firebaseAuth, firestoreDb } from "@/lib/firebaseClient";
+import { MOCK_DATA } from "./mock-data";
 
 
 // --------- Tipos ----------
@@ -49,22 +49,30 @@ const emailToName = (email: string) =>
 
 // --------- Provider ----------
 export function DataProvider({ children }: { children: React.ReactNode }) {
-  const [data, setData] = useState<SantaData | null>(null);
+  const [data, setData] = useState<SantaData | null>(MOCK_DATA);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [authReady, setAuthReady] = useState(false);
-  const [isPersistenceEnabled, setIsPersistenceEnabled] = useState(true);
-  const [loadingData, setLoadingData] = useState(true);
+  const [isPersistenceEnabled, setIsPersistenceEnabled] = useState(false); // Default to false
+  const [loadingData, setLoadingData] = useState(false);
   const router = useRouter();
-  
+
   const loadInitialData = useCallback(async () => {
+    setLoadingData(true);
+    if (!isPersistenceEnabled) {
+      console.log("[DataProvider] Using MOCK_DATA. Persistence is OFF.");
+      setData(MOCK_DATA as unknown as SantaData);
+      setLoadingData(false);
+      return;
+    }
+
     if (!authReady || !firebaseUser) {
         console.log('[DataProvider] Blocked loadInitialData: authReady=%s user=%s', authReady, !!firebaseUser);
+        setLoadingData(false);
         return;
     }
-    
-    setLoadingData(true);
-    console.log(`[DataProvider] useEffect: Loading initial data. Persistence is ${isPersistenceEnabled ? 'ON' : 'OFF'}.`);
+
+    console.log(`[DataProvider] useEffect: Loading initial data from Firestore. Persistence is ON.`);
 
     const loadAllCollections = async (): Promise<[SantaData, LoadReport]> => {
         const data: Partial<SantaData> = {};
@@ -74,12 +82,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
         for (const name of collectionsToLoad) {
             try {
-                if (!SANTA_DATA_COLLECTIONS.map(String).includes(String(name))) continue;
-                const querySnapshot = await getDocs(collection(firestoreDb!, name as string));
-                const docs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                (data as any)[name] = docs;
+                const collectionName = name as string;
+                const querySnapshot = await getDocs(collection(firestoreDb!, collectionName));
+                (data as any)[name] = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 report.ok.push(name as keyof SantaData);
-                report.totalDocs += docs.length;
+                report.totalDocs += querySnapshot.size;
             } catch (e: any) {
                 console.error(`[DataProvider] Error loading collection ${name}:`, e);
                 report.errors.push({ name: name as keyof SantaData, error: e.message });
@@ -90,23 +97,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         return [data as SantaData, report];
     }
 
-    if (isPersistenceEnabled) {
-        try {
-            const [firestoreData, report] = await loadAllCollections();
-            setData(firestoreData);
-        } catch (e) {
-            console.error("[DataProvider] Failed to load Firestore data, setting data to null:", e);
-            setData(null);
-        }
-    } else {
-        // When persistence is off, we ensure all collections exist as empty arrays.
-        const emptyData: Partial<SantaData> = {};
-        for (const name of Array.from(SANTA_DATA_COLLECTIONS)) {
-            (emptyData as any)[name] = [];
-        }
-        setData(emptyData as SantaData);
+    try {
+        const [firestoreData, report] = await loadAllCollections();
+        setData(firestoreData);
+    } catch (e) {
+        console.error("[DataProvider] Failed to load Firestore data, setting data to null:", e);
+        setData(null);
+    } finally {
+        setLoadingData(false);
     }
-    setLoadingData(false);
   }, [authReady, firebaseUser, isPersistenceEnabled]);
 
   useEffect(() => {
@@ -118,32 +117,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (authReady) {
-      loadInitialData().catch(console.error);
-    }
-  }, [authReady, isPersistenceEnabled, loadInitialData]);
+    loadInitialData().catch(console.error);
+  }, [isPersistenceEnabled, loadInitialData]);
 
   useEffect(() => {
     if (loadingData || !authReady) {
-        console.log(`[DataProvider] Skipping user sync: loadingData=${loadingData}, authReady=${authReady}`);
         return;
     }
-    console.log('[DataProvider] useEffect to sync user triggered.');
 
     let userToSet: User | null = null;
     
     if (firebaseUser && data?.users) {
-      console.log(`[DataProvider] Auth ready. Trying to find app user for Firebase user: ${firebaseUser.email}`);
       userToSet = data.users.find(u => u.email === firebaseUser.email) || null;
-      if(userToSet) {
-          const userName = userToSet.name === 'MJ' ? 'Martin' : userToSet.name;
-          console.log(`[DataProvider] Found matching app user: ${userName}. Setting as currentUser.`);
-          userToSet = { ...userToSet, name: userName, role: (userToSet.role?.toLowerCase() || 'comercial') as UserRole };
-      } else {
-          console.warn(`[DataProvider] Firebase user ${firebaseUser.email} not found in local data.users array.`);
-      }
-    } else {
-        console.log('[DataProvider] No Firebase user or data.users not ready.');
     }
     
     setCurrentUser(userToSet);
@@ -152,8 +137,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const togglePersistence = useCallback(() => {
     setIsPersistenceEnabled(prev => {
-        console.log(`[DataProvider] Toggling persistence from ${prev} to ${!prev}`);
-        setData(null); // Force data reload
+        setData(null);
         return !prev;
     });
   }, []);
@@ -193,7 +177,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     });
 
     if (isPersistenceEnabled) {
-      console.log("Saving to backend:", Object.keys(collectionsToSave));
       const promises = [];
       for (const key in collectionsToSave) {
         const collectionName = key as keyof SantaData;
@@ -205,13 +188,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
       try {
         await Promise.all(promises);
-        console.log("Save successful.");
       } catch (e: any) {
-        console.error("Error saving to backend:", e);
         throw e;
       }
-    } else {
-      console.log("Persistence is disabled. Local state updated, but not saving to backend.");
     }
   }, [isPersistenceEnabled, setData]);
   
@@ -234,24 +213,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const loginWithEmail = useCallback(
     async (email: string, pass: string): Promise<User | null> => {
       if (!firebaseAuth) return null;
-      console.log('[DataProvider] loginWithEmail called for:', email);
       const userCredential = await signInWithEmailAndPassword(firebaseAuth, email, pass);
-      const fbUser = userCredential.user;
-      console.log('[DataProvider] Firebase login successful for:', fbUser.email);
-
-      if (!fbUser || !data?.users) {
-        console.error('[DataProvider] Firebase user or local data not available after login.');
-        return null;
-      }
+       const fbUser = userCredential.user;
+      if (!fbUser || !data?.users) return null;
       
       const appUser = data.users.find((u) => u.email === fbUser.email);
       if (appUser) {
-          console.log(`[DataProvider] Found matching app user: ${appUser.name}. Updating currentUser state.`);
           const normalizedUser = { ...appUser, role: (appUser.role?.toLowerCase() || 'comercial') as UserRole };
-          setCurrentUser({ ...normalizedUser });
+          setCurrentUser(normalizedUser);
           return normalizedUser;
       }
-       console.warn(`[DataProvider] No matching app user found in local data for email: ${fbUser.email}`);
       return null;
     },
     [data?.users]
@@ -305,7 +276,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   );
 
   const isBlocking =
-    !authReady || (firebaseUser && isPersistenceEnabled && (loadingData || !data));
+    !authReady || (!data && isPersistenceEnabled);
 
   if (isBlocking) {
     return (
