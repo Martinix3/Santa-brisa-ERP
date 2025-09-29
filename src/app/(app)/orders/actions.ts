@@ -3,7 +3,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { getOne, upsertMany } from '@/lib/dataprovider/server';
-import type { OrderStatus, Shipment, OrderSellOut, Account, Party, FinanceLink, PaymentLink, OnHandView } from '@/domain/ssot';
+import type { OrderStatus, Shipment, OrderSellOut, Account, Party, FinanceLink, PaymentLink, OnHandView, OrderLine } from '@/domain/ssot';
 import { enqueue } from '@/server/queue/queue';
 import { importSingleShopifyOrder } from '@/server/integrations/shopify/import-order';
 import { confirmOrderShipment as confirmAndReserve } from '../warehouse/logistics/actions';
@@ -30,13 +30,29 @@ export async function placeOrder({
   
   const account = await getOne<Account>('accounts', accountId);
 
+  // Correction: Map incoming lines to OrderLine structure
+  const itemsSnap = await db.collection('items').where('sku', 'in', lines.map(l => l.sku)).get();
+  const itemsBySku = new Map(itemsSnap.docs.map(doc => [doc.data().sku, doc.data()]));
+
+  const orderLines: OrderLine[] = lines.map(l => {
+    const item = itemsBySku.get(l.sku);
+    if (!item) throw new Error(`El producto con SKU ${l.sku} no existe.`);
+    return {
+      itemId: item.id,
+      name: item.name,
+      qty: l.qty,
+      uom: 'uds',
+      priceUnit: l.unitPriceReported ?? item.stdCost ?? 0,
+    };
+  });
+
+
   const payload: Partial<OrderSellOut> = {
     id: ref.id,
     accountId,
     distributorId: distributorId || account?.distributorPartyId || SANTA_BRISA_DISTRIB_ID,
-    isSellOutReported: true,
     status: "open",
-    lines,
+    lines: orderLines,
     createdById,
     createdAt: now,
     updatedAt: now,
@@ -115,7 +131,6 @@ export async function createSalesInvoice({ orderId }: { orderId:string }) {
   const finId = `INV-${now.slice(0,10)}-${Math.floor(Math.random()*99999)}`;
   const fin: Partial<FinanceLink> = {
      id: finId,
-     docType: 'SALES_INVOICE',
      externalId: '', // si sincronizas con Holded, rellena después
      status: 'pending',
      netAmount: amount,
@@ -149,7 +164,6 @@ export async function recordPayment({ financeLinkId, amount, date, method }: {
   const paymentId = `PAY-${now}-${Math.floor(Math.random()*1e6)}`;
   const pay: Partial<PaymentLink> = {
     id: paymentId,
-    financeLinkId,
     externalId: undefined,
     amount,
     date: date ?? now,
