@@ -1,4 +1,5 @@
 
+
 // src/app/(app)/orders/actions.ts
 'use server';
 
@@ -13,33 +14,34 @@ import { confirmOrderShipment as confirmAndReserve } from '../warehouse/logistic
 const SHIPMENT_TRIGGER_STATES = new Set<OrderStatus>(['confirmed']);
 
 /**
- * @deprecated This function is deprecated. Use confirmOrderShipment from logistics/actions.ts to atomically reserve stock.
+ * Updates an order's status and triggers side effects like shipment creation.
+ * @param order The original order document.
+ * @param newStatus The desired new status for the order.
+ * @returns An object indicating success, the updated order status, and any created shipment.
  */
 export async function updateOrderStatus(
   order: OrderSellOut,
-  account: Account,
-  party: Party,
   newStatus: OrderStatus
 ): Promise<{ ok: boolean; order: { id: string, status: OrderStatus }; shipment: Shipment | null; error?: string }> {
   
   console.log(`[ACTION] Iniciando updateOrderStatus para order ${order.id} con nuevo estado ${newStatus}`);
 
-  if (newStatus === 'confirmed') {
+  // Si el nuevo estado es 'confirmed' Y el estado actual NO es 'confirmed', se crea el envío.
+  if (newStatus === 'confirmed' && order.status !== 'confirmed') {
     try {
       const shipment = await confirmAndReserve(order.id);
       return { ok: true, order: { id: order.id, status: 'confirmed' }, shipment };
     } catch (e: any) {
       console.error(`[ACTION] ERROR CRÍTICO en confirmOrderShipment para el pedido ${order.id}:`, e);
+      // Devuelve el estado original del pedido si la confirmación falla.
       return { ok: false, order: { id: order.id, status: order.status }, shipment: null, error: e.message };
     }
   }
 
+  // Para cualquier otro cambio de estado que no sea la confirmación inicial.
   try {
-    // For other statuses, just update the order
     await upsertMany('ordersSellOut', [{ id: order.id, status: newStatus, updatedAt: new Date().toISOString() }]);
-    
     revalidatePath('/orders');
-    
     return { ok: true, order: { id: order.id, status: newStatus }, shipment: null };
 
   } catch (err: any) {

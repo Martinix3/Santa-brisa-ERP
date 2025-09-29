@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useMemo, useState, useTransition } from "react";
@@ -92,11 +93,9 @@ function KpiCard({ icon: Icon, label, value, color }: { icon: React.ElementType;
 }
 
 
-function StatusSelector({ order, onChange, accountsById, partiesById }: { 
+function StatusSelector({ order, onChange }: { 
   order: OrderSellOut; 
   onChange: (o: OrderSellOut, s: OrderStatus) => Promise<void>;
-  accountsById: Map<string, Account>;
-  partiesById: Map<string, Party>;
 }) {
   const [isPending, start] = useTransition();
   const status = normalizeOrderStatus(order.status);
@@ -107,11 +106,7 @@ function StatusSelector({ order, onChange, accountsById, partiesById }: {
       <select
         value={status}
         onChange={(e) => start(() => {
-          const account = accountsById.get(order.accountId);
-          const party = account ? partiesById.get(account.partyId) : undefined;
-          if (account && party) {
-            onChange(order, e.target.value as OrderStatus)
-          }
+          onChange(order, e.target.value as OrderStatus)
         })}
         disabled={isPending}
         className={`appearance-none px-2.5 py-1 text-xs font-semibold rounded-full outline-none focus:ring-2 ring-offset-1 ring-blue-400 transition-colors ${style.bg} ${style.color}`}
@@ -219,11 +214,8 @@ export default function OrdersDashboard() {
   };
   
   const onStatusChange = async (o: OrderSellOut, s: OrderStatus) => {
-    const acc = accountsById.get(o.accountId);
-    const party = acc ? partiesById.get(acc.partyId) : undefined;
-    if (!acc || !party) return;
     try {
-      const res = await updateOrderStatus(o, acc, party, s);
+      const res = await updateOrderStatus(o, s);
       if (res?.ok && data) {
         const orders = data.ordersSellOut.map((x) => (x.id === res.order.id ? { ...x, status: res.order.status } : x));
         let ships = data.shipments || [];
@@ -232,6 +224,8 @@ export default function OrdersDashboard() {
         }
         setData({ ...data, ordersSellOut: orders, shipments: ships as Shipment[] });
         toast.success(`Pedido ${o.docNumber || o.id} actualizado a ${s}.`);
+      } else {
+        throw new Error(res.error || "La acción falló pero no devolvió un error explícito.");
       }
     } catch (e: any) {
       console.error(e);
@@ -391,8 +385,6 @@ export default function OrdersDashboard() {
                 if (!acc) return null;
                 const owner = usersById.get(acc.ownerId);
                 const total = orderTotal(o);
-                const status = normalizeOrderStatus(o.status);
-                const meta = STATUS_STYLES[status] || { label: status, color: 'text-zinc-800', bg: 'bg-zinc-100' };
 
                 return (
                   <tr key={o.id} className="hover:bg-zinc-50">
@@ -417,7 +409,7 @@ export default function OrdersDashboard() {
                     </td>
                     <td className="p-3 text-right font-semibold">{total.toLocaleString("es-ES", { style: "currency", currency: "EUR" })}</td>
                     <td className="p-3">
-                      <StatusSelector order={o} onChange={onStatusChange} accountsById={accountsById} partiesById={partiesById}/>
+                      <StatusSelector order={o} onChange={onStatusChange} />
                     </td>
                     <td className="p-3">
                       <div className="flex gap-2">
