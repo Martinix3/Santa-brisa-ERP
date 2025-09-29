@@ -29,7 +29,8 @@
     "format:check": "prettier --check .",
     "validate": "npm run typecheck && npm run lint && npm run test && node scripts/find-route-collisions.mjs && node scripts/check-budgets.cjs",
     "validate:all": "npm run typecheck && npm run lint && npm run test && npm run audit",
-    "sanity:write": "tsx scripts/sanity-write.ts"
+    "sanity:write": "tsx scripts/sanity-write.ts",
+    "db:stress": "tsx scripts/loadStressData.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "latest",
@@ -45,14 +46,14 @@
     "@radix-ui/react-tabs": "latest",
     "clsx": "^2.1.1",
     "firebase": "latest",
-    "firebase-admin": "latest",
+    "firebase-admin": "13.5.0",
     "firebase-functions": "^5.0.1",
     "framer-motion": "latest",
     "genkit": "latest",
     "jszip": "latest",
     "lucide-react": "latest",
     "next": "latest",
-    "papaparse": "latest",
+    "papaparse": "5.5.3",
     "pdf-lib": "1.17.1",
     "puppeteer": "latest",
     "react": "latest",

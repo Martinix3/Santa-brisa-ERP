@@ -3,7 +3,7 @@
 "use client";
 import React, { useMemo, useState, useEffect, useRef } from "react";
 import dynamic from 'next/dynamic';
-import { BarChart3, Target, Users, Briefcase, BrainCircuit, UserPlus, MoreHorizontal, Check, AlertCircle, Clock, PieChart as PieChartIcon, X } from "lucide-react";
+import { BarChart3, Target, Users, Briefcase, BrainCircuit, UserPlus, MoreHorizontal, Check, AlertCircle, Clock, PieChart as PieChartIcon, X, RefreshCw } from "lucide-react";
 import { motion } from "framer-motion";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Bar, Cell, Legend } from 'recharts';
 import type { PieLabelRenderProps } from 'recharts';
@@ -247,7 +247,7 @@ function buildTimeSeries(orders: OrderSellOut[], start: Date, end: Date, granula
 }
 
 function TeamDashboardContent() {
-  const { data } = useData();
+  const { data, loadInitialData } = useData();
   const [timeRange, setTimeRange] = useState<TimeRange>('month');
   const [insights, setInsights] = useState("");
   const [loadingInsights, setLoadingInsights] = useState(false);
@@ -345,9 +345,12 @@ function TeamDashboardContent() {
                     </SBButton>
                 ))}
             </div>
-             <SBButton variant="secondary" onClick={handleGenerateInsights} disabled={loadingInsights}>
-                <BrainCircuit className="h-4 w-4 mr-2" /> {loadingInsights ? 'Analizando...' : 'Análisis con IA'}
-            </SBButton>
+             <div className="flex items-center gap-2">
+                <SBButton variant="secondary" onClick={loadInitialData}><RefreshCw className="h-4 w-4 mr-2"/>Refrescar Datos</SBButton>
+                <SBButton variant="secondary" onClick={handleGenerateInsights} disabled={loadingInsights}>
+                    <BrainCircuit className="h-4 w-4 mr-2" /> {loadingInsights ? 'Analizando...' : 'Análisis con IA'}
+                </SBButton>
+             </div>
         </div>
 
         {insights && (

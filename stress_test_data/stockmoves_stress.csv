@@ -1,0 +1,26 @@
+id,itemId,lotNumber,locationId,qty,uom,reason,occurredAt,note,createdBy
+SM-OPEN-01,item_rm_vino_blanco,OPEN-2408-01,RM/MAIN,20000,L,opening,2025-08-15T00:00:00,Asiento apertura vino blanco,Nacho
+SM-TB-2509-01-PROD,item_fg_turm_blanco,TB-2509-01,FG/MAIN,1000,L,production_out,2025-08-22T00:00:00,Batch Turmeon Blanco,Nacho
+SM-TB-2509-01-CONS-VINO,item_rm_vino_blanco,VINO-TB-2509-01,RM/MAIN,-950,L,production_in,2025-08-22T00:00:00,Consumo vino Turmeon Blanco,Nacho
+SM-TB-2509-01-CONS-ALC,item_rm_alcohol,ALC-TB-2509-01,RM/MAIN,-5,L,production_in,2025-08-22T00:00:00,Consumo alcohol Turmeon Blanco,Nacho
+SM-TB-2509-01-CONS-ARO,item_rm_aromas,ARO-TB-2509-01,RM/MAIN,-2,L,production_in,2025-08-22T00:00:00,Consumo aromas Turmeon Blanco,Nacho
+SM-TB-2509-01-CONS-AZU,item_rm_azucar,AZU-TB-2509-01,RM/MAIN,-43,kg,production_in,2025-08-22T00:00:00,Consumo azúcar Turmeon Blanco,Nacho
+SM-TV-2509-02-PROD,item_fg_turm_velvet,TV-2509-02,FG/MAIN,1000,L,production_out,2025-08-29T00:00:00,Batch Blue Velvet,Nacho
+SM-TV-2509-02-CONS-VINO,item_rm_vino_blanco,VINO-TV-2509-02,RM/MAIN,-950,L,production_in,2025-08-29T00:00:00,Consumo vino Blue Velvet,Nacho
+SM-TV-2509-02-CONS-ALC,item_rm_alcohol,ALC-TV-2509-02,RM/MAIN,-5,L,production_in,2025-08-29T00:00:00,Consumo alcohol Blue Velvet,Nacho
+SM-TV-2509-02-CONS-ARO,item_rm_aromas,ARO-TV-2509-02,RM/MAIN,-2,L,production_in,2025-08-29T00:00:00,Consumo aromas Blue Velvet,Nacho
+SM-TV-2509-02-CONS-AZU,item_rm_azucar,AZU-TV-2509-02,RM/MAIN,-43,kg,production_in,2025-08-29T00:00:00,Consumo azúcar Blue Velvet,Nacho
+SM-TW-2509-03-PROD,item_fg_turm_white,TW-2509-03,FG/MAIN,1000,L,production_out,2025-09-05T00:00:00,Batch White Velvet,Nacho
+SM-TW-2509-03-CONS-VINO,item_rm_vino_blanco,VINO-TW-2509-03,RM/MAIN,-950,L,production_in,2025-09-05T00:00:00,Consumo vino White Velvet,Nacho
+SM-TW-2509-03-CONS-ALC,item_rm_alcohol,ALC-TW-2509-03,RM/MAIN,-5,L,production_in,2025-09-05T00:00:00,Consumo alcohol White Velvet,Nacho
+SM-TW-2509-03-CONS-ARO,item_rm_aromas,ARO-TW-2509-03,RM/MAIN,-2,L,production_in,2025-09-05T00:00:00,Consumo aromas White Velvet,Nacho
+SM-TW-2509-03-CONS-AZU,item_rm_azucar,AZU-TW-2509-03,RM/MAIN,-43,kg,production_in,2025-09-05T00:00:00,Consumo azúcar White Velvet,Nacho
+SM-TC-2509-04-PROD,item_fg_turm_classic,TC-2509-04,FG/MAIN,1000,L,production_out,2025-09-12T00:00:00,Batch Turmeon Clásico,Nacho
+SM-TC-2509-04-CONS-VINO,item_rm_vino_blanco,VINO-TC-2509-04,RM/MAIN,-950,L,production_in,2025-09-12T00:00:00,Consumo vino Turmeon Clásico,Nacho
+SM-TC-2509-04-CONS-ALC,item_rm_alcohol,ALC-TC-2509-04,RM/MAIN,-5,L,production_in,2025-09-12T00:00:00,Consumo alcohol Turmeon Clásico,Nacho
+SM-TC-2509-04-CONS-ARO,item_rm_aromas,ARO-TC-2509-04,RM/MAIN,-2,L,production_in,2025-09-12T00:00:00,Consumo aromas Turmeon Clásico,Nacho
+SM-TC-2509-04-CONS-AZU,item_rm_azucar,AZU-TC-2509-04,RM/MAIN,-43,kg,production_in,2025-09-12T00:00:00,Consumo azúcar Turmeon Clásico,Nacho
+SM-TB-2509-01-SHIP,item_fg_turm_blanco,TB-2509-01,FG/MAIN,-200,case,shipment,2025-08-26T00:00:00,Salida pedido ORD-01,Nacho
+SM-TV-2509-02-SHIP,item_fg_turm_velvet,TV-2509-02,FG/MAIN,-200,case,shipment,2025-09-02T00:00:00,Salida pedido ORD-02,Nacho
+SM-TW-2509-03-SHIP,item_fg_turm_white,TW-2509-03,FG/MAIN,-200,case,shipment,2025-09-09T00:00:00,Salida pedido ORD-03,Nacho
+SM-TC-2509-04-SHIP,item_fg_turm_classic,TC-2509-04,FG/MAIN,-200,case,shipment,2025-09-16T00:00:00,Salida pedido ORD-04,Nacho

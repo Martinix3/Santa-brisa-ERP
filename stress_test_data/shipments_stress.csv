@@ -1,0 +1,5 @@
+id,shipmentNumber,orderId,status,customerName,createdAt,lines
+SHP-01,SHP-01,ORD-01,shipped,Cliente 1,2025-08-26T00:00:00,"[{""itemId"":""item_fg_turm_blanco"",""qty"":200,""uom"":""case"",""lotNumber"":""TB-2509-01""}]"
+SHP-02,SHP-02,ORD-02,shipped,Cliente 2,2025-09-02T00:00:00,"[{""itemId"":""item_fg_turm_velvet"",""qty"":200,""uom"":""case"",""lotNumber"":""TV-2509-02""}]"
+SHP-03,SHP-03,ORD-03,shipped,Cliente 3,2025-09-09T00:00:00,"[{""itemId"":""item_fg_turm_white"",""qty"":200,""uom"":""case"",""lotNumber"":""TW-2509-03""}]"
+SHP-04,SHP-04,ORD-04,shipped,Cliente 4,2025-09-16T00:00:00,"[{""itemId"":""item_fg_turm_classic"",""qty"":200,""uom"":""case"",""lotNumber"":""TC-2509-04""}]"

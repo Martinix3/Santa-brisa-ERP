@@ -1,0 +1,5 @@
+id,orderNumber,accountId,status,date,totalAmount,currency,lines
+ORD-01,SO-01,ACC-101,confirmed,2025-08-25T00:00:00,5207,EUR,"[{""itemId"":""item_fg_turm_blanco"",""qty"":200,""uom"":""case""}]"
+ORD-02,SO-02,ACC-102,confirmed,2025-09-01T00:00:00,5086,EUR,"[{""itemId"":""item_fg_turm_velvet"",""qty"":200,""uom"":""case""}]"
+ORD-03,SO-03,ACC-103,confirmed,2025-09-08T00:00:00,4808,EUR,"[{""itemId"":""item_fg_turm_white"",""qty"":200,""uom"":""case""}]"
+ORD-04,SO-04,ACC-104,confirmed,2025-09-15T00:00:00,5226,EUR,"[{""itemId"":""item_fg_turm_classic"",""qty"":200,""uom"":""case""}]"
