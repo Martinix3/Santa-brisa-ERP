@@ -49,11 +49,11 @@ const emailToName = (email: string) =>
 
 // --------- Provider ----------
 export function DataProvider({ children }: { children: React.ReactNode }) {
-  const [data, setData] = useState<SantaData | null>(MOCK_DATA);
+  const [data, setData] = useState<SantaData | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [authReady, setAuthReady] = useState(false);
-  const [isPersistenceEnabled, setIsPersistenceEnabled] = useState(false); // Default to false
+  const [isPersistenceEnabled, setIsPersistenceEnabled] = useState(true); // Default to true
   const [loadingData, setLoadingData] = useState(false);
   const router = useRouter();
 
