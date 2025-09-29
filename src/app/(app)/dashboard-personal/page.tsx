@@ -26,7 +26,7 @@ const SANTA_BRISA_COLORS = { brand: { accent: '#F4C542' } };
 const KpiCard = ({ icon: Icon, title, value, goal, color }: { icon: React.ElementType; title: string; value: number; goal: number; color: string }) => {
     const progress = goal > 0 ? Math.min(100, (value / goal) * 100) : 0;
     return (
-        <motion.div className="bg-slate-50 p-4 rounded-lg border border-slate-200 transition-transform duration-200 hover:-translate-y-1" variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}>
+        <motion.div className="bg-slate-50 p-4 rounded-lg border border-slate-200" variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}>
             <div className="flex items-center space-x-3 mb-2"><div className="bg-white p-2 rounded-lg border border-slate-200"><Icon className="text-slate-500" size={20} /></div><p className="text-sm text-slate-700 font-medium">{title}</p></div>
             <p className="text-3xl font-bold text-slate-900">{value} <span className="text-base font-normal text-slate-500">/ {goal}</span></p>
             <div className="w-full bg-slate-200 rounded-full h-1.5 mt-2 overflow-hidden"><div className="h-1.5 rounded-full" style={{ width: `${progress}%`, backgroundColor: color }}></div></div>
@@ -54,7 +54,8 @@ function PersonalSalesChart({ data, currentUser }: { data: SantaData, currentUse
         const date = new Date(order.createdAt);
         const day = date.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
         const bottles = orderToBottles(order, data.items || []);
-        const caseUnits = (data.items.find(it => it.id === order.lines[0]?.itemId)?.caseUnits) || 6;
+        const firstLineItem = order.lines?.[0]?.itemId ? data.items.find(it => it.id === order.lines[0].itemId) : undefined;
+        const caseUnits = firstLineItem?.caseUnits || 6;
         const boxes = Math.floor(bottles / caseUnits);
         salesByDay[day] = (salesByDay[day] || 0) + boxes;
     });
