@@ -1,11 +1,12 @@
+
 // src/features/quicklog/components/SBFlows.tsx
 "use client";
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Plus, CalendarDays, ClipboardList, UserPlus2, Briefcase, Search, Check, MapPin, Pencil, Save, MessageSquare, Zap, Mail, Phone, History, ShoppingCart, Building, CreditCard, Star, Loader2 } from "lucide-react";
 import { useData } from "@/lib/dataprovider";
-import { generateNextOrder } from '@/lib/codes';
-import type { AccountType, Account, OrderSellOut, Item, Party, SB_THEME, InteractionKind, PosTactic, PosTacticItem, PartyRole, CustomerData, PosCostCatalogEntry } from '@/domain/ssot';
+import { makeSellOutOrderCode } from '@/lib/codes';
+import type { AccountType, Account, OrderSellOut, Item, Party, SB_THEME, InteractionKind, PosTactic, PosTacticItem, PartyRole, CustomerData, PosCostCatalogEntry, CommercialFlow } from '@/domain/ssot';
 import { SB_COLORS } from "@/domain/ssot";
 import { TimePicker } from "@/components/ui/TimePicker";
 import { toast } from "sonner";
@@ -246,18 +247,20 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
         finalAccountId = newAccount.id;
     }
 
+    const isPlacement = context === 'PLACEMENT';
+
     if(mode==="order"){
-      if (context === 'PLACEMENT') {
-        onSubmit({ mode: 'order-placement', accountId: finalAccountId, distributorPartyId: billerId, items, note: '' });
+      if (isPlacement) {
+        onSubmit({ mode: "order-placement", accountId: finalAccountId, distributorPartyId: billerId, items, note: '' });
       } else {
-        onSubmit({ mode:"order", accountId: finalAccountId, items, note: '', posTactic: posPayload, isVentaPropia: true });
+        onSubmit({ mode:"order", accountId: finalAccountId, items, note: '', posTactic: canUsePosTactic ? posPayload : undefined, isVentaPropia: true });
       }
       onOrderCreated(accountName || 'un nuevo cliente');
     } else {
         const plannedFor = nextActionDate && nextActionTime
             ? new Date(`${nextActionDate}T${nextActionTime}`).toISOString()
             : nextActionDate ? new Date(nextActionDate).toISOString() : undefined;
-        onSubmit({ mode:"interaction", accountId: finalAccountId, kind: 'OTRO', note: interactionNote, nextActionNote: '', plannedFor: plannedFor, posTactic: context === 'DIRECT' ? posPayload : undefined });
+        onSubmit({ mode:"interaction", accountId: finalAccountId, kind: 'OTRO', note: interactionNote, nextActionNote: '', plannedFor: plannedFor, posTactic: canUsePosTactic ? posPayload : undefined });
     }
     setIsSaving(false);
   }
@@ -285,7 +288,10 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
   
   const availableInventory = useMemo(() => (santaData?.onHand || []).filter(i => i.locationId && i.locationId.startsWith('FG/')), [santaData]);
 
-  const posTacticSection = context === 'DIRECT' ? (
+  const isPlacement = context === 'PLACEMENT';
+  const canUsePosTactic = context === 'DIRECT';
+  
+  const posTacticSection = canUsePosTactic ? (
     <div className="pt-2">
       {!showPosTacticForm ? (
           <button type="button" onClick={() => setShowPosTacticForm(true)} className="w-full text-sm flex items-center justify-center gap-2 p-2 rounded-lg border border-dashed hover:bg-yellow-50">
@@ -323,7 +329,7 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
   
   const isSaveDisabled = 
       isSaving ||
-      (context === 'PLACEMENT' && !billerId) ||
+      (isPlacement && !billerId) ||
       (mode === 'interaction' && !interactionNote.trim()) ||
       (mode === 'order' && (!items.length || items.some(it => !it.itemId || it.qty <= 0)));
 
@@ -376,9 +382,9 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
         <div className="grid grid-cols-2 gap-3">
             <Row><Label>Ciudad</Label><Input value={accountCity} onChange={e=>setAccountCity(e.target.value)} /></Row>
             <Row>
-              <Label>{context === 'PLACEMENT' ? 'Distribuidor' : 'Canal de venta'}</Label>
+              <Label>{isPlacement ? 'Distribuidor' : 'Canal de venta'}</Label>
               <Select value={billerId} onChange={e => setBillerId(e.target.value)}>
-                {context === 'PLACEMENT' ? (
+                {isPlacement ? (
                   <>
                     <option value="">Selecciona distribuidor…</option>
                     {distributors.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}

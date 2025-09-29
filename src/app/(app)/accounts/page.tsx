@@ -1,3 +1,4 @@
+
 // src/app/(app)/accounts/page.tsx
 
 "use client"
@@ -53,7 +54,7 @@ function AccountBar({ a, party, santaData, onAddActivity, userMap, shortDate }: 
   const [open, setOpen] = useState(false);
   
   const owner = useMemo(() => accountOwnerDisplay(a, santaData.users, santaData.partyRoles), [a, santaData.users, santaData.partyRoles]);
-  const orderAmount = useMemo(()=> (santaData.ordersSellOut || []).filter((o: OrderSellOut)=>o.accountId===a.id).reduce((n: number,o: OrderSellOut)=> n+orderTotal(o),0), [a.id, santaData.ordersSellOut]);
+  const orderAmount = useMemo(()=> (santaData.ordersSellOut || []).filter((o: OrderSellOut)=>o.accountId===a.id).reduce((n: number,o: OrderSellOut)=> n + (o.totalAmount || 0), 0), [a.id, santaData.ordersSellOut]);
   
   const { unifiedActivity, kpis } = useMemo(() => {
     if (!santaData) return { unifiedActivity: [], kpis: null };
@@ -147,7 +148,7 @@ function AccountBar({ a, party, santaData, onAddActivity, userMap, shortDate }: 
                                             <div>
                                                 <span className="font-medium text-emerald-800">Pedido</span>
                                                 <span className="text-zinc-500"> &middot; {shortDate.format(new Date(order.createdAt))}</span>
-                                                <p className="font-semibold text-zinc-800 mt-0.5">{formatEUR(orderTotal(order))}</p>
+                                                <p className="font-semibold text-zinc-800 mt-0.5">{formatEUR(order.totalAmount || 0)}</p>
                                             </div>
                                         </li>
                                     )
@@ -260,6 +261,9 @@ export default function AccountsPage({ searchParams }: { searchParams?: Record<s
       const ownerName = userMap[a.ownerId!];
       const party = partyMap[a.partyId];
       const city = party?.billingAddress?.city || '';
+
+      const isPlacement = !!a.distributorPartyId && a.distributorPartyId !== 'SB';
+      if (!isPlacement) return false;
 
       const matchesQuery = !s || [a.name, city, a.stage, ownerName].some(v=> (v||'').toString().toLowerCase().includes(s));
       const matchesRep = !fltRep || a.ownerId === fltRep;
