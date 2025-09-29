@@ -3,7 +3,7 @@
 import React, { useState, useCallback } from 'react';
 import { Plus, X } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
-import type { SantaData, Account, AccountType, Party, InteractionKind, PosTactic, PosTacticItem, PartyRole, CustomerData, CommercialFlow } from '@/domain/ssot';
+import type { SantaData, Account, AccountType, Party, InteractionKind, PosTactic, PosTacticItem, PartyRole, CustomerData, CommercialFlow, Segment } from '@/domain/ssot';
 import { QuickLogDialog } from './QuickLogDialog';
 import { NewCustomerCelebration } from '@/components/ui/NewCustomerCelebration';
 
@@ -21,7 +21,7 @@ export default function QuickLogOverlay() {
     return list.filter((a: Account) => norm(a.name).includes(nq)).slice(0, 8);
   }, [data?.accounts]);
 
-  const onCreateAccount = useCallback(async (d: { name: string; city?: string; type?: AccountType, distributorPartyId?: string }) => {
+  const onCreateAccount = useCallback(async (d: { name: string; city?: string; type?: Segment, distributorPartyId?: string }) => {
     const partyId = `party_${Date.now()}`;
     const accountId = `acc_${Date.now()}`;
 
@@ -30,7 +30,7 @@ export default function QuickLogOverlay() {
       name: d.name,
       legalName: d.name,
       kind: 'ORG',
-      billingAddress: d.city ? { address: '', city: d.city, country: 'España', zip: '' } : undefined,
+      billingAddress: d.city ? { street: '', city: d.city, country: 'España', zip: '' } : undefined,
       emails: [],
       phones: [],
       createdAt: new Date().toISOString(),

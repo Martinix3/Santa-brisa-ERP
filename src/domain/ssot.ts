@@ -132,6 +132,13 @@ export type PosTactic = {
   createdAt: string; updatedAt: string; createdById?: string;
 };
 
+export interface CustomerData {
+    priceListId?: string;
+    paymentTermsDays?: number;
+    salesRepId: string;       // ID del User responsable
+    billerId: string;         // 'SB' o un ID de distribuidor
+}
+
 // --- Otras entidades necesarias para la compilación ---
 export type {
   User,

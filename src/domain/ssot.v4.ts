@@ -40,7 +40,6 @@ export interface GoodsReceipt { id: string; supplierPartyId: string; receivedAt:
 export interface OnHandView { id: string; itemId: string; lotNumber: string; locationId: string; qty: number; uom: Uom; qcStatus: QcStatus; category: ItemCategory; expiryAt?: string | null; reservedQty?: number; createdAt: string; updatedAt: string; }
 export interface Party { id: string; name: string; legalName: string; taxId?: string; billingAddress?: any; phones?: any[]; emails?: any[]; }
 export interface PartyRole { id: string; partyId: string; role: PartyRoleType; }
-export interface CustomerData {}
 export interface Interaction { id: string; accountId: string; note?: string; kind: InteractionKind; createdAt: string; status: InteractionStatus; plannedFor?: string; userId: string; dept?: Department; linkedEntity?: any; involvedUserIds?: string[]; location?: string; }
 export interface MarketingEvent { id: string; title: string; }
 export interface OnlineCampaign { id: string; title: string; }
