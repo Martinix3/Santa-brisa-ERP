@@ -185,7 +185,7 @@ export type {
   PaymentLink,
   AccountMode, // Keep for compatibility
 } from './ssot.v4';
-import type { SantaDataV4, SB_THEME } from './ssot.v4';
+import type { SantaDataV4 } from './ssot.v4';
 import { SANTA_DATA_COLLECTIONS as SANTA_DATA_COLLECTIONS_V4 } from './ssot.v4';
 
 // Exportar un tipo unificado para la data
@@ -214,6 +214,4 @@ export function qcToBucket(s: QcStatus): 'HOLD' | 'RELEASED' | 'REJECTED' {
 
 export const SANTA_DATA_COLLECTIONS = SANTA_DATA_COLLECTIONS_V4;
 
-export { SB_THEME };
 export * from './ssot.metas';
-

@@ -86,8 +86,8 @@ export function checkOrderStock(
       const take = Math.min(remaining, lot.free);
       if (take > 0) {
         const masterLot = lotMasterMap.get(lot.lotNumber);
-        const originInfo = masterLot?.producedByOrderId
-          ? `Prod: ${masterLot.producedByOrderId}`
+        const originInfo = (masterLot as any)?.producedByOrderId
+          ? `Prod: ${(masterLot as any).producedByOrderId}`
           : (masterLot as any)?.createdByGoodsReceiptId
           ? `Recep: ${(masterLot as any).createdByGoodsReceiptId}`
           : 'Ajuste manual';
