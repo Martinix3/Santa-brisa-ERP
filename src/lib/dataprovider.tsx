@@ -2,12 +2,12 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
-import type { SantaData, User, UserRole, QcPlanBySku, ParameterBySku, StockMove, Item, ProductionOrder, Lot, OnHandView, OrderSellIn, Account } from '@/domain/ssot.v4';
+import type { SantaData, User, UserRole, QcPlanBySku, ParameterBySku, StockMove, Item, ProductionOrder, Lot, OnHandView, OrderSellIn, Account } from '@/domain/ssot';
 import type { User as FirebaseUser } from "firebase/auth";
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
 import { getFirestore, collection, getDocs } from "firebase/firestore";
 import { useRouter } from "next/navigation";
-import { SANTA_DATA_COLLECTIONS } from '@/domain/ssot.v4';
+import { SANTA_DATA_COLLECTIONS } from '@/domain/ssot';
 import { upsertMany } from './dataprovider/actions';
 import { firebaseApp, firebaseAuth, firestoreDb } from "@/lib/firebaseClient";
 import { MOCK_DATA } from "./mock-data";
