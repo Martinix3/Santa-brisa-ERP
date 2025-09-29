@@ -43,7 +43,7 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
   const [lines, setLines] = useState<{ sku: string; qty: number; unitPriceReported?:number }[]>([{ sku: "", qty: 1 }]);
 
   // --- POS (compartido en ambas pestañas) ---
-  const [posLines, setPosLines] = useState<PosLineInput[]>([]);
+  const [posLines, setPosLines] = useState<Partial<PosLineInput>[]>([]);
   const posCatalog = useMemo(() => ((data as any)?.posCatalog || []) as { id: string; name: string }[], [data]);
 
   const accountOptions = useMemo(
@@ -87,7 +87,7 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
 
         // 2) POS (opcional)
         if (posLines.length) {
-          await createPosTacticsBatch({ accountId: accId, createdById: currentUser!.id, lines: posLines });
+          await createPosTacticsBatch({ accountId: accId, createdById: currentUser!.id, lines: posLines as PosLineInput[] });
         }
 
         toast.success(`Interacción guardada${posLines.length ? " + POS" : ""}`);
@@ -111,7 +111,7 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
 
         // 2) POS (opcional)
         if (posLines.length) {
-          await createPosTacticsBatch({ accountId: accId, createdById: currentUser!.id, lines: posLines });
+          await createPosTacticsBatch({ accountId: accId, createdById: currentUser!.id, lines: posLines as PosLineInput[] });
         }
 
         toast.success(`Pedido colocado${posLines.length ? " + POS" : ""}`);
@@ -140,11 +140,10 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
             <label className="text-xs text-zinc-600">Cuenta</label>
             <Select
               value={selectedAccount}
-              onChange={e => setSelectedAccount(e.target.value)}
-              placeholder="Selecciona cuenta"
+              onChange={(e) => setSelectedAccount(e.target.value)}
             >
-                <option value="">Selecciona cuenta</option>
-                {accountOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              <option value="">Selecciona cuenta</option>
+              {accountOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </Select>
           </div>
         )}
@@ -196,7 +195,7 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
                 <label className="text-xs text-zinc-600">Distribuidor</label>
                 <Select
                   value={distributorId}
-                  onChange={e => setDistributorId(e.target.value)}
+                  onChange={(e) => setDistributorId(e.target.value)}
                 >
                   <option value="SANTA_BRISA">Santa Brisa</option>
                 </Select>
@@ -207,9 +206,9 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
               <div className="text-sm font-medium">Líneas de pedido</div>
               {lines.map((l, idx) => (
                 <div key={idx} className="flex gap-2">
-                  <Select className="flex-1" value={l.sku}
+                  <Select className="border rounded px-2 py-1 flex-1" value={l.sku}
                     onChange={e=>setLines(s=>s.map((x,i)=>i===idx?{...x,sku:e.target.value}:x))}>
-                    <option value="">-- SKU --</option>
+                    <option value="">SKU</option>
                     {skuOptions.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
                   </Select>
                   <Input
@@ -225,7 +224,7 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
                     }
                     className="w-24"
                   />
-                  <Input
+                   <Input
                     type="number"
                     step="0.01"
                     placeholder="€ opcional"
