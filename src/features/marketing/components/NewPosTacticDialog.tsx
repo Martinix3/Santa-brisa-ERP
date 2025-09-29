@@ -6,7 +6,7 @@ import { Input, Select, SBButton } from '@/components/ui/ui-primitives';
 import type { PosTactic, Account, PosCostCatalogEntry, PlvMaterial } from '@/domain/ssot';
 import { useData } from '@/lib/dataprovider';
 import { Plus, X, Package, Tag, AlertCircle } from 'lucide-react';
-import { PosLineInput } from '@/features/pos/server/pos-actions';
+import type { PosLineInput } from '@/features/pos/server/pos-actions';
 
 function AccountSearch({ initialAccountId, onSelectionChange, accounts }: { 
     initialAccountId?: string;
@@ -115,24 +115,23 @@ const TacticItemRow = ({
 };
 
 export function NewPosTacticDialog({
-    open, onClose, onSave, tacticBeingEdited, accounts
+    open, onClose, onSave, tacticBeingEdited, accounts, catalog, plvInventory
 }: {
     open: boolean;
     onClose: () => void;
     onSave: (data: { lines: PosLineInput[], accountId: string }) => void;
     tacticBeingEdited: PosTactic | null;
     accounts: Account[];
+    catalog: PosCostCatalogEntry[];
+    plvInventory: PlvMaterial[];
 }) {
-    const { data } = useData();
     const [accountId, setAccountId] = useState<string | undefined>();
     const [lines, setLines] = useState<Partial<PosLineInput>[]>([{ kind: 'CATALOGO' }]);
-
-    const catalog = useMemo(() => (data?.posCostCatalog || []) as PosCostCatalogEntry[], [data]);
 
     useEffect(() => {
         if(open) {
             setAccountId(tacticBeingEdited?.accountId ?? (accounts.length === 1 ? accounts[0].id : undefined));
-            setLines(tacticBeingEdited?.id ? (tacticBeingEdited.items || []).map(i => ({
+            setLines(tacticBeingEdited?.id ? (tacticBeingEdited.items || []).map((i: any) => ({
                 kind: i.catalogCode ? 'CATALOGO' : 'CUSTOM',
                 catalogItemId: i.catalogCode,
                 description: i.description,

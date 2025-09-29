@@ -1,10 +1,8 @@
-
-
 // src/app/(app)/warehouse/logistics/page.tsx
 
 "use client";
 import React, { useMemo, useState, useTransition, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Printer, PackageCheck, Truck, CheckCircle2, Search, Plus, FileText, ClipboardList, Boxes, PackageOpen, BadgeCheck, AlertTriangle, Settings, Clipboard, Ruler, Weight, MoreHorizontal, Check as CheckIcon, FileDown, Package, Info, X, Loader2 } from "lucide-react";
 import { SBButton, SBCard, Input, Select, STATUS_STYLES } from '@/components/ui/ui-primitives';
 import { useData } from '@/lib/dataprovider';
@@ -15,8 +13,6 @@ import { NewShipmentDialog } from "@/features/warehouse/components/NewShipmentDi
 import Link from "next/link";
 import { validateShipment, markShipped, createManualShipment } from './actions';
 import { toast } from 'sonner';
-import { readFlowFrom } from "@/lib/useFlow";
-
 
 // ===============================
 // UI Components (Re-localizados para simplicidad)
@@ -73,10 +69,10 @@ function KPI({ icon: Icon, label, value, color }: { icon: React.ElementType, lab
 const getChannelInfo = (order?: OrderSellOut, account?: Account) => {
     if (!account) return { label: "N/A", className: "bg-zinc-100 text-zinc-900 border-zinc-200" };
 
-    if (account.type === 'ONLINE') return { label: "Online", className: "bg-emerald-100 text-emerald-900 border-emerald-200" };
+    if (account.segment === 'ONLINE') return { label: "Online", className: "bg-emerald-100 text-emerald-900 border-emerald-200" };
     if (order?.totalAmount === 0) return { label: "Muestras (0€)", className: "bg-purple-100 text-purple-900 border-purple-200" };
-    if ((account as any).type === 'DISTRIBUIDOR') return { label: "Distribuidor", className: "bg-sky-100 text-sky-900 border-sky-200" };
-    return { label: account.type, className: "bg-zinc-100 text-zinc-900 border-zinc-200" };
+    if ((account as any).segment === 'DISTRIBUIDOR') return { label: "Distribuidor", className: "bg-sky-100 text-sky-900 border-sky-200" };
+    return { label: account.segment, className: "bg-zinc-100 text-zinc-900 border-zinc-200" };
 }
 
 // ===============================
@@ -234,8 +230,7 @@ const ValidateDialog: React.FC<{ open: boolean; onOpenChange: (v: boolean) => vo
 // ===============================
 // Panel principal
 // ===============================
-export default function LogisticsPage({ searchParams }: { searchParams?: Record<string, any> }) {
-  const flow = readFlowFrom(searchParams);
+export default function LogisticsPage() {
   const router = useRouter();
   const { data: santaData, currentUser } = useData();
   const [isPending, startTransition] = useTransition();
@@ -274,7 +269,7 @@ export default function LogisticsPage({ searchParams }: { searchParams?: Record<
     const account = order ? accountMap.get(order.accountId) : undefined;
 
     const st = (status === "all" || s.status === status);
-    const ch = (channel === "all" || (account && account.type.toLowerCase() === channel.toLowerCase()));
+    const ch = (channel === "all" || (account && account.segment.toLowerCase() === channel.toLowerCase()));
     const query = (q.trim() === "" || s.id.includes(q) || (account?.name || "").toLowerCase().includes(q.toLowerCase()));
     
     return st && ch && query;
@@ -374,7 +369,9 @@ export default function LogisticsPage({ searchParams }: { searchParams?: Record<
     return showOnlyAvailable ? actions.filter(a => a.available) : actions;
   };
 
-  if (flow === "PLACEMENT") {
+  const searchParams = useSearchParams();
+  const flowParam = searchParams.get('flow')?.toUpperCase();
+  if (flowParam === "PLACEMENT") {
     return (
       <div className="p-6">
         <h1 className="text-xl font-semibold">Logística no disponible</h1>
@@ -548,5 +545,3 @@ export default function LogisticsPage({ searchParams }: { searchParams?: Record<
     </div>
   );
 }
-
-    

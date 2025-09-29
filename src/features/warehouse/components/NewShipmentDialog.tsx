@@ -1,11 +1,10 @@
-
 // src/features/warehouse/components/NewShipmentDialog.tsx
 
 "use client";
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
 import { Input, Select, SBButton } from '@/components/ui/ui-primitives';
-import type { Shipment, Account, Item, Party, SB_THEME, Uom } from '@/domain/ssot';
+import type { Shipment, Account, Item, Party, SB_THEME, Uom, ShipmentLine } from '@/domain/ssot';
 import { Plus, X, Search } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
 
@@ -56,7 +55,7 @@ function AccountSearch({
                 placeholder="Buscar cliente por nombre..."
             />
             {suggestions.length > 0 && (
-                <ul className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-48 overflow-auto">
+                <ul className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto">
                     {suggestions.map((acc) => (
                         <li
                             key={acc.id}
@@ -82,6 +81,7 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, items }: Ne
     const [newCustomerName, setNewCustomerName] = useState<string | undefined>();
     const [address, setAddress] = useState('');
     const [city, setCity] = useState('');
+    const [postalCode, setPostalCode] = useState('');
     const [lines, setLines] = useState<{ itemId: string; qty: number; name: string, uom: Uom }[]>([{ itemId: '', qty: 1, name: '', uom: 'uds' }]);
     const [notes, setNotes] = useState('');
 
@@ -91,6 +91,7 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, items }: Ne
             setNewCustomerName(undefined);
             setAddress('');
             setCity('');
+            setPostalCode('');
             setLines([{ itemId: '', qty: 1, name: '', uom: 'uds' }]);
             setNotes('');
         }
@@ -104,7 +105,8 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, items }: Ne
             const mainAddress = (party.billingAddress ?? undefined);
             if (mainAddress) {
                 setCity(mainAddress?.city ?? '');
-                setAddress(mainAddress?.address ?? '');
+                setAddress(mainAddress?.street ?? '');
+                setPostalCode(mainAddress?.zip ?? '');
             }
         }
     };
@@ -144,11 +146,13 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, items }: Ne
             partyId: account?.partyId!,
             mode: 'PARCEL',
             status: 'pending',
-            lines,
+            lines: lines.map(l => ({ ...l, uom: 'uds' })),
             customerName: account?.name || newCustomerName!,
             newCustomerName: newCustomerName && !account ? newCustomerName : undefined,
             addressLine1: address,
             city,
+            postalCode,
+            country: 'España',
             notes,
         };
         onSave(payload);
@@ -174,12 +178,12 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, items }: Ne
                                 onFreeText={handleFreeText} 
                             />
                         </label>
-                        <label className="grid gap-1.5">
+                         <label className="grid gap-1.5">
                             <span className="text-sm font-medium">Ciudad</span>
                             <Input value={city} onChange={e => setCity(e.target.value)} required />
                         </label>
                     </div>
-                    <label className="grid gap-1.5">
+                     <label className="grid gap-1.5">
                         <span className="text-sm font-medium">Dirección</span>
                         <Input value={address} onChange={e => setAddress(e.target.value)} placeholder="Calle, número, piso..." required />
                     </label>

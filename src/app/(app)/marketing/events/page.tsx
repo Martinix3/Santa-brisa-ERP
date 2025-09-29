@@ -1,5 +1,4 @@
-
-
+// src/app/(app)/marketing/events/page.tsx
 "use client";
 import React, { useMemo, useState, useEffect } from 'react';
 import { useData } from '@/lib/dataprovider';
@@ -111,7 +110,7 @@ export default function Page(){
       setIsNewTacticOpen(true);
   }
 
-  const handleSaveTactic = async (data: { lines: PosLineInput[], accountId: string }) => {
+  const handleSaveTactic = async (data: any) => {
       if (!tacticEventContext || !currentUser) return;
       try {
         await upsertPosTactic({ ...data, eventId: tacticEventContext.eventId } as any, currentUser.id);

@@ -1,4 +1,3 @@
-
 // src/features/production/dashboard/page.tsx
 "use client";
 import React, { useMemo } from "react";
@@ -37,9 +36,9 @@ const MOCK_ON_HAND: OnHandView[] = [
 ];
 
 const MOCK_ORDERS: ProductionOrder[] = [
-    { id: 'po_1', orderNumber: 'PO-2024-001', bomId: 'bom_sb_750', outputItemId: 'item_sb_750', targetQuantity: 100, status: 'PLANNED', createdAt: new Date(Date.now() - 5 * 86400000).toISOString(), shortages: [{itemId: 'item_agave', required: 20, available: 5, missing: 15, uom: 'kg'}] },
-    { id: 'po_2', orderNumber: 'PO-2024-002', bomId: 'bom_sb_750', outputItemId: 'item_sb_750', targetQuantity: 200, status: 'IN_PROGRESS', createdAt: new Date(Date.now() - 2 * 86400000).toISOString() },
-    { id: 'po_3', orderNumber: 'PO-2024-003', bomId: 'bom_sb_750', outputItemId: 'item_sb_750', targetQuantity: 150, status: 'DONE', createdAt: new Date(Date.now() - 10 * 86400000).toISOString(), execution: { finishedAt: new Date(Date.now() - 8 * 86400000).toISOString(), goodUnits: 148, durationHours: 6 }, costing: { actual: { perUnit: 8.6, yieldLossPct: 1.3 } } },
+    { id: 'po_1', baseUnit: 'L', orderNumber: 'PO-2024-001', bomId: 'bom_sb_750', outputItemId: 'item_sb_750', targetQuantity: 100, status: 'PLANNED', createdAt: new Date(Date.now() - 5 * 86400000).toISOString(), shortages: [{itemId: 'item_agave', required: 20, available: 5, missing: 15, uom: 'kg'}] },
+    { id: 'po_2', baseUnit: 'L', orderNumber: 'PO-2024-002', bomId: 'bom_sb_750', outputItemId: 'item_sb_750', targetQuantity: 200, status: 'IN_PROGRESS', createdAt: new Date(Date.now() - 2 * 86400000).toISOString() },
+    { id: 'po_3', baseUnit: 'L', orderNumber: 'PO-2024-003', bomId: 'bom_sb_750', outputItemId: 'item_sb_750', targetQuantity: 150, status: 'DONE', createdAt: new Date(Date.now() - 10 * 86400000).toISOString(), execution: { finishedAt: new Date(Date.now() - 8 * 86400000).toISOString(), goodUnits: 148, durationHours: 6 }, costing: { actual: { perUnit: 8.6, yieldLossPct: 1.3 } } },
 ];
 
 

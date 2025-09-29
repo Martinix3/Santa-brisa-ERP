@@ -1,5 +1,3 @@
-
-
 // src/features/marketing/components/PosTacticsClientPage.tsx
 'use client';
 
@@ -151,7 +149,7 @@ export function PosTacticsClientPage({
                     onSave={handleSaveTactic}
                     tacticBeingEdited={editingTactic}
                     accounts={data?.accounts || []}
-                    costCatalog={catalog}
+                    catalog={catalog}
                     plvInventory={plv}
                 />
             )}

@@ -5,7 +5,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useParams, useRouter, notFound } from 'next/navigation';
 import { useData } from '@/lib/dataprovider';
-import type { SantaData, Interaction as InteractionType, OrderSellOut, User as UserType, Party, InteractionKind, Account, CustomerData, PartyRole, Activation, Promotion, AccountType, PosTactic, PosCostCatalogEntry, PlvMaterial, PosTacticItem, Item } from '@/domain/ssot';
+import type { SantaData, Interaction as InteractionType, OrderSellOut, User as UserType, Party, InteractionKind, Account, CustomerData, PartyRole, PosTactic, PosCostCatalogEntry, PlvMaterial, PosTacticItem, Item, Segment } from '@/domain/ssot';
 import { computeAccountKPIs, accountOwnerDisplay, orderTotal, getDistributorForAccount, computeAccountRollup } from '@/lib/sb-core';
 import { ArrowUpRight, ArrowDownRight, Phone, Mail, MapPin, User, Factory, Boxes, Megaphone, Briefcase, Banknote, Calendar, FileText, ShoppingCart, Star, Building2, CreditCard, ChevronRight, ChevronLeft, MessageSquare, Sparkles, Tag, Clock, Edit, Plus } from "lucide-react";
 import Link from 'next/link';
@@ -147,7 +147,7 @@ export function AccountDetailPageContent(){
     try {
         const enrichedData = await enrichAccount({
             accountName: account.name,
-            address: party.billingAddress?.address,
+            address: party.billingAddress?.street,
             city: party.billingAddress?.city,
         });
 
@@ -177,7 +177,7 @@ export function AccountDetailPageContent(){
   const handleUpdateAccount = async (payload: any) => {
     if (!account || !party || !santaData) return;
     
-    const updatedAccount = { ...account, name: payload.name, type: payload.type, city: payload.city };
+    const updatedAccount: Account = { ...account, name: payload.name, segment: payload.type, updatedAt: new Date().toISOString() };
     
     const emails = [...(party.emails ?? [])];
     const mainEmail = emails.find(c => c.isPrimary);
@@ -189,13 +189,13 @@ export function AccountDetailPageContent(){
     if(mainPhone) mainPhone.value = payload.phone;
     else if (payload.phone) phones.push({ value: payload.phone, isPrimary: true, source: 'CRM', verified: false, updatedAt: new Date().toISOString() });
 
-    const updatedParty = { ...party, legalName: payload.name, tradeName: payload.name, emails, phones, billingAddress: { address: payload.address, city: payload.city } };
+    const updatedParty: Party = { ...party, legalName: payload.name, tradeName: payload.name, emails, phones, billingAddress: { ...(party.billingAddress as any), street: payload.address, city: payload.city }, updatedAt: new Date().toISOString() };
 
     await saveAllCollections({ accounts: [updatedAccount], parties: [updatedParty] });
     setIsEditing(false);
   };
   
-  const handleSaveTactic = async (tacticData: Omit<PosTactic, 'id' | 'createdAt' | 'createdById'>) => {
+  const handleSaveTactic = async (tacticData: any) => {
     if (!currentUser) return;
     try {
         await upsertPosTactic(tacticData as any, currentUser.id);
@@ -230,7 +230,7 @@ export function AccountDetailPageContent(){
                     <div className="h-10 w-10 rounded-xl" style={{backgroundColor:SB_COLORS.primary.teal}}/>
                     <div>
                       <h1 className="text-xl font-bold text-zinc-900">{account.name}</h1>
-                      <div className="text-sm text-zinc-600">{party.billingAddress?.city} · {account.type}{account.subType && ` (${account.subType})`} · <span className="font-medium">{account.stage}</span></div>
+                      <div className="text-sm text-zinc-600">{party.billingAddress?.city} · {account.segment}{account.subType && ` (${account.subType})`} · <span className="font-medium">{account.stage}</span></div>
                     </div>
                     <div className="ml-4 flex items-center gap-2">
                         <Chip color={getDaysSinceLastOrderColor(kpis.daysSinceLastOrder)}>Último pedido hace {kpis.daysSinceLastOrder} días</Chip>
@@ -272,7 +272,7 @@ export function AccountDetailPageContent(){
                       <div key={order.id} className="grid grid-cols-[auto_1fr_2fr_1fr] items-center gap-3 px-4 py-3 hover:bg-zinc-50">
                           <ShoppingCart className="h-5 w-5 text-emerald-600"/>
                           <div>
-                              <div className="text-sm text-zinc-800 font-semibold">{formatEUR(orderTotal(order))}</div>
+                              <div className="text-sm text-zinc-800 font-semibold">{formatEUR(order.totalAmount || 0)}</div>
                               <div className="text-xs text-zinc-500">{formatDate(String(order.createdAt))}</div>
                           </div>
                           <div className="text-sm text-zinc-800 col-span-2">{(order.lines || []).map(l => `${l.qty} ${l.uom || 'unit'} de ${santaData.items.find(p=>p.id === l.itemId)?.name}`).join(', ')}</div>
@@ -301,7 +301,7 @@ export function AccountDetailPageContent(){
               <div className="p-4 space-y-2">
                 <Row label="Contacto Principal" icon={User}>{(party.people ?? [])[0]?.name || '—'}<br/><span className="text-xs text-zinc-500">{mainEmail?.value}</span></Row>
                 <Row label="Teléfono" icon={Phone}>{mainPhone?.value}</Row>
-                <Row label="Dirección" icon={MapPin}>{party.billingAddress?.address}</Row>
+                <Row label="Dirección" icon={MapPin}>{party.billingAddress?.street}</Row>
                 <Row label="Email Facturación" icon={Mail}>{(party.emails ?? []).find(c => !c.isPrimary)?.value}</Row>
                 <hr className="my-2"/>
                 {owner && <Row label="Comercial" icon={Briefcase}>{owner}</Row>}
@@ -329,8 +329,8 @@ export function AccountDetailPageContent(){
             {rollup && (
                 <SBCard title="Estado de Marketing">
                     <div className="p-4 space-y-2 relative">
-                        <RollupBadge label="Activaciones Activas" value={rollup.activeActivations} color={rollup.activeActivations > 0 ? "blue" : "zinc"} date={rollup.lastActivationAt}/>
-                        <RollupBadge label="Promociones Activas" value={rollup.activePromotions} color={rollup.activePromotions > 0 ? "amber" : "zinc"} />
+                        <RollupBadge label="Activaciones Activas" value={0} date={undefined} />
+                        <RollupBadge label="Promociones Activas" value={0} date={undefined} />
                         
                         <SBButton 
                           size="sm"
@@ -359,8 +359,8 @@ export function AccountDetailPageContent(){
                     id: account.id,
                     name: account.name,
                     city: party.billingAddress?.city || '',
-                    address: party.billingAddress?.address || '',
-                    type: account.type,
+                    address: party.billingAddress?.street || '',
+                    type: account.segment,
                     mainContactName: (party.people ?? [])[0]?.name || '',
                     mainContactEmail: mainEmail?.value || '',
                     phone: mainPhone?.value || '',
@@ -376,7 +376,7 @@ export function AccountDetailPageContent(){
                 onSave={handleSaveTactic}
                 tacticBeingEdited={null}
                 accounts={[account]}
-                costCatalog={catalog}
+                catalog={catalog}
                 plvInventory={plv}
             />
         )}

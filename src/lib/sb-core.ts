@@ -1,6 +1,6 @@
 // --- Santa Brisa: lógica de negocio (sell-out a botellas, agregados y KPIs) ---
 import type {
-  Account, Party, PartyRole, CustomerData, OrderSellOut, User, SantaData, Activation, Interaction, Item, QcStatus
+  Account, Party, PartyRole, CustomerData, OrderSellOut, OrderLine, User, SantaData, Item, QcStatus
 } from '@/domain/ssot';
 
 export const inWindow = (dateStr: string, start: Date, end: Date): boolean => {
@@ -23,7 +23,7 @@ export const orderTotal = (order: OrderSellOut): number => {
  * Devuelve null si la cuenta es de venta directa, no tiene distribuidor asignado, o no se encuentra.
  */
 export function getDistributorForAccount(account: Account, partyRoles: PartyRole[], parties: Party[]): Party | null {
-    if (!account || account.flow !== 'PLACEMENT' || !account.distributorPartyId || !partyRoles || !parties) {
+    if (!account || account.flow !== 'PLACEMENT' || !partyRoles || !parties) {
       return null;
     }
   
@@ -31,11 +31,12 @@ export function getDistributorForAccount(account: Account, partyRoles: PartyRole
     const customerRole = partyRoles.find(pr => pr.partyId === account.partyId && pr.role === 'CUSTOMER');
     if (!customerRole) return null;
   
-    const billerId = (customerRole.data as CustomerData)?.billerId;
-    if (!billerId || billerId === 'SB') return null;
+    // Si la cuenta tiene un distributorPartyId, es la fuente de verdad.
+    const distributorId = account.distributorPartyId || (customerRole.data as CustomerData)?.billerId;
+    if (!distributorId || distributorId === 'SB') return null;
   
     // Asegurarse de que el billerId corresponde a una entidad con rol de DISTRIBUTOR
-    const distributorRole = partyRoles.find(pr => pr.partyId === billerId && pr.role === 'DISTRIBUTOR');
+    const distributorRole = partyRoles.find(pr => pr.partyId === distributorId && pr.role === 'DISTRIBUTOR');
     if (!distributorRole) return null;
   
     return parties.find(p => p.id === distributorRole.partyId) || null;
@@ -69,7 +70,7 @@ type OrderLineWithItem = OrderLine & { item?: Item };
 
 function lineToBottles(line: OrderLineWithItem, opts: BottlesOpts = {}): number {
   if(!line) return 0;
-  const isBottleItem = !!line.item?.category.includes('fg');
+  const isBottleItem = line.item?.category === 'fg';
   if (!isBottleItem) return opts.countNonBottleSkusAsZero === false ? line.qty : 0;
 
   switch (line.uom) {
@@ -164,9 +165,6 @@ export type AccountRollup = {
     accountId: string;
     hasPLVInstalled: boolean;
     lastPLVInstalledAt?: string;
-    activeActivations: number;
-    lastActivationAt?: string;
-    activePromotions: number;
     activePosTactics: number;
     lastTacticAt?: string;
 }
@@ -175,32 +173,19 @@ export type AccountRollup = {
 export function computeAccountRollup(accountId: string, data: SantaData): AccountRollup {
     const accountInteractions = (data.interactions || []).filter(i => i.accountId === accountId);
     
-    const accountActivations = (data.activations || []).filter((a: Activation) => a.accountId === accountId);
-    const activeActivations = accountActivations.filter((a: Activation) => a.status === 'active');
-    
     const sortedPlvVisits = accountInteractions
         .filter(i => i.note?.toLowerCase().includes('plv'))
         .sort((a, b) => +(typeof b.createdAt === 'string' ? new Date(b.createdAt) : new Date(Number(b.createdAt))) - +(typeof a.createdAt === 'string' ? new Date(a.createdAt) : new Date(Number(a.createdAt))));
     const plvVisit = sortedPlvVisits.length > 0 ? sortedPlvVisits[0] : undefined;
-
-    const promotions = data.promotions || [];
-    const now = new Date();
-    const activePromotions = promotions.filter((p: any) => now >= new Date(p.validFrom) && now <= new Date(p.validTo));
-
-    const posTactics = accountInteractions.filter(i => (i as any).posTactic && i.status === 'open');
-    const sortedPosTactics = posTactics.sort((a, b) => +(typeof b.createdAt === 'string' ? new Date(b.createdAt) : new Date(Number(b.createdAt))) - +(typeof a.createdAt === 'string' ? new Date(a.createdAt) : new Date(Number(a.createdAt))));
+    
+    const posTactics = (data.posTactics || []).filter(t => t.accountId === accountId && t.status === 'active');
+    const sortedPosTactics = posTactics.sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
     const lastTactic = sortedPosTactics.length > 0 ? sortedPosTactics[0] : undefined;
     
-    const sortedActiveActivations = activeActivations.sort((a: Activation,b: Activation) => +new Date(b.startDate) - +new Date(a.startDate));
-    const lastActiveActivation = sortedActiveActivations.length > 0 ? sortedActiveActivations[0] : undefined;
-
     return {
         accountId,
         hasPLVInstalled: !!plvVisit,
         lastPLVInstalledAt: plvVisit?.createdAt,
-        activeActivations: activeActivations.length,
-        lastActivationAt: lastActiveActivation?.startDate,
-        activePromotions: activePromotions.length,
         activePosTactics: posTactics.length,
         lastTacticAt: lastTactic?.createdAt,
     };
@@ -225,7 +210,7 @@ export function computeFleetKPIs(params: {
   const start = new Date(startIso);
   const end = new Date(endIso);
 
-  const horecaIds = data.accounts.filter(a => a.type === 'HORECA').map(a => a.id);
+  const horecaIds = data.accounts.filter(a => a.segment === 'HORECA').map(a => a.id);
   const ordersInWin = data.ordersSellOut.filter(o =>
     o.status === 'confirmed' && inWindow(String(o.createdAt), start, end) && horecaIds.includes(o.accountId)
   );

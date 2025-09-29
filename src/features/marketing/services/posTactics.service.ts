@@ -63,7 +63,7 @@ export async function upsertPosTactic(input: UpsertPosTacticInput, createdById: 
   const data = TacticInput.parse(input);
   const id = data.id || db.collection(TACTICS_COLL).doc().id;
 
-  const items: PosTacticItem[] = data.items.map((i, idx) => {
+  const items: any[] = data.items.map((i, idx) => {
     const unit = Number(i.unitCost ?? 0);
     const qty = Number(i.qty ?? 1);
     return {

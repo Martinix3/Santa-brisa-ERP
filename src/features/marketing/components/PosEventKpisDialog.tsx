@@ -15,7 +15,7 @@ export function PosEventKpisDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const isPosTactic = task?.linkedEntity?.type === 'POS_TACTIC';
-  const tacticId = isPosTactic ? task.linkedEntity.id : null;
+  const tacticId = (isPosTactic && task.linkedEntity) ? task.linkedEntity.id : null;
 
   if (!tacticId) {
     // Si no es una táctica POS, podrías mostrar un error o un diálogo genérico

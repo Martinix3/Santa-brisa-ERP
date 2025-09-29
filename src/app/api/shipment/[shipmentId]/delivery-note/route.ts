@@ -7,9 +7,9 @@ import type { Shipment, DeliveryNote, OrderSellOut, Account, Party } from '@/dom
 import { renderDeliveryNotePdf } from '@/server/pdf/deliveryNote';
 import { bucket } from '@/server/firebase';
 
-export async function GET(_req: NextRequest, ctx: { params: Promise<{ shipmentId: string }> }) {
+export async function GET(_req: NextRequest, ctx: { params: { shipmentId: string } }) {
   try {
-    const { shipmentId } = await ctx.params;
+    const { shipmentId } = ctx.params;
     const shp = await getOne<Shipment>('shipments', shipmentId);
     if (!shp) return new Response('Shipment not found', { status: 404 });
 
@@ -37,7 +37,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ shipmentId
 
     const now = new Date().toISOString();
     // Id estable si ya existía; así evitamos duplicados
-    const existingId = shp.deliveryNoteId;
+    const existingId = (shp as any).deliveryNoteId;
     const dnId = existingId ?? `DN-${now.slice(0,10)}-${String(Math.floor(Math.random()*1000)).padStart(3,'0')}`;
 
     // Datos del destinatario (soldTo/shipTo) con fallbacks
@@ -49,9 +49,8 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ shipmentId
     const shipZip = shp.postalCode || '';
     const shipCity = shp.city || '';
 
-    const dn: Omit<DeliveryNote, 'pdfUrl'|'createdAt'|'updatedAt'> = {
+    const dn: Partial<DeliveryNote> = {
       id: dnId,
-      orderId: shp.orderId,
       shipmentId: shp.id,
       partyId: shp.partyId || resolvedPartyId || '',
       series: 'B2B',
@@ -75,7 +74,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ shipmentId
     };
 
     // Construye el payload que exige el renderer (incluye dateISO)
-    const dnData = { ...dn, dateISO: dn.date } as any;
+    const dnData = { ...dn, dateISO: dn.date, orderId: shp.orderId } as any;
 
     // Genera PDF SIEMPRE en memoria (fuente única de verdad)
     const pdfBytes = await renderDeliveryNotePdf(dnData);
@@ -98,7 +97,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ shipmentId
 
     // Guarda metadatos e incorpora pdfUrl
     await upsertMany('deliveryNotes', [{ ...dn, pdfUrl: signedUrl }] as any);
-    if (!shp.deliveryNoteId) {
+    if (!(shp as any).deliveryNoteId) {
       await upsertMany('shipments', [{ id: shp.id, deliveryNoteId: dnId, updatedAt: now } as any]);
     }
 

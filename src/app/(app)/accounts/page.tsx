@@ -2,7 +2,7 @@
 
 "use client"
 import React, { useMemo, useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ChevronDown, Search, Plus, Phone, Mail, MessageSquare, Calendar, History, ShoppingCart, Info, BarChart3, UserPlus, Users, MoreVertical, Ticket, Clock, Edit, FileText } from 'lucide-react'
 import type { Stage, User, Interaction, OrderSellOut, SantaData, CustomerData, Party, PartyRole, InteractionKind, Payload, Account, AccountType, Uom, CommercialFlow } from '@/domain/ssot'
 import { accountOwnerDisplay, computeAccountKPIs, getDistributorForAccount, orderTotal } from '@/lib/sb-core';
@@ -15,7 +15,6 @@ import { Avatar } from '@/components/ui/Avatar';
 import { NewAccountDialog } from '@/features/accounts/components/NewAccountDialog';
 import { DEPT_META } from '@/domain/ssot';
 import { toast } from 'sonner';
-import { readFlowFrom } from "@/lib/useFlow";
 import { AccountBarDialog } from '@/features/accounts/components/AccountBarDialog';
 
 
@@ -190,6 +189,9 @@ function AccountBar({ a, party, santaData, onAddActivity, onOpenDialog, userMap,
 export default function AccountsPage() {
   const router = useRouter();
   const { data: santaData, setData, currentUser, saveAllCollections } = useData();
+  const searchParams = useSearchParams();
+  const flowParam = searchParams.get('flow')?.toUpperCase();
+  const flow: CommercialFlow = flowParam === 'DIRECT' ? 'DIRECT' : 'PLACEMENT';
   
   const [q,setQ]=useState('');
   const [expanded,setExpanded] = useState<Record<string,boolean>>({ ACTIVA:true });
@@ -254,7 +256,7 @@ export default function AccountsPage() {
     
     return data.filter(a => {
       // Show PLACEMENT accounts by default, not DIRECT
-      if (a.flow !== 'PLACEMENT') return false;
+      if (a.flow !== flow) return false;
 
       const ownerName = a.ownerId ? userMap[a.ownerId] : '';
       const party = partyMap[a.partyId];
@@ -267,7 +269,7 @@ export default function AccountsPage() {
 
       return matchesQuery && matchesRep && matchesCity && matchesDist;
     });
-  }, [q, data, fltRep, fltCity, fltDist, santaData, userMap, partyMap]);
+  }, [q, data, flow, fltRep, fltCity, fltDist, santaData, userMap, partyMap]);
 
   const grouped = useMemo(()=>{
     const g: Record<string,Account[]> = { ACTIVA:[], SEGUIMIENTO:[], POTENCIAL:[], FALLIDA:[] };
@@ -309,7 +311,7 @@ export default function AccountsPage() {
 
   return (
     <>
-      <ModuleHeader title="Cuentas de Colocación" icon={Users}>
+      <ModuleHeader title={`Cuentas de ${flow === 'PLACEMENT' ? 'Colocación' : 'Venta Directa'}`} icon={Users}>
         <button onClick={() => setIsNewAccountOpen(true)} className="flex items-center gap-2 text-sm rounded-md px-3 py-1.5 font-semibold transition-colors"
          style={{ backgroundColor: DEPT_META.VENTAS.color, color: DEPT_META.VENTAS.textColor }}>
             <Plus size={16} /> Nueva Cuenta

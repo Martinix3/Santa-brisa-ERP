@@ -17,9 +17,8 @@ export async function POST(req: NextRequest) {
   const now = new Date().toISOString();
   const financeLinkId = `holded-${id}`;
 
-  const fin: FinanceLink = {
+  const fin: Partial<FinanceLink> = {
     id: financeLinkId,
-    docType: 'SALES_INVOICE',
     externalId: id,
     status: status === 'paid' ? 'paid' : 'pending',
     netAmount: Number(total) || 0,
@@ -36,9 +35,8 @@ export async function POST(req: NextRequest) {
   await upsertMany('financeLinks', [fin] as any);
 
   // Persistimos pagos individuales
-  const payDocs: PaymentLink[] = (payments || []).map((p: any) => ({
+  const payDocs: Partial<PaymentLink>[] = (payments || []).map((p: any) => ({
     id: `holded-${p.id}`,
-    financeLinkId,
     externalId: p.id,
     amount: Number(p.amount),
     date: p.date ?? now,
@@ -53,7 +51,7 @@ export async function POST(req: NextRequest) {
       status: 'paid',
       billingStatus: 'PAID',
       updatedAt: now,
-    }]);
+    } as any]);
   }
 
   return new Response('OK', { status: 200 });

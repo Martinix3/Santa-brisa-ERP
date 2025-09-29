@@ -16,7 +16,7 @@ import { createAccountAndParty } from "./actions/create-account-action";
 
 // ⬇️ Selector POS multi-líneas
 import { PosLinesPicker } from "@/features/pos/PosLinesPicker";
-import type { Account, Party } from "@/domain/ssot";
+import type { Account, Party, PosCostCatalogEntry } from "@/domain/ssot";
 
 
 function AccountSearch({
@@ -114,7 +114,7 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
 
   // --- POS (compartido en ambas pestañas) ---
   const [posLines, setPosLines] = useState<Partial<PosLineInput>[]>([]);
-  const posCatalog = useMemo(() => ((data as any)?.posCatalog || []) as { id: string; name: string }[], [data]);
+  const posCatalog = useMemo(() => ((data as any)?.posCostCatalog || []) as PosCostCatalogEntry[], [data]);
 
   const accountOptions = useMemo(
     () => (data?.accounts || []).map(a => ({ value: a.id, label: a.name })),

@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
 import { Input, Select, Textarea } from '@/components/ui/ui-primitives';
-import type { Account, Party, PartyRole, User, AccountType, CustomerData, CommercialFlow, Stage, Segment } from '@/domain/ssot';
+import type { Account, Party, PartyRole, User, Segment, CustomerData, CommercialFlow, Stage } from '@/domain/ssot';
 import { useData } from '@/lib/dataprovider';
 
 
@@ -27,7 +27,7 @@ export function NewAccountDialog({
 }: NewAccountDialogProps) {
   const { saveAllCollections } = useData();
   const [name, setName] = useState('');
-  const [cif, setCif] = useState('');
+  const [taxId, setTaxId] = useState('');
   const [city, setCity] = useState('');
   const [address, setAddress] = useState('');
   const [segment, setSegment] = useState<Segment>('HORECA');
@@ -38,7 +38,7 @@ export function NewAccountDialog({
   useEffect(() => {
     if (open) {
       setName('');
-      setCif('');
+      setTaxId('');
       setCity('');
       setAddress('');
       setSegment('HORECA');
@@ -69,8 +69,10 @@ export function NewAccountDialog({
 
     const newParty: Party = {
       id: partyId,
+      name: name,
       legalName: name,
-      cif,
+      taxId,
+      kind: 'ORG',
       billingAddress: { street: address, city: city, zip: '', country: 'España' },
       createdAt: now,
       updatedAt: now,
@@ -87,7 +89,6 @@ export function NewAccountDialog({
       distributorPartyId,
       createdAt: now,
       updatedAt: now,
-      mode: flow === 'DIRECT' ? 'DIRECTA' : 'COLOCACION', // For compatibility
     };
 
     const newRole: PartyRole = {
@@ -129,7 +130,7 @@ export function NewAccountDialog({
         <div className="space-y-4 pt-2">
             <div className="grid grid-cols-2 gap-4">
                 <label className="grid gap-1.5"><span className="text-sm font-medium">Nombre de la cuenta</span><Input value={name} onChange={e => setName(e.target.value)} required /></label>
-                <label className="grid gap-1.5"><span className="text-sm font-medium">CIF/NIF</span><Input value={cif} onChange={e => setCif(e.target.value)} /></label>
+                <label className="grid gap-1.5"><span className="text-sm font-medium">CIF/NIF</span><Input value={taxId} onChange={e => setTaxId(e.target.value)} /></label>
             </div>
             <div className="grid grid-cols-2 gap-4">
                 <label className="grid gap-1.5"><span className="text-sm font-medium">Ciudad</span><Input value={city} onChange={e => setCity(e.target.value)} /></label>
