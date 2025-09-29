@@ -15,7 +15,7 @@
 
 
   /* Acentos por departamento (HEX que nos diste, pasados a HSL) */
-  --sb-accent-personal: 54 80% 84%; /* #fbf5b8 - más suave */
+
   --sb-accent-ventas: 22 70% 61%; /* #ea945e - más suave */
   --sb-accent-marketing: 182 40% 70%; /* #9dd4d6 - más suave */
   --sb-accent-logistica: 22 40% 44%; /* #996947 - más suave */

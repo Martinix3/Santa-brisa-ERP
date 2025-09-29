@@ -13,19 +13,11 @@ import { useData } from "@/lib/dataprovider";
 import { Avatar } from "@/components/ui/Avatar";
 import QuickLogOverlay from "@/features/quicklog/QuickLogOverlay";
 import { isSales } from "@/lib/authz";
+import { MODULE_ACCENTS } from "@/domain/ssot";
 
 
 /* ===== 0) Tokens ===== */
-const MODULE_ACCENTS: Record<string, string> = {
-  personal: "var(--sb-accent-personal)",
-  sales: "var(--sb-accent-ventas)",
-  marketing: "var(--sb-accent-marketing)",
-  production: "var(--sb-accent-produc)",
-  quality: "var(--sb-accent-calidad)",
-  warehouse: "var(--sb-accent-logistica)",
-  finance: "var(--sb-sun-strong)",
-  admin: "var(--sb-accent-admin)",
-};
+
 const hsl = (cssVar: string, alpha?: number) =>
   alpha == null ? `hsl(${cssVar})` : `hsl(${cssVar} / ${alpha})`;
 
