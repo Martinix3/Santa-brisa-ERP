@@ -16,6 +16,7 @@ import { Field, focusFirstError } from "@/components/forms/Field";
 import { useBomForm } from "@/features/bom/useBomForm";
 import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog";
 import { upsertBOM, archiveBOM, upsertMinimalProduct } from "./actions";
+import { FormStatusBar } from "@/components/ui/FormStatusBar";
 
 /** Tipos */
 type BomStage = "PRODUCCION" | "ENVASADO";
@@ -457,21 +458,24 @@ function RecipeForm({
         </div>
 
         {/* Footer acciones */}
-        <div className="p-4 bg-zinc-50 border-t flex justify-end gap-2">
-          <button type="button" onClick={onSafeCancel} className="px-3 py-1.5 rounded-lg border bg-white">
-            Cancelar
-          </button>
-          <SpinnerButton
-            loading={fm.saving}
-            onClick={handleSave}
-            className={`border text-[hsl(var(--sb-accent-produc))]
-                        bg-[hsl(var(--sb-accent-produc)/0.08)]
-                        hover:bg-[hsl(var(--sb-accent-produc)/0.12)]
-                        ${accent}`}
-            disabled={!fm.dirty || fm.saving}
-          >
-            Guardar
-          </SpinnerButton>
+        <div className="p-4 bg-zinc-50 border-t space-y-3">
+          <FormStatusBar dirty={fm.dirty} saving={fm.saving} />
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={onSafeCancel} className="px-3 py-1.5 rounded-lg border bg-white">
+              Cancelar
+            </button>
+            <SpinnerButton
+              loading={fm.saving}
+              onClick={handleSave}
+              className={`border text-[hsl(var(--sb-accent-produc))]
+                          bg-[hsl(var(--sb-accent-produc)/0.08)]
+                          hover:bg-[hsl(var(--sb-accent-produc)/0.12)]
+                          ${accent}`}
+              disabled={!fm.dirty || fm.saving}
+            >
+              Guardar
+            </SpinnerButton>
+          </div>
         </div>
       </SBCard>
 
