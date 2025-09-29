@@ -2,9 +2,10 @@
 
 "use client";
 import React, { useMemo, useState, useEffect, useRef } from "react";
+import dynamic from 'next/dynamic';
 import { BarChart3, Target, Users, Briefcase, BrainCircuit, UserPlus, MoreHorizontal, Check, AlertCircle, Clock, PieChart as PieChartIcon, X } from "lucide-react";
 import { motion } from "framer-motion";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Bar, PieChart, Pie, Cell, Legend } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Bar, Cell, Legend } from 'recharts';
 import type { PieLabelRenderProps } from 'recharts';
 import { useData } from "@/lib/dataprovider";
 import { ModuleHeader } from "@/components/ui/ModuleHeader";
@@ -16,6 +17,9 @@ import { generateInsights } from '@/ai/flows/generate-insights-flow';
 import { Avatar } from "@/components/ui/Avatar";
 import { sbAsISO } from '@/features/agenda/helpers';
 import { UpcomingTasks } from '@/features/agenda/components/UpcomingTasks';
+
+const PieChart = dynamic(() => import('recharts').then(mod => mod.PieChart), { ssr: false });
+const Pie = dynamic(() => import('recharts').then(mod => mod.Pie), { ssr: false });
 
 const formatEur = (n: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
 const formatShortDate = (date: Date) => new Intl.DateTimeFormat('es-ES', { month: 'short', day: 'numeric' }).format(date);
