@@ -3,15 +3,16 @@
 
 "use client";
 import React from "react";
-import { useMemo } from "react";
-import { useData } from "@/lib/dataprovider";
-import { readFlowFrom } from "@/lib/useFlow";
+import { useSearchParams } from 'next/navigation';
 import OrdersDashboard from '@/features/orders/components/OrdersDashboard';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
 import { ShoppingCart } from 'lucide-react';
+import type { Flow } from '@/lib/useFlow';
 
-export default function OrdersPage({ searchParams }: { searchParams?: Record<string, any> }) {
-    const flow = readFlowFrom(searchParams);
+export default function OrdersPage() {
+    const searchParams = useSearchParams();
+    const flowParam = searchParams.get('flow')?.toUpperCase();
+    const flow: Flow = flowParam === 'PLACEMENT' ? 'PLACEMENT' : 'DIRECT';
     
     return (
         <>
