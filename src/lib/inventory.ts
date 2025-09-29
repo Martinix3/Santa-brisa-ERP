@@ -49,7 +49,7 @@ export function checkOrderStock(
 
     // 2. Calculamos el stock disponible (RELEASED) y en cuarentena (HOLD)
     const availableStock = allStockForThisItem
-      .filter(r => qcToBucket(r.qcStatus) === 'RELEASED')
+      .filter(r => qcToBucket(r.qcStatus) === 'RELEASED' || r.qcStatus === 'PASSED' || r.qcStatus === 'WAIVED')
       .map(r => ({ ...r, free: Math.max(0, r.qty - (r.reservedQty ?? 0)) }))
       .filter(r => r.free > 0);
       
