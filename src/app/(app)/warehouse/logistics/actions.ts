@@ -1,4 +1,3 @@
-
 // src/app/(app)/warehouse/logistics/actions.ts
 'use server';
 import 'server-only';
@@ -51,6 +50,17 @@ export async function confirmOrderShipment(orderId: string): Promise<Shipment> {
   const itemsById = new Map(itemsSnap.docs.map(d => [d.id, d.data() as Item]));
   
   const { allocations, shortages } = checkOrderStock(order, onHand, lots);
+  
+  // 0) Validar allocations ANTES de la transacción
+  if (!allocations?.length && order.lines.length > 0) {
+    throw new Error('No se han podido calcular reservas (allocations está vacío).');
+  }
+  const missingLots = allocations.filter(a => !a.lotNumber);
+  if (missingLots.length) {
+    const ids = [...new Set(missingLots.map(a => a.itemId))].join(', ');
+    throw new Error(`Faltan lotes en la asignación para: ${ids}.`);
+  }
+
   if (shortages.length > 0) {
     const shortageDetails = shortages.map(s => `${s.qtyShort}x ${itemsById.get(s.itemId)?.name ?? s.itemId}`).join(', ');
     throw new Error(`Stock insufficient. Shortages: ${shortageDetails}`);
@@ -66,15 +76,21 @@ export async function confirmOrderShipment(orderId: string): Promise<Shipment> {
   let newShipment: Shipment;
 
   await db.runTransaction(async (transaction) => {
-    // 2a. Atomically reserve stock
+    // 2a. Atomically reserve stock using set + merge
     for (const alloc of allocations) {
-      if (!alloc.lotNumber) continue;
-      const onHandId = makeOnHandId(alloc.itemId, alloc.lotNumber, 'FG/MAIN');
+      // locationId viene de la asignación, o fallback a 'FG/MAIN'
+      const loc = alloc.locationId ?? 'FG/MAIN';
+      const onHandId = makeOnHandId(alloc.itemId, alloc.lotNumber, loc);
       const onHandRef = db.collection('onHand').doc(onHandId);
-      transaction.update(onHandRef, {
+
+      // set + merge es clave: crea el doc si no existe, y no falla la tx.
+      transaction.set(onHandRef, {
+        itemId: alloc.itemId,
+        lotNumber: alloc.lotNumber,
+        locationId: loc,
         reservedQty: FieldValue.increment(alloc.qty),
         updatedAt: now,
-      });
+      }, { merge: true });
     }
 
     // 2b. Update order status
@@ -100,7 +116,7 @@ export async function confirmOrderShipment(orderId: string): Promise<Shipment> {
                 name: itemsById.get(line.itemId)?.name ?? line.itemId,
                 qty: line.qty,
                 uom: 'unit',
-                lotNumber: alloc?.lotNumber,
+                lotNumber: alloc!.lotNumber, // Ya validamos que existe
             };
         }),
         customerName: party.name,

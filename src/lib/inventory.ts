@@ -18,9 +18,10 @@ export type StockShortageDetail = {
 export type AllocationDetail = {
   itemId: string;
   lotNumber: string;
+  locationId: string; // Ubicación física del lote
   qty: number;
   expiryAt?: string | null;
-  originInfo: string; // NUEVO: Origen del lote (producción, recepción)
+  originInfo: string; // Origen del lote (producción, recepción)
 };
 
 // ===========================================
@@ -79,6 +80,7 @@ export function checkOrderStock(
         allocations.push({
           itemId,
           lotNumber: lot.lotNumber,
+          locationId: lot.locationId, // Devolvemos la ubicación real
           qty: take,
           expiryAt: lot.expiryAt,
           originInfo, // Añadimos la información de origen
