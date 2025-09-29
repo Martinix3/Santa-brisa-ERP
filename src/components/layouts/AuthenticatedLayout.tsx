@@ -7,11 +7,14 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   Home, BarChart3, Megaphone, Factory, ClipboardCheck, Truck,
-  LineChart, SlidersHorizontal, LogOut, PanelRightClose, PanelLeftClose,
+  LineChart, SlidersHorizontal, LogOut, PanelRightClose, PanelLeftClose, Plus,
 } from "lucide-react";
 import { useData } from "@/lib/dataprovider";
 import { Avatar } from "@/components/ui/Avatar";
+import { QuickLogDialog } from "@/features/quicklog/QuickLogDialog";
 import QuickLogOverlay from "@/features/quicklog/QuickLogOverlay";
+import { isSales } from "@/lib/authz";
+
 
 /* ===== 0) Tokens ===== */
 const MODULE_ACCENTS: Record<string, string> = {
@@ -127,7 +130,7 @@ function dashboardHrefFor(module: keyof typeof MODULE_ACCENTS): string {
 export default function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? "/";
   const { currentUser, logout, data } = useData();
-  const [open, setOpen] = useState(false);
+  const [openQuickLog, setOpenQuickLog] = useState(false);
 
   const isPrivilegedUser =
     currentUser?.role?.toLowerCase() === "admin" || currentUser?.role?.toLowerCase() === "owner";
@@ -173,6 +176,7 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
   }, [data]);
 
   return (
+    <>
     <div className="h-screen flex bg-white">
       {/* Sidebar */}
       <aside className={`h-full border-r border-sb-neutral-200 bg-white flex flex-col transition-all duration-300 ${collapsed ? "w-16" : "w-64"}`}>
@@ -218,23 +222,25 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
           userEmail={currentUser?.email}
           onLogout={logout}
           pathname={pathname}
-          onOpenQuickLog={() => setOpen(true)}
+          onOpenQuickLog={() => setOpenQuickLog(true)}
           tasksToday={tasksToday}
           tasksOverdue={tasksOverdue}
+          showQuickLogButton={isSales(currentUser?.role) || currentUser?.role === 'admin'}
         />
         <div className="overflow-y-auto">{children}</div>
-        <QuickLogOverlay />
       </main>
     </div>
+    <QuickLogDialog open={openQuickLog} onOpenChange={setOpenQuickLog} />
+    </>
   );
 }
 
 function HeaderPro({
-  userName, userEmail, onLogout, pathname, onOpenQuickLog, tasksToday, tasksOverdue,
+  userName, userEmail, onLogout, pathname, onOpenQuickLog, tasksToday, tasksOverdue, showQuickLogButton
 }: {
   userName?: string; userEmail?: string; onLogout: () => void;
   pathname: string; onOpenQuickLog: () => void;
-  tasksToday: number; tasksOverdue: number;
+  tasksToday: number; tasksOverdue: number; showQuickLogButton: boolean;
 }) {
   const crumbs = useBreadcrumbs(pathname);
   const [openCmd, setOpenCmd] = useState(false);
@@ -294,14 +300,16 @@ function HeaderPro({
         </button>
 
         <div className="ml-auto md:ml-2 flex items-center gap-1" ref={menuRef}>
-          <button
-            onClick={onOpenQuickLog}
-            className="px-2 py-1.5 rounded-md sb-btn-primary"
-            title="Captura rápida"
-            aria-label="Abrir captura rápida"
-          >
-            +
-          </button>
+          {showQuickLogButton && (
+            <button
+              onClick={onOpenQuickLog}
+              className="h-9 w-9 flex items-center justify-center rounded-lg text-zinc-700 bg-yellow-400 hover:bg-yellow-500"
+              title="Captura rápida"
+              aria-label="Abrir captura rápida"
+            >
+              <Plus size={20} strokeWidth={2.5} />
+            </button>
+          )}
 
           <button
             className="px-2 py-1.5 rounded-md hover:bg-sb-neutral-100 flex items-center gap-2"
@@ -398,5 +406,3 @@ function moduleFromDashboard(path: string): keyof typeof MODULE_ACCENTS | null {
   if (path.startsWith("/cashflow/dashboard")) return "finance";
   return null;
 }
-
-    

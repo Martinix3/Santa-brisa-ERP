@@ -1,5 +1,3 @@
-
-
 // src/app/(app)/orders/actions.ts
 'use server';
 
@@ -9,6 +7,39 @@ import type { OrderStatus, Shipment, OrderSellOut, Account, Party, FinanceLink, 
 import { enqueue } from '@/server/queue/queue';
 import { importSingleShopifyOrder } from '@/server/integrations/shopify/import-order';
 import { confirmOrderShipment as confirmAndReserve } from '../warehouse/logistics/actions';
+import { adminDb as db } from "@/server/firebase";
+import { getUserRole } from "@/server/auth";
+import { SANTA_BRISA_DISTRIB_ID, canPlaceOrder } from "@/lib/authz";
+
+
+export async function placeOrder({
+  accountId, lines, createdById,
+}:{
+  accountId: string;
+  lines: { sku:string; qty:number; unitPriceReported?:number }[];
+  createdById: string;
+}) {
+  const role = await getUserRole(createdById);
+  if (!canPlaceOrder(role)) throw new Error("No autorizado");
+  if (!accountId) throw new Error("Cuenta requerida");
+  if (!lines?.length) throw new Error("Añade al menos una línea");
+
+  const now = new Date().toISOString();
+  const ref = db.collection("ordersSellOut").doc();
+  const payload = {
+    id: ref.id,
+    accountId,
+    distributorId: SANTA_BRISA_DISTRIB_ID,
+    isSellOutReported: true,
+    status: "open",
+    lines,
+    createdById,
+    createdAt: now,
+    updatedAt: now,
+  };
+  await ref.set(payload);
+  return { id: ref.id };
+}
 
 
 const SHIPMENT_TRIGGER_STATES = new Set<OrderStatus>(['confirmed']);
