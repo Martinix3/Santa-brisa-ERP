@@ -41,6 +41,10 @@ export type TraceEventKind = 'RECEIPT' | 'PRODUCTION_OUT' | 'PRODUCTION_IN' | 'C
 export type TraceEventPhase = 'SOURCE' | 'RECEIPT' | 'QC' | 'PRODUCTION' | 'PACK' | 'WAREHOUSE' | 'SALE' | 'DELIVERY';
 export type CommercialFlow = 'DIRECT' | 'PLACEMENT';
 export type AccountMode = 'DIRECTA' | 'COLOCACION'; // Legacy, use CommercialFlow
+export type CollabStatus = 'PROSPECT' | 'OUTREACH' | 'NEGOTIATING' | 'AGREED' | 'LIVE' | 'COMPLETED' | 'PAUSED' | 'DECLINED';
+export type Platform = 'Instagram' | 'TikTok' | 'YouTube' | 'Twitch' | 'Blog' | 'Otro';
+export type Tier = 'nano' | 'micro' | 'mid' | 'macro';
+export type PosCatalogItem = PosCostCatalogEntry;
 
 // -----------------------------------------------------------------
 // 2. Interfaces de Entidades Principales
@@ -447,6 +451,17 @@ export const ITEM_CATEGORY_META: Record<ItemCategory, { label: string; }> = {
   intermediate: { label: "Producto Intermedio" },
   consumable: { label: "Consumible" },
   merch: { label: "Merchandising" },
+};
+
+export const MODULE_ACCENTS: Record<string, string> = {
+  personal: "var(--sb-accent-personal)",
+  sales: "var(--sb-accent-ventas)",
+  marketing: "var(--sb-accent-marketing)",
+  production: "var(--sb-accent-produc)",
+  quality: "var(--sb-accent-calidad)",
+  warehouse: "var(--sb-accent-logistica)",
+  finance: "var(--sb-accent-finance)",
+  admin: "var(--sb-accent-admin)",
 };
 
 // -----------------------------------------------------------------
