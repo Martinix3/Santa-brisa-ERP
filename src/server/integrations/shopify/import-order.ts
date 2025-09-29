@@ -12,33 +12,29 @@ const ONLINE_ACCOUNT_NAME = 'Canal Online (Shopify)';
 async function ensureOnlinePartyAccount() {
   const data = await getServerData() as { parties: Party[]; accounts: Account[] };
 
-  let party = data.parties.find(p => p.legalName === ONLINE_PARTY_LEGAL);
+  let party = data.parties.find(p => p.name === ONLINE_PARTY_LEGAL);
   if (!party) {
     const now = new Date().toISOString();
     party = {
       id: 'ONLINE',
-      legalName: ONLINE_PARTY_LEGAL,
-      tradeName: 'Tienda online',
-      roles: ['CUSTOMER'],
-      createdAt: now,
-      updatedAt: now,
       name: ONLINE_PARTY_LEGAL,
       kind: 'ORG',
-      contacts: [],
-      addresses: [],
+      createdAt: now,
+      updatedAt: now,
     } as unknown as Party;
 
     await upsertMany('parties', [party]);
   }
 
-  let account = data.accounts.find(a => a.partyId === party!.id && a.type === 'ONLINE');
+  let account = data.accounts.find(a => a.partyId === party!.id && a.segment === 'ONLINE');
   if (!account) {
     const now = new Date().toISOString();
     const acc: Account = {
       id: 'ONLINE',
       partyId: party!.id,
       name: ONLINE_ACCOUNT_NAME,
-      type: 'ONLINE',
+      segment: 'ONLINE',
+      flow: 'DIRECT',
       stage: 'ACTIVA',
       ownerId: 'SYSTEM',
       createdAt: now,

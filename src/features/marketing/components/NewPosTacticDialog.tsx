@@ -3,7 +3,7 @@
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
 import { Input, Select, SBButton } from '@/components/ui/ui-primitives';
-import type { PosTactic, Account, PosCatalogItem } from '@/domain/ssot';
+import type { PosTactic, Account, PosCostCatalogEntry, PlvMaterial } from '@/domain/ssot';
 import { useData } from '@/lib/dataprovider';
 import { Plus, X, Package, Tag, AlertCircle } from 'lucide-react';
 import { PosLineInput } from '@/features/pos/server/pos-actions';
@@ -78,16 +78,16 @@ const TacticItemRow = ({
   index: number;
   onChange: (index: number, updatedItem: Partial<PosLineInput>) => void;
   onRemove: (index: number) => void;
-  catalog: PosCatalogItem[];
+  catalog: PosCostCatalogEntry[];
 }) => {
     
     const handleTypeChange = (value: 'CATALOGO' | 'CUSTOM') => {
-        onChange(index, { kind: value, catalogItemId: undefined, desc: '' });
+        onChange(index, { kind: value, catalogItemId: undefined, description: '' });
     };
 
     const handleCatalogChange = (value: string) => {
         const catItem = catalog.find(c => c.id === value);
-        onChange(index, { catalogItemId: value, estCostOverride: catItem?.defaultCost });
+        onChange(index, { catalogItemId: value, estCostOverride: catItem?.defaultCost, description: catItem?.name });
     };
 
     return (
@@ -103,7 +103,7 @@ const TacticItemRow = ({
                     {catalog.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </Select>
             ) : (
-                <Input value={item.desc || ''} onChange={(e) => onChange(index, { desc: e.target.value })} placeholder="Descripción de la acción"/>
+                <Input value={item.description || ''} onChange={(e) => onChange(index, { description: e.target.value })} placeholder="Descripción de la acción"/>
             )}
             
             <Input type="number" placeholder="Coste (€)" value={item.estCostOverride ?? ''} onChange={e => onChange(index, { estCostOverride: Number(e.target.value) || undefined })}/>
@@ -127,16 +127,18 @@ export function NewPosTacticDialog({
     const [accountId, setAccountId] = useState<string | undefined>();
     const [lines, setLines] = useState<Partial<PosLineInput>[]>([{ kind: 'CATALOGO' }]);
 
-    const catalog = useMemo(() => (data?.posCatalog || []) as PosCatalogItem[], [data]);
+    const catalog = useMemo(() => (data?.posCostCatalog || []) as PosCostCatalogEntry[], [data]);
 
     useEffect(() => {
         if(open) {
             setAccountId(tacticBeingEdited?.accountId ?? (accounts.length === 1 ? accounts[0].id : undefined));
-            setLines(tacticBeingEdited?.id ? [{
-                kind: 'CATALOGO',
-                catalogItemId: tacticBeingEdited.catalogItemId,
-                desc: tacticBeingEdited.customDesc
-            }] : [{ kind: 'CATALOGO' }]);
+            setLines(tacticBeingEdited?.id ? (tacticBeingEdited.items || []).map(i => ({
+                kind: i.catalogCode ? 'CATALOGO' : 'CUSTOM',
+                catalogItemId: i.catalogCode,
+                description: i.description,
+                estCostOverride: i.unitCost,
+                qty: i.qty
+            })) : [{ kind: 'CATALOGO' }]);
         }
     }, [open, tacticBeingEdited, accounts]);
     

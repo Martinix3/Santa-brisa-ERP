@@ -1,5 +1,5 @@
 // src/lib/inventory.ts
-import type { OrderSellOut, QcStatus, OnHandView, Lot, StockMove, VelocityInput } from '@/domain/ssot';
+import type { OrderSellOut, QcStatus, OnHandView, Lot, StockMove } from '@/domain/ssot';
 import { qcToBucket } from '@/domain/ssot';
 import type { Item } from '@/domain/ssot';
 
@@ -360,7 +360,7 @@ export function stockStatusLabel(
 // ===========================================
 // ANÁLISIS ADICIONALES
 // ===========================================
-export function computeCoverage(summaries: Record<string, SkuStockSummary>, velocity: VelocityInput[], lookbackDays: number) {
+export function computeCoverage(summaries: Record<string, SkuStockSummary>, velocity: any[], lookbackDays: number) {
   const byItem: Record<string, { total: number; daily: number; daysCover: number | null }> = {};
   for(const v of velocity) {
     byItem[v.itemId] ||= { total: 0, daily: 0, daysCover: null };

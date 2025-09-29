@@ -32,9 +32,8 @@ export async function run({ shipmentId }: { shipmentId: string }) {
     const dnId = makeDeliveryNoteCode(allDeliveryNotes, new Date());
 
 
-    const deliveryNoteData: Omit<DeliveryNote, 'pdfUrl'|'createdAt'|'updatedAt'> = {
+    const deliveryNoteData: Partial<DeliveryNote> = {
         id: dnId,
-        orderId: shipment.orderId,
         shipmentId: shipment.id,
         partyId: shipment.partyId,
         series: series,

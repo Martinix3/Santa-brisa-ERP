@@ -1,4 +1,3 @@
-
 // src/app/(app)/orders/actions.ts
 'use server';
 
@@ -105,12 +104,12 @@ export async function createSalesInvoice({ orderId }: { orderId:string }) {
   if (!order) throw new Error('Order not found');
   const amount = (order.lines || []).reduce((a: number, l: OrderSellOut['lines'][number]) => {
      const unit = l.priceUnit ?? 0;
-     const disc = (l as any).discountPct ?? 0 / 100;
+     const disc = ((l as any).discountPct ?? 0) / 100;
      return a + l.qty * unit * (1 - disc);
   }, 0);
 
   const now = new Date().toISOString();
-  const fin: FinanceLink = {
+  const fin: Partial<FinanceLink> = {
      id: `INV-${now.slice(0,10)}-${Math.floor(Math.random()*99999)}`,
      docType: 'SALES_INVOICE',
      externalId: '', // si sincronizas con Holded, rellena después
@@ -142,7 +141,7 @@ export async function recordPayment({ financeLinkId, amount, date, method }: {
   financeLinkId: string; amount: number; date?: string; method?: string;
 }) {
   const now = new Date().toISOString();
-  const pay: PaymentLink = {
+  const pay: Partial<PaymentLink> = {
     id: `PAY-${now}-${Math.floor(Math.random()*1e6)}`,
     financeLinkId,
     externalId: undefined,

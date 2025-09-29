@@ -1,15 +1,15 @@
 // src/server/integrations/holded/createInvoice.worker.ts
 import { adminDb as db } from '@/server/firebase';
-import type { OrderSellIn, Party, PartyRole, Item } from '@/domain/ssot';
+import type { OrderSellOut, Party, PartyRole, Item } from '@/domain/ssot';
 import { callHoldedApi } from './client';
 import { Timestamp } from 'firebase-admin/firestore';
 
 
 export async function handleCreateHoldedInvoice({ orderId }: { orderId: string }) {
-  const orderRef = db.collection('ordersSellIn').doc(orderId); // Changed to ordersSellIn
+  const orderRef = db.collection('ordersSellOut').doc(orderId);
   const snap = await orderRef.get();
   if (!snap.exists) throw new Error(`Order ${orderId} not found`);
-  const order = snap.data() as OrderSellIn;
+  const order = snap.data() as OrderSellOut;
 
   // This worker should only run for DIRECT sales, which have invoices.
   // A check in the queue trigger or here would be wise.
@@ -38,9 +38,9 @@ export async function handleCreateHoldedInvoice({ orderId }: { orderId: string }
   if (!contactId) {
     const created: any = await callHoldedApi('/contacts', 'POST', {
       name: party.legalName || 'Unknown Name',
-      code: party.cif,
-      email: (party.contacts ?? [])[0]?.email,
-      address: party.billingAddress?.address,
+      code: party.taxId,
+      email: (party.emails ?? [])[0]?.value,
+      address: party.billingAddress?.street,
       city: party.billingAddress?.city,
       postalCode: party.billingAddress?.zip,
       country: (party.billingAddress as any)?.countryCode || 'ES',
@@ -70,17 +70,17 @@ export async function handleCreateHoldedInvoice({ orderId }: { orderId: string }
   }
 
   // 3) Líneas con impuestos
-  const itemIds = (order.lines || []).map(l => l.sku); // Assuming SKU is itemId for now
+  const itemIds = (order.lines || []).map(l => l.itemId);
   const itemsSnap = itemIds.length ? await db.collection('items').where('id', 'in', itemIds).get() : { docs: [] };
   const itemsById = new Map(itemsSnap.docs.map(doc => [doc.id, doc.data() as Item]));
 
   const items = (order.lines || []).map(l => {
-    const itemData = itemsById.get(l.sku);
+    const itemData = itemsById.get(l.itemId);
     return {
-      name: itemData?.name || l.sku,
+      name: itemData?.name || l.name,
       sku: itemData?.sku,
       units: l.qty,
-      price: l.unitPrice,
+      price: l.priceUnit,
       tax: (l as any).taxRate ?? 21,
       discount: l.discountPct ?? 0,
     };
@@ -103,6 +103,6 @@ export async function handleCreateHoldedInvoice({ orderId }: { orderId: string }
   await orderRef.set({
     status: 'invoiced',
     invoiceId: invoice.id,
-    updatedAt: Timestamp.now()
+    updatedAt: new Date().toISOString(),
   }, { merge: true });
 }

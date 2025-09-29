@@ -1,4 +1,3 @@
-
 // src/services/lots/searchLots.ts
 import type {
   SantaData, LotStatus, QcStatus, LotNumber, Uom,
@@ -47,7 +46,7 @@ export type LotHit = {
 
 export function searchLots(data: SantaData, p: LotSearchParams): LotHit[] {
   const {
-    items, onHand, reservations, lots, lotGenealogy, qcBatchResults,
+    items, onHand, reservations, lots, lotGenealogy
   } = data;
 
   // Index rápidos

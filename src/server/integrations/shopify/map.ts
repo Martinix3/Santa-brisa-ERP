@@ -38,6 +38,7 @@ export function normalizeShopifyOrder(order: ShopifyOrder): OrderSellOut {
   }));
 
   const createdAt: Timestamp = new Date(order.created_at || Date.now()).toISOString();
+  const updatedAt: Timestamp = new Date(order.updated_at || Date.now()).toISOString();
 
   const mapped: OrderSellOut = {
     id,
@@ -45,6 +46,7 @@ export function normalizeShopifyOrder(order: ShopifyOrder): OrderSellOut {
     accountId: 'ONLINE',     // idem
     source: 'SHOPIFY',
     createdAt,
+    updatedAt,
     currency,
     lines,
     status,

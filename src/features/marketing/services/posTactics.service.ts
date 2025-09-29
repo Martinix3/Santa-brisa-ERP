@@ -22,7 +22,7 @@ const TacticInput = z.object({
   appliesToSkuIds: z.array(z.string()).optional(),
   items: z.array(z.object({
     id: z.string().optional(),
-    catalogCode: z.string().optional(),
+    catalogItemId: z.string().optional(),
     description: z.string(),
     qty: z.number().min(0).default(1),
     unitCost: z.number().min(0).default(0),
@@ -68,17 +68,17 @@ export async function upsertPosTactic(input: UpsertPosTacticInput, createdById: 
     const qty = Number(i.qty ?? 1);
     return {
       id: i.id ?? `${Date.now()}_${idx}`,
-      catalogCode: i.catalogCode,
+      catalogCode: i.catalogItemId,
       description: i.description,
-      qty, unitCost: unit,
-      actualCost: unit * qty,
+      qty,
+      unitCost: unit,
       uom: i.uom,
       vendor: i.vendor,
       assetId: i.assetId,
     };
   });
 
-  const actualCost = items.reduce((s, it) => s + (it.actualCost || 0), 0);
+  const actualCost = items.reduce((s, it) => s + (it.unitCost || 0) * (it.qty || 1), 0);
   const payload: PosTactic = {
     id,
     accountId: data.accountId,

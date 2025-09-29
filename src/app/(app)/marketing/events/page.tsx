@@ -77,7 +77,6 @@ export default function Page(){
           title: event.note!,
           status: 'planned',
           startAt: event.plannedFor!,
-          city: event.location,
           ownerUserId: currentUser.id,
           createdAt: now,
           updatedAt: now,
@@ -112,10 +111,10 @@ export default function Page(){
       setIsNewTacticOpen(true);
   }
 
-  const handleSaveTactic = async (tacticData: Omit<PosTactic, 'id' | 'createdAt' | 'createdById'>) => {
+  const handleSaveTactic = async (data: { lines: PosLineInput[], accountId: string }) => {
       if (!tacticEventContext || !currentUser) return;
       try {
-        await upsertPosTactic({ ...tacticData, ...tacticEventContext } as any, currentUser.id);
+        await upsertPosTactic({ ...data, eventId: tacticEventContext.eventId } as any, currentUser.id);
         setIsNewTacticOpen(false);
         setTacticEventContext(null);
       } catch(e) {
@@ -128,12 +127,12 @@ export default function Page(){
     { key: 'title', header: 'Evento', render: r => <div className="font-semibold">{r.title}</div> },
     { key: 'status', header: 'Estado', render: r => <StatusPill status={r.status} /> },
     { key: 'startAt', header: 'Fecha', render: r => new Date(r.startAt).toLocaleDateString('es-ES', {day: 'numeric', month: 'long', year: 'numeric'}) },
-    { key: 'city', header: 'Ubicación', render: r => r.city || 'N/A'},
+    { key: 'city', header: 'Ubicación', render: r => (r as any).city || 'N/A'},
     { key: 'spend', header: 'Gasto', className: "text-right", render: r => formatCurrency(r.spend) },
     { key: 'leads', header: 'Leads', className: "text-right", render: r => formatNumber(r.kpis?.leads) },
     { key: 'sampling', header: 'Asistentes', className: "text-right", render: r => formatNumber(r.kpis?.sampling) },
     { 
-        key: 'actions', 
+        key: 'actions' as any, 
         header: 'Acciones', 
         render: r => {
             const actions = [];
@@ -204,8 +203,6 @@ export default function Page(){
             onSave={handleSaveTactic}
             tacticBeingEdited={null}
             accounts={santaData.accounts}
-            costCatalog={catalog}
-            plvInventory={plv}
         />
     )}
     </>

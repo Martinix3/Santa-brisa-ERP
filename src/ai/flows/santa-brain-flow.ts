@@ -16,11 +16,13 @@ import { gemini15Flash } from '@genkit-ai/googleai';
 import type {
   Account,
   Party,
-  Item,
   SantaData,
   OrderSellOut,
   Interaction,
   User,
+  CommercialFlow,
+  Segment,
+  Stage,
 } from '@/domain/ssot';
 
 
@@ -230,23 +232,25 @@ const santaBrainFlow = ai.defineFlow(
             newEntities.interactions = [...(newEntities.interactions || []), payload as Interaction];
         } else if (tr.name === 'createAccount' && input && typeof input === 'object') {
             const inputData = input as any;
+            const partyId = `party_${Date.now()}`;
             const newParty: Party = {
-                id: `party_${Date.now()}`,
-                legalName: inputData.name,
+                id: partyId,
                 name: inputData.name,
                 kind: 'ORG',
-                billingAddress: inputData.city ? { city: inputData.city, address: '', zip: '' } : undefined,
+                billingAddress: inputData.city ? { street: '', city: inputData.city, zip: '', country: 'ES' } : undefined,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
             } as Party;
             const newAccount: Account = {
                 id: `acc_${Date.now()}`,
                 partyId: newParty.id,
-                stage: 'POTENCIAL',
-                ownerId: currentUser.id,
-                createdAt: new Date().toISOString(),
                 name: inputData.name,
-                type: inputData.type || 'HORECA',
+                segment: inputData.type || 'HORECA',
+                stage: 'POTENCIAL' as Stage,
+                ownerId: currentUser.id,
+                flow: 'DIRECT', // default to direct for new accounts from brain
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
             };
             
             newEntities.parties = [...(newEntities.parties || []), newParty];

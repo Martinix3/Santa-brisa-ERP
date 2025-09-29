@@ -76,7 +76,7 @@ export async function handleSyncHoldedContacts({ page = 1, dryRun = false }: { p
       const billAddress = c.billAddress;
       const proposedBillingAddress: Address | undefined =
         billAddress && (billAddress.address || billAddress.city || billAddress.country) ? {
-          address: billAddress.address ?? '',
+          street: billAddress.address ?? '',
           city: billAddress.city ?? '',
           zip: billAddress.postalCode ?? '',
           province: billAddress.province ?? '',
