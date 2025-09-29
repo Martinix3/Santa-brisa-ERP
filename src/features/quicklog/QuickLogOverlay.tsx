@@ -4,7 +4,7 @@ import React, { useState, useCallback } from 'react';
 import { Plus, X } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
 import type { SantaData, Account, AccountType, Party, InteractionKind, PosTactic, PosTacticItem, PartyRole, CustomerData, CommercialFlow } from '@/domain/ssot';
-import { SBFlowModal } from './components/SBFlows';
+import { QuickLogDialog } from './QuickLogDialog';
 import { NewCustomerCelebration } from '@/components/ui/NewCustomerCelebration';
 
 // util de normalización (acentos, casing)
@@ -70,22 +70,6 @@ export default function QuickLogOverlay() {
     setOpen(false);
   }, [currentUser?.id, saveAllCollections]);
 
-  const renderContent = () => {
-    if (!currentUser) return null;
-
-    return (
-        <SBFlowModal
-          open={true}
-          onClose={() => setOpen(false)}
-          accounts={data?.accounts || []}
-          onSearchAccounts={onSearchAccounts}
-          onCreateAccount={onCreateAccount}
-          onSubmit={handleQuickSubmit}
-          context='PLACEMENT' // Forzar contexto a Colocación
-        />
-    );
-  };
-
   return (
     <>
       <button
@@ -97,14 +81,10 @@ export default function QuickLogOverlay() {
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={() => setOpen(false)}>
-          <div
-            className="relative w-[95vw] max-w-lg h-auto bg-white rounded-2xl shadow-xl flex flex-col overflow-hidden"
-            onClick={e => e.stopPropagation()}
-          >
-            {renderContent()}
-          </div>
-        </div>
+        <QuickLogDialog
+            open={open}
+            onOpenChange={setOpen}
+        />
       )}
     </>
   );
