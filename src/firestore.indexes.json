@@ -127,6 +127,28 @@
         { "fieldPath": "itemId", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "qcTests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "lotNumber", "order": "ASCENDING" },
+        { "fieldPath": "testedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "onHand",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "lotNumber", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "qcPlans",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "sku", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [

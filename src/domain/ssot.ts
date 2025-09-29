@@ -188,7 +188,7 @@ export interface Lot {
   orderId?: string;
   supplierId?: string;
   qcStatus: QcStatus;
-  qcPlanId?: string;
+  qcPlanId?: string; // IMPORTANTE: Vincula el lote a su plan de calidad
   expDate?: Timestamp;
   receivedAt?: Timestamp;
   producedByOrderId?: string;
@@ -217,26 +217,18 @@ export interface TraceEvent {
   links?: { lotNumber?: LotNumber; prodOrderId?: string; lotId?: string; batchId?: string; orderId?: string; shipmentId?: string; receiptId?: string; qaCheckId?: string; };
 }
 
-export type QCResult = { value?: number | string | boolean; notes?: string; status: 'ok' | 'ko'; };
-export interface QACheck {
-  id: string;
-  lotId: LotNumber;
-  summaryStatus: 'ok' | 'ko';
-  createdAt: Timestamp;
-  results: Record<string, QCResult>; // { "param_id_1": { value: 1.2, status: 'ok' } }
-}
-
 export interface QcTest {
     id: string;
     lotNumber: LotNumber;
-    parameterId: string;
+    parameterId: string; // Ref a QcParameter.id
     valueNumeric?: number;
     valueText?: string;
     inSpec?: boolean;
-    testedBy: string;
+    testedBy: string; // User ID
     testedAt: Timestamp;
     createdAt: Timestamp;
 }
+
 
 export interface ParameterBySku {
   id: string;               // param_<sku>_<code> (único)
@@ -729,7 +721,6 @@ export interface SantaData {
   reservations?: ReservationView[];
 
   // Deprecated / To be removed
-  qaChecks: any[];
   inventory: any[];
   products: any[];
   materials: any[];
@@ -745,7 +736,7 @@ export const SANTA_DATA_COLLECTIONS: (keyof SantaData)[] = [
   'partyDuplicates', 'qcParameters', 'qcPlans', 'qcTests', 'deliveryNotes', 'lotGenealogy', 'marketingEvents', 'onlineCampaigns', 'influencerCollabs',
   'posTactics', 'posCostCatalog', 'plv_material',
   // Deprecated
-  'qaChecks', 'inventory', 'products', 'materials', 'suppliers', 'distributors', 'reservations'
+  'inventory', 'products', 'materials', 'suppliers', 'distributors', 'reservations'
 ];
 
 export * from './ssot.metas';

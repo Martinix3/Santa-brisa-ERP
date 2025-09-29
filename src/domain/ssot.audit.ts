@@ -1,4 +1,3 @@
-
 // src/domain/ssot.audit.ts
 import {
   // Tipos/constantes del SSOT
@@ -41,7 +40,7 @@ function assertHasAllKeys<K extends string>(
 type SantaDataKeys = keyof SantaData;
 const SantaDataLiteralKeys = [
   "parties","partyRoles","partyDuplicates","users","accounts","ordersSellOut","interactions",
-  "items","billOfMaterials","productionOrders","qaChecks", "qcTests", "qcPlans", "qcParameters", "onHand",
+  "items","billOfMaterials","productionOrders", "qcTests", "qcPlans", "qcParameters", "onHand",
   "stockMoves","shipments","deliveryNotes","goodsReceipts","activations","promotions",
   "marketingEvents","onlineCampaigns","influencerCollabs","posTactics","posCostCatalog",
   "plv_material","materialCosts","financeLinks","paymentLinks","traceEvents","incidents",
