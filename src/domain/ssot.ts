@@ -88,6 +88,49 @@ export interface PlvMaterial { id:string; accountId:string; kind:string; status:
 export interface Activation  { id:string; accountId:string; description:string; status:'planned'|'active'|'closed'; startDate:string; endDate?:string; ownerId?:string; createdAt:string; updatedAt:string };
 export interface Promotion   { id:string; name:string; validFrom:string; validTo:string; mechanic:'PCT'|'BOGO'|'5+1'|'VALUE'; data?:any };
 
+// --- Marketing POS Refactorizado ---
+export type PosCatalogItem = {
+  id: string;
+  name: string;                        // "Camarero 3h", "Cubitera", "Margarita Day (pack)", "Reforma barra"
+  family: 'MATERIAL'|'SERVICIO'|'EVENTO'|'PACK'|'OTRO';
+  unit?: 'ud'|'h'|'kit';
+  defaultCost?: number;
+  // Cómo se completa:
+  fulfillmentMode: 'DELIVERY_QTY'|'EVENT_KPIS'|'SERVICE_KPIS'|'CUSTOM_DEFERRED';
+  // Qué tipo de tarea programar (si se planifica):
+  defaultTaskKind?: 'ENTREGA_PLV'|'EVENTO_POS'|'SERVICIO_POS';
+  // KPIs / campos sugeridos por defecto (plantilla)
+  defaultKpisTemplate?: {
+    askAttendees?: boolean;
+    askSamples?: boolean;
+    askUpliftPct?: boolean;
+    askPhotos?: boolean;
+    extraFields?: { key:string; label:string; type:'number'|'text' }[];
+  };
+  // Si es un PACK: componentes (para coste/stock/visibilidad)
+  components?: Array<{ catalogItemId: string; qty: number }>;
+};
+
+export type PosTactic = {
+  id: string;
+  accountId: string;
+  catalogItemId?: string;              // si viene de catálogo
+  qtyPlanned?: number;                 // para MATERIAL/PLV
+  customDesc?: string;                 // si es custom
+  visibility?: 'ALTA'|'MEDIA'|'BAJA';
+  estCost?: number;                    // puede sobrescribir defaultCost
+
+  status: 'APPROVED'|'SCHEDULED'|'DELIVERED'|'CLOSED';
+  // vínculo con agenda
+  taskId?: string;                     // una tarea de agenda (entrega/servicio/evento)
+  // datos de cierre
+  qtyDelivered?: number;
+  kpis?: Record<string, number|string|undefined>; // resultado siguiendo plantilla
+  photos?: string[];
+
+  createdAt: string; updatedAt: string; createdById?: string;
+};
+
 
 // --- Otras entidades necesarias para la compilación ---
 export type {
@@ -103,7 +146,6 @@ export type {
   MarketingEvent,
   OnlineCampaign,
   InfluencerCollab,
-  PosTactic,
   PosTacticItem,
   PosCostCatalogEntry,
   Lot,
@@ -158,6 +200,8 @@ export interface SantaData extends SantaDataV4 {
     plvMaterials: PlvMaterial[];
     activations: Activation[];
     promotions: Promotion[];
+    posCatalog: PosCatalogItem[];
+    posTactics: PosTactic[];
 }
 
 export { SB_THEME };
