@@ -1,4 +1,3 @@
-
 // ============================================================================
 // src/app/(app)/production/actions.ts
 // Server actions del módulo de Producción (REFACTORIZADO)
@@ -190,7 +189,7 @@ export async function completeProductionOrder(
       const qcPlanId = qcPlanSnap.empty ? undefined : qcPlanSnap.docs[0].id;
 
       // Crear o actualizar el lote
-      const lotRef = db.collection('lots').doc(lotNumber);
+      const lotRef = adminDb.collection('lots').doc(lotNumber);
       batch.set(lotRef, LotSchema.parse({
         lotNumber,
         itemId: output.itemId,
