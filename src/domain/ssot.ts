@@ -295,7 +295,6 @@ export interface QcTest { id: string; lotNumber: string; parameterId: string; va
 export interface ProtocolLog { productionOrderId: string; }
 export interface PosTacticItem {}
 export interface PlvMaterial {}
-export interface OrderSellIn {}
 export interface Invoice {}
 export interface PriceList {}
 export interface AccountPriceOverride {}
@@ -484,4 +483,4 @@ export type Payload =
 
 export type OrderSellIn = any; // Placeholder para compatibilidad
 export type ExecCheck = any; // Placeholder
-export type ReservationView = any; // Placeholder
+
