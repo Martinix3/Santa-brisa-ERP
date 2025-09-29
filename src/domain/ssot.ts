@@ -35,7 +35,7 @@ export type LotBucket = 'HOLD' | 'RELEASED' | 'REJECTED';
 export type InteractionKind = 'VISITA' | 'LLAMADA' | 'EMAIL' | 'WHATSAPP' | 'OTRO' | 'COBRO' | 'EVENTO_MKT';
 export type EventKind = 'DEMO' | 'FERIA' | 'FORMACION' | 'OTRO';
 export type PosTacticStatus = 'planned' | 'active' | 'closed' | 'cancelled';
-export type TraceEventKind = 'RECEIPT' | 'PRODUCTION_OUT' | 'PRODUCTION_IN' | 'SHIPMENT' | 'ADJUSTMENT' | 'MOVE';
+export type TraceEventKind = 'RECEIPT' | 'PRODUCTION_OUT' | 'PRODUCTION_IN' | 'CONSUME' | 'OUTPUT' | 'QC_TEST' | 'SHIPMENT' | 'ADJUSTMENT' | 'MOVE' | 'ARRIVED' | 'GENEALOGY_PARENT' | 'GENEALOGY_CHILD';
 export type TraceEventPhase = 'SOURCE' | 'RECEIPT' | 'QC' | 'PRODUCTION' | 'PACK' | 'WAREHOUSE' | 'SALE' | 'DELIVERY';
 
 
@@ -317,7 +317,9 @@ export interface OrderSellOut {
   id: string; docNumber?: string; partyId: string; accountId: string; source: 'CRM' | 'SHOPIFY' | 'OTHER' | 'MANUAL' | 'HOLDED';
   createdAt: Timestamp; currency: Currency;
   lines: Array<{ itemId: string; name?: string; qty: number; priceUnit: number; taxRate?: number; discountPct?: number; uom?: Uom | 'uds'; lotNumbers?: LotNumber[]; }>;
-  notes?: string; billingStatus?: BillingStatus; status: OrderStatus; totalAmount?: number;
+  notes?: string;
+  status: OrderStatus;
+  totalAmount?: number;
   external?: { shopifyOrderId?: string; holdedInvoiceId?: string; };
 }
 

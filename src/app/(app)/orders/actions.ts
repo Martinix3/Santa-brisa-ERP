@@ -94,7 +94,6 @@ export async function createSalesInvoice({ orderId }: { orderId:string }) {
   await upsertMany('ordersSellOut', [{
      id: orderId,
      status: 'invoiced',
-     billingStatus: 'INVOICED',
      updatedAt: now,
   }]);
 

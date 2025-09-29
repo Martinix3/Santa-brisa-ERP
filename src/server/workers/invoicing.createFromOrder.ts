@@ -28,7 +28,6 @@ export async function run({ orderId }: { orderId:string }) {
   // Marca pedido como 'invoiced' (y opcional: billingStatus)
   await orderRef.update({
     status: 'invoiced',
-    billingStatus: 'INVOICED', 
     invoiceId: invoice.id,
     updatedAt: new Date().toISOString(),
   });

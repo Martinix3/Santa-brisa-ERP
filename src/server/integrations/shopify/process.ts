@@ -83,8 +83,6 @@ export async function processShopifyEvent(params: WebhookParams) {
         id: orderRef.id,
         accountId: accRef.id,
         source: 'SHOPIFY',
-        billingStatus: 'PENDING',
-        external: { shopifyOrderId: String(payload.id) },
         updatedAt: FieldValue.serverTimestamp(),
       }, { merge: true });
 

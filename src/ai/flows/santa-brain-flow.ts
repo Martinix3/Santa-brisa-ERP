@@ -215,7 +215,6 @@ const santaBrainFlow = ai.defineFlow(
                 accountId: targetAccount.id,
                 partyId: targetAccount.partyId,
                 source: 'MANUAL',
-                billingStatus: 'PENDING',
             };
             newEntities.ordersSellOut = [...(newEntities.ordersSellOut || []), payload as OrderSellOut];
         } else if (tr.name === 'createInteraction' && targetAccount && input && typeof input === 'object') {

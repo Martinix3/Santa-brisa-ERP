@@ -50,7 +50,6 @@ export async function upsertShopifyOrder(shopifyOrder: any) {
     id: orderRef.id,
     accountId: accRef.id,
     source: 'SHOPIFY',
-    billingStatus: 'PENDING',
     updatedAt: FieldValue.serverTimestamp(),
     createdAt: new Date(shopifyOrder.created_at).toISOString(),
   }, { merge: true });

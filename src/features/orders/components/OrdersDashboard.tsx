@@ -278,7 +278,6 @@ export default function OrdersDashboard() {
             partyId: partyId,
             source: 'MANUAL',
             status: 'open',
-            billingStatus: 'PENDING',
             currency: 'EUR',
             createdAt: payload.requestedDate || new Date().toISOString(),
             lines: payload.items.map(item => ({ ...item, name: data.items.find(p => p.id === item.itemId)?.name || item.itemId })),
