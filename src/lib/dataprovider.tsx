@@ -139,7 +139,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
               { id: 'SM-TB-2509-01-PROD', itemId: 'item_fg_turm_blanco', lotNumber: 'TB-2509-01', toLocationId: 'FG/MAIN', qty: 1000, uom: 'uds', reason: 'production_in', occurredAt: '2025-08-22T14:00:00Z', note: 'Batch Turmeon Blanco', createdBy: 'Nacho', ref: { prodOrderId: 'PO-250822-0001' } },
 
               // Venta Turmeon Blanco
-              { id: 'SM-TB-2509-01-SHIP', itemId: 'item_fg_turm_blanco', lotNumber: 'TB-2509-01', fromLocationId: 'FG/MAIN', qty: -200, uom: 'uds', reason: 'ship', occurredAt: '2025-08-26T00:00:00Z', note: 'Salida pedido ORD-01', createdBy: 'Nacho', ref: { shipmentId: 'SH-250826-001' } },
+              { id: 'SM-TB-2509-01-SHIP', itemId: 'item_fg_turm_blanco', lotNumber: 'TB-2509-01', fromLocationId: 'FG/MAIN', qty: -200, uom: 'case', reason: 'ship', occurredAt: '2025-08-26T00:00:00Z', note: 'Salida pedido ORD-01', createdBy: 'Nacho', ref: { shipmentId: 'SH-250826-001' } },
           ] as unknown as StockMove[],
           lots: [
               { id: 'lote_sb750_1', lotNumber: 'lote_sb750_1', itemId: 'SB-750', qcStatus: 'PENDING', qcPlanId: 'plan_sb750_std', createdAt: new Date().toISOString() },
