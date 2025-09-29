@@ -1,3 +1,4 @@
+
 // src/features/quicklog/components/SBFlows.tsx
 "use client";
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
@@ -94,12 +95,12 @@ function QuickSwitcher({accounts, onSearchAccounts, onCreateAccount, onSubmit, o
   const searchAbortRef = useRef<AbortController | null>(null);
   const searchCache = useRef<Map<string, Account[]>>(new Map());
 
-  const addOrderLine = useCallback(() => { setItems(v => [...v, { itemId: "item_1", qty: 1, lotNumber: '' }]); }, []);
-  const setOrderLine = useCallback((i: number, patch: Partial<{ itemId: string; qty: number; lotNumber?: string }>) => { setItems(v => v.map((it, idx) => (idx === i ? { ...it, ...patch } : it))); }, []);
+  const addOrderLine = useCallback(() => { setItems(v => [...v, { itemId: "item_1", qty: 1 }]); }, []);
+  const setOrderLine = useCallback((i: number, patch: Partial<{ itemId: string; qty: number }>) => { setItems(v => v.map((it, idx) => (idx === i ? { ...it, ...patch } : it))); }, []);
   const removeOrderLine = useCallback((i: number) => { setItems(v => v.filter((_, idx) => idx !== i)); }, []);
   
   // quick order state
-  const [items, setItems] = useState<{itemId:string; qty:number, lotNumber?: string }[]>([{itemId:"item_1", qty:1, lotNumber: ''}]);
+  const [items, setItems] = useState<{itemId:string; qty:number }[]>([{itemId:"item_1", qty:1}]);
   
   // quick interaction state
   const [interactionNote, setInteractionNote] = useState("");
@@ -592,7 +593,7 @@ export function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, on
       onSubmit(payload);
   }
   
-  const orderTotal = useMemo(() => items.reduce((total, item) => total + (item.qty * item.priceUnit), 0), [items]);
+  const orderTotalValue = useMemo(() => items.reduce((total, item) => total + (item.qty * item.priceUnit), 0), [items]);
 
   return (
     <div className="p-4 space-y-3">
@@ -641,7 +642,7 @@ export function CreateOrderForm({accounts, onSearchAccounts, onCreateAccount, on
         })}
         <div className="px-3 py-2 flex justify-between items-center bg-zinc-50">
             <button onClick={addLine} className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md border border-zinc-300 bg-white hover:bg-zinc-50"><Plus className="h-3.5 w-3.5"/>Añadir línea</button>
-            <div className="text-right font-bold">Total: {orderTotal.toFixed(2)}€</div>
+            <div className="text-right font-bold">Total: {orderTotalValue.toFixed(2)}€</div>
         </div>
       </div>
       <Row><Label>Notas</Label><Textarea rows={3} value={note} onChange={e=>setNote(e.target.value)} /></Row>
@@ -787,3 +788,5 @@ export function BaseModal({open, onClose, color="#A7D8D9", title, icon:Icon=Clip
     </AnimatePresence>
   );
 }
+
+    
