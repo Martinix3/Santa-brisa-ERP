@@ -31,6 +31,28 @@ const ResponsiveContainer = dynamic(() => import("recharts").then(m => m.Respons
 type TimeRange = "week"|"month"|"year";
 type Scope = "personal"|"global";
 
+// --- MOCK DATA ---
+const MOCK_KPIS = {
+    newAccounts: 12,
+    visitsDone: 84,
+    salesEUR: 12534,
+    conversion: 23.5,
+    posScheduled: 18,
+    posDelivered: 15,
+    overdueTasks: 3,
+};
+
+const MOCK_EVOLUTION = [
+    { name: 'Lun', sales: 450, posCount: 2 },
+    { name: 'Mar', sales: 800, posCount: 1 },
+    { name: 'Mié', sales: 600, posCount: 3 },
+    { name: 'Jue', sales: 1200, posCount: 1 },
+    { name: 'Vie', sales: 2300, posCount: 4 },
+    { name: 'Sáb', sales: 1800, posCount: 2 },
+    { name: 'Dom', sales: 950, posCount: 0 },
+];
+// --- END MOCK DATA ---
+
 export default function SalesDashboardPage() {
   const { data, currentUser, loadInitialData } = useData();
   const [timeRange, setTimeRange] = useState<TimeRange>("month");
@@ -57,14 +79,16 @@ export default function SalesDashboardPage() {
 
   // datos base en rango
   const sellOutInRange = useMemo(() => {
-    const base = (data?.ordersSellOut||[]).filter(o => inWindow(String(o.createdAt), startDate, now));
+    if (!data?.ordersSellOut) return [];
+    const base = (data.ordersSellOut).filter(o => inWindow(String(o.createdAt), startDate, now));
     return applyScopeOrders(base);
   }, [data?.ordersSellOut, startDate, now, scope, applyScopeOrders]);
 
-  const interactions = useMemo(() => applyScopeTasks(data?.interactions||[]), [data?.interactions, scope, currentUser?.id, applyScopeTasks]);
+  const interactions = useMemo(() => data?.interactions ? applyScopeTasks(data.interactions) : [], [data?.interactions, scope, applyScopeTasks]);
 
   // POS tácticas (para KPIs del tablero)
   const posTactics = useMemo(() => {
+    if(!data) return [];
     const all = (data as any)?.posTactics || [];
     const scoped = scope==="global" ? all : all.filter((t:any) => owns.has(t.accountId));
     return scoped.filter((t:any) => inWindow(t.createdAt, startDate, now));
@@ -72,7 +96,8 @@ export default function SalesDashboardPage() {
 
   // KPIs
   const kpis = useMemo(() => {
-    const newAcc = (data?.accounts||[]).filter(a => inWindow(a.createdAt, startDate, now));
+    if (!data) return MOCK_KPIS;
+    const newAcc = (data.accounts||[]).filter(a => inWindow(a.createdAt, startDate, now));
     const newAccScoped = scope==="global" ? newAcc : newAcc.filter(a => a.ownerId===currentUser?.id);
 
     const visitsDone = interactions.filter(i => i.kind==="VISITA" && i.status==="done" && inWindow(String(i.createdAt), startDate, now)).length;
@@ -84,7 +109,7 @@ export default function SalesDashboardPage() {
     const overdueTasks = (interactions||[]).filter(i => i.status!=="done" && i.plannedFor && new Date(i.plannedFor) < now).length;
 
     const accountsWithOrder = new Set(sellOutInRange.map(o => o.accountId));
-    const universe = scope==="global" ? (data?.accounts||[]) : (data?.accounts||[]).filter(a => a.ownerId===currentUser?.id);
+    const universe = scope==="global" ? (data.accounts||[]) : (data.accounts||[]).filter(a => a.ownerId===currentUser?.id);
     const conversion = universe.length ? (accountsWithOrder.size / universe.length) * 100 : 0;
 
     return {
@@ -96,10 +121,11 @@ export default function SalesDashboardPage() {
       posDelivered,
       overdueTasks,
     };
-  }, [data?.accounts, interactions, sellOutInRange, posTactics, scope, currentUser?.id, startDate, now]);
+  }, [data, interactions, sellOutInRange, posTactics, scope, currentUser?.id, startDate, now]);
 
   // Serie combinada Ventas + nº tácticas POS en el periodo
   const evolution = useMemo(() => {
+    if (!data) return MOCK_EVOLUTION;
     const pts: { name:string; sales:number; posCount:number }[] = [];
     const gran = timeRange==="year" ? "month" : "day";
     const cur = new Date(startDate);
@@ -128,7 +154,7 @@ export default function SalesDashboardPage() {
         pts.push({ name, sales, posCount });
       }
     }
-    return pts;
+    return pts.length > 0 ? pts : MOCK_EVOLUTION;
   }, [sellOutInRange, timeRange, startDate, now, data, scope, owns]);
 
   // Completar tarjeta del kanban

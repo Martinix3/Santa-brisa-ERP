@@ -9,6 +9,13 @@ import { DEPT_META } from '@/domain/ssot';
 import Link from 'next/link';
 import { Avatar } from '@/components/ui/Avatar';
 
+const MOCK_TASKS: Interaction[] = [
+    { id: 'task1', userId: 'user_1', accountId: 'acc_1', kind: 'VISITA', note: 'Seguimiento propuesta de verano', dept: 'VENTAS', status: 'open', plannedFor: new Date(Date.now() - 2 * 86400000).toISOString(), createdAt: '' },
+    { id: 'task2', userId: 'user_2', accountId: 'acc_2', kind: 'LLAMADA', note: 'Confirmar asistencia a evento', dept: 'MARKETING', status: 'open', plannedFor: new Date(Date.now() + 1 * 86400000).toISOString(), createdAt: '' },
+    { id: 'task3', userId: 'user_1', accountId: 'acc_3', kind: 'OTRO', note: 'Preparar material para feria', dept: 'MARKETING', status: 'open', plannedFor: new Date(Date.now() + 3 * 86400000).toISOString(), createdAt: '' },
+];
+
+
 export function UpcomingTasks({ 
     department,
     scope = 'personal',
@@ -25,10 +32,10 @@ export function UpcomingTasks({
     const { data } = useData();
 
     const { overdue, upcoming } = useMemo(() => {
-        if (!data?.interactions) return { overdue: [], upcoming: [] };
+        const sourceTasks = data?.interactions || MOCK_TASKS;
         
         const now = new Date();
-        const openInteractions = data.interactions
+        const openInteractions = sourceTasks
             .filter(i => {
                 const matchesDept = department ? i.dept === department : (includeDepartments ? includeDepartments.includes(i.dept!) : true);
                 const matchesUser = !onlyUserId || i.userId === onlyUserId || (i.involvedUserIds || []).includes(onlyUserId);
@@ -50,7 +57,7 @@ export function UpcomingTasks({
     
     const title = department ? `Próximas Tareas de ${DEPT_META[department].label}` : 'Próximas Tareas';
 
-    if (allEvents.length === 0) {
+    if (allEvents.length === 0 && data) { // Show empty state only if there's real data
         return (
             <SBCard title={title}>
                 <p className="p-4 text-sm text-center text-zinc-500">No hay tareas programadas.</p>
