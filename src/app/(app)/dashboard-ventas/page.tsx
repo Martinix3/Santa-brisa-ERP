@@ -3,7 +3,7 @@
 
 import React, { useMemo, useState } from "react";
 import {
-  Users, MessageCircle, Euro, Package, Briefcase, CheckSquare, TrendingUp, TrendingDown,
+  Users, MessageCircle, Euro, Package, Briefcase, CheckSquare, TrendingUp, TrendingDown, BarChart3,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useData } from "@/lib/dataprovider";
@@ -347,6 +347,12 @@ export default function SalesDashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Animación sutil (fadeInUp) */}
+      <style jsx global>{`
+        @keyframes sb-fadeInUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+        .sb-animate-in { animation: sb-fadeInUp .25s ease-out both; }
+      `}</style>
     </div>
   );
 }
