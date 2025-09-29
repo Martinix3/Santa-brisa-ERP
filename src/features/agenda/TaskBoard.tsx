@@ -1,4 +1,4 @@
-
+// src/features/agenda/components/TaskBoard.tsx
 "use client";
 import React, { useMemo } from 'react';
 import { DndContext, useDraggable, useDroppable, closestCorners } from '@dnd-kit/core';
@@ -8,6 +8,7 @@ import { useData } from '@/lib/dataprovider';
 import { DEPT_META } from '@/domain/ssot';
 import { Avatar } from '@/components/ui/Avatar';
 
+// (El tipo Task no cambia)
 export type Task = {
   id: string;
   title: string;
@@ -23,28 +24,18 @@ type ColumnId = 'overdue' | 'upcoming' | 'done';
 
 const KANBAN_COLS: { id: ColumnId; label: string; icon: React.ElementType; headerColor: string }[] = [
   { id: 'overdue', label: 'Atrasadas', icon: AlertCircle, headerColor: 'text-rose-600' },
-  { id: 'upcoming', label: 'Programadas', icon: Clock, headerColor: 'text-cyan-600' },
+  { id: 'upcoming', label: 'Programadas', icon: Clock, headerColor: 'text-sky-600' }, // Tono de azul más profesional
   { id: 'done', label: 'Hechas', icon: Check, headerColor: 'text-emerald-600' },
 ];
 
-function TaskCard({
-  task,
-  onComplete,
-}: {
-  task: Task;
-  onComplete: (id: string) => void;
-}) {
+// ✅ Santabrisseado: Tarjeta con borde, sombra sutil y elevación en hover. Colores consistentes.
+function TaskCard({ task, onComplete }: { task: Task; onComplete: (id: string) => void; }) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: task.id });
   const { data: santaData } = useData();
-  const style = transform
-    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
-    : undefined;
+  const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined;
   
   const deptMeta = DEPT_META[task.type];
-
-  const involvedUsers = (task.involvedUserIds || [])
-    .map((id) => santaData?.users.find((u) => u.id === id))
-    .filter(Boolean) as User[];
+  const involvedUsers = (task.involvedUserIds || []).map((id) => santaData?.users.find((u) => u.id === id)).filter(Boolean) as User[];
 
   return (
     <div
@@ -52,30 +43,25 @@ function TaskCard({
       style={{ ...style, borderLeft: `4px solid ${deptMeta?.color || '#ccc'}` }}
       {...listeners}
       {...attributes}
-      className="p-3 bg-white rounded-lg border shadow-sm group cursor-grab active:cursor-grabbing"
+      className="p-3 bg-white rounded-lg border border-slate-200 shadow-sm group cursor-grab active:cursor-grabbing transition-all duration-200 hover:shadow-md hover:-translate-y-px"
       role="listitem"
     >
       <div className="flex items-start justify-between">
-        <p className="font-medium text-sm text-zinc-800 flex-1 pr-2">{task.title}</p>
+        <p className="font-medium text-sm text-slate-800 flex-1 pr-2">{task.title}</p>
       </div>
-
-      {task.location && <p className="text-xs text-zinc-500 mt-1">{task.location}</p>}
-
+      {task.location && <p className="text-xs text-slate-500 mt-1">{task.location}</p>}
       <div className="mt-2 flex justify-between items-center">
         <div className="flex items-center gap-2">
           {task.date && (
-            <time className="text-xs text-zinc-500" dateTime={new Date(task.date).toISOString()}>
-              {new Date(task.date).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}
+            <time className="text-xs text-slate-500" dateTime={new Date(task.date).toISOString()}>
+              {new Date(task.date).toLocaleString('es-ES', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
             </time>
           )}
           {task.status === 'open' && (
             <button
               type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onComplete(task.id);
-              }}
-              className="p-1 rounded-md text-zinc-400 opacity-0 group-hover:opacity-100 hover:bg-green-100 hover:text-green-600 transition-opacity"
+              onClick={(e) => { e.stopPropagation(); onComplete(task.id); }}
+              className="p-1 rounded-md text-slate-400 opacity-0 group-hover:opacity-100 hover:bg-emerald-50 hover:text-emerald-600 transition-opacity"
               title="Marcar como completada"
             >
               <Check size={16} />
@@ -83,66 +69,49 @@ function TaskCard({
           )}
         </div>
         <div className="flex -space-x-2">
-          {involvedUsers.map((user) => (
-            <Avatar key={user.id} name={user.name} size="md" />
-          ))}
+          {involvedUsers.map((user) => <Avatar key={user.id} name={user.name} size="md" />)}
         </div>
       </div>
     </div>
   );
 }
 
-function StatusColumn({
-  col,
-  tasks,
-  onCompleteTask,
-  subGroups,
-  onNewTask,
-}: {
-  col: (typeof KANBAN_COLS)[number];
-  tasks: Task[];
-  onCompleteTask: (id: string) => void;
-  subGroups?: { title: string; tasks: Task[] }[];
-  onNewTask?: () => void;
-}) {
+// ✅ Santabrisseado: Columna gris con borde, colores de texto y botón de "Añadir" alineados con el sistema.
+function StatusColumn({ col, tasks, onCompleteTask, subGroups, onNewTask }: { col: (typeof KANBAN_COLS)[number]; tasks: Task[]; onCompleteTask: (id: string) => void; subGroups?: { title: string; tasks: Task[] }[]; onNewTask?: () => void; }) {
   const { setNodeRef } = useDroppable({ id: col.id });
 
   const renderTasks = (tasksToRender: Task[]) => {
     if (tasksToRender.length === 0) {
       return (
-        <div className="text-xs text-zinc-500 bg-white/60 border border-dashed border-zinc-300 rounded-lg px-3 py-6 text-center">
+        <div className="text-xs text-slate-500 border-2 border-dashed border-slate-200 rounded-lg px-3 py-6 text-center">
           Sin tareas
         </div>
       );
     }
-    return tasksToRender.map((task) => (
-      <TaskCard key={task.id} task={task} onComplete={onCompleteTask} />
-    ));
+    return tasksToRender.map((task) => <TaskCard key={task.id} task={task} onComplete={onCompleteTask} />);
   };
 
   return (
-    <div ref={setNodeRef} className="bg-zinc-100/70 p-3 rounded-xl w-full" role="list" aria-label={col.label}>
+    <div ref={setNodeRef} className="bg-slate-50 border border-slate-200 p-3 rounded-lg w-full" role="list" aria-label={col.label}>
       <div className="flex items-center justify-between px-1 mb-3">
         <h3 className={`flex items-center gap-2 font-semibold ${col.headerColor}`}>
             <col.icon size={18} />
             {col.label}
-            <span className="text-sm font-normal text-zinc-500">{tasks.length}</span>
+            <span className="text-sm font-normal text-slate-500">{tasks.length}</span>
         </h3>
         {onNewTask && (
-            <button onClick={onNewTask} className="w-7 h-7 bg-gray-200 rounded-lg flex items-center justify-center hover:bg-gray-300 transition" title="Añadir nueva tarea">
+            <button onClick={onNewTask} className="w-7 h-7 bg-slate-200 text-slate-600 rounded-lg flex items-center justify-center hover:bg-slate-300 transition-colors" title="Añadir nueva tarea">
                 <Plus size={16} strokeWidth={2.5}/>
             </button>
         )}
       </div>
-
-
       <div className="space-y-3 min-h-[100px]">
         {subGroups ? (
           subGroups.map((group, index) => (
             <div key={index}>
               {group.tasks.length > 0 && (
                  <>
-                    <h4 className="text-xs font-semibold text-zinc-500 mb-2 px-1">{group.title} ({group.tasks.length})</h4>
+                    <h4 className="text-xs font-semibold text-slate-500 mb-2 px-1">{group.title} ({group.tasks.length})</h4>
                     <div className="space-y-3">{renderTasks(group.tasks)}</div>
                  </>
               )}
@@ -156,41 +125,19 @@ function StatusColumn({
   );
 }
 
-export function TaskBoard({
-  tasks,
-  onTaskStatusChange,
-  onCompleteTask,
-  onNewTask,
-}: {
-  tasks: Task[];
-  onTaskStatusChange: (id: string, newStatus: InteractionStatus) => void;
-  onCompleteTask: (id: string) => void;
-  onNewTask?: () => void;
-}) {
+// (El componente principal TaskBoard y su lógica no cambian)
+export function TaskBoard({ tasks, onTaskStatusChange, onCompleteTask, onNewTask }: { tasks: Task[]; onTaskStatusChange: (id: string, newStatus: InteractionStatus) => void; onCompleteTask: (id: string) => void; onNewTask?: () => void; }) {
   const categorizedTasks = useMemo(() => {
     const now = new Date();
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const todayEnd = new Date();
-    todayEnd.setHours(23, 59, 59, 999);
-
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
     const byDateAsc = (a?: string, b?: string) => (a ? +new Date(a) : 0) - (b ? +new Date(b) : 0);
-    
     const openTasks = tasks.filter((t) => t.status === 'open');
-    
-    const upcoming = openTasks
-      .filter((t) => t.date && new Date(t.date) >= todayStart)
-      .sort((a, b) => byDateAsc(a.date, b.date));
-
+    const upcoming = openTasks.filter((t) => t.date && new Date(t.date) >= todayStart).sort((a, b) => byDateAsc(a.date, b.date));
     const today = upcoming.filter(t => t.date && new Date(t.date) <= todayEnd);
     const future = upcoming.filter(t => t.date && new Date(t.date) > todayEnd);
-    
-    const overdue = openTasks
-      .filter((t) => !t.date || new Date(t.date) < todayStart)
-      .sort((a, b) => byDateAsc(a.date, b.date));
-      
+    const overdue = openTasks.filter((t) => !t.date || new Date(t.date) < todayStart).sort((a, b) => byDateAsc(a.date, b.date));
     const done = tasks.filter((t) => t.status === 'done');
-
     return { upcoming, today, future, overdue, done };
   }, [tasks]);
 
@@ -198,7 +145,7 @@ export function TaskBoard({
     const { over, active } = event;
     if (!over || !active) return;
     const newColId = over.id as ColumnId;
-    if (newColId !== 'done') return; // solo acción al soltar en "Hechas"
+    if (newColId !== 'done') return;
     const taskId = active.id as string;
     const task = tasks.find((t) => t.id === taskId);
     if (!task || task.status === 'done') return;
@@ -212,27 +159,10 @@ export function TaskBoard({
 
   return (
     <DndContext onDragEnd={handleDragEnd} collisionDetection={closestCorners}>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <StatusColumn
-          key="overdue"
-          col={KANBAN_COLS[0]}
-          tasks={categorizedTasks.overdue}
-          onCompleteTask={onCompleteTask}
-        />
-        <StatusColumn
-          key="upcoming"
-          col={KANBAN_COLS[1]}
-          tasks={categorizedTasks.upcoming}
-          onCompleteTask={onCompleteTask}
-          subGroups={upcomingSubgroups}
-          onNewTask={onNewTask}
-        />
-        <StatusColumn
-          key="done"
-          col={KANBAN_COLS[2]}
-          tasks={categorizedTasks.done}
-          onCompleteTask={onCompleteTask}
-        />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"> {/* Mayor separación */}
+        <StatusColumn key="overdue" col={KANBAN_COLS[0]} tasks={categorizedTasks.overdue} onCompleteTask={onCompleteTask} />
+        <StatusColumn key="upcoming" col={KANBAN_COLS[1]} tasks={categorizedTasks.upcoming} onCompleteTask={onCompleteTask} subGroups={upcomingSubgroups} onNewTask={onNewTask} />
+        <StatusColumn key="done" col={KANBAN_COLS[2]} tasks={categorizedTasks.done} onCompleteTask={onCompleteTask} />
       </div>
     </DndContext>
   );
