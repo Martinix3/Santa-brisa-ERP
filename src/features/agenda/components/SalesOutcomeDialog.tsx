@@ -2,9 +2,10 @@
 "use client";
 import React, { useState, useEffect, useMemo } from "react";
 import { useData } from "@/lib/dataprovider";
-import type { Interaction, Item } from "@/domain/ssot";
+import type { Interaction } from "@/domain/ssot";
 import { placeOrder } from "@/app/(app)/orders/actions";
 import { NewEventDialog } from "@/features/agenda/components/NewEventDialog";
+import { PosCompleteDialog } from "@/features/pos/PosCompleteDialog"; // IMPORTAMOS EL NUEVO
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { finalizeTaskWithOutcome } from "@/features/agenda/server/finalize-actions";
@@ -17,10 +18,11 @@ export function SalesOutcomeDialog({ open, onOpenChange, task }: Props) {
   const [mode, setMode] = useState<"PEDIDO"|"INTERACCION"|"POS"|"">("");
   const [lines, setLines] = useState<{sku:string;qty:number;unitPriceReported?:number}[]>([]);
   const [openNewEvent, setOpenNewEvent] = useState(false);
+  const [openPosComplete, setOpenPosComplete] = useState(false); // ⬅️ NUEVO ESTADO
   const [saving, setSaving] = useState(false);
 
   const skuOptions = useMemo(() =>
-    (data?.items || []).filter(i => i.active && i.category === 'fg').map(i => ({ value:i.sku, label:i.name })), [data?.items]
+    (data?.items || []).filter(i => (i as any).active && (i as any).category === 'fg').map(i => ({ value:i.sku, label:i.name })), [data?.items]
   );
 
   useEffect(() => {
@@ -28,6 +30,7 @@ export function SalesOutcomeDialog({ open, onOpenChange, task }: Props) {
       setMode("");
       setLines([]);
       setOpenNewEvent(false);
+      setOpenPosComplete(false); // ⬅️ RESETEAR
     }
   }, [open]);
 
@@ -45,11 +48,11 @@ export function SalesOutcomeDialog({ open, onOpenChange, task }: Props) {
         toast.success("Pedido colocado y tarea cerrada");
         close(); router.push(`/orders/${created.id}`);
       } else if (mode==="INTERACCION") {
-        setOpenNewEvent(true); // El diálogo se cierra desde NewEventDialog
+        setOpenNewEvent(true); // se cierra cuando el NewEventDialog guarde
       } else if (mode==="POS") {
-        await finalizeTaskWithOutcome({ taskId: task.id, outcome: { type:"POS" } });
-        toast.success("Tarea marcada como hecha (pos: completa KPIs en el siguiente diálogo)");
-        close();
+        // En lugar de finalizar, abrimos el diálogo de completar KPIs
+        setOpenPosComplete(true);
+        // La tarea se cerrará desde PosCompleteDialog
       } else {
         toast.error("Selecciona un resultado");
       }
@@ -98,7 +101,7 @@ export function SalesOutcomeDialog({ open, onOpenChange, task }: Props) {
 
           {mode==="INTERACCION" && (
             <div className="mb-3 text-sm text-zinc-600">
-              Crearemos una interacción de seguimiento (se abrirá el diálogo de nueva tarea).
+              Crearemos una interacción de seguimiento (abre diálogo).
             </div>
           )}
 
@@ -126,9 +129,18 @@ export function SalesOutcomeDialog({ open, onOpenChange, task }: Props) {
             toast.success("Interacción creada y tarea cerrada"); 
             setOpenNewEvent(false); close();
           }}
-          onError={(msg) => toast.error(`Error: ${msg}`)}
-          accentColor={""}
+          onError={(m)=>toast.error(m)}
+          accentColor=""
           initialEventData={{ accountId: task.accountId, dept:'VENTAS' } as any}
+        />
+      )}
+      
+      {/* ⬇️ NUEVO: mostramos el diálogo de completar POS si es necesario ⬇️ */}
+      {openPosComplete && task.linkedEntity?.type === 'POS_TACTIC' && (
+        <PosCompleteDialog
+          open={openPosComplete}
+          onOpenChange={o => { if(!o) { setOpenPosComplete(false); close(); } }}
+          tacticId={task.linkedEntity.id}
         />
       )}
     </>

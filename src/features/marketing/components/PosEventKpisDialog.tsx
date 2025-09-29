@@ -1,8 +1,9 @@
-
+// src/features/marketing/components/PosEventKpisDialog.tsx
 "use client";
 import React from 'react';
-import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
 import type { Interaction } from '@/domain/ssot';
+import { PosCompleteDialog } from '@/features/pos/PosCompleteDialog';
+
 
 export function PosEventKpisDialog({
   open,
@@ -13,18 +14,20 @@ export function PosEventKpisDialog({
   task: Interaction | null;
   onOpenChange: (open: boolean) => void;
 }) {
+  const isPosTactic = task?.linkedEntity?.type === 'POS_TACTIC';
+  const tacticId = isPosTactic ? task.linkedEntity.id : null;
+
+  if (!tacticId) {
+    // Si no es una táctica POS, podrías mostrar un error o un diálogo genérico
+    // pero por ahora simplemente no lo renderizamos para evitar errores.
+    return null;
+  }
+
   return (
-    <SBDialog open={open} onOpenChange={onOpenChange}>
-      <SBDialogContent
-        title={`Resultados de: ${task?.note || 'Acción de Marketing'}`}
-        description="Aquí registrarás los KPIs del evento o acción POS."
-        primaryAction={{ label: 'Cerrar (temporalmente)', onClick: () => onOpenChange(false)}}
-      >
-        <div className="p-4 text-center text-zinc-500">
-          <p>Este diálogo se usará para cerrar una tarea de marketing (evento/POS).</p>
-          <p className="font-semibold mt-2">Work in Progress</p>
-        </div>
-      </SBDialogContent>
-    </SBDialog>
+    <PosCompleteDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      tacticId={tacticId}
+    />
   );
 }
