@@ -1,5 +1,6 @@
 
 
+
 // src/app/(app)/accounts/page.tsx
 
 "use client"
@@ -17,6 +18,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { NewAccountDialog } from '@/features/accounts/components/NewAccountDialog';
 import { DEPT_META } from '@/domain/ssot';
 import { toast } from 'sonner';
+import { readFlowFrom } from "@/lib/useFlow";
 
 const STAGE: Record<string, { label:string; tint:string; text:string }> = {
   ACTIVA: { label:'Activas', tint:'#A7D8D9', text:'#17383a' },
@@ -190,7 +192,8 @@ function AccountBar({ a, party, santaData, onAddActivity, userMap, shortDate }: 
   )
 }
 
-export default function AccountsPage() {
+export default function AccountsPage({ searchParams }: { searchParams?: Record<string, any> }) {
+  const flow = readFlowFrom(searchParams);
   const router = useRouter();
   const { data: santaData, setData, currentUser, saveAllCollections } = useData();
   
@@ -255,12 +258,16 @@ export default function AccountsPage() {
     const s = q.trim().toLowerCase();
     
     return data.filter(a => {
+      // Filtro de flujo (DIRECT vs PLACEMENT)
+      const customerRole = (santaData.partyRoles || []).find(pr => pr.partyId === a.partyId && pr.role === 'CUSTOMER');
+      const billerId = (customerRole?.data as CustomerData)?.billerId;
+      const isDirect = !billerId || billerId === 'SB';
+      if (flow === 'DIRECT' && !isDirect) return false;
+      if (flow === 'PLACEMENT' && isDirect) return false;
+
       const ownerName = userMap[a.ownerId] || '';
       const party = partyMap[a.partyId];
       const city = party?.billingAddress?.city || '';
-
-      const customerRole = (santaData.partyRoles || []).find(pr => pr.partyId === a.partyId && pr.role === 'CUSTOMER');
-      const billerId = (customerRole?.data as CustomerData)?.billerId;
 
       const matchesQuery = !s || [a.name, city, a.type, a.stage, ownerName].some(v=> (v||'').toString().toLowerCase().includes(s));
       const matchesRep = !fltRep || a.ownerId === fltRep;
@@ -269,7 +276,7 @@ export default function AccountsPage() {
 
       return matchesQuery && matchesRep && matchesCity && matchesDist;
     });
-  }, [q, data, fltRep, fltCity, fltDist, santaData, userMap, partyMap]);
+  }, [q, data, fltRep, fltCity, fltDist, santaData, userMap, partyMap, flow]);
 
   const grouped = useMemo(()=>{
     const g: Record<string,Account[]> = { ACTIVA:[], SEGUIMIENTO:[], POTENCIAL:[], FALLIDA:[] };

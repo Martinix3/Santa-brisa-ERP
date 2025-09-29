@@ -1,5 +1,6 @@
 
 
+
 "use client";
 import React, { useMemo, useState, useEffect, useRef } from "react";
 import dynamic from 'next/dynamic';
@@ -17,6 +18,7 @@ import { generateInsights } from '@/ai/flows/generate-insights-flow';
 import { Avatar } from "@/components/ui/Avatar";
 import { sbAsISO } from '@/features/agenda/helpers';
 import { UpcomingTasks } from '@/features/agenda/components/UpcomingTasks';
+import { readFlowFrom } from "@/lib/useFlow";
 
 const PieChart = dynamic(() => import('recharts').then(mod => mod.PieChart), { ssr: false });
 const Pie = dynamic(() => import('recharts').then(mod => mod.Pie), { ssr: false });
@@ -246,7 +248,8 @@ function buildTimeSeries(orders: OrderSellOut[], start: Date, end: Date, granula
   return out;
 }
 
-function TeamDashboardContent() {
+function TeamDashboardContent({ searchParams }: { searchParams?: Record<string, any> }) {
+  const flow = readFlowFrom(searchParams);
   const { data, loadInitialData } = useData();
   const [timeRange, setTimeRange] = useState<TimeRange>('month');
   const [insights, setInsights] = useState("");
@@ -404,12 +407,16 @@ function TeamDashboardContent() {
   );
 }
 
-export default function SalesDashboardPage() {
+export default function SalesDashboardPage({ searchParams }: { searchParams?: Record<string, any> }) {
+    const flow = readFlowFrom(searchParams);
+    // Ahora puedes usar `flow` para filtrar datos y ajustar la UI
+    // por ejemplo, pasándolo como prop a TeamDashboardContent.
+
     return (
         <>
-            <ModuleHeader title="Dashboard de Ventas de Equipo" icon={BarChart3} />
+            <ModuleHeader title={`Dashboard de Ventas (${flow === 'DIRECT' ? 'Directas' : 'Colocación'})`} icon={BarChart3} />
             <div className="p-6 bg-zinc-50 flex-grow">
-              <TeamDashboardContent />
+              <TeamDashboardContent searchParams={searchParams}/>
             </div>
         </>
     )

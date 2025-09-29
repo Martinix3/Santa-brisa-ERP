@@ -1,4 +1,5 @@
 
+
 // src/app/(app)/warehouse/logistics/page.tsx
 
 "use client";
@@ -14,6 +15,7 @@ import { NewShipmentDialog } from "@/features/warehouse/components/NewShipmentDi
 import Link from "next/link";
 import { validateShipment, markShipped, createManualShipment } from './actions';
 import { toast } from 'sonner';
+import { readFlowFrom } from "@/lib/useFlow";
 
 
 // ===============================
@@ -232,7 +234,8 @@ const ValidateDialog: React.FC<{ open: boolean; onOpenChange: (v: boolean) => vo
 // ===============================
 // Panel principal
 // ===============================
-export default function LogisticsPage() {
+export default function LogisticsPage({ searchParams }: { searchParams?: Record<string, any> }) {
+  const flow = readFlowFrom(searchParams);
   const router = useRouter();
   const { data: santaData, currentUser } = useData();
   const [isPending, startTransition] = useTransition();
@@ -370,6 +373,15 @@ export default function LogisticsPage() {
 
     return showOnlyAvailable ? actions.filter(a => a.available) : actions;
   };
+
+  if (flow === "PLACEMENT") {
+    return (
+      <div className="p-6">
+        <h1 className="text-xl font-semibold">Logística no disponible</h1>
+        <p className="text-zinc-600 mt-2">La gestión de envíos y logística solo está disponible para el flujo de Ventas Directas.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
