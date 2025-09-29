@@ -1,11 +1,21 @@
+# Santa Brisa ERP - Resumen del Proyecto
 
-# Santa Brisa ERP - Resumen de Funcionalidades
+## 1. Resumen Ejecutivo
 
-Este documento proporciona un resumen de lo que hace cada página o módulo principal dentro de la aplicación Santa Brisa ERP.
+**Santa Brisa ERP** es un sistema de gestión interna (ERP/CRM) diseñado a medida para unificar todas las operaciones de la empresa en una única plataforma web moderna y reactiva. El objetivo es centralizar los datos de **Ventas, Marketing, Producción, Calidad y Logística** en una única fuente de verdad (Single Source of Truth, SSOT) para mejorar la eficiencia, la toma de decisiones y la trazabilidad.
+
+**Pilares Clave:**
+*   **Visión 360º:** Un modelo de datos "Party-Centric" que asegura un registro único por cada cliente, proveedor o contacto, eliminando duplicados.
+*   **Operaciones Conectadas:** Flujos de trabajo que enlazan un pedido de venta con la planificación de producción, el consumo de materias primas, el control de calidad del lote y la logística de envío.
+*   **Integraciones Asíncronas:** Conexión robusta con sistemas externos como **Holded** (facturación, contabilidad) y **Shopify** (e-commerce) a través de una cola de trabajos que garantiza la resiliencia del sistema.
+*   **Inteligencia Artificial:** Incorporación de capacidades de IA con **Genkit** para automatizar tareas, enriquecer datos y generar análisis predictivos sobre ventas, producción y marketing.
+
+**Tecnología:**
+Construido sobre un stack moderno con **Next.js, React y Firebase (Firestore)**, el sistema está diseñado para ser rápido, escalable y accesible desde cualquier lugar.
 
 ---
 
-## Módulos Principales
+## 2. Módulos Principales
 
 ### 🏠 Personal
 - **`/dashboard-personal`**: Tu centro de mando personal. Muestra un resumen de **tus tareas pendientes, atrasadas y futuras**. Es la primera página que ves al iniciar sesión para organizar tu día.
@@ -54,37 +64,12 @@ Este documento proporciona un resumen de lo que hace cada página o módulo prin
 
 ---
 
-## 🏛️ Arquitectura y Decisiones Clave
+## 3. Arquitectura y Decisiones Clave
 
-Esta sección documenta los principios de arquitectura y las lecciones aprendidas durante el desarrollo.
+*   **Modelo de Datos Unificado (SSOT)**: El núcleo del sistema es un `Single Source of Truth` definido en TypeScript (`/src/domain/ssot.ts`). Cualquier cambio en este modelo se propaga por toda la aplicación, garantizando la consistencia. El CRM se basa en un modelo **Party-Centric**, donde una entidad (persona/organización) es única y puede tener múltiples roles (cliente, proveedor).
 
-### 1. Modelo de Datos Party-Centric (SSOT)
+*   **Integración con Holded (Asíncrona)**: Las interacciones con sistemas externos como Holded (facturas, gastos) no bloquean la interfaz. Se gestionan mediante una **cola de trabajos en segundo plano** (`/src/server/queue`), lo que asegura que el sistema siga funcionando incluso si los servicios externos están lentos o caídos.
 
-El núcleo del CRM se basa en un modelo **Party-Centric**.
+*   **Límites Cliente/Servidor Estrictos**: Se utiliza la directiva `'use server'` de Next.js para delimitar claramente el código que se ejecuta en el servidor (acceso a BBDD, secretos) del que se ejecuta en el cliente. Esto mejora la seguridad y el rendimiento.
 
-*   **Party**: Representa una entidad única (persona u organización), identificada por su CIF/NIF. Contiene datos maestros como el nombre legal, direcciones y contactos. Una `Party` solo existe una vez.
-*   **PartyRole**: Define la relación de negocio con una `Party` (ej. `CUSTOMER`, `SUPPLIER`, `INFLUENCER`). Una `Party` puede tener múltiples roles.
-
-Este modelo evita la duplicación de contactos y proporciona una visión 360º real de cada entidad.
-
-### 2. Integración con Holded (Asíncrona y Robusta)
-
-La integración con sistemas externos como Holded se gestiona a través de una **cola de trabajos asíncrona** para garantizar la resiliencia y no bloquear la UI.
-
-*   **Cola de Trabajos**: Se utiliza una colección `jobs` en Firestore. Cuando una acción necesita una interacción con Holded (ej. crear una factura), se encola un nuevo documento en `jobs`.
-*   **Workers**: Funciones de servidor (`/src/server/workers/*.ts`) procesan estos trabajos en segundo plano. Un despachador (simulado por ahora) se encarga de ejecutar los trabajos pendientes.
-*   **Flujo de Facturación**:
-    1.  UI: Un pedido en el CRM se marca como `Confirmado`.
-    2.  Backend: Se encola un trabajo `CREATE_HOLDED_INVOICE` con el `orderId`.
-    3.  Worker: El worker `holded.createInvoice.ts` se ejecuta, crea el contacto en Holded si no existe (usando `external.holdedContactId` para la idempotencia), genera la factura y actualiza el pedido en el CRM con el ID de la factura de Holded.
-*   **Flujo de Gastos**:
-    1.  Un cron job (simulado) encola un trabajo `SYNC_HOLDED_PURCHASES`.
-    2.  El worker `holded.syncPurchases.ts` descarga las facturas de compra, crea o actualiza las `Parties` de proveedores y guarda los datos en la colección `expenses` del CRM.
-
-### 3. Lecciones Aprendidas de Desarrollo
-
-*   **Compatibilidad de Tipos entre Genkit y Zod**: Se detectó que Genkit utiliza una versión "brandeada" de Zod que causa errores de tipo en tiempo de compilación.
-    *   **Solución**: En lugar de intentar unificar las dependencias de Zod, la solución más limpia es hacer un `cast` de nuestros esquemas de Zod a `any` en el punto exacto donde se pasan a las funciones de Genkit (`defineTool`, `definePrompt`). Esto satisface a TypeScript sin afectar la validación en tiempo de ejecución.
-    *   **Ejemplo**: `inputSchema: miSchemaZod as any`
-*   **Uso de `server-only` y `use client`**: Es vital ser estricto con los límites cliente/servidor. Las funciones que acceden a secretos (`process.env`) o a la base de datos con credenciales de admin deben estar en archivos con la directiva `'use server'` o en la carpeta `src/server`. La importación accidental de código de servidor en un componente de cliente es una fuente común de errores.
-*   **Modelo de Datos**: Cualquier cambio en el SSOT (`src/domain/ssot.ts`) tiene un efecto en cascada. Es crucial actualizar los datos de prueba (`mock-data.ts`) y revisar los componentes que consumen esos datos inmediatamente después de un cambio para evitar errores de tipo en tiempo de compilación.
+*   **Componentes Reactivos**: La interfaz se construye con React y componentes de **ShadCN UI**. Un `DataProvider` centralizado gestiona el estado de los datos y los distribuye a los componentes, que se actualizan automáticamente cuando la información cambia.
