@@ -4,7 +4,7 @@
 import React, { useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
-import type { Interaction, InteractionStatus, Account, OrderSellOut, PosTactic } from '@/domain/ssot';
+import type { Interaction, InteractionStatus, Account, OrderSellOut, PosTactic, MarketingEvent } from '@/domain/ssot';
 import { orderToBottles } from '@/lib/sb-core';
 import { TaskBoard } from '@/features/agenda/TaskBoard';
 import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/TaskCompletionDialog';
@@ -21,7 +21,7 @@ function KpiCard({ title, value, goal, color }: { title: string; value: number; 
             <p className="text-sm font-medium text-gray-600">{title}</p>
             <p className="text-2xl font-bold mt-1">{value} <span className="text-sm font-normal text-gray-500">/ {goal}</span></p>
             <div className="w-full bg-gray-200 rounded-full h-1.5 mt-2">
-                <div className="h-1.5 rounded-full" style={{ width: `${progress}%`, backgroundColor: color }}></div>
+                <div className="h-1.5 rounded-full" style={{ width: `${pct}%`, backgroundColor: color }}></div>
             </div>
         </div>
     );
@@ -57,10 +57,9 @@ export default function PersonalDashboardPage() {
         const myPosTactics = (data.posTactics || []).filter(t => t.createdById === currentUser.id && new Date(t.createdAt) >= startOfMonth);
 
         const boxesSold = myOrders.reduce((sum, o) => {
-            if (!o.lines || o.lines.length === 0) return sum;
+            const item = data.items.find(it => o.lines[0] && it.id === o.lines[0].itemId);
+            const caseUnits = item?.caseUnits ?? 6;
             const bottles = orderToBottles(o, data.items || []);
-            const firstLineItemId = o.lines[0].itemId;
-            const caseUnits = data.items.find(it => it.id === firstLineItemId)?.caseUnits || 6;
             return sum + Math.floor(bottles / caseUnits);
         }, 0);
 

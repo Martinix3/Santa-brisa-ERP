@@ -25,7 +25,11 @@ export function UpcomingTasks({
     const { data } = useData();
 
     const { overdue, upcoming } = useMemo(() => {
-        const sourceTasks = data?.interactions || [];
+        const sourceTasks = data?.interactions || [
+            { id: '1', dept: 'VENTAS', note: 'Llamar a Cliente A', status: 'open', plannedFor: new Date(Date.now() - 2 * 86400000).toISOString(), userId: 'user_1' },
+            { id: '2', dept: 'VENTAS', note: 'Preparar propuesta B', status: 'open', plannedFor: new Date(Date.now() + 1 * 86400000).toISOString(), userId: 'user_2', involvedUserIds: ['user_1'] },
+            { id: '3', dept: 'MARKETING', note: 'Revisar campaña de verano', status: 'open', plannedFor: new Date(Date.now() + 2 * 86400000).toISOString(), userId: 'user_3' },
+        ] as Interaction[];
         
         const now = new Date();
         const openInteractions = sourceTasks
@@ -51,11 +55,11 @@ export function UpcomingTasks({
     const title = department ? `Próximas Tareas de ${DEPT_META[department].label}` : 'Próximas Tareas';
 
     const TaskItem = ({ title, status, initials, color }: { title: string; status: string; initials: string; color: string }) => {
-        const statusColors = {
-          'Vencido': { bg: '#33333320', text: '#333333', border: '#33333335' },
-          'Próxima': { bg: '#2D7FF920', text: '#2D7FF9', border: '#2D7FF935' },
+        const statusColors: Record<string, { bg: string, text: string, border: string }> = {
+          'Vencido': { bg: '#fee2e2', text: '#991b1b', border: '#fecaca' },
+          'Próxima': { bg: '#dbeafe', text: '#1d4ed8', border: '#bfdbfe' },
         };
-        const s = statusColors[status as keyof typeof statusColors] || statusColors['Próxima'];
+        const s = statusColors[status] || statusColors['Próxima'];
       
         return (
           <div className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg hover:shadow-md transition-shadow duration-200">
@@ -63,7 +67,7 @@ export function UpcomingTasks({
                   <div>
                       <p className="text-sm font-semibold text-gray-800">{title}</p>
                       <div className="flex items-center space-x-2 mt-1">
-                            <span style={{ display: 'inline-block', padding: '2px 6px', borderRadius: '6px', fontSize: '11px', backgroundColor: s.bg, color: s.text, border: `1px solid ${s.border}`, fontWeight: 600 }}>{status}</span>
+                           <span style={{ display: 'inline-block', padding: '2px 6px', borderRadius: '6px', fontSize: '11px', backgroundColor: s.bg, color: s.text, border: `1px solid ${s.border}`, fontWeight: 600 }}>{status}</span>
                       </div>
                   </div>
               </div>
@@ -71,15 +75,6 @@ export function UpcomingTasks({
           </div>
         );
     };
-
-    if (allEvents.length === 0 && data) { // Show empty state only if there's real data
-        return (
-             <div className="bg-white border border-gray-200 rounded-lg p-5 shadow-sm">
-                <h3 className="font-semibold text-gray-900">{title}</h3>
-                <p className="p-4 text-sm text-center text-zinc-500">No hay tareas programadas.</p>
-            </div>
-        );
-    }
 
     return (
         <div className="bg-white border border-gray-200 rounded-lg p-5 shadow-sm">
@@ -101,6 +96,9 @@ export function UpcomingTasks({
                         />
                     );
                 })}
+                 {allEvents.length === 0 && (
+                     <p className="p-4 text-sm text-center text-zinc-500">No hay tareas programadas.</p>
+                 )}
             </div>
         </div>
     );
