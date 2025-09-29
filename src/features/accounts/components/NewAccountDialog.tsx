@@ -4,7 +4,9 @@
 import React, { useState, useEffect } from 'react';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
 import { Input, Select, Textarea } from '@/components/ui/ui-primitives';
-import type { Account, Party, PartyRole, User, AccountType } from '@/domain/ssot';
+import type { Account, Party, PartyRole, User, AccountType, CustomerData } from '@/domain/ssot';
+import { useData } from '@/lib/dataprovider';
+
 
 interface NewAccountDialogProps {
   open: boolean;
@@ -23,6 +25,7 @@ export function NewAccountDialog({
   users,
   distributors,
 }: NewAccountDialogProps) {
+  const { saveAllCollections } = useData();
   const [name, setName] = useState('');
   const [cif, setCif] = useState('');
   const [city, setCity] = useState('');
@@ -88,18 +91,16 @@ export function NewAccountDialog({
         data: {
             salesRepId: ownerId,
             billerId: billerId
-        }
+        } as CustomerData
     };
     
-    // In a real app, you would call a server action here.
-    // For now, we simulate success and pass the data to the parent.
     try {
-        // const result = await yourServerAction({ newParty, newAccount, newRole });
-        // if(result.ok) {
-            onSuccess({ party: newParty, account: newAccount, role: newRole });
-        // } else {
-        //     throw new Error(result.message);
-        // }
+        await saveAllCollections({
+            parties: [newParty],
+            accounts: [newAccount],
+            partyRoles: [newRole]
+        });
+        onSuccess({ party: newParty, account: newAccount, role: newRole });
     } catch (error: any) {
         onError?.(error.message || 'Error desconocido al guardar la cuenta.');
     } finally {
