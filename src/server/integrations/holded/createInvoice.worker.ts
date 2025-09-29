@@ -1,35 +1,45 @@
-
 // src/server/integrations/holded/createInvoice.worker.ts
 import { adminDb as db } from '@/server/firebase';
-import type { OrderSellOut, Party, PartyRole, Item } from '@/domain/ssot';
+import type { OrderSellIn, Party, PartyRole, Item } from '@/domain/ssot';
 import { callHoldedApi } from './client';
 import { Timestamp } from 'firebase-admin/firestore';
 
 
 export async function handleCreateHoldedInvoice({ orderId }: { orderId: string }) {
-  const orderRef = db.collection('ordersSellOut').doc(orderId);
+  const orderRef = db.collection('ordersSellIn').doc(orderId); // Changed to ordersSellIn
   const snap = await orderRef.get();
   if (!snap.exists) throw new Error(`Order ${orderId} not found`);
-  const order = snap.data() as OrderSellOut;
+  const order = snap.data() as OrderSellIn;
 
-  if (order.external?.holdedInvoiceId || order.billingStatus === 'INVOICED') return;
+  // This worker should only run for DIRECT sales, which have invoices.
+  // A check in the queue trigger or here would be wise.
+
+  const accountSnap = await db.collection('accounts').doc(order.accountId).get();
+  const account = accountSnap.data();
+  if (!account || (account as any).flow === 'PLACEMENT') {
+    console.log(`Order ${orderId} belongs to a PLACEMENT account. Skipping Holded invoice creation.`);
+    return;
+  }
+  const partyId = account.partyId;
+
+  if ((order as any).external?.holdedInvoiceId || order.status === 'invoiced') return;
 
   await orderRef.set({ billingStatus: 'INVOICING', updatedAt: Timestamp.now() }, { merge: true });
 
-  if (!order.partyId) throw new Error(`Order ${order.id} is missing partyId`);
+  if (!partyId) throw new Error(`Order ${order.id} is missing partyId`);
 
   // 1) Party (cliente)
-  const partySnap = await db.collection('parties').doc(order.partyId).get();
-  if (!partySnap.exists) throw new Error(`Party ${order.partyId} not found`);
+  const partySnap = await db.collection('parties').doc(partyId).get();
+  if (!partySnap.exists) throw new Error(`Party ${partyId} not found`);
   const party = partySnap.data() as Party;
 
   // 2) Asegurar contacto Holded
-  let contactId = party.external?.holdedContactId;
+  let contactId = (party as any).external?.holdedContactId;
   if (!contactId) {
     const created: any = await callHoldedApi('/contacts', 'POST', {
-      name: party.tradeName || party.legalName,
-      code: party.vat, // vat -> code en Holded
-      email: (party.emails ?? [])[0]?.value,
+      name: party.legalName || 'Unknown Name',
+      code: party.cif,
+      email: (party.contacts ?? [])[0]?.email,
       address: party.billingAddress?.address,
       city: party.billingAddress?.city,
       postalCode: party.billingAddress?.zip,
@@ -39,12 +49,12 @@ export async function handleCreateHoldedInvoice({ orderId }: { orderId: string }
     contactId = created.id;
 
     // Ensure Party has CUSTOMER role in PartyRole collection
-    const partyRolesSnap = await db.collection('partyRoles').where('partyId', '==', order.partyId).where('role', '==', 'CUSTOMER').limit(1).get();
+    const partyRolesSnap = await db.collection('partyRoles').where('partyId', '==', partyId).where('role', '==', 'CUSTOMER').limit(1).get();
     if (partyRolesSnap.empty) {
         const newRoleRef = db.collection('partyRoles').doc();
         const newRole: PartyRole = {
             id: newRoleRef.id,
-            partyId: order.partyId,
+            partyId: partyId,
             role: 'CUSTOMER',
             isActive: true,
             createdAt: Timestamp.now().toMillis().toString(),
@@ -53,26 +63,26 @@ export async function handleCreateHoldedInvoice({ orderId }: { orderId: string }
         await newRoleRef.set(newRole);
     }
     
-    await db.collection('parties').doc(order.partyId).set({
-      external: { ...(party.external||{}), holdedContactId: contactId },
+    await db.collection('parties').doc(partyId).set({
+      external: { ...((party as any).external||{}), holdedContactId: contactId },
       updatedAt: Timestamp.now(),
     }, { merge: true });
   }
 
   // 3) Líneas con impuestos
-  const itemIds = (order.lines || []).map(l => l.itemId);
+  const itemIds = (order.lines || []).map(l => l.sku); // Assuming SKU is itemId for now
   const itemsSnap = itemIds.length ? await db.collection('items').where('id', 'in', itemIds).get() : { docs: [] };
   const itemsById = new Map(itemsSnap.docs.map(doc => [doc.id, doc.data() as Item]));
 
   const items = (order.lines || []).map(l => {
-    const itemData = itemsById.get(l.itemId);
+    const itemData = itemsById.get(l.sku);
     return {
-      name: l.name || itemData?.name || l.itemId,
+      name: itemData?.name || l.sku,
       sku: itemData?.sku,
       units: l.qty,
-      price: l.priceUnit,
-      tax: l.taxRate ?? 21,
-      discount: (l as any).discountPct ?? 0,
+      price: l.unitPrice,
+      tax: (l as any).taxRate ?? 21,
+      discount: l.discountPct ?? 0,
     };
   });
 
@@ -86,13 +96,13 @@ export async function handleCreateHoldedInvoice({ orderId }: { orderId: string }
     currency: (order.currency || 'EUR').toUpperCase(),
     date: issuedAtSec,
     customId: orderId, // ← evita duplicados si reintenta
-    notes: order.notes,
+    notes: (order as any).notes,
   });
 
   // 6) Persistir
   await orderRef.set({
-    billingStatus: 'INVOICED',
-    external: { ...(order.external||{}), holdedInvoiceId: invoice.id },
+    status: 'invoiced',
+    invoiceId: invoice.id,
     updatedAt: Timestamp.now()
   }, { merge: true });
 }

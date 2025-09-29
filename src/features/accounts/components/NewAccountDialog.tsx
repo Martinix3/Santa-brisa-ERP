@@ -1,10 +1,10 @@
-
+// src/features/accounts/components/NewAccountDialog.tsx
 
 "use client";
 import React, { useState, useEffect } from 'react';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
 import { Input, Select, Textarea } from '@/components/ui/ui-primitives';
-import type { Account, Party, PartyRole, User, AccountType, CustomerData } from '@/domain/ssot';
+import type { Account, Party, PartyRole, User, AccountType, CustomerData, CommercialFlow } from '@/domain/ssot';
 import { useData } from '@/lib/dataprovider';
 
 
@@ -32,7 +32,7 @@ export function NewAccountDialog({
   const [address, setAddress] = useState('');
   const [type, setType] = useState<AccountType>('HORECA');
   const [ownerId, setOwnerId] = useState('');
-  const [billerId, setBillerId] = useState('SB');
+  const [distributorPartyId, setDistributorPartyId] = useState<string | undefined>();
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -43,7 +43,7 @@ export function NewAccountDialog({
       setAddress('');
       setType('HORECA');
       setOwnerId('');
-      setBillerId('SB');
+      setDistributorPartyId(undefined);
       setIsSaving(false);
     }
   }, [open]);
@@ -53,6 +53,12 @@ export function NewAccountDialog({
     if (!name || !ownerId) {
       onError?.('Nombre y Responsable son obligatorios.');
       return;
+    }
+    
+    const flow: CommercialFlow = distributorPartyId ? 'PLACEMENT' : 'DIRECT';
+    if(flow === 'PLACEMENT' && !distributorPartyId) {
+        onError?.('Se debe seleccionar un distribuidor para cuentas de colocación.');
+        return;
     }
 
     setIsSaving(true);
@@ -76,10 +82,13 @@ export function NewAccountDialog({
       id: accountId,
       partyId: partyId,
       name: name,
-      type: type,
+      segment: type,
       stage: 'POTENCIAL',
       ownerId: ownerId,
+      flow,
+      distributorPartyId,
       createdAt: now,
+      updatedAt: now,
     };
 
     const newRole: PartyRole = {
@@ -90,7 +99,7 @@ export function NewAccountDialog({
         createdAt: now,
         data: {
             salesRepId: ownerId,
-            billerId: billerId
+            billerId: distributorPartyId || 'SB'
         } as CustomerData
     };
     
@@ -146,9 +155,9 @@ export function NewAccountDialog({
                         ))}
                     </Select>
                 </label>
-                 <label className="grid gap-1.5"><span className="text-sm font-medium">Facturador</span>
-                    <Select value={billerId} onChange={e => setBillerId(e.target.value)}>
-                        <option value="SB">Santa Brisa (Venta Propia)</option>
+                 <label className="grid gap-1.5"><span className="text-sm font-medium">Distribuidor (si aplica)</span>
+                    <Select value={distributorPartyId || ''} onChange={e => setDistributorPartyId(e.target.value || undefined)}>
+                        <option value="">Venta Propia (Santa Brisa)</option>
                         {distributors.map(dist => (
                             <option key={dist.value} value={dist.value}>{dist.label}</option>
                         ))}

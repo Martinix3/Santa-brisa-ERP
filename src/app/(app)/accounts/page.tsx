@@ -1,6 +1,3 @@
-
-
-
 // src/app/(app)/accounts/page.tsx
 
 "use client"
@@ -90,7 +87,7 @@ function AccountBar({ a, party, santaData, onAddActivity, userMap, shortDate }: 
   };
 
   const distributorName = useMemo(() => {
-      return getDistributorForAccount(a, santaData.partyRoles, santaData.parties)?.name || 'Propia';
+      return getDistributorForAccount(a, santaData.partyRoles, santaData.parties)?.name || '—';
   }, [a, santaData.partyRoles, santaData.parties]);
 
 
@@ -193,7 +190,7 @@ function AccountBar({ a, party, santaData, onAddActivity, userMap, shortDate }: 
 }
 
 export default function AccountsPage({ searchParams }: { searchParams?: Record<string, any> }) {
-  const flow = readFlowFrom(searchParams);
+  const flow: 'PLACEMENT' = 'PLACEMENT'; // Forzar vista colocación en esta página
   const router = useRouter();
   const { data: santaData, setData, currentUser, saveAllCollections } = useData();
   
@@ -258,25 +255,20 @@ export default function AccountsPage({ searchParams }: { searchParams?: Record<s
     const s = q.trim().toLowerCase();
     
     return data.filter(a => {
-      // Filtro de flujo (DIRECT vs PLACEMENT)
-      const customerRole = (santaData.partyRoles || []).find(pr => pr.partyId === a.partyId && pr.role === 'CUSTOMER');
-      const billerId = (customerRole?.data as CustomerData)?.billerId;
-      const isDirect = !billerId || billerId === 'SB';
-      if (flow === 'DIRECT' && !isDirect) return false;
-      if (flow === 'PLACEMENT' && isDirect) return false;
+      if (a.flow !== 'PLACEMENT') return false; // Solo cuentas de colocación
 
-      const ownerName = userMap[a.ownerId] || '';
+      const ownerName = userMap[a.ownerId];
       const party = partyMap[a.partyId];
       const city = party?.billingAddress?.city || '';
 
-      const matchesQuery = !s || [a.name, city, a.type, a.stage, ownerName].some(v=> (v||'').toString().toLowerCase().includes(s));
+      const matchesQuery = !s || [a.name, city, a.stage, ownerName].some(v=> (v||'').toString().toLowerCase().includes(s));
       const matchesRep = !fltRep || a.ownerId === fltRep;
       const matchesCity = !fltCity || city === fltCity;
-      const matchesDist = !fltDist || billerId === fltDist;
+      const matchesDist = !fltDist || a.distributorPartyId === fltDist;
 
       return matchesQuery && matchesRep && matchesCity && matchesDist;
     });
-  }, [q, data, fltRep, fltCity, fltDist, santaData, userMap, partyMap, flow]);
+  }, [q, data, fltRep, fltCity, fltDist, santaData, userMap, partyMap]);
 
   const grouped = useMemo(()=>{
     const g: Record<string,Account[]> = { ACTIVA:[], SEGUIMIENTO:[], POTENCIAL:[], FALLIDA:[] };
@@ -318,7 +310,7 @@ export default function AccountsPage({ searchParams }: { searchParams?: Record<s
 
   return (
     <>
-      <ModuleHeader title="Cuentas" icon={Users}>
+      <ModuleHeader title="Cuentas de Colocación" icon={Users}>
         <button onClick={() => setIsNewAccountOpen(true)} className="flex items-center gap-2 text-sm rounded-md px-3 py-1.5 font-semibold transition-colors"
          style={{ backgroundColor: DEPT_META.VENTAS.color, color: DEPT_META.VENTAS.textColor }}>
             <Plus size={16} /> Nueva Cuenta
@@ -414,5 +406,3 @@ export default function AccountsPage({ searchParams }: { searchParams?: Record<s
     </>
   )
 }
-
-    

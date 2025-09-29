@@ -8,6 +8,8 @@
 // 1. Tipos Primitivos y Enums Transversales
 // -----------------------------------------------------------------
 
+export type CommercialFlow = 'DIRECT' | 'PLACEMENT';
+
 // --- Núcleo legal (único por CIF) ---
 export type Address = { street: string; city: string; zip: string; province?: string; country: string; };
 
@@ -24,19 +26,19 @@ export type Party = {
 };
 
 // --- Vista comercial ---
-export type AccountMode = 'DIRECTA' | 'COLOCACION';
 export type Segment = 'HORECA' | 'RETAIL' | 'ONLINE' | 'PRIVADA';
 export type Stage = 'POTENCIAL' | 'SEGUIMIENTO' | 'ACTIVA' | 'FALLIDA';
 
 export interface Account {
   id: string;
   partyId: string;
-  mode: AccountMode;
+  mode: AccountMode; // Kept for compatibility, should be deprecated in favor of flow
+  flow: CommercialFlow; // The new source of truth for the flow
   segment: Segment;
   name: string;
   ownerId?: string;
   stage: Stage;
-  distributorId?: string; // requerido si COLOCACION
+  distributorPartyId?: string; // Requerido si flow es PLACEMENT
   priceListId?: string; // solo DIRECTA
   createdAt: string;
   updatedAt: string;
@@ -45,7 +47,7 @@ export interface Account {
 // --- Pedidos de venta propia (incluye online) ---
 export interface OrderSellIn {
   id: string;
-  accountId: string; // account.mode = DIRECTA
+  accountId: string; // account.flow = DIRECT
   channel: 'FIELD' | 'ONLINE'; // ONLINE si viene de Shopify
   status: 'draft' | 'open' | 'confirmed' | 'fulfilled' | 'invoiced' | 'paid' | 'cancelled';
   lines: { sku: string; qty: number; unitPrice: number; discountPct?: number; }[];
@@ -60,87 +62,31 @@ export interface OrderSellIn {
 // --- Pedidos reportados (distribuidor) ---
 export interface OrderSellOut {
   id: string;
-  accountId: string; // account.mode = COLOCACION
-  distributorId: string; // redundante para filtro rápido
+  orderNumber?: string; // Added for consistency
+  accountId: string; // account.flow = PLACEMENT
+  flow: 'PLACEMENT'; // Fixed value
+  distributorPartyId: string; // redundante para filtro rápido
   date: string;
-  lines: { sku: string; qty: number; unitPriceReported?: number; }[];
-  totalReported?: number;
-  currency?: 'EUR';
+  status: 'invoiced'|'shipped'|'open'|'cancelled'; // reporte
+  currency: 'EUR';
+  totalAmount: number;
+  lines: { itemId: string; qty: number; unitPrice?: number }[];
   createdAt: string;
   updatedAt: string;
 }
 
 // --- Logística/finanzas (solo DIRECTA) ---
-export interface Shipment {
-  id: string;
-  orderId: string;
-  status: 'pending' | 'picking' | 'ready' | 'shipped' | 'cancelled';
-  labelUrl?: string;
-  trackingCode?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface Invoice {
-  id: string;
-  orderId: string;
-  number: string;
-  status: 'draft' | 'issued' | 'paid' | 'cancelled';
-  amount: number;
-  createdAt: string;
-  updatedAt: string;
-}
+export interface Shipment { id: string; orderId: string; status:'pending'|'picking'|'ready'|'shipped'|'cancelled'; labelUrl?: string; trackingCode?: string; createdAt:string; updatedAt:string };
+export interface Invoice  { id: string; orderId: string; number: string; status:'draft'|'issued'|'paid'|'cancelled'; amount:number; createdAt:string; updatedAt:string };
 
 // --- Precios (solo DIRECTA) ---
-export interface PriceList {
-  id: string;
-  name: string;
-  currency: 'EUR';
-  lines: { sku: string; price: number; }[];
-  validFrom?: string;
-  validTo?: string;
-}
-
-export interface AccountPriceOverride {
-  id: string;
-  accountId: string;
-  sku: string;
-  price: number;
-  currency: 'EUR';
-}
+export interface PriceList { id: string; name: string; currency:'EUR'; lines: { sku:string; price:number }[]; validFrom?:string; validTo?:string };
+export interface AccountPriceOverride { id:string; accountId:string; sku:string; price:number; currency:'EUR' };
 
 // --- Marketing (aplica en DIRECTA si procede) ---
-export interface PlvMaterial {
-  id: string;
-  accountId: string;
-  kind: string;
-  status: 'SOLICITADO' | 'ENTREGADO' | 'INSTALADO' | 'RETIRADO';
-  photoUrl?: string;
-  installedAt?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface Activation {
-  id: string;
-  accountId: string;
-  description: string;
-  status: 'planned' | 'active' | 'closed';
-  startDate: string;
-  endDate?: string;
-  ownerId?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface Promotion {
-  id: string;
-  name: string;
-  validFrom: string;
-  validTo: string;
-  mechanic: 'PCT' | 'BOGO' | '5+1' | 'VALUE';
-  data?: any;
-}
+export interface PlvMaterial { id:string; accountId:string; kind:string; status:'SOLICITADO'|'ENTREGADO'|'INSTALADO'|'RETIRADO'; photoUrl?:string; installedAt?:string; createdAt:string; updatedAt:string };
+export interface Activation  { id:string; accountId:string; description:string; status:'planned'|'active'|'closed'; startDate:string; endDate?:string; ownerId?:string; createdAt:string; updatedAt:string };
+export interface Promotion   { id:string; name:string; validFrom:string; validTo:string; mechanic:'PCT'|'BOGO'|'5+1'|'VALUE'; data?:any };
 
 
 // --- Otras entidades necesarias para la compilación ---
@@ -194,7 +140,8 @@ export type {
   TraceEventPhase,
   DeliveryNote,
   FinanceLink,
-  PaymentLink
+  PaymentLink,
+  AccountMode, // Keep for compatibility
 } from './ssot.v4';
 import type { SantaDataV4, SB_THEME } from './ssot.v4';
 
