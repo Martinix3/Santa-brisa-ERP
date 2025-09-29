@@ -20,14 +20,14 @@ function KpiCard({ title, value, goal, color }: { title: string; value: number; 
             <p className="text-sm font-medium text-gray-600">{title}</p>
             <p className="text-2xl font-bold mt-1">{value} <span className="text-sm font-normal text-gray-500">/ {goal}</span></p>
             <div className="w-full bg-gray-200 rounded-full h-1.5 mt-2">
-                <div className="h-1.5 rounded-full" style={{ width: `${Math.min(100, progress)}%`, backgroundColor: color }}></div>
+                <div className="h-1.5 rounded-full" style={{ width: `${progress}%`, backgroundColor: color }}></div>
             </div>
         </div>
     );
 }
 
 export default function PersonalDashboardPage() {
-    const { currentUser, data, setData, saveAllCollections } = useData();
+    const { currentUser, data, setData, saveCollection, saveAllCollections } = useData();
     const router = useRouter();
     const [completingTask, setCompletingTask] = useState<Interaction | null>(null);
     const [openNewTask, setOpenNewTask] = useState(false);
@@ -38,7 +38,7 @@ export default function PersonalDashboardPage() {
 
         const myInteractions = (data.interactions || []).filter(i => {
             const isAssigned = (i.involvedUserIds || []).includes(currentUser.id);
-            const isSelfAssigned = !i.involvedUserIds?.length && i.userId === currentUser.id;
+            const isSelfAssigned = (i.involvedUserIds === undefined || i.involvedUserIds.length === 0) && i.userId === currentUser.id;
             return isAssigned || isSelfAssigned;
         });
         

@@ -1,5 +1,3 @@
-
-
 // src/features/agenda/components/NewEventDialog.tsx
 "use client";
 import React, { useState, useEffect } from 'react';
@@ -9,6 +7,7 @@ import type { Department, User, Interaction, InteractionKind, Account, SantaData
 import { DEPT_META } from '@/domain/ssot'; // usa el canónico
 import { useData } from '@/lib/dataprovider';
 import { Avatar } from '@/components/ui/Avatar';
+import { createInteraction } from '@/app/(app)/agenda/actions';
 
 function AccountSearch({ initialAccountId, initialLocation, onSelectionChange }: { 
     initialAccountId?: string;
@@ -67,7 +66,7 @@ function AccountSearch({ initialAccountId, initialLocation, onSelectionChange }:
                 />
             </div>
             {results.length > 0 && query.length > 1 && (
-                <ul className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-48 overflow-auto">
+                <ul className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto">
                     {results.map(account => (
                         <li key={account.id} 
                             className="px-3 py-2 cursor-pointer hover:bg-zinc-100"
@@ -143,37 +142,22 @@ export function NewEventDialog({
         
         setIsSaving(true);
         try {
-            const saveData: Omit<Interaction, 'id' | 'createdAt' | 'status'> & { id?: string } = {
-                id: initialEventData?.id,
-                userId: initialEventData?.userId || currentUser!.id,
+            if (!currentUser?.id) throw new Error("No hay usuario logueado.");
+
+            const saveData = {
+                accountId: selection.accountId!,
                 dept: type, 
                 kind: 'OTRO',
                 plannedFor: dateTime || undefined,
                 note: notes,
                 location: selection.location,
-                accountId: selection.accountId,
-                involvedUserIds: involvedUserIds.length > 0 ? involvedUserIds : (currentUser ? [currentUser.id] : []),
+                createdById: currentUser.id,
+                linkedEntity: undefined,
             };
 
-            if (!saveData.id) {
-                delete saveData.id;
-            }
-            
-            const newInteraction: Interaction = {
-                ...saveData,
-                id: saveData.id || `int_${Date.now()}`,
-                createdAt: new Date().toISOString(),
-                status: 'open',
-            } as Interaction;
-    
-            const collectionToSave: Partial<SantaData> = {
-                interactions: [newInteraction]
-            };
-            
-            if (saveAllCollections) {
-                await saveAllCollections(collectionToSave);
-            }
-            onSuccess(newInteraction);
+            const result = await createInteraction(saveData);
+
+            onSuccess(result);
 
         } catch (error: any) {
             onError?.(error.message || "Error al guardar la tarea.");
