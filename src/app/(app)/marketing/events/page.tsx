@@ -14,6 +14,7 @@ import { upsertPosTactic } from '@/features/marketing/services/posTactics.client
 import { listPosCostCatalog, listPlvInStock } from '@/features/marketing/services/posTactics.service';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
+import { PosLineInput } from '@/features/pos/server/pos-actions';
 
 function StatusPill({ status }: { status: MarketingEvent['status'] }) {
     const styles: Record<MarketingEvent['status'], string> = {
@@ -110,7 +111,7 @@ export default function Page(){
       setIsNewTacticOpen(true);
   }
 
-  const handleSaveTactic = async (data: any) => {
+  const handleSaveTactic = async (data: { lines: PosLineInput[], accountId: string }) => {
       if (!tacticEventContext || !currentUser) return;
       try {
         await upsertPosTactic({ ...data, eventId: tacticEventContext.eventId } as any, currentUser.id);
@@ -202,6 +203,8 @@ export default function Page(){
             onSave={handleSaveTactic}
             tacticBeingEdited={null}
             accounts={santaData.accounts}
+            catalog={catalog}
+            plvInventory={plv}
         />
     )}
     </>

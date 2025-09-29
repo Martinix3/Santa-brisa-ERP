@@ -76,7 +76,7 @@ export function NewAccountDialog({
       billingAddress: { street: address, city: city, zip: '', country: 'España' },
       createdAt: now,
       updatedAt: now,
-    };
+    } as Party;
 
     const newAccount: Account = {
       id: accountId,

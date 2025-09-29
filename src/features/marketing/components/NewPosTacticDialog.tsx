@@ -82,12 +82,12 @@ const TacticItemRow = ({
 }) => {
     
     const handleTypeChange = (value: 'CATALOGO' | 'CUSTOM') => {
-        onChange(index, { kind: value, catalogItemId: undefined, description: '' });
+        onChange(index, { kind: value, catalogItemId: undefined, desc: '' });
     };
 
     const handleCatalogChange = (value: string) => {
         const catItem = catalog.find(c => c.id === value);
-        onChange(index, { catalogItemId: value, estCostOverride: catItem?.defaultCost, description: catItem?.name });
+        onChange(index, { catalogItemId: value, estCost: catItem?.defaultCost, desc: catItem?.name });
     };
 
     return (
@@ -103,10 +103,10 @@ const TacticItemRow = ({
                     {catalog.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </Select>
             ) : (
-                <Input value={item.description || ''} onChange={(e) => onChange(index, { description: e.target.value })} placeholder="Descripción de la acción"/>
+                <Input value={item.desc || ''} onChange={(e) => onChange(index, { desc: e.target.value })} placeholder="Descripción de la acción"/>
             )}
             
-            <Input type="number" placeholder="Coste (€)" value={item.estCostOverride ?? ''} onChange={e => onChange(index, { estCostOverride: Number(e.target.value) || undefined })}/>
+            <Input type="number" placeholder="Coste (€)" value={(item as any).estCostOverride ?? item.estCost ?? ''} onChange={e => onChange(index, { estCost: Number(e.target.value) || undefined })}/>
             <Input type="date" value={item.scheduleAt || ''} onChange={e => onChange(index, { scheduleAt: e.target.value })}/>
             
             <button type="button" onClick={() => onRemove(index)} className="p-2 text-red-500 hover:bg-red-50 rounded-md"><X size={16}/></button>
@@ -134,8 +134,8 @@ export function NewPosTacticDialog({
             setLines(tacticBeingEdited?.id ? (tacticBeingEdited.items || []).map((i: any) => ({
                 kind: i.catalogCode ? 'CATALOGO' : 'CUSTOM',
                 catalogItemId: i.catalogCode,
-                description: i.description,
-                estCostOverride: i.unitCost,
+                desc: i.description,
+                estCost: i.unitCost,
                 qty: i.qty
             })) : [{ kind: 'CATALOGO' }]);
         }

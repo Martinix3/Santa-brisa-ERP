@@ -78,14 +78,15 @@ export async function upsertPosTactic(input: UpsertPosTacticInput, createdById: 
     };
   });
 
-  const actualCost = items.reduce((s, it) => s + (it.unitCost || 0) * (it.qty || 1), 0);
+  const estCost = items.reduce((s, it) => s + (it.unitCost || 0) * (it.qty || 1), 0);
   const payload: PosTactic = {
     id,
     accountId: data.accountId,
     tacticCode: data.tacticCode ?? 'OTHER',
     description: data.description,
     items,
-    actualCost,
+    estCost,
+    actualCost: estCost, // Default actual to estimated
     executionScore: data.executionScore,
     status: data.status,
     createdAt: nowISO(),

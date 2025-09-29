@@ -1,7 +1,10 @@
 // --- Santa Brisa: lógica de negocio (sell-out a botellas, agregados y KPIs) ---
 import type {
-  Account, Party, PartyRole, CustomerData, OrderSellOut, OrderLine, User, SantaData, Item, QcStatus
+  Account, Party, PartyRole, CustomerData, OrderSellOut, OrderLine as SsotOrderLine, User, SantaData, Item, QcStatus
 } from '@/domain/ssot';
+
+// Re-export OrderLine to be accessible
+export type OrderLine = SsotOrderLine;
 
 export const inWindow = (dateStr: string, start: Date, end: Date): boolean => {
   if (!dateStr) return false;

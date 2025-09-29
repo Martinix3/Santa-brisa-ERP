@@ -236,6 +236,7 @@ export default function LogisticsPage() {
   const [isPending, startTransition] = useTransition();
   const [optimistic, setOptimistic] = useState<Record<string, any>>({});
   
+  const searchParams = useSearchParams();
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<string>("all");
   const [channel, setChannel] = useState<string>("all");
@@ -267,9 +268,10 @@ export default function LogisticsPage() {
   const filtered = useMemo(() => shipments.filter(s => {
     const order = orderMap.get(s.orderId);
     const account = order ? accountMap.get(order.accountId) : undefined;
-
+    
+    const accountType = account?.segment?.toLowerCase() ?? '';
     const st = (status === "all" || s.status === status);
-    const ch = (channel === "all" || (account && account.segment.toLowerCase() === channel.toLowerCase()));
+    const ch = (channel === "all" || (account && accountType === channel.toLowerCase()));
     const query = (q.trim() === "" || s.id.includes(q) || (account?.name || "").toLowerCase().includes(q.toLowerCase()));
     
     return st && ch && query;
@@ -368,8 +370,7 @@ export default function LogisticsPage() {
 
     return showOnlyAvailable ? actions.filter(a => a.available) : actions;
   };
-
-  const searchParams = useSearchParams();
+  
   const flowParam = searchParams.get('flow')?.toUpperCase();
   if (flowParam === "PLACEMENT") {
     return (

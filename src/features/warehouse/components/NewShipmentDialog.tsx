@@ -82,7 +82,7 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, items }: Ne
     const [address, setAddress] = useState('');
     const [city, setCity] = useState('');
     const [postalCode, setPostalCode] = useState('');
-    const [lines, setLines] = useState<{ itemId: string; qty: number; name: string, uom: Uom }[]>([{ itemId: '', qty: 1, name: '', uom: 'uds' }]);
+    const [lines, setLines] = useState<{ itemId: string; qty: number; name: string, uom: 'uds' }[]>([{ itemId: '', qty: 1, name: '', uom: 'uds' }]);
     const [notes, setNotes] = useState('');
 
     useEffect(() => {
@@ -146,7 +146,7 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, items }: Ne
             partyId: account?.partyId!,
             mode: 'PARCEL',
             status: 'pending',
-            lines: lines.map(l => ({ ...l, uom: 'uds' })),
+            lines,
             customerName: account?.name || newCustomerName!,
             newCustomerName: newCustomerName && !account ? newCustomerName : undefined,
             addressLine1: address,
