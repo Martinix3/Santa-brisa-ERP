@@ -131,7 +131,10 @@ function exportToCsv(filename: string, rows: (string | number)[][]) {
   a.click();
 }
 
-export default function OrdersDashboard() {
+export default function OrdersDashboard({ orderVisitMetrics, onNewVisit }: {
+    orderVisitMetrics: Record<string, { last: string | null; next: string | null }>;
+    onNewVisit: (orderId: string, accountId?: string) => void;
+}) {
   const { data, setData, currentUser } = useData();
   const [isPending, start] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
@@ -320,7 +323,7 @@ export default function OrdersDashboard() {
             stage: 'POTENCIAL',
             ownerId: currentUser?.id || 'system',
             createdAt: new Date().toISOString(),
-        };
+        } as Account;
     };
 
   return (
@@ -373,7 +376,8 @@ export default function OrdersDashboard() {
                 <th className="p-3 font-semibold text-zinc-600">Cliente</th>
                 <th className="p-3 font-semibold text-zinc-600">Comercial</th>
                 <th className="p-3 font-semibold text-zinc-600">Fecha</th>
-                <th className="p-3 font-semibold text-zinc-600">Fuente</th>
+                <th className="p-3 font-semibold text-zinc-600">Última Visita</th>
+                <th className="p-3 font-semibold text-zinc-600">Próx. Visita</th>
                 <th className="p-3 font-semibold text-zinc-600 text-right">Total</th>
                 <th className="p-3 font-semibold text-zinc-600">Estado</th>
                 <th className="p-3 font-semibold text-zinc-600">Acciones</th>
@@ -385,6 +389,7 @@ export default function OrdersDashboard() {
                 if (!acc) return null;
                 const owner = usersById.get(acc.ownerId);
                 const total = orderTotal(o);
+                const metrics = orderVisitMetrics[o.id] || { last:null, next:null };
 
                 return (
                   <tr key={o.id} className="hover:bg-zinc-50">
@@ -402,19 +407,17 @@ export default function OrdersDashboard() {
                     </td>
                     <td className="p-3">{owner?.name || "N/A"}</td>
                     <td className="p-3">{new Date(o.createdAt).toLocaleDateString("es-ES")}</td>
-                    <td className="p-3">
-                      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs border bg-zinc-100 text-zinc-800">
-                        {o.source || "CRM"}
-                      </span>
-                    </td>
+                    <td className="p-3">{metrics.last ? new Date(metrics.last).toLocaleDateString() : '—'}</td>
+                    <td className="p-3">{metrics.next ? new Date(metrics.next).toLocaleDateString() : '—'}</td>
                     <td className="p-3 text-right font-semibold">{total.toLocaleString("es-ES", { style: "currency", currency: "EUR" })}</td>
                     <td className="p-3">
                       <StatusSelector order={o} onChange={onStatusChange} />
                     </td>
                     <td className="p-3">
                       <div className="flex gap-2">
-                          <SBButton size="sm" variant="secondary" disabled={isPending || o.status === 'invoiced' || o.status === 'paid'} onClick={() => start(async () => { setMsg(null); await createSalesInvoice({ orderId: o.id }); setMsg(`Factura creada para ${o.id}`); })} className="sb-icon">Facturar</SBButton>
-                          <SBButton size="sm" variant="secondary" disabled={isPending || o.status !== 'invoiced'} onClick={() => start(async () => { setMsg(null); await recordPayment({ financeLinkId: (o as any).financeLinkId || `holded-${(o.external as any)?.holdedInvoiceId}`, amount: o.totalAmount || 0 }); setMsg(`Cobro registrado para ${o.id}`); })} className="sb-icon">Registrar Cobro</SBButton>
+                          <button onClick={() => onNewVisit(o.id, o.accountId)} className="text-xs px-3 py-1 rounded border hover:bg-zinc-50">
+                              Nueva visita
+                          </button>
                       </div>
                     </td>
                   </tr>
