@@ -1,3 +1,4 @@
+
 // src/app/(app)/dashboard-personal/page.tsx
 "use client";
 import React, { useMemo, useState } from 'react';
@@ -56,8 +57,11 @@ export default function PersonalDashboardPage() {
         const myPosTactics = (data.posTactics || []).filter(t => t.createdById === currentUser.id && new Date(t.createdAt) >= startOfMonth);
 
         const boxesSold = myOrders.reduce((sum, o) => {
+            if (!o.lines || o.lines.length === 0) return sum;
             const bottles = orderToBottles(o, data.items || []);
-            return sum + Math.floor(bottles / (data.items.find(it => it.sku === o.lines[0]?.itemId)?.caseUnits || 6));
+            const firstLineItemId = o.lines[0].itemId;
+            const caseUnits = data.items.find(it => it.id === firstLineItemId)?.caseUnits || 6;
+            return sum + Math.floor(bottles / caseUnits);
         }, 0);
 
         const kpiData = {
