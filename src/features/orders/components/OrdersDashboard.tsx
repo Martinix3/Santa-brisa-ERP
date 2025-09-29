@@ -226,11 +226,16 @@ export default function OrdersDashboard() {
       const res = await updateOrderStatus(o, acc, party, s);
       if (res?.ok && data) {
         const orders = data.ordersSellOut.map((x) => (x.id === res.order.id ? { ...x, status: res.order.status } : x));
-        const ships = res.shipment ? [...(data.shipments || []), res.shipment] : data.shipments;
+        let ships = data.shipments || [];
+        if (res.shipment) {
+          ships = [...ships, res.shipment];
+        }
         setData({ ...data, ordersSellOut: orders, shipments: ships as Shipment[] });
+        toast.success(`Pedido ${o.docNumber || o.id} actualizado a ${s}.`);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      toast.error(`Error al actualizar pedido: ${e.message}`);
     }
   };
 
