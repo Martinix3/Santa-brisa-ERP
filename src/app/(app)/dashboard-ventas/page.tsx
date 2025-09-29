@@ -1,20 +1,21 @@
+
 // src/app/(app)/dashboard-ventas/page.tsx
 "use client";
 import React, { useMemo, useState } from "react";
 import dynamic from 'next/dynamic';
 import {
   RefreshCw, BrainCircuit, BarChart3, Users, UserPlus, Briefcase,
-  PackageCheck, CalendarClock
+  PackageCheck, CalendarClock, Target
 } from "lucide-react";
 import { useData } from "@/lib/dataprovider";
 import { ModuleHeader } from "@/components/ui/ModuleHeader";
 import { SBCard, SBButton, KPI } from "@/components/ui/ui-primitives";
-import { inWindow, orderTotal } from '@/lib/sb-core';
-import { UpcomingTasks } from '@/features/agenda/components/UpcomingTasks';
+import { inWindow, orderTotal } from "@/lib/sb-core";
+import { UpcomingTasks } from "@/features/agenda/components/UpcomingTasks";
 import { SalesOutcomeDialog } from "@/features/agenda/components/SalesOutcomeDialog";
 import { PosCompleteDialog } from "@/features/pos/PosCompleteDialog"; // ⬅️ nuevo unificado
-import type { Interaction, OrderSellOut } from '@/domain/ssot';
-import { generateInsights } from '@/ai/flows/generate-insights-flow';
+import type { Interaction, OrderSellOut } from "@/domain/ssot";
+import { generateInsights } from "@/ai/flows/generate-insights-flow";
 
 // recharts (lazy)
 const LineChart = dynamic(() => import("recharts").then(m => m.LineChart), { ssr:false });
