@@ -93,14 +93,58 @@ function PersonalSalesChart({ data, currentUser }: { data: SantaData, currentUse
 // MAIN PAGE COMPONENT - ACTUALIZADO
 // ============================================================================
 export default function PersonalDashboardPage() {
-    // ... (toda la lógica de hooks y memos de la página se mantiene igual)
     const { currentUser, data } = useData();
     const router = useRouter();
+    const [timeRange, setTimeRange] = useState<'week' | 'month' | 'year'>('month');
     const [completingTask, setCompletingTask] = useState<Interaction | null>(null);
     const [openNewTask, setOpenNewTask] = useState(false);
     const [completingMarketingEvent, setCompletingMarketingEvent] = useState<any>(null);
-    const { personalTasks, kpis } = useMemo(() => { if (!data || !currentUser) return { personalTasks: [], kpis: null }; const myInteractions = (data.interactions || []).filter(i => { const isAssigned = (i.involvedUserIds || []).includes(currentUser.id); const isSelfAssigned = (i.involvedUserIds === undefined || i.involvedUserIds.length === 0) && i.userId === currentUser.id; return isAssigned || isSelfAssigned; }); const tasks = mapInteractionsToTasks(myInteractions, data.accounts); const now = new Date(); const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1); const myAccounts = (data.accounts || []).filter(a => a.ownerId === currentUser.id && new Date(a.createdAt) >= startOfMonth); const myOrders = (data.ordersSellOut || []).filter(o => { const acc = data.accounts.find(a => a.id === o.accountId); return acc?.ownerId === currentUser.id && new Date(o.createdAt) >= startOfMonth; }); const myVisits = myInteractions.filter(i => i.kind === 'VISITA' && new Date(i.createdAt) >= startOfMonth); const myPosTactics = (data.posTactics || []).filter(t => t.createdById === currentUser.id && new Date(t.createdAt) >= startOfMonth); const boxesSold = myOrders.reduce((sum, o) => { const bottles = orderToBottles(o, data.items || []); const firstLineItem = o.lines?.[0]?.itemId ? data.items.find(it => it.id === o.lines[0].itemId) : undefined; const caseUnits = firstLineItem?.caseUnits || 6; return sum + Math.floor(bottles / caseUnits); }, 0); const kpiData = { newAccounts: myAccounts.length, boxesSold: boxesSold, visits: myVisits.length, posTactics: myPosTactics.length }; return { personalTasks: tasks, kpis: kpiData }; }, [data, currentUser]);
-    const handleUpdateStatus = (id: string, newStatus: InteractionStatus) => { if (!data || !data.interactions) return; const taskToUpdate = data.interactions.find(i => i.id === id); if (!taskToUpdate) return; if (newStatus === 'done') { if (taskToUpdate.dept === 'MARKETING' && taskToUpdate.linkedEntity?.type === 'EVENT' && data.marketingEvents) { const event = data.marketingEvents.find((e: any) => e.id === taskToUpdate.linkedEntity?.id); if (event) setCompletingMarketingEvent(event); else setCompletingTask(taskToUpdate); } else { setCompletingTask(taskToUpdate); } } };
+
+    const { personalTasks, kpis } = useMemo(() => {
+        if (!data || !currentUser) return { personalTasks: [], kpis: null };
+
+        const now = new Date();
+        let startOfRange;
+
+        if (timeRange === 'week') {
+            const firstDayOfWeek = now.getDate() - (now.getDay() === 0 ? 6 : now.getDay() - 1); // Asume que la semana empieza el lunes
+            startOfRange = new Date(now.getFullYear(), now.getMonth(), firstDayOfWeek);
+        } else if (timeRange === 'year') {
+            startOfRange = new Date(now.getFullYear(), 0, 1);
+        } else { // month
+            startOfRange = new Date(now.getFullYear(), now.getMonth(), 1);
+        }
+        
+        startOfRange.setHours(0, 0, 0, 0);
+
+        const myInteractions = (data.interactions || []).filter(i => {
+            const isAssigned = (i.involvedUserIds || []).includes(currentUser.id);
+            const isSelfAssigned = (i.involvedUserIds === undefined || i.involvedUserIds.length === 0) && i.userId === currentUser.id;
+            return isAssigned || isSelfAssigned;
+        });
+
+        const tasks = mapInteractionsToTasks(myInteractions, data.accounts);
+        
+        const myAccounts = (data.accounts || []).filter(a => a.ownerId === currentUser.id && new Date(a.createdAt) >= startOfRange);
+        const myOrders = (data.ordersSellOut || []).filter(o => {
+            const acc = data.accounts.find(a => a.id === o.accountId);
+            return acc?.ownerId === currentUser.id && new Date(o.createdAt) >= startOfRange;
+        });
+        const myVisits = myInteractions.filter(i => i.kind === 'VISITA' && new Date(i.createdAt) >= startOfRange);
+        const myPosTactics = (data.posTactics || []).filter(t => t.createdById === currentUser.id && new Date(t.createdAt) >= startOfRange);
+        
+        const boxesSold = myOrders.reduce((sum, o) => {
+            const bottles = orderToBottles(o, data.items || []);
+            const firstLineItem = o.lines?.[0]?.itemId ? data.items.find(it => it.id === o.lines[0].itemId) : undefined;
+            const caseUnits = firstLineItem?.caseUnits || 6;
+            return sum + Math.floor(bottles / caseUnits);
+        }, 0);
+
+        const kpiData = { newAccounts: myAccounts.length, boxesSold: boxesSold, visits: myVisits.length, posTactics: myPosTactics.length };
+        return { personalTasks: tasks, kpis: kpiData };
+    }, [data, currentUser, timeRange]);
+
+    const handleUpdateStatus = (id: string, newStatus: InteractionStatus) => { if (!data || !data.interactions) return; const taskToUpdate = data.interactions.find(i => i.id === id); if (!taskToUpdate) return; if (newStatus === 'done') { if (taskToUpdate.dept === 'MARKETING' && taskToUpdate.linkedEntity?.type === 'EVENT' && data.marketingEvents) { const event = (data.marketingEvents as any[]).find(e => e.id === taskToUpdate.linkedEntity?.id); if (event) setCompletingMarketingEvent(event); else setCompletingTask(taskToUpdate); } else { setCompletingTask(taskToUpdate); } } };
     const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } };
 
     if (!kpis || !currentUser || !data) {
@@ -113,6 +157,17 @@ export default function PersonalDashboardPage() {
                 <div className="max-w-7xl mx-auto space-y-6">
                     <div className="flex items-center justify-between">
                         <h1 className="text-2xl font-bold text-slate-900">Mi Dashboard</h1>
+                        <div className="hidden md:flex items-center gap-1 rounded-lg border p-1 bg-slate-100">
+                            {(['week', 'month', 'year'] as const).map(range => (
+                                <button
+                                    key={range}
+                                    onClick={() => setTimeRange(range)}
+                                    className={`px-3 py-1.5 rounded-md text-sm font-semibold transition-colors ${timeRange === range ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-600 hover:text-slate-800'}`}
+                                >
+                                    {range === 'week' ? 'Semana' : range === 'month' ? 'Mes' : 'Año'}
+                                </button>
+                            ))}
+                        </div>
                     </div>
 
                     <motion.div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" variants={containerVariants} initial="hidden" animate="visible">
