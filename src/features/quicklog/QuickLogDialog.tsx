@@ -1,138 +1,258 @@
 // src/features/quicklog/QuickLogDialog.tsx
 "use client";
 import React, { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog";
+import { SBButton, Input, Select } from "@/components/ui/ui-primitives";
 import { useData } from "@/lib/dataprovider";
-import { createInteraction } from "@/app/(app)/agenda/actions";
-import { placeOrder } from "@/app/(app)/orders/actions";
-import { isSales } from "@/lib/authz";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
-export function QuickLogDialog({ open, onOpenChange }:{
-  open: boolean; onOpenChange: (v:boolean)=>void;
-}) {
-  const { data, currentUser } = useData();
+// ⬇️ Server actions (adapta a tus rutas reales)
+import { createInteraction } from "@/app/(app)/agenda/actions";               // (accountId, userId, kind, note, plannedFor)
+import { placeOrder } from "@/app/(app)/orders/actions";                      // (accountId, distributorId, lines[], createdById)
+import { createPosTacticsBatch, type PosLineInput } from "@/features/pos/server/pos-actions";
+
+// ⬇️ Selector POS multi-líneas
+import { PosLinesPicker } from "@/features/pos/PosLinesPicker";
+
+// Si no vienes desde la ficha de cuenta, selecciona una
+type Props = {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  accountId?: string;
+  defaultTab?: "INTERACCION" | "PEDIDO";
+};
+
+export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "INTERACCION" }: Props) {
   const router = useRouter();
+  const { data, currentUser } = useData();
 
-  const [accountId, setAccountId] = useState("");
-  const [kind, setKind] = useState("VISITA");
+  // pestañas
+  const [tab, setTab] = useState<"INTERACCION" | "PEDIDO">(defaultTab);
+
+  // estado común
+  const [selectedAccount, setSelectedAccount] = useState(accountId || "");
+  const [saving, setSaving] = useState(false);
+
+  // --- INTERACCIÓN ---
   const [note, setNote] = useState("");
   const [plannedFor, setPlannedFor] = useState<string>("");
-  const [addOrder, setAddOrder] = useState(false);
-  const [lines, setLines] = useState<{sku:string;qty:number;unitPriceReported?:number}[]>([]);
-  const canUse = isSales(currentUser?.role) || currentUser?.role==="admin";
 
-  const accountOptions = useMemo(() =>
-    (data?.accounts || []).map(a => ({ value:a.id, label:a.name })), [data?.accounts]);
-  const skuOptions = useMemo(() =>
-    (data?.items || []).map(i => ({ value:i.sku, label:i.name })), [data?.items]);
+  // --- PEDIDO (colocación) ---
+  const [distributorId, setDistributorId] = useState("SANTA_BRISA");
+  const [lines, setLines] = useState<{ sku: string; qty: number }[]>([{ sku: "", qty: 1 }]);
 
-  const addLine = ()=> setLines(s => [...s, { sku:"", qty:1 }]);
-  const removeLine = (idx:number)=> setLines(s => s.filter((_,i)=>i!==idx));
+  // --- POS (compartido en ambas pestañas) ---
+  const [posLines, setPosLines] = useState<PosLineInput[]>([]);
+  const posCatalog = useMemo(() => ((data as any)?.posCatalog || []) as { id: string; name: string }[], [data]);
 
-  const save = async ()=>{
+  const accountOptions = useMemo(
+    () => (data?.accounts || []).map(a => ({ value: a.id, label: a.name })),
+    [data?.accounts]
+  );
+
+  const resetAll = () => {
+    setNote(""); setPlannedFor("");
+    setDistributorId("SANTA_BRISA");
+    setLines([{ sku: "", qty: 1 }]);
+    setPosLines([]);
+  };
+
+  const ensureAccountSelected = () => {
+    if (accountId) return accountId;
+    if (!selectedAccount) {
+      toast.error("Selecciona una cuenta");
+      throw new Error("missing-account");
+    }
+    return selectedAccount;
+  };
+
+  const save = async () => {
     try {
-      if (!canUse) return;
-      if (!accountId) { toast.error("Selecciona una cuenta"); return; }
+      setSaving(true);
+      const accId = ensureAccountSelected();
 
-      // 1) Interacción
-      await createInteraction({
-        accountId, dept:"VENTAS", kind, note,
-        plannedFor: plannedFor || undefined,
-        createdById: currentUser?.id!,
-      });
+      if (tab === "INTERACCION") {
+        // 1) Interacción
+        await createInteraction({
+          accountId: accId,
+          userId: currentUser!.id,
+          kind: "VISITA",
+          note: note || undefined,
+          plannedFor: plannedFor || undefined
+        } as any);
 
-      // 2) Pedido (opcional)
-      if (addOrder) {
-        if (!lines.length) { toast.error("Añade al menos una línea"); return; }
-        const created = await placeOrder({
-          accountId, lines, createdById: currentUser?.id!,
-        });
-        toast.success("Pedido colocado");
-        router.push(`/orders/${created.id}`);
-      } else {
-        toast.success("Interacción registrada");
+        // 2) POS (opcional)
+        if (posLines.length) {
+          await createPosTacticsBatch({ accountId: accId, createdById: currentUser!.id, lines: posLines });
+        }
+
+        toast.success(`Interacción guardada${posLines.length ? " + POS" : ""}`);
       }
 
+      if (tab === "PEDIDO") {
+        // Validaciones mínimas de pedido
+        if (!lines.length || !lines.some(l => l.sku.trim() && l.qty > 0)) {
+          toast.error("Añade al menos una línea (SKU + cantidad > 0)");
+          setSaving(false);
+          return;
+        }
+
+        // 1) Pedido (sell-out)
+        const created = await placeOrder({
+          accountId: accId,
+          lines,
+          createdById: currentUser!.id
+        });
+
+        // 2) POS (opcional)
+        if (posLines.length) {
+          await createPosTacticsBatch({ accountId: accId, createdById: currentUser!.id, lines: posLines });
+        }
+
+        toast.success(`Pedido colocado${posLines.length ? " + POS" : ""}`);
+        // navega al detalle si quieres
+        if (created?.id) router.push(`/orders/${created.id}`);
+      }
+
+      resetAll();
       onOpenChange(false);
-      // reset
-      setLines([]); setAddOrder(false); setNote(""); setPlannedFor("");
-    } catch (e:any) {
-      toast.error(e.message || "Error al guardar");
+    } catch (e: any) {
+      if (e?.message !== "missing-account") {
+        console.error(e);
+        toast.error(e?.message || "Error al guardar");
+      }
+    } finally {
+      setSaving(false);
     }
   };
 
-  if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 bg-black/20 flex items-center justify-center p-4">
-      <div className="w-full max-w-lg rounded-xl bg-white p-4 shadow-lg">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold">QuickLog Comercial</h3>
-          <button className="text-sm text-zinc-500" onClick={()=>onOpenChange(false)}>Cerrar</button>
+    <SBDialog open={open} onOpenChange={(v) => { if(!v) resetAll(); onOpenChange(v); }}>
+      <SBDialogContent title="QuickLog (Interacción / Pedido)">
+        {/* Cuenta si no vienes desde la ficha */}
+        {!accountId && (
+          <div className="mb-3">
+            <label className="text-xs text-zinc-600">Cuenta</label>
+            <Select
+              value={selectedAccount}
+              onChange={e => setSelectedAccount(e.target.value)}
+            >
+                <option value="">Selecciona cuenta</option>
+                {accountOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </Select>
+          </div>
+        )}
+
+        {/* Tabs */}
+        <div className="flex gap-2 mb-3">
+          <button
+            className={`text-sm px-3 py-1 rounded border ${tab === "INTERACCION" ? "bg-black text-white" : ""}`}
+            onClick={() => setTab("INTERACCION")}
+          >
+            Interacción
+          </button>
+          <button
+            className={`text-sm px-3 py-1 rounded border ${tab === "PEDIDO" ? "bg-black text-white" : ""}`}
+            onClick={() => setTab("PEDIDO")}
+          >
+            Pedido (colocación)
+          </button>
         </div>
 
-        <div className="space-y-3">
-          <div>
-            <label className="text-xs text-zinc-600">Cuenta</label>
-            <select className="w-full border rounded px-2 py-1"
-              value={accountId} onChange={e=>setAccountId(e.target.value)}>
-              <option value="">Selecciona cuenta</option>
-              {accountOptions.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
+        {/* Tab: Interacción */}
+        {tab === "INTERACCION" && (
+          <div className="space-y-3">
             <div>
-              <label className="text-xs text-zinc-600">Tipo</label>
-              <select className="w-full border rounded px-2 py-1" value={kind} onChange={e=>setKind(e.target.value)}>
-                <option>VISITA</option>
-                <option>LLAMADA</option>
-                <option>EMAIL</option>
-                <option>OTRO</option>
-              </select>
+              <label className="text-xs text-zinc-600">Nota</label>
+              <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Escribe una nota..." />
             </div>
             <div>
               <label className="text-xs text-zinc-600">Fecha/hora (opcional)</label>
-              <input type="datetime-local" className="w-full border rounded px-2 py-1"
-                value={plannedFor} onChange={e=>setPlannedFor(e.target.value)} />
+              <Input type="datetime-local" value={plannedFor} onChange={(e) => setPlannedFor(e.target.value)} />
+            </div>
+
+            {/* POS (opcional, múltiples líneas) */}
+            <div className="border-t pt-3">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-sm font-semibold">Añadir tácticas POS (opcional)</h4>
+                <span className="text-xs text-zinc-500">Se registran en Marketing</span>
+              </div>
+              <PosLinesPicker catalog={posCatalog} lines={posLines} setLines={setLines} />
             </div>
           </div>
-          <div>
-            <label className="text-xs text-zinc-600">Nota</label>
-            <textarea className="w-full border rounded px-2 py-1" rows={3}
-              value={note} onChange={e=>setNote(e.target.value)} />
-          </div>
+        )}
 
-          <div className="flex items-center gap-2 pt-2">
-            <input id="addOrder" type="checkbox" checked={addOrder} onChange={e=>setAddOrder(e.target.checked)} />
-            <label htmlFor="addOrder" className="text-sm">Añadir pedido de colocación</label>
-          </div>
+        {/* Tab: Pedido */}
+        {tab === "PEDIDO" && (
+          <div className="space-y-3">
+            <div className="grid grid-cols-3 gap-2">
+              <div className="col-span-3">
+                <label className="text-xs text-zinc-600">Distribuidor</label>
+                <Select
+                  value={distributorId}
+                  onChange={e => setDistributorId(e.target.value)}
+                >
+                    <option value="SANTA_BRISA">Santa Brisa</option>
+                </Select>
+              </div>
+            </div>
 
-          {addOrder && (
-            <div className="space-y-2 border rounded-lg p-3">
-              {lines.map((l,idx)=>(
+            <div className="space-y-2">
+              <div className="text-sm font-medium">Líneas de pedido</div>
+              {lines.map((l, idx) => (
                 <div key={idx} className="flex gap-2">
-                  <select className="border rounded px-2 py-1 flex-1" value={l.sku}
-                    onChange={e=>setLines(s=>s.map((x,i)=>i===idx?{...x,sku:e.target.value}:x))}>
-                    <option value="">SKU</option>
-                    {skuOptions.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
-                  <input type="number" min={1} className="border rounded px-2 py-1 w-24" value={l.qty}
-                    onChange={e=>setLines(s=>s.map((x,i)=>i===idx?{...x,qty:Math.max(1, Number(e.target.value)||1)}:x))} />
-                  <input type="number" step="0.01" placeholder="€ opcional" className="border rounded px-2 py-1 w-28"
-                    value={l.unitPriceReported ?? ""} onChange={e=>setLines(s=>s.map((x,i)=>i===idx?{...x,unitPriceReported:Number(e.target.value)||undefined}:x))} />
-                  <button className="text-xs border rounded px-2" onClick={()=>removeLine(idx)}>Quitar</button>
+                  <Input
+                    placeholder="SKU"
+                    value={l.sku}
+                    onChange={(e) =>
+                      setLines((s) => s.map((x, i) => (i === idx ? { ...x, sku: e.target.value } : x)))
+                    }
+                  />
+                  <Input
+                    type="number"
+                    min={1}
+                    value={l.qty}
+                    onChange={(e) =>
+                      setLines((s) =>
+                        s.map((x, i) =>
+                          i === idx ? { ...x, qty: Math.max(1, Number(e.target.value) || 1) } : x
+                        )
+                      )
+                    }
+                    className="w-24"
+                  />
+                  <SBButton variant="ghost" onClick={() => setLines((s) => s.filter((_, i) => i !== idx))}>
+                    Quitar
+                  </SBButton>
                 </div>
               ))}
-              <button className="text-xs border rounded px-3 py-1" onClick={addLine}>Añadir línea</button>
+              <SBButton variant="outline" size="sm" onClick={() => setLines((s) => [...s, { sku: "", qty: 1 }])}>
+                + Añadir línea
+              </SBButton>
             </div>
-          )}
-        </div>
 
-        <div className="mt-4 flex justify-end gap-2">
-          <button className="border rounded px-3 py-1" onClick={()=>onOpenChange(false)}>Cancelar</button>
-          <button className="border rounded px-3 py-1 bg-black text-white" onClick={save}>Guardar</button>
+            {/* POS (opcional, múltiples líneas) */}
+            <div className="border-t pt-3">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-sm font-semibold">Añadir tácticas POS (opcional)</h4>
+                <span className="text-xs text-zinc-500">Se registran en Marketing</span>
+              </div>
+              <PosLinesPicker catalog={posCatalog} lines={posLines} setLines={setLines} />
+            </div>
+          </div>
+        )}
+
+        {/* Footer */}
+        <div className="flex justify-end gap-2 pt-5">
+          <SBButton variant="secondary" onClick={() => onOpenChange(false)} disabled={saving}>
+            Cancelar
+          </SBButton>
+          <SBButton variant="primary" onClick={save} disabled={saving}>
+            {saving ? "Guardando..." : "Guardar"}
+          </SBButton>
         </div>
-      </div>
-    </div>
+      </SBDialogContent>
+    </SBDialog>
   );
 }
