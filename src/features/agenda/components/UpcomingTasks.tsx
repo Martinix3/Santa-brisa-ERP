@@ -9,7 +9,19 @@ import { DEPT_META } from '@/domain/ssot';
 import Link from 'next/link';
 import { Avatar } from '@/components/ui/Avatar';
 
-export function UpcomingTasks({ department }: { department: Department }) {
+export function UpcomingTasks({ 
+    department,
+    scope = 'personal',
+    onlyUserId,
+    includeDepartments = ['VENTAS'],
+    onRequestComplete
+}: { 
+    department?: Department,
+    scope?: 'personal' | 'global',
+    onlyUserId?: string,
+    includeDepartments?: Department[],
+    onRequestComplete?: (task: Interaction) => void,
+}) {
     const { data } = useData();
 
     const { overdue, upcoming } = useMemo(() => {
@@ -17,7 +29,11 @@ export function UpcomingTasks({ department }: { department: Department }) {
         
         const now = new Date();
         const openInteractions = data.interactions
-            .filter(i => i.dept === department && i.status === 'open' && i.plannedFor);
+            .filter(i => {
+                const matchesDept = department ? i.dept === department : (includeDepartments ? includeDepartments.includes(i.dept!) : true);
+                const matchesUser = !onlyUserId || i.userId === onlyUserId || (i.involvedUserIds || []).includes(onlyUserId);
+                return matchesDept && matchesUser && i.status === 'open' && i.plannedFor;
+            });
             
         const overdue = openInteractions
             .filter(i => new Date(i.plannedFor!) < now)
@@ -28,20 +44,22 @@ export function UpcomingTasks({ department }: { department: Department }) {
             .sort((a, b) => new Date(a.plannedFor!).getTime() - new Date(b.plannedFor!).getTime());
 
         return { overdue, upcoming };
-    }, [data, department]);
+    }, [data, department, includeDepartments, onlyUserId]);
 
     const allEvents = [...overdue, ...upcoming].slice(0, 7); // Show a max of 7 tasks
+    
+    const title = department ? `Próximas Tareas de ${DEPT_META[department].label}` : 'Próximas Tareas';
 
     if (allEvents.length === 0) {
         return (
-            <SBCard title={`Próximas Tareas de ${DEPT_META[department].label}`}>
+            <SBCard title={title}>
                 <p className="p-4 text-sm text-center text-zinc-500">No hay tareas programadas.</p>
             </SBCard>
         );
     }
 
     return (
-        <SBCard title={`Próximas Tareas de ${DEPT_META[department].label}`}>
+        <SBCard title={title}>
             <div className="p-2 space-y-1">
                 {allEvents.map((event: Interaction) => {
                     const isOverdue = new Date(event.plannedFor!) < new Date();
@@ -52,11 +70,12 @@ export function UpcomingTasks({ department }: { department: Department }) {
                         .filter(Boolean);
                     
                     const account = data?.accounts.find(a => a.id === event.accountId);
+                    const deptStyle = event.dept ? DEPT_META[event.dept] : DEPT_META.PERSONAL;
 
                     return (
-                         <Link href="/agenda/calendar" key={event.id} className={`block p-3 rounded-lg border cursor-pointer ${isOverdue ? 'bg-rose-50/50 border-rose-200' : 'bg-zinc-50 border-zinc-200 hover:bg-zinc-100'}`}>
+                         <div key={event.id} className={`block p-3 rounded-lg border ${isOverdue ? 'bg-rose-50/50 border-rose-200' : 'bg-zinc-50 border-zinc-200 hover:bg-zinc-100'}`}>
                             <div className="flex items-start gap-3">
-                                <div className="p-2 rounded-full mt-1" style={{ backgroundColor: `${DEPT_META[department].color}22`, color: DEPT_META[department].color }}>
+                                <div className="p-2 rounded-full mt-1" style={{ backgroundColor: `${deptStyle.color}22`, color: deptStyle.color }}>
                                     <Icon size={16} className="sb-icon" />
                                 </div>
                                 <div className="flex-1">
@@ -67,10 +86,10 @@ export function UpcomingTasks({ department }: { department: Department }) {
                                             <span>{new Date(event.plannedFor!).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}</span>
                                         </div>
                                         {account && (
-                                            <div className="flex items-center gap-1">
+                                            <Link href={`/accounts/${account.id}`} className="flex items-center gap-1 hover:underline">
                                                 <Building size={12} className="sb-icon" />
                                                 <span>{account.name}</span>
-                                            </div>
+                                            </Link>
                                         )}
                                     </div>
                                 </div>
@@ -78,7 +97,12 @@ export function UpcomingTasks({ department }: { department: Department }) {
                                     {involvedUsers.map(user => user && <Avatar key={user.id} name={user.name} size="md" className="sb-icon" />)}
                                 </div>
                             </div>
-                        </Link>
+                            {onRequestComplete && (
+                                <div className="text-right mt-2">
+                                    <button onClick={() => onRequestComplete(event)} className="text-xs px-2 py-1 rounded border bg-white hover:bg-zinc-100">Completar</button>
+                                </div>
+                            )}
+                        </div>
                     );
                 })}
             </div>
