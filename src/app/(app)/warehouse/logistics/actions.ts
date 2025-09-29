@@ -8,7 +8,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { getOne, upsertMany } from '@/lib/dataprovider/server';
 import type { Shipment, OrderSellOut, OnHandView, StockMove, Lot, Item, Party, Account } from '@/domain/ssot';
 import { enqueue } from '@/server/queue/queue';
-import { checkOrderStock } from '@/lib/inventory';
+import { checkOrderStock, type AllocationDetail } from '@/lib/inventory';
 import { makeOnHandId } from '@/domain/id-helpers';
 import { makeShipmentCode } from '@/lib/codes';
 
@@ -50,69 +50,112 @@ export async function confirmOrderShipment(orderId: string): Promise<Shipment> {
   const itemsById = new Map(itemsSnap.docs.map(d => [d.id, d.data() as Item]));
   
   const result = checkOrderStock(order, onHand, lots);
-  const allocations = result?.allocations ?? [];
-  const shortages = result?.shortages ?? [];
+  const allocations = Array.isArray(result?.allocations) ? result.allocations : [];
+  const shortages = Array.isArray(result?.shortages) ? result.shortages : [];
 
-  console.log('[checkOrderStock] lines:', order.lines?.length);
-  console.log('[checkOrderStock] onHand:', onHand.length, 'lots:', lots.length);
-  console.log('[checkOrderStock] result:', {
+  // Debugging log
+  console.log('[checkOrderStock] DEBUG', {
+    orderId: order.id,
+    lines: order.lines,
+    onHandCount: onHand.length,
+    lotsCount: lots.length,
     allocationsCount: allocations.length,
     shortagesCount: shortages.length,
     sampleAllocation: allocations[0]
   });
-  
-  // 0) Validar allocations ANTES de la transacción
-  if (!allocations?.length && order.lines.length > 0) {
-    throw new Error('No se han podido calcular reservas (allocations está vacío).');
+
+  if (!allocations.length && order.lines.length > 0) {
+    const itemIds = order.lines.map(l => l.itemId);
+    const byItem = Object.fromEntries(itemIds.map(id => {
+      const rows = onHand.filter(r => r.itemId === id);
+      const freeReleased = rows
+        .map(r => ({
+          qc: String(r.qcStatus ?? '').toUpperCase(),
+          qty: Number(r.qty ?? 0),
+          res: Number(r.reservedQty ?? 0),
+          free: Math.max(0, Number(r.qty ?? 0) - Number(r.reservedQty ?? 0)),
+          lot: r.lotNumber,
+          loc: r.locationId,
+          exp: r.expiryAt
+        }))
+        .filter(r =>
+          ['PASSED','WAIVED','RELEASED','OK','APPROVED'].includes(r.qc) && r.free > 0
+        );
+      return [id, {
+        need: order.lines.find(l => l.itemId === id)?.qty,
+        rows: rows.length,
+        totalQty: rows.reduce((s, r) => s + Number(r.qty ?? 0), 0),
+        totalReserved: rows.reduce((s, r) => s + Number(r.reservedQty ?? 0), 0),
+        totalFreeReleased: freeReleased.reduce((s, r) => s + r.free, 0),
+        sampleReleased: freeReleased.slice(0,3),
+        sampleAny: rows.slice(0,3).map(r => ({
+          qc: String(r.qcStatus ?? '').toUpperCase(),
+          qty: Number(r.qty ?? 0),
+          res: Number(r.reservedQty ?? 0),
+          lot: r.lotNumber, loc: r.locationId
+        }))
+      }];
+    }));
+
+    console.warn('[ALLOC DEBUG]', {
+      orderId: order.id,
+      lines: order.lines,
+      onHandCount: onHand.length,
+      lotsCount: lots.length,
+      byItem,
+      shortages,
+    });
+
+    const msg = shortages.length
+      ? shortages.map(s =>
+          `• ${itemsById.get(s.itemId)?.name ?? s.itemId}: necesita ${s.qtyRequired}, ` +
+          `liberado ${s.qtyAvailable}, falta ${s.qtyShort}` +
+          (s.qtyOnHold > 0 ? ` (en HOLD ${s.qtyOnHold})` : '')
+        ).join('\n')
+      : 'No hay stock liberado ni lotes válidos para asignar (QC o reservas).';
+    throw new Error(`No se han podido calcular reservas.\n${msg}`);
   }
+
   const missingLots = allocations.filter(a => !a.lotNumber);
   if (missingLots.length) {
     const ids = [...new Set(missingLots.map(a => a.itemId))].join(', ');
     throw new Error(`Faltan lotes en la asignación para: ${ids}.`);
   }
 
-  if (shortages.length > 0) {
-    const shortageDetails = shortages.map(s => `${s.qtyShort}x ${itemsById.get(s.itemId)?.name ?? s.itemId}`).join(', ');
-    throw new Error(`Stock insufficient. Shortages: ${shortageDetails}`);
-  }
-  
   const allShipmentNumbers = shipmentsSnap.docs.map(d => d.data().shipmentNumber).filter(Boolean);
   const shipmentNumber = makeShipmentCode(allShipmentNumbers, new Date());
   
-  // 2. TRANSACTION - Perform all writes atomically.
   const shipmentRef = db.collection('shipments').doc();
   const orderRef = db.collection('ordersSellOut').doc(orderId);
   const now = new Date().toISOString();
   let newShipment: Shipment;
 
   await db.runTransaction(async (transaction) => {
-    // 2a. Atomically reserve stock using set + merge
     for (const alloc of allocations) {
-      if (!alloc.lotNumber) {
-        throw new Error(`Asignación sin lote para item ${alloc.itemId}. Recalcula stock/allocations.`);
-      }
-      const loc = alloc.locationId ?? 'FG/MAIN'; // usa la real si viene del allocation
-      const onHandId = makeOnHandId(alloc.itemId, alloc.lotNumber, loc);
+      const onHandId = makeOnHandId(alloc.itemId, alloc.lotNumber, alloc.locationId);
       const onHandRef = db.collection('onHand').doc(onHandId);
-    
-      // set + merge evita que la transacción falle si el doc no existe aún
       transaction.set(onHandRef, {
         itemId: alloc.itemId,
         lotNumber: alloc.lotNumber,
-        locationId: loc,
+        locationId: alloc.locationId,
         reservedQty: FieldValue.increment(alloc.qty),
+        qty: FieldValue.increment(0),
+        uom: 'unit',
         updatedAt: now,
       }, { merge: true });
     }
 
-    // 2b. Update order status
     transaction.update(orderRef, { status: 'confirmed', updatedAt: now });
 
-    // 2c. Create the new shipment document
     const isOnlineOrPrivate = account.type === 'ONLINE' || account.type === 'PRIVADA';
     const totalUnits = order.lines.reduce((sum, line) => sum + line.qty, 0);
     const mode: 'PARCEL' | 'PALLET' = isOnlineOrPrivate || totalUnits < 12 ? 'PARCEL' : 'PALLET';
 
+    // Group allocations by item
+    const allocByItem = allocations.reduce<Record<string, AllocationDetail[]>>((acc, a) => {
+        (acc[a.itemId] ||= []).push(a); return acc;
+    }, {});
+    
     newShipment = {
         id: shipmentRef.id,
         shipmentNumber,
@@ -121,15 +164,27 @@ export async function confirmOrderShipment(orderId: string): Promise<Shipment> {
         accountId: account.id,
         mode,
         status: 'pending',
-        lines: order.lines.map(line => {
-            const alloc = allocations.find(a => a.itemId === line.itemId);
-            return {
+        lines: order.lines.flatMap(line => {
+            const allocs = allocByItem[line.itemId] || [];
+            if (!allocs.length) {
+              return [{
                 itemId: line.itemId,
                 name: itemsById.get(line.itemId)?.name ?? line.itemId,
                 qty: line.qty,
                 uom: 'unit',
-                lotNumber: alloc!.lotNumber, // Ya validamos que existe
-            };
+                lotNumber: undefined,
+                locationId: undefined,
+                note: 'SIN ALLOC (revisar)'
+              } as any];
+            }
+            return allocs.map(a => ({
+              itemId: line.itemId,
+              name: itemsById.get(line.itemId)?.name ?? line.itemId,
+              qty: a.qty,
+              uom: 'unit',
+              lotNumber: a.lotNumber,
+              locationId: a.locationId,
+            }));
         }),
         customerName: party.name,
         addressLine1: party.billingAddress?.address || '',
@@ -142,9 +197,7 @@ export async function confirmOrderShipment(orderId: string): Promise<Shipment> {
     };
     transaction.set(shipmentRef, newShipment as any);
   });
-  // --- End Transaction ---
 
-  // 3. Enqueue follow-up jobs only if the transaction was successful
   await enqueue({
       kind: 'CREATE_HOLDED_INVOICE',
       payload: { orderId: order.id },

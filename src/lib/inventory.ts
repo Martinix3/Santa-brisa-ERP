@@ -31,7 +31,8 @@ export type AllocationDetail = {
 export function checkOrderStock(
   order: OrderSellOut,
   onHand: OnHandView[],
-  lotsMaster: Lot[] = []
+  lotsMaster: Lot[] = [],
+  opts?: { allowHold?: boolean }
 ): { allocations: AllocationDetail[]; shortages: StockShortageDetail[] } {
   if (!order?.lines?.length) return { allocations: [], shortages: [] };
 
@@ -40,28 +41,43 @@ export function checkOrderStock(
   const allocations: AllocationDetail[] = [];
   const shortages: StockShortageDetail[] = [];
 
+  // helper robusto de QC
+  const isReleased = (qc: any) => {
+    const raw = String(qc ?? '').toUpperCase();
+    // tolerante a variantes reales en tu data
+    return raw === 'PASSED' || raw === 'WAIVED' || raw === 'RELEASED' || raw === 'OK' || raw === 'APPROVED';
+  };
+  const isHold = (qc: any) => {
+    const raw = String(qc ?? '').toUpperCase();
+    return raw === 'HOLD' || raw === 'PENDING' || raw === 'ON_HOLD' || raw === 'QC_HOLD';
+  };
+
   for (const line of order.lines) {
     const { itemId, qty } = line;
     if (!qty || qty <= 0) continue;
 
-    // 1. Obtenemos TODO el stock físico para este item
     const allStockForThisItem = onHand.filter(r => r.itemId === itemId);
 
-    // 2. Calculamos el stock disponible (RELEASED) y en cuarentena (HOLD)
+    // 1.b) Disponible (liberado) con tolerancia
     const availableStock = allStockForThisItem
-      .filter(r => qcToBucket(r.qcStatus) === 'RELEASED' || r.qcStatus === 'PASSED' || r.qcStatus === 'WAIVED')
-      .map(r => ({ ...r, free: Math.max(0, r.qty - (r.reservedQty ?? 0)) }))
+      .filter(r => isReleased(r.qcStatus) || (opts?.allowHold && isHold(r.qcStatus)))
+      .map(r => ({
+        ...r,
+        qty: Number(r.qty ?? 0),
+        reservedQty: Number(r.reservedQty ?? 0),
+        free: Math.max(0, Number(r.qty ?? 0) - Number(r.reservedQty ?? 0)),
+      }))
       .filter(r => r.free > 0);
-      
-    const onHoldQty = allStockForThisItem
-      .filter(r => qcToBucket(r.qcStatus) === 'HOLD')
-      .reduce((sum, r) => sum + r.qty, 0);
 
-    // 3. Ordenamos el stock disponible por FEFO (First-Expiry, First-Out)
+    const onHoldQty = allStockForThisItem
+      .filter(r => isHold(r.qcStatus))
+      .reduce((sum, r) => sum + Number(r.qty ?? 0), 0);
+
+    // FEFO
     const sortedLots = [...availableStock].sort((a, b) => {
-        const ax = a.expiryAt ? Date.parse(a.expiryAt) : Number.POSITIVE_INFINITY;
-        const bx = b.expiryAt ? Date.parse(b.expiryAt) : Number.POSITIVE_INFINITY;
-        return ax - bx;
+      const ax = a.expiryAt ? Date.parse(a.expiryAt) : Number.POSITIVE_INFINITY;
+      const bx = b.expiryAt ? Date.parse(b.expiryAt) : Number.POSITIVE_INFINITY;
+      return ax - bx;
     });
 
     let remaining = qty;
@@ -69,21 +85,20 @@ export function checkOrderStock(
       if (remaining <= 0) break;
       const take = Math.min(remaining, lot.free);
       if (take > 0) {
-        // 4. Buscamos el origen del lote en el maestro de lotes
         const masterLot = lotMasterMap.get(lot.lotNumber);
-        const originInfo = masterLot?.producedByOrderId 
-            ? `Prod: ${masterLot.producedByOrderId}`
-            : (masterLot as any).createdByGoodsReceiptId
-            ? `Recep: ${(masterLot as any).createdByGoodsReceiptId}`
-            : 'Ajuste manual';
+        const originInfo = masterLot?.producedByOrderId
+          ? `Prod: ${masterLot.producedByOrderId}`
+          : (masterLot as any)?.createdByGoodsReceiptId
+          ? `Recep: ${(masterLot as any).createdByGoodsReceiptId}`
+          : 'Ajuste manual';
 
         allocations.push({
           itemId,
           lotNumber: lot.lotNumber,
-          locationId: lot.locationId, // Devolvemos la ubicación real
+          locationId: lot.locationId,
           qty: take,
           expiryAt: lot.expiryAt,
-          originInfo, // Añadimos la información de origen
+          originInfo,
         });
         remaining -= take;
       }
@@ -96,11 +111,12 @@ export function checkOrderStock(
         qtyRequired: qty,
         qtyAvailable: totalAvailable,
         qtyShort: Math.max(0, qty - totalAvailable),
-        qtyOnHold: onHoldQty, // Añadimos el stock en cuarentena
+        qtyOnHold: onHoldQty,
       });
     }
   }
 
+  // retorno SIEMPRE arrays
   return { allocations: allocations ?? [], shortages: shortages ?? [] };
 }
 
