@@ -1,19 +1,88 @@
 // src/features/quicklog/QuickLogDialog.tsx
 "use client";
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useCallback } from "react";
 import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog";
 import { SBButton, Input, Select } from "@/components/ui/ui-primitives";
 import { useData } from "@/lib/dataprovider";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { Search } from 'lucide-react';
 
 // ⬇️ Server actions (adapta a tus rutas reales)
 import { createInteraction } from "@/app/(app)/agenda/actions";
 import { placeOrder } from "@/app/(app)/orders/actions";
 import { createPosTacticsBatch, type PosLineInput } from "@/features/pos/server/pos-actions";
+import { createAccountAndParty } from "./actions/create-account-action";
 
 // ⬇️ Selector POS multi-líneas
 import { PosLinesPicker } from "@/features/pos/PosLinesPicker";
+import type { Account, Party } from "@/domain/ssot";
+
+
+function AccountSearch({
+  accounts,
+  onSelect,
+  onFreeText,
+  initialAccountId,
+}: {
+  accounts: Account[];
+  onSelect: (account: Account) => void;
+  onFreeText: (text: string) => void;
+  initialAccountId?: string;
+}) {
+  const [query, setQuery] = useState(() => accounts.find(a => a.id === initialAccountId)?.name || '');
+  const [suggestions, setSuggestions] = useState<Account[]>([]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newQuery = e.target.value;
+    setQuery(newQuery);
+
+    if (newQuery.length > 1) {
+      const lowerQuery = newQuery.toLowerCase();
+      const filtered = accounts.filter(acc => acc.name.toLowerCase().includes(lowerQuery));
+      setSuggestions(filtered);
+      
+      // Si no hay sugerencias, podría ser un nuevo cliente
+      if (filtered.length === 0) {
+        onFreeText(newQuery);
+      }
+    } else {
+      setSuggestions([]);
+      onFreeText(''); // Limpia el texto libre si la consulta es corta
+    }
+  };
+
+  const handleSelect = (account: Account) => {
+    setQuery(account.name);
+    onSelect(account);
+    setSuggestions([]);
+  };
+
+  return (
+    <div className="relative">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+        <Input
+          value={query}
+          onChange={handleInputChange}
+          placeholder="Buscar o crear cuenta..."
+          disabled={!!initialAccountId}
+        />
+      </div>
+      {suggestions.length > 0 && (
+        <ul className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto">
+          {suggestions.map(acc => (
+            <li key={acc.id} onMouseDown={() => handleSelect(acc)} className="px-3 py-2 cursor-pointer hover:bg-zinc-100">
+              <p className="font-medium text-sm">{acc.name}</p>
+              <p className="text-xs text-zinc-500">{acc.id}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 
 // Si no vienes desde la ficha de cuenta, selecciona una
 type Props = {
@@ -25,13 +94,14 @@ type Props = {
 
 export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "INTERACCION" }: Props) {
   const router = useRouter();
-  const { data, currentUser } = useData();
+  const { data, currentUser, saveAllCollections } = useData();
 
   // pestañas
   const [tab, setTab] = useState<"INTERACCION" | "PEDIDO">(defaultTab);
 
   // estado común
-  const [selectedAccount, setSelectedAccount] = useState(accountId || "");
+  const [selectedAccount, setSelectedAccount] = useState<Account | null>(accountId ? data?.accounts.find(a => a.id === accountId) || null : null);
+  const [newAccountName, setNewAccountName] = useState<string | undefined>();
   const [saving, setSaving] = useState(false);
 
   // --- INTERACCIÓN ---
@@ -39,8 +109,8 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
   const [plannedFor, setPlannedFor] = useState<string>("");
 
   // --- PEDIDO (colocación) ---
-  const [distributorId, setDistributorId] = useState("SANTA_BRISA");
-  const [lines, setLines] = useState<{ sku: string; qty: number; unitPriceReported?:number }[]>([{ sku: "", qty: 1 }]);
+  const [distributorId, setDistributorId] = useState("SB");
+  const [lines, setLines] = useState<{ sku: string; qty: number, unitPriceReported?: number }[]>([{ sku: "", qty: 1 }]);
 
   // --- POS (compartido en ambas pestañas) ---
   const [posLines, setPosLines] = useState<Partial<PosLineInput>[]>([]);
@@ -51,71 +121,70 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
     [data?.accounts]
   );
   
-  const skuOptions = useMemo(() => (data?.items || []).map(i => ({ value: i.sku, label: i.name })), [data?.items]);
+  const skuOptions = useMemo(() => (data?.items || []).filter(i => (i as any).category === 'fg').map(i => ({ value: i.sku, label: i.name })), [data?.items]);
 
   const resetAll = () => {
+    setSelectedAccount(null);
+    setNewAccountName(undefined);
     setNote(""); setPlannedFor("");
-    setDistributorId("SANTA_BRISA");
+    setDistributorId("SB");
     setLines([{ sku: "", qty: 1 }]);
     setPosLines([]);
   };
 
-  const ensureAccountSelected = () => {
+  const ensureAccountSelected = async (): Promise<string> => {
     if (accountId) return accountId;
-    if (!selectedAccount) {
-      toast.error("Selecciona una cuenta");
-      throw new Error("missing-account");
+    if (selectedAccount) return selectedAccount.id;
+    if (newAccountName) {
+      // Crear nueva cuenta
+      const { account } = await createAccountAndParty({ name: newAccountName, ownerId: currentUser!.id });
+      // Actualizar el estado local para que el resto de la app lo vea
+      saveAllCollections({ 
+        parties: [account.party as Party], 
+        accounts: [account.account] 
+      });
+      toast.success(`Nueva cuenta creada: ${account.account.name}`);
+      return account.account.id;
     }
-    return selectedAccount;
+    toast.error("Selecciona o crea una cuenta");
+    throw new Error("missing-account");
   };
 
   const save = async () => {
     try {
       setSaving(true);
-      const accId = ensureAccountSelected();
+      const accId = await ensureAccountSelected();
 
       if (tab === "INTERACCION") {
-        // 1) Interacción
         await createInteraction({
           accountId: accId,
           createdById: currentUser!.id,
           kind: "VISITA",
           note: note || undefined,
           plannedFor: plannedFor || undefined,
-          dept: 'VENTAS',
+          dept: 'VENTAS'
         });
-
-        // 2) POS (opcional)
         if (posLines.length) {
           await createPosTacticsBatch({ accountId: accId, createdById: currentUser!.id, lines: posLines as PosLineInput[] });
         }
-
         toast.success(`Interacción guardada${posLines.length ? " + POS" : ""}`);
       }
 
       if (tab === "PEDIDO") {
-        // Validaciones mínimas de pedido
         if (!lines.length || !lines.some(l => l.sku.trim() && l.qty > 0)) {
           toast.error("Añade al menos una línea (SKU + cantidad > 0)");
-          setSaving(false);
-          return;
+          setSaving(false); return;
         }
-
-        // 1) Pedido (sell-out)
         const created = await placeOrder({
           accountId: accId,
           distributorId,
           lines,
           createdById: currentUser!.id
         });
-
-        // 2) POS (opcional)
         if (posLines.length) {
           await createPosTacticsBatch({ accountId: accId, createdById: currentUser!.id, lines: posLines as PosLineInput[] });
         }
-
         toast.success(`Pedido colocado${posLines.length ? " + POS" : ""}`);
-        // navega al detalle si quieres
         if (created?.id) router.push(`/orders/${created.id}`);
       }
 
@@ -138,10 +207,11 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
         {!accountId && (
           <div className="mb-3">
             <label className="text-xs text-zinc-600">Cuenta</label>
-            <Select value={selectedAccount} onChange={e => setSelectedAccount(e.target.value)}>
-              <option value="">Selecciona cuenta</option>
-              {accountOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </Select>
+            <AccountSearch 
+              accounts={data?.accounts || []}
+              onSelect={(acc) => { setSelectedAccount(acc); setNewAccountName(undefined); }}
+              onFreeText={(text) => { setSelectedAccount(null); setNewAccountName(text); }}
+            />
           </div>
         )}
 
@@ -173,7 +243,6 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
               <Input type="datetime-local" value={plannedFor} onChange={(e) => setPlannedFor(e.target.value)} />
             </div>
 
-            {/* POS (opcional, múltiples líneas) */}
             <div className="border-t pt-3">
               <div className="flex items-center justify-between mb-2">
                 <h4 className="text-sm font-semibold">Añadir tácticas POS (opcional)</h4>
@@ -190,8 +259,8 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
             <div className="grid grid-cols-3 gap-2">
               <div className="col-span-3">
                 <label className="text-xs text-zinc-600">Distribuidor</label>
-                <Select value={distributorId} onChange={e => setDistributorId(e.target.value)}>
-                    <option value="SANTA_BRISA">Santa Brisa</option>
+                <Select value={distributorId} onChange={(e) => setDistributorId(e.target.value)}>
+                    <option value="SB">Santa Brisa</option>
                 </Select>
               </div>
             </div>
@@ -200,39 +269,16 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
               <div className="text-sm font-medium">Líneas de pedido</div>
               {lines.map((l, idx) => (
                 <div key={idx} className="flex gap-2">
-                   <Select className="border rounded px-2 py-1 flex-1" value={l.sku}
+                  <Select className="border rounded px-2 py-1 flex-1" value={l.sku}
                     onChange={e=>setLines(s=>s.map((x,i)=>i===idx?{...x,sku:e.target.value}:x))}>
-                    <option value="">SKU</option>
+                    <option value="">-- Selecciona producto --</option>
                     {skuOptions.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
                   </Select>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={l.qty}
-                    onChange={(e) =>
-                      setLines((s) =>
-                        s.map((x, i) =>
-                          i === idx ? { ...x, qty: Math.max(1, Number(e.target.value) || 1) } : x
-                        )
-                      )
-                    }
-                    className="w-24"
-                  />
-                  <Input
-                    type="number"
-                    step="0.01"
-                    placeholder="€ opcional"
-                    value={l.unitPriceReported ?? ""}
-                    onChange={(e) =>
-                      setLines((s) =>
-                        s.map((x, i) =>
-                          i === idx ? { ...x, unitPriceReported: Number(e.target.value) || undefined } : x
-                        )
-                      )
-                    }
-                    className="w-28"
-                  />
-                  <SBButton variant="ghost" onClick={() => setLines((s) => s.filter((_, i) => i !== idx))}>
+                  <Input type="number" min={1} className="border rounded px-2 py-1 w-24" value={l.qty}
+                    onChange={e=>setLines(s=>s.map((x,i)=>i===idx?{...x,qty:Math.max(1, Number(e.target.value)||1)}:x))} />
+                  <Input type="number" step="0.01" placeholder="€ opcional" className="border rounded px-2 py-1 w-28"
+                    value={l.unitPriceReported ?? ""} onChange={e=>setLines(s=>s.map((x,i)=>i===idx?{...x,unitPriceReported:Number(e.target.value)||undefined}:x))} />
+                  <SBButton variant="ghost" onClick={() => removeLine(idx)}>
                     Quitar
                   </SBButton>
                 </div>
@@ -242,13 +288,12 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
               </SBButton>
             </div>
 
-            {/* POS (opcional, múltiples líneas) */}
             <div className="border-t pt-3">
               <div className="flex items-center justify-between mb-2">
                 <h4 className="text-sm font-semibold">Añadir tácticas POS (opcional)</h4>
                 <span className="text-xs text-zinc-500">Se registran en Marketing</span>
               </div>
-              <PosLinesPicker catalog={posCatalog} lines={posLines} setLines={setPosLines} />
+              <PosLinesPicker catalog={posCatalog} lines={posLines} setLines={setPosLines as any} />
             </div>
           </div>
         )}
@@ -258,7 +303,7 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
           <SBButton variant="secondary" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancelar
           </SBButton>
-          <SBButton variant="primary" onClick={save} disabled={saving}>
+          <SBButton onClick={save} disabled={saving}>
             {saving ? "Guardando..." : "Guardar"}
           </SBButton>
         </div>
