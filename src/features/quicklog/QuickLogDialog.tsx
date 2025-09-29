@@ -8,8 +8,8 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
 // ⬇️ Server actions (adapta a tus rutas reales)
-import { createInteraction } from "@/app/(app)/agenda/actions";
-import { placeOrder } from "@/app/(app)/orders/actions";
+import { createInteraction } from "@/app/(app)/agenda/actions";               // (accountId, userId, kind, note, plannedFor)
+import { placeOrder } from "@/app/(app)/orders/actions";                      // (accountId, distributorId, lines[], createdById)
 import { createPosTacticsBatch, type PosLineInput } from "@/features/pos/server/pos-actions";
 
 // ⬇️ Selector POS multi-líneas
@@ -50,6 +50,8 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
     () => (data?.accounts || []).map(a => ({ value: a.id, label: a.name })),
     [data?.accounts]
   );
+  
+  const skuOptions = useMemo(() => (data?.items || []).map(i => ({ value: i.sku, label: i.name })), [data?.items]);
 
   const resetAll = () => {
     setNote(""); setPlannedFor("");
@@ -81,7 +83,7 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
           note: note || undefined,
           plannedFor: plannedFor || undefined,
           dept: 'VENTAS'
-        } as any);
+        });
 
         // 2) POS (opcional)
         if (posLines.length) {
@@ -102,7 +104,8 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
         // 1) Pedido (sell-out)
         const created = await placeOrder({
           accountId: accId,
-          lines: lines as any,
+          distributorId,
+          lines,
           createdById: currentUser!.id
         });
 
@@ -128,8 +131,6 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
     }
   };
 
-  const skuOptions = useMemo(() => (data?.items || []).map(i => ({ value: i.sku, label: i.name })), [data?.items]);
-
   return (
     <SBDialog open={open} onOpenChange={(v) => { if(!v) resetAll(); onOpenChange(v); }}>
       <SBDialogContent title="QuickLog (Interacción / Pedido)">
@@ -141,8 +142,8 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
               value={selectedAccount}
               onChange={e => setSelectedAccount(e.target.value)}
             >
-                <option value="">Selecciona cuenta</option>
-                {accountOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              <option value="">Selecciona cuenta</option>
+              {accountOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </Select>
           </div>
         )}
@@ -181,7 +182,7 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
                 <h4 className="text-sm font-semibold">Añadir tácticas POS (opcional)</h4>
                 <span className="text-xs text-zinc-500">Se registran en Marketing</span>
               </div>
-              <PosLinesPicker catalog={posCatalog} lines={posLines} setLines={setLines} />
+              <PosLinesPicker catalog={posCatalog} lines={posLines} setLines={setPosLines} />
             </div>
           </div>
         )}
@@ -206,7 +207,7 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
               {lines.map((l, idx) => (
                 <div key={idx} className="flex gap-2">
                   <Select className="flex-1" value={l.sku}
-                    onChange={e => setLines(s=>s.map((x,i)=>i===idx?{...x,sku:e.target.value}:x))}>
+                    onChange={e=>setLines(s=>s.map((x,i)=>i===idx?{...x,sku:e.target.value}:x))}>
                     <option value="">-- SKU --</option>
                     {skuOptions.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
                   </Select>
@@ -239,7 +240,7 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
                 <h4 className="text-sm font-semibold">Añadir tácticas POS (opcional)</h4>
                 <span className="text-xs text-zinc-500">Se registran en Marketing</span>
               </div>
-              <PosLinesPicker catalog={posCatalog} lines={posLines} setLines={setLines} />
+              <PosLinesPicker catalog={posCatalog} lines={posLines} setLines={setPosLines} />
             </div>
           </div>
         )}

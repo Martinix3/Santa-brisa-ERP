@@ -1,6 +1,5 @@
 // src/features/pos/PosLinesPicker.tsx
 "use client";
-
 import React from 'react';
 import type { PosLineInput } from './server/pos-actions';
 import { SBButton, Select, Input } from '@/components/ui/ui-primitives';

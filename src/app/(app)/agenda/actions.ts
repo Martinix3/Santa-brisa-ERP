@@ -1,11 +1,11 @@
-
 // src/app/(app)/agenda/actions.ts
 "use server";
 import { adminDb as db } from "@/server/firebase";
+import type { Department } from '@/domain/ssot';
 
 export async function createInteraction(input: {
   accountId: string;
-  dept: "VENTAS";
+  dept: Department;
   kind: string;          // "VISITA" | "LLAMADA" | ...
   note?: string;
   plannedFor?: string;   // ISO
@@ -19,6 +19,7 @@ export async function createInteraction(input: {
     id: ref.id,
     status: "open",
     ...input,
+    userId: input.createdById, // Ensure compatibility with existing fields
     createdAt: now,
     updatedAt: now,
   });

@@ -14,9 +14,10 @@ import { SANTA_BRISA_DISTRIB_ID, canPlaceOrder } from "@/lib/authz";
 
 
 export async function placeOrder({
-  accountId, lines, createdById,
+  accountId, distributorId, lines, createdById,
 }:{
   accountId: string;
+  distributorId?: string;
   lines: { sku:string; qty:number; unitPriceReported?:number }[];
   createdById: string;
 }) {
@@ -30,7 +31,7 @@ export async function placeOrder({
   const payload = {
     id: ref.id,
     accountId,
-    distributorId: SANTA_BRISA_DISTRIB_ID,
+    distributorId: distributorId || SANTA_BRISA_DISTRIB_ID,
     isSellOutReported: true,
     status: "open",
     lines,
