@@ -33,38 +33,43 @@ export async function confirmOrderShipment(orderId: string): Promise<Shipment> {
   if (!order) throw new Error('Order not found');
   if (order.status !== 'open') throw new Error('Order must be in "open" status to confirm.');
 
-  const [onHandSnap, lotsSnap, itemsSnap] = await Promise.all([
+  // 1. ALL READS FIRST - Fetch all necessary data before starting the transaction.
+  const [onHandSnap, lotsSnap, itemsSnap, account, shipmentsSnap] = await Promise.all([
     db.collection('onHand').get(),
     db.collection('lots').get(),
-    db.collection('items').get()
+    db.collection('items').get(),
+    getOne<Account>('accounts', order.accountId),
+    db.collection('shipments').select('shipmentNumber').get(),
   ]);
+
+  if (!account) throw new Error(`Account ${order.accountId} not found.`);
+  const party = await getOne<Party>('parties', account.partyId);
+  if (!party) throw new Error(`Party ${account.partyId} not found.`);
 
   const onHand = onHandSnap.docs.map(doc => doc.data() as OnHandView);
   const lots = lotsSnap.docs.map(doc => doc.data() as Lot);
   const itemsById = new Map(itemsSnap.docs.map(d => [d.id, d.data() as Item]));
-
+  
   const { allocations, shortages } = checkOrderStock(order, onHand, lots);
   if (shortages.length > 0) {
     const shortageDetails = shortages.map(s => `${s.qtyShort}x ${itemsById.get(s.itemId)?.name ?? s.itemId}`).join(', ');
     throw new Error(`Stock insufficient. Shortages: ${shortageDetails}`);
   }
-
-  const account = await getOne<Account>('accounts', order.accountId);
-  if (!account) throw new Error(`Account ${order.accountId} not found.`);
-  const party = await getOne<Party>('parties', account.partyId);
-  if (!party) throw new Error(`Party ${account.partyId} not found.`);
-
-  // --- Start Transaction ---
-  const shipmentRef = db.collection('shipments').doc(); // Auto-generate ID
+  
+  const allShipmentNumbers = shipmentsSnap.docs.map(d => d.data().shipmentNumber).filter(Boolean);
+  const shipmentNumber = makeShipmentCode(allShipmentNumbers, new Date());
+  
+  // 2. TRANSACTION - Perform all writes atomically.
+  const shipmentRef = db.collection('shipments').doc();
   const orderRef = db.collection('ordersSellOut').doc(orderId);
   const now = new Date().toISOString();
   let newShipment: Shipment;
 
   await db.runTransaction(async (transaction) => {
-    // 1. Atomically reserve stock by incrementing reservedQty
+    // 2a. Atomically reserve stock
     for (const alloc of allocations) {
-      if (!alloc.lotNumber) continue; // Should not happen if checkOrderStock is correct
-      const onHandId = makeOnHandId(alloc.itemId, alloc.lotNumber, 'FG/MAIN'); // Assuming stock is in FG/MAIN
+      if (!alloc.lotNumber) continue;
+      const onHandId = makeOnHandId(alloc.itemId, alloc.lotNumber, 'FG/MAIN');
       const onHandRef = db.collection('onHand').doc(onHandId);
       transaction.update(onHandRef, {
         reservedQty: FieldValue.increment(alloc.qty),
@@ -72,12 +77,10 @@ export async function confirmOrderShipment(orderId: string): Promise<Shipment> {
       });
     }
 
-    // 2. Update order status
+    // 2b. Update order status
     transaction.update(orderRef, { status: 'confirmed', updatedAt: now });
 
-    // 3. Create the new shipment document
-    const allShipments = (await transaction.get(db.collection('shipments').select('shipmentNumber'))).docs.map(d => d.data().shipmentNumber).filter(Boolean);
-    const shipmentNumber = makeShipmentCode(allShipments, new Date());
+    // 2c. Create the new shipment document
     const isOnlineOrPrivate = account.type === 'ONLINE' || account.type === 'PRIVADA';
     const totalUnits = order.lines.reduce((sum, line) => sum + line.qty, 0);
     const mode: 'PARCEL' | 'PALLET' = isOnlineOrPrivate || totalUnits < 12 ? 'PARCEL' : 'PALLET';
@@ -89,7 +92,7 @@ export async function confirmOrderShipment(orderId: string): Promise<Shipment> {
         partyId: account.partyId,
         accountId: account.id,
         mode,
-        status: 'pending', // Starts as pending, to be picked
+        status: 'pending',
         lines: order.lines.map(line => {
             const alloc = allocations.find(a => a.itemId === line.itemId);
             return {
@@ -97,7 +100,7 @@ export async function confirmOrderShipment(orderId: string): Promise<Shipment> {
                 name: itemsById.get(line.itemId)?.name ?? line.itemId,
                 qty: line.qty,
                 uom: 'unit',
-                lotNumber: alloc?.lotNumber, // Pre-assign lot if possible
+                lotNumber: alloc?.lotNumber,
             };
         }),
         customerName: party.name,
@@ -113,7 +116,7 @@ export async function confirmOrderShipment(orderId: string): Promise<Shipment> {
   });
   // --- End Transaction ---
 
-  // 4. Enqueue follow-up jobs only if the transaction was successful
+  // 3. Enqueue follow-up jobs only if the transaction was successful
   await enqueue({
       kind: 'CREATE_HOLDED_INVOICE',
       payload: { orderId: order.id },
