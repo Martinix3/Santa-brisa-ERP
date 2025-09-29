@@ -14,41 +14,31 @@ export const orderTotal = (order: OrderSellOut): number => {
     return (order.lines || []).reduce((sum, line) => sum + (line.qty * line.priceUnit * (1 - ((line as any).discountPct || 0) / 100)), 0);
 }
 
-export type ResolvedAccountMode = 'PROPIA_SB' | 'COLOCACION' | 'DISTRIB_PARTNER';
 
 // ===== 0) Lógica de negocio sobre el modelo de cuenta =====
 
+/**
+ * Para una cuenta de COLOCACIÓN (flow: 'PLACEMENT'), encuentra la entidad (Party)
+ * del distribuidor que le sirve.
+ * Devuelve null si la cuenta es de venta directa, no tiene distribuidor asignado, o no se encuentra.
+ */
 export function getDistributorForAccount(account: Account, partyRoles: PartyRole[], parties: Party[]): Party | null {
-    if (!account || !partyRoles || !parties) return null;
+    if (!account || account.flow !== 'PLACEMENT' || !account.distributorPartyId || !partyRoles || !parties) {
+      return null;
+    }
+  
+    // El billerId en el rol de cliente apunta al distribuidor.
     const customerRole = partyRoles.find(pr => pr.partyId === account.partyId && pr.role === 'CUSTOMER');
     if (!customerRole) return null;
+  
     const billerId = (customerRole.data as CustomerData)?.billerId;
     if (!billerId || billerId === 'SB') return null;
-
-    const distributorPartyRole = partyRoles.find(pr => pr.partyId === billerId && pr.role === 'DISTRIBUTOR');
-    if (!distributorPartyRole) return null;
-
-    return parties.find(p => p.id === distributorPartyRole.partyId) || null;
-}
-
-/**
- * Deriva el modo de operación de una cuenta ('PROPIA_SB', 'COLOCACION', 'DISTRIB_PARTNER')
- * a partir de su `ownerId` y `billerId`. Esta es ahora la única fuente de verdad para el modo.
- */
-export function computeAccountMode(account: Account, customerRoleData?: CustomerData): ResolvedAccountMode {
-  const isOwnerUser = account.ownerId.startsWith('u_');
-  const isBillerSB = customerRoleData?.billerId === 'SB';
-
-  if (isOwnerUser && isBillerSB) {
-    return 'PROPIA_SB';
-  }
-  if (isOwnerUser && !isBillerSB) {
-    return 'COLOCACION';
-  }
-  if (!isOwnerUser && !isBillerSB) {
-    return 'DISTRIB_PARTNER';
-  }
-  return 'PROPIA_SB';
+  
+    // Asegurarse de que el billerId corresponde a una entidad con rol de DISTRIBUTOR
+    const distributorRole = partyRoles.find(pr => pr.partyId === billerId && pr.role === 'DISTRIBUTOR');
+    if (!distributorRole) return null;
+  
+    return parties.find(p => p.id === distributorRole.partyId) || null;
 }
 
 
@@ -75,11 +65,11 @@ export type BottlesOpts = {
   countNonBottleSkusAsZero?: boolean;               // por defecto true
 };
 
-type OrderLine = NonNullable<OrderSellOut['lines']>[number];
+type OrderLineWithItem = OrderLine & { item?: Item };
 
-function lineToBottles(line: OrderLine, item: Item | undefined, opts: BottlesOpts = {}): number {
+function lineToBottles(line: OrderLineWithItem, opts: BottlesOpts = {}): number {
   if(!line) return 0;
-  const isBottleItem = !!item?.category.includes('fg');
+  const isBottleItem = !!line.item?.category.includes('fg');
   if (!isBottleItem) return opts.countNonBottleSkusAsZero === false ? line.qty : 0;
 
   switch (line.uom) {
@@ -90,8 +80,8 @@ function lineToBottles(line: OrderLine, item: Item | undefined, opts: BottlesOpt
 
 export function orderToBottles(order: OrderSellOut, items: Item[], opts?: BottlesOpts): number {
   return (order.lines || []).reduce((s, l) => {
-    const p = items.find(x => x.id === l.itemId);
-    return s + lineToBottles(l, p, opts);
+    const item = items.find(x => x.id === l.itemId);
+    return s + lineToBottles({ ...l, item }, opts);
   }, 0);
 }
 
@@ -107,6 +97,11 @@ export type AccountKPIs = {
   daysSinceLastVisit?: number;
 };
 
+/**
+ * Calcula los KPIs para una cuenta específica en un rango de fechas.
+ * Esta función es agnóstica al `flow` de la cuenta; simplemente agrega los datos
+ * de pedidos e interacciones asociados a ella.
+ */
 export function computeAccountKPIs(params: {
   data: SantaData;
   accountId: string; startIso: string; endIso: string;
@@ -116,29 +111,32 @@ export function computeAccountKPIs(params: {
 
   const start = new Date(startIso);
   const end = new Date(endIso);
-  const orders = (data.ordersSellOut || []).filter(o =>
-    o.accountId === accountId && o.status === 'confirmed' && inWindow(String(o.createdAt), start, end)
+  
+  const accountOrders = (data.ordersSellOut || []).filter(o =>
+    o.accountId === accountId && 
+    (o.status === 'confirmed' || o.status === 'shipped' || o.status === 'paid') &&
+    inWindow(String(o.createdAt), start, end)
   );
 
-  const interactions = (data.interactions || []).filter(i => i.accountId === accountId && inWindow(String(i.createdAt), start, end));
+  const accountInteractions = (data.interactions || []).filter(i => i.accountId === accountId && inWindow(String(i.createdAt), start, end));
 
   const account = data.accounts.find(a => a.id === accountId);
   const ownerId = account?.ownerId;
   const user = ownerId ? data.users.find(u => u.id === ownerId) : undefined;
   const baseline = user?.kpiBaseline;
 
-  const unitsSold = (baseline?.unitsSold || 0) + orders.reduce((s, o) => s + orderToBottles(o, data.items), 0);
-  const orderCount = orders.length;
+  const unitsSold = (baseline?.unitsSold || 0) + accountOrders.reduce((s, o) => s + orderToBottles(o, data.items || []), 0);
+  const orderCount = accountOrders.length;
   
-  const revenueFromOrders = orders.map(o => orderTotal(o)).reduce((a, b) => a + b, 0);
+  const revenueFromOrders = accountOrders.map(o => orderTotal(o)).reduce((a, b) => a + b, 0);
   const totalRevenue = (baseline?.revenue || 0) + revenueFromOrders;
   
   const avgTicket = orderCount > 0 ? totalRevenue / orderCount : 0;
   
-  const visitsCount = (baseline?.visits || 0) + interactions.filter(i => i.kind === 'VISITA').length;
-  const visitsInWindow = interactions.filter(i => i.kind === 'VISITA');
+  const visitsCount = (baseline?.visits || 0) + accountInteractions.filter(i => i.kind === 'VISITA').length;
+  const visitsInWindow = accountInteractions.filter(i => i.kind === 'VISITA');
   
-  const ordersTimes = orders.map(o => +(typeof o.createdAt === 'string' ? new Date(o.createdAt) : new Date(Number(o.createdAt))));
+  const ordersTimes = accountOrders.map(o => +(typeof o.createdAt === 'string' ? new Date(o.createdAt) : new Date(Number(o.createdAt))));
   const lookN = lookbackDaysForConversion * 24 * 3600 * 1000;
   const convertedVisits = visitsInWindow.filter(v => {
     const tv = +(typeof v.createdAt === 'string' ? new Date(v.createdAt) : new Date(Number(v.createdAt)));
@@ -146,11 +144,11 @@ export function computeAccountKPIs(params: {
   }).length;
   const visitToOrderRate = visitsInWindow.length ? Number(((convertedVisits / visitsInWindow.length) * 100).toFixed(1)) : undefined;
 
-  const allAccountOrders = (data.ordersSellOut || []).filter(o => o.accountId === accountId && o.status === 'confirmed');
+  const allAccountOrders = (data.ordersSellOut || []).filter(o => o.accountId === accountId && (o.status === 'confirmed' || o.status === 'shipped' || o.status === 'paid'));
   const sortedOrders = allAccountOrders.sort((a, b) => +(typeof b.createdAt === 'string' ? new Date(b.createdAt) : new Date(Number(b.createdAt))) - +(typeof a.createdAt === 'string' ? new Date(a.createdAt) : new Date(Number(a.createdAt))));
   const lastOrder = sortedOrders.length > 0 ? sortedOrders[0] : undefined;
 
-  const allAccountVisits = (data.interactions || []).filter(i => i.accountId === accountId && i.kind==='VISITA');
+  const allAccountVisits = (data.interactions || []).filter(i => i.accountId === accountId && i.kind === 'VISITA');
   const sortedVisits = allAccountVisits.sort((a,b)=> +(typeof b.createdAt === 'string' ? new Date(b.createdAt) : new Date(Number(b.createdAt))) - +(typeof a.createdAt === 'string' ? new Date(a.createdAt) : new Date(Number(a.createdAt))));
   const lastVisit = sortedVisits.length > 0 ? sortedVisits[0] : undefined;
 
