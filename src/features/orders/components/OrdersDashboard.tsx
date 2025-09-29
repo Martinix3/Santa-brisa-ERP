@@ -8,7 +8,7 @@ import { useData } from "@/lib/dataprovider";
 import { updateOrderStatus, createSalesInvoice, recordPayment } from "@/app/(app)/orders/actions";
 import { ImportShopifyOrderButton } from './ImportShopifyOrderButton';
 import Link from "next/link";
-import { orderTotal } from "@/lib/sb-core";
+import { orderTotal, computeAccountMode, ResolvedAccountMode } from "@/lib/sb-core";
 import { consignmentOnHandByAccount, consignmentTotalUnits } from '@/lib/consignment-and-samples';
 import { AlertCircle, Truck, Boxes, FileText, CreditCard, ShoppingCart } from 'lucide-react';
 import { normalizeOrderStatus } from '@/lib/status';
@@ -163,35 +163,37 @@ export default function OrdersDashboard() {
   }, [partyRoles]);
 
   const visibleOrders = useMemo(() => {
-    const isOnlineAcc = (acc?: Account) => acc?.type === "ONLINE";
-
     return (ordersSellOut || [])
-      .filter((o) => {
-        const acc = accountsById.get(o.accountId);
-        if (!acc) return false;
+        .filter(o => {
+            const acc = accountsById.get(o.accountId);
+            if (!acc) return false;
 
-        const customerRole = rolesByPartyId.get(acc.partyId);
-        const billerId = customerRole?.billerId || "SB";
-        const isDirecta = billerId === "SB";
+            const customerRole = rolesByPartyId.get(acc.partyId);
+            const mode = computeAccountMode(acc, customerRole);
+            
+            const isOnline = acc.type === 'ONLINE' || o.source === 'SHOPIFY';
+            const isDirecta = mode === 'PROPIA_SB';
+            const isColocacion = mode === 'COLOCACION';
 
-        if (tab === "online") {
-          if (!(o.source === "SHOPIFY" || isOnlineAcc(acc))) return false;
-        } else if (tab === "directa") {
-          if (!isDirecta || isOnlineAcc(acc)) return false;
-        } else if (tab === "colocacion") {
-          if (isDirecta || isOnlineAcc(acc)) return false;
-        }
+            if (tab === 'online') {
+                if (!isOnline) return false;
+            } else if (tab === 'directa') {
+                if (!isDirecta || isOnline) return false;
+            } else if (tab === 'colocacion') {
+                if (!isColocacion || isOnline) return false;
+            }
 
-        const normalizedStatus = normalizeOrderStatus(o.status);
-        const sOk = !status || normalizedStatus === (status as OrderStatus);
-        const qOk =
-          !q ||
-          (o.docNumber && o.docNumber.toLowerCase().includes(q.toLowerCase())) ||
-          o.id.toLowerCase().includes(q.toLowerCase()) ||
-          (acc?.name || "").toLowerCase().includes(q.toLowerCase());
-        return sOk && qOk;
-      })
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+            const normalizedStatus = normalizeOrderStatus(o.status);
+            const sOk = !status || normalizedStatus === (status as OrderStatus);
+            const qOk =
+                !q ||
+                (o.docNumber && o.docNumber.toLowerCase().includes(q.toLowerCase())) ||
+                o.id.toLowerCase().includes(q.toLowerCase()) ||
+                (acc?.name || "").toLowerCase().includes(q.toLowerCase());
+
+            return sOk && qOk;
+        })
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [ordersSellOut, accountsById, rolesByPartyId, q, status, tab]);
 
   const kpi = useMemo(() => {
@@ -201,7 +203,6 @@ export default function OrdersDashboard() {
       if (normalizedStatus === "open") k.toConfirm++;
       if (normalizedStatus === "confirmed") k.toShip++;
       if (normalizedStatus === "shipped") k.toInvoice++;
-      if (normalizedStatus === "invoiced") k.toInvoice++;
       if (normalizedStatus === "invoiced") k.toCollect++;
     }
     k.consignmentUnits = Object.values(consTotals).reduce((a, b) => a + b, 0);

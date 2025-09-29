@@ -1,4 +1,3 @@
-
 // --- Santa Brisa: lógica de negocio (sell-out a botellas, agregados y KPIs) ---
 import type {
   Account, Party, PartyRole, CustomerData, OrderSellOut, User, SantaData, Activation, Interaction, Item, QcStatus
@@ -84,7 +83,7 @@ function lineToBottles(line: OrderLine, item: Item | undefined, opts: BottlesOpt
   if (!isBottleItem) return opts.countNonBottleSkusAsZero === false ? line.qty : 0;
 
   switch (line.uom) {
-    case 'unit':   return line.qty;
+    case 'uds':   return line.qty;
     default: return 0;
   }
 }
