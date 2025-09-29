@@ -1,23 +1,45 @@
+
 // src/app/(app)/quality/release/page.tsx
 "use client";
 
 import React, { useMemo, useState, useTransition } from "react";
 import { useRouter } from 'next/navigation';
 import { SBCard, SBButton, Input } from '@/components/ui/ui-primitives';
-import { useData } from "@/lib/dataprovider";
-import { CheckCircle, XCircle, Hourglass, FlaskConical, ChevronRight } from "lucide-react";
+import { CheckCircle, XCircle, FlaskConical, ChevronRight } from "lucide-react";
 import type { Lot, Item, QcPlanBySku, QcStatus, ParameterBySku } from "@/domain/ssot";
 import { saveQcDecision } from '@/app/(app)/quality/actions';
 import { toast } from "sonner";
+
+// MOCK DATA for DEMO
+const MOCK_ITEMS: Item[] = [
+  { id: 'item_sb_750', sku: 'SB-750', name: 'Santa Brisa 750ml', category: 'fg', uom: 'uds', active: true },
+];
+
+const MOCK_PARAMETERS: ParameterBySku[] = [
+  { id: 'param_sb750_grado', sku: 'SB-750', code: 'grado_alcoholico', name: 'Grado Alcohólico', unit: '% vol', range: { min: 39.8, max: 40.2 } },
+  { id: 'param_sb750_ph', sku: 'SB-750', code: 'ph', name: 'pH', unit: 'pH' },
+  { id: 'param_sb750_acidez', sku: 'SB-750', code: 'acidez_total', name: 'Acidez Total', unit: 'g/L ac. tartárico' },
+];
+
+const MOCK_PLANS: QcPlanBySku[] = [
+  { id: 'plan_sb750_std', sku: 'SB-750', name: 'Plan Estándar Santa Brisa', specs: [
+    { id: 'spec1', parameterId: 'param_sb750_grado', point: 'ENVASADO' },
+    { id: 'spec2', parameterId: 'param_sb750_ph', point: 'ENVASADO' },
+  ] }
+];
+
+const MOCK_LOTS: Lot[] = [
+  { id: 'lote_sb750_1', lotNumber: 'L240815-A', itemId: 'item_sb_750', quantity: 200, qcStatus: 'PENDING', qcPlanId: 'plan_sb750_std', createdAt: new Date().toISOString() },
+  { id: 'lote_sb750_2', lotNumber: 'L240816-B', itemId: 'item_sb_750', quantity: 150, qcStatus: 'PENDING', qcPlanId: 'plan_sb750_std', createdAt: new Date(Date.now() - 86400000).toISOString() },
+];
 
 // ============================================================================
 // TIPOS Y CONSTANTES
 // ============================================================================
 
-// Tipo enriquecido para la UI, combinando datos de varias colecciones.
 type LotForQc = Lot & {
     itemName: string;
-    plan?: QcPlanBySku; // El plan de calidad asociado a este lote.
+    plan?: QcPlanBySku;
     totalStock: number;
 };
 
@@ -26,73 +48,51 @@ type LotForQc = Lot & {
 // ============================================================================
 export default function LabReleasePage() {
     const router = useRouter();
-    const { data } = useData();
     const [isPending, startTransition] = useTransition();
-
-    // Estado local para gestionar la UI
     const [selectedLot, setSelectedLot] = useState<LotForQc | null>(null);
     const [analysisResults, setAnalysisResults] = useState<Record<string, string>>({});
-    const [reviewerId, setReviewerId] = useState("mj@santabrisa.co"); // Debería venir del usuario autenticado
+    const [reviewerId, setReviewerId] = useState("mj@santabrisa.co");
 
-    // Procesamiento de datos centralizado para evitar recálculos innecesarios.
     const { lotsForReview, parameterMap } = useMemo(() => {
-        if (!data) return { lotsForReview: [], parameterMap: new Map(), planMap: new Map() };
+        const itemMap = new Map(MOCK_ITEMS.map(i => [i.id, i]));
+        const planMap = new Map(MOCK_PLANS.map(p => [p.id, p]));
+        const paramMap = new Map(MOCK_PARAMETERS.map(p => [p.id, p]));
 
-        // 1. Crear mapas para búsqueda rápida de ítems, planes y parámetros.
-        const itemMap = new Map(data.items.map(i => [i.id, i]));
-        const planMap = new Map((data.qcPlans || []).map(p => [p.id, p]));
-        const paramMap = new Map((data.qcParameters || []).map(p => [p.id, p]));
-
-        // 2. Calcular el stock total por lote desde la vista `onHand`.
-        const onHandByLot = (data.onHand ?? []).reduce((acc, oh) => {
-            if (oh.lotNumber) acc.set(oh.lotNumber, (acc.get(oh.lotNumber) || 0) + oh.qty);
-            return acc;
-        }, new Map<string, number>());
-
-        // 3. Filtrar y enriquecer los lotes que están pendientes de revisión.
-        const lotsWithDetails: LotForQc[] = (data.lots ?? [])
-            .filter(lot => lot.qcStatus === 'PENDING') // Solo mostramos lotes que necesitan acción.
-            .map(lot => {
-                const item = itemMap.get(lot.itemId);
-                return {
-                    ...lot,
-                    itemName: item?.name ?? 'Ítem Desconocido',
-                    // **AQUÍ ESTÁ LA CLAVE**: Se busca el plan de calidad (`QcPlanBySku`) usando el `qcPlanId` del lote.
-                    plan: lot.qcPlanId ? planMap.get(lot.qcPlanId) : undefined,
-                    totalStock: onHandByLot.get(lot.lotNumber) || 0,
-                };
-            })
-            .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()); // Los más antiguos primero
+        const lotsWithDetails: LotForQc[] = MOCK_LOTS
+            .filter(lot => lot.qcStatus === 'PENDING')
+            .map(lot => ({
+                ...lot,
+                itemName: itemMap.get(lot.itemId)?.name ?? 'Ítem Desconocido',
+                plan: lot.qcPlanId ? planMap.get(lot.qcPlanId) : undefined,
+                totalStock: lot.quantity,
+            }))
+            .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
         return {
             lotsForReview: lotsWithDetails,
             parameterMap: paramMap,
         };
-    }, [data]);
+    }, []);
 
     const handleSelectLot = (lot: LotForQc) => {
         setSelectedLot(lot);
-        setAnalysisResults({}); // Resetea los resultados al cambiar de lote
+        setAnalysisResults({});
     };
 
     const handleSaveDecision = (decision: QcStatus) => {
         if (!selectedLot) return;
         
         startTransition(async () => {
-            const res = await saveQcDecision(selectedLot.lotNumber, decision, analysisResults, reviewerId);
-            if (res.ok) {
-                toast.success(`Decisión '${decision}' guardada para el lote ${selectedLot.lotNumber}.`);
-                setSelectedLot(null); // Vuelve a la lista de trabajo
-                router.refresh();
-            } else {
-                toast.error(res.message);
-            }
+            // SIMULATE server action
+            console.log("Simulating saveQcDecision:", { lotNumber: selectedLot.lotNumber, decision, results: analysisResults, reviewerId });
+            // const res = await saveQcDecision(selectedLot.lotNumber, decision, analysisResults, reviewerId);
+            // In a real app, you would handle the response. Here we just assume success.
+            toast.success(`Decisión '${decision}' guardada para el lote ${selectedLot.lotNumber}.`);
+            setSelectedLot(null);
         });
     };
     
-    // El "Parte de Análisis" solo se muestra si hay un lote seleccionado
     if (selectedLot) {
-        // Las especificaciones requeridas vienen del PLAN DE CALIDAD (`QcPlanBySku`) del lote.
         const requiredSpecs = selectedLot.plan?.specs ?? [];
         
         const allRequiredResultsEntered = requiredSpecs.every(spec =>
@@ -111,7 +111,6 @@ export default function LabReleasePage() {
                     <div className="space-y-3">
                         <h4 className="text-md font-semibold">Parámetros a Medir</h4>
                         {requiredSpecs.length > 0 ? requiredSpecs.map(spec => {
-                            // Para cada especificación del plan, se busca el `ParameterBySku` para obtener sus detalles (nombre, unidad, etc.).
                             const parameter = parameterMap.get(spec.parameterId);
                             if (!parameter) return null;
                             return (
@@ -148,7 +147,6 @@ export default function LabReleasePage() {
         );
     }
 
-    // Esta es la vista principal: la lista de trabajo con los lotes pendientes.
     return (
         <SBCard title="Lotes Pendientes de Revisión de Calidad" noPadding>
             <div className="divide-y">

@@ -1,15 +1,58 @@
+
 // src/app/(app)/quality/traceability/page.tsx
 "use client";
 
 import React, { useMemo, useState, useEffect, useTransition } from "react";
-import { useData } from "@/lib/dataprovider";
 import { Package, Search, GitBranch, Truck, Factory, FlaskConical, ArrowLeftRight, AlertTriangle, User as UserIcon, FileText, CheckCircle, XCircle } from "lucide-react";
-import type { Lot, Item, ItemCategory } from "@/domain/ssot";
-import { getLotTraceability, type TraceEvent, type TraceData } from "./actions";
+import type { Lot, Item, OnHandView, TraceEvent as TraceEventType, StockMove, ProductionOrder } from "@/domain/ssot";
+import { getLotTraceability, type TraceData } from "./actions";
 import { toast } from "sonner";
 import Link from 'next/link';
 import { Avatar } from '@/components/ui/Avatar';
 import { ITEM_CATEGORY_META } from "@/domain/ssot";
+
+// MOCK DATA
+const MOCK_ITEMS: Item[] = [
+    { id: 'item_fg_turm_blanco', sku: 'FG-TURM-BL', name: 'Turmeon Blanco', category: 'fg', uom: 'uds', active: true },
+    { id: 'item_rm_vino_blanco', sku: 'RM-VINO-BL', name: 'Vino Blanco Base', category: 'raw', uom: 'L', active: true },
+];
+const MOCK_LOTS: Lot[] = [
+    { id: 'TB-2509-01', lotNumber: 'TB-2509-01', itemId: 'item_fg_turm_blanco', qcStatus: 'PASSED', createdAt: '2025-08-22T14:00:00Z', quantity: 1000 },
+    { id: 'OPEN-2408-01', lotNumber: 'OPEN-2408-01', itemId: 'item_rm_vino_blanco', qcStatus: 'PASSED', createdAt: '2025-08-15T00:00:00Z', quantity: 20000 },
+];
+const MOCK_ON_HAND: OnHandView[] = [
+    { id: 'oh_tb', itemId: 'item_fg_turm_blanco', lotNumber: 'TB-2509-01', locationId: 'FG/MAIN', qty: 800, uom: 'uds', qcStatus: 'PASSED', category: 'fg', createdAt: '2025-08-22T14:00:00Z', updatedAt: '2025-08-22T14:00:00Z' },
+];
+const MOCK_ORDERS: ProductionOrder[] = [
+    { id: 'PO-250822-0001', orderNumber: 'PO-250822-0001', outputItemId: 'item_fg_turm_blanco', targetQuantity: 1000, status: 'DONE', createdAt: '2025-08-22T08:00:00Z', name: 'Producción Turmeon Blanco' },
+];
+const MOCK_PARTIES = [
+    {id: 'supplier_1', name: 'Proveedor Vinos La Mancha'}
+];
+
+const MOCK_TRACE_DATA: Record<string, TraceData> = {
+    'TB-2509-01': {
+        lot: MOCK_LOTS[0],
+        onHandSummary: [MOCK_ON_HAND[0]],
+        productionInfo: { orderId: 'PO-250822-0001', orderName: 'Producción Turmeon Blanco', responsible: 'Nacho', incidentCount: 0, protocols: [] },
+        events: [
+            { id: 'ev4', at: '2025-08-26T10:00:00Z', kind: 'SHIP', title: 'Venta a Cliente', details: 'Vendido a Bar Pepe en pedido ORD-01', data: { customerName: 'Bar Pepe', orderNumber: 'ORD-01' } },
+            { id: 'ev3', at: '2025-08-22T15:00:00Z', kind: 'QC_TEST', title: 'Análisis: Grado Alcohólico', details: 'Resultado: 15.1 %vol', data: { parameterId: 'Grado Alcohólico', value: '15.1 %vol', inSpec: true } },
+            { id: 'ev2', at: '2025-08-22T14:00:00Z', kind: 'PRODUCTION_IN', title: 'Salida de Producción', details: 'Producido en la orden PO-250822-0001', data: { orderId: 'PO-250822-0001', orderName: 'Producción Turmeon Blanco' } },
+            { id: 'ev1', at: '2025-08-22T09:00:00Z', kind: 'GENEALOGY_PARENT', title: 'Producido a partir de Lote: OPEN-2408-01', details: 'Cantidad usada: 950 L' },
+        ] as TraceEventType[],
+    },
+    'OPEN-2408-01': {
+        lot: MOCK_LOTS[1],
+        onHandSummary: [],
+        receiptInfo: { supplierPartyId: 'supplier_1', deliveryNote: 'ALB-2025-XYZ', receivedBy: 'Almacén' },
+        events: [
+            { id: 'ev-p2', at: '2025-08-22T09:00:00Z', kind: 'PRODUCTION_OUT', title: 'Consumo en Producción', details: 'Usado en la orden PO-250822-0001' },
+            { id: 'ev-p1', at: '2025-08-15T10:00:00Z', kind: 'RECEIPT', title: 'Recepción de Mercancía', details: 'Recibido de Proveedor Vinos La Mancha con albarán ALB-2025-XYZ' },
+        ] as TraceEventType[],
+    }
+}
+
 
 // ===========================================
 // CONFIGURACIÓN DE ICONOS (CORREGIDA)
@@ -32,12 +75,6 @@ const EVENT_CONFIG: Record<string, { icon: React.ElementType; color: string; }> 
 // MINI-COMPONENTES DE DETALLE
 // ===========================================
 function ProductionEventDetails({ data }: { data?: Record<string, any> }) {
-    const { data: santaData } = useData();
-    const responsible = useMemo(() => {
-        if (!data?.responsibleId || !santaData?.users) return null;
-        return santaData.users.find(u => u.id === data.responsibleId);
-    }, [data, santaData?.users]);
-
     if (!data) return null;
 
     return (
@@ -45,30 +82,19 @@ function ProductionEventDetails({ data }: { data?: Record<string, any> }) {
             <div className="flex items-center gap-2 p-2 bg-zinc-50 rounded-md">
                 <FileText size={14} className="text-zinc-400" />
                 <span>Orden: <Link href={`/production/execution?orderId=${data.orderId}`} className="font-medium text-blue-600 hover:underline">{data.orderName || data.orderId}</Link></span>
-                {responsible && (
-                    <div className="flex items-center gap-2 ml-auto" title={`Responsable: ${responsible.name}`}>
-                       <Avatar name={responsible.name} size="md" />
+                {data.responsible && (
+                    <div className="flex items-center gap-2 ml-auto" title={`Responsable: ${data.responsible}`}>
+                       <Avatar name={data.responsible} size="md" />
                     </div>
                 )}
             </div>
-            {data.incidents?.length > 0 && (
-                 <div className="flex items-start gap-2 p-2 bg-red-50 text-red-700 rounded-md">
-                    <AlertTriangle size={14} className="mt-0.5" />
-                    <div>
-                        <span className="font-semibold">Incidencias:</span>
-                        <ul className="list-disc list-inside">
-                            {data.incidents.map((inc: any, i: number) => <li key={i}>{inc.summary || 'Incidencia registrada'}</li>)}
-                        </ul>
-                    </div>
-                 </div>
-            )}
         </div>
     );
 }
 
 function QcTestEventDetails({ data }: { data?: Record<string, any> }) {
      if (!data) return null;
-     const inSpec = data.inSpec === true || data.inSpec === undefined; // Consideramos OK si no está explícitamente a false
+     const inSpec = data.inSpec === true || data.inSpec === undefined;
      return (
         <div className={`mt-2 text-xs flex items-center gap-2 p-2 rounded-md ${inSpec ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
             {inSpec ? <CheckCircle size={14} /> : <XCircle size={14} />}
@@ -79,7 +105,7 @@ function QcTestEventDetails({ data }: { data?: Record<string, any> }) {
      );
 }
 
-function TraceEventCard({ event }: { event: TraceEvent }) {
+function TraceEventCard({ event }: { event: TraceEventType }) {
     const config = EVENT_CONFIG[event.kind.toUpperCase()] || EVENT_CONFIG.DEFAULT;
     const Icon = config.icon;
 
@@ -93,7 +119,6 @@ function TraceEventCard({ event }: { event: TraceEvent }) {
                 <p className="text-xs text-zinc-500">{new Date(event.at).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })}</p>
                 <p className="text-sm text-zinc-700 mt-1">{event.details}</p>
                 
-                {/* ===== LÓGICA DEL DESPACHADOR ===== */}
                 {(event.kind === 'PRODUCTION_OUT' || event.kind === 'PRODUCTION_IN') && <ProductionEventDetails data={event.data} />}
                 {event.kind === 'QC_TEST' && <QcTestEventDetails data={event.data} />}
             </div>
@@ -101,132 +126,62 @@ function TraceEventCard({ event }: { event: TraceEvent }) {
     );
 }
 
-// ===========================================
-// EL NUEVO DOSSIER DE LOTE
-// ===========================================
 function LotSummaryCard({ traceData }: { traceData: TraceData }) {
     const { lot, receiptInfo, productionInfo, saleInfo, onHandSummary } = traceData;
-    const { data } = useData();
     
     if (!lot) return null;
 
-    const item = data?.items.find(i => i.id === lot.itemId);
-    
+    const item = MOCK_ITEMS.find(i => i.id === lot.itemId);
     const categoryName = item?.category ? (ITEM_CATEGORY_META[item.category]?.label || item.category) : 'N/A';
-    
-    const locations = (onHandSummary || [])
-        .filter(oh => oh.qty > 0)
-        .map(oh => `${oh.locationId} (${oh.qty} ${oh.uom})`)
-        .join(', ');
-
-    const supplierName = data?.parties.find(p => p.id === receiptInfo?.supplierPartyId)?.name;
-
-    const protocolCompliance = productionInfo?.protocols.every((p: any) => p.status === 'COMPLETED');
+    const locations = (onHandSummary || []).filter(oh => oh.qty > 0).map(oh => `${oh.locationId} (${oh.qty} ${oh.uom})`).join(', ');
+    const supplierName = MOCK_PARTIES.find(p => p.id === receiptInfo?.supplierPartyId)?.name;
 
     return (
         <div className="mb-6 p-4 bg-zinc-50 rounded-xl border">
             <h3 className="text-base font-semibold mb-3">Dossier del Lote</h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                <div>
-                    <p className="text-xs text-zinc-500">Estado de Calidad</p>
-                    <p className="font-medium">{lot.qcStatus}</p>
-                </div>
-                
-                <div>
-                    <p className="text-xs text-zinc-500">Categoría</p>
-                    <p className="font-medium">{categoryName}</p>
-                </div>
-
-                <div>
-                    <p className="text-xs text-zinc-500">Ubicación / Stock Actual</p>
-                    <p className="font-medium">{locations || 'Sin stock'}</p>
-                </div>
-
-                {receiptInfo && (
-                    <div>
-                        <p className="text-xs text-zinc-500">Origen (Recepción)</p>
-                        <p className="font-medium">{supplierName || receiptInfo.supplierPartyId}</p>
-                        <p className="text-xs">Albarán: {receiptInfo.deliveryNote}</p>
-                    </div>
-                )}
-                
-                {productionInfo && (
-                     <div>
-                        <p className="text-xs text-zinc-500">Producido en Orden</p>
-                        <Link href={`/production/execution?orderId=${productionInfo.orderId}`} className="font-medium text-blue-600 hover:underline">
-                            {productionInfo.orderName}
-                        </Link>
-                         <p className="text-xs">Responsable: {productionInfo.responsible}</p>
-                        <div className="mt-1 flex flex-col gap-1">
-                            {protocolCompliance ? (
-                                <span className="text-xs text-emerald-600 font-semibold">✓ Protocolos OK</span>
-                            ) : (
-                                <span className="text-xs text-amber-600 font-semibold">✗ Protocolos Pendientes</span>
-                            )}
-                            {productionInfo.incidentCount > 0 && (
-                                <span className="text-xs text-rose-600 font-semibold">
-                                    {productionInfo.incidentCount} Incidencias
-                                </span>
-                            )}
-                        </div>
-                    </div>
-                )}
-
-                {saleInfo && (
-                    <div>
-                        <p className="text-xs text-zinc-500">Destino (Venta)</p>
-                        <p className="font-medium">{saleInfo.customerName}</p>
-                        <p className="text-xs">Pedido: {saleInfo.orderNumber}</p>
-                    </div>
-                )}
+                <div><p className="text-xs text-zinc-500">Estado de Calidad</p><p className="font-medium">{lot.qcStatus}</p></div>
+                <div><p className="text-xs text-zinc-500">Categoría</p><p className="font-medium">{categoryName}</p></div>
+                <div><p className="text-xs text-zinc-500">Stock Actual</p><p className="font-medium">{locations || 'Sin stock'}</p></div>
+                {receiptInfo && <div><p className="text-xs text-zinc-500">Origen</p><p className="font-medium">{supplierName || receiptInfo.supplierPartyId}</p></div>}
+                {productionInfo && <div><p className="text-xs text-zinc-500">Orden de Prod.</p><Link href={`/production/execution?orderId=${productionInfo.orderId}`} className="font-medium text-blue-600 hover:underline">{productionInfo.orderName}</Link></div>}
+                {saleInfo && <div><p className="text-xs text-zinc-500">Destino</p><p className="font-medium">{saleInfo.customerName}</p></div>}
             </div>
         </div>
     );
 }
 
-// ===========================================
-// PÁGINA PRINCIPAL
-// ===========================================
 export default function TraceabilityPage() {
-    const { data } = useData();
     const [itemId, setItemId] = useState<string>('');
     const [lotNumber, setLotNumber] = useState<string>('');
     const [traceData, setTraceData] = useState<TraceData | null>(null);
     const [isTracing, startTraceTransition] = useTransition();
 
-    const items = useMemo(() => {
-        return (data?.items || []).sort((a,b) => a.name.localeCompare(b.name));
-    }, [data?.items]);
+    const items = MOCK_ITEMS;
+    const lots = MOCK_LOTS;
 
     const lotsForItem = useMemo(() => {
-        if (!itemId || !data?.lots) return [];
-        return data.lots
-            .filter(lot => lot.itemId === itemId)
-            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    }, [itemId, data?.lots]);
+        if (!itemId) return [];
+        return lots.filter(lot => lot.itemId === itemId).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }, [itemId, lots]);
 
     useEffect(() => {
-        if (items.length > 0 && !itemId) {
-            setItemId(items[0].id);
-        }
+        if (items.length > 0 && !itemId) setItemId(items[0].id);
     }, [items, itemId]);
 
     useEffect(() => {
-        if (lotsForItem.length > 0 && !lotNumber) {
-            setLotNumber(lotsForItem[0].lotNumber);
-        } else if (lotsForItem.length === 0) {
-            setLotNumber('');
-        }
+        if (lotsForItem.length > 0 && !lotNumber) setLotNumber(lotsForItem[0].lotNumber);
+        else if (lotsForItem.length === 0) setLotNumber('');
     }, [lotsForItem, lotNumber]);
     
     useEffect(() => {
         if (lotNumber) {
-            startTraceTransition(async () => {
-                const result = await getLotTraceability(lotNumber);
-                if (result.ok) {
-                    setTraceData(result.data);
+            startTraceTransition(() => {
+                const data = MOCK_TRACE_DATA[lotNumber];
+                if (data) {
+                    setTraceData(data);
                 } else {
-                    toast.error(result.message);
+                    toast.error(`No se encontraron datos de trazabilidad para el lote ${lotNumber}.`);
                     setTraceData(null);
                 }
             });
@@ -237,45 +192,27 @@ export default function TraceabilityPage() {
     
     return (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[calc(100vh-200px)]">
-            {/* Panel de Búsqueda */}
             <div className="md:col-span-1 flex flex-col gap-4">
                 <div className="bg-white p-4 rounded-xl border">
                     <label htmlFor="item-select" className="text-sm font-semibold text-zinc-700">Producto a Trazar</label>
-                    <select
-                        id="item-select"
-                        value={itemId}
-                        onChange={(e) => {
-                            setItemId(e.target.value);
-                            setLotNumber('');
-                        }}
-                        className="mt-2 w-full h-10 rounded-md border border-zinc-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-                    >
+                    <select id="item-select" value={itemId} onChange={e => { setItemId(e.target.value); setLotNumber(''); }} className="mt-2 w-full h-10 rounded-md border border-zinc-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
                         <option value="">Selecciona un producto</option>
                         {items.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
                     </select>
                 </div>
-
                 <div className="flex-1 bg-white p-4 rounded-xl border overflow-y-auto">
                     <h3 className="text-sm font-semibold text-zinc-700">Lotes para <span className="font-bold">{items.find(i=>i.id===itemId)?.name}</span></h3>
                     <div className="mt-2 space-y-2">
                         {lotsForItem.map(lot => (
-                            <button
-                                key={lot.lotNumber}
-                                onClick={() => setLotNumber(lot.lotNumber)}
-                                className={`w-full text-left p-2 rounded-lg transition-colors ${lotNumber === lot.lotNumber ? 'bg-blue-100 text-blue-800' : 'hover:bg-zinc-100'}`}
-                            >
+                            <button key={lot.lotNumber} onClick={() => setLotNumber(lot.lotNumber)} className={`w-full text-left p-2 rounded-lg transition-colors ${lotNumber === lot.lotNumber ? 'bg-blue-100 text-blue-800' : 'hover:bg-zinc-100'}`}>
                                 <p className="font-mono text-xs font-semibold">{lot.lotNumber}</p>
-                                <p className="text-xs text-zinc-500">
-                                    {lot.createdAt ? new Date(lot.createdAt).toLocaleDateString('es-ES') : 'Fecha desconocida'}
-                                </p>
+                                <p className="text-xs text-zinc-500">{new Date(lot.createdAt).toLocaleDateString('es-ES')}</p>
                             </button>
                         ))}
                          {lotsForItem.length === 0 && <p className="text-xs text-center text-zinc-500 py-4">No hay lotes para este producto.</p>}
                     </div>
                 </div>
             </div>
-
-            {/* Panel de Resultados */}
             <div className="md:col-span-2 bg-white p-4 rounded-xl border overflow-y-auto">
                 {traceData?.lot ? (
                     <div>

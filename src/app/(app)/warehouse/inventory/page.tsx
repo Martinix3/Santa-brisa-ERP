@@ -1,112 +1,64 @@
 
-
+// src/app/(app)/warehouse/inventory/page.tsx
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { SBCard, DataTableSB, SBButton, Input, Select } from "@/components/ui/ui-primitives";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { useData } from "@/lib/dataprovider";
 import type { ItemCategory, OnHandView, Lot, QcStatus, Item } from "@/domain/ssot";
 import {
-  computeSkuRollup, computeStockAlerts, computeCoverage, suggestReplenishment,
-  computeExpiryBuckets, detectQcStuck, auditOnHandVsLots,
+  computeSkuRollup, computeStockAlerts,
   stockStatusBadgeClass, stockStatusLabel, type SkuStockSummary,
 } from "@/lib/inventory";
-import {
-  exportReplenishmentCsvServer,
-  rebuildOnHand as rebuildOnHandAction
-} from "./actions";
-import { getLotTraceability as getLotDossierServer } from "@/app/(app)/quality/traceability/actions";
-
-import { Plus, Download, Search, AlertCircle, ChevronDown, CheckCircle, PackageSearch, Hourglass, XCircle, FileClock } from "lucide-react";
-import { QuickGoodsReceiptDialog } from "@/features/warehouse/components/QuickGoodsReceiptDialog";
-import { NewOnHandDialog } from "./components/NewOnHandDialog";
-import { toast } from "sonner";
-import { useRouter } from "next/navigation";
+import { Plus, Download, Search, AlertCircle, ChevronDown, PackageSearch, FileClock } from "lucide-react";
 import { RealtimeBadge } from "@/components/RealtimeBadge";
-import { useLiveCollection } from "@/hooks/useLiveCollection";
-import { useMutate } from "@/lib/mutate";
+import { QuickGoodsReceiptDialog } from "@/features/warehouse/components/QuickGoodsReceiptDialog";
+
+// ================================================================
+// DATOS DE PRUEBA (MOCK DATA)
+// ================================================================
+const MOCK_ITEMS: Item[] = [
+  { id: 'item_sb_750', sku: 'SB-750', name: 'Santa Brisa 750ml', category: 'fg', uom: 'uds', active: true, stdCost: 8.5 },
+  { id: 'item_sb_magnum', sku: 'SB-MAGNUM', name: 'Santa Brisa Magnum 1.5L', category: 'fg', uom: 'uds', active: true, stdCost: 15 },
+  { id: 'item_agave', sku: 'RM-AGAVE-01', name: 'Agave Crudo', category: 'raw', uom: 'kg', active: true, stdCost: 2.1 },
+  { id: 'item_botella', sku: 'PKG-BOTELLA-STD', name: 'Botella Vidrio 750ml', category: 'pack', uom: 'uds', active: true, stdCost: 0.8 },
+];
+
+const MOCK_ON_HAND: OnHandView[] = [
+  { id: 'oh_1', itemId: 'item_sb_750', lotNumber: 'L240801-A', locationId: 'FG/MAIN', qty: 120, reservedQty: 20, uom: 'uds', qcStatus: 'PASSED', category: 'fg', expiryAt: '2026-08-01T00:00:00Z', createdAt: '2024-08-01T00:00:00Z', updatedAt: '2024-08-10T00:00:00Z' },
+  { id: 'oh_2', itemId: 'item_sb_750', lotNumber: 'L240715-B', locationId: 'FG/MAIN', qty: 80, reservedQty: 0, uom: 'uds', qcStatus: 'PASSED', category: 'fg', expiryAt: '2026-07-15T00:00:00Z', createdAt: '2024-07-15T00:00:00Z', updatedAt: '2024-08-01T00:00:00Z' },
+  { id: 'oh_3', itemId: 'item_sb_750', lotNumber: 'L240815-A', locationId: 'QC/AREA', qty: 200, reservedQty: 0, uom: 'uds', qcStatus: 'PENDING', category: 'fg', createdAt: '2024-08-15T00:00:00Z', updatedAt: '2024-08-15T00:00:00Z' },
+  { id: 'oh_4', itemId: 'item_agave', lotNumber: 'RM-AG-240805', locationId: 'RM/MAIN', qty: 500, reservedQty: 150, uom: 'kg', qcStatus: 'PASSED', category: 'raw', createdAt: '2024-08-05T00:00:00Z', updatedAt: '2024-08-05T00:00:00Z' },
+  { id: 'oh_5', itemId: 'item_botella', lotNumber: 'PKG-B-240720', locationId: 'PKG/MAIN', qty: 2500, reservedQty: 1200, uom: 'uds', qcStatus: 'PASSED', category: 'pack', createdAt: '2024-07-20T00:00:00Z', updatedAt: '2024-07-20T00:00:00Z' },
+  { id: 'oh_6', itemId: 'item_sb_magnum', lotNumber: 'L240810-M', locationId: 'FG/MAIN', qty: 30, reservedQty: 0, uom: 'uds', qcStatus: 'PASSED', category: 'fg', expiryAt: '2026-08-10T00:00:00Z', createdAt: '2024-08-10T00:00:00Z', updatedAt: '2024-08-10T00:00:00Z' },
+];
+
+const MOCK_LOTS: Lot[] = MOCK_ON_HAND.map(oh => ({
+  id: oh.lotNumber,
+  lotNumber: oh.lotNumber,
+  itemId: oh.itemId,
+  qcStatus: oh.qcStatus,
+  quantity: oh.qty,
+  createdAt: oh.createdAt,
+  expDate: oh.expiryAt,
+} as Lot));
 
 
+// ================================================================
+// COMPONENTES UI (Mantenidos igual, pero ahora consumen mock data)
+// ================================================================
 const CATEGORY_ORDER: { value: ItemCategory; label: string }[] = [
-  { value: "fg",            label: "Producto Terminado" },
-  { value: "raw",           label: "Materias Primas" },
-  { value: "intermediate",  label: "Intermedios" },
-  { value: "pack",          label: "Packaging y Etiquetas" },
-  { value: "merch",         label: "Merchandising" },
-  { value: "consumable",    label: "Consumibles" },
+  { value: "fg", label: "Producto Terminado" },
+  { value: "raw", label: "Materias Primas" },
+  { value: "intermediate", label: "Intermedios" },
+  { value: "pack", label: "Packaging y Etiquetas" },
+  { value: "merch", label: "Merchandising" },
+  { value: "consumable", label: "Consumibles" },
 ];
 
 function Empty({ hint }: { hint: string }) {
-  return (
-    <div className="py-10 text-center text-sm text-zinc-500">{hint}</div>
-  );
+  return <div className="py-10 text-center text-sm text-zinc-500">{hint}</div>;
 }
-
-function InspectorSku({ itemId, summary, coverage, suggested }: any) {
-  if (!summary) return <div className="text-sm text-zinc-500">Sin datos</div>;
-  return (
-    <div className="text-sm space-y-3">
-      <div className="font-medium">{itemId}</div>
-      <div className="grid grid-cols-2 gap-2">
-        <div>Disponible: <b>{summary.totalReleasedFree}</b></div>
-        <div>Cuarentena: <b>{summary.totalOnHold}</b></div>
-        <div>1ª Caducidad: <b>{summary.earliestExpiryAt ?? "—"}</b></div>
-        <div>Cobertura (d): <b>{coverage?.daysCover?.toFixed?.(1) ?? "—"}</b></div>
-      </div>
-      <div>Estado: <span className={stockStatusBadgeClass(summary.status)}>{stockStatusLabel(summary.status)}</span></div>
-      <div className="pt-2 border-t border-zinc-200/60">
-        Reposición sugerida: <b>{Math.ceil(suggested ?? 0)}</b>
-      </div>
-    </div>
-  );
-}
-
-function InspectorLot({ lotNumber, dossier }: any) {
-  if (!dossier) {
-    return <div className="text-sm text-zinc-500">Cargando dossier de {lotNumber}…</div>;
-  }
-  const { lot, qcBadge, currentStock, producedBy, receivedFrom, expDate, events } = dossier;
-  return (
-    <div className="text-sm space-y-3">
-      <div className="font-medium">{lot.lotNumber}</div>
-      <div className="grid grid-cols-2 gap-2">
-        <div>Estado QC: <b>{qcBadge}</b></div>
-        <div>Caducidad: <b>{expDate ? new Date(expDate).toLocaleDateString() : "—"}</b></div>
-        <div>Ubicación/Stock:</div>
-        <div className="space-y-1">
-          {currentStock?.length
-            ? currentStock.map((s:any, i:number)=> <div key={i}>{s.locationId} ({s.qty} {s.uom})</div>)
-            : <span className="text-zinc-500">—</span>}
-        </div>
-        <div>Origen:</div>
-        <div className="space-y-1">
-          {producedBy && <div>Producido en orden: {producedBy.orderId}</div>}
-          {receivedFrom && <div>Recepción: {receivedFrom.grId} — Albarán: {receivedFrom.deliveryNote ?? "—"}</div>}
-          {!producedBy && !receivedFrom && <span className="text-zinc-500">—</span>}
-        </div>
-      </div>
-
-      <div className="pt-2 border-t border-zinc-200/60">
-        <div className="font-medium mb-1">Movimientos</div>
-        <div className="space-y-2 max-h-[320px] overflow-auto pr-1">
-          {events?.map((e:any, i:number)=>(
-            <div key={i} className="rounded-md border border-zinc-200/60 p-2">
-              <div className="flex justify-between">
-                <div className="font-medium">{e.title}</div>
-                <div className="text-xs text-zinc-500">{new Date(e.at).toLocaleString()}</div>
-              </div>
-              {e.subtitle && <div className="text-xs text-zinc-600">{e.subtitle}</div>}
-              {e.refId && <div className="text-[11px] text-zinc-500">Ref: {e.refId}</div>}
-            </div>
-          ))}
-          {!events?.length && <div className="text-xs text-zinc-500">Sin movimientos.</div>}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 
 function SkuAccordionRow({ sku, summary, lots, items, onSelect, setViewMode, setSelectedKey }: { sku: SkuStockSummary; summary: SkuStockSummary; lots: OnHandView[]; items: Item[]; onSelect: (key: string) => void; setViewMode: (mode: 'sku' | 'lot') => void; setSelectedKey: (key: string | null) => void; }) {
     const [isOpen, setIsOpen] = useState(false);
@@ -165,19 +117,19 @@ function SkuAccordionRow({ sku, summary, lots, items, onSelect, setViewMode, set
     return <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${styles[status]}`}>{status}</span>;
 }
 
+// ================================================================
+// PÁGINA DE INVENTARIO (Componente Principal)
+// ================================================================
 
 export default function InventoryPage() {
-  const { data } = useData();
-  const onHand = (data?.onHand ?? []) as OnHandView[];
-  const lotsMaster = (data?.lots ?? []) as Lot[];
-  const items = data?.items ?? [];
-  const router = useRouter();
-  const mutate = useMutate();
+  // Usamos los datos de prueba
+  const onHand = MOCK_ON_HAND;
+  const lotsMaster = MOCK_LOTS;
+  const items = MOCK_ITEMS;
 
-  const [isPending, startTransition] = useTransition();
   const [globalSearch, setGlobalSearch] = useState("");
   const [locationFilter, setLocationFilter] = useState<string>("ALL");
-  const [onlyWithStock, setOnlyWithStock] = useState<boolean>(false);
+  const [onlyWithStock, setOnlyWithStock] = useState<boolean>(true);
   const [cat, setCat] = useState<ItemCategory>("fg");
   const [viewMode, setViewMode] = useState<"sku" | "lot">("lot");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
@@ -215,14 +167,7 @@ export default function InventoryPage() {
 
   const summaries = useMemo(() => computeSkuRollup(onHandFiltered, { nearExpiryDays: 45 }), [onHandFiltered]);
   const alerts = useMemo(() => computeStockAlerts(summaries), [summaries]);
-  const coverage = useMemo(() => computeCoverage(summaries, [], 30), [summaries]); 
-  const replen = useMemo(() => suggestReplenishment(summaries, coverage as any, {
-    minStockByItem: {}, safetyByItem: {}, targetDaysOfCover: 14
-  }), [summaries, coverage]);
-  const expiryBuckets = useMemo(() => computeExpiryBuckets(onHandFiltered, 7, 45), [onHandFiltered]);
-  const qcStuck = useMemo(() => detectQcStuck(onHandFiltered, new Date(), 3), [onHandFiltered]);
-  const audit = useMemo(() => auditOnHandVsLots(onHandFiltered, lotsMaster), [onHandFiltered, lotsMaster]);
-
+  
   const countsByCat = useMemo(() => {
     const map: Partial<Record<ItemCategory, number>> = {};
     for (const r of onHand) {
@@ -256,7 +201,6 @@ export default function InventoryPage() {
       updatedAt: r.updatedAt,
   })), [onHandFiltered, items]);
 
-
   const lotCols: any[] = [
     { key: "lotNumber", header: "Lote", render: (r: any) => <span className="font-mono text-xs">{r.lotNumber}</span> },
     { key: "name", header: "Producto (SKU)", render: (r:any)=> (
@@ -271,31 +215,6 @@ export default function InventoryPage() {
     { key: "qcStatus", header: "Estado QC", render: (r:any) => <QcStatusPill status={r.qcStatus} /> },
     { key: "expiryAt", header: "Fecha", render: (r:any)=> r.expiryAt ? new Date(r.expiryAt).toLocaleDateString() : "—" },
   ];
-
-  const onExportReplen = async () => {
-    const url = await exportReplenishmentCsvServer(replen);
-    const a = document.createElement("a");
-    a.href = url; a.download = "replenishment.csv"; a.click();
-  };
-
-  const onRebuildOnHand = async () => {
-    await mutate(rebuildOnHandAction, {
-        label: "Recalcular On-Hand",
-        success: () => router.refresh(),
-    });
-  };
-
-  const [dossier, setDossier] = useState<any>(null);
-  useEffect(() => {
-    if (viewMode === "lot" && selectedKey) {
-      getLotDossierServer(selectedKey).then((res) => {
-        if(res.ok) setDossier(res.data);
-        else setDossier(null);
-      });
-    } else {
-      setDossier(null);
-    }
-  }, [viewMode, selectedKey]);
 
   const locations = useMemo(() => {
     const set = new Set<string>();
@@ -334,25 +253,20 @@ export default function InventoryPage() {
           </label>
         </div>
         <div className="flex gap-2">
-            <SBButton variant="outline" className={BTN_OUTLINE} onClick={onRebuildOnHand} disabled={isPending}>
-                Recalcular on-hand
-            </SBButton>
-          <SBButton variant="outline" className={BTN_OUTLINE} onClick={onExportReplen}>Exportar</SBButton>
+          <SBButton variant="outline" className={BTN_OUTLINE}>Exportar</SBButton>
           <SBButton variant="outline" className={BTN_OUTLINE} onClick={() => setOpenReceipt(true)}>Nueva Recepción</SBButton>
           <SBButton className={BTN_SOLID} onClick={() => setOpenNew(true)}>Ajuste Manual</SBButton>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[320px_minmax(0,1fr)_360px] gap-4">
+      <div className="grid grid-cols-1 xl:grid-cols-[320px_minmax(0,1fr)] gap-4">
         <div className="space-y-4">
           <SBCard title="Alertas de Inventario" noPadding>
-            {(alerts.length === 0 && qcStuck.length === 0 && (audit.inOnHandNotLots.length + audit.inLotsNotOnHand.length) === 0) ? (
+            {(alerts.length === 0) ? (
               <div className="text-sm text-zinc-500 p-4">Sin alertas</div>
             ) : (
               <div className="p-2 space-y-1">
                 {alerts.map((a,i)=> <div key={i} className="text-xs p-1.5 rounded-md bg-amber-50 text-amber-800 flex items-center gap-2"><AlertCircle size={14}/> {a.itemId}: {a.message}</div>)}
-                {qcStuck.map(q=> <div key={q.lotNumber} className="text-xs p-1.5 rounded-md bg-blue-50 text-blue-800 flex items-center gap-2"><FileClock size={14}/> QC {q.itemId}/{q.lotNumber}</div>)}
-                {audit.inOnHandNotLots.length > 0 && <div className="text-xs p-1.5 rounded-md bg-red-50 text-red-800 flex items-center gap-2"><PackageSearch size={14}/> Lotes sin onHand: {audit.inOnHandNotLots.length}</div>}
               </div>
             )}
           </SBCard>
@@ -405,46 +319,12 @@ export default function InventoryPage() {
               </Tabs>
           </SBCard>
         </div>
-
-        <div className="space-y-4">
-          <SBCard title="Inspector">
-            <div className="p-4">
-              {!selectedKey ? (
-                <div className="text-sm text-zinc-500">Selecciona un {viewMode === "sku" ? "SKU" : "Lote"}…</div>
-              ) : viewMode === "sku" ? (
-                <InspectorSku itemId={selectedKey} summary={summaries[selectedKey]} coverage={(coverage as any)[selectedKey]} suggested={replen[selectedKey] ?? 0} />
-              ) : (
-                <InspectorLot lotNumber={selectedKey} dossier={dossier} />
-              )}
-            </div>
-          </SBCard>
-        </div>
       </div>
-       <NewOnHandDialog
-        open={openNew}
-        onClose={() => setOpenNew(false)}
-        onSuccess={(result) => {
-            mutate(() => Promise.resolve({ ok: true, id: result.lotNumber }), { label: "Ajuste manual" });
-            router.refresh();
-            setOpenNew(false);
-        }}
-        onError={(msg) => toast.error(`Error: ${msg}`)}
-        items={items || []}
-        locations={locations.filter(l => l !== 'ALL')}
-        defaultLocation={locationFilter === 'ALL' ? undefined : locationFilter}
-      />
+      
       <QuickGoodsReceiptDialog
         open={openReceipt}
         onOpenChange={setOpenReceipt}
-        onSuccess={(info) => {
-          mutate(() => Promise.resolve({ ok: true, id: info.receiptNumber }), { label: "Recepción de mercancía" });
-          router.refresh();
-        }}
-        onError={(msg) => toast.error(`Error: ${msg}`)}
       />
     </div>
   );
 }
-
-
-    
