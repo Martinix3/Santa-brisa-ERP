@@ -1,7 +1,7 @@
-// src/app/(app)/orders/page.tsx
+
 "use client";
-import React, { useMemo } from "react";
-import { useRouter } from "next/navigation";
+import React from "react";
+import { useMemo } from "react";
 import { useData } from "@/lib/dataprovider";
 import { readFlowFrom } from "@/lib/useFlow";
 import { getInteractionsForOrder, getLastAndNextInteractionDates } from "@/features/orders/interactions.helpers";
@@ -9,12 +9,11 @@ import OrdersDashboard from '@/features/orders/components/OrdersDashboard';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
 import { ShoppingCart } from 'lucide-react';
 
-
 export default function OrdersPage({ searchParams }: { searchParams?: Record<string, any> }) {
     const flow = readFlowFrom(searchParams);
     const { data } = useData();
 
-    // El mapeo de métricas se puede quedar aquí, ya que es una computación derivada de los datos globales.
+    // Esta lógica de negocio se mantiene igual
     const orderVisitMetrics = useMemo(() => {
         if (!data?.interactions || !data.ordersSellOut) return {};
         const map: Record<string, {last:string|null; next:string|null}> = {};
@@ -25,13 +24,11 @@ export default function OrdersPage({ searchParams }: { searchParams?: Record<str
         return map;
     }, [data?.interactions, data?.ordersSellOut]);
 
-
     return (
         <>
             <ModuleHeader title="Pedidos" icon={ShoppingCart} />
-            <div className="p-6 bg-zinc-50 flex-grow">
+            <div className="p-6 bg-slate-50 flex-grow">
                <OrdersDashboard 
-                 orderVisitMetrics={orderVisitMetrics}
                  flow={flow}
                />
             </div>

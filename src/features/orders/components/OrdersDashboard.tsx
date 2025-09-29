@@ -1,426 +1,74 @@
-// src/features/orders/components/OrdersDashboard.tsx
+
 "use client";
 
-import React, { useMemo, useState, useTransition } from "react";
-import type { OrderStatus, Account, OrderSellOut, Party, PartyRole, CustomerData, User, Shipment, SantaData, AccountType, Item } from '@/domain/ssot';
-import { SBButton, STATUS_STYLES, EmptyState, SBCard, Select } from '@/components/ui/ui-primitives';
-import { useData } from "@/lib/dataprovider";
-import { updateOrderStatus } from "@/app/(app)/orders/actions";
-import { ImportShopifyOrderButton } from './ImportShopifyOrderButton';
-import Link from "next/link";
-import { orderTotal, computeAccountMode, ResolvedAccountMode } from "@/lib/sb-core";
-import { consignmentOnHandByAccount, consignmentTotalUnits } from '@/lib/consignment-and-samples';
-import { AlertCircle, Truck, Boxes, FileText, CreditCard, ShoppingCart, Plus } from 'lucide-react';
-import { normalizeOrderStatus } from '@/lib/status';
-import { SBFlowModal } from '@/features/quicklog/components/SBFlows';
-import { upsertMany } from '@/lib/dataprovider/actions';
-import { makeSellOutOrderCode } from '@/lib/codes';
-import { DEPT_META } from "@/domain/ssot";
-import { toast } from "sonner";
-import { useRouter } from "next/navigation";
-import type { Flow } from "@/lib/useFlow";
+import React, { useState } from 'react';
+import KpiCard from '@/components/ui/KpiCard';
+import OrdersTable from '@/features/orders/components/OrdersTable';
+import NewOrderModal from '@/features/orders/components/NewOrderModal';
+import { Plus } from 'lucide-react';
 
-
-type Tab = "directa" | "colocacion" | "online";
-
-function Tabs({ active, onChange }: { active: Tab; onChange: (t: Tab) => void }) {
-  const tabs: { id: Tab; label: string }[] = [
-    { id: "directa", label: "Venta Directa" },
-    { id: "colocacion", label: "Colocación (Sell-Out)" },
-    { id: "online", label: "Online" },
-  ];
-  return (
-    <div className="border-b border-zinc-200">
-      <nav className="-mb-px flex gap-6" aria-label="Tabs">
-        {tabs.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => onChange(t.id)}
-            className={`whitespace-nowrap py-3 px-1 border-b-2 text-sm font-medium transition-colors ${
-              active === t.id
-                ? "border-yellow-500 text-yellow-600"
-                : "border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300"
-            }`}
-            aria-current={active === t.id ? "page" : undefined}
-          >
-            {t.label}
-          </button>
-        ))}
-      </nav>
-    </div>
-  );
-}
-
-const STATUS_OPTS: { value: OrderStatus; label: string }[] = [
-  { value: "open", label: "Borrador" },
-  { value: "confirmed", label: "Confirmado" },
-  { value: "shipped", label: "Enviado" },
-  { value: "invoiced", label: "Facturado" },
-  { value: "paid", label: "Pagado" },
-  { value: "cancelled", label: "Cancelado" },
-  { value: "lost", label: "Perdido" },
+// Datos de ejemplo para la tabla. En tu caso, vendrían de `props` o `useData`.
+const sampleOrders = [
+    { id: '#SB-0078', client: 'La Terraza del Mar', date: '28/09/2025', status: 'delivered', total: '€ 450.00' },
+    { id: '#SB-0077', client: 'El Chiringuito', date: '27/09/2025', status: 'shipped', total: '€ 320.50' },
+    { id: '#SB-0076', client: 'Distribuciones Sol', date: '25/09/2025', status: 'pending', total: '€ 1,200.00' },
 ];
 
-function KpiCard({ icon: Icon, label, value, color }: { icon: React.ElementType; label: string; value: string | number; color: string }) {
-  return (
-    <SBCard title="">
-        <div className="p-4 flex items-start gap-4">
-            <div className="h-10 w-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${color}20`, color }}>
-                <Icon size={20} />
+export default function OrdersDashboard({ flow }: { flow: any }) {
+    const [isModalOpen, setIsModalOpen] = useState(false);
+
+    const handleCreateOrder = (orderData: any) => {
+        console.log("Creando nuevo pedido:", orderData);
+        // Aquí llamarías a tu server action `placeOrder`
+        // placeOrder(orderData);
+    };
+
+    return (
+        <div className="max-w-7xl mx-auto">
+            {/* Cabecera con botones de acción */}
+            <div className="flex items-center justify-between mb-6">
+                <h1 className="text-3xl font-bold text-slate-900">Venta Directa</h1>
+                <div className="flex items-center space-x-3">
+                    <button className="bg-white py-2 px-4 border border-slate-300 rounded-lg shadow-sm text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
+                        Exportar
+                    </button>
+                    <button 
+                        onClick={() => setIsModalOpen(true)}
+                        className="bg-blue-600 text-white py-2 px-4 flex items-center gap-2 border border-transparent rounded-lg shadow-sm text-sm font-medium hover:bg-blue-700 transition-colors"
+                    >
+                        <Plus size={16} />
+                        Nuevo pedido
+                    </button>
+                </div>
             </div>
-            <div>
-                <p className="text-2xl font-bold text-zinc-900">{value}</p>
-                <p className="text-sm text-zinc-600">{label}</p>
+
+            {/* Pestañas (si las necesitas) */}
+            <div className="border-b border-slate-200 mb-6">
+                <nav className="flex space-x-6">
+                    <a href="#" className="py-2 px-1 text-sm font-semibold text-blue-600 border-b-2 border-blue-600">Todos</a>
+                    <a href="#" className="py-2 px-1 text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors">Abiertos</a>
+                    <a href="#" className="py-2 px-1 text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors">Cerrados</a>
+                </nav>
             </div>
-        </div>
-    </SBCard>
-  );
-}
 
+            {/* Sección de KPIs */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5 mb-6">
+                <KpiCard title="Pendiente de Confirmar" value="0" variant="primary" />
+                <KpiCard title="Pendiente de Enviar" value="0" variant="primary" />
+                <KpiCard title="Unidades en Consigna" value="0" />
+                <KpiCard title="Pendiente de Facturar" value="0" />
+                <KpiCard title="Pendiente de Cobrar" value="0" />
+            </div>
 
-function StatusSelector({ order, onChange }: { 
-  order: OrderSellOut; 
-  onChange: (o: OrderSellOut, s: OrderStatus) => Promise<void>;
-}) {
-  const [isPending, start] = useTransition();
-  const status = normalizeOrderStatus(order.status);
-  const style = STATUS_STYLES[status] || STATUS_STYLES.open;
-
-  return (
-    <div className="relative flex items-center gap-2">
-      <select
-        value={status}
-        onChange={(e) => start(() => {
-          onChange(order, e.target.value as OrderStatus)
-        })}
-        disabled={isPending}
-        className={`appearance-none px-2.5 py-1 text-xs font-semibold rounded-full outline-none focus:ring-2 ring-offset-1 ring-blue-400 transition-colors ${style.bg} ${style.color}`}
-      >
-        {STATUS_OPTS.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
-      {isPending && <span className="h-4 w-4 animate-spin border-2 border-zinc-400 border-t-transparent rounded-full" />}
-    </div>
-  );
-}
-
-function exportToCsv(filename: string, rows: (string | number)[][]) {
-  const processRow = (row: (string | number)[]) => row.map((val) => `"${String(val).replace(/\"/g, '""')}"`).join(",");
-  const blob = new Blob([rows.map(processRow).join("\n")], { type: "text/csv;charset=utf-8;" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = filename;
-  a.click();
-}
-
-export default function OrdersDashboard({ orderVisitMetrics, flow }: {
-    orderVisitMetrics: Record<string, { last: string | null; next: string | null }>;
-    flow: Flow;
-}) {
-  const { data, setData, currentUser } = useData();
-  const router = useRouter();
-
-  const [tab, setTab] = useState<Tab>(flow === "DIRECT" ? "directa" : "colocacion");
-  const [q, setQ] = useState("");
-  const [status, setStatus] = useState("");
-  const [isCreateOpen, setCreateOpen] = useState(false);
-
-  const { ordersSellOut = [], accounts = [], users = [], partyRoles = [], stockMoves = [], shipments = [], parties = [] } = data || ({} as SantaData);
-
-  const consByAcc = useMemo(() => consignmentOnHandByAccount(stockMoves || []), [stockMoves]);
-  const consTotals = useMemo(() => consignmentTotalUnits(consByAcc), [consByAcc]);
-
-  const accountsById = useMemo(() => new Map(accounts.map((a) => [a.id, a])), [accounts]);
-  const partiesById = useMemo(() => new Map(parties.map((p) => [p.id, p])), [parties]);
-  const usersById = useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);
-  const rolesByPartyId = useMemo(() => {
-    const m = new Map<string, CustomerData>();
-    (partyRoles || []).forEach((r: PartyRole) => {
-      if (r.role === "CUSTOMER") m.set(r.partyId, r.data as CustomerData);
-    });
-    return m;
-  }, [partyRoles]);
-
-  const visibleOrders = useMemo(() => {
-    return (ordersSellOut || [])
-        .filter(o => {
-            const acc = accountsById.get(o.accountId);
-            if (!acc) return false;
-
-            const mode = acc.flow;
+            {/* Tabla de Pedidos */}
+            <OrdersTable orders={sampleOrders} />
             
-            if (tab === 'online') {
-                if (acc.segment !== 'ONLINE' && o.source !== 'SHOPIFY') return false;
-            } else if (tab === 'directa') {
-                if (mode !== 'DIRECT') return false;
-            } else if (tab === 'colocacion') {
-                if (mode !== 'PLACEMENT') return false;
-            }
-
-            const normalizedStatus = normalizeOrderStatus(o.status);
-            const sOk = !status || normalizedStatus === (status as OrderStatus);
-            const qOk =
-                !q ||
-                (o.docNumber && o.docNumber.toLowerCase().includes(q.toLowerCase())) ||
-                o.id.toLowerCase().includes(q.toLowerCase()) ||
-                (acc?.name || "").toLowerCase().includes(q.toLowerCase());
-
-            return sOk && qOk;
-        })
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [ordersSellOut, accountsById, rolesByPartyId, q, status, tab]);
-
-  const kpi = useMemo(() => {
-    const k = { toConfirm: 0, toShip: 0, toInvoice: 0, toCollect: 0, consignmentUnits: 0 };
-    for (const o of visibleOrders) {
-      const normalizedStatus = normalizeOrderStatus(o.status);
-      if (normalizedStatus === "open") k.toConfirm++;
-      if (normalizedStatus === "confirmed") k.toShip++;
-      if (normalizedStatus === "shipped") k.toInvoice++;
-      if (normalizedStatus === "invoiced") k.toCollect++;
-    }
-    k.consignmentUnits = Object.values(consTotals).reduce((a, b) => a + b, 0);
-    return k;
-  }, [visibleOrders, consTotals]);
-
-  const onExport = () => {
-    const headers = ["id", "fecha", "cliente", "total", "estado", "fuente"];
-    const rows = visibleOrders.map((o) => {
-      const acc = accountsById.get(o.accountId);
-      return [o.docNumber || o.id, new Date(o.createdAt).toISOString().split("T")[0], acc?.name || o.accountId, orderTotal(o), o.status, o.source || "CRM"];
-    });
-    exportToCsv(`pedidos-${tab}-${new Date().toISOString().split("T")[0]}.csv`, [headers, ...rows]);
-  };
-  
-  const onStatusChange = async (o: OrderSellOut, s: OrderStatus) => {
-    try {
-      const res = await updateOrderStatus(o, s);
-      if (res?.ok && data) {
-        const orders = data.ordersSellOut.map((x) => (x.id === res.order.id ? { ...x, status: res.order.status } : x));
-        let ships = data.shipments || [];
-        if (res.shipment) {
-          ships = [...ships, res.shipment];
-        }
-        setData({ ...data, ordersSellOut: orders, shipments: ships as Shipment[] });
-        toast.success(`Pedido ${o.docNumber || o.id} actualizado a ${s}.`);
-      } else {
-        throw new Error(res.error || "La acción falló pero no devolvió un error explícito.");
-      }
-    } catch (e: any) {
-      console.error(e);
-      toast.error(`Error al actualizar pedido: ${e.message}`);
-    }
-  };
-
-  const handleCreateOrder = async (payload: {
-        accountId?: string;
-        newAccount?: Partial<Account>;
-        newParty?: Partial<Party>;
-        requestedDate?: string;
-        deliveryDate?: string;
-        channel: AccountType;
-        paymentTerms?: string;
-        shipTo?: string;
-        note?: string;
-        items: { itemId: string; qty: number; uom: 'uds'; priceUnit: number, lotNumber?: string }[];
-    }) => {
-        if (!data || !currentUser) {
-            toast.error("No se pudo obtener la información del usuario o los datos de la aplicación.");
-            return;
-        }
-        
-        let accountId = payload.accountId;
-        let partyId: string | undefined;
-
-        const collectionsToSave: Partial<SantaData> = {};
-
-        if (payload.newAccount && payload.newParty) {
-            const newParty: Party = { ...payload.newParty as Party, id: `party_${Date.now()}` };
-            const newAccount: Account = { ...payload.newAccount as Account, id: `acc_${Date.now()}`, partyId: newParty.id };
-            accountId = newAccount.id;
-            partyId = newParty.id;
-            collectionsToSave.parties = [...(data.parties || []), newParty];
-            collectionsToSave.accounts = [...(data.accounts || []), newAccount];
-        } else if (accountId) {
-             partyId = data.accounts.find(a => a.id === accountId)?.partyId;
-        }
-
-        if (!accountId || !partyId) {
-            toast.error("La cuenta o el cliente no son válidos.");
-            return;
-        }
-
-        const newOrder: OrderSellOut = {
-            id: `ord_${Date.now()}`,
-            docNumber: makeSellOutOrderCode((data.ordersSellOut || []).map(o => o.docNumber || ''), new Date()),
-            accountId: accountId,
-            flow: 'DIRECT', // QuickLog crea pedidos de colocación, este de venta directa.
-            distributorPartyId: 'SB',
-            status: 'open',
-            currency: 'EUR',
-            totalAmount: payload.items.reduce((sum, item) => sum + (item.qty * item.priceUnit), 0),
-            createdAt: payload.requestedDate || new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            lines: payload.items.map(item => ({...item, itemId: item.itemId, qty: item.qty, priceUnit: item.priceUnit})),
-            notes: payload.note,
-        };
-
-        const finalCollectionsToSave: Partial<SantaData> = {
-            ...collectionsToSave,
-            ordersSellOut: [...(data.ordersSellOut || []), newOrder],
-        };
-        
-        setData(prev => prev ? { ...prev, ...finalCollectionsToSave } : prev);
-
-        try {
-            const entries = Object.entries(finalCollectionsToSave) as [keyof SantaData, any][];
-            for (const [col, docs] of entries) {
-              await upsertMany(col, docs);
-            }
-            toast.success(`Pedido ${newOrder.docNumber} creado con éxito.`);
-            setCreateOpen(false);
-        } catch (e: any) {
-            toast.error("Error al guardar el pedido:", e.message);
-        }
-    };
-
-    const handleSearchAccounts = async (query: string): Promise<Account[]> => {
-        if (!data) return [];
-        const lowerQuery = query.toLowerCase();
-        return data.accounts.filter(a => a.name.toLowerCase().includes(lowerQuery));
-    };
-
-    const handleCreateAccount = async (accountData: { name: string; city?: string; type?: AccountType }): Promise<Account> => {
-        const tempId = `new_acc_${Date.now()}`;
-        return {
-            id: tempId,
-            partyId: `new_party_${Date.now()}`,
-            name: accountData.name,
-            type: accountData.type || 'HORECA',
-            stage: 'POTENCIAL',
-            ownerId: currentUser?.id || 'system',
-            createdAt: new Date().toISOString(),
-        } as Account;
-    };
-
-  return (
-    <div className="space-y-4">
-        <div className="flex items-center justify-between">
-            <Tabs active={tab} onChange={setTab} />
-            <div className="flex items-center gap-2">
-                {tab === 'online' && <ImportShopifyOrderButton />}
-                <SBButton
-                  onClick={() => setCreateOpen(true)}
-                  style={{ backgroundColor: DEPT_META.VENTAS.color, color: DEPT_META.VENTAS.textColor }}
-                  className="hover:brightness-110"
-                >
-                    <Plus size={16} className="mr-2"/>
-                    Nuevo pedido
-                </SBButton>
-                 <SBButton variant="secondary" onClick={onExport} aria-label="Exportar a CSV">
-                    Exportar
-                </SBButton>
-            </div>
-        </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <KpiCard icon={AlertCircle} label="Pendiente de Confirmar" value={kpi.toConfirm} color="#f59e0b" />
-        <KpiCard icon={Truck} label="Pendiente de Enviar" value={kpi.toShip} color="#3b82f6" />
-        <KpiCard icon={Boxes} label="Unidades en Consigna" value={kpi.consignmentUnits} color="#a855f7" />
-        <KpiCard icon={FileText} label="Pendiente de Facturar" value={kpi.toInvoice} color="#10b981" />
-        <KpiCard icon={CreditCard} label="Pendiente de Cobrar" value={kpi.toCollect} color="#8b5cf6" />
-      </div>
-
-       <div className="mt-4 mb-4 flex items-center gap-3">
-          <div className="relative flex-grow">
-            <input
-              type="text"
-              placeholder="Buscar por ID de pedido o cliente..."
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              className="w-full pl-3 pr-3 py-2 text-sm bg-white border border-zinc-200 rounded-md outline-none focus:ring-2 focus:ring-yellow-300"
-              aria-label="Buscar pedidos"
+            {/* Modal */}
+            <NewOrderModal 
+                isOpen={isModalOpen} 
+                onClose={() => setIsModalOpen(false)}
+                onSubmit={handleCreateOrder}
             />
-          </div>
-          <Select value={status} onChange={(e) => setStatus(e.target.value)}>
-              <option value="">Todos los estados</option>
-              {STATUS_OPTS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-          </Select>
         </div>
-
-      <SBCard noPadding>
-        {visibleOrders.length > 0 ? (
-          <table className="w-full text-sm">
-            <thead className="bg-zinc-50 text-left">
-              <tr>
-                <th className="p-3 font-semibold text-zinc-600">Pedido ID</th>
-                <th className="p-3 font-semibold text-zinc-600">Cliente</th>
-                <th className="p-3 font-semibold text-zinc-600">Comercial</th>
-                <th className="p-3 font-semibold text-zinc-600">Fecha</th>
-                <th className="p-3 font-semibold text-zinc-600 text-right">Total</th>
-                <th className="p-3 font-semibold text-zinc-600">Estado</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-100">
-              {visibleOrders.map((o) => {
-                const acc = accountsById.get(o.accountId);
-                if (!acc) return null;
-                const owner = usersById.get(acc.ownerId as string);
-                const total = orderTotal(o);
-
-                return (
-                  <tr key={o.id} className="hover:bg-zinc-50">
-                    <td className="p-3 font-mono text-xs font-medium text-zinc-800">
-                      <Link href={`/orders/${o.id}`} className="text-blue-600 hover:underline" title={o.id}>
-                        {o.docNumber || o.id}
-                      </Link>
-                    </td>
-                    <td className="p-3">
-                      <div className="flex items-center gap-2">
-                        <Link href={`/accounts/${acc.id}`} className="hover:underline font-medium" title={o.accountId}>
-                          {acc?.name || "N/A"}
-                        </Link>
-                      </div>
-                    </td>
-                    <td className="p-3">{owner?.name || "N/A"}</td>
-                    <td className="p-3">{new Date(o.createdAt).toLocaleDateString("es-ES")}</td>
-                    <td className="p-3 text-right font-semibold">{total.toLocaleString("es-ES", { style: "currency", currency: "EUR" })}</td>
-                    <td className="p-3">
-                      <StatusSelector order={o} onChange={onStatusChange} />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        ) : (
-          <EmptyState
-            icon={ShoppingCart}
-            title="No hay pedidos que mostrar"
-            description="Parece que no hay ningún pedido que coincida con los filtros seleccionados. ¿Quizás quieres crear uno nuevo?"
-            actions={
-              <SBButton onClick={() => setCreateOpen(true)} style={{ backgroundColor: DEPT_META.VENTAS.color, color: DEPT_META.VENTAS.textColor }} className="hover:brightness-110">
-                Nuevo pedido
-              </SBButton>
-            }
-          />
-        )}
-      </SBCard>
-
-       {isCreateOpen && data && (
-        <SBFlowModal
-            open={isCreateOpen}
-            variant="createOrder"
-            onClose={() => setCreateOpen(false)}
-            accounts={data.accounts}
-            onSearchAccounts={handleSearchAccounts}
-            onCreateAccount={handleCreateAccount}
-            onSubmit={handleCreateOrder}
-        />
-      )}
-    </div>
-  );
+    );
 }
