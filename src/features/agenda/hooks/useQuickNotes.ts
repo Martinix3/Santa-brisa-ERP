@@ -1,7 +1,6 @@
 // features/agenda/hooks/useQuickNotes.ts
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { Note } from '../storage/adapter';
-import type { Department, Interaction, TaskStatus } from '@/domain/ssot';
+import type { Department, Interaction, InteractionStatus, Note } from '@/domain/ssot';
 import { useData } from '@/lib/dataprovider';
 
 // El hook ahora no gestiona el storage, sino que lee del DataProvider
@@ -29,7 +28,8 @@ export function useQuickNotes() {
   };
 
   const deleteTask = async (taskId: string) => {
-    const updatedTasks = tasks.filter(t => t.id !== taskId);
+    if (!santaData) return;
+    const updatedTasks = (santaData.interactions || []).filter(t => t.id !== taskId);
     await saveAllCollections({ interactions: updatedTasks });
   };
 

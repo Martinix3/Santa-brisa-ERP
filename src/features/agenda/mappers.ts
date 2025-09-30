@@ -7,14 +7,13 @@ export function mapInteractionsToTasks(
   interactions: Interaction[] | undefined,
   accounts: Account[] | undefined
 ): Task[] {
-  if (!interactions || !accounts) return [];
-  const accountMap = new Map(accounts.map((a) => [a.id, a.name]));
+  if (!interactions) return [];
+  const accountMap = new Map((accounts || []).map((a) => [a.id, a.name]));
 
   return interactions
-    .filter((i) => i?.plannedFor)
     .map((i) => {
-      const plannedISO = sbAsISO(i.plannedFor!);
-      if (!plannedISO) return null;
+      if (!i) return null;
+      const plannedISO = i.plannedFor ? sbAsISO(i.plannedFor) : undefined;
       return {
         id: i.id,
         title: i.note || `${i.kind}`,

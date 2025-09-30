@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useMemo } from 'react';
-import type { Department, Interaction, InteractionStatus } from '@/domain/ssot';
+import type { Department, Interaction, InteractionStatus, User } from '@/domain/ssot';
 import { Check, AlertCircle, Clock, Plus } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
 import { DEPT_META } from '@/domain/ssot';
@@ -55,9 +55,12 @@ function TaskCard({ task, onComplete }: { task: Task; onComplete: (id: string) =
   const { data } = useData();
   const deptMeta = DEPT_META[task.type];
 
-  const involvedUsers = (task.involvedUserIds || [])
-    .map((id) => data?.users.find((u) => u.id === id))
-    .filter(Boolean) as Interaction['involvedUserIds'];
+  const involvedUsers = useMemo(() => 
+    (task.involvedUserIds || [])
+      .map((id) => data?.users.find((u) => u.id === id))
+      .filter((u): u is User => !!u),
+    [task.involvedUserIds, data?.users]
+  );
 
   const dateLabel = task.date ? new Date(task.date) : null;
 
@@ -95,8 +98,8 @@ function TaskCard({ task, onComplete }: { task: Task; onComplete: (id: string) =
           )}
         </div>
         <div className="flex -space-x-2">
-          {(involvedUsers || []).map((user) => (
-            <Avatar key={(user as any).id} name={(user as any).name} size="md" />
+          {involvedUsers.map((user) => (
+            <Avatar key={user.id} name={user.name} size="md" />
           ))}
         </div>
       </div>

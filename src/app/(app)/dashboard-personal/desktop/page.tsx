@@ -157,6 +157,7 @@ function MiniCalendarCard() {
 
 function AgendaDock() {
   const agenda = useQuickNotes();
+  const { data } = useData();
   const [outcomeFor, setOutcomeFor] = useState<string|null>(null);
   const openOutcome = (id: string) => setOutcomeFor(id);
   const closeOutcome = () => setOutcomeFor(null);
@@ -168,8 +169,8 @@ function AgendaDock() {
     return { overdue, todayOpen, posToday };
   }, [agenda.overdue, agenda.todayTasks]);
 
-  const overdueTasks = useMemo(() => mapInteractionsToTasks(agenda.overdue, agenda.accounts), [agenda.overdue, agenda.accounts]);
-  const todayTasksMapped = useMemo(() => mapInteractionsToTasks(agenda.todayTasks, agenda.accounts), [agenda.todayTasks, agenda.accounts]);
+  const overdueTasks = useMemo(() => mapInteractionsToTasks(agenda.overdue, data?.accounts), [agenda.overdue, data?.accounts]);
+  const todayTasksMapped = useMemo(() => mapInteractionsToTasks(agenda.todayTasks, data?.accounts), [agenda.todayTasks, data?.accounts]);
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl flex flex-col h-full shadow-sm">
@@ -189,7 +190,7 @@ function AgendaDock() {
         <details open className="px-4 mt-2">
           <summary className="text-xs text-slate-600 py-1">Pendientes de ayer ({agenda.overdue.length})</summary>
           <NotesList
-            notes={agenda.rangedNotes}
+            notes={agenda.rangedNotes as Note[]}
             tasks={overdueTasks}
             onPointerDown={agenda.onItemPointerDown}
             onPointerMove={agenda.onItemPointerMove}
@@ -199,7 +200,7 @@ function AgendaDock() {
       )}
       <div className="flex-1 overflow-y-auto px-4 mt-2">
         <NotesList
-          notes={agenda.rangedNotes}
+          notes={agenda.rangedNotes as Note[]}
           tasks={todayTasksMapped}
           onPointerDown={agenda.onItemPointerDown}
           onPointerMove={agenda.onItemPointerMove}
@@ -272,8 +273,8 @@ export default function PersonalDashboardPageDesktop() {
         if (!data || !data.interactions) return; 
         const taskToUpdate = data.interactions.find(i => i.id === id); 
         if (!taskToUpdate) return; 
-        if (taskToUpdate.dept === 'MARKETING' && taskToUpdate.linkedEntity?.type === 'EVENT' && data.marketingEvents) { 
-            const event = (data.marketingEvents as any[]).find(e => e.id === taskToUpdate.linkedEntity?.id); 
+        if (taskToUpdate.dept === 'MARKETING' && taskToUpdate.linkedEntity?.type === 'EVENT' && (data as any).marketingEvents) { 
+            const event = ((data as any).marketingEvents as any[]).find(e => e.id === taskToUpdate.linkedEntity?.id); 
             if (event) setCompletingMarketingEvent(event); 
             else setCompletingTask(taskToUpdate); 
         } else { 

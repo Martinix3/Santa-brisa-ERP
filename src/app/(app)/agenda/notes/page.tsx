@@ -6,12 +6,14 @@ import { QuickEditor } from '@/features/agenda/components/QuickEditor';
 import { NotesList } from '@/features/agenda/components/NotesList';
 import { OutcomeDialog } from '@/features/agenda/components/OutcomeDialog';
 import { FooterKPIs } from '@/features/agenda/components/FooterKPIs';
-import type { Interaction } from '@/domain/ssot';
+import type { Interaction, Note } from '@/domain/ssot';
 import { mapInteractionsToTasks } from '@/features/agenda/mappers';
+import { useData } from '@/lib/dataprovider';
 
 
 export default function CalendarNotesPage() {
   const agenda = useQuickNotes();
+  const { data } = useData();
   const [view, setView] = useState<'day'|'week'|'month'>('day');
   const [outcomeFor, setOutcomeFor] = useState<string|null>(null);
 
@@ -32,8 +34,8 @@ export default function CalendarNotesPage() {
     closeOutcome();
   };
 
-  const overdueTasks = useMemo(() => mapInteractionsToTasks(agenda.overdue, agenda.accounts), [agenda.overdue, agenda.accounts]);
-  const todayTasksMapped = useMemo(() => mapInteractionsToTasks(agenda.todayTasks, agenda.accounts), [agenda.todayTasks, agenda.accounts]);
+  const overdueTasks = useMemo(() => mapInteractionsToTasks(agenda.overdue, data?.accounts), [agenda.overdue, data?.accounts]);
+  const todayTasksMapped = useMemo(() => mapInteractionsToTasks(agenda.todayTasks, data?.accounts), [agenda.todayTasks, data?.accounts]);
 
 
   return (
@@ -65,7 +67,7 @@ export default function CalendarNotesPage() {
         <details open className="px-4">
           <summary className="text-xs text-[hsl(var(--sb-neutral-600))] py-1">Pendientes de ayer ({agenda.overdue.length})</summary>
           <NotesList
-            notes={agenda.rangedNotes}
+            notes={agenda.rangedNotes as Note[]}
             tasks={overdueTasks}
             onPointerDown={agenda.onItemPointerDown}
             onPointerMove={agenda.onItemPointerMove}
@@ -76,7 +78,7 @@ export default function CalendarNotesPage() {
 
       <div className="flex-1 overflow-y-auto px-4">
         <NotesList
-          notes={agenda.rangedNotes}
+          notes={agenda.rangedNotes as Note[]}
           tasks={todayTasksMapped}
           onPointerDown={agenda.onItemPointerDown}
           onPointerMove={agenda.onItemPointerMove}

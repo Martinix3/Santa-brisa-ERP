@@ -1,4 +1,3 @@
-
 // src/app/(app)/dashboard-personal/mobile/page.tsx
 "use client";
 import React, { useMemo, useState } from 'react';
@@ -156,13 +155,14 @@ function MiniCalendarCard() {
 
 function AgendaDock() {
   const agenda = useQuickNotes();
+  const { data } = useData();
   const [outcomeFor, setOutcomeFor] = useState<string|null>(null);
   const openOutcome = (id: string) => setOutcomeFor(id);
   const closeOutcome = () => setOutcomeFor(null);
 
   const kpis = useMemo(()=> {
     const overdue = agenda.overdue.length;
-    const todayOpen = agenda.todayTasks.filter(t=>t.status==='open').length;
+    const todayOpen = agenda.todayTasks.filter(t=>t.status==='OPEN').length;
     const posToday = agenda.todayTasks.filter(t=> t.kind==='EVENTO_MKT').length;
     return { overdue, todayOpen, posToday };
   }, [agenda.overdue, agenda.todayTasks]);
@@ -173,8 +173,8 @@ function AgendaDock() {
       closeOutcome();
     };
 
-    const overdueTasks = useMemo(() => mapInteractionsToTasks(agenda.overdue, agenda.accounts), [agenda.overdue, agenda.accounts]);
-    const todayTasksMapped = useMemo(() => mapInteractionsToTasks(agenda.todayTasks, agenda.accounts), [agenda.todayTasks, agenda.accounts]);
+    const overdueTasks = useMemo(() => mapInteractionsToTasks(agenda.overdue, data?.accounts), [agenda.overdue, data?.accounts]);
+    const todayTasksMapped = useMemo(() => mapInteractionsToTasks(agenda.todayTasks, data?.accounts), [agenda.todayTasks, data?.accounts]);
   
   return (
     <div className="bg-white border border-slate-200 rounded-xl lg:rounded-none lg:border-0 lg:bg-transparent flex flex-col h-full">

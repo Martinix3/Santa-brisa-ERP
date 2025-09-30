@@ -56,6 +56,18 @@ export type VelocityInput = { itemId: string; qty: number; date: string; };
 // 2. Interfaces de Entidades Principales
 // -----------------------------------------------------------------
 
+export type Note = {
+  id: string;
+  text: string;
+  createdAt: string; // ISO
+  accountName?: string;
+  assets?: string[];
+  location?: { lat:number; lng:number; ts:number };
+  contactName?: string;
+  starred?: boolean;
+  derived?: { kind: 'PEDIDO'|'VISITA'|'POS_EVT'|'POS_PLV'|'NOTA' };
+};
+
 // --- Agenda (Task) ---
 export type Task = {
   id: string;
