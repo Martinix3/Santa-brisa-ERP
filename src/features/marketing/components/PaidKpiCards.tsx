@@ -2,6 +2,8 @@
 "use client";
 import React, { useMemo } from 'react';
 import type { OnlineCampaign } from '@/domain/ssot';
+import { KPI } from '@/components/ui/ui-primitives';
+import { Euro, TrendingUp, Percent, BarChart3, MousePointerClick } from 'lucide-react';
 
 const fmtEur = (n?: number) => new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n || 0);
 const fmtNum = (n?: number) => new Intl.NumberFormat("es-ES").format(n || 0);
@@ -26,14 +28,6 @@ function overlapsMonth(c: OnlineCampaign){
   return e >= start && s <= end;
 }
 
-const Card = ({ label, value, hint }:{ label:string; value:React.ReactNode; hint?:string }) => (
-    <div className="rounded-xl border border-zinc-200 bg-white p-3">
-        <div className="text-[11px] uppercase tracking-wide text-zinc-500">{label}</div>
-        <div className="mt-1 text-lg font-semibold text-zinc-900">{value}</div>
-        {hint && <div className="text-[11px] text-zinc-500 mt-0.5">{hint}</div>}
-    </div>
-);
-
 export function PaidKpiCards({ campaigns }: { campaigns: OnlineCampaign[] }){
   const kpi = useMemo(() => {
     const mtd = (campaigns||[]).filter(overlapsMonth);
@@ -51,12 +45,12 @@ export function PaidKpiCards({ campaigns }: { campaigns: OnlineCampaign[] }){
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-      <Card label="Spend (MTD)" value={fmtEur(kpi.spend)} />
-      <Card label="Revenue (MTD)" value={fmtEur(kpi.revenue)} />
-      <Card label="ROAS (MTD)" value={`${(kpi.roas||0).toFixed(2)}x`} />
-      <Card label="CTR" value={`${(kpi.ctr*100).toFixed(2)}%`} hint={`${fmtNum(kpi.clicks)} / ${fmtNum(kpi.impressions)}`} />
-      <Card label="CPC" value={fmtEur(kpi.cpc)} hint={`${fmtNum(kpi.clicks)} clicks`} />
-      <Card label="CPM" value={fmtEur(kpi.cpm)} hint={`${fmtNum(kpi.impressions)} imp.`} />
+      <KPI icon={Euro} label="Spend (MTD)" value={fmtEur(kpi.spend)} />
+      <KPI icon={TrendingUp} label="Revenue (MTD)" value={fmtEur(kpi.revenue)} />
+      <KPI icon={Percent} label="ROAS (MTD)" value={`${(kpi.roas||0).toFixed(2)}x`} />
+      <KPI icon={BarChart3} label="CTR" value={`${(kpi.ctr*100).toFixed(2)}%`} hint={`${fmtNum(kpi.clicks)} / ${fmtNum(kpi.impressions)}`} />
+      <KPI icon={MousePointerClick} label="CPC" value={fmtEur(kpi.cpc)} hint={`${fmtNum(kpi.clicks)} clicks`} />
+      <KPI icon={BarChart3} label="CPM" value={fmtEur(kpi.cpm)} hint={`${fmtNum(kpi.impressions)} imp.`} />
     </div>
   );
 }

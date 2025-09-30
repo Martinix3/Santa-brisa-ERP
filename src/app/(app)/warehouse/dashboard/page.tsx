@@ -4,7 +4,7 @@
 import React, { useMemo, useState } from 'react';
 import { useData } from '@/lib/dataprovider';
 import { generateInsights } from '@/ai/flows/generate-insights-flow';
-import { SBCard, SBButton, DataTableSB } from '@/components/ui/ui-primitives';
+import { SBCard, SBButton, DataTableSB, KPI } from '@/components/ui/ui-primitives';
 import type { Col } from '@/components/ui/ui-primitives';
 import { BrainCircuit, Package, DollarSign, Truck, AlertCircle, Clock, Plus } from 'lucide-react';
 import type { OnHandView, Shipment, Interaction, StockMove, Account, ShipmentStatus } from '@/domain/ssot';
@@ -15,20 +15,6 @@ import { UpcomingTasks } from '@/features/agenda/components/UpcomingTasks';
 import { qcToBucket } from '@/domain/ssot';
 import { QuickGoodsReceiptDialog } from '@/features/warehouse/components/QuickGoodsReceiptDialog';
 
-
-function KPI({ icon: Icon, label, value, color }: { icon: React.ElementType, label: string, value: string | number, color: string }) {
-    return (
-        <div className="bg-card text-card-foreground p-4 rounded-xl border border-sb-neutral-200 flex items-start gap-4">
-            <div className={`h-10 w-10 rounded-lg flex items-center justify-center`} style={{ backgroundColor: `${color}20`, color }}>
-                <Icon size={20} className="sb-icon" />
-            </div>
-            <div>
-                <p className="text-2xl font-bold text-sb-neutral-900">{value}</p>
-                <p className="text-sm text-sb-neutral-600">{label}</p>
-            </div>
-        </div>
-    )
-}
 
 function StatusPill({status}:{status: Shipment['status']}){
   const map: Record<ShipmentStatus, { txt:string, bg:string }> = {

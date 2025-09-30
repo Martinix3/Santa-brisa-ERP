@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from 'react';
 // ... (todos tus imports existentes) ...
 import { CheckCircle, AlertTriangle, RefreshCw, Link as LinkIcon, PlugZap, TestTubes, DownloadCloud, UploadCloud, Info, Clock, XCircle, Check, Users, ChevronDown } from 'lucide-react';
-import { SBButton } from "@/components/ui/ui-primitives";
+import { SBButton, SBCard } from "@/components/ui/ui-primitives";
 
 type JobRun = {
     id: string;
@@ -53,8 +53,7 @@ function JobRunsReport() {
     }
 
     return (
-        <div className="rounded-xl border bg-white mt-6">
-            <h3 className="font-medium p-4 border-b">Últimos Trabajos de Importación</h3>
+        <SBCard title="Últimos Trabajos de Importación" className="mt-6">
             <div className="divide-y divide-zinc-100">
                 {runs.map(run => (
                     <div key={run.id} className="p-3 text-sm">
@@ -95,12 +94,62 @@ function JobRunsReport() {
                     </div>
                 ))}
             </div>
-        </div>
+        </SBCard>
     );
 }
 
 type Status = { ok: boolean; details?: any; ping?: string; error?: string };
 type AllStatus = { shopify: Status; holded: Status; sendcloud: Status };
+
+function StatusPill({ ok }: { ok?: boolean }) {
+  return ok ? (
+    <span className="inline-flex items-center gap-1 text-green-700 bg-green-100 px-2 py-1 rounded-full text-xs">
+      <CheckCircle className="w-3 h-3" /> Conectado
+    </span>
+  ) : (
+    <span className="inline-flex items-center gap-1 text-amber-700 bg-amber-100 px-2 py-1 rounded-full text-xs">
+      <AlertTriangle className="w-3 h-3" /> Pendiente
+    </span>
+  );
+}
+
+function IntegrationCard({
+  title, desc, status, onTest, testing, docsUrl, children
+}: {
+  title: string; desc: string; status?: Status; onTest: ()=>void; testing: boolean; docsUrl: string; children?: React.ReactNode;
+}) {
+  return (
+    <SBCard title={title} className="flex flex-col gap-3">
+      <div className="p-4">
+        <div className="flex items-center justify-between">
+            <div>
+                <p className="text-sm text-gray-600">{desc}</p>
+            </div>
+            <StatusPill ok={status?.ok} />
+        </div>
+        {status?.ping && (
+            <p className="text-xs text-gray-600">Ping: {status.ping}</p>
+        )}
+        <div className="text-xs text-gray-600">
+            {status?.details && <pre className="bg-gray-50 p-2 rounded">{JSON.stringify(status.details, null, 2)}</pre>}
+        </div>
+        <div className="mt-auto flex items-center justify-between">
+            <a href={docsUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm text-teal-700 hover:underline">
+            <LinkIcon className="sb-icon w-4 h-4" /> Docs
+            </a>
+            <SBButton
+            variant="secondary"
+            onClick={onTest}
+            disabled={!status?.ok || testing}
+            >
+            <RefreshCw className={`w-4 h-4 mr-2 ${testing ? 'animate-spin' : ''}`} /> Probar conexión
+            </SBButton>
+        </div>
+        {children}
+      </div>
+    </SBCard>
+  );
+}
 
 export default function IntegrationsPage() {
   const [loading, setLoading] = useState(true);
@@ -179,7 +228,7 @@ export default function IntegrationsPage() {
       </header>
 
       <div className="grid md:grid-cols-3 gap-4">
-        <Card
+        <IntegrationCard
           title="Shopify"
           desc="Pedidos, clientes, fulfillments"
           status={status?.shopify}
@@ -187,7 +236,7 @@ export default function IntegrationsPage() {
           testing={testing === 'shopify'}
           docsUrl="https://help.shopify.com/en/manual/apps/app-types/custom-apps"
         />
-        <Card
+        <IntegrationCard
           title="Holded"
           desc="Facturación y contabilidad"
           status={status?.holded}
@@ -216,8 +265,8 @@ export default function IntegrationsPage() {
                 </div>
                 {importStatus && <p className="text-xs text-zinc-600 bg-zinc-100 p-2 rounded-md"><Info className="w-3 h-3 inline mr-1"/> {importStatus}</p>}
             </div>
-        </Card>
-        <Card
+        </IntegrationCard>
+        <IntegrationCard
           title="Sendcloud"
           desc="Etiquetas y tracking"
           status={status?.sendcloud}
@@ -228,66 +277,18 @@ export default function IntegrationsPage() {
       </div>
 
       {testResult && (
-        <div className="rounded-xl border p-4 bg-white">
-          <div className="flex items-center gap-2 mb-2">
-            <TestTubes className="w-5 h-5" />
-            <h3 className="font-medium">Resultado de prueba: {testResult.kind}</h3>
-          </div>
+        <SBCard title={
+            <div className="flex items-center gap-2">
+                <TestTubes className="w-5 h-5" />
+                <h3 className="font-medium">Resultado de prueba: {testResult.kind}</h3>
+            </div>
+        }>
           <pre className="text-xs overflow-auto bg-gray-50 p-3 rounded-lg">
             {JSON.stringify(testResult, null, 2)}
           </pre>
-        </div>
+        </SBCard>
       )}
       <JobRunsReport />
-    </div>
-  );
-}
-
-function StatusPill({ ok }: { ok?: boolean }) {
-  return ok ? (
-    <span className="inline-flex items-center gap-1 text-green-700 bg-green-100 px-2 py-1 rounded-full text-xs">
-      <CheckCircle className="w-3 h-3" /> Conectado
-    </span>
-  ) : (
-    <span className="inline-flex items-center gap-1 text-amber-700 bg-amber-100 px-2 py-1 rounded-full text-xs">
-      <AlertTriangle className="w-3 h-3" /> Pendiente
-    </span>
-  );
-}
-
-function Card({
-  title, desc, status, onTest, testing, docsUrl, children
-}: {
-  title: string; desc: string; status?: Status; onTest: ()=>void; testing: boolean; docsUrl: string; children?: React.ReactNode;
-}) {
-  return (
-    <div className="rounded-xl border p-4 bg-white flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="font-medium">{title}</h2>
-          <p className="text-sm text-gray-600">{desc}</p>
-        </div>
-        <StatusPill ok={status?.ok} />
-      </div>
-      {status?.ping && (
-        <p className="text-xs text-gray-600">Ping: {status.ping}</p>
-      )}
-      <div className="text-xs text-gray-600">
-        {status?.details && <pre className="bg-gray-50 p-2 rounded">{JSON.stringify(status.details, null, 2)}</pre>}
-      </div>
-      <div className="mt-auto flex items-center justify-between">
-        <a href={docsUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm text-teal-700 hover:underline">
-          <LinkIcon className="sb-icon w-4 h-4" /> Docs
-        </a>
-        <SBButton
-          variant="secondary"
-          onClick={onTest}
-          disabled={!status?.ok || testing}
-        >
-          <RefreshCw className={`w-4 h-4 mr-2 ${testing ? 'animate-spin' : ''}`} /> Probar conexión
-        </SBButton>
-      </div>
-      {children}
     </div>
   );
 }
