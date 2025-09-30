@@ -1,3 +1,4 @@
+
 // src/components/layouts/AuthenticatedLayout.tsx
 
 "use client";
@@ -188,28 +189,15 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
 }
 
 function HeaderPro({
-  userName, userEmail, onLogout, pathname, tasksToday, tasksOverdue
+  userName, userEmail, onLogout
 }: {
   userName?: string; userEmail?: string; onLogout: () => void;
   pathname: string;
   tasksToday: number; tasksOverdue: number;
 }) {
-  const crumbs = useBreadcrumbs(pathname);
-  const [openCmd, setOpenCmd] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
-  // Cmd+K y Esc
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); setOpenCmd(true); }
-      if (e.key === "Escape") { setOpenCmd(false); setUserMenuOpen(false); }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
-
-  // Cerrar menú usuario al click fuera
   useEffect(() => {
     const onDocClick = (e: MouseEvent) => {
       if (!userMenuOpen) return;
@@ -219,41 +207,13 @@ function HeaderPro({
     return () => document.removeEventListener("mousedown", onDocClick);
   }, [userMenuOpen]);
 
-  // Cerrar al navegar
-  useEffect(() => { setUserMenuOpen(false); }, [pathname]);
 
   return (
     <header className="h-14 sticky top-0 z-40 border-b border-sb-neutral-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80" role="banner">
       <div className="h-full px-3 md:px-4 flex items-center gap-3">
-        <div className="flex items-center gap-2">
-            <nav aria-label="Breadcrumb" className="flex items-center gap-1 text-sm text-sb-neutral-500">
-            {crumbs.map((c, i) => (
-                <span key={c.href} className="flex items-center">
-                {i > 0 && <span className="mx-1 text-sb-neutral-400">/</span>}
-                <Link
-                    href={c.href}
-                    className={`hover:underline ${i === crumbs.length - 1 ? "text-sb-neutral-900 font-medium" : ""}`}
-                    aria-current={i === crumbs.length - 1 ? "page" : undefined}
-                >
-                    {c.label}
-                </Link>
-                </span>
-            ))}
-            </nav>
-            <RealtimeBadge/>
-        </div>
-
-        <button
-          onClick={() => setOpenCmd(true)}
-          className="ml-auto md:ml-4 flex-1 max-w-md hidden md:flex items-center gap-2 px-3 h-9 rounded-md border text-sm text-sb-neutral-600 hover:bg-sb-neutral-50"
-          aria-label="Abrir paleta de comandos (Control o Command + K)"
-          title="Buscar (⌘K)"
-        >
-          <span className="i-magnifier" aria-hidden />
-          <span className="truncate">Buscar páginas y acciones…</span>
-          <kbd className="ml-auto text-xs text-sb-neutral-400">⌘K</kbd>
-        </button>
-
+        {/* Empty space to push user menu to the right */}
+        <div className="flex-1" />
+        
         <div className="ml-auto md:ml-2 flex items-center gap-1" ref={menuRef}>
           <RealtimeToggle />
           <button
@@ -272,17 +232,6 @@ function HeaderPro({
 
           {userMenuOpen && (
             <div role="menu" className="sb-menu absolute right-3 top-12 w-64 p-1">
-              <div className="px-3 py-2 text-sm">
-                <div className="flex items-center justify-between">
-                  <span>Tareas hoy</span>
-                  <span className="font-semibold">{tasksToday}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Tareas atrasadas</span>
-                  <span className="font-semibold text-rose-600">{tasksOverdue}</span>
-                </div>
-              </div>
-              <hr className="my-1" />
               <Link href="/profile" role="menuitem" className="block px-3 py-2 rounded-md hover:bg-sb-neutral-50">Perfil</Link>
               <Link href="/settings" role="menuitem" className="block px-3 py-2 rounded-md hover:bg-sb-neutral-50">Preferencias</Link>
               <button onClick={onLogout} role="menuitem" className="w-full text-left px-3 py-2 rounded-md hover:bg-sb-neutral-50">
@@ -292,51 +241,7 @@ function HeaderPro({
           )}
         </div>
       </div>
-
-      {openCmd && <CommandPalette onClose={() => setOpenCmd(false)} />}
     </header>
-  );
-}
-
-/* ===== 6) Paleta simple ===== */
-function CommandPalette({ onClose }: { onClose: () => void }) {
-  const [q, setQ] = useState("");
-  const results = useMemo(() => {
-    const t = q.trim().toLowerCase();
-    if (!t) return paletteItems.slice(0, 8);
-    return paletteItems
-      .filter(p => p.label.toLowerCase().includes(t) || p.href.toLowerCase().includes(t))
-      .slice(0, 12);
-  }, [q]);
-
-  return (
-    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 grid place-items-start pt-24 bg-black/30" onClick={onClose}>
-      <div className="sb-menu w-[min(720px,92vw)] mx-auto p-2" onClick={(e) => e.stopPropagation()}>
-        <input
-          autoFocus
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Buscar…"
-          className="w-full h-10 px-3 rounded-md border outline-none focus:ring-2 focus:ring-[hsl(var(--ring))]"
-          aria-label="Buscar en navegación"
-        />
-        <div className="mt-2 max-h-[50vh] overflow-auto">
-          {results.map((r) => (
-            <Link
-              key={`${r.module}:${r.href}`}
-              href={r.href}
-              className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-zinc-100"
-              onClick={onClose}
-            >
-              <span aria-hidden className="h-2.5 w-2.5 rounded-full" style={{ background: `hsl(${MODULE_ACCENTS[r.module]})` }} />
-              <span className="font-medium">{r.label}</span>
-              <span className="ml-auto text-xs text-sb-neutral-500">{r.href}</span>
-            </Link>
-          ))}
-          {!results.length && <div className="px-3 py-4 text-sm text-sb-neutral-500">Sin resultados</div>}
-        </div>
-      </div>
-    </div>
   );
 }
 

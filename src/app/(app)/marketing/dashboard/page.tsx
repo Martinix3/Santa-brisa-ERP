@@ -1,3 +1,4 @@
+
 // src/app/(app)/marketing/dashboard/page.tsx
 "use client";
 import React, { useMemo, useState } from 'react';
@@ -186,7 +187,6 @@ function MarketingDashboardPageContent() {
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
-                <h1 className="text-2xl font-bold text-gray-900">Dashboard de Marketing</h1>
                 <div className="flex items-center p-1 bg-gray-100 rounded-lg">
                     {(['week', 'month', 'year'] as const).map(range => (
                         <SBButton

@@ -1,3 +1,4 @@
+
 // src/app/(app)/dashboard-ventas/page.tsx — Santa Brisa DS aplicado
 "use client";
 
@@ -260,10 +261,6 @@ export default function SalesDashboardPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: SB.surfaces.muted, border: `1px solid ${SB.border}` }}>
-              <BarChart3 size={24} style={{ color: SB.text.secondary }} />
-            </div>
-            <h1 className="font-bold" style={{ fontSize: 24, color: SB.text.primary }}>Dashboard de Ventas</h1>
           </div>
           <div className="hidden md:flex items-center gap-1 rounded-lg border p-1 bg-slate-100">
             {(['week', 'month', 'year'] as const).map(range => (
