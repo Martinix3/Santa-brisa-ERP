@@ -1,30 +1,29 @@
 // /features/agenda/components/QuickEditor.tsx
-"use client";
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from 'react';
 
-export function QuickEditor({ onSave }: { onSave: (text: string) => void }) {
-  const [text, setText] = useState("");
+export function QuickEditor({ onSubmit }: { onSubmit: (text:string)=>void }) {
+  const [text, setText] = useState('');
+  const taRef = useRef<HTMLTextAreaElement|null>(null);
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      if (text.trim()) {
-        onSave(text.trim());
-        setText("");
-      }
-    }
+  useEffect(()=>{ taRef.current?.focus(); }, []);
+  useEffect(()=>{ const el=taRef.current; if(!el) return; el.style.height='auto'; el.style.height=Math.min(el.scrollHeight, 320)+'px'; }, [text]);
+
+  const handleKey = (e: React.KeyboardEvent<HTMLTextAreaElement>)=>{
+    if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); if(text.trim()) { onSubmit(text); setText(''); } }
   };
 
   return (
-    <div className="border-b border-[#e5e7eb] pb-2 mb-2">
+    <div className="relative pt-2 pb-1">
       <textarea
+        ref={taRef}
         value={text}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={handleKeyDown}
-        placeholder="Escribe una nota... (ej: 'pedido 10 cajas santa brisa para @bar-sol')"
-        className="w-full text-[14px] leading-snug whitespace-pre-wrap text-[#374151] bg-transparent outline-none resize-none"
-        rows={2}
+        onChange={(e)=>setText(e.target.value)}
+        onKeyDown={handleKey}
+        rows={1}
+        placeholder="Escribe una nota…"
+        className="w-full bg-transparent outline-none border-none resize-none text-[1.05rem] leading-snug caret-black"
       />
+      <div className="h-4 text-[11px] text-[hsl(var(--sb-neutral-500))]">{text.length>0?'Enter para guardar · Shift+Enter salto':''}</div>
     </div>
   );
 }

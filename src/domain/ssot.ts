@@ -1,3 +1,4 @@
+
 // src/domain/ssot.ts
 
 // =================================================================
@@ -21,7 +22,8 @@ export type Currency = 'EUR';
 export type Department = 'VENTAS' | 'MARKETING' | 'PRODUCCION' | 'ALMACEN' | 'FINANZAS' | 'CALIDAD' | 'PERSONAL';
 export type StockReason = 'receipt' | 'production_in' | 'production_out' | 'sale' | 'transfer' | 'adjustment' | 'return_in' | 'return_out' | 'ship' | 'consignment_send' | 'consignment_return' | 'consignment_sell' | 'sample_send' | 'sample_consume';
 export type CodeEntity = 'PRODUCT' | 'ACCOUNT' | 'PARTY' | 'SUPPLIER' | 'LOT' | 'PROD_ORDER' | 'SHIPMENT' | 'GOODS_RECEIPT' | 'LOCATION' | 'PRICE_LIST' | 'PROMOTION';
-
+export type TaskKind = 'VISITA' | 'PEDIDO' | 'POS_EVT' | 'POS_PLV' | 'NOTA';
+export type TaskStatus = 'OPEN' | 'DONE' | 'CANCELLED';
 
 // --- Roles y Estados ---
 export type PartyRoleType = 'CUSTOMER' | 'SUPPLIER' | 'DISTRIBUTOR' | 'IMPORTER' | 'INFLUENCER' | 'CREATOR' | 'EMPLOYEE' | 'BRAND_AMBASSADOR' | 'OTHER';
@@ -54,6 +56,22 @@ export type VelocityInput = { itemId: string; qty: number; date: string; };
 // -----------------------------------------------------------------
 // 2. Interfaces de Entidades Principales
 // -----------------------------------------------------------------
+
+// --- Agenda (Task) ---
+export type Task = {
+  id: string;
+  kind: TaskKind;
+  status: TaskStatus;
+  title: string;             // 1ª línea de la nota o resumen
+  noteId?: string;           // para trazar a la nota base
+  accountId?: string;
+  dueAt?: string;            // ISO
+  createdAt: string;         // ISO
+  updatedAt: string;         // ISO
+  department: Department;    // inferido, editable después
+  meta?: Record<string, any>; // p.ej. { qtyCases, sku, kpis }
+};
+
 
 // --- Contactos y Cuentas ---
 export type Address = { street: string; city: string; zip: string; province?: string; country: string; countryCode?: string; };

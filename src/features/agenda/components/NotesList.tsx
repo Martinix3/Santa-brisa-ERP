@@ -1,61 +1,41 @@
+
 // /features/agenda/components/NotesList.tsx
-"use client";
-import React, { useState, useRef } from "react";
-import type { NoteItem } from '../storage/adapter';
+import React from 'react';
+import type { Note } from '../storage/adapter';
+import type { Task } from '@/domain/ssot';
 
-export function NotesList({ notes, onComplete }: { notes: NoteItem[]; onComplete: (note: NoteItem) => void; }) {
-  const [draggingId, setDraggingId] = useState<number | null>(null);
-  const [dragX, setDragX] = useState(0);
-  const startRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
-
-  const onPointerDown = (id: number) => (e: React.PointerEvent) => {
-    if ((e.target as HTMLElement).closest('button')) return;
-    startRef.current = { x: e.clientX, y: e.clientY };
-    setDraggingId(id);
-    setDragX(0);
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-  };
-
-  const onPointerMove = (id: number) => (e: React.PointerEvent) => {
-    if (draggingId !== id) return;
-    const dx = e.clientX - startRef.current.x;
-    const clamped = Math.max(-100, Math.min(100, dx));
-    setDragX(clamped);
-  };
-
-  const onPointerUp = (id: number) => (e: React.PointerEvent) => {
-    if (draggingId !== id) return;
-    const threshold = 60;
-    if (Math.abs(dragX) > threshold) {
-      const note = notes.find((x) => x.id === id);
-      if (note) onComplete(note);
-    }
-    setDraggingId(null);
-    setDragX(0);
-    (e.target as HTMLElement).releasePointerCapture(e.pointerId);
-  };
-
+export function NotesList({
+  notes, tasks,
+  onPointerDown, onPointerMove, onPointerUp,
+}:{
+  notes: Note[];
+  tasks: Task[];
+  onPointerDown: (id:string)=> (e:React.PointerEvent)=>void;
+  onPointerMove:  (id:string)=> (e:React.PointerEvent)=>void;
+  onPointerUp:    (id:string)=> ()=>void;
+}) {
+  // combinamos visualmente Task + nota ligada (por noteId)
   return (
-    <ul className="divide-y divide-[#e5e7eb]">
-      {notes.map((n) => {
-        const isDragging = draggingId === n.id;
-        const translate = isDragging ? `translateX(${dragX}px)` : 'translateX(0)';
-        const bg = n.done ? '#f3f4f6' : '#ffffff';
-        const accent = dragX > 30 ? '#E6F4EA' : dragX < -30 ? '#FEF3F2' : bg;
+    <ul className="divide-y">
+      {tasks.map(t => {
+        const n = notes.find(nn => nn.id===t.noteId);
+        const done = t.status==='DONE';
         return (
-          <li key={n.id} className="py-2 select-none">
-            <div className="relative">
-              <div className="absolute inset-0 rounded" style={{ background: accent, transition: isDragging ? 'none' : 'background 160ms' }} />
-              <div
-                className={`relative px-0 py-1 text-[14px] leading-snug touch-none ${n.done ? 'line-through text-[#6b7280]' : ''}`}
-                style={{ transform: translate, transition: isDragging ? 'none' : 'transform 160ms ease' }}
-                onPointerDown={onPointerDown(n.id)}
-                onPointerMove={onPointerMove(n.id)}
-                onPointerUp={onPointerUp(n.id)}
-                onPointerCancel={onPointerUp(n.id)}
-              >
-                {n.text}
-              </div>
+          <li key={t.id}
+              className="py-2 select-none relative"
+              onPointerDown={onPointerDown(t.id)}
+              onPointerMove={onPointerMove(t.id)}
+              onPointerUp={onPointerUp(t.id)}
+          >
+            {/* fondo swipe: verde/rojo sutil (se pintaría con transform x si quisieras feedback en vivo) */}
+            <div className="absolute inset-0 rounded-md pointer-events-none bg-transparent" />
+            <div className={`relative ${done?'line-through text-[hsl(var(--sb-neutral-400))]':''}`}>
+              <div className="text-[0.95rem] leading-snug whitespace-pre-wrap">{n?.text || t.title}</div>
+              {t.dueAt && (
+                <div className="mt-0.5 text-[10px] text-[hsl(var(--sb-neutral-500))]">
+                  {new Date(t.dueAt).toLocaleString()}
+                </div>
+              )}
             </div>
           </li>
         );

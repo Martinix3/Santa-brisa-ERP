@@ -1,15 +1,9 @@
-// /features/agenda/parser/rules.ts
-export type NoteKind = 'PEDIDO' | 'VISITA' | 'POS_PLV' | 'POS_EVT' | 'POS_MKT' | 'NOTA';
+// features/agenda/parser/rules.ts
+import { Department } from '@/domain/ssot';
 
-type Rule = {
-  kind: NoteKind;
-  keywords: string[];
-};
-
-export const RULES: Rule[] = [
-  { kind: 'PEDIDO', keywords: ['pedido', 'santa brisa', 'caja', 'cajas'] },
-  { kind: 'POS_PLV', keywords: ['plv', 'cartel', 'roll-up', 'display', 'expositor'] },
-  { kind: 'POS_MKT', keywords: ['mkt', 'marketing', 'promo'] },
-  { kind: 'POS_EVT', keywords: ['pos', 'evento', 'activacion'] },
-  { kind: 'VISITA', keywords: ['visita', 'reunion'] },
+export const DEPT_RULES: Array<{dept: Department; keywords: RegExp}> = [
+  { dept: 'VENTAS',    keywords: /\b(visita|pedido|cliente|llamar|cerrar|seguimiento)\b/i },
+  { dept: 'MARKETING', keywords: /\b(degustaci[oó]n|flyers|evento|plv|cartel|activaci[oó]n|kpi)\b/i },
+  { dept: 'ALMACEN',   keywords: /\b(inventario|picking|palet|caja|stock)\b/i },
+  { dept: 'PRODUCCION',keywords: /\b(producci[oó]n|lote|envasado|maceraci[oó]n|mezcla)\b/i },
 ];

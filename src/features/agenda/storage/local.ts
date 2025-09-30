@@ -1,55 +1,24 @@
-// /features/agenda/storage/local.ts
-import type { IAgendaStorage, NoteItem } from './adapter';
+// features/agenda/storage/local.ts
+import { IAgendaStorage, Note } from './adapter';
+import type { Task } from '@/domain/ssot';
 
-const STORAGE_KEY = 'sb-agenda-notes';
+const NKEY='sb.agenda.notes', TKEY='sb.agenda.tasks';
 
-export class LocalStorageAgenda implements IAgendaStorage {
-  private async _read(): Promise<NoteItem[]> {
-    if (typeof window === 'undefined') return [];
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  }
+const safeGet = (k:string) => { try { return localStorage.getItem(k);} catch { return null; } };
+const safeSet = (k:string, v:string) => { try { localStorage.setItem(k,v);} catch{} };
 
-  private async _write(notes: NoteItem[]): Promise<void> {
-    if (typeof window === 'undefined') return;
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
-  }
+export class LocalAgendaStorage implements IAgendaStorage {
+  async loadNotes(){ const raw=safeGet(NKEY); return raw? JSON.parse(raw) as Note[]: []; }
+  async saveNotes(n: Note[]){ safeSet(NKEY, JSON.stringify(n)); }
+  async loadTasks(){ const raw=safeGet(TKEY); return raw? JSON.parse(raw) as Task[]: []; }
+  async saveTasks(t: Task[]){ safeSet(TKEY, JSON.stringify(t)); }
+}
 
-  async getAll(): Promise<NoteItem[]> {
-    const notes = await this._read();
-    return notes.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }
+let storageInstance: IAgendaStorage | null = null;
 
-  async add(text: string): Promise<NoteItem> {
-    const notes = await this._read();
-    const newNote: NoteItem = {
-      id: Date.now(),
-      text,
-      done: false,
-      createdAt: new Date().toISOString(),
-    };
-    await this._write([newNote, ...notes]);
-    return newNote;
+export function getStorage(): IAgendaStorage {
+  if (!storageInstance) {
+    storageInstance = new LocalAgendaStorage();
   }
-
-  async update(id: number, updates: Partial<NoteItem>): Promise<NoteItem> {
-    const notes = await this._read();
-    let updatedNote: NoteItem | null = null;
-    const newNotes = notes.map(n => {
-      if (n.id === id) {
-        updatedNote = { ...n, ...updates };
-        return updatedNote;
-      }
-      return n;
-    });
-    if (!updatedNote) throw new Error("Note not found");
-    await this._write(newNotes);
-    return updatedNote;
-  }
-  
-  async remove(id: number): Promise<void> {
-      const notes = await this._read();
-      const newNotes = notes.filter(n => n.id !== id);
-      await this._write(newNotes);
-  }
+  return storageInstance;
 }

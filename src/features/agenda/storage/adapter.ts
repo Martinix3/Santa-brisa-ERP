@@ -1,28 +1,20 @@
-// /features/agenda/storage/adapter.ts
-import { LocalStorageAgenda } from './local';
-
-export type NoteItem = {
-  id: number;
+// features/agenda/storage/adapter.ts
+import type { Task } from '@/domain/ssot';
+export type Note = {
+  id: string;
   text: string;
-  done: boolean;
   createdAt: string;
+  accountName?: string;
+  assets?: string[];
+  location?: { lat:number; lng:number; ts:number };
+  contactName?: string;
+  starred?: boolean;
+  derived?: { kind: 'PEDIDO'|'VISITA'|'POS_EVT'|'POS_PLV'|'NOTA' };
 };
 
 export interface IAgendaStorage {
-  getAll(): Promise<NoteItem[]>;
-  add(text: string): Promise<NoteItem>;
-  update(id: number, updates: Partial<NoteItem>): Promise<NoteItem>;
-  remove(id: number): Promise<void>;
-}
-
-// Singleton pattern to get the storage adapter
-let storageInstance: IAgendaStorage | null = null;
-
-export function getStorage(): IAgendaStorage {
-  if (!storageInstance) {
-    // For now, we default to localStorage.
-    // In the future, we could switch this based on an environment variable or user setting.
-    storageInstance = new LocalStorageAgenda();
-  }
-  return storageInstance;
+  loadNotes(): Promise<Note[]>;
+  saveNotes(notes: Note[]): Promise<void>;
+  loadTasks(): Promise<Task[]>;
+  saveTasks(tasks: Task[]): Promise<void>;
 }
