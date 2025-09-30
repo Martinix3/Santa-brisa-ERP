@@ -1,4 +1,6 @@
 
+// src/app/(app)/cashflow/dashboard/page.tsx
+
 "use client";
 import React, { useMemo, useState } from 'react';
 import { SBCard, KPI, SBButton } from '@/components/ui/ui-primitives';
@@ -80,7 +82,7 @@ export default function CashflowDashboardPage() {
             <div className="flex justify-between items-center">
                 <h1 className="text-2xl font-semibold text-zinc-800">Dashboard de Tesorería</h1>
                 <Link href="/cashflow/settings" passHref>
-                    <SBButton as="a" variant="secondary">Ajustes</SBButton>
+                    <SBButton variant="secondary">Ajustes</SBButton>
                 </Link>
             </div>
 
