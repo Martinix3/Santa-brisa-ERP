@@ -2,6 +2,7 @@
 import React, { useMemo, useState } from 'react';
 import type { Task as AgendaTask } from '@/features/agenda/storage/adapter';
 import type { Task } from '@/domain/ssot';
+import { useData } from '@/lib/dataprovider';
 
 // ----------------------------- Dialog genérico -----------------------------
 function Dialog({ title, onClose, children }:{ title:string; onClose:()=>void; children:React.ReactNode }){
@@ -110,10 +111,12 @@ function PosKpis({ kind, defaults, onCancel, onSave }:{ kind:'EVT'|'MKT'; defaul
 // ----------------------------- OutcomeDialog (main) -----------------------------
 export function OutcomeDialog({
   taskId,
+  tasks: allTasks,
   onClose,
   onConfirm,
 }:{
   taskId: string|null;
+  tasks: AgendaTask[];
   onClose: ()=>void;
   onConfirm: (task: AgendaTask, payload: Record<string,any>)=>void;
 }) {
