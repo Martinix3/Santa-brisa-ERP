@@ -119,8 +119,8 @@ function IntegrationCard({
   title: string; desc: string; status?: Status; onTest: ()=>void; testing: boolean; docsUrl: string; children?: React.ReactNode;
 }) {
   return (
-    <SBCard title={title} className="flex flex-col gap-3">
-      <div className="p-4">
+    <SBCard title={title} className="flex flex-col">
+      <div className="p-4 flex flex-col flex-grow">
         <div className="flex items-center justify-between">
             <div>
                 <p className="text-sm text-gray-600">{desc}</p>
@@ -133,7 +133,7 @@ function IntegrationCard({
         <div className="text-xs text-gray-600">
             {status?.details && <pre className="bg-gray-50 p-2 rounded">{JSON.stringify(status.details, null, 2)}</pre>}
         </div>
-        <div className="mt-auto flex items-center justify-between">
+        <div className="mt-auto flex items-center justify-between pt-4">
             <a href={docsUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm text-teal-700 hover:underline">
             <LinkIcon className="sb-icon w-4 h-4" /> Docs
             </a>
@@ -145,8 +145,8 @@ function IntegrationCard({
             <RefreshCw className={`w-4 h-4 mr-2 ${testing ? 'animate-spin' : ''}`} /> Probar conexión
             </SBButton>
         </div>
-        {children}
       </div>
+       {children && <div className="p-4 border-t">{children}</div>}
     </SBCard>
   );
 }
@@ -244,7 +244,7 @@ export default function IntegrationsPage() {
           testing={testing === 'holded'}
           docsUrl="https://developers.holded.com/"
         >
-            <div className="mt-4 pt-4 border-t space-y-2">
+            <div className="space-y-2">
                 <div className="flex items-center justify-between">
                     <h4 className="text-sm font-medium">Importación Inicial</h4>
                     <label className="flex items-center gap-2 text-xs">

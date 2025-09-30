@@ -16,7 +16,7 @@ import { NewAccountDialog } from '@/features/accounts/components/NewAccountDialo
 import { DEPT_META } from '@/domain/ssot';
 import { toast } from 'sonner';
 import { AccountBarDialog } from '@/features/accounts/components/AccountBarDialog';
-import { SBButton } from '@/components/ui/ui-primitives';
+import { SBButton, Badge } from '@/components/ui/ui-primitives';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 
@@ -32,9 +32,10 @@ function GroupBar({ stage, count, expanded, onToggle }: { stage: keyof typeof ST
     const s = STAGE[stage];
     if (!s) return null;
     return (
-        <button
+        <SBButton
+            variant="ghost"
             onClick={onToggle}
-            className="w-full grid grid-cols-[1fr_auto] gap-2 items-center px-3 py-2 transition-colors cursor-pointer bg-zinc-50/50"
+            className="w-full grid grid-cols-[1fr_auto] gap-2 items-center px-3 py-2 transition-colors cursor-pointer bg-zinc-50/50 justify-between"
             aria-expanded={expanded}
             aria-controls={`panel-${stage}`}
             id={`button-${stage}`}
@@ -48,7 +49,7 @@ function GroupBar({ stage, count, expanded, onToggle }: { stage: keyof typeof ST
                 style={{ transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)', color: s.text }}
                 aria-hidden="true"
             />
-        </button>
+        </SBButton>
     );
 }
 
@@ -104,7 +105,7 @@ function AccountBar({ a, party, santaData, onAddActivity, onOpenDialog, userMap,
             </div>
             <div className="text-sm font-medium truncate flex items-center gap-2">
                 <Link href={`/accounts/${a.id}`} className="text-zinc-900 truncate hover:underline">{a.name}</Link>
-                {orderAmount>0 && <span className="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap">{formatEUR(orderAmount)}</span>}
+                {orderAmount>0 && <Badge variant="success">{formatEUR(orderAmount)}</Badge>}
             </div>
             <div className="flex items-center gap-2 min-w-0"><Avatar name={owner} size="md" />
                 <span className="text-sm text-zinc-700 truncate">{owner}</span>

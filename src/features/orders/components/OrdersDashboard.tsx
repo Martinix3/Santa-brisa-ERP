@@ -36,7 +36,7 @@ const OrdersDashboard = () => {
                 <KPI icon={FileText} label="Pendiente de Cobrar" value={kpis.pendingPayment} color={SB_COLORS.primary.copper} />
             </div>
 
-            <SBCard>
+            <SBCard noPadding>
                 <OrdersTable orders={orders as any[]} />
             </SBCard>
         </div>

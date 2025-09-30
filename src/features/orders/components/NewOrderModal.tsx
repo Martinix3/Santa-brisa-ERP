@@ -65,7 +65,7 @@ const NewOrderModal: React.FC<NewOrderModalProps> = ({ isOpen, onClose, onSubmit
 
     return (
         <SBDialog open={isOpen} onOpenChange={onClose}>
-            <div className="w-full max-w-2xl transform transition-all" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+            <div className="w-full max-w-2xl" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                 <SBDialogContent
                     title="Crear Nuevo Pedido"
                     onSubmit={handleSubmit}

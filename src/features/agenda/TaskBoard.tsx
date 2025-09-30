@@ -39,12 +39,13 @@ function TaskCard({ task, onComplete }: { task: Task; onComplete: (id: string) =
   const dateLabel = task.date ? new Date(task.date) : null;
 
   return (
-    <div style={{ borderLeft: `4px solid ${deptMeta?.color || '#cbd5e1'}` }} className="rounded-lg overflow-hidden">
-        <SBCard
-          className="p-3 group"
-          role="listitem"
-          aria-label={`${task.title}${dateLabel ? `, ${dateLabel.toLocaleString('es-ES')}` : ''}`}
-        >
+    <div style={{ borderLeft: `4px solid ${deptMeta?.color || '#cbd5e1'}` }} className="rounded-lg overflow-hidden group">
+      <SBCard
+        noPadding
+        className="p-3"
+        role="listitem"
+        aria-label={`${task.title}${dateLabel ? `, ${dateLabel.toLocaleString('es-ES')}` : ''}`}
+      >
         <div className="flex items-start justify-between">
             <p className="font-medium text-sm text-text-primary">{task.title}</p>
         </div>
@@ -59,16 +60,17 @@ function TaskCard({ task, onComplete }: { task: Task; onComplete: (id: string) =
                 </time>
             )}
             {task.status === 'open' && (
-                <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); onComplete(task.id); }}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onComplete(task.id); } }}
-                className="p-1 rounded-md transition-opacity text-zinc-400 opacity-0 group-hover:opacity-100 hover:bg-green-100 hover:text-green-600"
-                title="Marcar como completada"
-                aria-label="Marcar como completada"
+                <SBButton
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => { e.stopPropagation(); onComplete(task.id); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onComplete(task.id); } }}
+                  className="p-1 rounded-md transition-opacity text-zinc-400 opacity-0 group-hover:opacity-100 hover:bg-green-100 hover:text-green-600"
+                  title="Marcar como completada"
+                  aria-label="Marcar como completada"
                 >
-                <Check size={16} />
-                </button>
+                  <Check size={16} />
+                </SBButton>
             )}
             </div>
             <div className="flex -space-x-2">
@@ -76,7 +78,6 @@ function TaskCard({ task, onComplete }: { task: Task; onComplete: (id: string) =
                 <Avatar key={user.id} name={user.name} size="md" />
             ))}
             </div>
-        </div>
         </SBCard>
     </div>
   );

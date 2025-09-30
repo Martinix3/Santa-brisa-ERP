@@ -8,7 +8,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useData } from "@/lib/dataprovider";
 import type { Interaction, OrderSellOut, Account, PosTactic, Item, User } from "@/domain/ssot";
-import { orderTotal, orderToBottles } from "@/lib/sb-core";
+import { orderToBottles } from '@/lib/sb-core';
 import { UpcomingTasks } from "@/features/agenda/components/UpcomingTasks";
 import {
   ResponsiveContainer,
@@ -69,52 +69,63 @@ const KpiCard = ({
   const missing = Math.max(0, Math.ceil((leaderValue ?? 0) - numericValue));
 
   return (
-    <SBCard className="p-5">
-      <div className="flex items-center space-x-3 mb-2">
-        <div className="bg-white p-2 rounded-lg border">
-          <Icon className="text-gray-500" size={20} />
-        </div>
-        <p className="text-sm font-medium text-text-secondary">{title}</p>
-      </div>
-
-      <p className="text-3xl font-bold text-text-primary">{value}</p>
-
-      {change && (
-        <div className="flex items-center text-sm mt-1">
-          {isUp ? (
-            <TrendingUp className="text-green-600 mr-1" size={16} />
-          ) : (
-            <TrendingDown className="text-red-600 mr-1" size={16} />
-          )}
-          <span className={`${isUp ? "text-green-600" : "text-red-600"} font-semibold mr-1`}>{change}</span>
-          <span className="text-gray-500">vs mes anterior</span>
-        </div>
-      )}
-
-      {(goal || leaderValue !== undefined) && (
-        <div className="mt-2">
-          <div className="flex justify-between text-xs text-gray-500 mb-1">
-            <span>Progreso</span>
-            <span>{goal ? goal : `${numericValue} / ${denom}`}</span>
+    <SBCard>
+      <div className="p-5">
+        <div className="flex items-center space-x-3 mb-2">
+          <div className="bg-white p-2 rounded-lg border">
+            <Icon className="text-gray-500" size={20} />
           </div>
+          <p className="text-sm font-medium text-text-secondary">{title}</p>
+        </div>
 
-          <div className="relative w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
-            {leaderValue !== undefined && (
-              <div aria-hidden className="absolute left-0 top-0 h-1.5 rounded-full" style={{ width: `${leaderPct}%`, backgroundColor: `${color}33` }} />
+        <p className="text-3xl font-bold text-text-primary">{value}</p>
+
+        {change && (
+          <div className="flex items-center text-sm mt-1">
+            {isUp ? (
+              <TrendingUp className="text-green-600 mr-1" size={16} />
+            ) : (
+              <TrendingDown className="text-red-600 mr-1" size={16} />
             )}
-            <div className="relative h-1.5 rounded-full" style={{ width: `${myPct}%`, backgroundColor: color }} />
+            <span className={`${isUp ? "text-green-600" : "text-red-600"} font-semibold mr-1`}>{change}</span>
+            <span className="text-gray-500">vs mes anterior</span>
           </div>
+        )}
 
-          {leaderValue !== undefined && (
-            <div className="mt-1 text-[11px] text-gray-500">
-              {isLeader ? 'Eres líder 🔝' : <>Líder: <b>{leaderName ?? '—'}</b> con <b>{leaderValue}</b>{missing > 0 ? <> — te faltan <b>{missing}</b></> : null}</>}
+        {(goal || leaderValue !== undefined) && (
+          <div className="mt-2">
+            <div className="flex justify-between text-xs text-gray-500 mb-1">
+              <span>Progreso</span>
+              <span>{goal ? goal : `${numericValue} / ${denom}`}</span>
             </div>
-          )}
-        </div>
-      )}
+
+            <div className="relative w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
+              {leaderValue !== undefined && (
+                <div aria-hidden className="absolute left-0 top-0 h-1.5 rounded-full" style={{ width: `${leaderPct}%`, backgroundColor: `${color}33` }} />
+              )}
+              <div className="relative h-1.5 rounded-full" style={{ width: `${myPct}%`, backgroundColor: color }} />
+            </div>
+
+            {leaderValue !== undefined && (
+              <div className="mt-1 text-[11px] text-gray-500">
+                {isLeader ? 'Eres líder 🔝' : <>Líder: <b>{leaderName ?? '—'}</b> con <b>{leaderValue}</b>{missing > 0 ? <> — te faltan <b>{missing}</b></> : null}</>}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </SBCard>
   );
 };
+
+// =============================================================
+// HELPER para el cálculo de orderTotal (movido de sb-core)
+// =============================================================
+export const orderTotal = (order: OrderSellOut): number => {
+  if (!order || !order.lines) return 0;
+  return (order.lines || []).reduce((sum, line) => sum + (line.qty * line.priceUnit * (1 - ((line as any).discountPct || 0) / 100)), 0);
+}
+
 
 /* =============================================================
    📈 Página principal
@@ -286,38 +297,42 @@ export default function SalesDashboardPage() {
 
         {/* Grids */}
         <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <SBCard className="lg:col-span-2 p-5">
-            <h3 className="font-semibold text-text-primary text-base">Evolución de ventas + POS</h3>
-            <div className="mt-4 h-[280px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={salesEvolutionData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={SB_THEME.chart.grid} />
-                  <XAxis dataKey="name" tick={{ fill: 'hsl(var(--text-muted))', fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: 'hsl(var(--text-muted))', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${Number(v) / 1000}k`} />
-                  <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: 6 }} itemStyle={{ color: '#fff' }} labelStyle={{ color: '#fff', fontWeight: 'bold' }} />
-                  <Legend wrapperStyle={{ fontSize: 11, color: 'hsl(var(--text-muted))' }} />
-                  <Line type="monotone" dataKey="Ventas" stroke={SB_THEME.chart.line[0]} strokeWidth={2} dot={{ r: 3, strokeWidth: 2, fill: '#fff' }} activeDot={{ r: 5 }} />
-                  <Line type="monotone" dataKey="POS" stroke={SB_THEME.chart.line[1]} strokeWidth={2} dot={{ r: 3, strokeWidth: 2, fill: '#fff' }} activeDot={{ r: 5 }} />
-                </LineChart>
-              </ResponsiveContainer>
+          <SBCard className="lg:col-span-2">
+             <div className="p-5">
+                <h3 className="font-semibold text-text-primary text-base">Evolución de ventas + POS</h3>
+                <div className="mt-4 h-[280px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={salesEvolutionData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke={SB_THEME.chart.grid} />
+                      <XAxis dataKey="name" tick={{ fill: 'hsl(var(--text-muted))', fontSize: 10 }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fill: 'hsl(var(--text-muted))', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${Number(v) / 1000}k`} />
+                      <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: 6 }} itemStyle={{ color: '#fff' }} labelStyle={{ color: '#fff', fontWeight: 'bold' }} />
+                      <Legend wrapperStyle={{ fontSize: 11, color: 'hsl(var(--text-muted))' }} />
+                      <Line type="monotone" dataKey="Ventas" stroke={SB_THEME.chart.line[0]} strokeWidth={2} dot={{ r: 3, strokeWidth: 2, fill: '#fff' }} activeDot={{ r: 5 }} />
+                      <Line type="monotone" dataKey="POS" stroke={SB_THEME.chart.line[1]} strokeWidth={2} dot={{ r: 3, strokeWidth: 2, fill: '#fff' }} activeDot={{ r: 5 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
             </div>
           </SBCard>
 
           <div className="lg:col-span-1 space-y-6">
-            <SBCard className="p-5">
-              <h3 className="font-semibold text-text-primary text-base">Mix de Ventas</h3>
-              <div className="mt-4 h-36 flex items-center justify-center">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={salesMixData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius="60%" outerRadius="80%" paddingAngle={5}>
-                      {salesMixData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value) => `${(value as number).toFixed(1)}%`} contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: 6, color: '#fff' }} />
-                    <Legend iconSize={8} layout="vertical" verticalAlign="middle" align="right" wrapperStyle={{ fontSize: 11, color: 'hsl(var(--text-muted))' }} />
-                  </PieChart>
-                </ResponsiveContainer>
+            <SBCard>
+               <div className="p-5">
+                  <h3 className="font-semibold text-text-primary text-base">Mix de Ventas</h3>
+                  <div className="mt-4 h-36 flex items-center justify-center">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={salesMixData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius="60%" outerRadius="80%" paddingAngle={5}>
+                          {salesMixData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip formatter={(value) => `${(value as number).toFixed(1)}%`} contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: 6, color: '#fff' }} />
+                        <Legend iconSize={8} layout="vertical" verticalAlign="middle" align="right" wrapperStyle={{ fontSize: 11, color: 'hsl(var(--text-muted))' }} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
               </div>
             </SBCard>
 
