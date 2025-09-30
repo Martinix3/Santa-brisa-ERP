@@ -19,37 +19,10 @@ import { RealtimeBadge } from "../RealtimeBadge";
 import { RealtimeToggle } from "../RealtimeToggle";
 
 
-/* ===== 0) Tokens ===== */
-
-const hsl = (cssVar: string, alpha?: number) =>
-  alpha == null ? `hsl(${cssVar})` : `hsl(${cssVar} / ${alpha})`;
-
-/** Mejor contraste para "personal" */
-function getReadableColors(module: keyof typeof MODULE_ACCENTS, state: "idle" | "hover" | "active") {
-  const accent = MODULE_ACCENTS[module];
-  const isPersonal = module === "personal";
-  if (state === "active") {
-    return {
-      fg: isPersonal ? "hsl(var(--sb-neutral-900))" : hsl(accent),
-      bg: isPersonal ? hsl(accent, 0.22) : hsl(accent, 0.12),
-      br: isPersonal ? hsl(accent, 0.40) : hsl(accent, 0.35),
-    };
-  }
-  if (state === "hover") {
-    return {
-      fg: isPersonal ? "hsl(var(--sb-neutral-800))" : `hsl(var(--sb-neutral-700))`,
-      bg: isPersonal ? hsl(accent, 0.14) : "hsl(var(--sb-neutral-50))",
-      br: isPersonal ? hsl(accent, 0.28) : "transparent",
-    };
-  }
-  return { fg: "hsl(var(--sb-neutral-600))", bg: "transparent", br: "transparent" };
-}
-
 /* ===== 1) Navegación ===== */
 type NavItem = { href: string; label: string };
 type NavSection = { title: string; module: keyof typeof MODULE_ACCENTS; icon: React.ElementType; items: NavItem[] };
 
-/** IMPORTANTE: sin 'Dashboard' en items (lo mostramos como "Ver dashboard" en el header de sección) */
 const navSections: NavSection[] = [
   { title: "Personal", module: "personal", icon: Home,
     items: [{ href: "/agenda", label: "Agenda" }, { href: "/contacts", label: "Contactos" }] },
@@ -90,9 +63,6 @@ const navSections: NavSection[] = [
     ] },
 ];
 
-/* ===== 2) Persistencia ===== */
-const LS_COLLAPSED = "sb.nav.collapsed";
-
 /* ===== Helpers ===== */
 function useBreadcrumbs(pathname: string | null) {
   const safePath = pathname || "";
@@ -108,7 +78,7 @@ const paletteItems: Array<{ href: string; label: string; module: keyof typeof MO
 
 function dashboardHrefFor(module: keyof typeof MODULE_ACCENTS): string {
   switch (module) {
-    case "personal": return "/dashboard-personal";
+    case "personal": return "/agenda"; // Updated to point directly to a feature
     case "sales": return "/dashboard-ventas";
     case "marketing": return "/marketing/dashboard";
     case "production": return "/production/dashboard";
@@ -128,11 +98,6 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
   const isPrivilegedUser =
     currentUser?.role?.toLowerCase() === "admin" || currentUser?.role?.toLowerCase() === "owner";
   const visibleSections = navSections.filter((s) => (s.title === "Admin" ? isPrivilegedUser : true));
-
-  const [collapsed, setCollapsed] = useState<boolean>(() =>
-    (typeof window !== "undefined" ? localStorage.getItem(LS_COLLAPSED) === "1" : false)
-  );
-  useEffect(() => { if (typeof window !== "undefined") localStorage.setItem(LS_COLLAPSED, collapsed ? "1" : "0"); }, [collapsed]);
 
   const activeModule = useMemo(() => {
     const hit = visibleSections.find((sec) => sec.items.some((i) => pathname.startsWith(i.href) && i.href !== "/"));
@@ -172,41 +137,37 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
     <>
     <div className="h-screen flex bg-white">
       {/* Sidebar */}
-      <aside className={`h-full border-r border-sb-neutral-200 bg-white flex flex-col transition-all duration-300 ${collapsed ? "w-16" : "w-64"}`}>
-        <Link href="/" className={`h-14 flex items-center border-b px-4 ${collapsed ? 'justify-center' : ''}`}>
-          <Image src="https://santabrisa.es/cdn/shop/files/clavista_300x_36b708f6-4606-4a51-9f65-e4b379531ff8_300x.svg?v=1752413726" alt="Santa Brisa" width={collapsed ? 32 : 112} height={24} style={{width: 'auto', height: 'auto'}} priority />
+      <aside className="h-full border-r border-sb-neutral-200 bg-white flex flex-col w-16">
+        <Link href="/" className="h-14 flex items-center justify-center border-b">
+          <Image src="https://santabrisa.es/cdn/shop/files/clavista_300x_36b708f6-4606-4a51-9f65-e4b379531ff8_300x.svg?v=1752413726" alt="Santa Brisa" width={32} height={24} style={{width: 'auto', height: 'auto'}} priority />
         </Link>
         <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-1">
           {visibleSections.map(section => {
             const isActiveModule = section.module === activeModule;
-            const accent = MODULE_ACCENTS[section.module];
             return (
-              <div key={section.module} style={{'--accent': accent} as React.CSSProperties}>
-                <Link href={dashboardHrefFor(section.module)} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors font-semibold ${isActiveModule ? 'bg-[hsl(var(--accent)/0.12)] text-[hsl(var(--accent))]' : 'text-zinc-700 hover:bg-zinc-100'}`}>
+              <div key={section.module} className="relative group">
+                <Link href={dashboardHrefFor(section.module)} className={`flex items-center justify-center h-10 w-10 rounded-lg transition-colors ${isActiveModule ? 'bg-yellow-100 text-yellow-800' : 'text-zinc-600 hover:bg-zinc-100'}`}>
                   <section.icon size={20} />
-                  {!collapsed && <span>{section.title}</span>}
                 </Link>
-                {!collapsed && isActiveModule && (
-                  <div className="pl-6 mt-1 space-y-0.5 border-l-2 ml-4" style={{borderColor: `hsl(${accent}/.2)`}}>
-                    {section.items.map(item => {
-                      const isActiveItem = pathname.startsWith(item.href);
-                      return (
-                        <Link key={item.href} href={item.href} className={`block px-4 py-1.5 text-sm rounded-md transition-colors ${isActiveItem ? 'font-semibold text-[hsl(var(--accent))]' : 'text-zinc-600 hover:bg-zinc-100'}`}>
-                          {item.label}
-                        </Link>
-                      )
-                    })}
+                <div className="absolute left-full top-0 ml-2 w-48 bg-white border rounded-lg shadow-lg hidden group-hover:block z-50">
+                  <div className="p-2 border-b">
+                      <p className="text-sm font-semibold">{section.title}</p>
                   </div>
-                )}
+                  <div className="p-1">
+                  {section.items.map(item => {
+                    const isActiveItem = pathname.startsWith(item.href);
+                    return (
+                      <Link key={item.href} href={item.href} className={`block px-3 py-1.5 text-sm rounded-md transition-colors ${isActiveItem ? 'font-semibold text-yellow-800 bg-yellow-50' : 'text-zinc-600 hover:bg-zinc-100'}`}>
+                        {item.label}
+                      </Link>
+                    )
+                  })}
+                  </div>
+                </div>
               </div>
             )
           })}
         </nav>
-        <div className="p-2 border-t">
-          <button onClick={() => setCollapsed(!collapsed)} className="w-full flex items-center justify-center gap-2 h-10 rounded-md text-zinc-600 hover:bg-zinc-100">
-            {collapsed ? <PanelRightClose size={18}/> : <PanelLeftClose size={18}/>}
-          </button>
-        </div>
       </aside>
 
       <main className="flex-1 min-w-0 grid grid-rows-[auto_1fr]">
@@ -364,10 +325,10 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
             <Link
               key={`${r.module}:${r.href}`}
               href={r.href}
-              className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-sb-neutral-50"
+              className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-zinc-100"
               onClick={onClose}
             >
-              <span aria-hidden className="h-2.5 w-2.5 rounded-full" style={{ background: hsl(MODULE_ACCENTS[r.module], 0.9) }} />
+              <span aria-hidden className="h-2.5 w-2.5 rounded-full" style={{ background: `hsl(${MODULE_ACCENTS[r.module]})` }} />
               <span className="font-medium">{r.label}</span>
               <span className="ml-auto text-xs text-sb-neutral-500">{r.href}</span>
             </Link>
@@ -381,7 +342,6 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
 
 /* util: detectar módulo desde la ruta de dashboard */
 function moduleFromDashboard(path: string): keyof typeof MODULE_ACCENTS | null {
-  if (path.startsWith("/dashboard-personal")) return "personal";
   if (path.startsWith("/dashboard-ventas")) return "sales";
   if (path.startsWith("/marketing/dashboard")) return "marketing";
   if (path.startsWith("/production/dashboard")) return "production";
