@@ -1,4 +1,4 @@
-// tailwind.config.ts — Tailwind v4 (TS)
+// tailwind.config.ts — Adaptado al nuevo Brief de Diseño
 import type { Config } from 'tailwindcss';
 import defaultTheme from 'tailwindcss/defaultTheme';
 
@@ -6,56 +6,51 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
+          // La fuente 'Inter' se mantiene como principal
           sans: ['var(--font-inter)', ...defaultTheme.fontFamily.sans],
       },
       colors: {
-        'sb-sun': 'hsl(var(--sb-sun))',
-        'sb-sun-strong': 'hsl(var(--sb-sun-strong))', // dorado (opcional)
-        'sb-cobre': 'hsl(var(--sb-cobre))',
-        'sb-agua': 'hsl(var(--sb-agua))',
-        'sb-verde-mar': 'hsl(var(--sb-verde-mar))',
-        'sb-naranja': 'hsl(var(--sb-naranja))',       // alias naranja
-        'sb-neutral': {
-          950: 'hsl(var(--sb-neutral-950))',
-          900: 'hsl(var(--sb-neutral-900))',
-          700: 'hsl(var(--sb-neutral-700))',
-          500: 'hsl(var(--sb-neutral-500))',
-          400: 'hsl(var(--sb-neutral-400))',
-          200: 'hsl(var(--sb-neutral-200))',
-          100: 'hsl(var(--sb-neutral-100))',
-          50:  'hsl(var(--sb-neutral-50))',
+        // Paleta de colores simplificada según el brief
+        // No se usan variables CSS para una mayor claridad y alineación con Tailwind
+        
+        // Colores de Marca y Acción
+        'accent': '#F4C542',     // Amarillo Santa Brisa (Acento y Acción Principal)
+        'sun': '#F2E5A0',        // Texto sobre color
+        
+        // Colores Secundarios (para avatares, etc.)
+        'cobre': '#B25A32',
+        'agua': '#77D9CF',
+        'naranja': '#F26D3D',
+
+        // Colores Semánticos
+        'destructive': {
+            DEFAULT: '#991b1b',      // Rojo para texto/iconos
+            background: '#fef2f2', // Fondo para badges/alertas
         },
-        border: 'hsl(var(--border))',
-        input: 'hsl(var(--input))',
-        ring: 'hsl(var(--ring))',
-        background: 'hsl(var(--background))',
-        foreground: 'hsl(var(--foreground))',
-        primary: { DEFAULT: 'hsl(var(--primary))', foreground: 'hsl(var(--primary-foreground))' },
-        secondary: { DEFAULT: 'hsl(var(--secondary))', foreground: 'hsl(var(--secondary-foreground))' },
-        destructive: { DEFAULT: 'hsl(var(--destructive))', foreground: 'hsl(var(--destructive-foreground))' },
-        muted: { DEFAULT: 'hsl(var(--muted))', foreground: 'hsl(var(--muted-foreground))' },
-        accent: { DEFAULT: 'hsl(var(--accent))', foreground: 'hsl(var(--accent-foreground))' },
+        
+        // NOTA: Los colores neutros del brief (#111827, #374151, #6b7280, #e5e7eb)
+        // se corresponden directamente con la paleta 'gray' por defecto de Tailwind.
+        // Usaremos `gray-900`, `gray-700`, `gray-500`, `gray-200` y `gray-100` (`#f3f4f6`).
+        // El fondo de contraste `#f9fafb` es `gray-50`.
       },
       borderRadius: {
-        lg: 'var(--radius)',
-        xl: 'calc(var(--radius) + 4px)',
-        '2xl': 'calc(var(--radius) + 8px)',
+        // Mantenemos la escala por defecto de Tailwind, es consistente (múltiplos de 4px)
       },
       boxShadow: {
-        sm: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
-        md: '0 6px 12px -4px rgb(0 0 0 / 0.08)',
-        lg: '0 16px 24px -8px rgb(0 0 0 / 0.12)',
-        xl: '0 24px 32px -12px rgb(0 0 0 / 0.14)',
+        // Sombra sutil para "Contenedores Blancos"
+        'sm': '0 1px 3px 0 rgb(0 0 0 / 0.07)',
+        // Sombra más pronunciada para interacciones (hover en KpiCard)
+        'lg': '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -2px rgb(0 0 0 / 0.05)',
       },
       keyframes: {
-        'fade-in-50': { from: { opacity: '0' }, to: { opacity: '1' } },
-        'slide-in-from-top-1': { from: { transform: 'translateY(-6px)' }, to: { transform: 'translateY(0)' } },
-        'scale-in': { from: { transform: 'scale(0.98)' }, to: { transform: 'scale(1)' } },
+        // Animación de entrada para módulos de página
+        'fade-in-up': {
+          'from': { opacity: '0', transform: 'translateY(10px)' },
+          'to': { opacity: '1', transform: 'translateY(0)' },
+        },
       },
       animation: {
-        'fade-in-50': 'fade-in-50 .15s ease-out both',
-        'slide-in-from-top-1': 'slide-in-from-top-1 .15s ease-out both',
-        'scale-in': 'scale-in .12s ease-out both',
+        'fade-in-up': 'fade-in-up 0.3s ease-out forwards',
       },
     },
   },
