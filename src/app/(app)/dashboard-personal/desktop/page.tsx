@@ -12,7 +12,7 @@ import { MarketingTaskCompletionDialog } from '@/features/marketing/components/M
 import { mapInteractionsToTasks } from '@/features/agenda/mappers';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
-import type { Interaction, InteractionStatus, User as CurrentUserType, SantaData, Note } from '@/domain/ssot';
+import type { Interaction, InteractionStatus, User as CurrentUserType, SantaData, Note, Task as SsotTask } from '@/domain/ssot';
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
 } from 'recharts';
@@ -133,13 +133,13 @@ function MiniCalendarCard() {
   };
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl p-4 h-full flex flex-col">
+    <div className="bg-white border border-slate-200 rounded-xl p-4 h-full flex flex-col sb-mini-calendar">
       <h3 className="font-semibold text-slate-900 mb-3">Calendario</h3>
       <div className="min-h-0 flex-1">
         <FullCalendar
           plugins={[dayGridPlugin, interactionPlugin]}
           initialView="dayGridMonth"
-          headerToolbar={{ left: 'prev,next', center: 'title', right: '' }}
+          headerToolbar={{ left: 'prev', center: 'title', right: 'next' }}
           events={calendarEvents}
           eventClick={onEventClick}
           height="100%"
@@ -154,15 +154,15 @@ function MiniCalendarCard() {
 }
 
 function AgendaDock() {
+  const { data: santaData } = useData();
   const agenda = useQuickNotes();
-  const { data } = useData();
   const [outcomeFor, setOutcomeFor] = useState<string|null>(null);
   const openOutcome = (id: string) => setOutcomeFor(id);
   const closeOutcome = () => setOutcomeFor(null);
   
   const kpis = useMemo(()=> {
     const overdue = agenda.overdue.length;
-    const todayOpen = agenda.todayTasks.filter(t=>t.status==='open').length;
+    const todayOpen = agenda.todayTasks.filter(t=>t.status === 'open').length;
     const posToday = agenda.todayTasks.filter(t=> t.kind==='EVENTO_MKT').length;
     return { overdue, todayOpen, posToday };
   }, [agenda.overdue, agenda.todayTasks]);
@@ -173,8 +173,8 @@ function AgendaDock() {
       closeOutcome();
     };
 
-    const overdueTasks = mapInteractionsToTasks(agenda.overdue, agenda.accounts);
-    const todayTasksMapped = mapInteractionsToTasks(agenda.todayTasks, agenda.accounts);
+    const overdueTasks = mapInteractionsToTasks(agenda.overdue, santaData?.accounts);
+    const todayTasksMapped = mapInteractionsToTasks(agenda.todayTasks, santaData?.accounts);
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl flex flex-col h-full">
