@@ -157,10 +157,9 @@ export async function completeProductionOrder(
       const traceEventRef = adminDb.collection('traceEvents').doc();
       const traceEvent: TraceEvent = {
           id: traceEventRef.id,
-          subject: { type: 'LOT', id: consumption.lotNumber },
+          at: now,
           phase: 'PRODUCTION',
           kind: 'CONSUME',
-          at: now,
           title: `Consumo en orden ${order.orderNumber || orderId}`,
           details: `Consumido ${-Math.abs(consumption.qty)} ${consumption.uom} del lote ${consumption.lotNumber}.`,
           links: { prodOrderId: orderId, lotNumber: consumption.lotNumber },
@@ -221,10 +220,9 @@ export async function completeProductionOrder(
       const traceEventInRef = adminDb.collection('traceEvents').doc();
       const traceEventIn: TraceEvent = {
           id: traceEventInRef.id,
-          subject: { type: 'LOT', id: lotNumber },
+          at: now,
           phase: 'PRODUCTION',
           kind: 'OUTPUT',
-          at: now,
           title: `Producción de lote ${lotNumber}`,
           details: `Generado ${output.qty} ${output.uom} desde orden ${order.orderNumber || orderId}.`,
           links: { prodOrderId: orderId, lotNumber: lotNumber },

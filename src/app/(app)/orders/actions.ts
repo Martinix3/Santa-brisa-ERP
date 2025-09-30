@@ -32,7 +32,6 @@ export async function placeOrder({
 
   // Correction: Map incoming lines to OrderLine structure
   const itemsSnap = await db.collection('items').where('sku', 'in', lines.map(l => l.sku)).get();
-  const itemsBySku = new Map(itemsSnap.docs.map(doc => [doc.id, doc.data() as Item]));
   const itemsBySkuSku = new Map(itemsSnap.docs.map(doc => [doc.data().sku, doc.data() as Item]));
 
   const orderLines: OrderLine[] = lines.map(l => {
@@ -46,7 +45,6 @@ export async function placeOrder({
       priceUnit: l.unitPriceReported ?? item.stdCost ?? 0,
     };
   });
-
 
   const payload: Partial<OrderSellOut> = {
     id: ref.id,
@@ -132,7 +130,7 @@ export async function createSalesInvoice({ orderId }: { orderId:string }) {
   const finId = `INV-${now.slice(0,10)}-${Math.floor(Math.random()*99999)}`;
   const fin: Partial<FinanceLink> = {
      id: finId,
-     status: 'pending',
+     externalId: '', // si sincronizas con Holded, rellena después
      netAmount: amount,
      taxAmount: 0,
      grossAmount: amount,
@@ -164,7 +162,7 @@ export async function recordPayment({ financeLinkId, amount, date, method }: {
   const paymentId = `PAY-${now}-${Math.floor(Math.random()*1e6)}`;
   const pay: Partial<PaymentLink> = {
     id: paymentId,
-    amount,
+    externalId: undefined,
     date: date ?? now,
     method: method ?? 'transfer',
   };

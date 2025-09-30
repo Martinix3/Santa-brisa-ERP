@@ -19,7 +19,8 @@ export async function POST(req: NextRequest) {
 
   const fin: Partial<FinanceLink> = {
     id: financeLinkId,
-    status: status === 'paid' ? 'paid' : 'pending',
+    docType: 'SALES_INVOICE',
+    externalId: id,
     netAmount: Number(total) || 0,
     taxAmount: 0, // ajusta si recibes el desglose
     grossAmount: Number(total) || 0,
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
   // Persistimos pagos individuales
   const payDocs: Partial<PaymentLink>[] = (payments || []).map((p: any) => ({
     id: `holded-${p.id}`,
-    amount: Number(p.amount),
+    financeLinkId: financeLinkId,
     date: p.date ?? now,
     method: p.method ?? 'transfer',
   }));

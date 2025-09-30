@@ -4,7 +4,7 @@
 
 import React, { useMemo, useState, useEffect, useTransition } from "react";
 import { Package, Search, GitBranch, Truck, Factory, FlaskConical, ArrowLeftRight, AlertTriangle, User as UserIcon, FileText, CheckCircle, XCircle } from "lucide-react";
-import type { Lot, Item, OnHandView, TraceEvent as TraceEventType, StockMove, ProductionOrder } from "@/domain/ssot";
+import type { Lot, Item, OnHandView, TraceEvent, StockMove, ProductionOrder } from "@/domain/ssot";
 import { getLotTraceability, type TraceData } from "./actions";
 import { toast } from "sonner";
 import Link from 'next/link';
@@ -64,7 +64,7 @@ function QcTestEventDetails({ data }: { data?: Record<string, any> }) {
      );
 }
 
-function TraceEventCard({ event }: { event: TraceEventType }) {
+function TraceEventCard({ event }: { event: TraceEvent }) {
     const config = EVENT_CONFIG[event.kind.toUpperCase()] || EVENT_CONFIG.DEFAULT;
     const Icon = config.icon;
 

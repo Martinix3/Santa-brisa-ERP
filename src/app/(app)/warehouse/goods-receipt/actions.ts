@@ -4,7 +4,7 @@
 import { revalidatePath } from 'next/cache';
 import { adminDb as db } from '@/server/firebase';
 import { FieldValue } from 'firebase-admin/firestore';
-import type { Party, Item, GoodsReceipt, StockMove, Uom, ItemCategory, PartyRole, Lot, QcStatus, TraceEvent } from '@/domain/ssot';
+import type { Party, Item, GoodsReceipt, StockMove, Uom, ItemCategory, PartyRole, Lot, QcStatus, TraceEvent, TraceEventPhase, TraceEventKind } from '@/domain/ssot';
 import { LotSchema } from '@/domain/validators';
 import { normText } from '@/lib/norm/text';
 import { makeGoodsReceiptCode } from '@/lib/codes';
@@ -219,10 +219,9 @@ export async function createGoodsReceipt(payload: {
         const traceEventRef = db.collection('traceEvents').doc();
         const traceEvent: TraceEvent = {
             id: traceEventRef.id,
-            subject: { type: 'LOT', id: lotNumber },
+            at: nowIso,
             phase: 'RECEIPT',
             kind: 'ARRIVED',
-            at: nowIso,
             title: `Recepción de Lote ${lotNumber}`,
             details: `Recibido de proveedor ${finalSupplierId}`,
             links: { lotNumber: lotNumber, receiptId: receiptRef.id },
@@ -251,7 +250,7 @@ export async function createGoodsReceipt(payload: {
         return cat === 'raw' || cat === 'pack' || cat === 'fg';
     });
 
-    const receipt: Omit<GoodsReceipt, 'createdAt'|'updatedAt'> & {notes: string | null} = {
+    const receipt: Omit<GoodsReceipt, 'createdAt'|'updatedAt'> & {notes?: string | null} = {
         id: receiptRef.id,
         receiptNumber,
         supplierPartyId: finalSupplierId!,
@@ -259,7 +258,7 @@ export async function createGoodsReceipt(payload: {
         receivedAt: nowIso,
         status: requiresQc ? 'pending_qc' : 'completed',
         lines: finalLines,
-        notes: notes || null,
+        notes: notes || undefined,
     };
     batch.set(receiptRef, { ...receipt, createdAt: nowIso } as any);
 

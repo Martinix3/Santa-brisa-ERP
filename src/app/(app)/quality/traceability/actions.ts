@@ -2,18 +2,8 @@
 'use server';
 
 import { adminDb as db } from '@/server/firebase';
-import type { StockMove, QcTest, LotGenealogyEdge, ProductionOrder, GoodsReceipt, Party, Lot, ProtocolLog, OnHandView } from '@/domain/ssot';
+import type { StockMove, QcTest, LotGenealogyEdge, ProductionOrder, GoodsReceipt, Party, Lot, ProtocolLog, OnHandView, TraceEvent, TraceEventKind, TraceEventPhase } from '@/domain/ssot';
 import { ActionResult, ok, fail } from '@/lib/result';
-
-export type TraceEvent = {
-    id: string;
-    at: string;
-    kind: string; // 'RECEIPT', 'PRODUCTION_OUT', etc.
-    title: string;
-    details: string; // Un resumen simple de texto
-    data?: Record<string, any>; // <-- AQUÍ ESTÁ LA MAGIA: un objeto para datos extra
-};
-
 
 export type TraceData = {
     lot: Lot | null;
@@ -78,7 +68,7 @@ export async function getLotTraceability(lotNumber: string): Promise<ActionResul
                     const logsSnap = await db.collection('protocolLogs').where('productionOrderId', '==', po.id).get();
                     productionInfo = {
                         orderId: po.id,
-                        orderName: po.orderNumber || po.name,
+                        orderName: po.orderNumber,
                         responsible: await getPartyName((po as any).responsibleId || ''),
                         incidentCount: (po.incidents || []).length,
                         protocols: logsSnap.docs.map(d => d.data() as ProtocolLog),
@@ -112,7 +102,8 @@ export async function getLotTraceability(lotNumber: string): Promise<ActionResul
             events.push({
                 id: move.id,
                 at: move.occurredAt,
-                kind: move.reason.toUpperCase() as any,
+                kind: move.reason.toUpperCase() as TraceEventKind,
+                phase: 'WAREHOUSE' as TraceEventPhase,
                 title,
                 details,
                 data
@@ -127,6 +118,7 @@ export async function getLotTraceability(lotNumber: string): Promise<ActionResul
                 id: test.id,
                 at: test.testedAt,
                 kind: 'QC_TEST',
+                phase: 'QC',
                 title: `Análisis: ${test.parameterId}`,
                 details: `Resultado: ${value}`,
                  data: {
@@ -143,7 +135,7 @@ export async function getLotTraceability(lotNumber: string): Promise<ActionResul
             const edge = doc.data() as LotGenealogyEdge;
             const qty = (edge as any).quantityUsed || edge.qty;
             events.push({
-                id: `gen-child-${edge.id}`, at: edge.createdAt, kind: 'GENEALOGY_CHILD',
+                id: `gen-child-${edge.id}`, at: edge.createdAt, kind: 'GENEALOGY_CHILD', phase: 'PRODUCTION',
                 title: `Usado para producir Lote: ${edge.childLotNumber}`,
                 details: `Cantidad usada: ${qty} ${edge.uom}`
             });
@@ -154,7 +146,7 @@ export async function getLotTraceability(lotNumber: string): Promise<ActionResul
             const edge = doc.data() as LotGenealogyEdge;
             const qty = (edge as any).quantityUsed || edge.qty;
             events.push({
-                id: `gen-parent-${edge.id}`, at: edge.createdAt, kind: 'GENEALOGY_PARENT',
+                id: `gen-parent-${edge.id}`, at: edge.createdAt, kind: 'GENEALOGY_PARENT', phase: 'PRODUCTION',
                 title: `Producido a partir de Lote: ${edge.parentLotNumber}`,
                 details: `Cantidad usada: ${qty} ${edge.uom}`
             });
