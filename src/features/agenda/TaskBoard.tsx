@@ -1,18 +1,7 @@
-// src/features/agenda/TaskBoard.tsx — Santa Brisa Design System aplicado
+// src/features/agenda/TaskBoard.tsx — Layout Vertical
 "use client";
 
 import React, { useMemo } from 'react';
-import {
-  DndContext,
-  useDraggable,
-  useDroppable,
-  closestCorners,
-  MeasuringStrategy,
-  PointerSensor,
-  KeyboardSensor,
-  useSensor,
-  useSensors,
-} from '@dnd-kit/core';
 import type { Department, InteractionStatus, User, Interaction } from '@/domain/ssot';
 import { Check, AlertCircle, Clock, Plus } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
@@ -63,11 +52,8 @@ const endOfDay   = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDat
 // Tarjeta de tarea
 // ===============================
 function TaskCard({ task, onComplete }: { task: Task; onComplete: (id: string) => void; }) {
-  const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: task.id });
   const { data } = useData();
   const deptMeta = DEPT_META[task.type];
-
-  const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined;
 
   const involvedUsers = (task.involvedUserIds || [])
     .map((id) => data?.users.find((u) => u.id === id))
@@ -77,13 +63,9 @@ function TaskCard({ task, onComplete }: { task: Task; onComplete: (id: string) =
 
   return (
     <div
-      ref={setNodeRef}
-      style={{ ...style, borderLeft: `4px solid ${deptMeta?.color || '#cbd5e1'}` }}
-      {...listeners}
-      {...attributes}
-      className="p-3 bg-white rounded-lg border shadow-sm group cursor-grab active:cursor-grabbing focus:outline-none focus:ring-2"
+      style={{ borderLeft: `4px solid ${deptMeta?.color || '#cbd5e1'}` }}
+      className="p-3 bg-white rounded-lg border shadow-sm group"
       role="listitem"
-      tabIndex={0}
       aria-label={`${task.title}${dateLabel ? `, ${dateLabel.toLocaleString('es-ES')}` : ''}`}
     >
       <div className="flex items-start justify-between">
@@ -123,9 +105,9 @@ function TaskCard({ task, onComplete }: { task: Task; onComplete: (id: string) =
 }
 
 // ===============================
-// Columna de estado
+// Columna de estado (ahora sección vertical)
 // ===============================
-function StatusColumn({
+function StatusSection({
   col,
   tasks,
   onCompleteTask,
@@ -138,8 +120,6 @@ function StatusColumn({
   subGroups?: { title: string; tasks: Task[] }[];
   onNewTask?: () => void;
 }) {
-  const { setNodeRef } = useDroppable({ id: col.id });
-
   const renderTasks = (tasksToRender: Task[]) => {
     if (tasksToRender.length === 0) {
       return (
@@ -154,7 +134,7 @@ function StatusColumn({
   };
 
   return (
-    <div ref={setNodeRef} className="p-3 rounded-xl w-full" style={{ background: SB.surface.muted }} role="list" aria-label={col.label}>
+    <div role="list" aria-label={col.label}>
       <div className="flex items-center justify-between px-1 mb-3">
         <h3 className="flex items-center gap-2 font-semibold" style={{ color: col.headerColor }}>
           <col.icon size={18} />
@@ -174,7 +154,7 @@ function StatusColumn({
         )}
       </div>
 
-      <div className="space-y-3 min-h-[100px]">
+      <div className="space-y-3">
         {subGroups ? (
           subGroups.map((group, index) => (
             <div key={index}>
@@ -201,19 +181,13 @@ function StatusColumn({
 // ===============================
 export function TaskBoard({
   tasks,
-  onTaskStatusChange,
   onCompleteTask,
   onNewTask,
 }: {
   tasks: Task[];
-  onTaskStatusChange: (id: string, newStatus: InteractionStatus) => void; // reservado para futuras columnas
   onCompleteTask: (id: string) => void;
   onNewTask?: () => void;
 }) {
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(KeyboardSensor)
-  );
 
   const categorizedTasks = useMemo(() => {
     const now = new Date();
@@ -240,16 +214,6 @@ export function TaskBoard({
     return { upcoming, today, future, overdue, done };
   }, [tasks]);
 
-  function handleDragEnd(event: any) {
-    const { over, active } = event;
-    if (!over || !active) return;
-    const newColId = over.id as ColumnId;
-    if (newColId !== 'done') return; // sólo acción al soltar en "Hechas"
-    const taskId = active.id as string;
-    const task = tasks.find((t) => t.id === taskId);
-    if (!task || task.status === 'done') return;
-    onCompleteTask(taskId);
-  }
 
   const upcomingSubgroups = [
     { title: 'Hoy', tasks: categorizedTasks.today },
@@ -257,17 +221,10 @@ export function TaskBoard({
   ];
 
   return (
-    <DndContext
-      sensors={sensors}
-      onDragEnd={handleDragEnd}
-      collisionDetection={closestCorners}
-      measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
-    >
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <StatusColumn col={KANBAN_COLS[0]} tasks={categorizedTasks.overdue} onCompleteTask={onCompleteTask} />
-        <StatusColumn col={KANBAN_COLS[1]} tasks={categorizedTasks.upcoming} onCompleteTask={onCompleteTask} subGroups={upcomingSubgroups} onNewTask={onNewTask} />
-        <StatusColumn col={KANBAN_COLS[2]} tasks={categorizedTasks.done} onCompleteTask={onCompleteTask} />
-      </div>
-    </DndContext>
+    <div className="space-y-8">
+      <StatusSection col={KANBAN_COLS[0]} tasks={categorizedTasks.overdue} onCompleteTask={onCompleteTask} />
+      <StatusSection col={KANBAN_COLS[1]} tasks={categorizedTasks.upcoming} onCompleteTask={onCompleteTask} subGroups={upcomingSubgroups} onNewTask={onNewTask} />
+      <StatusSection col={KANBAN_COLS[2]} tasks={categorizedTasks.done} onCompleteTask={onCompleteTask} />
+    </div>
   );
 }
