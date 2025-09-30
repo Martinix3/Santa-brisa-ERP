@@ -3,7 +3,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { getOne, upsertMany } from '@/lib/dataprovider/server';
-import type { OrderStatus, Shipment, OrderSellOut, Account, Party, FinanceLink, PaymentLink, OnHandView, OrderLine, Item } from '@/domain/ssot';
+import type { OrderStatus, Shipment, OrderSellOut, Account, Party, FinanceLink, PaymentLink, OnHandView, OrderLine, Item, SalesUnit } from '@/domain/ssot';
 import { enqueue } from '@/server/queue/queue';
 import { importSingleShopifyOrder } from '@/server/integrations/shopify/import-order';
 import { confirmOrderShipment as confirmAndReserve } from '../warehouse/logistics/actions';
@@ -41,7 +41,7 @@ export async function placeOrder({
       itemId: item.id,
       name: item.name,
       qty: l.qty,
-      uom: 'uds',
+      uom: 'unit' as SalesUnit,
       priceUnit: l.unitPriceReported ?? item.stdCost ?? 0,
     };
   });
@@ -147,7 +147,7 @@ export async function createSalesInvoice({ orderId }: { orderId:string }) {
   await upsertMany('ordersSellOut', [{
      id: orderId,
      status: 'invoiced',
-     billingStatus: 'INVOICED',
+     billingStatus: 'invoiced',
      updatedAt: now,
   }]);
 

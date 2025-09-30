@@ -15,8 +15,10 @@ export type ISO = string;
 // --- Unidades de Medida (UoM) ---
 export type UnitOfMass = 'kg' | 'g';
 export type UnitOfVolume = 'L' | 'mL';
-export type SalesUnit = 'bottle' | 'case' | 'pallet' | 'uds';
+export type SalesUnit = 'unit' | 'bottle' | 'case' | 'pallet';
 export type Uom = UnitOfMass | UnitOfVolume | SalesUnit;
+export const UOM_ALIASES: Record<string, SalesUnit> = { uds: 'unit' };
+
 export type Currency = 'EUR';
 export type Department = 'VENTAS' | 'MARKETING' | 'PRODUCCION' | 'ALMACEN' | 'FINANZAS' | 'CALIDAD' | 'PERSONAL';
 export type StockReason = 'receipt' | 'production_in' | 'production_out' | 'sale' | 'transfer' | 'adjustment' | 'return_in' | 'return_out' | 'ship' | 'consignment_send' | 'consignment_return' | 'consignment_sell' | 'sample_send' | 'sample_consume';
@@ -31,6 +33,7 @@ export type Stage = 'POTENCIAL' | 'ACTIVA' | 'SEGUIMIENTO' | 'FALLIDA' | 'CERRAD
 export type UserRole = 'comercial' | 'admin' | 'ops' | 'owner';
 export type InteractionStatus = 'open' | 'done' | 'processing' | 'closed' | 'cancelled';
 export type OrderStatus = 'open' | 'confirmed' | 'shipped' | 'invoiced' | 'paid' | 'cancelled' | 'lost';
+export type BillingStatus = 'pending' | 'invoiced' | 'paid' | 'void';
 export type ShipmentStatus = 'pending' | 'picking' | 'ready_to_ship' | 'shipped' | 'delivered' | 'exception' | 'cancelled';
 export type ProductionStatus = 'PLANNED' | 'RELEASED' | 'IN_PROGRESS' | 'PAUSED' | 'QC_HOLD' | 'DONE' | 'CANCELLED';
 export type ProductionStage = 'PRODUCCION' | 'ENVASADO';
@@ -40,7 +43,7 @@ export type LotStatus = 'OPEN' | 'RELEASED' | 'BLOCKED' | 'CONSUMED' | 'SCRAPPED
 export type LotBucket = 'HOLD' | 'RELEASED' | 'REJECTED';
 export type InteractionKind = 'VISITA' | 'LLAMADA' | 'EMAIL' | 'WHATSAPP' | 'OTRO' | 'COBRO' | 'EVENTO_MKT';
 export type EventKind = 'DEMO' | 'FERIA' | 'FORMACION' | 'OTRO';
-export type PosTacticStatus = 'planned' | 'active' | 'closed' | 'cancelled'|'DELIVERED'|'SCHEDULED'|'APPROVED';
+export type PosTacticStatus = 'planned' | 'approved' | 'scheduled' | 'delivered' | 'active' | 'closed' | 'cancelled';
 export type TraceEventKind = 'RECEIPT' | 'PRODUCTION_OUT' | 'PRODUCTION_IN' | 'CONSUME' | 'OUTPUT' | 'QC_TEST' | 'SHIPMENT' | 'ADJUSTMENT' | 'MOVE' | 'ARRIVED' | 'GENEALOGY_PARENT' | 'GENEALOGY_CHILD';
 export type TraceEventPhase = 'SOURCE' | 'RECEIPT' | 'QC' | 'PRODUCTION' | 'PACK' | 'WAREHOUSE' | 'SALE' | 'DELIVERY';
 export type CommercialFlow = 'DIRECT' | 'PLACEMENT';
@@ -163,7 +166,7 @@ export interface User {
 }
 
 // --- Pedidos y Envíos ---
-export type OrderLine = { itemId: string; name?: string; qty: number; uom: 'unit' | 'uds'; priceUnit: number; discountPct?: number; };
+export type OrderLine = { itemId: string; name?: string; qty: number; uom: SalesUnit; priceUnit: number; discountPct?: number; };
 export interface OrderSellOut {
   id: string;
   docNumber?: string;
@@ -173,7 +176,7 @@ export interface OrderSellOut {
   distributorId?: string; // If PLACEMENT
   isSellOutReported?: boolean; // True if from distributor report, false if placed by SB comercial
   status: OrderStatus;
-  billingStatus?: 'PENDING' | 'INVOICED' | 'PAID' | 'VOID';
+  billingStatus?: BillingStatus;
   lines: OrderLine[];
   totalAmount?: number;
   currency: Currency;
@@ -185,7 +188,7 @@ export interface OrderSellOut {
   createdById?: string;
 }
 
-export type ShipmentLine = { itemId: string; name: string; qty: number; uom: 'unit' | 'uds'; lotNumber?: string; locationId?: string; note?: string };
+export type ShipmentLine = { itemId: string; name: string; qty: number; uom: SalesUnit; lotNumber?: string; locationId?: string; note?: string };
 export interface Shipment {
   id: string;
   shipmentNumber?: string;
@@ -240,7 +243,7 @@ export interface BillOfMaterial {
   id: string;
   outputItemId: string;
   name: string;
-  stage?: 'PRODUCCION' | 'ENVASADO';
+  stage?: ProductionStage;
   batchSize: number;
   baseUnit: Uom;
   items: { itemId: string; qty: number; uom: Uom, role?: 'FORMULA' | 'PACKAGING' | 'COST_ONLY' }[];
@@ -317,15 +320,15 @@ export interface Interaction {
 // --- Otras entidades ---
 export interface StockMove { id: string; itemId: string; lotNumber: string; qty: number; uom: Uom; reason: string; fromLocationId?: string; toLocationId?: string; occurredAt: Timestamp; createdAt: Timestamp; ref?: any; unitCost?: number; }
 export interface GoodsReceipt { id: string; receiptNumber?: string; supplierPartyId: string; deliveryNote?: string; receivedAt: Timestamp; lines: any[]; status: 'pending_qc' | 'completed'; notes?: string; createdAt?: Timestamp; }
-export interface OnHandView { id: string; itemId: string; lotNumber: string; locationId: string; qty: number; uom: Uom; qcStatus: QcStatus; category: ItemCategory; expiryAt?: string | null; reservedQty?: number; createdAt: string; updatedAt: string; }
+export interface OnHandView { id: string; itemId: string; lotNumber: string; locationId: string; qty: number; uom: Uom; qcStatus: QcStatus; category: ItemCategory; expiryAt?: Timestamp | null; reservedQty?: number; createdAt: Timestamp; updatedAt: Timestamp; }
 export interface LotGenealogyEdge { id: string; parentLotNumber: string; childLotNumber: string; qty: number; uom: Uom; createdAt: string; }
 export interface ReservationView { id: string; itemId: string; lotNumber: string; locationId: string; qty: number }
 export interface MarketingEvent { id: string; title: string; startAt: string; endAt?: string; spend?: number; kpis?: any; accountId?: string; status: 'planned' | 'active' | 'closed' | 'cancelled'; city?: string; kind: EventKind; createdAt: Timestamp; updatedAt: Timestamp; ownerUserId?: string;}
 export interface OnlineCampaign { id: string; title: string; channel: string; startAt: string; endAt?: string; budget?: number; spend?: number; metrics?: any; status: 'planned' | 'active' | 'closed' | 'cancelled'; createdAt: Timestamp; updatedAt: Timestamp; ownerUserId?: string; tracking?: { utmCampaign?: string; couponCode?: string; landingUrl?: string; }}
 export interface InfluencerCollab { id: string; creatorName: string; platform: string; tier: string; status: any; dates?: any; costs?: any; tracking?: any; metrics?: any; deliverables?: any; compensation?: any; creatorId?:string; supplierPartyId?:string; ownerUserId?:string; createdAt:Timestamp; updatedAt:Timestamp; }
-export interface PosTactic { id: string; accountId: string; tacticCode?: string; description?: string; customDesc?: string; catalogItemId?: string; qtyPlanned?: number; estCost?: number; actualCost: number; executionScore: number; status: 'planned' | 'active' | 'closed' | 'cancelled'|'DELIVERED'|'SCHEDULED'|'APPROVED'; createdAt: string; createdById: string; items?: any; result?: any; taskId?: string; updatedAt:Timestamp }
+export interface PosTactic { id: string; accountId: string; tacticCode?: string; description?: string; customDesc?: string; catalogItemId?: string; qtyPlanned?: number; estCost?: number; actualCost: number; executionScore: number; status: PosTacticStatus; createdAt: Timestamp; createdById: string; items?: PosTacticItem[]; result?: any; taskId?: string; updatedAt: Timestamp; }
 export interface PosCostCatalogEntry { id: string; name: string; family: string; fulfillmentMode: string; defaultCost?: number; defaultKpisTemplate?: any; }
-export interface DeliveryNote { id: string; pdfUrl?: string; shipmentId: string; partyId: string; series: 'ONLINE'|'B2B'|'INTERNAL'; date: string; soldTo: any; shipTo: any; lines: any[]; company: any; createdAt: string; updatedAt: string; }
+export interface DeliveryNote { id: string; pdfUrl?: string; shipmentId: string; partyId: string; series: 'ONLINE'|'B2B'|'INTERNAL'; date: Timestamp; soldTo: any; shipTo: any; lines: any[]; company: any; createdAt: Timestamp; updatedAt: Timestamp; }
 export interface QcPlanBySku { id: string; name: string; sku: string; specs: any[] }
 export interface ParameterBySku { id: string; code: string; name: string; sku: string; unit?: string; method?: string; target?: number; tolerance?: number; range?: {min?:number,max?:number}, notes?: string }
 export interface Protocol { id: string; title: string; code?: string; priority: 'PRP' | 'oPRP' | 'CCP'; active: boolean; checklist: string[]; criticalLimits?: string; monitoring?: string; correctiveActions?: string; verification?: string; records?: string; appliesToSkus?: string[]; createdAt?: Timestamp; updatedAt?: Timestamp; }
@@ -523,7 +526,7 @@ export const MODULE_ACCENTS: Record<string, string> = {
   personal: "var(--sb-accent-personal)",
   sales: "var(--sb-accent-ventas)",
   marketing: "var(--sb-accent-marketing)",
-  production: "var(--sb-accent-produc)",
+  production: "var(--sb-accent-produccion)",
   quality: "var(--sb-accent-calidad)",
   warehouse: "var(--sb-accent-logistica)",
   finance: "var(--sb-accent-finance)",

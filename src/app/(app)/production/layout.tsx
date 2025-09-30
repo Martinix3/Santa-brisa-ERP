@@ -18,7 +18,7 @@ function ProductionNav() {
         { href: '/production/traceability', label: 'Trazabilidad' },
     ];
 
-    const accentColor = 'hsl(var(--sb-accent-produc))';
+    const accentColor = 'hsl(var(--sb-accent-produccion))';
 
     return (
         <div className="bg-secondary border-b border-zinc-200">
@@ -36,7 +36,7 @@ function ProductionNav() {
                             )}
                              style={{
                                 borderColor: pathname.startsWith(item.href) ? accentColor : 'transparent',
-                                color: pathname.startsWith(item.href) ? `hsl(var(--sb-accent-produc))` : ''
+                                color: pathname.startsWith(item.href) ? `hsl(var(--sb-accent-produccion))` : ''
                             }}
                         >
                             {item.label}
@@ -49,7 +49,7 @@ function ProductionNav() {
 }
 
 export default function ProductionLayout({ children }: { children: React.ReactNode }) {
-  const accentColor = 'hsl(var(--sb-accent-produc))';
+  const accentColor = 'hsl(var(--sb-accent-produccion))';
   return (
     <div className="h-full flex flex-col">
        <ModuleHeader 
