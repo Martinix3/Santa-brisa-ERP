@@ -2,9 +2,15 @@
 "use server";
 import { adminDb as db } from "@/server/firebase";
 
-export type PosLineInput =
-  | { kind:'CATALOGO'; catalogItemId:string; qty?:number; scheduleAt?:string; estCostOverride?:number }
-  | { kind:'CUSTOM'; desc:string; visibility?:'ALTA'|'MEDIA'|'BAJA'; estCost?:number; scheduleAt?:string };
+export type PosLineInput = {
+  kind: 'CATALOGO' | 'CUSTOM';
+  catalogItemId?: string;
+  desc?: string;
+  qty?: number;
+  scheduleAt?: string;
+  estCost?: number;
+  visibility?: 'ALTA' | 'MEDIA' | 'BAJA';
+};
 
 export async function createPosTacticsBatch(input: {
   accountId: string;
@@ -16,7 +22,7 @@ export async function createPosTacticsBatch(input: {
   const out: { tacticId:string }[] = [];
 
   // carga catálogo para conocer fulfillmentMode / defaultTaskKind / defaultCost
-  const catalogSnap = await db.collection("posCatalog").get();
+  const catalogSnap = await db.collection("posCostCatalog").get();
   const catalog = new Map<string, any>(catalogSnap.docs.map(d => [d.id, d.data()]));
 
   for (const line of input.lines) {
@@ -27,12 +33,14 @@ export async function createPosTacticsBatch(input: {
     };
 
     if (line.kind === 'CATALOGO') {
+      if (!line.catalogItemId) throw new Error("CATALOGO requiere catalogItemId");
       const item = catalog.get(line.catalogItemId);
       if (!item) throw new Error("Ítem de catálogo no encontrado");
 
       payload.catalogItemId = item.id;
       payload.qtyPlanned = line.qty ?? (item.family === 'MATERIAL' ? 1 : undefined);
-      payload.estCost = line.estCostOverride ?? item.defaultCost;
+      payload.estCost = line.estCost ?? item.defaultCost;
+      payload.description = item.name; // Use catalog name as description
 
       // Si se agenda, crear UNA interacción con el kind por defecto del ítem
       if (line.scheduleAt && item.defaultTaskKind) {
@@ -54,6 +62,7 @@ export async function createPosTacticsBatch(input: {
     }
 
     if (line.kind === 'CUSTOM') {
+      if (!line.desc) throw new Error("CUSTOM requiere desc (descripción)");
       payload.customDesc = line.desc;
       payload.visibility = line.visibility ?? 'MEDIA';
       payload.estCost = line.estCost ?? undefined;

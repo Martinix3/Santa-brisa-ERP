@@ -1,14 +1,10 @@
-
 // src/features/pos/PosLinesPicker.tsx
 "use client";
 import React from 'react';
 import { SBButton, Select, Input } from '@/components/ui/ui-primitives';
 import { Plus, Trash2 } from 'lucide-react';
 import { PosCostCatalogEntry } from '@/domain/ssot';
-
-export type PosLineInput =
-  | { kind:'CATALOGO'; catalogItemId:string; qty?:number; scheduleAt?:string; estCost?:number, desc?: string }
-  | { kind:'CUSTOM'; desc:string; visibility?:'ALTA'|'MEDIA'|'BAJA'; estCost?:number; scheduleAt?:string, catalogItemId?: undefined };
+import type { PosLineInput } from './server/pos-actions';
 
 interface PosLinesPickerProps {
   catalog: PosCostCatalogEntry[];
@@ -33,18 +29,18 @@ export function PosLinesPicker({ catalog, lines, setLines }: PosLinesPickerProps
         
         let finalUpdate: Partial<PosLineInput> = updates;
 
-        if ('kind' in updates) {
+        if (updates.kind) {
             finalUpdate = { kind: updates.kind };
             if (updates.kind === 'CATALOGO') {
                 finalUpdate.catalogItemId = '';
                 finalUpdate.desc = undefined;
-            } else {
+            } else { // CUSTOM
                 finalUpdate.desc = '';
                 finalUpdate.catalogItemId = undefined;
             }
         }
         
-        if ('catalogItemId' in updates && updates.catalogItemId) {
+        if (updates.catalogItemId) {
             const catItem = catalog.find(c => c.id === updates.catalogItemId);
             finalUpdate.desc = catItem?.name || '';
             finalUpdate.estCost = catItem?.defaultCost;
@@ -66,7 +62,7 @@ export function PosLinesPicker({ catalog, lines, setLines }: PosLinesPickerProps
 
           {line.kind === 'CATALOGO' ? (
             <Select 
-              value={line.catalogItemId} 
+              value={line.catalogItemId || ''} 
               onChange={e => updateLine(index, { catalogItemId: e.target.value })}
               className="flex-grow"
             >
@@ -78,7 +74,7 @@ export function PosLinesPicker({ catalog, lines, setLines }: PosLinesPickerProps
           ) : (
              <Input
               type="text"
-              value={line.desc}
+              value={line.desc || ''}
               onChange={e => updateLine(index, { desc: e.target.value })}
               placeholder="Descripción custom"
               className="flex-grow"
@@ -86,8 +82,8 @@ export function PosLinesPicker({ catalog, lines, setLines }: PosLinesPickerProps
           )}
           <Input 
             type="number" 
-            value={(line as any).qty || 1}
-            onChange={e => updateLine(index, { qty: parseInt(e.target.value, 10) } as any)}
+            value={line.qty || 1}
+            onChange={e => updateLine(index, { qty: parseInt(e.target.value, 10) })}
             className="w-20"
             placeholder="Qty"
           />
