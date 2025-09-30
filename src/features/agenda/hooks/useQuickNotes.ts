@@ -1,6 +1,6 @@
 // features/agenda/hooks/useQuickNotes.ts
-import { useEffect, useMemo, useRef, useState } from 'react';
-import type { Interaction, InteractionStatus, Note, SantaData } from '@/domain/ssot';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import type { Interaction, Note, InteractionStatus, SantaData } from '@/domain/ssot';
 import { useData } from '@/lib/dataprovider';
 
 // El hook ahora no gestiona el storage, sino que lee del DataProvider
@@ -8,6 +8,7 @@ export function useQuickNotes() {
   const { data: santaData, saveAllCollections } = useData();
   const notes = useMemo(() => (santaData?.notes || []) as Note[], [santaData?.notes]);
   const tasks = useMemo(() => (santaData?.interactions || []) as Interaction[], [santaData?.interactions]);
+  const accounts = useMemo(() => (santaData?.accounts || []), [santaData?.accounts]);
 
   const [linkNotes, setLinkNotes] = useState(true);
   const [range, setRange] = useState<{start:Date; end:Date}>(()=> {
@@ -16,9 +17,13 @@ export function useQuickNotes() {
     return { start: s, end: e };
   });
 
-  const addNote = async (text: string) => {
-    // This functionality is currently disabled as Notes are not part of the main data model.
-  };
+  const addNote = useCallback(async (text: string) => {
+    const newNote: Note = { id: `note_${Date.now()}`, text, createdAt: new Date().toISOString() };
+    const newNotes = [...notes, newNote];
+    if (saveAllCollections) {
+      await saveAllCollections({ notes: newNotes });
+    }
+  }, [notes, saveAllCollections]);
 
   const completeTask = async (taskId: string) => {
     const task = tasks.find(t => t.id === taskId);
@@ -69,7 +74,7 @@ export function useQuickNotes() {
   }, [notes, linkNotes, range]);
 
   return {
-    accounts: santaData?.accounts || [],
+    accounts,
     notes, tasks, overdue, todayTasks, rangedNotes,
     addNote, completeTask, deleteTask,
     onItemPointerDown, onItemPointerMove, onItemPointerUp,

@@ -33,9 +33,11 @@ export default function CalendarNotesPage() {
     agenda.completeTask(task.id);
     closeOutcome();
   };
+  
+  const accounts = useMemo(() => data?.accounts || [], [data?.accounts]);
 
-  const overdueTasks = useMemo(() => mapInteractionsToTasks(agenda.overdue, data?.accounts), [agenda.overdue, data?.accounts]);
-  const todayTasksMapped = useMemo(() => mapInteractionsToTasks(agenda.todayTasks, data?.accounts), [agenda.todayTasks, data?.accounts]);
+  const overdueTasks = useMemo(() => mapInteractionsToTasks(agenda.overdue, accounts), [agenda.overdue, accounts]);
+  const todayTasksMapped = useMemo(() => mapInteractionsToTasks(agenda.todayTasks, accounts), [agenda.todayTasks, accounts]);
 
 
   return (

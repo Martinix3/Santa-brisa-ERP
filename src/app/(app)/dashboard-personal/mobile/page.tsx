@@ -1,73 +1,75 @@
 // src/app/(app)/dashboard-personal/mobile/page.tsx
 "use client";
-import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback, Dispatch, SetStateAction } from 'react';
 import { useData } from '@/lib/dataprovider';
-import { useQuickNotes } from '@/features/agenda/hooks/useQuickNotes';
 import { mapInteractionsToTasks } from '@/features/agenda/mappers';
-import type { Note, Interaction, Task as MappedTask, Department } from '@/domain/ssot';
-import { ChevronLeft, ChevronRight, Plus, Check, AlertCircle, Clock } from 'lucide-react';
+import { useQuickNotes } from '@/features/agenda/hooks/useQuickNotes';
+import type { Interaction, TaskKind, Department } from '@/domain/ssot';
 import { DEPT_META } from '@/domain/ssot';
-import { OutcomeDialog } from '@/features/agenda/components/OutcomeDialog';
-import { toast } from 'sonner';
+import { Moon, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
+import type { Task } from '@/features/agenda/TaskBoard';
 
-// ===================== Componentes UI Refactorizados =====================
+// ===================== LocalStorage seguro & Parser =====================
+const parseNote = (text: string, userRole = 'ventas') => {
+    const RE_ACCOUNT = /@([^\n@#]+?)(?=\s|$|,|\.|;)/i; const RE_TIME = /\b(\d{1,2}):(\d{2})\b/; const RE_DATE = /\b(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\b/; const RE_TOMORROW = /\b(mañana|tomorrow)\b/i; const RE_QTY = /\b(\d{1,4})\s*(cajas?|bx|cs)\b/i; const RE_PRODUCT = /\b(santa\s*brisa|sb)\b/i; const RE_POS_EVT = /\b(pos|evento|activaci[oó]n|degustaci[oó]n|flyers|promo|rrss|campaña)\b/i; const RE_POS_PLV = /\b(plv|vasos|cartel)\b/i; 
+    const KEYWORDS_DEPT: Record<string, string[]> = { marketing: ["evento", "promo", "flyers", "degustación", "rrss", "campaña"], ventas: ["pedido", "cajas", "visita"], almacen: ["inventario", "picking", "stock"], produccion: ["etiquetar", "lote", "maquila"] };
+    const account = (text.match(RE_ACCOUNT)?.[1] || '').trim() || null; const qty = text.match(RE_QTY)?.[1]; let kind: TaskKind = 'NOTA'; let details = {}; let dueDate = null;
+    if (account && qty && RE_PRODUCT.test(text)) { kind = 'PEDIDO'; details = { qtyCases: parseInt(qty, 10), product: 'Santa Brisa' }; } else if (RE_POS_PLV.test(text)) { kind = 'POS_PLV'; } else if (RE_POS_EVT.test(text)) { kind = 'POS_EVT'; } else if (account && (RE_TOMORROW.test(text) || RE_DATE.test(text) || RE_TIME.test(text))) { kind = 'VISITA'; }
+    if (RE_TOMORROW.test(text) || RE_DATE.test(text) || RE_TIME.test(text)) { const now = new Date(); let d = new Date(now); if (RE_TOMORROW.test(text)) d.setDate(now.getDate() + 1); const md = text.match(RE_DATE); if (md) { const day = +md[1]; const mon = +md[2] - 1; const year = md[3] ? +md[3].padStart(2, '20') : now.getFullYear(); d = new Date(year, mon, day); } const mt = text.match(RE_TIME); d.setHours(mt ? +mt[1] : 10, mt ? +mt[2] : 0, 0, 0); dueDate = d.toISOString(); }
+    let department: Department | null = null; for (const dept in KEYWORDS_DEPT) { if (KEYWORDS_DEPT[dept].some(kw => text.toLowerCase().includes(kw))) { department = dept as Department; break; } }
+    if (!department) department = 'VENTAS';
+    return { kind, account, details, dueDate, department };
+}
 
-const Header = ({ view, setView, linkNotes, setLinkNotes, currentDate, setCurrentDate }: {
-    view: string;
-    setView: (v: string) => void;
-    linkNotes: boolean;
-    setLinkNotes: (b: boolean) => void;
-    currentDate: Date;
-    setCurrentDate: (d: Date) => void;
-}) => {
+// ===================== Componentes UI =====================
+const Header = ({ view, setView, linkNotes, setLinkNotes, currentDate, setCurrentDate }: { view: string, setView: Dispatch<SetStateAction<string>>, linkNotes: boolean, setLinkNotes: Dispatch<SetStateAction<boolean>>, currentDate: Date, setCurrentDate: Dispatch<SetStateAction<Date>>}) => {
     const changeDate = (amount: number) => {
         const newDate = new Date(currentDate);
-        if (view === 'Mes') newDate.setMonth(newDate.getMonth() + amount);
+        if(view === 'Mes') newDate.setMonth(newDate.getMonth() + amount);
         else if (view === 'Semana') newDate.setDate(newDate.getDate() + (amount * 7));
         else newDate.setDate(newDate.getDate() + amount);
         setCurrentDate(newDate);
     };
 
     return (
-        <div className="bg-background px-4 pt-12 pb-2 sticky top-0 z-20 border-b border-border">
-            <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                    <h1 className="text-2xl font-bold text-text-primary">Agenda</h1>
-                    <div className="w-2 h-2 rounded-full bg-accent" title="Online"></div>
-                </div>
-                <div className="flex items-center gap-4">
-                    <span className="text-sm font-semibold text-text-primary">
-                        {currentDate.toLocaleString('es-ES', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())}
-                    </span>
-                    <div className="flex items-center gap-1">
-                         <button onClick={() => changeDate(-1)} className="p-1 rounded-md hover:bg-secondary text-text-muted"><ChevronLeft size={20} /></button>
-                         <button onClick={() => changeDate(1)} className="p-1 rounded-md hover:bg-secondary text-text-muted"><ChevronRight size={20} /></button>
-                    </div>
-                </div>
+    <div className="bg-background px-4 pt-12 pb-2 sticky top-0 z-20 border-b border-border">
+        <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+                <h1 className="text-2xl font-bold text-text-primary">Agenda</h1>
+                <div className="w-2 h-2 rounded-full bg-accent" title="Online"></div>
             </div>
-            <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                    {['Día', 'Semana', 'Mes'].map(v => (
-                        <button key={v} onClick={() => setView(v)} className={`px-3 py-2 text-sm font-medium transition-colors ${view === v ? 'text-text-primary border-b-2 border-accent' : 'text-text-muted hover:text-text-secondary border-b-2 border-transparent'}`}>
-                            {v}
-                        </button>
-                    ))}
+            <div className="flex items-center gap-4">
+                <span className="text-sm font-semibold text-text-primary">
+                   {currentDate.toLocaleString('es-ES', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())}
+                </span>
+                <div className="flex items-center gap-1">
+                     <button onClick={() => changeDate(-1)} className="p-1 rounded-md hover:bg-secondary text-text-muted"><ChevronLeft /></button>
+                     <button onClick={() => changeDate(1)} className="p-1 rounded-md hover:bg-secondary text-text-muted"><ChevronRight /></button>
                 </div>
-                <label className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer">
-                    <input type="checkbox" checked={linkNotes} onChange={e => setLinkNotes(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-accent focus:ring-accent sb-checkbox"/>
-                    Vincular notas
-                </label>
             </div>
         </div>
-    );
-};
+        <div className="flex items-center justify-between">
+            <div className="flex items-center">
+                {['Día', 'Semana', 'Mes'].map(v => (
+                    <button key={v} onClick={() => setView(v)} className={`px-3 py-2 text-sm font-medium transition-colors ${view === v ? 'text-text-primary border-b-2 border-accent' : 'text-text-muted hover:text-text-secondary'}`}>
+                        {v}
+                    </button>
+                ))}
+            </div>
+            <label className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer">
+                <input type="checkbox" checked={linkNotes} onChange={e => setLinkNotes(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-accent focus:ring-accent sb-checkbox"/>
+                Vincular notas
+            </label>
+        </div>
+    </div>
+)};
 
 const DayView = ({ tasks, currentDate }: { tasks: MappedTask[], currentDate: Date }) => (
     <div className="p-4 bg-secondary border-b border-border">
          <h3 className="text-base font-semibold mb-2">Eventos - {currentDate.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric' })}</h3>
          <div className="space-y-2">
             {tasks.length > 0 ? tasks.map(event => (
-                <div key={event.id} className="p-2 rounded-md" style={{ borderLeft: `3px solid ${DEPT_META[event.type]?.color || 'gray'}` }}>
+                <div key={event.id} className="p-2 rounded-md" style={{ borderLeft: `3px solid ${DEPT_META[event.department]?.color || 'gray'}` }}>
                     <p className="text-sm font-medium text-text-primary">{event.title}</p>
                     <p className="text-xs text-text-muted">{event.date ? new Date(event.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</p>
                 </div>
@@ -83,7 +85,7 @@ const MonthView = ({ currentDate, tasks, onDateClick }: { currentDate: Date, tas
     const firstDay = (new Date(year, month, 1).getDay() + 6) % 7;
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const days = Array.from({ length: firstDay + daysInMonth }, (_, i) => i < firstDay ? null : new Date(year, month, i - firstDay + 1));
-    const colorMap: Record<string, string> = { 'VENTAS': 'var(--cobre)', 'MARKETING': 'var(--agua)', 'PRODUCCION': 'var(--naranja)'};
+    const colorMap = DEPT_META;
 
     return (
          <div className="p-4 bg-secondary border-b border-border">
@@ -98,7 +100,7 @@ const MonthView = ({ currentDate, tasks, onDateClick }: { currentDate: Date, tas
                                 <span className={`w-7 h-7 flex items-center justify-center rounded-full text-sm ${day.toDateString() === today.toDateString() ? 'bg-accent text-black font-bold' : ''}`}>{day.getDate()}</span>
                                 <div className="flex gap-1 mt-1">
                                     {tasks.filter(t => t.date && new Date(t.date).toDateString() === day.toDateString()).slice(0, 3).map(t => (
-                                        <div key={t.id} className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: DEPT_META[t.type as Department]?.color || 'var(--text-muted)' }}></div>
+                                        <div key={t.id} className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colorMap[t.department as Department]?.color || 'var(--text-muted)' }}></div>
                                     ))}
                                 </div>
                             </>
@@ -124,6 +126,8 @@ const WeekView = ({ currentDate, tasks }: { currentDate: Date, tasks: MappedTask
     );
 };
 
+type MappedTask = Task & { completed?: boolean; date?: string; text?: string; kind?: TaskKind; account?: string; department: Department };
+
 const CalendarView = ({ tasks, view, currentDate, onDateClick }: { tasks: MappedTask[], view: string, currentDate: Date, onDateClick: (d: Date) => void }) => {
     const filteredTasks = tasks.filter(t => t.date && new Date(t.date).toDateString() === currentDate.toDateString());
     if (view === 'Mes') return <MonthView tasks={tasks} currentDate={currentDate} onDateClick={onDateClick} />;
@@ -132,9 +136,9 @@ const CalendarView = ({ tasks, view, currentDate, onDateClick }: { tasks: Mapped
 };
 
 const TaskItem = ({ task, onSwipe, onLongPress }: { task: MappedTask, onSwipe: (id: string) => void, onLongPress: (id: string) => void }) => {
-    const ref = useRef<HTMLLIElement>(null);
+    const ref = useRef<HTMLDivElement>(null);
     const bgRef = useRef<HTMLDivElement>(null);
-    const longPressTimer = useRef<number | null>(null);
+    const longPressTimer = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
         const el = ref.current; const bgEl = bgRef.current; if (!el || !bgEl) return;
@@ -146,7 +150,7 @@ const TaskItem = ({ task, onSwipe, onLongPress }: { task: MappedTask, onSwipe: (
             isDragging = true; startX = e.clientX;
             el.style.transition = 'none'; bgEl.style.transition = 'none'; el.setPointerCapture(e.pointerId);
             clearLongPress();
-            longPressTimer.current = window.setTimeout(() => {
+            longPressTimer.current = setTimeout(() => {
                 onLongPress(task.id);
                 if (navigator.vibrate) navigator.vibrate(50);
                 isDragging = false;
@@ -177,7 +181,9 @@ const TaskItem = ({ task, onSwipe, onLongPress }: { task: MappedTask, onSwipe: (
             clearLongPress();
         };
     }, [task.id, onSwipe, onLongPress]);
+
     const done = task.status==='done';
+
     return (
         <li className="relative">
             <div ref={bgRef} className="absolute inset-0 opacity-0"></div>
@@ -188,18 +194,69 @@ const TaskItem = ({ task, onSwipe, onLongPress }: { task: MappedTask, onSwipe: (
     );
 };
 
+const OverdueTasks = ({ tasks, onSwipe, onLongPress }: { tasks: MappedTask[], onSwipe: (id: string) => void, onLongPress: (id: string) => void }) => (
+    <details className="px-4" open>
+        <summary className="py-2 text-sm font-medium text-text-muted cursor-pointer list-none">Pendientes de ayer ({tasks.length})</summary>
+        <div className="border-l-2 border-gray-300 ml-1">
+            <ul className="pl-3">
+                {tasks.map(task => <TaskItem key={task.id} task={task} onSwipe={onSwipe} onLongPress={onLongPress} />)}
+            </ul>
+        </div>
+    </details>
+);
+
+const FooterDialog = ({ task, activationType, onComplete, onClose }: { task: Interaction, activationType: string, onComplete: (task: Interaction, data: any) => void, onClose: () => void }) => {
+    if (!task) return null;
+    const [responseText, setResponseText] = useState('');
+    
+    const handleComplete = () => { onComplete(task, { responseText }); onClose(); };
+
+    const renderContent = () => {
+         switch(task.kind) {
+            case 'PEDIDO': return <div><h3 className="text-base font-semibold">Confirmar Pedido</h3><p className="mt-1 text-sm text-text-secondary">Se guardará el pedido para @{task.accountId}.</p></div>;
+            case 'VISITA': return <div><h3 className="text-base font-semibold">¿Cómo fue la visita?</h3><textarea value={responseText} onChange={e => setResponseText(e.target.value)} className="w-full mt-4 p-2 border border-border rounded-md" placeholder="Añadir nota de la visita..."></textarea></div>;
+            default: return <div><h3 className="text-base font-semibold">Confirmar Tarea</h3><p className="mt-1 text-sm text-text-secondary">¿Marcar esta nota como completada?</p></div>;
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end" onClick={onClose}>
+            <div className="bg-background w-full rounded-t-lg border-t border-border shadow-xl" onClick={e => e.stopPropagation()}>
+               <div className="animate-slide-up-fade">
+                  <div className="w-8 h-1 bg-border rounded-full mx-auto mt-2"></div>
+                  <div className="p-4">{renderContent()}</div>
+                  <div className="p-4 border-t border-border">
+                      <ul className="space-y-1">
+                          {activationType === 'long-press' && (
+                              <>
+                                  <li><button className="w-full text-left p-3 rounded-lg hover:bg-secondary text-text-primary font-medium">📷 Adjuntar</button></li>
+                                  <li><button className="w-full text-left p-3 rounded-lg hover:bg-secondary text-text-primary font-medium">✨ Enriquecer</button></li>
+                                  <li><button className="w-full text-left p-3 rounded-lg hover:bg-secondary text-text-primary font-medium">ℹ️ Ver detalle</button></li>
+                              </>
+                          )}
+                          <li className={activationType === 'long-press' ? '!mt-3' : ''}>
+                              <button onClick={handleComplete} className="w-full p-3 rounded-lg bg-accent text-text-primary font-semibold text-center">Completar Tarea</button>
+                          </li>
+                      </ul>
+                  </div>
+               </div>
+            </div>
+        </div>
+    );
+};
+
 const KpiFooter = ({ tasks }: { tasks: Interaction[] }) => {
     const kpis = useMemo(() => {
         const now = new Date();
         const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-        const vencidas = tasks.filter(t => t.status==='open' && t.plannedFor && new Date(t.plannedFor) < now && new Date(t.plannedFor).getTime() !== todayStart).length;
-        const paraHoy = tasks.filter(t => t.status==='open' && t.plannedFor && new Date(t.plannedFor).toDateString() === now.toDateString()).length;
-        const posActivos = tasks.filter(t => t.status==='done' && t.kind === 'EVENTO_MKT').length;
-        const cuentasAbiertas = new Set(tasks.filter(t => t.status==='open' && t.accountId).map(t => t.accountId)).size;
+        const vencidas = tasks.filter(t => t.status !== 'done' && t.plannedFor && new Date(t.plannedFor) < todayStart).length;
+        const paraHoy = tasks.filter(t => t.status !== 'done' && t.plannedFor && new Date(t.plannedFor).toDateString() === now.toDateString()).length;
+        const posActivos = tasks.filter(t => t.status === 'done' && t.kind === 'EVENTO_MKT').length;
+        const cuentasAbiertas = new Set(tasks.filter(t => t.status !== 'done' && t.accountId).map(t => t.accountId)).size;
         return { vencidas, paraHoy, posActivos, cuentasAbiertas };
     }, [tasks]);
     
-    const KpiWidget = ({ value, label }: { value: string | number, label: string }) => (
+    const KpiWidget = ({ value, label }: { value: string|number, label: string}) => (
         <div className="text-center"><p className="text-base font-semibold text-text-primary">{value}</p><p className="text-xs text-text-muted">{label}</p></div>
     );
 
@@ -213,85 +270,54 @@ const KpiFooter = ({ tasks }: { tasks: Interaction[] }) => {
     );
 };
 
-export default function PersonalDashboardPageMobile() {
-    const { data, currentUser } = useData();
+// ===================== Componente Principal =====================
+function QuickNoteApp() {
+    const { data: santaData } = useData();
     const agenda = useQuickNotes();
-    const [view, setView] = useState('Mes');
-    const [currentDate, setCurrentDate] = useState(new Date());
-    const [showSavePulse, setShowSavePulse] = useState(false);
     const [draftText, setDraftText] = useState('');
     const [activeTask, setActiveTask] = useState<Interaction | null>(null);
-    const [activationType, setActivationType] = useState<'swipe' | 'long-press' | null>(null);
+    const [activationType, setActivationType] = useState<string | null>(null);
+    const [view, setView] = useState('Mes');
+    const [linkNotes, setLinkNotes] = useState(true);
+    const [currentDate, setCurrentDate] = useState(new Date());
+    const [showSavePulse, setShowSavePulse] = useState(false);
     
-    const { overdueTasks, todayTasksMapped, allTasksMapped } = useMemo(() => {
-        const accounts = data?.accounts || [];
-        return {
-            overdueTasks: mapInteractionsToTasks(agenda.overdue, accounts),
-            todayTasksMapped: mapInteractionsToTasks(agenda.todayTasks, accounts),
-            allTasksMapped: mapInteractionsToTasks(agenda.tasks, accounts)
-        }
-    }, [agenda.overdue, agenda.todayTasks, agenda.tasks, data?.accounts]);
+    const accounts = useMemo(() => santaData?.accounts || [], [santaData?.accounts]);
+    const overdueTasks = useMemo(() => mapInteractionsToTasks(agenda.overdue, accounts), [agenda.overdue, accounts]);
+    const todayTasks = useMemo(() => mapInteractionsToTasks(agenda.todayTasks, accounts), [agenda.todayTasks, accounts]);
+    const allTasksMapped = useMemo(() => mapInteractionsToTasks(agenda.tasks, accounts), [agenda.tasks, accounts]);
+    const rangedNotes = useMemo(() => mapInteractionsToTasks(agenda.rangedNotes, accounts), [agenda.rangedNotes, accounts]);
 
     const submitTask = useCallback(() => {
         if (!draftText.trim()) return;
         agenda.addNote(draftText);
         setDraftText('');
-        setShowSavePulse(true);
-        setTimeout(() => setShowSavePulse(false), 600);
     }, [draftText, agenda]);
 
     const handleDateClick = (date: Date) => {
         setCurrentDate(date);
         setView('Día');
     };
-
-    const handleSwipe = (taskId: string) => {
-        const task = agenda.tasks.find(t => t.id === taskId);
-        if (task) {
-            agenda.completeTask(taskId);
-            toast.success(`Tarea "${task.note?.slice(0,20)}..." completada.`);
-        }
-    };
     
-    const handleLongPress = (taskId: string) => {
-        const task = agenda.tasks.find(t => t.id === taskId);
-        if (task) {
-            setActiveTask(task);
-            setActivationType('long-press');
-        }
-    };
-
-    const handleConfirmOutcome = (task: Interaction, payload: Record<string,any>) => {
-        console.log("Confirming outcome for task", task, "with payload", payload);
-        agenda.completeTask(task.id);
-        setActiveTask(null);
+    const handleSwipe = (taskId: string) => { const task = agenda.tasks.find(t => t.id === taskId); if(task) { setActiveTask(task); setActivationType('swipe'); }};
+    const handleLongPress = (taskId: string) => { const task = agenda.tasks.find(t => t.id === taskId); if(task) { setActiveTask(task); setActivationType('long-press'); }};
+    const handleComplete = (task: Interaction, data: any) => { 
+        console.log("Completando tarea con datos:", data);
+        agenda.completeTask(task.id); 
+        setActiveTask(null); 
     };
 
     return (
         <div className="h-full bg-background text-text-primary flex flex-col">
-            <Header view={view} setView={setView} linkNotes={agenda.linkNotes} setLinkNotes={agenda.setLinkNotes} currentDate={currentDate} setCurrentDate={setCurrentDate} />
+            <Header view={view} setView={setView as any} linkNotes={linkNotes} setLinkNotes={setLinkNotes as any} currentDate={currentDate} setCurrentDate={setCurrentDate as any} />
             
             <div className="flex-1 overflow-y-auto">
                  <CalendarView tasks={allTasksMapped} view={view} currentDate={currentDate} onDateClick={handleDateClick} />
                  
-                 {agenda.linkNotes && (
+                 {linkNotes && (
                      <div className="bg-secondary">
                         <div className="bg-background rounded-t-2xl pt-4">
-                            {overdueTasks.length > 0 && (
-                                <details className="px-4" open>
-                                    <summary className="py-2 text-sm font-medium text-text-muted cursor-pointer list-none">
-                                        <div className="flex items-center gap-2">
-                                            <AlertCircle className="text-red-500" size={16}/>
-                                            Pendientes de ayer ({overdueTasks.length})
-                                        </div>
-                                    </summary>
-                                    <div className="border-l-2 border-red-200 ml-1">
-                                        <ul className="pl-3 divide-y divide-border">
-                                            {overdueTasks.map(task => <TaskItem key={task.id} task={task} onSwipe={handleSwipe} onLongPress={handleLongPress} />)}
-                                        </ul>
-                                    </div>
-                                </details>
-                            )}
+                            {overdueTasks.length > 0 && <OverdueTasks tasks={overdueTasks} onSwipe={handleSwipe} onLongPress={handleLongPress} />}
                             <div className="px-4 pb-4">
                               <h3 className="text-base font-semibold mt-4 mb-2">Notas diarias</h3>
                               <ul className="divide-y divide-border border border-border rounded-lg overflow-hidden">
@@ -304,8 +330,8 @@ export default function PersonalDashboardPageMobile() {
                                        </div>
                                     </button>
                                 </li>
-                                {agenda.rangedNotes.map(note => {
-                                    const task = allTasksMapped.find(t => t.id === (note as any).taskId);
+                                {rangedNotes.map(note => {
+                                    const task = todayTasks.find(t => t.noteId === note.id);
                                     return <TaskItem key={note.id} task={task || {id: note.id, title: note.text} as MappedTask} onSwipe={handleSwipe} onLongPress={handleLongPress} />
                                 })}
                               </ul>
@@ -316,7 +342,10 @@ export default function PersonalDashboardPageMobile() {
             </div>
             
             <KpiFooter tasks={agenda.tasks} />
-            {activeTask && <OutcomeDialog taskId={activeTask.id} tasks={agenda.tasks} onClose={() => setActiveTask(null)} onConfirm={handleConfirmOutcome} />}
+            
+            {activeTask && <FooterDialog task={activeTask} activationType={activationType as string} onComplete={handleComplete} onClose={() => setActiveTask(null)} />}
         </div>
     );
 }
+
+export default QuickNoteApp;

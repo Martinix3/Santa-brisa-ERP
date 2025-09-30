@@ -1,6 +1,6 @@
 // src/app/(app)/dashboard-personal/desktop/page.tsx
 "use client";
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, Dispatch, SetStateAction } from 'react';
 import { motion } from 'framer-motion';
 import { Users, Package, Briefcase, CheckSquare } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
@@ -12,7 +12,7 @@ import { MarketingTaskCompletionDialog } from '@/features/marketing/components/M
 import { mapInteractionsToTasks } from '@/features/agenda/mappers';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
-import type { Interaction, InteractionStatus, User as CurrentUserType, SantaData, Note, Task as SsotTask } from '@/domain/ssot';
+import type { Interaction, InteractionStatus, User as CurrentUserType, SantaData, Task, TaskKind } from '@/domain/ssot';
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
 } from 'recharts';
@@ -27,6 +27,24 @@ import type { EventClickArg } from '@fullcalendar/core';
 import esLocale from '@fullcalendar/core/locales/es';
 import { DEPT_META } from '@/domain/ssot';
 import { sbAsISO } from '@/features/agenda/helpers';
+
+// ===================== Mock Data & Hooks =====================
+const useMockData = () => {
+    return useMemo(() => ({
+        currentUser: { id: 'user_1', name: 'Elena' },
+        data: {
+            accounts: [{ id: 'acc_1', ownerId: 'user_1', createdAt: new Date().toISOString() }],
+            ordersSellOut: [{ accountId: 'acc_1', createdAt: new Date().toISOString(), lines: [{ itemId: 'item_1', qty: 10 }] }],
+            interactions: [
+                { id: 'int_1', userId: 'user_1', kind: 'VISITA', plannedFor: new Date().toISOString(), status: 'open', dept: 'VENTAS', note: 'Visita a cliente nuevo' },
+                { id: 'int_2', userId: 'user_1', kind: 'PEDIDO', plannedFor: new Date(Date.now() - 86400000).toISOString(), status: 'open', dept: 'VENTAS', note: 'Preparar pedido grande' },
+                { id: 'int_3', userId: 'user_1', kind: 'EVENTO_MKT', plannedFor: new Date().toISOString(), status: 'done', dept: 'MARKETING', note: 'Evento de degustación' }
+            ],
+            items: [{ id: 'item_1', caseUnits: 6 }],
+            posTactics: []
+        }
+    }), []);
+};
 
 
 const SANTA_BRISA_COLORS = { brand: { accent: '#F4C542' } };
@@ -162,8 +180,8 @@ function AgendaDock() {
   
   const kpis = useMemo(()=> {
     const overdue = agenda.overdue.length;
-    const todayOpen = agenda.todayTasks.filter(t=>t.status === 'open').length;
-    const posToday = agenda.todayTasks.filter(t=> t.kind==='EVENTO_MKT').length;
+    const todayOpen = agenda.todayTasks.filter(t=>t.status==='open').length;
+    const posToday = agenda.todayTasks.filter(t=> (t.kind as TaskKind)==='EVENTO_MKT').length;
     return { overdue, todayOpen, posToday };
   }, [agenda.overdue, agenda.todayTasks]);
 
@@ -173,8 +191,9 @@ function AgendaDock() {
       closeOutcome();
     };
 
-    const overdueTasks = mapInteractionsToTasks(agenda.overdue, santaData?.accounts);
-    const todayTasksMapped = mapInteractionsToTasks(agenda.todayTasks, santaData?.accounts);
+    const accounts = useMemo(() => santaData?.accounts || [], [santaData?.accounts]);
+    const overdueTasks = useMemo(() => mapInteractionsToTasks(agenda.overdue, accounts), [agenda.overdue, accounts]);
+    const todayTasksMapped = useMemo(() => mapInteractionsToTasks(agenda.todayTasks, accounts), [agenda.todayTasks, accounts]);
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl flex flex-col h-full">
@@ -195,7 +214,7 @@ function AgendaDock() {
           <details open className="px-2">
             <summary className="text-xs text-slate-600 py-1 cursor-pointer">Atrasadas ({overdueTasks.length})</summary>
             <NotesList
-                notes={agenda.rangedNotes as Note[]}
+                notes={agenda.rangedNotes}
                 tasks={overdueTasks}
                 onPointerDown={agenda.onItemPointerDown}
                 onPointerMove={agenda.onItemPointerMove}
@@ -204,7 +223,7 @@ function AgendaDock() {
           </details>
       )}
         <NotesList
-          notes={agenda.rangedNotes as Note[]}
+          notes={agenda.rangedNotes}
           tasks={todayTasksMapped}
           onPointerDown={agenda.onItemPointerDown}
           onPointerMove={agenda.onItemPointerMove}
@@ -217,7 +236,7 @@ function AgendaDock() {
       </div>
       <OutcomeDialog
         taskId={outcomeFor}
-        tasks={agenda.tasks}
+        tasks={agenda.todayTasks.concat(agenda.overdue)}
         onClose={closeOutcome}
         onConfirm={onConfirm}
       />
@@ -355,7 +374,7 @@ export default function PersonalDashboardPageDesktop() {
 
             {completingTask && ( <TaskCompletionDialog task={completingTask} open={!!completingTask} onClose={() => setCompletingTask(null)} onSuccess={() => { toast.success('Tarea completada con éxito.'); router.refresh(); setCompletingTask(null); }} onError={(msg) => toast.error(`Error: ${msg}`)} /> )}
             {completingMarketingEvent && ( <MarketingTaskCompletionDialog entity={completingMarketingEvent} open={!!completingMarketingEvent} onClose={() => setCompletingMarketingEvent(null)} onSuccess={() => { toast.success('Resultados del evento guardados.'); router.refresh(); setCompletingMarketingEvent(null); }} onError={(msg) => toast.error(`Error: ${msg}`)} /> )}
-            {openNewTask && currentUser && ( <NewEventDialog open={openNewTask} onOpenChange={setOpenNewTask} onSuccess={() => { toast.success("Tarea creada"); setOpenNewTask(false); router.refresh(); }} onError={(msg) => toast.error(msg)} accentColor={SANTA_BRISA_COLORS.brand.accent} initialEventData={{ userId: currentUser.id, dept: 'PERSONAL' }} /> )}
+            {openNewTask && currentUser && ( <NewEventDialog open={openNewTask} onOpenChange={setOpenNewTask} onSuccess={() => { toast.success("Tarea creada"); setOpenNewTask(false); router.refresh(); }} initialEventData={{ userId: currentUser.id, dept: 'PERSONAL' }} /> )}
         </>
     );
 }

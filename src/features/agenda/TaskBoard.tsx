@@ -1,4 +1,4 @@
-// src/features/agenda/TaskBoard.tsx — Layout Vertical
+// src/features/agenda/TaskBoard.tsx
 "use client";
 
 import React, { useMemo } from 'react';
@@ -8,7 +8,7 @@ import { useData } from '@/lib/dataprovider';
 import { DEPT_META } from '@/domain/ssot';
 import { Avatar } from '@/components/ui/Avatar';
 
-// This is the VIEW MODEL for a task card. It's derived from an Interaction.
+// This is the VIEW MODEL for a task card.
 export type Task = {
   id: string;
   title: string;

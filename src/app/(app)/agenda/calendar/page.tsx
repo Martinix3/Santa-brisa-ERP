@@ -9,7 +9,7 @@ import esLocale from '@fullcalendar/core/locales/es';
 
 import { useData } from "@/lib/dataprovider";
 import { Filter, Calendar } from "lucide-react";
-import { SB_COLORS, DEPT_META, SB_THEME } from "@/domain/ssot";
+import { SB_COLORS, DEPT_META } from "@/domain/ssot";
 import type { Department, Interaction, SantaData, InteractionStatus, MarketingEvent } from '@/domain/ssot';
 import { sbAsISO } from "@/features/agenda/helpers";
 import { useRouter } from 'next/navigation';
@@ -18,7 +18,6 @@ import { NewEventDialog } from "@/features/agenda/components/NewEventDialog";
 import { EventDetailDialog } from "@/features/agenda/components/EventDetailDialog";
 import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/TaskCompletionDialog';
 import { MarketingTaskCompletionDialog } from "@/features/marketing/components/MarketingTaskCompletionDialog";
-import { useFullCalendarStyles } from '@/features/agenda/useFullCalendarStyles';
 import { FilterSelect } from "@/components/ui/FilterSelect";
 
 
@@ -31,7 +30,6 @@ const hexToRgba = (hex: string, a: number) => {
 };
 
 function CalendarPageContent() {
-  useFullCalendarStyles();
   const { data: santaData, setData, currentUser, isPersistenceEnabled, saveCollection, saveAllCollections } = useData();
   const router = useRouter();
 
@@ -206,8 +204,6 @@ function CalendarPageContent() {
               setIsNewEventDialogOpen(false);
               setEditingEvent(null);
             }}
-            onError={(msg) => toast.error(`Error: ${msg}`)}
-            accentColor={'hsl(var(--sb-sun-strong))'}
             initialEventData={editingEvent}
           />
         )}

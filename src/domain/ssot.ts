@@ -60,6 +60,7 @@ export type Note = {
   id: string;
   text: string;
   createdAt: string; // ISO
+  accountId?: string;
   accountName?: string;
   assets?: string[];
   location?: { lat:number; lng:number; ts:number };
@@ -355,7 +356,6 @@ export interface CodeAlias {}
 export interface Job {}
 export interface DeadLetter {}
 export interface Expense {}
-export interface Integration {}
 
 
 // -----------------------------------------------------------------
