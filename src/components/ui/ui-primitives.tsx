@@ -183,6 +183,29 @@ export function EmptyState({ icon: Icon, title, description, actions }: EmptySta
   );
 }
 
+// ===================================
+// Badge
+// ===================================
+type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline' | 'success';
+
+interface BadgeProps extends React.HTMLAttributes<HTMLDivElement> {
+  variant?: BadgeVariant;
+}
+
+export function Badge({ className, variant = 'default', ...props }: BadgeProps) {
+    const variants: Record<BadgeVariant, string> = {
+        default: "border-transparent bg-zinc-900 text-white",
+        secondary: "border-transparent bg-zinc-100 text-zinc-900",
+        destructive: "border-transparent bg-red-500 text-white",
+        outline: "text-zinc-950",
+        success: "border-transparent bg-emerald-50 text-emerald-700",
+    };
+
+    return (
+        <div className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${variants[variant]} ${className}`} {...props} />
+    );
+}
+
 
 // ===================================
 // Misc

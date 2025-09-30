@@ -2,7 +2,7 @@
 
 "use client"
 import React, { useMemo, useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ChevronDown, Search, Plus, Phone, Mail, MessageSquare, Calendar, History, ShoppingCart, Info, BarChart3, UserPlus, Users, MoreVertical, Ticket, Clock, Edit, FileText } from 'lucide-react'
 import type { Stage, User, Interaction, OrderSellOut, SantaData, CustomerData, Party, PartyRole, InteractionKind, Payload, Account, AccountType, Uom, CommercialFlow } from '@/domain/ssot'
 import { accountOwnerDisplay, computeAccountKPIs, getDistributorForAccount, orderTotal } from '@/lib/sb-core';
@@ -10,7 +10,7 @@ import Link from 'next/link'
 import { useData } from '@/lib/dataprovider'
 import { FilterSelect } from '@/components/ui/FilterSelect'
 import { ModuleHeader } from '@/components/ui/ModuleHeader'
-import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/TaskCompletionDialog'
+import { SBDialog } from '@/components/ui/SBDialog'
 import { Avatar } from '@/components/ui/Avatar';
 import { NewAccountDialog } from '@/features/accounts/components/NewAccountDialog';
 import { DEPT_META } from '@/domain/ssot';
@@ -392,27 +392,9 @@ export default function AccountsPage() {
       )}
 
       {completingTaskForAccount && (
-        <TaskCompletionDialog
-            task={{
-                id: `temp-task-${completingTaskForAccount.id}`,
-                note: `Registrar actividad para ${completingTaskForAccount.name}`,
-                kind: 'OTRO',
-                status: 'open',
-                dept: 'VENTAS',
-                userId: currentUser!.id,
-                accountId: completingTaskForAccount.id,
-                createdAt: new Date().toISOString(),
-            }}
+        <SBDialog
             open={!!completingTaskForAccount}
-            onClose={() => setCompletingTaskForAccount(null)}
-            onSuccess={() => {
-                toast.success('Actividad registrada con éxito.');
-                router.refresh();
-                setCompletingTaskForAccount(null);
-            }}
-            onError={(msg) => {
-                toast.error(`Error: ${msg}`);
-            }}
+            onOpenChange={() => setCompletingTaskForAccount(null)}
         />
       )}
       {isNewAccountOpen && santaData && (
