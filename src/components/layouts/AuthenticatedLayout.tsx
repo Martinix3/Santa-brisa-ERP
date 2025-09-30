@@ -14,6 +14,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import QuickLogOverlay from "@/features/quicklog/QuickLogOverlay";
 import { isSales } from "@/lib/authz";
 import { MODULE_ACCENTS } from "@/domain/ssot";
+import { RealtimeBadge } from "../RealtimeBadge";
 
 
 /* ===== 0) Tokens ===== */
@@ -261,20 +262,23 @@ function HeaderPro({
   return (
     <header className="h-14 sticky top-0 z-40 border-b border-sb-neutral-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80" role="banner">
       <div className="h-full px-3 md:px-4 flex items-center gap-3">
-        <nav aria-label="Breadcrumb" className="flex items-center gap-1 text-sm text-sb-neutral-500">
-          {crumbs.map((c, i) => (
-            <span key={c.href} className="flex items-center">
-              {i > 0 && <span className="mx-1 text-sb-neutral-400">/</span>}
-              <Link
-                href={c.href}
-                className={`hover:underline ${i === crumbs.length - 1 ? "text-sb-neutral-900 font-medium" : ""}`}
-                aria-current={i === crumbs.length - 1 ? "page" : undefined}
-              >
-                {c.label}
-              </Link>
-            </span>
-          ))}
-        </nav>
+        <div className="flex items-center gap-2">
+            <nav aria-label="Breadcrumb" className="flex items-center gap-1 text-sm text-sb-neutral-500">
+            {crumbs.map((c, i) => (
+                <span key={c.href} className="flex items-center">
+                {i > 0 && <span className="mx-1 text-sb-neutral-400">/</span>}
+                <Link
+                    href={c.href}
+                    className={`hover:underline ${i === crumbs.length - 1 ? "text-sb-neutral-900 font-medium" : ""}`}
+                    aria-current={i === crumbs.length - 1 ? "page" : undefined}
+                >
+                    {c.label}
+                </Link>
+                </span>
+            ))}
+            </nav>
+            <RealtimeBadge/>
+        </div>
 
         <button
           onClick={() => setOpenCmd(true)}
