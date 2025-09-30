@@ -10,22 +10,22 @@ import { MarketingTaskCompletionDialog } from "@/features/marketing/components/M
 import type { InfluencerCollab } from "@/domain/ssot";
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
+import { SBCard, SBButton } from "@/components/ui/ui-primitives";
 
 
-export default function InfluencersDashboardPage({ components }:{ components:any }) {
-  const { SBButton, SBCard } = components;
+export default function InfluencersDashboardPage({ components }: { components: any }) {
   const router = useRouter();
   const { collabs, createCollab, updateCollab, closeCollab } = useCollabsService();
-  const [openNew,setOpenNew]=useState(false);
-  const [closing,setClosing]=useState<InfluencerCollab | null>(null);
+  const [openNew, setOpenNew] = useState(false);
+  const [closing, setClosing] = useState<InfluencerCollab | null>(null);
 
-  const insights = useMemo(()=> buildCollabInsights(collabs, 200), [collabs]);
+  const insights = useMemo(() => buildCollabInsights(collabs, 200), [collabs]);
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-semibold text-zinc-800">Influencer Marketing — Colaboraciones</h1>
-        <SBButton onClick={()=>setOpenNew(true)}>Nueva colaboración</SBButton>
+        <SBButton onClick={() => setOpenNew(true)}>Nueva colaboración</SBButton>
       </div>
 
       <CollabKpiCards collabs={collabs} />
@@ -43,23 +43,23 @@ export default function InfluencersDashboardPage({ components }:{ components:any
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
-              {insights.map(r=>(
+              {insights.map(r => (
                 <tr key={r.id} className="hover:bg-zinc-50">
                   <td className="p-2 font-medium">{r.creatorName}</td>
                   <td className="p-2">{r.platform}</td>
                   <td className="p-2 text-right">{r._stats.roas ? `${r._stats.roas.toFixed(2)}x` : "—"}</td>
-                  <td className="p-2 text-right">{r._stats.cpc ? r._stats.cpc.toFixed(2)+" €" : "—"}</td>
-                  <td className="p-2 text-right">{r._stats.cpm ? r._stats.cpm.toFixed(2)+" €" : "—"}</td>
-                  <td className="p-2 text-right">{r._stats.cpe ? r._stats.cpe.toFixed(2)+" €" : "—"}</td>
-                  <td className="p-2 text-right">{r._stats.ctr ? (r._stats.ctr*100).toFixed(2)+"%" : "—"}</td>
+                  <td className="p-2 text-right">{r._stats.cpc ? r._stats.cpc.toFixed(2) + " €" : "—"}</td>
+                  <td className="p-2 text-right">{r._stats.cpm ? r._stats.cpm.toFixed(2) + " €" : "—"}</td>
+                  <td className="p-2 text-right">{r._stats.cpe ? r._stats.cpe.toFixed(2) + " €" : "—"}</td>
+                  <td className="p-2 text-right">{r._stats.ctr ? (r._stats.ctr * 100).toFixed(2) + "%" : "—"}</td>
                   <td className="p-2 text-right">{r.metrics?.orders ?? "—"}</td>
                   <td className="p-2 text-right">{r._score.toFixed(2)}</td>
                   <td className="p-2">
                     <span className={
-                      r._label==='WIN'   ? 'px-2 py-1 text-xs rounded bg-emerald-100 text-emerald-700' :
-                      r._label==='SCALE' ? 'px-2 py-1 text-xs rounded bg-blue-100 text-blue-700' :
-                      r._label==='FIX'   ? 'px-2 py-1 text-xs rounded bg-amber-100 text-amber-700' :
-                                           'px-2 py-1 text-xs rounded bg-rose-100 text-rose-700'
+                      r._label === 'WIN' ? 'px-2 py-1 text-xs rounded bg-emerald-100 text-emerald-700' :
+                        r._label === 'SCALE' ? 'px-2 py-1 text-xs rounded bg-blue-100 text-blue-700' :
+                          r._label === 'FIX' ? 'px-2 py-1 text-xs rounded bg-amber-100 text-amber-700' :
+                            'px-2 py-1 text-xs rounded bg-rose-100 text-rose-700'
                     }>{r._label}</span>
                   </td>
                 </tr>
@@ -73,23 +73,23 @@ export default function InfluencersDashboardPage({ components }:{ components:any
         <CollabTable
           rows={collabs}
           onUpdate={updateCollab}
-          onCloseRequest={(c)=>setClosing(c)}
+          onCloseRequest={(c) => setClosing(c)}
         />
       </SBCard>
 
-      <NewCollabDialog open={openNew} onClose={()=>setOpenNew(false)} onSave={createCollab} components={components} />
+      <NewCollabDialog open={openNew} onClose={() => setOpenNew(false)} onSave={createCollab} />
       {closing && (
-        <MarketingTaskCompletionDialog 
-            entity={closing}
-            open={!!closing} 
-            onClose={()=>setClosing(null)} 
-            onSuccess={({ entityId, payload }) => {
-                closeCollab(closing, payload);
-                toast.success('Resultados de la colaboración guardados.');
-                router.refresh();
-                setClosing(null);
-            }}
-            onError={(msg) => toast.error(`Error: ${msg}`)}
+        <MarketingTaskCompletionDialog
+          entity={closing}
+          open={!!closing}
+          onClose={() => setClosing(null)}
+          onSuccess={({ entityId, payload }) => {
+            closeCollab(closing, payload);
+            toast.success('Resultados de la colaboración guardados.');
+            router.refresh();
+            setClosing(null);
+          }}
+          onError={(msg) => toast.error(`Error: ${msg}`)}
         />
       )}
     </div>

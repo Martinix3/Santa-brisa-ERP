@@ -6,6 +6,7 @@ import type { InfluencerCollab, SB_THEME } from "@/domain/ssot";
 import { fmtEur, fmtNum } from "../utils/format";
 import { StatusPill } from "./StatusPill";
 import { Edit, Save, X } from "lucide-react";
+import { Input, SBButton } from "@/components/ui/ui-primitives";
 
 export function CollabRow({ c, onUpdate, onCloseRequest }:{
   c: InfluencerCollab; onUpdate:(u:InfluencerCollab)=>void; onCloseRequest:(c:InfluencerCollab)=>void;
@@ -15,8 +16,6 @@ export function CollabRow({ c, onUpdate, onCloseRequest }:{
   useEffect(()=>setDraft(c),[c]);
   const spend=(draft.costs?.cashPaid||0)+(draft.costs?.productCost||0)+(draft.costs?.shippingCost||0);
   const roas=spend>0 ? (draft.tracking?.revenue||0)/spend : 0;
-
-  const Input=(p:any)=><input {...p} className={"h-9 w-full rounded-md border border-zinc-200 bg-white px-2 text-sm "+(p.className||"")} />;
 
   if(edit){
     return (
@@ -32,8 +31,8 @@ export function CollabRow({ c, onUpdate, onCloseRequest }:{
         <td className="px-2 py-2 text-right font-semibold">{roas?`${roas.toFixed(2)}x`:'—'}</td>
         <td className="px-2 py-2">
           <div className="flex justify-end gap-1">
-            <button className="sb-btn-primary px-2 py-1 rounded bg-zinc-900 text-white text-xs" onClick={()=>{onUpdate({...draft,updatedAt:new Date().toISOString()} as InfluencerCollab); setEdit(false);}}><Save size={14} className="sb-icon"/></button>
-            <button className="sb-btn-primary px-2 py-1 rounded border text-xs" onClick={()=>{setDraft(c); setEdit(false);}}><X size={14}/></button>
+            <SBButton size="sm" onClick={()=>{onUpdate({...draft,updatedAt:new Date().toISOString()} as InfluencerCollab); setEdit(false);}}><Save size={14} className="sb-icon"/></SBButton>
+            <SBButton variant="secondary" size="sm" onClick={()=>{setDraft(c); setEdit(false);}}><X size={14}/></SBButton>
           </div>
         </td>
       </tr>
@@ -53,8 +52,8 @@ export function CollabRow({ c, onUpdate, onCloseRequest }:{
       <td className="p-3 text-right font-semibold">{((c.tracking?.revenue||0)>0 && ((c.costs?.cashPaid||0)+(c.costs?.productCost||0)+(c.costs?.shippingCost||0))>0) ? `${(((c.tracking!.revenue!))/(((c.costs?.cashPaid||0)+(c.costs?.productCost||0)+(c.costs?.shippingCost||0)))).toFixed(2)}x` : "—"}</td>
       <td className="p-3">
         <div className="flex justify-end gap-1">
-          {c.status!=="COMPLETED" && <button className="sb-btn-primary px-2 py-1 rounded border text-xs" onClick={()=>onCloseRequest(c)}>Resultados</button>}
-          <button className="sb-btn-primary px-2 py-1 rounded bg-transparent text-xs" onClick={()=>setEdit(true)}><Edit size={14} className="sb-icon"/></button>
+          {c.status!=="COMPLETED" && <SBButton variant="secondary" size="sm" onClick={()=>onCloseRequest(c)}>Resultados</SBButton>}
+          <SBButton variant="ghost" size="sm" onClick={()=>setEdit(true)}><Edit size={14} className="sb-icon"/></SBButton>
         </div>
       </td>
     </tr>

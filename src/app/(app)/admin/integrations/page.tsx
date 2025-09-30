@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from 'react';
 // ... (todos tus imports existentes) ...
 import { CheckCircle, AlertTriangle, RefreshCw, Link as LinkIcon, PlugZap, TestTubes, DownloadCloud, UploadCloud, Info, Clock, XCircle, Check, Users, ChevronDown } from 'lucide-react';
-import { SB_THEME } from "@/domain/ssot";
+import { SBButton } from "@/components/ui/ui-primitives";
 
 type JobRun = {
     id: string;
@@ -77,10 +77,10 @@ function JobRunsReport() {
                         </div>
                         {run.result?.processedNames && run.result.processedNames.length > 0 && (
                             <div className="mt-2 ml-8">
-                                <button onClick={() => toggleExpand(run.id)} className="sb-btn-primary text-xs font-semibold text-zinc-600 flex items-center gap-1 hover:text-zinc-900">
+                                <SBButton variant="ghost" size="sm" onClick={() => toggleExpand(run.id)} className="text-xs font-semibold text-zinc-600 flex items-center gap-1 hover:text-zinc-900">
                                     <ChevronDown size={14} className={`transition-transform ${expandedRun === run.id ? 'rotate-180' : ''}`} />
                                     Mostrar {run.result.processedNames.length} registros procesados
-                                </button>
+                                </SBButton>
                                 {expandedRun === run.id && (
                                     <div className="mt-2 p-2 bg-zinc-50 rounded-md border text-xs h-48 overflow-y-auto">
                                         <ul className="list-disc list-inside text-zinc-600 space-y-1">
@@ -161,20 +161,20 @@ export default function IntegrationsPage() {
           <h1 className="text-2xl font-semibold">Integraciones</h1>
         </div>
         <div className="flex items-center gap-2">
-          <button
+          <SBButton
             onClick={() => load(false)}
-            className="sb-btn-primary inline-flex items-center gap-2 px-3 py-2 rounded-lg border hover:bg-gray-50 text-sm"
-            title="Comprobar variables"
+            variant="secondary"
+            disabled={loading && !live}
           >
-            <RefreshCw className={`w-4 h-4 ${loading && !live ? 'animate-spin' : ''}`} /> Comprobar env
-          </button>
-          <button
+            <RefreshCw className={`w-4 h-4 mr-2 ${loading && !live ? 'animate-spin' : ''}`} /> Comprobar env
+          </SBButton>
+          <SBButton
             onClick={() => load(true)}
-            className="sb-btn-primary inline-flex items-center gap-2 px-3 py-2 rounded-lg border hover:bg-gray-50 text-sm"
-            title="Ping real a APIs"
+            variant="secondary"
+            disabled={loading && live}
           >
-            <RefreshCw className={`w-4 h-4 ${loading && live ? 'animate-spin' : ''}`} /> Ping en vivo
-          </button>
+            <RefreshCw className={`w-4 h-4 mr-2 ${loading && live ? 'animate-spin' : ''}`} /> Ping en vivo
+          </SBButton>
         </div>
       </header>
 
@@ -204,15 +204,15 @@ export default function IntegrationsPage() {
                     </label>
                 </div>
                 <div className="flex flex-col gap-2">
-                    <button onClick={() => handleImport(['contacts'])} disabled={isPending || !status?.holded.ok} className="sb-btn-primary w-full text-sm inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg border hover:bg-gray-50 disabled:opacity-60">
-                        <DownloadCloud className="w-4 h-4" /> Importar Contactos
-                    </button>
-                     <button onClick={() => handleImport(['purchases'])} disabled={isPending || !status?.holded.ok} className="sb-btn-primary w-full text-sm inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg border hover:bg-gray-50 disabled:opacity-60">
-                        <DownloadCloud className="w-4 h-4" /> Importar Compras
-                    </button>
-                    <button onClick={() => handleImport(['products'])} disabled={isPending || !status?.holded.ok} className="sb-btn-primary w-full text-sm inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg border hover:bg-gray-50 disabled:opacity-60">
-                        <DownloadCloud className="w-4 h-4" /> Importar Productos
-                    </button>
+                    <SBButton variant="secondary" onClick={() => handleImport(['contacts'])} disabled={isPending || !status?.holded.ok}>
+                        <DownloadCloud className="w-4 h-4 mr-2" /> Importar Contactos
+                    </SBButton>
+                     <SBButton variant="secondary" onClick={() => handleImport(['purchases'])} disabled={isPending || !status?.holded.ok}>
+                        <DownloadCloud className="w-4 h-4 mr-2" /> Importar Compras
+                    </SBButton>
+                    <SBButton variant="secondary" onClick={() => handleImport(['products'])} disabled={isPending || !status?.holded.ok}>
+                        <DownloadCloud className="w-4 h-4 mr-2" /> Importar Productos
+                    </SBButton>
                 </div>
                 {importStatus && <p className="text-xs text-zinc-600 bg-zinc-100 p-2 rounded-md"><Info className="w-3 h-3 inline mr-1"/> {importStatus}</p>}
             </div>
@@ -279,13 +279,13 @@ function Card({
         <a href={docsUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm text-teal-700 hover:underline">
           <LinkIcon className="sb-icon w-4 h-4" /> Docs
         </a>
-        <button
+        <SBButton
+          variant="secondary"
           onClick={onTest}
           disabled={!status?.ok || testing}
-          className="sb-btn-primary inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          <RefreshCw className={`w-4 h-4 ${testing ? 'animate-spin' : ''}`} /> Probar conexión
-        </button>
+          <RefreshCw className={`w-4 h-4 mr-2 ${testing ? 'animate-spin' : ''}`} /> Probar conexión
+        </SBButton>
       </div>
       {children}
     </div>

@@ -1,19 +1,19 @@
 'use client';
 import { useFormStatus } from 'react-dom';
 import { RefreshCw } from 'lucide-react';
-import { SB_THEME } from "@/domain/ssot";
+import { SBButton } from "@/components/ui/ui-primitives";
 
 function Submit({ idle, busy }: { idle: string; busy: string }) {
   const { pending } = useFormStatus();
   return (
-    <button
+    <SBButton
       type="submit"
-      className="sb-btn-primary inline-flex items-center gap-2 border rounded-lg px-3 py-2 hover:bg-zinc-50"
+      variant="secondary"
       disabled={pending}
     >
-      <RefreshCw size={16} className={pending ? 'animate-spin' : ''} />
+      <RefreshCw size={16} className={pending ? 'animate-spin mr-2' : 'mr-2'} />
       {pending ? busy : idle}
-    </button>
+    </SBButton>
   );
 }
 

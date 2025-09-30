@@ -6,7 +6,7 @@ interface UiOrder {
   id: string;
   client: string;
   date: string;
-  status: 'pending' | 'shipped' | 'delivered' | 'cancelled';
+  status: OrderStatus;
   total: string;
   channel?: "DIRECT" | "PLACEMENT" | "OTHER";
 }
@@ -16,11 +16,14 @@ interface StatusBadgeProps {
 }
 
 const StatusBadge: React.FC<StatusBadgeProps> = ({ status }) => {
-    const statusStyles = {
-        delivered: { text: 'Entregado', classes: 'bg-green-100 text-green-800' },
-        shipped: { text: 'Enviado', classes: 'bg-blue-100 text-blue-800' },
-        pending: { text: 'Pendiente', classes: 'bg-amber-100 text-amber-800' },
-        cancelled: { text: 'Cancelado', classes: 'bg-red-100 text-red-800' },
+    const statusStyles: Record<OrderStatus, { text: string; classes: string }> = {
+        open: { text: 'Abierto', classes: 'bg-blue-100 text-blue-800' },
+        confirmed: { text: 'Confirmado', classes: 'bg-indigo-100 text-indigo-800' },
+        shipped: { text: 'Enviado', classes: 'bg-cyan-100 text-cyan-800' },
+        invoiced: { text: 'Facturado', classes: 'bg-purple-100 text-purple-800' },
+        paid: { text: 'Pagado', classes: 'bg-green-100 text-green-800' },
+        cancelled: { text: 'Cancelado', classes: 'bg-zinc-100 text-zinc-800' },
+        lost: { text: 'Perdido', classes: 'bg-red-100 text-red-800' },
     };
 
     const { text, classes } = statusStyles[status] || { text: 'Desconocido', classes: 'bg-slate-100 text-slate-800' };

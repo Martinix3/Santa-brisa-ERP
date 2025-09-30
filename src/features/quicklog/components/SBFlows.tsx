@@ -124,7 +124,7 @@ function OrderForm({ onSubmit, items }: { onSubmit: (p: any) => void; items: Ite
             </Select>
             <Input type="number" value={line.qty} onChange={(e) => updateLine(index, 'qty', e.target.value)} className="w-20" min="1" />
             <Input type="number" value={line.priceUnit} onChange={(e) => updateLine(index, 'priceUnit', e.target.value)} className="w-24" placeholder="Precio" />
-            <button type="button" onClick={() => removeLine(index)} className="p-2 text-red-500 hover:bg-red-50 rounded-md"><X size={16} /></button>
+            <SBButton type="button" variant="ghost" onClick={() => removeLine(index)}><X size={16} /></SBButton>
           </div>
         ))}
         <SBButton type="button" variant="secondary" size="sm" onClick={addLine}><Plus size={14} className="mr-2"/>Añadir línea</SBButton>

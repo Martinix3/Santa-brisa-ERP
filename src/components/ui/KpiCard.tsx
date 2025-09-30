@@ -1,26 +1,22 @@
+// src/components/ui/KpiCard.tsx
 import React from 'react';
 
 interface KpiCardProps {
     title: string;
     value: string | number;
-    variant?: 'primary' | 'secondary';
+    icon: React.ElementType;
 }
 
-const KpiCard: React.FC<KpiCardProps> = ({ title, value, variant = 'secondary' }) => {
-    const baseClasses = "p-4 rounded-xl shadow-lg";
-    const variantClasses = {
-        primary: "bg-blue-600 text-white",
-        secondary: "bg-white border border-slate-200 text-slate-800"
-    };
-
+const KpiCard: React.FC<KpiCardProps> = ({ title, value, icon: Icon }) => {
     return (
-        <div className={`${baseClasses} ${variantClasses[variant]}`}>
-            <p className={`text-3xl font-bold ${variant === 'secondary' && 'text-blue-600'}`}>
-                {value}
-            </p>
-            <p className={`text-sm mt-1 ${variant === 'primary' ? 'text-blue-100' : 'text-slate-500'}`}>
-                {title}
-            </p>
+        <div className="bg-card p-4 rounded-xl border border-slate-200 shadow-sm">
+            <div className="flex items-center space-x-3">
+                <div className="bg-slate-100 p-2 rounded-lg">
+                    <Icon className="h-5 w-5 text-slate-600" />
+                </div>
+                <p className="text-sm font-medium text-slate-600">{title}</p>
+            </div>
+            <p className="mt-2 text-3xl font-bold text-slate-900">{value}</p>
         </div>
     );
 };

@@ -1,4 +1,3 @@
-
 // src/app/(app)/dashboard-ventas/page.tsx — Santa Brisa DS aplicado
 "use client";
 
@@ -24,6 +23,7 @@ import {
   Pie,
   PieChart,
 } from "recharts";
+import { SBButton } from "@/components/ui/ui-primitives";
 
 /* =============================================================
    🎨 Design System Santa Brisa — Tokens locales (usar en línea)
@@ -264,13 +264,15 @@ export default function SalesDashboardPage() {
           </div>
           <div className="hidden md:flex items-center gap-1 rounded-lg border p-1 bg-slate-100">
             {(['week', 'month', 'year'] as const).map(range => (
-                <button
+                <SBButton
                     key={range}
+                    size="sm"
+                    variant={timeRange === range ? 'primary' : 'ghost'}
                     onClick={() => setTimeRange(range)}
-                    className={`px-3 py-1.5 rounded-md text-sm font-semibold transition-colors ${timeRange === range ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-600 hover:text-slate-800'}`}
+                    className={`font-semibold ${timeRange === range ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-600'}`}
                 >
                     {range === 'week' ? 'Semana' : range === 'month' ? 'Mes' : 'Año'}
-                </button>
+                </SBButton>
             ))}
           </div>
         </div>

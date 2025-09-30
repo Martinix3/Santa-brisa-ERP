@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { generateTestPdf } from './actions';
-import { SB_THEME } from "@/domain/ssot";
+import { SBButton } from "@/components/ui/ui-primitives";
 
 export default function PdfTestPage() {
   const [uri, setUri] = useState<string | null>(null);
@@ -28,13 +28,13 @@ export default function PdfTestPage() {
     <div className="p-6 space-y-4 max-w-3xl">
       <h1 className="text-2xl font-semibold">Test de PDF — Albarán CRM</h1>
       <p className="text-sm text-zinc-600">Pulsa el botón y debería descargarse <code>albaran-test.pdf</code>. También verás una previsualización abajo.</p>
-      <button
+      <SBButton
         onClick={run}
         disabled={busy}
-        className="sb-btn-primary px-4 py-2 rounded-lg border bg-white hover:bg-zinc-50 disabled:opacity-60"
+        variant="secondary"
       >
         {busy ? 'Generando…' : 'Generar PDF de prueba'}
-      </button>
+      </SBButton>
 
       {uri && (
         <iframe src={uri} className="w-full h-[600px] rounded-lg border" />

@@ -1,16 +1,15 @@
-
 // src/features/production/dashboard/index.page.tsx
 "use client";
 import React, { useMemo } from "react";
 import { useData } from "@/lib/dataprovider";
-import { computeKpis } from "./kpis";
-import { KpiCards } from "./components/KpiCards";
-import { OrdersTimeline } from "./components/OrdersTimeline";
-import { ShortagesPanel } from "./components/ShortagesPanel";
-import { InventorySnapshot } from "./components/InventorySnapshot";
-import { QCPanel } from "./components/QCPanel";
-import { BottlingProgress } from "./components/BottlingProgress";
-import { EfficiencyWidget } from "./components/EfficiencyWidget";
+import { computeKpis } from "@/features/production/dashboard/kpis";
+import { KpiCards } from "@/features/production/dashboard/components/KpiCards";
+import { OrdersTimeline } from "@/features/production/dashboard/components/OrdersTimeline";
+import { ShortagesPanel } from "@/features/production/dashboard/components/ShortagesPanel";
+import { InventorySnapshot } from "@/features/production/dashboard/components/InventorySnapshot";
+import { QCPanel } from "@/features/production/dashboard/components/QCPanel";
+import { BottlingProgress } from "@/features/production/dashboard/components/BottlingProgress";
+import { EfficiencyWidget } from "@/features/production/dashboard/components/EfficiencyWidget";
 import { Plus } from 'lucide-react';
 import { SBCard } from "@/components/ui/ui-primitives";
 import { UpcomingTasks } from "@/features/agenda/components/UpcomingTasks";
@@ -19,21 +18,21 @@ import { SB_THEME, type ProductionOrder, type BillOfMaterial, type Item, type On
 
 // MOCK DATA FOR DEMO
 const MOCK_ITEMS: Item[] = [
-  { id: 'item_sb_750', sku: 'SB-750', name: 'Santa Brisa 750ml', category: 'fg', uom: 'uds', active: true, stdCost: 8.5 },
+  { id: 'item_sb_750', sku: 'SB-750', name: 'Santa Brisa 750ml', category: 'fg', uom: 'unit', active: true, stdCost: 8.5 },
   { id: 'item_agave', sku: 'RM-AGAVE-01', name: 'Agave Crudo', category: 'raw', uom: 'kg', active: true, stdCost: 2.1 },
-  { id: 'item_botella', sku: 'PKG-BOTELLA-STD', name: 'Botella Vidrio 750ml', category: 'pack', uom: 'uds', active: true, stdCost: 0.8 },
+  { id: 'item_botella', sku: 'PKG-BOTELLA-STD', name: 'Botella Vidrio 750ml', category: 'pack', uom: 'unit', active: true, stdCost: 0.8 },
 ];
 
 const MOCK_RECIPES: BillOfMaterial[] = [
     { id: 'bom_sb_750', outputItemId: 'item_sb_750', name: 'Receta Santa Brisa', batchSize: 100, baseUnit: 'L', items: [
         { itemId: 'item_agave', qty: 20, uom: 'kg' },
-        { itemId: 'item_botella', qty: 133, uom: 'uds' }
+        { itemId: 'item_botella', qty: 133, uom: 'unit' }
     ]}
 ];
 
 const MOCK_ON_HAND: OnHandView[] = [
-  { id: 'oh_1', itemId: 'item_sb_750', lotNumber: 'L240801-A', locationId: 'FG/MAIN', qty: 120, reservedQty: 20, uom: 'uds', qcStatus: 'PASSED', category: 'fg', expiryAt: '2026-08-01T00:00:00Z', createdAt: '2024-08-01T00:00:00Z', updatedAt: '2024-08-10T00:00:00Z' },
-  { id: 'oh_3', itemId: 'item_sb_750', lotNumber: 'L240815-A', locationId: 'QC/AREA', qty: 200, reservedQty: 0, uom: 'uds', qcStatus: 'PENDING', category: 'fg', createdAt: '2024-08-15T00:00:00Z', updatedAt: '2024-08-15T00:00:00Z' },
+  { id: 'oh_1', itemId: 'item_sb_750', lotNumber: 'L240801-A', locationId: 'FG/MAIN', qty: 120, reservedQty: 20, uom: 'unit', qcStatus: 'PASSED', category: 'fg', expiryAt: '2026-08-01T00:00:00Z', createdAt: '2024-08-01T00:00:00Z', updatedAt: '2024-08-10T00:00:00Z' },
+  { id: 'oh_3', itemId: 'item_sb_750', lotNumber: 'L240815-A', locationId: 'QC/AREA', qty: 200, reservedQty: 0, uom: 'unit', qcStatus: 'PENDING', category: 'fg', createdAt: '2024-08-15T00:00:00Z', updatedAt: '2024-08-15T00:00:00Z' },
   { id: 'oh_4', itemId: 'item_agave', lotNumber: 'RM-AG-240805', locationId: 'RM/MAIN', qty: 50, reservedQty: 0, uom: 'kg', qcStatus: 'PASSED', category: 'raw', createdAt: '2024-08-05T00:00:00Z', updatedAt: '2024-08-05T00:00:00Z' },
 ];
 

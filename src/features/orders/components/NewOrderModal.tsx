@@ -5,6 +5,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2 } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
+import { SBButton } from '@/components/ui/ui-primitives';
 
 interface OrderLine {
     id: number;
@@ -107,9 +108,7 @@ const NewOrderModal: React.FC<NewOrderModalProps> = ({ isOpen, onClose, onSubmit
                                     )}
                                 </div>
                             ))}
-                             <button type="button" onClick={handleAddLine} className="text-sm font-semibold text-[#B25A32] hover:text-[#F26D3D] flex items-center gap-1">
-                                <Plus size={14}/> Añadir línea
-                            </button>
+                             <SBButton type="button" variant="secondary" size="sm" onClick={handleAddLine}><Plus size={14}/> Añadir línea</SBButton>
                         </div>
                         
                         <div className="pt-4 border-t border-slate-200 flex justify-end">
@@ -123,12 +122,8 @@ const NewOrderModal: React.FC<NewOrderModalProps> = ({ isOpen, onClose, onSubmit
 
                     </div>
                     <div className="mt-2 flex justify-end space-x-3 pt-4 border-t border-slate-200">
-                        <button type="button" onClick={onClose} className="bg-white py-2 px-4 border border-slate-300 rounded-lg shadow-sm text-sm font-medium text-slate-700 hover:bg-slate-50">
-                            Cancelar
-                        </button>
-                        <button type="submit" style={{backgroundColor: '#F4C542'}} className="text-black py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium hover:opacity-90">
-                            Crear Pedido
-                        </button>
+                        <SBButton type="button" variant="secondary" onClick={onClose}>Cancelar</SBButton>
+                        <SBButton type="submit">Crear Pedido</SBButton>
                     </div>
                 </form>
             </div>
@@ -137,5 +132,3 @@ const NewOrderModal: React.FC<NewOrderModalProps> = ({ isOpen, onClose, onSubmit
 };
 
 export default NewOrderModal;
-
-    
