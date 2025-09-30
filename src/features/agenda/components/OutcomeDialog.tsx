@@ -38,19 +38,33 @@ export function OutcomeDialog({
       ¿Marcar esta tarea como completada?
     </div>
   );
+  
+  const renderContent = () => {
+    // Note: The logic for different kinds of tasks has been simplified
+    // as per the new design. The dialog now focuses on confirming completion.
+    // The parser logic for creating new entities is moved to where the note is created.
+    return commonContent;
+  };
+
 
   return (
-    <div className="fixed inset-0 z-50">
-      <button className="absolute inset-0 bg-black/30" onClick={onClose} aria-label="Cerrar" />
-      <div className="absolute bottom-0 inset-x-0 bg-white rounded-t-2xl shadow-2xl p-3 pb-4">
-        <div className="h-1 w-10 bg-[hsl(var(--sb-neutral-300))] rounded-full mx-auto mb-2" />
-        <div className="font-medium mb-2">Confirmar Tarea</div>
-        {commonContent}
-        <div className="mt-3 flex justify-end gap-2">
-          <button className="px-3 py-1.5 border rounded-lg" onClick={onClose}>Cancelar</button>
-          <button className="px-3 py-1.5 rounded-lg border bg-[hsl(var(--sb-sun-weak))]" onClick={()=>onConfirm(task, payload)}>Completar</button>
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end" onClick={onClose}>
+        <div className="bg-background w-full rounded-t-lg border-t border-border shadow-xl" onClick={e => e.stopPropagation()}>
+           <div className="animate-slide-up-fade">
+              <div className="w-8 h-1 bg-border rounded-full mx-auto mt-2"></div>
+              <div className="p-4">{renderContent()}</div>
+              <div className="p-4 border-t border-border">
+                  <ul className="space-y-1">
+                      <li><button className="w-full text-left p-3 rounded-lg hover:bg-secondary text-text-primary font-medium">📷 Adjuntar</button></li>
+                      <li><button className="w-full text-left p-3 rounded-lg hover:bg-secondary text-text-primary font-medium">✨ Enriquecer</button></li>
+                      <li><button className="w-full text-left p-3 rounded-lg hover:bg-secondary text-text-primary font-medium">ℹ️ Ver detalle</button></li>
+                      <li className='!mt-3'>
+                          <button onClick={()=> onConfirm(task, payload)} className="w-full p-3 rounded-lg bg-accent text-text-primary font-semibold text-center">Completar Tarea</button>
+                      </li>
+                  </ul>
+              </div>
+           </div>
         </div>
-      </div>
     </div>
   );
 }

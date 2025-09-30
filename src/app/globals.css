@@ -4,30 +4,41 @@
 
 /* ===== Tokens SB ===== */
 :root {
-
   --radius: 0.75rem; /* 12px */
 
   /* Colores de Marca y Acción */
-  --accent: 46 98% 64%;    /* Amarillo Santa Brisa #F4C542 */
-  --primary: 220 13% 18%;   /* Casi negro para texto y elementos principales #26282E */
-  --primary-foreground: 46 98% 64%; /* Amarillo para texto sobre fondo oscuro */
+  --accent: 46 82% 64%;    /* Amarillo Santa Brisa #F4C542 */
+  --primary: 224 43% 11%;   /* Casi negro para texto y elementos principales #111827 */
+  --primary-foreground: 46 82% 64%; /* Amarillo para texto sobre fondo oscuro */
 
   /* Colores Secundarios */
-  --secondary: 220 14% 96%; /* Gris muy claro para fondos alternos #F5F6F8 */
-  --secondary-foreground: 220 13% 18%;
+  --secondary: 220 14% 98%; /* Gris muy claro para fondos alternos #F9FAFB */
+  --secondary-foreground: 224 43% 11%;
   
   /* Color de fondo principal */
-  --background: 255 100% 100%; /* Blanco */
-  --foreground: 220 13% 18%;
+  --background: 0 0% 100%; /* Blanco */
+  --foreground: 224 43% 11%;
+  --text-primary: 224 43% 11%;
+  --text-secondary: 220 13% 23%;
+  --text-muted: 220 9% 45%;
 
   /* Neutrales */
-  --muted: 220 9% 88%;     /* Gris medio para bordes y texto silenciado #DCDFE4 */
-  --muted-foreground: 220 7% 45%; /* #6A6D78 */
+  --muted: 220 13% 91%;     /* Gris medio para bordes y texto silenciado #E5E7EB */
+  --muted-foreground: 220 9% 45%; /* #6A6D78 */
+  --border: 220 13% 91%;
 
   /* Semánticos UI */
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 98%;
-  --ring: 46 98% 64%; /* Anillo de foco en amarillo */
+  --ring: 46 82% 64%; /* Anillo de foco en amarillo */
+
+  --cobre: 22 55% 48%;
+  --agua: 177 47% 65%;
+  --naranja: 15 88% 57%;
+  
+  --feedback-green-bg: 140 76% 96%;
+  --feedback-red-bg: 6 96% 97%;
+
 
   /* ======================================= */
   /* NO USAR - LEGACY - SERÁN REEMPLAZADOS */
@@ -67,6 +78,10 @@
     font-family: var(--font-inter), sans-serif;
   }
   h1, h2, h3, h4, h5, h6 { color: hsl(var(--primary)); }
+  .sb-checkbox:checked {
+    background-color: hsl(var(--accent));
+    border-color: hsl(var(--accent));
+  }
 }
 
 /* ===== Components (único bloque) ===== */
@@ -169,11 +184,27 @@
 .sb-mini-calendar .fc-daygrid-day-events {
     min-height: auto;
 }
-.sb-mini-calendar .fc-daygrid-event.fc-daygrid-dot-event {
+.sb-mini-calendar .fc-daygrid-dot-event {
     flex-direction: row;
     align-items: center;
     gap: 2px;
 }
 .sb-mini-calendar .fc-daygrid-dot-event .fc-event-title {
     flex-grow: 1;
+}
+
+@keyframes slide-up-fade {
+    from { opacity: 0; transform: translateY(100%); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.animate-slide-up-fade {
+    animation: slide-up-fade 0.3s ease-out forwards;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 0.5; }
+    50% { transform: scale(1.5); opacity: 1; }
+}
+.animate-pulse-once {
+    animation: pulse 0.6s ease-out forwards;
 }
