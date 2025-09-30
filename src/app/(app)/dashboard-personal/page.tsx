@@ -1,4 +1,3 @@
-
 // src/app/(app)/dashboard-personal/page.tsx
 "use client";
 import React, { useMemo, useState } from 'react';
@@ -7,14 +6,13 @@ import { Users, Package, Briefcase, CheckSquare } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
 import { orderToBottles } from '@/lib/sb-core';
 import { TaskBoard } from '@/features/agenda/TaskBoard'; // Actualizamos la ruta si lo moviste
-// ... (resto de imports de la página)
 import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/TaskCompletionDialog';
 import { NewEventDialog } from '@/features/agenda/components/NewEventDialog';
 import { MarketingTaskCompletionDialog } from '@/features/marketing/components/MarketingTaskCompletionDialog';
 import { mapInteractionsToTasks } from '@/features/agenda/mappers';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
-import type { Interaction, InteractionStatus, User as CurrentUserType, SantaData, Task as AgendaTask } from '@/domain/ssot';
+import type { Interaction, InteractionStatus, User as CurrentUserType, SantaData } from '@/domain/ssot';
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
 } from 'recharts';
@@ -24,6 +22,16 @@ import { getStorage } from '@/features/agenda/storage'; // factory SSR-safe
 import { QuickEditor } from '@/features/agenda/components/QuickEditor';
 import { NotesList } from '@/features/agenda/components/NotesList';
 import { OutcomeDialog } from '@/features/agenda/components/OutcomeDialog';
+import type { Task as AgendaTask } from '@/features/agenda/storage/adapter';
+
+import dynamic from 'next/dynamic';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import interactionPlugin from '@fullcalendar/interaction';
+import type { EventClickArg } from '@fullcalendar/core';
+import esLocale from '@fullcalendar/core/locales/es';
+import { useFullCalendarStyles } from '@/features/agenda/useFullCalendarStyles';
+import { DEPT_META } from '@/domain/ssot';
+import { sbAsISO } from '@/features/agenda/helpers';
 
 
 // ============================================================================
@@ -95,6 +103,69 @@ function PersonalSalesChart({ data, currentUser }: { data: SantaData, currentUse
     </div>
   )
 }
+
+function MiniCalendarCard() {
+  useFullCalendarStyles();
+  const { data } = useData();
+  const router = useRouter();
+  const FullCalendar = useMemo(
+    () => dynamic(() => import('@fullcalendar/react'), { ssr: false }),
+    []
+  );
+
+  // Eventos a partir de interactions.planedFor
+  const calendarEvents = useMemo(() => {
+    const interactions = data?.interactions || [];
+    return interactions
+      .map(i => {
+        const start = sbAsISO(i.plannedFor);
+        if (!start) return null;
+        const dept = (i.dept as keyof typeof DEPT_META) || 'VENTAS';
+        const style = DEPT_META[dept] || DEPT_META.VENTAS;
+        return {
+          id: i.id,
+          title: i.note || String(i.kind || 'Tarea'),
+          start,
+          allDay: true, // compacto (sin horas)
+          extendedProps: { dept, status: i.status },
+          backgroundColor: i.status === 'done' ? '#e5e7eb' : 'transparent',
+          borderColor: i.status === 'done' ? '#9ca3af' : style.color,
+          textColor: i.status === 'done' ? '#374151' : style.textColor,
+          className: ['sb-event-compact'],
+        };
+      })
+      .filter(Boolean) as any[];
+  }, [data?.interactions]);
+
+  const onEventClick = (arg: EventClickArg) => {
+    const d = arg.event.start;
+    if (!d) return;
+    // Navega al calendario “grande” posicionado en el día
+    const iso = d.toISOString().slice(0, 10);
+    router.push(`/agenda/calendar?d=${iso}`);
+  };
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm h-full flex flex-col">
+      <h3 className="font-semibold text-slate-900 mb-3">Calendario</h3>
+      <div className="min-h-0 flex-1">
+        <FullCalendar
+          plugins={[dayGridPlugin, interactionPlugin]}
+          initialView="dayGridMonth"
+          headerToolbar={{ left: 'prev,next', center: 'title', right: '' }}
+          events={calendarEvents}
+          eventClick={onEventClick}
+          height="100%"
+          dayMaxEventRows={2}
+          locales={[esLocale]}
+          locale="es"
+          aspectRatio={1.1}
+        />
+      </div>
+    </div>
+  );
+}
+
 
 // ============================================================================
 // AGENDA DOCK — compacto (reutiliza QuickNotes)
@@ -243,8 +314,8 @@ export default function PersonalDashboardPage() {
             {/* Layout integrado:
                - Mobile: flujo vertical (KPIs → gráfico → TaskBoard → AgendaDock).
                - Desktop: grid con panel lateral fijo para AgendaDock. */}
-            <main className="flex-1 overflow-x-hidden overflow-y-auto bg-white p-0 lg:p-6">
-                <div className="mx-auto w-full lg:max-w-[1200px] lg:grid lg:grid-cols-[1fr_380px] lg:gap-6">
+            <main className="flex-1 bg-white p-0 lg:p-6">
+                <div className="mx-auto w-full lg:max-w-[1400px] lg:grid lg:grid-cols-[1fr_340px_360px] lg:gap-6 lg:min-h-[calc(100dvh-96px)]">
                   {/* Columna principal */}
                   <div className="p-6 space-y-6">
                      <div className="flex items-center justify-between">
@@ -284,20 +355,28 @@ export default function PersonalDashboardPage() {
                          />
                      </motion.div>
                   </div>
-                  {/* Panel lateral Agenda (desktop sticky) */}
-                  <aside className="hidden lg:block sticky top-[76px] h-[calc(100dvh-76px)]">
+                  {/* Columna calendario (desktop sticky) */}
+                  <aside className="hidden lg:block sticky top-[76px] h-[calc(100dvh-96px)]">
+                    <MiniCalendarCard />
+                  </aside>
+                  {/* Columna agenda (desktop sticky) */}
+                  <aside className="hidden lg:block sticky top-[76px] h-[calc(100dvh-96px)]">
                     <AgendaDock />
                   </aside>
-                  {/* En móvil, colocamos Agenda al final del flujo para foco en “hacer” */}
-                  <div className="lg:hidden border-t mt-2">
-                    <div className="px-6 pt-4 pb-2 text-sm font-semibold text-slate-900">Mi Agenda</div>
-                    <div className="px-6 pb-6">
-                      <AgendaDock />
-                    </div>
-                  </div>
                 </div>
             </main>
 
+            {/* En móvil, mostramos calendario y agenda apilados al final */}
+            <section className="lg:hidden border-t mt-2">
+              <div className="px-6 pt-4 pb-2 text-sm font-semibold text-slate-900">Calendario</div>
+              <div className="px-6">
+                <MiniCalendarCard />
+              </div>
+              <div className="px-6 pt-6 pb-2 text-sm font-semibold text-slate-900">Mi Agenda</div>
+              <div className="px-6 pb-6">
+                <AgendaDock />
+              </div>
+            </section>
             {/* ... (Los diálogos no cambian, solo recuerda tener el accentColor correcto en NewEventDialog) */}
             {completingTask && ( <TaskCompletionDialog task={completingTask} open={!!completingTask} onClose={() => setCompletingTask(null)} onSuccess={() => { toast.success('Tarea completada con éxito.'); router.refresh(); setCompletingTask(null); }} onError={(msg) => toast.error(`Error: ${msg}`)} /> )}
             {completingMarketingEvent && ( <MarketingTaskCompletionDialog entity={completingMarketingEvent} open={!!completingMarketingEvent} onClose={() => setCompletingMarketingEvent(null)} onSuccess={() => { toast.success('Resultados del evento guardados.'); router.refresh(); setCompletingMarketingEvent(null); }} onError={(msg) => toast.error(`Error: ${msg}`)} /> )}

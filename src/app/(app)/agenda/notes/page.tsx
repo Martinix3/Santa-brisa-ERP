@@ -1,3 +1,4 @@
+
 // /app/(app)/agenda/notes/page.tsx
 "use client";
 import React, { useMemo, useState } from 'react';
@@ -7,7 +8,7 @@ import { QuickEditor } from '@/features/agenda/components/QuickEditor';
 import { NotesList } from '@/features/agenda/components/NotesList';
 import { OutcomeDialog } from '@/features/agenda/components/OutcomeDialog';
 import { FooterKPIs } from '@/features/agenda/components/FooterKPIs';
-import type { Task } from '@/domain/ssot';
+import type { Task } from '@/features/agenda/storage/adapter';
 
 // Inicializamos el storage. A futuro, se podría cambiar por `FirestoreAgendaStorage`
 const storage = getStorage();

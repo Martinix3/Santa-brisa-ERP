@@ -14,7 +14,6 @@ function AgendaNav() {
     const navItems = [
         { href: '/agenda/calendar', label: 'Calendario' },
         { href: '/agenda/tasks', label: 'Tareas' },
-        { href: '/agenda/notes', label: 'Notas Rápidas' },
     ];
 
     return (
