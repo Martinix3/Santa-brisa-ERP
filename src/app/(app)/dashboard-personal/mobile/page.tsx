@@ -4,10 +4,10 @@ import React, { useEffect, useMemo, useRef, useState, useCallback, Dispatch, Set
 import { useData } from '@/lib/dataprovider';
 import { mapInteractionsToTasks } from '@/features/agenda/mappers';
 import { useQuickNotes } from '@/features/agenda/hooks/useQuickNotes';
-import type { Interaction, TaskKind, Department } from '@/domain/ssot';
+import type { Interaction, TaskKind, Department, Note, Task } from '@/domain/ssot';
 import { DEPT_META } from '@/domain/ssot';
 import { Moon, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
-import type { Task } from '@/features/agenda/TaskBoard';
+
 
 // ===================== LocalStorage seguro & Parser =====================
 const parseNote = (text: string, userRole = 'ventas') => {
@@ -64,6 +64,8 @@ const Header = ({ view, setView, linkNotes, setLinkNotes, currentDate, setCurren
     </div>
 )};
 
+type MappedTask = Task & { completed?: boolean; date?: string; text?: string; kind?: TaskKind; account?: string; department: Department };
+
 const DayView = ({ tasks, currentDate }: { tasks: MappedTask[], currentDate: Date }) => (
     <div className="p-4 bg-secondary border-b border-border">
          <h3 className="text-base font-semibold mb-2">Eventos - {currentDate.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric' })}</h3>
@@ -85,7 +87,6 @@ const MonthView = ({ currentDate, tasks, onDateClick }: { currentDate: Date, tas
     const firstDay = (new Date(year, month, 1).getDay() + 6) % 7;
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const days = Array.from({ length: firstDay + daysInMonth }, (_, i) => i < firstDay ? null : new Date(year, month, i - firstDay + 1));
-    const colorMap = DEPT_META;
 
     return (
          <div className="p-4 bg-secondary border-b border-border">
@@ -100,7 +101,7 @@ const MonthView = ({ currentDate, tasks, onDateClick }: { currentDate: Date, tas
                                 <span className={`w-7 h-7 flex items-center justify-center rounded-full text-sm ${day.toDateString() === today.toDateString() ? 'bg-accent text-black font-bold' : ''}`}>{day.getDate()}</span>
                                 <div className="flex gap-1 mt-1">
                                     {tasks.filter(t => t.date && new Date(t.date).toDateString() === day.toDateString()).slice(0, 3).map(t => (
-                                        <div key={t.id} className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colorMap[t.department as Department]?.color || 'var(--text-muted)' }}></div>
+                                        <div key={t.id} className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: DEPT_META[t.department as Department]?.color || 'var(--text-muted)' }}></div>
                                     ))}
                                 </div>
                             </>
@@ -125,8 +126,6 @@ const WeekView = ({ currentDate, tasks }: { currentDate: Date, tasks: MappedTask
          </div>
     );
 };
-
-type MappedTask = Task & { completed?: boolean; date?: string; text?: string; kind?: TaskKind; account?: string; department: Department };
 
 const CalendarView = ({ tasks, view, currentDate, onDateClick }: { tasks: MappedTask[], view: string, currentDate: Date, onDateClick: (d: Date) => void }) => {
     const filteredTasks = tasks.filter(t => t.date && new Date(t.date).toDateString() === currentDate.toDateString());
@@ -213,7 +212,7 @@ const FooterDialog = ({ task, activationType, onComplete, onClose }: { task: Int
 
     const renderContent = () => {
          switch(task.kind) {
-            case 'PEDIDO': return <div><h3 className="text-base font-semibold">Confirmar Pedido</h3><p className="mt-1 text-sm text-text-secondary">Se guardará el pedido para @{task.accountId}.</p></div>;
+            case 'LLAMADA': return <div><h3 className="text-base font-semibold">Confirmar Pedido</h3><p className="mt-1 text-sm text-text-secondary">Se guardará el pedido para @{task.accountId}.</p></div>;
             case 'VISITA': return <div><h3 className="text-base font-semibold">¿Cómo fue la visita?</h3><textarea value={responseText} onChange={e => setResponseText(e.target.value)} className="w-full mt-4 p-2 border border-border rounded-md" placeholder="Añadir nota de la visita..."></textarea></div>;
             default: return <div><h3 className="text-base font-semibold">Confirmar Tarea</h3><p className="mt-1 text-sm text-text-secondary">¿Marcar esta nota como completada?</p></div>;
         }
@@ -249,7 +248,7 @@ const KpiFooter = ({ tasks }: { tasks: Interaction[] }) => {
     const kpis = useMemo(() => {
         const now = new Date();
         const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-        const vencidas = tasks.filter(t => t.status !== 'done' && t.plannedFor && new Date(t.plannedFor) < todayStart).length;
+        const vencidas = tasks.filter(t => t.status !== 'done' && t.plannedFor && new Date(t.plannedFor).getTime() < todayStart).length;
         const paraHoy = tasks.filter(t => t.status !== 'done' && t.plannedFor && new Date(t.plannedFor).toDateString() === now.toDateString()).length;
         const posActivos = tasks.filter(t => t.status === 'done' && t.kind === 'EVENTO_MKT').length;
         const cuentasAbiertas = new Set(tasks.filter(t => t.status !== 'done' && t.accountId).map(t => t.accountId)).size;
@@ -283,10 +282,11 @@ function QuickNoteApp() {
     const [showSavePulse, setShowSavePulse] = useState(false);
     
     const accounts = useMemo(() => santaData?.accounts || [], [santaData?.accounts]);
-    const overdueTasks = useMemo(() => mapInteractionsToTasks(agenda.overdue, accounts), [agenda.overdue, accounts]);
-    const todayTasks = useMemo(() => mapInteractionsToTasks(agenda.todayTasks, accounts), [agenda.todayTasks, accounts]);
     const allTasksMapped = useMemo(() => mapInteractionsToTasks(agenda.tasks, accounts), [agenda.tasks, accounts]);
-    const rangedNotes = useMemo(() => mapInteractionsToTasks(agenda.rangedNotes, accounts), [agenda.rangedNotes, accounts]);
+    const overdueTasks = useMemo(() => mapInteractionsToTasks(agenda.overdue, accounts), [agenda.overdue, accounts]);
+    const todayTasksMapped = useMemo(() => mapInteractionsToTasks(agenda.todayTasks, accounts), [agenda.todayTasks, accounts]);
+    const rangedNotes = useMemo(() => agenda.rangedNotes, [agenda.rangedNotes]);
+
 
     const submitTask = useCallback(() => {
         if (!draftText.trim()) return;
@@ -331,7 +331,7 @@ function QuickNoteApp() {
                                     </button>
                                 </li>
                                 {rangedNotes.map(note => {
-                                    const task = todayTasks.find(t => t.noteId === note.id);
+                                    const task = todayTasksMapped.find(t => t.id === (note as any).taskId);
                                     return <TaskItem key={note.id} task={task || {id: note.id, title: note.text} as MappedTask} onSwipe={handleSwipe} onLongPress={handleLongPress} />
                                 })}
                               </ul>

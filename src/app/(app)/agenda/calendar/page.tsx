@@ -205,6 +205,7 @@ function CalendarPageContent() {
               setEditingEvent(null);
             }}
             initialEventData={editingEvent}
+            accentColor={DEPT_META[editingEvent?.dept || 'PERSONAL']?.color || '#F4C542'}
           />
         )}
 

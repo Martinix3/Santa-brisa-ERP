@@ -18,6 +18,7 @@ export type Task = {
   involvedUserIds?: string[];
   location?: string;
   linkedEntity?: Interaction['linkedEntity'];
+  originalInteraction: Interaction; // Agregamos la interacción original
 };
 
 

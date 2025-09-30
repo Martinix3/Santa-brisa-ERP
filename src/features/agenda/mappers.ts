@@ -1,5 +1,5 @@
 // src/features/agenda/mappers.ts
-import type { Interaction, Account } from '@/domain/ssot';
+import type { Interaction, Account, Department, TaskKind } from '@/domain/ssot';
 import { sbAsISO } from './helpers';
 import type { Task } from './TaskBoard';
 
@@ -23,6 +23,8 @@ export function mapInteractionsToTasks(
         involvedUserIds: i.involvedUserIds,
         location: i.location || accountMap.get(i.accountId || ''),
         linkedEntity: i.linkedEntity,
+        // Propiedades de la interacción original para el diálogo de completado
+        originalInteraction: i,
       } as Task;
     })
     .filter(Boolean) as Task[];

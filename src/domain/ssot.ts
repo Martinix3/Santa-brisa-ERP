@@ -353,6 +353,7 @@ export interface TraceEvent {
 }
 export interface Incident {}
 export interface CodeAlias {}
+export interface Integration {}
 export interface Job {}
 export interface DeadLetter {}
 export interface Expense {}

@@ -5,14 +5,14 @@ import { motion } from 'framer-motion';
 import { Users, Package, Briefcase, CheckSquare } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
 import { orderToBottles } from '@/lib/sb-core';
-import { TaskBoard } from '@/features/agenda/TaskBoard';
+import { TaskBoard, Task } from '@/features/agenda/TaskBoard';
 import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/TaskCompletionDialog';
 import { NewEventDialog } from '@/features/agenda/components/NewEventDialog';
 import { MarketingTaskCompletionDialog } from '@/features/marketing/components/MarketingTaskCompletionDialog';
 import { mapInteractionsToTasks } from '@/features/agenda/mappers';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
-import type { Interaction, InteractionStatus, User as CurrentUserType, SantaData, Task, TaskKind } from '@/domain/ssot';
+import type { Interaction, InteractionStatus, User as CurrentUserType, SantaData, Note, TaskKind } from '@/domain/ssot';
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
 } from 'recharts';
@@ -181,7 +181,7 @@ function AgendaDock() {
   const kpis = useMemo(()=> {
     const overdue = agenda.overdue.length;
     const todayOpen = agenda.todayTasks.filter(t=>t.status==='open').length;
-    const posToday = agenda.todayTasks.filter(t=> (t.kind as TaskKind)==='EVENTO_MKT').length;
+    const posToday = agenda.todayTasks.filter(t=> (t.kind as TaskKind)==='POS_EVT').length;
     return { overdue, todayOpen, posToday };
   }, [agenda.overdue, agenda.todayTasks]);
 
@@ -236,7 +236,7 @@ function AgendaDock() {
       </div>
       <OutcomeDialog
         taskId={outcomeFor}
-        tasks={agenda.todayTasks.concat(agenda.overdue)}
+        tasks={agenda.tasks}
         onClose={closeOutcome}
         onConfirm={onConfirm}
       />
@@ -374,7 +374,7 @@ export default function PersonalDashboardPageDesktop() {
 
             {completingTask && ( <TaskCompletionDialog task={completingTask} open={!!completingTask} onClose={() => setCompletingTask(null)} onSuccess={() => { toast.success('Tarea completada con éxito.'); router.refresh(); setCompletingTask(null); }} onError={(msg) => toast.error(`Error: ${msg}`)} /> )}
             {completingMarketingEvent && ( <MarketingTaskCompletionDialog entity={completingMarketingEvent} open={!!completingMarketingEvent} onClose={() => setCompletingMarketingEvent(null)} onSuccess={() => { toast.success('Resultados del evento guardados.'); router.refresh(); setCompletingMarketingEvent(null); }} onError={(msg) => toast.error(`Error: ${msg}`)} /> )}
-            {openNewTask && currentUser && ( <NewEventDialog open={openNewTask} onOpenChange={setOpenNewTask} onSuccess={() => { toast.success("Tarea creada"); setOpenNewTask(false); router.refresh(); }} initialEventData={{ userId: currentUser.id, dept: 'PERSONAL' }} /> )}
+            {openNewTask && currentUser && ( <NewEventDialog open={openNewTask} onOpenChange={setOpenNewTask} onSuccess={() => { toast.success("Tarea creada"); setOpenNewTask(false); router.refresh(); }} initialEventData={{ userId: currentUser.id, dept: 'PERSONAL' }} accentColor={DEPT_META.PERSONAL.color} /> )}
         </>
     );
 }
