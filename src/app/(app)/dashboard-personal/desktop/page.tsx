@@ -1,3 +1,4 @@
+
 // src/app/(app)/dashboard-personal/desktop/page.tsx
 "use client";
 import React, { useMemo, useState } from 'react';
@@ -158,6 +159,7 @@ function MiniCalendarCard() {
 }
 
 function AgendaDock() {
+  const {data} = useData();
   const agenda = useQuickNotes();
   const [outcomeFor, setOutcomeFor] = useState<string|null>(null);
   const openOutcome = (id: string) => setOutcomeFor(id);
@@ -211,6 +213,7 @@ function AgendaDock() {
       </div>
       <OutcomeDialog
         taskId={outcomeFor}
+        tasks={agenda.todayTasks.concat(agenda.overdue)}
         onClose={closeOutcome}
         onConfirm={(task, payload)=>{ agenda.completeTask(task.id); closeOutcome(); }}
       />
@@ -275,7 +278,7 @@ export default function PersonalDashboardPageDesktop() {
     return (
         <>
             <main className="flex-1 bg-slate-50 p-4 sm:p-6 lg:p-8">
-                <div className="mx-auto w-full max-w-[1400px] lg:grid lg:grid-cols-[1fr_340px_360px] lg:gap-6 min-h-[calc(100dvh-96px)]">
+                <div className="mx-auto w-full max-w-[1400px] lg:grid lg:grid-cols-[1fr_360px] lg:gap-6">
                   
                   {/* Columna principal */}
                   <div className="space-y-6">
@@ -317,29 +320,28 @@ export default function PersonalDashboardPageDesktop() {
                      </motion.div>
                   </div>
                   
-                  {/* Columna calendario (desktop sticky) */}
-                  <aside className="hidden lg:block sticky top-[76px] h-[calc(100dvh-96px)]">
-                    <MiniCalendarCard />
-                  </aside>
-
-                  {/* Columna agenda (desktop sticky) */}
-                  <aside className="hidden lg:block sticky top-[76px] h-[calc(100dvh-96px)]">
-                    <AgendaDock />
+                  {/* Columna Lateral Unificada (Calendario y Agenda) */}
+                  <aside className="hidden lg:block sticky top-[76px] h-[calc(100dvh-96px)] space-y-6">
+                    <div className="h-1/2">
+                      <MiniCalendarCard />
+                    </div>
+                    <div className="h-1/2">
+                      <AgendaDock />
+                    </div>
                   </aside>
 
                 </div>
             </main>
 
-            {/* En móvil, mostramos calendario y agenda apilados al final */}
-            <section className="lg:hidden mt-6 pt-6 border-t">
+            {/* Layout para móvil */}
+            <section className="lg:hidden mt-6 pt-6 border-t space-y-6">
               <div className="px-6">
-                <div className="mb-4">
-                  <MiniCalendarCard />
-                </div>
-                <div className="mt-6">
-                  <h3 className="font-semibold text-slate-900 mb-3">Mi Agenda</h3>
-                  <AgendaDock />
-                </div>
+                <h3 className="font-semibold text-slate-900 mb-3">Calendario</h3>
+                <MiniCalendarCard />
+              </div>
+              <div className="px-6">
+                <h3 className="font-semibold text-slate-900 mb-3">Mi Agenda</h3>
+                <AgendaDock />
               </div>
             </section>
 
