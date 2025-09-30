@@ -1,9 +1,9 @@
-
 // src/features/influencers/dialogs/NewCollabDialog.tsx
 "use client";
 import React, { useEffect, useState } from "react";
 import type { Platform, Tier } from "@/domain/ssot";
-import { SBDialog, SBDialogContent, Input, Select, SBButton } from "@/components/ui/ui-primitives";
+import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog";
+import { Input, Select, SBButton } from "@/components/ui/ui-primitives";
 
 export function NewCollabDialog({
   open, onClose, onSave,
@@ -26,7 +26,7 @@ export function NewCollabDialog({
         <SBDialogContent
             title="Nueva Colaboración"
             description="Registra una nueva colaboración con un influencer o creador de contenido."
-            onSubmit={(e)=>{e.preventDefault(); if(!creatorName||!goLiveAt) return; onSave({creatorName,platform,tier,goLiveAt,ownerUserId:owner||undefined,couponCode:coupon||undefined,utmCampaign:utm||undefined}); onClose();}}
+            onSubmit={(e: React.FormEvent)=>{e.preventDefault(); if(!creatorName||!goLiveAt) return; onSave({creatorName,platform,tier,goLiveAt,ownerUserId:owner||undefined,couponCode:coupon||undefined,utmCampaign:utm||undefined}); onClose();}}
             primaryAction={{ label: "Crear", type: "submit" }}
             secondaryAction={{ label: "Cancelar", onClick: onClose }}
         >
