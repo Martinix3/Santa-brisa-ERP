@@ -113,53 +113,43 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   // Auth state listener
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(firebaseAuth, user => {
-        console.log('[DataProvider] onAuthStateChanged:', user?.email || 'No user');
+        console.log(`[DataProvider] onAuthStateChanged: ${user?.email || 'No user'}`);
         setFirebaseUser(user);
         if (!user) {
-            setData(null);
             setCurrentUser(null);
+            setData(null);
         }
         setAuthReady(true);
     });
     return () => unsubscribe();
   }, []);
   
-  // Data loading effect, dependent on auth status
+  // Data loading effect
   useEffect(() => {
     if (authReady && firebaseUser && !data) {
         loadInitialData().catch(console.error);
     }
   }, [authReady, firebaseUser, data, loadInitialData]);
 
-  // Set currentUser based on loaded data and Firebase user.
-  // This effect also handles redirection after login.
+  // Set current app user when data or firebase user changes
   useEffect(() => {
-    console.log(`[DataProvider] Attempting to set currentUser. AuthReady: ${authReady}, FirebaseUser: ${!!firebaseUser}, Data: ${!!data}`);
-    if (!authReady) return; // Wait for auth to be ready
-    
-    if (!firebaseUser) {
-        setCurrentUser(null); // Clear user if firebase user is gone
-        return;
-    }
-
-    if (data?.users) {
-        const appUser = data.users.find(u => u.email === firebaseUser.email);
-        if (appUser) {
-            console.log(`[DataProvider] Found app user for ${firebaseUser.email}:`, appUser.name);
-            setCurrentUser(appUser);
-            // If we found the user and we are on the login page, redirect.
-            if (window.location.pathname === '/login') {
-                console.log('[DataProvider] User found, redirecting to /dashboard-personal');
-                router.push('/dashboard-personal');
-            }
-        } else {
-            console.log(`[DataProvider] App user for ${firebaseUser.email} not found in local data yet. Data may still be loading.`);
-        }
+    if (!authReady || !firebaseUser || !data?.users) return;
+    const appUser = data.users.find(u => u.email === firebaseUser.email);
+    if (appUser) {
+        console.log(`[DataProvider] Found app user for ${firebaseUser.email}: ${appUser.name}`);
+        setCurrentUser(appUser);
     } else {
-        console.log('[DataProvider] Conditions not met to find app user: `data.users` is not available.');
+        console.log(`[DataProvider] App user for ${firebaseUser.email} not found in local data yet. Data may still be loading.`);
     }
-    
-  }, [data, firebaseUser, authReady, router]);
+  }, [data, firebaseUser, authReady]);
+
+  // Redirect after login
+  useEffect(() => {
+    if (currentUser && authReady && window.location.pathname === '/login') {
+      console.log('[DataProvider] User is set, redirecting to /dashboard-personal');
+      router.push('/dashboard-personal');
+    }
+  }, [currentUser, authReady, router]);
 
   const togglePersistence = useCallback(() => {
     setIsPersistenceEnabled(prev => {
@@ -246,7 +236,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     try {
       await signInWithEmailAndPassword(firebaseAuth, email, pass);
       console.log(`[DataProvider] Firebase login successful for ${email}`);
-      // The onAuthStateChanged listener and subsequent useEffects will handle user state and redirection.
+      // The auth state listener will now handle everything else.
     } catch (error) {
       console.error(`[DataProvider] Firebase login failed for ${email}:`, error);
       throw error;
@@ -269,10 +259,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         active: true,
       };
 
-      // Persist the new user to Firestore immediately
       await saveCollection("users", [newUser]);
 
-      // Also update the local state to avoid race conditions
       setData(d => {
         const users = d?.users ?? [];
         const map = new Map(users.map(u => [u.id, u]));
