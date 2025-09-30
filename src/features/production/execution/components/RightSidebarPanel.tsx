@@ -52,7 +52,7 @@ export function RightSidebarPanel({ activeForm, setFormValue, orderIsLocked }: {
                 <label className="text-xs font-medium">Producción Final (Qty)</label>
                 <Input 
                   type="number"
-                  value={activeForm.finalOutput.qty}
+                  value={activeForm.finalOutput.qty ?? ''}
                   onChange={e => setFormValue('finalOutput', {...activeForm.finalOutput, qty: Number(e.target.value) || 0})}
                   readOnly={orderIsLocked}
                 />
@@ -61,7 +61,7 @@ export function RightSidebarPanel({ activeForm, setFormValue, orderIsLocked }: {
                 <label className="text-xs font-medium">Lote Final</label>
                 <Input
                   placeholder="Ej. LFG-2509-01"
-                  value={activeForm.finalOutput.lotNumber ?? ""}
+                  value={activeForm.finalOutput.lotNumber ?? ''}
                   onChange={e => setFormValue('finalOutput', {...activeForm.finalOutput, lotNumber: e.target.value})}
                   readOnly={orderIsLocked}
                 />
