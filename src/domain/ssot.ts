@@ -1,4 +1,5 @@
 
+
 // src/domain/ssot.ts
 
 // =================================================================
@@ -41,7 +42,7 @@ export type LotStatus = 'OPEN' | 'RELEASED' | 'BLOCKED' | 'CONSUMED' | 'SCRAPPED
 export type LotBucket = 'HOLD' | 'RELEASED' | 'REJECTED';
 export type InteractionKind = 'VISITA' | 'LLAMADA' | 'EMAIL' | 'WHATSAPP' | 'OTRO' | 'COBRO' | 'EVENTO_MKT';
 export type EventKind = 'DEMO' | 'FERIA' | 'FORMACION' | 'OTRO';
-export type PosTacticStatus = 'planned' | 'active' | 'closed' | 'cancelled';
+export type PosTacticStatus = 'planned' | 'active' | 'closed' | 'cancelled'|'DELIVERED'|'SCHEDULED'|'APPROVED';
 export type TraceEventKind = 'RECEIPT' | 'PRODUCTION_OUT' | 'PRODUCTION_IN' | 'CONSUME' | 'OUTPUT' | 'QC_TEST' | 'SHIPMENT' | 'ADJUSTMENT' | 'MOVE' | 'ARRIVED' | 'GENEALOGY_PARENT' | 'GENEALOGY_CHILD';
 export type TraceEventPhase = 'SOURCE' | 'RECEIPT' | 'QC' | 'PRODUCTION' | 'PACK' | 'WAREHOUSE' | 'SALE' | 'DELIVERY';
 export type CommercialFlow = 'DIRECT' | 'PLACEMENT';
@@ -333,14 +334,14 @@ export interface AccountPriceOverride {}
 export interface Activation {}
 export interface Promotion {}
 export interface MaterialCost {}
-export interface FinanceLink { id:string; docType?: string; externalId?: string; status?: 'pending' | 'paid' | 'overdue'; docNumber?: string; netAmount: number; taxAmount: number; grossAmount: number; currency: Currency; issueDate: string; dueDate: string; partyId?: string; costObject?: { kind: string; id: string; }; }
-export interface PaymentLink { id:string; externalId?: string; financeLinkId: string; amount: number; date: string; method?: string; }
+export interface FinanceLink { id: string; docType?: string; externalId?: string; status?: 'pending' | 'paid' | 'overdue'; docNumber?: string; netAmount: number; taxAmount: number; grossAmount: number; currency: Currency; issueDate: string; dueDate: string; partyId?: string; costObject?: { kind: string; id: string; }; }
+export interface PaymentLink { id: string; externalId?: string; financeLinkId: string; amount: number; date: string; method?: string; }
 export interface TraceEvent {
     id: string;
     at: string;
     title: string;
     details: string;
-    links?: { lotNumber?: string; batchId?: string; orderId?: string; shipmentId?: string; receiptId?: string; qaCheckId?: string; prodOrderId?: string; };
+    links?: { lotNumber?: string; batchId?: string; orderId?: string; shipmentId?: string; receiptId?: string; qaCheckId?: string; prodOrderId?: string;};
     data?: any;
     phase: TraceEventPhase;
     kind: TraceEventKind;

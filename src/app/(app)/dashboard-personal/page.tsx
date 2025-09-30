@@ -1,3 +1,4 @@
+
 // src/app/(app)/dashboard-personal/page.tsx
 "use client";
 import React, { useMemo, useState } from 'react';
@@ -13,10 +14,16 @@ import { MarketingTaskCompletionDialog } from '@/features/marketing/components/M
 import { mapInteractionsToTasks } from '@/features/agenda/mappers';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
-import type { Interaction, InteractionStatus, User as CurrentUserType, SantaData } from '@/domain/ssot';
+import type { Interaction, InteractionStatus, User as CurrentUserType, SantaData, Task as AgendaTask } from '@/domain/ssot';
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
 } from 'recharts';
+// ✅ Agenda integrada
+import { useQuickNotes } from '@/features/agenda/hooks/useQuickNotes';
+import { getStorage } from '@/features/agenda/storage'; // factory SSR-safe
+import { QuickEditor } from '@/features/agenda/components/QuickEditor';
+import { NotesList } from '@/features/agenda/components/NotesList';
+import { OutcomeDialog } from '@/features/agenda/components/OutcomeDialog';
 
 
 // ============================================================================
@@ -90,6 +97,86 @@ function PersonalSalesChart({ data, currentUser }: { data: SantaData, currentUse
 }
 
 // ============================================================================
+// AGENDA DOCK — compacto (reutiliza QuickNotes)
+// - Mobile: bloque principal (editor + lista + footer KPIs).
+// - Desktop: panel lateral sticky  (tabs compactas + notas del día).
+// ============================================================================
+function AgendaDock() {
+  const storage = getStorage();
+  const agenda = useQuickNotes(storage);
+  const [outcomeFor, setOutcomeFor] = useState<string|null>(null);
+  const openOutcome = (id: string) => setOutcomeFor(id);
+  const closeOutcome = () => setOutcomeFor(null);
+
+  const kpis = useMemo(()=> {
+    const overdue = agenda.overdue.length;
+    const todayOpen = agenda.todayTasks.filter(t=>t.status==='OPEN').length;
+    const posToday = agenda.todayTasks.filter(t=> t.kind==='POS_EVT' || t.kind==='POS_PLV').length;
+    return { overdue, todayOpen, posToday };
+  }, [agenda.overdue, agenda.todayTasks]);
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl lg:rounded-none lg:border-0 lg:bg-transparent flex flex-col h-full">
+      {/* Header compacto + toggle vincular */}
+      <div className="px-4 pt-3 pb-2 flex items-center gap-3 lg:px-0">
+        <div className="text-sm font-semibold text-slate-900">Agenda</div>
+        <div className="ml-auto text-xs flex items-center gap-2">
+          <label className="inline-flex items-center gap-1 text-slate-600">
+            <input type="checkbox" checked={agenda.linkNotes} onChange={(e)=>agenda.setLinkNotes(e.target.checked)} />
+            Vincular notas
+          </label>
+        </div>
+      </div>
+
+      {/* Editor rápido */}
+      <div className="px-4 lg:px-0">
+        <QuickEditor onSubmit={agenda.addNote} />
+      </div>
+
+      {/* Overdue plegable (si existe) */}
+      {agenda.overdue.length>0 && (
+        <details open className="px-4 lg:px-0">
+          <summary className="text-xs text-slate-600 py-1">Pendientes de ayer ({agenda.overdue.length})</summary>
+          <NotesList
+            notes={agenda.rangedNotes}
+            tasks={agenda.overdue}
+            onPointerDown={agenda.onItemPointerDown}
+            onPointerMove={agenda.onItemPointerMove}
+            onPointerUp={(id)=>agenda.onItemPointerUp(id, openOutcome)}
+          />
+        </details>
+      )}
+
+      {/* Lista del día */}
+      <div className="flex-1 overflow-y-auto px-4 lg:px-0">
+        <NotesList
+          notes={agenda.rangedNotes}
+          tasks={agenda.todayTasks}
+          onPointerDown={agenda.onItemPointerDown}
+          onPointerMove={agenda.onItemPointerMove}
+          onPointerUp={(id)=>agenda.onItemPointerUp(id, openOutcome)}
+        />
+      </div>
+
+      {/* Footer KPIs táctil (mobile visible, desktop discreto) */}
+      <div className="border-t bg-white px-4 py-2 text-sm flex items-center justify-between lg:rounded-xl lg:border lg:mt-3">
+        <div className="text-slate-600">Vencidas</div><div className="font-semibold">{kpis.overdue}</div>
+        <div className="text-slate-600">Para hoy</div><div className="font-semibold">{kpis.todayOpen}</div>
+        <div className="text-slate-600">POS hoy</div><div className="font-semibold">{kpis.posToday}</div>
+      </div>
+
+      {/* Outcome inteligente */}
+      <OutcomeDialog
+        taskId={outcomeFor}
+        tasks={agenda.todayTasks.concat(agenda.overdue) as unknown as AgendaTask[]}
+        onClose={closeOutcome}
+        onConfirm={(task, payload)=>{ agenda.completeTask(task.id); closeOutcome(); }}
+      />
+    </div>
+  );
+}
+
+// ============================================================================
 // MAIN PAGE COMPONENT - ACTUALIZADO
 // ============================================================================
 export default function PersonalDashboardPage() {
@@ -153,43 +240,61 @@ export default function PersonalDashboardPage() {
 
     return (
         <>
-            <main className="flex-1 overflow-x-hidden overflow-y-auto bg-white p-6">
-                <div className="max-w-7xl mx-auto space-y-6">
-                    <div className="flex items-center justify-between">
-                        <h1 className="text-2xl font-bold text-slate-900">Mi Dashboard</h1>
-                        <div className="hidden md:flex items-center gap-1 rounded-lg border p-1 bg-slate-100">
-                            {(['week', 'month', 'year'] as const).map(range => (
-                                <button
-                                    key={range}
-                                    onClick={() => setTimeRange(range)}
-                                    className={`px-3 py-1.5 rounded-md text-sm font-semibold transition-colors ${timeRange === range ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-600 hover:text-slate-800'}`}
-                                >
-                                    {range === 'week' ? 'Semana' : range === 'month' ? 'Mes' : 'Año'}
-                                </button>
-                            ))}
-                        </div>
+            {/* Layout integrado:
+               - Mobile: flujo vertical (KPIs → gráfico → TaskBoard → AgendaDock).
+               - Desktop: grid con panel lateral fijo para AgendaDock. */}
+            <main className="flex-1 overflow-x-hidden overflow-y-auto bg-white p-0 lg:p-6">
+                <div className="mx-auto w-full lg:max-w-[1200px] lg:grid lg:grid-cols-[1fr_380px] lg:gap-6">
+                  {/* Columna principal */}
+                  <div className="p-6 space-y-6">
+                     <div className="flex items-center justify-between">
+                         <h1 className="text-2xl font-bold text-slate-900">Mi Dashboard</h1>
+                         <div className="hidden md:flex items-center gap-1 rounded-lg border p-1 bg-slate-100">
+                             {(['week', 'month', 'year'] as const).map(range => (
+                                 <button
+                                     key={range}
+                                     onClick={() => setTimeRange(range)}
+                                     className={`px-3 py-1.5 rounded-md text-sm font-semibold transition-colors ${timeRange === range ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-600 hover:text-slate-800'}`}
+                                 >
+                                     {range === 'week' ? 'Semana' : range === 'month' ? 'Mes' : 'Año'}
+                                 </button>
+                             ))}
+                         </div>
+                     </div>
+
+                     <motion.div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" variants={containerVariants} initial="hidden" animate="visible">
+                         <KpiCard icon={Users} title="Nuevas Cuentas" value={kpis.newAccounts} goal={10} color={SANTA_BRISA_COLORS.brand.accent} />
+                         <KpiCard icon={Package} title="Cajas Vendidas" value={kpis.boxesSold} goal={150} color={SANTA_BRISA_COLORS.brand.accent} />
+                         <KpiCard icon={Briefcase} title="Visitas" value={kpis.visits} goal={60} color={SANTA_BRISA_COLORS.brand.accent} />
+                         <KpiCard icon={CheckSquare} title="POS Tactics" value={kpis.posTactics} goal={20} color={SANTA_BRISA_COLORS.brand.accent} />
+                     </motion.div>
+                     
+                     {/* Gráfico */}
+                     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.5 }}>
+                       <PersonalSalesChart data={data} currentUser={currentUser} />
+                     </motion.div>
+ 
+                     {/* TaskBoard personal */}
+                     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, duration: 0.5 }}>
+                         <TaskBoard
+                             tasks={personalTasks}
+                             onTaskStatusChange={handleUpdateStatus}
+                             onCompleteTask={(id) => handleUpdateStatus(id, 'done')}
+                             onNewTask={() => setOpenNewTask(true)}
+                         />
+                     </motion.div>
+                  </div>
+                  {/* Panel lateral Agenda (desktop sticky) */}
+                  <aside className="hidden lg:block sticky top-[76px] h-[calc(100dvh-76px)]">
+                    <AgendaDock />
+                  </aside>
+                  {/* En móvil, colocamos Agenda al final del flujo para foco en “hacer” */}
+                  <div className="lg:hidden border-t mt-2">
+                    <div className="px-6 pt-4 pb-2 text-sm font-semibold text-slate-900">Mi Agenda</div>
+                    <div className="px-6 pb-6">
+                      <AgendaDock />
                     </div>
-
-                    <motion.div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" variants={containerVariants} initial="hidden" animate="visible">
-                        <KpiCard icon={Users} title="Nuevas Cuentas" value={kpis.newAccounts} goal={10} color={SANTA_BRISA_COLORS.brand.accent} />
-                        <KpiCard icon={Package} title="Cajas Vendidas" value={kpis.boxesSold} goal={150} color={SANTA_BRISA_COLORS.brand.accent} />
-                        <KpiCard icon={Briefcase} title="Visitas" value={kpis.visits} goal={60} color={SANTA_BRISA_COLORS.brand.accent} />
-                        <KpiCard icon={CheckSquare} title="POS Tactics" value={kpis.posTactics} goal={20} color={SANTA_BRISA_COLORS.brand.accent} />
-                    </motion.div>
-                    
-                    {/* El nuevo gráfico se inserta aquí, con su propia animación */}
-                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.5 }}>
-                      <PersonalSalesChart data={data} currentUser={currentUser} />
-                    </motion.div>
-
-                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, duration: 0.5 }}>
-                        <TaskBoard
-                            tasks={personalTasks}
-                            onTaskStatusChange={handleUpdateStatus}
-                            onCompleteTask={(id) => handleUpdateStatus(id, 'done')}
-                            onNewTask={() => setOpenNewTask(true)}
-                        />
-                    </motion.div>
+                  </div>
                 </div>
             </main>
 
