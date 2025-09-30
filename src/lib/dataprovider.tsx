@@ -135,8 +135,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   // This effect also handles redirection after login.
   useEffect(() => {
     console.log(`[DataProvider] Attempting to set currentUser. AuthReady: ${authReady}, FirebaseUser: ${!!firebaseUser}, Data: ${!!data}`);
-    if (!authReady || !firebaseUser) {
-        return; // Wait for auth to be ready
+    if (!authReady) return; // Wait for auth to be ready
+    
+    if (!firebaseUser) {
+        setCurrentUser(null); // Clear user if firebase user is gone
+        return;
     }
 
     if (data?.users) {
@@ -150,7 +153,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                 router.push('/dashboard-personal');
             }
         } else {
-            console.log(`[DataProvider] App user for ${firebaseUser.email} not found in local data yet.`);
+            console.log(`[DataProvider] App user for ${firebaseUser.email} not found in local data yet. Data may still be loading.`);
         }
     } else {
         console.log('[DataProvider] Conditions not met to find app user: `data.users` is not available.');
