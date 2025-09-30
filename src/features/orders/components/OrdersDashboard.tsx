@@ -7,6 +7,7 @@ import type { OrderSellOut } from '@/domain/ssot';
 import OrdersTable from './OrdersTable';
 import { KPI, SBCard } from '@/components/ui/ui-primitives';
 import { Package, Truck, FileText, CheckCircle, Clock } from 'lucide-react';
+import { SB_COLORS } from '@/domain/ssot';
 
 const OrdersDashboard = () => {
     const { data } = useData();
@@ -29,10 +30,10 @@ const OrdersDashboard = () => {
             </header>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-                <KPI icon={Clock} label="Pendiente de Confirmar" value={kpis.pendingConfirmation} />
-                <KPI icon={Package} label="Pendiente de Enviar" value={kpis.pendingShipment} />
-                <KPI icon={Truck} label="Pendiente de Facturar" value={kpis.pendingInvoice} />
-                <KPI icon={FileText} label="Pendiente de Cobrar" value={kpis.pendingPayment} />
+                <KPI icon={Clock} label="Pendiente de Confirmar" value={kpis.pendingConfirmation} color={SB_COLORS.state.info} />
+                <KPI icon={Package} label="Pendiente de Enviar" value={kpis.pendingShipment} color={SB_COLORS.primary.teal} />
+                <KPI icon={Truck} label="Pendiente de Facturar" value={kpis.pendingInvoice} color={SB_COLORS.state.success} />
+                <KPI icon={FileText} label="Pendiente de Cobrar" value={kpis.pendingPayment} color={SB_COLORS.primary.copper} />
             </div>
 
             <SBCard>

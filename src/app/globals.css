@@ -9,7 +9,7 @@
   /* Colores de Marca y Acción */
   --accent: 46 82% 64%;    /* Amarillo Santa Brisa #F4C542 */
   --primary: 224 43% 11%;   /* Casi negro para texto y elementos principales #111827 */
-  --primary-foreground: 46 82% 64%; /* Amarillo para texto sobre fondo oscuro */
+  --primary-foreground: 0 0% 100%; /* Blanco para texto sobre fondo oscuro */
 
   /* Colores Secundarios y de Fondo */
   --background: 0 0% 100%; /* Blanco para el fondo de la página */
@@ -18,7 +18,7 @@
   --secondary-foreground: 224 43% 11%;
 
   /* Tarjetas */
-  --card: 220 14% 98%; /* Gris muy claro para el fondo de las tarjetas */
+  --card: 0 0% 100%; /* Blanco para el fondo de las tarjetas */
   --card-foreground: 224 43% 11%;
 
   /* Textos */
@@ -67,7 +67,7 @@
   --sb-accent-ventas: 22 70% 61%; /* #ea945e */
   --sb-accent-marketing: 182 40% 70%; /* #9dd4d6 */
   --sb-accent-logistica: 22 40% 44%; /* #996947 */
-  --sb-accent-produc: 182 20% 47%; /* #638c8d */
+  --sb-accent-produccion: 182 20% 47%; /* #638c8d */
   --sb-accent-calidad: 214 35% 65%; /* #8298ce */
   --sb-accent-finance: var(--sb-sun-strong);
   --sb-accent-admin: 240 5% 55%; /* #8a8c92 */
@@ -75,7 +75,7 @@
 
 /* ===== Base ===== */
 @layer base {
-  * { border-color: hsl(var(--muted) / 0.5); }
+  * { border-color: hsl(var(--border)); }
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
@@ -85,37 +85,6 @@
   .sb-checkbox:checked {
     background-color: hsl(var(--accent));
     border-color: hsl(var(--accent));
-  }
-}
-
-/* ===== Components (único bloque) ===== */
-@layer components {
-  .sb-btn-primary {
-    @apply h-10 px-4 py-2 inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50;
-    background-color: hsl(var(--primary));
-    color: hsl(var(--primary-foreground));
-  }
-  .sb-btn-primary:hover {
-    background-color: hsl(var(--primary) / 0.9);
-  }
-
-  .sb-card {
-    @apply rounded-xl border bg-card text-card-foreground shadow-sm;
-  }
-  .sb-card__header {
-    @apply flex flex-col space-y-1.5 p-6;
-  }
-  .sb-card__title { @apply text-lg font-semibold leading-none tracking-tight; }
-  .sb-card__content { @apply p-6 pt-0; }
-  .sb-card__footer { @apply flex items-center p-6 pt-0; }
-
-  .sb-menu {
-    @apply z-50 min-w-[8rem] overflow-hidden rounded-md border bg-background p-1 text-foreground shadow-md;
-    animation: fade-in-80 0.15s ease-out, slide-in-from-top-2 0.15s ease-out;
-  }
-
-  .sb-icon {
-    color: hsl(var(--accent));
   }
 }
 
@@ -210,5 +179,5 @@
     50% { transform: scale(1.5); opacity: 1; }
 }
 .animate-pulse-once {
-    animation: pulse 0.6s ease-out forwards;
+    animation: pulse 0.6s ease;
 }

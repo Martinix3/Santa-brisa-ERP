@@ -23,26 +23,10 @@ import {
   Pie,
   PieChart,
 } from "recharts";
-import { SBButton, SBCard } from "@/components/ui/ui-primitives";
+import { SBButton, SBCard, KPI } from "@/components/ui/ui-primitives";
+import { SB_THEME } from "@/domain/ssot";
 
-/* =============================================================
-   🎨 Design System Santa Brisa — Tokens locales (usar en línea)
-   ============================================================= */
-const SB = {
-  text: {
-    primary: "#111827",
-    secondary: "#374151",
-    muted: "#6b7280",
-  },
-  border: "#e5e7eb",
-  surfaces: { page: "hsl(var(--background))", muted: "hsl(var(--secondary))", white: "hsl(var(--secondary))" },
-  brand: {
-    accent: "#F4C542", // Amarillo SB (principal y acción)
-    cobre: "#B25A32",  // Secundaria
-    agua:  "#77D9CF",  // Secundaria
-    naranja: "#F26D3D"
-  },
-};
+const SB = SB_THEME;
 
 /* =============================================================
    🧱 KpiCard (con “barra fantasma” del líder) — DS aplicado
@@ -57,7 +41,7 @@ const KpiCard = ({
   goalNumber,
   leaderValue,
   leaderName,
-  color = SB.brand.accent,
+  color = SB.chart.line[0],
 }: {
   icon: React.ElementType;
   title: string;
@@ -87,13 +71,13 @@ const KpiCard = ({
   return (
     <SBCard className="p-5">
       <div className="flex items-center space-x-3 mb-2">
-        <div className="bg-white p-2 rounded-lg border" style={{ borderColor: SB.border }}>
+        <div className="bg-white p-2 rounded-lg border">
           <Icon className="text-gray-500" size={20} />
         </div>
-        <p className="text-sm font-medium" style={{ color: SB.text.secondary }}>{title}</p>
+        <p className="text-sm font-medium text-text-secondary">{title}</p>
       </div>
 
-      <p className="text-3xl font-bold" style={{ color: SB.text.primary }}>{value}</p>
+      <p className="text-3xl font-bold text-text-primary">{value}</p>
 
       {change && (
         <div className="flex items-center text-sm mt-1">
@@ -253,10 +237,10 @@ export default function SalesDashboardPage() {
     return Object.entries(salesBySegment).map(([name, value]) => ({ name, value: (value / total) * 100 }));
   }, [data]);
 
-  const pieColors = [SB.brand.accent, SB.brand.agua, SB.brand.cobre, SB.brand.naranja];
+  const pieColors = [SB_THEME.chart.line[0], SB_THEME.chart.line[1], SB_THEME.chart.line[2], SB_THEME.chart.line[3]];
 
   return (
-    <div className="p-6" style={{ background: SB.surfaces.page }}>
+    <div className="p-6" style={{ background: 'hsl(var(--background))' }}>
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -279,23 +263,23 @@ export default function SalesDashboardPage() {
 
         {/* KPIs */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <KpiCard icon={Users} title="Nuevas Cuentas" value={kpis.newAccounts.toString()} color={SB.brand.accent}
+          <KpiCard icon={Users} title="Nuevas Cuentas" value={kpis.newAccounts.toString()} color={SB_THEME.chart.line[0]}
             goal={`${kpis.newAccounts} / 10`} goalNumber={10} progress={(kpis.newAccounts / 10) * 100}
             leaderValue={leaders.newAccounts.value} leaderName={leaders.newAccounts.name} />
 
-          <KpiCard icon={MessageCircle} title="Conversión a pedido" value={`${kpis.conversionRate.toFixed(1)}%`} color={SB.brand.accent} />
+          <KpiCard icon={MessageCircle} title="Conversión a pedido" value={`${kpis.conversionRate.toFixed(1)}%`} color={SB_THEME.chart.line[1]} />
 
-          <KpiCard icon={Euro} title="Facturación" value={`${kpis.revenue.toLocaleString('es-ES')} €`} color={SB.brand.accent} />
+          <KpiCard icon={Euro} title="Facturación" value={`${kpis.revenue.toLocaleString('es-ES')} €`} color={SB_THEME.chart.line[2]} />
 
-          <KpiCard icon={Package} title="Cajas vendidas" value={kpis.boxesSold.toString()} color={SB.brand.accent}
+          <KpiCard icon={Package} title="Cajas vendidas" value={kpis.boxesSold.toString()} color={SB_THEME.chart.line[3]}
             goal={`${kpis.boxesSold} / 100`} goalNumber={100} progress={(kpis.boxesSold / 100) * 100}
             leaderValue={leaders.boxesSold.value} leaderName={leaders.boxesSold.name} />
 
-          <KpiCard icon={Briefcase} title="Visitas" value={kpis.visits.toString()} color={SB.brand.accent}
+          <KpiCard icon={Briefcase} title="Visitas" value={kpis.visits.toString()} color={SB_THEME.chart.line[4]}
             goal={`${kpis.visits} / 200`} goalNumber={200} progress={(kpis.visits / 200) * 100}
             leaderValue={leaders.visits.value} leaderName={leaders.visits.name} />
 
-          <KpiCard icon={CheckSquare} title="POS tactics colocadas" value={kpis.posTactics.toString()} color={SB.brand.accent}
+          <KpiCard icon={CheckSquare} title="POS tactics colocadas" value={kpis.posTactics.toString()}
             goal={`${kpis.posTactics} / 20`} goalNumber={20} progress={(kpis.posTactics / 20) * 100}
             leaderValue={leaders.posTactics.value} leaderName={leaders.posTactics.name} />
         </div>
@@ -303,17 +287,17 @@ export default function SalesDashboardPage() {
         {/* Grids */}
         <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
           <SBCard className="lg:col-span-2 p-5">
-            <h3 className="font-semibold" style={{ fontSize: 16, color: SB.text.primary }}>Evolución de ventas + POS</h3>
+            <h3 className="font-semibold text-text-primary text-base">Evolución de ventas + POS</h3>
             <div className="mt-4 h-[280px]">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={salesEvolutionData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={SB.border} />
-                  <XAxis dataKey="name" tick={{ fill: SB.text.muted, fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: SB.text.muted, fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${Number(v) / 1000}k`} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={SB_THEME.chart.grid} />
+                  <XAxis dataKey="name" tick={{ fill: 'hsl(var(--text-muted))', fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: 'hsl(var(--text-muted))', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${Number(v) / 1000}k`} />
                   <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: 6 }} itemStyle={{ color: '#fff' }} labelStyle={{ color: '#fff', fontWeight: 'bold' }} />
-                  <Legend wrapperStyle={{ fontSize: 11, color: SB.text.muted }} />
-                  <Line type="monotone" dataKey="Ventas" stroke={SB.brand.accent} strokeWidth={2} dot={{ r: 3, strokeWidth: 2, fill: '#fff' }} activeDot={{ r: 5 }} />
-                  <Line type="monotone" dataKey="POS" stroke={SB.brand.cobre} strokeWidth={2} dot={{ r: 3, strokeWidth: 2, fill: '#fff' }} activeDot={{ r: 5 }} />
+                  <Legend wrapperStyle={{ fontSize: 11, color: 'hsl(var(--text-muted))' }} />
+                  <Line type="monotone" dataKey="Ventas" stroke={SB_THEME.chart.line[0]} strokeWidth={2} dot={{ r: 3, strokeWidth: 2, fill: '#fff' }} activeDot={{ r: 5 }} />
+                  <Line type="monotone" dataKey="POS" stroke={SB_THEME.chart.line[1]} strokeWidth={2} dot={{ r: 3, strokeWidth: 2, fill: '#fff' }} activeDot={{ r: 5 }} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -321,7 +305,7 @@ export default function SalesDashboardPage() {
 
           <div className="lg:col-span-1 space-y-6">
             <SBCard className="p-5">
-              <h3 className="font-semibold" style={{ fontSize: 16, color: SB.text.primary }}>Mix de Ventas</h3>
+              <h3 className="font-semibold text-text-primary text-base">Mix de Ventas</h3>
               <div className="mt-4 h-36 flex items-center justify-center">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -331,7 +315,7 @@ export default function SalesDashboardPage() {
                       ))}
                     </Pie>
                     <Tooltip formatter={(value) => `${(value as number).toFixed(1)}%`} contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: 6, color: '#fff' }} />
-                    <Legend iconSize={8} layout="vertical" verticalAlign="middle" align="right" wrapperStyle={{ fontSize: 11, color: SB.text.muted }} />
+                    <Legend iconSize={8} layout="vertical" verticalAlign="middle" align="right" wrapperStyle={{ fontSize: 11, color: 'hsl(var(--text-muted))' }} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
@@ -341,12 +325,6 @@ export default function SalesDashboardPage() {
           </div>
         </div>
       </div>
-
-      {/* Animación sutil (fadeInUp) */}
-      <style jsx global>{`
-        @keyframes sb-fadeInUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-        .sb-animate-in { animation: sb-fadeInUp .25s ease-out both; }
-      `}</style>
     </div>
   );
 }

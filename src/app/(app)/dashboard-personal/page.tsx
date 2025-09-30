@@ -7,14 +7,14 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Plus, Briefcase, Package, UserPlus, Target } from 'lucide-react';
 import { UpcomingTasks } from '@/features/agenda/components/UpcomingTasks';
 import type { Department } from '@/domain/ssot';
-import { KPI } from '@/components/ui/ui-primitives';
+import { KPI, SBButton } from '@/components/ui/ui-primitives';
 
 function PersonalKpiCard({ icon: Icon, title, value, goal }: { icon: React.ElementType, title: string, value: number, goal: number }) {
     const progress = goal > 0 ? Math.min(100, (value / goal) * 100) : 0;
     const color = "hsl(var(--sb-accent-ventas))";
 
     return (
-        <div className="bg-card p-4 rounded-lg border border-zinc-200">
+        <div className="sb-card p-4">
              <div className="flex items-center space-x-3 mb-2">
                 <div className="bg-zinc-100 p-2 rounded-lg">
                     <Icon className="text-zinc-500" size={20} />
@@ -60,10 +60,10 @@ export default function PersonalDashboardPage() {
                     <Avatar name={currentUser?.name} size="lg" />
                 </header>
 
-                <button className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-lg bg-yellow-400 text-black font-semibold hover:bg-yellow-500 transition-colors">
+                <SBButton className="w-full bg-yellow-400 text-black hover:bg-yellow-500 font-semibold" size="lg">
                     <Plus size={20} />
                     Añadir Rápido
-                </button>
+                </SBButton>
 
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                     <PersonalKpiCard icon={UserPlus} title="Nuevas Cuentas" value={kpis.newAccounts} goal={10} />

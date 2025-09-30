@@ -16,6 +16,8 @@ import { NewAccountDialog } from '@/features/accounts/components/NewAccountDialo
 import { DEPT_META } from '@/domain/ssot';
 import { toast } from 'sonner';
 import { AccountBarDialog } from '@/features/accounts/components/AccountBarDialog';
+import { SBButton } from '@/components/ui/ui-primitives';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 
 const STAGE: Record<string, { label:string; tint:string; text:string }> = {
@@ -109,10 +111,22 @@ function AccountBar({ a, party, santaData, onAddActivity, onOpenDialog, userMap,
             </div>
             <div className="text-sm text-zinc-700 truncate">{party?.billingAddress?.city ||'—'}</div>
             <div className="text-sm text-zinc-700 truncate">{distributorName}</div>
-            <div className="text-right relative group focus-within:z-10">
-                <button className="p-1.5 rounded-md border border-zinc-200 bg-white/50 text-zinc-700 inline-flex items-center transition-all hover:bg-white/90 hover:border-zinc-300 hover:scale-105" title="Acciones" onClick={(e) => { e.stopPropagation(); onOpenDialog(a.id); }}>
-                    <MoreVertical className="h-3.5 w-3.5"/>
-                </button>
+            <div className="text-right">
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <SBButton variant="ghost" size="sm" className="h-8 w-8 p-0">
+                            <MoreVertical className="h-4 w-4"/>
+                        </SBButton>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                        <DropdownMenuItem onSelect={() => onOpenDialog(a.id)}>
+                            Acciones Rápidas
+                        </DropdownMenuItem>
+                         <DropdownMenuItem asChild>
+                           <Link href={`/accounts/${a.id}`}>Ver Ficha</Link>
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </div>
         </div>
         {open && kpis && (
@@ -312,10 +326,9 @@ export default function AccountsPage() {
   return (
     <>
       <ModuleHeader title={`Cuentas de ${flow === 'PLACEMENT' ? 'Colocación' : 'Venta Directa'}`} icon={Users}>
-        <button onClick={() => setIsNewAccountOpen(true)} className="flex items-center gap-2 text-sm rounded-md px-3 py-1.5 font-semibold transition-colors"
-         style={{ backgroundColor: DEPT_META.VENTAS.color, color: DEPT_META.VENTAS.textColor }}>
+        <SBButton onClick={() => setIsNewAccountOpen(true)} style={{ backgroundColor: DEPT_META.VENTAS.color, color: DEPT_META.VENTAS.textColor }}>
             <Plus size={16} /> Nueva Cuenta
-        </button>
+        </SBButton>
       </ModuleHeader>
       <div className="w-full px-4 lg:px-8 pt-3 pb-1 sticky top-0 z-20 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60 border-b">
         <div className="flex items-center gap-2">
@@ -362,7 +375,7 @@ export default function AccountsPage() {
         })}
         {!filtered.length && (q || fltRep || fltCity || fltDist) ? (
             <div className="px-4 py-8 text-center text-sm text-zinc-600">
-                No hay resultados con esos filtros. <button onClick={() => { setQ(''); setFltRep(''); setFltCity(''); setFltDist(''); }} className="underline">Limpiar filtros</button>
+                No hay resultados con esos filtros. <SBButton variant="ghost" onClick={() => { setQ(''); setFltRep(''); setFltCity(''); setFltDist(''); }} className="underline">Limpiar filtros</SBButton>
             </div>
         ) : null}
       </div>

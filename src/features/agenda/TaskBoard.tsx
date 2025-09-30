@@ -22,36 +22,6 @@ export type Task = {
   originalInteraction: Interaction; // Agregamos la interacción original
 };
 
-
-// ===============================
-// 🎨 DS Tokens
-// ===============================
-const SB = {
-  text: { primary: '#111827', secondary: '#374151', muted: '#6b7280' },
-  border: '#e5e7eb',
-  surface: { muted: '#f9fafb', white: '#ffffff' },
-  accent: '#F4C542',
-};
-
-// ===============================
-// Columnas Kanban
-// ===============================
-
-type ColumnId = 'overdue' | 'upcoming' | 'done';
-
-const KANBAN_COLS: { id: ColumnId; label: string; icon: React.ElementType; headerColor: string }[] = [
-  { id: 'overdue', label: 'Atrasadas',  icon: AlertCircle, headerColor: '#991b1b' }, // rojo semántico sólo aquí
-  { id: 'upcoming', label: 'Programadas', icon: Clock,      headerColor: '#374151' },
-  { id: 'done',    label: 'Hechas',      icon: Check,      headerColor: '#065f46' },
-];
-
-// ===============================
-// Utilidades de fecha
-// ===============================
-const toISO = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString();
-const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
-const endOfDay   = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
-
 // ===============================
 // Tarjeta de tarea
 // ===============================
@@ -70,21 +40,20 @@ function TaskCard({ task, onComplete }: { task: Task; onComplete: (id: string) =
 
   return (
     <SBCard
-      style={{ borderLeft: `4px solid ${deptMeta?.color || '#cbd5e1'}` }}
       className="p-3 group"
       role="listitem"
       aria-label={`${task.title}${dateLabel ? `, ${dateLabel.toLocaleString('es-ES')}` : ''}`}
     >
       <div className="flex items-start justify-between">
-        <p className="font-medium text-sm" style={{ color: SB.text.primary }}>{task.title}</p>
+        <p className="font-medium text-sm text-text-primary">{task.title}</p>
       </div>
 
-      {task.location && <p className="text-xs mt-1" style={{ color: SB.text.muted }}>{task.location}</p>}
+      {task.location && <p className="text-xs mt-1 text-text-muted">{task.location}</p>}
 
       <div className="mt-2 flex justify-between items-center">
         <div className="flex items-center gap-2">
           {dateLabel && (
-            <time className="text-xs" style={{ color: SB.text.muted }} dateTime={dateLabel.toISOString()}>
+            <time className="text-xs text-text-muted" dateTime={dateLabel.toISOString()}>
               {dateLabel.toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}
             </time>
           )}
@@ -112,6 +81,26 @@ function TaskCard({ task, onComplete }: { task: Task; onComplete: (id: string) =
 }
 
 // ===============================
+// Columnas Kanban
+// ===============================
+
+type ColumnId = 'overdue' | 'upcoming' | 'done';
+
+const KANBAN_COLS: { id: ColumnId; label: string; icon: React.ElementType; headerColor: string }[] = [
+  { id: 'overdue', label: 'Atrasadas',  icon: AlertCircle, headerColor: '#991b1b' }, // rojo semántico sólo aquí
+  { id: 'upcoming', label: 'Programadas', icon: Clock,      headerColor: '#374151' },
+  { id: 'done',    label: 'Hechas',      icon: Check,      headerColor: '#065f46' },
+];
+
+// ===============================
+// Utilidades de fecha
+// ===============================
+const toISO = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString();
+const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+const endOfDay   = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+
+
+// ===============================
 // Columna de estado (ahora sección vertical)
 // ===============================
 function StatusSection({
@@ -130,7 +119,7 @@ function StatusSection({
   const renderTasks = (tasksToRender: Task[]) => {
     if (tasksToRender.length === 0) {
       return (
-        <div className="text-xs text-zinc-500 bg-white/60 border border-dashed rounded-lg px-3 py-6 text-center" style={{ borderColor: SB.border }}>
+        <div className="text-xs text-zinc-500 bg-white/60 border border-dashed rounded-lg px-3 py-6 text-center">
           Sin tareas
         </div>
       );
@@ -146,18 +135,12 @@ function StatusSection({
         <h3 className="flex items-center gap-2 font-semibold" style={{ color: col.headerColor }}>
           <col.icon size={18} />
           {col.label}
-          <span className="text-sm font-normal" style={{ color: SB.text.muted }}>{tasks.length}</span>
+          <span className="text-sm font-normal text-text-muted">{tasks.length}</span>
         </h3>
         {onNewTask && col.id === 'upcoming' && (
-          <button
-            onClick={onNewTask}
-            className="w-7 h-7 rounded-lg flex items-center justify-center transition"
-            title="Añadir nueva tarea"
-            aria-label="Añadir nueva tarea"
-            style={{ background: '#eef2f7', border: `1px solid ${SB.border}`, color: SB.text.secondary }}
-          >
+          <SBButton variant="secondary" size="sm" onClick={onNewTask} title="Añadir nueva tarea" aria-label="Añadir nueva tarea">
             <Plus size={16} strokeWidth={2.5} />
-          </button>
+          </SBButton>
         )}
       </div>
 
@@ -167,7 +150,7 @@ function StatusSection({
             <div key={index}>
               {group.tasks.length > 0 && (
                 <>
-                  <h4 className="text-xs font-semibold mb-2 px-1" style={{ color: SB.text.muted }}>
+                  <h4 className="text-xs font-semibold mb-2 px-1 text-text-muted">
                     {group.title} ({group.tasks.length})
                   </h4>
                   <div className="space-y-3">{renderTasks(group.tasks)}</div>
