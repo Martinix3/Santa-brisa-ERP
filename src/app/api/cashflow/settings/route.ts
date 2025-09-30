@@ -1,4 +1,3 @@
-
 // app/api/cashflow/settings/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -13,4 +12,3 @@ export async function POST(req: NextRequest) {
   SETTINGS_CACHE = body; // valida esquema y persiste
   return NextResponse.json({ ok: true });
 }
-

@@ -1,4 +1,3 @@
-
 // ================================================================
 // FILE: src/app/(app)/admin/data-import/page.tsx
 // PURPOSE: Admin UI to import data via CSV or spreadsheet-like editor
@@ -11,9 +10,10 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useDropzone } from 'react-dropzone';
 import { UploadCloud } from 'lucide-react';
-import { SANTA_DATA_COLLECTIONS, type SantaData, type CodeEntity } from "@/domain";
+import { SANTA_DATA_COLLECTIONS, type SantaData, type CodeEntity } from '@/domain';
 import { POLICIES } from "@/lib/codes";
 import { importPreview, importCommit } from "./actions";
+import { SBButton } from "@/components/ui";
 
 // ----------------- helpers (cliente) -----------------
 function parseCsv(text: string): { headers: string[]; rows: string[][] }{
@@ -99,7 +99,7 @@ export default function DataImportPage(){
         </div>
         <div className="inline-flex rounded-lg border overflow-hidden">
           {(['csv','sheet'] as const).map(t=> (
-            <button key={t} onClick={()=>setTab(t)} className={`px-4 py-2 text-sm ${tab===t? 'bg-zinc-900 text-white':'bg-white text-zinc-700'}`}>{t.toUpperCase()}</button>
+            <SBButton key={t} onClick={()=>setTab(t)} variant={tab === t ? 'primary' : 'secondary'} size="sm">{t.toUpperCase()}</SBButton>
           ))}
         </div>
       </header>
@@ -133,8 +133,8 @@ export default function DataImportPage(){
             )}
           </div>
           <div className="flex gap-2">
-            <button onClick={doPreviewCSV} className="sb-btn-primary px-3 py-1 border rounded" disabled={!csvText}>Previsualizar</button>
-            <button onClick={doCommitCSV} className="sb-btn-primary px-3 py-1 border rounded bg-emerald-50" disabled={!preview}>Importar</button>
+            <SBButton onClick={doPreviewCSV} disabled={!csvText}>Previsualizar</SBButton>
+            <SBButton onClick={doCommitCSV} variant="secondary" disabled={!preview}>Importar</SBButton>
           </div>
         </section>
       )}
@@ -146,10 +146,10 @@ export default function DataImportPage(){
               <div className="flex flex-wrap items-center gap-2 text-sm">
                 <label className="inline-flex items-center gap-2"><input type="checkbox" checked={autoId} onChange={e=>setAutoId(e.target.checked)} /> Autogenerar IDs</label>
                 <label className="inline-flex items-center gap-2"><input type="checkbox" checked={autoSku} onChange={e=>setAutoSku(e.target.checked)} /> Autogenerar SKU desde &quot;name&quot;</label>
-                <button className="sb-btn-primary ml-auto px-3 py-1 border rounded" onClick={addRow}>Añadir fila</button>
-                <button className="sb-btn-primary px-3 py-1 border rounded" onClick={autoFill}>Autocompletar</button>
-                <button className="sb-btn-primary px-3 py-1 border rounded" onClick={doPreviewSheet}>Previsualizar (resolver FKs)</button>
-                <button className="sb-btn-primary px-3 py-1 border rounded bg-emerald-50" onClick={doCommitSheet}>Importar</button>
+                <SBButton variant="secondary" className="ml-auto" size="sm" onClick={addRow}>Añadir fila</SBButton>
+                <SBButton variant="secondary" size="sm" onClick={autoFill}>Autocompletar</SBButton>
+                <SBButton size="sm" onClick={doPreviewSheet}>Previsualizar (resolver FKs)</SBButton>
+                <SBButton size="sm" onClick={doCommitSheet}>Importar</SBButton>
               </div>
 
               <div className="rounded border overflow-x-auto">

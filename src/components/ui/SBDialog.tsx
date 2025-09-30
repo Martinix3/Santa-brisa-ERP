@@ -1,7 +1,6 @@
 
 "use client";
 import * as React from "react";
-import { SB_THEME } from "@/domain/ssot";
 import { X } from "lucide-react";
 
 type Action =

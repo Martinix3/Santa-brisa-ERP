@@ -2,8 +2,7 @@
 "use client";
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import { useData } from "@/lib/dataprovider";
-import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog";
-import { SBButton, Input, Select } from '@/components/ui/ui-primitives';
+import { SBDialog, SBDialogContent, SBButton, Input, Select } from "@/components/ui";
 import { toast } from "sonner";
 import { Search, Plus, X } from 'lucide-react';
 import type { Account, AccountType, Item, Uom } from '@/domain/ssot';

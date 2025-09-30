@@ -1,12 +1,11 @@
-
 // src/features/dashboard-ventas/components/TaskCompletionDialog.tsx
 "use client";
 import React, { useState, useEffect } from 'react';
-import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
-import { Input, Select, Textarea } from '@/components/ui/ui-primitives';
+import { Input, Select, Textarea, SBButton, SBDialog, SBDialogContent } from '@/components/ui';
 import type { Interaction, Payload, Item, SantaData } from '@/domain/ssot';
 import { ShoppingCart, MessageSquare, Plus, X } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
+import { toast } from 'sonner';
 
 export function TaskCompletionDialog({
   task,
@@ -96,7 +95,7 @@ export function TaskCompletionDialog({
             const newOrder = {
                 id: `ord_${Date.now()}`, accountId: task.accountId, partyId: data.accounts.find(a=>a.id===task.accountId)?.partyId,
                 source: 'MANUAL', status: 'open', currency: 'EUR', createdAt: new Date().toISOString(),
-                lines: payload.items.map(item => ({ ...item, uom: 'uds', priceUnit: 0 })),
+                lines: payload.items.map(item => ({ ...item, uom: 'unit', priceUnit: 0 })),
                 notes: `Pedido rápido creado desde tarea ${task.id}`,
             };
             collectionsToSave.ordersSellOut = [...(data.ordersSellOut || []), newOrder as any];
@@ -113,25 +112,25 @@ export function TaskCompletionDialog({
         setIsSaving(false);
     }
   };
-
+  
   const renderContent = () => {
       return (
         <div className="space-y-4">
           <div className="flex gap-2 border-b pb-4">
-            <button type="button" onClick={() => setMode('interaccion')} className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-colors ${mode === 'interaccion' ? 'bg-blue-50 text-blue-700' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'}`}><MessageSquare size={16} /> Registrar Interacción</button>
-            <button type="button" onClick={() => setMode('venta')} className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-colors ${mode === 'venta' ? 'bg-green-50 text-green-700' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'}`}><ShoppingCart size={16} /> Crear Venta</button>
+            <SBButton type="button" variant={mode === 'interaccion' ? 'primary' : 'secondary'} onClick={() => setMode('interaccion')} className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-colors`}><MessageSquare size={16} /> Registrar Interacción</SBButton>
+            <SBButton type="button" variant={mode === 'venta' ? 'primary' : 'secondary'} onClick={() => setMode('venta')} className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-colors`}><ShoppingCart size={16} /> Crear Venta</SBButton>
           </div>
 
           {mode === 'interaccion' ? (
              <div className="space-y-3 animate-in fade-in">
-               <div className="grid gap-1.5"><label htmlFor="task-note" className="text-sm font-medium text-zinc-700">Nota / Resultado</label><Textarea id="task-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Ej: Cliente interesado, enviar propuesta." className="w-full rounded-md border border-zinc-200 bg-card px-3 py-2 text-sm" rows={4} required/></div>
-               <div className="grid gap-1.5"><label htmlFor="next-action-date" className="text-sm font-medium text-zinc-700">Próxima acción (opcional)</label><Input id="next-action-date" type="datetime-local" value={nextActionDate} onChange={(e) => setNextActionDate(e.target.value)} className="w-full rounded-md border border-zinc-200 bg-card px-3 py-2 text-sm" /></div>
+               <div className="grid gap-1.5"><label htmlFor="task-note" className="text-sm font-medium text-zinc-700">Nota / Resultado</label><Textarea id="task-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Ej: Cliente interesado, enviar propuesta." className="w-full" rows={4} required/></div>
+               <div className="grid gap-1.5"><label htmlFor="next-action-date" className="text-sm font-medium text-zinc-700">Próxima acción (opcional)</label><Input id="next-action-date" type="datetime-local" value={nextActionDate} onChange={(e) => setNextActionDate(e.target.value)} className="w-full" /></div>
              </div>
           ) : (
             <div className="space-y-3 animate-in fade-in">
               <span className="text-sm font-medium text-zinc-700">Líneas del Pedido</span>
-              <div className="space-y-2 max-h-60 overflow-y-auto pr-2">{items.map((item, index) => (<div key={index} className="grid grid-cols-[1fr_auto_auto] gap-2 items-center"><Select id={`item-${index}`} value={item.itemId} onChange={(e) => updateLine(index, 'itemId', e.target.value)}><option value="" disabled>Selecciona producto</option>{itemOptions.map((p: Item) => (<option key={p.id} value={p.id}>{p.name}</option>))}</Select><Input id={`qty-${index}`} type="number" min="1" value={item.qty} onChange={(e) => updateLine(index, 'qty', parseInt(e.target.value, 10))} className="w-20" /><button type="button" aria-label="Eliminar línea" onClick={() => removeLine(index)} className="p-2 text-red-500 hover:bg-red-50 rounded-md"><X size={16} /></button></div>))}</div>
-              <button type="button" onClick={addLine} className="text-sm flex items-center gap-1 text-blue-600 hover:underline"><Plus size={14} /> Añadir línea</button>
+              <div className="space-y-2 max-h-60 overflow-y-auto pr-2">{items.map((item, index) => (<div key={index} className="grid grid-cols-[1fr_auto_auto] gap-2 items-center"><Select id={`item-${index}`} value={item.itemId} onChange={(e) => updateLine(index, 'itemId', e.target.value)}><option value="" disabled>Selecciona producto</option>{itemOptions.map((p: Item) => (<option key={p.id} value={p.id}>{p.name}</option>))}</Select><Input id={`qty-${index}`} type="number" min="1" value={item.qty} onChange={(e) => updateLine(index, 'qty', parseInt(e.target.value, 10))} className="w-20" /><SBButton type="button" variant="ghost" onClick={() => removeLine(index)}><X size={16} /></SBButton></div>))}</div>
+              <SBButton type="button" variant="secondary" size="sm" onClick={addLine}><Plus size={14} className="mr-2"/>Añadir línea</SBButton>
             </div>
           )}
         </div>

@@ -4,8 +4,8 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2 } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
-import { SBButton, SBCard, Input, Select } from '@/components/ui/ui-primitives';
-import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
+import { SBButton, Input, Select, SBCard } from '@/components/ui';
+import { SBDialog, SBDialogContent } from '@/components/ui';
 
 interface OrderLine {
     id: number;
@@ -65,60 +65,58 @@ const NewOrderModal: React.FC<NewOrderModalProps> = ({ isOpen, onClose, onSubmit
 
     return (
         <SBDialog open={isOpen} onOpenChange={onClose}>
-            <div className="w-full max-w-2xl" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-                <SBDialogContent
-                    title="Crear Nuevo Pedido"
-                    onSubmit={handleSubmit}
-                    primaryAction={{ label: 'Crear Pedido', type: 'submit' }}
-                    secondaryAction={{ label: 'Cancelar', onClick: onClose }}
-                    maxWidth="42rem"
-                >
-                    <div className="space-y-6">
-                        <div>
-                            <label htmlFor="customerName" className="block text-sm font-medium text-slate-700 mb-1">Cliente</label>
-                            <Select 
-                                id="customerName" 
-                                value={accountId}
-                                onChange={(e) => setAccountId(e.target.value)}
-                                required
-                            >
-                                <option value="" disabled>Selecciona un cliente...</option>
-                                {accounts.map((acc: any) => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
-                            </Select>
-                        </div>
-
-                        <div className="space-y-3">
-                            <h3 className="text-sm font-medium text-slate-700">Líneas de Producto</h3>
-                            {lines.map((line, index) => (
-                                <div key={line.id} className="grid grid-cols-[1fr_90px_110px_auto] gap-3 items-center">
-                                    <Select value={line.sku} onChange={e => handleLineChange(line.id, 'sku', e.target.value)} required>
-                                        <option value="" disabled>Selecciona producto</option>
-                                        {items.map((item: any) => <option key={item.id} value={item.sku}>{item.name}</option>)}
-                                    </Select>
-                                    <Input type="number" placeholder="Cant." value={line.qty} onChange={e => handleLineChange(line.id, 'qty', parseInt(e.target.value) || 0)} />
-                                    <Input type="number" placeholder="Precio U." value={line.unitPrice} onChange={e => handleLineChange(line.id, 'unitPrice', parseFloat(e.target.value) || 0)} />
-                                    {lines.length > 1 && (
-                                    <SBButton type="button" variant="ghost" size="sm" onClick={() => handleRemoveLine(line.id)}>
-                                        <Trash2 size={16} />
-                                    </SBButton>
-                                    )}
-                                </div>
-                            ))}
-                            <SBButton type="button" variant="secondary" size="sm" onClick={handleAddLine}><Plus size={14}/> Añadir línea</SBButton>
-                        </div>
-                        
-                        <div className="pt-4 border-t border-slate-200 flex justify-end">
-                            <div className="text-right">
-                                <p className="text-sm text-slate-500">Subtotal</p>
-                                <p className="text-2xl font-bold text-slate-800">
-                                    {subtotal.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
-                                </p>
-                            </div>
-                        </div>
-
+            <SBDialogContent
+                title="Crear Nuevo Pedido"
+                onSubmit={handleSubmit}
+                primaryAction={{ label: 'Crear Pedido', type: 'submit' }}
+                secondaryAction={{ label: 'Cancelar', onClick: onClose }}
+                maxWidth="42rem"
+            >
+                <div className="space-y-6">
+                    <div>
+                        <label htmlFor="customerName" className="block text-sm font-medium text-slate-700 mb-1">Cliente</label>
+                        <Select 
+                            id="customerName" 
+                            value={accountId}
+                            onChange={(e) => setAccountId(e.target.value)}
+                            required
+                        >
+                            <option value="" disabled>Selecciona un cliente...</option>
+                            {accounts.map((acc: any) => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
+                        </Select>
                     </div>
-                </SBDialogContent>
-            </div>
+
+                    <div className="space-y-3">
+                        <h3 className="text-sm font-medium text-slate-700">Líneas de Producto</h3>
+                        {lines.map((line, index) => (
+                            <div key={line.id} className="grid grid-cols-[1fr_90px_110px_auto] gap-3 items-center">
+                                <Select value={line.sku} onChange={e => handleLineChange(line.id, 'sku', e.target.value)} required>
+                                    <option value="" disabled>Selecciona producto</option>
+                                    {items.map((item: any) => <option key={item.id} value={item.sku}>{item.name}</option>)}
+                                </Select>
+                                <Input type="number" placeholder="Cant." value={line.qty} onChange={e => handleLineChange(line.id, 'qty', parseInt(e.target.value) || 0)} />
+                                <Input type="number" placeholder="Precio U." value={line.unitPrice} onChange={e => handleLineChange(line.id, 'unitPrice', parseFloat(e.target.value) || 0)} />
+                                {lines.length > 1 && (
+                                <SBButton type="button" variant="ghost" size="sm" onClick={() => handleRemoveLine(line.id)}>
+                                    <Trash2 size={16} />
+                                </SBButton>
+                                )}
+                            </div>
+                        ))}
+                        <SBButton type="button" variant="secondary" size="sm" onClick={handleAddLine}><Plus size={14}/> Añadir línea</SBButton>
+                    </div>
+                    
+                    <div className="pt-4 border-t border-slate-200 flex justify-end">
+                        <div className="text-right">
+                            <p className="text-sm text-slate-500">Subtotal</p>
+                            <p className="text-2xl font-bold text-slate-800">
+                                {subtotal.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
+                            </p>
+                        </div>
+                    </div>
+
+                </div>
+            </SBDialogContent>
         </SBDialog>
     );
 };

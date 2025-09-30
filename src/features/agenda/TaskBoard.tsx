@@ -7,7 +7,7 @@ import { Check, AlertCircle, Clock, Plus } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
 import { DEPT_META } from '@/domain/ssot';
 import { Avatar } from '@/components/ui/Avatar';
-import { SBCard, SBButton, Badge } from '@/components/ui/ui-primitives';
+import { SBCard, SBButton } from '@/components/ui';
 
 // This is the VIEW MODEL for a task card.
 export type Task = {
@@ -66,8 +66,8 @@ function TaskCard({ task, onComplete }: { task: Task; onComplete: (id: string) =
                     <Check size={16} />
                     </SBButton>
                 )}
-                </div>
-                <div className="flex -space-x-2">
+            </div>
+            <div className="flex -space-x-2">
                 {involvedUsers.map((user) => (
                     <Avatar key={user.id} name={user.name} size="md" />
                 ))}

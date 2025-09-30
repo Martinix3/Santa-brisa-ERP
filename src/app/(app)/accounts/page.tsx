@@ -8,14 +8,14 @@ import type { Stage, User, Interaction, OrderSellOut, SantaData, CustomerData, P
 import { accountOwnerDisplay, computeAccountKPIs, getDistributorForAccount, orderTotal } from '@/lib/sb-core';
 import Link from 'next/link'
 import { useData } from '@/lib/dataprovider'
-import { FilterSelect } from '@/components/ui/FilterSelect'
-import { ModuleHeader } from '@/components/ui/ModuleHeader'
+import { FilterSelect } from '@/components/ui'
+import { ModuleHeader } from '@/components/ui'
 import { Avatar } from '@/components/ui/Avatar';
 import { NewAccountDialog } from '@/features/accounts/components/NewAccountDialog';
 import { DEPT_META } from '@/domain/ssot';
 import { toast } from 'sonner';
 import { AccountBarDialog } from '@/features/accounts/components/AccountBarDialog';
-import { SBButton, Badge } from '@/components/ui/ui-primitives';
+import { SBButton, Badge } from '@/components/ui';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 
