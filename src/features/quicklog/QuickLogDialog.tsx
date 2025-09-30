@@ -16,6 +16,7 @@ import { createAccountAndParty } from "./actions/create-account-action";
 
 import { PosLinesPicker } from "@/features/pos/PosLinesPicker";
 import type { Account, Party, PosCostCatalogEntry, Item } from "@/domain/ssot";
+import { SANTA_BRISA_DISTRIB_ID } from "@/lib/authz";
 
 // ============================================================================
 // SANTA BRISA DESIGN SYSTEM: CONSTANTS
@@ -107,21 +108,28 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
   const [saving, setSaving] = useState(false);
   const [note, setNote] = useState("");
   const [plannedFor, setPlannedFor] = useState<string>("");
-  const [distributorId, setDistributorId] = useState("SB");
+  const [distributorId, setDistributorId] = useState(SANTA_BRISA_DISTRIB_ID);
   const [lines, setLines] = useState<OrderLine[]>([{ sku: "", qty: 1 }]);
   const [posLines, setPosLines] = useState<Partial<PosLineInput>[]>([]);
   const posCatalog = useMemo(() => ((data as any)?.posCostCatalog || []) as PosCostCatalogEntry[], [data]);
   const skuOptions = useMemo(() => (data?.items || []).filter(i => (i as any).category === 'fg').map(i => ({ value: i.sku, label: i.name })), [data?.items]);
+
+  useEffect(() => {
+    if (selectedAccount) {
+      setDistributorId(selectedAccount.distributorPartyId || SANTA_BRISA_DISTRIB_ID);
+    }
+  }, [selectedAccount]);
 
   const addLine = () => setLines((s: OrderLine[]) => [...s, { sku: "", qty: 1 }]);
   const removeLine = (idx: number) => setLines((s: OrderLine[]) => s.filter((_, i: number) => i !== idx));
 
   const resetAll = useCallback(() => {
     setTab(defaultTab);
-    setSelectedAccount(accountId ? data?.accounts.find(a => a.id === accountId) || null : null);
+    const initialAccount = accountId ? data?.accounts.find(a => a.id === accountId) || null : null;
+    setSelectedAccount(initialAccount);
+    setDistributorId(initialAccount?.distributorPartyId || SANTA_BRISA_DISTRIB_ID);
     setNewAccountName(undefined);
     setNote(""); setPlannedFor("");
-    setDistributorId("SB");
     setLines([{ sku: "", qty: 1 }]);
     setPosLines([]);
   }, [accountId, data?.accounts, defaultTab]);
@@ -157,7 +165,8 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
           toast.error("Añade al menos una línea válida (SKU + cantidad > 0)");
           setSaving(false); return;
         }
-        const created = await placeOrder({ accountId: accId, distributorId, lines, createdById: currentUser!.id });
+        const finalDistributorId = distributorId;
+        const created = await placeOrder({ accountId: accId, distributorId: finalDistributorId, lines, createdById: currentUser!.id });
         if (posLines.length) await createPosTacticsBatch({ accountId: accId, createdById: currentUser!.id, lines: posLines as PosLineInput[] });
         toast.success(`Pedido colocado${posLines.length ? " + POS" : ""}`);
         if (created?.id) router.push(`/orders/${created.id}`);
@@ -211,7 +220,12 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
           )}
           {tab === "PEDIDO" && (
             <div className="space-y-4">
-              <div>{renderLabel("Distribuidor")}<Select value={distributorId} onChange={(e) => setDistributorId(e.target.value)}><option value="SB">Santa Brisa</option></Select></div>
+              <div>{renderLabel("Distribuidor")}
+                <Select value={distributorId} onChange={(e) => setDistributorId(e.target.value)}>
+                    <option value="SB">Santa Brisa</option>
+                    {(data?.partyRoles.filter(r => r.role === 'DISTRIBUTOR').map(r => data.parties.find(p => p.id === r.partyId)) || []).map(d => d && <option key={d.id} value={d.id}>{d.name}</option>)}
+                </Select>
+              </div>
               <div className="space-y-2">
                 <div className="text-sm font-medium text-slate-800">Líneas de pedido</div>
                 {lines.map((l: OrderLine, idx: number) => (

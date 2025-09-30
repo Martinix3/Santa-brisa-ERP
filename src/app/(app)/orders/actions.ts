@@ -32,10 +32,10 @@ export async function placeOrder({
 
   // Correction: Map incoming lines to OrderLine structure
   const itemsSnap = await db.collection('items').where('sku', 'in', lines.map(l => l.sku)).get();
-  const itemsBySkuSku = new Map(itemsSnap.docs.map(doc => [doc.data().sku, doc.data() as Item]));
+  const itemsBySku = new Map(itemsSnap.docs.map(doc => [doc.data().sku, doc.data() as Item]));
 
   const orderLines: OrderLine[] = lines.map(l => {
-    const item = itemsBySkuSku.get(l.sku);
+    const item = itemsBySku.get(l.sku);
     if (!item) throw new Error(`El producto con SKU ${l.sku} no existe.`);
     return {
       itemId: item.id,
@@ -130,7 +130,6 @@ export async function createSalesInvoice({ orderId }: { orderId:string }) {
   const finId = `INV-${now.slice(0,10)}-${Math.floor(Math.random()*99999)}`;
   const fin: Partial<FinanceLink> = {
      id: finId,
-     externalId: '', // si sincronizas con Holded, rellena después
      netAmount: amount,
      taxAmount: 0,
      grossAmount: amount,
@@ -140,6 +139,7 @@ export async function createSalesInvoice({ orderId }: { orderId:string }) {
      docNumber: undefined,
      partyId: (order as any).partyId,
      costObject: { kind: 'ORDER', id: orderId },
+     status: 'pending',
   };
 
   await upsertMany('financeLinks', [fin] as any);
@@ -162,9 +162,9 @@ export async function recordPayment({ financeLinkId, amount, date, method }: {
   const paymentId = `PAY-${now}-${Math.floor(Math.random()*1e6)}`;
   const pay: Partial<PaymentLink> = {
     id: paymentId,
-    externalId: undefined,
     date: date ?? now,
     method: method ?? 'transfer',
+    amount,
   };
   await upsertMany('paymentLinks', [pay] as any);
   revalidatePath('/finance');
