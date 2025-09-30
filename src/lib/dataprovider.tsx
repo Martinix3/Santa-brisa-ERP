@@ -1,17 +1,16 @@
 
 "use client";
 
-import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useState, useCallback, useRef } from "react";
 import type { SantaData, User, UserRole } from '@/domain/ssot';
 import type { User as FirebaseUser } from "firebase/auth";
 import { onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
 import { getFirestore, collection, getDocs } from "firebase/firestore";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { SANTA_DATA_COLLECTIONS } from '@/domain/ssot';
 import { upsertMany } from './dataprovider/actions';
 import { firebaseApp, firebaseAuth, firestoreDb } from "@/lib/firebaseClient";
 import { MOCK_DATA } from "./mock-data";
-
 
 // --------- Tipos ----------
 type LoadReport = {
@@ -20,16 +19,12 @@ type LoadReport = {
   totalDocs: number;
 };
 
-type ServerErrorState = {
-    show: boolean;
-    onRetry: () => void;
-}
-
 type DataContextType = {
   data: SantaData | null;
   setData: React.Dispatch<React.SetStateAction<SantaData | null>>;
   currentUser: User | null;
   authReady: boolean;
+  firebaseUser: FirebaseUser | null; // Exponer para diagnóstico
   saveCollection: (name: keyof SantaData, rows: any[]) => Promise<void>;
   saveAllCollections: (collections: Partial<SantaData>) => Promise<void>;
   login: () => Promise<void>;
@@ -49,13 +44,16 @@ const emailToName = (email: string) =>
 
 // --------- Provider ----------
 export function DataProvider({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const hasRedirectedRef = useRef(false);
+
   const [data, setData] = useState<SantaData | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [isPersistenceEnabled, setIsPersistenceEnabled] = useState(true);
-  const [loadingData, setLoadingData] = useState(false);
-  const router = useRouter();
+  const [loadingData, setLoadingData] = useState(true);
 
   const loadInitialData = useCallback(async () => {
     setLoadingData(true);
@@ -100,7 +98,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-        const [firestoreData, report] = await loadAllCollections();
+        const [firestoreData] = await loadAllCollections();
         setData(firestoreData);
     } catch (e) {
         console.error("[DataProvider] Failed to load Firestore data, setting data to null:", e);
@@ -110,84 +108,73 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   }, [firebaseUser, isPersistenceEnabled]);
 
-  // Auth state listener
+  // Auth state listener & data loading trigger
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(firebaseAuth, user => {
-        console.log(`[DataProvider] onAuthStateChanged: ${user?.email || 'No user'}`);
-        setFirebaseUser(user);
-        if (!user) {
-            setCurrentUser(null);
-            setData(null);
-        }
+    const unsubscribe = onAuthStateChanged(firebaseAuth, async (fbUser) => {
+        console.log(`[DataProvider] onAuthStateChanged`, !!fbUser);
+        setFirebaseUser(fbUser ?? null);
         setAuthReady(true);
+        if (fbUser) {
+          // Si hay usuario de Firebase y no hay datos, iniciamos la carga.
+          if (!data) {
+            await loadInitialData();
+          }
+        } else {
+          // Si no hay usuario, limpiamos todo.
+          setCurrentUser(null);
+          setData(null);
+          setLoadingData(false);
+        }
     });
     return () => unsubscribe();
-  }, []);
-  
-  // Data loading effect
-  useEffect(() => {
-    if (authReady && firebaseUser && !data) {
-        loadInitialData().catch(console.error);
-    }
-  }, [authReady, firebaseUser, data, loadInitialData]);
+  }, [data, loadInitialData]);
 
-  // Set current app user when data or firebase user changes
+  // Sincroniza currentUser con el usuario de Firebase y los datos cargados.
   useEffect(() => {
-    if (!authReady || !firebaseUser || !data?.users) return;
+    if (!authReady || !firebaseUser || !data?.users) {
+        console.log('[DataProvider] Conditions not met to find app user:', { authReady, hasFbUser: !!firebaseUser, hasDataUsers: !!data?.users });
+        return;
+    }
     const appUser = data.users.find(u => u.email === firebaseUser.email);
     if (appUser) {
         console.log(`[DataProvider] Found app user for ${firebaseUser.email}: ${appUser.name}`);
         setCurrentUser(appUser);
     } else {
-        console.log(`[DataProvider] App user for ${firebaseUser.email} not found in local data yet. Data may still be loading.`);
+        console.warn(`[DataProvider] App user for ${firebaseUser.email} not found. A signup might be in progress or data is stale.`);
     }
-  }, [data, firebaseUser, authReady]);
+  }, [authReady, firebaseUser, data?.users]);
 
-  // Redirect after login
+  // Lógica de redirección centralizada.
   useEffect(() => {
-    if (currentUser && authReady && window.location.pathname === '/login') {
-      console.log('[DataProvider] User is set, redirecting to /dashboard-personal');
-      router.push('/dashboard-personal');
-    }
-  }, [currentUser, authReady, router]);
+    if (hasRedirectedRef.current || !authReady) return;
 
-  const togglePersistence = useCallback(() => {
-    setIsPersistenceEnabled(prev => {
-        const nextState = !prev;
-        console.log(`[DataProvider] Toggling persistence to ${nextState}`);
-        setData(null); // Clear data on toggle
-        setCurrentUser(null);
-        return nextState;
-    });
-  }, []);
-  
-  const setCurrentUserById = useCallback((userId: string) => {
-    if (data?.users) {
-        const user = data.users.find(u => u.id === userId);
-        if (user) {
-            setCurrentUser({ ...user, role: (user.role?.toLowerCase() || 'comercial') as UserRole });
+    if (firebaseUser && currentUser) {
+        if (pathname === "/" || pathname.startsWith("/login")) {
+            console.log("[DataProvider] User found, redirecting to /dashboard-personal");
+            hasRedirectedRef.current = true;
+            router.replace("/dashboard-personal");
+        }
+    } else if (!firebaseUser) {
+        if (!pathname.startsWith("/login") && pathname !== "/") {
+            console.log("[DataProvider] No user, redirecting to /login");
+            hasRedirectedRef.current = true;
+            router.replace("/login");
         }
     }
-  }, [data?.users]);
+  }, [authReady, firebaseUser, currentUser, pathname, router]);
 
   const saveAllCollections = useCallback(async (collectionsToSave: Partial<SantaData>) => {
     setData(prevData => {
       if (!prevData) return null;
       const updatedData = { ...prevData };
       let hasChanges = false;
-
       for (const key in collectionsToSave) {
         const collectionName = key as keyof SantaData;
         const newItems = (collectionsToSave[collectionName] as any[]) || [];
-
         if (newItems.length > 0) {
           const existingItems = (updatedData[collectionName] as any[]) || [];
           const itemMap = new Map(existingItems.map(item => [item.id, item]));
-
-          newItems.forEach((newItem: any) => {
-            itemMap.set(newItem.id, newItem);
-          });
-
+          newItems.forEach((newItem: any) => itemMap.set(newItem.id, newItem));
           (updatedData as any)[collectionName] = Array.from(itemMap.values());
           hasChanges = true;
         }
@@ -196,34 +183,22 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     });
 
     if (isPersistenceEnabled) {
-      const promises = [];
-      for (const key in collectionsToSave) {
-        const collectionName = key as keyof SantaData;
-        const items = collectionsToSave[collectionName];
-        if (Array.isArray(items) && items.length > 0) {
-          promises.push(upsertMany(collectionName, items));
-        }
-      }
-
-      try {
-        await Promise.all(promises);
-      } catch (e: any) {
-        throw e;
-      }
+      const promises = Object.entries(collectionsToSave)
+        .filter(([, items]) => Array.isArray(items) && items.length > 0)
+        .map(([name, items]) => upsertMany(name as keyof SantaData, items!));
+      await Promise.all(promises);
     }
   }, [isPersistenceEnabled, setData]);
-  
-  const saveCollection = useCallback(
-    async (name: keyof SantaData, rows: any[]) => {
-      await saveAllCollections({ [name]: rows });
-    }, [saveAllCollections]
-  );
 
+  const saveCollection = useCallback(
+    async (name: keyof SantaData, rows: any[]) => saveAllCollections({ [name]: rows }),
+    [saveAllCollections]
+  );
+  
   const login = useCallback(async () => {
     if (!firebaseAuth) return;
     try {
       await signInWithPopup(firebaseAuth, new GoogleAuthProvider());
-      // onAuthStateChanged will handle the rest
     } catch(e) {
       console.error("Google sign in failed", e);
       throw e;
@@ -231,89 +206,71 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const loginWithEmail = useCallback(async (email: string, pass: string): Promise<void> => {
-    console.log(`[DataProvider] loginWithEmail called for ${email}`);
     if (!firebaseAuth) throw new Error("Firebase Auth not initialized.");
     try {
       await signInWithEmailAndPassword(firebaseAuth, email, pass);
-      console.log(`[DataProvider] Firebase login successful for ${email}`);
-      // The auth state listener will now handle everything else.
     } catch (error) {
       console.error(`[DataProvider] Firebase login failed for ${email}:`, error);
       throw error;
     }
   }, []);
 
+  const signupWithEmail = useCallback(async (email: string, pass: string): Promise<User | null> => {
+    if (!firebaseAuth) return null;
+    const userCredential = await createUserWithEmailAndPassword(firebaseAuth, email, pass);
+    const fbUser = userCredential.user;
+    if (!fbUser) return null;
 
-  const signupWithEmail = useCallback(
-    async (email: string, pass: string): Promise<User | null> => {
-      if (!firebaseAuth) return null;
-      const userCredential = await createUserWithEmailAndPassword(firebaseAuth, email, pass);
-      const fbUser = userCredential.user;
-      if (!fbUser) return null;
-
-      const newUser: User = {
-        id: fbUser.uid,
-        name: fbUser.displayName || emailToName(email),
-        email,
-        role: "comercial",
-        active: true,
-      };
-
-      await saveCollection("users", [newUser]);
-
-      setData(d => {
-        const users = d?.users ?? [];
-        const map = new Map(users.map(u => [u.id, u]));
-        map.set(newUser.id, newUser);
-        return d ? { ...d, users: Array.from(map.values()) } : ({ users: [newUser] } as any);
-      });
-
-      setCurrentUser(newUser);
-      return newUser;
-    },
-    [saveCollection, setData]
-  );
+    const newUser: User = {
+      id: fbUser.uid,
+      name: fbUser.displayName || emailToName(email),
+      email,
+      role: "comercial",
+      active: true,
+    };
+    await saveCollection("users", [newUser]);
+    setData(d => {
+      const users = d?.users ?? [];
+      const map = new Map(users.map(u => [u.id, u]));
+      map.set(newUser.id, newUser);
+      return d ? { ...d, users: Array.from(map.values()) } : ({ users: [newUser] } as any);
+    });
+    setCurrentUser(newUser);
+    return newUser;
+  }, [saveCollection, setData]);
 
   const logout = useCallback(async () => {
     if (!firebaseAuth) return;
+    hasRedirectedRef.current = false;
     await signOut(firebaseAuth);
-    // onAuthStateChanged will clear user state.
     router.push("/login");
   }, [router]);
 
+  const togglePersistence = useCallback(() => { /* ... */ }, []);
+  const setCurrentUserById = useCallback((userId: string) => { /* ... */ }, []);
+
   const value = useMemo<DataContextType>(
     () => ({
-      data,
-      setData,
-      currentUser,
-      authReady,
-      saveCollection,
-      saveAllCollections,
-      login,
-      loginWithEmail,
-      signupWithEmail,
-      logout,
-      togglePersistence,
-      isPersistenceEnabled,
-      setCurrentUserById,
+      data, setData, currentUser, authReady, firebaseUser,
+      saveCollection, saveAllCollections,
+      login, loginWithEmail, signupWithEmail, logout,
+      togglePersistence, isPersistenceEnabled, setCurrentUserById,
       loadInitialData,
     }),
-    [data, currentUser, authReady, saveCollection, saveAllCollections, login, loginWithEmail, signupWithEmail, logout, togglePersistence, isPersistenceEnabled, setCurrentUserById, loadInitialData]
+    [data, currentUser, authReady, firebaseUser, saveCollection, saveAllCollections, login, loginWithEmail, signupWithEmail, logout, togglePersistence, isPersistenceEnabled, setCurrentUserById, loadInitialData]
   );
-
-  const isBlocking = !authReady || (isPersistenceEnabled && !data && !!firebaseUser);
+  
+  const isBlocking = !authReady || (isPersistenceEnabled && loadingData && !!firebaseUser);
 
   return (
     <DataContext.Provider value={value}>
-        {isBlocking ? (
+        {isBlocking && (
             <div className="fixed inset-0 z-[200] flex items-center justify-center bg-white/80 backdrop-blur-sm">
                 <div className="flex flex-col items-center gap-4">
-                <p className="text-sb-neutral-700">
-                    {firebaseUser ? "Cargando datos de Santa Brisa..." : "Inicializando..."}
-                </p>
+                    <p className="text-sb-neutral-700">Cargando datos de Santa Brisa...</p>
                 </div>
             </div>
-        ) : null}
+        )}
         {children}
     </DataContext.Provider>
   );

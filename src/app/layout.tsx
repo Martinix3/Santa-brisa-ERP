@@ -7,7 +7,6 @@ import { Inter } from 'next/font/google';
 import { Toaster } from "sonner";
 import React from 'react';
 
-
 const inter = Inter({ 
     subsets: ['latin'],
     display: 'swap',
@@ -31,6 +30,7 @@ export default function RootLayout({
           {children}
         </ClientProviders>
         <Toaster position="bottom-right" />
+        <MonitoringBoot />
       </body>
     </html>
   );

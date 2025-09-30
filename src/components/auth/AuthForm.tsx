@@ -21,9 +21,12 @@ export function AuthForm({ onEmailLogin, onEmailSignup, onGoogleSubmit }: AuthFo
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoading) return; // Evita doble submit
+
     setError(null);
     setIsLoading(true);
     console.log(`[AuthForm] handleSubmit: mode is ${isLogin ? 'LOGIN' : 'SIGNUP'}`);
+
     try {
       if (isLogin) {
         console.log(`[AuthForm] Calling onEmailLogin with ${email}`);
@@ -33,11 +36,11 @@ export function AuthForm({ onEmailLogin, onEmailSignup, onGoogleSubmit }: AuthFo
         await onEmailSignup(email, password);
       }
       console.log(`[AuthForm] Auth operation successful (client-side).`);
-      // El DataProvider se encargará de la redirección
+      // La redirección ahora es manejada por DataProvider
     } catch (err: any) {
       console.error("[AuthForm] Submit Error:", err);
       let friendlyError = 'Error en la autenticación.';
-      if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
+      if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
         friendlyError = 'El correo o la contraseña son incorrectos.';
       } else if (err.code === 'auth/email-already-in-use') {
         friendlyError = 'Este correo electrónico ya está registrado.';
