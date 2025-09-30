@@ -1,121 +1,131 @@
-// src/features/production/execution/components/ProductionSidebar.tsx
+// src/features/production/execution/components/StockCheckPanel.tsx
 "use client";
 
-import React from "react";
-import { ChevronDown, Factory } from 'lucide-react';
-import type { ProductionOrder, ProductionStatus, BillOfMaterial as RecipeBom } from '@/domain/ssot';
+import React, { useEffect, useMemo } from 'react';
+// REFACTOR: Se eliminó la importación de SBButton porque no se utilizaba.
+import type { Uom, Item, ProductionOrder, BillOfMaterial as RecipeBom, OnHandView } from '@/domain/ssot';
 
-const mapStatusTone = (s?: ProductionStatus): "emerald" | "amber" | "rose" | "zinc" | "sky" => {
-  if (s === "DONE") return "emerald";
-  if (s === "CANCELLED") return "zinc";
-  if (s === "PAUSED" || s === "QC_HOLD") return "rose";
-  if (s === "IN_PROGRESS") return "sky";
-  return "amber";
+// REFACTOR: Se añade un tipo para las líneas del BOM para evitar el uso de `any`.
+type BomLine = {
+  itemId: string;
+  qty: number;
+  uom?: Uom;
+  role?: string;
 };
 
-function Badge({ children, tone = "zinc" }: {
-  children: React.ReactNode; tone?: "zinc" | "sky" | "amber" | "rose" | "emerald";
-}) {
-  const toneClasses = {
-    zinc: "bg-zinc-100 text-zinc-800",
-    sky: "bg-sky-100 text-sky-800",
-    amber: "bg-amber-100 text-amber-800",
-    rose: "bg-rose-100 text-rose-800",
-    emerald: "bg-emerald-100 text-emerald-800",
-  };
-  return <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${toneClasses[tone]}`}>{children}</span>;
+type TheoreticalLine = { itemId: string; itemName: string; qty: number; uom: Uom };
+
+function computeTheoretical(bom: RecipeBom, qty: number, itemsMap: Map<string, Item>): TheoreticalLine[] {
+  // REFACTOR: Se usa el tipo `BomLine` en lugar de `any` para mayor seguridad.
+  const lines = (bom.items || []).filter((l: BomLine) => (l.role ?? "FORMULA") !== "COST_ONLY");
+  
+  return lines.map((l: BomLine) => ({
+    itemId: l.itemId,
+    itemName: itemsMap.get(l.itemId)?.name ?? l.itemId,
+    qty: +(Number(l.qty || 0) * Number(qty || 0)).toFixed(3),
+    uom: (l.uom || "uds") as Uom,
+  }));
 }
 
-function Collapsible({ title, count, defaultOpen = true, children }: {
-  title: string; count?: number; defaultOpen?: boolean; children: React.ReactNode;
-}) {
-  const [open, setOpen] = React.useState(defaultOpen);
-  return (
-    <div className="border rounded-xl bg-white">
-      <button onClick={() => setOpen(o => !o)} className="w-full flex items-center justify-between p-3 text-sm font-semibold">
-        <span className="flex items-center gap-2">{title}</span>
-        <span className="flex items-center gap-2">
-          {typeof count === "number" && (
-            <span className="font-mono text-xs px-1.5 py-0.5 bg-zinc-100 text-zinc-700 rounded-full">{count}</span>
-          )}
-          <ChevronDown className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} />
-        </span>
-      </button>
-      {open && <div className="border-t">{children}</div>}
-    </div>
-  );
-}
+const toTime = (s?: string) => {
+  const t = s ? Date.parse(s) : NaN;
+  return Number.isFinite(t) ? t : 0;
+};
 
-export function ProductionSidebar({ recipes, orders, onSelectBom, onSelectOrder }: {
-  recipes: RecipeBom[];
-  orders: ProductionOrder[];
-  onSelectBom: (bom: RecipeBom) => void;
-  onSelectOrder: (order: ProductionOrder) => void;
+export function StockCheckPanel({ bom, qty, items, onHand, onReadyChange, shortagesOut, requiredLotsOut }: {
+  bom: RecipeBom; qty: number; items: Item[]; onHand: OnHandView[];
+  onReadyChange: (ok: boolean) => void;
+  shortagesOut: (s: Array<{ itemId: string; itemName: string; missing: number; uom: Uom }>) => void;
+  requiredLotsOut: (r: Array<{ itemId: string; lotNumber: string; qty: number; uom: string; locationId: string }>) => void;
 }) {
-  const { activeOrders, closedOrders } = React.useMemo(() => {
-    const active = orders.filter(o => o.status !== "DONE" && o.status !== "CANCELLED");
-    const closed = orders.filter(o => o.status === "DONE" || o.status === "CANCELLED");
-    return { activeOrders: active, closedOrders: closed };
-  }, [orders]);
+  const itemsMap = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
+  const theory = useMemo(() => computeTheoretical(bom, qty, itemsMap), [bom, qty, itemsMap]);
+
+  // REFACTOR: Se añade `proposedMap` para pre-calcular los totales y optimizar el render.
+  const { shortages, picks, proposedMap } = useMemo(() => {
+    const byItem = new Map<string, OnHandView[]>();
+    for (const r of onHand) {
+      if (!byItem.has(r.itemId)) byItem.set(r.itemId, []);
+      byItem.get(r.itemId)!.push(r);
+    }
+
+    // REFACTOR: Se eliminó el bucle de ordenación redundante que estaba aquí.
+    // La ordenación se hace de forma más segura y eficiente justo antes de usar los lotes.
+    
+    const shortages: Array<{ itemId: string; itemName: string; missing: number; uom: Uom }> = [];
+    const picks: Array<{ itemId: string; lotNumber: string; qty: number; uom: Uom; locationId: string }> = [];
+    
+    for (const t of theory) {
+      let remain = t.qty;
+      const lots = (byItem.get(t.itemId) ?? [])
+          .filter(l => (l.qcStatus === 'PASSED' || l.qcStatus === 'WAIVED') && l.qty > 0)
+          .sort((a, b) => toTime(a.createdAt) - toTime(b.createdAt));
+
+      for (const r of lots) {
+        if (remain <= 0) break;
+        const take = Math.min(Number(r.qty) || 0, remain);
+        if (take > 0 && r.lotNumber) {
+          picks.push({ itemId: t.itemId, lotNumber: r.lotNumber, qty: +take.toFixed(3), uom: t.uom, locationId: r.locationId });
+          remain -= take;
+        }
+      }
+      
+      if (remain > 1e-6) { // Usar un épsilon para comparación de flotantes es una buena práctica.
+        shortages.push({ itemId: t.itemId, itemName: itemsMap.get(t.itemId)?.name ?? t.itemId, missing: +remain.toFixed(3), uom: t.uom });
+      }
+    }
+
+    // REFACTOR: Se pre-calculan las cantidades propuestas para no hacerlo en el render.
+    const proposedMap = new Map<string, number>();
+    for (const pick of picks) {
+      const currentQty = proposedMap.get(pick.itemId) ?? 0;
+      proposedMap.set(pick.itemId, currentQty + pick.qty);
+    }
+
+    return { shortages, picks, proposedMap };
+  }, [theory, onHand, itemsMap]);
+
+  useEffect(() => {
+    onReadyChange(shortages.length === 0);
+    shortagesOut(shortages);
+    // REFACTOR: Se eliminó el `as any`. El tipo de `picks` es compatible con lo que espera la función.
+    requiredLotsOut(picks);
+  }, [shortages, picks, onReadyChange, shortagesOut, requiredLotsOut]);
 
   return (
-    <div className="flex flex-col space-y-4">
-      <Collapsible title="Planificar nueva orden" count={recipes.length} defaultOpen>
-        <ul className="divide-y">
-          {recipes.map(b => (
-            <li key={b.id}>
-              <button className="w-full px-3 py-2 hover:bg-zinc-50 text-left" onClick={() => onSelectBom(b)}>
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">{b.name}</span>
-                  <Badge tone="sky">BOM</Badge>
-                </div>
-                <p className="text-xs text-zinc-500">
-                  <Factory className="inline h-3 w-3 mr-1" />
-                  {b.stage === "ENVASADO" ? "Envasado" : "Producción"}
-                </p>
-              </button>
-            </li>
-          ))}
-          {recipes.length === 0 && <li className="px-3 py-4 text-sm text-zinc-500">No hay recetas.</li>}
-        </ul>
-      </Collapsible>
-      <Collapsible title="Órdenes activas" count={activeOrders.length} defaultOpen>
-        <ul className="divide-y">
-          {activeOrders.map(o => (
-            <li key={o.id}>
-              <button className="w-full px-3 py-2 hover:bg-zinc-50 text-left" onClick={() => onSelectOrder(o)}>
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">
-                    {o.orderNumber ?? `Orden ${o.id.slice(-4)}`}
+    <div className="border rounded-lg p-3 bg-zinc-50">
+      <h4 className="text-sm font-semibold mb-3">Disponibilidad y lotes de insumo</h4>
+      {shortages.length > 0 && (
+        <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 p-2 text-xs">
+          <b>Faltantes:</b> {shortages.map(s => `${s.itemName}: ${s.missing} ${s.uom}`).join(" · ")}
+        </div>
+      )}
+      <div className="text-xs">
+        <div className="grid grid-cols-[1fr,90px,90px] font-semibold mb-1">
+          <span>Material</span><span className="text-right">Req.</span><span className="text-right">Propuesto</span>
+        </div>
+        {theory.map((line) => {
+          // REFACTOR: Se obtiene el valor pre-calculado del mapa. Mucho más eficiente.
+          const proposed = proposedMap.get(line.itemId) ?? 0;
+          
+          return (
+            <div key={line.itemId} className="grid grid-cols-[1fr,90px,90px] items-start py-0.5">
+              <span>{line.itemName}</span>
+              <span className="text-right font-mono">{line.qty} {line.uom}</span>
+              <span className={`text-right font-mono ${proposed >= line.qty ? 'text-emerald-700' : 'text-rose-700'}`}>
+                {+proposed.toFixed(3)} {line.uom}
+              </span>
+              <div className="col-span-3 text-[11px] text-zinc-600 mt-0.5">
+                {picks.filter(p => p.itemId === line.itemId).map(p => (
+                  <span key={`${p.itemId}-${p.lotNumber}`} className="inline-block mr-1 mb-1 px-1.5 py-0.5 rounded border bg-white">
+                    {p.lotNumber} · {p.qty} {p.uom}
                   </span>
-                  <Badge tone={mapStatusTone(o.status)}>{o.status}</Badge>
-                </div>
-                <p className="text-xs text-zinc-500">
-                  {(recipes.find(b => b.id === (o as any).bomId)?.stage === "ENVASADO" ? "Envasado" : "Producción")} · {o.scheduledFor ? new Date(o.scheduledFor).toLocaleDateString('es-ES') : "-"}
-                </p>
-              </button>
-            </li>
-          ))}
-          {activeOrders.length === 0 && <li className="px-3 py-4 text-sm text-zinc-500">No hay órdenes activas.</li>}
-        </ul>
-      </Collapsible>
-      <Collapsible title="Histórico de órdenes" count={closedOrders.length} defaultOpen={false}>
-        <ul className="divide-y">
-          {closedOrders.map(o => (
-            <li key={o.id}>
-              <button className="w-full px-3 py-2 hover:bg-zinc-50 text-left" onClick={() => onSelectOrder(o)}>
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">
-                    {o.orderNumber ?? `Orden ${o.id.slice(-4)}`}
-                  </span>
-                  <Badge tone={mapStatusTone(o.status)}>{o.status}</Badge>
-                </div>
-              </button>
-            </li>
-          ))}
-          {closedOrders.length === 0 && <li className="px-3 py-4 text-sm text-zinc-500">No hay órdenes completadas.</li>}
-        </ul>
-      </Collapsible>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

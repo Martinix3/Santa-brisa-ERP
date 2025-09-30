@@ -1,4 +1,5 @@
 // src/app/(app)/production/dashboard/page.tsx
+'use client';
 import React from "react";
 import { useData } from "@/lib/dataprovider";
 import ProductionDashboard from "@/features/production/dashboard/index.page";
