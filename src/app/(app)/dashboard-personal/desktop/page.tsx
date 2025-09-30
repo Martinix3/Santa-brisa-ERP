@@ -193,9 +193,9 @@ function AgendaDock() {
         <QuickEditor onSubmit={agenda.addNote} />
       </div>
       <div className="flex-1 overflow-y-auto px-2 mt-2 space-y-2">
-      {agenda.overdue.length > 0 && (
+      {overdueTasks.length > 0 && (
           <details open className="px-2">
-            <summary className="text-xs text-slate-600 py-1 cursor-pointer">Atrasadas ({agenda.overdue.length})</summary>
+            <summary className="text-xs text-slate-600 py-1 cursor-pointer">Atrasadas ({overdueTasks.length})</summary>
             <NotesList
                 notes={agenda.rangedNotes as Note[]}
                 tasks={overdueTasks}
