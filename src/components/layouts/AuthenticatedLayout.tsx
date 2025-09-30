@@ -50,8 +50,8 @@ type NavSection = { title: string; module: keyof typeof MODULE_ACCENTS; icon: Re
 
 /** IMPORTANTE: sin 'Dashboard' en items (lo mostramos como "Ver dashboard" en el header de sección) */
 const navSections: NavSection[] = [
-  { title: "Personal", module: "personal", icon: Home,
-    items: [{ href: "/agenda", label: "Agenda" }, { href: "/contacts", label: "Contactos" }] },
+  { title: "Agenda", module: "personal", icon: Home,
+    items: [{ href: "/agenda", label: "Calendario" }, { href: "/contacts", label: "Contactos" }] },
   { title: "Ventas", module: "sales", icon: BarChart3,
     items: [{ href: "/accounts", label: "Cuentas" }, { href: "/orders", label: "Pedidos" }] },
   { title: "Marketing", module: "marketing", icon: Megaphone,
@@ -107,7 +107,7 @@ const paletteItems: Array<{ href: string; label: string; module: keyof typeof MO
 
 function dashboardHrefFor(module: keyof typeof MODULE_ACCENTS): string {
   switch (module) {
-    case "personal": return "/dashboard-personal";
+    case "personal": return "/agenda";
     case "sales": return "/dashboard-ventas";
     case "marketing": return "/marketing/dashboard";
     case "production": return "/production/dashboard";
@@ -380,12 +380,12 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
 
 /* util: detectar módulo desde la ruta de dashboard */
 function moduleFromDashboard(path: string): keyof typeof MODULE_ACCENTS | null {
-  if (path.startsWith("/dashboard-personal")) return "personal";
   if (path.startsWith("/dashboard-ventas")) return "sales";
   if (path.startsWith("/marketing/dashboard")) return "marketing";
   if (path.startsWith("/production/dashboard")) return "production";
   if (path.startsWith("/quality/dashboard")) return "quality";
   if (path.startsWith("/warehouse/dashboard")) return "warehouse";
   if (path.startsWith("/cashflow/dashboard")) return "finance";
+  if (path.startsWith("/agenda")) return "personal";
   return null;
 }
