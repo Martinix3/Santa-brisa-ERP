@@ -13,7 +13,7 @@ function KpiCard({ icon: Icon, title, value, goal }: { icon: React.ElementType, 
     const color = "hsl(var(--sb-accent-ventas))";
 
     return (
-        <div className="bg-white p-4 rounded-lg border border-zinc-200 shadow-sm">
+        <div className="bg-card p-4 rounded-lg border border-zinc-200 shadow-sm">
             <div className="flex items-center space-x-3 mb-2">
                 <div className="bg-zinc-100 p-2 rounded-lg">
                     <Icon className="text-zinc-500" size={20} />
@@ -49,7 +49,7 @@ export default function PersonalDashboardPage() {
     }, [data, currentUser]);
 
     return (
-        <main className="flex-1 bg-zinc-50 p-4 sm:p-6 lg:p-8">
+        <main className="flex-1 bg-background p-4 sm:p-6 lg:p-8">
             <div className="mx-auto w-full max-w-4xl space-y-6">
                 <header className="flex items-center justify-between">
                     <div>

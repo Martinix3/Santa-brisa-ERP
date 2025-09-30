@@ -18,7 +18,7 @@ import { QuickGoodsReceiptDialog } from '@/features/warehouse/components/QuickGo
 
 function KPI({ icon: Icon, label, value, color }: { icon: React.ElementType, label: string, value: string | number, color: string }) {
     return (
-        <div className="bg-white p-4 rounded-xl border border-sb-neutral-200 flex items-start gap-4">
+        <div className="bg-card text-card-foreground p-4 rounded-xl border border-sb-neutral-200 flex items-start gap-4">
             <div className={`h-10 w-10 rounded-lg flex items-center justify-center`} style={{ backgroundColor: `${color}20`, color }}>
                 <Icon size={20} className="sb-icon" />
             </div>
@@ -153,7 +153,7 @@ function WarehouseDashboardContent() {
                     </SBCard>
                 </div>
                  <div className="space-y-6">
-                     <button onClick={() => setOpenReceipt(true)} className="w-full flex items-center justify-center gap-2 p-4 rounded-xl border-2 border-dashed border-zinc-300 text-zinc-600 hover:bg-white hover:border-zinc-400 transition-colors">
+                     <button onClick={() => setOpenReceipt(true)} className="w-full flex items-center justify-center gap-2 p-4 rounded-xl border-2 border-dashed border-zinc-300 text-zinc-600 hover:bg-card hover:border-zinc-400 transition-colors">
                         <Plus size={18}/>
                         <span className="font-semibold">Nueva Entrada de Mercancía</span>
                      </button>

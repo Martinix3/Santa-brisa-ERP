@@ -18,7 +18,7 @@ interface SBCardProps {
 
 export function SBCard({ title, accent, children, className, noPadding }: SBCardProps) {
   return (
-    <div className={`bg-white border border-zinc-200 rounded-xl shadow-sm overflow-hidden ${className || ''}`}>
+    <div className={`bg-card text-card-foreground border border-zinc-200 rounded-xl shadow-sm overflow-hidden ${className || ''}`}>
       {title && (
         <div className="p-4 border-b border-zinc-200">
           <h3 className="font-semibold text-zinc-800" style={{ borderLeft: accent ? `3px solid ${accent}` : undefined, paddingLeft: accent ? '8px' : '0' }}>
@@ -72,7 +72,7 @@ SBButton.displayName = "SBButton";
 export function KPI({ label, value, icon: Icon, delta, hint, unit, color }: { label: string; value: string | number; icon?: React.ElementType; delta?: string; hint?: string; unit?:string, color?: string }) {
   const trend = delta ? (delta.startsWith('+') ? 'up' : (delta.startsWith('-') ? 'down' : 'neutral')) : 'neutral';
   return (
-    <div className="bg-white p-4 rounded-xl border border-zinc-200 flex-grow">
+    <div className="bg-card text-card-foreground p-4 rounded-xl border border-zinc-200 flex-grow">
         {Icon && <div className="p-2 rounded-lg inline-block mb-2" style={{ backgroundColor: color ? `${color}20` : '#f4f4f5', color: color || '#52525b' }}><Icon className="h-5 w-5" /></div>}
         <p className="text-xs text-zinc-500">{label}</p>
         <div className="flex items-baseline gap-2">
@@ -104,14 +104,14 @@ export function LotQualityStatusPill({ status }: { status?: 'hold' | 'release' |
 
 export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
     ({ className, ...props }, ref) => (
-        <input ref={ref} className={`h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-yellow-400 ${className || ''}`} {...props} />
+        <input ref={ref} className={`h-10 w-full rounded-md border border-zinc-200 bg-card px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-yellow-400 ${className || ''}`} {...props} />
     )
 );
 Input.displayName = 'Input';
 
 export const Select = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttributes<HTMLSelectElement>>(
     ({ className, children, ...props }, ref) => (
-         <select ref={ref} className={`h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-yellow-400 ${className || ''}`} {...props}>
+         <select ref={ref} className={`h-10 w-full rounded-md border border-zinc-200 bg-card px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-yellow-400 ${className || ''}`} {...props}>
             {children}
          </select>
     )
@@ -120,7 +120,7 @@ Select.displayName = 'Select';
 
 export const Textarea = React.forwardRef<HTMLTextAreaElement, React.TextareaHTMLAttributes<HTMLTextAreaElement>>(
     ({ className, ...props }, ref) => (
-         <textarea ref={ref} className={`w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-yellow-400 ${className || ''}`} {...props} />
+         <textarea ref={ref} className={`w-full rounded-md border border-zinc-200 bg-card px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-yellow-400 ${className || ''}`} {...props} />
     )
 );
 Textarea.displayName = 'Textarea';
@@ -260,7 +260,7 @@ export const PopoverContent = React.forwardRef<HTMLDivElement, React.HTMLAttribu
   const { open } = React.useContext(PopoverContext);
   if (!open) return null;
   return (
-    <div ref={ref} {...props} className={`z-50 bg-white border rounded-md shadow-lg animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 ${className}`}>
+    <div ref={ref} {...props} className={`z-50 bg-card text-card-foreground border rounded-md shadow-lg animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 ${className}`}>
       {children}
     </div>
   );
@@ -278,7 +278,7 @@ export const Command = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTM
   const [search, setSearch] = useState('');
   return (
     <CommandContext.Provider value={{ search, onValueChange: setSearch }}>
-      <div ref={ref} {...props} className="flex h-full w-full flex-col overflow-hidden rounded-md bg-white text-zinc-950">
+      <div ref={ref} {...props} className="flex h-full w-full flex-col overflow-hidden rounded-md bg-card text-card-foreground">
         {children}
       </div>
     </CommandContext.Provider>

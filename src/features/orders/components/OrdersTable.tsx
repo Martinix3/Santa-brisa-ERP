@@ -1,4 +1,3 @@
-
 // src/features/orders/components/OrdersTable.tsx
 import React from 'react';
 import type { OrderStatus } from '@/domain/ssot';
@@ -35,7 +34,7 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({ status }) => {
 
 export default function OrdersTable({ orders }: { orders: UiOrder[] }) {
     return (
-        <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+        <div className="bg-card border border-slate-200 rounded-xl shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left text-slate-600">
                     <thead className="text-xs text-slate-700 uppercase bg-slate-50">
@@ -49,7 +48,7 @@ export default function OrdersTable({ orders }: { orders: UiOrder[] }) {
                     </thead>
                     <tbody>
                         {orders.map((order) => (
-                            <tr key={order.id} className="bg-white border-b last:border-b-0 border-slate-200 hover:bg-slate-50">
+                            <tr key={order.id} className="bg-card border-b last:border-b-0 border-slate-200 hover:bg-slate-50">
                                 <td className="px-6 py-4 font-mono text-xs text-slate-900">{order.id}</td>
                                 <td className="px-6 py-4">{order.client}</td>
                                 <td className="px-6 py-4">{new Date(order.date).toLocaleDateString('es-ES')}</td>

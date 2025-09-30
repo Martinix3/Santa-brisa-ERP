@@ -6,8 +6,6 @@ import MonitoringBoot from '@/components/monitoring/MonitoringBoot';
 import { Inter } from 'next/font/google';
 import { Toaster } from "sonner";
 import React from 'react';
-import AuthenticatedLayout from '@/components/layouts/AuthenticatedLayout';
-import { RealtimeProvider } from "./providers/RealtimeProvider";
 
 
 const inter = Inter({ 
@@ -29,14 +27,10 @@ export default function RootLayout({
   return (
     <html lang="es" className={inter.variable}>
       <body className="bg-background">
-        <RealtimeProvider>
-            <ClientProviders>
-              <AuthenticatedLayout>
-                {children}
-              </AuthenticatedLayout>
-            </ClientProviders>
-          <Toaster position="bottom-right" />
-        </RealtimeProvider>
+        <ClientProviders>
+          {children}
+        </ClientProviders>
+        <Toaster position="bottom-right" />
       </body>
     </html>
   );

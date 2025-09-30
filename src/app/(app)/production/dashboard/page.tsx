@@ -44,12 +44,7 @@ const MOCK_ORDERS: ProductionOrder[] = [
 
 
 export default function ProductionDashboardPage() {
-  const { data } = { data: {
-      billOfMaterials: MOCK_RECIPES,
-      items: MOCK_ITEMS,
-      onHand: MOCK_ON_HAND,
-      productionOrders: MOCK_ORDERS,
-  }};
+  const { data } = useData();
   const { billOfMaterials: recipes, items, onHand, productionOrders: orders } = data || {};
   
   const kpis = useMemo(()=> {

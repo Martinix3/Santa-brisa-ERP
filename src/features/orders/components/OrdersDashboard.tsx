@@ -22,7 +22,7 @@ const OrdersDashboard = () => {
     }, [orders]);
 
     return (
-        <div className="p-6 bg-slate-50 min-h-full">
+        <div className="p-6 bg-background min-h-full">
             <header className="mb-6">
                 <h1 className="text-2xl font-bold text-slate-900">Pedidos de Venta Directa</h1>
                 <p className="text-sm text-slate-600">Supervisa el ciclo de vida completo de los pedidos gestionados por Santa Brisa.</p>
@@ -35,7 +35,7 @@ const OrdersDashboard = () => {
                 <KpiCard icon={FileText} title="Pendiente de Cobrar" value={kpis.pendingPayment} />
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-xl shadow-sm">
+            <div className="bg-card border border-slate-200 rounded-xl shadow-sm">
                 <OrdersTable orders={orders as any[]} />
             </div>
         </div>

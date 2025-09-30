@@ -63,7 +63,7 @@ export function UpcomingTasks({
                         const account = data?.accounts.find(a => a.id === event.accountId);
                         
                         return (
-                            <Link href="/agenda/calendar" key={event.id} className="block p-3 rounded-lg bg-white hover:bg-gray-50" style={{border: '1px solid #e5e7eb'}}>
+                            <Link href="/agenda/calendar" key={event.id} className="block p-3 rounded-lg bg-card hover:bg-gray-50" style={{border: '1px solid #e5e7eb'}}>
                                 <div className="flex items-start gap-3">
                                     <Icon size={16} style={{ color: iconColor, marginTop: 2 }} />
                                     <div className="flex-1">

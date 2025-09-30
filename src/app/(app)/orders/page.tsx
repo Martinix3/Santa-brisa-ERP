@@ -8,7 +8,7 @@ export default function OrdersPage() {
     // This page is now a simple wrapper for the main dashboard component.
     // The dashboard will handle all logic for filtering, KPIs, and actions.
     return (
-        <div className="bg-secondary p-6">
+        <div className="bg-background p-6">
             <OrdersDashboard />
         </div>
     );

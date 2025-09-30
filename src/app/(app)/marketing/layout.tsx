@@ -20,7 +20,7 @@ function MarketingNav() {
     ];
 
     return (
-        <div className="bg-secondary border-b border-sb-neutral-200">
+        <div className="bg-card border-b border-sb-neutral-200">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex gap-6">
                     {navItems.map(item => (
@@ -48,10 +48,10 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
   return (
     <>
        <ModuleHeader title="Marketing" icon={Megaphone} />
-       <div className="bg-secondary border-b border-sb-neutral-200">
+       <div className="bg-card border-b border-sb-neutral-200">
             <MarketingNav />
        </div>
-      <div className="flex-grow bg-secondary">
+      <div className="flex-grow bg-background">
           <div className="max-w-7xl mx-auto py-6 px-4">
             {children}
           </div>

@@ -96,7 +96,7 @@ export function TaskCompletionDialog({
             const newOrder = {
                 id: `ord_${Date.now()}`, accountId: task.accountId, partyId: data.accounts.find(a=>a.id===task.accountId)?.partyId,
                 source: 'MANUAL', status: 'open', currency: 'EUR', createdAt: new Date().toISOString(),
-                lines: payload.items.map(item => ({ ...item, uom: 'unit', priceUnit: 0 })),
+                lines: payload.items.map(item => ({ ...item, uom: 'uds', priceUnit: 0 })),
                 notes: `Pedido rápido creado desde tarea ${task.id}`,
             };
             collectionsToSave.ordersSellOut = [...(data.ordersSellOut || []), newOrder as any];
@@ -124,8 +124,8 @@ export function TaskCompletionDialog({
 
           {mode === 'interaccion' ? (
              <div className="space-y-3 animate-in fade-in">
-               <div className="grid gap-1.5"><label htmlFor="task-note" className="text-sm font-medium text-zinc-700">Nota / Resultado</label><Textarea id="task-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Ej: Cliente interesado, enviar propuesta." className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" rows={4} required/></div>
-               <div className="grid gap-1.5"><label htmlFor="next-action-date" className="text-sm font-medium text-zinc-700">Próxima acción (opcional)</label><Input id="next-action-date" type="datetime-local" value={nextActionDate} onChange={(e) => setNextActionDate(e.target.value)} className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm" /></div>
+               <div className="grid gap-1.5"><label htmlFor="task-note" className="text-sm font-medium text-zinc-700">Nota / Resultado</label><Textarea id="task-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Ej: Cliente interesado, enviar propuesta." className="w-full rounded-md border border-zinc-200 bg-card px-3 py-2 text-sm" rows={4} required/></div>
+               <div className="grid gap-1.5"><label htmlFor="next-action-date" className="text-sm font-medium text-zinc-700">Próxima acción (opcional)</label><Input id="next-action-date" type="datetime-local" value={nextActionDate} onChange={(e) => setNextActionDate(e.target.value)} className="w-full rounded-md border border-zinc-200 bg-card px-3 py-2 text-sm" /></div>
              </div>
           ) : (
             <div className="space-y-3 animate-in fade-in">

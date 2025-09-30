@@ -13,7 +13,7 @@ const config: Config = {
         sans: ['var(--font-inter)'],
       },
       colors: {
-        border: "hsl(var(--muted))",
+        border: "hsl(var(--border))",
         input: "hsl(var(--muted))",
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
@@ -37,6 +37,10 @@ const config: Config = {
         accent: {
           DEFAULT: "hsl(var(--accent))",
           foreground: "hsl(var(--accent-foreground))",
+        },
+        card: {
+          DEFAULT: "hsl(var(--card))",
+          foreground: "hsl(var(--card-foreground))",
         },
       },
       borderRadius: {
