@@ -13,11 +13,8 @@ export type Note = {
   derived?: { kind: 'PEDIDO'|'VISITA'|'POS_EVT'|'POS_PLV'|'NOTA' };
 };
 
-export type TaskKind = 'PEDIDO'|'VISITA'|'POS_EVT'|'POS_PLV'|'NOTA';
-export type TaskStatus = InteractionStatus;
-
+// La única fuente de verdad para una "tarea" es la Interaction del SSOT
 export type Task = Interaction;
-
 
 export interface IAgendaStorage {
   loadNotes(): Promise<Note[]>;

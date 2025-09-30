@@ -7,7 +7,7 @@ import { useData } from '@/lib/dataprovider';
 import { TaskBoard } from '@/features/agenda/TaskBoard';
 import type { Task } from '@/features/agenda/TaskBoard';
 import { sbAsISO } from '@/features/agenda/helpers';
-import type { Interaction, InteractionStatus, Account, SantaData, Payload, MarketingEvent, Department } from '@/domain/ssot';
+import type { Interaction, InteractionStatus, Account, MarketingEvent } from '@/domain/ssot';
 import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/TaskCompletionDialog';
 import { MarketingTaskCompletionDialog } from '@/features/marketing/components/MarketingTaskCompletionDialog';
 import { FilterSelect } from '@/components/ui/FilterSelect';
@@ -66,10 +66,10 @@ export default function GlobalTasksPage() {
         return mapInteractionsToTasks(filteredInteractions, data.accounts);
     }, [data?.interactions, data?.accounts, responsibleFilter, departmentFilter]);
     
-    const handleUpdateStatus = (id: string, newStatus: InteractionStatus) => {
+    const handleCompleteTask = (id: string) => {
         if (!data || !data.interactions) return;
         const taskToUpdate = data.interactions.find(i => i.id === id);
-        if (newStatus === 'done' && taskToUpdate) {
+        if (taskToUpdate) {
             if (taskToUpdate.dept === 'MARKETING' && taskToUpdate.linkedEntity?.type === 'EVENT' && data.marketingEvents) {
                 const event = (data.marketingEvents || []).find((e: MarketingEvent) => e.id === taskToUpdate.linkedEntity?.id);
                 if (event) {
@@ -102,8 +102,7 @@ export default function GlobalTasksPage() {
                 </div>
                 <TaskBoard
                     tasks={allTasks}
-                    onTaskStatusChange={handleUpdateStatus}
-                    onCompleteTask={(id) => handleUpdateStatus(id, 'done')}
+                    onCompleteTask={handleCompleteTask}
                 />
             </div>
             {completingTask && (

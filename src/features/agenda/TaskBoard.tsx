@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useMemo } from 'react';
-import type { Department, InteractionStatus, User, Interaction } from '@/domain/ssot';
+import type { Department, Interaction, InteractionStatus } from '@/domain/ssot';
 import { Check, AlertCircle, Clock, Plus } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
 import { DEPT_META } from '@/domain/ssot';
@@ -57,7 +57,7 @@ function TaskCard({ task, onComplete }: { task: Task; onComplete: (id: string) =
 
   const involvedUsers = (task.involvedUserIds || [])
     .map((id) => data?.users.find((u) => u.id === id))
-    .filter(Boolean) as User[];
+    .filter(Boolean) as Interaction['involvedUserIds'];
 
   const dateLabel = task.date ? new Date(task.date) : null;
 
@@ -77,7 +77,7 @@ function TaskCard({ task, onComplete }: { task: Task; onComplete: (id: string) =
       <div className="mt-2 flex justify-between items-center">
         <div className="flex items-center gap-2">
           {dateLabel && (
-            <time className="text-xs" style={{ color: SB.text.muted }} dateTime={toISO(dateLabel)}>
+            <time className="text-xs" style={{ color: SB.text.muted }} dateTime={dateLabel.toISOString()}>
               {dateLabel.toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}
             </time>
           )}
@@ -95,8 +95,8 @@ function TaskCard({ task, onComplete }: { task: Task; onComplete: (id: string) =
           )}
         </div>
         <div className="flex -space-x-2">
-          {involvedUsers.map((user) => (
-            <Avatar key={user.id} name={user.name} size="md" />
+          {(involvedUsers || []).map((user) => (
+            <Avatar key={(user as any).id} name={(user as any).name} size="md" />
           ))}
         </div>
       </div>

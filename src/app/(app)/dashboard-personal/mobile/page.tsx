@@ -17,11 +17,9 @@ import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
 } from 'recharts';
 import { useQuickNotes } from '@/features/agenda/hooks/useQuickNotes';
-import { getStorage } from '@/features/agenda/storage';
 import { QuickEditor } from '@/features/agenda/components/QuickEditor';
 import { NotesList } from '@/features/agenda/components/NotesList';
 import { OutcomeDialog } from '@/features/agenda/components/OutcomeDialog';
-import type { Task as AgendaTask } from '@/features/agenda/storage/adapter';
 
 import dynamic from 'next/dynamic';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -164,11 +162,11 @@ function AgendaDock() {
   const kpis = useMemo(()=> {
     const overdue = agenda.overdue.length;
     const todayOpen = agenda.todayTasks.filter(t=>t.status==='open').length;
-    const posToday = agenda.todayTasks.filter(t=> t.kind==='POS_EVT' || t.kind==='POS_PLV').length;
+    const posToday = agenda.todayTasks.filter(t=> t.kind==='EVENTO_MKT').length;
     return { overdue, todayOpen, posToday };
   }, [agenda.overdue, agenda.todayTasks]);
   
-  const onConfirm = (task: AgendaTask, payload: Record<string,any>) => {
+  const onConfirm = (task: Interaction, payload: Record<string,any>) => {
       console.log("Confirming outcome for task", task, "with payload", payload);
       agenda.completeTask(task.id);
       closeOutcome();
@@ -221,6 +219,7 @@ function AgendaDock() {
 
       <OutcomeDialog
         taskId={outcomeFor}
+        tasks={agenda.tasks}
         onClose={closeOutcome}
         onConfirm={onConfirm}
       />
@@ -280,7 +279,19 @@ export default function PersonalDashboardPageMobile() {
         return { personalTasks: tasks, kpis: kpiData };
     }, [data, currentUser, timeRange]);
 
-    const handleUpdateStatus = (id: string, newStatus: InteractionStatus) => { if (!data || !data.interactions) return; const taskToUpdate = data.interactions.find(i => i.id === id); if (!taskToUpdate) return; if (newStatus === 'done') { if (taskToUpdate.dept === 'MARKETING' && taskToUpdate.linkedEntity?.type === 'EVENT' && data.marketingEvents) { const event = (data.marketingEvents as any[]).find(e => e.id === taskToUpdate.linkedEntity?.id); if (event) setCompletingMarketingEvent(event); else setCompletingTask(taskToUpdate); } else { setCompletingTask(taskToUpdate); } } };
+    const handleCompleteTask = (id: string) => { 
+        if (!data || !data.interactions) return; 
+        const taskToUpdate = data.interactions.find(i => i.id === id); 
+        if (!taskToUpdate) return; 
+        if (taskToUpdate.dept === 'MARKETING' && taskToUpdate.linkedEntity?.type === 'EVENT' && data.marketingEvents) { 
+            const event = (data.marketingEvents as any[]).find(e => e.id === taskToUpdate.linkedEntity?.id); 
+            if (event) setCompletingMarketingEvent(event); 
+            else setCompletingTask(taskToUpdate); 
+        } else { 
+            setCompletingTask(taskToUpdate); 
+        } 
+    };
+
     const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } };
 
     if (!kpis || !currentUser || !data) {
@@ -319,8 +330,7 @@ export default function PersonalDashboardPageMobile() {
                  <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, duration: 0.5 }}>
                      <TaskBoard
                          tasks={personalTasks}
-                         onTaskStatusChange={handleUpdateStatus}
-                         onCompleteTask={(id) => handleUpdateStatus(id, 'done')}
+                         onCompleteTask={handleCompleteTask}
                          onNewTask={() => setOpenNewTask(true)}
                      />
                  </motion.div>

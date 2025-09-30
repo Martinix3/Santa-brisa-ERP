@@ -1,15 +1,14 @@
 // features/agenda/hooks/useQuickNotes.ts
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { parseNoteToAction, inferDepartment } from '../parser/parser';
 import type { Note } from '../storage/adapter';
-import type { Department, Task, TaskKind, TaskStatus } from '@/domain/ssot';
+import type { Department, Interaction, TaskStatus } from '@/domain/ssot';
 import { useData } from '@/lib/dataprovider';
 
 // El hook ahora no gestiona el storage, sino que lee del DataProvider
 export function useQuickNotes() {
   const { data: santaData, saveAllCollections } = useData();
-  const notes = useMemo(() => (santaData?.notes || []) as Note[], [santaData?.notes]);
-  const tasks = useMemo(() => (santaData?.interactions || []) as Task[], [santaData?.interactions]);
+  const notes = useMemo(() => [] as Note[], []); // Notes are not in ssot, so we use an empty array.
+  const tasks = useMemo(() => (santaData?.interactions || []) as Interaction[], [santaData?.interactions]);
 
   const [linkNotes, setLinkNotes] = useState(true);
   const [range, setRange] = useState<{start:Date; end:Date}>(()=> {
@@ -19,45 +18,35 @@ export function useQuickNotes() {
   });
 
   const addNote = async (text: string) => {
-    const n: Note = { id: crypto.randomUUID(), text, createdAt: new Date().toISOString(), tags: [] };
-    const parsed = parseNoteToAction(text);
-    n.derived = { kind: parsed.kind as any };
-    
-    // Directamente llama a saveAllCollections para persistir
-    await saveAllCollections({ notes: [...notes, n] });
-    
-    // No creamos la task aquí, se delega al OutcomeDialog
+    // This functionality is currently disabled as Notes are not part of the main data model.
   };
 
   const completeTask = async (taskId: string) => {
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
-    const updatedTask = { ...task, status: 'done' as TaskStatus, updatedAt: new Date().toISOString() };
+    const updatedTask = { ...task, status: 'done' as InteractionStatus, updatedAt: new Date().toISOString() };
     await saveAllCollections({ interactions: [updatedTask] });
   };
 
   const deleteTask = async (taskId: string) => {
     const updatedTasks = tasks.filter(t => t.id !== taskId);
-    // Para borrar, podrías necesitar una acción de servidor específica.
-    // Esta es una simplificación:
     await saveAllCollections({ interactions: updatedTasks });
   };
 
-  // Overdue pinning (sin reordenar todo el día)
+  // Overdue pinning
   const todayStart = useMemo(()=> new Date(range.start), [range]);
   const openTasks = useMemo(() => tasks.filter(t => t.status === 'open'), [tasks]);
 
   const overdue = useMemo(()=> openTasks.filter(t => t.plannedFor && new Date(t.plannedFor) < todayStart), [openTasks, todayStart]);
   
   const todayTasks = useMemo(()=> openTasks.filter(t=>{
-    if (!t.plannedFor) return true; // sin fecha, se muestran siempre en “hoy”
+    if (!t.plannedFor) return true;
     const dt = new Date(t.plannedFor).getTime();
     return dt >= range.start.getTime() && dt < range.end.getTime();
   }), [openTasks, range]);
 
-  // Swipe (umbral ~60px)
+  // Swipe
   const swipeState = useRef<{ id?:string; startX?:number; dx?:number }>({});
-
   const onItemPointerDown = (id: string) => (e: React.PointerEvent) => {
     swipeState.current = { id, startX: e.clientX, dx: 0 };
   };
@@ -71,7 +60,6 @@ export function useQuickNotes() {
     if (Math.abs(dx) > 60) openOutcome(id);
   };
 
-  // Vincular notas al rango visible
   const rangedNotes = useMemo(()=> {
     if (!linkNotes) return notes;
     return notes.filter(n => {

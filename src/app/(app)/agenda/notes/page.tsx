@@ -1,20 +1,16 @@
-
 // /app/(app)/agenda/notes/page.tsx
 "use client";
 import React, { useMemo, useState } from 'react';
 import { useQuickNotes } from '@/features/agenda/hooks/useQuickNotes';
-import { getStorage } from '@/features/agenda/storage';
 import { QuickEditor } from '@/features/agenda/components/QuickEditor';
 import { NotesList } from '@/features/agenda/components/NotesList';
 import { OutcomeDialog } from '@/features/agenda/components/OutcomeDialog';
 import { FooterKPIs } from '@/features/agenda/components/FooterKPIs';
-import type { Task } from '@/features/agenda/storage/adapter';
+import type { Interaction } from '@/domain/ssot';
 
-// Inicializamos el storage. A futuro, se podría cambiar por `FirestoreAgendaStorage`
-const storage = getStorage();
 
 export default function CalendarNotesPage() {
-  const agenda = useQuickNotes(storage);
+  const agenda = useQuickNotes();
   const [view, setView] = useState<'day'|'week'|'month'>('day');
   const [outcomeFor, setOutcomeFor] = useState<string|null>(null);
 
@@ -24,14 +20,12 @@ export default function CalendarNotesPage() {
   // KPIs footer
   const kpis = useMemo(()=> {
     const overdue = agenda.overdue.length;
-    const todayOpen = agenda.todayTasks.filter(t=>t.status==='OPEN').length;
-    const posToday = agenda.todayTasks.filter(t=> t.kind==='POS_EVT' || t.kind==='POS_PLV').length;
+    const todayOpen = agenda.todayTasks.filter(t=>t.status==='open').length;
+    const posToday = agenda.todayTasks.filter(t=> t.kind==='EVENTO_MKT').length;
     return { overdue, todayOpen, posToday };
   }, [agenda.overdue, agenda.todayTasks]);
 
-  const onConfirmOutcome = (task: Task, payload: Record<string,any>) => {
-    // Aquí mapeamos a SSOT: crear order/interaction/event/plv según task.kind
-    // Por ahora, solo completamos la tarea.
+  const onConfirmOutcome = (task: Interaction, payload: Record<string,any>) => {
     console.log("Confirming outcome for task", task, "with payload", payload);
     agenda.completeTask(task.id);
     closeOutcome();
@@ -55,8 +49,6 @@ export default function CalendarNotesPage() {
           Vincular notas
         </label>
       </div>
-
-      {/* (placeholder) calendario arriba según vista (a futuro) */}
 
       {/* Editor + histórico/Tasks */}
       <div className="px-4">

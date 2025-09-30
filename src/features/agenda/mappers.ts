@@ -1,4 +1,3 @@
-
 // src/features/agenda/mappers.ts
 import type { Interaction, Account } from '@/domain/ssot';
 import { sbAsISO } from './helpers';
@@ -29,5 +28,3 @@ export function mapInteractionsToTasks(
     })
     .filter(Boolean) as Task[];
 }
-
-    
