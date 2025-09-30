@@ -1,7 +1,6 @@
 // /features/agenda/components/NotesList.tsx
 import React from 'react';
-import type { Note } from '@/domain/ssot';
-import type { Task } from '@/features/agenda/TaskBoard';
+import type { Note, Task } from '@/domain/ssot';
 
 export function NotesList({
   notes, tasks,
@@ -13,12 +12,14 @@ export function NotesList({
   onPointerMove:  (id:string)=> (e:React.PointerEvent)=>void;
   onPointerUp:    (id:string)=> ()=>void;
 }) {
-  // combinamos visualmente Task + nota ligada (por noteId)
+  // combinamos visualmente Task + nota ligada
   return (
     <ul className="divide-y">
       {tasks.map(t => {
-        const n = notes.find(nn => nn.id===t.noteId);
         const done = t.status==='done';
+        // Corrección: Usar t.note directamente en lugar de buscar por noteId
+        const taskText = t.note || 'Tarea sin descripción';
+
         return (
           <li key={t.id}
               className="py-2 select-none relative"
@@ -29,10 +30,10 @@ export function NotesList({
             {/* fondo swipe: verde/rojo sutil (se pintaría con transform x si quisieras feedback en vivo) */}
             <div className="absolute inset-0 rounded-md pointer-events-none bg-transparent" />
             <div className={`relative ${done?'line-through text-[hsl(var(--sb-neutral-400))]':''}`}>
-              <div className="text-[0.95rem] leading-snug whitespace-pre-wrap">{n?.text || t.title}</div>
-              {t.date && (
+              <div className="text-[0.95rem] leading-snug whitespace-pre-wrap">{taskText}</div>
+              {t.plannedFor && (
                 <div className="mt-0.5 text-[10px] text-[hsl(var(--sb-neutral-500))]">
-                  {new Date(t.date).toLocaleString()}
+                  {new Date(t.plannedFor).toLocaleString()}
                 </div>
               )}
             </div>
