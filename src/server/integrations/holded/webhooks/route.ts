@@ -30,6 +30,7 @@ export async function POST(req: NextRequest) {
     docNumber: serialNumber,
     partyId: undefined,
     costObject: meta?.orderId ? { kind: 'ORDER', id: meta.orderId } : undefined,
+    status: status === 'paid' ? 'paid' : 'pending',
   };
 
   await upsertMany('financeLinks', [fin] as any);
@@ -37,7 +38,9 @@ export async function POST(req: NextRequest) {
   // Persistimos pagos individuales
   const payDocs: Partial<PaymentLink>[] = (payments || []).map((p: any) => ({
     id: `holded-${p.id}`,
+    externalId: p.id,
     financeLinkId: financeLinkId,
+    amount: p.amount,
     date: p.date ?? now,
     method: p.method ?? 'transfer',
   }));
@@ -55,3 +58,5 @@ export async function POST(req: NextRequest) {
 
   return new Response('OK', { status: 200 });
 }
+
+    

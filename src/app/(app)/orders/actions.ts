@@ -130,6 +130,7 @@ export async function createSalesInvoice({ orderId }: { orderId:string }) {
   const finId = `INV-${now.slice(0,10)}-${Math.floor(Math.random()*99999)}`;
   const fin: Partial<FinanceLink> = {
      id: finId,
+     externalId: '', // si sincronizas con Holded, rellena después
      netAmount: amount,
      taxAmount: 0,
      grossAmount: amount,
@@ -162,11 +163,13 @@ export async function recordPayment({ financeLinkId, amount, date, method }: {
   const paymentId = `PAY-${now}-${Math.floor(Math.random()*1e6)}`;
   const pay: Partial<PaymentLink> = {
     id: paymentId,
+    externalId: undefined,
     date: date ?? now,
     method: method ?? 'transfer',
-    amount,
   };
   await upsertMany('paymentLinks', [pay] as any);
   revalidatePath('/finance');
   return { ok:true, paymentId: pay.id };
 }
+
+    

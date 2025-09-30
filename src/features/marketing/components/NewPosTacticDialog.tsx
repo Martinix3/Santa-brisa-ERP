@@ -106,7 +106,7 @@ const TacticItemRow = ({
                 <Input value={item.desc || ''} onChange={(e) => onChange(index, { desc: e.target.value })} placeholder="Descripción de la acción"/>
             )}
             
-            <Input type="number" placeholder="Coste (€)" value={(item as any).estCost ?? ''} onChange={e => onChange(index, { estCost: Number(e.target.value) || undefined })}/>
+            <Input type="number" placeholder="Coste (€)" value={item.estCost ?? ''} onChange={e => onChange(index, { estCost: Number(e.target.value) || undefined })}/>
             <Input type="date" value={item.scheduleAt || ''} onChange={e => onChange(index, { scheduleAt: e.target.value })}/>
             
             <button type="button" onClick={() => onRemove(index)} className="p-2 text-red-500 hover:bg-red-50 rounded-md"><X size={16}/></button>
@@ -206,3 +206,5 @@ export function NewPosTacticDialog({
         </SBDialog>
     );
 }
+
+    

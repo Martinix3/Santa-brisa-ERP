@@ -250,7 +250,7 @@ export async function createGoodsReceipt(payload: {
         return cat === 'raw' || cat === 'pack' || cat === 'fg';
     });
 
-    const receipt: Omit<GoodsReceipt, 'createdAt'|'updatedAt'> & {notes?: string | undefined} = {
+    const receipt: Omit<GoodsReceipt, 'createdAt'|'updatedAt'> & {notes?: string} = {
         id: receiptRef.id,
         receiptNumber,
         supplierPartyId: finalSupplierId!,
@@ -282,3 +282,5 @@ export async function reportIncident(payload: {
 }) {
   // Logic to report an incident
 }
+
+    
