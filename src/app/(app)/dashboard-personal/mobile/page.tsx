@@ -1,351 +1,282 @@
 // src/app/(app)/dashboard-personal/mobile/page.tsx
 "use client";
-import React, { useMemo, useState } from 'react';
-import { motion } from 'framer-motion';
-import { Users, Package, Briefcase, CheckSquare } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useData } from '@/lib/dataprovider';
-import { orderToBottles } from '@/lib/sb-core';
-import { TaskBoard } from '@/features/agenda/TaskBoard'; 
-import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/TaskCompletionDialog';
-import { NewEventDialog } from '@/features/agenda/components/NewEventDialog';
-import { MarketingTaskCompletionDialog } from '@/features/marketing/components/MarketingTaskCompletionDialog';
-import { mapInteractionsToTasks } from '@/features/agenda/mappers';
-import { toast } from 'sonner';
-import { useRouter } from 'next/navigation';
-import type { Interaction, InteractionStatus, User as CurrentUserType, SantaData, Note } from '@/domain/ssot';
-import {
-  ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-} from 'recharts';
 import { useQuickNotes } from '@/features/agenda/hooks/useQuickNotes';
-import { QuickEditor } from '@/features/agenda/components/QuickEditor';
-import { NotesList } from '@/features/agenda/components/NotesList';
-import { OutcomeDialog } from '@/features/agenda/components/OutcomeDialog';
-import dynamic from 'next/dynamic';
-import dayGridPlugin from '@fullcalendar/daygrid';
-import interactionPlugin from '@fullcalendar/interaction';
-import type { EventClickArg } from '@fullcalendar/core';
-import esLocale from '@fullcalendar/core/locales/es';
-import { useFullCalendarStyles } from '@/features/agenda/useFullCalendarStyles';
+import { mapInteractionsToTasks } from '@/features/agenda/mappers';
+import type { Note, Interaction, Task } from '@/domain/ssot';
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { DEPT_META } from '@/domain/ssot';
-import { sbAsISO } from '@/features/agenda/helpers';
 
-const SANTA_BRISA_COLORS = { brand: { accent: '#F4C542' } };
-const KpiCard = ({ icon: Icon, title, value, goal, color }: { icon: React.ElementType; title: string; value: number; goal: number; color: string }) => {
-    const progress = goal > 0 ? Math.min(100, (value / goal) * 100) : 0;
-    return (
-        <motion.div className="bg-white p-4 rounded-lg border border-slate-200" variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}>
-            <div className="flex items-center space-x-3 mb-2">
-                <div className="bg-white p-2 rounded-lg border border-slate-200">
-                    <Icon className="text-slate-500" size={20} />
-                </div>
-                <p className="text-sm text-slate-700 font-medium">{title}</p>
-            </div>
-            <p className="text-3xl font-bold text-slate-900">{value} <span className="text-base font-normal text-slate-500">/ {goal}</span></p>
-            <div className="w-full bg-slate-200 rounded-full h-1.5 mt-2 overflow-hidden">
-                <div className="h-1.5 rounded-full" style={{ width: `${progress}%`, backgroundColor: color }}></div>
-            </div>
-        </motion.div>
-    );
-}
+// ===================== Componentes UI Refactorizados =====================
 
-function PersonalSalesChart({ data, currentUser }: { data: SantaData, currentUser: CurrentUserType }) {
-  const chartData = useMemo(() => {
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const salesByDay: Record<string, number> = {};
-
-    const myOrders = (data.ordersSellOut || []).filter(o => {
-        const acc = data.accounts.find(a => a.id === o.accountId);
-        return acc?.ownerId === currentUser.id && new Date(o.createdAt) >= startOfMonth;
-    });
-
-    myOrders.forEach(order => {
-        const date = new Date(order.createdAt);
-        const day = date.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
-        const bottles = orderToBottles(order, data.items || []);
-        const firstLineItem = order.lines?.[0]?.itemId ? data.items.find(it => it.id === order.lines[0].itemId) : undefined;
-        const caseUnits = firstLineItem?.caseUnits || 6;
-        const boxes = Math.floor(bottles / caseUnits);
-        salesByDay[day] = (salesByDay[day] || 0) + boxes;
-    });
-
-    const result = [];
-    for (let i = 1; i <= now.getDate(); i++) {
-        const dayDate = new Date(now.getFullYear(), now.getMonth(), i);
-        const dayLabel = dayDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
-        result.push({ name: dayLabel, Cajas: salesByDay[dayLabel] || 0 });
-    }
-    return result;
-
-  }, [data, currentUser]);
-
-  return (
-    <div className="bg-white border border-slate-200 rounded-lg p-5">
-      <h3 className="font-semibold text-slate-900 mb-4">Evolución de Cajas Vendidas (Mes Actual)</h3>
-      <div className="h-[250px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-            <XAxis dataKey="name" fontSize={10} axisLine={false} tickLine={false} stroke="#6b7280" />
-            <YAxis fontSize={10} axisLine={false} tickLine={false} stroke="#6b7280" />
-            <Tooltip contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '6px', color: '#334155' }} cursor={{ fill: '#f1f5f9' }} />
-            <Line type="monotone" dataKey="Cajas" stroke={SANTA_BRISA_COLORS.brand.accent} strokeWidth={2} dot={{ r: 4, strokeWidth: 2, fill: '#fff' }} activeDot={{ r: 6 }} />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  )
-}
-
-function MiniCalendarCard() {
-  useFullCalendarStyles();
-  const { data } = useData();
-  const router = useRouter();
-  const FullCalendar = useMemo(
-    () => dynamic(() => import('@fullcalendar/react'), { ssr: false }),
-    []
-  );
-
-  const calendarEvents = useMemo(() => {
-    const interactions = data?.interactions || [];
-    return interactions
-      .map(i => {
-        const start = sbAsISO(i.plannedFor);
-        if (!start) return null;
-        const dept = (i.dept as keyof typeof DEPT_META) || 'VENTAS';
-        const style = DEPT_META[dept] || DEPT_META.VENTAS;
-        return {
-          id: i.id,
-          title: i.note || String(i.kind || 'Tarea'),
-          start,
-          allDay: true,
-          extendedProps: { dept, status: i.status },
-          backgroundColor: i.status === 'done' ? '#e5e7eb' : 'transparent',
-          borderColor: i.status === 'done' ? '#9ca3af' : style.color,
-          textColor: i.status === 'done' ? '#374151' : style.textColor,
-          className: ['sb-event-compact'],
-        };
-      })
-      .filter(Boolean) as any[];
-  }, [data?.interactions]);
-
-  const onEventClick = (arg: EventClickArg) => {
-    const d = arg.event.start;
-    if (!d) return;
-    const iso = d.toISOString().slice(0, 10);
-    router.push(`/agenda/calendar?d=${iso}`);
-  };
-
-  return (
-    <div className="bg-white border border-slate-200 rounded-xl p-4 h-full flex flex-col">
-      <h3 className="font-semibold text-slate-900 mb-3">Calendario</h3>
-      <div className="min-h-0 flex-1">
-        <FullCalendar
-          plugins={[dayGridPlugin, interactionPlugin]}
-          initialView="dayGridMonth"
-          headerToolbar={{ left: 'prev,next', center: 'title', right: '' }}
-          events={calendarEvents}
-          eventClick={onEventClick}
-          height="100%"
-          dayMaxEventRows={2}
-          locales={[esLocale]}
-          locale="es"
-          aspectRatio={1.1}
-        />
-      </div>
-    </div>
-  );
-}
-
-function AgendaDock() {
-  const agenda = useQuickNotes();
-  const { data } = useData();
-  const [outcomeFor, setOutcomeFor] = useState<string|null>(null);
-  const openOutcome = (id: string) => setOutcomeFor(id);
-  const closeOutcome = () => setOutcomeFor(null);
-
-  const kpis = useMemo(()=> {
-    const overdue = agenda.overdue.length;
-    const todayOpen = agenda.todayTasks.filter(t=>t.status==='open').length;
-    const posToday = agenda.todayTasks.filter(t=> t.kind==='EVENTO_MKT').length;
-    return { overdue, todayOpen, posToday };
-  }, [agenda.overdue, agenda.todayTasks]);
-  
-  const onConfirm = (task: Interaction, payload: Record<string,any>) => {
-      console.log("Confirming outcome for task", task, "with payload", payload);
-      agenda.completeTask(task.id);
-      closeOutcome();
+const Header = ({ view, setView, linkNotes, setLinkNotes, currentDate, setCurrentDate }: {
+    view: string;
+    setView: (v: string) => void;
+    linkNotes: boolean;
+    setLinkNotes: (b: boolean) => void;
+    currentDate: Date;
+    setCurrentDate: (d: Date) => void;
+}) => {
+    const changeDate = (amount: number) => {
+        const newDate = new Date(currentDate);
+        if (view === 'Mes') newDate.setMonth(newDate.getMonth() + amount);
+        else if (view === 'Semana') newDate.setDate(newDate.getDate() + (amount * 7));
+        else newDate.setDate(newDate.getDate() + amount);
+        setCurrentDate(newDate);
     };
 
-    const overdueTasks = useMemo(() => mapInteractionsToTasks(agenda.overdue, data?.accounts), [agenda.overdue, data?.accounts]);
-    const todayTasksMapped = useMemo(() => mapInteractionsToTasks(agenda.todayTasks, data?.accounts), [agenda.todayTasks, data?.accounts]);
-  
-  return (
-    <div className="bg-white border border-slate-200 rounded-xl flex flex-col h-full">
-      <div className="px-4 pt-3 pb-2 flex items-center gap-3 border-b border-slate-200">
-        <div className="text-sm font-semibold text-slate-900">Mi Agenda</div>
-        <div className="ml-auto text-xs flex items-center gap-2">
-          <label className="inline-flex items-center gap-1 text-slate-600">
-            <input type="checkbox" checked={agenda.linkNotes} onChange={e=>agenda.setLinkNotes(e.target.checked)} />
-            Vincular notas
-          </label>
+    return (
+        <div className="bg-white px-4 pt-12 pb-2 sticky top-0 z-20 border-b border-zinc-200">
+            <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                    <h1 className="text-2xl font-bold text-zinc-900">Agenda</h1>
+                    <div className="w-2 h-2 rounded-full bg-yellow-400" title="Online"></div>
+                </div>
+                <div className="flex items-center gap-4">
+                    <span className="text-sm font-semibold text-zinc-900">
+                        {currentDate.toLocaleString('es-ES', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())}
+                    </span>
+                    <div className="flex items-center gap-1">
+                         <button onClick={() => changeDate(-1)} className="p-1 rounded-md hover:bg-zinc-100 text-zinc-500"><ChevronLeft size={20} /></button>
+                         <button onClick={() => changeDate(1)} className="p-1 rounded-md hover:bg-zinc-100 text-zinc-500"><ChevronRight size={20} /></button>
+                    </div>
+                </div>
+            </div>
+            <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                    {['Día', 'Semana', 'Mes'].map(v => (
+                        <button key={v} onClick={() => setView(v)} className={`px-3 py-2 text-sm font-medium transition-colors ${view === v ? 'text-zinc-900 border-b-2 border-yellow-400' : 'text-zinc-500 hover:text-zinc-700'}`}>
+                            {v}
+                        </button>
+                    ))}
+                </div>
+                <label className="flex items-center gap-2 text-sm text-zinc-700 cursor-pointer">
+                    <input type="checkbox" checked={linkNotes} onChange={e => setLinkNotes(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-yellow-400 focus:ring-yellow-400"/>
+                    Vincular notas
+                </label>
+            </div>
         </div>
-      </div>
-      <div className="px-4 pt-2">
-        <QuickEditor onSubmit={agenda.addNote} />
-      </div>
-       <div className="flex-1 overflow-y-auto px-2 mt-2 space-y-2">
-        {agenda.overdue.length > 0 && (
-            <details open className="px-2">
-                <summary className="text-xs text-slate-600 py-1 cursor-pointer">Atrasadas ({agenda.overdue.length})</summary>
-                <NotesList
-                    notes={agenda.rangedNotes as Note[]}
-                    tasks={overdueTasks}
-                    onPointerDown={agenda.onItemPointerDown}
-                    onPointerMove={agenda.onItemPointerMove}
-                    onPointerUp={(id) => agenda.onItemPointerUp(id, openOutcome)}
-                />
-            </details>
-        )}
-        <NotesList
-            notes={agenda.rangedNotes as Note[]}
-            tasks={todayTasksMapped}
-            onPointerDown={agenda.onItemPointerDown}
-            onPointerMove={agenda.onItemPointerMove}
-            onPointerUp={(id) => agenda.onItemPointerUp(id, openOutcome)}
-        />
-      </div>
-      <div className="border-t border-slate-200 bg-white px-4 py-2 text-sm flex items-center justify-between rounded-b-xl">
-        <div className="text-slate-600">Pendientes: <span className="font-semibold">{kpis.overdue + kpis.todayOpen}</span></div>
-         <button className="text-sm font-medium text-yellow-500 hover:underline">Ver todo</button>
-      </div>
-       <OutcomeDialog
-        taskId={outcomeFor}
-        tasks={agenda.tasks}
-        onClose={closeOutcome}
-        onConfirm={onConfirm}
-      />
+    );
+};
+
+const DayView = ({ tasks, currentDate }: { tasks: Task[], currentDate: Date }) => (
+    <div className="p-4 bg-zinc-50 border-b border-zinc-200">
+         <h3 className="text-base font-semibold mb-2">Eventos - {currentDate.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric' })}</h3>
+         <div className="space-y-2">
+            {tasks.length > 0 ? tasks.map(event => (
+                <div key={event.id} className="p-2 rounded-md" style={{ borderLeft: `3px solid ${DEPT_META[event.type]?.color || 'gray'}` }}>
+                    <p className="text-sm font-medium text-zinc-900">{event.title}</p>
+                    <p className="text-xs text-zinc-500">{event.date ? new Date(event.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</p>
+                </div>
+            )) : <p className="text-sm text-zinc-500">No hay eventos para este día.</p>}
+         </div>
     </div>
-  );
-}
+);
+
+const MonthView = ({ currentDate, tasks, onDateClick }: { currentDate: Date, tasks: Task[], onDateClick: (d: Date) => void }) => {
+    const today = new Date();
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    const firstDay = (new Date(year, month, 1).getDay() + 6) % 7;
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const days = Array.from({ length: firstDay + daysInMonth }, (_, i) => i < firstDay ? null : new Date(year, month, i - firstDay + 1));
+    const colorMap: Record<string, string> = { 'VENTAS': '#B25A32', 'MARKETING': '#77D9CF', 'PRODUCCION': '#F26D3D' };
+
+    return (
+         <div className="p-4 bg-zinc-50 border-b border-zinc-200">
+            <div className="grid grid-cols-7 text-center text-xs text-zinc-500 font-semibold mb-2">
+                {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map(d => <div key={d}>{d}</div>)}
+            </div>
+            <div className="grid grid-cols-7 gap-y-1">
+                {days.map((day, index) => (
+                    <button key={index} onClick={() => day && onDateClick(day)} disabled={!day} className="h-12 flex flex-col items-center justify-start p-1 rounded-lg hover:bg-gray-200/50 disabled:hover:bg-transparent">
+                        {day && (
+                            <>
+                                <span className={`w-7 h-7 flex items-center justify-center rounded-full text-sm ${day.toDateString() === today.toDateString() ? 'bg-yellow-400 text-black font-bold' : ''}`}>{day.getDate()}</span>
+                                <div className="flex gap-1 mt-1">
+                                    {tasks.filter(t => t.date && new Date(t.date).toDateString() === day.toDateString()).slice(0, 3).map(t => (
+                                        <div key={t.id} className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: DEPT_META[t.type]?.color || 'var(--text-muted)' }}></div>
+                                    ))}
+                                </div>
+                            </>
+                        )}
+                    </button>
+                ))}
+            </div>
+         </div>
+    );
+};
+
+const WeekView = ({ currentDate, tasks }: { currentDate: Date, tasks: Task[] }) => {
+    const startOfWeek = new Date(currentDate);
+    startOfWeek.setDate(currentDate.getDate() - (currentDate.getDay() + 6) % 7);
+    const weekDays = Array.from({ length: 7 }, (_, i) => { const d = new Date(startOfWeek); d.setDate(startOfWeek.getDate() + i); return d; });
+    return (
+         <div className="p-4 bg-zinc-50 border-b border-zinc-200">
+            <div className="grid grid-cols-7 text-center text-xs text-zinc-500 font-semibold mb-2">
+                {weekDays.map(d => <div key={d.toISOString()} className="flex flex-col items-center"><span className="font-normal">{d.toLocaleDateString('es-ES', { weekday: 'short' })[0].toUpperCase()}</span><span>{d.getDate()}</span></div>)}
+            </div>
+            <div className="mt-2 text-center text-sm text-zinc-500">Vista semanal en desarrollo.</div>
+         </div>
+    );
+};
+
+const CalendarView = ({ tasks, view, currentDate, onDateClick }: { tasks: Task[], view: string, currentDate: Date, onDateClick: (d: Date) => void }) => {
+    const filteredTasks = tasks.filter(t => t.date && new Date(t.date).toDateString() === currentDate.toDateString() && t.kind !== 'NOTA');
+    if (view === 'Mes') return <MonthView tasks={tasks} currentDate={currentDate} onDateClick={onDateClick} />;
+    if (view === 'Semana') return <WeekView tasks={tasks} currentDate={currentDate} />;
+    return <DayView tasks={filteredTasks} currentDate={currentDate} />;
+};
+
+const TaskItem = ({ task, onSwipe, onLongPress }: { task: Note, onSwipe: (id: string) => void, onLongPress: (id: string) => void }) => {
+    const ref = useRef<HTMLLIElement>(null);
+    const bgRef = useRef<HTMLDivElement>(null);
+    const longPressTimer = useRef<number | null>(null);
+
+    useEffect(() => {
+        const el = ref.current; const bgEl = bgRef.current; if (!el || !bgEl) return;
+        let startX = 0, currentX = 0, isDragging = false; const threshold = 80;
+
+        const clearLongPress = () => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; } };
+        
+        const onPointerDown = (e: PointerEvent) => {
+            isDragging = true; startX = e.clientX;
+            el.style.transition = 'none'; bgEl.style.transition = 'none'; el.setPointerCapture(e.pointerId);
+            clearLongPress();
+            longPressTimer.current = window.setTimeout(() => {
+                onLongPress(task.id);
+                if (navigator.vibrate) navigator.vibrate(50);
+                isDragging = false;
+            }, 500);
+        };
+        const onPointerMove = (e: PointerEvent) => {
+            if (!isDragging) return;
+            currentX = e.clientX - startX;
+            if (Math.abs(currentX) > 10) clearLongPress();
+            el.style.transform = `translateX(${currentX}px)`;
+            bgEl.style.backgroundColor = currentX > 0 ? '#E6F4EA' : '#FEF3F2';
+            bgEl.style.opacity = String(Math.min(Math.abs(currentX) / threshold, 1));
+        };
+        const onPointerUp = (e: PointerEvent) => {
+            clearLongPress(); if (!isDragging) return;
+            isDragging = false; el.releasePointerCapture(e.pointerId);
+            el.style.transition = 'transform 0.3s ease'; bgEl.style.transition = 'opacity 0.3s ease';
+            if (Math.abs(currentX) > threshold) { onSwipe(task.id); } 
+            else { el.style.transform = `translateX(0px)`; bgEl.style.opacity = '0'; }
+            currentX = 0;
+        };
+
+        el.addEventListener('pointerdown', onPointerDown); el.addEventListener('pointermove', onPointerMove);
+        el.addEventListener('pointerup', onPointerUp); el.addEventListener('pointercancel', onPointerUp);
+        return () => {
+            el.removeEventListener('pointerdown', onPointerDown); el.removeEventListener('pointermove', onPointerMove);
+            el.removeEventListener('pointerup', onPointerUp); el.removeEventListener('pointercancel', onPointerUp);
+            clearLongPress();
+        };
+    }, [task.id, onSwipe, onLongPress]);
+
+    return (
+        <li ref={ref} className="relative">
+            <div ref={bgRef} className="absolute inset-0 opacity-0"></div>
+            <div className={`relative p-3 transition-colors`}>
+                <p className={`text-sm`}>{task.text}</p>
+            </div>
+        </li>
+    );
+};
+
+const KpiFooter = ({ tasks }: { tasks: Interaction[] }) => {
+    const kpis = useMemo(() => {
+        const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const vencidas = tasks.filter(t => t.status==='open' && t.plannedFor && new Date(t.plannedFor) < now && new Date(t.plannedFor).getTime() !== todayStart).length;
+        const paraHoy = tasks.filter(t => t.status==='open' && t.plannedFor && new Date(t.plannedFor).toDateString() === now.toDateString()).length;
+        const posActivos = tasks.filter(t => t.status==='done' && t.kind === 'EVENTO_MKT').length;
+        const cuentasAbiertas = new Set(tasks.filter(t => t.status==='open' && t.accountId).map(t => t.accountId)).size;
+        return { vencidas, paraHoy, posActivos, cuentasAbiertas };
+    }, [tasks]);
+    
+    const KpiWidget = ({ value, label }: { value: string | number, label: string }) => (
+        <div className="text-center"><p className="text-base font-semibold text-zinc-900">{value}</p><p className="text-xs text-zinc-500">{label}</p></div>
+    );
+
+    return (
+        <div className="bg-white grid grid-cols-4 gap-4 p-4 border-t border-zinc-200 h-[64px]">
+            <KpiWidget value={kpis.cuentasAbiertas} label="Cuentas" />
+            <KpiWidget value={`${kpis.vencidas} / ${kpis.paraHoy}`} label="Tareas" />
+            <KpiWidget value={kpis.posActivos} label="POS" />
+            <KpiWidget value="Ver" label="Accounts" />
+        </div>
+    );
+};
 
 export default function PersonalDashboardPageMobile() {
-    const { currentUser, data } = useData();
-    const router = useRouter();
-    const [timeRange, setTimeRange] = useState<'week' | 'month' | 'year'>('month');
-    const [completingTask, setCompletingTask] = useState<Interaction | null>(null);
-    const [openNewTask, setOpenNewTask] = useState(false);
-    const [completingMarketingEvent, setCompletingMarketingEvent] = useState<any>(null);
+    const agenda = useQuickNotes();
+    const { data } = useData();
+    const [view, setView] = useState('Mes');
+    const [currentDate, setCurrentDate] = useState(new Date());
+    const [showSavePulse, setShowSavePulse] = useState(false);
+    const [draftText, setDraftText] = useState('');
+    
+    const overdueTasks = useMemo(() => mapInteractionsToTasks(agenda.overdue, data?.accounts), [agenda.overdue, data?.accounts]);
+    const todayTasksMapped = useMemo(() => mapInteractionsToTasks(agenda.todayTasks, data?.accounts), [agenda.todayTasks, data?.accounts]);
+    const allTasksMapped = useMemo(() => mapInteractionsToTasks(agenda.tasks, data?.accounts), [agenda.tasks, data?.accounts]);
 
-    const { personalTasks, kpis } = useMemo(() => {
-        if (!data || !currentUser) return { personalTasks: [], kpis: null };
-        const now = new Date();
-        let startOfRange;
-        if (timeRange === 'week') {
-            const firstDayOfWeek = now.getDate() - (now.getDay() === 0 ? 6 : now.getDay() - 1);
-            startOfRange = new Date(now.getFullYear(), now.getMonth(), firstDayOfWeek);
-        } else if (timeRange === 'year') {
-            startOfRange = new Date(now.getFullYear(), 0, 1);
-        } else { // month
-            startOfRange = new Date(now.getFullYear(), now.getMonth(), 1);
-        }
-        startOfRange.setHours(0, 0, 0, 0);
+    const submitTask = useCallback(() => {
+        if (!draftText.trim()) return;
+        agenda.addNote(draftText);
+        setDraftText('');
+        setShowSavePulse(true);
+        setTimeout(() => setShowSavePulse(false), 600);
+    }, [draftText, agenda]);
 
-        const myInteractions = (data.interactions || []).filter(i => {
-            const isAssigned = (i.involvedUserIds || []).includes(currentUser.id);
-            const isSelfAssigned = (i.involvedUserIds === undefined || i.involvedUserIds.length === 0) && i.userId === currentUser.id;
-            return isAssigned || isSelfAssigned;
-        });
-        const tasks = mapInteractionsToTasks(myInteractions, data.accounts);
-        const myAccounts = (data.accounts || []).filter(a => a.ownerId === currentUser.id && new Date(a.createdAt) >= startOfRange);
-        const myOrders = (data.ordersSellOut || []).filter(o => {
-            const acc = data.accounts.find(a => a.id === o.accountId);
-            return acc?.ownerId === currentUser.id && new Date(o.createdAt) >= startOfRange;
-        });
-        const myVisits = myInteractions.filter(i => i.kind === 'VISITA' && new Date(i.createdAt) >= startOfRange);
-        const myPosTactics = (data.posTactics || []).filter(t => (t as any).createdById === currentUser.id && new Date(t.createdAt) >= startOfRange);
-        const boxesSold = myOrders.reduce((sum, o) => {
-            const bottles = orderToBottles(o, data.items || []);
-            const firstLineItem = o.lines?.[0]?.itemId ? data.items.find(it => it.id === o.lines[0].itemId) : undefined;
-            const caseUnits = firstLineItem?.caseUnits || 6;
-            return sum + Math.floor(bottles / caseUnits);
-        }, 0);
-
-        const kpiData = { newAccounts: myAccounts.length, boxesSold: boxesSold, visits: myVisits.length, posTactics: myPosTactics.length };
-        return { personalTasks: tasks, kpis: kpiData };
-    }, [data, currentUser, timeRange]);
-
-    const handleCompleteTask = (id: string) => { 
-        if (!data || !data.interactions) return; 
-        const taskToUpdate = data.interactions.find(i => i.id === id); 
-        if (!taskToUpdate) return; 
-        if (taskToUpdate.dept === 'MARKETING' && taskToUpdate.linkedEntity?.type === 'EVENT' && (data as any).marketingEvents) { 
-            const event = ((data as any).marketingEvents as any[]).find(e => e.id === taskToUpdate.linkedEntity?.id); 
-            if (event) setCompletingMarketingEvent(event); 
-            else setCompletingTask(taskToUpdate); 
-        } else { 
-            setCompletingTask(taskToUpdate); 
-        } 
+    const handleDateClick = (date: Date) => {
+        setCurrentDate(date);
+        setView('Día');
     };
 
-    const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } };
-
-    if (!kpis || !currentUser || !data) {
-        return <div className="p-6 bg-slate-50 text-slate-700 min-h-screen">Cargando dashboard...</div>;
-    }
-
     return (
-        <>
-            <main className="flex-1 bg-slate-50 p-4 sm:p-6 lg:p-8">
-                <div className="mx-auto w-full max-w-[1400px]">
-                  
-                  <div className="space-y-6">
-                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                         <h1 className="text-3xl font-bold text-slate-900">
-                             Mi Dashboard
-                         </h1>
-                         <div className="flex items-center gap-1 rounded-lg border p-1 bg-white">
-                             {(['week', 'month', 'year'] as const).map(range => (
-                                 <button
-                                     key={range}
-                                     onClick={() => setTimeRange(range)}
-                                     className={`px-3 py-1.5 rounded-md text-sm font-semibold transition-colors ${timeRange === range ? 'bg-slate-100 text-slate-800 shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}
-                                 >
-                                     {range === 'week' ? 'Semana' : range === 'month' ? 'Mes' : 'Año'}
-                                 </button>
-                             ))}
-                         </div>
+        <div className="h-full bg-white text-zinc-900 flex flex-col">
+            <Header view={view} setView={setView} linkNotes={agenda.linkNotes} setLinkNotes={agenda.setLinkNotes} currentDate={currentDate} setCurrentDate={setCurrentDate} />
+            
+            <div className="flex-1 overflow-y-auto">
+                 <CalendarView tasks={allTasksMapped} view={view} currentDate={currentDate} onDateClick={handleDateClick} />
+                 
+                 {agenda.linkNotes && (
+                     <div className="bg-zinc-50">
+                        <div className="bg-white rounded-t-2xl pt-4">
+                            {overdueTasks.length > 0 && (
+                               <details className="px-4" open>
+                                  <summary className="py-2 text-sm font-medium text-zinc-500 cursor-pointer list-none">Pendientes de ayer ({overdueTasks.length})</summary>
+                                  <div className="border-l-2 border-gray-300 ml-1">
+                                    <ul className="pl-3">
+                                      {overdueTasks.map(task => <li key={task.id}>{task.title}</li>)}
+                                    </ul>
+                                  </div>
+                               </details>
+                            )}
+                            <div className="px-4 pb-4">
+                              <h3 className="text-base font-semibold mt-4 mb-2">Notas diarias</h3>
+                              <ul className="divide-y divide-zinc-200 border border-zinc-200 rounded-lg overflow-hidden">
+                                <li className="relative">
+                                    <textarea value={draftText} onChange={e => setDraftText(e.target.value)} rows={1} placeholder="Escribe una nota..." className="w-full bg-transparent p-3 pr-12 text-sm resize-none outline-none" onKeyDown={(e) => {if(e.key==='Enter' && !e.shiftKey){e.preventDefault(); submitTask();}}}/>
+                                    <button onClick={submitTask} className="absolute right-2 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-yellow-400 flex items-center justify-center hover:opacity-90">
+                                       <div className="relative w-full h-full flex items-center justify-center">
+                                         <Plus />
+                                         {showSavePulse && <div className="absolute inset-0 rounded-full bg-black/80 animate-pulse-once"></div>}
+                                       </div>
+                                    </button>
+                                </li>
+                                {agenda.rangedNotes.map(task => <TaskItem key={task.id} task={task} onSwipe={() => {}} onLongPress={() => {}} />)}
+                              </ul>
+                            </div>
+                        </div>
                      </div>
-
-                     <motion.div className="grid grid-cols-1 sm:grid-cols-2 gap-6" variants={containerVariants} initial="hidden" animate="visible">
-                         <KpiCard icon={Users} title="Nuevas Cuentas" value={kpis.newAccounts} goal={10} color={SANTA_BRISA_COLORS.brand.accent} />
-                         <KpiCard icon={Package} title="Cajas Vendidas" value={kpis.boxesSold} goal={150} color={SANTA_BRISA_COLORS.brand.accent} />
-                         <KpiCard icon={Briefcase} title="Visitas" value={kpis.visits} goal={60} color={SANTA_BRISA_COLORS.brand.accent} />
-                         <KpiCard icon={CheckSquare} title="POS Tactics" value={kpis.posTactics} goal={20} color={SANTA_BRISA_COLORS.brand.accent} />
-                     </motion.div>
-
-                     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.5 }}>
-                       <PersonalSalesChart data={data} currentUser={currentUser} />
-                     </motion.div>
-                  </div>
-                </div>
-            </main>
-
-            {/* Layout para móvil */}
-            <section className="lg:hidden mt-6 pt-6 border-t border-slate-200 space-y-6 px-4">
-              <div>
-                <h3 className="font-semibold text-slate-900 mb-3">Calendario</h3>
-                <MiniCalendarCard />
-              </div>
-              <div>
-                <h3 className="font-semibold text-slate-900 mb-3">Mi Agenda</h3>
-                <AgendaDock />
-              </div>
-            </section>
-
-            {completingTask && ( <TaskCompletionDialog task={completingTask} open={!!completingTask} onClose={() => setCompletingTask(null)} onSuccess={() => { toast.success('Tarea completada con éxito.'); router.refresh(); setCompletingTask(null); }} onError={(msg) => toast.error(`Error: ${msg}`)} /> )}
-            {completingMarketingEvent && ( <MarketingTaskCompletionDialog entity={completingMarketingEvent} open={!!completingMarketingEvent} onClose={() => setCompletingMarketingEvent(null)} onSuccess={() => { toast.success('Resultados del evento guardados.'); router.refresh(); setCompletingMarketingEvent(null); }} onError={(msg) => toast.error(`Error: ${msg}`)} /> )}
-            {openNewTask && currentUser && ( <NewEventDialog open={openNewTask} onOpenChange={setOpenNewTask} onSuccess={() => { toast.success("Tarea creada"); setOpenNewTask(false); router.refresh(); }} onError={(msg) => toast.error(msg)} accentColor={SANTA_BRISA_COLORS.brand.accent} initialEventData={{ userId: currentUser.id, dept: 'PERSONAL' }} /> )}
-        </>
+                 )}
+            </div>
+            
+            <KpiFooter tasks={agenda.tasks} />
+        </div>
     );
 }
