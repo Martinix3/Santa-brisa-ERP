@@ -7,7 +7,7 @@ import { Check, AlertCircle, Clock, Plus } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
 import { DEPT_META } from '@/domain/ssot';
 import { Avatar } from '@/components/ui/Avatar';
-import { SBCard } from '@/components/ui/ui-primitives';
+import { SBCard, SBButton } from '@/components/ui/ui-primitives';
 
 // This is the VIEW MODEL for a task card.
 export type Task = {
@@ -39,44 +39,46 @@ function TaskCard({ task, onComplete }: { task: Task; onComplete: (id: string) =
   const dateLabel = task.date ? new Date(task.date) : null;
 
   return (
-    <SBCard
-      className="p-3 group"
-      role="listitem"
-      aria-label={`${task.title}${dateLabel ? `, ${dateLabel.toLocaleString('es-ES')}` : ''}`}
-    >
-      <div className="flex items-start justify-between">
-        <p className="font-medium text-sm text-text-primary">{task.title}</p>
-      </div>
-
-      {task.location && <p className="text-xs mt-1 text-text-muted">{task.location}</p>}
-
-      <div className="mt-2 flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          {dateLabel && (
-            <time className="text-xs text-text-muted" dateTime={dateLabel.toISOString()}>
-              {dateLabel.toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}
-            </time>
-          )}
-          {task.status === 'open' && (
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); onComplete(task.id); }}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onComplete(task.id); } }}
-              className="p-1 rounded-md transition-opacity text-zinc-400 opacity-0 group-hover:opacity-100 hover:bg-green-100 hover:text-green-600"
-              title="Marcar como completada"
-              aria-label="Marcar como completada"
-            >
-              <Check size={16} />
-            </button>
-          )}
+    <div style={{ borderLeft: `4px solid ${deptMeta?.color || '#cbd5e1'}` }} className="rounded-lg overflow-hidden">
+        <SBCard
+          className="p-3 group"
+          role="listitem"
+          aria-label={`${task.title}${dateLabel ? `, ${dateLabel.toLocaleString('es-ES')}` : ''}`}
+        >
+        <div className="flex items-start justify-between">
+            <p className="font-medium text-sm text-text-primary">{task.title}</p>
         </div>
-        <div className="flex -space-x-2">
-          {involvedUsers.map((user) => (
-            <Avatar key={user.id} name={user.name} size="md" />
-          ))}
+
+        {task.location && <p className="text-xs mt-1 text-text-muted">{task.location}</p>}
+
+        <div className="mt-2 flex justify-between items-center">
+            <div className="flex items-center gap-2">
+            {dateLabel && (
+                <time className="text-xs text-text-muted" dateTime={dateLabel.toISOString()}>
+                {dateLabel.toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}
+                </time>
+            )}
+            {task.status === 'open' && (
+                <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onComplete(task.id); }}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onComplete(task.id); } }}
+                className="p-1 rounded-md transition-opacity text-zinc-400 opacity-0 group-hover:opacity-100 hover:bg-green-100 hover:text-green-600"
+                title="Marcar como completada"
+                aria-label="Marcar como completada"
+                >
+                <Check size={16} />
+                </button>
+            )}
+            </div>
+            <div className="flex -space-x-2">
+            {involvedUsers.map((user) => (
+                <Avatar key={user.id} name={user.name} size="md" />
+            ))}
+            </div>
         </div>
-      </div>
-    </SBCard>
+        </SBCard>
+    </div>
   );
 }
 
