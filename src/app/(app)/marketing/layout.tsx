@@ -20,22 +20,24 @@ function MarketingNav() {
     ];
 
     return (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex gap-6">
-                {navItems.map(item => (
-                    <Link
-                        key={item.href}
-                        href={item.href}
-                        className={clsx(
-                            'py-3 border-b-2 text-sm font-medium transition-colors',
-                            pathname.startsWith(item.href)
-                                ? 'border-sb-verde-mar text-sb-verde-mar'
-                                : 'border-transparent text-sb-neutral-500 hover:text-sb-neutral-700 hover:border-sb-neutral-300'
-                        )}
-                    >
-                        {item.label}
-                    </Link>
-                ))}
+        <div className="bg-secondary border-b border-sb-neutral-200">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="flex gap-6">
+                    {navItems.map(item => (
+                        <Link
+                            key={item.href}
+                            href={item.href}
+                            className={clsx(
+                                'py-3 border-b-2 text-sm font-medium transition-colors',
+                                pathname.startsWith(item.href)
+                                    ? 'border-sb-verde-mar text-sb-verde-mar'
+                                    : 'border-transparent text-sb-neutral-500 hover:text-sb-neutral-700 hover:border-sb-neutral-300'
+                            )}
+                        >
+                            {item.label}
+                        </Link>
+                    ))}
+                </div>
             </div>
         </div>
     );
@@ -46,10 +48,10 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
   return (
     <>
        <ModuleHeader title="Marketing" icon={Megaphone} />
-       <div className="bg-white border-b border-sb-neutral-200">
+       <div className="bg-secondary border-b border-sb-neutral-200">
             <MarketingNav />
        </div>
-      <div className="flex-grow">
+      <div className="flex-grow bg-secondary">
           <div className="max-w-7xl mx-auto py-6 px-4">
             {children}
           </div>

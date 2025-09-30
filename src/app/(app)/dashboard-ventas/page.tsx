@@ -35,7 +35,7 @@ const SB = {
     muted: "#6b7280",
   },
   border: "#e5e7eb",
-  surfaces: { page: "#ffffff", muted: "#f9fafb", white: "#ffffff" },
+  surfaces: { page: "hsl(var(--background))", muted: "hsl(var(--secondary))", white: "hsl(var(--secondary))" },
   brand: {
     accent: "#F4C542", // Amarillo SB (principal y acción)
     cobre: "#B25A32",  // Secundaria
@@ -85,7 +85,7 @@ const KpiCard = ({
   const missing = Math.max(0, Math.ceil((leaderValue ?? 0) - numericValue));
 
   return (
-    <div className="bg-gray-50 p-5 rounded-lg border" style={{ borderColor: SB.border }}>
+    <div className="bg-white p-5 rounded-lg border" style={{ borderColor: SB.border }}>
       <div className="flex items-center space-x-3 mb-2">
         <div className="bg-white p-2 rounded-lg border" style={{ borderColor: SB.border }}>
           <Icon className="text-gray-500" size={20} />

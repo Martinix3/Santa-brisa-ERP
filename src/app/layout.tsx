@@ -28,7 +28,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es" className={inter.variable}>
-      <body>
+      <body className="bg-background">
         <RealtimeProvider>
             <ClientProviders>
               <AuthenticatedLayout>

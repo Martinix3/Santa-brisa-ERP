@@ -17,7 +17,7 @@ function AgendaNav() {
     ];
 
     return (
-        <div className="bg-white border-b border-sb-neutral-200">
+        <div className="bg-secondary border-b border-sb-neutral-200">
             <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex gap-6">
                     {navItems.map(item => (
@@ -50,7 +50,7 @@ export default function AgendaLayout({ children }: { children: React.ReactNode }
         icon={() => <div className="p-2 rounded-lg bg-[hsl(var(--sb-accent-personal))]">{icon}</div>}
       />
       <AgendaNav />
-      <div className="flex-grow min-h-0 bg-zinc-50">
+      <div className="flex-grow min-h-0 bg-secondary">
           {children}
       </div>
     </div>

@@ -23,7 +23,7 @@ function WarehouseNav() {
   
     return (
       <nav
-        className="bg-white border-b border-zinc-200"
+        className="bg-secondary border-b border-zinc-200"
         aria-label="Secciones de Almacén"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -76,7 +76,7 @@ export default function WarehouseLayout({
 
       <WarehouseNav />
 
-      <div className="flex-grow bg-zinc-50">
+      <div className="flex-grow bg-secondary">
         <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
           {children}
         </div>

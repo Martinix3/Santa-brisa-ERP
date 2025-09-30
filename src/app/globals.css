@@ -12,11 +12,11 @@
   --primary-foreground: 46 82% 64%; /* Amarillo para texto sobre fondo oscuro */
 
   /* Colores Secundarios */
-  --secondary: 220 14% 98%; /* Gris muy claro para fondos alternos #F9FAFB */
+  --secondary: 0 0% 100%; /* Blanco */
   --secondary-foreground: 224 43% 11%;
   
   /* Color de fondo principal */
-  --background: 0 0% 100%; /* Blanco */
+  --background: 220 14% 98%; /* Gris muy claro para fondos alternos #F9FAFB */
   --foreground: 224 43% 11%;
   --text-primary: 224 43% 11%;
   --text-secondary: 220 13% 23%;
@@ -73,7 +73,7 @@
 @layer base {
   * { border-color: hsl(var(--muted) / 0.5); }
   body {
-    background-color: hsl(var(--secondary));
+    background-color: hsl(var(--background));
     color: hsl(var(--foreground));
     font-family: var(--font-inter), sans-serif;
   }
