@@ -232,7 +232,7 @@ export async function createGoodsReceipt(payload: {
                 uom: currentItem.uom
             }
         };
-        batch.set(traceEventRef, traceEvent);
+        batch.set(traceEventRef, traceEvent as any);
 
 
         finalLines.push({
@@ -250,7 +250,7 @@ export async function createGoodsReceipt(payload: {
         return cat === 'raw' || cat === 'pack' || cat === 'fg';
     });
 
-    const receipt: Omit<GoodsReceipt, 'createdAt'|'updatedAt'> & {notes?: string | null} = {
+    const receipt: Omit<GoodsReceipt, 'createdAt'|'updatedAt'> & {notes?: string | undefined} = {
         id: receiptRef.id,
         receiptNumber,
         supplierPartyId: finalSupplierId!,
