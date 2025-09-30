@@ -1,9 +1,8 @@
-
 // /app/(app)/agenda/notes/page.tsx
 "use client";
 import React, { useMemo, useState } from 'react';
 import { useQuickNotes } from '@/features/agenda/hooks/useQuickNotes';
-import { getStorage } from '@/features/agenda/storage/local';
+import { getStorage } from '@/features/agenda/storage';
 import { QuickEditor } from '@/features/agenda/components/QuickEditor';
 import { NotesList } from '@/features/agenda/components/NotesList';
 import { OutcomeDialog } from '@/features/agenda/components/OutcomeDialog';

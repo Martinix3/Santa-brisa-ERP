@@ -1,9 +1,8 @@
-
 // features/agenda/hooks/useQuickNotes.ts
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { parseNoteToAction, inferDepartment } from '../parser/parser';
 import type { IAgendaStorage, Note } from '../storage/adapter';
-import type { Task, TaskKind, TaskStatus } from '@/domain/ssot';
+import type { Task, TaskKind, TaskStatus, Department } from '@/domain/ssot';
 
 export function useQuickNotes(storage: IAgendaStorage) {
   const [notes, setNotes] = useState<Note[]>([]);
