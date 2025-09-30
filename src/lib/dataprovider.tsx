@@ -2,7 +2,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
-import type { SantaData, User, UserRole, QcPlanBySku, ParameterBySku, StockMove, Item, ProductionOrder, Lot, OnHandView, OrderSellIn, Account } from '@/domain/ssot';
+import type { SantaData, User, UserRole } from '@/domain/ssot';
 import type { User as FirebaseUser } from "firebase/auth";
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
 import { getFirestore, collection, getDocs } from "firebase/firestore";
@@ -67,8 +67,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    if (!authReady || !firebaseUser) {
-        console.log('[DataProvider] Blocked loadInitialData: authReady=%s user=%s', authReady, !!firebaseUser);
+    if (!firebaseUser) {
+        console.log('[DataProvider] Blocked loadInitialData: No Firebase user.');
         setLoadingData(false);
         return;
     }
@@ -107,44 +107,48 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     } finally {
         setLoadingData(false);
     }
-  }, [authReady, firebaseUser, isPersistenceEnabled]);
+  }, [firebaseUser, isPersistenceEnabled]);
 
   // Auth state listener
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(firebaseAuth, user => {
         console.log('[DataProvider] onAuthStateChanged:', user?.email || 'No user');
         setFirebaseUser(user);
+        if (!user) {
+            setData(null);
+            setCurrentUser(null);
+        }
         setAuthReady(true);
     });
     return () => unsubscribe();
   }, []);
-
+  
   // Data loading effect, dependent on auth status
   useEffect(() => {
-    if (authReady) {
+    if (authReady && firebaseUser && !data) {
         loadInitialData().catch(console.error);
     }
-  }, [authReady, isPersistenceEnabled, loadInitialData]);
+  }, [authReady, firebaseUser, data, loadInitialData]);
 
   // Set currentUser based on loaded data and Firebase user
   useEffect(() => {
-    console.log('[DataProvider] Attempting to set currentUser. AuthReady:', authReady, 'LoadingData:', loadingData, 'FirebaseUser:', !!firebaseUser, 'Data:', !!data);
-    if (loadingData || !authReady) {
-        return;
-    }
-
-    let userToSet: User | null = null;
-    
-    if (firebaseUser && data?.users) {
-      userToSet = data.users.find(u => u.email === firebaseUser.email) || null;
-      console.log(`[DataProvider] Found app user for ${firebaseUser.email}:`, userToSet ? userToSet.name : 'NOT FOUND');
-    } else {
-      console.log(`[DataProvider] Conditions not met to find app user. firebaseUser: ${!!firebaseUser}, data.users: ${!!data?.users}`);
+    console.log('[DataProvider] Attempting to set currentUser. AuthReady:', authReady, 'FirebaseUser:', !!firebaseUser, 'Data:', !!data);
+    if (!authReady || !firebaseUser || !data?.users) {
+      console.log('[DataProvider] Conditions not met to find app user.');
+      return;
     }
     
-    setCurrentUser(userToSet);
+    const appUser = data.users.find(u => u.email === firebaseUser.email) || null;
+    console.log(`[DataProvider] Found app user for ${firebaseUser.email}:`, appUser?.name || 'NOT FOUND');
+    setCurrentUser(appUser);
+    
+    // Si tenemos usuario y estamos en la página de login, redirigimos.
+    if(appUser && window.location.pathname === '/login') {
+        console.log('[DataProvider] User found, redirecting to /dashboard-personal');
+        router.push('/dashboard-personal');
+    }
 
-  }, [data, firebaseUser, authReady, loadingData]);
+  }, [data, firebaseUser, authReady, router]);
 
   const togglePersistence = useCallback(() => {
     setIsPersistenceEnabled(prev => {
@@ -224,30 +228,23 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const loginWithEmail = useCallback(
-    async (email: string, pass: string): Promise<User | null> => {
-      console.log(`[DataProvider] loginWithEmail called for ${email}`);
-      if (!firebaseAuth) return null;
-      try {
-        const userCredential = await signInWithEmailAndPassword(firebaseAuth, email, pass);
-        const fbUser = userCredential.user;
-        console.log(`[DataProvider] Firebase login successful for ${fbUser.email}`);
-        
-        if (!data?.users) {
-            console.log('[DataProvider] Data not present after login, triggering loadInitialData.');
-            await loadInitialData();
-        }
-        
-        const appUser = data?.users?.find(u => u.email === fbUser.email);
-        return appUser || null;
+  const loginWithEmail = useCallback(async (email: string, pass: string): Promise<User | null> => {
+    console.log(`[DataProvider] loginWithEmail called for ${email}`);
+    if (!firebaseAuth) return null;
+    try {
+      const userCredential = await signInWithEmailAndPassword(firebaseAuth, email, pass);
+      const fbUser = userCredential.user;
+      console.log(`[DataProvider] Firebase login successful for ${fbUser.email}`);
 
-      } catch (error) {
-        console.error(`[DataProvider] Firebase login failed for ${email}:`, error);
-        throw error;
-      }
-    },
-    [data?.users, loadInitialData]
-  );
+      // No hacemos nada más aquí, el useEffect se encargará de todo.
+      return null;
+
+    } catch (error) {
+      console.error(`[DataProvider] Firebase login failed for ${email}:`, error);
+      throw error;
+    }
+  }, []);
+
 
   const signupWithEmail = useCallback(
     async (email: string, pass: string): Promise<User | null> => {
@@ -272,8 +269,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(async () => {
     if (!firebaseAuth) return;
     await signOut(firebaseAuth);
-    setCurrentUser(null);
-    setData(null);
+    // onAuthStateChanged se encargará de limpiar el estado.
     router.push("/login");
   }, [router]);
 
@@ -298,7 +294,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   );
 
   const isBlocking =
-    !authReady || (loadingData && isPersistenceEnabled);
+    !authReady || (isPersistenceEnabled && !data && !!firebaseUser);
 
   if (isBlocking) {
     return (

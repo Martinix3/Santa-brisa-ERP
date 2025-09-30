@@ -17,6 +17,7 @@ export default function AppLayout({
 
   React.useEffect(() => {
     if (authReady && !currentUser) {
+      console.log('[AppLayout] No currentUser, redirecting to /login');
       router.push('/login');
     }
   }, [authReady, currentUser, router]);
