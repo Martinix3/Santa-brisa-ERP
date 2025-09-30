@@ -223,18 +223,35 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     async (email: string, pass: string): Promise<User | null> => {
       if (!firebaseAuth) return null;
       const userCredential = await signInWithEmailAndPassword(firebaseAuth, email, pass);
-       const fbUser = userCredential.user;
-      if (!fbUser || !data?.users) return null;
+      const fbUser = userCredential.user;
       
-      const appUser = data.users.find((u) => u.email === fbUser.email);
-      if (appUser) {
-          const normalizedUser = { ...appUser, role: (appUser.role?.toLowerCase() || 'comercial') as UserRole };
-          setCurrentUser(normalizedUser);
-          return normalizedUser;
+      // If data is not yet loaded, trigger a reload
+      if (!data?.users) {
+          await loadInitialData();
       }
+
+      // After trying to load, check again
+      if (!data?.users) {
+          // This would happen if loadInitialData fails, we should get user from a direct fetch
+          const userDoc = await getDocs(collection(firestoreDb!, 'users'));
+          const users = userDoc.docs.map(d => d.data() as User);
+          const appUser = users.find(u => u.email === fbUser.email);
+          if (appUser) {
+              setData(d => d ? {...d, users} : {users} as any);
+              setCurrentUser({ ...appUser, role: (appUser.role?.toLowerCase() || 'comercial') as UserRole });
+              return appUser;
+          }
+      } else {
+        const appUser = data.users.find((u) => u.email === fbUser.email);
+        if (appUser) {
+            setCurrentUser({ ...appUser, role: (appUser.role?.toLowerCase() || 'comercial') as UserRole });
+            return appUser;
+        }
+      }
+      
       return null;
     },
-    [data?.users]
+    [data?.users, loadInitialData]
   );
 
   const signupWithEmail = useCallback(

@@ -3,7 +3,7 @@
 
 import React, { useState } from "react";
 import { SBButton, Input } from '@/components/ui/ui-primitives';
-import { Mail, Lock } from 'lucide-react';
+import { Mail, Lock, Loader } from 'lucide-react';
 import Image from 'next/image';
 
 type AuthFormProps = {
@@ -17,16 +17,19 @@ export function AuthForm({ onEmailLogin, onEmailSignup, onGoogleSubmit }: AuthFo
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setIsLoading(true);
     try {
       if (isLogin) {
         await onEmailLogin(email, password);
       } else {
         await onEmailSignup(email, password);
       }
+      // El DataProvider se encargará de la redirección
     } catch (err: any) {
       console.error("[AuthForm] Submit Error:", err);
       let friendlyError = 'Error en la autenticación.';
@@ -38,6 +41,7 @@ export function AuthForm({ onEmailLogin, onEmailSignup, onGoogleSubmit }: AuthFo
         friendlyError = 'La contraseña debe tener al menos 6 caracteres.';
       }
       setError(friendlyError);
+      setIsLoading(false);
     }
   };
 
@@ -71,21 +75,22 @@ export function AuthForm({ onEmailLogin, onEmailSignup, onGoogleSubmit }: AuthFo
             <label className="text-sm font-medium text-zinc-700" htmlFor="email">Email</label>
             <div className="relative mt-1">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-              <Input type="email" id="email" value={email} onChange={e => setEmail(e.target.value)} required className="pl-9" />
+              <Input type="email" id="email" value={email} onChange={e => setEmail(e.target.value)} required className="pl-9" disabled={isLoading}/>
             </div>
           </div>
           <div>
             <label className="text-sm font-medium text-zinc-700" htmlFor="password">Contraseña</label>
             <div className="relative mt-1">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-              <Input type="password" id="password" value={password} onChange={e => setPassword(e.target.value)} required className="pl-9" />
+              <Input type="password" id="password" value={password} onChange={e => setPassword(e.target.value)} required className="pl-9" disabled={isLoading}/>
             </div>
           </div>
 
           {error && <p className="text-xs text-red-600 bg-red-50 p-2 rounded-md">{error}</p>}
 
-          <SBButton type="submit" className="w-full">
-            {isLogin ? 'Iniciar Sesión' : 'Crear Cuenta'}
+          <SBButton type="submit" className="w-full" disabled={isLoading}>
+             {isLoading && <Loader className="h-4 w-4 mr-2 animate-spin" />}
+            {isLoading ? 'Iniciando sesión...' : (isLogin ? 'Iniciar Sesión' : 'Crear Cuenta')}
           </SBButton>
         </form>
 
@@ -100,7 +105,7 @@ export function AuthForm({ onEmailLogin, onEmailSignup, onGoogleSubmit }: AuthFo
           </div>
 
           <div className="mt-4">
-            <SBButton variant="secondary" className="w-full" onClick={onGoogleSubmit}>
+            <SBButton variant="secondary" className="w-full" onClick={onGoogleSubmit} disabled={isLoading}>
               <svg className="mr-2 -ml-1 h-5 w-5" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512"><path fill="currentColor" d="M488 261.8C488 403.3 381.5 512 244 512S0 403.3 0 261.8 102.5 0 244 0s244 118.5 244 261.8zM97.2 258.9c0 40.2 16.9 76.2 43.8 102.3l-31.5 31.5C74.3 360.3 49 313.2 49 258.9c0-57.8 28.9-108.5 73.2-139.1l31.5 31.5c-28.9 25.8-46.7 62.5-46.7 105.6zM244 388.3c-23.7 0-44.5-8.5-61.3-22.3l-31.5 31.5c24.6 21.6 57.2 34.6 92.8 34.6 62.9 0 115.8-40.9 133.7-98.3l-31.5-31.5c-15.1 27.2-44.1 45.8-77.4 45.8zM438.2 258.9c0 30.7-10.8 58.9-29.2 81.3l-31.5-31.5c15.1-19.3 24.3-43.1 24.3-69.1s-9.2-49.8-24.3-69.1l31.5-31.5c18.4 22.4 29.2 50.5 29.2 81.3z"></path></svg>
               Google
             </SBButton>
