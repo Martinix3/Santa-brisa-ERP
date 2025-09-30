@@ -25,7 +25,6 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import type { EventClickArg } from '@fullcalendar/core';
 import esLocale from '@fullcalendar/core/locales/es';
-import { useFullCalendarStyles } from '@/features/agenda/useFullCalendarStyles';
 import { DEPT_META } from '@/domain/ssot';
 import { sbAsISO } from '@/features/agenda/helpers';
 
@@ -98,7 +97,6 @@ function PersonalSalesChart({ data, currentUser }: { data: SantaData, currentUse
 }
 
 function MiniCalendarCard() {
-  useFullCalendarStyles();
   const { data } = useData();
   const router = useRouter();
   const FullCalendar = useMemo(
@@ -175,8 +173,8 @@ function AgendaDock() {
       closeOutcome();
     };
 
-    const overdueTasks = useMemo(() => mapInteractionsToTasks(agenda.overdue, data?.accounts), [agenda.overdue, data?.accounts]);
-    const todayTasksMapped = useMemo(() => mapInteractionsToTasks(agenda.todayTasks, data?.accounts), [agenda.todayTasks, data?.accounts]);
+    const overdueTasks = mapInteractionsToTasks(agenda.overdue, agenda.accounts);
+    const todayTasksMapped = mapInteractionsToTasks(agenda.todayTasks, agenda.accounts);
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl flex flex-col h-full">

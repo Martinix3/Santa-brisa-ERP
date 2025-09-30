@@ -99,3 +99,53 @@
     color: hsl(var(--accent));
   }
 }
+
+/* ===== FullCalendar Styles ===== */
+.fc .fc-toolbar.fc-header-toolbar {
+    margin-bottom: 1.5rem;
+    font-size: 0.875rem;
+}
+.fc .fc-toolbar-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: hsl(var(--primary));
+}
+.fc .fc-button {
+    background-color: hsl(var(--background));
+    border-color: hsl(var(--muted));
+    color: hsl(var(--foreground));
+    text-transform: capitalize;
+}
+.fc .fc-button-primary:not(:disabled).fc-button-active, 
+.fc .fc-button-primary:not(:disabled):active {
+    background-color: hsl(var(--accent));
+    border-color: hsl(var(--accent));
+    color: hsl(var(--primary));
+}
+.fc-direction-ltr .fc-list-day-text, 
+.fc-direction-rtl .fc-list-day-side-text {
+    font-weight: 600;
+}
+.fc-event {
+    cursor: grab;
+}
+.fc-v-event .fc-event-main {
+    padding: 4px;
+}
+.fc .fc-daygrid-day.fc-day-today {
+    background-color: hsla(var(--accent), 0.15);
+}
+.fc .fc-daygrid-day-number {
+  padding: 4px;
+}
+/* Compact mini-calendar */
+.sb-event-compact .fc-event-title {
+    font-size: 10px;
+    padding: 0 2px;
+}
+.fc .fc-daygrid-day-frame {
+    padding: 2px;
+}
+.fc-theme-standard .fc-scrollgrid {
+    border-radius: 0.5rem;
+}
