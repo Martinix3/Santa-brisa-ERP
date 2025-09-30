@@ -3,7 +3,7 @@
 
 import { adminDb as db } from '@/server/firebase';
 import { Timestamp } from 'firebase-admin/firestore';
-import type { Party, Account, PartyRole, CustomerData, Segment } from '@/domain/ssot';
+import type { Party, Account, PartyRole, CustomerData, Segment, CommercialFlow } from '@/domain/ssot';
 
 export async function createAccountAndParty(data: { name: string; city?: string; type?: Segment; ownerId: string; distributorPartyId?: string }) {
   const now = new Date().toISOString();
@@ -27,9 +27,8 @@ export async function createAccountAndParty(data: { name: string; city?: string;
     segment: data.type || 'HORECA',
     stage: 'POTENCIAL',
     ownerId: data.ownerId,
-    flow: data.distributorPartyId ? 'PLACEMENT' : 'DIRECT',
+    flow: 'PLACEMENT', // QuickLog always creates PLACEMENT accounts
     distributorPartyId: data.distributorPartyId,
-    mode: data.distributorPartyId ? 'COLOCACION' : 'DIRECTA', // for compatibility
     createdAt: now,
     updatedAt: now,
   };
@@ -43,7 +42,7 @@ export async function createAccountAndParty(data: { name: string; city?: string;
     createdAt: now,
     data: {
         salesRepId: data.ownerId,
-        billerId: data.distributorPartyId || 'SB',
+        billerId: data.distributorPartyId || 'SB', // Default to SB if somehow not provided
     } as CustomerData
   };
   
@@ -54,5 +53,6 @@ export async function createAccountAndParty(data: { name: string; city?: string;
   
   await batch.commit();
 
+  // Return a structure that matches what the client expects
   return { account: { party: newParty, account: newAccount, role: newRole }};
 }

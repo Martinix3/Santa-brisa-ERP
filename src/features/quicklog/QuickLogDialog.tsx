@@ -1,7 +1,7 @@
 // src/features/quicklog/QuickLogDialog.tsx
 "use client";
-import React, { useState, useMemo, useCallback } from "react"; // FIX: Importar hooks
-import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog"; // FIX: Eliminar imports inexistentes
+import React, { useState, useMemo, useCallback, useEffect } from "react";
+import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog";
 import { SBButton, Input, Select } from "@/components/ui/ui-primitives";
 import { useData } from "@/lib/dataprovider";
 import { toast } from "sonner";
@@ -29,7 +29,6 @@ const SANTA_BRISA_COLORS = {
 // ============================================================================
 // SUB-COMPONENT: AccountSearch
 // ============================================================================
-// ✅ Santabrisseado: Colores neutros ajustados a 'slate'.
 function AccountSearch({ accounts, onSelect, onFreeText, initialAccountId }: { accounts: Account[]; onSelect: (account: Account) => void; onFreeText: (text: string) => void; initialAccountId?: string; }) {
   const [query, setQuery] = useState(() => accounts.find(a => a.id === initialAccountId)?.name || '');
   const [suggestions, setSuggestions] = useState<Account[]>([]);
@@ -68,7 +67,7 @@ function AccountSearch({ accounts, onSelect, onFreeText, initialAccountId }: { a
       </div>
       {suggestions.length > 0 && (
         <ul className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
-          {suggestions.map((acc: Account) => ( // FIX: Añadir tipo explícito
+          {suggestions.map((acc: Account) => (
             <li key={acc.id} onMouseDown={() => handleSelect(acc)} className="px-3 py-2 cursor-pointer hover:bg-slate-50">
               <p className="font-medium text-sm text-slate-800">{acc.name}</p>
               <p className="text-xs text-slate-500">{acc.id}</p>
@@ -90,7 +89,6 @@ type Props = {
   defaultTab?: "INTERACCION" | "PEDIDO";
 };
 
-// FIX: Definir tipo para las líneas de pedido para evitar 'any'
 type OrderLine = {
   sku: string;
   qty: number;
@@ -110,13 +108,13 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
   const [note, setNote] = useState("");
   const [plannedFor, setPlannedFor] = useState<string>("");
   const [distributorId, setDistributorId] = useState("SB");
-  const [lines, setLines] = useState<OrderLine[]>([{ sku: "", qty: 1 }]); // FIX: Usar tipo OrderLine
+  const [lines, setLines] = useState<OrderLine[]>([{ sku: "", qty: 1 }]);
   const [posLines, setPosLines] = useState<Partial<PosLineInput>[]>([]);
   const posCatalog = useMemo(() => ((data as any)?.posCostCatalog || []) as PosCostCatalogEntry[], [data]);
   const skuOptions = useMemo(() => (data?.items || []).filter(i => (i as any).category === 'fg').map(i => ({ value: i.sku, label: i.name })), [data?.items]);
 
-  const addLine = () => setLines((s: OrderLine[]) => [...s, { sku: "", qty: 1 }]); // FIX: Añadir tipo
-  const removeLine = (idx: number) => setLines((s: OrderLine[]) => s.filter((_, i: number) => i !== idx)); // FIX: Añadir tipos
+  const addLine = () => setLines((s: OrderLine[]) => [...s, { sku: "", qty: 1 }]);
+  const removeLine = (idx: number) => setLines((s: OrderLine[]) => s.filter((_, i: number) => i !== idx));
 
   const resetAll = useCallback(() => {
     setTab(defaultTab);
@@ -132,7 +130,11 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
     if (accountId) return accountId;
     if (selectedAccount) return selectedAccount.id;
     if (newAccountName) {
-      const { account } = await createAccountAndParty({ name: newAccountName, ownerId: currentUser!.id });
+      const { account } = await createAccountAndParty({ 
+        name: newAccountName, 
+        ownerId: currentUser!.id,
+        distributorPartyId: distributorId !== 'SB' ? distributorId : undefined,
+      });
       saveAllCollections({ parties: [account.party as Party], accounts: [account.account] });
       toast.success(`Nueva cuenta creada: ${account.account.name}`);
       return account.account.id;
@@ -151,7 +153,7 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
         toast.success(`Interacción guardada${posLines.length ? " + POS" : ""}`);
       }
       if (tab === "PEDIDO") {
-        if (!lines.length || !lines.some(l => l.sku.trim() && l.qty > 0)) { // FIX: Tipar `l`
+        if (!lines.length || !lines.some(l => l.sku.trim() && l.qty > 0)) {
           toast.error("Añade al menos una línea válida (SKU + cantidad > 0)");
           setSaving(false); return;
         }
@@ -178,7 +180,6 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
   const renderLabel = (text: string) => <label className="text-xs font-medium text-slate-500">{text}</label>;
 
   return (
-    // FIX: Revertir a la estructura original de SBDialogContent con `title` prop
     <SBDialog open={open} onOpenChange={onOpenChange}>
       <SBDialogContent title="QuickLog (Interacción / Pedido)">
         <div className="space-y-4 py-4">
@@ -213,7 +214,7 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
               <div>{renderLabel("Distribuidor")}<Select value={distributorId} onChange={(e) => setDistributorId(e.target.value)}><option value="SB">Santa Brisa</option></Select></div>
               <div className="space-y-2">
                 <div className="text-sm font-medium text-slate-800">Líneas de pedido</div>
-                {lines.map((l: OrderLine, idx: number) => ( // FIX: Tipos explícitos
+                {lines.map((l: OrderLine, idx: number) => (
                   <div key={idx} className="flex gap-2 items-center">
                     <Select className="flex-1" value={l.sku} onChange={e => setLines(s => s.map((x, i) => i === idx ? { ...x, sku: e.target.value } : x))}><option value="">-- Selecciona producto --</option>{skuOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</Select>
                     <Input type="number" min={1} className="w-20" value={l.qty} onChange={e => setLines(s => s.map((x, i) => i === idx ? { ...x, qty: Math.max(1, Number(e.target.value) || 1) } : x))} />
@@ -230,7 +231,6 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
             </div>
           )}
         </div>
-        {/* FIX: Mover los botones del footer aquí */}
         <div className="flex justify-end gap-2 pt-4">
           <SBButton variant="secondary" onClick={() => onOpenChange(false)} disabled={saving}>Cancelar</SBButton>
           <SBButton onClick={save} disabled={saving}>{saving ? "Guardando..." : "Guardar"}</SBButton>
