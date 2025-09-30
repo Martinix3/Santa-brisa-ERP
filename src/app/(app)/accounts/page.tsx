@@ -10,7 +10,6 @@ import Link from 'next/link'
 import { useData } from '@/lib/dataprovider'
 import { FilterSelect } from '@/components/ui/FilterSelect'
 import { ModuleHeader } from '@/components/ui/ModuleHeader'
-import { SBDialog } from '@/components/ui/SBDialog'
 import { Avatar } from '@/components/ui/Avatar';
 import { NewAccountDialog } from '@/features/accounts/components/NewAccountDialog';
 import { DEPT_META } from '@/domain/ssot';
@@ -53,7 +52,7 @@ function GroupBar({ stage, count, expanded, onToggle }: { stage: keyof typeof ST
     );
 }
 
-function AccountBar({ a, party, santaData, onAddActivity, onOpenDialog, userMap, shortDate }: { a: Account, party?: Party, santaData: SantaData, onAddActivity: (acc: Account) => void, onOpenDialog: (accountId: string) => void, userMap: Record<string, string>, shortDate: Intl.DateTimeFormat }) {
+function AccountBar({ a, party, santaData, onOpenDialog, userMap, shortDate }: { a: Account, party?: Party, santaData: SantaData, onOpenDialog: (accountId: string) => void, userMap: Record<string, string>, shortDate: Intl.DateTimeFormat }) {
   const [open, setOpen] = useState(false);
   
   const owner = useMemo(() => accountOwnerDisplay(a, santaData.users, santaData.partyRoles), [a, santaData.users, santaData.partyRoles]);
@@ -215,7 +214,6 @@ export default function AccountsPage() {
   const [fltDist, setFltDist] = useState("");
   
   const [dialogState, setDialogState] = useState<{ open: boolean; accountId: string | null }>({ open: false, accountId: null });
-  const [completingTaskForAccount, setCompletingTaskForAccount] = useState<Account | null>(null);
   const [isNewAccountOpen, setIsNewAccountOpen] = useState(false);
 
   useEffect(() => {
@@ -366,7 +364,7 @@ export default function AccountsPage() {
                 <div id={`panel-${k}`} role="region" aria-labelledby={`button-${k}`}>
                     <div className="divide-y divide-zinc-200/60">
                         {grouped[k].map(a=> (
-                            <AccountBar key={a.id} a={a} party={partyMap[a.partyId]} santaData={santaData} onAddActivity={() => setCompletingTaskForAccount(a)} onOpenDialog={(id) => setDialogState({ open: true, accountId: id })} userMap={userMap} shortDate={shortDate}/>
+                            <AccountBar key={a.id} a={a} party={partyMap[a.partyId]} santaData={santaData} onOpenDialog={(id) => setDialogState({ open: true, accountId: id })} userMap={userMap} shortDate={shortDate}/>
                         ))}
                     </div>
                 </div>
@@ -391,12 +389,6 @@ export default function AccountsPage() {
         />
       )}
 
-      {completingTaskForAccount && (
-        <SBDialog
-            open={!!completingTaskForAccount}
-            onOpenChange={() => setCompletingTaskForAccount(null)}
-        />
-      )}
       {isNewAccountOpen && santaData && (
         <NewAccountDialog
           open={isNewAccountOpen}

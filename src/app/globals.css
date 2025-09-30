@@ -88,6 +88,55 @@
   }
 }
 
+@layer components {
+  /* Tabs */
+  .sb-tablist { @apply inline-flex items-center gap-1; }
+  .sb-tab {
+    @apply h-9 px-3 rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground;
+  }
+  .sb-tab[aria-selected="true"] {
+    @apply bg-secondary text-foreground font-medium;
+    box-shadow: inset 0 -2px 0 hsl(var(--accent));
+  }
+  .sb-tabpanel { @apply mt-3; }
+
+  /* Sidenav */
+  .sb-sidenav { @apply flex flex-col gap-1; }
+  .sb-sidenav__item {
+    @apply flex items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground;
+    transition: background-color .12s, color .12s;
+  }
+  .sb-sidenav__item:hover { @apply bg-secondary text-foreground; }
+  .sb-sidenav__item[aria-current="page"] {
+    @apply bg-secondary text-foreground font-medium;
+    box-shadow: inset 0 0 0 1px hsl(var(--border));
+  }
+
+  /* Breadcrumbs */
+  .sb-breadcrumbs { @apply flex items-center gap-2 text-sm text-muted-foreground; }
+  .sb-breadcrumbs a { @apply hover:underline hover:text-foreground; }
+  .sb-breadcrumbs__sep { @apply opacity-50; }
+  
+  /* Animaciones y Hovers */
+  .hover-raise { transition: transform .12s ease, box-shadow .2s ease; }
+  .hover-raise:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+  .fade-in { animation: sb-fade .18s ease-out both; }
+  .slide-up { animation: sb-slide-up .18s cubic-bezier(.2,.8,.2,1) both; }
+  @keyframes sb-fade { from{opacity:0} to{opacity:1} }
+  @keyframes sb-slide-up { from{opacity:.6; transform:translateY(6px)} to{opacity:1; transform:none} }
+  .is-pressed { transform: translateY(1px); }
+  .focus-ring { @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2; }
+
+  /* Tipografía */
+  .sb-h1 { @apply text-3xl font-bold tracking-tight; }
+  .sb-h2 { @apply text-2xl font-semibold tracking-tight; }
+  .sb-h3 { @apply text-xl font-semibold; }
+  .sb-subtle { @apply text-sm text-muted-foreground; }
+  .text-balance { text-wrap: balance; }
+  .text-pretty { text-wrap: pretty; }
+}
+
+
 /* ===== FullCalendar General Styles ===== */
 .fc {
     --fc-border-color: hsl(var(--muted) / 0.7);
