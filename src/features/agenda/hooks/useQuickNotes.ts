@@ -1,12 +1,12 @@
 // features/agenda/hooks/useQuickNotes.ts
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { Department, Interaction, InteractionStatus, Note } from '@/domain/ssot';
+import type { Interaction, InteractionStatus, Note, SantaData } from '@/domain/ssot';
 import { useData } from '@/lib/dataprovider';
 
 // El hook ahora no gestiona el storage, sino que lee del DataProvider
 export function useQuickNotes() {
   const { data: santaData, saveAllCollections } = useData();
-  const notes = useMemo(() => [] as Note[], []); // Notes are not in ssot, so we use an empty array.
+  const notes = useMemo(() => (santaData?.notes || []) as Note[], [santaData?.notes]);
   const tasks = useMemo(() => (santaData?.interactions || []) as Interaction[], [santaData?.interactions]);
 
   const [linkNotes, setLinkNotes] = useState(true);
@@ -40,7 +40,7 @@ export function useQuickNotes() {
   const overdue = useMemo(()=> openTasks.filter(t => t.plannedFor && new Date(t.plannedFor) < todayStart), [openTasks, todayStart]);
   
   const todayTasks = useMemo(()=> openTasks.filter(t=>{
-    if (!t.plannedFor) return true;
+    if (!t.plannedFor) return true; // sin fecha, se muestran siempre en “hoy”
     const dt = new Date(t.plannedFor).getTime();
     return dt >= range.start.getTime() && dt < range.end.getTime();
   }), [openTasks, range]);
@@ -69,6 +69,7 @@ export function useQuickNotes() {
   }, [notes, linkNotes, range]);
 
   return {
+    accounts: santaData?.accounts || [],
     notes, tasks, overdue, todayTasks, rangedNotes,
     addNote, completeTask, deleteTask,
     onItemPointerDown, onItemPointerMove, onItemPointerUp,

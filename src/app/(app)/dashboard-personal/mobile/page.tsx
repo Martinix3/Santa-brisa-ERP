@@ -162,7 +162,7 @@ function AgendaDock() {
 
   const kpis = useMemo(()=> {
     const overdue = agenda.overdue.length;
-    const todayOpen = agenda.todayTasks.filter(t=>t.status==='OPEN').length;
+    const todayOpen = agenda.todayTasks.filter(t=>t.status==='open').length;
     const posToday = agenda.todayTasks.filter(t=> t.kind==='EVENTO_MKT').length;
     return { overdue, todayOpen, posToday };
   }, [agenda.overdue, agenda.todayTasks]);
@@ -192,7 +192,7 @@ function AgendaDock() {
         <QuickEditor onSubmit={agenda.addNote} />
       </div>
 
-      {agenda.overdue.length>0 && (
+      {agenda.overdue.length > 0 && (
         <details open className="px-4 lg:px-0">
           <summary className="text-xs text-slate-600 py-1">Pendientes de ayer ({agenda.overdue.length})</summary>
           <NotesList
@@ -200,7 +200,7 @@ function AgendaDock() {
             tasks={overdueTasks}
             onPointerDown={agenda.onItemPointerDown}
             onPointerMove={agenda.onItemPointerMove}
-            onPointerUp={(id)=>agenda.onItemPointerUp(id, openOutcome)}
+            onPointerUp={(id) => agenda.onItemPointerUp(id, openOutcome)}
           />
         </details>
       )}
@@ -211,7 +211,7 @@ function AgendaDock() {
           tasks={todayTasksMapped}
           onPointerDown={agenda.onItemPointerDown}
           onPointerMove={agenda.onItemPointerMove}
-          onPointerUp={(id)=>agenda.onItemPointerUp(id, openOutcome)}
+          onPointerUp={(id) => agenda.onItemPointerUp(id, openOutcome)}
         />
       </div>
       <div className="border-t border-slate-200 bg-white px-4 py-2 text-sm flex items-center justify-between rounded-b-xl mt-3">
@@ -221,7 +221,7 @@ function AgendaDock() {
       </div>
        <OutcomeDialog
         taskId={outcomeFor}
-        tasks={agenda.todayTasks.concat(agenda.overdue)}
+        tasks={agenda.tasks}
         onClose={closeOutcome}
         onConfirm={onConfirm}
       />

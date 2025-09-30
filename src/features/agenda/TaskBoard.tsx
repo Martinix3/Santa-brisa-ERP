@@ -8,6 +8,7 @@ import { useData } from '@/lib/dataprovider';
 import { DEPT_META } from '@/domain/ssot';
 import { Avatar } from '@/components/ui/Avatar';
 
+// This is the VIEW MODEL for a task card. It's derived from an Interaction.
 export type Task = {
   id: string;
   title: string;
@@ -18,6 +19,7 @@ export type Task = {
   location?: string;
   linkedEntity?: Interaction['linkedEntity'];
 };
+
 
 // ===============================
 // 🎨 DS Tokens

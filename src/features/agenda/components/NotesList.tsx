@@ -1,8 +1,7 @@
-
 // /features/agenda/components/NotesList.tsx
 import React from 'react';
-import type { Note } from '../storage/adapter';
-import type { Task } from '@/domain/ssot';
+import type { Note } from '@/domain/ssot';
+import type { Task } from '@/features/agenda/TaskBoard';
 
 export function NotesList({
   notes, tasks,
@@ -19,7 +18,7 @@ export function NotesList({
     <ul className="divide-y">
       {tasks.map(t => {
         const n = notes.find(nn => nn.id===t.noteId);
-        const done = t.status==='DONE';
+        const done = t.status==='done';
         return (
           <li key={t.id}
               className="py-2 select-none relative"
@@ -31,9 +30,9 @@ export function NotesList({
             <div className="absolute inset-0 rounded-md pointer-events-none bg-transparent" />
             <div className={`relative ${done?'line-through text-[hsl(var(--sb-neutral-400))]':''}`}>
               <div className="text-[0.95rem] leading-snug whitespace-pre-wrap">{n?.text || t.title}</div>
-              {t.dueAt && (
+              {t.date && (
                 <div className="mt-0.5 text-[10px] text-[hsl(var(--sb-neutral-500))]">
-                  {new Date(t.dueAt).toLocaleString()}
+                  {new Date(t.date).toLocaleString()}
                 </div>
               )}
             </div>

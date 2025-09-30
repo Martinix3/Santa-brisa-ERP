@@ -22,7 +22,7 @@ export type Department = 'VENTAS' | 'MARKETING' | 'PRODUCCION' | 'ALMACEN' | 'FI
 export type StockReason = 'receipt' | 'production_in' | 'production_out' | 'sale' | 'transfer' | 'adjustment' | 'return_in' | 'return_out' | 'ship' | 'consignment_send' | 'consignment_return' | 'consignment_sell' | 'sample_send' | 'sample_consume';
 export type CodeEntity = 'PRODUCT' | 'ACCOUNT' | 'PARTY' | 'SUPPLIER' | 'LOT' | 'PROD_ORDER' | 'SHIPMENT' | 'GOODS_RECEIPT' | 'LOCATION' | 'PRICE_LIST' | 'PROMOTION';
 export type TaskKind = 'VISITA' | 'PEDIDO' | 'POS_EVT' | 'POS_PLV' | 'NOTA';
-export type TaskStatus = 'OPEN' | 'DONE' | 'CANCELLED';
+export type TaskStatus = 'open' | 'done' | 'cancelled';
 
 // --- Roles y Estados ---
 export type PartyRoleType = 'CUSTOMER' | 'SUPPLIER' | 'DISTRIBUTOR' | 'IMPORTER' | 'INFLUENCER' | 'CREATOR' | 'EMPLOYEE' | 'BRAND_AMBASSADOR' | 'OTHER';
@@ -72,15 +72,9 @@ export type Note = {
 export type Task = {
   id: string;
   kind: TaskKind;
-  status: TaskStatus;
-  title: string;             // 1ª línea de la nota o resumen
-  noteId?: string;           // para trazar a la nota base
-  accountId?: string;
-  dueAt?: string;            // ISO
-  createdAt: string;         // ISO
-  updatedAt: string;         // ISO
-  department: Department;    // inferido, editable después
-  meta?: Record<string, any>; // p.ej. { qtyCases, sku, kpis }
+  createdAt: string;
+  updatedAt: string;
+  department: Department;
 };
 
 
@@ -397,6 +391,7 @@ export interface SantaData {
   posCostCatalog: PosCostCatalogEntry[];
   plv_material: PlvMaterial[];
   reservations?: ReservationView[];
+  notes?: Note[];
   // Deprecated collections - mantain for data migration, then remove
   inventory?: any[];
   products?: any[];
@@ -421,7 +416,7 @@ export const SANTA_DATA_COLLECTIONS: (keyof SantaData)[] = [
   "items", "billOfMaterials", "productionOrders", "lots", "lotGenealogy", "onHand", "stockMoves", "shipments",
   "goodsReceipts", "deliveryNotes", "qcPlans", "qcParameters", "qcTests", "qcProtocols", "protocolLogs",
   "marketingEvents", "onlineCampaigns", "influencerCollabs", "posTactics", "posCostCatalog",
-  "plv_material", "reservations"
+  "plv_material", "reservations", "notes"
 ];
 
 

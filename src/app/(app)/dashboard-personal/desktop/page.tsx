@@ -164,10 +164,16 @@ function AgendaDock() {
   
   const kpis = useMemo(()=> {
     const overdue = agenda.overdue.length;
-    const todayOpen = agenda.todayTasks.filter(t=>t.status==='OPEN').length;
+    const todayOpen = agenda.todayTasks.filter(t=>t.status==='open').length;
     const posToday = agenda.todayTasks.filter(t=> t.kind==='EVENTO_MKT').length;
     return { overdue, todayOpen, posToday };
   }, [agenda.overdue, agenda.todayTasks]);
+
+  const onConfirm = (task: Interaction, payload: Record<string,any>) => {
+      console.log("Confirming outcome for task", task, "with payload", payload);
+      agenda.completeTask(task.id);
+      closeOutcome();
+    };
 
   const overdueTasks = useMemo(() => mapInteractionsToTasks(agenda.overdue, data?.accounts), [agenda.overdue, data?.accounts]);
   const todayTasksMapped = useMemo(() => mapInteractionsToTasks(agenda.todayTasks, data?.accounts), [agenda.todayTasks, data?.accounts]);
@@ -216,7 +222,7 @@ function AgendaDock() {
         taskId={outcomeFor}
         tasks={agenda.tasks}
         onClose={closeOutcome}
-        onConfirm={(task, payload)=>{ agenda.completeTask(task.id); closeOutcome(); }}
+        onConfirm={onConfirm}
       />
     </div>
   );
