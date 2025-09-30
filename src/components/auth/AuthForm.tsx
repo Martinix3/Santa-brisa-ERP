@@ -29,9 +29,22 @@ export function AuthForm({ onEmailLogin, onEmailSignup, onGoogleSubmit }: AuthFo
       }
     } catch (err: any) {
       console.error("[AuthForm] Submit Error:", err);
-      setError(err.message || 'Error en la autenticación.');
+      let friendlyError = 'Error en la autenticación.';
+      if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
+        friendlyError = 'El correo o la contraseña son incorrectos.';
+      } else if (err.code === 'auth/email-already-in-use') {
+        friendlyError = 'Este correo electrónico ya está registrado.';
+      } else if (err.code === 'auth/weak-password') {
+        friendlyError = 'La contraseña debe tener al menos 6 caracteres.';
+      }
+      setError(friendlyError);
     }
   };
+
+  const toggleMode = () => {
+    setIsLogin(!isLogin);
+    setError(null);
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-50 p-4">
@@ -96,7 +109,7 @@ export function AuthForm({ onEmailLogin, onEmailSignup, onGoogleSubmit }: AuthFo
 
         <p className="mt-6 text-center text-sm text-zinc-600">
           {isLogin ? '¿No tienes cuenta?' : '¿Ya tienes una cuenta?'}
-          <button onClick={() => setIsLogin(!isLogin)} className="sb-btn-primary font-semibold text-yellow-600 hover:text-yellow-500 ml-1">
+          <button onClick={toggleMode} className="font-semibold text-yellow-600 hover:text-yellow-500 ml-1 bg-transparent border-none p-0 cursor-pointer">
             {isLogin ? 'Regístrate' : 'Inicia sesión'}
           </button>
         </p>
