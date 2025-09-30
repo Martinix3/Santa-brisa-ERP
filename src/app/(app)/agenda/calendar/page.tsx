@@ -1,14 +1,11 @@
-
-
 // src/app/(app)/agenda/calendar/page.tsx
 "use client";
 import React, { useMemo, useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import dayGridPlugin from "@fullcalendar/daygrid";
-import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
-import listPlugin from "@fullcalendar/list";
 import type { EventContentArg, EventClickArg, EventDropArg } from "@fullcalendar/core";
+import esLocale from '@fullcalendar/core/locales/es';
 
 import { useData } from "@/lib/dataprovider";
 import { Filter, Calendar } from "lucide-react";
@@ -49,9 +46,9 @@ function CalendarPageContent() {
 
   const initialView = useMemo(() => {
     if (typeof window !== 'undefined') {
-        return localStorage.getItem('sb_calendar_view') || 'timeGridWeek';
+        return localStorage.getItem('sb_calendar_view') || 'dayGridMonth';
     }
-    return 'timeGridWeek';
+    return 'dayGridMonth';
   }, []);
 
   const allInteractions = useMemo(() => {
@@ -164,10 +161,10 @@ function CalendarPageContent() {
         </div>
         <div className="flex-grow min-h-0">
             <FullCalendar
-              plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
+              plugins={[dayGridPlugin, interactionPlugin]}
               initialView={initialView}
               viewDidMount={(arg) => localStorage.setItem('sb_calendar_view', arg.view.type)}
-              headerToolbar={{ left: "prev,next today", center: "title", right: "dayGridMonth,timeGridWeek,timeGridDay,listYear" }}
+              headerToolbar={{ left: "prev,next today", center: "title", right: "dayGridMonth" }}
               events={calendarEvents as any}
               eventClick={handleEventClick}
               editable={isPersistenceEnabled}
@@ -192,9 +189,10 @@ function CalendarPageContent() {
               slotEventOverlap={false}
               dayMaxEventRows
               aspectRatio={1.45}
+              locales={[esLocale]}
               locale="es"
               firstDay={1}
-              buttonText={{ today: "hoy", month: "mes", week: "semana", day: "día", list: "año" }}
+              buttonText={{ today: "hoy", month: "mes" }}
             />
         </div>
 
