@@ -1,6 +1,7 @@
 // src/features/orders/components/OrdersTable.tsx
 import React from 'react';
 import type { OrderStatus } from '@/domain/ssot';
+import { SBCard } from '@/components/ui/ui-primitives';
 
 interface UiOrder {
   id: string;
@@ -37,7 +38,7 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({ status }) => {
 
 export default function OrdersTable({ orders }: { orders: UiOrder[] }) {
     return (
-        <div className="bg-card border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+        <SBCard>
             <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left text-slate-600">
                     <thead className="text-xs text-slate-700 uppercase bg-slate-50">
@@ -66,8 +67,6 @@ export default function OrdersTable({ orders }: { orders: UiOrder[] }) {
                     </tbody>
                 </table>
             </div>
-        </div>
+        </SBCard>
     );
 }
-
-    

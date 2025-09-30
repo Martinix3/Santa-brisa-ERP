@@ -7,6 +7,7 @@ import { Check, AlertCircle, Clock, Plus } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
 import { DEPT_META } from '@/domain/ssot';
 import { Avatar } from '@/components/ui/Avatar';
+import { SBCard } from '@/components/ui/ui-primitives';
 
 // This is the VIEW MODEL for a task card.
 export type Task = {
@@ -68,9 +69,9 @@ function TaskCard({ task, onComplete }: { task: Task; onComplete: (id: string) =
   const dateLabel = task.date ? new Date(task.date) : null;
 
   return (
-    <div
+    <SBCard
       style={{ borderLeft: `4px solid ${deptMeta?.color || '#cbd5e1'}` }}
-      className="p-3 bg-white rounded-lg border shadow-sm group"
+      className="p-3 group"
       role="listitem"
       aria-label={`${task.title}${dateLabel ? `, ${dateLabel.toLocaleString('es-ES')}` : ''}`}
     >
@@ -106,7 +107,7 @@ function TaskCard({ task, onComplete }: { task: Task; onComplete: (id: string) =
           ))}
         </div>
       </div>
-    </div>
+    </SBCard>
   );
 }
 

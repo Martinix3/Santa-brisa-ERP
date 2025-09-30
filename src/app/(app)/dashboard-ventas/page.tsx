@@ -23,7 +23,7 @@ import {
   Pie,
   PieChart,
 } from "recharts";
-import { SBButton } from "@/components/ui/ui-primitives";
+import { SBButton, SBCard } from "@/components/ui/ui-primitives";
 
 /* =============================================================
    🎨 Design System Santa Brisa — Tokens locales (usar en línea)
@@ -85,7 +85,7 @@ const KpiCard = ({
   const missing = Math.max(0, Math.ceil((leaderValue ?? 0) - numericValue));
 
   return (
-    <div className="bg-white p-5 rounded-lg border" style={{ borderColor: SB.border }}>
+    <SBCard className="p-5">
       <div className="flex items-center space-x-3 mb-2">
         <div className="bg-white p-2 rounded-lg border" style={{ borderColor: SB.border }}>
           <Icon className="text-gray-500" size={20} />
@@ -128,7 +128,7 @@ const KpiCard = ({
           )}
         </div>
       )}
-    </div>
+    </SBCard>
   );
 };
 
@@ -302,7 +302,7 @@ export default function SalesDashboardPage() {
 
         {/* Grids */}
         <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 rounded-lg p-5 shadow-sm bg-white" style={{ border: `1px solid ${SB.border}` }}>
+          <SBCard className="lg:col-span-2 p-5">
             <h3 className="font-semibold" style={{ fontSize: 16, color: SB.text.primary }}>Evolución de ventas + POS</h3>
             <div className="mt-4 h-[280px]">
               <ResponsiveContainer width="100%" height="100%">
@@ -317,10 +317,10 @@ export default function SalesDashboardPage() {
                 </LineChart>
               </ResponsiveContainer>
             </div>
-          </div>
+          </SBCard>
 
           <div className="lg:col-span-1 space-y-6">
-            <div className="rounded-lg p-5 shadow-sm bg-white" style={{ border: `1px solid ${SB.border}` }}>
+            <SBCard className="p-5">
               <h3 className="font-semibold" style={{ fontSize: 16, color: SB.text.primary }}>Mix de Ventas</h3>
               <div className="mt-4 h-36 flex items-center justify-center">
                 <ResponsiveContainer width="100%" height="100%">
@@ -335,7 +335,7 @@ export default function SalesDashboardPage() {
                   </PieChart>
                 </ResponsiveContainer>
               </div>
-            </div>
+            </SBCard>
 
             <UpcomingTasks department="VENTAS" />
           </div>

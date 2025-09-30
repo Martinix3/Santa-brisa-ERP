@@ -5,7 +5,7 @@ import React, { useMemo } from 'react';
 import { useData } from '@/lib/dataprovider';
 import type { OrderSellOut } from '@/domain/ssot';
 import OrdersTable from './OrdersTable';
-import KpiCard from './KpiCard';
+import { KPI, SBCard } from '@/components/ui/ui-primitives';
 import { Package, Truck, FileText, CheckCircle, Clock } from 'lucide-react';
 
 const OrdersDashboard = () => {
@@ -29,15 +29,15 @@ const OrdersDashboard = () => {
             </header>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-                <KpiCard icon={Clock} title="Pendiente de Confirmar" value={kpis.pendingConfirmation} />
-                <KpiCard icon={Package} title="Pendiente de Enviar" value={kpis.pendingShipment} />
-                <KpiCard icon={Truck} title="Pendiente de Facturar" value={kpis.pendingInvoice} />
-                <KpiCard icon={FileText} title="Pendiente de Cobrar" value={kpis.pendingPayment} />
+                <KPI icon={Clock} label="Pendiente de Confirmar" value={kpis.pendingConfirmation} />
+                <KPI icon={Package} label="Pendiente de Enviar" value={kpis.pendingShipment} />
+                <KPI icon={Truck} label="Pendiente de Facturar" value={kpis.pendingInvoice} />
+                <KPI icon={FileText} label="Pendiente de Cobrar" value={kpis.pendingPayment} />
             </div>
 
-            <div className="bg-card border border-slate-200 rounded-xl shadow-sm">
+            <SBCard>
                 <OrdersTable orders={orders as any[]} />
-            </div>
+            </SBCard>
         </div>
     );
 };

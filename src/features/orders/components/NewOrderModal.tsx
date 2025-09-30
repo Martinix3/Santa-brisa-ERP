@@ -1,11 +1,10 @@
-
 // src/features/orders/components/NewOrderModal.tsx
 "use client";
 
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2 } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
-import { SBButton } from '@/components/ui/ui-primitives';
+import { SBButton, SBCard } from '@/components/ui/ui-primitives';
 
 interface OrderLine {
     id: number;
@@ -67,8 +66,8 @@ const NewOrderModal: React.FC<NewOrderModalProps> = ({ isOpen, onClose, onSubmit
 
     return (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 transition-opacity" onClick={onClose}>
-            <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-2xl transform transition-all" onClick={e => e.stopPropagation()}>
-                <div className="flex items-center justify-between pb-4 border-b border-slate-200">
+            <SBCard className="w-full max-w-2xl transform transition-all" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+                <div className="flex items-center justify-between pb-4 border-b border-slate-200 p-6">
                     <h2 className="text-xl font-bold text-slate-800">Crear Nuevo Pedido</h2>
                     <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
                         <X size={24} />
@@ -76,14 +75,14 @@ const NewOrderModal: React.FC<NewOrderModalProps> = ({ isOpen, onClose, onSubmit
                 </div>
                 
                 <form onSubmit={handleSubmit}>
-                    <div className="py-6 space-y-6">
+                    <div className="p-6 space-y-6">
                         <div>
                             <label htmlFor="customerName" className="block text-sm font-medium text-slate-700 mb-1">Cliente</label>
                             <select 
                                 id="customerName" 
                                 value={accountId}
                                 onChange={(e) => setAccountId(e.target.value)}
-                                className="block w-full border border-slate-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#F4C542]"
+                                className="block w-full border border-slate-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#F4C542]"
                                 required
                             >
                                 <option value="" disabled>Selecciona un cliente...</option>
@@ -121,12 +120,12 @@ const NewOrderModal: React.FC<NewOrderModalProps> = ({ isOpen, onClose, onSubmit
                         </div>
 
                     </div>
-                    <div className="mt-2 flex justify-end space-x-3 pt-4 border-t border-slate-200">
+                    <div className="mt-2 flex justify-end space-x-3 p-6 pt-4 border-t border-slate-200">
                         <SBButton type="button" variant="secondary" onClick={onClose}>Cancelar</SBButton>
                         <SBButton type="submit">Crear Pedido</SBButton>
                     </div>
                 </form>
-            </div>
+            </SBCard>
         </div>
     );
 };
