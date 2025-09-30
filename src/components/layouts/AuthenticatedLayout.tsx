@@ -137,7 +137,7 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
     <>
     <div className="h-screen flex bg-white">
       {/* Sidebar */}
-      <aside className="h-full border-r border-sb-neutral-200 bg-white flex flex-col w-16">
+      <aside className="relative z-50 h-full border-r border-sb-neutral-200 bg-white flex flex-col w-16">
         <Link href="/" className="h-14 flex items-center justify-center border-b">
           <Image src="https://santabrisa.es/cdn/shop/files/clavista_300x_36b708f6-4606-4a51-9f65-e4b379531ff8_300x.svg?v=1752413726" alt="Santa Brisa" width={32} height={24} style={{width: 'auto', height: 'auto'}} priority />
         </Link>
