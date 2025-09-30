@@ -41,6 +41,7 @@ export function AuthForm({ onEmailLogin, onEmailSignup, onGoogleSubmit }: AuthFo
         friendlyError = 'La contraseña debe tener al menos 6 caracteres.';
       }
       setError(friendlyError);
+    } finally {
       setIsLoading(false);
     }
   };
