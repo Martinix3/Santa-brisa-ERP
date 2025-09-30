@@ -65,7 +65,8 @@ export function AuthForm({ onEmailLogin, onEmailSignup, onGoogleSubmit }: AuthFo
                 width={120}
                 height={40}
                 priority
-                className="mx-auto h-10 w-auto" 
+                className="mx-auto" 
+                style={{ height: 'auto', width: 'auto' }}
             />
           <h1 className="mt-4 text-2xl font-bold text-zinc-900">
             {isLogin ? 'Bienvenido de nuevo' : 'Crea tu cuenta'}

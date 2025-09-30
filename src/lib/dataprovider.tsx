@@ -233,15 +233,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         const fbUser = userCredential.user;
         console.log(`[DataProvider] Firebase login successful for ${fbUser.email}`);
         
-        // This is the key part: if data is already loaded, we just find the user.
-        // If not, we trigger a reload. The useEffects will handle the rest.
         if (!data?.users) {
             console.log('[DataProvider] Data not present after login, triggering loadInitialData.');
             await loadInitialData();
         }
         
-        // The useEffect will handle setting currentUser once data is loaded/reloaded.
-        // For immediate feedback, we can try to find the user here too, but it's redundant.
         const appUser = data?.users?.find(u => u.email === fbUser.email);
         return appUser || null;
 
