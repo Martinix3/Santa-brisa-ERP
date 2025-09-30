@@ -1,3 +1,4 @@
+
 // src/features/pos/PosLinesPicker.tsx
 "use client";
 import React from 'react';
@@ -32,23 +33,21 @@ export function PosLinesPicker({ catalog, lines, setLines }: PosLinesPickerProps
         
         let finalUpdate: Partial<PosLineInput> = updates;
 
-        // Si cambia el tipo, reseteamos a un estado base para ese tipo
         if ('kind' in updates) {
             finalUpdate = { kind: updates.kind };
             if (updates.kind === 'CATALOGO') {
                 (finalUpdate as any).catalogItemId = '';
                 (finalUpdate as any).desc = undefined;
-            } else { // CUSTOM
+            } else {
                 (finalUpdate as any).desc = '';
                 (finalUpdate as any).catalogItemId = undefined;
             }
         }
         
-        // Si cambia el item del catálogo, actualizamos el coste y la descripción
         if ('catalogItemId' in updates && updates.catalogItemId) {
             const catItem = catalog.find(c => c.id === updates.catalogItemId);
-            (finalUpdate as any).desc = catItem?.name || '';
-            (finalUpdate as any).estCost = catItem?.defaultCost;
+            finalUpdate.desc = catItem?.name || '';
+            finalUpdate.estCost = catItem?.defaultCost;
         }
         
         newLines[index] = { ...currentLine, ...finalUpdate };
@@ -103,5 +102,3 @@ export function PosLinesPicker({ catalog, lines, setLines }: PosLinesPickerProps
     </div>
   );
 }
-
-    

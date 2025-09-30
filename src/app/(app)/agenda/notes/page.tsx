@@ -3,7 +3,7 @@
 "use client";
 import React, { useMemo, useState } from 'react';
 import { useQuickNotes } from '@/features/agenda/hooks/useQuickNotes';
-import { getStorage } from '@/features/agenda/storage/adapter';
+import { getStorage } from '@/features/agenda/storage/local';
 import { QuickEditor } from '@/features/agenda/components/QuickEditor';
 import { NotesList } from '@/features/agenda/components/NotesList';
 import { OutcomeDialog } from '@/features/agenda/components/OutcomeDialog';
@@ -68,7 +68,7 @@ export default function CalendarNotesPage() {
         <details open className="px-4">
           <summary className="text-xs text-[hsl(var(--sb-neutral-600))] py-1">Pendientes de ayer ({agenda.overdue.length})</summary>
           <NotesList
-            notes={agenda.notes}
+            notes={agenda.rangedNotes}
             tasks={agenda.overdue}
             onPointerDown={agenda.onItemPointerDown}
             onPointerMove={agenda.onItemPointerMove}

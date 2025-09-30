@@ -1,3 +1,4 @@
+
 // src/features/marketing/components/NewPosTacticDialog.tsx
 "use client";
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
@@ -206,5 +207,3 @@ export function NewPosTacticDialog({
         </SBDialog>
     );
 }
-
-    

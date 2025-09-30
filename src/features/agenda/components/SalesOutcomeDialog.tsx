@@ -1,8 +1,9 @@
+
 // src/features/agenda/components/SalesOutcomeDialog.tsx
 "use client";
 import React, { useState, useEffect, useMemo } from "react";
 import { useData } from "@/lib/dataprovider";
-import type { Interaction, PosCostCatalogEntry } from "@/domain/ssot";
+import type { Interaction, PosCostCatalogEntry, Item, OrderLine } from "@/domain/ssot";
 import { placeOrder } from "@/app/(app)/orders/actions";
 import { createInteraction } from "@/app/(app)/agenda/actions";
 import { createPosTacticsBatch, type PosLineInput } from "@/features/pos/server/pos-actions";
@@ -25,17 +26,17 @@ export function SalesOutcomeDialog({ open, onOpenChange, task }: Props) {
   const [saving, setSaving] = useState(false);
 
   // Pedido rápido
-  const [lines, setLines] = useState<{ sku: string; qty: number, unitPriceReported?:number }[]>([{ sku: "", qty: 1 }]);
+  const [lines, setLines] = useState<Partial<OrderLine>[]>([{ qty: 1 }]);
 
   // Próxima interacción
   const [nextNote, setNextNote] = useState("");
   const [nextDate, setNextDate] = useState("");
 
   // POS
-  const [posLines, setPosLines] = useState<Partial<PosLineInput>[]>([]);
+  const [posLines, setPosLines] = useState<PosLineInput[]>([]);
   const posCatalog = useMemo(() => ((data as any)?.posCostCatalog || []) as PosCostCatalogEntry[], [data]);
   const skuOptions = useMemo(() =>
-    (data?.items || []).filter(i => (i as any).active && (i as any).category === 'fg').map(i => ({ value: i.sku, label: i.name })), [data?.items]
+    (data?.items || []).filter(i => (i as any).active && (i as any).category === 'fg').map(i => ({ value: i.sku, label: i.name, id: i.id })), [data?.items]
   );
   
   const account = useMemo(() => data?.accounts.find(a => a.id === task?.accountId), [data?.accounts, task]);
@@ -44,7 +45,7 @@ export function SalesOutcomeDialog({ open, onOpenChange, task }: Props) {
   useEffect(() => {
     if (!open) {
       setMode("");
-      setLines([{ sku: "", qty: 1 }]);
+      setLines([{ qty: 1 }]);
       setNextNote("");
       setNextDate("");
       setPosLines([]);
@@ -52,7 +53,7 @@ export function SalesOutcomeDialog({ open, onOpenChange, task }: Props) {
   }, [open]);
 
   if (!open || !task) return null;
-  const close = () => { onOpenChange(false); };
+  const close = () => { onOpenChange(false); setMode(""); };
 
   const save = async () => {
     try {
@@ -63,11 +64,12 @@ export function SalesOutcomeDialog({ open, onOpenChange, task }: Props) {
       setSaving(true);
 
       if (mode === "PEDIDO") {
-        if (!lines.length || !lines.some(l => l.qty > 0 && l.sku.trim())) {
+        const validLines = lines.filter(l => l.itemId && l.qty && l.qty > 0) as OrderLine[];
+        if (validLines.length === 0) {
           toast.error("Añade al menos una línea válida");
           setSaving(false); return;
         }
-        await placeOrder({ accountId: task.accountId, lines, distributorId: distributorId || "SANTA_BRISA", createdById: currentUser!.id });
+        await placeOrder({ accountId: task.accountId, lines: validLines, distributorId, createdById: currentUser!.id });
         toast.success("Pedido registrado");
       }
 
@@ -86,7 +88,7 @@ export function SalesOutcomeDialog({ open, onOpenChange, task }: Props) {
 
       if (mode === "POS") {
         if (!posLines.length) { toast.error("Añade al menos una táctica POS"); setSaving(false); return; }
-        await createPosTacticsBatch({ accountId: task.accountId, createdById: currentUser!.id, lines: posLines as PosLineInput[] });
+        await createPosTacticsBatch({ accountId: task.accountId, createdById: currentUser!.id, lines: posLines });
         toast.success("Táctica POS registrada");
       }
 
@@ -118,16 +120,23 @@ export function SalesOutcomeDialog({ open, onOpenChange, task }: Props) {
             <div className="space-y-2 border rounded p-2">
               {lines.map((l, idx) => (
                 <div key={idx} className="flex gap-2">
-                   <Select className="flex-1" value={l.sku} onChange={e=>setLines(s=>s.map((x,i)=>i===idx?{...x,sku:e.target.value}:x))}>
+                   <Select 
+                     className="flex-1" 
+                     value={l.itemId} 
+                     onChange={e => {
+                       const item = skuOptions.find(i => i.id === e.target.value);
+                       setLines(s => s.map((x, i) => i === idx ? { ...x, itemId: e.target.value, name: item?.label } : x));
+                     }}
+                   >
                     <option value="">-- Selecciona producto --</option>
-                    {skuOptions.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
+                    {skuOptions.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
                   </Select>
                   <Input type="number" className="w-20" value={l.qty}
                     onChange={e => setLines(s => s.map((x, i) => i === idx ? { ...x, qty: Number(e.target.value) || 1 } : x))} />
                   <SBButton variant="ghost" size="sm" onClick={() => setLines(s => s.filter((_, i) => i !== idx))}>Quitar</SBButton>
                 </div>
               ))}
-              <SBButton size="sm" variant="outline" onClick={() => setLines(s => [...s, { sku: "", qty: 1 }])}>+ Añadir línea</SBButton>
+              <SBButton size="sm" variant="outline" onClick={() => setLines(s => [...s, { qty: 1 }])}>+ Añadir línea</SBButton>
             </div>
           )}
 
