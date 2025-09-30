@@ -187,7 +187,7 @@ export async function confirmOrderShipment(orderId: string): Promise<Shipment> {
             }));
         }),
         customerName: party.name,
-        addressLine1: party.billingAddress?.address || '',
+        addressLine1: party.billingAddress?.street || '',
         city: party.billingAddress?.city || '',
         postalCode: party.billingAddress?.zip || '',
         country: party.billingAddress?.country || 'España',

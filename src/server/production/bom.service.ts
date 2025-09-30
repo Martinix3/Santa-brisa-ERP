@@ -28,12 +28,12 @@ async function readItems(ids: string[]): Promise<any[]> {
  * @param plannedQty The target quantity to produce.
  * @returns An ActionResult with the calculated nominal components or an error.
  */
-export async function explodeBOM(bomId: string, plannedQty: number): Promise<ActionResult<{ stage: ProductionStage; outputItemId: string; baseUnit: 'L'|'unit'; nominal: ProductionIOLine[] }>> {
+export async function explodeBOM(bomId: string, plannedQty: number): Promise<ActionResult<{ stage: ProductionStage; outputItemId: string; baseUnit: Uom; nominal: ProductionIOLine[] }>> {
   try {
     const bom = await readBOM(bomId);
     if (!bom) return fail('BOM inexistente');
     const stage: ProductionStage = bom.stage ?? 'PRODUCCION';
-    const baseUnit: 'L'|'unit' = stage === 'PRODUCCION' ? 'L' : 'unit';
+    const baseUnit: Uom = (stage === 'PRODUCCION' ? 'L' : 'uds');
     if (bom.baseUnit !== baseUnit) {
         console.warn(`[explodeBOM] BOM ${bomId} tiene baseUnit ${bom.baseUnit} pero la etapa es ${stage}. Se usará ${baseUnit}.`);
     }

@@ -3,7 +3,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { getOne, upsertMany } from '@/lib/dataprovider/server';
-import type { OrderStatus, Shipment, OrderSellOut, Account, Party, FinanceLink, PaymentLink, OnHandView, OrderLine } from '@/domain/ssot';
+import type { OrderStatus, Shipment, OrderSellOut, Account, Party, FinanceLink, PaymentLink, OnHandView, OrderLine, Item } from '@/domain/ssot';
 import { enqueue } from '@/server/queue/queue';
 import { importSingleShopifyOrder } from '@/server/integrations/shopify/import-order';
 import { confirmOrderShipment as confirmAndReserve } from '../warehouse/logistics/actions';
@@ -32,10 +32,11 @@ export async function placeOrder({
 
   // Correction: Map incoming lines to OrderLine structure
   const itemsSnap = await db.collection('items').where('sku', 'in', lines.map(l => l.sku)).get();
-  const itemsBySku = new Map(itemsSnap.docs.map(doc => [doc.data().sku, doc.data()]));
+  const itemsBySku = new Map(itemsSnap.docs.map(doc => [doc.id, doc.data() as Item]));
+  const itemsBySkuSku = new Map(itemsSnap.docs.map(doc => [doc.data().sku, doc.data() as Item]));
 
   const orderLines: OrderLine[] = lines.map(l => {
-    const item = itemsBySku.get(l.sku);
+    const item = itemsBySkuSku.get(l.sku);
     if (!item) throw new Error(`El producto con SKU ${l.sku} no existe.`);
     return {
       itemId: item.id,
@@ -131,7 +132,6 @@ export async function createSalesInvoice({ orderId }: { orderId:string }) {
   const finId = `INV-${now.slice(0,10)}-${Math.floor(Math.random()*99999)}`;
   const fin: Partial<FinanceLink> = {
      id: finId,
-     externalId: '', // si sincronizas con Holded, rellena después
      status: 'pending',
      netAmount: amount,
      taxAmount: 0,
@@ -164,7 +164,6 @@ export async function recordPayment({ financeLinkId, amount, date, method }: {
   const paymentId = `PAY-${now}-${Math.floor(Math.random()*1e6)}`;
   const pay: Partial<PaymentLink> = {
     id: paymentId,
-    externalId: undefined,
     amount,
     date: date ?? now,
     method: method ?? 'transfer',

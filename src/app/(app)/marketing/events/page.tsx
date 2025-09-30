@@ -1,6 +1,6 @@
 // src/app/(app)/marketing/events/page.tsx
 "use client";
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { useData } from '@/lib/dataprovider';
 import type { MarketingEvent, Interaction, InteractionKind, Account, PosTactic, PosCostCatalogEntry, PlvMaterial, PosTacticItem, PosTacticStatus } from '@/domain/ssot';
 import { SBCard, SBButton, DataTableSB, KPI } from '@/components/ui/ui-primitives';
@@ -14,7 +14,7 @@ import { upsertPosTactic } from '@/features/marketing/services/posTactics.client
 import { listPosCostCatalog, listPlvInStock } from '@/features/marketing/services/posTactics.service';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
-import { PosLineInput } from '@/features/pos/server/pos-actions';
+import type { PosLineInput } from '@/features/pos/server/pos-actions';
 
 function StatusPill({ status }: { status: MarketingEvent['status'] }) {
     const styles: Record<MarketingEvent['status'], string> = {

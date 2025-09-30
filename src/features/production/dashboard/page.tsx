@@ -1,18 +1,19 @@
 // src/features/production/dashboard/page.tsx
 "use client";
 import React, { useMemo } from "react";
-import { computeKpis } from "@/features/production/dashboard/kpis";
-import { KpiCards } from "@/features/production/dashboard/components/KpiCards";
-import { OrdersTimeline } from "@/features/production/dashboard/components/OrdersTimeline";
-import { ShortagesPanel } from "@/features/production/dashboard/components/ShortagesPanel";
-import { InventorySnapshot } from "@/features/production/dashboard/components/InventorySnapshot";
-import { QCPanel } from "@/features/production/dashboard/components/QCPanel";
-import { BottlingProgress } from "@/features/production/dashboard/components/BottlingProgress";
-import { EfficiencyWidget } from "@/features/production/dashboard/components/EfficiencyWidget";
+import { useData } from "@/lib/dataprovider";
+import { computeKpis } from "./kpis";
+import { KpiCards } from "./components/KpiCards";
+import { OrdersTimeline } from "./components/OrdersTimeline";
+import { ShortagesPanel } from "./components/ShortagesPanel";
+import { InventorySnapshot } from "./components/InventorySnapshot";
+import { QCPanel } from "./components/QCPanel";
+import { BottlingProgress } from "./components/BottlingProgress";
+import { EfficiencyWidget } from "./components/EfficiencyWidget";
 import { Plus } from 'lucide-react';
 import { SBCard } from "@/components/ui/ui-primitives";
 import { UpcomingTasks } from "@/features/agenda/components/UpcomingTasks";
-import { SB_THEME, type ProductionOrder, type BillOfMaterial, type Item, type OnHandView } from "@/domain/ssot";
+import { SB_THEME, type ProductionOrder, type BillOfMaterial, type Item, type OnHandView, Uom } from "@/domain/ssot";
 
 
 // MOCK DATA FOR DEMO
@@ -36,9 +37,9 @@ const MOCK_ON_HAND: OnHandView[] = [
 ];
 
 const MOCK_ORDERS: ProductionOrder[] = [
-    { id: 'po_1', baseUnit: 'L', orderNumber: 'PO-2024-001', bomId: 'bom_sb_750', outputItemId: 'item_sb_750', targetQuantity: 100, status: 'PLANNED', createdAt: new Date(Date.now() - 5 * 86400000).toISOString(), shortages: [{itemId: 'item_agave', required: 20, available: 5, missing: 15, uom: 'kg'}] },
-    { id: 'po_2', baseUnit: 'L', orderNumber: 'PO-2024-002', bomId: 'bom_sb_750', outputItemId: 'item_sb_750', targetQuantity: 200, status: 'IN_PROGRESS', createdAt: new Date(Date.now() - 2 * 86400000).toISOString() },
-    { id: 'po_3', baseUnit: 'L', orderNumber: 'PO-2024-003', bomId: 'bom_sb_750', outputItemId: 'item_sb_750', targetQuantity: 150, status: 'DONE', createdAt: new Date(Date.now() - 10 * 86400000).toISOString(), execution: { finishedAt: new Date(Date.now() - 8 * 86400000).toISOString(), goodUnits: 148, durationHours: 6 }, costing: { actual: { perUnit: 8.6, yieldLossPct: 1.3 } } },
+    { id: 'po_1', baseUnit: 'L' as Uom, orderNumber: 'PO-2024-001', bomId: 'bom_sb_750', outputItemId: 'item_sb_750', targetQuantity: 100, status: 'PLANNED', createdAt: new Date(Date.now() - 5 * 86400000).toISOString(), shortages: [{itemId: 'item_agave', required: 20, available: 5, missing: 15, uom: 'kg'}] },
+    { id: 'po_2', baseUnit: 'L' as Uom, orderNumber: 'PO-2024-002', bomId: 'bom_sb_750', outputItemId: 'item_sb_750', targetQuantity: 200, status: 'IN_PROGRESS', createdAt: new Date(Date.now() - 2 * 86400000).toISOString() },
+    { id: 'po_3', baseUnit: 'L' as Uom, orderNumber: 'PO-2024-003', bomId: 'bom_sb_750', outputItemId: 'item_sb_750', targetQuantity: 150, status: 'DONE', createdAt: new Date(Date.now() - 10 * 86400000).toISOString(), execution: { finishedAt: new Date(Date.now() - 8 * 86400000).toISOString(), goodUnits: 148, durationHours: 6 }, costing: { actual: { perUnit: 8.6, yieldLossPct: 1.3 } } },
 ];
 
 

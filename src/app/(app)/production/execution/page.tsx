@@ -510,7 +510,7 @@ export default function ProductionExecutionPage() {
                   <button className="w-full px-3 py-2 hover:bg-zinc-50 text-left" onClick={() => openExecution(o)}>
                     <div className="flex items-center justify-between">
                       <span className="font-medium">
-                        {o.orderNumber ?? o.name ?? `Orden ${o.id.slice(-4)}`} {warn && <span className="ml-1 text-rose-600 font-bold">‼️</span>}
+                        {o.orderNumber ?? `Orden ${o.id.slice(-4)}`} {warn && <span className="ml-1 text-rose-600 font-bold">‼️</span>}
                       </span>
                       <Badge tone={mapStatusTone(o.status)}>{o.status}</Badge>
                     </div>
@@ -527,7 +527,7 @@ export default function ProductionExecutionPage() {
         <Collapsible title="Histórico de órdenes" count={closedOrders.length} defaultOpen={false}>
           <ul className="divide-y">
             {closedOrders.map(o => {
-              const outputQty = (o.output as any)?.[0]?.qty;
+              const outputQty = (o.execution as any)?.goodUnits;
               const yieldPct = o.targetQuantity > 0 && outputQty ? (outputQty / o.targetQuantity) * 100 : 0;
               const costPerUnit = (o.costing as any)?.actual?.perUnit;
               return (
@@ -535,7 +535,7 @@ export default function ProductionExecutionPage() {
                   <button className="w-full px-3 py-2 hover:bg-zinc-50 text-left" onClick={() => openExecution(o)}>
                     <div className="flex items-center justify-between">
                       <span className="font-medium">
-                        {o.orderNumber ?? o.name ?? `Orden ${o.id.slice(-4)}`}
+                        {o.orderNumber ?? `Orden ${o.id.slice(-4)}`}
                       </span>
                       <Badge tone={mapStatusTone(o.status)}>{o.status}</Badge>
                     </div>
@@ -568,7 +568,7 @@ export default function ProductionExecutionPage() {
                     <div className="p-4 space-y-4">
                       <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm space-y-1">
                         <p className="font-bold font-mono text-base">
-                          {activeForm?.order?.orderNumber ?? activeForm?.order?.name ?? activeBom?.name ?? "Nueva orden"}
+                          {activeForm?.order?.orderNumber ?? activeBom?.name ?? "Nueva orden"}
                         </p>
                         <p><b>Etapa:</b> {(activeBom)?.stage ?? "-"}</p>
                         {activeForm?.order?.status && (<p><b>Status:</b> <Badge tone={mapStatusTone(activeForm.order.status)}>{activeForm.order.status}</Badge></p>)}

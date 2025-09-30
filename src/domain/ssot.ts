@@ -158,6 +158,7 @@ export interface OrderSellOut {
   external?: { shopifyOrderId?: string; };
   createdAt: Timestamp;
   updatedAt: Timestamp;
+  createdById?: string;
 }
 
 export type ShipmentLine = { itemId: string; name: string; qty: number; uom: 'unit' | 'uds'; lotNumber?: string; locationId?: string; note?: string };
@@ -299,7 +300,7 @@ export interface MarketingEvent { id: string; title: string; startAt: string; en
 export interface OnlineCampaign { id: string; title: string; channel: string; startAt: string; endAt?: string; budget?: number; spend?: number; metrics?: any; status: 'planned' | 'active' | 'closed' | 'cancelled'; createdAt: Timestamp; updatedAt: Timestamp; ownerUserId?: string; tracking?: { utmCampaign?: string; couponCode?: string; landingUrl?: string; }}
 export interface InfluencerCollab { id: string; creatorName: string; platform: string; tier: string; status: any; dates?: any; costs?: any; tracking?: any; metrics?: any; deliverables?: any; compensation?: any; creatorId?:string; supplierPartyId?:string; ownerUserId?:string; createdAt:Timestamp; updatedAt:Timestamp; }
 export interface PosTactic { id: string; accountId: string; tacticCode?: string; description?: string; customDesc?: string; catalogItemId?: string; qtyPlanned?: number; estCost?: number; actualCost: number; executionScore: number; status: 'planned' | 'active' | 'closed' | 'cancelled'|'DELIVERED'|'SCHEDULED'|'APPROVED'; createdAt: string; createdById: string; items?: any; result?: any; taskId?: string; updatedAt:Timestamp }
-export interface PosCostCatalogEntry { id: string; name: string; family: string; defaultCost?: number; fulfillmentMode: string; defaultKpisTemplate?: any; }
+export interface PosCostCatalogEntry { id: string; name: string; family: string; fulfillmentMode: string; defaultCost?: number; defaultKpisTemplate?: any; }
 export interface DeliveryNote { id: string; pdfUrl?: string; shipmentId: string; partyId: string; series: 'ONLINE'|'B2B'|'INTERNAL'; date: string; soldTo: any; shipTo: any; lines: any[]; company: any; createdAt: string; updatedAt: string; }
 export interface QcPlanBySku { id: string; name: string; sku: string; specs: any[] }
 export interface ParameterBySku { id: string; code: string; name: string; sku: string; unit?: string; method?: string; target?: number; tolerance?: number; range?: {min?:number,max?:number}, notes?: string }
@@ -316,7 +317,16 @@ export interface Promotion {}
 export interface MaterialCost {}
 export interface FinanceLink {id:string}
 export interface PaymentLink {id:string}
-export interface TraceEvent {id:string}
+export interface TraceEvent {
+    id: string;
+    at: string;
+    title: string;
+    details: string;
+    links?: { lotNumber?: string; batchId?: string; orderId?: string; shipmentId?: string; receiptId?: string; qaCheckId?: string; };
+    data?: any;
+    phase: TraceEventPhase;
+    kind: TraceEventKind;
+}
 export interface Incident {}
 export interface CodeAlias {}
 export interface Job {}
@@ -454,6 +464,25 @@ export const DEPT_META: Record<Department, { label: string; color: string; textC
   FINANZAS:   { label: 'Finanzas',   color: '#fecb46', textColor: '#412c00' },
   PERSONAL:   { label: 'Personal',   color: 'hsl(var(--sb-accent-personal))', textColor: 'hsl(var(--sb-neutral-900))' },
 };
+
+export const ACCOUNT_TYPE_META: Record<AccountType, { label: string; accent: string }> = {
+  HORECA: { label: 'Horeca', accent: SB_COLORS.primary.copper },
+  RETAIL: { label: 'Retail', accent: SB_COLORS.primary.aqua },
+  DISTRIBUIDOR: { label: 'Distribuidor', accent: SB_COLORS.primary.teal },
+  PRIVADA: { label: 'Venta Privada', accent: SB_COLORS.brand.naranja },
+  ONLINE: { label: 'Online', accent: SB_COLORS.brand.sunStrong },
+  OTRO: { label: 'Otro', accent: '#9ca3af' },
+};
+
+export const PHASE_DEPT: Record<TraceEventPhase, Department> = {
+  SOURCE: 'PRODUCCION', RECEIPT: 'ALMACEN', QC: 'CALIDAD', PRODUCTION: 'PRODUCCION',
+  PACK: 'PRODUCCION', WAREHOUSE: 'ALMACEN', SALE: 'VENTAS', DELIVERY: 'ALMACEN',
+};
+export const PHASE_NAME_ES: Record<TraceEventPhase, string> = {
+  SOURCE: 'Origen', RECEIPT: 'Recepción', QC: 'Calidad', PRODUCTION: 'Producción',
+  PACK: 'Envasado', WAREHOUSE: 'Almacén', SALE: 'Venta', DELIVERY: 'Entrega',
+};
+
 
 export const ITEM_CATEGORY_META: Record<ItemCategory, { label: string; }> = {
   fg: { label: "Producto Terminado" },

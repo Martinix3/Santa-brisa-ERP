@@ -152,7 +152,7 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
       }
       if (tab === "PEDIDO") {
         if (!lines.length || !lines.some(l => l.sku.trim() && l.qty > 0)) { // FIX: Tipar `l`
-          toast.error("Añade al menos una línea (SKU + cantidad > 0)");
+          toast.error("Añade al menos una línea válida (SKU + cantidad > 0)");
           setSaving(false); return;
         }
         const created = await placeOrder({ accountId: accId, distributorId, lines, createdById: currentUser!.id });

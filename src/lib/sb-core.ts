@@ -1,6 +1,6 @@
 // --- Santa Brisa: lógica de negocio (sell-out a botellas, agregados y KPIs) ---
 import type {
-  Account, Party, PartyRole, CustomerData, OrderSellOut, OrderLine as SsotOrderLine, User, SantaData, Item, QcStatus
+  Account, Party, PartyRole, CustomerData, OrderSellOut, OrderLine as SsotOrderLine, User, SantaData, Item, QcStatus, Activation, Promotion
 } from '@/domain/ssot';
 
 // Re-export OrderLine to be accessible
@@ -69,7 +69,7 @@ export type BottlesOpts = {
   countNonBottleSkusAsZero?: boolean;               // por defecto true
 };
 
-type OrderLineWithItem = OrderLine & { item?: Item };
+type OrderLineWithItem = SsotOrderLine & { item?: Item };
 
 function lineToBottles(line: OrderLineWithItem, opts: BottlesOpts = {}): number {
   if(!line) return 0;
