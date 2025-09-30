@@ -1,5 +1,3 @@
-
-
 // src/domain/ssot.ts
 
 // =================================================================
@@ -544,5 +542,3 @@ export type Payload =
 
 export type OrderSellIn = any; // Placeholder para compatibilidad
 export type ExecCheck = any; // Placeholder
-
-    

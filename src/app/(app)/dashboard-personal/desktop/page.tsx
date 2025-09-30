@@ -1,4 +1,4 @@
-
+// src/app/(app)/dashboard-personal/desktop/page.tsx
 "use client";
 import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
@@ -12,7 +12,7 @@ import { MarketingTaskCompletionDialog } from '@/features/marketing/components/M
 import { mapInteractionsToTasks } from '@/features/agenda/mappers';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
-import type { Interaction, InteractionStatus, User as CurrentUserType, SantaData } from '@/domain/ssot';
+import type { Interaction, InteractionStatus, User as CurrentUserType, SantaData, Task as AgendaTask } from '@/domain/ssot';
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
 } from 'recharts';
@@ -21,7 +21,6 @@ import { getStorage } from '@/features/agenda/storage';
 import { QuickEditor } from '@/features/agenda/components/QuickEditor';
 import { NotesList } from '@/features/agenda/components/NotesList';
 import { OutcomeDialog } from '@/features/agenda/components/OutcomeDialog';
-import type { Task as AgendaTask } from '@/features/agenda/storage/adapter';
 
 import dynamic from 'next/dynamic';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -168,6 +167,14 @@ function AgendaDock() {
     return { overdue, todayOpen, posToday };
   }, [agenda.overdue, agenda.todayTasks]);
 
+  const onConfirm = (task: AgendaTask, payload: Record<string,any>) => {
+      // Aquí mapeamos a SSOT: crear order/interaction/event/plv según task.kind
+      // Por ahora, solo completamos la tarea.
+      console.log("Confirming outcome for task", task, "with payload", payload);
+      agenda.completeTask(task.id);
+      closeOutcome();
+    };
+
   return (
     <div className="bg-white border border-slate-200 rounded-xl lg:rounded-none lg:border-0 lg:bg-transparent flex flex-col h-full">
       <div className="px-4 pt-3 pb-2 flex items-center gap-3 lg:px-0">
@@ -215,9 +222,9 @@ function AgendaDock() {
 
       <OutcomeDialog
         taskId={outcomeFor}
-        tasks={agenda.todayTasks.concat(agenda.overdue) as unknown as AgendaTask[]}
+        tasks={agenda.todayTasks.concat(agenda.overdue)}
         onClose={closeOutcome}
-        onConfirm={(task, payload)=>{ agenda.completeTask(task.id); closeOutcome(); }}
+        onConfirm={onConfirm}
       />
     </div>
   );
@@ -331,16 +338,6 @@ export default function PersonalDashboardPageDesktop() {
                 </div>
             </main>
 
-            <section className="lg:hidden border-t mt-2">
-              <div className="px-6 pt-4 pb-2 text-sm font-semibold text-slate-900">Calendario</div>
-              <div className="px-6">
-                <MiniCalendarCard />
-              </div>
-              <div className="px-6 pt-6 pb-2 text-sm font-semibold text-slate-900">Mi Agenda</div>
-              <div className="px-6 pb-6">
-                <AgendaDock />
-              </div>
-            </section>
             {completingTask && ( <TaskCompletionDialog task={completingTask} open={!!completingTask} onClose={() => setCompletingTask(null)} onSuccess={() => { toast.success('Tarea completada con éxito.'); router.refresh(); setCompletingTask(null); }} onError={(msg) => toast.error(`Error: ${msg}`)} /> )}
             {completingMarketingEvent && ( <MarketingTaskCompletionDialog entity={completingMarketingEvent} open={!!completingMarketingEvent} onClose={() => setCompletingMarketingEvent(null)} onSuccess={() => { toast.success('Resultados del evento guardados.'); router.refresh(); setCompletingMarketingEvent(null); }} onError={(msg) => toast.error(`Error: ${msg}`)} /> )}
             {openNewTask && currentUser && ( <NewEventDialog open={openNewTask} onOpenChange={setOpenNewTask} onSuccess={() => { toast.success("Tarea creada"); setOpenNewTask(false); router.refresh(); }} onError={(msg) => toast.error(msg)} accentColor={SANTA_BRISA_COLORS.brand.accent} initialEventData={{ userId: currentUser.id, dept: 'PERSONAL' }} /> )}
