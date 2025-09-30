@@ -112,6 +112,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   // Auth state listener
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(firebaseAuth, user => {
+        console.log('[DataProvider] onAuthStateChanged:', user?.email || 'No user');
         setFirebaseUser(user);
         setAuthReady(true);
     });
@@ -127,6 +128,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   // Set currentUser based on loaded data and Firebase user
   useEffect(() => {
+    console.log('[DataProvider] Attempting to set currentUser. AuthReady:', authReady, 'LoadingData:', loadingData, 'FirebaseUser:', !!firebaseUser, 'Data:', !!data);
     if (loadingData || !authReady) {
         return;
     }
@@ -135,6 +137,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     
     if (firebaseUser && data?.users) {
       userToSet = data.users.find(u => u.email === firebaseUser.email) || null;
+      console.log(`[DataProvider] Found app user for ${firebaseUser.email}:`, userToSet ? userToSet.name : 'NOT FOUND');
+    } else {
+      console.log(`[DataProvider] Conditions not met to find app user. firebaseUser: ${!!firebaseUser}, data.users: ${!!data?.users}`);
     }
     
     setCurrentUser(userToSet);
@@ -221,35 +226,29 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const loginWithEmail = useCallback(
     async (email: string, pass: string): Promise<User | null> => {
+      console.log(`[DataProvider] loginWithEmail called for ${email}`);
       if (!firebaseAuth) return null;
-      const userCredential = await signInWithEmailAndPassword(firebaseAuth, email, pass);
-      const fbUser = userCredential.user;
-      
-      // If data is not yet loaded, trigger a reload
-      if (!data?.users) {
-          await loadInitialData();
-      }
-
-      // After trying to load, check again
-      if (!data?.users) {
-          // This would happen if loadInitialData fails, we should get user from a direct fetch
-          const userDoc = await getDocs(collection(firestoreDb!, 'users'));
-          const users = userDoc.docs.map(d => d.data() as User);
-          const appUser = users.find(u => u.email === fbUser.email);
-          if (appUser) {
-              setData(d => d ? {...d, users} : {users} as any);
-              setCurrentUser({ ...appUser, role: (appUser.role?.toLowerCase() || 'comercial') as UserRole });
-              return appUser;
-          }
-      } else {
-        const appUser = data.users.find((u) => u.email === fbUser.email);
-        if (appUser) {
-            setCurrentUser({ ...appUser, role: (appUser.role?.toLowerCase() || 'comercial') as UserRole });
-            return appUser;
+      try {
+        const userCredential = await signInWithEmailAndPassword(firebaseAuth, email, pass);
+        const fbUser = userCredential.user;
+        console.log(`[DataProvider] Firebase login successful for ${fbUser.email}`);
+        
+        // This is the key part: if data is already loaded, we just find the user.
+        // If not, we trigger a reload. The useEffects will handle the rest.
+        if (!data?.users) {
+            console.log('[DataProvider] Data not present after login, triggering loadInitialData.');
+            await loadInitialData();
         }
+        
+        // The useEffect will handle setting currentUser once data is loaded/reloaded.
+        // For immediate feedback, we can try to find the user here too, but it's redundant.
+        const appUser = data?.users?.find(u => u.email === fbUser.email);
+        return appUser || null;
+
+      } catch (error) {
+        console.error(`[DataProvider] Firebase login failed for ${email}:`, error);
+        throw error;
       }
-      
-      return null;
     },
     [data?.users, loadInitialData]
   );
@@ -278,6 +277,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (!firebaseAuth) return;
     await signOut(firebaseAuth);
     setCurrentUser(null);
+    setData(null);
     router.push("/login");
   }, [router]);
 

@@ -23,12 +23,16 @@ export function AuthForm({ onEmailLogin, onEmailSignup, onGoogleSubmit }: AuthFo
     e.preventDefault();
     setError(null);
     setIsLoading(true);
+    console.log(`[AuthForm] handleSubmit: mode is ${isLogin ? 'LOGIN' : 'SIGNUP'}`);
     try {
       if (isLogin) {
+        console.log(`[AuthForm] Calling onEmailLogin with ${email}`);
         await onEmailLogin(email, password);
       } else {
+        console.log(`[AuthForm] Calling onEmailSignup with ${email}`);
         await onEmailSignup(email, password);
       }
+      console.log(`[AuthForm] Auth operation successful (client-side).`);
       // El DataProvider se encargará de la redirección
     } catch (err: any) {
       console.error("[AuthForm] Submit Error:", err);
