@@ -167,7 +167,7 @@ function AgendaDock() {
   const kpis = useMemo(()=> {
     const overdue = agenda.overdue.length;
     const todayOpen = agenda.todayTasks.filter(t=>t.status==='open').length;
-    const posToday = agenda.todayTasks.filter(t=> t.kind==='POS_EVT' || t.kind==='POS_PLV').length;
+    const posToday = agenda.todayTasks.filter(t=> t.kind==='EVENTO_MKT').length;
     return { overdue, todayOpen, posToday };
   }, [agenda.overdue, agenda.todayTasks]);
 
@@ -278,10 +278,10 @@ export default function PersonalDashboardPageDesktop() {
     return (
         <>
             <main className="flex-1 bg-slate-50 p-4 sm:p-6 lg:p-8">
-                <div className="mx-auto w-full max-w-[1400px] lg:grid lg:grid-cols-[1fr_360px] lg:gap-6">
+                <div className="mx-auto w-full max-w-[1400px] lg:grid lg:grid-cols-12 lg:gap-6">
                   
                   {/* Columna principal */}
-                  <div className="space-y-6">
+                  <div className="space-y-6 lg:col-span-8">
                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                          <h1 className="text-3xl font-bold text-slate-900">
                              Mi Dashboard
@@ -320,8 +320,8 @@ export default function PersonalDashboardPageDesktop() {
                      </motion.div>
                   </div>
                   
-                  {/* Columna Lateral Unificada (Calendario y Agenda) */}
-                  <aside className="hidden lg:block sticky top-[76px] h-[calc(100dvh-96px)] space-y-6">
+                  {/* Columna Lateral */}
+                  <aside className="hidden lg:block lg:col-span-4 sticky top-[76px] h-[calc(100dvh-96px)] space-y-6">
                     <div className="h-1/2">
                       <MiniCalendarCard />
                     </div>
