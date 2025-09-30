@@ -12,7 +12,7 @@ import { MarketingTaskCompletionDialog } from '@/features/marketing/components/M
 import { mapInteractionsToTasks } from '@/features/agenda/mappers';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
-import type { Interaction, InteractionStatus, User as CurrentUserType, SantaData, Task as AgendaTask } from '@/domain/ssot';
+import type { Interaction, InteractionStatus, User as CurrentUserType, SantaData } from '@/domain/ssot';
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
 } from 'recharts';
@@ -21,6 +21,7 @@ import { getStorage } from '@/features/agenda/storage';
 import { QuickEditor } from '@/features/agenda/components/QuickEditor';
 import { NotesList } from '@/features/agenda/components/NotesList';
 import { OutcomeDialog } from '@/features/agenda/components/OutcomeDialog';
+import type { Task as AgendaTask } from '@/features/agenda/storage/adapter';
 
 import dynamic from 'next/dynamic';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -155,22 +156,19 @@ function MiniCalendarCard() {
 
 
 function AgendaDock() {
-  const storage = getStorage();
-  const agenda = useQuickNotes(storage);
+  const agenda = useQuickNotes();
   const [outcomeFor, setOutcomeFor] = useState<string|null>(null);
   const openOutcome = (id: string) => setOutcomeFor(id);
   const closeOutcome = () => setOutcomeFor(null);
 
   const kpis = useMemo(()=> {
     const overdue = agenda.overdue.length;
-    const todayOpen = agenda.todayTasks.filter(t=>t.status==='OPEN').length;
+    const todayOpen = agenda.todayTasks.filter(t=>t.status==='open').length;
     const posToday = agenda.todayTasks.filter(t=> t.kind==='POS_EVT' || t.kind==='POS_PLV').length;
     return { overdue, todayOpen, posToday };
   }, [agenda.overdue, agenda.todayTasks]);
   
   const onConfirm = (task: AgendaTask, payload: Record<string,any>) => {
-      // Aquí mapeamos a SSOT: crear order/interaction/event/plv según task.kind
-      // Por ahora, solo completamos la tarea.
       console.log("Confirming outcome for task", task, "with payload", payload);
       agenda.completeTask(task.id);
       closeOutcome();
@@ -223,7 +221,6 @@ function AgendaDock() {
 
       <OutcomeDialog
         taskId={outcomeFor}
-        tasks={agenda.todayTasks.concat(agenda.overdue)}
         onClose={closeOutcome}
         onConfirm={onConfirm}
       />

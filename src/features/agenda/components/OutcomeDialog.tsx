@@ -1,6 +1,7 @@
 // /features/agenda/components/OutcomeDialog.tsx
 import React, { useMemo, useState } from 'react';
-import type { Task, TaskKind } from '@/domain/ssot';
+import type { Task as AgendaTask } from '@/features/agenda/storage/adapter';
+import type { Task } from '@/domain/ssot';
 
 // ----------------------------- Dialog genérico -----------------------------
 function Dialog({ title, onClose, children }:{ title:string; onClose:()=>void; children:React.ReactNode }){
@@ -108,14 +109,16 @@ function PosKpis({ kind, defaults, onCancel, onSave }:{ kind:'EVT'|'MKT'; defaul
 
 // ----------------------------- OutcomeDialog (main) -----------------------------
 export function OutcomeDialog({
-  taskId, tasks, onClose,
+  taskId,
+  onClose,
   onConfirm,
 }:{
   taskId: string|null;
-  tasks: Task[];
   onClose: ()=>void;
-  onConfirm: (task: Task, payload: Record<string,any>)=>void;
+  onConfirm: (task: AgendaTask, payload: Record<string,any>)=>void;
 }) {
+  const {data} = useData();
+  const tasks = data?.interactions || [];
   const task = useMemo(()=> tasks.find(t=>t.id===taskId), [tasks, taskId]);
   const [payload, setPayload] = useState<Record<string,any>>({});
 
@@ -123,11 +126,11 @@ export function OutcomeDialog({
 
   const common = (
     <>
-      <div className="text-sm text-[hsl(var(--sb-neutral-600))] mb-2">{task.title}</div>
+      <div className="text-sm text-[hsl(var(--sb-neutral-600))] mb-2">{task.note}</div>
       {task.kind==='PEDIDO' && (
         <div className="grid gap-2">
           <label className="text-sm">Cajas
-            <input type="number" min={1} defaultValue={task.meta?.qtyCases ?? 6}
+            <input type="number" min={1} defaultValue={(task.meta as any)?.qtyCases ?? 6}
                    className="w-full border rounded px-2 py-1"
                    onChange={(e)=>setPayload(p=>({...p, qtyCases:+e.target.value}))}/>
           </label>
@@ -180,7 +183,7 @@ export function OutcomeDialog({
         {common}
         <div className="mt-3 flex justify-end gap-2">
           <button className="px-3 py-1.5 border rounded-lg" onClick={onClose}>Cancelar</button>
-          <button className="px-3 py-1.5 rounded-lg border bg-[hsl(var(--sb-sun-weak))]" onClick={()=>onConfirm(task, payload)}>Guardar</button>
+          <button className="px-3 py-1.5 rounded-lg border bg-[hsl(var(--sb-sun-weak))]" onClick={()=>onConfirm(task as AgendaTask, payload)}>Guardar</button>
         </div>
       </div>
     </div>

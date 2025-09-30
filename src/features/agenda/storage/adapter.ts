@@ -1,5 +1,5 @@
 // features/agenda/storage/adapter.ts
-import type { Department, Task, TaskKind, TaskStatus } from '@/domain/ssot'; 
+import type { Department, Interaction, InteractionStatus, InteractionKind } from '@/domain/ssot'; 
 
 export type Note = {
   id: string;
@@ -13,7 +13,13 @@ export type Note = {
   derived?: { kind: 'PEDIDO'|'VISITA'|'POS_EVT'|'POS_PLV'|'NOTA' };
 };
 
-export type { Task, TaskKind, TaskStatus, Department };
+export type TaskKind = 'PEDIDO'|'VISITA'|'POS_EVT'|'POS_PLV'|'NOTA';
+export type TaskStatus = InteractionStatus;
+
+export type Task = Interaction & {
+    title?: string; // Add title to Interaction for display purposes
+    dueAt?: string;
+};
 
 
 export interface IAgendaStorage {

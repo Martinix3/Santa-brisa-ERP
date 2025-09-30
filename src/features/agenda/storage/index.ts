@@ -1,6 +1,7 @@
 // features/agenda/storage/index.ts
 import type { IAgendaStorage } from './adapter';
 import { LocalAgendaStorage } from './local';
+import { FirestoreAgendaStorage } from './firestore';
 
 // Fallback para SSR/hidratación
 const MemoryAgendaStorage: IAgendaStorage = {
@@ -10,19 +11,14 @@ const MemoryAgendaStorage: IAgendaStorage = {
   async saveTasks(){},
 };
 
-// (Opcional) feature flag/env para Firestore
-// import { FirestoreAgendaStorage } from './firestore';
 
 export function getStorage(): IAgendaStorage {
   // Si estás en SSR → memory
   if (typeof window === 'undefined') return MemoryAgendaStorage;
 
-  // Si quieres condicionar por env/flag:
-  // if (window?.SB_USE_FIRESTORE_AGENDA) return FirestoreAgendaStorage;
-
-  // Por defecto: local
-  return LocalAgendaStorage;
+  // Forzamos el uso de Firestore ahora.
+  return FirestoreAgendaStorage;
 }
 
-export { LocalAgendaStorage };
+export { LocalAgendaStorage, FirestoreAgendaStorage };
 export type { IAgendaStorage };

@@ -1,73 +1,59 @@
 // features/agenda/hooks/useQuickNotes.ts
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { parseNoteToAction, inferDepartment } from '../parser/parser';
-import type { IAgendaStorage, Note } from '../storage/adapter';
-import type { Task, TaskKind, TaskStatus, Department } from '@/domain/ssot';
+import type { Note, Task, TaskKind, TaskStatus } from '../storage/adapter';
+import type { Department } from '@/domain/ssot';
+import { useData } from '@/lib/dataprovider';
 
-export function useQuickNotes(storage: IAgendaStorage) {
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [linkNotes, setLinkNotes] = useState(true);  // toggle “Vincular notas”
+// El hook ahora no gestiona el storage, sino que lee del DataProvider
+export function useQuickNotes() {
+  const { data: santaData, saveAllCollections } = useData();
+  const notes = useMemo(() => (santaData?.notes || []) as Note[], [santaData?.notes]);
+  const tasks = useMemo(() => (santaData?.interactions || []) as Task[], [santaData?.interactions]);
+
+  const [linkNotes, setLinkNotes] = useState(true);
   const [range, setRange] = useState<{start:Date; end:Date}>(()=> {
     const d = new Date(); const s = new Date(d.getFullYear(), d.getMonth(), d.getDate());
     const e = new Date(s.getTime() + 24*60*60*1000);
     return { start: s, end: e };
   });
 
-  useEffect(()=>{ (async()=>{
-    setNotes(await storage.loadNotes());
-    setTasks(await storage.loadTasks());
-  })(); }, [storage]);
-
   const addNote = async (text: string) => {
-    const n: Note = { id: crypto.randomUUID(), text, createdAt: new Date().toISOString() };
+    const n: Note = { id: crypto.randomUUID(), text, createdAt: new Date().toISOString(), tags: [] };
     const parsed = parseNoteToAction(text);
     n.derived = { kind: parsed.kind as any };
-    const next = [n, ...notes].slice(0, 500);
-    setNotes(next); await storage.saveNotes(next);
-
-    // crear Task automáticamente (OPEN)
-    const kindMap: Record<string, TaskKind> = {
-      PEDIDO:'PEDIDO', VISITA:'VISITA', POS_EVT:'POS_EVT', POS_PLV:'POS_PLV', NOTA:'NOTA'
-    };
-    const dep = inferDepartment(text);
-    const t: Task = {
-      id: crypto.randomUUID(),
-      kind: kindMap[parsed.kind],
-      status: 'OPEN',
-      title: text.split('\n')[0].slice(0,120),
-      noteId: n.id,
-      accountId: ('account' in parsed) ? (parsed as any).account : undefined,
-      dueAt: ('whenISO' in parsed) ? (parsed as any).whenISO : undefined,
-      createdAt: n.createdAt,
-      updatedAt: n.createdAt,
-      department: dep,
-      meta: ('qtyCases' in parsed) ? { qtyCases: (parsed as any).qtyCases } :
-            ('description' in parsed) ? { description: (parsed as any).description } : undefined
-    };
-    const tNext = [t, ...tasks];
-    setTasks(tNext); await storage.saveTasks(tNext);
+    
+    // Directamente llama a saveAllCollections para persistir
+    await saveAllCollections({ notes: [...notes, n] });
+    
+    // No creamos la task aquí, se delega al OutcomeDialog
   };
 
   const completeTask = async (taskId: string) => {
-    const tNext = tasks.map(t => t.id===taskId ? {...t, status:'DONE' as TaskStatus, updatedAt: new Date().toISOString() } : t);
-    setTasks(tNext); await storage.saveTasks(tNext);
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+    const updatedTask = { ...task, status: 'done' as TaskStatus, updatedAt: new Date().toISOString() };
+    await saveAllCollections({ interactions: [updatedTask] });
   };
 
-  const deleteNote = async (noteId: string) => {
-    const nNext = notes.filter(n => n.id!==noteId);
-    setNotes(nNext); await storage.saveNotes(nNext);
-    // opcional: borrar Task ligada
+  const deleteTask = async (taskId: string) => {
+    const updatedTasks = tasks.filter(t => t.id !== taskId);
+    // Para borrar, podrías necesitar una acción de servidor específica.
+    // Esta es una simplificación:
+    await saveAllCollections({ interactions: updatedTasks });
   };
 
   // Overdue pinning (sin reordenar todo el día)
   const todayStart = useMemo(()=> new Date(range.start), [range]);
-  const overdue = useMemo(()=> tasks.filter(t => t.status==='OPEN' && t.dueAt && new Date(t.dueAt) < todayStart), [tasks, todayStart]);
-  const todayTasks = useMemo(()=> tasks.filter(t=>{
-    if (!t.dueAt) return true; // sin fecha, se muestran siempre en “hoy”
-    const dt = new Date(t.dueAt).getTime();
+  const openTasks = useMemo(() => tasks.filter(t => t.status === 'open'), [tasks]);
+
+  const overdue = useMemo(()=> openTasks.filter(t => t.plannedFor && new Date(t.plannedFor) < todayStart), [openTasks, todayStart]);
+  
+  const todayTasks = useMemo(()=> openTasks.filter(t=>{
+    if (!t.plannedFor) return true; // sin fecha, se muestran siempre en “hoy”
+    const dt = new Date(t.plannedFor).getTime();
     return dt >= range.start.getTime() && dt < range.end.getTime();
-  }), [tasks, range]);
+  }), [openTasks, range]);
 
   // Swipe (umbral ~60px)
   const swipeState = useRef<{ id?:string; startX?:number; dx?:number }>({});
@@ -82,7 +68,7 @@ export function useQuickNotes(storage: IAgendaStorage) {
   const onItemPointerUp = (id: string, openOutcome: (id:string)=>void) => async () => {
     const dx = swipeState.current.dx || 0;
     swipeState.current = {};
-    if (Math.abs(dx) > 60) openOutcome(id); // no completamos directo: abre OutcomeDialog
+    if (Math.abs(dx) > 60) openOutcome(id);
   };
 
   // Vincular notas al rango visible
@@ -96,7 +82,7 @@ export function useQuickNotes(storage: IAgendaStorage) {
 
   return {
     notes, tasks, overdue, todayTasks, rangedNotes,
-    addNote, completeTask, deleteNote,
+    addNote, completeTask, deleteTask,
     onItemPointerDown, onItemPointerMove, onItemPointerUp,
     linkNotes, setLinkNotes, range, setRange,
   };
