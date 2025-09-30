@@ -15,6 +15,7 @@ import QuickLogOverlay from "@/features/quicklog/QuickLogOverlay";
 import { isSales } from "@/lib/authz";
 import { MODULE_ACCENTS } from "@/domain/ssot";
 import { RealtimeBadge } from "../RealtimeBadge";
+import { RealtimeToggle } from "../RealtimeToggle";
 
 
 /* ===== 0) Tokens ===== */
@@ -292,6 +293,7 @@ function HeaderPro({
         </button>
 
         <div className="ml-auto md:ml-2 flex items-center gap-1" ref={menuRef}>
+          <RealtimeToggle />
           <button
             className="px-2 py-1.5 rounded-md hover:bg-sb-neutral-100 flex items-center gap-2"
             aria-haspopup="menu"
