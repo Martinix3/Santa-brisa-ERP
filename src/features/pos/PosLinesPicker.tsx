@@ -7,8 +7,8 @@ import { Plus, Trash2 } from 'lucide-react';
 import { PosCostCatalogEntry } from '@/domain/ssot';
 
 export type PosLineInput =
-  | { kind:'CATALOGO'; catalogItemId:string; qty?:number; scheduleAt?:string; estCost?:number }
-  | { kind:'CUSTOM'; desc:string; visibility?:'ALTA'|'MEDIA'|'BAJA'; estCost?:number; scheduleAt?:string };
+  | { kind:'CATALOGO'; catalogItemId:string; qty?:number; scheduleAt?:string; estCost?:number, desc?: string }
+  | { kind:'CUSTOM'; desc:string; visibility?:'ALTA'|'MEDIA'|'BAJA'; estCost?:number; scheduleAt?:string, catalogItemId?: undefined };
 
 interface PosLinesPickerProps {
   catalog: PosCostCatalogEntry[];
@@ -36,11 +36,11 @@ export function PosLinesPicker({ catalog, lines, setLines }: PosLinesPickerProps
         if ('kind' in updates) {
             finalUpdate = { kind: updates.kind };
             if (updates.kind === 'CATALOGO') {
-                (finalUpdate as any).catalogItemId = '';
-                (finalUpdate as any).desc = undefined;
+                finalUpdate.catalogItemId = '';
+                finalUpdate.desc = undefined;
             } else {
-                (finalUpdate as any).desc = '';
-                (finalUpdate as any).catalogItemId = undefined;
+                finalUpdate.desc = '';
+                finalUpdate.catalogItemId = undefined;
             }
         }
         

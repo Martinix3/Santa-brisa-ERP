@@ -16,18 +16,18 @@ const fmtEur = (n?: number) => new Intl.NumberFormat("es-ES", { style: "currency
 const fmtPct = (n?: number) => `${(n || 0).toFixed(1)}%`;
 
 // ===================================
-// KPI Card Component
+// KPI Card Component (Updated as per Design Brief)
 // ===================================
 
-function KpiCard({ title, value, icon: Icon, color = "#71717a" }: { title: string; value: string; icon: React.ElementType; color?: string; }) {
+function KpiCard({ title, value, icon: Icon }: { title: string; value: string; icon: React.ElementType; }) {
     return (
-        <div className="bg-white p-4 rounded-xl border border-zinc-200 flex items-center gap-4 shadow-sm">
-            <div className="p-3 rounded-lg" style={{ backgroundColor: `${color}1A`, color }}>
-                <Icon size={24} className="sb-icon" />
+        <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 flex items-center gap-4 transition-all duration-200 hover:scale-[1.03] hover:shadow-lg cursor-pointer">
+            <div className="p-3 bg-white rounded-lg border border-gray-200">
+                <Icon size={24} className="sb-icon text-gray-500" />
             </div>
             <div>
-                <p className="text-2xl font-bold text-zinc-900">{value}</p>
-                <p className="text-sm font-medium text-zinc-600">{title}</p>
+                <p className="text-2xl font-bold text-gray-900">{value}</p>
+                <p className="text-sm font-medium text-gray-700">{title}</p>
             </div>
         </div>
     );
@@ -41,7 +41,7 @@ function MarketingDashboardPageContent() {
     const { data } = useData();
     const [timeRange, setTimeRange] = useState<TimeRange>('month');
 
-    // 1. Data Aggregation & Calculations (as per brief)
+    // 1. Data Aggregation & Calculations (logic remains the same)
     const { totals, investmentMix, upcomingActions, rviCards } = useMemo(() => {
         if (!data) {
             return {
@@ -182,19 +182,19 @@ function MarketingDashboardPageContent() {
         year: 'Año'
     };
 
-    // 3. Visualization (as per brief)
+    // 3. Visualization (Updated as per Design Brief)
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
-                <h1 className="text-2xl font-semibold text-zinc-800">Dashboard de Marketing</h1>
-                <div className="flex items-center p-1 bg-zinc-100 rounded-lg">
+                <h1 className="text-2xl font-bold text-gray-900">Dashboard de Marketing</h1>
+                <div className="flex items-center p-1 bg-gray-100 rounded-lg">
                     {(['week', 'month', 'year'] as const).map(range => (
                         <SBButton
                             key={range}
                             size="sm"
                             onClick={() => setTimeRange(range)}
                             variant="ghost"
-                            className={`font-semibold ${timeRange === range ? 'bg-white shadow-sm !text-zinc-800' : 'text-zinc-600'}`}
+                            className={`font-semibold ${timeRange === range ? 'bg-white shadow-sm !text-gray-900' : 'text-gray-700'}`}
                         >
                             {timeRangeLabels[range]}
                         </SBButton>
@@ -204,28 +204,28 @@ function MarketingDashboardPageContent() {
             
             {/* KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <KpiCard title={`Inversión (${timeRangeLabels[timeRange]})`} value={fmtEur(totals.totalSpend)} icon={Euro} color="#D7713E" />
-                <KpiCard title={`Ingresos (${timeRangeLabels[timeRange]})`} value={fmtEur(totals.totalRevenue)} icon={TrendingUp} color="#16a34a"/>
-                <KpiCard title={`ROI (${timeRangeLabels[timeRange]})`} value={`${totals.totalRoi.toFixed(2)}x`} icon={Percent} color="#618E8F" />
-                <KpiCard title={`Acciones (${timeRangeLabels[timeRange]})`} value={totals.totalActions.toString()} icon={Target} color="#A7D8D9"/>
+                <KpiCard title={`Inversión (${timeRangeLabels[timeRange]})`} value={fmtEur(totals.totalSpend)} icon={Euro} />
+                <KpiCard title={`Ingresos (${timeRangeLabels[timeRange]})`} value={fmtEur(totals.totalRevenue)} icon={TrendingUp} />
+                <KpiCard title={`ROI (${timeRangeLabels[timeRange]})`} value={`${totals.totalRoi.toFixed(2)}x`} icon={Percent} />
+                <KpiCard title={`Acciones (${timeRangeLabels[timeRange]})`} value={totals.totalActions.toString()} icon={Target} />
             </div>
 
             {/* Investment Mix & ROI */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <SBCard title={`Mix de Inversión y ROI por Canal (${timeRangeLabels[timeRange]})`}>
-                    <div className="divide-y divide-zinc-100">
-                        <div className="grid grid-cols-4 p-3 bg-zinc-50 text-xs font-semibold uppercase text-zinc-500">
+                    <div className="divide-y divide-gray-200">
+                        <div className="grid grid-cols-4 p-3 bg-gray-50 text-xs font-semibold uppercase text-gray-500">
                             <span>Canal</span>
                             <span className="text-right">Inversión</span>
                             <span className="text-right">Mix</span>
                             <span className="text-right">ROI</span>
                         </div>
                         {investmentMix.map(ch => (
-                            <div key={ch.name} className="grid grid-cols-4 p-3 items-center hover:bg-zinc-50/50 text-sm">
-                                <div className="font-medium">{ch.name}</div>
+                            <div key={ch.name} className="grid grid-cols-4 p-3 items-center hover:bg-gray-50 text-sm text-gray-700">
+                                <div className="font-medium text-gray-900">{ch.name}</div>
                                 <div className="text-right font-mono">{fmtEur(ch.data.spend)}</div>
                                 <div className="text-right font-mono">{fmtPct(ch.mix)}</div>
-                                <div className={`text-right font-semibold ${ch.data.roi > 1 ? 'text-green-600' : 'text-red-600'}`}>{ch.data.roi.toFixed(2)}x</div>
+                                <div className="text-right font-semibold">{ch.data.roi.toFixed(2)}x</div>
                             </div>
                         ))}
                     </div>
@@ -233,9 +233,9 @@ function MarketingDashboardPageContent() {
                 
                 <SBCard title={`Rotación vs Inversión (RVI) — ${timeRangeLabels[timeRange]}`}>
                   <div className="p-4 grid grid-cols-3 gap-3">
-                    <KpiCard title="RVI (Δ lift%)" value={`${(rviCards.rvi*100).toFixed(0)}%`} icon={BarChart} color="#0ea5e9" />
-                    <KpiCard title="Units/€ (mediana)" value={rviCards.unitsPerEuro.toFixed(2)} icon={PieChartIcon} color="#16a34a" />
-                    <KpiCard title="% locales con uplift > 0" value={`${(rviCards.pctPositive*100).toFixed(0)}%`} icon={TrendingUp} color="#f59e0b" />
+                    <KpiCard title="RVI (Δ lift%)" value={`${(rviCards.rvi*100).toFixed(0)}%`} icon={BarChart} />
+                    <KpiCard title="Units/€ (mediana)" value={rviCards.unitsPerEuro.toFixed(2)} icon={PieChartIcon} />
+                    <KpiCard title="% locales con uplift > 0" value={`${(rviCards.pctPositive*100).toFixed(0)}%`} icon={TrendingUp} />
                   </div>
                 </SBCard>
             </div>
@@ -245,16 +245,16 @@ function MarketingDashboardPageContent() {
                 <SBCard title="Próximos 30 Días">
                     <div className="p-2 max-h-72 overflow-y-auto">
                         {upcomingActions.length > 0 ? upcomingActions.map((action, idx) => (
-                            <div key={idx} className="flex items-center gap-3 p-2 rounded-lg hover:bg-zinc-50">
-                                <div className="p-2 bg-zinc-100 rounded-md">
-                                    <Calendar size={16} className="sb-icon text-zinc-600"/>
+                            <div key={idx} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50">
+                                <div className="p-2 bg-gray-100 rounded-md">
+                                    <Calendar size={16} className="sb-icon text-gray-500"/>
                                 </div>
                                 <div>
-                                    <p className="font-medium text-sm">{action.title}</p>
-                                    <p className="text-xs text-zinc-500">{new Date(action.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })} - {action.type}</p>
+                                    <p className="font-medium text-sm text-gray-900">{action.title}</p>
+                                    <p className="text-xs text-gray-500">{new Date(action.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })} - {action.type}</p>
                                 </div>
                             </div>
-                        )) : <p className="text-center text-sm text-zinc-500 p-8">No hay acciones planificadas.</p>}
+                        )) : <p className="text-center text-sm text-gray-500 p-8">No hay acciones planificadas.</p>}
                     </div>
                 </SBCard>
                 <UpcomingTasks department="MARKETING" />
@@ -265,6 +265,6 @@ function MarketingDashboardPageContent() {
 
 export default function Page(){
   const { data } = useData();
-  if (!data) return <div className="p-6">Cargando dashboard de marketing...</div>;
+  if (!data) return <div className="p-6 text-gray-500">Cargando dashboard de marketing...</div>;
   return <MarketingDashboardPageContent/>;
 }

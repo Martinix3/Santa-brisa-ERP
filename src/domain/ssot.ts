@@ -334,14 +334,14 @@ export interface AccountPriceOverride {}
 export interface Activation {}
 export interface Promotion {}
 export interface MaterialCost {}
-export interface FinanceLink { id: string; docType?: string; externalId?: string; status?: 'pending' | 'paid' | 'overdue'; docNumber?: string; netAmount: number; taxAmount: number; grossAmount: number; currency: Currency; issueDate: string; dueDate: string; partyId?: string; costObject?: { kind: string; id: string; }; }
-export interface PaymentLink { id: string; externalId?: string; financeLinkId: string; amount: number; date: string; method?: string; }
+export interface FinanceLink { id: string; docType: string; externalId: string; status: 'pending' | 'paid' | 'overdue'; docNumber?: string; netAmount: number; taxAmount: number; grossAmount: number; currency: Currency; issueDate: string; dueDate: string; partyId?: string; costObject?: { kind: string; id: string; }; }
+export interface PaymentLink { id: string; externalId: string; financeLinkId: string; amount: number; date: string; method?: string; }
 export interface TraceEvent {
     id: string;
     at: string;
     title: string;
     details: string;
-    links?: { lotNumber?: string; batchId?: string; orderId?: string; shipmentId?: string; receiptId?: string; qaCheckId?: string; prodOrderId?: string;};
+    links?: { prodOrderId?:string; lotNumber?: string; batchId?: string; orderId?: string; shipmentId?: string; receiptId?: string; qaCheckId?: string;};
     data?: any;
     phase: TraceEventPhase;
     kind: TraceEventKind;

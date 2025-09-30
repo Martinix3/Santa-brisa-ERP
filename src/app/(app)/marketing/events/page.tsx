@@ -1,212 +1,270 @@
-// src/app/(app)/marketing/events/page.tsx
+// src/app/(app)/marketing/dashboard/page.tsx
 "use client";
-import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useData } from '@/lib/dataprovider';
-import type { MarketingEvent, Interaction, InteractionKind, Account, PosTactic, PosCostCatalogEntry, PlvMaterial, PosTacticItem, PosTacticStatus } from '@/domain/ssot';
-import { SBCard, SBButton, DataTableSB, KPI } from '@/components/ui/ui-primitives';
-import type { Col } from '@/components/ui/ui-primitives';
-import { NewEventDialog } from '@/features/agenda/components/NewEventDialog';
-import { MarketingTaskCompletionDialog } from '@/features/marketing/components/MarketingTaskCompletionDialog';
-import { SB_COLORS } from '@/domain/ssot';
-import { Calendar, Megaphone, Target, Euro, Plus } from 'lucide-react';
-import { NewPosTacticDialog } from '@/features/marketing/components/NewPosTacticDialog';
-import { upsertPosTactic } from '@/features/marketing/services/posTactics.client';
-import { listPosCostCatalog, listPlvInStock } from '@/features/marketing/services/posTactics.service';
-import { toast } from 'sonner';
-import { useRouter } from 'next/navigation';
-import type { PosLineInput } from '@/features/pos/server/pos-actions';
+import { SBCard, SBButton } from '@/components/ui/ui-primitives';
+import { DEPT_META, SB_THEME } from '@/domain/ssot';
+import type { Interaction, MarketingEvent, OnlineCampaign, InfluencerCollab, PosTactic } from '@/domain/ssot';
+import { Calendar, AlertCircle, Clock, Target, Euro, TrendingUp, BarChart, Percent, PieChart as PieChartIcon } from 'lucide-react';
+import { UpcomingTasks } from '@/features/agenda/components/UpcomingTasks';
 
-function StatusPill({ status }: { status: MarketingEvent['status'] }) {
-    const styles: Record<MarketingEvent['status'], string> = {
-        planned: 'bg-blue-100 text-blue-800',
-        active: 'bg-green-100 text-green-800 animate-pulse',
-        closed: 'bg-zinc-100 text-zinc-800',
-        cancelled: 'bg-red-100 text-red-800',
-    };
+// ===================================
+// Helper Functions & Types
+// ===================================
+type TimeRange = 'week' | 'month' | 'year';
+const fmtEur = (n?: number) => new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR", minimumFractionDigits: 0 }).format(n || 0);
+const fmtPct = (n?: number) => `${(n || 0).toFixed(1)}%`;
+
+// ===================================
+// KPI Card Component (Updated as per Design Brief)
+// ===================================
+
+function KpiCard({ title, value, icon: Icon }: { title: string; value: string; icon: React.ElementType; }) {
     return (
-        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${styles[status]}`}>
-            {status.charAt(0).toUpperCase() + status.slice(1)}
-        </span>
+        <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 flex items-center gap-4 transition-all duration-200 hover:scale-[1.03] hover:shadow-lg cursor-pointer">
+            <div className="p-3 bg-white rounded-lg border border-gray-200">
+                <Icon size={24} className="sb-icon text-gray-500" />
+            </div>
+            <div>
+                <p className="text-2xl font-bold text-gray-900">{value}</p>
+                <p className="text-sm font-medium text-gray-700">{title}</p>
+            </div>
+        </div>
     );
 }
 
-const formatNumber = (num?: number) => num?.toLocaleString('es-ES') || 'N/A';
-const formatCurrency = (num?: number) => num?.toLocaleString('es-ES', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 }) || 'N/A';
+// ===================================
+// Main Dashboard Logic & Component
+// ===================================
+
+function MarketingDashboardPageContent() {
+    const { data } = useData();
+    const [timeRange, setTimeRange] = useState<TimeRange>('month');
+
+    // 1. Data Aggregation & Calculations (logic remains the same)
+    const { totals, investmentMix, upcomingActions, rviCards } = useMemo(() => {
+        if (!data) {
+            return {
+                totals: { totalSpend: 0, totalRevenue: 0, totalActions: 0, totalRoi: 0 },
+                investmentMix: [],
+                upcomingActions: [],
+                rviCards: { rvi: 0, unitsPerEuro: 0, pctPositive: 0 }
+            };
+        }
+        
+        const now = new Date();
+        const rangeStart = timeRange==='week'
+          ? new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay()+6)%7)) // lunes
+          : timeRange==='month'
+          ? new Date(now.getFullYear(), now.getMonth(), 1)
+          : new Date(now.getFullYear(), 0, 1);
+        rangeStart.setHours(0,0,0,0);
+
+        const overlaps = (aStart?:string, aEnd?:string, bStart:Date=rangeStart, bEnd:Date=now) => {
+          if (!aStart) return false;
+          const s = new Date(aStart);
+          const e = aEnd ? new Date(aEnd) : s;
+          return s <= bEnd && e >= bStart;
+        };
+        const isActiveOrClosed = (st?:string) => ['active','closed','LIVE','COMPLETED'].includes((st||'').toUpperCase());
+
+        // Agregación por canal
+        const eventsArr = (data.marketingEvents||[]).filter(e => overlaps(e.startAt, e.endAt, rangeStart, now) && isActiveOrClosed(e.status));
+        const onlineArr = (data.onlineCampaigns||[]).filter(c => overlaps(c.startAt, c.endAt, rangeStart, now) && isActiveOrClosed(c.status));
+        const collabsArr = (data.influencerCollabs||[]).filter(c => overlaps(c.dates?.goLiveAt, c.dates?.endAt, rangeStart, now) && isActiveOrClosed(c.status));
+        const posArr    = (data.posTactics||[]).filter(t => (t.status==='active'||t.status==='closed') && new Date(t.createdAt) >= rangeStart && new Date(t.createdAt) <= now);
+
+        const eventsData = eventsArr.reduce((a,e)=>({spend:a.spend+(e.spend||0), revenue:a.revenue+(e.kpis?.revenueAttributed||0), actions:a.actions+1}), {spend:0,revenue:0,actions:0});
+        const onlineData = onlineArr.reduce((a,c)=>({spend:a.spend+(c.spend||0), revenue:a.revenue+((c.metrics?.revenue)||0), actions:a.actions+1}), {spend:0,revenue:0,actions:0});
+        const collabsData= collabsArr.reduce((a,c)=>({
+          spend:a.spend+((c.costs?.cashPaid||0)+(c.costs?.productCost||0)+(c.costs?.shippingCost||0)),
+          revenue:a.revenue+(c.tracking?.revenue||0),
+          actions:a.actions+1
+        }), {spend:0,revenue:0,actions:0});
+        const posData    = posArr.reduce((a,t)=>{
+          const upliftUnits = t.result?.upliftUnits || 0;
+          const margin = (data as any)?.settings?.marginPerUnit || 0;
+          const revenue = upliftUnits * margin;
+          return { spend:a.spend+(t.actualCost||0), revenue:a.revenue+revenue, actions:a.actions+1 };
+        }, {spend:0,revenue:0,actions:0});
+        
+        const dashboardData = {
+            events: eventsData,
+            online: onlineData,
+            collabs: collabsData,
+            pos: posData
+        };
+
+        // Totales y Mix
+        const channels = Object.values(dashboardData);
+        const totalSpend = channels.reduce((sum, ch) => sum + ch.spend, 0);
+        const totalRevenue = channels.reduce((sum, ch) => sum + ch.revenue, 0);
+        const totalActions = channels.reduce((sum, ch) => sum + ch.actions, 0);
+        const totalRoi = totalSpend > 0 ? totalRevenue / totalSpend : 0;
+        const totalsResult = { totalSpend, totalRevenue, totalActions, totalRoi };
+        
+        const investmentMixResult = [
+            { name: 'Eventos', data: { ...dashboardData.events, roi: dashboardData.events.spend > 0 ? dashboardData.events.revenue / dashboardData.events.spend : 0 } },
+            { name: 'Online', data: { ...dashboardData.online, roi: dashboardData.online.spend > 0 ? dashboardData.online.revenue / dashboardData.online.spend : 0 } },
+            { name: 'Collabs', data: { ...dashboardData.collabs, roi: dashboardData.collabs.spend > 0 ? dashboardData.collabs.revenue / dashboardData.collabs.spend : 0 } },
+            { name: 'POS', data: { ...dashboardData.pos, roi: dashboardData.pos.spend > 0 ? dashboardData.pos.revenue / dashboardData.pos.spend : 0 } },
+        ].map(ch => ({
+            ...ch,
+            mix: totalsResult.totalSpend > 0 ? (ch.data.spend / totalsResult.totalSpend) * 100 : 0,
+        })).sort((a,b) => b.data.spend - a.data.spend);
+
+        // Próximas acciones
+        const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+        const allUpcoming = [
+            ...(data.marketingEvents || []).filter(e => e.status === 'planned' && new Date(e.startAt) <= in30Days).map(e => ({ date: e.startAt, title: e.title, type: 'Evento' })),
+            ...(data.onlineCampaigns || []).filter(c => c.status === 'planned' && new Date(c.startAt) <= in30Days).map(c => ({ date: c.startAt, title: c.title, type: 'Campaña' })),
+            ...(data.influencerCollabs || []).filter(c => c.status === 'AGREED' && c.dates?.goLiveAt && new Date(c.dates.goLiveAt) <= in30Days).map(c => ({ date: c.dates!.goLiveAt!, title: `Collab: ${c.creatorName}`, type: 'Collab' })),
+            ...(data.posTactics || []).filter(t => t.status === 'planned' && new Date(t.createdAt) <= in30Days).map(t => ({ date: t.createdAt, title: `POS: ${t.tacticCode}`, type: 'Táctica POS' })),
+        ];
+        const upcomingActionsResult = allUpcoming.sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+            
+        // RVI Cards
+        const selloutWeekly = (data as any).selloutWeekly || [];
+        const stores = new Set(selloutWeekly.map((s:any)=>s.storeId));
+        const mk = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+        const sum = (xs:number[])=>xs.reduce((x,y)=>x+(y||0),0);
+        const med = (xs:number[])=>{const v=[...xs].sort((a,b)=>a-b); const n=v.length; return n? (n%2?v[(n-1)/2]:(v[n/2-1]+v[n/2])/2):0;};
+        
+        const investByStore = new Map<string, number>();
+        (data.posTactics||[]).forEach(t=>{
+            if(!t.createdAt) return;
+            const m = new Date(t.createdAt).getMonth(); const y = new Date(t.createdAt).getFullYear();
+            if (`${y}-${String(m+1).padStart(2,'0')}`===mk) investByStore.set(t.accountId, (investByStore.get(t.accountId)||0) + (t.actualCost||0));
+        });
+        (data.marketingEvents||[]).forEach(e=>{
+            if (e.startAt) {
+                const d = new Date(e.startAt); const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+                if (e.accountId && key===mk) investByStore.set(e.accountId, (investByStore.get(e.accountId)||0) + (e.spend||0));
+            }
+        });
+
+        const byStoreMonth = new Map<string, number>();
+        selloutWeekly.forEach((r:any)=>{
+            if(!r.weekISO) return;
+            const d = new Date(r.weekISO); const key = `${r.storeId}@${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+            byStoreMonth.set(key, (byStoreMonth.get(key)||0) + (r.units||0));
+        });
+        
+        const rviRows = [...stores].map(id=>{
+            const units = byStoreMonth.get(`${id}@${mk}`) || 0;
+            const prev = [1,2,3].map(k=>{
+              const d = new Date(now.getFullYear(), now.getMonth()-k, 1);
+              const kk = `${id}@${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+              return byStoreMonth.get(kk)||0;
+            }).filter(x=>x>0);
+            const base = prev.length? sum(prev)/prev.length : 0;
+            const uplift = units - base;
+            const invest = investByStore.get(id as string)||0;
+            const lift = base>0 ? uplift/base : 0;
+            const upe = invest>0 ? uplift/invest : 0;
+            return { lift, upe, invest, positive: uplift>0 };
+        });
+
+        const activeRvi = rviRows.filter(r=> r.invest>0);
+        const inactiveRvi = rviRows.filter(r=> r.invest===0);
+        const rvi = med(activeRvi.map(r=>r.lift)) - med(inactiveRvi.map(r=>r.lift));
+        const unitsPerEuro = med(activeRvi.map(r=>r.upe));
+        const pctPositive = activeRvi.length ? (activeRvi.filter(r=>r.positive).length / activeRvi.length) : 0;
+
+        return { totals: totalsResult, investmentMix: investmentMixResult, upcomingActions: upcomingActionsResult, rviCards: { rvi, unitsPerEuro, pctPositive } };
+
+    }, [data, timeRange]);
+
+
+    const timeRangeLabels = {
+        week: 'Semana',
+        month: 'Mes',
+        year: 'Año'
+    };
+
+    // 3. Visualization (Updated as per Design Brief)
+    return (
+        <div className="space-y-6">
+            <div className="flex justify-between items-center">
+                <h1 className="text-2xl font-bold text-gray-900">Dashboard de Marketing</h1>
+                <div className="flex items-center p-1 bg-gray-100 rounded-lg">
+                    {(['week', 'month', 'year'] as const).map(range => (
+                        <SBButton
+                            key={range}
+                            size="sm"
+                            onClick={() => setTimeRange(range)}
+                            variant="ghost"
+                            className={`font-semibold ${timeRange === range ? 'bg-white shadow-sm !text-gray-900' : 'text-gray-700'}`}
+                        >
+                            {timeRangeLabels[range]}
+                        </SBButton>
+                    ))}
+                </div>
+            </div>
+            
+            {/* KPI Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <KpiCard title={`Inversión (${timeRangeLabels[timeRange]})`} value={fmtEur(totals.totalSpend)} icon={Euro} />
+                <KpiCard title={`Ingresos (${timeRangeLabels[timeRange]})`} value={fmtEur(totals.totalRevenue)} icon={TrendingUp} />
+                <KpiCard title={`ROI (${timeRangeLabels[timeRange]})`} value={`${totals.totalRoi.toFixed(2)}x`} icon={Percent} />
+                <KpiCard title={`Acciones (${timeRangeLabels[timeRange]})`} value={totals.totalActions.toString()} icon={Target} />
+            </div>
+
+            {/* Investment Mix & ROI */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <SBCard title={`Mix de Inversión y ROI por Canal (${timeRangeLabels[timeRange]})`}>
+                    <div className="divide-y divide-gray-200">
+                        <div className="grid grid-cols-4 p-3 bg-gray-50 text-xs font-semibold uppercase text-gray-500">
+                            <span>Canal</span>
+                            <span className="text-right">Inversión</span>
+                            <span className="text-right">Mix</span>
+                            <span className="text-right">ROI</span>
+                        </div>
+                        {investmentMix.map(ch => (
+                            <div key={ch.name} className="grid grid-cols-4 p-3 items-center hover:bg-gray-50 text-sm text-gray-700">
+                                <div className="font-medium text-gray-900">{ch.name}</div>
+                                <div className="text-right font-mono">{fmtEur(ch.data.spend)}</div>
+                                <div className="text-right font-mono">{fmtPct(ch.mix)}</div>
+                                <div className="text-right font-semibold">{ch.data.roi.toFixed(2)}x</div>
+                            </div>
+                        ))}
+                    </div>
+                </SBCard>
+                
+                <SBCard title={`Rotación vs Inversión (RVI) — ${timeRangeLabels[timeRange]}`}>
+                  <div className="p-4 grid grid-cols-3 gap-3">
+                    <KpiCard title="RVI (Δ lift%)" value={`${(rviCards.rvi*100).toFixed(0)}%`} icon={BarChart} />
+                    <KpiCard title="Units/€ (mediana)" value={rviCards.unitsPerEuro.toFixed(2)} icon={PieChartIcon} />
+                    <KpiCard title="% locales con uplift > 0" value={`${(rviCards.pctPositive*100).toFixed(0)}%`} icon={TrendingUp} />
+                  </div>
+                </SBCard>
+            </div>
+
+             {/* Upcoming & Pending */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <SBCard title="Próximos 30 Días">
+                    <div className="p-2 max-h-72 overflow-y-auto">
+                        {upcomingActions.length > 0 ? upcomingActions.map((action, idx) => (
+                            <div key={idx} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50">
+                                <div className="p-2 bg-gray-100 rounded-md">
+                                    <Calendar size={16} className="sb-icon text-gray-500"/>
+                                </div>
+                                <div>
+                                    <p className="font-medium text-sm text-gray-900">{action.title}</p>
+                                    <p className="text-xs text-gray-500">{new Date(action.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })} - {action.type}</p>
+                                </div>
+                            </div>
+                        )) : <p className="text-center text-sm text-gray-500 p-8">No hay acciones planificadas.</p>}
+                    </div>
+                </SBCard>
+                <UpcomingTasks department="MARKETING" />
+            </div>
+        </div>
+    )
+}
 
 export default function Page(){
-  const { data: santaData, currentUser, saveAllCollections } = useData();
-  const router = useRouter();
-  const [catalog, setCatalog] = useState<PosCostCatalogEntry[]>([]);
-  const [plv, setPlv] = useState<PlvMaterial[]>([]);
-
-  useEffect(() => {
-    async function fetchData() {
-        const [cat, plvData] = await Promise.all([listPosCostCatalog('ACTIVE'), listPlvInStock()]);
-        setCatalog(cat);
-        setPlv(plvData);
-    }
-    fetchData();
-  }, []);
-
-  const [isNewEventDialogOpen, setIsNewEventDialogOpen] = useState(false);
-  const [completingEvent, setCompletingEvent] = useState<MarketingEvent | null>(null);
-  const [isNewTacticOpen, setIsNewTacticOpen] = useState(false);
-  const [tacticEventContext, setTacticEventContext] = useState<{ eventId: string; accountId?: string; } | null>(null);
-
-  const events = useMemo(() => santaData?.marketingEvents || [], [santaData]);
-
-  const kpis = useMemo(() => {
-        const completedEvents = events.filter((e: MarketingEvent) => e.status === 'closed' && e.spend);
-        const totalSpend = completedEvents.reduce((acc, e) => acc + (e.spend || 0), 0);
-        const totalLeads = completedEvents.reduce((acc: number, e: MarketingEvent) => acc + (e.kpis?.leads || 0), 0);
-
-        return {
-            activeEvents: events.filter((e: MarketingEvent) => e.status === 'active').length,
-            plannedEvents: events.filter((e: MarketingEvent) => e.status === 'planned').length,
-            avgCostPerEvent: completedEvents.length > 0 ? totalSpend / completedEvents.length : 0,
-            totalLeads,
-        };
-    }, [events]);
-
-  const handleAddOrUpdateEvent = async (event: Omit<Interaction, 'createdAt' | 'status' | 'id'> & { id?: string }) => {
-      if (!currentUser || !santaData) return;
-      
-      const now = new Date().toISOString();
-      const newMktEvent: MarketingEvent = {
-          id: `mkt_${Date.now()}`,
-          title: event.note!,
-          status: 'planned',
-          startAt: event.plannedFor!,
-          ownerUserId: currentUser.id,
-          createdAt: now,
-          updatedAt: now,
-          kind: event.kind as any,
-      };
-
-      const newInteraction: Interaction = {
-          id: `int_${Date.now()}`,
-          createdAt: now,
-          status: 'open',
-          userId: currentUser.id,
-          dept: 'MARKETING',
-          kind: 'EVENTO_MKT',
-          note: event.note,
-          plannedFor: event.plannedFor,
-          location: event.location,
-          accountId: event.accountId,
-          involvedUserIds: event.involvedUserIds,
-          linkedEntity: { type: 'EVENT', id: newMktEvent.id },
-      };
-      
-      await saveAllCollections({
-          marketingEvents: [...(santaData.marketingEvents || []), newMktEvent],
-          interactions: [...(santaData.interactions || []), newInteraction]
-      });
-
-      setIsNewEventDialogOpen(false);
-  };
-  
-  const openTacticDialog = (event: MarketingEvent) => {
-      setTacticEventContext({ eventId: event.id, accountId: event.accountId });
-      setIsNewTacticOpen(true);
-  }
-
-  const handleSaveTactic = async (data: { lines: PosLineInput[], accountId: string }) => {
-      if (!tacticEventContext || !currentUser) return;
-      try {
-        await upsertPosTactic({ ...data, eventId: tacticEventContext.eventId } as any, currentUser.id);
-        setIsNewTacticOpen(false);
-        setTacticEventContext(null);
-      } catch(e) {
-          console.error(e);
-          alert((e as Error).message);
-      }
-  };
-
-  const cols: Col<MarketingEvent>[] = [
-    { key: 'title', header: 'Evento', render: r => <div className="font-semibold">{r.title}</div> },
-    { key: 'status', header: 'Estado', render: r => <StatusPill status={r.status} /> },
-    { key: 'startAt', header: 'Fecha', render: r => new Date(r.startAt).toLocaleDateString('es-ES', {day: 'numeric', month: 'long', year: 'numeric'}) },
-    { key: 'city', header: 'Ubicación', render: r => (r as any).city || 'N/A'},
-    { key: 'spend', header: 'Gasto', className: "text-right", render: r => formatCurrency(r.spend) },
-    { key: 'leads', header: 'Leads', className: "text-right", render: r => formatNumber(r.kpis?.leads) },
-    { key: 'sampling', header: 'Asistentes', className: "text-right", render: r => formatNumber(r.kpis?.sampling) },
-    { 
-        key: 'actions' as any, 
-        header: 'Acciones', 
-        render: r => {
-            const actions = [];
-            if (r.status === 'planned' || r.status === 'active') {
-                actions.push(<SBButton key="complete" variant="secondary" size="sm" onClick={() => setCompletingEvent(r)}>Registrar Resultados</SBButton>);
-            }
-            actions.push(<SBButton key="tactic" variant="subtle" size="sm" onClick={() => openTacticDialog(r)}><Plus size={12} className="mr-1"/> Táctica</SBButton>);
-            return <div className="flex gap-2">{actions}</div>;
-        }
-    }
-  ];
-
-  return (
-    <>
-    <div className="space-y-6">
-        <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-semibold text-zinc-800">Histórico de Eventos y Activaciones</h1>
-            <SBButton onClick={() => setIsNewEventDialogOpen(true)}>
-                Nuevo Evento
-            </SBButton>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <KPI label="Eventos Planificados" value={kpis.plannedEvents} icon={Calendar} />
-            <KPI label="Eventos Activos" value={kpis.activeEvents} icon={Megaphone} />
-            <KPI label="Coste Medio Evento" value={formatCurrency(kpis.avgCostPerEvent)} icon={Euro} />
-            <KPI label="Leads Generados (Eventos)" value={kpis.totalLeads} icon={Target} />
-        </div>
-
-        <SBCard title="Resultados de Eventos de Marketing" accent={SB_COLORS.primary.teal}>
-             <DataTableSB rows={events} cols={cols as any} />
-        </SBCard>
-    </div>
-
-    {isNewEventDialogOpen && (
-        <NewEventDialog
-            open={isNewEventDialogOpen}
-            onOpenChange={setIsNewEventDialogOpen}
-            onSuccess={() => {
-                toast.success('Evento creado con éxito.');
-                router.refresh();
-                setIsNewEventDialogOpen(false);
-            }}
-            onError={(msg) => toast.error(`Error: ${msg}`)}
-            accentColor={SB_COLORS.primary.teal}
-            initialEventData={{dept: 'MARKETING', kind: 'EVENTO_MKT' as InteractionKind} as any}
-        />
-    )}
-
-    {completingEvent && (
-        <MarketingTaskCompletionDialog
-            entity={completingEvent}
-            open={!!completingEvent}
-            onClose={() => setCompletingEvent(null)}
-            onSuccess={() => {
-              toast.success('Resultados del evento guardados.');
-              router.refresh();
-              setCompletingEvent(null);
-            }}
-            onError={(msg) => toast.error(`Error: ${msg}`)}
-        />
-    )}
-    
-    {isNewTacticOpen && santaData && (
-        <NewPosTacticDialog
-            open={isNewTacticOpen}
-            onClose={() => setIsNewTacticOpen(false)}
-            onSave={handleSaveTactic}
-            tacticBeingEdited={null}
-            accounts={santaData.accounts}
-            catalog={catalog}
-            plvInventory={plv}
-        />
-    )}
-    </>
-  );
+  const { data } = useData();
+  if (!data) return <div className="p-6 text-gray-500">Cargando dashboard de marketing...</div>;
+  return <MarketingDashboardPageContent/>;
 }
