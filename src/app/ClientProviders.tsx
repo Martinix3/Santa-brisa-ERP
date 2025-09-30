@@ -2,6 +2,7 @@
 "use client";
 
 import { DataProvider } from "@/lib/dataprovider";
+import { RealtimeProvider } from "@/app/providers/RealtimeProvider";
 
 export default function ClientProviders({
   children,
@@ -9,8 +10,10 @@ export default function ClientProviders({
   children: React.ReactNode;
 }) {
   return (
+    <RealtimeProvider>
       <DataProvider>
           {children}
       </DataProvider>
+    </RealtimeProvider>
   );
 }
