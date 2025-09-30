@@ -80,7 +80,7 @@ function PersonalSalesChart({ data, currentUser }: { data: SantaData, currentUse
   }, [data, currentUser]);
 
   return (
-    <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm h-full">
+    <div className="bg-white border border-slate-200 rounded-lg p-5 h-full">
       <h3 className="font-semibold text-slate-900 mb-4">Evolución de Cajas Vendidas (Mes Actual)</h3>
       <div className="h-[250px]">
         <ResponsiveContainer width="100%" height="100%">
@@ -135,7 +135,7 @@ function MiniCalendarCard() {
   };
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm h-full flex flex-col">
+    <div className="bg-white border border-slate-200 rounded-xl p-4 h-full flex flex-col">
       <h3 className="font-semibold text-slate-900 mb-3">Calendario</h3>
       <div className="min-h-0 flex-1">
         <FullCalendar
@@ -175,13 +175,13 @@ function AgendaDock() {
       closeOutcome();
     };
 
-  const overdueTasks = useMemo(() => mapInteractionsToTasks(agenda.overdue, data?.accounts), [agenda.overdue, data?.accounts]);
-  const todayTasksMapped = useMemo(() => mapInteractionsToTasks(agenda.todayTasks, data?.accounts), [agenda.todayTasks, data?.accounts]);
+    const overdueTasks = useMemo(() => mapInteractionsToTasks(agenda.overdue, data?.accounts), [agenda.overdue, data?.accounts]);
+    const todayTasksMapped = useMemo(() => mapInteractionsToTasks(agenda.todayTasks, data?.accounts), [agenda.todayTasks, data?.accounts]);
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl flex flex-col h-full shadow-sm">
-      <div className="px-4 pt-3 pb-2 flex items-center gap-3">
-        <div className="text-sm font-semibold text-slate-900">Agenda</div>
+    <div className="bg-white border border-slate-200 rounded-xl flex flex-col h-full">
+      <div className="px-4 pt-3 pb-2 flex items-center gap-3 border-b border-slate-200">
+        <div className="text-sm font-semibold text-slate-900">Mi Agenda</div>
         <div className="ml-auto text-xs flex items-center gap-2">
           <label className="inline-flex items-center gap-1 text-slate-600">
             <input type="checkbox" checked={agenda.linkNotes} onChange={e=>agenda.setLinkNotes(e.target.checked)} />
@@ -189,22 +189,22 @@ function AgendaDock() {
           </label>
         </div>
       </div>
-      <div className="px-4">
+      <div className="px-4 pt-2">
         <QuickEditor onSubmit={agenda.addNote} />
       </div>
+      <div className="flex-1 overflow-y-auto px-2 mt-2 space-y-2">
       {agenda.overdue.length > 0 && (
-        <details open className="px-4 mt-2">
-          <summary className="text-xs text-slate-600 py-1">Pendientes de ayer ({agenda.overdue.length})</summary>
-          <NotesList
-            notes={agenda.rangedNotes as Note[]}
-            tasks={overdueTasks}
-            onPointerDown={agenda.onItemPointerDown}
-            onPointerMove={agenda.onItemPointerMove}
-            onPointerUp={(id)=>agenda.onItemPointerUp(id, openOutcome)}
-          />
-        </details>
+          <details open className="px-2">
+            <summary className="text-xs text-slate-600 py-1 cursor-pointer">Atrasadas ({agenda.overdue.length})</summary>
+            <NotesList
+                notes={agenda.rangedNotes as Note[]}
+                tasks={overdueTasks}
+                onPointerDown={agenda.onItemPointerDown}
+                onPointerMove={agenda.onItemPointerMove}
+                onPointerUp={(id)=>agenda.onItemPointerUp(id, openOutcome)}
+            />
+          </details>
       )}
-      <div className="flex-1 overflow-y-auto px-4 mt-2">
         <NotesList
           notes={agenda.rangedNotes as Note[]}
           tasks={todayTasksMapped}
@@ -213,10 +213,9 @@ function AgendaDock() {
           onPointerUp={(id)=>agenda.onItemPointerUp(id, openOutcome)}
         />
       </div>
-      <div className="border-t border-slate-200 bg-white px-4 py-2 text-sm flex items-center justify-between rounded-b-xl mt-3">
-        <div className="text-slate-600">Vencidas</div><div className="font-semibold">{kpis.overdue}</div>
-        <div className="text-slate-600">Para hoy</div><div className="font-semibold">{kpis.todayOpen}</div>
-        <div className="text-slate-600">POS hoy</div><div className="font-semibold">{kpis.posToday}</div>
+      <div className="border-t border-slate-200 bg-white px-4 py-2 text-sm flex items-center justify-between rounded-b-xl">
+        <div className="text-slate-600">Pendientes: <span className="font-semibold">{kpis.overdue + kpis.todayOpen}</span></div>
+        <button className="text-sm font-medium text-yellow-500 hover:underline">Ver todo</button>
       </div>
       <OutcomeDialog
         taskId={outcomeFor}
@@ -291,7 +290,7 @@ export default function PersonalDashboardPageDesktop() {
     const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } };
 
     if (!kpis || !currentUser || !data) {
-        return <div className="p-6 bg-white text-slate-700 min-h-screen">Cargando dashboard...</div>;
+        return <div className="p-6 bg-slate-50 text-slate-700 min-h-screen">Cargando dashboard...</div>;
     }
 
     return (
@@ -305,12 +304,12 @@ export default function PersonalDashboardPageDesktop() {
                          <h1 className="text-3xl font-bold text-slate-900">
                              Mi Dashboard
                          </h1>
-                         <div className="flex items-center gap-1 rounded-lg border p-1 bg-slate-100">
+                         <div className="flex items-center gap-1 rounded-lg border p-1 bg-white">
                              {(['week', 'month', 'year'] as const).map(range => (
                                  <button
                                      key={range}
                                      onClick={() => setTimeRange(range)}
-                                     className={`px-3 py-1.5 rounded-md text-sm font-semibold transition-colors ${timeRange === range ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-600 hover:text-slate-800'}`}
+                                     className={`px-3 py-1.5 rounded-md text-sm font-semibold transition-colors ${timeRange === range ? 'bg-slate-100 text-slate-800 shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}
                                  >
                                      {range === 'week' ? 'Semana' : range === 'month' ? 'Mes' : 'Año'}
                                  </button>
@@ -329,22 +328,15 @@ export default function PersonalDashboardPageDesktop() {
                        <PersonalSalesChart data={data} currentUser={currentUser} />
                      </motion.div>
 
-                     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, duration: 0.5 }}>
-                         <TaskBoard
-                             tasks={personalTasks}
-                             onCompleteTask={handleCompleteTask}
-                             onNewTask={() => setOpenNewTask(true)}
-                         />
-                     </motion.div>
                   </div>
                   
                   {/* Columna Lateral */}
-                  <aside className="hidden lg:block lg:col-span-4 sticky top-[76px] h-[calc(100dvh-96px)] space-y-6">
-                    <div className="h-1/2">
-                      <MiniCalendarCard />
-                    </div>
+                  <aside className="hidden lg:block lg:col-span-4 sticky top-6 h-[calc(100dvh-48px)] space-y-6">
                     <div className="h-1/2">
                       <AgendaDock />
+                    </div>
+                    <div className="h-1/2">
+                      <MiniCalendarCard />
                     </div>
                   </aside>
 
@@ -363,7 +355,6 @@ export default function PersonalDashboardPageDesktop() {
               </div>
             </section>
 
-            {/* --- DIÁLOGOS MODALES (Sin cambios) --- */}
             {completingTask && ( <TaskCompletionDialog task={completingTask} open={!!completingTask} onClose={() => setCompletingTask(null)} onSuccess={() => { toast.success('Tarea completada con éxito.'); router.refresh(); setCompletingTask(null); }} onError={(msg) => toast.error(`Error: ${msg}`)} /> )}
             {completingMarketingEvent && ( <MarketingTaskCompletionDialog entity={completingMarketingEvent} open={!!completingMarketingEvent} onClose={() => setCompletingMarketingEvent(null)} onSuccess={() => { toast.success('Resultados del evento guardados.'); router.refresh(); setCompletingMarketingEvent(null); }} onError={(msg) => toast.error(`Error: ${msg}`)} /> )}
             {openNewTask && currentUser && ( <NewEventDialog open={openNewTask} onOpenChange={setOpenNewTask} onSuccess={() => { toast.success("Tarea creada"); setOpenNewTask(false); router.refresh(); }} onError={(msg) => toast.error(msg)} accentColor={SANTA_BRISA_COLORS.brand.accent} initialEventData={{ userId: currentUser.id, dept: 'PERSONAL' }} /> )}
