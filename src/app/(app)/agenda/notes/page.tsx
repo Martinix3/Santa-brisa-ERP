@@ -7,6 +7,7 @@ import { NotesList } from '@/features/agenda/components/NotesList';
 import { OutcomeDialog } from '@/features/agenda/components/OutcomeDialog';
 import { FooterKPIs } from '@/features/agenda/components/FooterKPIs';
 import type { Interaction } from '@/domain/ssot';
+import { mapInteractionsToTasks } from '@/features/agenda/mappers';
 
 
 export default function CalendarNotesPage() {
@@ -30,6 +31,10 @@ export default function CalendarNotesPage() {
     agenda.completeTask(task.id);
     closeOutcome();
   };
+
+  const overdueTasks = useMemo(() => mapInteractionsToTasks(agenda.overdue, agenda.accounts), [agenda.overdue, agenda.accounts]);
+  const todayTasksMapped = useMemo(() => mapInteractionsToTasks(agenda.todayTasks, agenda.accounts), [agenda.todayTasks, agenda.accounts]);
+
 
   return (
     <div className="min-h-dvh bg-white flex flex-col">
@@ -61,7 +66,7 @@ export default function CalendarNotesPage() {
           <summary className="text-xs text-[hsl(var(--sb-neutral-600))] py-1">Pendientes de ayer ({agenda.overdue.length})</summary>
           <NotesList
             notes={agenda.rangedNotes}
-            tasks={agenda.overdue}
+            tasks={overdueTasks}
             onPointerDown={agenda.onItemPointerDown}
             onPointerMove={agenda.onItemPointerMove}
             onPointerUp={(id)=>agenda.onItemPointerUp(id, openOutcome)}
@@ -72,7 +77,7 @@ export default function CalendarNotesPage() {
       <div className="flex-1 overflow-y-auto px-4">
         <NotesList
           notes={agenda.rangedNotes}
-          tasks={agenda.todayTasks}
+          tasks={todayTasksMapped}
           onPointerDown={agenda.onItemPointerDown}
           onPointerMove={agenda.onItemPointerMove}
           onPointerUp={(id)=>agenda.onItemPointerUp(id, openOutcome)}

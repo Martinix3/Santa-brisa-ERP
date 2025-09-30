@@ -12,7 +12,7 @@ import { MarketingTaskCompletionDialog } from '@/features/marketing/components/M
 import { mapInteractionsToTasks } from '@/features/agenda/mappers';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
-import type { Interaction, InteractionStatus, User as CurrentUserType, SantaData } from '@/domain/ssot';
+import type { Interaction, InteractionStatus, User as CurrentUserType, SantaData, Note } from '@/domain/ssot';
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
 } from 'recharts';
@@ -160,12 +160,16 @@ function AgendaDock() {
   const [outcomeFor, setOutcomeFor] = useState<string|null>(null);
   const openOutcome = (id: string) => setOutcomeFor(id);
   const closeOutcome = () => setOutcomeFor(null);
+  
   const kpis = useMemo(()=> {
     const overdue = agenda.overdue.length;
     const todayOpen = agenda.todayTasks.filter(t=>t.status==='OPEN').length;
     const posToday = agenda.todayTasks.filter(t=> t.kind==='EVENTO_MKT').length;
     return { overdue, todayOpen, posToday };
   }, [agenda.overdue, agenda.todayTasks]);
+
+  const overdueTasks = useMemo(() => mapInteractionsToTasks(agenda.overdue, agenda.accounts), [agenda.overdue, agenda.accounts]);
+  const todayTasksMapped = useMemo(() => mapInteractionsToTasks(agenda.todayTasks, agenda.accounts), [agenda.todayTasks, agenda.accounts]);
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl flex flex-col h-full shadow-sm">
@@ -186,7 +190,7 @@ function AgendaDock() {
           <summary className="text-xs text-slate-600 py-1">Pendientes de ayer ({agenda.overdue.length})</summary>
           <NotesList
             notes={agenda.rangedNotes}
-            tasks={agenda.overdue}
+            tasks={overdueTasks}
             onPointerDown={agenda.onItemPointerDown}
             onPointerMove={agenda.onItemPointerMove}
             onPointerUp={(id)=>agenda.onItemPointerUp(id, openOutcome)}
@@ -196,7 +200,7 @@ function AgendaDock() {
       <div className="flex-1 overflow-y-auto px-4 mt-2">
         <NotesList
           notes={agenda.rangedNotes}
-          tasks={agenda.todayTasks}
+          tasks={todayTasksMapped}
           onPointerDown={agenda.onItemPointerDown}
           onPointerMove={agenda.onItemPointerMove}
           onPointerUp={(id)=>agenda.onItemPointerUp(id, openOutcome)}

@@ -12,7 +12,7 @@ import { MarketingTaskCompletionDialog } from '@/features/marketing/components/M
 import { mapInteractionsToTasks } from '@/features/agenda/mappers';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
-import type { Interaction, InteractionStatus, User as CurrentUserType, SantaData } from '@/domain/ssot';
+import type { Interaction, InteractionStatus, User as CurrentUserType, SantaData, Note } from '@/domain/ssot';
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
 } from 'recharts';
@@ -172,6 +172,9 @@ function AgendaDock() {
       closeOutcome();
     };
 
+    const overdueTasks = useMemo(() => mapInteractionsToTasks(agenda.overdue, agenda.accounts), [agenda.overdue, agenda.accounts]);
+    const todayTasksMapped = useMemo(() => mapInteractionsToTasks(agenda.todayTasks, agenda.accounts), [agenda.todayTasks, agenda.accounts]);
+  
   return (
     <div className="bg-white border border-slate-200 rounded-xl lg:rounded-none lg:border-0 lg:bg-transparent flex flex-col h-full">
       <div className="px-4 pt-3 pb-2 flex items-center gap-3 lg:px-0">
@@ -192,8 +195,8 @@ function AgendaDock() {
         <details open className="px-4 lg:px-0">
           <summary className="text-xs text-slate-600 py-1">Pendientes de ayer ({agenda.overdue.length})</summary>
           <NotesList
-            notes={agenda.rangedNotes}
-            tasks={agenda.overdue}
+            notes={agenda.rangedNotes as Note[]}
+            tasks={overdueTasks}
             onPointerDown={agenda.onItemPointerDown}
             onPointerMove={agenda.onItemPointerMove}
             onPointerUp={(id)=>agenda.onItemPointerUp(id, openOutcome)}
@@ -203,149 +206,7 @@ function AgendaDock() {
 
       <div className="flex-1 overflow-y-auto px-4 lg:px-0">
         <NotesList
-          notes={agenda.rangedNotes}
-          tasks={agenda.todayTasks}
+          notes={agenda.rangedNotes as Note[]}
+          tasks={todayTasksMapped}
           onPointerDown={agenda.onItemPointerDown}
-          onPointerMove={agenda.onItemPointerMove}
-          onPointerUp={(id)=>agenda.onItemPointerUp(id, openOutcome)}
-        />
-      </div>
-
-      <div className="border-t bg-white px-4 py-2 text-sm flex items-center justify-between lg:rounded-xl lg:border lg:mt-3">
-        <div className="text-slate-600">Vencidas</div><div className="font-semibold">{kpis.overdue}</div>
-        <div className="text-slate-600">Para hoy</div><div className="font-semibold">{kpis.todayOpen}</div>
-        <div className="text-slate-600">POS hoy</div><div className="font-semibold">{kpis.posToday}</div>
-      </div>
-
-      <OutcomeDialog
-        taskId={outcomeFor}
-        tasks={agenda.tasks}
-        onClose={closeOutcome}
-        onConfirm={onConfirm}
-      />
-    </div>
-  );
-}
-
-export default function PersonalDashboardPageMobile() {
-    const { currentUser, data } = useData();
-    const router = useRouter();
-    const [timeRange, setTimeRange] = useState<'week' | 'month' | 'year'>('month');
-    const [completingTask, setCompletingTask] = useState<Interaction | null>(null);
-    const [openNewTask, setOpenNewTask] = useState(false);
-    const [completingMarketingEvent, setCompletingMarketingEvent] = useState<any>(null);
-
-    const { personalTasks, kpis } = useMemo(() => {
-        if (!data || !currentUser) return { personalTasks: [], kpis: null };
-
-        const now = new Date();
-        let startOfRange;
-
-        if (timeRange === 'week') {
-            const firstDayOfWeek = now.getDate() - (now.getDay() === 0 ? 6 : now.getDay() - 1);
-            startOfRange = new Date(now.getFullYear(), now.getMonth(), firstDayOfWeek);
-        } else if (timeRange === 'year') {
-            startOfRange = new Date(now.getFullYear(), 0, 1);
-        } else {
-            startOfRange = new Date(now.getFullYear(), now.getMonth(), 1);
-        }
-        
-        startOfRange.setHours(0, 0, 0, 0);
-
-        const myInteractions = (data.interactions || []).filter(i => {
-            const isAssigned = (i.involvedUserIds || []).includes(currentUser.id);
-            const isSelfAssigned = (i.involvedUserIds === undefined || i.involvedUserIds.length === 0) && i.userId === currentUser.id;
-            return isAssigned || isSelfAssigned;
-        });
-
-        const tasks = mapInteractionsToTasks(myInteractions, data.accounts);
-        
-        const myAccounts = (data.accounts || []).filter(a => a.ownerId === currentUser.id && new Date(a.createdAt) >= startOfRange);
-        const myOrders = (data.ordersSellOut || []).filter(o => {
-            const acc = data.accounts.find(a => a.id === o.accountId);
-            return acc?.ownerId === currentUser.id && new Date(o.createdAt) >= startOfRange;
-        });
-        const myVisits = myInteractions.filter(i => i.kind === 'VISITA' && new Date(i.createdAt) >= startOfRange);
-        const myPosTactics = (data.posTactics || []).filter(t => (t as any).createdById === currentUser.id && new Date(t.createdAt) >= startOfRange);
-        
-        const boxesSold = myOrders.reduce((sum, o) => {
-            const bottles = orderToBottles(o, data.items || []);
-            const firstLineItem = o.lines?.[0]?.itemId ? data.items.find(it => it.id === o.lines[0].itemId) : undefined;
-            const caseUnits = firstLineItem?.caseUnits || 6;
-            return sum + Math.floor(bottles / caseUnits);
-        }, 0);
-
-        const kpiData = { newAccounts: myAccounts.length, boxesSold: boxesSold, visits: myVisits.length, posTactics: myPosTactics.length };
-        return { personalTasks: tasks, kpis: kpiData };
-    }, [data, currentUser, timeRange]);
-
-    const handleCompleteTask = (id: string) => { 
-        if (!data || !data.interactions) return; 
-        const taskToUpdate = data.interactions.find(i => i.id === id); 
-        if (!taskToUpdate) return; 
-        if (taskToUpdate.dept === 'MARKETING' && taskToUpdate.linkedEntity?.type === 'EVENT' && data.marketingEvents) { 
-            const event = (data.marketingEvents as any[]).find(e => e.id === taskToUpdate.linkedEntity?.id); 
-            if (event) setCompletingMarketingEvent(event); 
-            else setCompletingTask(taskToUpdate); 
-        } else { 
-            setCompletingTask(taskToUpdate); 
-        } 
-    };
-
-    const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } };
-
-    if (!kpis || !currentUser || !data) {
-        return <div className="p-6 bg-white text-slate-700">Cargando dashboard...</div>;
-    }
-
-    return (
-        <>
-            <main className="flex-1 bg-white p-4 space-y-6">
-                 <div className="flex items-center justify-between">
-                     <h1 className="text-xl font-bold text-slate-900">Mi Dashboard</h1>
-                     <div className="flex items-center gap-1 rounded-lg border p-1 bg-slate-100">
-                         {(['week', 'month', 'year'] as const).map(range => (
-                             <button
-                                 key={range}
-                                 onClick={() => setTimeRange(range)}
-                                 className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${timeRange === range ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-600 hover:text-slate-800'}`}
-                             >
-                                 {range === 'week' ? 'S' : range === 'month' ? 'M' : 'A'}
-                             </button>
-                         ))}
-                     </div>
-                 </div>
-
-                 <motion.div className="grid grid-cols-2 gap-4" variants={containerVariants} initial="hidden" animate="visible">
-                     <KpiCard icon={Users} title="Nuevas Cuentas" value={kpis.newAccounts} goal={10} color={SANTA_BRISA_COLORS.brand.accent} />
-                     <KpiCard icon={Package} title="Cajas Vendidas" value={kpis.boxesSold} goal={150} color={SANTA_BRISA_COLORS.brand.accent} />
-                     <KpiCard icon={Briefcase} title="Visitas" value={kpis.visits} goal={60} color={SANTA_BRISA_COLORS.brand.accent} />
-                     <KpiCard icon={CheckSquare} title="POS Tactics" value={kpis.posTactics} goal={20} color={SANTA_BRISA_COLORS.brand.accent} />
-                 </motion.div>
-                 
-                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.5 }}>
-                   <PersonalSalesChart data={data} currentUser={currentUser} />
-                 </motion.div>
-
-                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, duration: 0.5 }}>
-                     <TaskBoard
-                         tasks={personalTasks}
-                         onCompleteTask={handleCompleteTask}
-                         onNewTask={() => setOpenNewTask(true)}
-                     />
-                 </motion.div>
-
-                <div className="border-t pt-4">
-                  <MiniCalendarCard />
-                </div>
-                <div className="border-t pt-4">
-                  <AgendaDock />
-                </div>
-            </main>
-
-            {completingTask && ( <TaskCompletionDialog task={completingTask} open={!!completingTask} onClose={() => setCompletingTask(null)} onSuccess={() => { toast.success('Tarea completada con éxito.'); router.refresh(); setCompletingTask(null); }} onError={(msg) => toast.error(`Error: ${msg}`)} /> )}
-            {completingMarketingEvent && ( <MarketingTaskCompletionDialog entity={completingMarketingEvent} open={!!completingMarketingEvent} onClose={() => setCompletingMarketingEvent(null)} onSuccess={() => { toast.success('Resultados del evento guardados.'); router.refresh(); setCompletingMarketingEvent(null); }} onError={(msg) => toast.error(`Error: ${msg}`)} /> )}
-            {openNewTask && currentUser && ( <NewEventDialog open={openNewTask} onOpenChange={setOpenNewTask} onSuccess={() => { toast.success("Tarea creada"); setOpenNewTask(false); router.refresh(); }} onError={(msg) => toast.error(msg)} accentColor={SANTA_BRISA_COLORS.brand.accent} initialEventData={{ userId: currentUser.id, dept: 'PERSONAL' }} /> )}
-        </>
-    );
-}
+          onPointerMove={agenda.onItemPointerMove
