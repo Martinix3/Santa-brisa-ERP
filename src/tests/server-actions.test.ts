@@ -41,7 +41,7 @@ describe('Server Actions', () => {
         id: MOCK_SHIPMENT_ID,
         orderId: MOCK_ORDER_ID,
         status: 'pending',
-        lines: [{ itemId: 'item_1', qty: 1, name: 'Test Product', uom: 'uds' }],
+        lines: [{ itemId: 'item_1', qty: 1, name: 'Test Product', uom: 'unit' }],
       };
 
       // Simular que getServerData devuelve nuestro envío de prueba
@@ -84,7 +84,7 @@ describe('Server Actions', () => {
         id: MOCK_ORDER_ID,
         partyId: MOCK_PARTY_ID,
         status: 'shipped',
-        lines: [{ itemId: 'item_1', qty: 2, priceUnit: 10, uom: 'uds' }],
+        lines: [{ itemId: 'item_1', qty: 2, priceUnit: 10, uom: 'unit' }],
         currency: 'EUR',
       };
 
@@ -108,7 +108,7 @@ describe('Server Actions', () => {
         expect.objectContaining({
           id: MOCK_ORDER_ID,
           status: 'invoiced',
-          billingStatus: 'INVOICED',
+          billingStatus: 'invoiced',
         })
       ]));
 

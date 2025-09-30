@@ -89,10 +89,10 @@ function AccountSelector({
 
 
 function OrderForm({ onSubmit, items }: { onSubmit: (p: any) => void; items: Item[] }) {
-  const [lines, setLines] = useState<{ itemId: string; qty: number; uom: Uom, priceUnit: number }[]>([{ itemId: '', qty: 1, uom: 'uds', priceUnit: 0 }]);
+  const [lines, setLines] = useState<{ itemId: string; qty: number; uom: Uom, priceUnit: number }[]>([{ itemId: '', qty: 1, uom: 'unit', priceUnit: 0 }]);
   const [note, setNote] = useState('');
   
-  const addLine = () => setLines(prev => [...prev, { itemId: '', qty: 1, uom: 'uds', priceUnit: 0 }]);
+  const addLine = () => setLines(prev => [...prev, { itemId: '', qty: 1, uom: 'unit', priceUnit: 0 }]);
   const updateLine = (index: number, field: 'itemId' | 'qty' | 'priceUnit', value: string) => {
     const newLines = [...lines];
     const numValue = Number(value);

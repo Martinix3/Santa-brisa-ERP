@@ -98,7 +98,7 @@ function GoodsReceiptForm({ onSaveSuccess, onCancel }: { onSaveSuccess: (receipt
   const [deliveryNote, setDeliveryNote] = useState('');
   const [receiptDate, setReceiptDate] = useState(new Date().toISOString().split('T')[0]);
   const [lines, setLines] = useState<LineItem[]>([{
-    key: `line_${Date.now()}`, supplierLot: '', qty: 0, unitCost: 0, newItemCategory: 'raw', uom: 'uds', expiryAt: null
+    key: `line_${Date.now()}`, supplierLot: '', qty: 0, unitCost: 0, newItemCategory: 'raw', uom: 'unit', expiryAt: null
   }]);
   
   const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
@@ -119,7 +119,7 @@ function GoodsReceiptForm({ onSaveSuccess, onCancel }: { onSaveSuccess: (receipt
       if (field === 'itemId') {
         const it = items.find(m => m.id === value);
         line.unitCost = it?.stdCost ?? 0;
-        line.uom = it?.uom ?? 'uds';
+        line.uom = it?.uom ?? 'unit';
         line.newItemName = undefined;
       }
       if (field === 'newItemName') { line.itemId = undefined; }
@@ -129,7 +129,7 @@ function GoodsReceiptForm({ onSaveSuccess, onCancel }: { onSaveSuccess: (receipt
   };
 
   const addLine = () => setLines([...lines, {
-    key: `line_${Date.now()}`, supplierLot: '', qty: 0, unitCost: 0, newItemCategory: 'raw', uom: 'uds', expiryAt: null
+    key: `line_${Date.now()}`, supplierLot: '', qty: 0, unitCost: 0, newItemCategory: 'raw', uom: 'unit', expiryAt: null
   }]);
   const removeLine = (i: number) => setLines(lines.filter((_, idx) => idx !== i));
 
@@ -151,7 +151,7 @@ function GoodsReceiptForm({ onSaveSuccess, onCancel }: { onSaveSuccess: (receipt
               supplierLot: l.supplierLot,
               qty: l.qty,
               unitCost: l.unitCost || item?.stdCost || 0,
-              uom: l.uom || 'uds',
+              uom: l.uom || 'unit',
               expiryAt: l.expiryAt
           };
       });
@@ -161,7 +161,7 @@ function GoodsReceiptForm({ onSaveSuccess, onCancel }: { onSaveSuccess: (receipt
         newSupplierName: newSupplierName && !supplierId ? newSupplierName : undefined,
         deliveryNote,
         receiptDate,
-        lines: payloadLines,
+        lines: payloadLines as any,
       });
       setNotification({ message: `Recepción guardada (#${res.receiptNumber}).`, type: 'success' });
       onSaveSuccess(res);

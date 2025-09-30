@@ -14,8 +14,8 @@ const MOCK_ACCOUNTS: Account[] = [
 ];
 
 const MOCK_ORDERS: OrderSellOut[] = [
-    { id: 'ord_1', accountId: 'acc_1', status: 'shipped', lines: [{ itemId: 'item_1', name: 'Santa Brisa 750ml', qty: 6, uom: 'uds', priceUnit: 15 }], totalAmount: 90, currency: 'EUR', createdAt: '2024-05-10T14:00:00Z', updatedAt: '2024-05-10T14:00:00Z' },
-    { id: 'ord_2', accountId: 'acc_2', status: 'paid', lines: [{ itemId: 'item_1', name: 'Santa Brisa 750ml', qty: 24, uom: 'uds', priceUnit: 14 }], totalAmount: 336, currency: 'EUR', createdAt: '2024-05-12T10:00:00Z', updatedAt: '2024-05-12T10:00:00Z' },
+    { id: 'ord_1', accountId: 'acc_1', status: 'shipped', lines: [{ itemId: 'item_1', name: 'Santa Brisa 750ml', qty: 6, uom: 'unit', priceUnit: 15 }], totalAmount: 90, currency: 'EUR', createdAt: '2024-05-10T14:00:00Z', updatedAt: '2024-05-10T14:00:00Z' },
+    { id: 'ord_2', accountId: 'acc_2', status: 'paid', lines: [{ itemId: 'item_1', name: 'Santa Brisa 750ml', qty: 24, uom: 'unit', priceUnit: 14 }], totalAmount: 336, currency: 'EUR', createdAt: '2024-05-12T10:00:00Z', updatedAt: '2024-05-12T10:00:00Z' },
 ];
 
 export const MOCK_DATA: Partial<SantaData> = {
@@ -24,7 +24,7 @@ export const MOCK_DATA: Partial<SantaData> = {
     ordersSellOut: MOCK_ORDERS,
     // Add other collections as empty arrays to prevent crashes
     users: [{ id: 'user_1', name: 'Comercial 1', role: 'comercial', active: true }, { id: 'user_2', name: 'Comercial 2', role: 'comercial', active: true }],
-    items: [{ id: 'item_1', sku: 'SB-750', name: 'Santa Brisa 750ml', category: 'fg', uom: 'uds', active: true }],
+    items: [{ id: 'item_1', sku: 'SB-750', name: 'Santa Brisa 750ml', category: 'fg', uom: 'unit', active: true }],
     shipments: [],
     stockMoves: [],
     productionOrders: [],

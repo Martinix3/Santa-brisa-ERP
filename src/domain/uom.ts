@@ -1,4 +1,3 @@
-
 // src/domain/uom.ts
 import type { OnHandView, Item, Uom } from "@/domain/ssot";
 
@@ -9,7 +8,7 @@ export function canonicalUomForItem(
   items: Item[]
 ): Uom {
   const item = items.find(i => i.id === itemId);
-  if (!item) return 'uds'; // Fallback seguro
+  if (!item) return 'unit'; // Fallback seguro
 
   // 1) buscar en inventario por itemId
   const candidates = onHand.filter(oh => oh.itemId === itemId);
@@ -28,7 +27,7 @@ export function canonicalUomForItem(
   return item.uom;
 }
 
-/** Para producto terminado: sugiere la UoM dominante en inventario; si no, 'uds' por defecto. */
+/** Para producto terminado: sugiere la UoM dominante en inventario; si no, 'unit' por defecto. */
 export function canonicalUomForFinished(
   itemId: string,
   onHand: OnHandView[]
@@ -45,5 +44,5 @@ export function canonicalUomForFinished(
     const best = [...tally.entries()].sort((a,b)=>b[1]-a[1])[0]?.[0];
     if (best) return best as Uom;
   }
-  return "uds";
+  return "unit";
 }

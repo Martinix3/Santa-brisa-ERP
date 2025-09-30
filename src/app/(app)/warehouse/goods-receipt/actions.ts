@@ -161,7 +161,7 @@ export async function createGoodsReceipt(payload: {
                 id: itemId,
                 name: line.newItemName,
                 sku: makeSku(line.newItemName, line.newItemCategory || 'raw', existingItems.map(it => it.sku)),
-                uom: line.uom || 'uds',
+                uom: line.uom || 'unit',
                 category: line.newItemCategory || 'raw',
                 stdCost: line.unitCost || 0,
                 active: true,
@@ -282,5 +282,3 @@ export async function reportIncident(payload: {
 }) {
   // Logic to report an incident
 }
-
-    

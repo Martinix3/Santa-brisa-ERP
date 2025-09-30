@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { MoreHorizontal, FileText, PackageCheck, Truck } from 'lucide-react';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel } from '@/components/ui/ui-primitives';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { SBCard, SBButton } from '@/components/ui/ui-primitives';
 import type { Shipment, OrderSellOut, Account } from '@/domain/ssot';
 import { useData } from '@/lib/dataprovider';

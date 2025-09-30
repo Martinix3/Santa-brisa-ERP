@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
 import { Input, Select, SBButton } from '@/components/ui/ui-primitives';
-import type { Shipment, Account, Item, Party, SB_THEME, Uom, ShipmentLine } from '@/domain/ssot';
+import type { Shipment, Account, Item, Party, SB_THEME, Uom, ShipmentLine, SalesUnit } from '@/domain/ssot';
 import { Plus, X, Search } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
 
@@ -82,7 +82,7 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, items }: Ne
     const [address, setAddress] = useState('');
     const [city, setCity] = useState('');
     const [postalCode, setPostalCode] = useState('');
-    const [lines, setLines] = useState<{ itemId: string; qty: number; name: string, uom: 'uds' }[]>([{ itemId: '', qty: 1, name: '', uom: 'uds' }]);
+    const [lines, setLines] = useState<{ itemId: string; qty: number; name: string, uom: SalesUnit }[]>([{ itemId: '', qty: 1, name: '', uom: 'unit' }]);
     const [notes, setNotes] = useState('');
 
     useEffect(() => {
@@ -92,7 +92,7 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, items }: Ne
             setAddress('');
             setCity('');
             setPostalCode('');
-            setLines([{ itemId: '', qty: 1, name: '', uom: 'uds' }]);
+            setLines([{ itemId: '', qty: 1, name: '', uom: 'unit' }]);
             setNotes('');
         }
     }, [open]);
@@ -128,7 +128,7 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, items }: Ne
         setLines(newLines);
     };
 
-    const addLine = () => setLines([...lines, { itemId: '', qty: 1, name: '', uom: 'uds' }]);
+    const addLine = () => setLines([...lines, { itemId: '', qty: 1, name: '', uom: 'unit' }]);
     const removeLine = (index: number) => setLines(lines.filter((_, i) => i !== index));
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -146,7 +146,7 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, items }: Ne
             partyId: account?.partyId!,
             mode: 'PARCEL',
             status: 'pending',
-            lines,
+            lines: lines as ShipmentLine[],
             customerName: account?.name || newCustomerName!,
             newCustomerName: newCustomerName && !account ? newCustomerName : undefined,
             addressLine1: address,

@@ -1,7 +1,7 @@
 // src/server/production/bom.service.ts
 'use server';
 
-import type { BillOfMaterial, Item, ProductionOrder, Uom } from '@/domain/ssot';
+import type { BillOfMaterial, Item, ProductionOrder, Uom, SalesUnit } from '@/domain/ssot';
 import { adminDb } from '@/server/firebase';
 import { ok, fail, type ActionResult } from '@/lib/result';
 import { FieldPath } from 'firebase-admin/firestore';
@@ -33,7 +33,7 @@ export async function explodeBOM(bomId: string, plannedQty: number): Promise<Act
     const bom = await readBOM(bomId);
     if (!bom) return fail('BOM inexistente');
     const stage: ProductionStage = bom.stage ?? 'PRODUCCION';
-    const baseUnit: Uom = (stage === 'PRODUCCION' ? 'L' : 'uds');
+    const baseUnit: Uom = (stage === 'PRODUCCION' ? 'L' : 'unit');
     if (bom.baseUnit !== baseUnit) {
         console.warn(`[explodeBOM] BOM ${bomId} tiene baseUnit ${bom.baseUnit} pero la etapa es ${stage}. Se usará ${baseUnit}.`);
     }

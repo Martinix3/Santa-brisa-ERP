@@ -77,7 +77,7 @@ function lineToBottles(line: OrderLineWithItem, opts: BottlesOpts = {}): number 
   if (!isBottleItem) return opts.countNonBottleSkusAsZero === false ? line.qty : 0;
 
   switch (line.uom) {
-    case 'uds':   return line.qty;
+    case 'unit':   return line.qty;
     default: return 0;
   }
 }
@@ -229,7 +229,7 @@ export function computeFleetKPIs(params: {
   const avgTicketAll = totalOrders ? ordersInWin.map(o => orderTotal(o)).reduce((a: number, b: number) => a + b, 0) / totalOrders : 0;
 
   const repurchaseRatePct = horecaIds.length
-    ? (Array.from(byAccOrders.values()).filter(arr => (arr?.length || 0) >= 2).length / horecaIds.length) * 100
+    ? (Array.from(byAccOrders.values()).filter(arr => (arr?.length || 0) >= 2).length / horecaIds.length)
     : 0;
 
   const perAccDeltaDays: number[] = [];
