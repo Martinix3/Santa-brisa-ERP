@@ -1,8 +1,8 @@
 // features/agenda/hooks/useQuickNotes.ts
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { parseNoteToAction, inferDepartment } from '../parser/parser';
-import type { Note, Task, TaskKind, TaskStatus } from '../storage/adapter';
-import type { Department } from '@/domain/ssot';
+import type { Note } from '../storage/adapter';
+import type { Department, Task, TaskKind, TaskStatus } from '@/domain/ssot';
 import { useData } from '@/lib/dataprovider';
 
 // El hook ahora no gestiona el storage, sino que lee del DataProvider

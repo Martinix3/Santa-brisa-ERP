@@ -16,10 +16,7 @@ export type Note = {
 export type TaskKind = 'PEDIDO'|'VISITA'|'POS_EVT'|'POS_PLV'|'NOTA';
 export type TaskStatus = InteractionStatus;
 
-export type Task = Interaction & {
-    title?: string; // Add title to Interaction for display purposes
-    dueAt?: string;
-};
+export type Task = Interaction;
 
 
 export interface IAgendaStorage {

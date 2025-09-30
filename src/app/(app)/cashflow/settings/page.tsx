@@ -66,8 +66,6 @@ export default function CashflowSettingsPage() {
                 setS((prev: CashflowSettings) => ({...prev, ...data}));
               }
           }
-        } else {
-            console.warn("Received non-JSON response from settings API");
         }
       } catch (error) {
         console.error("Failed to load cashflow settings:", error);
