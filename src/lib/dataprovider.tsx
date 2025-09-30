@@ -4,7 +4,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
 import type { SantaData, User, UserRole } from '@/domain/ssot';
 import type { User as FirebaseUser } from "firebase/auth";
-import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
+import { onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
 import { getFirestore, collection, getDocs } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { SANTA_DATA_COLLECTIONS } from '@/domain/ssot';
@@ -33,7 +33,7 @@ type DataContextType = {
   saveCollection: (name: keyof SantaData, rows: any[]) => Promise<void>;
   saveAllCollections: (collections: Partial<SantaData>) => Promise<void>;
   login: () => Promise<void>;
-  loginWithEmail: (email: string, pass: string) => Promise<User | null>;
+  loginWithEmail: (email: string, pass: string) => Promise<void>;
   signupWithEmail: (email: string, pass: string) => Promise<User | null>;
   logout: () => Promise<void>;
   setCurrentUserById: (userId: string) => void;
@@ -76,6 +76,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     console.log(`[DataProvider] useEffect: Loading initial data from Firestore. Persistence is ON.`);
 
     const loadAllCollections = async (): Promise<[SantaData, LoadReport]> => {
+        if(!firestoreDb) throw new Error("Firestore DB not initialized");
         const data: Partial<SantaData> = {};
         const report: LoadReport = { ok: [], errors: [], totalDocs: 0 };
         
@@ -130,24 +131,31 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   }, [authReady, firebaseUser, data, loadInitialData]);
 
-  // Set currentUser based on loaded data and Firebase user
+  // Set currentUser based on loaded data and Firebase user.
+  // This effect also handles redirection after login.
   useEffect(() => {
-    console.log('[DataProvider] Attempting to set currentUser. AuthReady:', authReady, 'FirebaseUser:', !!firebaseUser, 'Data:', !!data);
-    if (!authReady || !firebaseUser || !data?.users) {
-      console.log('[DataProvider] Conditions not met to find app user.');
-      return;
-    }
-    
-    const appUser = data.users.find(u => u.email === firebaseUser.email) || null;
-    console.log(`[DataProvider] Found app user for ${firebaseUser.email}:`, appUser?.name || 'NOT FOUND');
-    setCurrentUser(appUser);
-    
-    // Si tenemos usuario y estamos en la página de login, redirigimos.
-    if(appUser && window.location.pathname === '/login') {
-        console.log('[DataProvider] User found, redirecting to /dashboard-personal');
-        router.push('/dashboard-personal');
+    console.log(`[DataProvider] Attempting to set currentUser. AuthReady: ${authReady}, FirebaseUser: ${!!firebaseUser}, Data: ${!!data}`);
+    if (!authReady || !firebaseUser) {
+        return; // Wait for auth to be ready
     }
 
+    if (data?.users) {
+        const appUser = data.users.find(u => u.email === firebaseUser.email);
+        if (appUser) {
+            console.log(`[DataProvider] Found app user for ${firebaseUser.email}:`, appUser.name);
+            setCurrentUser(appUser);
+            // If we found the user and we are on the login page, redirect.
+            if (window.location.pathname === '/login') {
+                console.log('[DataProvider] User found, redirecting to /dashboard-personal');
+                router.push('/dashboard-personal');
+            }
+        } else {
+            console.log(`[DataProvider] App user for ${firebaseUser.email} not found in local data yet.`);
+        }
+    } else {
+        console.log('[DataProvider] Conditions not met to find app user: `data.users` is not available.');
+    }
+    
   }, [data, firebaseUser, authReady, router]);
 
   const togglePersistence = useCallback(() => {
@@ -222,23 +230,20 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (!firebaseAuth) return;
     try {
       await signInWithPopup(firebaseAuth, new GoogleAuthProvider());
+      // onAuthStateChanged will handle the rest
     } catch(e) {
       console.error("Google sign in failed", e);
       throw e;
     }
   }, []);
 
-  const loginWithEmail = useCallback(async (email: string, pass: string): Promise<User | null> => {
+  const loginWithEmail = useCallback(async (email: string, pass: string): Promise<void> => {
     console.log(`[DataProvider] loginWithEmail called for ${email}`);
-    if (!firebaseAuth) return null;
+    if (!firebaseAuth) throw new Error("Firebase Auth not initialized.");
     try {
-      const userCredential = await signInWithEmailAndPassword(firebaseAuth, email, pass);
-      const fbUser = userCredential.user;
-      console.log(`[DataProvider] Firebase login successful for ${fbUser.email}`);
-
-      // No hacemos nada más aquí, el useEffect se encargará de todo.
-      return null;
-
+      await signInWithEmailAndPassword(firebaseAuth, email, pass);
+      console.log(`[DataProvider] Firebase login successful for ${email}`);
+      // The onAuthStateChanged listener and subsequent useEffects will handle user state and redirection.
     } catch (error) {
       console.error(`[DataProvider] Firebase login failed for ${email}:`, error);
       throw error;
@@ -250,26 +255,38 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     async (email: string, pass: string): Promise<User | null> => {
       if (!firebaseAuth) return null;
       const userCredential = await createUserWithEmailAndPassword(firebaseAuth, email, pass);
-       const fbUser = userCredential.user;
-      if (!fbUser || !data?.users) return null;
+      const fbUser = userCredential.user;
+      if (!fbUser) return null;
+
       const newUser: User = {
         id: fbUser.uid,
         name: fbUser.displayName || emailToName(email),
-        email: email,
+        email,
         role: "comercial",
         active: true,
       };
-      setData(d => d ? ({ ...d, users: [...d.users, newUser] }) : null);
+
+      // Persist the new user to Firestore immediately
+      await saveCollection("users", [newUser]);
+
+      // Also update the local state to avoid race conditions
+      setData(d => {
+        const users = d?.users ?? [];
+        const map = new Map(users.map(u => [u.id, u]));
+        map.set(newUser.id, newUser);
+        return d ? { ...d, users: Array.from(map.values()) } : ({ users: [newUser] } as any);
+      });
+
       setCurrentUser(newUser);
       return newUser;
     },
-    [data?.users, setData]
+    [saveCollection, setData]
   );
 
   const logout = useCallback(async () => {
     if (!firebaseAuth) return;
     await signOut(firebaseAuth);
-    // onAuthStateChanged se encargará de limpiar el estado.
+    // onAuthStateChanged will clear user state.
     router.push("/login");
   }, [router]);
 
@@ -293,23 +310,19 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [data, currentUser, authReady, saveCollection, saveAllCollections, login, loginWithEmail, signupWithEmail, logout, togglePersistence, isPersistenceEnabled, setCurrentUserById, loadInitialData]
   );
 
-  const isBlocking =
-    !authReady || (isPersistenceEnabled && !data && !!firebaseUser);
-
-  if (isBlocking) {
-    return (
-      <div className="fixed inset-0 z-[200] flex items-center justify-center bg-white/80 backdrop-blur-sm">
-        <div className="flex flex-col items-center gap-4">
-          <p className="text-sb-neutral-700">
-            {firebaseUser ? "Cargando datos de Santa Brisa..." : "Inicializando..."}
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const isBlocking = !authReady || (isPersistenceEnabled && !data && !!firebaseUser);
 
   return (
     <DataContext.Provider value={value}>
+        {isBlocking ? (
+            <div className="fixed inset-0 z-[200] flex items-center justify-center bg-white/80 backdrop-blur-sm">
+                <div className="flex flex-col items-center gap-4">
+                <p className="text-sb-neutral-700">
+                    {firebaseUser ? "Cargando datos de Santa Brisa..." : "Inicializando..."}
+                </p>
+                </div>
+            </div>
+        ) : null}
         {children}
     </DataContext.Provider>
   );

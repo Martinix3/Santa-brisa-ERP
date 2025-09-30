@@ -1,3 +1,4 @@
+
 // src/app/(app)/layout.tsx
 "use client";
 
@@ -22,9 +23,14 @@ export default function AppLayout({
     }
   }, [authReady, currentUser, router]);
 
-  if (!authReady || !currentUser) {
-    // Muestra un loader mientras se verifica el estado de autenticación
-    // o mientras se redirige a login.
+  if (!authReady) {
+    // Show a loader while authentication state is being determined.
+    return <Loading />;
+  }
+
+  if (!currentUser) {
+    // If auth is ready but there's no user, it means we are about to redirect.
+    // Showing a loader here prevents a flash of the login page on initial load for an authenticated user.
     return <Loading />;
   }
 
