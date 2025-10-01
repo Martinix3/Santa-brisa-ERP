@@ -45,7 +45,7 @@ export default function LabReleasePage() {
                 ...lot,
                 itemName: itemMap.get(lot.itemId)?.name ?? 'Ítem Desconocido',
                 plan: lot.qcPlanId ? planMap.get(lot.qcPlanId) : undefined,
-                totalStock: lot.quantity,
+                totalStock: lot.quantity || 0,
             }))
             .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
