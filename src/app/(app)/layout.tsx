@@ -6,39 +6,36 @@ import React from 'react';
 import AuthenticatedLayout from '@/components/layouts/AuthenticatedLayout';
 import { useData } from '@/lib/dataprovider';
 import Loading from '../loading';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 
-export default function AppLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const { currentUser, authReady, firebaseUser, data } = useData();
+export default function AppLayout({ children }: { children: React.ReactNode }) {
+  const { currentUser, authReady, firebaseUser, data, loadingData } = useData(); // ⬅ añade loadingData
   const router = useRouter();
+  const pathname = usePathname();
 
   React.useEffect(() => {
-    if (authReady && !firebaseUser) {
-      console.log('[AppLayout] Auth ready but no Firebase user, redirecting to /login');
-      router.push('/login');
+    if (!authReady) return;
+    if (!firebaseUser) {
+      if (!pathname.startsWith('/login')) {
+        router.replace('/login'); // idempotente
+      }
     }
-  }, [authReady, firebaseUser, router]);
+  }, [authReady, firebaseUser, pathname, router]);
 
-  // Muestra el loader mientras se verifica el auth o se cargan los datos iniciales tras el login
-  if (!authReady || (firebaseUser && !data)) {
-    return <Loading />;
-  }
-  
-  // Si auth está listo, pero no hay usuario de Firebase, la redirección está en curso.
-  // Si hay usuario de Firebase pero no currentUser del CRM, es un estado intermedio de carga.
-  if (!firebaseUser || !currentUser) {
-    // Si la redirección ya está en marcha, Loading previene un parpadeo.
-    // Si aún no se ha encontrado el usuario de la app, también se muestra el loader.
-    return <Loading />;
-  }
+  // Bloqueo coherente con el provider
+  const isBlocking = !authReady || (!!firebaseUser && loadingData);
+
+  if (isBlocking) return <Loading />;
+
+  // Si no hay user de Firebase, estamos redirigiendo a /login
+  if (!firebaseUser) return <Loading />;
+
+  // Si hay Firebase user pero aún no hay currentUser (signup en curso o datos aún montando)
+  if (!currentUser) return <Loading />;
 
   return (
-      <AuthenticatedLayout>
-          {children}
-      </AuthenticatedLayout>
+    <AuthenticatedLayout>
+      {children}
+    </AuthenticatedLayout>
   );
 }
