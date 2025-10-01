@@ -26,7 +26,7 @@ const navSections: NavSection[] = [
   { title: "Personal", module: "personal", icon: Home,
     items: [{ href: "/agenda", label: "Agenda" }, { href: "/contacts", label: "Contactos" }] },
   { title: "Ventas", module: "sales", icon: BarChart3,
-    items: [{ href: "/dashboard-ventas", label: "Dashboard" }, { href: "/accounts", label: "Cuentas" }, { href: "/orders", label: "Pedidos" }] },
+    items: [{ href: "/sales/dashboard", label: "Dashboard" }, { href: "/sales/accounts", label: "Cuentas" }, { href: "/sales/orders", label: "Pedidos" }] },
   { title: "Marketing", module: "marketing", icon: Megaphone,
     items: [
       { href: "/marketing/dashboard", label: "Dashboard" },
@@ -62,6 +62,7 @@ const navSections: NavSection[] = [
 
 /* ===== Helpers ===== */
 function dashboardHrefFor(module: keyof typeof MODULE_ACCENTS): string {
+    if (module === 'sales') return '/sales/dashboard';
   const section = navSections.find(s => s.module === module);
   // Default to the first item in the section if available
   return section?.items[0]?.href || "/";
@@ -160,11 +161,9 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
         </div>
       </aside>
 
-      <div className="flex-1 flex flex-col min-w-0">
-        <main className="flex-1 min-w-0 overflow-y-auto">
+      <main className="flex-1 min-w-0 overflow-y-auto">
           {children}
-        </main>
-      </div>
+      </main>
     </div>
     {isSales(currentUser?.role) || currentUser?.role === 'admin' ? <QuickLogOverlay /> : null}
     </>

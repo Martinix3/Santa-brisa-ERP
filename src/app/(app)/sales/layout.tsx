@@ -21,8 +21,7 @@ function SalesNav() {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex gap-6">
                     {navItems.map(item => {
-                        // Adaptar la comprobación para que el dashboard de ventas se marque como activo
-                        const isActive = pathname === `/dashboard-ventas` ? item.href === '/sales/dashboard' : pathname.startsWith(item.href);
+                        const isActive = pathname.startsWith(item.href);
 
                         return (
                         <Link
