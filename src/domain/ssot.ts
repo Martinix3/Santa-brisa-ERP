@@ -444,8 +444,8 @@ export const SB_COLORS = {
 
 export const SB_THEME = {
   chart: {
-    line: ['#c56a3c', '#ed6a36', '#5a9496', '#99d9d9', '#fecb46'],
-    grid: 'hsl(240 6% 90%)',
+    line: ['hsl(var(--primary))', 'hsl(var(--cobre))', 'hsl(var(--agua))', 'hsl(var(--naranja))', 'hsl(var(--sb-verde-mar))'],
+    grid: 'hsl(var(--border))',
   },
 };
 

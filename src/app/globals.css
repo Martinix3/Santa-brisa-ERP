@@ -7,7 +7,7 @@
   --radius: 0.75rem; /* 12px */
 
   /* Colores de Marca y Acción */
-  --primary: 46 82% 64%;    /* Amarillo Santa Brisa #F4C542 */
+  --primary: 45 100% 60%;    /* Amarillo Santa Brisa #FFCA32 */
   --primary-foreground: 224 43% 11%; /* Casi negro para texto sobre fondo amarillo */
   --accent: 224 43% 11%;   /* Accento oscuro para anillos de foco y otros */
 
@@ -34,7 +34,7 @@
   /* Semánticos UI */
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 98%;
-  --ring: 46 82% 64%; /* Anillo de foco en amarillo */
+  --ring: 45 100% 60%; /* Anillo de foco en amarillo */
 
   --cobre: 22 55% 48%;
   --agua: 177 47% 65%;
@@ -106,7 +106,7 @@
     color: hsl(var(--foreground));
     font-family: var(--font-inter), sans-serif;
   }
-  h1, h2, h3, h4, h5, h6 { color: hsl(var(--primary)); }
+  h1, h2, h3, h4, h5, h6 { color: hsl(var(--text-primary)); }
   .sb-checkbox:checked {
     background-color: hsl(var(--accent));
     border-color: hsl(var(--accent));
@@ -236,7 +236,7 @@
   .rdp { @apply text-sm; }
   .rdp-month { @apply p-2; }
   .rdp-day { @apply h-9 w-9 rounded-md; }
-  .rdp-day_selected { background: var(--rdp-accent-color); color: hsl(var(--primary)); }
+  .rdp-day_selected { background: var(--rdp-accent-color); color: hsl(var(--primary-foreground)); }
   .rdp-day:hover { @apply bg-secondary; }
   .rdp-caption_label { @apply font-medium; }
   .rdp-nav_button { @apply h-9 w-9 rounded-md transition-colors hover:bg-secondary; }
