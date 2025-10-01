@@ -1,3 +1,4 @@
+
 // src/features/agenda/components/NewEventDialog.tsx
 "use client";
 import React, { useState, useEffect, useMemo } from 'react';
@@ -200,12 +201,11 @@ export function NewEventDialog({ open, onOpenChange, onSuccess, accentColor, ini
     };
     
     const dialogTitle = initialEventData?.id ? "Editar Tarea" : "Crear Nueva Tarea";
-    const deptStyle = DEPT_META[type];
     const { data: santaData } = useData();
 
     return (
         <SBDialog open={open} onOpenChange={onOpenChange}>
-            <div className="bg-white rounded-xl overflow-hidden shadow-2xl transition-all" style={{ borderTop: `4px solid ${deptStyle.color}` }}>
+            <div className="bg-white rounded-xl overflow-hidden shadow-2xl transition-all" style={{ borderTop: `4px solid ${accentColor}` }}>
                 <SBDialogContent
                     title={dialogTitle}
                     description="Añade una entrada en tu calendario y asigna responsables."

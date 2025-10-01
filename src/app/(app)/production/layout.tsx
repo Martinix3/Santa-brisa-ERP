@@ -43,13 +43,9 @@ function ProductionNav() {
 }
 
 export default function ProductionLayout({ children }: { children: React.ReactNode }) {
-  const accentColor = 'hsl(var(--sb-accent-produccion))';
   return (
     <div className="h-full flex flex-col bg-white">
-       <ModuleHeader 
-        title="Producción" 
-        icon={()=>(<div className="p-2 rounded-lg" style={{backgroundColor: accentColor+'33', color: accentColor}}><Factory size={20}/></div>)} 
-       />
+       <ModuleHeader title="Producción" icon={Factory} />
       <ProductionNav />
       <div className="flex-grow bg-secondary">
           <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">

@@ -1,9 +1,11 @@
+
 // src/app/(app)/admin/integrations/page.tsx
 'use client';
 import { useEffect, useState, useTransition } from 'react';
 // ... (todos tus imports existentes) ...
 import { CheckCircle, AlertTriangle, RefreshCw, Link as LinkIcon, PlugZap, TestTubes, DownloadCloud, UploadCloud, Info, Clock, XCircle, Check, Users, ChevronDown } from 'lucide-react';
 import { SBButton, SBCard } from "@/components/ui/ui-primitives";
+import { ModuleHeader } from '@/components/ui';
 
 type JobRun = {
     id: string;
@@ -120,7 +122,7 @@ function IntegrationCard({
 }) {
   return (
     <SBCard title={title} className="flex flex-col">
-      <div className="p-4 flex flex-col flex-grow">
+      <div className="p-4 flex flex-col flex-grow bg-card">
         <div className="flex items-center justify-between">
             <div>
                 <p className="text-sm text-gray-600">{desc}</p>
@@ -146,7 +148,7 @@ function IntegrationCard({
             </SBButton>
         </div>
       </div>
-       {children && <div className="p-4 border-t">{children}</div>}
+       {children && <div className="p-4 border-t bg-secondary">{children}</div>}
     </SBCard>
   );
 }
@@ -203,29 +205,8 @@ export default function IntegrationsPage() {
   useEffect(()=> { load(false); }, []);
 
   return (
-    <div className="p-6 space-y-6">
-      <header className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <PlugZap className="w-6 h-6 text-teal-700" />
-          <h1 className="text-2xl font-semibold">Integraciones</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <SBButton
-            onClick={() => load(false)}
-            variant="secondary"
-            disabled={loading && !live}
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${loading && !live ? 'animate-spin' : ''}`} /> Comprobar env
-          </SBButton>
-          <SBButton
-            onClick={() => load(true)}
-            variant="secondary"
-            disabled={loading && live}
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${loading && live ? 'animate-spin' : ''}`} /> Ping en vivo
-          </SBButton>
-        </div>
-      </header>
+    <div className="space-y-6">
+      <ModuleHeader title="Integraciones" icon={PlugZap} />
 
       <div className="grid md:grid-cols-3 gap-4">
         <IntegrationCard

@@ -1,3 +1,4 @@
+
 // src/app/(app)/dashboard-personal/page.tsx
 "use client";
 
@@ -45,7 +46,7 @@ export default function PersonalDashboardPage() {
                         <Avatar name={currentUser?.name} size="lg" />
                     </header>
 
-                    <SBButton className="w-full bg-yellow-400 text-black hover:bg-yellow-500 font-semibold" size="lg">
+                    <SBButton className="w-full font-semibold" size="lg">
                         <Plus size={20} />
                         Añadir Rápido
                     </SBButton>

@@ -27,8 +27,8 @@ function AgendaNav() {
                             className={clsx(
                                 'py-3 border-b-2 text-sm font-medium transition-colors',
                                 pathname.startsWith(item.href)
-                                    ? 'border-[hsl(var(--sb-sun-strong))] text-zinc-900'
-                                    : 'border-transparent text-sb-neutral-500 hover:text-sb-neutral-700 hover:border-sb-neutral-300'
+                                    ? 'border-primary text-primary'
+                                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
                             )}
                         >
                             {item.label}
@@ -41,13 +41,11 @@ function AgendaNav() {
 }
 
 export default function AgendaLayout({ children }: { children: React.ReactNode }) {
-  const icon = <Calendar className="w-6 h-6 text-[hsl(var(--sb-naranja))]"/>;
-  
   return (
     <div className="h-full flex flex-col">
       <ModuleHeader 
         title="Agenda" 
-        icon={() => <div className="p-2 rounded-lg bg-[hsl(var(--sb-accent-personal))]">{icon}</div>}
+        icon={Calendar}
       />
       <AgendaNav />
       <div className="flex-grow min-h-0 bg-secondary">

@@ -1,3 +1,4 @@
+
 // src/components/layouts/AuthenticatedLayout.tsx
 
 "use client";
@@ -111,7 +112,7 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
             const isActiveModule = section.module === activeModule;
             return (
               <div key={section.module} className="relative group">
-                <Link href={dashboardHrefFor(section.module)} className={`flex items-center justify-center h-10 w-10 rounded-lg transition-colors ${isActiveModule ? 'bg-yellow-100 text-yellow-800' : 'text-zinc-600 hover:bg-zinc-100'}`}>
+                <Link href={dashboardHrefFor(section.module)} className={`flex items-center justify-center h-10 w-10 rounded-lg transition-colors ${isActiveModule ? 'bg-primary text-primary-foreground' : 'text-zinc-600 hover:bg-zinc-100'}`}>
                   <section.icon size={20} />
                 </Link>
                 <div className="absolute left-full top-0 w-56 p-1 hidden group-hover:block z-50">
@@ -123,7 +124,7 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
                     {section.items.map(item => {
                       const isActiveItem = pathname.startsWith(item.href);
                       return (
-                        <Link key={item.href} href={item.href} className={`block px-3 py-1.5 text-sm rounded-md transition-colors ${isActiveItem ? 'font-semibold text-yellow-800 bg-yellow-50' : 'text-zinc-600 hover:bg-zinc-100'}`}>
+                        <Link key={item.href} href={item.href} className={`block px-3 py-1.5 text-sm rounded-md transition-colors ${isActiveItem ? 'font-semibold text-primary' : 'text-zinc-600 hover:bg-zinc-100'}`}>
                           {item.label}
                         </Link>
                       )
@@ -161,7 +162,7 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
         </div>
       </aside>
 
-      <main className="flex-1 min-w-0 overflow-y-auto">
+      <main className="flex-1 min-w-0 overflow-y-auto bg-secondary">
           {children}
       </main>
     </div>

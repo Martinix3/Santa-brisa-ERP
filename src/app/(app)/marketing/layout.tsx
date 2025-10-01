@@ -51,7 +51,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
        <div className="bg-card border-b border-border">
             <MarketingNav />
        </div>
-      <div className="flex-grow bg-background">
+      <div className="flex-grow bg-secondary">
           <div className="max-w-7xl mx-auto py-6 px-4">
             {children}
           </div>

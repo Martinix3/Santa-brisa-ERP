@@ -58,13 +58,11 @@ export default function WarehouseLayout({
 }) {
   return (
     <div className="h-full flex flex-col">
-      <div style={{ "--sb-accent-current": "var(--sb-accent-logistica)" } as React.CSSProperties}>
-        <ModuleHeader title="Almacén" icon={Warehouse} />
-      </div>
+      <ModuleHeader title="Almacén" icon={Warehouse} />
 
       <WarehouseNav />
 
-      <div className="flex-grow bg-background">
+      <div className="flex-grow bg-secondary">
         <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
           {children}
         </div>
