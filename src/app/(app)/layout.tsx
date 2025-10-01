@@ -13,24 +13,26 @@ export default function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { currentUser, authReady } = useData();
+  const { currentUser, authReady, firebaseUser, data } = useData();
   const router = useRouter();
 
   React.useEffect(() => {
-    if (authReady && !currentUser) {
-      console.log('[AppLayout] No currentUser, redirecting to /login');
+    if (authReady && !firebaseUser) {
+      console.log('[AppLayout] Auth ready but no Firebase user, redirecting to /login');
       router.push('/login');
     }
-  }, [authReady, currentUser, router]);
+  }, [authReady, firebaseUser, router]);
 
-  if (!authReady) {
-    // Show a loader while authentication state is being determined.
+  // Muestra el loader mientras se verifica el auth o se cargan los datos iniciales tras el login
+  if (!authReady || (firebaseUser && !data)) {
     return <Loading />;
   }
-
-  if (!currentUser) {
-    // If auth is ready but there's no user, it means we are about to redirect.
-    // Showing a loader here prevents a flash of the login page on initial load for an authenticated user.
+  
+  // Si auth está listo, pero no hay usuario de Firebase, la redirección está en curso.
+  // Si hay usuario de Firebase pero no currentUser del CRM, es un estado intermedio de carga.
+  if (!firebaseUser || !currentUser) {
+    // Si la redirección ya está en marcha, Loading previene un parpadeo.
+    // Si aún no se ha encontrado el usuario de la app, también se muestra el loader.
     return <Loading />;
   }
 

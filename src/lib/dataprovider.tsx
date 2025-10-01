@@ -46,8 +46,7 @@ const emailToName = (email: string) =>
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const hasRedirectedRef = useRef(false);
-
+  
   const [data, setData] = useState<SantaData | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
@@ -108,40 +107,41 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   }, [firebaseUser, isPersistenceEnabled]);
 
-  // Auth state listener & data loading trigger
+  // Auth state listener
   useEffect(() => {
     console.log("[DataProvider] Setting up onAuthStateChanged listener.");
     const unsubscribe = onAuthStateChanged(firebaseAuth, async (fbUser) => {
-        const hadUser = !!firebaseUser; // Check if there was a user before this change
+        const hadUser = !!firebaseUser;
         console.log(`[DataProvider] onAuthStateChanged fired. User: ${fbUser?.uid ?? 'null'}. Previously had user: ${hadUser}`);
+        
         setFirebaseUser(fbUser);
-  
+        setAuthReady(true);
+        
         if (fbUser && !hadUser) {
             console.log("[DataProvider] Auth change -> New user detected. Triggering data load.");
             await loadInitialData();
         } else if (!fbUser) {
-            console.log("[DataProvider] Auth change -> No user. Clearing user and data state.");
+            console.log("[DataProvider] Auth change -> No user. Clearing all user and data states.");
             setCurrentUser(null);
-            setData(null);
-        }
-        
-        if (!authReady) {
-            console.log("[DataProvider] Auth is now ready.");
-            setAuthReady(true);
+            setData(null); // Limpia los datos de la app al cerrar sesión
         }
     });
     return () => {
         console.log("[DataProvider] Cleaning up onAuthStateChanged listener.");
         unsubscribe();
     };
-  }, [authReady, firebaseUser, loadInitialData]); // Added firebaseUser and loadInitialData as dependencies
+  }, [loadInitialData]); // Eliminado firebaseUser para evitar bucles, la lógica está dentro del listener
 
-  // Sincroniza currentUser con el usuario de Firebase y los datos cargados.
+  // Sync currentUser with app data
   useEffect(() => {
+    console.log("[DataProvider] Syncing currentUser. AuthReady:", authReady, "Has FB User:", !!firebaseUser, "Has Data:", !!data?.users);
     if (!authReady || !firebaseUser || !data?.users) {
+        if (authReady && !firebaseUser) setCurrentUser(null); // Limpia si se desloguea
         return;
     }
+    
     const appUser = data.users.find(u => u.email === firebaseUser.email);
+    
     if (appUser) {
         if (!currentUser || currentUser.id !== appUser.id) {
           console.log(`[DataProvider] Found app user for ${firebaseUser.email}: ${appUser.name}`);
@@ -149,24 +149,24 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         }
     } else {
         console.warn(`[DataProvider] App user for ${firebaseUser.email} not found. A signup might be in progress or data is stale.`);
-        setCurrentUser(null); // Asegurarse de limpiar si no se encuentra
+        setCurrentUser(null);
     }
   }, [authReady, firebaseUser, data?.users, currentUser]);
 
-  // Lógica de redirección centralizada.
+  // Centralized redirection logic
   useEffect(() => {
-    if (hasRedirectedRef.current || !authReady) return;
+    if (!authReady) return; // Espera a que la autenticación esté lista
 
-    if (firebaseUser && currentUser) {
-        if (pathname === "/" || pathname.startsWith("/login")) {
+    const isAuthPage = pathname.startsWith("/login");
+
+    if (firebaseUser && currentUser) { // Usuario completamente autenticado y con perfil
+        if (isAuthPage) {
             console.log("[DataProvider] User found, redirecting to /dashboard-personal");
-            hasRedirectedRef.current = true;
             router.replace("/dashboard-personal");
         }
-    } else if (!firebaseUser) {
-        if (!pathname.startsWith("/login") && pathname !== "/") {
+    } else if (!firebaseUser) { // No hay usuario de Firebase
+        if (!isAuthPage && pathname !== "/") {
             console.log("[DataProvider] No user, redirecting to /login");
-            hasRedirectedRef.current = true;
             router.replace("/login");
         }
     }
@@ -250,10 +250,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(async () => {
     if (!firebaseAuth) return;
-    hasRedirectedRef.current = false;
     await signOut(firebaseAuth);
-    router.push("/login");
-  }, [router]);
+    // onAuthStateChanged se encargará de limpiar el estado y la redirección
+  }, []);
 
   const togglePersistence = useCallback(() => { /* ... */ }, []);
   const setCurrentUserById = useCallback((userId: string) => { /* ... */ }, []);
