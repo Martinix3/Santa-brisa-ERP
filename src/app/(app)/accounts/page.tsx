@@ -103,7 +103,7 @@ function AccountBar({ a, party, santaData, onOpenDialog, userMap, shortDate }: {
                 <ChevronDown className="h-4 w-4 transition-transform duration-300" style={{transform: open? 'rotate(180deg)':'rotate(0deg)'}} aria-hidden="true"/>
             </div>
             <div className="text-sm font-medium truncate flex items-center gap-2">
-                <Link href={`/accounts/${a.id}`} className="text-zinc-900 truncate hover:underline">{a.name}</Link>
+                <Link href={`/sales/accounts/${a.id}`} className="text-zinc-900 truncate hover:underline">{a.name}</Link>
                 {orderAmount>0 && <Badge variant="success">{formatEUR(orderAmount)}</Badge>}
             </div>
             <div className="flex items-center gap-2 min-w-0"><Avatar name={owner} size="md" />
@@ -123,7 +123,7 @@ function AccountBar({ a, party, santaData, onOpenDialog, userMap, shortDate }: {
                             Acciones Rápidas
                         </DropdownMenuItem>
                          <DropdownMenuItem asChild>
-                           <Link href={`/accounts/${a.id}`}>Ver Ficha</Link>
+                           <Link href={`/sales/accounts/${a.id}`}>Ver Ficha</Link>
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>

@@ -1,4 +1,3 @@
-
 // src/components/layouts/AuthenticatedLayout.tsx
 
 "use client";

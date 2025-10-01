@@ -8,7 +8,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useData } from "@/lib/dataprovider";
 import type { Interaction, OrderSellOut, Account, PosTactic, Item, User } from "@/domain/ssot";
-import { orderToBottles } from '@/lib/sb-core';
+import { orderToBottles, orderTotal } from '@/lib/sb-core';
 import { UpcomingTasks } from "@/features/agenda/components/UpcomingTasks";
 import {
   ResponsiveContainer,
@@ -28,14 +28,6 @@ import KpiCard from "@/components/ui/KpiCard";
 import { SB_THEME } from "@/domain/ssot";
 
 const SB = SB_THEME;
-
-/* =============================================================
-   HELPER para el cálculo de orderTotal (movido de sb-core)
-   ============================================================= */
-export const orderTotal = (order: OrderSellOut): number => {
-  if (!order || !order.lines) return 0;
-  return (order.lines || []).reduce((sum, line) => sum + (line.qty * line.priceUnit * (1 - ((line as any).discountPct || 0) / 100)), 0);
-}
 
 
 /* =============================================================
