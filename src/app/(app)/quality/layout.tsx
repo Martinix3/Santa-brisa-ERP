@@ -46,7 +46,7 @@ export default function QualityLayout({ children }: { children: React.ReactNode 
     <div className="h-full flex flex-col">
        <ModuleHeader title="Gestión de Calidad" icon={ClipboardCheck} />
       <QualityNav />
-      <div className="flex-grow bg-secondary">
+      <div className="flex-grow">
           <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
             {children}
           </div>

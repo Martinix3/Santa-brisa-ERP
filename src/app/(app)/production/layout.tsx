@@ -5,7 +5,6 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
 import { Factory } from 'lucide-react';
-import { SB_COLORS } from '@/domain/ssot';
 
 const clsx = (...xs: Array<string | false | null | undefined>) => xs.filter(Boolean).join(" ");
 
@@ -19,7 +18,7 @@ function ProductionNav() {
     ];
 
     return (
-        <div className="bg-background border-b border-border">
+        <div className="bg-card border-b border-border">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex gap-6">
                     {navItems.map(item => (
@@ -44,10 +43,10 @@ function ProductionNav() {
 
 export default function ProductionLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="h-full flex flex-col bg-white">
+    <div className="h-full flex flex-col bg-background">
        <ModuleHeader title="Producción" icon={Factory} />
       <ProductionNav />
-      <div className="flex-grow bg-secondary">
+      <div className="flex-grow">
           <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
             {children}
           </div>

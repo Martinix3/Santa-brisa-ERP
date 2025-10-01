@@ -46,7 +46,7 @@ export default function CashflowLayout({ children }: { children: React.ReactNode
     <>
       <ModuleHeader title="Finanzas y Tesorería" icon={LineChart} />
       <CashflowNav />
-      <div className="flex-grow bg-secondary">
+      <div className="flex-grow">
           <div className="max-w-7xl mx-auto py-6 px-4">
             {children}
           </div>

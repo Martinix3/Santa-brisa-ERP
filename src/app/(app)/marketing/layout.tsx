@@ -5,7 +5,6 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
 import { Megaphone } from 'lucide-react';
-import { SB_COLORS } from '@/domain/ssot';
 
 const clsx = (...xs: Array<string | false | null | undefined>) => xs.filter(Boolean).join(" ");
 
@@ -51,7 +50,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
        <div className="bg-card border-b border-border">
             <MarketingNav />
        </div>
-      <div className="flex-grow bg-secondary">
+      <div className="flex-grow">
           <div className="max-w-7xl mx-auto py-6 px-4">
             {children}
           </div>
