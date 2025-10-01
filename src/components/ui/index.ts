@@ -1,6 +1,5 @@
-// src/components/ui/index.ts
 // Barrel file — Santa Brisa UI
-// Importa todo desde aquí:  import { SBCard, SBDialog, ... } from "@/components/ui";
+// Importa todo desde aquí:  import { SBCard, SBDialog, SBIcon, SBLineChart, ... } from "@/components/ui";
 
 export * from "./ui-primitives";
 
@@ -17,3 +16,7 @@ export { getSBChartTheme } from "./charts/theme";
 export { SBLineChart } from "./charts/SBLineChart";
 export { SBBarChart } from "./charts/SBBarChart";
 export { SBSparkline } from "./charts/SBSparkline";
+
+// Exportaciones que faltaban
+export { ModuleHeader } from './ModuleHeader';
+export { FilterSelect } from './FilterSelect';

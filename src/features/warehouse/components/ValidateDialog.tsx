@@ -20,8 +20,6 @@ export function ValidateDialog({ open, onOpenChange, shipment }: {
 
     const [visualOk, setVisualOk] = useState(false);
     const [lotMap, setLotMap] = useState<Record<string, { lotNumber: string; qty: number }[]>>({});
-    const [weight, setWeight] = useState<number | "">(0);
-    const [dims, setDims] = useState<{ l: number | ""; w: number | ""; h: number | "" }>({ l: "", w: "", h: "" });
     const [carrier, setCarrier] = useState<string>("");
 
     useEffect(() => {
@@ -50,12 +48,6 @@ export function ValidateDialog({ open, onOpenChange, shipment }: {
         });
     };
 
-    const addLotRow = (itemId: string) => {
-        setLotMap((p) => ({ ...p, [itemId]: [...(p[itemId] ?? []), { lotNumber: "", qty: 0 }] }));
-    };
-    
-    const removeEmpty = (m: typeof lotMap) => Object.fromEntries(Object.entries(m).map(([k, arr]) => [k, arr.filter((r) => r.lotNumber && r.qty > 0)]));
-
     const handleSave = () => {
         if (!shipment) return;
         
@@ -80,7 +72,7 @@ export function ValidateDialog({ open, onOpenChange, shipment }: {
             <SBDialogContent
                 title={`Validar envío — ${shipment?.id}`}
                 description="Asigna lotes, marca Visual OK, añade peso/dimensiones y elige servicio."
-                onSubmit={e => { e.preventDefault(); handleSave(); }}
+                onSubmit={(e: React.FormEvent) => { e.preventDefault(); handleSave(); }}
                 primaryAction={{ label: isPending ? "Guardando..." : "Guardar validación", onClick: handleSave, disabled: isPending }}
                 secondaryAction={{ label: "Cancelar", onClick: () => onOpenChange(false) }}
                 maxWidth="40rem"
