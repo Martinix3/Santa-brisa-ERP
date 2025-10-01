@@ -72,7 +72,8 @@ SBButton.displayName = "SBButton";
 export function KPI({ label, value, icon: Icon, delta, hint, unit, color }: { label: string; value: string | number; icon?: React.ElementType; delta?: string; hint?: string; unit?:string, color?: string }) {
   const trend = delta ? (delta.startsWith('+') ? 'up' : (delta.startsWith('-') ? 'down' : 'neutral')) : 'neutral';
   return (
-    <div className="bg-card text-card-foreground p-4 rounded-xl border border-zinc-200 flex-grow">
+    <SBCard className="flex-grow">
+        <div className="p-4">
         {Icon && <div className="p-2 rounded-lg inline-block mb-2" style={{ backgroundColor: color ? `${color}20` : '#f4f4f5', color: color || '#52525b' }}><Icon className="h-5 w-5" /></div>}
         <p className="text-xs text-zinc-500">{label}</p>
         <div className="flex items-baseline gap-2">
@@ -80,7 +81,8 @@ export function KPI({ label, value, icon: Icon, delta, hint, unit, color }: { la
             {delta && <span className={`text-xs font-semibold ${trend === 'up' ? 'text-green-600' : 'text-red-600'}`}>{delta}</span>}
         </div>
         {hint && <p className="text-xs text-zinc-400 mt-1">{hint}</p>}
-    </div>
+        </div>
+    </SBCard>
   );
 }
 

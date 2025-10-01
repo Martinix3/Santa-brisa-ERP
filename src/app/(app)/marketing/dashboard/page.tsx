@@ -8,6 +8,7 @@ import { DEPT_META, SB_THEME } from '@/domain/ssot';
 import type { Interaction, MarketingEvent, OnlineCampaign, InfluencerCollab, PosTactic } from '@/domain/ssot';
 import { Calendar, AlertCircle, Clock, Target, Euro, TrendingUp, BarChart, Percent, PieChart as PieChartIcon } from 'lucide-react';
 import { UpcomingTasks } from '@/features/agenda/components/UpcomingTasks';
+import KpiCard from '@/components/ui/KpiCard';
 
 // ===================================
 // Helper Functions & Types
@@ -16,23 +17,6 @@ type TimeRange = 'week' | 'month' | 'year';
 const fmtEur = (n?: number) => new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR", minimumFractionDigits: 0 }).format(n || 0);
 const fmtPct = (n?: number) => `${(n || 0).toFixed(1)}%`;
 
-// ===================================
-// KPI Card Component (Updated as per Design Brief)
-// ===================================
-
-function KpiCard({ title, value, icon: Icon }: { title: string; value: string; icon: React.ElementType; }) {
-    return (
-        <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 flex items-center gap-4 transition-all duration-200 hover:scale-[1.03] hover:shadow-lg cursor-pointer">
-            <div className="p-3 bg-white rounded-lg border border-gray-200">
-                <Icon size={24} className="sb-icon text-gray-500" />
-            </div>
-            <div>
-                <p className="text-2xl font-bold text-gray-900">{value}</p>
-                <p className="text-sm font-medium text-gray-700">{title}</p>
-            </div>
-        </div>
-    );
-}
 
 // ===================================
 // Main Dashboard Logic & Component

@@ -23,104 +23,15 @@ import {
   Pie,
   PieChart,
 } from "recharts";
-import { SBButton, SBCard, KPI } from "@/components/ui/ui-primitives";
+import { SBButton, SBCard, KPI as GenericKPI } from "@/components/ui/ui-primitives";
+import KpiCard from "@/components/ui/KpiCard";
 import { SB_THEME } from "@/domain/ssot";
 
 const SB = SB_THEME;
 
 /* =============================================================
-   🧱 KpiCard (con “barra fantasma” del líder) — DS aplicado
+   HELPER para el cálculo de orderTotal (movido de sb-core)
    ============================================================= */
-const KpiCard = ({
-  icon: Icon,
-  title,
-  value,
-  change,
-  progress,
-  goal,
-  goalNumber,
-  leaderValue,
-  leaderName,
-  color = SB.chart.line[0],
-}: {
-  icon: React.ElementType;
-  title: string;
-  value: string;
-  change?: string;
-  progress?: number;
-  goal?: string;
-  goalNumber?: number;
-  leaderValue?: number;
-  leaderName?: string;
-  color?: string;
-}) => {
-  const isUp = change?.startsWith("+");
-  const numericValue = useMemo(() => {
-    const n = parseFloat((value || "0").toString().replace(/[^\d.,-]/g, "").replace(",", "."));
-    return Number.isFinite(n) ? n : 0;
-  }, [value]);
-  const denom = useMemo(() => {
-    if (goalNumber && goalNumber > 0) return goalNumber;
-    return Math.max(numericValue, leaderValue ?? 0, 1);
-  }, [goalNumber, numericValue, leaderValue]);
-  const myPct = Math.min(100, (progress ?? (numericValue / denom) * 100));
-  const leaderPct = Math.min(100, ((leaderValue ?? 0) / denom) * 100);
-  const isLeader = leaderValue !== undefined && numericValue >= (leaderValue ?? 0);
-  const missing = Math.max(0, Math.ceil((leaderValue ?? 0) - numericValue));
-
-  return (
-    <SBCard>
-      <div className="p-5">
-        <div className="flex items-center space-x-3 mb-2">
-          <div className="bg-white p-2 rounded-lg border">
-            <Icon className="text-gray-500" size={20} />
-          </div>
-          <p className="text-sm font-medium text-text-secondary">{title}</p>
-        </div>
-
-        <p className="text-3xl font-bold text-text-primary">{value}</p>
-
-        {change && (
-          <div className="flex items-center text-sm mt-1">
-            {isUp ? (
-              <TrendingUp className="text-green-600 mr-1" size={16} />
-            ) : (
-              <TrendingDown className="text-red-600 mr-1" size={16} />
-            )}
-            <span className={`${isUp ? "text-green-600" : "text-red-600"} font-semibold mr-1`}>{change}</span>
-            <span className="text-gray-500">vs mes anterior</span>
-          </div>
-        )}
-
-        {(goal || leaderValue !== undefined) && (
-          <div className="mt-2">
-            <div className="flex justify-between text-xs text-gray-500 mb-1">
-              <span>Progreso</span>
-              <span>{goal ? goal : `${numericValue} / ${denom}`}</span>
-            </div>
-
-            <div className="relative w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
-              {leaderValue !== undefined && (
-                <div aria-hidden className="absolute left-0 top-0 h-1.5 rounded-full" style={{ width: `${leaderPct}%`, backgroundColor: `${color}33` }} />
-              )}
-              <div className="relative h-1.5 rounded-full" style={{ width: `${myPct}%`, backgroundColor: color }} />
-            </div>
-
-            {leaderValue !== undefined && (
-              <div className="mt-1 text-[11px] text-gray-500">
-                {isLeader ? 'Eres líder 🔝' : <>Líder: <b>{leaderName ?? '—'}</b> con <b>{leaderValue}</b>{missing > 0 ? <> — te faltan <b>{missing}</b></> : null}</>}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </SBCard>
-  );
-};
-
-// =============================================================
-// HELPER para el cálculo de orderTotal (movido de sb-core)
-// =============================================================
 export const orderTotal = (order: OrderSellOut): number => {
   if (!order || !order.lines) return 0;
   return (order.lines || []).reduce((sum, line) => sum + (line.qty * line.priceUnit * (1 - ((line as any).discountPct || 0) / 100)), 0);
@@ -274,25 +185,12 @@ export default function SalesDashboardPage() {
 
         {/* KPIs */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <KpiCard icon={Users} title="Nuevas Cuentas" value={kpis.newAccounts.toString()} color={SB_THEME.chart.line[0]}
-            goal={`${kpis.newAccounts} / 10`} goalNumber={10} progress={(kpis.newAccounts / 10) * 100}
-            leaderValue={leaders.newAccounts.value} leaderName={leaders.newAccounts.name} />
-
+          <KpiCard icon={Users} title="Nuevas Cuentas" value={kpis.newAccounts.toString()} color={SB_THEME.chart.line[0]} goal={`${kpis.newAccounts} / 10`} leaderValue={leaders.newAccounts.value} leaderName={leaders.newAccounts.name} />
           <KpiCard icon={MessageCircle} title="Conversión a pedido" value={`${kpis.conversionRate.toFixed(1)}%`} color={SB_THEME.chart.line[1]} />
-
           <KpiCard icon={Euro} title="Facturación" value={`${kpis.revenue.toLocaleString('es-ES')} €`} color={SB_THEME.chart.line[2]} />
-
-          <KpiCard icon={Package} title="Cajas vendidas" value={kpis.boxesSold.toString()} color={SB_THEME.chart.line[3]}
-            goal={`${kpis.boxesSold} / 100`} goalNumber={100} progress={(kpis.boxesSold / 100) * 100}
-            leaderValue={leaders.boxesSold.value} leaderName={leaders.boxesSold.name} />
-
-          <KpiCard icon={Briefcase} title="Visitas" value={kpis.visits.toString()} color={SB_THEME.chart.line[4]}
-            goal={`${kpis.visits} / 200`} goalNumber={200} progress={(kpis.visits / 200) * 100}
-            leaderValue={leaders.visits.value} leaderName={leaders.visits.name} />
-
-          <KpiCard icon={CheckSquare} title="POS tactics colocadas" value={kpis.posTactics.toString()}
-            goal={`${kpis.posTactics} / 20`} goalNumber={20} progress={(kpis.posTactics / 20) * 100}
-            leaderValue={leaders.posTactics.value} leaderName={leaders.posTactics.name} />
+          <KpiCard icon={Package} title="Cajas vendidas" value={kpis.boxesSold.toString()} color={SB_THEME.chart.line[3]} goal={`${kpis.boxesSold} / 100`} leaderValue={leaders.boxesSold.value} leaderName={leaders.boxesSold.name} />
+          <KpiCard icon={Briefcase} title="Visitas" value={kpis.visits.toString()} color={SB_THEME.chart.line[4]} goal={`${kpis.visits} / 200`} leaderValue={leaders.visits.value} leaderName={leaders.visits.name} />
+          <KpiCard icon={CheckSquare} title="POS tactics colocadas" value={kpis.posTactics.toString()} goal={`${kpis.posTactics} / 20`} leaderValue={leaders.posTactics.value} leaderName={leaders.posTactics.name} />
         </div>
 
         {/* Grids */}
@@ -304,8 +202,8 @@ export default function SalesDashboardPage() {
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={salesEvolutionData}>
                       <CartesianGrid strokeDasharray="3 3" stroke={SB_THEME.chart.grid} />
-                      <XAxis dataKey="name" tick={{ fill: 'hsl(var(--text-muted))', fontSize: 10 }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fill: 'hsl(var(--text-muted))', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${Number(v) / 1000}k`} />
+                      <XAxis dataKey="name" tick={{ fill: 'hsl(var(--text-muted))', fontSize: 12 }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fill: 'hsl(var(--text-muted))', fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${Number(v) / 1000}k`} />
                       <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: 6 }} itemStyle={{ color: '#fff' }} labelStyle={{ color: '#fff', fontWeight: 'bold' }} />
                       <Legend wrapperStyle={{ fontSize: 11, color: 'hsl(var(--text-muted))' }} />
                       <Line type="monotone" dataKey="Ventas" stroke={SB_THEME.chart.line[0]} strokeWidth={2} dot={{ r: 3, strokeWidth: 2, fill: '#fff' }} activeDot={{ r: 5 }} />

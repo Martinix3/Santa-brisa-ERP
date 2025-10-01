@@ -7,25 +7,27 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Plus, Briefcase, Package, UserPlus, Target } from 'lucide-react';
 import { UpcomingTasks } from '@/features/agenda/components/UpcomingTasks';
 import type { Department } from '@/domain/ssot';
-import { KPI, SBButton } from '@/components/ui/ui-primitives';
+import { SBButton, SBCard } from '@/components/ui/ui-primitives';
+import KpiCard from '@/components/ui/KpiCard';
 
-function PersonalKpiCard({ icon: Icon, title, value, goal }: { icon: React.ElementType, title: string, value: number, goal: number }) {
+function PersonalKpiCard({ icon: Icon, title, value, goal, color }: { icon: React.ElementType, title: string, value: number, goal: number, color: string }) {
     const progress = goal > 0 ? Math.min(100, (value / goal) * 100) : 0;
-    const color = "hsl(var(--sb-accent-ventas))";
 
     return (
-        <div className="sb-card p-4">
-             <div className="flex items-center space-x-3 mb-2">
-                <div className="bg-zinc-100 p-2 rounded-lg">
-                    <Icon className="text-zinc-500" size={20} />
+        <SBCard>
+             <div className="p-4">
+                <div className="flex items-center space-x-3 mb-2">
+                    <div className="bg-zinc-100 p-2 rounded-lg">
+                        <Icon className="text-zinc-500" size={20} />
+                    </div>
+                    <p className="text-sm text-zinc-600 font-medium">{title}</p>
                 </div>
-                <p className="text-sm text-zinc-600 font-medium">{title}</p>
+                <p className="text-3xl font-bold text-zinc-900">{value} <span className="text-base font-normal text-zinc-400">/ {goal}</span></p>
+                <div className="w-full bg-zinc-200 rounded-full h-1.5 mt-2 overflow-hidden">
+                    <div className="h-1.5 rounded-full" style={{ width: `${progress}%`, backgroundColor: color }}></div>
+                </div>
             </div>
-            <p className="text-3xl font-bold text-zinc-900">{value} <span className="text-base font-normal text-zinc-400">/ {goal}</span></p>
-            <div className="w-full bg-zinc-200 rounded-full h-1.5 mt-2 overflow-hidden">
-                <div className="h-1.5 rounded-full" style={{ width: `${progress}%`, backgroundColor: color }}></div>
-            </div>
-        </div>
+        </SBCard>
     );
 }
 
@@ -66,10 +68,10 @@ export default function PersonalDashboardPage() {
                 </SBButton>
 
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                    <PersonalKpiCard icon={UserPlus} title="Nuevas Cuentas" value={kpis.newAccounts} goal={10} />
-                    <PersonalKpiCard icon={Package} title="Cajas Vendidas" value={kpis.boxesSold} goal={150} />
-                    <PersonalKpiCard icon={Briefcase} title="Visitas" value={kpis.visits} goal={60} />
-                    <PersonalKpiCard icon={Target} title="POS" value={kpis.posTactics} goal={20} />
+                    <PersonalKpiCard icon={UserPlus} title="Nuevas Cuentas" value={kpis.newAccounts} goal={10} color="hsl(var(--sb-accent-ventas))" />
+                    <PersonalKpiCard icon={Package} title="Cajas Vendidas" value={kpis.boxesSold} goal={150} color="hsl(var(--sb-accent-ventas))" />
+                    <PersonalKpiCard icon={Briefcase} title="Visitas" value={kpis.visits} goal={60} color="hsl(var(--sb-accent-ventas))" />
+                    <PersonalKpiCard icon={Target} title="POS" value={kpis.posTactics} goal={20} color="hsl(var(--sb-accent-marketing))" />
                 </div>
                 
                 <UpcomingTasks 
