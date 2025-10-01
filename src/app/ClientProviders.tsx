@@ -3,7 +3,7 @@
 
 import { DataProvider } from "@/lib/dataprovider";
 import { RealtimeProvider } from "@/app/providers/RealtimeProvider";
-import { AssistantProvider } from "./providers/AssistantProvider";
+import { AssistantProvider } from "@/features/assistant/components/AssistantProvider";
 
 export default function ClientProviders({
   children,

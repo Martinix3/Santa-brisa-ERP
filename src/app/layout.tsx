@@ -6,6 +6,9 @@ import MonitoringBoot from '@/components/monitoring/MonitoringBoot';
 import { Inter } from 'next/font/google';
 import { Toaster } from "sonner";
 import React from 'react';
+import { AssistantDialog } from "@/features/assistant/components/AssistantDialog";
+import { AssistantTrigger } from "@/features/assistant/components/AssistantTrigger";
+
 
 const inter = Inter({ 
     subsets: ['latin'],
@@ -28,6 +31,8 @@ export default function RootLayout({
       <body className="bg-background">
         <ClientProviders>
           {children}
+          <AssistantDialog />
+          <AssistantTrigger />
         </ClientProviders>
         <Toaster position="bottom-right" />
         <MonitoringBoot />
