@@ -7,7 +7,7 @@ import { SBCard, SBButton, Input, Select } from "@/components/ui/ui-primitives";
 import type { ItemCategory, OnHandView, Lot, QcStatus, Item } from "@/domain/ssot";
 import {
   computeSkuRollup,
-  stockStatusBadgeClass, stockStatusLabel, type SkuStockSummary,
+  stockStatusBadgeClass, stockStatusLabel, type SkuStockSummary, computeStockAlerts, type StockAlert
 } from "@/lib/inventory";
 import { Plus, Search, AlertCircle, RefreshCw } from "lucide-react";
 import { RealtimeBadge } from "@/components/RealtimeBadge";
