@@ -106,7 +106,6 @@ export default function InventoryPage() {
   const [locationFilter, setLocationFilter] = useState<string>("ALL");
   const [qcFilter, setQcFilter] = useState<string>("ALL");
   const [onlyWithStock, setOnlyWithStock] = useState<boolean>(true);
-  const [cat, setCat] = useState<ItemCategory>("fg");
   const [viewMode, setViewMode] = useState<"sku" | "lot">("lot");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -128,7 +127,6 @@ export default function InventoryPage() {
 
   const onHandFiltered = useMemo(() => {
     let rows = onHand;
-    // if (cat) rows = rows.filter(r => r.category === cat); // <--- FILTRO DE CATEGORÍA DESACTIVADO
     if (locationFilter !== "ALL") rows = rows.filter(r => r.locationId === locationFilter);
     if (qcFilter !== 'ALL') rows = rows.filter(r => (r.qcStatus || 'PENDING') === qcFilter);
     if (onlyWithStock) rows = rows.filter(r => (r.qty - (r.reservedQty ?? 0)) > 0);
@@ -141,21 +139,11 @@ export default function InventoryPage() {
       );
     }
     return rows;
-  }, [onHand, items, cat, locationFilter, qcFilter, onlyWithStock, globalSearch]);
+  }, [onHand, items, locationFilter, qcFilter, onlyWithStock, globalSearch]);
 
   const summaries = useMemo(() => computeSkuRollup(onHandFiltered, { nearExpiryDays: 45 }), [onHandFiltered]);
   const alerts = useMemo(() => computeStockAlerts(summaries), [summaries]);
   
-  const countsByCat = useMemo(() => {
-    const map: Partial<Record<ItemCategory, number>> = {};
-    for (const r of onHand) {
-      if (r.category) {
-        map[r.category] = (map[r.category] ?? 0) + 1;
-      }
-    }
-    return map;
-  }, [onHand]);
-
   const skusWithLots = useMemo(() => {
       return Object.values(summaries).map(summary => ({
           summary,
@@ -275,59 +263,36 @@ export default function InventoryPage() {
         </SBCard>
       </details>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[320px_minmax(0,1fr)] gap-4">
-        {/*
-        <div className="space-y-4">
-          <SBCard title="Categorías" noPadding>
-             <div className="p-2 flex flex-wrap gap-2">
-              {CATEGORY_ORDER.map(c => (
-                <button
-                  key={c.value}
-                  onClick={()=>setCat(c.value)}
-                  className={`px-2 py-1 text-xs rounded-md border transition-colors ${cat===c.value ? 'bg-zinc-800 text-white border-zinc-800' : 'bg-white hover:bg-zinc-50'}`}
-                >
-                  {c.label} <span className="ml-1 rounded bg-black/10 px-1 text-[10px]">{countsByCat[c.value] ?? 0}</span>
-                </button>
-              ))}
-            </div>
-          </SBCard>
-        </div>
-        */}
+        <SBCard title="Inventario" noPadding>
+            <Tabs value={viewMode} onValueChange={(v) => { setViewMode(v as any); setSelectedKey(null); }}>
+              <div className="flex justify-between items-center p-4">
+                <TabsList className="relative">
+                  <TabsTrigger value="lot" className="data-[state=active]:text-[color:var(--sb-accent)]">Por Lote</TabsTrigger>
+                  <TabsTrigger value="sku" className="data-[state=active]:text-[color:var(--sb-accent)]">Por SKU</TabsTrigger>
+                </TabsList>
+              </div>
 
-        <div className="space-y-4 xl:col-span-2">
-          <SBCard title="Inventario" noPadding>
-              <Tabs value={viewMode} onValueChange={(v) => { setViewMode(v as any); setSelectedKey(null); }}>
-                <div className="flex justify-between items-center p-4">
-                  <TabsList className="relative">
-                    <TabsTrigger value="lot" className="data-[state=active]:text-[color:var(--sb-accent)]">Por Lote</TabsTrigger>
-                    <TabsTrigger value="sku" className="data-[state=active]:text-[color:var(--sb-accent)]">Por SKU</TabsTrigger>
-                  </TabsList>
-                  <div className="text-xs text-zinc-500 pr-1">Cat: {CATEGORY_ORDER.find(x=>x.value===cat)?.label}</div>
-                </div>
-
-                <TabsContent value="lot">
-                  {lotRows.length === 0 ? <Empty hint="No hay lotes que cumplan los filtros." /> : <DataTableSB rows={lotRows} cols={lotCols} onRowClick={(r:any)=> {setViewMode('lot'); setSelectedKey(r.lotNumber)}} />}
-                </TabsContent>
-                <TabsContent value="sku">
-                  <div className="divide-y">
-                     <div className="grid grid-cols-[auto_2fr_1fr_1fr_1fr_1fr_auto] items-center gap-4 p-3 bg-zinc-50 text-xs font-semibold uppercase text-zinc-500 tracking-wider">
-                        <div/>
-                        <span>Producto</span>
-                        <span>Disp.</span>
-                        <span>En QC</span>
-                        <span>Cad. Próx.</span>
-                        <span>Estado</span>
-                        <div/>
-                    </div>
-                    {skusWithLots.length === 0 ? <Empty hint="No hay stock agrupado por SKU para esta vista." /> : (
-                        skusWithLots.map(({summary, lots}) => <SkuAccordionRow key={summary.itemId} sku={summary} summary={summary} lots={lots} items={items} onSelect={setSelectedKey} setViewMode={setViewMode} setSelectedKey={setSelectedKey} />)
-                    )}
+              <TabsContent value="lot">
+                {lotRows.length === 0 ? <Empty hint="No hay lotes que cumplan los filtros." /> : <DataTableSB rows={lotRows} cols={lotCols} onRowClick={(r:any)=> {setViewMode('lot'); setSelectedKey(r.lotNumber)}} />}
+              </TabsContent>
+              <TabsContent value="sku">
+                <div className="divide-y">
+                    <div className="grid grid-cols-[auto_2fr_1fr_1fr_1fr_1fr_auto] items-center gap-4 p-3 bg-zinc-50 text-xs font-semibold uppercase text-zinc-500 tracking-wider">
+                      <div/>
+                      <span>Producto</span>
+                      <span>Disp.</span>
+                      <span>En QC</span>
+                      <span>Cad. Próx.</span>
+                      <span>Estado</span>
+                      <div/>
                   </div>
-                </TabsContent>
-              </Tabs>
-          </SBCard>
-        </div>
-      </div>
+                  {skusWithLots.length === 0 ? <Empty hint="No hay stock agrupado por SKU para esta vista." /> : (
+                      skusWithLots.map(({summary, lots}) => <SkuAccordionRow key={summary.itemId} sku={summary} summary={summary} lots={lots} items={items} onSelect={setSelectedKey} setViewMode={setViewMode} setSelectedKey={setSelectedKey} />)
+                  )}
+                </div>
+              </TabsContent>
+            </Tabs>
+        </SBCard>
       
       {openNew && (
         <NewOnHandDialog
