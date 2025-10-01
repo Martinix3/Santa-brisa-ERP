@@ -7,7 +7,7 @@ export { SBDialog, SBDialogContent } from "./SBDialog";
 export { SBTabs, Tabs, TabsList, TabsTrigger, TabsContent } from "./SBTabs";
 export { SBTooltip } from "./SBTooltip";
 export { SBPopover } from "./SBPopover";
-export { KpiCard as default } from './KpiCard';
+export { default as KpiCard } from './KpiCard';
 
 export { SBIcon } from "./SBIcon";
 export { useSBToast } from "./SBToast";
