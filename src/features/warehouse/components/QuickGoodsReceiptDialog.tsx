@@ -1,3 +1,4 @@
+
 // src/features/warehouse/components/QuickGoodsReceiptDialog.tsx
 "use client";
 
@@ -301,6 +302,7 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
                                         <option value="pack">Packaging</option>
                                         <option value="label">Etiqueta</option>
                                         <option value="consumable">Consumible</option>
+                                        <option value="fg">Producto Terminado</option>
                                     </Select>
                                 </div>
                           )}
