@@ -101,7 +101,7 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
     <>
     <div className="h-screen flex bg-white">
       {/* Sidebar */}
-      <aside className="relative z-50 h-full border-r border-sb-neutral-200 bg-white flex flex-col w-16">
+      <aside className="relative z-[60] h-full border-r border-sb-neutral-200 bg-white flex flex-col w-16">
         <Link href="/" className="h-14 flex items-center justify-center border-b">
           <Image src="https://santabrisa.es/cdn/shop/files/clavista_300x_36b708f6-4606-4a51-9f65-e4b379531ff8_300x.svg?v=1752413726" alt="Santa Brisa" width={32} height={24} style={{width: 'auto', height: 'auto'}} priority />
         </Link>
@@ -113,7 +113,7 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
                 <Link href={dashboardHrefFor(section.module)} className={`flex items-center justify-center h-10 w-10 rounded-lg transition-colors ${isActiveModule ? 'bg-yellow-100 text-yellow-800' : 'text-zinc-600 hover:bg-zinc-100'}`}>
                   <section.icon size={20} />
                 </Link>
-                <div className="absolute left-full top-0 ml-2 w-48 bg-white border rounded-lg shadow-lg hidden group-hover:block z-50">
+                <div className="absolute left-full top-0 ml-2 w-48 bg-white border rounded-lg shadow-lg hidden group-hover:block">
                   <div className="p-2 border-b">
                       <p className="text-sm font-semibold">{section.title}</p>
                   </div>
@@ -143,7 +143,7 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
                     <Avatar name={currentUser?.name} size="md" className="mx-auto" />
                 </button>
                  {userMenuOpen && (
-                    <div role="menu" className="sb-menu absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-1">
+                    <div role="menu" className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-1 bg-white border rounded-lg shadow-lg">
                       <div className="p-2 border-b">
                         <p className="text-sm font-semibold truncate">{currentUser?.name}</p>
                         <p className="text-xs text-zinc-500 truncate">{currentUser?.email}</p>
