@@ -104,6 +104,8 @@ export interface Party {
   roles?: PartyRoleType[]; // Denormalized for quick filtering
   createdAt: Timestamp;
   updatedAt: Timestamp;
+  serviceArea?: any; // Puede ser un array de ciudades o códigos postales
+  location?: { lat: number, lng: number };
 }
 
 export interface CustomerData {
@@ -163,6 +165,10 @@ export interface User {
   active: boolean;
   managerId?: string;
   kpiBaseline?: { revenue?: number; unitsSold?: number; visits?: number; };
+  assignedDistributors?: Array<{
+    partyId: string;
+    priority: number;
+  }>;
 }
 
 // --- Pedidos y Envíos ---
