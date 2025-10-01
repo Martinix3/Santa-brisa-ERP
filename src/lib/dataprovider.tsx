@@ -11,6 +11,7 @@ import { SANTA_DATA_COLLECTIONS } from '@/domain/ssot';
 import { upsertMany } from './dataprovider/actions';
 import { firebaseApp, firebaseAuth, firestoreDb } from "@/lib/firebaseClient";
 import { MOCK_DATA } from "./mock-data";
+import Loading from "@/app/loading";
 
 // --------- Tipos ----------
 type LoadReport = {
@@ -130,11 +131,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         console.log("[DataProvider] Cleaning up onAuthStateChanged listener.");
         unsubscribe();
     };
-  }, [loadInitialData]); // Eliminado firebaseUser para evitar bucles, la lógica está dentro del listener
+  }, [loadInitialData, firebaseUser]); 
 
   // Sync currentUser with app data
   useEffect(() => {
-    console.log("[DataProvider] Syncing currentUser. AuthReady:", authReady, "Has FB User:", !!firebaseUser, "Has Data:", !!data?.users);
+    console.log("[DataProvider] Syncing currentUser. AuthReady:", authReady, "Has FB User:", !!firebaseUser, "Has Data Users:", !!data?.users);
     if (!authReady || !firebaseUser || !data?.users) {
         if (authReady && !firebaseUser) setCurrentUser(null); // Limpia si se desloguea
         return;
@@ -207,7 +208,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback(async () => {
     if (!firebaseAuth) return;
     try {
-      await signInWithPopup(firebaseAuth, new GoogleAuthProvider());
+        const provider = new GoogleAuthProvider();
+        provider.addScope('https://www.googleapis.com/auth/spreadsheets');
+        await signInWithPopup(firebaseAuth, provider);
     } catch(e) {
       console.error("Google sign in failed", e);
       throw e;
@@ -272,13 +275,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <DataContext.Provider value={value}>
-        {isBlocking && (
-            <div className="fixed inset-0 z-[200] flex items-center justify-center bg-white/80 backdrop-blur-sm">
-                <div className="flex flex-col items-center gap-4">
-                    <p className="text-sb-neutral-700">Cargando datos de Santa Brisa...</p>
-                </div>
-            </div>
-        )}
+        {isBlocking && <Loading />}
         {children}
     </DataContext.Provider>
   );
