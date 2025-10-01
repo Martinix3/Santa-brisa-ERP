@@ -133,11 +133,19 @@ export function inheritOrResetQcStatus(parents: QcStatus[], forceReQc?: boolean)
 
 export type SkuStockSummary = {
   itemId: string;
+  lots: OnHandView[];
 
   // Totales
   totalPhysical: number;        // suma qty todos los lotes (cualquier QC)
+  totalReserved: number;
   totalReleasedFree: number;    // solo RELEASED y sin reservar (qty - reservedQty)
   totalOnHold: number;          // en cuarentena (HOLD/PENDING agrupado)
+  totalValue?: number;
+
+  // QC Breakdown
+  passedQty: number;
+  pendingQty: number;
+  failedQty: number;
 
   // Caducidad (FEFO)
   earliestExpiryAt?: string | null; // fecha más próxima (si existe)
@@ -174,6 +182,10 @@ function isHold(qcStatus: QcStatus): boolean {
   const b = qcToBucket(qcStatus);
   return b === 'HOLD'; // incluye PENDING/ON_HOLD según tu mapping
 }
+function isFailed(qcStatus: QcStatus): boolean {
+    const b = qcToBucket(qcStatus);
+    return b === 'REJECTED';
+}
 
 // ----- Util: días entre fechas -----
 function diffDays(a: Date, b: Date) {
@@ -183,11 +195,6 @@ function diffDays(a: Date, b: Date) {
 
 /**
  * Agrupa onHand por SKU y calcula el resumen de stock real.
- * - Suma física total
- * - Disponible real (RELEASED y sin reservar)
- * - En cuarentena (HOLD)
- * - Caducidades (earliest + near/expired)
- * - Estado agregado (pill)
  */
 export function computeSkuRollup(
   onHand: OnHandView[],
@@ -197,72 +204,74 @@ export function computeSkuRollup(
   const minByItem = opts.minStockByItem ?? {};
   const now = opts.now ?? new Date();
 
-  const bySku: Record<string, SkuStockSummary> = {};
+  const bySku = new Map<string, SkuStockSummary>();
 
   for (const r of onHand) {
     const itemId = r.itemId;
-    const reserved = r.reservedQty ?? 0;
-    const free = Math.max(0, r.qty - reserved);
-
-    if (!bySku[itemId]) {
-      bySku[itemId] = {
+    if (!bySku.has(itemId)) {
+      bySku.set(itemId, {
         itemId,
+        lots: [],
         totalPhysical: 0,
+        totalReserved: 0,
         totalReleasedFree: 0,
         totalOnHold: 0,
-        earliestExpiryAt: null,
-        daysToEarliestExpiry: null,
+        passedQty: 0,
+        pendingQty: 0,
+        failedQty: 0,
         lotsCount: 0,
         status: 'OK',
         nearExpiryCount: 0,
         expiredCount: 0,
-      };
+      });
     }
-    const acc = bySku[itemId];
-    acc.lotsCount += 1;
+    
+    const acc = bySku.get(itemId)!;
+    acc.lots.push(r);
+    acc.lotsCount++;
     acc.totalPhysical += r.qty;
+    acc.totalReserved += r.reservedQty || 0;
 
-    // Buckets QC
-    if (isReleased(r.qcStatus)) acc.totalReleasedFree += free;
-    if (isHold(r.qcStatus)) acc.totalOnHold += r.qty;
+    // QC Buckets
+    if (isReleased(r.qcStatus)) acc.passedQty += r.qty;
+    else if (isHold(r.qcStatus)) acc.pendingQty += r.qty;
+    else if (isFailed(r.qcStatus)) acc.failedQty += r.qty;
 
-    // Caducidad
+    if (isReleased(r.qcStatus)) {
+        acc.totalReleasedFree += Math.max(0, r.qty - (r.reservedQty || 0));
+    }
+    if (isHold(r.qcStatus)) {
+        acc.totalOnHold += r.qty;
+    }
+
     if (r.expiryAt) {
       const d = new Date(r.expiryAt);
       const daysLeft = diffDays(d, now);
-
-      // earliest
       if (!acc.earliestExpiryAt || new Date(acc.earliestExpiryAt) > d) {
         acc.earliestExpiryAt = r.expiryAt;
         acc.daysToEarliestExpiry = daysLeft;
       }
-      // contadores near/expired
-      if (daysLeft < 0) acc.expiredCount += 1;
-      else if (daysLeft <= nearExpiryDays) acc.nearExpiryCount += 1;
+      if (daysLeft < 0) acc.expiredCount++;
+      else if (daysLeft <= nearExpiryDays) acc.nearExpiryCount++;
     }
   }
 
-  // Determinar estado agregado por SKU
-  for (const [itemId, acc] of Object.entries(bySku)) {
-    const minTarget = minByItem[itemId] ?? 0;
-
+  for (const acc of bySku.values()) {
+    const minTarget = minByItem[acc.itemId] ?? 0;
     const oos = acc.totalReleasedFree <= 0;
     const low = !oos && acc.totalReleasedFree < Math.max(1, minTarget);
-    const hasHold = acc.totalOnHold > 0;
-    const expired = acc.expiredCount > 0;
-    const near = acc.nearExpiryCount > 0;
 
-    let status: SkuStockSummary['status'] = 'OK';
-    if (expired) status = 'EXPIRED';
-    else if (oos) status = 'OOS';
-    else if (near) status = 'NEAR_EXPIRY';
-    else if (low) status = 'LOW';
-    else if (hasHold) status = 'HOLD';
-    acc.status = status;
+    if (acc.expiredCount > 0) acc.status = 'EXPIRED';
+    else if (oos) acc.status = 'OOS';
+    else if (acc.nearExpiryCount > 0) acc.status = 'NEAR_EXPIRY';
+    else if (low) acc.status = 'LOW';
+    else if (acc.totalOnHold > 0) acc.status = 'HOLD';
+    else acc.status = 'OK';
   }
 
-  return bySku;
+  return Object.fromEntries(bySku.entries());
 }
+
 
 // ===========================================
 // AVISOS (para tarjetas/banner simples)
@@ -328,15 +337,16 @@ export function computeStockAlerts(
 export function stockStatusBadgeClass(
   status: SkuStockSummary['status']
 ): string {
-  switch (status) {
-    case 'OK':          return 'sb-badge sb-badge--ok';
-    case 'LOW':         return 'sb-badge sb-badge--warn';
-    case 'OOS':         return 'sb-badge sb-badge--danger';
-    case 'NEAR_EXPIRY': return 'sb-badge sb-badge--warn';
-    case 'EXPIRED':     return 'sb-badge sb-badge--danger';
-    case 'HOLD':        return 'sb-badge sb-badge--info';
-    default:            return 'sb-badge';
-  }
+    const base = "px-2 py-1 text-xs font-semibold rounded-full";
+    switch (status) {
+        case 'OK': return `${base} bg-green-100 text-green-800`;
+        case 'LOW': return `${base} bg-yellow-100 text-yellow-800`;
+        case 'OOS': return `${base} bg-red-100 text-red-800`;
+        case 'NEAR_EXPIRY': return `${base} bg-orange-100 text-orange-800`;
+        case 'EXPIRED': return `${base} bg-red-200 text-red-900`;
+        case 'HOLD': return `${base} bg-blue-100 text-blue-800`;
+        default: return `${base} bg-zinc-100 text-zinc-800`;
+    }
 }
 
 /**

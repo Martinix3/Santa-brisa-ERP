@@ -9,7 +9,7 @@ import {
   computeSkuRollup,
   computeStockAlerts, type StockAlert
 } from "@/lib/inventory";
-import { Plus, Search, AlertCircle, RefreshCw } from "lucide-react";
+import { Plus, Search, AlertCircle, RefreshCw, Filter } from "lucide-react";
 import { RealtimeBadge } from "@/components/RealtimeBadge";
 import { NewOnHandDialog } from "./components/NewOnHandDialog";
 import { rebuildOnHand } from "./actions";
@@ -19,6 +19,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { LotDetailPanel } from "./components/LotDetailPanel";
 import { SkuAccordionRow } from "./components/SkuAccordionRow";
 import { LotRows } from "./components/LotRows";
+import { InventoryDashboard } from "@/features/warehouse/components/InventoryDashboard";
 
 
 function Empty({ hint }: { hint: string }) {
@@ -42,7 +43,6 @@ export default function InventoryPage() {
   const searchRef = useRef<HTMLInputElement>(null);
 
   const [openNew, setOpenNew] = useState(false);
-  const [openReceipt, setOpenReceipt] = useState(false);
   const [isRebuilding, startRebuildTransition] = useTransition();
 
   useEffect(() => {
@@ -145,6 +145,8 @@ export default function InventoryPage() {
         <p className="text-sm text-zinc-500">Vista en tiempo real del stock y registro de entradas.</p>
       </div>
 
+      <InventoryDashboard summaries={Object.values(summaries)} />
+
       <div className="sticky top-[64px] z-30 bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/60 border rounded-xl p-3 flex flex-wrap gap-2 items-center">
         <div className="flex-1 flex gap-2 min-w-[260px]">
           <Input
@@ -162,12 +164,24 @@ export default function InventoryPage() {
             <option value="PENDING">Retenido</option>
             <option value="FAILED">Rechazado</option>
           </Select>
+        </div>
+        <div className="flex gap-2 items-center">
           <label className="flex items-center gap-2 pl-2 text-sm">
             <input type="checkbox" checked={onlyWithStock} onChange={e=>setOnlyWithStock(e.target.checked)} />
             Solo con Stock
           </label>
-        </div>
-        <div className="flex gap-2">
+          <details className="relative">
+              <summary className="cursor-pointer p-2 rounded-md hover:bg-zinc-100 list-none">
+                  <Filter size={16} />
+              </summary>
+              <div className="absolute right-0 mt-2 w-64 bg-white border rounded-lg shadow-lg p-4 space-y-3 z-10">
+                  <h4 className="font-semibold text-sm">Filtros Avanzados</h4>
+                  <label className="block text-sm">
+                      Caduca antes de:
+                      <Input type="date" className="mt-1"/>
+                  </label>
+              </div>
+          </details>
           <SBButton variant="outline" className={BTN_OUTLINE}>Exportar</SBButton>
           <SBButton variant="outline" className={BTN_OUTLINE} onClick={() => {}}>Nueva Recepción</SBButton>
           <SBButton variant="outline" className={BTN_OUTLINE} onClick={handleRebuild} disabled={isRebuilding}>
@@ -221,7 +235,7 @@ export default function InventoryPage() {
                         <span>Estado</span>
                     </div>
                     {skusWithLots.length > 0 ? (
-                        skusWithLots.map(({summary, lots}) => <SkuAccordionRow key={summary.itemId} sku={summary} items={items} onLotSelect={setSelectedLotNumber} />)
+                        skusWithLots.map(({summary}) => <SkuAccordionRow key={summary.itemId} sku={summary} items={items} onLotSelect={setSelectedLotNumber} />)
                     ) : <Empty hint="No hay stock que coincida con los filtros." />}
                   </div>
                 </TabsContent>
