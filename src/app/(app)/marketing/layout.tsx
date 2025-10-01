@@ -20,7 +20,7 @@ function MarketingNav() {
     ];
 
     return (
-        <div className="bg-card border-b border-sb-neutral-200">
+        <div className="bg-card border-b border-border">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex gap-6">
                     {navItems.map(item => (
@@ -30,8 +30,8 @@ function MarketingNav() {
                             className={clsx(
                                 'py-3 border-b-2 text-sm font-medium transition-colors',
                                 pathname.startsWith(item.href)
-                                    ? 'border-sb-verde-mar text-sb-verde-mar'
-                                    : 'border-transparent text-sb-neutral-500 hover:text-sb-neutral-700 hover:border-sb-neutral-300'
+                                    ? 'border-primary text-primary'
+                                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
                             )}
                         >
                             {item.label}
@@ -48,7 +48,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
   return (
     <>
        <ModuleHeader title="Marketing" icon={Megaphone} />
-       <div className="bg-card border-b border-sb-neutral-200">
+       <div className="bg-card border-b border-border">
             <MarketingNav />
        </div>
       <div className="flex-grow bg-background">

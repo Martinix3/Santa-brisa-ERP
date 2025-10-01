@@ -18,10 +18,8 @@ function ProductionNav() {
         { href: '/production/traceability', label: 'Trazabilidad' },
     ];
 
-    const accentColor = 'hsl(var(--sb-accent-produccion))';
-
     return (
-        <div className="bg-background border-b border-zinc-200">
+        <div className="bg-background border-b border-border">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex gap-6">
                     {navItems.map(item => (
@@ -31,13 +29,9 @@ function ProductionNav() {
                             className={clsx(
                                 'py-3 border-b-2 text-sm font-medium transition-colors',
                                 pathname.startsWith(item.href)
-                                    ? 'text-zinc-900'
-                                    : 'border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300'
+                                    ? 'border-primary text-primary'
+                                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
                             )}
-                             style={{
-                                borderColor: pathname.startsWith(item.href) ? accentColor : 'transparent',
-                                color: pathname.startsWith(item.href) ? `hsl(var(--sb-accent-produccion))` : ''
-                            }}
                         >
                             {item.label}
                         </Link>
@@ -51,7 +45,7 @@ function ProductionNav() {
 export default function ProductionLayout({ children }: { children: React.ReactNode }) {
   const accentColor = 'hsl(var(--sb-accent-produccion))';
   return (
-    <div className="h-full flex flex-col bg-background">
+    <div className="h-full flex flex-col bg-white">
        <ModuleHeader 
         title="Producción" 
         icon={()=>(<div className="p-2 rounded-lg" style={{backgroundColor: accentColor+'33', color: accentColor}}><Factory size={20}/></div>)} 

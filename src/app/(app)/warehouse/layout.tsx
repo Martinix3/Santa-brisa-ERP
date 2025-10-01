@@ -18,16 +18,12 @@ function WarehouseNav() {
       { href: "/warehouse/logistics", label: "Logística" },
     ];
   
-    // Utilizamos el acento del módulo logística (CSS var)
-    const ACCENT = "var(--sb-accent-logistica)";
-  
     return (
       <nav
-        className="bg-card border-b border-zinc-200"
+        className="bg-card border-b border-border"
         aria-label="Secciones de Almacén"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* scroll-x en móvil para que no se rompa */}
           <div className="flex items-center gap-6 overflow-x-auto whitespace-nowrap">
             {navItems.map((item) => {
               const active = pathname === item.href || pathname.startsWith(item.href + "/");
@@ -38,20 +34,12 @@ function WarehouseNav() {
                   href={item.href}
                   aria-current={active ? "page" : undefined}
                   className={clsx(
-                    "relative py-3 text-sm font-medium transition-colors",
+                    "py-3 border-b-2 text-sm font-medium transition-colors",
                     "focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-black/10 rounded",
                     active
-                      ? "text-[color:var(--sb-ink-900)]"
-                      : "text-sb-neutral-500 hover:text-sb-neutral-700"
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
                   )}
-                  style={
-                    active
-                      ? {
-                          borderBottom: `2px solid ${ACCENT}`,
-                          color: "color-mix(in oklab, var(--sb-accent-logistica) 65%, black)",
-                        }
-                      : { borderBottom: "2px solid transparent" }
-                  }
                 >
                   {item.label}
                 </Link>

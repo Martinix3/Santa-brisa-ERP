@@ -17,10 +17,8 @@ function QualityNav() {
         { href: '/quality/parametros', label: 'Parámetros y Planes' },
     ];
 
-    const accentColor = 'hsl(var(--sb-accent-calidad))';
-
     return (
-        <div className="bg-secondary border-b border-zinc-200">
+        <div className="bg-secondary border-b border-border">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex gap-6">
                     {navItems.map(item => (
@@ -30,13 +28,9 @@ function QualityNav() {
                             className={clsx(
                                 'py-3 border-b-2 text-sm font-medium transition-colors',
                                 pathname.startsWith(item.href)
-                                    ? 'border-blue-500 text-blue-600'
-                                    : 'border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300'
+                                    ? 'border-primary text-primary'
+                                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
                             )}
-                            style={{
-                                borderColor: pathname.startsWith(item.href) ? accentColor : 'transparent',
-                                color: pathname.startsWith(item.href) ? accentColor : ''
-                            }}
                         >
                             {item.label}
                         </Link>
