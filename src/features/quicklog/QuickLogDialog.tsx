@@ -1,7 +1,7 @@
 // src/features/quicklog/QuickLogDialog.tsx
 "use client";
 import React, { useState, useMemo, useCallback, useEffect } from "react";
-import { SBDialog, SBDialogContent, SBButton, Input, Select, SBTabs } from "@/components/ui";
+import { SBDialog, SBDialogContent, SBButton, Input, Select, Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui";
 import { useData } from "@/lib/dataprovider";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -198,44 +198,48 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
               <AccountSearch accounts={data?.accounts || []} onSelect={(acc) => { setSelectedAccount(acc); setNewAccountName(undefined); }} onFreeText={(text) => { setSelectedAccount(null); setNewAccountName(text); }} />
             </div>
           )}
-          <SBTabs tabs={TABS} value={tab} onChange={setTab} />
-
-          {tab === "INTERACCION" && (
-            <div className="space-y-4">
-              <div>{renderLabel("Nota")}<Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Escribe una nota de la visita..." /></div>
-              <div>{renderLabel("Fecha/hora de la visita (opcional)")}<Input type="datetime-local" value={plannedFor} onChange={(e) => setPlannedFor(e.target.value)} /></div>
-              <div className="border-t border-slate-200 pt-4 space-y-2">
-                <div className="flex items-center justify-between"><h4 className="text-sm font-semibold text-slate-800">Añadir tácticas POS (opcional)</h4><span className="text-xs text-slate-500">Se registran en Marketing</span></div>
-                <PosLinesPicker catalog={posCatalog} lines={posLines} setLines={setPosLines} />
+          <Tabs value={tab} onValueChange={setTab}>
+            <TabsList>
+              <TabsTrigger value="INTERACCION">Interacción</TabsTrigger>
+              <TabsTrigger value="PEDIDO">Pedido (colocación)</TabsTrigger>
+            </TabsList>
+            <TabsContent value="INTERACCION">
+              <div className="space-y-4 pt-2">
+                <div>{renderLabel("Nota")}<Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Escribe una nota de la visita..." /></div>
+                <div>{renderLabel("Fecha/hora de la visita (opcional)")}<Input type="datetime-local" value={plannedFor} onChange={(e) => setPlannedFor(e.target.value)} /></div>
+                <div className="border-t border-slate-200 pt-4 space-y-2">
+                  <div className="flex items-center justify-between"><h4 className="text-sm font-semibold text-slate-800">Añadir tácticas POS (opcional)</h4><span className="text-xs text-slate-500">Se registran en Marketing</span></div>
+                  <PosLinesPicker catalog={posCatalog} lines={posLines} setLines={setPosLines} />
+                </div>
               </div>
-            </div>
-          )}
-          {tab === "PEDIDO" && (
-            <div className="space-y-4">
-              <div>{renderLabel("Distribuidor")}
-                <Select value={distributorId} onChange={(e) => setDistributorId(e.target.value)}>
-                    <option value="SB">Santa Brisa</option>
-                    {(data?.partyRoles.filter(r => r.role === 'DISTRIBUTOR').map(r => data.parties.find(p => p.id === r.partyId)) || []).map(d => d && <option key={d.id} value={d.id}>{d.name}</option>)}
-                </Select>
+            </TabsContent>
+            <TabsContent value="PEDIDO">
+              <div className="space-y-4 pt-2">
+                <div>{renderLabel("Distribuidor")}
+                  <Select value={distributorId} onChange={(e) => setDistributorId(e.target.value)}>
+                      <option value="SB">Santa Brisa</option>
+                      {(data?.partyRoles.filter(r => r.role === 'DISTRIBUTOR').map(r => data.parties.find(p => p.id === r.partyId)) || []).map(d => d && <option key={d.id} value={d.id}>{d.name}</option>)}
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <div className="text-sm font-medium text-slate-800">Líneas de pedido</div>
+                  {lines.map((l: OrderLine, idx: number) => (
+                    <div key={idx} className="flex gap-2 items-center">
+                      <Select className="flex-1" value={l.sku} onChange={e => setLines(s => s.map((x, i) => i === idx ? { ...x, sku: e.target.value } : x))}><option value="">-- Selecciona producto --</option>{skuOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</Select>
+                      <Input type="number" min={1} className="w-20" value={l.qty} onChange={e => setLines(s => s.map((x, i) => i === idx ? { ...x, qty: Math.max(1, Number(e.target.value) || 1) } : x))} />
+                      <Input type="number" step="0.01" placeholder="€ (opc.)" className="w-24" value={l.unitPriceReported ?? ""} onChange={e => setLines(s => s.map((x, i) => i === idx ? { ...x, unitPriceReported: Number(e.target.value) || undefined } : x))} />
+                      <SBButton variant="ghost" onClick={() => removeLine(idx)}><Trash2 className="w-4 h-4 text-rose-500" /></SBButton>
+                    </div>
+                  ))}
+                  <SBButton variant="outline" size="sm" onClick={addLine}><Plus className="w-4 h-4 mr-2" />Añadir línea</SBButton>
+                </div>
+                <div className="border-t border-slate-200 pt-4 space-y-2">
+                  <div className="flex items-center justify-between"><h4 className="text-sm font-semibold text-slate-800">Añadir tácticas POS (opcional)</h4><span className="text-xs text-slate-500">Se registran en Marketing</span></div>
+                  <PosLinesPicker catalog={posCatalog} lines={posLines} setLines={setPosLines} />
+                </div>
               </div>
-              <div className="space-y-2">
-                <div className="text-sm font-medium text-slate-800">Líneas de pedido</div>
-                {lines.map((l: OrderLine, idx: number) => (
-                  <div key={idx} className="flex gap-2 items-center">
-                    <Select className="flex-1" value={l.sku} onChange={e => setLines(s => s.map((x, i) => i === idx ? { ...x, sku: e.target.value } : x))}><option value="">-- Selecciona producto --</option>{skuOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</Select>
-                    <Input type="number" min={1} className="w-20" value={l.qty} onChange={e => setLines(s => s.map((x, i) => i === idx ? { ...x, qty: Math.max(1, Number(e.target.value) || 1) } : x))} />
-                    <Input type="number" step="0.01" placeholder="€ (opc.)" className="w-24" value={l.unitPriceReported ?? ""} onChange={e => setLines(s => s.map((x, i) => i === idx ? { ...x, unitPriceReported: Number(e.target.value) || undefined } : x))} />
-                    <SBButton variant="ghost" onClick={() => removeLine(idx)}><Trash2 className="w-4 h-4 text-rose-500" /></SBButton>
-                  </div>
-                ))}
-                <SBButton variant="outline" size="sm" onClick={addLine}><Plus className="w-4 h-4 mr-2" />Añadir línea</SBButton>
-              </div>
-              <div className="border-t border-slate-200 pt-4 space-y-2">
-                <div className="flex items-center justify-between"><h4 className="text-sm font-semibold text-slate-800">Añadir tácticas POS (opcional)</h4><span className="text-xs text-slate-500">Se registran en Marketing</span></div>
-                <PosLinesPicker catalog={posCatalog} lines={posLines} setLines={setPosLines} />
-              </div>
-            </div>
-          )}
+            </TabsContent>
+          </Tabs>
         </div>
         <div className="flex justify-end gap-2 pt-4">
           <SBButton variant="secondary" onClick={() => onOpenChange(false)} disabled={saving}>Cancelar</SBButton>
