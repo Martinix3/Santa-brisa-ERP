@@ -1,4 +1,4 @@
-# Santa Brisa ERP - Resumen del Proyecto
+and# Santa Brisa ERP - Resumen del Proyecto
 
 ## 1. Resumen Ejecutivo
 

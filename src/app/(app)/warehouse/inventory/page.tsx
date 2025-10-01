@@ -1,8 +1,7 @@
-
 // src/app/(app)/warehouse/inventory/page.tsx
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useData } from "@/lib/dataprovider";
 import { SBCard, DataTableSB, SBButton, Input, Select } from "@/components/ui/ui-primitives";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -11,9 +10,14 @@ import {
   computeSkuRollup, computeStockAlerts,
   stockStatusBadgeClass, stockStatusLabel, type SkuStockSummary,
 } from "@/lib/inventory";
-import { Plus, Download, Search, AlertCircle, ChevronDown, PackageSearch, FileClock } from "lucide-react";
+import { Plus, Download, Search, AlertCircle, ChevronDown, PackageSearch, FileClock, RefreshCw } from "lucide-react";
 import { RealtimeBadge } from "@/components/RealtimeBadge";
 import { QuickGoodsReceiptDialog } from "@/features/warehouse/components/QuickGoodsReceiptDialog";
+import { NewOnHandDialog } from "./components/NewOnHandDialog";
+import { rebuildOnHand } from "./actions";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+
 
 // ================================================================
 // COMPONENTES UI (Mantenidos igual, pero ahora consumen mock data)
@@ -85,7 +89,7 @@ function SkuAccordionRow({ sku, summary, lots, items, onSelect, setViewMode, set
         FAILED: "bg-red-100 text-red-800",
         WAIVED: "bg-blue-100 text-blue-800",
     };
-    return <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${styles[status]}`}>{status}</span>;
+    return <span className={`px-2 py-1 text-xs font-semibold rounded-full ${styles[status]}`}>{status}</span>;
 }
 
 // ================================================================
@@ -94,6 +98,7 @@ function SkuAccordionRow({ sku, summary, lots, items, onSelect, setViewMode, set
 
 export default function InventoryPage() {
   const { data } = useData();
+  const router = useRouter();
   const onHand = data?.onHand || [];
   const lotsMaster = data?.lots || [];
   const items = data?.items || [];
@@ -109,6 +114,7 @@ export default function InventoryPage() {
 
   const [openNew, setOpenNew] = useState(false);
   const [openReceipt, setOpenReceipt] = useState(false);
+  const [isRebuilding, startRebuildTransition] = useTransition();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -195,6 +201,19 @@ export default function InventoryPage() {
     return ["ALL", ...Array.from(set)];
   }, [onHand]);
 
+  const handleRebuild = () => {
+    startRebuildTransition(async () => {
+        toast.info("Iniciando reconstrucción del inventario...");
+        const result = await rebuildOnHand();
+        if (result.ok) {
+            toast.success(`Inventario reconstruido: ${result.data.count} registros actualizados.`);
+            router.refresh();
+        } else {
+            toast.error(`Error: ${result.message}`);
+        }
+    });
+  };
+
   const ACCENT = "var(--sb-accent-logistica)";
   const BTN_OUTLINE = `border text-[color:${ACCENT}] border-[color:${ACCENT}] hover:bg-[color:${ACCENT}]/10`;
   const BTN_SOLID = `bg-[color:${ACCENT}] text-white hover:opacity-90`;
@@ -234,6 +253,9 @@ export default function InventoryPage() {
         <div className="flex gap-2">
           <SBButton variant="outline" className={BTN_OUTLINE}>Exportar</SBButton>
           <SBButton variant="outline" className={BTN_OUTLINE} onClick={() => setOpenReceipt(true)}>Nueva Recepción</SBButton>
+          <SBButton variant="outline" className={BTN_OUTLINE} onClick={handleRebuild} disabled={isRebuilding}>
+            <RefreshCw size={14} className={isRebuilding ? 'animate-spin' : ''} /> {isRebuilding ? '...' : 'Reconstruir'}
+          </SBButton>
           <SBButton className={BTN_SOLID} onClick={() => setOpenNew(true)}>Ajuste Manual</SBButton>
         </div>
       </div>
@@ -306,6 +328,17 @@ export default function InventoryPage() {
         </div>
       </div>
       
+      {openNew && (
+        <NewOnHandDialog
+            open={openNew}
+            onClose={() => setOpenNew(false)}
+            onSuccess={() => { toast.success("Ajuste manual guardado."); setOpenNew(false); router.refresh(); }}
+            onError={(msg) => toast.error(`Error: ${msg}`)}
+            items={items}
+            locations={locations.filter(l => l !== 'ALL')}
+        />
+      )}
+
       <QuickGoodsReceiptDialog
         open={openReceipt}
         onOpenChange={setOpenReceipt}
