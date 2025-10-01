@@ -4,7 +4,7 @@
 export * from "./ui-primitives";
 
 export { SBDialog, SBDialogContent } from "./SBDialog";
-export { SBTabs, Tabs, TabsList, TabsTrigger, TabsContent } from "./SBTabs";
+export { Tabs, TabsList, TabsTrigger, TabsContent } from "./tabs";
 export { SBTooltip } from "./SBTooltip";
 export { SBPopover } from "./SBPopover";
 export { default as KpiCard } from './KpiCard';

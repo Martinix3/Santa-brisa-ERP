@@ -4,14 +4,13 @@
 import React, { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useData } from "@/lib/dataprovider";
 import { SBCard, SBButton, Input, Select } from "@/components/ui/ui-primitives";
-import type { ItemCategory, OnHandView, Lot, QcStatus, Item } from "@/domain/ssot";
+import type { Item, OnHandView } from "@/domain/ssot";
 import {
   computeSkuRollup,
-  stockStatusBadgeClass, stockStatusLabel, type SkuStockSummary, computeStockAlerts, type StockAlert
+  computeStockAlerts, type StockAlert
 } from "@/lib/inventory";
 import { Plus, Search, AlertCircle, RefreshCw } from "lucide-react";
 import { RealtimeBadge } from "@/components/RealtimeBadge";
-import { QuickGoodsReceiptDialog } from "@/features/warehouse/components/QuickGoodsReceiptDialog";
 import { NewOnHandDialog } from "./components/NewOnHandDialog";
 import { rebuildOnHand } from "./actions";
 import { toast } from "sonner";
@@ -118,6 +117,13 @@ export default function InventoryPage() {
     });
   };
 
+  const handleViewChange = (v: string) => {
+    if (v === 'sku' || v === 'lot') {
+        setViewMode(v);
+        setSelectedLotNumber(null);
+    }
+  };
+
   const ACCENT = "var(--sb-accent-logistica)";
   const BTN_OUTLINE = `border text-[color:${ACCENT}] border-[color:${ACCENT}] hover:bg-[color:${ACCENT}]/10`;
   const BTN_SOLID = `bg-[color:${ACCENT}] text-white hover:opacity-90`;
@@ -163,7 +169,7 @@ export default function InventoryPage() {
         </div>
         <div className="flex gap-2">
           <SBButton variant="outline" className={BTN_OUTLINE}>Exportar</SBButton>
-          <SBButton variant="outline" className={BTN_OUTLINE} onClick={() => setOpenReceipt(true)}>Nueva Recepción</SBButton>
+          <SBButton variant="outline" className={BTN_OUTLINE} onClick={() => {}}>Nueva Recepción</SBButton>
           <SBButton variant="outline" className={BTN_OUTLINE} onClick={handleRebuild} disabled={isRebuilding}>
             <RefreshCw size={14} className={isRebuilding ? 'animate-spin' : ''} /> {isRebuilding ? '...' : 'Reconstruir'}
           </SBButton>
@@ -188,8 +194,15 @@ export default function InventoryPage() {
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className={selectedLotNumber ? "md:col-span-2" : "md:col-span-3"}>
-          <SBCard title="Inventario" noPadding>
-              <Tabs value={viewMode} onValueChange={(v) => { setViewMode(v as any); setSelectedLotNumber(null); }}>
+          <SBCard title={
+                <div className="flex justify-between items-center">
+                    <span>Inventario</span>
+                    <span className="text-sm font-normal text-zinc-500">
+                        {viewMode === 'sku' ? `${skusWithLots.length} SKUs` : `${lotRows.length} lotes`}
+                    </span>
+                </div>
+            } noPadding>
+              <Tabs value={viewMode} onValueChange={handleViewChange}>
                 <div className="flex justify-between items-center p-4">
                   <TabsList className="relative">
                     <TabsTrigger value="sku" className="data-[state=active]:text-[color:var(--sb-accent)]">Por SKU</TabsTrigger>
@@ -207,9 +220,9 @@ export default function InventoryPage() {
                         <span className="text-right">En QC</span>
                         <span>Estado</span>
                     </div>
-                    {skusWithLots.length === 0 ? <Empty hint="No hay stock agrupado por SKU para esta vista." /> : (
+                    {skusWithLots.length > 0 ? (
                         skusWithLots.map(({summary, lots}) => <SkuAccordionRow key={summary.itemId} sku={summary} items={items} onLotSelect={setSelectedLotNumber} />)
-                    )}
+                    ) : <Empty hint="No hay stock que coincida con los filtros." />}
                   </div>
                 </TabsContent>
                 <TabsContent value="lot">
@@ -236,11 +249,6 @@ export default function InventoryPage() {
             locations={locations.filter(l => l !== 'ALL')}
         />
       )}
-
-      <QuickGoodsReceiptDialog
-        open={openReceipt}
-        onOpenChange={setOpenReceipt}
-      />
     </div>
   );
 }
