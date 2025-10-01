@@ -19,7 +19,7 @@ type DataContextType = {
   currentUser: User | null;
   authReady: boolean;
   firebaseUser: FirebaseUser | null;
-  loadingData: boolean;                     // ⬅ NUEVO
+  loadingData: boolean;
   saveCollection: (name: keyof SantaData, rows: any[]) => Promise<void>;
   saveAllCollections: (collections: Partial<SantaData>) => Promise<void>;
   login: () => Promise<void>;
@@ -47,26 +47,25 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [isPersistenceEnabled, setIsPersistenceEnabled] = useState(true);
-  const [loadingData, setLoadingData] = useState(false);                // ⬅ estable
+  const [loadingData, setLoadingData] = useState(true); // Empieza cargando
 
   const mountedRef = useRef(true);
   useEffect(() => () => { mountedRef.current = false; }, []);
 
-  // Evita recargas repetidas para el mismo UID
-  const lastLoadedUidRef = useRef<string | null>(null);
-
   const loadInitialData = useCallback(async () => {
-    if (!isPersistenceEnabled) {
-      setLoadingData(true);
-      setData(MOCK_DATA as unknown as SantaData);
+    if (!firebaseUser) {
+      setData(null);
       setLoadingData(false);
       return;
     }
-    if (!firebaseUser) return;
 
-    // Idempotencia por UID
-    if (lastLoadedUidRef.current === firebaseUser.uid && data) return;
-
+    if (!isPersistenceEnabled) {
+      setLoadingData(true);
+      setData(MOCK_DATA as unknown as SantaData);
+      if (mountedRef.current) setLoadingData(false);
+      return;
+    }
+    
     setLoadingData(true);
     try {
       if (!firestoreDb) throw new Error("Firestore DB not initialized");
@@ -83,51 +82,36 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           console.error(`[DataProvider] Error loading ${name}`, e);
         }
       }
-      if (!mountedRef.current) return;
-      setData(partial as SantaData);
-      lastLoadedUidRef.current = firebaseUser.uid;
-      console.log(`[DataProvider] Firestore loaded (${total} docs) for uid=${firebaseUser.uid}`);
+      if (mountedRef.current) setData(partial as SantaData);
     } finally {
       if (mountedRef.current) setLoadingData(false);
     }
-  }, [firebaseUser, isPersistenceEnabled, firestoreDb, data]);
+  }, [firebaseUser, isPersistenceEnabled]);
 
-  // Auth listener (una sola suscripción, sin dependencias móviles)
   useEffect(() => {
-    const unsub = onAuthStateChanged(firebaseAuth, async (fbUser) => {
-      const prevUid = firebaseUser?.uid;
+    const unsub = onAuthStateChanged(firebaseAuth, (fbUser) => {
       setFirebaseUser(fbUser ?? null);
       setAuthReady(true);
-
       if (!fbUser) {
-        setCurrentUser(null);
         setData(null);
-        lastLoadedUidRef.current = null;
-        return;
-      }
-      // Si el UID cambia, forzamos carga
-      if (fbUser.uid !== prevUid) {
-        await loadInitialData();
+        setCurrentUser(null);
+        setLoadingData(false);
       }
     });
     return () => unsub();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // ⬅ no añadas dependencias para no re-suscribir
+  }, []);
 
-  // Sincroniza currentUser una vez hay datos + firebaseUser
   useEffect(() => {
-    if (!authReady || !firebaseUser || !data?.users) {
-      if (authReady && !firebaseUser) setCurrentUser(null);
-      return;
-    }
-    const appUser = data.users.find(u => u.email === firebaseUser.email);
-    setCurrentUser(appUser ?? null);
-    if (!appUser) {
-      console.warn(`[DataProvider] No app user for ${firebaseUser.email}. Signup o datos desfasados.`);
+      loadInitialData();
+  }, [firebaseUser, isPersistenceEnabled, loadInitialData]);
+
+  useEffect(() => {
+    if (authReady && firebaseUser && data?.users) {
+      const appUser = data.users.find(u => u.email === firebaseUser.email);
+      setCurrentUser(appUser ?? null);
     }
   }, [authReady, firebaseUser, data?.users]);
 
-  // Redirecciones centralizadas (idempotentes)
   useEffect(() => {
     if (!authReady) return;
     const isAuthPage = pathname.startsWith("/login");
@@ -169,21 +153,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [saveAllCollections]);
 
   const login = useCallback(async () => {
-    // 1. Crea una instancia del proveedor
     const provider = new GoogleAuthProvider();
-
-    // 2. AÑADE LOS PERMISOS (SCOPES) QUE NECESITAS
-    // Este es un ejemplo para Google Sheets. Busca el scope correcto para tu "plugin".
     provider.addScope('https://www.googleapis.com/auth/spreadsheets');
-    
-    // Opcional: Para forzar que siempre se muestre la pantalla de consentimiento de Google
-    // y se genere un nuevo refresh_token, útil para el acceso offline del backend.
-    // provider.setCustomParameters({
-    //   prompt: 'consent',
-    //   access_type: 'offline',
-    // });
-
-    // 3. Inicia sesión con el proveedor configurado
     await signInWithPopup(firebaseAuth, provider);
   }, []);
 
@@ -210,13 +181,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(async () => {
     await signOut(firebaseAuth);
-    // El listener limpiará estado/redirect
   }, []);
 
   const togglePersistence = useCallback(() => {
     setIsPersistenceEnabled(p => !p);
-    // si se apaga → usar MOCK; si se enciende → recargar Firestore
-    setTimeout(() => loadInitialData(), 0);
+    loadInitialData();
   }, [loadInitialData]);
 
   const setCurrentUserById = useCallback((userId: string) => {
@@ -233,18 +202,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     loadInitialData,
   }), [data, currentUser, authReady, firebaseUser, loadingData, saveCollection, saveAllCollections, login, loginWithEmail, signupWithEmail, logout, togglePersistence, isPersistenceEnabled, setCurrentUserById, loadInitialData]);
 
-  // Overlay global de carga coherente
-  const showOverlay = !authReady || (!!firebaseUser && loadingData);
-
   return (
     <DataContext.Provider value={value}>
-      {showOverlay && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-white/80 backdrop-blur-sm">
-          <div className="flex flex-col items-center gap-4">
-            <p className="text-sb-neutral-700">Cargando datos de Santa Brisa...</p>
-          </div>
-        </div>
-      )}
       {children}
     </DataContext.Provider>
   );
