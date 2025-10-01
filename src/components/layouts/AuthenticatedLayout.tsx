@@ -113,7 +113,7 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
                 <Link href={dashboardHrefFor(section.module)} className={`flex items-center justify-center h-10 w-10 rounded-lg transition-colors ${isActiveModule ? 'bg-yellow-100 text-yellow-800' : 'text-zinc-600 hover:bg-zinc-100'}`}>
                   <section.icon size={20} />
                 </Link>
-                <div className="absolute left-full top-0 ml-2 w-48 bg-white border rounded-lg shadow-lg hidden group-hover:block">
+                <div className="absolute left-full top-0 ml-2 w-48 bg-white border rounded-lg shadow-lg hidden group-hover:block z-50">
                   <div className="p-2 border-b">
                       <p className="text-sm font-semibold">{section.title}</p>
                   </div>
