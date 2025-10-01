@@ -228,19 +228,25 @@ export default function InventoryPage() {
           <SBButton className={BTN_SOLID} onClick={() => setOpenNew(true)}>Ajuste Manual</SBButton>
         </div>
       </div>
+      
+      <details open={alerts.length > 0} className="[&[open]>summary]:mb-2">
+        <summary className="list-none cursor-pointer flex items-center gap-2 text-amber-800 font-semibold text-sm">
+          <AlertCircle size={16} />
+          {alerts.length} Alertas de Inventario
+          <ChevronDown size={16} className="transition-transform details-arrow" />
+        </summary>
+        <SBCard noPadding>
+          <div className="p-2 space-y-1">
+            {alerts.length === 0 ?
+              <div className="text-sm text-zinc-500 p-2">Sin alertas</div>
+              : alerts.map((a,i)=> <div key={i} className="text-xs p-1.5 rounded-md bg-amber-50 text-amber-800 flex items-center gap-2"><AlertCircle size={14}/> {a.itemId}: {a.message}</div>)
+            }
+          </div>
+        </SBCard>
+      </details>
 
       <div className="grid grid-cols-1 xl:grid-cols-[320px_minmax(0,1fr)] gap-4">
         <div className="space-y-4">
-          <SBCard title="Alertas de Inventario" noPadding>
-            {(alerts.length === 0) ? (
-              <div className="text-sm text-zinc-500 p-4">Sin alertas</div>
-            ) : (
-              <div className="p-2 space-y-1">
-                {alerts.map((a,i)=> <div key={i} className="text-xs p-1.5 rounded-md bg-amber-50 text-amber-800 flex items-center gap-2"><AlertCircle size={14}/> {a.itemId}: {a.message}</div>)}
-              </div>
-            )}
-          </SBCard>
-
           <SBCard title="Categorías" noPadding>
              <div className="p-2 flex flex-wrap gap-2">
               {CATEGORY_ORDER.map(c => (
