@@ -105,7 +105,7 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
         <Link href="/" className="h-14 flex items-center justify-center border-b">
           <Image src="https://santabrisa.es/cdn/shop/files/clavista_300x_36b708f6-4606-4a51-9f65-e4b379531ff8_300x.svg?v=1752413726" alt="Santa Brisa" width={32} height={24} style={{width: 'auto', height: 'auto'}} priority />
         </Link>
-        <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-1">
+        <nav className="flex-1 px-2 py-3 space-y-1">
           {visibleSections.map(section => {
             const isActiveModule = section.module === activeModule;
             return (
