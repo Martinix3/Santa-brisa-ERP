@@ -4,8 +4,8 @@
 
 export * from "./ui-primitives";
 
-export { SBDialog } from "./SBDialog";
-export { SBTabs } from "./SBTabs";
+export { SBDialog, SBDialogContent } from "./SBDialog";
+export { SBTabs, Tabs, TabsList, TabsTrigger, TabsContent } from "./SBTabs";
 export { SBTooltip } from "./SBTooltip";
 export { SBPopover } from "./SBPopover";
 

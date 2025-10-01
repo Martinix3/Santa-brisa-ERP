@@ -144,11 +144,14 @@
   
   /* Animaciones y Hovers */
   .hover-raise { transition: transform .12s ease, box-shadow .2s ease; }
-  .hover-raise:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+  .hover-raise:hover { transform: translateY(-2px); box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); }
+
   .fade-in { animation: sb-fade .18s ease-out both; }
   .slide-up { animation: sb-slide-up .18s cubic-bezier(.2,.8,.2,1) both; }
+
   @keyframes sb-fade { from{opacity:0} to{opacity:1} }
   @keyframes sb-slide-up { from{opacity:.6; transform:translateY(6px)} to{opacity:1; transform:none} }
+
   .is-pressed { transform: translateY(1px); }
   .focus-ring { @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2; }
 
@@ -157,6 +160,7 @@
   .sb-h2 { @apply text-2xl font-semibold tracking-tight; }
   .sb-h3 { @apply text-xl font-semibold; }
   .sb-subtle { @apply text-sm text-muted-foreground; }
+
   .text-balance { text-wrap: balance; }
   .text-pretty { text-wrap: pretty; }
 
@@ -203,8 +207,7 @@
   /* Toasts */
   .sb-toastctr { position: fixed; right: 16px; bottom: 16px; display: grid; gap: 8px; z-index: 60; }
   .sb-toast {
-    @apply rounded-lg border px-3 py-2 text-sm bg-background;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    @apply rounded-lg border px-3 py-2 text-sm bg-background shadow-sm;
     animation: sb-toast-in .18s ease-out forwards;
   }
   .sb-toast--success { @apply border-emerald-200 text-emerald-900; background: hsl(var(--feedback-green-bg)); }
@@ -221,99 +224,52 @@
   }
   @keyframes sb-shimmer { 100% { transform: translateX(100%); } }
 
-}
+  /* Date Picker */
+  .sb-date { @apply bg-card; }
+  .sb-date::-webkit-calendar-picker-indicator {
+    filter: grayscale(100%);
+    opacity: .8;
+  }
 
+  /* react-day-picker */
+  .rdp { --rdp-accent-color: hsl(var(--accent)); --rdp-border: hsl(var(--border)); }
+  .rdp { @apply text-sm; }
+  .rdp-month { @apply p-2; }
+  .rdp-day { @apply h-9 w-9 rounded-md; }
+  .rdp-day_selected { background: var(--rdp-accent-color); color: hsl(var(--primary)); }
+  .rdp-day:hover { @apply bg-secondary; }
+  .rdp-caption_label { @apply font-medium; }
+  .rdp-nav_button { @apply h-9 w-9 rounded-md transition-colors hover:bg-secondary; }
+  .rdp-head_cell { @apply text-muted-foreground; }
 
-/* ===== FullCalendar General Styles ===== */
-.fc {
-    --fc-border-color: hsl(var(--muted) / 0.7);
-    --fc-daygrid-event-dot-width: 6px;
-    --fc-list-event-dot-width: 6px;
-    --fc-event-border-color: transparent;
-    --fc-event-text-color: hsl(var(--primary));
-    --fc-event-bg-color: hsl(var(--accent) / 0.2);
-    --fc-event-selected-bg-color: hsl(var(--accent) / 0.3);
-}
-.fc .fc-toolbar.fc-header-toolbar {
-    margin-bottom: 1rem;
-}
-.fc .fc-toolbar-title {
-    font-size: 1.125rem;
-    font-weight: 600;
-}
-.fc .fc-button {
-    background-color: hsl(var(--background));
-    border: 1px solid hsl(var(--muted) / 0.7);
-    color: hsl(var(--foreground));
-    padding: 0.5rem 0.75rem;
-    font-size: 0.875rem;
-    text-transform: capitalize;
-    transition: background-color 0.1s;
-}
-.fc .fc-button:hover {
-    background-color: hsl(var(--secondary));
-}
-.fc .fc-button-primary:not(:disabled).fc-button-active {
-    background-color: hsl(var(--accent));
-    border-color: hsl(var(--accent));
-    color: hsl(var(--primary));
-}
-.fc .fc-daygrid-day.fc-day-today {
-    background-color: hsl(var(--accent) / 0.1);
-}
-
-/* ===== Mini Calendar Styles ===== */
-.sb-mini-calendar .fc-toolbar.fc-header-toolbar {
-    margin-bottom: 0.5rem;
-}
-.sb-mini-calendar .fc-toolbar-title {
-    font-size: 0.875rem;
-}
-.sb-mini-calendar .fc-button {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.75rem;
-}
-.sb-mini-calendar .fc-daygrid-day-number {
-    font-size: 0.75rem;
-    padding: 2px;
-}
-.sb-mini-calendar .fc-daygrid-day-frame {
-    padding: 1px;
-}
-.sb-mini-calendar .fc-daygrid-event {
-    border-radius: 2px;
-}
-.sb-mini-calendar .fc-event-title {
-    padding: 0 2px;
-    font-size: 0.65rem;
+  /* Tooltip & Popover */
+  .sb-tooltip { position: relative; }
+  .sb-tooltip[data-open="true"] .sb-tooltip__pop {
+    opacity: 1; transform: translateY(0);
+    pointer-events: auto;
+  }
+  .sb-tooltip__pop {
+    @apply z-50 rounded-md border bg-background text-foreground text-xs px-2 py-1 shadow-md;
+    position: absolute; left: 50%; bottom: calc(100% + 8px);
+    transform: translate(-50%, 4px); opacity: 0; pointer-events: none;
+    transition: opacity .12s ease, transform .12s ease;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-.sb-mini-calendar .fc-daygrid-day-events {
-    min-height: auto;
-}
-.sb-mini-calendar .fc-daygrid-dot-event {
-    flex-direction: row;
-    align-items: center;
-    gap: 2px;
-}
-.sb-mini-calendar .fc-daygrid-dot-event .fc-event-title {
-    flex-grow: 1;
-}
+  }
+  .sb-tooltip__arrow {
+    position: absolute; left: 50%; top: 100%; transform: translateX(-50%);
+    width: 8px; height: 8px; background: inherit; border-left: inherit; border-top: inherit;
+    transform: translateX(-50%) rotate(45deg);
+  }
 
-@keyframes slide-up-fade {
-    from { opacity: 0; transform: translateY(100%); }
-    to { opacity: 1; transform: translateY(0); }
-}
-.animate-slide-up-fade {
-    animation: slide-up-fade 0.3s ease-out forwards;
-}
+  .sb-popover__overlay { position:fixed; inset:0; background: transparent; }
+  .sb-popover {
+    @apply z-50 rounded-md border bg-background text-foreground shadow-md p-3;
+    position: absolute; min-width: 220px;
+    animation: sb-fade .12s ease both;
+  }
 
-@keyframes pulse {
-    0%, 100% { transform: scale(1); opacity: 0.5; }
-    50% { transform: scale(1.5); opacity: 1; }
-}
-.animate-pulse-once {
-    animation: pulse 0.6s ease-out forwards;
+  .sb-chart:hover .recharts-cartesian-grid-horizontal line,
+  .sb-chart:hover .recharts-cartesian-grid-vertical line {
+    stroke-opacity: .9;
+  }
 }

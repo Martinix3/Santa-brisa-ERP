@@ -1,8 +1,7 @@
 // src/features/quicklog/QuickLogDialog.tsx
 "use client";
 import React, { useState, useMemo, useCallback, useEffect } from "react";
-import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog";
-import { SBButton, Input, Select } from "@/components/ui/ui-primitives";
+import { SBDialog, SBDialogContent, SBButton, Input, Select, SBTabs } from "@/components/ui";
 import { useData } from "@/lib/dataprovider";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -102,7 +101,7 @@ type OrderLine = {
 export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "INTERACCION" }: Props) {
   const router = useRouter();
   const { data, currentUser, saveAllCollections } = useData();
-  const [tab, setTab] = useState<"INTERACCION" | "PEDIDO">(defaultTab);
+  const [tab, setTab] = useState<string>(defaultTab);
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(accountId ? data?.accounts.find(a => a.id === accountId) || null : null);
   const [newAccountName, setNewAccountName] = useState<string | undefined>();
   const [saving, setSaving] = useState(false);
@@ -187,10 +186,11 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
   }, [open, resetAll]);
 
   const renderLabel = (text: string) => <label className="text-xs font-medium text-slate-500">{text}</label>;
+  const TABS = [{ id: "INTERACCION", label: "Interacción" }, { id: "PEDIDO", label: "Pedido (colocación)" }];
 
   return (
     <SBDialog open={open} onOpenChange={onOpenChange}>
-      <SBDialogContent title="QuickLog (Interacción / Pedido)">
+      <SBDialogContent title="QuickLog">
         <div className="space-y-4 py-4">
           {!accountId && (
             <div>
@@ -198,16 +198,8 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
               <AccountSearch accounts={data?.accounts || []} onSelect={(acc) => { setSelectedAccount(acc); setNewAccountName(undefined); }} onFreeText={(text) => { setSelectedAccount(null); setNewAccountName(text); }} />
             </div>
           )}
-          <div className="border-b border-slate-200">
-            <nav className="flex -mb-px gap-4">
-              <button onClick={() => setTab("INTERACCION")} className={`py-2 px-1 text-sm whitespace-nowrap border-b-2 ${tab === "INTERACCION" ? `font-semibold text-slate-900` : 'text-slate-500 hover:text-slate-700 border-transparent'}`} style={{ borderColor: tab === "INTERACCION" ? SANTA_BRISA_COLORS.brand.accent : 'transparent' }}>
-                Interacción
-              </button>
-              <button onClick={() => setTab("PEDIDO")} className={`py-2 px-1 text-sm whitespace-nowrap border-b-2 ${tab === "PEDIDO" ? `font-semibold text-slate-900` : 'text-slate-500 hover:text-slate-700 border-transparent'}`} style={{ borderColor: tab === "PEDIDO" ? SANTA_BRISA_COLORS.brand.accent : 'transparent' }}>
-                Pedido (colocación)
-              </button>
-            </nav>
-          </div>
+          <SBTabs tabs={TABS} value={tab} onChange={setTab} />
+
           {tab === "INTERACCION" && (
             <div className="space-y-4">
               <div>{renderLabel("Nota")}<Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Escribe una nota de la visita..." /></div>

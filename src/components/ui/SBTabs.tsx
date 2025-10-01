@@ -20,3 +20,6 @@ export function SBTabs({
     </>
   );
 }
+
+// Re-export de Radix para consistencia con ShadCN
+export { Tabs, TabsList, TabsTrigger, TabsContent } from './tabs';

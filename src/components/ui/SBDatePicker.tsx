@@ -1,7 +1,8 @@
 // src/components/ui/SBDatePicker.tsx
 "use client";
 import { DayPicker } from "react-day-picker";
+import { SBCard } from "./SBCard";
 
 export function SBDatePicker(props:any){
-  return <div className="sb-card"><div className="sb-card__content"><DayPicker {...props} /></div></div>;
+  return <SBCard><div className="p-2"><DayPicker {...props} /></div></SBCard>;
 }
