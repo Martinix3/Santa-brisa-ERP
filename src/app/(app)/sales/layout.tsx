@@ -4,17 +4,16 @@ import React from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
-import { LineChart } from 'lucide-react';
+import { BarChart3 } from 'lucide-react';
 
 const clsx = (...xs: Array<string | false | null | undefined>) => xs.filter(Boolean).join(" ");
 
-function CashflowNav() {
+function SalesNav() {
     const pathname = usePathname() ?? '';
     const navItems = [
-        { href: '/cashflow/dashboard', label: 'Dashboard' },
-        { href: '/cashflow/payments', label: 'Pagos' },
-        { href: '/cashflow/collections', label: 'Cobros' },
-        { href: '/cashflow/settings', label: 'Ajustes' },
+        { href: '/dashboard-ventas', label: 'Dashboard' },
+        { href: '/accounts', label: 'Cuentas' },
+        { href: '/orders', label: 'Pedidos' },
     ];
 
     return (
@@ -41,15 +40,13 @@ function CashflowNav() {
     );
 }
 
-export default function CashflowLayout({ children }: { children: React.ReactNode }) {
+export default function SalesLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <ModuleHeader title="Finanzas y Tesorería" icon={LineChart} />
-      <CashflowNav />
+      <ModuleHeader title="Ventas" icon={BarChart3} />
+      <SalesNav />
       <div className="flex-grow bg-secondary">
-          <div className="max-w-7xl mx-auto py-6 px-4">
-            {children}
-          </div>
+        {children}
       </div>
     </>
   );

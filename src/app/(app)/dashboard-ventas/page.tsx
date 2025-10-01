@@ -1,4 +1,4 @@
-// src/app/(app)/dashboard-ventas/page.tsx — Santa Brisa DS aplicado
+// src/app/(app)/dashboard-ventas/page.tsx
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -23,7 +23,7 @@ import {
   Pie,
   PieChart,
 } from "recharts";
-import { SBButton, SBCard, KPI as GenericKPI } from "@/components/ui/ui-primitives";
+import { SBButton, SBCard } from "@/components/ui/ui-primitives";
 import KpiCard from "@/components/ui/KpiCard";
 import { SB_THEME } from "@/domain/ssot";
 
@@ -104,7 +104,7 @@ export default function SalesDashboardPage() {
 
     const tacticsByOwner: Record<string, number> = {};
     (data.posTactics || []).filter((t:any)=> new Date(t.createdAt) >= startOfMonth).forEach((t:any)=>{
-      const acc = data.accounts.find((a:any)=> a.id === t.accountId);
+      const acc = data.accounts.find((a:any) => a.id === t.accountId);
       const owner = acc?.ownerId ?? 'unknown';
       tacticsByOwner[owner] = (tacticsByOwner[owner] || 0) + 1;
     });
@@ -162,7 +162,7 @@ export default function SalesDashboardPage() {
   const pieColors = [SB_THEME.chart.line[0], SB_THEME.chart.line[1], SB_THEME.chart.line[2], SB_THEME.chart.line[3]];
 
   return (
-    <div className="p-6" style={{ background: 'hsl(var(--background))' }}>
+    <div className="p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -185,11 +185,11 @@ export default function SalesDashboardPage() {
 
         {/* KPIs */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <KpiCard icon={Users} title="Nuevas Cuentas" value={kpis.newAccounts.toString()} color={SB_THEME.chart.line[0]} goal={`${kpis.newAccounts} / 10`} leaderValue={leaders.newAccounts.value} leaderName={leaders.newAccounts.name} />
-          <KpiCard icon={MessageCircle} title="Conversión a pedido" value={`${kpis.conversionRate.toFixed(1)}%`} color={SB_THEME.chart.line[1]} />
-          <KpiCard icon={Euro} title="Facturación" value={`${kpis.revenue.toLocaleString('es-ES')} €`} color={SB_THEME.chart.line[2]} />
-          <KpiCard icon={Package} title="Cajas vendidas" value={kpis.boxesSold.toString()} color={SB_THEME.chart.line[3]} goal={`${kpis.boxesSold} / 100`} leaderValue={leaders.boxesSold.value} leaderName={leaders.boxesSold.name} />
-          <KpiCard icon={Briefcase} title="Visitas" value={kpis.visits.toString()} color={SB_THEME.chart.line[4]} goal={`${kpis.visits} / 200`} leaderValue={leaders.visits.value} leaderName={leaders.visits.name} />
+          <KpiCard icon={Users} title="Nuevas Cuentas" value={kpis.newAccounts.toString()} goal={`${kpis.newAccounts} / 10`} leaderValue={leaders.newAccounts.value} leaderName={leaders.newAccounts.name} />
+          <KpiCard icon={MessageCircle} title="Conversión a pedido" value={`${kpis.conversionRate.toFixed(1)}%`} />
+          <KpiCard icon={Euro} title="Facturación" value={`${kpis.revenue.toLocaleString('es-ES')} €`} />
+          <KpiCard icon={Package} title="Cajas vendidas" value={kpis.boxesSold.toString()} goal={`${kpis.boxesSold} / 100`} leaderValue={leaders.boxesSold.value} leaderName={leaders.boxesSold.name} />
+          <KpiCard icon={Briefcase} title="Visitas" value={kpis.visits.toString()} goal={`${kpis.visits} / 200`} leaderValue={leaders.visits.value} leaderName={leaders.visits.name} />
           <KpiCard icon={CheckSquare} title="POS tactics colocadas" value={kpis.posTactics.toString()} goal={`${kpis.posTactics} / 20`} leaderValue={leaders.posTactics.value} leaderName={leaders.posTactics.name} />
         </div>
 
@@ -241,3 +241,4 @@ export default function SalesDashboardPage() {
     </div>
   );
 }
+
