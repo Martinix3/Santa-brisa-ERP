@@ -113,19 +113,21 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
                 <Link href={dashboardHrefFor(section.module)} className={`flex items-center justify-center h-10 w-10 rounded-lg transition-colors ${isActiveModule ? 'bg-yellow-100 text-yellow-800' : 'text-zinc-600 hover:bg-zinc-100'}`}>
                   <section.icon size={20} />
                 </Link>
-                <div className="absolute left-full top-0 ml-2 w-48 bg-white border rounded-lg shadow-lg hidden group-hover:block z-50">
-                  <div className="p-2 border-b">
-                      <p className="text-sm font-semibold">{section.title}</p>
-                  </div>
-                  <div className="p-1">
-                  {section.items.map(item => {
-                    const isActiveItem = pathname.startsWith(item.href);
-                    return (
-                      <Link key={item.href} href={item.href} className={`block px-3 py-1.5 text-sm rounded-md transition-colors ${isActiveItem ? 'font-semibold text-yellow-800 bg-yellow-50' : 'text-zinc-600 hover:bg-zinc-100'}`}>
-                        {item.label}
-                      </Link>
-                    )
-                  })}
+                <div className="absolute left-full top-0 w-56 p-1 hidden group-hover:block z-50">
+                  <div className="bg-white border rounded-lg shadow-lg">
+                    <div className="p-2 border-b">
+                        <p className="text-sm font-semibold">{section.title}</p>
+                    </div>
+                    <div className="p-1">
+                    {section.items.map(item => {
+                      const isActiveItem = pathname.startsWith(item.href);
+                      return (
+                        <Link key={item.href} href={item.href} className={`block px-3 py-1.5 text-sm rounded-md transition-colors ${isActiveItem ? 'font-semibold text-yellow-800 bg-yellow-50' : 'text-zinc-600 hover:bg-zinc-100'}`}>
+                          {item.label}
+                        </Link>
+                      )
+                    })}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -158,7 +160,7 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
         </div>
       </aside>
 
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-w-0">
         <main className="flex-1 min-w-0 overflow-y-auto">
           {children}
         </main>
