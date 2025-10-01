@@ -7,9 +7,9 @@
   --radius: 0.75rem; /* 12px */
 
   /* Colores de Marca y Acción */
-  --accent: 46 82% 64%;    /* Amarillo Santa Brisa #F4C542 */
-  --primary: 224 43% 11%;   /* Casi negro para texto y elementos principales #111827 */
-  --primary-foreground: 0 0% 100%; /* Blanco para texto sobre fondo oscuro */
+  --primary: 46 82% 64%;    /* Amarillo Santa Brisa #F4C542 */
+  --primary-foreground: 224 43% 11%; /* Casi negro para texto sobre fondo amarillo */
+  --accent: 224 43% 11%;   /* Accento oscuro para anillos de foco y otros */
 
   /* Colores Secundarios y de Fondo */
   --background: 0 0% 100%; /* Blanco para el fondo de la página */
@@ -100,7 +100,7 @@
 
 /* ===== Base ===== */
 @layer base {
-  * { border-color: hsl(var(--muted) / 0.5); }
+  * { border-color: hsl(var(--border) / 0.5); }
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));

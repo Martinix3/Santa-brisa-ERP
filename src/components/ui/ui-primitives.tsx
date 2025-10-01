@@ -47,7 +47,7 @@ export const SBButton = React.forwardRef<HTMLButtonElement | HTMLAnchorElement, 
         const base = "inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 disabled:pointer-events-none";
         
         const variants: Record<string, string> = {
-            primary: "bg-zinc-900 text-white hover:bg-zinc-800",
+            primary: "bg-primary text-primary-foreground hover:bg-primary/90",
             secondary: "bg-zinc-100 text-zinc-800 hover:bg-zinc-200 border border-zinc-200",
             destructive: "bg-red-500 text-white hover:bg-red-600",
             ghost: "hover:bg-zinc-100 hover:text-zinc-900",
