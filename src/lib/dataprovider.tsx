@@ -112,14 +112,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     console.log("[DataProvider] Setting up onAuthStateChanged listener.");
     const unsubscribe = onAuthStateChanged(firebaseAuth, async (fbUser) => {
-        console.log(`[DataProvider] onAuthStateChanged fired. User: ${fbUser?.uid ?? 'null'}`);
+        const hadUser = !!firebaseUser; // Check if there was a user before this change
+        console.log(`[DataProvider] onAuthStateChanged fired. User: ${fbUser?.uid ?? 'null'}. Previously had user: ${hadUser}`);
         setFirebaseUser(fbUser);
-
-        if (fbUser && !data) {
-            console.log("[DataProvider] Auth change -> User present, but no data. Triggering data load.");
+  
+        if (fbUser && !hadUser) {
+            console.log("[DataProvider] Auth change -> New user detected. Triggering data load.");
             await loadInitialData();
         } else if (!fbUser) {
-            console.log("[DataProvider] Auth change -> No user. Clearing data.");
+            console.log("[DataProvider] Auth change -> No user. Clearing user and data state.");
             setCurrentUser(null);
             setData(null);
         }
@@ -127,19 +128,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         if (!authReady) {
             console.log("[DataProvider] Auth is now ready.");
             setAuthReady(true);
-            setLoadingData(false);
         }
     });
     return () => {
         console.log("[DataProvider] Cleaning up onAuthStateChanged listener.");
         unsubscribe();
     };
-  }, []); // <-- Dependencia vacía para que se ejecute una sola vez
+  }, [authReady, firebaseUser, loadInitialData]); // Added firebaseUser and loadInitialData as dependencies
 
   // Sincroniza currentUser con el usuario de Firebase y los datos cargados.
   useEffect(() => {
     if (!authReady || !firebaseUser || !data?.users) {
-        // console.log('[DataProvider] Conditions not met to find app user:', { authReady, hasFbUser: !!firebaseUser, hasDataUsers: !!data?.users });
         return;
     }
     const appUser = data.users.find(u => u.email === firebaseUser.email);
