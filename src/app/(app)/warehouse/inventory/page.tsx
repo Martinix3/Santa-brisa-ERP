@@ -3,13 +3,13 @@
 
 import React, { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useData } from "@/lib/dataprovider";
-import { SBCard, DataTableSB, SBButton, Input, Select } from "@/components/ui/ui-primitives";
+import { SBCard, SBButton, Input, Select } from "@/components/ui/ui-primitives";
 import type { ItemCategory, OnHandView, Lot, QcStatus, Item } from "@/domain/ssot";
 import {
-  computeSkuRollup, computeStockAlerts,
+  computeSkuRollup,
   stockStatusBadgeClass, stockStatusLabel, type SkuStockSummary,
 } from "@/lib/inventory";
-import { Plus, Download, Search, AlertCircle, ChevronDown, PackageSearch, FileClock, RefreshCw } from "lucide-react";
+import { Plus, Search, AlertCircle, RefreshCw } from "lucide-react";
 import { RealtimeBadge } from "@/components/RealtimeBadge";
 import { QuickGoodsReceiptDialog } from "@/features/warehouse/components/QuickGoodsReceiptDialog";
 import { NewOnHandDialog } from "./components/NewOnHandDialog";
@@ -17,84 +17,14 @@ import { rebuildOnHand } from "./actions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { LotDetailPanel } from "./components/LotDetailPanel";
+import { SkuAccordionRow } from "./components/SkuAccordionRow";
+import { LotRows } from "./components/LotRows";
 
-
-// ================================================================
-// COMPONENTES UI (Mantenidos igual, pero ahora consumen mock data)
-// ================================================================
-const CATEGORY_ORDER: { value: ItemCategory; label: string }[] = [
-  { value: "fg", label: "Producto Terminado" },
-  { value: "raw", label: "Materias Primas" },
-  { value: "intermediate", label: "Intermedios" },
-  { value: "pack", label: "Packaging y Etiquetas" },
-  { value: "merch", label: "Merchandising" },
-  { value: "consumable", label: "Consumibles" },
-];
 
 function Empty({ hint }: { hint: string }) {
   return <div className="py-10 text-center text-sm text-zinc-500">{hint}</div>;
 }
-
-function SkuAccordionRow({ sku, summary, lots, items, onSelect, setViewMode, setSelectedKey }: { sku: SkuStockSummary; summary: SkuStockSummary; lots: OnHandView[]; items: Item[]; onSelect: (key: string) => void; setViewMode: (mode: 'sku' | 'lot') => void; setSelectedKey: (key: string | null) => void; }) {
-    const [isOpen, setIsOpen] = useState(false);
-    const item = items.find(i => i.id === sku.itemId);
-  
-    const lotCols: any[] = [
-        { key: "lotNumber", header: "Lote", render: (r: any) => <span className="font-mono text-xs">{r.lotNumber}</span> },
-        { key: "qty", header: "Cantidad", render: (r:any)=> (<>{r.qty} <span className="text-xs text-zinc-500">{r.uom}</span></>) },
-        { key: "locationId", header: "Ubicación" },
-        { key: "qcStatus", header: "Estado QC", render: (r:any) => <QcStatusPill status={r.qcStatus} /> },
-        { key: "expiryAt", header: "Caducidad", render: (r:any)=> r.expiryAt ? new Date(r.expiryAt).toLocaleDateString() : "—" },
-        { key: 'actions', header: 'Acciones', render: (r:any) => <SBButton size="sm" variant="subtle" onClick={() => { setViewMode('lot'); setSelectedKey(r.lotNumber)}}>Inspeccionar</SBButton> }
-    ];
-
-    return (
-      <div className="border-b last:border-b-0">
-        <div
-          className="grid grid-cols-[auto_2fr_1fr_1fr_1fr_1fr_auto] items-center gap-4 p-3 cursor-pointer hover:bg-zinc-50"
-          onClick={() => setIsOpen(!isOpen)}
-          onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && setIsOpen(!isOpen)}
-          role="button"
-          tabIndex={0}
-          aria-expanded={isOpen}
-        >
-          <ChevronDown size={16} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-          <div onClick={(e)=>{e.stopPropagation(); onSelect(sku.itemId)}}>
-              <p className="font-bold text-sm text-zinc-800">{item?.name || 'Nombre Desconocido'}</p>
-              <p className="font-mono text-xs bg-zinc-100 px-2 py-0.5 rounded-full inline-block mt-1">{item?.sku || sku.itemId}</p>
-          </div>
-          <div className="text-sm font-semibold">{summary.totalReleasedFree}</div>
-          <div className="text-sm font-semibold">{summary.totalOnHold}</div>
-          <div className="text-sm">{summary.earliestExpiryAt ? new Date(summary.earliestExpiryAt).toLocaleDateString('es-ES') : '—'}</div>
-          <div><span className={stockStatusBadgeClass(summary.status)}>{stockStatusLabel(summary.status)}</span></div>
-          <SBButton variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); onSelect(sku.itemId)}}>Ver detalles</SBButton>
-        </div>
-        {isOpen && (
-          <div className="bg-zinc-50/70 p-4 pl-12">
-              <DataTableSB<OnHandView>
-                  rows={lots}
-                  cols={lotCols}
-                  onRowClick={(r:any)=> { setViewMode('lot'); setSelectedKey(r.lotNumber)}}
-              />
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  function QcStatusPill({ status }: { status: QcStatus }) {
-    const styles: Record<QcStatus, string> = {
-        PENDING: "bg-yellow-100 text-yellow-800",
-        PASSED: "bg-green-100 text-green-800",
-        FAILED: "bg-red-100 text-red-800",
-        WAIVED: "bg-blue-100 text-blue-800",
-    };
-    return <span className={`px-2 py-1 text-xs font-semibold rounded-full ${styles[status]}`}>{status}</span>;
-}
-
-// ================================================================
-// PÁGINA DE INVENTARIO (Componente Principal)
-// ================================================================
 
 export default function InventoryPage() {
   const { data } = useData();
@@ -102,13 +32,14 @@ export default function InventoryPage() {
   const onHand = data?.onHand || [];
   const lotsMaster = data?.lots || [];
   const items = data?.items || [];
-  
+  const stockMoves = data?.stockMoves || [];
+
   const [globalSearch, setGlobalSearch] = useState("");
   const [locationFilter, setLocationFilter] = useState<string>("ALL");
   const [qcFilter, setQcFilter] = useState<string>("ALL");
   const [onlyWithStock, setOnlyWithStock] = useState<boolean>(true);
-  const [viewMode, setViewMode] = useState<"sku" | "lot">("lot");
-  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"sku" | "lot">("sku");
+  const [selectedLotNumber, setSelectedLotNumber] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   const [openNew, setOpenNew] = useState(false);
@@ -168,21 +99,6 @@ export default function InventoryPage() {
       updatedAt: r.updatedAt,
   })), [onHandFiltered, items]);
 
-  const lotCols: any[] = [
-    { key: "lotNumber", header: "Lote", render: (r: any) => <span className="font-mono text-xs">{r.lotNumber}</span> },
-    { key: "name", header: "Producto (SKU)", render: (r:any)=> (
-        <div className="leading-tight">
-          <div className="font-medium">{r.name}</div>
-          <div className="text-xs text-zinc-500">{r.itemId}</div>
-        </div>
-      )
-    },
-    { key: "free", header: "Cantidad", render: (r:any)=> (<>{r.free} <span className="text-xs text-zinc-500">{r.uom}</span></>) },
-    { key: "locationId", header: "Ubicación" },
-    { key: "qcStatus", header: "Estado QC", render: (r:any) => <QcStatusPill status={r.qcStatus} /> },
-    { key: "expiryAt", header: "Fecha", render: (r:any)=> r.expiryAt ? new Date(r.expiryAt).toLocaleDateString() : "—" },
-  ];
-
   const locations = useMemo(() => {
     const set = new Set<string>();
     onHand.forEach(o => { if (o.locationId) set.add(o.locationId); });
@@ -205,6 +121,13 @@ export default function InventoryPage() {
   const ACCENT = "var(--sb-accent-logistica)";
   const BTN_OUTLINE = `border text-[color:${ACCENT}] border-[color:${ACCENT}] hover:bg-[color:${ACCENT}]/10`;
   const BTN_SOLID = `bg-[color:${ACCENT}] text-white hover:opacity-90`;
+
+  const selectedLotDetails = useMemo(() => {
+      if (!selectedLotNumber) return null;
+      const lot = lotRows.find(l => l.lotNumber === selectedLotNumber);
+      const moves = stockMoves.filter(m => m.lotNumber === selectedLotNumber);
+      return lot ? { lot, moves } : null;
+  }, [selectedLotNumber, lotRows, stockMoves]);
 
   return (
     <div className="space-y-4" style={{'--sb-accent': 'var(--sb-accent-logistica)'} as React.CSSProperties}>
@@ -252,7 +175,6 @@ export default function InventoryPage() {
         <summary className="list-none cursor-pointer flex items-center gap-2 text-amber-800 font-semibold text-sm">
           <AlertCircle size={16} />
           {alerts.length} Alertas de Inventario
-          <ChevronDown size={16} className="transition-transform details-arrow" />
         </summary>
         <SBCard noPadding>
           <div className="p-2 space-y-1">
@@ -263,37 +185,46 @@ export default function InventoryPage() {
           </div>
         </SBCard>
       </details>
-
-        <SBCard title="Inventario" noPadding>
-            <Tabs value={viewMode} onValueChange={(v) => { setViewMode(v as any); setSelectedKey(null); }}>
-              <div className="flex justify-between items-center p-4">
-                <TabsList className="relative">
-                  <TabsTrigger value="lot" className="data-[state=active]:text-[color:var(--sb-accent)]">Por Lote</TabsTrigger>
-                  <TabsTrigger value="sku" className="data-[state=active]:text-[color:var(--sb-accent)]">Por SKU</TabsTrigger>
-                </TabsList>
-              </div>
-
-              <TabsContent value="lot">
-                {lotRows.length === 0 ? <Empty hint="No hay lotes que cumplan los filtros." /> : <DataTableSB rows={lotRows} cols={lotCols} onRowClick={(r:any)=> {setViewMode('lot'); setSelectedKey(r.lotNumber)}} />}
-              </TabsContent>
-              <TabsContent value="sku">
-                <div className="divide-y">
-                    <div className="grid grid-cols-[auto_2fr_1fr_1fr_1fr_1fr_auto] items-center gap-4 p-3 bg-zinc-50 text-xs font-semibold uppercase text-zinc-500 tracking-wider">
-                      <div/>
-                      <span>Producto</span>
-                      <span>Disp.</span>
-                      <span>En QC</span>
-                      <span>Cad. Próx.</span>
-                      <span>Estado</span>
-                      <div/>
-                  </div>
-                  {skusWithLots.length === 0 ? <Empty hint="No hay stock agrupado por SKU para esta vista." /> : (
-                      skusWithLots.map(({summary, lots}) => <SkuAccordionRow key={summary.itemId} sku={summary} summary={summary} lots={lots} items={items} onSelect={setSelectedKey} setViewMode={setViewMode} setSelectedKey={setSelectedKey} />)
-                  )}
+      
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className={selectedLotNumber ? "md:col-span-2" : "md:col-span-3"}>
+          <SBCard title="Inventario" noPadding>
+              <Tabs value={viewMode} onValueChange={(v) => { setViewMode(v as any); setSelectedLotNumber(null); }}>
+                <div className="flex justify-between items-center p-4">
+                  <TabsList className="relative">
+                    <TabsTrigger value="sku" className="data-[state=active]:text-[color:var(--sb-accent)]">Por SKU</TabsTrigger>
+                    <TabsTrigger value="lot" className="data-[state=active]:text-[color:var(--sb-accent)]">Por Lote</TabsTrigger>
+                  </TabsList>
                 </div>
-              </TabsContent>
-            </Tabs>
-        </SBCard>
+
+                <TabsContent value="sku">
+                  <div className="divide-y">
+                      <div className="grid grid-cols-[2fr_repeat(5,1fr)] items-center gap-4 px-4 py-2 bg-zinc-50 text-xs font-semibold uppercase text-zinc-500 tracking-wider">
+                        <span>Producto</span>
+                        <span className="text-right">Stock Total</span>
+                        <span className="text-right">Disp.</span>
+                        <span className="text-right">Reservado</span>
+                        <span className="text-right">En QC</span>
+                        <span>Estado</span>
+                    </div>
+                    {skusWithLots.length === 0 ? <Empty hint="No hay stock agrupado por SKU para esta vista." /> : (
+                        skusWithLots.map(({summary, lots}) => <SkuAccordionRow key={summary.itemId} sku={summary} items={items} onLotSelect={setSelectedLotNumber} />)
+                    )}
+                  </div>
+                </TabsContent>
+                <TabsContent value="lot">
+                    <LotRows lots={lotRows} onLotSelect={setSelectedLotNumber} />
+                </TabsContent>
+              </Tabs>
+          </SBCard>
+        </div>
+
+        {selectedLotDetails && (
+          <div className="md:col-span-1">
+             <LotDetailPanel lotDetails={selectedLotDetails} items={items} onClose={() => setSelectedLotNumber(null)} />
+          </div>
+        )}
+      </div>
       
       {openNew && (
         <NewOnHandDialog
