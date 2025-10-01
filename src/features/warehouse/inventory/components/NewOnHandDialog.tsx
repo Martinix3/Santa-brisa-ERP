@@ -6,6 +6,7 @@ import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog";
 import { Input, Select, SBButton } from '@/components/ui/ui-primitives';
 import { Item, ItemCategory, Uom } from '@/domain/ssot';
 import { createManualOnHand } from '@/app/(app)/warehouse/inventory/actions';
+import { ITEM_CATEGORY_META } from '@/domain/ssot';
 
 type FormState = {
   itemId: string;
@@ -19,7 +20,6 @@ type FormState = {
   invoiceRef?: string;
   amount?: number;
   currency?: string;
-  category: ItemCategory;
   sendToQc: boolean;
 };
 
@@ -54,12 +54,20 @@ export function NewOnHandDialog({
   const selectedItemId = watch('itemId');
   const [isSaving, setIsSaving] = React.useState(false);
 
+  const selectedItemCategory = React.useMemo(() => {
+    if (selectedItemId) {
+        const item = items.find(i => i.id === selectedItemId);
+        return item?.category;
+    }
+    return undefined;
+  }, [selectedItemId, items]);
+
+
   React.useEffect(() => {
     if (selectedItemId) {
       const item = items.find(i => i.id === selectedItemId);
       if (item) {
         setValue('uom', item.uom);
-        setValue('category', item.category);
       }
     }
   }, [selectedItemId, items, setValue]);
@@ -71,7 +79,7 @@ export function NewOnHandDialog({
     }
   }, [open, reset]);
 
-  const onSubmit = async (data: FormState) => {
+  const onSubmit = async (data: Omit<FormState, 'category'>) => {
     setIsSaving(true);
     try {
         const result = await createManualOnHand(data);
@@ -129,17 +137,8 @@ export function NewOnHandDialog({
             <Input id="note" {...register("note")} placeholder="Ajuste anual, promo, etc." />
           </FieldRow>
           <div className="border-t pt-4 space-y-3">
-            <FieldRow label="Categoría" error={errors.category?.message} htmlFor="category">
-                <Select id="category" {...register("category", { required: "Categoría obligatoria" })}>
-                    <option value="">— Selecciona —</option>
-                    <option value="fg">Producto Terminado</option>
-                    <option value="raw">Materia Prima</option>
-                    <option value="intermediate">Intermedio</option>
-                    <option value="pack">Packaging</option>
-                    <option value="label">Etiqueta</option>
-                    <option value="merch">Merchandising</option>
-                    <option value="consumable">Consumible</option>
-                </Select>
+            <FieldRow label="Categoría" htmlFor="category">
+                <Input id="category" value={selectedItemCategory ? ITEM_CATEGORY_META[selectedItemCategory]?.label || selectedItemCategory : ''} disabled className="bg-zinc-100" />
             </FieldRow>
             <div className="flex items-center gap-2 pl-[132px]">
               <input type="checkbox" id="sendToQc" {...register("sendToQc")} />
