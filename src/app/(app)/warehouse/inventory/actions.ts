@@ -8,6 +8,8 @@ import { makeOnHandId } from '@/domain/id-helpers';
 import { z } from "zod";
 import { ok, fail, type ActionResult } from "@/lib/result";
 import { LotSchema } from '@/domain/validators';
+import { runDataQualityEngine } from "@/lib/data-quality/engine";
+
 
 const CreateManualOnHandSchema = z.object({
   itemId: z.string().min(1),
@@ -224,5 +226,15 @@ export async function rebuildOnHand(): Promise<ActionResult<{ count: number }>> 
     return ok({ count: finalDocs.length });
   } catch (e: any) {
     return fail(e.message || "Error al reconstruir el inventario.");
+  }
+}
+
+export async function performDataQualityCheck() {
+  try {
+    const anomalies = await runDataQualityEngine();
+    return { ok: true, data: anomalies };
+  } catch (error) {
+    console.error("Error en el Motor de Calidad de Datos:", error);
+    return { ok: false, message: "No se pudo completar la auditoría." };
   }
 }
