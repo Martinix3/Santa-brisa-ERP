@@ -1,0 +1,287 @@
+/* globals.css — Tailwind v4 */
+@config "../../tailwind.config.ts";
+@import "tailwindcss";
+
+/* ===== Tokens SB ===== */
+:root {
+  --radius: 0.75rem; /* 12px */
+
+  /* Colores de Marca y Acción */
+  --primary: 45 100% 60%;    /* Amarillo Santa Brisa #FFCA32 */
+  --primary-foreground: 224 43% 11%; /* Casi negro para texto sobre fondo amarillo */
+  --accent: 224 43% 11%;   /* Accento oscuro para anillos de foco y otros */
+
+  /* Colores Secundarios y de Fondo */
+  --background: 0 0% 100%; /* Blanco para el fondo de la página */
+  --foreground: 224 43% 11%;
+  --secondary: 220 14% 98%; /* Gris muy claro para fondos alternos #F9FAFB */
+  --secondary-foreground: 224 43% 11%;
+
+  /* Tarjetas */
+  --card: 0 0% 100%; /* Blanco para el fondo de las tarjetas */
+  --card-foreground: 224 43% 11%;
+
+  /* Textos */
+  --text-primary: 224 43% 11%;
+  --text-secondary: 220 13% 23%;
+  --text-muted: 220 9% 45%;
+
+  /* Neutrales */
+  --muted: 220 13% 91%;     /* Gris medio para bordes y texto silenciado #E5E7EB */
+  --muted-foreground: 220 9% 45%; /* #6A6D78 */
+  --border: 220 13% 91%;
+
+  /* Semánticos UI */
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 98%;
+  --ring: 45 100% 60%; /* Anillo de foco en amarillo */
+
+  --cobre: 22 55% 48%;
+  --agua: 177 47% 65%;
+  --naranja: 15 88% 57%;
+  
+  --feedback-green-bg: 140 76% 96%;
+  --feedback-red-bg: 6 96% 97%;
+
+
+  /* ======================================= */
+  /* NO USAR - LEGACY - SERÁN REEMPLAZADOS */
+  /* ======================================= */
+  --sb-sun: 54 80% 84%;
+  --sb-sun-strong: 45 99% 63%;
+  --sb-agua: 180 46% 72%;
+  --sb-cobre: 19 53% 51%;
+  --sb-naranja: 17 85% 57%;
+  --sb-verde-mar: 182 25% 47%;
+  --sb-neutral-950: 240 10% 3.9%;
+  --sb-neutral-900: 240 10% 7%;
+  --sb-neutral-700: 240 5% 30%;
+  --sb-neutral-500: 240 5% 46%;
+  --sb-neutral-400: 240 5% 64%;
+  --sb-neutral-200: 240 6% 90%;
+  --sb-neutral-100: 240 6% 96%;
+  --sb-neutral-50: 0 0% 98%;
+
+  /* Acentos por departamento */
+  --sb-accent-personal: var(--sb-sun);
+  --sb-accent-ventas: 22 70% 61%; /* #ea945e */
+  --sb-accent-marketing: 182 40% 70%; /* #9dd4d6 */
+  --sb-accent-logistica: 22 40% 44%; /* #996947 */
+  --sb-accent-produccion: 182 20% 47%; /* #638c8d */
+  --sb-accent-calidad: 214 35% 65%; /* #8298ce */
+  --sb-accent-finance: var(--sb-sun-strong);
+  --sb-accent-admin: 240 5% 55%; /* #8a8c92 */
+}
+
+/* ===== Tailwind v4: registra tokens como utilidades ===== */
+@theme {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+
+  --color-border: hsl(var(--border));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-accent: hsl(var(--accent));
+
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+
+  --color-ring: hsl(var(--ring));
+  --radius: var(--radius);
+}
+
+/* ===== Base ===== */
+@layer base {
+  * { border-color: hsl(var(--border) / 0.5); }
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: var(--font-inter), sans-serif;
+  }
+  h1, h2, h3, h4, h5, h6 { color: hsl(var(--text-primary)); }
+  .sb-checkbox:checked {
+    background-color: hsl(var(--accent));
+    border-color: hsl(var(--accent));
+  }
+}
+
+@layer components {
+  /* Card Nesting Logic */
+  .sb-card .sb-card {
+    @apply bg-zinc-50;
+  }
+  .sb-card .sb-card .sb-card {
+    @apply bg-white;
+  }
+  .sb-card .sb-card .sb-card .sb-card {
+    @apply bg-zinc-50;
+  }
+
+
+  /* Tabs */
+  .sb-tablist { @apply inline-flex items-center gap-1; }
+  .sb-tab {
+    @apply h-9 px-3 rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground;
+  }
+  .sb-tab[aria-selected="true"] {
+    @apply bg-secondary text-foreground font-medium;
+    box-shadow: inset 0 -2px 0 hsl(var(--accent));
+  }
+  .sb-tabpanel { @apply mt-3; }
+
+  /* Sidenav */
+  .sb-sidenav { @apply flex flex-col gap-1; }
+  .sb-sidenav__item {
+    @apply flex items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground;
+    transition: background-color .12s, color .12s;
+  }
+  .sb-sidenav__item:hover { @apply bg-secondary text-foreground; }
+  .sb-sidenav__item[aria-current="page"] {
+    @apply bg-secondary text-foreground font-medium;
+    box-shadow: inset 0 0 0 1px hsl(var(--border));
+  }
+
+  /* Breadcrumbs */
+  .sb-breadcrumbs { @apply flex items-center gap-2 text-sm text-muted-foreground; }
+  .sb-breadcrumbs a { @apply hover:underline hover:text-foreground; }
+  .sb-breadcrumbs__sep { @apply opacity-50; }
+  
+  /* Animaciones y Hovers */
+  .hover-raise { transition: transform .12s ease, box-shadow .2s ease; }
+  .hover-raise:hover { transform: translateY(-2px); box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); }
+
+  .fade-in { animation: sb-fade .18s ease-out both; }
+  .slide-up { animation: sb-slide-up .18s cubic-bezier(.2,.8,.2,1) both; }
+
+  @keyframes sb-fade { from{opacity:0} to{opacity:1} }
+  @keyframes sb-slide-up { from{opacity:.6; transform:translateY(6px)} to{opacity:1; transform:none} }
+
+  .is-pressed { transform: translateY(1px); }
+  .focus-ring { @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2; }
+
+  /* Tipografía */
+  .sb-h1 { @apply text-3xl font-bold tracking-tight; }
+  .sb-h2 { @apply text-2xl font-semibold tracking-tight; }
+  .sb-h3 { @apply text-xl font-semibold; }
+  .sb-subtle { @apply text-sm text-muted-foreground; }
+
+  .text-balance { text-wrap: balance; }
+  .text-pretty { text-wrap: pretty; }
+
+  /* Dialogs */
+  .sb-dialog__overlay {
+    position: fixed; inset: 0;
+    background: color-mix(in srgb, #000 50%, transparent);
+    backdrop-filter: blur(2px);
+    opacity: 0; animation: sb-fade-in .15s ease-out forwards;
+  }
+  .sb-dialog__content {
+    position: fixed; inset: 0; display: grid; place-items: center; padding: 1rem;
+  }
+  .sb-dialog {
+    @apply rounded-xl border border-border bg-card text-card-foreground shadow-sm;
+    width: min(640px, 92vw);
+    transform: translateY(8px) scale(.98);
+    animation: sb-pop-in .18s cubic-bezier(.2,.8,.2,1) forwards;
+  }
+  .sb-dialog__header { @apply p-4 md:p-6 border-b; }
+  .sb-dialog__title  { @apply text-lg font-semibold; }
+  .sb-dialog__desc   { @apply text-sm text-muted-foreground; }
+  .sb-dialog__body   { @apply p-4 md:p-6; }
+  .sb-dialog__footer { @apply flex justify-end gap-2 p-4 bg-secondary border-t; }
+
+  .sb-dialog__close {
+    @apply absolute top-3 right-3 h-8 w-8 rounded-md grid place-items-center transition-colors hover:bg-secondary;
+  }
+
+  @keyframes sb-fade-in { to { opacity: 1; } }
+  @keyframes sb-pop-in  { to { transform: translateY(0) scale(1); } }
+
+  .sb-drawer__content { position: fixed; inset: 0; display:flex; justify-content:center; }
+  .sb-drawer {
+    @apply rounded-xl border border-border bg-card text-card-foreground shadow-sm;
+    width: 100%; max-width: 720px;
+    border-bottom-left-radius: 0; border-bottom-right-radius: 0;
+    margin-top: auto; /* pega abajo */
+    transform: translateY(12px);
+    animation: sb-drawer-in .2s cubic-bezier(.2,.8,.2,1) forwards;
+  }
+  @keyframes sb-drawer-in { to { transform: translateY(0); } }
+
+  /* Toasts */
+  .sb-toastctr { position: fixed; right: 16px; bottom: 16px; display: grid; gap: 8px; z-index: 60; }
+  .sb-toast {
+    @apply rounded-lg border px-3 py-2 text-sm bg-background shadow-sm;
+    animation: sb-toast-in .18s ease-out forwards;
+  }
+  .sb-toast--success { @apply border-emerald-200 text-emerald-900; background: hsl(var(--feedback-green-bg)); }
+  .sb-toast--error   { @apply border-red-200 text-red-900;     background: hsl(var(--feedback-red-bg)); }
+  @keyframes sb-toast-in { from { transform: translateY(6px); opacity: .6; } to { transform:none; opacity:1; } }
+
+  /* Skeletons */
+  .sb-skeleton { @apply rounded-md bg-secondary; position: relative; overflow: hidden; }
+  .sb-skeleton::after {
+    content: ""; position: absolute; inset: 0;
+    transform: translateX(-100%); 
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.4), transparent);
+    animation: sb-shimmer 1.2s infinite;
+  }
+  @keyframes sb-shimmer { 100% { transform: translateX(100%); } }
+
+  /* Date Picker */
+  .sb-date { @apply bg-card; }
+  .sb-date::-webkit-calendar-picker-indicator {
+    filter: grayscale(100%);
+    opacity: .8;
+  }
+
+  /* react-day-picker */
+  .rdp { --rdp-accent-color: hsl(var(--accent)); --rdp-border: hsl(var(--border)); }
+  .rdp { @apply text-sm; }
+  .rdp-month { @apply p-2; }
+  .rdp-day { @apply h-9 w-9 rounded-md; }
+  .rdp-day_selected { background: var(--rdp-accent-color); color: hsl(var(--primary-foreground)); }
+  .rdp-day:hover { @apply bg-secondary; }
+  .rdp-caption_label { @apply font-medium; }
+  .rdp-nav_button { @apply h-9 w-9 rounded-md transition-colors hover:bg-secondary; }
+  .rdp-head_cell { @apply text-muted-foreground; }
+
+  /* Tooltip & Popover */
+  .sb-tooltip { position: relative; }
+  .sb-tooltip[data-open="true"] .sb-tooltip__pop {
+    opacity: 1; transform: translateY(0);
+    pointer-events: auto;
+  }
+  .sb-tooltip__pop {
+    @apply z-50 rounded-md border bg-background text-foreground text-xs px-2 py-1 shadow-md;
+    position: absolute; left: 50%; bottom: calc(100% + 8px);
+    transform: translate(-50%, 4px); opacity: 0; pointer-events: none;
+    transition: opacity .12s ease, transform .12s ease;
+    white-space: nowrap;
+  }
+  .sb-tooltip__arrow {
+    position: absolute; left: 50%; top: 100%; transform: translateX(-50%);
+    width: 8px; height: 8px; background: inherit; border-left: inherit; border-top: inherit;
+    transform: translateX(-50%) rotate(45deg);
+  }
+
+  .sb-popover__overlay { position:fixed; inset:0; background: transparent; }
+  .sb-popover {
+    @apply z-50 rounded-md border bg-background text-foreground shadow-md p-3;
+    position: absolute; min-width: 220px;
+    animation: sb-fade .12s ease both;
+  }
+
+  .sb-chart:hover .recharts-cartesian-grid-horizontal line,
+  .sb-chart:hover .recharts-cartesian-grid-vertical line {
+    stroke-opacity: .9;
+  }
+}

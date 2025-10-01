@@ -3,23 +3,9 @@
 import React, { useMemo } from 'react';
 import { SBCard, Input } from '@/components/ui/ui-primitives';
 import type { Uom } from '@/domain/ssot';
+import { SectionCard } from '../../components/ui';
 
 type RealConsumptionLine = { itemId: string; itemName: string; lotNumber: string; theoreticalQty: number; realQty: number; uom: Uom; fromLocationId: string };
-
-function Collapsible({ title, count, defaultOpen = true, children }: {
-  title: string; count?: number; defaultOpen?: boolean; children: React.ReactNode;
-}) {
-  const [open, setOpen] = React.useState(defaultOpen);
-  return (
-    <div className="border rounded-lg bg-zinc-50">
-      <button onClick={() => setOpen(o => !o)} className="w-full flex items-center justify-between p-3 text-sm font-semibold">
-        {title}
-        {count}
-      </button>
-      {open && <div className="border-t p-3 space-y-3">{children}</div>}
-    </div>
-  );
-}
 
 export function RealConsumptionPanel({ activeForm, setFormValue, orderIsLocked }: {
   activeForm: { realConsumption: RealConsumptionLine[] };
@@ -27,14 +13,14 @@ export function RealConsumptionPanel({ activeForm, setFormValue, orderIsLocked }
   orderIsLocked: boolean;
 }) {
   const { theoreticalTotal, realTotal, deviation } = useMemo(() => {
-    const theoreticalTotal = activeForm.realConsumption.reduce((sum, line) => sum + line.theoreticalQty, 0);
-    const realTotal = activeForm.realConsumption.reduce((sum, line) => sum + line.realQty, 0);
+    const theoreticalTotal = (activeForm.realConsumption || []).reduce((sum, line) => sum + line.theoreticalQty, 0);
+    const realTotal = (activeForm.realConsumption || []).reduce((sum, line) => sum + line.realQty, 0);
     const deviation = realTotal - theoreticalTotal;
     return { theoreticalTotal, realTotal, deviation };
   }, [activeForm.realConsumption]);
 
   return (
-    <Collapsible title="Consumo Real y Mermas" count={activeForm.realConsumption.length} defaultOpen>
+    <SectionCard title="Consumo Real y Mermas" count={activeForm.realConsumption?.length}>
         <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-3 text-xs font-semibold text-zinc-600 px-2">
           <span>Material (Lote)</span>
           <span className="text-right">Teórico</span>
@@ -78,6 +64,6 @@ export function RealConsumptionPanel({ activeForm, setFormValue, orderIsLocked }
         </div>
 
         {activeForm.realConsumption.length === 0 && <p className="text-xs text-zinc-500 text-center py-2">Usa la propuesta para rellenar el consumo inicial.</p>}
-    </Collapsible>
+    </SectionCard>
   );
 }

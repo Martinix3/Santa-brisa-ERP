@@ -4,6 +4,7 @@
 import React, { useEffect, useMemo } from 'react';
 import { SBButton } from '@/components/ui/ui-primitives';
 import type { Uom, Item, ProductionOrder, BillOfMaterial as RecipeBom, OnHandView } from '@/domain/ssot';
+import { SectionCard } from '../../components/ui';
 
 type TheoreticalLine = { itemId: string; itemName: string; qty: number; uom: Uom };
 
@@ -74,8 +75,7 @@ export function StockCheckPanel({ bom, qty, items, onHand, onReadyChange, shorta
   }, [shortages, picks, onReadyChange, shortagesOut, requiredLotsOut]);
 
   return (
-    <div className="border rounded-lg p-3 bg-zinc-50">
-      <h4 className="text-sm font-semibold mb-3">Disponibilidad y lotes de insumo</h4>
+    <SectionCard title="Disponibilidad y lotes de insumo">
       {shortages.length > 0 && (
         <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 p-2 text-xs">
           <b>Faltantes:</b> {shortages.map(s => `${s.itemName}: ${s.missing} ${s.uom}`).join(" · ")}
@@ -105,6 +105,6 @@ export function StockCheckPanel({ bom, qty, items, onHand, onReadyChange, shorta
           );
         })}
       </div>
-    </div>
+    </SectionCard>
   );
 }

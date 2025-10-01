@@ -1,7 +1,7 @@
 
 
 "use client";
-import React, { useMemo } from "react";
+import React from "react";
 import type { ProductionOrder, Interaction } from "@/domain/ssot";
 import { SBCard, SBButton, LotQualityStatusPill } from "@/components/ui/ui-primitives";
 import { SB_COLORS, SB_THEME } from "@/domain/ssot";
@@ -26,9 +26,9 @@ export function KPI({ icon: Icon, label, value, color }: { icon: React.ElementTy
 
 function StatusPill({status}:{status: 'PLANNED'|'RELEASED'|'IN_PROGRESS'|'DONE'|'CANCELLED'}){
   const map:any = {
-    PLANNED: { txt:'Planificada', bg:'bg-sb-neutral-100 text-sb-neutral-700' },
+    PLANNED: { txt:'Planificada', bg:'bg-amber-100 text-amber-800' },
     RELEASED: { txt:'Liberada', bg:'bg-blue-100 text-blue-800' },
-    IN_PROGRESS: { txt:'En curso', bg:'bg-amber-100 text-amber-800' },
+    IN_PROGRESS: { txt:'En curso', bg:'bg-blue-100 text-blue-800' },
     DONE: { txt:'Cerrada', bg:'bg-green-100 text-green-800' },
     CANCELLED: { txt:'Cancelada', bg:'bg-red-100 text-red-700' },
   };
@@ -36,170 +36,21 @@ function StatusPill({status}:{status: 'PLANNED'|'RELEASED'|'IN_PROGRESS'|'DONE'|
   return <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-medium ${s.bg}`}>{s.txt}</span>;
 }
 
-function UpcomingEvents() {
-    const { data } = useData();
-    const { overdue, upcoming } = useMemo(() => {
-        if (!data?.interactions) return { overdue: [], upcoming: [] };
-        
-        const now = new Date();
-        const openInteractions = data.interactions
-            .filter(i => i.dept === 'PRODUCCION' && i.status === 'open' && i.plannedFor);
-            
-        const overdue = openInteractions
-            .filter(i => new Date(i.plannedFor!) < now)
-            .sort((a, b) => new Date(a.plannedFor!).getTime() - new Date(b.plannedFor!).getTime());
-            
-        const upcoming = openInteractions
-            .filter(i => new Date(i.plannedFor!) >= now)
-            .sort((a, b) => new Date(a.plannedFor!).getTime() - new Date(b.plannedFor!).getTime());
-
-        return { overdue, upcoming };
-    }, [data]);
-
-    const allEvents = [...overdue, ...upcoming].slice(0, 5);
-
-    if (allEvents.length === 0) {
-        return null;
-    }
-
+export function SectionCard({ title, count, defaultOpen = true, children }: {
+    title: string; count?: number; defaultOpen?: boolean; children: React.ReactNode;
+}) {
+    const [open, setOpen] = React.useState(defaultOpen);
     return (
-        <SBCard title={`Próximas Tareas de ${DEPT_META.PRODUCCION.label}`}>
-            <div className="p-2 space-y-1">
-                {allEvents.map((event: Interaction) => {
-                    const isOverdue = new Date(event.plannedFor!) < new Date();
-                    const Icon = isOverdue ? AlertCircle : Clock;
-                    
-                    const involvedUsers = (event.involvedUserIds && event.involvedUserIds.length > 0 ? event.involvedUserIds : [event.userId])
-                        .map(id => data?.users.find(u => u.id === id))
-                        .filter(Boolean);
-                    
-                    const account = data?.accounts.find(a => a.id === event.accountId);
-
-                    return (
-                         <Link href="/agenda/calendar" key={event.id} className={`block p-3 rounded-lg border cursor-pointer ${isOverdue ? 'bg-rose-50/50 border-rose-200' : 'bg-zinc-50 border-zinc-200 hover:bg-zinc-100'}`}>
-                            <div className="flex items-start gap-3">
-                                <div className="p-2 rounded-full mt-1" style={{ backgroundColor: `${DEPT_META.PRODUCCION.color}22`, color: DEPT_META.PRODUCCION.color }}>
-                                    <Icon size={16} className="sb-icon" />
-                                </div>
-                                <div className="flex-1">
-                                    <p className="font-medium text-sm">{event.note}</p>
-                                    <div className="flex items-center gap-4 mt-2 text-xs text-zinc-500">
-                                        <div className={`flex items-center gap-1 ${isOverdue ? 'text-rose-600 font-semibold' : ''}`}>
-                                            <Clock size={12} className="sb-icon" />
-                                            <span>{new Date(event.plannedFor!).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}</span>
-                                        </div>
-                                        {account && (
-                                            <div className="flex items-center gap-1">
-                                                <Building2 size={12} className="sb-icon" />
-                                                <span>{account.name}</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        </Link>
-                    );
-                })}
-            </div>
-        </SBCard>
-    );
-}
-
-export function ProductionDashboard({ orders, lots }: { orders: ProductionOrder[], lots: any[] }) {
-
-    const kpis = useMemo(() => {
-        const activeOrders = orders.filter(o => o.status === 'IN_PROGRESS' || o.status === 'RELEASED');
-        const pendingQCLots = lots.filter(l => l.summaryStatus === 'ko'); // Assuming 'ko' means pending
-        const overdueOrders = orders.filter(o => {
-            const isLate = new Date(o.createdAt) < new Date(Date.now() - 3 * 86400000); // >3 days old
-            return (o.status === 'PLANNED' || o.status === 'RELEASED') && isLate;
-        });
-
-        return {
-            activeOrders: activeOrders.length,
-            pendingQCLots: pendingQCLots.length,
-            overdueOrders: overdueOrders.length,
-        }
-    }, [orders, lots]);
-
-    const orderCols: { key: keyof ProductionOrder | 'actions', header: string, render?: (r:ProductionOrder) => React.ReactNode, className?: string }[] = [
-      { key: 'id', header: 'Orden', render: r => <span className="font-mono text-xs font-semibold">{r.id}</span> },
-      { key: 'outputItemId', header: 'ItemID' },
-      { key: 'targetQuantity', header: 'Cantidad', className:"text-right", render: r => <span className="font-semibold">{r.targetQuantity}</span> },
-      { key: 'status', header: 'Estado', render: r => <StatusPill status={r.status as any} /> },
-      { key: 'createdAt', header: 'F. Creación', render: r => new Date(r.createdAt).toLocaleDateString('es-ES') },
-      { 
-        key: 'actions', 
-        header: 'Acciones', 
-        render: r => (
-          <Link href={`/production/execution?orderId=${r.id}`}>
-            <SBButton variant="subtle">Ver</SBButton>
-          </Link>
-        ) 
-      }
-    ];
-
-    return (
-        <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <KPI icon={Factory} label="Órdenes Activas (WIP)" value={kpis.activeOrders} color={SB_COLORS.primary.teal} />
-                <KPI icon={AlertCircle} label="Órdenes Retrasadas" value={kpis.overdueOrders} color={SB_COLORS.primary.copper} />
-                <KPI icon={Hourglass} label="Lotes Pendientes QC" value={kpis.pendingQCLots} color={SB_COLORS.primary.sun} />
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2">
-                    <SBCard title="Órdenes de Producción" accent={SB_COLORS.primary.teal}>
-                        <div className="divide-y divide-zinc-100">
-                        {orders.map(order => (
-                            <div key={order.id} className="grid grid-cols-6 gap-4 p-3 items-center hover:bg-zinc-50">
-                                {orderCols.map(col => (
-                                    <div key={String(col.key)} className={`text-sm ${col.className || ''}`}>
-                                        {col.render ? col.render(order) : String(order[col.key as keyof ProductionOrder] || '')}
-                                    </div>
-                                ))}
-                            </div>
-                        ))}
-                        </div>
-                    </SBCard>
+        <div className="sb-card border rounded-lg overflow-hidden">
+            <button onClick={() => setOpen(o => !o)} className="w-full flex items-center justify-between p-3 text-sm font-semibold">
+                <div className="flex items-center gap-2">
+                    {title}
+                    {typeof count === 'number' && (
+                        <span className="px-2 py-0.5 text-xs bg-zinc-200 text-zinc-700 rounded-full">{count}</span>
+                    )}
                 </div>
-                <div className="space-y-6">
-                     <UpcomingEvents />
-                     <SBCard title="Acciones Rápidas" accent={SB_COLORS.primary.teal}>
-                        <div className="p-4 grid grid-cols-2 gap-3">
-                           <Link href="/production/bom" className="text-center p-4 rounded-xl bg-sb-neutral-50 hover:bg-sb-neutral-100 border border-sb-neutral-200">
-                                <BookOpen className="mx-auto h-8 w-8 text-sb-neutral-600 mb-2"/>
-                                <span className="text-sm font-semibold">Gestionar BOMs</span>
-                           </Link>
-                            <Link href="/quality/traceability" className="text-center p-4 rounded-xl bg-sb-neutral-50 hover:bg-sb-neutral-100 border border-sb-neutral-200">
-                                <Waypoints className="mx-auto h-8 w-8 text-sb-neutral-600 mb-2"/>
-                                <span className="text-sm font-semibold">Trazabilidad</span>
-                           </Link>
-                        </div>
-                    </SBCard>
-                    <SBCard title="Últimos Lotes Creados" accent={SB_COLORS.primary.teal}>
-                        <div className="p-2 space-y-2">
-                            {lots.slice(0, 5).map(lot => (
-                                <div key={lot.id} className="flex justify-between items-center p-2 rounded-lg hover:bg-sb-neutral-50">
-                                    <div>
-                                        <p className="font-mono text-sm font-semibold">{lot.id}</p>
-                                        <p className="text-xs text-sb-neutral-500">{new Date(lot.createdAt).toLocaleDateString()}</p>
-                                    </div>
-                                    <LotQualityStatusPill status={(lot as any).quality?.qcStatus} />
-                                </div>
-                            ))}
-                        </div>
-                    </SBCard>
-                </div>
-            </div>
+            </button>
+            {open && <div className="border-t p-3 space-y-3">{children}</div>}
         </div>
     );
-}
-
-export function ProductionLayout({ children }: { children: React.ReactNode }) {
-    return <div>{children}</div>
-}
-
-export function ExecutionPage() {
-    return <div>Execution Page</div>
 }
