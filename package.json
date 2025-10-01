@@ -58,6 +58,7 @@
     "pdf-lib": "1.17.1",
     "puppeteer": "latest",
     "react": "latest",
+    "react-day-picker": "latest",
     "react-dom": "latest",
     "react-dropzone": "latest",
     "react-hook-form": "7.63.0",
