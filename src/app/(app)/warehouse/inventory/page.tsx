@@ -16,6 +16,7 @@ import { NewOnHandDialog } from "./components/NewOnHandDialog";
 import { rebuildOnHand } from "./actions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 
 // ================================================================
