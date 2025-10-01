@@ -5,7 +5,7 @@ import { getFirestore, FieldPath } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { getStorage } from 'firebase-admin/storage';
 
-// ---- ProjectId resolution (orden robusto)
+// ---- ProjectId resolution (robust order) ----
 const projectId =
   process.env.GCLOUD_PROJECT ||
   process.env.GOOGLE_CLOUD_PROJECT ||
@@ -13,10 +13,13 @@ const projectId =
   process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
 
 if (!projectId) {
-  console.warn('[firebase] projectId no definido; exporta GCLOUD_PROJECT/FIREBASE_PROJECT_ID.');
+  console.warn('[firebase] projectId not defined; export GCLOUD_PROJECT/FIREBASE_PROJECT_ID.');
 }
 
-// ---- Single app (resiste HMR)
+// ---- Single app (resists HMR) ----
+// Use applicationDefault() to automatically use service account credentials in production
+// or user credentials from gcloud (via `gcloud auth application-default login`) in local development.
+// This is the standard and most secure way for server-side authentication with GCP/Firebase.
 const app: App = getApps()[0] ?? initializeApp({
   credential: applicationDefault(),
   projectId,
@@ -24,9 +27,9 @@ const app: App = getApps()[0] ?? initializeApp({
 });
 
 export const adminDb = getFirestore(app);
-// settings idempotentes
+// Firestore settings are idempotent
 try {
-  // @ts-ignore _settingsFrozen es interna, chequeo defensivo
+  // @ts-ignore _settingsFrozen is internal, defensive check
   if (!(adminDb as any)?._settingsFrozen) {
     adminDb.settings({ ignoreUndefinedProperties: true });
   }
@@ -34,9 +37,9 @@ try {
 
 export const adminAuth = getAuth(app);
 export const adminStorage = getStorage(app);
-export const FieldDocId = FieldPath.documentId;
+export const FieldDocId = FieldPath.documentId();
 
-// Helpers útiles
+// ---- Useful Helpers ----
 export function infoAdmin() {
   const p =
     projectId ||
@@ -51,12 +54,12 @@ export function bucket() {
   return adminStorage.bucket(bucketName);
 }
 
-// Avisos dev (impersonation/emuladores)
+// --- Dev-time warnings for environment setup ---
 if (process.env.NODE_ENV === 'development') {
-  if (!process.env.GOOGLE_IMPERSONATE_SERVICE_ACCOUNT) {
-    console.warn('[firebase] Sin GOOGLE_IMPERSONATE_SERVICE_ACCOUNT en dev; ADC usará tu usuario gcloud.');
+  if (!process.env.GOOGLE_IMPERSONATE_SERVICE_ACCOUNT && !process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    console.warn('[firebase] For local dev, either define GOOGLE_IMPERSONATE_SERVICE_ACCOUNT or run `gcloud auth application-default login`.');
   }
   if (process.env.FIRESTORE_EMULATOR_HOST) {
-    console.log('[firebase] Usando Firestore Emulator en', process.env.FIRESTORE_EMULATOR_HOST);
+    console.log('[firebase] Using Firestore Emulator at', process.env.FIRESTORE_EMULATOR_HOST);
   }
 }
