@@ -26,7 +26,7 @@ export function SBCard({ title, accent, children, className, noPadding }: SBCard
           </h3>
         </div>
       )}
-      <div className={!noPadding ? "p-4" : ""}>{children}</div>
+      <div className={`${!noPadding ? "p-4" : ""} bg-secondary`}>{children}</div>
     </div>
   );
 }
