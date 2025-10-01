@@ -4,7 +4,6 @@
 import React, { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useData } from "@/lib/dataprovider";
 import { SBCard, DataTableSB, SBButton, Input, Select } from "@/components/ui/ui-primitives";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import type { ItemCategory, OnHandView, Lot, QcStatus, Item } from "@/domain/ssot";
 import {
   computeSkuRollup, computeStockAlerts,
@@ -129,7 +128,7 @@ export default function InventoryPage() {
 
   const onHandFiltered = useMemo(() => {
     let rows = onHand;
-    if (cat) rows = rows.filter(r => r.category === cat);
+    // if (cat) rows = rows.filter(r => r.category === cat); // <--- FILTRO DE CATEGORÍA DESACTIVADO
     if (locationFilter !== "ALL") rows = rows.filter(r => r.locationId === locationFilter);
     if (qcFilter !== 'ALL') rows = rows.filter(r => (r.qcStatus || 'PENDING') === qcFilter);
     if (onlyWithStock) rows = rows.filter(r => (r.qty - (r.reservedQty ?? 0)) > 0);
@@ -277,6 +276,7 @@ export default function InventoryPage() {
       </details>
 
       <div className="grid grid-cols-1 xl:grid-cols-[320px_minmax(0,1fr)] gap-4">
+        {/*
         <div className="space-y-4">
           <SBCard title="Categorías" noPadding>
              <div className="p-2 flex flex-wrap gap-2">
@@ -292,8 +292,9 @@ export default function InventoryPage() {
             </div>
           </SBCard>
         </div>
+        */}
 
-        <div className="space-y-4">
+        <div className="space-y-4 xl:col-span-2">
           <SBCard title="Inventario" noPadding>
               <Tabs value={viewMode} onValueChange={(v) => { setViewMode(v as any); setSelectedKey(null); }}>
                 <div className="flex justify-between items-center p-4">
