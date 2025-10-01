@@ -1,24 +1,27 @@
-// src/components/ui/charts/SBBarChart.tsx
+// src/components/charts/SBBarChart.tsx
 "use client";
-import React from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { getSBChartTheme } from './theme';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
+import { getSBChartTheme } from "./theme";
 
-export function SBBarChart({ data, lines, height = 300 }: { data: any[], lines: { dataKey: string, name: string }[], height?: number }) {
-    const theme = getSBChartTheme();
-    return (
-        <div style={{ width: '100%', height }}>
-            <ResponsiveContainer>
-                <BarChart data={data}>
-                    <CartesianGrid strokeDasharray="3 3" stroke={theme.grid} />
-                    <XAxis dataKey="name" stroke={theme.axis} />
-                    <YAxis stroke={theme.axis} />
-                    <Tooltip contentStyle={{ backgroundColor: theme.tooltip.bg, border: `1px solid ${theme.tooltip.border}` }} />
-                    {lines.map((line, index) => (
-                        <Bar key={line.dataKey} dataKey={line.dataKey} name={line.name} fill={theme.line[index % theme.line.length]} />
-                    ))}
-                </BarChart>
-            </ResponsiveContainer>
-        </div>
-    );
+type BarConf = { dataKey: string; name?: string; stackId?: string };
+export function SBBarChart({ data, bars }: { data: any[]; bars: BarConf[] }) {
+  const t = getSBChartTheme();
+  return (
+    <div className="sb-card">
+      <div className="sb-card__header"><div className="sb-card__title">Distribución</div></div>
+      <div className="sb-card__content h-[280px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} margin={{ left: 8, right: 8 }}>
+            <CartesianGrid stroke={t.colors.grid} strokeDasharray="3 3" />
+            <XAxis dataKey="x" tick={{ fill: t.colors.text, fontSize: 12 }} tickLine={false} axisLine={{ stroke: t.colors.grid }}/>
+            <YAxis tick={{ fill: t.colors.text, fontSize: 12 }} tickLine={false} axisLine={{ stroke: t.colors.grid }}/>
+            <Tooltip contentStyle={{ background: t.colors.bg, border: `1px solid ${t.colors.grid}` }} />
+            {bars.map((b, i) => (
+              <Bar key={b.dataKey} dataKey={b.dataKey} name={b.name} stackId={b.stackId} fill={t.colors.series[i % t.colors.series.length]} radius={[8,8,0,0]} />
+            ))}
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
 }
