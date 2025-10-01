@@ -1,3 +1,4 @@
+
 // src/app/(app)/warehouse/inventory/page.tsx
 "use client";
 
@@ -99,6 +100,7 @@ export default function InventoryPage() {
   
   const [globalSearch, setGlobalSearch] = useState("");
   const [locationFilter, setLocationFilter] = useState<string>("ALL");
+  const [qcFilter, setQcFilter] = useState<string>("ALL");
   const [onlyWithStock, setOnlyWithStock] = useState<boolean>(true);
   const [cat, setCat] = useState<ItemCategory>("fg");
   const [viewMode, setViewMode] = useState<"sku" | "lot">("lot");
@@ -123,6 +125,7 @@ export default function InventoryPage() {
     let rows = onHand;
     if (cat) rows = rows.filter(r => r.category === cat);
     if (locationFilter !== "ALL") rows = rows.filter(r => r.locationId === locationFilter);
+    if (qcFilter !== 'ALL') rows = rows.filter(r => (r.qcStatus || 'PENDING') === qcFilter);
     if (onlyWithStock) rows = rows.filter(r => (r.qty - (r.reservedQty ?? 0)) > 0);
     if (globalSearch.trim()) {
       const q = globalSearch.trim().toLowerCase();
@@ -133,7 +136,7 @@ export default function InventoryPage() {
       );
     }
     return rows;
-  }, [onHand, items, cat, locationFilter, onlyWithStock, globalSearch]);
+  }, [onHand, items, cat, locationFilter, qcFilter, onlyWithStock, globalSearch]);
 
   const summaries = useMemo(() => computeSkuRollup(onHandFiltered, { nearExpiryDays: 45 }), [onHandFiltered]);
   const alerts = useMemo(() => computeStockAlerts(summaries), [summaries]);
@@ -216,6 +219,12 @@ export default function InventoryPage() {
           />
           <Select value={locationFilter} onChange={(e) => setLocationFilter(e.target.value)}>
             {locations.map(loc => <option key={loc} value={loc}>{loc === "ALL" ? "Todas Ubicaciones" : loc}</option>)}
+          </Select>
+          <Select value={qcFilter} onChange={(e) => setQcFilter(e.target.value)}>
+            <option value="ALL">Todo QC</option>
+            <option value="PASSED">Liberado</option>
+            <option value="PENDING">Retenido</option>
+            <option value="FAILED">Rechazado</option>
           </Select>
           <label className="flex items-center gap-2 pl-2 text-sm">
             <input type="checkbox" checked={onlyWithStock} onChange={e=>setOnlyWithStock(e.target.checked)} />

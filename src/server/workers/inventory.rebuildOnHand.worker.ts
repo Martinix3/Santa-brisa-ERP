@@ -74,18 +74,18 @@ export async function run() {
         const from = m.fromLocationId || m.fromLocation;
         const to = m.toLocationId || m.toLocation;
         if (from) {
-            const key = makeOnHandId(m.itemId, m.lotNumber, from);
-            const entry = onHandAgg[key] || { qty: 0, uom, itemId: m.itemId, lotNumber: m.lotNumber, locationId: from, updatedAt: '1970-01-01T00:00:00Z' };
-            entry.qty -= qty;
-            if (new Date(updatedAt) > new Date(entry.updatedAt)) entry.updatedAt = updatedAt;
-            onHandAgg[key] = entry;
+             const key = makeOnHandId(m.itemId, m.lotNumber, from);
+             const entry = onHandAgg[key] || { qty: 0, uom, itemId: m.itemId, lotNumber: m.lotNumber, locationId: from, updatedAt: '1970-01-01T00:00:00Z' };
+             entry.qty -= qty;
+             if (new Date(updatedAt) > new Date(entry.updatedAt)) entry.updatedAt = updatedAt;
+             onHandAgg[key] = entry;
         }
         if (to) {
-            const key = makeOnHandId(m.itemId, m.lotNumber, to);
-            const entry = onHandAgg[key] || { qty: 0, uom, itemId: m.itemId, lotNumber: m.lotNumber, locationId: to, updatedAt: '1970-01-01T00:00:00Z' };
-            entry.qty += qty;
-            if (new Date(updatedAt) > new Date(entry.updatedAt)) entry.updatedAt = updatedAt;
-            onHandAgg[key] = entry;
+             const key = makeOnHandId(m.itemId, m.lotNumber, to);
+             const entry = onHandAgg[key] || { qty: 0, uom, itemId: m.itemId, lotNumber: m.lotNumber, locationId: to, updatedAt: '1970-01-01T00:00:00Z' };
+             entry.qty += qty;
+             if (new Date(updatedAt) > new Date(entry.updatedAt)) entry.updatedAt = updatedAt;
+             onHandAgg[key] = entry;
         }
       } else if (m.reason === 'adjustment') {
           const loc = m.toLocationId || m.toLocation || m.fromLocationId || m.fromLocation;
@@ -107,7 +107,7 @@ export async function run() {
         return {
           id: makeOnHandId(doc.itemId, doc.lotNumber, doc.locationId),
           ...doc,
-          category: item?.category, // <-- AQUÍ ESTÁ LA CORRECCIÓN
+          category: item?.category,
           qcStatus: lot?.qcStatus || 'PENDING',
           qty: Math.round(doc.qty * 1000) / 1000,
         };
