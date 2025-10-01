@@ -21,7 +21,7 @@ function ProductionNav() {
     const accentColor = 'hsl(var(--sb-accent-produccion))';
 
     return (
-        <div className="bg-secondary border-b border-zinc-200">
+        <div className="bg-background border-b border-zinc-200">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex gap-6">
                     {navItems.map(item => (
@@ -51,7 +51,7 @@ function ProductionNav() {
 export default function ProductionLayout({ children }: { children: React.ReactNode }) {
   const accentColor = 'hsl(var(--sb-accent-produccion))';
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col bg-background">
        <ModuleHeader 
         title="Producción" 
         icon={()=>(<div className="p-2 rounded-lg" style={{backgroundColor: accentColor+'33', color: accentColor}}><Factory size={20}/></div>)} 
