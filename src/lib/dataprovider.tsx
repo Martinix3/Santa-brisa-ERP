@@ -110,39 +110,49 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   // Auth state listener & data loading trigger
   useEffect(() => {
+    console.log("[DataProvider] Setting up onAuthStateChanged listener.");
     const unsubscribe = onAuthStateChanged(firebaseAuth, async (fbUser) => {
-        console.log(`[DataProvider] onAuthStateChanged`, !!fbUser);
-        setFirebaseUser(fbUser ?? null);
-        setAuthReady(true);
-        if (fbUser) {
-          // Si hay usuario de Firebase y no hay datos, iniciamos la carga.
-          if (!data) {
+        console.log(`[DataProvider] onAuthStateChanged fired. User: ${fbUser?.uid ?? 'null'}`);
+        setFirebaseUser(fbUser);
+
+        if (fbUser && !data) {
+            console.log("[DataProvider] Auth change -> User present, but no data. Triggering data load.");
             await loadInitialData();
-          }
-        } else {
-          // Si no hay usuario, limpiamos todo.
-          setCurrentUser(null);
-          setData(null);
-          setLoadingData(false);
+        } else if (!fbUser) {
+            console.log("[DataProvider] Auth change -> No user. Clearing data.");
+            setCurrentUser(null);
+            setData(null);
+        }
+        
+        if (!authReady) {
+            console.log("[DataProvider] Auth is now ready.");
+            setAuthReady(true);
+            setLoadingData(false);
         }
     });
-    return () => unsubscribe();
-  }, [data, loadInitialData]);
+    return () => {
+        console.log("[DataProvider] Cleaning up onAuthStateChanged listener.");
+        unsubscribe();
+    };
+  }, []); // <-- Dependencia vacía para que se ejecute una sola vez
 
   // Sincroniza currentUser con el usuario de Firebase y los datos cargados.
   useEffect(() => {
     if (!authReady || !firebaseUser || !data?.users) {
-        console.log('[DataProvider] Conditions not met to find app user:', { authReady, hasFbUser: !!firebaseUser, hasDataUsers: !!data?.users });
+        // console.log('[DataProvider] Conditions not met to find app user:', { authReady, hasFbUser: !!firebaseUser, hasDataUsers: !!data?.users });
         return;
     }
     const appUser = data.users.find(u => u.email === firebaseUser.email);
     if (appUser) {
-        console.log(`[DataProvider] Found app user for ${firebaseUser.email}: ${appUser.name}`);
-        setCurrentUser(appUser);
+        if (!currentUser || currentUser.id !== appUser.id) {
+          console.log(`[DataProvider] Found app user for ${firebaseUser.email}: ${appUser.name}`);
+          setCurrentUser(appUser);
+        }
     } else {
         console.warn(`[DataProvider] App user for ${firebaseUser.email} not found. A signup might be in progress or data is stale.`);
+        setCurrentUser(null); // Asegurarse de limpiar si no se encuentra
     }
-  }, [authReady, firebaseUser, data?.users]);
+  }, [authReady, firebaseUser, data?.users, currentUser]);
 
   // Lógica de redirección centralizada.
   useEffect(() => {
