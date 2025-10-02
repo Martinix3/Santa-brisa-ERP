@@ -40,6 +40,7 @@
   --info: 210 96% 97%;
   --info-foreground: 210 84% 40%;
   --ring: 45 100% 60%; /* Anillo de foco en amarillo */
+
   /* ======================================= */
   /* NO USAR - LEGACY - SERÁN REEMPLAZADOS */
   /* ======================================= */
@@ -101,9 +102,7 @@
 
 /* ===== Base ===== */
 @layer base {
-  *, ::before, ::after {
-    @apply border-border;
-  }
+  *, ::before, ::after { @apply border-border; }
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
@@ -116,6 +115,10 @@
     background-color: hsl(var(--accent));
     border-color: hsl(var(--accent));
   }
+}
+
+@utility focus-ring {
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2;
 }
 
 @layer components {
@@ -173,7 +176,6 @@
   @keyframes sb-slide-up { from{opacity:.6; transform:translateY(6px)} to{opacity:1; transform:none} }
 
   .is-pressed { transform: translateY(1px); }
-  .focus-ring { @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2; }
 
   /* Tipografía */
   .sb-h1 { @apply text-3xl font-bold tracking-tight; }
