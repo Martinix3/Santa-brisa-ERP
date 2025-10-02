@@ -1,3 +1,4 @@
+
 // src/app/(app)/agenda/calendar/page.tsx
 "use client";
 import React, { useMemo, useState, useEffect } from "react";
@@ -14,20 +15,13 @@ import type { Department, Interaction, SantaData, InteractionStatus, MarketingEv
 import { sbAsISO } from "@/features/agenda/helpers";
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import { cn } from "@/lib/utils";
 import { NewEventDialog } from "@/features/agenda/components/NewEventDialog";
 import { EventDetailDialog } from "@/features/agenda/components/EventDetailDialog";
 import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/TaskCompletionDialog';
 import { MarketingTaskCompletionDialog } from "@/features/marketing/components/MarketingTaskCompletionDialog";
 import { FilterSelect } from "@/components/ui/FilterSelect";
 
-
-const hexToRgba = (hex: string, a: number) => {
-  if (!hex) return `rgba(0,0,0,0)`;
-  const h = hex.replace("#", "");
-  const n = parseInt(h.length === 3 ? h.split("").map(c => c + c).join("") : h, 16);
-  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
-  return `rgba(${r},${g},${b},${a})`;
-};
 
 function CalendarPageContent() {
   const { data: santaData, setData, currentUser, isPersistenceEnabled, saveCollection, saveAllCollections } = useData();
@@ -64,7 +58,6 @@ function CalendarPageContent() {
     return allInteractions
       .filter(i => !!sbAsISO(i.plannedFor))
       .map((task) => {
-        const style = DEPT_META[task.dept as Department] || DEPT_META.VENTAS;
         const plannedForISO = sbAsISO(task.plannedFor);
         
         // La tarea es "todo el día" si la fecha no incluye hora
@@ -76,10 +69,10 @@ function CalendarPageContent() {
           start: plannedForISO,
           allDay: isAllDay,
           extendedProps: { type: task.dept, status: task.status, kind: task.kind, linkedEntity: task.linkedEntity },
-          backgroundColor: task.status === 'done' ? '#d1d5db' : hexToRgba(style.color, 0.25),
-          borderColor: task.status === 'done' ? '#9ca3af' : hexToRgba(style.color, 0.45),
-          textColor: task.status === 'done' ? '#4b5563' : style.textColor,
-          className: ["sb-event"],
+          className: cn("sb-event", `sb-event--${task.dept}`, {
+            "sb-event--done": task.status === 'done',
+            "border-l-4": !isAllDay // Añade un borde más grueso si no es todo el día
+          }),
         };
       });
   }, [allInteractions]);
@@ -145,16 +138,16 @@ function CalendarPageContent() {
 
   return (
     <>
-      <div className="h-full p-4 md:p-6 bg-white flex flex-col">
+      <div className="h-full p-4 md:p-6 bg-background flex flex-col">
         <div className="flex items-center gap-3 mb-4 flex-shrink-0">
           <FilterSelect value={responsibleFilter} onChange={setResponsibleFilter} options={userOptions} placeholder="Responsable" />
           <FilterSelect value={departmentFilter} onChange={setDepartmentFilter} options={departmentOptions} placeholder="Sector" />
           <div className="flex-grow"></div>
           <button
             onClick={() => { setEditingEvent(null); setIsNewEventDialogOpen(true); }}
-            className="sb-btn-primary flex items-center gap-2 text-sm text-primary-foreground bg-primary rounded-lg px-4 py-2 font-semibold hover:bg-primary/90 transition-colors"
+            className="sb-btn-primary gap-2 px-4 py-2"
           >
-            Nueva Tarea
+            <span>Nueva Tarea</span>
           </button>
         </div>
         <div className="flex-grow min-h-0">
@@ -168,16 +161,14 @@ function CalendarPageContent() {
               editable={isPersistenceEnabled}
               eventDrop={handleEventDrop}
               eventContent={(arg: EventContentArg) => {
-                const { type, status } = (arg.event.extendedProps as any);
-                const dept = DEPT_META[type as Department] || DEPT_META.VENTAS;
+                const { status } = (arg.event.extendedProps as any);
                 return (
-                  <div className={`flex items-center gap-1.5 ${status === 'done' ? 'line-through' : ''}`}>
+                  <div className={cn("flex items-center gap-1.5 p-1", status === 'done' && 'line-through opacity-70')}>
                     <span
-                      className="inline-block h-2 w-2 rounded-full"
-                      style={{ backgroundColor: status === 'done' ? '#9ca3af' : (dept?.color || "#94a3b8") }}
+                      className="sb-event-dot inline-block h-2 w-2 rounded-full flex-shrink-0"
                     />
-                    {arg.timeText && <span className="text-[11px] text-zinc-600 mr-1">{arg.timeText}</span>}
-                    <span className="text-[12px] font-medium text-zinc-800">{arg.event.title}</span>
+                    {arg.timeText && <span className="text-[11px] text-muted-foreground mr-1">{arg.timeText}</span>}
+                    <span className="text-[12px] font-medium text-foreground truncate">{arg.event.title}</span>
                   </div>
                 );
               }}
@@ -205,7 +196,7 @@ function CalendarPageContent() {
               setEditingEvent(null);
             }}
             initialEventData={editingEvent}
-            accentColor={DEPT_META[editingEvent?.dept || 'PERSONAL']?.color || '#F4C542'}
+            dept={editingEvent?.dept || 'PERSONAL'}
           />
         )}
 

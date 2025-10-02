@@ -1,3 +1,4 @@
+
 /* globals.css — Tailwind v4 */
 @config "../../tailwind.config.ts";
 @import "tailwindcss";
@@ -102,7 +103,7 @@
 
 /* ===== Base ===== */
 @layer base {
-  *, ::before, ::after { @apply border-border; }
+  * { @apply border-border; }
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
@@ -171,9 +172,6 @@
 
   .fade-in { animation: sb-fade .18s ease-out both; }
   .slide-up { animation: sb-slide-up .18s cubic-bezier(.2,.8,.2,1) both; }
-
-  @keyframes sb-fade { from{opacity:0} to{opacity:1} }
-  @keyframes sb-slide-up { from{opacity:.6; transform:translateY(6px)} to{opacity:1; transform:none} }
 
   .is-pressed { transform: translateY(1px); }
 
@@ -288,5 +286,67 @@
     @apply z-50 rounded-md border bg-background text-foreground shadow-md p-3;
     position: absolute; min-width: 220px;
     animation: sb-fade .12s ease both;
+  }
+
+  /* Calendar Events */
+  .sb-event {
+      @apply p-1 rounded-md border text-sm transition-colors;
+  }
+  .sb-event--VENTAS {
+      --event-color: hsl(var(--sb-accent-ventas));
+      background-color: color-mix(in srgb, var(--event-color) 15%, transparent);
+      border-color: color-mix(in srgb, var(--event-color) 40%, transparent);
+      color: var(--event-color);
+  }
+  .sb-event--VENTAS .sb-event-dot { background-color: var(--event-color); }
+  .sb-event--MARKETING {
+      --event-color: hsl(var(--sb-accent-marketing));
+      background-color: color-mix(in srgb, var(--event-color) 15%, transparent);
+      border-color: color-mix(in srgb, var(--event-color) 40%, transparent);
+      color: var(--event-color);
+  }
+  .sb-event--MARKETING .sb-event-dot { background-color: var(--event-color); }
+  .sb-event--PRODUCCION {
+      --event-color: hsl(var(--sb-accent-produccion));
+      background-color: color-mix(in srgb, var(--event-color) 15%, transparent);
+      border-color: color-mix(in srgb, var(--event-color) 40%, transparent);
+      color: var(--event-color);
+  }
+  .sb-event--PRODUCCION .sb-event-dot { background-color: var(--event-color); }
+  .sb-event--CALIDAD {
+      --event-color: hsl(var(--sb-accent-calidad));
+      background-color: color-mix(in srgb, var(--event-color) 15%, transparent);
+      border-color: color-mix(in srgb, var(--event-color) 40%, transparent);
+      color: var(--event-color);
+  }
+  .sb-event--CALIDAD .sb-event-dot { background-color: var(--event-color); }
+  .sb-event--ALMACEN {
+      --event-color: hsl(var(--sb-accent-logistica));
+      background-color: color-mix(in srgb, var(--event-color) 15%, transparent);
+      border-color: color-mix(in srgb, var(--event-color) 40%, transparent);
+      color: var(--event-color);
+  }
+  .sb-event--ALMACEN .sb-event-dot { background-color: var(--event-color); }
+  .sb-event--FINANZAS {
+      --event-color: hsl(var(--sb-accent-finance));
+      background-color: color-mix(in srgb, var(--event-color) 15%, transparent);
+      border-color: color-mix(in srgb, var(--event-color) 40%, transparent);
+      color: var(--event-color);
+  }
+  .sb-event--FINANZAS .sb-event-dot { background-color: var(--event-color); }
+  .sb-event--PERSONAL, .sb-event--undefined {
+      --event-color: hsl(var(--sb-accent-personal));
+      background-color: color-mix(in srgb, var(--event-color) 15%, transparent);
+      border-color: color-mix(in srgb, var(--event-color) 40%, transparent);
+      color: hsl(var(--primary-foreground));
+  }
+  .sb-event--PERSONAL .sb-event-dot, .sb-event--undefined .sb-event-dot { background-color: var(--event-color); }
+  .sb-event--done {
+      background-color: hsl(var(--muted) / 0.5);
+      border-color: hsl(var(--muted));
+      color: hsl(var(--muted-foreground));
+  }
+  .sb-event--done .sb-event-dot {
+      background-color: hsl(var(--muted-foreground));
   }
 }
