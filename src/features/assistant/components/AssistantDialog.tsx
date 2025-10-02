@@ -1,7 +1,8 @@
+
 "use client";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
-import { Send, User, Bot, Loader } from "lucide-react";
+import { Send, User, Bot, Loader, X } from "lucide-react";
 import { useAssistant } from "./AssistantProvider";
 import { useData } from "@/lib/dataprovider";
 import type { SantaData } from "@/domain/ssot";
