@@ -1,5 +1,7 @@
-import type { SantaData, Account, CommercialFlow } from '@/domain/ssot';
-import type { ParseResult } from './types';
+import type { SantaData, Account, CommercialFlow, Promotion } from '@/domain/ssot';
+import type { ParseResult, ISO, Order } from './types';
+import { normalizeName } from "./helpers";
+
 
 // Regex base
 const RE_ACCOUNT = /@([^\n@#]+?)(?=\s|$|,|\.|;)/i;
@@ -18,25 +20,64 @@ const REASON_COMPETITOR = /\b(ya\s*tienen|trabajan\s*con\s*otro)\b/i;
 const findAccountInText = (text: string, data: SantaData): Account | null => {
   const m = text.match(RE_ACCOUNT);
   if (!m) return null;
-  const name = m[1].trim().toLowerCase();
-  // Busca por nombre exacto o parcial
-  return data.accounts.find(a => a.name.toLowerCase().includes(name)) || null;
+  const needle = normalizeName(m[1]);
+  let best: { acc: Account; score: number } | null = null;
+
+  for (const a of data.accounts) {
+    const norm = normalizeName(a.name);
+    // scoring simple: exact > startsWith > includes
+    let score = 0;
+    if (norm === needle) score = 3;
+    else if (norm.startsWith(needle)) score = 2;
+    else if (norm.includes(needle)) score = 1;
+
+    if (score && (!best || score > best.score)) best = { acc: a, score };
+    if (score === 3) break; // corto por lo sano si es exacto
+  }
+  return best?.acc ?? null;
 };
 
 const nextDateFrom = (text: string): string | undefined => {
-  const tomorrow = text.match(RE_TOMORROW);
-  if (tomorrow) {
-    const d = new Date();
+  const now = new Date();
+
+  // 1) ¿"mañana"?
+  const hasTomorrow = RE_TOMORROW.test(text);
+
+  // 2) ¿fecha explícita dd/mm(/yy)?
+  const dm = text.match(RE_DATE);
+  if (dm) {
+    const [, dd, mm, yyyy] = dm;
+    const y = yyyy ? (yyyy.length === 2 ? 2000 + Number(yyyy) : Number(yyyy)) : now.getFullYear();
+    const d = new Date(y, Number(mm) - 1, Number(dd));
+    // ¿hay hora?
+    const tm = text.match(RE_TIME);
+    if (tm) {
+      const [, hh, mi] = tm;
+      d.setHours(Number(hh), Number(mi), 0, 0);
+    }
+    return d.toISOString();
+  }
+
+  // 3) ¿solo hora?
+  const tm = text.match(RE_TIME);
+  if (tm) {
+    const [, hh, mi] = tm;
+    const d = new Date(now);
+    d.setHours(Number(hh), Number(mi), 0, 0);
+    if (hasTomorrow || d.getTime() <= now.getTime()) {
+      d.setDate(d.getDate() + 1);
+    }
+    return d.toISOString();
+  }
+
+  // 4) "mañana" sin hora → mañana a 10:00 por defecto (elige tu hora default)
+  if (hasTomorrow) {
+    const d = new Date(now);
     d.setDate(d.getDate() + 1);
+    d.setHours(10, 0, 0, 0);
     return d.toISOString();
   }
-  const dateMatch = text.match(RE_DATE);
-  if (dateMatch) {
-    const [, day, month, year] = dateMatch;
-    const y = year ? (year.length === 2 ? 2000 + Number(year) : Number(year)) : new Date().getFullYear();
-    const d = new Date(y, Number(month) - 1, Number(day));
-    return d.toISOString();
-  }
+
   return undefined;
 };
 
@@ -61,7 +102,7 @@ export const RULES: ActionRule[] = [
       if (REASON_PRICE.test(text)) reason = 'PRECIO';
       else if (REASON_FIT.test(text)) reason = 'PRODUCTO_NO_ENCAJA';
       else if (REASON_COMPETITOR.test(text)) reason = 'COMPETENCIA';
-      // ParseResult legacy: usar EVENTO_MKT y trasladar el motivo a description
+      // EVENTO_MKT compatible con ParseResult legacy
       return {
         kind: 'EVENTO_MKT',
         accountId: account.id,
@@ -133,3 +174,34 @@ export const RULES: ActionRule[] = [
     execute: (text) => ({ kind: 'UNKNOWN', summary: text.trim() })
   }
 ];
+
+// src/features/santabrain/lib/rules.ts (añadir al final o exportar desde donde lo tengas definido)
+
+// --- Adaptador compatible con engine.ts ---
+export function isPromotionApplicable(order: Order, promo: Promotion, nowISO?: ISO): boolean {
+  // qty en scope según skuScope
+  const orderQty = order.items.reduce((acc, l) => {
+    const inScope = !promo.skuScope || promo.skuScope.includes(l.sku);
+    return acc + (inScope ? (l.qty ?? 0) : 0);
+  }, 0);
+
+  // Si tienes canal en el pedido/cuenta, pásalo aquí:
+  const channel = (order as any).channel as Promotion['channels'][number] | undefined;
+
+  // Reusa tu lógica existente
+  return isPromotionApplicableCtx(promo, { nowISO, orderQty, channel });
+}
+
+// Renombra tu función actual para reutilizarla arriba
+export function isPromotionApplicableCtx(promo: Promotion, ctx: {
+  nowISO?: string;
+  channel?: Promotion['channels'][number];
+  orderQty?: number;
+}) {
+  const now = ctx.nowISO ? new Date(ctx.nowISO) : new Date();
+  if (promo.validFrom && now < new Date(promo.validFrom)) return false;
+  if (promo.validTo && now > new Date(promo.validTo)) return false;
+  if (promo.minQty && (ctx.orderQty ?? 0) < promo.minQty) return false;
+  if (promo.channels?.length && ctx.channel && !promo.channels.includes(ctx.channel)) return false;
+  return true;
+}

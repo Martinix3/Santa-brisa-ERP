@@ -6,10 +6,12 @@
  */
 import type {
   ISO, Period, Filters, SalesKpiResult, MarketingKpiResult,
-  AccountRollup, Order, Promotion, Account, Activation, ParseResult, BrainContext
+  AccountRollup, Order, Promotion, Account, ParseResult, BrainContext
 } from "./types";
 import { orderTotal, median, computeChannelMix, daysSinceISO, normalizeName } from "./helpers";
 import { isPromotionApplicable } from "./rules";
+import { RULES } from './rules';
+
 
 // =============================
 // KPI — Sales (unchanged from previous corrected version)
@@ -139,73 +141,18 @@ export function applyPromotionToOrder(order: Order, promo: Promotion, nowISO: IS
 // =============================
 // Parsing: nota → acción (multi-item + fuzzy cuenta)
 // =============================
-const pedidoRe = /(nuevo|crear)?\s*pedido.*?(?:para\s+(.+?))?(?:\s+en\s+([\p{L}\s]+))?$/iu;
-// items tipo "6 cajas sb-750", "3 sb200", etc.
-const qtySkuRe = /(\d+)\s*cajas?\s*([a-z0-9\-_/.]+)/gi;
 
-function findAccountByNameFuzzy(name: string, accounts: Account[]): Account | undefined {
-  const norm = normalizeName(name);
-  // perfect/startsWith/contains matching (light fuzzy)
-  return accounts.find(a => {
-    const an = normalizeName(a.name);
-    return an === norm || an.startsWith(norm) || an.includes(norm);
-  });
-}
-
-export function parseNoteToAction(note: string, ctx: BrainContext, data: { accounts: Account[] }): ParseResult {
-  const text = note.trim();
-
-  // Captura "para [cuenta] en [lugar]" si existe
-  const header = text.match(pedidoRe);
-  const maybeAccount = header?.[2]?.trim();
-  const maybeLocation = header?.[3]?.trim();
-
-  // Captura múltiples items
-  const items: Array<{qtyCases:number; itemId:string}> = [];
-  let m: RegExpExecArray | null;
-  while ((m = qtySkuRe.exec(text)) !== null) {
-    items.push({ qtyCases: parseInt(m[1],10) || 0, itemId: m[2].toLowerCase() });
-  }
-
-  if (items.length > 0 || /\bpedido\b/i.test(text)) {
-    const accountName = maybeAccount ?? 'Cuenta sin especificar';
-    const found = maybeAccount ? findAccountByNameFuzzy(maybeAccount, data.accounts) : undefined;
-
-    // fallback a ítem único si no se reconoció ninguno explícito
-    if (items.length === 0) {
-      // Busca patrón singular: "6 cajas sb-750"
-      const single = text.match(/(\d+)\s*cajas?[,\s]+([a-z0-9\-_/]+)/i);
-      if (single) {
-        items.push({ qtyCases: parseInt(single[1],10) || 0, itemId: (single[2]||'').toLowerCase() });
-      }
+export function parseNoteToAction(text: string, data: SantaData): ParseResult {
+  const sorted = [...RULES].sort((a, b) => b.priority - a.priority);
+  for (const rule of sorted) {
+    if (rule.condition(text, data)) {
+      console.log(`[Santa Brain] Rule matched: ${rule.name}`);
+      return rule.execute(text, data);
     }
-
-    // para compatibilidad con la tarjeta actual usamos el primer item como "principal"
-    const first = items[0] ?? { qtyCases: 0, itemId: '' };
-
-    return {
-      kind: 'PEDIDO',
-      accountId: found?.id,
-      accountName,
-      isNewAccount: !found,
-      qtyCases: first.qtyCases,
-      itemId: first.itemId,
-      location: maybeLocation || undefined,
-      distributorName: '',
-      summary: text
-    };
   }
-
-  if (/\bvisita\b/i.test(text)) {
-    return { kind: 'VISITA', summary: text };
-  }
-
-  if (/evento|activaci[oó]n|activation/i.test(text)) {
-    return { kind: 'EVENTO_MKT', description: text, summary: text } as any;
-  }
-
-  return { kind: 'UNKNOWN', summary: text };
+  return { kind: 'UNKNOWN', summary: text.trim() };
 }
+
 
 // =============================
 // Order helpers for UI: draft builder and promo pass
