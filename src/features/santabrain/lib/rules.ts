@@ -103,11 +103,12 @@ export const RULES: ActionRule[] = [
       else if (REASON_FIT.test(text)) reason = 'PRODUCTO_NO_ENCAJA';
       else if (REASON_COMPETITOR.test(text)) reason = 'COMPETENCIA';
 
-      // EVENTO_MKT compatible con ParseResult legacy
       return {
         kind: 'EVENTO_MKT',
+        subKind: 'LEAD_LOST',
+        reason: reason,
         accountId: account.id,
-        description: `LEAD_LOST:${reason}`,
+        description: text,
         when: nextDateFrom(text) // opcional
       };
     }
@@ -121,12 +122,11 @@ export const RULES: ActionRule[] = [
     execute: (text, data) => {
       const account = findAccountInText(text, data)!;
       const qty = parseInt(text.match(RE_QTY)![1], 10);
-      // ParseResult legacy exige isNewAccount y summary
       return {
         kind: 'PEDIDO',
         accountId: account.id,
         accountName: account.name,
-        isNewAccount: false,
+        isNewAccount: !account,
         qtyCases: qty,
         itemId: undefined,
         summary: text
@@ -160,6 +160,7 @@ export const RULES: ActionRule[] = [
       const description = text.replace(RE_ACCOUNT, '').replace(RE_POS, '').trim();
       return {
         kind: 'EVENTO_MKT',
+        subKind: 'POS_ACTIVITY',
         accountId: account.id,
         description,
         when: nextDateFrom(text)
@@ -188,12 +189,12 @@ export function isPromotionApplicable(order: Order, promo: Promotion, nowISO?: I
   // Qty en scope (si hay skuScope)
   const qtyInScope = order.items.reduce((acc, l) => {
     const inScope = !promo.skuScope || promo.skuScope.includes(l.sku);
-    return acc + (l.qty ?? 0);
+    return acc + (inScope ? (l.qty ?? 0) : 0);
   }, 0);
   if (promo.minQty && qtyInScope < promo.minQty) return false;
 
   // Canal (si lo transportas en order)
-  const channel = (order as any).channel as Promotion['channels'][number] | undefined;
+  const channel = (order as any).account?.segment as Promotion['channels'][number] | undefined;
   if (promo.channels?.length && channel && !promo.channels.includes(channel)) return false;
 
   return true;
@@ -202,13 +203,13 @@ export function isPromotionApplicable(order: Order, promo: Promotion, nowISO?: I
 // Renombra tu función actual para reutilizarla arriba
 export function isPromotionApplicableCtx(promo: Promotion, ctx: {
   nowISO?: string;
-  channel?: NonNullable<Promotion['channels']>[number];
+  channel?: Promotion['channels'][number];
   orderQty?: number;
 }) {
   const now = ctx.nowISO ? new Date(ctx.nowISO) : new Date();
   if (promo.validFrom && now < new Date(promo.validFrom)) return false;
   if (promo.validTo && now > new Date(promo.validTo)) return false;
   if (promo.minQty && (ctx.orderQty ?? 0) < promo.minQty) return false;
-  if (promo.channels && ctx.channel && !promo.channels.includes(ctx.channel)) return false;
+  if (promo.channels?.length && ctx.channel && !promo.channels.includes(ctx.channel)) return false;
   return true;
 }

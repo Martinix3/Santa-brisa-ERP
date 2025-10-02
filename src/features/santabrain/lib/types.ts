@@ -12,6 +12,7 @@ export type PromoChannel =
 
 export interface Promotion {
   id: string;
+  name?: string;
   mechanic: PromoMechanic;     // 'PCT' => porcentaje; 'FIXED' => descuento fijo por unidad
   value?: number;              // valor del descuento
   skuScope?: string[];         // si no se indica, aplica a todas las líneas del pedido
@@ -25,9 +26,12 @@ export interface Promotion {
 export type {
   SantaData,
   Account,
-  Order,
+  OrderSellOut as Order,
   Activation,
 } from "@/domain/ssot";
+
+// Si aquí defines tipos *propios* de Santabrain (Period, Filters, BrainContext, ParseResult, etc.),
+// mantenlos, pero NO vuelvas a declarar SantaData/Account/Order con formas “reducidas”.
 
 // Tipos locales de Santabrain
 export type PeriodView = 'WEEK'|'MONTH'|'YEAR';
@@ -76,7 +80,7 @@ export type AccountRollup = {
 export type ParseResult =
   | { kind: 'PEDIDO'; accountId?: string; accountName: string; isNewAccount: boolean; qtyCases: number; itemId?: string; location?: string; distributorName?: string; summary: string }
   | { kind: 'VISITA'; accountId?: string; when?: ISO; summary?: string }
-  | { kind: 'EVENTO_MKT'; accountId?: string; description?: string; budget?: number; when?: ISO }
+  | { kind: 'EVENTO_MKT'; accountId?: string; description?: string; budget?: number; when?: ISO; subKind?: 'LEAD_LOST' | 'POS_ACTIVITY'; reason?: 'PRECIO' | 'PRODUCTO_NO_ENCAJA' | 'COMPETENCIA' | 'SIN_INFORMACION' }
   | { kind: 'UNKNOWN'; summary: string };
 
 export type BrainContext = {

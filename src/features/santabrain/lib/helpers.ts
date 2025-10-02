@@ -27,6 +27,7 @@ export function orderTotal(o: OrderLike): number {
   );
 }
 
+
 /** Mediana numérica segura */
 export function median(nums: number[]): number {
   if (!nums?.length) return 0;
@@ -53,13 +54,13 @@ export function computeChannelMix(orders: Order[], accounts: Account[]) {
     let ch: keyof typeof buckets | null = null;
 
     const src = (o as any).source;
-    if (src === "Shopify" || (acc as any)?.channel === "Online") ch = "ONLINE";
-    else if ((acc as any)?.accountType === "CLIENTE_FINAL" && (acc as any)?.segment === "Privada") ch = "PRIVADA";
-    else if ((acc as any)?.channel === "Horeca") ch = "HORECA";
-    else if ((acc as any)?.channel === "Retail") ch = "RETAIL";
+    if (src === "Shopify" || acc?.segment === "ONLINE") ch = "ONLINE";
+    else if (acc?.segment === "PRIVADA") ch = "PRIVADA";
+    else if (acc?.segment === "HORECA") ch = "HORECA";
+    else if (acc?.segment === "RETAIL") ch = "RETAIL";
 
     const isDistributor =
-      (acc as any)?.accountType === "DISTRIBUIDOR" || (acc as any)?.accountType === "IMPORTADOR";
+      acc?.segment === "DISTRIBUIDOR";
     if (ch && !isDistributor) buckets[ch] += orderTotal(o);
   }
 

@@ -141,10 +141,23 @@ export function applyPromotionToOrder(order: Order, promo: Promotion, nowISO: IS
 // =============================
 // Parsing: nota → acción (multi-item + fuzzy cuenta)
 // =============================
+const findAccountByNameFuzzy = (name: string, accounts: Account[]): Account | undefined => {
+    const needle = normalizeName(name);
+    let best: { acc: Account, score: number } | null = null;
+    for (const acc of accounts) {
+        const score = nameSimilarity(needle, acc.name);
+        if (!best || score > best.score) best = { acc, score };
+    }
+    return best && best.score > 0.6 ? best.acc : undefined;
+};
 
 // Overload signatures
-export function parseNoteToAction(note: string, ctx: BrainContext, data: SantaData): ParseResult;
 export function parseNoteToAction(note: string, ctx: BrainContext): ParseResult;
+export function parseNoteToAction(
+  note: string,
+  ctx: BrainContext,
+  data: SantaData
+): ParseResult;
 
 // Implementation
 export function parseNoteToAction(
@@ -153,12 +166,12 @@ export function parseNoteToAction(
   data?: SantaData
 ): ParseResult {
   const text = note.trim();
-  const accounts = data?.accounts ?? [];
-  
+  const accounts = data?.accounts ?? []; // Fallback si llaman con 2 args
+
   const sorted = [...RULES].sort((a, b) => b.priority - a.priority);
   for (const rule of sorted) {
-    if (rule.condition(note, { ...data, accounts } as SantaData)) {
-      return rule.execute(note, { ...data, accounts } as SantaData);
+    if (rule.condition(text, { ...data, accounts } as SantaData)) {
+      return rule.execute(text, { ...data, accounts } as SantaData);
     }
   }
   return { kind: 'UNKNOWN', summary: note.trim() };
@@ -176,11 +189,12 @@ export function buildDraftOrderFromParsed(input: {
     id: `draft_${Math.random().toString(36).slice(2)}`,
     accountId: input.accountId ?? 'NEW_ACCOUNT',
     date: now,
-    status: 'BORRADOR',
+    status: 'open',
     currency: 'EUR',
-    items: input.items.map(it => ({ sku: it.sku, qty: it.qty })),
+    lines: input.items.map(it => ({ sku: it.sku, qty: it.qty, priceUnit: 0, uom: 'unit' })),
     notes: input.notes,
     createdAt: now,
+    updatedAt: now,
   };
 }
 
