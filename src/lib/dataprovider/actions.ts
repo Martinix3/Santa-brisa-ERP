@@ -15,7 +15,7 @@ export async function upsertMany(collectionName: keyof SantaData, items: any[]):
 
   try {
     const colRef = adminDb.collection(String(collectionName));
-    const snap = await colRef.select(FieldDocId()).get();
+    const snap = await colRef.select(FieldDocId).get();
     const existing = new Set(snap.docs.map(d => d.id));
 
     const ids: string[] = [];

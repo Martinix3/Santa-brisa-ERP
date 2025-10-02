@@ -32,12 +32,14 @@ export function DataQualityCenter() {
       const result = await performDataQualityCheck();
 
       if (result.ok) {
-        setAnomalies(result.data);
+        // Aseguramos que result.data es un array antes de usarlo
+        const data = result.data || [];
+        setAnomalies(data);
         setHasRun(true);
-        if (result.data.length === 0) {
+        if (data.length === 0) {
           toast.success("Auditoría completada. ¡Todo en orden!");
         } else {
-          toast.warning(`Auditoría completada. Se encontraron ${result.data.length} problemas.`);
+          toast.warning(`Auditoría completada. Se encontraron ${data.length} problemas.`);
         }
       } else {
         toast.error(`Error en la auditoría: ${result.message}`);
