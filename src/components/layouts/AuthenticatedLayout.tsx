@@ -1,3 +1,4 @@
+
 // src/components/layouts/AuthenticatedLayout.tsx
 
 "use client";
@@ -101,22 +102,22 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
 
   return (
     <>
-    <div className="h-screen flex bg-white">
+    <div className="h-screen flex bg-background">
       {/* Sidebar */}
-      <aside className="relative z-50 h-full border-r border-sb-neutral-200 bg-white flex flex-col w-16">
-        <Link href="/" className="h-14 flex items-center justify-center border-b">
+      <aside className="relative z-50 h-full border-r border-border bg-background flex flex-col w-16">
+        <Link href="/" aria-label="Dashboard principal" className="h-14 flex items-center justify-center border-b focus-ring rounded-md">
           <Image src="https://santabrisa.es/cdn/shop/files/clavista_300x_36b708f6-4606-4a51-9f65-e4b379531ff8_300x.svg?v=1752413726" alt="Santa Brisa" width={32} height={24} style={{width: 'auto', height: 'auto'}} priority />
         </Link>
         <nav className="flex-1 px-2 py-3 space-y-1">
           {visibleSections.map(section => {
             const isActiveModule = section.module === activeModule;
             return (
-              <div key={section.module} className="relative group">
-                <Link href={dashboardHrefFor(section.module)} className={`flex items-center justify-center h-10 w-10 rounded-lg transition-colors ${isActiveModule ? 'bg-primary text-primary-foreground' : 'text-zinc-600 hover:bg-zinc-100'}`}>
+              <div key={section.module} className="relative group ">
+                <Link href={dashboardHrefFor(section.module)} aria-label={section.title} className={`flex items-center justify-center h-10 w-10 rounded-lg transition-colors focus-ring ${isActiveModule ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'}`}>
                   <section.icon size={20} />
                 </Link>
-                <div className="absolute left-full top-0 w-56 p-1 hidden group-hover:block z-50">
-                  <div className="bg-white border rounded-lg shadow-lg">
+                <div className="absolute left-full top-0 w-56 p-1 hidden group-hover:block group-focus-within:block z-50">
+                  <div className="bg-card border rounded-lg shadow-lg">
                     <div className="p-2 border-b">
                         <p className="text-sm font-semibold">{section.title}</p>
                     </div>
@@ -124,7 +125,7 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
                     {section.items.map(item => {
                       const isActiveItem = pathname.startsWith(item.href);
                       return (
-                        <Link key={item.href} href={item.href} className={`block px-3 py-1.5 text-sm rounded-md transition-colors ${isActiveItem ? 'font-semibold text-primary' : 'text-zinc-600 hover:bg-zinc-100'}`}>
+                        <Link key={item.href} href={item.href} className={`block px-3 py-1.5 text-sm rounded-md transition-colors focus-ring ${isActiveItem ? 'font-semibold text-primary' : 'text-muted-foreground hover:bg-secondary'}`}>
                           {item.label}
                         </Link>
                       )
@@ -137,24 +138,27 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
           })}
         </nav>
         {/* Sidebar Footer with User Menu */}
-        <div className="mt-auto p-2 border-t border-zinc-200 space-y-2">
+        <div className="mt-auto p-2 border-t border-border space-y-2">
             <RealtimeToggle />
             <PersistenceToggle />
             <div ref={menuRef} className="relative">
                 <button
                     onClick={() => setUserMenuOpen(v => !v)}
-                    className="w-full"
+                    aria-label="Abrir menú de usuario"
+                    aria-haspopup="true"
+                    aria-expanded={userMenuOpen}
+                    className="w-full rounded-md focus-ring"
                 >
                     <Avatar name={currentUser?.name} size="md" className="mx-auto" />
                 </button>
                  {userMenuOpen && (
-                    <div role="menu" className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-1 bg-white border rounded-lg shadow-lg">
+                    <div role="menu" className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-1 bg-card border rounded-lg shadow-lg">
                       <div className="p-2 border-b">
                         <p className="text-sm font-semibold truncate">{currentUser?.name}</p>
-                        <p className="text-xs text-zinc-500 truncate">{currentUser?.email}</p>
+                        <p className="text-xs text-muted-foreground truncate">{currentUser?.email}</p>
                       </div>
-                      <Link href="/profile" role="menuitem" className="block w-full text-left px-3 py-2 text-sm rounded-md hover:bg-sb-neutral-50">Perfil</Link>
-                      <button onClick={logout} role="menuitem" className="w-full text-left px-3 py-2 text-sm rounded-md hover:bg-sb-neutral-50">
+                      <Link href="/profile" role="menuitem" className="block w-full text-left px-3 py-2 text-sm rounded-md hover:bg-secondary focus-ring">Perfil</Link>
+                      <button onClick={logout} role="menuitem" className="w-full text-left px-3 py-2 text-sm rounded-md hover:bg-secondary focus-ring">
                         Cerrar sesión
                       </button>
                     </div>
