@@ -24,6 +24,7 @@ import type {
   Segment,
   Stage,
 } from '@/domain/ssot';
+import { findSimilarAccounts, assessDuplicateRisk } from '@/features/santabrain/lib/helpers';
 
 
 // Helper para crear un Zod schema a partir de una lista de strings
@@ -110,13 +111,36 @@ const registeredTools = [
       }) as any,
       outputSchema: z.any() as any,
     },
-    async (input) => ({
-      id: `acc_${Date.now()}`,
-      stage: 'POTENCIAL',
-      ownerId: 'u_admin', // Default owner, should be context-aware
-      createdAt: new Date().toISOString(),
-      ...input,
-    })
+    async (input, context) => {
+        const { name, city, type } = input;
+        const allData = context.flow.context as { users: User[]; accounts: Account[]; parties: Party[]; currentUser: User };
+        
+        // Aquí aplicamos la lógica de detección de duplicados
+        const matches = findSimilarAccounts({
+            data: { accounts: allData.accounts, parties: allData.parties },
+            candidateName: name,
+        });
+
+        const decision = assessDuplicateRisk(matches);
+
+        if (decision.action === 'BLOCK_AUTO_CREATE') {
+            const suggestions = decision.matches.map(m => ` - "${m.accountName}" (similitud: ${(m.similarity * 100).toFixed(0)}%)`).join('\n');
+            return `Posible duplicado detectado con alta probabilidad. ${decision.reason}. No se ha creado la cuenta. Sugerencias:\n${suggestions}`;
+        }
+        
+        if (decision.action === 'WARN') {
+             // En una versión más avanzada, podríamos devolver una acción especial
+             // para que el frontend decida. Por ahora, creamos y avisamos.
+        }
+
+      return {
+        id: `acc_${Date.now()}`,
+        stage: 'POTENCIAL',
+        ownerId: 'u_admin', // Default owner, should be context-aware
+        createdAt: new Date().toISOString(),
+        ...input,
+      };
+    }
   ),
 ];
 
@@ -184,6 +208,7 @@ const santaBrainFlow = ai.defineFlow(
         { role: 'user', content: [{ text: augmentedInput }] },
       ],
       context: {
+          flow: { context }, // Pasamos todo el contexto del flujo al tool
           currentUser: {id: currentUser.id, name: currentUser.name, role: currentUser.role},
           users: users.map(u => ({id: u.id, name: u.name, role: u.role})),
           accounts: accountsWithContext,
