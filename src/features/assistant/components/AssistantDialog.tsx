@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
@@ -63,8 +64,8 @@ export function AssistantDialog() {
       setIsThinking(true);
 
       try {
-        // IMPORTANTE: tu engine actual espera (text, ctx, data)
-        const result = parseNoteToAction(trimmed, undefined as any, data as SantaData);
+        // La firma de 3 args es válida gracias al overload en engine.ts
+        const result = parseNoteToAction(trimmed, { currentUser } as any, data as SantaData);
         activeResultRef.current = result;
 
         if (result.kind === "PEDIDO") {
@@ -72,16 +73,16 @@ export function AssistantDialog() {
           const draft: DraftOrder = {
             accountName: result.accountName ?? "(cuenta sin definir)",
             isNewAccount: !!result.isNewAccount,
-            city: result.city ?? result.place ?? undefined,
+            city: result.location ?? undefined,
             distributorName: result.distributorName ?? undefined,
             lines: [
               {
-                sku: result.sku ?? "SB-750",
-                label: result.productLabel ?? "Santa Brisa 750ml",
+                sku: result.itemId ?? "SB-750",
+                label: result.itemId ?? "Santa Brisa 750ml",
                 qty: result.qtyCases ?? 1,
               },
             ],
-            notes: result.notes ?? "",
+            notes: result.summary ?? "",
           };
 
           // Mensaje base
@@ -91,7 +92,7 @@ export function AssistantDialog() {
           if (draft.isNewAccount && draft.accountName && data) {
             const loc = await getBrowserLocation();
             const matches = findSimilarAccounts({
-              data,
+              data: data as any,
               candidateName: draft.accountName,
               candidateLoc: loc,
               minNameSim: 0.45,
@@ -127,7 +128,7 @@ export function AssistantDialog() {
         setIsThinking(false);
       }
     },
-    [inputValue, isThinking, data]
+    [inputValue, isThinking, data, currentUser]
   );
 
   // Confirmar/Cancelar pedido inline (sin salir del chat)

@@ -1,3 +1,4 @@
+
 import type { SantaData, Account, CommercialFlow, Promotion } from '@/domain/ssot';
 import type { ParseResult, ISO, Order } from './types';
 import { normalizeName } from "./helpers";
@@ -102,6 +103,7 @@ export const RULES: ActionRule[] = [
       if (REASON_PRICE.test(text)) reason = 'PRECIO';
       else if (REASON_FIT.test(text)) reason = 'PRODUCTO_NO_ENCAJA';
       else if (REASON_COMPETITOR.test(text)) reason = 'COMPETENCIA';
+
       // EVENTO_MKT compatible con ParseResult legacy
       return {
         kind: 'EVENTO_MKT',
@@ -178,19 +180,6 @@ export const RULES: ActionRule[] = [
 // src/features/santabrain/lib/rules.ts (añadir al final o exportar desde donde lo tengas definido)
 
 // --- Adaptador compatible con engine.ts ---
-export function isPromotionApplicable(order: Order, promo: Promotion, nowISO?: ISO): boolean {
-  // qty en scope según skuScope
-  const orderQty = order.items.reduce((acc, l) => {
-    const inScope = !promo.skuScope || promo.skuScope.includes(l.sku);
-    return acc + (inScope ? (l.qty ?? 0) : 0);
-  }, 0);
-
-  // Si tienes canal en el pedido/cuenta, pásalo aquí:
-  const channel = (order as any).channel as Promotion['channels'][number] | undefined;
-
-  // Reusa tu lógica existente
-  return isPromotionApplicableCtx(promo, { nowISO, orderQty, channel });
-}
 
 // Renombra tu función actual para reutilizarla arriba
 export function isPromotionApplicableCtx(promo: Promotion, ctx: {
@@ -204,4 +193,18 @@ export function isPromotionApplicableCtx(promo: Promotion, ctx: {
   if (promo.minQty && (ctx.orderQty ?? 0) < promo.minQty) return false;
   if (promo.channels?.length && ctx.channel && !promo.channels.includes(ctx.channel)) return false;
   return true;
+}
+
+export function isPromotionApplicable(order: Order, promo: Promotion, nowISO?: ISO): boolean {
+  // qty en scope según skuScope
+  const orderQty = order.items.reduce((acc, l) => {
+    const inScope = !promo.skuScope || promo.skuScope.includes(l.sku);
+    return acc + (inScope ? (l.qty ?? 0) : 0);
+  }, 0);
+
+  // Si tienes canal en el pedido/cuenta, pásalo aquí:
+  const channel = (order as any).channel as Promotion['channels'][number] | undefined;
+
+  // Reusa tu lógica existente
+  return isPromotionApplicableCtx(promo, { nowISO, orderQty, channel });
 }

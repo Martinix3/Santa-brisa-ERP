@@ -56,13 +56,17 @@ export type Order = {
 
 export type Promotion = {
   id: string;
-  name: string;
-  status: PromotionStatus;
-  validFrom?: ISO;
-  validTo?: ISO;
-  mechanic?: 'PCT'|'FIXED'|'BOGO'|'XforY'|string;
-  value?: number; // %, fixed amount, etc.
-  skuScope?: string[]; // a qué SKUs aplica
+  name?: string;
+  // ventana temporal
+  validFrom?: string; // ISO
+  validTo?: string;   // ISO
+  // segmentación
+  channels?: Array<'ONLINE'|'PRIVADA'|'HORECA'|'RETAIL'|'DISTRIBUIDOR'|'IMPORTADOR'>;
+  skuScope?: string[]; // <— necesario para filtrar líneas en apply/applicable
+  // mecánica
+  mechanic?: 'PCT' | 'FIXED';
+  value?: number;      // % o importe según mechanic
+  minQty?: number;     // unidades mínimas en scope
 };
 
 export type PlvMaterial = {
@@ -78,17 +82,22 @@ export type PlvMaterial = {
 };
 
 export type Activation = {
-  id: string;
-  accountId: string;
-  materialId?: string;
-  description: string;
-  status: ActivationStatus;
-  startDate: ISO;
-  endDate?: ISO;
-  ownerId?: string;
-  createdAt: ISO;
-  updatedAt?: ISO;
+    id: string;
+    accountId: string;
+    startDate: ISO;
+    endDate?: ISO;
+    status: 'active' | 'paused' | 'ended';
 };
+
+export type SantaData = {
+    accounts: Account[];
+    orders: Order[];
+    promotions: Promotion[];
+    plv: PlvMaterial[];
+    activations: Activation[];
+    interactions: Interaction[];
+};
+
 
 export type Interaction = {
   id: string;
