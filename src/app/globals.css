@@ -9,6 +9,7 @@
   /* Colores de Marca y Acción */
   --primary: 45 100% 60%;    /* Amarillo Santa Brisa #FFCA32 */
   --primary-foreground: 224 43% 11%; /* Casi negro para texto sobre fondo amarillo */
+  --accent-foreground: 224 43% 11%;
   --accent: 224 43% 11%;   /* Accento oscuro para anillos de foco y otros */
 
   /* Colores Secundarios y de Fondo */
@@ -39,11 +40,6 @@
   --info: 210 96% 97%;
   --info-foreground: 210 84% 40%;
   --ring: 45 100% 60%; /* Anillo de foco en amarillo */
-
-  --cobre: 22 55% 48%;
-  --agua: 177 47% 65%;
-  --naranja: 15 88% 57%;
-  
   /* ======================================= */
   /* NO USAR - LEGACY - SERÁN REEMPLAZADOS */
   /* ======================================= */
@@ -63,14 +59,14 @@
   --sb-neutral-50: 0 0% 98%;
 
   /* Acentos por departamento */
-  --sb-accent-personal: var(--sb-sun);
+  --sb-accent-personal: var(--primary);
   --sb-accent-ventas: 22 70% 61%; /* #ea945e */
   --sb-accent-marketing: 182 40% 70%; /* #9dd4d6 */
   --sb-accent-logistica: 22 40% 44%; /* #996947 */
   --sb-accent-produccion: 182 20% 47%; /* #638c8d */
   --sb-accent-calidad: 214 35% 65%; /* #8298ce */
-  --sb-accent-finance: var(--sb-sun-strong);
-  --sb-accent-admin: var(--sb-neutral-500);
+  --sb-accent-finance: var(--primary);
+  --sb-accent-admin: var(--muted-foreground);
 }
 
 /* ===== Tailwind v4: registra tokens como utilidades ===== */
@@ -90,6 +86,7 @@
   --color-primary: hsl(var(--primary));
   --color-primary-foreground: hsl(var(--primary-foreground));
   --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
 
   --color-destructive: hsl(var(--destructive));
   --color-destructive-foreground: hsl(var(--destructive-foreground));
@@ -104,9 +101,7 @@
 
 /* ===== Base ===== */
 @layer base {
-  /* Se elimina la regla universal de border-color para evitar aplicar bordes a todos los elementos.
-     Tailwind gestionará esto con la clase 'border' que ya usa los tokens correctos. */
-  * { @apply border-border; } /* Esto es más seguro, delega a Tailwind */
+  /* Se elimina la regla `* { @apply border-border; }` por ser demasiado agresiva. Usar la clase `border` de Tailwind donde sea necesario. */
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
@@ -163,9 +158,11 @@
   .sb-breadcrumbs a { @apply hover:underline hover:text-foreground; }
   .sb-breadcrumbs__sep { @apply opacity-50; }
   
-  /* Animaciones y Hovers */
+  /* Animaciones y Sombra */
+  .sb-shadow-md { box-shadow: 0 4px 6px -1px color-mix(in srgb, hsl(var(--accent)) 10%, transparent), 0 2px 4px -2px color-mix(in srgb, hsl(var(--accent)) 10%, transparent); }
+
   .hover-raise { transition: transform .12s ease, box-shadow .2s ease; }
-  .hover-raise:hover { transform: translateY(-2px); box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); }
+  .hover-raise:hover { transform: translateY(-2px); @apply sb-shadow-md; }
 
   .fade-in { animation: sb-fade .18s ease-out both; }
   .slide-up { animation: sb-slide-up .18s cubic-bezier(.2,.8,.2,1) both; }
@@ -188,7 +185,7 @@
   /* Dialogs */
   .sb-dialog__overlay {
     position: fixed; inset: 0;
-    background: color-mix(in srgb, #000 50%, transparent);
+    background: color-mix(in srgb, hsl(var(--accent)) 50%, transparent);
     backdrop-filter: blur(2px);
     opacity: 0; animation: sb-fade-in .15s ease-out forwards;
   }
@@ -240,7 +237,7 @@
   .sb-skeleton::after {
     content: ""; position: absolute; inset: 0;
     transform: translateX(-100%); 
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,.4), transparent);
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, hsl(var(--background)) 50%, transparent), transparent);
     animation: sb-shimmer 1.2s infinite;
   }
   @keyframes sb-shimmer { 100% { transform: translateX(100%); } }
@@ -257,7 +254,7 @@
   .rdp { @apply text-sm; }
   .rdp-month { @apply p-2; }
   .rdp-day { @apply h-9 w-9 rounded-md; }
-  .rdp-day_selected { background: var(--rdp-accent-color); color: hsl(var(--primary-foreground)); }
+  .rdp-day_selected { background: var(--rdp-accent-color); color: hsl(var(--accent-foreground)); }
   .rdp-day:hover { @apply bg-secondary; }
   .rdp-caption_label { @apply font-medium; }
   .rdp-nav_button { @apply h-9 w-9 rounded-md transition-colors hover:bg-secondary; }
