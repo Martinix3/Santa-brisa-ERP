@@ -1,5 +1,5 @@
 // src/features/santabrain/lib/knowledge.ts
-import { firestoreDb as db } from '@/lib/firebaseClient'; // CORREGIDO: Usar el cliente, no /lib/db
+import { firestoreDb } from '@/lib/firebaseClient'; // CORREGIDO: Usar el cliente, no /lib/db
 
 export async function learnCorrection(input: {
   text: string;

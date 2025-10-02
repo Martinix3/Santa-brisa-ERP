@@ -6,9 +6,9 @@
  */
 import type {
   ISO, Period, Filters, SalesKpiResult, MarketingKpiResult,
-  AccountRollup, Order, Promotion, Account, ParseResult, BrainContext, SantaData
+  AccountRollup, Order, Promotion, Account, ParseResult, BrainContext, SantaData, Activation
 } from "./types";
-import { orderTotal, median, computeChannelMix, daysSinceISO, normalizeName } from "./helpers";
+import { orderTotal, median, computeChannelMix, daysSinceISO, normalizeName, findSimilarAccounts } from "./helpers";
 import { isPromotionApplicable } from "./rules";
 import { RULES } from './rules';
 
@@ -108,7 +108,7 @@ export function computeAccountRollup(accountId: string, period: Period, data: {
 
   const ordersIn = data.orders.filter((o: Order) => o.accountId === accountId && new Date(o.date).getTime() >= start && new Date(o.date).getTime() <= end);
   const ordersWithPromoInPeriod = ordersIn.filter((o: Order) => (o.linkedPromotions?.length ?? 0) > 0).length;
-  const attributedSalesInPeriod = Math.round(ordersIn.reduce((a:number,o:Order)=>a + (o.amount ?? orderTotal(o)), 0));
+  const attributedSalesInPeriod = Math.round(ordersIn.reduce((a:number,o:Order)=>a+(o.amount ?? orderTotal(o)), 0));
 
   const activePromotionIds = Array.from(new Set(ordersIn.flatMap((o: Order) => o.linkedPromotions ?? [])));
 
@@ -156,6 +156,8 @@ export function parseNoteToAction(
   optionalData?: SantaData
 ): ParseResult {
   const data = (optionalData ?? ctxOrData) as SantaData;
+  const accounts = data?.accounts ?? [];
+  
   const sorted = [...RULES].sort((a, b) => b.priority - a.priority);
   for (const rule of sorted) {
     if (rule.condition(note, data)) {

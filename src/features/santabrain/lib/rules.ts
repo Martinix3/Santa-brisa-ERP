@@ -1,6 +1,7 @@
 import type { SantaData, Account, CommercialFlow } from '@/domain/ssot';
-import type { ParseResult, ISO, Order } from './types';
 import { normalizeName } from "./helpers";
+import type { ISO, Order, ParseResult } from "./types";
+
 
 // Regex base
 const RE_ACCOUNT = /@([^\n@#]+?)(?=\s|$|,|\.|;)/i;
@@ -178,18 +179,18 @@ export const RULES: ActionRule[] = [
 export type Promotion = {
   id: string;
   name?: string;
-  // Ventana temporal
+  // ventana temporal
   validFrom?: ISO;
   validTo?: ISO;
-  // Segmentación por canal
+  // segmentación
   channels?: Array<'ONLINE'|'PRIVADA'|'HORECA'|'RETAIL'|'DISTRIBUIDOR'|'IMPORTADOR'>;
   // Ámbito de SKUs
   skuScope?: string[];
-  // Mecánica
+  // mecánica
   mechanic?: 'PCT' | 'FIXED';
   value?: number;  // % o valor fijo según mechanic
   // Requisitos
-  minQty?: number; // unidades mínimas (dentro del scope)
+  minQty?: number;     // unidades mínimas en scope
 };
 
 
@@ -197,18 +198,18 @@ export type Promotion = {
 export function isPromotionApplicable(order: Order, promo: Promotion, nowISO?: ISO): boolean {
   const now = nowISO ? new Date(nowISO) : new Date();
 
-  // Ventana temporal
+  // vent. temporal
   if (promo.validFrom && now < new Date(promo.validFrom)) return false;
   if (promo.validTo && now > new Date(promo.validTo)) return false;
 
-  // Qty en scope (si hay skuScope)
+  // qty en scope
   const qtyInScope = order.items.reduce((acc, l) => {
     const inScope = !promo.skuScope || promo.skuScope.includes(l.sku);
     return acc + (inScope ? (l.qty ?? 0) : 0);
   }, 0);
   if (promo.minQty && qtyInScope < promo.minQty) return false;
 
-  // Canal (si lo transportas en order)
+  // canal (si lo tienes en el pedido)
   const channel = (order as any).channel as Promotion['channels'][number] | undefined;
   if (promo.channels?.length && channel && !promo.channels.includes(channel)) return false;
 
