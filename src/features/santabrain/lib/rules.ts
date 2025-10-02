@@ -1,11 +1,10 @@
-
 // src/features/santabrain/lib/rules.ts
 import { normalizeName } from "./helpers";
-import type { SantaData, Account, ParseResult, Promotion, ISO, Order, PromoChannel } from "./types";
+import type { SantaData, Account, ParseResult, Promotion, ISO, PromoChannel } from "./types";
 
 
 const RE_ACCOUNT = /@([^\n@#]+?)(?=\s|$|,|\.|;)/i;
-const RE_QTY = /\b(\d{1,4})\s*(cajas?|bx|cs)\b/i;
+const RE_QTY = /\b(\d{1,4})\s*(?:cajas?|bx|cs|uds?|botellas?)?\b/i;
 const RE_TIME = /\b(\d{1,2}):(\d{2})\b/;
 const RE_DATE = /\b(\d{1,2})\/(\d{2,4})(?:\/(\d{2,4}))?\b/;
 const RE_TOMORROW = /\b(mañana|tomorrow)\b/i;
@@ -117,14 +116,22 @@ export const RULES: ActionRule[] = [
   {
     name: 'ORDER',
     priority: 90,
-    condition: (text, data) => !!findAccountInText(text, data) && RE_QTY.test(text),
+    condition: (text, data) => (!!findAccountInText(text, data) || /para\s(.+)/.test(text)) && RE_QTY.test(text),
     execute: (text, data) => {
       const account = findAccountInText(text, data);
-      const qty = parseInt(text.match(RE_QTY)![1], 10);
+      const qtyMatch = text.match(RE_QTY);
+      const qty = qtyMatch ? parseInt(qtyMatch[1], 10) : 0;
+      
+      let accountName = account?.name || 'Cuenta sin especificar';
+      if (!account) {
+          const paraMatch = text.match(/para\s+@?([\w\s]+)/i);
+          if (paraMatch) accountName = paraMatch[1].trim();
+      }
+
       return {
         kind: 'PEDIDO',
         accountId: account?.id,
-        accountName: account?.name || text.match(RE_ACCOUNT)![1].trim(),
+        accountName,
         isNewAccount: !account,
         qtyCases: qty,
         itemId: undefined,
@@ -178,6 +185,7 @@ export const RULES: ActionRule[] = [
 
 
 // --- Adaptador compatible con engine.ts ---
+
 export function isPromotionApplicable(order: Order, promo: Promotion, nowISO?: ISO): boolean {
   const now = nowISO ? new Date(nowISO) : new Date();
 
@@ -186,8 +194,8 @@ export function isPromotionApplicable(order: Order, promo: Promotion, nowISO?: I
   if (promo.validTo && now > new Date(promo.validTo)) return false;
 
   // qty en scope
-  const qtyInScope = (order.lines || []).reduce((acc: number, l: { sku?: string; qty: number, itemId: string }) => {
-    const inScope = !promo.skuScope || promo.skuScope.includes(l.itemId);
+  const qtyInScope = order.lines.reduce((acc: number, l: { sku?: string; qty: number }) => {
+    const inScope = !promo.skuScope || (l.sku && promo.skuScope.includes(l.sku));
     return acc + (inScope ? (l.qty ?? 0) : 0);
   }, 0);
   if (promo.minQty && qtyInScope < promo.minQty) return false;
@@ -198,6 +206,7 @@ export function isPromotionApplicable(order: Order, promo: Promotion, nowISO?: I
 
   return true;
 }
+
 
 // Renombra tu función actual para reutilizarla arriba
 export function isPromotionApplicableCtx(promo: Promotion, ctx: {

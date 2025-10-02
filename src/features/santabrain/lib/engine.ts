@@ -1,4 +1,3 @@
-
 // src/features/santabrain/lib/engine.ts
 
 /**
@@ -9,7 +8,8 @@
  */
 import type {
   ISO, Period, Filters, SalesKpiResult, MarketingKpiResult,
-  AccountRollup, Order, Account, Activation, ParseResult, SantaData,
+  AccountRollup, Order, Account,
+  ParseResult, SantaData,
   Promotion, BrainContext
 } from "./types";
 import { orderTotal, median, computeChannelMix, daysSinceISO, normalizeName, findSimilarAccounts, nameSimilarity } from "./helpers";
@@ -66,7 +66,7 @@ export function computeSalesKPIs(period: Period, filters: Filters, data: {
   const avg = (xs:number[]) => (xs.length ? xs.reduce((a:number,b:number)=>a+b,0) / xs.length : 0);
   const upliftPromoPct = avg(withPromo) && avg(withoutPromo) ? Math.round(((avg(withPromo)/avg(withoutPromo))-1)*1000)/10 : 0;
 
-  const activeAccs = new Set(data.activations.filter((a: any) => a.status === 'active' && new Date(a.startDate).getTime() <= end && (!a.endDate || new Date(a.endDate).getTime() >= start)).map((a: any) => a.accountId));
+  const activeActivations = new Set(data.activations.filter((a: any) => a.status === 'active' && new Date(a.startDate).getTime() <= end && (!a.endDate || new Date(a.endDate).getTime() >= start)).map((a: any) => a.accountId));
   const ventasAtribuiblesActivaciones = Math.round(ordersIn.filter((o: Order) => activeAccs.has(o.accountId)).reduce((a:number,o:Order)=>a+(o.totalAmount ?? orderTotal(o)),0));
 
   const roiMarketingGlobal = 0;
@@ -124,7 +124,8 @@ export function computeAccountRollup(accountId: string, period: Period, data: {
 export function applyPromotionToOrder(order: Order, promo: Promotion, nowISO: ISO): Order {
   if (!isPromotionApplicable(order, promo, nowISO)) return order;
   const lines = (order.lines || []).map((l: Order['lines'][number]) => {
-    const inScope = !promo.skuScope || promo.skuScope.includes((l as any).sku); // Corrected to use sku if itemId is not available
+    const itemSku = (l as any).sku || l.itemId;
+    const inScope = !promo.skuScope || promo.skuScope.includes(itemSku);
     if (!inScope) return l;
     if (promo.mechanic === 'PCT') {
       const value = Math.max(0, Math.min(100, promo.value ?? 0));
@@ -143,9 +144,8 @@ export function applyPromotionToOrder(order: Order, promo: Promotion, nowISO: IS
 // =============================
 // Parsing: nota → acción (multi-item + fuzzy cuenta)
 // =============================
-const RE_ACCOUNT = /@([^\n@#]+?)(?=\s|$|,|\.|;)/i;
-const qtySkuRe = /(\d+)\s*(?:cajas?|bx|cs|uds?|botellas?)?\s*([a-z0-9\-_/.]+)/gi;
 const pedidoRe = /pedido para\s+(.+?)(?:\s+en\s+(.+))?$/i;
+const qtySkuRe = /(\d+)\s*(?:cajas?|bx|cs|uds?|botellas?)?\s*([a-z0-9\-_/.]+)/gi;
 
 // firmas overload arriba del cuerpo
 export function parseNoteToAction(note: string, ctx: BrainContext): ParseResult;
@@ -166,7 +166,9 @@ export function parseNoteToAction(
 
   // ... usa `accounts` en lugar de `data.accounts`
   const header = text.match(pedidoRe);
-  const maybeAccount = header?.[1]?.trim();
+  // Prioritize @mention over "para" regex
+  const atMentionMatch = text.match(/@([\w\s]+)/);
+  const maybeAccountName = atMentionMatch ? atMentionMatch[1].trim() : (header ? header[1].trim() : undefined);
   const maybeLocation = header?.[2]?.trim();
 
   const items: Array<{qtyCases:number; itemId:string}> = [];
@@ -176,8 +178,8 @@ export function parseNoteToAction(
   }
 
   if (items.length > 0 || /\bpedido\b/i.test(text)) {
-    const accountName = maybeAccount ?? 'Cuenta sin especificar';
-    const found = maybeAccount ? findAccountByNameFuzzy(maybeAccount, accounts) : undefined;
+    const accountName = maybeAccountName ?? 'Cuenta sin especificar';
+    const found = maybeAccountName ? findAccountByNameFuzzy(maybeAccountName, accounts) : undefined;
     const first = items[0] ?? { qtyCases: 0, itemId: '' };
 
     return {
@@ -193,36 +195,13 @@ export function parseNoteToAction(
     };
   }
 
-  const isVisit = /\b(visita|reuni[oó]n)\b/i.test(text);
-  const isPos = /\b(pos|plv|evento|activaci[oó]n|degustaci[oó]n)\b/i.test(text);
-  const isLost = /\b(no\s*le\s*interesa|no\s*quiere|rechaza|lo\s*descarta|dice\s*que\s*no)\b/i.test(text);
-  const detectedAccount = findAccountByNameFuzzy(text, accounts);
-
-  if (isLost && detectedAccount) {
-    let reason: 'PRECIO' | 'PRODUCTO_NO_ENCAJA' | 'COMPETENCIA' | 'SIN_INFORMACION' = 'SIN_INFORMACION';
-    if (/\b(caro|precio|coste)\b/i.test(text)) reason = 'PRECIO';
-    else if (/\b(no\s*encaja|otro\s*estilo)\b/i.test(text)) reason = 'PRODUCTO_NO_ENCAJA';
-    else if (/\b(ya\s*tienen|trabajan\s*con\s*otro)\b/i.test(text)) reason = 'COMPETENCIA';
-    return {
-        kind: 'EVENTO_MKT',
-        subKind: 'LEAD_LOST',
-        reason,
-        accountId: detectedAccount.id,
-        description: text,
-    };
-  }
-
+  const isVisit = /\bvisita\b/i.test(text);
   if (isVisit) {
-    return { kind: 'VISITA', accountId: detectedAccount?.id, when: nextDateFrom(text), summary: text };
+    return { kind: 'VISITA', summary: text };
   }
-  if (isPos) {
-      return {
-          kind: 'EVENTO_MKT',
-          subKind: 'POS_ACTIVITY',
-          accountId: detectedAccount?.id,
-          description: text,
-          when: nextDateFrom(text),
-      };
+  const isActivation = /evento|activaci[oó]n|activation/i.test(text);
+  if (isActivation) {
+    return { kind: 'EVENTO_MKT', description: text, summary: text } as any;
   }
   return { kind: 'UNKNOWN', summary: text };
 }
@@ -235,54 +214,6 @@ const findAccountByNameFuzzy = (name: string, accounts: Account[]): Account | un
         if (!best || score > best.score) best = { acc, score };
     }
     return best && best.score > 0.6 ? best.acc : undefined;
-};
-
-const RE_TOMORROW = /\b(mañana|tomorrow)\b/i;
-const RE_DATE = /\b(\d{1,2})\/(\d{2,4})(?:\/(\d{2,4}))?\b/;
-const RE_TIME = /\b(\d{1,2}):(\d{2})\b/;
-
-const nextDateFrom = (text: string): string | undefined => {
-  const now = new Date();
-
-  // 1) ¿"mañana"?
-  const hasTomorrow = RE_TOMORROW.test(text);
-
-  // 2) ¿fecha explícita dd/mm(/yy)?
-  const dm = text.match(RE_DATE);
-  if (dm) {
-    const [, dd, mm, yyyy] = dm;
-    const y = yyyy ? (yyyy.length === 2 ? 2000 + Number(yyyy) : Number(yyyy)) : now.getFullYear();
-    const d = new Date(y, Number(mm) - 1, Number(dd));
-    // ¿hay hora?
-    const tm = text.match(RE_TIME);
-    if (tm) {
-      const [, hh, mi] = tm;
-      d.setHours(Number(hh), Number(mi), 0, 0);
-    }
-    return d.toISOString();
-  }
-
-  // 3) ¿solo hora?
-  const tm = text.match(RE_TIME);
-  if (tm) {
-    const [, hh, mi] = tm;
-    const d = new Date(now);
-    d.setHours(Number(hh), Number(mi), 0, 0);
-    if (hasTomorrow || d.getTime() <= now.getTime()) {
-      d.setDate(d.getDate() + 1);
-    }
-    return d.toISOString();
-  }
-
-  // 4) "mañana" sin hora → mañana a 10:00 por defecto (elige tu hora default)
-  if (hasTomorrow) {
-    const d = new Date(now);
-    d.setDate(d.getDate() + 1);
-    d.setHours(10, 0, 0, 0);
-    return d.toISOString();
-  }
-
-  return undefined;
 };
 
 
