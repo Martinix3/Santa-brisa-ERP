@@ -287,9 +287,4 @@
     position: absolute; min-width: 220px;
     animation: sb-fade .12s ease both;
   }
-
-  .sb-chart:hover .recharts-cartesian-grid-horizontal line,
-  .sb-chart:hover .recharts-cartesian-grid-vertical line {
-    stroke-opacity: .9;
-  }
 }
