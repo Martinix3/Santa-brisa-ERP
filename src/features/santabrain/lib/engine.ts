@@ -1,4 +1,3 @@
-// src/features/santabrain/lib/engine.ts
 import type { ParseResult } from './types';
 import type { SantaData } from '@/domain/ssot';
 import { RULES } from './rules';

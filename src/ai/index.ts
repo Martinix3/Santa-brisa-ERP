@@ -1,7 +1,3 @@
-// src/ai/index.ts
-import { genkit } from 'genkit';
-import { googleAI } from '@genkit-ai/googleai';
-
-export const ai = genkit({
-  plugins: [googleAI()],
-});
+// This file is no longer needed as Genkit integration has been removed.
+// This file can be safely deleted.
+export {}

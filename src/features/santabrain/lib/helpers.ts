@@ -1,8 +1,8 @@
 /**
  * Helpers — funciones puras + normalizaciones
  */
-import type { ISO, Order, Account } from "./types";
-import type { SantaData } from '@/domain/ssot';
+import type { ISO, Order, Account, Party } from "./types";
+import { SantaData } from "@/domain/ssot";
 
 export const toISO = (d: Date|string|number): ISO => {
   const date = d instanceof Date ? d : new Date(d);
@@ -84,7 +84,7 @@ export function normalizeName(s: string): string {
 // --- helpers de similitud y geodist ---
 
 const STOPWORDS = new Set([
-  'bar','bars',','cafeteria','cafetería','restaurante','restaurant',
+  'bar','bars','cafeteria','cafetería','restaurante','restaurant',
   'pub','taberna','cerveceria','cervecería','la','el','los','las','de','del'
 ]);
 
@@ -166,7 +166,6 @@ export function findSimilarAccounts(opts: {
     return da - db;
   });
 }
-
 export type DuplicateDecision =
   | { action: 'BLOCK_AUTO_CREATE'; reason: string; matches: SimilarAccountHit[] }
   | { action: 'WARN'; reason: string; matches: SimilarAccountHit[] }

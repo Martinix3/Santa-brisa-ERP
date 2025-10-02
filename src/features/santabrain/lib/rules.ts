@@ -1,7 +1,7 @@
-// src/features/santabrain/lib/rules.ts
 import type { SantaData, Account, CommercialFlow } from '@/domain/ssot';
 import type { ParseResult } from './types';
 
+// Regex base
 const RE_ACCOUNT = /@([^\n@#]+?)(?=\s|$|,|\.|;)/i;
 const RE_QTY = /\b(\d{1,4})\s*(cajas?|bx|cs)\b/i;
 const RE_TIME = /\b(\d{1,2}):(\d{2})\b/;
@@ -14,44 +14,34 @@ const REASON_PRICE = /\b(caro|precio|coste)\b/i;
 const REASON_FIT = /\b(no\s*encaja|no\s*es\s*para\s*nosotros|otro\s*estilo)\b/i;
 const REASON_COMPETITOR = /\b(ya\s*tienen|trabajan\s*con\s*otro)\b/i;
 
-function nextDateFrom(text: string): string | undefined {
-  const now = new Date();
-  const hasDate = RE_DATE.test(text);
-  const hasTime = RE_TIME.test(text);
-  const tomorrow = RE_TOMORROW.test(text);
-  if (!hasDate && !hasTime && !tomorrow) return undefined;
-  const d = new Date(now);
-  if (tomorrow) d.setDate(d.getDate() + 1);
-  if (hasDate) {
-    const md = text.match(RE_DATE)!;
-    const day = +md[1], mon = +md[2] - 1;
-    const yearStr = md[3];
-    const year = yearStr ? (yearStr.length === 2 ? 2000 + +yearStr : +yearStr) : now.getFullYear();
-    d.setFullYear(year, mon, day);
-  }
-  if (hasTime) {
-    const mt = text.match(RE_TIME)!;
-    d.setHours(+mt[1], +mt[2], 0, 0);
-  } else {
-    d.setHours(10, 0, 0, 0);
-  }
-  return d.toISOString();
-}
-
-function findAccountInText(text: string, data: SantaData): Account | undefined {
+// --- Helpers de Parseo ---
+const findAccountInText = (text: string, data: SantaData): Account | null => {
   const m = text.match(RE_ACCOUNT);
-  if (!m) return;
-  const search = m[1].trim().toLowerCase();
-  for (const account of data.accounts) {
-    const party = data.parties.find(p => p.id === account.partyId);
-    if (!party) continue;
-    const names = [account.name, party.name, party.legalName, party.tradeName]
-      .filter(Boolean).map(s => s!.toLowerCase());
-    if (names.some(n => n.includes(search))) return account;
-  }
-  return;
-}
+  if (!m) return null;
+  const name = m[1].trim().toLowerCase();
+  // Busca por nombre exacto o parcial
+  return data.accounts.find(a => a.name.toLowerCase().includes(name)) || null;
+};
 
+const nextDateFrom = (text: string): string | undefined => {
+  const tomorrow = text.match(RE_TOMORROW);
+  if (tomorrow) {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.toISOString();
+  }
+  const dateMatch = text.match(RE_DATE);
+  if (dateMatch) {
+    const [, day, month, year] = dateMatch;
+    const y = year ? (year.length === 2 ? 2000 + Number(year) : Number(year)) : new Date().getFullYear();
+    const d = new Date(y, Number(month) - 1, Number(day));
+    return d.toISOString();
+  }
+  return undefined;
+};
+
+
+// --- Motor de Reglas ---
 export interface ActionRule {
   name: string;
   priority: number;
@@ -60,6 +50,7 @@ export interface ActionRule {
 }
 
 export const RULES: ActionRule[] = [
+  // 1) Lead Perdido -> mapear a EVENTO_MKT (legacy)
   {
     name: 'LEAD_LOST',
     priority: 100,
@@ -70,8 +61,7 @@ export const RULES: ActionRule[] = [
       if (REASON_PRICE.test(text)) reason = 'PRECIO';
       else if (REASON_FIT.test(text)) reason = 'PRODUCTO_NO_ENCAJA';
       else if (REASON_COMPETITOR.test(text)) reason = 'COMPETENCIA';
-
-      // EVENTO_MKT compatible con ParseResult legacy
+      // ParseResult legacy: usar EVENTO_MKT y trasladar el motivo a description
       return {
         kind: 'EVENTO_MKT',
         accountId: account.id,
@@ -80,17 +70,16 @@ export const RULES: ActionRule[] = [
       };
     }
   },
+
+  // 2) Pedido
   {
     name: 'ORDER',
     priority: 90,
     condition: (text, data) => !!findAccountInText(text, data) && RE_QTY.test(text),
     execute: (text, data) => {
       const account = findAccountInText(text, data)!;
-      let flow: CommercialFlow = account.flow || 'DIRECT';
-      if (RE_PLACEMENT.test(text)) flow = 'PLACEMENT';
-
       const qty = parseInt(text.match(RE_QTY)![1], 10);
-
+      // ParseResult legacy exige isNewAccount y summary
       return {
         kind: 'PEDIDO',
         accountId: account.id,
@@ -102,6 +91,8 @@ export const RULES: ActionRule[] = [
       };
     }
   },
+
+  // 3) Visita
   {
     name: 'VISIT',
     priority: 80,
@@ -116,6 +107,8 @@ export const RULES: ActionRule[] = [
       };
     }
   },
+
+  // 4) POS / Evento Marketing -> EVENTO_MKT (legacy)
   {
     name: 'POS_EVT/PLV',
     priority: 70,
@@ -127,10 +120,12 @@ export const RULES: ActionRule[] = [
         kind: 'EVENTO_MKT',
         accountId: account.id,
         description,
-        when: nextDateFrom(text) // opcional
+        when: nextDateFrom(text)
       };
     }
   },
+
+  // 5) Fallback -> UNKNOWN
   {
     name: 'FALLBACK_UNKNOWN',
     priority: 0,
