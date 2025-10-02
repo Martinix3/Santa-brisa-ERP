@@ -9,6 +9,8 @@ import type { Uom, Item, ProductionOrder, BillOfMaterial as RecipeBom } from '@/
 import { planProduction } from "../actions";
 import { ProductionSidebar } from "@/features/production/execution/components/ProductionSidebar";
 import { ActiveOrderPanel } from "@/features/production/execution/components/ActiveOrderPanel";
+import { EmptyState } from "@/components/ui/ui-primitives";
+import { MousePointerClick } from "lucide-react";
 import { picksToRealLines } from "@/features/production/execution/helpers";
 
 export const dynamic = 'force-dynamic';
@@ -98,9 +100,11 @@ export default function ProductionExecutionPage() {
 
       <div className="lg:col-span-9">
         {!activeForm ? (
-            <div className="flex items-center justify-center h-96 bg-zinc-50 rounded-xl">
-                <p className="text-zinc-500">Selecciona una receta para planificar o una orden activa para ejecutar.</p>
-            </div>
+            <EmptyState
+              icon={MousePointerClick}
+              title="Nada seleccionado"
+              description="Selecciona una receta para planificar o una orden activa para ejecutar."
+            />
         ) : (
             <ActiveOrderPanel
               activeForm={activeForm}
