@@ -64,8 +64,12 @@ export function AssistantDialog() {
       setIsThinking(true);
 
       try {
-        const result = parseNoteToAction(trimmed, { currentUser } as any, data as SantaData);
+        const safeData = (data ?? { accounts: [], parties: [] }) as SantaData;
+        const result = parseNoteToAction(trimmed, { currentUser } as any, safeData);
+        console.log("[SB] parseNoteToAction →", result);
         activeResultRef.current = result;
+        
+        let botText: string = "No he entendido bien la petición. ¿Puedes reformularla?";
 
         if (result.kind === "PEDIDO") {
           const draft: DraftOrder = {
@@ -83,41 +87,47 @@ export function AssistantDialog() {
             notes: result.summary ?? "",
           };
 
-          let botText = `✅ He detectado un pedido de ${draft.lines[0].qty} ${draft.lines[0].qty === 1 ? "caja" : "cajas"} para “${draft.accountName}”.`;
-
-          if (draft.isNewAccount && draft.accountName && data) {
-            const loc = await getBrowserLocation();
-            const matches = findSimilarAccounts({
-              data: data as any,
-              candidateName: draft.accountName,
-              candidateLoc: loc,
-              minNameSim: 0.45,
-              radiusM: 1200,
-            });
-            const decision = assessDuplicateRisk(matches);
-
-            if (decision.action === "BLOCK_AUTO_CREATE") {
-              botText += `\n⚠️ Posible duplicado: ${decision.reason}\nSelecciona una existente o confirma creación forzada.`;
-            } else if (decision.action === "WARN") {
-              botText += `\nℹ️ Aviso: ${decision.reason} (procedo si confirmas).`;
-            } else {
-              botText += `\nProcedo a crear la cuenta automáticamente con tu ubicación (si está disponible).`;
-            }
-          }
-
-          pushAssistant(botText);
+          botText = `✅ He detectado un pedido de ${draft.lines[0].qty} ${draft.lines[0].qty === 1 ? "caja" : "cajas"} para “${draft.accountName}”.`;
           setPendingOrder(draft);
+          console.log("[SB] pendingOrder set →", draft);
+
+          try {
+            if (draft.isNewAccount && draft.accountName && data) {
+              const loc = await getBrowserLocation().catch(() => null);
+              const matches = findSimilarAccounts({
+                data: (data ?? { accounts: [], parties: [] }) as any,
+                candidateName: draft.accountName,
+                candidateLoc: loc || undefined,
+                minNameSim: 0.45,
+                radiusM: 1200,
+              });
+              const decision = assessDuplicateRisk(matches);
+
+              if (decision.action === "BLOCK_AUTO_CREATE") {
+                botText += `\n⚠️ Posible duplicado: ${decision.reason}\nSelecciona una existente o confirma creación forzada.`;
+              } else if (decision.action === "WARN") {
+                botText += `\nℹ️ Aviso: ${decision.reason} (procedo si confirmas).`;
+              } else {
+                botText += `\nProcedo a crear la cuenta automáticamente con tu ubicación (si está disponible).`;
+              }
+            }
+          } catch(e) {
+            console.warn("[SB] Duplicates check failed:", e);
+          }
+          
+          pushAssistant(botText);
         } else if (result.kind === "VISITA") {
           const when = result.when ? new Date(result.when).toLocaleString("es-ES") : "(sin fecha)";
-          pushAssistant(`📅 He preparado una visita para ${when}. ¿Confirmo?`);
-          setPendingOrder(null);
+          botText = `📅 He preparado una visita para ${when}. ¿Confirmo?`;
+          pushAssistant(botText);
         } else if (result.kind === "EVENTO_MKT") {
-          pushAssistant(`🎪 Evento/PLV detectado${result.description ? `: ${result.description}` : ""}. ¿Lo programo?`);
-          setPendingOrder(null);
+          botText = `🎪 Evento/PLV detectado${result.description ? `: ${result.description}` : ""}. ¿Lo programo?`;
+          pushAssistant(botText);
         } else {
-          pushAssistant("📝 He guardado tu nota. Si quieres, prueba con “pedido 6 cajas sb-750 para @Cliente en Ciudad”.");
-          setPendingOrder(null);
+          botText = "📝 He guardado tu nota. Si quieres, prueba con “pedido 6 cajas sb-750 para @Cliente en Ciudad”.";
+          pushAssistant(botText);
         }
+        
       } catch (err: any) {
         pushAssistant(`❌ Error: ${err?.message ?? String(err)}`);
       } finally {
@@ -175,6 +185,7 @@ export function AssistantDialog() {
             </div>
           ))}
 
+          {pendingOrder && <div className="text-xs text-zinc-500">[DEBUG] hay pendingOrder</div>}
           {pendingOrder && (
             <div className="mt-2">
               <InlineOrderCard

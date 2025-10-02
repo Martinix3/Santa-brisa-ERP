@@ -114,6 +114,16 @@
 }
 
 @layer components {
+  .sb-card { @apply bg-white border border-zinc-200 rounded-xl shadow-sm; }
+  .sb-card__header { @apply flex items-center gap-2 px-3 py-2 border-b; }
+  .sb-card__title { @apply font-semibold; }
+  .sb-card__content { @apply p-3; }
+  .sb-card__footer { @apply px-3 py-2 border-t; }
+  .sb-icon { @apply h-4 w-4 text-zinc-500; }
+  .sb-btn-primary { @apply inline-flex items-center gap-1 bg-zinc-900 text-white rounded-lg hover:opacity-90; }
+  .sb-badge { @apply inline-flex items-center px-2 py-[2px] rounded-full text-xs font-medium; }
+  .sb-badge--info { @apply bg-blue-50 text-blue-700 border border-blue-200; }
+
   /* Tabs */
   .sb-tablist { @apply inline-flex items-center gap-1; }
   .sb-tab {

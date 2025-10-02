@@ -142,12 +142,8 @@ export function applyPromotionToOrder(order: Order, promo: Promotion, nowISO: IS
 // =============================
 
 // Overload signatures
+export function parseNoteToAction(note: string, ctx: BrainContext, data: SantaData): ParseResult;
 export function parseNoteToAction(note: string, data: SantaData): ParseResult;
-export function parseNoteToAction(
-  note: string,
-  ctx: BrainContext,
-  data: SantaData
-): ParseResult;
 
 // Implementation
 export function parseNoteToAction(
@@ -160,9 +156,8 @@ export function parseNoteToAction(
   
   const sorted = [...RULES].sort((a, b) => b.priority - a.priority);
   for (const rule of sorted) {
-    if (rule.condition(note, data)) {
-      console.log(`[Santa Brain] Rule matched: ${rule.name}`);
-      return rule.execute(note, data);
+    if (rule.condition(note, { ...data, accounts })) {
+      return rule.execute(note, { ...data, accounts });
     }
   }
   return { kind: 'UNKNOWN', summary: note.trim() };
