@@ -163,7 +163,7 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
         </div>
       </aside>
 
-      <main className="flex-1 min-w-0 overflow-y-auto bg-secondary">
+      <main className="flex-1 min-w-0 overflow-y-auto bg-background">
           {children}
       </main>
     </div>
