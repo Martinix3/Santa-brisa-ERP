@@ -9,7 +9,8 @@
  */
 import type {
   ISO, Period, Filters, SalesKpiResult, MarketingKpiResult,
-  AccountRollup, Order, Account, Activation, ParseResult, SantaData
+  AccountRollup, Order, Account, Activation, ParseResult, SantaData,
+  Promotion, BrainContext
 } from "./types";
 import { orderTotal, median, computeChannelMix, daysSinceISO, normalizeName, findSimilarAccounts, nameSimilarity } from "./helpers";
 import { RULES, isPromotionApplicable } from "./rules";
@@ -123,7 +124,7 @@ export function computeAccountRollup(accountId: string, period: Period, data: {
 export function applyPromotionToOrder(order: Order, promo: Promotion, nowISO: ISO): Order {
   if (!isPromotionApplicable(order, promo, nowISO)) return order;
   const lines = (order.lines || []).map((l: Order['lines'][number]) => {
-    const inScope = !promo.skuScope || promo.skuScope.includes(l.itemId);
+    const inScope = !promo.skuScope || promo.skuScope.includes((l as any).sku); // Corrected to use sku if itemId is not available
     if (!inScope) return l;
     if (promo.mechanic === 'PCT') {
       const value = Math.max(0, Math.min(100, promo.value ?? 0));
@@ -236,17 +237,23 @@ const findAccountByNameFuzzy = (name: string, accounts: Account[]): Account | un
     return best && best.score > 0.6 ? best.acc : undefined;
 };
 
+const RE_TOMORROW = /\b(mañana|tomorrow)\b/i;
+const RE_DATE = /\b(\d{1,2})\/(\d{2,4})(?:\/(\d{2,4}))?\b/;
+const RE_TIME = /\b(\d{1,2}):(\d{2})\b/;
+
 const nextDateFrom = (text: string): string | undefined => {
-  const RE_TOMORROW = /\b(mañana|tomorrow)\b/i;
-  const RE_DATE = /\b(\d{1,2})\/(\d{2,4})(?:\/(\d{2,4}))?\b/;
-  const RE_TIME = /\b(\d{1,2}):(\d{2})\b/;
   const now = new Date();
+
+  // 1) ¿"mañana"?
   const hasTomorrow = RE_TOMORROW.test(text);
+
+  // 2) ¿fecha explícita dd/mm(/yy)?
   const dm = text.match(RE_DATE);
   if (dm) {
     const [, dd, mm, yyyy] = dm;
     const y = yyyy ? (yyyy.length === 2 ? 2000 + Number(yyyy) : Number(yyyy)) : now.getFullYear();
     const d = new Date(y, Number(mm) - 1, Number(dd));
+    // ¿hay hora?
     const tm = text.match(RE_TIME);
     if (tm) {
       const [, hh, mi] = tm;
@@ -254,6 +261,8 @@ const nextDateFrom = (text: string): string | undefined => {
     }
     return d.toISOString();
   }
+
+  // 3) ¿solo hora?
   const tm = text.match(RE_TIME);
   if (tm) {
     const [, hh, mi] = tm;
@@ -264,12 +273,15 @@ const nextDateFrom = (text: string): string | undefined => {
     }
     return d.toISOString();
   }
+
+  // 4) "mañana" sin hora → mañana a 10:00 por defecto (elige tu hora default)
   if (hasTomorrow) {
     const d = new Date(now);
     d.setDate(d.getDate() + 1);
     d.setHours(10, 0, 0, 0);
     return d.toISOString();
   }
+
   return undefined;
 };
 
