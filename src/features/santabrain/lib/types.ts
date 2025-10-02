@@ -5,6 +5,15 @@
  * - Resultados de KPIs centralizados
  */
 
+// Reexporta los tipos canónicos del dominio para evitar duplicidades o versiones reducidas.
+export type {
+  SantaData,
+  Account,
+  Order,
+  Activation,
+} from "@/domain/ssot";
+
+
 // =========================
 // Enums canónicos (SSOT)
 // =========================
@@ -22,36 +31,11 @@ export type Department = 'VENTAS' | 'MARKETING' | 'PRODUCCION' | 'ALMACEN' | 'FI
 export type ISO = string;
 export type Currency = 'EUR';
 
-export type Account = {
-  id: string;
-  name: string;
-  accountType: 'CLIENTE_FINAL'|'DISTRIBUIDOR'|'IMPORTADOR'|'HORECA'|'RETAIL'|'OTRO';
-  channel?: 'Online'|'Horeca'|'Retail'|'Privada'|string;
-  salesRepId?: string;
-  createdAt: ISO;
-  updatedAt?: ISO;
-};
-
 export type OrderLine = {
   sku: string;
   qty: number;
   unitPrice?: number;
   discountPct?: number;
-};
-
-export type Order = {
-  id: string;
-  accountId: string;
-  date: ISO;
-  status: OrderStatus;
-  amount?: number; // calculado
-  currency: Currency;
-  source?: 'Shopify'|string;
-  linkedPromotions?: string[];
-  items: OrderLine[];
-  notes?: string;
-  createdAt: ISO;
-  updatedAt?: ISO;
 };
 
 export type Promotion = {
@@ -81,24 +65,6 @@ export type PlvMaterial = {
   updatedAt?: ISO;
 };
 
-export type Activation = {
-    id: string;
-    accountId: string;
-    startDate: ISO;
-    endDate?: ISO;
-    status: 'active' | 'paused' | 'ended';
-};
-
-export type SantaData = {
-    accounts: Account[];
-    orders: Order[];
-    promotions: Promotion[];
-    plv: PlvMaterial[];
-    activations: Activation[];
-    interactions: Interaction[];
-};
-
-
 export type Interaction = {
   id: string;
   accountId: string;
@@ -120,7 +86,7 @@ export type Filters = {
   salesRepId?: string;
   region?: string;
   channel?: Array<'ONLINE'|'PRIVADA'|'HORECA'|'RETAIL'>;
-  accountType?: Account['accountType'][];
+  accountType?: string[];
 };
 
 export type SalesKpiResult = {

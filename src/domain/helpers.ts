@@ -1,7 +1,7 @@
 /**
  * Helpers — funciones puras + normalizaciones
  */
-import type { ISO, Order, Account } from "./types";
+import type { ISO, Order, Account } from "@/domain/ssot";
 
 export const toISO = (d: Date|string|number): ISO => {
   const date = d instanceof Date ? d : new Date(d);
@@ -24,7 +24,7 @@ export function orderTotal(order: Order): number {
 
 export const median = (xs: number[]): number => {
   if (xs.length === 0) return 0;
-  const arr = [...xs].sort((a,b)=>a-b);
+  const arr = [...xs].sort((a: number,b: number)=>a-b);
   const mid = Math.floor(arr.length/2);
   return arr.length % 2 ? arr[mid] : (arr[mid-1]+arr[mid])/2;
 };
@@ -78,4 +78,3 @@ export function computeChannelMix(orders: Order[], accounts: Account[]) {
 export function normalizeName(s: string): string {
   return (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9\s]/g,'').replace(/\s+/g,' ').trim();
 }
-

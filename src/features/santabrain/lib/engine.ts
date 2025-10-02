@@ -141,18 +141,20 @@ export function applyPromotionToOrder(order: Order, promo: Promotion, nowISO: IS
 // Parsing: nota → acción (multi-item + fuzzy cuenta)
 // =============================
 
+// Overload signatures
 export function parseNoteToAction(note: string, data: SantaData): ParseResult;
 export function parseNoteToAction(
   note: string,
   ctx: BrainContext,
   data: SantaData
 ): ParseResult;
+
+// Implementation
 export function parseNoteToAction(
   note: string,
   ctxOrData: BrainContext | SantaData,
   optionalData?: SantaData
 ): ParseResult {
-  // Maneja ambas firmas (2 y 3 argumentos)
   const data = (optionalData ?? ctxOrData) as SantaData;
   const sorted = [...RULES].sort((a, b) => b.priority - a.priority);
   for (const rule of sorted) {

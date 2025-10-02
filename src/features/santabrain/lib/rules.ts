@@ -1,8 +1,6 @@
-
-import type { SantaData, Account, CommercialFlow, Promotion } from '@/domain/ssot';
+import type { SantaData, Account, CommercialFlow } from '@/domain/ssot';
 import type { ParseResult, ISO, Order } from './types';
 import { normalizeName } from "./helpers";
-
 
 // Regex base
 const RE_ACCOUNT = /@([^\n@#]+?)(?=\s|$|,|\.|;)/i;
@@ -177,9 +175,45 @@ export const RULES: ActionRule[] = [
   }
 ];
 
-// src/features/santabrain/lib/rules.ts (añadir al final o exportar desde donde lo tengas definido)
+export type Promotion = {
+  id: string;
+  name?: string;
+  // Ventana temporal
+  validFrom?: ISO;
+  validTo?: ISO;
+  // Segmentación por canal
+  channels?: Array<'ONLINE'|'PRIVADA'|'HORECA'|'RETAIL'|'DISTRIBUIDOR'|'IMPORTADOR'>;
+  // Ámbito de SKUs
+  skuScope?: string[];
+  // Mecánica
+  mechanic?: 'PCT' | 'FIXED';
+  value?: number;  // % o valor fijo según mechanic
+  // Requisitos
+  minQty?: number; // unidades mínimas (dentro del scope)
+};
+
 
 // --- Adaptador compatible con engine.ts ---
+export function isPromotionApplicable(order: Order, promo: Promotion, nowISO?: ISO): boolean {
+  const now = nowISO ? new Date(nowISO) : new Date();
+
+  // Ventana temporal
+  if (promo.validFrom && now < new Date(promo.validFrom)) return false;
+  if (promo.validTo && now > new Date(promo.validTo)) return false;
+
+  // Qty en scope (si hay skuScope)
+  const qtyInScope = order.items.reduce((acc, l) => {
+    const inScope = !promo.skuScope || promo.skuScope.includes(l.sku);
+    return acc + (inScope ? (l.qty ?? 0) : 0);
+  }, 0);
+  if (promo.minQty && qtyInScope < promo.minQty) return false;
+
+  // Canal (si lo transportas en order)
+  const channel = (order as any).channel as Promotion['channels'][number] | undefined;
+  if (promo.channels?.length && channel && !promo.channels.includes(channel)) return false;
+
+  return true;
+}
 
 // Renombra tu función actual para reutilizarla arriba
 export function isPromotionApplicableCtx(promo: Promotion, ctx: {
@@ -193,18 +227,4 @@ export function isPromotionApplicableCtx(promo: Promotion, ctx: {
   if (promo.minQty && (ctx.orderQty ?? 0) < promo.minQty) return false;
   if (promo.channels?.length && ctx.channel && !promo.channels.includes(ctx.channel)) return false;
   return true;
-}
-
-export function isPromotionApplicable(order: Order, promo: Promotion, nowISO?: ISO): boolean {
-  // qty en scope según skuScope
-  const orderQty = order.items.reduce((acc, l) => {
-    const inScope = !promo.skuScope || promo.skuScope.includes(l.sku);
-    return acc + (inScope ? (l.qty ?? 0) : 0);
-  }, 0);
-
-  // Si tienes canal en el pedido/cuenta, pásalo aquí:
-  const channel = (order as any).channel as Promotion['channels'][number] | undefined;
-
-  // Reusa tu lógica existente
-  return isPromotionApplicableCtx(promo, { nowISO, orderQty, channel });
 }

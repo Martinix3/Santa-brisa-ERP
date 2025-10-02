@@ -1,8 +1,7 @@
-
 "use client";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
-import { Send, X } from "lucide-react";
+import { Send, User, Bot, Loader } from "lucide-react";
 import { useAssistant } from "./AssistantProvider";
 import { useData } from "@/lib/dataprovider";
 import type { SantaData } from "@/domain/ssot";
@@ -64,12 +63,10 @@ export function AssistantDialog() {
       setIsThinking(true);
 
       try {
-        // La firma de 3 args es válida gracias al overload en engine.ts
         const result = parseNoteToAction(trimmed, { currentUser } as any, data as SantaData);
         activeResultRef.current = result;
 
         if (result.kind === "PEDIDO") {
-          // Copiamos lo esencial a un draft visual para InlineOrderCard
           const draft: DraftOrder = {
             accountName: result.accountName ?? "(cuenta sin definir)",
             isNewAccount: !!result.isNewAccount,
@@ -85,10 +82,8 @@ export function AssistantDialog() {
             notes: result.summary ?? "",
           };
 
-          // Mensaje base
           let botText = `✅ He detectado un pedido de ${draft.lines[0].qty} ${draft.lines[0].qty === 1 ? "caja" : "cajas"} para “${draft.accountName}”.`;
 
-          // Detección de duplicados si es nueva cuenta y tenemos nombre
           if (draft.isNewAccount && draft.accountName && data) {
             const loc = await getBrowserLocation();
             const matches = findSimilarAccounts({
@@ -131,11 +126,8 @@ export function AssistantDialog() {
     [inputValue, isThinking, data, currentUser]
   );
 
-  // Confirmar/Cancelar pedido inline (sin salir del chat)
   const handleConfirmOrder = useCallback(
     async (draft: DraftOrder) => {
-      // Aquí normalmente llamarías a server actions: createAccountAndParty / placeOrder / createInteraction
-      // Para evitar dependencias, solo confirmamos en chat:
       setPendingOrder(null);
       pushAssistant(
         `🧾 Pedido listo: ${draft.lines[0].qty} ${draft.lines[0].qty === 1 ? "caja" : "cajas"} ${draft.lines[0].label ?? draft.lines[0].sku
@@ -182,7 +174,6 @@ export function AssistantDialog() {
             </div>
           ))}
 
-          {/* Tarjeta de pedido editable inline */}
           {pendingOrder && (
             <div className="mt-2">
               <InlineOrderCard
