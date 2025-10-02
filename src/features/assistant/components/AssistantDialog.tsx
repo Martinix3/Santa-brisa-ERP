@@ -14,6 +14,7 @@ import type { ParseResult } from "@/features/santabrain/lib/types";
 // Server Actions
 import { placeOrder } from "@/app/(app)/orders/actions";
 import { createInteraction } from "@/app/(app)/agenda/actions";
+import { createAccount } from "@/app/(app)/accounts/actions";
 import { toast } from "sonner";
 import { useRouter } from 'next/navigation';
 
