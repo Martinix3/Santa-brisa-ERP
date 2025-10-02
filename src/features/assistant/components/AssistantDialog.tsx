@@ -9,6 +9,14 @@ import type { SantaData } from "@/domain/ssot";
 import { parseNoteToAction } from "@/features/santabrain/lib/engine";
 import { findSimilarAccounts, assessDuplicateRisk } from "@/features/santabrain/lib/helpers";
 import { InlineOrderCard } from "./InlineOrderCard";
+import type { ParseResult } from "@/features/santabrain/lib/types";
+
+// Server Actions
+import { placeOrder } from "@/app/(app)/orders/actions";
+import { createInteraction } from "@/app/(app)/agenda/actions";
+import { toast } from "sonner";
+import { useRouter } from 'next/navigation';
+
 
 // =============== Tipos mínimos y utilidades locales ===============
 type ChatMessage = {
@@ -33,13 +41,15 @@ async function getBrowserLocation(): Promise<{ lat: number; lng: number } | null
 export function AssistantDialog() {
   const { isOpen, closeAssistant } = useAssistant();
   const { data, currentUser } = useData();
+  const router = useRouter();
+
   const [messages, setMessages] = useState<ChatMessage[]>([
     { role: "assistant", content: "👋 ¿En qué te ayudo? Prueba: “pedido 6 cajas sb-750 para La Bodeguita en Ibiza”." },
   ]);
   const [inputValue, setInputValue] = useState("");
   const [isThinking, setIsThinking] = useState(false);
   const [pendingOrder, setPendingOrder] = useState<DraftOrder | null>(null);
-  const activeResultRef = useRef<any>(null);
+  const activeResultRef = useRef<ParseResult | null>(null);
 
   // autoscroll
   useEffect(() => {
@@ -62,6 +72,9 @@ export function AssistantDialog() {
       pushUser(trimmed);
       setInputValue("");
       setIsThinking(true);
+      setPendingOrder(null); // Limpiar cualquier borrador anterior
+      activeResultRef.current = null;
+
 
       try {
         const safeData = (data ?? { accounts: [], parties: [] }) as SantaData;
@@ -87,10 +100,12 @@ export function AssistantDialog() {
             notes: result.summary ?? "",
           };
 
-          botText = `✅ He detectado un pedido de ${draft.lines[0].qty} ${draft.lines[0].qty === 1 ? "caja" : "cajas"} para “${draft.accountName}”.`;
+          botText = `✅ He detectado un pedido de ${draft.lines[0].qty} ${draft.lines[0].qty === 1 ? "caja" : "cajas"} para “${draft.accountName}”. Revisa los detalles y confirma.`;
           setPendingOrder(draft);
           console.log("[SB] pendingOrder set →", draft);
 
+          pushAssistant(botText);
+          
           try {
             if (draft.isNewAccount && draft.accountName && data) {
               const loc = await getBrowserLocation().catch(() => null);
@@ -104,27 +119,33 @@ export function AssistantDialog() {
               const decision = assessDuplicateRisk(matches);
 
               if (decision.action === "BLOCK_AUTO_CREATE") {
-                botText += `\n⚠️ Posible duplicado: ${decision.reason}\nSelecciona una existente o confirma creación forzada.`;
+                pushAssistant(`⚠️ **Posible duplicado**: ${decision.reason}.\nTe recomiendo seleccionar una cuenta existente o confirmar la creación manual forzada.`);
               } else if (decision.action === "WARN") {
-                botText += `\nℹ️ Aviso: ${decision.reason} (procedo si confirmas).`;
-              } else {
-                botText += `\nProcedo a crear la cuenta automáticamente con tu ubicación (si está disponible).`;
+                pushAssistant(`ℹ️ **Aviso**: ${decision.reason} (procederé si confirmas).`);
               }
             }
           } catch(e) {
             console.warn("[SB] Duplicates check failed:", e);
           }
           
-          pushAssistant(botText);
         } else if (result.kind === "VISITA") {
-          const when = result.when ? new Date(result.when).toLocaleString("es-ES") : "(sin fecha)";
-          botText = `📅 He preparado una visita para ${when}. ¿Confirmo?`;
+          const when = result.when ? new Date(result.when).toLocaleString("es-ES") : "ahora mismo";
+          botText = `📅 OK, voy a registrar una visita para ${result.accountId ? `la cuenta ${result.accountId}`: 'una cuenta'} sobre "${result.summary}", programada para ${when}. ¿Es correcto?`;
           pushAssistant(botText);
-        } else if (result.kind === "EVENTO_MKT") {
-          botText = `🎪 Evento/PLV detectado${result.description ? `: ${result.description}` : ""}. ¿Lo programo?`;
-          pushAssistant(botText);
+          // En una versión más avanzada, pediríamos confirmación aquí antes de guardar.
+          // Por ahora, guardamos directamente para simplificar.
+          await createInteraction({
+              accountId: result.accountId!,
+              note: result.summary!,
+              plannedFor: result.when,
+              createdById: currentUser!.id,
+              dept: 'VENTAS',
+              kind: 'VISITA'
+          });
+          toast.success("Visita guardada con éxito.");
+
         } else {
-          botText = "📝 He guardado tu nota. Si quieres, prueba con “pedido 6 cajas sb-750 para @Cliente en Ciudad”.";
+          botText = "📝 He guardado tu nota. Si quieres, prueba con “pedido 6 cajas sb-750 para La Bodeguita en Ibiza”.";
           pushAssistant(botText);
         }
         
@@ -140,17 +161,50 @@ export function AssistantDialog() {
   const handleConfirmOrder = useCallback(
     async (draft: DraftOrder) => {
       setPendingOrder(null);
-      pushAssistant(
-        `🧾 Pedido listo: ${draft.lines[0].qty} ${draft.lines[0].qty === 1 ? "caja" : "cajas"} ${draft.lines[0].label ?? draft.lines[0].sku
-        } para “${draft.accountName}”${draft.city ? ` en ${draft.city}` : ""}.`
-      );
+      setIsThinking(true);
+      pushAssistant(`👍 ¡Entendido! Guardando el pedido...`);
+      
+      try {
+        if (!currentUser?.id) throw new Error("Usuario no identificado.");
+
+        let finalAccountId = activeResultRef.current?.kind === 'PEDIDO' ? activeResultRef.current.accountId : undefined;
+
+        // Si la cuenta es nueva, la creamos primero
+        if (draft.isNewAccount && draft.accountName && !finalAccountId) {
+            toast.info(`Creando nueva cuenta: ${draft.accountName}...`);
+            const newAccount = await createAccount({ name: draft.accountName, ownerId: currentUser.id });
+            finalAccountId = newAccount.id;
+            toast.success(`Cuenta "${newAccount.name}" creada.`);
+        }
+
+        if (!finalAccountId) throw new Error("No se ha podido determinar la cuenta para el pedido.");
+
+        const orderData = {
+          accountId: finalAccountId,
+          lines: draft.lines.map(l => ({ sku: l.sku, qty: l.qty, unitPriceReported: undefined })),
+          createdById: currentUser.id,
+        };
+
+        const { id: orderId } = await placeOrder(orderData);
+        toast.success(`Pedido ${orderId} creado con éxito.`);
+        pushAssistant(`🧾 ¡Hecho! He creado el pedido. Puedes verlo aquí: /orders/${orderId}`);
+        router.push(`/orders/${orderId}`);
+        closeAssistant();
+
+      } catch (error: any) {
+        console.error("[handleConfirmOrder] Error:", error);
+        toast.error(`Error al guardar el pedido: ${error.message}`);
+        pushAssistant(`🔴 Vaya, algo ha fallado al intentar guardar el pedido. Por favor, inténtalo de nuevo o usa la interfaz manual.`);
+      } finally {
+        setIsThinking(false);
+      }
     },
-    []
+    [currentUser, router, closeAssistant]
   );
 
   const handleCancelOrder = useCallback(() => {
     setPendingOrder(null);
-    pushAssistant("❎ Cancelado el borrador de pedido.");
+    pushAssistant("❎ Borrador de pedido cancelado.");
   }, []);
 
   if (!isOpen) return null;
@@ -196,7 +250,7 @@ export function AssistantDialog() {
             </div>
           )}
 
-          {isThinking && (
+          {isThinking && !pendingOrder && (
             <div className="text-left">
               <div className="inline-block bg-zinc-100 text-zinc-900 px-3 py-2 rounded-2xl animate-pulse">
                 Pensando…
@@ -227,3 +281,5 @@ export function AssistantDialog() {
 }
 
 export default AssistantDialog;
+
+    
