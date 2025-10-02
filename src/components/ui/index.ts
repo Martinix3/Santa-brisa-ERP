@@ -7,7 +7,6 @@ export * from './KpiCard';
 export * from './ModuleHeader';
 export * from './NewCustomerCelebration';
 export * from './PersistenceToggle';
-export * from './SBCard';
 export * from './SBDatePicker';
 export * from './SBDialog';
 export * from './SBIcon';

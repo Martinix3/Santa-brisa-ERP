@@ -1,6 +1,8 @@
 
 "use client";
 
+import React from 'react';
+
 // Paleta de colores basada en los tokens de CSS para consistencia y tematización.
 const avatarColors = [
     { bg: "hsl(var(--primary))", text: "hsl(var(--primary-foreground))" },
@@ -49,7 +51,7 @@ export function Avatar({ name, size = 'md', className }: { name?: string, size?:
           backgroundColor: 'var(--avatar-bg)',
           color: 'var(--avatar-fg)',
           borderColor: 'color-mix(in srgb, var(--avatar-fg) 20%, transparent)',
-        }}
+        } as React.CSSProperties}
         title={name}
       >
         {initials || '—'}
