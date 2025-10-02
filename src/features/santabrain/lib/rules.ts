@@ -8,7 +8,7 @@ import type { ParseResult, Promotion, ISO, Order, PromoChannel } from "./types";
 const RE_ACCOUNT = /@([^\n@#]+?)(?=\s|$|,|\.|;)/i;
 const RE_QTY = /\b(\d{1,4})\s*(cajas?|bx|cs)\b/i;
 const RE_TIME = /\b(\d{1,2}):(\d{2})\b/;
-const RE_DATE = /\b(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\b/;
+const RE_DATE = /\b(\d{1,2})\/(\d{2,4})(?:\/(\d{2,4}))?\b/;
 const RE_TOMORROW = /\b(mañana|tomorrow)\b/i;
 const RE_PLACEMENT = /\b(colocaci[oó]n|sell-out|en dep[oó]sito|dejar|puesta)\b/i;
 const RE_REJECTION = /\b(no\s*le\s*interesa|no\s*quiere|rechaza|lo\s*descarta|dice\s*que\s*no)\b/i;
@@ -180,27 +180,27 @@ export const RULES: ActionRule[] = [
 
 
 // --- Adaptador compatible con engine.ts ---
+
 export function isPromotionApplicable(order: Order, promo: Promotion, nowISO?: ISO): boolean {
   const now = nowISO ? new Date(nowISO) : new Date();
 
-  // Ventana temporal
+  // vent. temporal
   if (promo.validFrom && now < new Date(promo.validFrom)) return false;
   if (promo.validTo && now > new Date(promo.validTo)) return false;
 
-  // Qty en scope
-  const qtyInScope = (order.lines || []).reduce((acc: number, l: { sku: string; qty: number }) => {
-    const inScope = !promo.skuScope || promo.skuScope.includes(l.sku);
+  // qty en scope
+  const qtyInScope = (order.lines || []).reduce((acc: number, l: { sku?: string; qty: number; itemId: string }) => {
+    const inScope = !promo.skuScope || promo.skuScope.includes(l.itemId);
     return acc + (inScope ? (l.qty ?? 0) : 0);
   }, 0);
   if (promo.minQty && qtyInScope < promo.minQty) return false;
 
-  // Canal (si lo tienes en el pedido)
+  // canal (si lo tienes en el pedido)
   const channel = (order as any).channel as PromoChannel | undefined;
   if (promo.channels?.length && channel && !promo.channels.includes(channel)) return false;
 
   return true;
 }
-
 
 // Renombra tu función actual para reutilizarla arriba
 export function isPromotionApplicableCtx(promo: Promotion, ctx: {

@@ -7,9 +7,37 @@ export type {
   Activation,
 } from "@/domain/ssot";
 
+
 // Si aquí defines tipos *propios* de Santabrain (Period, Filters, BrainContext, ParseResult, etc.),
 // mantenlos, pero NO vuelvas a declarar SantaData/Account/Order con formas “reducidas”.
 export type ISO = string;
+
+export type PromoMechanic = 'PCT' | 'FIXED';
+export type PromoChannel =
+  | 'ONLINE'
+  | 'PRIVADA'
+  | 'HORECA'
+  | 'RETAIL'
+  | 'DISTRIBUIDOR'
+  | 'IMPORTADOR';
+
+export interface Promotion {
+  id: string;
+  name?: string;
+  // ventana temporal
+  validFrom?: ISO;
+  validTo?: ISO;
+  // segmentación
+  channels?: PromoChannel[];
+  // Ámbito de SKUs
+  skuScope?: string[];
+  // mecánica
+  mechanic: PromoMechanic; // 'PCT' => porcentaje; 'FIXED' => descuento fijo por unidad
+  value?: number;      // valor del descuento
+  // requisitos
+  minQty?: number;     // unidades mínimas (dentro del scope)
+}
+
 
 // Tipos locales de Santabrain
 export type PeriodView = 'WEEK'|'MONTH'|'YEAR';
@@ -65,27 +93,3 @@ export type BrainContext = {
   currentUser: { id: string; name?: string; email?: string };
 };
 
-export type PromoMechanic = 'PCT' | 'FIXED';
-export type PromoChannel =
-  | 'ONLINE'
-  | 'PRIVADA'
-  | 'HORECA'
-  | 'RETAIL'
-  | 'DISTRIBUIDOR'
-  | 'IMPORTADOR';
-
-export interface Promotion {
-  id: string;
-  name?: string;
-  // ventana temporal
-  validFrom?: ISO;
-  validTo?: ISO;
-  // segmentación
-  channels?: PromoChannel[];
-  skuScope?: string[]; // <— necesario para filtrar líneas en apply/applicable
-  // mecánica
-  mechanic?: 'PCT' | 'FIXED';
-  value?: number;      // % o valor fijo según mechanic
-  // requisitos
-  minQty?: number;     // unidades mínimas en scope
-}

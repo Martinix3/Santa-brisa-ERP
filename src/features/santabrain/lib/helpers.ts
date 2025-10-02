@@ -7,14 +7,15 @@ import type { Account, Order } from "./types";
 
 // Tipos ligeros locales para evitar acoplar todo el kernel
 export type OrderLike = {
-  items: Array<{ sku?: string; qty: number; unitPrice?: number; discountPct?: number }>;
-  amount?: number;
+  lines: Array<{ qty: number; unitPrice?: number; discountPct?: number }>;
+  amount?: number; // Este 'amount' es el legacy, lo mantenemos por si acaso en el helper
 };
 
 /** Total de pedido robusto: usa líneas (qty*unitPrice) y respeta discountPct; fallback a order.amount */
 export function orderTotal(o: OrderLike): number {
-  const items = Array.isArray(o.items) ? o.items : [];
-  return items.reduce(
+  // Usa 'lines' en lugar de 'items'
+  const lines = Array.isArray(o.lines) ? o.lines : [];
+  return lines.reduce(
     (
       sum: number,
       l: { qty: number; unitPrice?: number; discountPct?: number }

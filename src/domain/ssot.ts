@@ -192,6 +192,10 @@ export interface OrderSellOut {
   createdAt: Timestamp;
   updatedAt: Timestamp;
   createdById?: string;
+
+  // --- AÑADE ESTOS CAMPOS ---
+  orderDate?: ISO; // Para usar en lugar de 'date'
+  linkedPromotions?: string[]; // Para gestionar promociones
 }
 
 export type ShipmentLine = { itemId: string; name: string; qty: number; uom: SalesUnit; lotNumber?: string; locationId?: string; note?: string };
@@ -559,4 +563,5 @@ export type Payload =
 
 export type OrderSellIn = any; // Placeholder para compatibilidad
 export type ExecCheck = any; // Placeholder
+
 

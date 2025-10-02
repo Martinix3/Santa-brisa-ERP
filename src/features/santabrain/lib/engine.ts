@@ -8,9 +8,9 @@
  */
 import type {
   ISO, Period, Filters, SalesKpiResult, MarketingKpiResult,
-  AccountRollup, Order, Promotion, Account, ParseResult, BrainContext, SantaData, Activation
+  AccountRollup, Order, Promotion, Account, ParseResult, BrainContext, SantaData, OrderSellOut, Activation
 } from "./types";
-import { orderTotal, median, computeChannelMix, daysSinceISO, normalizeName, findSimilarAccounts } from "./helpers";
+import { orderTotal, median, computeChannelMix, daysSinceISO, normalizeName, findSimilarAccounts, nameSimilarity } from "./helpers";
 import { RULES, isPromotionApplicable } from "./rules";
 
 // =============================
@@ -24,12 +24,12 @@ export function computeSalesKPIs(period: Period, filters: Filters, data: {
   const end = new Date(period.end).getTime();
 
   const ordersIn = data.orders.filter((o: Order) => {
-    const t = new Date(o.date).getTime();
+    const t = new Date(o.orderDate ?? o.createdAt).getTime();
     return t >= start && t <= end;
   });
 
   const pedidosAbiertos = data.orders.filter((o: Order) => o.status === 'open' || o.status === 'confirmed').length;
-  const importeSellIn = Math.round(ordersIn.reduce((a:number,o:Order)=>a + (o.amount ?? orderTotal(o)), 0));
+  const importeSellIn = Math.round(ordersIn.reduce((a:number,o:Order)=>a + (o.totalAmount ?? orderTotal(o)), 0));
 
   const byAcc: Record<string, number> = {};
   for (const o of ordersIn) byAcc[o.accountId] = (byAcc[o.accountId] ?? 0) + 1;
@@ -38,8 +38,8 @@ export function computeSalesKPIs(period: Period, filters: Filters, data: {
   const pctRecompra = Math.round((con2 / con1) * 1000) / 10;
 
   const lastByAcc: Record<string, ISO> = {};
-  for (const o of data.orders.sort((a:Order,b:Order)=>new Date(a.date).getTime()-new Date(b.date).getTime())) {
-    lastByAcc[o.accountId] = o.date;
+  for (const o of data.orders.sort((a:Order,b:Order)=>new Date(a.orderDate ?? a.createdAt).getTime()-new Date(b.orderDate ?? b.createdAt).getTime())) {
+    lastByAcc[o.accountId] = o.orderDate ?? o.createdAt;
   }
   const dias = Object.values(lastByAcc).map((d: ISO) => daysSinceISO(d));
   const medianaDiasSinPedido = Math.round(median(dias));
@@ -59,13 +59,13 @@ export function computeSalesKPIs(period: Period, filters: Filters, data: {
   const promoOrders = ordersIn.filter((o: Order) => (o.linkedPromotions?.length ?? 0) > 0).length;
   const promoAdoptionPct = Math.round((promoOrders / Math.max(1, ordersIn.length)) * 1000) / 10;
 
-  const withPromo = ordersIn.filter((o: Order) => (o.linkedPromotions?.length ?? 0) > 0).map((o: Order) => (o.amount ?? orderTotal(o)));
-  const withoutPromo = ordersIn.filter((o: Order) => !o.linkedPromotions || o.linkedPromotions.length === 0).map((o: Order) => (o.amount ?? orderTotal(o)));
+  const withPromo = ordersIn.filter((o: Order) => (o.linkedPromotions?.length ?? 0) > 0).map((o: Order) => (o.totalAmount ?? orderTotal(o)));
+  const withoutPromo = ordersIn.filter((o: Order) => !o.linkedPromotions || o.linkedPromotions.length === 0).map((o: Order) => (o.totalAmount ?? orderTotal(o)));
   const avg = (xs:number[]) => (xs.length ? xs.reduce((a:number,b:number)=>a+b,0) / xs.length : 0);
   const upliftPromoPct = avg(withPromo) && avg(withoutPromo) ? Math.round(((avg(withPromo)/avg(withoutPromo))-1)*1000)/10 : 0;
 
   const activeAccs = new Set(data.activations.filter((a: any) => a.status === 'active' && new Date(a.startDate).getTime() <= end && (!a.endDate || new Date(a.endDate).getTime() >= start)).map((a: any) => a.accountId));
-  const ventasAtribuiblesActivaciones = Math.round(ordersIn.filter((o: Order) => activeAccs.has(o.accountId)).reduce((a:number,o:Order)=>a+(o.amount ?? orderTotal(o)),0));
+  const ventasAtribuiblesActivaciones = Math.round(ordersIn.filter((o: Order) => activeAccs.has(o.accountId)).reduce((a:number,o:Order)=>a+(o.totalAmount ?? orderTotal(o)),0));
 
   const roiMarketingGlobal = 0;
   const rankingComercial: Array<{salesRepId: string; importe: number; visitasOk?: number}> = [];
@@ -107,9 +107,9 @@ export function computeAccountRollup(accountId: string, period: Period, data: {
   const activeActivations = data.activations.filter((a: any) => a.accountId === accountId && a.status === 'active').length;
   const lastActivationAt = data.activations.filter((a: any) => a.accountId === accountId).map((a)=>a.startDate).sort().slice(-1)[0];
 
-  const ordersIn = data.orders.filter((o: Order) => o.accountId === accountId && new Date(o.date).getTime() >= start && new Date(o.date).getTime() <= end);
+  const ordersIn = data.orders.filter((o: Order) => o.accountId === accountId && new Date(o.orderDate ?? o.createdAt).getTime() >= start && new Date(o.orderDate ?? o.createdAt).getTime() <= end);
   const ordersWithPromoInPeriod = ordersIn.filter((o: Order) => (o.linkedPromotions?.length ?? 0) > 0).length;
-  const attributedSalesInPeriod = Math.round(ordersIn.reduce((a:number,o:Order)=>a+(o.amount ?? orderTotal(o)), 0));
+  const attributedSalesInPeriod = Math.round(ordersIn.reduce((a:number,o:Order)=>a+(o.totalAmount ?? orderTotal(o)),0));
 
   const activePromotionIds = Array.from(new Set(ordersIn.flatMap((o: Order) => o.linkedPromotions ?? [])));
 
@@ -121,8 +121,8 @@ export function computeAccountRollup(accountId: string, period: Period, data: {
 // =============================
 export function applyPromotionToOrder(order: Order, promo: Promotion, nowISO: ISO): Order {
   if (!isPromotionApplicable(order, promo, nowISO)) return order;
-  const items = order.items.map((l: Order['items'][number]) => {
-    const inScope = !promo.skuScope || promo.skuScope.includes(l.sku);
+  const lines = (order.lines || []).map((l: Order['lines'][number]) => {
+    const inScope = !promo.skuScope || promo.skuScope.includes(l.itemId);
     if (!inScope) return l;
     if (promo.mechanic === 'PCT') {
       const value = Math.max(0, Math.min(100, promo.value ?? 0));
@@ -130,17 +130,76 @@ export function applyPromotionToOrder(order: Order, promo: Promotion, nowISO: IS
     }
     if (promo.mechanic === 'FIXED') {
       const value = Math.max(0, promo.value ?? 0);
-      return { ...l, unitPrice: Math.max(0, (l.unitPrice ?? 0) - value) };
+      return { ...l, priceUnit: Math.max(0, (l.priceUnit ?? 0) - value) };
     }
     return l;
   });
   const linked = Array.from(new Set([...(order.linkedPromotions ?? []), promo.id]));
-  return { ...order, items, linkedPromotions: linked };
+  return { ...order, lines, linkedPromotions: linked };
 }
 
 // =============================
 // Parsing: nota → acción (multi-item + fuzzy cuenta)
 // =============================
+const RE_ACCOUNT = /@([^\n@#]+?)(?=\s|$|,|\.|;)/i;
+const qtySkuRe = /(\d+)\s*(?:cajas?|bx|cs|uds?|botellas?)?\s*([a-z0-9\-_/.]+)/gi;
+const pedidoRe = /pedido para\s+(.+?)(?:\s+en\s+(.+))?$/i;
+
+// firmas overload arriba del cuerpo
+export function parseNoteToAction(note: string, ctx: BrainContext): ParseResult;
+export function parseNoteToAction(
+  note: string,
+  ctx: BrainContext,
+  data: { accounts: Account[] }
+): ParseResult;
+
+// implementación (tu cuerpo actual) con `data` opcional
+export function parseNoteToAction(
+  note: string,
+  ctx: BrainContext,
+  data?: { accounts: Account[] }
+): ParseResult {
+  const text = note.trim();
+  const accounts = data?.accounts ?? []; // <— fallback si llaman con 2 args
+
+  // ... usa `accounts` en lugar de `data.accounts`
+  const header = text.match(pedidoRe);
+  const maybeAccount = header?.[1]?.trim();
+  const maybeLocation = header?.[2]?.trim();
+
+  const items: Array<{qtyCases:number; itemId:string}> = [];
+  let m: RegExpExecArray | null;
+  while ((m = qtySkuRe.exec(text)) !== null) {
+    items.push({ qtyCases: parseInt(m[1],10) || 0, itemId: m[2].toLowerCase() });
+  }
+
+  if (items.length > 0 || /\bpedido\b/i.test(text)) {
+    const accountName = maybeAccount ?? 'Cuenta sin especificar';
+    const found = maybeAccount ? findAccountByNameFuzzy(maybeAccount, accounts) : undefined;
+    const first = items[0] ?? { qtyCases: 0, itemId: '' };
+
+    return {
+      kind: 'PEDIDO',
+      accountId: found?.id,
+      accountName,
+      isNewAccount: !found,
+      qtyCases: first.qtyCases,
+      itemId: first.itemId,
+      location: maybeLocation || undefined,
+      distributorName: '',
+      summary: text,
+    };
+  }
+
+  if (/\bvisita\b/i.test(text)) {
+    return { kind: 'VISITA', summary: text };
+  }
+  if (/evento|activaci[oó]n|activation/i.test(text)) {
+    return { kind: 'EVENTO_MKT', description: text, summary: text } as any;
+  }
+  return { kind: 'UNKNOWN', summary: text };
+}
+
 const findAccountByNameFuzzy = (name: string, accounts: Account[]): Account | undefined => {
     const needle = normalizeName(name);
     let best: { acc: Account, score: number } | null = null;
@@ -151,47 +210,26 @@ const findAccountByNameFuzzy = (name: string, accounts: Account[]): Account | un
     return best && best.score > 0.6 ? best.acc : undefined;
 };
 
-// Overload signatures
-export function parseNoteToAction(note: string, ctx: BrainContext): ParseResult;
-export function parseNoteToAction(
-  note: string,
-  ctx: BrainContext,
-  data: SantaData
-): ParseResult;
-
-// Implementation
-export function parseNoteToAction(
-  note: string,
-  ctx: BrainContext,
-  data?: SantaData
-): ParseResult {
-  const text = note.trim();
-  const accounts = data?.accounts ?? []; // Fallback si llaman con 2 args
-
-  const sorted = [...RULES].sort((a, b) => b.priority - a.priority);
-  for (const rule of sorted) {
-    if (rule.condition(text, { ...data, accounts } as SantaData)) {
-      return rule.execute(text, { ...data, accounts } as SantaData);
-    }
-  }
-  return { kind: 'UNKNOWN', summary: note.trim() };
-}
-
 
 // =============================
 // Order helpers for UI: draft builder and promo pass
 // =============================
 export function buildDraftOrderFromParsed(input: {
   accountId?: string; accountName: string; items: Array<{ sku: string; qty: number }>; notes?: string;
-}): Order {
+}): OrderSellOut { // Devuelve el tipo correcto
   const now = new Date().toISOString();
   return {
     id: `draft_${Math.random().toString(36).slice(2)}`,
     accountId: input.accountId ?? 'NEW_ACCOUNT',
-    date: now,
-    status: 'open',
+    status: 'open', // Usa un estado válido
     currency: 'EUR',
-    lines: input.items.map(it => ({ sku: it.sku, qty: it.qty, priceUnit: 0, uom: 'unit' })),
+    // Usa 'lines' y asume que 'sku' puede mapearse a 'itemId'
+    lines: input.items.map(it => ({ 
+        itemId: it.sku, // Asume que el SKU es el itemId
+        qty: it.qty,
+        uom: 'unit', // Necesitas un valor por defecto
+        priceUnit: 0 // Necesitas un valor por defecto
+    })),
     notes: input.notes,
     createdAt: now,
     updatedAt: now,
