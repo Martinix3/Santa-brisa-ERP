@@ -101,8 +101,7 @@ export function AssistantDialog() {
 
     try {
       if (!currentUser || !data) throw new Error('Contexto no disponible');
-      const context: BrainContext = { currentUser: currentUser as any };
-      const result = parseNoteToAction(trimmed, context, data as any);
+      const result = parseNoteToAction(trimmed, data as any);
       const botContent = mapResultToComponent(result as any, handleEdit);
       const botResponse: Message = { id: Date.now() + 1, type: 'bot', content: botContent, originalText: trimmed };
       setMessages(prev => [...prev, botResponse]);
