@@ -1,10 +1,9 @@
+
 // src/features/santabrain/lib/rules.ts
-import { normalizeName, findSimilarAccounts } from "./helpers";
-import type { SantaData, Account } from "@/domain/ssot";
-import type { ParseResult, Promotion, ISO, Order, PromoChannel } from "./types";
+import { normalizeName } from "./helpers";
+import type { SantaData, Account, ParseResult, Promotion, ISO, Order, PromoChannel } from "./types";
 
 
-// Regex base
 const RE_ACCOUNT = /@([^\n@#]+?)(?=\s|$|,|\.|;)/i;
 const RE_QTY = /\b(\d{1,4})\s*(cajas?|bx|cs)\b/i;
 const RE_TIME = /\b(\d{1,2}):(\d{2})\b/;
@@ -110,7 +109,6 @@ export const RULES: ActionRule[] = [
         reason: reason,
         accountId: account.id,
         description: text,
-        when: nextDateFrom(text) // opcional
       };
     }
   },
@@ -180,7 +178,6 @@ export const RULES: ActionRule[] = [
 
 
 // --- Adaptador compatible con engine.ts ---
-
 export function isPromotionApplicable(order: Order, promo: Promotion, nowISO?: ISO): boolean {
   const now = nowISO ? new Date(nowISO) : new Date();
 
@@ -189,7 +186,7 @@ export function isPromotionApplicable(order: Order, promo: Promotion, nowISO?: I
   if (promo.validTo && now > new Date(promo.validTo)) return false;
 
   // qty en scope
-  const qtyInScope = (order.lines || []).reduce((acc: number, l: { sku?: string; qty: number; itemId: string }) => {
+  const qtyInScope = (order.lines || []).reduce((acc: number, l: { sku?: string; qty: number, itemId: string }) => {
     const inScope = !promo.skuScope || promo.skuScope.includes(l.itemId);
     return acc + (inScope ? (l.qty ?? 0) : 0);
   }, 0);

@@ -1,3 +1,4 @@
+
 // src/features/santabrain/lib/engine.ts
 
 /**
@@ -8,7 +9,7 @@
  */
 import type {
   ISO, Period, Filters, SalesKpiResult, MarketingKpiResult,
-  AccountRollup, Order, Promotion, Account, ParseResult, BrainContext, SantaData, OrderSellOut, Activation
+  AccountRollup, Order, Account, Activation, ParseResult, SantaData
 } from "./types";
 import { orderTotal, median, computeChannelMix, daysSinceISO, normalizeName, findSimilarAccounts, nameSimilarity } from "./helpers";
 import { RULES, isPromotionApplicable } from "./rules";
@@ -126,7 +127,7 @@ export function applyPromotionToOrder(order: Order, promo: Promotion, nowISO: IS
     if (!inScope) return l;
     if (promo.mechanic === 'PCT') {
       const value = Math.max(0, Math.min(100, promo.value ?? 0));
-      return { ...l, discountPct: Math.max(value, l.discountPct ?? 0) };
+      return { ...l, discountPct: Math.max(value, (l as any).discountPct ?? 0) };
     }
     if (promo.mechanic === 'FIXED') {
       const value = Math.max(0, promo.value ?? 0);
@@ -191,11 +192,36 @@ export function parseNoteToAction(
     };
   }
 
-  if (/\bvisita\b/i.test(text)) {
-    return { kind: 'VISITA', summary: text };
+  const isVisit = /\b(visita|reuni[oó]n)\b/i.test(text);
+  const isPos = /\b(pos|plv|evento|activaci[oó]n|degustaci[oó]n)\b/i.test(text);
+  const isLost = /\b(no\s*le\s*interesa|no\s*quiere|rechaza|lo\s*descarta|dice\s*que\s*no)\b/i.test(text);
+  const detectedAccount = findAccountByNameFuzzy(text, accounts);
+
+  if (isLost && detectedAccount) {
+    let reason: 'PRECIO' | 'PRODUCTO_NO_ENCAJA' | 'COMPETENCIA' | 'SIN_INFORMACION' = 'SIN_INFORMACION';
+    if (/\b(caro|precio|coste)\b/i.test(text)) reason = 'PRECIO';
+    else if (/\b(no\s*encaja|otro\s*estilo)\b/i.test(text)) reason = 'PRODUCTO_NO_ENCAJA';
+    else if (/\b(ya\s*tienen|trabajan\s*con\s*otro)\b/i.test(text)) reason = 'COMPETENCIA';
+    return {
+        kind: 'EVENTO_MKT',
+        subKind: 'LEAD_LOST',
+        reason,
+        accountId: detectedAccount.id,
+        description: text,
+    };
   }
-  if (/evento|activaci[oó]n|activation/i.test(text)) {
-    return { kind: 'EVENTO_MKT', description: text, summary: text } as any;
+
+  if (isVisit) {
+    return { kind: 'VISITA', accountId: detectedAccount?.id, when: nextDateFrom(text), summary: text };
+  }
+  if (isPos) {
+      return {
+          kind: 'EVENTO_MKT',
+          subKind: 'POS_ACTIVITY',
+          accountId: detectedAccount?.id,
+          description: text,
+          when: nextDateFrom(text),
+      };
   }
   return { kind: 'UNKNOWN', summary: text };
 }
@@ -210,13 +236,50 @@ const findAccountByNameFuzzy = (name: string, accounts: Account[]): Account | un
     return best && best.score > 0.6 ? best.acc : undefined;
 };
 
+const nextDateFrom = (text: string): string | undefined => {
+  const RE_TOMORROW = /\b(mañana|tomorrow)\b/i;
+  const RE_DATE = /\b(\d{1,2})\/(\d{2,4})(?:\/(\d{2,4}))?\b/;
+  const RE_TIME = /\b(\d{1,2}):(\d{2})\b/;
+  const now = new Date();
+  const hasTomorrow = RE_TOMORROW.test(text);
+  const dm = text.match(RE_DATE);
+  if (dm) {
+    const [, dd, mm, yyyy] = dm;
+    const y = yyyy ? (yyyy.length === 2 ? 2000 + Number(yyyy) : Number(yyyy)) : now.getFullYear();
+    const d = new Date(y, Number(mm) - 1, Number(dd));
+    const tm = text.match(RE_TIME);
+    if (tm) {
+      const [, hh, mi] = tm;
+      d.setHours(Number(hh), Number(mi), 0, 0);
+    }
+    return d.toISOString();
+  }
+  const tm = text.match(RE_TIME);
+  if (tm) {
+    const [, hh, mi] = tm;
+    const d = new Date(now);
+    d.setHours(Number(hh), Number(mi), 0, 0);
+    if (hasTomorrow || d.getTime() <= now.getTime()) {
+      d.setDate(d.getDate() + 1);
+    }
+    return d.toISOString();
+  }
+  if (hasTomorrow) {
+    const d = new Date(now);
+    d.setDate(d.getDate() + 1);
+    d.setHours(10, 0, 0, 0);
+    return d.toISOString();
+  }
+  return undefined;
+};
+
 
 // =============================
 // Order helpers for UI: draft builder and promo pass
 // =============================
 export function buildDraftOrderFromParsed(input: {
   accountId?: string; accountName: string; items: Array<{ sku: string; qty: number }>; notes?: string;
-}): OrderSellOut { // Devuelve el tipo correcto
+}): Order { // Devuelve el tipo correcto
   const now = new Date().toISOString();
   return {
     id: `draft_${Math.random().toString(36).slice(2)}`,

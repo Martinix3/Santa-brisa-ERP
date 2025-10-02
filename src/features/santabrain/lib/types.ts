@@ -1,3 +1,4 @@
+
 // src/features/santabrain/lib/types.ts
 // Reexporta los tipos canónicos del dominio para evitar duplicidades o versiones reducidas.
 export type {
@@ -24,17 +25,17 @@ export type PromoChannel =
 export interface Promotion {
   id: string;
   name?: string;
-  // ventana temporal
+  // Ventana temporal
   validFrom?: ISO;
   validTo?: ISO;
-  // segmentación
+  // Segmentación por canal
   channels?: PromoChannel[];
   // Ámbito de SKUs
   skuScope?: string[];
-  // mecánica
+  // Mecánica
   mechanic: PromoMechanic; // 'PCT' => porcentaje; 'FIXED' => descuento fijo por unidad
   value?: number;      // valor del descuento
-  // requisitos
+  // Requisitos
   minQty?: number;     // unidades mínimas (dentro del scope)
 }
 
@@ -92,4 +93,3 @@ export type ParseResult =
 export type BrainContext = {
   currentUser: { id: string; name?: string; email?: string };
 };
-
