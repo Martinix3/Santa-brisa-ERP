@@ -4,9 +4,9 @@ import type { SantaData, Account, ParseResult, Promotion, ISO, PromoChannel } fr
 
 
 const RE_ACCOUNT = /@([^\n@#]+?)(?=\s|$|,|\.|;)/i;
-const RE_QTY = /\b(\d{1,4})\s*(?:cajas?|bx|cs|uds?|botellas?)?\b/i;
+const RE_QTY = /\b(\d{1,4})\s*(cajas?|bx|cs|uds?|unidades|botellas?)\b/i;
 const RE_TIME = /\b(\d{1,2}):(\d{2})\b/;
-const RE_DATE = /\b(\d{1,2})\/(\d{2,4})(?:\/(\d{2,4}))?\b/;
+const RE_DATE = /\b(\d{1,2}(?:\s*de\s*(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)|\s*\/\s*\d{1,4}))\b/i;
 const RE_TOMORROW = /\b(mañana|tomorrow)\b/i;
 const RE_PLACEMENT = /\b(colocaci[oó]n|sell-out|en dep[oó]sito|dejar|puesta)\b/i;
 const RE_REJECTION = /\b(no\s*le\s*interesa|no\s*quiere|rechaza|lo\s*descarta|dice\s*que\s*no)\b/i;
@@ -42,12 +42,23 @@ const nextDateFrom = (text: string): string | undefined => {
   // 1) ¿"mañana"?
   const hasTomorrow = RE_TOMORROW.test(text);
 
-  // 2) ¿fecha explícita dd/mm(/yy)?
+  // 2) ¿fecha explícita dd/mm(/yy) o "dd de mes"?
   const dm = text.match(RE_DATE);
   if (dm) {
-    const [, dd, mm, yyyy] = dm;
-    const y = yyyy ? (yyyy.length === 2 ? 2000 + Number(yyyy) : Number(yyyy)) : now.getFullYear();
-    const d = new Date(y, Number(mm) - 1, Number(dd));
+    const datePart = dm[1].toLowerCase();
+    let day, month;
+    if (datePart.includes('/')) {
+        [day, month] = datePart.split('/').map(Number);
+    } else { // "de mes"
+        const parts = datePart.split(' de ');
+        day = parseInt(parts[0], 10);
+        const monthNames = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+        month = monthNames.indexOf(parts[1]) + 1;
+    }
+    
+    const year = now.getFullYear(); // Asume año actual si no se especifica
+    const d = new Date(year, month - 1, day);
+    
     // ¿hay hora?
     const tm = text.match(RE_TIME);
     if (tm) {
@@ -69,7 +80,7 @@ const nextDateFrom = (text: string): string | undefined => {
     return d.toISOString();
   }
 
-  // 4) "mañana" sin hora → mañana a 10:00 por defecto (elige tu hora default)
+  // 4) "mañana" sin hora → mañana a 10:00 por defecto
   if (hasTomorrow) {
     const d = new Date(now);
     d.setDate(d.getDate() + 1);
@@ -194,10 +205,12 @@ export function isPromotionApplicable(order: Order, promo: Promotion, nowISO?: I
   if (promo.validTo && now > new Date(promo.validTo)) return false;
 
   // qty en scope
-  const qtyInScope = order.lines.reduce((acc: number, l: { sku?: string; qty: number }) => {
-    const inScope = !promo.skuScope || (l.sku && promo.skuScope.includes(l.sku));
+  const qtyInScope = (order.lines || []).reduce((acc: number, l: { itemId?: string; sku?: string; qty: number }) => {
+    const itemSku = l.sku ?? l.itemId; // Usar itemId si sku no está
+    const inScope = !promo.skuScope || (itemSku && promo.skuScope.includes(itemSku));
     return acc + (inScope ? (l.qty ?? 0) : 0);
   }, 0);
+  
   if (promo.minQty && qtyInScope < promo.minQty) return false;
 
   // canal (si lo tienes en el pedido)
