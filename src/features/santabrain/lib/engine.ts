@@ -1,3 +1,5 @@
+// src/features/santabrain/lib/engine.ts
+
 /**
  * Engine — KPIs + Parsing + Promos (enhanced)
  * - Multi-item parsing: "6 cajas sb-750 y 3 sb-200"
@@ -9,8 +11,7 @@ import type {
   AccountRollup, Order, Promotion, Account, ParseResult, BrainContext, SantaData, Activation
 } from "./types";
 import { orderTotal, median, computeChannelMix, daysSinceISO, normalizeName, findSimilarAccounts } from "./helpers";
-import { isPromotionApplicable } from "./rules";
-import { RULES } from './rules';
+import { RULES, isPromotionApplicable } from "./rules";
 
 // =============================
 // KPI — Sales (unchanged from previous corrected version)
@@ -27,7 +28,7 @@ export function computeSalesKPIs(period: Period, filters: Filters, data: {
     return t >= start && t <= end;
   });
 
-  const pedidosAbiertos = data.orders.filter((o: Order) => o.status === 'BORRADOR' || o.status === 'ABIERTO' || o.status === 'EN_PROCESO').length;
+  const pedidosAbiertos = data.orders.filter((o: Order) => o.status === 'open' || o.status === 'confirmed').length;
   const importeSellIn = Math.round(ordersIn.reduce((a:number,o:Order)=>a + (o.amount ?? orderTotal(o)), 0));
 
   const byAcc: Record<string, number> = {};
@@ -143,21 +144,21 @@ export function applyPromotionToOrder(order: Order, promo: Promotion, nowISO: IS
 
 // Overload signatures
 export function parseNoteToAction(note: string, ctx: BrainContext, data: SantaData): ParseResult;
-export function parseNoteToAction(note: string, data: SantaData): ParseResult;
+export function parseNoteToAction(note: string, ctx: BrainContext): ParseResult;
 
 // Implementation
 export function parseNoteToAction(
   note: string,
-  ctxOrData: BrainContext | SantaData,
-  optionalData?: SantaData
+  ctx: BrainContext,
+  data?: SantaData
 ): ParseResult {
-  const data = (optionalData ?? ctxOrData) as SantaData;
+  const text = note.trim();
   const accounts = data?.accounts ?? [];
   
   const sorted = [...RULES].sort((a, b) => b.priority - a.priority);
   for (const rule of sorted) {
-    if (rule.condition(note, { ...data, accounts })) {
-      return rule.execute(note, { ...data, accounts });
+    if (rule.condition(note, { ...data, accounts } as SantaData)) {
+      return rule.execute(note, { ...data, accounts } as SantaData);
     }
   }
   return { kind: 'UNKNOWN', summary: note.trim() };
