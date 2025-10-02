@@ -8,7 +8,7 @@ import { collection, getDocs } from "firebase/firestore";
 import { usePathname, useRouter } from "next/navigation";
 import { SANTA_DATA_COLLECTIONS } from '@/domain/ssot';
 import { upsertMany } from './dataprovider/actions';
-import { firebaseAuth, firestoreDb } from "@/lib/firebaseClient";
+import { getFirebase } from "@/lib/firebaseClient";
 import { MOCK_DATA } from "./mock-data";
 
 type LoadReport = { ok: Array<keyof SantaData>; errors: Array<{ name: keyof SantaData; error: string }>; totalDocs: number; };
@@ -55,7 +55,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const loadInitialData = useCallback(async () => {
     if (!firebaseUser) {
       setData(null);
-      setLoadingData(false);
+      if (mountedRef.current) setLoadingData(false);
       return;
     }
 
@@ -68,13 +68,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     
     setLoadingData(true);
     try {
+      const { firestoreDb } = await getFirebase();
       if (!firestoreDb) throw new Error("Firestore DB not initialized");
       const partial: Partial<SantaData> = {};
       let total = 0;
 
       for (const name of SANTA_DATA_COLLECTIONS) {
         try {
-          const snap = await getDocs(collection(firestoreDb, String(name)));
+          const collectionName = name as string;
+          const snap = await getDocs(collection(firestoreDb, collectionName));
           (partial as any)[name] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
           total += snap.size;
         } catch (e) {
@@ -83,23 +85,37 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         }
       }
       if (mountedRef.current) setData(partial as SantaData);
+    } catch(error) {
+        console.error("Error loading initial data:", error);
     } finally {
       if (mountedRef.current) setLoadingData(false);
     }
   }, [firebaseUser, isPersistenceEnabled]);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(firebaseAuth, (fbUser) => {
-      setFirebaseUser(fbUser ?? null);
-      setAuthReady(true);
-      if (!fbUser) {
-        setData(null);
-        setCurrentUser(null);
+    let unsub: (() => void) | undefined;
+    getFirebase().then(({ firebaseAuth }) => {
+        if (!mountedRef.current) return;
+        unsub = onAuthStateChanged(firebaseAuth, (fbUser) => {
+          if (!mountedRef.current) return;
+          setFirebaseUser(fbUser ?? null);
+          setAuthReady(true);
+          if (!fbUser) {
+            setData(null);
+            setCurrentUser(null);
+            setLoadingData(false);
+          }
+        });
+    }).catch(error => {
+        console.error("Could not get Firebase Auth for onAuthStateChanged:", error);
+        setAuthReady(true);
         setLoadingData(false);
-      }
     });
-    return () => unsub();
+    return () => {
+        if(unsub) unsub();
+    };
   }, []);
+
 
   useEffect(() => {
       loadInitialData();
@@ -153,16 +169,19 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [saveAllCollections]);
 
   const login = useCallback(async () => {
+    const { firebaseAuth } = await getFirebase();
     const provider = new GoogleAuthProvider();
     provider.addScope('https://www.googleapis.com/auth/spreadsheets');
     await signInWithPopup(firebaseAuth, provider);
   }, []);
 
   const loginWithEmail = useCallback(async (email: string, pass: string) => {
+    const { firebaseAuth } = await getFirebase();
     await signInWithEmailAndPassword(firebaseAuth, email, pass);
   }, []);
 
   const signupWithEmail = useCallback(async (email: string, pass: string): Promise<User | null> => {
+    const { firebaseAuth } = await getFirebase();
     const cred = await createUserWithEmailAndPassword(firebaseAuth, email, pass);
     const fbUser = cred.user;
     if (!fbUser) return null;
@@ -180,6 +199,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [saveCollection]);
 
   const logout = useCallback(async () => {
+    const { firebaseAuth } = await getFirebase();
     await signOut(firebaseAuth);
   }, []);
 

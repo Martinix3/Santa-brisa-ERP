@@ -1,3 +1,4 @@
+// src/app/api/firebase-config/route.ts
 import { NextResponse } from 'next/server';
 import { firebaseWebConfig } from '@/config/firebaseWebApp';
 

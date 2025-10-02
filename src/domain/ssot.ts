@@ -565,3 +565,4 @@ export type OrderSellIn = any; // Placeholder para compatibilidad
 export type ExecCheck = any; // Placeholder
 
 
+
