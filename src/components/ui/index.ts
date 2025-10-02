@@ -21,3 +21,4 @@ export { SBSparkline } from "./charts/SBSparkline";
 // Exportaciones que faltaban
 export { ModuleHeader } from './ModuleHeader';
 export { FilterSelect } from './FilterSelect';
+export { PersistenceToggle } from './PersistenceToggle';

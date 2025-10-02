@@ -16,6 +16,7 @@ import QuickLogOverlay from "@/features/quicklog/QuickLogOverlay";
 import { isSales } from "@/lib/authz";
 import { MODULE_ACCENTS } from "@/domain/ssot";
 import { RealtimeToggle } from "../RealtimeToggle";
+import { PersistenceToggle } from "../ui/PersistenceToggle";
 
 
 /* ===== 1) Navegación ===== */
@@ -138,6 +139,7 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
         {/* Sidebar Footer with User Menu */}
         <div className="mt-auto p-2 border-t border-zinc-200 space-y-2">
             <RealtimeToggle />
+            <PersistenceToggle />
             <div ref={menuRef} className="relative">
                 <button
                     onClick={() => setUserMenuOpen(v => !v)}
