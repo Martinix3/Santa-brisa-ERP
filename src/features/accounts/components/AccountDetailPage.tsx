@@ -9,7 +9,7 @@ import type { SantaData, Interaction as InteractionType, OrderSellOut, User as U
 import { computeAccountKPIs, accountOwnerDisplay, orderTotal, getDistributorForAccount, computeAccountRollup } from '@/lib/sb-core';
 import { ArrowUpRight, ArrowDownRight, Phone, Mail, MapPin, User, Factory, Boxes, Megaphone, Briefcase, Banknote, Calendar, FileText, ShoppingCart, Star, Building2, CreditCard, ChevronRight, ChevronLeft, MessageSquare, Sparkles, Tag, Clock, Edit, Plus } from "lucide-react";
 import Link from 'next/link';
-import { enrichAccount } from '@/ai/flows/enrich-account-flow';
+
 import { NewPosTacticDialog } from '@/features/marketing/components/NewPosTacticDialog';
 import { upsertPosTactic } from '@/features/marketing/services/posTactics.client';
 import { listPosCostCatalog, listPlvInStock } from '@/features/marketing/services/posTactics.service';
@@ -96,7 +96,6 @@ export function AccountDetailPageContent(){
   const { data: santaData, setData, saveCollection, saveAllCollections, currentUser } = useData();
   const [catalog, setCatalog] = useState<PosCostCatalogEntry[]>([]);
   const [plv, setPlv] = useState<PlvMaterial[]>([]);
-  const [isEnriching, setIsEnriching] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isNewTacticOpen, setIsNewTacticOpen] = useState(false);
 
@@ -140,39 +139,6 @@ export function AccountDetailPageContent(){
 
     return { account: acc, party: pty, unifiedActivity: unified, kpis: kpiData, owner: own, distributor: dist, rollup: rollupData };
   }, [accountId, santaData]);
-
-  const handleEnrich = async () => {
-    if (!account || !party || !santaData) return;
-    setIsEnriching(true);
-    try {
-        const enrichedData = await enrichAccount({
-            accountName: account.name,
-            address: party.billingAddress?.street,
-            city: party.billingAddress?.city,
-        });
-
-        const updatedAccount = { 
-            ...account, 
-            subType: enrichedData.subType,
-            notes: enrichedData.notes,
-        };
-
-        const currentTags = new Set(party.tags || []);
-        enrichedData.tags.forEach(tag => currentTags.add(tag));
-        const updatedParty = {
-            ...party,
-            tags: Array.from(currentTags),
-        }
-        
-        await saveAllCollections({ accounts: [updatedAccount], parties: [updatedParty] });
-
-    } catch (error) {
-        console.error("Error enriching account:", error);
-        alert("No se pudo enriquecer la cuenta.");
-    } finally {
-        setIsEnriching(false);
-    }
-  };
 
   const handleUpdateAccount = async (payload: any) => {
     if (!account || !party || !santaData) return;
@@ -316,10 +282,7 @@ export function AccountDetailPageContent(){
                         {(party.tags || []).map(t => <Chip key={t}>{t}</Chip>)}
                     </div>
                 </Row>
-                <div className="mt-4 flex justify-between">
-                    <SBButton variant="secondary" onClick={handleEnrich} disabled={isEnriching}>
-                        <Sparkles size={14} /> {isEnriching ? 'Analizando...' : 'Enriquecer con IA'}
-                    </SBButton>
+                <div className="mt-4 flex justify-end">
                     <SBButton variant="secondary" onClick={() => setIsEditing(true)}>
                         <Edit size={14} /> Editar Cuenta
                     </SBButton>
