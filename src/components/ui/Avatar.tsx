@@ -1,29 +1,14 @@
 
 "use client";
 
-// Paleta de colores predefinida y curada para los avatares.
+// Paleta de colores basada en los tokens de CSS para consistencia y tematización.
 const avatarColors = [
-    // Amarillo Sol derivados
-    { bg: "#FFEAA6", text: "#C7A837" },
-    { bg: "#C7A837", text: "#FFEAA6" },
-    // Cobre derivados
-    { bg: "#F2A678", text: "#9E4E27" },
-    { bg: "#9E4E27", text: "#F2A678" },
-    // Agua derivados
-    { bg: "#D8F0F1", text: "#2F5D5D" },
-    { bg: "#7BA9AA", text: "#FFFFFF" },
-    // Verde Mar derivados
-    { bg: "#89B2B3", text: "#2F5D5D" },
-    { bg: "#2F5D5D", text: "#D8F0F1" },
-    // Originales (marca)
-    { bg: "#F7D15F", text: "#2C2A28" },
-    { bg: "#2C2A28", text: "#F7D15F" },
-    { bg: "#A7D8D9", text: "#2C2A28" },
-    { bg: "#2C2A28", text: "#A7D8D9" },
-    { bg: "#618E8F", text: "#FFFFFF" },
-    { bg: "#FFFFFF", text: "#618E8F" },
-    { bg: "#D7713E", text: "#FFFFFF" },
-    { bg: "#FFFFFF", text: "#D7713E" },
+    { bg: "hsl(var(--primary))", text: "hsl(var(--primary-foreground))" },
+    { bg: "hsl(var(--info-foreground))", text: "hsl(var(--info))" },
+    { bg: "hsl(var(--success-foreground))", text: "hsl(var(--success))" },
+    { bg: "hsl(var(--accent))", text: "hsl(var(--accent-foreground))" },
+    { bg: "hsl(var(--sb-accent-ventas))", text: "hsl(var(--background))" },
+    { bg: "hsl(var(--sb-accent-marketing))", text: "hsl(var(--foreground))" },
 ];
 
 function stringToColor(seed: string) {
@@ -58,10 +43,12 @@ export function Avatar({ name, size = 'md', className }: { name?: string, size?:
     return (
       <span
         className={`inline-flex items-center justify-center rounded-full font-semibold border flex-shrink-0 ${sizeClasses[size]} ${className || ''}`}
-        style={{ 
-          backgroundColor: colors.bg, 
-          color: colors.text,
-          borderColor: hexToRgba(colors.text, 0.2)
+        style={{
+          '--avatar-bg': colors.bg,
+          '--avatar-fg': colors.text,
+          backgroundColor: 'var(--avatar-bg)',
+          color: 'var(--avatar-fg)',
+          borderColor: 'color-mix(in srgb, var(--avatar-fg) 20%, transparent)',
         }}
         title={name}
       >
@@ -69,12 +56,3 @@ export function Avatar({ name, size = 'md', className }: { name?: string, size?:
       </span>
     );
 }
-
-function hexToRgba(hex: string, a: number) {
-  if (!hex) return 'rgba(0,0,0,0)';
-  const h = hex.replace('#',''); 
-  const f = h.length===3? h.split('').map(c=>c+c).join(''):h; 
-  const n=parseInt(f,16); 
-  const r=(n>>16)&255,g=(n>>8)&255,b=n&255; 
-  return `rgba(${r},${g},${b},${a})`; 
-};
