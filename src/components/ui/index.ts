@@ -1,24 +1,25 @@
-// Barrel file — Santa Brisa UI
-// Importa todo desde aquí:  import { SBCard, SBDialog, SBIcon, SBLineChart, ... } from "@/components/ui";
-
-export * from "./ui-primitives";
-
-export { SBDialog, SBDialogContent } from "./SBDialog";
-export { SBTabs, Tabs, TabsList, TabsTrigger, TabsContent } from "./tabs";
-export { SBTooltip } from "./SBTooltip";
-export { SBPopover } from "./SBPopover";
-export { default as KpiCard } from './KpiCard';
-
-export { SBIcon } from "./SBIcon";
-export { useSBToast } from "./SBToast";
-export { SBDatePicker } from "./SBDatePicker";
-
-export { getSBChartTheme } from "./charts/theme";
-export { SBLineChart } from "./charts/SBLineChart";
-export { SBBarChart } from "./charts/SBBarChart";
-export { SBSparkline } from "./charts/SBSparkline";
-
-// Exportaciones que faltaban
-export { ModuleHeader } from './ModuleHeader';
-export { FilterSelect } from './FilterSelect';
-export { PersistenceToggle } from './PersistenceToggle';
+// src/components/ui/index.ts
+export * from './Avatar';
+export * from './Banner';
+export * from './FilterSelect';
+export * from './FormStatusBar';
+export * from './KpiCard';
+export * from './ModuleHeader';
+export * from './NewCustomerCelebration';
+export * from './PersistenceToggle';
+export * from './SBCard';
+export * from './SBDatePicker';
+export * from './SBDialog';
+export * from './SBIcon';
+export * from './SBKpiCard';
+export * from './SBPageShell';
+export * from './SBPopover';
+export * from './SBSurface';
+export * from './SBTabs';
+export * from './SBToast';
+export * from './SBTooltip';
+export * from './SpinnerButton';
+export * from './TimePicker';
+export * from './dropdown-menu';
+export * from './tabs';
+export * from './ui-primitives';
