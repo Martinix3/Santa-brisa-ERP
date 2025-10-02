@@ -7,7 +7,11 @@ import { useAssistant } from "./AssistantProvider";
 import { useData } from "@/lib/dataprovider";
 import type { SantaData } from "@/domain/ssot";
 import { parseNoteToAction } from "@/features/santabrain/lib/engine";
-import { findSimilarAccounts, assessDuplicateRisk } from "@/features/santabrain/lib/helpers";
+import { 
+  findSimilarAccounts, 
+  assessDuplicateRisk,
+  distanceMeters // <-- AÑADIR ESTA IMPORTACIÓN
+} from "@/features/santabrain/lib/helpers";
 import { InlineOrderCard } from "./InlineOrderCard";
 import type { ParseResult } from "@/features/santabrain/lib/types";
 
@@ -17,15 +21,16 @@ import { createInteraction } from "@/app/(app)/agenda/actions";
 import { createAccount } from "@/app/(app)/accounts/actions";
 import { toast } from "sonner";
 import { useRouter } from 'next/navigation';
-
+import type { User, Party } from "@/domain/ssot"; // <-- AÑADIR ESTA IMPORTACIÓN
 
 // =============== Tipos mínimos y utilidades locales ===============
-type ChatMessage = {
-  role: "user" | "assistant" | "system";
-  content: string;
+type DraftOrder = React.ComponentProps<typeof InlineOrderCard>["initial"] & {
+  // AÑADIR ESTOS CAMPOS AL TIPO
+  flow?: 'DIRECT' | 'PLACEMENT';
+  distributorPartyId?: string;
+  distributorName?: string;
 };
 
-type DraftOrder = React.ComponentProps<typeof InlineOrderCard>["initial"];
 
 async function getBrowserLocation(): Promise<{ lat: number; lng: number } | null> {
   if (typeof navigator === "undefined" || !("geolocation" in navigator)) return null;
@@ -37,6 +42,35 @@ async function getBrowserLocation(): Promise<{ lat: number; lng: number } | null
     );
   });
 }
+
+// =============== NUEVA FUNCIÓN HELPER ===============
+// Esta función encapsula la lógica para encontrar el distribuidor más cercano
+async function findBestDistributor(
+  currentUser: User,
+  data: SantaData,
+  userLocation: { lat: number; lng: number }
+): Promise<Party | null> {
+  const assigned = currentUser.assignedDistributors?.filter(d => d.partyId) ?? [];
+  if (!assigned.length) return null; // No tiene distribuidores asignados
+
+  const distributorsWithLocation = data.parties.filter(p =>
+    assigned.some(a => a.partyId === p.id) && p.location
+  );
+
+  if (!distributorsWithLocation.length) return null; // Ninguno tiene ubicación
+  if (distributorsWithLocation.length === 1) return distributorsWithLocation[0];
+
+  // Calcular distancias y encontrar el más cercano
+  const sorted = distributorsWithLocation
+    .map(dist => ({
+      distributor: dist,
+      distance: distanceMeters(userLocation, dist.location!),
+    }))
+    .sort((a, b) => a.distance - b.distance);
+
+  return sorted[0].distributor;
+}
+
 
 // ============================== Componente ==============================
 export function AssistantDialog() {
@@ -90,7 +124,6 @@ export function AssistantDialog() {
             accountName: result.accountName ?? "(cuenta sin definir)",
             isNewAccount: !!result.isNewAccount,
             city: result.location ?? undefined,
-            distributorName: result.distributorName ?? undefined,
             lines: [
               {
                 sku: result.itemId ?? "SB-750",
@@ -99,36 +132,51 @@ export function AssistantDialog() {
               },
             ],
             notes: result.summary ?? "",
+            flow: 'DIRECT', // Por defecto es directa
           };
 
-          botText = `✅ He detectado un pedido de ${draft.lines[0].qty} ${draft.lines[0].qty === 1 ? "caja" : "cajas"} para “${draft.accountName}”. Revisa los detalles y confirma.`;
-          setPendingOrder(draft);
-          console.log("[SB] pendingOrder set →", draft);
-
-          pushAssistant(botText);
+          botText = `✅ He detectado un pedido de ${draft.lines[0].qty} ${draft.lines[0].qty === 1 ? "caja" : "cajas"} para “${draft.accountName}”.`;
           
-          try {
-            if (draft.isNewAccount && draft.accountName && data) {
-              const loc = await getBrowserLocation().catch(() => null);
-              const matches = findSimilarAccounts({
-                data: (data ?? { accounts: [], parties: [] }) as any,
-                candidateName: draft.accountName,
-                candidateLoc: loc || undefined,
-                minNameSim: 0.45,
-                radiusM: 1200,
-              });
-              const decision = assessDuplicateRisk(matches);
+          // --- LÓGICA MODIFICADA PARA CUENTAS NUEVAS ---
+          if (draft.isNewAccount && draft.accountName && data && currentUser) {
+            const loc = await getBrowserLocation().catch(() => null);
+            
+            // 1. Comprobación de duplicados (sin cambios)
+            const matches = findSimilarAccounts({
+              data: safeData as any,
+              candidateName: draft.accountName,
+              candidateLoc: loc || undefined,
+            });
+            const decision = assessDuplicateRisk(matches);
 
-              if (decision.action === "BLOCK_AUTO_CREATE") {
-                pushAssistant(`⚠️ **Posible duplicado**: ${decision.reason}.\nTe recomiendo seleccionar una cuenta existente o confirmar la creación manual forzada.`);
-              } else if (decision.action === "WARN") {
-                pushAssistant(`ℹ️ **Aviso**: ${decision.reason} (procederé si confirmas).`);
+            if (decision.action === "BLOCK_AUTO_CREATE") {
+              botText += `\n⚠️ **Posible duplicado**: ${decision.reason}`;
+            } else {
+              // 2. LÓGICA AÑADIDA: Asignación de distribuidor
+              if (loc) {
+                const bestDistributor = await findBestDistributor(currentUser, safeData, loc);
+                if (bestDistributor) {
+                  draft.flow = 'PLACEMENT';
+                  draft.distributorPartyId = bestDistributor.id;
+                  draft.distributorName = bestDistributor.name;
+                  botText += `\nℹ️ Por tu ubicación, se asignará automáticamente al distribuidor **${bestDistributor.name}**.`;
+                } else {
+                  botText += `\nℹ️ La cuenta se marcará como **directa**.`;
+                }
+              } else {
+                botText += `\nℹ️ La cuenta se marcará como **directa** (no se pudo obtener tu ubicación).`;
+              }
+              
+              if (decision.action === "WARN") {
+                botText += `\n**Aviso**: ${decision.reason}`;
               }
             }
-          } catch(e) {
-            console.warn("[SB] Duplicates check failed:", e);
           }
-          
+          // --- FIN DE LA LÓGICA MODIFICADA ---
+
+          setPendingOrder(draft);
+          pushAssistant(botText);
+
         } else if (result.kind === "VISITA") {
           const when = result.when ? new Date(result.when).toLocaleString("es-ES") : "ahora mismo";
           botText = `📅 OK, voy a registrar una visita para ${result.accountId ? `la cuenta ${result.accountId}`: 'una cuenta'} sobre "${result.summary}", programada para ${when}. ¿Es correcto?`;
@@ -282,5 +330,3 @@ export function AssistantDialog() {
 }
 
 export default AssistantDialog;
-
-    
