@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -53,20 +54,3 @@ export const TabsContent = React.forwardRef<
   />
 ));
 TabsContent.displayName = "TabsContent";
-
-
-// Componente SBTabs personalizado
-export function SBTabs({
-  tabs, value, onChange, children,
-}: { tabs:{id:string;label:string}[]; value:string; onChange:(id:string)=>void; children?:React.ReactNode }) {
-  return (
-    <Tabs value={value} onValueChange={onChange}>
-        <TabsList>
-            {tabs.map(t => (
-                <TabsTrigger key={t.id} value={t.id}>{t.label}</TabsTrigger>
-            ))}
-        </TabsList>
-        {children}
-    </Tabs>
-  );
-}
