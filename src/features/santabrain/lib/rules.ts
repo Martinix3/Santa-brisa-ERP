@@ -1,6 +1,7 @@
-import type { SantaData, Account, CommercialFlow } from '@/domain/ssot';
+// src/features/santabrain/lib/rules.ts
 import { normalizeName, findSimilarAccounts } from "./helpers";
-import type { ParseResult, Promotion, ISO, Order } from "./types";
+import type { SantaData, Account } from "@/domain/ssot";
+import type { ParseResult, Promotion, ISO, Order, PromoChannel } from "./types";
 
 
 // Regex base
@@ -120,12 +121,12 @@ export const RULES: ActionRule[] = [
     priority: 90,
     condition: (text, data) => !!findAccountInText(text, data) && RE_QTY.test(text),
     execute: (text, data) => {
-      const account = findAccountInText(text, data)!;
+      const account = findAccountInText(text, data);
       const qty = parseInt(text.match(RE_QTY)![1], 10);
       return {
         kind: 'PEDIDO',
-        accountId: account.id,
-        accountName: account.name,
+        accountId: account?.id,
+        accountName: account?.name || text.match(RE_ACCOUNT)![1].trim(),
         isNewAccount: !account,
         qtyCases: qty,
         itemId: undefined,
@@ -186,24 +187,25 @@ export function isPromotionApplicable(order: Order, promo: Promotion, nowISO?: I
   if (promo.validFrom && now < new Date(promo.validFrom)) return false;
   if (promo.validTo && now > new Date(promo.validTo)) return false;
 
-  // Qty en scope (si hay skuScope)
-  const qtyInScope = order.items.reduce((acc, l) => {
+  // Qty en scope
+  const qtyInScope = (order.lines || []).reduce((acc: number, l: { sku: string; qty: number }) => {
     const inScope = !promo.skuScope || promo.skuScope.includes(l.sku);
     return acc + (inScope ? (l.qty ?? 0) : 0);
   }, 0);
   if (promo.minQty && qtyInScope < promo.minQty) return false;
 
-  // Canal (si lo transportas en order)
-  const channel = (order as any).account?.segment as Promotion['channels'][number] | undefined;
+  // Canal (si lo tienes en el pedido)
+  const channel = (order as any).channel as PromoChannel | undefined;
   if (promo.channels?.length && channel && !promo.channels.includes(channel)) return false;
 
   return true;
 }
 
+
 // Renombra tu función actual para reutilizarla arriba
 export function isPromotionApplicableCtx(promo: Promotion, ctx: {
   nowISO?: string;
-  channel?: Promotion['channels'][number];
+  channel?: PromoChannel;
   orderQty?: number;
 }) {
   const now = ctx.nowISO ? new Date(ctx.nowISO) : new Date();

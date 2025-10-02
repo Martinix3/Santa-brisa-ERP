@@ -61,7 +61,7 @@ export function computeChannelMix(orders: Order[], accounts: Account[]) {
 
     const isDistributor =
       acc?.segment === "DISTRIBUIDOR";
-    if (ch && !isDistributor) buckets[ch] += orderTotal(o);
+    if (ch && !isDistributor) buckets[ch] += orderTotal(o as any);
   }
 
   return buckets;
