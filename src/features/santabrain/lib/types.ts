@@ -1,4 +1,25 @@
-// src/features/santabrain/lib/types.ts
+// Tipos mínimos compartidos por el motor
+export type ISO = string;
+
+export type PromoMechanic = 'PCT' | 'FIXED';
+export type PromoChannel =
+  | 'ONLINE'
+  | 'PRIVADA'
+  | 'HORECA'
+  | 'RETAIL'
+  | 'DISTRIBUIDOR'
+  | 'IMPORTADOR';
+
+export interface Promotion {
+  id: string;
+  mechanic: PromoMechanic;     // 'PCT' => porcentaje; 'FIXED' => descuento fijo por unidad
+  value?: number;              // valor del descuento
+  skuScope?: string[];         // si no se indica, aplica a todas las líneas del pedido
+  validFrom?: ISO;
+  validTo?: ISO;
+  minQty?: number;             // cantidad mínima (pedido o línea, según tu uso)
+  channels?: PromoChannel[];   // canales donde aplica
+}
 
 // Reexporta los tipos canónicos del dominio para evitar duplicidades o versiones reducidas.
 export type {
@@ -7,8 +28,6 @@ export type {
   Order,
   Activation,
 } from "@/domain/ssot";
-
-export type ISO = string;
 
 // Tipos locales de Santabrain
 export type PeriodView = 'WEEK'|'MONTH'|'YEAR';

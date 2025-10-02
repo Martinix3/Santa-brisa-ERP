@@ -1,6 +1,6 @@
 import type { SantaData, Account, CommercialFlow } from '@/domain/ssot';
-import { normalizeName } from "./helpers";
-import type { ISO, Order, ParseResult } from "./types";
+import { normalizeName, findSimilarAccounts } from "./helpers";
+import type { ParseResult, Promotion, ISO, Order } from "./types";
 
 
 // Regex base
@@ -176,40 +176,23 @@ export const RULES: ActionRule[] = [
   }
 ];
 
-export type Promotion = {
-  id: string;
-  name?: string;
-  // ventana temporal
-  validFrom?: ISO;
-  validTo?: ISO;
-  // segmentación
-  channels?: Array<'ONLINE'|'PRIVADA'|'HORECA'|'RETAIL'|'DISTRIBUIDOR'|'IMPORTADOR'>;
-  // Ámbito de SKUs
-  skuScope?: string[];
-  // mecánica
-  mechanic?: 'PCT' | 'FIXED';
-  value?: number;  // % o valor fijo según mechanic
-  // Requisitos
-  minQty?: number;     // unidades mínimas en scope
-};
-
 
 // --- Adaptador compatible con engine.ts ---
 export function isPromotionApplicable(order: Order, promo: Promotion, nowISO?: ISO): boolean {
   const now = nowISO ? new Date(nowISO) : new Date();
 
-  // vent. temporal
+  // Ventana temporal
   if (promo.validFrom && now < new Date(promo.validFrom)) return false;
   if (promo.validTo && now > new Date(promo.validTo)) return false;
 
-  // qty en scope
+  // Qty en scope (si hay skuScope)
   const qtyInScope = order.items.reduce((acc, l) => {
     const inScope = !promo.skuScope || promo.skuScope.includes(l.sku);
-    return acc + (inScope ? (l.qty ?? 0) : 0);
+    return acc + (l.qty ?? 0);
   }, 0);
   if (promo.minQty && qtyInScope < promo.minQty) return false;
 
-  // canal (si lo tienes en el pedido)
+  // Canal (si lo transportas en order)
   const channel = (order as any).channel as Promotion['channels'][number] | undefined;
   if (promo.channels?.length && channel && !promo.channels.includes(channel)) return false;
 
@@ -219,13 +202,13 @@ export function isPromotionApplicable(order: Order, promo: Promotion, nowISO?: I
 // Renombra tu función actual para reutilizarla arriba
 export function isPromotionApplicableCtx(promo: Promotion, ctx: {
   nowISO?: string;
-  channel?: Promotion['channels'][number];
+  channel?: NonNullable<Promotion['channels']>[number];
   orderQty?: number;
 }) {
   const now = ctx.nowISO ? new Date(ctx.nowISO) : new Date();
   if (promo.validFrom && now < new Date(promo.validFrom)) return false;
   if (promo.validTo && now > new Date(promo.validTo)) return false;
   if (promo.minQty && (ctx.orderQty ?? 0) < promo.minQty) return false;
-  if (promo.channels?.length && ctx.channel && !promo.channels.includes(ctx.channel)) return false;
+  if (promo.channels && ctx.channel && !promo.channels.includes(ctx.channel)) return false;
   return true;
 }

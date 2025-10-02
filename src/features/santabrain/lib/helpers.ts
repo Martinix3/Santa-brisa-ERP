@@ -5,18 +5,26 @@ import type { Account, Order } from "./types";
 // 1) Helpers de pedidos / analítica
 // ============================================================================
 
+// Tipos ligeros locales para evitar acoplar todo el kernel
+export type OrderLike = {
+  items: Array<{ sku?: string; qty: number; unitPrice?: number; discountPct?: number }>;
+  amount?: number;
+};
+
 /** Total de pedido robusto: usa líneas (qty*unitPrice) y respeta discountPct; fallback a order.amount */
-export function orderTotal(order: Order): number {
-  if (Array.isArray(order.items) && order.items.length) {
-    const lines = order.items.map((l: Order['items'][number]) => {
-      const unit = typeof l.unitPrice === "number" ? l.unitPrice : (l as any).price ?? 0;
-      const gross = (l.qty ?? 0) * unit;
-      const d = typeof l.discountPct === "number" ? l.discountPct : 0;
-      return gross * (1 - d / 100);
-    });
-    return Number(lines.reduce((a, b) => a + b, 0).toFixed(2));
-  }
-  return Number((order.amount ?? 0).toFixed(2));
+export function orderTotal(o: OrderLike): number {
+  const items = Array.isArray(o.items) ? o.items : [];
+  return items.reduce(
+    (
+      sum: number,
+      l: { qty: number; unitPrice?: number; discountPct?: number }
+    ) => {
+      const price = Math.max(0, l.unitPrice ?? 0);
+      const pct = Math.max(0, Math.min(100, l.discountPct ?? 0));
+      return sum + (l.qty || 0) * price * (1 - pct / 100);
+    },
+    0
+  );
 }
 
 /** Mediana numérica segura */
@@ -27,12 +35,13 @@ export function median(nums: number[]): number {
   return xs.length % 2 === 0 ? (xs[mid - 1] + xs[mid]) / 2 : xs[mid];
 }
 
+
 /** Días desde un ISO (redondeo hacia abajo) */
-export function daysSinceISO(iso?: string | null): number {
-  if (!iso) return Infinity;
-  const ms = Date.now() - new Date(iso).getTime();
-  return Math.floor(ms / (1000 * 60 * 60 * 24));
+export function daysSinceISO(d: string): number {
+  const t = new Date(d).getTime();
+  return Math.max(0, Math.floor((Date.now() - t) / (1000 * 60 * 60 * 24)));
 }
+
 
 /** Mix de canales para dashboard (excluye distribuidores/importadores) */
 export function computeChannelMix(orders: Order[], accounts: Account[]) {
