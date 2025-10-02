@@ -3,7 +3,6 @@
 "use client";
 import React, { useMemo, useState } from 'react';
 import { useData } from '@/lib/dataprovider';
-import { generateInsights } from '@/ai/flows/generate-insights-flow';
 import { SBCard, SBButton, DataTableSB, KPI } from '@/components/ui/ui-primitives';
 import type { Col } from '@/components/ui/ui-primitives';
 import { BrainCircuit, Package, DollarSign, Truck, AlertCircle, Clock, Plus } from 'lucide-react';
@@ -172,52 +171,6 @@ function WarehouseDashboardContent() {
     )
 }
 
-function AIInsightsCard() {
-    const { data } = useData();
-    const [insights, setInsights] = useState("");
-    const [loading, setLoading] = useState(false);
-
-    const handleGenerate = async () => {
-        if (!data) return;
-        setLoading(true);
-        setInsights("");
-        try {
-            const relevantData = {
-                onHand: data.onHand?.slice(0, 30).map(i => ({ itemId: i.itemId, lot: i.lotNumber, qty: i.qty, loc: i.locationId, exp: (i as any).expDate })),
-                shipments: data.shipments?.slice(0, 20).map(s => ({ id: s.id, status: s.status, city: s.city, lines: s.lines.length })),
-            };
-            const result = await generateInsights({ 
-                jsonData: JSON.stringify(relevantData),
-                context: "Eres un experto en logística y gestión de almacenes. Analiza los datos de inventario y envíos para identificar riesgos de caducidad, niveles de stock anómalos, o patrones en los envíos (p.ej., retrasos, destinos comunes)."
-            });
-            setInsights(result);
-        } catch (e: any) {
-            console.error(e);
-            setInsights("Hubo un error al generar el informe. Inténtalo de nuevo.");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return (
-        <SBCard title="Análisis de Almacén con IA">
-            <div className="p-4 space-y-4">
-                <div className="flex items-center justify-between">
-                    <p className="text-sm text-zinc-600">Encuentra tendencias en el inventario y los envíos pendientes.</p>
-                    <SBButton onClick={handleGenerate} disabled={loading}>
-                        <BrainCircuit className="h-4 w-4" /> {loading ? 'Analizando...' : 'Generar Informe'}
-                    </SBButton>
-                </div>
-                {insights && (
-                    <div className="prose prose-sm p-4 bg-zinc-50 rounded-lg border max-w-none whitespace-pre-wrap">
-                        {insights}
-                    </div>
-                )}
-            </div>
-        </SBCard>
-    );
-}
-
 export default function Dashboard() {
     const { data: santaData } = useData();
 
@@ -228,9 +181,6 @@ export default function Dashboard() {
     return (
         <div className="space-y-6">
             <WarehouseDashboardContent />
-            <div className="pt-6">
-                <AIInsightsCard />
-            </div>
         </div>
     );
 }
