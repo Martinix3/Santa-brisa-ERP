@@ -27,7 +27,7 @@ export function InventoryDashboard({ summaries }: Props) {
     
     return [
       { name: 'Liberado', value: stats.PASSED },
-      { name: 'En QC (Retenido)', value: stats.PENDING },
+      { name: 'En QC', value: stats.PENDING },
       { name: 'Rechazado', value: stats.FAILED },
     ].filter(d => d.value > 0);
   }, [summaries]);
@@ -36,27 +36,38 @@ export function InventoryDashboard({ summaries }: Props) {
       return summaries.reduce((acc, s) => acc + (s.totalValue || 0), 0);
   }, [summaries]);
 
+  const totalUnits = useMemo(() => {
+    return summaries.reduce((acc, s) => acc + s.totalPhysical, 0);
+  }, [summaries]);
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <SBCard title="Stock por Estado de QC">
-        <div style={{ width: '100%', height: 200 }}>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+      <SBCard title="">
+        <div className="flex justify-between items-center p-3">
+          <div>
+            <p className="text-xs text-zinc-500">Valor Total del Inventario</p>
+            <p className="text-2xl font-bold">{totalValue.toLocaleString('es-ES', {style:'currency', currency:'EUR'})}</p>
+          </div>
+          <div>
+            <p className="text-xs text-zinc-500">Unidades Totales</p>
+            <p className="text-2xl font-bold">{totalUnits.toLocaleString('es-ES')}</p>
+          </div>
+        </div>
+      </SBCard>
+      <SBCard title="">
+        <div style={{ width: '100%', height: 100 }}>
           <ResponsiveContainer>
             <PieChart>
-              <Pie data={qcData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} fill="#8884d8">
+              <Pie data={qcData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={30} outerRadius={45} paddingAngle={5}>
                 {qcData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[entry.name.startsWith('Liberado') ? 'PASSED' : entry.name.startsWith('En QC') ? 'PENDING' : 'FAILED']} />
                 ))}
               </Pie>
               <Tooltip formatter={(value) => `${Number(value).toLocaleString()} und.`}/>
-              <Legend />
+              <Legend iconSize={8} wrapperStyle={{fontSize: "12px"}}/>
             </PieChart>
           </ResponsiveContainer>
         </div>
-      </SBCard>
-      
-      <SBCard title="Valor Total del Inventario">
-         <p className="text-3xl font-bold">{totalValue.toLocaleString('es-ES', {style:'currency', currency:'EUR'})}</p>
-         <p className="text-sm text-zinc-500">Basado en el coste estándar.</p>
       </SBCard>
     </div>
   );

@@ -20,7 +20,7 @@ import { LotDetailPanel } from "./components/LotDetailPanel";
 import { SkuAccordionRow } from "./components/SkuAccordionRow";
 import { LotRows } from "./components/LotRows";
 import { InventoryDashboard } from "@/features/warehouse/components/InventoryDashboard";
-import { DataQualityCenter } from "@/features/warehouse/components/DataQualityCenter"; // 👈 1. Importar
+import { DataQualityCenter } from "@/features/warehouse/components/DataQualityCenter";
 
 function Empty({ hint }: { hint: string }) {
   return <div className="py-10 text-center text-sm text-zinc-500">{hint}</div>;
@@ -137,17 +137,10 @@ export default function InventoryPage() {
 
   return (
     <div className="space-y-6" style={{'--sb-accent': 'var(--sb-accent-logistica)'} as React.CSSProperties}>
-      <div>
-        <h1 className="text-xl font-semibold flex items-center gap-2">
-            Inventario y Recepciones
-            <RealtimeBadge />
-        </h1>
-        <p className="text-sm text-zinc-500">Vista en tiempo real del stock y registro de entradas.</p>
-      </div>
-
+      
       <InventoryDashboard summaries={Object.values(summaries)} />
       
-      <DataQualityCenter /> {/* 👈 2. Añadir el componente aquí */}
+      <DataQualityCenter />
       
       <div className="sticky top-[64px] z-30 bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/60 border rounded-xl p-3 flex flex-wrap gap-2 items-center">
         <div className="flex-1 flex gap-2 min-w-[260px]">
