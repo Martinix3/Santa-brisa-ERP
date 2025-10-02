@@ -104,7 +104,9 @@
 
 /* ===== Base ===== */
 @layer base {
-  * { border-color: hsl(var(--border) / 0.5); }
+  /* Se elimina la regla universal de border-color para evitar aplicar bordes a todos los elementos.
+     Tailwind gestionará esto con la clase 'border' que ya usa los tokens correctos. */
+  * { @apply border-border; } /* Esto es más seguro, delega a Tailwind */
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
