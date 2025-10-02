@@ -102,7 +102,7 @@
 
 /* ===== Base ===== */
 @layer base {
-  *, ::before, ::after { @apply border-border; }
+  *, ::before, ::after { border-color: hsl(var(--border)); }
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
@@ -130,15 +130,21 @@
 }
 
 @layer components {
-  .sb-card { @apply bg-card border rounded-xl shadow-sm; }
-  .sb-card__header { @apply flex items-center gap-2 px-3 py-2 border-b; }
+  .sb-card { @apply bg-card border border-border rounded-xl shadow-sm; }
+  .sb-card__header { @apply flex items-center gap-2 px-3 py-2 border-b border-border; }
   .sb-card__title { @apply font-semibold; }
   .sb-card__content { @apply p-3; }
-  .sb-card__footer { @apply px-3 py-2 border-t; }
+  .sb-card__footer { @apply px-3 py-2 border-t border-border; }
   .sb-icon { @apply h-4 w-4 text-muted-foreground; }
 
   .sb-btn-primary {
     @apply inline-flex items-center gap-1 bg-primary text-primary-foreground rounded-lg hover:opacity-90 focus-ring;
+  }
+  .sb-btn-success {
+    @apply inline-flex items-center gap-1 bg-success text-success-foreground rounded-lg hover:opacity-90 focus-ring;
+  }
+  .sb-btn-info {
+    @apply inline-flex items-center gap-1 bg-info text-info-foreground rounded-lg hover:opacity-90 focus-ring;
   }
 
   .sb-badge { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold; }
@@ -150,8 +156,8 @@
     @apply h-9 px-3 rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-ring;
   }
   .sb-tab[aria-selected="true"] {
-    @apply bg-secondary text-foreground font-medium border-b-2 border-accent;
-    box-shadow: none;
+    @apply bg-secondary text-foreground font-medium border-b-2;
+    border-color: hsl(var(--accent));
   }
   .sb-tabpanel { @apply mt-3; }
 
@@ -210,11 +216,11 @@
     transform: translateY(8px) scale(.98);
     animation: sb-pop-in .18s cubic-bezier(.2,.8,.2,1) forwards;
   }
-  .sb-dialog__header { @apply p-4 md:p-6 border-b; }
+  .sb-dialog__header { @apply p-4 md:p-6 border-b border-border; }
   .sb-dialog__title  { @apply text-lg font-semibold; }
   .sb-dialog__desc   { @apply text-sm text-muted-foreground; }
   .sb-dialog__body   { @apply p-4 md:p-6; }
-  .sb-dialog__footer { @apply flex justify-end gap-2 p-4 bg-secondary border-t; }
+  .sb-dialog__footer { @apply flex justify-end gap-2 p-4 bg-secondary border-t border-border; }
 
   .sb-dialog__close {
     @apply absolute top-3 right-3 h-8 w-8 rounded-md grid place-items-center transition-colors hover:bg-secondary focus-ring;
@@ -237,7 +243,7 @@
   /* Toasts */
   .sb-toastctr { position: fixed; right: 16px; bottom: 16px; display: grid; gap: 8px; z-index: 60; }
   .sb-toast {
-    @apply rounded-lg border px-3 py-2 text-sm bg-background shadow-sm;
+    @apply rounded-lg border border-border px-3 py-2 text-sm bg-background shadow-sm;
     animation: sb-toast-in .18s ease-out forwards;
   }
   .sb-toast--success { @apply bg-success-foreground text-success border-success/30; }
@@ -279,7 +285,7 @@
     pointer-events: auto;
   }
   .sb-tooltip__pop {
-    @apply z-50 rounded-md border bg-background text-foreground text-xs px-2 py-1 shadow-md;
+    @apply z-50 rounded-md border border-border bg-background text-foreground text-xs px-2 py-1 shadow-md;
     position: absolute; left: 50%; bottom: calc(100% + 8px);
     transform: translate(-50%, 4px); opacity: 0; pointer-events: none;
     transition: opacity .12s ease, transform .12s ease;
@@ -293,7 +299,7 @@
 
   .sb-popover__overlay { position:fixed; inset:0; background: transparent; }
   .sb-popover {
-    @apply z-50 rounded-md border bg-background text-foreground shadow-md p-3;
+    @apply z-50 rounded-md border border-border bg-background text-foreground shadow-md p-3;
     position: absolute; min-width: 220px;
     animation: sb-fade .12s ease both;
   }
