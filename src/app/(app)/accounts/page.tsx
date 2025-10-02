@@ -1,3 +1,4 @@
+
 // src/app/(app)/accounts/page.tsx
 
 "use client"
@@ -15,18 +16,17 @@ import { DEPT_META } from '@/domain/ssot';
 import { toast } from 'sonner';
 import { AccountBarDialog } from '@/features/accounts/components/AccountBarDialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { cn } from '@/lib/utils';
 
-type StageVariant = 'info' | 'success' | 'warning' | 'destructive' | 'default';
 
-const STAGE: Record<string, { label: string; variant: StageVariant }> = {
-  ACTIVA: { label: 'Activas', variant: 'success' },
-  SEGUIMIENTO: { label: 'En seguimiento', variant: 'info' },
-  POTENCIAL: { label: 'Potenciales', variant: 'warning' },
-  FALLIDA: { label: 'Perdidas', variant: 'destructive' },
+const STAGE: Record<string, { label: string; variant: 'info' | 'primary' | 'destructive' | 'default' }> = {
+  ACTIVA: { label: 'Activas', variant: 'info' },
+  SEGUIMIENTO: { label: 'En seguimiento', variant: 'primary' },
+  POTENCIAL: { label: 'Potenciales', variant: 'destructive' },
+  FALLIDA: { label: 'Perdidas', variant: 'default' },
   CERRADA: { label: 'Cerradas', variant: 'default' },
   BAJA: { label: 'Bajas', variant: 'default' },
-}
-
+};
 const formatEUR = (n: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
 
 function GroupBar({ stage, count, expanded, onToggle }: { stage: keyof typeof STAGE, count: number, expanded: boolean, onToggle: () => void }) {
@@ -324,7 +324,7 @@ export default function AccountsPage() {
     return <div className="p-6">Cargando datos...</div>;
   }
 
-  const stageColorVar = (variant: StageVariant) => {
+  const stageColorVar = (variant: Stage['variant']) => {
     if (variant === 'success') return 'hsl(var(--success))';
     if (variant === 'info') return 'hsl(var(--info-foreground))';
     if (variant === 'warning') return 'hsl(var(--destructive))'; // Assuming destructive is amber/orange like in some setups
@@ -363,11 +363,14 @@ export default function AccountsPage() {
           if (count === 0) return null;
           const isOpen = !!expanded[k];
           const s = STAGE[k];
-          const color = stageColorVar(s.variant);
           return (
-            <div key={k} id={`group-${k}`} className="w-full rounded-lg overflow-hidden bg-secondary/30"
-              style={{ borderLeft: `4px solid ${color}` }}
-            >
+            <div key={k} id={`group-${k}`} className={cn(
+              'w-full rounded-lg overflow-hidden border-l-4',
+              s.variant === 'info' && 'border-info bg-info/10 text-info-foreground',
+              s.variant === 'primary' && 'border-primary bg-primary/10 text-primary-foreground',
+              s.variant === 'destructive' && 'border-destructive bg-destructive/10 text-destructive-foreground',
+              s.variant === 'default' && 'border-muted bg-secondary/80 text-muted-foreground',
+            )}>
               <GroupBar stage={k} count={count} expanded={isOpen} onToggle={()=> setExpanded(e=> ({...e,[k]:!e[k]})) }/>
               {isOpen && santaData && (
                 <div id={`panel-${k}`} role="region" aria-labelledby={`button-${k}`}>
@@ -415,3 +418,5 @@ export default function AccountsPage() {
     </>
   )
 }
+
+    
