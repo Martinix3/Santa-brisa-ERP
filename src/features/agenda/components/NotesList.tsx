@@ -1,45 +1,101 @@
-// /features/agenda/components/NotesList.tsx
-import React from 'react';
-import type { Note } from '@/domain/ssot';
-import type { Task } from '../TaskBoard';
+// /app/(app)/agenda/notes/page.tsx
+"use client";
+import React, { useMemo, useState } from 'react';
+import { useQuickNotes } from '@/features/agenda-notes/hooks/useQuickNotes';
+import { QuickEditor } from '@/features/agenda-notes/components/QuickEditor';
+import { NotesList } from '@/features/agenda-notes/components/NotesList';
+import { OutcomeDialog } from '@/features/agenda-notes/components/OutcomeDialog';
+import { FooterKPIs } from '@/features/agenda-notes/components/FooterKPIs';
+import type { Interaction, Note } from '@/domain/ssot';
+import { mapInteractionsToTasks } from '@/features/agenda/mappers';
+import { useData } from '@/lib/dataprovider';
 
-export function NotesList({
-  notes, tasks,
-  onPointerDown, onPointerMove, onPointerUp,
-}: {
-  notes: Note[];
-  tasks: Task[];
-  onPointerDown: (id: string) => (e: React.PointerEvent) => void;
-  onPointerMove: (id: string) => (e: React.PointerEvent) => void;
-  onPointerUp: (id: string) => () => void;
-}) {
-  // combinamos visualmente Task + nota ligada
+
+export default function CalendarNotesPage() {
+  const agenda = useQuickNotes();
+  const { data } = useData();
+  const [view, setView] = useState<'day'|'week'|'month'>('day');
+  const [outcomeFor, setOutcomeFor] = useState<string|null>(null);
+
+  const openOutcome = (id: string) => setOutcomeFor(id);
+  const closeOutcome = () => setOutcomeFor(null);
+
+  // KPIs footer
+  const kpis = useMemo(()=> {
+    const overdue = agenda.overdue.length;
+    const todayOpen = agenda.todayTasks.filter(t=>t.status==='open').length;
+    const posToday = agenda.todayTasks.filter(t=> t.kind==='EVENTO_MKT').length;
+    return { overdue, todayOpen, posToday };
+  }, [agenda.overdue, agenda.todayTasks]);
+
+  const onConfirmOutcome = (task: Interaction, payload: Record<string,any>) => {
+    console.log("Confirming outcome for task", task, "with payload", payload);
+    agenda.completeTask(task.id);
+    closeOutcome();
+  };
+  
+  const accounts = useMemo(() => data?.accounts || [], [data?.accounts]);
+
+  const overdueTasks = useMemo(() => mapInteractionsToTasks(agenda.overdue, accounts), [agenda.overdue, accounts]);
+  const todayTasksMapped = useMemo(() => mapInteractionsToTasks(agenda.todayTasks, accounts), [agenda.todayTasks, accounts]);
+
+
   return (
-    <ul className="divide-y">
-      {tasks.map(t => {
-        const done = t.status === 'done';
-        const taskText = t.title || 'Tarea sin descripción';
+    <div className="min-h-dvh bg-white flex flex-col">
+      {/* Tabs Día/Semana/Mes + toggle Vincular notas */}
+      <div className="px-4 pt-3 pb-2 flex items-center gap-3">
+        <div className="inline-flex rounded-xl border">
+          {(['day','week','month'] as const).map(v=>(
+            <button key={v}
+              onClick={()=>setView(v)}
+              className={`px-3 py-1.5 text-sm rounded-xl ${view===v?'bg-[hsl(var(--sb-neutral-50))] font-medium':''}`}>
+              {v==='day'?'Día':v==='week'?'Semana':'Mes'}
+            </button>
+          ))}
+        </div>
+        <label className="ml-auto text-sm flex items-center gap-2">
+          <input type="checkbox" checked={agenda.linkNotes} onChange={(e)=>agenda.setLinkNotes(e.target.checked)} />
+          Vincular notas
+        </label>
+      </div>
 
-        return (
-          <li key={t.id}
-              className="py-2 select-none relative"
-              onPointerDown={onPointerDown(t.id)}
-              onPointerMove={onPointerMove(t.id)}
-              onPointerUp={onPointerUp(t.id)}
-          >
-            {/* fondo swipe: verde/rojo sutil (se pintaría con transform x si quisieras feedback en vivo) */}
-            <div className="absolute inset-0 rounded-md pointer-events-none bg-transparent" />
-            <div className={`relative ${done ? 'line-through text-[hsl(var(--sb-neutral-400))]' : ''}`}>
-              <div className="text-[0.95rem] leading-snug whitespace-pre-wrap">{taskText}</div>
-              {t.date && (
-                <div className="mt-0.5 text-[10px] text-[hsl(var(--sb-neutral-500))]">
-                  {new Date(t.date).toLocaleString()}
-                </div>
-              )}
-            </div>
-          </li>
-        );
-      })}
-    </ul>
+      {/* Editor + histórico/Tasks */}
+      <div className="px-4">
+        <QuickEditor onSubmit={agenda.addNote} />
+      </div>
+
+      {/* Lista con overdue fijadas en un bloque plegable */}
+      {agenda.overdue.length>0 && (
+        <details open className="px-4">
+          <summary className="text-xs text-[hsl(var(--sb-neutral-600))] py-1">Pendientes de ayer ({agenda.overdue.length})</summary>
+          <NotesList
+            notes={agenda.rangedNotes as Note[]}
+            tasks={overdueTasks}
+            onPointerDown={agenda.onItemPointerDown}
+            onPointerMove={agenda.onItemPointerMove}
+            onPointerUp={(id)=>agenda.onItemPointerUp(id, openOutcome)}
+          />
+        </details>
+      )}
+
+      <div className="flex-1 overflow-y-auto px-4">
+        <NotesList
+          notes={agenda.rangedNotes as Note[]}
+          tasks={todayTasksMapped}
+          onPointerDown={agenda.onItemPointerDown}
+          onPointerMove={agenda.onItemPointerMove}
+          onPointerUp={(id)=>agenda.onItemPointerUp(id, openOutcome)}
+        />
+      </div>
+
+      <FooterKPIs {...kpis} />
+
+      <OutcomeDialog
+        taskId={outcomeFor}
+        tasks={agenda.todayTasks.concat(agenda.overdue)}
+        onClose={closeOutcome}
+        onConfirm={onConfirmOutcome}
+      />
+    </div>
   );
 }

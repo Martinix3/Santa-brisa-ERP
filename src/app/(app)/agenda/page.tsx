@@ -1,7 +1,7 @@
 // FILE: app/agenda/page.tsx
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -9,15 +9,11 @@ import { toast } from "sonner";
 // FullCalendar
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
-import type {
-  EventContentArg,
-  EventClickArg,
-  EventDropArg,
-} from "@fullcalendar/core";
+import type { EventContentArg, EventClickArg, EventDropArg } from "@fullcalendar/core";
 import esLocale from "@fullcalendar/core/locales/es";
 
 // Icons & Utils
-import { Calendar, Filter, PlusCircle } from "lucide-react";
+import { Calendar, PlusCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // App-specific imports
@@ -42,7 +38,7 @@ import { EventDetailDialog } from "@/features/agenda/components/EventDetailDialo
 import { TaskCompletionDialog } from "@/features/dashboard-ventas/components/TaskCompletionDialog";
 import { MarketingTaskCompletionDialog } from "@/features/marketing/components/MarketingTaskCompletionDialog";
 
-// Types
+// --- Types ---
 type CalendarEventExtendedProps = {
   type: string;
   status: InteractionStatus;
@@ -58,7 +54,7 @@ type ModalState =
   | { type: "complete-task"; data: Interaction }
   | { type: "complete-marketing-event"; data: MarketingEvent };
 
-// --- HELPER FUNCTIONS ---
+// --- Helpers ---
 
 function mapInteractionsToTasks(
   interactions: Interaction[] | undefined,
@@ -86,23 +82,19 @@ function mapInteractionsToTasks(
     .filter(Boolean) as Task[];
 }
 
-// --- CUSTOM HOOK FOR AGENDA LOGIC ---
+// --- Hook principal de agenda ---
 
 function useAgenda(
   santaData: SantaData | null,
   setData: (fn: (d: SantaData | null) => SantaData | null) => void,
-  saveCollection: (
-    collection: keyof SantaData,
-    data: any[],
-    debounce?: boolean
-  ) => void,
+  saveCollection: (collection: keyof SantaData, data: any[], debounce?: boolean) => void,
   isPersistenceEnabled: boolean
 ) {
   const [responsibleFilter, setResponsibleFilter] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("");
   const [modal, setModal] = useState<ModalState>({ type: "none" });
 
-  // --- DERIVED DATA (MEMOIZED) ---
+  // Datos derivados
   const allInteractions = useMemo(() => {
     if (!santaData?.interactions) return [];
     return santaData.interactions.filter((i) => {
@@ -159,29 +151,19 @@ function useAgenda(
     [santaData?.users]
   );
 
-  const initialCalendarView = useMemo(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("sb_calendar_view") || "dayGridMonth";
-    }
-    return "dayGridMonth";
-  }, []);
-
-  // --- EVENT HANDLERS ---
+  // Handlers
   const handleUpdateStatus = (id: string, newStatus: InteractionStatus) => {
     if (!santaData) return;
     const taskToUpdate = allInteractions.find((i) => i.id === id);
     if (!taskToUpdate) return;
 
-    setModal({ type: "none" }); // Close any open detail view
+    setModal({ type: "none" });
 
     if (newStatus === "done") {
       const isMarketingEvent =
-        taskToUpdate.dept === "MARKETING" &&
-        taskToUpdate.linkedEntity?.type === "EVENT";
+        taskToUpdate.dept === "MARKETING" && taskToUpdate.linkedEntity?.type === "EVENT";
       if (isMarketingEvent && santaData.marketingEvents) {
-        const event = santaData.marketingEvents.find(
-          (e) => e.id === taskToUpdate.linkedEntity?.id
-        );
+        const event = santaData.marketingEvents.find((e) => e.id === taskToUpdate.linkedEntity?.id);
         if (event) {
           setModal({ type: "complete-marketing-event", data: event });
           return;
@@ -193,9 +175,7 @@ function useAgenda(
 
   const handleEventClick = (clickInfo: EventClickArg) => {
     const interaction = allInteractions.find((i) => i.id === clickInfo.event.id);
-    if (interaction) {
-      setModal({ type: "detail", data: interaction });
-    }
+    if (interaction) setModal({ type: "detail", data: interaction });
   };
 
   const handleEventDrop = async (dropInfo: EventDropArg) => {
@@ -206,13 +186,11 @@ function useAgenda(
         i.id === event.id ? { ...i, plannedFor: sbAsISO(event.start) } : i
       );
       setData(() => ({ ...santaData, interactions: updatedInteractions }));
-      if (isPersistenceEnabled)
-        saveCollection("interactions", updatedInteractions);
+      if (isPersistenceEnabled) saveCollection("interactions", updatedInteractions);
       toast.success("Tarea reagendada.");
     } catch (e) {
       toast.error("No se pudo reagendar la tarea.");
       console.error(e);
-      // Revert optimistic update on failure (optional, depends on UX strategy)
       dropInfo.revert();
     }
   };
@@ -232,19 +210,12 @@ function useAgenda(
   };
 
   return {
-    // State
     allInteractions,
     calendarEvents,
     allTasks,
     modal,
-    filters: {
-      responsible: responsibleFilter,
-      department: departmentFilter,
-    },
+    filters: { responsible: responsibleFilter, department: departmentFilter },
     filterOptions,
-    initialCalendarView,
-
-    // Handlers
     setModal,
     setResponsibleFilter,
     setDepartmentFilter,
@@ -255,27 +226,58 @@ function useAgenda(
   };
 }
 
-// --- UI COMPONENTS ---
+// --- Subcomponentes UI (minimal & modern) ---
+
+const ViewSegmented: React.FC<{
+  value: "dayGridDay" | "dayGridWeek" | "dayGridMonth";
+  onChange: (v: "dayGridDay" | "dayGridWeek" | "dayGridMonth") => void;
+}> = ({ value, onChange }) => {
+  const views: Array<{ id: "dayGridDay" | "dayGridWeek" | "dayGridMonth"; label: string }> = [
+    { id: "dayGridDay", label: "Día" },
+    { id: "dayGridWeek", label: "Semana" },
+    { id: "dayGridMonth", label: "Mes" },
+  ];
+
+  return (
+    <div className="inline-flex items-center rounded-full bg-muted p-1">
+      {views.map((v) => (
+        <button
+          key={v.id}
+          onClick={() => onChange(v.id)}
+          className={cn(
+            "px-3 py-1.5 text-sm rounded-full transition-colors",
+            value === v.id ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"
+          )}
+          aria-pressed={value === v.id}
+        >
+          {v.label}
+        </button>
+      ))}
+    </div>
+  );
+};
 
 const AgendaToolbar: React.FC<{
+  currentView: "dayGridDay" | "dayGridWeek" | "dayGridMonth";
+  onViewChange: (v: "dayGridDay" | "dayGridWeek" | "dayGridMonth") => void;
   filters: { responsible: string; department: string };
   options: {
     users: { value: string; label: string }[];
     departments: { value: string; label: string }[];
   };
-  onFilterChange: {
-    responsible: (v: string) => void;
-    department: (v: string) => void;
-  };
+  onFilterChange: { responsible: (v: string) => void; department: (v: string) => void };
   onNewTask: () => void;
-}> = ({ filters, options, onFilterChange, onNewTask }) => (
+}> = ({ currentView, onViewChange, filters, options, onFilterChange, onNewTask }) => (
   <header
     className="flex flex-col md:flex-row items-start md:items-center gap-4 mb-4 flex-shrink-0 p-4 md:p-6"
     role="toolbar"
     aria-label="Controles de la agenda"
   >
-    <h1 className="text-2xl font-bold text-foreground sb-h1">Agenda</h1>
-    <div className="flex-grow"></div>
+    <div className="flex items-center gap-3">
+      <h1 className="text-2xl font-semibold tracking-tight">Agenda</h1>
+      <ViewSegmented value={currentView} onChange={onViewChange} />
+    </div>
+    <div className="flex-grow" />
     <div className="flex items-center gap-3 w-full md:w-auto">
       <FilterSelect
         value={filters.responsible}
@@ -291,11 +293,7 @@ const AgendaToolbar: React.FC<{
         placeholder="Sector"
         className="w-full md:w-[180px]"
       />
-      <SBButton
-        onClick={onNewTask}
-        className="gap-2 px-4 py-2"
-        data-variant="primary"
-      >
+      <SBButton onClick={onNewTask} className="gap-2 px-4 py-2" data-variant="primary">
         <PlusCircle size={16} />
         <span className="hidden sm:inline">Nueva Tarea</span>
       </SBButton>
@@ -306,16 +304,16 @@ const AgendaToolbar: React.FC<{
 const AgendaSkeleton: React.FC = () => (
   <div className="p-6 animate-pulse">
     <div className="flex items-center justify-between mb-4">
-      <div className="h-8 bg-muted rounded w-1/4"></div>
+      <div className="h-8 bg-muted rounded w-1/4" />
       <div className="flex items-center gap-3">
-        <div className="h-10 bg-muted rounded w-32"></div>
-        <div className="h-10 bg-muted rounded w-32"></div>
-        <div className="h-10 bg-muted rounded w-32"></div>
+        <div className="h-10 bg-muted rounded w-32" />
+        <div className="h-10 bg-muted rounded w-32" />
+        <div className="h-10 bg-muted rounded w-32" />
       </div>
     </div>
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <div className="h-[70vh] bg-muted rounded-lg"></div>
-      <div className="h-[70vh] bg-muted rounded-lg"></div>
+      <div className="h-[70vh] bg-muted rounded-lg" />
+      <div className="h-[70vh] bg-muted rounded-lg" />
     </div>
   </div>
 );
@@ -323,10 +321,9 @@ const AgendaSkeleton: React.FC = () => (
 const EmptyState: React.FC<{ onNewTask: () => void }> = ({ onNewTask }) => (
   <div className="flex flex-col items-center justify-center text-center p-10 h-full">
     <Calendar size={48} className="text-muted-foreground mb-4" />
-    <h3 className="text-xl font-semibold mb-2">Agenda Despejada</h3>
+    <h3 className="text-xl font-semibold mb-2">Agenda despejada</h3>
     <p className="text-muted-foreground mb-6 max-w-md">
-      No se encontraron tareas con los filtros actuales. ¡Es un buen momento
-      para planificar tu próxima acción!
+      No se encontraron tareas con los filtros actuales. ¡Buen momento para planificar tu próxima acción!
     </p>
     <SBButton onClick={onNewTask} data-variant="primary">
       Crear primera tarea
@@ -334,7 +331,7 @@ const EmptyState: React.FC<{ onNewTask: () => void }> = ({ onNewTask }) => (
   </div>
 );
 
-// --- MAIN PAGE CONTENT COMPONENT ---
+// --- Página principal ---
 
 function AgendaPageContent() {
   const { data: santaData, setData, isPersistenceEnabled, saveCollection } = useData();
@@ -347,7 +344,6 @@ function AgendaPageContent() {
     modal,
     filters,
     filterOptions,
-    initialCalendarView,
     setModal,
     setResponsibleFilter,
     setDepartmentFilter,
@@ -357,26 +353,43 @@ function AgendaPageContent() {
     handleDeleteEvent,
   } = useAgenda(santaData, setData, saveCollection, isPersistenceEnabled);
 
-  // Lazy load FullCalendar
-  const FullCalendar = useMemo(
-    () => dynamic(() => import("@fullcalendar/react"), { ssr: false }),
-    []
-  );
+  // FullCalendar lazy
+  const FullCalendar = useMemo(() => dynamic(() => import("@fullcalendar/react"), { ssr: false }), []);
+  const calendarRef = useRef<any>(null);
 
-  if (!santaData) {
-    return <AgendaSkeleton />;
-  }
+  // Vista actual del calendario (controlada desde fuera)
+  const [calendarView, setCalendarView] = useState<"dayGridDay" | "dayGridWeek" | "dayGridMonth">(() => {
+    if (typeof window !== "undefined") {
+      const saved = (localStorage.getItem("sb_calendar_view") || "dayGridMonth") as
+        | "dayGridDay"
+        | "dayGridWeek"
+        | "dayGridMonth";
+      return saved;
+    }
+    return "dayGridMonth";
+  });
+
+  const handleViewChange = (v: "dayGridDay" | "dayGridWeek" | "dayGridMonth") => {
+    setCalendarView(v);
+    // Cambiar la vista del calendario real
+    const api = calendarRef.current?.getApi?.();
+    if (api) {
+      api.changeView(v);
+      localStorage.setItem("sb_calendar_view", v);
+    }
+  };
+
+  if (!santaData) return <AgendaSkeleton />;
 
   return (
     <>
       <div className="h-full bg-background flex flex-col">
         <AgendaToolbar
+          currentView={calendarView}
+          onViewChange={handleViewChange}
           filters={filters}
           options={filterOptions}
-          onFilterChange={{
-            responsible: setResponsibleFilter,
-            department: setDepartmentFilter,
-          }}
+          onFilterChange={{ responsible: setResponsibleFilter, department: setDepartmentFilter }}
           onNewTask={() => setModal({ type: "new" })}
         />
 
@@ -385,74 +398,66 @@ function AgendaPageContent() {
             <EmptyState onNewTask={() => setModal({ type: "new" })} />
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
-              <div className="sb-card p-1 md:p-3 overflow-hidden h-full">
+              {/* Calendario minimal */}
+              <div className="h-[78vh] rounded-2xl border bg-card/60 backdrop-blur-sm p-2 md:p-3 overflow-hidden">
                 <FullCalendar
+                  ref={calendarRef}
                   plugins={[dayGridPlugin, interactionPlugin]}
-                  initialView={initialCalendarView}
-                  viewDidMount={(arg) =>
-                    localStorage.setItem("sb_calendar_view", arg.view.type)
-                  }
+                  initialView={calendarView}
                   headerToolbar={{
                     left: "prev,next today",
                     center: "title",
-                    right: "dayGridMonth",
+                    right: "", // quitamos el selector interno: minimalismo
                   }}
                   events={calendarEvents}
                   eventClick={handleEventClick}
                   editable={isPersistenceEnabled}
                   eventDrop={handleEventDrop}
                   eventContent={(arg: EventContentArg) => {
-                    const { status } =
-                      arg.event.extendedProps as CalendarEventExtendedProps;
+                    const { status } = arg.event.extendedProps as CalendarEventExtendedProps;
                     return (
                       <div
                         className={cn(
-                          "flex items-center gap-1.5 p-1 w-full overflow-hidden",
+                          "flex items-center gap-1.5 p-1 w-full overflow-hidden rounded-md",
                           status === "done" && "line-through opacity-70"
                         )}
                       >
-                        <span className="sb-event-dot inline-block h-2 w-2 rounded-full flex-shrink-0" />
+                        <span className="sb-event-dot inline-block h-1.5 w-1.5 rounded-full flex-shrink-0" />
                         {arg.timeText && (
-                          <span className="text-[11px] text-muted-foreground mr-1">
-                            {arg.timeText}
-                          </span>
+                          <span className="text-[11px] text-muted-foreground mr-1">{arg.timeText}</span>
                         )}
-                        <span className="text-[12px] font-medium text-foreground truncate">
-                          {arg.event.title}
-                        </span>
+                        <span className="text-[12px] font-medium text-foreground truncate">{arg.event.title}</span>
                       </div>
                     );
                   }}
                   height="100%"
                   expandRows
                   nowIndicator
-                  slotEventOverlap={false}
                   dayMaxEventRows
+                  slotEventOverlap={false}
                   locales={[esLocale]}
                   locale="es"
                   firstDay={1}
-                  buttonText={{ today: "hoy", month: "mes" }}
+                  buttonText={{ today: "hoy" }}
                 />
               </div>
 
-              <div className="overflow-y-auto h-full sb-card p-2">
-                <TaskBoard
-                  tasks={allTasks}
-                  onCompleteTask={(id) => handleUpdateStatus(id, "done")}
-                />
+              {/* Lista de tareas */}
+              <div className="h-[78vh] rounded-2xl border bg-card/60 backdrop-blur-sm p-2 overflow-y-auto">
+                <TaskBoard tasks={allTasks} onCompleteTask={(id) => handleUpdateStatus(id, "done")} />
               </div>
             </div>
           )}
         </main>
       </div>
 
-      {/* --- MODALS --- */}
+      {/* Modales */}
       {(modal.type === "new" || modal.type === "edit") && (
         <NewEventDialog
           open={true}
           onOpenChange={(open) => !open && setModal({ type: "none" })}
           onSuccess={() => {
-            toast.success(`Tarea ${modal.type === 'edit' ? "actualizada" : "creada"}.`);
+            toast.success(`Tarea ${modal.type === "edit" ? "actualizada" : "creada"}.`);
             router.refresh();
             setModal({ type: "none" });
           }}

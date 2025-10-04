@@ -1,11 +1,11 @@
 // /app/(app)/agenda/notes/page.tsx
 "use client";
 import React, { useMemo, useState } from 'react';
-import { useQuickNotes } from '@/features/agenda/hooks/useQuickNotes';
-import { QuickEditor } from '@/features/agenda/components/QuickEditor';
-import { NotesList } from '@/features/agenda/components/NotesList';
-import { OutcomeDialog } from '@/features/agenda/components/OutcomeDialog';
-import { FooterKPIs } from '@/features/agenda/components/FooterKPIs';
+import { useQuickNotes } from '@/features/agenda-notes/hooks/useQuickNotes';
+import { QuickEditor } from '@/features/agenda-notes/components/QuickEditor';
+import { NotesList } from '@/features/agenda-notes/components/NotesList';
+import { OutcomeDialog } from '@/features/agenda-notes/components/OutcomeDialog';
+import { FooterKPIs } from '@/features/agenda-notes/components/FooterKPIs';
 import type { Interaction, Note } from '@/domain/ssot';
 import { mapInteractionsToTasks } from '@/features/agenda/mappers';
 import { useData } from '@/lib/dataprovider';
