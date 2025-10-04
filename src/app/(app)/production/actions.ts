@@ -6,14 +6,14 @@
 'use server';
 
 import { ok, fail, type ActionResult } from "@/lib/result";
-import { upsertMany } from "@/lib/dataprovider/actions";
-import { FieldPath, FieldValue } from "firebase-admin/firestore";
+import { upsertMany } from "@/lib/dataprovider/server";
+import { FieldValue } from "firebase-admin/firestore";
 import { z } from "zod";
 import { adminDb } from '@/server/firebase';
 import type { Lot as SsotLot, Uom, ProductionOrder, BillOfMaterial as RecipeBom, OnHandView, Item, StockMove, TraceEvent, QcPlanBySku } from '@/domain/ssot';
 import { LotSchema, type Lot } from '@/domain/validators';
 import { explodeBOM } from '@/server/production/bom.service';
-import { findNextLotNumber } from '../warehouse/inventory/actions';
+import { findNextLotNumber } from '@/app/(app)/warehouse/inventory/actions';
 import { makeOnHandId } from '@/domain/id-helpers';
 
 
@@ -290,7 +290,6 @@ export async function addIncident(input: { orderId: string; severity: 'LOW'|'MED
   }
 }
 
-
 // ... El resto de funciones como planProduction y previewPlanning se mantienen aquí ...
 // (Omitido por brevedad, no hay cambios en ellas)
 async function reads() {
@@ -449,5 +448,3 @@ export async function planProduction(input: unknown): Promise<ActionResult<{ ord
     return fail('No se pudo planificar la orden.', { code: e?.code, retryable: true });
   }
 }
-
-    
