@@ -5,7 +5,7 @@
 // Puedes eliminar este archivo en un futuro refactor. Por ahora, se mantiene para
 // evitar errores de importación en componentes que aún no se hayan actualizado.
 
-export type { Department as Dept, TaskKind, TaskStatus, Interaction as Task } from './ssot';
+export type { Department, TaskKind, TaskStatus, Interaction } from './ssot';
 
 // Este tipo se puede mapear desde Interaction
 export interface CalendarEvent {
@@ -19,4 +19,11 @@ export interface CalendarEvent {
   externalRef?: { provider:'google'|'outlook', id:string } | null;
   createdById?: string;
   updatedAt?: string;
+}
+
+export interface Task {
+    id: string;
+    title: string;
+    dueAt: string;
+    status: TaskStatus;
 }

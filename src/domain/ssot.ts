@@ -324,6 +324,20 @@ export interface Interaction {
   uiKind?: TaskKind;
 }
 
+// Este tipo se puede mapear desde Interaction
+export interface CalendarEvent {
+  id: string;
+  accountId?: string;
+  accountName?: string;
+  title: string;
+  dept: Department;
+  startAt: string;      // ISO
+  endAt: string;        // ISO
+  externalRef?: { provider:'google'|'outlook', id:string } | null;
+  createdById?: string;
+  updatedAt?: string;
+}
+
 // --- Otras entidades ---
 export interface StockMove { id: string; itemId: string; lotNumber: string; qty: number; uom: Uom; reason: string; fromLocationId?: string; toLocationId?: string; occurredAt: Timestamp; createdAt: Timestamp; ref?: any; unitCost?: number; }
 export interface GoodsReceipt { id: string; receiptNumber?: string; supplierPartyId: string; deliveryNote?: string; receivedAt: Timestamp; lines: any[]; status: 'pending_qc' | 'completed'; notes?: string; createdAt?: Timestamp; }
@@ -367,6 +381,12 @@ export interface Integration {}
 export interface Job {}
 export interface DeadLetter {}
 export interface Expense {}
+export interface Task {
+    id: string;
+    title: string;
+    dueAt: string;
+    status: TaskStatus;
+}
 
 
 // -----------------------------------------------------------------

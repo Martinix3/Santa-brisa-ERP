@@ -54,12 +54,12 @@ export function Kanban({
                 >
                   <div className="flex items-center gap-2 mb-1">
                     <strong className="truncate">{it.accountName}</strong>
-                    {it.marketing.hasPLVInstalled && <Badge className="sb-badge--marketing">PLV</Badge>}
+                    {it.marketing.hasPLVInstalled && <Badge>PLV</Badge>}
                   </div>
                   {!isExp && (
                     <div className="text-xs text-muted-foreground flex items-center gap-3">
                       <span>€{it.sales.revenue} &middot; {it.sales.ordersCount}</span>
-                      <SBButton variant="link" size="sm" className="ml-auto" onClick={(ev)=>{ ev.stopPropagation(); onProgram({accountId:it.accountId,accountName:it.accountName,dept:'VENTAS',title:'Visita'}); }}>Programar</SBButton>
+                      <SBButton variant="ghost" size="sm" className="ml-auto" onClick={(ev)=>{ ev.stopPropagation(); onProgram({accountId:it.accountId,accountName:it.accountName,dept:'VENTAS',title:'Visita'}); }}>Programar</SBButton>
                     </div>
                   )}
                   {isExp && (

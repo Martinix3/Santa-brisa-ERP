@@ -2,7 +2,7 @@
 'use client';
 import React, { useMemo, useState, useCallback, useTransition } from 'react';
 import { Kanban, type PipelineItem } from '@/features/ops/components/Kanban';
-import { TasksTable, type Task } from '@/features/ops/components/TasksTable';
+import { TasksTable } from '@/features/ops/components/TasksTable';
 import { WeekCalendar } from '@/features/ops/components/WeekCalendar';
 import { CreateTaskModal } from '@/features/ops/components/CreateTaskModal';
 import type { Interaction, Department, Account, User, InteractionKind, Stage, TaskKind, CalendarEvent } from '@/domain/ssot';
@@ -22,15 +22,15 @@ function interactionKindToTaskKind(kind: InteractionKind | string): TaskKind {
     return 'NOTA';
 }
 
-function mapInteractionToTask(i: Interaction, accounts: Account[]): Task {
+function mapInteractionToTask(i: Interaction, accounts: Account[]): Interaction {
   const account = accounts.find(a => a.id === i.accountId);
   return {
-    id: i.id,
+    ...i,
     title: (i as any).title || i.note || 'Tarea sin título',
     dept: i.dept as Department,
-    kind: interactionKindToTaskKind((i as any).uiKind || i.kind),
+    kind: i.kind,
     status: i.status === 'done' ? 'done' : 'open',
-    dueAt: (i as any).startAt || i.plannedFor,
+    plannedFor: (i as any).startAt || i.plannedFor,
     accountName: account?.name || 'N/A',
   };
 }
@@ -52,7 +52,7 @@ function mapInteractionToEvent(i: Interaction, accounts: Account[]): CalendarEve
 
 function OpsSidebar({ pipeline, tasks, view, deptFilter, onProgramFromKanban, onCompleteTask, onDragStart }: {
     pipeline: PipelineItem[];
-    tasks: Task[];
+    tasks: Interaction[];
     view: 'DIA'|'SEMANA'|'MES';
     deptFilter: Department | 'TODOS';
     onProgramFromKanban: (p: any) => void;
@@ -89,12 +89,12 @@ export default function PersonalDashboardPage() {
     if (!data) return { tasks: [], events: [], accounts: [], pipeline: [] };
     
     const validAccounts = data.accounts || [];
-    const allTasks: Task[] = (data.interactions || []).map(i => mapInteractionToTask(i, validAccounts));
+    const allTasks: Interaction[] = (data.interactions || []).map(i => mapInteractionToTask(i, validAccounts));
     const allEvents = (data.interactions || [])
         .filter(i => i.dept !== 'PERSONAL' && i.dept !== 'OPS' && ((i as any).startAt || i.plannedFor))
         .map(i => mapInteractionToEvent(i, validAccounts));
 
-    const pipelineStages: PipelineItem['stage'][] = ['POTENCIAL', 'ACTIVA', 'SEGUIMIENTO', 'FALLIDA'];
+    const pipelineStages: Stage[] = ['POTENCIAL', 'ACTIVA', 'SEGUIMIENTO', 'FALLIDA'];
     const demoPipeline: PipelineItem[] = (data.accounts || []).filter(acc => pipelineStages.includes(acc.stage as any)).slice(0, 5).map(acc => ({
         accountId: acc.id,
         accountName: acc.name,
@@ -209,7 +209,7 @@ export default function PersonalDashboardPage() {
         />
 
         <section className="flex flex-col gap-3">
-          <WeekCalendar events={events} onDropSchedule={onCalendarDrop} />
+          <WeekCalendar events={events as CalendarEvent[]} onDropSchedule={onCalendarDrop} />
           <p className="text-xs text-muted-foreground text-center">
             Arrastra tareas desde la barra lateral a un hueco libre del calendario para programarlas.
           </p>
