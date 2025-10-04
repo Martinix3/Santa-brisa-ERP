@@ -38,7 +38,7 @@ export function WeekCalendar({ events, onDropSchedule }:{ events: CalendarEvent[
                 day_selected: 'bg-primary text-primary-foreground',
             }}
             components={{
-              Day: (props: DayProps) => {
+              Day: (props) => {
                 const dayEvents = events.filter(e => new Date(e.startAt).toDateString() === props.date.toDateString());
                 return (
                   <div

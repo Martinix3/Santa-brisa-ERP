@@ -16,7 +16,7 @@ import type { Interaction, Department, Account, User, InteractionKind, Stage, Ta
 import type { CalendarEvent } from '@/domain/ops.types';
 import { toEventDept } from '@/domain/ops.types';
 
-import { createTask, scheduleEvent, rescheduleEvent } from '@/app/(app)/ops/actions';
+import { createTask, rescheduleEvent } from '@/app/(app)/ops/actions';
 import { Plus } from 'lucide-react';
 
 // --- Type Mapping ---
@@ -100,7 +100,7 @@ export default function PersonalDashboardPage() {
       if (res.ok) {
         toast.success("Tarea creada con éxito");
       } else {
-        throw new Error(res.error || 'Unknown error');
+        throw new Error(res.message || 'Unknown error');
       }
     } catch (err: any) {
       toast.error(`Error: ${err.message}`);
