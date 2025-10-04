@@ -20,7 +20,8 @@ import { ModuleHeader, SBCard, SBButton, Select, Tabs, TabsContent, TabsList, Ta
 function interactionKindToTaskKind(kind: InteractionKind): TaskKind {
     if (kind === 'VISITA') return 'VISITA';
     if (kind === 'PEDIDO') return 'PEDIDO';
-    return 'NOTA'; // Mapeo por defecto seguro
+    // Mapea otros tipos a 'NOTA' como un valor por defecto seguro.
+    return 'NOTA';
 }
 
 function mapInteractionToTask(i: Interaction, accounts: Account[]): Task {
