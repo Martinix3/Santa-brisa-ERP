@@ -1,4 +1,4 @@
-// src/app/(app)/warehouse/goods-receipt/actions.ts
+// src/server/actions/goods-receipt.actions.ts
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -8,7 +8,7 @@ import type { Party, Item, GoodsReceipt, StockMove, Uom, ItemCategory, PartyRole
 import { LotSchema } from '@/domain/validators';
 import { normText } from '@/lib/norm/text';
 import { makeGoodsReceiptCode } from '@/lib/codes';
-import { findNextLotNumber } from '../inventory/actions';
+import { findNextLotNumber } from '@/app/(app)/warehouse/inventory/actions';
 import { makeOnHandId } from '@/domain/id-helpers';
 
 // --- Helpers ---
