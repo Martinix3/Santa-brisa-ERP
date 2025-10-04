@@ -1,0 +1,27 @@
+// src/app/api/pipeline-board/route.ts
+import { NextResponse } from 'next/server';
+import { getPipelineData } from '@/features/sales/pipeline/pipeline.service';
+
+export const dynamic = 'force-dynamic'; // Ensure fresh data on every request
+
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const filters: Record<string, any> = {};
+    for (const [key, value] of searchParams.entries()) {
+      if (key.endsWith('[]')) {
+        const cleanKey = key.slice(0, -2);
+        if (!filters[cleanKey]) filters[cleanKey] = [];
+        filters[cleanKey].push(value);
+      } else {
+        filters[key] = value;
+      }
+    }
+    
+    const data = await getPipelineData(filters);
+    return NextResponse.json(data);
+  } catch (error: any) {
+    console.error('[API /pipeline-board] Error:', error);
+    return NextResponse.json({ message: 'Error fetching pipeline data', error: error.message }, { status: 500 });
+  }
+}
