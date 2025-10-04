@@ -1,7 +1,8 @@
+
 /**
  * Helpers — funciones puras + normalizaciones
  */
-import type { ISO, Order, Account } from "@/domain/ssot";
+import type { ISO, OrderSellOut, Account } from "@/domain/ssot";
 
 export const toISO = (d: Date|string|number): ISO => {
   const date = d instanceof Date ? d : new Date(d);
@@ -13,11 +14,11 @@ export const daysSinceISO = (iso: ISO): number => {
   return Math.floor(ms / 86400000);
 };
 
-export function orderTotal(order: Order): number {
-  const sum = order.items.reduce((acc: number, l: Order['items'][number]) => {
-    const price = l.unitPrice ?? 0;
+export function orderTotal(order: OrderSellOut): number {
+  const sum = (order.lines || []).reduce((acc: number, l: OrderSellOut['lines'][number]) => {
+    const price = l.priceUnit ?? 0;
     const disc = (l.discountPct ?? 0) / 100;
-    return acc + (price * l.qty) * (1 - disc);
+    return acc + (l.qty * price) * (1 - disc);
   }, 0);
   return Math.max(0, Math.round(sum * 100) / 100);
 }
@@ -29,10 +30,10 @@ export const median = (xs: number[]): number => {
   return arr.length % 2 ? arr[mid] : (arr[mid-1]+arr[mid])/2;
 };
 
-export function groupByPeriod(orders: Order[], start: ISO, end: ISO, granularity: 'day'|'week'|'month') {
+export function groupByPeriod(orders: OrderSellOut[], start: ISO, end: ISO, granularity: 'day'|'week'|'month') {
   const res: Record<string, number> = {};
   for (const o of orders) {
-    const t = new Date(o.date);
+    const t = new Date(o.createdAt);
     const ts = t.getTime();
     const s = new Date(start).getTime();
     const e = new Date(end).getTime();
@@ -49,21 +50,21 @@ export function groupByPeriod(orders: Order[], start: ISO, end: ISO, granularity
     } else {
       key = `${y}-${String(m).padStart(2,'0')}`;
     }
-    res[key] = (res[key] ?? 0) + (o.amount ?? orderTotal(o));
+    res[key] = (res[key] ?? 0) + (o.totalAmount ?? orderTotal(o));
   }
   return Object.entries(res).map(([x, amount]) => ({ x, amount }));
 }
 
-export function computeChannelMix(orders: Order[], accounts: Account[]) {
+export function computeChannelMix(orders: OrderSellOut[], accounts: Account[]) {
   const byId = new Map(accounts.map((a: Account) => [a.id, a]));
   const mix = { ONLINE: 0, PRIVADA: 0, HORECA: 0, RETAIL: 0 } as Record<'ONLINE'|'PRIVADA'|'HORECA'|'RETAIL', number>;
   for (const o of orders) {
     const acc = byId.get(o.accountId);
-    const isOnline = o.source === 'Shopify' || acc?.channel === 'Online';
-    const isPrivada = acc?.accountType === 'CLIENTE_FINAL' && (acc as any).segment === 'Privada';
-    const isHoreca = acc?.channel === 'Horeca';
-    const isRetail = acc?.channel === 'Retail';
-    const amount = o.amount ?? orderTotal(o);
+    const isOnline = o.source === 'SHOPIFY' || acc?.segment === 'ONLINE';
+    const isPrivada = acc?.segment === 'PRIVADA';
+    const isHoreca = acc?.segment === 'HORECA';
+    const isRetail = acc?.segment === 'RETAIL';
+    const amount = o.totalAmount ?? orderTotal(o);
     if (isOnline) mix.ONLINE += amount;
     else if (isPrivada) mix.PRIVADA += amount;
     else if (isHoreca) mix.HORECA += amount;

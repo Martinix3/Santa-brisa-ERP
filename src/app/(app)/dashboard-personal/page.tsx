@@ -1,3 +1,4 @@
+
 // src/app/(app)/dashboard-personal/page.tsx
 'use client';
 import React, { useMemo, useState, useCallback, useTransition } from 'react';
@@ -5,7 +6,7 @@ import { Kanban, type PipelineItem } from '@/features/ops/components/Kanban';
 import { TasksTable } from '@/features/ops/components/TasksTable';
 import { WeekCalendar } from '@/features/ops/components/WeekCalendar';
 import { CreateTaskModal } from '@/features/ops/components/CreateTaskModal';
-import type { Interaction, Department, Account, User } from '@/domain/ssot';
+import type { Interaction, Department, Account, User, Stage } from '@/domain/ssot';
 import { scheduleEvent, createTask, completeTask } from '@/app/(app)/ops/actions';
 import { Plus } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
@@ -55,7 +56,7 @@ export default function PersonalDashboardPage(){
     const demoPipeline: PipelineItem[] = (data.accounts || []).slice(0, 5).map(acc => ({
         accountId: acc.id,
         accountName: acc.name,
-        stage: acc.stage,
+        stage: acc.stage as PipelineItem['stage'],
         sales: { revenue: 0, ordersCount: 0 },
         marketing: { hasPLVInstalled: false, activeActivations: 0, ordersWithPromoInPeriod: 0 },
     }));

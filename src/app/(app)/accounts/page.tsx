@@ -324,14 +324,6 @@ export default function AccountsPage() {
     return <div className="p-6">Cargando datos...</div>;
   }
 
-  const stageColorVar = (variant: Stage['variant']) => {
-    if (variant === 'success') return 'hsl(var(--success))';
-    if (variant === 'info') return 'hsl(var(--info-foreground))';
-    if (variant === 'warning') return 'hsl(var(--destructive))'; // Assuming destructive is amber/orange like in some setups
-    if (variant === 'destructive') return 'hsl(var(--destructive))';
-    return 'hsl(var(--muted-foreground))';
-  }
-
   return (
     <>
       <ModuleHeader title={`Cuentas de ${flow === 'PLACEMENT' ? 'Colocación' : 'Venta Directa'}`} icon={Users}>
@@ -418,5 +410,3 @@ export default function AccountsPage() {
     </>
   )
 }
-
-    

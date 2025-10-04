@@ -4,7 +4,7 @@
 export type {
   SantaData,
   Account,
-  OrderSellOut as Order, // Renombra OrderSellOut a Order
+  OrderSellOut,
   Activation,
 } from "@/domain/ssot";
 

@@ -117,16 +117,15 @@ function AccountSearch({ initialAccountId, initialLocation, onSelectionChange }:
 }
 
 // --- Componente de Diálogo Principal Actualizado ---
-export function NewEventDialog({ open, onOpenChange, onSuccess, accentColor, initialEventData }: {
+export function NewEventDialog({ open, onOpenChange, onSuccess, dept, initialEventData }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: (result: any) => void;
-  onError?: (message: string) => void; // obsoleto, usamos toast
-  accentColor: string;
+  dept: Department;
   initialEventData?: Partial<Interaction> | null;
 }) {
     const { currentUser } = useData();
-    const [type, setType] = useState<Department>('PERSONAL');
+    const [type, setType] = useState<Department>(dept);
     const [dateTime, setDateTime] = useState('');
     const [selection, setSelection] = useState<{ accountId?: string, location?: string, newAccountName?: string }>({});
     const [notes, setNotes] = useState('');
@@ -139,20 +138,20 @@ export function NewEventDialog({ open, onOpenChange, onSuccess, accentColor, ini
             setIsSaving(false);
             if (initialEventData) {
                 const planned = initialEventData.plannedFor ? new Date(initialEventData.plannedFor) : null;
-                setType(initialEventData.dept || 'PERSONAL');
+                setType(initialEventData.dept || dept);
                 setDateTime(planned ? planned.toISOString().slice(0, 16) : '');
                 setSelection({ accountId: initialEventData.accountId, location: initialEventData.location });
                 setNotes(initialEventData.note || '');
                 setInvolvedUserIds(initialEventData.involvedUserIds || (initialEventData.userId ? [initialEventData.userId] : []));
             } else {
-                setType('PERSONAL');
+                setType(dept);
                 setDateTime('');
                 setSelection({});
                 setNotes('');
                 setInvolvedUserIds(currentUser ? [currentUser.id] : []);
             }
         }
-    }, [initialEventData, open, currentUser]);
+    }, [initialEventData, open, currentUser, dept]);
 
     const handleUserToggle = (userId: string) => {
         setInvolvedUserIds(prev => prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]);
@@ -205,14 +204,13 @@ export function NewEventDialog({ open, onOpenChange, onSuccess, accentColor, ini
 
     return (
         <SBDialog open={open} onOpenChange={onOpenChange}>
-            <div className="bg-white rounded-xl overflow-hidden shadow-2xl transition-all" style={{ borderTop: `4px solid ${accentColor}` }}>
-                <SBDialogContent
+             <SBDialogContent
                     title={dialogTitle}
                     description="Añade una entrada en tu calendario y asigna responsables."
                     onSubmit={handleSubmit}
                     primaryAction={{ label: isSaving ? 'Guardando...' : (initialEventData?.id ? 'Guardar Cambios' : 'Crear Tarea'), type: 'submit', disabled: isSaving }}
                     secondaryAction={{ label: 'Cancelar', onClick: () => onOpenChange(false), disabled: isSaving }}
-                >
+             >
                     <div className="space-y-4 pt-2">
                         <div className="grid gap-1.5">
                             <label htmlFor="event-notes" className="text-sm font-medium text-zinc-700">Descripción / Notas</label>
@@ -269,7 +267,6 @@ export function NewEventDialog({ open, onOpenChange, onSuccess, accentColor, ini
                         </div>
                     </div>
                 </SBDialogContent>
-            </div>
         </SBDialog>
     );
 }

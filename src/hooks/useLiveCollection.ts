@@ -1,7 +1,8 @@
+
 "use client";
 import { useEffect, useState } from "react";
-import { getFirestore, onSnapshot, collection, query, QueryConstraint, QuerySnapshot, DocumentData } from "firebase/firestore";
-import { firestoreDb } from "@/lib/firebaseClient";
+import { getFirestore, onSnapshot, collection, query, QueryConstraint, QuerySnapshot, DocumentData, Firestore } from "firebase/firestore";
+import { getFirebase } from "@/lib/firebaseClient";
 
 export function useLiveCollection<T = any>(
   path: string,
@@ -11,22 +12,36 @@ export function useLiveCollection<T = any>(
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const db = firestoreDb;
-    const col = collection(db, path);
-    const q = Array.isArray(build) ? query(col, ...(build as QueryConstraint[]))
-           : build ? (build(col) as any).q
-           : query(col);
+    let unsub: () => void;
+    
+    getFirebase().then(({ firestoreDb }) => {
+        if (!firestoreDb) {
+            console.warn("Firestore not available for live collection.");
+            setLoading(false);
+            return;
+        }
 
-    const unsub = onSnapshot(q, (snap: QuerySnapshot<DocumentData>) => {
-      const rows: any[] = [];
-      snap.forEach((d: DocumentData) => rows.push({ id: d.id, ...d.data() }));
-      setData(rows as T[]);
-      setLoading(false);
-    }, (error: Error) => {
-      console.error(`Error fetching collection ${path}:`, error);
-      setLoading(false);
+        const col = collection(firestoreDb, path);
+        const q = Array.isArray(build) ? query(col, ...(build as QueryConstraint[]))
+               : build ? (build(col) as any).q
+               : query(col);
+
+        unsub = onSnapshot(q, (snap: QuerySnapshot<DocumentData>) => {
+          const rows: any[] = [];
+          snap.forEach((d: DocumentData) => rows.push({ id: d.id, ...d.data() }));
+          setData(rows as T[]);
+          setLoading(false);
+        }, (error: Error) => {
+          console.error(`Error fetching collection ${path}:`, error);
+          setLoading(false);
+        });
     });
-    return () => unsub();
+
+    return () => {
+        if (unsub) {
+            unsub();
+        }
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [path]);
 

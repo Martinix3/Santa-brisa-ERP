@@ -1,3 +1,4 @@
+
 // src/features/santabrain/lib/engine.ts
 
 /**
@@ -7,8 +8,8 @@
  * - Totals & promo application helpers
  */
 import type {
-  ISO, Period, Filters, SalesKpiResult, MarketingKpiResult,
-  AccountRollup, Order, Account,
+  ISO, SalesKpiResult, MarketingKpiResult,
+  AccountRollup, OrderSellOut as Order, Account,
   ParseResult, SantaData,
   Promotion, BrainContext
 } from "./types";
@@ -18,7 +19,7 @@ import { RULES, isPromotionApplicable } from "./rules";
 // =============================
 // KPI — Sales (unchanged from previous corrected version)
 // =============================
-export function computeSalesKPIs(period: Period, filters: Filters, data: {
+export function computeSalesKPIs(period: { start: ISO, end: ISO }, filters: any, data: {
   orders: Order[]; interactions: Array<{ accountId: string; when: ISO; kind: string; status: string }>; 
   accounts: Account[]; plv: Array<{ accountId: string; status: string }>; activations: any[];
 }): SalesKpiResult {
@@ -26,7 +27,7 @@ export function computeSalesKPIs(period: Period, filters: Filters, data: {
   const end = new Date(period.end).getTime();
 
   const ordersIn = data.orders.filter((o: Order) => {
-    const t = new Date(o.orderDate ?? o.createdAt).getTime();
+    const t = new Date(o.createdAt).getTime();
     return t >= start && t <= end;
   });
 
@@ -40,17 +41,17 @@ export function computeSalesKPIs(period: Period, filters: Filters, data: {
   const pctRecompra = Math.round((con2 / con1) * 1000) / 10;
 
   const lastByAcc: Record<string, ISO> = {};
-  for (const o of data.orders.sort((a:Order,b:Order)=>new Date(a.orderDate ?? a.createdAt).getTime()-new Date(b.orderDate ?? b.createdAt).getTime())) {
-    lastByAcc[o.accountId] = o.orderDate ?? o.createdAt;
+  for (const o of data.orders.sort((a:Order,b:Order)=>new Date(a.createdAt).getTime()-new Date(b.createdAt).getTime())) {
+    lastByAcc[o.accountId] = o.createdAt;
   }
   const dias = Object.values(lastByAcc).map((d: ISO) => daysSinceISO(d));
   const medianaDiasSinPedido = Math.round(median(dias));
 
-  const completed = data.interactions.filter((i) => i.status === 'COMPLETADA' && new Date(i.when).getTime() >= start && new Date(i.when).getTime() <= end).length;
+  const completed = data.interactions.filter((i) => i.status === 'done' && new Date(i.when).getTime() >= start && new Date(i.when).getTime() <= end).length;
   const cuentasObjetivo = data.accounts.length || 1;
   const tasaContacto = Math.round((completed / cuentasObjetivo) * 1000) / 10;
 
-  const visitasOk = data.interactions.filter((i) => i.kind === 'VISITA' && i.status === 'COMPLETADA' && new Date(i.when).getTime() >= start && new Date(i.when).getTime() <= end).length || 1;
+  const visitasOk = data.interactions.filter((i) => i.kind === 'VISITA' && i.status === 'done' && new Date(i.when).getTime() >= start && new Date(i.when).getTime() <= end).length || 1;
   const pedidosPeriodo = ordersIn.length;
   const pctExitoVisitaPedido = Math.round((pedidosPeriodo / visitasOk) * 1000) / 10;
 
@@ -67,7 +68,7 @@ export function computeSalesKPIs(period: Period, filters: Filters, data: {
   const upliftPromoPct = avg(withPromo) && avg(withoutPromo) ? Math.round(((avg(withPromo)/avg(withoutPromo))-1)*1000)/10 : 0;
 
   const activeActivations = new Set(data.activations.filter((a: any) => a.status === 'active' && new Date(a.startDate).getTime() <= end && (!a.endDate || new Date(a.endDate).getTime() >= start)).map((a: any) => a.accountId));
-  const ventasAtribuiblesActivaciones = Math.round(ordersIn.filter((o: Order) => activeAccs.has(o.accountId)).reduce((a:number,o:Order)=>a+(o.totalAmount ?? orderTotal(o)),0));
+  const ventasAtribuiblesActivaciones = Math.round(ordersIn.filter((o: Order) => activeActivations.has(o.accountId)).reduce((a:number,o:Order)=>a+(o.totalAmount ?? orderTotal(o)),0));
 
   const roiMarketingGlobal = 0;
   const rankingComercial: Array<{salesRepId: string; importe: number; visitasOk?: number}> = [];
@@ -82,7 +83,7 @@ export function computeSalesKPIs(period: Period, filters: Filters, data: {
 // =============================
 // KPI — Marketing (summary)
 // =============================
-export function computeMarketingKPIs(period: Period, filters: Filters, data: {
+export function computeMarketingKPIs(period: { start: ISO, end: ISO }, filters: any, data: {
   spend: number; budget?: number; revenueAttributed: number; actionsCount: number;
 }): MarketingKpiResult {
   const spendTotal = Math.round(data.spend || 0);
@@ -96,7 +97,7 @@ export function computeMarketingKPIs(period: Period, filters: Filters, data: {
 // =============================
 // Rollup por cuenta
 // =============================
-export function computeAccountRollup(accountId: string, period: Period, data: {
+export function computeAccountRollup(accountId: string, period: { start: ISO, end: ISO }, data: {
   orders: Order[]; promotions: Promotion[]; plv: Array<{ accountId:string; status:string; installedAt?: ISO }>; activations: any[];
 }): AccountRollup {
   const start = new Date(period.start).getTime();
@@ -109,7 +110,7 @@ export function computeAccountRollup(accountId: string, period: Period, data: {
   const activeActivations = data.activations.filter((a: any) => a.accountId === accountId && a.status === 'active').length;
   const lastActivationAt = data.activations.filter((a: any) => a.accountId === accountId).map((a)=>a.startDate).sort().slice(-1)[0];
 
-  const ordersIn = data.orders.filter((o: Order) => o.accountId === accountId && new Date(o.orderDate ?? o.createdAt).getTime() >= start && new Date(o.orderDate ?? o.createdAt).getTime() <= end);
+  const ordersIn = data.orders.filter((o: Order) => o.accountId === accountId && new Date(o.createdAt).getTime() >= start && new Date(o.createdAt).getTime() <= end);
   const ordersWithPromoInPeriod = ordersIn.filter((o: Order) => (o.linkedPromotions?.length ?? 0) > 0).length;
   const attributedSalesInPeriod = Math.round(ordersIn.reduce((a:number,o:Order)=>a+(o.totalAmount ?? orderTotal(o)),0));
 
@@ -145,7 +146,7 @@ export function applyPromotionToOrder(order: Order, promo: Promotion, nowISO: IS
 // Parsing: nota → acción (multi-item + fuzzy cuenta)
 // =============================
 const pedidoRe = /pedido para\s+(.+?)(?:\s+en\s+(.+))?$/i;
-const qtySkuRe = /(\d+)\s*(?:cajas?|bx|cs|uds?|botellas?)?\s*([a-z0-9\-_/.]+)/gi;
+const qtySkuRe = /(\d+)\s*(?:cajas?|bx|cs|uds?|unidades|botellas?)?\s*([a-z0-9\-_/.]+)/gi;
 
 // firmas overload arriba del cuerpo
 export function parseNoteToAction(note: string, ctx: BrainContext): ParseResult;

@@ -1,6 +1,7 @@
+
 // src/features/santabrain/lib/rules.ts
 import { normalizeName } from "./helpers";
-import type { SantaData, Account, ParseResult, Promotion, ISO, PromoChannel } from "./types";
+import type { SantaData, Account, ParseResult, Promotion, ISO, PromoChannel, OrderSellOut } from "./types";
 
 
 const RE_ACCOUNT = /@([^\n@#]+?)(?=\s|$|,|\.|;)/i;
@@ -197,7 +198,7 @@ export const RULES: ActionRule[] = [
 
 // --- Adaptador compatible con engine.ts ---
 
-export function isPromotionApplicable(order: Order, promo: Promotion, nowISO?: ISO): boolean {
+export function isPromotionApplicable(order: OrderSellOut, promo: Promotion, nowISO?: ISO): boolean {
   const now = nowISO ? new Date(nowISO) : new Date();
 
   // vent. temporal
@@ -205,8 +206,8 @@ export function isPromotionApplicable(order: Order, promo: Promotion, nowISO?: I
   if (promo.validTo && now > new Date(promo.validTo)) return false;
 
   // qty en scope
-  const qtyInScope = (order.lines || []).reduce((acc: number, l: { itemId?: string; sku?: string; qty: number }) => {
-    const itemSku = l.sku ?? l.itemId; // Usar itemId si sku no está
+  const qtyInScope = (order.lines || []).reduce((acc: number, l: { itemId?: string; qty: number }) => {
+    const itemSku = l.itemId; // Usar itemId directamente
     const inScope = !promo.skuScope || (itemSku && promo.skuScope.includes(itemSku));
     return acc + (inScope ? (l.qty ?? 0) : 0);
   }, 0);

@@ -1,3 +1,4 @@
+
 // src/app/(app)/production/bom/page.tsx
 "use client";
 
@@ -330,7 +331,11 @@ export default function BomPage() {
       setIsNew(false);
       toast.success("Receta archivada.");
     } else {
-      toast.error(res.message || "No se pudo archivar.");
+      if ('message' in res) {
+        toast.error(res.message || "No se pudo archivar.");
+      } else {
+        toast.error("No se pudo archivar.");
+      }
     }
   }, [archiving, santaData, saveAllCollections]);
 

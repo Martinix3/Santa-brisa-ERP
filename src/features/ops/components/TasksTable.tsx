@@ -1,6 +1,20 @@
+
 'use client';
 import React from 'react';
-import type { Task, Department } from '@/domain/ops.types';
+import type { TaskKind, Interaction, InteractionStatus, Department } from '@/domain/ops.types';
+
+// This is the VIEW MODEL for a task card.
+export type Task = {
+  id: string;
+  title: string;
+  dept: Department;
+  kind: TaskKind,
+  status: InteractionStatus; // 'open' | 'done'
+  dueAt?: string;             // ISO recomendado
+  involvedUserIds?: string[];
+  accountName?: string;
+};
+
 
 export function TasksTable({
   rows,
