@@ -34,8 +34,8 @@ export function PipelineHeader({ filters, onFiltersChange }: PipelineHeaderProps
           />
         </div>
         <div className="flex items-center gap-2">
-            <SBButton variant={filters.userIds?.length === 0 ? 'primary' : 'secondary'} size="sm" onClick={() => handleChipClick('ALL')}>Todos</SBButton>
-            <SBButton variant={filters.userIds?.length > 0 ? 'primary' : 'secondary'} size="sm" onClick={() => handleChipClick('MINE')}>Mis Cuentas</SBButton>
+            <SBButton variant={!filters.userIds || filters.userIds.length === 0 ? 'primary' : 'secondary'} size="sm" onClick={() => handleChipClick('ALL')}>Todos</SBButton>
+            <SBButton variant={(filters.userIds?.length ?? 0) > 0 ? 'primary' : 'secondary'} size="sm" onClick={() => handleChipClick('MINE')}>Mis Cuentas</SBButton>
         </div>
         {/* TODO: Add other dropdown filters (Zone, Distributor, etc.) */}
       </div>
