@@ -125,7 +125,17 @@ export function runStaticAudit() {
     }
 }
 
-// Autoejecutar si se llama como script
-if (typeof process !== 'undefined' && (process.argv[1].endsWith('ssot.audit.ts') || process.argv[1].endsWith('tsx'))) {
-    runStaticAudit();
+// Node-only guard: evita reventar en el browser si process está polyfilled.
+const __argv1 =
+  typeof window === 'undefined' && // garantiza entorno servidor
+  typeof process !== 'undefined' &&
+  Array.isArray((process as any).argv)
+    ? (process as any).argv[1]
+    : undefined;
+
+if (
+  typeof __argv1 === 'string' &&
+  (__argv1.endsWith('ssot.audit.ts') || __argv1.endsWith('tsx'))
+) {
+  runStaticAudit();
 }

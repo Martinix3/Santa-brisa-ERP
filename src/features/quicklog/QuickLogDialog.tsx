@@ -1,3 +1,4 @@
+
 // src/features/quicklog/QuickLogDialog.tsx
 "use client";
 import React, { useState, useMemo, useCallback, useEffect } from "react";
@@ -168,7 +169,9 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
         const created = await placeOrder({ accountId: accId, distributorId: finalDistributorId, lines, createdById: currentUser!.id });
         if (validPosLines.length) await createPosTacticsBatch({ accountId: accId, createdById: currentUser!.id, lines: validPosLines as PosLineInput[] });
         toast.success(`Pedido colocado${validPosLines.length ? " + POS" : ""}`);
-        if (created?.id) router.push(`/orders/${created.id}`);
+        if (created.ok && created.data?.orderId) {
+            router.push(`/orders/${created.data.orderId}`);
+        }
       }
       onOpenChange(false);
     } catch (e: any) {

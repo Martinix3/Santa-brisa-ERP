@@ -323,7 +323,7 @@ export default function BomPage() {
     if (!archiving) return;
     const { id } = archiving;
     setArchiving(null);
-    const res = await archiveBOM(id);
+    const res = await archiveBOM({ bomId: id });
     if (res.ok && santaData) {
       const updated = santaData.billOfMaterials.map((b: any) => b.id === id ? { ...b, isActive: false } : b);
       saveAllCollections({ billOfMaterials: updated });

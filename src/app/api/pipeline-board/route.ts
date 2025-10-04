@@ -9,8 +9,9 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const filters: Record<string, any> = {};
     for (const [key, value] of searchParams.entries()) {
-      if (key.endsWith('[]')) {
-        const cleanKey = key.slice(0, -2);
+      const k = String(key ?? '');
+      if (k.endsWith('[]')) {
+        const cleanKey = k.slice(0, -2);
         if (!filters[cleanKey]) filters[cleanKey] = [];
         filters[cleanKey].push(value);
       } else {
