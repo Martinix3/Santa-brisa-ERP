@@ -2,7 +2,7 @@
 'use client';
 import React, { useMemo, useState, useCallback, useTransition } from 'react';
 import { Kanban, type PipelineItem } from '@/features/ops/components/Kanban';
-import { TasksTable, type Task } from '@/features/ops/components/TasksTable';
+import { TasksTable } from '@/features/ops/components/TasksTable';
 import { WeekCalendar } from '@/features/ops/components/WeekCalendar';
 import { CreateTaskModal } from '@/features/ops/components/CreateTaskModal';
 import type { Interaction, Department, Account, User, InteractionKind, Stage, TaskKind } from '@/domain/ssot';
@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 import { ModuleHeader, SBCard, SBButton, Select, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui';
 
 // Helper para convertir de forma segura InteractionKind a TaskKind
-function interactionKindToTaskKind(kind: InteractionKind): TaskKind {
+function interactionKindToTaskKind(kind: InteractionKind | string): TaskKind {
     const taskKinds: Set<string> = new Set(['VISITA', 'LLAMADA', 'PEDIDO', 'POS_EVT', 'POS_PLV', 'NOTA', 'OTRO', 'MKT', 'QC', 'FIN']);
     if (taskKinds.has(kind)) {
         return kind as TaskKind;
@@ -23,15 +23,24 @@ function interactionKindToTaskKind(kind: InteractionKind): TaskKind {
     return 'NOTA';
 }
 
-function mapInteractionToTask(i: Interaction, accounts: Account[]): Task {
+// ---- Dept narrowing para CalendarEvent ----
+// CalendarEvent.dept en ops.types solo permite:
+type EventDept = 'VENTAS' | 'MARKETING' | 'PRODUCCION' | 'ALMACEN' | 'FINANZAS' | 'CALIDAD';
+const EVENT_DEPTS: ReadonlySet<string> = new Set(['VENTAS','MARKETING','PRODUCCION','ALMACEN','FINANZAS','CALIDAD']);
+function toEventDept(d: Department): EventDept {
+  // Si llega PERSONAL u OPS (aunque filtramos), fija un fallback seguro
+  return EVENT_DEPTS.has(d as string) ? (d as EventDept) : 'VENTAS';
+}
+
+function mapInteractionToTask(i: Interaction, accounts: Account[]): Interaction {
   const account = accounts.find(a => a.id === i.accountId);
   return {
-    id: i.id,
+    ...i,
     title: (i as any).title || i.note || 'Tarea sin título',
     dept: i.dept as Department,
-    // kind: interactionKindToTaskKind((i as any).uiKind || i.kind), // This was the error, Task type does not have `kind`
+    kind: i.kind,
     status: i.status === 'done' ? 'done' : 'open',
-    dueAt: (i as any).startAt || i.plannedFor,
+    plannedFor: (i as any).startAt || i.plannedFor,
     accountName: account?.name || 'N/A',
   };
 }
@@ -44,7 +53,7 @@ function mapInteractionToEvent(i: Interaction, accounts: Account[]): CalendarEve
         title: (i as any).title || i.note || 'Tarea sin título',
         startAt: startAt,
         endAt: (i as any).endAt || new Date(new Date(startAt).getTime() + ((i as any).durationMin || 45) * 60000).toISOString(),
-        dept: i.dept as Department,
+        dept: toEventDept(i.dept as Department),
         accountId: i.accountId,
         accountName: account?.name,
     };
@@ -53,7 +62,7 @@ function mapInteractionToEvent(i: Interaction, accounts: Account[]): CalendarEve
 
 function OpsSidebar({ pipeline, tasks, view, deptFilter, onProgramFromKanban, onCompleteTask, onDragStart }: {
     pipeline: PipelineItem[];
-    tasks: Task[];
+    tasks: Interaction[];
     view: 'DIA'|'SEMANA'|'MES';
     deptFilter: Department | 'TODOS';
     onProgramFromKanban: (p: any) => void;
@@ -90,7 +99,7 @@ export default function PersonalDashboardPage() {
     if (!data) return { tasks: [], events: [], accounts: [], pipeline: [] };
     
     const validAccounts = data.accounts || [];
-    const allTasks: Task[] = (data.interactions || []).map(i => mapInteractionToTask(i, validAccounts));
+    const allTasks: Interaction[] = (data.interactions || []).map(i => mapInteractionToTask(i, validAccounts));
     const allEvents = (data.interactions || [])
         .filter(i => i.dept !== 'PERSONAL' && i.dept !== 'OPS' && ((i as any).startAt || i.plannedFor))
         .map(i => mapInteractionToEvent(i, validAccounts));
@@ -123,7 +132,7 @@ export default function PersonalDashboardPage() {
         if (res.ok) {
             toast.success("Tarea creada para programar.");
         } else {
-            toast.error(res.message || "Error al crear la tarea.");
+            toast.error("Error al crear la tarea.");
         }
     });
   }, [currentUser?.id]);
@@ -134,7 +143,7 @@ export default function PersonalDashboardPage() {
           if (res.ok) {
               toast.success("Tarea completada.");
           } else {
-              toast.error(res.message || "Error al completar la tarea.");
+              toast.error("Error al completar la tarea.");
           }
       });
   }, []);
@@ -157,7 +166,7 @@ export default function PersonalDashboardPage() {
         if (res.ok) {
             toast.success("Tarea programada en el calendario.");
         } else {
-            toast.error(res.message || "Error al programar la tarea.");
+            toast.error("Error al programar la tarea.");
         }
     });
   }, [currentUser?.id]);
@@ -170,7 +179,7 @@ export default function PersonalDashboardPage() {
             toast.success("Nueva tarea creada.");
             setCreateOpen(false);
         } else {
-            toast.error(res.message || "No se pudo crear la tarea.");
+            toast.error("No se pudo crear la tarea.");
         }
     });
   }, [currentUser?.id]);
