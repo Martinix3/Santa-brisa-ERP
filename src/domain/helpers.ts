@@ -17,7 +17,7 @@ export const daysSinceISO = (iso: ISO): number => {
 export function orderTotal(order: OrderSellOut): number {
   const sum = (order.lines || []).reduce((acc: number, l: OrderSellOut['lines'][number]) => {
     const price = l.priceUnit ?? 0;
-    const disc = (l.discountPct ?? 0) / 100;
+    const disc = ((l as any).discountPct ?? 0) / 100;
     return acc + (l.qty * price) * (1 - disc);
   }, 0);
   return Math.max(0, Math.round(sum * 100) / 100);

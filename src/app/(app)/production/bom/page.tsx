@@ -331,11 +331,8 @@ export default function BomPage() {
       setIsNew(false);
       toast.success("Receta archivada.");
     } else {
-      if ('message' in res) {
-        toast.error(res.message || "No se pudo archivar.");
-      } else {
-        toast.error("No se pudo archivar.");
-      }
+        const message = (res as { message?: string }).message || "No se pudo archivar.";
+        toast.error(message);
     }
   }, [archiving, santaData, saveAllCollections]);
 

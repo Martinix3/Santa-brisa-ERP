@@ -5,21 +5,19 @@ import { Kanban, type PipelineItem } from '@/features/ops/components/Kanban';
 import { TasksTable, type Task } from '@/features/ops/components/TasksTable';
 import { WeekCalendar } from '@/features/ops/components/WeekCalendar';
 import { CreateTaskModal } from '@/features/ops/components/CreateTaskModal';
-import type { Interaction, Department, Account, User, InteractionKind, Stage, TaskKind } from '@/domain/ssot';
+import type { Interaction, Department, Account, User, InteractionKind, Stage, TaskKind, CalendarEvent } from '@/domain/ssot';
 import { scheduleEvent, createTask, completeTask } from '@/app/(app)/ops/actions';
 import { Plus, LayoutGrid, ListTodo, LayoutDashboard } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
 import { toast } from 'sonner';
 import { ModuleHeader, SBCard, SBButton, Select, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui';
 
-// ============================================================================
-// TIPOS Y HELPERS INTERNOS
-// ============================================================================
-
 // Helper para convertir de forma segura InteractionKind a TaskKind
-function interactionKindToTaskKind(kind: InteractionKind): TaskKind {
-    if (kind === 'VISITA') return 'VISITA';
-    if (kind === 'PEDIDO') return 'PEDIDO';
+function interactionKindToTaskKind(kind: InteractionKind | string): TaskKind {
+    const taskKinds: Set<string> = new Set(['VISITA', 'LLAMADA', 'PEDIDO', 'POS_EVT', 'POS_PLV', 'NOTA', 'OTRO', 'MKT', 'QC', 'FIN']);
+    if (taskKinds.has(kind)) {
+        return kind as TaskKind;
+    }
     // Mapea otros tipos a 'NOTA' como un valor por defecto seguro.
     return 'NOTA';
 }
@@ -37,7 +35,7 @@ function mapInteractionToTask(i: Interaction, accounts: Account[]): Task {
   };
 }
 
-function mapInteractionToEvent(i: Interaction, accounts: Account[]) {
+function mapInteractionToEvent(i: Interaction, accounts: Account[]): CalendarEvent {
     const account = accounts.find(a => a.id === i.accountId);
     const startAt = (i as any).startAt || i.plannedFor!;
     return {
@@ -51,9 +49,6 @@ function mapInteractionToEvent(i: Interaction, accounts: Account[]) {
     };
 }
 
-// ============================================================================
-// SUB-COMPONENTES DE LAYOUT
-// ============================================================================
 
 function OpsSidebar({ pipeline, tasks, view, deptFilter, onProgramFromKanban, onCompleteTask, onDragStart }: {
     pipeline: PipelineItem[];
@@ -86,10 +81,6 @@ function OpsSidebar({ pipeline, tasks, view, deptFilter, onProgramFromKanban, on
     );
 }
 
-
-// ============================================================================
-// COMPONENTE PRINCIPAL DE LA PÁGINA
-// ============================================================================
 export default function PersonalDashboardPage() {
   const { data, currentUser } = useData();
   const [isPending, startTransition] = useTransition();
@@ -100,10 +91,11 @@ export default function PersonalDashboardPage() {
     const validAccounts = data.accounts || [];
     const allTasks: Task[] = (data.interactions || []).map(i => mapInteractionToTask(i, validAccounts));
     const allEvents = (data.interactions || [])
-        .filter(i => i.dept !== 'PERSONAL' && ((i as any).startAt || i.plannedFor))
+        .filter(i => i.dept !== 'PERSONAL' && i.dept !== 'OPS' && ((i as any).startAt || i.plannedFor))
         .map(i => mapInteractionToEvent(i, validAccounts));
 
-    const demoPipeline: PipelineItem[] = validAccounts.slice(0, 5).map(acc => ({
+    const pipelineStages: PipelineItem['stage'][] = ['POTENCIAL', 'ACTIVA', 'SEGUIMIENTO', 'FALLIDA'];
+    const demoPipeline: PipelineItem[] = (data.accounts || []).filter(acc => pipelineStages.includes(acc.stage as any)).slice(0, 5).map(acc => ({
         accountId: acc.id,
         accountName: acc.name,
         stage: acc.stage as PipelineItem['stage'],
@@ -123,7 +115,7 @@ export default function PersonalDashboardPage() {
   const [deptFilter, setDeptFilter] = useState<Department | 'TODOS'>('TODOS');
   const [createOpen, setCreateOpen] = useState(false);
 
-  const onProgramFromKanban = (p:{accountId:string;accountName:string;dept:Department;title:string})=>{
+  const onProgramFromKanban = useCallback((p:{accountId:string;accountName:string;dept:Department;title:string})=>{
     startTransition(async () => {
         if (!currentUser?.id) { toast.error("No se ha podido identificar al usuario."); return; }
         const res = await createTask({ accountId: p.accountId, note: p.title, dept: p.dept, userId: currentUser.id });
@@ -133,9 +125,9 @@ export default function PersonalDashboardPage() {
             toast.error(res.message || "Error al crear la tarea.");
         }
     });
-  };
+  }, [currentUser?.id]);
 
-  const onCompleteTask = (id:string)=>{
+  const onCompleteTask = useCallback((id:string)=>{
       startTransition(async () => {
           const res = await completeTask(id);
           if (res.ok) {
@@ -144,14 +136,14 @@ export default function PersonalDashboardPage() {
               toast.error(res.message || "Error al completar la tarea.");
           }
       });
-  };
+  }, []);
 
-  const onTaskDragStart = (row: any, e:React.DragEvent)=>{
+  const onTaskDragStart = useCallback((row: any, e:React.DragEvent)=>{
     e.dataTransfer.setData('application/json', JSON.stringify(row));
     e.dataTransfer.effectAllowed='copyMove';
-  };
+  }, []);
 
-  const onCalendarDrop = async (slotISO:string, payload:any)=>{
+  const onCalendarDrop = useCallback(async (slotISO:string, payload:any)=>{
     startTransition(async () => {
         if (!currentUser?.id) { toast.error("No se ha podido identificar al usuario."); return; }
         const res = await scheduleEvent({
@@ -167,9 +159,9 @@ export default function PersonalDashboardPage() {
             toast.error(res.message || "Error al programar la tarea.");
         }
     });
-  };
+  }, [currentUser?.id]);
 
-  const onCreateTask = (payload:any)=>{
+  const onCreateTask = useCallback((payload:any)=>{
     startTransition(async () => {
         if (!currentUser?.id) { toast.error("No se ha podido identificar al usuario."); return; }
         const res = await createTask({ ...payload, userId: currentUser.id });
@@ -180,7 +172,7 @@ export default function PersonalDashboardPage() {
             toast.error(res.message || "No se pudo crear la tarea.");
         }
     });
-  };
+  }, [currentUser?.id]);
 
   return (
     <div className="flex flex-col h-full bg-background">

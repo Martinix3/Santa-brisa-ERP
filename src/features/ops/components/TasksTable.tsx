@@ -1,22 +1,27 @@
 // FILE: src/features/ops/components/TasksTable.tsx
 'use client';
 import React from 'react';
-import type { TaskKind, InteractionStatus, Department } from '@/domain/ssot';
+import type { Interaction, InteractionStatus, Department } from '@/domain/ssot';
 import { SBButton, SBCard, Badge } from '@/components/ui';
 
 export type Task = {
   id: string;
   title: string;
   dept: Department;
-  kind: TaskKind;
   status: InteractionStatus;
   dueAt?: string;
   accountName?: string;
 };
 
-const DEPT_TO_BADGE_CLASS: Record<Department, string> = {
-  VENTAS: 'sb-badge--ventas', MARKETING: 'sb-badge--marketing', PRODUCCION: 'sb-badge--produccion',
-  FINANZAS: 'sb-badge--finanzas', CALIDAD: 'sb-badge--calidad', ALMACEN: 'sb-badge--almacen', PERSONAL: 'sb-badge--personal',
+const DEPT_TO_BADGE_CLASS: Record<string, string> = {
+  VENTAS: 'bg-orange-100 text-orange-800', 
+  MARKETING: 'bg-sky-100 text-sky-800', 
+  PRODUCCION: 'bg-teal-100 text-teal-800',
+  FINANZAS: 'bg-yellow-100 text-yellow-800', 
+  CALIDAD: 'bg-indigo-100 text-indigo-800', 
+  ALMACEN: 'bg-slate-100 text-slate-800', 
+  PERSONAL: 'bg-pink-100 text-pink-800',
+  OPS: 'bg-purple-100 text-purple-800',
 };
 
 export function TasksTable({

@@ -14,14 +14,14 @@ export function useLiveCollection<T = any>(
   useEffect(() => {
     let unsub: () => void;
     
-    getFirebase().then(({ firestoreDb }) => {
-        if (!firestoreDb) {
+    getFirebase().then(({ firestoreDb: db }) => {
+        if (!db) {
             console.warn("Firestore not available for live collection.");
             setLoading(false);
             return;
         }
 
-        const col = collection(firestoreDb, path);
+        const col = collection(db, path);
         const q = Array.isArray(build) ? query(col, ...(build as QueryConstraint[]))
                : build ? (build(col) as any).q
                : query(col);

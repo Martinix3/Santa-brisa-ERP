@@ -2,7 +2,9 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import type { Department, TaskKind, Account } from '@/domain/ssot';
-import { SBDialog, SBDialogContent, SBButton, Input, Select, Textarea, Field } from '@/components/ui';
+import { SBDialog, SBDialogContent, SBButton, Input, Select, Textarea } from '@/components/ui';
+import { Field } from '@/components/forms/Field';
+
 
 export function CreateTaskModal({ open, onClose, onCreate, accounts }: { 
     open: boolean; 
@@ -57,7 +59,7 @@ export function CreateTaskModal({ open, onClose, onCreate, accounts }: {
             <div className="grid grid-cols-2 gap-4">
                 <Field name="dept" label="Departamento">
                     <Select value={dept} onChange={e=>setDept(e.target.value as Department)}>
-                        <option>VENTAS</option><option>MARKETING</option><option>CALIDAD</option><option>FINANZAS</option><option>PRODUCCION</option><option>ALMACEN</option><option>PERSONAL</option>
+                        <option>VENTAS</option><option>MARKETING</option><option>CALIDAD</option><option>FINANZAS</option><option>PRODUCCION</option><option>ALMACEN</option><option>PERSONAL</option><option>OPS</option>
                     </Select>
                 </Field>
                 <Field name="kind" label="Tipo de Tarea">
