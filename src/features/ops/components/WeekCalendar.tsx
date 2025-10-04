@@ -32,6 +32,9 @@ export function WeekCalendar(props: Partial<DayPickerProps> & {
     return max == null ? c >= min : c >= min && c <= max;
   };
 
+  // Explicitly remove 'required' from rest to satisfy DayPicker's strict types
+  const { required, ...otherProps } = rest;
+
   return (
     <div className="sb-card p-3">
       <DayPicker
@@ -49,7 +52,7 @@ export function WeekCalendar(props: Partial<DayPickerProps> & {
           has2: "sb-day-has2",
           has3plus: "sb-day-has3plus",
         }}
-        {...rest}
+        {...otherProps}
       />
     </div>
   );
