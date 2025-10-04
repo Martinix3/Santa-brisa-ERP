@@ -1,11 +1,11 @@
 
 import type { Metadata } from "next";
-import ClientProviders from "./ClientProviders";
 import "./globals.css";
 import MonitoringBoot from '@/components/monitoring/MonitoringBoot';
 import { Inter } from 'next/font/google';
-import { Toaster } from "sonner";
 import React from 'react';
+import ClientProviders from './ClientProviders'; // <- Client Component con "use client"
+import { Toaster } from "sonner";
 
 const inter = Inter({ 
     subsets: ['latin'],
@@ -38,10 +38,11 @@ export default function RootLayout({
         >
           Saltar al contenido principal
         </a>
+        {/* Client boundary: mete dentro todo lo que requiera browser */}
         <ClientProviders>
           {children}
+          <Toaster position="bottom-right" />
         </ClientProviders>
-        <Toaster position="bottom-right" />
         <MonitoringBoot />
       </body>
     </html>
