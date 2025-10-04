@@ -1,29 +1,56 @@
-// This file is now obsoleto.
-// Los tipos 'Task' y 'CalendarEvent' se han integrado en la entidad 'Interaction'
-// en 'src/domain/ssot.ts' para tener una única fuente de verdad para la agenda.
+// src/domain/ops.types.ts
+// Contratos mínimos y canónicos para el Dashboard (Calendario/Agenda)
 
-// Puedes eliminar este archivo en un futuro refactor. Por ahora, se mantiene para
-// evitar errores de importación en componentes que aún no se hayan actualizado.
+export type DepartmentStrict =
+  | 'VENTAS'
+  | 'MARKETING'
+  | 'PRODUCCION'
+  | 'ALMACEN'
+  | 'FINANZAS'
+  | 'CALIDAD';
 
-export type { Department, TaskKind, TaskStatus, Interaction } from './ssot';
+export const EVENT_DEPARTMENTS: readonly DepartmentStrict[] = [
+  'VENTAS',
+  'MARKETING',
+  'PRODUCCION',
+  'ALMACEN',
+  'FINANZAS',
+  'CALIDAD',
+] as const;
 
-// Este tipo se puede mapear desde Interaction
+/**
+ * Evento del calendario del dashboard.
+ * Importado por WeekCalendar y page.tsx
+ */
 export interface CalendarEvent {
   id: string;
+  title: string;
+  dept: DepartmentStrict;
+  startAt: string;            // ISO 8601
+  endAt?: string;             // ISO 8601
   accountId?: string;
   accountName?: string;
-  title: string;
-  dept: 'VENTAS' | 'MARKETING' | 'CALIDAD' | 'FINANZAS' | 'PRODUCCION' | 'ALMACEN';
-  startAt: string;      // ISO
-  endAt: string;        // ISO
-  externalRef?: { provider:'google'|'outlook', id:string } | null;
-  createdById?: string;
-  updatedAt?: string;
+  notes?: string;
 }
+
+/**
+ * Convierte un valor Department (p.ej. puede venir 'PERSONAL' u 'OPS')
+ * a uno de los 6 departamentos válidos del calendario.
+ * Si no coincide, cae a 'VENTAS' por defecto.
+ */
+export function toEventDept(d: string): DepartmentStrict {
+  if ((EVENT_DEPARTMENTS as readonly string[]).includes(d)) {
+    return d as DepartmentStrict;
+  }
+  return 'VENTAS';
+}
+
+// Tipos legacy mantenidos por compatibilidad temporal
+export type { Department, TaskKind, TaskStatus, Interaction } from './ssot';
 
 export interface Task {
     id: string;
     title: string;
     dueAt: string;
-    status: TaskStatus;
+    status: 'open' | 'done' | 'cancelled';
 }
