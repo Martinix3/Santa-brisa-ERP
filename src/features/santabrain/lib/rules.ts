@@ -1,3 +1,1 @@
-
-// This file has been disconnected.
-// The SantaBrain rules logic is no longer in use.
+// This file is being deleted as it is part of a deprecated module.

@@ -1,5 +1,1 @@
-// This component has been disconnected.
-export function AssistantDialog() {
-    return null;
-}
-export default AssistantDialog;
+// This file is being deleted as it is part of a deprecated module.
