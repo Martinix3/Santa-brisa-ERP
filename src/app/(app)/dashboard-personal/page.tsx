@@ -2,7 +2,7 @@
 'use client';
 import React, { useMemo, useState, useCallback, useTransition } from 'react';
 import { Kanban, type PipelineItem } from '@/features/ops/components/Kanban';
-import { TasksTable } from '@/features/ops/components/TasksTable';
+import { TasksTable, type Task as TaskRow } from '@/features/ops/components/TasksTable';
 import { WeekCalendar } from '@/features/ops/components/WeekCalendar';
 import { CreateTaskModal } from '@/features/ops/components/CreateTaskModal';
 import type { Interaction, Department, Account, User, InteractionKind, Stage, TaskKind } from '@/domain/ssot';
@@ -32,17 +32,16 @@ function toEventDept(d: Department): EventDept {
   return EVENT_DEPTS.has(d as string) ? (d as EventDept) : 'VENTAS';
 }
 
-function mapInteractionToTask(i: Interaction, accounts: Account[]): Interaction {
+function mapInteractionToTask(i: Interaction, accounts: Account[]): TaskRow {
   const account = accounts.find(a => a.id === i.accountId);
   return {
     ...i,
-    title: (i as any).title || i.note || 'Tarea sin título',
     dept: i.dept as Department,
     kind: i.kind,
     status: i.status === 'done' ? 'done' : 'open',
     plannedFor: (i as any).startAt || i.plannedFor,
     accountName: account?.name || 'N/A',
-  };
+  } as TaskRow;
 }
 
 function mapInteractionToEvent(i: Interaction, accounts: Account[]): CalendarEvent {
@@ -62,12 +61,12 @@ function mapInteractionToEvent(i: Interaction, accounts: Account[]): CalendarEve
 
 function OpsSidebar({ pipeline, tasks, view, deptFilter, onProgramFromKanban, onCompleteTask, onDragStart }: {
     pipeline: PipelineItem[];
-    tasks: Interaction[];
+    tasks: TaskRow[];
     view: 'DIA'|'SEMANA'|'MES';
     deptFilter: Department | 'TODOS';
     onProgramFromKanban: (p: any) => void;
     onCompleteTask: (id: string) => void;
-    onDragStart: (row: any, e: React.DragEvent) => void;
+    onDragStart: (row: TaskRow, e: React.DragEvent) => void;
 }) {
     return (
         <SBCard noPadding className="h-full flex flex-col">
@@ -99,7 +98,7 @@ export default function PersonalDashboardPage() {
     if (!data) return { tasks: [], events: [], accounts: [], pipeline: [] };
     
     const validAccounts = data.accounts || [];
-    const allTasks: Interaction[] = (data.interactions || []).map(i => mapInteractionToTask(i, validAccounts));
+    const allTasks: TaskRow[] = (data.interactions || []).map(i => mapInteractionToTask(i, validAccounts));
     const allEvents = (data.interactions || [])
         .filter(i => i.dept !== 'PERSONAL' && i.dept !== 'OPS' && ((i as any).startAt || i.plannedFor))
         .map(i => mapInteractionToEvent(i, validAccounts));
@@ -115,7 +114,7 @@ export default function PersonalDashboardPage() {
 
     return { 
         tasks: allTasks, 
-        events: allEvents as CalendarEvent[], 
+        events: allEvents, 
         accounts: validAccounts,
         pipeline: demoPipeline,
     };
@@ -148,7 +147,7 @@ export default function PersonalDashboardPage() {
       });
   }, []);
 
-  const onTaskDragStart = useCallback((row: any, e:React.DragEvent)=>{
+  const onTaskDragStart = useCallback((row: TaskRow, e:React.DragEvent)=>{
     e.dataTransfer.setData('application/json', JSON.stringify(row));
     e.dataTransfer.effectAllowed='copyMove';
   }, []);
