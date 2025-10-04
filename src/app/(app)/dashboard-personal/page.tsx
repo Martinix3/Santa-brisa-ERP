@@ -1,16 +1,17 @@
 // src/app/(app)/dashboard-personal/page.tsx
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import { useData } from '@/lib/dataprovider';
-import type { Interaction, Account, Department } from '@/domain/ssot';
+import type { Interaction, Account, Department, Stage } from '@/domain/ssot';
 import { DEPT_META } from '@/domain/ssot';
-import { DndContext, useDroppable, useDraggable } from '@dnd-kit/core';
+import { DndContext, useDroppable, useDraggable, type DragEndEvent } from '@dnd-kit/core';
 import { Plus, Check, Clock, Waypoints, Droplet, Users } from 'lucide-react';
 import { SBButton } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { DayPicker } from 'react-day-picker';
 import es from 'date-fns/locale/es';
+import { toast } from 'sonner';
 
 // --- HELPERS & STYLES ---
 const formatEur = (value: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 }).format(value);
@@ -58,8 +59,8 @@ function DailyTasksCard({ tasks }: { tasks: Interaction[] }) {
             <header className="p-4 border-b">
                 <h2 className="font-semibold flex items-center gap-2"><Clock size={16} /> Tareas del Día</h2>
             </header>
-            <div className="p-2 space-y-1">
-                {sortedTasks.map(task => {
+            <div className="p-2 space-y-1 max-h-96 overflow-y-auto">
+                {sortedTasks.length > 0 ? sortedTasks.map(task => {
                     const deptMeta = task.dept ? DEPT_META[task.dept] : DEPT_META['OPS'];
                     const { status, date } = getStatus(task);
                     return (
@@ -67,14 +68,16 @@ function DailyTasksCard({ tasks }: { tasks: Interaction[] }) {
                             <input type="checkbox" className="sb-checkbox" />
                             <div>
                                 <p className="text-sm font-medium text-foreground">{task.note}</p>
-                                <span className="text-xs px-2 py-0.5 rounded-full mt-1 inline-block" style={{ backgroundColor: deptMeta.color + '20', color: deptMeta.color }}>
-                                    {deptMeta.label}
-                                </span>
+                                {deptMeta && (
+                                    <span className="text-xs px-2 py-0.5 rounded-full mt-1 inline-block" style={{ backgroundColor: deptMeta.color + '20', color: deptMeta.color }}>
+                                        {deptMeta.label}
+                                    </span>
+                                )}
                             </div>
                             {status && <TaskStatusBadge status={status} date={date} />}
                         </div>
                     );
-                })}
+                }) : <p className="p-4 text-center text-sm text-muted-foreground">No hay tareas para hoy.</p>}
             </div>
         </div>
     );
@@ -112,20 +115,27 @@ function KanbanColumn({ id, title, count, deals }: { id: string; title: string; 
   );
 }
 
-function SalesPipelineKanban({ accounts }: { accounts: Account[] }) {
+function SalesPipelineKanban({ accounts, onStageChange }: { accounts: Account[], onStageChange: (accountId: string, newStage: Stage) => void }) {
     const pipelineData = useMemo(() => ({
-        'Potencial': accounts.filter(a => a.stage === 'POTENCIAL'),
-        'Seguimiento': accounts.filter(a => a.stage === 'SEGUIMIENTO'),
-        'Activa': accounts.filter(a => a.stage === 'ACTIVA'),
-        'Fallida': accounts.filter(a => a.stage === 'FALLIDA'),
+        'POTENCIAL': accounts.filter(a => a.stage === 'POTENCIAL'),
+        'SEGUIMIENTO': accounts.filter(a => a.stage === 'SEGUIMIENTO'),
+        'ACTIVA': accounts.filter(a => a.stage === 'ACTIVA'),
+        'FALLIDA': accounts.filter(a => a.stage === 'FALLIDA'),
     }), [accounts]);
+
+    const handleDragEnd = (event: DragEndEvent) => {
+        const { over, active } = event;
+        if (over && active.id !== over.id) {
+            onStageChange(active.id as string, over.id as Stage);
+        }
+    };
     
     return (
         <div className="bg-card border rounded-xl shadow-sm">
             <header className="p-4 border-b">
                 <h2 className="font-semibold flex items-center gap-2"><Waypoints size={16} /> Pipeline de Ventas</h2>
             </header>
-            <DndContext onDragEnd={() => {}}>
+            <DndContext onDragEnd={handleDragEnd}>
                 <div className="p-4 flex gap-4 overflow-x-auto">
                     {Object.entries(pipelineData).map(([stage, deals]) => (
                         <KanbanColumn key={stage} id={stage} title={stage} count={deals.length} deals={deals} />
@@ -136,20 +146,32 @@ function SalesPipelineKanban({ accounts }: { accounts: Account[] }) {
     );
 }
 
-function WeeklyKpisCard() {
+function WeeklyKpisCard({ tasks, orders }: { tasks: Interaction[], orders: any[] }) {
+    const kpis = useMemo(() => {
+        const now = new Date();
+        const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1)));
+        startOfWeek.setHours(0, 0, 0, 0);
+
+        const tasksThisWeek = tasks.filter(t => t.status === 'done' && new Date(t.createdAt) >= startOfWeek);
+        const salesThisWeek = orders.filter(o => new Date(o.createdAt) >= startOfWeek);
+
+        return {
+            tasksCompleted: tasksThisWeek.length,
+            salesClosed: salesThisWeek.reduce((sum, order) => sum + (order.totalAmount || 0), 0)
+        };
+    }, [tasks, orders]);
+
     return (
         <div className="bg-card border rounded-xl shadow-sm p-4">
             <h3 className="font-semibold text-sm mb-4 flex items-center gap-2"><Droplet size={16}/> KPIs Clave (Semanal)</h3>
             <div className="flex justify-around text-center">
                 <div>
                     <p className="text-xs text-muted-foreground">Tareas Completadas</p>
-                    <p className="text-2xl font-bold">23</p>
-                    <p className="text-xs font-semibold text-green-600">+5% ↑</p>
+                    <p className="text-2xl font-bold">{kpis.tasksCompleted}</p>
                 </div>
                 <div>
                     <p className="text-xs text-muted-foreground">Ventas Cerradas</p>
-                    <p className="text-2xl font-bold">€15K</p>
-                    <p className="text-xs font-semibold text-red-600">-2% ↓</p>
+                    <p className="text-2xl font-bold">{formatEur(kpis.salesClosed)}</p>
                 </div>
             </div>
         </div>
@@ -159,30 +181,45 @@ function WeeklyKpisCard() {
 
 // --- MAIN PAGE ---
 export default function PersonalDashboardPage() {
-  const { data } = useData();
+  const { data, setData } = useData();
 
-  const { todayTasks, pipelineAccounts } = useMemo(() => {
-    if (!data) return { todayTasks: [], pipelineAccounts: [] };
+  const { todayTasks, pipelineAccounts, allTasks, allOrders } = useMemo(() => {
+    if (!data) return { todayTasks: [], pipelineAccounts: [], allTasks: [], allOrders: [] };
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
     const tasks = (data.interactions || []).filter(i => {
       if (i.status === 'done') return false;
-      if (!i.plannedFor) return true; // Tareas sin fecha se asumen para hoy
-      return new Date(i.plannedFor) >= startOfToday;
+      if (!i.plannedFor) return true;
+      const taskDate = new Date(i.plannedFor);
+      return taskDate >= startOfToday && taskDate < new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
     });
 
-    const accounts = data.accounts || [];
-
-    return { todayTasks: tasks, pipelineAccounts: accounts };
+    return {
+        todayTasks: tasks,
+        pipelineAccounts: data.accounts || [],
+        allTasks: data.interactions || [],
+        allOrders: data.ordersSellOut || []
+    };
   }, [data]);
+
+  const handleStageChange = useCallback((accountId: string, newStage: Stage) => {
+    if (!data) return;
+    const updatedAccounts = data.accounts.map(acc => 
+        acc.id === accountId ? { ...acc, stage: newStage, updatedAt: new Date().toISOString() } : acc
+    );
+    setData(prevData => prevData ? { ...prevData, accounts: updatedAccounts } : null);
+    toast.success(`Cuenta movida a ${newStage}`);
+    // Here you would also call a server action to persist the change
+    // saveCollection('accounts', updatedAccounts);
+  }, [data, setData]);
 
   return (
     <div className="p-6 bg-secondary/70 min-h-full">
       <header className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold">Mi Dashboard</h1>
-          <p className="text-muted-foreground">Sábado, 4 de Octubre, 2025</p>
+          <p className="text-muted-foreground">{new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
         </div>
         <div className="flex items-center gap-2">
             <SBButton variant='secondary'>Diaria</SBButton>
@@ -195,19 +232,19 @@ export default function PersonalDashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           <DailyTasksCard tasks={todayTasks} />
-          <SalesPipelineKanban accounts={pipelineAccounts} />
+          <SalesPipelineKanban accounts={pipelineAccounts} onStageChange={handleStageChange} />
         </div>
         <div className="space-y-6">
             <div className="bg-card border rounded-xl shadow-sm p-2">
                  <DayPicker
                     mode="single"
-                    selected={new Date(2025, 9, 4)}
+                    selected={new Date()}
                     locale={es}
                     showOutsideDays
                     fixedWeeks
                   />
             </div>
-            <WeeklyKpisCard/>
+            <WeeklyKpisCard tasks={allTasks} orders={allOrders} />
         </div>
       </div>
     </div>

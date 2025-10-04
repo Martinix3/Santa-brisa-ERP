@@ -39,7 +39,6 @@ function DashboardSkeleton() {
 }
 
 export default function ProductionDashboardPage() {
-  // Se restaura el uso de datos reales desde el DataProvider.
   const { data } = useData();
   const { billOfMaterials: recipes, items, onHand, productionOrders: orders } = data || {};
   
@@ -48,7 +47,6 @@ export default function ProductionDashboardPage() {
       return computeKpis({ orders: orders as any, recipes: recipes as any, onHand: onHand as any, items });
   }, [orders, recipes, onHand, items]);
 
-  // Se implementa un 'skeleton' para una mejor experiencia de carga.
   if (!data || !kpis) return <DashboardSkeleton />;
 
   return (
@@ -74,7 +72,6 @@ export default function ProductionDashboardPage() {
          <EfficiencyWidget laborSeries={kpis.laborSeries} costPerUnitSeries={kpis.costPerUnitSeries} />
        </SBCard>
        
-       {/* Se reemplaza el botón personalizado por el componente SBButton para consistencia. */}
        <SBButton 
          variant="primary"
          className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-40 p-0"
