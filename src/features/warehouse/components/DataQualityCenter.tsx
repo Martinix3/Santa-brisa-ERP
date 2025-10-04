@@ -5,7 +5,7 @@ import React, { useState, useTransition } from 'react';
 import { SBCard, SBButton } from '@/components/ui/ui-primitives';
 import { ShieldCheck, ShieldAlert, AlertTriangle, RefreshCw, CheckCircle, ServerCrash } from 'lucide-react';
 import { toast } from 'sonner';
-import { performDataQualityCheck } from '@/app/(app)/warehouse/inventory/actions'; // Importamos la Server Action
+import { performDataQualityCheck } from '@/server/actions/inventory.actions'; // Importamos la Server Action
 import type { DataAnomaly } from '@/lib/data-quality/types'; // Importamos el tipo
 
 // Un pequeño componente helper para mostrar un icono según la severidad

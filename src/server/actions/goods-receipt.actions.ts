@@ -8,7 +8,7 @@ import type { Party, Item, GoodsReceipt, StockMove, Uom, ItemCategory, PartyRole
 import { LotSchema } from '@/domain/validators';
 import { normText } from '@/lib/norm/text';
 import { makeGoodsReceiptCode } from '@/lib/codes';
-import { findNextLotNumber } from '@/app/(app)/warehouse/inventory/actions';
+import { findNextLotNumber } from '@/server/actions/inventory.actions';
 import { makeOnHandId } from '@/domain/id-helpers';
 
 // --- Helpers ---
