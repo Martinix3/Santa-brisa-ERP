@@ -100,7 +100,12 @@ export default function PersonalDashboardPage() {
       if (res.ok) {
         toast.success("Tarea creada con éxito");
       } else {
-        throw new Error(res.message || 'Unknown error');
+        // Manejo robusto: la respuesta tipada no expone `message`
+        const reason =
+          (res as any)?.error ??
+          (res as any)?.message ??
+          "Operación fallida";
+        throw new Error(reason);
       }
     } catch (err: any) {
       toast.error(`Error: ${err.message}`);

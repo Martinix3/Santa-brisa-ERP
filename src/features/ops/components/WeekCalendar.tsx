@@ -4,7 +4,7 @@ import React from 'react';
 import { addMinutes, addDays, startOfWeek, format } from 'date-fns';
 import type { CalendarEvent } from '@/domain/ops.types';
 import { SBCard } from '@/components/ui';
-import { DayPicker, type DayProps } from 'react-day-picker';
+import { DayPicker } from 'react-day-picker';
 import { es as esLocale } from 'date-fns/locale';
 
 const fmtH = (d:Date)=> format(d, 'HH:mm');
@@ -38,23 +38,32 @@ export function WeekCalendar({ events, onDropSchedule }:{ events: CalendarEvent[
                 day_selected: 'bg-primary text-primary-foreground',
             }}
             components={{
-              Day: (props) => {
-                const dayEvents = events.filter(e => new Date(e.startAt).toDateString() === props.date.toDateString());
+              Day: (props: any) => {
+                // En el override de Day, la fecha viene en `props.day.date` o `props.date`
+                const date: Date = props?.date ?? props?.day?.date;
+                const dayEvents = events.filter(
+                  (e) => new Date(e.startAt).toDateString() === date.toDateString()
+                );
                 return (
                   <div
                     onDragOver={(e) => e.preventDefault()}
-                    onDrop={(e) => handleDrop(e, props.date.toISOString())}
+                    onDrop={(e) => handleDrop(e, date.toISOString())}
                     className="relative w-full h-full flex items-center justify-center"
                   >
-                    <span className="relative z-10">{props.date.getDate()}</span>
+                    <span className="relative z-10">{date.getDate()}</span>
                     {dayEvents.length > 0 && (
-                       <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex items-center gap-0.5">
-                         {dayEvents.slice(0, 3).map(e => <div key={e.id} className="h-1 w-1 rounded-full bg-[hsl(var(--sb-accent-ventas))]" />)}
-                       </div>
+                      <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex items-center gap-0.5">
+                        {dayEvents.slice(0, 3).map((e) => (
+                          <div
+                            key={e.id}
+                            className="h-1 w-1 rounded-full bg-[hsl(var(--sb-accent-ventas))]"
+                          />
+                        ))}
+                      </div>
                     )}
                   </div>
-                )
-              }
+                );
+              },
             }}
          />
       </div>
