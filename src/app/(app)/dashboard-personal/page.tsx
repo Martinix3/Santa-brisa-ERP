@@ -1,4 +1,4 @@
-// src/app/(app)/dashboard-personal/page.tsx
+
 "use client";
 import React, { useState, useMemo, useCallback } from 'react';
 import { DndContext, type DragEndEvent, type DragOverlay } from '@dnd-kit/core';

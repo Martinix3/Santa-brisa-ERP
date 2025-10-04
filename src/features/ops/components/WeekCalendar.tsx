@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import { DayPicker, type DayPickerProps } from 'react-day-picker';
 import { es as esLocale } from 'date-fns/locale';
-import { sbAsISO } from '../helpers';
+import { sbAsISO } from '@/features/agenda/helpers';
 
 export function WeekCalendar(props: Partial<DayPickerProps> & {
   events?: Array<{ id: string; startAt: string }>;
@@ -54,6 +54,7 @@ export function WeekCalendar(props: Partial<DayPickerProps> & {
         onSelect={handleSelect}
         weekStartsOn={1}
         showOutsideDays
+        locale={esLocale}
         modifiers={{
           has1: match(1, 1),
           has2: match(2, 2),
