@@ -1,15 +1,15 @@
 // src/app/api/firebase-config/route.ts
+
+// This API route is no longer necessary as the Firebase configuration
+// is now read directly from environment variables on the client.
+// It is kept to prevent 404 errors from old client versions but can be
+// safely removed in the future.
+
 import { NextResponse } from 'next/server';
-import { firebaseWebConfig } from '@/config/firebaseWebApp';
 
 export async function GET() {
-  try {
-    if (!firebaseWebConfig.apiKey) {
-      throw new Error("Firebase web config is not available in environment variables.");
-    }
-    return NextResponse.json(firebaseWebConfig);
-  } catch (error: any) {
-    console.error("Error serving Firebase config:", error);
-    return NextResponse.json({ error: "Could not load Firebase configuration." }, { status: 500 });
-  }
+  return NextResponse.json({
+    ok: false,
+    error: "This endpoint is deprecated. Firebase config is now loaded directly on the client.",
+  }, { status: 410 }); // 410 Gone
 }

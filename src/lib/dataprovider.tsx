@@ -8,7 +8,7 @@ import { collection, getDocs } from "firebase/firestore";
 import { usePathname, useRouter } from "next/navigation";
 import { SANTA_DATA_COLLECTIONS } from '@/domain/ssot';
 import { upsertMany } from './dataprovider/actions';
-import { getFirebase } from "@/lib/firebaseClient";
+import { getFirebaseSync } from "@/lib/firebaseClient"; // Use the sync version
 import { MOCK_DATA } from "./mock-data";
 
 type LoadReport = { ok: Array<keyof SantaData>; errors: Array<{ name: keyof SantaData; error: string }>; totalDocs: number; };
@@ -68,7 +68,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     
     setLoadingData(true);
     try {
-      const { firestoreDb } = await getFirebase();
+      const { firestoreDb } = getFirebaseSync(); // Use sync version
       if (!firestoreDb) throw new Error("Firestore DB not initialized");
       const partial: Partial<SantaData> = {};
       let total = 0;
@@ -94,7 +94,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let unsub: (() => void) | undefined;
-    getFirebase().then(({ firebaseAuth }) => {
+    try {
+      const { firebaseAuth } = getFirebaseSync(); // Use sync version
         if (!mountedRef.current) return;
         unsub = onAuthStateChanged(firebaseAuth, (fbUser) => {
           if (!mountedRef.current) return;
@@ -106,11 +107,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             setLoadingData(false);
           }
         });
-    }).catch(error => {
+    } catch(error) {
         console.error("Could not get Firebase Auth for onAuthStateChanged:", error);
         setAuthReady(true);
         setLoadingData(false);
-    });
+    };
     return () => {
         if(unsub) unsub();
     };
@@ -169,19 +170,19 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [saveAllCollections]);
 
   const login = useCallback(async () => {
-    const { firebaseAuth } = await getFirebase();
+    const { firebaseAuth } = getFirebaseSync();
     const provider = new GoogleAuthProvider();
     provider.addScope('https://www.googleapis.com/auth/spreadsheets');
     await signInWithPopup(firebaseAuth, provider);
   }, []);
 
   const loginWithEmail = useCallback(async (email: string, pass: string) => {
-    const { firebaseAuth } = await getFirebase();
+    const { firebaseAuth } = getFirebaseSync();
     await signInWithEmailAndPassword(firebaseAuth, email, pass);
   }, []);
 
   const signupWithEmail = useCallback(async (email: string, pass: string): Promise<User | null> => {
-    const { firebaseAuth } = await getFirebase();
+    const { firebaseAuth } = getFirebaseSync();
     const cred = await createUserWithEmailAndPassword(firebaseAuth, email, pass);
     const fbUser = cred.user;
     if (!fbUser) return null;
@@ -199,7 +200,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [saveCollection]);
 
   const logout = useCallback(async () => {
-    const { firebaseAuth } = await getFirebase();
+    const { firebaseAuth } = getFirebaseSync();
     await signOut(firebaseAuth);
   }, []);
 
