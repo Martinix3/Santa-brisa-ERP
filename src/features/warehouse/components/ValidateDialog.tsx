@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog";
 import { SBButton, Input, Select } from '@/components/ui/ui-primitives';
 import type { Shipment, ShipmentLine } from '@/domain/ssot';
-import { validateShipment } from '@/app/(app)/warehouse/logistics/actions';
+import { validateShipment } from '@/server/actions/logistics.actions';
 import { useData } from '@/lib/dataprovider';
 
 export function ValidateDialog({ open, onOpenChange, shipment }: { 

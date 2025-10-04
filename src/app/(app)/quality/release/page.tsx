@@ -7,7 +7,7 @@ import { useData } from '@/lib/dataprovider';
 import { SBCard, SBButton, Input } from '@/components/ui/ui-primitives';
 import { CheckCircle, XCircle, FlaskConical, ChevronRight } from "lucide-react";
 import type { Lot, Item, QcPlanBySku, QcStatus, ParameterBySku } from "@/domain/ssot";
-import { saveQcDecision } from '@/app/(app)/quality/actions';
+import { saveQcDecision } from '@/server/actions/quality.actions';
 import { toast } from "sonner";
 
 // ============================================================================

@@ -6,7 +6,7 @@ import { getOne, upsertMany } from '@/lib/dataprovider/server';
 import type { OrderStatus, Shipment, OrderSellOut, Account, Party, FinanceLink, PaymentLink, OnHandView, OrderLine, Item, SalesUnit } from '@/domain/ssot';
 import { enqueue } from '@/server/queue/queue';
 import { importSingleShopifyOrder } from '@/server/integrations/shopify/import-order';
-import { confirmOrderShipment as confirmAndReserve } from '../warehouse/logistics/actions';
+import { confirmOrderShipment as confirmAndReserve } from '@/server/actions/logistics.actions';
 import { adminDb as db } from "@/server/firebase";
 import { getUserRole } from "@/server/auth";
 import { SANTA_BRISA_DISTRIB_ID, canPlaceOrder } from "@/lib/authz";
@@ -171,5 +171,3 @@ export async function recordPayment({ financeLinkId, amount, date, method }: {
   revalidatePath('/finance');
   return { ok:true, paymentId: pay.id };
 }
-
-    

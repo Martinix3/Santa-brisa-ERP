@@ -1,4 +1,4 @@
-// src/app/(app)/warehouse/logistics/actions.ts
+// src/server/actions/logistics.actions.ts
 'use server';
 import 'server-only';
 

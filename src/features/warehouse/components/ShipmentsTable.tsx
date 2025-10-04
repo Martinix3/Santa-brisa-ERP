@@ -10,7 +10,7 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import { SBCard, SBButton } from '@/components/ui/ui-primitives';
 import type { Shipment, OrderSellOut, Account } from '@/domain/ssot';
 import { useData } from '@/lib/dataprovider';
-import { validateShipment, markShipped } from '@/app/(app)/warehouse/logistics/actions';
+import { markShipped } from '@/server/actions/logistics.actions';
 
 function getChannelInfo(order?: OrderSellOut, account?: Account) {
     if (!account) return { label: "N/A", className: "bg-zinc-100 text-zinc-900 border-zinc-200" };

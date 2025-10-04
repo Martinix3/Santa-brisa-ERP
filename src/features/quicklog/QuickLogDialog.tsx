@@ -1,4 +1,3 @@
-
 // src/features/quicklog/QuickLogDialog.tsx
 "use client";
 import React, { useState, useMemo, useCallback, useEffect } from "react";
@@ -11,8 +10,9 @@ import { Search, Plus, Trash2 } from 'lucide-react';
 // Server actions
 import { createInteraction } from "@/app/(app)/agenda/actions";
 import { placeOrder } from "@/app/(app)/orders/actions";
-import { createPosTacticsBatch, type PosLineInput } from "@/features/pos/server/pos-actions";
-import { createAccountAndParty } from "./actions/create-account-action";
+import { createPosTacticsBatch } from '@/server/actions/pos-tactics.service';
+import type { PosLineInput } from '@/server/actions/pos-tactics.service';
+import { createAccountAndParty } from "@/server/actions/create-account.action";
 
 import { PosLinesPicker } from "@/features/pos/PosLinesPicker";
 import type { Account, Party, PosCostCatalogEntry, Item } from "@/domain/ssot";

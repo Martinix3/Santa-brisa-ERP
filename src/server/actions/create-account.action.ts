@@ -1,4 +1,4 @@
-// src/features/quicklog/actions/create-account-action.ts
+// src/server/actions/create-account.action.ts
 'use server';
 
 import { adminDb as db } from '@/server/firebase';
