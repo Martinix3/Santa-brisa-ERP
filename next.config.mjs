@@ -1,16 +1,19 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: false, // puedes dejarlo en true si no da problemas con framer-motion
+  reactStrictMode: false,
   compiler: {
     styledComponents: true,
   },
   eslint: {
-    // Warning: This allows production builds to complete even if
-    // your project has ESLint errors.
     ignoreDuringBuilds: true,
   },
   typescript: {
     ignoreBuildErrors: true,
+  },
+  devIndicators: {
+    allowedDevOrigins: [
+      "https://9000-firebase-studio-1757248254463.cluster-fbfjltn365c6wqxlhoehbz44sk.cloudworkstations.dev",
+    ],
   },
   webpack: (config) => {
     config.externals.push({
