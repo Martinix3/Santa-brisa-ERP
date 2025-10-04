@@ -1,3 +1,4 @@
+
 // src/features/quicklog/QuickLogDialog.tsx
 "use client";
 import React, { useState, useMemo, useCallback, useEffect } from "react";
@@ -146,20 +147,27 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
     try {
       setSaving(true);
       const accId = await ensureAccountSelected();
+      
+      // Filtra las líneas POS antes de enviarlas
+      const validPosLines = posLines.filter(
+        (l) => (l.kind === 'CATALOGO' && l.catalogItemId) || (l.kind === 'CUSTOM' && l.desc)
+      );
+
       if (tab === "INTERACCION") {
         await createInteraction({ accountId: accId, createdById: currentUser!.id, kind: "VISITA", note: note || undefined, plannedFor: plannedFor || undefined, dept: 'VENTAS' });
-        if (posLines.length) await createPosTacticsBatch({ accountId: accId, createdById: currentUser!.id, lines: posLines as PosLineInput[] });
-        toast.success(`Interacción guardada${posLines.length ? " + POS" : ""}`);
+        if (validPosLines.length) await createPosTacticsBatch({ accountId: accId, createdById: currentUser!.id, lines: validPosLines as PosLineInput[] });
+        toast.success(`Interacción guardada${validPosLines.length ? " + POS" : ""}`);
       }
       if (tab === "PEDIDO") {
-        if (!lines.length || !lines.some(l => l.sku.trim() && l.qty > 0)) {
+        const validLines = lines.filter(l => l.sku.trim() && l.qty > 0);
+        if (!validLines.length) {
           toast.error("Añade al menos una línea válida (SKU + cantidad > 0)");
           setSaving(false); return;
         }
         const finalDistributorId = distributorId;
         const created = await placeOrder({ accountId: accId, distributorId: finalDistributorId, lines, createdById: currentUser!.id });
-        if (posLines.length) await createPosTacticsBatch({ accountId: accId, createdById: currentUser!.id, lines: posLines as PosLineInput[] });
-        toast.success(`Pedido colocado${posLines.length ? " + POS" : ""}`);
+        if (validPosLines.length) await createPosTacticsBatch({ accountId: accId, createdById: currentUser!.id, lines: validPosLines as PosLineInput[] });
+        toast.success(`Pedido colocado${validPosLines.length ? " + POS" : ""}`);
         if (created?.id) router.push(`/orders/${created.id}`);
       }
       onOpenChange(false);
