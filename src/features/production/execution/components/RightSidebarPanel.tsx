@@ -3,7 +3,7 @@
 import React, { useTransition } from 'react';
 import { SBCard, SBButton, Input, Select, Textarea } from '@/components/ui/ui-primitives';
 import { AlertTriangle } from 'lucide-react';
-import { addIncident } from '@/app/(app)/production/actions';
+import { addIncident } from '@/server/actions/production.actions';
 import { toast } from 'sonner';
 
 export function RightSidebarPanel({ activeForm, setFormValue, orderIsLocked }: {
@@ -21,14 +21,14 @@ export function RightSidebarPanel({ activeForm, setFormValue, orderIsLocked }: {
         severity: activeForm.incidentSeverity,
         summary: activeForm.incidentText.trim(),
       });
-      if (r.ok) {
-        const resultData = r.data as { incidentId: string };
-        setFormValue('journal', [...(activeForm.journal || []), {id: `inc_${resultData.incidentId ?? Date.now()}`, at: new Date().toISOString(), kind:'INCIDENT', summary: activeForm.incidentText.trim()}]);
-        setFormValue('incidentText', '');
-        toast.success("Incidencia registrada");
-      } else {
+      if (!r.ok) {
         toast.error(r.message ?? 'Error al añadir incidencia');
+        return;
       }
+      const resultData = r.data as { incidentId: string };
+      setFormValue('journal', [...(activeForm.journal || []), {id: `inc_${resultData.incidentId ?? Date.now()}`, at: new Date().toISOString(), kind:'INCIDENT', summary: activeForm.incidentText.trim()}]);
+      setFormValue('incidentText', '');
+      toast.success("Incidencia registrada");
     });
   };
 

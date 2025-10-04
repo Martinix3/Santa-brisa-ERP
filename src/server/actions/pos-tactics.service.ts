@@ -23,16 +23,16 @@ const TacticInput = z.object({
   appliesToSkuIds: z.array(z.string()).optional(),
   items: z.array(z.object({
     id: z.string().optional(),
+    kind: z.enum(['CATALOGO', 'CUSTOM']),
     catalogItemId: z.string().optional(),
-    description: z.string(),
+    desc: z.string().optional(),
     qty: z.number().min(0).default(1),
-    unitCost: z.number().min(0).default(0),
-    uom: z.enum(['UNIT','HOUR','BATCH']).optional(),
-    vendor: z.string().optional(),
-    assetId: z.string().optional(),
+    estCost: z.number().min(0).optional(),
+    scheduleAt: z.string().optional(),
   })).min(1),
   executionScore: z.number().min(0).max(100).default(80),
   status: z.enum(['planned','active','closed','cancelled']).default('active'),
+  createdById: z.string(),
 });
 
 export type UpsertPosTacticInput = z.infer<typeof TacticInput>;
@@ -62,22 +62,18 @@ export async function listPosTactics(): Promise<PosTactic[]> {
 }
 
 // === Server Actions (llamadas desde Client Components) ===
-export async function upsertPosTactic(input: UpsertPosTacticInput, createdById: string): Promise<PosTactic> {
+export async function upsertPosTactic(input: UpsertPosTacticInput): Promise<PosTactic> {
   const data = TacticInput.parse(input);
   const id = data.id || db.collection(TACTICS_COLL).doc().id;
 
   const items: any[] = data.items.map((i, idx) => {
-    const unit = Number(i.unitCost ?? 0);
-    const qty = Number(i.qty ?? 1);
     return {
       id: i.id ?? `${Date.now()}_${idx}`,
-      catalogCode: i.catalogItemId,
-      description: i.description,
-      qty,
-      unitCost: unit,
-      uom: i.uom,
-      vendor: i.vendor,
-      assetId: i.assetId,
+      kind: i.kind,
+      catalogItemId: i.catalogItemId,
+      description: i.desc,
+      qty: i.qty,
+      unitCost: i.estCost,
     };
   });
 
@@ -93,7 +89,7 @@ export async function upsertPosTactic(input: UpsertPosTacticInput, createdById: 
     executionScore: data.executionScore,
     status: data.status,
     createdAt: nowISO(),
-    createdById,
+    createdById: data.createdById,
     updatedAt: nowISO(),
   };
 
@@ -101,7 +97,8 @@ export async function upsertPosTactic(input: UpsertPosTacticInput, createdById: 
   return payload;
 }
 
-export async function closePosTactic(tacticId: string, { windowDays = 7 }: { windowDays?: number } = {}): Promise<Partial<PosTactic>> {
+export async function closePosTactic(input: {tacticId: string, windowDays?: number}): Promise<Partial<PosTactic>> {
+  const { tacticId, windowDays = 7 } = input;
   const ref = db.collection(TACTICS_COLL).doc(tacticId);
   const snap = await ref.get();
   if (!snap.exists) throw new Error('Tactic not found');
@@ -181,7 +178,6 @@ export async function createPosTacticsBatch(input: {
     if (line.kind === 'CUSTOM') {
       if (!line.desc) throw new Error("CUSTOM requiere desc (descripción)");
       payload.customDesc = line.desc;
-      payload.visibility = line.visibility ?? 'MEDIA';
       payload.estCost = line.estCost ?? undefined;
 
       if (line.scheduleAt) {

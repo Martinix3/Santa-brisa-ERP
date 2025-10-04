@@ -1,4 +1,3 @@
-
 // src/features/quicklog/QuickLogDialog.tsx
 "use client";
 import React, { useState, useMemo, useCallback, useEffect } from "react";
@@ -151,7 +150,7 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
       
       // Filtra las líneas POS antes de enviarlas
       const validPosLines = posLines.filter(
-        (l: any) => (l.kind === 'CATALOGO' && l.catalogItemId) || (l.kind === 'CUSTOM' && l.desc)
+        (l: any) => ((l.kind === 'CATALOGO' && l.catalogItemId) || (l.kind === 'CUSTOM' && l.desc))
       );
 
       if (tab === "INTERACCION") {

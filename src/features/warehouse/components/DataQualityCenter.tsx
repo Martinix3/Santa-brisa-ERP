@@ -5,7 +5,7 @@ import React, { useState, useTransition } from 'react';
 import { SBCard, SBButton } from '@/components/ui/ui-primitives';
 import { ShieldCheck, ShieldAlert, AlertTriangle, RefreshCw, CheckCircle, ServerCrash } from 'lucide-react';
 import { toast } from 'sonner';
-import { performDataQualityCheck } from '@/server/actions/inventory.actions'; // Importamos la Server Action
+import { performDataQualityCheck } from '@/server/actions/inventory.actions';
 import type { DataAnomaly } from '@/lib/data-quality/types'; // Importamos el tipo
 
 // Un pequeño componente helper para mostrar un icono según la severidad
@@ -33,13 +33,13 @@ export function DataQualityCenter() {
 
       if (result.ok) {
         // Aseguramos que result.data es un array antes de usarlo
-        const data = result.data || [];
-        setAnomalies(data);
+        const list = Array.isArray(result.data) ? result.data : ((result.data as any)?.issues ?? []);
+        setAnomalies(list as any[]);
         setHasRun(true);
-        if (data.length === 0) {
+        if (list.length === 0) {
           toast.success("Auditoría completada. ¡Todo en orden!");
         } else {
-          toast.warning(`Auditoría completada. Se encontraron ${data.length} problemas.`);
+          toast.warning(`Auditoría completada. Se encontraron ${list.length} problemas.`);
         }
       } else {
         toast.error(`Error en la auditoría: ${result.message}`);

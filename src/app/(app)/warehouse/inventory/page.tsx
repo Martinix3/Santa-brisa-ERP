@@ -108,10 +108,11 @@ export default function InventoryPage() {
         toast.info("Iniciando reconstrucción del inventario...");
         const result = await rebuildOnHand();
         if (result.ok) {
-            toast.success(`Inventario reconstruido: ${result.count} registros actualizados.`);
+            const count = (result.data as any)?.count ?? 0;
+            toast.success(`Inventario reconstruido: ${count} registros actualizados.`);
             router.refresh();
         } else {
-            toast.error(`Error: ${result.message}`);
+            toast.error(result.message ?? 'Fallo al reconstruir inventario');
         }
     });
   };

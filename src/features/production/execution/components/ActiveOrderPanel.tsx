@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { Play, Pause, CheckCircle, XCircle, Calendar, ArrowRight } from "lucide-react";
 import { SBCard, SBButton, Input } from '@/components/ui/ui-primitives';
 import type { Uom, Item, ProductionOrder, BillOfMaterial as RecipeBom } from '@/domain/ssot';
-import { updateProductionOrderStatus, completeProductionOrder } from "@/app/(app)/production/actions";
+import { updateProductionOrderStatus, completeProductionOrder } from "@/server/actions/production.actions";
 import { StockCheckPanel } from './StockCheckPanel';
 import { RealConsumptionPanel } from './RealConsumptionPanel';
 import { RightSidebarPanel } from './RightSidebarPanel';
@@ -46,7 +46,7 @@ export function ActiveOrderPanel({ activeForm, setActiveForm, onProgram, items, 
               setActiveForm(null);
               router.refresh();
           } else {
-              toast.error(res.message);
+              toast.error(!res.ok ? (res.message ?? 'Operación fallida') : '');
           }
       });
   };
@@ -60,7 +60,7 @@ export function ActiveOrderPanel({ activeForm, setActiveForm, onProgram, items, 
             setActiveForm(null);
             router.refresh();
         } else {
-            toast.error(res.message);
+            toast.error(!res.ok ? (res.message ?? 'Operación fallida') : '');
         }
         setConfirmAction(null);
     });
@@ -79,13 +79,13 @@ export function ActiveOrderPanel({ activeForm, setActiveForm, onProgram, items, 
         finalConsumptions: activeForm.realConsumption.map((c: any) => ({itemId: c.itemId, lotNumber: c.lotNumber, fromLocationId: c.fromLocationId, qty: c.realQty, uom: c.uom})),
         finalOutputs: [activeForm.finalOutput]
       });
-      if (res.ok) {
-        toast.success("Orden finalizada con éxito");
-        setActiveForm(null);
-        router.refresh();
-      } else {
-        toast.error(res.message ?? "No se pudo finalizar la orden");
+      if (!res.ok) {
+        toast.error(res.message ?? 'No se pudo finalizar la orden');
+        return;
       }
+      toast.success("Orden finalizada con éxito");
+      setActiveForm(null);
+      router.refresh();
       setConfirmAction(null);
     });
   };

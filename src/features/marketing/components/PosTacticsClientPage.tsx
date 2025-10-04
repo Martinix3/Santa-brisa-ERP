@@ -5,7 +5,7 @@ import React, { useMemo, useState, useTransition } from 'react';
 import { Star, TrendingUp, DollarSign, Trophy, Percent, Plus } from 'lucide-react';
 import { SBCard, SBButton } from '@/components/ui/ui-primitives';
 import { NewPosTacticDialog } from '@/features/marketing/components/NewPosTacticDialog';
-import type { PosTactic, PosResult, PosCostCatalogEntry, PlvMaterial, Account } from '@/domain/ssot';
+import type { PosTactic as DPosTactic, PosResult, PosCostCatalogEntry, PlvMaterial, Account } from '@/domain/ssot';
 import { useData } from '@/lib/dataprovider';
 import { upsertPosTactic, closePosTactic } from '../services/posTactics.client';
 
@@ -28,14 +28,14 @@ export function PosTacticsClientPage({
     catalog,
     plv,
 }: {
-    initialTactics: PosTactic[];
+    initialTactics: DPosTactic[];
     catalog: PosCostCatalogEntry[];
     plv: PlvMaterial[];
 }) {
     const { data, currentUser } = useData();
     const [tactics, setTactics] = useState(initialTactics);
     const [isNewTacticOpen, setIsNewTacticOpen] = useState(false);
-    const [editingTactic, setEditingTactic] = useState<PosTactic | null>(null);
+    const [editingTactic, setEditingTactic] = useState<DPosTactic | null>(null);
 
     const kpis = useMemo(() => {
         const closedTactics = tactics.filter(t => t.status === 'closed' && t.result);
@@ -58,14 +58,14 @@ export function PosTacticsClientPage({
     const handleSaveTactic = async (tacticData: any) => {
         try {
             const savedTactic = await upsertPosTactic(tacticData, currentUser?.id || 'unknown');
-            setTactics(prev => {
-                const index = prev.findIndex(t => t.id === savedTactic.id);
-                if (index > -1) {
-                    const next = [...prev];
-                    next[index] = savedTactic;
-                    return next;
-                }
-                return [savedTactic, ...prev];
+            setTactics((prev: DPosTactic[]) => {
+              const index = prev.findIndex(t => t.id === savedTactic.id);
+              if (index > -1) {
+                  const next = [...prev];
+                  next[index] = { ...prev[index], ...(savedTactic as DPosTactic) };
+                  return next;
+              }
+              return [savedTactic as DPosTactic, ...prev];
             });
             setIsNewTacticOpen(false);
             setEditingTactic(null);
@@ -78,8 +78,10 @@ export function PosTacticsClientPage({
     const handleCloseTactic = async (tacticId: string) => {
         if (confirm("¿Estás seguro de que quieres cerrar esta táctica? Se calcularán sus resultados finales.")) {
             try {
-                const result = await closePosTactic(tacticId);
-                setTactics(prev => prev.map(t => t.id === tacticId ? { ...t, ...result } : t));
+                const result = await closePosTactic(tacticId, {});
+                setTactics((prev: DPosTactic[]) =>
+                  prev.map(t => (t.id === tacticId ? ({ ...t, ...(result as Partial<DPosTactic>) } as DPosTactic) : t))
+                );
             } catch (e) {
                 alert((e as Error).message);
             }
