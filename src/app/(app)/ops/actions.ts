@@ -17,14 +17,14 @@ export async function createTask(input: Partial<Interaction>){
     kind: input.kind || 'OTRO',
   };
   await db.collection('interactions').doc(id).set(payload);
-  revalidatePath('/ops/dashboard');
+  revalidatePath('/dashboard-personal');
   revalidatePath('/agenda');
   return { ok: true, id };
 }
 
 export async function updateTask(id: string, patch: Partial<Interaction>){
   await db.collection('interactions').doc(id).update({ ...patch, updatedAt: new Date().toISOString() });
-  revalidatePath('/ops/dashboard');
+  revalidatePath('/dashboard-personal');
   revalidatePath('/agenda');
   return { ok: true };
 }
@@ -36,14 +36,14 @@ export async function completeTask(id: string, payload?: any){
     resultNote: payload?.note,
     updatedAt: new Date().toISOString() 
   });
-  revalidatePath('/ops/dashboard');
+  revalidatePath('/dashboard-personal');
   revalidatePath('/agenda');
   return { ok: true };
 }
 
 export async function deleteTask(id: string){
   await db.collection('interactions').doc(id).delete();
-  revalidatePath('/ops/dashboard');
+  revalidatePath('/dashboard-personal');
   revalidatePath('/agenda');
   return { ok: true };
 }
@@ -73,7 +73,7 @@ export async function scheduleEvent(input: {
     createdAt: new Date().toISOString(),
   }, { merge: true });
 
-  revalidatePath('/ops/dashboard');
+  revalidatePath('/dashboard-personal');
   revalidatePath('/agenda');
   return { ok: true, eventId: id, startAt: input.startAt, endAt };
 }
@@ -86,7 +86,7 @@ export async function rescheduleEvent(interactionId: string, startAt: string, du
     plannedFor: startAt,
     updatedAt: new Date().toISOString(),
   });
-  revalidatePath('/ops/dashboard');
+  revalidatePath('/dashboard-personal');
   revalidatePath('/agenda');
   return { ok: true, eventId: interactionId, startAt, endAt };
 }
@@ -112,5 +112,5 @@ export async function getDashboardData({ period, filters }: { period?: string; f
 }
 
 export async function revalidateOpsDashboard(){
-  revalidatePath('/ops/dashboard');
+  revalidatePath('/dashboard-personal');
 }

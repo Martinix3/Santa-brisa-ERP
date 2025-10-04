@@ -1,15 +1,14 @@
-
 // src/components/layouts/AuthenticatedLayout.tsx
 
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   Home, BarChart3, Megaphone, Factory, ClipboardCheck, Truck,
-  LineChart, SlidersHorizontal, LogOut, Plus, ClipboardList,
+  LineChart, SlidersHorizontal, LogOut, Plus,
 } from "lucide-react";
 import { useData } from "@/lib/dataprovider";
 import { Avatar } from "@/components/ui/Avatar";
@@ -26,7 +25,7 @@ type NavSection = { title: string; module: keyof typeof MODULE_ACCENTS; icon: Re
 
 const navSections: NavSection[] = [
   { title: "Personal", module: "personal", icon: Home,
-    items: [{ href: "/agenda", label: "Agenda" }, { href: "/contacts", label: "Contactos" }] },
+    items: [{ href: "/dashboard-personal", label: "Mi Dashboard" }, { href: "/agenda", label: "Agenda" }, { href: "/contacts", label: "Contactos" }] },
   { title: "Ventas", module: "sales", icon: BarChart3,
     items: [{ href: "/sales/dashboard", label: "Dashboard" }, { href: "/sales/accounts", label: "Cuentas" }, { href: "/sales/orders", label: "Pedidos" }] },
   { title: "Marketing", module: "marketing", icon: Megaphone,
@@ -47,8 +46,6 @@ const navSections: NavSection[] = [
       { href: "/quality/autocontrol", label: "Autocontrol" },
       { href: "/quality/parametros", label: "Parámetros" },
     ] },
-  { title: "Operaciones", module: "ops", icon: ClipboardList,
-    items: [{ href: "/ops/dashboard", label: "Dashboard" }] },
   { title: "Logística", module: "warehouse", icon: Truck,
     items: [{ href: "/warehouse/dashboard", label: "Dashboard" }, { href: "/warehouse/logistics", label: "Envíos" }, { href: "/warehouse/inventory", label: "Inventario" }] },
   { title: "Financiera", module: "finance", icon: LineChart,
@@ -66,10 +63,9 @@ const navSections: NavSection[] = [
 
 /* ===== Helpers ===== */
 function dashboardHrefFor(module: keyof typeof MODULE_ACCENTS): string {
-    if (module === 'sales') return '/sales/dashboard';
-  const section = navSections.find(s => s.module === module);
-  // Default to the first item in the section if available
-  return section?.items[0]?.href || "/";
+    if (module === 'personal') return '/dashboard-personal';
+    const section = navSections.find(s => s.module === module);
+    return section?.items[0]?.href || "/";
 }
 
 function moduleFromPath(pathname: string): keyof typeof MODULE_ACCENTS | null {
@@ -82,7 +78,7 @@ function moduleFromPath(pathname: string): keyof typeof MODULE_ACCENTS | null {
 /* ===== 3) Layout principal ===== */
 export default function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? "/";
-  const { currentUser, logout, data } = useData();
+  const { currentUser, logout } = useData();
   
   const isPrivilegedUser =
     currentUser?.role?.toLowerCase() === "admin" || currentUser?.role?.toLowerCase() === "owner";
@@ -169,7 +165,7 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
         </div>
       </aside>
 
-      <main className="flex-1 min-w-0 overflow-y-auto bg-background">
+      <main className="flex-1 min-w-0 overflow-y-auto bg-secondary">
           {children}
       </main>
     </div>

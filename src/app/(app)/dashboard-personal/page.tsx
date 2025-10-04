@@ -1,70 +1,193 @@
-
 // src/app/(app)/dashboard-personal/page.tsx
-"use client";
-
-import React, { useMemo } from 'react';
+'use client';
+import React, { useMemo, useState, useCallback, useTransition } from 'react';
+import { Kanban, type PipelineItem } from '@/features/ops/components/Kanban';
+import { TasksTable } from '@/features/ops/components/TasksTable';
+import { WeekCalendar } from '@/features/ops/components/WeekCalendar';
+import { CreateTaskModal } from '@/features/ops/components/CreateTaskModal';
+import type { Interaction, Department, Account, User } from '@/domain/ssot';
+import { scheduleEvent, createTask, completeTask } from '@/app/(app)/ops/actions';
+import { Plus } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
-import { Avatar } from '@/components/ui/Avatar';
-import { Plus, Briefcase, Package, UserPlus, Target } from 'lucide-react';
-import { UpcomingTasks } from '@/features/agenda/components/UpcomingTasks';
-import type { Department } from '@/domain/ssot';
-import { SBButton, SBCard } from '@/components/ui/ui-primitives';
-import KpiCard from '@/components/ui/KpiCard';
-import { ModuleHeader } from '@/components/ui';
-import { Home } from 'lucide-react';
+import { toast } from 'sonner';
 
-export default function PersonalDashboardPage() {
-    const { currentUser, data } = useData();
+function mapInteractionToTask(i: Interaction, accounts: Account[]): any {
+  const account = accounts.find(a => a.id === i.accountId);
+  return {
+    id: i.id,
+    title: i.title || i.note || 'Tarea sin título',
+    department: i.dept as Department,
+    kind: (i.uiKind || i.kind) as any,
+    status: i.status === 'done' ? 'done' : 'open',
+    dueAt: i.plannedFor || i.startAt,
+    durationMin: i.durationMin,
+    accountId: i.accountId,
+    accountName: account?.name || 'N/A',
+    createdAt: i.createdAt,
+    updatedAt: i.updatedAt,
+  };
+}
 
-    const kpis = useMemo(() => {
-        if (!data || !currentUser) {
-            return { newAccounts: 0, boxesSold: 0, visits: 0, posTactics: 0 };
+function mapInteractionToEvent(i: Interaction, accounts: Account[]): any {
+    const account = accounts.find(a => a.id === i.accountId);
+    return {
+        id: i.id,
+        title: i.title || i.note || 'Tarea sin título',
+        startAt: i.startAt || i.plannedFor!,
+        endAt: i.endAt || new Date(new Date(i.startAt || i.plannedFor!).getTime() + (i.durationMin || 45) * 60000).toISOString(),
+        dept: i.dept as Department,
+        accountId: i.accountId,
+        accountName: account?.name,
+    };
+}
+
+
+export default function PersonalDashboardPage(){
+  const { data, currentUser } = useData();
+  const [isPending, startTransition] = useTransition();
+
+  const { pipeline, tasks, events, accounts } = useMemo(() => {
+    if (!data) return { pipeline: [], tasks: [], events: [], accounts: [] };
+    
+    const allTasks = (data.interactions || []).map(i => mapInteractionToTask(i, data.accounts || []));
+    const allEvents = (data.interactions || []).filter(i => i.startAt || i.plannedFor).map(i => mapInteractionToEvent(i, data.accounts || []));
+
+    const demoPipeline: PipelineItem[] = (data.accounts || []).slice(0, 5).map(acc => ({
+        accountId: acc.id,
+        accountName: acc.name,
+        stage: acc.stage,
+        sales: { revenue: 0, ordersCount: 0 },
+        marketing: { hasPLVInstalled: false, activeActivations: 0, ordersWithPromoInPeriod: 0 },
+    }));
+
+    return { 
+        pipeline: demoPipeline, 
+        tasks: allTasks, 
+        events: allEvents, 
+        accounts: data.accounts || [],
+    };
+  }, [data]);
+  
+  const [view, setView] = useState<'DIA'|'SEMANA'|'MES'>('SEMANA');
+  const [deptFilter, setDeptFilter] = useState<Department | 'TODOS'>('TODOS');
+  const [createOpen, setCreateOpen] = useState(false);
+
+  const onProgramFromKanban = (p:{accountId:string;accountName:string;dept:Department;title:string})=>{
+    startTransition(async () => {
+        if (!currentUser?.id) {
+            toast.error("No se ha podido identificar al usuario.");
+            return;
         }
-        
-        const userInteractions = (data.interactions || []).filter(i => i.userId === currentUser.id);
-        const userAccounts = (data.accounts || []).filter(a => a.ownerId === currentUser.id);
-        
-        // Mock data for now
-        return {
-            newAccounts: userAccounts.length,
-            boxesSold: 58, 
-            visits: userInteractions.filter(i => i.kind === 'VISITA').length,
-            posTactics: 4,
-        };
-    }, [data, currentUser]);
+        const { ok } = await createTask({
+            accountId: p.accountId,
+            note: p.title,
+            dept: p.dept,
+            userId: currentUser.id
+        });
+        if (ok) toast.success("Tarea creada para programar.");
+    });
+  };
 
-    return (
-        <>
-            <ModuleHeader title="Mi Dashboard" icon={Home} />
-            <main className="flex-1 bg-background p-4 sm:p-6 lg:p-8">
-                <div className="mx-auto w-full max-w-4xl space-y-6">
-                    <header className="flex items-center justify-between">
-                        <div>
-                            <h1 className="text-2xl font-bold text-zinc-900">Resumen de Actividad</h1>
-                            <p className="text-sm text-zinc-600">Tu actividad y próximas tareas.</p>
-                        </div>
-                        <Avatar name={currentUser?.name} size="lg" />
-                    </header>
+  const onCompleteTask = (id:string)=>{
+      startTransition(async () => {
+          const { ok } = await completeTask(id);
+          if (ok) toast.success("Tarea completada.");
+      });
+  };
 
-                    <SBButton className="w-full font-semibold" size="lg">
-                        <Plus size={20} />
-                        Añadir Rápido
-                    </SBButton>
+  const onTaskDragStart = (row: any, e:React.DragEvent)=>{
+    e.dataTransfer.setData('application/json', JSON.stringify(row));
+    e.dataTransfer.effectAllowed='copyMove';
+  };
 
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                        <KpiCard icon={UserPlus} title="Nuevas Cuentas" value={kpis.newAccounts.toString()} goal={`${kpis.newAccounts} / 10`} />
-                        <KpiCard icon={Package} title="Cajas Vendidas" value={kpis.boxesSold.toString()} goal={`${kpis.boxesSold} / 150`} />
-                        <KpiCard icon={Briefcase} title="Visitas" value={kpis.visits.toString()} goal={`${kpis.visits} / 60`} />
-                        <KpiCard icon={Target} title="POS" value={kpis.posTactics.toString()} goal={`${kpis.posTactics} / 20`} />
-                    </div>
-                    
-                    <UpcomingTasks 
-                        department={'VENTAS' as Department}
-                        onlyUserId={currentUser?.id}
-                        includeDepartments={['VENTAS', 'MARKETING', 'PERSONAL']}
-                    />
-                </div>
-            </main>
-        </>
-    );
+  const onCalendarDrop = async (slotISO:string, payload:any)=>{
+    startTransition(async () => {
+        if (!currentUser?.id) {
+            toast.error("No se ha podido identificar al usuario.");
+            return;
+        }
+        const { ok } = await scheduleEvent({
+            taskId: payload.id,
+            accountId: payload.accountId,
+            title: payload.title,
+            dept: payload.dept,
+            startAt: slotISO,
+            durationMin: 45
+        });
+        if (ok) toast.success("Tarea programada en el calendario.");
+    });
+  };
+
+  const onCreateTask = (payload:any)=>{
+    startTransition(async () => {
+        if (!currentUser?.id) {
+            toast.error("No se ha podido identificar al usuario.");
+            return;
+        }
+        const { ok } = await createTask({
+            ...payload,
+            userId: currentUser.id
+        });
+        if (ok) {
+            toast.success("Nueva tarea creada.");
+            setCreateOpen(false);
+        } else {
+            toast.error("No se pudo crear la tarea.");
+        }
+    });
+  };
+
+  return (
+    <main className="p-4 sm:p-6 lg:p-8">
+      <div className="grid grid-cols-1 xl:grid-cols-[1.2fr,1fr,1.1fr] gap-4">
+        <section className="space-y-3">
+          <div className="sb-card" data-variant="plain">
+            <div className="sb-card__header">
+              <h2 className="sb-card__title">Pipeline (Kanban)</h2>
+              <div className="ml-auto text-sm text-neutral-600">Arrastra al calendario para programar</div>
+            </div>
+          </div>
+          <Kanban items={pipeline} onProgram={onProgramFromKanban} />
+        </section>
+
+        <section className="space-y-3">
+          <div className="sb-card" data-variant="plain">
+            <div className="sb-card__header">
+              <h2 className="sb-card__title">Tareas</h2>
+              <div className="ml-auto flex items-center gap-2 text-sm">
+                <select className="border rounded-lg px-2 py-1" value={view} onChange={e=> setView(e.target.value as any)}>
+                  <option value="DIA">Día</option>
+                  <option value="SEMANA">Semana</option>
+                  <option value="MES">Mes</option>
+                </select>
+                <select className="border rounded-lg px-2 py-1" value={deptFilter} onChange={e=> setDeptFilter(e.target.value as any)}>
+                  <option value="TODOS">Todos</option>
+                  <option value="VENTAS">Ventas</option>
+                  <option value="MARKETING">Marketing</option>
+                  <option value="CALIDAD">Calidad</option>
+                  <option value="FINANZAS">Finanzas</option>
+                  <option value="PRODUCCION">Producción</option>
+                  <option value="ALMACEN">Almacén</option>
+                  <option value="PERSONAL">Personal</option>
+                </select>
+                <button className="sb-btn-primary px-2 py-1 flex items-center gap-1" onClick={()=>setCreateOpen(true)}><Plus size={14}/> Crear tarea</button>
+              </div>
+            </div>
+          </div>
+          <TasksTable rows={tasks} view={view} deptFilter={deptFilter} onComplete={onCompleteTask} onDragStart={onTaskDragStart} />
+        </section>
+
+        <section className="space-y-3">
+          <WeekCalendar events={events} onDropSchedule={onCalendarDrop} />
+          <div className="text-xs text-neutral-600">Consejo: Arrastra tareas desde el Kanban o la Tabla al hueco libre del calendario para programar o reprogramar.</div>
+        </section>
+      </div>
+
+      <button className="fixed right-4 bottom-4 sb-btn-primary rounded-full w-14 h-14 flex items-center justify-center shadow-lg xl:hidden" onClick={()=>setCreateOpen(true)} aria-label="Crear tarea">
+        <Plus />
+      </button>
+
+      <CreateTaskModal open={createOpen} onClose={()=>setCreateOpen(false)} onCreate={onCreateTask} accounts={accounts} />
+    </main>
+  );
 }
