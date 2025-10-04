@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { previewPlanning } from "@/app/(app)/production/actions";
+import { previewPlanning } from "@/server/actions/production.actions";
 
 export async function POST(req: Request) {
   try {
