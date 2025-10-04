@@ -1,16 +1,17 @@
+
 // src/app/(app)/dashboard-personal/page.tsx
 'use client';
 
 import React, { useMemo, useState, useCallback, useTransition } from 'react';
 import { useData } from '@/lib/dataprovider';
-import type { Interaction, Account, Department, Stage } from '@/domain/ssot';
+import type { Interaction, Account, Department, Stage, InteractionStatus } from '@/domain/ssot';
 import { DEPT_META } from '@/domain/ssot';
 import { DndContext, useDroppable, useDraggable, type DragEndEvent } from '@dnd-kit/core';
 import { Plus, Check, Clock, Waypoints, Droplet, Users } from 'lucide-react';
 import { SBButton } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { DayPicker } from 'react-day-picker';
-import es from 'date-fns/locale/es';
+import { es as esLocale } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { CreateTaskModal } from '@/features/ops/components/CreateTaskModal';
 import { createTask, completeTask } from '@/app/(app)/ops/actions';
@@ -193,7 +194,7 @@ function WeeklyKpisCard({ tasks, orders }: { tasks: Interaction[], orders: any[]
 
 // --- MAIN PAGE ---
 export default function PersonalDashboardPage() {
-  const { data, setData } = useData();
+  const { data, setData, currentUser } = useData();
   const [isPending, startTransition] = useTransition();
   const [createOpen, setCreateOpen] = useState(false);
   const [presetAccount, setPresetAccount] = useState<{accountId?:string; accountName?:string}|null>(null);
@@ -224,7 +225,11 @@ export default function PersonalDashboardPage() {
     // Optimista en memoria
     setData(prev => {
       if (!prev) return prev;
-      const interactions = prev.interactions.map(t => t.id === id ? { ...t, status:'done', updatedAt: new Date().toISOString() } : t);
+      const interactions = prev.interactions.map(t =>
+        t.id === id
+          ? { ...t, status: 'done' as InteractionStatus, updatedAt: new Date().toISOString() }
+          : t
+      );
       return { ...prev, interactions };
     });
     startTransition(async ()=>{
@@ -256,7 +261,13 @@ export default function PersonalDashboardPage() {
     if (!data) return;
     // Optimista: insertamos al inicio de interactions
     const tempId = `tmp_${Date.now()}`;
-    const optimistic = { id: tempId, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), status:'open', ...payload } as Interaction;
+    const optimistic = {
+      id: tempId,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      status: 'open' as InteractionStatus,
+      ...payload,
+    } as Interaction;
     setData(prev => prev ? { ...prev, interactions: [optimistic, ...(prev.interactions||[])] } : prev);
     setCreateOpen(false);
     startTransition(async ()=>{
@@ -303,7 +314,7 @@ export default function PersonalDashboardPage() {
                  <DayPicker
                     mode="single"
                     selected={new Date()}
-                    locale={es}
+                    locale={esLocale}
                     showOutsideDays
                     fixedWeeks
                   />
