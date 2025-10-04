@@ -1,5 +1,4 @@
 // src/components/layouts/AuthenticatedLayout.tsx
-
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
@@ -17,6 +16,7 @@ import { isSales } from "@/lib/authz";
 import { MODULE_ACCENTS } from "@/domain/ssot";
 import { RealtimeToggle } from "../RealtimeToggle";
 import { PersistenceToggle } from "../ui/PersistenceToggle";
+import Loading from "@/app/loading";
 
 
 /* ===== 1) Navegación ===== */
@@ -79,15 +79,15 @@ function moduleFromPath(pathname: string): keyof typeof MODULE_ACCENTS | null {
 export default function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? "/";
   const router = useRouter();
-  const { currentUser, logout } = useData();
+  const { currentUser, logout, authReady, firebaseUser } = useData();
 
   useEffect(() => {
-    // Si por alguna razón este layout se renderiza sin un usuario,
-    // es un estado inválido y debemos forzar el retorno al login.
-    if (!currentUser) {
+    // Si la autenticación está lista y no hay usuario, redirige al login.
+    // Esta es la guarda principal para todas las rutas protegidas.
+    if (authReady && !firebaseUser) {
       router.replace('/login');
     }
-  }, [currentUser, router]);
+  }, [authReady, firebaseUser, router]);
   
   const isPrivilegedUser =
     currentUser?.role?.toLowerCase() === "admin" || currentUser?.role?.toLowerCase() === "owner";
@@ -107,9 +107,11 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
     return () => document.removeEventListener("mousedown", onDocClick);
   }, [userMenuOpen]);
 
-  // No renderizar nada si no hay usuario, el useEffect se encargará de redirigir.
-  if (!currentUser) {
-    return null;
+  // Si después de la carga inicial no hay usuario de Firebase (está redirigiendo),
+  // o si hay usuario de Firebase pero aún no se ha cargado el perfil de la app,
+  // muestra la pantalla de carga para evitar renderizados a medias.
+  if (!authReady || !firebaseUser || !currentUser) {
+    return <Loading />;
   }
 
   return (
