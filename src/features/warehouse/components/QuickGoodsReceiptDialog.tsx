@@ -10,7 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/ui-prim
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/ui-primitives"; 
 import { useData } from "@/lib/dataprovider";
 import type { Party, Item, Uom, ItemCategory, PartyRole } from "@/domain/ssot";
-import { createGoodsReceipt, createSupplier, createItem } from "@/app/(app)/warehouse/goods-receipt/actions";
+import { createGoodsReceipt, createSupplier, createItem } from "@/server/actions/goods-receipt.actions";
 import { Plus, Trash2, Truck, Check, ChevronsUpDown } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";

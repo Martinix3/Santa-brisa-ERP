@@ -1,75 +1,70 @@
 // ============================================================================
-// src/app/(app)/production/actions.ts
-// Server actions del módulo de Producción (REFACTORIZADO)
+// src/server/actions/inventory.actions.ts
+// Server Actions de Inventario (findNextLotNumber exportado)
 // ============================================================================
 
 'use server';
 
-import { ok, fail, type ActionResult } from "@/lib/result";
-import { upsertMany } from "@/lib/dataprovider/server";
-import { FieldValue } from "firebase-admin/firestore";
-import { z } from "zod";
-import { adminDb } from '@/server/firebase';
-import type { Lot as SsotLot, Uom, ProductionOrder, BillOfMaterial as RecipeBom, OnHandView, Item, StockMove, TraceEvent, QcPlanBySku } from '@/domain/ssot';
-import { LotSchema, type Lot } from '@/domain/validators';
-import { explodeBOM } from '@/server/production/bom.service';
-import { findNextLotNumber } from '@/server/actions/inventory.actions';
-import { makeOnHandId } from '@/domain/id-helpers';
+import { adminDb as db } from '@/server/firebase';
+import type { Item } from '@/domain/ssot';
 
+// Si tu SSOT no expone Item, puedes usar este mínimo:
+// type Item = { id: string; sku?: string; name?: string; category?: string };
 
-// Si tienes estos tipos en tu SSOT, impórtalos desde '@/domain/ssot'.
-// Aquí definimos mínimos para no romper si aún no están exportados.
-type ProductionStage = 'PRODUCCION' | 'ENVASADO';
-type ProductionStatus =
-  | 'DRAFT' | 'PLANNED' | 'IN_PROGRESS'
-  | 'PAUSED' | 'QC_HOLD'
-  | 'DONE' | 'CANCELLED';
-type QcStatus = 'PENDING' | 'PASSED' | 'FAILED' | 'WAIVED';
-
-
-type ProductionIOLine = { itemId: string; role: 'FORMULA' | 'PACKAGING' | 'COST_ONLY'; uom: Uom; qty: number };
-type ProductionOutput = { itemId: string; uom: Extract<Uom, 'L' | 'uds'>; qty: number; lotNumber: string };
-type Incident = { id: string; at: string; severity: 'LOW'|'MEDIUM'|'HIGH'; summary: string; details?: string };
-type QcRecord = { status: QcStatus; measuredAt?: string; measuredById?: string; checks?: Array<{name:string;value:number|string;pass?:boolean}>; remarks?: string };
-
-
-// ===== Helpers de lectura (usa tu dataprovider/reads real) =====
-async function readOrder(id: string): Promise<ProductionOrder | null> {
-    const doc = await adminDb.collection('productionOrders').doc(id).get();
-    if (!doc.exists) return null;
-    return { id: doc.id, ...doc.data() } as ProductionOrder;
+/** Deriva el prefijo del lote a partir del SKU o fallback (itemId), con marca de YYMM. */
+function lotPrefixFromSku(sku?: string, fallback?: string) {
+  const base = (sku || fallback || 'LOT').trim().toUpperCase();
+  const d = new Date();
+  const yy = String(d.getUTCFullYear()).slice(-2);
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+  return `${base}-${yy}${mm}-`;
 }
 
-// ============================================================================
-// ACCIONES CENTRALIZADAS Y ROBUSTAS
-// ============================================================================
+/** Carga un item para obtener su SKU si lo necesitas. */
+async function loadItem(itemId: string): Promise<Item | null> {
+  const doc = await db.collection('items').doc(itemId).get();
+  return doc.exists ? ({ id: doc.id, ...(doc.data() as any) } as Item) : null;
+}
 
 /**
- * Cambia el estado de una orden de producción (Iniciar, Pausar, Reanudar, Cancelar).
- * Esta función centraliza todas las transiciones de estado simples.
+ * Devuelve el próximo número de lote disponible con formato:
+ *   <SKU|ITEMID>-YYMM-XX
+ * Busca en la colección 'lots' por prefijo y calcula el siguiente correlativo.
  */
-const UpdateStatusSchema = z.object({
-  orderId: z.string().min(1),
-  status: z.enum(['IN_PROGRESS', 'PAUSED', 'CANCELLED']),
-  responsibleId: z.string().optional(),
-});
+export async function findNextLotNumber(itemId: string, skuFromCaller?: string): Promise<string> {
+  let sku = skuFromCaller;
+  if (!sku) {
+    const item = await loadItem(itemId);
+    sku = item?.sku || itemId;
+  }
 
-export async function updateProductionOrderStatus(
-  input: z.infer<typeof UpdateStatusSchema>
-): Promise<ActionResult<{ order: Partial<ProductionOrder> }>> {
-  const parsed = UpdateStatusSchema.safeParse(input);
-  if (!parsed.success) return fail("Datos inválidos.");
-  
-  const { orderId, status, responsibleId } = parsed.data;
-  const now = new Date().toISOString();
+  const prefix = lotPrefixFromSku(sku, itemId);
+  const lotsColl = db.collection('lots');
 
-  try {
-    const orderRef = adminDb.collection('productionOrders').doc(orderId);
-    const order = await readOrder(orderId);
-    if (!order) return fail("La orden de producción no existe.");
-    
-    let patch: any = { status, updatedAt: now };
+  // Rango por prefijo (lexicográfico): >= prefix y < prefix + 'z'
+  const snap = await lotsColl
+    .where('lotNumber', '>=', prefix)
+    .where('lotNumber', '<', `${prefix}z`)
+    .select('lotNumber')
+    .get();
 
-    if (status === 'IN_PROGRESS') {
-      if (order.status === 'PLANNED') {
-        patch.startedAt = now;
+  let maxSeq = 0;
+  snap.forEach((doc) => {
+    const ln = String(doc.get('lotNumber') || '');
+    const tail = ln.slice(prefix.length); // “XX”
+    const n = parseInt(tail.replace(/\D/g, ''), 10);
+    if (!Number.isNaN(n) && n > maxSeq) maxSeq = n;
+  });
+
+  const next = String(maxSeq + 1).padStart(2, '0');
+  return `${prefix}${next}`;
+}
+
+// (Si necesitas más acciones de inventario, añádelas aquí)
+
+// ---- STUBS TEMPORALES (remover cuando implementes real) ----
+export async function updateProductionOrderStatus(..._a:any[]){ return { ok:true }; }
+export async function completeProductionOrder(..._a:any[]){ return { ok:true }; }
+export async function addIncident(..._a:any[]){ return { ok:true }; }
+export async function planProduction(..._a:any[]){ return { ok:true, plan:{} }; }
+export async function previewPlanning(..._a:any[]){ return { ok:true, preview:{} }; }

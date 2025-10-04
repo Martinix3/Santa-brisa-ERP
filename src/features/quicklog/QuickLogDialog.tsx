@@ -1,3 +1,4 @@
+
 // src/features/quicklog/QuickLogDialog.tsx
 "use client";
 import React, { useState, useMemo, useCallback, useEffect } from "react";
@@ -8,8 +9,8 @@ import { useRouter } from "next/navigation";
 import { Search, Plus, Trash2 } from 'lucide-react';
 
 // Server actions
-import { createInteraction } from "@/app/(app)/agenda/actions";
-import { placeOrder } from "@/app/(app)/orders/actions";
+import { createInteraction } from "@/server/actions/agenda.actions";
+import { placeOrder } from "@/server/actions/orders.actions";
 import { createPosTacticsBatch } from '@/server/actions/pos-tactics.service';
 import type { PosLineInput } from '@/server/actions/pos-tactics.service';
 import { createAccountAndParty } from "@/server/actions/create-account.action";
@@ -150,7 +151,7 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
       
       // Filtra las líneas POS antes de enviarlas
       const validPosLines = posLines.filter(
-        (l) => (l.kind === 'CATALOGO' && l.catalogItemId) || (l.kind === 'CUSTOM' && l.desc)
+        (l: any) => (l.kind === 'CATALOGO' && l.catalogItemId) || (l.kind === 'CUSTOM' && l.desc)
       );
 
       if (tab === "INTERACCION") {

@@ -14,7 +14,7 @@ import { SpinnerButton } from "@/components/ui/SpinnerButton";
 import { Field, focusFirstError } from "@/components/forms/Field";
 import { useBomForm } from "@/features/bom/useBomForm";
 import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog";
-import { upsertBOM, archiveBOM, upsertMinimalProduct } from "./actions";
+import { upsertBOM, archiveBOM, upsertMinimalProduct } from "@/server/actions/bom.actions";
 import { FormStatusBar } from "@/components/ui/FormStatusBar";
 import { cn } from "@/lib/utils";
 

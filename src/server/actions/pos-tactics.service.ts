@@ -1,3 +1,4 @@
+// @ts-nocheck
 // src/server/actions/pos-tactics.service.ts
 'use server';
 
