@@ -9,15 +9,15 @@ import Link from 'next/link';
 
 interface TaskRowProps {
     task: Task;
-    onEdit: (id: string) => void;
-    onComplete: (id: string) => void;
+    onEdit: (task: Task) => void;
+    onComplete: (task: Task) => void;
     onDelete: (id: string) => void;
 }
 
 const TaskRow: React.FC<TaskRowProps> = ({ task, onEdit, onComplete, onDelete }) => {
     const deptMeta = task.dept ? DEPT_META[task.dept as keyof typeof DEPT_META] : null;
     
-    const dueDate = task.dueAt ? new Date(task.dueAt) : null;
+    const dueDate = task.dueAt ? new Date(task.dueAt + 'T00:00:00-06:00') : null; // Avoid timezone shifts
     const isOverdue = dueDate && dueDate < new Date() && task.status === 'open';
 
     return (
@@ -52,11 +52,11 @@ const TaskRow: React.FC<TaskRowProps> = ({ task, onEdit, onComplete, onDelete })
             <td className="p-3">{task.assigneeName}</td>
             <td className="p-3 text-right">
                 {task.status === 'open' && (
-                    <SBButton variant="ghost" size="sm" onClick={() => onComplete(task.id)} title="Completar">
+                    <SBButton variant="ghost" size="sm" onClick={() => onComplete(task)} title="Completar">
                         <Check size={16} />
                     </SBButton>
                 )}
-                <SBButton variant="ghost" size="sm" onClick={() => onEdit(task.id)} title="Editar">
+                <SBButton variant="ghost" size="sm" onClick={() => onEdit(task)} title="Editar">
                     <Edit size={16} />
                 </SBButton>
                 <SBButton variant="ghost" size="sm" onClick={() => onDelete(task.id)} title="Borrar" className="text-destructive hover:bg-destructive/10">
@@ -70,8 +70,8 @@ const TaskRow: React.FC<TaskRowProps> = ({ task, onEdit, onComplete, onDelete })
 
 interface TaskListProps {
     tasks: Task[];
-    onEdit: (id: string) => void;
-    onComplete: (id: string) => void;
+    onEdit: (task: Task) => void;
+    onComplete: (task: Task) => void;
     onDelete: (id: string) => void;
 }
 

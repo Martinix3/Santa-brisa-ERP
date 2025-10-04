@@ -16,6 +16,7 @@ export interface Task {
   status: 'open' | 'done';
   tags?: string[];
   source?: string;
+  assigneeId?: string;
   assigneeName?: string;
 }
 
@@ -63,7 +64,6 @@ export function useTasks() {
   const previousFiltersRef = useRef<TaskFilters>({});
 
   const [filters, setFilters] = useState<TaskFilters>(() => {
-    // 1. Cargar desde querystring
     const params = new URLSearchParams(searchParams.toString());
     const queryFilters: Record<string, any> = {};
     params.forEach((value, key) => {
@@ -78,7 +78,6 @@ export function useTasks() {
 
     if (Object.keys(queryFilters).length > 0) return queryFilters;
 
-    // 2. Fallback a localStorage
     if (typeof window !== 'undefined') {
         try {
             const saved = localStorage.getItem(FILTERS_KEY);
@@ -86,7 +85,6 @@ export function useTasks() {
         } catch (e) { console.error("Failed to parse filters from localStorage", e); }
     }
     
-    // 3. Default
     return { view: 'week', status: 'open' };
   });
 
@@ -94,12 +92,14 @@ export function useTasks() {
   const [aggregates, setAggregates] = useState<TaskAggregates | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastFetch, setLastFetch] = useState(0);
 
-  // Efecto para sincronizar filtros con URL y localStorage
+  const refetch = useCallback(() => setLastFetch(Date.now()), []);
+
   useEffect(() => {
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => {
-      if (value) {
+      if (value !== undefined && value !== null && value !== '') {
         if (Array.isArray(value)) {
           value.forEach(v => params.append(`${key}[]`, v));
         } else {
@@ -107,18 +107,14 @@ export function useTasks() {
         }
       }
     });
-
     const query = params.toString();
-    // Use replace para no añadir al historial del navegador
     router.replace(`${pathname}?${query}`);
-
     if (typeof window !== 'undefined') {
         localStorage.setItem(FILTERS_KEY, JSON.stringify(filters));
     }
     
-    // Telemetry
     if (JSON.stringify(previousFiltersRef.current) !== JSON.stringify(filters)) {
-      console.info('[useTasks] task_filter_changed', {
+      console.info('[Telemetry] task_filter_changed', {
           changed: Object.fromEntries(Object.entries(filters).filter(([key, value]) => (previousFiltersRef.current as any)[key] !== value)),
           newFilters: filters 
       });
@@ -127,7 +123,6 @@ export function useTasks() {
 
   }, [filters, pathname, router]);
 
-  // Efecto para hacer fetch de los datos cuando cambian los filtros
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
@@ -143,7 +138,6 @@ export function useTasks() {
           }
         }
       });
-      // Telemetría mínima
       console.info(`[useTasks] view_loaded`, { filters, view: filters.view });
 
       try {
@@ -160,7 +154,30 @@ export function useTasks() {
     };
 
     fetchData();
-  }, [filters]); // Dependencia en el objeto de filtros serializado para detectar cambios
+  }, [filters, lastFetch]);
 
-  return { filters, setFilters, tasks, aggregates, isLoading, error };
+  // --- Local State Mutations (Simulated) ---
+  const addTask = useCallback((payload: Omit<Task, 'id' | 'status' | 'priority'>) => {
+      const newTask: Task = {
+          id: `local_${Date.now()}`,
+          status: 'open',
+          priority: 0,
+          ...payload,
+      };
+      setTasks(prev => [newTask, ...prev]);
+  }, []);
+
+  const updateTask = useCallback((taskId: string, payload: Partial<Task>) => {
+      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...payload } : t));
+  }, []);
+  
+  const completeTask = useCallback((taskId: string) => {
+      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: 'done' } : t));
+  }, []);
+
+  const deleteTask = useCallback((taskId: string) => {
+      setTasks(prev => prev.filter(t => t.id !== taskId));
+  }, []);
+
+  return { filters, setFilters, tasks, aggregates, isLoading, error, refetch, addTask, updateTask, completeTask, deleteTask };
 }

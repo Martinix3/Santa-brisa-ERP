@@ -4,14 +4,15 @@
 import React from 'react';
 import { Input, SBButton, Select } from '@/components/ui';
 import type { TaskFilters } from '../hooks/useTasks';
-import { Search, User, Users, Folder, Building, Briefcase } from 'lucide-react';
+import { Search, User, Users, Folder, Building, Briefcase, Plus } from 'lucide-react';
 
 interface TasksHeaderProps {
   filters: TaskFilters;
   onFiltersChange: (filters: TaskFilters) => void;
+  onNewTask: () => void;
 }
 
-export function TasksHeader({ filters, onFiltersChange }: TasksHeaderProps) {
+export function TasksHeader({ filters, onFiltersChange, onNewTask }: TasksHeaderProps) {
 
   const handleFilterChange = (key: keyof TaskFilters, value: any) => {
     onFiltersChange({ ...filters, [key]: value });
@@ -34,7 +35,7 @@ export function TasksHeader({ filters, onFiltersChange }: TasksHeaderProps) {
     <div className="p-4 border-b bg-card space-y-3">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Gestor de Tareas</h2>
-        {/* Placeholder for future actions like "New Task" */}
+        <SBButton onClick={onNewTask}><Plus size={16} className="mr-1.5"/> Nueva Tarea (N)</SBButton>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
