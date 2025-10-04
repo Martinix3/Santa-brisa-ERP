@@ -1,7 +1,11 @@
+
 'use client';
 import React from 'react';
 import { addMinutes, addDays, startOfWeek, format } from 'date-fns';
 import type { CalendarEvent } from '@/domain/ops.types';
+import { SBCard } from '@/components/ui';
+import { DayPicker, type DayProps } from 'react-day-picker';
+import { es as esLocale } from 'date-fns/locale';
 
 const fmtH = (d:Date)=> format(d, 'HH:mm');
 
@@ -34,13 +38,13 @@ export function WeekCalendar({ events, onDropSchedule }:{ events: CalendarEvent[
                 day_selected: 'bg-primary text-primary-foreground',
             }}
             components={{
-              DayContent: (props) => {
+              Day: (props: DayProps) => {
                 const dayEvents = events.filter(e => new Date(e.startAt).toDateString() === props.date.toDateString());
                 return (
                   <div
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={(e) => handleDrop(e, props.date.toISOString())}
-                    className="relative w-full h-full"
+                    className="relative w-full h-full flex items-center justify-center"
                   >
                     <span className="relative z-10">{props.date.getDate()}</span>
                     {dayEvents.length > 0 && (
@@ -57,8 +61,3 @@ export function WeekCalendar({ events, onDropSchedule }:{ events: CalendarEvent[
     </SBCard>
   );
 }
-
-// Importaciones y SBCard que faltaban
-import { SBCard } from '@/components/ui';
-import { DayPicker } from 'react-day-picker';
-import { es as esLocale } from 'date-fns/locale';

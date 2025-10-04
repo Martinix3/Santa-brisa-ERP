@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
@@ -31,20 +32,20 @@ function mapInteractionsToTasks(
   const accountMap = new Map(accounts.map((a) => [a.id, a.name]));
 
   return interactions
-    .filter((i) => i?.plannedFor)
+    .filter((i) => !!i?.plannedFor)
     .map((i) => {
+      if (!i) return null;
       const plannedISO = sbAsISO(i.plannedFor!);
       if (!plannedISO) return null;
-      return {
-        id: i.id,
+      
+      const task: Task = {
+        ...i,
         title: i.note || `${i.kind}`,
-        type: i.dept || "VENTAS",
-        status: i.status || 'open',
-        date: plannedISO,
-        involvedUserIds: i.involvedUserIds,
+        plannedFor: plannedISO,
+        originalInteraction: i,
         location: i.location || accountMap.get(i.accountId || ''),
-        linkedEntity: i.linkedEntity,
-      } as Task;
+      };
+      return task;
     })
     .filter(Boolean) as Task[];
 }

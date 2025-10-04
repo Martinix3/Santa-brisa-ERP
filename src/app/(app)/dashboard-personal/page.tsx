@@ -1,3 +1,4 @@
+
 // src/app/(app)/dashboard-personal/page.tsx
 "use client";
 import React, { useState, useMemo, useCallback } from 'react';
@@ -99,7 +100,7 @@ export default function PersonalDashboardPage() {
       if (res.ok) {
         toast.success("Tarea creada con éxito");
       } else {
-        throw new Error(res.message);
+        throw new Error(res.error || 'Unknown error');
       }
     } catch (err: any) {
       toast.error(`Error: ${err.message}`);

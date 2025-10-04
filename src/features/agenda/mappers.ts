@@ -1,3 +1,4 @@
+
 // src/features/agenda/mappers.ts
 import type { Interaction, Account, Department, TaskKind } from '@/domain/ssot';
 import { sbAsISO } from './helpers';
@@ -14,18 +15,14 @@ export function mapInteractionsToTasks(
     .map((i) => {
       if (!i) return null;
       const plannedISO = i.plannedFor ? sbAsISO(i.plannedFor) : undefined;
-      return {
-        id: i.id,
+      const task: Task = {
+        ...i,
         title: i.note || `${i.kind}`,
-        type: i.dept || "VENTAS",
-        status: i.status || 'open',
-        date: plannedISO,
-        involvedUserIds: i.involvedUserIds,
-        location: i.location || accountMap.get(i.accountId || ''),
-        linkedEntity: i.linkedEntity,
-        // Propiedades de la interacción original para el diálogo de completado
+        plannedFor: plannedISO,
         originalInteraction: i,
-      } as Task;
+        location: i.location || accountMap.get(i.accountId || ''),
+      };
+      return task;
     })
     .filter(Boolean) as Task[];
 }

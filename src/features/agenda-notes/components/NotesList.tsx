@@ -1,3 +1,4 @@
+
 // /features/agenda-notes/components/NotesList.tsx
 import React from 'react';
 import type { Note } from '@/domain/ssot';
@@ -31,9 +32,9 @@ export function NotesList({
             <div className="absolute inset-0 rounded-md pointer-events-none bg-transparent" />
             <div className={`relative ${done ? 'line-through text-[hsl(var(--sb-neutral-400))]' : ''}`}>
               <div className="text-[0.95rem] leading-snug whitespace-pre-wrap">{taskText}</div>
-              {t.date && (
+              {t.plannedFor && (
                 <div className="mt-0.5 text-[10px] text-[hsl(var(--sb-neutral-500))]">
-                  {new Date(t.date).toLocaleString()}
+                  {new Date(t.plannedFor).toLocaleString()}
                 </div>
               )}
             </div>

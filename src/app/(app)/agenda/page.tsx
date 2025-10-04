@@ -10,8 +10,8 @@ import { toast } from "sonner";
 // FullCalendar & Draggable Interaction
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
-import interactionPlugin from "@fullcalendar/interaction"; // Permite drag & drop
-import type { EventClickArg, EventDropArg, DropArg, EventContentArg, ViewMountArg } from "@fullcalendar/core";
+import interactionPlugin, { type DropArg } from "@fullcalendar/interaction";
+import type { EventClickArg, EventDropArg, EventContentArg, ViewMountArg } from "@fullcalendar/core";
 import { es as esLocale } from "date-fns/locale";
 
 // Icons, Types & Utils

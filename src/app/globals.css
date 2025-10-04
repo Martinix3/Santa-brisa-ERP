@@ -1,3 +1,4 @@
+
 /* globals.css — Tailwind v4 */
 @config "../../tailwind.config.ts";
 @import "tailwindcss";
@@ -40,24 +41,6 @@
   --info: 210 96% 97%;
   --info-foreground: 210 84% 40%;
   --ring: 46 100% 50%; /* Anillo de foco en amarillo */
-
-  /* ======================================= */
-  /* NO USAR - LEGACY - SERÁN REEMPLAZADOS */
-  /* ======================================= */
-  --sb-sun: 54 80% 84%;
-  --sb-sun-strong: 45 99% 63%;
-  --sb-agua: 180 46% 72%;
-  --sb-cobre: 19 53% 51%;
-  --sb-naranja: 17 85% 57%;
-  --sb-verde-mar: 182 25% 47%;
-  --sb-neutral-950: 240 10% 3.9%;
-  --sb-neutral-900: 240 10% 7%;
-  --sb-neutral-700: 240 5% 30%;
-  --sb-neutral-500: 240 5% 46%;
-  --sb-neutral-400: 240 5% 64%;
-  --sb-neutral-200: 240 6% 90%;
-  --sb-neutral-100: 240 6% 96%;
-  --sb-neutral-50: 0 0% 98%;
 
   /* Acentos por departamento */
   --sb-accent-personal: var(--primary);
@@ -122,7 +105,6 @@
   @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2;
 }
 
-/* ✅ Nuevo: declarar sb-shadow-md como utility para poder @apply */
 @utility sb-shadow-md {
   box-shadow:
     0 4px 6px -1px color-mix(in srgb, hsl(var(--accent)) 10%, transparent),
@@ -130,6 +112,10 @@
 }
 
 @layer components {
+  /* ======================================= */
+  /* Componentes Genéricos */
+  /* ======================================= */
+
   .sb-card { @apply bg-card border border-border rounded-xl shadow-sm; }
   .sb-card__header { @apply flex items-center gap-2 px-3 py-2 border-b border-border; }
   .sb-card__title { @apply font-semibold; }
@@ -137,27 +123,37 @@
   .sb-card__footer { @apply px-3 py-2 border-t border-border; }
   .sb-icon { @apply h-4 w-4 text-muted-foreground; }
 
-  .sb-btn-primary {
-    @apply inline-flex items-center gap-1 bg-primary text-primary-foreground rounded-lg hover:opacity-90 focus-ring;
+  /* --- Botones (Refactorizado) --- */
+  .sb-btn {
+    @apply inline-flex items-center justify-center gap-1 rounded-lg transition-opacity hover:opacity-90 is-pressed:scale-[.98] focus-ring;
+    &[data-size="sm"] { @apply h-8 px-3 text-xs; }
+    &[data-size="md"] { @apply h-9 px-4 text-sm; }
+    &[data-size="lg"] { @apply h-10 px-5 text-base; }
+    &[data-size="icon"] { @apply h-9 w-9; }
   }
-  .sb-btn-success {
-    @apply inline-flex items-center gap-1 bg-success text-success-foreground rounded-lg hover:opacity-90 focus-ring;
-  }
-  .sb-btn-info {
-    @apply inline-flex items-center gap-1 bg-info text-info-foreground rounded-lg hover:opacity-90 focus-ring;
-  }
+  .sb-btn[data-variant="primary"] { @apply bg-primary text-primary-foreground; }
+  .sb-btn[data-variant="secondary"] { @apply bg-secondary text-secondary-foreground border border-border; }
+  .sb-btn[data-variant="success"] { @apply bg-success text-success-foreground; }
+  .sb-btn[data-variant="destructive"] { @apply bg-destructive text-destructive-foreground; }
+  .sb-btn[data-variant="info"] { @apply bg-info text-info-foreground; }
+  .sb-btn[data-variant="ghost"] { @apply hover:bg-secondary hover:text-secondary-foreground; }
+  .sb-btn:disabled { @apply opacity-50 pointer-events-none; }
 
-  .sb-badge { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold; }
-  .sb-badge--info { @apply bg-info text-info-foreground border border-info-foreground/20; }
-
+  /* --- Badges (Refactorizado) --- */
+  .sb-badge { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border; }
+  .sb-badge[data-variant="primary"] { @apply bg-primary/10 text-primary-foreground border-transparent; }
+  .sb-badge[data-variant="secondary"] { @apply bg-secondary text-secondary-foreground border-border; }
+  .sb-badge[data-variant="success"] { @apply bg-success/10 text-success border-transparent; }
+  .sb-badge[data-variant="destructive"] { @apply bg-destructive/10 text-destructive border-transparent; }
+  .sb-badge[data-variant="info"] { @apply bg-info text-info-foreground border-info-foreground/20; }
+  
   /* Tabs */
-  .sb-tablist { @apply inline-flex items-center gap-1; }
+  .sb-tablist { @apply inline-flex items-center gap-1 bg-secondary p-1 rounded-lg; }
   .sb-tab {
-    @apply h-9 px-3 rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-ring;
+    @apply h-8 px-3 rounded-md text-muted-foreground transition-colors hover:text-foreground focus-ring;
   }
   .sb-tab[aria-selected="true"] {
-    @apply bg-secondary text-foreground font-medium border-b-2;
-    border-color: hsl(var(--accent));
+    @apply bg-background text-foreground font-medium shadow-sm;
   }
   .sb-tabpanel { @apply mt-3; }
 
@@ -178,9 +174,10 @@
   .sb-breadcrumbs a { @apply hover:underline hover:text-foreground; }
   .sb-breadcrumbs__sep { @apply opacity-50; }
   
-  /* Animaciones y Sombra */
+  /* ======================================= */
+  /* Animaciones y Efectos */
+  /* ======================================= */
   .hover-raise { transition: transform .12s ease, box-shadow .2s ease; }
-  /* ahora sí podemos aplicar la sombra propia */
   .hover-raise:hover { transform: translateY(-2px); @apply sb-shadow-md; }
 
   .fade-in { animation: sb-fade .18s ease-out both; }
@@ -191,7 +188,9 @@
 
   .is-pressed { transform: translateY(1px); }
 
+  /* ======================================= */
   /* Tipografía */
+  /* ======================================= */
   .sb-h1 { @apply text-3xl font-bold tracking-tight; }
   .sb-h2 { @apply text-2xl font-semibold tracking-tight; }
   .sb-h3 { @apply text-xl font-semibold; }
@@ -200,7 +199,9 @@
   .text-balance { text-wrap: balance; }
   .text-pretty { text-wrap: pretty; }
 
-  /* Dialogs */
+  /* ======================================= */
+  /* Overlays (Dialog, Drawer, Toast) */
+  /* ======================================= */
   .sb-dialog__overlay {
     position: fixed; inset: 0;
     background: color-mix(in srgb, hsl(var(--accent)) 50%, transparent);
@@ -220,7 +221,7 @@
   .sb-dialog__title  { @apply text-lg font-semibold; }
   .sb-dialog__desc   { @apply text-sm text-muted-foreground; }
   .sb-dialog__body   { @apply p-4 md:p-6; }
-  .sb-dialog__footer { @apply flex justify-end gap-2 p-4 bg-secondary border-t border-border; }
+  .sb-dialog__footer { @apply flex justify-end gap-2 p-4 bg-secondary/50 border-t border-border; }
 
   .sb-dialog__close {
     @apply absolute top-3 right-3 h-8 w-8 rounded-md grid place-items-center transition-colors hover:bg-secondary focus-ring;
@@ -246,11 +247,13 @@
     @apply rounded-lg border border-border px-3 py-2 text-sm bg-background shadow-sm;
     animation: sb-toast-in .18s ease-out forwards;
   }
-  .sb-toast--success { @apply bg-success-foreground text-success border-success/30; }
-  .sb-toast--error   { @apply bg-destructive-foreground text-destructive border-destructive/30; }
+  .sb-toast[data-variant="success"] { @apply bg-success-foreground text-success border-success/30; }
+  .sb-toast[data-variant="destructive"] { @apply bg-destructive-foreground text-destructive border-destructive/30; }
   @keyframes sb-toast-in { from { transform: translateY(6px); opacity: .6; } to { transform:none; opacity:1; } }
 
-  /* Skeletons */
+  /* ======================================= */
+  /* Elementos de Carga y Formularios */
+  /* ======================================= */
   .sb-skeleton { @apply rounded-md bg-secondary; position: relative; overflow: hidden; }
   .sb-skeleton::after {
     content: ""; position: absolute; inset: 0;
@@ -259,27 +262,66 @@
     animation: sb-shimmer 1.2s infinite;
   }
   @keyframes sb-shimmer { 100% { transform: translateX(100%); } }
-
-  /* Date Picker */
-  .sb-date { @apply bg-card; }
-  .sb-date::-webkit-calendar-picker-indicator {
-    filter: grayscale(100%);
-    opacity: .8;
+  
+  /* ======================================= */
+  /* Componentes de Terceros (react-day-picker) */
+  /* ======================================= */
+  .rdp {
+    --rdp-cell-size: 40px;
+    --rdp-accent-color: hsl(var(--primary));
+    --rdp-background-color: hsl(var(--secondary));
+    margin: 1em 0;
   }
+  .rdp-month { @apply p-2 space-y-4; }
+  .rdp-caption { @apply flex items-center justify-between px-2 py-1 relative; }
+  .rdp-caption_label { @apply text-sm font-medium; }
+  .rdp-nav { @apply flex items-center gap-1; }
+  .rdp-nav_button {
+    @apply h-8 w-8 grid place-items-center rounded-md transition-colors hover:bg-secondary focus-ring;
+  }
+  .rdp-table { @apply w-full border-collapse space-y-1; }
+  .rdp-head_row, .rdp-row { @apply flex w-full mt-2; }
+  .rdp-head_cell { @apply m-px w-9 font-normal text-[0.8rem] text-muted-foreground; }
+  .rdp-cell { @apply text-center text-sm p-0; }
 
-  /* react-day-picker */
-  .rdp { --rdp-accent-color: hsl(var(--primary)); --rdp-border: hsl(var(--border)); --rdp-background-color: hsl(var(--primary-foreground))}
-  .rdp { @apply text-sm; }
-  .rdp-month { @apply p-2; }
-  .rdp-day { @apply h-9 w-9 rounded-md; }
-  .rdp-day_selected { background-color: var(--rdp-accent-color); color: hsl(var(--primary-foreground)) !important; }
-  .rdp-day:hover { @apply bg-secondary; }
-  .rdp-day_today { font-weight: bold; background-color: hsl(var(--primary) / 0.2); }
-  .rdp-caption_label { @apply font-medium; }
-  .rdp-nav_button { @apply h-9 w-9 rounded-md transition-colors hover:bg-secondary; }
-  .rdp-head_cell { @apply text-muted-foreground; }
+  /* --- Estilos para el día (contenedor) --- */
+  .rdp-day {
+    @apply h-9 w-9 p-0 font-normal rounded-full grid place-items-center transition-colors hover:bg-secondary focus-ring;
+    position: relative; /* Clave para posicionar los puntos */
+  }
+  .rdp-day_selected {
+    @apply bg-primary text-primary-foreground hover:bg-primary/90;
+  }
+  .rdp-day_today { font-weight: 600; } /* Marcamos el día de hoy, pero sin el punto */
+  .rdp-day_outside { @apply text-muted-foreground opacity-50; }
+  .rdp-day_disabled { @apply text-muted-foreground opacity-50; }
 
-  /* Tooltip & Popover */
+  /* --- Sistema de puntos para eventos --- */
+  .sb-day-dots {
+    @apply absolute flex items-center justify-center gap-1;
+    bottom: 5px;
+    left: 0;
+    width: 100%;
+    pointer-events: none; /* Evita que los puntos interfieran con el click */
+  }
+  .sb-day-dot {
+    @apply rounded-full;
+    width: 5px;
+    height: 5px;
+  }
+  
+  /* Colores de los puntos por departamento */
+  .sb-day-dot--ventas { background-color: hsl(var(--sb-accent-ventas)); }
+  .sb-day-dot--marketing { background-color: hsl(var(--sb-accent-marketing)); }
+  .sb-day-dot--logistica { background-color: hsl(var(--sb-accent-logistica)); }
+  .sb-day-dot--produccion { background-color: hsl(var(--sb-accent-produccion)); }
+  .sb-day-dot--calidad { background-color: hsl(var(--sb-accent-calidad)); }
+  .sb-day-dot--finance { background-color: hsl(var(--sb-accent-finance)); }
+  .sb-day-dot--admin { background-color: hsl(var(--sb-accent-admin)); }
+
+  /* ======================================= */
+  /* Popovers */
+  /* ======================================= */
   .sb-tooltip { position: relative; }
   .sb-tooltip[data-open="true"] .sb-tooltip__pop {
     opacity: 1; transform: translateY(0);
@@ -304,21 +346,16 @@
     position: absolute; min-width: 220px;
     animation: sb-fade .12s ease both;
   }
-  /* Small helper styles if SB tokens not present in the environment */
-.sb-card { background: white; border: 1px solid #e5e7eb; border-radius: 0.75rem; }
-.sb-card__header { display:flex; align-items:center; gap:.75rem; padding:.75rem 1rem; border-bottom:1px solid #e5e7eb; }
-.sb-card__title { font-weight:600; }
-.sb-card__content { padding: .75rem 1rem; }
 
-.sb-btn-primary { background: #FFCA32; color: #0f1622; border-radius: .75rem; padding: .5rem .75rem; font-weight:600; }
-.sb-btn-primary[data-variant="subtle"] { background: #fff3c6; }
-.sb-badge { font-size: 11px; padding: .125rem .5rem; border-radius: .5rem; border: 1px solid #e5e7eb; background: #f9fafb; }
-.sb-badge--ventas { background:#e0ecff; color:#1d4ed8; }
-.sb-badge--marketing { background:#e6ffed; color:#0f5132; }
-.sb-badge--produccion { background:#fff4e6; color:#92400e; }
-.sb-badge--calidad { background:#ffe6e6; color:#9b1c1c; }
-.sb-badge--finanzas { background:#efe6ff; color:#5b21b6; }
-.sb-badge--almacen { background:#f3f4f6; color:#374151; }
-.sb-badge--ok { background:#dcfce7; color:#065f46; }
-.sb-badge--warn { background:#fff7ed; color:#9a3412; }
+  /* ======================================= */
+  /* Accesibilidad */
+  /* ======================================= */
+  @media (prefers-reduced-motion: reduce) {
+    *, ::before, ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }
