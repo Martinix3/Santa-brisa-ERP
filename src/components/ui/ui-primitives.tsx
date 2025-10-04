@@ -5,6 +5,9 @@ import { cn } from '@/lib/utils';
 import { Search, ChevronsUpDown, Check } from 'lucide-react';
 import type { OnHandView } from '@/domain/ssot';
 
+// --- TYPE ALIAS PARA ESTILOS CON VARIABLES CSS ---
+type CSSVarStyle = React.CSSProperties & Record<string, string | number>;
+
 // ===================================
 // Tarjeta Genérica (Card)
 // ===================================
@@ -22,7 +25,18 @@ export function SBCard({ title, accent, children, className, noPadding }: SBCard
     <div className={cn("sb-card overflow-hidden", className)}>
       {title && (
         <div className="sb-card__header p-4">
-          <h3 className="font-semibold" style={{ '--accent-color': accent, borderLeft: accent ? '3px solid var(--accent-color)' : undefined, paddingLeft: accent ? '8px' : '0' }}>
+          <h3
+            className="font-semibold"
+            style={
+              accent
+                ? ({
+                    '--accent-color': accent,
+                    borderLeft: '3px solid var(--accent-color)',
+                    paddingLeft: 8,
+                  } as CSSVarStyle)
+                : undefined
+            }
+          >
             {title}
           </h3>
         </div>
@@ -76,9 +90,17 @@ export function KPI({ label, value, icon: Icon, delta, hint, unit, color }: { la
     <SBCard className="flex-grow">
       <div className="p-4">
         {Icon && (
-          <div 
+          <div
             className="p-2 rounded-lg inline-block mb-2 text-muted-foreground bg-secondary"
-            style={color ? { '--icon-color': color, color: 'var(--icon-color)', backgroundColor: 'color-mix(in srgb, var(--icon-color) 15%, transparent)' } : {}}
+            style={
+              color
+                ? ({
+                    '--icon-color': color,
+                    color: 'var(--icon-color)',
+                    backgroundColor: 'color-mix(in srgb, var(--icon-color) 15%, transparent)',
+                  } as CSSVarStyle)
+                : undefined
+            }
           >
             <Icon className="h-5 w-5" />
           </div>
@@ -274,14 +296,14 @@ export const Popover: React.FC<{ open: boolean, onOpenChange: (open: boolean) =>
 };
 
 export const PopoverTrigger = React.forwardRef<HTMLButtonElement, React.HTMLAttributes<HTMLButtonElement> & { asChild?: boolean }>(({ children, asChild = false, ...props }, ref) => {
-    const { setOpen } = React.useContext(PopoverContext);
+    const { open, setOpen } = React.useContext(PopoverContext);
     const child = asChild ? React.Children.only(children) : <SBButton {...props}>{children}</SBButton>;
     
     const childProps = {
         ...props,
         ref: ref,
-        onClick: (e: React.MouseEvent<HTMLButtonElement>) => { // Corregido para alternar
-            setOpen(o => !o);
+        onClick: (e: React.MouseEvent<HTMLButtonElement>) => {
+            setOpen(!open);
             if(child && React.isValidElement(child) && typeof (child.props as any).onClick === 'function') {
                 (child.props as any).onClick(e);
             }
