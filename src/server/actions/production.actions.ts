@@ -1,13 +1,12 @@
 // ============================================================================
-// src/server/actions/production.actions.ts
-// Server actions del módulo de Producción (MOVED & REFACTORED)
+// src/server/actions/production.actions.ts (MOVED & REFACTORED)
+// Server actions del módulo de Producción
 // ============================================================================
-
 'use server';
 
 import { ok, fail, type ActionResult } from "@/lib/result";
 import { upsertMany } from "@/lib/dataprovider/server";
-import { FieldValue } from "firebase-admin/firestore";
+import { FieldValue, FieldPath } from "firebase-admin/firestore";
 import { z } from "zod";
 import { adminDb } from '@/server/firebase';
 import type { Lot as SsotLot, Uom, ProductionOrder, BillOfMaterial as RecipeBom, OnHandView, Item, StockMove, TraceEvent, QcPlanBySku } from '@/domain/ssot';

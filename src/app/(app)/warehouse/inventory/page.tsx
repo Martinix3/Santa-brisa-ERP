@@ -1,3 +1,4 @@
+
 // src/app/(app)/warehouse/inventory/page.tsx
 "use client";
 
@@ -11,7 +12,7 @@ import {
 } from "@/lib/inventory";
 import { Plus, Search, AlertCircle, RefreshCw, Filter, List } from "lucide-react";
 import { NewOnHandDialog } from "./components/NewOnHandDialog";
-import { rebuildOnHand } from "@/server/actions/inventory.actions";
+import { rebuildOnHand } from '@/server/actions/inventory.actions';
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";

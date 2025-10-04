@@ -1,240 +1,234 @@
-// src/server/actions/inventory.actions.ts
-'use server';
+// src/app/(app)/warehouse/inventory/page.tsx
+"use client";
 
-import { adminDb as db } from '@/server/firebase';
-import { FieldValue } from 'firebase-admin/firestore';
-import type { StockMove, Item, QcStatus, SantaData, Uom } from '@/domain/ssot';
-import { makeOnHandId } from '@/domain/id-helpers';
-import { z } from "zod";
-import { ok, fail, type ActionResult } from "@/lib/result";
-import { LotSchema } from '@/domain/validators';
-import { runDataQualityEngine } from "@/lib/data-quality/engine";
+import React, { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useData } from "@/lib/dataprovider";
+import { SBCard, SBButton, Input, Select } from "@/components/ui/ui-primitives";
+import type { Item, OnHandView } from "@/domain/ssot";
+import {
+  computeSkuRollup,
+  computeStockAlerts, type StockAlert
+} from "@/lib/inventory";
+import { Plus, Search, AlertCircle, RefreshCw, Filter, List } from "lucide-react";
+import { NewOnHandDialog } from "./components/NewOnHandDialog";
+import { rebuildOnHand } from '@/server/actions/inventory.actions';
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { LotDetailPanel } from "./components/LotDetailPanel";
+import { SkuAccordionRow } from "./components/SkuAccordionRow";
+import { LotRows } from "./components/LotRows";
+import { InventoryDashboard } from "@/features/warehouse/components/InventoryDashboard";
+import { DataQualityCenter } from "@/features/warehouse/components/DataQualityCenter";
 
-
-const CreateManualOnHandSchema = z.object({
-  itemId: z.string().min(1),
-  lotNumber: z.string().optional(),
-  qty: z.number().positive(),
-  uom: z.string().min(1),
-  locationId: z.string().min(1),
-  occurredAt: z.string().datetime().optional(),
-  note: z.string().optional(),
-  supplier: z.string().optional(),
-  invoiceRef: z.string().optional(),
-  amount: z.number().nonnegative().optional(),
-  currency: z.string().default("EUR").optional(),
-  sendToQc: z.boolean().default(false),
-});
-
-type CreateManualPayload = z.infer<typeof CreateManualOnHandSchema>;
-
-// --- Helpers ---
-function simpleId(prefix="sm"): string {
-  const r = Math.random().toString(36).slice(2,10);
-  return `${prefix}_${r}`;
+// Componente EmptyState más robusto
+function Empty({ hint, icon: Icon }: { hint: string, icon?: React.ElementType }) {
+  return (
+    <div className="flex flex-col items-center justify-center text-center p-8 md:p-12 border-2 border-dashed rounded-2xl bg-secondary/50 text-muted-foreground">
+        {Icon && (
+            <div className="p-3 rounded-full bg-secondary mb-4">
+                <Icon className="h-8 w-8" />
+            </div>
+        )}
+        <p className="text-sm max-w-sm">{hint}</p>
+    </div>
+  );
 }
 
-function lotPrefixFromSku(sku?: string, fallback?: string) {
-  const base = (sku || fallback || 'LOT').trim().toUpperCase();
-  const d = new Date();
-  const yy = String(d.getUTCFullYear()).slice(-2);
-  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
-  return `${base}-${yy}${mm}-`;
-}
 
-export async function findNextLotNumber(itemId: string, sku?: string): Promise<string> {
-  const prefix = lotPrefixFromSku(sku, itemId);
-  const lotsColl = db.collection('lots');
-  // Rango por prefijo: >= prefix y < prefix con 'z' (lexicográfico)
-  const snap = await lotsColl
-    .where('lotNumber', '>=', prefix)
-    .where('lotNumber', '<', `${prefix}z`)
-    .select('lotNumber')
-    .get();
+export default function InventoryPage() {
+  const { data } = useData();
+  const router = useRouter();
+  const onHand = data?.onHand || [];
+  const items = data?.items || [];
+  const stockMoves = data?.stockMoves || [];
 
-  let maxSeq = 0;
-  snap.forEach(doc => {
-    const ln = String(doc.get('lotNumber') || '');
-    const tail = ln.slice(prefix.length);     // “XX”
-    const n = parseInt(tail.replace(/\D/g, ''), 10);
-    if (!Number.isNaN(n) && n > maxSeq) maxSeq = n;
-  });
+  const [globalSearch, setGlobalSearch] = useState("");
+  const [locationFilter, setLocationFilter] = useState<string>("ALL");
+  const [qcFilter, setQcFilter] = useState<string>("ALL");
+  const [onlyWithStock, setOnlyWithStock] = useState<boolean>(true);
+  const [viewMode, setViewMode] = useState<"sku" | "lot">("sku");
+  const [selectedLotNumber, setSelectedLotNumber] = useState<string | null>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
 
-  const next = String(maxSeq + 1).padStart(2, '0');
-  return `${prefix}${next}`;                  // SKU-YYMM-XX
-}
+  const [openNew, setOpenNew] = useState(false);
+  const [isRebuilding, startRebuildTransition] = useTransition();
 
-async function loadItem(itemId: string): Promise<Item | null> {
-    const doc = await db.collection('items').doc(itemId).get();
-    return doc.exists ? (doc.data() as Item) : null;
-}
-
-function initialQcStatusFor(item: Item, opts: { sendToQc: boolean }): QcStatus {
-  if (opts.sendToQc) return 'PENDING';
-  const criticalCategories: (Item['category'] | undefined)[] = ['raw', 'pack', 'fg', 'intermediate'];
-  return criticalCategories.includes(item.category) ? 'PENDING' : 'PASSED';
-}
-
-// --- Action Refactorizada y Corregida ---
-export async function createManualOnHand(
-  input: CreateManualPayload
-): Promise<ActionResult<{ stockMoveId: string; lotNumber: string }>> {
-  const parsed = CreateManualOnHandSchema.safeParse(input);
-  if (!parsed.success) {
-    return fail(`Datos inválidos: ${parsed.error.message}`);
-  }
-  const p = parsed.data;
-
-  try {
-    const item = await loadItem(p.itemId);
-    if (!item) {
-        return fail(`El producto con ID ${p.itemId} no existe.`);
+  // ... (hooks y lógica de datos se mantienen igual) ...
+  const onHandFiltered = useMemo(() => {
+    let rows = onHand;
+    if (locationFilter !== "ALL") rows = rows.filter(r => r.locationId === locationFilter);
+    if (qcFilter !== 'ALL') rows = rows.filter(r => (r.qcStatus || 'PENDING') === qcFilter);
+    if (onlyWithStock) rows = rows.filter(r => (r.qty - (r.reservedQty ?? 0)) > 0);
+    if (globalSearch.trim()) {
+      const q = globalSearch.trim().toLowerCase();
+      rows = rows.filter(r =>
+        r.itemId.toLowerCase().includes(q) ||
+        (r.lotNumber && r.lotNumber.toLowerCase().includes(q)) ||
+        (items.find(i => i.id === r.itemId)?.name?.toLowerCase().includes(q) ?? false)
+      );
     }
+    return rows;
+  }, [onHand, items, locationFilter, qcFilter, onlyWithStock, globalSearch]);
 
-    let lotNumber = (p.lotNumber || "").trim();
-    if (!lotNumber) {
-      lotNumber = await findNextLotNumber(p.itemId, item.sku);
+  const summaries = useMemo(() => computeSkuRollup(onHandFiltered, { nearExpiryDays: 45 }), [onHandFiltered]);
+  const alerts = useMemo(() => computeStockAlerts(summaries), [summaries]);
+  
+  const skusWithLots = useMemo(() => {
+      return Object.values(summaries).map(summary => ({
+          summary,
+          lots: onHandFiltered.filter(lot => lot.itemId === summary.itemId)
+      })).sort((a,b) => (items.find(i => i.id === a.summary.itemId)?.name || '').localeCompare(items.find(i => i.id === b.summary.itemId)?.name || ''));
+  }, [summaries, onHandFiltered, items]);
+
+  const lotRows = useMemo(() => onHandFiltered
+    .sort((a, b) => (a.lotNumber || '').localeCompare(b.lotNumber || ''))
+    .map(r => ({
+      id: r.id,
+      lotNumber: r.lotNumber,
+      itemId: r.itemId,
+      name: items.find(i => i.id === r.itemId)?.name ?? r.itemId,
+      qty: r.qty,
+      free: Math.max(0, r.qty - (r.reservedQty ?? 0)),
+      uom: r.uom,
+      locationId: r.locationId,
+      qcStatus: r.qcStatus,
+      expiryAt: r.expiryAt ?? null,
+      updatedAt: r.updatedAt,
+  })), [onHandFiltered, items]);
+
+  const locations = useMemo(() => {
+    const set = new Set<string>();
+    onHand.forEach(o => { if (o.locationId) set.add(o.locationId); });
+    return ["ALL", ...Array.from(set)];
+  }, [onHand]);
+
+  const handleRebuild = () => {
+    startRebuildTransition(async () => {
+        toast.info("Iniciando reconstrucción del inventario...");
+        const result = await rebuildOnHand();
+        if (result.ok) {
+            toast.success(`Inventario reconstruido: ${result.data.count} registros actualizados.`);
+            router.refresh();
+        } else {
+            toast.error(`Error: ${result.message}`);
+        }
+    });
+  };
+
+  const handleViewChange = (v: string) => {
+    if (v === 'sku' || v === 'lot') {
+        setViewMode(v);
+        setSelectedLotNumber(null);
     }
+  };
 
-    const occurredAtIso = p.occurredAt ? new Date(p.occurredAt).toISOString() : new Date().toISOString();
-    const nowIso = new Date().toISOString();
-    
-    const lotData = LotSchema.parse({
-      lotNumber: lotNumber,
-      itemId: p.itemId,
-      quantity: p.qty,
-      uom: p.uom,
-      qcStatus: initialQcStatusFor(item, { sendToQc: p.sendToQc }),
-      createdAt: nowIso,
-      updatedAt: nowIso,
-    });
+  const selectedLotDetails = useMemo(() => {
+      if (!selectedLotNumber) return null;
+      const lot = lotRows.find(l => l.lotNumber === selectedLotNumber);
+      const moves = stockMoves.filter(m => m.lotNumber === selectedLotNumber);
+      return lot ? { lot, moves } : null;
+  }, [selectedLotNumber, lotRows, stockMoves]);
 
-    const stockMove = {
-      id: simpleId("sm"),
-      itemId: p.itemId,
-      lotNumber,
-      qty: p.qty,
-      uom: p.uom,
-      reason: "adjustment" as const,
-      toLocationId: p.locationId,
-      occurredAt: occurredAtIso,
-      createdAt: nowIso,
-      ref: { /* ... */ },
-    };
+  const sectionStyle = { '--primary': 'hsl(var(--sb-accent-logistica))', '--primary-foreground': 'hsl(var(--card-foreground))' } as React.CSSProperties;
 
-    const batch = db.batch();
-    
-    const lotRef = db.collection('lots').doc(lotNumber);
-    batch.set(lotRef, lotData, { merge: true });
-
-    const stockMoveRef = db.collection('stockMoves').doc(stockMove.id);
-    batch.set(stockMoveRef, stockMove as any);
-    
-    // --- Actualización de onHand ---
-    const onHandId = makeOnHandId(p.itemId, lotNumber, p.locationId);
-    const onHandRef = db.collection('onHand').doc(onHandId);
-
-    batch.set(onHandRef, {
-      id: onHandId,
-      itemId: p.itemId,
-      lotNumber: lotNumber,
-      locationId: p.locationId,
-      uom: p.uom,
-      qty: FieldValue.increment(p.qty), // Incrementa el stock
-      updatedAt: nowIso,
-    }, { merge: true });
-    // ------------------------------------
-
-    await batch.commit();
-
-    return ok({ stockMoveId: stockMove.id, lotNumber });
-
-  } catch (error: any) {
-    console.error("Error creando entrada manual de stock:", error);
-     if (error instanceof z.ZodError) {
-        return fail("Error de validación al crear el lote.", { fieldErrors: error.flatten().fieldErrors });
-    }
-    return fail(error.message || "Ocurrió un error inesperado en el servidor.");
-  }
-}
-
-export async function exportReplenishmentCsvServer(replen: Record<string, number>) {
-  const header = 'itemId,qty\n';
-  const body = Object.entries(replen).filter(([, q]) => q > 0).map(([k, v]) => `${k},${v}`).join('\n');
-  const csv = header + body + '\n';
-  const base64 = Buffer.from(csv, 'utf8').toString('base64');
-  return `data:text/csv;base64,${base64}`;
-}
-
-
-export async function rebuildOnHand(): Promise<ActionResult<{ count: number }>> {
-  try {
-    const onHandSnap = await db.collection('onHand').get();
-    const batch = db.batch();
-    onHandSnap.docs.forEach(doc => batch.delete(doc.ref));
-    await batch.commit();
-
-    const movesSnap = await db.collection('stockMoves').get();
-    const newOnHand: Record<string, any> = {};
-
-    movesSnap.forEach(doc => {
-      const move = doc.data() as StockMove;
-      const { itemId, lotNumber, qty, uom, reason, fromLocationId, toLocationId, occurredAt } = move;
+  return (
+    <div className="space-y-6" style={{'--sb-accent': 'var(--sb-accent-logistica)'} as React.CSSProperties}>
       
-      if (!itemId || !lotNumber) return;
-
-      const sign = (reason === 'receipt' || reason === 'production_in') ? 1 :
-                   (reason === 'sale' || reason === 'production_out') ? -1 : 0;
+      <InventoryDashboard summaries={Object.values(summaries)} />
+      <DataQualityCenter />
       
-      if (sign !== 0) {
-        const locationId = sign > 0 ? toLocationId : fromLocationId;
-        if (locationId) {
-            const key = makeOnHandId(itemId, lotNumber, locationId);
-            if (!newOnHand[key]) {
-                newOnHand[key] = { itemId, lotNumber, locationId, qty: 0, uom, updatedAt: occurredAt };
-            }
-            newOnHand[key].qty += qty * sign;
-            if (new Date(occurredAt) > new Date(newOnHand[key].updatedAt)) {
-                newOnHand[key].updatedAt = occurredAt;
-            }
-        }
-      }
+      {/* --- NUEVA ESTRUCTURA DE LAYOUT ESTABLE --- */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+        {/* --- COLUMNA IZQUIERDA: Navegador de Inventario Unificado --- */}
+        <div className={selectedLotNumber ? "md:col-span-2" : "md:col-span-3"}>
+          <SBCard noPadding>
+            {/* El header de la tarjeta ahora contiene los filtros y acciones */}
+            <div className="p-3 border-b space-y-3">
+              <div className="flex justify-between items-center">
+                <h3 className="font-semibold">Inventario</h3>
+                <div className="flex gap-2 items-center">
+                  <SBButton variant="outline" style={sectionStyle}>Exportar</SBButton>
+                  <SBButton variant="outline" style={sectionStyle}>Nueva Recepción</SBButton>
+                  <SBButton variant="outline" style={sectionStyle} onClick={handleRebuild} disabled={isRebuilding}>
+                    <RefreshCw size={14} className={isRebuilding ? 'animate-spin' : ''} /> {isRebuilding ? '...' : 'Reconstruir'}
+                  </SBButton>
+                  <SBButton variant="primary" style={sectionStyle} onClick={() => setOpenNew(true)}>Ajuste Manual</SBButton>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2 items-center">
+                <div className="flex-1 flex gap-2 min-w-[260px]">
+                  <Input ref={searchRef} placeholder="Buscar por SKU, nombre, lote…" value={globalSearch} onChange={e=>setGlobalSearch(e.target.value)} />
+                  <Select value={locationFilter} onChange={(e) => setLocationFilter(e.target.value)}>
+                    {locations.map(loc => <option key={loc} value={loc}>{loc === "ALL" ? "Todas Ubicaciones" : loc}</option>)}
+                  </Select>
+                  <Select value={qcFilter} onChange={(e) => setQcFilter(e.target.value)}>
+                    <option value="ALL">Todo QC</option>
+                    <option value="PASSED">Liberado</option>
+                    <option value="PENDING">Retenido</option>
+                    <option value="FAILED">Rechazado</option>
+                  </Select>
+                </div>
+                <label className="flex items-center gap-2 pl-2 text-sm">
+                  <input type="checkbox" className="sb-checkbox" checked={onlyWithStock} onChange={e=>setOnlyWithStock(e.target.checked)} />
+                  Solo con Stock
+                </label>
+              </div>
+            </div>
+
+            {/* Las alertas ahora son visibles y no están en un <details> */}
+            {alerts.length > 0 && (
+              <div className="p-3 border-b space-y-1">
+                <h4 className="flex items-center gap-2 text-destructive font-semibold text-sm"><AlertCircle size={16} />{alerts.length} Alertas de Inventario</h4>
+                {alerts.map((a,i)=> <div key={i} className="text-xs p-1.5 rounded-md bg-destructive-foreground text-destructive border border-destructive/20 flex items-center gap-2"><AlertCircle size={14}/> {a.itemId}: {a.message}</div>)}
+              </div>
+            )}
+            
+            {/* Las pestañas y el contenido principal */}
+            <Tabs value={viewMode} onValueChange={handleViewChange}>
+              <div className="p-4 border-b">
+                <TabsList className="relative">
+                  <TabsTrigger value="sku" className="data-[state=active]:text-[color:var(--sb-accent)]">Por SKU</TabsTrigger>
+                  <TabsTrigger value="lot" className="data-[state=active]:text-[color:var(--sb-accent)]">Por Lote</TabsTrigger>
+                </TabsList>
+              </div>
+
+              <TabsContent value="sku">
+                <div className="divide-y">
+                    <div className="grid grid-cols-[2fr_repeat(5,1fr)] items-center gap-4 px-4 py-2 bg-secondary text-xs font-semibold uppercase text-muted-foreground tracking-wider">
+                      <span>Producto</span><span className="text-right">Stock Total</span><span className="text-right">Disp.</span><span className="text-right">Reservado</span><span className="text-right">En QC</span><span>Estado</span>
+                    </div>
+                    {skusWithLots.length > 0 ? (
+                        skusWithLots.map(({summary}) => <SkuAccordionRow key={summary.itemId} sku={summary} items={items} onLotSelect={setSelectedLotNumber} />)
+                    ) : <Empty hint="No hay stock que coincida con los filtros." />}
+                </div>
+              </TabsContent>
+              <TabsContent value="lot">
+                  <LotRows lots={lotRows} onLotSelect={setSelectedLotNumber} />
+              </TabsContent>
+            </Tabs>
+          </SBCard>
+        </div>
+
+        {/* --- COLUMNA DERECHA: Panel de Detalle (estable) --- */}
+        {selectedLotDetails && (
+          <div className="md:col-span-1">
+             <LotDetailPanel lotDetails={selectedLotDetails} items={items} onClose={() => setSelectedLotNumber(null)} />
+          </div>
+        )}
+      </div>
       
-      if(reason === 'transfer') {
-        if(fromLocationId) {
-             const key = makeOnHandId(itemId, lotNumber, fromLocationId);
-             if(!newOnHand[key]) newOnHand[key] = { qty: 0 };
-             newOnHand[key].qty -= qty;
-        }
-        if(toLocationId) {
-             const key = makeOnHandId(itemId, lotNumber, toLocationId);
-             if(!newOnHand[key]) newOnHand[key] = { qty: 0 };
-             newOnHand[key].qty += qty;
-        }
-      }
-
-    });
-
-    const finalDocs = Object.values(newOnHand).filter(doc => doc.qty > 0);
-    const writeBatch = db.batch();
-    finalDocs.forEach(doc => {
-      const ref = db.collection('onHand').doc(makeOnHandId(doc.itemId, doc.lotNumber, doc.locationId));
-      writeBatch.set(ref, doc);
-    });
-    await writeBatch.commit();
-    
-    return ok({ count: finalDocs.length });
-  } catch (e: any) {
-    return fail(e.message || "Error al reconstruir el inventario.");
-  }
-}
-
-export async function performDataQualityCheck() {
-  try {
-    const anomalies = await runDataQualityEngine();
-    return { ok: true, data: anomalies };
-  } catch (error) {
-    console.error("Error en el Motor de Calidad de Datos:", error);
-    return { ok: false, message: "No se pudo completar la auditoría." };
-  }
+      {openNew && (
+        <NewOnHandDialog
+            open={openNew}
+            onClose={() => setOpenNew(false)}
+            onSuccess={() => { toast.success("Ajuste manual guardado."); setOpenNew(false); router.refresh(); }}
+            onError={(msg) => toast.error(`Error: ${msg}`)}
+            items={items}
+            locations={locations.filter(l => l !== 'ALL')}
+        />
+      )}
+    </div>
+  );
 }
