@@ -41,9 +41,8 @@ export function AccountDevCard({ accountId }:{ accountId:string }) {
           open={openNew}
           onOpenChange={setOpenNew}
           onSuccess={()=>{ toast.success("Visita creada"); router.refresh(); setOpenNew(false); }}
-          onError={(m)=>toast.error(m)}
           initialEventData={{ accountId, dept:'VENTAS' } as any}
-          accentColor={""}
+          dept={'VENTAS'}
         />
       )}
       {complete && (

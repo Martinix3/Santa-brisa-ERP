@@ -1,4 +1,4 @@
-// Este archivo está ahora obsoleto.
+// This file is now obsoleto.
 // Los tipos 'Task' y 'CalendarEvent' se han integrado en la entidad 'Interaction'
 // en 'src/domain/ssot.ts' para tener una única fuente de verdad para la agenda.
 
