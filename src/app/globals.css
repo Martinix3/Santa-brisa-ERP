@@ -1,5 +1,4 @@
-
-/* globals.css — Tailwind v4 */
+/* globals.css — Tailwind v4 (Santa Brisa canonical, calendario fix + pressable) */
 @config "../../tailwind.config.ts";
 @import "tailwindcss";
 
@@ -8,19 +7,19 @@
   --radius: 0.75rem; /* 12px */
 
   /* Colores de Marca y Acción */
-  --primary: 46 100% 50%;    /* Amarillo del diseño #FFC700 */
-  --primary-foreground: 30 100% 4%; /* Casi negro para texto sobre fondo amarillo */
-  --accent: 30 100% 4%;   /* Accento oscuro para anillos de foco y otros */
+  --primary: 46 100% 50%;            /* Amarillo del diseño #FFC700 */
+  --primary-foreground: 30 100% 4%;  /* Casi negro sobre amarillo */
+  --accent: 30 100% 4%;              /* Acento oscuro (anillos/activos) */
   --accent-foreground: 0 0% 100%;
 
   /* Colores Secundarios y de Fondo */
-  --background: 0 0% 100%; /* Blanco para el fondo de la página */
-  --foreground: 240 10% 4%; /* Negro */
-  --secondary: 240 5% 96%; /* Gris muy claro para fondos alternos #F4F5F7 */
+  --background: 0 0% 100%;
+  --foreground: 240 10% 4%;
+  --secondary: 240 5% 96%;           /* #F4F5F7 */
   --secondary-foreground: 240 5% 26%;
 
   /* Tarjetas */
-  --card: 0 0% 100%; /* Blanco para el fondo de las tarjetas */
+  --card: 0 0% 100%;
   --card-foreground: 240 10% 4%;
 
   /* Textos */
@@ -29,8 +28,8 @@
   --text-muted: 240 4% 46%;
 
   /* Neutrales */
-  --muted: 240 6% 90%; /* Gris medio para bordes y texto silenciado #E5E7EB */
-  --muted-foreground: 240 4% 46%; /* #6A6D78 */
+  --muted: 240 6% 90%;
+  --muted-foreground: 240 4% 46%;
   --border: 240 6% 90%;
 
   /* Semánticos UI */
@@ -40,15 +39,15 @@
   --success-foreground: 140 76% 96%;
   --info: 210 96% 97%;
   --info-foreground: 210 84% 40%;
-  --ring: 46 100% 50%; /* Anillo de foco en amarillo */
+  --ring: 46 100% 50%;
 
   /* Acentos por departamento */
   --sb-accent-personal: var(--primary);
-  --sb-accent-ventas: 22 70% 61%; /* #ea945e */
-  --sb-accent-marketing: 182 40% 70%; /* #9dd4d6 */
-  --sb-accent-logistica: 22 40% 44%; /* #996947 */
+  --sb-accent-ventas: 22 70% 61%;      /* #ea945e */
+  --sb-accent-marketing: 182 40% 70%;  /* #9dd4d6 */
+  --sb-accent-logistica: 22 40% 44%;   /* #996947 */
   --sb-accent-produccion: 182 20% 47%; /* #638c8d */
-  --sb-accent-calidad: 214 35% 65%; /* #8298ce */
+  --sb-accent-calidad: 214 35% 65%;    /* #8298ce */
   --sb-accent-finance: var(--primary);
   --sb-accent-admin: var(--muted-foreground);
 }
@@ -89,14 +88,24 @@
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
-    font-family: var(--font-inter), sans-serif;
+    font-family: var(--font-inter), ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
-  h1, h2, h3, h4, h5, h6 { color: hsl(var(--foreground)); }
+  h1, h2, h3, h4, h5, h6 { color: hsl(var(--text-primary)); }
   .sb-checkbox:checked {
     background-color: hsl(var(--accent));
     border-color: hsl(var(--accent));
+  }
+
+  /* Respeto a reduce motion */
+  @media (prefers-reduced-motion: reduce) {
+    *, ::before, ::after {
+      animation-duration: .01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: .01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }
 
@@ -105,12 +114,20 @@
   @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2;
 }
 
+/* Sombra suave con tinte de marca */
 @utility sb-shadow-md {
   box-shadow:
     0 4px 6px -1px color-mix(in srgb, hsl(var(--accent)) 10%, transparent),
     0 2px 4px -2px color-mix(in srgb, hsl(var(--accent)) 10%, transparent);
 }
 
+/* Utilidades de “press” (sustituyen variantes inexistentes is-pressed:*) */
+@utility pressable {
+  @apply transition-transform active:scale-[.98];
+}
+[data-pressed="true"] { transform: scale(.98); }
+
+/* ===== Components ===== */
 @layer components {
   /* ======================================= */
   /* Componentes Genéricos */
@@ -121,40 +138,38 @@
   .sb-card__title { @apply font-semibold; }
   .sb-card__content { @apply p-3; }
   .sb-card__footer { @apply px-3 py-2 border-t border-border; }
+
   .sb-icon { @apply h-4 w-4 text-muted-foreground; }
 
-  /* --- Botones (Refactorizado) --- */
+  /* --- Botones --- */
   .sb-btn {
-    @apply inline-flex items-center justify-center gap-1 rounded-lg transition-opacity hover:opacity-90 is-pressed:scale-[.98] focus-ring;
-    &[data-size="sm"] { @apply h-8 px-3 text-xs; }
-    &[data-size="md"] { @apply h-9 px-4 text-sm; }
-    &[data-size="lg"] { @apply h-10 px-5 text-base; }
-    &[data-size="icon"] { @apply h-9 w-9; }
+    @apply inline-flex items-center justify-center gap-1 rounded-lg transition-opacity hover:opacity-90 focus-ring;
   }
+  .sb-btn:disabled { @apply opacity-50 pointer-events-none; }
+  .sb-btn[data-size="sm"] { @apply h-8 px-3 text-xs; }
+  .sb-btn[data-size="md"], .sb-btn:not([data-size]) { @apply h-9 px-4 text-sm; }
+  .sb-btn[data-size="lg"] { @apply h-10 px-5 text-base; }
+  .sb-btn[data-size="icon"] { @apply h-9 w-9; }
+
   .sb-btn[data-variant="primary"] { @apply bg-primary text-primary-foreground; }
   .sb-btn[data-variant="secondary"] { @apply bg-secondary text-secondary-foreground border border-border; }
   .sb-btn[data-variant="success"] { @apply bg-success text-success-foreground; }
   .sb-btn[data-variant="destructive"] { @apply bg-destructive text-destructive-foreground; }
   .sb-btn[data-variant="info"] { @apply bg-info text-info-foreground; }
   .sb-btn[data-variant="ghost"] { @apply hover:bg-secondary hover:text-secondary-foreground; }
-  .sb-btn:disabled { @apply opacity-50 pointer-events-none; }
 
-  /* --- Badges (Refactorizado) --- */
+  /* --- Badges --- */
   .sb-badge { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border; }
   .sb-badge[data-variant="primary"] { @apply bg-primary/10 text-primary-foreground border-transparent; }
   .sb-badge[data-variant="secondary"] { @apply bg-secondary text-secondary-foreground border-border; }
   .sb-badge[data-variant="success"] { @apply bg-success/10 text-success border-transparent; }
   .sb-badge[data-variant="destructive"] { @apply bg-destructive/10 text-destructive border-transparent; }
   .sb-badge[data-variant="info"] { @apply bg-info text-info-foreground border-info-foreground/20; }
-  
+
   /* Tabs */
   .sb-tablist { @apply inline-flex items-center gap-1 bg-secondary p-1 rounded-lg; }
-  .sb-tab {
-    @apply h-8 px-3 rounded-md text-muted-foreground transition-colors hover:text-foreground focus-ring;
-  }
-  .sb-tab[aria-selected="true"] {
-    @apply bg-background text-foreground font-medium shadow-sm;
-  }
+  .sb-tab { @apply h-8 px-3 rounded-md text-muted-foreground transition-colors hover:text-foreground focus-ring; }
+  .sb-tab[aria-selected="true"] { @apply bg-background text-foreground font-medium shadow-sm; }
   .sb-tabpanel { @apply mt-3; }
 
   /* Sidenav */
@@ -173,7 +188,7 @@
   .sb-breadcrumbs { @apply flex items-center gap-2 text-sm text-muted-foreground; }
   .sb-breadcrumbs a { @apply hover:underline hover:text-foreground; }
   .sb-breadcrumbs__sep { @apply opacity-50; }
-  
+
   /* ======================================= */
   /* Animaciones y Efectos */
   /* ======================================= */
@@ -186,7 +201,7 @@
   @keyframes sb-fade { from{opacity:0} to{opacity:1} }
   @keyframes sb-slide-up { from{opacity:.6; transform:translateY(6px)} to{opacity:1; transform:none} }
 
-  .is-pressed { transform: translateY(1px); }
+  .is-pressed { transform: translateY(1px); } /* versión “clase directa” */
 
   /* ======================================= */
   /* Tipografía */
@@ -208,9 +223,7 @@
     backdrop-filter: blur(2px);
     opacity: 0; animation: sb-fade-in .15s ease-out forwards;
   }
-  .sb-dialog__content {
-    position: fixed; inset: 0; display: grid; place-items: center; padding: 1rem;
-  }
+  .sb-dialog__content { position: fixed; inset: 0; display: grid; place-items: center; padding: 1rem; }
   .sb-dialog {
     @apply rounded-xl border bg-card text-card-foreground shadow-sm;
     width: min(640px, 92vw);
@@ -222,10 +235,7 @@
   .sb-dialog__desc   { @apply text-sm text-muted-foreground; }
   .sb-dialog__body   { @apply p-4 md:p-6; }
   .sb-dialog__footer { @apply flex justify-end gap-2 p-4 bg-secondary/50 border-t border-border; }
-
-  .sb-dialog__close {
-    @apply absolute top-3 right-3 h-8 w-8 rounded-md grid place-items-center transition-colors hover:bg-secondary focus-ring;
-  }
+  .sb-dialog__close  { @apply absolute top-3 right-3 h-8 w-8 rounded-md grid place-items-center transition-colors hover:bg-secondary focus-ring; }
 
   @keyframes sb-fade-in { to { opacity: 1; } }
   @keyframes sb-pop-in  { to { transform: translateY(0) scale(1); } }
@@ -262,9 +272,9 @@
     animation: sb-shimmer 1.2s infinite;
   }
   @keyframes sb-shimmer { 100% { transform: translateX(100%); } }
-  
+
   /* ======================================= */
-  /* Componentes de Terceros (react-day-picker) */
+  /* Componentes de Terceros (react-day-picker v8) */
   /* ======================================= */
   .rdp {
     --rdp-cell-size: 40px;
@@ -276,76 +286,53 @@
   .rdp-caption { @apply flex items-center justify-between px-2 py-1 relative; }
   .rdp-caption_label { @apply text-sm font-medium; }
   .rdp-nav { @apply flex items-center gap-1; }
-  .rdp-nav_button {
-    @apply h-8 w-8 grid place-items-center rounded-md transition-colors hover:bg-secondary focus-ring;
-  }
-  .rdp-table { @apply w-full border-collapse space-y-1; }
-  .rdp-head_row, .rdp-row { @apply flex w-full mt-2; }
-  .rdp-head_cell { @apply m-px w-9 font-normal text-[0.8rem] text-muted-foreground; }
-  .rdp-cell { @apply text-center text-sm p-0; }
+  .rdp-nav_button { @apply h-8 w-8 grid place-items-center rounded-md transition-colors hover:bg-secondary focus-ring; }
 
-  /* --- Estilos para el día (contenedor) --- */
+  /* Mantener semántica de tabla (no usar flex en <tr>) */
+  .rdp-table { @apply w-full border-collapse; }
+  .rdp-head_cell { @apply px-1 py-0.5 font-normal text-[0.8rem] text-muted-foreground; }
+  .rdp-cell { @apply p-0 text-center text-sm; }
+
+  /* Botón del día */
   .rdp-day {
     @apply h-9 w-9 p-0 font-normal rounded-full grid place-items-center transition-colors hover:bg-secondary focus-ring;
-    position: relative; /* Clave para posicionar los puntos */
+    position: relative; /* clave para pseudo-elementos */
   }
-  .rdp-day_selected {
-    @apply bg-primary text-primary-foreground hover:bg-primary/90;
-  }
-  .rdp-day_today { font-weight: 600; } /* Marcamos el día de hoy, pero sin el punto */
+  .rdp-day_selected { @apply bg-primary text-primary-foreground hover:bg-primary/90; }
+  .rdp-day_today { font-weight: 600; }
   .rdp-day_outside { @apply text-muted-foreground opacity-50; }
   .rdp-day_disabled { @apply text-muted-foreground opacity-50; }
 
-  /* --- Sistema de puntos para eventos --- */
-  .sb-day-dots {
-    @apply absolute flex items-center justify-center gap-1;
-    bottom: 5px;
-    left: 0;
-    width: 100%;
-    pointer-events: none; /* Evita que los puntos interfieran con el click */
-  }
-  .sb-day-dot {
-    @apply rounded-full;
+  /* Puntos de eventos via modifiersClassNames (sin meter <div> en <tr>) */
+  .sb-day-has1::after,
+  .sb-day-has2::after,
+  .sb-day-has3plus::after {
+    content: "";
+    position: absolute;
+    bottom: 4px;
+    left: 50%;
     width: 5px;
     height: 5px;
-  }
-  
-  /* Colores de los puntos por departamento */
-  .sb-day-dot--ventas { background-color: hsl(var(--sb-accent-ventas)); }
-  .sb-day-dot--marketing { background-color: hsl(var(--sb-accent-marketing)); }
-  .sb-day-dot--logistica { background-color: hsl(var(--sb-accent-logistica)); }
-  .sb-day-dot--produccion { background-color: hsl(var(--sb-accent-produccion)); }
-  .sb-day-dot--calidad { background-color: hsl(var(--sb-accent-calidad)); }
-  .sb-day-dot--finance { background-color: hsl(var(--sb-accent-finance)); }
-  .sb-day-dot--admin { background-color: hsl(var(--sb-accent-admin)); }
-
-  /* Modificadores con after para los puntos */
-  .rdp-day.sb-day-has1::after,
-  .rdp-day.sb-day-has2::after,
-  .rdp-day.sb-day-has3plus::after {
-    content: '';
-    position: absolute;
-    bottom: 5px;
-    left: 50%;
+    border-radius: 9999px;
+    background: hsl(var(--sb-accent-ventas));
     transform: translateX(-50%);
-    display: block;
-    height: 5px;
-    border-radius: 99px;
-    background-color: hsl(var(--sb-accent-ventas)); /* Color base */
   }
-  .rdp-day.sb-day-has1::after { width: 5px; }
-  .rdp-day.sb-day-has2::after { width: 12px; }
-  .rdp-day.sb-day-has3plus::after { width: 20px; }
-
+  /* 2 puntos */
+  .sb-day-has2::after {
+    box-shadow: -6px 0 0 0 hsl(var(--sb-accent-ventas));
+  }
+  /* 3+ puntos */
+  .sb-day-has3plus::after {
+    box-shadow:
+      -8px 0 0 0 hsl(var(--sb-accent-ventas)),
+       8px 0 0 0 hsl(var(--sb-accent-ventas));
+  }
 
   /* ======================================= */
   /* Popovers */
   /* ======================================= */
   .sb-tooltip { position: relative; }
-  .sb-tooltip[data-open="true"] .sb-tooltip__pop {
-    opacity: 1; transform: translateY(0);
-    pointer-events: auto;
-  }
+  .sb-tooltip[data-open="true"] .sb-tooltip__pop { opacity: 1; transform: translateY(0); pointer-events: auto; }
   .sb-tooltip__pop {
     @apply z-50 rounded-md border border-border bg-background text-foreground text-xs px-2 py-1 shadow-md;
     position: absolute; left: 50%; bottom: calc(100% + 8px);
@@ -360,21 +347,5 @@
   }
 
   .sb-popover__overlay { position:fixed; inset:0; background: transparent; }
-  .sb-popover {
-    @apply z-50 rounded-md border border-border bg-background text-foreground shadow-md p-3;
-    position: absolute; min-width: 220px;
-    animation: sb-fade .12s ease both;
-  }
-
-  /* ======================================= */
-  /* Accesibilidad */
-  /* ======================================= */
-  @media (prefers-reduced-motion: reduce) {
-    *, ::before, ::after {
-      animation-duration: 0.01ms !important;
-      animation-iteration-count: 1 !important;
-      transition-duration: 0.01ms !important;
-      scroll-behavior: auto !important;
-    }
-  }
+  .sb-popover { @apply z-50 rounded-md border border-border bg-background text-foreground shadow-md p-3; position: absolute; min-width: 220px; animation: sb-fade .12s ease both; }
 }
