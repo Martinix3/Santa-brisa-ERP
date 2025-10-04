@@ -7,7 +7,7 @@ import { SBButton, Input, Select, DataTableSB } from '@/components/ui/ui-primiti
 import type { Col } from '@/components/ui/ui-primitives';
 import { Plus, Trash2, Truck, Search, Info, X } from 'lucide-react';
 import type { Party, Item, GoodsReceipt, Uom, ItemCategory } from '@/domain/ssot';
-import { createGoodsReceipt } from './actions';
+import { createGoodsReceipt } from '@/server/actions/goods-receipt.actions';
 import { toast } from 'sonner';
 
 type LineItem = {

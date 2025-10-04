@@ -1,4 +1,3 @@
-
 // src/app/(app)/warehouse/inventory/page.tsx
 "use client";
 
@@ -109,7 +108,7 @@ export default function InventoryPage() {
         toast.info("Iniciando reconstrucción del inventario...");
         const result = await rebuildOnHand();
         if (result.ok) {
-            toast.success(`Inventario reconstruido: ${result.data.count} registros actualizados.`);
+            toast.success(`Inventario reconstruido: ${result.count} registros actualizados.`);
             router.refresh();
         } else {
             toast.error(`Error: ${result.message}`);
