@@ -4,7 +4,7 @@
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore, initializeFirestore, type Firestore } from "firebase/firestore";
-import { firebaseWebConfig } from "@/config/firebaseWebApp";
+import { getFirebaseWebConfig } from "@/config/firebaseWebApp";
 
 let app: FirebaseApp | null = null;
 let auth: ReturnType<typeof getAuth> | null = null;
@@ -14,7 +14,7 @@ let initializationPromise: Promise<void> | null = null;
 
 function initializeFirebaseSync() {
   // Evita doble init con HMR
-  const initializedApp = getApps().length === 0 ? initializeApp(firebaseWebConfig) : getApp();
+  const initializedApp = getApps().length === 0 ? initializeApp(getFirebaseWebConfig()) : getApp();
   app = initializedApp;
 
   // Auth al vuelo
