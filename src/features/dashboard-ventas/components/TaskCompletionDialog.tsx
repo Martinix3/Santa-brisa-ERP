@@ -1,3 +1,4 @@
+
 // src/features/dashboard-ventas/components/TaskCompletionDialog.tsx
 "use client";
 import React, { useState, useEffect } from 'react';
@@ -6,6 +7,7 @@ import type { Interaction, Payload, Item, SantaData } from '@/domain/ssot';
 import { ShoppingCart, MessageSquare, Plus, X } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
 import { toast } from 'sonner';
+import { completeTask } from '@/app/(app)/ops/actions'; // Importar la acción correcta
 
 export function TaskCompletionDialog({
   task,
@@ -37,12 +39,12 @@ export function TaskCompletionDialog({
   useEffect(() => {
     if (open) {
       setMode('interaccion');
-      setNote('');
+      setNote(task.note || ''); // Pre-fill with task note
       setNextActionDate('');
       setItems([{ itemId: defaultItemId, qty: 1 }]);
       setIsSaving(false);
     }
-  }, [open, defaultItemId]);
+  }, [open, task.note, defaultItemId]);
 
   const addLine = () => setItems((prev) => [...prev, { itemId: defaultItemId, qty: 1 }]);
   const updateLine = (index: number, field: 'itemId' | 'qty', value: string | number) => {
@@ -75,36 +77,13 @@ export function TaskCompletionDialog({
 
     setIsSaving(true);
     try {
-        const collectionsToSave: Partial<SantaData> = {};
-        const updatedInteractions = (data.interactions || []).map(i =>
-            i.id === task.id ? { ...i, status: 'done' as const, resultNote: (payload as any).note } : i
-        );
-        collectionsToSave.interactions = updatedInteractions;
-
-        if (payload.type === 'interaccion' && payload.nextActionDate) {
-            const newFollowUp = {
-                id: `int_${Date.now()}`, userId: currentUser.id, accountId: task.accountId,
-                kind: 'OTRO', note: `Seguimiento de: ${(payload as any).note}`,
-                plannedFor: payload.nextActionDate, createdAt: new Date().toISOString(),
-                dept: task.dept || 'VENTAS', status: 'open',
-            };
-            collectionsToSave.interactions.push(newFollowUp as Interaction);
+        // We only need to pass the ID to the server action
+        const result = await completeTask(task.id, payload);
+        if (result.ok) {
+            onSuccess(result);
+        } else {
+            throw new Error('Server action failed');
         }
-
-        if (payload.type === 'venta') {
-            const newOrder = {
-                id: `ord_${Date.now()}`, accountId: task.accountId, partyId: data.accounts.find(a=>a.id===task.accountId)?.partyId,
-                source: 'MANUAL', status: 'open', currency: 'EUR', createdAt: new Date().toISOString(),
-                lines: payload.items.map(item => ({ ...item, uom: 'unit', priceUnit: 0 })),
-                notes: `Pedido rápido creado desde tarea ${task.id}`,
-            };
-            collectionsToSave.ordersSellOut = [...(data.ordersSellOut || []), newOrder as any];
-        }
-
-        if(saveAllCollections) {
-          await saveAllCollections(collectionsToSave);
-        }
-        onSuccess(collectionsToSave);
 
     } catch (error: any) {
         onError?.(error.message || 'Error desconocido al guardar.');
@@ -129,7 +108,7 @@ export function TaskCompletionDialog({
           ) : (
             <div className="space-y-3 animate-in fade-in">
               <span className="text-sm font-medium text-zinc-700">Líneas del Pedido</span>
-              <div className="space-y-2 max-h-60 overflow-y-auto pr-2">{items.map((item, index) => (<div key={index} className="grid grid-cols-[1fr_auto_auto] gap-2 items-center"><Select id={`item-${index}`} value={item.itemId} onChange={(e) => updateLine(index, 'itemId', e.target.value)}><option value="" disabled>Selecciona producto</option>{itemOptions.map((p: Item) => (<option key={p.id} value={p.id}>{p.name}</option>))}</Select><Input id={`qty-${index}`} type="number" min="1" value={item.qty} onChange={(e) => updateLine(index, 'qty', parseInt(e.target.value, 10))} className="w-20" /><SBButton type="button" variant="ghost" onClick={() => removeLine(index)}><X size={16} /></SBButton></div>))}</div>
+              <div className="space-y-2 max-h-60 overflow-y-auto pr-2">{items.map((item, index) => (<div key={index} className="grid grid-cols-[1fr_auto_auto] gap-2 items-center"><Select id={`item-${index}`} value={item.itemId} onChange={(e) => updateLine(index, 'itemId', e.target.value)}><option value="" disabled>Selecciona producto</option>{itemOptions.map((p: Item) => (<option key={p.id} value={p.id}>{p.name}</option>))}</Select><Input id={`qty-${index}`} type="number" min="1" value={item.qty} onChange={(e) => updateLine(index, 'qty', e.target.value)} className="w-20" /><SBButton type="button" variant="ghost" onClick={() => removeLine(index)}><X size={16} /></SBButton></div>))}</div>
               <SBButton type="button" variant="secondary" size="sm" onClick={addLine}><Plus size={14} className="mr-2"/>Añadir línea</SBButton>
             </div>
           )}

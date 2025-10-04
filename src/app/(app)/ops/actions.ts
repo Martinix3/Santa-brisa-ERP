@@ -1,7 +1,8 @@
+
 'use server';
 import { revalidatePath } from 'next/cache';
 import { adminDb as db } from '@/server/firebase';
-import type { Interaction } from '@/domain/ssot';
+import type { Interaction, Payload } from '@/domain/ssot';
 
 export async function createTask(input: Partial<Interaction>){
   const id = input.id || `int_${Date.now()}`;
@@ -29,11 +30,12 @@ export async function updateTask(id: string, patch: Partial<Interaction>){
   return { ok: true };
 }
 
-export async function completeTask(id: string, payload?: any){
+export async function completeTask(id: string, payload?: Payload){
   // En una app real, aquí iría la lógica de validación por departamento/tipo
+  // Y la creación de entidades ligadas (pedidos, etc.)
   await db.collection('interactions').doc(id).update({ 
     status: 'done', 
-    resultNote: payload?.note,
+    resultNote: (payload as any)?.note,
     updatedAt: new Date().toISOString() 
   });
   revalidatePath('/dashboard-personal');
