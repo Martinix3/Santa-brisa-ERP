@@ -1,3 +1,4 @@
+
 // FILE: src/domain/ssot.ts
 
 // =================================================================
@@ -86,6 +87,7 @@ export interface ProductionOrder { id: string; orderNumber?: string; bomId: stri
 export interface Lot { id: string; lotNumber: LotNumber; itemId: string; itemName?: string; quantity: number; uom: Uom; qcStatus: QcStatus; status?: LotStatus; qcPlanId?: string; producedByOrderId?: string; createdByGoodsReceiptId?: string; parentLotNumber?: LotNumber; expDate?: Timestamp; createdAt: Timestamp; updatedAt: Timestamp; receivedAt?: Timestamp; }
 export interface Interaction { id: string; userId: string; involvedUserIds?: string[]; accountId: string; kind: InteractionKind; note?: string; plannedFor?: Timestamp; createdAt: Timestamp; status: InteractionStatus; resultNote?: string; dept?: Department; linkedEntity?: { type: 'ORDER' | 'SHIPMENT' | 'POS_TACTIC' | 'EVENT'; id: string }; tags?: string[]; location?: string; updatedAt?: Timestamp; outcome?: any; title?: string; startAt?: Timestamp; endAt?: Timestamp; durationMin?: number; uiKind?: TaskKind; }
 export interface CalendarEvent { id: string; accountId?: string; accountName?: string; title: string; dept: Department; startAt: string; endAt: string; externalRef?: { provider:'google'|'outlook', id:string } | null; createdById?: string; updatedAt?: string; }
+export interface PlvMaterial { id: string; name: string; category: 'DISPLAY' | 'SIGNAGE' | 'MERCH'; cost: number; }
 // etc. (resto de interfaces)
 
 // -----------------------------------------------------------------
@@ -111,7 +113,6 @@ export interface Protocol { id: string; title: string; code?: string; priority: 
 export interface QcTest { id: string; lotNumber: string; parameterId: string; valueNumeric?: number; valueText?: string; testedAt: string; testedBy: string; }
 export interface ProtocolLog { id: string; productionOrderId: string; }
 export interface PosTacticItem {}
-export interface PlvMaterial {}
 export interface Invoice {}
 export interface PriceList {}
 export interface AccountPriceOverride {}
