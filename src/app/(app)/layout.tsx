@@ -9,32 +9,38 @@ import Loading from '../loading';
 import { useRouter, usePathname } from 'next/navigation';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const { currentUser, authReady, firebaseUser, data, loadingData } = useData();
+  const { currentUser, authReady, firebaseUser, loadingData } = useData();
   const router = useRouter();
   const pathname = usePathname();
 
   React.useEffect(() => {
     if (!authReady) return;
+    // If auth is ready but there's no firebase user, redirect to login.
+    // This is the main guard for all routes under the (app) group.
     if (!firebaseUser) {
-      if (!pathname.startsWith('/login')) {
-        router.replace('/login');
-      }
+      router.replace('/login');
     }
-  }, [authReady, firebaseUser, pathname, router]);
+  }, [authReady, firebaseUser, router]);
 
-  // Se bloquea si la autenticación no está lista O si hay un usuario de Firebase pero los datos del CRM aún se están cargando.
+  // Show a loading screen while auth state is being determined
+  // or if we have a user but are still fetching their app-specific data.
   const isBlocking = !authReady || (!!firebaseUser && loadingData);
 
   if (isBlocking) {
     return <Loading />;
   }
   
-  if (!currentUser) {
-      // Si la autenticación está lista, hay usuario de Firebase pero no currentUser del CRM,
-      // significa que o bien los datos están cargando, o el usuario no existe en la BD.
-      // El 'isBlocking' ya cubre la carga, así que si llegamos aquí sin currentUser, es un estado inválido.
-      // Podríamos mostrar un error o, para ser seguros, la pantalla de carga mientras se resuelve.
+  // If we have a firebaseUser but no corresponding currentUser in our DB,
+  // it's an invalid state (or data is still loading). The isBlocking check
+  // covers the loading part, so this is an extra guard.
+  if (firebaseUser && !currentUser) {
       return <Loading />;
+  }
+
+  // If there's no firebaseUser at all after checks, something is wrong,
+  // but the useEffect will redirect. In the meantime, don't render the authed layout.
+  if (!firebaseUser) {
+    return <Loading />;
   }
 
   return (

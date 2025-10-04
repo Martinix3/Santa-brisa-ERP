@@ -1,18 +1,2 @@
-
-"use client";
-
-import React from 'react';
-import { useData } from '@/lib/dataprovider';
-import { AuthForm } from '@/components/auth/AuthForm';
-
-export default function LoginPage() {
-    const { loginWithEmail, signupWithEmail, login } = useData();
-
-    return (
-        <AuthForm
-            onEmailLogin={loginWithEmail}
-            onEmailSignup={signupWithEmail}
-            onGoogleSubmit={login}
-        />
-    );
-}
+// This file is being moved. Its contents are now in src/app/login/page.tsx.
+// This file will be deleted.
