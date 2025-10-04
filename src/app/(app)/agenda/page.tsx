@@ -1,3 +1,4 @@
+
 // src/app/(app)/agenda/page.tsx
 "use client";
 
@@ -12,7 +13,7 @@ import { es as esLocale } from "date-fns/locale";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin, { type DropArg } from "@fullcalendar/interaction";
-import type { EventApi, EventContentArg, EventDropArg, EventClickArg } from "@fullcalendar/core";
+import type { EventApi, EventContentArg, EventClickArg } from "@fullcalendar/core";
 
 // Icons & Utils
 import { PlusCircle, GripVertical, Calendar as CalendarIcon, ChevronLeft, ChevronRight, ListTodo } from "lucide-react";
@@ -57,7 +58,7 @@ function mapInteractionsToTasks(
       const task: Task = {
         ...i,
         title: i.note || `${i.kind}`,
-        date: plannedISO,
+        plannedFor: plannedISO,
         originalInteraction: i,
         location: i.location || accountMap.get(i.accountId || ''),
       };
@@ -195,6 +196,17 @@ export default function AgendaPage() {
       setIsNewEventDialogOpen(true);
   }
   
+  const handleDrop = (drop: DropArg) => {
+    const draggedEvent = JSON.parse(drop.draggedEl.getAttribute('data-event') || '{}');
+    const newDate = drop.date;
+    
+    if (draggedEvent.id && newDate) {
+      handleEventDrop({
+        event: { ...draggedEvent, start: newDate } as EventApi,
+      } as EventDropArg);
+    }
+  };
+  
   const FullCalendar = dynamic(() => import('@fullcalendar/react'), { ssr: false });
 
   if (!santaData) return <div className="p-6">Cargando datos…</div>;
@@ -234,6 +246,7 @@ export default function AgendaPage() {
                   editable={isPersistenceEnabled}
                   eventDrop={handleEventDrop}
                   droppable={true}
+                  drop={handleDrop}
                   eventContent={(arg: EventContentArg) => {
                     const { status } = (arg.event.extendedProps as any);
                     return (
