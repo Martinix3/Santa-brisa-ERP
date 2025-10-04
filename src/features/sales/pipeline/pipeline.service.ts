@@ -28,15 +28,18 @@ async function fetchCollection<T>(name: string): Promise<T[]> {
 }
 
 function computeStage(account: Account, lastInteraction: Interaction | null, lastOrder: OrderSellOut | null): "POTENCIAL" | "SEGUIMIENTO" | "ACTIVA" | "FALLIDA" {
-    if (account.lostReason || lastInteraction?.resultNote?.toLowerCase().includes('respuesta_negativa')) {
+    if ((account as any).lostReason || lastInteraction?.resultNote?.toLowerCase().includes('respuesta_negativa')) {
         return 'FALLIDA';
     }
+    // An account is ACTIVA only if there is at least one order.
     if (lastOrder) {
         return 'ACTIVA';
     }
+    // If there's an interaction but no order, it's SEGUIMIENTO.
     if (lastInteraction) {
         return 'SEGUIMIENTO';
     }
+    // Otherwise, it's POTENCIAL.
     return 'POTENCIAL';
 }
 
