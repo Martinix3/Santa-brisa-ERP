@@ -319,6 +319,25 @@
   .sb-day-dot--finance { background-color: hsl(var(--sb-accent-finance)); }
   .sb-day-dot--admin { background-color: hsl(var(--sb-accent-admin)); }
 
+  /* Modificadores con after para los puntos */
+  .rdp-day.sb-day-has1::after,
+  .rdp-day.sb-day-has2::after,
+  .rdp-day.sb-day-has3plus::after {
+    content: '';
+    position: absolute;
+    bottom: 5px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: block;
+    height: 5px;
+    border-radius: 99px;
+    background-color: hsl(var(--sb-accent-ventas)); /* Color base */
+  }
+  .rdp-day.sb-day-has1::after { width: 5px; }
+  .rdp-day.sb-day-has2::after { width: 12px; }
+  .rdp-day.sb-day-has3plus::after { width: 20px; }
+
+
   /* ======================================= */
   /* Popovers */
   /* ======================================= */

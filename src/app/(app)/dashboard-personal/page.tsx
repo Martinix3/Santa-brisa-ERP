@@ -1,4 +1,3 @@
-
 // src/app/(app)/dashboard-personal/page.tsx
 "use client";
 import React, { useState, useMemo, useCallback } from 'react';
@@ -143,7 +142,7 @@ export default function PersonalDashboardPage() {
             <TasksTable rows={tasks} view={view} deptFilter={deptFilter} onComplete={()=>{}} onDragStart={handleTaskDragStart} />
           </div>
           <div className="lg:col-span-1">
-            <WeekCalendar events={events} onDropSchedule={handleDropOnCalendar}/>
+            <WeekCalendar events={events} onDaySelect={(iso) => console.log('Selected:', iso)} />
           </div>
         </div>
       </DndContext>

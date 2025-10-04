@@ -1,72 +1,56 @@
-
+// src/features/ops/components/WeekCalendar.tsx
 'use client';
 import React from 'react';
-import { addMinutes, addDays, startOfWeek, format } from 'date-fns';
-import type { CalendarEvent } from '@/domain/ops.types';
-import { SBCard } from '@/components/ui';
-import { DayPicker } from 'react-day-picker';
+import { DayPicker, type DayPickerProps } from 'react-day-picker';
 import { es as esLocale } from 'date-fns/locale';
 
-const fmtH = (d:Date)=> format(d, 'HH:mm');
+export function WeekCalendar(props: Partial<DayPickerProps> & {
+  events?: Array<{ id: string; startAt: string }>;
+  onDaySelect?: (isoDate: string) => void;
+}) {
+  const { events = [], onDaySelect, ...rest } = props;
 
-export function WeekCalendar({ events, onDropSchedule }:{ events: CalendarEvent[]; onDropSchedule:(slotISO:string, payload:any)=>void }){
-  const weekStart = startOfWeek(new Date(), { weekStartsOn:1 });
-  const days = Array.from({length:7}, (_,i)=> addDays(weekStart,i));
-
-  const handleDrop = (e:React.DragEvent, iso:string)=>{
-    e.preventDefault();
-    const data = e.dataTransfer.getData('application/json');
-    if (data) {
-        onDropSchedule(iso, JSON.parse(data));
-        return;
+  // Mapa YYYY-MM-DD -> nº de eventos
+  const counts = React.useMemo(() => {
+    const m = new Map<string, number>();
+    for (const e of events) {
+      if (!e.startAt) continue;
+      try {
+        const d = new Date(e.startAt);
+        const key = d.toISOString().slice(0, 10);
+        m.set(key, (m.get(key) ?? 0) + 1);
+      } catch (error) {
+        // Ignore invalid dates
+      }
     }
+    return m;
+  }, [events]);
+
+  const match = (min: number, max?: number) => (date: Date) => {
+    const key = date.toISOString().slice(0, 10);
+    const c = counts.get(key) ?? 0;
+    return max == null ? c >= min : c >= min && c <= max;
   };
 
   return (
-    <SBCard>
-      <header className="sb-card__header"><h3 className="sb-card__title">Calendario</h3></header>
-      <div className="sb-card__content p-0">
-         <DayPicker
-            mode="single"
-            selected={new Date()}
-            locale={esLocale}
-            showOutsideDays
-            fixedWeeks
-            className="m-auto"
-            classNames={{
-                day_today: 'bg-primary/20 text-primary',
-                day_selected: 'bg-primary text-primary-foreground',
-            }}
-            components={{
-              Day: (props: any) => {
-                // En el override de Day, la fecha viene en `props.day.date` o `props.date`
-                const date: Date = props?.date ?? props?.day?.date;
-                const dayEvents = events.filter(
-                  (e) => new Date(e.startAt).toDateString() === date.toDateString()
-                );
-                return (
-                  <div
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={(e) => handleDrop(e, date.toISOString())}
-                    className="relative w-full h-full flex items-center justify-center"
-                  >
-                    <span className="relative z-10">{date.getDate()}</span>
-                    {dayEvents.length > 0 && (
-                      <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex items-center gap-0.5">
-                        {dayEvents.slice(0, 3).map((e) => (
-                          <div
-                            key={e.id}
-                            className="h-1 w-1 rounded-full bg-[hsl(var(--sb-accent-ventas))]"
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              },
-            }}
-         />
-      </div>
-    </SBCard>
+    <div className="sb-card p-3">
+      <DayPicker
+        mode="single"
+        weekStartsOn={1}
+        showOutsideDays
+        onDayClick={(d) => onDaySelect?.(d.toISOString())}
+        modifiers={{
+          has1: match(1, 1),
+          has2: match(2, 2),
+          has3plus: match(3),
+        }}
+        modifiersClassNames={{
+          has1: "sb-day-has1",
+          has2: "sb-day-has2",
+          has3plus: "sb-day-has3plus",
+        }}
+        {...rest}
+      />
+    </div>
   );
 }
