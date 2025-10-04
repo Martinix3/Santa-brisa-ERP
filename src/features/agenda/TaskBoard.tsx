@@ -1,24 +1,19 @@
+
 // src/features/agenda/TaskBoard.tsx
 "use client";
 
 import React, { useMemo } from 'react';
 import type { Department, Interaction, InteractionStatus, User } from '@/domain/ssot';
 import { Check, AlertCircle, Clock, Plus } from 'lucide-react';
+import { useDraggable } from '@dnd-kit/core';
 import { useData } from '@/lib/dataprovider';
 import { DEPT_META } from '@/domain/ssot';
 import { Avatar } from '@/components/ui/Avatar';
 import { SBCard, SBButton } from '@/components/ui';
 
 // This is the VIEW MODEL for a task card.
-export type Task = {
-  id: string;
-  title: string;
-  type: Department;
-  status: InteractionStatus; // 'open' | 'done'
-  date?: string;             // ISO recomendado
-  involvedUserIds?: string[];
-  location?: string;
-  linkedEntity?: Interaction['linkedEntity'];
+export type Task = Interaction & {
+  originalInteraction: Interaction;
 };
 
 // ===============================
@@ -26,7 +21,11 @@ export type Task = {
 // ===============================
 function TaskCard({ task, onComplete }: { task: Task; onComplete: (id: string) => void; }) {
   const { data } = useData();
-  const deptMeta = DEPT_META[task.type];
+  const { attributes, listeners, setNodeRef, transform } = useDraggable({
+      id: task.id,
+      data: task.originalInteraction,
+  });
+  const deptMeta = DEPT_META[task.dept as Department];
 
   const involvedUsers = useMemo(() => 
     (task.involvedUserIds || [])
@@ -36,45 +35,56 @@ function TaskCard({ task, onComplete }: { task: Task; onComplete: (id: string) =
   );
 
   const dateLabel = task.date ? new Date(task.date) : null;
+  
+  const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined;
 
   return (
-    <SBCard noPadding className="group">
-        <div className="p-3">
-            <div className="flex items-start justify-between">
-                <p className="font-medium text-sm text-text-primary">{task.title}</p>
-            </div>
+    <div
+        ref={setNodeRef}
+        style={style}
+        {...listeners}
+        {...attributes}
+        data-event={JSON.stringify(task.originalInteraction)}
+        className="touch-none"
+    >
+        <SBCard noPadding className="group">
+            <div className="p-3">
+                <div className="flex items-start justify-between">
+                    <p className="font-medium text-sm text-text-primary">{task.title}</p>
+                </div>
 
-            {task.location && <p className="text-xs mt-1 text-text-muted">{task.location}</p>}
+                {task.location && <p className="text-xs mt-1 text-text-muted">{task.location}</p>}
 
-            <div className="mt-2 flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                {dateLabel && (
-                    <time className="text-xs text-text-muted" dateTime={dateLabel.toISOString()}>
-                    {dateLabel.toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}
-                    </time>
-                )}
-                {task.status === 'open' && (
-                    <SBButton
-                    variant="ghost"
-                    size="sm"
-                    onClick={(e) => { e.stopPropagation(); onComplete(task.id); }}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onComplete(task.id); } }}
-                    className="p-1 rounded-md transition-opacity text-zinc-400 opacity-0 group-hover:opacity-100 hover:bg-green-100 hover:text-green-600"
-                    title="Marcar como completada"
-                    aria-label="Marcar como completada"
-                    >
-                    <Check size={16} />
-                    </SBButton>
-                )}
-            </div>
-            <div className="flex -space-x-2">
-                {involvedUsers.map((user) => (
-                    <Avatar key={user.id} name={user.name} size="md" />
-                ))}
+                <div className="mt-2 flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                    {dateLabel && (
+                        <time className="text-xs text-text-muted" dateTime={dateLabel.toISOString()}>
+                        {dateLabel.toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}
+                        </time>
+                    )}
+                    {task.status === 'open' && (
+                        <SBButton
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => { e.stopPropagation(); onComplete(task.id); }}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onComplete(task.id); } }}
+                        className="p-1 rounded-md transition-opacity text-zinc-400 opacity-0 group-hover:opacity-100 hover:bg-green-100 hover:text-green-600"
+                        title="Marcar como completada"
+                        aria-label="Marcar como completada"
+                        >
+                        <Check size={16} />
+                        </SBButton>
+                    )}
+                </div>
+                <div className="flex -space-x-2">
+                    {involvedUsers.map((user) => (
+                        <Avatar key={user.id} name={user.name} size="md" />
+                    ))}
+                    </div>
                 </div>
             </div>
-        </div>
-    </SBCard>
+        </SBCard>
+    </div>
   );
 }
 

@@ -1,3 +1,4 @@
+
 // FILE: app/agenda/page.tsx
 "use client";
 
@@ -5,10 +6,12 @@ import React, { useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { DndContext, type DragEndEvent } from '@dnd-kit/core';
+
 
 // FullCalendar
 import dayGridPlugin from "@fullcalendar/daygrid";
-import interactionPlugin from "@fullcalendar/interaction";
+import interactionPlugin, { type DropArg } from "@fullcalendar/interaction";
 import type { EventContentArg, EventClickArg, EventDropArg } from "@fullcalendar/core";
 import esLocale from "@fullcalendar/core/locales/es";
 
@@ -37,6 +40,7 @@ import { NewEventDialog } from "@/features/agenda/components/NewEventDialog";
 import { EventDetailDialog } from "@/features/agenda/components/EventDetailDialog";
 import { TaskCompletionDialog } from "@/features/dashboard-ventas/components/TaskCompletionDialog";
 import { MarketingTaskCompletionDialog } from "@/features/marketing/components/MarketingTaskCompletionDialog";
+import { rescheduleEvent } from '@/app/(app)/ops/actions';
 
 // --- Types ---
 type CalendarEventExtendedProps = {
@@ -72,11 +76,12 @@ function mapInteractionsToTasks(
         id: i.id,
         title: i.note || `${i.kind}`,
         type: i.dept || "VENTAS",
-        status: i.status || "open",
+        status: i.status || 'open',
         date: plannedISO,
         involvedUserIds: i.involvedUserIds,
-        location: i.location || accountMap.get(i.accountId || ""),
+        location: i.location || accountMap.get(i.accountId || ''),
         linkedEntity: i.linkedEntity,
+        originalInteraction: i,
       } as Task;
     })
     .filter(Boolean) as Task[];
@@ -229,13 +234,12 @@ function useAgenda(
 // --- Subcomponentes UI (minimal & modern) ---
 
 const ViewSegmented: React.FC<{
-  value: "dayGridDay" | "dayGridWeek" | "dayGridMonth";
-  onChange: (v: "dayGridDay" | "dayGridWeek" | "dayGridMonth") => void;
+  value: "calendar" | "tasks";
+  onChange: (v: "calendar" | "tasks") => void;
 }> = ({ value, onChange }) => {
-  const views: Array<{ id: "dayGridDay" | "dayGridWeek" | "dayGridMonth"; label: string }> = [
-    { id: "dayGridDay", label: "Día" },
-    { id: "dayGridWeek", label: "Semana" },
-    { id: "dayGridMonth", label: "Mes" },
+  const views: Array<{ id: "calendar" | "tasks"; label: string }> = [
+    { id: "calendar", label: "Calendario" },
+    { id: "tasks", label: "Tareas" },
   ];
 
   return (
@@ -258,8 +262,8 @@ const ViewSegmented: React.FC<{
 };
 
 const AgendaToolbar: React.FC<{
-  currentView: "dayGridDay" | "dayGridWeek" | "dayGridMonth";
-  onViewChange: (v: "dayGridDay" | "dayGridWeek" | "dayGridMonth") => void;
+  currentView: "calendar" | "tasks";
+  onViewChange: (v: "calendar" | "tasks") => void;
   filters: { responsible: string; department: string };
   options: {
     users: { value: string; label: string }[];
@@ -311,10 +315,7 @@ const AgendaSkeleton: React.FC = () => (
         <div className="h-10 bg-muted rounded w-32" />
       </div>
     </div>
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <div className="h-[70vh] bg-muted rounded-lg" />
-      <div className="h-[70vh] bg-muted rounded-lg" />
-    </div>
+    <div className="h-[70vh] bg-muted rounded-lg" />
   </div>
 );
 
@@ -352,104 +353,128 @@ function AgendaPageContent() {
     handleEventDrop,
     handleDeleteEvent,
   } = useAgenda(santaData, setData, saveCollection, isPersistenceEnabled);
+  
+  const [view, setView] = useState<'calendar' | 'tasks'>(() => {
+      if (typeof window !== 'undefined') {
+          return (localStorage.getItem('sb_agenda_view') as 'calendar' | 'tasks') || 'calendar';
+      }
+      return 'calendar';
+  });
+
+  const handleViewChange = (v: 'calendar' | 'tasks') => {
+      setView(v);
+      localStorage.setItem('sb_agenda_view', v);
+  };
+  
+  const handleDrop = async (e: DropArg) => {
+      const droppedData = e.draggedEl.getAttribute('data-event');
+      if (!droppedData) return;
+      const task = JSON.parse(droppedData) as Task;
+      const newDate = e.dateStr;
+
+      // Optimistic update
+      setData(prev => {
+          if (!prev) return prev;
+          const interactions = prev.interactions.map(t =>
+              t.id === task.id ? { ...t, plannedFor: newDate } : t
+          );
+          return { ...prev, interactions };
+      });
+      toast.success(`Tarea "${task.title}" reagendada al ${new Date(newDate).toLocaleDateString()}`);
+
+      try {
+          await rescheduleEvent(task.id, newDate);
+      } catch (err) {
+          toast.error("Error al guardar el cambio.");
+          // Revert optimistic update
+          setData(prev => {
+              if (!prev) return prev;
+              const interactions = prev.interactions.map(t =>
+                  t.id === task.id ? { ...t, plannedFor: task.date } : t
+              );
+              return { ...prev, interactions };
+          });
+      }
+  };
+
 
   // FullCalendar lazy
   const FullCalendar = useMemo(() => dynamic(() => import("@fullcalendar/react"), { ssr: false }), []);
   const calendarRef = useRef<any>(null);
 
-  // Vista actual del calendario (controlada desde fuera)
-  const [calendarView, setCalendarView] = useState<"dayGridDay" | "dayGridWeek" | "dayGridMonth">(() => {
-    if (typeof window !== "undefined") {
-      const saved = (localStorage.getItem("sb_calendar_view") || "dayGridMonth") as
-        | "dayGridDay"
-        | "dayGridWeek"
-        | "dayGridMonth";
-      return saved;
-    }
-    return "dayGridMonth";
-  });
-
-  const handleViewChange = (v: "dayGridDay" | "dayGridWeek" | "dayGridMonth") => {
-    setCalendarView(v);
-    // Cambiar la vista del calendario real
-    const api = calendarRef.current?.getApi?.();
-    if (api) {
-      api.changeView(v);
-      localStorage.setItem("sb_calendar_view", v);
-    }
-  };
-
   if (!santaData) return <AgendaSkeleton />;
 
   return (
     <>
-      <div className="h-full bg-background flex flex-col">
-        <AgendaToolbar
-          currentView={calendarView}
-          onViewChange={handleViewChange}
-          filters={filters}
-          options={filterOptions}
-          onFilterChange={{ responsible: setResponsibleFilter, department: setDepartmentFilter }}
-          onNewTask={() => setModal({ type: "new" })}
-        />
+      <DndContext onDragEnd={() => {}}>
+        <div className="h-full bg-background flex flex-col">
+          <AgendaToolbar
+            currentView={view}
+            onViewChange={handleViewChange}
+            filters={filters}
+            options={filterOptions}
+            onFilterChange={{ responsible: setResponsibleFilter, department: setDepartmentFilter }}
+            onNewTask={() => setModal({ type: "new" })}
+          />
 
-        <main className="flex-grow min-h-0 px-4 md:px-6 pb-6">
-          {allInteractions.length === 0 ? (
-            <EmptyState onNewTask={() => setModal({ type: "new" })} />
-          ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
-              {/* Calendario minimal */}
-              <div className="h-[78vh] rounded-2xl border bg-card/60 backdrop-blur-sm p-2 md:p-3 overflow-hidden">
-                <FullCalendar
-                  ref={calendarRef}
-                  plugins={[dayGridPlugin, interactionPlugin]}
-                  initialView={calendarView}
-                  headerToolbar={{
-                    left: "prev,next today",
-                    center: "title",
-                    right: "", // quitamos el selector interno: minimalismo
-                  }}
-                  events={calendarEvents}
-                  eventClick={handleEventClick}
-                  editable={isPersistenceEnabled}
-                  eventDrop={handleEventDrop}
-                  eventContent={(arg: EventContentArg) => {
-                    const { status } = arg.event.extendedProps as CalendarEventExtendedProps;
-                    return (
-                      <div
-                        className={cn(
-                          "flex items-center gap-1.5 p-1 w-full overflow-hidden rounded-md",
-                          status === "done" && "line-through opacity-70"
-                        )}
-                      >
-                        <span className="sb-event-dot inline-block h-1.5 w-1.5 rounded-full flex-shrink-0" />
-                        {arg.timeText && (
-                          <span className="text-[11px] text-muted-foreground mr-1">{arg.timeText}</span>
-                        )}
-                        <span className="text-[12px] font-medium text-foreground truncate">{arg.event.title}</span>
-                      </div>
-                    );
-                  }}
-                  height="100%"
-                  expandRows
-                  nowIndicator
-                  dayMaxEventRows
-                  slotEventOverlap={false}
-                  locales={[esLocale]}
-                  locale="es"
-                  firstDay={1}
-                  buttonText={{ today: "hoy" }}
-                />
-              </div>
-
-              {/* Lista de tareas */}
-              <div className="h-[78vh] rounded-2xl border bg-card/60 backdrop-blur-sm p-2 overflow-y-auto">
-                <TaskBoard tasks={allTasks} onCompleteTask={(id) => handleUpdateStatus(id, "done")} />
-              </div>
-            </div>
-          )}
-        </main>
-      </div>
+          <main className="flex-grow min-h-0 px-4 md:px-6 pb-6">
+            {allInteractions.length === 0 ? (
+              <EmptyState onNewTask={() => setModal({ type: "new" })} />
+            ) : (
+                view === 'calendar' ? (
+                  <div className="h-[78vh] rounded-2xl border bg-card/60 backdrop-blur-sm p-2 md:p-3 overflow-hidden">
+                    <FullCalendar
+                      ref={calendarRef}
+                      plugins={[dayGridPlugin, interactionPlugin]}
+                      initialView="dayGridMonth"
+                      droppable={true}
+                      editable={isPersistenceEnabled}
+                      eventDrop={handleEventDrop}
+                      drop={handleDrop}
+                      headerToolbar={{
+                        left: "prev,next today",
+                        center: "title",
+                        right: "dayGridMonth",
+                      }}
+                      events={calendarEvents}
+                      eventClick={handleEventClick}
+                      eventContent={(arg: EventContentArg) => {
+                        const { status } = arg.event.extendedProps as CalendarEventExtendedProps;
+                        return (
+                          <div
+                            className={cn(
+                              "flex items-center gap-1.5 p-1 w-full overflow-hidden rounded-md",
+                              status === "done" && "line-through opacity-70"
+                            )}
+                          >
+                            <span className="sb-event-dot inline-block h-1.5 w-1.5 rounded-full flex-shrink-0" />
+                            {arg.timeText && (
+                              <span className="text-[11px] text-muted-foreground mr-1">{arg.timeText}</span>
+                            )}
+                            <span className="text-[12px] font-medium text-foreground truncate">{arg.event.title}</span>
+                          </div>
+                        );
+                      }}
+                      height="100%"
+                      expandRows
+                      nowIndicator
+                      dayMaxEventRows
+                      slotEventOverlap={false}
+                      locales={[esLocale]}
+                      locale="es"
+                      firstDay={1}
+                      buttonText={{ today: "hoy", month: "mes" }}
+                    />
+                  </div>
+                ) : (
+                  <div className="h-[78vh] rounded-2xl border bg-card/60 backdrop-blur-sm p-2 overflow-y-auto">
+                    <TaskBoard tasks={allTasks} onCompleteTask={(id) => handleUpdateStatus(id, "done")} />
+                  </div>
+                )
+            )}
+          </main>
+        </div>
+      </DndContext>
 
       {/* Modales */}
       {(modal.type === "new" || modal.type === "edit") && (
@@ -511,3 +536,4 @@ function AgendaPageContent() {
 export default function AgendaPage() {
   return <AgendaPageContent />;
 }
+
