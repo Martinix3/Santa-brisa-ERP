@@ -5,16 +5,8 @@ import type { Interaction, InteractionStatus, Department, TaskKind } from '@/dom
 import { SBButton, SBCard, Badge } from '@/components/ui';
 
 // This is the VIEW MODEL for a task card.
-export type Task = {
-  id: string;
-  title: string;
-  dept: Department;
-  // kind: TaskKind; // Removed as it's not on the Task type
-  status: InteractionStatus; // 'open' | 'done'
-  dueAt?: string;             // ISO recomendado
-  involvedUserIds?: string[];
+export type Task = Interaction & {
   accountName?: string;
-  linkedEntity?: Interaction['linkedEntity'];
 };
 
 const DEPT_TO_BADGE_CLASS: Record<string, string> = {
@@ -62,10 +54,10 @@ export function TasksTable({
           <tbody>
             {filtered.map(r=> (
               <tr key={r.id} className="border-t hover:bg-secondary" draggable onDragStart={(e)=>onDragStart(r,e)}>
-                <td className="py-2 px-3 font-medium">{r.title}</td>
+                <td className="py-2 px-3 font-medium">{r.note}</td>
                 <td>{r.accountName}</td>
                 <td><Badge className={DEPT_TO_BADGE_CLASS[r.dept || 'OPS']}>{r.dept}</Badge></td>
-                <td>{r.dueAt ? <Badge variant="success">Sí</Badge> : <Badge variant="secondary">No</Badge>}</td>
+                <td>{r.plannedFor ? <Badge variant="success">Sí</Badge> : <Badge variant="secondary">No</Badge>}</td>
                 <td className="text-right pr-3">
                   <SBButton variant="primary" size="sm" onClick={() => onComplete(r.id)}>Completar</SBButton>
                 </td>

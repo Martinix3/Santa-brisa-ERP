@@ -1,240 +1,215 @@
-// FILE: src/app/(app)/dashboard-personal/page.tsx
+// src/app/(app)/dashboard-personal/page.tsx
 'use client';
-import React, { useMemo, useState, useCallback, useTransition } from 'react';
-import { Kanban, type PipelineItem } from '@/features/ops/components/Kanban';
-import { TasksTable, type Task as TaskRow } from '@/features/ops/components/TasksTable';
-import { WeekCalendar } from '@/features/ops/components/WeekCalendar';
-import { CreateTaskModal } from '@/features/ops/components/CreateTaskModal';
-import type { Interaction, Department, Account, User, InteractionKind, Stage, TaskKind } from '@/domain/ssot';
-import type { CalendarEvent } from '@/domain/ops.types';
-import { scheduleEvent, createTask, completeTask } from '@/app/(app)/ops/actions';
-import { Plus, LayoutGrid, ListTodo, LayoutDashboard } from 'lucide-react';
+
+import React, { useMemo } from 'react';
 import { useData } from '@/lib/dataprovider';
-import { toast } from 'sonner';
-import { ModuleHeader, SBCard, SBButton, Select, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui';
+import type { Interaction, Account, Department } from '@/domain/ssot';
+import { DEPT_META } from '@/domain/ssot';
+import { DndContext, useDroppable, useDraggable } from '@dnd-kit/core';
+import { Plus, Check, Clock, Waypoints, Droplet, Users } from 'lucide-react';
+import { SBButton } from '@/components/ui';
+import { cn } from '@/lib/utils';
+import { DayPicker } from 'react-day-picker';
+import es from 'date-fns/locale/es';
 
-// Helper para convertir de forma segura InteractionKind a TaskKind
-function interactionKindToTaskKind(kind: InteractionKind | string): TaskKind {
-    const taskKinds: Set<string> = new Set(['VISITA', 'LLAMADA', 'PEDIDO', 'POS_EVT', 'POS_PLV', 'NOTA', 'OTRO', 'MKT', 'QC', 'FIN']);
-    if (taskKinds.has(kind)) {
-        return kind as TaskKind;
-    }
-    // Mapea otros tipos a 'NOTA' como un valor por defecto seguro.
-    return 'NOTA';
-}
+// --- HELPERS & STYLES ---
+const formatEur = (value: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 }).format(value);
 
-// ---- Dept narrowing para CalendarEvent ----
-// CalendarEvent.dept en ops.types solo permite:
-type EventDept = 'VENTAS' | 'MARKETING' | 'PRODUCCION' | 'ALMACEN' | 'FINANZAS' | 'CALIDAD';
-const EVENT_DEPTS: ReadonlySet<string> = new Set(['VENTAS','MARKETING','PRODUCCION','ALMACEN','FINANZAS','CALIDAD']);
-function toEventDept(d: Department): EventDept {
-  // Si llega PERSONAL u OPS (aunque filtramos), fija un fallback seguro
-  return EVENT_DEPTS.has(d as string) ? (d as EventDept) : 'VENTAS';
-}
+const TaskStatusBadge = ({ status, date }: { status: 'Vencida' | 'Hecho'; date?: string }) => {
+  const baseClasses = 'text-xs font-semibold px-2 py-0.5 rounded-full';
+  const styles = {
+    Vencida: 'bg-red-100 text-red-800',
+    Hecho: 'bg-green-100 text-green-800',
+  };
+  return (
+    <div className="text-right">
+      <span className={cn(baseClasses, styles[status])}>{status}</span>
+      {date && <p className="text-xs text-muted-foreground mt-1">{date}</p>}
+    </div>
+  );
+};
 
-function mapInteractionToTask(i: Interaction, accounts: Account[]): TaskRow {
-  const account = accounts.find(a => a.id === i.accountId);
-  return {
-    ...i,
-    dept: i.dept as Department,
-    kind: i.kind,
-    status: i.status === 'done' ? 'done' : 'open',
-    plannedFor: (i as any).startAt || i.plannedFor,
-    accountName: account?.name || 'N/A',
-  } as TaskRow;
-}
+// --- COMPONENTS ---
+function DailyTasksCard({ tasks }: { tasks: Interaction[] }) {
+    const sortedTasks = useMemo(() => {
+        return [...tasks].sort((a, b) => {
+            const dateA = a.plannedFor ? new Date(a.plannedFor).getTime() : Infinity;
+            const dateB = b.plannedFor ? new Date(b.plannedFor).getTime() : -Infinity;
+            return dateA - dateB;
+        });
+    }, [tasks]);
 
-function mapInteractionToEvent(i: Interaction, accounts: Account[]): CalendarEvent {
-    const account = accounts.find(a => a.id === i.accountId);
-    const startAt = (i as any).startAt || i.plannedFor!;
-    return {
-        id: i.id,
-        title: (i as any).title || i.note || 'Tarea sin título',
-        startAt: startAt,
-        endAt: (i as any).endAt || new Date(new Date(startAt).getTime() + ((i as any).durationMin || 45) * 60000).toISOString(),
-        dept: toEventDept(i.dept as Department),
-        accountId: i.accountId,
-        accountName: account?.name,
+    const getStatus = (task: Interaction): { status?: 'Vencida' | 'Hecho'; date?: string } => {
+        if (task.status === 'done') return { status: 'Hecho' };
+        if (task.plannedFor) {
+            const now = new Date();
+            const taskDate = new Date(task.plannedFor);
+            if (taskDate < now) return { status: 'Vencida' };
+            const time = taskDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+            if (taskDate.toDateString() === now.toDateString()) {
+                return { date: `Hoy, ${time}h` };
+            }
+        }
+        return {};
     };
-}
 
-
-function OpsSidebar({ pipeline, tasks, view, deptFilter, onProgramFromKanban, onCompleteTask, onDragStart }: {
-    pipeline: PipelineItem[];
-    tasks: TaskRow[];
-    view: 'DIA'|'SEMANA'|'MES';
-    deptFilter: Department | 'TODOS';
-    onProgramFromKanban: (p: any) => void;
-    onCompleteTask: (id: string) => void;
-    onDragStart: (row: TaskRow, e: React.DragEvent) => void;
-}) {
     return (
-        <SBCard noPadding className="h-full flex flex-col">
-            <Tabs defaultValue="tasks" className="flex flex-col h-full">
-                <TabsList className="m-2">
-                    <TabsTrigger value="tasks" className="flex-1"><ListTodo size={14} className="mr-2"/> Tareas sin Programar</TabsTrigger>
-                    <TabsTrigger value="kanban" className="flex-1"><LayoutGrid size={14} className="mr-2"/> Pipeline</TabsTrigger>
-                </TabsList>
-                <TabsContent value="tasks" className="flex-grow overflow-y-auto">
-                    <TasksTable rows={tasks} view={view} deptFilter={deptFilter} onComplete={onCompleteTask} onDragStart={onDragStart} />
-                </TabsContent>
-                <TabsContent value="kanban" className="p-2 flex-grow overflow-y-auto">
-                    <div className="text-center p-4 text-sm text-muted-foreground border-2 border-dashed rounded-lg mb-2">
-                        <h3 className="font-semibold text-foreground">Pipeline (Demo)</h3>
-                        <p>La lógica para generar el pipeline real aún no está implementada.</p>
-                    </div>
-                    <Kanban items={pipeline} onProgram={onProgramFromKanban} />
-                </TabsContent>
-            </Tabs>
-        </SBCard>
+        <div className="bg-card border rounded-xl shadow-sm">
+            <header className="p-4 border-b">
+                <h2 className="font-semibold flex items-center gap-2"><Clock size={16} /> Tareas del Día</h2>
+            </header>
+            <div className="p-2 space-y-1">
+                {sortedTasks.map(task => {
+                    const deptMeta = task.dept ? DEPT_META[task.dept] : DEPT_META['OPS'];
+                    const { status, date } = getStatus(task);
+                    return (
+                        <div key={task.id} className="grid grid-cols-[auto_1fr_auto] items-center gap-3 p-2 rounded-lg hover:bg-secondary">
+                            <input type="checkbox" className="sb-checkbox" />
+                            <div>
+                                <p className="text-sm font-medium text-foreground">{task.note}</p>
+                                <span className="text-xs px-2 py-0.5 rounded-full mt-1 inline-block" style={{ backgroundColor: deptMeta.color + '20', color: deptMeta.color }}>
+                                    {deptMeta.label}
+                                </span>
+                            </div>
+                            {status && <TaskStatusBadge status={status} date={date} />}
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
     );
 }
 
-export default function PersonalDashboardPage() {
-  const { data, currentUser } = useData();
-  const [isPending, startTransition] = useTransition();
-
-  const { tasks, events, accounts, pipeline } = useMemo(() => {
-    if (!data) return { tasks: [], events: [], accounts: [], pipeline: [] };
-    
-    const validAccounts = data.accounts || [];
-    const allTasks: TaskRow[] = (data.interactions || []).map(i => mapInteractionToTask(i, validAccounts));
-    const allEvents = (data.interactions || [])
-        .filter(i => i.dept !== 'PERSONAL' && i.dept !== 'OPS' && ((i as any).startAt || i.plannedFor))
-        .map(i => mapInteractionToEvent(i, validAccounts));
-
-    const pipelineStages: Stage[] = ['POTENCIAL', 'ACTIVA', 'SEGUIMIENTO', 'FALLIDA'];
-    const demoPipeline: PipelineItem[] = validAccounts.filter(acc => pipelineStages.includes(acc.stage as any)).slice(0, 5).map(acc => ({
-        accountId: acc.id,
-        accountName: acc.name,
-        stage: acc.stage as PipelineItem['stage'],
-        sales: { revenue: 0, ordersCount: 0 },
-        marketing: { hasPLVInstalled: false, activeActivations: 0, ordersWithPromoInPeriod: 0 },
-    }));
-
-    return { 
-        tasks: allTasks, 
-        events: allEvents, 
-        accounts: validAccounts,
-        pipeline: demoPipeline,
-    };
-  }, [data]);
-  
-  const [view, setView] = useState<'DIA'|'SEMANA'|'MES'>('SEMANA');
-  const [deptFilter, setDeptFilter] = useState<Department | 'TODOS'>('TODOS');
-  const [createOpen, setCreateOpen] = useState(false);
-
-  const onProgramFromKanban = useCallback((p:{accountId:string;accountName:string;dept:Department;title:string})=>{
-    startTransition(async () => {
-        if (!currentUser?.id) { toast.error("No se ha podido identificar al usuario."); return; }
-        const res = await createTask({ accountId: p.accountId, note: p.title, dept: p.dept, userId: currentUser.id });
-        if (res.ok) {
-            toast.success("Tarea creada para programar.");
-        } else {
-            toast.error("Error al crear la tarea.");
-        }
-    });
-  }, [currentUser?.id]);
-
-  const onCompleteTask = useCallback((id:string)=>{
-      startTransition(async () => {
-          const res = await completeTask(id);
-          if (res.ok) {
-              toast.success("Tarea completada.");
-          } else {
-              toast.error("Error al completar la tarea.");
-          }
-      });
-  }, []);
-
-  const onTaskDragStart = useCallback((row: TaskRow, e:React.DragEvent)=>{
-    e.dataTransfer.setData('application/json', JSON.stringify(row));
-    e.dataTransfer.effectAllowed='copyMove';
-  }, []);
-
-  const onCalendarDrop = useCallback(async (slotISO:string, payload:any)=>{
-    startTransition(async () => {
-        if (!currentUser?.id) { toast.error("No se ha podido identificar al usuario."); return; }
-        const res = await scheduleEvent({
-            taskId: payload.id,
-            title: payload.title,
-            dept: payload.dept,
-            startAt: slotISO,
-            durationMin: 45
-        });
-        if (res.ok) {
-            toast.success("Tarea programada en el calendario.");
-        } else {
-            toast.error("Error al programar la tarea.");
-        }
-    });
-  }, [currentUser?.id]);
-
-  const onCreateTask = useCallback((payload:any)=>{
-    startTransition(async () => {
-        if (!currentUser?.id) { toast.error("No se ha podido identificar al usuario."); return; }
-        const res = await createTask({ ...payload, userId: currentUser.id });
-        if (res.ok) {
-            toast.success("Nueva tarea creada.");
-            setCreateOpen(false);
-        } else {
-            toast.error("No se pudo crear la tarea.");
-        }
-    });
-  }, [currentUser?.id]);
+function DealCard({ deal }: { deal: Account }) {
+  const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: deal.id });
+  const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined;
 
   return (
-    <div className="flex flex-col h-full bg-background">
-      <ModuleHeader title="Mi Dashboard de Operaciones" icon={LayoutDashboard}>
-        <div className="flex items-center gap-2">
-            <Select value={view} onChange={e=> setView(e.target.value as any)}>
-              <option value="DIA">Día</option>
-              <option value="SEMANA">Semana</option>
-              <option value="MES">Mes</option>
-            </Select>
-            <Select value={deptFilter} onChange={e=> setDeptFilter(e.target.value as any)}>
-              <option value="TODOS">Todos Dept.</option>
-              <option value="VENTAS">Ventas</option>
-              <option value="MARKETING">Marketing</option>
-              <option value="CALIDAD">Calidad</option>
-              <option value="FINANZAS">Finanzas</option>
-              <option value="PRODUCCION">Producción</option>
-              <option value="ALMACEN">Almacén</option>
-              <option value="PERSONAL">Personal</option>
-            </Select>
-            <SBButton variant="primary" size="sm" onClick={()=>setCreateOpen(true)}><Plus size={14}/> Crear tarea</SBButton>
+    <div ref={setNodeRef} style={style} {...listeners} {...attributes} className="p-3 bg-card border rounded-lg shadow-sm touch-none">
+      <div className="flex justify-between items-center">
+        <p className="font-semibold text-sm">{deal.name}</p>
+        {(deal.subType === 'PLV') && <span className="text-xs font-bold bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full">PLV</span>}
+      </div>
+      <p className="text-xs text-muted-foreground">{formatEur(Math.random() * 25000)} · {Math.floor(Math.random() * 5 + 1)} ped.</p>
+      <p className="text-right text-xs font-semibold text-primary mt-1">Programar</p>
+    </div>
+  );
+}
+
+function KanbanColumn({ id, title, count, deals }: { id: string; title: string; count: number; deals: Account[] }) {
+  const { setNodeRef } = useDroppable({ id });
+
+  return (
+    <div ref={setNodeRef} className="flex-1 p-2 rounded-lg bg-secondary min-w-[200px]">
+      <h3 className="font-semibold text-sm px-2 mb-2">{title} <span className="text-muted-foreground font-normal">({count})</span></h3>
+      <div className="space-y-2">
+        {deals.map(deal => <DealCard key={deal.id} deal={deal} />)}
+        {deals.length === 0 && id === 'Fallida' && (
+             <div className="h-24 border-2 border-dashed rounded-lg flex items-center justify-center text-sm text-muted-foreground">Arrastra aquí</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SalesPipelineKanban({ accounts }: { accounts: Account[] }) {
+    const pipelineData = useMemo(() => ({
+        'Potencial': accounts.filter(a => a.stage === 'POTENCIAL'),
+        'Seguimiento': accounts.filter(a => a.stage === 'SEGUIMIENTO'),
+        'Activa': accounts.filter(a => a.stage === 'ACTIVA'),
+        'Fallida': accounts.filter(a => a.stage === 'FALLIDA'),
+    }), [accounts]);
+    
+    return (
+        <div className="bg-card border rounded-xl shadow-sm">
+            <header className="p-4 border-b">
+                <h2 className="font-semibold flex items-center gap-2"><Waypoints size={16} /> Pipeline de Ventas</h2>
+            </header>
+            <DndContext onDragEnd={() => {}}>
+                <div className="p-4 flex gap-4 overflow-x-auto">
+                    {Object.entries(pipelineData).map(([stage, deals]) => (
+                        <KanbanColumn key={stage} id={stage} title={stage} count={deals.length} deals={deals} />
+                    ))}
+                </div>
+            </DndContext>
         </div>
-      </ModuleHeader>
+    );
+}
 
-      <main className="flex-grow p-4 sm:p-6 lg:p-8 grid grid-cols-1 lg:grid-cols-[1fr,1.8fr] gap-6 overflow-hidden">
-        <OpsSidebar
-            pipeline={pipeline}
-            tasks={tasks}
-            view={view}
-            deptFilter={deptFilter}
-            onProgramFromKanban={onProgramFromKanban}
-            onCompleteTask={onCompleteTask}
-            onDragStart={onTaskDragStart}
-        />
+function WeeklyKpisCard() {
+    return (
+        <div className="bg-card border rounded-xl shadow-sm p-4">
+            <h3 className="font-semibold text-sm mb-4 flex items-center gap-2"><Droplet size={16}/> KPIs Clave (Semanal)</h3>
+            <div className="flex justify-around text-center">
+                <div>
+                    <p className="text-xs text-muted-foreground">Tareas Completadas</p>
+                    <p className="text-2xl font-bold">23</p>
+                    <p className="text-xs font-semibold text-green-600">+5% ↑</p>
+                </div>
+                <div>
+                    <p className="text-xs text-muted-foreground">Ventas Cerradas</p>
+                    <p className="text-2xl font-bold">€15K</p>
+                    <p className="text-xs font-semibold text-red-600">-2% ↓</p>
+                </div>
+            </div>
+        </div>
+    );
+}
 
-        <section className="flex flex-col gap-3">
-          <WeekCalendar events={events} onDropSchedule={onCalendarDrop} />
-          <p className="text-xs text-muted-foreground text-center">
-            Arrastra tareas desde la barra lateral a un hueco libre del calendario para programarlas.
-          </p>
-        </section>
-      </main>
 
-      <SBButton 
-        variant="primary"
-        className="fixed right-4 bottom-4 rounded-full w-14 h-14 p-0 shadow-lg xl:hidden" 
-        onClick={()=>setCreateOpen(true)} 
-        aria-label="Crear tarea"
-      >
-        <Plus />
-      </SBButton>
+// --- MAIN PAGE ---
+export default function PersonalDashboardPage() {
+  const { data } = useData();
 
-      <CreateTaskModal open={createOpen} onClose={()=>setCreateOpen(false)} onCreate={onCreateTask} accounts={accounts} />
+  const { todayTasks, pipelineAccounts } = useMemo(() => {
+    if (!data) return { todayTasks: [], pipelineAccounts: [] };
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    const tasks = (data.interactions || []).filter(i => {
+      if (i.status === 'done') return false;
+      if (!i.plannedFor) return true; // Tareas sin fecha se asumen para hoy
+      return new Date(i.plannedFor) >= startOfToday;
+    });
+
+    const accounts = data.accounts || [];
+
+    return { todayTasks: tasks, pipelineAccounts: accounts };
+  }, [data]);
+
+  return (
+    <div className="p-6 bg-secondary/70 min-h-full">
+      <header className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="text-3xl font-bold">Mi Dashboard</h1>
+          <p className="text-muted-foreground">Sábado, 4 de Octubre, 2025</p>
+        </div>
+        <div className="flex items-center gap-2">
+            <SBButton variant='secondary'>Diaria</SBButton>
+            <SBButton variant='secondary'>Semanal</SBButton>
+            <SBButton variant='secondary'>Mensual</SBButton>
+            <SBButton><Plus size={16} className='mr-1'/> Nueva Tarea</SBButton>
+        </div>
+      </header>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
+          <DailyTasksCard tasks={todayTasks} />
+          <SalesPipelineKanban accounts={pipelineAccounts} />
+        </div>
+        <div className="space-y-6">
+            <div className="bg-card border rounded-xl shadow-sm p-2">
+                 <DayPicker
+                    mode="single"
+                    selected={new Date(2025, 9, 4)}
+                    locale={es}
+                    showOutsideDays
+                    fixedWeeks
+                  />
+            </div>
+            <WeeklyKpisCard/>
+        </div>
+      </div>
     </div>
   );
 }
