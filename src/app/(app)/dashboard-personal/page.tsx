@@ -1,59 +1,108 @@
-
-// src/app/(app)/dashboard-personal/page.tsx
+// FILE: src/app/(app)/dashboard-personal/page.tsx
 'use client';
 import React, { useMemo, useState, useCallback, useTransition } from 'react';
 import { Kanban, type PipelineItem } from '@/features/ops/components/Kanban';
-import { TasksTable } from '@/features/ops/components/TasksTable';
+import { TasksTable, type Task } from '@/features/ops/components/TasksTable';
 import { WeekCalendar } from '@/features/ops/components/WeekCalendar';
 import { CreateTaskModal } from '@/features/ops/components/CreateTaskModal';
-import type { Interaction, Department, Account, User, Stage } from '@/domain/ssot';
+import type { Interaction, Department, Account, User, InteractionKind, Stage, TaskKind } from '@/domain/ssot';
 import { scheduleEvent, createTask, completeTask } from '@/app/(app)/ops/actions';
-import { Plus } from 'lucide-react';
+import { Plus, LayoutGrid, ListTodo, LayoutDashboard } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
 import { toast } from 'sonner';
+import { ModuleHeader, SBCard, SBButton, Select, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui';
 
-function mapInteractionToTask(i: Interaction, accounts: Account[]): any {
+// ============================================================================
+// TIPOS Y HELPERS INTERNOS
+// ============================================================================
+
+// Helper para convertir de forma segura InteractionKind a TaskKind
+function interactionKindToTaskKind(kind: InteractionKind): TaskKind {
+    if (kind === 'VISITA') return 'VISITA';
+    if (kind === 'PEDIDO') return 'PEDIDO';
+    return 'NOTA'; // Mapeo por defecto seguro
+}
+
+function mapInteractionToTask(i: Interaction, accounts: Account[]): Task {
   const account = accounts.find(a => a.id === i.accountId);
   return {
     id: i.id,
-    title: i.title || i.note || 'Tarea sin título',
-    department: i.dept as Department,
-    kind: (i.uiKind || i.kind) as any,
+    title: (i as any).title || i.note || 'Tarea sin título',
+    dept: i.dept as Department,
+    kind: interactionKindToTaskKind((i as any).uiKind || i.kind),
     status: i.status === 'done' ? 'done' : 'open',
-    dueAt: i.plannedFor || i.startAt,
-    durationMin: i.durationMin,
-    accountId: i.accountId,
+    dueAt: (i as any).startAt || i.plannedFor,
     accountName: account?.name || 'N/A',
-    createdAt: i.createdAt,
-    updatedAt: i.updatedAt,
   };
 }
 
-function mapInteractionToEvent(i: Interaction, accounts: Account[]): any {
+function mapInteractionToEvent(i: Interaction, accounts: Account[]) {
     const account = accounts.find(a => a.id === i.accountId);
+    const startAt = (i as any).startAt || i.plannedFor!;
     return {
         id: i.id,
-        title: i.title || i.note || 'Tarea sin título',
-        startAt: i.startAt || i.plannedFor!,
-        endAt: i.endAt || new Date(new Date(i.startAt || i.plannedFor!).getTime() + (i.durationMin || 45) * 60000).toISOString(),
+        title: (i as any).title || i.note || 'Tarea sin título',
+        startAt: startAt,
+        endAt: (i as any).endAt || new Date(new Date(startAt).getTime() + ((i as any).durationMin || 45) * 60000).toISOString(),
         dept: i.dept as Department,
         accountId: i.accountId,
         accountName: account?.name,
     };
 }
 
+// ============================================================================
+// SUB-COMPONENTES DE LAYOUT
+// ============================================================================
 
-export default function PersonalDashboardPage(){
+function OpsSidebar({ pipeline, tasks, view, deptFilter, onProgramFromKanban, onCompleteTask, onDragStart }: {
+    pipeline: PipelineItem[];
+    tasks: Task[];
+    view: 'DIA'|'SEMANA'|'MES';
+    deptFilter: Department | 'TODOS';
+    onProgramFromKanban: (p: any) => void;
+    onCompleteTask: (id: string) => void;
+    onDragStart: (row: any, e: React.DragEvent) => void;
+}) {
+    return (
+        <SBCard noPadding className="h-full flex flex-col">
+            <Tabs defaultValue="tasks" className="flex flex-col h-full">
+                <TabsList className="m-2">
+                    <TabsTrigger value="tasks" className="flex-1"><ListTodo size={14} className="mr-2"/> Tareas sin Programar</TabsTrigger>
+                    <TabsTrigger value="kanban" className="flex-1"><LayoutGrid size={14} className="mr-2"/> Pipeline</TabsTrigger>
+                </TabsList>
+                <TabsContent value="tasks" className="flex-grow overflow-y-auto">
+                    <TasksTable rows={tasks} view={view} deptFilter={deptFilter} onComplete={onCompleteTask} onDragStart={onDragStart} />
+                </TabsContent>
+                <TabsContent value="kanban" className="p-2 flex-grow overflow-y-auto">
+                    <div className="text-center p-4 text-sm text-muted-foreground border-2 border-dashed rounded-lg mb-2">
+                        <h3 className="font-semibold text-foreground">Pipeline (Demo)</h3>
+                        <p>La lógica para generar el pipeline real aún no está implementada.</p>
+                    </div>
+                    <Kanban items={pipeline} onProgram={onProgramFromKanban} />
+                </TabsContent>
+            </Tabs>
+        </SBCard>
+    );
+}
+
+
+// ============================================================================
+// COMPONENTE PRINCIPAL DE LA PÁGINA
+// ============================================================================
+export default function PersonalDashboardPage() {
   const { data, currentUser } = useData();
   const [isPending, startTransition] = useTransition();
 
-  const { pipeline, tasks, events, accounts } = useMemo(() => {
-    if (!data) return { pipeline: [], tasks: [], events: [], accounts: [] };
+  const { tasks, events, accounts, pipeline } = useMemo(() => {
+    if (!data) return { tasks: [], events: [], accounts: [], pipeline: [] };
     
-    const allTasks = (data.interactions || []).map(i => mapInteractionToTask(i, data.accounts || []));
-    const allEvents = (data.interactions || []).filter(i => i.startAt || i.plannedFor).map(i => mapInteractionToEvent(i, data.accounts || []));
+    const validAccounts = data.accounts || [];
+    const allTasks: Task[] = (data.interactions || []).map(i => mapInteractionToTask(i, validAccounts));
+    const allEvents = (data.interactions || [])
+        .filter(i => i.dept !== 'PERSONAL' && ((i as any).startAt || i.plannedFor))
+        .map(i => mapInteractionToEvent(i, validAccounts));
 
-    const demoPipeline: PipelineItem[] = (data.accounts || []).slice(0, 5).map(acc => ({
+    const demoPipeline: PipelineItem[] = validAccounts.slice(0, 5).map(acc => ({
         accountId: acc.id,
         accountName: acc.name,
         stage: acc.stage as PipelineItem['stage'],
@@ -62,10 +111,10 @@ export default function PersonalDashboardPage(){
     }));
 
     return { 
-        pipeline: demoPipeline, 
         tasks: allTasks, 
         events: allEvents, 
-        accounts: data.accounts || [],
+        accounts: validAccounts,
+        pipeline: demoPipeline,
     };
   }, [data]);
   
@@ -75,24 +124,24 @@ export default function PersonalDashboardPage(){
 
   const onProgramFromKanban = (p:{accountId:string;accountName:string;dept:Department;title:string})=>{
     startTransition(async () => {
-        if (!currentUser?.id) {
-            toast.error("No se ha podido identificar al usuario.");
-            return;
+        if (!currentUser?.id) { toast.error("No se ha podido identificar al usuario."); return; }
+        const res = await createTask({ accountId: p.accountId, note: p.title, dept: p.dept, userId: currentUser.id });
+        if (res.ok) {
+            toast.success("Tarea creada para programar.");
+        } else {
+            toast.error(res.message || "Error al crear la tarea.");
         }
-        const { ok } = await createTask({
-            accountId: p.accountId,
-            note: p.title,
-            dept: p.dept,
-            userId: currentUser.id
-        });
-        if (ok) toast.success("Tarea creada para programar.");
     });
   };
 
   const onCompleteTask = (id:string)=>{
       startTransition(async () => {
-          const { ok } = await completeTask(id);
-          if (ok) toast.success("Tarea completada.");
+          const res = await completeTask(id);
+          if (res.ok) {
+              toast.success("Tarea completada.");
+          } else {
+              toast.error(res.message || "Error al completar la tarea.");
+          }
       });
   };
 
@@ -103,92 +152,87 @@ export default function PersonalDashboardPage(){
 
   const onCalendarDrop = async (slotISO:string, payload:any)=>{
     startTransition(async () => {
-        if (!currentUser?.id) {
-            toast.error("No se ha podido identificar al usuario.");
-            return;
-        }
-        const { ok } = await scheduleEvent({
+        if (!currentUser?.id) { toast.error("No se ha podido identificar al usuario."); return; }
+        const res = await scheduleEvent({
             taskId: payload.id,
-            accountId: payload.accountId,
             title: payload.title,
             dept: payload.dept,
             startAt: slotISO,
             durationMin: 45
         });
-        if (ok) toast.success("Tarea programada en el calendario.");
+        if (res.ok) {
+            toast.success("Tarea programada en el calendario.");
+        } else {
+            toast.error(res.message || "Error al programar la tarea.");
+        }
     });
   };
 
   const onCreateTask = (payload:any)=>{
     startTransition(async () => {
-        if (!currentUser?.id) {
-            toast.error("No se ha podido identificar al usuario.");
-            return;
-        }
-        const { ok } = await createTask({
-            ...payload,
-            userId: currentUser.id
-        });
-        if (ok) {
+        if (!currentUser?.id) { toast.error("No se ha podido identificar al usuario."); return; }
+        const res = await createTask({ ...payload, userId: currentUser.id });
+        if (res.ok) {
             toast.success("Nueva tarea creada.");
             setCreateOpen(false);
         } else {
-            toast.error("No se pudo crear la tarea.");
+            toast.error(res.message || "No se pudo crear la tarea.");
         }
     });
   };
 
   return (
-    <main className="p-4 sm:p-6 lg:p-8">
-      <div className="grid grid-cols-1 xl:grid-cols-[1.2fr,1fr,1.1fr] gap-4">
-        <section className="space-y-3">
-          <div className="sb-card" data-variant="plain">
-            <div className="sb-card__header">
-              <h2 className="sb-card__title">Pipeline (Kanban)</h2>
-              <div className="ml-auto text-sm text-neutral-600">Arrastra al calendario para programar</div>
-            </div>
-          </div>
-          <Kanban items={pipeline} onProgram={onProgramFromKanban} />
-        </section>
+    <div className="flex flex-col h-full bg-background">
+      <ModuleHeader title="Mi Dashboard de Operaciones" icon={LayoutDashboard}>
+        <div className="flex items-center gap-2">
+            <Select value={view} onChange={e=> setView(e.target.value as any)}>
+              <option value="DIA">Día</option>
+              <option value="SEMANA">Semana</option>
+              <option value="MES">Mes</option>
+            </Select>
+            <Select value={deptFilter} onChange={e=> setDeptFilter(e.target.value as any)}>
+              <option value="TODOS">Todos Dept.</option>
+              <option value="VENTAS">Ventas</option>
+              <option value="MARKETING">Marketing</option>
+              <option value="CALIDAD">Calidad</option>
+              <option value="FINANZAS">Finanzas</option>
+              <option value="PRODUCCION">Producción</option>
+              <option value="ALMACEN">Almacén</option>
+              <option value="PERSONAL">Personal</option>
+            </Select>
+            <SBButton variant="primary" size="sm" onClick={()=>setCreateOpen(true)}><Plus size={14}/> Crear tarea</SBButton>
+        </div>
+      </ModuleHeader>
 
-        <section className="space-y-3">
-          <div className="sb-card" data-variant="plain">
-            <div className="sb-card__header">
-              <h2 className="sb-card__title">Tareas</h2>
-              <div className="ml-auto flex items-center gap-2 text-sm">
-                <select className="border rounded-lg px-2 py-1" value={view} onChange={e=> setView(e.target.value as any)}>
-                  <option value="DIA">Día</option>
-                  <option value="SEMANA">Semana</option>
-                  <option value="MES">Mes</option>
-                </select>
-                <select className="border rounded-lg px-2 py-1" value={deptFilter} onChange={e=> setDeptFilter(e.target.value as any)}>
-                  <option value="TODOS">Todos</option>
-                  <option value="VENTAS">Ventas</option>
-                  <option value="MARKETING">Marketing</option>
-                  <option value="CALIDAD">Calidad</option>
-                  <option value="FINANZAS">Finanzas</option>
-                  <option value="PRODUCCION">Producción</option>
-                  <option value="ALMACEN">Almacén</option>
-                  <option value="PERSONAL">Personal</option>
-                </select>
-                <button className="sb-btn-primary px-2 py-1 flex items-center gap-1" onClick={()=>setCreateOpen(true)}><Plus size={14}/> Crear tarea</button>
-              </div>
-            </div>
-          </div>
-          <TasksTable rows={tasks} view={view} deptFilter={deptFilter} onComplete={onCompleteTask} onDragStart={onTaskDragStart} />
-        </section>
+      <main className="flex-grow p-4 sm:p-6 lg:p-8 grid grid-cols-1 lg:grid-cols-[1fr,1.8fr] gap-6 overflow-hidden">
+        <OpsSidebar
+            pipeline={pipeline}
+            tasks={tasks}
+            view={view}
+            deptFilter={deptFilter}
+            onProgramFromKanban={onProgramFromKanban}
+            onCompleteTask={onCompleteTask}
+            onDragStart={onTaskDragStart}
+        />
 
-        <section className="space-y-3">
+        <section className="flex flex-col gap-3">
           <WeekCalendar events={events} onDropSchedule={onCalendarDrop} />
-          <div className="text-xs text-neutral-600">Consejo: Arrastra tareas desde el Kanban o la Tabla al hueco libre del calendario para programar o reprogramar.</div>
+          <p className="text-xs text-muted-foreground text-center">
+            Arrastra tareas desde la barra lateral a un hueco libre del calendario para programarlas.
+          </p>
         </section>
-      </div>
+      </main>
 
-      <button className="fixed right-4 bottom-4 sb-btn-primary rounded-full w-14 h-14 flex items-center justify-center shadow-lg xl:hidden" onClick={()=>setCreateOpen(true)} aria-label="Crear tarea">
+      <SBButton 
+        variant="primary"
+        className="fixed right-4 bottom-4 rounded-full w-14 h-14 p-0 shadow-lg xl:hidden" 
+        onClick={()=>setCreateOpen(true)} 
+        aria-label="Crear tarea"
+      >
         <Plus />
-      </button>
+      </SBButton>
 
       <CreateTaskModal open={createOpen} onClose={()=>setCreateOpen(false)} onCreate={onCreateTask} accounts={accounts} />
-    </main>
+    </div>
   );
 }

@@ -3,7 +3,6 @@
 
 import { DataProvider } from "@/lib/dataprovider";
 import { RealtimeProvider } from "@/app/providers/RealtimeProvider";
-import { AssistantProvider } from "@/features/assistant/components/AssistantProvider";
 
 export default function ClientProviders({
   children,
@@ -13,9 +12,7 @@ export default function ClientProviders({
   return (
     <RealtimeProvider>
       <DataProvider>
-        <AssistantProvider>
           {children}
-        </AssistantProvider>
       </DataProvider>
     </RealtimeProvider>
   );

@@ -1,9 +1,7 @@
-// src/app/api/santabrain/learn/route.ts
+
+// This API route has been disconnected.
 import { NextResponse } from 'next/server';
-import { learnCorrection } from '@/features/santabrain/lib/knowledge';
 
 export async function POST(req: Request) {
-  const body = await req.json();
-  const saved = await learnCorrection(body);
-  return NextResponse.json(saved);
+  return NextResponse.json({ ok: false, message: "Assistant feature is disabled." }, { status: 410 });
 }
