@@ -9,7 +9,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   Home, BarChart3, Megaphone, Factory, ClipboardCheck, Truck,
-  LineChart, SlidersHorizontal, LogOut, Plus,
+  LineChart, SlidersHorizontal, LogOut, Plus, ClipboardList,
 } from "lucide-react";
 import { useData } from "@/lib/dataprovider";
 import { Avatar } from "@/components/ui/Avatar";
@@ -47,6 +47,8 @@ const navSections: NavSection[] = [
       { href: "/quality/autocontrol", label: "Autocontrol" },
       { href: "/quality/parametros", label: "Parámetros" },
     ] },
+  { title: "Operaciones", module: "ops", icon: ClipboardList,
+    items: [{ href: "/ops/dashboard", label: "Dashboard" }] },
   { title: "Logística", module: "warehouse", icon: Truck,
     items: [{ href: "/warehouse/dashboard", label: "Dashboard" }, { href: "/warehouse/logistics", label: "Envíos" }, { href: "/warehouse/inventory", label: "Inventario" }] },
   { title: "Financiera", module: "finance", icon: LineChart,

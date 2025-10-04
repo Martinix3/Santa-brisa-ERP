@@ -1,3 +1,4 @@
+
 // src/domain/ssot.ts
 
 // =================================================================
@@ -20,7 +21,7 @@ export type Uom = UnitOfMass | UnitOfVolume | SalesUnit;
 export const UOM_ALIASES: Record<string, SalesUnit> = { uds: 'unit' };
 
 export type Currency = 'EUR';
-export type Department = 'VENTAS' | 'MARKETING' | 'PRODUCCION' | 'ALMACEN' | 'FINANZAS' | 'CALIDAD' | 'PERSONAL';
+export type Department = 'VENTAS' | 'MARKETING' | 'PRODUCCION' | 'ALMACEN' | 'FINANZAS' | 'CALIDAD' | 'PERSONAL' | 'OPS';
 export type StockReason = 'receipt' | 'production_in' | 'production_out' | 'sale' | 'transfer' | 'adjustment' | 'return_in' | 'return_out' | 'ship' | 'consignment_send' | 'consignment_return' | 'consignment_sell' | 'sample_send' | 'sample_consume';
 export type CodeEntity = 'PRODUCT' | 'ACCOUNT' | 'PARTY' | 'SUPPLIER' | 'LOT' | 'PROD_ORDER' | 'SHIPMENT' | 'GOODS_RECEIPT' | 'LOCATION' | 'PRICE_LIST' | 'PROMOTION';
 export type TaskKind = 'VISITA' | 'LLAMADA' | 'PEDIDO' | 'POS_EVT' | 'POS_PLV' | 'NOTA' | 'OTRO' | 'MKT' | 'QC' | 'FIN';
@@ -71,23 +72,6 @@ export type Note = {
   starred?: boolean;
   derived?: { kind: 'PEDIDO'|'VISITA'|'POS_EVT'|'POS_PLV'|'NOTA' };
 };
-
-// --- Agenda (Task) ---
-export type Task = {
-  id: string;
-  kind: TaskKind;
-  createdAt: string;
-  updatedAt: string;
-  department: Department;
-  title?: string;
-  dueAt?: string;
-  status?: TaskStatus;
-  durationMin?: number;
-  notes?: string;
-  accountId?: string;
-  accountName?: string;
-};
-
 
 // --- Contactos y Cuentas ---
 export type Address = { street: string; city: string; zip: string; province?: string; country: string; countryCode?: string; };
@@ -514,6 +498,7 @@ export const DEPT_META: Record<Department, { label: string; color: string; textC
   ALMACEN:    { label: 'Almacén',    color: '#996947', textColor: '#ffffff' },
   FINANZAS:   { label: 'Finanzas',   color: '#fecb46', textColor: '#412c00' },
   PERSONAL:   { label: 'Personal',   color: 'hsl(var(--sb-accent-personal))', textColor: 'hsl(var(--sb-neutral-900))' },
+  OPS:   { label: 'Operaciones',   color: '#6366f1', textColor: '#ffffff' },
 };
 
 export const ACCOUNT_TYPE_META: Record<AccountType, { label: string; accent: string }> = {
@@ -554,6 +539,7 @@ export const MODULE_ACCENTS: Record<string, string> = {
   warehouse: "var(--sb-accent-logistica)",
   finance: "var(--sb-accent-finance)",
   admin: "var(--sb-accent-admin)",
+  ops: "var(--sb-accent-ops)",
 };
 
 // -----------------------------------------------------------------
@@ -576,4 +562,3 @@ export type Payload =
 
 export type OrderSellIn = any; // Placeholder para compatibilidad
 export type ExecCheck = any; // Placeholder
-
