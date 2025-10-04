@@ -5,7 +5,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Home, BarChart3, Megaphone, Factory, ClipboardCheck, Truck,
   LineChart, SlidersHorizontal, LogOut, Plus,
@@ -78,7 +78,16 @@ function moduleFromPath(pathname: string): keyof typeof MODULE_ACCENTS | null {
 /* ===== 3) Layout principal ===== */
 export default function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? "/";
+  const router = useRouter();
   const { currentUser, logout } = useData();
+
+  useEffect(() => {
+    // Si por alguna razón este layout se renderiza sin un usuario,
+    // es un estado inválido y debemos forzar el retorno al login.
+    if (!currentUser) {
+      router.replace('/login');
+    }
+  }, [currentUser, router]);
   
   const isPrivilegedUser =
     currentUser?.role?.toLowerCase() === "admin" || currentUser?.role?.toLowerCase() === "owner";
@@ -97,6 +106,11 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
   }, [userMenuOpen]);
+
+  // No renderizar nada si no hay usuario, el useEffect se encargará de redirigir.
+  if (!currentUser) {
+    return null;
+  }
 
   return (
     <>
@@ -165,7 +179,7 @@ export default function AuthenticatedLayout({ children }: { children: React.Reac
         </div>
       </aside>
 
-      <main className="flex-1 min-w-0 overflow-y-auto bg-secondary">
+      <main id="main-content" className="flex-1 min-w-0 overflow-y-auto bg-secondary">
           {children}
       </main>
     </div>

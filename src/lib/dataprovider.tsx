@@ -29,7 +29,6 @@ type DataContextType = {
   setCurrentUserById: (userId: string) => void;
   isPersistenceEnabled: boolean;
   togglePersistence: () => void;
-  loadInitialData: () => Promise<void>;
 };
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -47,45 +46,45 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [isPersistenceEnabled, setIsPersistenceEnabled] = useState(true);
-  const [loadingData, setLoadingData] = useState(true); // Empieza cargando
+  const [loadingData, setLoadingData] = useState(true);
 
   const mountedRef = useRef(true);
   useEffect(() => () => { mountedRef.current = false; }, []);
 
   const loadInitialData = useCallback(async () => {
+    // Si no hay usuario de Firebase, no hay nada que cargar.
     if (!firebaseUser) {
       setData(null);
       if (mountedRef.current) setLoadingData(false);
       return;
     }
 
+    setLoadingData(true);
     if (!isPersistenceEnabled) {
-      setLoadingData(true);
-      setData(MOCK_DATA as unknown as SantaData);
+      setData(MOCK_DATA as SantaData);
       if (mountedRef.current) setLoadingData(false);
       return;
     }
     
-    setLoadingData(true);
     try {
-      const { firestoreDb } = getFirebaseSync(); // Use sync version
-      if (!firestoreDb) throw new Error("Firestore DB not initialized");
-      const partial: Partial<SantaData> = {};
-      let total = 0;
+      const { firestoreDb } = getFirebaseSync();
+      if (!firestoreDb) throw new Error("Firestore DB not initialized for data loading.");
 
-      for (const name of SANTA_DATA_COLLECTIONS) {
+      const partial: Partial<SantaData> = {};
+      const promises = SANTA_DATA_COLLECTIONS.map(async (name) => {
         try {
           const collectionName = name as string;
           const snap = await getDocs(collection(firestoreDb, collectionName));
           (partial as any)[name] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-          total += snap.size;
         } catch (e) {
           (partial as any)[name] = [];
-          console.error(`[DataProvider] Error loading ${name}`, e);
+          console.error(`[DataProvider] Error loading collection ${name}:`, e);
         }
-      }
+      });
+      await Promise.all(promises);
+
       if (mountedRef.current) setData(partial as SantaData);
-    } catch(error) {
+    } catch (error) {
         console.error("Error loading initial data:", error);
     } finally {
       if (mountedRef.current) setLoadingData(false);
@@ -93,49 +92,52 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [firebaseUser, isPersistenceEnabled]);
 
   useEffect(() => {
-    let unsub: (() => void) | undefined;
-    try {
-      const { firebaseAuth } = getFirebaseSync(); // Use sync version
+    const { firebaseAuth } = getFirebaseSync();
+    if (!firebaseAuth) {
+      console.error("Firebase Auth not available.");
+      setAuthReady(true);
+      return;
+    }
+    const unsub = onAuthStateChanged(firebaseAuth, (fbUser) => {
         if (!mountedRef.current) return;
-        unsub = onAuthStateChanged(firebaseAuth, (fbUser) => {
-          if (!mountedRef.current) return;
-          setFirebaseUser(fbUser ?? null);
-          setAuthReady(true);
-          if (!fbUser) {
-            setData(null);
-            setCurrentUser(null);
-            setLoadingData(false);
-          }
-        });
-    } catch(error) {
-        console.error("Could not get Firebase Auth for onAuthStateChanged:", error);
+        setFirebaseUser(fbUser ?? null);
         setAuthReady(true);
-        setLoadingData(false);
-    };
-    return () => {
-        if(unsub) unsub();
-    };
+        if (!fbUser) {
+          setData(null);
+          setCurrentUser(null);
+          setLoadingData(false);
+        }
+    });
+    return () => unsub();
   }, []);
 
-
   useEffect(() => {
+    if (firebaseUser) {
       loadInitialData();
+    } else {
+      // Si no hay usuario, nos aseguramos de que no haya datos cargados.
+      setData(null);
+      setLoadingData(false);
+    }
   }, [firebaseUser, isPersistenceEnabled, loadInitialData]);
 
   useEffect(() => {
-    if (authReady && firebaseUser && data?.users) {
+    if (firebaseUser && data?.users) {
       const appUser = data.users.find(u => u.email === firebaseUser.email);
       setCurrentUser(appUser ?? null);
     }
-  }, [authReady, firebaseUser, data?.users]);
+  }, [firebaseUser, data?.users]);
 
   useEffect(() => {
-    if (!authReady) return;
-    const isAuthPage = pathname.startsWith("/login");
+    // Redirecciones post-autenticación
+    if (!authReady) return; // No hacer nada hasta que la autenticación esté lista.
+    const isAuthPage = pathname === '/login';
 
     if (firebaseUser && currentUser && isAuthPage) {
+      // Usuario logueado y en página de login -> redirigir a la app.
       router.replace("/dashboard-personal");
     } else if (!firebaseUser && !isAuthPage && pathname !== "/") {
+      // Usuario no logueado y en una página protegida -> redirigir a login.
       router.replace("/login");
     }
   }, [authReady, firebaseUser, currentUser, pathname, router]);
@@ -206,8 +208,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const togglePersistence = useCallback(() => {
     setIsPersistenceEnabled(p => !p);
-    loadInitialData();
-  }, [loadInitialData]);
+  }, []);
 
   const setCurrentUserById = useCallback((userId: string) => {
     const u = data?.users?.find(u => u.id === userId) ?? null;
@@ -220,8 +221,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     saveCollection, saveAllCollections,
     login, loginWithEmail, signupWithEmail, logout,
     togglePersistence, isPersistenceEnabled, setCurrentUserById,
-    loadInitialData,
-  }), [data, currentUser, authReady, firebaseUser, loadingData, saveCollection, saveAllCollections, login, loginWithEmail, signupWithEmail, logout, togglePersistence, isPersistenceEnabled, setCurrentUserById, loadInitialData]);
+  }), [data, currentUser, authReady, firebaseUser, loadingData, saveCollection, saveAllCollections, login, loginWithEmail, signupWithEmail, logout, togglePersistence, isPersistenceEnabled, setCurrentUserById]);
 
   return (
     <DataContext.Provider value={value}>

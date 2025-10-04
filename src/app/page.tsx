@@ -2,12 +2,11 @@
 import { redirect } from 'next/navigation';
 
 /**
- * This component handles the root path of the application.
- * It automatically redirects all traffic from "/" to "/login".
- * This prevents 404 errors for the root path and ensures users
- * always start at a valid entry point.
+ * The root page now acts as a simple entry point.
+ * It immediately redirects the user to the login page.
+ * The logic to redirect authenticated users away from login
+ * is handled in the DataProvider and the login page itself.
  */
 export default function RootPage() {
-  // Redirect the user to the login page.
   redirect('/login');
 }
