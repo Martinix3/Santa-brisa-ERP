@@ -8,7 +8,7 @@ import { useData } from '@/lib/dataprovider';
 import { CreateTaskModal } from '@/features/ops/components/CreateTaskModal';
 import { Kanban, type PipelineItem } from '@/features/ops/components/Kanban';
 import { TasksTable, type Task as TaskRow } from '@/features/ops/components/TasksTable';
-import { WeekCalendar } from '@/features/ops/components/WeekCalendar';
+import { SBDatePicker } from '@/components/ui/SBDatePicker';
 import { SBButton, SBCard } from '@/components/ui';
 
 import type { Interaction, Department, Account, User, InteractionKind, Stage, TaskKind } from '@/domain/ssot';
@@ -102,7 +102,6 @@ export default function PersonalDashboardPage() {
         // Manejo robusto: la respuesta tipada no expone `message`
         const reason =
           (res as any)?.error ??
-          (res as any)?.message ??
           "Operación fallida";
         throw new Error(reason);
       }
@@ -142,7 +141,7 @@ export default function PersonalDashboardPage() {
             <TasksTable rows={tasks} view={view} deptFilter={deptFilter} onComplete={()=>{}} onDragStart={handleTaskDragStart} />
           </div>
           <div className="lg:col-span-1">
-            <WeekCalendar events={events} onDaySelect={(iso) => console.log('Selected:', iso)} />
+            <SBDatePicker events={events} onDaySelect={(iso: string) => console.log('Selected:', iso)} />
           </div>
         </div>
       </DndContext>
