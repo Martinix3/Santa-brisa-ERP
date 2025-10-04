@@ -17,14 +17,6 @@ import { PosLinesPicker } from "@/features/pos/PosLinesPicker";
 import type { Account, Party, PosCostCatalogEntry, Item } from "@/domain/ssot";
 import { SANTA_BRISA_DISTRIB_ID } from "@/lib/authz";
 
-// ============================================================================
-// SANTA BRISA DESIGN SYSTEM: CONSTANTS
-// ============================================================================
-const SANTA_BRISA_COLORS = {
-  brand: {
-    accent: '#F4C542',
-  },
-};
 
 // ============================================================================
 // SUB-COMPONENT: AccountSearch
@@ -56,7 +48,7 @@ function AccountSearch({ accounts, onSelect, onFreeText, initialAccountId }: { a
   return (
     <div className="relative">
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           value={query}
           onChange={handleInputChange}
@@ -66,11 +58,11 @@ function AccountSearch({ accounts, onSelect, onFreeText, initialAccountId }: { a
         />
       </div>
       {suggestions.length > 0 && (
-        <ul className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
+        <ul className="absolute z-10 w-full mt-1 bg-card border border-border rounded-md shadow-lg max-h-48 overflow-y-auto">
           {suggestions.map((acc: Account) => (
-            <li key={acc.id} onMouseDown={() => handleSelect(acc)} className="px-3 py-2 cursor-pointer hover:bg-slate-50">
-              <p className="font-medium text-sm text-slate-800">{acc.name}</p>
-              <p className="text-xs text-slate-500">{acc.id}</p>
+            <li key={acc.id} onMouseDown={() => handleSelect(acc)} className="px-3 py-2 cursor-pointer hover:bg-secondary">
+              <p className="font-medium text-sm text-foreground">{acc.name}</p>
+              <p className="text-xs text-muted-foreground">{acc.id}</p>
             </li>
           ))}
         </ul>
@@ -185,8 +177,7 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
     }
   }, [open, resetAll]);
 
-  const renderLabel = (text: string) => <label className="text-xs font-medium text-slate-500">{text}</label>;
-  const TABS = [{ id: "INTERACCION", label: "Interacción" }, { id: "PEDIDO", label: "Pedido (colocación)" }];
+  const renderLabel = (text: string) => <label className="text-xs font-medium text-muted-foreground">{text}</label>;
 
   return (
     <SBDialog open={open} onOpenChange={onOpenChange}>
@@ -207,8 +198,8 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
               <div className="space-y-4 pt-2">
                 <div>{renderLabel("Nota")}<Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Escribe una nota de la visita..." /></div>
                 <div>{renderLabel("Fecha/hora de la visita (opcional)")}<Input type="datetime-local" value={plannedFor} onChange={(e) => setPlannedFor(e.target.value)} /></div>
-                <div className="border-t border-slate-200 pt-4 space-y-2">
-                  <div className="flex items-center justify-between"><h4 className="text-sm font-semibold text-slate-800">Añadir tácticas POS (opcional)</h4><span className="text-xs text-slate-500">Se registran en Marketing</span></div>
+                <div className="border-t border-border pt-4 space-y-2">
+                  <div className="flex items-center justify-between"><h4 className="text-sm font-semibold text-foreground">Añadir tácticas POS (opcional)</h4><span className="text-xs text-muted-foreground">Se registran en Marketing</span></div>
                   <PosLinesPicker catalog={posCatalog} lines={posLines} setLines={setPosLines} />
                 </div>
               </div>
@@ -222,26 +213,26 @@ export function QuickLogDialog({ open, onOpenChange, accountId, defaultTab = "IN
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <div className="text-sm font-medium text-slate-800">Líneas de pedido</div>
+                  <div className="text-sm font-medium text-foreground">Líneas de pedido</div>
                   {lines.map((l: OrderLine, idx: number) => (
                     <div key={idx} className="flex gap-2 items-center">
                       <Select className="flex-1" value={l.sku} onChange={e => setLines(s => s.map((x, i) => i === idx ? { ...x, sku: e.target.value } : x))}><option value="">-- Selecciona producto --</option>{skuOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</Select>
                       <Input type="number" min={1} className="w-20" value={l.qty} onChange={e => setLines(s => s.map((x, i) => i === idx ? { ...x, qty: Math.max(1, Number(e.target.value) || 1) } : x))} />
                       <Input type="number" step="0.01" placeholder="€ (opc.)" className="w-24" value={l.unitPriceReported ?? ""} onChange={e => setLines(s => s.map((x, i) => i === idx ? { ...x, unitPriceReported: Number(e.target.value) || undefined } : x))} />
-                      <SBButton variant="ghost" onClick={() => removeLine(idx)}><Trash2 className="w-4 h-4 text-rose-500" /></SBButton>
+                      <SBButton variant="ghost" size="sm" onClick={() => removeLine(idx)} className="text-destructive hover:bg-destructive/10"><Trash2 className="w-4 h-4" /></SBButton>
                     </div>
                   ))}
                   <SBButton variant="outline" size="sm" onClick={addLine}><Plus className="w-4 h-4 mr-2" />Añadir línea</SBButton>
                 </div>
-                <div className="border-t border-slate-200 pt-4 space-y-2">
-                  <div className="flex items-center justify-between"><h4 className="text-sm font-semibold text-slate-800">Añadir tácticas POS (opcional)</h4><span className="text-xs text-slate-500">Se registran en Marketing</span></div>
+                <div className="border-t border-border pt-4 space-y-2">
+                  <div className="flex items-center justify-between"><h4 className="text-sm font-semibold text-foreground">Añadir tácticas POS (opcional)</h4><span className="text-xs text-muted-foreground">Se registran en Marketing</span></div>
                   <PosLinesPicker catalog={posCatalog} lines={posLines} setLines={setPosLines} />
                 </div>
               </div>
             </TabsContent>
           </Tabs>
         </div>
-        <div className="flex justify-end gap-2 pt-4">
+        <div className="flex justify-end gap-2 pt-4 border-t">
           <SBButton variant="secondary" onClick={() => onOpenChange(false)} disabled={saving}>Cancelar</SBButton>
           <SBButton onClick={save} disabled={saving}>{saving ? "Guardando..." : "Guardar"}</SBButton>
         </div>

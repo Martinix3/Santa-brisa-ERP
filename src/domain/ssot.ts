@@ -23,7 +23,7 @@ export type Currency = 'EUR';
 export type Department = 'VENTAS' | 'MARKETING' | 'PRODUCCION' | 'ALMACEN' | 'FINANZAS' | 'CALIDAD' | 'PERSONAL';
 export type StockReason = 'receipt' | 'production_in' | 'production_out' | 'sale' | 'transfer' | 'adjustment' | 'return_in' | 'return_out' | 'ship' | 'consignment_send' | 'consignment_return' | 'consignment_sell' | 'sample_send' | 'sample_consume';
 export type CodeEntity = 'PRODUCT' | 'ACCOUNT' | 'PARTY' | 'SUPPLIER' | 'LOT' | 'PROD_ORDER' | 'SHIPMENT' | 'GOODS_RECEIPT' | 'LOCATION' | 'PRICE_LIST' | 'PROMOTION';
-export type TaskKind = 'VISITA' | 'PEDIDO' | 'POS_EVT' | 'POS_PLV' | 'NOTA';
+export type TaskKind = 'VISITA' | 'LLAMADA' | 'PEDIDO' | 'POS_EVT' | 'POS_PLV' | 'NOTA' | 'OTRO' | 'MKT' | 'QC' | 'FIN';
 export type TaskStatus = 'open' | 'done' | 'cancelled';
 
 // --- Roles y Estados ---
@@ -79,6 +79,13 @@ export type Task = {
   createdAt: string;
   updatedAt: string;
   department: Department;
+  title?: string;
+  dueAt?: string;
+  status?: TaskStatus;
+  durationMin?: number;
+  notes?: string;
+  accountId?: string;
+  accountName?: string;
 };
 
 
@@ -325,6 +332,12 @@ export interface Interaction {
   location?: string;
   updatedAt?: Timestamp;
   outcome?: any;
+  // Campos para que funcione como agenda universal
+  title?: string;
+  startAt?: Timestamp;
+  endAt?: Timestamp;
+  durationMin?: number;
+  uiKind?: TaskKind;
 }
 
 // --- Otras entidades ---
@@ -563,6 +576,4 @@ export type Payload =
 
 export type OrderSellIn = any; // Placeholder para compatibilidad
 export type ExecCheck = any; // Placeholder
-
-
 

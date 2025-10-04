@@ -303,4 +303,21 @@
     position: absolute; min-width: 220px;
     animation: sb-fade .12s ease both;
   }
+  /* Small helper styles if SB tokens not present in the environment */
+.sb-card { background: white; border: 1px solid #e5e7eb; border-radius: 0.75rem; }
+.sb-card__header { display:flex; align-items:center; gap:.75rem; padding:.75rem 1rem; border-bottom:1px solid #e5e7eb; }
+.sb-card__title { font-weight:600; }
+.sb-card__content { padding: .75rem 1rem; }
+
+.sb-btn-primary { background: #FFCA32; color: #0f1622; border-radius: .75rem; padding: .5rem .75rem; font-weight:600; }
+.sb-btn-primary[data-variant="subtle"] { background: #fff3c6; }
+.sb-badge { font-size: 11px; padding: .125rem .5rem; border-radius: .5rem; border: 1px solid #e5e7eb; background: #f9fafb; }
+.sb-badge--ventas { background:#e0ecff; color:#1d4ed8; }
+.sb-badge--marketing { background:#e6ffed; color:#0f5132; }
+.sb-badge--produccion { background:#fff4e6; color:#92400e; }
+.sb-badge--calidad { background:#ffe6e6; color:#9b1c1c; }
+.sb-badge--finanzas { background:#efe6ff; color:#5b21b6; }
+.sb-badge--almacen { background:#f3f4f6; color:#374151; }
+.sb-badge--ok { background:#dcfce7; color:#065f46; }
+.sb-badge--warn { background:#fff7ed; color:#9a3412; }
 }

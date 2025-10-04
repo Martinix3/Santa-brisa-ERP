@@ -5,6 +5,7 @@ import React, { useEffect, useMemo } from 'react';
 import { SBButton } from '@/components/ui/ui-primitives';
 import type { Uom, Item, ProductionOrder, BillOfMaterial as RecipeBom, OnHandView } from '@/domain/ssot';
 import { SectionCard } from '../../components/ui';
+import { cn } from '@/lib/utils';
 
 type TheoreticalLine = { itemId: string; itemName: string; qty: number; uom: Uom };
 
@@ -77,12 +78,12 @@ export function StockCheckPanel({ bom, qty, items, onHand, onReadyChange, shorta
   return (
     <SectionCard title="Disponibilidad y lotes de insumo">
       {shortages.length > 0 && (
-        <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 p-2 text-xs">
-          <b>Faltantes:</b> {shortages.map(s => `${s.itemName}: ${s.missing} ${s.uom}`).join(" · ")}
+        <div className="mb-3 rounded-md border border-destructive/30 bg-destructive-foreground p-2 text-xs text-destructive">
+          <b className="font-semibold">Faltantes:</b> {shortages.map(s => `${s.itemName}: ${s.missing} ${s.uom}`).join(" · ")}
         </div>
       )}
       <div className="text-xs">
-        <div className="grid grid-cols-[1fr,90px,90px] font-semibold mb-1">
+        <div className="grid grid-cols-[1fr,90px,90px] font-semibold mb-1 text-muted-foreground">
           <span>Material</span><span className="text-right">Req.</span><span className="text-right">Propuesto</span>
         </div>
         {theory.map((line) => {
@@ -91,12 +92,12 @@ export function StockCheckPanel({ bom, qty, items, onHand, onReadyChange, shorta
             <div key={line.itemId} className="grid grid-cols-[1fr,90px,90px] items-start py-0.5">
               <span>{line.itemName}</span>
               <span className="text-right font-mono">{line.qty} {line.uom}</span>
-              <span className={`text-right font-mono ${proposed >= line.qty ? 'text-emerald-700' : 'text-rose-700'}`}>
+              <span className={cn('text-right font-mono', proposed >= line.qty ? 'text-success' : 'text-destructive')}>
                 {+proposed.toFixed(3)} {line.uom}
               </span>
-              <div className="col-span-3 text-[11px] text-zinc-600 mt-0.5">
+              <div className="col-span-3 text-[11px] text-muted-foreground mt-0.5">
                 {picks.filter(p => p.itemId === line.itemId).map(p => (
-                  <span key={`${p.itemId}-${p.lotNumber}`} className="inline-block mr-1 mb-1 px-1.5 py-0.5 rounded border bg-white">
+                  <span key={`${p.itemId}-${p.lotNumber}`} className="inline-block mr-1 mb-1 px-1.5 py-0.5 rounded border bg-background">
                     {p.lotNumber} · {p.qty} {p.uom}
                   </span>
                 ))}

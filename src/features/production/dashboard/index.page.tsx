@@ -11,45 +11,36 @@ import { QCPanel } from "@/features/production/dashboard/components/QCPanel";
 import { BottlingProgress } from "@/features/production/dashboard/components/BottlingProgress";
 import { EfficiencyWidget } from "@/features/production/dashboard/components/EfficiencyWidget";
 import { Plus } from 'lucide-react';
-import { SBCard } from "@/components/ui/ui-primitives";
+import { SBCard, SBButton } from "@/components/ui/ui-primitives";
 import { UpcomingTasks } from "@/features/agenda/components/UpcomingTasks";
 import { SB_THEME, type ProductionOrder, type BillOfMaterial, type Item, type OnHandView, Uom } from "@/domain/ssot";
 
-
-// MOCK DATA FOR DEMO
-const MOCK_ITEMS: Item[] = [
-  { id: 'item_sb_750', sku: 'SB-750', name: 'Santa Brisa 750ml', category: 'fg', uom: 'unit', active: true, stdCost: 8.5 },
-  { id: 'item_agave', sku: 'RM-AGAVE-01', name: 'Agave Crudo', category: 'raw', uom: 'kg', active: true, stdCost: 2.1 },
-  { id: 'item_botella', sku: 'PKG-BOTELLA-STD', name: 'Botella Vidrio 750ml', category: 'pack', uom: 'unit', active: true, stdCost: 0.8 },
-];
-
-const MOCK_RECIPES: BillOfMaterial[] = [
-    { id: 'bom_sb_750', outputItemId: 'item_sb_750', name: 'Receta Santa Brisa', batchSize: 100, baseUnit: 'L', items: [
-        { itemId: 'item_agave', qty: 20, uom: 'kg' },
-        { itemId: 'item_botella', qty: 133, uom: 'unit' }
-    ]}
-];
-
-const MOCK_ON_HAND: OnHandView[] = [
-  { id: 'oh_1', itemId: 'item_sb_750', lotNumber: 'L240801-A', locationId: 'FG/MAIN', qty: 120, reservedQty: 20, uom: 'unit', qcStatus: 'PASSED', category: 'fg', expiryAt: '2026-08-01T00:00:00Z', createdAt: '2024-08-01T00:00:00Z', updatedAt: '2024-08-10T00:00:00Z' },
-  { id: 'oh_3', itemId: 'item_sb_750', lotNumber: 'L240815-A', locationId: 'QC/AREA', qty: 200, reservedQty: 0, uom: 'unit', qcStatus: 'PENDING', category: 'fg', createdAt: '2024-08-15T00:00:00Z', updatedAt: '2024-08-15T00:00:00Z' },
-  { id: 'oh_4', itemId: 'item_agave', lotNumber: 'RM-AG-240805', locationId: 'RM/MAIN', qty: 50, reservedQty: 0, uom: 'kg', qcStatus: 'PASSED', category: 'raw', createdAt: '2024-08-05T00:00:00Z', updatedAt: '2024-08-05T00:00:00Z' },
-];
-
-const MOCK_ORDERS: ProductionOrder[] = [
-    { id: 'po_1', baseUnit: 'L' as Uom, orderNumber: 'PO-2024-001', bomId: 'bom_sb_750', outputItemId: 'item_sb_750', targetQuantity: 100, status: 'PLANNED', createdAt: new Date(Date.now() - 5 * 86400000).toISOString(), shortages: [{itemId: 'item_agave', required: 20, available: 5, missing: 15, uom: 'kg'}] },
-    { id: 'po_2', baseUnit: 'L' as Uom, orderNumber: 'PO-2024-002', bomId: 'bom_sb_750', outputItemId: 'item_sb_750', targetQuantity: 200, status: 'IN_PROGRESS', createdAt: new Date(Date.now() - 2 * 86400000).toISOString() },
-    { id: 'po_3', baseUnit: 'L' as Uom, orderNumber: 'PO-2024-003', bomId: 'bom_sb_750', outputItemId: 'item_sb_750', targetQuantity: 150, status: 'DONE', createdAt: new Date(Date.now() - 10 * 86400000).toISOString(), execution: { finishedAt: new Date(Date.now() - 8 * 86400000).toISOString(), goodUnits: 148, durationHours: 6 }, costing: { actual: { perUnit: 8.6, yieldLossPct: 1.3 } } },
-];
-
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-6 animate-pulse">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <SBCard className="h-24"><div className="sb-skeleton h-full w-full"></div></SBCard>
+        <SBCard className="h-24"><div className="sb-skeleton h-full w-full"></div></SBCard>
+        <SBCard className="h-24"><div className="sb-skeleton h-full w-full"></div></SBCard>
+        <SBCard className="h-24"><div className="sb-skeleton h-full w-full"></div></SBCard>
+      </div>
+      <div className="grid xl:grid-cols-3 gap-6">
+        <div className="xl:col-span-2 space-y-6">
+          <SBCard className="h-64"><div className="sb-skeleton h-full w-full"></div></SBCard>
+          <SBCard className="h-48"><div className="sb-skeleton h-full w-full"></div></SBCard>
+        </div>
+        <div className="space-y-6">
+          <SBCard className="h-40"><div className="sb-skeleton h-full w-full"></div></SBCard>
+          <SBCard className="h-40"><div className="sb-skeleton h-full w-full"></div></SBCard>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function ProductionDashboardPage() {
-  const { data } = { data: {
-      billOfMaterials: MOCK_RECIPES,
-      items: MOCK_ITEMS,
-      onHand: MOCK_ON_HAND,
-      productionOrders: MOCK_ORDERS,
-  }};
+  // Se restaura el uso de datos reales desde el DataProvider.
+  const { data } = useData();
   const { billOfMaterials: recipes, items, onHand, productionOrders: orders } = data || {};
   
   const kpis = useMemo(()=> {
@@ -57,7 +48,8 @@ export default function ProductionDashboardPage() {
       return computeKpis({ orders: orders as any, recipes: recipes as any, onHand: onHand as any, items });
   }, [orders, recipes, onHand, items]);
 
-  if (!data || !kpis) return <div className="p-6">Cargando dashboard…</div>;
+  // Se implementa un 'skeleton' para una mejor experiencia de carga.
+  if (!data || !kpis) return <DashboardSkeleton />;
 
   return (
     <div className="space-y-6">
@@ -82,10 +74,14 @@ export default function ProductionDashboardPage() {
          <EfficiencyWidget laborSeries={kpis.laborSeries} costPerUnitSeries={kpis.costPerUnitSeries} />
        </SBCard>
        
-       {/* Botón de acción flotante, sin acción por ahora */}
-       <button className="fixed bottom-6 right-6 h-14 w-14 rounded-full bg-zinc-900 text-white shadow-lg flex items-center justify-center z-40 hover:bg-zinc-800 transition-colors">
+       {/* Se reemplaza el botón personalizado por el componente SBButton para consistencia. */}
+       <SBButton 
+         variant="primary"
+         className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-40 p-0"
+         aria-label="Añadir nueva orden"
+       >
             <Plus size={24} />
-       </button>
+       </SBButton>
     </div>
   );
 }
