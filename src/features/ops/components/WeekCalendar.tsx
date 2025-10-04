@@ -1,17 +1,19 @@
 // src/features/ops/components/WeekCalendar.tsx
 'use client';
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { DayPicker, type DayPickerProps } from 'react-day-picker';
 import { es as esLocale } from 'date-fns/locale';
+import { sbAsISO } from '../helpers';
 
 export function WeekCalendar(props: Partial<DayPickerProps> & {
   events?: Array<{ id: string; startAt: string }>;
   onDaySelect?: (isoDate: string) => void;
 }) {
   const { events = [], onDaySelect, ...rest } = props;
+  const [selected, setSelected] = useState<Date>(new Date());
 
   // Mapa YYYY-MM-DD -> nº de eventos
-  const counts = React.useMemo(() => {
+  const counts = useMemo(() => {
     const m = new Map<string, number>();
     for (const e of events) {
       if (!e.startAt) continue;
@@ -31,6 +33,14 @@ export function WeekCalendar(props: Partial<DayPickerProps> & {
     const c = counts.get(key) ?? 0;
     return max == null ? c >= min : c >= min && c <= max;
   };
+  
+  const handleSelect = (day: Date | undefined) => {
+    const newSelectedDay = day || new Date();
+    setSelected(newSelectedDay);
+    if(onDaySelect) {
+      onDaySelect(sbAsISO(newSelectedDay) || new Date().toISOString());
+    }
+  }
 
   // Explicitly remove 'required' from rest to satisfy DayPicker's strict types
   const { required, ...otherProps } = rest;
@@ -39,9 +49,11 @@ export function WeekCalendar(props: Partial<DayPickerProps> & {
     <div className="sb-card p-3">
       <DayPicker
         mode="single"
+        required
+        selected={selected}
+        onSelect={handleSelect}
         weekStartsOn={1}
         showOutsideDays
-        onDayClick={(d) => onDaySelect?.(d.toISOString())}
         modifiers={{
           has1: match(1, 1),
           has2: match(2, 2),
