@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useData } from "@/lib/dataprovider";
 import { toast } from "sonner";
 import type { Uom, Item, ProductionOrder, BillOfMaterial as RecipeBom } from '@/domain/ssot';
-import { planProduction } from "../actions";
+import { planProduction } from "@/server/actions/production.actions";
 import { ProductionSidebar } from "@/features/production/execution/components/ProductionSidebar";
 import { ActiveOrderPanel } from "@/features/production/execution/components/ActiveOrderPanel";
 import { EmptyState, SBCard } from "@/components/ui/ui-primitives";
@@ -81,7 +81,7 @@ export default function ProductionExecutionPage() {
             itemId: bom.outputItemId,
             sku: outputItem?.sku,
             qty: 1,
-            uom: (bom.stage === "ENVASADO" ? "uds" : "L"),
+            uom: (bom.stage === "ENVASADO" ? "unit" : "L"),
             toLocationId: 'FG/MAIN'
         },
         realConsumption: [],

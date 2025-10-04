@@ -1,7 +1,11 @@
 // src/config/firebaseWebApp.ts
 type WebConfig = {
-  apiKey: string; authDomain: string; projectId: string; storageBucket: string;
-  messagingSenderId: string; appId: string; measurementId?: string;
+  apiKey: string;
+  authDomain: string;
+  projectId: string;
+  storageBucket: string;
+  messagingSenderId: string;
+  appId: string;
 };
 
 const env = {
@@ -11,17 +15,18 @@ const env = {
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 } as const;
 
 export function getFirebaseWebConfig(): WebConfig {
   const missing = Object.entries(env)
-    .filter(([key]) => key !== 'measurementId') // measurementId is optional
-    .filter(([,v]) => !v)
+    .filter(([, v]) => !v)
     .map(([k]) => k);
-    
-  if (typeof window !== "undefined" && missing.length > 0) {
-    throw new Error(`Missing Firebase envs: ${missing.join(", ")}. Define them in .env.local`);
+
+  if (typeof window !== "undefined" && missing.length) {
+    throw new Error(
+      `Missing Firebase envs: ${missing.join(", ")}. Define them in .env.local`
+    );
   }
+
   return env as WebConfig;
 }

@@ -1,8 +1,9 @@
+// src/app/(app)/production/bom/actions.ts
 'use server';
 
 import { ok, fail, type ActionResult } from "@/lib/result";
 import { z } from "zod";
-import { upsertMany } from "@/lib/dataprovider/actions";
+import { upsertMany } from "@/lib/dataprovider/server";
 import { revalidatePath } from "next/cache";
 
 // ====== Schemas ======
@@ -62,20 +63,6 @@ export async function upsertBOM(input: unknown): Promise<ActionResult<{ id: stri
       batchSize: 1,
       items: bom.items.map(l => ({ ...l, uom: l.uom ?? "unit" })),
     };
-
-    // (Opcional) Validación fuerte con lectura de items (cuando tengas reads)
-    // try {
-    //   const { getManyByIds } = await import("@/lib/dataprovider/reads");
-    //   const ids = [normalized.outputItemId, ...normalized.items.map(i => i.itemId)];
-    //   type ItemLite = { id: string; category?: "rm"|"pack"|"aux"|"sf"|"fg"; uom?: "L"|"kg"|"unit"; active?: boolean };
-    //   const docs = await getManyByIds<ItemLite>("items", ids);
-    //   const idx = new Map(docs.map(d => [d.id, d]));
-    //   const out = idx.get(normalized.outputItemId);
-    //   if (!out) return fail("El producto de salida no existe.");
-    //   if (stage === "PRODUCCION" && out.category !== "sf") return fail("En Producción el output debe ser PI (sf).");
-    //   if (stage === "ENVASADO" && out.category !== "fg") return fail("En Envasado el output debe ser FG (fg).");
-    //   normalized.items = normalized.items.map(l => ({ ...l, uom: (idx.get(l.itemId)?.uom ?? l.uom ?? "unit") as any }));
-    // } catch { /* sin helper de lectura, seguimos */ }
 
     await upsertMany("billOfMaterials", [normalized as any]);
     revalidatePath("/production/bom");
