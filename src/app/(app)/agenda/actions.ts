@@ -2,6 +2,7 @@
 "use server";
 import { adminDb as db } from "@/server/firebase";
 import type { Department } from '@/domain/ssot';
+import { revalidatePath } from "next/cache";
 
 export async function createInteraction(input: {
   accountId: string;
@@ -24,4 +25,15 @@ export async function createInteraction(input: {
     updatedAt: now,
   });
   return { id: ref.id };
+}
+
+export async function rescheduleEvent(interactionId: string, newDate: string) {
+    if (!interactionId || !newDate) {
+        throw new Error("Se requiere el ID de la interacción y la nueva fecha.");
+    }
+    await db.collection("interactions").doc(interactionId).update({
+        plannedFor: newDate,
+        updatedAt: new Date().toISOString(),
+    });
+    revalidatePath("/agenda");
 }

@@ -11,8 +11,8 @@ import { es as esLocale } from "date-fns/locale";
 // FullCalendar & Draggable Interaction
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
-import interactionPlugin, { type DropArg, type EventDropArg } from "@fullcalendar/interaction";
-import type { EventApi, EventContentArg } from "@fullcalendar/core";
+import interactionPlugin, { type DropArg } from "@fullcalendar/interaction";
+import type { EventApi, EventContentArg, EventDropArg, EventClickArg } from "@fullcalendar/core";
 
 // Icons & Utils
 import { PlusCircle, GripVertical, Calendar as CalendarIcon, ChevronLeft, ChevronRight, ListTodo } from "lucide-react";
@@ -28,7 +28,7 @@ import { createTask, completeTask } from '@/app/(app)/ops/actions';
 import { createAccount } from '@/app/(app)/accounts/actions';
 
 // UI Components
-import { Button as SBButton, SBDialog, SBDialogContent } from '@/components/ui';
+import { SBButton, SBDialog, SBDialogContent } from '@/components/ui';
 import { Avatar } from "@/components/ui/Avatar";
 import { ModuleHeader } from "@/components/ui/ModuleHeader";
 import { TaskBoard, type Task } from "@/features/agenda/TaskBoard";
@@ -57,13 +57,9 @@ function mapInteractionsToTasks(
       const task: Task = {
         ...i,
         title: i.note || `${i.kind}`,
-        type: i.dept || "VENTAS",
-        status: i.status || 'open',
         date: plannedISO,
-        involvedUserIds: i.involvedUserIds,
-        location: i.location || accountMap.get(i.accountId || ''),
-        linkedEntity: i.linkedEntity,
         originalInteraction: i,
+        location: i.location || accountMap.get(i.accountId || ''),
       };
       return task;
     })
@@ -229,7 +225,6 @@ export default function AgendaPage() {
         {view === 'calendar' ? (
              <div className="flex-grow min-h-0">
                 <FullCalendar
-                  ref={calendarRef as React.RefObject<any>}
                   plugins={[dayGridPlugin, interactionPlugin]}
                   initialView={initialView}
                   viewDidMount={(arg) => localStorage.setItem('sb_calendar_view', arg.view.type)}
@@ -303,7 +298,8 @@ export default function AgendaPage() {
             task={completingTask}
             open={!!completingTask}
             onClose={() => setCompletingTask(null)}
-            onSuccess={() => {
+            onSuccess={(id) => {
+              handleUpdateStatus(id, 'done');
               toast.success('Tarea completada con éxito.');
               router.refresh();
               setCompletingTask(null);
