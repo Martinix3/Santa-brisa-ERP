@@ -1,7 +1,7 @@
 // src/features/agenda/hooks/useTasks.ts
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 // === TIPOS ===
@@ -12,7 +12,11 @@ export interface Task {
   priority: number;
   dept: string;
   accountId?: string;
+  accountName?: string;
   status: 'open' | 'done';
+  tags?: string[];
+  source?: string;
+  assigneeName?: string;
 }
 
 export interface TaskAggregates {
@@ -56,6 +60,7 @@ export function useTasks() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const previousFiltersRef = useRef<TaskFilters>({});
 
   const [filters, setFilters] = useState<TaskFilters>(() => {
     // 1. Cargar desde querystring
@@ -110,6 +115,16 @@ export function useTasks() {
     if (typeof window !== 'undefined') {
         localStorage.setItem(FILTERS_KEY, JSON.stringify(filters));
     }
+    
+    // Telemetry
+    if (JSON.stringify(previousFiltersRef.current) !== JSON.stringify(filters)) {
+      console.info('[useTasks] task_filter_changed', {
+          changed: Object.fromEntries(Object.entries(filters).filter(([key, value]) => (previousFiltersRef.current as any)[key] !== value)),
+          newFilters: filters 
+      });
+      previousFiltersRef.current = filters;
+    }
+
   }, [filters, pathname, router]);
 
   // Efecto para hacer fetch de los datos cuando cambian los filtros

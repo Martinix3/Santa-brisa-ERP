@@ -18,8 +18,7 @@ export function TasksHeader({ filters, onFiltersChange }: TasksHeaderProps) {
   };
   
   const handleAssigneeChip = (mode: 'mine' | 'team') => {
-      // In a real app, 'mine' would set the current user's ID
-      // and 'team' might be an empty array or a list of team IDs.
+      // For demo, 'mine' sets a mocked user ID.
       const newAssignees = mode === 'mine' ? ['user_1'] : []; 
       onFiltersChange({ ...filters, assignees: newAssignees });
   };
@@ -42,7 +41,8 @@ export function TasksHeader({ filters, onFiltersChange }: TasksHeaderProps) {
         <div className="relative flex-grow min-w-[250px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input 
-            placeholder="Buscar por título, cuenta..." 
+            id="tasks-search-input"
+            placeholder="Buscar por título, cuenta... (/)" 
             className="pl-9"
             value={filters.q || ''}
             onChange={e => handleFilterChange('q', e.target.value)}
@@ -61,10 +61,12 @@ export function TasksHeader({ filters, onFiltersChange }: TasksHeaderProps) {
           <option value="VENTAS">Ventas</option>
           <option value="MARKETING">Marketing</option>
           <option value="PRODUCCION">Producción</option>
+          <option value="ALMACEN">Almacén</option>
+          <option value="FINANZAS">Finanzas</option>
         </Select>
         
         {/* Select de Origen */}
-        <Select value={filters.source || 'ALL'} onChange={e => handleFilterChange('source', e.target.value === 'ALL' ? undefined : e.target.value)}>
+        <Select value={(filters.source && filters.source[0]) || 'ALL'} onChange={e => handleFilterChange('source', e.target.value === 'ALL' ? undefined : [e.target.value])}>
           <option value="ALL">Todo Origen</option>
           <option value="MANUAL">Manual</option>
           <option value="CRM">CRM</option>
