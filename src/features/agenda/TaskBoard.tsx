@@ -1,4 +1,3 @@
-
 // src/features/agenda/TaskBoard.tsx
 "use client";
 
@@ -34,7 +33,7 @@ function TaskCard({ task, onComplete }: { task: Task; onComplete: (id: string) =
     [task.involvedUserIds, data?.users]
   );
 
-  const dateLabel = task.date ? new Date(task.date) : null;
+  const dateLabel = task.plannedFor ? new Date(task.plannedFor) : null;
   
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined;
 
@@ -197,15 +196,15 @@ export function TaskBoard({
     const openTasks = tasks.filter((t) => t.status === 'open');
 
     const upcoming = openTasks
-      .filter((t) => t.date && new Date(t.date) >= todayStart)
-      .sort((a, b) => byDateAsc(a.date, b.date));
+      .filter((t) => t.plannedFor && new Date(t.plannedFor) >= todayStart)
+      .sort((a, b) => byDateAsc(a.plannedFor, b.plannedFor));
 
-    const today = upcoming.filter((t) => t.date && new Date(t.date) <= todayEnd);
-    const future = upcoming.filter((t) => t.date && new Date(t.date) > todayEnd);
+    const today = upcoming.filter((t) => t.plannedFor && new Date(t.plannedFor) <= todayEnd);
+    const future = upcoming.filter((t) => t.plannedFor && new Date(t.plannedFor) > todayEnd);
 
     const overdue = openTasks
-      .filter((t) => !t.date || new Date(t.date) < todayStart)
-      .sort((a, b) => byDateAsc(a.date, b.date));
+      .filter((t) => !t.plannedFor || new Date(t.plannedFor) < todayStart)
+      .sort((a, b) => byDateAsc(a.plannedFor, b.plannedFor));
 
     const done = tasks.filter((t) => t.status === 'done');
 
