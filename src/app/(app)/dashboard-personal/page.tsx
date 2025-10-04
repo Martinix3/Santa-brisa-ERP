@@ -1,7 +1,7 @@
 // src/app/(app)/dashboard-personal/page.tsx
 'use client';
 
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useTransition } from 'react';
 import { useData } from '@/lib/dataprovider';
 import type { Interaction, Account, Department, Stage } from '@/domain/ssot';
 import { DEPT_META } from '@/domain/ssot';
@@ -12,6 +12,8 @@ import { cn } from '@/lib/utils';
 import { DayPicker } from 'react-day-picker';
 import es from 'date-fns/locale/es';
 import { toast } from 'sonner';
+import { CreateTaskModal } from '@/features/ops/components/CreateTaskModal';
+import { createTask, completeTask } from '@/app/(app)/ops/actions';
 
 // --- HELPERS & STYLES ---
 const formatEur = (value: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 }).format(value);
@@ -31,7 +33,7 @@ const TaskStatusBadge = ({ status, date }: { status: 'Vencida' | 'Hecho'; date?:
 };
 
 // --- COMPONENTS ---
-function DailyTasksCard({ tasks }: { tasks: Interaction[] }) {
+function DailyTasksCard({ tasks, onComplete }: { tasks: Interaction[]; onComplete: (id:string)=>void }) {
     const sortedTasks = useMemo(() => {
         return [...tasks].sort((a, b) => {
             const dateA = a.plannedFor ? new Date(a.plannedFor).getTime() : Infinity;
@@ -65,7 +67,12 @@ function DailyTasksCard({ tasks }: { tasks: Interaction[] }) {
                     const { status, date } = getStatus(task);
                     return (
                         <div key={task.id} className="grid grid-cols-[auto_1fr_auto] items-center gap-3 p-2 rounded-lg hover:bg-secondary">
-                            <input type="checkbox" className="sb-checkbox" />
+                            <input
+                              type="checkbox"
+                              className="sb-checkbox"
+                              onChange={() => onComplete(task.id)}
+                              aria-label="Completar tarea"
+                            />
                             <div>
                                 <p className="text-sm font-medium text-foreground">{task.note}</p>
                                 {deptMeta && (
@@ -83,7 +90,7 @@ function DailyTasksCard({ tasks }: { tasks: Interaction[] }) {
     );
 }
 
-function DealCard({ deal }: { deal: Account }) {
+function DealCard({ deal, onProgram }: { deal: Account; onProgram:(preset:{accountId:string; accountName?:string})=>void }) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: deal.id });
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined;
 
@@ -94,19 +101,24 @@ function DealCard({ deal }: { deal: Account }) {
         {(deal.subType === 'PLV') && <span className="text-xs font-bold bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full">PLV</span>}
       </div>
       <p className="text-xs text-muted-foreground">{formatEur(Math.random() * 25000)} · {Math.floor(Math.random() * 5 + 1)} ped.</p>
-      <p className="text-right text-xs font-semibold text-primary mt-1">Programar</p>
+      <button
+        className="text-right text-xs font-semibold text-primary mt-1 hover:underline"
+        onClick={() => onProgram({ accountId: deal.id, accountName: deal.name })}
+      >
+        Programar
+      </button>
     </div>
   );
 }
 
-function KanbanColumn({ id, title, count, deals }: { id: string; title: string; count: number; deals: Account[] }) {
+function KanbanColumn({ id, title, count, deals, onProgram }: { id: string; title: string; count: number; deals: Account[]; onProgram:(preset:{accountId:string; accountName?:string})=>void }) {
   const { setNodeRef } = useDroppable({ id });
 
   return (
     <div ref={setNodeRef} className="flex-1 p-2 rounded-lg bg-secondary min-w-[200px]">
       <h3 className="font-semibold text-sm px-2 mb-2">{title} <span className="text-muted-foreground font-normal">({count})</span></h3>
       <div className="space-y-2">
-        {deals.map(deal => <DealCard key={deal.id} deal={deal} />)}
+        {deals.map(deal => <DealCard key={deal.id} deal={deal} onProgram={onProgram} />)}
         {deals.length === 0 && id === 'Fallida' && (
              <div className="h-24 border-2 border-dashed rounded-lg flex items-center justify-center text-sm text-muted-foreground">Arrastra aquí</div>
         )}
@@ -115,7 +127,7 @@ function KanbanColumn({ id, title, count, deals }: { id: string; title: string; 
   );
 }
 
-function SalesPipelineKanban({ accounts, onStageChange }: { accounts: Account[], onStageChange: (accountId: string, newStage: Stage) => void }) {
+function SalesPipelineKanban({ accounts, onStageChange, onProgram }: { accounts: Account[], onStageChange: (accountId: string, newStage: Stage) => void; onProgram:(preset:{accountId:string; accountName?:string})=>void }) {
     const pipelineData = useMemo(() => ({
         'POTENCIAL': accounts.filter(a => a.stage === 'POTENCIAL'),
         'SEGUIMIENTO': accounts.filter(a => a.stage === 'SEGUIMIENTO'),
@@ -138,7 +150,7 @@ function SalesPipelineKanban({ accounts, onStageChange }: { accounts: Account[],
             <DndContext onDragEnd={handleDragEnd}>
                 <div className="p-4 flex gap-4 overflow-x-auto">
                     {Object.entries(pipelineData).map(([stage, deals]) => (
-                        <KanbanColumn key={stage} id={stage} title={stage} count={deals.length} deals={deals} />
+                        <KanbanColumn key={stage} id={stage} title={stage} count={deals.length} deals={deals} onProgram={onProgram} />
                     ))}
                 </div>
             </DndContext>
@@ -182,6 +194,9 @@ function WeeklyKpisCard({ tasks, orders }: { tasks: Interaction[], orders: any[]
 // --- MAIN PAGE ---
 export default function PersonalDashboardPage() {
   const { data, setData } = useData();
+  const [isPending, startTransition] = useTransition();
+  const [createOpen, setCreateOpen] = useState(false);
+  const [presetAccount, setPresetAccount] = useState<{accountId?:string; accountName?:string}|null>(null);
 
   const { todayTasks, pipelineAccounts, allTasks, allOrders } = useMemo(() => {
     if (!data) return { todayTasks: [], pipelineAccounts: [], allTasks: [], allOrders: [] };
@@ -203,6 +218,22 @@ export default function PersonalDashboardPage() {
     };
   }, [data]);
 
+  // completar tarea (UI optimista)
+  const handleComplete = useCallback((id:string) => {
+    if (!data) return;
+    // Optimista en memoria
+    setData(prev => {
+      if (!prev) return prev;
+      const interactions = prev.interactions.map(t => t.id === id ? { ...t, status:'done', updatedAt: new Date().toISOString() } : t);
+      return { ...prev, interactions };
+    });
+    startTransition(async ()=>{
+      const res = await completeTask(id);
+      if (res.ok) toast.success('Tarea completada.');
+      else toast.error('No se pudo completar la tarea.');
+    });
+  }, [data, setData, startTransition]);
+
   const handleStageChange = useCallback((accountId: string, newStage: Stage) => {
     if (!data) return;
     const updatedAccounts = data.accounts.map(acc => 
@@ -213,6 +244,33 @@ export default function PersonalDashboardPage() {
     // Here you would also call a server action to persist the change
     // saveCollection('accounts', updatedAccounts);
   }, [data, setData]);
+
+  // abrir modal pre-rellenado desde pipeline
+  const handleProgramFromPipeline = useCallback((preset:{accountId:string; accountName?:string})=>{
+    setPresetAccount(preset);
+    setCreateOpen(true);
+  }, []);
+
+  // crear nueva tarea desde modal
+  const handleCreateTask = useCallback((payload:any)=>{
+    if (!data) return;
+    // Optimista: insertamos al inicio de interactions
+    const tempId = `tmp_${Date.now()}`;
+    const optimistic = { id: tempId, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), status:'open', ...payload } as Interaction;
+    setData(prev => prev ? { ...prev, interactions: [optimistic, ...(prev.interactions||[])] } : prev);
+    setCreateOpen(false);
+    startTransition(async ()=>{
+      const res = await createTask(payload);
+      if (res.ok) {
+        toast.success('Tarea creada.');
+        // opcional: podrías reconciliar el id real aquí
+      } else {
+        toast.error('No se pudo crear la tarea.');
+        // revert (simple): filtra el temp
+        setData(prev => prev ? { ...prev, interactions: (prev.interactions||[]).filter(i=>i.id!==tempId) } : prev);
+      }
+    });
+  }, [data, setData, startTransition]);
 
   return (
     <div className="p-6 bg-secondary/70 min-h-full">
@@ -225,14 +283,20 @@ export default function PersonalDashboardPage() {
             <SBButton variant='secondary'>Diaria</SBButton>
             <SBButton variant='secondary'>Semanal</SBButton>
             <SBButton variant='secondary'>Mensual</SBButton>
-            <SBButton><Plus size={16} className='mr-1'/> Nueva Tarea</SBButton>
+            <SBButton onClick={()=>{ setPresetAccount(null); setCreateOpen(true); }} disabled={isPending}>
+              <Plus size={16} className='mr-1'/> Nueva Tarea
+            </SBButton>
         </div>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          <DailyTasksCard tasks={todayTasks} />
-          <SalesPipelineKanban accounts={pipelineAccounts} onStageChange={handleStageChange} />
+          <DailyTasksCard tasks={todayTasks} onComplete={handleComplete} />
+          <SalesPipelineKanban
+            accounts={pipelineAccounts}
+            onStageChange={handleStageChange}
+            onProgram={handleProgramFromPipeline}
+          />
         </div>
         <div className="space-y-6">
             <div className="bg-card border rounded-xl shadow-sm p-2">
@@ -247,6 +311,24 @@ export default function PersonalDashboardPage() {
             <WeeklyKpisCard tasks={allTasks} orders={allOrders} />
         </div>
       </div>
+
+      {/* Modal crear tarea */}
+      {data && (
+        <CreateTaskModal
+          open={createOpen}
+          onClose={()=>setCreateOpen(false)}
+          onCreate={(draft:any)=>{
+            // si venimos del pipeline, aplica preset
+            const payload = {
+              ...draft,
+              accountId: draft.accountId || presetAccount?.accountId || '',
+              dept: draft.dept || 'VENTAS',
+            };
+            handleCreateTask(payload);
+          }}
+          accounts={data.accounts || []}
+        />
+      )}
     </div>
   );
 }
