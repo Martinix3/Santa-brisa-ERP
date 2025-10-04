@@ -15,8 +15,12 @@ const env = {
 } as const;
 
 export function getFirebaseWebConfig(): WebConfig {
-  const missing = Object.entries(env).filter(([,v]) => !v).map(([k]) => k);
-  if (typeof window !== "undefined" && missing.length) {
+  const missing = Object.entries(env)
+    .filter(([key]) => key !== 'measurementId') // measurementId is optional
+    .filter(([,v]) => !v)
+    .map(([k]) => k);
+    
+  if (typeof window !== "undefined" && missing.length > 0) {
     throw new Error(`Missing Firebase envs: ${missing.join(", ")}. Define them in .env.local`);
   }
   return env as WebConfig;
