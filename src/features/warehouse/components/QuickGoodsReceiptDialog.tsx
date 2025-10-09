@@ -9,7 +9,7 @@ import { SBButton, Input, Select } from "@/components/ui/ui-primitives";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/ui-primitives"; 
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/ui-primitives"; 
 import { useData } from "@/lib/dataprovider";
-import type { Account, Item, Uom, ItemKind } from "@/domain/ssot.v7";
+import type { Account, Item, Uom, ItemKind } from "@/domain/ssot";
 import { createGoodsReceipt, createSupplier, createItem } from "@/server/actions/goods-receipt.actions";
 import { Plus, Trash2, Truck, Check, ChevronsUpDown } from "lucide-react";
 import { toast } from "sonner";
@@ -92,7 +92,7 @@ function SearchableCombobox({
 
 // --- Tipos para el Formulario (ACTUALIZADOS) ---
 type LineFormData = {
-  itemId: string;
+  sku: string;
   newItemName?: string;
   newItemCategory?: ItemKind;
   supplierLot: string;
@@ -137,7 +137,7 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
 
   const { suppliers, items } = useMemo(() => {
     if (!data) return { suppliers: [], items: [] };
-    const supplierList = (data.accounts || []).filter((a: Account) => a.segment === 'SUPPLIER');
+    const supplierList = (data.accounts || []).filter((a: Account) => a.accountType === 'SUPPLIER');
     return { suppliers: supplierList, items: data.items || [] };
   }, [data]);
 
@@ -150,11 +150,11 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
       date: nowIsoDate(),
       supplierId: "",
       deliveryNote: "",
-      lines: [{ itemId: "", supplierLot: "", qty: 0, uom: "UNIT", unitCost: 0, autoLot: true, expiryAt: null, newItemCategory: 'RAW' }],
+      lines: [{ sku: "", supplierLot: "", qty: 0, uom: "UNIT", unitCost: 0, autoLot: true, expiryAt: null, newItemCategory: 'RAW' }],
     },
   });
 
-  useEffect(() => { if (open) reset({ date: nowIsoDate(), lines: [{ itemId: "", supplierLot: "", qty: 0, uom: "UNIT", unitCost: 0, autoLot: true, expiryAt: null, newItemCategory: 'RAW' }] }); }, [open, reset]);
+  useEffect(() => { if (open) reset({ date: nowIsoDate(), lines: [{ sku: "", supplierLot: "", qty: 0, uom: "UNIT", unitCost: 0, autoLot: true, expiryAt: null, newItemCategory: 'RAW' }] }); }, [open, reset]);
   const { fields, append, remove } = useFieldArray({ control, name: "lines" });
 
   const supplierOptions = useMemo(() => suppliers.map((s: Account) => ({ value: s.id, label: s.name })), [suppliers]);
@@ -165,7 +165,7 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
         const payloadLines = formData.lines.map((l) => {
           const it = items.find((i: Item) => i.id === l.itemId);
           return {
-            itemId: l.itemId,
+            sku: l.itemId,
             newItemName: l.newItemName,
             newItemCategory: l.newItemCategory,
             supplierLot: l.supplierLot?.trim() || (l.autoLot ? generateLotNumber(it) : ""),
@@ -197,7 +197,7 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
   const addLine = () => {
     const lastLine = getValues("lines")[fields.length - 1];
     append({
-      itemId: "",
+      sku: "",
       supplierLot: "",
       qty: 0,
       uom: lastLine?.uom || "UNIT",

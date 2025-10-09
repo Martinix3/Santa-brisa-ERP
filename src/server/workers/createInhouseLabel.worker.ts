@@ -10,7 +10,7 @@ export async function run({ shipmentId }: { shipmentId: string }) {
   if (!snap.exists) throw new Error('Shipment not found');
   const s = snap.data()!;
 
-  if (s.mode !== 'PALLET') throw new Error('Este worker es solo para envíos tipo PALLET');
+  if (s.commercialFlow !== 'PALLET') throw new Error('Este worker es solo para envíos tipo PALLET');
   if (s.labelUrl) return; // Ya tiene etiqueta
 
   // const pdf = await renderPalletLabelPdf(s);

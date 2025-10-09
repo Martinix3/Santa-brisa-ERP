@@ -2,7 +2,7 @@
 "use client";
 import React from 'react';
 import { SBCard, Badge } from '@/components/ui/ui-primitives';
-import type { ProductionOrder, BillOfMaterial as RecipeBom, ProductionStatus } from '@/domain/ssot.v7';
+import type { ProductionOrder, BillOfMaterial as RecipeBom, ProductionStatus } from '@/domain/ssot';
 import { Plus, Check, Clock } from "lucide-react";
 import { useData } from '@/lib/dataprovider';
 

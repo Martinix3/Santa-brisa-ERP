@@ -3,7 +3,7 @@
 
 import React, { useMemo, useState, useEffect, useTransition } from "react";
 import { Package, Search, GitBranch, Truck, Factory, FlaskConical, ArrowLeftRight, AlertTriangle, User as UserIcon, FileText, CheckCircle, XCircle, ShieldCheck } from "lucide-react";
-import type { Lot, Item, OnHandView, TraceEvent, StockMove, ProductionOrder } from "@/domain/ssot";
+import type { Lot, Item, TraceEvent, StockMove, ProductionOrder } from "@/domain/ssot";
 import { getLotTraceability, type TraceData, type ProductionSummary, type MaterialConsumption, type QualitySummary } from "./actions";
 import { toast } from "sonner";
 import Link from 'next/link';
@@ -349,7 +349,7 @@ export default function TraceabilityPage() {
 
     const items = data?.items || [];
     const lots = data?.lots || [];
-    const parties = data?.parties || [];
+    const parties = data?.accounts || [];
 
     const lotsForItem = useMemo(() => {
         if (!itemId) return [];

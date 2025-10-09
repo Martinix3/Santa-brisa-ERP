@@ -3,7 +3,7 @@ import type { OnHandView, StockMove, Uom, Item } from './ssot';
 
 /** Suma disponible en OnHandView[] (qty), opcionalmente por ubicación (ej. RM/MAIN) */
 export function availableForItem(
-  itemId: string,
+  sku: string,
   onHand: OnHandView[],
   locationPrefix?: string
 ): number {
@@ -18,7 +18,7 @@ export function availableForItem(
 
 /** Elige lotes FIFO para cubrir una cantidad requerida. */
 export function fifoReserveLots(
-  itemId: string,
+  sku: string,
   requiredQty: number,
   onHand: OnHandView[],
   locationPrefix: string
@@ -51,7 +51,7 @@ export function fifoReserveLots(
 /** Genera movimientos de consumo (production_out) a partir de reservas */
 export function buildConsumptionMoves(args: {
   orderId: string;
-  reservations: Array<{ itemId: string; fromLotNumber: string; reservedQty: number; uom: Uom }>;
+  reservations: Array<{ sku: string; fromLotNumber: string; reservedQty: number; uom: Uom }>;
   at?: string;
   fromLocationId?: string; // ej. "RM/MAIN"
 }): StockMove[] {
@@ -59,7 +59,7 @@ export function buildConsumptionMoves(args: {
 
   return reservations.map((r, idx) => ({
     id: `mv_cons_${orderId}_${idx}`,
-    itemId: r.itemId,
+    sku: r.itemId,
     lotNumber: r.fromLotNumber,
     uom: r.uom,
     qty: -r.reservedQty, // Negativo para salida

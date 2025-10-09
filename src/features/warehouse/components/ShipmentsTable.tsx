@@ -8,18 +8,18 @@ import { toast } from 'sonner';
 import { MoreHorizontal, FileText, PackageCheck, Truck } from 'lucide-react';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { SBCard, SBButton } from '@/components/ui/ui-primitives';
-import type { Shipment, OrderSellOut, Account, ShipmentStatus } from '@/domain/ssot.v7';
-import { SHIPMENT_STATUS_META } from '@/domain/ssot.v7';
+import type { Shipment, OrderSellOut, Account, ShipmentStatus } from '@/domain/ssot';
+import { SHIPMENT_STATUS_META } from '@/domain/ssot';
 import { useData } from '@/lib/dataprovider';
 import { markShipped } from '@/server/actions/logistics.actions';
 
 function getChannelInfo(order?: OrderSellOut, account?: Account) {
     if (!account) return { label: "N/A", className: "bg-zinc-100 text-zinc-900 border-zinc-200" };
 
-    if (account.segment === 'ONLINE') return { label: "Online", className: "bg-emerald-100 text-emerald-900 border-emerald-200" };
+    if (account.accountType === 'ONLINE') return { label: "Online", className: "bg-emerald-100 text-emerald-900 border-emerald-200" };
     if (order?.totalAmount === 0) return { label: "Muestras (0€)", className: "bg-purple-100 text-purple-900 border-purple-200" };
-    if (account.segment === 'DISTRIBUIDOR') return { label: "Distribuidor", className: "bg-sky-100 text-sky-900 border-sky-200" };
-    return { label: account.segment, className: "bg-zinc-100 text-zinc-900 border-zinc-200" };
+    if (account.accountType === 'DISTRIBUIDOR') return { label: "Distribuidor", className: "bg-sky-100 text-sky-900 border-sky-200" };
+    return { label: account.accountType, className: "bg-zinc-100 text-zinc-900 border-zinc-200" };
 }
 
 // Mapa de estilos CSS para cada estado (mantiene compatibilidad visual)

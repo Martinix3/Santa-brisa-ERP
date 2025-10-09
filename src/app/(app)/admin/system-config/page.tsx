@@ -5,7 +5,7 @@ import { Save, RefreshCw, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageShell } from '@/components/shared/PageShell';
 import { useSystemConfig } from '@/hooks/useSystemConfig';
-import type { Department, SystemConfig } from '@/domain/ssot.v7';
+import type { Department, SystemConfig } from '@/domain/ssot';
 
 type TabKey = 'colors' | 'metadata' | 'rules';
 

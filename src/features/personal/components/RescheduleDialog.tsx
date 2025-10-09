@@ -1,7 +1,7 @@
 // src/features/personal/components/RescheduleDialog.tsx
 "use client";
 import React, { useState } from 'react';
-import type { Interaction } from '@/domain/ssot.v7';
+import type { Interaction } from '@/domain/ssot';
 
 interface Props {
   task: Interaction;

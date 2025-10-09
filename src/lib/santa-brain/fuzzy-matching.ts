@@ -1,6 +1,6 @@
 // src/lib/santa-brain/fuzzy-matching.ts
 import { distance } from 'fastest-levenshtein';
-import type { Account } from '@/domain/ssot.v7';
+import type { Account } from '@/domain/ssot';
 
 export interface FuzzyMatchResult {
   match: Account;

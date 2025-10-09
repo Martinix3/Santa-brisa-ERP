@@ -2,7 +2,7 @@
 "use client";
 import React, { useMemo } from 'react';
 import { useData } from '@/lib/dataprovider';
-import { DEPT_META, type Department } from '@/domain/ssot.v7';
+import { DEPT_META, type Department } from '@/domain/ssot';
 
 export function DepartmentTasksPanel() {
   const { data } = useData();
@@ -18,7 +18,7 @@ export function DepartmentTasksPanel() {
       );
       
       const tasksWithUsers = deptTasks.map(task => {
-        const user = data.users?.find(u => u.id === task.userId);
+        const user = data.teamMembers?.find(u => u.id === task.userId);
         const account = data.accounts?.find(a => a.id === task.accountId);
         return {
           task,

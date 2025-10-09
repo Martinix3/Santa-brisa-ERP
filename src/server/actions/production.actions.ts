@@ -9,7 +9,7 @@ import { upsertMany } from "@/lib/dataprovider/server";
 import { FieldValue, FieldPath } from "firebase-admin/firestore";
 import { z } from "zod";
 import { adminDb } from '@/server/firebase';
-import type { Lot as SsotLot, Uom, ProductionOrder, BillOfMaterial as RecipeBom, OnHandView, Item, StockMove, TraceEvent, QcPlanBySku } from '@/domain/ssot.v7';
+import type { Lot as SsotLot, Uom, ProductionOrder, BillOfMaterial as RecipeBom, Item, StockMove, TraceEvent, QcPlanBySku } from '@/domain/ssot';
 import { LotSchema, type Lot } from '@/domain/validators';
 import { explodeBOM } from '@/server/production/bom.service';
 import { findNextLotNumber } from '@/server/actions/inventory.actions';
@@ -27,8 +27,8 @@ type ProductionStatus =
 type QcStatus = 'PENDING' | 'PASSED' | 'FAILED' | 'WAIVED';
 
 
-type ProductionIOLine = { itemId: string; role: 'FORMULA' | 'PACKAGING' | 'COST_ONLY'; uom: Uom; qty: number };
-type ProductionOutput = { itemId: string; uom: Extract<Uom, 'L' | 'uds'>; qty: number; lotNumber: string };
+type ProductionIOLine = { sku: string; role: 'FORMULA' | 'PACKAGING' | 'COST_ONLY'; uom: Uom; qty: number };
+type ProductionOutput = { sku: string; uom: Extract<Uom, 'L' | 'uds'>; qty: number; lotNumber: string };
 type Incident = { id: string; at: string; severity: 'LOW'|'MEDIUM'|'HIGH'; summary: string; details?: string };
 type QcRecord = { status: QcStatus; measuredAt?: string; measuredById?: string; checks?: Array<{name:string;value:number|string;pass?:boolean}>; remarks?: string };
 
@@ -74,15 +74,8 @@ export async function updateProductionOrderStatus(
       if (order.status === 'PLANNED') {
         patch.startedAt = now;
         if (responsibleId) patch.responsibleId = responsibleId;
-      } else if (order.status === 'PAUSED') {
-        const log = [...(order.pauseLog || [])];
-        const lastPause = log.find(p => !p.resumedAt);
-        if (lastPause) lastPause.resumedAt = now;
-        patch = { ...patch, pauseLog: log };
       }
-    } else if (status === 'PAUSED') {
-      const newPauseLog = [...(order.pauseLog || []), { pausedAt: now }];
-      patch = { ...patch, pauseLog: newPauseLog };
+      // v7: no existe estado 'PAUSED'. Si lo necesitas, usa AuditLog o meta.
     } else if (status === 'CANCELLED') {
       patch.cancelledAt = now;
     }
@@ -102,7 +95,7 @@ export async function updateProductionOrderStatus(
 const CompleteOrderSchema = z.object({
   orderId: z.string().min(1),
   finalOutputs: z.array(z.object({
-    itemId: z.string(),
+    sku: z.string(),
     lotNumber: z.string().optional(),
     sku: z.string().optional(),
     qty: z.number().positive(),
@@ -110,7 +103,7 @@ const CompleteOrderSchema = z.object({
     toLocationId: z.string().default('ALMACEN_TERMINADO'),
   })).min(1),
   finalConsumptions: z.array(z.object({
-    itemId: z.string(),
+    sku: z.string(),
     lotNumber: z.string(),
     qty: z.number().positive(),
     uom: z.string(), // ✅ Ya era string
@@ -149,20 +142,19 @@ export async function completeProductionOrder(
       return fail("La orden ya está finalizada o cancelada.");
     }
     
-    console.log('[completeProductionOrder] Iniciando batch para orden:', order.orderNumber || orderId);
+    console.log('[completeProductionOrder] Iniciando batch para orden:', order.code || orderId);
     // Inicia un batch para asegurar que todas las operaciones sean atómicas
     const batch = adminDb.batch();
     // 1. Salida de stock de materias primas consumidas
     for (const consumption of normalizedConsumptions) {
       const moveRef = adminDb.collection('stockMoves').doc();
-      const move: Omit<StockMove, 'uom'> & { uom: string } = {
+      const move: any = {
         id: moveRef.id,
-        ref: { prodOrderId: orderId },
-        itemId: consumption.itemId,
+        sku: consumption.itemId,
         lotNumber: consumption.lotNumber,
         qty: -Math.abs(consumption.qty),
         uom: consumption.uom,
-        reason: 'production_out',
+        reason: 'CONSUMPTION',
         fromLocationId: consumption.fromLocationId,
         occurredAt: now,
         createdAt: now,
@@ -175,11 +167,11 @@ export async function completeProductionOrder(
           at: now,
           phase: 'PRODUCTION',
           kind: 'CONSUME',
-          title: `Consumo en orden ${order.orderNumber || orderId}`,
+          title: `Consumo en orden ${order.code || orderId}`,
           details: `Consumido ${-Math.abs(consumption.qty)} ${consumption.uom} del lote ${consumption.lotNumber}.`,
           links: { prodOrderId: orderId, lotNumber: consumption.lotNumber },
           data: {
-              orderNumber: order.orderNumber,
+              orderCode: order.code,
               qty: -Math.abs(consumption.qty),
               uom: consumption.uom
           }
@@ -210,7 +202,7 @@ export async function completeProductionOrder(
       const lotRef = adminDb.collection('lots').doc(lotNumber);
       batch.set(lotRef, LotSchema.parse({
         lotNumber,
-        itemId: output.itemId,
+        sku: output.itemId,
         quantity: output.qty,
         uom: output.uom,
         qcStatus: 'PENDING', // El producto siempre sale de producción a QC
@@ -222,14 +214,13 @@ export async function completeProductionOrder(
 
       // Crear el movimiento de stock de entrada
       const moveInRef = adminDb.collection('stockMoves').doc();
-      const moveIn: Omit<StockMove, 'uom'> & { uom: string } = {
+      const moveIn: any = {
         id: moveInRef.id,
-        ref: { prodOrderId: orderId },
-        itemId: output.itemId,
+        sku: output.itemId,
         lotNumber: lotNumber,
         qty: output.qty,
         uom: output.uom,
-        reason: 'production_in',
+        reason: 'PRODUCTION',
         toLocationId: output.toLocationId,
         occurredAt: now,
         createdAt: now,
@@ -243,10 +234,10 @@ export async function completeProductionOrder(
           phase: 'PRODUCTION',
           kind: 'OUTPUT',
           title: `Producción de lote ${lotNumber}`,
-          details: `Generado ${output.qty} ${output.uom} desde orden ${order.orderNumber || orderId}.`,
+          details: `Generado ${output.qty} ${output.uom} desde orden ${order.code || orderId}.`,
           links: { prodOrderId: orderId, lotNumber: lotNumber },
           data: {
-              orderNumber: order.orderNumber,
+              orderCode: order.code,
               qty: output.qty,
               uom: output.uom
           }
@@ -258,7 +249,7 @@ export async function completeProductionOrder(
       const onHandInRef = adminDb.collection('onHand').doc(onHandInId);
       batch.set(onHandInRef, {
         id: onHandInId,
-        itemId: output.itemId,
+        sku: output.itemId,
         lotNumber: lotNumber,
         locationId: output.toLocationId,
         qty: FieldValue.increment(output.qty),
@@ -345,9 +336,9 @@ export async function previewPlanning(input: {
   stage: 'PRODUCCION'|'ENVASADO';
   baseUnit: Uom; // ✅ Cambiado de 'L'|'uds' a Uom para soportar normalización
   outputItemId: string;
-  nominal: Array<{ itemId: string; role: 'FORMULA'|'PACKAGING'|'COST_ONLY'; uom: Uom; qty: number }>;
-  allocations: Array<{ itemId: string; lotNumber: string; uom: Uom; qty: number; locationId: string; }>;
-  shortages: Array<{ itemId: string; uom: Uom; required: number; available: number; missing: number }>;
+  nominal: Array<{ sku: string; role: 'FORMULA'|'PACKAGING'|'COST_ONLY'; uom: Uom; qty: number }>;
+  allocations: Array<{ sku: string; lotNumber: string; uom: Uom; qty: number; locationId: string; }>;
+  shortages: Array<{ sku: string; uom: Uom; required: number; available: number; missing: number }>;
   lotNumberPlanned: string;
   spec?: { abv?: { min?: number; max?: number }; acidity?: { min?: number; max?: number }; sugar?: { min?: number; max?: number } };
   estimates: any;
@@ -362,20 +353,20 @@ export async function previewPlanning(input: {
     if (!bom) return fail("BOM inexistente.");
 
     const stage: 'PRODUCCION'|'ENVASADO' = bom.stage ?? 'PRODUCCION';
-    // ✅ SSOT COMPLIANCE: Normalizar 'uds' -> 'unit' según UOM_ALIASES
+    // ✅ SSOT COMPLIANCE: Normalizar 'uds' -> 'UNIT' según UOM_ALIASES
     const baseUnit: Uom = normalizeUom(stage === 'PRODUCCION' ? 'L' : 'uds');
 
-    const nominal: Array<{ itemId: string; role: 'FORMULA'|'PACKAGING'|'COST_ONLY'; uom: Uom; qty: number }> =
+    const nominal: Array<{ sku: string; role: 'FORMULA'|'PACKAGING'|'COST_ONLY'; uom: Uom; qty: number }> =
       (bom.items || []).map((it: any) => ({
-        itemId: it.itemId,
+        sku: it.itemId,
         role: (it.role ?? 'FORMULA') as 'FORMULA'|'PACKAGING'|'COST_ONLY',
         uom: normalizeUom(it.uom ?? baseUnit),
         qty: Number(((it.qty ?? 0) * plannedQty).toFixed(6)),
       }));
 
-    const onHand: Array<{itemId:string; lotNumber:string; qty:number; uom:Uom; receivedAt?:string; createdAt:string; locationId: string;}> = await readAll("onHand") as any;
-    const allocations: Array<{ itemId: string; lotNumber: string; uom: Uom; qty: number; locationId: string; }> = [];
-    const shortages: Array<{ itemId: string; uom: Uom; required: number; available: number; missing: number }> = [];
+    const onHand: Array<{sku:string; lotNumber:string; qty:number; uom:Uom; receivedAt?:string; createdAt:string; locationId: string;}> = await readAll("onHand") as any;
+    const allocations: Array<{ sku: string; lotNumber: string; uom: Uom; qty: number; locationId: string; }> = [];
+    const shortages: Array<{ sku: string; uom: Uom; required: number; available: number; missing: number }> = [];
     
     for (const line of nominal.filter((l:any)=> l.role !== 'COST_ONLY')) {
       let remaining = line.qty;
@@ -392,13 +383,13 @@ export async function previewPlanning(input: {
             console.warn(`fifoReserveLots: OnHand item for item ${lot.itemId} has no lotNumber.`);
             continue;
           }
-          allocations.push({ itemId: line.itemId, lotNumber: lot.lotNumber, uom: normalizeUom(lot.uom), qty: take, locationId: lot.locationId });
+          allocations.push({ sku: line.itemId, lotNumber: lot.lotNumber, uom: normalizeUom(lot.uom), qty: take, locationId: lot.locationId });
           remaining -= take;
         }
         available += lot.qty;
       }
       if (remaining > 0) {
-        shortages.push({ itemId: line.itemId, uom: normalizeUom(line.uom), required: line.qty, available, missing: line.qty - available });
+        shortages.push({ sku: line.itemId, uom: normalizeUom(line.uom), required: line.qty, available, missing: line.qty - available });
       }
     }
 
@@ -426,7 +417,7 @@ export async function planProduction(input: unknown): Promise<ActionResult<{ ord
         plannedDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
         name: z.string().optional(),
         reservations: z.array(z.object({
-          itemId: z.string(), lotNumber: z.string(), uom: z.string(), qty: z.number().positive(), locationId: z.string()
+          sku: z.string(), lotNumber: z.string(), uom: z.string(), qty: z.number().positive(), locationId: z.string()
         })).optional(),
         idempotencyKey: z.string().uuid().optional(),
       }).refine(v => (v.qty ?? v.plannedQty) != null, { message: "qty o plannedQty requerido" });

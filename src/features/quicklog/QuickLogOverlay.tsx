@@ -3,7 +3,7 @@
 import React, { useState, useCallback } from 'react';
 import { Plus, X } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
-import type { SantaData, Account, AccountType, Party, InteractionKind, PosTactic, PosTacticItem, PartyRole, CustomerData, CommercialFlow, Segment } from '@/domain/ssot.v7';
+import type { SantaData, Account, AccountType, InteractionKind, PosTactic, PosTacticItem, PartyRole, CustomerData, CommercialFlow, Segment } from '@/domain/ssot';
 import { QuickLogDialog } from './QuickLogDialog';
 import { NewCustomerCelebration } from '@/components/ui/NewCustomerCelebration';
 import { toast } from 'sonner';
@@ -16,7 +16,7 @@ export default function QuickLogOverlay() {
   const { data, currentUser, saveAllCollections } = useData();
 
   const onSearchAccounts = useCallback(async (q: string): Promise<Account[]> => {
-    const list = (data?.accounts || []).filter(a => a.flow === 'PLACEMENT');
+    const list = (data?.accounts || []).filter(a => a.flow === 'COLOCACION');
     const nq = norm(q || '');
     if (!nq) return [];
     return list.filter((a: Account) => norm(a.name).includes(nq)).slice(0, 8);
@@ -45,8 +45,8 @@ export default function QuickLogOverlay() {
       stage: 'POTENCIAL',
       ownerId: currentUser?.id || 'u_admin',
       createdAt: new Date().toISOString(),
-      flow: 'PLACEMENT', // Forzado a colocación
-      distributorPartyId: d.distributorPartyId,
+      flow: 'COLOCACION', // Forzado a colocación
+      distributorPartyId: d.distributorId,
     };
 
     await saveAllCollections({ parties: [newParty as any], accounts: [newAccount as any] });
@@ -88,10 +88,10 @@ export default function QuickLogOverlay() {
           id: accountId,
           partyId,
           name: payload.newAccount.name.trim(),
-          segment: payload.newAccount.segment || 'HORECA',
+          segment: payload.newAccount.accountType || 'HORECA',
           stage: 'POTENCIAL',
           ownerId: currentUser?.id || 'u_admin',
-          flow: 'DIRECT',
+          flow: 'DIRECTA',
           createdAt: now,
           updatedAt: now,
         };
@@ -143,14 +143,14 @@ export default function QuickLogOverlay() {
             accountId: finalAccountId,
             distributorId: payload.distributorId,
             status: 'open' as any,
-            billingStatus: 'pending' as any,
+            billingStatus: 'DRAFT' as any,
             lines: validLines.map((l: any) => {
               const item = data?.items?.find(i => i.sku === l.sku);
               return {
-                itemId: item?.id || l.sku,
+                sku: item?.id || l.sku,
                 name: item?.name || l.sku,
                 qty: l.qty,
-                uom: 'unit' as any,
+                uom: 'UNIT' as any,
                 priceUnit: 0,
               };
             }),
@@ -195,7 +195,7 @@ export default function QuickLogOverlay() {
             })),
             actualCost: payload.items.reduce((sum: number, i: any) => sum + ((i.cost || 0) * i.qty), 0),
             executionScore: 100,
-            status: 'delivered' as any,
+            status: 'DELIVERED' as any,
             createdAt: now,
             updatedAt: now,
             createdById: currentUser?.id,

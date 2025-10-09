@@ -4,7 +4,7 @@ import { useData } from '@/lib/dataprovider';
 import { CheckCircle2, Calendar, AlertTriangle, Clock } from 'lucide-react';
 import { daysSince } from '@/lib/pipeline-helpers';
 import { cn } from '@/lib/utils';
-import { DEPT_META, Department } from '@/domain/ssot.v7';
+import { DEPT_META, Department } from '@/domain/ssot';
 
 type TimeRange = 'day' | 'week' | 'month';
 
@@ -26,7 +26,7 @@ export function TasksSection({
 
     return (data.interactions || [])
       .filter(i => i.userId === currentUser.id)
-      .filter(i => i.status !== 'cancelled')
+      .filter(i => i.status !== 'REJECTED')
       .sort((a, b) => {
         const dateA = (a as any).startAt || a.plannedFor || a.createdAt;
         const dateB = (b as any).startAt || b.plannedFor || b.createdAt;

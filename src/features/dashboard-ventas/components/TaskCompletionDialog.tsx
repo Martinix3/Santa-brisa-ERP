@@ -2,14 +2,14 @@
 "use client";
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Input, Select, Textarea, SBButton, SBDialog, SBDialogContent, Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui';
-import type { Interaction, Payload, Item, SantaData, OrderLine as SsotOrderLine } from '@/domain/ssot.v7';
+import type { Interaction, Payload, Item, OrderLine as SsotOrderLine } from '@/domain/ssot';
 import { ShoppingCart, MessageSquare, Plus, XCircle, HelpingHand } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
 import { toast } from 'sonner';
 import { completeTask } from '@/app/(app)/ops/actions'; // Correct action import
 
 type OrderLine = {
-    itemId: string;
+    sku: string;
     qty: number;
     priceUnit: number;
 };
@@ -33,7 +33,7 @@ export function TaskCompletionDialog({
   // States for each mode
   const [interactionNote, setInteractionNote] = useState('');
   const [nextActionDate, setNextActionDate] = useState('');
-  const [orderLines, setOrderLines] = useState<OrderLine[]>([{ itemId: '', qty: 1, priceUnit: 0 }]);
+  const [orderLines, setOrderLines] = useState<OrderLine[]>([{ sku: '', qty: 1, priceUnit: 0 }]);
   const [failedNote, setFailedNote] = useState('');
   
   const [currentMode, setCurrentMode] = useState<'interaccion' | 'venta' | 'fallido'>('interaccion');
@@ -57,7 +57,7 @@ export function TaskCompletionDialog({
     setCurrentMode(mode);
   };
 
-  const addLine = () => setOrderLines((prev) => [...prev, { itemId: '', qty: 1, priceUnit: 0 }]);
+  const addLine = () => setOrderLines((prev) => [...prev, { sku: '', qty: 1, priceUnit: 0 }]);
   const updateLine = (index: number, field: keyof OrderLine, value: any) => {
     setOrderLines((prev) => prev.map((line, i) => i === index ? { ...line, [field]: value } : line));
   };
@@ -73,7 +73,7 @@ export function TaskCompletionDialog({
         else payload = { type: 'interaccion', note: interactionNote, nextActionDate: nextActionDate || undefined };
     } else if (currentMode === 'venta') {
         if (orderLines.length === 0 || orderLines.some(it => !it.itemId || it.qty <= 0)) validationError = "Revisa las líneas del pedido.";
-        else payload = { type: 'venta', items: orderLines.map(l => ({...l, uom: 'unit' as const})) as SsotOrderLine[] };
+        else payload = { type: 'venta', items: orderLines.map(l => ({...l, uom: 'UNIT' as const})) as SsotOrderLine[] };
     } else if (currentMode === 'fallido') {
         if (!failedNote) validationError = "Es obligatorio indicar el motivo del fallo.";
         else payload = { type: 'interaccion', note: `FALLIDA: ${failedNote}` };

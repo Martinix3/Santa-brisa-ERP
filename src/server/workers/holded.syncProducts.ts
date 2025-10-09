@@ -2,7 +2,7 @@
 import { adminDb as db } from '@/server/firebase';
 import { callHoldedApi } from '@/server/integrations/holded/client';
 import { Timestamp } from 'firebase-admin/firestore';
-import type { Item, Uom } from '@/domain/ssot.v7';
+import type { Item, Uom } from '@/domain/ssot';
 
 type HoldedItem = {
   id: string;

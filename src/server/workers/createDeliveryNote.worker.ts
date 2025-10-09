@@ -1,7 +1,7 @@
 // src/server/workers/createDeliveryNote.worker.ts
 'use server';
 import { adminDb as db } from '@/server/firebase';
-import type { DeliveryNote, Shipment, OrderSellOut, Party, Uom } from '@/domain/ssot.v7';
+import type { DeliveryNote, Shipment, OrderSellOut, Uom } from '@/domain/ssot';
 import { Timestamp } from 'firebase-admin/firestore';
 import { makeDeliveryNoteCode } from '@/lib/codes';
 
@@ -11,7 +11,7 @@ export async function run({ shipmentId }: { shipmentId: string }) {
     if (!shipmentSnap.exists) throw new Error(`Shipment ${shipmentId} not found.`);
     const shipment = shipmentSnap.data() as Shipment;
 
-    if (shipment.status !== 'ready_to_ship' && !shipment.checks?.visualOk) {
+    if (shipment.status !== 'READY' && !shipment.checks?.visualOk) {
         throw new Error('Shipment not ready or visual check not passed.');
     }
     if (shipment.deliveryNoteId) {
@@ -47,10 +47,10 @@ export async function run({ shipmentId }: { shipmentId: string }) {
             country: shipment.country || 'España',
         },
         lines: shipment.lines.map(l => ({
-            itemId: l.itemId,
+            sku: l.itemId,
             description: l.name ?? '',
             qty: l.qty,
-            uom: 'unit' as Uom,
+            uom: 'UNIT' as Uom,
             lotNumbers: l.lotNumber ? [l.lotNumber] : [],
         })),
         company: { name: 'Santa Brisa', vat: 'B00000000', address: 'C/ Olivos 10', city: 'Madrid', zip: '28010', country: 'España' }

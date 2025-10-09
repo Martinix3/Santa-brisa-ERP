@@ -23,7 +23,7 @@ import {
   DocumentReference,
   Firestore
 } from 'firebase/firestore';
-import type { SantaData } from '@/domain/ssot.v7';
+import type { SantaData } from '@/domain/ssot';
 
 // ============================================================
 // TIPOS
@@ -441,7 +441,7 @@ export class FirestoreTracer {
   private getCollectionPath(queryRef: Query): string {
     // Extraer path de la query
     // Esto es una simplificación - en producción necesitaríamos un método más robusto
-    return (queryRef as any)._query?.path?.segments?.[0] || 'unknown';
+    return (queryRef as any)._query?.path?.accountTypes?.[0] || 'unknown';
   }
 
   private detectComponent(): string {

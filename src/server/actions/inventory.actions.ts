@@ -36,7 +36,7 @@ function lotPrefixFromSku(sku?: string, fallback?: string): string {
  * @param itemId - El ID del documento del item.
  * @returns Un objeto con el id y el sku del item, o null si no se encuentra.
  */
-async function loadItem(itemId: string): Promise<{ id: string; sku?: string } | null> {
+async function loadItem(sku: string): Promise<{ id: string; sku?: string } | null> {
   const doc = await db.collection('items').doc(itemId).get();
   return doc.exists ? ({ id: doc.id, ...(doc.data() as any) }) : null;
 }
@@ -49,7 +49,7 @@ async function loadItem(itemId: string): Promise<{ id: string; sku?: string } | 
  * @returns El próximo número de lote disponible como string.
  */
 export async function findNextLotNumber(
-  itemId: string,
+  sku: string,
   skuFromCaller?: string
 ): Promise<string> {
   let sku = skuFromCaller;

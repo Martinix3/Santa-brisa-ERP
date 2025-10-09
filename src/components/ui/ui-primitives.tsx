@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Search, ChevronsUpDown, Check } from 'lucide-react';
-import type { OnHandView } from '@/domain/ssot.v7';
+import type { OnHandView } from '@/domain/ssot';
 
 // --- TYPE ALIAS PARA ESTILOS CON VARIABLES CSS ---
 type CSSVarStyle = React.CSSProperties & Record<string, string | number>;
@@ -274,8 +274,8 @@ type StatusStyle = { label: string; variant: StatusVariant };
  * @deprecated Use ORDER_STATUS_META or SHIPMENT_STATUS_META from @/domain/ssot instead.
  * This generic STATUS_STYLES mixes different entity types and should not be used.
  * 
- * For orders: import { ORDER_STATUS_META } from '@/domain/ssot.v7'
- * For shipments: import { SHIPMENT_STATUS_META } from '@/domain/ssot.v7'
+ * For orders: import { ORDER_STATUS_META } from '@/domain/ssot'
+ * For shipments: import { SHIPMENT_STATUS_META } from '@/domain/ssot'
  */
 export const STATUS_STYLES: Record<string, StatusStyle> = {
   open: { label: "Borrador", variant: "default" },

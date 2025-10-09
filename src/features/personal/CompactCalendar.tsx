@@ -18,7 +18,7 @@ export function CompactCalendar({ timeRange }: CompactCalendarProps) {
     if (!data || !currentUser) return [];
     return (data.interactions || [])
       .filter(i => i.userId === currentUser.id)
-      .filter(i => i.status !== 'cancelled');
+      .filter(i => i.status !== 'REJECTED');
   }, [data, currentUser]);
 
   // Generar días/semanas/meses según timeRange

@@ -1,7 +1,7 @@
 // src/server/workers/createSendcloudLabel.worker.ts
 'use server';
 import { adminDb as db } from '@/server/firebase';
-import type { Shipment } from '@/domain/ssot.v7';
+import type { Shipment } from '@/domain/ssot';
 import { Timestamp } from 'firebase-admin/firestore';
 // import { callSendcloudApi } from '../integrations/sendcloud/client';
 

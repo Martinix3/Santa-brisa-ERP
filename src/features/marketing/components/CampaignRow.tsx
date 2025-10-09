@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import type { OnlineCampaign } from '@/domain/ssot.v7';
+import type { OnlineCampaign } from '@/domain/ssot';
 import { SBButton, Input, Select } from '@/components/ui/ui-primitives';
 import { Edit, Save, X } from 'lucide-react';
 

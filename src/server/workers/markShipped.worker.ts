@@ -1,6 +1,6 @@
 import { adminDb as db } from '@/server/firebase';
 import { Timestamp } from 'firebase-admin/firestore';
-import type { Shipment, OrderSellOut } from '@/domain/ssot.v7';
+import type { Shipment, OrderSellOut } from '@/domain/ssot';
 import { enqueue } from '../queue/queue';
 
 export async function run({ shipmentId }: { shipmentId: string }) {
@@ -11,22 +11,22 @@ export async function run({ shipmentId }: { shipmentId: string }) {
     }
     const shipment = shipmentSnap.data() as Shipment;
 
-    if (shipment.status === 'shipped' || shipment.status === 'delivered') {
+    if (shipment.status === 'SHIPPED' || shipment.status === 'DELIVERED') {
         console.log(`Shipment ${shipmentId} is already shipped or delivered.`);
         return;
     }
 
     // Preconditions
-    if (shipment.mode === 'PARCEL' && !shipment.trackingCode) {
+    if (shipment.commercialFlow === 'PARCEL' && !shipment.trackingCode) {
         throw new Error("Cannot mark as shipped: missing tracking code for parcel.");
     }
-    if (shipment.mode === 'PALLET' && !shipment.labelUrl) {
+    if (shipment.commercialFlow === 'PALLET' && !shipment.labelUrl) {
         throw new Error("Cannot mark as shipped: missing label for pallet.");
     }
 
 
     await shipmentRef.update({
-        status: 'shipped',
+        status: 'SHIPPED',
         updatedAt: Timestamp.now(),
     });
 

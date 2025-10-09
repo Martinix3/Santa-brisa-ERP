@@ -1,5 +1,5 @@
 // src/lib/pipeline-helpers.ts
-import { Account, Interaction, OrderSellOut, Stage } from '@/domain/ssot.v7';
+import { Account, Interaction, OrderSellOut, AccountStage } from '@/domain/ssot';
 
 export type PipelineStage = 'POTENCIAL' | 'SEGUIMIENTO' | 'ACTIVA' | 'FALLIDA';
 
@@ -27,7 +27,7 @@ export function calculatePipeline(
 ): PipelineData[] {
   // Filtrar cuentas del comercial si se especifica
   const filteredAccounts = userId
-    ? accounts.filter((a) => a.ownerId === userId)
+    ? accounts.filter((a) => a.salesRepId === userId)
     : accounts;
 
   const stages: PipelineStage[] = ['POTENCIAL', 'SEGUIMIENTO', 'ACTIVA', 'FALLIDA'];
@@ -40,7 +40,7 @@ export function calculatePipeline(
       // Calcular cajas solo para cuentas activas (flow PLACEMENT)
       const accountIds = accountsInStage.map((a) => a.id);
       cajasTotal = orders
-        .filter((o) => o.flow === 'PLACEMENT' && accountIds.includes(o.accountId))
+        .filter((o) => o.flow === 'COLOCACION' && accountIds.includes(o.accountId))
         .reduce((sum, o) => sum + sumCajasOrder(o), 0);
     }
 
@@ -140,7 +140,7 @@ export function getPipelineMini(
   accounts: Account[],
   userId: string
 ): { potencial: number; seguimiento: number; activa: number; fallida: number } {
-  const userAccounts = accounts.filter((a) => a.ownerId === userId);
+  const userAccounts = accounts.filter((a) => a.salesRepId === userId);
 
   return {
     potencial: userAccounts.filter((a) => a.stage === 'POTENCIAL').length,

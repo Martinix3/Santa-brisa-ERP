@@ -16,7 +16,7 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { useLiveCollection } from '@/hooks/useLiveCollection';
-import type { User, Party, Account, PartyRole } from '@/domain/ssot.v7';
+import type { User, Account, PartyRole } from '@/domain/ssot';
 import { SBButton } from '@/components/ui/ui-primitives';
 
 type NodeData = {
@@ -98,7 +98,7 @@ export function DataMapperFlow() {
         type: 'default',
         position: { x: 650, y: i * 100 + 50 },
         data: {
-          label: `🏪 ${account.name}\n${account.segment} - ${account.stage}`,
+          label: `🏪 ${account.name}\n${account.accountType} - ${account.accountStage}`,
           type: 'account',
           entityId: account.id,
           entity: account,
@@ -148,11 +148,11 @@ export function DataMapperFlow() {
       }
 
       // account → owner (user)
-      if (account.ownerId) {
+      if (account.salesRepId) {
         newEdges.push({
           id: `account-owner-${account.id}`,
           source: `account-${account.id}`,
-          target: `user-${account.ownerId}`,
+          target: `user-${account.salesRepId}`,
           label: 'OWNER',
           type: 'smoothstep',
           style: { stroke: '#f59e0b', strokeWidth: 2, strokeDasharray: '5,5' },
@@ -161,11 +161,11 @@ export function DataMapperFlow() {
       }
 
       // account → distributor (party)
-      if (account.distributorPartyId) {
+      if (account.distributorId) {
         newEdges.push({
           id: `account-dist-${account.id}`,
           source: `account-${account.id}`,
-          target: `party-${account.distributorPartyId}`,
+          target: `party-${account.distributorId}`,
           label: 'VÍA DISTRIBUIDOR',
           type: 'smoothstep',
           style: { stroke: '#ef4444', strokeWidth: 2 },

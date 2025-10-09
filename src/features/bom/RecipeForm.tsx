@@ -1,7 +1,7 @@
 // src/features/bom/RecipeForm.tsx
 "use client";
 import React, { useMemo } from 'react';
-import type { BillOfMaterial as RecipeBom, Item } from '@/domain/ssot.v7';
+import type { BillOfMaterial as RecipeBom, Item } from '@/domain/ssot';
 import { useBomForm } from './useBomForm';
 import { FormStatusBar } from '@/components/ui/FormStatusBar';
 import { Plus, Trash2 } from 'lucide-react';
@@ -15,8 +15,8 @@ interface RecipeFormProps {
     onCancel: () => void;
     allItems: Item[];
     lastError?: string | null;
-    onCreateProduct: (data: { sku: string; name: string; packSizeMl?: number }) => Promise<{ itemId: string }>;
-    onCreateMaterial: (data: { sku: string; name: string; }) => Promise<{ itemId: string }>;
+    onCreateProduct: (data: { sku: string; name: string; packSizeMl?: number }) => Promise<{ sku: string }>;
+    onCreateMaterial: (data: { sku: string; name: string; }) => Promise<{ sku: string }>;
 }
 
 export function RecipeForm({ initialValues, onSave, onCancel, allItems, lastError, onCreateProduct, onCreateMaterial }: RecipeFormProps) {
@@ -45,7 +45,7 @@ export function RecipeForm({ initialValues, onSave, onCancel, allItems, lastErro
     };
 
     const addLine = () => {
-        const newLine = { itemId: "", qty: 0, role: "FORMULA" as const, uom: "kg" as const };
+        const newLine = { sku: "", qty: 0, role: "FORMULA" as const, uom: "kg" as const };
         fm.set("items", [...fm.values.items, newLine]);
     };
 

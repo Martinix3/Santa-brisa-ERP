@@ -2,7 +2,7 @@
 "use client";
 import React from 'react';
 import { SBCard } from '@/components/ui/ui-primitives';
-import { SB_COLORS } from '@/domain/ssot.v7';
+import { SB_COLORS } from '@/domain/ssot';
 import { FileText } from 'lucide-react';
 
 export default function CollectionsPage() {

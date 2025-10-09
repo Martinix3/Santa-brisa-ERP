@@ -1,7 +1,0 @@
-id,name,partyId,segment,stage,flow,ownerId,distributorPartyId,aliases,source,createdAt,updatedAt,isTarget,location_lat,location_lng,location_address
-acc_bar_central,Bar Central,party_bar_central,HORECA,ACTIVA,PLACEMENT,user_comercial_juan,party_dist_mahou,"central;bar centro;el central",CRM,2025-01-01T00:00:00.000Z,2025-01-01T00:00:00.000Z,true,40.4168,-3.7038,"Calle Mayor 23, Madrid"
-acc_tienda_sol,Tienda El Sol,party_tienda_sol,RETAIL,SEGUIMIENTO,PLACEMENT,user_comercial_juan,party_dist_mahou,"el sol;tienda sol;sol",CRM,2025-01-01T00:00:00.000Z,2025-01-01T00:00:00.000Z,false,40.4169,-3.7039,"Calle Sol 5, Madrid"
-acc_restaurante_marina,Restaurante Marina,party_restaurante_marina,HORECA,POTENCIAL,PLACEMENT,user_comercial_maria,party_dist_damm,"marina;rest marina;restaurante marina",CRM,2025-01-01T00:00:00.000Z,2025-01-01T00:00:00.000Z,true,41.3851,2.1734,"Puerto Olímpico, Barcelona"
-acc_privado_maria,Cliente Privado María,party_privado_001,PRIVADA,ACTIVA,PLACEMENT,user_comercial_pedro,party_santa_brisa,"",MANUAL,2025-01-01T00:00:00.000Z,2025-01-01T00:00:00.000Z,false,,,
-acc_online_pedro,Cliente Web Pedro,party_online_001,ONLINE,ACTIVA,DIRECT,user_admin,,"",SHOPIFY,2025-01-01T00:00:00.000Z,2025-01-01T00:00:00.000Z,false,,,
-acc_distribuidor_mahou,Distribuidora Mahou,party_dist_mahou,DISTRIBUIDOR,ACTIVA,PLACEMENT,user_admin,party_santa_brisa,"mahou;distribuidor mahou",MANUAL,2025-01-01T00:00:00.000Z,2025-01-01T00:00:00.000Z,false,40.5771,-3.5386,"Alovera, Guadalajara"

@@ -1,7 +1,7 @@
 // src/server/workers/withdrawStockFromShipment.ts
 import { adminDb as db } from '@/server/firebase';
 import { Timestamp } from 'firebase-admin/firestore';
-import type { Shipment, StockMove, OnHandView } from '@/domain/ssot.v7';
+import type { Shipment, StockMove, OnHandView } from '@/domain/ssot';
 
 interface WithdrawStockPayload {
   shipmentId: string;
@@ -34,11 +34,11 @@ export async function handleWithdrawStockFromShipment(payload: WithdrawStockPayl
       const stockMoveId = `sm_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const stockMove: StockMove = {
         id: stockMoveId,
-        itemId: line.itemId,
+        sku: line.itemId,
         lotNumber: line.lotNumber,
         qty: -line.qty, // NEGATIVO para salida
         uom: line.uom,
-        reason: 'sale',
+        reason: 'SALE',
         fromLocationId: line.locationId || 'FG/MAIN',
         occurredAt: shipment.shippedAt || new Date().toISOString(),
         createdAt: new Date().toISOString(),

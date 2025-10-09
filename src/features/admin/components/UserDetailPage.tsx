@@ -17,11 +17,11 @@ export function UserDetailPage({ userId }: Props) {
   const router = useRouter();
   const { data, saveAllCollections } = useData();
   
-  const users = useMemo(() => data?.users || [], [data]);
-  const parties = useMemo(() => data?.parties || [], [data]);
+  const users = useMemo(() => data?.teamMembers || [], [data]);
+  const parties = useMemo(() => data?.accounts || [], [data]);
   const partyRoles = useMemo(() => data?.partyRoles || [], [data]);
   const interactions = useMemo(() => data?.interactions || [], [data]);
-  const orders = useMemo(() => data?.ordersSellOut || [], [data]);
+  const orders = useMemo(() => data?.orderSellOut || [], [data]);
   const accounts = useMemo(() => data?.accounts || [], [data]);
   const posTactics = useMemo(() => data?.posTactics || [], [data]);
   const marketingEvents = useMemo(() => data?.marketingEvents || [], [data]);
@@ -91,7 +91,7 @@ export function UserDetailPage({ userId }: Props) {
       new Date(i.createdAt) >= thirtyDaysAgo
     );
 
-    const userAccounts = accounts.filter(a => a.ownerId === user.id);
+    const userAccounts = accounts.filter(a => a.salesRepId === user.id);
     const userAccountIds = new Set(userAccounts.map(a => a.id));
     
     const userOrders = orders.filter(o => {
@@ -118,7 +118,7 @@ export function UserDetailPage({ userId }: Props) {
     const userPosTactics = posTactics.filter(pt => 
       pt.createdById === user.id && 
       new Date(pt.createdAt) >= thirtyDaysAgo &&
-      pt.status !== 'cancelled'
+      pt.status !== 'REJECTED'
     );
     const posItemsDelivered = userPosTactics.reduce((sum, pt) => sum + (pt.qtyPlanned || 0), 0);
     const posCost = userPosTactics.reduce((sum, pt) => sum + (pt.actualCost || 0), 0);
@@ -126,7 +126,7 @@ export function UserDetailPage({ userId }: Props) {
     const userEvents = marketingEvents.filter(e => 
       e.ownerUserId === user.id && 
       new Date(e.createdAt) >= thirtyDaysAgo &&
-      e.status !== 'cancelled'
+      e.status !== 'REJECTED'
     );
 
     return {
@@ -508,7 +508,7 @@ export function UserDetailPage({ userId }: Props) {
                 <div>
                   <h4 className="text-sm font-semibold text-gray-700 mb-2">Cuentas por Provincia</h4>
                   {(() => {
-                    const userAccounts = accounts.filter(a => a.ownerId === user.id);
+                    const userAccounts = accounts.filter(a => a.salesRepId === user.id);
                     const byProvince = userAccounts.reduce((acc, account) => {
                       const party = parties.find(p => p.id === account.partyId);
                       const province = party?.billingAddress?.province || 'Sin especificar';
@@ -530,7 +530,7 @@ export function UserDetailPage({ userId }: Props) {
                 <div>
                   <h4 className="text-sm font-semibold text-gray-700 mb-2">Cuentas por Ciudad</h4>
                   {(() => {
-                    const userAccounts = accounts.filter(a => a.ownerId === user.id);
+                    const userAccounts = accounts.filter(a => a.salesRepId === user.id);
                     const byCity = userAccounts.reduce((acc, account) => {
                       const party = parties.find(p => p.id === account.partyId);
                       const city = party?.billingAddress?.city || 'Sin especificar';
@@ -612,9 +612,9 @@ export function UserDetailPage({ userId }: Props) {
                             <p className="text-xs text-gray-600">
                               {account?.name || 'Cuenta no encontrada'}
                             </p>
-                            {interaction.note && (
+                            {interaction.summary && (
                               <p className="text-xs text-gray-500 mt-1 truncate">
-                                {interaction.note}
+                                {interaction.summary}
                               </p>
                             )}
                           </div>

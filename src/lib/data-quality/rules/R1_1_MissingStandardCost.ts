@@ -1,6 +1,6 @@
 // src/lib/data-quality/rules/R1_1_MissingStandardCost.ts
 import type { QualityRule, DataAnomaly } from '../types';
-import type { Item } from '@/domain/ssot.v7';
+import type { Item } from '@/domain/ssot';
 
 export const R1_1_MissingStandardCost: QualityRule = {
   id: 'R1.1',

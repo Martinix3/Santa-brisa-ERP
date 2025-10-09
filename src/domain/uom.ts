@@ -4,7 +4,7 @@ import { UOM_ALIASES } from "@/domain/ssot";
 
 /**
  * Normaliza una UOM string a su valor canónico según SSOT.
- * Aplica los aliases definidos en UOM_ALIASES (e.g., 'uds' -> 'unit').
+ * Aplica los aliases definidos en UOM_ALIASES (e.g., 'uds' -> 'UNIT').
  * 
  * @param uom - La UOM a normalizar (puede ser un alias)
  * @returns La UOM normalizada según SSOT, o la original si no hay alias
@@ -27,12 +27,12 @@ export function normalizeUomInObject<T extends { uom: string }>(obj: T): T & { u
 
 /** Devuelve la UoM dominante en inventario para un item; si no hay stock, usa la del maestro de items. */
 export function canonicalUomForItem(
-  itemId: string,
+  sku: string,
   onHand: OnHandView[],
   items: Item[]
 ): Uom {
   const item = items.find(i => i.id === itemId);
-  if (!item) return 'unit'; // Fallback seguro
+  if (!item) return 'UNIT'; // Fallback seguro
 
   // 1) buscar en inventario por itemId
   const candidates = onHand.filter(oh => oh.itemId === itemId);
@@ -51,9 +51,9 @@ export function canonicalUomForItem(
   return item.uom;
 }
 
-/** Para producto terminado: sugiere la UoM dominante en inventario; si no, 'unit' por defecto. */
+/** Para producto terminado: sugiere la UoM dominante en inventario; si no, 'UNIT' por defecto. */
 export function canonicalUomForFinished(
-  itemId: string,
+  sku: string,
   onHand: OnHandView[]
 ): Uom {
   const candidates = onHand.filter(oh => oh.itemId === itemId);

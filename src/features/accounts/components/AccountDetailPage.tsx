@@ -4,10 +4,10 @@
 import React, { useMemo, useState } from 'react';
 import { useParams, notFound } from 'next/navigation';
 import { useData } from '@/lib/dataprovider';
-import type { Account, Party, Interaction as InteractionType, OrderSellOut, InteractionKind } from '@/domain/ssot.v7';
+import type { Account, Interaction as InteractionType, OrderSellOut, InteractionKind } from '@/domain/ssot';
 import { computeAccountKPIs, accountOwnerDisplay, getDistributorForAccount } from '@/lib/sb-core';
 import { 
-  Phone, Mail, MapPin, User, Building2, Briefcase, ShoppingCart, 
+  Phone, Mail, MapPin, Building2, Briefcase, ShoppingCart, 
   MessageSquare, Calendar, ChevronLeft, Edit2, Check, X,
   Clock, DollarSign, Package, ArrowUpRight, AlertCircle, TrendingUp, FileText
 } from "lucide-react";
@@ -181,7 +181,7 @@ export function AccountDetailPageContent() {
               <h1 className="text-3xl font-bold text-zinc-900 mb-2">{account.name}</h1>
               <div className="flex items-center gap-3 text-sm text-zinc-600">
                 <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{party.billingAddress?.city || 'Sin ciudad'}</span>
-                <span>•</span><span>{account.segment}</span><span>•</span><span className="font-medium">{account.stage}</span>
+                <span>•</span><span>{account.accountType}</span><span>•</span><span className="font-medium">{account.accountStage}</span>
                 {distributor && <><span>•</span><span className="text-teal-700">Dist: {distributor.name}</span></>}
               </div>
             </div>
@@ -225,8 +225,8 @@ export function AccountDetailPageContent() {
                 <EditableField label="Nombre Legal" value={party.legalName || party.name} onSave={(v) => handleUpdateField('legalName', v, true)} icon={Building2} />
                 <EditableField label="Nombre Comercial" value={account.name} onSave={(v) => handleUpdateField('name', v)} icon={Briefcase} />
                 <EditableField label="CIF/NIF" value={party.taxId || ''} onSave={(v) => handleUpdateField('taxId', v, true)} icon={FileText} />
-                <EditableField label="Segmento" value={account.segment} onSave={(v) => handleUpdateField('segment', v)} type="select" options={segmentOpts} icon={Briefcase} />
-                <EditableField label="Estado" value={account.stage} onSave={(v) => handleUpdateField('stage', v)} type="select" options={stageOpts} icon={TrendingUp} />
+                <EditableField label="Segmento" value={account.accountType} onSave={(v) => handleUpdateField('segment', v)} type="select" options={segmentOpts} icon={Briefcase} />
+                <EditableField label="Estado" value={account.accountStage} onSave={(v) => handleUpdateField('stage', v)} type="select" options={stageOpts} icon={TrendingUp} />
                 <EditableField label="Comercial Responsable" value={owner || ''} onSave={(v) => handleUpdateField('ownerId', v)} icon={User} />
               </div>
             </div>

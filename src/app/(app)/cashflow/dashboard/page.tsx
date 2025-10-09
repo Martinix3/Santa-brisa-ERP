@@ -7,7 +7,7 @@ import { BarChart, TrendingUp, TrendingDown, Banknote, ArrowRight, Calendar, Bra
 import Link from 'next/link';
 import { useData } from '@/lib/dataprovider';
 import { useSystemConfig } from '@/hooks/useSystemConfig';
-import { DEPT_META } from '@/domain/ssot.v7';
+import { DEPT_META } from '@/domain/ssot';
 import { calculateCashflowMetrics, getCashflowForecast, getAccountsReceivable, getAccountsPayable } from '@/lib/finance-helpers';
 import { UpcomingTasks } from '@/features/agenda/components/UpcomingTasks';
 

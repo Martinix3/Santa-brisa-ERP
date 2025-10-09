@@ -19,7 +19,7 @@ const zBOM = z.object({
   batchSize: z.coerce.number().positive("Debe ser > 0").default(1),
   baseUnit: zUom.default("L"),
   items: z.array(z.object({
-    itemId: z.string().min(1, "Item requerido"),
+    sku: z.string().min(1, "Item requerido"),
     qty: z.coerce.number().positive("Cantidad > 0"),
     role: zRole,
     uom: zUom.optional(),
@@ -93,7 +93,7 @@ export async function archiveBOM(id: string): Promise<ActionResult<{ id: string 
   }
 }
 
-export async function upsertMinimalProduct(input: unknown): Promise<ActionResult<{ itemId: string }>> {
+export async function upsertMinimalProduct(input: unknown): Promise<ActionResult<{ sku: string }>> {
   try {
     const p = zNewProduct.parse(input);
     const now = new Date().toISOString();
@@ -123,14 +123,14 @@ export async function upsertMinimalProduct(input: unknown): Promise<ActionResult
   }
 }
 
-export async function upsertMinimalMaterial(input: unknown): Promise<ActionResult<{ itemId: string }>> {
+export async function upsertMinimalMaterial(input: unknown): Promise<ActionResult<{ sku: string }>> {
   try {
     const m = zNewMaterial.parse(input);
     const now = new Date().toISOString();
     const id = `item_${Date.now()}`;
     await upsertMany("items", [{ id, ...m, active: true, createdAt: now, updatedAt: now } as any]);
     revalidatePath("/production/bom");
-    return ok({ itemId: id });
+    return ok({ sku: id });
   } catch (e: any) {
     if (e?.name === "ZodError") {
       const fieldErrors = Object.fromEntries(e.issues.map((i: any) => [i.path.join("."), i.message]));

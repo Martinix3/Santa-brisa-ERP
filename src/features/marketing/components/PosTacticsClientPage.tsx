@@ -5,7 +5,7 @@ import React, { useMemo, useState, useTransition } from 'react';
 import { Star, TrendingUp, DollarSign, Trophy, Percent, Plus, Package, Briefcase, Gift } from 'lucide-react';
 import { SBCard, SBButton } from '@/components/ui/ui-primitives';
 import { NewPosTacticDialog } from '@/features/marketing/components/NewPosTacticDialog';
-import type { PosTactic as DPosTactic, PosResult, PosCostCatalogEntry, PlvMaterial, Account } from '@/domain/ssot.v7';
+import type { PosTactic as DPosTactic, PosResult, PosCostCatalogEntry, PlvMaterial, Account } from '@/domain/ssot';
 import { useData } from '@/lib/dataprovider';
 import { upsertPosTactic, closePosTactic } from '../services/posTactics.client';
 
@@ -207,7 +207,7 @@ function CatalogManagementDialog({
     const { saveAllCollections } = useData();
 
     // Calcular coste de producción desde BOM
-    const calculateProductionCost = (itemId: string): number => {
+    const calculateProductionCost = (sku: string): number => {
         const bom = (data?.billOfMaterials || []).find(b => b.outputItemId === itemId && b.isActive !== false);
         if (!bom) return 0;
 
@@ -240,7 +240,7 @@ function CatalogManagementDialog({
         }
     };
 
-    const handleAddMaterial = async (itemId: string) => {
+    const handleAddMaterial = async (sku: string) => {
         const item = merchItems.find(i => i.id === itemId);
         if (!item) return;
 

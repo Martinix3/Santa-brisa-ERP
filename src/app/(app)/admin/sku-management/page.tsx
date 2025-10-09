@@ -3,14 +3,14 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useData } from '@/lib/dataprovider';
-import type { OnHandView, Item, ItemCategory } from '@/domain/ssot.v7';
+import type { OnHandView, Item, ItemCategory } from '@/domain/ssot';
 import { SBCard, SBButton } from '@/components/ui/ui-primitives';
 import { ChevronDown, Save, Tags } from 'lucide-react';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
 import { upsertMany } from '@/lib/dataprovider/actions';
-import { ITEM_CATEGORY_META } from '@/domain/ssot.v7';
+import { ITEM_CATEGORY_META } from '@/domain/ssot';
 
-function SkuRow({ item, onUpdateCategory }: { item: SkuWithLots; onUpdateCategory: (itemId: string, newCategory: Item['category']) => void; }) {
+function SkuRow({ item, onUpdateCategory }: { item: SkuWithLots; onUpdateCategory: (sku: string, newCategory: Item['category']) => void; }) {
     const [isOpen, setIsOpen] = useState(false);
     
     return (
@@ -97,7 +97,7 @@ function SkuManagementPageContent() {
         fetchData();
     }, [santaData]);
 
-    const handleUpdateCategory = (itemId: string, newCategory: Item['category']) => {
+    const handleUpdateCategory = (sku: string, newCategory: Item['category']) => {
         setSkuData(prevData =>
             prevData.map(item =>
                 item.item.id === itemId

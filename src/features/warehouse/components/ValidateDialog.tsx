@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog";
 import { SBButton, Input, Select } from '@/components/ui/ui-primitives';
-import type { Shipment, ShipmentLine } from '@/domain/ssot.v7';
+import type { Shipment, ShipmentLine } from '@/domain/ssot';
 import { validateShipment } from '@/server/actions/logistics.actions';
 import { useData } from '@/lib/dataprovider';
 
@@ -38,7 +38,7 @@ export function ValidateDialog({ open, onOpenChange, shipment }: {
         }
     }, [shipment]);
 
-    const setLot = (itemId: string, index: number, field: "lotNumber" | "qty", value: string) => {
+    const setLot = (sku: string, index: number, field: "lotNumber" | "qty", value: string) => {
         setLotMap((prev) => {
             const rows = prev[itemId] ? [...prev[itemId]] : [];
             while (rows.length <= index) rows.push({ lotNumber: "", qty: 0 });
@@ -56,7 +56,7 @@ export function ValidateDialog({ open, onOpenChange, shipment }: {
                 await validateShipment({ 
                     shipmentId: shipment.id,
                     userId: currentUser?.id || 'system',
-                    lots: Object.values(lotMap).flat().map(l => ({itemId: Object.keys(lotMap).find(k => lotMap[k].includes(l))!, ...l}))
+                    lots: Object.values(lotMap).flat().map(l => ({sku: Object.keys(lotMap).find(k => lotMap[k].includes(l))!, ...l}))
                 });
                 toast.success("Envío validado con éxito.");
                 onOpenChange(false);

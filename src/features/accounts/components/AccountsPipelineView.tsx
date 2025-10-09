@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useMemo } from 'react';
-import { Account, SantaData, Stage } from '@/domain/ssot.v7';
+import { Account, AccountStage, SantaData } from '@/domain/ssot';
 import { AccountCard } from './AccountCard';
 import { Users, Eye, CheckCircle, XCircle, Archive, UserX } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
@@ -13,7 +13,7 @@ type AccountsPipelineViewProps = {
 };
 
 const STAGES: { 
-  key: Stage; 
+  key: AccountStage;
   label: string; 
   color: string;
   headerBg: string;
@@ -72,7 +72,7 @@ export function AccountsPipelineView({ accounts, data }: AccountsPipelineViewPro
     const account = accounts.find(a => a.id === accountId);
     if (!account) return;
 
-    const isCurrentlyTarget = (account as any).isTarget || false;
+    const isCurrentlyTarget = account.isTarget || false;
     
     // Actualizar optimistamente
     const updatedAccounts = data.accounts?.map(a =>
@@ -92,7 +92,7 @@ export function AccountsPipelineView({ accounts, data }: AccountsPipelineViewPro
 
   // Agrupar y ordenar cuentas por stage
   const grouped = useMemo(() => {
-    const groups: Record<Stage, Account[]> = {
+    const groups: Record<AccountStage, Account[]> = {
       POTENCIAL: [],
       SEGUIMIENTO: [],
       ACTIVA: [],
@@ -102,16 +102,16 @@ export function AccountsPipelineView({ accounts, data }: AccountsPipelineViewPro
     };
 
     accounts.forEach(account => {
-      if (account.stage && groups[account.stage]) {
-        groups[account.stage].push(account);
+      if (account.accountStage && groups[account.accountStage]) {
+        groups[account.accountStage].push(account);
       }
     });
 
     // Ordenar cada grupo: objetivos primero, luego por fecha de creación
     Object.keys(groups).forEach(stage => {
-      groups[stage as Stage].sort((a, b) => {
-        const aIsTarget = (a as any).isTarget || false;
-        const bIsTarget = (b as any).isTarget || false;
+      groups[stage as AccountStage].sort((a, b) => {
+        const aIsTarget = a.isTarget || false;
+        const bIsTarget = b.isTarget || false;
         
         // Objetivos primero
         if (aIsTarget && !bIsTarget) return -1;

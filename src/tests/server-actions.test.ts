@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { validateShipment } from '@/app/(app)/warehouse/logistics/actions';
 import { createSalesInvoice } from '@/app/(app)/orders/actions';
-import type { Shipment, OrderSellOut, FinanceLink, SantaData, Uom } from '@/domain/ssot.v7';
+import type { Shipment, OrderSellOut, FinanceLink, Uom } from '@/domain/ssot';
 import { getServerData } from '@/lib/dataprovider/server';
 import { upsertMany } from '@/lib/dataprovider/actions';
 
@@ -39,8 +39,8 @@ describe('Server Actions', () => {
       const mockShipment: Partial<Shipment> = {
         id: MOCK_SHIPMENT_ID,
         orderId: MOCK_ORDER_ID,
-        status: 'pending',
-        lines: [{ itemId: 'item_1', qty: 1, name: 'Test Product', uom: 'unit' }],
+        status: 'DRAFT',
+        lines: [{ sku: 'item_1', qty: 1, name: 'Test Product', uom: 'UNIT' }],
       };
 
       // Simular que getServerData devuelve nuestro envío de prueba
@@ -56,7 +56,7 @@ describe('Server Actions', () => {
       expect(upsertManyMock).toHaveBeenCalledWith('shipments', expect.arrayContaining([
         expect.objectContaining({
           id: MOCK_SHIPMENT_ID,
-          status: 'ready_to_ship',
+          status: 'READY',
           // validatedById: MOCK_USER_ID, // Assuming you add this to your SSOT
         })
       ]));
@@ -82,8 +82,8 @@ describe('Server Actions', () => {
       const mockOrder: Partial<OrderSellOut> = {
         id: MOCK_ORDER_ID,
         partyId: MOCK_PARTY_ID,
-        status: 'shipped',
-        lines: [{ itemId: 'item_1', qty: 2, priceUnit: 10, uom: 'unit' }],
+        status: 'SHIPPED',
+        lines: [{ sku: 'item_1', qty: 2, priceUnit: 10, uom: 'UNIT' }],
         currency: 'EUR',
       };
 

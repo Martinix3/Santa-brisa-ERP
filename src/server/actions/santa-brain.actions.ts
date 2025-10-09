@@ -4,7 +4,7 @@
 import { adminDb as db } from '@/server/firebase';
 import { ok, fail, type ActionResult } from '@/lib/result';
 import { createAccountAndParty } from './create-account.action';
-import type { Account, User } from '@/domain/ssot.v7';
+import type { Account, User } from '@/domain/ssot';
 
 interface SantaBrainAction {
   type: 'VISITA' | 'PEDIDO' | 'EVENTO' | 'POS';
@@ -194,7 +194,7 @@ export async function saveSantaBrainData(
             
             // Obtener cuenta para determinar segmento
             const accountDoc = await db.collection('accounts').doc(accountId).get();
-            const accountSegment = accountDoc.exists ? accountDoc.data()?.segment : 'HORECA';
+            const accountSegment = accountDoc.exists ? accountDoc.data()?.accountType : 'HORECA';
             
             // Obtener Santa Brisa (único producto)
             const santaBrisaSnapshot = await db.collection('items')
@@ -241,7 +241,7 @@ export async function saveSantaBrainData(
               
               return {
                 sku: santaBrisa.sku || 'SB-750',
-                itemId: santaBrisa.id,
+                sku: santaBrisa.id,
                 quantity: quantityInBottles, // Siempre en botellas
                 unit: 'botellas',
                 priceUnit,

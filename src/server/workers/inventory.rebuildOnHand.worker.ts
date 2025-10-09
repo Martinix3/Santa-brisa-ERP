@@ -3,7 +3,7 @@
 'use server';
 
 import { adminDb as db } from '@/server/firebase';
-import type { StockMove, Item, QcStatus, SantaData, Uom } from '@/domain/ssot.v7';
+import type { StockMove, Item, QcStatus, Uom } from '@/domain/ssot';
 import { makeOnHandId } from '@/domain/id-helpers';
 
 async function getAll<T>(coll: keyof SantaData): Promise<T[]> {
@@ -34,7 +34,7 @@ export async function run() {
     
     console.log(`[Worker/rebuildOnHand] Loaded ${moves.length} moves, ${items.length} items, ${lots.length} lots.`);
 
-    const onHandAgg: Record<string, { qty: number; uom: Uom; itemId: string; lotNumber: string; locationId: string; updatedAt: string }> = {};
+    const onHandAgg: Record<string, { qty: number; uom: Uom; sku: string; lotNumber: string; locationId: string; updatedAt: string }> = {};
 
     const DIRECT_SIGN: Record<string, number> = {
       receipt: +1,
@@ -63,7 +63,7 @@ export async function run() {
         const loc = sign > 0 ? (m.toLocationId || m.toLocation) : (m.fromLocationId || m.fromLocation);
         if (loc) {
             const key = makeOnHandId(m.itemId, m.lotNumber, loc);
-            const entry = onHandAgg[key] || { qty: 0, uom, itemId: m.itemId, lotNumber: m.lotNumber, locationId: loc, updatedAt: '1970-01-01T00:00:00Z' };
+            const entry = onHandAgg[key] || { qty: 0, uom, sku: m.itemId, lotNumber: m.lotNumber, locationId: loc, updatedAt: '1970-01-01T00:00:00Z' };
             entry.qty += qty * sign;
             if (new Date(updatedAt) > new Date(entry.updatedAt)) {
                 entry.updatedAt = updatedAt;
@@ -75,14 +75,14 @@ export async function run() {
         const to = m.toLocationId || m.toLocation;
         if (from) {
              const key = makeOnHandId(m.itemId, m.lotNumber, from);
-             const entry = onHandAgg[key] || { qty: 0, uom, itemId: m.itemId, lotNumber: m.lotNumber, locationId: from, updatedAt: '1970-01-01T00:00:00Z' };
+             const entry = onHandAgg[key] || { qty: 0, uom, sku: m.itemId, lotNumber: m.lotNumber, locationId: from, updatedAt: '1970-01-01T00:00:00Z' };
              entry.qty -= qty;
              if (new Date(updatedAt) > new Date(entry.updatedAt)) entry.updatedAt = updatedAt;
              onHandAgg[key] = entry;
         }
         if (to) {
              const key = makeOnHandId(m.itemId, m.lotNumber, to);
-             const entry = onHandAgg[key] || { qty: 0, uom, itemId: m.itemId, lotNumber: m.lotNumber, locationId: to, updatedAt: '1970-01-01T00:00:00Z' };
+             const entry = onHandAgg[key] || { qty: 0, uom, sku: m.itemId, lotNumber: m.lotNumber, locationId: to, updatedAt: '1970-01-01T00:00:00Z' };
              entry.qty += qty;
              if (new Date(updatedAt) > new Date(entry.updatedAt)) entry.updatedAt = updatedAt;
              onHandAgg[key] = entry;
@@ -91,7 +91,7 @@ export async function run() {
           const loc = m.toLocationId || m.toLocation || m.fromLocationId || m.fromLocation;
           if (loc) {
             const key = makeOnHandId(m.itemId, m.lotNumber, loc);
-            const entry = onHandAgg[key] || { qty: 0, uom, itemId: m.itemId, lotNumber: m.lotNumber, locationId: loc, updatedAt: '1970-01-01T00:00:00Z' };
+            const entry = onHandAgg[key] || { qty: 0, uom, sku: m.itemId, lotNumber: m.lotNumber, locationId: loc, updatedAt: '1970-01-01T00:00:00Z' };
             entry.qty += qty;
             if (new Date(updatedAt) > new Date(entry.updatedAt)) entry.updatedAt = updatedAt;
             onHandAgg[key] = entry;

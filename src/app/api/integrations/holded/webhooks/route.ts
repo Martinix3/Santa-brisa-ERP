@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { upsertMany } from '@/lib/dataprovider/actions';
-import type { FinanceLink, PaymentLink, OrderSellOut } from '@/domain/ssot.v7';
+import type { FinanceLink, PaymentLink, OrderSellOut } from '@/domain/ssot';
 
 // Ajusta si añades verificación de firma
 export async function POST(req: NextRequest) {
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     docNumber: serialNumber,
     partyId: undefined,
     costObject: meta?.orderId ? { kind: 'ORDER', id: meta.orderId } : undefined,
-    status: status === 'paid' ? 'paid' : 'pending',
+    status: status === 'paid' ? 'paid' : 'DRAFT',
   };
 
   await upsertMany('financeLinks', [fin] as any);

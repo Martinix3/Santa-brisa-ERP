@@ -3,7 +3,7 @@ import { adminDb as db } from '@/server/firebase';
 import { FieldValue } from 'firebase-admin/firestore';
 import { enqueue } from '@/server/queue/queue';
 import { mapShopifyToSSOT } from './map';
-import type { Account } from '@/domain/ssot.v7';
+import type { Account } from '@/domain/ssot';
 
 async function upsertAccount(accountData: Partial<Account>, shopifyCustomer: any): Promise<FirebaseFirestore.DocumentReference> {
   const email = shopifyCustomer.email;
@@ -49,7 +49,7 @@ export async function upsertShopifyOrder(shopifyOrder: any) {
     ...orderData,
     id: orderRef.id,
     accountId: accRef.id,
-    source: 'SHOPIFY',
+    source: 'API',
     updatedAt: FieldValue.serverTimestamp(),
     createdAt: new Date(shopifyOrder.created_at).toISOString(),
   }, { merge: true });

@@ -3,7 +3,7 @@ import { adminDb as db } from '@/server/firebase';
 import { Timestamp } from 'firebase-admin/firestore';
 import { callHoldedApi } from './client';
 import { ensureHoldedContact } from './pushContact';
-import type { Shipment, OrderSellOut, Party, Item } from '@/domain/ssot.v7';
+import type { Shipment, OrderSellOut, Item } from '@/domain/ssot';
 
 interface CreateInvoicePayload {
   shipmentId: string;
@@ -30,31 +30,32 @@ export async function handleCreateInvoiceFromShipment(payload: CreateInvoicePayl
     const order = orderDoc.data() as OrderSellOut;
 
     // 3. Verificar si ya tiene factura
-    if (order.external?.holdedInvoiceId) {
-      console.log('[Holded Worker] Order already has invoice:', order.external.holdedInvoiceId);
+    if ((order as any).holded?.documentId) {
+      console.log('[Holded Worker] Order already has invoice:', (order as any).holded.documentId);
       return {
         ok: true,
         message: 'Order already invoiced',
-        invoiceId: order.external.holdedInvoiceId,
+        invoiceId: (order as any).holded.documentId,
       };
     }
 
-    // 4. Obtener Party
-    const partyDoc = await db.collection('parties').doc(order.partyId!).get();
-    if (!partyDoc.exists) {
-      throw new Error(`Party not found: ${order.partyId}`);
+    // 4. Obtener Account (v7: sin Party)
+    const accountDoc = await db.collection('accounts').doc(String(order.accountId)).get();
+    if (!accountDoc.exists) {
+      throw new Error(`Account not found: ${order.accountId}`);
     }
-    const party = partyDoc.data() as Party;
+    const account = accountDoc.data();
 
-    // 5. Asegurar que Party tiene holdedContactId
-    let holdedContactId = party.external?.holdedContactId;
+    // 5. Asegurar que Account tiene holdedContactId
+    let holdedContactId = (account as any).external?.holdedContactId;
     if (!holdedContactId) {
-      console.log('[Holded Worker] Party missing holdedContactId, creating contact...');
-      const result = await ensureHoldedContact(party);
+      console.log('[Holded Worker] Account missing holdedContactId, creating contact...');
+      // v7: ensureHoldedContact espera Account, no Party
+      const result = await ensureHoldedContact(account as any);
       holdedContactId = result.id;
       
-      // Actualizar Party con holdedContactId
-      await db.collection('parties').doc(party.id).update({
+      // Actualizar Account con holdedContactId
+      await db.collection('accounts').doc(String(order.accountId)).update({
         'external.holdedContactId': holdedContactId,
         updatedAt: Timestamp.now().toDate().toISOString(),
       });
@@ -63,18 +64,16 @@ export async function handleCreateInvoiceFromShipment(payload: CreateInvoicePayl
     // 6. Preparar líneas de factura
     const invoiceLines = await Promise.all(
       shipment.lines.map(async (line) => {
-        // Obtener info del item para precio
-        const itemDoc = await db.collection('items').doc(line.itemId).get();
-        const item = itemDoc.exists ? (itemDoc.data() as Item) : null;
-        
-        const priceUnit = item?.priceUnit || item?.priceBase || 0;
+        // v7: Shipment.lines usa 'sku' + 'qty'
+        const itemDoc = await db.collection('items').where('sku', '==', line.sku).limit(1).get();
+        const item = itemDoc.empty ? null : (itemDoc.docs[0].data() as Item);
         
         return {
-          sku: line.itemId,
-          name: line.name,
+          sku: line.sku,
+          name: item?.name || line.sku,
           units: line.qty,
-          price: priceUnit,
-          tax: 21, // IVA España por defecto
+          price: item?.price || 0,
+          tax: 21,
           discount: 0,
         };
       })
@@ -85,23 +84,21 @@ export async function handleCreateInvoiceFromShipment(payload: CreateInvoicePayl
     
     const invoicePayload = {
       contactId: holdedContactId,
-      contactName: party.name,
-      date: shipment.shippedAt || new Date().toISOString(),
+      contactName: account?.name || 'Unknown',
+      date: (shipment as any).shippedOn || new Date().toISOString(),
       items: invoiceLines,
-      notes: `Albarán: ${shipment.shipmentNumber || shipmentId}\n${shipment.notes || ''}`,
+      notes: `Albarán: ${shipment.id}\n${(shipment as any).meta?.notes || ''}`,
       numSerie: 'A', // Serie por defecto, ajustar según tu config
-      // Opcional: delivery note reference
-      ...(shipment.deliveryNoteId && { deliveryNoteId: shipment.deliveryNoteId }),
     };
 
     const invoice = await callHoldedApi('/documents/invoice', 'POST', invoicePayload);
     
     console.log('[Holded Worker] Invoice created:', invoice.id);
 
-    // 8. Guardar holdedInvoiceId en Order
+    // 8. Guardar holdedInvoiceId en Order (v7: holded.documentId)
     await db.collection('ordersSellOut').doc(order.id).update({
-      'external.holdedInvoiceId': invoice.id,
-      billingStatus: 'invoiced',
+      'holded.documentId': invoice.id,
+      billingStatus: 'INVOICED',
       updatedAt: Timestamp.now().toDate().toISOString(),
     });
 

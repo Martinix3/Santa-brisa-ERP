@@ -8,7 +8,7 @@ import { QuickLogDialog } from '@/features/quicklog/QuickLogDialog';
 import { PageShell } from '@/components/shared/PageShell';
 import { NewEventDialog } from '@/features/agenda/components/NewEventDialog';
 
-import type { Interaction } from '@/domain/ssot.v7';
+import type { Interaction } from '@/domain/ssot';
 import { getPipelineAlerts } from '@/lib/pipeline-helpers';
 import { getCajasSellOut } from '@/lib/sales-helpers';
 
@@ -73,10 +73,10 @@ export default function PersonalDashboardPage() {
       });
     }
 
-    const misCuentas = (data.accounts || []).filter(a => a.ownerId === currentUser.id);
+    const misCuentas = (data.accounts || []).filter(a => a.salesRepId === currentUser.id);
     const objetivoCajas = currentUser.kpiBaseline?.unitsSold || 100;
     const misPedidos = (data.ordersSellOut || []).filter(o => 
-      o.flow === 'PLACEMENT' && misCuentas.some(a => a.id === o.accountId)
+      o.flow === 'COLOCACION' && misCuentas.some(a => a.id === o.accountId)
     );
     const cajasActuales = getCajasSellOut(misPedidos);
     const alerts = getPipelineAlerts(misCuentas, data.interactions || []);
@@ -228,7 +228,7 @@ export default function PersonalDashboardPage() {
             </div>
             <div className="sb-card__content">
               <TargetAccountsList 
-                accounts={(data.accounts || []).filter(a => a.ownerId === currentUser.id)}
+                accounts={(data.accounts || []).filter(a => a.salesRepId === currentUser.id)}
               />
             </div>
           </div>

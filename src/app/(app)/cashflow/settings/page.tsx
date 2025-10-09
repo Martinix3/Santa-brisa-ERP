@@ -2,7 +2,7 @@
 // app/cashflow/settings/page.tsx
 'use client';
 import { useEffect, useState } from 'react';
-import type { AccountType, SB_THEME } from '@/domain/ssot.v7';
+import type { AccountType, SB_THEME } from '@/domain/ssot';
 import { SBCard, SBButton, Input, Select } from '@/components/ui/ui-primitives';
 import { Save } from 'lucide-react';
 

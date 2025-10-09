@@ -1,5 +1,5 @@
 // src/domain/onhand.recalc.ts
-import type { StockMove, OnHandView, Uom, Item, ItemCategory } from '@/domain/ssot.v7';
+import type { StockMove, Uom, Item, ItemCategory } from '@/domain/ssot';
 
 const SIGN: Record<string, number> = {
   receipt: +1,
@@ -20,13 +20,13 @@ const SIGN: Record<string, number> = {
   unreserve: 0,
 };
 
-function key(itemId: string, lot?: string, loc?: string) {
+function key(sku: string, lot?: string, loc?: string) {
   return [itemId, lot || '', loc || ''].join('|');
 }
 
 export function deriveOnHand(stockMoves: StockMove[], items: Item[], nowIso = new Date().toISOString()): OnHandView[] {
   const itemMap = new Map(items.map(i => [i.id, i]));
-  const acc = new Map<string, { qty: number; uom: Uom; itemId: string; lot?: string; loc?: string; createdAt?: string; updatedAt?: string }>();
+  const acc = new Map<string, { qty: number; uom: Uom; sku: string; lot?: string; loc?: string; createdAt?: string; updatedAt?: string }>();
 
   for (const m of stockMoves) {
     const fromLoc = m.fromLocationId;
@@ -36,7 +36,7 @@ export function deriveOnHand(stockMoves: StockMove[], items: Item[], nowIso = ne
     if (SIGN[m.reason] !== 0) {
       const loc = SIGN[m.reason] > 0 ? toLoc : fromLoc;
       const k = key(m.itemId, m.lotNumber, loc);
-      const cur = acc.get(k) || { qty: 0, uom: m.uom, itemId: m.itemId, lot: m.lotNumber, loc, createdAt: m.createdAt };
+      const cur = acc.get(k) || { qty: 0, uom: m.uom, sku: m.itemId, lot: m.lotNumber, loc, createdAt: m.createdAt };
       const delta = (SIGN[m.reason] as number) * m.qty;
       acc.set(k, { ...cur, qty: cur.qty + delta, updatedAt: m.occurredAt });
     }
@@ -45,12 +45,12 @@ export function deriveOnHand(stockMoves: StockMove[], items: Item[], nowIso = ne
     if (m.reason === 'transfer') {
       if (fromLoc) {
         const kFrom = key(m.itemId, m.lotNumber, fromLoc);
-        const cur = acc.get(kFrom) || { qty: 0, uom: m.uom, itemId: m.itemId, lot: m.lotNumber, loc: fromLoc, createdAt: m.createdAt };
+        const cur = acc.get(kFrom) || { qty: 0, uom: m.uom, sku: m.itemId, lot: m.lotNumber, loc: fromLoc, createdAt: m.createdAt };
         acc.set(kFrom, { ...cur, qty: cur.qty - m.qty, updatedAt: m.occurredAt });
       }
       if (toLoc) {
         const kTo = key(m.itemId, m.lotNumber, toLoc);
-        const cur = acc.get(kTo) || { qty: 0, uom: m.uom, itemId: m.itemId, lot: m.lotNumber, loc: toLoc, createdAt: m.createdAt };
+        const cur = acc.get(kTo) || { qty: 0, uom: m.uom, sku: m.itemId, lot: m.lotNumber, loc: toLoc, createdAt: m.createdAt };
         acc.set(kTo, { ...cur, qty: cur.qty + m.qty, updatedAt: m.occurredAt });
       }
     }
@@ -59,7 +59,7 @@ export function deriveOnHand(stockMoves: StockMove[], items: Item[], nowIso = ne
     if (m.reason === 'adjustment') {
       const loc = toLoc ?? fromLoc;
       const k = key(m.itemId, m.lotNumber, loc);
-      const cur = acc.get(k) || { qty: 0, uom: m.uom, itemId: m.itemId, lot: m.lotNumber, loc, createdAt: m.createdAt };
+      const cur = acc.get(k) || { qty: 0, uom: m.uom, sku: m.itemId, lot: m.lotNumber, loc, createdAt: m.createdAt };
       acc.set(k, { ...cur, qty: cur.qty + m.qty, updatedAt: m.occurredAt });
     }
   }
@@ -71,7 +71,7 @@ export function deriveOnHand(stockMoves: StockMove[], items: Item[], nowIso = ne
     const item = itemMap.get(v.itemId);
     out.push({
       id,
-      itemId: v.itemId,
+      sku: v.itemId,
       lotNumber: v.lot || '',
       locationId: v.loc || '',
       qty: Number(v.qty.toFixed(6)),

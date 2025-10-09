@@ -9,7 +9,7 @@
  * - Qué datos usan las funciones de cálculo
  */
 
-import type { SantaData } from '@/domain/ssot.v7';
+import type { SantaData } from '@/domain/ssot';
 
 export interface DataFlowNode {
   id: string;
@@ -63,7 +63,7 @@ export const UI_DATA_FLOW: DataFlowNode[] = [
     type: 'ui',
     component: 'DashboardVentas',
     collections: ['accounts', 'ordersSellOut', 'users'],
-    fields: ['ordersSellOut.totalAmount', 'ordersSellOut.lines', 'accounts.stage', 'accounts.ownerId'],
+    fields: ['ordersSellOut.totalAmount', 'ordersSellOut.lines', 'accounts.stage', 'accounts.salesRepId'],
     description: 'Dashboard Ventas - Pipeline, evolución',
     file: 'src/features/dashboard-ventas',
     verified: false
@@ -86,8 +86,8 @@ export const UI_DATA_FLOW: DataFlowNode[] = [
     component: 'NewAccountDialog',
     collections: ['accounts', 'parties', 'partyRoles'],
     fields: [
-      'accounts.id', 'accounts.name', 'accounts.segment', 'accounts.stage', 
-      'accounts.ownerId', 'accounts.flow', 'accounts.distributorPartyId', 'accounts.source',
+      'accounts.id', 'accounts.name', 'accounts.accountType', 'accounts.stage', 
+      'accounts.salesRepId', 'accounts.flow', 'accounts.distributorId', 'accounts.source',
       'parties.id', 'parties.name', 'parties.legalName', 'parties.taxId',
       'partyRoles.id', 'partyRoles.role', 'partyRoles.data'
     ],
@@ -204,8 +204,8 @@ export const UI_DATA_FLOW: DataFlowNode[] = [
     component: 'CSV Import (Accounts)',
     collections: ['accounts', 'parties', 'partyRoles'],
     fields: [
-      'accounts.id', 'accounts.name', 'accounts.segment', 'accounts.stage',
-      'accounts.ownerId', 'accounts.flow', 'accounts.source',
+      'accounts.id', 'accounts.name', 'accounts.accountType', 'accounts.stage',
+      'accounts.salesRepId', 'accounts.flow', 'accounts.source',
       'parties.id', 'parties.legalName', 'parties.tradeName', 'parties.taxId',
       'partyRoles.id', 'partyRoles.role'
     ],
@@ -250,7 +250,7 @@ export const COMPUTE_FUNCTIONS: DataFlowNode[] = [
     collections: ['ordersSellOut', 'accounts', 'users'],
     fields: [
       'ordersSellOut.totalAmount', 'ordersSellOut.lines', 'ordersSellOut.createdAt',
-      'accounts.ownerId', 'users.kpiBaseline'
+      'accounts.salesRepId', 'users.kpiBaseline'
     ],
     description: 'Calcula KPIs de ventas por usuario',
     file: 'src/lib/dashboard-helpers.ts'
@@ -262,7 +262,7 @@ export const COMPUTE_FUNCTIONS: DataFlowNode[] = [
     collections: ['ordersSellOut', 'accounts'],
     fields: [
       'ordersSellOut.flow', 'ordersSellOut.totalAmount',
-      'accounts.flow', 'accounts.segment'
+      'accounts.flow', 'accounts.accountType'
     ],
     description: 'Calcula mix comercial (DIRECT vs PLACEMENT)',
     file: 'src/lib/sales-helpers.ts'

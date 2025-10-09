@@ -20,7 +20,7 @@ import {
   type Shipment,
   type User,
   type StockReason,
-} from '@/domain/ssot.v7';
+} from '@/domain/ssot';
 import { POLICIES } from '@/lib/codes';
 import { getServerData } from '@/lib/dataprovider/server';
 import { upsertMany } from '@/lib/dataprovider/actions';
@@ -72,8 +72,8 @@ function buildRegistry(data: SantaData): FKRegistry {
     accountsById: new Map(data.accounts.map(a=>[a.id,a])),
     accountsByName: new Map(data.accounts.map(a=>[a.name.toLowerCase(),a])),
     accountsByCode: new Map(data.accounts.filter(a=>a.code).map(a=>[String(a.code).toLowerCase(),a])),
-    usersById: new Map(data.users.map(u=>[u.id,u])),
-    usersByEmail: new Map(data.users.filter(u=>u.email).map(u=>[String(u.email).toLowerCase(),u])),
+    usersById: new Map(data.teamMembers.map(u=>[u.id,u])),
+    usersByEmail: new Map(data.teamMembers.filter(u=>u.email).map(u=>[String(u.email).toLowerCase(),u])),
     itemsById: new Map(data.items.map(m=>[m.id,m])),
     onHandById: new Map(data.onHand.map(l=>[l.id,l])),
     ordersById: new Map(data.ordersSellOut.map(o=>[o.id,o])),
@@ -116,9 +116,9 @@ async function resolveAndNormalize(coll: keyof SantaData, rows: any[], data: San
       let lines = j(row.lines);
       if (!Array.isArray(lines) || lines.length === 0){
         const itemId = row.itemId; const qty = nNumComma(row.qty); const pu = nNumComma(row.priceUnit);
-        lines = itemId ? [{ itemId, qty, uom:'unit', priceUnit: pu }] : [];
+        lines = itemId ? [{ itemId, qty, uom:'UNIT', priceUnit: pu }] : [];
       }
-      row.lines = (lines as any[]).map(l=> ({ itemId: l.itemId, qty: nNumComma(l.qty), uom: l.uom || l.unit || 'unit', priceUnit: nNumComma(l.priceUnit ?? l.unitPrice ?? 0), discount: l.discount? Number(l.discount): undefined }));
+      row.lines = (lines as any[]).map(l=> ({ sku: l.itemId, qty: nNumComma(l.qty), uom: l.uom || l.unit || 'UNIT', priceUnit: nNumComma(l.priceUnit ?? l.unitPrice ?? 0), discount: l.discount? Number(l.discount): undefined }));
       out.push(row); continue;
     }
 
@@ -131,7 +131,7 @@ async function resolveAndNormalize(coll: keyof SantaData, rows: any[], data: San
     if (coll==='goodsReceipts'){
       const lines = Array.isArray(row.lines) ? row.lines : j(row.lines);
       if (Array.isArray(lines)){
-        row.lines = lines.map((ln:any)=> ({ itemId: reg.itemsById.get(ln.itemId)?.id ?? ln.itemId, qty: nNumComma(ln.qty), uom: ln.uom ?? 'unit' }));
+        row.lines = lines.map((ln:any)=> ({ sku: reg.itemsById.get(ln.itemId)?.id ?? ln.itemId, qty: nNumComma(ln.qty), uom: ln.uom ?? 'UNIT' }));
       }
       out.push(row); continue;
     }
@@ -140,7 +140,7 @@ async function resolveAndNormalize(coll: keyof SantaData, rows: any[], data: San
 
     if (coll==='shipments'){
       const lines = Array.isArray(row.lines) ? row.lines : j(row.lines);
-      if (Array.isArray(lines)) row.lines = lines.map((ln:any)=> ({ itemId: ln.itemId, name: ln.name ?? '', qty: nNumComma(ln.qty), uom: ln.uom ?? 'unit', lotNumber: ln.lotNumber }));
+      if (Array.isArray(lines)) row.lines = lines.map((ln:any)=> ({ sku: ln.itemId, name: ln.name ?? '', qty: nNumComma(ln.qty), uom: ln.uom ?? 'UNIT', lotNumber: ln.lotNumber }));
       row.isSample = nBool(row.isSample);
       out.push(row); continue;
     }

@@ -3,7 +3,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { useData } from '@/lib/dataprovider';
-import type { Order, OrderStatus, Account } from '@/domain/ssot.v7';
+import type { Order, OrderStatus, Account } from '@/domain/ssot';
 import OrdersTable from './OrdersTable';
 import { toast } from 'sonner';
 import { firestoreDb } from '@/lib/firebaseClient';
@@ -63,10 +63,10 @@ const OrdersDashboard = () => {
                     if (canalFilter === 'ONLINE') {
                         return o.source === 'Shopify';
                     } else if (canalFilter === 'DISTRIBUIDOR') {
-                        return account?.segment === 'DISTRIBUIDOR';
+                        return account?.accountType === 'DISTRIBUIDOR';
                     } else {
                         // HORECA, RETAIL, PRIVADA
-                        return account?.segment === canalFilter;
+                        return account?.accountType === canalFilter;
                     }
                 });
             }
@@ -264,7 +264,7 @@ const OrdersDashboard = () => {
                             date: order.createdAt,
                             status: order.status,
                             total: `${order.total?.toFixed(2) || '0.00'}€`,
-                            channel: order.channel === 'DIRECTA' ? 'DIRECT' : 'PLACEMENT'
+                            channel: order.channel === 'DIRECTA' ? 'DIRECTA' : 'COLOCACION'
                         };
                     })}
                     onStatusChange={handleStatusChange}

@@ -4,7 +4,7 @@
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
 import { Input, Select, SBButton } from '@/components/ui/ui-primitives';
-import type { PosTactic, Account, PosCostCatalogEntry, PlvMaterial } from '@/domain/ssot.v7';
+import type { PosTactic, Account, PosCostCatalogEntry, PlvMaterial } from '@/domain/ssot';
 import { useData } from '@/lib/dataprovider';
 import { Plus, X, Package, Tag, AlertCircle } from 'lucide-react';
 import type { PosLineInput } from '@/features/pos/server/pos-actions';

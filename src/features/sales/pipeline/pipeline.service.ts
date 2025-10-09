@@ -1,6 +1,6 @@
 // src/features/sales/pipeline/pipeline.service.ts
 import { adminDb as db } from '@/server/firebase';
-import type { Account, Interaction, OrderSellOut, Party, User } from '@/domain/ssot.v7';
+import type { Account, Interaction, OrderSellOut, User } from '@/domain/ssot';
 import { getOne } from '@/lib/dataprovider/server';
 
 export interface PipelineAccount {
@@ -80,7 +80,7 @@ export async function getPipelineData(filters: any): Promise<{ accounts: Pipelin
         const accountStage = (acc as any).accountStage || null;
 
         const party = partiesById.get(acc.partyId);
-        const distributor = partiesById.get(acc.distributorPartyId || '');
+        const distributor = partiesById.get(acc.distributorId || '');
 
         const riskDays = lastOrder ? Math.floor((Date.now() - new Date(lastOrder.createdAt).getTime()) / (1000 * 3600 * 24)) : 0;
 
@@ -89,7 +89,7 @@ export async function getPipelineData(filters: any): Promise<{ accounts: Pipelin
             name: acc.name,
             city: party?.billingAddress?.city || null,
             zone: (party?.serviceArea as any)?.zone || null,
-            distributorId: acc.distributorPartyId || null,
+            distributorId: acc.distributorId || null,
             distributorName: distributor?.name || null,
             plvInstalled: (acc as any).plvInstalled || false,
             lostReason: (acc as any).lostReason || null,
@@ -103,7 +103,7 @@ export async function getPipelineData(filters: any): Promise<{ accounts: Pipelin
             } : null,
             lastOrderAt: lastOrder?.createdAt || null,
             riskDays,
-            isFromOtherDistributor: filters.distributors && acc.distributorPartyId && !filters.distributors.includes(acc.distributorPartyId),
+            isFromOtherDistributor: filters.distributors && acc.distributorId && !filters.distributors.includes(acc.distributorId),
         };
     });
     

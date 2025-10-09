@@ -34,7 +34,7 @@ export function DataAuditDashboard() {
 
     // Accounts sin party
     const accountsWithoutParty = data.accounts.filter(acc => 
-      !data.parties.some(p => p.id === acc.partyId)
+      !data.accounts.some(p => p.id === acc.partyId)
     );
     if (accountsWithoutParty.length > 0) {
       issues.push({
@@ -51,7 +51,7 @@ export function DataAuditDashboard() {
 
     // Accounts sin owner
     const accountsWithoutOwner = data.accounts.filter(acc => 
-      !acc.ownerId || !data.users.some(u => u.id === acc.ownerId)
+      !acc.salesRepId || !data.teamMembers.some(u => u.id === acc.salesRepId)
     );
     if (accountsWithoutOwner.length > 0) {
       issues.push({
@@ -61,7 +61,7 @@ export function DataAuditDashboard() {
         title: 'Accounts sin Responsable',
         description: `${accountsWithoutOwner.length} cuentas sin usuario responsable válido`,
         count: accountsWithoutOwner.length,
-        details: accountsWithoutOwner.slice(0, 5).map(a => `${a.name} (ownerId: ${a.ownerId})`),
+        details: accountsWithoutOwner.slice(0, 5).map(a => `${a.name} (ownerId: ${a.salesRepId})`),
         fix: 'Asignar un comercial responsable a cada cuenta'
       });
     }
@@ -85,7 +85,7 @@ export function DataAuditDashboard() {
 
     // Interactions sin userId
     const interactionsWithoutUser = data.interactions.filter(int => 
-      !int.userId || !data.users.some(u => u.id === int.userId)
+      !int.userId || !data.teamMembers.some(u => u.id === int.userId)
     );
     if (interactionsWithoutUser.length > 0) {
       issues.push({
@@ -137,7 +137,7 @@ export function DataAuditDashboard() {
     }
 
     // Parties sin teléfono ni email
-    const partiesWithoutContact = data.parties.filter(p => 
+    const partiesWithoutContact = data.accounts.filter(p => 
       (!p.phones || p.phones.length === 0) && 
       (!p.emails || p.emails.length === 0)
     );
@@ -222,7 +222,7 @@ export function DataAuditDashboard() {
     });
 
     // Objetivos y targets
-    if (data.users.some(u => u.kpiBaseline)) {
+    if (data.teamMembers.some(u => u.kpiBaseline)) {
       issues.push({
         id: 'hardcoded-targets',
         category: 'hardcoded',
@@ -380,9 +380,9 @@ function IntegrityAuditView({ issues, summary, data }: { issues: AuditIssue[], s
       <SBCard title="📊 Estadísticas de Base de Datos" className="mt-6">
         <div className="p-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-            <StatItem label="Parties" value={data.parties.length} />
+            <StatItem label="Parties" value={data.accounts.length} />
             <StatItem label="Accounts" value={data.accounts.length} />
-            <StatItem label="Users" value={data.users.length} />
+            <StatItem label="Users" value={data.teamMembers.length} />
             <StatItem label="Orders" value={data.ordersSellOut.length} />
             <StatItem label="Interactions" value={data.interactions.length} />
             <StatItem label="Items" value={data.items.length} />

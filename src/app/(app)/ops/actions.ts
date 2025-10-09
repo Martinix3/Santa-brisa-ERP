@@ -2,7 +2,7 @@
 'use server';
 import { revalidatePath } from 'next/cache';
 import { adminDb as db } from '@/server/firebase';
-import type { Interaction, Payload } from '@/domain/ssot.v7';
+import type { Interaction, Payload } from '@/domain/ssot';
 
 export async function createTask(input: Partial<Interaction>){
   const id = input.id || `int_${Date.now()}`;

@@ -1,7 +1,7 @@
 // src/features/marketing/components/PaidKpiCards.tsx
 "use client";
 import React, { useMemo } from 'react';
-import type { OnlineCampaign } from '@/domain/ssot.v7';
+import type { OnlineCampaign } from '@/domain/ssot';
 import { KPI } from '@/components/ui/ui-primitives';
 import { Euro, TrendingUp, Percent, BarChart3, MousePointerClick } from 'lucide-react';
 

@@ -1,4 +1,4 @@
-import type { Party, CommItem, Address } from '@/domain/ssot.v7';
+import type { Party, CommItem, Address } from '@/domain/ssot';
 import { normEmail } from '@/lib/norm/email';
 import { normPhone } from '@/lib/norm/phone';
 import { normVat } from '@/lib/norm/cif';

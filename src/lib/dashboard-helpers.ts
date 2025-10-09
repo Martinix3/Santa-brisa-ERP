@@ -1,4 +1,4 @@
-import { Interaction, Department, User, SantaData } from '@/domain/ssot.v7';
+import { Interaction, Department, SantaData } from '@/domain/ssot';
 import { TimeRange, filterByTimeRange, isOverdue } from './time-range-helpers';
 
 /**
@@ -68,7 +68,7 @@ export function formatTaskInfo(
   isOverdue: boolean;
   daysOverdue?: number;
 } {
-  const owner = getTaskOwnerName(task, data.users || []);
+  const owner = getTaskOwnerName(task, data.teamMembers || []);
   const date = task.plannedFor 
     ? new Date(task.plannedFor).toLocaleDateString('es-ES')
     : 'Sin fecha';

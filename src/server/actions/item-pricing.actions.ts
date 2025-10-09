@@ -21,7 +21,7 @@ interface PricingData {
  * Actualiza los precios de un item
  */
 export async function updateItemPricing(
-  itemId: string,
+  sku: string,
   pricing: PricingData
 ): Promise<ActionResult<void>> {
   try {

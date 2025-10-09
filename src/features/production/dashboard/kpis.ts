@@ -1,8 +1,8 @@
-import type { ProductionOrder, BillOfMaterial, OnHandView, Item, ProductionStatus, QcStatus } from "@/domain/ssot";
+import type { ProductionOrder, BillOfMaterial, Item, ProductionStatus, QcStatus } from "@/domain/ssot";
 import { isSameDay, seriesDays } from "./utils";
 
 type Input = { orders: ProductionOrder[]; recipes: BillOfMaterial[]; onHand: OnHandView[]; items: Item[] };
-type Shortage = { itemId: string; required: number; available: number; missing: number; uom: string };
+type Shortage = { sku: string; required: number; available: number; missing: number; uom: string };
 type CriticalInventoryItem = { sku: string; name: string; qty: number };
 
 // SOLUCIÓN: Se crea un tipo extendido localmente para manejar los estados faltantes.

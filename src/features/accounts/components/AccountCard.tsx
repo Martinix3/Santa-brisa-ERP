@@ -2,7 +2,8 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Account, SantaData } from '@/domain/ssot.v7';
+import { Account, SantaData, OrderSellOut } from '@/domain/ssot';
+import { orderTotal } from '@/lib/sb-core';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui';
 import { Calendar, Package, Euro, Target, ChevronDown, ChevronUp } from 'lucide-react';
@@ -22,7 +23,7 @@ export function AccountCard({ account, data, onToggleTarget }: AccountCardProps)
   const [showDetail, setShowDetail] = useState(false);
   
   // Owner info
-  const owner = data.users?.find(u => u.id === account.ownerId);
+  const owner = data.teamMembers?.find(u => u.id === account.salesRepId);
   const ownerName = owner?.name || 'Sin asignar';
 
   // Última interacción
@@ -32,29 +33,31 @@ export function AccountCard({ account, data, onToggleTarget }: AccountCardProps)
   )[0];
 
   // Última venta
-  const orders = data.ordersSellOut?.filter(o => o.accountId === account.id) || [];
-  const lastOrder = orders.sort((a, b) => 
+  const orders = data.ordersSellOut?.filter((o: OrderSellOut) => o.accountId === account.id) || [];
+  const lastOrder = orders.sort((a: OrderSellOut, b: OrderSellOut) => 
     new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   )[0];
 
   // Total facturado YTD
-  const ytdOrders = orders.filter(o => {
+  const ytdOrders = orders.filter((o: OrderSellOut) => {
     const year = new Date(o.createdAt).getFullYear();
     return year === new Date().getFullYear();
   });
-  const totalYTD = ytdOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+  const totalYTD = ytdOrders.reduce((sum: number, o: OrderSellOut) => sum + orderTotal(o), 0);
 
-  // Colores por segmento
-  const segmentColors: Record<string, string> = {
+  // Colores por tipo de cuenta
+  const accountTypeColors: Record<string, string> = {
     'HORECA': 'bg-blue-100 text-blue-800',
     'RETAIL': 'bg-purple-100 text-purple-800',
     'ONLINE': 'bg-orange-100 text-orange-800',
     'DISTRIBUIDOR': 'bg-green-100 text-green-800',
-    'PRIVADA': 'bg-gray-100 text-gray-800',
+    'CLIENTE_FINAL': 'bg-gray-100 text-gray-800',
+    'IMPORTADOR': 'bg-teal-100 text-teal-800',
+    'OTRO': 'bg-slate-100 text-slate-800',
   };
 
-  const segmentColor = segmentColors[account.segment] || 'bg-gray-100 text-gray-800';
-  const isTarget = (account as any).isTarget || false;
+  const accountTypeColor = accountTypeColors[account.accountType] || 'bg-gray-100 text-gray-800';
+  const isTarget = account.isTarget || false;
 
   const handleToggleExpand = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -101,8 +104,8 @@ export function AccountCard({ account, data, onToggleTarget }: AccountCardProps)
             </p>
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
-            <Badge className={`text-xs ${segmentColor}`}>
-              {account.segment}
+            <Badge className={`text-xs ${accountTypeColor}`}>
+              {account.accountType}
             </Badge>
             {isExpanded ? (
               <ChevronUp className="w-3 h-3 text-slate-400" />
@@ -233,12 +236,12 @@ export function AccountCard({ account, data, onToggleTarget }: AccountCardProps)
               {/* Aquí iría el contenido del detalle */}
               <div className="space-y-4">
                 <div>
-                  <p className="text-sm text-muted-foreground">Segmento</p>
-                  <p className="font-medium">{account.segment}</p>
+                  <p className="text-sm text-muted-foreground">Tipo de Cuenta</p>
+                  <p className="font-medium">{account.accountType}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Stage</p>
-                  <p className="font-medium">{account.stage}</p>
+                  <p className="text-sm text-muted-foreground">Estado</p>
+                  <p className="font-medium">{account.accountStage}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Owner</p>

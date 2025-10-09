@@ -155,7 +155,7 @@ async function importAccounts(dryRun: boolean = false) {
       flow: (row.FLow || 'DIRECT').toUpperCase(),
       ownerId: row.ownerId || '',
       source: row.source || 'IMPORT',
-      distributorPartyId: row.distributorPartyId || null,
+      distributorPartyId: row.distributorId || null,
       notes: '',
       createdAt: row.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString()

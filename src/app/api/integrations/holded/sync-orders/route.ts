@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb as db } from '@/server/firebase';
 import { Timestamp } from 'firebase-admin/firestore';
-import type { Party, Account, OrderSellOut } from '@/domain/ssot.v7';
+import type { Party, Account, OrderSellOut } from '@/domain/ssot';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -133,20 +133,24 @@ export async function POST(req: NextRequest) {
 
         const orderId = `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         
+        // Detectar si es pedido de Shopify por la descripción
+        const description = invoice.desc || invoice.description || '';
+        const isShopify = description.toLowerCase().includes('shopify');
+        
         const order: OrderSellOut = {
           id: orderId,
           docNumber: invoice.docNumber || `INV-${invoice.id}`,
           accountId: account.id,
           partyId: party.id,
-          flow: 'DIRECT',
+          flow: 'DIRECTA',
           status: invoice.status === 'paid' ? 'paid' : 'invoiced',
           billingStatus: invoice.status === 'paid' ? 'paid' : 'invoiced',
-          source: 'HOLDED',
+          source: isShopify ? 'SHOPIFY' : 'HOLDED',
           lines: (invoice.items || []).map((item: any) => ({
-            itemId: item.sku || item.id,
+            sku: item.sku || item.id,
             name: item.name || item.sku,
             qty: item.units || 1,
-            uom: 'unit',
+            uom: 'UNIT',
             priceUnit: item.price || 0,
             discountPct: item.discount || 0,
           })),
@@ -337,7 +341,7 @@ async function findOrCreateAccountForParty(party: Party): Promise<Account> {
     name: party.name,
     segment: segment as any,
     stage: 'ACTIVA',
-    flow: 'DIRECT',
+    flow: 'DIRECTA',
     ownerId: ownerId,
     source: 'HOLDED',
     createdAt: Timestamp.now().toDate().toISOString(),

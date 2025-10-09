@@ -120,7 +120,7 @@ export function PersonalPipelineBoard({
                         </Link>
                         
                         <p className="text-xs text-muted-foreground">
-                          {account.segment}
+                          {account.accountType}
                         </p>
 
                         {lastInteraction && (

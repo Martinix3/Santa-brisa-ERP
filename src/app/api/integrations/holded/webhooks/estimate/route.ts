@@ -2,7 +2,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb as db } from '@/server/firebase';
 import { Timestamp } from 'firebase-admin/firestore';
-import type { Party, Account, OrderSellOut } from '@/domain/ssot.v7';
+import type { Party, Account } from '@/domain/ssot';
+import type { Order } from '@/domain/ssot';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -52,20 +53,20 @@ export async function POST(req: NextRequest) {
     // 3. Crear Order en el CRM
     const orderId = `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
-    const order: OrderSellOut = {
+    const order: any = {
       id: orderId,
-      docNumber: `EST-${data.id}`,
+      orderNumber: `EST-${data.id}`,
       accountId: account.id,
       partyId: party.id,
-      flow: 'DIRECT',
-      status: 'confirmed',
-      billingStatus: 'pending',
-      source: 'HOLDED',
+      flow: 'DIRECTA',
+      status: 'ABIERTO',
+      billingStatus: 'DRAFT',
+      source: 'Holded',
       lines: data.items.map(item => ({
-        itemId: item.sku,
+        sku: item.sku,
         name: item.name || item.sku,
         qty: item.units,
-        uom: 'unit',
+        uom: 'UNIT',
         priceUnit: item.price,
         discountPct: item.discount || 0,
       })),
@@ -81,7 +82,7 @@ export async function POST(req: NextRequest) {
       createdById: 'holded_webhook',
     };
 
-    await db.collection('ordersSellOut').doc(orderId).set(order);
+    await db.collection('orders').doc(orderId).set(order);
 
     console.log('[Holded Webhook] Order created:', orderId);
 
@@ -174,8 +175,32 @@ async function findOrCreatePartyFromHoldedContact(holdedContactId: string): Prom
  */
 async function findOrCreateAccountForParty(party: Party): Promise<Account> {
   // Buscar account existente para esta party
-  const accountsSnap = await db.collection('accounts')
+  // Buscar partyRole de tipo CUSTOMER para esta party
+  const partyRolesSnap = await db.collection('partyRoles')
     .where('partyId', '==', party.id)
+    .where('role', '==', 'CUSTOMER')
+    .limit(1)
+    .get();
+  
+  let partyRoleId: string;
+  
+  if (!partyRolesSnap.empty) {
+    partyRoleId = partyRolesSnap.docs[0].id;
+  } else {
+    // Crear PartyRole
+    partyRoleId = `pr_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    await db.collection('partyRoles').doc(partyRoleId).set({
+      id: partyRoleId,
+      partyId: party.id,
+      role: 'CUSTOMER',
+      isActive: true,
+      createdAt: Timestamp.now().toDate().toISOString(),
+    });
+  }
+  
+  // Buscar account existente para este partyRole
+  const accountsSnap = await db.collection('accounts')
+    .where('parties', 'array-contains', partyRoleId)
     .limit(1)
     .get();
 
@@ -190,15 +215,16 @@ async function findOrCreateAccountForParty(party: Party): Promise<Account> {
   const usersSnap = await db.collection('users').where('active', '==', true).limit(1).get();
   const defaultOwner = usersSnap.empty ? 'auto' : usersSnap.docs[0].id;
 
-  const account: Account = {
+  const account: any = {
     id: accountId,
-    partyId: party.id,
     name: party.name,
-    segment: 'HORECA', // Por defecto, ajustar según tu lógica
+    segment: 'HORECA',
     stage: 'ACTIVA',
-    flow: 'DIRECT',
+    flow: 'DIRECTA',
     ownerId: defaultOwner,
-    source: 'HOLDED',
+    source: 'Holded',
+    parties: [partyRoleId],
+    partyRoleIds: [partyRoleId],
     createdAt: Timestamp.now().toDate().toISOString(),
     updatedAt: Timestamp.now().toDate().toISOString(),
   };

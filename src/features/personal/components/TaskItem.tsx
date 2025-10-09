@@ -2,8 +2,8 @@
 "use client";
 import React from 'react';
 import { cn } from '@/lib/utils';
-import type { Interaction, Department } from '@/domain/ssot.v7';
-import { DEPT_META } from '@/domain/ssot.v7';
+import type { Interaction, Department } from '@/domain/ssot';
+import { DEPT_META } from '@/domain/ssot';
 import { CheckCircle2, Calendar, Clock } from 'lucide-react';
 import { daysSince } from '@/lib/pipeline-helpers';
 

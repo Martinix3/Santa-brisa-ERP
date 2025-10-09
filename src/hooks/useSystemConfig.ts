@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { getFirebaseSync } from '@/lib/firebaseClient';
-import type { SystemConfig, Department, OrderStatus, ShipmentStatus, PartyRoleType, ItemCategory, AccountType } from '@/domain/ssot.v7';
+import type { SystemConfig, Department, OrderStatus, ShipmentStatus, PartyRoleType, ItemCategory, AccountType } from '@/domain/ssot';
 
 /**
  * Hook para acceder a la configuración global del sistema.

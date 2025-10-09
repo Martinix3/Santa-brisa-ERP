@@ -1,7 +1,7 @@
 // src/features/personal/components/TaskList.tsx
 "use client";
 import React from 'react';
-import type { Interaction, Account } from '@/domain/ssot.v7';
+import type { Interaction, Account } from '@/domain/ssot';
 import { TaskItem } from './TaskItem';
 
 interface Props {

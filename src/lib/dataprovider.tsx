@@ -1,22 +1,22 @@
 
 "use client";
 import React, { createContext, useContext, useEffect, useMemo, useState, useCallback, useRef } from "react";
-import type { SantaData, User } from '@/domain/ssot.v7';
+import type { SantaData, TeamMember } from '@/domain/ssot';
 import type { User as FirebaseUser } from "firebase/auth";
 import { onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
 import { collection, getDocs } from "firebase/firestore";
 import { usePathname, useRouter } from "next/navigation";
-import { SANTA_DATA_COLLECTIONS } from '@/domain/ssot.v7';
+import { SANTA_DATA_COLLECTIONS } from '@/domain/ssot';
 import { upsertMany } from './dataprovider/actions';
 import { getFirebaseSync } from "@/lib/firebaseClient"; // Use the sync version
-import { MOCK_DATA } from "./mock-data";
+// import { MOCK_DATA } from "./mock-data"; // TODO: Fix or remove mock data
 
 type LoadReport = { ok: Array<keyof SantaData>; errors: Array<{ name: keyof SantaData; error: string }>; totalDocs: number; };
 
 type DataContextType = {
   data: SantaData | null;
   setData: React.Dispatch<React.SetStateAction<SantaData | null>>;
-  currentUser: User | null;
+  currentUser: TeamMember | null;
   authReady: boolean;
   firebaseUser: FirebaseUser | null;
   loadingData: boolean;
@@ -24,7 +24,7 @@ type DataContextType = {
   saveAllCollections: (collections: Partial<SantaData>) => Promise<void>;
   login: () => Promise<void>;
   loginWithEmail: (email: string, pass: string) => Promise<void>;
-  signupWithEmail: (email: string, pass: string) => Promise<User | null>;
+  signupWithEmail: (email: string, pass: string) => Promise<TeamMember | null>;
   logout: () => Promise<void>;
   setCurrentUserById: (userId: string) => void;
   isPersistenceEnabled: boolean;
@@ -42,7 +42,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   const [data, setData] = useState<SantaData | null>(null);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentUser, setCurrentUser] = useState<TeamMember | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [isPersistenceEnabled, setIsPersistenceEnabled] = useState(true);
@@ -61,7 +61,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
     setLoadingData(true);
     if (!isPersistenceEnabled) {
-      setData(MOCK_DATA as SantaData);
+      // TODO: Load mock data if needed
+      setData({} as SantaData);
       if (mountedRef.current) setLoadingData(false);
       return;
     }
@@ -71,7 +72,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       if (!firestoreDb) throw new Error("Firestore DB not initialized for data loading.");
 
       const partial: Partial<SantaData> = {};
-      const promises = SANTA_DATA_COLLECTIONS.map(async (name) => {
+      const promises = (SANTA_DATA_COLLECTIONS || []).map(async (name) => {
         try {
           const collectionName = name as string;
           const snap = await getDocs(collection(firestoreDb, collectionName));
@@ -122,11 +123,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [firebaseUser, isPersistenceEnabled, loadInitialData]);
 
   useEffect(() => {
-    if (firebaseUser && data?.users) {
-      const appUser = data.users.find(u => u.email === firebaseUser.email);
+    if (firebaseUser && data?.teamMembers) {
+      const appUser = data.teamMembers.find(u => u.email === firebaseUser.email);
       setCurrentUser(appUser ?? null);
     }
-  }, [firebaseUser, data?.users]);
+  }, [firebaseUser, data?.teamMembers]);
 
   useEffect(() => {
     // Redirecciones post-autenticación
@@ -183,20 +184,22 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     await signInWithEmailAndPassword(firebaseAuth, email, pass);
   }, []);
 
-  const signupWithEmail = useCallback(async (email: string, pass: string): Promise<User | null> => {
+  const signupWithEmail = useCallback(async (email: string, pass: string): Promise<TeamMember | null> => {
     const { firebaseAuth } = getFirebaseSync();
     const cred = await createUserWithEmailAndPassword(firebaseAuth, email, pass);
     const fbUser = cred.user;
     if (!fbUser) return null;
 
-    const newUser: User = {
+    const newUser: TeamMember = {
       id: fbUser.uid,
       name: fbUser.displayName || emailToName(email),
       email,
-      role: "comercial",
+      role: "SALES",
       active: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
-    await saveCollection("users", [newUser]);
+    await saveCollection("teamMembers", [newUser]);
     setCurrentUser(newUser);
     return newUser;
   }, [saveCollection]);
@@ -211,9 +214,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const setCurrentUserById = useCallback((userId: string) => {
-    const u = data?.users?.find(u => u.id === userId) ?? null;
+    const u = data?.teamMembers?.find(u => u.id === userId) ?? null;
     setCurrentUser(u);
-  }, [data?.users]);
+  }, [data?.teamMembers]);
 
   const value = useMemo<DataContextType>(() => ({
     data, setData, currentUser, authReady, firebaseUser,

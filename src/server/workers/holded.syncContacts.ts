@@ -1,7 +1,7 @@
 import { adminDb as db } from '@/server/firebase';
 import { callHoldedApi } from '@/server/integrations/holded/client';
 import { Timestamp } from 'firebase-admin/firestore';
-import type { Party, PartyDuplicate, Address } from '@/domain/ssot.v7';
+import type { Party, PartyDuplicate, Address } from '@/domain/ssot';
 
 type HoldedContact = {
   id: string;

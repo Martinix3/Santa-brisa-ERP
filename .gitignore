@@ -44,3 +44,8 @@ next-env.d.ts
 *.patch
 project-structure.txt
 .modified
+
+# Firestore backups
+firestore-exports/
+firestore-backup*/
+.firebase-admin-key.json

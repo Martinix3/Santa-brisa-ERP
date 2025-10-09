@@ -1,6 +1,6 @@
 // src/lib/finance-helpers.ts
 
-import { FinanceLink, PaymentLink } from '@/domain/ssot.v7';
+import { FinanceLink, PaymentLink } from '@/domain/ssot';
 
 /**
  * Calcula las métricas de cashflow para un periodo específico
@@ -65,7 +65,7 @@ export function getCashflowForecast(
         .filter(f => f.status === 'paid')
         .reduce((sum, f) => sum + f.grossAmount, 0),
       outflow: weekInvoices
-        .filter(f => f.status === 'pending')
+        .filter(f => f.status === 'DRAFT')
         .reduce((sum, f) => sum + f.grossAmount, 0)
     });
   }
@@ -79,7 +79,7 @@ export function getCashflowForecast(
 export function getAccountsReceivable(financeLinks: FinanceLink[]) {
   const receivables = financeLinks.filter(f => 
     f.docType === 'invoice' && 
-    (f.status === 'pending' || f.status === 'overdue')
+    (f.status === 'DRAFT' || f.status === 'overdue')
   );
   
   const total = receivables.reduce((sum, f) => sum + f.grossAmount, 0);
@@ -101,7 +101,7 @@ export function getAccountsReceivable(financeLinks: FinanceLink[]) {
 export function getAccountsPayable(financeLinks: FinanceLink[]) {
   const payables = financeLinks.filter(f => 
     f.docType !== 'invoice' && 
-    f.status === 'pending'
+    f.status === 'DRAFT'
   );
   
   const total = payables.reduce((sum, f) => sum + f.grossAmount, 0);

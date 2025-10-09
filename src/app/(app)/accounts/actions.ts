@@ -2,7 +2,7 @@
 "use server";
 import { revalidatePath } from 'next/cache';
 import { adminDb as db } from '@/server/firebase';
-import type { Account } from '@/domain/ssot.v7';
+import type { Account } from '@/domain/ssot';
 
 export async function createAccount(data: { name: string; salesRepId: string; }): Promise<Account> {
   const { name, salesRepId } = data;
@@ -21,7 +21,7 @@ export async function createAccount(data: { name: string; salesRepId: string; })
     stage: 'POTENCIAL',
     salesRepId,  // ✅ Campo correcto en v7 (antes era ownerId)
     channels: ['HORECA'],  // ✅ Campo requerido en v7
-    commercialFlow: 'DIRECTA',  // ✅ Campo correcto en v7 (antes era flow: 'DIRECT')
+    commercialFlow: 'DIRECTA',  // ✅ Campo correcto en v7 (antes era flow: 'DIRECTA')
     createdAt: now,
     updatedAt: now,
     createdBy: salesRepId,

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
 import { Input, Select, Textarea } from '@/components/ui/ui-primitives';
-import type { Account, Team, Segment, CommercialFlow, Stage } from '@/domain/ssot.v7';
+import type { Account, TeamMember, AccountType, CommercialFlow, AccountStage } from '@/domain/ssot';
 import { createAccount } from '@/app/(app)/accounts/actions';
 import { Building2, TrendingUp, MapPin, User as UserIcon, Truck } from 'lucide-react';
 
@@ -12,7 +12,8 @@ interface NewAccountDialogProps {
   onClose: () => void;
   onSuccess: (result: Account) => void;
   onError?: (message: string) => void;
-  teams: Team[];
+  teamMembers: TeamMember[];
+  distributors: { value: string; label: string }[];
 }
 
 export function NewAccountDialog({
@@ -20,15 +21,16 @@ export function NewAccountDialog({
   onClose,
   onSuccess,
   onError,
-  teams,
+  teamMembers,
+  distributors,
 }: NewAccountDialogProps) {
   const [name, setName] = useState('');
   const [taxId, setTaxId] = useState('');
   const [city, setCity] = useState('');
   const [address, setAddress] = useState('');
   const [province, setProvince] = useState('');
-  const [segment, setSegment] = useState<Segment>('HORECA');
-  const [stage, setStage] = useState<Stage>('POTENCIAL');
+  const [accountType, setAccountType] = useState<AccountType>('HORECA');
+  const [accountStage, setAccountStage] = useState<AccountStage>('POTENCIAL');
   const [salesRepId, setSalesRepId] = useState('');
   const [commercialFlow, setCommercialFlow] = useState<CommercialFlow>('DIRECTA');
   const [distributorId, setDistributorId] = useState('');
@@ -41,8 +43,8 @@ export function NewAccountDialog({
       setCity('');
       setAddress('');
       setProvince('');
-      setSegment('HORECA');
-      setStage('POTENCIAL');
+      setAccountType('HORECA');
+      setAccountStage('POTENCIAL');
       setSalesRepId('');
       setCommercialFlow('DIRECTA');
       setDistributorId('');
@@ -169,24 +171,26 @@ export function NewAccountDialog({
 
             <div className="grid grid-cols-2 gap-4">
               <label className="grid gap-1.5">
-                <span className="text-sm font-medium">Segmento *</span>
-                <Select value={segment} onChange={e => setSegment(e.target.value as Segment)}>
+                <span className="text-sm font-medium">Tipo de Cuenta *</span>
+                <Select value={accountType} onChange={e => setAccountType(e.target.value as AccountType)}>
                   <option value="HORECA">🍽️ HORECA</option>
                   <option value="RETAIL">🏪 Retail</option>
                   <option value="ONLINE">💻 Online</option>
-                  <option value="PRIVADA">🏡 Privada</option>
+                  <option value="CLIENTE_FINAL">🏡 Cliente Final</option>
                   <option value="DISTRIBUIDOR">🚚 Distribuidor</option>
                   <option value="IMPORTADOR">📦 Importador</option>
+                  <option value="OTRO">📋 Otro</option>
                 </Select>
               </label>
               <label className="grid gap-1.5">
                 <span className="text-sm font-medium">Estado Inicial</span>
-                <Select value={stage} onChange={e => setStage(e.target.value as Stage)}>
+                <Select value={accountStage} onChange={e => setAccountStage(e.target.value as AccountStage)}>
                   <option value="POTENCIAL">🎯 Potencial</option>
                   <option value="ACTIVA">✅ Activa</option>
                   <option value="SEGUIMIENTO">👁️ Seguimiento</option>
                   <option value="FALLIDA">❌ Fallida</option>
                   <option value="CERRADA">🔒 Cerrada</option>
+                  <option value="BAJA">⛔ Baja</option>
                 </Select>
               </label>
             </div>
@@ -243,8 +247,8 @@ export function NewAccountDialog({
                   required
                 >
                   <option value="">Selecciona...</option>
-                  {teams.filter(t => t.role === 'SALES' || t.role === 'MANAGER').map(team => (
-                    <option key={team.id} value={team.id}>{team.name}</option>
+                  {teamMembers.filter(tm => tm.role === 'SALES' || tm.role === 'MANAGER').map(tm => (
+                    <option key={tm.id} value={tm.id}>{tm.name}</option>
                   ))}
                 </Select>
               </label>
@@ -257,7 +261,9 @@ export function NewAccountDialog({
                     onChange={e => setDistributorId(e.target.value)}
                   >
                     <option value="">Selecciona...</option>
-                    {/* TODO: Cargar distribuidores de accounts con segment='DISTRIBUIDOR' */}
+                    {distributors.map(d => (
+                      <option key={d.value} value={d.value}>{d.label}</option>
+                    ))}
                   </Select>
                 </label>
               )}

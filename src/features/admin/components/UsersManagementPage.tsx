@@ -4,7 +4,7 @@ import { useData } from "@/lib/dataprovider";
 import { PageShell } from "@/components/shared/PageShell";
 import { SBButton, Input } from "@/components/ui";
 import { Plus, Search, TrendingUp, TrendingDown, Target, CheckCircle2, MapPin, DollarSign } from "lucide-react";
-import type { User, Interaction, OrderSellOut, Account, Party, PartyRole } from "@/domain/ssot";
+import type { User, Interaction, OrderSellOut, Account, PartyRole } from "@/domain/ssot";
 import Link from "next/link";
 import { NewUserDialog } from "./NewUserDialog";
 import { toast } from "sonner";
@@ -17,13 +17,13 @@ export function UsersManagementPage() {
   const [selectedRole, setSelectedRole] = useState<string>("ALL");
   const [isNewUserDialogOpen, setIsNewUserDialogOpen] = useState(false);
 
-  const users = useMemo(() => data?.users || [], [data]);
+  const users = useMemo(() => data?.teamMembers || [], [data]);
   const interactions = useMemo(() => data?.interactions || [], [data]);
-  const orders = useMemo(() => data?.ordersSellOut || [], [data]);
+  const orders = useMemo(() => data?.orderSellOut || [], [data]);
   const accounts = useMemo(() => data?.accounts || [], [data]);
   const posTactics = useMemo(() => data?.posTactics || [], [data]);
   const marketingEvents = useMemo(() => data?.marketingEvents || [], [data]);
-  const parties = useMemo(() => data?.parties || [], [data]);
+  const parties = useMemo(() => data?.accounts || [], [data]);
   const partyRoles = useMemo(() => data?.partyRoles || [], [data]);
 
   // Get distributors for NewUserDialog
@@ -47,7 +47,7 @@ export function UsersManagementPage() {
       );
 
       // Get user's accounts (owned or where user is source)
-      const userAccounts = accounts.filter(a => a.ownerId === user.id);
+      const userAccounts = accounts.filter(a => a.salesRepId === user.id);
       const userAccountIds = new Set(userAccounts.map(a => a.id));
       
       // Get orders where user is creator OR orders from accounts where user is source
@@ -84,7 +84,7 @@ export function UsersManagementPage() {
       const userPosTactics = posTactics.filter(pt => 
         pt.createdById === user.id && 
         new Date(pt.createdAt) >= thirtyDaysAgo &&
-        pt.status !== 'cancelled'
+        pt.status !== 'REJECTED'
       );
       const posItemsDelivered = userPosTactics.reduce((sum, pt) => sum + (pt.qtyPlanned || 0), 0);
       const posCost = userPosTactics.reduce((sum, pt) => sum + (pt.actualCost || 0), 0);
@@ -93,7 +93,7 @@ export function UsersManagementPage() {
       const userEvents = marketingEvents.filter(e => 
         e.ownerUserId === user.id && 
         new Date(e.createdAt) >= thirtyDaysAgo &&
-        e.status !== 'cancelled'
+        e.status !== 'REJECTED'
       );
       const eventsCount = userEvents.length;
 

@@ -5,11 +5,11 @@ import React from 'react';
 import { useForm } from 'react-hook-form';
 import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog";
 import { Input, Select, SBButton } from '@/components/ui/ui-primitives';
-import { Item, ItemCategory, Uom } from '@/domain/ssot.v7';
+import { Item, ItemCategory, Uom } from '@/domain/ssot';
 import { createManualOnHand } from '../actions';
 
 type FormState = {
-  itemId: string;
+  sku: string;
   lotNumber: string;
   qty: number;
   uom: string;
@@ -114,7 +114,7 @@ export function NewOnHandDialog({
                 {...register("qty", { required: "Cantidad > 0", valueAsNumber: true, min: { value: 0.01, message: "Debe ser > 0" } })}
               />
               <Select {...register("uom")}>
-                {['unit', 'kg', 'L', 'case'].map(u => <option key={u} value={u}>{u}</option>)}
+                {['UNIT', 'kg', 'L', 'case'].map(u => <option key={u} value={u}>{u}</option>)}
               </Select>
             </div>
           </FieldRow>

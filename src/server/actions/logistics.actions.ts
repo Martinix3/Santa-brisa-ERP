@@ -6,7 +6,7 @@ import { revalidatePath } from 'next/cache';
 import { adminDb as db } from '@/server/firebase';
 import { FieldValue } from 'firebase-admin/firestore';
 import { getOne, upsertMany } from '@/lib/dataprovider/server';
-import type { Shipment, OrderSellOut, OnHandView, StockMove, Lot, Item, Party, Account } from '@/domain/ssot.v7';
+import type { Shipment, OrderSellOut, StockMove, Lot, Item, Account } from '@/domain/ssot';
 import { enqueue } from '@/server/queue/queue';
 import { checkOrderStock, type AllocationDetail } from '@/lib/inventory';
 import { makeOnHandId } from '@/domain/id-helpers';
@@ -135,12 +135,12 @@ export async function confirmOrderShipment(orderId: string): Promise<Shipment> {
       const onHandId = makeOnHandId(alloc.itemId, alloc.lotNumber, alloc.locationId);
       const onHandRef = db.collection('onHand').doc(onHandId);
       transaction.set(onHandRef, {
-        itemId: alloc.itemId,
+        sku: alloc.itemId,
         lotNumber: alloc.lotNumber,
         locationId: alloc.locationId,
         reservedQty: FieldValue.increment(alloc.qty),
         qty: FieldValue.increment(0),
-        uom: 'unit',
+        uom: 'UNIT',
         updatedAt: now,
       }, { merge: true });
     }
@@ -163,25 +163,25 @@ export async function confirmOrderShipment(orderId: string): Promise<Shipment> {
         partyId: account.partyId,
         accountId: account.id,
         mode,
-        status: 'pending',
+        status: 'DRAFT',
         lines: order.lines.flatMap(line => {
             const allocs = allocByItem[line.itemId] || [];
             if (!allocs.length) {
               return [{
-                itemId: line.itemId,
+                sku: line.itemId,
                 name: itemsById.get(line.itemId)?.name ?? line.itemId,
                 qty: line.qty,
-                uom: 'unit',
+                uom: 'UNIT',
                 lotNumber: undefined,
                 locationId: undefined,
                 note: 'SIN ALLOC (revisar)'
               } as any];
             }
             return allocs.map(a => ({
-              itemId: line.itemId,
+              sku: line.itemId,
               name: itemsById.get(line.itemId)?.name ?? line.itemId,
               qty: a.qty,
-              uom: 'unit',
+              uom: 'UNIT',
               lotNumber: a.lotNumber,
               locationId: a.locationId,
             }));
@@ -216,7 +216,7 @@ type ValidateShipmentInput = {
   shipmentId: string;
   userId: string;
   notes?: string;
-  lots?: Array<{ itemId: string; lotNumber?: string; qty: number }>;
+  lots?: Array<{ sku: string; lotNumber?: string; qty: number }>;
 };
 
 export async function validateShipment(input: ValidateShipmentInput) {
@@ -228,13 +228,13 @@ export async function validateShipment(input: ValidateShipmentInput) {
   await upsertMany('shipments', [
     {
       id: shipmentId,
-      status: 'ready_to_ship',
+      status: 'READY',
       updatedAt: now,
       validatedById: userId,
       validatedAt: now,
       validationNotes: notes ?? null,
       lines: lots?.length
-        ? lots.map((l) => ({ itemId: l.itemId, qty: l.qty, uom: 'unit' as const, lotNumber: l.lotNumber }))
+        ? lots.map((l) => ({ sku: l.itemId, qty: l.qty, uom: 'UNIT' as const, lotNumber: l.lotNumber }))
         : (shp.lines || []),
     },
   ]);
@@ -257,7 +257,7 @@ export async function markShipmentShipped({ shipmentId, trackingCode, labelUrl }
 
   await upsertMany('shipments', [{
     id: shipmentId,
-    status: 'shipped',
+    status: 'SHIPPED',
     shippedAt: now,
     updatedAt: now,
     trackingCode: trackingCode ?? shp.trackingCode ?? null,
@@ -265,7 +265,7 @@ export async function markShipmentShipped({ shipmentId, trackingCode, labelUrl }
   } as any]);
 
   if (shp.orderId) {
-    await upsertMany<OrderSellOut>('ordersSellOut', [{ id: shp.orderId, status: 'shipped', updatedAt: now } as any]);
+    await upsertMany<OrderSellOut>('ordersSellOut', [{ id: shp.orderId, status: 'SHIPPED', updatedAt: now } as any]);
   }
 
   revalidatePath('/warehouse/logistics');

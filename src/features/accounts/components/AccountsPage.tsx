@@ -4,7 +4,22 @@
 import React, { useMemo, useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation';
 import { ChevronDown, Search, Plus, Phone, Mail, MessageSquare, Calendar, History, ShoppingCart, Info, BarChart3, UserPlus, Users, MoreVertical, Ticket, Clock, Edit, FileText } from 'lucide-react'
-import type { Stage, User, Interaction, OrderSellOut, SantaData, CustomerData, Party, PartyRole, InteractionKind, Payload, Account, AccountType, Uom } from '@/domain/ssot.v7'
+import type { AccountStage, Interaction, OrderSellOut, InteractionKind, Account, AccountType, Uom, Party, TeamMember } from '@/domain/ssot'
+
+// Tipos legacy locales (migrar progresivamente)
+type Stage = AccountStage;
+type CustomerData = { billerId?: string; [key: string]: any };
+type PartyRole = { id: string; partyId: string; role: string; data?: any };
+type SantaData = { 
+  accounts: Account[]; 
+  interactions: Interaction[]; 
+  ordersSellOut: OrderSellOut[]; 
+  parties: Party[]; 
+  users: TeamMember[];
+  teamMembers: TeamMember[];
+  partyRoles: PartyRole[];
+  [key: string]: any;
+};
 import { accountOwnerDisplay, computeAccountKPIs, getDistributorForAccount, orderTotal } from '@/lib/sb-core';
 import Link from 'next/link'
 import { useData } from '@/lib/dataprovider'
@@ -13,7 +28,7 @@ import { ModuleHeader } from '@/components/ui/ModuleHeader'
 import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/TaskCompletionDialog'
 import { Avatar } from '@/components/ui/Avatar';
 import { NewAccountDialog } from './NewAccountDialog';
-import { DEPT_META, ACCOUNT_STAGE_META } from '@/domain/ssot.v7';
+import { DEPT_META, ACCOUNT_STAGE_META } from '@/domain/ssot';
 import { toast } from 'sonner';
 
 // Mapa de colores para mantener compatibilidad visual
@@ -200,7 +215,7 @@ export function AccountsPageContent() {
   const { data: santaData, setData, currentUser, saveAllCollections } = useData();
   
   const [q,setQ]=useState('');
-  const [flowTab, setFlowTab] = useState<'DIRECT' | 'PLACEMENT'>('DIRECT');
+  const [flowTab, setFlowTab] = useState<'DIRECTA' | 'COLOCACION'>('DIRECTA');
   const [expanded,setExpanded] = useState<Record<string,boolean>>({ ACTIVA:true });
   const [fltRep, setFltRep] = useState("");
   const [fltCity, setFltCity] = useState("");
@@ -238,7 +253,7 @@ export function AccountsPageContent() {
     const cities = new Set<string>();
     
     data.forEach(a => {
-      reps.add(a.ownerId);
+      if (a.salesRepId) reps.add(a.salesRepId);
       const party = pMap[a.partyId];
       if (party?.billingAddress?.city) cities.add(party.billingAddress.city);
     });
@@ -261,7 +276,7 @@ export function AccountsPageContent() {
     const s = q.trim().toLowerCase();
     
     return data.filter(a => {
-      const ownerName = userMap[a.ownerId] || '';
+      const ownerName = a.salesRepId ? (userMap[a.salesRepId] || '') : '';
       const party = partyMap[a.partyId];
       const city = party?.billingAddress?.city || '';
 
@@ -269,10 +284,10 @@ export function AccountsPageContent() {
       const billerId = (customerRole?.data as CustomerData)?.billerId;
 
       // Normalizar flow: usar flow si existe, sino convertir mode deprecated
-      const accountFlow = a.flow || (a.mode === 'DIRECTA' ? 'DIRECT' : a.mode === 'COLOCACION' ? 'PLACEMENT' : 'DIRECT');
+      const accountFlow = a.flow || (a.commercialFlow === 'DIRECTA' ? 'DIRECTA' : a.commercialFlow === 'COLOCACION' ? 'COLOCACION' : 'DIRECTA');
 
       const matchesQuery = !s || [a.name, city, a.type, a.stage, ownerName].some(v=> (v||'').toString().toLowerCase().includes(s));
-      const matchesRep = !fltRep || a.ownerId === fltRep;
+      const matchesRep = !fltRep || a.salesRepId === fltRep;
       const matchesCity = !fltCity || city === fltCity;
       const matchesDist = !fltDist || billerId === fltDist;
       const matchesFlow = accountFlow === flowTab;
@@ -337,9 +352,9 @@ export function AccountsPageContent() {
           {/* Tabs para Venta Directa / Colocación */}
           <div className="flex items-center gap-1 bg-secondary p-1 rounded-lg w-fit">
             <button
-              onClick={() => setFlowTab('DIRECT')}
+              onClick={() => setFlowTab('DIRECTA')}
               className={`h-8 px-4 rounded-md text-sm font-medium transition-colors ${
-                flowTab === 'DIRECT'
+                flowTab === 'DIRECTA'
                   ? 'bg-background text-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
@@ -347,9 +362,9 @@ export function AccountsPageContent() {
               Directas
             </button>
             <button
-              onClick={() => setFlowTab('PLACEMENT')}
+              onClick={() => setFlowTab('COLOCACION')}
               className={`h-8 px-4 rounded-md text-sm font-medium transition-colors ${
-                flowTab === 'PLACEMENT'
+                flowTab === 'COLOCACION'
                   ? 'bg-background text-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground'
               }`}

@@ -1,7 +1,7 @@
 
 
 import type { Timestamp } from 'firebase-admin/firestore';
-import type { Shipment } from '@/domain/ssot.v7';
+import type { Shipment } from '@/domain/ssot';
 
 export type JobStatus = 'QUEUED' | 'RUNNING' | 'DONE' | 'RETRY' | 'DEAD' | 'FAILED';
 

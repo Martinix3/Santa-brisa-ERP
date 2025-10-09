@@ -1,6 +1,6 @@
 'use server';
 
-import type { SantaData } from '@/domain/ssot.v7';
+import type { SantaData } from '@/domain/ssot';
 import { adminDb, FieldDocId, infoAdmin } from '@/server/firebase';
 
 /**

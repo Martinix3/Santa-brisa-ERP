@@ -62,7 +62,7 @@ const TEMPLATES = {
       'location_lat', 'location_lng', 'location_address'
     ],
     example: [
-      'acc_bar_central', 'Bar Central', 'party_bar_central', 'HORECA', 'ACTIVA', 'PLACEMENT', 'user_comercial_juan', 'party_dist_mahou',
+      'acc_bar_central', 'Bar Central', 'party_bar_central', 'HORECA', 'ACTIVA', 'COLOCACION', 'user_comercial_juan', 'party_dist_mahou',
       'central;bar centro;el central', 'CRM', '2025-01-01T00:00:00.000Z', '2025-01-01T00:00:00.000Z', 'true',
       '40.4168', '-3.7038', 'Calle Mayor 23, Madrid'
     ]
@@ -76,8 +76,8 @@ const TEMPLATES = {
       'itemSKU', 'itemName', 'qty', 'uom', 'unitPrice'
     ],
     example: [
-      'ord_001', 'acc_001', '2025-01-07', '450', 'open', 'DIRECT',
-      'MARG-MIX-001', 'Margarita Mix', '10', 'unit', '45'
+      'ord_001', 'acc_001', '2025-01-07', '450', 'open', 'DIRECTA',
+      'MARG-MIX-001', 'Margarita Mix', '10', 'UNIT', '45'
     ]
   },
   items: {
@@ -392,11 +392,11 @@ export function DataImportPage() {
             id: row.id,
             name: row.name,
             partyId: row.partyId,
-            segment: row.segment,
+            segment: row.accountType,
             stage: row.stage,
             flow: row.flow,
-            ownerId: row.ownerId,
-            distributorPartyId: row.distributorPartyId || undefined,
+            ownerId: row.salesRepId,
+            distributorPartyId: row.distributorId || undefined,
             aliases: row.aliases ? row.aliases.split(';').map((a: string) => a.trim()).filter(Boolean) : undefined,
             source: row.source || 'MANUAL',
             isTarget: row.isTarget === 'true',
@@ -442,12 +442,12 @@ export function DataImportPage() {
             orderDate: row.orderDate,
             totalAmount: Number(row.totalAmount) || 0,
             status: row.status || 'open',
-            flow: row.flow || 'DIRECT',
+            flow: row.flow || 'DIRECTA',
             lines: [{
-              itemId: row.itemSKU,
+              sku: row.itemSKU,
               name: row.itemName,
               qty: Number(row.qty) || 0,
-              uom: row.uom || 'unit',
+              uom: row.uom || 'UNIT',
               priceUnit: Number(row.unitPrice) || 0
             }],
             createdAt: row.orderDate || new Date().toISOString(),

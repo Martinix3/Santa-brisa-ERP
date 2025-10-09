@@ -1,16 +1,16 @@
 
 
-import type { OrderSellOut, Timestamp, Currency } from '@/domain/ssot.v7';
+import type { OrderSellOut, Timestamp, Currency } from '@/domain/ssot';
 
 type ShopifyOrder = any; // si quieres, añade tipos de Shopify más adelante
 
 export function mapFinancialStatusToOrderStatus(financial?: string): OrderSellOut['status'] {
   // simplificado para MVP
-  if (financial === 'paid') return 'confirmed';
-  if (financial === 'authorized') return 'confirmed';
-  if (financial === 'refunded' || financial === 'voided') return 'cancelled';
-  if (financial === 'partially_refunded') return 'open';
-  return 'open';
+  if (financial === 'paid') return 'VALIDATED';
+  if (financial === 'authorized') return 'VALIDATED';
+  if (financial === 'refunded' || financial === 'voided') return 'REJECTED';
+  if (financial === 'partially_refunded') return 'RECEIVED';
+  return 'RECEIVED';
 }
 
 export function normalizeShopifyOrder(order: ShopifyOrder): OrderSellOut {
@@ -28,13 +28,13 @@ export function normalizeShopifyOrder(order: ShopifyOrder): OrderSellOut {
   const taxRateGuess = subtotal > 0 ? (totalTax / subtotal) * 100 : undefined;
 
   const lines = (order.line_items || []).map((li: any) => ({
-    itemId: li.sku || li.variant_sku || String(li.variant_id || li.product_id || ''),
+    sku: li.sku || li.variant_sku || String(li.variant_id || li.product_id || ''),
     name: li.name,
     qty: Number(li.quantity || 0),
     priceUnit: Number(li.price || 0),
     discountPct: discountPct || undefined,
     taxRate: taxRateGuess,
-    uom: 'unit' as const,
+    uom: 'UNIT' as const,
   }));
 
   const createdAt: Timestamp = new Date(order.created_at || Date.now()).toISOString();
@@ -44,7 +44,7 @@ export function normalizeShopifyOrder(order: ShopifyOrder): OrderSellOut {
     id,
     partyId: 'ONLINE',       // se sustituye tras ensureOnlinePartyAccount
     accountId: 'ONLINE',     // idem
-    source: 'SHOPIFY',
+    source: 'API',
     createdAt,
     updatedAt,
     currency,
@@ -63,7 +63,7 @@ export function normalizeShopifyOrder(order: ShopifyOrder): OrderSellOut {
 }
 
 // src/server/integrations/shopify/shopify.mapper.ts
-import type { Account } from '@/domain/ssot.v7';
+import type { Account } from '@/domain/ssot';
 
 // Este es un mapeo simplificado. En una app real, esto sería mucho más complejo
 // para manejar impuestos, descuentos, variantes de productos, etc.
@@ -86,10 +86,10 @@ export function mapShopifyToSSOT(shopifyOrder: any): {
   const orderData: Partial<OrderSellOut> = {
     totalAmount: parseFloat(shopifyOrder.total_price),
     lines: shopifyOrder.line_items.map((item: any) => ({
-      itemId: item.sku || `SHOPIFY_${item.variant_id}`,
+      sku: item.sku || `SHOPIFY_${item.variant_id}`,
       qty: item.quantity,
       priceUnit: parseFloat(item.price),
-      uom: 'unit'
+      uom: 'UNIT'
     })),
     createdAt: shopifyOrder.created_at,
     // La dirección y otros detalles se podrían mapear aquí también

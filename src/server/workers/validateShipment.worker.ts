@@ -2,7 +2,7 @@
 'use server';
 import { adminDb as db } from '@/server/firebase';
 import { Timestamp } from 'firebase-admin/firestore';
-import type { Shipment, ShipmentLine } from '@/domain/ssot.v7';
+import type { Shipment, ShipmentLine } from '@/domain/ssot';
 
 export async function run(payload: {
     shipmentId: string;
@@ -40,7 +40,7 @@ export async function run(payload: {
     };
 
     if (updateData.visualOk) {
-        patch.status = 'ready_to_ship';
+        patch.status = 'READY';
     }
 
 

@@ -7,7 +7,7 @@ type LotRowData = {
     id: string;
     lotNumber: string;
     name: string;
-    itemId: string;
+    sku: string;
     free: number;
     uom: string;
     locationId: string;

@@ -28,7 +28,7 @@ export type LotSearchParams = {
 
 export type LotHit = {
   lotNumber: LotNumber;
-  itemId: string;
+  sku: string;
   name?: string;
   locationId?: string;
   qcStatus?: QcStatus;
@@ -73,7 +73,7 @@ export function searchLots(data: SantaData, p: LotSearchParams): LotHit[] {
     const availableQty = r.qty - reservedQty;
     return {
       lotNumber: r.lotNumber!, // en onHand puede ser undefined, asumimos lotes trazables
-      itemId: r.itemId,
+      sku: r.itemId,
       name: meta?.itemName,
       locationId: r.locationId,
       qcStatus: r.qcStatus ?? meta?.qcStatus,

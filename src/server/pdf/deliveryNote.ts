@@ -1,7 +1,7 @@
 // runtime: Node (no Edge) cuando se use en route/actions
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 
-export type DeliveryLine = { itemId: string; description: string; qty: number; uom?: string };
+export type DeliveryLine = { sku: string; description: string; qty: number; uom?: string };
 export type DeliveryNoteInput = {
   id: string;                          // DN-2025-000123
   dateISO: string;                     // new Date().toISOString()

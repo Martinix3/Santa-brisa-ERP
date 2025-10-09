@@ -2,13 +2,13 @@
 
 "use client";
 import React from "react";
-import type { ProductionOrder, Interaction } from '@/domain/ssot.v7';
+import type { ProductionOrder, Interaction } from '@/domain/ssot';
 import { SBCard, SBButton, LotQualityStatusPill } from "@/components/ui/ui-primitives";
-import { SB_COLORS, SB_THEME } from '@/domain/ssot.v7';
+import { SB_COLORS, SB_THEME } from '@/domain/ssot';
 import { Factory, Cpu, BookOpen, Waypoints, AlertCircle, Hourglass, MoreVertical, Check, X, Thermometer, FlaskConical, Beaker, TestTube2, Paperclip, Upload, Trash2, Calendar, Clock, Building2 } from "lucide-react";
 import Link from 'next/link';
 import { useData } from '@/lib/dataprovider';
-import { DEPT_META } from '@/domain/ssot.v7';
+import { DEPT_META } from '@/domain/ssot';
 
 export function KPI({ icon: Icon, label, value, color }: { icon: React.ElementType, label: string, value: string | number, color: string }) {
     return (

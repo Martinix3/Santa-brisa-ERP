@@ -2,7 +2,7 @@
 "use client";
 
 import React from 'react';
-import { SB_COLORS } from '@/domain/ssot.v7';
+import { SB_COLORS } from '@/domain/ssot';
 
 interface ModuleHeaderProps {
     title: string;

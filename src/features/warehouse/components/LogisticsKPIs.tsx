@@ -1,7 +1,7 @@
 // src/features/warehouse/components/LogisticsKPIs.tsx
 "use client";
 import React, { useMemo } from 'react';
-import type { Shipment } from '@/domain/ssot.v7';
+import type { Shipment } from '@/domain/ssot';
 import { Truck, PackageCheck, AlertCircle, CheckCircle } from 'lucide-react';
 import { SBCard } from '@/components/ui/ui-primitives';
 
@@ -24,7 +24,7 @@ export function LogisticsKPIs({ shipments }: { shipments: Shipment[] }) {
         pending: shipments.filter(r => ["pending", "picking"].includes(r.status || '')).length,
         validated: shipments.filter(r => r.status === "ready_to_ship").length,
         shipped: shipments.filter(r => r.status === "shipped").length,
-        delivered: shipments.filter(r => r.status === 'delivered').length
+        delivered: shipments.filter(r => r.status === 'DELIVERED').length
     }), [shipments]);
 
     return (

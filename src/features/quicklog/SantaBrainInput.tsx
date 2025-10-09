@@ -1,7 +1,7 @@
 // src/features/quicklog/SantaBrainInput.tsx
 "use client";
 import React, { useState, useRef, useEffect } from 'react';
-import { Loader2, Sparkles, CheckCircle, XCircle, Send, User, Bot } from 'lucide-react';
+import { Loader2, Sparkles, CheckCircle, XCircle, Send, Bot } from 'lucide-react';
 import { toast } from 'sonner';
 import { useData } from '@/lib/dataprovider';
 
@@ -149,7 +149,7 @@ export function SantaBrainInput({ onActionComplete }: SantaBrainInputProps) {
           accountData: {
             name: cuenta,
             stage: 'ACTIVA',
-            flow: 'DIRECT',
+            flow: 'DIRECTA',
             ownerId: currentUser?.id || '',
             segment: 'HORECA'
           }
@@ -157,7 +157,7 @@ export function SantaBrainInput({ onActionComplete }: SantaBrainInputProps) {
           type: 'order',
           orderData: {
             accountId: 'temp',
-            lines: [{ itemId: 'santa-brisa', qty: cantidad, uom: 'case' }]
+            lines: [{ sku: 'santa-brisa', qty: cantidad, uom: 'case' }]
           }
         }]
       };
@@ -177,7 +177,7 @@ export function SantaBrainInput({ onActionComplete }: SantaBrainInputProps) {
           accountData: {
             name: cuenta,
             stage: 'SEGUIMIENTO',
-            flow: 'DIRECT',
+            flow: 'DIRECTA',
             ownerId: currentUser?.id || '',
             segment: 'HORECA'
           }
@@ -204,7 +204,7 @@ export function SantaBrainInput({ onActionComplete }: SantaBrainInputProps) {
           accountData: {
             name: cuenta,
             stage: 'SEGUIMIENTO',
-            flow: 'DIRECT',
+            flow: 'DIRECTA',
             ownerId: currentUser?.id || '',
             segment: 'HORECA'
           }
@@ -231,7 +231,7 @@ export function SantaBrainInput({ onActionComplete }: SantaBrainInputProps) {
           accountData: {
             name: cuenta,
             stage: 'FALLIDA',
-            flow: 'DIRECT',
+            flow: 'DIRECTA',
             ownerId: currentUser?.id || '',
             segment: 'HORECA'
           }
@@ -327,11 +327,11 @@ export function SantaBrainInput({ onActionComplete }: SantaBrainInputProps) {
           id: realAccountId,
           partyId: `party_${Date.now()}`, // TODO: Crear party real
           name: action.accountData.name,
-          segment: action.accountData.segment,
+          segment: action.accountData.accountType,
           stage: action.accountData.stage,
-          ownerId: action.accountData.ownerId,
+          ownerId: action.accountData.salesRepId,
           flow: action.accountData.flow,
-          distributorPartyId: action.accountData.distributorPartyId,
+          distributorPartyId: action.accountData.distributorId,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         };
@@ -349,7 +349,7 @@ export function SantaBrainInput({ onActionComplete }: SantaBrainInputProps) {
         const newOrder = {
           id: orderId,
           accountId: action.orderData.accountId, // Ya debe ser ID real
-          flow: 'PLACEMENT' as const,
+          flow: 'COLOCACION' as const,
           status: 'open' as const,
           lines: action.orderData.lines,
           currency: 'EUR' as const,

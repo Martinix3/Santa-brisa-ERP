@@ -1,14 +1,14 @@
 // src/lib/inventory.ts
-import type { OrderSellOut, QcStatus, OnHandView, Lot, StockMove } from '@/domain/ssot.v7';
-import { qcToBucket } from '@/domain/ssot.v7';
-import type { Item } from '@/domain/ssot.v7';
+import type { OrderSellOut, QcStatus, Lot, StockMove } from '@/domain/ssot';
+import { qcToBucket } from '@/domain/ssot';
+import type { Item } from '@/domain/ssot';
 
 // ===========================================
 // TIPOS DE DATOS ENRIQUECIDOS
 // ===========================================
 
 export type StockShortageDetail = {
-  itemId: string;
+  sku: string;
   qtyRequired: number;
   qtyAvailable: number; // Stock que cumple con QC
   qtyShort: number;
@@ -16,7 +16,7 @@ export type StockShortageDetail = {
 };
 
 export type AllocationDetail = {
-  itemId: string;
+  sku: string;
   lotNumber: string;
   locationId: string; // Ubicación física del lote
   qty: number;
@@ -132,7 +132,7 @@ export function inheritOrResetQcStatus(parents: QcStatus[], forceReQc?: boolean)
 // ===========================================
 
 export type SkuStockSummary = {
-  itemId: string;
+  sku: string;
   lots: OnHandView[];
 
   // Totales
@@ -296,11 +296,11 @@ export function computeSkuRollup(
 // ===========================================
 
 export type StockAlert =
-  | { type: 'OOS'; itemId: string; message: string }
-  | { type: 'LOW'; itemId: string; message: string }
-  | { type: 'NEAR_EXPIRY'; itemId: string; message: string }
-  | { type: 'EXPIRED'; itemId: string; message: string }
-  | { type: 'HOLD'; itemId: string; message: string };
+  | { type: 'OOS'; sku: string; message: string }
+  | { type: 'LOW'; sku: string; message: string }
+  | { type: 'NEAR_EXPIRY'; sku: string; message: string }
+  | { type: 'EXPIRED'; sku: string; message: string }
+  | { type: 'HOLD'; sku: string; message: string };
 
 export function computeStockAlerts(
   summaries: Record<string, SkuStockSummary>
@@ -309,33 +309,33 @@ export function computeStockAlerts(
   for (const s of Object.values(summaries)) {
     switch (s.status) {
       case 'OOS':
-        alerts.push({ type: 'OOS', itemId: s.itemId, message: 'Sin stock liberado' });
+        alerts.push({ type: 'OOS', sku: s.itemId, message: 'Sin stock liberado' });
         break;
       case 'LOW':
         alerts.push({
           type: 'LOW',
-          itemId: s.itemId,
+          sku: s.itemId,
           message: `Stock bajo (${s.totalReleasedFree} uds liberadas)`,
         });
         break;
       case 'NEAR_EXPIRY':
         alerts.push({
           type: 'NEAR_EXPIRY',
-          itemId: s.itemId,
+          sku: s.itemId,
           message: `Lotes próximos a caducar (≤ ventana)`,
         });
         break;
       case 'EXPIRED':
         alerts.push({
           type: 'EXPIRED',
-          itemId: s.itemId,
+          sku: s.itemId,
           message: `Hay lotes caducados`,
         });
         break;
       case 'HOLD':
         alerts.push({
           type: 'HOLD',
-          itemId: s.itemId,
+          sku: s.itemId,
           message: `Stock en cuarentena pendiente de QC`,
         });
         break;

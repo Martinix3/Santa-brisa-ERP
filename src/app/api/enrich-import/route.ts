@@ -69,7 +69,7 @@ const SSOT_RULES = `
 - partyId: debe existir en parties (requerido)
 - segment: "HORECA" | "RETAIL" | "ONLINE" | "PRIVADA" | "DISTRIBUIDOR" (requerido)
 - stage: "POTENCIAL" | "ACTIVA" | "SEGUIMIENTO" | "FALLIDA" (requerido)
-- flow: "PLACEMENT" | "DIRECT" (requerido)
+- flow: "COLOCACION" | "DIRECTA" (requerido)
 - ownerId: debe existir en users (requerido)
 - distributorPartyId: requerido si flow=PLACEMENT, vacío si flow=DIRECT
 - aliases: array de strings para fuzzy matching (opcional pero recomendado)

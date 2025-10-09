@@ -1,2 +1,0 @@
-id,name,partyId,segment,stage,flow,ownerId,localType,capacity,openingHours,rating,targetAmount,paymentTermDays,creditLimit,discount,notes,preferences
-acc_001,Bar El Patio,party_001,HORECA,ACTIVA,DIRECT,u_martin,BAR_TAPAS,80,L-D 12:00-00:00,4.5,50000,30,5000,5,Cliente frecuente,Pedidos semanales

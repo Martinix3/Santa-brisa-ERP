@@ -3,7 +3,7 @@
 import React, { useMemo, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ChevronDown, Search, Plus, Phone, Mail, MessageSquare, ShoppingCart, Users, MoreVertical, List, LayoutGrid } from 'lucide-react'
-import type { Stage, Team, Interaction, Order, InteractionKind, Account, CommercialFlow } from '@/domain/ssot.v7'
+import type { Stage, Team, Interaction, Order, InteractionKind, Account, CommercialFlow } from '@/domain/ssot'
 import { useSystemConfig } from '@/hooks/useSystemConfig';
 import { useData } from '@/lib/dataprovider'
 import { FilterSelect, ModuleHeader, SBButton, Badge, Input } from '@/components/ui'
@@ -73,7 +73,7 @@ function AccountBar({
   }, [account.salesRepId, teams]);
   
   const orderAmount = useMemo(() => 
-    orders.reduce((sum, o) => sum + (o.totalEUR || 0), 0),
+    orders.reduce((sum, o) => sum + (o.amount || 0), 0),
     [orders]
   );
   
@@ -170,7 +170,7 @@ function AccountBar({
                           <span className="font-medium text-success">Pedido</span>
                           <span className="text-muted-foreground"> · {shortDate.format(new Date(order.createdAt))}</span>
                           <p className="font-semibold text-foreground mt-0.5">
-                            {formatEUR(order.totalEUR || 0)}
+                            {formatEUR(order.amount || 0)}
                           </p>
                         </div>
                       </li>

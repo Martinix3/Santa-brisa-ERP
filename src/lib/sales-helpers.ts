@@ -5,7 +5,7 @@ import {
   User,
   Interaction,
   Segment,
-} from '@/domain/ssot.v7';
+} from '@/domain/ssot';
 import { sumCajasOrder, getPipelineMini, getUltimaInteraccion } from './pipeline-helpers';
 
 export type ComercialPerformance = {
@@ -48,7 +48,7 @@ export type AccountWithContext = {
  */
 export function getCajasSellOut(orders: OrderSellOut[]): number {
   return orders
-    .filter((o) => o.flow === 'PLACEMENT')
+    .filter((o) => o.flow === 'COLOCACION')
     .reduce((sum, o) => sum + sumCajasOrder(o), 0);
 }
 
@@ -57,7 +57,7 @@ export function getCajasSellOut(orders: OrderSellOut[]): number {
  */
 export function getCajasSellIn(orders: OrderSellOut[]): number {
   return orders
-    .filter((o) => o.flow === 'DIRECT')
+    .filter((o) => o.flow === 'DIRECTA')
     .reduce((sum, o) => sum + sumCajasOrder(o), 0);
 }
 
@@ -99,12 +99,12 @@ export function getPerformancePorComercial(
     .filter((u) => u.role === 'comercial' && u.active)
     .map((comercial) => {
       const cuentasDelComercial = accounts.filter(
-        (a) => a.ownerId === comercial.id
+        (a) => a.salesRepId === comercial.id
       );
       const accountIds = cuentasDelComercial.map((a) => a.id);
 
       const pedidosColocacion = orders.filter(
-        (o) => o.flow === 'PLACEMENT' && accountIds.includes(o.accountId)
+        (o) => o.flow === 'COLOCACION' && accountIds.includes(o.accountId)
       );
 
       const cajasYTD = pedidosColocacion.reduce(
@@ -195,7 +195,7 @@ export function getMixPorSegmento(
   const segmentos: Segment[] = ['HORECA', 'RETAIL', 'ONLINE', 'PRIVADA', 'DISTRIBUIDOR'];
 
   const results = segmentos.map((segment) => {
-    const cuentasSegmento = accounts.filter((a) => a.segment === segment);
+    const cuentasSegmento = accounts.filter((a) => a.accountType === segment);
     const accountIds = cuentasSegmento.map((a) => a.id);
 
     const pedidos = orders.filter((o) => accountIds.includes(o.accountId));
@@ -220,7 +220,7 @@ export function getRatioVisitaPedido(
   orders: OrderSellOut[]
 ): number {
   const visitas = interactions.filter((i) => i.kind === 'VISITA').length;
-  const pedidos = orders.filter((o) => o.flow === 'PLACEMENT').length;
+  const pedidos = orders.filter((o) => o.flow === 'COLOCACION').length;
 
   if (visitas === 0) return 0;
   return (pedidos / visitas) * 100;
@@ -282,7 +282,7 @@ function estimarPotencialMensual(account: Account): number {
     DISTRIBUIDOR: 50,
   };
 
-  return basePorSegmento[account.segment] || 10;
+  return basePorSegmento[account.accountType] || 10;
 }
 
 function getProximoPaso(

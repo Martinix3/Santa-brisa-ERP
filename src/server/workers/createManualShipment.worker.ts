@@ -2,7 +2,7 @@
 'use server';
 import { adminDb as db } from '@/server/firebase';
 import { Timestamp } from 'firebase-admin/firestore';
-import type { Shipment } from '@/domain/ssot.v7';
+import type { Shipment } from '@/domain/ssot';
 
 export async function run(payload: Omit<Shipment, 'id' | 'createdAt' | 'updatedAt'>) {
     const shipmentRef = db.collection('shipments').doc(); // Auto-generate ID
@@ -10,7 +10,7 @@ export async function run(payload: Omit<Shipment, 'id' | 'createdAt' | 'updatedA
     const newShipment: Shipment = {
         ...payload,
         id: shipmentRef.id,
-        status: 'pending', // Always start as pending
+        status: 'DRAFT', // Always start as pending
         createdAt: Timestamp.now() as any,
         updatedAt: Timestamp.now() as any,
     };

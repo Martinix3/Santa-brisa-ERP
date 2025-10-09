@@ -3,7 +3,7 @@
 
 import { adminDb as db } from '@/server/firebase';
 import { FieldValue } from 'firebase-admin/firestore';
-import type { StockMove, Item, QcStatus, SantaData, Uom } from '@/domain/ssot.v7';
+import type { StockMove, Item, QcStatus, Uom } from '@/domain/ssot';
 import { makeOnHandId } from '@/domain/id-helpers';
 import { z } from "zod";
 import { ok, fail, type ActionResult } from "@/lib/result";
@@ -12,7 +12,7 @@ import { runDataQualityEngine } from "@/lib/data-quality/engine";
 
 
 const CreateManualOnHandSchema = z.object({
-  itemId: z.string().min(1),
+  sku: z.string().min(1),
   lotNumber: z.string().optional(),
   qty: z.number().positive(),
   uom: z.string().min(1),
@@ -42,7 +42,7 @@ function lotPrefixFromSku(sku?: string, fallback?: string) {
   return `${base}-${yy}${mm}-`;
 }
 
-export async function findNextLotNumber(itemId: string, sku?: string): Promise<string> {
+export async function findNextLotNumber(sku: string, sku?: string): Promise<string> {
   const prefix = lotPrefixFromSku(sku, itemId);
   const lotsColl = db.collection('lots');
   // Rango por prefijo: >= prefix y < prefix con 'z' (lexicográfico)
@@ -64,7 +64,7 @@ export async function findNextLotNumber(itemId: string, sku?: string): Promise<s
   return `${prefix}${next}`;                  // SKU-YYMM-XX
 }
 
-async function loadItem(itemId: string): Promise<Item | null> {
+async function loadItem(sku: string): Promise<Item | null> {
     const doc = await db.collection('items').doc(itemId).get();
     return doc.exists ? (doc.data() as Item) : null;
 }
@@ -101,7 +101,7 @@ export async function createManualOnHand(
     
     const lotData = LotSchema.parse({
       lotNumber: lotNumber,
-      itemId: p.itemId,
+      sku: p.itemId,
       quantity: p.qty,
       uom: p.uom,
       qcStatus: initialQcStatusFor(item, { sendToQc: p.sendToQc }),
@@ -111,7 +111,7 @@ export async function createManualOnHand(
 
     const stockMove = {
       id: simpleId("sm"),
-      itemId: p.itemId,
+      sku: p.itemId,
       lotNumber,
       qty: p.qty,
       uom: p.uom,
@@ -136,7 +136,7 @@ export async function createManualOnHand(
 
     batch.set(onHandRef, {
       id: onHandId,
-      itemId: p.itemId,
+      sku: p.itemId,
       lotNumber: lotNumber,
       locationId: p.locationId,
       uom: p.uom,

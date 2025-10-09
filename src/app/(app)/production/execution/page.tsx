@@ -5,7 +5,7 @@ import React, { useMemo, useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useData } from "@/lib/dataprovider";
 import { toast } from "sonner";
-import type { Uom, Item, ProductionOrder, BillOfMaterial as RecipeBom } from '@/domain/ssot.v7';
+import type { Uom, Item, ProductionOrder, BillOfMaterial as RecipeBom } from '@/domain/ssot';
 import { planProduction } from "@/server/actions/production.actions";
 import { ProductionSidebar } from "@/features/production/execution/components/ProductionSidebar";
 import { ActiveOrderPanel } from "@/features/production/execution/components/ActiveOrderPanel";
@@ -15,7 +15,7 @@ import { picksToRealLines } from "@/features/production/execution/helpers";
 
 // --- Definición de Tipos para el Estado del Formulario ---
 type FormOutput = {
-    itemId: string;
+    sku: string;
     sku?: string;
     qty: number;
     uom: Uom | "uds";
@@ -24,7 +24,7 @@ type FormOutput = {
 };
 
 type FormConsumptionLine = {
-    itemId: string;
+    sku: string;
     itemName: string;
     lotNumber: string;
     theoreticalQty: number;
@@ -85,7 +85,7 @@ export default function ProductionExecutionPage() {
         order: null,
         planningBom: bom,
         finalOutput: {
-            itemId: bom.outputItemId,
+            sku: bom.outputItemId,
             sku: outputItem?.sku,
             qty: 1,
             uom: (bom.stage === "ENVASADO" ? "unit" : "L"),
@@ -112,7 +112,7 @@ export default function ProductionExecutionPage() {
         order: order,
         planningBom: null,
         finalOutput: existingOutput ?? {
-            itemId: order.outputItemId,
+            sku: order.outputItemId,
             sku: outputItem?.sku,
             qty: order.targetQuantity,
             uom: order.baseUnit as Uom,

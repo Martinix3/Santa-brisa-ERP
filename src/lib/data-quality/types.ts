@@ -1,5 +1,5 @@
 // src/lib/data-quality/types.ts
-import type { Item, OnHandView, Lot } from '@/domain/ssot.v7';
+import type { Item, Lot } from '@/domain/ssot';
 
 export type AnomalySeverity = 'CRITICAL' | 'WARNING';
 

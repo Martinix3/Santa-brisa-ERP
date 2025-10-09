@@ -3,7 +3,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 import { NextRequest } from 'next/server';
 import { getOne, upsertMany } from '@/lib/dataprovider/server';
-import type { Shipment, DeliveryNote, OrderSellOut, Account, Party } from '@/domain/ssot.v7';
+import type { Shipment, DeliveryNote, OrderSellOut, Account, Party } from '@/domain/ssot';
 import { renderDeliveryNotePdf } from '@/server/pdf/deliveryNote';
 import { bucket } from '@/server/firebase';
 
@@ -64,7 +64,7 @@ export async function GET(_req: NextRequest, ctx: { params: { shipmentId: string
         country: 'ES',
       },
       lines: (shp.lines || []).map((l: Shipment['lines'][number]) => ({
-        itemId: l.itemId,
+        sku: l.itemId,
         description: l.name ?? l.itemId,
         qty: l.qty,
         uom: 'uds',

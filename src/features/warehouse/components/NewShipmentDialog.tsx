@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
 import { Input, Select, SBButton } from '@/components/ui/ui-primitives';
-import type { Shipment, Account, Item, ShipmentLine, ShipmentStatus } from '@/domain/ssot.v7';
+import type { Shipment, Account, Item, ShipmentLine, ShipmentStatus } from '@/domain/ssot';
 import { Plus, X, Search } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
 
@@ -82,7 +82,7 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, items }: Ne
     const [address, setAddress] = useState('');
     const [city, setCity] = useState('');
     const [postalCode, setPostalCode] = useState('');
-    const [lines, setLines] = useState<{ itemId: string; qty: number; name: string, uom: string }[]>([{ itemId: '', qty: 1, name: '', uom: 'unit' }]);
+    const [lines, setLines] = useState<{ sku: string; qty: number; name: string, uom: string }[]>([{ sku: '', qty: 1, name: '', uom: 'UNIT' }]);
     const [notes, setNotes] = useState('');
 
     useEffect(() => {
@@ -92,7 +92,7 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, items }: Ne
             setAddress('');
             setCity('');
             setPostalCode('');
-            setLines([{ itemId: '', qty: 1, name: '', uom: 'unit' }]);
+            setLines([{ sku: '', qty: 1, name: '', uom: 'UNIT' }]);
             setNotes('');
         }
     }, [open]);
@@ -125,7 +125,7 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, items }: Ne
         setLines(newLines);
     };
 
-    const addLine = () => setLines([...lines, { itemId: '', qty: 1, name: '', uom: 'unit' }]);
+    const addLine = () => setLines([...lines, { sku: '', qty: 1, name: '', uom: 'UNIT' }]);
     const removeLine = (index: number) => setLines(lines.filter((_, i) => i !== index));
 
     const handleSubmit = (e: React.FormEvent) => {

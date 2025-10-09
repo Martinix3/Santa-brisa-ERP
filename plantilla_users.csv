@@ -1,6 +1,0 @@
-id,name,email,role,active,createdAt,updatedAt
-user_comercial_juan,Juan Pérez,juan.perez@santabrisa.com,comercial,true,2025-01-01T00:00:00.000Z,2025-01-01T00:00:00.000Z
-user_comercial_maria,María López,maria.lopez@santabrisa.com,comercial,true,2025-01-01T00:00:00.000Z,2025-01-01T00:00:00.000Z
-user_comercial_pedro,Pedro Sánchez,pedro.sanchez@santabrisa.com,comercial,true,2025-01-01T00:00:00.000Z,2025-01-01T00:00:00.000Z
-user_admin,Admin Principal,admin@santabrisa.com,admin,true,2025-01-01T00:00:00.000Z,2025-01-01T00:00:00.000Z
-user_ops,Operaciones,ops@santabrisa.com,ops,true,2025-01-01T00:00:00.000Z,2025-01-01T00:00:00.000Z

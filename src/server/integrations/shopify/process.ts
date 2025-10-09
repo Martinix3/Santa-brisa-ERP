@@ -4,7 +4,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { enqueue } from '@/server/queue/queue';
 import { mapShopifyToSSOT } from '@/server/integrations/shopify/map';
 import { verifyShopifyHmac } from './hmac';
-import type { Account } from '@/domain/ssot.v7';
+import type { Account } from '@/domain/ssot';
 
 interface WebhookParams {
   rawBody: string;
@@ -82,7 +82,7 @@ export async function processShopifyEvent(params: WebhookParams) {
         ...orderData,
         id: orderRef.id,
         accountId: accRef.id,
-        source: 'SHOPIFY',
+        source: 'API',
         updatedAt: FieldValue.serverTimestamp(),
       }, { merge: true });
 

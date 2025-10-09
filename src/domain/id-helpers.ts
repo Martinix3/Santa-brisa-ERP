@@ -4,6 +4,6 @@ export function safeIdPart(s?: string | null) {
   return String(s).replaceAll("/", "~");
 }
 
-export function makeOnHandId(itemId: string, lotNumber: string | undefined | null, locationId: string | undefined | null) {
+export function makeOnHandId(sku: string, lotNumber: string | undefined | null, locationId: string | undefined | null) {
   return `${itemId}|${safeIdPart(lotNumber)}|${safeIdPart(locationId)}`;
 }

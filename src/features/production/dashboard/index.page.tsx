@@ -13,7 +13,7 @@ import { EfficiencyWidget } from "@/features/production/dashboard/components/Eff
 import { Plus } from 'lucide-react';
 import { SBCard, SBButton } from "@/components/ui/ui-primitives";
 import { UpcomingTasks } from "@/features/agenda/components/UpcomingTasks";
-import { SB_THEME, type ProductionOrder, type BillOfMaterial, type Item, type OnHandView, Uom } from "@/domain/ssot";
+import { SB_THEME, type ProductionOrder, type BillOfMaterial, type Item, type OnHand, Uom } from "@/domain/ssot";
 
 function DashboardSkeleton() {
   return (

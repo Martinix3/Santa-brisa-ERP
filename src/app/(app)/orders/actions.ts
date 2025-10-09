@@ -3,7 +3,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { getOne, upsertMany } from '@/lib/dataprovider/server';
-import type { Order, Shipment, Account, Item, OrderLine, OrderStatus, OrderDocumentType } from '@/domain/ssot.v7';
+import type { Order, Shipment, Account, Item, OrderLine, OrderStatus, OrderDocumentType } from '@/domain/ssot';
 import { enqueue } from '@/server/queue/queue';
 import { importSingleShopifyOrder } from '@/server/integrations/shopify/import-order';
 import { confirmOrderShipment as confirmAndReserve } from '@/server/actions/logistics.actions';
@@ -41,7 +41,7 @@ export async function placeOrder({
       sku: l.sku,
       name: item.name,
       qty: l.qty,
-      uom: 'unit',
+      uom: 'UNIT',
       unitPrice: l.unitPriceReported ?? item.price ?? 0,
       total: l.qty * (l.unitPriceReported ?? item.price ?? 0),
     };

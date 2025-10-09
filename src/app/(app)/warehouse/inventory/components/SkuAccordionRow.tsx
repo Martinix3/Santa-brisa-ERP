@@ -1,7 +1,7 @@
 // src/app/(app)/warehouse/inventory/components/SkuAccordionRow.tsx
 'use client';
 import React, { useState } from 'react';
-import type { OnHandView, Item, QcStatus } from '@/domain/ssot.v7';
+import type { OnHandView, Item, QcStatus } from '@/domain/ssot';
 import { ChevronDown, Package, DollarSign } from 'lucide-react';
 import { stockStatusBadgeClass, stockStatusLabel, type SkuStockSummary } from "@/lib/inventory";
 import { PricingModal } from './PricingModal';

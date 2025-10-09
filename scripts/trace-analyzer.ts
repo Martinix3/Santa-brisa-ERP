@@ -137,7 +137,7 @@ class TraceAnalyzer {
 
     // Visitar todos los nodos del AST
     const visit = (node: ts.Node) => {
-      // Detectar lecturas de datos: data.accounts, data.ordersSellOut, etc.
+      // Detectar lecturas de datos: data.accounts, data.orderSellOut, etc.
       if (ts.isPropertyAccessExpression(node)) {
         this.detectDataRead(node, sourceFile, isComponentFile, isHelperFile);
       }
@@ -262,7 +262,7 @@ class TraceAnalyzer {
   }
 
   private detectFieldAccess(node: ts.Node, sourceFile: ts.SourceFile): string[] {
-    // Intentar detectar accesos como: account.name, account.stage
+    // Intentar detectar accesos como: account.name, account.accountStage
     // Esto es una versión simplificada
     const fields: string[] = [];
     const parent = node.parent;

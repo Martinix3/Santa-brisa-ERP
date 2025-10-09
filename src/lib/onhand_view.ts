@@ -1,5 +1,5 @@
 // src/lib/onhand_view.ts
-import type { QcStatus, SantaData, Uom, OnHandView as OnHandViewType } from '@/domain/ssot.v7';
+import type { QcStatus, Uom, OnHandView as OnHandViewType } from '@/domain/ssot';
 import { adminDb } from '@/server/firebase';
 
 // Vista unificada de disponibilidad por LOTE
@@ -18,9 +18,9 @@ async function getAll<T>(coll: keyof SantaData): Promise<T[]> {
 // Builder (ajusta tus getters reales)
 export async function buildOnHandView(): Promise<OnHandView[]> {
   const [onhand, lots, reservations] = await Promise.all([
-    getAll<{ id: string; itemId:string; lotNumber:string; locationId:string; qty:number; uom:string; updatedAt?:string }>('onHand'),
+    getAll<{ id: string; sku:string; lotNumber:string; locationId:string; qty:number; uom:string; updatedAt?:string }>('onHand'),
     getAll<{ id: string; lotNumber:string; qcStatus:QcStatus|null; expiryAt?:string|null }>('lots'),
-    getAll<{ id: string; itemId:string; lotNumber:string; locationId:string; qty:number }>('reservations').catch(()=>[]),
+    getAll<{ id: string; sku:string; lotNumber:string; locationId:string; qty:number }>('reservations').catch(()=>[]),
   ]);
 
   const lotByNo = new Map(lots.map(l => [l.lotNumber, l]));
@@ -36,7 +36,7 @@ export async function buildOnHandView(): Promise<OnHandView[]> {
     const id = `${r.itemId}|${r.lotNumber}|${r.locationId}`;
     return {
       id,
-      itemId: r.itemId,
+      sku: r.itemId,
       lotNumber: r.lotNumber,
       locationId: r.locationId,
       qty: r.qty,

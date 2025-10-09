@@ -1,13 +1,13 @@
 // src/server/production/bom.service.ts
 'use server';
 
-import type { BillOfMaterial, Item, ProductionOrder, Uom, SalesUnit } from '@/domain/ssot.v7';
+import type { BillOfMaterial, Item, ProductionOrder, Uom, SalesUnit } from '@/domain/ssot';
 import { adminDb } from '@/server/firebase';
 import { ok, fail, type ActionResult } from '@/lib/result';
 import { FieldPath } from 'firebase-admin/firestore';
 
 type ProductionStage = 'PRODUCCION' | 'ENVASADO';
-type ProductionIOLine = { itemId: string; role: 'FORMULA' | 'PACKAGING' | 'COST_ONLY'; uom: Uom; qty: number };
+type ProductionIOLine = { sku: string; role: 'FORMULA' | 'PACKAGING' | 'COST_ONLY'; uom: Uom; qty: number };
 
 async function readBOM(bomId: string): Promise<any> {
     const doc = await adminDb.collection('billOfMaterials').doc(bomId).get();
@@ -33,7 +33,7 @@ export async function explodeBOM(bomId: string, plannedQty: number): Promise<Act
     const bom = await readBOM(bomId);
     if (!bom) return fail('BOM inexistente');
     const stage: ProductionStage = bom.stage ?? 'PRODUCCION';
-    const baseUnit: Uom = (stage === 'PRODUCCION' ? 'L' : 'unit');
+    const baseUnit: Uom = (stage === 'PRODUCCION' ? 'L' : 'UNIT');
     if (bom.baseUnit !== baseUnit) {
         console.warn(`[explodeBOM] BOM ${bomId} tiene baseUnit ${bom.baseUnit} pero la etapa es ${stage}. Se usará ${baseUnit}.`);
     }
@@ -43,9 +43,9 @@ export async function explodeBOM(bomId: string, plannedQty: number): Promise<Act
     const map = new Map(docs.map((d: any) => [d.id, d]));
 
     const nominal: ProductionIOLine[] = bom.items.map((l: any) => ({
-      itemId: l.itemId,
+      sku: l.itemId,
       role: l.role,
-      uom: (map.get(l.itemId)?.uom ?? l.uom ?? 'unit') as Uom,
+      uom: (map.get(l.itemId)?.uom ?? l.uom ?? 'UNIT') as Uom,
       qty: Number((l.qty * plannedQty).toFixed(6)),
     }));
 

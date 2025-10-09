@@ -1,5 +1,5 @@
 // src/features/marketing/services/insights.service.ts
-import type { OnlineCampaign } from '@/domain/ssot.v7';
+import type { OnlineCampaign } from '@/domain/ssot';
 
 export type RowExt = OnlineCampaign & { _score:number; _label:'WIN'|'SCALE'|'FIX'|'KILL'; _stats:{
   roas:number; cpm:number; cpc:number; ctr?:number; cvr?:number;

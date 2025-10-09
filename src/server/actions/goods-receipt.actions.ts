@@ -4,7 +4,33 @@
 import { revalidatePath } from 'next/cache';
 import { adminDb as db } from '@/server/firebase';
 import { FieldValue } from 'firebase-admin/firestore';
-import type { Party, Item, GoodsReceipt, StockMove, Uom, ItemCategory, PartyRole, Lot, QcStatus, TraceEvent, TraceEventPhase, TraceEventKind } from '@/domain/ssot.v7';
+import type { Party, Item, StockMove, Uom, Lot, QcStatus } from '@/domain/ssot';
+
+// Tipos legacy locales (a migrar progresivamente)
+type ItemCategory = string;
+type PartyRole = { id: string; partyId: string; role: string; isActive: boolean; createdAt: string; data?: any };
+type GoodsReceipt = { 
+  id: string; 
+  receiptNumber: string; 
+  supplierPartyId: string; 
+  deliveryNote: string; 
+  receivedAt: string; 
+  status: string; 
+  lines: Array<{ sku: string; qty: number; uom: string; unitCost?: number; lotNumber: string }>;
+  notes?: string;
+};
+type TraceEventPhase = 'RECEIPT' | 'PRODUCTION' | 'LOGISTICS' | 'QUALITY';
+type TraceEventKind = 'ARRIVED' | 'CONSUME' | 'OUTPUT' | 'MOVE' | 'QC';
+type TraceEvent = {
+  id: string;
+  at: string;
+  phase: TraceEventPhase;
+  kind: TraceEventKind;
+  title: string;
+  details?: string;
+  links?: { lotNumber?: string; receiptId?: string; prodOrderId?: string; orderId?: string };
+  data?: Record<string, unknown>;
+};
 import { LotSchema } from '@/domain/validators';
 import { normText } from '@/lib/norm/text';
 import { makeGoodsReceiptCode } from '@/lib/codes';
@@ -91,10 +117,14 @@ export async function createItem(payload: { name: string; sku?: string; uom: Uom
         name,
         sku: sku || makeSku(name, catCode, existingSkus),
         uom: normalizeUom(uom), // ✅ SSOT COMPLIANCE: Normalizar UOM
+        kind: 'PRODUCT',
+        trackStock: true,
         category: catCode,
         stdCost: stdCost || 0,
         active: true,
-    };
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+    } as Item;
     
     await itemRef.set(
       { ...newItem, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
@@ -145,7 +175,7 @@ export async function createGoodsReceipt(payload: {
     const itemsById = new Map(existingItems.map(it => [it.id, it]));
 
     const allReceipts = (await db.collection('goodsReceipts').select('receiptNumber').get())
-      .docs.map(d => d.data().receiptNumber).filter(Boolean);
+      .docs.map((d: any) => d.data().receiptNumber).filter(Boolean);
     const receiptNumber = makeGoodsReceiptCode(allReceipts, new Date(receiptDate));
     const receiptRef = db.collection('goodsReceipts').doc();
 
@@ -162,11 +192,15 @@ export async function createGoodsReceipt(payload: {
                 id: itemId,
                 name: line.newItemName,
                 sku: makeSku(line.newItemName, line.newItemCategory || 'raw', existingItems.map(it => it.sku)),
-                uom: normalizeUom(line.uom || 'unit'), // ✅ SSOT COMPLIANCE: Normalizar UOM
+                uom: normalizeUom(line.uom || 'UNIT'), // ✅ SSOT COMPLIANCE: Normalizar UOM
+                kind: 'PRODUCT',
+                trackStock: true,
                 category: line.newItemCategory || 'raw',
                 stdCost: line.unitCost || 0,
                 active: true,
-            };
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+            } as Item;
             batch.set(itemRef, { ...newItem, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }, { merge: true });
             itemsById.set(itemId, newItem); // Add to local map for subsequent lines
             currentItem = newItem;
@@ -186,7 +220,7 @@ export async function createGoodsReceipt(payload: {
 
         const lotData = LotSchema.parse({
             lotNumber: lotNumber,
-            itemId: itemId,
+            sku: itemId,
             quantity: line.qty,
             uom: normalizeUom(currentItem.uom), // ✅ SSOT COMPLIANCE: Normalizar UOM
             qcStatus: initialQcStatusForItemCategory(currentItem.category),
@@ -212,16 +246,22 @@ export async function createGoodsReceipt(payload: {
         const smRef = db.collection('stockMoves').doc();
         const stockMove: StockMove = {
             id: smRef.id,
+            date: nowIso,
+            type: 'IN',
+            reason: 'PURCHASE',
+            warehouseId: locationId,
+            items: [{ sku: currentItem.sku, quantity: line.qty, cost: line.unitCost, lotNumber }],
+            createdAt: nowIso,
+            updatedAt: nowIso,
+            // Legacy compat fields
             itemId, lotNumber, 
-            uom: normalizeUom(currentItem.uom), // ✅ SSOT COMPLIANCE: Normalizar UOM
+            uom: normalizeUom(currentItem.uom),
             qty: line.qty,
-            reason: 'receipt',
             toLocationId: locationId,
             occurredAt: nowIso,
-            createdAt: nowIso,
             ref: { goodsReceiptId: receiptRef.id },
             unitCost: line.unitCost,
-        };
+        } as StockMove;
         batch.set(smRef, stockMove as any);
 
         const traceEventRef = db.collection('traceEvents').doc();
@@ -252,7 +292,7 @@ export async function createGoodsReceipt(payload: {
         } as any);
     }
     
-    const itemsForQcCheck = finalLines.map(l => (l as any).itemId).map(id => itemsById.get(id));
+    const itemsForQcCheck = finalLines.map((l: any) => l.itemId).map((id: string) => itemsById.get(id));
     const requiresQc = itemsForQcCheck.some(item => {
         const cat = item?.category;
         return cat === 'raw' || cat === 'pack' || cat === 'fg';

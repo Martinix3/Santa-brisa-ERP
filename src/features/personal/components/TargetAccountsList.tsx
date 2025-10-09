@@ -1,6 +1,6 @@
 "use client";
 import React from 'react';
-import { Account } from '@/domain/ssot.v7';
+import { Account } from '@/domain/ssot';
 import { Target, MapPin, Phone, Mail, Calendar } from 'lucide-react';
 import Link from 'next/link';
 
@@ -45,8 +45,8 @@ export function TargetAccountsList({ accounts }: TargetAccountsListProps) {
           'BAJA': 'Baja',
         };
 
-        const stageClass = stageColors[account.stage || ''] || 'bg-gray-100 text-gray-800 border-gray-300';
-        const stageLabel = stageLabels[account.stage || ''] || account.stage;
+        const stageClass = stageColors[account.accountStage || ''] || 'bg-gray-100 text-gray-800 border-gray-300';
+        const stageLabel = stageLabels[account.accountStage || ''] || account.accountStage;
 
         return (
           <Link

@@ -63,7 +63,7 @@ interface RecipeFormProps {
   onCancel: () => void;
   allItems: Item[];
   isNew: boolean;
-  onQuickCreateItem: (p: QuickCreatePayload) => Promise<{ itemId: string }>;
+  onQuickCreateItem: (p: QuickCreatePayload) => Promise<{ sku: string }>;
 }
 
 function RecipeForm({ initialValues, onSave, onCancel, allItems, isNew, onQuickCreateItem }: RecipeFormProps) {
@@ -91,7 +91,7 @@ function RecipeForm({ initialValues, onSave, onCancel, allItems, isNew, onQuickC
   const itemsFG = useMemo(() => allItems.filter(it => it.category === "fg"), [allItems]);
 
   const addLine = (role: "FORMULA" | "PACKAGING") => {
-    const newItems = [...(fm.values.items || []), { itemId: "", qty: 0, uom: "uds" as Uom, role }];
+    const newItems = [...(fm.values.items || []), { sku: "", qty: 0, uom: "uds" as Uom, role }];
     fm.set("items", newItems);
   };
 
@@ -396,7 +396,7 @@ export default function BomPage() {
     }
   }, [archiving, santaData, saveAllCollections]);
 
-  const onQuickCreateItem = useCallback(async (payload: QuickCreatePayload): Promise<{ itemId: string }> => {
+  const onQuickCreateItem = useCallback(async (payload: QuickCreatePayload): Promise<{ sku: string }> => {
     const result = await upsertMinimalProduct({ sku: payload.sku, name: payload.name, packSizeMl: 700 });
     if (!result.ok) {
         // Corregido para manejar el tipo de error de forma segura

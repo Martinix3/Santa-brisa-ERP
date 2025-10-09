@@ -93,16 +93,16 @@ export default function DbCheckPage() {
   }
 
   // Análisis de datos
-  const users = data.users || [];
-  const parties = data.parties || [];
+  const users = data.teamMembers || [];
+  const parties = data.accounts || [];
   const accounts = data.accounts || [];
   const orders = data.ordersSellOut || [];
   const comerciales = users.filter(u => u.role?.toLowerCase() === 'comercial');
-  const ordersDirect = orders.filter(o => o.flow === 'DIRECT');
-  const ordersPlacement = orders.filter(o => o.flow === 'PLACEMENT');
-  const accountsConDistribuidor = accounts.filter(a => !!a.distributorPartyId);
-  const accountsSinDistribuidor = accounts.filter(a => !a.distributorPartyId);
-  const distributorIds = new Set(accounts.map(a => a.distributorPartyId).filter(Boolean));
+  const ordersDirect = orders.filter(o => o.flow === 'DIRECTA');
+  const ordersPlacement = orders.filter(o => o.flow === 'COLOCACION');
+  const accountsConDistribuidor = accounts.filter(a => !!a.distributorId);
+  const accountsSinDistribuidor = accounts.filter(a => !a.distributorId);
+  const distributorIds = new Set(accounts.map(a => a.distributorId).filter(Boolean));
   const distribuidores = parties.filter(p => distributorIds.has(p.id));
   const ordersShopify = orders.filter(o => o.source === 'SHOPIFY');
 

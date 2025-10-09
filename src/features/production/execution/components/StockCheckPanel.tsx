@@ -3,16 +3,16 @@
 
 import React, { useEffect, useMemo } from 'react';
 import { SBButton } from '@/components/ui/ui-primitives';
-import type { Uom, Item, ProductionOrder, BillOfMaterial as RecipeBom, OnHandView } from '@/domain/ssot.v7';
+import type { Uom, Item, ProductionOrder, BillOfMaterial as RecipeBom, OnHandView } from '@/domain/ssot';
 import { SectionCard } from '../../components/ui';
 import { cn } from '@/lib/utils';
 
-type TheoreticalLine = { itemId: string; itemName: string; qty: number; uom: Uom };
+type TheoreticalLine = { sku: string; itemName: string; qty: number; uom: Uom };
 
 function computeTheoretical(bom: RecipeBom, qty: number, itemsMap: Map<string, Item>): TheoreticalLine[] {
   const lines = (bom.items || []).filter((l: any) => (l.role ?? "FORMULA") !== "COST_ONLY");
   return lines.map((l: any) => ({
-    itemId: l.itemId,
+    sku: l.itemId,
     itemName: itemsMap.get(l.itemId)?.name ?? l.itemId,
     qty: +(Number(l.qty || 0) * Number(qty || 0)).toFixed(3),
     uom: (l.uom || "uds") as Uom,
@@ -27,8 +27,8 @@ const toTime = (s?: string) => {
 export function StockCheckPanel({ bom, qty, items, onHand, onReadyChange, shortagesOut, requiredLotsOut }: {
   bom: RecipeBom; qty: number; items: Item[]; onHand: OnHandView[];
   onReadyChange: (ok: boolean) => void;
-  shortagesOut: (s: Array<{ itemId: string; itemName: string; missing: number; uom: Uom }>) => void;
-  requiredLotsOut: (r: Array<{ itemId: string; lotNumber: string; qty: number; uom: string; locationId: string }>) => void;
+  shortagesOut: (s: Array<{ sku: string; itemName: string; missing: number; uom: Uom }>) => void;
+  requiredLotsOut: (r: Array<{ sku: string; lotNumber: string; qty: number; uom: string; locationId: string }>) => void;
 }) {
   const itemsMap = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
   const theory = useMemo(() => computeTheoretical(bom, qty, itemsMap), [bom, qty, itemsMap]);
@@ -43,8 +43,8 @@ export function StockCheckPanel({ bom, qty, items, onHand, onReadyChange, shorta
       rows.sort((a, b) => toTime(a.createdAt) - toTime(b.createdAt));
     }
     
-    const shortages: Array<{ itemId: string; itemName: string; missing: number; uom: Uom }> = [];
-    const picks: Array<{ itemId: string; lotNumber: string; qty: number; uom: Uom; locationId: string }> = [];
+    const shortages: Array<{ sku: string; itemName: string; missing: number; uom: Uom }> = [];
+    const picks: Array<{ sku: string; lotNumber: string; qty: number; uom: Uom; locationId: string }> = [];
     
     for (const t of theory) {
       let remain = t.qty;
@@ -56,14 +56,14 @@ export function StockCheckPanel({ bom, qty, items, onHand, onReadyChange, shorta
         if (remain <= 0) break;
         const take = Math.min(Number(r.qty) || 0, remain);
         if (take > 0 && r.lotNumber) {
-          picks.push({ itemId: t.itemId, lotNumber: r.lotNumber, qty: +take.toFixed(3), uom: t.uom, locationId: r.locationId });
+          picks.push({ sku: t.itemId, lotNumber: r.lotNumber, qty: +take.toFixed(3), uom: t.uom, locationId: r.locationId });
           remain -= take;
         }
       }
       
       const available = lots.reduce((acc, lot) => acc + (lot.qty || 0), 0);
       if (remain > 1e-6) {
-        shortages.push({ itemId: t.itemId, itemName: itemsMap.get(t.itemId)?.name ?? t.itemId, missing: +remain.toFixed(3), uom: t.uom });
+        shortages.push({ sku: t.itemId, itemName: itemsMap.get(t.itemId)?.name ?? t.itemId, missing: +remain.toFixed(3), uom: t.uom });
       }
     }
     return { shortages, picks };

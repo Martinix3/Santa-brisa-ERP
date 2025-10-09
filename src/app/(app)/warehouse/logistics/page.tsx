@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Search, Plus } from "lucide-react";
 import { SBButton, Input, Select } from '@/components/ui/ui-primitives';
 import { useData } from '@/lib/dataprovider';
-import type { Shipment, OrderSellOut, Account } from '@/domain/ssot.v7';
+import type { Shipment, OrderSellOut, Account } from '@/domain/ssot';
 import { createManualShipment } from './actions';
 import { toast } from 'sonner';
 
@@ -48,7 +48,7 @@ export default function LogisticsPage() {
     const order = orderMap.get(s.orderId);
     const account = order ? accountMap.get(order.accountId) : undefined;
     
-    const accountType = account?.segment?.toLowerCase() ?? '';
+    const accountType = account?.accountType?.toLowerCase() ?? '';
     const st = (status === "all" || s.status === status);
     const ch = (channel === "all" || (account && accountType === channel.toLowerCase()));
     const query = (q.trim() === "" || s.id.includes(q) || (account?.name || "").toLowerCase().includes(q.toLowerCase()));
@@ -72,7 +72,7 @@ export default function LogisticsPage() {
   };
   
   const flowParam = searchParams.get('flow')?.toUpperCase();
-  if (flowParam === "PLACEMENT") {
+  if (flowParam === "COLOCACION") {
     return (
       <div className="p-6">
         <h1 className="text-xl font-semibold">Logística no disponible</h1>

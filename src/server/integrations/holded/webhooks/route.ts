@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminDb as db } from '@/server/firebase';
 import { Timestamp } from 'firebase-admin/firestore';
 import { upsertMany } from '@/lib/dataprovider/actions';
-import type { FinanceLink, PaymentLink, OrderSellOut } from '@/domain/ssot.v7';
+import type { FinanceLink, PaymentLink, OrderSellOut } from '@/domain/ssot';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     docNumber: serialNumber,
     partyId: undefined,
     costObject: meta?.orderId ? { kind: 'ORDER', id: meta.orderId } : undefined,
-    status: status === 'paid' ? 'paid' : 'pending',
+    status: status === 'paid' ? 'paid' : 'DRAFT',
   };
 
   await upsertMany('financeLinks', [fin] as any);

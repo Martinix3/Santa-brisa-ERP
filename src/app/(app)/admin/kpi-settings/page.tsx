@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import type { User, SB_THEME } from '@/domain/ssot.v7';
+import type { User, SB_THEME } from '@/domain/ssot';
 import { useData } from '@/lib/dataprovider';
 import { SBCard, SBButton, Input } from '@/components/ui/ui-primitives';
 import { Save, SlidersHorizontal } from 'lucide-react';
@@ -14,7 +14,7 @@ function KPISettingsPageContent() {
 
     useEffect(() => {
         if (data) {
-            setUsers(data.users);
+            setUsers(data.teamMembers);
         }
     }, [data]);
 

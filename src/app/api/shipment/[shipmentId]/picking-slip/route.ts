@@ -1,7 +1,7 @@
 // src/app/api/shipment/[shipmentId]/picking-slip/route.ts
 import { NextResponse, type NextRequest } from 'next/server';
 import { adminDb as db } from '@/server/firebase';
-import type { Shipment, OrderSellOut, Party, Item } from '@/domain/ssot.v7';
+import type { Shipment, OrderSellOut, Item } from '@/domain/ssot';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 
 async function renderPickingSlipPdf(shipment: Shipment, itemsById: Map<string, Item>, order?: OrderSellOut, party?: Party): Promise<Uint8Array> {

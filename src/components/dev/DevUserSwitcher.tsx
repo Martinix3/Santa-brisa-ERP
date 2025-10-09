@@ -10,9 +10,9 @@ export function DevUserSwitcher() {
 
   // Solo mostrar en development
   if (process.env.NODE_ENV !== 'development') return null;
-  if (!data?.users) return null;
+  if (!data?.teamMembers) return null;
 
-  const users = data.users.filter(u => u.active);
+  const users = data.teamMembers.filter(u => u.active);
 
   const handleUserChange = (userId: string) => {
     setCurrentUserById(userId);

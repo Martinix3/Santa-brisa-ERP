@@ -1,7 +1,7 @@
 
 import { getOrderById } from './client';
 import { normalizeShopifyOrder } from './map';
-import type { Account, OrderSellOut, Party, Timestamp } from '@/domain/ssot.v7';
+import type { Account, OrderSellOut, Timestamp } from '@/domain/ssot';
 import { upsertMany } from '@/lib/dataprovider/actions';
 import { getServerData } from '@/lib/dataprovider/server';
 import { enqueue } from '@/server/queue/queue';
@@ -12,7 +12,7 @@ const ONLINE_ACCOUNT_NAME = 'Canal Online (Shopify)';
 async function ensureOnlinePartyAccount() {
   const data = await getServerData() as { parties: Party[]; accounts: Account[] };
 
-  let party = data.parties.find(p => p.name === ONLINE_PARTY_LEGAL);
+  let party = data.accounts.find(p => p.name === ONLINE_PARTY_LEGAL);
   if (!party) {
     const now = new Date().toISOString();
     party = {
@@ -26,7 +26,7 @@ async function ensureOnlinePartyAccount() {
     await upsertMany('parties', [party]);
   }
 
-  let account = data.accounts.find(a => a.partyId === party!.id && a.segment === 'ONLINE');
+  let account = data.accounts.find(a => a.partyId === party!.id && a.accountType === 'ONLINE');
   if (!account) {
     const now = new Date().toISOString();
     const acc: Account = {
@@ -34,7 +34,7 @@ async function ensureOnlinePartyAccount() {
       partyId: party!.id,
       name: ONLINE_ACCOUNT_NAME,
       segment: 'ONLINE',
-      flow: 'DIRECT',
+      flow: 'DIRECTA',
       stage: 'ACTIVA',
       ownerId: 'SYSTEM',
       createdAt: now,

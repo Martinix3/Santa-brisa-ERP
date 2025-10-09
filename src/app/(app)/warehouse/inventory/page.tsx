@@ -86,7 +86,7 @@ export default function InventoryPage() {
     .map(r => ({
       id: r.id,
       lotNumber: r.lotNumber,
-      itemId: r.itemId,
+      sku: r.itemId,
       name: items.find(i => i.id === r.itemId)?.name ?? r.itemId,
       qty: r.qty,
       free: Math.max(0, r.qty - (r.reservedQty ?? 0)),

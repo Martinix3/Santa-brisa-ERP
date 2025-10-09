@@ -1,6 +1,6 @@
 // src/features/orders/components/OrdersTable.tsx
 import React, { useState } from 'react';
-import type { OrderStatus } from '@/domain/ssot.v7';
+import type { OrderStatus } from '@/domain/ssot';
 import { SBCard } from '@/components/ui/ui-primitives';
 import { ChevronDown } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -11,7 +11,7 @@ interface UiOrder {
   date: string;
   status: OrderStatus;
   total: string;
-  channel?: "DIRECT" | "PLACEMENT" | "OTHER";
+  channel?: "DIRECTA" | "COLOCACION" | "OTHER";
 }
 
 interface StatusBadgeProps {

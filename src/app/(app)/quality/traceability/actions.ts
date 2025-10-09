@@ -2,11 +2,11 @@
 'use server';
 
 import { adminDb as db } from '@/server/firebase';
-import type { StockMove, QcTest, LotGenealogyEdge, ProductionOrder, GoodsReceipt, Party, Lot, ProtocolLog, OnHandView, TraceEvent, TraceEventKind, TraceEventPhase } from '@/domain/ssot.v7';
+import type { StockMove, QcTest, LotGenealogyEdge, ProductionOrder, GoodsReceipt, Lot, ProtocolLog, TraceEvent, TraceEventKind, TraceEventPhase } from '@/domain/ssot';
 import { ActionResult, ok, fail } from '@/lib/result';
 
 export type MaterialConsumption = {
-    itemId: string;
+    sku: string;
     itemName: string;
     lotNumber: string;
     qtyUsed: number;
@@ -164,7 +164,7 @@ export async function getLotTraceability(lotNumber: string): Promise<ActionResul
                         const itemName = itemSnap.exists ? itemSnap.data()?.name : parentLot.itemId;
                         
                         materialsConsumed.push({
-                            itemId: parentLot.itemId,
+                            sku: parentLot.itemId,
                             itemName: itemName || parentLot.itemId,
                             lotNumber: edge.parentLotNumber,
                             qtyUsed: edge.qty,

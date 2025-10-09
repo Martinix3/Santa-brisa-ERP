@@ -1,7 +1,7 @@
 "use client";
 import React, { useMemo } from 'react';
 import { useData } from '@/lib/dataprovider';
-import { Department } from '@/domain/ssot.v7';
+import { Department } from '@/domain/ssot';
 import { TimeRange } from '@/lib/time-range-helpers';
 import { getTareasDepartamento, formatTaskInfo } from '@/lib/dashboard-helpers';
 import { AlertTriangle, Clock, User } from 'lucide-react';

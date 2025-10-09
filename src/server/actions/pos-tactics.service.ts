@@ -3,7 +3,7 @@
 'use server';
 
 import { z } from 'zod';
-import { PosTactic, PosTacticItem, PosCostCatalogEntry, PlvMaterial, PosResult } from '@/domain/ssot.v7';
+import { PosTactic, PosTacticItem, PosCostCatalogEntry, PlvMaterial, PosResult } from '@/domain/ssot';
 import { adminDb as db } from '@/server/firebase';
 import { Timestamp } from 'firebase-admin/firestore';
 import { computePosResult } from '@/features/marketing/services/pos.service';
@@ -31,7 +31,7 @@ const TacticInput = z.object({
     scheduleAt: z.string().optional(),
   })).min(1),
   executionScore: z.number().min(0).max(100).default(80),
-  status: z.enum(['planned','active','closed','cancelled']).default('active'),
+  status: z.enum(['planned','active','closed','REJECTED']).default('active'),
   createdById: z.string(),
 });
 

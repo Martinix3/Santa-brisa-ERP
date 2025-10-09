@@ -52,5 +52,5 @@ export interface Task {
     id: string;
     title: string;
     dueAt: string;
-    status: 'open' | 'done' | 'cancelled';
+    status: 'open' | 'done' | 'REJECTED';
 }

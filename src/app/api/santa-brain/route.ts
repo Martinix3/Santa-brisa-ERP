@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { processSantaBrainInput, SantaBrainContext } from '@/lib/santa-brain/gemini-client';
 import { fuzzyMatchAccount } from '@/lib/santa-brain/fuzzy-matching';
 import { adminDb } from '@/server/firebase';
-import type { Account, Item, User } from '@/domain/ssot.v7';
+import type { Account, Item, User } from '@/domain/ssot';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
       myAccounts: myAccounts.map(acc => ({
         id: acc.id,
         name: acc.name,
-        segment: acc.segment,
+        segment: acc.accountType,
         aliases: (acc as any).aliases || []
       })),
       salesCatalog: {
@@ -172,7 +172,7 @@ export async function POST(request: NextRequest) {
       matchedAccount: matchedAccount ? {
         id: matchedAccount.id,
         name: matchedAccount.name,
-        segment: matchedAccount.segment,
+        segment: matchedAccount.accountType,
         matchScore,
       } : null,
       message: geminiResponse.respuesta_usuario

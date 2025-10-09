@@ -1,4 +1,4 @@
-import { SantaData, Party, Account, OrderSellOut, User } from '@/domain/ssot.v7';
+import { SantaData, Account, OrderSellOut, TeamMember } from '@/domain/ssot';
 import { getCajasSellOut } from './sales-helpers';
 
 /**
@@ -7,7 +7,7 @@ import { getCajasSellOut } from './sales-helpers';
  */
 export function getDistributors(data: SantaData): Account[] {
   return (data.accounts || [])
-    .filter(a => a.segment === 'DISTRIBUIDOR');
+    .filter(a => a.accountType === 'DISTRIBUIDOR');
 }
 
 /**
@@ -17,7 +17,7 @@ export function getAccountsByDistributor(
   distributorId: string,
   accounts: Account[]
 ): Account[] {
-  return accounts.filter(a => a.distributorPartyId === distributorId);
+  return accounts.filter(a => a.distributorId === distributorId);
 }
 
 /**
@@ -31,12 +31,12 @@ export function getOrdersByDistributor(
 ): OrderSellOut[] {
   const accountIds = new Set(
     accounts
-      .filter(a => a.distributorPartyId === distributorId)
+      .filter(a => a.distributorId === distributorId)
       .map(a => a.id)
   );
   
   return orders.filter(o => 
-    o.flow === 'PLACEMENT' && accountIds.has(o.accountId)
+    o.flow === 'COLOCACION' && accountIds.has(o.accountId)
   );
 }
 
@@ -66,9 +66,9 @@ export function calculateDistributorStats(
   }));
   
   // Obtener owners únicos
-  const ownerIds = [...new Set(accounts.map(a => a.ownerId))];
+  const ownerIds = [...new Set(accounts.map(a => a.salesRepId))];
   const owners = ownerIds
-    .map(id => data.users?.find(u => u.id === id))
+    .map(id => data.teamMembers?.find(u => u.id === id))
     .filter((u): u is User => u !== undefined);
   
   return {
@@ -86,7 +86,7 @@ export function calculateDistributorStats(
  * Obtiene el distribuidor especial "Santa Brisa" (ventas directas)
  */
 export function getSantaBrisaDistributor(data: SantaData): Party | null {
-  const santaBrisa = (data.parties || []).find(p => 
+  const santaBrisa = (data.accounts || []).find(p => 
     p.name.toLowerCase().includes('santa brisa') ||
     p.tradeName?.toLowerCase().includes('santa brisa')
   );

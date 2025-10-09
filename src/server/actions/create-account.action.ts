@@ -3,7 +3,7 @@
 
 import { adminDb as db } from '@/server/firebase';
 import { Timestamp } from 'firebase-admin/firestore';
-import type { Party, Account, PartyRole, CustomerData, Segment, CommercialFlow } from '@/domain/ssot.v7';
+import type { Party, Account, PartyRole, CustomerData, Segment, CommercialFlow } from '@/domain/ssot';
 
 export async function createAccountAndParty(data: { name: string; city?: string; type?: Segment; ownerId: string; distributorPartyId?: string }) {
   const now = new Date().toISOString();
@@ -26,9 +26,9 @@ export async function createAccountAndParty(data: { name: string; city?: string;
     name: data.name,
     segment: data.type || 'HORECA',
     stage: 'POTENCIAL',
-    ownerId: data.ownerId,
-    flow: 'PLACEMENT', // QuickLog always creates PLACEMENT accounts
-    distributorPartyId: data.distributorPartyId,
+    ownerId: data.salesRepId,
+    flow: 'COLOCACION', // QuickLog always creates PLACEMENT accounts
+    distributorPartyId: data.distributorId,
     createdAt: now,
     updatedAt: now,
   };
@@ -41,8 +41,8 @@ export async function createAccountAndParty(data: { name: string; city?: string;
     isActive: true,
     createdAt: now,
     data: {
-        salesRepId: data.ownerId,
-        billerId: data.distributorPartyId || 'SB', // Default to SB if somehow not provided
+        salesRepId: data.salesRepId,
+        billerId: data.distributorId || 'SB', // Default to SB if somehow not provided
     } as CustomerData
   };
   

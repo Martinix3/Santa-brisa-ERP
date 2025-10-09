@@ -60,10 +60,10 @@ export function computeChannelMix(orders: OrderSellOut[], accounts: Account[]) {
   const mix = { ONLINE: 0, PRIVADA: 0, HORECA: 0, RETAIL: 0 } as Record<'ONLINE'|'PRIVADA'|'HORECA'|'RETAIL', number>;
   for (const o of orders) {
     const acc = byId.get(o.accountId);
-    const isOnline = o.source === 'SHOPIFY' || acc?.segment === 'ONLINE';
-    const isPrivada = acc?.segment === 'PRIVADA';
-    const isHoreca = acc?.segment === 'HORECA';
-    const isRetail = acc?.segment === 'RETAIL';
+    const isOnline = o.source === 'SHOPIFY' || acc?.accountType === 'ONLINE';
+    const isPrivada = acc?.accountType === 'PRIVADA';
+    const isHoreca = acc?.accountType === 'HORECA';
+    const isRetail = acc?.accountType === 'RETAIL';
     const amount = o.totalAmount ?? orderTotal(o);
     if (isOnline) mix.ONLINE += amount;
     else if (isPrivada) mix.PRIVADA += amount;

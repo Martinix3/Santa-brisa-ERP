@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Play, Pause, CheckCircle, XCircle, Calendar, ArrowRight } from "lucide-react";
 import { SBCard, SBButton, Input } from '@/components/ui/ui-primitives';
-import type { Uom, Item, ProductionOrder, BillOfMaterial as RecipeBom } from '@/domain/ssot.v7';
+import type { Uom, Item, ProductionOrder, BillOfMaterial as RecipeBom } from '@/domain/ssot';
 import { updateProductionOrderStatus, completeProductionOrder } from "@/server/actions/production.actions";
 import { StockCheckPanel } from './StockCheckPanel';
 import { RealConsumptionPanel } from './RealConsumptionPanel';
@@ -88,14 +88,14 @@ export function ActiveOrderPanel({ activeForm, setActiveForm, onProgram, items, 
         const res = await completeProductionOrder({
           orderId: activeForm.order!.id,
           finalConsumptions: activeForm.realConsumption.map((c: any) => ({
-            itemId: c.itemId, 
+            sku: c.itemId, 
             lotNumber: c.lotNumber, 
             fromLocationId: c.fromLocationId, 
             qty: c.realQty, 
             uom: c.uom
           })),
           finalOutputs: [{
-            itemId: activeForm.finalOutput.itemId,
+            sku: activeForm.finalOutput.itemId,
             qty: activeForm.finalOutput.qty,
             uom: activeForm.finalOutput.uom,
             toLocationId: activeForm.finalOutput.toLocationId,

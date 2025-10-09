@@ -2,10 +2,10 @@
 "use client";
 import React, { useMemo } from 'react';
 import { SBCard, Input } from '@/components/ui/ui-primitives';
-import type { Uom } from '@/domain/ssot.v7';
+import type { Uom } from '@/domain/ssot';
 import { SectionCard } from '../../components/ui';
 
-type RealConsumptionLine = { itemId: string; itemName: string; lotNumber: string; theoreticalQty: number; realQty: number; uom: Uom; fromLocationId: string };
+type RealConsumptionLine = { sku: string; itemName: string; lotNumber: string; theoreticalQty: number; realQty: number; uom: Uom; fromLocationId: string };
 
 export function RealConsumptionPanel({ activeForm, setFormValue, orderIsLocked }: {
   activeForm: { realConsumption: RealConsumptionLine[] };

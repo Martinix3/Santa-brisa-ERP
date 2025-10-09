@@ -67,7 +67,7 @@ function buildSystemPrompt(context: SantaBrainContext): string {
 
 📋 TUS CUENTAS (${myAccounts.length} del distribuidor):
 ${myAccounts.slice(0, 50).map(a => 
-  `- "${a.name}"${a.segment ? ` [${a.segment}]` : ''}${a.aliases?.length ? ` (también: ${a.aliases.join(', ')})` : ''}`
+  `- "${a.name}"${a.accountType ? ` [${a.accountType}]` : ''}${a.aliases?.length ? ` (también: ${a.aliases.join(', ')})` : ''}`
 ).join('\n')}
 ${myAccounts.length > 50 ? `... y ${myAccounts.length - 50} más` : ''}
 

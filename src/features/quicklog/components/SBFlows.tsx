@@ -5,8 +5,8 @@ import { useData } from "@/lib/dataprovider";
 import { SBDialog, SBDialogContent, SBButton, Input, Select } from "@/components/ui";
 import { toast } from "sonner";
 import { Search, Plus, X, MapPin, Upload, Image as ImageIcon, FileText, Trash2, CheckCircle2 } from 'lucide-react';
-import type { Account, AccountType, Item, Uom, Stage, Segment, CommercialFlow, User, Party } from '@/domain/ssot.v7';
-import { ACCOUNT_STAGE_META } from '@/domain/ssot.v7';
+import type { Account, AccountType, Item, Uom, Stage, Segment, CommercialFlow, Party } from '@/domain/ssot';
+import { ACCOUNT_STAGE_META } from '@/domain/ssot';
 
 type SBFlowModalProps = {
   open: boolean;
@@ -88,10 +88,10 @@ function AccountSelector({
 }
 
 function OrderForm({ onSubmit, items }: { onSubmit: (p: any) => void; items: Item[] }) {
-  const [lines, setLines] = useState<{ itemId: string; qty: number; uom: Uom, priceUnit: number }[]>([{ itemId: '', qty: 1, uom: 'unit', priceUnit: 0 }]);
+  const [lines, setLines] = useState<{ sku: string; qty: number; uom: Uom, priceUnit: number }[]>([{ sku: '', qty: 1, uom: 'UNIT', priceUnit: 0 }]);
   const [note, setNote] = useState('');
   
-  const addLine = () => setLines(prev => [...prev, { itemId: '', qty: 1, uom: 'unit', priceUnit: 0 }]);
+  const addLine = () => setLines(prev => [...prev, { sku: '', qty: 1, uom: 'UNIT', priceUnit: 0 }]);
   const updateLine = (index: number, field: 'itemId' | 'qty' | 'priceUnit', value: string) => {
     const newLines = [...lines];
     const numValue = Number(value);
@@ -224,7 +224,7 @@ function EditAccountForm({ onSubmit, defaults, users, distributors }: { onSubmit
           </label>
           <label className="grid gap-1.5">
             <span className="text-sm font-medium">Segmento *</span>
-            <Select value={formState.segment} onChange={e => handleChange('segment', e.target.value)} required>
+            <Select value={formState.accountType} onChange={e => handleChange('segment', e.target.value)} required>
               {SEGMENT_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
             </Select>
           </label>
@@ -245,19 +245,19 @@ function EditAccountForm({ onSubmit, defaults, users, distributors }: { onSubmit
               {STAGE_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
             </Select>
           </label>
-          {formState.flow === 'PLACEMENT' && (
+          {formState.flow === 'COLOCACION' && (
             <label className="grid gap-1.5">
               <span className="text-sm font-medium">Comercial Asignado *</span>
-              <Select value={formState.ownerId} onChange={e => handleChange('ownerId', e.target.value)} required>
+              <Select value={formState.salesRepId} onChange={e => handleChange('ownerId', e.target.value)} required>
                 <option value="">Selecciona...</option>
                 {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
               </Select>
             </label>
           )}
-          {formState.flow === 'DIRECT' && (
+          {formState.flow === 'DIRECTA' && (
             <label className="grid gap-1.5">
               <span className="text-sm font-medium">Comercial Asignado <span className="text-xs text-zinc-500">(opcional)</span></span>
-              <Select value={formState.ownerId || ''} onChange={e => handleChange('ownerId', e.target.value)}>
+              <Select value={formState.salesRepId || ''} onChange={e => handleChange('ownerId', e.target.value)}>
                 <option value="">Sin asignar</option>
                 {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
               </Select>
@@ -272,8 +272,8 @@ function EditAccountForm({ onSubmit, defaults, users, distributors }: { onSubmit
               <input
                 type="radio"
                 name="flow"
-                value="DIRECT"
-                checked={formState.flow === 'DIRECT'}
+                value="DIRECTA"
+                checked={formState.flow === 'DIRECTA'}
                 onChange={e => handleChange('flow', e.target.value)}
                 className="w-4 h-4"
               />
@@ -283,8 +283,8 @@ function EditAccountForm({ onSubmit, defaults, users, distributors }: { onSubmit
               <input
                 type="radio"
                 name="flow"
-                value="PLACEMENT"
-                checked={formState.flow === 'PLACEMENT'}
+                value="COLOCACION"
+                checked={formState.flow === 'COLOCACION'}
                 onChange={e => handleChange('flow', e.target.value)}
                 className="w-4 h-4"
               />
@@ -293,10 +293,10 @@ function EditAccountForm({ onSubmit, defaults, users, distributors }: { onSubmit
           </div>
         </label>
 
-        {formState.flow === 'PLACEMENT' && (
+        {formState.flow === 'COLOCACION' && (
           <label className="grid gap-1.5">
             <span className="text-sm font-medium">Distribuidor *</span>
-            <Select value={formState.distributorPartyId || ''} onChange={e => handleChange('distributorPartyId', e.target.value)} required>
+            <Select value={formState.distributorId || ''} onChange={e => handleChange('distributorPartyId', e.target.value)} required>
               <option value="">Selecciona distribuidor...</option>
               {distributors.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
             </Select>
@@ -459,10 +459,10 @@ export function SBFlowModal(props: SBFlowModalProps) {
     onSubmit(finalPayload);
   };
 
-  const users = data?.users || [];
+  const users = data?.teamMembers || [];
   const distributorRoles = (data?.partyRoles || []).filter(r => r.role === 'DISTRIBUTOR');
   const distributorOptions = distributorRoles.map(role => {
-    const party = data?.parties.find(p => p.id === role.partyId);
+    const party = data?.accounts.find(p => p.id === role.partyId);
     return { value: role.partyId, label: party?.name || role.partyId };
   }).sort((a, b) => a.label.localeCompare(b.label));
 

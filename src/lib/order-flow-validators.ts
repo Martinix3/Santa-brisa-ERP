@@ -1,6 +1,6 @@
 // src/lib/order-flow-validators.ts
 
-import { OrderSellOut, User, CommercialFlow } from '@/domain/ssot.v7';
+import { OrderSellOut, CommercialFlow } from '@/domain/ssot';
 
 /**
  * Resultado de validación
@@ -34,7 +34,7 @@ export function validateOrderFlow(
 
   // REGLA 1: Online (Shopify) siempre DIRECT
   if (order.source === 'SHOPIFY') {
-    if (order.flow && order.flow !== 'DIRECT') {
+    if (order.flow && order.flow !== 'DIRECTA') {
       return {
         valid: false,
         error: 'Pedidos online (Shopify) deben tener flow=DIRECT',
@@ -56,14 +56,14 @@ export function validateOrderFlow(
 
   // REGLA 2: Comerciales solo PLACEMENT
   if (createdByUser?.role === 'comercial') {
-    if (order.flow === 'DIRECT') {
+    if (order.flow === 'DIRECTA') {
       return {
         valid: false,
         error: 'Comerciales no pueden crear pedidos con flow=DIRECT (no tienen capacidad de facturar)',
       };
     }
 
-    if (order.flow === 'PLACEMENT' && !order.distributorId) {
+    if (order.flow === 'COLOCACION' && !order.distributorId) {
       return {
         valid: false,
         error: 'Pedidos de comerciales requieren distributorId (debe ser Santa Brisa o distribuidor externo)',
@@ -77,7 +77,7 @@ export function validateOrderFlow(
   }
 
   // REGLA 3: PLACEMENT requiere distributor
-  if (order.flow === 'PLACEMENT') {
+  if (order.flow === 'COLOCACION') {
     if (!order.distributorId) {
       return {
         valid: false,
@@ -87,7 +87,7 @@ export function validateOrderFlow(
   }
 
   // REGLA 4: DIRECT no debe tener distributor
-  if (order.flow === 'DIRECT') {
+  if (order.flow === 'DIRECTA') {
     if (order.distributorId) {
       return {
         valid: false,
@@ -145,16 +145,16 @@ export function inferOrderFlow(
 ): CommercialFlow {
   // Online siempre DIRECT
   if (source === 'SHOPIFY') {
-    return 'DIRECT';
+    return 'DIRECTA';
   }
 
   // Comerciales siempre PLACEMENT
   if (userRole === 'comercial') {
-    return 'PLACEMENT';
+    return 'COLOCACION';
   }
 
   // Por defecto, admin puede elegir, pero sugerimos DIRECT
-  return 'DIRECT';
+  return 'DIRECTA';
 }
 
 /**
@@ -174,17 +174,17 @@ export function findInvalidOrders(orders: OrderSellOut[]): Array<{
     const errors: string[] = [];
 
     // Online debe ser DIRECT
-    if (order.source === 'SHOPIFY' && order.flow !== 'DIRECT') {
+    if (order.source === 'SHOPIFY' && order.flow !== 'DIRECTA') {
       errors.push(`Online debe tener flow=DIRECT (tiene ${order.flow})`);
     }
 
     // PLACEMENT sin distributor
-    if (order.flow === 'PLACEMENT' && !order.distributorId) {
+    if (order.flow === 'COLOCACION' && !order.distributorId) {
       errors.push('PLACEMENT sin distributorId');
     }
 
     // DIRECT con distributor
-    if (order.flow === 'DIRECT' && order.distributorId) {
+    if (order.flow === 'DIRECTA' && order.distributorId) {
       errors.push('DIRECT con distributorId (debería ser null)');
     }
 
