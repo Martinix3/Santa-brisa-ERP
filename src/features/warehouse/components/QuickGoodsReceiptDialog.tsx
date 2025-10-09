@@ -9,6 +9,9 @@ import { SBButton, Input, Select } from "@/components/ui/ui-primitives";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/ui-primitives"; 
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/ui-primitives"; 
 import { useData } from "@/lib/dataprovider";
+// ⚠️ TEMPORAL: Este archivo usa Party/PartyRole que no están definidos en SSOT v7
+// Suppliers necesitan análisis de negocio: ¿Son Accounts? ¿Nueva entidad?
+// Por ahora usamos v6 (compatible) hasta definir modelo de suppliers en v7
 import type { Party, Item, Uom, ItemCategory, PartyRole } from "@/domain/ssot";
 import { createGoodsReceipt, createSupplier, createItem } from "@/server/actions/goods-receipt.actions";
 import { Plus, Trash2, Truck, Check, ChevronsUpDown } from "lucide-react";
@@ -164,7 +167,7 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
   const onSubmit = async (formData: FormValues) => {
     try {
         const payloadLines = formData.lines.map((l) => {
-          const it = items.find(i => i.id === l.itemId);
+          const it = items.find((i: Item) => i.id === l.itemId);
           return {
             itemId: l.itemId,
             newItemName: l.newItemName,
@@ -234,7 +237,7 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
                       onChange={field.onChange}
                       onCreate={async (name) => {
                         const newParty = await createSupplier({ name });
-                        setData(d => d ? ({ ...d, parties: [...(d.parties || []), newParty], partyRoles: [...(d.partyRoles || []), {id:`role_${Date.now()}`, partyId: newParty.id, role:'SUPPLIER'} as PartyRole]}) : d);
+                        setData((d: any) => d ? ({ ...d, parties: [...(d.parties || []), newParty], partyRoles: [...(d.partyRoles || []), {id:`role_${Date.now()}`, partyId: newParty.id, role:'SUPPLIER'} as PartyRole]}) : d);
                         setValue("supplierId", newParty.id, { shouldValidate: true });
                       }}
                     />

@@ -4,7 +4,11 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
 import { Input, Select, SBButton } from '@/components/ui/ui-primitives';
-import type { Shipment, Account, Item, Party, SB_THEME, Uom, ShipmentLine, SalesUnit } from '@/domain/ssot.v7';
+// ⚠️ TEMPORAL: Este archivo usa Party/Account.partyId que son de v6
+// En v7: Party eliminado, Account no tiene partyId, billing address movido a Account
+// Shipment.partyId eliminado en v7
+// Por ahora usa modelo v6 (compatible) hasta refactorización completa
+import type { Shipment, Account, Item, Uom, ShipmentLine, Party, ShipmentStatus } from '@/domain/ssot'; // v6 temporal
 import { Plus, X, Search } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
 
@@ -82,7 +86,7 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, items }: Ne
     const [address, setAddress] = useState('');
     const [city, setCity] = useState('');
     const [postalCode, setPostalCode] = useState('');
-    const [lines, setLines] = useState<{ itemId: string; qty: number; name: string, uom: SalesUnit }[]>([{ itemId: '', qty: 1, name: '', uom: 'unit' }]);
+    const [lines, setLines] = useState<{ itemId: string; qty: number; name: string, uom: string }[]>([{ itemId: '', qty: 1, name: '', uom: 'unit' }]);
     const [notes, setNotes] = useState('');
 
     useEffect(() => {
@@ -100,7 +104,7 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, items }: Ne
     const handleAccountSelect = (account: Account) => {
         setAccountId(account.id);
         setNewCustomerName(undefined);
-        const party = data?.parties.find(p => p.id === account?.partyId);
+        const party = data?.parties.find((p: Party) => p.id === account?.partyId);
         if (party) {
             const mainAddress = (party.billingAddress ?? undefined);
             if (mainAddress) {
@@ -145,8 +149,8 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, items }: Ne
             accountId: accountId!,
             partyId: account?.partyId!,
             mode: 'PARCEL',
-            status: 'pending',
-            lines: lines as ShipmentLine[],
+            status: 'pending' as ShipmentStatus,
+            lines: lines.map(l => ({ ...l, sku: items.find((i: Item) => i.id === l.itemId)?.sku || '' })) as ShipmentLine[],
             customerName: account?.name || newCustomerName!,
             newCustomerName: newCustomerName && !account ? newCustomerName : undefined,
             addressLine1: address,
