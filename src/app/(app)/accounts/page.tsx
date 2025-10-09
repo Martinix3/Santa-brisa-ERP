@@ -1,41 +1,42 @@
-
 // src/app/(app)/accounts/page.tsx
-
 "use client"
-import React, { useMemo, useState, useEffect, useCallback } from 'react'
+import React, { useMemo, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ChevronDown, Search, Plus, Phone, Mail, MessageSquare, History, ShoppingCart, Info, Users, MoreVertical, Ticket, Clock, List, LayoutGrid } from 'lucide-react'
-import type { Stage, User, Interaction, OrderSellOut, SantaData, Party, PartyRole, InteractionKind, Account, CommercialFlow } from '@/domain/ssot.v7'
+import { ChevronDown, Search, Plus, Phone, Mail, MessageSquare, ShoppingCart, Users, MoreVertical, List, LayoutGrid } from 'lucide-react'
+import type { Stage, Team, Interaction, Order, InteractionKind, Account, CommercialFlow } from '@/domain/ssot.v7'
 import { useSystemConfig } from '@/hooks/useSystemConfig';
-import { SB_COLORS, ACCOUNT_STAGE_META } from '@/domain/ssot.v7';
-import { accountOwnerDisplay, computeAccountKPIs, getDistributorForAccount } from '@/lib/sb-core';
-import Link from 'next/link'
 import { useData } from '@/lib/dataprovider'
 import { FilterSelect, ModuleHeader, SBButton, Badge, Input } from '@/components/ui'
 import { Avatar } from '@/components/ui/Avatar';
 import { NewAccountDialog } from '@/features/accounts/components/NewAccountDialog';
 import { AccountsPipelineView } from '@/features/accounts/components/AccountsPipelineView';
-import { DEPT_META } from '@/domain/ssot.v7';
 import { toast } from 'sonner';
 import { AccountBarDialog } from '@/features/accounts/components/AccountBarDialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import Link from 'next/link'
 
 type ViewType = 'list' | 'pipeline';
+
+const STAGE_META: Record<Stage, { label: string; variant: 'default' | 'primary' | 'info' | 'destructive' }> = {
+  POTENCIAL: { label: 'Potencial', variant: 'info' },
+  ACTIVA: { label: 'Activa', variant: 'primary' },
+  SEGUIMIENTO: { label: 'Seguimiento', variant: 'default' },
+  FALLIDA: { label: 'Fallida', variant: 'destructive' },
+  CERRADA: { label: 'Cerrada', variant: 'default' },
+  BAJA: { label: 'Baja', variant: 'default' },
+};
 
 const formatEUR = (n: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
 
 function GroupBar({ stage, count, expanded, onToggle }: { stage: Stage, count: number, expanded: boolean, onToggle: () => void }) {
-    const s = ACCOUNT_STAGE_META[stage];
+    const s = STAGE_META[stage];
     if (!s) return null;
     return (
         <SBButton
             variant="ghost"
             onClick={onToggle}
             className="w-full grid grid-cols-[1fr_auto] gap-2 items-center px-3 py-2 justify-between"
-            aria-expanded={expanded}
-            aria-controls={`panel-${stage}`}
-            id={`button-${stage}`}
         >
             <div className="flex items-center gap-2 flex-grow">
                 <h3 className="font-semibold text-sm">{s.label}</h3>
@@ -44,154 +45,166 @@ function GroupBar({ stage, count, expanded, onToggle }: { stage: Stage, count: n
             <ChevronDown
                 className="h-5 w-5 transition-transform duration-300 text-muted-foreground"
                 style={{ transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
-                aria-hidden="true"
             />
         </SBButton>
     );
 }
 
-function AccountBar({ a, party, santaData, onOpenDialog, userMap, shortDate }: { a: Account, party?: Party, santaData: SantaData, onOpenDialog: (accountId: string) => void, userMap: Record<string, string>, shortDate: Intl.DateTimeFormat }) {
+function AccountBar({ 
+  account, 
+  interactions, 
+  orders, 
+  teams,
+  onOpenDialog, 
+  shortDate 
+}: { 
+  account: Account; 
+  interactions: Interaction[]; 
+  orders: Order[]; 
+  teams: Team[];
+  onOpenDialog: (accountId: string) => void; 
+  shortDate: Intl.DateTimeFormat;
+}) {
   const [open, setOpen] = useState(false);
   
-  const owner = useMemo(() => accountOwnerDisplay(a, santaData.users, santaData.partyRoles), [a, santaData.users, santaData.partyRoles]);
-  const orderAmount = useMemo(()=> (santaData.ordersSellOut || []).filter((o: OrderSellOut)=>o.accountId===a.id).reduce((n: number,o: OrderSellOut)=> n + (o.totalAmount || 0), 0), [a.id, santaData.ordersSellOut]);
+  const salesRepName = useMemo(() => {
+    const team = teams.find(t => t.id === account.salesRepId);
+    return team?.name || '—';
+  }, [account.salesRepId, teams]);
   
-  const { unifiedActivity, kpis } = useMemo(() => {
-    if (!santaData) return { unifiedActivity: [], kpis: null };
-    const interactions = santaData.interactions.filter((i: Interaction) => i.accountId === a.id);
-    const orders = santaData.ordersSellOut.filter((o: OrderSellOut) => o.accountId === a.id);
-
-    const unified: (Interaction | OrderSellOut)[] = [...interactions, ...orders];
-    unified.sort((a,b) => new Date(String(b.createdAt)).getTime() - new Date(String(a.createdAt)).getTime());
-      
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setDate(endDate.getDate() - 90);
-    const kpiData = computeAccountKPIs({
-        data: santaData,
-        accountId: a.id,
-        startIso: startDate.toISOString(),
-        endIso: endDate.toISOString()
-    });
-
-    return { unifiedActivity: unified, kpis: kpiData };
-  }, [a.id, santaData]);
+  const orderAmount = useMemo(() => 
+    orders.reduce((sum, o) => sum + (o.totalEUR || 0), 0),
+    [orders]
+  );
+  
+  const unifiedActivity = useMemo(() => {
+    const unified: (Interaction | Order)[] = [...interactions, ...orders];
+    unified.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return unified.slice(0, 5);
+  }, [interactions, orders]);
   
   const interactionIcons: Record<InteractionKind, React.ElementType> = {
-      VISITA: MessageSquare,
-      LLAMADA: Phone,
-      EMAIL: Mail,
-      OTRO: History,
-      WHATSAPP: MessageSquare,
-      EVENTO_MKT: MessageSquare,
-      COBRO: MessageSquare
+    VISITA: MessageSquare,
+    LLAMADA: Phone,
+    EMAIL: Mail,
+    WHATSAPP: MessageSquare,
+    OTRO: MessageSquare,
   };
-
-  const distributorName = useMemo(() => {
-      return getDistributorForAccount(a, santaData.partyRoles, santaData.parties)?.name || '—';
-  }, [a, santaData.partyRoles, santaData.parties]);
-
 
   return (
     <div className="overflow-hidden">
-        <div className="w-full grid grid-cols-[auto_1.6fr_1.2fr_1fr_1.2fr_auto] items-center gap-3 px-4 py-1.5 cursor-pointer transition-colors duration-150 hover:bg-muted/30" onClick={()=>setOpen(v=>!v)}>
-            <div className="p-1.5 rounded-md text-muted-foreground hover:bg-muted/50">
-                <ChevronDown className="h-4 w-4 transition-transform duration-300" style={{transform: open? 'rotate(180deg)':'rotate(0deg)'}} aria-hidden="true"/>
-            </div>
-            <div className="text-sm font-medium truncate flex items-center gap-2">
-                <Link href={`/accounts/${a.id}`} className="text-foreground truncate hover:underline">{a.name}</Link>
-                {orderAmount>0 && <Badge variant="success">{formatEUR(orderAmount)}</Badge>}
-            </div>
-            <div className="flex items-center gap-2 min-w-0"><Avatar name={owner} size="md" />
-                <span className="text-sm text-foreground truncate">{owner}</span>
-            </div>
-            <div className="text-sm text-muted-foreground truncate">{party?.billingAddress?.city ||'—'}</div>
-            <div className="text-sm text-muted-foreground truncate">{distributorName}</div>
-            <div className="text-right">
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <SBButton variant="ghost" size="sm" className="h-8 w-8 p-0">
-                            <MoreVertical className="h-4 w-4"/>
-                        </SBButton>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                        <DropdownMenuItem onSelect={() => onOpenDialog(a.id)}>
-                            Acciones Rápidas
-                        </DropdownMenuItem>
-                         <DropdownMenuItem asChild>
-                           <Link href={`/accounts/${a.id}`}>Ver Ficha</Link>
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
-            </div>
+      <div 
+        className="w-full grid grid-cols-[auto_1.6fr_1.2fr_1fr_1.2fr_auto] items-center gap-3 px-4 py-1.5 cursor-pointer transition-colors duration-150 hover:bg-muted/30" 
+        onClick={() => setOpen(v => !v)}
+      >
+        <div className="p-1.5 rounded-md text-muted-foreground hover:bg-muted/50">
+          <ChevronDown 
+            className="h-4 w-4 transition-transform duration-300" 
+            style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }} 
+          />
         </div>
-        {open && kpis && (
-            <div className="p-4 bg-background shadow-inner">
-                <div className="grid grid-cols-3 gap-6">
-                    <div className='col-span-2'>
-                        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Actividad Reciente</h4>
-                        <ul className="space-y-1 text-sm text-muted-foreground max-h-40 overflow-y-auto pr-2">
-                            {unifiedActivity.length > 0 ? unifiedActivity.slice(0, 5).map((act, i) => {
-                                if ('kind' in act) {
-                                    const int = act as Interaction;
-                                    const Icon = interactionIcons[int.kind] || History;
-                                    return (
-                                        <li key={`act_${i}`} className="flex items-start gap-3 text-xs">
-                                            <Icon className="sb-icon h-4 w-4 mt-0.5" />
-                                            <div>
-                                                <span className="font-medium text-foreground capitalize">{int.kind}</span>
-                                                <span className="text-muted-foreground"> &middot; {shortDate.format(new Date(int.createdAt))}</span>
-                                                {int.note && <p className="text-foreground italic mt-0.5 line-clamp-2">“{int.note}”</p>}
-                                            </div>
-                                        </li>
-                                    )
-                                }
-                                if ('lines' in act) {
-                                    const order = act as OrderSellOut;
-                                    return (
-                                        <li key={`act_${i}`} className="flex items-start gap-3 text-xs">
-                                            <ShoppingCart className="h-4 w-4 mt-0.5 text-success flex-shrink-0" />
-                                            <div>
-                                                <span className="font-medium text-success">Pedido</span>
-                                                <span className="text-muted-foreground"> &middot; {shortDate.format(new Date(order.createdAt))}</span>
-                                                <p className="font-semibold text-foreground mt-0.5">{formatEUR(order.totalAmount || 0)}</p>
-                                            </div>
-                                        </li>
-                                    )
-                                }
-                                return null;
-                            }) : <div className="text-xs text-muted-foreground text-center py-2">No hay actividad registrada.</div>}
-                        </ul>
-                    </div>
-
-                    <div>
-                        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">KPIs (90d)</h4>
-                        {kpis && <div className="grid grid-cols-2 gap-2 text-xs">
-                            <div className="text-center p-2 bg-secondary/50 rounded flex flex-col items-center gap-1">
-                                <Ticket size={16} className="text-muted-foreground"/>
-                                <div className="font-bold text-base">{formatEUR(kpis.avgTicket)}</div>
-                                <div className="text-muted-foreground">Ticket Medio</div>
-                            </div>
-                            <div className="text-center p-2 bg-secondary/50 rounded flex flex-col items-center gap-1">
-                                <ShoppingCart size={16} className="text-muted-foreground"/>
-                                <div className="font-bold text-base">{kpis.orderCount}</div>
-                                <div className="text-muted-foreground">Nº Pedidos</div>
-                            </div>
-                            <div className="text-center p-2 bg-secondary/50 rounded flex flex-col items-center gap-1">
-                                <MessageSquare size={16} className="text-muted-foreground"/>
-                                <div className="font-bold text-base">{kpis.visitsCount}</div>
-                                <div className="text-muted-foreground">Nº Visitas</div>
-                            </div>
-                            <div className="text-center p-2 bg-secondary/50 rounded flex flex-col items-center gap-1">
-                                <Clock size={16} className="text-muted-foreground"/>
-                                <div className="font-bold text-base">{kpis.daysSinceLastOrder ?? '—'}</div>
-                                <div className="text-muted-foreground">Días s/ Pedido</div>
-                            </div>
-                        </div>}
-                    </div>
-                </div>
+        <div className="text-sm font-medium truncate flex items-center gap-2">
+          <Link href={`/accounts/${account.id}`} className="text-foreground truncate hover:underline">
+            {account.name}
+          </Link>
+          {orderAmount > 0 && <Badge variant="success">{formatEUR(orderAmount)}</Badge>}
+        </div>
+        <div className="flex items-center gap-2 min-w-0">
+          <Avatar name={salesRepName} size="md" />
+          <span className="text-sm text-foreground truncate">{salesRepName}</span>
+        </div>
+        <div className="text-sm text-muted-foreground truncate">
+          {account.billingAddress?.city || '—'}
+        </div>
+        <div className="text-sm text-muted-foreground truncate">
+          {account.commercialFlow === 'DIRECTA' ? 'Directa' : 'Colocación'}
+        </div>
+        <div className="text-right">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <SBButton variant="ghost" size="sm" className="h-8 w-8 p-0">
+                <MoreVertical className="h-4 w-4" />
+              </SBButton>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onSelect={() => onOpenDialog(account.id)}>
+                Acciones Rápidas
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href={`/accounts/${account.id}`}>Ver Ficha</Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+      
+      {open && (
+        <div className="p-4 bg-background shadow-inner">
+          <div className="grid grid-cols-3 gap-6">
+            <div className='col-span-2'>
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                Actividad Reciente
+              </h4>
+              <ul className="space-y-1 text-sm text-muted-foreground max-h-40 overflow-y-auto pr-2">
+                {unifiedActivity.length > 0 ? unifiedActivity.map((act, i) => {
+                  if ('kind' in act) {
+                    const int = act as Interaction;
+                    const Icon = interactionIcons[int.kind] || MessageSquare;
+                    return (
+                      <li key={`act_${i}`} className="flex items-start gap-3 text-xs">
+                        <Icon className="h-4 w-4 mt-0.5" />
+                        <div>
+                          <span className="font-medium text-foreground capitalize">{int.kind}</span>
+                          <span className="text-muted-foreground"> · {shortDate.format(new Date(int.createdAt))}</span>
+                          {int.summary && <p className="text-foreground italic mt-0.5 line-clamp-2">"{int.summary}"</p>}
+                        </div>
+                      </li>
+                    )
+                  }
+                  if ('lines' in act) {
+                    const order = act as Order;
+                    return (
+                      <li key={`act_${i}`} className="flex items-start gap-3 text-xs">
+                        <ShoppingCart className="h-4 w-4 mt-0.5 text-success flex-shrink-0" />
+                        <div>
+                          <span className="font-medium text-success">Pedido</span>
+                          <span className="text-muted-foreground"> · {shortDate.format(new Date(order.createdAt))}</span>
+                          <p className="font-semibold text-foreground mt-0.5">
+                            {formatEUR(order.totalEUR || 0)}
+                          </p>
+                        </div>
+                      </li>
+                    )
+                  }
+                  return null;
+                }) : (
+                  <div className="text-xs text-muted-foreground text-center py-2">
+                    No hay actividad registrada.
+                  </div>
+                )}
+              </ul>
             </div>
-        )}
+
+            <div>
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                KPIs (90d)
+              </h4>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="text-center p-2 bg-secondary/50 rounded flex flex-col items-center gap-1">
+                  <ShoppingCart size={16} className="text-muted-foreground" />
+                  <div className="font-bold text-base">{orders.length}</div>
+                  <div className="text-muted-foreground">Pedidos</div>
+                </div>
+                <div className="text-center p-2 bg-secondary/50 rounded flex flex-col items-center gap-1">
+                  <MessageSquare size={16} className="text-muted-foreground" />
+                  <div className="font-bold text-base">{interactions.length}</div>
+                  <div className="text-muted-foreground">Visitas</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -202,19 +215,20 @@ export default function AccountsPage() {
   const { config } = useSystemConfig();
   const searchParams = useSearchParams();
   const flowParam = searchParams.get('flow')?.toUpperCase();
-  const flow: CommercialFlow = flowParam === 'DIRECT' ? 'DIRECT' : 'PLACEMENT';
+  const flow: CommercialFlow = flowParam === 'COLOCACION' ? 'COLOCACION' : 'DIRECTA';
   
-  // Obtener color de VENTAS desde SSOT
-  const ventasColor = config?.theme.departments.VENTAS.color || DEPT_META.VENTAS.color;
+  const ventasColor = config?.theme?.departments?.VENTAS?.color || '#10b981';
   
-  const [q,setQ]=useState('');
+  const [q, setQ] = useState('');
   const [viewType, setViewType] = useState<ViewType>('list');
-  const [expanded,setExpanded] = useState<Record<string,boolean>>({ ACTIVA:true });
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({ ACTIVA: true });
   const [fltRep, setFltRep] = useState("");
   const [fltCity, setFltCity] = useState("");
-  const [fltDist, setFltDist] = useState("");
   
-  const [dialogState, setDialogState] = useState<{ open: boolean; accountId: string | null }>({ open: false, accountId: null });
+  const [dialogState, setDialogState] = useState<{ open: boolean; accountId: string | null }>({ 
+    open: false, 
+    accountId: null 
+  });
   const [isNewAccountOpen, setIsNewAccountOpen] = useState(false);
 
   useEffect(() => {
@@ -230,92 +244,91 @@ export default function AccountsPage() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  const data = useMemo(() => santaData?.accounts || [], [santaData]);
+  const accounts = useMemo(() => santaData?.accounts || [], [santaData]);
+  const teams = useMemo(() => santaData?.teams || [], [santaData]);
+  const interactions = useMemo(() => santaData?.interactions || [], [santaData]);
+  const orders = useMemo(() => santaData?.orders || [], [santaData]);
 
-  const { partyMap, userMap, repOptions, cityOptions, distOptions } = useMemo(() => {
-    if (!santaData) {
-      return { partyMap: {}, userMap: {}, repOptions: [], cityOptions: [], distOptions: [] };
-    }
-    const pMap: Record<string, Party> = {};
-    (santaData.parties || []).forEach(p => { pMap[p.id] = p; });
-
-    const uMap: Record<string, string> = {};
-    (santaData.users || []).forEach(u => { uMap[u.id] = u.name; });
-
+  const { repOptions, cityOptions } = useMemo(() => {
     const reps = new Set<string>();
     const cities = new Set<string>();
     
-    data.forEach(a => {
-      if(a.ownerId) reps.add(a.ownerId);
-      const party = pMap[a.partyId];
-      if (party?.billingAddress?.city) cities.add(party.billingAddress.city);
+    accounts.forEach(a => {
+      if (a.salesRepId) reps.add(a.salesRepId);
+      if (a.billingAddress?.city) cities.add(a.billingAddress.city);
     });
 
-    const distributorRoles = (santaData.partyRoles || []).filter(r => r.role === 'DISTRIBUTOR');
-    
     return {
-      partyMap: pMap,
-      userMap: uMap,
-      repOptions: Array.from(reps).map(id => ({ value: id, label: uMap[id] || pMap[id]?.name || id })).sort((a,b) => a.label.localeCompare(b.label)),
-      cityOptions: Array.from(cities).map(c => ({ value: c, label: c })).sort((a,b) => a.label.localeCompare(b.label)),
-      distOptions: distributorRoles.map(role => ({ value: role.partyId, label: pMap[role.partyId]?.name || role.partyId })).sort((a,b) => a.label.localeCompare(b.label)),
+      repOptions: Array.from(reps)
+        .map(id => {
+          const team = teams.find(t => t.id === id);
+          return { value: id, label: team?.name || id };
+        })
+        .sort((a, b) => a.label.localeCompare(b.label)),
+      cityOptions: Array.from(cities)
+        .map(c => ({ value: c, label: c }))
+        .sort((a, b) => a.label.localeCompare(b.label)),
     };
-  }, [data, santaData]);
+  }, [accounts, teams]);
 
-  const shortDate = useMemo(() => new Intl.DateTimeFormat('es-ES', { day:'2-digit', month:'short' }), []);
+  const shortDate = useMemo(() => new Intl.DateTimeFormat('es-ES', { day: '2-digit', month: 'short' }), []);
 
   const filtered = useMemo(() => {
-    if (!santaData) return [];
     const s = q.trim().toLowerCase();
     
-    return data.filter(a => {
-      // Show PLACEMENT accounts by default, not DIRECT
-      if (a.flow !== flow) return false;
+    return accounts.filter(a => {
+      if (a.commercialFlow !== flow) return false;
 
-      const ownerName = a.ownerId ? userMap[a.ownerId] : '';
-      const party = partyMap[a.partyId];
-      const city = party?.billingAddress?.city || '';
+      const teamName = teams.find(t => t.id === a.salesRepId)?.name || '';
+      const city = a.billingAddress?.city || '';
 
-      const matchesQuery = !s || [a.name, city, a.stage, ownerName].some(v=> (v||'').toString().toLowerCase().includes(s));
-      const matchesRep = !fltRep || a.ownerId === fltRep;
+      const matchesQuery = !s || [a.name, city, a.stage, teamName]
+        .some(v => (v || '').toString().toLowerCase().includes(s));
+      const matchesRep = !fltRep || a.salesRepId === fltRep;
       const matchesCity = !fltCity || city === fltCity;
-      const matchesDist = !fltDist || a.distributorPartyId === fltDist;
 
-      return matchesQuery && matchesRep && matchesCity && matchesDist;
+      return matchesQuery && matchesRep && matchesCity;
     });
-  }, [q, data, flow, fltRep, fltCity, fltDist, santaData, userMap, partyMap]);
+  }, [q, accounts, flow, fltRep, fltCity, teams]);
 
-  const grouped = useMemo(()=>{
-    const g: Record<string,Account[]> = { ACTIVA:[], SEGUIMIENTO:[], POTENCIAL:[], FALLIDA:[], CERRADA: [], BAJA: [] };
-    filtered.forEach(a=> {
-        if (a.stage && g[a.stage]) {
-            (g[a.stage] as Account[]).push(a);
-        }
+  const grouped = useMemo(() => {
+    const g: Record<Stage, Account[]> = {
+      ACTIVA: [],
+      SEGUIMIENTO: [],
+      POTENCIAL: [],
+      FALLIDA: [],
+      CERRADA: [],
+      BAJA: [],
+    };
+    filtered.forEach(a => {
+      if (a.stage && g[a.stage]) {
+        g[a.stage].push(a);
+      }
     });
     return g;
-  },[filtered]);
+  }, [filtered]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-        try {
-            const savedState = localStorage.getItem('sb-groups-expanded');
-            if (savedState && savedState.trim() && savedState !== 'undefined') {
-                setExpanded(JSON.parse(savedState));
-            }
-        } catch (e) {
-            console.error('Failed to parse expanded state from localStorage', e);
-            setExpanded({ ACTIVA: true });
+      try {
+        const savedState = localStorage.getItem('sb-groups-expanded');
+        if (savedState && savedState.trim() && savedState !== 'undefined') {
+          setExpanded(JSON.parse(savedState));
         }
+      } catch (e) {
+        console.error('Failed to parse expanded state from localStorage', e);
+        setExpanded({ ACTIVA: true });
+      }
     }
   }, []);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-        try {
-            localStorage.setItem('sb-groups-expanded', JSON.stringify(expanded));
-        } catch (e) {
-            console.error('Failed to save expanded state to localStorage', e);
-        }
+      try {
+        localStorage.setItem('sb-groups-expanded', JSON.stringify(expanded));
+      } catch (e) {
+        console.error('Failed to save expanded state to localStorage', e);
+      }
     }
   }, [expanded]);
 
@@ -330,7 +343,7 @@ export default function AccountsPage() {
           onClick={() => setIsNewAccountOpen(true)} 
           style={{ backgroundColor: ventasColor, color: '#ffffff' }}
         >
-            <Plus size={16} /> Nueva Cuenta
+          <Plus size={16} /> Nueva Cuenta
         </SBButton>
       </ModuleHeader>
       
@@ -338,9 +351,9 @@ export default function AccountsPage() {
       <div className="w-full px-4 lg:px-8 pt-4 pb-2 bg-background border-b">
         <div className="flex items-center gap-1 bg-secondary p-1 rounded-lg w-fit">
           <button
-            onClick={() => router.push('/accounts?flow=DIRECT')}
+            onClick={() => router.push('/accounts?flow=DIRECTA')}
             className={`h-8 px-4 rounded-md text-sm font-medium transition-colors ${
-              flow === 'DIRECT'
+              flow === 'DIRECTA'
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
             }`}
@@ -348,9 +361,9 @@ export default function AccountsPage() {
             Directas
           </button>
           <button
-            onClick={() => router.push('/accounts?flow=PLACEMENT')}
+            onClick={() => router.push('/accounts?flow=COLOCACION')}
             className={`h-8 px-4 rounded-md text-sm font-medium transition-colors ${
-              flow === 'PLACEMENT'
+              flow === 'COLOCACION'
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
             }`}
@@ -375,9 +388,8 @@ export default function AccountsPage() {
           </div>
           <FilterSelect value={fltRep} onChange={setFltRep} options={repOptions} placeholder="Comercial" />
           <FilterSelect value={fltCity} onChange={setFltCity} options={cityOptions} placeholder="Ciudad" />
-          <FilterSelect value={fltDist} onChange={setFltDist} options={distOptions} placeholder="Distribuidor" />
           
-          {/* Toggle Vista Simple */}
+          {/* Toggle Vista */}
           <button
             onClick={() => setViewType(viewType === 'list' ? 'pipeline' : 'list')}
             className="px-3 py-2 rounded-lg border text-sm font-medium transition-colors hover:bg-zinc-50"
@@ -404,36 +416,59 @@ export default function AccountsPage() {
         {/* Vista Lista */}
         {viewType === 'list' && (
           <>
-            {(Object.keys(ACCOUNT_STAGE_META) as Stage[]).map(k=>{
-          const count = grouped[k]?.length || 0;
-          if (count === 0) return null;
-          const isOpen = !!expanded[k];
-          const s = ACCOUNT_STAGE_META[k];
-          return (
-            <div key={k} id={`group-${k}`} className={cn(
-              'w-full rounded-lg overflow-hidden border-l-4',
-              s.variant === 'info' && 'border-info bg-info/10 text-info-foreground',
-              s.variant === 'primary' && 'border-primary bg-primary/10 text-primary-foreground',
-              s.variant === 'destructive' && 'border-destructive bg-destructive/10 text-destructive-foreground',
-              s.variant === 'default' && 'border-muted bg-secondary/80 text-muted-foreground',
-            )}>
-              <GroupBar stage={k} count={count} expanded={isOpen} onToggle={()=> setExpanded(e=> ({...e,[k]:!e[k]})) }/>
-              {isOpen && santaData && (
-                <div id={`panel-${k}`} role="region" aria-labelledby={`button-${k}`}>
+            {(Object.keys(STAGE_META) as Stage[]).map(stage => {
+              const accountsInStage = grouped[stage] || [];
+              const count = accountsInStage.length;
+              if (count === 0) return null;
+              const isOpen = !!expanded[stage];
+              const s = STAGE_META[stage];
+              
+              return (
+                <div 
+                  key={stage} 
+                  className={cn(
+                    'w-full rounded-lg overflow-hidden border-l-4',
+                    s.variant === 'info' && 'border-info bg-info/10',
+                    s.variant === 'primary' && 'border-primary bg-primary/10',
+                    s.variant === 'destructive' && 'border-destructive bg-destructive/10',
+                    s.variant === 'default' && 'border-muted bg-secondary/80',
+                  )}
+                >
+                  <GroupBar 
+                    stage={stage} 
+                    count={count} 
+                    expanded={isOpen} 
+                    onToggle={() => setExpanded(e => ({ ...e, [stage]: !e[stage] }))} 
+                  />
+                  {isOpen && (
                     <div className="divide-y divide-border">
-                        {grouped[k].map(a=> (
-                            <AccountBar key={a.id} a={a} party={partyMap[a.partyId]} santaData={santaData} onOpenDialog={(id) => setDialogState({ open: true, accountId: id })} userMap={userMap} shortDate={shortDate}/>
-                        ))}
+                      {accountsInStage.map(account => (
+                        <AccountBar 
+                          key={account.id} 
+                          account={account}
+                          interactions={interactions.filter((i: Interaction) => i.accountId === account.id)}
+                          orders={orders.filter((o: Order) => o.accountId === account.id)}
+                          teams={teams}
+                          onOpenDialog={(id) => setDialogState({ open: true, accountId: id })} 
+                          shortDate={shortDate}
+                        />
+                      ))}
                     </div>
+                  )}
                 </div>
-              )}
-            </div>
-          )
-        })}
-            {!filtered.length && (q || fltRep || fltCity || fltDist) ? (
-                <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-                    No hay resultados con esos filtros. <SBButton variant="ghost" onClick={() => { setQ(''); setFltRep(''); setFltCity(''); setFltDist(''); }} className="underline">Limpiar filtros</SBButton>
-                </div>
+              )
+            })}
+            {!filtered.length && (q || fltRep || fltCity) ? (
+              <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                No hay resultados con esos filtros.{' '}
+                <SBButton 
+                  variant="ghost" 
+                  onClick={() => { setQ(''); setFltRep(''); setFltCity(''); }} 
+                  className="underline"
+                >
+                  Limpiar filtros
+                </SBButton>
+              </div>
             ) : null}
           </>
         )}
@@ -459,8 +494,7 @@ export default function AccountsPage() {
             setIsNewAccountOpen(false);
           }}
           onError={(msg) => toast.error(`Error al crear cuenta: ${msg}`)}
-          users={santaData.users}
-          distributors={distOptions}
+          teams={teams}
         />
       )}
     </>

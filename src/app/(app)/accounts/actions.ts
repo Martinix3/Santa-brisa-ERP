@@ -2,61 +2,32 @@
 "use server";
 import { revalidatePath } from 'next/cache';
 import { adminDb as db } from '@/server/firebase';
-import type { Account, Party, PartyRole, CustomerData } from '@/domain/ssot.v7';
+import type { Account } from '@/domain/ssot.v7';
 
-export async function createAccount(data: { name: string; ownerId: string; }): Promise<Account> {
-  const { name, ownerId } = data;
-  if (!name || !ownerId) {
-    throw new Error('El nombre y el propietario son obligatorios para crear una cuenta.');
+export async function createAccount(data: { name: string; salesRepId: string; }): Promise<Account> {
+  const { name, salesRepId } = data;
+  if (!name || !salesRepId) {
+    throw new Error('El nombre y el representante de ventas son obligatorios para crear una cuenta.');
   }
 
   const now = new Date().toISOString();
   
-  // 1. Crear la entidad 'Party' asociada
-  const partyRef = db.collection('parties').doc();
-  const partyId = partyRef.id;
-
-  const newParty: Partial<Party> = {
-      id: partyId,
-      name: name,
-      kind: 'ORG',
-      createdAt: now,
-      updatedAt: now,
-  };
-  
-  // 2. Crear la cuenta y vincularla a la Party y al Owner
+  // Crear la cuenta según SSOT v7
   const accountRef = db.collection('accounts').doc();
   const newAccount: Account = {
     id: accountRef.id,
     name,
-    ownerId,
-    partyId,
-    stage: 'POTENCIAL', // Un estado por defecto
     segment: 'HORECA',
-    flow: 'DIRECT',
+    stage: 'POTENCIAL',
+    salesRepId,  // ✅ Campo correcto en v7 (antes era ownerId)
+    channels: ['HORECA'],  // ✅ Campo requerido en v7
+    commercialFlow: 'DIRECTA',  // ✅ Campo correcto en v7 (antes era flow: 'DIRECT')
     createdAt: now,
     updatedAt: now,
+    createdBy: salesRepId,
   };
 
-  const roleRef = db.collection('partyRoles').doc();
-  const newRole: PartyRole = {
-      id: roleRef.id,
-      partyId,
-      role: 'CUSTOMER',
-      isActive: true,
-      createdAt: now,
-      data: {
-          salesRepId: ownerId,
-          billerId: 'SB'
-      } as CustomerData
-  };
-
-  const batch = db.batch();
-  batch.set(partyRef, newParty as Party);
-  batch.set(accountRef, newAccount);
-  batch.set(roleRef, newRole);
-
-  await batch.commit();
+  await accountRef.set(newAccount);
 
   // Revalida los datos para que la UI se actualice en todas partes
   revalidatePath('/agenda'); 
@@ -64,5 +35,3 @@ export async function createAccount(data: { name: string; ownerId: string; }): P
 
   return newAccount;
 }
-
-    
