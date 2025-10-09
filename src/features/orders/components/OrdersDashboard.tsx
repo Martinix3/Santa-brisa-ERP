@@ -3,14 +3,13 @@
 
 import React, { useMemo, useState } from 'react';
 import { useData } from '@/lib/dataprovider';
-import type { OrderSellOut, OrderStatus } from '@/domain/ssot.v7';
+import type { Order, OrderStatus, Account } from '@/domain/ssot.v7';
 import OrdersTable from './OrdersTable';
 import { toast } from 'sonner';
 import { firestoreDb } from '@/lib/firebaseClient';
 import { doc, updateDoc } from 'firebase/firestore';
 import { KPI, SBCard, SBButton } from '@/components/ui/ui-primitives';
 import { Package, Truck, FileText, Clock, Plus, Search } from 'lucide-react';
-import { SB_COLORS } from '@/domain/ssot.v7';
 import { FilterSelect, Input } from '@/components/ui';
 import { getDistributors } from '@/lib/distributor-helpers';
 
@@ -50,19 +49,19 @@ const OrdersDashboard = () => {
     const filteredOrders = useMemo(() => {
         if (!data) return [];
         
-        let orders = data.ordersSellOut || [];
+        let orders = data.orders || [];
         
         // Filtro principal: Sell-In vs Sell-Out
         if (activeTab === 'sell-in') {
-            orders = orders.filter(o => o.flow === 'DIRECT');
+            orders = orders.filter((o: Order) => o.channel === 'DIRECTA');
             
             // Filtro por canal (solo en Sell-In)
             if (canalFilter !== 'ALL') {
-                orders = orders.filter(o => {
-                    const account = data.accounts?.find(a => a.id === o.accountId);
+                orders = orders.filter((o: Order) => {
+                    const account = data.accounts?.find((a: Account) => a.id === o.accountId);
                     
                     if (canalFilter === 'ONLINE') {
-                        return o.source === 'SHOPIFY';
+                        return o.source === 'Shopify';
                     } else if (canalFilter === 'DISTRIBUIDOR') {
                         return account?.segment === 'DISTRIBUIDOR';
                     } else {
@@ -74,20 +73,20 @@ const OrdersDashboard = () => {
             
             // Si canal es DISTRIBUIDOR y hay filtro de distribuidor específico
             if (canalFilter === 'DISTRIBUIDOR' && distributorFilter) {
-                orders = orders.filter(o => {
-                    const account = data.accounts?.find(a => a.id === o.accountId);
-                    return account?.distributorPartyId === distributorFilter;
+                orders = orders.filter((o: Order) => {
+                    const account = data.accounts?.find((a: Account) => a.id === o.accountId);
+                    return account?.distributorId === distributorFilter;
                 });
             }
         } else {
-            // Sell-Out: PLACEMENT
-            orders = orders.filter(o => o.flow === 'PLACEMENT');
+            // Sell-Out: COLOCACION
+            orders = orders.filter((o: Order) => o.channel === 'COLOCACION');
             
             // En Sell-Out, filtrar por distribuidor si está seleccionado
             if (distributorFilter) {
-                orders = orders.filter(o => {
-                    const account = data.accounts?.find(a => a.id === o.accountId);
-                    return account?.distributorPartyId === distributorFilter;
+                orders = orders.filter((o: Order) => {
+                    const account = data.accounts?.find((a: Account) => a.id === o.accountId);
+                    return account?.distributorId === distributorFilter;
                 });
             }
         }
@@ -95,8 +94,8 @@ const OrdersDashboard = () => {
         // Búsqueda general
         if (searchQuery.trim()) {
             const query = searchQuery.toLowerCase();
-            orders = orders.filter(o => {
-                const account = data.accounts?.find(a => a.id === o.accountId);
+            orders = orders.filter((o: Order) => {
+                const account = data.accounts?.find((a: Account) => a.id === o.accountId);
                 return (
                     o.id.toLowerCase().includes(query) ||
                     account?.name.toLowerCase().includes(query) ||
@@ -110,10 +109,10 @@ const OrdersDashboard = () => {
 
     // KPIs basados en pedidos filtrados
     const kpis = useMemo(() => {
-        const pendingConfirmation = filteredOrders.filter(o => o.status === 'open').length;
-        const pendingShipment = filteredOrders.filter(o => o.status === 'confirmed').length;
-        const pendingInvoice = filteredOrders.filter(o => o.status === 'shipped').length;
-        const pendingPayment = filteredOrders.filter(o => o.status === 'invoiced').length;
+        const pendingConfirmation = filteredOrders.filter((o: Order) => o.status === 'ABIERTO').length;
+        const pendingShipment = filteredOrders.filter((o: Order) => o.status === 'EN_PROCESO').length;
+        const pendingInvoice = filteredOrders.filter((o: Order) => o.status === 'SERVIDO').length;
+        const pendingPayment = filteredOrders.filter((o: Order) => o.status === 'FACTURADO').length;
         
         return { pendingConfirmation, pendingShipment, pendingInvoice, pendingPayment };
     }, [filteredOrders]);
@@ -126,7 +125,7 @@ const OrdersDashboard = () => {
         }
 
         try {
-            const orderRef = doc(firestoreDb, 'ordersSellOut', orderId);
+            const orderRef = doc(firestoreDb, 'orders', orderId);
             await updateDoc(orderRef, {
                 status: newStatus,
                 updatedAt: new Date().toISOString()
@@ -184,25 +183,25 @@ const OrdersDashboard = () => {
                     icon={Clock} 
                     label="Pendiente de Confirmar" 
                     value={kpis.pendingConfirmation} 
-                    color={SB_COLORS.state.info} 
+                    color="#3b82f6" 
                 />
                 <KPI 
                     icon={Package} 
                     label="Pendiente de Enviar" 
                     value={kpis.pendingShipment} 
-                    color={SB_COLORS.primary.teal} 
+                    color="#618E8F" 
                 />
                 <KPI 
                     icon={Truck} 
                     label="Pendiente de Facturar" 
                     value={kpis.pendingInvoice} 
-                    color={SB_COLORS.state.success} 
+                    color="#10b981" 
                 />
                 <KPI 
                     icon={FileText} 
                     label="Pendiente de Cobrar" 
                     value={kpis.pendingPayment} 
-                    color={SB_COLORS.primary.copper} 
+                    color="#C18A5A" 
                 />
             </div>
 
@@ -257,15 +256,15 @@ const OrdersDashboard = () => {
             {/* Tabla de pedidos */}
             <SBCard noPadding>
                 <OrdersTable 
-                    orders={filteredOrders.map(order => {
-                        const account = data?.accounts?.find(a => a.id === order.accountId);
+                    orders={filteredOrders.map((order: Order) => {
+                        const account = data?.accounts?.find((a: Account) => a.id === order.accountId);
                         return {
                             id: order.id,
                             client: account?.name || order.accountId || 'Sin cliente',
                             date: order.createdAt,
                             status: order.status,
-                            total: `${order.totalAmount?.toFixed(2) || '0.00'}€`,
-                            channel: order.flow
+                            total: `${order.total?.toFixed(2) || '0.00'}€`,
+                            channel: order.channel === 'DIRECTA' ? 'DIRECT' : 'PLACEMENT'
                         };
                     })}
                     onStatusChange={handleStatusChange}

@@ -22,23 +22,23 @@ interface StatusBadgeProps {
 
 const StatusBadge: React.FC<StatusBadgeProps> = ({ status, orderId, onStatusChange }) => {
     const statusStyles: Record<OrderStatus, { text: string; classes: string }> = {
-        open: { text: 'Abierto', classes: 'bg-blue-100 text-blue-800 hover:bg-blue-200' },
-        confirmed: { text: 'Confirmado', classes: 'bg-indigo-100 text-indigo-800 hover:bg-indigo-200' },
-        shipped: { text: 'Enviado', classes: 'bg-cyan-100 text-cyan-800 hover:bg-cyan-200' },
-        invoiced: { text: 'Facturado', classes: 'bg-purple-100 text-purple-800 hover:bg-purple-200' },
-        paid: { text: 'Pagado', classes: 'bg-green-100 text-green-800 hover:bg-green-200' },
-        cancelled: { text: 'Cancelado', classes: 'bg-zinc-100 text-zinc-800 hover:bg-zinc-200' },
-        lost: { text: 'Perdido', classes: 'bg-red-100 text-red-800 hover:bg-red-200' },
+        BORRADOR: { text: 'Borrador', classes: 'bg-gray-100 text-gray-800 hover:bg-gray-200' },
+        ABIERTO: { text: 'Abierto', classes: 'bg-blue-100 text-blue-800 hover:bg-blue-200' },
+        EN_PROCESO: { text: 'En Proceso', classes: 'bg-indigo-100 text-indigo-800 hover:bg-indigo-200' },
+        SERVIDO: { text: 'Servido', classes: 'bg-cyan-100 text-cyan-800 hover:bg-cyan-200' },
+        FACTURADO: { text: 'Facturado', classes: 'bg-purple-100 text-purple-800 hover:bg-purple-200' },
+        PAGADO: { text: 'Pagado', classes: 'bg-green-100 text-green-800 hover:bg-green-200' },
+        CANCELADO: { text: 'Cancelado', classes: 'bg-red-100 text-red-800 hover:bg-red-200' },
     };
 
     const allStatuses: { value: OrderStatus; label: string }[] = [
-        { value: 'open', label: 'Abierto' },
-        { value: 'confirmed', label: 'Confirmado' },
-        { value: 'shipped', label: 'Enviado' },
-        { value: 'invoiced', label: 'Facturado' },
-        { value: 'paid', label: 'Pagado' },
-        { value: 'cancelled', label: 'Cancelado' },
-        { value: 'lost', label: 'Perdido' },
+        { value: 'BORRADOR', label: 'Borrador' },
+        { value: 'ABIERTO', label: 'Abierto' },
+        { value: 'EN_PROCESO', label: 'En Proceso' },
+        { value: 'SERVIDO', label: 'Servido' },
+        { value: 'FACTURADO', label: 'Facturado' },
+        { value: 'PAGADO', label: 'Pagado' },
+        { value: 'CANCELADO', label: 'Cancelado' },
     ];
 
     const { text, classes } = statusStyles[status] || { text: 'Desconocido', classes: 'bg-slate-100 text-slate-800' };
