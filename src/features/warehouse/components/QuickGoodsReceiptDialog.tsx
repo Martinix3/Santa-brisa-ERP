@@ -9,10 +9,7 @@ import { SBButton, Input, Select } from "@/components/ui/ui-primitives";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/ui-primitives"; 
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/ui-primitives"; 
 import { useData } from "@/lib/dataprovider";
-// ⚠️ TEMPORAL: Este archivo usa Party/PartyRole que no están definidos en SSOT v7
-// Suppliers necesitan análisis de negocio: ¿Son Accounts? ¿Nueva entidad?
-// Por ahora usamos v6 (compatible) hasta definir modelo de suppliers en v7
-import type { Party, Item, Uom, ItemCategory, PartyRole } from "@/domain/ssot";
+import type { Account, Item, Uom, ItemKind } from "@/domain/ssot.v7";
 import { createGoodsReceipt, createSupplier, createItem } from "@/server/actions/goods-receipt.actions";
 import { Plus, Trash2, Truck, Check, ChevronsUpDown } from "lucide-react";
 import { toast } from "sonner";
@@ -96,8 +93,8 @@ function SearchableCombobox({
 // --- Tipos para el Formulario (ACTUALIZADOS) ---
 type LineFormData = {
   itemId: string;
-  newItemName?: string; // Para creación on-the-fly
-  newItemCategory?: ItemCategory; // Para creación on-the-fly
+  newItemName?: string;
+  newItemCategory?: ItemKind;
   supplierLot: string;
   qty: number;
   unitCost: number;
@@ -140,8 +137,7 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
 
   const { suppliers, items } = useMemo(() => {
     if (!data) return { suppliers: [], items: [] };
-    const supplierIds = new Set((data.partyRoles || []).filter((r: PartyRole) => r.role === 'SUPPLIER').map((r: PartyRole) => r.partyId));
-    const supplierList = (data.parties || []).filter((p: Party) => supplierIds.has(p.id));
+    const supplierList = (data.accounts || []).filter((a: Account) => a.segment === 'SUPPLIER');
     return { suppliers: supplierList, items: data.items || [] };
   }, [data]);
 
@@ -154,14 +150,14 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
       date: nowIsoDate(),
       supplierId: "",
       deliveryNote: "",
-      lines: [{ itemId: "", supplierLot: "", qty: 0, uom: "unit", unitCost: 0, autoLot: true, expiryAt: null, newItemCategory: 'raw' }],
+      lines: [{ itemId: "", supplierLot: "", qty: 0, uom: "UNIT", unitCost: 0, autoLot: true, expiryAt: null, newItemCategory: 'RAW' }],
     },
   });
 
-  useEffect(() => { if (open) reset({ date: nowIsoDate(), lines: [{ itemId: "", supplierLot: "", qty: 0, uom: "unit", unitCost: 0, autoLot: true, expiryAt: null, newItemCategory: 'raw' }] }); }, [open, reset]);
+  useEffect(() => { if (open) reset({ date: nowIsoDate(), lines: [{ itemId: "", supplierLot: "", qty: 0, uom: "UNIT", unitCost: 0, autoLot: true, expiryAt: null, newItemCategory: 'RAW' }] }); }, [open, reset]);
   const { fields, append, remove } = useFieldArray({ control, name: "lines" });
 
-  const supplierOptions = useMemo(() => suppliers.map((s: Party) => ({ value: s.id, label: s.name })), [suppliers]);
+  const supplierOptions = useMemo(() => suppliers.map((s: Account) => ({ value: s.id, label: s.name })), [suppliers]);
   const itemOptions = useMemo(() => items.map((i: Item) => ({ value: i.id, label: i.name })), [items]);
   
   const onSubmit = async (formData: FormValues) => {
@@ -204,11 +200,11 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
       itemId: "",
       supplierLot: "",
       qty: 0,
-      uom: lastLine?.uom || "unit",
+      uom: lastLine?.uom || "UNIT",
       unitCost: 0,
       autoLot: true,
       expiryAt: null,
-      newItemCategory: lastLine?.newItemCategory || 'raw'
+      newItemCategory: lastLine?.newItemCategory || 'RAW'
     });
   };
   
@@ -236,9 +232,9 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
                       value={field.value}
                       onChange={field.onChange}
                       onCreate={async (name) => {
-                        const newParty = await createSupplier({ name });
-                        setData((d: any) => d ? ({ ...d, parties: [...(d.parties || []), newParty], partyRoles: [...(d.partyRoles || []), {id:`role_${Date.now()}`, partyId: newParty.id, role:'SUPPLIER'} as PartyRole]}) : d);
-                        setValue("supplierId", newParty.id, { shouldValidate: true });
+                        const newSupplier = await createSupplier({ name });
+                        setData((d: any) => d ? ({ ...d, accounts: [...(d.accounts || []), newSupplier]}) : d);
+                        setValue("supplierId", newSupplier.id, { shouldValidate: true });
                       }}
                     />
                   )}
@@ -287,9 +283,9 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
                                 onChange={(itemId) => {
                                     const itSel = items.find((it: Item) => it.id === itemId);
                                     controllerField.onChange(itemId);
-                                    setValue(`lines.${i}.uom`, itSel?.uom ?? 'unit');
-                                    setValue(`lines.${i}.unitCost`, itSel?.stdCost ?? 0);
-                                    setValue(`lines.${i}.newItemName`, undefined); // Limpiar si se selecciona
+                                    setValue(`lines.${i}.uom`, itSel?.uom ?? 'UNIT');
+                                    setValue(`lines.${i}.unitCost`, itSel?.cost ?? 0);
+                                    setValue(`lines.${i}.newItemName`, undefined);
                                 }}
                                 onCreate={async (name) => {
                                     setValue(`lines.${i}.itemId`, '');
@@ -301,18 +297,17 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
                           {watch(`lines.${i}.newItemName`) && (
                                 <div className="mt-2">
                                     <Select {...register(`lines.${i}.newItemCategory`)}>
-                                        <option value="raw">Materia Prima</option>
-                                        <option value="pack">Packaging</option>
-                                        <option value="label">Etiqueta</option>
-                                        <option value="consumable">Consumible</option>
-                                        <option value="fg">Producto Terminado</option>
+                                        <option value="RAW">Materia Prima</option>
+                                        <option value="PACKAGING">Packaging</option>
+                                        <option value="PRODUCT">Producto</option>
+                                        <option value="SERVICE">Servicio</option>
                                     </Select>
                                 </div>
                           )}
                         </td>
                         <td className="p-2 align-top"><Input placeholder="Lote del proveedor" {...register(`lines.${i}.supplierLot`)} /></td>
                         <td className="p-2 align-top"><Input type="number" step="any" {...register(`lines.${i}.qty`, { valueAsNumber: true, required: true, min: 0.001 })} /></td>
-                        <td className="p-2 align-top"><Select {...register(`lines.${i}.uom`)}><option value="unit">unit</option><option value="kg">kg</option><option value="L">L</option></Select></td>
+                        <td className="p-2 align-top"><Select {...register(`lines.${i}.uom`)}><option value="UNIT">unit</option><option value="KG">kg</option><option value="L">L</option></Select></td>
                         <td className="p-2 align-top"><Input type="number" step="any" {...register(`lines.${i}.unitCost`, { valueAsNumber: true })} /></td>
                         <td className="p-2 align-top"><Input type="date" {...register(`lines.${i}.expiryAt`)} /></td>
                         <td className="p-2 align-top"><button type="button" onClick={() => remove(i)}><Trash2 className="h-4 w-4 text-red-500" /></button></td>

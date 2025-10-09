@@ -4,11 +4,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
 import { Input, Select, SBButton } from '@/components/ui/ui-primitives';
-// ⚠️ TEMPORAL: Este archivo usa Party/Account.partyId que son de v6
-// En v7: Party eliminado, Account no tiene partyId, billing address movido a Account
-// Shipment.partyId eliminado en v7
-// Por ahora usa modelo v6 (compatible) hasta refactorización completa
-import type { Shipment, Account, Item, Uom, ShipmentLine, Party, ShipmentStatus } from '@/domain/ssot'; // v6 temporal
+import type { Shipment, Account, Item, ShipmentLine, ShipmentStatus } from '@/domain/ssot.v7';
 import { Plus, X, Search } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
 
@@ -104,14 +100,11 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, items }: Ne
     const handleAccountSelect = (account: Account) => {
         setAccountId(account.id);
         setNewCustomerName(undefined);
-        const party = data?.parties.find((p: Party) => p.id === account?.partyId);
-        if (party) {
-            const mainAddress = (party.billingAddress ?? undefined);
-            if (mainAddress) {
-                setCity(mainAddress?.city ?? '');
-                setAddress(mainAddress?.street ?? '');
-                setPostalCode(mainAddress?.zip ?? '');
-            }
+        // En v7, billingAddress está directamente en Account
+        if (account.billingAddress) {
+            setCity(account.billingAddress.city ?? '');
+            setAddress(account.billingAddress.street ?? '');
+            setPostalCode(account.billingAddress.postalCode ?? '');
         }
     };
     
@@ -146,18 +139,23 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, items }: Ne
 
         const payload: NewShipmentPayload = {
             orderId: `manual_${Date.now()}`,
-            accountId: accountId!,
-            partyId: account?.partyId!,
-            mode: 'PARCEL',
-            status: 'pending' as ShipmentStatus,
-            lines: lines.map(l => ({ ...l, sku: items.find((i: Item) => i.id === l.itemId)?.sku || '' })) as ShipmentLine[],
-            customerName: account?.name || newCustomerName!,
+            shipmentNumber: undefined,
+            status: 'DRAFT' as ShipmentStatus,
+            fromWarehouseId: 'FG/MAIN',
+            lines: lines.map(l => ({ 
+                sku: items.find((i: Item) => i.id === l.itemId)?.sku || '', 
+                name: l.name,
+                qty: l.qty,
+                lotNumber: undefined
+            })),
+            toAddress: {
+                name: account?.name || newCustomerName!,
+                street: address,
+                city,
+                postalCode,
+                country: 'España'
+            },
             newCustomerName: newCustomerName && !account ? newCustomerName : undefined,
-            addressLine1: address,
-            city,
-            postalCode,
-            country: 'España',
-            notes,
         };
         onSave(payload);
     };

@@ -16,7 +16,7 @@ export type Currency = 'EUR';
 // -----------------------------------------------------------------
 
 // Segmentos y Clasificación
-export type Segment = 'HORECA' | 'RETAIL' | 'DISTRIBUIDOR' | 'IMPORTADOR' | 'PRIVADA' | 'ONLINE';
+export type Segment = 'HORECA' | 'RETAIL' | 'DISTRIBUIDOR' | 'IMPORTADOR' | 'PRIVADA' | 'ONLINE' | 'SUPPLIER';
 export type Stage = 'POTENCIAL' | 'SEGUIMIENTO' | 'ACTIVA' | 'FALLIDA' | 'CERRADA' | 'BAJA';
 export type CommercialFlow = 'DIRECTA' | 'COLOCACION' | 'AMBOS';
 
