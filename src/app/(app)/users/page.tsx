@@ -3,12 +3,12 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import type { User, SantaData, UserRole } from '@/domain/ssot';
+import type { User, SantaData, UserRole } from '@/domain/ssot.v7';
 import { Trash2, Lock, Unlock, Edit, Save, X, User as UserIcon } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
 import { SBButton } from '@/components/ui/ui-primitives';
-import { SB_COLORS } from '@/domain/ssot';
+import { SB_COLORS } from '@/domain/ssot.v7';
 
 function UserRow({ 
     user, 

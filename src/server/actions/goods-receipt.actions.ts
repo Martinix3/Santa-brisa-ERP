@@ -4,12 +4,13 @@
 import { revalidatePath } from 'next/cache';
 import { adminDb as db } from '@/server/firebase';
 import { FieldValue } from 'firebase-admin/firestore';
-import type { Party, Item, GoodsReceipt, StockMove, Uom, ItemCategory, PartyRole, Lot, QcStatus, TraceEvent, TraceEventPhase, TraceEventKind } from '@/domain/ssot';
+import type { Party, Item, GoodsReceipt, StockMove, Uom, ItemCategory, PartyRole, Lot, QcStatus, TraceEvent, TraceEventPhase, TraceEventKind } from '@/domain/ssot.v7';
 import { LotSchema } from '@/domain/validators';
 import { normText } from '@/lib/norm/text';
 import { makeGoodsReceiptCode } from '@/lib/codes';
 import { findNextLotNumber } from '@/server/actions/inventory.actions';
 import { makeOnHandId } from '@/domain/id-helpers';
+import { normalizeUom } from '@/domain/uom';
 
 // --- Helpers ---
 const uniqueSku = (base: string, existingSkus: string[]) => {
@@ -89,7 +90,7 @@ export async function createItem(payload: { name: string; sku?: string; uom: Uom
         id: itemRef.id,
         name,
         sku: sku || makeSku(name, catCode, existingSkus),
-        uom,
+        uom: normalizeUom(uom), // ✅ SSOT COMPLIANCE: Normalizar UOM
         category: catCode,
         stdCost: stdCost || 0,
         active: true,
@@ -161,7 +162,7 @@ export async function createGoodsReceipt(payload: {
                 id: itemId,
                 name: line.newItemName,
                 sku: makeSku(line.newItemName, line.newItemCategory || 'raw', existingItems.map(it => it.sku)),
-                uom: line.uom || 'unit',
+                uom: normalizeUom(line.uom || 'unit'), // ✅ SSOT COMPLIANCE: Normalizar UOM
                 category: line.newItemCategory || 'raw',
                 stdCost: line.unitCost || 0,
                 active: true,
@@ -178,13 +179,18 @@ export async function createGoodsReceipt(payload: {
         const lotNumber = line.supplierLot.trim() || (line.autoLot ? await findNextLotNumber(itemId, currentItem.sku) : "");
         if (!lotNumber) throw new Error(`El lote de proveedor es obligatorio para la línea con ${currentItem.name}.`);
 
+        // ✅ Sanitizar expiryAt: convertir string vacío o undefined a null
+        const sanitizedExpiryAt = line.expiryAt && typeof line.expiryAt === 'string' && line.expiryAt.trim() 
+          ? line.expiryAt.trim() 
+          : null;
+
         const lotData = LotSchema.parse({
             lotNumber: lotNumber,
             itemId: itemId,
             quantity: line.qty,
-            uom: currentItem.uom,
+            uom: normalizeUom(currentItem.uom), // ✅ SSOT COMPLIANCE: Normalizar UOM
             qcStatus: initialQcStatusForItemCategory(currentItem.category),
-            expiryAt: line.expiryAt ?? null,
+            expiryAt: sanitizedExpiryAt,
             createdAt: nowIso,
             updatedAt: nowIso,
         });
@@ -197,15 +203,17 @@ export async function createGoodsReceipt(payload: {
         batch.set(onHandRef, {
             id: onHandId, itemId, lotNumber, locationId,
             qty: FieldValue.increment(line.qty),
-            uom: currentItem.uom, qcStatus: lotData.qcStatus,
+            uom: normalizeUom(currentItem.uom), // ✅ SSOT COMPLIANCE: Normalizar UOM
+            qcStatus: lotData.qcStatus,
             createdAt: nowIso, updatedAt: nowIso,
-            expiryAt: line.expiryAt ?? null,
+            expiryAt: sanitizedExpiryAt,
         }, { merge: true });
 
         const smRef = db.collection('stockMoves').doc();
         const stockMove: StockMove = {
             id: smRef.id,
-            itemId, lotNumber, uom: currentItem.uom,
+            itemId, lotNumber, 
+            uom: normalizeUom(currentItem.uom), // ✅ SSOT COMPLIANCE: Normalizar UOM
             qty: line.qty,
             reason: 'receipt',
             toLocationId: locationId,
@@ -229,7 +237,7 @@ export async function createGoodsReceipt(payload: {
                 supplierId: finalSupplierId,
                 deliveryNote: deliveryNote,
                 qty: line.qty,
-                uom: currentItem.uom
+                uom: normalizeUom(currentItem.uom) // ✅ SSOT COMPLIANCE: Normalizar UOM
             }
         };
         batch.set(traceEventRef, traceEvent as any);
@@ -238,7 +246,7 @@ export async function createGoodsReceipt(payload: {
         finalLines.push({
             itemId,
             qty: line.qty,
-            uom: currentItem.uom,
+            uom: normalizeUom(currentItem.uom), // ✅ SSOT COMPLIANCE: Normalizar UOM
             unitCost: line.unitCost,
             lotNumber,
         } as any);

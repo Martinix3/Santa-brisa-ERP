@@ -1,7 +1,7 @@
 // src/features/warehouse/components/LogisticsKPIs.tsx
 "use client";
 import React, { useMemo } from 'react';
-import type { Shipment } from '@/domain/ssot';
+import type { Shipment } from '@/domain/ssot.v7';
 import { Truck, PackageCheck, AlertCircle, CheckCircle } from 'lucide-react';
 import { SBCard } from '@/components/ui/ui-primitives';
 

@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Search, ChevronsUpDown, Check } from 'lucide-react';
-import type { OnHandView } from '@/domain/ssot';
+import type { OnHandView } from '@/domain/ssot.v7';
 
 // --- TYPE ALIAS PARA ESTILOS CON VARIABLES CSS ---
 type CSSVarStyle = React.CSSProperties & Record<string, string | number>;
@@ -270,6 +270,13 @@ export function AgaveEdge(){
 type StatusVariant = 'default' | 'info' | 'success' | 'destructive';
 type StatusStyle = { label: string; variant: StatusVariant };
 
+/**
+ * @deprecated Use ORDER_STATUS_META or SHIPMENT_STATUS_META from @/domain/ssot instead.
+ * This generic STATUS_STYLES mixes different entity types and should not be used.
+ * 
+ * For orders: import { ORDER_STATUS_META } from '@/domain/ssot.v7'
+ * For shipments: import { SHIPMENT_STATUS_META } from '@/domain/ssot.v7'
+ */
 export const STATUS_STYLES: Record<string, StatusStyle> = {
   open: { label: "Borrador", variant: "default" },
   pending: { label: "Pendiente", variant: "info" },

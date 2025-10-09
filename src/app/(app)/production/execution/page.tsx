@@ -5,7 +5,7 @@ import React, { useMemo, useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useData } from "@/lib/dataprovider";
 import { toast } from "sonner";
-import type { Uom, Item, ProductionOrder, BillOfMaterial as RecipeBom } from '@/domain/ssot';
+import type { Uom, Item, ProductionOrder, BillOfMaterial as RecipeBom } from '@/domain/ssot.v7';
 import { planProduction } from "@/server/actions/production.actions";
 import { ProductionSidebar } from "@/features/production/execution/components/ProductionSidebar";
 import { ActiveOrderPanel } from "@/features/production/execution/components/ActiveOrderPanel";
@@ -20,6 +20,7 @@ type FormOutput = {
     qty: number;
     uom: Uom | "uds";
     toLocationId: string;
+    lotNumber?: string;
 };
 
 type FormConsumptionLine = {
@@ -38,8 +39,14 @@ type ActiveFormState = {
     finalOutput: FormOutput;
     realConsumption: FormConsumptionLine[];
     stockOk: boolean;
-    shortages: any[]; // Idealmente, tipar esto también
-    requiredLots: any[]; // Idealmente, tipar esto también
+    shortages: any[];
+    requiredLots: any[];
+    responsibleId?: string;
+    protocolChecks?: boolean[];
+    incidentText?: string;
+    incidentSeverity?: 'LOW' | 'MEDIUM' | 'HIGH';
+    journal?: any[];
+    plannedDate?: string; // ✅ Campo separado para fecha de planificación
 };
 
 
@@ -82,31 +89,45 @@ export default function ProductionExecutionPage() {
             sku: outputItem?.sku,
             qty: 1,
             uom: (bom.stage === "ENVASADO" ? "unit" : "L"),
-            toLocationId: 'FG/MAIN'
+            toLocationId: 'FG/MAIN',
+            lotNumber: ''
         },
         realConsumption: [],
         stockOk: false,
         shortages: [],
         requiredLots: [],
+        responsibleId: '',
+        protocolChecks: [false, false, false, false],
+        incidentText: '',
+        incidentSeverity: 'LOW',
+        journal: [],
+        plannedDate: new Date().toISOString().slice(0, 10) // ✅ Fecha por defecto
     });
   }, [itemsMap]);
 
   const openExecution = useCallback((order: ProductionOrder) => {
     const outputItem = itemsMap.get(order.outputItemId);
+    const existingOutput = (order.finalOutputs?.[0] as FormOutput);
     setActiveForm({
         order: order,
         planningBom: null,
-        finalOutput: (order.finalOutputs?.[0] as FormOutput) ?? {
+        finalOutput: existingOutput ?? {
             itemId: order.outputItemId,
             sku: outputItem?.sku,
             qty: order.targetQuantity,
             uom: order.baseUnit as Uom,
-            toLocationId: 'FG/MAIN'
+            toLocationId: 'FG/MAIN',
+            lotNumber: ''
         },
         realConsumption: picksToRealLines(order.reservations || [], itemsMap),
         stockOk: true,
         shortages: order.shortages ?? [],
         requiredLots: order.reservations ?? [],
+        responsibleId: (order as any).responsibleId ?? '',
+        protocolChecks: (order as any).protocolChecks ?? [false, false, false, false],
+        incidentText: '',
+        incidentSeverity: 'LOW',
+        journal: (order as any).journal ?? []
     });
   }, [itemsMap]);
 
@@ -118,15 +139,15 @@ export default function ProductionExecutionPage() {
     const res = await planProduction({
       bomId: activeForm.planningBom.id,
       qty: planQty,
-      plannedDate: activeForm.order?.scheduledFor,
+      plannedDate: activeForm.plannedDate,
       reservations: activeForm.requiredLots,
       idempotencyKey: crypto.randomUUID()
     });
 
     if (res.ok) {
-      toast.success("Orden planificada");
+      toast.success("Orden planificada exitosamente");
       setActiveForm(null);
-      router.refresh();
+      // ✅ Sin refresh - el usuario puede seleccionar la nueva orden de la sidebar
     } else {
       toast.error(res.message ?? "No se pudo planificar");
     }

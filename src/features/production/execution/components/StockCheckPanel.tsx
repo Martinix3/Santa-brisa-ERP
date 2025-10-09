@@ -3,7 +3,7 @@
 
 import React, { useEffect, useMemo } from 'react';
 import { SBButton } from '@/components/ui/ui-primitives';
-import type { Uom, Item, ProductionOrder, BillOfMaterial as RecipeBom, OnHandView } from '@/domain/ssot';
+import type { Uom, Item, ProductionOrder, BillOfMaterial as RecipeBom, OnHandView } from '@/domain/ssot.v7';
 import { SectionCard } from '../../components/ui';
 import { cn } from '@/lib/utils';
 

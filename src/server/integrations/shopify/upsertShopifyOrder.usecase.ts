@@ -3,7 +3,7 @@ import { adminDb as db } from '@/server/firebase';
 import { FieldValue } from 'firebase-admin/firestore';
 import { enqueue } from '@/server/queue/queue';
 import { mapShopifyToSSOT } from './map';
-import type { Account } from '@/domain/ssot';
+import type { Account } from '@/domain/ssot.v7';
 
 async function upsertAccount(accountData: Partial<Account>, shopifyCustomer: any): Promise<FirebaseFirestore.DocumentReference> {
   const email = shopifyCustomer.email;

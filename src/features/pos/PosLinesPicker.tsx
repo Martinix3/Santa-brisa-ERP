@@ -3,7 +3,7 @@
 import React from 'react';
 import { SBButton, Select, Input } from '@/components/ui/ui-primitives';
 import { Plus, Trash2 } from 'lucide-react';
-import { PosCostCatalogEntry } from '@/domain/ssot';
+import { PosCostCatalogEntry } from '@/domain/ssot.v7';
 import type { PosLineInput } from './server/pos-actions';
 
 interface PosLinesPickerProps {

@@ -4,7 +4,7 @@
 import React, { useMemo, useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation';
 import { ChevronDown, Search, Plus, Phone, Mail, MessageSquare, Calendar, History, ShoppingCart, Info, BarChart3, UserPlus, Users, MoreVertical, Ticket, Clock, Edit, FileText } from 'lucide-react'
-import type { Stage, User, Interaction, OrderSellOut, SantaData, CustomerData, Party, PartyRole, InteractionKind, Payload, Account, AccountType, Uom } from '@/domain/ssot'
+import type { Stage, User, Interaction, OrderSellOut, SantaData, CustomerData, Party, PartyRole, InteractionKind, Payload, Account, AccountType, Uom } from '@/domain/ssot.v7'
 import { accountOwnerDisplay, computeAccountKPIs, getDistributorForAccount, orderTotal } from '@/lib/sb-core';
 import Link from 'next/link'
 import { useData } from '@/lib/dataprovider'
@@ -13,20 +13,24 @@ import { ModuleHeader } from '@/components/ui/ModuleHeader'
 import { TaskCompletionDialog } from '@/features/dashboard-ventas/components/TaskCompletionDialog'
 import { Avatar } from '@/components/ui/Avatar';
 import { NewAccountDialog } from './NewAccountDialog';
-import { DEPT_META } from '@/domain/ssot';
+import { DEPT_META, ACCOUNT_STAGE_META } from '@/domain/ssot.v7';
 import { toast } from 'sonner';
 
-const STAGE: Record<string, { label:string; tint:string; text:string }> = {
-  ACTIVA: { label:'Activas', tint:'#A7D8D9', text:'#17383a' },
-  SEGUIMIENTO: { label:'En seguimiento', tint:'#F7D15F', text:'#3f3414' },
-  POTENCIAL: { label:'Potenciales', tint:'#D7713E', text:'#40210f' },
-  FALLIDA: { label:'Perdidas', tint:'#618E8F', text:'#153235' },
+// Mapa de colores para mantener compatibilidad visual
+const STAGE_COLORS: Record<Stage, { tint:string; text:string }> = {
+  ACTIVA: { tint:'#A7D8D9', text:'#17383a' },
+  SEGUIMIENTO: { tint:'#F7D15F', text:'#3f3414' },
+  POTENCIAL: { tint:'#D7713E', text:'#40210f' },
+  FALLIDA: { tint:'#618E8F', text:'#153235' },
+  CERRADA: { tint:'#9ca3af', text:'#1f2937' },
+  BAJA: { tint:'#9ca3af', text:'#1f2937' },
 }
 const formatEUR = (n:number)=> new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n)
 
-function GroupBar({ stage, count, expanded, onToggle }: { stage: keyof typeof STAGE, count: number, expanded: boolean, onToggle: () => void }) {
-    const s = STAGE[stage];
-    if (!s) return null;
+function GroupBar({ stage, count, expanded, onToggle }: { stage: Stage, count: number, expanded: boolean, onToggle: () => void }) {
+    const meta = ACCOUNT_STAGE_META[stage];
+    const colors = STAGE_COLORS[stage];
+    if (!meta) return null;
     return (
         <button
             onClick={onToggle}
@@ -36,12 +40,12 @@ function GroupBar({ stage, count, expanded, onToggle }: { stage: keyof typeof ST
             id={`button-${stage}`}
         >
             <div className="flex items-center gap-2 flex-grow">
-                <h3 className="font-semibold text-sm" style={{color: s.text}}>{s.label}</h3>
-                <span className="text-xs font-normal opacity-80" style={{color: s.text}}>({count})</span>
+                <h3 className="font-semibold text-sm" style={{color: colors.text}}>{meta.label}</h3>
+                <span className="text-xs font-normal opacity-80" style={{color: colors.text}}>({count})</span>
             </div>
             <ChevronDown
                 className="h-5 w-5 transition-transform duration-300"
-                style={{ transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)', color: s.text }}
+                style={{ transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)', color: colors.text }}
                 aria-hidden="true"
             />
         </button>
@@ -196,6 +200,7 @@ export function AccountsPageContent() {
   const { data: santaData, setData, currentUser, saveAllCollections } = useData();
   
   const [q,setQ]=useState('');
+  const [flowTab, setFlowTab] = useState<'DIRECT' | 'PLACEMENT'>('DIRECT');
   const [expanded,setExpanded] = useState<Record<string,boolean>>({ ACTIVA:true });
   const [fltRep, setFltRep] = useState("");
   const [fltCity, setFltCity] = useState("");
@@ -263,14 +268,18 @@ export function AccountsPageContent() {
       const customerRole = (santaData.partyRoles || []).find(pr => pr.partyId === a.partyId && pr.role === 'CUSTOMER');
       const billerId = (customerRole?.data as CustomerData)?.billerId;
 
+      // Normalizar flow: usar flow si existe, sino convertir mode deprecated
+      const accountFlow = a.flow || (a.mode === 'DIRECTA' ? 'DIRECT' : a.mode === 'COLOCACION' ? 'PLACEMENT' : 'DIRECT');
+
       const matchesQuery = !s || [a.name, city, a.type, a.stage, ownerName].some(v=> (v||'').toString().toLowerCase().includes(s));
       const matchesRep = !fltRep || a.ownerId === fltRep;
       const matchesCity = !fltCity || city === fltCity;
       const matchesDist = !fltDist || billerId === fltDist;
+      const matchesFlow = accountFlow === flowTab;
 
-      return matchesQuery && matchesRep && matchesCity && matchesDist;
+      return matchesQuery && matchesRep && matchesCity && matchesDist && matchesFlow;
     });
-  }, [q, data, fltRep, fltCity, fltDist, santaData, userMap, partyMap]);
+  }, [q, data, fltRep, fltCity, fltDist, flowTab, santaData, userMap, partyMap]);
 
   const grouped = useMemo(()=>{
     const g: Record<string,Account[]> = { ACTIVA:[], SEGUIMIENTO:[], POTENCIAL:[], FALLIDA:[] };
@@ -312,12 +321,45 @@ export function AccountsPageContent() {
 
   return (
     <>
-      <ModuleHeader title="Cuentas" icon={Users}>
-        <button onClick={() => setIsNewAccountOpen(true)} className="flex items-center gap-2 text-sm rounded-md px-3 py-1.5 font-semibold transition-colors"
-         style={{ backgroundColor: DEPT_META.VENTAS.color, color: DEPT_META.VENTAS.textColor }}>
-            <Plus size={16} /> Nueva Cuenta
-        </button>
-      </ModuleHeader>
+      <div className="border-b bg-white">
+        <div className="px-4 lg:px-8 py-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-3">
+              <Users className="h-6 w-6" style={{ color: DEPT_META.VENTAS.color }} />
+              <h1 className="text-2xl font-bold">Cuentas</h1>
+            </div>
+            <button onClick={() => setIsNewAccountOpen(true)} className="flex items-center gap-2 text-sm rounded-md px-3 py-1.5 font-semibold transition-colors"
+             style={{ backgroundColor: DEPT_META.VENTAS.color, color: DEPT_META.VENTAS.textColor }}>
+                <Plus size={16} /> Nueva Cuenta
+            </button>
+          </div>
+          
+          {/* Tabs para Venta Directa / Colocación */}
+          <div className="flex items-center gap-1 bg-secondary p-1 rounded-lg w-fit">
+            <button
+              onClick={() => setFlowTab('DIRECT')}
+              className={`h-8 px-4 rounded-md text-sm font-medium transition-colors ${
+                flowTab === 'DIRECT'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Directas
+            </button>
+            <button
+              onClick={() => setFlowTab('PLACEMENT')}
+              className={`h-8 px-4 rounded-md text-sm font-medium transition-colors ${
+                flowTab === 'PLACEMENT'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Colocación
+            </button>
+          </div>
+        </div>
+      </div>
+      
       <div className="w-full px-4 lg:px-8 pt-3 pb-1 sticky top-0 z-20 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60 border-b">
         <div className="flex items-center gap-2">
           <div className="relative flex-grow">
@@ -337,15 +379,15 @@ export function AccountsPageContent() {
         </div>
       </div>
       <div className="w-full px-4 md:px-6 pb-6 space-y-3">
-        {(Object.keys(STAGE) as Array<keyof typeof STAGE>).map(k=>{
+        {(Object.keys(ACCOUNT_STAGE_META) as Stage[]).map(k=>{
           const count = grouped[k]?.length || 0;
           const isOpen = !!expanded[k];
-          const s = STAGE[k];
+          const colors = STAGE_COLORS[k];
           return (
             <div key={k} id={`group-${k}`} className="w-full rounded-lg overflow-hidden"
               style={{
-                borderLeft: `4px solid ${s.tint}`,
-                backgroundColor: `${s.tint}1A`,
+                borderLeft: `4px solid ${colors.tint}`,
+                backgroundColor: `${colors.tint}1A`,
               }}
             >
               <GroupBar stage={k} count={count} expanded={isOpen} onToggle={()=> setExpanded(e=> ({...e,[k]:!e[k]})) }/>

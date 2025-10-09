@@ -3,7 +3,7 @@
 "use client";
 import React, { useState, useEffect, useMemo } from 'react';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
-import type { MarketingEvent, OnlineCampaign, InfluencerCollab } from '@/domain/ssot';
+import type { MarketingEvent, OnlineCampaign, InfluencerCollab } from '@/domain/ssot.v7';
 import { Euro, Users, Target, BarChart3, Heart, MousePointerClick, TrendingUp, DollarSign } from 'lucide-react';
 
 type Entity = MarketingEvent | OnlineCampaign | InfluencerCollab;

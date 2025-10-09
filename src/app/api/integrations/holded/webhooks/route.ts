@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { upsertMany } from '@/lib/dataprovider/actions';
-import type { FinanceLink, PaymentLink, OrderSellOut } from '@/domain/ssot';
+import type { FinanceLink, PaymentLink, OrderSellOut } from '@/domain/ssot.v7';
 
 // Ajusta si añades verificación de firma
 export async function POST(req: NextRequest) {

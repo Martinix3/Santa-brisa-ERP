@@ -1,6 +1,6 @@
 import { adminDb as db } from '@/server/firebase';
 import { callHoldedApi } from '@/server/integrations/holded/client';
-import type { Party } from '@/domain/ssot';
+import type { Party } from '@/domain/ssot.v7';
 
 type Opts = { since?: string };
 

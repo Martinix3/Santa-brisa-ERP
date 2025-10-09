@@ -1,6 +1,6 @@
 // /features/agenda/components/OutcomeDialog.tsx
 import React, { useMemo, useState } from 'react';
-import type { Interaction } from '@/domain/ssot';
+import type { Interaction } from '@/domain/ssot.v7';
 
 // ----------------------------- Dialog genérico -----------------------------
 function Dialog({ title, onClose, children }:{ title:string; onClose:()=>void; children:React.ReactNode }){

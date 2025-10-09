@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Search, Plus } from "lucide-react";
 import { SBButton, Input, Select } from '@/components/ui/ui-primitives';
 import { useData } from '@/lib/dataprovider';
-import type { Shipment, OrderSellOut, Account } from '@/domain/ssot';
+import type { Shipment, OrderSellOut, Account } from '@/domain/ssot.v7';
 import { createManualShipment } from './actions';
 import { toast } from 'sonner';
 

@@ -1,7 +1,7 @@
 // src/server/workers/createDeliveryNote.worker.ts
 'use server';
 import { adminDb as db } from '@/server/firebase';
-import type { DeliveryNote, Shipment, OrderSellOut, Party, Uom } from '@/domain/ssot';
+import type { DeliveryNote, Shipment, OrderSellOut, Party, Uom } from '@/domain/ssot.v7';
 import { Timestamp } from 'firebase-admin/firestore';
 import { makeDeliveryNoteCode } from '@/lib/codes';
 

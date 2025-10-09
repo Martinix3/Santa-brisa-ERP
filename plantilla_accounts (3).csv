@@ -1,0 +1,2 @@
+id,name,partyId,segment,stage,flow,ownerId,distributorPartyId,aliases,source,createdAt,updatedAt,isTarget,location_lat,location_lng,location_address
+acc_bar_central,Bar Central,party_bar_central,HORECA,ACTIVA,PLACEMENT,user_comercial_juan,party_dist_mahou,central;bar centro;el central,CRM,2025-01-01T00:00:00.000Z,2025-01-01T00:00:00.000Z,true,40.4168,-3.7038,Calle Mayor 23, Madrid

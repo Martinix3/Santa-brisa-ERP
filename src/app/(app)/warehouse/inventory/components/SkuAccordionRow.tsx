@@ -1,9 +1,11 @@
 // src/app/(app)/warehouse/inventory/components/SkuAccordionRow.tsx
 'use client';
 import React, { useState } from 'react';
-import type { OnHandView, Item, QcStatus } from '@/domain/ssot';
-import { ChevronDown, Package } from 'lucide-react';
+import type { OnHandView, Item, QcStatus } from '@/domain/ssot.v7';
+import { ChevronDown, Package, DollarSign } from 'lucide-react';
 import { stockStatusBadgeClass, stockStatusLabel, type SkuStockSummary } from "@/lib/inventory";
+import { PricingModal } from './PricingModal';
+import { useRouter } from 'next/navigation';
 
 export function QcStatusPill({ status }: { status: QcStatus }) {
     const styles: Record<QcStatus, string> = {
@@ -21,41 +23,69 @@ export function SkuAccordionRow({ sku: summary, items, onLotSelect }: {
     onLotSelect: (lotNumber: string) => void;
 }) {
     const [isOpen, setIsOpen] = useState(false);
+    const [showPricing, setShowPricing] = useState(false);
+    const router = useRouter();
     const item = items.find(i => i.id === summary.itemId);
 
     return (
-      <div className="border-b last:border-b-0">
-        <div
-          className="grid grid-cols-[2fr_repeat(5,1fr)] items-center gap-4 px-4 py-2 cursor-pointer hover:bg-zinc-50"
-          onClick={() => setIsOpen(!isOpen)}
-        >
-          <div className="flex items-center gap-3">
-              <ChevronDown size={16} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-              <div>
-                  <p className="font-bold text-sm text-zinc-800">{item?.name || 'Nombre Desconocido'}</p>
-                  <p className="font-mono text-xs text-zinc-500">{item?.sku || summary.itemId}</p>
-              </div>
-          </div>
-          <div className="text-sm font-semibold text-right">{summary.totalPhysical}</div>
-          <div className="text-sm font-semibold text-right">{summary.totalReleasedFree}</div>
-          <div className="text-sm font-semibold text-right">{summary.lotsCount > 1 ? `${summary.lotsCount - summary.totalReleasedFree}`: '0' }</div>
-          <div className="text-sm font-semibold text-right">{summary.totalOnHold}</div>
-          <div><span className={stockStatusBadgeClass(summary.status)}>{stockStatusLabel(summary.status)}</span></div>
-        </div>
-        {isOpen && (
-          <div className="bg-zinc-50/70 p-3 pl-12">
-            <div className="space-y-2">
-                {(summary.lots || []).length > 0 ? summary.lots.map((lot: any) => (
-                    <button key={lot.id} onClick={() => onLotSelect(lot.lotNumber)} className="w-full text-left grid grid-cols-[1fr_1fr_1fr_auto] gap-3 items-center p-2 bg-white rounded-md border hover:border-blue-400">
-                        <span className="font-mono text-xs">{lot.lotNumber}</span>
-                        <span className="text-sm font-medium">{lot.qty} {lot.uom}</span>
-                        <span className="text-xs text-zinc-600">{lot.locationId}</span>
-                        <QcStatusPill status={lot.qcStatus} />
-                    </button>
-                )) : <p className="text-xs text-zinc-500 text-center py-2">Sin lotes para este producto.</p>}
+      <>
+        <div className="border-b last:border-b-0">
+          <div
+            className="grid grid-cols-[2fr_repeat(5,1fr)] items-center gap-4 px-4 py-2 cursor-pointer hover:bg-zinc-50"
+            onClick={() => setIsOpen(!isOpen)}
+          >
+            <div className="flex items-center gap-3 flex-1">
+                <ChevronDown size={16} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                <div className="flex-1">
+                    <p className="font-bold text-sm text-zinc-800">{item?.name || 'Nombre Desconocido'}</p>
+                    <p className="font-mono text-xs text-zinc-500">{item?.sku || summary.itemId}</p>
+                </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowPricing(true);
+                  }}
+                  className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded border border-green-200 transition-colors"
+                  title="Gestionar precios"
+                >
+                  <DollarSign size={14} />
+                  Precios
+                </button>
             </div>
+            <div className="text-sm font-semibold text-right">{summary.totalPhysical}</div>
+            <div className="text-sm font-semibold text-right">{summary.totalReleasedFree}</div>
+            <div className="text-sm font-semibold text-right">{summary.lotsCount > 1 ? `${summary.lotsCount - summary.totalReleasedFree}`: '0' }</div>
+            <div className="text-sm font-semibold text-right">{summary.totalOnHold}</div>
+            <div><span className={stockStatusBadgeClass(summary.status)}>{stockStatusLabel(summary.status)}</span></div>
           </div>
+          {isOpen && (
+            <div className="bg-zinc-50/70 p-3 pl-12">
+              <div className="space-y-2">
+                  {(summary.lots || []).length > 0 ? summary.lots.map((lot: any) => (
+                      <button key={lot.id} onClick={() => onLotSelect(lot.lotNumber)} className="w-full text-left grid grid-cols-[1fr_1fr_1fr_auto] gap-3 items-center p-2 bg-white rounded-md border hover:border-blue-400">
+                          <span className="font-mono text-xs">{lot.lotNumber}</span>
+                          <span className="text-sm font-medium">{lot.qty} {lot.uom}</span>
+                          <span className="text-xs text-zinc-600">{lot.locationId}</span>
+                          <QcStatusPill status={lot.qcStatus} />
+                      </button>
+                  )) : <p className="text-xs text-zinc-500 text-center py-2">Sin lotes para este producto.</p>}
+              </div>
+            </div>
+          )}
+        </div>
+        
+        {/* Modal de precios */}
+        {item && (
+          <PricingModal
+            item={item}
+            open={showPricing}
+            onClose={() => setShowPricing(false)}
+            onSuccess={() => {
+              setShowPricing(false);
+              router.refresh();
+            }}
+          />
         )}
-      </div>
+      </>
     );
-  }
+}

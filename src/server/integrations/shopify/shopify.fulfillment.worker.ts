@@ -1,5 +1,5 @@
 
-import type { Shipment, OrderSellOut } from '@/domain/ssot';
+import type { Shipment, OrderSellOut } from '@/domain/ssot.v7';
 
 const SHOPIFY_TOKEN = process.env.SHOPIFY_ADMIN_TOKEN!;
 const SHOPIFY_SHOP = process.env.SHOPIFY_SHOP!;

@@ -1,12 +1,12 @@
 
 "use client";
 import React, { createContext, useContext, useEffect, useMemo, useState, useCallback, useRef } from "react";
-import type { SantaData, User } from '@/domain/ssot';
+import type { SantaData, User } from '@/domain/ssot.v7';
 import type { User as FirebaseUser } from "firebase/auth";
 import { onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
 import { collection, getDocs } from "firebase/firestore";
 import { usePathname, useRouter } from "next/navigation";
-import { SANTA_DATA_COLLECTIONS } from '@/domain/ssot';
+import { SANTA_DATA_COLLECTIONS } from '@/domain/ssot.v7';
 import { upsertMany } from './dataprovider/actions';
 import { getFirebaseSync } from "@/lib/firebaseClient"; // Use the sync version
 import { MOCK_DATA } from "./mock-data";

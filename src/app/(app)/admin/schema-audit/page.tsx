@@ -5,8 +5,8 @@ import { useData } from '@/lib/dataprovider';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
 import { BadgeCheck, FileJson, ShieldAlert, CheckCircle, XCircle } from 'lucide-react';
 import { SBCard, SBButton } from '@/components/ui/ui-primitives';
-import type { SantaData, SB_THEME } from '@/domain/ssot';
-import { SANTA_DATA_COLLECTIONS } from '@/domain/ssot';
+import type { SantaData, SB_THEME } from '@/domain/ssot.v7';
+import { SANTA_DATA_COLLECTIONS } from '@/domain/ssot.v7';
 import { POLICIES } from "@/lib/codes";
 
 // =====================================================

@@ -3,7 +3,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 import { NextRequest } from 'next/server';
 import { getOne, upsertMany } from '@/lib/dataprovider/server';
-import type { Shipment, DeliveryNote, OrderSellOut, Account, Party } from '@/domain/ssot';
+import type { Shipment, DeliveryNote, OrderSellOut, Account, Party } from '@/domain/ssot.v7';
 import { renderDeliveryNotePdf } from '@/server/pdf/deliveryNote';
 import { bucket } from '@/server/firebase';
 

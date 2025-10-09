@@ -9,4 +9,4 @@ export type {
   ReservationView,
   StockMove,
   ExecCheck
-} from '@/domain/ssot';
+} from '@/domain/ssot.v7';

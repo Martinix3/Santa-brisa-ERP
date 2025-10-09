@@ -1,6 +1,6 @@
 // src/features/sales/pipeline/pipeline.service.ts
 import { adminDb as db } from '@/server/firebase';
-import type { Account, Interaction, OrderSellOut, Party, User } from '@/domain/ssot';
+import type { Account, Interaction, OrderSellOut, Party, User } from '@/domain/ssot.v7';
 import { getOne } from '@/lib/dataprovider/server';
 
 export interface PipelineAccount {

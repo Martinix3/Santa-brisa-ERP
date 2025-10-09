@@ -1,7 +1,7 @@
 // FILE: src/features/ops/components/Kanban.tsx
 'use client';
 import React, { useState } from 'react';
-import type { Department, Stage } from '@/domain/ssot';
+import type { Department, Stage } from '@/domain/ssot.v7';
 import { SBButton, Badge } from '@/components/ui';
 
 export type PipelineItem = {

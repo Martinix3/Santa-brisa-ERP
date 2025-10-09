@@ -3,7 +3,7 @@
 'use server';
 
 import { adminDb as db } from '@/server/firebase';
-import type { StockMove, Item, QcStatus, SantaData, Uom } from '@/domain/ssot';
+import type { StockMove, Item, QcStatus, SantaData, Uom } from '@/domain/ssot.v7';
 import { makeOnHandId } from '@/domain/id-helpers';
 
 async function getAll<T>(coll: keyof SantaData): Promise<T[]> {

@@ -1,7 +1,7 @@
 // src/features/bom/RecipeForm.tsx
 "use client";
 import React, { useMemo } from 'react';
-import type { BillOfMaterial as RecipeBom, Item } from '@/domain/ssot';
+import type { BillOfMaterial as RecipeBom, Item } from '@/domain/ssot.v7';
 import { useBomForm } from './useBomForm';
 import { FormStatusBar } from '@/components/ui/FormStatusBar';
 import { Plus, Trash2 } from 'lucide-react';

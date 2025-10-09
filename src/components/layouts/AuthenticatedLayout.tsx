@@ -3,189 +3,140 @@
 
 import React, { useEffect, useState, useRef } from "react";
 import Link from "next/link";
-import Image from "next/image";
-import { usePathname, useRouter } from "next/navigation";
-import {
-  Home, BarChart3, Megaphone, Factory, ClipboardCheck, Truck,
-  LineChart, SlidersHorizontal, LogOut, Plus,
-} from "lucide-react";
+import { useRouter } from "next/navigation";
+import { LogOut } from "lucide-react";
 import { useData } from "@/lib/dataprovider";
 import { Avatar } from "@/components/ui/Avatar";
 import QuickLogOverlay from "@/features/quicklog/QuickLogOverlay";
 import { isSales } from "@/lib/authz";
-import { MODULE_ACCENTS } from "@/domain/ssot";
 import { RealtimeToggle } from "../RealtimeToggle";
 import { PersistenceToggle } from "../ui/PersistenceToggle";
 import Loading from "@/app/loading";
+import { Sidebar } from "../layout/Sidebar";
+import { Header } from "../layout/Header";
+import { BottomNav } from "../layout/BottomNav";
 
-
-/* ===== 1) Navegación ===== */
-type NavItem = { href: string; label: string };
-type NavSection = { title: string; module: keyof typeof MODULE_ACCENTS; icon: React.ElementType; items: NavItem[] };
-
-const navSections: NavSection[] = [
-  { title: "Personal", module: "personal", icon: Home,
-    items: [{ href: "/dashboard-personal", label: "Mi Dashboard" }, { href: "/agenda", label: "Agenda" }, { href: "/contacts", label: "Contactos" }] },
-  { title: "Ventas", module: "sales", icon: BarChart3,
-    items: [{ href: "/sales/dashboard", label: "Dashboard" }, { href: "/sales/accounts", label: "Cuentas" }, { href: "/sales/orders", label: "Pedidos" }] },
-  { title: "Marketing", module: "marketing", icon: Megaphone,
-    items: [
-      { href: "/marketing/dashboard", label: "Dashboard" },
-      { href: "/marketing/events", label: "Eventos" },
-      { href: "/marketing/online", label: "Ads" },
-      { href: "/marketing/influencers/dashboard", label: "Influencers" },
-      { href: "/marketing/pos-tactics", label: "Tácticas POS" },
-    ] },
-  { title: "Producción", module: "production", icon: Factory,
-    items: [{ href: "/production/dashboard", label: "Dashboard" }, { href: "/production/bom", label: "BOMs" }, { href: "/production/execution", label: "Elaboración/Envasado" }] },
-  { title: "Calidad", module: "quality", icon: ClipboardCheck,
-    items: [
-      { href: "/quality/dashboard", label: "Dashboard" },
-      { href: "/quality/release", label: "Liberación de Lotes" },
-      { href: "/quality/traceability", label: "Trazabilidad" },
-      { href: "/quality/autocontrol", label: "Autocontrol" },
-      { href: "/quality/parametros", label: "Parámetros" },
-    ] },
-  { title: "Logística", module: "warehouse", icon: Truck,
-    items: [{ href: "/warehouse/dashboard", label: "Dashboard" }, { href: "/warehouse/logistics", label: "Envíos" }, { href: "/warehouse/inventory", label: "Inventario" }] },
-  { title: "Financiera", module: "finance", icon: LineChart,
-    items: [{ href: "/cashflow/dashboard", label: "Dashboard" }, { href: "/cashflow/payments", label: "Pagos" }, { href: "/cashflow/collections", label: "Cobros" }] },
-  { title: "Admin", module: "admin", icon: SlidersHorizontal,
-    items: [
-      { href: "/admin/kpi-settings", label: "Ajustes de KPIs" },
-      { href: "/users", label: "Usuarios" },
-      { href: "/admin/sku-management", label: "SKUs" },
-      { href: "/admin/schema-audit", label: "Schema Audit" },
-      { href: "/admin/data-import", label: "Importar Datos" },
-      { href: "/admin/integrations", label: "Integraciones" },
-    ] },
-];
-
-/* ===== Helpers ===== */
-function dashboardHrefFor(module: keyof typeof MODULE_ACCENTS): string {
-    if (module === 'personal') return '/dashboard-personal';
-    const section = navSections.find(s => s.module === module);
-    return section?.items[0]?.href || "/";
-}
-
-function moduleFromPath(pathname: string): keyof typeof MODULE_ACCENTS | null {
-  if (pathname === "/" || pathname.startsWith('/dashboard-personal')) return "personal";
-  const section = navSections.find(s => s.items.some(it => pathname.startsWith(it.href)));
-  return section?.module || null;
-}
-
-
-/* ===== 3) Layout principal ===== */
+/* ===== Layout principal ===== */
 export default function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname() ?? "/";
   const router = useRouter();
   const { currentUser, logout, authReady, firebaseUser } = useData();
-
-  useEffect(() => {
-    // Si la autenticación está lista y no hay usuario, redirige al login.
-    // Esta es la guarda principal para todas las rutas protegidas.
-    if (authReady && !firebaseUser) {
-      router.replace('/login');
-    }
-  }, [authReady, firebaseUser, router]);
-  
-  const isPrivilegedUser =
-    currentUser?.role?.toLowerCase() === "admin" || currentUser?.role?.toLowerCase() === "owner";
-  const visibleSections = navSections.filter((s) => (s.title === "Admin" ? isPrivilegedUser : true));
-
-  const activeModule = moduleFromPath(pathname);
-  
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
-  
-   useEffect(() => {
+
+  useEffect(() => {
+    // Si la autenticación está lista y no hay usuario, redirige al login
+    if (authReady && !firebaseUser) {
+      router.replace("/login");
+    }
+  }, [authReady, firebaseUser, router]);
+
+  useEffect(() => {
     const onDocClick = (e: MouseEvent) => {
       if (!userMenuOpen) return;
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setUserMenuOpen(false);
+      if (menuRef.current && !menuRef.current.contains(e.target as Node))
+        setUserMenuOpen(false);
     };
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
   }, [userMenuOpen]);
 
-  // Si después de la carga inicial no hay usuario de Firebase (está redirigiendo),
-  // o si hay usuario de Firebase pero aún no se ha cargado el perfil de la app,
-  // muestra la pantalla de carga para evitar renderizados a medias.
+  // Loading state
   if (!authReady || !firebaseUser || !currentUser) {
     return <Loading />;
   }
 
+  const isPrivilegedUser =
+    currentUser?.role?.toLowerCase() === "admin" ||
+    currentUser?.role?.toLowerCase() === "owner";
+
   return (
     <>
-    <div className="h-screen flex bg-background">
-      {/* Sidebar */}
-      <aside className="relative z-50 h-full border-r border-border bg-background flex flex-col w-16">
-        <Link href="/" aria-label="Dashboard principal" className="h-14 flex items-center justify-center border-b focus-ring rounded-md">
-          <Image src="https://santabrisa.es/cdn/shop/files/clavista_300x_36b708f6-4606-4a51-9f65-e4b379531ff8_300x.svg?v=1752413726" alt="Santa Brisa" width={32} height={24} style={{width: 'auto', height: 'auto'}} priority />
-        </Link>
-        <nav className="flex-1 px-2 py-3 space-y-1">
-          {visibleSections.map(section => {
-            const isActiveModule = section.module === activeModule;
-            return (
-              <div key={section.module} className="relative group ">
-                <Link href={dashboardHrefFor(section.module)} aria-label={section.title} className={`flex items-center justify-center h-10 w-10 rounded-lg transition-colors focus-ring ${isActiveModule ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'}`}>
-                  <section.icon size={20} />
+      <div className="h-screen flex flex-col md:flex-row bg-background">
+        {/* Desktop/Tablet Sidebar */}
+        <Sidebar isAdmin={isPrivilegedUser} />
+
+        {/* Main Content Area */}
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* Header */}
+          <Header
+            userName={currentUser?.name}
+            onOpenSearch={() => console.log("TODO: Open search")}
+            onOpenNotifications={() => console.log("TODO: Open notifications")}
+            notificationCount={0}
+          />
+
+          {/* Page Content */}
+          <main
+            id="main-content"
+            className="flex-1 overflow-y-auto bg-secondary pb-16 md:pb-0"
+          >
+            {children}
+          </main>
+        </div>
+
+        {/* Mobile Bottom Navigation */}
+        <BottomNav isAdmin={isPrivilegedUser} />
+
+        {/* User Menu (Floating - Desktop only) */}
+        <div ref={menuRef} className="hidden md:block fixed bottom-4 left-4 z-50">
+          <button
+            onClick={() => setUserMenuOpen((v) => !v)}
+            aria-label="Abrir menú de usuario"
+            aria-haspopup="true"
+            aria-expanded={userMenuOpen}
+            className="rounded-full focus-ring shadow-lg"
+          >
+            <Avatar name={currentUser?.name} size="md" />
+          </button>
+          {userMenuOpen && (
+            <div
+              role="menu"
+              className="absolute bottom-full left-0 mb-2 w-64 p-1 bg-card border rounded-lg shadow-lg"
+            >
+              <div className="p-3 border-b">
+                <p className="text-sm font-semibold truncate">
+                  {currentUser?.name}
+                </p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {currentUser?.email}
+                </p>
+              </div>
+              <div className="p-1 space-y-1">
+                <Link
+                  href="/profile"
+                  role="menuitem"
+                  className="block w-full text-left px-3 py-2 text-sm rounded-md hover:bg-secondary focus-ring"
+                >
+                  Perfil
                 </Link>
-                <div className="absolute left-full top-0 w-56 p-1 hidden group-hover:block group-focus-within:block z-50">
-                  <div className="bg-card border rounded-lg shadow-lg">
-                    <div className="p-2 border-b">
-                        <p className="text-sm font-semibold">{section.title}</p>
-                    </div>
-                    <div className="p-1">
-                    {section.items.map(item => {
-                      const isActiveItem = pathname.startsWith(item.href);
-                      return (
-                        <Link key={item.href} href={item.href} className={`block px-3 py-1.5 text-sm rounded-md transition-colors focus-ring ${isActiveItem ? 'font-semibold text-primary' : 'text-muted-foreground hover:bg-secondary'}`}>
-                          {item.label}
-                        </Link>
-                      )
-                    })}
-                    </div>
+                <div className="px-3 py-2 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Tiempo real</span>
+                    <RealtimeToggle />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Persistencia</span>
+                    <PersistenceToggle />
                   </div>
                 </div>
-              </div>
-            )
-          })}
-        </nav>
-        {/* Sidebar Footer with User Menu */}
-        <div className="mt-auto p-2 border-t border-border space-y-2">
-            <RealtimeToggle />
-            <PersistenceToggle />
-            <div ref={menuRef} className="relative">
                 <button
-                    onClick={() => setUserMenuOpen(v => !v)}
-                    aria-label="Abrir menú de usuario"
-                    aria-haspopup="true"
-                    aria-expanded={userMenuOpen}
-                    className="w-full rounded-md focus-ring"
+                  onClick={logout}
+                  role="menuitem"
+                  className="w-full text-left px-3 py-2 text-sm rounded-md hover:bg-secondary focus-ring flex items-center gap-2 text-destructive"
                 >
-                    <Avatar name={currentUser?.name} size="md" className="mx-auto" />
+                  <LogOut size={14} />
+                  Cerrar sesión
                 </button>
-                 {userMenuOpen && (
-                    <div role="menu" className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-1 bg-card border rounded-lg shadow-lg">
-                      <div className="p-2 border-b">
-                        <p className="text-sm font-semibold truncate">{currentUser?.name}</p>
-                        <p className="text-xs text-muted-foreground truncate">{currentUser?.email}</p>
-                      </div>
-                      <Link href="/profile" role="menuitem" className="block w-full text-left px-3 py-2 text-sm rounded-md hover:bg-secondary focus-ring">Perfil</Link>
-                      <button onClick={logout} role="menuitem" className="w-full text-left px-3 py-2 text-sm rounded-md hover:bg-secondary focus-ring">
-                        Cerrar sesión
-                      </button>
-                    </div>
-                )}
+              </div>
             </div>
+          )}
         </div>
-      </aside>
+      </div>
 
-      <main id="main-content" className="flex-1 min-w-0 overflow-y-auto bg-secondary">
-          {children}
-      </main>
-    </div>
-    {isSales(currentUser?.role) || currentUser?.role === 'admin' ? <QuickLogOverlay /> : null}
+      {/* QuickLog Overlay */}
+      {(isSales(currentUser?.role) || currentUser?.role === "admin") && (
+        <QuickLogOverlay />
+      )}
     </>
   );
 }

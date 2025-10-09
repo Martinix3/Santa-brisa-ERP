@@ -3,7 +3,7 @@
 
 import { adminDb as db } from '@/server/firebase';
 import { Timestamp } from 'firebase-admin/firestore';
-import type { Party, Account, PartyRole, CustomerData, Segment, CommercialFlow } from '@/domain/ssot';
+import type { Party, Account, PartyRole, CustomerData, Segment, CommercialFlow } from '@/domain/ssot.v7';
 
 export async function createAccountAndParty(data: { name: string; city?: string; type?: Segment; ownerId: string; distributorPartyId?: string }) {
   const now = new Date().toISOString();

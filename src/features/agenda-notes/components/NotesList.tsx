@@ -1,7 +1,7 @@
 
 // /features/agenda-notes/components/NotesList.tsx
 import React from 'react';
-import type { Note } from '@/domain/ssot';
+import type { Note } from '@/domain/ssot.v7';
 import type { Task } from '@/features/agenda/TaskBoard';
 
 export function NotesList({

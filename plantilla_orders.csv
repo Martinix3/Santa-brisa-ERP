@@ -1,0 +1,2 @@
+id,accountId,orderDate,totalAmount,status,flow,itemSKU,itemName,qty,uom,unitPrice
+ord_001,acc_001,2025-01-07,450,open,DIRECT,MARG-MIX-001,Margarita Mix,10,unit,45

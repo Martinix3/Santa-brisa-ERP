@@ -1,7 +1,7 @@
 // src/features/marketing/components/NewCampaignDialog.tsx
 "use client";
 import React, { useState, useEffect } from 'react';
-import type { OnlineCampaign } from '@/domain/ssot';
+import type { OnlineCampaign } from '@/domain/ssot.v7';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
 import { SBButton, Input, Select } from '@/components/ui/ui-primitives';
 

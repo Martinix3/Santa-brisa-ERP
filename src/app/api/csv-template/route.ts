@@ -4,7 +4,7 @@
 // ================================================================
 
 import { NextResponse } from 'next/server';
-import { SANTA_DATA_COLLECTIONS, type SantaData } from '@/domain/ssot';
+import { SANTA_DATA_COLLECTIONS, type SantaData } from '@/domain/ssot.v7';
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);

@@ -6,7 +6,7 @@ import { revalidatePath } from 'next/cache';
 import { adminDb as db } from '@/server/firebase';
 import { FieldValue } from 'firebase-admin/firestore';
 import { getOne, upsertMany } from '@/lib/dataprovider/server';
-import type { Shipment, OrderSellOut, OnHandView, StockMove, Lot, Item, Party, Account } from '@/domain/ssot';
+import type { Shipment, OrderSellOut, OnHandView, StockMove, Lot, Item, Party, Account } from '@/domain/ssot.v7';
 import { enqueue } from '@/server/queue/queue';
 import { checkOrderStock, type AllocationDetail } from '@/lib/inventory';
 import { makeOnHandId } from '@/domain/id-helpers';

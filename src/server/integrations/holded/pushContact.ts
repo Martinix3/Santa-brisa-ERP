@@ -1,5 +1,5 @@
 import { holdedFetch } from './client';
-import type { Party } from '@/domain/ssot';
+import type { Party } from '@/domain/ssot.v7';
 import { toHoldedPayload } from './serializeContact';
 
 export async function ensureHoldedContact(p: Party): Promise<{ id: string }> {

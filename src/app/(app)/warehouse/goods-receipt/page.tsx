@@ -6,7 +6,7 @@ import { useData } from '@/lib/dataprovider';
 import { SBButton, Input, Select, DataTableSB } from '@/components/ui/ui-primitives';
 import type { Col } from '@/components/ui/ui-primitives';
 import { Plus, Trash2, Truck, Search, Info, X } from 'lucide-react';
-import type { Party, Item, GoodsReceipt, Uom, ItemCategory } from '@/domain/ssot';
+import type { Party, Item, GoodsReceipt, Uom, ItemCategory } from '@/domain/ssot.v7';
 import { createGoodsReceipt } from '@/server/actions/goods-receipt.actions';
 import { toast } from 'sonner';
 
@@ -143,6 +143,12 @@ function GoodsReceiptForm({ onSaveSuccess, onCancel }: { onSaveSuccess: (receipt
     try {
       const payloadLines = lines.map(l => {
           const item = items.find(i => i.id === l.itemId);
+          
+          // ✅ Limpiar expiryAt: solo incluir si tiene valor válido
+          const cleanedExpiryAt = l.expiryAt && typeof l.expiryAt === 'string' && l.expiryAt.trim()
+            ? l.expiryAt.trim()
+            : null;
+          
           return {
               key: l.key,
               itemId: l.itemId,
@@ -152,7 +158,7 @@ function GoodsReceiptForm({ onSaveSuccess, onCancel }: { onSaveSuccess: (receipt
               qty: l.qty,
               unitCost: l.unitCost || item?.stdCost || 0,
               uom: l.uom || 'unit',
-              expiryAt: l.expiryAt
+              expiryAt: cleanedExpiryAt
           };
       });
 
@@ -172,8 +178,23 @@ function GoodsReceiptForm({ onSaveSuccess, onCancel }: { onSaveSuccess: (receipt
   };
 
   const handleFreeTextSupplier = useCallback((text: string) => {
+    if (!text.trim()) {
+      // Si el texto está vacío, limpiar ambos
+      setNewSupplierName(undefined);
+      setSupplierId(undefined);
+      return;
+    }
+    
     const exact = suppliers.some(s => norm(s.name) === norm(text));
-    if (!exact) { setNewSupplierName(text); setSupplierId(undefined); }
+    if (!exact) { 
+      // Nombre nuevo - CRITICAL: limpiar supplierId PRIMERO para que el action cree el nuevo
+      setSupplierId(undefined);
+      setNewSupplierName(text);
+    } else {
+      // Nombre existe pero no se ha seleccionado - limpiar ambos para forzar selección
+      setSupplierId(undefined);
+      setNewSupplierName(undefined);
+    }
   }, [suppliers]);
 
   return (
@@ -204,17 +225,18 @@ function GoodsReceiptForm({ onSaveSuccess, onCancel }: { onSaveSuccess: (receipt
         <div>
           <h4 className="font-medium mb-2">Líneas de Producto</h4>
           <div className="space-y-3 rounded-lg border p-4">
-            <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_auto] gap-3 text-sm font-semibold text-zinc-600 px-2">
+            <div className="grid grid-cols-[2fr_1fr_0.8fr_0.8fr_1fr_1fr_auto] gap-3 text-sm font-semibold text-zinc-600 px-2">
               <span>Material</span>
               <span>Lote Proveedor</span>
               <span className="text-right">Cantidad</span>
+              <span>Unidad</span>
               <span className="text-right">Coste Unit.</span>
               <span>Caducidad</span>
               <div />
             </div>
 
             {lines.map((line, index) => (
-              <div key={line.key} className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_auto] gap-3 items-start">
+              <div key={line.key} className="grid grid-cols-[2fr_1fr_0.8fr_0.8fr_1fr_1fr_auto] gap-3 items-start">
                 <div className="space-y-1">
                   <SearchableSelect<Item>
                     items={items}
@@ -244,12 +266,34 @@ function GoodsReceiptForm({ onSaveSuccess, onCancel }: { onSaveSuccess: (receipt
                        onChange={e => handleLineChange(index, 'qty', Number(e.target.value) || 0)}
                        className="text-right" required/>
 
+                <Select value={line.uom || 'unit'}
+                        onChange={e => handleLineChange(index, 'uom', e.target.value as Uom)}
+                        className="text-sm">
+                  <optgroup label="Unidades">
+                    <option value="unit">unit</option>
+                    <option value="bottle">bottle</option>
+                    <option value="case">case</option>
+                    <option value="pallet">pallet</option>
+                  </optgroup>
+                  <optgroup label="Volumen">
+                    <option value="L">L</option>
+                    <option value="mL">mL</option>
+                  </optgroup>
+                  <optgroup label="Masa">
+                    <option value="kg">kg</option>
+                    <option value="g">g</option>
+                  </optgroup>
+                </Select>
+
                 <Input type="number" step="0.01" value={line.unitCost || ''}
                        onChange={e => handleLineChange(index, 'unitCost', Number(e.target.value) || 0)}
                        className="text-right" required/>
 
                 <Input type="date" value={line.expiryAt ?? ''}
-                       onChange={e => handleLineChange(index, 'expiryAt', e.target.value || null)}
+                       onChange={e => {
+                         const val = e.target.value.trim();
+                         handleLineChange(index, 'expiryAt', val ? val : null);
+                       }}
                        placeholder="AAAA-MM-DD" />
 
                 <SBButton variant="ghost" size="sm" onClick={() => removeLine(index)}>

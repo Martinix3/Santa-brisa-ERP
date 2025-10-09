@@ -62,8 +62,8 @@ export type VelocityInput = { itemId: string; qty: number; date: string; };
 // 2. Interfaces de Entidades Principales
 // -----------------------------------------------------------------
 // ... (Interfaces se mantienen sin cambios, omitidas por brevedad) ...
-export interface Party { id: string; name: string; kind: 'ORG' | 'PERSON'; legalName?: string; tradeName?: string; /** @deprecated Use `vat` as the preferred field. */ taxId?: string; vat?: string; billingAddress?: Address; shippingAddress?: Address; emails?: CommItem[]; phones?: CommItem[]; people?: Person[]; tags?: string[]; external?: { holdedContactId?: string; holdedUpdatedAt?: string; shopifyCustomerId?: string; }; roles?: PartyRoleType[]; createdAt: ISODateString; updatedAt: ISODateString; serviceArea?: any; location?: { lat: number, lng: number }; }
-export interface Account { id: string; partyId: string; name: string; segment: Segment; stage: Stage; ownerId: string; flow: CommercialFlow; distributorPartyId?: string; createdAt: ISODateString; updatedAt: ISODateString; lastInteractionAt?: string; external?: any; /** @deprecated Use `flow` instead. */ mode?: AccountMode; /** @deprecated Use `segment` instead. */ type?: AccountType; /** @deprecated This field is no longer used. */ subType?: string; /** @deprecated Use the `Note` entity instead. */ notes?: string; /** @deprecated Use a dedicated `CodeAlias` entity instead. */ code?: string; }
+export interface Party { id: string; name: string; kind: 'ORG' | 'PERSON'; legalName?: string; tradeName?: string; /** @deprecated Use `vat` as the preferred field. */ taxId?: string; vat?: string; billingAddress?: Address; shippingAddress?: Address; emails?: CommItem[]; phones?: CommItem[]; people?: Person[]; tags?: string[]; external?: { holdedContactId?: string; holdedUpdatedAt?: string; holdedTags?: string[]; shopifyCustomerId?: string; }; roles?: PartyRoleType[]; createdAt: ISODateString; updatedAt: ISODateString; serviceArea?: any; location?: { lat: number, lng: number }; }
+export interface Account { id: string; partyId: string; name: string; segment: Segment; stage: Stage; ownerId: string; flow: CommercialFlow; distributorPartyId?: string; source?: string; aliases?: string[]; createdAt: ISODateString; updatedAt: ISODateString; lastInteractionAt?: string; external?: any; isTarget?: boolean; targetUserId?: string; targetedAt?: ISODateString; location?: { lat: number; lng: number; address?: string; }; photos?: string[]; documents?: { id: string; name: string; url: string; type: 'contract' | 'invoice' | 'visit_photo' | 'plv_certificate' | 'other'; uploadedAt: ISODateString; uploadedBy?: string; }[]; /** @deprecated Use `flow` instead. */ mode?: AccountMode; /** @deprecated Use `segment` instead. */ type?: AccountType; /** @deprecated This field is no longer used. */ subType?: string; /** @deprecated Use the `Note` entity instead. */ notes?: string; /** @deprecated Use a dedicated `CodeAlias` entity instead. */ code?: string; }
 // (Y así para el resto de interfaces)
 // --- Omitiendo el resto de interfaces para mantener la respuesta concisa ---
 // --- El contenido completo de las interfaces se mantiene como en tu archivo original ---
@@ -75,12 +75,12 @@ export interface CustomerData { priceListId?: string; paymentTermsDays?: number;
 export interface PartyRole { id: string; partyId: string; role: PartyRoleType; isActive: boolean; createdAt: Timestamp; data?: CustomerData | any; }
 export interface PartyDuplicate { id: string; primaryPartyId: string; duplicatePartyId: string; reason: 'SAME_VAT' | 'SAME_EMAIL' | 'SAME_PHONE' | 'SIMILAR_NAME'; score: number; status: 'OPEN' | 'MERGED' | 'DISMISSED'; createdAt: Timestamp; resolvedAt?: Timestamp; }
 export type Segment = 'HORECA' | 'RETAIL' | 'ONLINE' | 'PRIVADA' | 'DISTRIBUIDOR';
-export interface User { id: string; name: string; email?: string; role: UserRole; active: boolean; managerId?: string; kpiBaseline?: { revenue?: number; unitsSold?: number; visits?: number; }; assignedDistributors?: Array<{ partyId: string; priority: number; }>; }
+export interface User { id: string; name: string; email?: string; role: UserRole; active: boolean; managerId?: string; kpiBaseline?: { revenue?: number; unitsSold?: number; visits?: number; }; assignedDistributors?: Array<{ partyId: string; priority: number; }>; permissions?: { view: string[]; edit: string[]; }; createdAt?: string; updatedAt?: string; }
 export type OrderLine = { itemId: string; name?: string; qty: number; uom: SalesUnit; priceUnit: number; discountPct?: number; };
-export interface OrderSellOut { id: string; docNumber?: string; accountId: string; partyId?: string; flow?: 'PLACEMENT' | 'DIRECT'; distributorId?: string; isSellOutReported?: boolean; status: OrderStatus; billingStatus?: BillingStatus; lines: OrderLine[]; totalAmount?: number; currency: Currency; source?: 'SHOPIFY' | 'B2B' | 'Direct' | 'CRM' | 'MANUAL' | 'HOLDED'; notes?: string; external?: { shopifyOrderId?: string; }; createdAt: Timestamp; updatedAt: Timestamp; createdById?: string; orderDate?: ISO; linkedPromotions?: string[]; }
+export interface OrderSellOut { id: string; docNumber?: string; accountId: string; partyId?: string; flow?: 'PLACEMENT' | 'DIRECT'; distributorId?: string; isSellOutReported?: boolean; status: OrderStatus; billingStatus?: BillingStatus; lines: OrderLine[]; totalAmount?: number; currency: Currency; source?: 'SHOPIFY' | 'B2B' | 'Direct' | 'CRM' | 'MANUAL' | 'HOLDED'; notes?: string; external?: { shopifyOrderId?: string; holdedEstimateId?: string; holdedInvoiceId?: string; }; createdAt: Timestamp; updatedAt: Timestamp; createdById?: string; orderDate?: ISO; linkedPromotions?: string[]; region?: 'ES' | 'USA' | 'MX' | 'OTHER'; channel?: 'DIRECT' | 'DISTRIBUTOR' | 'ONLINE'; }
 export type ShipmentLine = { itemId: string; name: string; qty: number; uom: SalesUnit; lotNumber?: string; locationId?: string; note?: string };
-export interface Shipment { id: string; shipmentNumber?: string; orderId: string; partyId: string; accountId: string; mode: 'PARCEL' | 'PALLET'; status: ShipmentStatus; lines: ShipmentLine[]; customerName: string; addressLine1: string; addressLine2?: string; city: string; postalCode: string; country: string; carrier?: string; trackingCode?: string; trackingUrl?: string; labelUrl?: string; deliveryNoteId?: string; holdedInvoiceId?: string; weightKg?: number; dimsCm?: { l: number; w: number; h: number }; checks?: { visualOk?: boolean }; isSample?: boolean; samplePurpose?: string; sampleNotes?: string; packedById?: string; validatedById?: string; validatedAt?: Timestamp; validationNotes?: string; shippedAt?: Timestamp; createdAt: Timestamp; updatedAt: Timestamp; notes?: string; }
-export interface Item { id: string; sku: string; name: string; category: ItemCategory; uom: Uom; active: boolean; stdCost?: number; bottleMl?: number; caseUnits?: number; }
+export interface Shipment { id: string; shipmentNumber?: string; orderId: string; partyId: string; accountId: string; mode: 'PARCEL' | 'PALLET'; status: ShipmentStatus; lines: ShipmentLine[]; customerName: string; addressLine1: string; addressLine2?: string; city: string; postalCode: string; country: string; carrier?: string; trackingCode?: string; trackingUrl?: string; labelUrl?: string; deliveryNoteId?: string; holdedInvoiceId?: string; weightKg?: number; dimsCm?: { l: number; w: number; h: number }; checks?: { visualOk?: boolean }; isSample?: boolean; samplePurpose?: string; sampleNotes?: string; packedById?: string; validatedById?: string; validatedAt?: Timestamp; validationNotes?: string; shippedAt?: Timestamp; createdAt: Timestamp; updatedAt: Timestamp; notes?: string; shippingCost?: number; expectedDeliveryDate?: Timestamp; }
+export interface Item { id: string; sku: string; name: string; category: ItemCategory; uom: Uom; active: boolean; isActive?: boolean; stdCost?: number; bottleMl?: number; caseUnits?: number; unitsPerCase?: number; priceBase?: number; priceUnit?: number; priceList?: Record<string, number>; costUnit?: number; weightPerUnit?: number; volumePerUnit?: number; casesPerPallet?: number; }
 export interface BillOfMaterial { id: string; outputItemId: string; name: string; stage?: ProductionStage; batchSize: number; baseUnit: Uom; items: { itemId: string; qty: number; uom: Uom, role?: 'FORMULA' | 'PACKAGING' | 'COST_ONLY' }[]; isActive?: boolean; }
 export type JournalEntry = { id: string; at: string; kind: 'LOG'|'INCIDENT'; summary: string; data?: any };
 export interface ProductionOrder { id: string; orderNumber?: string; bomId: string; outputItemId: string; targetQuantity: number; status: ProductionStatus; baseUnit: Uom; createdAt: Timestamp; scheduledFor?: Timestamp; responsibleId?: string; startedAt?: Timestamp; completedAt?: Timestamp; pauseLog?: { pausedAt: Timestamp; resumedAt?: Timestamp }[]; execution?: { finishedAt?: Timestamp; goodUnits?: number; durationHours?: number }; costing?: { actual?: { perUnit?: number; yieldLossPct?: number } }; shortages?: any[]; reservations?: any[]; incidents?: any[]; finalOutputs?: any[]; finalConsumptions?: any[]; journal?: JournalEntry[]; checks?: boolean[]; updatedAt?: Timestamp; }
@@ -94,15 +94,15 @@ export interface PlvMaterial { id: string; name: string; category: 'DISPLAY' | '
 // 3. Estructura de Datos Unificada `SantaData`
 // -----------------------------------------------------------------
 // ... (Se mantiene sin cambios) ...
-export interface SantaData { parties: Party[]; partyRoles: PartyRole[]; partyDuplicates: PartyDuplicate[]; users: User[]; accounts: Account[]; ordersSellOut: OrderSellOut[]; interactions: Interaction[]; items: Item[]; billOfMaterials: BillOfMaterial[]; productionOrders: ProductionOrder[]; lots: Lot[]; lotGenealogy: LotGenealogyEdge[]; onHand: OnHandView[]; stockMoves: StockMove[]; shipments: Shipment[]; goodsReceipts: GoodsReceipt[]; deliveryNotes: DeliveryNote[]; qcPlans: QcPlanBySku[]; qcParameters: ParameterBySku[]; qcTests: QcTest[]; qcProtocols: Protocol[]; protocolLogs: ProtocolLog[]; marketingEvents: MarketingEvent[]; onlineCampaigns: OnlineCampaign[]; influencerCollabs: InfluencerCollab[]; posTactics: PosTactic[]; posCostCatalog: PosCostCatalogEntry[]; plv_material: PlvMaterial[]; reservations?: ReservationView[]; notes?: Note[]; inventory?: any[]; products?: any[]; materials?: any[]; suppliers?: any[]; distributors?: any[]; materialCosts?: MaterialCost[]; financeLinks?: FinanceLink[]; paymentLinks?: PaymentLink[]; traceEvents?: TraceEvent[]; incidents?: Incident[]; codeAliases?: CodeAlias[]; integrations?: Integration[]; jobs?: Job[]; dead_letters?: DeadLetter[]; expenses?: Expense[]; }
-export const SANTA_DATA_COLLECTIONS: (keyof SantaData)[] = [ "parties", "partyRoles", "partyDuplicates", "users", "accounts", "ordersSellOut", "interactions", "items", "billOfMaterials", "productionOrders", "lots", "lotGenealogy", "onHand", "stockMoves", "shipments", "goodsReceipts", "deliveryNotes", "qcPlans", "qcParameters", "qcTests", "qcProtocols", "protocolLogs", "marketingEvents", "onlineCampaigns", "influencerCollabs", "posTactics", "posCostCatalog", "plv_material", "reservations", "notes" ];
+export interface SantaData { parties: Party[]; partyRoles: PartyRole[]; partyDuplicates: PartyDuplicate[]; users: User[]; accounts: Account[]; ordersSellOut: OrderSellOut[]; interactions: Interaction[]; items: Item[]; billOfMaterials: BillOfMaterial[]; productionOrders: ProductionOrder[]; lots: Lot[]; lotGenealogy: LotGenealogyEdge[]; onHand: OnHandView[]; stockMoves: StockMove[]; shipments: Shipment[]; goodsReceipts: GoodsReceipt[]; deliveryNotes: DeliveryNote[]; qcPlans: QcPlanBySku[]; qcParameters: ParameterBySku[]; qcTests: QcTest[]; qcProtocols: Protocol[]; protocolLogs: ProtocolLog[]; marketingEvents: MarketingEvent[]; onlineCampaigns: OnlineCampaign[]; influencerCollabs: InfluencerCollab[]; posTactics: PosTactic[]; posCostCatalog: PosCostCatalogEntry[]; plv_material: PlvMaterial[]; socialMetrics?: SocialMetrics[]; webAnalytics?: WebAnalytics[]; activations?: Activation[]; reservations?: ReservationView[]; notes?: Note[]; inventory?: any[]; products?: any[]; materials?: any[]; suppliers?: any[]; distributors?: any[]; materialCosts?: MaterialCost[]; financeLinks?: FinanceLink[]; paymentLinks?: PaymentLink[]; traceEvents?: TraceEvent[]; incidents?: Incident[]; codeAliases?: CodeAlias[]; integrations?: Integration[]; jobs?: Job[]; dead_letters?: DeadLetter[]; expenses?: Expense[]; systemConfig?: SystemConfig; }
+export const SANTA_DATA_COLLECTIONS: (keyof SantaData)[] = [ "parties", "partyRoles", "partyDuplicates", "users", "accounts", "ordersSellOut", "interactions", "items", "billOfMaterials", "productionOrders", "lots", "lotGenealogy", "onHand", "stockMoves", "shipments", "goodsReceipts", "deliveryNotes", "qcPlans", "qcParameters", "qcTests", "qcProtocols", "protocolLogs", "marketingEvents", "onlineCampaigns", "influencerCollabs", "posTactics", "posCostCatalog", "plv_material", "socialMetrics", "webAnalytics", "activations", "reservations", "notes", "systemConfig" ];
 export interface StockMove { id: string; itemId: string; lotNumber: string; qty: number; uom: Uom; reason: string; fromLocationId?: string; toLocationId?: string; occurredAt: Timestamp; createdAt: Timestamp; ref?: any; unitCost?: number; }
 export interface GoodsReceipt { id: string; receiptNumber?: string; supplierPartyId: string; deliveryNote?: string; receivedAt: Timestamp; lines: any[]; status: 'pending_qc' | 'completed'; notes?: string; createdAt?: Timestamp; }
 export interface OnHandView { id: string; itemId: string; lotNumber: string; locationId: string; qty: number; uom: Uom; qcStatus: QcStatus; category: ItemCategory; expiryAt?: Timestamp | null; reservedQty?: number; createdAt: Timestamp; updatedAt: Timestamp; }
 export interface LotGenealogyEdge { id: string; parentLotNumber: string; childLotNumber: string; qty: number; uom: Uom; createdAt: string; }
 export interface ReservationView { id: string; itemId: string; lotNumber: string; locationId: string; qty: number }
 export interface MarketingEvent { id: string; title: string; startAt: string; endAt?: string; spend?: number; kpis?: any; accountId?: string; status: 'planned' | 'active' | 'closed' | 'cancelled'; city?: string; kind: EventKind; createdAt: Timestamp; updatedAt: Timestamp; ownerUserId?: string;}
-export interface OnlineCampaign { id: string; title: string; channel: string; startAt: string; endAt?: string; budget?: number; spend?: number; metrics?: any; status: 'planned' | 'active' | 'closed' | 'cancelled'; createdAt: Timestamp; updatedAt: Timestamp; ownerUserId?: string; tracking?: { utmCampaign?: string; couponCode?: string; landingUrl?: string; }}
+export interface OnlineCampaign { id: string; title: string; channel: string; startAt: string; endAt?: string; budget?: number; spend?: number; metrics?: { impressions?: number; clicks?: number; conversions?: number; ctr?: number; cpc?: number; cpm?: number; roas?: number; revenue?: number; }; status: 'planned' | 'active' | 'closed' | 'cancelled'; createdAt: Timestamp; updatedAt: Timestamp; ownerUserId?: string; tracking?: { utmCampaign?: string; couponCode?: string; landingUrl?: string; }; adCosts?: { meta?: number; google?: number; tiktok?: number; other?: number; }; }
 export interface InfluencerCollab { id: string; creatorName: string; platform: string; tier: string; status: any; dates?: any; costs?: any; tracking?: any; metrics?: any; deliverables?: any; compensation?: any; creatorId?:string; supplierPartyId?:string; ownerUserId?:string; createdAt:Timestamp; updatedAt:Timestamp; }
 export interface PosTactic { id: string; accountId: string; tacticCode?: string; description?: string; customDesc?: string; catalogItemId?: string; qtyPlanned?: number; estCost?: number; actualCost: number; executionScore: number; status: PosTacticStatus; createdAt: Timestamp; createdById: string; items?: PosTacticItem[]; result?: any; taskId?: string; updatedAt: Timestamp; }
 export interface PosCostCatalogEntry { id: string; name: string; family: string; fulfillmentMode: string; defaultCost?: number; defaultKpisTemplate?: any; }
@@ -128,6 +128,68 @@ export interface Integration {}
 export interface Job {}
 export interface DeadLetter {}
 export interface Expense {}
+
+// -----------------------------------------------------------------
+// 2b. NUEVAS ENTIDADES PARA MARKETING DIGITAL Y MÉTRICAS WEB
+// -----------------------------------------------------------------
+
+export interface SocialMetrics {
+  id: string;
+  platform: 'Instagram' | 'TikTok' | 'YouTube' | 'Facebook';
+  date: ISODateString;
+  followers: number;
+  newFollowers: number;
+  posts: number;
+  reels?: number;
+  stories?: number;
+  views: number;
+  engagement: number;
+  reach?: number;
+  collaborations: number;
+  adSpend?: number;
+  createdAt: Timestamp;
+  updatedAt?: Timestamp;
+}
+
+export interface WebAnalytics {
+  id: string;
+  date: ISODateString;
+  sessions: number;
+  users: number;
+  newUsers?: number;
+  pageviews: number;
+  orders: number;
+  revenue: number;
+  conversionRate: number;
+  bounceRate?: number;
+  avgSessionDuration?: number;
+  avgOrderValue: number;
+  topPages?: { path: string; views: number }[];
+  source: 'Google Analytics' | 'Shopify' | 'Manual';
+  createdAt: Timestamp;
+}
+
+export interface Activation {
+  id: string;
+  accountId?: string;
+  eventId?: string;
+  type: 'TASTING' | 'DISPLAY' | 'PROMOTION' | 'GIFTING';
+  bottlesGiven: number;
+  cost: number;
+  estimatedReach?: number;
+  actualReach?: number;
+  notes?: string;
+  result?: {
+    ordersGenerated?: number;
+    revenueAttributed?: number;
+    roi?: number;
+    upliftPct?: number;
+  };
+  executedAt: ISODateString;
+  executedBy?: string;
+  createdAt: Timestamp;
+  updatedAt?: Timestamp;
+}
 export interface Task { id: string; title: string; dueAt: string; status: TaskStatus; }
 
 
@@ -179,6 +241,16 @@ export const ORDER_STATUS_META: Record<OrderStatus, { label: string; accent: str
   paid: { label: 'Pagado', accent: colorValues.success },
   cancelled: { label: 'Cancelado', accent: colorValues.danger },
   lost: { label: 'Perdido', accent: colorValues.danger },
+};
+
+// Account Stage Metadata
+export const ACCOUNT_STAGE_META: Record<Stage, { label: string; variant: 'info' | 'primary' | 'destructive' | 'default' }> = {
+  ACTIVA: { label: 'Activas', variant: 'info' },
+  SEGUIMIENTO: { label: 'En seguimiento', variant: 'primary' },
+  POTENCIAL: { label: 'Potenciales', variant: 'destructive' },
+  FALLIDA: { label: 'Perdidas', variant: 'default' },
+  CERRADA: { label: 'Cerradas', variant: 'default' },
+  BAJA: { label: 'Bajas', variant: 'default' },
 };
 
 // Restaurado para compatibilidad
@@ -268,3 +340,168 @@ export type Payload =
 
 export type OrderSellIn = any;
 export type ExecCheck = any;
+
+// =================================================================
+// == SYSTEM CONFIGURATION
+// =================================================================
+
+/**
+ * Configuración global del sistema que se almacena en Firestore.
+ * Reemplaza valores hardcodeados por configuración dinámica.
+ */
+export interface SystemConfig {
+  id: 'default';
+  version: string;
+  updatedAt: string;
+  updatedBy: string;
+  
+  // 1. TEMA Y COLORES
+  theme: {
+    brand: {
+      sun: string;
+      sunStrong: string;
+      agua: string;
+      cobre: string;
+      naranja: string;
+      verdeMar: string;
+      neutral50: string;
+      neutral900: string;
+    };
+    state: {
+      success: string;
+      warning: string;
+      danger: string;
+      info: string;
+    };
+    accent: {
+      pink: string;
+      hotpink: string;
+      indigo: string;
+      purple: string;
+      gray: string;
+    };
+    departments: Record<Department, {
+      color: string;
+      textColor: string;
+    }>;
+  };
+  
+  // 2. METADATA
+  metadata: {
+    departments: Record<Department, { label: string }>;
+    orderStatuses: Record<OrderStatus, { label: string }>;
+    shipmentStatuses: Record<ShipmentStatus, { label: string }>;
+    partyRoles: Record<PartyRoleType, { label: string }>;
+    lotQc: {
+      release: { label: string; bg: string; text: string };
+      hold: { label: string; bg: string; text: string };
+      reject: { label: string; bg: string; text: string };
+    };
+    itemCategories: Record<ItemCategory, { label: string }>;
+    accountTypes: Record<AccountType, { label: string }>;
+  };
+  
+  // 3. REGLAS DE NEGOCIO
+  businessRules: {
+    // Alertas y Thresholds de Cuentas/Ventas
+    alerts: {
+      daysWithoutContact: number;        // Default: 30 días
+      daysWithoutOrder: number;          // Default: 45 días (sell-out)
+      daysWithoutVisit: number;          // Default: 30 días
+      daysSinPedidoCritical: number;     // Default: 60 días (sell-out crítico)
+      daysInStageNoAction: number;       // Default: 30 días (pipeline)
+    };
+    
+    // Thresholds de Inventario
+    inventory: {
+      lowStockThreshold: number;         // Default: 50 unidades
+      nearExpiryDays: number;            // Default: 30 días
+      safetyStockMultiplier: number;     // Default: 1.5
+      targetDaysOfCover: number;         // Default: 30 días
+    };
+    
+    // Thresholds de Producción
+    production: {
+      kpiDaysBack: number;               // Default: 30 días
+      criticalRawThreshold: number;      // Default: 10 unidades
+      overdueDaysThreshold: number;      // Default: 3 días
+      warningDaysThreshold: number;      // Default: 1 día
+    };
+    
+    // Configuraciones de UI/UX
+    ui: {
+      swipeGestureThreshold: number;     // Default: 60 pixels
+    };
+    
+    // KPIs y Objetivos por Defecto
+    kpiDefaults: {
+      unitsSold: number;
+      revenue: number;
+      visits: number;
+    };
+    
+    // Time Ranges
+    timeRanges: {
+      weekDays: number;
+      monthDays: number;
+      yearDays: number;
+    };
+    
+    // Configuraciones Financieras
+    finance: {
+      vatSettlementDay: number;
+      payoutFeePctOnline: number;
+      fuzzySearchThreshold: number;
+      overduePaymentDays: number;        // Default: 30 días
+    };
+  };
+}
+
+// =================================================================
+// == VALORES POR DEFECTO PARA BUSINESS RULES
+// =================================================================
+
+/**
+ * Valores por defecto recomendados para las reglas de negocio.
+ * Estos valores se pueden sobrescribir desde SystemConfig en Firestore.
+ */
+export const DEFAULT_BUSINESS_RULES = {
+  alerts: {
+    daysWithoutContact: 30,
+    daysWithoutOrder: 45,
+    daysWithoutVisit: 30,
+    daysSinPedidoCritical: 60,
+    daysInStageNoAction: 30,
+  },
+  inventory: {
+    lowStockThreshold: 50,
+    nearExpiryDays: 30,
+    safetyStockMultiplier: 1.5,
+    targetDaysOfCover: 30,
+  },
+  production: {
+    kpiDaysBack: 30,
+    criticalRawThreshold: 10,
+    overdueDaysThreshold: 3,
+    warningDaysThreshold: 1,
+  },
+  ui: {
+    swipeGestureThreshold: 60,
+  },
+  kpiDefaults: {
+    unitsSold: 1000,
+    revenue: 10000,
+    visits: 20,
+  },
+  timeRanges: {
+    weekDays: 7,
+    monthDays: 30,
+    yearDays: 365,
+  },
+  finance: {
+    vatSettlementDay: 20,
+    payoutFeePctOnline: 3.5,
+    fuzzySearchThreshold: 0.7,
+    overduePaymentDays: 30,
+  },
+} as const;

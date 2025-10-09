@@ -7,6 +7,8 @@ import { upsertParameterBySku, deleteParameterBySku, upsertPlan, deletePlan, ups
 import type { ParameterBySku, QcPlanBySku as QcPlan, QcSpec, Protocol as SafetyProtocol } from './schemas';
 import { Plus, Trash2, Save, FlaskConical, ShieldCheck, Wrench, Edit, X } from "lucide-react";
 import { useData } from "@/lib/dataprovider";
+import { useSystemConfig } from "@/hooks/useSystemConfig";
+import { DEPT_META } from "@/domain/ssot";
 import { SBCard, SBButton, Input, Select } from "@/components/ui/ui-primitives";
 import { toast } from "sonner";
 import { ok } from "@/lib/result";
@@ -24,11 +26,12 @@ function Section({ title, icon, children }: { title: string, icon: React.ReactNo
 // ==========================
 // Fila de Parámetro (Editable)
 // ==========================
-function ParameterRow({ parameter, onSave, onDelete, isPending }: {
+function ParameterRow({ parameter, onSave, onDelete, isPending, calidadTheme }: {
   parameter: ParameterBySku;
   onSave: (p: ParameterBySku) => void;
   onDelete: (id: string) => void;
   isPending: boolean;
+  calidadTheme: { color: string; textColor: string; };
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editState, setEditState] = useState(parameter);
@@ -50,7 +53,34 @@ function ParameterRow({ parameter, onSave, onDelete, isPending }: {
         <td className="p-2"><Input value={editState.unit || ''} onChange={e => setEditState(s => ({ ...s, unit: e.target.value }))} placeholder="Unidad"/></td>
         <td className="p-2"><Input value={editState.range?.min?.toString() ?? ''} type="number" onChange={e => setEditState(s => ({ ...s, range: { ...s.range, min: e.target.value === '' ? undefined : Number(e.target.value) } }))} placeholder="Mín."/></td>
         <td className="p-2"><Input value={editState.range?.max?.toString() ?? ''} type="number" onChange={e => setEditState(s => ({ ...s, range: { ...s.range, max: e.target.value === '' ? undefined : Number(e.target.value) } }))} placeholder="Máx."/></td>
-        <td className="p-2"><Input value={editState.method || ''} onChange={e => setEditState(s => ({ ...s, method: e.target.value }))} placeholder="Método"/></td>
+        <td className="p-2">
+          <Select value={editState.method || ''} onChange={e => setEditState(s => ({ ...s, method: e.target.value }))}>
+            <option value="">-- Método --</option>
+            <optgroup label="Análisis Sensorial">
+              <option value="inspeccion_visual">Inspección Visual</option>
+              <option value="cata_organoleptica">Cata Organoléptica</option>
+              <option value="panel_sensorial">Panel Sensorial</option>
+            </optgroup>
+            <optgroup label="Análisis Físico-Químico">
+              <option value="hplc">HPLC</option>
+              <option value="espectrofotometria">Espectrofotometría</option>
+              <option value="titulacion">Titulación</option>
+              <option value="densimetria">Densimetría</option>
+              <option value="refractometria">Refractometría</option>
+              <option value="cromatografia">Cromatografía</option>
+            </optgroup>
+            <optgroup label="Análisis Microbiológico">
+              <option value="recuento_placas">Recuento en Placas</option>
+              <option value="pcr">PCR</option>
+              <option value="cultivo">Cultivo Microbiológico</option>
+            </optgroup>
+            <optgroup label="Otros">
+              <option value="ph_metro">pH-metro</option>
+              <option value="conductimetria">Conductimetría</option>
+              <option value="otro">Otro</option>
+            </optgroup>
+          </Select>
+        </td>
         <td className="p-2 flex gap-2">
           <SBButton onClick={handleSave} disabled={isPending || !editState.name} size="sm"><Save size={14}/> Guardar</SBButton>
           <SBButton variant="secondary" onClick={() => setIsEditing(false)} size="sm"><X size={14}/> Cancelar</SBButton>
@@ -68,7 +98,13 @@ function ParameterRow({ parameter, onSave, onDelete, isPending }: {
       <td className="p-2 font-mono">{parameter.range?.max ?? 'N/A'}</td>
       <td className="p-2">{parameter.method || 'N/A'}</td>
       <td className="p-2 flex gap-4">
-        <button onClick={() => setIsEditing(true)} className="text-sm text-[hsl(var(--sb-accent-calidad))] hover:underline flex items-center gap-1"><Edit size={12}/> Editar</button>
+        <button 
+          onClick={() => setIsEditing(true)} 
+          className="text-sm hover:underline flex items-center gap-1"
+          style={{ color: calidadTheme.color }}
+        >
+          <Edit size={12}/> Editar
+        </button>
         <button onClick={handleDelete} className="text-sm text-red-600 hover:underline flex items-center gap-1"><Trash2 size={12}/> Eliminar</button>
       </td>
     </tr>
@@ -80,10 +116,12 @@ function ParameterRow({ parameter, onSave, onDelete, isPending }: {
 // ==========================
 export default function QualityParametersPage() {
     const { data: globalData, saveCollection } = useData();
+    const { config } = useSystemConfig();
     const router = useRouter();
     const [isPending, startTransition] = useTransition();
-
-    const [sku, setSku] = useState<string>("");
+    
+    // Obtener colores del departamento CALIDAD desde SSOT
+    const calidadTheme = config?.theme.departments.CALIDAD || DEPT_META.CALIDAD;
 
     const { items, allParams, allPlans, allProtocols } = useMemo(() => ({
         items: globalData?.items || [],
@@ -92,14 +130,24 @@ export default function QualityParametersPage() {
         allProtocols: globalData?.qcProtocols || [],
     }), [globalData]);
 
+    const [selectedItemId, setSelectedItemId] = useState<string>(() => {
+        // ✅ Inicializar con el primer item si existe
+        return items.length > 0 ? items[0].id : "";
+    });
+
     const [plans, setPlans] = useState<QcPlan[]>([]);
     const [protocols, setProtocols] = useState<SafetyProtocol[]>([]);
 
     useEffect(() => {
-        if (!sku && items.length > 0) {
-            setSku(items[0].id);
+        // ✅ Actualizar si items cambia y no hay selección
+        if (items.length > 0 && !selectedItemId) {
+            setSelectedItemId(items[0].id);
         }
-    }, [items, sku]);
+    }, [items, selectedItemId]);
+
+    // ✅ Obtener el SKU real del item seleccionado
+    const selectedItem = useMemo(() => items.find(i => i.id === selectedItemId), [items, selectedItemId]);
+    const sku = selectedItem?.sku || '';
 
     const paramsForSku = useMemo(() => allParams.filter((p: ParameterBySku) => p.sku === sku), [allParams, sku]);
 
@@ -202,25 +250,61 @@ export default function QualityParametersPage() {
   return (
     <div className="mx-auto max-w-6xl p-4 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-[hsl(var(--sb-accent-calidad))] flex items-center gap-3">
+        <h1 
+          className="text-2xl font-semibold flex items-center gap-3"
+          style={{ color: calidadTheme.color }}
+        >
           <FlaskConical />
           Parámetros de Calidad
         </h1>
         <div className="flex items-center gap-3">
           <label htmlFor="sku-select" className="font-medium text-sm">Producto:</label>
-          <Select id="sku-select" value={sku} onChange={(e) => setSku(e.target.value)}>
+          <Select id="sku-select" value={selectedItemId} onChange={(e) => setSelectedItemId(e.target.value)}>
             {items.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
           </Select>
         </div>
       </div>
 
       <Section title="Parámetros analíticos por SKU" icon={<FlaskConical size={18}/>}>
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
+          <div className="grid grid-cols-1 md:grid-cols-7 gap-3 items-end">
             <Input className="md:col-span-2" value={newParam.name || ''} onChange={e => setNewParam(s => ({ ...s, name: e.target.value }))} placeholder="Nombre del Análisis (Ej: Grado Alcohólico)"/>
             <Input value={newParam.unit || ''} onChange={e => setNewParam(s => ({ ...s, unit: e.target.value }))} placeholder="Unidad (Ej: % vol.)"/>
             <Input value={newParam.range?.min?.toString() || ''} type="number" onChange={e => setNewParam(s => ({ ...s, range: { ...s.range, min: e.target.value === '' ? undefined : Number(e.target.value) } }))} placeholder="Rango Mín."/>
             <Input value={newParam.range?.max?.toString() || ''} type="number" onChange={e => setNewParam(s => ({ ...s, range: { ...s.range, max: e.target.value === '' ? undefined : Number(e.target.value) } }))} placeholder="Rango Máx."/>
-            <SBButton onClick={handleAddParameter} disabled={!sku || isPending} style={{ backgroundColor: 'hsl(var(--sb-accent-calidad))' }}>
+            <Select value={newParam.method || ''} onChange={e => setNewParam(s => ({ ...s, method: e.target.value }))}>
+              <option value="">-- Método --</option>
+              <optgroup label="Análisis Sensorial">
+                <option value="inspeccion_visual">Inspección Visual</option>
+                <option value="cata_organoleptica">Cata Organoléptica</option>
+                <option value="panel_sensorial">Panel Sensorial</option>
+              </optgroup>
+              <optgroup label="Análisis Físico-Químico">
+                <option value="hplc">HPLC</option>
+                <option value="espectrofotometria">Espectrofotometría</option>
+                <option value="titulacion">Titulación</option>
+                <option value="densimetria">Densimetría</option>
+                <option value="refractometria">Refractometría</option>
+                <option value="cromatografia">Cromatografía</option>
+              </optgroup>
+              <optgroup label="Análisis Microbiológico">
+                <option value="recuento_placas">Recuento en Placas</option>
+                <option value="pcr">PCR</option>
+                <option value="cultivo">Cultivo Microbiológico</option>
+              </optgroup>
+              <optgroup label="Otros">
+                <option value="ph_metro">pH-metro</option>
+                <option value="conductimetria">Conductimetría</option>
+                <option value="otro">Otro</option>
+              </optgroup>
+            </Select>
+            <SBButton 
+              onClick={handleAddParameter} 
+              disabled={!sku || isPending}
+              style={{ 
+                backgroundColor: calidadTheme.color,
+                color: calidadTheme.textColor
+              }}
+            >
               <Plus size={16} className="mr-2" /> Añadir
             </SBButton>
           </div>
@@ -243,6 +327,7 @@ export default function QualityParametersPage() {
                     onSave={handleSaveParameter}
                     onDelete={handleDeleteParameter}
                     isPending={isPending}
+                    calidadTheme={calidadTheme}
                     />
                 ))}
                 </tbody>
@@ -251,7 +336,7 @@ export default function QualityParametersPage() {
 
       <Section title="Planes de Calidad (Protocolos de Análisis)" icon={<Wrench size={18}/>}>
         <div className="flex justify-between items-center mb-3">
-          <p className="text-sm text-zinc-600">Define qué parámetros se miden en cada punto para el SKU: <b>{items.find(i=>i.id===sku)?.name}</b></p>
+          <p className="text-sm text-zinc-600">Define qué parámetros se miden en cada punto para el SKU: <b>{selectedItem?.name}</b></p>
           <SBButton onClick={() => setPlans(p => [{ id: `plan_${sku}_${Date.now()}`, name: "Nuevo Plan de Calidad", sku, specs: [] }, ...p])} disabled={!sku}>
             <Plus size={16}/> Nuevo Plan
           </SBButton>

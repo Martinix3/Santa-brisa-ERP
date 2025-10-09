@@ -2,7 +2,7 @@
 'use server';
 import { adminDb as db } from '@/server/firebase';
 import { Timestamp } from 'firebase-admin/firestore';
-import type { Shipment, ShipmentLine } from '@/domain/ssot';
+import type { Shipment, ShipmentLine } from '@/domain/ssot.v7';
 
 export async function run(payload: {
     shipmentId: string;

@@ -1,5 +1,29 @@
 // src/domain/uom.ts
 import type { OnHandView, Item, Uom } from "@/domain/ssot";
+import { UOM_ALIASES } from "@/domain/ssot";
+
+/**
+ * Normaliza una UOM string a su valor canónico según SSOT.
+ * Aplica los aliases definidos en UOM_ALIASES (e.g., 'uds' -> 'unit').
+ * 
+ * @param uom - La UOM a normalizar (puede ser un alias)
+ * @returns La UOM normalizada según SSOT, o la original si no hay alias
+ */
+export function normalizeUom(uom: string): Uom {
+  const normalized = UOM_ALIASES[uom.toLowerCase()];
+  return (normalized || uom) as Uom;
+}
+
+/**
+ * Normaliza un objeto que contiene una propiedad 'uom'.
+ * Útil para normalizar arrays de líneas de órdenes, reservas, etc.
+ */
+export function normalizeUomInObject<T extends { uom: string }>(obj: T): T & { uom: Uom } {
+  return {
+    ...obj,
+    uom: normalizeUom(obj.uom)
+  };
+}
 
 /** Devuelve la UoM dominante en inventario para un item; si no hay stock, usa la del maestro de items. */
 export function canonicalUomForItem(

@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
 import { Input, Select, SBButton } from '@/components/ui/ui-primitives';
-import type { Shipment, Account, Item, Party, SB_THEME, Uom, ShipmentLine, SalesUnit } from '@/domain/ssot';
+import type { Shipment, Account, Item, Party, SB_THEME, Uom, ShipmentLine, SalesUnit } from '@/domain/ssot.v7';
 import { Plus, X, Search } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
 

@@ -1,5 +1,5 @@
 // src/lib/onhand_view.ts
-import type { QcStatus, SantaData, Uom, OnHandView as OnHandViewType } from '@/domain/ssot';
+import type { QcStatus, SantaData, Uom, OnHandView as OnHandViewType } from '@/domain/ssot.v7';
 import { adminDb } from '@/server/firebase';
 
 // Vista unificada de disponibilidad por LOTE

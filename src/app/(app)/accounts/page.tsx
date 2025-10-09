@@ -4,33 +4,29 @@
 "use client"
 import React, { useMemo, useState, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ChevronDown, Search, Plus, Phone, Mail, MessageSquare, History, ShoppingCart, Info, Users, MoreVertical, Ticket, Clock } from 'lucide-react'
-import type { Stage, User, Interaction, OrderSellOut, SantaData, Party, PartyRole, InteractionKind, Account, CommercialFlow } from '@/domain/ssot'
+import { ChevronDown, Search, Plus, Phone, Mail, MessageSquare, History, ShoppingCart, Info, Users, MoreVertical, Ticket, Clock, List, LayoutGrid } from 'lucide-react'
+import type { Stage, User, Interaction, OrderSellOut, SantaData, Party, PartyRole, InteractionKind, Account, CommercialFlow } from '@/domain/ssot.v7'
+import { useSystemConfig } from '@/hooks/useSystemConfig';
+import { SB_COLORS, ACCOUNT_STAGE_META } from '@/domain/ssot.v7';
 import { accountOwnerDisplay, computeAccountKPIs, getDistributorForAccount } from '@/lib/sb-core';
 import Link from 'next/link'
 import { useData } from '@/lib/dataprovider'
 import { FilterSelect, ModuleHeader, SBButton, Badge, Input } from '@/components/ui'
 import { Avatar } from '@/components/ui/Avatar';
 import { NewAccountDialog } from '@/features/accounts/components/NewAccountDialog';
-import { DEPT_META } from '@/domain/ssot';
+import { AccountsPipelineView } from '@/features/accounts/components/AccountsPipelineView';
+import { DEPT_META } from '@/domain/ssot.v7';
 import { toast } from 'sonner';
 import { AccountBarDialog } from '@/features/accounts/components/AccountBarDialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 
+type ViewType = 'list' | 'pipeline';
 
-const STAGE: Record<string, { label: string; variant: 'info' | 'primary' | 'destructive' | 'default' }> = {
-  ACTIVA: { label: 'Activas', variant: 'info' },
-  SEGUIMIENTO: { label: 'En seguimiento', variant: 'primary' },
-  POTENCIAL: { label: 'Potenciales', variant: 'destructive' },
-  FALLIDA: { label: 'Perdidas', variant: 'default' },
-  CERRADA: { label: 'Cerradas', variant: 'default' },
-  BAJA: { label: 'Bajas', variant: 'default' },
-};
 const formatEUR = (n: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
 
-function GroupBar({ stage, count, expanded, onToggle }: { stage: keyof typeof STAGE, count: number, expanded: boolean, onToggle: () => void }) {
-    const s = STAGE[stage];
+function GroupBar({ stage, count, expanded, onToggle }: { stage: Stage, count: number, expanded: boolean, onToggle: () => void }) {
+    const s = ACCOUNT_STAGE_META[stage];
     if (!s) return null;
     return (
         <SBButton
@@ -97,10 +93,8 @@ function AccountBar({ a, party, santaData, onOpenDialog, userMap, shortDate }: {
 
 
   return (
-    <div
-      className="overflow-hidden transition-colors duration-150 hover:bg-secondary/50"
-    >
-        <div className="w-full grid grid-cols-[auto_1.6fr_1.2fr_1fr_1.2fr_auto] items-center gap-3 px-4 py-1.5 cursor-pointer" onClick={()=>setOpen(v=>!v)}>
+    <div className="overflow-hidden">
+        <div className="w-full grid grid-cols-[auto_1.6fr_1.2fr_1fr_1.2fr_auto] items-center gap-3 px-4 py-1.5 cursor-pointer transition-colors duration-150 hover:bg-muted/30" onClick={()=>setOpen(v=>!v)}>
             <div className="p-1.5 rounded-md text-muted-foreground hover:bg-muted/50">
                 <ChevronDown className="h-4 w-4 transition-transform duration-300" style={{transform: open? 'rotate(180deg)':'rotate(0deg)'}} aria-hidden="true"/>
             </div>
@@ -205,11 +199,16 @@ function AccountBar({ a, party, santaData, onOpenDialog, userMap, shortDate }: {
 export default function AccountsPage() {
   const router = useRouter();
   const { data: santaData, currentUser } = useData();
+  const { config } = useSystemConfig();
   const searchParams = useSearchParams();
   const flowParam = searchParams.get('flow')?.toUpperCase();
   const flow: CommercialFlow = flowParam === 'DIRECT' ? 'DIRECT' : 'PLACEMENT';
   
+  // Obtener color de VENTAS desde SSOT
+  const ventasColor = config?.theme.departments.VENTAS.color || DEPT_META.VENTAS.color;
+  
   const [q,setQ]=useState('');
+  const [viewType, setViewType] = useState<ViewType>('list');
   const [expanded,setExpanded] = useState<Record<string,boolean>>({ ACTIVA:true });
   const [fltRep, setFltRep] = useState("");
   const [fltCity, setFltCity] = useState("");
@@ -220,7 +219,7 @@ export default function AccountsPage() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key.toLowerCase() === 'f' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      if (e.key && e.key.toLowerCase() === 'f' && !e.metaKey && !e.ctrlKey && !e.altKey) {
         const el = document.getElementById('accounts-search') as HTMLInputElement | null;
         el?.focus();
         e.preventDefault();
@@ -326,13 +325,43 @@ export default function AccountsPage() {
 
   return (
     <>
-      <ModuleHeader title={`Cuentas de ${flow === 'PLACEMENT' ? 'Colocación' : 'Venta Directa'}`} icon={Users}>
-        <SBButton onClick={() => setIsNewAccountOpen(true)} className="bg-[hsl(var(--sb-accent-ventas))] text-white">
+      <ModuleHeader title="Cuentas" icon={Users}>
+        <SBButton 
+          onClick={() => setIsNewAccountOpen(true)} 
+          style={{ backgroundColor: ventasColor, color: '#ffffff' }}
+        >
             <Plus size={16} /> Nueva Cuenta
         </SBButton>
       </ModuleHeader>
+      
+      {/* Tabs para Venta Directa / Colocación */}
+      <div className="w-full px-4 lg:px-8 pt-4 pb-2 bg-background border-b">
+        <div className="flex items-center gap-1 bg-secondary p-1 rounded-lg w-fit">
+          <button
+            onClick={() => router.push('/accounts?flow=DIRECT')}
+            className={`h-8 px-4 rounded-md text-sm font-medium transition-colors ${
+              flow === 'DIRECT'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Directas
+          </button>
+          <button
+            onClick={() => router.push('/accounts?flow=PLACEMENT')}
+            className={`h-8 px-4 rounded-md text-sm font-medium transition-colors ${
+              flow === 'PLACEMENT'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Colocación
+          </button>
+        </div>
+      </div>
+      
       <div className="w-full px-4 lg:px-8 pt-3 pb-1 sticky top-0 z-20 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 mb-3">
           <div className="relative flex-grow">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -347,14 +376,39 @@ export default function AccountsPage() {
           <FilterSelect value={fltRep} onChange={setFltRep} options={repOptions} placeholder="Comercial" />
           <FilterSelect value={fltCity} onChange={setFltCity} options={cityOptions} placeholder="Ciudad" />
           <FilterSelect value={fltDist} onChange={setFltDist} options={distOptions} placeholder="Distribuidor" />
+          
+          {/* Toggle Vista Simple */}
+          <button
+            onClick={() => setViewType(viewType === 'list' ? 'pipeline' : 'list')}
+            className="px-3 py-2 rounded-lg border text-sm font-medium transition-colors hover:bg-zinc-50"
+            style={{
+              borderColor: ventasColor,
+              color: ventasColor
+            }}
+          >
+            {viewType === 'list' ? (
+              <><LayoutGrid size={16} className="inline mr-1" /> Ver Pipeline</>
+            ) : (
+              <><List size={16} className="inline mr-1" /> Ver Lista</>
+            )}
+          </button>
         </div>
       </div>
+      
       <div className="w-full px-4 md:px-6 pb-6 space-y-3">
-        {(Object.keys(STAGE) as Array<keyof typeof STAGE>).map(k=>{
+        {/* Vista Pipeline */}
+        {viewType === 'pipeline' && santaData && (
+          <AccountsPipelineView accounts={filtered} data={santaData} />
+        )}
+
+        {/* Vista Lista */}
+        {viewType === 'list' && (
+          <>
+            {(Object.keys(ACCOUNT_STAGE_META) as Stage[]).map(k=>{
           const count = grouped[k]?.length || 0;
           if (count === 0) return null;
           const isOpen = !!expanded[k];
-          const s = STAGE[k];
+          const s = ACCOUNT_STAGE_META[k];
           return (
             <div key={k} id={`group-${k}`} className={cn(
               'w-full rounded-lg overflow-hidden border-l-4',
@@ -376,11 +430,13 @@ export default function AccountsPage() {
             </div>
           )
         })}
-        {!filtered.length && (q || fltRep || fltCity || fltDist) ? (
-            <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-                No hay resultados con esos filtros. <SBButton variant="ghost" onClick={() => { setQ(''); setFltRep(''); setFltCity(''); setFltDist(''); }} className="underline">Limpiar filtros</SBButton>
-            </div>
-        ) : null}
+            {!filtered.length && (q || fltRep || fltCity || fltDist) ? (
+                <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                    No hay resultados con esos filtros. <SBButton variant="ghost" onClick={() => { setQ(''); setFltRep(''); setFltCity(''); setFltDist(''); }} className="underline">Limpiar filtros</SBButton>
+                </div>
+            ) : null}
+          </>
+        )}
       </div>
 
       {dialogState.open && dialogState.accountId && (

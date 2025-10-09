@@ -1,6 +1,6 @@
 
 
-import type { OrderSellOut, Timestamp, Currency } from '@/domain/ssot';
+import type { OrderSellOut, Timestamp, Currency } from '@/domain/ssot.v7';
 
 type ShopifyOrder = any; // si quieres, añade tipos de Shopify más adelante
 
@@ -63,7 +63,7 @@ export function normalizeShopifyOrder(order: ShopifyOrder): OrderSellOut {
 }
 
 // src/server/integrations/shopify/shopify.mapper.ts
-import type { Account } from '@/domain/ssot';
+import type { Account } from '@/domain/ssot.v7';
 
 // Este es un mapeo simplificado. En una app real, esto sería mucho más complejo
 // para manejar impuestos, descuentos, variantes de productos, etc.

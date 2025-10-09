@@ -2,6 +2,8 @@
 "use client";
 import React, { useMemo } from "react";
 import { useData } from "@/lib/dataprovider";
+import { useSystemConfig } from "@/hooks/useSystemConfig";
+import { DEPT_META } from "@/domain/ssot";
 import { computeKpis } from "@/features/production/dashboard/kpis";
 import { KpiCards } from "@/features/production/dashboard/components/KpiCards";
 import { OrdersTimeline } from "@/features/production/dashboard/components/OrdersTimeline";
@@ -13,43 +15,14 @@ import { EfficiencyWidget } from "@/features/production/dashboard/components/Eff
 import { Plus } from 'lucide-react';
 import { SBCard } from "@/components/ui/ui-primitives";
 import { UpcomingTasks } from "@/features/agenda/components/UpcomingTasks";
-import { SB_THEME, type ProductionOrder, type BillOfMaterial, type Item, type OnHandView, Uom } from "@/domain/ssot";
-
-
-// MOCK DATA FOR DEMO
-const MOCK_ITEMS: Item[] = [
-  { id: 'item_sb_750', sku: 'SB-750', name: 'Santa Brisa 750ml', category: 'fg', uom: 'unit', active: true, stdCost: 8.5 },
-  { id: 'item_agave', sku: 'RM-AGAVE-01', name: 'Agave Crudo', category: 'raw', uom: 'kg', active: true, stdCost: 2.1 },
-  { id: 'item_botella', sku: 'PKG-BOTELLA-STD', name: 'Botella Vidrio 750ml', category: 'pack', uom: 'unit', active: true, stdCost: 0.8 },
-];
-
-const MOCK_RECIPES: BillOfMaterial[] = [
-    { id: 'bom_sb_750', outputItemId: 'item_sb_750', name: 'Receta Santa Brisa', batchSize: 100, baseUnit: 'L' as Uom, items: [
-        { itemId: 'item_agave', qty: 20, uom: 'kg' },
-        { itemId: 'item_botella', qty: 133, uom: 'unit' }
-    ]}
-];
-
-const MOCK_ON_HAND: OnHandView[] = [
-  { id: 'oh_1', itemId: 'item_sb_750', lotNumber: 'L240801-A', locationId: 'FG/MAIN', qty: 120, reservedQty: 20, uom: 'unit', qcStatus: 'PASSED', category: 'fg', expiryAt: '2026-08-01T00:00:00Z', createdAt: '2024-08-01T00:00:00Z', updatedAt: '2024-08-10T00:00:00Z' },
-  { id: 'oh_3', itemId: 'item_sb_750', lotNumber: 'L240815-A', locationId: 'QC/AREA', qty: 200, reservedQty: 0, uom: 'unit', qcStatus: 'PENDING', category: 'fg', createdAt: '2024-08-15T00:00:00Z', updatedAt: '2024-08-15T00:00:00Z' },
-  { id: 'oh_4', itemId: 'item_agave', lotNumber: 'RM-AG-240805', locationId: 'RM/MAIN', qty: 50, reservedQty: 0, uom: 'kg', qcStatus: 'PASSED', category: 'raw', createdAt: '2024-08-05T00:00:00Z', updatedAt: '2024-08-05T00:00:00Z' },
-];
-
-const MOCK_ORDERS: ProductionOrder[] = [
-    { id: 'po_1', baseUnit: 'L' as Uom, orderNumber: 'PO-2024-001', bomId: 'bom_sb_750', outputItemId: 'item_sb_750', targetQuantity: 100, status: 'PLANNED', createdAt: new Date(Date.now() - 5 * 86400000).toISOString(), shortages: [{itemId: 'item_agave', required: 20, available: 5, missing: 15, uom: 'kg'}] },
-    { id: 'po_2', baseUnit: 'L' as Uom, orderNumber: 'PO-2024-002', bomId: 'bom_sb_750', outputItemId: 'item_sb_750', targetQuantity: 200, status: 'IN_PROGRESS', createdAt: new Date(Date.now() - 2 * 86400000).toISOString() },
-    { id: 'po_3', baseUnit: 'L' as Uom, orderNumber: 'PO-2024-003', bomId: 'bom_sb_750', outputItemId: 'item_sb_750', targetQuantity: 150, status: 'DONE', createdAt: new Date(Date.now() - 10 * 86400000).toISOString(), execution: { finishedAt: new Date(Date.now() - 8 * 86400000).toISOString(), goodUnits: 148, durationHours: 6 }, costing: { actual: { perUnit: 8.6, yieldLossPct: 1.3 } } },
-];
 
 
 export default function ProductionDashboardPage() {
-  const { data } = { data: {
-      billOfMaterials: MOCK_RECIPES,
-      items: MOCK_ITEMS,
-      onHand: MOCK_ON_HAND,
-      productionOrders: MOCK_ORDERS,
-  }};
+  const { data } = useData();
+  const { config } = useSystemConfig();
+  
+  // Obtener colores del departamento PRODUCCION desde SSOT
+  const produccionTheme = config?.theme.departments.PRODUCCION || DEPT_META.PRODUCCION;
   const { billOfMaterials: recipes, items, onHand, productionOrders: orders } = data || {};
   
   const kpis = useMemo(()=> {
@@ -57,7 +30,16 @@ export default function ProductionDashboardPage() {
       return computeKpis({ orders: orders as any, recipes: recipes as any, onHand: onHand as any, items });
   }, [orders, recipes, onHand, items]);
 
-  if (!data || !kpis) return <div className="p-6">Cargando dashboard…</div>;
+  if (!data || !kpis) {
+    return (
+      <div className="p-6">
+        <h1 className="text-2xl font-semibold mb-4" style={{ color: produccionTheme.color }}>
+          Dashboard de Producción
+        </h1>
+        <div>Cargando datos de producción...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -82,8 +64,20 @@ export default function ProductionDashboardPage() {
          <EfficiencyWidget laborSeries={kpis.laborSeries} costPerUnitSeries={kpis.costPerUnitSeries} />
        </SBCard>
        
-       {/* Botón de acción flotante, sin acción por ahora */}
-       <button className="fixed bottom-6 right-6 h-14 w-14 rounded-full bg-zinc-900 text-white shadow-lg flex items-center justify-center z-40 hover:bg-zinc-800 transition-colors">
+       {/* Botón de acción flotante */}
+       <button 
+         className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg flex items-center justify-center z-40 transition-colors"
+         style={{ 
+           backgroundColor: produccionTheme.color,
+           color: produccionTheme.textColor
+         }}
+         onMouseEnter={(e) => {
+           e.currentTarget.style.opacity = '0.9';
+         }}
+         onMouseLeave={(e) => {
+           e.currentTarget.style.opacity = '1';
+         }}
+       >
             <Plus size={24} />
        </button>
     </div>

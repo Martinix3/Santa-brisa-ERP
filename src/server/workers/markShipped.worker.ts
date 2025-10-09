@@ -1,6 +1,6 @@
 import { adminDb as db } from '@/server/firebase';
 import { Timestamp } from 'firebase-admin/firestore';
-import type { Shipment, OrderSellOut } from '@/domain/ssot';
+import type { Shipment, OrderSellOut } from '@/domain/ssot.v7';
 import { enqueue } from '../queue/queue';
 
 export async function run({ shipmentId }: { shipmentId: string }) {

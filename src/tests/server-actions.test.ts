@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { validateShipment } from '@/app/(app)/warehouse/logistics/actions';
 import { createSalesInvoice } from '@/app/(app)/orders/actions';
-import type { Shipment, OrderSellOut, FinanceLink, SantaData, Uom } from '@/domain/ssot';
+import type { Shipment, OrderSellOut, FinanceLink, SantaData, Uom } from '@/domain/ssot.v7';
 import { getServerData } from '@/lib/dataprovider/server';
 import { upsertMany } from '@/lib/dataprovider/actions';
 

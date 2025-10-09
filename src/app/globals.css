@@ -227,6 +227,8 @@
   .sb-dialog {
     @apply rounded-xl border bg-card text-card-foreground shadow-sm;
     width: min(640px, 92vw);
+    max-height: 90vh;
+    overflow-y: auto;
     transform: translateY(8px) scale(.98);
     animation: sb-pop-in .18s cubic-bezier(.2,.8,.2,1) forwards;
   }

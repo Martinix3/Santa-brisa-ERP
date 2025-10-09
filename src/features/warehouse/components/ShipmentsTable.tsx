@@ -8,7 +8,8 @@ import { toast } from 'sonner';
 import { MoreHorizontal, FileText, PackageCheck, Truck } from 'lucide-react';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { SBCard, SBButton } from '@/components/ui/ui-primitives';
-import type { Shipment, OrderSellOut, Account } from '@/domain/ssot';
+import type { Shipment, OrderSellOut, Account, ShipmentStatus } from '@/domain/ssot.v7';
+import { SHIPMENT_STATUS_META } from '@/domain/ssot.v7';
 import { useData } from '@/lib/dataprovider';
 import { markShipped } from '@/server/actions/logistics.actions';
 
@@ -21,21 +22,24 @@ function getChannelInfo(order?: OrderSellOut, account?: Account) {
     return { label: account.segment, className: "bg-zinc-100 text-zinc-900 border-zinc-200" };
 }
 
-const STATUS_STYLES: Record<string, { label: string; className: string }> = {
-  pending: { label: "Pendiente", className: "bg-yellow-100 text-yellow-800" },
-  picking: { label: "Picking", className: "bg-blue-100 text-blue-800" },
-  ready_to_ship: { label: "Validado", className: "bg-indigo-100 text-indigo-800" },
-  shipped: { label: "Enviado", className: "bg-cyan-100 text-cyan-800" },
-  delivered: { label: "Entregado", className: "bg-green-100 text-green-800" },
-  exception: { label: "Incidencia", className: "bg-orange-100 text-orange-800" },
-  cancelled: { label: "Cancelado", className: "bg-red-100 text-red-800" },
+// Mapa de estilos CSS para cada estado (mantiene compatibilidad visual)
+const STATUS_CLASSNAMES: Record<ShipmentStatus, string> = {
+  pending: "bg-yellow-100 text-yellow-800",
+  picking: "bg-blue-100 text-blue-800",
+  ready_to_ship: "bg-indigo-100 text-indigo-800",
+  shipped: "bg-cyan-100 text-cyan-800",
+  delivered: "bg-green-100 text-green-800",
+  exception: "bg-orange-100 text-orange-800",
+  cancelled: "bg-red-100 text-red-800",
 };
 
-function StatusBadge({ status }: { status: string }) {
-    const style = STATUS_STYLES[status] || { label: status, className: 'bg-zinc-100 text-zinc-800' };
+function StatusBadge({ status }: { status: ShipmentStatus }) {
+    const meta = SHIPMENT_STATUS_META[status];
+    const className = STATUS_CLASSNAMES[status] || 'bg-zinc-100 text-zinc-800';
+    const label = meta?.label || status;
     return (
-        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${style.className}`}>
-            {style.label}
+        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${className}`}>
+            {label}
         </span>
     );
 }

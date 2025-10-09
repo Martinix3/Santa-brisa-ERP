@@ -3,7 +3,7 @@
 "use client";
 import React from "react";
 import { Factory, AlertCircle, Hourglass, CheckCircle, XCircle, Droplets, Package, BarChart } from 'lucide-react';
-import { SB_COLORS } from '@/domain/ssot';
+import { SB_COLORS } from '@/domain/ssot.v7';
 import { KPI } from '@/components/ui/ui-primitives';
 
 export function KpiCards({ kpis }: { kpis: any }) {

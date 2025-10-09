@@ -76,14 +76,14 @@ function RecipeForm({ initialValues, onSave, onCancel, allItems, isNew, onQuickC
   const [newSku, setNewSku] = useState("");
 
   useEffect(() => {
-    if (fm.values.stage === "PRODUCCION") {
-      if (fm.values.baseUnit !== "L") fm.set("baseUnit", "L" as Uom);
-      if (fm.values.batchSize !== 1) fm.set("batchSize", 1);
-    } else if (fm.values.stage === "ENVASADO") {
-      if ((fm.values.baseUnit as any) !== "uds") fm.set("baseUnit", "uds" as Uom);
-      if (fm.values.batchSize !== 1) fm.set("batchSize", 1);
+    // Solo establecer valores por defecto si está vacío
+    if (fm.values.stage === "PRODUCCION" && !fm.values.baseUnit) {
+      fm.set("baseUnit", "L" as Uom);
+    } else if (fm.values.stage === "ENVASADO" && !fm.values.baseUnit) {
+      fm.set("baseUnit", "unit" as Uom);
     }
-  }, [fm.values.stage, fm]);
+    if (fm.values.batchSize !== 1) fm.set("batchSize", 1);
+  }, [fm.values.stage, fm.values.baseUnit, fm.values.batchSize, fm.set]);
 
   const itemsRaw = useMemo(() => allItems.filter(it => it.category === "raw"), [allItems]);
   const itemsPack = useMemo(() => allItems.filter(it => it.category === "pack"), [allItems]);
@@ -171,8 +171,35 @@ function RecipeForm({ initialValues, onSave, onCancel, allItems, isNew, onQuickC
   const formulaLines = useMemo(() => (fm.values.items || []).map((l, idx) => ({ l, idx })).filter(({ l }) => (l.role ?? "FORMULA") === "FORMULA"), [fm.values.items]);
   const packagingLines = useMemo(() => (fm.values.items || []).map((l, idx) => ({ l, idx })).filter(({ l }) => l.role === "PACKAGING"), [fm.values.items]);
 
+  // ✅ Validación de balance de unidades
+  const balanceWarning = useMemo(() => {
+    if (!isProd) return null; // Solo para producción (L)
+    
+    const totalL = formulaLines.reduce((sum, { l }) => {
+      if (!l.itemId || !l.qty) return sum;
+      const uom = canonicalUomForItem(l.itemId, santaData?.onHand || [], allItems);
+      // Solo sumar si la UoM es L (litros)
+      if (uom === 'L') return sum + l.qty;
+      return sum;
+    }, 0);
+    
+    const baseUnit = fm.values.batchSize || 1;
+    const diff = Math.abs(totalL - baseUnit);
+    const tolerance = baseUnit * 0.05; // 5% de tolerancia
+    
+    if (diff > tolerance && totalL > 0) {
+      const percentage = ((diff / baseUnit) * 100).toFixed(1);
+      return {
+        message: `⚠️ La suma de componentes líquidos (${totalL.toFixed(3)}L) difiere de la unidad base (${baseUnit}L) en un ${percentage}%`,
+        severity: diff > baseUnit * 0.15 ? 'error' : 'warning'
+      };
+    }
+    return null;
+  }, [formulaLines, fm.values.batchSize, isProd, santaData?.onHand, allItems]);
+
   return (
     <>
+      <form onSubmit={(e) => { e.preventDefault(); handleSave(); }}>
       <SBCard noPadding>
         <div className="p-4 border-b">
           <div className="flex items-center justify-between">
@@ -190,6 +217,7 @@ function RecipeForm({ initialValues, onSave, onCancel, allItems, isNew, onQuickC
               {(["PRODUCCION","ENVASADO"] as BomStage[]).map(st => (
                 <SBButton
                   key={st}
+                  type="button"
                   variant="ghost"
                   data-active={fm.values.stage === st}
                   onClick={() => fm.set("stage", st)}
@@ -214,22 +242,34 @@ function RecipeForm({ initialValues, onSave, onCancel, allItems, isNew, onQuickC
             <Field label="Nombre Receta" name="name" required error={fm.fieldErrors?.name}>
               <Input value={fm.values.name} onChange={(e) => fm.set("name", e.target.value)} />
             </Field>
-            <div>
-              <label className="block text-sm font-medium text-muted-foreground mb-1">Unidad base</label>
-              <div className="h-10 px-3 flex items-center rounded-lg border bg-secondary text-muted-foreground">
-                {isProd ? "Litro (L)" : "Unidad (botella)"}
-              </div>
-            </div>
+            <Field label="Unidad base" name="baseUnit" required error={fm.fieldErrors?.baseUnit}>
+              <Select value={fm.values.baseUnit} onChange={(e) => fm.set("baseUnit", e.target.value as Uom)}>
+                <optgroup label="Volumen">
+                  <option value="L">Litros (L)</option>
+                  <option value="mL">Mililitros (mL)</option>
+                </optgroup>
+                <optgroup label="Masa">
+                  <option value="kg">Kilogramos (kg)</option>
+                  <option value="g">Gramos (g)</option>
+                </optgroup>
+                <optgroup label="Unidades">
+                  <option value="unit">Unidades (unit)</option>
+                  <option value="bottle">Botellas</option>
+                  <option value="case">Cajas</option>
+                </optgroup>
+              </Select>
+            </Field>
           </div>
         </div>
 
         <div className="p-4 space-y-6">
           {fm.lastError && <Banner kind="err" text={fm.lastError} />}
           {fm.fieldErrors?.items && <Banner kind="warn" text={fm.fieldErrors.items} />}
+          {balanceWarning && <Banner kind={balanceWarning.severity === 'error' ? 'err' : 'warn'} text={balanceWarning.message} />}
 
           <SectionCard title={isProd ? "Componentes (raw o intermediate)" : "Componentes (intermediate o pack)"} hint={isProd ? "Cantidades para 1 L de PI" : "Cantidades por 1 botella de FG"}>
             {(isProd ? formulaLines : packagingLines).map(({ l, idx }) => (
-              <div key={idx} className="grid grid-cols-[2fr_1fr_1fr_auto] gap-2 items-end">
+              <div key={idx} className="grid grid-cols-[2fr_1fr_100px_auto] gap-2 items-end">
                 <Field label="Material" name={`items[${idx}].itemId`} required error={fm.fieldErrors?.[`items.${idx}.itemId`]}>
                   <Select value={l.itemId} onChange={(e) => fm.set(`items.${idx}.itemId`, e.target.value)}>
                     <option value="">Selecciona material</option>
@@ -239,17 +279,20 @@ function RecipeForm({ initialValues, onSave, onCancel, allItems, isNew, onQuickC
                 <Field label="Cantidad" name={`items[${idx}].qty`} required error={fm.fieldErrors?.[`items.${idx}.qty`]}>
                   <Input type="number" step="0.0001" value={l.qty} onChange={(e) => fm.set(`items.${idx}.qty`, Number(e.target.value))} />
                 </Field>
-                <div className="text-xs text-muted-foreground pb-2">
-                  UoM: <span className="px-2 py-0.5 rounded-full border bg-secondary">
+                <div className="flex flex-col">
+                  <label className="block text-sm font-medium text-muted-foreground mb-1">UoM</label>
+                  <div className="h-10 px-3 flex items-center justify-center rounded-lg border bg-secondary font-semibold text-sm">
                     {l.itemId ? canonicalUomForItem(l.itemId, santaData?.onHand || [], allItems) : "—"}
-                  </span>
+                  </div>
                 </div>
-                <SBButton variant="ghost" className="text-destructive hover:bg-destructive/10" onClick={() => removeLine(idx)} aria-label={`Eliminar línea ${idx + 1}`} title="Eliminar línea">
-                  <Trash2 size={16} />
-                </SBButton>
+                <div className="pb-2">
+                  <SBButton type="button" variant="ghost" className="text-destructive hover:bg-destructive/10" onClick={() => removeLine(idx)} aria-label={`Eliminar línea ${idx + 1}`} title="Eliminar línea">
+                    <Trash2 size={16} />
+                  </SBButton>
+                </div>
               </div>
             ))}
-            <SBButton variant="outline" size="sm" onClick={() => addLine(isProd ? "FORMULA" : "PACKAGING")} className="mt-2">
+            <SBButton type="button" variant="outline" size="sm" onClick={() => addLine(isProd ? "FORMULA" : "PACKAGING")} className="mt-2">
               <Plus size={14} className="inline mr-1" /> Añadir material
             </SBButton>
           </SectionCard>
@@ -258,11 +301,12 @@ function RecipeForm({ initialValues, onSave, onCancel, allItems, isNew, onQuickC
         <div className="sb-card__footer justify-between">
           <FormStatusBar dirty={fm.dirty} saving={fm.saving} />
           <div className="flex gap-2">
-            <SBButton variant="ghost" onClick={onSafeCancel}>Cancelar</SBButton>
-            <SpinnerButton loading={fm.saving} onClick={handleSave} disabled={!fm.dirty || fm.saving}>Guardar</SpinnerButton>
+            <SBButton type="button" variant="ghost" onClick={onSafeCancel}>Cancelar</SBButton>
+            <SpinnerButton type="submit" loading={fm.saving} disabled={!fm.dirty || fm.saving}>Guardar</SpinnerButton>
           </div>
         </div>
       </SBCard>
+      </form>
 
       <SBDialog open={createOpen} onOpenChange={setCreateOpen}>
         <SBDialogContent title="Crear producto" description="Crea un producto rápido para usarlo como Output.">
@@ -275,8 +319,8 @@ function RecipeForm({ initialValues, onSave, onCancel, allItems, isNew, onQuickC
             </Field>
           </div>
           <div className="sb-dialog__footer">
-            <SBButton variant="ghost" onClick={() => setCreateOpen(false)}>Cancelar</SBButton>
-            <SBButton variant="primary" onClick={createOutputNow} disabled={!newName.trim()}>Crear</SBButton>
+            <SBButton type="button" variant="ghost" onClick={() => setCreateOpen(false)}>Cancelar</SBButton>
+            <SBButton type="button" variant="primary" onClick={createOutputNow} disabled={!newName.trim()}>Crear</SBButton>
           </div>
         </SBDialogContent>
       </SBDialog>
@@ -304,6 +348,22 @@ export default function BomPage() {
     setOpenRecipe({ id: `bom_${Date.now()}`, outputItemId: "", name: "", batchSize: 1, baseUnit: "L", stage: "PRODUCCION", items: [] } as BomWithStage);
     setIsNew(true);
   }, []);
+
+  // ✅ Leer query params de la URL al cargar (después de definir createNew)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const name = params.get('new_product_name');
+      const sku = params.get('new_product_sku');
+      
+      // Si hay parámetros, crear nueva receta automáticamente
+      if (name || sku) {
+        createNew();
+        // Limpiar la URL sin recargar
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    }
+  }, [createNew]); // Incluir createNew en dependencias
 
   const handleSave = useCallback(async (values: BomWithStage) => {
     const result = await upsertBOM(values);
@@ -357,7 +417,7 @@ export default function BomPage() {
                 <h2 className="text-xl font-semibold text-foreground">Recetas (BOM)</h2>
                 <p className="text-sm text-muted-foreground">Producción (PI) y Envasado (FG)</p>
             </div>
-            <SBButton variant="primary" onClick={createNew} aria-label="Crear nueva receta">
+            <SBButton type="button" variant="primary" onClick={createNew} aria-label="Crear nueva receta">
                 <Plus size={16} />
                 <span className="hidden sm:inline">Nueva receta</span>
             </SBButton>
@@ -382,12 +442,12 @@ export default function BomPage() {
                       aria-label={`Abrir receta ${r.name || r.id}`}
                     >
                       <div className="flex justify-between items-start gap-2">
-                        <div>
-                          <p className="font-semibold text-foreground">{r.name || "—"}</p>
-                          <p className="text-xs text-muted-foreground font-mono">{outputItem?.name || r.outputItemId || "—"}</p>
-                          {r.stage && <Badge variant="secondary" className="mt-1">{r.stage}</Badge>}
+                        <div className="flex-1">
+                          <p className="text-base font-bold text-foreground">{outputItem?.name || r.outputItemId || "Sin producto"}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{r.name || "Sin nombre de receta"}</p>
+                          {r.stage && <Badge variant="secondary" className="mt-1 text-[10px]">{r.stage}</Badge>}
                         </div>
-                        <SBButton variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setArchiving({ id: r.id, name: r.name }); }}>
+                        <SBButton type="button" variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setArchiving({ id: r.id, name: r.name }); }}>
                             Archivar
                         </SBButton>
                       </div>
@@ -420,8 +480,8 @@ export default function BomPage() {
             <p className="text-muted-foreground">¿Estás seguro de que quieres archivar la receta <strong>{archiving?.name}</strong>? Esta acción no se puede deshacer.</p>
           </div>
           <div className="sb-dialog__footer">
-            <SBButton variant="ghost" onClick={() => setArchiving(null)}>Cancelar</SBButton>
-            <SBButton variant="destructive" onClick={onArchive} disabled={!archiving}>Archivar</SBButton>
+            <SBButton type="button" variant="ghost" onClick={() => setArchiving(null)}>Cancelar</SBButton>
+            <SBButton type="button" variant="destructive" onClick={onArchive} disabled={!archiving}>Archivar</SBButton>
           </div>
         </SBDialogContent>
       </SBDialog>

@@ -1,0 +1,160 @@
+id,tradeName,legalName,taxId,phone,billing adres,peopole,createdAt,zona
+acc_001,Chez Pepito,,,,,Romin,,Madrid
+acc_002,eMeBe ,,,,,Miguel,,Madrid
+acc_003,Morenas,,,,,Eduardo Rozo,,Madrid
+acc_004,Chakana,,,,,Omar ,,Zaragoza
+acc_005,El Gordo Velazquez,,,,,Jan Paulo y Javier,,Madrid
+acc_006,Sabodiga,,,,,,,Menorca
+acc_007,Senor Bigote,,,,,Jesus,,Menorca
+acc_008,Cristanal y Gradinata,,,,,,,Menorca
+acc_009,Oysters,,,,,Tobi,,Menorca
+acc_010,Sa Tintina ,,,,,Alex ,,Menorca
+acc_011,Aqui hay Tomate,,,,,,,Menorca
+acc_012,Cova den Xoroi ,,,,,,,Menorca
+acc_013,Madrid al Cielo ,,,,,,,Menorca
+acc_014,Bar Augustin,,,,,Patri,,Menorca
+acc_015,Supermercado melo,,,,,Ana,,Madrid
+acc_016,Cervecería Santa Barbara,,,,,Álvaro,,Madrid
+acc_017,Catering the cook,,,,,Silvia Lodares,,Madrid
+acc_018,Bulo,,,,,Manu Cabello,,Madrid
+acc_019,Joselito,,,,,Carlos y jose Gómez,,Madrid
+acc_020,Adrede,,,,,Angel,,Madrid
+acc_021,Las tablas,,,,,Borja,,Madrid
+acc_022,Gabys Bagels,,,,,Baby y Rafa,,Madrid
+acc_023,Delirium,,,,,Lu,,Madrid
+acc_024,Terraza campo del moro,,,,,Luna,,Madrid
+acc_025,Abacería Macarena,,,,,Luis Magaña,,Madrid
+acc_026,Cockatil Bar 1885,,,,,,,Zaragoza
+acc_027,La embajada,,,,,,,Zaragoza
+acc_028,Tiare Beach Club,,,,,,,Girona
+acc_029,Stop Supermercado,,,,,,,Ibiza
+acc_030,Flahertys,,,,,,,Ibiza
+acc_031,Burdel de Foc,,,,,Fran,,Menorca
+acc_032,Filemon,,,,,,,Madrid
+acc_033,La Rubia,,,,,Nene,,Madrid
+acc_034,Grupo dejate llevar,,,,,Guiller Bragado,,Madrid
+acc_035,Las Terrazas,,,,,El patillas,,Madrid
+acc_036,Lanteo,,,,,Berni Landeta,,Madrid
+acc_037,Grupo Dani García,,,,,Dani García,,Anadalucía
+acc_038,Corte Inglés ,,,,,Marta Álvarez,,Madrid
+acc_039,Marea,,,,,Alex ,,Madrid
+acc_040,Grupo Paladium ,,,,,Dani Sakovic Matutes,,Madrid
+acc_041,Catering Samantha,,,,,Samantha,,Madrid
+acc_042,Varma,,,,,,,Madrid
+acc_043,Grupo Triciclo,,,,,,,Madrid
+acc_044,Grupo Mentidero,,,,,,,Madrid
+acc_045,Palacio de Alcala,,,,,,,Madrid
+acc_046,Golda,,,,,,,Madrid
+acc_047,Casa Ortega,,,,,Gonzalo Ortega,,Madrid
+acc_048,Mantequerias Bravo,,,,,,,Madrid
+acc_049,Taberna Pedraza,,,,,Santigo Pedraza,,Madrid
+acc_050,La maquina Jorge Juan,,,,,,,Madrid
+acc_051,Costa Este,,,635139463,,Roberto compras,,Barcelona
+acc_052,Hotel Welington,,,,,,,Madrid
+acc_053,Trocadero,,,,,,,"Madrid, Anadalucía"
+acc_054,Fondeo,,,,,,,Madrid
+acc_055,El Enemigo,,,,,,,Madrid
+acc_056,Copa de Balón ,,,,,,,Madrid
+acc_057,Rel Club de Golf Sotogrande,,,,,Kostka,,Anadalucía
+acc_058,Wondermarket. Keila,,,,,,,Madrid
+acc_059,Catering Laurel,,,,,,,Madrid
+acc_060,Sea Beach,,,687004187,,Cristina Losada,,Barcelona
+acc_061,Grupo Hyatt ,,,679856568,,Rubén Ubric,,Mallorca
+acc_062,AN Group,,,658400758,,Carlos Conde,,Barcelona
+acc_063,Kiss chupitos ,,,633336625,,selim ,,Madrid
+acc_064,Bokaxankla:,,,,,,,Madrid
+acc_065,Trompo,,,,,,,Madrid
+acc_066,Florida Park,,,,,,,Madrid
+acc_067,Bajío,,,,,,,Madrid
+acc_068,La Boheme,,,,,,,
+acc_069,Los Peñotes,,,,,,,
+acc_070,Ciboulet,,,,,,,Madrid
+acc_071,NH,,,,,,,Madrid
+acc_072,AC ,,,,,,,Madrid
+acc_073,Café de París,,,,,,,Madrid
+acc_074,Bar Nuevo M40,,,,,,,Madrid
+acc_075,Noname,,,,,,,Madrid
+acc_076,Liquor Store,,,,,,,Madrid
+acc_077,Fuerte Group Hotels,,,,,,,Madrid
+acc_078,4 Latas,,,,,,,Madrid
+acc_079,new Orleans ,,,,,Rubén ,,Anadalucía
+acc_080,Boca Grande,,,627904317,,Salvador Fernández ,,"Madrid, Barcelona"
+acc_081,Boca Chica,,,627904317,,Salvador Fernández ,,Barcelona
+acc_082,Chica Club,,,627904317,,Salvador Fernández ,,Barcelona
+acc_083,Chica Beach,,,627904317,,Salvador Fernández ,,Barcelona
+acc_084,Grupo Boia,,,622125060,,Manel Vheli,,Barcelona
+acc_085,candestino,,,665763478,,Raul ,,Barcelona
+acc_086,el centro cultural ,,,642198562,,Guillermo  Martínez ,,Girona
+acc_087,La Penela,,,,,,,Barcelona
+acc_088,Aurea,,,,,,,Barcelona
+acc_089,Akangas,,,,,,,Madrid
+acc_090,Cafe Pino,,,,,,,Madrid
+acc_091,Ke Sotogrande,,,,,,,Madrid
+acc_092,Formage,,,647193284,,Adrian Pellejo,,Madrid
+acc_093,Supernormal,,,,,Chiara,,Anadalucía
+acc_094,Vinology,,,915272066,,Somelier Mateo,,Madrid
+acc_095,Ingo,,,,,Cajas,,Madrid
+acc_096,El Enemigo tienda,,,,,Juan Ortiz,10/08/2025,Madrid
+acc_097,Pecaditos,,,,,Alberto Sancho,,Madrid
+acc_098,Richelieu,,,,,Juanjo,,Madrid
+acc_099,diene,,,,,Javier nieto,,Barcelona
+acc_100,jane,,,,,Joan ,,Barcelona
+acc_101,Nueva Taberna,,,,,,,Madrid
+acc_102,sls,,,,,mateo jefe de bebidas ,,Barcelona
+acc_103,rosalia,,,,,,,Barcelona
+acc_104,cooper,,,,,edir malpartida,,Barcelona
+acc_105,catering stan ,,,,,Stanley ,,Barcelona
+acc_106,catering la lloca,,,,,,,Barcelona
+acc_107,la dama,,,,,Andrea Civetinni ,,Barcelona
+acc_108,feroz,,,,,aritz ,,Barcelona
+acc_109,vinalium,,,,,mery,,Barcelona
+acc_110,bn group,,,,,Cristian valls,,Barcelona
+acc_111,shoko,,,,,David,,Barcelona
+acc_112,grupo Isabela,,,,,,,Barcelona
+acc_113,grupo confitería,,,,,marc ,,Barcelona
+acc_114,vila viniteca,,,,,Albert,,Barcelona
+acc_115,the green dog,,,,,Raul,,Barcelona
+acc_116,clandestino,,,,,Raul,,Barcelona
+acc_117,Ana Rey Catering y tienda,,,,,,,Madrid
+acc_118,100% Mexico,,,,,Jordi,12/08/2025,Madrid
+acc_119,sea sea beach,,,,,Ignacio  furest,,Barcelona
+acc_120,coctel sunsrise,,,,,gerard,,Girona
+acc_121,santeria,,,,,albert,,Ibiza
+acc_122,tienda stoo,,,,,albert,,Ibiza
+acc_123,Uval,,,,,Sonia Abarca,19/09/2025,Madrid
+acc_124,La Rotonda de Mirasierra,,,,,Pablo Machado,19/09/2025,Madrid
+acc_125,Il Patisiere,,,,,María Inés,19/09/2025,Madrid
+acc_126,Taste of America Retiro,,,,,Yolanda,17/09/2025,Madrid
+acc_127,Le Clab,,,,,Monica,16/09/2025,Madrid
+acc_128,Verso Y Veta,,,,,Dani,29/09/2025,Madrid
+acc_129,Taste of America Chueca,,,,,Yolanda,17/09/2025,Madrid
+acc_130,Donde Mónica,,,,,Mónica,,Madrid
+acc_131,Grupo Oter,,,,,,,
+acc_132,Grupo La Máquina,,,,,Javier,,
+acc_133,Ostas Pedrín ,,,,,Salva Barres,,
+acc_134,Bar trafalgar,,,,,Alberto,,
+acc_135,Hermanos Vinagre,,,,,David,,
+acc_136,La Gildería,,,,,Ubaldo,,
+acc_137,Cañas y Tapas,,,,,Gisele,,
+acc_138,Mama Campo,,,,,,,
+acc_139,Escola,,,,,,26/09/2025,barcelona
+acc_140,Isla Catavinos,,,,,,26/09/2025,baleares
+acc_141,Bodegas Jaime,,,,,,26/09/2025,zaragoza
+acc_142,Importaciones Cuesta,,,,,,26/09/2025,
+acc_144,Miguel garcía,,,,,,26/09/2025,
+acc_145,Alejandra de la oliva,,,,,,26/09/2025,
+acc_146,Quirites Inmobiliaria,,,,,,26/09/2025,Madrid
+acc_147,Ingo Gestión de activos,,,,,,13/09/2025,Zaragoza
+acc_148,Carbónicas Alvarez,,,,,,,Madrid
+acc_149,Serviline Foods,,,,,,12/10/2025,Zaragoza
+acc_150,Divins Menorca,,,,,,8/09/2025,Menorca
+acc_151,Aral,,,,,,,Girona
+acc_152,Asador Galino Pueyo,,,,,,,Zargoza
+acc_153,Alacena de Aragón,,,,,,,Zargoza
+acc_154,Gayarre,,,,,,,Zargoza
+acc_155,Mantequerias Sanz,,,,,,,Zargoza
+acc_156,Roto Zaragoza,,,,,,,Zargoza
+acc_157,Roto Formigual,,,,,,,Zargoza
+acc_158,La clandestina,,,,,,,Zargoza
+acc_159,Tulp,,,,,,,Zargoza
+acc_160,La Bicicleta Roja,,,,,,,Zargoza

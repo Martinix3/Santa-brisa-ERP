@@ -1,7 +1,7 @@
 // src/features/bom/RecipeList.tsx
 "use client";
 import React from 'react';
-import type { BillOfMaterial as RecipeBom, Item } from '@/domain/ssot';
+import type { BillOfMaterial as RecipeBom, Item } from '@/domain/ssot.v7';
 
 type BomWithStage = RecipeBom & { stage?: 'PRODUCCION' | 'ENVASADO' };
 

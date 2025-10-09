@@ -9,11 +9,12 @@ import { upsertMany } from "@/lib/dataprovider/server";
 import { FieldValue, FieldPath } from "firebase-admin/firestore";
 import { z } from "zod";
 import { adminDb } from '@/server/firebase';
-import type { Lot as SsotLot, Uom, ProductionOrder, BillOfMaterial as RecipeBom, OnHandView, Item, StockMove, TraceEvent, QcPlanBySku } from '@/domain/ssot';
+import type { Lot as SsotLot, Uom, ProductionOrder, BillOfMaterial as RecipeBom, OnHandView, Item, StockMove, TraceEvent, QcPlanBySku } from '@/domain/ssot.v7';
 import { LotSchema, type Lot } from '@/domain/validators';
 import { explodeBOM } from '@/server/production/bom.service';
 import { findNextLotNumber } from '@/server/actions/inventory.actions';
 import { makeOnHandId } from '@/domain/id-helpers';
+import { normalizeUom, normalizeUomInObject } from '@/domain/uom';
 
 
 // Si tienes estos tipos en tu SSOT, impórtalos desde '@/domain/ssot'.
@@ -103,16 +104,16 @@ const CompleteOrderSchema = z.object({
   finalOutputs: z.array(z.object({
     itemId: z.string(),
     lotNumber: z.string().optional(),
-    sku: z.string().optional(), // Para generar lote si no viene
+    sku: z.string().optional(),
     qty: z.number().positive(),
-    uom: z.enum(['kg', 'g', 'L', 'mL', 'bottle', 'case', 'pallet', 'unit', 'uds']),
+    uom: z.string(), // ✅ Permitir cualquier UOM string
     toLocationId: z.string().default('ALMACEN_TERMINADO'),
   })).min(1),
   finalConsumptions: z.array(z.object({
     itemId: z.string(),
     lotNumber: z.string(),
     qty: z.number().positive(),
-    uom: z.string(),
+    uom: z.string(), // ✅ Ya era string
     fromLocationId: z.string().default('ALMACEN_MATERIAS_PRIMAS'),
   })),
 });
@@ -120,24 +121,39 @@ const CompleteOrderSchema = z.object({
 export async function completeProductionOrder(
   input: z.infer<typeof CompleteOrderSchema>
 ): Promise<ActionResult<{ orderId: string; lotNumbers: string[] }>> {
-  const parsed = CompleteOrderSchema.safeParse(input);
-  if (!parsed.success) return fail("Datos de cierre inválidos.", { fieldErrors: parsed.error.flatten() });
-
-  const { orderId, finalOutputs, finalConsumptions } = parsed.data;
-  const now = new Date().toISOString();
-
-  const order = await readOrder(orderId);
-  if (!order) return fail("La orden de producción no existe.");
-  if (order.status === 'DONE' || order.status === 'CANCELLED') {
-    return fail("La orden ya está finalizada o cancelada.");
-  }
-  
-  // Inicia un batch para asegurar que todas las operaciones sean atómicas
-  const batch = adminDb.batch();
-
   try {
+    console.log('[completeProductionOrder] Input recibido:', JSON.stringify(input, null, 2));
+    
+    const parsed = CompleteOrderSchema.safeParse(input);
+    if (!parsed.success) {
+      console.error('[completeProductionOrder] Error validación:', JSON.stringify(parsed.error.flatten()));
+      return fail("Datos de cierre inválidos: " + JSON.stringify(parsed.error.flatten()));
+    }
+
+    const { orderId, finalOutputs, finalConsumptions } = parsed.data;
+    
+    // ✅ SSOT COMPLIANCE: Normalizar UOMs en outputs y consumptions
+    const normalizedOutputs = finalOutputs.map(o => ({ ...o, uom: normalizeUom(o.uom) }));
+    const normalizedConsumptions = finalConsumptions.map(c => ({ ...c, uom: normalizeUom(c.uom) }));
+    
+    const now = new Date().toISOString();
+    
+    console.log('[completeProductionOrder] Leyendo orden:', orderId);
+    const order = await readOrder(orderId);
+    if (!order) {
+      console.error('[completeProductionOrder] Orden no encontrada');
+      return fail("La orden de producción no existe.");
+    }
+    if (order.status === 'DONE' || order.status === 'CANCELLED') {
+      console.error('[completeProductionOrder] Orden ya cerrada:', order.status);
+      return fail("La orden ya está finalizada o cancelada.");
+    }
+    
+    console.log('[completeProductionOrder] Iniciando batch para orden:', order.orderNumber || orderId);
+    // Inicia un batch para asegurar que todas las operaciones sean atómicas
+    const batch = adminDb.batch();
     // 1. Salida de stock de materias primas consumidas
-    for (const consumption of finalConsumptions) {
+    for (const consumption of normalizedConsumptions) {
       const moveRef = adminDb.collection('stockMoves').doc();
       const move: Omit<StockMove, 'uom'> & { uom: string } = {
         id: moveRef.id,
@@ -179,12 +195,16 @@ export async function completeProductionOrder(
     const newLotNumbers: string[] = [];
 
     // 2. Entrada de stock de productos terminados
-    for (const output of finalOutputs) {
+    for (const output of normalizedOutputs) {
       const lotNumber = output.lotNumber || (await findNextLotNumber(output.itemId, output.sku));
       newLotNumbers.push(lotNumber);
 
-      const qcPlanSnap = await adminDb.collection('qcPlans').where('sku', '==', output.sku).limit(1).get();
-      const qcPlanId = qcPlanSnap.empty ? undefined : qcPlanSnap.docs[0].id;
+      // ✅ Solo buscar qcPlan si tenemos SKU
+      let qcPlanId: string | undefined = undefined;
+      if (output.sku) {
+        const qcPlanSnap = await adminDb.collection('qcPlans').where('sku', '==', output.sku).limit(1).get();
+        qcPlanId = qcPlanSnap.empty ? undefined : qcPlanSnap.docs[0].id;
+      }
 
       // Crear o actualizar el lote
       const lotRef = adminDb.collection('lots').doc(lotNumber);
@@ -255,9 +275,9 @@ export async function completeProductionOrder(
       status: 'DONE',
       completedAt: now,
       updatedAt: now,
-      // Opcional: guardar el consumo y producción final real en la orden
-      finalOutputs: finalOutputs,
-      finalConsumptions: finalConsumptions,
+      // ✅ Guardar con UOMs normalizados
+      finalOutputs: normalizedOutputs,
+      finalConsumptions: normalizedConsumptions,
     });
     
     // 4. Ejecutar todas las operaciones en una sola transacción
@@ -266,8 +286,9 @@ export async function completeProductionOrder(
     return ok({ orderId, lotNumbers: newLotNumbers });
 
   } catch (error: any) {
-    console.error("Error al completar la orden de producción:", error);
-    return fail(error.message || "Ocurrió un error inesperado en el servidor.");
+    console.error("[completeProductionOrder] Error inesperado:", error);
+    console.error("[completeProductionOrder] Stack:", error?.stack);
+    return fail(`Error al completar: ${error?.message || JSON.stringify(error) || 'Desconocido'}`);
   }
 }
 
@@ -322,7 +343,7 @@ export async function previewPlanning(input: {
   alcoholStrengthForAdjustment?: number; // % v/v del alcohol corrector (por defecto 96)
 }): Promise<ActionResult<{
   stage: 'PRODUCCION'|'ENVASADO';
-  baseUnit: 'L'|'uds';
+  baseUnit: Uom; // ✅ Cambiado de 'L'|'uds' a Uom para soportar normalización
   outputItemId: string;
   nominal: Array<{ itemId: string; role: 'FORMULA'|'PACKAGING'|'COST_ONLY'; uom: Uom; qty: number }>;
   allocations: Array<{ itemId: string; lotNumber: string; uom: Uom; qty: number; locationId: string; }>;
@@ -341,13 +362,14 @@ export async function previewPlanning(input: {
     if (!bom) return fail("BOM inexistente.");
 
     const stage: 'PRODUCCION'|'ENVASADO' = bom.stage ?? 'PRODUCCION';
-    const baseUnit: 'L'|'uds' = (stage === 'PRODUCCION' ? 'L' : 'uds');
+    // ✅ SSOT COMPLIANCE: Normalizar 'uds' -> 'unit' según UOM_ALIASES
+    const baseUnit: Uom = normalizeUom(stage === 'PRODUCCION' ? 'L' : 'uds');
 
     const nominal: Array<{ itemId: string; role: 'FORMULA'|'PACKAGING'|'COST_ONLY'; uom: Uom; qty: number }> =
       (bom.items || []).map((it: any) => ({
         itemId: it.itemId,
         role: (it.role ?? 'FORMULA') as 'FORMULA'|'PACKAGING'|'COST_ONLY',
-        uom: (it.uom ?? baseUnit) as Uom,
+        uom: normalizeUom(it.uom ?? baseUnit),
         qty: Number(((it.qty ?? 0) * plannedQty).toFixed(6)),
       }));
 
@@ -370,13 +392,13 @@ export async function previewPlanning(input: {
             console.warn(`fifoReserveLots: OnHand item for item ${lot.itemId} has no lotNumber.`);
             continue;
           }
-          allocations.push({ itemId: line.itemId, lotNumber: lot.lotNumber, uom: lot.uom, qty: take, locationId: lot.locationId });
+          allocations.push({ itemId: line.itemId, lotNumber: lot.lotNumber, uom: normalizeUom(lot.uom), qty: take, locationId: lot.locationId });
           remaining -= take;
         }
         available += lot.qty;
       }
       if (remaining > 0) {
-        shortages.push({ itemId: line.itemId, uom: line.uom, required: line.qty, available, missing: line.qty - available });
+        shortages.push({ itemId: line.itemId, uom: normalizeUom(line.uom), required: line.qty, available, missing: line.qty - available });
       }
     }
 

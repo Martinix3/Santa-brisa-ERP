@@ -2,7 +2,7 @@
 import { adminDb as db } from '@/server/firebase';
 import { callHoldedApi } from '@/server/integrations/holded/client';
 import { Timestamp } from 'firebase-admin/firestore';
-import type { Party } from '@/domain/ssot';
+import type { Party } from '@/domain/ssot.v7';
 
 type HoldedPurchase = {
   id: string; contactId: string; contactName?: string; email?: string; code?: string; // code is vat

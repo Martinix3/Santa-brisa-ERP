@@ -71,7 +71,7 @@ export default function InventoryPage() {
     return rows;
   }, [onHand, items, locationFilter, qcFilter, onlyWithStock, globalSearch]);
 
-  const summaries = useMemo(() => computeSkuRollup(onHandFiltered, { nearExpiryDays: 45 }), [onHandFiltered]);
+  const summaries = useMemo(() => computeSkuRollup(onHandFiltered, { nearExpiryDays: 45, items }), [onHandFiltered, items]);
   const alerts = useMemo(() => computeStockAlerts(summaries), [summaries]);
   
   const skusWithLots = useMemo(() => {

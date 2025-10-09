@@ -3,7 +3,7 @@
 'use server';
 
 import { z } from 'zod';
-import { PosTactic, PosTacticItem, PosCostCatalogEntry, PlvMaterial, PosResult } from '@/domain/ssot';
+import { PosTactic, PosTacticItem, PosCostCatalogEntry, PlvMaterial, PosResult } from '@/domain/ssot.v7';
 import { adminDb as db } from '@/server/firebase';
 import { Timestamp } from 'firebase-admin/firestore';
 import { computePosResult } from '@/features/marketing/services/pos.service';

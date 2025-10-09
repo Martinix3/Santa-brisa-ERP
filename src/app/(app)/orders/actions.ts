@@ -3,7 +3,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { getOne, upsertMany } from '@/lib/dataprovider/server';
-import type { OrderStatus, Shipment, OrderSellOut, Account, Party, FinanceLink, PaymentLink, OnHandView, OrderLine, Item, SalesUnit } from '@/domain/ssot';
+import type { Order, Shipment, Account, Item, OrderLine, OrderStatus, OrderDocumentType } from '@/domain/ssot.v7';
 import { enqueue } from '@/server/queue/queue';
 import { importSingleShopifyOrder } from '@/server/integrations/shopify/import-order';
 import { confirmOrderShipment as confirmAndReserve } from '@/server/actions/logistics.actions';
@@ -26,11 +26,11 @@ export async function placeOrder({
   if (!lines?.length) throw new Error("Añade al menos una línea");
 
   const now = new Date().toISOString();
-  const ref = db.collection("ordersSellOut").doc();
+  const ref = db.collection("orders").doc();
   
   const account = await getOne<Account>('accounts', accountId);
 
-  // Correction: Map incoming lines to OrderLine structure
+  // Map incoming lines to OrderLine structure
   const itemsSnap = await db.collection('items').where('sku', 'in', lines.map(l => l.sku)).get();
   const itemsBySku = new Map(itemsSnap.docs.map(doc => [doc.data().sku, doc.data() as Item]));
 
@@ -38,31 +38,38 @@ export async function placeOrder({
     const item = itemsBySku.get(l.sku);
     if (!item) throw new Error(`El producto con SKU ${l.sku} no existe.`);
     return {
-      itemId: item.id,
+      sku: l.sku,
       name: item.name,
       qty: l.qty,
-      uom: 'unit' as SalesUnit,
-      priceUnit: l.unitPriceReported ?? item.stdCost ?? 0,
+      uom: 'unit',
+      unitPrice: l.unitPriceReported ?? item.price ?? 0,
+      total: l.qty * (l.unitPriceReported ?? item.price ?? 0),
     };
   });
 
-  const payload: Partial<OrderSellOut> = {
+  const total = orderLines.reduce((sum, line) => sum + (line.total ?? 0), 0);
+
+  const payload: Partial<Order> = {
     id: ref.id,
     accountId,
-    distributorId: distributorId || account?.distributorPartyId || SANTA_BRISA_DISTRIB_ID,
-    status: "open",
-    lines: orderLines,
-    createdById,
+    distributorId: distributorId || account?.distributorId || SANTA_BRISA_DISTRIB_ID,
+    channel: 'DIRECTA',
+    source: 'Manual',
+    documentType: 'SALESORDER',
+    date: now,
+    status: 'ABIERTO',
+    currency: 'EUR',
+    total,
+    items: orderLines,
     createdAt: now,
     updatedAt: now,
-    flow: 'PLACEMENT',
+    createdBy: createdById,
   };
+  
   await ref.set(payload as any);
   return { id: ref.id };
 }
 
-
-const SHIPMENT_TRIGGER_STATES = new Set<OrderStatus>(['confirmed']);
 
 /**
  * Updates an order's status and triggers side effects like shipment creation.
@@ -71,17 +78,17 @@ const SHIPMENT_TRIGGER_STATES = new Set<OrderStatus>(['confirmed']);
  * @returns An object indicating success, the updated order status, and any created shipment.
  */
 export async function updateOrderStatus(
-  order: OrderSellOut,
+  order: Order,
   newStatus: OrderStatus
 ): Promise<{ ok: boolean; order: { id: string, status: OrderStatus }; shipment: Shipment | null; error?: string }> {
   
   console.log(`[ACTION] Iniciando updateOrderStatus para order ${order.id} con nuevo estado ${newStatus}`);
 
-  // Si el nuevo estado es 'confirmed' Y el estado actual NO es 'confirmed', se crea el envío.
-  if (newStatus === 'confirmed' && order.status !== 'confirmed') {
+  // Si el nuevo estado es 'EN_PROCESO' Y el estado actual es 'ABIERTO', se crea el envío.
+  if (newStatus === 'EN_PROCESO' && order.status === 'ABIERTO') {
     try {
       const shipment = await confirmAndReserve(order.id);
-      return { ok: true, order: { id: order.id, status: 'confirmed' }, shipment };
+      return { ok: true, order: { id: order.id, status: 'EN_PROCESO' }, shipment };
     } catch (e: any) {
       console.error(`[ACTION] ERROR CRÍTICO en confirmOrderShipment para el pedido ${order.id}:`, e);
       // Devuelve el estado original del pedido si la confirmación falla.
@@ -89,9 +96,9 @@ export async function updateOrderStatus(
     }
   }
 
-  // Para cualquier otro cambio de estado que no sea la confirmación inicial.
+  // Para cualquier otro cambio de estado.
   try {
-    await upsertMany('ordersSellOut', [{ id: order.id, status: newStatus, updatedAt: new Date().toISOString() }]);
+    await upsertMany('orders', [{ id: order.id, status: newStatus, updatedAt: new Date().toISOString() }]);
     revalidatePath('/orders');
     return { ok: true, order: { id: order.id, status: newStatus }, shipment: null };
 
@@ -101,7 +108,7 @@ export async function updateOrderStatus(
   }
 }
 
-export async function importShopifyOrder(orderId: string): Promise<OrderSellOut> {
+export async function importShopifyOrder(orderId: string): Promise<Order> {
   if (!orderId) throw new Error('Falta orderId');
   if (!process.env.INTEGRATIONS_API_KEY) {
       throw new Error('INTEGRATIONS_API_KEY no configurada en el servidor.');
@@ -110,64 +117,69 @@ export async function importShopifyOrder(orderId: string): Promise<OrderSellOut>
   try {
     const saved = await importSingleShopifyOrder(orderId);
     revalidatePath('/orders');
-    return saved;
+    return saved as unknown as Order;
   } catch (e: any) {
     console.error(`Error en la server action importShopifyOrder: ${e.message}`);
-    throw e; // Lanza el error para que el cliente lo reciba
+    throw e;
   }
 }
 
 export async function createSalesInvoice({ orderId }: { orderId:string }) {
-  const order = await getOne<OrderSellOut>('ordersSellOut', orderId);
+  const order = await getOne<Order>('orders', orderId);
   if (!order) throw new Error('Order not found');
-  const amount = (order.lines || []).reduce((a: number, l: OrderSellOut['lines'][number]) => {
-     const unit = l.priceUnit ?? 0;
-     const disc = ((l as any).discountPct ?? 0) / 100;
+  
+  const amount = (order.items || []).reduce((a: number, l: OrderLine) => {
+     const unit = l.unitPrice ?? 0;
+     const disc = (l.discountPct ?? 0) / 100;
      return a + l.qty * unit * (1 - disc);
   }, 0);
 
   const now = new Date().toISOString();
-  const finId = `INV-${now.slice(0,10)}-${Math.floor(Math.random()*99999)}`;
-  const fin: Partial<FinanceLink> = {
-     id: finId,
-     externalId: '', // si sincronizas con Holded, rellena después
-     netAmount: amount,
-     taxAmount: 0,
-     grossAmount: amount,
-     currency: 'EUR' as const,
-     issueDate: now,
-     dueDate: now,
-     docNumber: undefined,
-     partyId: (order as any).partyId,
-     costObject: { kind: 'ORDER', id: orderId },
-     status: 'pending',
+  
+  // Create invoice as a new Order document with type INVOICE
+  const invoiceRef = db.collection("orders").doc();
+  const invoice: Partial<Order> = {
+    id: invoiceRef.id,
+    accountId: order.accountId,
+    distributorId: order.distributorId,
+    channel: order.channel,
+    source: 'Manual',
+    documentType: 'INVOICE',
+    date: now,
+    status: 'FACTURADO',
+    currency: 'EUR',
+    total: amount,
+    items: order.items,
+    createdAt: now,
+    updatedAt: now,
+    createdBy: order.createdBy,
   };
 
-  await upsertMany('financeLinks', [fin] as any);
-  await upsertMany('ordersSellOut', [{
+  await invoiceRef.set(invoice as any);
+  
+  // Update original order status
+  await upsertMany('orders', [{
      id: orderId,
-     status: 'invoiced',
-     billingStatus: 'invoiced',
+     status: 'FACTURADO' as OrderStatus,
      updatedAt: now,
   }]);
 
   revalidatePath('/orders');
-  revalidatePath('/finance');
-  return { ok:true, financeLinkId: fin.id };
+  return { ok:true, invoiceId: invoiceRef.id };
 }
 
-export async function recordPayment({ financeLinkId, amount, date, method }: {
-  financeLinkId: string; amount: number; date?: string; method?: string;
+export async function recordPayment({ orderId, amount, date, method }: {
+  orderId: string; amount: number; date?: string; method?: string;
 }) {
   const now = new Date().toISOString();
-  const paymentId = `PAY-${now}-${Math.floor(Math.random()*1e6)}`;
-  const pay: Partial<PaymentLink> = {
-    id: paymentId,
-    externalId: undefined,
-    date: date ?? now,
-    method: method ?? 'transfer',
-  };
-  await upsertMany('paymentLinks', [pay] as any);
-  revalidatePath('/finance');
-  return { ok:true, paymentId: pay.id };
+  
+  // Update order to PAGADO status
+  await upsertMany('orders', [{
+    id: orderId,
+    status: 'PAGADO' as OrderStatus,
+    updatedAt: now,
+  }]);
+  
+  revalidatePath('/orders');
+  return { ok:true };
 }

@@ -1,7 +1,7 @@
 
 
 import type { Timestamp } from 'firebase-admin/firestore';
-import type { Shipment } from '@/domain/ssot';
+import type { Shipment } from '@/domain/ssot.v7';
 
 export type JobStatus = 'QUEUED' | 'RUNNING' | 'DONE' | 'RETRY' | 'DEAD' | 'FAILED';
 
@@ -18,7 +18,9 @@ export type JobPayloads =
  | { kind:'SYNC_HOLDED_PURCHASES'; payload:{ page?: number; dryRun?: boolean } }
  | { kind:'SYNC_HOLDED_PRODUCTS'; payload:{ page?: number; dryRun?: boolean } }
  | { kind: 'UPDATE_SHOPIFY_FULFILLMENT'; payload: { shipmentId: string; shopifyOrderId: string; trackingNumber?: string; trackingUrl?: string; carrier?: string } }
- | { kind: 'CREATE_SHIPMENT_FROM_ORDER'; payload: { orderId: string } };
+ | { kind: 'CREATE_SHIPMENT_FROM_ORDER'; payload: { orderId: string } }
+ | { kind: 'CREATE_HOLDED_INVOICE_FROM_SHIPMENT'; payload: { shipmentId: string } }
+ | { kind: 'WITHDRAW_STOCK_FROM_SHIPMENT'; payload: { shipmentId: string } };
 
 
 export type JobKind = JobPayloads['kind'];

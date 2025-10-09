@@ -1,5 +1,5 @@
 // src/lib/mock-data.ts
-import type { SantaData, Account, Party, OrderSellOut } from '@/domain/ssot';
+import type { SantaData, Account, Party, OrderSellOut } from '@/domain/ssot.v7';
 
 const MOCK_PARTIES: Party[] = [
     { id: 'party_1', name: 'Bar El Sol', legalName: 'Bar El Sol', kind: 'ORG', taxId: 'B12345678', createdAt: '2023-01-15T10:00:00Z', updatedAt: '2023-01-15T10:00:00Z' },

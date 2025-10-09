@@ -1,7 +1,7 @@
 // src/features/warehouse/inventory/components/LotDetailPanel.tsx
 'use client';
 import React from 'react';
-import type { Item, StockMove } from '@/domain/ssot';
+import type { Item, StockMove } from '@/domain/ssot.v7';
 import { SBCard } from '@/components/ui/ui-primitives';
 import { QcStatusPill } from './SkuAccordionRow';
 import { ArrowLeftRight, PackagePlus, PackageMinus, X } from 'lucide-react';

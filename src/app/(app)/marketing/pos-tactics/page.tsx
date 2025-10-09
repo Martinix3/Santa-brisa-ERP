@@ -3,7 +3,7 @@
 import React from 'react';
 import { listPosCostCatalog, listPlvInStock, listPosTactics } from '@/server/actions/pos-tactics.service';
 import { PosTacticsClientPage } from '@/features/marketing/components/PosTacticsClientPage';
-import type { PosTactic as DPosTactic } from '@/domain/ssot';
+import type { PosTactic as DPosTactic } from '@/domain/ssot.v7';
 
 export const dynamic = 'force-dynamic';
 

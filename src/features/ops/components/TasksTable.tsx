@@ -1,7 +1,7 @@
 // FILE: src/features/ops/components/TasksTable.tsx
 'use client';
 import React from 'react';
-import type { Interaction, InteractionStatus, Department, TaskKind } from '@/domain/ssot';
+import type { Interaction, InteractionStatus, Department, TaskKind } from '@/domain/ssot.v7';
 import { SBButton, SBCard, Badge } from '@/components/ui';
 
 // This is the VIEW MODEL for a task card.

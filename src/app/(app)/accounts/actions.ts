@@ -2,7 +2,7 @@
 "use server";
 import { revalidatePath } from 'next/cache';
 import { adminDb as db } from '@/server/firebase';
-import type { Account, Party, PartyRole, CustomerData } from '@/domain/ssot';
+import type { Account, Party, PartyRole, CustomerData } from '@/domain/ssot.v7';
 
 export async function createAccount(data: { name: string; ownerId: string; }): Promise<Account> {
   const { name, ownerId } = data;

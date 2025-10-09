@@ -1,5 +1,5 @@
 // src/features/production/execution/helpers.ts
-import type { ProductionStatus, Uom, Item } from '@/domain/ssot';
+import type { ProductionStatus, Uom, Item } from '@/domain/ssot.v7';
 
 type RealConsumptionLine = { itemId: string; itemName: string; lotNumber: string; theoreticalQty: number; realQty: number; uom: Uom; fromLocationId: string };
 

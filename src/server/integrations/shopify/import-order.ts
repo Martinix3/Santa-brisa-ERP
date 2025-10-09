@@ -1,7 +1,7 @@
 
 import { getOrderById } from './client';
 import { normalizeShopifyOrder } from './map';
-import type { Account, OrderSellOut, Party, Timestamp } from '@/domain/ssot';
+import type { Account, OrderSellOut, Party, Timestamp } from '@/domain/ssot.v7';
 import { upsertMany } from '@/lib/dataprovider/actions';
 import { getServerData } from '@/lib/dataprovider/server';
 import { enqueue } from '@/server/queue/queue';

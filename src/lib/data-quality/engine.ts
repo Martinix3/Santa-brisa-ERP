@@ -1,7 +1,7 @@
 // src/lib/data-quality/engine.ts
 import { adminDb as db } from '@/server/firebase';
 import type { DataAnomaly, QualityRule } from './types';
-import type { Item, OnHandView, Lot } from '@/domain/ssot';
+import type { Item, OnHandView, Lot } from '@/domain/ssot.v7';
 
 // Importa todas tus reglas
 import { R1_1_MissingStandardCost } from './rules/R1_1_MissingStandardCost';

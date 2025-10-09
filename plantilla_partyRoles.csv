@@ -1,0 +1,4 @@
+id,partyId,userId,role,isActive,createdAt
+role_001,party_dist_mahou,user_comercial_juan,SALESPERSON,true,2025-01-01T00:00:00.000Z
+role_002,party_dist_damm,user_comercial_maria,SALESPERSON,true,2025-01-01T00:00:00.000Z
+role_003,party_santa_brisa,user_comercial_pedro,SALESPERSON,true,2025-01-01T00:00:00.000Z

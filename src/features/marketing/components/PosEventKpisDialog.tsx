@@ -1,7 +1,7 @@
 // src/features/marketing/components/PosEventKpisDialog.tsx
 "use client";
 import React from 'react';
-import type { Interaction } from '@/domain/ssot';
+import type { Interaction } from '@/domain/ssot.v7';
 import { PosCompleteDialog } from '@/features/pos/PosCompleteDialog';
 
 

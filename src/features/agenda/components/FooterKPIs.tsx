@@ -6,7 +6,7 @@ import { QuickEditor } from '@/features/agenda-notes/components/QuickEditor';
 import { NotesList } from '@/features/agenda-notes/components/NotesList';
 import { OutcomeDialog } from '@/features/agenda-notes/components/OutcomeDialog';
 import { FooterKPIs } from '@/features/agenda-notes/components/FooterKPIs';
-import type { Interaction, Note } from '@/domain/ssot';
+import type { Interaction, Note } from '@/domain/ssot.v7';
 import { mapInteractionsToTasks } from '@/features/agenda/mappers';
 import { useData } from '@/lib/dataprovider';
 

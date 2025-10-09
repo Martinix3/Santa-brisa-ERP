@@ -6,7 +6,7 @@ import { useForm, Controller } from 'react-hook-form';
 import type { Task, TaskFilters } from '../hooks/useTasks';
 import { SBDialog, SBDialogContent, SBButton, Input, Select } from '@/components/ui';
 import { useData } from '@/lib/dataprovider';
-import type { Department } from '@/domain/ssot';
+import type { Department } from '@/domain/ssot.v7';
 
 type FormData = {
   title: string;

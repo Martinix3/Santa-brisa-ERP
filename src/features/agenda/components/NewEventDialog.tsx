@@ -4,8 +4,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
 import { Plus, User as UserIcon, Search, Building2, PlusCircle } from 'lucide-react';
-import type { Department, User, Interaction, Account } from '@/domain/ssot';
-import { DEPT_META } from '@/domain/ssot';
+import type { Department, User, Interaction, Account } from '@/domain/ssot.v7';
+import { DEPT_META } from '@/domain/ssot.v7';
 import { useData } from '@/lib/dataprovider';
 import { Avatar } from '@/components/ui/Avatar';
 import { createInteraction } from '@/app/(app)/agenda/actions';

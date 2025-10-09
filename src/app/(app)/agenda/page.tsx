@@ -18,9 +18,9 @@ import { es as esLocale } from "date-fns/locale";
 import { Calendar as CalendarIcon, ListTodo } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useData } from "@/lib/dataprovider";
-import type { Interaction, SantaData, Department, User, Account, InteractionStatus, MarketingEvent } from '@/domain/ssot';
+import type { Interaction, SantaData, Department, User, Account, InteractionStatus, MarketingEvent } from '@/domain/ssot.v7';
 import { sbAsISO } from "@/features/agenda/helpers";
-import { DEPT_META } from "@/domain/ssot";
+import { DEPT_META } from '@/domain/ssot.v7';
 import { rescheduleEvent } from '@/app/(app)/agenda/actions';
 // UI Components
 import { SBButton } from "@/components/ui";

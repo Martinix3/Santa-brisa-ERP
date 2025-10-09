@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Play, Pause, CheckCircle, XCircle, Calendar, ArrowRight } from "lucide-react";
 import { SBCard, SBButton, Input } from '@/components/ui/ui-primitives';
-import type { Uom, Item, ProductionOrder, BillOfMaterial as RecipeBom } from '@/domain/ssot';
+import type { Uom, Item, ProductionOrder, BillOfMaterial as RecipeBom } from '@/domain/ssot.v7';
 import { updateProductionOrderStatus, completeProductionOrder } from "@/server/actions/production.actions";
 import { StockCheckPanel } from './StockCheckPanel';
 import { RealConsumptionPanel } from './RealConsumptionPanel';
@@ -23,7 +23,7 @@ export function ActiveOrderPanel({ activeForm, setActiveForm, onProgram, items, 
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [confirmAction, setConfirmAction] = useState<'cancel' | 'finish' | null>(null);
+  const [confirmAction, setConfirmAction] = useState<'cancel' | 'finish' | 'summary' | null>(null);
 
 
   const setFormValue = useCallback((field: string, value: any) => {
@@ -40,11 +40,18 @@ export function ActiveOrderPanel({ activeForm, setActiveForm, onProgram, items, 
   const handleUpdateStatus = (status: 'IN_PROGRESS' | 'PAUSED') => {
       if (!activeForm?.order) return;
       startTransition(async () => {
-          const res = await updateProductionOrderStatus({ orderId: activeForm.order!.id, status });
+          const res = await updateProductionOrderStatus({ 
+              orderId: activeForm.order!.id, 
+              status,
+              responsibleId: activeForm.responsibleId
+          } as any);
           if(res.ok) {
-              toast.success(`Orden actualizada`);
-              setActiveForm(null);
-              router.refresh();
+              toast.success(`Orden ${status === 'IN_PROGRESS' ? 'iniciada' : 'pausada'}`);
+              // ✅ Actualizar estado local sin refresh
+              setActiveForm((prev: any) => prev ? {
+                  ...prev,
+                  order: { ...prev.order, status }
+              } : null);
           } else {
               toast.error(!res.ok ? (res.message ?? 'Operación fallida') : '');
           }
@@ -67,23 +74,97 @@ export function ActiveOrderPanel({ activeForm, setActiveForm, onProgram, items, 
   };
 
 
-  const handleFinish = () => {
+  const showSummary = () => {
     if (!activeForm?.order || missingForFinish.length > 0) {
       toast.error("Faltan datos obligatorios para finalizar la orden.");
       return;
     }
+    setConfirmAction('summary');
+  };
 
+  const handleFinish = () => {
     startTransition(async () => {
-      const res = await completeProductionOrder({
-        orderId: activeForm.order!.id,
-        finalConsumptions: activeForm.realConsumption.map((c: any) => ({itemId: c.itemId, lotNumber: c.lotNumber, fromLocationId: c.fromLocationId, qty: c.realQty, uom: c.uom})),
-        finalOutputs: [activeForm.finalOutput]
-      });
-      if (!res.ok) {
-        toast.error(res.message ?? 'No se pudo finalizar la orden');
+      try {
+        const res = await completeProductionOrder({
+          orderId: activeForm.order!.id,
+          finalConsumptions: activeForm.realConsumption.map((c: any) => ({
+            itemId: c.itemId, 
+            lotNumber: c.lotNumber, 
+            fromLocationId: c.fromLocationId, 
+            qty: c.realQty, 
+            uom: c.uom
+          })),
+          finalOutputs: [{
+            itemId: activeForm.finalOutput.itemId,
+            qty: activeForm.finalOutput.qty,
+            uom: activeForm.finalOutput.uom,
+            toLocationId: activeForm.finalOutput.toLocationId,
+            lotNumber: activeForm.finalOutput.lotNumber || `LFG-${Date.now()}`
+          }]
+        } as any);
+        
+        if (!res.ok) {
+          console.error('Error al finalizar:', res);
+          toast.error(res.message ?? 'No se pudo finalizar la orden');
+          setConfirmAction(null);
+          return;
+        }
+      } catch (error) {
+        console.error('Error al finalizar producción:', error);
+        toast.error('Error inesperado al finalizar la producción');
+        setConfirmAction(null);
         return;
       }
-      toast.success("Orden finalizada con éxito");
+      
+      // ✅ Calcular resumen completo de producción
+      const totalConsumedReal = activeForm.realConsumption.reduce((sum: number, c: any) => sum + (c.realQty || 0), 0);
+      const totalConsumedTheorical = activeForm.realConsumption.reduce((sum: number, c: any) => sum + (c.theoreticalQty || 0), 0);
+      const desviacion = totalConsumedReal - totalConsumedTheorical;
+      const mermaPercent = totalConsumedTheorical > 0 ? ((desviacion / totalConsumedTheorical) * 100).toFixed(2) : '0.00';
+      
+      // Calcular costes si hay información de precios
+      const totalCost = activeForm.realConsumption.reduce((sum: number, c: any) => {
+        const item = items.find(i => i.id === c.itemId);
+        const cost = item?.stdCost || 0;
+        return sum + (c.realQty * cost);
+      }, 0);
+      
+      const numIncidents = (activeForm.journal?.filter((j: any) => j.kind === 'INCIDENT') || []).length;
+      const protocolsOk = (activeForm.protocolChecks || []).filter(Boolean).length;
+      
+      toast.success(
+        <div className="space-y-3">
+          <p className="font-bold text-base">✅ Producción Finalizada</p>
+          
+          <div className="text-xs space-y-1 border-t pt-2">
+            <p className="font-semibold">📦 Producción:</p>
+            <p className="pl-3">• Producto: {items.find(i => i.id === activeForm.finalOutput.itemId)?.name || 'N/A'}</p>
+            <p className="pl-3">• Cantidad: {activeForm.finalOutput.qty} {activeForm.finalOutput.uom}</p>
+            <p className="pl-3">• Lote: {activeForm.finalOutput.lotNumber}</p>
+          </div>
+          
+          <div className="text-xs space-y-1 border-t pt-2">
+            <p className="font-semibold">📊 Consumo:</p>
+            <p className="pl-3">• Teórico: {totalConsumedTheorical.toFixed(3)}</p>
+            <p className="pl-3">• Real: {totalConsumedReal.toFixed(3)}</p>
+            <p className={`pl-3 ${desviacion > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+              • Desviación: {desviacion > 0 ? '+' : ''}{desviacion.toFixed(3)} ({mermaPercent}%)
+            </p>
+            {totalCost > 0 && <p className="pl-3">• Coste Total: €{totalCost.toFixed(2)}</p>}
+          </div>
+          
+          <div className="text-xs space-y-1 border-t pt-2">
+            <p className="font-semibold">👤 Control:</p>
+            <p className="pl-3">• Responsable: {activeForm.responsibleId || 'N/A'}</p>
+            <p className="pl-3">• Protocolos OK: {protocolsOk}/4</p>
+            {numIncidents > 0 && (
+              <p className="pl-3 text-destructive">• Incidencias: {numIncidents}</p>
+            )}
+          </div>
+        </div>,
+        { duration: 10000 }
+      );
+      
       setActiveForm(null);
       router.refresh();
       setConfirmAction(null);
@@ -94,18 +175,21 @@ export function ActiveOrderPanel({ activeForm, setActiveForm, onProgram, items, 
     const msgs:string[] = [];
     if (!activeForm?.order) return [];
     if (!activeForm.responsibleId?.trim()) msgs.push("Responsable obligatorio.");
-    if (!activeForm.protocolChecks?.some(Boolean)) msgs.push("Debes marcar al menos un check de protocolos.");
+    if (!(activeForm.protocolChecks || []).some(Boolean)) msgs.push("Debes marcar al menos un check de protocolos.");
     return msgs;
   }, [activeForm]);
 
   const missingForFinish = useMemo(() => {
     const msgs: string[] = [];
     if (!activeForm?.order) return ["No hay orden activa"];
-    if (activeForm.realConsumption.length === 0 || activeForm.realConsumption.some((l: any) => l.realQty <= 0)) {
+    if (!activeForm.realConsumption || activeForm.realConsumption.length === 0 || activeForm.realConsumption.some((l: any) => (l.realQty || 0) <= 0)) {
         msgs.push("Debes registrar el consumo real de todas las materias primas.");
     }
-    if (activeForm.finalOutput.qty <= 0) {
+    if ((activeForm.finalOutput?.qty || 0) <= 0) {
         msgs.push("La cantidad de producción final debe ser mayor que cero.");
+    }
+    if (!activeForm.finalOutput?.lotNumber?.trim()) {
+        msgs.push("El lote final es obligatorio.");
     }
     return msgs;
   }, [activeForm]);
@@ -121,8 +205,28 @@ export function ActiveOrderPanel({ activeForm, setActiveForm, onProgram, items, 
                 </p>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                    <Input type="number" className="mt-1 w-full" value={activeForm.finalOutput.qty || 1} readOnly={!canEditPlan(activeForm?.order?.status)} onChange={e => setFormValue('finalOutput', {...activeForm.finalOutput, qty: Number(e.target.value) || 0} )} />
-                    <Input type="date" className="mt-1 w-full" value={activeForm?.order?.scheduledFor?.slice(0, 10) || new Date().toISOString().slice(0, 10)} readOnly={!canEditPlan(activeForm?.order?.status)} onChange={e => setFormValue('order', {...activeForm?.order, scheduledFor: e.target.value} )} />
+                    <div>
+                        <label className="block text-sm font-medium text-muted-foreground mb-1">Cantidad</label>
+                        <Input type="number" className="w-full" value={activeForm.finalOutput.qty || 1} readOnly={!canEditPlan(activeForm?.order?.status)} onChange={e => setFormValue('finalOutput', {...activeForm.finalOutput, qty: Number(e.target.value) || 0} )} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-muted-foreground mb-1">Fecha programada</label>
+                        <Input 
+                            type="date" 
+                            className="w-full" 
+                            value={activeForm?.order?.scheduledFor?.slice(0, 10) || activeForm.plannedDate || new Date().toISOString().slice(0, 10)} 
+                            readOnly={!canEditPlan(activeForm?.order?.status)} 
+                            onChange={e => {
+                                if (activeForm.order) {
+                                    // Si hay orden, actualizar scheduledFor
+                                    setFormValue('order', {...activeForm.order, scheduledFor: e.target.value});
+                                } else {
+                                    // Si es planificación, actualizar plannedDate
+                                    setFormValue('plannedDate', e.target.value);
+                                }
+                            }} 
+                        />
+                    </div>
                 </div>
                 
                 {activeBom && (
@@ -144,7 +248,7 @@ export function ActiveOrderPanel({ activeForm, setActiveForm, onProgram, items, 
                         {(activeForm.order && canStart(activeForm.order.status)) && <SBButton className="sb-btn-info" onClick={() => handleUpdateStatus('IN_PROGRESS')} disabled={isPending || missingForStart.length > 0}><Play size={16}/> Iniciar</SBButton>}
                         {(activeForm.order && canPause(activeForm.order.status)) && <SBButton className="sb-btn-info" onClick={() => handleUpdateStatus('PAUSED')} disabled={isPending}><Pause size={16}/> Pausar</SBButton>}
                         {(activeForm.order && canResume(activeForm.order.status)) && <SBButton className="sb-btn-info" onClick={() => handleUpdateStatus('IN_PROGRESS')} disabled={isPending}><Play size={16}/> Reanudar</SBButton>}
-                        {(activeForm.order && canFinish(activeForm.order.status)) && <SBButton className="sb-btn-success" onClick={() => setConfirmAction('finish')} disabled={isPending || missingForFinish.length > 0}><CheckCircle size={16}/> Finalizar</SBButton>}
+                        {(activeForm.order && canFinish(activeForm.order.status)) && <SBButton className="sb-btn-success" onClick={showSummary} disabled={isPending || missingForFinish.length > 0}><CheckCircle size={16}/> Finalizar</SBButton>}
                         {activeForm.order && <SBButton variant="destructive" onClick={() => setConfirmAction('cancel')} disabled={isClosedLike(activeForm.order?.status) || isPending}><XCircle size={16}/> Cancelar</SBButton>}
                     </div>
                     
@@ -172,7 +276,7 @@ export function ActiveOrderPanel({ activeForm, setActiveForm, onProgram, items, 
           <RightSidebarPanel activeForm={activeForm} setFormValue={setFormValue} orderIsLocked={orderIsLocked} />
         </div>
         
-        {confirmAction && (
+        {confirmAction && confirmAction !== 'summary' && (
             <div className="sb-dialog__overlay" onClick={() => setConfirmAction(null)}>
                 <div className="sb-dialog__content" onClick={e => e.stopPropagation()}>
                     <div className="sb-dialog">
@@ -193,6 +297,121 @@ export function ActiveOrderPanel({ activeForm, setActiveForm, onProgram, items, 
                 </div>
             </div>
         )}
+
+        {/* Resumen ANTES de finalizar */}
+        {confirmAction === 'summary' && (() => {
+          // KPIs de consumo
+          const totalConsumedReal = activeForm.realConsumption.reduce((sum: number, c: any) => sum + (c.realQty || 0), 0);
+          const totalConsumedTheorical = activeForm.realConsumption.reduce((sum: number, c: any) => sum + (c.theoreticalQty || 0), 0);
+          const desviacionConsumo = totalConsumedReal - totalConsumedTheorical;
+          const mermaConsumoPercent = totalConsumedTheorical > 0 ? ((desviacionConsumo / totalConsumedTheorical) * 100).toFixed(2) : '0.00';
+          
+          // KPIs de producción final
+          const produccionTeorica = activeForm.order?.targetQuantity || 0;
+          const produccionReal = activeForm.finalOutput?.qty || 0;
+          const desviacionProduccion = produccionReal - produccionTeorica;
+          const mermaProduccionPercent = produccionTeorica > 0 ? ((desviacionProduccion / produccionTeorica) * 100).toFixed(2) : '0.00';
+          
+          // Merma total considerando ambos factores
+          const eficienciaTotal = produccionTeorica > 0 && totalConsumedTheorical > 0
+            ? ((produccionReal / produccionTeorica) / (totalConsumedReal / totalConsumedTheorical) * 100).toFixed(2)
+            : '100.00';
+          
+          const totalCost = activeForm.realConsumption.reduce((sum: number, c: any) => {
+            const item = items.find(i => i.id === c.itemId);
+            const cost = item?.stdCost || 0;
+            return sum + (c.realQty * cost);
+          }, 0);
+          const numIncidents = (activeForm.journal?.filter((j: any) => j.kind === 'INCIDENT') || []).length;
+          const protocolsOk = (activeForm.protocolChecks || []).filter(Boolean).length;
+          
+          return (
+            <div className="sb-dialog__overlay" onClick={() => setConfirmAction(null)}>
+                <div className="sb-dialog__content max-w-2xl" onClick={e => e.stopPropagation()}>
+                    <div className="sb-dialog">
+                        <div className="sb-dialog__header">
+                            <h3 className="sb-dialog__title text-lg">📋 Resumen de Producción</h3>
+                        </div>
+                        <div className="sb-dialog__body space-y-4 max-h-[60vh] overflow-y-auto">
+                          <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <h4 className="font-semibold text-sm flex items-center gap-2"><span className="text-lg">📦</span>Producción Final</h4>
+                                <div className="text-sm space-y-1 bg-secondary/30 p-3 rounded">
+                                  <p><span className="font-medium">Producto:</span> {items.find(i => i.id === activeForm.finalOutput.itemId)?.name || 'N/A'}</p>
+                                  <p><span className="font-medium">Lote:</span> {activeForm.finalOutput.lotNumber}</p>
+                                  <div className="pt-2 border-t space-y-1">
+                                    <p><span className="font-medium">Teórica:</span> {produccionTeorica} {activeForm.finalOutput.uom}</p>
+                                    <p><span className="font-medium">Real:</span> {produccionReal} {activeForm.finalOutput.uom}</p>
+                                    <p className={desviacionProduccion >= 0 ? 'text-emerald-600' : 'text-rose-600'}>
+                                      <span className="font-medium">Desviación:</span> {desviacionProduccion > 0 ? '+' : ''}{desviacionProduccion.toFixed(3)} ({mermaProduccionPercent}%)
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            
+                            <div className="space-y-2">
+                              <h4 className="font-semibold text-sm flex items-center gap-2"><span className="text-lg">👤</span>Control</h4>
+                              <div className="text-sm space-y-1 bg-secondary/30 p-3 rounded">
+                                <p><span className="font-medium">Responsable:</span> {activeForm.responsibleId || 'N/A'}</p>
+                                <p><span className="font-medium">Protocolos OK:</span> {protocolsOk}/4</p>
+                                {numIncidents > 0 && <p className="text-destructive"><span className="font-medium">Incidencias:</span> {numIncidents}</p>}
+                              </div>
+                            </div>
+                          </div>
+                          
+                            <div className="space-y-2">
+                              <h4 className="font-semibold text-sm flex items-center gap-2"><span className="text-lg">📊</span>Consumo de Materias Primas</h4>
+                              <div className="bg-secondary/30 p-3 rounded space-y-2">
+                                <div className="grid grid-cols-3 gap-2 text-xs font-semibold text-muted-foreground">
+                                  <span>Teórico</span>
+                                  <span>Real</span>
+                                  <span>Desviación</span>
+                                </div>
+                                <div className="grid grid-cols-3 gap-2 text-sm font-mono">
+                                  <span>{totalConsumedTheorical.toFixed(3)}</span>
+                                  <span>{totalConsumedReal.toFixed(3)}</span>
+                                  <span className={desviacionConsumo > 0 ? 'text-rose-600' : 'text-emerald-600'}>
+                                    {desviacionConsumo > 0 ? '+' : ''}{desviacionConsumo.toFixed(3)} ({mermaConsumoPercent}%)
+                                  </span>
+                                </div>
+                                {totalCost > 0 && (
+                                  <div className="pt-2 border-t">
+                                    <p className="text-sm"><span className="font-medium">Coste Total:</span> €{totalCost.toFixed(2)}</p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            
+                            <div className="bg-info/10 border border-info/30 p-3 rounded space-y-1">
+                              <h4 className="font-semibold text-sm flex items-center gap-2"><span className="text-lg">⚖️</span>Balance Global</h4>
+                              <p className="text-sm"><span className="font-medium">Eficiencia Total:</span> <span className={parseFloat(eficienciaTotal) >= 95 ? 'text-emerald-600' : parseFloat(eficienciaTotal) >= 85 ? 'text-amber-600' : 'text-rose-600'}>{eficienciaTotal}%</span></p>
+                              <p className="text-xs text-muted-foreground">Relación entre producción obtenida y materias primas consumidas</p>
+                            </div>
+                          </div>
+                          
+                          {numIncidents > 0 && (
+                            <div className="space-y-2">
+                              <h4 className="font-semibold text-sm flex items-center gap-2 text-destructive"><span className="text-lg">⚠️</span>Incidencias Registradas</h4>
+                              <div className="bg-destructive/5 p-3 rounded space-y-1">
+                                {(activeForm.journal?.filter((j: any) => j.kind === 'INCIDENT') || []).map((inc: any, i: number) => (
+                                  <p key={i} className="text-xs">• {inc.summary}</p>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        <div className="sb-dialog__footer">
+                            <SBButton variant="ghost" onClick={() => setConfirmAction(null)}>Revisar</SBButton>
+                            <SBButton variant="primary" onClick={() => { setConfirmAction('finish'); handleFinish(); }} disabled={isPending}>
+                              <CheckCircle size={16}/> Confirmar y Finalizar
+                            </SBButton>
+                        </div>
+                    </div>
+                </div>
+            </div>
+          );
+        })()}
     </div>
   );
 }

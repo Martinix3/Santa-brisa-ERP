@@ -1,0 +1,2 @@
+id,legalName,taxId,phone,email,website,street,city,province,zip,country,contactPerson,googlePlaceId,googlePlaceType
+party_001,Bar El Patio SL,B12345678,912345678,info@elpatio.es,www.elpatio.es,Calle Mayor 23,Madrid,Madrid,28001,España,Juan García,,

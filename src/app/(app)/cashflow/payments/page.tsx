@@ -2,7 +2,7 @@
 "use client";
 import React from 'react';
 import { SBCard } from '@/components/ui/ui-primitives';
-import { SB_COLORS } from '@/domain/ssot';
+import { SB_COLORS } from '@/domain/ssot.v7';
 import { FileText } from 'lucide-react';
 
 export default function PaymentsPage() {

@@ -4,8 +4,8 @@
 import React, { useMemo, useState } from 'react';
 import { useData } from '@/lib/dataprovider';
 import { SBCard, SBButton } from '@/components/ui/ui-primitives';
-import { DEPT_META, SB_THEME } from '@/domain/ssot';
-import type { Interaction, MarketingEvent, OnlineCampaign, InfluencerCollab, PosTactic } from '@/domain/ssot';
+import { DEPT_META, SB_THEME } from '@/domain/ssot.v7';
+import type { Interaction, MarketingEvent, OnlineCampaign, InfluencerCollab, PosTactic } from '@/domain/ssot.v7';
 import { Calendar, AlertCircle, Clock, Target, Euro, TrendingUp, BarChart, Percent, PieChart as PieChartIcon } from 'lucide-react';
 import { UpcomingTasks } from '@/features/agenda/components/UpcomingTasks';
 import KpiCard from '@/components/ui/KpiCard';

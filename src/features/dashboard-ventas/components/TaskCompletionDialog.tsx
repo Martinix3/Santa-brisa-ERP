@@ -2,7 +2,7 @@
 "use client";
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Input, Select, Textarea, SBButton, SBDialog, SBDialogContent, Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui';
-import type { Interaction, Payload, Item, SantaData, OrderLine as SsotOrderLine } from '@/domain/ssot';
+import type { Interaction, Payload, Item, SantaData, OrderLine as SsotOrderLine } from '@/domain/ssot.v7';
 import { ShoppingCart, MessageSquare, Plus, XCircle, HelpingHand } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
 import { toast } from 'sonner';

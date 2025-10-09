@@ -1,6 +1,6 @@
 
 // src/features/agenda/mappers.ts
-import type { Interaction, Account, Department, TaskKind } from '@/domain/ssot';
+import type { Interaction, Account, Department, TaskKind } from '@/domain/ssot.v7';
 import { sbAsISO } from './helpers';
 import type { Task } from './TaskBoard';
 

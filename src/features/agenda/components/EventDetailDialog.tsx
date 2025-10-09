@@ -2,10 +2,10 @@
 "use client";
 import React from 'react';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
-import type { Interaction, InteractionStatus, SB_THEME } from '@/domain/ssot';
+import type { Interaction, InteractionStatus, SB_THEME } from '@/domain/ssot.v7';
 import { Calendar, Tag, User as UserIcon, Building, Link as LinkIcon, Edit, Trash2, Check, X } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
-import { DEPT_META } from '@/domain/ssot';
+import { DEPT_META } from '@/domain/ssot.v7';
 
 export function EventDetailDialog({
   event,

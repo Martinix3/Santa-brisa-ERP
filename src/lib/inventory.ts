@@ -1,7 +1,7 @@
 // src/lib/inventory.ts
-import type { OrderSellOut, QcStatus, OnHandView, Lot, StockMove } from '@/domain/ssot';
-import { qcToBucket } from '@/domain/ssot';
-import type { Item } from '@/domain/ssot';
+import type { OrderSellOut, QcStatus, OnHandView, Lot, StockMove } from '@/domain/ssot.v7';
+import { qcToBucket } from '@/domain/ssot.v7';
+import type { Item } from '@/domain/ssot.v7';
 
 // ===========================================
 // TIPOS DE DATOS ENRIQUECIDOS
@@ -195,14 +195,19 @@ function diffDays(a: Date, b: Date) {
 
 /**
  * Agrupa onHand por SKU y calcula el resumen de stock real.
+ * Nota: Para calcular totalValue, necesitas pasar items en opts.
  */
 export function computeSkuRollup(
   onHand: OnHandView[],
-  opts: SkuRollupOptions = {}
+  opts: SkuRollupOptions & { items?: Item[] } = {}
 ): Record<string, SkuStockSummary> {
   const nearExpiryDays = opts.nearExpiryDays ?? 30;
   const minByItem = opts.minStockByItem ?? {};
   const now = opts.now ?? new Date();
+  const items = opts.items || [];
+  
+  // Crear mapa de items para lookup rápido
+  const itemsMap = new Map(items.map(it => [it.id, it]));
 
   const bySku = new Map<string, SkuStockSummary>();
 
@@ -216,6 +221,7 @@ export function computeSkuRollup(
         totalReserved: 0,
         totalReleasedFree: 0,
         totalOnHold: 0,
+        totalValue: 0,
         passedQty: 0,
         pendingQty: 0,
         failedQty: 0,
@@ -229,19 +235,31 @@ export function computeSkuRollup(
     const acc = bySku.get(itemId)!;
     acc.lots.push(r);
     acc.lotsCount++;
-    acc.totalPhysical += r.qty;
-    acc.totalReserved += r.reservedQty || 0;
+    
+    const qty = r.qty || 0;
+    const reservedQty = r.reservedQty || 0;
+    
+    // ✅ Obtener unitCost desde Item master
+    const item = itemsMap.get(itemId);
+    const unitCost = item?.stdCost || 0;
+    
+    acc.totalPhysical += qty;
+    acc.totalReserved += reservedQty;
+    
+    // ✅ CALCULAR VALOR: qty * stdCost del item
+    acc.totalValue = (acc.totalValue || 0) + (qty * unitCost);
 
     // QC Buckets
-    if (isReleased(r.qcStatus)) acc.passedQty += r.qty;
-    else if (isHold(r.qcStatus)) acc.pendingQty += r.qty;
-    else if (isFailed(r.qcStatus)) acc.failedQty += r.qty;
-
     if (isReleased(r.qcStatus)) {
-        acc.totalReleasedFree += Math.max(0, r.qty - (r.reservedQty || 0));
-    }
-    if (isHold(r.qcStatus)) {
-        acc.totalOnHold += r.qty;
+      acc.passedQty += qty;
+      // Stock liberado disponible = qty - reservado
+      acc.totalReleasedFree += Math.max(0, qty - reservedQty);
+    } else if (isHold(r.qcStatus)) {
+      acc.pendingQty += qty;
+      // Stock en QC (NO está reservado, está en cuarentena)
+      acc.totalOnHold += qty;
+    } else if (isFailed(r.qcStatus)) {
+      acc.failedQty += qty;
     }
 
     if (r.expiryAt) {

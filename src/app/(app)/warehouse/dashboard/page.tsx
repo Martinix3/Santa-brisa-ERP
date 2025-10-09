@@ -3,15 +3,16 @@
 "use client";
 import React, { useMemo, useState } from 'react';
 import { useData } from '@/lib/dataprovider';
+import { useSystemConfig } from '@/hooks/useSystemConfig';
 import { SBCard, SBButton, DataTableSB, KPI } from '@/components/ui/ui-primitives';
 import type { Col } from '@/components/ui/ui-primitives';
 import { BrainCircuit, Package, DollarSign, Truck, AlertCircle, Clock, Plus } from 'lucide-react';
-import type { OnHandView, Shipment, Interaction, StockMove, Account, ShipmentStatus } from '@/domain/ssot';
-import { DEPT_META, SB_COLORS } from '@/domain/ssot';
+import type { OnHandView, Shipment, Interaction, StockMove, Account, ShipmentStatus } from '@/domain/ssot.v7';
+import { DEPT_META, SB_COLORS } from '@/domain/ssot.v7';
 import Link from 'next/link';
 import { samplesSentSummary } from "@/lib/consignment-and-samples";
 import { UpcomingTasks } from '@/features/agenda/components/UpcomingTasks';
-import { qcToBucket } from '@/domain/ssot';
+import { qcToBucket } from '@/domain/ssot.v7';
 import { QuickGoodsReceiptDialog } from '@/features/warehouse/components/QuickGoodsReceiptDialog';
 
 
@@ -77,10 +78,20 @@ function SamplesSentCard({ shipments, stockMoves, accounts }: { shipments: Shipm
 
 function WarehouseDashboardContent() {
     const { data } = useData();
+    const { config } = useSystemConfig();
     const [openReceipt, setOpenReceipt] = useState(false);
-    const { onHand = [], shipments = [], stockMoves = [], accounts = [] } = data || {};
+    const { onHand = [], shipments = [], stockMoves = [], accounts = [], items = [] } = data || {};
+    
+    // Obtener colores desde SSOT
+    const successColor = config?.theme.state.success || SB_COLORS.state.success;
+    const warningColor = config?.theme.state.warning || SB_COLORS.state.warning;
 
     const kpis = useMemo(() => {
+        // Crear mapa de items para obtener costos reales
+        const itemCostMap = new Map(
+            items.map(item => [item.id, item.stdCost || 0])
+        );
+
         const released = (onHand as OnHandView[])
           .filter(r => qcToBucket((r.qcStatus ?? "PENDING") as any) === "RELEASED");
 
@@ -89,10 +100,11 @@ function WarehouseDashboardContent() {
           return sum + free;
         }, 0);
 
-        const assumedCost = 8.5;
+        // ✅ Usar costo real de cada item en lugar de valor fijo
         const stockValue = released.reduce((sum, r) => {
           const free = Math.max(0, r.qty - ((r as any).reservedQty ?? 0));
-          return sum + free * assumedCost;
+          const itemCost = itemCostMap.get(r.itemId) || 0;
+          return sum + (free * itemCost);
         }, 0);
         
         const pendingShipments = shipments.filter(s => s.status === 'pending' || s.status === 'picking').length;
@@ -102,7 +114,7 @@ function WarehouseDashboardContent() {
             stockValue: stockValue.toLocaleString('es-ES', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 }),
             pendingShipments,
         }
-    }, [onHand, shipments]);
+    }, [onHand, shipments, items]);
 
     const shipmentCols: Col<Shipment>[] = [
         { key: 'id', header: 'Envío', render: r => <Link href={`/warehouse/logistics/${r.id}`} className="font-mono text-xs font-semibold text-sb-verde-mar hover:underline">{r.shipmentNumber || r.id}</Link> },
@@ -127,8 +139,8 @@ function WarehouseDashboardContent() {
         <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <KPI icon={Package} label="Unidades en Stock" value={kpis.stockUnits} color={SB_COLORS.primary.aqua} />
-                <KPI icon={DollarSign} label="Valor del Stock" value={kpis.stockValue} color="#0d9488" />
-                <KPI icon={Truck} label="Envíos Pendientes" value={kpis.pendingShipments} color="#f59e0b" />
+                <KPI icon={DollarSign} label="Valor del Stock" value={kpis.stockValue} color={successColor} />
+                <KPI icon={Truck} label="Envíos Pendientes" value={kpis.pendingShipments} color={warningColor} />
             </div>
 
              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

@@ -1,7 +1,7 @@
 // FILE: src/features/ops/components/CreateTaskModal.tsx
 'use client';
 import React, { useState, useEffect } from 'react';
-import type { Department, TaskKind, Account } from '@/domain/ssot';
+import type { Department, TaskKind, Account } from '@/domain/ssot.v7';
 import { SBDialog, SBDialogContent, SBButton, Input, Select, Textarea } from '@/components/ui';
 import { Field } from '@/components/forms/Field';
 

@@ -3,7 +3,7 @@
 
 import { adminDb as db } from '@/server/firebase';
 import { revalidatePath } from 'next/cache';
-import type { QcStatus, QcTest, OnHandView } from '@/domain/ssot';
+import type { QcStatus, QcTest, OnHandView } from '@/domain/ssot.v7';
 import { ActionResult, ok, fail } from '@/lib/result';
 import { FieldValue } from 'firebase-admin/firestore';
 

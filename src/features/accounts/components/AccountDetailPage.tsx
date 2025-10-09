@@ -1,348 +1,314 @@
 // src/features/accounts/components/AccountDetailPage.tsx
-
 "use client";
 
-import React, { useMemo, useState, useEffect } from 'react';
-import { useParams, useRouter, notFound } from 'next/navigation';
+import React, { useMemo, useState } from 'react';
+import { useParams, notFound } from 'next/navigation';
 import { useData } from '@/lib/dataprovider';
-import type { SantaData, Interaction as InteractionType, OrderSellOut, User as UserType, Party, InteractionKind, Account, CustomerData, PartyRole, PosTactic, PosCostCatalogEntry, PlvMaterial, PosTacticItem, Item, Segment } from '@/domain/ssot';
-import { computeAccountKPIs, accountOwnerDisplay, orderTotal, getDistributorForAccount, computeAccountRollup } from '@/lib/sb-core';
-import { ArrowUpRight, ArrowDownRight, Phone, Mail, MapPin, User, Factory, Boxes, Megaphone, Briefcase, Banknote, Calendar, FileText, ShoppingCart, Star, Building2, CreditCard, ChevronRight, ChevronLeft, MessageSquare, Sparkles, Tag, Clock, Edit, Plus } from "lucide-react";
+import type { Account, Party, Interaction as InteractionType, OrderSellOut, InteractionKind } from '@/domain/ssot.v7';
+import { computeAccountKPIs, accountOwnerDisplay, getDistributorForAccount } from '@/lib/sb-core';
+import { 
+  Phone, Mail, MapPin, User, Building2, Briefcase, ShoppingCart, 
+  MessageSquare, Calendar, ChevronLeft, Edit2, Check, X,
+  Clock, DollarSign, Package, ArrowUpRight, AlertCircle, TrendingUp, FileText
+} from "lucide-react";
 import Link from 'next/link';
+import { toast } from 'sonner';
+import { SBButton } from '@/components/ui';
 
-import { NewPosTacticDialog } from '@/features/marketing/components/NewPosTacticDialog';
-import { upsertPosTactic } from '@/features/marketing/services/posTactics.client';
-import { listPosCostCatalog, listPlvInStock } from '@/features/marketing/services/posTactics.service';
+const formatEUR = (n: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(n);
+const formatDate = (iso: string) => new Date(iso).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
 
-import { SBFlowModal } from '@/features/quicklog/components/SBFlows';
-import { SBButton, SBCard } from '@/components/ui/ui-primitives';
-import { SB_COLORS } from '@/domain/ssot';
+const interactionIcons: Record<InteractionKind, React.ElementType> = {
+  VISITA: User, LLAMADA: Phone, EMAIL: Mail, OTRO: MessageSquare,
+  WHATSAPP: MessageSquare, COBRO: DollarSign, EVENTO_MKT: Calendar
+};
 
-// ====== UI Primitives ======
-function KPI({label, value, suffix, trend}:{label:string; value:string|number; suffix?:string; trend?:'up'|'down'}){
+function EditableField({ label, value, onSave, type = 'text', options, icon: Icon, multiline = false }: { 
+  label: string; value: string; onSave: (newValue: string) => void;
+  type?: 'text' | 'select'; options?: { value: string; label: string }[];
+  icon?: React.ElementType; multiline?: boolean;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(value);
+
+  const handleSave = () => {
+    if (editValue !== value) onSave(editValue);
+    setIsEditing(false);
+  };
+
   return (
-    <div className="rounded-xl border border-zinc-200 p-3 bg-white">
-      <div className="text-[11px] uppercase tracking-wide text-zinc-500">{label}</div>
-      <div className="mt-1 flex items-center gap-1">
-        <div className="text-xl font-semibold text-zinc-900">{value}{suffix? <span className="text-zinc-500 text-sm ml-1">{suffix}</span>:null}</div>
-        {trend === 'up' && <ArrowUpRight className="h-4 w-4 text-emerald-600"/>}
-        {trend === 'down' && <ArrowDownRight className="h-4 w-4 text-red-600"/>}
+    <div className="group flex items-start gap-3 py-2.5 px-3 rounded-lg hover:bg-zinc-50">
+      {Icon && <Icon className="h-4 w-4 text-zinc-400 mt-1" />}
+      <div className="flex-1">
+        <div className="text-xs font-medium text-zinc-500 mb-1">{label}</div>
+        {!isEditing ? (
+          <div className="flex items-center gap-2">
+            <div className="text-sm text-zinc-900 flex-1">{value || '—'}</div>
+            <button onClick={() => setIsEditing(true)} className="opacity-0 group-hover:opacity-100 p-1 hover:bg-zinc-100 rounded">
+              <Edit2 className="h-3 w-3" />
+            </button>
+          </div>
+        ) : (
+          <div className="flex gap-1">
+            {type === 'select' && options ? (
+              <select value={editValue} onChange={(e) => setEditValue(e.target.value)} className="text-sm flex-1 px-2 py-1 border rounded" autoFocus>
+                {options.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+              </select>
+            ) : multiline ? (
+              <textarea value={editValue} onChange={(e) => setEditValue(e.target.value)} className="text-sm flex-1 px-2 py-1 border rounded" rows={3} autoFocus />
+            ) : (
+              <input value={editValue} onChange={(e) => setEditValue(e.target.value)} className="text-sm flex-1 px-2 py-1 border rounded" autoFocus
+                onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') setIsEditing(false); }} />
+            )}
+            <button onClick={handleSave} className="p-1 hover:bg-green-100 rounded text-green-600"><Check className="h-4 w-4" /></button>
+            <button onClick={() => setIsEditing(false)} className="p-1 hover:bg-red-100 rounded text-red-600"><X className="h-4 w-4" /></button>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-function Row({label, children, icon: Icon}:{label:string; children:React.ReactNode, icon?: React.ElementType}){
+function KPICard({ icon: Icon, label, value, suffix, color = 'zinc' }: {
+  icon: React.ElementType; label: string; value: string | number; suffix?: string; color?: 'zinc' | 'green' | 'amber' | 'red';
+}) {
+  const colors = { zinc: 'bg-zinc-50 border-zinc-200', green: 'bg-green-50 border-green-200', 
+    amber: 'bg-amber-50 border-amber-200', red: 'bg-red-50 border-red-200' };
+  return (
+    <div className={`p-4 rounded-xl border ${colors[color]}`}>
+      <div className="flex items-center gap-2 mb-2">
+        <Icon className="h-4 w-4 opacity-60" />
+        <span className="text-xs font-medium uppercase tracking-wide opacity-75">{label}</span>
+      </div>
+      <div className="flex items-baseline gap-1">
+        <span className="text-2xl font-bold">{value}</span>
+        {suffix && <span className="text-sm opacity-75">{suffix}</span>}
+      </div>
+    </div>
+  );
+}
+
+function ActivityItem({ activity }: { activity: InteractionType | OrderSellOut }) {
+  if ('lines' in activity) {
+    const order = activity as OrderSellOut;
     return (
-        <div className="flex items-start gap-3 py-2">
-            {Icon && <Icon className="h-4 w-4 text-zinc-400 mt-0.5 flex-shrink-0" />}
-            <div className="w-32 text-xs uppercase tracking-wide text-zinc-500">{label}</div>
-            <div className="flex-1 text-sm text-zinc-800">{children || '—'}</div>
+      <div className="flex items-start gap-3 p-3 hover:bg-zinc-50 rounded-lg">
+        <div className="p-2 rounded-lg bg-green-100"><ShoppingCart className="h-4 w-4 text-green-700" /></div>
+        <div className="flex-1">
+          <div className="flex justify-between mb-1">
+            <span className="text-sm font-semibold text-green-900">{formatEUR(order.totalAmount || 0)}</span>
+            <span className="text-xs text-zinc-500">{formatDate(String(order.createdAt))}</span>
+          </div>
+          <div className="text-sm text-zinc-700">{(order.lines || []).map(l => `${l.qty} ${l.name}`).join(', ')}</div>
         </div>
+      </div>
     );
-}
-
-function Chip({children, color = 'zinc'}: {children: React.ReactNode, color?: 'zinc' | 'green' | 'amber' | 'red' | 'blue' }){
-  const colorClasses: Record<string, string> = {
-      zinc: 'bg-zinc-100 text-zinc-700 border-zinc-200',
-      green: 'bg-green-100 text-green-800 border-green-200',
-      amber: 'bg-amber-100 text-amber-800 border-amber-200',
-      red: 'bg-red-100 text-red-800 border-red-200',
-      blue: 'bg-blue-100 text-blue-800 border-blue-200',
-  };
-  return <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium ${colorClasses[color]}`}>{children}</span>;
-}
-
-const interactionIcons: Record<InteractionKind, React.ElementType> = {
-    VISITA: User,
-    LLAMADA: Phone,
-    EMAIL: Mail,
-    OTRO: FileText,
-    WHATSAPP: MessageSquare,
-    COBRO: Banknote,
-    EVENTO_MKT: Megaphone,
-};
-
-const formatEUR = (n:number)=> new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR'}).format(n);
-const formatDate = (iso: string) => new Date(iso).toLocaleDateString('es-ES', {day:'2-digit',month:'short', year:'numeric'});
-
-function RollupBadge({ label, value, date, color = 'zinc' }: { label: string; value: string | number; date?: string; color?: 'zinc' | 'green' | 'amber' | 'red' | 'blue' }) {
-    const colorClasses: Record<string, string> = {
-        zinc: 'bg-zinc-50 border-zinc-200 text-zinc-800',
-        green: 'bg-green-50 border-green-200 text-green-800',
-        amber: 'bg-amber-50 border-amber-200 text-amber-800',
-        red: 'bg-red-50 border-red-200 text-red-800',
-        blue: 'bg-blue-50 border-blue-200 text-blue-800'
-    };
-    return (
-        <div className={`p-2 rounded-lg border flex items-center gap-2 text-xs ${colorClasses[color]}`}>
-            <span className={`font-bold`}>{value}</span>
-            <span className="text-zinc-600">{label}</span>
-            {date && <span className="text-zinc-500 ml-auto">{new Date(date).toLocaleDateString('es-ES', {day: 'numeric', month: 'short'})}</span>}
-        </div>
-    )
-}
-
-// ====== PAGE ======
-export function AccountDetailPageContent(){
-  const router = useRouter();
-  const params = useParams();
-  
-  if (!params || !params.accountId) {
-    notFound();
   }
+  const int = activity as InteractionType;
+  const Icon = interactionIcons[int.kind] || MessageSquare;
+  return (
+    <div className="flex items-start gap-3 p-3 hover:bg-zinc-50 rounded-lg">
+      <div className="p-2 rounded-lg bg-zinc-100"><Icon className="h-4 w-4 text-zinc-700" /></div>
+      <div className="flex-1">
+        <div className="flex justify-between mb-1">
+          <span className="text-sm font-medium capitalize">{int.kind}</span>
+          <span className="text-xs text-zinc-500">{formatDate(int.createdAt)}</span>
+        </div>
+        {int.note && <div className="text-sm text-zinc-600 italic">"{int.note}"</div>}
+      </div>
+    </div>
+  );
+}
+
+export function AccountDetailPageContent() {
+  const params = useParams();
+  if (!params || !params.accountId) notFound();
   const accountId = params.accountId as string;
 
-  const { data: santaData, setData, saveCollection, saveAllCollections, currentUser } = useData();
-  const [catalog, setCatalog] = useState<PosCostCatalogEntry[]>([]);
-  const [plv, setPlv] = useState<PlvMaterial[]>([]);
-  const [isEditing, setIsEditing] = useState(false);
-  const [isNewTacticOpen, setIsNewTacticOpen] = useState(false);
+  const { data: santaData, saveAllCollections } = useData();
 
-  useEffect(() => {
-    async function fetchData() {
-        const [cat, plvData] = await Promise.all([listPosCostCatalog('ACTIVE'), listPlvInStock()]);
-        setCatalog(cat);
-        setPlv(plvData);
-    }
-    fetchData();
-  }, []);
-
-  const { account, party, unifiedActivity, kpis, owner, distributor, rollup } = useMemo(() => {
-    if (!santaData || !accountId) return { account: null, party: null, unifiedActivity: [], kpis: null, owner: null, distributor: null, rollup: null };
-    
+  const { account, party, unifiedActivity, kpis, owner, distributor } = useMemo(() => {
+    if (!santaData || !accountId) return { account: null, party: null, unifiedActivity: [], kpis: null, owner: null, distributor: null };
     const acc = santaData.accounts.find(a => a.id === accountId);
-    if (!acc) return { account: null, party: null, unifiedActivity: [], kpis: null, owner: null, distributor: null, rollup: null };
-
+    if (!acc) return { account: null, party: null, unifiedActivity: [], kpis: null, owner: null, distributor: null };
     const pty = santaData.parties.find(p => p.id === acc.partyId);
-    
     const interactions = (santaData.interactions || []).filter(i => i.accountId === accountId);
     const orders = (santaData.ordersSellOut || []).filter(o => o.accountId === accountId);
-
-    const unified: (InteractionType | OrderSellOut)[] = [...interactions, ...orders];
-    unified.sort((a,b) => new Date(String(b.createdAt)).getTime() - new Date(String(a.createdAt)).getTime());
-      
+    const unified = [...interactions, ...orders];
+    unified.sort((a, b) => new Date(String(b.createdAt)).getTime() - new Date(String(a.createdAt)).getTime());
     const endDate = new Date();
-    const startDate = new Date();
-    startDate.setDate(endDate.getDate() - 90);
-    const kpiData = computeAccountKPIs({
-        data: santaData,
-        accountId: acc.id,
-        startIso: startDate.toISOString(),
-        endIso: endDate.toISOString()
-    });
-
-    const rollupData = computeAccountRollup(acc.id, santaData);
-
+    const startDate = new Date(); startDate.setDate(endDate.getDate() - 90);
+    const kpiData = computeAccountKPIs({ data: santaData, accountId: acc.id, startIso: startDate.toISOString(), endIso: endDate.toISOString() });
     const own = accountOwnerDisplay(acc, santaData.users || [], santaData.partyRoles || []);
     const dist = getDistributorForAccount(acc, santaData.partyRoles || [], santaData.parties || []);
-
-    return { account: acc, party: pty, unifiedActivity: unified, kpis: kpiData, owner: own, distributor: dist, rollup: rollupData };
+    return { account: acc, party: pty, unifiedActivity: unified, kpis: kpiData, owner: own, distributor: dist };
   }, [accountId, santaData]);
 
-  const handleUpdateAccount = async (payload: any) => {
-    if (!account || !party || !santaData) return;
-    
-    const updatedAccount: Account = { ...account, name: payload.name, segment: payload.type, updatedAt: new Date().toISOString() };
-    
-    const emails = [...(party.emails ?? [])];
-    const mainEmail = emails.find(c => c.isPrimary);
-    if (mainEmail) mainEmail.value = payload.mainContactEmail;
-    else if (payload.mainContactEmail) emails.push({ value: payload.mainContactEmail, isPrimary: true, source: 'CRM', verified: false, updatedAt: new Date().toISOString() });
-    
-    const phones = [...(party.phones ?? [])];
-    const mainPhone = phones.find(p => p.isPrimary);
-    if(mainPhone) mainPhone.value = payload.phone;
-    else if (payload.phone) phones.push({ value: payload.phone, isPrimary: true, source: 'CRM', verified: false, updatedAt: new Date().toISOString() });
-
-    const updatedParty: Party = { ...party, legalName: payload.name, tradeName: payload.name, emails, phones, billingAddress: { ...(party.billingAddress as any), street: payload.address, city: payload.city }, updatedAt: new Date().toISOString() };
-
-    await saveAllCollections({ accounts: [updatedAccount], parties: [updatedParty] });
-    setIsEditing(false);
-  };
-  
-  const handleSaveTactic = async (tacticData: any) => {
-    if (!currentUser) return;
+  const handleUpdateField = async (field: string, value: any, isPartyField = false) => {
+    if (!account || !party) return;
     try {
-        await upsertPosTactic(tacticData as any, currentUser.id);
-        setIsNewTacticOpen(false);
-    } catch (e) {
-        console.error(e);
-        alert((e as Error).message);
+      if (isPartyField) {
+        await saveAllCollections({ parties: [{ ...party, [field]: value, updatedAt: new Date().toISOString() }] });
+      } else {
+        await saveAllCollections({ accounts: [{ ...account, [field]: value, updatedAt: new Date().toISOString() }] });
+      }
+      toast.success('Campo actualizado');
+    } catch (error) {
+      toast.error('Error al actualizar');
     }
   };
 
-  const getDaysSinceLastOrderColor = (days?: number): 'green' | 'amber' | 'red' => {
-      if (days === undefined) return 'amber';
-      if (days <= 30) return 'green';
-      if (days <= 60) return 'amber';
-      return 'red';
-  }
+  if (!santaData) return <div className="p-6 text-center">Cargando...</div>;
+  if (!account || !party || !kpis) return <div className="p-6 text-center">Cuenta no encontrada</div>;
 
-  if (!santaData) return <div className="p-6 text-center">Cargando datos...</div>;
-  if (!account || !party || !kpis) return <div className="p-6 text-center">Cuenta no encontrada.</div>;
+  const mainEmail = (party.emails ?? []).find(e => e.isPrimary)?.value || '';
+  const mainPhone = (party.phones ?? []).find(p => p.isPrimary)?.value || '';
+  const segmentOpts = [{ value: 'HORECA', label: 'Horeca' }, { value: 'RETAIL', label: 'Retail' }, 
+    { value: 'ONLINE', label: 'Online' }, { value: 'DISTRIBUIDOR', label: 'Distribuidor' }, { value: 'PRIVADA', label: 'Privada' }];
+  const stageOpts = [{ value: 'POTENCIAL', label: 'Potencial' }, { value: 'ACTIVA', label: 'Activa' }, 
+    { value: 'SEGUIMIENTO', label: 'Seguimiento' }, { value: 'FALLIDA', label: 'Fallida' }, { value: 'CERRADA', label: 'Cerrada' }];
+  const needsAttention = (kpis.daysSinceLastOrder ?? 999) > 45 || (kpis.daysSinceLastVisit ?? 0) > 30;
 
-  const mainEmail = (party.emails ?? []).find(e => e.isPrimary);
-  const mainPhone = (party.phones ?? []).find(p => p.isPrimary);
-  
   return (
-    <div className="bg-zinc-50 flex-grow">
-      <div className="max-w-7xl mx-auto py-6 px-4 space-y-6">
-        {/* Header Card */}
-        <SBCard title="">
-          <div className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl" style={{backgroundColor:SB_COLORS.primary.teal}}/>
-                    <div>
-                      <h1 className="text-xl font-bold text-zinc-900">{account.name}</h1>
-                      <div className="text-sm text-zinc-600">{party.billingAddress?.city} · {account.segment}{account.subType && ` (${account.subType})`} · <span className="font-medium">{account.stage}</span></div>
-                    </div>
-                    <div className="ml-4 flex items-center gap-2">
-                        <Chip color={getDaysSinceLastOrderColor(kpis.daysSinceLastOrder)}>Último pedido hace {kpis.daysSinceLastOrder} días</Chip>
-                        <Chip>Última visita hace {kpis.daysSinceLastVisit} días</Chip>
-                    </div>
-                </div>
-                <div className="flex items-center gap-2">
-                    <Link href="/accounts" className="inline-flex items-center gap-2 text-sm text-zinc-600 hover:text-zinc-900">
-                        <ChevronLeft size={16} /> Volver a Cuentas
-                    </Link>
-                </div>
+    <div className="min-h-screen bg-zinc-50">
+      <div className="bg-white border-b">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <Link href="/accounts" className="inline-flex items-center gap-2 text-sm text-zinc-600 hover:text-zinc-900 mb-4">
+            <ChevronLeft className="h-4 w-4" />Volver
+          </Link>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1">
+              <h1 className="text-3xl font-bold text-zinc-900 mb-2">{account.name}</h1>
+              <div className="flex items-center gap-3 text-sm text-zinc-600">
+                <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{party.billingAddress?.city || 'Sin ciudad'}</span>
+                <span>•</span><span>{account.segment}</span><span>•</span><span className="font-medium">{account.stage}</span>
+                {distributor && <><span>•</span><span className="text-teal-700">Dist: {distributor.name}</span></>}
               </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {needsAttention && <div className="px-3 py-1.5 bg-red-100 text-red-800 rounded-lg text-xs font-medium flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" />Requiere atención</div>}
+              <SBButton size="sm" variant="primary"><Calendar className="h-4 w-4" />Nueva Actividad</SBButton>
+            </div>
           </div>
-        </SBCard>
-
-        {/* Body */}
-        <main className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-          {/* Col 1-2: KPIs & tablas */}
-          <section className="space-y-6 xl:col-span-2">
-            {/* KPIs */}
-            <SBCard title="KPIs de Rendimiento (últimos 90 días)">
-              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 p-4">
-                <KPI label="Unidades vendidas" value={kpis.unitsSold} suffix="uds."/>
-                <KPI label="Nº Pedidos" value={kpis.orderCount} />
-                <KPI label="Ticket medio" value={formatEUR(kpis.avgTicket)} />
-                <KPI label="Días sin Pedido" value={kpis.daysSinceLastOrder ?? '—'} trend={kpis.daysSinceLastOrder && kpis.daysSinceLastOrder > 30 ? 'down' : undefined} />
-                <KPI label="Visita→Pedido" value={kpis.visitToOrderRate ?? 0} suffix="%" trend={kpis.visitToOrderRate && kpis.visitToOrderRate >=50 ? 'up':'down'} />
-                <KPI label="Nº Visitas" value={kpis.visitsCount} />
-              </div>
-            </SBCard>
-
-            {/* Últimos pedidos */}
-            <SBCard title="Actividad Reciente">
-              <div className="divide-y divide-zinc-100 max-h-96 overflow-y-auto">
-                {unifiedActivity.slice(0,15).map((act, i)=> {
-                  if ('lines' in act) { // Is OrderSellOut
-                    const order = act as OrderSellOut;
-                    return (
-                      <div key={order.id} className="grid grid-cols-[auto_1fr_2fr_1fr] items-center gap-3 px-4 py-3 hover:bg-zinc-50">
-                          <ShoppingCart className="h-5 w-5 text-emerald-600"/>
-                          <div>
-                              <div className="text-sm text-zinc-800 font-semibold">{formatEUR(order.totalAmount || 0)}</div>
-                              <div className="text-xs text-zinc-500">{formatDate(String(order.createdAt))}</div>
-                          </div>
-                          <div className="text-sm text-zinc-800 col-span-2">{(order.lines || []).map(l => `${l.qty} ${l.uom || 'unit'} de ${santaData.items.find(p=>p.id === l.itemId)?.name}`).join(', ')}</div>
-                      </div>
-                    )
-                  }
-                  const int = act as InteractionType;
-                  const Icon = interactionIcons[int.kind] || FileText;
-                  return (
-                      <div key={int.id} className="grid grid-cols-[auto_1fr] items-start gap-3 px-4 py-3 hover:bg-zinc-50">
-                        <Icon className="h-5 w-5 text-zinc-500 mt-0.5"/>
-                        <div>
-                            <div className="text-sm text-zinc-500">{formatDate(int.createdAt)} · <span className="font-medium capitalize text-zinc-700">{int.kind}</span></div>
-                            <div className="text-sm text-zinc-800 italic col-span-2 mt-1">“{int.note}”</div>
-                        </div>
-                      </div>
-                  )
-                })}
-              </div>
-            </SBCard>
-          </section>
-
-          {/* Col 3: Info de cuenta */}
-          <aside className="space-y-6">
-            <SBCard title="Información de la Cuenta">
-              <div className="p-4 space-y-2">
-                <Row label="Contacto Principal" icon={User}>{(party.people ?? [])[0]?.name || '—'}<br/><span className="text-xs text-zinc-500">{mainEmail?.value}</span></Row>
-                <Row label="Teléfono" icon={Phone}>{mainPhone?.value}</Row>
-                <Row label="Dirección" icon={MapPin}>{party.billingAddress?.street}</Row>
-                <Row label="Email Facturación" icon={Mail}>{(party.emails ?? []).find(c => !c.isPrimary)?.value}</Row>
-                <hr className="my-2"/>
-                {owner && <Row label="Comercial" icon={Briefcase}>{owner}</Row>}
-                {distributor && <Row label="Distribuidor" icon={Boxes}>{distributor.name}</Row>}
-                <Row label="CIF" icon={Building2}>{party.taxId}</Row>
-                <hr className="my-2"/>
-                 <Row label="Sub-tipo" icon={Tag}>{account.subType}</Row>
-                 <Row label="Horario" icon={Clock}>{(party as any).openingHours || 'No disponible'}</Row>
-                 <Row label="Notas IA" icon={Sparkles}><span className="italic">“{account.notes}”</span></Row>
-                 <Row label="Etiquetas" icon={Tag}>
-                    <div className="flex flex-wrap gap-1">
-                        {(party.tags || []).map(t => <Chip key={t}>{t}</Chip>)}
-                    </div>
-                </Row>
-                <div className="mt-4 flex justify-end">
-                    <SBButton variant="secondary" onClick={() => setIsEditing(true)}>
-                        <Edit size={14} /> Editar Cuenta
-                    </SBButton>
-                </div>
-              </div>
-            </SBCard>
-            {rollup && (
-                <SBCard title="Estado de Marketing">
-                    <div className="p-4 space-y-2 relative">
-                        <RollupBadge label="Activaciones Activas" value={0} date={undefined} />
-                        <RollupBadge label="Promociones Activas" value={0} date={undefined} />
-                        
-                        <SBButton 
-                          size="sm"
-                          className="absolute -bottom-2 -right-2 rounded-full h-10 w-10 !p-0"
-                          onClick={() => setIsNewTacticOpen(true)}
-                        >
-                            <Plus size={20} />
-                        </SBButton>
-                    </div>
-                </SBCard>
-            )}
-          </aside>
-        </main>
+        </div>
       </div>
+      
+      <div className="max-w-7xl mx-auto px-4 py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6">
+            <div className="bg-white rounded-xl border p-6">
+              <h2 className="text-lg font-semibold text-zinc-900 mb-4">Rendimiento (90 días)</h2>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <KPICard icon={Package} label="Unidades" value={kpis.unitsSold} suffix="uds" />
+                <KPICard icon={ShoppingCart} label="Pedidos" value={kpis.orderCount} />
+                <KPICard icon={DollarSign} label="Ticket Medio" value={formatEUR(kpis.avgTicket)} />
+                <KPICard icon={Clock} label="Días s/ Pedido" value={kpis.daysSinceLastOrder ?? '—'} 
+                  color={kpis.daysSinceLastOrder ? (kpis.daysSinceLastOrder > 45 ? 'red' : kpis.daysSinceLastOrder > 30 ? 'amber' : 'green') : 'zinc'} />
+              </div>
+            </div>
+            
+            <div className="bg-white rounded-xl border p-6">
+              <h2 className="text-lg font-semibold text-zinc-900 mb-4">Actividad Reciente</h2>
+              <div className="space-y-1 max-h-96 overflow-y-auto">
+                {unifiedActivity.slice(0, 15).map((act, i) => <ActivityItem key={i} activity={act} />)}
+                {unifiedActivity.length === 0 && <div className="text-center py-8 text-zinc-500 text-sm">Sin actividad registrada</div>}
+              </div>
+            </div>
+          </div>
+          
+          <div className="space-y-6">
+            {/* Información General */}
+            <div className="bg-white rounded-xl border p-6">
+              <h2 className="text-lg font-semibold text-zinc-900 mb-4">Información General</h2>
+              <div className="space-y-1">
+                <EditableField label="Nombre Legal" value={party.legalName || party.name} onSave={(v) => handleUpdateField('legalName', v, true)} icon={Building2} />
+                <EditableField label="Nombre Comercial" value={account.name} onSave={(v) => handleUpdateField('name', v)} icon={Briefcase} />
+                <EditableField label="CIF/NIF" value={party.taxId || ''} onSave={(v) => handleUpdateField('taxId', v, true)} icon={FileText} />
+                <EditableField label="Segmento" value={account.segment} onSave={(v) => handleUpdateField('segment', v)} type="select" options={segmentOpts} icon={Briefcase} />
+                <EditableField label="Estado" value={account.stage} onSave={(v) => handleUpdateField('stage', v)} type="select" options={stageOpts} icon={TrendingUp} />
+                <EditableField label="Comercial Responsable" value={owner || ''} onSave={(v) => handleUpdateField('ownerId', v)} icon={User} />
+              </div>
+            </div>
 
-       {isEditing && (
-            <SBFlowModal
-                open={isEditing}
-                variant="editAccount"
-                onClose={() => setIsEditing(false)}
-                accounts={[]} 
-                onSearchAccounts={async()=>[]} 
-                onCreateAccount={async()=>({} as Account)} 
-                onSubmit={handleUpdateAccount}
-                defaults={{
-                    id: account.id,
-                    name: account.name,
-                    city: party.billingAddress?.city || '',
-                    address: party.billingAddress?.street || '',
-                    type: account.segment,
-                    mainContactName: (party.people ?? [])[0]?.name || '',
-                    mainContactEmail: mainEmail?.value || '',
-                    phone: mainPhone?.value || '',
-                    billingEmail: (party.emails ?? []).find(e => !e.isPrimary)?.value || '',
-                }}
-            />
-        )}
-        
-        {isNewTacticOpen && santaData && (
-            <NewPosTacticDialog
-                open={isNewTacticOpen}
-                onClose={() => setIsNewTacticOpen(false)}
-                onSave={handleSaveTactic}
-                tacticBeingEdited={null}
-                accounts={[account]}
-                catalog={catalog}
-                plvInventory={plv}
-            />
-        )}
+            {/* Contacto */}
+            <div className="bg-white rounded-xl border p-6">
+              <h2 className="text-lg font-semibold text-zinc-900 mb-4">Contacto</h2>
+              <div className="space-y-1">
+                <EditableField label="Teléfono Principal" value={mainPhone} onSave={(v) => handleUpdateField('phones', [{ value: v, isPrimary: true }], true)} icon={Phone} />
+                <EditableField label="Email Principal" value={mainEmail} onSave={(v) => handleUpdateField('emails', [{ value: v, isPrimary: true }], true)} icon={Mail} />
+                <EditableField label="Sitio Web" value={(party as any).website || ''} onSave={(v) => handleUpdateField('website', v, true)} icon={Building2} />
+                <EditableField label="Persona de Contacto" value={(party as any).contactPerson || ''} onSave={(v) => handleUpdateField('contactPerson', v, true)} icon={User} />
+              </div>
+            </div>
+
+            {/* Dirección */}
+            <div className="bg-white rounded-xl border p-6">
+              <h2 className="text-lg font-semibold text-zinc-900 mb-4">Dirección</h2>
+              <div className="space-y-1">
+                <EditableField label="Calle" value={party.billingAddress?.street || ''} onSave={(v) => handleUpdateField('billingAddress', { ...party.billingAddress, street: v }, true)} icon={MapPin} />
+                <EditableField label="Ciudad" value={party.billingAddress?.city || ''} onSave={(v) => handleUpdateField('billingAddress', { ...party.billingAddress, city: v }, true)} icon={MapPin} />
+                <EditableField label="Provincia" value={party.billingAddress?.province || ''} onSave={(v) => handleUpdateField('billingAddress', { ...party.billingAddress, province: v }, true)} icon={MapPin} />
+                <EditableField label="Código Postal" value={party.billingAddress?.zip || ''} onSave={(v) => handleUpdateField('billingAddress', { ...party.billingAddress, zip: v }, true)} icon={MapPin} />
+                <EditableField label="País" value={party.billingAddress?.country || 'España'} onSave={(v) => handleUpdateField('billingAddress', { ...party.billingAddress, country: v }, true)} icon={MapPin} />
+              </div>
+            </div>
+
+            {/* Características del Local */}
+            <div className="bg-white rounded-xl border p-6">
+              <h2 className="text-lg font-semibold text-zinc-900 mb-4">Características del Local</h2>
+              <div className="space-y-1">
+                <EditableField 
+                  label="Tipo de Local" 
+                  value={(account as any).localType || ''} 
+                  onSave={(v) => handleUpdateField('localType', v)} 
+                  type="select"
+                  options={[
+                    { value: '', label: 'Sin especificar' },
+                    { value: 'RESTAURANTE', label: 'Restaurante' },
+                    { value: 'BAR_TAPAS', label: 'Bar de Tapas' },
+                    { value: 'BAR_COPAS', label: 'Bar de Copas / Nocturno' },
+                    { value: 'COCTELERIA', label: 'Coctelería' },
+                    { value: 'CAFETERIA', label: 'Cafetería' },
+                    { value: 'GASTROBAR', label: 'Gastrobar' },
+                    { value: 'TABERNA', label: 'Taberna' },
+                    { value: 'TERRAZA', label: 'Terraza' },
+                    { value: 'HOTEL', label: 'Hotel' },
+                    { value: 'CATERING', label: 'Catering' },
+                    { value: 'OTRO', label: 'Otro' }
+                  ]}
+                  icon={Briefcase} 
+                />
+                <EditableField label="Aforo Aproximado" value={String((account as any).capacity || '')} onSave={(v) => handleUpdateField('capacity', Number(v) || 0)} icon={User} />
+                <EditableField label="Horario" value={(account as any).openingHours || ''} onSave={(v) => handleUpdateField('openingHours', v)} icon={Clock} />
+                <EditableField label="Valoración (1-5)" value={String((account as any).rating || '')} onSave={(v) => handleUpdateField('rating', Number(v) || 0)} icon={TrendingUp} />
+                <EditableField label="Google Place ID" value={(party as any).googlePlaceId || ''} onSave={(v) => handleUpdateField('googlePlaceId', v, true)} icon={MapPin} />
+                <EditableField label="Tipo según Google" value={(party as any).googlePlaceType || ''} onSave={(v) => handleUpdateField('googlePlaceType', v, true)} icon={MapPin} />
+              </div>
+            </div>
+
+            {/* Información Comercial */}
+            <div className="bg-white rounded-xl border p-6">
+              <h2 className="text-lg font-semibold text-zinc-900 mb-4">Información Comercial</h2>
+              <div className="space-y-1">
+                <EditableField label="Objetivo Anual" value={String((account as any).targetAmount || '')} onSave={(v) => handleUpdateField('targetAmount', Number(v) || 0)} icon={DollarSign} />
+                <EditableField label="Días de Pago" value={String((account as any).paymentTermDays || '')} onSave={(v) => handleUpdateField('paymentTermDays', Number(v) || 0)} icon={Clock} />
+                <EditableField label="Límite de Crédito" value={String((account as any).creditLimit || '')} onSave={(v) => handleUpdateField('creditLimit', Number(v) || 0)} icon={DollarSign} />
+                <EditableField label="Descuento %" value={String((account as any).discount || '')} onSave={(v) => handleUpdateField('discount', Number(v) || 0)} icon={TrendingUp} />
+              </div>
+            </div>
+
+            {/* Notas */}
+            <div className="bg-white rounded-xl border p-6">
+              <h2 className="text-lg font-semibold text-zinc-900 mb-4">Notas y Observaciones</h2>
+              <div className="space-y-1">
+                <EditableField label="Notas Internas" value={account.notes || ''} onSave={(v) => handleUpdateField('notes', v)} icon={FileText} multiline />
+                <EditableField label="Preferencias" value={(account as any).preferences || ''} onSave={(v) => handleUpdateField('preferences', v)} icon={FileText} multiline />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

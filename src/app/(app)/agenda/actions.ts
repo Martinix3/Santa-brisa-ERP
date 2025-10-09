@@ -1,7 +1,7 @@
 // src/app/(app)/agenda/actions.ts
 "use server";
 import { adminDb as db } from "@/server/firebase";
-import type { Department } from '@/domain/ssot';
+import type { Department } from '@/domain/ssot.v7';
 import { revalidatePath } from "next/cache";
 
 export async function createInteraction(input: {

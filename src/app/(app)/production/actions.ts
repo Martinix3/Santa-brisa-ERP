@@ -6,7 +6,7 @@
 'use server';
 
 import { adminDb as db } from '@/server/firebase';
-import type { Item } from '@/domain/ssot';
+import type { Item } from '@/domain/ssot.v7';
 
 // Si tu SSOT no expone Item, puedes usar este mínimo:
 // type Item = { id: string; sku?: string; name?: string; category?: string };

@@ -1,6 +1,6 @@
 
 
-import type { Shipment, Party, OrderSellOut, BillingStatus } from '@/domain/ssot';
+import type { Shipment, Party, OrderSellOut, BillingStatus } from '@/domain/ssot.v7';
 
 export const hasDimsAndWeight = (shipment: Shipment) => {
   const s = shipment as any; // Cast to any to access nested properties safely

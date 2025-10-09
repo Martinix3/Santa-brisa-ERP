@@ -1,6 +1,6 @@
 // src/features/bom/useBomForm.ts
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 
 type FieldErrors = Record<string, string>;
 
@@ -28,14 +28,22 @@ export function useBomForm<T = any>(initial: T) {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors | undefined>();
   const [lastError, setLastError] = useState<string | undefined>();
   const [initialSnapshot, setInitialSnapshot] = useState<T>(initial);
+  
+  // ✅ Usar ref para detectar cambios reales en el ID, no en la referencia del objeto
+  const prevIdRef = useRef<string | undefined>(undefined);
+  const currentId = (initial as any)?.id;
 
   // if initialValues changes (opening a different recipe), reset the form
   useEffect(() => {
-    setValues(initial);
-    setInitialSnapshot(initial);
-    setFieldErrors(undefined);
-    setLastError(undefined);
-  }, [initial]);
+    // Solo resetear si el ID realmente cambió
+    if (currentId !== prevIdRef.current) {
+      setValues(initial);
+      setInitialSnapshot(initial);
+      setFieldErrors(undefined);
+      setLastError(undefined);
+      prevIdRef.current = currentId;
+    }
+  }, [initial, currentId]);
 
   function set<K extends string>(path: K, value: any) {
     setValues((v: any) => {

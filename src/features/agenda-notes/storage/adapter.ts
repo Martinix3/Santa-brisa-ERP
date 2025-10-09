@@ -1,5 +1,5 @@
 // features/agenda-notes/storage/adapter.ts
-import type { Department, Interaction, InteractionStatus, InteractionKind, TaskKind } from '@/domain/ssot'; 
+import type { Department, Interaction, InteractionStatus, InteractionKind, TaskKind } from '@/domain/ssot.v7'; 
 
 export type Note = {
   id: string;

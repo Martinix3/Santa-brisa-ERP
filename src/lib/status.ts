@@ -1,4 +1,4 @@
-import type { OrderStatus, ShipmentStatus } from '@/domain/ssot';
+import type { OrderStatus, ShipmentStatus } from '@/domain/ssot.v7';
 
 export const ORDER_STATUS_MAP: Record<string, OrderStatus> = {
   abierto:'open', confirmado:'confirmed', enviado:'shipped', facturado:'invoiced',

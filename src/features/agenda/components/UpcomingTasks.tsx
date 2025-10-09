@@ -2,10 +2,10 @@
 "use client";
 import React, { useMemo } from 'react';
 import { useData } from '@/lib/dataprovider';
-import type { Interaction, Department } from '@/domain/ssot';
+import type { Interaction, Department } from '@/domain/ssot.v7';
 import { SBCard } from '@/components/ui/ui-primitives';
 import { AlertCircle, Clock, Building } from 'lucide-react';
-import { DEPT_META } from '@/domain/ssot';
+import { DEPT_META } from '@/domain/ssot.v7';
 import Link from 'next/link';
 
 export function UpcomingTasks({ 

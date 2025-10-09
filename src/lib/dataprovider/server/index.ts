@@ -1,5 +1,5 @@
 import { adminDb as db } from '@/server/firebase';
-import { SANTA_DATA_COLLECTIONS, type SantaData } from '@/domain/ssot';
+import { SANTA_DATA_COLLECTIONS, type SantaData } from '@/domain/ssot.v7';
 
 function assertCollection(col: any): asserts col is keyof SantaData {
   if (!(SANTA_DATA_COLLECTIONS as readonly string[]).includes(col)) {

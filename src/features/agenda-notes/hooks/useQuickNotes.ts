@@ -1,6 +1,6 @@
 // features/agenda-notes/hooks/useQuickNotes.ts
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import type { Interaction, Note, InteractionStatus, SantaData } from '@/domain/ssot';
+import type { Interaction, Note, InteractionStatus, SantaData } from '@/domain/ssot.v7';
 import { useData } from '@/lib/dataprovider';
 
 // El hook ahora no gestiona el storage, sino que lee del DataProvider

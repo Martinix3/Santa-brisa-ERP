@@ -3,12 +3,12 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useData } from '@/lib/dataprovider';
-import type { OnHandView, Item, ItemCategory } from '@/domain/ssot';
+import type { OnHandView, Item, ItemCategory } from '@/domain/ssot.v7';
 import { SBCard, SBButton } from '@/components/ui/ui-primitives';
 import { ChevronDown, Save, Tags } from 'lucide-react';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
 import { upsertMany } from '@/lib/dataprovider/actions';
-import { ITEM_CATEGORY_META } from '@/domain/ssot';
+import { ITEM_CATEGORY_META } from '@/domain/ssot.v7';
 
 function SkuRow({ item, onUpdateCategory }: { item: SkuWithLots; onUpdateCategory: (itemId: string, newCategory: Item['category']) => void; }) {
     const [isOpen, setIsOpen] = useState(false);

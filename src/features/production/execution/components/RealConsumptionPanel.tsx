@@ -2,7 +2,7 @@
 "use client";
 import React, { useMemo } from 'react';
 import { SBCard, Input } from '@/components/ui/ui-primitives';
-import type { Uom } from '@/domain/ssot';
+import type { Uom } from '@/domain/ssot.v7';
 import { SectionCard } from '../../components/ui';
 
 type RealConsumptionLine = { itemId: string; itemName: string; lotNumber: string; theoreticalQty: number; realQty: number; uom: Uom; fromLocationId: string };

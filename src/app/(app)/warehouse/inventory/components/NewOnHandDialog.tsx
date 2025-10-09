@@ -5,7 +5,7 @@ import React from 'react';
 import { useForm } from 'react-hook-form';
 import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog";
 import { Input, Select, SBButton } from '@/components/ui/ui-primitives';
-import { Item, ItemCategory, Uom } from '@/domain/ssot';
+import { Item, ItemCategory, Uom } from '@/domain/ssot.v7';
 import { createManualOnHand } from '../actions';
 
 type FormState = {

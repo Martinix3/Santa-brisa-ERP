@@ -3,7 +3,7 @@
 import React from 'react';
 import type { Task } from '../hooks/useTasks';
 import { Badge, SBButton } from '@/components/ui';
-import { DEPT_META } from '@/domain/ssot';
+import { DEPT_META } from '@/domain/ssot.v7';
 import { Edit, Trash2, Check } from 'lucide-react';
 import Link from 'next/link';
 

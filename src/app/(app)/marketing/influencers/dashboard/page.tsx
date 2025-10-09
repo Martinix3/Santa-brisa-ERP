@@ -1,31 +1,17 @@
 
 "use client";
 import React from "react";
-import InfluencersDashboardPage from "@/features/influencers/pages/InfluencersDashboardPage";
-import { waterHeader, hexToRgba, AgaveEdge, Input, Select, Textarea, SBButton, SBCard } from "@/components/ui/ui-primitives";
-import { ClipboardList } from "lucide-react";
-import { SB_COLORS } from "@/domain/ssot";
-
-function Header({ title, color = "#A7D8D9", icon: Icon = ClipboardList }:{ title:string; color?:string; icon?:any }) {
-  return (
-    <div className="relative border-b" style={{ background: waterHeader("modal:"+title, color), borderColor: hexToRgba(color, 0.18) }}>
-      <div className="px-4 py-2.5 text-sm font-medium text-zinc-800 flex items-center gap-2"><Icon className="h-4 w-4"/>{title}</div>
-      <div className="absolute left-0 right-0 -bottom-px"><AgaveEdge /></div>
-    </div>
-  );
-}
+// TODO: Crear el componente InfluencersDashboardPage
+// import InfluencersDashboardPage from "@/features/influencers/pages/InfluencersDashboardPage";
 
 export default function Page() {
-  const injected = { 
-      waterHeader, 
-      hexToRgba, 
-      AgaveEdge, 
-      Input, 
-      Select, 
-      Textarea, 
-      Header, 
-      SBButton,
-      SBCard
-  };
-  return <InfluencersDashboardPage components={injected} />;
+  return (
+    <div className="p-8">
+      <h1 className="text-2xl font-bold mb-4">Influencers Dashboard</h1>
+      <p className="text-muted-foreground">Esta página está en construcción.</p>
+      <p className="text-sm text-muted-foreground mt-2">
+        TODO: Crear src/features/influencers/pages/InfluencersDashboardPage.tsx
+      </p>
+    </div>
+  );
 }

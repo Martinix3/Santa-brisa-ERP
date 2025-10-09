@@ -1,4 +1,4 @@
-import type { Party } from '@/domain/ssot';
+import type { Party } from '@/domain/ssot.v7';
 
 export function toHoldedPayload(p: Party) {
   const email = p.emails?.find(e => e.isPrimary)?.value || p.emails?.[0]?.value;

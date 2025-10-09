@@ -1,1 +1,5 @@
-// This file is being deleted as it is part of a deprecated module.
+import { ContactsListPage } from "@/features/contacts/components/ContactsListPage";
+
+export default function ContactsPage() {
+  return <ContactsListPage />;
+}

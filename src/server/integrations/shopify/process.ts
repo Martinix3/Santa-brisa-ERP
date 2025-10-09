@@ -4,7 +4,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { enqueue } from '@/server/queue/queue';
 import { mapShopifyToSSOT } from '@/server/integrations/shopify/map';
 import { verifyShopifyHmac } from './hmac';
-import type { Account } from '@/domain/ssot';
+import type { Account } from '@/domain/ssot.v7';
 
 interface WebhookParams {
   rawBody: string;

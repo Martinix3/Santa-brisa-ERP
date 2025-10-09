@@ -2,11 +2,11 @@
 "use client";
 
 import React, { useMemo } from 'react';
-import type { Department, Interaction, InteractionStatus, User } from '@/domain/ssot';
+import type { Department, Interaction, InteractionStatus, User } from '@/domain/ssot.v7';
 import { Check, AlertCircle, Clock, Plus } from 'lucide-react';
 import { useDraggable } from '@dnd-kit/core';
 import { useData } from '@/lib/dataprovider';
-import { DEPT_META } from '@/domain/ssot';
+import { DEPT_META } from '@/domain/ssot.v7';
 import { Avatar } from '@/components/ui/Avatar';
 import { SBCard, SBButton } from '@/components/ui';
 

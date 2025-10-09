@@ -3,7 +3,7 @@
 
 import { adminDb as db } from '@/server/firebase';
 import { FieldValue } from 'firebase-admin/firestore';
-import type { StockMove, Item, QcStatus, SantaData, Uom } from '@/domain/ssot';
+import type { StockMove, Item, QcStatus, SantaData, Uom } from '@/domain/ssot.v7';
 import { makeOnHandId } from '@/domain/id-helpers';
 import { z } from "zod";
 import { ok, fail, type ActionResult } from "@/lib/result";

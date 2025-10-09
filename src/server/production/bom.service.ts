@@ -1,7 +1,7 @@
 // src/server/production/bom.service.ts
 'use server';
 
-import type { BillOfMaterial, Item, ProductionOrder, Uom, SalesUnit } from '@/domain/ssot';
+import type { BillOfMaterial, Item, ProductionOrder, Uom, SalesUnit } from '@/domain/ssot.v7';
 import { adminDb } from '@/server/firebase';
 import { ok, fail, type ActionResult } from '@/lib/result';
 import { FieldPath } from 'firebase-admin/firestore';

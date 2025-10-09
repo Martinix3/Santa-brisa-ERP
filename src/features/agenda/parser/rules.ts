@@ -1,5 +1,5 @@
 // features/agenda/parser/rules.ts
-import { Department } from '@/domain/ssot';
+import { Department } from '@/domain/ssot.v7';
 
 export const DEPT_RULES: Array<{dept: Department; keywords: RegExp}> = [
   { dept: 'VENTAS',    keywords: /\b(visita|pedido|cliente|llamar|cerrar|seguimiento)\b/i },
