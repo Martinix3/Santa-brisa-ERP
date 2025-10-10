@@ -18,13 +18,13 @@ async function getAll<T>(coll: keyof SantaData): Promise<T[]> {
 // Builder (ajusta tus getters reales)
 export async function buildOnHandView(): Promise<OnHandView[]> {
   const [onhand, lots, reservations] = await Promise.all([
-    getAll<{ id: string; sku:string; lotNumber:string; locationId:string; qty:number; uom:string; updatedAt?:string }>('onHand'),
+    getAll<{ id: string; sku:string; itemId?:string; lotNumber:string; locationId:string; qty:number; uom:string; updatedAt?:string }>('onHand'),
     getAll<{ id: string; lotNumber:string; qcStatus:QcStatus|null; expiryAt?:string|null }>('lots'),
     getAll<{ id: string; sku:string; lotNumber:string; locationId:string; qty:number }>('reservations').catch(()=>[]),
   ]);
 
   const lotByNo = new Map(lots.map(l => [l.lotNumber, l]));
-  const resKey = (r:any) => `${r.itemId}|${r.lotNumber}|${r.locationId}`;
+  const resKey = (r:any) => `${r.sku || r.itemId}|${r.lotNumber}|${r.locationId}`;
   const resMap = new Map<string, number>();
   for (const r of reservations ?? []) {
     resMap.set(resKey(r), (resMap.get(resKey(r)) ?? 0) + r.qty);
@@ -33,10 +33,11 @@ export async function buildOnHandView(): Promise<OnHandView[]> {
   return onhand.map(r => {
     if (!r.lotNumber) return null; // Skip records without a lot number
     const lot = lotByNo.get(r.lotNumber);
-    const id = `${r.itemId}|${r.lotNumber}|${r.locationId}`;
+    const id = `${r.sku || r.itemId}|${r.lotNumber}|${r.locationId}`;
     return {
       id,
-      sku: r.itemId,
+      itemId: r.sku || r.itemId,
+      sku: r.sku || r.itemId,
       lotNumber: r.lotNumber,
       locationId: r.locationId,
       qty: r.qty,

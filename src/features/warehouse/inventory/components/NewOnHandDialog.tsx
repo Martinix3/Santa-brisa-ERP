@@ -51,26 +51,26 @@ export function NewOnHandDialog({
     }
   });
 
-  const selectedItemId = watch('itemId');
+  const selectedSku = watch('sku');
   const [isSaving, setIsSaving] = React.useState(false);
 
   const selectedItemCategory = React.useMemo(() => {
-    if (selectedItemId) {
-        const item = items.find(i => i.id === selectedItemId);
+    if (selectedSku) {
+        const item = items.find(i => i.sku === selectedSku);
         return item?.category;
     }
     return undefined;
-  }, [selectedItemId, items]);
+  }, [selectedSku, items]);
 
 
   React.useEffect(() => {
-    if (selectedItemId) {
-      const item = items.find(i => i.id === selectedItemId);
+    if (selectedSku) {
+      const item = items.find(i => i.sku === selectedSku);
       if (item) {
         setValue('uom', item.uom);
       }
     }
-  }, [selectedItemId, items, setValue]);
+  }, [selectedSku, items, setValue]);
   
   React.useEffect(() => {
     if (open) {
@@ -105,10 +105,10 @@ export function NewOnHandDialog({
         secondaryAction={{ label: "Cancelar", onClick: () => { onClose(); reset(); }, disabled: isSaving }}
       >
         <div className="space-y-3">
-          <FieldRow label="Producto" error={errors.itemId?.message} htmlFor="itemId">
-            <Select id="itemId" {...register("itemId", { required: "Selecciona un producto" })}>
+          <FieldRow label="Producto" error={errors.sku?.message} htmlFor="sku">
+            <Select id="sku" {...register("sku", { required: "Selecciona un producto" })}>
               <option value="">-- Selecciona --</option>
-              {items.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+              {items.map(i => <option key={i.id} value={i.sku}>{i.name}</option>)}
             </Select>
           </FieldRow>
           <FieldRow label="Lote (auto si vacío)" htmlFor="lotNumber">

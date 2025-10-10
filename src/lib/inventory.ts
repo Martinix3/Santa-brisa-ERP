@@ -93,9 +93,9 @@ export function checkOrderStock(
 
         const lotNumber = lot.lotNumbers ? Object.keys(lot.lotNumbers)[0] : '';
         allocations.push({
-          sku,
+          sku: sku || '',
           lotNumber: lotNumber || '',
-          locationId: lot.warehouseId,
+          locationId: lot.warehouseId || '',
           qty: take,
           expiryAt: null, // v7: expiryAt no existe en OnHand
           originInfo,
@@ -107,7 +107,7 @@ export function checkOrderStock(
     if (remaining > 0) {
       const totalAvailable = sortedLots.reduce((s, l) => s + l.free, 0);
       shortages.push({
-        sku,
+        sku: sku || '',
         qtyRequired: qty,
         qtyAvailable: totalAvailable,
         qtyShort: Math.max(0, qty - totalAvailable),
@@ -133,6 +133,8 @@ export function inheritOrResetQcStatus(parents: QcStatus[], forceReQc?: boolean)
 
 export type SkuStockSummary = {
   sku: string;
+  /** @deprecated Use sku */
+  itemId?: string;
   lots: OnHand[];
 
   // Totales
@@ -212,10 +214,12 @@ export function computeSkuRollup(
   const bySku = new Map<string, SkuStockSummary>();
 
   for (const r of onHand) {
-    const sku = r.sku;
-    if (!bySku.has(sku)) {
+    const sku = r.sku || r.itemId;
+    if (!sku || !bySku.has(sku)) {
+      if (!sku) continue;
       bySku.set(sku, {
         sku,
+        itemId: sku,
         lots: [],
         totalPhysical: 0,
         totalReserved: 0,
@@ -240,7 +244,7 @@ export function computeSkuRollup(
     const reserved = r.reserved || 0;
     
     // ✅ Obtener unitCost desde Item master
-    const item = itemsMap.get(sku);
+    const item = sku ? itemsMap.get(sku) : undefined;
     const unitCost = item?.stdCost || 0;
     
     acc.totalPhysical += qty;
