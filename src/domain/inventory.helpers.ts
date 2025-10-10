@@ -3,14 +3,14 @@ import type { OnHandView, StockMove, Uom, Item } from './ssot';
 
 /** Suma disponible en OnHandView[] (qty), opcionalmente por ubicación (ej. RM/MAIN) */
 export function availableForItem(
-  sku: string,
+  itemId: string,
   onHand: OnHandView[],
   locationPrefix?: string
 ): number {
   return onHand
     .filter(i =>
-      i.sku === sku &&
-      (locationPrefix ? (i.warehouseId || "").startsWith(locationPrefix) : true)
+      i.itemId === itemId &&
+      (locationPrefix ? (i.locationId || "").startsWith(locationPrefix) : true)
     )
     .reduce((s, i) => s + (i.qty ?? 0), 0);
 }
@@ -18,7 +18,7 @@ export function availableForItem(
 
 /** Elige lotes FIFO para cubrir una cantidad requerida. */
 export function fifoReserveLots(
-  sku: string,
+  itemId: string,
   requiredQty: number,
   onHand: OnHandView[],
   locationPrefix: string
@@ -26,7 +26,7 @@ export function fifoReserveLots(
   if (requiredQty <= 0) return [];
 
   const lots = onHand
-    .filter(i => i.sku === sku && (i.warehouseId || "").startsWith(locationPrefix) && (i.qty ?? 0) > 0 && i.lotNumbers)
+    .filter(i => i.itemId === itemId && (i.locationId || "").startsWith(locationPrefix) && (i.qty ?? 0) > 0 && i.lotNumber)
     .sort((a, b) => +new Date(a.updatedAt) - +new Date(b.updatedAt)); // FIFO
 
   const picks: Array<{ fromLotNumber: string; reservedQty: number; uom: Uom }> = [];
@@ -36,12 +36,11 @@ export function fifoReserveLots(
     if (rem <= 0) break;
     const take = Math.min(it.qty ?? 0, rem);
     if (take > 0) {
-      const lotNumber = it.lotNumbers ? Object.keys(it.lotNumbers)[0] : undefined;
-      if (!lotNumber) {
-        console.warn(`fifoReserveLots: OnHand item ${it.id} for sku ${it.sku} has no lotNumber.`);
+      if (!it.lotNumber) {
+        console.warn(`fifoReserveLots: OnHand item ${it.id} for item ${it.itemId} has no lotNumber.`);
         continue;
       }
-      picks.push({ fromLotNumber: lotNumber, reservedQty: take, uom: 'UNIT' as Uom });
+      picks.push({ fromLotNumber: it.lotNumber!, reservedQty: take, uom: it.uom });
       rem -= take;
     }
   }
@@ -52,7 +51,7 @@ export function fifoReserveLots(
 /** Genera movimientos de consumo (production_out) a partir de reservas */
 export function buildConsumptionMoves(args: {
   orderId: string;
-  reservations: Array<{ sku: string; fromLotNumber: string; reservedQty: number; uom: Uom }>;
+  reservations: Array<{ itemId: string; fromLotNumber: string; reservedQty: number; uom: Uom }>;
   at?: string;
   fromLocationId?: string; // ej. "RM/MAIN"
 }): StockMove[] {
@@ -60,18 +59,15 @@ export function buildConsumptionMoves(args: {
 
   return reservations.map((r, idx) => ({
     id: `mv_cons_${orderId}_${idx}`,
-    date: at,
-    type: 'OUT' as const,
-    reason: 'CONSUMPTION',
-    warehouseId: fromLocationId,
-    items: [{
-      sku: r.sku,
-      quantity: r.reservedQty,
-      lotNumber: r.fromLotNumber
-    }],
-    documentRef: { kind: 'productionOrder' as const, id: orderId },
+    itemId: r.itemId,
+    lotNumber: r.fromLotNumber,
+    uom: r.uom,
+    qty: -r.reservedQty, // Negativo para salida
+    fromLocationId: fromLocationId,
+    reason: "production_out",
+    occurredAt: at,
     createdAt: at,
-    updatedAt: at
+    ref: { prodOrderId: orderId },
   } as StockMove));
 }
 

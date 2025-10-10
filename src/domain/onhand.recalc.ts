@@ -1,5 +1,5 @@
 // src/domain/onhand.recalc.ts
-import type { StockMove, Uom, Item, OnHand } from '@/domain/ssot';
+import type { StockMove, OnHandView, Uom, Item, ItemCategory } from '@/domain/ssot.v7';
 
 const SIGN: Record<string, number> = {
   receipt: +1,
@@ -20,76 +20,64 @@ const SIGN: Record<string, number> = {
   unreserve: 0,
 };
 
-function key(sku: string, lot?: string, loc?: string) {
-  return [sku, lot || '', loc || ''].join('|');
+function key(itemId: string, lot?: string, loc?: string) {
+  return [itemId, lot || '', loc || ''].join('|');
 }
 
-export function deriveOnHand(stockMoves: StockMove[], items: Item[], nowIso = new Date().toISOString()): OnHand[] {
-  const itemMap = new Map(items.map(i => [i.sku, i]));
-  const acc = new Map<string, { qty: number; sku: string; warehouse?: string; lotNumbers: Record<string, number>; createdAt?: string; updatedAt?: string }>();
+export function deriveOnHand(stockMoves: StockMove[], items: Item[], nowIso = new Date().toISOString()): OnHandView[] {
+  const itemMap = new Map(items.map(i => [i.id, i]));
+  const acc = new Map<string, { qty: number; uom: Uom; itemId: string; lot?: string; loc?: string; createdAt?: string; updatedAt?: string }>();
 
   for (const m of stockMoves) {
-    // En SSOT v7, StockMove tiene: type, reason, warehouseId, toWarehouseId, items[]
-    const fromWarehouse = m.warehouseId;
-    const toWarehouse = m.toWarehouseId;
+    const fromLoc = m.fromLocationId;
+    const toLoc   = m.toLocationId;
 
-    // Procesar cada item del movimiento
-    for (const moveItem of m.items || []) {
-      const { sku, quantity, lotNumber } = moveItem;
-      
-      // Determinar el signo según type y reason
-      let sign = 0;
-      if (m.type === 'IN') sign = 1;
-      else if (m.type === 'OUT') sign = -1;
-      else if (m.type === 'TRANSFER') {
-        // Transfer: restar de origen, sumar a destino
-        if (fromWarehouse) {
-          const kFrom = key(sku, lotNumber, fromWarehouse);
-          const cur = acc.get(kFrom) || { qty: 0, sku, warehouse: fromWarehouse, lotNumbers: {}, createdAt: m.createdAt };
-          const lot = lotNumber || 'default';
-          cur.lotNumbers[lot] = (cur.lotNumbers[lot] || 0) - quantity;
-          cur.qty = cur.qty - quantity;
-          acc.set(kFrom, { ...cur, updatedAt: m.date });
-        }
-        if (toWarehouse) {
-          const kTo = key(sku, lotNumber, toWarehouse);
-          const cur = acc.get(kTo) || { qty: 0, sku, warehouse: toWarehouse, lotNumbers: {}, createdAt: m.createdAt };
-          const lot = lotNumber || 'default';
-          cur.lotNumbers[lot] = (cur.lotNumbers[lot] || 0) + quantity;
-          cur.qty = cur.qty + quantity;
-          acc.set(kTo, { ...cur, updatedAt: m.date });
-        }
-        continue; // Ya procesado
-      } else if (m.type === 'ADJUSTMENT') {
-        // Adjustment puede ser +/- según la cantidad
-        sign = quantity >= 0 ? 1 : -1;
-      }
+    // 1) movimientos que suman/restan directamente
+    if (SIGN[m.reason] !== 0) {
+      const loc = SIGN[m.reason] > 0 ? toLoc : fromLoc;
+      const k = key(m.itemId, m.lotNumber, loc);
+      const cur = acc.get(k) || { qty: 0, uom: m.uom, itemId: m.itemId, lot: m.lotNumber, loc, createdAt: m.createdAt };
+      const delta = (SIGN[m.reason] as number) * m.qty;
+      acc.set(k, { ...cur, qty: cur.qty + delta, updatedAt: m.occurredAt });
+    }
 
-      // Aplicar el movimiento (IN, OUT, ADJUSTMENT)
-      if (sign !== 0) {
-        const warehouse = sign > 0 ? (toWarehouse || fromWarehouse) : fromWarehouse;
-        const k = key(sku, lotNumber, warehouse);
-        const cur = acc.get(k) || { qty: 0, sku, warehouse, lotNumbers: {}, createdAt: m.createdAt };
-        const lot = lotNumber || 'default';
-        const delta = sign * Math.abs(quantity);
-        cur.lotNumbers[lot] = (cur.lotNumbers[lot] || 0) + delta;
-        cur.qty = cur.qty + delta;
-        acc.set(k, { ...cur, updatedAt: m.date });
+    // 2) transfer: resta en origen y suma en destino
+    if (m.reason === 'transfer') {
+      if (fromLoc) {
+        const kFrom = key(m.itemId, m.lotNumber, fromLoc);
+        const cur = acc.get(kFrom) || { qty: 0, uom: m.uom, itemId: m.itemId, lot: m.lotNumber, loc: fromLoc, createdAt: m.createdAt };
+        acc.set(kFrom, { ...cur, qty: cur.qty - m.qty, updatedAt: m.occurredAt });
       }
+      if (toLoc) {
+        const kTo = key(m.itemId, m.lotNumber, toLoc);
+        const cur = acc.get(kTo) || { qty: 0, uom: m.uom, itemId: m.itemId, lot: m.lotNumber, loc: toLoc, createdAt: m.createdAt };
+        acc.set(kTo, { ...cur, qty: cur.qty + m.qty, updatedAt: m.occurredAt });
+      }
+    }
+
+    // 3) adjustment: aplicar qty tal cual al destino (o a la misma loc si no hay)
+    if (m.reason === 'adjustment') {
+      const loc = toLoc ?? fromLoc;
+      const k = key(m.itemId, m.lotNumber, loc);
+      const cur = acc.get(k) || { qty: 0, uom: m.uom, itemId: m.itemId, lot: m.lotNumber, loc, createdAt: m.createdAt };
+      acc.set(k, { ...cur, qty: cur.qty + m.qty, updatedAt: m.occurredAt });
     }
   }
 
-  // Map → array, filtrando con qty cercana a 0
-  const out: OnHand[] = [];
+  // Map → array, filtrando lotes con qty 0
+  const out: OnHandView[] = [];
   for (const [id, v] of acc.entries()) {
     if (Math.abs(v.qty) < 1e-9) continue;
-    const item = itemMap.get(v.sku);
+    const item = itemMap.get(v.itemId);
     out.push({
       id,
-      sku: v.sku,
-      warehouseId: v.warehouse || '',
+      itemId: v.itemId,
+      lotNumber: v.lot || '',
+      locationId: v.loc || '',
       qty: Number(v.qty.toFixed(6)),
-      lotNumbers: v.lotNumbers,
+      uom: v.uom as Uom,
+      qcStatus: 'PENDING', // Placeholder, real status from 'lots'
+      category: item?.category ?? 'raw', // Get category from itemMap
       createdAt: v.createdAt || nowIso,
       updatedAt: v.updatedAt || nowIso,
     });
