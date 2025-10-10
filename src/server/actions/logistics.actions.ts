@@ -6,9 +6,9 @@ import { revalidatePath } from 'next/cache';
 import { adminDb as db } from '@/server/firebase';
 import { FieldValue } from 'firebase-admin/firestore';
 import { getOne, upsertMany } from '@/lib/dataprovider/server';
-import type { Shipment, OrderSellOut, StockMove, Lot, Item, Account } from '@/domain/ssot';
+import type { Shipment, Order, OrderSellOut, StockMove, Lot, Item, Account, OnHand } from '@/domain/ssot';
 import { enqueue } from '@/server/queue/queue';
-import { checkOrderStock, type AllocationDetail } from '@/lib/inventory';
+import { checkOrderStock, type AllocationDetail, type StockShortageDetail } from '@/lib/inventory';
 import { makeOnHandId } from '@/domain/id-helpers';
 import { makeShipmentCode } from '@/lib/codes';
 
@@ -28,9 +28,9 @@ export async function createManualShipment(payload: any) {
  * If successful, it also enqueues a job to create the invoice.
  */
 export async function confirmOrderShipment(orderId: string): Promise<Shipment> {
-  const order = await getOne<OrderSellOut>('ordersSellOut', orderId);
+  const order = await getOne<Order>('orders', orderId);
   if (!order) throw new Error('Order not found');
-  if (order.status !== 'open') throw new Error('Order must be in "open" status to confirm.');
+  if (order.status !== 'ABIERTO') throw new Error('Order must be in "ABIERTO" status to confirm.');
 
   // 1. ALL READS FIRST - Fetch all necessary data before starting the transaction.
   const [onHandSnap, lotsSnap, itemsSnap, account, shipmentsSnap] = await Promise.all([
@@ -42,12 +42,13 @@ export async function confirmOrderShipment(orderId: string): Promise<Shipment> {
   ]);
 
   if (!account) throw new Error(`Account ${order.accountId} not found.`);
-  const party = await getOne<Party>('parties', account.partyId);
-  if (!party) throw new Error(`Party ${account.partyId} not found.`);
 
-  const onHand = onHandSnap.docs.map(doc => doc.data() as OnHandView);
+  const onHand = onHandSnap.docs.map(doc => doc.data() as OnHand);
   const lots = lotsSnap.docs.map(doc => doc.data() as Lot);
-  const itemsById = new Map(itemsSnap.docs.map(d => [d.id, d.data() as Item]));
+  const itemsById = new Map(itemsSnap.docs.map(d => {
+    const item = d.data() as Item;
+    return [item.sku || d.id, item];
+  }));
   
   const result = checkOrderStock(order, onHand, lots);
   const allocations = Array.isArray(result?.allocations) ? result.allocations : [];
@@ -64,42 +65,41 @@ export async function confirmOrderShipment(orderId: string): Promise<Shipment> {
     sampleAllocation: allocations[0]
   });
 
-  if (!allocations.length && order.lines.length > 0) {
-    const itemIds = order.lines.map(l => l.itemId);
-    const byItem = Object.fromEntries(itemIds.map(id => {
-      const rows = onHand.filter(r => r.itemId === id);
+  if (!allocations.length && order.items.length > 0) {
+    const itemIds = order.items.map((l: any) => l.sku);
+    const byItem = Object.fromEntries(itemIds.map((id: string) => {
+        const rows = onHand.filter(r => r.sku === id);
       const freeReleased = rows
         .map(r => ({
           qc: String(r.qcStatus ?? '').toUpperCase(),
           qty: Number(r.qty ?? 0),
-          res: Number(r.reservedQty ?? 0),
-          free: Math.max(0, Number(r.qty ?? 0) - Number(r.reservedQty ?? 0)),
-          lot: r.lotNumber,
-          loc: r.locationId,
-          exp: r.expiryAt
+          res: Number(r.reserved ?? 0),
+          free: Math.max(0, Number(r.qty ?? 0) - Number(r.reserved ?? 0)),
+          lot: r.lotNumbers ? Object.keys(r.lotNumbers)[0] : '',
+          loc: r.warehouseId
         }))
         .filter(r =>
           ['PASSED','WAIVED','RELEASED','OK','APPROVED'].includes(r.qc) && r.free > 0
         );
       return [id, {
-        need: order.lines.find(l => l.itemId === id)?.qty,
+        need: order.items.find((l: any) => l.sku === id)?.qty,
         rows: rows.length,
         totalQty: rows.reduce((s, r) => s + Number(r.qty ?? 0), 0),
-        totalReserved: rows.reduce((s, r) => s + Number(r.reservedQty ?? 0), 0),
+        totalReserved: rows.reduce((s, r) => s + Number(r.reserved ?? 0), 0),
         totalFreeReleased: freeReleased.reduce((s, r) => s + r.free, 0),
         sampleReleased: freeReleased.slice(0,3),
         sampleAny: rows.slice(0,3).map(r => ({
           qc: String(r.qcStatus ?? '').toUpperCase(),
           qty: Number(r.qty ?? 0),
-          res: Number(r.reservedQty ?? 0),
-          lot: r.lotNumber, loc: r.locationId
+          res: Number(r.reserved ?? 0),
+          lot: r.lotNumbers ? Object.keys(r.lotNumbers)[0] : '', loc: r.warehouseId
         }))
       }];
     }));
 
     console.warn('[ALLOC DEBUG]', {
       orderId: order.id,
-      lines: order.lines,
+      items: order.items,
       onHandCount: onHand.length,
       lotsCount: lots.length,
       byItem,
@@ -107,8 +107,8 @@ export async function confirmOrderShipment(orderId: string): Promise<Shipment> {
     });
 
     const msg = shortages.length
-      ? shortages.map(s =>
-          `• ${itemsById.get(s.itemId)?.name ?? s.itemId}: necesita ${s.qtyRequired}, ` +
+      ? shortages.map((s: StockShortageDetail) =>
+          `• ${itemsById.get(s.sku)?.name ?? s.sku}: necesita ${s.qtyRequired}, ` +
           `liberado ${s.qtyAvailable}, falta ${s.qtyShort}` +
           (s.qtyOnHold > 0 ? ` (en HOLD ${s.qtyOnHold})` : '')
         ).join('\n')
@@ -116,14 +116,14 @@ export async function confirmOrderShipment(orderId: string): Promise<Shipment> {
     throw new Error(`No se han podido calcular reservas.\n${msg}`);
   }
 
-  const missingLots = allocations.filter(a => !a.lotNumber);
+  const missingLots = allocations.filter((a: AllocationDetail) => !a.lotNumber);
   if (missingLots.length) {
-    const ids = [...new Set(missingLots.map(a => a.itemId))].join(', ');
+    const ids = [...new Set(missingLots.map((a: AllocationDetail) => a.sku))].join(', ');
     throw new Error(`Faltan lotes en la asignación para: ${ids}.`);
   }
 
-  const allShipmentNumbers = shipmentsSnap.docs.map(d => d.data().shipmentNumber).filter(Boolean);
-  const shipmentNumber = makeShipmentCode(allShipmentNumbers, new Date());
+  const allShipmentNumbers = shipmentsSnap.docs.map(d => String(d.id)).filter(Boolean);
+  const shipmentCode = makeShipmentCode(allShipmentNumbers, new Date());
   
   const shipmentRef = db.collection('shipments').doc();
   const orderRef = db.collection('ordersSellOut').doc(orderId);
@@ -131,14 +131,13 @@ export async function confirmOrderShipment(orderId: string): Promise<Shipment> {
   let newShipment: Shipment;
 
   await db.runTransaction(async (transaction) => {
-    for (const alloc of allocations) {
-      const onHandId = makeOnHandId(alloc.itemId, alloc.lotNumber, alloc.locationId);
+    for (const alloc of allocations as AllocationDetail[]) {
+      const onHandId = makeOnHandId(alloc.sku, alloc.lotNumber || '', alloc.locationId || '');
       const onHandRef = db.collection('onHand').doc(onHandId);
       transaction.set(onHandRef, {
-        sku: alloc.itemId,
-        lotNumber: alloc.lotNumber,
-        locationId: alloc.locationId,
-        reservedQty: FieldValue.increment(alloc.qty),
+        sku: alloc.sku,
+        warehouseId: alloc.locationId || '',
+        reserved: FieldValue.increment(alloc.qty),
         qty: FieldValue.increment(0),
         uom: 'UNIT',
         updatedAt: now,
@@ -148,28 +147,31 @@ export async function confirmOrderShipment(orderId: string): Promise<Shipment> {
     transaction.update(orderRef, { status: 'confirmed', updatedAt: now });
 
     const isOnlineOrPrivate = account.type === 'ONLINE' || account.type === 'PRIVADA';
-    const totalUnits = order.lines.reduce((sum, line) => sum + line.qty, 0);
+    const totalUnits = order.items.reduce((sum: number, line: any) => sum + line.qty, 0);
     const mode: 'PARCEL' | 'PALLET' = isOnlineOrPrivate || totalUnits < 12 ? 'PARCEL' : 'PALLET';
 
     // Group allocations by item
-    const allocByItem = allocations.reduce<Record<string, AllocationDetail[]>>((acc, a) => {
-        (acc[a.itemId] ||= []).push(a); return acc;
+    const allocByItem = (allocations as AllocationDetail[]).reduce<Record<string, AllocationDetail[]>>((acc, a) => {
+        (acc[a.sku] ||= []).push(a); return acc;
     }, {});
     
     newShipment = {
         id: shipmentRef.id,
-        shipmentNumber,
         orderId: order.id,
-        partyId: account.partyId,
-        accountId: account.id,
-        mode,
         status: 'DRAFT',
-        lines: order.lines.flatMap(line => {
-            const allocs = allocByItem[line.itemId] || [];
+        fromWarehouseId: 'MAIN',
+        toAddress: {
+          street: account.billingAddress?.street || '',
+          city: account.billingAddress?.city || '',
+          postalCode: account.billingAddress?.postalCode || '',
+          country: account.billingAddress?.country || 'España',
+        },
+        lines: order.items.flatMap(line => {
+            const allocs = allocByItem[line.sku] || [];
             if (!allocs.length) {
               return [{
-                sku: line.itemId,
-                name: itemsById.get(line.itemId)?.name ?? line.itemId,
+                sku: line.sku,
+                name: itemsById.get(line.sku)?.name ?? line.sku,
                 qty: line.qty,
                 uom: 'UNIT',
                 lotNumber: undefined,
@@ -177,24 +179,18 @@ export async function confirmOrderShipment(orderId: string): Promise<Shipment> {
                 note: 'SIN ALLOC (revisar)'
               } as any];
             }
-            return allocs.map(a => ({
-              sku: line.itemId,
-              name: itemsById.get(line.itemId)?.name ?? line.itemId,
+            return allocs.map((a: AllocationDetail) => ({
+              sku: line.sku,
+              name: itemsById.get(line.sku)?.name ?? line.sku,
               qty: a.qty,
               uom: 'UNIT',
               lotNumber: a.lotNumber,
               locationId: a.locationId,
             }));
         }),
-        customerName: party.name,
-        addressLine1: party.billingAddress?.street || '',
-        city: party.billingAddress?.city || '',
-        postalCode: party.billingAddress?.zip || '',
-        country: party.billingAddress?.country || 'España',
         createdAt: now,
         updatedAt: now,
-        notes: order.notes,
-    };
+    } as any;
     transaction.set(shipmentRef, newShipment as any);
   });
 
@@ -216,7 +212,7 @@ type ValidateShipmentInput = {
   shipmentId: string;
   userId: string;
   notes?: string;
-  lots?: Array<{ sku: string; lotNumber?: string; qty: number }>;
+  lots?: Array<{ itemId: string; lotNumber?: string; qty: number }>;
 };
 
 export async function validateShipment(input: ValidateShipmentInput) {

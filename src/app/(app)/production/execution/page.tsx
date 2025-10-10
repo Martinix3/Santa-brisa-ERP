@@ -16,7 +16,6 @@ import { picksToRealLines } from "@/features/production/execution/helpers";
 // --- Definición de Tipos para el Estado del Formulario ---
 type FormOutput = {
     sku: string;
-    sku?: string;
     qty: number;
     uom: Uom | "uds";
     toLocationId: string;
@@ -86,9 +85,8 @@ export default function ProductionExecutionPage() {
         planningBom: bom,
         finalOutput: {
             sku: bom.outputItemId,
-            sku: outputItem?.sku,
             qty: 1,
-            uom: (bom.stage === "ENVASADO" ? "unit" : "L"),
+            uom: (bom.stage === "ENVASADO" ? "UNIT" : "L") as Uom,
             toLocationId: 'FG/MAIN',
             lotNumber: ''
         },
@@ -106,23 +104,21 @@ export default function ProductionExecutionPage() {
   }, [itemsMap]);
 
   const openExecution = useCallback((order: ProductionOrder) => {
-    const outputItem = itemsMap.get(order.outputItemId);
-    const existingOutput = (order.finalOutputs?.[0] as FormOutput);
+    const outputItem = itemsMap.get(order.outputSku);
     setActiveForm({
         order: order,
         planningBom: null,
-        finalOutput: existingOutput ?? {
-            sku: order.outputItemId,
-            sku: outputItem?.sku,
-            qty: order.targetQuantity,
-            uom: order.baseUnit as Uom,
+        finalOutput: {
+            sku: order.outputSku,
+            qty: order.outputQty,
+            uom: order.uom,
             toLocationId: 'FG/MAIN',
             lotNumber: ''
         },
-        realConsumption: picksToRealLines(order.reservations || [], itemsMap),
+        realConsumption: [],
         stockOk: true,
-        shortages: order.shortages ?? [],
-        requiredLots: order.reservations ?? [],
+        shortages: [],
+        requiredLots: [],
         responsibleId: (order as any).responsibleId ?? '',
         protocolChecks: (order as any).protocolChecks ?? [false, false, false, false],
         incidentText: '',

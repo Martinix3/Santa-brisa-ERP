@@ -22,7 +22,7 @@ function lotPrefixFromSku(sku?: string, fallback?: string) {
 
 /** Carga un item para obtener su SKU si lo necesitas. */
 async function loadItem(sku: string): Promise<Item | null> {
-  const doc = await db.collection('items').doc(itemId).get();
+  const doc = await db.collection('items').doc(sku).get();
   return doc.exists ? ({ id: doc.id, ...(doc.data() as any) } as Item) : null;
 }
 
@@ -31,14 +31,14 @@ async function loadItem(sku: string): Promise<Item | null> {
  *   <SKU|ITEMID>-YYMM-XX
  * Busca en la colección 'lots' por prefijo y calcula el siguiente correlativo.
  */
-export async function findNextLotNumber(sku: string, skuFromCaller?: string): Promise<string> {
+export async function findNextLotNumber(skuId: string, skuFromCaller?: string): Promise<string> {
   let sku = skuFromCaller;
   if (!sku) {
-    const item = await loadItem(itemId);
-    sku = item?.sku || itemId;
+    const item = await loadItem(skuId);
+    sku = item?.sku || skuId;
   }
 
-  const prefix = lotPrefixFromSku(sku, itemId);
+  const prefix = lotPrefixFromSku(sku, skuId);
   const lotsColl = db.collection('lots');
 
   // Rango por prefijo (lexicográfico): >= prefix y < prefix + 'z'

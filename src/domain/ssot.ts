@@ -586,6 +586,26 @@ export interface ProductionOrder extends AuditBase {
   notes?: string;
 }
 
+export interface BillOfMaterial extends AuditBase {
+  id: ID;
+  name: string;
+  outputItemId: string;
+  batchSize: number;
+  baseUnit: Uom;
+  stage?: 'PRODUCCION' | 'ENVASADO';
+  items: Array<{
+    itemId: string;
+    qty: number;
+    uom: Uom;
+    role?: 'FORMULA' | 'PACKAGING' | 'COST_ONLY';
+  }>;
+  version?: number;
+  isActive?: boolean;
+  validFrom?: ISODate;
+  supersedesId?: ID;
+  changeNote?: string;
+}
+
 export interface Lot extends AuditBase {
   id: ID;
   lotNumber: string;
@@ -628,6 +648,31 @@ export interface QcBatchResult extends AuditBase {
   decidedAt?: ISODate;
   decidedById?: ID;
   notes?: string;
+}
+
+export interface QcParameter extends AuditBase {
+  id: ID;
+  sku: string;
+  name: string;
+  code?: string;
+  unit?: string;
+  range?: { min?: number; max?: number };
+  method?: string;
+}
+
+export interface QcPlan extends AuditBase {
+  id: ID;
+  sku: string;
+  name: string;
+  specs: Array<{ id: string; parameterId: string; point: 'RECEPCION' | 'PROCESO' | 'ENVASADO' }>;
+}
+
+export interface QcProtocol extends AuditBase {
+  id: ID;
+  title: string;
+  priority?: 'PRP' | 'PCC' | 'OTHER';
+  active: boolean;
+  checklist?: string[];
 }
 
 //// -------------------------------------------------------------------
@@ -817,9 +862,13 @@ export type Collections = {
   stockMoves: StockMove;
   shipments: Shipment;
   productionOrders: ProductionOrder;
+  billOfMaterials: BillOfMaterial;
   lots: Lot;
   qcTests: QcTest;
   qcBatchResults: QcBatchResult;
+  qcParameters: QcParameter;
+  qcPlans: QcPlan;
+  qcProtocols: QcProtocol;
   payments_mirror: PaymentMirror;
   holded_contacts_mirror: HoldedContactMirror;
   holded_products_mirror: HoldedProductMirror;
@@ -861,9 +910,13 @@ export const SANTA_DATA_COLLECTIONS = [
   'stockMoves',
   'shipments',
   'productionOrders',
+  'billOfMaterials',
   'lots',
   'qcTests',
   'qcBatchResults',
+  'qcParameters',
+  'qcPlans',
+  'qcProtocols',
   'payments_mirror',
   'holded_contacts_mirror',
   'holded_products_mirror',
@@ -893,6 +946,7 @@ export const DEPT_META = {
   MARKETING: { label: 'Marketing', color: '#8b5cf6', textColor: '#ffffff' },
   OPS: { label: 'Ops', color: '#10b981', textColor: '#ffffff' },
   PRODUCCION: { label: 'Producción', color: '#f59e0b', textColor: '#ffffff' },
+  CALIDAD: { label: 'Calidad', color: '#6366f1', textColor: '#ffffff' },
   FIN: { label: 'Finanzas', color: '#ef4444', textColor: '#ffffff' },
   HR: { label: 'RRHH', color: '#6366f1', textColor: '#ffffff' },
   OTRO: { label: 'Otro', color: '#6b7280', textColor: '#ffffff' },

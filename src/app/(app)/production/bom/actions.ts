@@ -111,7 +111,7 @@ export async function upsertMinimalProduct(input: unknown): Promise<ActionResult
     };
     await upsertMany("items", [productDoc as any]);
     revalidatePath("/production/bom");
-    return ok({ itemId });
+    return ok({ sku: itemId });
   } catch (e: any) {
     if (e?.name === "ZodError") {
       const fieldErrors = Object.fromEntries(e.issues.map((i: any) => [i.path.join("."), i.message]));

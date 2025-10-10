@@ -4,22 +4,23 @@ import type { Job, JobKind } from './types';
 import { enqueue } from './queue';
 
 // --- Registro de handlers ---
+// NOTA: Workers comentados temporalmente hasta implementación
 const HANDLERS: Record<JobKind, (payload: any) => Promise<any>> = {
-  CREATE_MANUAL_SHIPMENT: async (payload) => (await import('../workers/createManualShipment.worker')).run(payload),
-  VALIDATE_SHIPMENT: async (payload) => (await import('../workers/validateShipment.worker')).run(payload),
-  CREATE_DELIVERY_NOTE_CRM: async (payload) => (await import('../workers/createDeliveryNote.worker')).run(payload),
-  CREATE_SENDCLOUD_LABEL: async (payload) => (await import('../workers/createSendcloudLabel.worker')).run(payload),
-  CREATE_INHOUSE_PALLET_LABEL: async (payload) => (await import('../workers/createInhouseLabel.worker')).run(payload),
-  MARK_SHIPMENT_SHIPPED: async (payload) => (await import('../workers/markShipped.worker')).run(payload),
-  CREATE_HOLDED_INVOICE: async (payload) => (await import('../integrations/holded/createInvoice.worker')).handleCreateHoldedInvoice(payload),
-  CREATE_INVOICE_FROM_ORDER: async (payload) => (await import('../workers/invoicing.createFromOrder')).run(payload),
-  SYNC_HOLDED_CONTACTS: async (payload) => (await import('../workers/holded.syncContacts')).handleSyncHoldedContacts(payload),
-  SYNC_HOLDED_PURCHASES: async (payload) => (await import('../integrations/holded/syncPurchases')).handleSyncHoldedPurchases(payload),
-  SYNC_HOLDED_PRODUCTS: async (payload) => (await import('../workers/holded.syncProducts')).handleSyncHoldedProducts(payload),
-  UPDATE_SHOPIFY_FULFILLMENT: async (payload) => (await import('../integrations/shopify/shopify.fulfillment.worker')).handleUpdateShopifyFulfillment(payload),
-  CREATE_SHIPMENT_FROM_ORDER: async (payload) => (await import('../workers/createShipment.worker')).run(payload),
-  CREATE_HOLDED_INVOICE_FROM_SHIPMENT: async (payload) => (await import('../integrations/holded/createInvoiceFromShipment.worker')).handleCreateInvoiceFromShipment(payload),
-  WITHDRAW_STOCK_FROM_SHIPMENT: async (payload) => (await import('../workers/withdrawStockFromShipment')).handleWithdrawStockFromShipment(payload),
+  CREATE_MANUAL_SHIPMENT: async () => { throw new Error('Worker not implemented'); },
+  VALIDATE_SHIPMENT: async () => { throw new Error('Worker not implemented'); },
+  CREATE_DELIVERY_NOTE_CRM: async () => { throw new Error('Worker not implemented'); },
+  CREATE_SENDCLOUD_LABEL: async () => { throw new Error('Worker not implemented'); },
+  CREATE_INHOUSE_PALLET_LABEL: async () => { throw new Error('Worker not implemented'); },
+  MARK_SHIPMENT_SHIPPED: async () => { throw new Error('Worker not implemented'); },
+  CREATE_HOLDED_INVOICE: async () => { throw new Error('Worker not implemented'); },
+  CREATE_INVOICE_FROM_ORDER: async () => { throw new Error('Worker not implemented'); },
+  SYNC_HOLDED_CONTACTS: async () => { throw new Error('Worker not implemented'); },
+  SYNC_HOLDED_PURCHASES: async () => { throw new Error('Worker not implemented'); },
+  SYNC_HOLDED_PRODUCTS: async () => { throw new Error('Worker not implemented'); },
+  UPDATE_SHOPIFY_FULFILLMENT: async () => { throw new Error('Worker not implemented'); },
+  CREATE_SHIPMENT_FROM_ORDER: async () => { throw new Error('Worker not implemented'); },
+  CREATE_HOLDED_INVOICE_FROM_SHIPMENT: async () => { throw new Error('Worker not implemented'); },
+  WITHDRAW_STOCK_FROM_SHIPMENT: async () => { throw new Error('Worker not implemented'); },
 };
 
 

@@ -128,7 +128,7 @@ function RecipeForm({ initialValues, onSave, onCancel, allItems, isNew, onQuickC
 
     const normalized = {
       ...fm.values,
-      items: (fm.values.items || []).map(it => ({
+      items: (fm.values.items || []).map((it: any) => ({
         ...it,
         uom: canonicalUomForItem(it.itemId, santaData?.onHand || [], allItems),
       })),
@@ -163,19 +163,19 @@ function RecipeForm({ initialValues, onSave, onCancel, allItems, isNew, onQuickC
   const createOutputNow = async () => {
     if (!newName.trim()) return;
     const category: "intermediate" | "fg" = fm.values.stage === "PRODUCCION" ? "intermediate" : "fg";
-    const { itemId } = await onQuickCreateItem({ name: newName.trim(), sku: newSku.trim() || undefined, category });
-    fm.set("outputItemId", itemId);
+    const { sku } = await onQuickCreateItem({ name: newName.trim(), sku: newSku.trim() || undefined, category });
+    fm.set("outputItemId", sku);
     setCreateOpen(false);
   };
   
-  const formulaLines = useMemo(() => (fm.values.items || []).map((l, idx) => ({ l, idx })).filter(({ l }) => (l.role ?? "FORMULA") === "FORMULA"), [fm.values.items]);
-  const packagingLines = useMemo(() => (fm.values.items || []).map((l, idx) => ({ l, idx })).filter(({ l }) => l.role === "PACKAGING"), [fm.values.items]);
+  const formulaLines = useMemo(() => (fm.values.items || []).map((l: any, idx: number) => ({ l, idx })).filter(({ l }: any) => (l.role ?? "FORMULA") === "FORMULA"), [fm.values.items]);
+  const packagingLines = useMemo(() => (fm.values.items || []).map((l: any, idx: number) => ({ l, idx })).filter(({ l }: any) => l.role === "PACKAGING"), [fm.values.items]);
 
   // ✅ Validación de balance de unidades
   const balanceWarning = useMemo(() => {
     if (!isProd) return null; // Solo para producción (L)
     
-    const totalL = formulaLines.reduce((sum, { l }) => {
+    const totalL = formulaLines.reduce((sum: number, { l }: any) => {
       if (!l.itemId || !l.qty) return sum;
       const uom = canonicalUomForItem(l.itemId, santaData?.onHand || [], allItems);
       // Solo sumar si la UoM es L (litros)
@@ -268,7 +268,7 @@ function RecipeForm({ initialValues, onSave, onCancel, allItems, isNew, onQuickC
           {balanceWarning && <Banner kind={balanceWarning.severity === 'error' ? 'err' : 'warn'} text={balanceWarning.message} />}
 
           <SectionCard title={isProd ? "Componentes (raw o intermediate)" : "Componentes (intermediate o pack)"} hint={isProd ? "Cantidades para 1 L de PI" : "Cantidades por 1 botella de FG"}>
-            {(isProd ? formulaLines : packagingLines).map(({ l, idx }) => (
+            {(isProd ? formulaLines : packagingLines).map(({ l, idx }: any) => (
               <div key={idx} className="grid grid-cols-[2fr_1fr_100px_auto] gap-2 items-end">
                 <Field label="Material" name={`items[${idx}].itemId`} required error={fm.fieldErrors?.[`items.${idx}.itemId`]}>
                   <Select value={l.itemId} onChange={(e) => fm.set(`items.${idx}.itemId`, e.target.value)}>
@@ -345,7 +345,18 @@ export default function BomPage() {
   }, [recipesAll]);
 
   const createNew = useCallback(() => {
-    setOpenRecipe({ id: `bom_${Date.now()}`, outputItemId: "", name: "", batchSize: 1, baseUnit: "L", stage: "PRODUCCION", items: [] } as BomWithStage);
+    const now = new Date().toISOString();
+    setOpenRecipe({ 
+      id: `bom_${Date.now()}`, 
+      outputItemId: "", 
+      name: "", 
+      batchSize: 1, 
+      baseUnit: "L", 
+      stage: "PRODUCCION", 
+      items: [],
+      createdAt: now,
+      updatedAt: now
+    } as BomWithStage);
     setIsNew(true);
   }, []);
 
@@ -403,11 +414,11 @@ export default function BomPage() {
         const errorMessage = (result as { message?: string }).message || "Error al crear el producto.";
         throw new Error(errorMessage);
     }
-    const { itemId } = result.data;
-    const newItem: Item = { id: itemId, name: payload.name, sku: payload.sku ?? "", category: payload.category } as Item;
+    const { sku } = result.data;
+    const newItem: Item = { id: sku, name: payload.name, sku: payload.sku ?? "", category: payload.category } as Item;
     const nextItems = [...(santaData?.items || []), newItem];
     await saveAllCollections({ items: nextItems });
-    return { itemId };
+    return { sku };
   }, [santaData, saveAllCollections]);
 
   return (

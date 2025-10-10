@@ -9,8 +9,8 @@ export function availableForItem(
 ): number {
   return onHand
     .filter(i =>
-      i.itemId === itemId &&
-      (locationPrefix ? (i.locationId || "").startsWith(locationPrefix) : true)
+      i.sku === sku &&
+      (locationPrefix ? (i.warehouseId || "").startsWith(locationPrefix) : true)
     )
     .reduce((s, i) => s + (i.qty ?? 0), 0);
 }
@@ -26,7 +26,7 @@ export function fifoReserveLots(
   if (requiredQty <= 0) return [];
 
   const lots = onHand
-    .filter(i => i.itemId === itemId && (i.locationId || "").startsWith(locationPrefix) && (i.qty ?? 0) > 0 && i.lotNumber)
+    .filter(i => i.sku === sku && (i.warehouseId || "").startsWith(locationPrefix) && (i.qty ?? 0) > 0 && i.lotNumbers)
     .sort((a, b) => +new Date(a.updatedAt) - +new Date(b.updatedAt)); // FIFO
 
   const picks: Array<{ fromLotNumber: string; reservedQty: number; uom: Uom }> = [];
@@ -36,11 +36,12 @@ export function fifoReserveLots(
     if (rem <= 0) break;
     const take = Math.min(it.qty ?? 0, rem);
     if (take > 0) {
-      if (!it.lotNumber) {
-        console.warn(`fifoReserveLots: OnHand item ${it.id} for item ${it.itemId} has no lotNumber.`);
+      const lotNumber = it.lotNumbers ? Object.keys(it.lotNumbers)[0] : undefined;
+      if (!lotNumber) {
+        console.warn(`fifoReserveLots: OnHand item ${it.id} for sku ${it.sku} has no lotNumber.`);
         continue;
       }
-      picks.push({ fromLotNumber: it.lotNumber!, reservedQty: take, uom: it.uom });
+      picks.push({ fromLotNumber: lotNumber, reservedQty: take, uom: 'UNIT' as Uom });
       rem -= take;
     }
   }
@@ -59,15 +60,18 @@ export function buildConsumptionMoves(args: {
 
   return reservations.map((r, idx) => ({
     id: `mv_cons_${orderId}_${idx}`,
-    sku: r.itemId,
-    lotNumber: r.fromLotNumber,
-    uom: r.uom,
-    qty: -r.reservedQty, // Negativo para salida
-    fromLocationId: fromLocationId,
-    reason: "production_out",
-    occurredAt: at,
+    date: at,
+    type: 'OUT' as const,
+    reason: 'CONSUMPTION',
+    warehouseId: fromLocationId,
+    items: [{
+      sku: r.sku,
+      quantity: r.reservedQty,
+      lotNumber: r.fromLotNumber
+    }],
+    documentRef: { kind: 'productionOrder' as const, id: orderId },
     createdAt: at,
-    ref: { prodOrderId: orderId },
+    updatedAt: at
   } as StockMove));
 }
 

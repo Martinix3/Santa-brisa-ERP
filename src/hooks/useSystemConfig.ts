@@ -4,7 +4,22 @@
 import { useState, useEffect, useCallback } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { getFirebaseSync } from '@/lib/firebaseClient';
-import type { SystemConfig, Department, OrderStatus, ShipmentStatus, PartyRoleType, ItemCategory, AccountType } from '@/domain/ssot';
+import type { Department, OrderStatus, AccountType } from '@/domain/ssot';
+
+// Tipos temporales hasta que se exporten en SSOT
+type ShipmentStatus = 'pending' | 'picking' | 'ready_to_ship' | 'shipped' | 'delivered' | 'cancelled' | 'exception';
+type PartyRoleType = 'CUSTOMER' | 'SUPPLIER' | 'DISTRIBUTOR' | 'IMPORTER' | 'INFLUENCER' | 'CREATOR' | 'EMPLOYEE' | 'BRAND_AMBASSADOR' | 'OTHER';
+type ItemCategory = 'fg' | 'raw' | 'pack' | 'label' | 'intermediate' | 'consumable' | 'merch';
+
+interface SystemConfig {
+  id: string;
+  version: string;
+  updatedAt: string;
+  updatedBy: string;
+  theme: any;
+  metadata: any;
+  businessRules: any;
+}
 
 /**
  * Hook para acceder a la configuración global del sistema.
@@ -121,7 +136,7 @@ function getDefaultConfig(): SystemConfig {
         FINANZAS: { color: '#fecb46', textColor: '#412c00' },
         PERSONAL: { color: 'hsl(var(--sb-accent-personal))', textColor: 'hsl(var(--sb-neutral-900))' },
         OPS: { color: '#6366f1', textColor: '#ffffff' },
-      } as Record<Department, { color: string; textColor: string }>,
+      },
     },
     
     metadata: {
@@ -134,7 +149,7 @@ function getDefaultConfig(): SystemConfig {
         FINANZAS: { label: 'Finanzas' },
         PERSONAL: { label: 'Personal' },
         OPS: { label: 'Operaciones' },
-      } as Record<Department, { label: string }>,
+      },
       
       orderStatuses: {
         open: { label: 'Abierto' },
@@ -144,7 +159,7 @@ function getDefaultConfig(): SystemConfig {
         paid: { label: 'Pagado' },
         cancelled: { label: 'Cancelado' },
         lost: { label: 'Perdido' },
-      } as Record<OrderStatus, { label: string }>,
+      },
       
       shipmentStatuses: {
         pending: { label: 'Pendiente' },
@@ -154,7 +169,7 @@ function getDefaultConfig(): SystemConfig {
         delivered: { label: 'Entregado' },
         cancelled: { label: 'Cancelado' },
         exception: { label: 'Incidencia' },
-      } as Record<ShipmentStatus, { label: string }>,
+      },
       
       partyRoles: {
         CUSTOMER: { label: 'Cliente' },
@@ -166,7 +181,7 @@ function getDefaultConfig(): SystemConfig {
         EMPLOYEE: { label: 'Empleado' },
         BRAND_AMBASSADOR: { label: 'Brand Ambassador' },
         OTHER: { label: 'Otro' },
-      } as Record<PartyRoleType, { label: string }>,
+      },
       
       lotQc: {
         release: { label: 'LIBERADO', bg: '#22c55e', text: '#ffffff' },
@@ -182,7 +197,7 @@ function getDefaultConfig(): SystemConfig {
         intermediate: { label: 'Producto Intermedio' },
         consumable: { label: 'Consumible' },
         merch: { label: 'Merchandising' },
-      } as Record<ItemCategory, { label: string }>,
+      },
       
       accountTypes: {
         HORECA: { label: 'Horeca' },
@@ -191,7 +206,7 @@ function getDefaultConfig(): SystemConfig {
         PRIVADA: { label: 'Venta Privada' },
         ONLINE: { label: 'Online' },
         OTRO: { label: 'Otro' },
-      } as Record<AccountType, { label: string }>,
+      },
     },
     
     businessRules: {

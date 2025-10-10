@@ -6,7 +6,11 @@ import { useRouter } from 'next/navigation';
 import { useData } from '@/lib/dataprovider';
 import { SBCard, SBButton, Input } from '@/components/ui/ui-primitives';
 import { CheckCircle, XCircle, FlaskConical, ChevronRight, FileText, User } from "lucide-react";
-import type { Lot, Item, QcPlanBySku, QcStatus, ParameterBySku } from "@/domain/ssot";
+import type { Lot, Item, QcStatus } from "@/domain/ssot";
+
+// Tipos temporales para QC (TODO: añadir a SSOT)
+type QcPlanBySku = { id: string; sku: string; name: string; specs: Array<{ parameterId: string; point: string }> };
+type ParameterBySku = { id: string; name: string; unit?: string; range?: { min?: number; max?: number } };
 import { saveQcDecision } from '@/server/actions/quality.actions';
 import { toast } from "sonner";
 
@@ -36,7 +40,9 @@ export default function LabReleasePage() {
     const { lotsForReview, parameterMap } = useMemo(() => {
         if (!santaData) return { lotsForReview: [], parameterMap: new Map() };
 
-        const { lots, items, qcPlans, qcParameters } = santaData;
+        const { lots, items } = santaData;
+        const qcPlans: QcPlanBySku[] = [];
+        const qcParameters: ParameterBySku[] = [];
 
         const itemMap = new Map((items || []).map(i => [i.id, i]));
         const planMap = new Map((qcPlans || []).map(p => [p.id, p]));
@@ -48,13 +54,11 @@ export default function LabReleasePage() {
         const lotsWithDetails: LotForQc[] = (lots || [])
             .filter(lot => lot.qcStatus === 'PENDING')
             .map(lot => {
-                const item = itemMap.get(lot.itemId);
+                const item = itemMap.get(lot.sku);
                 
-                // ✅ Buscar plan: primero por qcPlanId, si no existe buscar por SKU del item
+                // ✅ Buscar plan por SKU del item
                 let plan: QcPlanBySku | undefined;
-                if (lot.qcPlanId) {
-                    plan = planMap.get(lot.qcPlanId);
-                } else if (item?.sku) {
+                if (item?.sku) {
                     plan = plansBySku.get(item.sku);
                 }
                 
@@ -62,7 +66,7 @@ export default function LabReleasePage() {
                     ...lot,
                     itemName: item?.name ?? 'Ítem Desconocido',
                     plan,
-                    totalStock: lot.quantity || 0,
+                    totalStock: lot.qtyMade || 0,
                 };
             })
             .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());

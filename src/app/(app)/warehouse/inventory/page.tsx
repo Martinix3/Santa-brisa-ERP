@@ -57,15 +57,15 @@ export default function InventoryPage() {
   // ... (hooks y lógica de datos se mantienen igual) ...
   const onHandFiltered = useMemo(() => {
     let rows = onHand;
-    if (locationFilter !== "ALL") rows = rows.filter(r => r.locationId === locationFilter);
+    if (locationFilter !== "ALL") rows = rows.filter(r => r.warehouseId === locationFilter);
     if (qcFilter !== 'ALL') rows = rows.filter(r => (r.qcStatus || 'PENDING') === qcFilter);
-    if (onlyWithStock) rows = rows.filter(r => (r.qty - (r.reservedQty ?? 0)) > 0);
+    if (onlyWithStock) rows = rows.filter(r => (r.qty - (r.reserved ?? 0)) > 0);
     if (globalSearch.trim()) {
       const q = globalSearch.trim().toLowerCase();
       rows = rows.filter(r =>
-        r.itemId.toLowerCase().includes(q) ||
-        (r.lotNumber && r.lotNumber.toLowerCase().includes(q)) ||
-        (items.find(i => i.id === r.itemId)?.name?.toLowerCase().includes(q) ?? false)
+        r.sku.toLowerCase().includes(q) ||
+        (r.lotNumbers && Object.keys(r.lotNumbers).some(ln => ln.toLowerCase().includes(q))) ||
+        (items.find(i => i.sku === r.sku)?.name?.toLowerCase().includes(q) ?? false)
       );
     }
     return rows;
@@ -77,29 +77,32 @@ export default function InventoryPage() {
   const skusWithLots = useMemo(() => {
       return Object.values(summaries).map(summary => ({
           summary,
-          lots: onHandFiltered.filter(lot => lot.itemId === summary.itemId)
-      })).sort((a,b) => (items.find(i => i.id === a.summary.itemId)?.name || '').localeCompare(items.find(i => i.id === b.summary.itemId)?.name || ''));
+          lots: onHandFiltered.filter(lot => lot.sku === summary.sku)
+      })).sort((a,b) => (items.find(i => i.sku === a.summary.sku)?.name || '').localeCompare(items.find(i => i.sku === b.summary.sku)?.name || ''));
   }, [summaries, onHandFiltered, items]);
 
   const lotRows = useMemo(() => onHandFiltered
-    .sort((a, b) => (a.lotNumber || '').localeCompare(b.lotNumber || ''))
-    .map(r => ({
-      id: r.id,
-      lotNumber: r.lotNumber,
-      sku: r.itemId,
-      name: items.find(i => i.id === r.itemId)?.name ?? r.itemId,
-      qty: r.qty,
-      free: Math.max(0, r.qty - (r.reservedQty ?? 0)),
-      uom: r.uom,
-      locationId: r.locationId,
-      qcStatus: r.qcStatus,
-      expiryAt: r.expiryAt ?? null,
-      updatedAt: r.updatedAt,
-  })), [onHandFiltered, items]);
+    .flatMap(r => {
+      const lotNumbers = r.lotNumbers ? Object.keys(r.lotNumbers) : [];
+      return lotNumbers.map(lotNumber => ({
+        id: r.id,
+        lotNumber: lotNumber,
+        sku: r.sku,
+        name: items.find(i => i.sku === r.sku)?.name ?? r.sku,
+        qty: r.qty,
+        free: Math.max(0, r.qty - (r.reserved ?? 0)),
+        uom: 'UNIT' as const,
+        locationId: r.warehouseId,
+        qcStatus: r.qcStatus,
+        expiryAt: null,
+        updatedAt: r.updatedAt,
+      }));
+    })
+    .sort((a, b) => (a.lotNumber || '').localeCompare(b.lotNumber || '')), [onHandFiltered, items]);
 
   const locations = useMemo(() => {
     const set = new Set<string>();
-    onHand.forEach(o => { if (o.locationId) set.add(o.locationId); });
+    onHand.forEach(o => { if (o.warehouseId) set.add(o.warehouseId); });
     return ["ALL", ...Array.from(set)];
   }, [onHand]);
 
@@ -182,7 +185,7 @@ export default function InventoryPage() {
             {alerts.length > 0 && (
               <div className="p-3 border-b space-y-1">
                 <h4 className="flex items-center gap-2 text-destructive font-semibold text-sm"><AlertCircle size={16} />{alerts.length} Alertas de Inventario</h4>
-                {alerts.map((a,i)=> <div key={i} className="text-xs p-1.5 rounded-md bg-destructive-foreground text-destructive border border-destructive/20 flex items-center gap-2"><AlertCircle size={14}/> {a.itemId}: {a.message}</div>)}
+                {alerts.map((a,i)=> <div key={i} className="text-xs p-1.5 rounded-md bg-destructive-foreground text-destructive border border-destructive/20 flex items-center gap-2"><AlertCircle size={14}/> {a.sku}: {a.message}</div>)}
               </div>
             )}
             
@@ -201,7 +204,7 @@ export default function InventoryPage() {
                       <span>Producto</span><span className="text-right">Stock Total</span><span className="text-right">Disp.</span><span className="text-right">Reservado</span><span className="text-right">En QC</span><span>Estado</span>
                     </div>
                     {skusWithLots.length > 0 ? (
-                        skusWithLots.map(({summary}) => <SkuAccordionRow key={summary.itemId} sku={summary} items={items} onLotSelect={setSelectedLotNumber} />)
+                        skusWithLots.map(({summary}) => <SkuAccordionRow key={summary.sku} sku={summary} items={items} onLotSelect={setSelectedLotNumber} />)
                     ) : <Empty hint="No hay stock que coincida con los filtros." />}
                 </div>
               </TabsContent>

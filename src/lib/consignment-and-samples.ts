@@ -1,36 +1,51 @@
-
 // src/lib/consignment-and-samples.ts
-import type { StockMove, Shipment, Account, SantaData } from "@/domain/ssot";
+import type { StockMove, Shipment, Account } from "@/domain/ssot";
 
 // ---- CONSIGNA -------------------------------------------------
 // On-hand por cuenta y SKU = send - sell - return
+// NOTA: En SSOT v7, StockMove usa documentRef para vincular
 export function consignmentOnHandByAccount(stockMoves: StockMove[]) {
   const byAcc: Record<string, Record<string, number>> = {};
+  
   for (const m of stockMoves || []) {
-    const itemId = m.itemId;
-    const accFrom = m.fromLocationId;   // cuando sale de consigna (venta/retorno)
-    const accTo = m.toLocationId;       // cuando se envía a consigna
-
-    if (m.reason === "consignment_send" && accTo) {
-      byAcc[accTo] ||= {};
-      byAcc[accTo][itemId] = (byAcc[accTo][itemId] || 0) + (m.qty || 0);
-    }
-    if (m.reason === "consignment_sell" && accFrom) {
-      byAcc[accFrom] ||= {};
-      byAcc[accFrom][itemId] = (byAcc[accFrom][itemId] || 0) + (m.qty || 0); // normalmente qty negativa
-    }
-    if (m.reason === "consignment_return" && accFrom) {
-      byAcc[accFrom] ||= {};
-      byAcc[accFrom][itemId] = (byAcc[accFrom][itemId] || 0) + (m.qty || 0); // suele ser negativa (vuelve al HQ)
+    // En v7, items es un array con { sku, quantity, lotNumber }
+    if (!m.items || !Array.isArray(m.items)) continue;
+    
+    const reason = (m.reason || '').toLowerCase();
+    
+    for (const item of m.items) {
+      const sku = item.sku;
+      const qty = item.quantity || 0;
+      
+      // Detectar consignación por reason o type
+      if (reason.includes('consignment') || reason.includes('consigna')) {
+        const accTo = m.toWarehouseId;   // cuando se envía a consigna
+        const accFrom = m.warehouseId;   // cuando sale de consigna
+        
+        if (reason.includes('send') && accTo) {
+          byAcc[accTo] ||= {};
+          byAcc[accTo][sku] = (byAcc[accTo][sku] || 0) + qty;
+        }
+        if (reason.includes('sell') && accFrom) {
+          byAcc[accFrom] ||= {};
+          byAcc[accFrom][sku] = (byAcc[accFrom][sku] || 0) - qty; // salida
+        }
+        if (reason.includes('return') && accFrom) {
+          byAcc[accFrom] ||= {};
+          byAcc[accFrom][sku] = (byAcc[accFrom][sku] || 0) - qty; // vuelve
+        }
+      }
     }
   }
+  
   // normaliza a enteros
   Object.values(byAcc).forEach(map => {
-    Object.keys(map).forEach(itemId => {
-      map[itemId] = Number(map[itemId]) || 0;
+    Object.keys(map).forEach(sku => {
+      map[sku] = Number(map[sku]) || 0;
     });
   });
-  return byAcc; // { [accountId]: { [itemId]: onHand } }
+  
+  return byAcc; // { [accountId]: { [sku]: onHand } }
 }
 
 // Total por cuenta (sum de todos los SKUs)
@@ -43,12 +58,12 @@ export function consignmentTotalUnits(byAcc: Record<string, Record<string, numbe
 }
 
 // ---- MUESTRAS -------------------------------------------------
-// Muestras enviadas por cuenta (usa Shipments.isSample o StockMoves.sample_send)
+// Muestras enviadas por cuenta
 export function samplesSentSummary({
   shipments,
   stockMoves,
   accounts,
-  sinceISO, // opc: filtra por fecha
+  sinceISO,
 }: {
   shipments: Shipment[];
   stockMoves: StockMove[];
@@ -60,33 +75,38 @@ export function samplesSentSummary({
 
   const accRows: Record<string, { units: number; shipments: number; last: string | null; name: string }> = {};
 
-  // 1) Shipments marcados como muestra
+  // 1) Shipments (buscar en documentRef si es muestra)
   for (const s of shipments || []) {
-    if (!s.isSample) continue;
     const t = new Date(s.createdAt).getTime();
     if (cutoff && t < cutoff) continue;
 
-    const accId = s.accountId;
-    const units = (s.lines || []).reduce((a, l) => a + (l.qty || 0), 0);
-    const name = byId.get(accId)?.name || s.customerName || accId;
-
-    const row = (accRows[accId] ||= { units: 0, shipments: 0, last: null, name });
-    row.units += units;
-    row.shipments += 1;
-    row.last = !row.last || new Date(s.createdAt) > new Date(row.last) ? s.createdAt : row.last;
+    // En v7, no hay isSample, pero podemos inferir por orderId o metadata
+    const orderId = s.orderId;
+    if (!orderId) continue; // Skip manual shipments for now
+    
+    // Inferir accountId desde orderId (necesitaríamos el order)
+    // Por ahora, skip
+    continue;
   }
 
-  // 2) StockMoves de muestra (por si no hay Shipment)
+  // 2) StockMoves de muestra
   for (const m of stockMoves || []) {
-    if (m.reason !== "sample_send") continue;
-    const t = new Date(m.occurredAt).getTime();
+    const reason = (m.reason || '').toLowerCase();
+    if (!reason.includes('sample') && !reason.includes('muestra')) continue;
+    
+    const t = new Date(m.date).getTime();
     if (cutoff && t < cutoff) continue;
     
-    const accId = m.toLocationId || m.fromLocationId || "N/A";
+    if (!m.items || !Array.isArray(m.items)) continue;
+    
+    const accId = m.toWarehouseId || m.warehouseId || "N/A";
     const name = byId.get(accId)?.name || accId;
     const row = (accRows[accId] ||= { units: 0, shipments: 0, last: null, name });
-    row.units += Math.abs(m.qty || 0);
-    row.last = !row.last || new Date(m.occurredAt) > new Date(row.last) ? m.occurredAt : m.occurredAt;
+    
+    const totalQty = m.items.reduce((sum, item) => sum + Math.abs(item.quantity || 0), 0);
+    row.units += totalQty;
+    row.shipments += 1;
+    row.last = !row.last || new Date(m.date) > new Date(row.last) ? m.date : row.last;
   }
 
   // salida ordenada por unidades desc
@@ -94,5 +114,3 @@ export function samplesSentSummary({
     .map(([accountId, r]) => ({ accountId, ...r }))
     .sort((a, b) => b.units - a.units);
 }
-
-    

@@ -4,7 +4,7 @@
 import React, { useEffect, useState, useTransition, useCallback, useMemo } from "react";
 import { useRouter } from 'next/navigation';
 import { upsertParameterBySku, deleteParameterBySku, upsertPlan, deletePlan, upsertProtocol, deleteProtocol } from "./actions";
-import type { ParameterBySku, QcPlanBySku as QcPlan, QcSpec, Protocol as SafetyProtocol } from './schemas';
+import type { QcParameter, QcPlan, QcProtocol } from '@/domain/ssot';
 import { Plus, Trash2, Save, FlaskConical, ShieldCheck, Wrench, Edit, X } from "lucide-react";
 import { useData } from "@/lib/dataprovider";
 import { useSystemConfig } from "@/hooks/useSystemConfig";
@@ -27,8 +27,8 @@ function Section({ title, icon, children }: { title: string, icon: React.ReactNo
 // Fila de Parámetro (Editable)
 // ==========================
 function ParameterRow({ parameter, onSave, onDelete, isPending, calidadTheme }: {
-  parameter: ParameterBySku;
-  onSave: (p: ParameterBySku) => void;
+  parameter: QcParameter;
+  onSave: (p: QcParameter) => void;
   onDelete: (id: string) => void;
   isPending: boolean;
   calidadTheme: { color: string; textColor: string; };
@@ -136,7 +136,7 @@ export default function QualityParametersPage() {
     });
 
     const [plans, setPlans] = useState<QcPlan[]>([]);
-    const [protocols, setProtocols] = useState<SafetyProtocol[]>([]);
+    const [protocols, setProtocols] = useState<QcProtocol[]>([]);
 
     useEffect(() => {
         // ✅ Actualizar si items cambia y no hay selección
@@ -149,7 +149,7 @@ export default function QualityParametersPage() {
     const selectedItem = useMemo(() => items.find(i => i.id === selectedItemId), [items, selectedItemId]);
     const sku = selectedItem?.sku || '';
 
-    const paramsForSku = useMemo(() => allParams.filter((p: ParameterBySku) => p.sku === sku), [allParams, sku]);
+    const paramsForSku = useMemo(() => allParams.filter((p: QcParameter) => p.sku === sku), [allParams, sku]);
 
     useEffect(() => {
         setPlans(allPlans.filter((p: QcPlan) => p.sku === sku));
@@ -160,14 +160,14 @@ export default function QualityParametersPage() {
     }, [allProtocols]);
 
 
-    const [newParam, setNewParam] = useState<Partial<ParameterBySku>>({});
+    const [newParam, setNewParam] = useState<Partial<QcParameter>>({});
 
-    const handleSaveParameter = (parameter: ParameterBySku) => {
+    const handleSaveParameter = (parameter: QcParameter) => {
         startTransition(async () => {
             const res = await upsertParameterBySku(parameter);
             if (res.ok) {
                 toast.success(`Parámetro "${parameter.name}" guardado.`);
-                await saveCollection('qcParameters', [...allParams.filter((p: ParameterBySku) => p.id !== parameter.id), parameter]);
+                await saveCollection('qcParameters', [...allParams.filter((p: QcParameter) => p.id !== parameter.id), parameter]);
                 if (Object.keys(newParam).length > 0) setNewParam({});
             } else {
                 toast.error(`Error al guardar: ${res.message}`);
@@ -181,7 +181,8 @@ export default function QualityParametersPage() {
             return;
         }
         const id = `param_${sku}_${newParam.name.toLowerCase().replace(/\s+/g, '_').slice(0, 15)}`;
-        handleSaveParameter({ ...newParam, id, sku, code: newParam.name.toLowerCase().replace(/\s+/g, '_').slice(0, 15) } as ParameterBySku);
+        const code = newParam.name.toLowerCase().replace(/\s+/g, '_').slice(0, 15);
+        handleSaveParameter({ ...newParam, id, sku, code, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as any);
     };
 
     const handleDeleteParameter = (id: string) => {
@@ -190,7 +191,7 @@ export default function QualityParametersPage() {
             const res = await deleteParameterBySku(id);
             if (res.ok) {
                 toast.success("Parámetro eliminado.");
-                await saveCollection('qcParameters', allParams.filter((p: ParameterBySku) => p.id !== id));
+                await saveCollection('qcParameters', allParams.filter((p: QcParameter) => p.id !== id));
             } else {
                 toast.error(`Error al eliminar: ${res.message}`);
             }
@@ -222,12 +223,12 @@ export default function QualityParametersPage() {
         });
     };
 
-    const handleSaveProtocol = (protocol: SafetyProtocol) => {
+    const handleSaveProtocol = (protocol: QcProtocol) => {
         startTransition(async () => {
-            const res = await upsertProtocol(protocol);
+            const res = await upsertProtocol(protocol as any);
             if (res.ok) {
                 toast.success(`Protocolo "${protocol.title}" guardado.`);
-                await saveCollection('qcProtocols', [...allProtocols.filter((p: SafetyProtocol) => p.id !== protocol.id), protocol]);
+                await saveCollection('qcProtocols', [...allProtocols.filter((p: QcProtocol) => p.id !== protocol.id), protocol]);
             } else {
                 toast.error(`Error: ${res.message}`);
             }
@@ -240,7 +241,7 @@ export default function QualityParametersPage() {
             const res = await deleteProtocol(id);
             if (res.ok) {
                 toast.success("Protocolo eliminado.");
-                await saveCollection('qcProtocols', allProtocols.filter((p: SafetyProtocol) => p.id !== id));
+                await saveCollection('qcProtocols', allProtocols.filter((p: QcProtocol) => p.id !== id));
             } else {
                 toast.error(`Error al eliminar: ${res.message}`);
             }
@@ -320,7 +321,7 @@ export default function QualityParametersPage() {
                 </tr>
                 </thead>
                 <tbody>
-                {paramsForSku.map((p: ParameterBySku) => (
+                {paramsForSku.map((p: QcParameter) => (
                     <ParameterRow
                     key={p.id}
                     parameter={p}
@@ -337,7 +338,7 @@ export default function QualityParametersPage() {
       <Section title="Planes de Calidad (Protocolos de Análisis)" icon={<Wrench size={18}/>}>
         <div className="flex justify-between items-center mb-3">
           <p className="text-sm text-zinc-600">Define qué parámetros se miden en cada punto para el SKU: <b>{selectedItem?.name}</b></p>
-          <SBButton onClick={() => setPlans(p => [{ id: `plan_${sku}_${Date.now()}`, name: "Nuevo Plan de Calidad", sku, specs: [] }, ...p])} disabled={!sku}>
+          <SBButton onClick={() => setPlans(p => [{ id: `plan_${sku}_${Date.now()}`, name: "Nuevo Plan de Calidad", sku, specs: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }, ...p])} disabled={!sku}>
             <Plus size={16}/> Nuevo Plan
           </SBButton>
         </div>
@@ -358,7 +359,7 @@ export default function QualityParametersPage() {
                 <div key={spec.id} className="grid grid-cols-[2fr_1fr_auto] gap-2 p-2 border rounded-md bg-white">
                   <Select value={spec.parameterId} onChange={e => { const newPlans = [...plans]; newPlans[planIndex].specs[specIndex].parameterId = e.target.value; setPlans(newPlans); }}>
                     <option value="">-- Selecciona parámetro --</option>
-                    {paramsForSku.map((p: ParameterBySku) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    {paramsForSku.map((p: QcParameter) => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </Select>
                   <Select value={spec.point} onChange={e => { const newPlans = [...plans]; newPlans[planIndex].specs[specIndex].point = e.target.value as any; setPlans(newPlans); }}>
                      <option value="RECEPCION">Recepción</option>
@@ -380,7 +381,7 @@ export default function QualityParametersPage() {
       
       <Section title="Protocolos APPCC (Globales)" icon={<ShieldCheck size={18}/>}>
         <div className="text-right mb-2">
-            <SBButton onClick={() => setProtocols(p => [{ id: `proto_${Date.now()}`, title: 'Nuevo Protocolo', priority: 'PRP', active: true, checklist: [] }, ...p])}>
+            <SBButton onClick={() => setProtocols(p => [{ id: `proto_${Date.now()}`, title: 'Nuevo Protocolo', priority: 'PRP', active: true, checklist: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }, ...p])}>
                 <Plus size={16}/> Nuevo Protocolo
             </SBButton>
         </div>

@@ -1,6 +1,6 @@
 // src/lib/order-flow-validators.ts
 
-import { OrderSellOut, CommercialFlow } from '@/domain/ssot';
+import type { Order, OrderChannel, OrderSellOut, TeamMember } from '@/domain/ssot';
 
 /**
  * Resultado de validación
@@ -27,17 +27,17 @@ export interface ValidationResult {
  * @see DISTRIBUTOR_FLOW_MODEL.md
  */
 export function validateOrderFlow(
-  order: Partial<OrderSellOut>,
-  createdByUser?: User
+  order: Partial<Order>,
+  createdByUser?: TeamMember
 ): ValidationResult {
   const warnings: string[] = [];
 
   // REGLA 1: Online (Shopify) siempre DIRECT
-  if (order.source === 'SHOPIFY') {
-    if (order.flow && order.flow !== 'DIRECTA') {
+  if (order.source === 'Shopify') {
+    if (order.channel && order.channel !== 'DIRECTA') {
       return {
         valid: false,
-        error: 'Pedidos online (Shopify) deben tener flow=DIRECT',
+        error: 'Pedidos online (Shopify) deben tener channel=DIRECTA',
       };
     }
 
@@ -48,57 +48,57 @@ export function validateOrderFlow(
       };
     }
 
-    // Auto-corregir si no tiene flow definido
-    if (!order.flow) {
-      warnings.push('Pedido online sin flow definido, debería ser DIRECT');
+    // Auto-corregir si no tiene channel definido
+    if (!order.channel) {
+      warnings.push('Pedido online sin channel definido, debería ser DIRECTA');
     }
   }
 
-  // REGLA 2: Comerciales solo PLACEMENT
-  if (createdByUser?.role === 'comercial') {
-    if (order.flow === 'DIRECTA') {
+  // REGLA 2: Comerciales solo COLOCACION
+  if (createdByUser?.role === 'SALES') {
+    if (order.channel === 'DIRECTA') {
       return {
         valid: false,
-        error: 'Comerciales no pueden crear pedidos con flow=DIRECT (no tienen capacidad de facturar)',
+        error: 'Comerciales no pueden crear pedidos con channel=DIRECTA (no tienen capacidad de facturar)',
       };
     }
 
-    if (order.flow === 'COLOCACION' && !order.distributorId) {
+    if (order.channel === 'COLOCACION' && !order.distributorId) {
       return {
         valid: false,
         error: 'Pedidos de comerciales requieren distributorId (debe ser Santa Brisa o distribuidor externo)',
       };
     }
 
-    // Warning si no tiene flow definido
-    if (!order.flow) {
-      warnings.push('Pedido de comercial sin flow definido, debería ser PLACEMENT');
+    // Warning si no tiene channel definido
+    if (!order.channel) {
+      warnings.push('Pedido de comercial sin channel definido, debería ser COLOCACION');
     }
   }
 
-  // REGLA 3: PLACEMENT requiere distributor
-  if (order.flow === 'COLOCACION') {
+  // REGLA 3: COLOCACION requiere distributor
+  if (order.channel === 'COLOCACION') {
     if (!order.distributorId) {
       return {
         valid: false,
-        error: 'Pedidos con flow=PLACEMENT requieren distributorId',
+        error: 'Pedidos con channel=COLOCACION requieren distributorId',
       };
     }
   }
 
-  // REGLA 4: DIRECT no debe tener distributor
-  if (order.flow === 'DIRECTA') {
+  // REGLA 4: DIRECTA no debe tener distributor
+  if (order.channel === 'DIRECTA') {
     if (order.distributorId) {
       return {
         valid: false,
-        error: 'Pedidos con flow=DIRECT no deben tener distributorId',
+        error: 'Pedidos con channel=DIRECTA no deben tener distributorId',
       };
     }
   }
 
-  // Validación adicional: flow debe estar definido
-  if (!order.flow) {
-    warnings.push('Pedido sin flow definido (debería ser PLACEMENT o DIRECT)');
+  // Validación adicional: channel debe estar definido
+  if (!order.channel) {
+    warnings.push('Pedido sin channel definido (debería ser COLOCACION o DIRECTA)');
   }
 
   return {
@@ -116,8 +116,8 @@ export function validateOrderFlow(
  * @throws Error si la validación falla
  */
 export function assertValidOrderFlow(
-  order: Partial<OrderSellOut>,
-  createdByUser?: User
+  order: Partial<Order>,
+  createdByUser?: TeamMember
 ): void {
   const result = validateOrderFlow(order, createdByUser);
   
@@ -139,21 +139,21 @@ export function assertValidOrderFlow(
  * @param userRole - Rol del usuario que crea el pedido
  * @returns Flow recomendado
  */
-export function inferOrderFlow(
-  source?: OrderSellOut['source'],
-  userRole?: User['role']
-): CommercialFlow {
-  // Online siempre DIRECT
-  if (source === 'SHOPIFY') {
+export function inferOrderChannel(
+  source?: Order['source'],
+  userRole?: TeamMember['role']
+): OrderChannel {
+  // Online siempre DIRECTA
+  if (source === 'Shopify') {
     return 'DIRECTA';
   }
 
-  // Comerciales siempre PLACEMENT
-  if (userRole === 'comercial') {
+  // Comerciales siempre COLOCACION
+  if (userRole === 'SALES') {
     return 'COLOCACION';
   }
 
-  // Por defecto, admin puede elegir, pero sugerimos DIRECT
+  // Por defecto, admin puede elegir, pero sugerimos DIRECTA
   return 'DIRECTA';
 }
 
@@ -164,33 +164,33 @@ export function inferOrderFlow(
  * @param orders - Lista de pedidos a analizar
  * @returns Pedidos con problemas de validación
  */
-export function findInvalidOrders(orders: OrderSellOut[]): Array<{
-  order: OrderSellOut;
+export function findInvalidOrders(orders: Order[]): Array<{
+  order: Order;
   errors: string[];
 }> {
-  const invalid: Array<{ order: OrderSellOut; errors: string[] }> = [];
+  const invalid: Array<{ order: Order; errors: string[] }> = [];
 
   for (const order of orders) {
     const errors: string[] = [];
 
-    // Online debe ser DIRECT
-    if (order.source === 'SHOPIFY' && order.flow !== 'DIRECTA') {
-      errors.push(`Online debe tener flow=DIRECT (tiene ${order.flow})`);
+    // Online debe ser DIRECTA
+    if (order.source === 'Shopify' && order.channel !== 'DIRECTA') {
+      errors.push(`Online debe tener channel=DIRECTA (tiene ${order.channel})`);
     }
 
-    // PLACEMENT sin distributor
-    if (order.flow === 'COLOCACION' && !order.distributorId) {
-      errors.push('PLACEMENT sin distributorId');
+    // COLOCACION sin distributor
+    if (order.channel === 'COLOCACION' && !order.distributorId) {
+      errors.push('COLOCACION sin distributorId');
     }
 
-    // DIRECT con distributor
-    if (order.flow === 'DIRECTA' && order.distributorId) {
-      errors.push('DIRECT con distributorId (debería ser null)');
+    // DIRECTA con distributor
+    if (order.channel === 'DIRECTA' && order.distributorId) {
+      errors.push('DIRECTA con distributorId (debería ser null)');
     }
 
-    // Sin flow definido
-    if (!order.flow) {
-      errors.push('Sin flow definido');
+    // Sin channel definido
+    if (!order.channel) {
+      errors.push('Sin channel definido');
     }
 
     if (errors.length > 0) {
@@ -207,18 +207,18 @@ export function findInvalidOrders(orders: OrderSellOut[]): Array<{
  * @param orders - Lista de todos los pedidos
  * @returns Estadísticas de validación
  */
-export function getOrderFlowHealthReport(orders: OrderSellOut[]): {
+export function getOrderFlowHealthReport(orders: Order[]): {
   total: number;
   valid: number;
   invalid: number;
   invalidPercentage: number;
   bySource: Record<string, { total: number; invalid: number }>;
-  byFlow: Record<string, { total: number; invalid: number }>;
-  invalidOrders: Array<{ order: OrderSellOut; errors: string[] }>;
+  byChannel: Record<string, { total: number; invalid: number }>;
+  invalidOrders: Array<{ order: Order; errors: string[] }>;
 } {
   const invalidOrders = findInvalidOrders(orders);
   const bySource: Record<string, { total: number; invalid: number }> = {};
-  const byFlow: Record<string, { total: number; invalid: number }> = {};
+  const byChannel: Record<string, { total: number; invalid: number }> = {};
 
   // Calcular estadísticas por source
   for (const order of orders) {
@@ -236,19 +236,19 @@ export function getOrderFlowHealthReport(orders: OrderSellOut[]): {
     }
   }
 
-  // Calcular estadísticas por flow
+  // Calcular estadísticas por channel
   for (const order of orders) {
-    const flow = order.flow || 'UNKNOWN';
-    if (!byFlow[flow]) {
-      byFlow[flow] = { total: 0, invalid: 0 };
+    const channel = order.channel || 'UNKNOWN';
+    if (!byChannel[channel]) {
+      byChannel[channel] = { total: 0, invalid: 0 };
     }
-    byFlow[flow].total++;
+    byChannel[channel].total++;
   }
 
   for (const { order } of invalidOrders) {
-    const flow = order.flow || 'UNKNOWN';
-    if (byFlow[flow]) {
-      byFlow[flow].invalid++;
+    const channel = order.channel || 'UNKNOWN';
+    if (byChannel[channel]) {
+      byChannel[channel].invalid++;
     }
   }
 
@@ -258,7 +258,7 @@ export function getOrderFlowHealthReport(orders: OrderSellOut[]): {
     invalid: invalidOrders.length,
     invalidPercentage: (invalidOrders.length / orders.length) * 100,
     bySource,
-    byFlow,
+    byChannel,
     invalidOrders,
   };
 }

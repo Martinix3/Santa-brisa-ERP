@@ -8,8 +8,7 @@ import { toast } from 'sonner';
 import { MoreHorizontal, FileText, PackageCheck, Truck } from 'lucide-react';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { SBCard, SBButton } from '@/components/ui/ui-primitives';
-import type { Shipment, OrderSellOut, Account, ShipmentStatus } from '@/domain/ssot';
-import { SHIPMENT_STATUS_META } from '@/domain/ssot';
+import type { Shipment, OrderSellOut, Account } from '@/domain/ssot';
 import { useData } from '@/lib/dataprovider';
 import { markShipped } from '@/server/actions/logistics.actions';
 
@@ -17,26 +16,33 @@ function getChannelInfo(order?: OrderSellOut, account?: Account) {
     if (!account) return { label: "N/A", className: "bg-zinc-100 text-zinc-900 border-zinc-200" };
 
     if (account.accountType === 'ONLINE') return { label: "Online", className: "bg-emerald-100 text-emerald-900 border-emerald-200" };
-    if (order?.totalAmount === 0) return { label: "Muestras (0€)", className: "bg-purple-100 text-purple-900 border-purple-200" };
     if (account.accountType === 'DISTRIBUIDOR') return { label: "Distribuidor", className: "bg-sky-100 text-sky-900 border-sky-200" };
     return { label: account.accountType, className: "bg-zinc-100 text-zinc-900 border-zinc-200" };
 }
 
-// Mapa de estilos CSS para cada estado (mantiene compatibilidad visual)
+// Tipo local para status de shipment
+type ShipmentStatus = 'DRAFT' | 'READY' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
+
+// Mapa de estilos CSS para cada estado
 const STATUS_CLASSNAMES: Record<ShipmentStatus, string> = {
-  pending: "bg-yellow-100 text-yellow-800",
-  picking: "bg-blue-100 text-blue-800",
-  ready_to_ship: "bg-indigo-100 text-indigo-800",
-  shipped: "bg-cyan-100 text-cyan-800",
-  delivered: "bg-green-100 text-green-800",
-  exception: "bg-orange-100 text-orange-800",
-  cancelled: "bg-red-100 text-red-800",
+  DRAFT: "bg-yellow-100 text-yellow-800",
+  READY: "bg-indigo-100 text-indigo-800",
+  SHIPPED: "bg-cyan-100 text-cyan-800",
+  DELIVERED: "bg-green-100 text-green-800",
+  CANCELLED: "bg-red-100 text-red-800",
+};
+
+const STATUS_LABELS: Record<ShipmentStatus, string> = {
+  DRAFT: "Borrador",
+  READY: "Listo",
+  SHIPPED: "Enviado",
+  DELIVERED: "Entregado",
+  CANCELLED: "Cancelado",
 };
 
 function StatusBadge({ status }: { status: ShipmentStatus }) {
-    const meta = SHIPMENT_STATUS_META[status];
     const className = STATUS_CLASSNAMES[status] || 'bg-zinc-100 text-zinc-800';
-    const label = meta?.label || status;
+    const label = STATUS_LABELS[status] || status;
     return (
         <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${className}`}>
             {label}
@@ -91,7 +97,7 @@ export function ShipmentsTable({ shipments, onValidateShipment }: { shipments: S
                             const channelInfo = getChannelInfo(order, account);
                             return (
                                 <tr key={shipment.id} className="hover:bg-zinc-50">
-                                    <td className="p-3 font-mono text-xs">{shipment.shipmentNumber || shipment.id.substring(0, 8)}...</td>
+                                    <td className="p-3 font-mono text-xs">{shipment.id.substring(0, 8)}...</td>
                                     <td className="p-3">{new Date(shipment.createdAt).toLocaleDateString('es-ES')}</td>
                                     <td className="p-3"><span className={`inline-flex items-center px-2 py-0.5 rounded-md border text-xs ${channelInfo.className}`}>{channelInfo.label}</span></td>
                                     <td className="p-3">

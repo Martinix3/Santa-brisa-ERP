@@ -2,7 +2,20 @@
 'use server';
 
 import { adminDb as db } from '@/server/firebase';
-import type { StockMove, QcTest, LotGenealogyEdge, ProductionOrder, GoodsReceipt, Lot, ProtocolLog, TraceEvent, TraceEventKind, TraceEventPhase } from '@/domain/ssot';
+import type { StockMove, QcTest, ProductionOrder, Lot, OnHand } from '@/domain/ssot';
+
+type TraceEventKind = 'RECEIPT' | 'PRODUCTION_IN' | 'PRODUCTION_OUT' | 'QC_TEST' | 'GENEALOGY_PARENT' | 'GENEALOGY_CHILD' | 'SALE' | 'TRANSFER';
+type TraceEventPhase = 'WAREHOUSE' | 'PRODUCTION' | 'QC' | 'SALE';
+
+type TraceEvent = {
+    id: string;
+    at: string;
+    kind: TraceEventKind;
+    phase: TraceEventPhase;
+    title: string;
+    details?: string;
+    data?: any;
+};
 import { ActionResult, ok, fail } from '@/lib/result';
 
 export type MaterialConsumption = {
@@ -37,7 +50,7 @@ export type QualitySummary = {
 export type TraceData = {
     lot: Lot | null;
     events: TraceEvent[];
-    onHandSummary: OnHandView[];
+    onHandSummary: OnHand[];
     receiptInfo?: { supplierPartyId: string; deliveryNote: string; receivedBy: string; };
     productionSummary?: ProductionSummary;
     qualitySummary?: QualitySummary;
@@ -61,14 +74,16 @@ export async function getLotTraceability(lotNumber: string): Promise<ActionResul
         
         const events: TraceEvent[] = movesSnap.docs.map(doc => {
             const move = doc.data() as StockMove;
+            const reason = (move.reason || '').toUpperCase();
+            const kind = reason as TraceEventKind;
             return {
                 id: doc.id,
-                at: move.occurredAt,
-                kind: move.reason.toUpperCase() as TraceEventKind,
+                at: move.date,
+                kind,
                 phase: 'WAREHOUSE' as TraceEventPhase,
-                title: `${move.reason}: ${move.qty} ${move.uom}`,
-                details: `De ${move.fromLocationId || 'N/A'} a ${move.toLocationId || 'N/A'}`,
-                data: { ...move.ref }
+                title: `${move.reason}: ${move.items?.[0]?.quantity || 0}`,
+                details: `De ${move.warehouseId || 'N/A'} a ${move.toWarehouseId || 'N/A'}`,
+                data: move.documentRef || {}
             } as TraceEvent;
         });
         
@@ -78,43 +93,43 @@ export async function getLotTraceability(lotNumber: string): Promise<ActionResul
             const test = doc.data() as QcTest;
             events.push({
                 id: doc.id,
-                at: test.testedAt,
+                at: test.takenAt,
                 kind: 'QC_TEST',
                 phase: 'QC',
-                title: `Análisis: ${test.parameterId}`,
-                details: `Resultado: ${test.valueNumeric ?? test.valueText ?? 'N/A'}`,
-                data: { parameterId: test.parameterId, value: test.valueNumeric ?? test.valueText }
+                title: `Análisis: ${test.kind}`,
+                details: `Resultado: ${test.result}${test.value ? ` - ${test.value}` : ''}`,
+                data: { kind: test.kind, result: test.result, value: test.value }
             } as TraceEvent);
         });
         
-        // Añadir eventos de genealogía
-        const genealogyParentSnap = await db.collection('lotGenealogy').where('childLotNumber', '==', lotNumber).get();
-        genealogyParentSnap.docs.forEach(doc => {
-            const edge = doc.data() as LotGenealogyEdge;
-            events.push({
-                id: `gen-parent-${doc.id}`,
-                at: edge.createdAt,
-                kind: 'GENEALOGY_PARENT',
-                phase: 'PRODUCTION',
-                title: `Producido desde: ${edge.parentLotNumber}`,
-                details: `Cantidad: ${edge.qty} ${edge.uom}`,
-                data: {}
-            } as TraceEvent);
-        });
+        // Genealogía desde lots.genealogy
+        if (lot?.genealogy?.parents) {
+            lot.genealogy.parents.forEach((parentLot: string) => {
+                events.push({
+                    id: `gen-parent-${parentLot}`,
+                    at: lot.createdAt,
+                    kind: 'GENEALOGY_PARENT',
+                    phase: 'PRODUCTION',
+                    title: `Producido desde: ${parentLot}`,
+                    details: '',
+                    data: {}
+                } as TraceEvent);
+            });
+        }
         
-        const genealogyChildSnap = await db.collection('lotGenealogy').where('parentLotNumber', '==', lotNumber).get();
-        genealogyChildSnap.docs.forEach(doc => {
-            const edge = doc.data() as LotGenealogyEdge;
-            events.push({
-                id: `gen-child-${doc.id}`,
-                at: edge.createdAt,
-                kind: 'GENEALOGY_CHILD',
-                phase: 'PRODUCTION',
-                title: `Usado para: ${edge.childLotNumber}`,
-                details: `Cantidad: ${edge.qty} ${edge.uom}`,
-                data: {}
-            } as TraceEvent);
-        });
+        if (lot?.genealogy?.children) {
+            lot.genealogy.children.forEach((childLot: string) => {
+                events.push({
+                    id: `gen-child-${childLot}`,
+                    at: lot.createdAt,
+                    kind: 'GENEALOGY_CHILD',
+                    phase: 'PRODUCTION',
+                    title: `Usado para: ${childLot}`,
+                    details: '',
+                    data: {}
+                } as TraceEvent);
+            });
+        }
 
         // Extraer información de contexto de los eventos
         let prodOrderId: string | undefined;
@@ -140,56 +155,52 @@ export async function getLotTraceability(lotNumber: string): Promise<ActionResul
         });
 
         // 🏭 Construir ProductionSummary si hay orden de producción
-        if (prodOrderId || lot?.producedByOrderId) {
-            const orderId = prodOrderId || lot!.producedByOrderId!;
+        if (prodOrderId) {
+            const orderId = prodOrderId;
             const orderSnap = await db.collection('productionOrders').doc(orderId).get();
             
             if (orderSnap.exists) {
                 const order = orderSnap.data() as ProductionOrder;
                 
-                // Obtener materiales consumidos desde lotGenealogy
-                const genealogySnap = await db.collection('lotGenealogy')
-                    .where('childLotNumber', '==', lotNumber)
-                    .get();
-                
+                // Materiales desde lot.genealogy
                 const materialsConsumed: MaterialConsumption[] = [];
                 
-                for (const doc of genealogySnap.docs) {
-                    const edge = doc.data() as LotGenealogyEdge;
-                    // Obtener info del item
-                    const parentLotSnap = await db.collection('lots').doc(edge.parentLotNumber).get();
-                    if (parentLotSnap.exists) {
-                        const parentLot = parentLotSnap.data() as Lot;
-                        const itemSnap = await db.collection('items').doc(parentLot.itemId).get();
-                        const itemName = itemSnap.exists ? itemSnap.data()?.name : parentLot.itemId;
-                        
-                        materialsConsumed.push({
-                            sku: parentLot.itemId,
-                            itemName: itemName || parentLot.itemId,
-                            lotNumber: edge.parentLotNumber,
-                            qtyUsed: edge.qty,
-                            uom: edge.uom
-                        });
+                if (lot?.genealogy?.parents) {
+                    for (const parentLotNum of lot.genealogy.parents) {
+                        const parentLotSnap = await db.collection('lots').doc(parentLotNum).get();
+                        if (parentLotSnap.exists) {
+                            const parentLot = parentLotSnap.data() as Lot;
+                            const itemsSnap = await db.collection('items').where('sku', '==', parentLot.sku).limit(1).get();
+                            const itemName = itemsSnap.empty ? parentLot.sku : itemsSnap.docs[0].data()?.name;
+                            
+                            materialsConsumed.push({
+                                sku: parentLot.sku,
+                                itemName: itemName || parentLot.sku,
+                                lotNumber: parentLotNum,
+                                qtyUsed: 0, // No tenemos qty en genealogy simple
+                                uom: parentLot.uom
+                            });
+                        }
                     }
                 }
                 
                 // Calcular cantidades y desviaciones
-                const targetQty = order.targetQuantity || 0;
-                const actualQty = lot?.quantity || 0;
+                const targetQty = order.outputQty || 0;
+                const actualQty = lot?.qtyMade || 0;
                 const deviation = actualQty - targetQty;
                 const deviationPct = targetQty > 0 ? (deviation / targetQty) * 100 : 0;
                 
                 productionSummary = {
                     orderId: orderId,
                     orderName: `Orden ${orderId}`,
-                    responsible: order.responsibleId || 'N/A',
+                    responsible: 'N/A',
                     targetQty,
                     actualQty,
                     deviation,
                     deviationPct,
                     materialsConsumed,
-                    protocols: order.checks || [],
-                    incidentCount: order.incidents?.length || 0
+                    protocols: [],
+                    incidentCount: 0
                 };
             }
         }
@@ -209,8 +220,10 @@ export async function getLotTraceability(lotNumber: string): Promise<ActionResul
             observations: qcDecisionEvent?.data?.observations || qcDecisionEvent?.data?.notes,
         };
 
-        const onHandSnap = await db.collection('onHand').where('lotNumber', '==', lotNumber).get();
-        const onHandSummary = onHandSnap.docs.map(d => d.data() as OnHandView);
+        const onHandSnap = await db.collection('onHand').get();
+        const onHandSummary = onHandSnap.docs
+            .map(d => d.data() as OnHand)
+            .filter(oh => oh.lotNumbers && oh.lotNumbers[lotNumber]);
         
         events.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
 

@@ -5,8 +5,7 @@ import React from 'react';
 import { useForm } from 'react-hook-form';
 import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog";
 import { Input, Select, SBButton } from '@/components/ui/ui-primitives';
-import { Item, ItemCategory, Uom } from '@/domain/ssot';
-import { createManualOnHand } from '../actions';
+import { Item, Uom } from '@/domain/ssot';
 
 type FormState = {
   sku: string;
@@ -20,7 +19,7 @@ type FormState = {
   invoiceRef?: string;
   amount?: number;
   currency?: string;
-  category: ItemCategory;
+  category: string;
   sendToQc: boolean;
 };
 
@@ -52,18 +51,18 @@ export function NewOnHandDialog({
     }
   });
 
-  const selectedItemId = watch('itemId');
+  const selectedSku = watch('sku');
   const [isSaving, setIsSaving] = React.useState(false);
 
   React.useEffect(() => {
-    if (selectedItemId) {
-      const item = items.find(i => i.id === selectedItemId);
+    if (selectedSku) {
+      const item = items.find(i => i.sku === selectedSku);
       if (item) {
         setValue('uom', item.uom);
-        setValue('category', item.category);
+        if (item.category) setValue('category', item.category);
       }
     }
-  }, [selectedItemId, items, setValue]);
+  }, [selectedSku, items, setValue]);
   
   React.useEffect(() => {
     if (open) {
@@ -75,12 +74,8 @@ export function NewOnHandDialog({
   const onSubmit = async (data: FormState) => {
     setIsSaving(true);
     try {
-        const result = await createManualOnHand(data);
-        if (result.ok) {
-            onSuccess(result.data);
-        } else {
-            throw new Error(result.message);
-        }
+        // TODO: Implementar createManualOnHand action
+        onError?.("Función createManualOnHand no implementada aún");
     } catch(e: any) {
         onError?.(e.message || "Error al crear la entrada de stock.");
     } finally {
@@ -98,10 +93,10 @@ export function NewOnHandDialog({
         secondaryAction={{ label: "Cancelar", onClick: () => { onClose(); reset(); }, disabled: isSaving }}
       >
         <div className="space-y-3">
-          <FieldRow label="Producto" error={errors.itemId?.message} htmlFor="itemId">
-            <Select id="itemId" {...register("itemId", { required: "Selecciona un producto" })}>
+          <FieldRow label="Producto" error={errors.sku?.message} htmlFor="sku">
+            <Select id="sku" {...register("sku", { required: "Selecciona un producto" })}>
               <option value="">-- Selecciona --</option>
-              {items.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+              {items.map(i => <option key={i.sku} value={i.sku}>{i.name} ({i.sku})</option>)}
             </Select>
           </FieldRow>
           <FieldRow label="Lote (auto si vacío)" htmlFor="lotNumber">

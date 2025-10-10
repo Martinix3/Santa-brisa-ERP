@@ -37,8 +37,10 @@ function lotPrefixFromSku(sku?: string, fallback?: string): string {
  * @returns Un objeto con el id y el sku del item, o null si no se encuentra.
  */
 async function loadItem(sku: string): Promise<{ id: string; sku?: string } | null> {
-  const doc = await db.collection('items').doc(itemId).get();
-  return doc.exists ? ({ id: doc.id, ...(doc.data() as any) }) : null;
+  const itemsSnap = await db.collection('items').where('sku', '==', sku).limit(1).get();
+  if (itemsSnap.empty) return null;
+  const doc = itemsSnap.docs[0];
+  return { id: doc.id, ...(doc.data() as any) };
 }
 
 /**
@@ -52,13 +54,13 @@ export async function findNextLotNumber(
   sku: string,
   skuFromCaller?: string
 ): Promise<string> {
-  let sku = skuFromCaller;
-  if (!sku) {
-    const item = await loadItem(itemId);
-    sku = item?.sku || itemId;
+  let finalSku = skuFromCaller || sku;
+  if (!finalSku) {
+    const item = await loadItem(sku);
+    finalSku = item?.sku || sku;
   }
 
-  const prefix = lotPrefixFromSku(sku, itemId);
+  const prefix = lotPrefixFromSku(finalSku, sku);
   const snap = await db.collection('lots')
     .where('lotNumber', '>=', prefix)
     .where('lotNumber', '<', `${prefix}z`)

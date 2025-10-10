@@ -21,7 +21,7 @@ export function LotDetailPanel({ lotDetails, items, onClose }: {
     onClose: () => void;
 }) {
     const { lot, moves } = lotDetails;
-    const item = items.find(i => i.id === lot.itemId);
+    const item = items.find(i => i.sku === lot.sku);
 
     return (
         <SBCard
@@ -45,21 +45,23 @@ export function LotDetailPanel({ lotDetails, items, onClose }: {
                 <h4 className="text-sm font-semibold mb-2">Historial de Movimientos</h4>
                 <div className="space-y-3">
                     {moves.map(move => {
-                        const Icon = MOVE_ICONS[move.reason] || PackagePlus;
-                        const isOut = move.qty < 0;
+                        const reason = move.reason ?? 'OTHER';
+                        const Icon = MOVE_ICONS[reason] || PackagePlus;
+                        const qty = move.items?.[0]?.quantity ?? 0;
+                        const isOut = move.type === 'OUT';
                         return (
                             <div key={move.id} className="flex items-start gap-3 text-xs">
                                 <div className={`p-1.5 rounded-full mt-0.5 ${isOut ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
                                     <Icon size={12} />
                                 </div>
                                 <div>
-                                    <p className="font-medium text-zinc-800 capitalize">{move.reason}</p>
+                                    <p className="font-medium text-zinc-800 capitalize">{reason}</p>
                                     <p className="text-zinc-600">
-                                        <span className={`font-semibold ${isOut ? 'text-red-700' : 'text-green-700'}`}>{move.qty}</span> {move.uom}
-                                        <span className="text-zinc-400"> · {new Date(move.occurredAt).toLocaleDateString('es-ES')}</span>
+                                        <span className={`font-semibold ${isOut ? 'text-red-700' : 'text-green-700'}`}>{isOut ? -qty : qty}</span> UNIT
+                                        <span className="text-zinc-400"> · {new Date(move.date).toLocaleDateString('es-ES')}</span>
                                     </p>
-                                    {(move.fromLocationId || move.toLocationId) &&
-                                        <p className="text-zinc-500">{move.fromLocationId || 'Origen'} → {move.toLocationId || 'Destino'}</p>
+                                    {(move.warehouseId || move.toWarehouseId) &&
+                                        <p className="text-zinc-500">{move.warehouseId || 'Origen'} → {move.toWarehouseId || 'Destino'}</p>
                                     }
                                 </div>
                             </div>

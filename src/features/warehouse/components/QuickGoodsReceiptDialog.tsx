@@ -137,7 +137,10 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
 
   const { suppliers, items } = useMemo(() => {
     if (!data) return { suppliers: [], items: [] };
-    const supplierList = (data.accounts || []).filter((a: Account) => a.accountType === 'SUPPLIER');
+    // En SSOT v7 no hay tipo SUPPLIER, usamos una convención de tags o un flag
+    const supplierList = (data.accounts || []).filter((a: Account) => 
+      a.tags?.includes('supplier') || a.accountType === 'DISTRIBUIDOR'
+    );
     return { suppliers: supplierList, items: data.items || [] };
   }, [data]);
 
@@ -150,22 +153,22 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
       date: nowIsoDate(),
       supplierId: "",
       deliveryNote: "",
-      lines: [{ sku: "", supplierLot: "", qty: 0, uom: "UNIT", unitCost: 0, autoLot: true, expiryAt: null, newItemCategory: 'RAW' }],
+      lines: [{ sku: "", supplierLot: "", qty: 0, uom: "UNIT", unitCost: 0, autoLot: true, expiryAt: null, newItemCategory: 'PRODUCT' }],
     },
   });
 
-  useEffect(() => { if (open) reset({ date: nowIsoDate(), lines: [{ sku: "", supplierLot: "", qty: 0, uom: "UNIT", unitCost: 0, autoLot: true, expiryAt: null, newItemCategory: 'RAW' }] }); }, [open, reset]);
+  useEffect(() => { if (open) reset({ date: nowIsoDate(), lines: [{ sku: "", supplierLot: "", qty: 0, uom: "UNIT", unitCost: 0, autoLot: true, expiryAt: null, newItemCategory: 'PRODUCT' }] }); }, [open, reset]);
   const { fields, append, remove } = useFieldArray({ control, name: "lines" });
 
   const supplierOptions = useMemo(() => suppliers.map((s: Account) => ({ value: s.id, label: s.name })), [suppliers]);
-  const itemOptions = useMemo(() => items.map((i: Item) => ({ value: i.id, label: i.name })), [items]);
+  const itemOptions = useMemo(() => items.map((i: Item) => ({ value: i.sku, label: i.name })), [items]);
   
   const onSubmit = async (formData: FormValues) => {
     try {
         const payloadLines = formData.lines.map((l) => {
-          const it = items.find((i: Item) => i.id === l.itemId);
+          const it = items.find((i: Item) => i.sku === l.sku);
           return {
-            sku: l.itemId,
+            sku: l.sku,
             newItemName: l.newItemName,
             newItemCategory: l.newItemCategory,
             supplierLot: l.supplierLot?.trim() || (l.autoLot ? generateLotNumber(it) : ""),
@@ -204,7 +207,7 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
       unitCost: 0,
       autoLot: true,
       expiryAt: null,
-      newItemCategory: lastLine?.newItemCategory || 'RAW'
+      newItemCategory: lastLine?.newItemCategory || 'PRODUCT'
     });
   };
   
@@ -277,18 +280,18 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
                       return (
                       <tr key={field.id}>
                         <td className="p-2 align-top">
-                          <Controller name={`lines.${i}.itemId`} control={control} rules={{ required: !watch(`lines.${i}.newItemName`) }}
+                          <Controller name={`lines.${i}.sku`} control={control} rules={{ required: !watch(`lines.${i}.newItemName`) }}
                             render={({ field: controllerField }) => (
                               <SearchableCombobox placeholder="Buscar o crear SKU..." options={itemOptions} value={controllerField.value}
-                                onChange={(itemId) => {
-                                    const itSel = items.find((it: Item) => it.id === itemId);
-                                    controllerField.onChange(itemId);
+                                onChange={(sku) => {
+                                    const itSel = items.find((it: Item) => it.sku === sku);
+                                    controllerField.onChange(sku);
                                     setValue(`lines.${i}.uom`, itSel?.uom ?? 'UNIT');
                                     setValue(`lines.${i}.unitCost`, itSel?.cost ?? 0);
                                     setValue(`lines.${i}.newItemName`, undefined);
                                 }}
                                 onCreate={async (name) => {
-                                    setValue(`lines.${i}.itemId`, '');
+                                    setValue(`lines.${i}.sku`, '');
                                     setValue(`lines.${i}.newItemName`, name);
                                 }}
                               />
@@ -297,10 +300,9 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
                           {watch(`lines.${i}.newItemName`) && (
                                 <div className="mt-2">
                                     <Select {...register(`lines.${i}.newItemCategory`)}>
-                                        <option value="RAW">Materia Prima</option>
-                                        <option value="PACKAGING">Packaging</option>
                                         <option value="PRODUCT">Producto</option>
                                         <option value="SERVICE">Servicio</option>
+                                        <option value="BUNDLE">Bundle</option>
                                     </Select>
                                 </div>
                           )}

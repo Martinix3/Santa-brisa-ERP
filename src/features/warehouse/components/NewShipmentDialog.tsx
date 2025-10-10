@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
 import { Input, Select, SBButton } from '@/components/ui/ui-primitives';
-import type { Shipment, Account, Item, ShipmentLine, ShipmentStatus } from '@/domain/ssot';
+import type { Shipment, Account, Item } from '@/domain/ssot';
 import { Plus, X, Search } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
 
@@ -82,7 +82,7 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, items }: Ne
     const [address, setAddress] = useState('');
     const [city, setCity] = useState('');
     const [postalCode, setPostalCode] = useState('');
-    const [lines, setLines] = useState<{ sku: string; qty: number; name: string, uom: string }[]>([{ sku: '', qty: 1, name: '', uom: 'UNIT' }]);
+    const [lines, setLines] = useState<{ sku: string; qty: number; name: string }[]>([{ sku: '', qty: 1, name: '' }]);
     const [notes, setNotes] = useState('');
 
     useEffect(() => {
@@ -92,7 +92,7 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, items }: Ne
             setAddress('');
             setCity('');
             setPostalCode('');
-            setLines([{ sku: '', qty: 1, name: '', uom: 'UNIT' }]);
+            setLines([{ sku: '', qty: 1, name: '' }]);
             setNotes('');
         }
     }, [open]);
@@ -113,11 +113,11 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, items }: Ne
         setNewCustomerName(text);
     }
 
-    const handleLineChange = (index: number, field: 'itemId' | 'qty', value: string) => {
+    const handleLineChange = (index: number, field: 'sku' | 'qty', value: string) => {
         const newLines = [...lines];
-        if (field === 'itemId') {
-            const item = items.find(p => p.id === value);
-            newLines[index].itemId = value;
+        if (field === 'sku') {
+            const item = items.find(p => p.sku === value);
+            newLines[index].sku = value;
             newLines[index].name = item?.name || 'Producto Desconocido';
         } else {
             newLines[index].qty = parseInt(value, 10) || 1;
@@ -125,7 +125,7 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, items }: Ne
         setLines(newLines);
     };
 
-    const addLine = () => setLines([...lines, { sku: '', qty: 1, name: '', uom: 'UNIT' }]);
+    const addLine = () => setLines([...lines, { sku: '', qty: 1, name: '' }]);
     const removeLine = (index: number) => setLines(lines.filter((_, i) => i !== index));
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -139,22 +139,19 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, items }: Ne
 
         const payload: NewShipmentPayload = {
             orderId: `manual_${Date.now()}`,
-            shipmentNumber: undefined,
-            status: 'DRAFT' as ShipmentStatus,
+            status: 'DRAFT',
             fromWarehouseId: 'FG/MAIN',
             lines: lines.map(l => ({ 
-                sku: items.find((i: Item) => i.id === l.itemId)?.sku || '', 
-                name: l.name,
-                qty: l.qty,
-                lotNumber: undefined
+                sku: l.sku,
+                qty: l.qty
             })),
             toAddress: {
-                name: account?.name || newCustomerName!,
                 street: address,
                 city,
                 postalCode,
                 country: 'España'
             },
+            customerName: account?.name || newCustomerName,
             newCustomerName: newCustomerName && !account ? newCustomerName : undefined,
         };
         onSave(payload);
@@ -195,9 +192,9 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, items }: Ne
                         <div className="mt-2 space-y-2 border rounded-lg p-3 bg-zinc-50/50">
                             {lines.map((line, index) => (
                                 <div key={index} className="grid grid-cols-[1fr_auto_auto] gap-2 items-center">
-                                    <Select value={line.itemId} onChange={e => handleLineChange(index, 'itemId', e.target.value)} required>
+                                    <Select value={line.sku} onChange={e => handleLineChange(index, 'sku', e.target.value)} required>
                                         <option value="">Selecciona producto</option>
-                                        {items.map(p => <option key={p.id} value={p.id}>{p.name} ({p.sku})</option>)}
+                                        {items.map(p => <option key={p.sku} value={p.sku}>{p.name} ({p.sku})</option>)}
                                     </Select>
                                     <Input type="number" min="1" value={line.qty} onChange={e => handleLineChange(index, 'qty', e.target.value)} className="w-20" required />
                                     <button type="button" onClick={() => removeLine(index)} className="p-2 text-red-500 hover:bg-red-50 rounded-md">

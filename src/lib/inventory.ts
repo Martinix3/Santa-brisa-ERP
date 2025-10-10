@@ -1,7 +1,5 @@
 // src/lib/inventory.ts
-import type { OrderSellOut, QcStatus, Lot, StockMove } from '@/domain/ssot';
-import { qcToBucket } from '@/domain/ssot';
-import type { Item } from '@/domain/ssot';
+import type { Order, QcStatus, Lot, StockMove, OnHand, Item } from '@/domain/ssot';
 
 // ===========================================
 // TIPOS DE DATOS ENRIQUECIDOS
@@ -29,12 +27,12 @@ export type AllocationDetail = {
 // ===========================================
 
 export function checkOrderStock(
-  order: OrderSellOut,
-  onHand: OnHandView[],
+  order: Order,
+  onHand: OnHand[],
   lotsMaster: Lot[] = [],
   opts?: { allowHold?: boolean }
 ): { allocations: AllocationDetail[]; shortages: StockShortageDetail[] } {
-  if (!order?.lines?.length) return { allocations: [], shortages: [] };
+  if (!order?.items?.length) return { allocations: [], shortages: [] };
 
   const lotMasterMap = new Map((lotsMaster || []).map(l => [l.lotNumber, l]));
 
@@ -52,11 +50,12 @@ export function checkOrderStock(
     return raw === 'HOLD' || raw === 'PENDING' || raw === 'ON_HOLD' || raw === 'QC_HOLD';
   };
 
-  for (const line of order.lines) {
-    const { itemId, qty } = line;
+  for (const line of order.items || []) {
+    const sku = line.sku;
+    const qty = line.qty;
     if (!qty || qty <= 0) continue;
 
-    const allStockForThisItem = onHand.filter(r => r.itemId === itemId);
+    const allStockForThisItem = onHand.filter(r => r.sku === sku);
 
     // 1.b) Disponible (liberado) con tolerancia
     const availableStock = allStockForThisItem
@@ -64,8 +63,8 @@ export function checkOrderStock(
       .map(r => ({
         ...r,
         qty: Number(r.qty ?? 0),
-        reservedQty: Number(r.reservedQty ?? 0),
-        free: Math.max(0, Number(r.qty ?? 0) - Number(r.reservedQty ?? 0)),
+        reserved: Number(r.reserved ?? 0),
+        free: Math.max(0, Number(r.qty ?? 0) - Number(r.reserved ?? 0)),
       }))
       .filter(r => r.free > 0);
 
@@ -73,10 +72,10 @@ export function checkOrderStock(
       .filter(r => isHold(r.qcStatus))
       .reduce((sum, r) => sum + Number(r.qty ?? 0), 0);
 
-    // FEFO
+    // FEFO (v7: expiryAt no existe en OnHand, usar createdAt como proxy)
     const sortedLots = [...availableStock].sort((a, b) => {
-      const ax = a.expiryAt ? Date.parse(a.expiryAt) : Number.POSITIVE_INFINITY;
-      const bx = b.expiryAt ? Date.parse(b.expiryAt) : Number.POSITIVE_INFINITY;
+      const ax = a.createdAt ? Date.parse(a.createdAt) : Number.POSITIVE_INFINITY;
+      const bx = b.createdAt ? Date.parse(b.createdAt) : Number.POSITIVE_INFINITY;
       return ax - bx;
     });
 
@@ -92,12 +91,13 @@ export function checkOrderStock(
           ? `Recep: ${(masterLot as any).createdByGoodsReceiptId}`
           : 'Ajuste manual';
 
+        const lotNumber = lot.lotNumbers ? Object.keys(lot.lotNumbers)[0] : '';
         allocations.push({
-          itemId,
-          lotNumber: lot.lotNumber,
-          locationId: lot.locationId,
+          sku,
+          lotNumber: lotNumber || '',
+          locationId: lot.warehouseId,
           qty: take,
-          expiryAt: lot.expiryAt,
+          expiryAt: null, // v7: expiryAt no existe en OnHand
           originInfo,
         });
         remaining -= take;
@@ -107,7 +107,7 @@ export function checkOrderStock(
     if (remaining > 0) {
       const totalAvailable = sortedLots.reduce((s, l) => s + l.free, 0);
       shortages.push({
-        itemId,
+        sku,
         qtyRequired: qty,
         qtyAvailable: totalAvailable,
         qtyShort: Math.max(0, qty - totalAvailable),
@@ -133,7 +133,7 @@ export function inheritOrResetQcStatus(parents: QcStatus[], forceReQc?: boolean)
 
 export type SkuStockSummary = {
   sku: string;
-  lots: OnHandView[];
+  lots: OnHand[];
 
   // Totales
   totalPhysical: number;        // suma qty todos los lotes (cualquier QC)
@@ -173,18 +173,18 @@ export type SkuRollupOptions = {
   now?: Date;                                   // inyectable para test
 };
 
-// ----- Buckets QC (usa tu helper real) -----
-function isReleased(qcStatus: QcStatus): boolean {
-  const b = qcToBucket(qcStatus);
-  return b === 'RELEASED';
+// ----- Buckets QC -----
+function isReleased(qcStatus?: QcStatus | string): boolean {
+  const s = String(qcStatus || '').toUpperCase();
+  return s === 'PASSED' || s === 'WAIVED' || s === 'RELEASED';
 }
-function isHold(qcStatus: QcStatus): boolean {
-  const b = qcToBucket(qcStatus);
-  return b === 'HOLD'; // incluye PENDING/ON_HOLD según tu mapping
+function isHold(qcStatus?: QcStatus | string): boolean {
+  const s = String(qcStatus || '').toUpperCase();
+  return s === 'PENDING' || s === 'HOLD' || s === 'ON_HOLD';
 }
-function isFailed(qcStatus: QcStatus): boolean {
-    const b = qcToBucket(qcStatus);
-    return b === 'REJECTED';
+function isFailed(qcStatus?: QcStatus | string): boolean {
+  const s = String(qcStatus || '').toUpperCase();
+  return s === 'FAILED' || s === 'REJECTED';
 }
 
 // ----- Util: días entre fechas -----
@@ -198,7 +198,7 @@ function diffDays(a: Date, b: Date) {
  * Nota: Para calcular totalValue, necesitas pasar items en opts.
  */
 export function computeSkuRollup(
-  onHand: OnHandView[],
+  onHand: OnHand[],
   opts: SkuRollupOptions & { items?: Item[] } = {}
 ): Record<string, SkuStockSummary> {
   const nearExpiryDays = opts.nearExpiryDays ?? 30;
@@ -212,10 +212,10 @@ export function computeSkuRollup(
   const bySku = new Map<string, SkuStockSummary>();
 
   for (const r of onHand) {
-    const itemId = r.itemId;
-    if (!bySku.has(itemId)) {
-      bySku.set(itemId, {
-        itemId,
+    const sku = r.sku;
+    if (!bySku.has(sku)) {
+      bySku.set(sku, {
+        sku,
         lots: [],
         totalPhysical: 0,
         totalReserved: 0,
@@ -232,19 +232,19 @@ export function computeSkuRollup(
       });
     }
     
-    const acc = bySku.get(itemId)!;
+    const acc = bySku.get(sku)!;
     acc.lots.push(r);
     acc.lotsCount++;
     
     const qty = r.qty || 0;
-    const reservedQty = r.reservedQty || 0;
+    const reserved = r.reserved || 0;
     
     // ✅ Obtener unitCost desde Item master
-    const item = itemsMap.get(itemId);
+    const item = itemsMap.get(sku);
     const unitCost = item?.stdCost || 0;
     
     acc.totalPhysical += qty;
-    acc.totalReserved += reservedQty;
+    acc.totalReserved += reserved;
     
     // ✅ CALCULAR VALOR: qty * stdCost del item
     acc.totalValue = (acc.totalValue || 0) + (qty * unitCost);
@@ -253,7 +253,7 @@ export function computeSkuRollup(
     if (isReleased(r.qcStatus)) {
       acc.passedQty += qty;
       // Stock liberado disponible = qty - reservado
-      acc.totalReleasedFree += Math.max(0, qty - reservedQty);
+      acc.totalReleasedFree += Math.max(0, qty - reserved);
     } else if (isHold(r.qcStatus)) {
       acc.pendingQty += qty;
       // Stock en QC (NO está reservado, está en cuarentena)
@@ -262,20 +262,11 @@ export function computeSkuRollup(
       acc.failedQty += qty;
     }
 
-    if (r.expiryAt) {
-      const d = new Date(r.expiryAt);
-      const daysLeft = diffDays(d, now);
-      if (!acc.earliestExpiryAt || new Date(acc.earliestExpiryAt) > d) {
-        acc.earliestExpiryAt = r.expiryAt;
-        acc.daysToEarliestExpiry = daysLeft;
-      }
-      if (daysLeft < 0) acc.expiredCount++;
-      else if (daysLeft <= nearExpiryDays) acc.nearExpiryCount++;
-    }
+    // v7: expiryAt no existe en OnHand, skip este cálculo por completo
   }
 
   for (const acc of bySku.values()) {
-    const minTarget = minByItem[acc.itemId] ?? 0;
+    const minTarget = minByItem[acc.sku] ?? 0;
     const oos = acc.totalReleasedFree <= 0;
     const low = !oos && acc.totalReleasedFree < Math.max(1, minTarget);
 
@@ -309,33 +300,33 @@ export function computeStockAlerts(
   for (const s of Object.values(summaries)) {
     switch (s.status) {
       case 'OOS':
-        alerts.push({ type: 'OOS', sku: s.itemId, message: 'Sin stock liberado' });
+        alerts.push({ type: 'OOS', sku: s.sku, message: 'Sin stock liberado' });
         break;
       case 'LOW':
         alerts.push({
           type: 'LOW',
-          sku: s.itemId,
+          sku: s.sku,
           message: `Stock bajo (${s.totalReleasedFree} uds liberadas)`,
         });
         break;
       case 'NEAR_EXPIRY':
         alerts.push({
           type: 'NEAR_EXPIRY',
-          sku: s.itemId,
+          sku: s.sku,
           message: `Lotes próximos a caducar (≤ ventana)`,
         });
         break;
       case 'EXPIRED':
         alerts.push({
           type: 'EXPIRED',
-          sku: s.itemId,
+          sku: s.sku,
           message: `Hay lotes caducados`,
         });
         break;
       case 'HOLD':
         alerts.push({
           type: 'HOLD',
-          sku: s.itemId,
+          sku: s.sku,
           message: `Stock en cuarentena pendiente de QC`,
         });
         break;
@@ -417,8 +408,8 @@ export function suggestReplenishment(summaries: Record<string, SkuStockSummary>,
   return replen;
 }
 
-export function computeExpiryBuckets(onHand: OnHandView[], stepDays: number, numSteps: number) {
-  const buckets: { label: string; from: Date; to: Date; items: OnHandView[] }[] = [];
+export function computeExpiryBuckets(onHand: OnHand[], stepDays: number, numSteps: number) {
+  const buckets: { label: string; from: Date; to: Date; items: OnHand[] }[] = [];
   const now = new Date();
   for(let i=0; i<numSteps; i++) {
     const from = new Date(now.getTime() + i*stepDays*86400000);
@@ -426,23 +417,24 @@ export function computeExpiryBuckets(onHand: OnHandView[], stepDays: number, num
     buckets.push({ label: `+${i*stepDays}d`, from, to, items: [] });
   }
   for(const oh of onHand) {
-    if (!oh.expiryAt) continue;
-    const exp = new Date(oh.expiryAt);
+    // v7: expiryAt no existe en OnHand, skip
+    if (!(oh as any).expiryAt) continue;
+    const exp = new Date((oh as any).expiryAt);
     const b = buckets.find(b => exp >= b.from && exp < b.to);
     if(b) b.items.push(oh);
   }
   return buckets;
 }
 
-export function detectQcStuck(onHand: OnHandView[], now: Date, daysStuck: number) {
+export function detectQcStuck(onHand: OnHand[], now: Date, daysStuck: number) {
   return onHand.filter(oh =>
     isHold(oh.qcStatus) &&
     diffDays(now, new Date(oh.createdAt)) > daysStuck
   );
 }
 
-export function auditOnHandVsLots(onHand: OnHandView[], lots: Lot[]) {
-  const onHandLots = new Set(onHand.map(oh => oh.lotNumber));
+export function auditOnHandVsLots(onHand: OnHand[], lots: Lot[]) {
+  const onHandLots = new Set(onHand.flatMap(oh => oh.lotNumbers ? Object.keys(oh.lotNumbers) : []));
   const masterLots = new Set(lots.map(l => l.lotNumber));
   return {
     inOnHandNotLots: [...onHandLots].filter(l => !masterLots.has(l)),

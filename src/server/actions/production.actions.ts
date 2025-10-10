@@ -9,7 +9,10 @@ import { upsertMany } from "@/lib/dataprovider/server";
 import { FieldValue, FieldPath } from "firebase-admin/firestore";
 import { z } from "zod";
 import { adminDb } from '@/server/firebase';
-import type { Lot as SsotLot, Uom, ProductionOrder, BillOfMaterial as RecipeBom, Item, StockMove, TraceEvent, QcPlanBySku } from '@/domain/ssot';
+import type { Lot as SsotLot, Uom, ProductionOrder, BillOfMaterial as RecipeBom, Item, StockMove } from '@/domain/ssot';
+
+// Tipos temporales hasta que se exporten en SSOT
+type TraceEvent = any;
 import { LotSchema, type Lot } from '@/domain/validators';
 import { explodeBOM } from '@/server/production/bom.service';
 import { findNextLotNumber } from '@/server/actions/inventory.actions';
@@ -97,7 +100,6 @@ const CompleteOrderSchema = z.object({
   finalOutputs: z.array(z.object({
     sku: z.string(),
     lotNumber: z.string().optional(),
-    sku: z.string().optional(),
     qty: z.number().positive(),
     uom: z.string(), // ✅ Permitir cualquier UOM string
     toLocationId: z.string().default('ALMACEN_TERMINADO'),
@@ -150,7 +152,7 @@ export async function completeProductionOrder(
       const moveRef = adminDb.collection('stockMoves').doc();
       const move: any = {
         id: moveRef.id,
-        sku: consumption.itemId,
+        sku: consumption.sku,
         lotNumber: consumption.lotNumber,
         qty: -Math.abs(consumption.qty),
         uom: consumption.uom,
@@ -179,7 +181,7 @@ export async function completeProductionOrder(
       batch.set(traceEventRef, traceEvent as any);
 
 
-      const onHandOutId = makeOnHandId(consumption.itemId, consumption.lotNumber, consumption.fromLocationId);
+      const onHandOutId = makeOnHandId(consumption.sku, consumption.lotNumber, consumption.fromLocationId);
       const onHandOutRef = adminDb.collection('onHand').doc(onHandOutId);
       batch.update(onHandOutRef, { qty: FieldValue.increment(-Math.abs(consumption.qty)), updatedAt: now });
     }
@@ -188,7 +190,7 @@ export async function completeProductionOrder(
 
     // 2. Entrada de stock de productos terminados
     for (const output of normalizedOutputs) {
-      const lotNumber = output.lotNumber || (await findNextLotNumber(output.itemId, output.sku));
+      const lotNumber = output.lotNumber || (await findNextLotNumber(output.sku, output.sku));
       newLotNumbers.push(lotNumber);
 
       // ✅ Solo buscar qcPlan si tenemos SKU
@@ -202,7 +204,7 @@ export async function completeProductionOrder(
       const lotRef = adminDb.collection('lots').doc(lotNumber);
       batch.set(lotRef, LotSchema.parse({
         lotNumber,
-        sku: output.itemId,
+        sku: output.sku,
         quantity: output.qty,
         uom: output.uom,
         qcStatus: 'PENDING', // El producto siempre sale de producción a QC
@@ -216,7 +218,7 @@ export async function completeProductionOrder(
       const moveInRef = adminDb.collection('stockMoves').doc();
       const moveIn: any = {
         id: moveInRef.id,
-        sku: output.itemId,
+        sku: output.sku,
         lotNumber: lotNumber,
         qty: output.qty,
         uom: output.uom,
@@ -245,11 +247,11 @@ export async function completeProductionOrder(
       batch.set(traceEventInRef, traceEventIn as any);
 
 
-      const onHandInId = makeOnHandId(output.itemId, lotNumber, output.toLocationId);
+      const onHandInId = makeOnHandId(output.sku, lotNumber, output.toLocationId);
       const onHandInRef = adminDb.collection('onHand').doc(onHandInId);
       batch.set(onHandInRef, {
         id: onHandInId,
-        sku: output.itemId,
+        sku: output.sku,
         lotNumber: lotNumber,
         locationId: output.toLocationId,
         qty: FieldValue.increment(output.qty),
@@ -358,7 +360,7 @@ export async function previewPlanning(input: {
 
     const nominal: Array<{ sku: string; role: 'FORMULA'|'PACKAGING'|'COST_ONLY'; uom: Uom; qty: number }> =
       (bom.items || []).map((it: any) => ({
-        sku: it.itemId,
+        sku: it.sku || it.itemId,
         role: (it.role ?? 'FORMULA') as 'FORMULA'|'PACKAGING'|'COST_ONLY',
         uom: normalizeUom(it.uom ?? baseUnit),
         qty: Number(((it.qty ?? 0) * plannedQty).toFixed(6)),
@@ -372,7 +374,7 @@ export async function previewPlanning(input: {
       let remaining = line.qty;
       let available = 0;
       const lots = (onHand as any[])
-        .filter((l:any) => l.itemId === line.itemId && l.qty > 0)
+        .filter((l:any) => l.sku === line.sku && l.qty > 0)
         .sort((a:any,b:any) => new Date(a.receivedAt || a.createdAt).getTime() - new Date(b.receivedAt || b.createdAt).getTime());
 
       for (const lot of lots) {
@@ -383,13 +385,13 @@ export async function previewPlanning(input: {
             console.warn(`fifoReserveLots: OnHand item for item ${lot.itemId} has no lotNumber.`);
             continue;
           }
-          allocations.push({ sku: line.itemId, lotNumber: lot.lotNumber, uom: normalizeUom(lot.uom), qty: take, locationId: lot.locationId });
+          allocations.push({ sku: line.sku, lotNumber: lot.lotNumber, uom: normalizeUom(lot.uom), qty: take, locationId: lot.locationId });
           remaining -= take;
         }
         available += lot.qty;
       }
       if (remaining > 0) {
-        shortages.push({ sku: line.itemId, uom: normalizeUom(line.uom), required: line.qty, available, missing: line.qty - available });
+        shortages.push({ sku: line.sku, uom: normalizeUom(line.uom), required: line.qty, available, missing: line.qty - available });
       }
     }
 

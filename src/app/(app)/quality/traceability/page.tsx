@@ -3,13 +3,22 @@
 
 import React, { useMemo, useState, useEffect, useTransition } from "react";
 import { Package, Search, GitBranch, Truck, Factory, FlaskConical, ArrowLeftRight, AlertTriangle, User as UserIcon, FileText, CheckCircle, XCircle, ShieldCheck } from "lucide-react";
-import type { Lot, Item, TraceEvent, StockMove, ProductionOrder } from "@/domain/ssot";
+import type { Lot, Item } from "@/domain/ssot";
 import { getLotTraceability, type TraceData, type ProductionSummary, type MaterialConsumption, type QualitySummary } from "./actions";
+
+type TraceEvent = {
+    id: string;
+    at: string;
+    kind: string;
+    phase: string;
+    title: string;
+    details?: string;
+    data?: any;
+};
 import { toast } from "sonner";
 import Link from 'next/link';
 import { useData } from "@/lib/dataprovider";
 import { Avatar } from '@/components/ui/Avatar';
-import { ITEM_CATEGORY_META } from "@/domain/ssot";
 
 
 // ===========================================
@@ -133,10 +142,9 @@ function TraceEventCard({ event }: { event: TraceEvent }) {
 function LotSummaryCard({ traceData, items, parties }: { traceData: TraceData, items: Item[], parties: any[] }) {
     const { lot, receiptInfo, productionSummary, saleInfo, onHandSummary } = traceData;
     if (!lot) return null;
-    const item = items.find(i => i.id === lot.itemId);
-    const categoryMeta = item?.category ? ITEM_CATEGORY_META[item.category] : undefined;
-    const categoryName = categoryMeta?.label || item?.category || 'N/A';
-    const locations = (onHandSummary || []).filter(oh => oh.qty > 0).map(oh => `${oh.locationId} (${oh.qty} ${oh.uom})`).join(', ');
+    const item = items.find(i => i.sku === lot.sku);
+    const categoryName = 'N/A';
+    const locations = (onHandSummary || []).filter(oh => oh.qty > 0).map(oh => `${oh.warehouseId} (${oh.qty})`).join(', ');
     const supplierName = parties.find(p => p.id === receiptInfo?.supplierPartyId)?.name;
 
     return (
@@ -216,8 +224,8 @@ function GenealogyCard({ traceData, items, lots }: { traceData: TraceData, items
     const findItemName = (lotNumber: string) => {
         const lot = lots.find(l => l.lotNumber === lotNumber);
         if (!lot) return 'Ítem desconocido';
-        const item = items.find(i => i.id === lot.itemId);
-        return item?.name || lot.itemId;
+        const item = items.find(i => i.sku === lot.sku);
+        return item?.name || lot.sku;
     }
 
     return (
@@ -353,8 +361,10 @@ export default function TraceabilityPage() {
 
     const lotsForItem = useMemo(() => {
         if (!itemId) return [];
-        return lots.filter(lot => lot.itemId === itemId).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    }, [itemId, lots]);
+        const selectedItem = items.find(i => i.id === itemId);
+        if (!selectedItem?.sku) return [];
+        return lots.filter(lot => lot.sku === selectedItem.sku).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }, [itemId, lots, items]);
 
     useEffect(() => {
         if (items.length > 0 && !itemId) setItemId(items[0].id);

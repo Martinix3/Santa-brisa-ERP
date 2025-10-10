@@ -2,7 +2,10 @@
 /**
  * Helpers — funciones puras + normalizaciones
  */
-import type { ISO, OrderSellOut, Account } from "@/domain/ssot";
+import type { Order, Account } from "@/domain/ssot";
+
+type ISO = string;
+type OrderSellOut = Order;
 
 export const toISO = (d: Date|string|number): ISO => {
   const date = d instanceof Date ? d : new Date(d);
@@ -15,9 +18,9 @@ export const daysSinceISO = (iso: ISO): number => {
 };
 
 export function orderTotal(order: OrderSellOut): number {
-  const sum = (order.lines || []).reduce((acc: number, l: OrderSellOut['lines'][number]) => {
-    const price = l.priceUnit ?? 0;
-    const disc = ((l as any).discountPct ?? 0) / 100;
+  const sum = (order.items || []).reduce((acc: number, l: any) => {
+    const price = l.unitPrice ?? 0;
+    const disc = (l.discountPct ?? 0) / 100;
     return acc + (l.qty * price) * (1 - disc);
   }, 0);
   return Math.max(0, Math.round(sum * 100) / 100);
@@ -50,7 +53,7 @@ export function groupByPeriod(orders: OrderSellOut[], start: ISO, end: ISO, gran
     } else {
       key = `${y}-${String(m).padStart(2,'0')}`;
     }
-    res[key] = (res[key] ?? 0) + (o.totalAmount ?? orderTotal(o));
+    res[key] = (res[key] ?? 0) + ((o as any).totalAmount ?? orderTotal(o));
   }
   return Object.entries(res).map(([x, amount]) => ({ x, amount }));
 }
@@ -59,12 +62,12 @@ export function computeChannelMix(orders: OrderSellOut[], accounts: Account[]) {
   const byId = new Map(accounts.map((a: Account) => [a.id, a]));
   const mix = { ONLINE: 0, PRIVADA: 0, HORECA: 0, RETAIL: 0 } as Record<'ONLINE'|'PRIVADA'|'HORECA'|'RETAIL', number>;
   for (const o of orders) {
-    const acc = byId.get(o.accountId);
-    const isOnline = o.source === 'SHOPIFY' || acc?.accountType === 'ONLINE';
-    const isPrivada = acc?.accountType === 'PRIVADA';
+    const acc = byId.get(o.accountId || '');
+    const isOnline = (o as any).source === 'SHOPIFY' || acc?.accountType === 'ONLINE';
+    const isPrivada = acc?.accountType === 'CLIENTE_FINAL';
     const isHoreca = acc?.accountType === 'HORECA';
     const isRetail = acc?.accountType === 'RETAIL';
-    const amount = o.totalAmount ?? orderTotal(o);
+    const amount = (o as any).totalAmount ?? orderTotal(o);
     if (isOnline) mix.ONLINE += amount;
     else if (isPrivada) mix.PRIVADA += amount;
     else if (isHoreca) mix.HORECA += amount;

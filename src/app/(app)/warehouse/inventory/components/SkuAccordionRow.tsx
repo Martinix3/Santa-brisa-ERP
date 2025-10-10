@@ -25,7 +25,7 @@ export function SkuAccordionRow({ sku: summary, items, onLotSelect }: {
     const [isOpen, setIsOpen] = useState(false);
     const [showPricing, setShowPricing] = useState(false);
     const router = useRouter();
-    const item = items.find(i => i.id === summary.itemId);
+    const item = items.find(i => i.sku === summary.sku);
 
     return (
       <>
@@ -38,7 +38,7 @@ export function SkuAccordionRow({ sku: summary, items, onLotSelect }: {
                 <ChevronDown size={16} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                 <div className="flex-1">
                     <p className="font-bold text-sm text-zinc-800">{item?.name || 'Nombre Desconocido'}</p>
-                    <p className="font-mono text-xs text-zinc-500">{item?.sku || summary.itemId}</p>
+                    <p className="font-mono text-xs text-zinc-500">{item?.sku || summary.sku}</p>
                 </div>
                 <button
                   onClick={(e) => {

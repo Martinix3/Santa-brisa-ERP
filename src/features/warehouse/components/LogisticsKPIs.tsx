@@ -21,9 +21,9 @@ function KPI({ icon: Icon, label, value }: { icon: React.ElementType, label: str
 
 export function LogisticsKPIs({ shipments }: { shipments: Shipment[] }) {
     const kpis = useMemo(() => ({
-        pending: shipments.filter(r => ["pending", "picking"].includes(r.status || '')).length,
-        validated: shipments.filter(r => r.status === "ready_to_ship").length,
-        shipped: shipments.filter(r => r.status === "shipped").length,
+        pending: shipments.filter(r => r.status === "DRAFT").length,
+        validated: shipments.filter(r => r.status === "READY").length,
+        shipped: shipments.filter(r => r.status === "SHIPPED").length,
         delivered: shipments.filter(r => r.status === 'DELIVERED').length
     }), [shipments]);
 
