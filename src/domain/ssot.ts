@@ -76,8 +76,8 @@ export interface PartyRole { id: string; partyId: string; role: PartyRoleType; i
 export interface PartyDuplicate { id: string; primaryPartyId: string; duplicatePartyId: string; reason: 'SAME_VAT' | 'SAME_EMAIL' | 'SAME_PHONE' | 'SIMILAR_NAME'; score: number; status: 'OPEN' | 'MERGED' | 'DISMISSED'; createdAt: Timestamp; resolvedAt?: Timestamp; }
 export type Segment = 'HORECA' | 'RETAIL' | 'ONLINE' | 'PRIVADA' | 'DISTRIBUIDOR';
 export interface User { id: string; name: string; email?: string; role: UserRole; active: boolean; managerId?: string; kpiBaseline?: { revenue?: number; unitsSold?: number; visits?: number; }; assignedDistributors?: Array<{ partyId: string; priority: number; }>; permissions?: { view: string[]; edit: string[]; }; createdAt?: string; updatedAt?: string; }
-export type OrderLine = { itemId: string; name?: string; qty: number; uom: SalesUnit; priceUnit: number; discountPct?: number; };
-export interface OrderSellOut { id: string; docNumber?: string; accountId: string; partyId?: string; flow?: 'PLACEMENT' | 'DIRECT'; distributorId?: string; isSellOutReported?: boolean; status: OrderStatus; billingStatus?: BillingStatus; lines: OrderLine[]; totalAmount?: number; currency: Currency; source?: 'SHOPIFY' | 'B2B' | 'Direct' | 'CRM' | 'MANUAL' | 'HOLDED'; notes?: string; external?: { shopifyOrderId?: string; holdedEstimateId?: string; holdedInvoiceId?: string; }; createdAt: Timestamp; updatedAt: Timestamp; createdById?: string; orderDate?: ISO; linkedPromotions?: string[]; region?: 'ES' | 'USA' | 'MX' | 'OTHER'; channel?: 'DIRECT' | 'DISTRIBUTOR' | 'ONLINE'; }
+export type OrderLine = { itemId: string; /** @deprecated Use 'itemId' */ sku?: string; name?: string; qty: number; uom: SalesUnit; priceUnit: number; discountPct?: number; };
+export interface OrderSellOut { id: string; docNumber?: string; accountId: string; partyId?: string; flow?: 'PLACEMENT' | 'DIRECT'; distributorId?: string; isSellOutReported?: boolean; status: OrderStatus; billingStatus?: BillingStatus; lines: OrderLine[]; /** @deprecated Use 'lines' instead */ items?: OrderLine[]; totalAmount?: number; currency: Currency; source?: 'SHOPIFY' | 'B2B' | 'Direct' | 'CRM' | 'MANUAL' | 'HOLDED'; notes?: string; external?: { shopifyOrderId?: string; holdedEstimateId?: string; holdedInvoiceId?: string; }; createdAt: Timestamp; updatedAt: Timestamp; createdById?: string; orderDate?: ISO; linkedPromotions?: string[]; region?: 'ES' | 'USA' | 'MX' | 'OTHER'; channel?: 'DIRECT' | 'DISTRIBUTOR' | 'ONLINE'; }
 export type ShipmentLine = { itemId: string; name: string; qty: number; uom: SalesUnit; lotNumber?: string; locationId?: string; note?: string };
 export interface Shipment { id: string; shipmentNumber?: string; orderId: string; partyId: string; accountId: string; mode: 'PARCEL' | 'PALLET'; status: ShipmentStatus; lines: ShipmentLine[]; customerName: string; addressLine1: string; addressLine2?: string; city: string; postalCode: string; country: string; carrier?: string; trackingCode?: string; trackingUrl?: string; labelUrl?: string; deliveryNoteId?: string; holdedInvoiceId?: string; weightKg?: number; dimsCm?: { l: number; w: number; h: number }; checks?: { visualOk?: boolean }; isSample?: boolean; samplePurpose?: string; sampleNotes?: string; packedById?: string; validatedById?: string; validatedAt?: Timestamp; validationNotes?: string; shippedAt?: Timestamp; createdAt: Timestamp; updatedAt: Timestamp; notes?: string; shippingCost?: number; expectedDeliveryDate?: Timestamp; }
 export interface Item { id: string; sku: string; name: string; category: ItemCategory; uom: Uom; active: boolean; isActive?: boolean; stdCost?: number; bottleMl?: number; caseUnits?: number; unitsPerCase?: number; priceBase?: number; priceUnit?: number; priceList?: Record<string, number>; costUnit?: number; weightPerUnit?: number; volumePerUnit?: number; casesPerPallet?: number; }
@@ -98,7 +98,7 @@ export interface SantaData { parties: Party[]; partyRoles: PartyRole[]; partyDup
 export const SANTA_DATA_COLLECTIONS: (keyof SantaData)[] = [ "parties", "partyRoles", "partyDuplicates", "users", "accounts", "ordersSellOut", "interactions", "items", "billOfMaterials", "productionOrders", "lots", "lotGenealogy", "onHand", "stockMoves", "shipments", "goodsReceipts", "deliveryNotes", "qcPlans", "qcParameters", "qcTests", "qcProtocols", "protocolLogs", "marketingEvents", "onlineCampaigns", "influencerCollabs", "posTactics", "posCostCatalog", "plv_material", "socialMetrics", "webAnalytics", "activations", "reservations", "notes", "systemConfig" ];
 export interface StockMove { id: string; itemId: string; lotNumber: string; qty: number; uom: Uom; reason: string; fromLocationId?: string; toLocationId?: string; occurredAt: Timestamp; createdAt: Timestamp; ref?: any; unitCost?: number; }
 export interface GoodsReceipt { id: string; receiptNumber?: string; supplierPartyId: string; deliveryNote?: string; receivedAt: Timestamp; lines: any[]; status: 'pending_qc' | 'completed'; notes?: string; createdAt?: Timestamp; }
-export interface OnHandView { id: string; itemId: string; lotNumber: string; locationId: string; qty: number; uom: Uom; qcStatus: QcStatus; category: ItemCategory; expiryAt?: Timestamp | null; reservedQty?: number; createdAt: Timestamp; updatedAt: Timestamp; }
+export interface OnHandView { id: string; itemId: string; /** @deprecated Use 'itemId' */ sku?: string; lotNumber: string; /** @deprecated Use 'lotNumber' */ lotNumbers?: Record<string, any>; locationId: string; /** @deprecated Use 'locationId' */ warehouseId?: string; qty: number; /** @deprecated Use 'reservedQty' */ reserved?: number; uom: Uom; qcStatus: QcStatus; category: ItemCategory; expiryAt?: Timestamp | null; reservedQty?: number; createdAt: Timestamp; updatedAt: Timestamp; }
 export interface LotGenealogyEdge { id: string; parentLotNumber: string; childLotNumber: string; qty: number; uom: Uom; createdAt: string; }
 export interface ReservationView { id: string; itemId: string; lotNumber: string; locationId: string; qty: number }
 export interface MarketingEvent { id: string; title: string; startAt: string; endAt?: string; spend?: number; kpis?: any; accountId?: string; status: 'planned' | 'active' | 'closed' | 'cancelled'; city?: string; kind: EventKind; createdAt: Timestamp; updatedAt: Timestamp; ownerUserId?: string;}
@@ -192,6 +192,16 @@ export interface Activation {
 }
 export interface Task { id: string; title: string; dueAt: string; status: TaskStatus; }
 
+// ALIASES Y TIPOS FALTANTES PARA COMPATIBILIDAD
+export type TeamMember = User; // Alias para compatibilidad
+export type Order = OrderSellOut; // Alias para compatibilidad
+export type OnHand = OnHandView; // Alias para compatibilidad
+export type AccountStage = Stage; // Alias para compatibilidad
+export type OrderChannel = 'DIRECT' | 'DISTRIBUTOR' | 'ONLINE'; // Para compatibilidad
+export type OrderItem = OrderLine; // Alias para compatibilidad
+export type QcFinal = QcTest; // Alias para compatibilidad
+export type SellOutStatus = OrderStatus; // Para Shopify
+export type SellOutSource = 'SHOPIFY' | 'B2B' | 'Direct' | 'CRM' | 'MANUAL' | 'HOLDED';
 
 // -----------------------------------------------------------------
 // 4. Metadatos y Constantes (AHORA COMPATIBLE Y UNIFICADO)
