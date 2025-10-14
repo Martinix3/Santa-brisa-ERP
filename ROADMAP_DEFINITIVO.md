@@ -154,28 +154,61 @@ src/
 ### **FASE 1.5: SERVER ACTIONS DASHBOARDS** 📊
 **Prioridad:** ALTA  
 **Duración:** 3-4 días  
-**Dependencias:** Ninguna
+**Dependencias:** Ninguna  
+**Estado:** 70% completo (7/10 tareas)
+
+#### ⚠️ IMPORTANTE: DOS SISTEMAS DE DASHBOARDS
+
+**Sistema 1: Dashboards PERSONALES** (`/dashboard`)
+- Router por rol que muestra dashboard personalizado
+- Datos filtrados por userId (MIS datos)
+- Componentes: `DashboardSales.tsx`, `DashboardOps.tsx`, etc.
+- Ejemplo: Juan (comercial) ve SUS tareas, SUS cuentas, SUS KPIs
+
+**Sistema 2: Dashboards DEPARTAMENTALES** (`/[dept]/dashboard`)
+- Vista agregada de todo el departamento
+- Datos sin filtrar (TODO el equipo)
+- Páginas: `/ventas/dashboard`, `/warehouse/dashboard`, etc.
+- Ejemplo: `/ventas/dashboard` muestra KPIs de TODO el equipo
+
+**Mismo server action, diferente uso:**
+```typescript
+// Personal: getDashboardSalesData(userId) → Solo datos de Juan
+// Departamental: getDashboardSalesData() → Datos de todo el equipo
+```
 
 #### Objetivos:
-- ✅ Reemplazar datos mock por datos reales de Firestore
-- ✅ Server actions para cada dashboard
-- ✅ Optimización de queries (cache, indexación)
-- ✅ Error handling y loading states
-- ✅ Router por rol en /dashboard
+- ✅ Server actions para cada dashboard con datos reales
+- ✅ Optimización de queries (Promise.all, parallel)
+- ✅ Fórmulas centralizadas (dashboard-config.ts)
+- ✅ Error handling completo
+- ⏳ Router por rol en /dashboard
+- ⏳ Conectar componentes Dashboard*.tsx con server actions
+- ⏳ Loading states y error boundaries
 
 #### Entregables:
 ```
 src/
-├── server/actions/
-│   ├── dashboard-ops.ts            # Envíos, stock, lotes, producción
-│   ├── dashboard-sales.ts          # Cuentas, visitas, pedidos, pipeline
-│   ├── dashboard-admin.ts          # Finanzas, top cuentas
-│   ├── dashboard-manager.ts        # Agregados cross-departamento
-│   ├── dashboard-distributor.ts    # Pedidos, sell-out, stock
-│   ├── dashboard-marketing.ts      # Campañas, eventos, ROI
-│   └── dashboard-technical.ts      # Sistemas, rendimiento
+├── server/actions/              # ✅ COMPLETO
+│   ├── dashboard-ops.ts         # 5 tabs: Hoy, Logística, Inventario, Calidad, Producción
+│   ├── dashboard-sales.ts       # KPIs ventas, cuentas, visitas, pipeline
+│   ├── dashboard-admin.ts       # Finanzas, top cuentas, producción
+│   ├── dashboard-manager.ts     # Vista ejecutiva agregada
+│   ├── dashboard-distributor.ts # Pedidos, sell-out, stock depósito
+│   ├── dashboard-marketing.ts   # Campañas, eventos, ROI
+│   └── dashboard-technical.ts   # Sistemas, logs, rendimiento
+│
+├── components/dashboards/       # ⚠️ PENDIENTE CONECTAR
+│   ├── DashboardSales.tsx       # UI completa, datos mock
+│   ├── DashboardOps.tsx         # UI completa, datos mock
+│   ├── DashboardMarketing.tsx   # UI completa, datos mock
+│   ├── DashboardAdmin.tsx       # UI completa, datos mock
+│   ├── DashboardManager.tsx     # UI completa, datos mock
+│   ├── DashboardDistributor.tsx # UI completa, datos mock
+│   └── DashboardTechnical.tsx   # UI completa, datos mock
+│
 └── app/(app)/dashboard/
-    └── page.tsx                    # Router por rol
+    └── page.tsx                 # ⚠️ Router parcial (solo owner/admin)
 ```
 
 #### Tareas:
@@ -186,9 +219,13 @@ src/
 - [x] 1.5.5 dashboard-distributor.ts (pedidos, sell-out, stock depósito) ✅
 - [x] 1.5.6 dashboard-marketing.ts (campañas, eventos, métricas) ✅
 - [x] 1.5.7 dashboard-technical.ts (sistemas, logs, rendimiento) ✅
-- [ ] 1.5.8 Router por rol en /dashboard/page.tsx
+- [ ] 1.5.8 Router completo en /dashboard + conectar Dashboard*.tsx con server actions
 - [ ] 1.5.9 Loading states con Suspense
 - [ ] 1.5.10 Error boundaries
+
+#### Documentación:
+- `DASHBOARDS_ARCHITECTURE.md` - Guía completa de arquitectura
+- `FASE_1.5_DASHBOARDS_IMPLEMENTATION.md` - Guía de implementación
 
 ---
 
