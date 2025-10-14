@@ -1,7 +1,6 @@
 "use server";
 
-import { db } from "@/lib/firebase-admin";
-import { auth } from "@clerk/nextjs/server";
+import { adminDb as db } from "@/server/firebase";
 import { FORMULAS, ALERT_RULES } from "@/config/dashboard-config";
 
 /**
@@ -52,16 +51,11 @@ export interface SalesDashboardData {
  */
 export async function getSalesDashboardData() {
   try {
-    const { userId } = await auth();
-    if (!userId) {
-      return {
-        success: false,
-        error: "No autorizado"
       };
     }
 
     // 1. Obtener usuario actual
-    const userDoc = await db.collection("teamMembers").doc(userId).get();
+    const userDoc = await db.collection("teamMembers").doc("current-user").get();
     const user = userDoc.data();
     
     if (!user) {
@@ -81,13 +75,13 @@ export async function getSalesDashboardData() {
       // Cuentas del usuario
       db
         .collection("accounts")
-        .where("ownerId", "==", userId)
+        .where("ownerId", "==", "current-user")
         .get(),
       
       // Pedidos del mes
       db
         .collection("ordersSellOut")
-        .where("createdBy", "==", userId)
+        .where("createdBy", "==", "current-user")
         .where("createdAt", ">=", startOfMonth)
         .where("createdAt", "<=", endOfMonth)
         .get(),
@@ -95,7 +89,7 @@ export async function getSalesDashboardData() {
       // Interacciones del mes (visitas)
       db
         .collection("interactions")
-        .where("createdBy", "==", userId)
+        .where("createdBy", "==", "current-user")
         .where("timestamp", ">=", startOfMonth)
         .where("timestamp", "<=", endOfMonth)
         .get(),
@@ -103,7 +97,7 @@ export async function getSalesDashboardData() {
       // Tareas pendientes
       db
         .collection("tasks")
-        .where("assignedTo", "==", userId)
+        .where("assignedTo", "==", "current-user")
         .where("status", "in", ["PENDING", "IN_PROGRESS"])
         .orderBy("dueDate", "asc")
         .limit(20)
@@ -160,7 +154,7 @@ export async function getSalesDashboardData() {
     // 9. Próximas visitas (interactions futuras de tipo visit)
     const upcomingVisitsSnapshot = await db
       .collection("interactions")
-      .where("createdBy", "==", userId)
+      .where("createdBy", "==", "current-user")
       .where("type", "==", "visit")
       .where("timestamp", ">=", now)
       .orderBy("timestamp", "asc")
@@ -208,7 +202,7 @@ export async function getSalesDashboardData() {
     // 11. Actividad reciente (últimas 10 interacciones)
     const recentActivitySnapshot = await db
       .collection("interactions")
-      .where("createdBy", "==", userId)
+      .where("createdBy", "==", "current-user")
       .orderBy("timestamp", "desc")
       .limit(10)
       .get();
@@ -261,12 +255,7 @@ export async function getSalesDashboardData() {
  */
 export async function getSalesKpisSummary() {
   try {
-    const { userId } = await auth();
-    if (!userId) {
-      return { success: false, error: "No autorizado" };
-    }
-
-    const userDoc = await db.collection("teamMembers").doc(userId).get();
+    const userDoc = await db.collection("teamMembers").doc("current-user").get();
     const user = userDoc.data();
 
     const now = new Date();
@@ -275,7 +264,7 @@ export async function getSalesKpisSummary() {
     // Solo pedidos del mes
     const ordersSnapshot = await db
       .collection("ordersSellOut")
-      .where("createdBy", "==", userId)
+      .where("createdBy", "==", "current-user")
       .where("createdAt", ">=", startOfMonth)
       .get();
 

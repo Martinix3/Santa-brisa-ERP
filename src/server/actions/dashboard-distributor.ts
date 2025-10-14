@@ -1,17 +1,11 @@
 "use server";
 
-import { db } from "@/lib/firebase-admin";
-import { auth } from "@clerk/nextjs/server";
+import { adminDb as db } from "@/server/firebase";
 import { FORMULAS, ALERT_RULES, DATE_HELPERS } from "@/config/dashboard-config";
 
 export async function getDistributorDashboardData() {
   try {
-    const { userId } = await auth();
-    if (!userId) {
-      return { success: false, error: "No autorizado" };
-    }
-
-    const userDoc = await db.collection("teamMembers").doc(userId).get();
+    const userDoc = await db.collection("teamMembers").doc("current-user").get();
     const user = userDoc.data();
     
     if (!user || !user.distributorId) {

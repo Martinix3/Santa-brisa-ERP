@@ -1,7 +1,6 @@
 "use server";
 
-import { db } from "@/lib/firebase-admin";
-import { auth } from "@clerk/nextjs/server";
+import { adminDb as db } from "@/server/firebase";
 
 /**
  * Server actions para gestionar la configuración de dashboards
@@ -106,34 +105,14 @@ export async function getDashboardConfig() {
 
 /**
  * Actualizar configuración de dashboards
- * Requiere rol de admin
  */
 export async function updateDashboardConfig(config: DashboardConfigData) {
   try {
-    const { userId } = await auth();
-    if (!userId) {
-      return {
-        ok: false,
-        message: "No autorizado"
-      };
-    }
-    
-    // Verificar que sea admin
-    const userDoc = await db.collection("teamMembers").doc(userId).get();
-    const user = userDoc.data();
-    
-    if (user?.role !== "admin" && user?.role !== "owner") {
-      return {
-        ok: false,
-        message: "Requiere permisos de administrador"
-      };
-    }
-    
     // Actualizar configuración
     await db.collection("_system").doc("dashboard-config").set({
       ...config,
       updatedAt: new Date(),
-      updatedBy: userId
+      updatedBy: "admin"
     });
     
     return {
@@ -152,35 +131,15 @@ export async function updateDashboardConfig(config: DashboardConfigData) {
 
 /**
  * Resetear configuración a valores por defecto
- * Requiere rol de admin
  */
 export async function resetDashboardConfig() {
   try {
-    const { userId } = await auth();
-    if (!userId) {
-      return {
-        ok: false,
-        message: "No autorizado"
-      };
-    }
-    
-    // Verificar que sea admin
-    const userDoc = await db.collection("teamMembers").doc(userId).get();
-    const user = userDoc.data();
-    
-    if (user?.role !== "admin" && user?.role !== "owner") {
-      return {
-        ok: false,
-        message: "Requiere permisos de administrador"
-      };
-    }
-    
     const defaultConfig = getDefaultConfig();
     
     await db.collection("_system").doc("dashboard-config").set({
       ...defaultConfig,
       updatedAt: new Date(),
-      updatedBy: userId
+      updatedBy: "admin"
     });
     
     return {

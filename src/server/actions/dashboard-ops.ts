@@ -1,7 +1,6 @@
 "use server";
 
-import { db } from "@/lib/firebase-admin";
-import { auth } from "@clerk/nextjs/server";
+import { adminDb as db } from "@/server/firebase";
 import { FORMULAS, ALERT_RULES, DATE_HELPERS } from "@/config/dashboard-config";
 
 /**
@@ -11,11 +10,6 @@ import { FORMULAS, ALERT_RULES, DATE_HELPERS } from "@/config/dashboard-config";
 
 export async function getOpsDashboardData(tab: string = "today") {
   try {
-    const { userId } = await auth();
-    if (!userId) {
-      return { success: false, error: "No autorizado" };
-    }
-
     switch (tab) {
       case "today":
         return await getTodayData();

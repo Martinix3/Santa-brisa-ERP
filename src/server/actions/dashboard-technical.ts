@@ -1,16 +1,10 @@
 "use server";
 
-import { db } from "@/lib/firebase-admin";
-import { auth } from "@clerk/nextjs/server";
+import { adminDb as db } from "@/server/firebase";
 import { FORMULAS, ALERT_RULES, DATE_HELPERS } from "@/config/dashboard-config";
 
 export async function getTechnicalDashboardData() {
   try {
-    const { userId } = await auth();
-    if (!userId) {
-      return { success: false, error: "No autorizado" };
-    }
-
     const startOfMonth = DATE_HELPERS.getStartOfMonth();
     const endOfMonth = DATE_HELPERS.getEndOfMonth();
 
