@@ -24,12 +24,28 @@ import DashboardMarketing from "@/components/dashboards/DashboardMarketing";
 export default function DashboardPage() {
   const { currentUser } = useData();
 
-  // Router por rol - Managers/Owners ven DashboardManager, todos los demás ven Dashboard Personal
+  // Router por rol - Cada usuario ve su dashboard personal según su rol
   if (currentUser?.role === "owner" || currentUser?.role === "admin") {
     return <DashboardManager />;
   }
   
-  // Todos los demás roles (sales, ops, marketing, etc.) ven Dashboard Personal (tareas)
+  if (currentUser?.role === "comercial") {
+    return <DashboardSales />;
+  }
+  
+  if (currentUser?.role === "ops") {
+    return <DashboardOps />;
+  }
+  
+  if (currentUser?.role === "marketing") {
+    return <DashboardMarketing />;
+  }
+  
+  if (currentUser?.role === "distribuidor") {
+    return <DashboardDistributor />;
+  }
+  
+  // Fallback: Dashboard Personal (tareas) para roles sin dashboard específico
   const [tasks, setTasks] = useState<TaskNew[]>([]);
   const [priorityTasks, setPriorityTasks] = useState<TaskNew[]>([]);
   const [overdueTasks, setOverdueTasks] = useState<TaskNew[]>([]);
