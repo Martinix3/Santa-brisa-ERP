@@ -1,102 +1,111 @@
 "use server";
 
-import { getFirestore } from 'firebase-admin/firestore';
+import { db } from "@/lib/firebase-admin";
+import { auth } from "@clerk/nextjs/server";
+import { FORMULAS, ALERT_RULES, DATE_HELPERS } from "@/config/dashboard-config";
 
-const db = getFirestore();
-
-/**
- * Server action para obtener métricas del Dashboard Technical (Sistema)
- */
 export async function getTechnicalDashboardData() {
   try {
-    const data = {
-      systemHealth: {
-        uptime: 99.97,
-        responseTime: 0,
-        activeUsers: 0,
-        errorRate: 0
-      },
-      firestoreMetrics: {
-        reads: 0,
-        writes: 0,
-        deletes: 0,
-        collections: 0,
-        documents: 0,
-        storageUsed: 0
-      },
-      performanceData: [],
-      apiEndpoints: [],
-      webhooksStatus: [],
-      recentErrors: [],
-      collections: []
-    };
+    const { userId } = await auth();
+    if (!userId) {
+      return { success: false, error: "No autorizado" };
+    }
 
-    // TODO: Implementar métricas reales del sistema
-    // Estas métricas normalmente vienen de:
-    // - Firebase Performance Monitoring
-    // - Cloud Functions logs
-    // - Firestore stats API
-    // - Custom analytics
+    const startOfMonth = DATE_HELPERS.getStartOfMonth();
+    const endOfMonth = DATE_HELPERS.getEndOfMonth();
 
-    return { success: true, data };
-  } catch (error) {
-    console.error('[getTechnicalDashboardData] Error:', error);
-    return { success: false, error: 'Error al cargar métricas técnicas' };
-  }
-}
+    const [productionSnapshot, lotsSnapshot, equipmentSnapshot, maintenanceSnapshot] = await Promise.all([
+      db.collection("productionOrders")
+        .where("createdAt", ">=", startOfMonth)
+        .where("createdAt", "<=", endOfMonth)
+        .get(),
+      db.collection("lots")
+        .where("createdAt", ">=", startOfMonth)
+        .where("createdAt", "<=", endOfMonth)
+        .get(),
+      db.collection("equipment")
+        .where("status", "in", ["ACTIVE", "MAINTENANCE"])
+        .get(),
+      db.collection("maintenance")
+        .where("status", "in", ["PENDING", "IN_PROGRESS"])
+        .get()
+    ]);
 
-export async function getFirestoreStats() {
-  try {
-    // TODO: Obtener estadísticas de Firestore
-    // const collections = await db.listCollections();
-    // for (const collection of collections) {
-    //   const snapshot = await collection.count().get();
-    //   stats[collection.id] = snapshot.data().count;
-    // }
-    
-    return { success: true, data: {} };
-  } catch (error) {
-    console.error('[getFirestoreStats] Error:', error);
-    return { success: false, error: 'Error al cargar estadísticas de Firestore' };
-  }
-}
+    const totalProduction = productionSnapshot.size;
+    const completedProduction = productionSnapshot.docs.filter(
+      doc => doc.data().status === "COMPLETED"
+    ).length;
 
-export async function getSystemLogs(limit = 100) {
-  try {
-    // TODO: Obtener logs del sistema
-    // Normalmente desde Cloud Functions logs o un sistema de logging personalizado
-    
-    return { success: true, data: [] };
-  } catch (error) {
-    console.error('[getSystemLogs] Error:', error);
-    return { success: false, error: 'Error al cargar logs del sistema' };
-  }
-}
+    const totalProduced = productionSnapshot.docs.reduce((sum, doc) => {
+      const data = doc.data();
+      return sum + (data.qtyProduced || 0);
+    }, 0);
 
-export async function runSystemDiagnostics() {
-  try {
-    // TODO: Ejecutar diagnóstico del sistema
-    // - Verificar conexiones Firestore
-    // - Verificar integraciones externas
-    // - Verificar índices
-    // - Verificar reglas de seguridad
-    
-    const diagnostics = {
-      timestamp: new Date().toISOString(),
-      firestore: 'OK',
-      auth: 'OK',
-      storage: 'OK',
-      functions: 'OK',
-      integrations: {
-        holded: 'OK',
-        algolia: 'OK',
-        sendcloud: 'WARNING'
+    const totalPlanned = productionSnapshot.docs.reduce((sum, doc) => {
+      const data = doc.data();
+      return sum + (data.qtyPlanned || 0);
+    }, 0);
+
+    const efficiency = totalPlanned > 0 
+      ? Math.round((totalProduced / totalPlanned) * 100)
+      : 0;
+
+    const totalLots = lotsSnapshot.size;
+    const approvedLots = lotsSnapshot.docs.filter(
+      doc => doc.data().qcStatus === "APPROVED"
+    ).length;
+    const rejectedLots = lotsSnapshot.docs.filter(
+      doc => doc.data().qcStatus === "REJECTED"
+    ).length;
+
+    const qualityRate = totalLots > 0
+      ? Math.round((approvedLots / totalLots) * 100)
+      : 0;
+
+    const activeEquipment = equipmentSnapshot.docs.filter(
+      doc => doc.data().status === "ACTIVE"
+    ).length;
+
+    const equipmentInMaintenance = equipmentSnapshot.docs.filter(
+      doc => doc.data().status === "MAINTENANCE"
+    ).length;
+
+    const pendingMaintenance = maintenanceSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      scheduledDate: doc.data().scheduledDate?.toDate() || new Date()
+    }));
+
+    const recentProduction = productionSnapshot.docs
+      .map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: doc.data().createdAt?.toDate() || new Date()
+      }))
+      .sort((a: any, b: any) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, 10);
+
+    return {
+      success: true,
+      data: {
+        technicalKpis: {
+          totalProduction,
+          completedProduction,
+          efficiency,
+          totalLots,
+          approvedLots,
+          rejectedLots,
+          qualityRate,
+          activeEquipment,
+          equipmentInMaintenance,
+          pendingMaintenance: maintenanceSnapshot.size
+        },
+        recentProduction,
+        pendingMaintenance: pendingMaintenance.slice(0, 10)
       }
     };
-    
-    return { success: true, data: diagnostics };
-  } catch (error) {
-    console.error('[runSystemDiagnostics] Error:', error);
-    return { success: false, error: 'Error al ejecutar diagnóstico' };
+  } catch (error: any) {
+    console.error("[getTechnicalDashboardData] Error:", error);
+    return { success: false, error: error.message };
   }
 }

@@ -1,67 +1,122 @@
 "use server";
 
-import { getFirestore } from 'firebase-admin/firestore';
+import { db } from "@/lib/firebase-admin";
+import { auth } from "@clerk/nextjs/server";
+import { FORMULAS, ALERT_RULES, DATE_HELPERS } from "@/config/dashboard-config";
 
-const db = getFirestore();
-
-/**
- * Server action para obtener métricas del Dashboard Distributor
- */
-export async function getDistributorDashboardData(distributorPartyId: string) {
+export async function getDistributorDashboardData() {
   try {
-    const data = {
-      ordersSummary: {
-        pending: 0,
-        inTransit: 0,
-        delivered: 0,
-        otif: 0
-      },
-      myOrders: [],
-      stockSummary: {
-        totalValue: 0,
-        skus: 0,
-        rotation: 0,
-        coverage: 0
-      },
-      sellOutData: [],
-      creditInfo: {
-        limit: 0,
-        used: 0,
-        available: 0
+    const { userId } = await auth();
+    if (!userId) {
+      return { success: false, error: "No autorizado" };
+    }
+
+    const userDoc = await db.collection("teamMembers").doc(userId).get();
+    const user = userDoc.data();
+    
+    if (!user || !user.distributorId) {
+      return { success: false, error: "Usuario no es distribuidor" };
+    }
+
+    const distributorId = user.distributorId;
+    const startOfMonth = DATE_HELPERS.getStartOfMonth();
+
+    const [ordersSnapshot, accountsSnapshot, stockSnapshot, shipmentsSnapshot] = await Promise.all([
+      db.collection("ordersSellOut")
+        .where("distributorId", "==", distributorId)
+        .where("createdAt", ">=", startOfMonth)
+        .get(),
+      db.collection("accounts")
+        .where("distributorId", "==", distributorId)
+        .get(),
+      db.collection("onHand")
+        .where("locationId", "==", distributorId)
+        .get(),
+      db.collection("shipments")
+        .where("destinationId", "==", distributorId)
+        .where("status", "in", ["PENDING", "IN_TRANSIT"])
+        .get()
+    ]);
+
+    const totalOrders = ordersSnapshot.size;
+    const totalRevenue = ordersSnapshot.docs.reduce((sum, doc) => {
+      return sum + (doc.data().totalAmount || 0);
+    }, 0);
+
+    const activeAccounts = accountsSnapshot.docs.filter(doc => {
+      const lastOrder = doc.data().lastOrderDate?.toDate();
+      return lastOrder && !ALERT_RULES.isAccountInactive(lastOrder);
+    }).length;
+
+    const stockValue = stockSnapshot.docs.reduce((sum, doc) => {
+      return sum + (doc.data().value || 0);
+    }, 0);
+
+    const criticalStock = stockSnapshot.docs.filter(doc => {
+      const data = doc.data();
+      return ALERT_RULES.isStockCritical(data.qtyOnHand, data.minQty || 0);
+    }).length;
+
+    const topProducts = await getTopProducts(distributorId, startOfMonth);
+    const pendingShipments = shipmentsSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      scheduledDate: doc.data().scheduledDate?.toDate() || new Date()
+    }));
+
+    return {
+      success: true,
+      data: {
+        distributorKpis: {
+          totalOrders,
+          totalRevenue,
+          activeAccounts,
+          totalAccounts: accountsSnapshot.size,
+          stockValue,
+          criticalStock,
+          pendingShipments: shipmentsSnapshot.size
+        },
+        topProducts,
+        pendingShipments: pendingShipments.slice(0, 10)
       }
     };
-
-    // TODO: Implementar queries reales filtradas por distributorPartyId
-    // const orders = await db.collection('ordersSellOut')
-    //   .where('distributorId', '==', distributorPartyId)
-    //   .get();
-
-    return { success: true, data };
-  } catch (error) {
-    console.error('[getDistributorDashboardData] Error:', error);
-    return { success: false, error: 'Error al cargar datos del distribuidor' };
+  } catch (error: any) {
+    console.error("[getDistributorDashboardData] Error:", error);
+    return { success: false, error: error.message };
   }
 }
 
-export async function uploadSellOutData(distributorId: string, data: any[]) {
-  try {
-    // TODO: Procesar y guardar datos de sell-out desde CSV
-    // Validar formato, crear registros en ordersSellOut con isSellOutReported=true
-    
-    return { success: true, count: data.length };
-  } catch (error) {
-    console.error('[uploadSellOutData] Error:', error);
-    return { success: false, error: 'Error al subir datos de sell-out' };
-  }
-}
+async function getTopProducts(distributorId: string, startOfMonth: Date) {
+  const ordersSnapshot = await db.collection("ordersSellOut")
+    .where("distributorId", "==", distributorId)
+    .where("createdAt", ">=", startOfMonth)
+    .get();
 
-export async function requestPlvMaterial(distributorId: string, materialId: string, qty: number) {
-  try {
-    // TODO: Crear solicitud de material PLV
+  const productSales: Record<string, { qty: number; revenue: number; name: string }> = {};
+
+  ordersSnapshot.docs.forEach(doc => {
+    const order = doc.data();
+    const items = order.items || [];
     
-    return { success: true };
-  } catch (error) {
-    console.error('[requestPlvMaterial] Error:', error);
-    return { success: false, error: 'Error al solicitar material PLV' };
-  }
+    items.forEach((item: any) => {
+      const sku = item.sku || item.productId;
+      if (!sku) return;
+
+      if (!productSales[sku]) {
+        productSales[sku] = {
+          qty: 0,
+          revenue: 0,
+          name: item.productName || sku
+        };
+      }
+
+      productSales[sku].qty += item.qty || 0;
+      productSales[sku].revenue += (item.qty || 0) * (item.price || 0);
+    });
+  });
+
+  return Object.entries(productSales)
+    .map(([sku, data]) => ({ sku, ...data }))
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 10);
 }

@@ -1,42 +1,89 @@
 "use server";
 
-import { getFirestore } from 'firebase-admin/firestore';
+import { db } from "@/lib/firebase-admin";
+import { auth } from "@clerk/nextjs/server";
+import { FORMULAS, DATE_HELPERS } from "@/config/dashboard-config";
 
-const db = getFirestore();
-
-/**
- * Server action para obtener métricas del Dashboard Manager (Ejecutivo)
- */
 export async function getManagerDashboardData() {
   try {
-    const data = {
-      executiveKpis: {
-        sales: { value: 0, growth: 0, target: 0 },
-        production: { value: 0, growth: 0 },
-        inventory: { value: 0, critical: 0 },
-        finance: { collected: 0, pending: 0 }
-      },
-      departmentSummary: [],
-      santaBrainPriorities: [],
-      criticalAlerts: []
+    const { userId } = await auth();
+    if (!userId) {
+      return { success: false, error: "No autorizado" };
+    }
+
+    const startOfMonth = DATE_HELPERS.getStartOfMonth();
+    const endOfMonth = DATE_HELPERS.getEndOfMonth();
+
+    const [teamSnapshot, ordersSnapshot, accountsSnapshot, tasksSnapshot] = await Promise.all([
+      db.collection("teamMembers").where("role", "==", "sales").get(),
+      db.collection("ordersSellOut")
+        .where("createdAt", ">=", startOfMonth)
+        .where("createdAt", "<=", endOfMonth)
+        .get(),
+      db.collection("accounts").get(),
+      db.collection("tasks")
+        .where("status", "in", ["PENDING", "IN_PROGRESS"])
+        .get()
+    ]);
+
+    const teamPerformance = await Promise.all(
+      teamSnapshot.docs.map(async (doc) => {
+        const memberId = doc.id;
+        const member = doc.data();
+
+        const memberOrders = ordersSnapshot.docs.filter(
+          orderDoc => orderDoc.data().createdBy === memberId
+        );
+
+        const revenue = memberOrders.reduce((sum, orderDoc) => {
+          return sum + (orderDoc.data().totalAmount || 0);
+        }, 0);
+
+        const target = member.salesTarget || 50000;
+        const progress = FORMULAS.targetProgress(revenue, target);
+
+        const memberAccounts = await db.collection("accounts")
+          .where("ownerId", "==", memberId)
+          .get();
+
+        return {
+          id: memberId,
+          name: member.fullName || member.email || "Sin nombre",
+          revenue,
+          target,
+          progress,
+          orders: memberOrders.length,
+          accounts: memberAccounts.size
+        };
+      })
+    );
+
+    const totalTeamRevenue = teamPerformance.reduce((sum, member) => sum + member.revenue, 0);
+    const totalTeamTarget = teamPerformance.reduce((sum, member) => sum + member.target, 0);
+    const teamProgress = FORMULAS.targetProgress(totalTeamRevenue, totalTeamTarget);
+
+    const topPerformers = [...teamPerformance]
+      .sort((a, b) => b.progress - a.progress)
+      .slice(0, 5);
+
+    return {
+      success: true,
+      data: {
+        teamKpis: {
+          totalRevenue: totalTeamRevenue,
+          totalTarget: totalTeamTarget,
+          progress: teamProgress,
+          teamSize: teamSnapshot.size,
+          totalOrders: ordersSnapshot.size,
+          totalAccounts: accountsSnapshot.size,
+          pendingTasks: tasksSnapshot.size
+        },
+        teamPerformance,
+        topPerformers
+      }
     };
-
-    // TODO: Implementar queries reales agregadas de todos los departamentos
-
-    return { success: true, data };
-  } catch (error) {
-    console.error('[getManagerDashboardData] Error:', error);
-    return { success: false, error: 'Error al cargar datos ejecutivos' };
-  }
-}
-
-export async function getSantaBrainPriorities() {
-  try {
-    // TODO: Implementar lógica de IA/ML para generar prioridades
-    // Por ahora retorna array vacío
-    return { success: true, data: [] };
-  } catch (error) {
-    console.error('[getSantaBrainPriorities] Error:', error);
-    return { success: false, error: 'Error al cargar prioridades' };
+  } catch (error: any) {
+    console.error("[getManagerDashboardData] Error:", error);
+    return { success: false, error: error.message };
   }
 }
