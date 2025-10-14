@@ -1,58 +1,218 @@
 "use server";
 
 import { adminDb as db } from "@/server/firebase";
-import { z } from "zod";
-import { randomUUID } from "crypto";
-import type { OrderSellOut, OrderLine, Currency, CommercialFlow } from "@/domain/ssot";
+import { revalidatePath } from "next/cache";
+import type { OrderStatus, StatusHistoryEntry } from "@/types/orders";
+import { isValidTransition } from "@/types/orders";
 
-const OrderItemInput = z.object({
-  sku: z.string().optional(),
-  qty: z.number().positive(),
-  unitPrice: z.number().optional(),
-});
+type UpdateOrderStatusResult = {
+  success: boolean;
+  message: string;
+  newStatus?: OrderStatus;
+};
 
-const OrderInput = z.object({
-  date: z.string(),
-  flow: z.custom<CommercialFlow>(), // 'DIRECT' | 'PLACEMENT'
-  currency: z.custom<Currency>(),
-  items: z.array(OrderItemInput),
-  notes: z.string().optional(),
-});
-
-export async function createOrderForAccount(
-  accountId: string,
+/**
+ * Update order status with validation and history tracking
+ * Phase 1 - Orders Intelligence
+ */
+export async function updateOrderStatus(
+  orderId: string,
+  newStatus: OrderStatus,
   userId: string,
-  input: z.infer<typeof OrderInput>,
-) {
-  const parsed = OrderInput.parse(input);
-  const id = randomUUID();
-  const now = new Date().toISOString();
+  userName: string,
+  note?: string
+): Promise<UpdateOrderStatusResult> {
+  try {
+    const orderRef = db.collection("ordersSellOut").doc(orderId);
+    const orderDoc = await orderRef.get();
 
-  const lines: OrderLine[] = parsed.items.map((l) => ({
-    itemId: l.sku || "",
-    sku: l.sku,
-    qty: l.qty,
-    priceUnit: l.unitPrice ?? 0,
-    uom: "unit",
-  }));
+    if (!orderDoc.exists) {
+      return {
+        success: false,
+        message: "Pedido no encontrado"
+      };
+    }
 
-  const totalAmount = lines.reduce((s, x) => s + x.qty * (x.priceUnit ?? 0), 0);
+    const orderData = orderDoc.data();
+    const currentStatus = orderData?.status as OrderStatus;
 
-  const order: Partial<OrderSellOut> & { createdById?: string } = {
-    id,
-    accountId,
-    lines,
-    totalAmount,
-    currency: parsed.currency,
-    notes: parsed.notes,
-    flow: parsed.flow,
-    status: "open",
-    createdAt: now,
-    updatedAt: now,
-    createdById: userId,
-    orderDate: parsed.date,
-  };
+    // Validate transition
+    if (!isValidTransition(currentStatus, newStatus)) {
+      return {
+        success: false,
+        message: `Transición inválida de ${currentStatus} a ${newStatus}`
+      };
+    }
 
-  await db.collection("ordersSellOut").doc(id).set(order);
-  return { id };
+    // Create history entry
+    const historyEntry: StatusHistoryEntry = {
+      status: newStatus,
+      timestamp: new Date().toISOString(),
+      userId,
+      userName,
+      note,
+      metadata: {
+        previousStatus: currentStatus,
+        triggeredBy: "manual"
+      }
+    };
+
+    // Get existing history or initialize
+    const existingHistory = orderData?.workflowMetadata?.statusHistory || [];
+    const updatedHistory = [...existingHistory, historyEntry];
+
+    // Update order
+    await orderRef.update({
+      status: newStatus,
+      updatedAt: new Date().toISOString(),
+      "workflowMetadata.currentStatus": newStatus,
+      "workflowMetadata.statusHistory": updatedHistory,
+      "workflowMetadata.lastStatusChange": historyEntry.timestamp,
+      "workflowMetadata.lastStatusChangeBy": userId
+    });
+
+    // Log interaction for audit
+    await logOrderStatusChange(orderId, currentStatus, newStatus, userId, userName, note);
+
+    // AI Hook - placeholder for Gemini integration (Phase 6)
+    if (newStatus === 'APPROVED') {
+      await logAIContext('order:approved', { orderId, userId });
+    }
+
+    // Auto-actions based on status
+    if (newStatus === 'APPROVED' && orderData?.flow === 'DIRECT') {
+      // Trigger shipment creation (Phase 1.4)
+      await createShipmentFromOrder(orderId);
+    }
+
+    // Revalidate relevant paths
+    revalidatePath('/ventas/pedidos');
+    revalidatePath(`/ventas/pedidos/${orderId}`);
+
+    return {
+      success: true,
+      message: `Estado actualizado a ${newStatus}`,
+      newStatus
+    };
+
+  } catch (error) {
+    console.error('Error updating order status:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Error desconocido'
+    };
+  }
+}
+
+/**
+ * Log order status change in interactions collection
+ * For audit trail and analytics
+ */
+async function logOrderStatusChange(
+  orderId: string,
+  fromStatus: OrderStatus,
+  toStatus: OrderStatus,
+  userId: string,
+  userName: string,
+  note?: string
+): Promise<void> {
+  try {
+    await db.collection("interactions").add({
+      kind: "ORDER_STATUS_CHANGE",
+      entityType: "order",
+      entityId: orderId,
+      userId,
+      userName,
+      timestamp: new Date().toISOString(),
+      metadata: {
+        fromStatus,
+        toStatus,
+        note
+      }
+    });
+  } catch (error) {
+    console.error('Error logging interaction:', error);
+    // Don't throw - logging shouldn't block the main action
+  }
+}
+
+/**
+ * AI Context Logger - Placeholder for Gemini integration
+ * Phase 6 - Gemini Intelligence
+ */
+async function logAIContext(
+  event: string,
+  context: Record<string, any>
+): Promise<void> {
+  try {
+    // Placeholder - will integrate with Gemini in Phase 6
+    await db.collection("ai_context_log").add({
+      event,
+      context,
+      timestamp: new Date().toISOString(),
+      processed: false
+    });
+  } catch (error) {
+    console.error('Error logging AI context:', error);
+    // Don't throw - logging shouldn't block the main action
+  }
+}
+
+/**
+ * Create shipment from approved order
+ * Placeholder for Phase 1.4 - Auto-generation
+ */
+async function createShipmentFromOrder(orderId: string): Promise<void> {
+  try {
+    const orderDoc = await db.collection("ordersSellOut").doc(orderId).get();
+    
+    if (!orderDoc.exists) {
+      throw new Error("Order not found");
+    }
+
+    const orderData = orderDoc.data();
+
+    // Create shipment document
+    const shipmentData = {
+      id: `SHIP-${Date.now()}`,
+      status: "PENDING",
+      sourceOrderId: orderId,
+      accountId: orderData?.accountId,
+      lines: orderData?.lines || [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      metadata: {
+        autoGenerated: true,
+        triggeredBy: "order_approval"
+      }
+    };
+
+    await db.collection("shipments").add(shipmentData);
+
+    console.log(`Shipment created for order ${orderId}`);
+  } catch (error) {
+    console.error('Error creating shipment:', error);
+    // Don't throw - shipment creation failure shouldn't block status change
+  }
+}
+
+/**
+ * Get order status history
+ */
+export async function getOrderStatusHistory(
+  orderId: string
+): Promise<StatusHistoryEntry[]> {
+  try {
+    const orderDoc = await db.collection("ordersSellOut").doc(orderId).get();
+    
+    if (!orderDoc.exists) {
+      return [];
+    }
+
+    const orderData = orderDoc.data();
+    return orderData?.workflowMetadata?.statusHistory || [];
+  } catch (error) {
+    console.error('Error getting status history:', error);
+    return [];
+  }
 }

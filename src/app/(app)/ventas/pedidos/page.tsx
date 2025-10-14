@@ -95,16 +95,17 @@ export default function PedidosPage() {
     return { total, pending, confirmed, shipped, totalAmount };
   }, [activeTab, directOrders, placementOrders]);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'open': return 'bg-blue-500/10 text-blue-700 dark:text-blue-300';
-      case 'confirmed': return 'bg-green-500/10 text-green-700 dark:text-green-300';
-      case 'shipped': return 'bg-purple-500/10 text-purple-700 dark:text-purple-300';
-      case 'invoiced': return 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-300';
-      case 'paid': return 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300';
-      case 'cancelled': return 'bg-red-500/10 text-red-700 dark:text-red-300';
-      default: return 'bg-gray-500/10 text-gray-700 dark:text-gray-300';
-    }
+  const getStatusBadgeClass = (status: string) => {
+    const classes: Record<string, string> = {
+      open: 'sb-badge sb-badge--primary',
+      confirmed: 'sb-badge sb-badge--success',
+      shipped: 'sb-pill sb-pill--primary',
+      invoiced: 'sb-pill sb-pill--success',
+      paid: 'sb-badge sb-badge--success',
+      cancelled: 'sb-badge sb-badge--destructive',
+      lost: 'sb-badge sb-badge--destructive'
+    };
+    return classes[status] || 'sb-badge';
   };
 
   const getStatusLabel = (status: string) => {
@@ -123,58 +124,50 @@ export default function PedidosPage() {
   return (
     <div className="sb-page">
       {/* Header */}
-      <div className="sb-page__header">
-        <div>
-          <h1 className="sb-page__title flex items-center gap-2">
-            <ShoppingCart className="h-6 w-6" />
-            Pedidos
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Gestión de pedidos de venta directa y colocación
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <button className="sb-btn sb-btn--ghost">
-            <Download size={16} />
-            Exportar
-          </button>
-          <button className="sb-btn sb-btn--primary">
-            <Plus size={16} />
-            Nuevo Pedido
-          </button>
+      <div className="sb-header-glass p-5 mb-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-2">
+              <ShoppingCart className="h-6 w-6" />
+              Pedidos
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Gestión de pedidos de venta directa y colocación
+            </p>
+          </div>
+          <div className="sb-actions">
+            <button className="sb-btn sb-btn--ghost">
+              <Download size={16} />
+              Exportar
+            </button>
+            <button className="sb-btn sb-btn--primary">
+              <Plus size={16} />
+              Nuevo Pedido
+            </button>
+          </div>
         </div>
       </div>
 
       <div className="sb-page__content">
         {/* Tabs */}
-        <div className="flex gap-1 p-1 bg-secondary/30 rounded-lg mb-6">
+        <div className="sb-tabs mb-6">
           <button
+            className="sb-tab"
+            aria-selected={activeTab === 'direct'}
             onClick={() => setActiveTab('direct')}
-            className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              activeTab === 'direct'
-                ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
           >
-            <div className="flex items-center justify-center gap-2">
-              <ShoppingCart size={16} />
-              Venta Directa
-              <span className="sb-badge sb-badge--primary">{directOrders.length}</span>
-            </div>
+            <ShoppingCart size={16} />
+            Venta Directa
+            <span className="sb-badge sb-badge--primary">{directOrders.length}</span>
           </button>
           <button
+            className="sb-tab"
+            aria-selected={activeTab === 'placement'}
             onClick={() => setActiveTab('placement')}
-            className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              activeTab === 'placement'
-                ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
           >
-            <div className="flex items-center justify-center gap-2">
-              <TrendingUp size={16} />
-              Colocación
-              <span className="sb-badge sb-badge--secondary">{placementOrders.length}</span>
-            </div>
+            <TrendingUp size={16} />
+            Colocación
+            <span className="sb-badge">{placementOrders.length}</span>
           </button>
         </div>
 
@@ -209,54 +202,52 @@ export default function PedidosPage() {
         </div>
 
         {/* Filtros */}
-        <SBCard className="mb-6">
-          <div className="sb-card__content">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              {/* Búsqueda */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <input
-                  type="text"
-                  placeholder="Buscar pedidos..."
-                  value={filters.search}
-                  onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                  className="w-full pl-9 pr-3 py-2 rounded-lg border border-border/40 bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
-                />
-              </div>
-
-              {/* Status */}
-              <select
-                value={filters.status}
-                onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-                className="px-3 py-2 rounded-lg border border-border/40 bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
-              >
-                <option value="all">Todos los estados</option>
-                <option value="open">Abierto</option>
-                <option value="confirmed">Confirmado</option>
-                <option value="shipped">Enviado</option>
-                <option value="invoiced">Facturado</option>
-                <option value="paid">Pagado</option>
-                <option value="cancelled">Cancelado</option>
-              </select>
-
-              {/* Fecha desde */}
+        <div className="sb-card-glass-light p-5 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {/* Búsqueda */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
-                type="date"
-                value={filters.dateFrom}
-                onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value })}
-                className="px-3 py-2 rounded-lg border border-border/40 bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
-              />
-
-              {/* Fecha hasta */}
-              <input
-                type="date"
-                value={filters.dateTo}
-                onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
-                className="px-3 py-2 rounded-lg border border-border/40 bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+                type="text"
+                placeholder="Buscar pedidos..."
+                value={filters.search}
+                onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                className="sb-input pl-9"
               />
             </div>
+
+            {/* Status */}
+            <select
+              value={filters.status}
+              onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+              className="sb-select"
+            >
+              <option value="all">Todos los estados</option>
+              <option value="open">Abierto</option>
+              <option value="confirmed">Confirmado</option>
+              <option value="shipped">Enviado</option>
+              <option value="invoiced">Facturado</option>
+              <option value="paid">Pagado</option>
+              <option value="cancelled">Cancelado</option>
+            </select>
+
+            {/* Fecha desde */}
+            <input
+              type="date"
+              value={filters.dateFrom}
+              onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value })}
+              className="sb-input"
+            />
+
+            {/* Fecha hasta */}
+            <input
+              type="date"
+              value={filters.dateTo}
+              onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
+              className="sb-input"
+            />
           </div>
-        </SBCard>
+        </div>
 
         {/* Lista de Pedidos */}
         <div className="space-y-3">
@@ -288,11 +279,11 @@ export default function PedidosPage() {
                         <h3 className="font-semibold text-lg">
                           {order.docNumber || `#${order.id.substring(0, 8)}`}
                         </h3>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
+                        <span className={getStatusBadgeClass(order.status)}>
                           {getStatusLabel(order.status)}
                         </span>
                         {activeTab === 'placement' && order.distributorId && (
-                          <span className="sb-badge sb-badge--secondary">
+                          <span className="sb-badge">
                             Distribuidor: {order.distributorId}
                           </span>
                         )}

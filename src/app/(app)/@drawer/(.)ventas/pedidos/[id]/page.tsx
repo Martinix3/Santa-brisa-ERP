@@ -1,9 +1,12 @@
 "use client";
 
-import { use, useMemo } from "react";
+import { use, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { EntityDrawerShell } from "@/components/drawers/EntityDrawerShell";
+import { ChangeStatusModal } from "@/components/orders/ChangeStatusModal";
 import { useData } from "@/lib/dataprovider";
+import type { OrderStatus } from "@/types/orders";
+import { STATUS_LABELS, STATUS_BADGE_CLASSES } from "@/types/orders";
 import { 
   ShoppingCart, 
   Calendar, 
@@ -14,13 +17,15 @@ import {
   Truck,
   FileText,
   Edit,
-  Trash2
+  Trash2,
+  RefreshCw
 } from "lucide-react";
 
 export default function OrderDrawerPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const { data } = useData();
   const { id } = use(params);
+  const [showStatusModal, setShowStatusModal] = useState(false);
   
   // Buscar el pedido y cuenta
   const order = useMemo(() => {
@@ -31,6 +36,9 @@ export default function OrderDrawerPage({ params }: { params: Promise<{ id: stri
     if (!order?.accountId) return null;
     return data?.accounts?.find(a => a.id === order.accountId);
   }, [data?.accounts, order?.accountId]);
+
+  // Usuario actual - temporal placeholder
+  const currentUser = { id: 'current-user', name: 'Usuario Actual' };
 
   if (!order) {
     return (
@@ -48,16 +56,17 @@ export default function OrderDrawerPage({ params }: { params: Promise<{ id: stri
     );
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'open': return 'bg-blue-500/10 text-blue-700 dark:text-blue-300';
-      case 'confirmed': return 'bg-green-500/10 text-green-700 dark:text-green-300';
-      case 'shipped': return 'bg-purple-500/10 text-purple-700 dark:text-purple-300';
-      case 'invoiced': return 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-300';
-      case 'paid': return 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300';
-      case 'cancelled': return 'bg-red-500/10 text-red-700 dark:text-red-300';
-      default: return 'bg-gray-500/10 text-gray-700 dark:text-gray-300';
-    }
+  const getStatusBadgeClass = (status: string) => {
+    const classes: Record<string, string> = {
+      open: 'sb-badge sb-badge--primary',
+      confirmed: 'sb-badge sb-badge--success',
+      shipped: 'sb-pill sb-pill--primary',
+      invoiced: 'sb-pill sb-pill--success',
+      paid: 'sb-badge sb-badge--success',
+      cancelled: 'sb-badge sb-badge--destructive',
+      lost: 'sb-badge sb-badge--destructive'
+    };
+    return classes[status] || 'sb-badge';
   };
 
   const getStatusLabel = (status: string) => {
@@ -79,22 +88,25 @@ export default function OrderDrawerPage({ params }: { params: Promise<{ id: stri
       subtitle={`${order.flow === 'PLACEMENT' ? 'Colocación' : 'Venta Directa'} · ${getStatusLabel(order.status)}`}
       actions={
         <div className="flex gap-2">
+          <button 
+            onClick={() => setShowStatusModal(true)}
+            className="sb-btn sb-btn--sm sb-btn--primary"
+          >
+            <RefreshCw size={16} />
+            Cambiar Estado
+          </button>
           <button className="sb-btn sb-btn--sm sb-btn--ghost">
             <Edit size={16} />
             Editar
-          </button>
-          <button className="sb-btn sb-btn--sm sb-btn--ghost text-destructive">
-            <Trash2 size={16} />
-            Cancelar
           </button>
         </div>
       }
       onClose={() => router.back()}
     >
       {/* Header con status y datos principales */}
-      <div className="p-6 border-b border-border/30 bg-secondary/10">
+      <div className="sb-section">
         <div className="flex items-center justify-between mb-4">
-          <span className={`px-3 py-1.5 rounded-full text-sm font-medium ${getStatusColor(order.status)}`}>
+          <span className={getStatusBadgeClass(order.status)}>
             {getStatusLabel(order.status)}
           </span>
           <div className="text-right">
@@ -138,9 +150,9 @@ export default function OrderDrawerPage({ params }: { params: Promise<{ id: stri
       </div>
 
       {/* Líneas del pedido */}
-      <div className="p-6 border-b border-border/30">
-        <h3 className="font-semibold mb-4 flex items-center gap-2">
-          <Package size={18} />
+      <div className="sb-section">
+        <h3 className="sb-section__title">
+          <Package size={18} className="inline mr-2" />
           Productos ({order.lines?.length || 0})
         </h3>
         {order.lines && order.lines.length > 0 ? (
@@ -176,24 +188,40 @@ export default function OrderDrawerPage({ params }: { params: Promise<{ id: stri
         )}
       </div>
 
+      {/* Status Timeline - Placeholder para Fase 1.2 */}
+      <div className="sb-section">
+        <h4 className="sb-section__title">📅 Historial de Estados</h4>
+        <div className="text-sm text-muted-foreground italic">
+          Timeline de cambios de status (próximamente)
+        </div>
+      </div>
+
+      {/* AI Insights - Placeholder para Fase 6 */}
+      <div className="sb-section border-2 border-dashed border-primary/20">
+        <h4 className="sb-section__title">🤖 Insights IA</h4>
+        <div className="text-sm text-muted-foreground italic">
+          Recomendaciones y análisis con Gemini (próximamente)
+        </div>
+      </div>
+
       {/* Información adicional */}
-      <div className="p-6 space-y-4">
+      <div className="space-y-4">
         {/* Notas */}
         {order.notes && (
-          <div>
-            <h4 className="font-medium mb-2 flex items-center gap-2">
-              <FileText size={16} />
+          <div className="sb-section">
+            <h4 className="sb-section__title">
+              <FileText size={16} className="inline mr-2" />
               Notas
             </h4>
-            <p className="text-sm text-muted-foreground bg-secondary/10 p-3 rounded-lg">
+            <p className="text-sm text-muted-foreground">
               {order.notes}
             </p>
           </div>
         )}
 
         {/* Datos técnicos */}
-        <div>
-          <h4 className="font-medium mb-2">Información Técnica</h4>
+        <div className="sb-section">
+          <h4 className="sb-section__title">Información Técnica</h4>
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div className="bg-secondary/10 p-3 rounded-lg">
               <p className="text-xs text-muted-foreground mb-1">ID</p>
@@ -220,8 +248,8 @@ export default function OrderDrawerPage({ params }: { params: Promise<{ id: stri
 
         {/* IDs externos */}
         {order.external && Object.keys(order.external).length > 0 && (
-          <div>
-            <h4 className="font-medium mb-2">IDs Externos</h4>
+          <div className="sb-section">
+            <h4 className="sb-section__title">IDs Externos</h4>
             <div className="space-y-2">
               {order.external.shopifyOrderId && (
                 <div className="bg-secondary/10 p-3 rounded-lg">
@@ -272,6 +300,21 @@ export default function OrderDrawerPage({ params }: { params: Promise<{ id: stri
           </button>
         </div>
       </div>
+
+      {/* Status Change Modal */}
+      {showStatusModal && (
+        <ChangeStatusModal
+          orderId={order.id}
+          currentStatus={order.status as OrderStatus}
+          userId={currentUser.id}
+          userName={currentUser.name || 'Usuario'}
+          onClose={() => setShowStatusModal(false)}
+          onSuccess={() => {
+            setShowStatusModal(false);
+            router.refresh();
+          }}
+        />
+      )}
     </EntityDrawerShell>
   );
 }
