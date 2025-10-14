@@ -444,47 +444,84 @@ La fase está completa y funcional. Los dashboards departamentales (lo crítico)
 ### **FASE 2: PROYECTOS VISUALES** 🎯
 **Prioridad:** ALTA  
 **Duración:** 2-3 días  
-**Dependencias:** Ninguna
+**Dependencias:** Ninguna  
+**Estado:** 🚧 EN PROGRESO (Día 1 completo ✅)
 
-#### Objetivos:
-- ✅ KPIs avanzados (progreso, tareas, presupuesto)
-- ✅ Visualización Kanban/Timeline/Gantt
-- ✅ Drawer de proyecto completo
-- ✅ Gestión de tareas dentro de proyectos
-- ✅ Resource planning (asignación recursos)
-- ✅ Budget tracking mejorado
-- ✅ Exportar a PDF/Excel
+#### Progreso Día 1 (100% ✅):
+- ✅ **SSOT extendido** - Campos: deadline, priority, impactScore, resourceAllocation, budget, actualCost, milestones, etc.
+- ✅ **Server actions KPIs** - `getProjectsKPIs()` con 4 métricas clave
+- ✅ **Header con KPIs** - 4 cards (Activos, On-time %, Budget Variance, Progreso)
+- ✅ **Kanban Board completo** - Drag & drop con @dnd-kit, 5 columnas
+- ✅ **Toggle Grid/Kanban** - Vista switcher funcional
+- ✅ **updateProjectStatus()** - Server action con auto-refresh KPIs
+- ✅ **Design system aplicado** - sb-header-glass, sb-tabs, sb-card-glass-light
+
+#### Objetivos Restantes:
+- ⏳ Timeline visual con milestones (Día 2)
+- ⏳ Resource planning (carga por persona) (Día 2)
+- ⏳ Budget tracking mejorado (Día 2)
+- ⏳ Sistema de alertas automáticas (Día 3)
+- ⏳ Exportar a PDF/Excel (Día 3)
+- ❌ Gantt chart (POSPUESTO - No prioritario)
 
 #### Entregables:
 ```
 src/
+├── domain/
+│   └── ssot.ts                     # ✅ Project extendido con Fase 2
+├── server/actions/
+│   └── projects.ts                 # ✅ KPIs + updateStatus completos
+├── components/projects/
+│   ├── ProjectKanban.tsx           # ✅ COMPLETO (280 líneas)
+│   ├── ProjectTimeline.tsx         # ⏳ Día 2
+│   ├── ResourceAllocation.tsx      # ⏳ Día 2
+│   └── BudgetTracker.tsx           # ⏳ Día 2
 ├── app/(app)/proyectos/
-│   ├── page.tsx                    # Vista mejorada con KPIs
-│   ├── [id]/page.tsx               # Detalle de proyecto
-│   └── components/
-│       ├── ProjectKanban.tsx
-│       ├── ProjectTimeline.tsx
-│       ├── ProjectGantt.tsx        # Nuevo
-│       ├── ProjectKPIs.tsx
-│       ├── ProjectTaskList.tsx
-│       └── ResourceAllocation.tsx  # Nuevo
-├── app/(app)/@drawer/
-│   └── (.)proyectos/[id]/
-│       └── page.tsx                # Drawer de proyecto
-└── server/actions/
-    └── projects.ts                 # CRUD extendido con KPIs
+│   └── page.tsx                    # ✅ KPIs + Kanban integrado
+└── FASE_2_PROYECTOS_PLAN.md        # ✅ Documentación completa
 ```
 
 #### Tareas:
-- [ ] 2.1 ProjectsPage con KPIs y vistas
-- [ ] 2.2 ProjectKanban component
-- [ ] 2.3 ProjectTimeline component
-- [ ] 2.4 ProjectGantt chart (react-gantt-timeline)
-- [ ] 2.5 ProjectDrawer completo con tabs
-- [ ] 2.6 Resource allocation system
-- [ ] 2.7 Budget vs Real tracking
-- [ ] 2.8 Export to PDF/Excel
-- [ ] 2.9 Campos en SSOT: impactScore, expectedROI
+**Día 1 (Completado ✅):**
+- [x] 2.1 SSOT extendido con campos Fase 2 ✅
+- [x] 2.2 Server action `getProjectsKPIs()` ✅
+- [x] 2.3 Server action `updateProjectStatus()` ✅
+- [x] 2.4 Header con 4 KPI cards ✅
+- [x] 2.5 ProjectKanban component completo ✅
+- [x] 2.6 Toggle Grid/Kanban funcional ✅
+- [x] 2.7 Instalación @dnd-kit dependencies ✅
+
+**Día 2 (Pendiente):**
+- [ ] 2.8 ProjectTimeline component
+- [ ] 2.9 ResourceAllocation component
+- [ ] 2.10 BudgetTracker component
+- [ ] 2.11 Integrar en ProjectDrawer (tabs)
+
+**Día 3 (Pendiente):**
+- [ ] 2.12 Sistema de alertas (`checkProjectAlerts()`)
+- [ ] 2.13 Export Excel (lista proyectos)
+- [ ] 2.14 Export PDF (ficha proyecto)
+- [ ] 2.15 Testing completo + polish
+
+#### Archivos Modificados (Día 1):
+```
+✅ src/domain/ssot.ts (+100 líneas)
+✅ src/server/actions/projects.ts (+150 líneas)
+✅ src/app/(app)/proyectos/page.tsx (refactor completo)
+✅ src/components/projects/ProjectKanban.tsx (nuevo, 280 líneas)
+✅ FASE_2_PROYECTOS_PLAN.md (nuevo)
+✅ package.json (@dnd-kit añadido)
+```
+
+#### Commit Día 1:
+```
+feat(projects): Phase 2 Day 1 COMPLETE - Kanban Board ✅
+- SSOT extended with Phase 2 fields
+- getProjectsKPIs() + updateProjectStatus()
+- Kanban board with drag & drop
+- Design system compliance
+- 841ed2f0
+```
 
 ---
 
