@@ -456,12 +456,17 @@ La fase está completa y funcional. Los dashboards departamentales (lo crítico)
 - ✅ **updateProjectStatus()** - Server action con auto-refresh KPIs
 - ✅ **Design system aplicado** - sb-header-glass, sb-tabs, sb-card-glass-light
 
+#### Progreso Día 2 (100% ✅):
+- ✅ **ProjectTimeline component** - Timeline horizontal con milestones, marcador "Hoy", overdue warnings
+- ✅ **ResourceAllocation component** - Carga por usuario, progress bars, alertas >40h, desglose por proyecto
+- ✅ **BudgetTracker component** - Presupuesto vs Real, varianza %, alertas sobrepresupuesto
+- ✅ **Vista Analytics** - Nueva vista con Timeline + Resources + Budget en grid 2 columnas
+- ✅ **Toggle 3 vistas** - Grid / Kanban / Analytics con sb-tabs
+
 #### Objetivos Restantes:
-- ⏳ Timeline visual con milestones (Día 2)
-- ⏳ Resource planning (carga por persona) (Día 2)
-- ⏳ Budget tracking mejorado (Día 2)
 - ⏳ Sistema de alertas automáticas (Día 3)
 - ⏳ Exportar a PDF/Excel (Día 3)
+- ⏳ Testing + Polish final (Día 3)
 - ❌ Gantt chart (POSPUESTO - No prioritario)
 
 #### Entregables:
@@ -473,11 +478,11 @@ src/
 │   └── projects.ts                 # ✅ KPIs + updateStatus completos
 ├── components/projects/
 │   ├── ProjectKanban.tsx           # ✅ COMPLETO (280 líneas)
-│   ├── ProjectTimeline.tsx         # ⏳ Día 2
-│   ├── ResourceAllocation.tsx      # ⏳ Día 2
-│   └── BudgetTracker.tsx           # ⏳ Día 2
+│   ├── ProjectTimeline.tsx         # ✅ COMPLETO (166 líneas)
+│   ├── ResourceAllocation.tsx      # ✅ COMPLETO (183 líneas)
+│   └── BudgetTracker.tsx           # ✅ COMPLETO (207 líneas)
 ├── app/(app)/proyectos/
-│   └── page.tsx                    # ✅ KPIs + Kanban integrado
+│   └── page.tsx                    # ✅ Grid + Kanban + Analytics integrado
 └── FASE_2_PROYECTOS_PLAN.md        # ✅ Documentación completa
 ```
 
@@ -491,19 +496,22 @@ src/
 - [x] 2.6 Toggle Grid/Kanban funcional ✅
 - [x] 2.7 Instalación @dnd-kit dependencies ✅
 
-**Día 2 (Pendiente):**
-- [ ] 2.8 ProjectTimeline component
-- [ ] 2.9 ResourceAllocation component
-- [ ] 2.10 BudgetTracker component
-- [ ] 2.11 Integrar en ProjectDrawer (tabs)
+**Día 2 (Completado ✅):**
+- [x] 2.8 ProjectTimeline component ✅
+- [x] 2.9 ResourceAllocation component ✅
+- [x] 2.10 BudgetTracker component ✅
+- [x] 2.11 Vista Analytics con 3 componentes ✅
+- [x] 2.12 Toggle Grid/Kanban/Analytics ✅
 
 **Día 3 (Pendiente):**
-- [ ] 2.12 Sistema de alertas (`checkProjectAlerts()`)
-- [ ] 2.13 Export Excel (lista proyectos)
-- [ ] 2.14 Export PDF (ficha proyecto)
-- [ ] 2.15 Testing completo + polish
+- [ ] 2.13 Sistema de alertas (`checkProjectAlerts()`)
+- [ ] 2.14 Export Excel (lista proyectos)
+- [ ] 2.15 Export PDF (ficha proyecto)
+- [ ] 2.16 Testing completo + polish
 
-#### Archivos Modificados (Día 1):
+#### Archivos Modificados:
+
+**Día 1:**
 ```
 ✅ src/domain/ssot.ts (+100 líneas)
 ✅ src/server/actions/projects.ts (+150 líneas)
@@ -513,14 +521,24 @@ src/
 ✅ package.json (@dnd-kit añadido)
 ```
 
-#### Commit Día 1:
+**Día 2:**
 ```
-feat(projects): Phase 2 Day 1 COMPLETE - Kanban Board ✅
-- SSOT extended with Phase 2 fields
-- getProjectsKPIs() + updateProjectStatus()
-- Kanban board with drag & drop
-- Design system compliance
-- 841ed2f0
+✅ src/components/projects/ProjectTimeline.tsx (nuevo, 166 líneas)
+✅ src/components/projects/ResourceAllocation.tsx (nuevo, 183 líneas)
+✅ src/components/projects/BudgetTracker.tsx (nuevo, 207 líneas)
+✅ src/app/(app)/proyectos/page.tsx (Analytics view integrada)
+```
+
+#### Commits:
+```
+Día 1:
+- feat(projects): Timeline component with milestones (5ec316c)
+- feat(projects): Resource allocation tracker (7bb12e7)
+- feat(projects): Budget tracker component (86275e9)
+- Pendiente: Integrate Analytics view
+
+Día 2: 
+- 4 commits pequeños vs 1 grande ✅
 ```
 
 ---

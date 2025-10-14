@@ -3,14 +3,19 @@
 import React, { useEffect, useState } from "react";
 import { useData } from "@/lib/dataprovider";
 import { Project, User, Department, ProjectStatus } from "@/domain/ssot";
-import { Plus, TrendingUp, TrendingDown, Filter, LayoutGrid, LayoutList } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, Filter, LayoutGrid, LayoutList, Download, Bell } from "lucide-react";
 import { ProjectCard } from "@/features/projects/components/ProjectCard";
 import { ProjectDrawer } from "@/features/projects/components/ProjectDrawer";
 import { CreateProjectDrawer } from "@/features/projects/components/CreateProjectDrawer";
 import { IdeasWidget } from "@/features/projects/components/IdeasWidget";
 import { KpiCard } from "@/components/dashboards/shared/KpiCard";
 import { ProjectKanban } from "@/components/projects/ProjectKanban";
+import { ProjectTimeline } from "@/components/projects/ProjectTimeline";
+import { ResourceAllocation } from "@/components/projects/ResourceAllocation";
+import { BudgetTracker } from "@/components/projects/BudgetTracker";
+import { ProjectAlerts } from "@/components/projects/ProjectAlerts";
 import { listProjects, getProjectProgress, getProjectsKPIs, updateProjectStatus } from "@/server/actions/projects";
+import { exportProjectsToCSV } from "@/lib/export-utils";
 
 type ProjectWithProgress = Project & {
   progress: number;
@@ -24,7 +29,7 @@ export default function ProyectosPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [createDrawerOpen, setCreateDrawerOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<'grid' | 'kanban'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'kanban' | 'analytics' | 'alerts'>('grid');
   const [filters, setFilters] = useState<{
     department?: Department;
     status?: string;
@@ -139,13 +144,24 @@ export default function ProyectosPage() {
             </p>
           </div>
 
-          <button
-            onClick={() => setCreateDrawerOpen(true)}
-            className="sb-btn sb-btn--primary"
-          >
-            <Plus size={18} />
-            Nuevo Proyecto
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => exportProjectsToCSV(projects)}
+              className="sb-btn sb-btn--ghost"
+              title="Exportar a CSV"
+            >
+              <Download size={18} />
+              Exportar
+            </button>
+            
+            <button
+              onClick={() => setCreateDrawerOpen(true)}
+              className="sb-btn sb-btn--primary"
+            >
+              <Plus size={18} />
+              Nuevo Proyecto
+            </button>
+          </div>
         </div>
 
         {/* KPIs Grid */}
@@ -194,6 +210,22 @@ export default function ProyectosPage() {
             >
               <LayoutList size={18} />
               Kanban
+            </button>
+            <button
+              className={`sb-tab ${viewMode === 'analytics' ? 'sb-tab--active' : ''}`}
+              onClick={() => setViewMode('analytics')}
+              aria-label="Vista Analytics"
+            >
+              <TrendingUp size={18} />
+              Analytics
+            </button>
+            <button
+              className={`sb-tab ${viewMode === 'alerts' ? 'sb-tab--active' : ''}`}
+              onClick={() => setViewMode('alerts')}
+              aria-label="Vista Alertas"
+            >
+              <Bell size={18} />
+              Alertas
             </button>
           </div>
 
@@ -245,6 +277,27 @@ export default function ProyectosPage() {
           projects={projects}
           onStatusChange={handleStatusChange}
         />
+      ) : viewMode === 'analytics' ? (
+        <div className="space-y-6">
+          {/* Timeline */}
+          <div className="sb-card-glass-light p-6">
+            <ProjectTimeline projects={projects} />
+          </div>
+
+          {/* Resources y Budget en grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="sb-card-glass-light p-6">
+              <ResourceAllocation projects={projects} users={users} />
+            </div>
+            <div className="sb-card-glass-light p-6">
+              <BudgetTracker projects={projects} />
+            </div>
+          </div>
+        </div>
+      ) : viewMode === 'alerts' ? (
+        <div className="sb-card-glass-light p-6">
+          <ProjectAlerts />
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
           {/* Tarjeta: Ideas Sueltas */}
