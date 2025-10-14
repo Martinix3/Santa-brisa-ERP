@@ -480,17 +480,51 @@ export interface TaskActivity {
 // 2d. SISTEMA DE PROYECTOS E IDEAS
 // -----------------------------------------------------------------
 
-export type ProjectStatus = 'ACTIVE' | 'ON_HOLD' | 'COMPLETED' | 'ARCHIVED';
+export type ProjectStatus = 'PLANNING' | 'ACTIVE' | 'ON_HOLD' | 'REVIEW' | 'COMPLETED' | 'ARCHIVED';
+export type ProjectPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 
 export interface Project {
   id: string;
   title: string;
   department: Department;
   description?: string;
+  
+  // Fechas y timeline
   startAt?: ISODateString;
   endAt?: ISODateString;
+  deadline?: ISODateString;
+  
+  // Status y prioridad
   status: ProjectStatus;
+  priority?: ProjectPriority;
+  impactScore?: number;          // 1-10
+  
+  // Equipo
   teamMemberIds: string[];      // usuarios involucrados
+  resourceAllocation?: {
+    userId: string;
+    hoursAllocated: number;
+    role: 'LEAD' | 'MEMBER' | 'REVIEWER';
+  }[];
+  
+  // Presupuesto
+  budget?: number;
+  actualCost?: number;
+  
+  // Tracking
+  estimatedHours?: number;
+  lastProgressUpdate?: ISODateString;
+  statusChangedAt?: ISODateString;
+  
+  // Milestones
+  milestones?: {
+    id: string;
+    title: string;
+    date: ISODateString;
+    done: boolean;
+  }[];
+  
+  // Auditoría
   createdById: string;
   createdAt: ISODateString;
   updatedAt: ISODateString;

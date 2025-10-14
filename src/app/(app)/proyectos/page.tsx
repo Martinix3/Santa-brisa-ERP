@@ -3,13 +3,13 @@
 import React, { useEffect, useState } from "react";
 import { useData } from "@/lib/dataprovider";
 import { Project, User, Department } from "@/domain/ssot";
-import { Plus, Filter } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, Filter } from "lucide-react";
 import { ProjectCard } from "@/features/projects/components/ProjectCard";
 import { ProjectDrawer } from "@/features/projects/components/ProjectDrawer";
 import { CreateProjectDrawer } from "@/features/projects/components/CreateProjectDrawer";
 import { IdeasWidget } from "@/features/projects/components/IdeasWidget";
-import { listProjects, getProjectProgress } from "@/features/projects/actions";
-// import { GlobalDragProvider, DROP_IDS, DroppableZone } from "@/features/dnd";
+import { KpiCard } from "@/components/dashboards/shared/KpiCard";
+import { listProjects, getProjectProgress, getProjectsKPIs } from "@/server/actions/projects";
 
 type ProjectWithProgress = Project & {
   progress: number;
@@ -27,12 +27,19 @@ export default function ProyectosPage() {
     department?: Department;
     status?: string;
   }>({});
+  const [kpis, setKpis] = useState({
+    activeCount: 0,
+    onTimePercentage: 0,
+    budgetVariance: 0,
+    avgProgress: 0
+  });
 
   const users = data?.users || [];
 
   useEffect(() => {
     if (currentUser) {
       loadProjects();
+      loadKPIs();
     }
   }, [currentUser, filters]);
 
@@ -70,6 +77,17 @@ export default function ProyectosPage() {
     }
   }
 
+  async function loadKPIs() {
+    try {
+      const result = await getProjectsKPIs();
+      if (result.success && result.data) {
+        setKpis(result.data);
+      }
+    } catch (error) {
+      console.error("Error loading KPIs:", error);
+    }
+  }
+
   function handleProjectClick(projectId: string) {
     setSelectedProjectId(projectId);
     setDrawerOpen(true);
@@ -98,7 +116,7 @@ export default function ProyectosPage() {
     <div className="p-4 md:p-6 space-y-5">
       {/* Header */}
       <div className="sb-header-glass p-4 md:p-5">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center justify-between gap-3 flex-wrap mb-6">
           <div>
             <h1 className="text-2xl font-bold">Proyectos</h1>
             <p className="text-sm text-muted-foreground mt-1">
@@ -106,40 +124,68 @@ export default function ProyectosPage() {
             </p>
           </div>
 
-          {/* Filtros */}
-          <div className="flex items-center gap-2">
-            <select
-              value={filters.department || ""}
-              onChange={(e) => setFilters({ ...filters, department: (e.target.value || undefined) as Department | undefined })}
-              className="sb-select"
-            >
-              <option value="">Todos los departamentos</option>
-              <option value="MARKETING">Marketing</option>
-              <option value="VENTAS">Ventas</option>
-              <option value="PRODUCCION">Producción</option>
-              <option value="PERSONAL">Personal</option>
-            </select>
-
-            <select
-              value={filters.status || ""}
-              onChange={(e) => setFilters({ ...filters, status: e.target.value || undefined })}
-              className="sb-select"
-            >
-              <option value="">Todos los estados</option>
-              <option value="ACTIVE">Activos</option>
-              <option value="ON_HOLD">En pausa</option>
-              <option value="COMPLETED">Completados</option>
-            </select>
-          </div>
-
-          {/* Nuevo Proyecto */}
           <button
             onClick={() => setCreateDrawerOpen(true)}
-            className="h-10 px-5 rounded-2xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 hover:scale-105 transition-all shadow-lg shadow-primary/20 flex items-center gap-2"
+            className="sb-btn sb-btn--primary"
           >
             <Plus size={18} />
             Nuevo Proyecto
           </button>
+        </div>
+
+        {/* KPIs Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <KpiCard
+            label="ACTIVOS"
+            value={kpis.activeCount.toString()}
+            variant="dark"
+          />
+          <KpiCard
+            label="ON-TIME %"
+            value={`${kpis.onTimePercentage}%`}
+            variant="light"
+            trend={kpis.onTimePercentage >= 80 ? 'up' : kpis.onTimePercentage >= 60 ? 'neutral' : 'down'}
+            icon={kpis.onTimePercentage >= 80 ? <TrendingUp size={20} /> : <TrendingDown size={20} />}
+          />
+          <KpiCard
+            label="BUDGET VAR"
+            value={`${kpis.budgetVariance >= 0 ? '+' : ''}${kpis.budgetVariance}%`}
+            variant="light"
+            trend={kpis.budgetVariance <= 0 ? 'up' : kpis.budgetVariance <= 10 ? 'neutral' : 'down'}
+          />
+          <KpiCard
+            label="PROGRESO"
+            value={`${kpis.avgProgress}%`}
+            variant="subtle"
+          />
+        </div>
+
+        {/* Filtros */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <select
+            value={filters.department || ""}
+            onChange={(e) => setFilters({ ...filters, department: (e.target.value || undefined) as Department | undefined })}
+            className="sb-select"
+          >
+            <option value="">Todos los departamentos</option>
+            <option value="MARKETING">Marketing</option>
+            <option value="VENTAS">Ventas</option>
+            <option value="PRODUCCION">Producción</option>
+            <option value="PERSONAL">Personal</option>
+          </select>
+
+          <select
+            value={filters.status || ""}
+            onChange={(e) => setFilters({ ...filters, status: e.target.value || undefined })}
+            className="sb-select"
+          >
+            <option value="">Todos los estados</option>
+            <option value="PLANNING">Planning</option>
+            <option value="ACTIVE">Activos</option>
+            <option value="ON_HOLD">En pausa</option>
+            <option value="REVIEW">En revisión</option>
+            <option value="COMPLETED">Completados</option>
+          </select>
         </div>
       </div>
 

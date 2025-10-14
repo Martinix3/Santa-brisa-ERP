@@ -73,3 +73,159 @@ export async function calculateProjectProgress(projectId: string) {
     return { success: false, progress: 0 };
   }
 }
+
+/**
+ * Obtener KPIs de proyectos (Fase 2)
+ * - Proyectos activos
+ * - On-time % (con deadline y actualizados)
+ * - Budget variance %
+ * - Progreso medio ponderado
+ */
+export async function getProjectsKPIs() {
+  try {
+    const now = new Date();
+    
+    // Obtener todos los proyectos activos
+    const projectsSnapshot = await db.collection('projects')
+      .where('status', 'in', ['PLANNING', 'ACTIVE', 'ON_HOLD', 'REVIEW'])
+      .get();
+
+    if (projectsSnapshot.empty) {
+      return {
+        success: true,
+        data: {
+          activeCount: 0,
+          onTimePercentage: 0,
+          budgetVariance: 0,
+          avgProgress: 0
+        }
+      };
+    }
+
+    const projects = projectsSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as Project[];
+
+    // 1. Proyectos activos
+    const activeCount = projects.length;
+
+    // 2. On-time % - proyectos con deadline y lastProgressUpdate <= deadline
+    const projectsWithDeadline = projects.filter(p => p.deadline);
+    let onTimeCount = 0;
+    
+    if (projectsWithDeadline.length > 0) {
+      onTimeCount = projectsWithDeadline.filter(p => {
+        if (!p.lastProgressUpdate || !p.deadline) return false;
+        const lastUpdate = new Date(p.lastProgressUpdate);
+        const deadline = new Date(p.deadline);
+        return lastUpdate <= deadline;
+      }).length;
+    }
+    
+    const onTimePercentage = projectsWithDeadline.length > 0
+      ? Math.round((onTimeCount / projectsWithDeadline.length) * 100)
+      : 0;
+
+    // 3. Budget variance % - (actualCost - budget) / budget
+    const projectsWithBudget = projects.filter(p => p.budget && p.budget > 0);
+    let totalVariance = 0;
+    
+    if (projectsWithBudget.length > 0) {
+      totalVariance = projectsWithBudget.reduce((sum, p) => {
+        const actual = p.actualCost || 0;
+        const budget = p.budget || 1;
+        const variance = ((actual - budget) / budget) * 100;
+        return sum + variance;
+      }, 0);
+    }
+    
+    const budgetVariance = projectsWithBudget.length > 0
+      ? Math.round(totalVariance / projectsWithBudget.length)
+      : 0;
+
+    // 4. Progreso medio ponderado por estimatedHours o budget
+    let totalWeightedProgress = 0;
+    let totalWeight = 0;
+
+    for (const project of projects) {
+      // Obtener progreso del proyecto
+      const progressResult = await calculateProjectProgress(project.id);
+      const progress = progressResult.progress || 0;
+      
+      // Usar estimatedHours como peso, o budget, o 1 por defecto
+      const weight = project.estimatedHours || project.budget || 1;
+      
+      totalWeightedProgress += progress * weight;
+      totalWeight += weight;
+    }
+
+    const avgProgress = totalWeight > 0
+      ? Math.round(totalWeightedProgress / totalWeight)
+      : 0;
+
+    return {
+      success: true,
+      data: {
+        activeCount,
+        onTimePercentage,
+        budgetVariance,
+        avgProgress
+      }
+    };
+
+  } catch (error) {
+    console.error('[getProjectsKPIs] Error:', error);
+    return {
+      success: false,
+      error: 'Error al calcular KPIs',
+      data: {
+        activeCount: 0,
+        onTimePercentage: 0,
+        budgetVariance: 0,
+        avgProgress: 0
+      }
+    };
+  }
+}
+
+/**
+ * Obtener lista de proyectos con filtros (Fase 2)
+ */
+export async function listProjects(filters?: {
+  department?: string;
+  status?: string;
+}) {
+  try {
+    let query = db.collection('projects').orderBy('createdAt', 'desc');
+
+    // Aplicar filtros si existen
+    if (filters?.department) {
+      query = query.where('department', '==', filters.department) as any;
+    }
+    
+    if (filters?.status) {
+      query = query.where('status', '==', filters.status) as any;
+    }
+
+    const snapshot = await query.get();
+
+    const projects: Project[] = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as Project[];
+
+    return { ok: true, data: projects };
+  } catch (error) {
+    console.error('[listProjects] Error:', error);
+    return { ok: false, error: 'Error al cargar proyectos', data: [] };
+  }
+}
+
+/**
+ * Obtener progreso de un proyecto (wrapper compatible)
+ */
+export async function getProjectProgress(projectId: string) {
+  const result = await calculateProjectProgress(projectId);
+  return { ok: result.success, data: { progress: result.progress } };
+}
