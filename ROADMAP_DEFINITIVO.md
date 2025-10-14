@@ -10,17 +10,19 @@
 
 ### ✅ LO QUE YA FUNCIONA:
 
-1. **Dashboards Departamentales (7/7)** ✅
-   - Dashboard personal ✅
-   - DashboardOps (5 tabs: Hoy, Logística, Inventario, Calidad, Producción) ✅
-   - DashboardSales (Pipeline, visitas, cuentas, alertas) ✅
-   - DashboardAdmin (Finanzas, top cuentas, producción) ✅
-   - DashboardManager (Vista ejecutiva + selector multi-dashboard) ✅
-   - DashboardDistributor (5 tabs: Pedidos, Sell-out, Inventario, PLV, Finanzas) ✅
-   - DashboardMarketing ✅
-   - DashboardTechnical ✅
-   - **✅ Server actions implementados** - 7 dashboards con datos reales de Firestore
-   - **⚠️ Pendiente:** Router por rol, loading states, error boundaries
+1. **Sistema de Dashboards Completo (7/7)** ✅ **FASE 1.5 COMPLETA**
+   - ✅ **Server actions con datos reales** - 7 archivos conectados a Firestore
+   - ✅ **Router por rol funcional** - Cada usuario ve su dashboard (/dashboard)
+   - ✅ **Dashboards departamentales** - Rutas /ventas/dashboard, /warehouse/dashboard, etc.
+   - ✅ **Build exitoso** - Sin errores de compilación
+   - Dashboards implementados:
+     * DashboardSales - KPIs ventas, pipeline, cuentas
+     * DashboardOps - 5 tabs (Hoy, Logística, Inventario, Calidad, Producción)
+     * DashboardAdmin - Finanzas, top cuentas, producción
+     * DashboardManager - Vista ejecutiva + selector multi-dashboard
+     * DashboardDistributor - 5 tabs (Pedidos, Sell-out, Inventario, PLV, Finanzas)
+     * DashboardMarketing - Campañas, eventos, ROI
+     * DashboardTechnical - Sistemas, logs, rendimiento
 
 2. **Componentes Compartidos Dashboards** ✅
    - KpiCard (3 variantes: dark/light/subtle)
@@ -70,8 +72,7 @@
 
 ### ⚠️ LO QUE NECESITA MEJORA:
 
-1. **Dashboards** - Server actions completos, pendiente router por rol y UX polish
-2. **Pedidos** - UI mejorada, faltan workflow de status, Shopify, auto-órdenes
+1. **Pedidos** - UI mejorada, faltan workflow de status, Shopify, auto-órdenes
 3. **Proyectos** - Página básica, faltan KPIs y visualización avanzada
 4. **Accounts** - Funcional pero sin KPIs avanzados ni timeline
 5. **Logística** - Existe pero sin albaranes, Holded, Sendcloud
@@ -83,32 +84,44 @@
 
 ## 🚀 ROADMAP POR FASES
 
-### **FASE 0.5: OBSERVABILITY SETUP** 📊
-**Prioridad:** CRÍTICA  
-**Duración:** 0.5 días  
-**Dependencias:** Ninguna
+### **FASE 0.5: OBSERVABILITY BÁSICO** 📊
+**Prioridad:** MEDIA *(Pospuesta - No bloquea desarrollo)*  
+**Duración:** 2-3 días  
+**Dependencias:** Ninguna  
+**Cuándo:** Después de Fase 2 o 3 (cuando haya más funcionalidades críticas)
 
 #### Objetivos:
-- ✅ Setup Sentry para error tracking
-- ✅ Configurar Vercel Analytics
-- ✅ Logs centralizados (Cloud Logging o BigQuery)
-- ✅ Alertas básicas (Slack/Email)
-- ✅ Performance monitoring
+- ✅ Activar Vercel Analytics (ya incluido en Vercel)
+- ✅ Setup básico Sentry para errores críticos
+- ✅ Logs de errores en Firebase (ya incluido)
+- ✅ Alertas básicas por email para crashes
 
-#### Entregables:
+#### Justificación de Priorización:
+- Sistema YA funciona en producción
+- Firebase ya proporciona logs básicos
+- Vercel Analytics ya está disponible (solo activar)
+- Sentry útil pero NO bloqueante para desarrollo
+- Mejor invertir tiempo en features que generan valor inmediato
+
+#### Entregables Mínimos:
 ```
-- Sentry configurado en todas las páginas
-- Dashboard de métricas en Vercel
-- Alertas para errores críticos
-- Logs accesibles desde admin panel
+- Vercel Analytics activado (5 min)
+- Sentry configurado solo para errores críticos
+- Email alerts para crashes (Gmail)
+- Opcional: Dashboard simple en admin panel
 ```
 
 #### Tareas:
-- [ ] 0.5.1 Setup Sentry + configurar DSN
-- [ ] 0.5.2 Configurar Vercel Analytics
-- [ ] 0.5.3 Setup Cloud Logging
-- [ ] 0.5.4 Alertas Slack para errores críticos
-- [ ] 0.5.5 Dashboard de observability
+- [ ] 0.5.1 Activar Vercel Analytics (5 min)
+- [ ] 0.5.2 Setup Sentry básico (solo errores críticos)
+- [ ] 0.5.3 Configurar email alerts para crashes
+- [ ] 0.5.4 (Opcional) Panel simple de logs en /admin/logs
+
+#### Notas:
+- **NO es prioritario** - El sistema funciona sin esto
+- **Posponer hasta** tener más usuarios o funcionalidades críticas
+- **Firebase Console** ya proporciona logs básicos suficientes
+- **Vercel Dashboard** ya tiene métricas de performance
 
 ---
 
@@ -738,20 +751,37 @@ graph TD
 
 ## 🚀 PRÓXIMOS PASOS INMEDIATOS
 
-### Opción A: Seguir con Pedidos (Fase 1)
-1. Completar workflow de status
-2. Añadir campos calculados a SSOT
-3. Implementar Shopify mock
-4. Auto-generación de órdenes logísticas
+### ✅ Fase 1.5 (Dashboards) - COMPLETADA
 
-### Opción B: Conectar Dashboards (Fase 1.5)
-1. Crear server actions para cada dashboard
-2. Conectar datos reales de Firestore
-3. Router por rol en /dashboard
-4. Testing con datos reales
+### 🎯 PRÓXIMAS FASES RECOMENDADAS:
 
-### Recomendación:
-**Empezar con Fase 1.5 (Dashboards)** - Todos los usuarios los ven día a día, y ya tienes toda la UI lista. Solo necesitas conectar los datos.
+**Opción A: Fase 1 - Pedidos Inteligentes** ⭐ RECOMENDADA
+- **Duración:** 3-4 días
+- **Impacto:** CRÍTICO - Afecta ventas y facturación directa
+- **Tareas:**
+  1. Workflow de status completo
+  2. Campos calculados en SSOT
+  3. Integración Shopify mock
+  4. Auto-generación órdenes logísticas
+
+**Opción B: Fase 2 - Proyectos Visuales**
+- **Duración:** 2-3 días
+- **Impacto:** ALTO - Mejora gestión de equipos
+- **Tareas:**
+  1. KPIs avanzados
+  2. Visualización Kanban/Gantt
+  3. Resource planning
+
+**Opción C: Fase 3 - Accounts Inteligentes**
+- **Duración:** 2 días
+- **Impacto:** ALTO - Visión 360° del cliente
+- **Tareas:**
+  1. KPIs por cuenta
+  2. Timeline completo
+  3. Drawer 360°
+
+### 💡 Recomendación:
+**Comenzar con Fase 1 (Pedidos)** - Es la funcionalidad más crítica del negocio y tiene dependencias con otras fases (Logística).
 
 ---
 
