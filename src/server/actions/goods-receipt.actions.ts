@@ -68,41 +68,34 @@ function getLocationForCategory(category?: ItemCategory): string {
 
 // === Server Actions ===
 
-export async function createSupplier(payload: { name: string; taxId?: string }): Promise<Party> {
+export async function createSupplier(payload: { name: string; taxId?: string }): Promise<{ id: string; name: string }> {
     const { name, taxId } = payload;
     const nowIso = new Date().toISOString();
     
-    const batch = db.batch();
-
-    const partyRef = db.collection('parties').doc();
-    const newParty: Party = {
-        id: partyRef.id,
-        name,
+    // ✅ SSOT v7: Crear Contact con role SUPPLIER
+    const contactRef = db.collection('contacts').doc();
+    const newContact = {
+        id: contactRef.id,
+        kind: 'ORG' as const,
+        roles: ['SUPPLIER' as const],
+        displayName: name,
         legalName: name,
-        kind: 'ORG',
-        taxId,
+        nameNorm: name.toLowerCase(),
+        vat: taxId,
+        status: 'Activa',
+        stage: 'ACTIVA' as const,
+        source: 'MANUAL',
         createdAt: nowIso,
         updatedAt: nowIso,
-    } as Party;
-
-    const roleRef = db.collection('partyRoles').doc();
-    const newRole: PartyRole = {
-        id: roleRef.id,
-        partyId: partyRef.id,
-        role: 'SUPPLIER',
-        isActive: true,
-        createdAt: nowIso,
-        data: {} as any
     };
 
-    batch.set(partyRef, newParty);
-    batch.set(roleRef, newRole);
-    await batch.commit();
+    await contactRef.set(newContact);
 
     revalidatePath('/contacts');
     revalidatePath('/warehouse/goods-receipt');
+    revalidatePath('/warehouse/inventory');
 
-    return newParty;
+    return { id: newContact.id, name: newContact.displayName };
 }
 
 export async function createItem(payload: { name: string; sku?: string; uom: Uom; category?: ItemCategory; stdCost?: number }): Promise<Item> {
@@ -142,7 +135,7 @@ export async function createGoodsReceipt(payload: {
   receiptDate: string;
   notes?: string;
   lines: Array<{
-    itemId?: string;
+    sku?: string;
     newItemName?: string;
     newItemCategory?: Item['category'];
     supplierLot: string;
@@ -173,6 +166,7 @@ export async function createGoodsReceipt(payload: {
     const allItemsSnap = await db.collection('items').get();
     const existingItems = allItemsSnap.docs.map(doc => doc.data() as Item);
     const itemsById = new Map(existingItems.map(it => [it.id, it]));
+    const itemsBySku = new Map(existingItems.map(it => [it.sku, it]));
 
     const allReceipts = (await db.collection('goodsReceipts').select('receiptNumber').get())
       .docs.map((d: any) => d.data().receiptNumber).filter(Boolean);
@@ -182,9 +176,16 @@ export async function createGoodsReceipt(payload: {
     const finalLines: GoodsReceipt['lines'] = [];
 
     for (const line of lines) {
-        let itemId = line.itemId;
-        let currentItem = itemId ? itemsById.get(itemId) : undefined;
+        let itemId: string | undefined;
+        let currentItem: Item | undefined;
 
+        // ✅ Buscar por SKU primero
+        if (line.sku) {
+            currentItem = itemsBySku.get(line.sku);
+            itemId = currentItem?.id;
+        }
+
+        // ✅ Si no existe y hay newItemName, crear nuevo item
         if (!itemId && line.newItemName) {
             const itemRef = db.collection('items').doc();
             itemId = itemRef.id;
@@ -202,11 +203,15 @@ export async function createGoodsReceipt(payload: {
                 updatedAt: new Date().toISOString(),
             } as Item;
             batch.set(itemRef, { ...newItem, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }, { merge: true });
-            itemsById.set(itemId, newItem); // Add to local map for subsequent lines
+            itemsById.set(itemId, newItem);
+            itemsBySku.set(newItem.sku, newItem); // ✅ Añadir también al map por SKU
             currentItem = newItem;
         }
         
-        if (!itemId || !currentItem) continue;
+        if (!itemId || !currentItem) {
+            console.warn(`[createGoodsReceipt] Línea sin item válido:`, line);
+            continue;
+        }
 
         if (!currentItem.uom) throw new Error(`El item ${currentItem.id} (${currentItem.name}) no tiene una unidad de medida (uom) definida.`);
         
@@ -229,7 +234,12 @@ export async function createGoodsReceipt(payload: {
             updatedAt: nowIso,
         });
         const lotRef = db.collection('lots').doc(lotNumber);
-        batch.set(lotRef, { ...lotData, supplierId: finalSupplierId }, { merge: true });
+        batch.set(lotRef, { 
+            ...lotData, 
+            supplierId: finalSupplierId,
+            externalLot: line.supplierLot || undefined, // ✅ Lote del proveedor
+            deliveryNote: deliveryNote || undefined    // ✅ Albarán asociado
+        }, { merge: true });
 
         const locationId = getLocationForCategory(currentItem.category);
         const onHandId = makeOnHandId(itemId, lotNumber, locationId);
@@ -250,7 +260,7 @@ export async function createGoodsReceipt(payload: {
             type: 'IN',
             reason: 'PURCHASE',
             warehouseId: locationId,
-            items: [{ sku: currentItem.sku, quantity: line.qty, cost: line.unitCost, lotNumber }],
+            items: [{ sku: currentItem.sku, qty: line.qty }],
             createdAt: nowIso,
             updatedAt: nowIso,
             // Legacy compat fields
@@ -284,15 +294,15 @@ export async function createGoodsReceipt(payload: {
 
 
         finalLines.push({
-            itemId,
+            sku: currentItem.sku,
             qty: line.qty,
-            uom: normalizeUom(currentItem.uom), // ✅ SSOT COMPLIANCE: Normalizar UOM
+            uom: normalizeUom(currentItem.uom),
             unitCost: line.unitCost,
             lotNumber,
         } as any);
     }
     
-    const itemsForQcCheck = finalLines.map((l: any) => l.itemId).map((id: string) => itemsById.get(id));
+    const itemsForQcCheck = finalLines.map((l: any) => l.sku).map((sku: string) => itemsBySku.get(sku));
     const requiresQc = itemsForQcCheck.some(item => {
         const cat = item?.category;
         return cat === 'raw' || cat === 'pack' || cat === 'fg';

@@ -1,0 +1,537 @@
+// src/domain/ssot.ts
+// ============================================================================
+// SANTA BRISA — SSOT v6 (unificado, contacts-only)
+// ----------------------------------------------------------------------------
+// - Una sola colección principal: `contacts` (ORG o PERSON).
+// - TODOS los módulos apuntan a `accountId` (manteniendo compatibilidad).
+// - Roles múltiples por contacto: CUSTOMER | SUPPLIER | EMPLOYEE.
+// - CUSTOMER: segment (HORECA/RETAIL/DISTRIBUIDOR/ONLINE/UNKNOWN) + placement.
+// - EMPLOYEE: department (ADMIN/MKT/SALES/OPS).
+// - Stages pipeline: LEAD, CONTACTED, SCHEDULE_APPOINTMENT, INTERESTED, SEND_INFO,
+//   FOLLOW_UP, NEGOTIATION, CLOSED_WON, CLOSED_LOST, CONTACT_NEXT_SEASON, PENDIENTE, SCRAPPED.
+//   Agrupados visualmente en: POTENCIAL, SEGUIMIENTO, ACTIVA, FALLIDA.
+//   PENDIENTE y SCRAPPED no aparecen en el pipeline (requieren acción manual).
+// - Integraciones: `externalRefs` (holdedId, gmaps.placeId, shopifyId, sendcloudId…),
+//   `raw` por origen, y `links`/`geo`/`metrics` para leads.
+// ============================================================================
+
+/* ---------------------------------- ENUMS --------------------------------- */
+
+export type ContactKind = "ORG" | "PERSON";
+
+export type ContactRole = "CUSTOMER" | "SUPPLIER" | "EMPLOYEE";
+
+export type CustomerSegment =
+  | "HORECA"
+  | "RETAIL"
+  | "DISTRIBUIDOR"
+  | "CATERING"
+  | "ONLINE"
+  | "PRIVADA"
+  | "UNKNOWN";
+
+export type Placement = "DIRECTA" | "COLOCACION";
+
+export type Stage =
+  | "LEAD"
+  | "CONTACTED"
+  | "SCHEDULE_APPOINTMENT"
+  | "INTERESTED"
+  | "SEND_INFO"
+  | "FOLLOW_UP"
+  | "NEGOTIATION"
+  | "CLOSED_WON"
+  | "CLOSED_LOST"
+  | "CONTACT_NEXT_SEASON"
+  | "PENDIENTE"
+  | "SCRAPPED";
+
+export type EmployeeDept = "ADMIN" | "MKT" | "SALES" | "OPS";
+
+export type Currency = "EUR" | "USD" | "GBP" | "MXN";
+
+/* ------------------------------ CORE: CONTACTS ---------------------------- */
+
+export interface Contact {
+  // Identificador
+  id: string;
+
+  // Naturaleza
+  kind: ContactKind;             // ORG | PERSON
+  roles: ContactRole[];          // multirol
+
+  // Identidad
+  displayName: string;           // SIEMPRE mostrar
+  legalName?: string;            // ORG
+  tradeName?: string | null;     // ORG (comercial)
+  givenName?: string;            // PERSON
+  familyName?: string;           // PERSON
+  nameNorm: string;              // para búsqueda/dedupe
+
+  // Identificadores fiscales/códigos
+  vat?: string;                  // CIF/NIF/VAT
+  taxId?: string;
+  code?: string | null;          // código externo (Holded code, etc.)
+
+  // Contacto (multi)
+  emails?: Array<{ value: string; isPrimary?: boolean }>;
+  phones?: Array<{ value: string; kind?: "mobile" | "landline" | "whatsapp"; isPrimary?: boolean }>;
+
+  // Direcciones (multi)
+  addresses?: Array<{
+    kind?: "billing" | "shipping" | "other";
+    street?: string;
+    city?: string;
+    province?: string;
+    postalCode?: string;
+    countryCode?: string;
+  }>;
+
+  // Relaciones (dentro de `contacts`)
+  parentId?: string;             // PERSON → ORG (empleador/empresa)
+  childrenIds?: string[];        // ORG → PERSON (equipo/personas de contacto)
+  // Para cuentas representadas por un distribuidor:
+  representativeOfIds?: string[]; // DISTRIBUIDOR → [ORG,HORECA,...] opcional
+
+  // Específico por rol
+  customer?: {
+    segment: CustomerSegment;    // horeca/retail/distribuidor/online/unknown
+    placement: Placement;        // directa/colocación
+    distributorId?: string;      // si placement = COLOCACION
+    tier?: "A" | "B" | "C" | "D"; // opcional de negocio
+    priceListId?: string;        // referencia a prices.priceLists.id
+  };
+
+  supplier?: {
+    categories?: string[];       // ej. "embalaje", "vidrio", "logística"
+    leadTimeDays?: number;
+  };
+
+  employee?: {
+    department: EmployeeDept;    // admin, mkt, sales, ops
+    title?: string;              // cargo
+    managerId?: string;          // PERSON
+    startDateISO?: string;
+    endDateISO?: string;
+  };
+
+  // Estado comercial transversal
+  stage?: Stage;                 // LEAD/CONTACTED/.../CLOSED_WON/CLOSED_LOST/CONTACT_NEXT_SEASON/PENDIENTE/SCRAPPED
+  status?: "NEW" | "ACTIVE" | "INACTIVE";
+
+  // Geo/links/metrics (útil para leads de GMaps)
+  geo?: { lat?: number; lng?: number };
+  links?: {
+    website?: string | null;
+    url?: string | null;         // link GMaps/landing
+    imageUrl?: string | null;
+    socials?: {
+      instagram?: string[];
+      facebook?: string[];
+      twitter?: string[];
+      youtube?: string[];
+      tiktok?: string[];
+      pinterest?: string[];
+      linkedin?: string[];
+    };
+  };
+  metrics?: {
+    rating?: number;             // 0..5 (GMaps totalScore)
+    reviewsCount?: number;
+    priceLevel?: number | null;
+  };
+
+  // Etiquetas libres
+  tags?: string[];
+
+  // Integraciones y auditoría
+  source?: "HOLDed" | "CSV" | "Manual" | "Shopify" | "Sendcloud";
+  externalRefs?: {
+    holdedId?: string;
+    shopifyId?: string;
+    sendcloudId?: string;
+    gmaps?: { placeId?: string | null; cid?: string | null; fid?: string | null; kgmid?: string | null };
+  };
+  raw?: {
+    holded?: unknown;
+    gmaps?: unknown;
+    shopify?: unknown;
+    sendcloud?: unknown;
+  };
+
+  // Tiempos
+  createdAt: string;             // ISO
+  updatedAt: string;             // ISO
+  syncedAt?: string;             // ISO
+}
+
+/* ------------------------------- INTERACTIONS ----------------------------- */
+
+export type InteractionKind = "LLAMADA" | "VISITA" | "EMAIL" | "WHATSAPP" | "OTRO";
+export type InteractionStatus = "PROGRAMADA" | "COMPLETADA" | "CANCELADA";
+export type InteractionResult = "VISITA_OK" | "VISITA_FALLIDA" | "SIN_CONTACTO" | "PENDIENTE" | "OTRO";
+
+export interface Interaction {
+  id: string;
+  accountId: string;             // → contacts.id (PERSON u ORG)
+  kind: InteractionKind;
+  when: string;                  // ISO
+  status: InteractionStatus;
+  result?: InteractionResult;
+  summary?: string;
+  nextAt?: string;               // ISO (siguiente acción)
+  createdById?: string;          // → contacts.id (empleado)
+  createdAt: string;             // ISO
+  updatedAt: string;             // ISO
+}
+
+/* ---------------------------------- EVENTS -------------------------------- */
+
+export type EventKind = "DEMO" | "FERIA" | "FORMACION" | "OTRO";
+
+export interface Event {
+  id: string;
+  accountId?: string;            // opcional: evento general o ligado a un contacto
+  kind: EventKind;
+  title: string;
+  startAt: string;               // ISO
+  endAt?: string;                // ISO
+  location?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/* --------------------------------- ORDERS --------------------------------- */
+
+export interface OrderItem {
+  sku: string;
+  qty: number;
+  unitPrice?: number;
+  discountPct?: number;
+}
+
+export interface Order {
+  id: string;
+  accountId: string;             // → contacts.id (cliente ORG)
+  distributorId?: string;        // → contacts.id (si colocación)
+  date: string;                  // ISO
+  amount: number;
+  currency: Currency;
+  items: OrderItem[];
+  notes?: string;
+  origin?: "HOLDed" | "Shopify" | "Manual";
+  externalRefs?: { holdedId?: string; shopifyId?: string };
+  createdAt: string;
+  updatedAt: string;
+}
+
+/* ------------------------------ PLV / MATERIAL ---------------------------- */
+
+export type PlvStatus = "SOLICITADO" | "ENTREGADO" | "INSTALADO" | "RETIRADO";
+
+export interface PlvMaterial {
+  id: string;
+  accountId: string;             // → contacts.id (punto de venta)
+  kind: string;                  // ej. "display", "tapete", "cartelería"
+  title?: string;
+  quantity?: number;
+  status?: PlvStatus;
+  photoUrl?: string;
+  installedAt?: string;          // ISO
+  createdAt: string;
+  updatedAt: string;
+}
+
+/* ---------------------------------- PRICES -------------------------------- */
+
+export interface PriceListLine {
+  sku: string;
+  price: number;
+}
+
+export interface PriceList {
+  id: string;
+  name: string;
+  currency: Currency;
+  validFrom?: string;            // ISO
+  validTo?: string;              // ISO
+  lines: PriceListLine[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AccountPriceOverride {
+  id: string;
+  accountId: string;             // → contacts.id
+  sku: string;
+  price: number;
+  currency: Currency;
+  validFrom?: string;            // ISO
+  validTo?: string;              // ISO
+  createdAt: string;
+  updatedAt: string;
+}
+
+/* ------------------------------- CONVENIENCE ------------------------------ */
+
+export const normalizeName = (s?: string) =>
+  (s ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+export const buildNameNorm = (displayName?: string, city?: string) =>
+  [normalizeName(displayName), normalizeName(city)].filter(Boolean).join("|");
+
+/* ----------------------------- TEAM MEMBERS ------------------------------- */
+
+export interface TeamMember {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/* --------------------------- DATA COLLECTIONS ----------------------------- */
+
+// Colecciones que maneja el DataProvider
+export const SANTA_DATA_COLLECTIONS = [
+  'contacts',
+  'users',
+  'interactions',
+  'events',
+  'orders',
+  'plvMaterial',
+  'priceLists',
+  'accountPriceOverrides'
+] as const;
+
+/* ------------------------------- RELACIONES --------------------------------
+- orders.accountId           → contacts.id
+- orders.distributorId       → contacts.id (si colocación)
+- interactions.accountId     → contacts.id
+- events.accountId           → contacts.id (opcional)
+- plv_material.accountId     → contacts.id
+- accountPriceOverrides.accountId → contacts.id
+- contacts.parentId          → contacts.id (PERSON→ORG)
+- contacts.representativeOfIds[] → contacts.id (DISTRIBUIDOR→clientes)
+---------------------------------------------------------------------------- */
+
+/* ---------------------------------- INDEXES --------------------------------
+Firestore (sugeridos):
+- contacts.roles array-contains
+- contacts.nameNorm ASC, addresses.city
+- contacts.externalRefs.holdedId (unique)
+- contacts.externalRefs.gmaps.placeId (unique)
+- contacts.customer.segment
+- contacts.customer.placement
+- contacts.employee.department
+- contacts.parentId
+- interactions.accountId + when
+- orders.accountId + date
+- orders.distributorId + date
+- plv_material.accountId + status
+- prices.accountPriceOverrides.accountId + sku
+---------------------------------------------------------------------------- */
+
+/* ---------------------------- REGLAS DE INFERENCIA -------------------------
+Holded → Contact:
+- type: "client"  → roles += CUSTOMER
+- type: "supplier"→ roles += SUPPLIER
+- status: "NEW"   → stage = POTENCIAL
+- tags incluye "distribuidor" → customer.segment = DISTRIBUIDOR
+- address fields → addresses[0] kind="billing"
+- createdAt/updatedAt: normalizar a ISO; epoch segundos → *1000.
+
+Google Maps dataset → Contact:
+- roles += CUSTOMER
+- customer.segment por heurística (restaurant/bar/pub/hotel→HORECA; supermarket/liquor→RETAIL; distributor/wholesale→DISTRIBUIDOR; sin dirección→ONLINE; else→UNKNOWN)
+- placement = DIRECTA (hasta vincular distributorId)
+- stage = LEAD, status = NEW (si permanentlyClosed → INACTIVE)
+- geo, links.website/url/imageUrl/socials, metrics.rating/reviewsCount
+- externalRefs.gmaps.placeId/cid/fid/kgmid
+---------------------------------------------------------------------------- */
+
+/* ----------------------------- DEDUPE / MERGE ------------------------------
+Fuerza de coincidencia (desc):
+1) externalRefs.gmaps.placeId
+2) externalRefs.holdedId
+3) phone normalizado (phones[].value)
+4) links.website dominio + misma ciudad
+5) nameNorm + ciudad (confirmación manual si duda)
+
+Merge no destructivo:
+- Nunca sobrescribir valor informado con null/""/undefined.
+- roles/tags/socials: unión sin duplicados.
+- customer.segment: si era UNKNOWN y llega [HORECA/RETAIL/DISTRIBUIDOR/ONLINE], actualizar.
+- placement: solo cambia a COLOCACION cuando se asigna distributorId.
+- metrics: si viene de GMaps y es consistente, actualizar rating/reviewsCount.
+---------------------------------------------------------------------------- */
+
+/* ----------------------- BACKWARD COMPATIBILITY --------------------------- */
+
+// Aliases para código legacy
+export type Account = Contact;
+export type AccountType = ContactRole;
+export type Segment = CustomerSegment;
+export type Department = EmployeeDept;
+export type PartyRole = ContactRole;
+
+// Para QuickLog y otros componentes legacy
+export interface CustomerData {
+  segment: CustomerSegment;
+  placement: Placement;
+  distributorId?: string;
+  tier?: "A" | "B" | "C" | "D";
+}
+
+export type CommercialFlow = Placement;
+
+// Interfaces legacy para Party (si aún se usan)
+export interface Party extends Contact {}
+
+// Para Sidebar y navegación
+export const MODULE_ACCENTS: Record<string, string> = {
+  accounts: "🏢",
+  contacts: "👥",
+  orders: "📦",
+  interactions: "📞",
+  events: "📅",
+  plv_material: "🎨",
+  warehouse: "🏭",
+  items: "📦",
+  prices: "💰",
+  admin: "⚙️",
+};
+
+// Helper para obtener accent de un módulo
+export const getModuleAccent = (module: string): string => 
+  MODULE_ACCENTS[module] || "📄";
+
+// POS Tactics (si se usan)
+export interface PosTacticItem {
+  sku: string;
+  qty: number;
+}
+
+export interface PosTactic {
+  id: string;
+  name: string;
+  items: PosTacticItem[];
+  validFrom?: string;
+  validTo?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// SantaData interface para data provider (si se usa)
+export interface SantaData {
+  contacts: Contact[];
+  users: TeamMember[];
+  orders: Order[];
+  interactions: Interaction[];
+  events: Event[];
+  plvMaterial: PlvMaterial[];
+  priceLists: PriceList[];
+  accountPriceOverrides: AccountPriceOverride[];
+}
+
+/* ---------------------------- STAGE HELPERS ------------------------------- */
+
+// Columnas visuales del pipeline
+export type PipelineColumn = "POTENCIAL" | "SEGUIMIENTO" | "ACTIVA" | "FALLIDA";
+
+// Mapeo Stage → Columna Visual (PENDIENTE y SCRAPPED retornan null - no visibles en pipeline)
+export const getStageColumn = (stage?: Stage): PipelineColumn | null => {
+  if (!stage) return "POTENCIAL";
+  
+  switch (stage) {
+    case "LEAD":
+    case "CONTACT_NEXT_SEASON":
+      return "POTENCIAL";
+    
+    case "CLOSED_WON":
+      return "ACTIVA";
+    
+    case "CLOSED_LOST":
+      return "FALLIDA";
+    
+    case "PENDIENTE":
+    case "SCRAPPED":
+      return null; // No visibles en pipeline (requieren acción manual)
+    
+    case "CONTACTED":
+    case "SCHEDULE_APPOINTMENT":
+    case "INTERESTED":
+    case "SEND_INFO":
+    case "FOLLOW_UP":
+    case "NEGOTIATION":
+    default:
+      return "SEGUIMIENTO";
+  }
+};
+
+// Labels en español para cada stage
+export const STAGE_LABELS: Record<Stage, string> = {
+  LEAD: "Lead",
+  CONTACTED: "Contactado",
+  SCHEDULE_APPOINTMENT: "Cita programada",
+  INTERESTED: "Interesado",
+  SEND_INFO: "Info enviada",
+  FOLLOW_UP: "Seguimiento",
+  NEGOTIATION: "Negociación",
+  CLOSED_WON: "Cerrado ganado",
+  CLOSED_LOST: "Cerrado perdido",
+  CONTACT_NEXT_SEASON: "Contactar próxima temporada",
+  PENDIENTE: "Pendiente",
+  SCRAPPED: "Scrapeado (sin admitir)",
+};
+
+// Helper para obtener label de stage
+export const getStageLabel = (stage?: Stage): string => {
+  if (!stage) return "Sin definir";
+  return STAGE_LABELS[stage] || stage;
+};
+
+// Colores para badges de stage (compatible con Tailwind)
+export const STAGE_COLORS: Record<Stage, string> = {
+  LEAD: "bg-blue-100 text-blue-700 border-blue-200",
+  CONTACTED: "bg-cyan-100 text-cyan-700 border-cyan-200",
+  SCHEDULE_APPOINTMENT: "bg-purple-100 text-purple-700 border-purple-200",
+  INTERESTED: "bg-indigo-100 text-indigo-700 border-indigo-200",
+  SEND_INFO: "bg-violet-100 text-violet-700 border-violet-200",
+  FOLLOW_UP: "bg-orange-100 text-orange-700 border-orange-200",
+  NEGOTIATION: "bg-amber-100 text-amber-700 border-amber-200",
+  CLOSED_WON: "bg-green-100 text-green-700 border-green-200",
+  CLOSED_LOST: "bg-red-100 text-red-700 border-red-200",
+  CONTACT_NEXT_SEASON: "bg-slate-100 text-slate-700 border-slate-200",
+  PENDIENTE: "bg-yellow-100 text-yellow-700 border-yellow-200",
+  SCRAPPED: "bg-gray-100 text-gray-700 border-gray-200",
+};
+
+// Helper para obtener clases de color de stage
+export const getStageColor = (stage?: Stage): string => {
+  if (!stage) return "bg-gray-100 text-gray-700 border-gray-200";
+  return STAGE_COLORS[stage] || "bg-gray-100 text-gray-700 border-gray-200";
+};
+
+// Stages agrupados por columna (útil para filtros/selects)
+export const STAGES_BY_COLUMN: Record<PipelineColumn, Stage[]> = {
+  POTENCIAL: ["LEAD", "CONTACT_NEXT_SEASON"],
+  SEGUIMIENTO: [
+    "CONTACTED",
+    "SCHEDULE_APPOINTMENT",
+    "INTERESTED",
+    "SEND_INFO",
+    "FOLLOW_UP",
+    "NEGOTIATION",
+  ],
+  ACTIVA: ["CLOSED_WON"],
+  FALLIDA: ["CLOSED_LOST"],
+};

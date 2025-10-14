@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { SBDialog, SBDialogContent } from '@/components/ui/SBDialog';
 import { Input, Select, SBButton } from '@/components/ui/ui-primitives';
-import type { Shipment, Account, Item } from '@/domain/ssot';
+import type { Shipment, Account, Item, SalesUnit } from '@/domain/ssot';
 import { Plus, X, Search } from 'lucide-react';
 import { useData } from '@/lib/dataprovider';
 
@@ -139,19 +139,31 @@ export function NewShipmentDialog({ open, onClose, onSave, accounts, items }: Ne
 
         const payload: NewShipmentPayload = {
             orderId: `manual_${Date.now()}`,
-            status: 'DRAFT',
-            fromWarehouseId: 'FG/MAIN',
-            lines: lines.map(l => ({ 
-                sku: l.sku,
-                qty: l.qty
-            })),
-            toAddress: {
-                street: address,
-                city,
-                postalCode,
-                country: 'España'
-            },
-            customerName: account?.name || newCustomerName,
+            partyId: accountId ?? 'MANUAL',
+            accountId: accountId ?? 'MANUAL',
+            mode: 'PARCEL',
+            status: 'pending',
+            lines: lines.map(l => {
+                const item = items.find(i => i.sku === l.sku);
+                // Aseguramos que el uom sea un SalesUnit válido
+                const uom = item?.uom;
+                const salesUnit: SalesUnit = 
+                    uom === 'unit' || uom === 'bottle' || uom === 'case' || uom === 'pallet'
+                        ? uom
+                        : 'unit';
+                return {
+                    itemId: l.sku,
+                    sku: l.sku,
+                    name: item?.name ?? l.name,
+                    qty: l.qty,
+                    uom: salesUnit
+                };
+            }),
+            customerName: account?.name ?? newCustomerName ?? '',
+            addressLine1: address,
+            city,
+            postalCode,
+            country: 'España',
             newCustomerName: newCustomerName && !account ? newCustomerName : undefined,
         };
         onSave(payload);

@@ -20,7 +20,7 @@ import {
   type Shipment,
   type User,
   type StockReason,
-} from '@/domain/ssot.v7';
+} from '@/domain/ssot';
 import { POLICIES } from '@/lib/codes';
 import { getServerData } from '@/lib/dataprovider/server';
 import { upsertMany } from '@/lib/dataprovider/actions';

@@ -1,4 +1,3 @@
-
 {
   "indexes": [
     {
@@ -24,6 +23,14 @@
         { "fieldPath": "accountId", "order": "ASCENDING" },
         { "fieldPath": "plannedFor", "order": "DESCENDING" },
         { "fieldPath": "kind", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "interactions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "accountId", "order": "ASCENDING" },
+        { "fieldPath": "when", "order": "DESCENDING" }
       ]
     },
     {
@@ -82,22 +89,42 @@
         { "fieldPath": "updatedAt", "order": "DESCENDING" }
       ]
     },
-    { "collectionGroup": "parties", "queryScope": "COLLECTION", "fields": [
-      { "fieldPath": "vat", "order": "ASCENDING" }
-    ]},
-    { "collectionGroup": "parties", "queryScope": "COLLECTION", "fields": [
-      { "fieldPath": "nameNorm", "order": "ASCENDING" }
-    ]},
-    { "collectionGroup": "parties", "queryScope": "COLLECTION", "fields": [
-      { "fieldPath": "emails.value", "order": "ASCENDING" }
-    ]},
-    { "collectionGroup": "parties", "queryScope": "COLLECTION", "fields": [
-      { "fieldPath": "phones.value", "order": "ASCENDING" }
-    ]},
-    { "collectionGroup": "partyDuplicates", "queryScope": "COLLECTION", "fields": [
-      { "fieldPath": "status", "order": "ASCENDING" },
-      { "fieldPath": "score", "order": "DESCENDING" }
-    ]},
+    {
+      "collectionGroup": "parties",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "vat", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "parties",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "nameNorm", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "parties",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "emails.value", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "parties",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "phones.value", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "partyDuplicates",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "score", "order": "DESCENDING" }
+      ]
+    },
     {
       "collectionGroup": "inspections",
       "queryScope": "COLLECTION",
@@ -133,13 +160,99 @@
       "collectionGroup": "accounts",
       "queryScope": "COLLECTION",
       "fields": [
-          { "fieldPath": "zone", "order": "ASCENDING" },
-          { "fieldPath": "distributorId", "order": "ASCENDING" }
+        { "fieldPath": "zone", "order": "ASCENDING" },
+        { "fieldPath": "distributorId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "accounts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "originType", "order": "ASCENDING" },
+        { "fieldPath": "nameLower", "order": "ASCENDING" },
+        { "fieldPath": "__name__", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "accounts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "nameLower", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "accounts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "accountType", "order": "ASCENDING" },
+        { "fieldPath": "nameLower", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "accounts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "stage", "order": "ASCENDING" },
+        { "fieldPath": "nameLower", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "accounts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "segment", "order": "ASCENDING" },
+        { "fieldPath": "nameLower", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "accounts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "accountChannel", "order": "ASCENDING" },
+        { "fieldPath": "nameLower", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "cashflow_payments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "accountId", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "orders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "accountId", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "opportunities",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "accountId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tasks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "projectId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "projectIdeas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "projectId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "ASCENDING" }
       ]
     }
   ],
-  "fieldOverrides": [
-    { "collectionGroup": "parties", "fieldPath": "emails", "indexes": [ { "order": "CONTAINS" } ] },
-    { "collectionGroup": "parties", "fieldPath": "phones", "indexes": [ { "order": "CONTAINS" } ] }
-  ]
+  "fieldOverrides": []
 }

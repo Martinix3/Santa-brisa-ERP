@@ -1,52 +1,134 @@
-// src/features/sales/pipeline/components/AccountCard.tsx
-"use client";
-import React from "react";
-import type { PipelineAccount } from "../pipeline.service";
-import { Badge, SBButton } from "@/components/ui";
-import Link from 'next/link';
-import { cn } from "@/lib/utils";
-import { AlertTriangle, MapPin, Milestone, Truck, User } from "lucide-react";
+import type { Account, User } from '@/domain/ssot';
+import { Target, Phone, Package } from 'lucide-react';
+import { createInteractionTask, createOrderPrepTask, toggleAccountObjective } from '../pipeline.actions.v2';
 
-function RiskBadge({ days }: { days: number }) {
-  if (days < 45) return null;
-  const severity = days >= 90 ? "destructive" : "secondary";
-  return <Badge variant={severity} className="text-xs"><AlertTriangle size={12} className="inline mr-1" /> {days}d</Badge>;
+interface AccountCardProps {
+  account: Account;
+  currentUserId: string;
+  ownerName: string;
+  taskCount: number;
+  nextEvent?: {
+    date: string;
+    title: string;
+    kind?: string;
+  };
+  onClick?: () => void;
 }
 
-function TargetBadge({ target }: { target?: { goal: number; actual: number } }) {
-  if (!target || !target.goal) return null;
-  const pct = Math.round((target.actual / target.goal) * 100);
-  return <Badge variant="default" className="text-xs">{pct}%</Badge>;
-}
-
-export function AccountCard({ account, onProgram }: { account: PipelineAccount; onProgram: (accountId: string) => void; }) {
+export function AccountCard({ account, currentUserId, ownerName, taskCount, nextEvent, onClick }: AccountCardProps) {
   return (
-    <div className="border bg-card rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow">
-      <Link href={`/accounts/${account.id}`} className="font-semibold text-sm hover:underline">{account.name}</Link>
-      <p className="text-xs text-muted-foreground truncate">
-        {account.city} {account.zone && `· ${account.zone}`} {account.distributorName && `· ${account.distributorName}`}
-      </p>
-      
-      <div className="mt-2 flex items-center gap-1.5 flex-wrap">
-        {account.plvInstalled && <Badge variant="outline" className="text-xs">PLV</Badge>}
-        <RiskBadge days={account.riskDays} />
-        <TargetBadge target={account.target} />
-        {account.isFromOtherDistributor && <Badge variant="outline" className="text-xs">Dist: {account.distributorName}</Badge>}
+    <div 
+      className="dept-VENTAS rounded-xl backdrop-blur-sm p-3 border cursor-pointer transition-all hover:scale-[1.02] hover:shadow-md"
+      style={{
+        backgroundColor: `rgb(var(--dept-bg) / 0.8)`,
+        borderColor: `rgb(var(--dept-border) / 0.4)`,
+      }}
+      onClick={onClick}
+    >
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <div className="flex-1 min-w-0">
+          <div 
+            className="text-sm font-medium mb-1"
+            style={{ color: `rgb(var(--dept-text))` }}
+          >
+            {account.name}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {ownerName}
+          </div>
+        </div>
+        {account.isTarget && (
+          <Target size={14} className="shrink-0" style={{ color: `rgb(var(--dept-text) / 0.7)` }} />
+        )}
       </div>
 
-      <div className="mt-2 pt-2 border-t text-xs text-muted-foreground space-y-1">
-        <div className="flex items-center gap-2">
-            <Milestone size={12} />
-            <span>Últ. acción: {account.lastInteraction?.when ? new Date(account.lastInteraction.when).toLocaleDateString('es-ES') : 'N/A'} ({account.lastInteraction?.kind})</span>
-        </div>
-        <div className="flex items-center gap-2">
-            <User size={12} />
-            <span>Por: {account.lastInteraction?.createdById}</span>
-        </div>
+      {/* Badges */}
+      <div className="flex items-center gap-1.5 flex-wrap mb-2">
+        <span 
+          className="text-xs px-2 py-0.5 rounded-full font-medium"
+          style={{
+            backgroundColor: `rgb(var(--dept-badge-bg) / 0.6)`,
+            color: `rgb(var(--dept-badge-text))`,
+          }}
+        >
+          {account.segment}
+        </span>
+        {taskCount > 0 && (
+          <span className="text-xs px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-300 font-medium">
+            {taskCount}
+          </span>
+        )}
       </div>
 
-      <div className="mt-3 flex justify-end">
-        <SBButton variant="secondary" size="sm" onClick={() => onProgram(account.id)}>Programar</SBButton>
+      {/* Próximo Evento/Cita */}
+      {nextEvent && (
+        <div className="flex items-center gap-2 mb-2 p-2 rounded-lg bg-amber-50/50 border border-amber-200/50">
+          <div className="flex-1 min-w-0">
+            <div className="text-xs font-medium text-amber-900 truncate">
+              {nextEvent.title}
+            </div>
+            <div className="text-[11px] text-amber-600 mt-0.5">
+              {new Date(nextEvent.date).toLocaleDateString('es-ES', { 
+                day: 'numeric', 
+                month: 'short',
+                hour: '2-digit',
+                minute: '2-digit'
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Actions */}
+      <div className="flex items-center gap-1 pt-2 border-t border-border/30" onClick={(e) => e.stopPropagation()}>
+        <button 
+          onClick={async (e) => {
+            e.stopPropagation();
+            await createInteractionTask({
+              accountId: account.id,
+              userId: currentUserId,
+              title: `Llamada a ${account.name}`,
+            });
+          }}
+          className="p-1.5 rounded border border-border/40 bg-background/60 hover:bg-background hover:scale-110 transition-all"
+          title="Crear tarea de llamada"
+        >
+          <Phone size={14} />
+        </button>
+
+        <button 
+          onClick={async (e) => {
+            e.stopPropagation();
+            await createOrderPrepTask({
+              accountId: account.id,
+              userId: currentUserId,
+              title: `Preparar pedido ${account.name}`,
+            });
+          }}
+          className="p-1.5 rounded border border-border/40 bg-background/60 hover:bg-background hover:scale-110 transition-all"
+          title="Crear tarea de pedido"
+        >
+          <Package size={14} />
+        </button>
+
+        <button 
+          onClick={async (e) => {
+            e.stopPropagation();
+            await toggleAccountObjective({
+              accountId: account.id,
+              on: !account.isTarget,
+              userId: currentUserId,
+            });
+          }}
+          className={`p-1.5 rounded border border-border/40 hover:scale-110 transition-all ${
+            account.isTarget 
+              ? 'bg-amber-100 text-amber-700' 
+              : 'bg-background/60 hover:bg-background'
+          }`}
+          title={account.isTarget ? "Quitar objetivo" : "Marcar como objetivo"}
+        >
+          <Target size={14} />
+        </button>
       </div>
     </div>
   );

@@ -9,7 +9,7 @@ async function upsertAccount(accountData: Partial<Account>, shopifyCustomer: any
   const email = shopifyCustomer.email;
   if (!email) throw new Error("Customer email is required to upsert account");
 
-  const q = await db.collection('accounts').where('external.shopifyCustomerId', '==', String(shopifyCustomer.id)).limit(1).get();
+  const q = await db.collection('contacts').where('external.shopifyCustomerId', '==', String(shopifyCustomer.id)).limit(1).get();
   
   if (!q.empty) {
     const docRef = q.docs[0].ref;
@@ -18,7 +18,7 @@ async function upsertAccount(accountData: Partial<Account>, shopifyCustomer: any
   }
   
   // Si no se encuentra por ID, busca por email
-  const qByEmail = await db.collection('accounts').where('mainContactEmail', '==', email).limit(1).get();
+  const qByEmail = await db.collection('contacts').where('mainContactEmail', '==', email).limit(1).get();
   if(!qByEmail.empty){
     const docRef = qByEmail.docs[0].ref;
     await docRef.set(accountData, { merge: true });
@@ -26,7 +26,7 @@ async function upsertAccount(accountData: Partial<Account>, shopifyCustomer: any
   }
 
   // Si no existe, crea uno nuevo
-  const docRef = db.collection('accounts').doc();
+  const docRef = db.collection('contacts').doc();
   await docRef.set({
     ...accountData,
     id: docRef.id,

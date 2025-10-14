@@ -59,23 +59,22 @@ interface SBButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement | H
 export const SBButton = React.forwardRef<HTMLButtonElement | HTMLAnchorElement, SBButtonProps>(
     ({ className, variant = 'primary', size = 'md', as = 'button', ...props }, ref) => {
         const Comp = as;
-        const base = "inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 disabled:pointer-events-none";
         
         const variants: Record<string, string> = {
-            primary: "bg-primary text-primary-foreground hover:opacity-90",
-            secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80 border",
-            destructive: "bg-destructive text-destructive-foreground hover:opacity-90",
-            ghost: "hover:bg-accent hover:text-accent-foreground",
-            subtle: "text-muted-foreground hover:text-foreground hover:bg-secondary",
-            outline: "border bg-transparent hover:bg-secondary"
+            primary: "sb-btn--primary",
+            secondary: "sb-btn--secondary",
+            destructive: "sb-btn--destructive",
+            ghost: "sb-btn--ghost",
+            subtle: "sb-btn--ghost",
+            outline: "sb-btn--secondary"
         };
         const sizes = {
-            sm: "h-8 px-3 text-xs",
-            md: "h-9 px-4",
-            lg: "h-10 px-6",
+            sm: "sb-btn--sm",
+            md: "",
+            lg: "sb-btn--lg",
         };
 
-        return <Comp className={cn(base, variants[variant], sizes[size], className)} ref={ref as any} {...props} />;
+        return <Comp className={cn("sb-btn", variants[variant], sizes[size], className)} ref={ref as any} {...props} />;
     }
 );
 SBButton.displayName = "SBButton";
@@ -136,14 +135,14 @@ export function LotQualityStatusPill({ status }: { status?: 'hold' | 'release' |
 
 export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
     ({ className, ...props }, ref) => (
-        <input ref={ref} className={cn('h-10 w-full rounded-md border border-border bg-card px-3 py-2 text-sm focus-ring', className)} {...props} />
+        <input ref={ref} className={cn('sb-input', className)} {...props} />
     )
 );
 Input.displayName = 'Input';
 
 export const Select = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttributes<HTMLSelectElement>>(
     ({ className, children, ...props }, ref) => (
-         <select ref={ref} className={cn('h-10 w-full rounded-md border border-border bg-card px-3 py-2 text-sm focus-ring', className)} {...props}>
+         <select ref={ref} className={cn('sb-select', className)} {...props}>
             {children}
          </select>
     )
@@ -152,7 +151,7 @@ Select.displayName = 'Select';
 
 export const Textarea = React.forwardRef<HTMLTextAreaElement, React.TextareaHTMLAttributes<HTMLTextAreaElement>>(
     ({ className, ...props }, ref) => (
-         <textarea ref={ref} className={cn('w-full rounded-md border border-border bg-card px-3 py-2 text-sm focus-ring', className)} {...props} />
+         <textarea ref={ref} className={cn('sb-textarea', className)} {...props} />
     )
 );
 Textarea.displayName = 'Textarea';

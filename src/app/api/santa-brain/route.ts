@@ -20,7 +20,7 @@ async function getComercialAccounts(userId: string): Promise<Account[]> {
   
   if (partyRolesSnapshot.empty) {
     // Si no tiene distribuidor, retornar todas las cuentas del comercial
-    const accountsSnapshot = await adminDb.collection('accounts')
+    const accountsSnapshot = await adminDb.collection('contacts')
       .where('ownerId', '==', userId)
       .get();
     
@@ -30,7 +30,7 @@ async function getComercialAccounts(userId: string): Promise<Account[]> {
   const distributorId = partyRolesSnapshot.docs[0].data().partyId;
   
   // 2. Obtener cuentas de ese distribuidor
-  const accountsSnapshot = await adminDb.collection('accounts')
+  const accountsSnapshot = await adminDb.collection('contacts')
     .where('distributorPartyId', '==', distributorId)
     .get();
   

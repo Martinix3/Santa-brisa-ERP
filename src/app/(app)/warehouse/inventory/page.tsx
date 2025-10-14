@@ -19,7 +19,7 @@ import { LotDetailPanel } from "./components/LotDetailPanel";
 import { SkuAccordionRow } from "./components/SkuAccordionRow";
 import { LotRows } from "./components/LotRows";
 import { InventoryDashboard } from "@/features/warehouse/components/InventoryDashboard";
-import { DataQualityCenter } from "@/features/warehouse/components/DataQualityCenter";
+import { QuickGoodsReceiptDialog } from "@/features/warehouse/components/QuickGoodsReceiptDialog";
 
 // Componente EmptyState más robusto
 function Empty({ hint, icon: Icon }: { hint: string, icon?: React.ElementType }) {
@@ -52,6 +52,7 @@ export default function InventoryPage() {
   const searchRef = useRef<HTMLInputElement>(null);
 
   const [openNew, setOpenNew] = useState(false);
+  const [openGoodsReceipt, setOpenGoodsReceipt] = useState(false);
   const [isRebuilding, startRebuildTransition] = useTransition();
 
   // ... (hooks y lógica de datos se mantienen igual) ...
@@ -63,7 +64,7 @@ export default function InventoryPage() {
     if (globalSearch.trim()) {
       const q = globalSearch.trim().toLowerCase();
       rows = rows.filter(r =>
-        r.sku.toLowerCase().includes(q) ||
+        (r.sku?.toLowerCase().includes(q)) ||
         (r.lotNumbers && Object.keys(r.lotNumbers).some(ln => ln.toLowerCase().includes(q))) ||
         (items.find(i => i.sku === r.sku)?.name?.toLowerCase().includes(q) ?? false)
       );
@@ -84,15 +85,16 @@ export default function InventoryPage() {
   const lotRows = useMemo(() => onHandFiltered
     .flatMap(r => {
       const lotNumbers = r.lotNumbers ? Object.keys(r.lotNumbers) : [];
+      const sku = r.sku ?? '';
       return lotNumbers.map(lotNumber => ({
         id: r.id,
         lotNumber: lotNumber,
-        sku: r.sku,
-        name: items.find(i => i.sku === r.sku)?.name ?? r.sku,
+        sku: sku,
+        name: items.find(i => i.sku === sku)?.name ?? sku,
         qty: r.qty,
         free: Math.max(0, r.qty - (r.reserved ?? 0)),
         uom: 'UNIT' as const,
-        locationId: r.warehouseId,
+        locationId: r.warehouseId ?? '',
         qcStatus: r.qcStatus,
         expiryAt: null,
         updatedAt: r.updatedAt,
@@ -137,59 +139,90 @@ export default function InventoryPage() {
   const sectionStyle = { '--primary': 'hsl(var(--sb-accent-logistica))', '--primary-foreground': 'hsl(var(--card-foreground))' } as React.CSSProperties;
 
   return (
-    <div className="space-y-6" style={{'--sb-accent': 'var(--sb-accent-logistica)'} as React.CSSProperties}>
-      
-      <InventoryDashboard summaries={Object.values(summaries)} />
-      <DataQualityCenter />
-      
-      {/* --- NUEVA ESTRUCTURA DE LAYOUT ESTABLE --- */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div className="sb-page">
+      {/* Header con título y acciones principales */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="sb-page__title">Almacén</h1>
+          <p className="sb-page__subtitle">Gestión de inventario y recepciones</p>
+        </div>
+        <div className="flex gap-2">
+          <SBButton variant="outline" onClick={handleRebuild} disabled={isRebuilding}>
+            <RefreshCw size={16} className={isRebuilding ? 'animate-spin' : ''} /> 
+            {isRebuilding ? 'Reconstruyendo...' : 'Reconstruir'}
+          </SBButton>
+          <SBButton variant="primary" onClick={() => setOpenNew(true)}>
+            <Plus size={16} /> Ajuste Manual
+          </SBButton>
+        </div>
+      </div>
 
-        {/* --- COLUMNA IZQUIERDA: Navegador de Inventario Unificado --- */}
-        <div className={selectedLotNumber ? "md:col-span-2" : "md:col-span-3"}>
-          <SBCard noPadding>
-            {/* El header de la tarjeta ahora contiene los filtros y acciones */}
-            <div className="p-3 border-b space-y-3">
-              <div className="flex justify-between items-center">
-                <h3 className="font-semibold">Inventario</h3>
-                <div className="flex gap-2 items-center">
-                  <SBButton variant="outline" style={sectionStyle}>Exportar</SBButton>
-                  <SBButton variant="outline" style={sectionStyle}>Nueva Recepción</SBButton>
-                  <SBButton variant="outline" style={sectionStyle} onClick={handleRebuild} disabled={isRebuilding}>
-                    <RefreshCw size={14} className={isRebuilding ? 'animate-spin' : ''} /> {isRebuilding ? '...' : 'Reconstruir'}
+      <div className="sb-page__content">
+        <InventoryDashboard summaries={Object.values(summaries)} />
+        
+        {/* --- NAVEGADOR DE INVENTARIO --- */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+          {/* --- COLUMNA IZQUIERDA: Navegador de Inventario --- */}
+          <div className={selectedLotNumber ? "md:col-span-2" : "md:col-span-3"}>
+            <div className="sb-card">
+              {/* Toolbar de filtros */}
+              <div className="sb-card__header">
+                <h3 className="sb-card__title">Inventario</h3>
+                <div className="flex gap-2">
+                  <SBButton variant="outline" size="sm">
+                    <Filter size={14} /> Exportar
                   </SBButton>
-                  <SBButton variant="primary" style={sectionStyle} onClick={() => setOpenNew(true)}>Ajuste Manual</SBButton>
+                  <SBButton variant="primary" size="sm" onClick={() => setOpenGoodsReceipt(true)}>
+                    <Plus size={14} /> Nueva Recepción
+                  </SBButton>
                 </div>
               </div>
-              <div className="flex flex-wrap gap-2 items-center">
-                <div className="flex-1 flex gap-2 min-w-[260px]">
-                  <Input ref={searchRef} placeholder="Buscar por SKU, nombre, lote…" value={globalSearch} onChange={e=>setGlobalSearch(e.target.value)} />
-                  <Select value={locationFilter} onChange={(e) => setLocationFilter(e.target.value)}>
-                    {locations.map(loc => <option key={loc} value={loc}>{loc === "ALL" ? "Todas Ubicaciones" : loc}</option>)}
-                  </Select>
-                  <Select value={qcFilter} onChange={(e) => setQcFilter(e.target.value)}>
-                    <option value="ALL">Todo QC</option>
-                    <option value="PASSED">Liberado</option>
-                    <option value="PENDING">Retenido</option>
-                    <option value="FAILED">Rechazado</option>
-                  </Select>
+
+              <div className="sb-toolbar">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground z-10" size={16} />
+                  <Input
+                    ref={searchRef}
+                    type="text"
+                    placeholder="Buscar por SKU, nombre, lote…" 
+                    value={globalSearch} 
+                    onChange={e=>setGlobalSearch(e.target.value)}
+                    className="pl-10"
+                  />
                 </div>
-                <label className="flex items-center gap-2 pl-2 text-sm">
-                  <input type="checkbox" className="sb-checkbox" checked={onlyWithStock} onChange={e=>setOnlyWithStock(e.target.checked)} />
+                <Select value={locationFilter} onChange={(e) => setLocationFilter(e.target.value)}>
+                  {locations.map(loc => <option key={loc} value={loc}>{loc === "ALL" ? "Todas Ubicaciones" : loc}</option>)}
+                </Select>
+                <Select value={qcFilter} onChange={(e) => setQcFilter(e.target.value)}>
+                  <option value="ALL">Todo QC</option>
+                  <option value="PASSED">Liberado</option>
+                  <option value="PENDING">Retenido</option>
+                  <option value="FAILED">Rechazado</option>
+                </Select>
+                <label className="flex items-center gap-2 text-sm whitespace-nowrap">
+                  <input type="checkbox" checked={onlyWithStock} onChange={e=>setOnlyWithStock(e.target.checked)} />
                   Solo con Stock
                 </label>
               </div>
-            </div>
 
-            {/* Las alertas ahora son visibles y no están en un <details> */}
-            {alerts.length > 0 && (
-              <div className="p-3 border-b space-y-1">
-                <h4 className="flex items-center gap-2 text-destructive font-semibold text-sm"><AlertCircle size={16} />{alerts.length} Alertas de Inventario</h4>
-                {alerts.map((a,i)=> <div key={i} className="text-xs p-1.5 rounded-md bg-destructive-foreground text-destructive border border-destructive/20 flex items-center gap-2"><AlertCircle size={14}/> {a.sku}: {a.message}</div>)}
-              </div>
-            )}
-            
-            {/* Las pestañas y el contenido principal */}
+              {/* Alertas */}
+              {alerts.length > 0 && (
+                <div className="px-4 py-3 bg-destructive/5 border-y border-destructive/20">
+                  <h4 className="flex items-center gap-2 text-destructive font-semibold text-sm mb-2">
+                    <AlertCircle size={16} />{alerts.length} Alertas de Inventario
+                  </h4>
+                  <div className="space-y-1">
+                    {alerts.map((a,i)=> (
+                      <div key={i} className="text-xs p-2 rounded-md bg-background text-destructive border border-destructive/20 flex items-center gap-2">
+                        <AlertCircle size={14}/> {a.sku}: {a.message}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Tabs y contenido */}
             <Tabs value={viewMode} onValueChange={handleViewChange}>
               <div className="p-4 border-b">
                 <TabsList className="relative">
@@ -199,28 +232,46 @@ export default function InventoryPage() {
               </div>
 
               <TabsContent value="sku">
-                <div className="divide-y">
-                    <div className="grid grid-cols-[2fr_repeat(5,1fr)] items-center gap-4 px-4 py-2 bg-secondary text-xs font-semibold uppercase text-muted-foreground tracking-wider">
-                      <span>Producto</span><span className="text-right">Stock Total</span><span className="text-right">Disp.</span><span className="text-right">Reservado</span><span className="text-right">En QC</span><span>Estado</span>
+                <div className="sb-table-wrapper">
+                  <table className="sb-table">
+                    <thead>
+                      <tr>
+                        <th>Producto</th>
+                        <th className="text-right">Stock Total</th>
+                        <th className="text-right">Disponible</th>
+                        <th className="text-right">Reservado</th>
+                        <th className="text-right">En QC</th>
+                        <th>Estado</th>
+                      </tr>
+                    </thead>
+                  </table>
+                  {skusWithLots.length > 0 ? (
+                    <div className="divide-y">
+                      {skusWithLots.map(({summary}) => (
+                        <SkuAccordionRow key={summary.sku} sku={summary} items={items} onLotSelect={setSelectedLotNumber} />
+                      ))}
                     </div>
-                    {skusWithLots.length > 0 ? (
-                        skusWithLots.map(({summary}) => <SkuAccordionRow key={summary.sku} sku={summary} items={items} onLotSelect={setSelectedLotNumber} />)
-                    ) : <Empty hint="No hay stock que coincida con los filtros." />}
+                  ) : (
+                    <div className="p-8">
+                      <Empty hint="No hay stock que coincida con los filtros." icon={List} />
+                    </div>
+                  )}
                 </div>
               </TabsContent>
               <TabsContent value="lot">
                   <LotRows lots={lotRows} onLotSelect={setSelectedLotNumber} />
               </TabsContent>
             </Tabs>
-          </SBCard>
-        </div>
-
-        {/* --- COLUMNA DERECHA: Panel de Detalle (estable) --- */}
-        {selectedLotDetails && (
-          <div className="md:col-span-1">
-             <LotDetailPanel lotDetails={selectedLotDetails} items={items} onClose={() => setSelectedLotNumber(null)} />
+            </div>
           </div>
-        )}
+
+          {/* --- COLUMNA DERECHA: Panel de Detalle --- */}
+          {selectedLotDetails && (
+            <div className="md:col-span-1">
+              <LotDetailPanel lotDetails={selectedLotDetails} items={items} onClose={() => setSelectedLotNumber(null)} />
+            </div>
+          )}
+        </div>
       </div>
       
       {openNew && (
@@ -233,6 +284,16 @@ export default function InventoryPage() {
             locations={locations.filter(l => l !== 'ALL')}
         />
       )}
+      
+      <QuickGoodsReceiptDialog
+        open={openGoodsReceipt}
+        onOpenChange={setOpenGoodsReceipt}
+        onSuccess={(info) => {
+          toast.success(`Recepción ${info.receiptNumber} creada exitosamente`);
+          router.refresh();
+        }}
+        onError={(msg) => toast.error(`Error: ${msg}`)}
+      />
     </div>
   );
 }

@@ -18,7 +18,7 @@ async function upsertAccount(accountData: Partial<Account>, shopifyCustomer: any
     throw new Error("Customer email is required to upsert an account from Shopify.");
   }
 
-  const accountsRef = db.collection('accounts');
+  const accountsRef = db.collection('contacts');
   
   // 1. Try to find by Shopify Customer ID
   const qById = await accountsRef.where('external.shopifyCustomerId', '==', String(shopifyCustomer.id)).limit(1).get();

@@ -1,0 +1,113 @@
+/* 🎨 Colores reales SB (HSL sin hsl()) */
+@reference "tailwindcss";
+:root{
+  /* Paleta base UI */
+  --background: 0 0% 100%;
+  --foreground: 240 10% 4%;
+  --card: 0 0% 100%;
+  --card-foreground: 240 10% 4%;
+  --secondary: 240 5% 96%;
+  --secondary-foreground: 240 5% 26%;
+  --muted: 240 4.8% 95.9%;
+  --muted-foreground: 240 3.8% 46.1%;
+  --border: 240 5.9% 90%;
+  --input: 240 5.9% 90%;
+  --ring: 240 4.9% 83.9%;
+  --radius: 14px;
+
+  /* Brand SB (desde tus HEX) */
+  /* #F7D15F → hsl(45 90% 67%) */
+  --sb-yellow: 45 90% 67%;
+  /* #D7713E → hsl(20 66% 54%) */
+  --sb-copper: 20 66% 54%;
+  /* #A7D8D9 → hsl(181 40% 75%) */
+  --sb-aqua: 181 40% 75%;
+  /* #618E8F → hsl(181 19% 47%) */
+  --sb-green: 181 19% 47%;
+
+  /* Elecciones por defecto del tema */
+  --primary: var(--sb-yellow);
+  --primary-foreground: 30 100% 4%;
+  --accent: var(--sb-copper);
+  --accent-foreground: 0 0% 100%;
+  --success: var(--sb-green);
+  --success-foreground: 0 0% 98%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 98%;
+  --warning: var(--sb-copper);
+  --warning-foreground: 0 0% 100%;
+  --info: 181 40% 48%;
+  --info-foreground: 0 0% 100%;
+
+  /* Motion tokens */
+  --motion-fast: 150ms;
+  --motion-base: 200ms;
+  --motion-slow: 350ms;
+  --easing-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --easing-entrance: cubic-bezier(0.2, 0.7, 0.3, 1);
+  
+  /* Z-index scale unificada */
+  --z-base: 1;
+  --z-sticky: 5;
+  --z-overlay: 40;
+  --z-dialog: 50;
+  --z-drawer: 50;
+  --z-toast: 60;
+}
+
+/* 🌗 (Opcional) Modo oscuro rápido
+:root.dark{
+  --background: 224 15% 10%;
+  --foreground: 0 0% 98%;
+  --secondary: 224 14% 16%;
+  --secondary-foreground: 0 0% 98%;
+}
+*/
+
+/* 🔗 Map a utilidades Tailwind v4 */
+@import "tailwindcss/theme" layer(theme);
+
+@theme {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-success: hsl(var(--success));
+  --color-success-foreground: hsl(var(--success-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-warning: hsl(var(--warning));
+  --color-warning-foreground: hsl(var(--warning-foreground));
+  --color-info: hsl(var(--info));
+  --color-info-foreground: hsl(var(--info-foreground));
+  --radius: var(--radius);
+
+  /* Clases directas de marca (útiles en marketing/landing) */
+  --color-sb-yellow: hsl(var(--sb-yellow));
+  --color-sb-copper: hsl(var(--sb-copper));
+  --color-sb-aqua: hsl(var(--sb-aqua));
+  --color-sb-green: hsl(var(--sb-green));
+}
+
+/* ✨ Keyframes para animaciones */
+@layer utilities {
+  @keyframes sb-fade-in { from{opacity:0} to{opacity:1} }
+  @keyframes sb-fade-out{ from{opacity:1} to{opacity:0} }
+  @keyframes sb-zoom-in-95{ from{transform:scale(.95);opacity:.7} to{transform:scale(1);opacity:1} }
+  @keyframes sb-slide-in-bottom-4{ from{transform:translateY(1rem);opacity:.6} to{transform:none;opacity:1} }
+  @keyframes sb-slide-in-right-4{ from{transform:translateX(1rem);opacity:.6} to{transform:none;opacity:1} }
+  @keyframes sb-slide-up { from{transform:translateY(100%);opacity:.6} to{transform:translateY(0);opacity:1} }
+  @keyframes sb-slide-in { from{transform:translateX(100%);opacity:.6} to{transform:translateX(0);opacity:1} }
+  @keyframes sb-pop { from{transform:scale(.96);opacity:.7} to{transform:scale(1);opacity:1} }
+}

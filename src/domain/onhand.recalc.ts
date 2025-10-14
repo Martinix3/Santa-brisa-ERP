@@ -1,5 +1,5 @@
 // src/domain/onhand.recalc.ts
-import type { StockMove, OnHandView, Uom, Item, ItemCategory } from '@/domain/ssot.v7';
+import type { StockMove, OnHandView, Uom, Item, ItemCategory } from '@/domain/ssot';
 
 const SIGN: Record<string, number> = {
   receipt: +1,

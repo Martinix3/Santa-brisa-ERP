@@ -140,7 +140,6 @@ export function TraceProvider({ children }: { children: ReactNode }) {
       if (response.ok) {
         const data = await response.json();
         setMetadata(data);
-        console.log('📊 Trace metadata cargado:', data.stats);
       }
     } catch (error) {
       console.warn('⚠️ No se pudo cargar trace-metadata.json. Ejecuta: npm run trace:map');

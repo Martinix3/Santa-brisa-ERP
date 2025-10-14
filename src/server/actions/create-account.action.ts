@@ -20,7 +20,7 @@ export async function createAccountAndParty(data: { name: string; city?: string;
     updatedAt: now,
   };
   
-  const accountRef = db.collection('accounts').doc();
+  const accountRef = db.collection('contacts').doc();
   const newAccount: any = {
     id: accountRef.id,
     partyId: partyRef.id,

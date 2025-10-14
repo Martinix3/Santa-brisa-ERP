@@ -42,7 +42,7 @@ function lotPrefixFromSku(sku?: string, fallback?: string) {
   return `${base}-${yy}${mm}-`;
 }
 
-export async function findNextLotNumber(sku: string, sku?: string): Promise<string> {
+export async function findNextLotNumber(sku: string, itemId?: string): Promise<string> {
   const prefix = lotPrefixFromSku(sku, itemId);
   const lotsColl = db.collection('lots');
   // Rango por prefijo: >= prefix y < prefix con 'z' (lexicográfico)
@@ -64,7 +64,7 @@ export async function findNextLotNumber(sku: string, sku?: string): Promise<stri
   return `${prefix}${next}`;                  // SKU-YYMM-XX
 }
 
-async function loadItem(sku: string): Promise<Item | null> {
+async function loadItem(itemId: string): Promise<Item | null> {
     const doc = await db.collection('items').doc(itemId).get();
     return doc.exists ? (doc.data() as Item) : null;
 }
@@ -86,14 +86,14 @@ export async function createManualOnHand(
   const p = parsed.data;
 
   try {
-    const item = await loadItem(p.itemId);
+    const item = await loadItem(p.sku);
     if (!item) {
-        return fail(`El producto con ID ${p.itemId} no existe.`);
+        return fail(`El producto con SKU ${p.sku} no existe.`);
     }
 
     let lotNumber = (p.lotNumber || "").trim();
     if (!lotNumber) {
-      lotNumber = await findNextLotNumber(p.itemId, item.sku);
+      lotNumber = await findNextLotNumber(item.sku, item.id);
     }
 
     const occurredAtIso = p.occurredAt ? new Date(p.occurredAt).toISOString() : new Date().toISOString();
@@ -101,7 +101,7 @@ export async function createManualOnHand(
     
     const lotData = LotSchema.parse({
       lotNumber: lotNumber,
-      sku: p.itemId,
+      itemId: item.id,
       quantity: p.qty,
       uom: p.uom,
       qcStatus: initialQcStatusFor(item, { sendToQc: p.sendToQc }),
@@ -111,7 +111,7 @@ export async function createManualOnHand(
 
     const stockMove = {
       id: simpleId("sm"),
-      sku: p.itemId,
+      itemId: item.id,
       lotNumber,
       qty: p.qty,
       uom: p.uom,

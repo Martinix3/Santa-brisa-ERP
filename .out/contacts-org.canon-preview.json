@@ -1,0 +1,83 @@
+[
+  {
+    "id": "c_01141b8aa2b5",
+    "name": "ELITE DE EMBALAJE SL",
+    "legalName": "ELITE DE EMBALAJE SL",
+    "accountStage": "POTENCIAL",
+    "addressBilling": {
+      "city": "Logroño",
+      "zip": "26006",
+      "province": "La Rioja",
+      "country": "ES"
+    },
+    "addressShipping": {
+      "city": "Logroño",
+      "zip": "26006",
+      "province": "La Rioja",
+      "country": "ES"
+    },
+    "createdAt": "2025-10-12T11:30:29.417Z",
+    "updatedAt": "2025-10-12T11:30:29.417Z",
+    "__legacy": {
+      "stage": "Potencial"
+    }
+  },
+  {
+    "id": "c_01be588dd907",
+    "name": "Luis Perez Ullivarri",
+    "legalName": "Luis Perez Ullivarri",
+    "accountType": "ONLINE",
+    "accountStage": "ACTIVA",
+    "commercialFlow": "DIRECT",
+    "addressBilling": {
+      "street": "Poniente 9 Monte Alina",
+      "city": "Pozuelo de Alarcon",
+      "zip": "28223",
+      "province": "Madrid",
+      "country": "ES"
+    },
+    "addressShipping": {
+      "street": "Poniente 9 Monte Alina",
+      "city": "Pozuelo de Alarcon",
+      "zip": "28223",
+      "province": "Madrid",
+      "country": "ES"
+    },
+    "createdAt": "2025-10-12T11:30:24.903Z",
+    "updatedAt": "2025-10-12T11:30:24.903Z",
+    "__legacy": {
+      "placement": "DIRECTA",
+      "segment": "ONLINE",
+      "stage": "CLOSED_WON"
+    }
+  },
+  {
+    "id": "c_0283f6d7dc0e",
+    "name": "silvia gsrteiz",
+    "legalName": "silvia gsrteiz",
+    "accountType": "ONLINE",
+    "accountStage": "ACTIVA",
+    "commercialFlow": "DIRECT",
+    "addressBilling": {
+      "street": "paseo habana 141 3b",
+      "city": "madrid",
+      "zip": "28036",
+      "province": "Madrid",
+      "country": "ES"
+    },
+    "addressShipping": {
+      "street": "paseo habana 141 3b",
+      "city": "madrid",
+      "zip": "28036",
+      "province": "Madrid",
+      "country": "ES"
+    },
+    "createdAt": "2025-10-12T11:30:25.201Z",
+    "updatedAt": "2025-10-12T11:30:25.201Z",
+    "__legacy": {
+      "placement": "DIRECTA",
+      "segment": "ONLINE",
+      "stage": "CLOSED_WON"
+    }
+  }
+]

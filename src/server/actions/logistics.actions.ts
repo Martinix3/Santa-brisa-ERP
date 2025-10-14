@@ -65,8 +65,9 @@ export async function confirmOrderShipment(orderId: string): Promise<Shipment> {
     sampleAllocation: allocations[0]
   });
 
-  if (!allocations.length && order.items.length > 0) {
-    const itemIds = order.items.map((l: any) => l.sku);
+  const orderLines = order.lines || order.items || [];
+  if (!allocations.length && orderLines.length > 0) {
+    const itemIds = orderLines.map((l: any) => l.itemId || l.sku);
     const byItem = Object.fromEntries(itemIds.map((id: string) => {
         const rows = onHand.filter(r => r.sku === id);
       const freeReleased = rows
@@ -82,7 +83,7 @@ export async function confirmOrderShipment(orderId: string): Promise<Shipment> {
           ['PASSED','WAIVED','RELEASED','OK','APPROVED'].includes(r.qc) && r.free > 0
         );
       return [id, {
-        need: order.items.find((l: any) => l.sku === id)?.qty,
+        need: orderLines.find((l: any) => (l.itemId || l.sku) === id)?.qty,
         rows: rows.length,
         totalQty: rows.reduce((s, r) => s + Number(r.qty ?? 0), 0),
         totalReserved: rows.reduce((s, r) => s + Number(r.reserved ?? 0), 0),
@@ -99,7 +100,7 @@ export async function confirmOrderShipment(orderId: string): Promise<Shipment> {
 
     console.warn('[ALLOC DEBUG]', {
       orderId: order.id,
-      items: order.items,
+      items: orderLines,
       onHandCount: onHand.length,
       lotsCount: lots.length,
       byItem,
@@ -147,7 +148,7 @@ export async function confirmOrderShipment(orderId: string): Promise<Shipment> {
     transaction.update(orderRef, { status: 'confirmed', updatedAt: now });
 
     const isOnlineOrPrivate = account.type === 'ONLINE' || account.type === 'PRIVADA';
-    const totalUnits = order.items.reduce((sum: number, line: any) => sum + line.qty, 0);
+    const totalUnits = orderLines.reduce((sum: number, line: any) => sum + line.qty, 0);
     const mode: 'PARCEL' | 'PALLET' = isOnlineOrPrivate || totalUnits < 12 ? 'PARCEL' : 'PALLET';
 
     // Group allocations by item
@@ -166,12 +167,13 @@ export async function confirmOrderShipment(orderId: string): Promise<Shipment> {
           postalCode: account.billingAddress?.postalCode || '',
           country: account.billingAddress?.country || 'España',
         },
-        lines: order.items.flatMap(line => {
-            const allocs = allocByItem[line.sku] || [];
+        lines: orderLines.flatMap(line => {
+            const lineItemId = line.itemId || line.sku || '';
+            const allocs = allocByItem[lineItemId] || [];
             if (!allocs.length) {
               return [{
-                sku: line.sku,
-                name: itemsById.get(line.sku)?.name ?? line.sku,
+                sku: lineItemId,
+                name: itemsById.get(lineItemId)?.name ?? lineItemId,
                 qty: line.qty,
                 uom: 'UNIT',
                 lotNumber: undefined,
@@ -180,8 +182,8 @@ export async function confirmOrderShipment(orderId: string): Promise<Shipment> {
               } as any];
             }
             return allocs.map((a: AllocationDetail) => ({
-              sku: line.sku,
-              name: itemsById.get(line.sku)?.name ?? line.sku,
+              sku: lineItemId,
+              name: itemsById.get(lineItemId)?.name ?? lineItemId,
               qty: a.qty,
               uom: 'UNIT',
               lotNumber: a.lotNumber,

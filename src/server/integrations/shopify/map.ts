@@ -1,6 +1,6 @@
 
 
-import type { OrderSellOut, Timestamp, Currency } from '@/domain/ssot.v7';
+import type { OrderSellOut, Timestamp, Currency } from '@/domain/ssot';
 
 type ShopifyOrder = any; // si quieres, añade tipos de Shopify más adelante
 
@@ -44,7 +44,7 @@ export function normalizeShopifyOrder(order: ShopifyOrder): OrderSellOut {
     id,
     partyId: 'ONLINE',       // se sustituye tras ensureOnlinePartyAccount
     accountId: 'ONLINE',     // idem
-    source: 'SHOPIFY',
+    source: 'SHOPIFY' as const,
     createdAt,
     updatedAt,
     currency,
@@ -63,7 +63,7 @@ export function normalizeShopifyOrder(order: ShopifyOrder): OrderSellOut {
 }
 
 // src/server/integrations/shopify/shopify.mapper.ts
-import type { Account } from '@/domain/ssot.v7';
+import type { Account } from '@/domain/ssot';
 
 // Este es un mapeo simplificado. En una app real, esto sería mucho más complejo
 // para manejar impuestos, descuentos, variantes de productos, etc.
@@ -76,14 +76,13 @@ export function mapShopifyToSSOT(shopifyOrder: any): {
 
   const accountData: Partial<Account> = {
     name: `${shopifyOrder.customer.first_name || ''} ${shopifyOrder.customer.last_name || ''}`.trim(),
-    external: {
-        shopifyCustomerId: String(shopifyOrder.customer.id),
-        vat: shopifyOrder.customer.tax_exempt ? 'EXEMPT' : undefined,
-    }
+    // external property doesn't exist in Account v6, use notes or other field if needed
+    notes: `Shopify Customer ID: ${shopifyOrder.customer.id}${shopifyOrder.customer.tax_exempt ? ' (Tax Exempt)' : ''}`
     // Suponemos que el email se usa como clave de unión en el usecase
   };
 
   const orderData: Partial<OrderSellOut> = {
+    // totalAmount property exists in OrderSellOut v6
     totalAmount: parseFloat(shopifyOrder.total_price),
     lines: shopifyOrder.line_items.map((item: any) => ({
       itemId: item.sku || `SHOPIFY_${item.variant_id}`,

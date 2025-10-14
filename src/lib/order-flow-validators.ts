@@ -33,11 +33,11 @@ export function validateOrderFlow(
   const warnings: string[] = [];
 
   // REGLA 1: Online (Shopify) siempre DIRECT
-  if (order.source === 'Shopify') {
-    if (order.channel && order.channel !== 'DIRECTA') {
+  if (order.source === 'SHOPIFY') {
+    if (order.channel && order.channel !== 'DIRECT') {
       return {
         valid: false,
-        error: 'Pedidos online (Shopify) deben tener channel=DIRECTA',
+        error: 'Pedidos online (Shopify) deben tener channel=DIRECT',
       };
     }
 
@@ -50,20 +50,20 @@ export function validateOrderFlow(
 
     // Auto-corregir si no tiene channel definido
     if (!order.channel) {
-      warnings.push('Pedido online sin channel definido, debería ser DIRECTA');
+      warnings.push('Pedido online sin channel definido, debería ser DIRECT');
     }
   }
 
-  // REGLA 2: Comerciales solo COLOCACION
-  if (createdByUser?.role === 'SALES') {
-    if (order.channel === 'DIRECTA') {
+  // REGLA 2: Comerciales solo DISTRIBUTOR
+  if (createdByUser?.role === 'comercial') {
+    if (order.channel === 'DIRECT') {
       return {
         valid: false,
-        error: 'Comerciales no pueden crear pedidos con channel=DIRECTA (no tienen capacidad de facturar)',
+        error: 'Comerciales no pueden crear pedidos con channel=DIRECT (no tienen capacidad de facturar)',
       };
     }
 
-    if (order.channel === 'COLOCACION' && !order.distributorId) {
+    if (order.channel === 'DISTRIBUTOR' && !order.distributorId) {
       return {
         valid: false,
         error: 'Pedidos de comerciales requieren distributorId (debe ser Santa Brisa o distribuidor externo)',
@@ -72,33 +72,33 @@ export function validateOrderFlow(
 
     // Warning si no tiene channel definido
     if (!order.channel) {
-      warnings.push('Pedido de comercial sin channel definido, debería ser COLOCACION');
+      warnings.push('Pedido de comercial sin channel definido, debería ser DISTRIBUTOR');
     }
   }
 
-  // REGLA 3: COLOCACION requiere distributor
-  if (order.channel === 'COLOCACION') {
+  // REGLA 3: DISTRIBUTOR requiere distributor
+  if (order.channel === 'DISTRIBUTOR') {
     if (!order.distributorId) {
       return {
         valid: false,
-        error: 'Pedidos con channel=COLOCACION requieren distributorId',
+        error: 'Pedidos con channel=DISTRIBUTOR requieren distributorId',
       };
     }
   }
 
-  // REGLA 4: DIRECTA no debe tener distributor
-  if (order.channel === 'DIRECTA') {
+  // REGLA 4: DIRECT no debe tener distributor
+  if (order.channel === 'DIRECT') {
     if (order.distributorId) {
       return {
         valid: false,
-        error: 'Pedidos con channel=DIRECTA no deben tener distributorId',
+        error: 'Pedidos con channel=DIRECT no deben tener distributorId',
       };
     }
   }
 
   // Validación adicional: channel debe estar definido
   if (!order.channel) {
-    warnings.push('Pedido sin channel definido (debería ser COLOCACION o DIRECTA)');
+    warnings.push('Pedido sin channel definido (debería ser DISTRIBUTOR o DIRECT)');
   }
 
   return {
@@ -143,18 +143,18 @@ export function inferOrderChannel(
   source?: Order['source'],
   userRole?: TeamMember['role']
 ): OrderChannel {
-  // Online siempre DIRECTA
-  if (source === 'Shopify') {
-    return 'DIRECTA';
+  // Online siempre DIRECT
+  if (source === 'SHOPIFY') {
+    return 'DIRECT';
   }
 
-  // Comerciales siempre COLOCACION
-  if (userRole === 'SALES') {
-    return 'COLOCACION';
+  // Comerciales siempre DISTRIBUTOR
+  if (userRole === 'comercial') {
+    return 'DISTRIBUTOR';
   }
 
-  // Por defecto, admin puede elegir, pero sugerimos DIRECTA
-  return 'DIRECTA';
+  // Por defecto, admin puede elegir, pero sugerimos DIRECT
+  return 'DIRECT';
 }
 
 /**
@@ -173,19 +173,19 @@ export function findInvalidOrders(orders: Order[]): Array<{
   for (const order of orders) {
     const errors: string[] = [];
 
-    // Online debe ser DIRECTA
-    if (order.source === 'Shopify' && order.channel !== 'DIRECTA') {
-      errors.push(`Online debe tener channel=DIRECTA (tiene ${order.channel})`);
+    // Online debe ser DIRECT
+    if (order.source === 'SHOPIFY' && order.channel !== 'DIRECT') {
+      errors.push(`Online debe tener channel=DIRECT (tiene ${order.channel})`);
     }
 
-    // COLOCACION sin distributor
-    if (order.channel === 'COLOCACION' && !order.distributorId) {
-      errors.push('COLOCACION sin distributorId');
+    // DISTRIBUTOR sin distributor
+    if (order.channel === 'DISTRIBUTOR' && !order.distributorId) {
+      errors.push('DISTRIBUTOR sin distributorId');
     }
 
-    // DIRECTA con distributor
-    if (order.channel === 'DIRECTA' && order.distributorId) {
-      errors.push('DIRECTA con distributorId (debería ser null)');
+    // DIRECT con distributor
+    if (order.channel === 'DIRECT' && order.distributorId) {
+      errors.push('DIRECT con distributorId (debería ser null)');
     }
 
     // Sin channel definido

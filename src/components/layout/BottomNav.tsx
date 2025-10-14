@@ -4,15 +4,15 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Home,
-  BarChart3,
+  LayoutDashboard,
+  ShoppingCart,
   Megaphone,
   Factory,
   MoreHorizontal,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { navSections, moduleFromPath, dashboardHrefFor } from "./Sidebar";
+import { navSections, moduleFromPath, getSectionHref } from "./Sidebar";
 import { MODULE_ACCENTS } from "@/domain/ssot";
 
 /* ===== Bottom Navigation Component (Mobile Only) ===== */
@@ -27,10 +27,10 @@ export function BottomNav({ isAdmin }: BottomNavProps) {
 
   // Primary sections (always visible in bottom nav)
   const primaryModules: (keyof typeof MODULE_ACCENTS)[] = [
-    "personal",
-    "sales",
-    "marketing",
-    "production",
+    "personal",     // Inicio
+    "sales",        // Ventas
+    "marketing",    // Marketing
+    "production",   // Producción
   ];
 
   // Secondary sections (in "More" menu)
@@ -49,7 +49,7 @@ export function BottomNav({ isAdmin }: BottomNavProps) {
     <>
       {/* Bottom Navigation Bar */}
       <nav
-        className="md:hidden fixed bottom-0 left-0 right-0 z-50 h-16 bg-background border-t border-border safe-area-inset-bottom"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-50 h-16 sb-nav-bar border-t safe-area-inset-bottom"
         role="navigation"
         aria-label="Navegación principal"
       >
@@ -57,7 +57,7 @@ export function BottomNav({ isAdmin }: BottomNavProps) {
           {primarySections.map((section) => {
             const Icon = section.icon;
             const isActive = section.module === activeModule;
-            const href = dashboardHrefFor(section.module);
+            const href = getSectionHref(section);
 
             return (
               <Link
@@ -135,7 +135,7 @@ export function BottomNav({ isAdmin }: BottomNavProps) {
               {secondaryModules.map((section) => {
                 const Icon = section.icon;
                 const isActive = section.module === activeModule;
-                const href = dashboardHrefFor(section.module);
+                const href = getSectionHref(section);
 
                 return (
                   <Link

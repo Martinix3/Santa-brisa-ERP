@@ -3,18 +3,16 @@
 
 import React, { useMemo, useState, useEffect, useTransition } from "react";
 import { Package, Search, GitBranch, Truck, Factory, FlaskConical, ArrowLeftRight, AlertTriangle, User as UserIcon, FileText, CheckCircle, XCircle, ShieldCheck } from "lucide-react";
-import type { Lot, Item } from "@/domain/ssot";
-import { getLotTraceability, type TraceData, type ProductionSummary, type MaterialConsumption, type QualitySummary } from "./actions";
-
-type TraceEvent = {
-    id: string;
-    at: string;
-    kind: string;
-    phase: string;
-    title: string;
-    details?: string;
-    data?: any;
-};
+import type { 
+    Lot, 
+    Item, 
+    TraceData, 
+    ProductionSummary, 
+    MaterialConsumption, 
+    QualitySummary,
+    TraceEvent
+} from "@/domain/ssot";
+import { getLotTraceability } from "./actions";
 import { toast } from "sonner";
 import Link from 'next/link';
 import { useData } from "@/lib/dataprovider";

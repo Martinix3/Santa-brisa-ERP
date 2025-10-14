@@ -1,9 +1,10 @@
 // src/features/quicklog/SantaBrainInput.tsx
 "use client";
 import React, { useState, useRef, useEffect } from 'react';
-import { Loader2, Sparkles, CheckCircle, XCircle, Send, Bot } from 'lucide-react';
+import { Loader2, Sparkles, CheckCircle, XCircle, Send, Bot, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { useData } from '@/lib/dataprovider';
+import type { Contact } from '@/domain/ssot';
 
 type SantaBrainInputProps = {
   onActionComplete?: () => void;
@@ -321,26 +322,34 @@ export function SantaBrainInput({ onActionComplete }: SantaBrainInputProps) {
 
     switch (action.type) {
       case 'account': {
-        // Crear nueva cuenta y retornar ID real
-        const realAccountId = `acc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        const newAccount = {
-          id: realAccountId,
-          partyId: `party_${Date.now()}`, // TODO: Crear party real
-          name: action.accountData.name,
-          segment: action.accountData.accountType,
-          stage: action.accountData.stage,
-          ownerId: action.accountData.salesRepId,
-          flow: action.accountData.flow,
-          distributorPartyId: action.accountData.distributorId,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
+        // Crear nuevo CONTACT (no Account) y retornar ID real
+        const realContactId = `contact_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const now = new Date().toISOString();
+        
+        const newContact: Partial<Contact> = {
+          id: realContactId,
+          kind: 'ORG',
+          roles: ['CUSTOMER'],
+          displayName: action.accountData.name,
+          legalName: action.accountData.name,
+          customer: {
+            segment: action.accountData.accountType || 'HORECA',
+            placement: action.accountData.flow === 'COLOCACION' ? 'PLACEMENT' : 'DIRECT',
+            ownerId: action.accountData.salesRepId || currentUser?.id || '',
+            distributorId: action.accountData.distributorId,
+          },
+          addresses: [],
+          emails: [],
+          phones: [],
+          createdAt: now,
+          updatedAt: now,
         };
 
-        const updatedAccounts = [...(data.accounts || []), newAccount];
-        saveAllCollections({ accounts: updatedAccounts });
+        const updatedContacts = [...(data.contacts || []), newContact as any];
+        saveAllCollections({ contacts: updatedContacts });
         
-        console.log('[Santa Brain] ✅ Cuenta creada:', realAccountId);
-        return realAccountId; // Retornar ID real
+        console.log('[Santa Brain] ✅ Contact creado:', realContactId);
+        return realContactId; // Retornar ID real
       }
 
       case 'order': {
@@ -349,7 +358,7 @@ export function SantaBrainInput({ onActionComplete }: SantaBrainInputProps) {
         const newOrder = {
           id: orderId,
           accountId: action.orderData.accountId, // Ya debe ser ID real
-          flow: 'COLOCACION' as const,
+          flow: 'PLACEMENT' as const,
           status: 'open' as const,
           lines: action.orderData.lines,
           currency: 'EUR' as const,

@@ -36,6 +36,53 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 const emailToName = (email: string) =>
   email.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
 
+// ============================================================================
+// ADAPTER: Normaliza Contact → Account (compatibilidad con páginas legacy)
+// ============================================================================
+
+function normalizeStage(x?: string): string {
+  if (!x) return 'POTENCIAL';
+  
+  const stageMap: Record<string, string> = {
+    'CLOSED_WON': 'ACTIVA',
+    'CLOSED_LOST': 'FALLIDA',
+    'CONTACTED': 'POTENCIAL',
+    'QUALIFYING': 'SEGUIMIENTO',
+    'PROPOSAL': 'ACTIVA',
+    'NEGOTIATION': 'ACTIVA',
+    'Potencial': 'POTENCIAL',
+    'Activa': 'ACTIVA',
+    'Fallida': 'FALLIDA',
+  };
+  
+  return stageMap[x] || x;
+}
+
+function normalizePlacement(x?: string): 'DIRECT' | 'PLACEMENT' {
+  if (x === 'COLOCACION') return 'PLACEMENT';
+  if (x === 'PLACEMENT') return 'PLACEMENT';
+  return 'DIRECT'; // Default
+}
+
+function normalizeContactToAccount(contact: any): any {
+  return {
+    id: contact.id,
+    partyId: contact.id, // Mismo ID por compatibilidad
+    name: contact.displayName || contact.legalName || contact.tradeName || '(Sin nombre)',
+    segment: contact.customer?.segment || 'OTRO',
+    stage: normalizeStage(contact.stage || contact.customer?.stage || contact.status),
+    ownerId: contact.customer?.ownerId || contact.salesRepId || '',
+    flow: normalizePlacement(contact.customer?.placement || contact.placement),
+    distributorPartyId: contact.customer?.distributorId,
+    source: contact.source,
+    createdAt: contact.createdAt,
+    updatedAt: contact.updatedAt,
+    // Campos legacy para compatibilidad
+    accountType: contact.customer?.segment,
+    accountStage: normalizeStage(contact.stage || contact.customer?.stage || contact.status),
+    commercialFlow: normalizePlacement(contact.customer?.placement || contact.placement),
+  };
+}
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -84,6 +131,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       });
       await Promise.all(promises);
 
+      // POST-LOAD: Normalizar contacts → accounts para compatibilidad
+      if (partial.contacts && Array.isArray(partial.contacts)) {
+        partial.accounts = partial.contacts
+          .filter((c: any) => c.kind === 'ORG' && c.roles?.includes('CUSTOMER'))
+          .map((c: any) => normalizeContactToAccount(c));
+        console.log(`[DataProvider] Normalized ${partial.accounts.length} accounts from contacts`);
+      }
+
       if (mountedRef.current) setData(partial as SantaData);
     } catch (error) {
         console.error("Error loading initial data:", error);
@@ -123,11 +178,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [firebaseUser, isPersistenceEnabled, loadInitialData]);
 
   useEffect(() => {
-    if (firebaseUser && data?.teamMembers) {
-      const appUser = data.teamMembers.find(u => u.email === firebaseUser.email);
+    if (firebaseUser && data?.users) {
+      const appUser = data.users.find(u => u.email === firebaseUser.email);
       setCurrentUser(appUser ?? null);
     }
-  }, [firebaseUser, data?.teamMembers]);
+  }, [firebaseUser, data?.users]);
 
   useEffect(() => {
     // Redirecciones post-autenticación
@@ -136,7 +191,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
     if (firebaseUser && currentUser && isAuthPage) {
       // Usuario logueado y en página de login -> redirigir a la app.
-      router.replace("/dashboard-personal");
+      router.replace("/dashboard");
     } else if (!firebaseUser && !isAuthPage && pathname !== "/") {
       // Usuario no logueado y en una página protegida -> redirigir a login.
       router.replace("/login");
@@ -163,7 +218,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (isPersistenceEnabled) {
       const promises = Object.entries(collectionsToSave)
         .filter(([, items]) => Array.isArray(items) && (items as any[]).length > 0)
-        .map(([name, items]) => upsertMany(name as keyof SantaData, items!));
+        .map(([name, items]) => upsertMany(name as keyof SantaData, items as any[]));
       await Promise.all(promises);
     }
   }, [isPersistenceEnabled]);
@@ -194,12 +249,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       id: fbUser.uid,
       name: fbUser.displayName || emailToName(email),
       email,
-      role: "SALES",
+      role: "comercial",
       active: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-    await saveCollection("teamMembers", [newUser]);
+    await saveCollection("users", [newUser]);
     setCurrentUser(newUser);
     return newUser;
   }, [saveCollection]);
@@ -214,9 +269,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const setCurrentUserById = useCallback((userId: string) => {
-    const u = data?.teamMembers?.find(u => u.id === userId) ?? null;
+    const u = data?.users?.find(u => u.id === userId) ?? null;
     setCurrentUser(u);
-  }, [data?.teamMembers]);
+  }, [data?.users]);
 
   const value = useMemo<DataContextType>(() => ({
     data, setData, currentUser, authReady, firebaseUser,

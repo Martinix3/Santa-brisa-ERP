@@ -14,7 +14,7 @@ export default function LoginPage() {
     // This now runs as an effect after the component renders.
     useEffect(() => {
         if (authReady && firebaseUser) {
-            router.replace('/dashboard-personal');
+            router.replace('/dashboard');
         }
     }, [authReady, firebaseUser, router]);
 

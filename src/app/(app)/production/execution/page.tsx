@@ -104,14 +104,14 @@ export default function ProductionExecutionPage() {
   }, [itemsMap]);
 
   const openExecution = useCallback((order: ProductionOrder) => {
-    const outputItem = itemsMap.get(order.outputSku);
+    const outputItem = itemsMap.get(order.outputSku ?? '');
     setActiveForm({
         order: order,
         planningBom: null,
         finalOutput: {
-            sku: order.outputSku,
-            qty: order.outputQty,
-            uom: order.uom,
+            sku: order.outputSku ?? '',
+            qty: order.outputQty ?? 1,
+            uom: order.uom ?? 'UNIT',
             toLocationId: 'FG/MAIN',
             lotNumber: ''
         },

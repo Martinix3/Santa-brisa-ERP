@@ -1,5 +1,6 @@
 
 "use client";
+
 import React from 'react';
 import { ModuleHeader } from '@/components/ui/ModuleHeader';
 import { Warehouse } from 'lucide-react';
@@ -63,7 +64,7 @@ export default function WarehouseLayout({
       <WarehouseNav />
 
       <div className="flex-grow">
-        <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        <div className="sb-page">
           {children}
         </div>
       </div>

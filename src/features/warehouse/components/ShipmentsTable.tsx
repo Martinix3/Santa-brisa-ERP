@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { MoreHorizontal, FileText, PackageCheck, Truck } from 'lucide-react';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { SBCard, SBButton } from '@/components/ui/ui-primitives';
-import type { Shipment, OrderSellOut, Account } from '@/domain/ssot';
+import type { Shipment, OrderSellOut, Account, ShipmentStatus } from '@/domain/ssot';
 import { useData } from '@/lib/dataprovider';
 import { markShipped } from '@/server/actions/logistics.actions';
 
@@ -20,24 +20,33 @@ function getChannelInfo(order?: OrderSellOut, account?: Account) {
     return { label: account.accountType, className: "bg-zinc-100 text-zinc-900 border-zinc-200" };
 }
 
-// Tipo local para status de shipment
-type ShipmentStatus = 'DRAFT' | 'READY' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
-
-// Mapa de estilos CSS para cada estado
-const STATUS_CLASSNAMES: Record<ShipmentStatus, string> = {
+// Mapa de estilos CSS para cada estado (Partial para cubrir solo los que usamos)
+const STATUS_CLASSNAMES: Partial<Record<ShipmentStatus, string>> = {
+  pending: "bg-yellow-100 text-yellow-800",
+  picking: "bg-blue-100 text-blue-800",
+  ready_to_ship: "bg-indigo-100 text-indigo-800",
+  shipped: "bg-cyan-100 text-cyan-800",
+  delivered: "bg-green-100 text-green-800",
+  cancelled: "bg-red-100 text-red-800",
+  exception: "bg-orange-100 text-orange-800",
   DRAFT: "bg-yellow-100 text-yellow-800",
   READY: "bg-indigo-100 text-indigo-800",
   SHIPPED: "bg-cyan-100 text-cyan-800",
   DELIVERED: "bg-green-100 text-green-800",
-  CANCELLED: "bg-red-100 text-red-800",
 };
 
-const STATUS_LABELS: Record<ShipmentStatus, string> = {
+const STATUS_LABELS: Partial<Record<ShipmentStatus, string>> = {
+  pending: "Pendiente",
+  picking: "Picking",
+  ready_to_ship: "Listo para enviar",
+  shipped: "Enviado",
+  delivered: "Entregado",
+  cancelled: "Cancelado",
+  exception: "Excepción",
   DRAFT: "Borrador",
   READY: "Listo",
   SHIPPED: "Enviado",
   DELIVERED: "Entregado",
-  CANCELLED: "Cancelado",
 };
 
 function StatusBadge({ status }: { status: ShipmentStatus }) {

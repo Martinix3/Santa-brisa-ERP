@@ -5,11 +5,11 @@
 import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { SBDialog, SBDialogContent } from "@/components/ui/SBDialog";
-import { SBButton, Input, Select } from "@/components/ui/ui-primitives";
+import { SBButton, Input, Select, Textarea } from "@/components/ui/ui-primitives";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/ui-primitives"; 
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/ui-primitives"; 
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/ui-primitives";
 import { useData } from "@/lib/dataprovider";
-import type { Account, Item, Uom, ItemKind } from "@/domain/ssot";
+import type { Contact, Item, Uom, ItemCategory } from "@/domain/ssot";
 import { createGoodsReceipt, createSupplier, createItem } from "@/server/actions/goods-receipt.actions";
 import { Plus, Trash2, Truck, Check, ChevronsUpDown } from "lucide-react";
 import { toast } from "sonner";
@@ -45,27 +45,47 @@ function SearchableCombobox({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <SBButton variant="outline" role="combobox" aria-expanded={open} className="w-full justify-between">
-          {value ? currentLabel : placeholder}
+        <SBButton 
+          variant="outline" 
+          role="combobox" 
+          aria-expanded={open} 
+          className="w-full justify-between text-left font-normal"
+        >
+          <span className={value ? "" : "text-muted-foreground"}>
+            {value ? currentLabel : placeholder}
+          </span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </SBButton>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-        <Command>
-          <CommandInput placeholder="Buscar..." onValueChange={setInputValue} />
-          <CommandList>
-            <CommandEmpty>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0 bg-card border border-border shadow-lg">
+        <Command className="bg-transparent">
+          <CommandInput 
+            placeholder="Buscar..." 
+            onValueChange={setInputValue}
+            className="border-none focus:ring-0"
+          />
+          <CommandList className="max-h-[300px]">
+            <CommandEmpty className="py-6 text-center text-sm text-muted-foreground">
               {onCreate && inputValue ? (
-                <button
-                  className="w-full text-left p-2 text-sm hover:bg-zinc-100"
-                  onMouseDown={() => {
-                    onCreate(inputValue);
-                    setOpen(false);
-                  }}
-                >
-                  <Plus className="inline h-4 w-4 mr-2" /> Crear "{inputValue}"
-                </button>
-              ) : "No se encontraron resultados."}
+                <div className="px-2">
+                  <SBButton
+                    variant="ghost"
+                    size="sm"
+                    className="w-full justify-start text-primary hover:bg-primary/10"
+                    onClick={() => {
+                      onCreate(inputValue);
+                      setOpen(false);
+                    }}
+                    as="button"
+                    type="button"
+                  >
+                    <Plus className="h-4 w-4 mr-2" /> 
+                    <span>Crear <strong>"{inputValue}"</strong></span>
+                  </SBButton>
+                </div>
+              ) : (
+                <span>No se encontraron resultados</span>
+              )}
             </CommandEmpty>
             <CommandGroup>
               {filteredOptions.map((option) => (
@@ -76,8 +96,13 @@ function SearchableCombobox({
                     onChange(option.value);
                     setOpen(false);
                   }}
+                  className="cursor-pointer"
                 >
-                  <Check className={`mr-2 h-4 w-4 ${value === option.value ? "opacity-100" : "opacity-0"}`} />
+                  <Check 
+                    className={`mr-2 h-4 w-4 ${
+                      value === option.value ? "opacity-100 text-primary" : "opacity-0"
+                    }`} 
+                  />
                   {option.label}
                 </CommandItem>
               ))}
@@ -94,7 +119,7 @@ function SearchableCombobox({
 type LineFormData = {
   sku: string;
   newItemName?: string;
-  newItemCategory?: ItemKind;
+  newItemCategory?: ItemCategory;
   supplierLot: string;
   qty: number;
   unitCost: number;
@@ -137,9 +162,9 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
 
   const { suppliers, items } = useMemo(() => {
     if (!data) return { suppliers: [], items: [] };
-    // En SSOT v7 no hay tipo SUPPLIER, usamos una convención de tags o un flag
-    const supplierList = (data.accounts || []).filter((a: Account) => 
-      a.tags?.includes('supplier') || a.accountType === 'DISTRIBUIDOR'
+    // ✅ SSOT v7: Buscar en contacts con role SUPPLIER
+    const supplierList = (data.contacts || []).filter((c: Contact) => 
+      c.roles?.includes('SUPPLIER')
     );
     return { suppliers: supplierList, items: data.items || [] };
   }, [data]);
@@ -153,14 +178,14 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
       date: nowIsoDate(),
       supplierId: "",
       deliveryNote: "",
-      lines: [{ sku: "", supplierLot: "", qty: 0, uom: "UNIT", unitCost: 0, autoLot: true, expiryAt: null, newItemCategory: 'PRODUCT' }],
+      lines: [{ sku: "", supplierLot: "", qty: 0, uom: "unit", unitCost: 0, autoLot: true, expiryAt: null, newItemCategory: 'fg' }],
     },
   });
 
-  useEffect(() => { if (open) reset({ date: nowIsoDate(), lines: [{ sku: "", supplierLot: "", qty: 0, uom: "UNIT", unitCost: 0, autoLot: true, expiryAt: null, newItemCategory: 'PRODUCT' }] }); }, [open, reset]);
+  useEffect(() => { if (open) reset({ date: nowIsoDate(), lines: [{ sku: "", supplierLot: "", qty: 0, uom: "unit", unitCost: 0, autoLot: true, expiryAt: null, newItemCategory: 'fg' }] }); }, [open, reset]);
   const { fields, append, remove } = useFieldArray({ control, name: "lines" });
 
-  const supplierOptions = useMemo(() => suppliers.map((s: Account) => ({ value: s.id, label: s.name })), [suppliers]);
+  const supplierOptions = useMemo(() => suppliers.map((s: Contact) => ({ value: s.id, label: s.displayName })), [suppliers]);
   const itemOptions = useMemo(() => items.map((i: Item) => ({ value: i.sku, label: i.name })), [items]);
   
   const onSubmit = async (formData: FormValues) => {
@@ -203,11 +228,11 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
       sku: "",
       supplierLot: "",
       qty: 0,
-      uom: lastLine?.uom || "UNIT",
+      uom: lastLine?.uom || "unit",
       unitCost: 0,
       autoLot: true,
       expiryAt: null,
-      newItemCategory: lastLine?.newItemCategory || 'PRODUCT'
+      newItemCategory: lastLine?.newItemCategory || 'fg'
     });
   };
   
@@ -236,7 +261,7 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
                       onChange={field.onChange}
                       onCreate={async (name) => {
                         const newSupplier = await createSupplier({ name });
-                        setData((d: any) => d ? ({ ...d, accounts: [...(d.accounts || []), newSupplier]}) : d);
+                        setData((d: any) => d ? ({ ...d, contacts: [...(d.contacts || []), newSupplier]}) : d);
                         setValue("supplierId", newSupplier.id, { shouldValidate: true });
                       }}
                     />
@@ -250,44 +275,44 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
 
             <div className="mt-4">
               <label htmlFor="receipt-notes" className="text-sm font-medium">Notas (opcional)</label>
-              <textarea
+              <Textarea
                 id="receipt-notes"
                 {...register("notes")}
                 rows={2}
-                className="mt-1 w-full border rounded-md p-2 text-sm"
+                className="mt-1"
                 placeholder="Ej: El palet llegó dañado, el conductor tuvo que esperar, etc."
               />
             </div>
             
-            <div className="mt-4 space-y-2">
-              <h3 className="text-sm font-medium">Líneas de la Recepción</h3>
-              <div className="overflow-x-auto border rounded-lg">
+            <div className="mt-6 space-y-3">
+              <h3 className="text-sm font-semibold text-foreground">Líneas de la Recepción</h3>
+              <div className="overflow-x-auto rounded-lg border border-border">
                 <table className="min-w-full text-sm">
-                  <thead className="bg-zinc-50 text-left">
+                  <thead className="bg-secondary/50 text-left">
                     <tr>
-                      <th className="p-2 w-2/5">Producto</th>
-                      <th className="p-2">Lote Proveedor</th>
-                      <th className="p-2">Cantidad</th>
-                      <th className="p-2">UdM</th>
-                      <th className="p-2">Coste/Ud</th>
-                      <th className="p-2">Caducidad</th>
-                      <th className="p-2"></th>
+                      <th className="px-3 py-2.5 font-medium text-muted-foreground w-2/5">Producto</th>
+                      <th className="px-3 py-2.5 font-medium text-muted-foreground">Lote Proveedor</th>
+                      <th className="px-3 py-2.5 font-medium text-muted-foreground">Cantidad</th>
+                      <th className="px-3 py-2.5 font-medium text-muted-foreground">UdM</th>
+                      <th className="px-3 py-2.5 font-medium text-muted-foreground">Coste/Ud</th>
+                      <th className="px-3 py-2.5 font-medium text-muted-foreground">Caducidad</th>
+                      <th className="px-3 py-2.5 font-medium text-muted-foreground w-12"></th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y">
+                  <tbody className="divide-y divide-border/50">
                     {fields.map((field, i) => {
                       const currentLine = watch(`lines.${i}`);
                       return (
-                      <tr key={field.id}>
-                        <td className="p-2 align-top">
+                      <tr key={field.id} className="hover:bg-secondary/30 transition-colors">
+                        <td className="px-3 py-3 align-top">
                           <Controller name={`lines.${i}.sku`} control={control} rules={{ required: !watch(`lines.${i}.newItemName`) }}
                             render={({ field: controllerField }) => (
                               <SearchableCombobox placeholder="Buscar o crear SKU..." options={itemOptions} value={controllerField.value}
                                 onChange={(sku) => {
                                     const itSel = items.find((it: Item) => it.sku === sku);
                                     controllerField.onChange(sku);
-                                    setValue(`lines.${i}.uom`, itSel?.uom ?? 'UNIT');
-                                    setValue(`lines.${i}.unitCost`, itSel?.cost ?? 0);
+                                    setValue(`lines.${i}.uom`, itSel?.uom ?? 'unit');
+                                    setValue(`lines.${i}.unitCost`, itSel?.stdCost ?? 0);
                                     setValue(`lines.${i}.newItemName`, undefined);
                                 }}
                                 onCreate={async (name) => {
@@ -300,19 +325,30 @@ export function QuickGoodsReceiptDialog({ open, onOpenChange, onSuccess, onError
                           {watch(`lines.${i}.newItemName`) && (
                                 <div className="mt-2">
                                     <Select {...register(`lines.${i}.newItemCategory`)}>
-                                        <option value="PRODUCT">Producto</option>
-                                        <option value="SERVICE">Servicio</option>
-                                        <option value="BUNDLE">Bundle</option>
+                                        <option value="fg">Producto Terminado</option>
+                                        <option value="raw">Materia Prima</option>
+                                        <option value="pack">Packaging</option>
+                                        <option value="intermediate">Intermedio</option>
                                     </Select>
                                 </div>
                           )}
                         </td>
-                        <td className="p-2 align-top"><Input placeholder="Lote del proveedor" {...register(`lines.${i}.supplierLot`)} /></td>
-                        <td className="p-2 align-top"><Input type="number" step="any" {...register(`lines.${i}.qty`, { valueAsNumber: true, required: true, min: 0.001 })} /></td>
-                        <td className="p-2 align-top"><Select {...register(`lines.${i}.uom`)}><option value="UNIT">unit</option><option value="KG">kg</option><option value="L">L</option></Select></td>
-                        <td className="p-2 align-top"><Input type="number" step="any" {...register(`lines.${i}.unitCost`, { valueAsNumber: true })} /></td>
-                        <td className="p-2 align-top"><Input type="date" {...register(`lines.${i}.expiryAt`)} /></td>
-                        <td className="p-2 align-top"><button type="button" onClick={() => remove(i)}><Trash2 className="h-4 w-4 text-red-500" /></button></td>
+                        <td className="px-3 py-3 align-top"><Input placeholder="Lote del proveedor" {...register(`lines.${i}.supplierLot`)} /></td>
+                        <td className="px-3 py-3 align-top"><Input type="number" step="any" {...register(`lines.${i}.qty`, { valueAsNumber: true, required: true, min: 0.001 })} /></td>
+                        <td className="px-3 py-3 align-top"><Select {...register(`lines.${i}.uom`)}><option value="unit">unit</option><option value="kg">kg</option><option value="L">L</option></Select></td>
+                        <td className="px-3 py-3 align-top"><Input type="number" step="any" {...register(`lines.${i}.unitCost`, { valueAsNumber: true })} /></td>
+                        <td className="px-3 py-3 align-top"><Input type="date" {...register(`lines.${i}.expiryAt`)} /></td>
+                        <td className="px-3 py-3 align-top text-center">
+                          <SBButton 
+                            type="button" 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => remove(i)}
+                            className="p-1 h-auto"
+                          >
+                            <Trash2 className="h-4 w-4 text-red-500" />
+                          </SBButton>
+                        </td>
                       </tr>
                     )})}
                   </tbody>

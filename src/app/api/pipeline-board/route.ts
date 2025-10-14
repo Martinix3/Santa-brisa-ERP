@@ -1,6 +1,6 @@
 // src/app/api/pipeline-board/route.ts
 import { NextResponse } from 'next/server';
-import { getPipelineData } from '@/features/sales/pipeline/pipeline.service';
+import { computePipelineView } from '@/features/sales/pipeline/pipeline.service';
 
 export const dynamic = 'force-dynamic'; // Ensure fresh data on every request
 
@@ -19,7 +19,7 @@ export async function GET(request: Request) {
       }
     }
     
-    const data = await getPipelineData(filters);
+    const data = await computePipelineView(filters);
     return NextResponse.json(data);
   } catch (error: any) {
     console.error('[API /pipeline-board] Error:', error);

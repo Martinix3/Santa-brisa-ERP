@@ -47,8 +47,10 @@ export function LotDetailPanel({ lotDetails, items, onClose }: {
                     {moves.map(move => {
                         const reason = move.reason ?? 'OTHER';
                         const Icon = MOVE_ICONS[reason] || PackagePlus;
-                        const qty = move.items?.[0]?.quantity ?? 0;
-                        const isOut = move.type === 'OUT';
+                        // Use qty from move directly, fallback to deprecated items array
+                        const qty = move.qty ?? move.items?.[0]?.qty ?? 0;
+                        // Infer if it's OUT based on reason (sale, ship, production_out)
+                        const isOut = ['sale', 'ship', 'production_out'].includes(reason.toLowerCase());
                         return (
                             <div key={move.id} className="flex items-start gap-3 text-xs">
                                 <div className={`p-1.5 rounded-full mt-0.5 ${isOut ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
@@ -58,10 +60,12 @@ export function LotDetailPanel({ lotDetails, items, onClose }: {
                                     <p className="font-medium text-zinc-800 capitalize">{reason}</p>
                                     <p className="text-zinc-600">
                                         <span className={`font-semibold ${isOut ? 'text-red-700' : 'text-green-700'}`}>{isOut ? -qty : qty}</span> UNIT
-                                        <span className="text-zinc-400"> · {new Date(move.date).toLocaleDateString('es-ES')}</span>
+                                        <span className="text-zinc-400"> · {new Date(move.occurredAt || move.date || '').toLocaleDateString('es-ES')}</span>
                                     </p>
-                                    {(move.warehouseId || move.toWarehouseId) &&
-                                        <p className="text-zinc-500">{move.warehouseId || 'Origen'} → {move.toWarehouseId || 'Destino'}</p>
+                                    {(move.fromLocationId || move.warehouseId || move.toLocationId || move.toWarehouseId) &&
+                                        <p className="text-zinc-500">
+                                            {move.fromLocationId || move.warehouseId || 'Origen'} → {move.toLocationId || move.toWarehouseId || 'Destino'}
+                                        </p>
                                     }
                                 </div>
                             </div>

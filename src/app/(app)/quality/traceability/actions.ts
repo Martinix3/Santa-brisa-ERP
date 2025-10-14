@@ -2,60 +2,21 @@
 'use server';
 
 import { adminDb as db } from '@/server/firebase';
-import type { StockMove, QcTest, ProductionOrder, Lot, OnHand } from '@/domain/ssot';
-
-type TraceEventKind = 'RECEIPT' | 'PRODUCTION_IN' | 'PRODUCTION_OUT' | 'QC_TEST' | 'GENEALOGY_PARENT' | 'GENEALOGY_CHILD' | 'SALE' | 'TRANSFER';
-type TraceEventPhase = 'WAREHOUSE' | 'PRODUCTION' | 'QC' | 'SALE';
-
-type TraceEvent = {
-    id: string;
-    at: string;
-    kind: TraceEventKind;
-    phase: TraceEventPhase;
-    title: string;
-    details?: string;
-    data?: any;
-};
+import type { 
+    StockMove, 
+    QcTest, 
+    ProductionOrder, 
+    Lot, 
+    OnHand,
+    TraceEventKind,
+    TraceEventPhase,
+    TraceEvent,
+    MaterialConsumption,
+    ProductionSummary,
+    QualitySummary,
+    TraceData
+} from '@/domain/ssot';
 import { ActionResult, ok, fail } from '@/lib/result';
-
-export type MaterialConsumption = {
-    sku: string;
-    itemName: string;
-    lotNumber: string;
-    qtyUsed: number;
-    uom: string;
-};
-
-export type ProductionSummary = {
-    orderId: string;
-    orderName?: string;
-    responsible: string;
-    targetQty: number;
-    actualQty: number;
-    deviation: number;
-    deviationPct: number;
-    materialsConsumed: MaterialConsumption[];
-    protocols: any[];
-    incidentCount: number;
-};
-
-export type QualitySummary = {
-    tests: any[];
-    finalDecision: string;
-    decisionBy?: string;
-    decisionAt?: string;
-    observations?: string;
-};
-
-export type TraceData = {
-    lot: Lot | null;
-    events: TraceEvent[];
-    onHandSummary: OnHand[];
-    receiptInfo?: { supplierPartyId: string; deliveryNote: string; receivedBy: string; };
-    productionSummary?: ProductionSummary;
-    qualitySummary?: QualitySummary;
-    saleInfo?: { customerName: string; orderNumber: string; };
-};
 
 
 export async function getLotTraceability(lotNumber: string): Promise<ActionResult<TraceData>> {
@@ -78,12 +39,13 @@ export async function getLotTraceability(lotNumber: string): Promise<ActionResul
             const kind = reason as TraceEventKind;
             return {
                 id: doc.id,
-                at: move.date,
+                at: move.date || move.occurredAt,
                 kind,
                 phase: 'WAREHOUSE' as TraceEventPhase,
-                title: `${move.reason}: ${move.items?.[0]?.quantity || 0}`,
-                details: `De ${move.warehouseId || 'N/A'} a ${move.toWarehouseId || 'N/A'}`,
-                data: move.documentRef || {}
+                title: `${move.reason}: ${move.items?.[0]?.qty || move.qty || 0}`,
+                details: `De ${move.warehouseId || move.fromLocationId || 'N/A'} a ${move.toWarehouseId || move.toLocationId || 'N/A'}`,
+                data: move.documentRef || {},
+                links: {}
             } as TraceEvent;
         });
         
@@ -170,16 +132,18 @@ export async function getLotTraceability(lotNumber: string): Promise<ActionResul
                         const parentLotSnap = await db.collection('lots').doc(parentLotNum).get();
                         if (parentLotSnap.exists) {
                             const parentLot = parentLotSnap.data() as Lot;
-                            const itemsSnap = await db.collection('items').where('sku', '==', parentLot.sku).limit(1).get();
-                            const itemName = itemsSnap.empty ? parentLot.sku : itemsSnap.docs[0].data()?.name;
-                            
-                            materialsConsumed.push({
-                                sku: parentLot.sku,
-                                itemName: itemName || parentLot.sku,
-                                lotNumber: parentLotNum,
-                                qtyUsed: 0, // No tenemos qty en genealogy simple
-                                uom: parentLot.uom
-                            });
+                            if (parentLot.sku) {
+                                const itemsSnap = await db.collection('items').where('sku', '==', parentLot.sku).limit(1).get();
+                                const itemName = itemsSnap.empty ? parentLot.sku : itemsSnap.docs[0].data()?.name;
+                                
+                                materialsConsumed.push({
+                                    sku: parentLot.sku,
+                                    itemName: itemName || parentLot.sku,
+                                    lotNumber: parentLotNum,
+                                    qtyUsed: 0, // No tenemos qty en genealogy simple
+                                    uom: parentLot.uom as string
+                                });
+                            }
                         }
                     }
                 }

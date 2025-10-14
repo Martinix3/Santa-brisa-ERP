@@ -47,7 +47,7 @@ export default function ProductionLayout({ children }: { children: React.ReactNo
        <ModuleHeader title="Producción" icon={Factory} />
       <ProductionNav />
       <div className="flex-grow">
-          <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+          <div className="sb-page">
             {children}
           </div>
       </div>

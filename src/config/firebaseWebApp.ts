@@ -22,10 +22,15 @@ export function getFirebaseWebConfig(): WebConfig {
     .filter(([, v]) => !v)
     .map(([k]) => k);
 
-  if (typeof window !== "undefined" && missing.length) {
-    throw new Error(
-      `Missing Firebase envs: ${missing.join(", ")}. Define them in .env.local`
-    );
+  if (typeof window !== "undefined") {
+    if (missing.length) {
+      console.error('🔥 Firebase Config Error:', missing.join(", "));
+      throw new Error(
+        `Missing Firebase envs: ${missing.join(", ")}. Define them with NEXT_PUBLIC_ prefix in .env.local and restart server.`
+      );
+    }
+    
+    // Debug: mostrar prefijo de API key
   }
 
   return env as WebConfig;

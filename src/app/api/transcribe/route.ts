@@ -1,8 +1,8 @@
 // src/app/api/transcribe/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,38 +11,54 @@ export async function POST(request: NextRequest) {
 
     if (!audioFile) {
       return NextResponse.json(
-        { error: 'No audio file uploaded.' },
+        { error: 'No audio file provided' },
         { status: 400 }
       );
     }
 
-    // Convertir audio a base64 para Gemini
-    const arrayBuffer = await audioFile.arrayBuffer();
-    const base64Audio = Buffer.from(arrayBuffer).toString('base64');
+    if (!process.env.GEMINI_API_KEY) {
+      return NextResponse.json(
+        { error: 'GEMINI_API_KEY not configured' },
+        { status: 500 }
+      );
+    }
 
-    // Usar Gemini para transcripción
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+    // Convertir audio a base64
+    const bytes = await audioFile.arrayBuffer();
+    const audioBase64 = Buffer.from(bytes).toString('base64');
+
+    // Gemini 2.0 Flash con audio nativo
+    const model = genAI.getGenerativeModel({ 
+      model: 'gemini-2.0-flash-exp'
+    });
 
     const result = await model.generateContent([
       {
         inlineData: {
           mimeType: 'audio/webm',
-          data: base64Audio
+          data: audioBase64
         }
       },
-      "Transcribe este audio a texto en español. Devuelve SOLO el texto transcrito, sin explicaciones adicionales."
+      { 
+        text: 'Transcribe este audio a texto en español. Responde SOLO con el texto transcrito, sin explicaciones ni formato adicional.' 
+      }
     ]);
 
-    const transcript = result.response.text().trim();
+    const text = result.response.text().trim();
 
     return NextResponse.json({ 
-      transcript 
+      text,
+      transcript: text, // Compatibilidad
+      success: true 
     });
 
   } catch (error: any) {
     console.error('Error transcribing audio with Gemini:', error);
     return NextResponse.json(
-      { error: 'Failed to transcribe audio.', details: error.message },
+      { 
+        error: error.message || 'Error transcribing audio',
+        success: false 
+      },
       { status: 500 }
     );
   }
