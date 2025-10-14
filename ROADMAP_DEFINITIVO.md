@@ -6,6 +6,170 @@
 
 ---
 
+## 🎨 SISTEMA DE DISEÑO - Recordatorio
+
+### Glassmorphism Cards (Dashboards)
+
+**Clases disponibles en `components.css`:**
+
+```css
+.sb-card-glass-light  /* Fondo claro con blur - Para datos/métricas */
+.sb-card-glass-dark   /* Fondo oscuro con gradiente - Para KPIs destacados */
+.sb-card-glass-subtle /* Muy sutil - Para información secundaria */
+.sb-header-glass      /* Headers de dashboards con glassmorphism */
+```
+
+**Uso correcto:**
+```tsx
+<div className="sb-header-glass p-5">
+  <h1>Mi Dashboard</h1>
+</div>
+
+<div className="sb-card-glass-dark p-6">
+  <div className="sb-kpi">
+    <div className="sb-kpi__value">€45K</div>
+    <div className="sb-kpi__label">VENTAS</div>
+  </div>
+</div>
+
+<div className="sb-card-glass-light p-5 hover-raise">
+  <h3 className="text-sm font-semibold mb-4">Datos</h3>
+  {/* Contenido */}
+</div>
+```
+
+### Componentes Compartidos Dashboards
+
+**Ubicación:** `src/components/dashboards/shared/`
+
+```tsx
+import { KpiCard } from "./shared/KpiCard";
+import { ChartCard } from "./shared/ChartCard";
+import { ActivityFeed } from "./shared/ActivityFeed";
+import { AlertsCard } from "./shared/AlertsCard";
+
+// KpiCard - 3 variantes
+<KpiCard 
+  label="Ventas" 
+  value="€45K" 
+  variant="dark"  // dark | light | subtle
+  icon={<TrendingUp size={20} />}
+  trend="up"      // up | down | neutral
+/>
+
+// ChartCard - Recharts integrado
+<ChartCard
+  title="Ventas semanales"
+  data={salesData}
+  dataKey="value"
+  xAxisKey="name"
+  type="bar"  // line | bar | area
+  height={200}
+  formatter={(v) => `€${v}`}
+/>
+
+// ActivityFeed - Tipado
+<ActivityFeed
+  activities={recentActivity}
+  maxItems={5}
+  variant="light"  // light | dark
+/>
+
+// AlertsCard - 4 tipos
+<AlertsCard 
+  alerts={[
+    { type: 'critical', title: '...', ... },
+    { type: 'warning', title: '...', ... },
+    { type: 'info', title: '...', ... },
+    { type: 'success', title: '...', ... }
+  ]}
+  variant="light"
+/>
+```
+
+### Badges y Pills
+
+```tsx
+// Badges pequeños (KPIs)
+<span className="sb-kpi-badge px-2 py-0.5 text-xs">
+  24
+</span>
+
+// Badges estándar
+<span className="sb-badge sb-badge--primary">Activo</span>
+<span className="sb-badge sb-badge--success">Completado</span>
+<span className="sb-badge sb-badge--destructive">Error</span>
+
+// Pills (más grandes)
+<span className="sb-pill sb-pill--primary">
+  <Icon size={14} />
+  Label
+</span>
+```
+
+### Botones
+
+```tsx
+// Primario
+<button className="sb-btn sb-btn--primary">Guardar</button>
+
+// Secundario
+<button className="sb-btn sb-btn--secondary">Cancelar</button>
+
+// Ghost
+<button className="sb-btn sb-btn--ghost">Ver más</button>
+
+// Tamaños
+<button className="sb-btn sb-btn--sm">Pequeño</button>
+<button className="sb-btn sb-btn--lg">Grande</button>
+```
+
+### Inputs y Forms
+
+```tsx
+<input 
+  type="text" 
+  className="sb-input" 
+  placeholder="Buscar..." 
+/>
+
+<select className="sb-select">
+  <option>Opción 1</option>
+</select>
+
+<textarea className="sb-textarea" />
+```
+
+### Tabs
+
+```tsx
+<div className="sb-tabs">
+  <button 
+    className="sb-tab" 
+    aria-selected={active}
+  >
+    <Icon size={16} />
+    Tab Label
+  </button>
+</div>
+```
+
+### Effects
+
+```tsx
+// Hover con elevación
+<div className="hover-raise">
+  {/* Contenido */}
+</div>
+
+// Efecto press
+<button className="pressable">
+  Click me
+</button>
+```
+
+---
+
 ## 📊 ESTADO ACTUAL DEL SISTEMA
 
 ### ✅ LO QUE YA FUNCIONA:
