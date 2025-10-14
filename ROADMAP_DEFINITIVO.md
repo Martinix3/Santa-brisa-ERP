@@ -10,7 +10,7 @@
 
 ### ✅ LO QUE YA FUNCIONA:
 
-1. **Dashboards Departamentales (7/7 UI)** ✅
+1. **Dashboards Departamentales (7/7)** ✅
    - Dashboard personal ✅
    - DashboardOps (5 tabs: Hoy, Logística, Inventario, Calidad, Producción) ✅
    - DashboardSales (Pipeline, visitas, cuentas, alertas) ✅
@@ -19,7 +19,8 @@
    - DashboardDistributor (5 tabs: Pedidos, Sell-out, Inventario, PLV, Finanzas) ✅
    - DashboardMarketing ✅
    - DashboardTechnical ✅
-   - **⚠️ Pendiente:** Conectar a datos reales (usan mock data)
+   - **✅ Server actions implementados** - 7 dashboards con datos reales de Firestore
+   - **⚠️ Pendiente:** Router por rol, loading states, error boundaries
 
 2. **Componentes Compartidos Dashboards** ✅
    - KpiCard (3 variantes: dark/light/subtle)
@@ -69,7 +70,7 @@
 
 ### ⚠️ LO QUE NECESITA MEJORA:
 
-1. **Dashboards** - UI completa pero con datos mock, necesitan server actions
+1. **Dashboards** - Server actions completos, pendiente router por rol y UX polish
 2. **Pedidos** - UI mejorada, faltan workflow de status, Shopify, auto-órdenes
 3. **Proyectos** - Página básica, faltan KPIs y visualización avanzada
 4. **Accounts** - Funcional pero sin KPIs avanzados ni timeline
@@ -178,13 +179,13 @@ src/
 ```
 
 #### Tareas:
-- [ ] 1.5.1 dashboard-ops.ts (shipments, onHand, lots, productionOrders)
-- [ ] 1.5.2 dashboard-sales.ts (accounts, interactions, orders, tasks)
-- [ ] 1.5.3 dashboard-admin.ts (finanzas, top cuentas, pipeline)
-- [ ] 1.5.4 dashboard-manager.ts (KPIs agregados, Santa Brain priorities)
-- [ ] 1.5.5 dashboard-distributor.ts (pedidos, sell-out, stock depósito)
-- [ ] 1.5.6 dashboard-marketing.ts (campañas, eventos, métricas)
-- [ ] 1.5.7 dashboard-technical.ts (sistemas, logs, rendimiento)
+- [x] 1.5.1 dashboard-ops.ts (shipments, onHand, lots, productionOrders) ✅
+- [x] 1.5.2 dashboard-sales.ts (accounts, interactions, orders, tasks) ✅
+- [x] 1.5.3 dashboard-admin.ts (finanzas, top cuentas, pipeline) ✅
+- [x] 1.5.4 dashboard-manager.ts (KPIs agregados, Santa Brain priorities) ✅
+- [x] 1.5.5 dashboard-distributor.ts (pedidos, sell-out, stock depósito) ✅
+- [x] 1.5.6 dashboard-marketing.ts (campañas, eventos, métricas) ✅
+- [x] 1.5.7 dashboard-technical.ts (sistemas, logs, rendimiento) ✅
 - [ ] 1.5.8 Router por rol en /dashboard/page.tsx
 - [ ] 1.5.9 Loading states con Suspense
 - [ ] 1.5.10 Error boundaries
