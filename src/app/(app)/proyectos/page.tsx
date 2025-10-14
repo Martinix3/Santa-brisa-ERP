@@ -2,14 +2,15 @@
 
 import React, { useEffect, useState } from "react";
 import { useData } from "@/lib/dataprovider";
-import { Project, User, Department } from "@/domain/ssot";
-import { Plus, TrendingUp, TrendingDown, Filter } from "lucide-react";
+import { Project, User, Department, ProjectStatus } from "@/domain/ssot";
+import { Plus, TrendingUp, TrendingDown, Filter, LayoutGrid, LayoutList } from "lucide-react";
 import { ProjectCard } from "@/features/projects/components/ProjectCard";
 import { ProjectDrawer } from "@/features/projects/components/ProjectDrawer";
 import { CreateProjectDrawer } from "@/features/projects/components/CreateProjectDrawer";
 import { IdeasWidget } from "@/features/projects/components/IdeasWidget";
 import { KpiCard } from "@/components/dashboards/shared/KpiCard";
-import { listProjects, getProjectProgress, getProjectsKPIs } from "@/server/actions/projects";
+import { ProjectKanban } from "@/components/projects/ProjectKanban";
+import { listProjects, getProjectProgress, getProjectsKPIs, updateProjectStatus } from "@/server/actions/projects";
 
 type ProjectWithProgress = Project & {
   progress: number;
@@ -23,6 +24,7 @@ export default function ProyectosPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [createDrawerOpen, setCreateDrawerOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'kanban'>('grid');
   const [filters, setFilters] = useState<{
     department?: Department;
     status?: string;
@@ -102,6 +104,19 @@ export default function ProyectosPage() {
     loadProjects(); // Recargar para actualizar progreso
   }
 
+  async function handleStatusChange(projectId: string, newStatus: ProjectStatus) {
+    const result = await updateProjectStatus(projectId, newStatus);
+    
+    if (result.success) {
+      // Recargar proyectos y KPIs
+      await loadProjects();
+      await loadKPIs();
+    } else {
+      console.error('Error updating status:', result.error);
+      // TODO: Mostrar toast de error
+    }
+  }
+
   if (!currentUser) {
     return (
       <div className="p-4 md:p-6 space-y-5">
@@ -160,36 +175,61 @@ export default function ProyectosPage() {
           />
         </div>
 
-        {/* Filtros */}
+        {/* Filtros y Vista Toggle */}
         <div className="flex items-center gap-2 flex-wrap">
-          <select
-            value={filters.department || ""}
-            onChange={(e) => setFilters({ ...filters, department: (e.target.value || undefined) as Department | undefined })}
-            className="sb-select"
-          >
-            <option value="">Todos los departamentos</option>
-            <option value="MARKETING">Marketing</option>
-            <option value="VENTAS">Ventas</option>
-            <option value="PRODUCCION">Producción</option>
-            <option value="PERSONAL">Personal</option>
-          </select>
+          {/* View Mode Toggle */}
+          <div className="sb-tabs">
+            <button
+              className={`sb-tab ${viewMode === 'grid' ? 'sb-tab--active' : ''}`}
+              onClick={() => setViewMode('grid')}
+              aria-label="Vista de cuadrícula"
+            >
+              <LayoutGrid size={18} />
+              Lista
+            </button>
+            <button
+              className={`sb-tab ${viewMode === 'kanban' ? 'sb-tab--active' : ''}`}
+              onClick={() => setViewMode('kanban')}
+              aria-label="Vista Kanban"
+            >
+              <LayoutList size={18} />
+              Kanban
+            </button>
+          </div>
 
-          <select
-            value={filters.status || ""}
-            onChange={(e) => setFilters({ ...filters, status: e.target.value || undefined })}
-            className="sb-select"
-          >
-            <option value="">Todos los estados</option>
-            <option value="PLANNING">Planning</option>
-            <option value="ACTIVE">Activos</option>
-            <option value="ON_HOLD">En pausa</option>
-            <option value="REVIEW">En revisión</option>
-            <option value="COMPLETED">Completados</option>
-          </select>
+          {/* Filtros (solo en vista grid) */}
+          {viewMode === 'grid' && (
+            <>
+              <select
+                value={filters.department || ""}
+                onChange={(e) => setFilters({ ...filters, department: (e.target.value || undefined) as Department | undefined })}
+                className="sb-select"
+              >
+                <option value="">Todos los departamentos</option>
+                <option value="MARKETING">Marketing</option>
+                <option value="VENTAS">Ventas</option>
+                <option value="PRODUCCION">Producción</option>
+                <option value="PERSONAL">Personal</option>
+              </select>
+
+              <select
+                value={filters.status || ""}
+                onChange={(e) => setFilters({ ...filters, status: e.target.value || undefined })}
+                className="sb-select"
+              >
+                <option value="">Todos los estados</option>
+                <option value="PLANNING">Planning</option>
+                <option value="ACTIVE">Activos</option>
+                <option value="ON_HOLD">En pausa</option>
+                <option value="REVIEW">En revisión</option>
+                <option value="COMPLETED">Completados</option>
+              </select>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Grid Unificado: Ideas + Nuevo Proyecto + Proyectos */}
+      {/* Content: Grid o Kanban según viewMode */}
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
           {[...Array(8)].map((_, i) => (
@@ -200,6 +240,11 @@ export default function ProyectosPage() {
             </div>
           ))}
         </div>
+      ) : viewMode === 'kanban' ? (
+        <ProjectKanban
+          projects={projects}
+          onStatusChange={handleStatusChange}
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
           {/* Tarjeta: Ideas Sueltas */}

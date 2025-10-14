@@ -1,7 +1,7 @@
 "use server";
 
 import { getFirestore } from 'firebase-admin/firestore';
-import type { Project } from '@/domain/ssot';
+import type { Project, ProjectStatus } from '@/domain/ssot';
 
 const db = getFirestore();
 
@@ -228,4 +228,44 @@ export async function listProjects(filters?: {
 export async function getProjectProgress(projectId: string) {
   const result = await calculateProjectProgress(projectId);
   return { ok: result.success, data: { progress: result.progress } };
+}
+
+/**
+ * Actualizar status de un proyecto (Fase 2 - Kanban)
+ */
+export async function updateProjectStatus(
+  projectId: string,
+  newStatus: ProjectStatus
+) {
+  try {
+    const projectRef = db.collection('projects').doc(projectId);
+    const projectDoc = await projectRef.get();
+
+    if (!projectDoc.exists) {
+      return {
+        success: false,
+        error: 'Proyecto no encontrado'
+      };
+    }
+
+    // Actualizar status y timestamp
+    await projectRef.update({
+      status: newStatus,
+      statusChangedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      lastProgressUpdate: new Date().toISOString()
+    });
+
+    return {
+      success: true,
+      message: `Estado actualizado a ${newStatus}`
+    };
+
+  } catch (error) {
+    console.error('[updateProjectStatus] Error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Error desconocido'
+    };
+  }
 }
