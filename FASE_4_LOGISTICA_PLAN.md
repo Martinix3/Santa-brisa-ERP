@@ -350,7 +350,7 @@ export class HoldedClient extends BaseIntegration {
 }
 ```
 
-#### 2.2 Holded Sync Server Action (2h)
+#### 2.2 Holded Sync Server Action (2.5h) - **+30 min integración inventario**
 ```typescript
 // src/server/actions/holded-sync.ts
 const holdedClient = new HoldedClient();
@@ -397,6 +397,17 @@ export async function syncShipmentToHolded(shipmentId: string): Promise<{
       partyId: shipment.partyId
     });
     
+    // 🆕 INTEGRACIÓN INVENTARIO: Liberar stock reservado
+    await releaseReservedStock(shipmentId);
+    
+    // 🆕 Log para Gemini
+    await logGeminiContext('invoice_created', {
+      shipmentId,
+      invoiceId: invoice.id,
+      amount: invoice.total,
+      stockReleased: true
+    });
+    
     return { success: true, invoiceId: invoice.id };
   } catch (error) {
     console.error('[syncShipmentToHolded] Error:', error);
@@ -404,6 +415,23 @@ export async function syncShipmentToHolded(shipmentId: string): Promise<{
       success: false, 
       error: error instanceof Error ? error.message : 'Unknown error' 
     };
+  }
+}
+
+// 🆕 NUEVO: Liberar stock reservado después de facturar
+async function releaseReservedStock(shipmentId: string): Promise<void> {
+  const shipment = await getShipment(shipmentId);
+  if (!shipment) return;
+  
+  for (const line of shipment.lines) {
+    if (!line.lotNumber || !line.locationId) continue;
+    
+    const onHandId = makeOnHandId(line.itemId, line.lotNumber, line.locationId);
+    
+    await db.collection('onHand').doc(onHandId).update({
+      reserved: admin.firestore.FieldValue.increment(-line.qty),
+      updatedAt: new Date().toISOString()
+    });
   }
 }
 ```
@@ -548,7 +576,7 @@ export class SendcloudClient extends BaseIntegration {
 }
 ```
 
-#### 3.2 Sendcloud Sync Server Action (2h)
+#### 3.2 Sendcloud Sync Server Action (2.5h) - **+30 min integración inventario**
 ```typescript
 // src/server/actions/sendcloud.ts
 const sendcloudClient = new SendcloudClient();
@@ -587,6 +615,17 @@ export async function createSendcloudShipment(shipmentId: string): Promise<{
       updatedAt: new Date().toISOString()
     });
     
+    // 🆕 INTEGRACIÓN INVENTARIO: Crear StockMoves de salida
+    await createStockMovesForShipment(shipment);
+    
+    // 🆕 Log para Gemini
+    await logGeminiContext('shipment_label_created', {
+      shipmentId,
+      trackingCode: parcel.tracking_number,
+      carrier: 'Sendcloud',
+      items: shipment.lines.map(l => ({ itemId: l.itemId, qty: l.qty }))
+    });
+    
     return {
       success: true,
       trackingNumber: parcel.tracking_number,
@@ -598,6 +637,32 @@ export async function createSendcloudShipment(shipmentId: string): Promise<{
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error'
     };
+  }
+}
+
+// 🆕 NUEVO: Crear stock moves de salida cuando se crea la etiqueta
+async function createStockMovesForShipment(shipment: Shipment): Promise<void> {
+  const now = new Date().toISOString();
+  
+  for (const line of shipment.lines) {
+    if (!line.lotNumber) continue;
+    
+    await db.collection('stockMoves').add({
+      itemId: line.itemId || line.sku,
+      lotNumber: line.lotNumber,
+      qty: -line.qty,  // Negativo = salida
+      uom: line.uom || 'UNIT',
+      reason: 'SALE',
+      fromLocationId: shipment.fromWarehouseId || 'MAIN',
+      toLocationId: null,  // Salida del almacén
+      occurredAt: now,
+      createdAt: now,
+      ref: {
+        shipmentId: shipment.id,
+        orderId: shipment.orderId,
+        trackingCode: shipment.trackingCode
+      }
+    });
   }
 }
 ```
@@ -1109,12 +1174,13 @@ async function notifyOpsTeam(shipment: Shipment): Promise<void> {
 }
 ```
 
-#### 4.5.4 Firestore Trigger onWrite(shipments) (1h)
+#### 4.5.4 Firestore Trigger onWrite(shipments) (2h) - **+1h alertas inventario**
 ```typescript
 // functions/src/triggers/shipment-status.ts
 import * as functions from 'firebase-functions';
 import { createShipmentAlert } from '../../../src/server/actions/shipment-alerts';
 import { logGeminiContext } from '../../../src/server/gemini/context-logger';
+import { checkInventoryAlertsForShipment } from '../../../src/server/actions/inventory-alerts';
 
 export const onShipmentStatusChange = functions.firestore
   .document('shipments/{shipmentId}')
@@ -1138,6 +1204,11 @@ export const onShipmentStatusChange = functions.firestore
       // Update finance KPIs if delivered
       if (after.status === 'delivered') {
         await updateFinanceKPIs(after.orderId);
+      }
+      
+      // 🆕 Check inventory alerts when shipped
+      if (after.status === 'shipped') {
+        await checkInventoryAlertsForShipment(after as Shipment);
       }
     }
     
@@ -1164,6 +1235,60 @@ export const onShipmentStatusChange = functions.firestore
 async function updateFinanceKPIs(orderId: string): Promise<void> {
   // TODO: Update finance dashboard KPIs
   console.log('[Finance] Order delivered:', orderId);
+}
+
+// 🆕 NUEVO: Revisar stock después de envío
+async function checkInventoryAlertsForShipment(
+  shipment: Shipment
+): Promise<void> {
+  for (const line of shipment.lines) {
+    // Get current stock for this item
+    const onHandSnap = await db.collection('onHand')
+      .where('itemId', '==', line.itemId)
+      .get();
+    
+    const totalFree = onHandSnap.docs.reduce((sum, doc) => {
+      const oh = doc.data();
+      return sum + (oh.qty - (oh.reservedQty || 0));
+    }, 0);
+    
+    // Get item min stock level
+    const item = await db.collection('items').doc(line.itemId).get();
+    const itemData = item.data();
+    const minStock = itemData?.minStockLevel || 0;
+    
+    // Create alert if below minimum
+    if (totalFree < minStock) {
+      await db.collection('alerts').add({
+        department: 'OPS',
+        kind: 'LOW_STOCK',
+        severity: 70,
+        title: `Stock bajo: ${itemData?.name || line.itemId}`,
+        message: `Disponible: ${totalFree}, Mínimo: ${minStock}. Causado por envío ${shipment.shipmentNumber}`,
+        entities: {
+          itemId: line.itemId,
+          shipmentId: shipment.id,
+          orderId: shipment.orderId
+        },
+        metadata: {
+          available: totalFree,
+          minimum: minStock,
+          triggeredBy: 'shipment'
+        },
+        createdAt: new Date().toISOString(),
+        resolved: false
+      });
+      
+      await logGeminiContext('low_stock_detected', {
+        itemId: line.itemId,
+        itemName: itemData?.name,
+        available: totalFree,
+        minimum: minStock,
+        triggeredBy: 'shipment',
+        shipmentId: shipment.id
+      });
+    }
+  }
 }
 ```
 
